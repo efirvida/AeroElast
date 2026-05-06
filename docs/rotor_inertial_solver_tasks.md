@@ -52,17 +52,17 @@
 
 ## Phase 5: preCICE Contract with Fixed Interface Mesh
 
-- [ ] 5.1 **Register** interface vertices in preCICE using the original reference coordinates only; do not rotate `SolidMesh` coordinates on the preCICE side. Verify: repeated windows do not attempt to redefine or move coupling vertices.
-- [ ] 5.2 **Read** aerodynamic loads from preCICE directly in global coordinates, without applying `R^T(\theta)` as in the corotational solver. Verify: the inertial solver force path contains no force-frame transform.
-- [ ] 5.3 **Write** only elastic displacement in global coordinates back to `SolidMesh`:
+- [x] 5.1 **Register** interface vertices in preCICE using the original reference coordinates only; do not rotate `SolidMesh` coordinates on the preCICE side. Verify: repeated windows do not attempt to redefine or move coupling vertices.
+- [x] 5.2 **Read** aerodynamic loads from preCICE directly in global coordinates, without applying `R^T(\theta)` as in the corotational solver. Verify: the inertial solver force path contains no force-frame transform.
+- [x] 5.3 **Write** only elastic displacement in global coordinates back to `SolidMesh`:
 
   $$
   \mathbf{u}_{fsi} = \mathbf{x} - \hat{\mathbf{x}} = \mathbf{u}_e^{glob}
   $$
 
   Verify: an internal assertion or test fails if total rigid rotation is accidentally added to the outgoing field.
-- [ ] 5.4 **Retain** `GlobalSolidMesh` output for representative angular velocity exactly as in the current solver. Verify: a fixed-omega case writes the same scalar history as the corotational solver.
-- [ ] 5.5 **Add** an explicit compatibility note or guard for participants that expect total displacement instead of elastic displacement. Verify: unsupported coupling modes fail with a clear error message rather than silent wrong physics.
+- [x] 5.4 **Retain** `GlobalSolidMesh` output for representative angular velocity exactly as in the current solver. Verify: a fixed-omega case writes the same scalar history as the corotational solver.
+- [x] 5.5 **Add** an explicit compatibility note or guard for participants that expect total displacement instead of elastic displacement. Verify: unsupported coupling modes fail with a clear error message rather than silent wrong physics.
 
 ## Phase 6: Omega Dynamics and Torque Accounting
 

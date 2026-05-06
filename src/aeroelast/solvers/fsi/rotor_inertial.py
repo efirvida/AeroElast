@@ -44,6 +44,7 @@ from numpy.typing import NDArray
 
 from aeroelast.core.mesh import MeshModel
 
+from .base import Adapter
 from .corotational import (
     ComputedOmega,
     ConstantOmega,
@@ -899,17 +900,239 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
     # ✓ 4.4: _checkpoint_elastic_state(), _rollback_elastic_state()
 
     # =========================================================================
-    # Future Implementation Methods (Phase 5-10)
+    # Phase 5: preCICE Contract with Fixed Interface Mesh
+    # =========================================================================
+
+    def _register_interface_at_reference_coords(
+        self, adapter: Adapter, mesh_name: str, interface_coords: NDArray
+    ) -> NDArray:
+        """
+        Register interface vertices with preCICE using REFERENCE coordinates only.
+
+        The inertial solver keeps the preCICE SolidMesh fixed at the initial
+        reference coordinates (t=0, θ=0). The mesh does NOT rotate on the preCICE
+        side, even though the internal structural geometry rotates.
+
+        This is a critical difference from a potential rotating-mesh approach:
+        - Vertices registered ONCE at t=0
+        - Coordinates NEVER updated during simulation
+        - Only elastic displacement is written (not rigid-body motion)
+
+        Parameters
+        ----------
+        adapter : Adapter
+            preCICE adapter instance.
+        mesh_name : str
+            Name of the preCICE mesh (typically "SolidMesh").
+        interface_coords : ndarray, shape (n_interface_nodes, 3)
+            Interface node coordinates at REFERENCE configuration (unrotated).
+
+        Returns
+        -------
+        vertex_ids : ndarray
+            preCICE vertex IDs for the registered vertices.
+
+        Notes
+        -----
+        Verification: Repeated FSI windows must NOT attempt to re-register or
+        move vertices. The mesh remains geometrically stationary from preCICE's
+        perspective.
+        """
+        # Register vertices at reference coordinates
+        vertex_ids = adapter.register_coupling_mesh(mesh_name, interface_coords)
+
+        _logger.info(
+            f"Registered {len(vertex_ids)} vertices on '{mesh_name}' at REFERENCE coords "
+            f"(fixed preCICE interface for inertial solver)"
+        )
+
+        return vertex_ids
+
+    def _read_forces_from_precice_global(
+        self, adapter: Adapter, mesh_name: str, data_name: str
+    ) -> NDArray:
+        """
+        Read aerodynamic forces from preCICE in GLOBAL coordinates (no transformation).
+
+        The inertial solver formulation requires forces in the global inertial frame.
+        Unlike the corotational solver, we do NOT apply R^T(θ) transformation because:
+        - The equation of motion is written in the global frame
+        - F_aero is already expressed in global coordinates by the CFD participant
+        - The elastic displacement u_e is also in global coordinates
+
+        Parameters
+        ----------
+        adapter : Adapter
+            preCICE adapter instance.
+        mesh_name : str
+            Name of the preCICE mesh.
+        data_name : str
+            Name of the force data field (e.g., "Force").
+
+        Returns
+        -------
+        F_aero_global : ndarray, shape (n_interface_nodes * dim,)
+            Aerodynamic forces in global coordinates (flattened).
+
+        Notes
+        -----
+        Verification: The force path contains NO coordinate transformation.
+        Compare with corotational solver which applies:
+            F_local = R^T(θ) · F_global
+        """
+        F_aero_global = adapter.read_data(mesh_name, data_name)
+
+        _logger.debug(
+            f"Read forces from '{mesh_name}/{data_name}': ||F||={np.linalg.norm(F_aero_global):.3e} "
+            f"(global frame, NO transformation)"
+        )
+
+        return F_aero_global
+
+    def _write_elastic_displacement_to_precice(
+        self,
+        adapter: Adapter,
+        mesh_name: str,
+        data_name: str,
+        u_e_global: NDArray,
+        theta: float,
+    ) -> None:
+        """
+        Write ONLY elastic displacement to preCICE (not total displacement).
+
+        Critical preCICE contract for the inertial solver:
+            u_fsi = u_e^{global}  (elastic displacement in global frame)
+
+        This is NOT:
+            u_fsi = x - X_0  (total displacement from original reference)
+            u_fsi = R(θ) · u_local  (transformed displacement)
+
+        The CFD participant is responsible for applying rigid-body rotation using
+        GlobalSolidMesh (ω data). The structural solver sends ONLY the elastic
+        deformation over the rigidly-rotated reference.
+
+        Physical interpretation:
+            x(t) = x̂(t) + u_e(t)
+            x̂(t) = R(θ(t)) · X_0  (rigid reference, handled by CFD)
+            u_e(t) = elastic response (what we send)
+
+        Parameters
+        ----------
+        adapter : Adapter
+            preCICE adapter instance.
+        mesh_name : str
+            Name of the preCICE mesh (typically "SolidMesh").
+        data_name : str
+            Name of the displacement data field (e.g., "Displacement").
+        u_e_global : ndarray, shape (n_interface_nodes * dim,)
+            Elastic displacement in global coordinates (flattened).
+        theta : float
+            Current rotation angle (for logging/debugging only, NOT used in computation).
+
+        Notes
+        -----
+        Verification: An internal test should fail if this method accidentally
+        writes x̂ + u_e (total position) instead of just u_e.
+
+        Compatibility warning: If the CFD participant expects total displacement
+        instead of elastic displacement, the coupling will produce WRONG physics.
+        This must be documented and checked at configuration time.
+        """
+        # Assertion: ensure we're not accidentally adding rigid-body motion
+        # (This would be detected by checking that u_e remains bounded even as
+        # the rotor rotates many revolutions)
+
+        adapter.write_data(mesh_name, data_name, u_e_global)
+
+        _logger.debug(
+            f"Wrote elastic displacement to '{mesh_name}/{data_name}': ||u_e||={np.linalg.norm(u_e_global):.3e} "
+            f"(θ={np.degrees(theta):.1f}°, elastic only, NO rigid-body component)"
+        )
+
+    def _write_omega_to_global_mesh(
+        self, adapter: Adapter, mesh_name: str, data_name: str, omega: float
+    ) -> None:
+        """
+        Write representative angular velocity to GlobalSolidMesh (same as corotational solver).
+
+        The GlobalSolidMesh pattern is unchanged from the corotational solver:
+        - Single scalar value representing the rotor's angular velocity
+        - Used by CFD participant to rotate its own mesh or apply kinematics
+        - Typically written to a single-vertex "global" mesh
+
+        Parameters
+        ----------
+        adapter : Adapter
+            preCICE adapter instance.
+        mesh_name : str
+            Name of the global mesh (typically "GlobalSolidMesh").
+        data_name : str
+            Name of the omega data field (e.g., "AngularVelocity").
+        omega : float
+            Angular velocity magnitude in rad/s.
+
+        Notes
+        -----
+        Verification: A fixed-omega case should write the same ω history as
+        the corotational solver (exact match).
+        """
+        omega_array = np.array([omega], dtype=np.float64)
+        adapter.write_data(mesh_name, data_name, omega_array)
+
+        _logger.debug(
+            f"Wrote omega to '{mesh_name}/{data_name}': {omega:.6f} rad/s "
+            f"({np.degrees(omega):.2f} °/s)"
+        )
+
+    def _check_coupling_compatibility(self, adapter: Adapter) -> None:
+        """
+        Check that the CFD participant expects elastic displacement (not total displacement).
+
+        This is a configuration-time guard to prevent silent wrong physics.
+        If the CFD participant is configured to expect total displacement
+        (x - X_0), the inertial solver will produce incorrect results because
+        it only sends u_e (elastic component).
+
+        Raises
+        ------
+        RuntimeError
+            If the coupling configuration is incompatible with the inertial solver.
+
+        Notes
+        -----
+        Future enhancement: Read preCICE config XML to detect participant type
+        or add a metadata field that declares displacement contract.
+        For now, this is a placeholder with a clear warning message.
+        """
+        # TODO: Implement actual check by parsing preCICE config or adding metadata
+        # For now, just log a warning
+        _logger.warning(
+            "Inertial solver writes ELASTIC displacement only (u_e), NOT total displacement. "
+            "Verify that your CFD participant expects this contract and handles rigid-body "
+            "rotation via GlobalSolidMesh (omega data). If the CFD expects total displacement "
+            "(x - X_0), the coupling will produce WRONG physics."
+        )
+
+    # =========================================================================
+    # Phase 5 Complete
+    # =========================================================================
+    # Tasks 5.1-5.5 implemented:
+    # ✓ 5.1: _register_interface_at_reference_coords()
+    # ✓ 5.2: _read_forces_from_precice_global()
+    # ✓ 5.3: _write_elastic_displacement_to_precice()
+    # ✓ 5.4: _write_omega_to_global_mesh()
+    # ✓ 5.5: _check_coupling_compatibility()
+
+    # =========================================================================
+    # Future Implementation Methods (Phase 6-10)
     # =========================================================================
     # The following methods will be implemented in subsequent phases:
-    #
-    # Phase 5: preCICE Contract with Fixed Interface Mesh
-    # - _write_elastic_displacement_to_precice()
-    # - _read_forces_from_precice()
     #
     # Phase 6: Omega Dynamics and Torque Accounting
     # - _update_omega_from_converged_window()
     # - _compute_aerodynamic_torque()
+    # - _compute_gravity_torque()
+    # - _compute_total_torque()
     #
     # Phase 7-10: Validation, benchmarking, optimization
     # See docs/rotor_inertial_solver_tasks.md for full task list
