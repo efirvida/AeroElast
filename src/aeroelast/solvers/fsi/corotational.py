@@ -24,6 +24,34 @@ Inertial forces in the rotating frame:
 - Centrifugal: F_cf = m · ω × (ω × r)
 - Coriolis: F_cor = 2m · ω × v
 - Euler: F_euler = m · α × r  (where α = dω/dt)
+
+Inertial Rotor Solver — Rotated Geometry Strategy
+--------------------------------------------------
+For the inertial rotor solver (LinearDynamicFSIRotorInertial), the structural
+geometry rotates rigidly while the preCICE interface mesh remains stationary.
+
+**Phase 1 Design Decision (Initial Implementation)**:
+The rotated structural geometry lives in TEMPORARY node coordinate arrays that
+are fed to a reconstructed assembler instance once per converged FSI time window.
+
+Rationale:
+- The current Rust assembler API (`PyMeshAssembler`) caches geometry at construction
+  and does not expose an `update_node_coords()` method.
+- Reconstructing the assembler per window is straightforward and allows validation
+  of the inertial formulation without premature optimization.
+- Within a single FSI window, θ, ω, and α are frozen (representative values), so
+  the stiffness K(θ) and damping C(θ) do not change across preCICE sub-iterations.
+
+**Phase 2 Optimization Path (Future)**:
+- Option A: Add Rust-side `update_node_coords()` API to refresh geometry without
+  rebuilding topology/material state.
+- Option B: Use global matrix transformation K(θ) = T^T · K₀ · T for rigid rotation,
+  avoiding reassembly entirely.
+
+Decision will be made after Phase 1 validation based on profiling data (geometry
+transfer cost vs. assembly cost vs. solve cost).
+
+See `docs/rotor_inertial_solver_design.md` for full design documentation.
 """
 
 import logging
@@ -290,6 +318,44 @@ class CoordinateTransforms:
                     f"Displacement data shape {disp_local.shape} not supported (dim must be 2 or 3)"
                 )
 
+    def rotate_point_cloud(self, coords: NDArray, theta: float) -> NDArray:
+        """
+        Rotate a set of 3D point coordinates about the rotation axis and center.
+
+        This applies a rigid-body rotation to nodal coordinates, which is useful
+        for the inertial rotor solver where the structural mesh rotates internally
+        but the preCICE interface remains fixed.
+
+        The transformation is:
+            x_rotated = center + R(θ) · (x_original - center)
+
+        Parameters
+        ----------
+        coords : ndarray, shape (n_nodes, 3)
+            Original node coordinates.
+        theta : float
+            Rotation angle in radians.
+
+        Returns
+        -------
+        coords_rotated : ndarray, shape (n_nodes, 3)
+            Rotated node coordinates.
+
+        Notes
+        -----
+        This preserves pairwise distances, element topology, and total mass.
+        For verification, round-trip rotation should satisfy:
+            ||rotate(rotate(x, θ), -θ) - x|| < 1e-12
+        """
+        if coords.ndim != 2 or coords.shape[1] != 3:
+            raise ValueError(f"coords must be (n_nodes, 3), got shape {coords.shape}")
+
+        R = self.rotation_matrix(theta)
+        # Translate to origin, rotate, translate back
+        centered = coords - self._center
+        rotated = centered @ R.T  # (n, 3) @ (3, 3)
+        return rotated + self._center
+
     @property
     def axis(self) -> NDArray:
         """Return the normalized rotation axis."""
@@ -550,6 +616,145 @@ class InertialForcesCalculator:
         }
 
         return F_total, diagnostics
+
+    def compute_rigid_body_acceleration_inertial(
+        self,
+        nodal_coords: NDArray,
+        omega: float,
+        alpha: float = 0.0,
+    ) -> NDArray:
+        """
+        Compute rigid-body reference acceleration for the inertial rotor solver.
+
+        In the INERTIAL frame, when a reference configuration rotates rigidly,
+        each point experiences acceleration:
+
+            a_ref = α × r + ω × (ω × r)
+
+        where:
+        - α × r: tangential acceleration (Euler term)
+        - ω × (ω × r): centripetal acceleration (radially inward)
+
+        This is NOT the same as fictitious forces in a rotating frame.
+        The inertial solver uses this to compute the reference load:
+            F_ref = -M · a_ref
+
+        Parameters
+        ----------
+        nodal_coords : ndarray, shape (n_nodes, 3)
+            Node coordinates in the INERTIAL (global) frame.
+        omega : float
+            Angular velocity magnitude (rad/s).
+        alpha : float, optional
+            Angular acceleration magnitude (rad/s²). Default 0.
+
+        Returns
+        -------
+        a_ref : ndarray, shape (n_nodes, 3)
+            Rigid-body acceleration at each node in global coordinates.
+
+        Notes
+        -----
+        For analytical verification:
+        - Pure rotation (α=0): a_ref = -ω² r_perp (centripetal, radially inward)
+        - Node on rotation axis: a_ref ≈ 0 (within floating point tolerance)
+        - Round-trip test: reversing ω should reverse centripetal direction
+        """
+        n_nodes = nodal_coords.shape[0]
+        a_ref = np.zeros((n_nodes, 3), dtype=np.float64)
+
+        # Position vectors relative to rotation center
+        r = nodal_coords - self._center
+
+        # Angular velocity and acceleration vectors
+        omega_vec = omega * self._axis
+        alpha_vec = alpha * self._axis
+
+        # Term 1: α × r (tangential acceleration)
+        if alpha != 0.0:
+            a_ref += np.cross(alpha_vec, r)
+
+        # Term 2: ω × (ω × r) (centripetal acceleration, radially inward)
+        if omega != 0.0:
+            omega_cross_r = np.cross(omega_vec, r)
+            a_ref += np.cross(omega_vec, omega_cross_r)
+
+        return a_ref
+
+    def compute_reference_load_vector(
+        self,
+        nodal_accelerations: NDArray,
+        mass_diagonal_full: NDArray,
+        dofs_per_node: int = 6,
+    ) -> NDArray:
+        """
+        Convert rigid-body nodal accelerations into a reduced DOF load vector.
+
+        For the inertial rotor solver, the reference load is:
+            F_ref = -M · a_ref
+
+        where a_ref is the rigid-body acceleration at each node.
+
+        This function:
+        1. Applies mass to translational DOF accelerations (DOF 0,1,2 per node)
+        2. Skips rotational DOFs (DOF 3,4,5 per node) — rigid rotation doesn't
+           produce inertial loads on rotational DOFs for shell/beam elements
+        3. Respects the DOF stride (typically 6 DOFs/node for shells)
+
+        Parameters
+        ----------
+        nodal_accelerations : ndarray, shape (n_nodes, 3)
+            Rigid-body acceleration at each node in global coordinates.
+        mass_diagonal_full : ndarray, shape (n_dofs_full,)
+            Lumped mass diagonal vector from the full (unreduced) system.
+            Typically obtained via `domain.assemble_mass_matrix_lumped().get_diagonal()`.
+        dofs_per_node : int, optional
+            Number of DOFs per node. Default is 6 (3 translational + 3 rotational).
+
+        Returns
+        -------
+        F_ref_full : ndarray, shape (n_dofs_full,)
+            Reference load vector in the full (unreduced) DOF space.
+            The caller is responsible for applying BC reduction to extract free DOFs.
+
+        Notes
+        -----
+        - Translational DOFs (0,1,2): F = -m · a
+        - Rotational DOFs (3,4,5): F = 0 (rigid rotation produces no moment load)
+        - Constrained DOFs: will be zeros; BC reduction removes them downstream
+
+        Example
+        -------
+        >>> transforms = CoordinateTransforms([0, 0, 1], [0, 0, 0])
+        >>> inertial_calc = InertialForcesCalculator([0, 0, 1], [0, 0, 0])
+        >>> a_ref = inertial_calc.compute_rigid_body_acceleration_inertial(coords, omega=10.0)
+        >>> M_diag = domain.assemble_mass_matrix_lumped().get_diagonal()
+        >>> F_ref_full = inertial_calc.compute_reference_load_vector(a_ref, M_diag, dofs_per_node=6)
+        >>> # Then reduce to free DOFs using BC mask:
+        >>> # F_ref_free = F_ref_full[free_dof_indices]
+        """
+        n_nodes = nodal_accelerations.shape[0]
+        n_dofs_full = n_nodes * dofs_per_node
+
+        if len(mass_diagonal_full) != n_dofs_full:
+            raise ValueError(
+                f"Mass diagonal size {len(mass_diagonal_full)} does not match "
+                f"expected {n_dofs_full} (n_nodes={n_nodes}, dofs_per_node={dofs_per_node})"
+            )
+
+        F_ref_full = np.zeros(n_dofs_full, dtype=np.float64)
+
+        # Apply -m * a to translational DOFs only (0, 1, 2)
+        for i in range(n_nodes):
+            for local_dof in range(3):  # x, y, z translational components
+                global_dof = i * dofs_per_node + local_dof
+                mass = mass_diagonal_full[global_dof]
+                a_component = nodal_accelerations[i, local_dof]
+                F_ref_full[global_dof] = -mass * a_component
+
+        # Rotational DOFs (3, 4, 5) remain zero — rigid rotation produces no moment load
+
+        return F_ref_full
 
     @property
     def axis(self) -> NDArray:
