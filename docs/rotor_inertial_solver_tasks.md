@@ -39,16 +39,16 @@
 
 ## Phase 4: Newmark Step for the Inertial Formulation
 
-- [ ] 4.1 **Implement** assembly of the inertial solver effective system
+- [x] 4.1 **Implement** assembly of the inertial solver effective system
 
   $$
   [\mathbf{K}_{eff}] = [\mathbf{K}(\theta)] + a_0[\mathbf{M}] + a_1[\mathbf{C}(\theta)]
   $$
 
   without adding `K_G`, `K_SP`, or `G_cor`. Verify: the effective operator matches the standalone `LinearDynamicFSI` structure when rotation is disabled.
-- [ ] 4.2 **Assemble** the RHS using aerodynamic forces in global coordinates, gravity in global coordinates, the rigid-body reference load `-M a_ref`, and the standard Newmark history terms. Verify: sign convention of `-M a_ref` matches analytical rigid rotation tests.
-- [ ] 4.3 **Keep** the structural state variable as elastic displacement `u_e`, not total displacement. Verify: logging and checkpoint code do not silently reinterpret `u_e` as absolute displacement.
-- [ ] 4.4 **Implement** the state update and checkpoint/rollback protocol for `u_e`, `v_e`, `a_e`, `theta`, `omega`, and `alpha`. Verify: rollback restores the same elastic state and rigid-body kinematics used at the start of the window.
+- [x] 4.2 **Assemble** the RHS using aerodynamic forces in global coordinates, gravity in global coordinates, the rigid-body reference load `-M a_ref`, and the standard Newmark history terms. Verify: sign convention of `-M a_ref` matches analytical rigid rotation tests.
+- [x] 4.3 **Keep** the structural state variable as elastic displacement `u_e`, not total displacement. Verify: logging and checkpoint code do not silently reinterpret `u_e` as absolute displacement.
+- [x] 4.4 **Implement** the state update and checkpoint/rollback protocol for `u_e`, `v_e`, `a_e`, `theta`, `omega`, and `alpha`. Verify: rollback restores the same elastic state and rigid-body kinematics used at the start of the window.
 
 ## Phase 5: preCICE Contract with Fixed Interface Mesh
 

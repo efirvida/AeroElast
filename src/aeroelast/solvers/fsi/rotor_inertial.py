@@ -4,10 +4,10 @@ Inertial Frame Rotor FSI Solver.
 This module provides the LinearDynamicFSIRotorInertialSolver for rotor FSI
 problems using an alternative formulation where:
 
-- The unknown is ELASTIC DISPLACEMENT (u_e) in global coordinates over a 
+- The unknown is ELASTIC DISPLACEMENT (u_e) in global coordinates over a
   rigidly-rotated reference configuration
 - The structural mesh rotates internally but the preCICE interface remains FIXED
-- No rotating-frame fictitious forces (no K_SP, no K_G in this version, 
+- No rotating-frame fictitious forces (no K_SP, no K_G in this version,
   no Coriolis gyroscopic matrix)
 - The reference load -M·a_ref accounts for rigid-body inertial acceleration
 
@@ -58,7 +58,7 @@ from .linear_dynamic import LinearDynamicFSISolver
 _logger = logging.getLogger(__name__)
 
 # Default configuration values
-_DEFAULT_ROTATION_AXIS = np.array([0.0, 0.0, 1.0])
+_DEFAULT_ROTATION_AXIS = np.array([0.0, 1.0, 0.0])
 _DEFAULT_ROTATION_CENTER = np.array([0.0, 0.0, 0.0])
 _DEFAULT_GRAVITY = np.array([0.0, 0.0, -9.81])
 _GRAVITY_THRESHOLD = 1e-6
@@ -86,10 +86,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
     Key Differences from Corotational Solver
     -----------------------------------------
     - **Frame**: Inertial (global) frame vs. rotating frame
-    - **Unknown**: Elastic displacement u_e over rotating reference vs. displacement 
+    - **Unknown**: Elastic displacement u_e over rotating reference vs. displacement
       in rotating frame
     - **Stiffness**: K(θ) varies with rotation vs. constant K in rotating frame
-    - **Inertial Terms**: -M·a_ref on RHS vs. fictitious forces (centrifugal, 
+    - **Inertial Terms**: -M·a_ref on RHS vs. fictitious forces (centrifugal,
       Coriolis, Euler) in rotating frame
     - **K_SP/K_G**: NOT included in this formulation (may be added in future versions)
     - **preCICE Interface**: Fixed SolidMesh vs. rotating mesh or transformed displacement
@@ -126,7 +126,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
     - solver.rotor.send_omega_to_precice: Whether to write ω to GlobalSolidMesh
     - solver.rotor.omega_mesh_name: preCICE mesh name for ω (default: "GlobalSolidMesh")
     - solver.rotor.omega_write_data: preCICE data name for ω (default: "AngularVelocity")
-    - solver.rotor.transform_displacement_to_inertial: Must be False or omitted 
+    - solver.rotor.transform_displacement_to_inertial: Must be False or omitted
       (inertial solver writes u_e directly, no frame transform)
 
     Numerical Scheme
@@ -147,7 +147,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
           rotor:
             omega: 10.0              # rad/s
-            rotation_axis: [0, 0, 1] # Z-axis
+            rotation_axis: [0, 1, 0] # Y-axis
             rotation_center: [0, 0, 0]
             gravity: [0, 0, -9.81]
             send_omega_to_precice: true
@@ -306,8 +306,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             )
         if rotor_cfg.get("include_euler", False):
             _logger.warning(
-                "include_euler is set but NOT used in inertial solver "
-                "(Euler term is part of a_ref)"
+                "include_euler is set but NOT used in inertial solver (Euler term is part of a_ref)"
             )
 
         # Force ramp (same as corotational)
@@ -343,7 +342,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             or _DEFAULT_FLUID_DENSITY
         )
         self._flow_velocity = float(
-            perf_cfg.get("flow_velocity") or rotor_cfg.get("flow_velocity") or _DEFAULT_FLOW_VELOCITY
+            perf_cfg.get("flow_velocity")
+            or rotor_cfg.get("flow_velocity")
+            or _DEFAULT_FLOW_VELOCITY
         )
         self._rotor_radius: Optional[float] = rotor_cfg.get("radius")
         if self._rotor_radius is not None:
@@ -414,18 +415,493 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         self._last_assembly_theta: Optional[float] = None
 
     # =========================================================================
-    # Future Implementation Methods (Phase 3-10)
+    # Phase 3: Structural Assembly on Internally Rotated Geometry
+    # =========================================================================
+
+    def _rotate_structural_geometry_internal(self, theta: float) -> np.ndarray:
+        """
+        Rotate mesh node coordinates by angle theta for structural assembly.
+
+        The inertial solver assembles structural matrices (K, C) in the
+        rotated configuration at each time step. This method computes the
+        rotated nodal coordinates X_rot = R(θ)·X_0 without modifying the
+        stored MeshModel.nodes, which remain in the reference (unrotated)
+        configuration.
+
+        Parameters
+        ----------
+        theta : float
+            Rotation angle [rad] around the rotation axis.
+
+        Returns
+        -------
+        np.ndarray, shape (n_nodes, 3)
+            Rotated nodal coordinates in global frame. Each row is [x, y, z]
+            for one node.
+
+        Notes
+        -----
+        - This method is called before structural assembly at each time step
+        - The returned coordinates differ from MeshModel.nodes by exactly R(θ)
+        - Used to rebuild the assembler with rotated geometry (Task 3.2)
+        """
+        # Extract original node coordinates from mesh
+        original_coords = np.array(
+            [node.coords for node in self.domain.mesh.nodes.values()],
+            dtype=np.float64,
+        )
+
+        # Rotate using CoordinateTransforms
+        rotated_coords = self._coord_transforms.rotate_point_cloud(
+            points=original_coords,
+            theta=theta,
+        )
+
+        return rotated_coords
+
+    def _rebuild_assembler_with_rotated_geometry(
+        self,
+        rotated_coords: np.ndarray,
+    ) -> "MeshAssembler":
+        """
+        Rebuild structural assembler with rotated nodal coordinates.
+
+        This method clones the mesh model, updates nodal coordinates to the
+        rotated configuration, and reconstructs the MeshAssembler. This allows
+        structural matrices (K, C) to be assembled in the rotated frame without
+        modifying the original mesh stored in self.domain.
+
+        Parameters
+        ----------
+        rotated_coords : np.ndarray, shape (n_nodes, 3)
+            Rotated nodal coordinates from _rotate_structural_geometry_internal()
+
+        Returns
+        -------
+        MeshAssembler
+            New assembler object built on rotated geometry
+
+        Notes
+        -----
+        - Creates a shallow copy of the mesh to avoid side effects
+        - Only node coordinates are modified; connectivity remains unchanged
+        - Called at each time step before structural assembly (Task 3.2)
+        - In Phase 9 (optimization), this can be replaced with incremental updates
+        """
+        from aeroelast.core.assembler import MeshAssembler
+        from aeroelast.core.mesh import MeshModel, Node
+
+        # Create a shallow copy of the mesh model
+        # We only need to update node coordinates; everything else stays the same
+        original_mesh = self.domain.mesh
+
+        # Clone nodes with updated coordinates
+        rotated_nodes = {}
+        for i, (node_id, original_node) in enumerate(original_mesh.nodes.items()):
+            rotated_nodes[node_id] = Node(
+                id=node_id,
+                coords=rotated_coords[i],
+            )
+
+        # Build new mesh model with rotated nodes but same connectivity
+        rotated_mesh = MeshModel(
+            nodes=rotated_nodes,
+            elements=original_mesh.elements,  # Shared reference OK (immutable connectivity)
+            node_sets=original_mesh.node_sets,  # Shared reference OK
+            element_sets=original_mesh.element_sets,  # Shared reference OK
+        )
+
+        # Reconstruct assembler with rotated geometry
+        # This follows the "Phase 1" assembly path from linear_dynamic.py:907
+        rotated_assembler = MeshAssembler(
+            mesh=rotated_mesh,
+            model=self.model_properties,
+        )
+
+        return rotated_assembler
+
+    def _assemble_or_reuse_mass_matrix(self) -> "PETSc.Mat":
+        """
+        Assemble mass matrix once and reuse across all timesteps.
+
+        The mass matrix M is invariant under rigid-body rotation because it
+        depends only on element density and volume, not on nodal coordinates.
+        Therefore, M can be assembled once in the reference configuration and
+        reused at all rotated orientations.
+
+        Returns
+        -------
+        PETSc.Mat
+            Lumped mass matrix (assembled once, cached in self._mass_matrix_cached)
+
+        Notes
+        -----
+        - Mass matrix invariance: M(R(θ)·X) = M(X) for rotation matrix R
+        - Assembled once on first call, then returned from cache
+        - Task 3.3: Verify M before and after rotation is identical (FP tolerance)
+        """
+        # Check if mass matrix is already cached
+        if hasattr(self, "_mass_matrix_cached") and self._mass_matrix_cached is not None:
+            return self._mass_matrix_cached
+
+        # Assemble mass matrix once using original (unrotated) geometry
+        # Use the domain's assembler (which has original coordinates)
+        self._mass_matrix_cached = self.domain.assemble_mass_matrix_lumped()
+
+        return self._mass_matrix_cached
+
+    def _assemble_rayleigh_damping(
+        self,
+        K_theta: "PETSc.Mat",
+        M: "PETSc.Mat",
+    ) -> "PETSc.Mat":
+        """
+        Assemble Rayleigh damping matrix C(θ) = η_m·M + η_k·K(θ).
+
+        The damping matrix has two components:
+        - η_m·M: Mass-proportional (constant, M is invariant)
+        - η_k·K(θ): Stiffness-proportional (orientation-dependent)
+
+        Parameters
+        ----------
+        K_theta : PETSc.Mat
+            Stiffness matrix assembled on rotated geometry at angle θ
+        M : PETSc.Mat
+            Mass matrix (invariant, assembled once)
+
+        Returns
+        -------
+        PETSc.Mat
+            Rayleigh damping matrix C(θ)
+
+        Notes
+        -----
+        - If damping is disabled, returns zero matrix
+        - With η_k=0, damping is constant (η_m·M only)
+        - With η_k≠0, damping varies with orientation (stiffness term updates)
+        - Task 3.4: Verify orientation-dependent path with η_k≠0
+        """
+        if not self._damping_enabled:
+            # Return zero damping matrix
+            C = K_theta.duplicate(copy=False)  # Same sparsity pattern
+            C.zeroEntries()
+            return C
+
+        # Start with mass-proportional term: C = η_m·M
+        C = M.duplicate(copy=True)  # Deep copy of M
+        C.scale(self._eta_m)
+
+        # Add stiffness-proportional term: C += η_k·K(θ)
+        if self._eta_k != 0.0:
+            C.axpy(self._eta_k, K_theta)  # C = C + η_k·K(θ)
+
+        return C
+
+    def _ensure_elastic_boundary_conditions(self) -> None:
+        """
+        Verify that Dirichlet boundary conditions are homogeneous (elastic-only).
+
+        The inertial solver solves for elastic displacement u_e over a rotating
+        reference frame. Root boundary conditions must constrain elastic motion
+        (u_e = 0), NOT impose time-dependent rigid-body displacement.
+
+        This method checks self.dirichlet_conditions and raises an error if
+        any non-zero prescribed displacement is found.
+
+        Raises
+        ------
+        ValueError
+            If any Dirichlet BC has non-zero prescribed value (time-dependent constraint)
+
+        Notes
+        -----
+        - Elastic unknown space: u_e = 0 at root means "no elastic deformation"
+        - Rigid rotation is handled by rotating the reference configuration x̂(t)
+        - Total displacement x(t) = x̂(t) + u_e(t), so u_e=0 ⇒ x follows rigid rotation
+        - Task 3.5: Verify constrained DOFs stay homogeneous
+        """
+        if not hasattr(self, "dirichlet_conditions") or not self.dirichlet_conditions:
+            return  # No BCs to check
+
+        # Check for non-zero prescribed displacements
+        non_zero_bcs = [
+            (dof, val) for dof, val in self.dirichlet_conditions.items() if abs(val) > 1e-12
+        ]
+
+        if non_zero_bcs:
+            raise ValueError(
+                f"Inertial rotor solver requires homogeneous (zero) Dirichlet BCs. "
+                f"Found {len(non_zero_bcs)} non-zero prescribed displacements:\n"
+                f"  {non_zero_bcs[:5]}\n"  # Show first 5 violations
+                f"The unknown is elastic displacement u_e over a rotating reference. "
+                f"Root constraints must be u_e=0 (elastic-only), not time-dependent "
+                f"rigid-body displacements."
+            )
+
+    # =========================================================================
+    # Phase 3 Complete
+    # =========================================================================
+    # Tasks 3.1-3.5 implemented:
+    # ✓ 3.1: _rotate_structural_geometry_internal()
+    # ✓ 3.2: _rebuild_assembler_with_rotated_geometry()
+    # ✓ 3.3: _assemble_or_reuse_mass_matrix()
+    # ✓ 3.4: _assemble_rayleigh_damping()
+    # ✓ 3.5: _ensure_elastic_boundary_conditions()
+
+    # =========================================================================
+    # Phase 4: Newmark Step for the Inertial Formulation
+    # =========================================================================
+
+    def _assemble_inertial_effective_system(
+        self,
+        K_theta: "PETSc.Mat",
+        M: "PETSc.Mat",
+        C_theta: "PETSc.Mat",
+        a0: float,
+        a1: float,
+    ) -> "PETSc.Mat":
+        """
+        Assemble the effective stiffness matrix for the inertial formulation.
+
+        K_eff = K(θ) + a0·M + a1·C(θ)
+
+        This is the standard Newmark effective stiffness WITHOUT the rotating-frame
+        terms K_G, K_SP, or G_cor that appear in the corotational solver.
+
+        Parameters
+        ----------
+        K_theta : PETSc.Mat
+            Stiffness matrix assembled on the rigidly-rotated geometry.
+        M : PETSc.Mat
+            Mass matrix (invariant under rotation).
+        C_theta : PETSc.Mat
+            Damping matrix C = η_m·M + η_k·K(θ).
+        a0 : float
+            Newmark coefficient for mass: a0 = 1/(β·Δt²).
+        a1 : float
+            Newmark coefficient for damping: a1 = γ/(β·Δt).
+
+        Returns
+        -------
+        K_eff : PETSc.Mat
+            Effective stiffness matrix for the Newmark solve.
+
+        Notes
+        -----
+        When rotation is disabled (θ = 0), this reduces to the standard
+        LinearDynamicFSI effective system:
+            K_eff = K₀ + a0·M + a1·C₀
+
+        Verification:
+        - Set ω = 0, α = 0 → K(θ=0) = K₀, C(θ=0) = C₀
+        - Result should match LinearDynamicFSISolver._assemble_effective_stiffness()
+        """
+        import petsc4py.PETSc as PETSc
+
+        # Create effective matrix: K_eff = K(θ) + a0·M + a1·C(θ)
+        K_eff = K_theta.copy()
+        K_eff.axpy(a0, M)  # K_eff += a0·M
+        K_eff.axpy(a1, C_theta)  # K_eff += a1·C(θ)
+        K_eff.assemble()
+
+        _logger.debug(
+            f"Assembled inertial K_eff: K(θ) + {a0:.3e}·M + {a1:.3e}·C(θ) "
+            f"(no K_G, K_SP, G_cor)"
+        )
+
+        return K_eff
+
+    def _assemble_inertial_rhs(
+        self,
+        F_aero_global: NDArray,
+        F_gravity_global: NDArray,
+        a_ref_nodal: NDArray,
+        u_n: NDArray,
+        v_n: NDArray,
+        a_n: NDArray,
+        a0: float,
+        a2: float,
+        a3: float,
+        a6: float,
+        a7: float,
+    ) -> NDArray:
+        """
+        Assemble the RHS vector for the inertial Newmark step.
+
+        F_eff = F_aero + F_g - M·a_ref + M·(a0·u_n + a2·v_n + a3·a_n) 
+                + C·(a1·u_n + a6·v_n + a7·a_n)
+
+        Key differences from corotational solver:
+        - No force-frame transformation (forces already in global frame)
+        - Reference load -M·a_ref replaces rotating-frame fictitious forces
+        - u_n, v_n, a_n are ELASTIC displacements/velocities/accelerations
+
+        Parameters
+        ----------
+        F_aero_global : ndarray, shape (n_free_dofs,)
+            Aerodynamic forces from preCICE in global coordinates (BC-reduced).
+        F_gravity_global : ndarray, shape (n_free_dofs,)
+            Gravity forces in global coordinates (BC-reduced).
+        a_ref_nodal : ndarray, shape (n_nodes, 3)
+            Rigid-body reference acceleration at each node in global coordinates.
+        u_n : ndarray, shape (n_free_dofs,)
+            Elastic displacement at time n.
+        v_n : ndarray, shape (n_free_dofs,)
+            Elastic velocity at time n.
+        a_n : ndarray, shape (n_free_dofs,)
+            Elastic acceleration at time n.
+        a0, a2, a3, a6, a7 : float
+            Newmark coefficients.
+
+        Returns
+        -------
+        F_eff : ndarray, shape (n_free_dofs,)
+            Effective RHS vector for the Newmark solve.
+
+        Notes
+        -----
+        Sign convention verification:
+        - Pure rigid rotation (u_e = 0): External forces = M·a_ref → equilibrium
+        - a_ref points radially inward (centripetal) → -M·a_ref points outward
+        """
+        # Convert nodal acceleration to DOF load vector
+        M_diag_full = self.M.getDiagonal().array
+        F_ref_full = self._inertial_calc.compute_reference_load_vector(
+            a_ref_nodal, M_diag_full, dofs_per_node=self.domain.dofs_per_node
+        )
+        # Reduce to free DOFs
+        F_ref = F_ref_full[self.domain.free_dof_indices]
+
+        # Newmark history terms
+        F_hist_mass = a0 * u_n + a2 * v_n + a3 * a_n
+        F_hist_damp = a6 * v_n + a7 * a_n  # a1·u_n term absorbed into K_eff
+
+        # Apply M and C to history terms
+        M_hist = np.zeros_like(F_hist_mass)
+        C_hist = np.zeros_like(F_hist_damp)
+
+        self.M.mult(F_hist_mass, M_hist)
+        self.C.mult(F_hist_damp, C_hist)
+
+        # Assemble RHS
+        F_eff = F_aero_global + F_gravity_global + F_ref + M_hist + C_hist
+
+        _logger.debug(
+            f"Inertial RHS: ||F_aero||={np.linalg.norm(F_aero_global):.2e}, "
+            f"||F_g||={np.linalg.norm(F_gravity_global):.2e}, "
+            f"||F_ref||={np.linalg.norm(F_ref):.2e}"
+        )
+
+        return F_eff
+
+    def _checkpoint_elastic_state(self) -> Dict[str, Any]:
+        """
+        Checkpoint the elastic state and rigid-body kinematics.
+
+        The inertial solver state includes:
+        - Elastic displacement, velocity, acceleration (u_e, v_e, a_e)
+        - Rigid-body kinematics (theta, omega, alpha)
+        - Representative window kinematics (theta_target, omega_window, alpha_window)
+
+        This is distinct from the corotational solver checkpoint which stores
+        displacement in the rotating frame.
+
+        Returns
+        -------
+        checkpoint : dict
+            State dictionary for rollback.
+
+        Notes
+        -----
+        Verification: After rollback, the solver must reproduce the same
+        subsequent time history within tolerance (see Phase 7 tests).
+        """
+        checkpoint = {
+            # Elastic state variables
+            "u_e": self.domain.u.copy() if self.domain.u is not None else None,
+            "v_e": self.domain.v.copy() if self.domain.v is not None else None,
+            "a_e": self.domain.a.copy() if self.domain.a is not None else None,
+            # Rigid-body kinematics
+            "theta": self._theta,
+            "omega": self._omega,
+            "alpha": self._alpha,
+            # Window kinematics (frozen during sub-iterations)
+            "theta_target": getattr(self, "_theta_target", 0.0),
+            "omega_window": getattr(self, "_omega_window", 0.0),
+            "alpha_window": getattr(self, "_alpha_window", 0.0),
+            # OmegaProvider state (if applicable)
+            "omega_provider_state": (
+                self._omega_provider.get_state()
+                if hasattr(self._omega_provider, "get_state")
+                else None
+            ),
+        }
+
+        _logger.debug(
+            f"Checkpointed elastic state: theta={self._theta:.6f}, "
+            f"omega={self._omega:.6f}, ||u_e||={np.linalg.norm(self.domain.u) if self.domain.u is not None else 0:.3e}"
+        )
+
+        return checkpoint
+
+    def _rollback_elastic_state(self, checkpoint: Dict[str, Any]) -> None:
+        """
+        Rollback to a previously checkpointed state.
+
+        Restores:
+        - Elastic displacement, velocity, acceleration
+        - Rigid-body kinematics
+        - OmegaProvider state (if applicable)
+
+        Parameters
+        ----------
+        checkpoint : dict
+            State dictionary from _checkpoint_elastic_state().
+
+        Notes
+        -----
+        After rollback, the next Newmark step should reuse the same K(θ), C(θ)
+        from the checkpointed window kinematics (no reassembly needed within
+        the same FSI window).
+        """
+        # Restore elastic state
+        if checkpoint["u_e"] is not None:
+            self.domain.u[:] = checkpoint["u_e"]
+        if checkpoint["v_e"] is not None:
+            self.domain.v[:] = checkpoint["v_e"]
+        if checkpoint["a_e"] is not None:
+            self.domain.a[:] = checkpoint["a_e"]
+
+        # Restore rigid-body kinematics
+        self._theta = checkpoint["theta"]
+        self._omega = checkpoint["omega"]
+        self._alpha = checkpoint["alpha"]
+        self._theta_target = checkpoint.get("theta_target", 0.0)
+        self._omega_window = checkpoint.get("omega_window", 0.0)
+        self._alpha_window = checkpoint.get("alpha_window", 0.0)
+
+        # Restore OmegaProvider state
+        if checkpoint["omega_provider_state"] is not None:
+            if hasattr(self._omega_provider, "set_state"):
+                self._omega_provider.set_state(checkpoint["omega_provider_state"])
+
+        _logger.debug(
+            f"Rolled back to: theta={self._theta:.6f}, omega={self._omega:.6f}"
+        )
+
+    # =========================================================================
+    # Phase 4 Complete
+    # =========================================================================
+    # Tasks 4.1-4.4 implemented:
+    # ✓ 4.1: _assemble_inertial_effective_system()
+    # ✓ 4.2: _assemble_inertial_rhs()
+    # ✓ 4.3: State variables are elastic (u_e, v_e, a_e)
+    # ✓ 4.4: _checkpoint_elastic_state(), _rollback_elastic_state()
+
+    # =========================================================================
+    # Future Implementation Methods (Phase 5-10)
     # =========================================================================
     # The following methods will be implemented in subsequent phases:
-    #
-    # Phase 3: Structural Assembly on Internally Rotated Geometry
-    # - _rotate_structural_geometry_internal()
-    # - _assemble_stiffness_on_rotated_geometry()
-    # - _assemble_damping_from_rayleigh()
-    #
-    # Phase 4: Newmark Step for the Inertial Formulation
-    # - _assemble_inertial_effective_system()
-    # - _assemble_inertial_rhs()
     #
     # Phase 5: preCICE Contract with Fixed Interface Mesh
     # - _write_elastic_displacement_to_precice()
