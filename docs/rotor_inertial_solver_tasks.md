@@ -24,10 +24,10 @@
 
 ## Phase 2: New Inertial Solver Skeleton
 
-- [ ] 2.1 **Create** `src/aeroelast/solvers/fsi/rotor_inertial.py` — add `LinearDynamicFSIRotorInertialSolver` subclassing the same FSI base path used by the rotor solver family. Verify: module imports without triggering preCICE or PETSc runtime errors at import time.
-- [ ] 2.2 **Implement** `_init_rotor_config()` in `src/aeroelast/solvers/fsi/rotor_inertial.py` by reusing the existing `OmegaProvider` parsing rules from the corotational solver. Verify: `ConstantOmega`, `RampedOmega`, `ComputedOmega`, and `RampedComputedOmega` map exactly as in the current solver.
-- [ ] 2.3 **Implement** `_init_solver_config()` and `_init_state_tracking()` for the inertial solver, mirroring only the parts that remain valid without `K_G`, `K_SP`, and `G_cor`. Verify: object construction succeeds from a minimal rotor YAML dict.
-- [ ] 2.4 **Add** clear solver-level docstrings in `src/aeroelast/solvers/fsi/rotor_inertial.py` stating that the unknown is elastic displacement in global coordinates over a rigidly rotated reference. Verify: the docstring does not reuse corotational terminology incorrectly.
+- [x] 2.1 **Create** `src/aeroelast/solvers/fsi/rotor_inertial.py` — add `LinearDynamicFSIRotorInertialSolver` subclassing the same FSI base path used by the rotor solver family. Verify: module imports without triggering preCICE or PETSc runtime errors at import time.
+- [x] 2.2 **Implement** `_init_rotor_config()` in `src/aeroelast/solvers/fsi/rotor_inertial.py` by reusing the existing `OmegaProvider` parsing rules from the corotational solver. Verify: `ConstantOmega`, `RampedOmega`, `ComputedOmega`, and `RampedComputedOmega` map exactly as in the current solver.
+- [x] 2.3 **Implement** `_init_solver_config()` and `_init_state_tracking()` for the inertial solver, mirroring only the parts that remain valid without `K_G`, `K_SP`, and `G_cor`. Verify: object construction succeeds from a minimal rotor YAML dict.
+- [x] 2.4 **Add** clear solver-level docstrings in `src/aeroelast/solvers/fsi/rotor_inertial.py` stating that the unknown is elastic displacement in global coordinates over a rigidly rotated reference. Verify: the docstring does not reuse corotational terminology incorrectly.
 
 ## Phase 3: Structural Assembly on Internally Rotated Geometry
 
