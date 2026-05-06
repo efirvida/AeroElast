@@ -308,7 +308,9 @@ elements:
 | `LinearStatic` | `LinearStaticSolver` | Static analysis |
 | `LinearDynamic` | `LinearDynamicSolver` | Transient dynamics (no coupling) — standalone, no preCICE |
 | `LinearDynamicFSI` | `LinearDynamicFSISolver` | FSI with preCICE coupling |
-| `LinearDynamicFSIRotor` | `LinearDynamicFSIRotorSolver` | FSI in rotating frame with inertial forces |
+| `LinearDynamicFSIRotor` | `LinearDynamicFSIRotorSolver` | Legacy rotor FSI (currently maps to corotational) |
+| `LinearDynamicFSIRotorCorotational` | `LinearDynamicFSIRotorCorotationalSolver` | Corotational rotor FSI (rotating frame with K_SP, K_G, Coriolis) |
+| `LinearDynamicFSIRotorInertial` | `LinearDynamicFSIRotorInertialSolver` | Inertial rotor FSI (elastic displacement over rotating reference, fixed preCICE interface) |
 
 #### Basic solver configuration
 

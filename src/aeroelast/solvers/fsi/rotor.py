@@ -214,7 +214,7 @@ _DEFAULT_FLOW_VELOCITY = 1.0  # m/s
 _logger = logging.getLogger(__name__)
 
 
-class LinearDynamicFSIRotorSolver(LinearDynamicFSISolver):
+class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
     """
     Co-rotational FSI solver for rotating structures (rotors, blades, turbines).
 
@@ -2256,3 +2256,11 @@ class LinearDynamicFSIRotorSolver(LinearDynamicFSISolver):
             out.update(sr.compute_nodal_strains_all_layers_dict())
 
         return out
+
+
+# =============================================================================
+# Backward Compatibility Alias
+# =============================================================================
+# Keep the legacy name pointing to the corotational solver for backward compatibility
+# with existing YAML configs and user code.
+LinearDynamicFSIRotorSolver = LinearDynamicFSIRotorCorotationalSolver

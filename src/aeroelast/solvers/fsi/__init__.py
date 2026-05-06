@@ -14,7 +14,9 @@ __all__ = [
     "SolverState",
     # Solvers
     "LinearDynamicFSISolver",
-    "LinearDynamicFSIRotorSolver",
+    "LinearDynamicFSIRotorSolver",  # Legacy alias (points to corotational)
+    "LinearDynamicFSIRotorCorotationalSolver",
+    "LinearDynamicFSIRotorInertialSolver",
     "StressStiffenedFSISolver",
     # Co-rotational utilities
     "CoordinateTransforms",
@@ -45,7 +47,9 @@ _LAZY_IMPORTS = {
     "TableOmega": ".corotational",
     # solvers
     "LinearDynamicFSISolver": ".linear_dynamic",
-    "LinearDynamicFSIRotorSolver": ".rotor",
+    "LinearDynamicFSIRotorSolver": ".rotor",  # Legacy alias
+    "LinearDynamicFSIRotorCorotationalSolver": ".rotor",
+    "LinearDynamicFSIRotorInertialSolver": ".rotor_inertial",
     "StressStiffenedFSISolver": ".stress_stiffened_dynamic",
     # runner
     "FSIRunner": ".runner",

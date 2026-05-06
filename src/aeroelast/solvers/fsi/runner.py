@@ -112,7 +112,12 @@ class FSIRunner:
 
         # Auto-complete configuration from preCICE XML if available
         # This fills in total_time, time_step, and watchpoint_files
-        fsi_types = (SolverType.LINEAR_DYNAMIC_FSI.value, SolverType.LINEAR_DYNAMIC_FSI_ROTOR.value)
+        fsi_types = (
+            SolverType.LINEAR_DYNAMIC_FSI.value,
+            SolverType.LINEAR_DYNAMIC_FSI_ROTOR.value,
+            SolverType.LINEAR_DYNAMIC_FSI_ROTOR_COROTATIONAL.value,
+            SolverType.LINEAR_DYNAMIC_FSI_ROTOR_INERTIAL.value,
+        )
         if self.config.solver.type in fsi_types:
             self._precice_info = self.config.load_precice_config()
             self.config.auto_complete_from_precice()
@@ -1182,9 +1187,20 @@ class FSIRunner:
             solver = LinearDynamicFSISolver(self.mesh, model_config)
 
         elif solver_type == SolverType.LINEAR_DYNAMIC_FSI_ROTOR.value:
+            # Legacy name — currently maps to corotational solver
             from .rotor import LinearDynamicFSIRotorSolver
 
             solver = LinearDynamicFSIRotorSolver(self.mesh, model_config)
+
+        elif solver_type == SolverType.LINEAR_DYNAMIC_FSI_ROTOR_COROTATIONAL.value:
+            from .rotor import LinearDynamicFSIRotorCorotationalSolver
+
+            solver = LinearDynamicFSIRotorCorotationalSolver(self.mesh, model_config)
+
+        elif solver_type == SolverType.LINEAR_DYNAMIC_FSI_ROTOR_INERTIAL.value:
+            from .rotor_inertial import LinearDynamicFSIRotorInertialSolver
+
+            solver = LinearDynamicFSIRotorInertialSolver(self.mesh, model_config)
 
         elif solver_type == SolverType.STRESS_STIFFENED_DYNAMIC_FSI.value:
             from .stress_stiffened_dynamic import StressStiffenedFSISolver
