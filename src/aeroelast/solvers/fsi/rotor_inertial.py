@@ -38,6 +38,7 @@ See docs/rotor_inertial_solver_design.md for full design documentation.
 
 import logging
 import os
+import time
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -418,6 +419,16 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 else self.solver_params.get("eta_k", 0.0)
             )
 
+        petsc_cfg = self.solver_params.get("petsc") or {}
+        self._petsc_factor_options_prefix = str(
+            petsc_cfg.get("factor_options_prefix", "rotor_inertial_lu_")
+        )
+        self._petsc_factor_reuse_ordering = bool(
+            petsc_cfg.get("factor_reuse_ordering", True)
+        )
+        self._petsc_factor_reuse_fill = bool(petsc_cfg.get("factor_reuse_fill", True))
+        self._petsc_factor_mat_ordering_type = petsc_cfg.get("factor_mat_ordering_type")
+
         self._stress_output_interval = int(self.solver_params.get("stress_output_interval", 1))
 
     def _init_state_tracking(self) -> None:
@@ -678,6 +689,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         C_theta: "PETSc.Mat",
         a0: float,
         a1: float,
+        result: Optional["PETSc.Mat"] = None,
     ) -> "PETSc.Mat":
         """
         Assemble the effective stiffness matrix for the inertial formulation.
@@ -717,17 +729,75 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         """
         import petsc4py.PETSc as PETSc
 
-        # Create effective matrix: K_eff = K(θ) + a0·M + a1·C(θ)
-        K_eff = K_theta.copy()
-        K_eff.axpy(a0, M)  # K_eff += a0·M
-        K_eff.axpy(a1, C_theta)  # K_eff += a1·C(θ)
+        # Create or refresh the effective matrix in-place so the same PETSc.Mat
+        # object can be reused across windows. On this PETSc build zeroRows() may
+        # shrink constrained rows, so refresh through AXPY with an unknown pattern
+        # instead of assuming exact structural equality with K_theta.
+        if result is None:
+            K_eff = K_theta.copy()
+        else:
+            K_eff = result
+            try:
+                K_eff.zeroEntries()
+                K_eff.axpy(
+                    1.0,
+                    K_theta,
+                    structure=PETSc.Mat.Structure.UNKNOWN_NONZERO_PATTERN,
+                )
+            except PETSc.Error:
+                K_eff = K_theta.copy()
+                _logger.debug(
+                    "Recreated cached K_eff because PETSc reported an incompatible sparsity pattern"
+                )
+
+        K_eff.axpy(
+            a0,
+            M,
+            structure=PETSc.Mat.Structure.UNKNOWN_NONZERO_PATTERN,
+        )  # K_eff += a0·M
+        K_eff.axpy(
+            a1,
+            C_theta,
+            structure=PETSc.Mat.Structure.UNKNOWN_NONZERO_PATTERN,
+        )  # K_eff += a1·C(θ)
         K_eff.assemble()
 
         _logger.debug(
-            f"Assembled inertial K_eff: K(θ) + {a0:.3e}·M + {a1:.3e}·C(θ) (no K_G, K_SP, G_cor)"
+            "Assembled inertial K_eff: K(θ) + %.3e·M + %.3e·C(θ) (no K_G, K_SP, G_cor)",
+            a0,
+            a1,
         )
 
         return K_eff
+
+    def _configure_reusable_factorization_ksp(self, ksp: "PETSc.KSP") -> None:
+        """Configure LU factorization reuse hints for window-to-window solves."""
+        from petsc4py import PETSc
+
+        ksp.setType("preonly")
+        pc = ksp.getPC()
+        pc.setType("lu")
+        pc.setReusePreconditioner(False)
+        if self.comm.size > 1:
+            pc.setFactorSolverType("mumps")
+
+        prefix = self._petsc_factor_options_prefix
+        if prefix:
+            opts = PETSc.Options()
+            opts.prefixPush(prefix)
+            if self._petsc_factor_reuse_ordering:
+                opts.setValue("pc_factor_reuse_ordering", "true")
+            if self._petsc_factor_reuse_fill:
+                opts.setValue("pc_factor_reuse_fill", "true")
+            if self._petsc_factor_mat_ordering_type:
+                opts.setValue(
+                    "pc_factor_mat_ordering_type",
+                    str(self._petsc_factor_mat_ordering_type),
+                )
+            opts.prefixPop()
+            ksp.setOptionsPrefix(prefix)
+
+        ksp.setFromOptions()
 
     def _assemble_inertial_rhs(
         self,
@@ -1628,6 +1698,12 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         _n_force_cap_activations: int = 0
         _FORCE_CAP_LOG_INTERVAL: int = 50
 
+        # Re-assembly timing for K(theta) after each converged window.
+        _stiffness_reassembly_count: int = 0
+        _stiffness_reassembly_total_s: float = 0.0
+        _stiffness_reassembly_min_s: float = float("inf")
+        _stiffness_reassembly_max_s: float = 0.0
+
         def _destroy_petsc_object(obj: Any) -> None:
             if obj is None or not hasattr(obj, "destroy"):
                 return
@@ -1648,6 +1724,12 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                         _destroy_petsc_object(obj)
                 return
             _destroy_petsc_object(cache)
+
+        def _invalidate_window_solver_cache(cache: Optional[Dict[str, Any]]) -> None:
+            if cache is None or not isinstance(cache, dict):
+                return
+            cache["factorization_valid"] = False
+            cache["window_rhs_constant"] = None
 
         def _workspace_owns_vector(cache: Optional[Dict[str, Any]], vec: Any) -> bool:
             if cache is None or not isinstance(cache, dict):
@@ -1677,10 +1759,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 # can restore K(θ) and C(θ) consistent with the checkpointed kinematics.
                 checkpoint["K_current"] = K_current
                 checkpoint["C_current"] = C_current
-                # New window: invalidate KSP cache so K_eff is re-factorized
-                # with the new window's geometry (theta, omega, alpha).
-                _destroy_window_solver_cache(_ksp_window_cache)
-                _ksp_window_cache = None
+                # New window: keep the PETSc LU context alive, but mark the
+                # factorization as stale so the next first step recomputes the
+                # numeric factorization for the updated K_eff.
+                _invalidate_window_solver_cache(_ksp_window_cache)
                 iteration_count = 0
 
             # Read aero forces (global frame, no transformation)
@@ -1738,6 +1820,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 K_current,
                 C_current,
                 ksp_cache=_ksp_window_cache,
+                window_index=window_count + 1,
+                iteration_index=iteration_count + 1,
             )
 
             # Extract interface elastic displacement
@@ -1868,8 +1952,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
                 # The factorization and window matrices are no longer valid once
                 # the geometry is advanced to the next converged orientation.
-                _destroy_window_solver_cache(_ksp_window_cache)
-                _ksp_window_cache = None
+                _invalidate_window_solver_cache(_ksp_window_cache)
                 old_K_current = K_current
                 old_C_current = C_current
 
@@ -1888,8 +1971,26 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                     self.domain._rust_mesh = new_asm._rust_mesh
                     _logger.debug("Geometry update via full assembler rebuild (fallback)")
 
-                # Rebuild matrices on rotated geometry
+                # Rebuild matrices on rotated geometry. Log only the stiffness
+                # assembly time so it can be profiled independently from the
+                # geometry update and damping assembly.
+                next_window_index = window_count + 1
+                _stiffness_reassembly_t0 = time.perf_counter()
                 K_current = self.domain.assemble_stiffness_matrix()
+                stiffness_reassembly_elapsed_s = time.perf_counter() - _stiffness_reassembly_t0
+                _stiffness_reassembly_count += 1
+                _stiffness_reassembly_total_s += stiffness_reassembly_elapsed_s
+                _stiffness_reassembly_min_s = min(
+                    _stiffness_reassembly_min_s, stiffness_reassembly_elapsed_s
+                )
+                _stiffness_reassembly_max_s = max(
+                    _stiffness_reassembly_max_s, stiffness_reassembly_elapsed_s
+                )
+                _logger.info(
+                    "[rotor_inertial] window=%d stiffness reassembly done in %.3fs",
+                    next_window_index,
+                    stiffness_reassembly_elapsed_s,
+                )
                 C_current = self._assemble_rayleigh_damping(K_current, self.M)
                 if old_C_current is not None:
                     _destroy_petsc_object(old_C_current)
@@ -2041,6 +2142,16 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         _destroy_window_solver_cache(_ksp_window_cache)
         _destroy_checkpoint_vectors(checkpoint)
 
+        if _stiffness_reassembly_count > 0:
+            _logger.info(
+                "[rotor_inertial] stiffness reassembly summary: count=%d total=%.3fs avg=%.3fs min=%.3fs max=%.3fs",
+                _stiffness_reassembly_count,
+                _stiffness_reassembly_total_s,
+                _stiffness_reassembly_total_s / _stiffness_reassembly_count,
+                _stiffness_reassembly_min_s,
+                _stiffness_reassembly_max_s,
+            )
+
         # Finalize preCICE
         adapter.finalize()
 
@@ -2070,6 +2181,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         K_current: "PETSc.Mat",
         C_current: "PETSc.Mat",
         ksp_cache: Optional[Dict[str, Any]] = None,
+        window_index: Optional[int] = None,
+        iteration_index: Optional[int] = None,
     ) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec", Optional[Dict[str, Any]]]:
         """
         Solve one FSI sub-iteration step using Newmark integration.
@@ -2227,7 +2340,13 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # window (θ, ω, α, K, C, M all frozen during sub-iterations).
         # The LU factorization is computed once and reused for all sub-iterations.
         # -----------------------------------------------------------------------
-        if ksp_cache is not None:
+        factorization_valid = bool(
+            ksp_cache is not None
+            and isinstance(ksp_cache, dict)
+            and ksp_cache.get("factorization_valid", False)
+        )
+
+        if factorization_valid:
             # Fast path: only the RHS changes; K_eff (with BCs) is already cached.
             window_rhs_constant = ksp_cache["window_rhs_constant"]
             workspace = ksp_cache["workspace"]
@@ -2240,43 +2359,109 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             _logger.debug("KSP cache hit: reusing factorized K_eff for sub-iteration")
         else:
             # First sub-iteration: assemble K_eff, apply full BCs, factorize.
-            K_eff = self._assemble_inertial_effective_system(K_current, self.M, C_current, a0, a1)
+            _first_iter_t0 = time.perf_counter()
+
+            previous_operator = None
+            reused_operator = None
+            reused_workspace = None
+            reused_ksp = None
+            if ksp_cache is not None and isinstance(ksp_cache, dict):
+                reused_operator = ksp_cache.get("operator")
+                previous_operator = reused_operator
+                reused_workspace = ksp_cache.get("workspace")
+                reused_ksp = ksp_cache.get("ksp")
+
+            _t = time.perf_counter()
+            K_eff = self._assemble_inertial_effective_system(
+                K_current,
+                self.M,
+                C_current,
+                a0,
+                a1,
+                result=reused_operator,
+            )
+            effective_system_elapsed_s = time.perf_counter() - _t
+
+            _t = time.perf_counter()
             window_rhs_constant = _build_window_rhs_constant()
-            workspace = _create_window_workspace()
+            window_rhs_constant_elapsed_s = time.perf_counter() - _t
+
+            workspace = reused_workspace
+            if workspace is None:
+                _t = time.perf_counter()
+                workspace = _create_window_workspace()
+                workspace_alloc_elapsed_s = time.perf_counter() - _t
+            else:
+                workspace_alloc_elapsed_s = 0.0
+
+            _t = time.perf_counter()
             F_eff = _build_rhs(window_rhs_constant, workspace)
+            rhs_build_elapsed_s = time.perf_counter() - _t
+
+            bc_elapsed_s = 0.0
             # K_eff.zeroRows: zeros fixed rows, sets diagonal=1, adjusts F_eff at fixed DOFs.
             if len(fixed_idx) > 0:
+                _t = time.perf_counter()
                 U_fixed = K_eff.createVecRight()
                 U_fixed.setValues(fixed_idx, fixed_vals)
                 U_fixed.assemble()
                 K_eff.zeroRows(fixed_idx, 1.0, U_fixed, F_eff)
                 K_eff.assemble()
                 U_fixed.destroy()
-            ksp = PETSc.KSP().create(comm=self.comm)
+                bc_elapsed_s = time.perf_counter() - _t
+
+            ksp = reused_ksp
+            if ksp is None:
+                ksp = PETSc.KSP().create(comm=self.comm)
+                self._configure_reusable_factorization_ksp(ksp)
+            else:
+                ksp.getPC().setReusePreconditioner(False)
+
+            factorization_mode = (
+                "numeric_refactorization" if reused_ksp is not None else "fresh_lu"
+            )
+            ksp_mode = "reused" if reused_ksp is not None else "new"
+            operator_mode = (
+                "reused"
+                if previous_operator is not None and K_eff is previous_operator
+                else "recreated"
+                if previous_operator is not None
+                else "new"
+            )
+            workspace_mode = "reused" if reused_workspace is not None else "new"
+
             ksp.setOperators(K_eff)
-            ksp.setType("preonly")
-            pc = ksp.getPC()
-            pc.setType("lu")
-            # Use MUMPS for distributed (multi-rank) solves; default LU for serial.
-            if self.comm.size > 1:
-                pc.setFactorSolverType("mumps")
-            ksp.setFromOptions()
+            if previous_operator is not None and K_eff is not previous_operator:
+                previous_operator.destroy()
+
+            _t = time.perf_counter()
             ksp.setUp()  # LU factorization — reused for all sub-iterations in this window
+            factorization_elapsed_s = time.perf_counter() - _t
             solver_cache = {
                 "ksp": ksp,
                 "operator": K_eff,
                 "workspace": workspace,
                 "window_rhs_constant": window_rhs_constant,
+                "factorization_valid": True,
             }
-            _logger.debug("KSP cache miss: factorizing K_eff for new FSI window")
+            _logger.debug(
+                "KSP cache miss: factorizing K_eff for %s FSI window",
+                "reused" if reused_ksp is not None else "new",
+            )
 
         workspace = solver_cache["workspace"]
 
         # Solve: K_eff · u_e_new = F_eff
         u_e_new = workspace["u_trial"]
+
+        solve_elapsed_s = 0.0
+        state_update_elapsed_s = 0.0
+        _t = time.perf_counter()
         ksp.solve(F_eff, u_e_new)
+        solve_elapsed_s = time.perf_counter() - _t
 
         # Update acceleration and velocity using reusable workspace vectors.
+        _t = time.perf_counter()
         delta_u = workspace["delta_u"]
         u_e_new.copy(result=delta_u)
         delta_u.axpy(-1.0, u_e_prev)
@@ -2291,6 +2476,28 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         v_e_new.copy(v_e_prev)
         v_e_new.axpy(dt * (1.0 - gamma), a_e_prev)
         v_e_new.axpy(dt * gamma, a_e_new)
+        state_update_elapsed_s = time.perf_counter() - _t
+
+        if not factorization_valid:
+            first_iteration_total_elapsed_s = time.perf_counter() - _first_iter_t0
+            _logger.info(
+            "[rotor_inertial] window=%s iter=%s first-step timings: total=%.3fs K_eff=%.3fs rhs_const=%.3fs workspace=%.3fs rhs=%.3fs bc=%.3fs factorization=%.3fs solve=%.3fs state=%.3fs factorization_path=%s ksp=%s operator=%s workspace_buf=%s",
+                window_index if window_index is not None else "?",
+                iteration_index if iteration_index is not None else "?",
+                first_iteration_total_elapsed_s,
+                effective_system_elapsed_s,
+                window_rhs_constant_elapsed_s,
+                workspace_alloc_elapsed_s,
+                rhs_build_elapsed_s,
+                bc_elapsed_s,
+                factorization_elapsed_s,
+                solve_elapsed_s,
+                state_update_elapsed_s,
+                factorization_mode,
+                ksp_mode,
+                operator_mode,
+                workspace_mode,
+            )
 
         return u_e_new, v_e_new, a_e_new, solver_cache
 
