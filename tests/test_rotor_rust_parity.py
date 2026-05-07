@@ -863,6 +863,8 @@ class TestRotorRustBinding:
             False,
             False,  # include_kg, include_ksp
             1e-4,  # ksp_omega_threshold
+            0.005,  # omega_rebuild_rel_high
+            0.003,  # omega_rebuild_rel_low
             dofs_per_node,
             1.225,  # fluid_density
             10.0,  # flow_velocity
@@ -995,7 +997,9 @@ class TestRotorRustBinding:
                 True,
                 False,
                 False,
-                1e-4,
+                1e-4,   # ksp_omega_threshold
+                0.005,  # omega_rebuild_rel_high
+                0.003,  # omega_rebuild_rel_low
                 3,
                 1.225,
                 10.0,
