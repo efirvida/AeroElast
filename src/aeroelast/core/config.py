@@ -361,6 +361,13 @@ class RotorConfig:
     send_omega_to_precice: bool = True
     force_max_magnitude: Optional[float] = None
     force_jump_factor: float = 1000.0
+    # Relative |Δ(ω²)|/ω² thresholds for the unified K_G / K_SP rebuild predicate.
+    # Both K_G and K_SP are proportional to ω², so they share the same sensitivity.
+    # omega_rebuild_rel_high: high-band threshold — triggers rebuild (default 0.5%).
+    # omega_rebuild_rel_low:  low-band threshold  — suppresses rebuild after a recent
+    #                         one (hysteresis, default 0.3%).
+    omega_rebuild_rel_high: float = 0.005
+    omega_rebuild_rel_low: float = 0.003
     transform_displacement_to_inertial: bool = True
     gravity: List[float] = field(default_factory=lambda: [0.0, 0.0, -9.81])
     # Controls what displacement the inertial solver writes to preCICE.
@@ -396,6 +403,8 @@ class RotorConfig:
             "transform_displacement_to_inertial": self.transform_displacement_to_inertial,
             "precice_displacement_mode": self.precice_displacement_mode,
             "gravity": self.gravity,
+            "omega_rebuild_rel_high": self.omega_rebuild_rel_high,
+            "omega_rebuild_rel_low": self.omega_rebuild_rel_low,
         }
         if self.moment_of_inertia is not None:
             d["moment_of_inertia"] = self.moment_of_inertia

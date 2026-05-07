@@ -422,6 +422,8 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         self._include_euler = rotor_cfg.get("include_euler", True)
         self._kg_update_interval = int(rotor_cfg.get("kg_update_interval", 0))
         self._ksp_omega_threshold: float = float(rotor_cfg.get("ksp_omega_threshold", 1e-4))
+        self._omega_rebuild_rel_high: float = float(rotor_cfg.get("omega_rebuild_rel_high", 0.005))
+        self._omega_rebuild_rel_low: float = float(rotor_cfg.get("omega_rebuild_rel_low", 0.003))
         self._force_ramp_time = float(rotor_cfg.get("force_ramp_time", 0.0))
         self._send_omega_to_precice = rotor_cfg.get("send_omega_to_precice", True)
         self._omega_mesh_name: str = rotor_cfg.get("omega_mesh_name", "GlobalSolidMesh")
@@ -2148,6 +2150,8 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             include_kg=self._include_geometric_stiffness,
             include_ksp=self._include_spin_softening,
             ksp_omega_threshold=self._ksp_omega_threshold,
+            omega_rebuild_rel_high=self._omega_rebuild_rel_high,
+            omega_rebuild_rel_low=self._omega_rebuild_rel_low,
             dofs_per_node=self.domain.dofs_per_node,
             fluid_density=self._fluid_density,
             flow_velocity=self._flow_velocity,

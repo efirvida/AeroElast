@@ -3790,6 +3790,8 @@ fn run_rotor_fsi_solver(
     include_kg: bool,
     include_ksp: bool,
     ksp_omega_threshold: f64,
+    omega_rebuild_rel_high: f64,
+    omega_rebuild_rel_low: f64,
     // ── DOF layout ────────────────────────────────────────────────────────────
     dofs_per_node: usize,
     // ── Performance coefficients ──────────────────────────────────────────────
@@ -4057,6 +4059,8 @@ fn run_rotor_fsi_solver(
         kg_update_interval,
         include_ksp,
         ksp_omega_threshold,
+        omega_rebuild_rel_high,
+        omega_rebuild_rel_low,
         dofs_per_node,
         fluid_density,
         flow_velocity,

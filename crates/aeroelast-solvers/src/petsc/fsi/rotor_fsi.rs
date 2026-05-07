@@ -84,7 +84,16 @@ pub struct RotorFsiConfig {
     /// Enable spin-softening K_SP diagonal update.
     pub include_ksp: bool,
     /// Rebuild K_SP when |Δω| exceeds this threshold [rad/s].
+    /// Kept for schema backward-compatibility; no longer used as the rebuild
+    /// criterion — the relative predicate `omega_changed_significantly` is used
+    /// instead, with `omega_rebuild_rel_high` / `omega_rebuild_rel_low`.
     pub ksp_omega_threshold: f64,
+    /// Relative |Δ(ω²)|/ω² threshold to trigger a K_G or K_SP rebuild.
+    /// Applied to both matrices (both ∝ ω²). Default: `0.005` (0.5%).
+    pub omega_rebuild_rel_high: f64,
+    /// Relative |Δ(ω²)|/ω² threshold below which a rebuild is skipped once
+    /// one was just performed (hysteresis lower band). Default: `0.003` (0.3%).
+    pub omega_rebuild_rel_low: f64,
 
     // ── DOF layout ────────────────────────────────────────────────────────────
     /// DOFs per FEM node (typically 6 for shells).
@@ -123,6 +132,70 @@ impl RotorFsiConfig {
     fn should_update_kg_on_step(&self, time_step: usize) -> bool {
         time_step % self.normalized_kg_update_interval() == 0
     }
+}
+
+// ── Unified ω-rebuild predicate ────────────────────────────────────────────────
+
+/// Decide whether a stiffness matrix (K_G or K_SP) should be rebuilt.
+///
+/// Uses a relative `|Δ(ω²)| / max(ω², ω_last²)` test with two-threshold
+/// hysteresis to prevent chattering:
+///
+/// * `threshold_rebuild` — rebuild when the relative change exceeds this value.
+///   Applied when **not** in the "just rebuilt" state (i.e. `currently_rebuilt = false`).
+/// * `threshold_skip`    — skip rebuild when the relative change is below this
+///   value.  Applied when `currently_rebuilt = true` (high bar to rebuild again
+///   soon after the last rebuild).
+///
+/// **First-call semantics**: when `omega_sq_at_last` is `f64::NEG_INFINITY` (never
+/// set), the predicate always returns `true`.
+///
+/// **ω → 0 guard**: when `max(ω², ω_last²) < eps` (both near zero), the
+/// relative form would divide by zero.  The predicate returns `true` (rebuild)
+/// in this case to ensure a safe state at startup.
+///
+/// # Arguments
+/// * `omega_new`         — current angular velocity [rad/s]
+/// * `omega_sq_at_last`  — ω² at the previous rebuild; `f64::NEG_INFINITY` if never rebuilt
+/// * `threshold_rebuild` — high-band relative threshold (triggers rebuild)
+/// * `threshold_skip`    — low-band relative threshold (suppresses rebuild after a recent one)
+/// * `currently_rebuilt` — `true` if a rebuild was performed recently (use `threshold_rebuild`)
+///
+/// # Returns
+/// `true`  → rebuild the matrix
+/// `false` → skip the rebuild
+pub(crate) fn omega_changed_significantly(
+    omega_new: f64,
+    omega_sq_at_last: f64,
+    threshold_rebuild: f64,
+    threshold_skip: f64,
+    currently_rebuilt: bool,
+) -> bool {
+    const EPS: f64 = 1e-12;
+
+    // First call: no prior rebuild — always rebuild.
+    if omega_sq_at_last == f64::NEG_INFINITY {
+        return true;
+    }
+
+    let omega_sq_new = omega_new * omega_new;
+    let denom = omega_sq_new.max(omega_sq_at_last);
+
+    // ω → 0 guard: both values near zero — rebuild to stay in a safe state.
+    if denom < EPS {
+        return true;
+    }
+
+    let rel_change = (omega_sq_new - omega_sq_at_last).abs() / denom;
+
+    // Hysteresis: use a higher bar when we recently rebuilt (prevents chattering).
+    let threshold = if currently_rebuilt {
+        threshold_rebuild
+    } else {
+        threshold_skip
+    };
+
+    rel_change >= threshold
 }
 
 // ── Solver struct ──────────────────────────────────────────────────────────────
@@ -182,8 +255,11 @@ pub struct RotorFsiSolver {
     /// (or -1 for entries outside the free-DOF set). Computed once in `new()`,
     /// eliminates all per-timestep HashMap allocations in `update_geometric_stiffness`.
     kg_coo_map: Vec<i32>,
-    /// ω at the last K_SP rebuild (to detect Δω > threshold).
-    omega_at_last_ksp: f64,
+    /// ω² at the last K_SP rebuild. Used by `omega_changed_significantly`.
+    /// Initialized to `NEG_INFINITY` to guarantee the first rebuild always fires.
+    omega_sq_at_last_ksp: f64,
+    /// Step number of last K_SP rebuild (for hysteresis logic).
+    last_ksp_rebuild_step: usize,
     /// ω² at the last K_G rebuild. Used to skip rebuilds when ω is stable.
     /// Initialized to `NEG_INFINITY` to guarantee the first rebuild always fires.
     omega_sq_at_last_kg: f64,
@@ -280,7 +356,8 @@ impl RotorFsiSolver {
             k_rows,
             k_cols,
             kg_coo_map,
-            omega_at_last_ksp: initial_omega,
+            omega_sq_at_last_ksp: f64::NEG_INFINITY,
+            last_ksp_rebuild_step: 0,
             omega_sq_at_last_kg: f64::NEG_INFINITY,
             last_kg_rebuild_step: 0,
             initial_state: None,
@@ -406,9 +483,9 @@ impl RotorFsiSolver {
         self.stepper
             .update_spin_softening_and_gyroscopic(&ksp, &g_rows, &g_cols, &g_vals)
             .map_err(FsiError::StepperError)?;
-        
-        self.omega_at_last_ksp = omega;
-        
+
+        self.omega_sq_at_last_ksp = omega * omega;
+
         if !g_vals.is_empty() {
             log::info!(
                 "RotorFsi: K_SP + G_cor updated, ω={:.4} rad/s, |G_cor| entries={}",
@@ -430,31 +507,21 @@ impl RotorFsiSolver {
             return Ok(());
         }
 
-        // Adaptive threshold with hysteresis to prevent chattering.
-        // Uses a higher threshold for rebuild if we just rebuilt recently.
-        const THRESHOLD_REBUILD: f64 = 0.005;  // 0.5% - high threshold for rebuild
-        const THRESHOLD_SKIP: f64 = 0.003;     // 0.3% - low threshold for skip (hysteresis)
-        
-        let current_omega_sq = omega * omega;
-        if self.omega_sq_at_last_kg > 0.0 {
-            let rel_change = (current_omega_sq - self.omega_sq_at_last_kg).abs() 
-                / self.omega_sq_at_last_kg;
-            
-            // Use higher threshold if we just rebuilt recently (within 10 steps)
-            let steps_since_rebuild = time_step.saturating_sub(self.last_kg_rebuild_step);
-            let threshold = if steps_since_rebuild < 10 {
-                THRESHOLD_REBUILD  // Higher bar to rebuild again soon
-            } else {
-                THRESHOLD_SKIP     // Lower bar if it's been a while
-            };
-            
-            if rel_change < threshold {
-                log::trace!(
-                    "RotorFsi: K_G rebuild skipped at step {}, Δ(ω²)/ω² = {:.3}% < {:.3}%",
-                    time_step, rel_change * 100.0, threshold * 100.0
-                );
-                return Ok(()); // ω stable, skip expensive K_G reassembly
-            }
+        // Unified relative-ω² predicate with hysteresis to prevent chattering.
+        let steps_since_rebuild = time_step.saturating_sub(self.last_kg_rebuild_step);
+        let recently_rebuilt = steps_since_rebuild < 10;
+        if !omega_changed_significantly(
+            omega,
+            self.omega_sq_at_last_kg,
+            self.config.omega_rebuild_rel_high,
+            self.config.omega_rebuild_rel_low,
+            recently_rebuilt,
+        ) {
+            log::trace!(
+                "RotorFsi: K_G rebuild skipped at step {}, ω={:.4} rad/s (ω² stable)",
+                time_step, omega,
+            );
+            return Ok(());
         }
 
         let asm = match &self.assembler {
@@ -488,7 +555,7 @@ impl RotorFsiSolver {
             .set_initial_geometric_stiffness(&kg_red)
             .map_err(FsiError::StepperError)?;
 
-        self.omega_sq_at_last_kg = current_omega_sq;
+        self.omega_sq_at_last_kg = omega * omega;
         self.last_kg_rebuild_step = time_step;
 
         let kg_norm: f64 = kg_red.iter().map(|x| x * x).sum::<f64>().sqrt();
@@ -804,8 +871,17 @@ impl RotorFsiSolver {
                 let (omega_new, _) = self.omega_provider.get(t + dt);
                 let time_step = result.times.len() + 1; // 1-based, before push
 
-                // 5. Rebuild K_SP if |Δω| > threshold.
-                if (omega_new - self.omega_at_last_ksp).abs() > self.config.ksp_omega_threshold {
+                // 5. Rebuild K_SP when ω changes significantly (unified relative predicate).
+                let steps_since_ksp = time_step.saturating_sub(self.last_ksp_rebuild_step);
+                let ksp_recently_rebuilt = steps_since_ksp < 10;
+                if omega_changed_significantly(
+                    omega_new,
+                    self.omega_sq_at_last_ksp,
+                    self.config.omega_rebuild_rel_high,
+                    self.config.omega_rebuild_rel_low,
+                    ksp_recently_rebuilt,
+                ) {
+                    self.last_ksp_rebuild_step = time_step;
                     self.apply_ksp(omega_new)?;
                 }
 
@@ -913,6 +989,8 @@ mod tests {
             kg_update_interval,
             include_ksp: true,
             ksp_omega_threshold: 1e-4,
+            omega_rebuild_rel_high: 0.005,
+            omega_rebuild_rel_low: 0.003,
             dofs_per_node: 6,
             fluid_density: 1.225,
             flow_velocity: 10.0,
@@ -942,5 +1020,102 @@ mod tests {
         assert!(!cfg.should_update_kg_on_step(4));
         assert!(!cfg.should_update_kg_on_step(5));
         assert!(cfg.should_update_kg_on_step(6));
+    }
+
+    // ── Tests for omega_changed_significantly predicate (task 3.1 / 3.2) ──────
+
+    /// Stable ω (change well below both thresholds) → skip.
+    #[test]
+    fn omega_pred_stable_omega_skips() {
+        let omega_base = 100.0f64;
+        let omega_sq_last = omega_base * omega_base;
+        // 0.1% change — below both 0.5% and 0.3%
+        let omega_new = omega_base * (1.0 + 0.001);
+        // Not recently rebuilt
+        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false));
+        // Recently rebuilt
+        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true));
+    }
+
+    /// Large jump above high threshold → rebuild regardless of hysteresis state.
+    #[test]
+    fn omega_pred_large_jump_rebuilds() {
+        let omega_base = 100.0f64;
+        let omega_sq_last = omega_base * omega_base;
+        // 0.8% change — above both 0.5% and 0.3%
+        let omega_new = omega_base * (1.0 + 0.004);
+        // Not recently rebuilt: 0.8% > 0.3% → rebuild
+        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false));
+        // Recently rebuilt: 0.8% > 0.5% → rebuild
+        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true));
+    }
+
+    /// ω → 0: both values below eps → always rebuild (avoid divide-by-zero).
+    #[test]
+    fn omega_pred_omega_to_zero_always_rebuilds() {
+        // Use values whose squares are both exactly 0, well below EPS = 1e-12.
+        let omega_new = 0.0;
+        let omega_sq_last = 0.0;
+        // max(0, 0) = 0 < 1e-12 → rebuild
+        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false));
+        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true));
+    }
+
+    /// First call (omega_sq_at_last = NEG_INFINITY) → always rebuild.
+    #[test]
+    fn omega_pred_first_call_always_rebuilds() {
+        let omega_new = 50.0;
+        assert!(omega_changed_significantly(
+            omega_new,
+            f64::NEG_INFINITY,
+            0.005,
+            0.003,
+            false,
+        ));
+        assert!(omega_changed_significantly(
+            omega_new,
+            f64::NEG_INFINITY,
+            0.005,
+            0.003,
+            true,
+        ));
+        // Also for zero omega on first call
+        assert!(omega_changed_significantly(
+            0.0,
+            f64::NEG_INFINITY,
+            0.005,
+            0.003,
+            false,
+        ));
+    }
+
+    /// Hysteresis: change between skip and rebuild thresholds behaves correctly.
+    ///
+    /// Change of 0.4% (between 0.3% skip and 0.5% rebuild thresholds):
+    /// - `currently_rebuilt = true`  (high bar = 0.5%) → 0.4% < 0.5% → skip
+    /// - `currently_rebuilt = false` (low  bar = 0.3%) → 0.4% > 0.3% → rebuild
+    #[test]
+    fn omega_pred_hysteresis_between_thresholds() {
+        let omega_base = 100.0f64;
+        let omega_sq_last = omega_base * omega_base;
+        // 0.4% ω change → 0.8% ω² change (approximation: Δω²/ω² ≈ 2Δω/ω = 0.8%)
+        // Use exact calculation to be safe.
+        let omega_new = omega_base * (1.0 + 0.002);
+        let omega_sq_new = omega_new * omega_new;
+        let rel = (omega_sq_new - omega_sq_last).abs() / omega_sq_new.max(omega_sq_last);
+        assert!(rel > 0.003 && rel < 0.005, "rel={rel} must be in (0.003, 0.005)");
+
+        // recently rebuilt → use high threshold (0.005) → change < 0.5% → skip
+        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true));
+        // not recently rebuilt → use low threshold (0.003) → change > 0.3% → rebuild
+        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false));
+    }
+
+    /// Both omega² values exactly at the eps guard → rebuild.
+    #[test]
+    fn omega_pred_eps_boundary_rebuilds() {
+        // max(ω², ω_last²) exactly at 0.0 → below EPS
+        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, false));
+        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, true));
     }
 }
