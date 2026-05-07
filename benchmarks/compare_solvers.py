@@ -32,6 +32,7 @@ Decision criterion (from IMPLEMENTATION_PLAN_INERTIAL.md Sprint 5):
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import os
 import sys
@@ -45,6 +46,31 @@ from typing import NamedTuple
 _REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
+
+def _prepend_ld_library_path(path: str) -> None:
+    current = os.environ.get("LD_LIBRARY_PATH", "")
+    entries = [entry for entry in current.split(":") if entry]
+    if path not in entries:
+        os.environ["LD_LIBRARY_PATH"] = f"{path}:{current}" if current else path
+
+
+def _ensure_shared_lib(lib_name: str, lib_dir: str) -> None:
+    try:
+        ctypes.CDLL(lib_name, mode=ctypes.RTLD_GLOBAL)
+        return
+    except OSError:
+        _prepend_ld_library_path(lib_dir)
+
+    try:
+        ctypes.CDLL(os.path.join(lib_dir, lib_name), mode=ctypes.RTLD_GLOBAL)
+    except OSError:
+        pass
+
+
+# preCICE and the Rust extension are linked against GCC 14 on the cluster.
+_GCC14_LIB_PATH = "/petrobr/app_sequana/gcc/14.2.0/lib64"
+_ensure_shared_lib("libstdc++.so.6", _GCC14_LIB_PATH)
+
 # ---------------------------------------------------------------------------
 # Imports (with informative errors)
 # ---------------------------------------------------------------------------
@@ -56,9 +82,7 @@ except ImportError as exc:  # pragma: no cover
 try:
     from petsc4py import PETSc
 except ImportError as exc:  # pragma: no cover
-    raise SystemExit(
-        "petsc4py is required — load the appropriate HPC module first."
-    ) from exc
+    raise SystemExit("petsc4py is required — load the appropriate HPC module first.") from exc
 
 try:
     import _aeroelast  # noqa: F401
@@ -92,6 +116,7 @@ _THICKNESS = 0.004  # 4 mm
 # ---------------------------------------------------------------------------
 # Mesh helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_quad_plate(nx: int, ny: int, L: float = 1.0) -> MeshModel:
     """Flat MITC4 plate mesh (nx × ny quads)."""
@@ -151,26 +176,26 @@ def _petsc_to_dense(mat: PETSc.Mat) -> np.ndarray:
 # Benchmark result container
 # ---------------------------------------------------------------------------
 
+
 class BenchmarkResult(NamedTuple):
     label: str
     material: str
     n_nodes: int
     n_dofs: int
     n_windows: int
-    time_init_s: float           # one-time assembler init
-    time_per_window_s: float     # median window time (geometry update + assembly)
-    time_total_s: float          # total for all windows
-    eig_error_max: float         # max |λ(rotated) - λ(orig)| / λ_max(orig)
-    speedup: float               # ratio vs reference (set later)
+    time_init_s: float  # one-time assembler init
+    time_per_window_s: float  # median window time (geometry update + assembly)
+    time_total_s: float  # total for all windows
+    eig_error_max: float  # max |λ(rotated) - λ(orig)| / λ_max(orig)
+    speedup: float  # ratio vs reference (set later)
 
 
 # ---------------------------------------------------------------------------
 # Approach A: "corotational" — rebuild MeshAssembler from scratch each window
 # ---------------------------------------------------------------------------
 
-def _bench_rebuild(
-    nx: int, ny: int, mat, n_windows: int, thetas: np.ndarray
-) -> BenchmarkResult:
+
+def _bench_rebuild(nx: int, ny: int, mat, n_windows: int, thetas: np.ndarray) -> BenchmarkResult:
     """
     Corotational / legacy approach: re-initialise MeshAssembler at each window
     with a freshly built MeshModel containing rotated node coordinates.
@@ -187,8 +212,8 @@ def _bench_rebuild(
     t_init = time.perf_counter() - t0
     eigs0 = np.sort(np.linalg.eigvalsh(_petsc_to_dense(K0)))
 
-    n_nodes = asm0.n_nodes
-    n_dofs = n_nodes * 6
+    n_nodes = asm0.node_count
+    n_dofs = asm0.dofs_count
 
     # Per-window: rebuild mesh + assembler + assemble K
     window_times: list[float] = []
@@ -249,9 +274,8 @@ def _bench_rebuild(
 # Approach B: "inertial" — update_node_coordinates fast path
 # ---------------------------------------------------------------------------
 
-def _bench_update(
-    nx: int, ny: int, mat, n_windows: int, thetas: np.ndarray
-) -> BenchmarkResult:
+
+def _bench_update(nx: int, ny: int, mat, n_windows: int, thetas: np.ndarray) -> BenchmarkResult:
     """
     Inertial / Sprint 4 approach: build assembler once, then call
     update_node_coordinates() at each window — no Python-side mesh rebuild.
@@ -271,8 +295,8 @@ def _bench_update(
         raise RuntimeError("Rust assembler not available — cannot use update_node_coordinates")
 
     eigs0 = np.sort(np.linalg.eigvalsh(_petsc_to_dense(K0)))
-    n_nodes = asm.n_nodes
-    n_dofs = n_nodes * 6
+    n_nodes = asm.node_count
+    n_dofs = asm.dofs_count
 
     # Per-window: update coords in Rust + reassemble
     window_times: list[float] = []
@@ -316,6 +340,7 @@ def _bench_update(
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
+
 
 def _print_markdown_table(results: list[tuple[BenchmarkResult, BenchmarkResult]]) -> None:
     print("\n## A/B Benchmark: inertial solver vs. full-rebuild")
@@ -373,6 +398,7 @@ def _save_json(
     out_dir: Path,
 ) -> None:
     import datetime
+
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     out_path = out_dir / f"compare_solvers_{ts}.json"
     data = []
@@ -394,8 +420,8 @@ def _save_plots(
 
     materials = [r.material for r, _ in results]
     t_rebuild = [r.time_per_window_s for r, _ in results]
-    t_update  = [u.time_per_window_s for _, u in results]
-    speedups  = [u.speedup for _, u in results]
+    t_update = [u.time_per_window_s for _, u in results]
+    speedups = [u.speedup for _, u in results]
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
 
@@ -428,17 +454,18 @@ def _save_plots(
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--nx", type=int, default=6, help="Mesh divisions X (default 6)")
     parser.add_argument("--ny", type=int, default=6, help="Mesh divisions Y (default 6)")
     parser.add_argument(
-        "--n-windows", type=int, default=20,
-        help="Number of FSI windows (rotation steps) to time (default 20)"
+        "--n-windows",
+        type=int,
+        default=20,
+        help="Number of FSI windows (rotation steps) to time (default 20)",
     )
-    parser.add_argument(
-        "--no-plots", action="store_true", help="Skip matplotlib plots"
-    )
+    parser.add_argument("--no-plots", action="store_true", help="Skip matplotlib plots")
     args = parser.parse_args()
 
     nx, ny = args.nx, args.ny
@@ -448,7 +475,7 @@ def main() -> None:
     thetas = np.linspace(0.0, 2 * np.pi, n_windows, endpoint=False)
 
     print(f"Benchmark: nx={nx}, ny={ny}, n_windows={n_windows}")
-    print(f"  Mesh: {(nx+1)*(ny+1)} nodes, {(nx+1)*(ny+1)*6} DOFs")
+    print(f"  Mesh: {(nx + 1) * (ny + 1)} nodes, {(nx + 1) * (ny + 1) * 6} DOFs")
     print()
 
     out_dir = _REPO_ROOT / "benchmarks" / "results"
@@ -460,7 +487,7 @@ def main() -> None:
         print(f"  Running {mat.name} …", end=" ", flush=True)
 
         r_rebuild = _bench_rebuild(nx, ny, mat, n_windows, thetas)
-        r_update  = _bench_update(nx, ny, mat, n_windows, thetas)
+        r_update = _bench_update(nx, ny, mat, n_windows, thetas)
 
         # Compute speedup
         speedup = (

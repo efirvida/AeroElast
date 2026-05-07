@@ -5,20 +5,38 @@ import os
 
 import pytest
 
+
+def _prepend_ld_library_path(path: str) -> None:
+    current = os.environ.get("LD_LIBRARY_PATH", "")
+    entries = [entry for entry in current.split(":") if entry]
+    if path not in entries:
+        os.environ["LD_LIBRARY_PATH"] = f"{path}:{current}" if current else path
+
+
+def _ensure_shared_lib(lib_name: str, lib_dir: str) -> None:
+    try:
+        ctypes.CDLL(lib_name, mode=ctypes.RTLD_GLOBAL)
+        return
+    except OSError:
+        _prepend_ld_library_path(lib_dir)
+
+    try:
+        ctypes.CDLL(os.path.join(lib_dir, lib_name), mode=ctypes.RTLD_GLOBAL)
+    except OSError:
+        pass
+
+
+# ---------------------------------------------------------------------------
+# GCC runtime — required by preCICE / _aeroelast on this cluster
+# ---------------------------------------------------------------------------
+_GCC14_LIB_PATH = "/petrobr/app_sequana/gcc/14.2.0/lib64"
+_ensure_shared_lib("libstdc++.so.6", _GCC14_LIB_PATH)
+
 # ---------------------------------------------------------------------------
 # GLU library — required by gmsh (equivalent to `module load glu`)
 # ---------------------------------------------------------------------------
 _GLU_LIB_PATH = "/scratch/app/glu/9.0.2_gnu/lib"
-
-try:
-    ctypes.CDLL("libGLU.so.1")
-except OSError:
-    # Not on LD_LIBRARY_PATH yet; prepend the HPC module path and retry.
-    os.environ["LD_LIBRARY_PATH"] = _GLU_LIB_PATH + ":" + os.environ.get("LD_LIBRARY_PATH", "")
-    try:
-        ctypes.CDLL(os.path.join(_GLU_LIB_PATH, "libGLU.so.1"))
-    except OSError:
-        pass  # gmsh tests will fail with a clear error if still missing
+_ensure_shared_lib("libGLU.so.1", _GLU_LIB_PATH)
 
 # ---------------------------------------------------------------------------
 # Blade YAML fixture
