@@ -273,6 +273,7 @@ def test_assemble_inertial_effective_system_handles_pattern_change() -> None:
 def test_configure_reusable_factorization_ksp_sets_petsc_options() -> None:
     solver = object.__new__(LinearDynamicFSIRotorInertialSolver)
     object.__setattr__(solver, "comm", PETSc.COMM_SELF)
+    solver._petsc_factorization_type = "lu"
     solver._petsc_factor_options_prefix = "rotor_inertial_test_"
     solver._petsc_factor_reuse_ordering = True
     solver._petsc_factor_reuse_fill = True
@@ -281,8 +282,10 @@ def test_configure_reusable_factorization_ksp_sets_petsc_options() -> None:
     ksp = PETSc.KSP().create(comm=PETSc.COMM_SELF)
     opts = PETSc.Options()
     try:
-        solver._configure_reusable_factorization_ksp(ksp)
+        actual = solver._configure_reusable_factorization_ksp(ksp)
         configured = opts.getAll()
+        assert actual == "lu"
+        assert ksp.getPC().getType() == "lu"
         assert configured.get("rotor_inertial_test_pc_factor_reuse_ordering") == "true"
         assert configured.get("rotor_inertial_test_pc_factor_reuse_fill") == "true"
         assert configured.get("rotor_inertial_test_pc_factor_mat_ordering_type") == "natural"
@@ -291,3 +294,28 @@ def test_configure_reusable_factorization_ksp_sets_petsc_options() -> None:
         opts.delValue("rotor_inertial_test_pc_factor_reuse_ordering")
         opts.delValue("rotor_inertial_test_pc_factor_reuse_fill")
         opts.delValue("rotor_inertial_test_pc_factor_mat_ordering_type")
+
+
+def test_configure_reusable_factorization_ksp_supports_cholesky() -> None:
+    solver = object.__new__(LinearDynamicFSIRotorInertialSolver)
+    object.__setattr__(solver, "comm", PETSc.COMM_SELF)
+    solver._petsc_factorization_type = "cholesky"
+    solver._petsc_factor_options_prefix = ""
+    solver._petsc_factor_reuse_ordering = True
+    solver._petsc_factor_reuse_fill = True
+    solver._petsc_factor_mat_ordering_type = None
+
+    ksp = PETSc.KSP().create(comm=PETSc.COMM_SELF)
+    try:
+        actual = solver._configure_reusable_factorization_ksp(ksp)
+        assert actual == "cholesky"
+        assert ksp.getPC().getType() == "cholesky"
+    finally:
+        ksp.destroy()
+
+
+def test_fallback_factorization_type_uses_lu_after_cholesky() -> None:
+    solver = object.__new__(LinearDynamicFSIRotorInertialSolver)
+
+    assert solver._fallback_factorization_type("cholesky") == "lu"
+    assert solver._fallback_factorization_type("lu") is None

@@ -423,11 +423,18 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         self._petsc_factor_options_prefix = str(
             petsc_cfg.get("factor_options_prefix", "rotor_inertial_lu_")
         )
-        self._petsc_factor_reuse_ordering = bool(
-            petsc_cfg.get("factor_reuse_ordering", True)
-        )
+        self._petsc_factor_reuse_ordering = bool(petsc_cfg.get("factor_reuse_ordering", True))
         self._petsc_factor_reuse_fill = bool(petsc_cfg.get("factor_reuse_fill", True))
         self._petsc_factor_mat_ordering_type = petsc_cfg.get("factor_mat_ordering_type")
+        self._petsc_factorization_type = (
+            str(petsc_cfg.get("factorization_type", "cholesky")).strip().lower()
+        )
+        if self._petsc_factorization_type not in {"cholesky", "lu"}:
+            _logger.warning(
+                "Unknown inertial PETSc factorization_type=%r; falling back to 'cholesky'",
+                self._petsc_factorization_type,
+            )
+            self._petsc_factorization_type = "cholesky"
 
         self._stress_output_interval = int(self.solver_params.get("stress_output_interval", 1))
 
@@ -770,13 +777,21 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         return K_eff
 
-    def _configure_reusable_factorization_ksp(self, ksp: "PETSc.KSP") -> None:
-        """Configure LU factorization reuse hints for window-to-window solves."""
+    def _configure_reusable_factorization_ksp(
+        self,
+        ksp: "PETSc.KSP",
+        factorization_type: Optional[str] = None,
+    ) -> str:
+        """Configure direct factorization reuse hints for window-to-window solves."""
         from petsc4py import PETSc
+
+        factorization_type = (factorization_type or self._petsc_factorization_type).lower()
+        if factorization_type not in {"cholesky", "lu"}:
+            raise ValueError(f"Unsupported PETSc factorization type: {factorization_type}")
 
         ksp.setType("preonly")
         pc = ksp.getPC()
-        pc.setType("lu")
+        pc.setType(factorization_type)
         pc.setReusePreconditioner(False)
         if self.comm.size > 1:
             pc.setFactorSolverType("mumps")
@@ -798,6 +813,14 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             ksp.setOptionsPrefix(prefix)
 
         ksp.setFromOptions()
+        return factorization_type
+
+    def _fallback_factorization_type(self, factorization_type: str) -> Optional[str]:
+        """Return the next direct factorization to try after a setup failure."""
+        normalized = factorization_type.lower()
+        if normalized == "cholesky":
+            return "lu"
+        return None
 
     def _assemble_inertial_rhs(
         self,
@@ -2338,13 +2361,18 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # -----------------------------------------------------------------------
         # KSP cache: K_eff = K(θ) + a₀·M + a₁·C(θ) is CONSTANT within an FSI
         # window (θ, ω, α, K, C, M all frozen during sub-iterations).
-        # The LU factorization is computed once and reused for all sub-iterations.
+        # The direct factorization is computed once and reused for all sub-iterations.
         # -----------------------------------------------------------------------
         factorization_valid = bool(
             ksp_cache is not None
             and isinstance(ksp_cache, dict)
             and ksp_cache.get("factorization_valid", False)
         )
+        preferred_factorization_type = self._petsc_factorization_type
+        if ksp_cache is not None and isinstance(ksp_cache, dict):
+            cached_factorization_type = ksp_cache.get("factorization_type")
+            if cached_factorization_type:
+                preferred_factorization_type = str(cached_factorization_type).lower()
 
         if factorization_valid:
             # Fast path: only the RHS changes; K_eff (with BCs) is already cached.
@@ -2352,6 +2380,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             workspace = ksp_cache["workspace"]
             F_eff = _build_rhs(window_rhs_constant, workspace)
             if len(fixed_idx) > 0:
+                # Elastic BCs are homogeneous in this solver, so after the first
+                # zeroRowsColumns() application we only need to reassert the fixed
+                # entries on subsequent RHS updates inside the same window.
                 F_eff.setValues(fixed_idx, fixed_vals)
                 F_eff.assemble()
             ksp = ksp_cache["ksp"]
@@ -2399,13 +2430,13 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             rhs_build_elapsed_s = time.perf_counter() - _t
 
             bc_elapsed_s = 0.0
-            # K_eff.zeroRows: zeros fixed rows, sets diagonal=1, adjusts F_eff at fixed DOFs.
+            # Preserve symmetry for Cholesky by eliminating both rows and columns.
             if len(fixed_idx) > 0:
                 _t = time.perf_counter()
                 U_fixed = K_eff.createVecRight()
                 U_fixed.setValues(fixed_idx, fixed_vals)
                 U_fixed.assemble()
-                K_eff.zeroRows(fixed_idx, 1.0, U_fixed, F_eff)
+                K_eff.zeroRowsColumns(fixed_idx, 1.0, U_fixed, F_eff)
                 K_eff.assemble()
                 U_fixed.destroy()
                 bc_elapsed_s = time.perf_counter() - _t
@@ -2413,13 +2444,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             ksp = reused_ksp
             if ksp is None:
                 ksp = PETSc.KSP().create(comm=self.comm)
-                self._configure_reusable_factorization_ksp(ksp)
             else:
                 ksp.getPC().setReusePreconditioner(False)
 
-            factorization_mode = (
-                "numeric_refactorization" if reused_ksp is not None else "fresh_lu"
-            )
             ksp_mode = "reused" if reused_ksp is not None else "new"
             operator_mode = (
                 "reused"
@@ -2429,24 +2456,63 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 else "new"
             )
             workspace_mode = "reused" if reused_workspace is not None else "new"
+            operator_binding_mode = (
+                "retained"
+                if reused_ksp is not None
+                and previous_operator is not None
+                and K_eff is previous_operator
+                else "rebound"
+            )
 
-            ksp.setOperators(K_eff)
             if previous_operator is not None and K_eff is not previous_operator:
                 previous_operator.destroy()
 
-            _t = time.perf_counter()
-            ksp.setUp()  # LU factorization — reused for all sub-iterations in this window
-            factorization_elapsed_s = time.perf_counter() - _t
+            factorization_type = preferred_factorization_type
+            fallback_factorization_type = None
+            while True:
+                self._configure_reusable_factorization_ksp(ksp, factorization_type)
+                if operator_binding_mode == "rebound":
+                    ksp.setOperators(K_eff)
+                try:
+                    _t = time.perf_counter()
+                    ksp.setUp()  # Direct factorization — reused for all sub-iterations in this window
+                    factorization_elapsed_s = time.perf_counter() - _t
+                    break
+                except PETSc.Error as exc:
+                    next_factorization_type = self._fallback_factorization_type(factorization_type)
+                    if next_factorization_type is None:
+                        raise
+                    _logger.warning(
+                        "PETSc %s factorization failed for inertial K_eff; retrying with %s (%s)",
+                        factorization_type,
+                        next_factorization_type,
+                        exc,
+                    )
+                    fallback_factorization_type = factorization_type
+                    factorization_type = next_factorization_type
+                    operator_binding_mode = "rebound"
+                    ksp.reset()
+
+            if fallback_factorization_type is not None:
+                factorization_mode = (
+                    f"{fallback_factorization_type}_fallback_to_{factorization_type}"
+                )
+            elif reused_ksp is not None:
+                factorization_mode = f"refactorization_{factorization_type}"
+            else:
+                factorization_mode = f"fresh_{factorization_type}"
             solver_cache = {
                 "ksp": ksp,
                 "operator": K_eff,
                 "workspace": workspace,
                 "window_rhs_constant": window_rhs_constant,
+                "factorization_type": factorization_type,
                 "factorization_valid": True,
             }
             _logger.debug(
-                "KSP cache miss: factorizing K_eff for %s FSI window",
+                "KSP cache miss: factorizing K_eff for %s FSI window with %s",
                 "reused" if reused_ksp is not None else "new",
+                factorization_type,
             )
 
         workspace = solver_cache["workspace"]
@@ -2481,7 +2547,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         if not factorization_valid:
             first_iteration_total_elapsed_s = time.perf_counter() - _first_iter_t0
             _logger.info(
-            "[rotor_inertial] window=%s iter=%s first-step timings: total=%.3fs K_eff=%.3fs rhs_const=%.3fs workspace=%.3fs rhs=%.3fs bc=%.3fs factorization=%.3fs solve=%.3fs state=%.3fs factorization_path=%s ksp=%s operator=%s workspace_buf=%s",
+                "[rotor_inertial] window=%s iter=%s first-step timings: total=%.3fs K_eff=%.3fs rhs_const=%.3fs workspace=%.3fs rhs=%.3fs bc=%.3fs factorization=%.3fs solve=%.3fs state=%.3fs factorization_path=%s ksp=%s operator=%s workspace_buf=%s",
                 window_index if window_index is not None else "?",
                 iteration_index if iteration_index is not None else "?",
                 first_iteration_total_elapsed_s,
@@ -2495,7 +2561,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 state_update_elapsed_s,
                 factorization_mode,
                 ksp_mode,
-                operator_mode,
+                f"{operator_mode}:{operator_binding_mode}",
                 workspace_mode,
             )
 
