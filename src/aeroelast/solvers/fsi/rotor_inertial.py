@@ -440,6 +440,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # In Phase 2 (optimization), we may track whether θ changed significantly.
         self._last_assembly_theta: Optional[float] = None
 
+        # Reference interface coordinates (set in solve(); initialized to None so
+        # attribute always exists for _write_elastic_displacement_to_precice).
+        self._interface_coords_reference: Optional["NDArray"] = None
+
     # =========================================================================
     # Phase 3: Structural Assembly on Internally Rotated Geometry
     # =========================================================================
@@ -936,6 +940,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         if checkpoint.get("omega_provider_state") is not None:
             if hasattr(self._omega_provider, "set_state"):
                 self._omega_provider.set_state(checkpoint["omega_provider_state"])
+        # Keep instance vars consistent with restored provider state.
+        self._omega = self._omega_provider.omega
+        self._alpha = self._omega_provider.alpha
 
     # =========================================================================
     # Phase 4 Complete
@@ -1734,9 +1741,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 # long simulations (> ~100 revolutions, theta > 200*pi).
                 # The rotation matrix R(theta) only depends on theta mod 2*pi,
                 # so wrapping is exact and does not change physics.
-                _THETA_WRAP_THRESHOLD = 20.0 * (2.0 * np.pi)  # wrap every 20 full revolutions
-                if theta > _THETA_WRAP_THRESHOLD:
-                    theta = theta % (2.0 * np.pi)
+                # Wrap theta to [0, 2π) after every full revolution to keep the
+                # value bounded; sin/cos are periodic so physics is unchanged.
+                theta = theta % (2.0 * np.pi)
 
                 # Rotate internal structural geometry for next window.
                 # Fast path: update node coords in-place via Rust API (preserves topology,
@@ -1906,10 +1913,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             self.M.mult(M_hist_in, M_hist_out)
 
             # C·(a1·u_n + v_n)
-            C_hist_in = self.C.createVecRight()
+            C_hist_in = C_current.createVecRight()
             C_hist_in.setArray(a1 * u_arr + v_arr)
             C_hist_out = C_hist_in.duplicate()
-            self.C.mult(C_hist_in, C_hist_out)
+            C_current.mult(C_hist_in, C_hist_out)
 
             # 4. Sum all contributions into F_eff
             F_eff_arr = F_aero_full + F_gravity + F_ref_full + M_hist_out.array + C_hist_out.array
