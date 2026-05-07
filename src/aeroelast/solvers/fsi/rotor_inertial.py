@@ -317,8 +317,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 "include_euler is set but NOT used in inertial solver (Euler term is part of a_ref)"
             )
 
-        # Force ramp (same as corotational)
+        # Force ramp and magnitude cap (same as corotational)
         self._force_ramp_time = float(rotor_cfg.get("force_ramp_time", 0.0))
+        _fmax = rotor_cfg.get("force_max_magnitude", None)
+        self._force_max_magnitude: Optional[float] = float(_fmax) if _fmax is not None else None
 
         # Omega output to preCICE (same as corotational)
         self._send_omega_to_precice = rotor_cfg.get("send_omega_to_precice", True)
@@ -1616,6 +1618,28 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 cfg["read_data"][0] if isinstance(cfg["read_data"], list) else cfg["read_data"],
             )
 
+            # Apply force ramp: scale aerodynamic forces linearly from 0 to full
+            # during the ramp phase to avoid impulsive loading at t=0 which can
+            # cause divergence in the Newmark integration.
+            if self._force_ramp_time > 0.0 and t < self._force_ramp_time:
+                ramp_factor = t / self._force_ramp_time
+                F_aero = F_aero * ramp_factor
+                _logger.debug(
+                    f"Force ramp active: t={t:.4f}s / ramp_time={self._force_ramp_time:.4f}s, "
+                    f"factor={ramp_factor:.4f}"
+                )
+
+            # Apply magnitude cap: clip per-component norm to prevent numerical blowup
+            # from pathological CFD spikes.
+            if self._force_max_magnitude is not None:
+                f_norm = float(np.linalg.norm(F_aero))
+                if f_norm > self._force_max_magnitude:
+                    F_aero = F_aero * (self._force_max_magnitude / f_norm)
+                    _logger.warning(
+                        f"Force capped: ||F_aero||={f_norm:.3e} > cap={self._force_max_magnitude:.3e}. "
+                        f"Scaling by {self._force_max_magnitude / f_norm:.4f}."
+                    )
+
             # Solve FSI step (elastic displacement increment)
             u_e_new, v_e_new, a_e_new = self._solve_fsi_step(
                 F_aero,
@@ -1695,9 +1719,17 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 # Accumulate rotation angle for next window
                 theta += omega * dt
 
+                # Normalize theta to prevent float precision loss in sin/cos for
+                # long simulations (> ~100 revolutions, theta > 200*pi).
+                # The rotation matrix R(theta) only depends on theta mod 2*pi,
+                # so wrapping is exact and does not change physics.
+                _THETA_WRAP_THRESHOLD = 20.0 * (2.0 * np.pi)  # wrap every 20 full revolutions
+                if theta > _THETA_WRAP_THRESHOLD:
+                    theta = theta % (2.0 * np.pi)
+
                 # Rotate internal structural geometry for next window
-                self._rotate_structural_geometry_internal(theta)
-                self._rebuild_assembler_with_rotated_geometry()
+                rotated_coords = self._rotate_structural_geometry_internal(theta)
+                self._rebuild_assembler_with_rotated_geometry(rotated_coords)
 
                 # Rebuild matrices on rotated geometry
                 K_current = self.domain.assemble_stiffness_matrix()
