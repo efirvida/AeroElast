@@ -710,8 +710,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         K_eff.assemble()
 
         _logger.debug(
-            f"Assembled inertial K_eff: K(θ) + {a0:.3e}·M + {a1:.3e}·C(θ) "
-            f"(no K_G, K_SP, G_cor)"
+            f"Assembled inertial K_eff: K(θ) + {a0:.3e}·M + {a1:.3e}·C(θ) (no K_G, K_SP, G_cor)"
         )
 
         return K_eff
@@ -733,7 +732,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         """
         Assemble the RHS vector for the inertial Newmark step.
 
-        F_eff = F_aero + F_g - M·a_ref + M·(a0·u_n + a2·v_n + a3·a_n) 
+        F_eff = F_aero + F_g - M·a_ref + M·(a0·u_n + a2·v_n + a3·a_n)
                 + C·(a1·u_n + a6·v_n + a7·a_n)
 
         Key differences from corotational solver:
@@ -1231,9 +1230,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             array_3d[:, :2] = array_2d
             return array_3d
         else:
-            raise ValueError(
-                f"Expected array with dim=2 or dim=3, got shape {array_2d.shape}"
-            )
+            raise ValueError(f"Expected array with dim=2 or dim=3, got shape {array_2d.shape}")
 
     def _compute_aerodynamic_torque(
         self, interface_coords: NDArray, interface_disps: NDArray, F_aero: NDArray
@@ -1367,12 +1364,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         Verification: A test with only reference load (no aero, no gravity) must
         produce zero driving torque, preventing the rotor from self-acceleration.
         """
-        _, tau_aero = self._compute_aerodynamic_torque(
-            interface_coords, interface_disps, F_aero
-        )
-        _, tau_gravity = self._compute_gravity_torque(
-            nodal_coords, nodal_disps, F_gravity
-        )
+        _, tau_aero = self._compute_aerodynamic_torque(interface_coords, interface_disps, F_aero)
+        _, tau_gravity = self._compute_gravity_torque(nodal_coords, nodal_disps, F_gravity)
 
         # Shaft torque (assumed zero in current implementation, future extension)
         tau_shaft = 0.0
@@ -1387,9 +1380,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         return tau_driving
 
-    def _update_omega_after_converged_window(
-        self, tau_driving: float, dt: float
-    ) -> None:
+    def _update_omega_after_converged_window(self, tau_driving: float, dt: float) -> None:
         """
         Update angular velocity using OmegaProvider after a converged FSI window.
 
@@ -1567,12 +1558,25 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
             # Read aero forces (global frame, no transformation)
             F_aero = self._read_forces_from_precice_global(
-                adapter, cfg["coupling_mesh"], cfg["read_data"][0] if isinstance(cfg["read_data"], list) else cfg["read_data"]
+                adapter,
+                cfg["coupling_mesh"],
+                cfg["read_data"][0] if isinstance(cfg["read_data"], list) else cfg["read_data"],
             )
 
             # Solve FSI step (elastic displacement increment)
             u_e_new, v_e_new, a_e_new = self._solve_fsi_step(
-                F_aero, F_gravity, dt, theta, omega, alpha, u_e, v_e, a_e, bc_manager, K_current, C_current
+                F_aero,
+                F_gravity,
+                dt,
+                theta,
+                omega,
+                alpha,
+                u_e,
+                v_e,
+                a_e,
+                bc_manager,
+                K_current,
+                C_current,
             )
 
             # Extract interface elastic displacement
@@ -1748,9 +1752,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         )
 
         # 2. Assemble effective stiffness: K_eff = K(θ) + a₀·M + a₁·C(θ)
-        K_eff = self._assemble_inertial_effective_system(
-            K_current, C_current, self.M, a0, a1
-        )
+        K_eff = self._assemble_inertial_effective_system(K_current, C_current, self.M, a0, a1)
 
         # 3. Assemble RHS: F_eff = F_aero + F_gravity - F_ref + M·(a₀·u + a₂·v + a₃·a)
         F_eff = self._assemble_inertial_rhs(
@@ -1770,7 +1772,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         ksp.solve(F_eff, u_e_new)
 
         # 6. Update velocity and acceleration using Newmark formulas
-        v_e_new = self._newmark_velocity_update(u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta, gamma)
+        v_e_new = self._newmark_velocity_update(
+            u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta, gamma
+        )
         a_e_new = self._newmark_acceleration_update(u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta)
 
         return u_e_new, v_e_new, a_e_new
@@ -1886,9 +1890,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         return a_new
 
-    def _extract_interface_values(
-        self, vec: "PETSc.Vec", interface_dofs: NDArray
-    ) -> NDArray:
+    def _extract_interface_values(self, vec: "PETSc.Vec", interface_dofs: NDArray) -> NDArray:
         """
         Extract interface DOF values from a global PETSc vector.
 
@@ -1947,7 +1949,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
     # Assembly and Initialization Methods
     # =========================================================================
 
-    def _assemble_system_matrices(self) -> Tuple[
+    def _assemble_system_matrices(
+        self,
+    ) -> Tuple[
         Tuple["PETSc.Mat", "PETSc.Mat"],
         "BoundaryConditionManager",
     ]:
@@ -2026,9 +2030,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             return
 
         if self._damping_auto:
-            self._print_phase(
-                5, 6, "Rayleigh damping: auto-computing via SLEPc modal analysis..."
-            )
+            self._print_phase(5, 6, "Rayleigh damping: auto-computing via SLEPc modal analysis...")
             import _aeroelast
 
             cfg = self._damping_cfg
@@ -2134,7 +2136,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         coords_3d = self._ensure_3d_vectors(interface_coords)
         radial_vectors = coords_3d - self._rotation_center
         radial_distances = np.linalg.norm(
-            radial_vectors - np.outer(np.dot(radial_vectors, self._rotation_axis), self._rotation_axis),
+            radial_vectors
+            - np.outer(np.dot(radial_vectors, self._rotation_axis), self._rotation_axis),
             axis=1,
         )
         return float(np.max(radial_distances))
