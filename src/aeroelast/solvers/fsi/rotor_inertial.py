@@ -791,7 +791,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         """
         # Convert nodal acceleration to DOF load vector
         M_diag_full = self.M.getDiagonal().array
-        F_ref_full = self._inertial_calc.compute_reference_load_vector(
+        F_ref_full = self._inertial_calculator.compute_reference_load_vector(
             a_ref_nodal, M_diag_full, dofs_per_node=self.domain.dofs_per_node
         )
         # Reduce to free DOFs
@@ -1596,6 +1596,13 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # Checkpoint storage for sub-iterations
         checkpoint: Dict[str, Any] = {}
 
+        # KSP cache: K_eff factorization is constant within an FSI window
+        # (K, C, M, theta, omega, alpha are all frozen during sub-iterations).
+        # We factorize once per window and reuse the KSP for all sub-iterations,
+        # which eliminates 5-10x redundant LU factorizations in implicit coupling.
+        # Invalidated at the start of each new window (requires_writing_checkpoint).
+        _ksp_window_cache: Optional["PETSc.KSP"] = None
+
         self._print_separator()
         if self._is_primary_rank():
             print("  Starting FSI coupling loop...\n", flush=True)
@@ -1609,6 +1616,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 # can restore K(θ) and C(θ) consistent with the checkpointed kinematics.
                 checkpoint["K_current"] = K_current
                 checkpoint["C_current"] = C_current
+                # New window: invalidate KSP cache so K_eff is re-factorized
+                # with the new window's geometry (theta, omega, alpha).
+                _ksp_window_cache = None
                 iteration_count = 0
 
             # Read aero forces (global frame, no transformation)
@@ -1641,7 +1651,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                     )
 
             # Solve FSI step (elastic displacement increment)
-            u_e_new, v_e_new, a_e_new = self._solve_fsi_step(
+            u_e_new, v_e_new, a_e_new, _ksp_window_cache = self._solve_fsi_step(
                 F_aero,
                 F_gravity,
                 dt,
@@ -1654,6 +1664,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 bc_manager,
                 K_current,
                 C_current,
+                ksp_cache=_ksp_window_cache,
             )
 
             # Extract interface elastic displacement
@@ -1775,7 +1786,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         bc_manager: "BoundaryConditionManager",
         K_current: "PETSc.Mat",
         C_current: "PETSc.Mat",
-    ) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec"]:
+        ksp_cache: Optional["PETSc.KSP"] = None,
+    ) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec", Optional["PETSc.KSP"]]:
         """
         Solve one FSI sub-iteration step using Newmark integration.
 
@@ -1815,8 +1827,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         Returns
         -------
-        Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec]
-            Updated (u_e_new, v_e_new, a_e_new) vectors.
+        Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec, Optional[PETSc.KSP]]
+            Updated (u_e_new, v_e_new, a_e_new) vectors and the KSP object
+            (to be reused as ksp_cache in subsequent sub-iterations).
 
         Notes
         -----
@@ -1824,50 +1837,134 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             M·ü_e + C(θ)·u̇_e + K(θ)·u_e = F_aero + F_gravity - M·a_ref
 
         where a_ref = α × r + ω × (ω × r) is the rigid-body reference acceleration.
+
+        K_eff = K(θ) + a₀·M + a₁·C(θ) is constant within an FSI window because
+        K, C, M, theta, omega, and alpha are all frozen during sub-iterations.
+        Passing ksp_cache avoids re-factorizing on every sub-iteration.
         """
         from petsc4py import PETSc
 
-        # Newmark-β coefficients (β=0.25, γ=0.5 for unconditional stability)
+        # Newmark-β coefficients (β=0.25, γ=0.5 — average acceleration, unconditionally stable)
+        # K_eff = K(θ) + a₀·M + a₁·C(θ)
+        # F_eff = F_aero + F_g + F_ref + M·(a₀·u_n + a₂·v_n + a₃·a_n) + C·(a₁·u_n + v_n)
         beta = 0.25
         gamma = 0.5
-        a0 = 1.0 / (beta * dt * dt)
-        a1 = gamma / (beta * dt)
-        a2 = 1.0 / (beta * dt)
-        a3 = 1.0 / (2.0 * beta) - 1.0
+        a0 = 1.0 / (beta * dt * dt)     # 4/Δt²
+        a1 = gamma / (beta * dt)          # 2/Δt
+        a2 = 1.0 / (beta * dt)            # 4/Δt
+        a3 = 1.0 / (2.0 * beta) - 1.0    # 1.0
 
-        # 1. Compute reference load: F_ref = -M·a_ref (rigid-body inertial correction)
-        nodal_coords = self.domain.mesh.nodal_coordinates
-        F_ref = self._inertial_calculator.compute_reference_load_vector(
-            self.M, nodal_coords, omega, alpha
-        )
+        # Dirichlet BC data from bc_manager
+        fixed_dofs_dict = bc_manager.fixed_dofs          # Dict[int, float]
+        fixed_idx = np.array(list(fixed_dofs_dict.keys()), dtype=PETSc.IntType)
+        fixed_vals = np.array(list(fixed_dofs_dict.values()), dtype=PETSc.ScalarType)
 
-        # 2. Assemble effective stiffness: K_eff = K(θ) + a₀·M + a₁·C(θ)
-        K_eff = self._assemble_inertial_effective_system(K_current, C_current, self.M, a0, a1)
+        def _build_rhs() -> "PETSc.Vec":
+            """
+            Assemble full-DOF effective RHS (before BC enforcement):
 
-        # 3. Assemble RHS: F_eff = F_aero + F_gravity - F_ref + M·(a₀·u + a₂·v + a₃·a)
-        F_eff = self._assemble_inertial_rhs(
-            F_aero, F_gravity, F_ref, self.M, u_e_prev, v_e_prev, a_e_prev, dt, a0, a2, a3
-        )
+                F_eff = F_aero_full + F_gravity + F_ref
+                        + M·(a0·u_n + a2·v_n + a3·a_n)
+                        + C·(a1·u_n + v_n)
 
-        # 4. Apply boundary conditions (zero essential BCs for elastic displacement)
-        bc_manager.apply_dirichlet_to_system(K_eff, F_eff)
+            F_ref = -M·a_ref  (rigid-body reference load, sign already applied by
+            compute_reference_load_vector).
+            """
+            # 1. Assemble F_aero from flat interface-force array into full-DOF space.
+            #    F_aero shape: (n_iface * 3,); self._interface_dofs shape: (n_iface, 3).
+            F_aero_full = np.zeros(self.domain.dofs_count, dtype=np.float64)
+            np.add.at(F_aero_full, self._interface_dofs.ravel(), F_aero)
 
-        # 5. Solve linear system: K_eff · u_e_new = F_eff
-        u_e_new = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
-        ksp = PETSc.KSP().create(comm=self.comm)
-        ksp.setOperators(K_eff)
-        ksp.setType("preonly")  # Direct solver
-        ksp.getPC().setType("lu")
-        ksp.setFromOptions()
+            # 2. Rigid-body reference load F_ref = -M·a_ref
+            nodal_coords = self.domain.mesh.nodal_coordinates
+            a_ref_nodal = self._inertial_calculator.compute_rigid_body_acceleration_inertial(
+                nodal_coords, omega, alpha
+            )
+            M_diag_full = self.M.getDiagonal().array
+            F_ref_full = self._inertial_calculator.compute_reference_load_vector(
+                a_ref_nodal, M_diag_full, dofs_per_node=self.domain.dofs_per_node
+            )
+
+            # 3. Newmark history terms via full-DOF PETSc matrix-vector products
+            u_arr = u_e_prev.array.copy()
+            v_arr = v_e_prev.array.copy()
+            a_arr = a_e_prev.array.copy()
+
+            # M·(a0·u_n + a2·v_n + a3·a_n)
+            M_hist_in = self.M.createVecRight()
+            M_hist_in.setArray(a0 * u_arr + a2 * v_arr + a3 * a_arr)
+            M_hist_out = M_hist_in.duplicate()
+            self.M.mult(M_hist_in, M_hist_out)
+
+            # C·(a1·u_n + v_n)
+            C_hist_in = self.C.createVecRight()
+            C_hist_in.setArray(a1 * u_arr + v_arr)
+            C_hist_out = C_hist_in.duplicate()
+            self.C.mult(C_hist_in, C_hist_out)
+
+            # 4. Sum all contributions into F_eff
+            F_eff_arr = (
+                F_aero_full
+                + F_gravity
+                + F_ref_full
+                + M_hist_out.array
+                + C_hist_out.array
+            )
+            F_eff = self.M.createVecRight()
+            F_eff.setArray(F_eff_arr)
+            F_eff.assemble()
+
+            for _tmp in (M_hist_in, M_hist_out, C_hist_in, C_hist_out):
+                _tmp.destroy()
+            return F_eff
+
+        # -----------------------------------------------------------------------
+        # KSP cache: K_eff = K(θ) + a₀·M + a₁·C(θ) is CONSTANT within an FSI
+        # window (θ, ω, α, K, C, M all frozen during sub-iterations).
+        # The LU factorization is computed once and reused for all sub-iterations.
+        # -----------------------------------------------------------------------
+        if ksp_cache is not None:
+            # Fast path: only the RHS changes; K_eff (with BCs) is already cached.
+            F_eff = _build_rhs()
+            if len(fixed_idx) > 0:
+                F_eff.setValues(fixed_idx, fixed_vals)
+                F_eff.assemble()
+            ksp = ksp_cache
+            _logger.debug("KSP cache hit: reusing factorized K_eff for sub-iteration")
+        else:
+            # First sub-iteration: assemble K_eff, apply full BCs, factorize.
+            K_eff = self._assemble_inertial_effective_system(K_current, self.M, C_current, a0, a1)
+            F_eff = _build_rhs()
+            # K_eff.zeroRows: zeros fixed rows, sets diagonal=1, adjusts F_eff at fixed DOFs.
+            if len(fixed_idx) > 0:
+                U_fixed = K_eff.createVecRight()
+                U_fixed.setValues(fixed_idx, fixed_vals)
+                U_fixed.assemble()
+                K_eff.zeroRows(fixed_idx, 1.0, U_fixed, F_eff)
+                K_eff.assemble()
+                U_fixed.destroy()
+            ksp = PETSc.KSP().create(comm=self.comm)
+            ksp.setOperators(K_eff)
+            ksp.setType("preonly")
+            ksp.getPC().setType("lu")
+            ksp.setFromOptions()
+            ksp.setUp()  # LU factorization — reused for all sub-iterations in this window
+            _logger.debug("KSP cache miss: factorizing K_eff for new FSI window")
+
+        # Solve: K_eff · u_e_new = F_eff
+        u_e_new = self.M.createVecRight()
         ksp.solve(F_eff, u_e_new)
+        F_eff.destroy()
 
-        # 6. Update velocity and acceleration using Newmark formulas
+        # Update velocity and acceleration using Newmark formulas
         v_e_new = self._newmark_velocity_update(
             u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta, gamma
         )
-        a_e_new = self._newmark_acceleration_update(u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta)
+        a_e_new = self._newmark_acceleration_update(
+            u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta
+        )
 
-        return u_e_new, v_e_new, a_e_new
+        return u_e_new, v_e_new, a_e_new, ksp
 
     def _newmark_velocity_update(
         self,
