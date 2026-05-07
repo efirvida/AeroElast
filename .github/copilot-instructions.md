@@ -2,13 +2,24 @@
 
 Finite element library for shell, solid and plane elements, with FSI coupling
 via preCICE for rotating structures (wind turbine blades, propellers).
-All simulations are configured via YAML and executed through the `fem-shell-fsi` CLI.
+All simulations are configured via YAML and executed through the `fem-shell-fsi` (or `aeroelast`) CLI.
+
+## Package Identity — CRITICAL
+
+The repo is named `fem-shell` but the **installed Python package is `aeroelast`**.
+
+- Source: `src/aeroelast/` — use this in imports and when grepping: `import aeroelast`
+- **Never** use `fem_shell` in imports; it no longer exists
+- CLI entry points: `fem-shell-fsi` is kept for backwards compatibility; `aeroelast` is the newer dispatcher
+- `LinearDynamicFSIRotorSolver` was renamed to `LinearDynamicFSIRotorCorotationalSolver`; the old enum value `LINEAR_DYNAMIC_FSI_ROTOR` still works as an alias
 
 ## Architecture
 
+### Python package (`src/aeroelast/`)
+
 ```
-src/fem_shell/
-  cli/           # YAML-driven CLI: fem-shell-fsi command
+src/aeroelast/
+  cli/           # YAML-driven entry points (fem-shell-fsi, aeroelast, fem-shell-bem-fsi)
   core/
     config.py    # FSISimulationConfig — 30+ dataclasses, preCICE XML parsing
     mesh/        # MeshModel, entities, 13 generators (Gmsh), I/O, quality checks
@@ -16,32 +27,53 @@ src/fem_shell/
     bc.py        # DirichletCondition, BodyForce
     laminate.py  # Classical Laminate Theory (CLT)
     assembler.py # PETSc sparse assembly from element K/M
-  elements/      # MITC3/4 (shell), HEXA/TETRA/WEDGE/PYRAMID (solid), QUAD (plane)
+  elements/      # ElementFamily enum; element kernels live in Rust now
   solvers/
-    linear.py    # LinearStaticSolver, LinearDynamicSolver
-    modal.py     # ModalSolver (SLEPc eigenvalue)
+    linear.py, modal.py              # Static + modal (PETSc/SLEPc)
+    elasticity/                      # Static linear/nonlinear, dynamic Newmark
     fsi/
-      linear_dynamic.py  # LinearDynamicFSISolver (preCICE)
-      rotor.py           # LinearDynamicFSIRotorSolver (co-rotational + inertial)
-      corotational.py    # OmegaProviders, InertialForcesCalculator, CoordinateTransforms
-      runner.py          # FSIRunner — YAML-to-simulation executor
-      base.py            # Adapter, ForceClipper, SolverState
-  postprocess/   # Stress recovery (shell + solid), watchpoint plots
+      linear_dynamic.py              # LinearDynamicFSISolver (preCICE base)
+      rotor.py                       # LinearDynamicFSIRotorCorotationalSolver
+      rotor_inertial.py              # LinearDynamicFSIRotorInertialSolver (IN DEVELOPMENT)
+      corotational.py                # OmegaProviders, InertialForcesCalculator, CoordinateTransforms
+      runner.py                      # FSIRunner — YAML-to-simulation executor
+      base.py                        # Adapter, ForceClipper, SolverState
+    bem/                             # CCBlade-based BEM aero engine
+  postprocess/   # StressRecovery, watchpoint plots
   constitutive/  # Composite failure criteria (Tsai-Wu, Hashin, Max Stress)
   models/        # Domain models (Blade, NuMAD integration)
   cfd_openfoam/  # OpenFOAM blockMeshDict generator from blade geometry
 ```
+
+### Rust workspace (`crates/`)
+
+The hot path of FSI rotor simulations runs in Rust. `_aeroelast` is the PyO3 extension module.
+
+```
+crates/
+  aeroelast-core/      # Element kernels (MITC3/4, HEXA, TETRA, ...)
+  aeroelast-mesh/      # Mesh data structures
+  aeroelast-solvers/   # PETSc assembly + Newmark stepper + FSI rotor loop
+    src/petsc/fsi/rotor_fsi.rs            # per-sub-iteration FSI loop
+    src/petsc/elasticity/dynamic_newmark.rs  # KSP with cached factorization
+  aeroelast-py/        # PyO3 bindings → builds _aeroelast.so
+```
+
+**Key**: inside a converged window the loop never re-enters Python. `_solve_via_rust()` in `rotor.py` calls `_aeroelast.run_rotor_fsi_solver()`, which owns the sub-iteration loop. Python `_step_cb` is invoked only at converged window boundaries.
 
 ### Solver Hierarchy
 
 ```
 Solver (ABC)
 ├── LinearStaticSolver
-├── LinearDynamicSolver (Newmark-β)
+├── LinearDynamicSolver (Newmark-β trapezoidal)
 ├── ModalSolver (SLEPc)
 └── LinearDynamicFSISolver (preCICE)
-    └── LinearDynamicFSIRotorSolver (co-rotational + inertial forces)
+    ├── LinearDynamicFSIRotorCorotationalSolver  # production rotor solver
+    └── LinearDynamicFSIRotorInertialSolver       # in development
 ```
+
+The corotational solver is production. See [docs/teoria_formulacion_fsi_rotor.md](../docs/teoria_formulacion_fsi_rotor.md) for the theoretical derivation.
 
 ### Data Flow
 
@@ -78,19 +110,26 @@ Full reference: [docs/cli-reference.md](../docs/cli-reference.md)
 ## Build and Test
 
 ```sh
-pip install -e .                         # editable install
-python -m pytest tests/ -q --tb=short    # run tests (~294 pass)
+# Editable install (also triggers Rust build via setuptools shim)
+pip install -e .
+pip install -e .[dev]   # adds pytest stack
+
+# Full test suite (excludes two stale-import modules)
+python -m pytest tests/ -q --tb=short \
+    --ignore=tests/test_blade_mesh.py \
+    --ignore=tests/test_rotor_inertial.py
+
+# Skip slow / benchmark tests
+pytest tests/ -m "not slow and not benchmark"
+
 ruff check                               # lint (line-length=100)
 ```
 
-Known test exclusions (pre-existing import issues):
-```sh
---ignore=tests/test_blade_mesh.py --ignore=tests/test_rotor_inertial.py
-```
+Known failures (NOT regressions):
+- `tests/test_blade_mesh.py` and `tests/test_rotor_inertial.py` — stale imports, always excluded
+- `tests/test_ko2017_performance.py` — 8 pre-existing failures with tight tolerances on coarse meshes
 
-Benchmark tests under `tests/benchmarks/` have tight tolerances and may show
-8 pre-existing failures in `test_ko2017_performance.py` — these are NOT
-regressions.
+For HPC system-level installs (PETSc, SLEPc, preCICE, OpenFOAM) use `Makefile.fedora`, `Makefile.sdumont`, or `Makefile.wsl`. **Never run `make all` casually** — compiles from source, takes hours.
 
 ## Conventions
 
@@ -190,3 +229,14 @@ The `simulations/` folder contains OpenFOAM + preCICE FSI cases. Each case has:
 - [instructions/openfoam-fsi.instructions.md](instructions/openfoam-fsi.instructions.md) — OpenFOAM coupling pitfalls (applies to `simulations/**`)
 - [skills/run-fsi-simulation/SKILL.md](skills/run-fsi-simulation/SKILL.md) — SLURM job lifecycle (submit, diagnose, restart, clean)
 - [agents/fem-reviewer.agent.md](agents/fem-reviewer.agent.md) — FEA numerical correctness reviewer
+
+## Development Workflow
+
+### SDD (Spec-Driven Development)
+This project uses SDD for substantial changes. The `.github/agents/`, `.github/skills/`, and `openspec/` directories are all SDD artifacts. Use `/sdd-new <change>` for any non-trivial feature or refactor. Engram is the active artifact store.
+
+### Documentation Index
+Key docs under `docs/` for context before touching solvers:
+- [teoria_formulacion_fsi_rotor.md](../docs/teoria_formulacion_fsi_rotor.md) — full theoretical derivation of the corotational FSI rotor
+- [rotor_inertial_solver_design.md](../docs/rotor_inertial_solver_design.md) — design doc for the in-development inertial solver
+- [improvement_plan_mitc4_vs_s4r.md](../docs/improvement_plan_mitc4_vs_s4r.md) — MITC4 vs S4R composite shell roadmap
