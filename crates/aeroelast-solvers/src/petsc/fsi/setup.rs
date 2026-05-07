@@ -9,8 +9,14 @@
 /// 2. [`lump_mass_coo`]      — convert consistent mass to lumped diagonal form.
 /// 3. [`rayleigh_c_coo`]     — build Rayleigh C = η_k·K + η_m·M from free-DOF COO.
 /// 4. [`remap_interface_dofs`] — translate global DOF indices to reduced indices.
+/// 5. [`extract_masses`]     — extract nodal masses from lumped mass diagonal.
+/// 6. [`rotate_mesh_coords`] — rotate mesh coordinates using Rodrigues formula.
+/// 7. [`reassemble_k`]       — reassemble K after coordinate update (inertial solver).
 
 use std::collections::HashMap;
+
+use aeroelast_core::assembly::assembler::MeshAssembler;
+use crate::petsc::fsi::rotor_physics::RotorTransforms;
 
 // ── BC reduction ──────────────────────────────────────────────────────────────
 
@@ -312,6 +318,118 @@ pub fn expand_diag_to_sparsity(lumped_diag: &[f64], k_rows: &[i32], k_cols: &[i3
         .collect()
 }
 
+// ── Inertial solver helpers ───────────────────────────────────────────────────
+
+/// Extract nodal masses from a lumped mass diagonal.
+///
+/// The inertial rotor solver needs nodal masses (one scalar per node) to compute
+/// the reference load vector `F_ref = −M·a_ref`. This function extracts the first
+/// translational DOF mass for each node from the lumped diagonal.
+///
+/// # Arguments
+/// * `lumped_diag` — lumped mass diagonal (length = n_nodes × dofs_per_node)
+/// * `dofs_per_node` — DOF stride (typically 6 for shells, 3 for solids)
+///
+/// # Returns
+/// `Vec<f64>` — nodal masses (length = n_nodes), one scalar per node.
+///
+/// # Panics
+/// Panics if `lumped_diag.len()` is not divisible by `dofs_per_node`.
+pub fn extract_masses(lumped_diag: &[f64], dofs_per_node: usize) -> Vec<f64> {
+    assert_eq!(
+        lumped_diag.len() % dofs_per_node,
+        0,
+        "lumped_diag length must be a multiple of dofs_per_node"
+    );
+    let n_nodes = lumped_diag.len() / dofs_per_node;
+    let mut masses = Vec::with_capacity(n_nodes);
+    for i in 0..n_nodes {
+        // Extract the first translational DOF mass (DOF 0 of the node).
+        // For lumped mass, all translational DOFs (0, 1, 2) have the same value.
+        masses.push(lumped_diag[i * dofs_per_node]);
+    }
+    masses
+}
+
+/// Rotate mesh coordinates using Rodrigues' formula.
+///
+/// Given reference (unrotated) coordinates and a rotation angle θ about the
+/// axis defined in `transforms`, returns the rotated coordinates.
+///
+/// # Arguments
+/// * `coords_ref` — reference node coordinates (flat, length = n_nodes × 3)
+/// * `transforms` — `RotorTransforms` with rotation axis and center
+/// * `theta` — rotation angle [rad]
+///
+/// # Returns
+/// `Vec<f64>` — rotated coordinates (flat, length = n_nodes × 3)
+pub fn rotate_mesh_coords(
+    coords_ref: &[f64],
+    transforms: &RotorTransforms,
+    theta: f64,
+) -> Vec<f64> {
+    let n_nodes = coords_ref.len() / 3;
+    let mut coords_rotated = Vec::with_capacity(coords_ref.len());
+
+    let r_mat = transforms.rotation_matrix(theta);
+
+    for i in 0..n_nodes {
+        let x0 = coords_ref[3 * i];
+        let y0 = coords_ref[3 * i + 1];
+        let z0 = coords_ref[3 * i + 2];
+
+        // Translate to rotation center
+        let dx = x0 - transforms.center[0];
+        let dy = y0 - transforms.center[1];
+        let dz = z0 - transforms.center[2];
+
+        // Apply rotation matrix
+        let rx = r_mat[0][0] * dx + r_mat[0][1] * dy + r_mat[0][2] * dz;
+        let ry = r_mat[1][0] * dx + r_mat[1][1] * dy + r_mat[1][2] * dz;
+        let rz = r_mat[2][0] * dx + r_mat[2][1] * dy + r_mat[2][2] * dz;
+
+        // Translate back
+        coords_rotated.push(rx + transforms.center[0]);
+        coords_rotated.push(ry + transforms.center[1]);
+        coords_rotated.push(rz + transforms.center[2]);
+    }
+
+    coords_rotated
+}
+
+/// Reassemble the elastic stiffness matrix K after updating mesh coordinates.
+///
+/// Used by the **inertial rotor solver** to rebuild K(θ) after the mesh has
+/// been rotated to a new angle θ. The function:
+/// 1. Calls `assembler.update_node_coordinates(coords_rotated)` to rebuild
+///    element precomputed data (Jacobians, normals, etc.).
+/// 2. Calls `assembler.assemble_k()` to get the new K in COO format.
+///
+/// The caller is responsible for reducing the COO to the free-DOF system
+/// (via `reduce_coo`) before passing to `NewmarkStepper::update_elastic_stiffness`.
+///
+/// # Arguments
+/// * `assembler` — mutable reference to the `MeshAssembler`
+/// * `coords_rotated` — new (rotated) node coordinates (flat, length = n_nodes × 3)
+///
+/// # Returns
+/// `(rows, cols, vals)` — COO triplets for the **global** (unreduced) K matrix.
+///
+/// # Notes
+/// - This is an O(n_elems) operation (recomputes all element Jacobians).
+/// - The co-rotational solver does **not** use this (its K is constant).
+/// - For the inertial solver, call this every time the mesh rotates significantly.
+pub fn reassemble_k(
+    assembler: &mut MeshAssembler,
+    coords_rotated: &[f64],
+) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
+    // Step 1: Update mesh coordinates (rebuilds element precomputed data)
+    assembler.update_node_coordinates(coords_rotated);
+
+    // Step 2: Reassemble K
+    assembler.assemble_k()
+}
+
 
 
 #[cfg(test)]
@@ -416,5 +534,75 @@ mod tests {
         let m = expand_diag_to_sparsity(&diag, &k_rows, &k_cols);
         // (0,0)→10, (0,1)→0, (1,1)→20, (2,2)→30
         assert_eq!(m, vec![10.0, 0.0, 20.0, 30.0]);
+    }
+
+    // ── Inertial solver helper tests ─────────────────────────────────────────
+
+    #[test]
+    fn test_extract_masses_6dof() {
+        // 2 nodes × 6 DOFs = 12 entries. Lumped mass: [m, m, m, 0, 0, 0] per node.
+        let lumped_diag = vec![
+            5.0, 5.0, 5.0, 0.0, 0.0, 0.0,  // node 0: m=5
+            3.0, 3.0, 3.0, 0.0, 0.0, 0.0,  // node 1: m=3
+        ];
+        let masses = extract_masses(&lumped_diag, 6);
+        assert_eq!(masses.len(), 2);
+        assert_eq!(masses[0], 5.0);
+        assert_eq!(masses[1], 3.0);
+    }
+
+    #[test]
+    fn test_extract_masses_3dof() {
+        // 3 nodes × 3 DOFs = 9 entries. Lumped mass: [m, m, m] per node.
+        let lumped_diag = vec![
+            2.0, 2.0, 2.0,  // node 0: m=2
+            4.0, 4.0, 4.0,  // node 1: m=4
+            1.0, 1.0, 1.0,  // node 2: m=1
+        ];
+        let masses = extract_masses(&lumped_diag, 3);
+        assert_eq!(masses, vec![2.0, 4.0, 1.0]);
+    }
+
+    #[test]
+    fn test_rotate_mesh_coords_90deg_z_axis() {
+        // Single node at [1, 0, 0], rotate 90° about Z axis → [0, 1, 0]
+        use std::f64::consts::FRAC_PI_2;
+        let coords_ref = vec![1.0, 0.0, 0.0];
+        let transforms = RotorTransforms::new([0.0, 0.0, 1.0], [0.0, 0.0, 0.0]);
+        let coords_rotated = rotate_mesh_coords(&coords_ref, &transforms, FRAC_PI_2);
+
+        assert_eq!(coords_rotated.len(), 3);
+        assert!(coords_rotated[0].abs() < 1e-14, "x={}", coords_rotated[0]);
+        assert!((coords_rotated[1] - 1.0).abs() < 1e-14, "y={}", coords_rotated[1]);
+        assert!(coords_rotated[2].abs() < 1e-14, "z={}", coords_rotated[2]);
+    }
+
+    #[test]
+    fn test_rotate_mesh_coords_identity() {
+        // Rotate by θ=0 → identity
+        let coords_ref = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let transforms = RotorTransforms::new([0.0, 0.0, 1.0], [0.0, 0.0, 0.0]);
+        let coords_rotated = rotate_mesh_coords(&coords_ref, &transforms, 0.0);
+
+        assert_eq!(coords_rotated.len(), coords_ref.len());
+        for (a, b) in coords_ref.iter().zip(coords_rotated.iter()) {
+            assert!((a - b).abs() < 1e-14, "a={a}, b={b}");
+        }
+    }
+
+    #[test]
+    fn test_rotate_mesh_coords_with_center() {
+        // Node at [2, 0, 0], rotate 90° about Z with center=[1, 0, 0] → [1, 1, 0]
+        use std::f64::consts::FRAC_PI_2;
+        let coords_ref = vec![2.0, 0.0, 0.0];
+        let transforms = RotorTransforms::new([0.0, 0.0, 1.0], [1.0, 0.0, 0.0]);
+        let coords_rotated = rotate_mesh_coords(&coords_ref, &transforms, FRAC_PI_2);
+
+        // r = [2,0,0] - [1,0,0] = [1,0,0]
+        // R(90°)·[1,0,0] = [0,1,0]
+        // r' + center = [0,1,0] + [1,0,0] = [1,1,0]
+        assert!((coords_rotated[0] - 1.0).abs() < 1e-14, "x={}", coords_rotated[0]);
+        assert!((coords_rotated[1] - 1.0).abs() < 1e-14, "y={}", coords_rotated[1]);
+        assert!(coords_rotated[2].abs() < 1e-14, "z={}", coords_rotated[2]);
     }
 }
