@@ -799,17 +799,39 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         return F_eff
 
-    def _checkpoint_elastic_state(self) -> Dict[str, Any]:
+    def _checkpoint_elastic_state(
+        self,
+        u_e: "PETSc.Vec",
+        v_e: "PETSc.Vec",
+        a_e: "PETSc.Vec",
+        theta: float,
+        omega: float,
+        alpha: float,
+    ) -> Dict[str, Any]:
         """
         Checkpoint the elastic state and rigid-body kinematics.
 
         The inertial solver state includes:
         - Elastic displacement, velocity, acceleration (u_e, v_e, a_e)
         - Rigid-body kinematics (theta, omega, alpha)
-        - Representative window kinematics (theta_target, omega_window, alpha_window)
 
         This is distinct from the corotational solver checkpoint which stores
         displacement in the rotating frame.
+
+        Parameters
+        ----------
+        u_e : PETSc.Vec
+            Elastic displacement vector.
+        v_e : PETSc.Vec
+            Elastic velocity vector.
+        a_e : PETSc.Vec
+            Elastic acceleration vector.
+        theta : float
+            Accumulated rotation angle [rad].
+        omega : float
+            Angular velocity [rad/s].
+        alpha : float
+            Angular acceleration [rad/s²].
 
         Returns
         -------
@@ -822,18 +844,14 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         subsequent time history within tolerance (see Phase 7 tests).
         """
         checkpoint = {
-            # Elastic state variables
-            "u_e": self.domain.u.copy() if self.domain.u is not None else None,
-            "v_e": self.domain.v.copy() if self.domain.v is not None else None,
-            "a_e": self.domain.a.copy() if self.domain.a is not None else None,
+            # Elastic state vectors (deep copy)
+            "u_e": u_e.duplicate(),
+            "v_e": v_e.duplicate(),
+            "a_e": a_e.duplicate(),
             # Rigid-body kinematics
-            "theta": self._theta,
-            "omega": self._omega,
-            "alpha": self._alpha,
-            # Window kinematics (frozen during sub-iterations)
-            "theta_target": getattr(self, "_theta_target", 0.0),
-            "omega_window": getattr(self, "_omega_window", 0.0),
-            "alpha_window": getattr(self, "_alpha_window", 0.0),
+            "theta": float(theta),
+            "omega": float(omega),
+            "alpha": float(alpha),
             # OmegaProvider state (if applicable)
             "omega_provider_state": (
                 self._omega_provider.get_state()
@@ -842,14 +860,20 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             ),
         }
 
-        _logger.debug(
-            f"Checkpointed elastic state: theta={self._theta:.6f}, "
-            f"omega={self._omega:.6f}, ||u_e||={np.linalg.norm(self.domain.u) if self.domain.u is not None else 0:.3e}"
-        )
+        # Copy vector contents
+        u_e.copy(result=checkpoint["u_e"])
+        v_e.copy(result=checkpoint["v_e"])
+        a_e.copy(result=checkpoint["a_e"])
 
         return checkpoint
 
-    def _rollback_elastic_state(self, checkpoint: Dict[str, Any]) -> None:
+    def _rollback_elastic_state(
+        self,
+        checkpoint: Dict[str, Any],
+        u_e: "PETSc.Vec",
+        v_e: "PETSc.Vec",
+        a_e: "PETSc.Vec",
+    ) -> None:
         """
         Rollback to a previously checkpointed state.
 
@@ -862,6 +886,12 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         ----------
         checkpoint : dict
             State dictionary from _checkpoint_elastic_state().
+        u_e : PETSc.Vec
+            Elastic displacement vector to restore.
+        v_e : PETSc.Vec
+            Elastic velocity vector to restore.
+        a_e : PETSc.Vec
+            Elastic acceleration vector to restore.
 
         Notes
         -----
@@ -869,30 +899,15 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         from the checkpointed window kinematics (no reassembly needed within
         the same FSI window).
         """
-        # Restore elastic state
-        if checkpoint["u_e"] is not None:
-            self.domain.u[:] = checkpoint["u_e"]
-        if checkpoint["v_e"] is not None:
-            self.domain.v[:] = checkpoint["v_e"]
-        if checkpoint["a_e"] is not None:
-            self.domain.a[:] = checkpoint["a_e"]
-
-        # Restore rigid-body kinematics
-        self._theta = checkpoint["theta"]
-        self._omega = checkpoint["omega"]
-        self._alpha = checkpoint["alpha"]
-        self._theta_target = checkpoint.get("theta_target", 0.0)
-        self._omega_window = checkpoint.get("omega_window", 0.0)
-        self._alpha_window = checkpoint.get("alpha_window", 0.0)
+        # Restore elastic state vectors
+        checkpoint["u_e"].copy(result=u_e)
+        checkpoint["v_e"].copy(result=v_e)
+        checkpoint["a_e"].copy(result=a_e)
 
         # Restore OmegaProvider state
-        if checkpoint["omega_provider_state"] is not None:
+        if checkpoint.get("omega_provider_state") is not None:
             if hasattr(self._omega_provider, "set_state"):
                 self._omega_provider.set_state(checkpoint["omega_provider_state"])
-
-        _logger.debug(
-            f"Rolled back to: theta={self._theta:.6f}, omega={self._omega:.6f}"
-        )
 
     # =========================================================================
     # Phase 4 Complete
@@ -1451,124 +1466,482 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         -------
         Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec]
             Final (displacement, velocity, acceleration) vectors.
+        """
+        from petsc4py import PETSc
+
+        from .base import Adapter
+
+        # Checkpoint/restart (not fully implemented yet - stub for now)
+        checkpoint_state = None  # TODO: implement _try_restore_checkpoint()
+        t_restart = float(self.solver_params.get("start_time", 0.0))
+
+        self._print_header("FSI DYNAMIC ANALYSIS - INERTIAL ROTOR SOLVER")
+
+        # Phase 1: Matrix Assembly at reference configuration (θ=0)
+        matrices, bc_manager = self._assemble_system_matrices()
+
+        # Phase 2: Extract interface nodes
+        interface_coords, interface_dofs = self._extract_interface_nodes()
+
+        if self._rotor_radius is None:
+            self._rotor_radius = self._compute_rotor_radius(interface_coords)
+            self._print_info(f"Auto-detected rotor radius: {self._rotor_radius:.4f} m")
+
+        # Phase 3: Auto-compute inertia if requested
+        if getattr(self, "_auto_inertia", False):
+            estimated_inertia = self._compute_estimated_inertia()
+            if self._is_primary_rank():
+                print(
+                    f"  ↳ Auto-computed Moment of Inertia: {estimated_inertia:.4e} kg·m²",
+                    flush=True,
+                )
+            # Re-initialize provider with computed inertia (same logic as corotational)
+            self._resolve_auto_inertia_provider(estimated_inertia)
+
+        # Phase 4: Initialize preCICE adapter
+        self._print_phase(1, 2, "Initializing preCICE adapter...")
+        cfg = self.model_properties["solver"]["coupling"]
+        _coupling_meshes = [{"name": cfg["coupling_mesh"]}]
+
+        # Add GlobalSolidMesh if omega output is requested
+        if self._send_omega_to_precice:
+            _coupling_meshes.append({"name": self._omega_mesh_name})
+
+        adapter = Adapter(
+            participant=cfg["participant"],
+            config_file=cfg["config_file"],
+            coupling_meshes=_coupling_meshes,
+        )
+
+        # Register interface at reference coordinates (FIXED for all time)
+        vertex_ids = self._register_interface_at_reference_coords(
+            adapter, cfg["coupling_mesh"], interface_coords
+        )
+
+        # Register single omega vertex if needed
+        if self._send_omega_to_precice:
+            origin = np.zeros((1, 3), dtype=np.float64)
+            adapter.add_mesh_vertices(self._omega_mesh_name, origin)
+
+        adapter.initialize()
+        dt = adapter.dt
+
+        self._print_phase(2, 2, f"preCICE initialized. dt={dt:.4e} s")
+
+        # Phase 5: Time loop initialization
+        t = t_restart
+        theta = 0.0  # Accumulated rotation angle [rad]
+        omega = self._omega_provider.omega
+        alpha = self._omega_provider.alpha
+        window_count = 0
+        iteration_count = 0
+
+        # State vectors (elastic displacement, velocity, acceleration)
+        u_e = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
+        v_e = u_e.duplicate()
+        a_e = u_e.duplicate()
+        u_e.set(0.0)
+        v_e.set(0.0)
+        a_e.set(0.0)
+
+        # Gravity load (constant in global frame)
+        F_gravity = self._compute_gravity_load_vector()
+
+        # Current matrices (will be updated after each converged window)
+        K_current = self.K
+        C_current = self._assemble_rayleigh_damping(K_current, self.M)
+
+        # Checkpoint storage for sub-iterations
+        checkpoint: Dict[str, Any] = {}
+
+        self._print_separator()
+        if self._is_primary_rank():
+            print("  Starting FSI coupling loop...\n", flush=True)
+
+        # Phase 6: preCICE coupling loop
+        while adapter.is_coupling_ongoing:
+            # Checkpoint if preCICE requires (implicit coupling sub-iterations)
+            if adapter.requires_writing_checkpoint:
+                checkpoint = self._checkpoint_elastic_state(u_e, v_e, a_e, theta, omega, alpha)
+                iteration_count = 0
+
+            # Read aero forces (global frame, no transformation)
+            F_aero = self._read_forces_from_precice_global(
+                adapter, cfg["coupling_mesh"], cfg["read_data"][0] if isinstance(cfg["read_data"], list) else cfg["read_data"]
+            )
+
+            # Solve FSI step (elastic displacement increment)
+            u_e_new, v_e_new, a_e_new = self._solve_fsi_step(
+                F_aero, F_gravity, dt, theta, omega, alpha, u_e, v_e, a_e, bc_manager, K_current, C_current
+            )
+
+            # Extract interface elastic displacement
+            u_e_interface = self._extract_interface_values(u_e_new, interface_dofs)
+
+            # Write elastic displacement to preCICE (NOT total displacement)
+            self._write_elastic_displacement_to_precice(
+                adapter,
+                cfg["coupling_mesh"],
+                cfg["write_data"][0] if isinstance(cfg["write_data"], list) else cfg["write_data"],
+                u_e_interface,
+                theta,
+            )
+
+            # Write omega to GlobalSolidMesh
+            if self._send_omega_to_precice:
+                self._write_omega_to_global_mesh(
+                    adapter, self._omega_mesh_name, self._omega_write_data_name, omega
+                )
+
+            # Log iteration
+            iteration_count += 1
+            if self._is_primary_rank() and self._debug_interface:
+                u_norm = float(np.linalg.norm(u_e_interface))
+                f_norm = float(np.linalg.norm(F_aero))
+                print(
+                    f"  [FSI] window={window_count:4d} iter={iteration_count:2d} "
+                    f"| ||u_e||={u_norm:.6e} m | ||F_aero||={f_norm:.6e} N",
+                    flush=True,
+                )
+
+            # Advance preCICE (may trigger sub-iteration or window advance)
+            adapter.advance(dt)
+
+            # Rollback or converge
+            if adapter.requires_reading_checkpoint:
+                # Sub-iteration did not converge, restore checkpoint
+                self._rollback_elastic_state(checkpoint, u_e, v_e, a_e)
+                theta = float(checkpoint["theta"])
+                omega = float(checkpoint["omega"])
+                alpha = float(checkpoint["alpha"])
+            else:
+                # Window converged!
+                window_count += 1
+                t += dt
+
+                # Compute driving torque from aerodynamic and gravity forces
+                nodal_coords = self.domain.mesh.nodal_coordinates
+                tau_driving = self._compute_driving_torque(
+                    interface_coords, u_e_interface, F_aero, nodal_coords, u_e, F_gravity
+                )
+
+                # Update omega using OmegaProvider dynamics
+                self._update_omega_after_converged_window(tau_driving, dt)
+                omega = self._omega_provider.omega
+                alpha = self._omega_provider.alpha
+
+                # Accumulate rotation angle for next window
+                theta += omega * dt
+
+                # Rotate internal structural geometry for next window
+                self._rotate_structural_geometry_internal(theta)
+                self._rebuild_assembler_with_rotated_geometry()
+
+                # Rebuild matrices on rotated geometry
+                K_current = self.domain.assemble_stiffness_matrix()
+                C_current = self._assemble_rayleigh_damping(K_current, self.M)
+
+                # Save results (VTK output, time history, etc.)
+                # TODO: implement _save_timestep_results() or use parent class method
+                # self._save_timestep_results(t, u_e_new, v_e_new, a_e_new)
+
+                # Copy state for next iteration
+                u_e_new.copy(result=u_e)
+                v_e_new.copy(result=v_e)
+                a_e_new.copy(result=a_e)
+
+                # Reset iteration counter
+                iteration_count = 0
+
+        # Finalize preCICE
+        adapter.finalize()
+
+        if self._is_primary_rank():
+            print("\n" + "═" * 70, flush=True)
+            print(f"  FSI coupling complete. Total windows: {window_count}", flush=True)
+            print("═" * 70 + "\n", flush=True)
+
+        return u_e, v_e, a_e
+
+    # =========================================================================
+    # Per-Step Solve Method
+    # =========================================================================
+
+    def _solve_fsi_step(
+        self,
+        F_aero: NDArray,
+        F_gravity: NDArray,
+        dt: float,
+        theta: float,
+        omega: float,
+        alpha: float,
+        u_e_prev: "PETSc.Vec",
+        v_e_prev: "PETSc.Vec",
+        a_e_prev: "PETSc.Vec",
+        bc_manager: "BoundaryConditionManager",
+        K_current: "PETSc.Mat",
+        C_current: "PETSc.Mat",
+    ) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec"]:
+        """
+        Solve one FSI sub-iteration step using Newmark integration.
+
+        Assembles and solves:
+            K_eff · u_e_new = F_eff
+
+        where:
+            K_eff = K(θ) + a₀·M + a₁·C(θ)
+            F_eff = F_aero + F_gravity - F_ref + M·(a₀·u_prev + a₂·v_prev + a₃·a_prev)
+
+        Parameters
+        ----------
+        F_aero : ndarray
+            Aerodynamic forces from preCICE (global frame, full DOF vector).
+        F_gravity : ndarray
+            Gravity load vector (constant in global frame).
+        dt : float
+            Time step size [s].
+        theta : float
+            Current rotation angle [rad].
+        omega : float
+            Angular velocity [rad/s].
+        alpha : float
+            Angular acceleration [rad/s²].
+        u_e_prev : PETSc.Vec
+            Elastic displacement at previous iteration.
+        v_e_prev : PETSc.Vec
+            Elastic velocity at previous iteration.
+        a_e_prev : PETSc.Vec
+            Elastic acceleration at previous iteration.
+        bc_manager : BoundaryConditionManager
+            Boundary condition manager with free DOFs.
+        K_current : PETSc.Mat
+            Stiffness matrix at current orientation K(θ).
+        C_current : PETSc.Mat
+            Damping matrix at current orientation C(θ).
+
+        Returns
+        -------
+        Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec]
+            Updated (u_e_new, v_e_new, a_e_new) vectors.
 
         Notes
         -----
-        This solver is NOT YET COMPLETE. The full solve() method needs:
-        - preCICE adapter integration
-        - Checkpoint/restart infrastructure
-        - Output file writing
-        - Performance metrics computation
+        This implements the inertial formulation:
+            M·ü_e + C(θ)·u̇_e + K(θ)·u_e = F_aero + F_gravity - M·a_ref
 
-        Current implementation is a STUB that will fail at runtime.
-        Use the corotational solver (_solve_via_rust) for production work.
+        where a_ref = α × r + ω × (ω × r) is the rigid-body reference acceleration.
         """
-        raise NotImplementedError(
-            "LinearDynamicFSIRotorInertialSolver.solve() is not yet implemented. "
-            "The building blocks (Phases 0-6) are complete, but the main orchestration "
-            "loop requires integration with preCICE adapter, checkpoint/restart, and "
-            "output infrastructure. Use LinearDynamicFSIRotorCorotationalSolver for "
-            "production work. See docs/rotor_inertial_solver_tasks.md for implementation status."
+        from petsc4py import PETSc
+
+        # Newmark-β coefficients (β=0.25, γ=0.5 for unconditional stability)
+        beta = 0.25
+        gamma = 0.5
+        a0 = 1.0 / (beta * dt * dt)
+        a1 = gamma / (beta * dt)
+        a2 = 1.0 / (beta * dt)
+        a3 = 1.0 / (2.0 * beta) - 1.0
+
+        # 1. Compute reference load: F_ref = -M·a_ref (rigid-body inertial correction)
+        nodal_coords = self.domain.mesh.nodal_coordinates
+        F_ref = self._inertial_calculator.compute_reference_load_vector(
+            self.M, nodal_coords, omega, alpha
         )
 
-        # =====================================================================
-        # FUTURE IMPLEMENTATION SKETCH (for reference)
-        # =====================================================================
-        #
-        # checkpoint_state = self._try_restore_checkpoint()
-        # t_restart = ...
-        #
-        # self._print_header("FSI DYNAMIC ANALYSIS - INERTIAL ROTOR SOLVER")
-        #
-        # # Phase 1: Matrix Assembly at reference configuration (θ=0)
-        # matrices, bc_manager = self._assemble_system_matrices()
-        #
-        # # Phase 2: Extract interface nodes
-        # interface_coords, interface_dofs = self._extract_interface_nodes()
-        #
-        # # Phase 3: Auto-compute inertia if requested
-        # if self._auto_inertia:
-        #     self._resolve_auto_inertia()
-        #
-        # # Phase 4: Initialize preCICE adapter
-        # adapter = Adapter(self.solver_params["coupling"]["participant"],
-        #                   self.solver_params["coupling"]["config_file"], 0, 1)
-        # vertex_ids = self._register_interface_at_reference_coords(
-        #     adapter, "SolidMesh", interface_coords)
-        # dt = adapter.initialize()
-        #
-        # # Phase 5: Time loop
-        # t = t_restart
-        # theta = 0.0
-        # omega = self._omega_provider.omega
-        # alpha = self._omega_provider.alpha
-        #
-        # u_e = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
-        # v_e = u_e.duplicate()
-        # a_e = u_e.duplicate()
-        # u_e.set(0.0)
-        # v_e.set(0.0)
-        # a_e.set(0.0)
-        #
-        # while adapter.is_coupling_ongoing():
-        #     # Checkpoint if preCICE requires
-        #     if adapter.requires_writing_checkpoint():
-        #         checkpoint = self._checkpoint_elastic_state()
-        #
-        #     # Read aero forces (global frame, no transformation)
-        #     F_aero_flat = self._read_forces_from_precice_global(
-        #         adapter, "SolidMesh", "Force")
-        #
-        #     # Solve FSI step
-        #     u_e_new, v_e_new, a_e_new = self._solve_fsi_step(
-        #         F_aero_flat, dt, theta, omega, alpha, u_e, v_e, a_e, bc_manager)
-        #
-        #     # Write elastic displacement to preCICE
-        #     u_e_interface = self._extract_interface_values(u_e_new, interface_dofs)
-        #     self._write_elastic_displacement_to_precice(
-        #         adapter, "SolidMesh", "Displacement", u_e_interface, theta)
-        #
-        #     # Write omega to GlobalSolidMesh
-        #     if self._send_omega_to_precice:
-        #         self._write_omega_to_global_mesh(
-        #             adapter, self._omega_mesh_name, self._omega_write_data_name, omega)
-        #
-        #     # Advance preCICE
-        #     adapter.advance(dt)
-        #
-        #     # Rollback or converge
-        #     if adapter.requires_reading_checkpoint():
-        #         self._rollback_elastic_state()
-        #         u_e.copy(result=u_e)  # restore
-        #         v_e.copy(result=v_e)
-        #         a_e.copy(result=a_e)
-        #     else:
-        #         # Window converged: update omega and theta
-        #         tau_driving = self._compute_driving_torque(
-        #             interface_coords, u_e_interface, F_aero_flat,
-        #             nodal_coords, u_e, F_gravity)
-        #         self._update_omega_after_converged_window(tau_driving, dt)
-        #         omega = self._omega_provider.omega
-        #         alpha = self._omega_provider.alpha
-        #         theta += omega * dt
-        #
-        #         # Rotate geometry and rebuild matrices for next window
-        #         self._rotate_structural_geometry_internal(theta)
-        #         self._rebuild_assembler_with_rotated_geometry()
-        #         K_rotated = self.domain.assemble_stiffness_matrix()
-        #         C_rotated = self._assemble_rayleigh_damping(K_rotated, self.M)
-        #
-        #         # Save results
-        #         self._save_timestep_results(t, u_e_new, v_e_new, a_e_new)
-        #         t += dt
-        #
-        #         # Copy state for next iteration
-        #         u_e_new.copy(result=u_e)
-        #         v_e_new.copy(result=v_e)
-        #         a_e_new.copy(result=a_e)
-        #
-        # adapter.finalize()
-        # return u_e, v_e, a_e
+        # 2. Assemble effective stiffness: K_eff = K(θ) + a₀·M + a₁·C(θ)
+        K_eff = self._assemble_inertial_effective_system(
+            K_current, C_current, self.M, a0, a1
+        )
+
+        # 3. Assemble RHS: F_eff = F_aero + F_gravity - F_ref + M·(a₀·u + a₂·v + a₃·a)
+        F_eff = self._assemble_inertial_rhs(
+            F_aero, F_gravity, F_ref, self.M, u_e_prev, v_e_prev, a_e_prev, dt, a0, a2, a3
+        )
+
+        # 4. Apply boundary conditions (zero essential BCs for elastic displacement)
+        bc_manager.apply_dirichlet_to_system(K_eff, F_eff)
+
+        # 5. Solve linear system: K_eff · u_e_new = F_eff
+        u_e_new = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
+        ksp = PETSc.KSP().create(comm=self.comm)
+        ksp.setOperators(K_eff)
+        ksp.setType("preonly")  # Direct solver
+        ksp.getPC().setType("lu")
+        ksp.setFromOptions()
+        ksp.solve(F_eff, u_e_new)
+
+        # 6. Update velocity and acceleration using Newmark formulas
+        v_e_new = self._newmark_velocity_update(u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta, gamma)
+        a_e_new = self._newmark_acceleration_update(u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta)
+
+        return u_e_new, v_e_new, a_e_new
+
+    def _newmark_velocity_update(
+        self,
+        u_new: "PETSc.Vec",
+        u_prev: "PETSc.Vec",
+        v_prev: "PETSc.Vec",
+        a_prev: "PETSc.Vec",
+        dt: float,
+        beta: float,
+        gamma: float,
+    ) -> "PETSc.Vec":
+        """
+        Compute Newmark velocity update.
+
+        v_new = γ/(β·Δt) · (u_new - u_prev) + (1 - γ/β)·v_prev + Δt·(1 - γ/(2β))·a_prev
+
+        Parameters
+        ----------
+        u_new : PETSc.Vec
+            New displacement.
+        u_prev : PETSc.Vec
+            Previous displacement.
+        v_prev : PETSc.Vec
+            Previous velocity.
+        a_prev : PETSc.Vec
+            Previous acceleration.
+        dt : float
+            Time step size.
+        beta : float
+            Newmark β parameter.
+        gamma : float
+            Newmark γ parameter.
+
+        Returns
+        -------
+        PETSc.Vec
+            Updated velocity vector.
+        """
+        from petsc4py import PETSc
+
+        a1 = gamma / (beta * dt)
+        c1 = 1.0 - gamma / beta
+        c2 = dt * (1.0 - gamma / (2.0 * beta))
+
+        v_new = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
+        v_new.set(0.0)
+
+        # v_new = a1 * (u_new - u_prev) + c1 * v_prev + c2 * a_prev
+        du = u_new.duplicate()
+        u_new.copy(result=du)
+        du.axpy(-1.0, u_prev)  # du = u_new - u_prev
+
+        v_new.axpy(a1, du)  # v_new += a1 * du
+        v_new.axpy(c1, v_prev)  # v_new += c1 * v_prev
+        v_new.axpy(c2, a_prev)  # v_new += c2 * a_prev
+
+        return v_new
+
+    def _newmark_acceleration_update(
+        self,
+        u_new: "PETSc.Vec",
+        u_prev: "PETSc.Vec",
+        v_prev: "PETSc.Vec",
+        a_prev: "PETSc.Vec",
+        dt: float,
+        beta: float,
+    ) -> "PETSc.Vec":
+        """
+        Compute Newmark acceleration update.
+
+        a_new = 1/(β·Δt²) · (u_new - u_prev - Δt·v_prev) - (1/(2β) - 1)·a_prev
+
+        Parameters
+        ----------
+        u_new : PETSc.Vec
+            New displacement.
+        u_prev : PETSc.Vec
+            Previous displacement.
+        v_prev : PETSc.Vec
+            Previous velocity.
+        a_prev : PETSc.Vec
+            Previous acceleration.
+        dt : float
+            Time step size.
+        beta : float
+            Newmark β parameter.
+
+        Returns
+        -------
+        PETSc.Vec
+            Updated acceleration vector.
+        """
+        from petsc4py import PETSc
+
+        a0 = 1.0 / (beta * dt * dt)
+        a2 = 1.0 / (beta * dt)
+        a3 = 1.0 / (2.0 * beta) - 1.0
+
+        a_new = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
+        a_new.set(0.0)
+
+        # a_new = a0 * (u_new - u_prev) - a2 * v_prev - a3 * a_prev
+        du = u_new.duplicate()
+        u_new.copy(result=du)
+        du.axpy(-1.0, u_prev)  # du = u_new - u_prev
+
+        a_new.axpy(a0, du)  # a_new += a0 * du
+        a_new.axpy(-a2, v_prev)  # a_new -= a2 * v_prev
+        a_new.axpy(-a3, a_prev)  # a_new -= a3 * a_prev
+
+        return a_new
+
+    def _extract_interface_values(
+        self, vec: "PETSc.Vec", interface_dofs: NDArray
+    ) -> NDArray:
+        """
+        Extract interface DOF values from a global PETSc vector.
+
+        Parameters
+        ----------
+        vec : PETSc.Vec
+            Global DOF vector.
+        interface_dofs : ndarray, shape (n_interface_nodes, dofs_per_node)
+            Global DOF indices for interface nodes.
+
+        Returns
+        -------
+        ndarray, shape (n_interface_nodes, dofs_per_node)
+            Extracted interface values.
+        """
+        vec_array = vec.getArray()
+        return vec_array[interface_dofs.ravel()].reshape(interface_dofs.shape)
+
+    def _resolve_auto_inertia_provider(self, inertia: float) -> None:
+        """
+        Re-initialize OmegaProvider with auto-computed inertia.
+
+        Parameters
+        ----------
+        inertia : float
+            Computed moment of inertia [kg·m²].
+        """
+        from .corotational import ComputedOmega, RampedComputedOmega
+
+        ramp_time = self._auto_inertia_params.get("ramp_time", 0.0)
+        target_omega = self._auto_inertia_params["target_omega"]
+        shaft_torque = self._auto_inertia_params["shaft_torque"]
+
+        if ramp_time > 0.0:
+            self._omega_provider = RampedComputedOmega(
+                target_omega=target_omega,
+                ramp_time=ramp_time,
+                moment_of_inertia=inertia,
+                shaft_torque=shaft_torque,
+            )
+            if self._is_primary_rank():
+                print(
+                    f"  ↳ Omega mode: Ramp ({ramp_time:.3f} s) → Dynamic (I={inertia:.4e} kg·m²)",
+                    flush=True,
+                )
+        else:
+            self._omega_provider = ComputedOmega(
+                moment_of_inertia=inertia,
+                initial_omega=target_omega,
+                shaft_torque=shaft_torque,
+            )
+            if self._is_primary_rank():
+                print(f"  ↳ Omega mode: Dynamic (I={inertia:.4e} kg·m²)", flush=True)
 
     # =========================================================================
     # Assembly and Initialization Methods
@@ -1765,6 +2138,48 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             axis=1,
         )
         return float(np.max(radial_distances))
+
+    def _compute_estimated_inertia(self) -> float:
+        """
+        Estimate total moment of inertia about the rotation axis.
+
+        Computes the parallel-axis contribution of all mesh nodes:
+
+            I = Σᵢ mᵢ · r_⊥,ᵢ²
+
+        where mᵢ is the lumped mass from the first translational DOF diagonal
+        entry and r_⊥,ᵢ is the perpendicular distance from the node to the
+        rotation axis.
+
+        Returns
+        -------
+        float
+            Total moment of inertia [kg·m²] about the rotation axis.
+        """
+        from petsc4py import PETSc
+
+        if self.M is None:
+            _logger.warning("Mass matrix not available for inertia estimation.")
+            return 1.0
+
+        diag_vec = self.M.getDiagonal()
+        mass_array = diag_vec.getArray(readonly=True)
+
+        nodes = self.domain.nodes
+        dofs_per_node = self.domain.dofs_per_node
+        limit_idx = len(mass_array)
+
+        node_idx = np.arange(len(nodes)) * dofs_per_node
+        valid = node_idx < limit_idx
+        masses = np.where(valid, mass_array[np.minimum(node_idx, limit_idx - 1)], 0.0)
+        coords = np.array([node.coords for node in nodes], dtype=np.float64)
+        r_vec = coords - self._rotation_center
+        proj = r_vec @ self._rotation_axis
+        r_perp_sq = np.einsum("ij,ij->i", r_vec, r_vec) - proj**2
+        total_inertia = float(np.dot(masses, r_perp_sq))
+
+        diag_vec.destroy()
+        return total_inertia
 
     def _compute_gravity_load_vector(self) -> NDArray:
         """

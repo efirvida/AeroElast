@@ -213,10 +213,10 @@ class ElementFamily(str, Enum):
 
 class SolverType(str, Enum):
     """Type of solver to use.
-    
+
     For rotor FSI solvers:
     - LINEAR_DYNAMIC_FSI_ROTOR: Legacy name, currently maps to corotational solver
-    - LINEAR_DYNAMIC_FSI_ROTOR_COROTATIONAL: Explicit corotational formulation 
+    - LINEAR_DYNAMIC_FSI_ROTOR_COROTATIONAL: Explicit corotational formulation
       (rotating reference frame with spin-softening, geometric stiffness, Coriolis terms)
     - LINEAR_DYNAMIC_FSI_ROTOR_INERTIAL: Explicit inertial formulation
       (elastic displacement over rigidly-rotated reference, fixed preCICE interface)
