@@ -3490,6 +3490,7 @@ fn run_fsi_solver(
         &kr_red, &kc_red, &cv_red,
         n_free, beta, gamma, dt,
     )
+    .and_then(|stepper| stepper.with_rayleigh_damping(eta_k, eta_m))
     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     let config = FsiConfig {
@@ -3673,6 +3674,7 @@ fn run_stress_stiffened_fsi_solver(
         &kr_red, &kc_red, &cv_red,
         n_free, beta, gamma, dt,
     )
+    .and_then(|stepper| stepper.with_rayleigh_damping(eta_k, eta_m))
     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     let config = FsiConfig {
@@ -4021,6 +4023,7 @@ fn run_rotor_fsi_solver(
         &kr_red, &kc_red, &cv_red,
         n_free, beta, gamma, dt,
     )
+    .and_then(|stepper| stepper.with_rayleigh_damping(eta_k, eta_m))
     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     // ── Initial geometric stiffness (centrifugal prestress) ───────────────────

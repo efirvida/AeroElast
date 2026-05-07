@@ -407,6 +407,12 @@ fn matvec_add(
 
 // ── NewmarkStepper ────────────────────────────────────────────────────────────
 
+#[derive(Debug, Clone, Copy)]
+enum DampingModel {
+    Frozen,
+    Rayleigh { eta_k: f64, eta_m: f64 },
+}
+
 /// Snapshot of the Newmark state for FSI implicit coupling rollback.
 ///
 /// Created by [`NewmarkStepper::checkpoint`] and consumed by
@@ -467,7 +473,13 @@ pub struct NewmarkStepper {
     cols: Vec<i32>,
     k_vals: Vec<f64>,
     m_vals: Vec<f64>,
+    /// Active damping values aligned with `rows/cols`.
+    ///
+    /// For frozen damping this stays equal to the input matrix passed to `new()`.
+    /// For Rayleigh damping it is recomputed on every `refactorize()` from the
+    /// current tangent stiffness and stored here before rebuilding `mat_c`.
     c_vals: Vec<f64>,
+    damping_model: DampingModel,
     /// Geometric stiffness base values (centrifugal prestress) at the same COO positions
     /// as `k_vals`.  Set once via `set_initial_geometric_stiffness` and never overwritten
     /// by runtime K_G updates (those go to `kg_vals`).  Zero until explicitly set.
@@ -660,6 +672,7 @@ impl NewmarkStepper {
             k_vals: k_vals.to_vec(),
             m_vals: m_vals.to_vec(),
             c_vals: c_vals.to_vec(),
+            damping_model: DampingModel::Frozen,
             kg_base_vals,
             kg_vals,
             ksp_diag,
@@ -694,6 +707,36 @@ impl NewmarkStepper {
         })
     }
 
+    /// Enable tangent-consistent Rayleigh damping.
+    ///
+    /// When active, the damping matrix is rebuilt as
+    /// `C = eta_k * K_tangent + eta_m * M` whenever `refactorize()` runs, so
+    /// updates to `K_G` and `K_SP` remain physically consistent with the
+    /// stiffness-proportional damping term.
+    pub fn with_rayleigh_damping(mut self, eta_k: f64, eta_m: f64) -> Result<Self, PetscError> {
+        self.damping_model = DampingModel::Rayleigh { eta_k, eta_m };
+        self.refactorize(self.dt_last)?;
+        Ok(self)
+    }
+
+    fn refresh_damping_values(&mut self, tangent_k_vals: &[f64]) {
+        match self.damping_model {
+            DampingModel::Frozen => {}
+            DampingModel::Rayleigh { eta_k, eta_m } => {
+                debug_assert_eq!(self.c_vals.len(), tangent_k_vals.len());
+                debug_assert_eq!(self.c_vals.len(), self.m_vals.len());
+                for ((c, k), m) in self
+                    .c_vals
+                    .iter_mut()
+                    .zip(tangent_k_vals.iter())
+                    .zip(self.m_vals.iter())
+                {
+                    *c = eta_k * *k + eta_m * *m;
+                }
+            }
+        }
+    }
+
     /// Rebuild `K_eff`, `mat_c` when `dt` has changed (or after a K_G update).
     fn refactorize(&mut self, dt: f64) -> Result<(), PetscError> {
         let [a0, a1, a2, a3, a4, a5, a6, a7] = Self::compute_coeffs(self.beta, self.gamma, dt);
@@ -708,6 +751,7 @@ impl NewmarkStepper {
             .zip(self.ksp_diag.iter())
             .map(|(((k, kg_base), kg), ksp)| k + kg_base + kg + ksp)
             .collect();
+        self.refresh_damping_values(&k_plus_kg);
         let (k_eff, mat_c) = Self::build_matrices(
             &self.rows,
             &self.cols,
@@ -1262,6 +1306,47 @@ mod tests {
             &[0i32], &[0i32], &[0.0f64],
             1, beta, gamma, dt,
         ).expect("NewmarkStepper::new failed")
+    }
+
+    #[test]
+    fn test_rayleigh_damping_tracks_tangent_stiffness_updates() {
+        let eta_k = 0.25f64;
+        let eta_m = 0.5f64;
+        let k = 10.0f64;
+        let m = 2.0f64;
+        let c = eta_k * k + eta_m * m;
+
+        let mut stepper = make_stepper(k, m, c, 0.01)
+            .with_rayleigh_damping(eta_k, eta_m)
+            .expect("with_rayleigh_damping failed");
+
+        assert!((stepper.c_vals[0] - c).abs() < 1e-12);
+
+        stepper
+            .set_initial_geometric_stiffness(&[3.0])
+            .expect("set_initial_geometric_stiffness failed");
+        assert!((stepper.c_vals[0] - (eta_k * 13.0 + eta_m * m)).abs() < 1e-12);
+
+        stepper
+            .update_spin_softening(&[2.0])
+            .expect("update_spin_softening failed");
+        assert!((stepper.c_vals[0] - (eta_k * 15.0 + eta_m * m)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_frozen_damping_stays_constant_across_tangent_updates() {
+        let c = 7.5f64;
+        let mut stepper = make_stepper(10.0, 2.0, c, 0.01);
+
+        stepper
+            .set_initial_geometric_stiffness(&[3.0])
+            .expect("set_initial_geometric_stiffness failed");
+        assert!((stepper.c_vals[0] - c).abs() < 1e-12);
+
+        stepper
+            .update_spin_softening(&[2.0])
+            .expect("update_spin_softening failed");
+        assert!((stepper.c_vals[0] - c).abs() < 1e-12);
     }
 
     /// SC-01: Harmonic oscillator u(t)=cos(t) — m=1, k=1, c=0, u0=1, v0=0
