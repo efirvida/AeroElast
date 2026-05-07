@@ -1417,13 +1417,502 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
     # ✓ 6.4: Representative window omega used consistently (from OmegaProvider)
 
     # =========================================================================
-    # Future Implementation Methods (Phase 7-10)
+    # Main solve() Method - Orchestrates Full FSI Cycle
     # =========================================================================
-    # The following will be implemented in subsequent phases:
+
+    def solve(self) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec"]:
+        """
+        Perform inertial-frame dynamic FSI analysis.
+
+        Orchestrates the full simulation pipeline:
+
+        1. **Matrix assembly** (once at reference configuration):
+           - K (elastic), M (lumped mass), C (Rayleigh damping)
+           - NO K_G, K_SP in this formulation (inertial frame)
+
+        2. **preCICE interface setup**:
+           - Register interface at REFERENCE coordinates (fixed mesh on preCICE side)
+           - Write elastic displacement u_e only (not total displacement)
+           - Read forces in global frame (no transformation)
+
+        3. **preCICE time loop** (implicit coupling with sub-iterations):
+           a. Get ω, α from OmegaProvider (constant within time window)
+           b. Read aerodynamic forces from fluid (global frame, no transform)
+           c. Rotate internal geometry by θ = ∫ω·dt
+           d. Rebuild K(θ), C(θ) on rotated geometry, reuse M (invariant)
+           e. Compute reference load: F_ref = -M·a_ref (centripetal + tangential)
+           f. Solve: K_eff · u_e_new = F_eff
+           g. Write elastic displacement u_e to preCICE
+           h. Write omega to GlobalSolidMesh
+           i. preCICE sub-iteration or advance to next window
+           j. If converged: update omega from driving torque, advance θ
+
+        Returns
+        -------
+        Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec]
+            Final (displacement, velocity, acceleration) vectors.
+
+        Notes
+        -----
+        This solver is NOT YET COMPLETE. The full solve() method needs:
+        - preCICE adapter integration
+        - Checkpoint/restart infrastructure
+        - Output file writing
+        - Performance metrics computation
+
+        Current implementation is a STUB that will fail at runtime.
+        Use the corotational solver (_solve_via_rust) for production work.
+        """
+        raise NotImplementedError(
+            "LinearDynamicFSIRotorInertialSolver.solve() is not yet implemented. "
+            "The building blocks (Phases 0-6) are complete, but the main orchestration "
+            "loop requires integration with preCICE adapter, checkpoint/restart, and "
+            "output infrastructure. Use LinearDynamicFSIRotorCorotationalSolver for "
+            "production work. See docs/rotor_inertial_solver_tasks.md for implementation status."
+        )
+
+        # =====================================================================
+        # FUTURE IMPLEMENTATION SKETCH (for reference)
+        # =====================================================================
+        #
+        # checkpoint_state = self._try_restore_checkpoint()
+        # t_restart = ...
+        #
+        # self._print_header("FSI DYNAMIC ANALYSIS - INERTIAL ROTOR SOLVER")
+        #
+        # # Phase 1: Matrix Assembly at reference configuration (θ=0)
+        # matrices, bc_manager = self._assemble_system_matrices()
+        #
+        # # Phase 2: Extract interface nodes
+        # interface_coords, interface_dofs = self._extract_interface_nodes()
+        #
+        # # Phase 3: Auto-compute inertia if requested
+        # if self._auto_inertia:
+        #     self._resolve_auto_inertia()
+        #
+        # # Phase 4: Initialize preCICE adapter
+        # adapter = Adapter(self.solver_params["coupling"]["participant"],
+        #                   self.solver_params["coupling"]["config_file"], 0, 1)
+        # vertex_ids = self._register_interface_at_reference_coords(
+        #     adapter, "SolidMesh", interface_coords)
+        # dt = adapter.initialize()
+        #
+        # # Phase 5: Time loop
+        # t = t_restart
+        # theta = 0.0
+        # omega = self._omega_provider.omega
+        # alpha = self._omega_provider.alpha
+        #
+        # u_e = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
+        # v_e = u_e.duplicate()
+        # a_e = u_e.duplicate()
+        # u_e.set(0.0)
+        # v_e.set(0.0)
+        # a_e.set(0.0)
+        #
+        # while adapter.is_coupling_ongoing():
+        #     # Checkpoint if preCICE requires
+        #     if adapter.requires_writing_checkpoint():
+        #         checkpoint = self._checkpoint_elastic_state()
+        #
+        #     # Read aero forces (global frame, no transformation)
+        #     F_aero_flat = self._read_forces_from_precice_global(
+        #         adapter, "SolidMesh", "Force")
+        #
+        #     # Solve FSI step
+        #     u_e_new, v_e_new, a_e_new = self._solve_fsi_step(
+        #         F_aero_flat, dt, theta, omega, alpha, u_e, v_e, a_e, bc_manager)
+        #
+        #     # Write elastic displacement to preCICE
+        #     u_e_interface = self._extract_interface_values(u_e_new, interface_dofs)
+        #     self._write_elastic_displacement_to_precice(
+        #         adapter, "SolidMesh", "Displacement", u_e_interface, theta)
+        #
+        #     # Write omega to GlobalSolidMesh
+        #     if self._send_omega_to_precice:
+        #         self._write_omega_to_global_mesh(
+        #             adapter, self._omega_mesh_name, self._omega_write_data_name, omega)
+        #
+        #     # Advance preCICE
+        #     adapter.advance(dt)
+        #
+        #     # Rollback or converge
+        #     if adapter.requires_reading_checkpoint():
+        #         self._rollback_elastic_state()
+        #         u_e.copy(result=u_e)  # restore
+        #         v_e.copy(result=v_e)
+        #         a_e.copy(result=a_e)
+        #     else:
+        #         # Window converged: update omega and theta
+        #         tau_driving = self._compute_driving_torque(
+        #             interface_coords, u_e_interface, F_aero_flat,
+        #             nodal_coords, u_e, F_gravity)
+        #         self._update_omega_after_converged_window(tau_driving, dt)
+        #         omega = self._omega_provider.omega
+        #         alpha = self._omega_provider.alpha
+        #         theta += omega * dt
+        #
+        #         # Rotate geometry and rebuild matrices for next window
+        #         self._rotate_structural_geometry_internal(theta)
+        #         self._rebuild_assembler_with_rotated_geometry()
+        #         K_rotated = self.domain.assemble_stiffness_matrix()
+        #         C_rotated = self._assemble_rayleigh_damping(K_rotated, self.M)
+        #
+        #         # Save results
+        #         self._save_timestep_results(t, u_e_new, v_e_new, a_e_new)
+        #         t += dt
+        #
+        #         # Copy state for next iteration
+        #         u_e_new.copy(result=u_e)
+        #         v_e_new.copy(result=v_e)
+        #         a_e_new.copy(result=a_e)
+        #
+        # adapter.finalize()
+        # return u_e, v_e, a_e
+
+    # =========================================================================
+    # Assembly and Initialization Methods
+    # =========================================================================
+
+    def _assemble_system_matrices(self) -> Tuple[
+        Tuple["PETSc.Mat", "PETSc.Mat"],
+        "BoundaryConditionManager",
+    ]:
+        """
+        Assemble stiffness and mass matrices at reference configuration (θ=0).
+
+        Unlike the corotational solver, this does NOT assemble:
+        - K_G (geometric stiffness): not used in inertial formulation
+        - K_SP (spin softening): not used in inertial formulation
+
+        The mass matrix is assembled once and cached (invariant under rotation).
+        Stiffness and damping matrices are rebuilt after each converged window
+        when the internal geometry is rotated.
+
+        Returns
+        -------
+        Tuple[Tuple[PETSc.Mat, PETSc.Mat], BoundaryConditionManager]
+            ((K, M), bc_manager) where K, M are at reference configuration.
+
+        Notes
+        -----
+        Verification: The reference K should match the corotational K at θ=0.
+        """
+        from petsc4py import PETSc
+
+        from aeroelast.core.bc import BoundaryConditionManager
+
+        self._print_phase(1, 4, "Assembling stiffness matrix at reference...")
+        self.K = self.domain.assemble_stiffness_matrix()
+
+        self._print_phase(2, 4, "Assembling mass matrix (lumped, invariant under rotation)...")
+        self.M = self.domain.assemble_mass_matrix_lumped()
+
+        # Force vector and boundary conditions
+        self._print_phase(3, 4, "Setting up boundary conditions...")
+        force_temp = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
+        force_temp.set(0.0)
+        self.F = force_temp
+
+        bc_manager = BoundaryConditionManager(self.K, self.F, self.M, self.domain.dofs_per_node)
+        bc_manager.apply_dirichlet(self.dirichlet_conditions)
+
+        if self._is_primary_rank():
+            print(
+                f"        Fixed: {len(bc_manager.fixed_dofs)} DOFs, "
+                f"Free: {len(bc_manager.free_dofs)} DOFs",
+                flush=True,
+            )
+
+        # Rayleigh damping coefficients (same logic as corotational)
+        # Damping matrix C will be built when needed using _assemble_rayleigh_damping()
+        self._configure_rayleigh_damping(bc_manager)
+
+        self._print_phase(4, 4, "Matrix assembly complete (K, M at θ=0).")
+        return (self.K, self.M), bc_manager
+
+    def _configure_rayleigh_damping(self, bc_manager: "BoundaryConditionManager") -> None:
+        """
+        Configure Rayleigh damping coefficients (η_k, η_m) for C = η_k·K + η_m·M.
+
+        This does NOT build the damping matrix — that happens in
+        _assemble_rayleigh_damping() when K(θ) is available.
+
+        Parameters
+        ----------
+        bc_manager : BoundaryConditionManager
+            Boundary condition manager with free DOFs.
+
+        Notes
+        -----
+        Verification: Auto-damping coefficients should match corotational solver
+        for the same structure at θ=0.
+        """
+        if not self._damping_enabled:
+            self._print_phase(5, 6, "Rayleigh damping: disabled (enabled=false)")
+            return
+
+        if self._damping_auto:
+            self._print_phase(
+                5, 6, "Rayleigh damping: auto-computing via SLEPc modal analysis..."
+            )
+            import _aeroelast
+
+            cfg = self._damping_cfg
+            zeta = float(cfg.get("zeta", 0.02))
+            zeta_i = float(cfg["zeta_1"]) if cfg.get("zeta_1") is not None else zeta
+            zeta_j = float(cfg["zeta_2"]) if cfg.get("zeta_2") is not None else zeta
+            mode_i = int(cfg.get("mode_i", 1))
+            mode_j = int(cfg.get("mode_j", 2))
+            num_modes = int(cfg.get("num_modes", max(mode_j + 2, 6)))
+
+            k_rows, k_cols, k_vals = self._petsc_to_coo(self.K)
+            m_rows, m_cols, m_vals = self._petsc_to_coo(self.M)
+            free_dofs = bc_manager.free_dofs.astype(np.int32)
+
+            self._eta_k, self._eta_m = _aeroelast.compute_rayleigh_auto(
+                k_rows,
+                k_cols,
+                k_vals,
+                m_rows,
+                m_cols,
+                m_vals,
+                free_dofs,
+                num_modes,
+                mode_i,
+                mode_j,
+                zeta_i,
+                zeta_j,
+            )
+
+            if self._eta_k < 0.0 or self._eta_m < 0.0:
+                _logger.warning(
+                    "Rayleigh auto produced negative coefficients: η_k=%.3e, η_m=%.3e. "
+                    "Damping ratio may be non-monotone. Verify mode selection.",
+                    self._eta_k,
+                    self._eta_m,
+                )
+
+            self._print_phase(
+                5, 6, f"Rayleigh auto: η_k={self._eta_k:.4e} s  η_m={self._eta_m:.4e} 1/s"
+            )
+        elif self._eta_m != 0.0 or self._eta_k != 0.0:
+            self._print_phase(
+                5, 6, f"Rayleigh damping: η_m={self._eta_m:.4e}  η_k={self._eta_k:.4e}"
+            )
+        else:
+            self._print_phase(5, 6, "Rayleigh damping: disabled (coefficients zero)")
+
+    def _extract_interface_nodes(self) -> Tuple[NDArray, NDArray]:
+        """
+        Extract interface node coordinates and DOF indices from coupling boundaries.
+
+        Returns
+        -------
+        interface_coords : ndarray, shape (n_interface_nodes, dim)
+            Interface node coordinates at reference configuration.
+        interface_dofs : ndarray, shape (n_interface_nodes, dofs_per_node)
+            Global DOF indices for interface nodes.
+
+        Notes
+        -----
+        Verification: Interface extraction should match corotational solver.
+        """
+        coupling_boundaries = self.model_properties["solver"]["coupling_boundaries"]
+        mesh = self.domain.mesh
+        node_sets = [mesh.node_sets[name] for name in coupling_boundaries]
+        nodes = {node.id: node.coords for _set in node_sets for node in _set.nodes.values()}
+        sorted_node_ids = sorted(nodes.keys())
+
+        self._interface_node_ids = np.array(sorted_node_ids, dtype=np.int64)
+        _iface_coords = np.array([nodes[nid] for nid in sorted_node_ids])
+
+        if self.domain.spatial_dim == 2 and _iface_coords.shape[1] > 2:
+            _iface_coords = _iface_coords[:, :2]
+
+        self._interface_coords = _iface_coords
+
+        raw_dofs = np.array([self.domain._node_dofs_map[nid] for nid in sorted_node_ids])
+        if raw_dofs.ndim == 2 and raw_dofs.shape[1] > 3:
+            self._interface_dofs = raw_dofs[:, :3].astype(int)
+        else:
+            self._interface_dofs = raw_dofs.astype(int)
+
+        return self._interface_coords, self._interface_dofs
+
+    def _compute_rotor_radius(self, interface_coords: NDArray) -> float:
+        """
+        Auto-detect rotor radius from interface coordinates.
+
+        Parameters
+        ----------
+        interface_coords : ndarray, shape (n_nodes, dim)
+            Interface node coordinates.
+
+        Returns
+        -------
+        radius : float
+            Maximum radial distance from rotation center.
+
+        Notes
+        -----
+        Verification: Should match corotational solver's auto-detection.
+        """
+        coords_3d = self._ensure_3d_vectors(interface_coords)
+        radial_vectors = coords_3d - self._rotation_center
+        radial_distances = np.linalg.norm(
+            radial_vectors - np.outer(np.dot(radial_vectors, self._rotation_axis), self._rotation_axis),
+            axis=1,
+        )
+        return float(np.max(radial_distances))
+
+    def _compute_gravity_load_vector(self) -> NDArray:
+        """
+        Compute gravity load vector F_g = M·g for all DOFs.
+
+        Returns
+        -------
+        F_gravity : ndarray, shape (n_dofs,)
+            Gravity load vector (flattened).
+
+        Notes
+        -----
+        Verification: For a uniform rotor, ||F_g|| should equal total_mass * ||g||.
+        """
+        if not self._include_gravity:
+            return np.zeros(self.domain.dofs_count, dtype=np.float64)
+
+        # M is lumped diagonal matrix
+        # F_g[i] = M[i] * g[component_i]
+        from petsc4py import PETSc
+
+        M_diag = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
+        self.M.getDiagonal(M_diag)
+        M_array = M_diag.getArray()
+
+        F_gravity = np.zeros(self.domain.dofs_count, dtype=np.float64)
+        dofs_per_node = self.domain.dofs_per_node
+        gravity_3d = np.pad(self._gravity, (0, max(0, 3 - len(self._gravity))))[:3]
+
+        for i in range(len(M_array)):
+            component_idx = i % dofs_per_node
+            if component_idx < len(gravity_3d):
+                F_gravity[i] = M_array[i] * gravity_3d[component_idx]
+
+        return F_gravity
+
+    # =========================================================================
+    # Phase 7-10 Placeholder
+    # =========================================================================
+    # The following methods will be implemented in subsequent phases:
     #
     # Phase 7: Prototype Validation
+    # - Unit tests for pure rigid rotation (u_e ~ 0)
+    # - Gravity-only test with 1P torque modulation
+    # - Reference load analytical verification
+    # - preCICE contract regression test
+    # - Checkpoint/restart coverage
+    #
     # Phase 8: Comparative Benchmarking
+    # - Side-by-side test with corotational solver
+    # - Physical convergence validation
+    # - Torque balance verification
+    # - Displacement magnitude comparison
+    #
     # Phase 9: Performance Optimization
+    # - Matrix caching strategies
+    # - Geometry update alternatives (API vs reconstruction)
+    # - Profiling and bottleneck identification
+    #
     # Phase 10: Product Decision and Cleanup
+    # - Performance vs accuracy tradeoffs
+    # - Documentation of validated use cases
+    # - Deprecation or promotion decision
     #
     # See docs/rotor_inertial_solver_tasks.md for full task list
+
+    # =========================================================================
+    # Helper Methods (for console output and utilities)
+    # =========================================================================
+
+    def _is_primary_rank(self) -> bool:
+        """Always True in serial."""
+        return True
+
+    def _print_header(self, title: str) -> None:
+        """Print a formatted header section.
+
+        Parameters
+        ----------
+        title : str
+            Header text to display.
+        """
+        if self._is_primary_rank():
+            print("\n" + "═" * 70, flush=True)
+            print(f"  {title}", flush=True)
+            print("═" * 70, flush=True)
+
+    def _print_separator(self) -> None:
+        """Print a section separator."""
+        if self._is_primary_rank():
+            print("═" * 70, flush=True)
+
+    def _print_phase(self, phase: int, total: int, message: str) -> None:
+        """Print a phase progress message.
+
+        Parameters
+        ----------
+        phase : int
+            Current phase number.
+        total : int
+            Total number of phases.
+        message : str
+            Progress description.
+        """
+        if self._is_primary_rank():
+            print(f"  [{phase}/{total}] {message}", flush=True)
+
+    def _print_info(self, message: str) -> None:
+        """Print an info message.
+
+        Parameters
+        ----------
+        message : str
+            Informational text to display.
+        """
+        if self._is_primary_rank():
+            print(f"  [Info] {message}", flush=True)
+
+    @staticmethod
+    def _petsc_to_coo(mat: "PETSc.Mat") -> Tuple[NDArray, NDArray, NDArray]:
+        """
+        Convert PETSc matrix to COO format arrays.
+
+        Parameters
+        ----------
+        mat : PETSc.Mat
+            PETSc matrix to convert.
+
+        Returns
+        -------
+        rows : ndarray
+            Row indices.
+        cols : ndarray
+            Column indices.
+        vals : ndarray
+            Matrix values.
+        """
+        from petsc4py import PETSc
+
+        mat_csr = mat.convert("mpiaij")
+        indptr, indices, data = mat_csr.getValuesCSR()
+
+        rows = []
+        for i in range(len(indptr) - 1):
+            rows.extend([i] * (indptr[i + 1] - indptr[i]))
+
+        return (
+            np.array(rows, dtype=np.int32),
+            np.array(indices, dtype=np.int32),
+            np.array(data, dtype=np.float64),
+        )
