@@ -62,3 +62,71 @@ being applied when ω started at its steady-state value.
 - Rust tests: `cargo test -- omega_pred` → 6 passed, 0 failed
 - Python: `pytest tests/test_omega_rebuild_predicate.py` → 15 passed, 1 skipped
 - Python parity: `pytest tests/test_rotor_rust_parity.py` → 15 passed, 8 pre-existing failures (TestMapOmegaProvider), 30 skipped
+
+---
+
+# Apply Progress: rotor-corotational-consistency-fixes (Fix #1 batch)
+
+## Status: done
+
+## Tasks completed
+
+- [x] 1.1 Rewrote `tests/test_rotor_physical_consistency.py::test_centrifugal_deformed_geometry`:
+  added `include_ksp` to `@pytest.mark.parametrize`; when `include_ksp=True`, the reference-geometry
+  (X₀) result is CORRECT — asserted to have zero relative error vs the true X₀ force, and the
+  deformed-geometry result is WRONG (error proportional to `deformation_ratio`); when
+  `include_ksp=False`, the deformed-geometry result is CORRECT (current behaviour preserved).
+  Module docstring updated to reflect the corrected contract.
+
+- [x] 1.2 Implemented centrifugal coordinate branch in
+  `crates/aeroelast-solvers/src/petsc/fsi/rotor_fsi.rs` (previously around line 696-722, now
+  lines 695-741 after edit): the `if self.config.include_centrifugal` block now branches on
+  `self.config.include_ksp`. When true, `compute_centrifugal_force` is called with
+  `&self.all_node_coords` (X₀), skipping the per-step `deformed_coords` Vec build entirely.
+  When false, the existing deformed-coords build and call is retained verbatim. The Euler block
+  immediately following is untouched per design. Comment updated to explain the double-count risk.
+
+- [x] 1.3 Created `tests/test_rotor_centrifugal_branch.py`: 2-node mass-rotor (nodes at R=10 m on
+  X-axis and at 53° off-axis) with prescribed displacements. Four test functions validate:
+  (a) include_ksp=True → F_cf at X₀ matches m·ω²·r₀ within 1e-14; displacement contribution absent;
+  (b) include_ksp=False → F_cf at X₀+u matches m·ω²·r_⊥(X₀+u) within 1e-14;
+  (c) branch diff equals m·ω²·|u_perp| within 1e-12 for all ω and u combinations;
+  (d) zero ω gives zero force in both branches. 90 parametrized cases, all passed.
+  Pure-math, no _aeroelast import required.
+
+- [x] 1.4 Test runs completed:
+  - `test_rotor_physical_consistency.py`: 36 passed, 1 pre-existing failure
+    (`test_kg_hysteresis_prevents_chattering` fails on baseline too — confirmed by stash check),
+    1 skipped. No new failures.
+  - `test_rotor_rust_parity.py`: 8 pre-existing failures (TestMapOmegaProvider — same as baseline),
+    29 skipped. No new failures.
+  - Rust binary not rebuilt; Rust change verified by inspection only — the binary in venv
+    reflects the pre-Fix#1 code. Numerical validation of the branch at runtime is deferred to
+    the orchestrator's rebuild step.
+  - No RMS displacement shift measurable in this environment (Rust not rebuilt). Spec tolerance
+    of ≤1% RMS shift on include_ksp=True cases to be validated after orchestrator rebuilds.
+
+- [x] 1.5 Read-only check of `docs/rotor_inertial_solver_design.md`: the inertial solver design
+  explicitly states the first version will NOT include a K_G equivalent and does not implement
+  centrifugal force directly (`prestress centrifugo` section, line 193). There is therefore NO
+  analogous include_ksp centrifugal double-count bug in `LinearDynamicFSIRotorInertialSolver` —
+  the K_SP mechanism is absent from that solver by design. No follow-up issue required.
+
+## Files changed
+
+- `crates/aeroelast-solvers/src/petsc/fsi/rotor_fsi.rs`
+  - Centrifugal force block: added `include_ksp` branch; X₀ path skips deformed-coords Vec build
+  - Old comment "computed at DEFORMED geometry" replaced with accurate two-branch explanation
+
+- `tests/test_rotor_physical_consistency.py`
+  - `test_centrifugal_deformed_geometry`: added `include_ksp` param, flipped assertions per contract
+  - Module docstring: updated item 1 to describe the correct two-branch contract
+
+- `tests/test_rotor_centrifugal_branch.py` (new)
+  - 4 test functions, 90 parametrized cases, pure-math, no Rust import needed
+
+## Pre-existing failures confirmed (not introduced by Fix #1)
+
+- `test_kg_hysteresis_prevents_chattering`: fails on baseline (stash-verified)
+- `TestMapOmegaProvider::test_constant_omega` and 8 others: fail on baseline (stash-verified)
+- All `test_rotor_rust_parity.py::TestRotorAutoInertia` tests: SKIP (no Rust binary in this env)

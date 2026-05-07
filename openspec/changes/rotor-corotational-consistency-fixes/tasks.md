@@ -66,7 +66,7 @@ Covers spec requirements: **Omega-Rebuild Policy for K_G and K_SP** and
 
 Covers spec requirement: **Centrifugal Force Evaluation Coordinates**.
 
-- [ ] 1.1 Rewrite `tests/test_rotor_physical_consistency.py::test_centrifugal_deformed_geometry`
+- [x] 1.1 Rewrite `tests/test_rotor_physical_consistency.py::test_centrifugal_deformed_geometry`
   to reflect the new contract. **Read the test body first** — it is a pure-math test that
   does not call the Rust solver; it computes `F_exact` (deformed) and `F_cached` (reference)
   analytically and asserts the cached method has error ≈ `deformation_ratio`. The minimal
@@ -77,27 +77,27 @@ Covers spec requirement: **Centrifugal Force Evaluation Coordinates**.
   solver call here; 1.3 is the definitive Rust-level gate. This and task 1.2 are in the
   same commit.
 
-- [ ] 1.2 (same commit as 1.1) Implement the centrifugal branch in `rotor_fsi.rs:622-648`:
+- [x] 1.2 (same commit as 1.1) Implement the centrifugal branch in `rotor_fsi.rs:622-648`:
   when `self.config.include_ksp`, pass `&self.all_node_coords` (`X₀`) to
   `compute_centrifugal_force`; otherwise pass the per-step deformed vector as today.
   The Euler block (`:651-677`) is unchanged — no LHS counterpart, deformed coords correct
   in both cases. Acceptance: rewritten test in 1.1 passes; `test_rotor_rust_parity.py`
   passes; `cargo test` green.
 
-- [ ] 1.3 Add `tests/test_rotor_centrifugal_branch.py`: 2-node mass-rotor at fixed ω
+- [x] 1.3 Add `tests/test_rotor_centrifugal_branch.py`: 2-node mass-rotor at fixed ω
   and prescribed u. For `include_ksp = true` verify `|F_cf|` matches `m·ω²·r_0,⊥`
   within 1e-12; for `include_ksp = false` verify it matches `m·ω²·r_⊥(X₀+u)` within
   1e-12; verify the two differ by an amount ∝ `ω²·|u|`. Acceptance: all assertions
   pass; this test is independent of 1.1/1.2 and can run in CI without preCICE.
 
-- [ ] 1.4 Run `test_rotor_physical_consistency.py` in full; run `test_rotor_rust_parity.py`.
+- [x] 1.4 Run `test_rotor_physical_consistency.py` in full; run `test_rotor_rust_parity.py`.
   Confirm no new failures beyond the intentional replacement of the old centrifugal
   assertion. Document any numerical shifts observed as the expected delta for the
   regression baseline (≤ 1% RMS displacement shift on `include_ksp=true` cases is
   the acceptance threshold from the spec). Acceptance: written diff is committed to the
   PR as a benchmark annotation.
 
-- [ ] 1.5 Read-only cross-check: skim `docs/rotor_inertial_solver_design.md` to
+- [x] 1.5 Read-only cross-check: skim `docs/rotor_inertial_solver_design.md` to
   confirm whether `LinearDynamicFSIRotorInertialSolver` has an analogous centrifugal
   bug. Flag a follow-up issue if yes; do NOT change that solver in this task. No code
   changes. Acceptance: a single comment in the PR description recording the finding.

@@ -693,31 +693,50 @@ impl RotorFsiSolver {
             }
 
             // Inertial forces (all nodes, rotating frame).
-            // Centrifugal force computed at DEFORMED geometry (X₀ + u) for physical accuracy.
+            // Centrifugal force coordinate selection depends on include_ksp:
+            //   include_ksp=true  → evaluate at X₀ (undeformed).
+            //     K_SP·u already accounts for the displacement-dependent
+            //     linearisation on the LHS; using X₀+u here would double-count
+            //     the O(ω²|u|) term.
+            //   include_ksp=false → evaluate at X₀+u (deformed).
+            //     No LHS counterpart exists; the full nonlinear correction must
+            //     appear in the force vector.
             if self.config.include_centrifugal {
-                let u_full = self.expand_to_full(self.stepper.current_u());
-                let deformed_coords: Vec<f64> = self
-                    .all_node_coords
-                    .iter()
-                    .enumerate()
-                    .map(|(k, &x0)| {
-                        let node = k / 3;
-                        let comp = k % 3;
-                        let gdof = node * self.config.dofs_per_node + comp;
-                        if gdof < u_full.len() {
-                            x0 + u_full[gdof]
-                        } else {
-                            x0
-                        }
-                    })
-                    .collect();
-                let f_cf = compute_centrifugal_force(
-                    &deformed_coords,
-                    &self.all_node_masses,
-                    &self.transforms.axis,
-                    &self.transforms.center,
-                    omega_step,
-                );
+                let f_cf = if self.config.include_ksp {
+                    // K_SP active: evaluate centrifugal at undeformed coords X₀.
+                    compute_centrifugal_force(
+                        &self.all_node_coords,
+                        &self.all_node_masses,
+                        &self.transforms.axis,
+                        &self.transforms.center,
+                        omega_step,
+                    )
+                } else {
+                    // K_SP inactive: evaluate centrifugal at deformed coords X₀+u.
+                    let u_full = self.expand_to_full(self.stepper.current_u());
+                    let deformed_coords: Vec<f64> = self
+                        .all_node_coords
+                        .iter()
+                        .enumerate()
+                        .map(|(k, &x0)| {
+                            let node = k / 3;
+                            let comp = k % 3;
+                            let gdof = node * self.config.dofs_per_node + comp;
+                            if gdof < u_full.len() {
+                                x0 + u_full[gdof]
+                            } else {
+                                x0
+                            }
+                        })
+                        .collect();
+                    compute_centrifugal_force(
+                        &deformed_coords,
+                        &self.all_node_masses,
+                        &self.transforms.axis,
+                        &self.transforms.center,
+                        omega_step,
+                    )
+                };
                 self.scatter_node_forces(&f_cf, &mut f_red);
             }
 

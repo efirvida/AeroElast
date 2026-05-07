@@ -2,7 +2,13 @@
 Physical consistency tests for rotor FSI optimizations.
 
 Validates that the performance optimizations maintain physical accuracy:
-1. Centrifugal forces use deformed geometry (not cached reference)
+1. Centrifugal forces use the correct coordinate set based on include_ksp:
+   - include_ksp=True:  centrifugal evaluated at X₀ (undeformed).
+     K_SP already accounts for the displacement correction on the LHS;
+     using X₀+u here would double-count the O(ω²|u|) term.
+   - include_ksp=False: centrifugal evaluated at X₀+u (deformed).
+     No LHS counterpart exists, so the full nonlinear correction must
+     appear in the force.
 2. K_G rebuild has hysteresis to prevent chattering
 3. Coriolis is treated implicitly for stability at high ω
 """
@@ -12,51 +18,77 @@ import pytest
 from numpy.testing import assert_allclose
 
 
+@pytest.mark.parametrize("include_ksp", [True, False])
 @pytest.mark.parametrize("omega", [0.0, 10.0, 50.0, 100.0])
 @pytest.mark.parametrize("deformation_ratio", [0.0, 0.01, 0.05, 0.10])
-def test_centrifugal_deformed_geometry(omega, deformation_ratio):
+def test_centrifugal_deformed_geometry(include_ksp, omega, deformation_ratio):
     """
-    Centrifugal force MUST use deformed geometry X+u, not reference X.
+    Centrifugal force coordinate selection depends on include_ksp.
 
-    Error with reference geometry scales as O(u/R).
-    This test validates the error is < 0.1% even for 10% deformation.
+    When include_ksp=True:
+      K_SP·u already captures the deformation correction on the LHS.
+      Evaluating centrifugal at X₀+u simultaneously would double-count O(ω²|u|).
+      Therefore the reference-geometry (X₀) result is CORRECT — zero relative error
+      compared to the true undeformed-geometry force.
+
+    When include_ksp=False:
+      No LHS counterpart exists. The full geometrically-nonlinear correction must
+      appear in the force, so deformed geometry X₀+u is CORRECT.
+      Using reference geometry (X₀) introduces an error that scales as O(u/R).
     """
-    try:
-        import _aeroelast
-    except ImportError:
-        pytest.skip("Rust backend not available")
-
     # Simplified rotor: single node at distance R from axis
     R = 10.0  # radius [m]
     mass = 100.0  # kg
-    axis = np.array([0.0, 0.0, 1.0])  # Z-axis rotation
-    center = np.array([0.0, 0.0, 0.0])
 
     # Reference coordinates (undeformed)
-    coords_ref = np.array([R, 0.0, 0.0])
-
     # Deformation in radial direction
     u_deformation = deformation_ratio * R
-    coords_deformed = coords_ref + np.array([u_deformation, 0.0, 0.0])
 
-    # Exact centrifugal force at deformed geometry
-    r_perp_deformed = R + u_deformation
-    F_exact = mass * omega**2 * r_perp_deformed
-
-    # Force using reference geometry (old cached method - WRONG)
+    # Force evaluated at reference (undeformed) geometry X₀
     r_perp_ref = R
-    F_cached = mass * omega**2 * r_perp_ref
+    F_at_X0 = mass * omega**2 * r_perp_ref
 
-    # Relative error if using cache
-    if omega > 0:
-        rel_error = abs(F_exact - F_cached) / F_exact
-        assert rel_error == pytest.approx(deformation_ratio, abs=1e-10), (
-            f"Cache method error = {rel_error:.3%}, expected ~{deformation_ratio:.3%}"
+    # Force evaluated at deformed geometry X₀+u
+    r_perp_deformed = R + u_deformation
+    F_at_X0_plus_u = mass * omega**2 * r_perp_deformed
+
+    if omega == 0:
+        # Both are zero regardless; nothing to assert about relative error
+        assert F_at_X0 == 0.0
+        assert F_at_X0_plus_u == 0.0
+        return
+
+    if include_ksp:
+        # Contract: centrifugal MUST be evaluated at X₀ when include_ksp=True.
+        # F_at_X0 is the CORRECT value; F_at_X0_plus_u would be wrong.
+        # The "cached" (reference geometry) result has zero relative error vs the
+        # correct X₀ evaluation — they are the same quantity.
+        F_correct = F_at_X0
+        F_wrong = F_at_X0_plus_u
+        # Relative error of the WRONG (deformed-geometry) result vs the correct one
+        rel_error_if_deformed = abs(F_wrong - F_correct) / F_correct
+        assert rel_error_if_deformed == pytest.approx(deformation_ratio, abs=1e-10), (
+            f"include_ksp=True: deformed-geometry force has rel_error={rel_error_if_deformed:.3%}, "
+            f"expected ~{deformation_ratio:.3%} (proportional to deformation)"
         )
-
-    # If deformation is 10% of R, error is ~10%
-    if deformation_ratio == 0.10 and omega > 0:
-        assert rel_error > 0.09, "Cache method should have ~10% error for 10% deformation"
+        # The reference-geometry evaluation is exact — zero error.
+        assert F_at_X0 == F_correct, "include_ksp=True: X₀ evaluation must equal correct value"
+    else:
+        # Contract: centrifugal MUST be evaluated at X₀+u when include_ksp=False.
+        # F_at_X0_plus_u is CORRECT; F_at_X0 is wrong (missing the deformation correction).
+        F_correct = F_at_X0_plus_u
+        # Relative error of using reference geometry (wrong for this case)
+        rel_error = abs(F_at_X0 - F_correct) / F_correct
+        assert rel_error == pytest.approx(deformation_ratio / (1.0 + deformation_ratio), abs=1e-10), (
+            f"include_ksp=False: reference-geometry error={rel_error:.3%}, "
+            f"expected ~{deformation_ratio / (1.0 + deformation_ratio):.3%}"
+        )
+        # If deformation is 10% of R, error with reference coords is significant
+        if deformation_ratio == 0.10:
+            assert rel_error > 0.08, (
+                "include_ksp=False: reference-geometry method should have ~9% error "
+                "for 10% deformation"
+            )
 
 
 def test_kg_hysteresis_prevents_chattering():
