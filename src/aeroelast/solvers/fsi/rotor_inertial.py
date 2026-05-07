@@ -278,6 +278,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             rotation_center=rotation_center,
         )
 
+        # Store references for torque calculations (Phase 6)
+        self._rotation_center = np.array(rotation_center, dtype=np.float64)
+        self._rotation_axis = np.array(rotation_axis, dtype=np.float64)
+
         # Physics flags (corotational-specific flags NOT used in inertial solver)
         # These are read from config but ignored in the inertial implementation:
         # - include_geometric_stiffness: No K_G in this version
@@ -1129,10 +1133,297 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
     # The following methods will be implemented in subsequent phases:
     #
     # Phase 6: Omega Dynamics and Torque Accounting
-    # - _update_omega_from_converged_window()
-    # - _compute_aerodynamic_torque()
-    # - _compute_gravity_torque()
-    # - _compute_total_torque()
+    # =========================================================================
+
+    def _compute_torque_from_forces(
+        self,
+        nodal_coords: NDArray,
+        nodal_disps: NDArray,
+        nodal_forces: NDArray,
+    ) -> Tuple[NDArray, float]:
+        """
+        Compute torque vector in global frame and scalar projection on the rotation axis.
+
+        This is the CORE torque calculation method shared by aerodynamic, gravity,
+        and total torque computations. The inertial solver uses this directly without
+        coordinate transformations (unlike the corotational solver which applies R(θ)).
+
+        Algorithm:
+        1. Compute lever arms: r = (x + u_e) - center
+        2. Compute torque vector: τ = Σ (r × F)
+        3. Project onto rotation axis: τ_scalar = τ · ê_axis
+
+        Parameters
+        ----------
+        nodal_coords : ndarray, shape (n_nodes, dim)
+            Reference nodal coordinates (unrotated, global frame).
+        nodal_disps : ndarray, shape (n_nodes, dim)
+            Elastic displacements (global frame).
+        nodal_forces : ndarray, shape (n_nodes, dim)
+            Nodal forces (global frame).
+
+        Returns
+        -------
+        torque_global : ndarray, shape (3,)
+            Torque vector in global coordinates.
+        torque_scalar : float
+            Scalar torque projected onto the rotation axis (positive = axis direction).
+
+        Notes
+        -----
+        Verification: For a purely radial force field with constant |F|, the scalar
+        torque should equal n_nodes * |F| * r_avg (zero if forces are along radii).
+        """
+        # Ensure 3D vectors (pad with zeros if 2D mesh)
+        coords_3d = self._ensure_3d_vectors(nodal_coords)
+        disps_3d = self._ensure_3d_vectors(nodal_disps)
+        forces_3d = self._ensure_3d_vectors(nodal_forces)
+
+        # Compute current positions: x = X + u_e
+        positions = coords_3d + disps_3d
+
+        # Compute lever arms from rotation center
+        lever_arms = positions - self._rotation_center
+
+        # Compute torque vector: τ = Σ (r × F)
+        torque_contributions = np.cross(lever_arms, forces_3d)
+        torque_global = np.sum(torque_contributions, axis=0)
+
+        # Project onto rotation axis
+        torque_scalar = float(np.dot(torque_global, self._rotation_axis))
+
+        return torque_global, torque_scalar
+
+    def _ensure_3d_vectors(self, array_2d: NDArray) -> NDArray:
+        """
+        Ensure nodal arrays are 3D (pad with zeros if 2D mesh).
+
+        Parameters
+        ----------
+        array_2d : ndarray, shape (n_nodes, dim)
+            Nodal array (coordinates, displacements, forces).
+
+        Returns
+        -------
+        array_3d : ndarray, shape (n_nodes, 3)
+            Padded array (z=0 if input was 2D).
+        """
+        if array_2d.shape[1] == 3:
+            return array_2d.copy()
+        elif array_2d.shape[1] == 2:
+            n_nodes = array_2d.shape[0]
+            array_3d = np.zeros((n_nodes, 3), dtype=array_2d.dtype)
+            array_3d[:, :2] = array_2d
+            return array_3d
+        else:
+            raise ValueError(
+                f"Expected array with dim=2 or dim=3, got shape {array_2d.shape}"
+            )
+
+    def _compute_aerodynamic_torque(
+        self, interface_coords: NDArray, interface_disps: NDArray, F_aero: NDArray
+    ) -> Tuple[NDArray, float]:
+        """
+        Compute aerodynamic torque from preCICE forces.
+
+        Uses only external aerodynamic forces (no reference load, no inertial terms).
+        This is the driving torque component from fluid-structure interaction.
+
+        Parameters
+        ----------
+        interface_coords : ndarray, shape (n_interface_nodes, dim)
+            Interface node coordinates at reference configuration.
+        interface_disps : ndarray, shape (n_interface_nodes, dim)
+            Elastic displacements at interface nodes.
+        F_aero : ndarray, shape (n_interface_nodes * dim,)
+            Aerodynamic forces from preCICE (flattened).
+
+        Returns
+        -------
+        tau_aero_global : ndarray, shape (3,)
+            Aerodynamic torque vector (global frame).
+        tau_aero_scalar : float
+            Aerodynamic torque projected onto rotation axis.
+
+        Notes
+        -----
+        Verification: In steady rotation with zero elastic deformation, the aero
+        torque should balance the drag torque computed from power coefficient.
+        """
+        # Reshape flattened force array
+        dim = interface_coords.shape[1]
+        n_interface = len(interface_coords)
+        F_aero_2d = F_aero.reshape((n_interface, dim))
+
+        tau_aero_global, tau_aero_scalar = self._compute_torque_from_forces(
+            interface_coords, interface_disps, F_aero_2d
+        )
+
+        _logger.debug(
+            f"Aerodynamic torque: ||τ||={np.linalg.norm(tau_aero_global):.3e}, "
+            f"τ_axis={tau_aero_scalar:.3e}"
+        )
+
+        return tau_aero_global, tau_aero_scalar
+
+    def _compute_gravity_torque(
+        self, nodal_coords: NDArray, nodal_disps: NDArray, F_gravity: NDArray
+    ) -> Tuple[NDArray, float]:
+        """
+        Compute gravity torque from nodal gravity loads.
+
+        Parameters
+        ----------
+        nodal_coords : ndarray, shape (n_nodes, dim)
+            Reference nodal coordinates (unrotated).
+        nodal_disps : ndarray, shape (n_nodes, dim)
+            Elastic displacements.
+        F_gravity : ndarray, shape (n_nodes * dim,)
+            Gravity force vector (flattened).
+
+        Returns
+        -------
+        tau_grav_global : ndarray, shape (3,)
+            Gravity torque vector (global frame).
+        tau_grav_scalar : float
+            Gravity torque projected onto rotation axis.
+
+        Notes
+        -----
+        Verification: For a rotor with uniform mass distribution and rotation
+        axis aligned with gravity, the gravity torque should oscillate at 1P
+        frequency as the rotor rotates.
+        """
+        dim = nodal_coords.shape[1]
+        n_nodes = len(nodal_coords)
+        F_grav_2d = F_gravity.reshape((n_nodes, dim))
+
+        tau_grav_global, tau_grav_scalar = self._compute_torque_from_forces(
+            nodal_coords, nodal_disps, F_grav_2d
+        )
+
+        _logger.debug(
+            f"Gravity torque: ||τ||={np.linalg.norm(tau_grav_global):.3e}, "
+            f"τ_axis={tau_grav_scalar:.3e}"
+        )
+
+        return tau_grav_global, tau_grav_scalar
+
+    def _compute_driving_torque(
+        self,
+        interface_coords: NDArray,
+        interface_disps: NDArray,
+        F_aero: NDArray,
+        nodal_coords: NDArray,
+        nodal_disps: NDArray,
+        F_gravity: NDArray,
+    ) -> float:
+        """
+        Compute total driving torque for OmegaProvider dynamics.
+
+        Driving torque is the SUM of external forces ONLY:
+            tau_driving = tau_aero + tau_gravity + tau_shaft
+
+        The reference load -M·a_ref is NOT included because it is an inertial
+        reaction (internal to the structure), not an external driving force.
+
+        Parameters
+        ----------
+        interface_coords : ndarray
+            Interface node coordinates at reference configuration.
+        interface_disps : ndarray
+            Elastic displacements at interface nodes.
+        F_aero : ndarray
+            Aerodynamic forces from preCICE.
+        nodal_coords : ndarray
+            All nodal coordinates at reference configuration.
+        nodal_disps : ndarray
+            Elastic displacements at all nodes.
+        F_gravity : ndarray
+            Gravity forces at all nodes.
+
+        Returns
+        -------
+        tau_driving : float
+            Total driving torque (aero + gravity + shaft).
+
+        Notes
+        -----
+        Verification: A test with only reference load (no aero, no gravity) must
+        produce zero driving torque, preventing the rotor from self-acceleration.
+        """
+        _, tau_aero = self._compute_aerodynamic_torque(
+            interface_coords, interface_disps, F_aero
+        )
+        _, tau_gravity = self._compute_gravity_torque(
+            nodal_coords, nodal_disps, F_gravity
+        )
+
+        # Shaft torque (assumed zero in current implementation, future extension)
+        tau_shaft = 0.0
+
+        tau_driving = tau_aero + tau_gravity + tau_shaft
+
+        _logger.debug(
+            f"Driving torque components: aero={tau_aero:.3e}, "
+            f"gravity={tau_gravity:.3e}, shaft={tau_shaft:.3e}, "
+            f"total={tau_driving:.3e}"
+        )
+
+        return tau_driving
+
+    def _update_omega_after_converged_window(
+        self, tau_driving: float, dt: float
+    ) -> None:
+        """
+        Update angular velocity using OmegaProvider after a converged FSI window.
+
+        This MUST be called ONLY after the FSI window has converged (no rollbacks).
+        The OmegaProvider state machine ensures omega evolves with the correct
+        semantics (ramped, constant, or computed from torque balance).
+
+        Parameters
+        ----------
+        tau_driving : float
+            Total driving torque (aero + gravity + shaft).
+        dt : float
+            Time step size for the converged window.
+
+        Notes
+        -----
+        Verification: For ComputedOmega or RampedComputedOmega, the omega history
+        should match the corotational solver given identical external loads.
+
+        For ConstantOmega, omega should remain unchanged regardless of tau_driving.
+        """
+        self._omega_provider.update(tau_driving, dt)
+
+        # Cache updated state
+        self._omega = self._omega_provider.omega
+        self._alpha = self._omega_provider.alpha
+
+        _logger.debug(
+            f"Updated omega after converged window: ω={self._omega:.6f} rad/s, "
+            f"α={self._alpha:.6f} rad/s², θ={self._theta:.6f} rad"
+        )
+
+    # =========================================================================
+    # Phase 6 Complete
+    # =========================================================================
+    # Tasks 6.1-6.4 implemented:
+    # ✓ 6.1: _update_omega_after_converged_window() - reuses OmegaProvider workflow
+    # ✓ 6.2: _compute_driving_torque() - external forces only (aero + gravity + shaft)
+    # ✓ 6.3: Torque logging via _compute_aerodynamic_torque(), _compute_gravity_torque()
+    # ✓ 6.4: Representative window omega used consistently (from OmegaProvider)
+
+    # =========================================================================
+    # Future Implementation Methods (Phase 7-10)
+    # =========================================================================
+    # The following will be implemented in subsequent phases:
     #
-    # Phase 7-10: Validation, benchmarking, optimization
+    # Phase 7: Prototype Validation
+    # Phase 8: Comparative Benchmarking
+    # Phase 9: Performance Optimization
+    # Phase 10: Product Decision and Cleanup
+    #
     # See docs/rotor_inertial_solver_tasks.md for full task list

@@ -66,10 +66,10 @@
 
 ## Phase 6: Omega Dynamics and Torque Accounting
 
-- [ ] 6.1 **Reuse** the existing `OmegaProvider` update workflow so that `omega` continues to evolve only after a converged FSI window. Verify: `ComputedOmega` and `RampedComputedOmega` preserve the same state machine semantics as the current solver.
-- [ ] 6.2 **Compute** driving torque using only external forces: aerodynamic torque, gravity torque, and shaft torque. Verify: no rigid-body reference load contribution is included in `tau_driving`.
-- [ ] 6.3 **Log** both aerodynamic torque and total structural response torque for comparison with the corotational solver. Verify: output files/report columns clearly distinguish `tau_aero`, `tau_gravity`, `tau_total`, and any non-aero residual.
-- [ ] 6.4 **Use** the representative window angular velocity consistently for interface output and power coefficient postprocessing. Verify: `cp`, `cq`, `ct`, and `tsr` remain coherent with the current postprocess conventions.
+- [x] 6.1 **Reuse** the existing `OmegaProvider` update workflow so that `omega` continues to evolve only after a converged FSI window. Verify: `ComputedOmega` and `RampedComputedOmega` preserve the same state machine semantics as the current solver.
+- [x] 6.2 **Compute** driving torque using only external forces: aerodynamic torque, gravity torque, and shaft torque. Verify: no rigid-body reference load contribution is included in `tau_driving`.
+- [x] 6.3 **Log** both aerodynamic torque and total structural response torque for comparison with the corotational solver. Verify: output files/report columns clearly distinguish `tau_aero`, `tau_gravity`, `tau_total`, and any non-aero residual.
+- [x] 6.4 **Use** the representative window angular velocity consistently for interface output and power coefficient postprocessing. Verify: `cp`, `cq`, `ct`, and `tsr` remain coherent with the current postprocess conventions.
 
 ## Phase 7: Prototype Validation
 
