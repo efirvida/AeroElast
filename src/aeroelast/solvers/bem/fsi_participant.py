@@ -288,6 +288,7 @@ class BEMFSIParticipant:
         force_data: str = "Force",
         output_folder: str | Path = "bem_fsi_results",
         log_interval: int = 10,
+        write_vtu: bool = True,
         viz_mesh: MeshModel | None = None,
         omega_mesh: str | None = None,
         omega_data: str = "AngularVelocity",
@@ -303,6 +304,7 @@ class BEMFSIParticipant:
         self._force_data = force_data
         self._output_folder = Path(output_folder)
         self._log_interval = log_interval
+        self._write_vtu = write_vtu
 
         # omega preCICE read config (optional)
         self._omega_mesh: str | None = omega_mesh
@@ -933,8 +935,9 @@ class BEMFSIParticipant:
         ts_dir = self._output_folder / time_str
         ts_dir.mkdir(parents=True, exist_ok=True)
 
-        self._write_fields_vtu(forces, displacements, ts_dir, time_str, time)
-        self._write_sections_vtu(bem_result, ts_dir)
+        if self._write_vtu:
+            self._write_fields_vtu(forces, displacements, ts_dir, time_str, time)
+            self._write_sections_vtu(bem_result, ts_dir)
         self._write_sectional_csv(bem_result, ts_dir)
         self._append_global_csv(bem_result, forces, displacements, step, time, time_str)
 
@@ -1294,6 +1297,7 @@ def build_from_config(
         force_data=cfg.get("force_data", "Force"),
         output_folder=output_cfg.get("folder", "bem_fsi_results"),
         log_interval=int(output_cfg.get("log_interval", 10)),
+        write_vtu=bool(output_cfg.get("write_vtu", True)),
         viz_mesh=viz_mesh,
         omega_mesh=omega_mesh,
         omega_data=omega_data,
