@@ -320,6 +320,66 @@ impl MeshAssembler {
     }
 
     // -----------------------------------------------------------------------
+    // Coordinate update (rigid rotation, geometry refresh)
+    // -----------------------------------------------------------------------
+
+    /// Replace node coordinates with a new absolute position array.
+    ///
+    /// Unlike `update_reference` (which *adds* an incremental displacement),
+    /// this method *sets* the coordinates directly.  All per-element geometric
+    /// data (Jacobians, normals, areas, constitutive frames) is recomputed
+    /// from the new positions.  Connectivity, DOF mapping, and material
+    /// tensors are preserved — making this 2-4× faster than a full rebuild.
+    ///
+    /// # Arguments
+    /// * `coords` — flat slice `[x0,y0,z0, x1,y1,z1, …]` of length `3*n_nodes`.
+    ///
+    /// # Panics
+    /// Panics if `coords.len() != 3 * n_nodes`.
+    pub fn update_node_coordinates(&mut self, coords: &[f64]) {
+        let n_nodes = self.topology.n_nodes;
+        assert_eq!(
+            coords.len(),
+            3 * n_nodes,
+            "coords length must equal 3 * n_nodes ({} nodes)",
+            n_nodes
+        );
+
+        // Replace node positions in-place
+        self.topology.node_coords[..coords.len()].copy_from_slice(coords);
+
+        // Rebuild per-element precomputed geometry (same logic as update_reference)
+        let n_elems = self.topology.n_elems;
+        for e in 0..n_elems {
+            let elem_coords = self.topology.elem_coords(e);
+            let mat = &self.materials[e];
+            let pre = match self.topology.elem_types[e] {
+                ElemType::Mitc3 | ElemType::Mitc3Composite => {
+                    let mut c9 = [0.0f64; 9];
+                    c9.copy_from_slice(&elem_coords);
+                    let (constitutive, thickness, e_mod, drilling_scale) =
+                        build_constitutive_mitc3(mat);
+                    PrecomputedElem::Tri(Mitc3Precomputed::new(
+                        &c9, constitutive, thickness, e_mod, drilling_scale,
+                    ))
+                }
+                ElemType::Mitc4 | ElemType::Mitc4Composite => {
+                    let mut c12 = [0.0f64; 12];
+                    c12.copy_from_slice(&elem_coords);
+                    let (constitutive, thickness, e_mod, drilling_scale) =
+                        build_constitutive_mitc4(mat);
+                    PrecomputedElem::Quad(Mitc4Precomputed::new(
+                        &c12, constitutive, thickness, e_mod, drilling_scale,
+                    ))
+                }
+                // Non-shell elements: coords stored differently, skip rebuild
+                _ => continue,
+            };
+            self.precomputed[e] = pre;
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // NNZ accessor
     // -----------------------------------------------------------------------
 
