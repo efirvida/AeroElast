@@ -98,21 +98,28 @@ class Adapter:
     # Initialization
     # ------------------------------------------------------------------
 
-    def initialize(self) -> float:
-        """Register all coupling meshes and initialize preCICE.
+    def register_meshes(self) -> None:
+        """Register all coupling meshes with preCICE (set_mesh_vertices).
 
-        If preCICE requires initial data, the caller must write it
-        *before* calling this method using :meth:`write_data`.
+        Call this before writing initial data when
+        :attr:`requires_initial_data` is True, then call :meth:`initialize`.
+        Safe to call multiple times (idempotent).
+        """
+        for mesh_name, coords in self._coupling_meshes.items():
+            if mesh_name in self._mesh_vertex_ids:
+                continue
+            vertex_ids = self._interface.set_mesh_vertices(mesh_name, coords)
+            self._mesh_vertex_ids[mesh_name] = vertex_ids
+
+    def initialize(self) -> float:
+        """Register meshes (if not already done) and initialize preCICE.
 
         Returns
         -------
         float
             Maximum time step size from preCICE.
         """
-        for mesh_name, coords in self._coupling_meshes.items():
-            vertex_ids = self._interface.set_mesh_vertices(mesh_name, coords)
-            self._mesh_vertex_ids[mesh_name] = vertex_ids
-
+        self.register_meshes()
         self._interface.initialize()
         return self._interface.get_max_time_step_size()
 

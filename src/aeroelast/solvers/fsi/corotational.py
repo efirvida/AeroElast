@@ -105,16 +105,6 @@ class CoordinateTransforms:
         self._K = self._skew_symmetric(self._axis)
         self._K2 = self._K @ self._K
 
-    @property
-    def axis(self) -> NDArray:
-        """Rotation axis unit vector."""
-        return self._axis
-
-    @property
-    def center(self) -> NDArray:
-        """Rotation center coordinates."""
-        return self._center
-
     @staticmethod
     def _skew_symmetric(v: NDArray) -> NDArray:
         """Compute skew-symmetric matrix from vector v such that K @ x = v × x."""
@@ -182,7 +172,7 @@ class CoordinateTransforms:
         if vec_global.ndim == 1:
             return R.T @ vec_global
         else:
-            # For array of vectors: (n, 3) @ (3, 3).T = (n, 3)
+            # For row-vector arrays: v @ R ≡ R^ᵀ·v in column-vector notation → rotating frame
             return vec_global @ R
 
     def to_inertial(self, vec_local: NDArray, theta: float) -> NDArray:
@@ -833,6 +823,16 @@ class OmegaProvider(ABC):
     def initial_omega(self) -> float:
         """Return the initial angular velocity."""
         pass
+
+    def update(self, driving_torque: float, dt: float) -> None:
+        """
+        Advance any internal state over one converged time window.
+
+        Stateless providers such as ConstantOmega and RampedOmega do not need
+        torque-driven updates, so the default implementation is a no-op.
+        Dynamic providers override this method to integrate their internal state.
+        """
+        return None
 
 
 class ConstantOmega(OmegaProvider):

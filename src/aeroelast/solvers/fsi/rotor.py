@@ -421,6 +421,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         self._include_coriolis = rotor_cfg.get("include_coriolis", True)
         self._include_euler = rotor_cfg.get("include_euler", True)
         self._kg_update_interval = int(rotor_cfg.get("kg_update_interval", 0))
+        self._ksp_omega_threshold: float = float(rotor_cfg.get("ksp_omega_threshold", 1e-4))
         self._force_ramp_time = float(rotor_cfg.get("force_ramp_time", 0.0))
         self._send_omega_to_precice = rotor_cfg.get("send_omega_to_precice", True)
         self._omega_mesh_name: str = rotor_cfg.get("omega_mesh_name", "GlobalSolidMesh")
@@ -513,7 +514,6 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                 if damping_cfg.get("eta_k") is not None
                 else self.solver_params.get("eta_k", 0.0)
             )
-        self._stress_output_interval = int(self.solver_params.get("stress_output_interval", 1))
         self._stress_output_interval = int(self.solver_params.get("stress_output_interval", 1))
 
     def _init_state_tracking(self) -> None:
@@ -1105,7 +1105,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                     header = (
                         "Time [s],Angle [deg],Speed [RPM],Omega [rad/s],Alpha [rad/s2],"
                         "Aero Thrust [N],"
-                        "Aero Torque [Nm],Inertial Torque [Nm],"
+                        "Aero Torque [Nm],Non-Aero Torque [Nm],Inertial Torque [Nm],"
                         "Gravity Torque [Nm],Total Torque [Nm],"
                         "Aero Power [W],Total Power [W],Structural Efficiency,"
                         "Cp,Cq,Ct,TSR,"
@@ -1120,7 +1120,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                     f"{t:.6f},{angle_deg:.4f},{omega_rpm:.4f},"
                     f"{omega_rad:.4f},{alpha:.6e},"
                     f"{thrust:.6e},"
-                    f"{torque_aero:.6e},{torque_inertial:.6e},"
+                    f"{torque_aero:.6e},{torque_non_aero:.6e},{torque_inertial:.6e},"
                     f"{torque_gravity:.6e},{torque_total:.6e},"
                     f"{power_aero:.6e},{power_total:.6e},{structural_efficiency:.6f},"
                     f"{cp:.6f},{cq:.6f},{ct:.6f},{tsr:.6f},"
@@ -1823,6 +1823,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         if omega_state_start is None:
             omega_state_start = float(omega_val) if omega_val is not None else 0.0
         prev_omega_state = float(omega_state_start)
+        prev_v_nodes_local: Optional[np.ndarray] = None
 
         def _step_cb(
             t,
@@ -1838,16 +1839,15 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             theta,
             rotor_perf_tuple,
         ):
-            nonlocal prev_theta, prev_omega_state
+            nonlocal prev_theta, prev_omega_state, prev_v_nodes_local
 
             tau_aero_rust, _ct_rust, _cp_rust, _cq_rust, _tsr_rust = rotor_perf_tuple
 
-            if abs(dt) > _MIN_DENOMINATOR:
-                omega_window = float((theta - prev_theta) / dt)
-                alpha_window = float((omega - prev_omega_state) / dt)
-            else:
-                omega_window = float(omega)
-                alpha_window = float(alpha)
+            # Use omega/alpha directly from Rust (authoritative provider state).
+            # Finite differences on Δθ/Δt give window-average but add numerical
+            # noise and diverge from what Rust used for the frozen-window physics.
+            omega_window = float(omega)
+            alpha_window = float(alpha)
 
             prev_theta = float(theta)
             prev_omega_state = float(omega)
@@ -1865,6 +1865,9 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
 
             u_nodes_local = self._extract_nodal_translation_field(u_full)
             v_nodes_local = self._extract_nodal_translation_field(v_full)
+            # Coriolis is explicit (lagged velocity v_n). Use the velocity from
+            # the previous converged window; fall back to v_{n+1} at step 0.
+            v_for_coriolis = prev_v_nodes_local if prev_v_nodes_local is not None else v_nodes_local
 
             iface_dofs_flat = interface_dofs_global_flat
             iface_u_local = np.zeros_like(interface_coords_nodes)
@@ -1912,7 +1915,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                 )
             if self._include_coriolis:
                 f_inertial_nodes_local += self._inertial_calculator.compute_coriolis_force(
-                    v_nodes_local,
+                    v_for_coriolis,
                     all_node_masses,
                     omega_window,
                 )
@@ -1940,6 +1943,12 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             )
             if abs(tau_aero) <= _MIN_DENOMINATOR and abs(tau_aero_rust) > _MIN_DENOMINATOR:
                 tau_aero = float(tau_aero_rust)
+                # Reconstruct consistent global torque vector: assume torque is
+                # primarily axial (standard for rotors) so the global vector is
+                # just the axis scaled by the scalar projected onto it.
+                tau_aero_global = self._coord_transforms.to_inertial(
+                    self._coord_transforms.axis * tau_aero_rust, theta
+                )
 
             _, tau_inertial = self._compute_axis_torque(
                 all_node_coords_nodes,
@@ -2087,8 +2096,15 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                 extra_fields=force_fields,
                 **checkpoint_kwargs,
             )
+            # Store end-of-step velocity as v_n for next window's Coriolis (lagged).
+            prev_v_nodes_local = v_nodes_local.copy()
 
         # ── omega preCICE coupling params (optional) ────────────────────────
+        # NOTE: even when send_omega_to_precice=False we must still register the
+        # mesh vertex so that preCICE does not reject an empty GlobalSolidMesh at
+        # initialize().  In that mode the Rust layer writes the constant initial
+        # omega every window; the fluid participant receives a fixed value, which
+        # is the correct behaviour for constant-speed operation.
         if self._send_omega_to_precice:
             _omega_mesh = self._omega_mesh_name
             _omega_data = self._omega_write_data_name
@@ -2100,10 +2116,16 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                 _omega_coord,
             )
         else:
-            _omega_mesh = None
-            _omega_data = None
-            _omega_coord = None
-            _logger.info("[RotorFSI] omega→preCICE DISABLED (send_omega_to_precice=False)")
+            # Register vertex + write constant omega so the mesh is never empty.
+            _omega_mesh = self._omega_mesh_name
+            _omega_data = self._omega_write_data_name
+            _omega_coord = list(self._coord_transforms.center)
+            _logger.info(
+                "[RotorFSI] omega→preCICE DISABLED (constant omega will be written"
+                " to satisfy preCICE mesh requirements): mesh=%s  vertex=%s",
+                _omega_mesh,
+                _omega_coord,
+            )
 
         u_final_red, v_final_red, a_final_red, times = _aeroelast.run_rotor_fsi_solver(
             rust_asm,
@@ -2125,7 +2147,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             include_euler=self._include_euler,
             include_kg=self._include_geometric_stiffness,
             include_ksp=self._include_spin_softening,
-            ksp_omega_threshold=float(self.solver_params.get("ksp_omega_threshold", 1e-4)),
+            ksp_omega_threshold=self._ksp_omega_threshold,
             dofs_per_node=self.domain.dofs_per_node,
             fluid_density=self._fluid_density,
             flow_velocity=self._flow_velocity,

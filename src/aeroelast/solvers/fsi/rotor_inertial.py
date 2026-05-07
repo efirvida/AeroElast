@@ -37,6 +37,7 @@ See docs/rotor_inertial_solver_design.md for full design documentation.
 """
 
 import logging
+import os
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -347,8 +348,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # For the inertial solver, this MUST be False (or omitted).
         # The solver writes elastic displacement u_e directly, not total displacement.
         # If set to True, log an error and override to False.
-        transform_disp = rotor_cfg.get("transform_displacement_to_inertial", False)
-        if transform_disp:
+        transform_disp = rotor_cfg.get("transform_displacement_to_inertial")
+        if transform_disp is True:
             _logger.error(
                 "transform_displacement_to_inertial is True but MUST be False for "
                 "the inertial solver (writes elastic displacement u_e directly). "
@@ -444,6 +445,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # attribute always exists for _write_elastic_displacement_to_precice).
         self._interface_coords_reference: Optional["NDArray"] = None
 
+        # Lumped mass diagonal is invariant under rigid rotation; cache it once
+        # to avoid recreating PETSc diagonal vectors on every FSI sub-iteration.
+        self._mass_diagonal_array: Optional[NDArray] = None
+
     # =========================================================================
     # Phase 3: Structural Assembly on Internally Rotated Geometry
     # =========================================================================
@@ -475,15 +480,13 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         - The returned coordinates differ from MeshModel.nodes by exactly R(θ)
         - Used to rebuild the assembler with rotated geometry (Task 3.2)
         """
-        # Extract original node coordinates from mesh
-        original_coords = np.array(
-            [node.coords for node in self.domain.mesh.nodes.values()],
-            dtype=np.float64,
-        )
+        # MeshModel stores nodes as a list; coords_array preserves the mesh order
+        # used by the assembler, which is what the rotated geometry must match.
+        original_coords = np.asarray(self.domain.mesh.coords_array, dtype=np.float64)
 
         # Rotate using CoordinateTransforms
         rotated_coords = self._coord_transforms.rotate_point_cloud(
-            points=original_coords,
+            coords=original_coords,
             theta=theta,
         )
 
@@ -518,28 +521,14 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         - Called at each time step before structural assembly (Task 3.2)
         - In Phase 9 (optimization), this can be replaced with incremental updates
         """
+        import copy
+
         from aeroelast.core.assembler import MeshAssembler
-        from aeroelast.core.mesh import MeshModel, Node
 
-        # Create a shallow copy of the mesh model
-        # We only need to update node coordinates; everything else stays the same
-        original_mesh = self.domain.mesh
-
-        # Clone nodes with updated coordinates
-        rotated_nodes = {}
-        for i, (node_id, original_node) in enumerate(original_mesh.nodes.items()):
-            rotated_nodes[node_id] = Node(
-                id=node_id,
-                coords=rotated_coords[i],
-            )
-
-        # Build new mesh model with rotated nodes but same connectivity
-        rotated_mesh = MeshModel(
-            nodes=rotated_nodes,
-            elements=original_mesh.elements,  # Shared reference OK (immutable connectivity)
-            node_sets=original_mesh.node_sets,  # Shared reference OK
-            element_sets=original_mesh.element_sets,  # Shared reference OK
-        )
+        # Deep-copy the mesh so node coordinates can be updated without mutating
+        # the reference configuration kept in self.domain.mesh.
+        rotated_mesh = copy.deepcopy(self.domain.mesh)
+        rotated_mesh.coords_array = np.asarray(rotated_coords, dtype=np.float64)
 
         # Reconstruct assembler with rotated geometry
         # This follows the "Phase 1" assembly path from linear_dynamic.py:907
@@ -794,7 +783,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         - a_ref points radially inward (centripetal) → -M·a_ref points outward
         """
         # Convert nodal acceleration to DOF load vector
-        M_diag_full = self.M.getDiagonal().array
+        M_diag_full = self._get_mass_diagonal_array()
         F_ref_full = self._inertial_calculator.compute_reference_load_vector(
             a_ref_nodal, M_diag_full, dofs_per_node=self.domain.dofs_per_node
         )
@@ -941,8 +930,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             if hasattr(self._omega_provider, "set_state"):
                 self._omega_provider.set_state(checkpoint["omega_provider_state"])
         # Keep instance vars consistent with restored provider state.
-        self._omega = self._omega_provider.omega
-        self._alpha = self._omega_provider.alpha
+        self._omega = float(checkpoint["omega"])
+        self._alpha = float(checkpoint["alpha"])
 
     # =========================================================================
     # Phase 4 Complete
@@ -1034,7 +1023,15 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         Compare with corotational solver which applies:
             F_local = R^T(θ) · F_global
         """
-        F_aero_global = adapter.read_data(mesh_name, data_name)
+        F_aero_global = np.asarray(adapter.read_data(mesh_name, data_name), dtype=np.float64)
+
+        # preCICE vector data typically arrives as shape (n_interface_nodes, dim).
+        # The inertial solver uses a flat interface-DOF layout everywhere else,
+        # matching self._interface_dofs.ravel(). Normalize once here.
+        if F_aero_global.ndim == 2:
+            F_aero_global = F_aero_global[:, : self.domain.spatial_dim].reshape(-1)
+        else:
+            F_aero_global = F_aero_global.reshape(-1)
 
         _logger.debug(
             f"Read forces from '{mesh_name}/{data_name}': ||F||={np.linalg.norm(F_aero_global):.3e} "
@@ -1362,7 +1359,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         """
         dim = nodal_coords.shape[1]
         n_nodes = len(nodal_coords)
-        F_grav_2d = F_gravity.reshape((n_nodes, dim))
+        # F_gravity has n_nodes * dofs_per_node elements; extract translational
+        # components only (first `dim` per node) to match nodal_coords shape.
+        F_grav_2d = F_gravity.reshape(n_nodes, -1)[:, :dim]
 
         tau_grav_global, tau_grav_scalar = self._compute_torque_from_forces(
             nodal_coords, nodal_disps, F_grav_2d
@@ -1434,7 +1433,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         return tau_driving
 
-    def _update_omega_after_converged_window(self, tau_driving: float, dt: float) -> None:
+    def _update_omega_after_converged_window(
+        self, tau_driving: float, dt: float, current_time: float
+    ) -> None:
         """
         Update angular velocity using OmegaProvider after a converged FSI window.
 
@@ -1448,6 +1449,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             Total driving torque (aero + gravity + shaft).
         dt : float
             Time step size for the converged window.
+        current_time : float
+            Simulation time at the end of the converged window.
 
         Notes
         -----
@@ -1459,8 +1462,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         self._omega_provider.update(tau_driving, dt)
 
         # Cache updated state
-        self._omega = self._omega_provider.omega
-        self._alpha = self._omega_provider.alpha
+        self._omega, self._alpha = self._omega_provider.get_omega(current_time)
 
         _logger.debug(
             f"Updated omega after converged window: ω={self._omega:.6f} rad/s, "
@@ -1550,11 +1552,17 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # Phase 4: Initialize preCICE adapter
         self._print_phase(1, 2, "Initializing preCICE adapter...")
         cfg = self.model_properties["solver"]["coupling"]
-        _coupling_meshes = [{"name": cfg["coupling_mesh"]}]
 
-        # Add GlobalSolidMesh if omega output is requested
-        if self._send_omega_to_precice:
-            _coupling_meshes.append({"name": self._omega_mesh_name})
+        # Inertial solver: register the coupling mesh at the FIXED reference
+        # coordinates (θ=0).  The mesh never moves from preCICE's perspective;
+        # only elastic displacement u_e is written each window.
+        _coupling_meshes: Dict[str, np.ndarray] = {cfg["coupling_mesh"]: interface_coords}
+
+        # GlobalSolidMesh (single vertex at origin) must ALWAYS be registered
+        # if it is declared in the preCICE config, regardless of whether omega
+        # is exchanged dynamically. send_omega_to_precice only controls whether
+        # preCICE receives the live omega or the constant initial value.
+        _coupling_meshes[self._omega_mesh_name] = np.zeros((1, 3), dtype=np.float64)
 
         adapter = Adapter(
             participant=cfg["participant"],
@@ -1562,15 +1570,23 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             coupling_meshes=_coupling_meshes,
         )
 
-        # Register interface at reference coordinates (FIXED for all time)
-        vertex_ids = self._register_interface_at_reference_coords(
-            adapter, cfg["coupling_mesh"], interface_coords
-        )
+        # Register vertices first so write_data (below) can look up vertex IDs.
+        adapter.register_meshes()
 
-        # Register single omega vertex if needed
-        if self._send_omega_to_precice:
-            origin = np.zeros((1, 3), dtype=np.float64)
-            adapter.add_mesh_vertices(self._omega_mesh_name, origin)
+        # preCICE requires initial data before initialize() when the exchange
+        # has initialize="true".  Write zero displacement and constant omega now.
+        if adapter.requires_initial_data:
+            _write_data_name = (
+                cfg["write_data"] if isinstance(cfg["write_data"], str) else cfg["write_data"][0]
+            )
+            zero_disp = np.zeros_like(interface_coords)
+            adapter.write_data(cfg["coupling_mesh"], _write_data_name, zero_disp)
+            if self._send_omega_to_precice:
+                _init_omega_val, _ = self._omega_provider.get_omega(t_restart)
+            else:
+                _init_omega_val = self._omega_provider.initial_omega
+            _init_omega = np.array([_init_omega_val], dtype=np.float64)
+            adapter.write_data(self._omega_mesh_name, self._omega_write_data_name, _init_omega)
 
         adapter.initialize()
         dt = adapter.dt
@@ -1580,8 +1596,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # Phase 5: Time loop initialization
         t = t_restart
         theta = 0.0  # Accumulated rotation angle [rad]
-        omega = self._omega_provider.omega
-        alpha = self._omega_provider.alpha
+        omega, alpha = self._omega_provider.get_omega(t)
         window_count = 0
         iteration_count = 0
 
@@ -1605,10 +1620,48 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         # KSP cache: K_eff factorization is constant within an FSI window
         # (K, C, M, theta, omega, alpha are all frozen during sub-iterations).
-        # We factorize once per window and reuse the KSP for all sub-iterations,
-        # which eliminates 5-10x redundant LU factorizations in implicit coupling.
-        # Invalidated at the start of each new window (requires_writing_checkpoint).
-        _ksp_window_cache: Optional["PETSc.KSP"] = None
+        # Cache both the factorized KSP and its operator matrix so both can be
+        # destroyed explicitly when the window rolls over.
+        _ksp_window_cache: Optional[Dict[str, Any]] = None
+
+        # Force-cap activation counter (Warning #5)
+        _n_force_cap_activations: int = 0
+        _FORCE_CAP_LOG_INTERVAL: int = 50
+
+        def _destroy_petsc_object(obj: Any) -> None:
+            if obj is None or not hasattr(obj, "destroy"):
+                return
+            try:
+                obj.destroy()
+            except Exception as exc:
+                _logger.debug("PETSc cleanup skipped: %s", exc)
+
+        def _destroy_window_solver_cache(cache: Optional[Dict[str, Any]]) -> None:
+            if cache is None:
+                return
+            if isinstance(cache, dict):
+                _destroy_petsc_object(cache.get("ksp"))
+                _destroy_petsc_object(cache.get("operator"))
+                workspace = cache.get("workspace", {})
+                if isinstance(workspace, dict):
+                    for obj in workspace.values():
+                        _destroy_petsc_object(obj)
+                return
+            _destroy_petsc_object(cache)
+
+        def _workspace_owns_vector(cache: Optional[Dict[str, Any]], vec: Any) -> bool:
+            if cache is None or not isinstance(cache, dict):
+                return False
+            workspace = cache.get("workspace", {})
+            if not isinstance(workspace, dict):
+                return False
+            return any(vec is work_vec for work_vec in workspace.values())
+
+        def _destroy_checkpoint_vectors(state: Optional[Dict[str, Any]]) -> None:
+            if not state:
+                return
+            for key in ("u_e", "v_e", "a_e"):
+                _destroy_petsc_object(state.get(key))
 
         self._print_separator()
         if self._is_primary_rank():
@@ -1618,6 +1671,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         while adapter.is_coupling_ongoing:
             # Checkpoint if preCICE requires (implicit coupling sub-iterations)
             if adapter.requires_writing_checkpoint:
+                _destroy_checkpoint_vectors(checkpoint)
                 checkpoint = self._checkpoint_elastic_state(u_e, v_e, a_e, theta, omega, alpha)
                 # Store current structural matrices in checkpoint so that rollback
                 # can restore K(θ) and C(θ) consistent with the checkpointed kinematics.
@@ -1625,6 +1679,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 checkpoint["C_current"] = C_current
                 # New window: invalidate KSP cache so K_eff is re-factorized
                 # with the new window's geometry (theta, omega, alpha).
+                _destroy_window_solver_cache(_ksp_window_cache)
                 _ksp_window_cache = None
                 iteration_count = 0
 
@@ -1652,10 +1707,21 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 f_norm = float(np.linalg.norm(F_aero))
                 if f_norm > self._force_max_magnitude:
                     F_aero = F_aero * (self._force_max_magnitude / f_norm)
+                    _n_force_cap_activations += 1
                     _logger.warning(
                         f"Force capped: ||F_aero||={f_norm:.3e} > cap={self._force_max_magnitude:.3e}. "
                         f"Scaling by {self._force_max_magnitude / f_norm:.4f}."
                     )
+            # Log cap activation fraction periodically
+            if (
+                self._force_max_magnitude is not None
+                and window_count > 0
+                and window_count % _FORCE_CAP_LOG_INTERVAL == 0
+            ):
+                _logger.info(
+                    f"Force cap statistics: activated {_n_force_cap_activations}/{window_count} windows "
+                    f"({100.0 * _n_force_cap_activations / window_count:.1f}%)"
+                )
 
             # Solve FSI step (elastic displacement increment)
             u_e_new, v_e_new, a_e_new, _ksp_window_cache = self._solve_fsi_step(
@@ -1686,15 +1752,19 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 theta,
             )
 
-            # Write omega to GlobalSolidMesh
-            if self._send_omega_to_precice:
-                self._write_omega_to_global_mesh(
-                    adapter, self._omega_mesh_name, self._omega_write_data_name, omega
-                )
+            # Write omega to GlobalSolidMesh every window. When dynamic omega
+            # exchange is disabled, keep sending the constant initial value so
+            # the preCICE mesh stays valid without changing the fluid-side rpm.
+            omega_to_precice = (
+                omega if self._send_omega_to_precice else self._omega_provider.initial_omega
+            )
+            self._write_omega_to_global_mesh(
+                adapter, self._omega_mesh_name, self._omega_write_data_name, omega_to_precice
+            )
 
             # Log iteration
             iteration_count += 1
-            if self._is_primary_rank() and self._debug_interface:
+            if self._is_primary_rank() and getattr(self, "_debug_interface", False):
                 u_norm = float(np.linalg.norm(u_e_interface))
                 f_norm = float(np.linalg.norm(F_aero))
                 print(
@@ -1723,16 +1793,67 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 window_count += 1
                 t += dt
 
-                # Compute driving torque from aerodynamic and gravity forces
-                nodal_coords = self.domain.mesh.nodal_coordinates
-                tau_driving = self._compute_driving_torque(
-                    interface_coords, u_e_interface, F_aero, nodal_coords, u_e, F_gravity
+                # Compute driving torque from aerodynamic and gravity forces.
+                # Lever arms must use R(θ)·X₀ (current rotated position), not X₀.
+                nodal_coords_rotated = self._rotate_structural_geometry_internal(theta)
+                rotated_interface_coords = self._coord_transforms.rotate_point_cloud(
+                    coords=self._ensure_3d_vectors(interface_coords),
+                    theta=theta,
+                )[:, : interface_coords.shape[1]]
+                # Extract translational nodal displacements from converged u_e_new
+                # (u_e_new is a PETSc.Vec; .getArray() returns the local partition)
+                # Preserve the converged state before releasing the per-window
+                # workspace, which owns the trial vectors returned by
+                # _solve_fsi_step().
+                u_e_window = u_e_new
+                v_e_window = v_e_new
+                a_e_window = a_e_new
+                if _workspace_owns_vector(_ksp_window_cache, u_e_new):
+                    u_e_new.copy(result=u_e)
+                    u_e_window = u_e
+                if _workspace_owns_vector(_ksp_window_cache, v_e_new):
+                    v_e_new.copy(result=v_e)
+                    v_e_window = v_e
+                if _workspace_owns_vector(_ksp_window_cache, a_e_new):
+                    a_e_new.copy(result=a_e)
+                    a_e_window = a_e
+
+                _n_nodes_full = nodal_coords_rotated.shape[0]
+                _dpn = self.domain.dofs_per_node
+                u_e_nodal = u_e_window.getArray().reshape(_n_nodes_full, _dpn)[:, :3]
+                # Compute torque components individually (needed for CSV output)
+                tau_aero_global, tau_aero = self._compute_aerodynamic_torque(
+                    rotated_interface_coords, u_e_interface, F_aero
                 )
+                tau_grav_global, tau_grav = self._compute_gravity_torque(
+                    nodal_coords_rotated, u_e_nodal, F_gravity
+                )
+                tau_driving = tau_aero + tau_grav
+                tau_total_global = tau_aero_global + tau_grav_global
+
+                # Energy balance check for ComputedOmega / RampedComputedOmega (Warning #4).
+                # ΔKE_rotor ≈ τ_driving · ω_avg · dt; large discrepancy signals torque error.
+                _omega_before = omega
 
                 # Update omega using OmegaProvider dynamics
-                self._update_omega_after_converged_window(tau_driving, dt)
-                omega = self._omega_provider.omega
-                alpha = self._omega_provider.alpha
+                self._update_omega_after_converged_window(tau_driving, dt, t)
+                omega = self._omega
+                alpha = self._alpha
+
+                _I_provider = getattr(self._omega_provider, "_I", None)
+                if _I_provider is not None and abs(_omega_before) > 1e-6:
+                    _delta_ke = 0.5 * _I_provider * (omega**2 - _omega_before**2)
+                    _omega_avg = 0.5 * (_omega_before + omega)
+                    _expected_work = tau_driving * _omega_avg * dt
+                    _denom = abs(_expected_work) + 1e-12
+                    _ke_err = abs(_delta_ke - _expected_work) / _denom
+                    if _ke_err > 0.01:
+                        _logger.warning(
+                            f"Energy imbalance at t={t:.4f}s: "
+                            f"ΔKE={_delta_ke:.3e} J, expected={_expected_work:.3e} J, "
+                            f"err={_ke_err * 100:.1f}% (>1%% threshold). "
+                            f"τ_driving={tau_driving:.3e} N·m, ω_avg={_omega_avg:.4f} rad/s"
+                        )
 
                 # Accumulate rotation angle for next window
                 theta += omega * dt
@@ -1745,34 +1866,180 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 # value bounded; sin/cos are periodic so physics is unchanged.
                 theta = theta % (2.0 * np.pi)
 
+                # The factorization and window matrices are no longer valid once
+                # the geometry is advanced to the next converged orientation.
+                _destroy_window_solver_cache(_ksp_window_cache)
+                _ksp_window_cache = None
+                old_K_current = K_current
+                old_C_current = C_current
+
                 # Rotate internal structural geometry for next window.
                 # Fast path: update node coords in-place via Rust API (preserves topology,
                 # avoids full assembler rebuild — 2-4× faster for large meshes).
                 # Fallback: reconstruct the assembler when the fast path is unavailable.
                 rotated_coords = self._rotate_structural_geometry_internal(theta)
-                rust_asm = getattr(self.domain.assembler, "_rust", None)
+                rust_asm = getattr(self.domain, "_rust", None)
                 if rust_asm is not None and hasattr(rust_asm, "update_node_coordinates"):
                     rust_asm.update_node_coordinates(rotated_coords)
                     _logger.debug("Geometry update via Rust fast path (update_node_coordinates)")
                 else:
-                    self._rebuild_assembler_with_rotated_geometry(rotated_coords)
+                    new_asm = self._rebuild_assembler_with_rotated_geometry(rotated_coords)
+                    self.domain._rust = new_asm._rust
+                    self.domain._rust_mesh = new_asm._rust_mesh
                     _logger.debug("Geometry update via full assembler rebuild (fallback)")
 
                 # Rebuild matrices on rotated geometry
                 K_current = self.domain.assemble_stiffness_matrix()
                 C_current = self._assemble_rayleigh_damping(K_current, self.M)
+                if old_C_current is not None:
+                    _destroy_petsc_object(old_C_current)
+                if old_K_current is not None and old_K_current is not self.K:
+                    _destroy_petsc_object(old_K_current)
 
-                # Save results (VTK output, time history, etc.)
-                # TODO: implement _save_timestep_results() or use parent class method
-                # self._save_timestep_results(t, u_e_new, v_e_new, a_e_new)
+                # ── CSV + VTU output ─────────────────────────────────────────
+                _dpn = self.domain.dofs_per_node
+                _n_nodes = len(self.domain.nodes)
+
+                u_full = u_e_window.getArray().copy()
+                v_full = v_e_window.getArray().copy()
+                a_full = a_e_window.getArray().copy()
+
+                # Thrust: sum of aero forces at interface projected onto axis
+                _n_iface = len(interface_coords)
+                _dim = interface_coords.shape[1]
+                F_aero_2d = F_aero.reshape(_n_iface, _dim)
+                thrust = float(
+                    np.dot(
+                        np.sum(F_aero_2d, axis=0),
+                        self._coord_transforms.axis[:_dim],
+                    )
+                )
+
+                # Deformed rotor radius
+                _iface_disp_2d = (
+                    u_e_interface.reshape(_n_iface, _dim)
+                    if u_e_interface.ndim == 1
+                    else u_e_interface
+                )
+                deformed_radius = self._compute_rotor_radius(
+                    interface_coords + _iface_disp_2d[:, : interface_coords.shape[1]]
+                )
+
+                # Performance coefficients
+                ct, cp, cq, tsr = self._compute_performance_coefficients(
+                    thrust, tau_aero, omega, deformed_radius
+                )
+
+                # Derived scalars
+                power_aero = tau_aero * omega
+                power_total = tau_driving * omega
+                angle_deg = float(np.degrees(theta))
+                omega_rpm = float(omega * 60.0 / (2.0 * np.pi))
+                max_disp = float(
+                    np.max(np.linalg.norm(u_full.reshape(_n_nodes, _dpn)[:, :3], axis=1))
+                )
+                applied_force_mag = float(np.linalg.norm(F_aero))
+
+                # --- rotor_performance.csv ---
+                self._log_rotor_performance(
+                    t=t,
+                    omega_rpm=omega_rpm,
+                    omega_rad=omega,
+                    alpha=alpha,
+                    angle_deg=angle_deg,
+                    thrust=thrust,
+                    torque_aero=tau_aero,
+                    torque_gravity=tau_grav,
+                    torque_total=tau_driving,
+                    power_aero=power_aero,
+                    power_total=power_total,
+                    cp=cp,
+                    cq=cq,
+                    ct=ct,
+                    tsr=tsr,
+                    torque_aero_global=tau_aero_global,
+                    torque_total_global=tau_total_global,
+                    max_displacement=max_disp,
+                    deformed_radius=deformed_radius,
+                )
+
+                # --- rotor_restart_state.csv ---
+                self._write_restart_state(t, theta, omega, alpha)
+
+                should_write_heavy_output = (
+                    self._checkpoint_manager is None or self._checkpoint_manager.should_write(t)
+                )
+                if should_write_heavy_output:
+                    # Stress fields are among the heaviest per-window allocations,
+                    # so keep them aligned with the configured output cadence.
+                    stress_fields = self._compute_stress_fields(u_full)
+
+                    # --- structural_report.csv ---
+                    self._log_structural_report(
+                        t=t,
+                        time_step=window_count,
+                        u_full=u_full,
+                        v_full=v_full,
+                        a_full=a_full,
+                        stress_fields=stress_fields,
+                        applied_force_mag=applied_force_mag,
+                    )
+
+                    # --- probes.csv ---
+                    self._log_probe_data(
+                        t=t,
+                        time_step=window_count,
+                        u_full=u_full,
+                        v_full=v_full,
+                        stress_fields=stress_fields,
+                    )
+
+                    # --- VTU checkpoint ---
+                    # Scatter aero forces into full DOF array for field export
+                    F_aero_full = np.zeros(u_full.shape, dtype=np.float64)
+                    F_aero_full_2d = F_aero_full.reshape(_n_nodes, _dpn)
+                    F_aero_full_2d[self._interface_node_ids, :_dim] = F_aero_2d
+                    extra_fields: Dict[str, Any] = {
+                        "F_AERO": F_aero_full.copy(),
+                        "F_GRAVITY": F_gravity.copy(),
+                        "F_TOTAL": (F_aero_full + F_gravity).copy(),
+                        "OMEGA": np.full(_n_nodes, float(omega), dtype=np.float64),
+                        "THETA": np.full(_n_nodes, float(theta), dtype=np.float64),
+                        **stress_fields,
+                    }
+                    self._handle_checkpoint(
+                        t=t,
+                        time_step=window_count,
+                        dt=dt,
+                        u_red=u_full,
+                        v_red=v_full,
+                        a_red=a_full,
+                        u_full=u_full,
+                        v_full=v_full,
+                        a_full=a_full,
+                        extra_fields=extra_fields,
+                    )
+                # ── end output ───────────────────────────────────────────────
 
                 # Copy state for next iteration
-                u_e_new.copy(result=u_e)
-                v_e_new.copy(result=v_e)
-                a_e_new.copy(result=a_e)
+                if u_e_window is not u_e:
+                    u_e_window.copy(result=u_e)
+                if v_e_window is not v_e:
+                    v_e_window.copy(result=v_e)
+                if a_e_window is not a_e:
+                    a_e_window.copy(result=a_e)
 
                 # Reset iteration counter
                 iteration_count = 0
+
+            for _tmp_vec, _state_vec in ((u_e_new, u_e), (v_e_new, v_e), (a_e_new, a_e)):
+                if _tmp_vec is not _state_vec and not _workspace_owns_vector(
+                    _ksp_window_cache, _tmp_vec
+                ):
+                    _destroy_petsc_object(_tmp_vec)
+
+        _destroy_window_solver_cache(_ksp_window_cache)
+        _destroy_checkpoint_vectors(checkpoint)
 
         # Finalize preCICE
         adapter.finalize()
@@ -1802,8 +2069,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         bc_manager: "BoundaryConditionManager",
         K_current: "PETSc.Mat",
         C_current: "PETSc.Mat",
-        ksp_cache: Optional["PETSc.KSP"] = None,
-    ) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec", Optional["PETSc.KSP"]]:
+        ksp_cache: Optional[Dict[str, Any]] = None,
+    ) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec", Optional[Dict[str, Any]]]:
         """
         Solve one FSI sub-iteration step using Newmark integration.
 
@@ -1843,9 +2110,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         Returns
         -------
-        Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec, Optional[PETSc.KSP]]
-            Updated (u_e_new, v_e_new, a_e_new) vectors and the KSP object
-            (to be reused as ksp_cache in subsequent sub-iterations).
+        Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec, Optional[Dict[str, Any]]]
+            Updated (u_e_new, v_e_new, a_e_new) vectors and the cached solver
+            state for subsequent sub-iterations in the same FSI window.
 
         Notes
         -----
@@ -1875,7 +2142,43 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         fixed_idx = np.array(list(fixed_dofs_dict.keys()), dtype=PETSc.IntType)
         fixed_vals = np.array(list(fixed_dofs_dict.values()), dtype=PETSc.ScalarType)
 
-        def _build_rhs() -> "PETSc.Vec":
+        interface_dofs_flat = self._interface_dofs.ravel()
+        n_trans = min(3, self.domain.dofs_per_node)
+        mass_diag_nodes = self._get_mass_diagonal_array().reshape(-1, self.domain.dofs_per_node)
+
+        def _create_window_workspace() -> Dict[str, "PETSc.Vec"]:
+            vec_template = self.M.createVecRight()
+            workspace = {
+                "M_hist_in": vec_template.duplicate(),
+                "M_hist_out": vec_template.duplicate(),
+                "C_hist_in": vec_template.duplicate(),
+                "C_hist_out": vec_template.duplicate(),
+                "F_eff": vec_template.duplicate(),
+                "u_trial": vec_template.duplicate(),
+                "v_trial": vec_template.duplicate(),
+                "a_trial": vec_template.duplicate(),
+                "delta_u": vec_template.duplicate(),
+            }
+            vec_template.destroy()
+            return workspace
+
+        def _build_window_rhs_constant() -> NDArray:
+            """Build the window-constant RHS part: gravity + reference load."""
+            nodal_coords = self._rotate_structural_geometry_internal(theta)
+            a_ref_nodal = self._inertial_calculator.compute_rigid_body_acceleration_inertial(
+                nodal_coords, omega, alpha
+            )
+
+            window_rhs = np.array(F_gravity, copy=True)
+            window_rhs_nodes = window_rhs.reshape(-1, self.domain.dofs_per_node)
+            window_rhs_nodes[:, :n_trans] += (
+                -mass_diag_nodes[:, :n_trans] * a_ref_nodal[:, :n_trans]
+            )
+            return window_rhs
+
+        def _build_rhs(
+            window_rhs_constant: NDArray, workspace: Dict[str, "PETSc.Vec"]
+        ) -> "PETSc.Vec":
             """
             Assemble full-DOF effective RHS (before BC enforcement):
 
@@ -1886,46 +2189,37 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             F_ref = -M·a_ref  (rigid-body reference load, sign already applied by
             compute_reference_load_vector).
             """
-            # 1. Assemble F_aero from flat interface-force array into full-DOF space.
-            #    F_aero shape: (n_iface * 3,); self._interface_dofs shape: (n_iface, 3).
-            F_aero_full = np.zeros(self.domain.dofs_count, dtype=np.float64)
-            np.add.at(F_aero_full, self._interface_dofs.ravel(), F_aero)
+            F_aero_flat = np.asarray(F_aero, dtype=np.float64).reshape(-1)
+            n_force = min(len(interface_dofs_flat), len(F_aero_flat))
 
-            # 2. Rigid-body reference load F_ref = -M·a_ref
-            nodal_coords = self.domain.mesh.nodal_coordinates
-            a_ref_nodal = self._inertial_calculator.compute_rigid_body_acceleration_inertial(
-                nodal_coords, omega, alpha
-            )
-            M_diag_full = self.M.getDiagonal().array
-            F_ref_full = self._inertial_calculator.compute_reference_load_vector(
-                a_ref_nodal, M_diag_full, dofs_per_node=self.domain.dofs_per_node
-            )
-
-            # 3. Newmark history terms via full-DOF PETSc matrix-vector products
-            u_arr = u_e_prev.array.copy()
-            v_arr = v_e_prev.array.copy()
-            a_arr = a_e_prev.array.copy()
-
-            # M·(a0·u_n + a2·v_n + a3·a_n)
-            M_hist_in = self.M.createVecRight()
-            M_hist_in.setArray(a0 * u_arr + a2 * v_arr + a3 * a_arr)
-            M_hist_out = M_hist_in.duplicate()
+            # 1. Newmark history terms via full-DOF PETSc matrix-vector products.
+            M_hist_in = workspace["M_hist_in"]
+            M_hist_in.set(0.0)
+            M_hist_in.axpy(a0, u_e_prev)
+            M_hist_in.axpy(a2, v_e_prev)
+            M_hist_in.axpy(a3, a_e_prev)
+            M_hist_in.assemble()
+            M_hist_out = workspace["M_hist_out"]
             self.M.mult(M_hist_in, M_hist_out)
 
             # C·(a1·u_n + v_n)
-            C_hist_in = C_current.createVecRight()
-            C_hist_in.setArray(a1 * u_arr + v_arr)
-            C_hist_out = C_hist_in.duplicate()
+            C_hist_in = workspace["C_hist_in"]
+            C_hist_in.set(0.0)
+            C_hist_in.axpy(a1, u_e_prev)
+            C_hist_in.axpy(1.0, v_e_prev)
+            C_hist_in.assemble()
+            C_hist_out = workspace["C_hist_out"]
             C_current.mult(C_hist_in, C_hist_out)
 
-            # 4. Sum all contributions into F_eff
-            F_eff_arr = F_aero_full + F_gravity + F_ref_full + M_hist_out.array + C_hist_out.array
-            F_eff = self.M.createVecRight()
-            F_eff.setArray(F_eff_arr)
+            # 2. Sum all contributions into F_eff without allocating new full-DOF arrays.
+            F_eff = workspace["F_eff"]
+            F_eff_arr = F_eff.getArray()
+            np.copyto(F_eff_arr, window_rhs_constant)
+            F_eff_arr += M_hist_out.array
+            F_eff_arr += C_hist_out.array
+            if n_force > 0:
+                np.add.at(F_eff_arr, interface_dofs_flat[:n_force], F_aero_flat[:n_force])
             F_eff.assemble()
-
-            for _tmp in (M_hist_in, M_hist_out, C_hist_in, C_hist_out):
-                _tmp.destroy()
             return F_eff
 
         # -----------------------------------------------------------------------
@@ -1935,16 +2229,21 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # -----------------------------------------------------------------------
         if ksp_cache is not None:
             # Fast path: only the RHS changes; K_eff (with BCs) is already cached.
-            F_eff = _build_rhs()
+            window_rhs_constant = ksp_cache["window_rhs_constant"]
+            workspace = ksp_cache["workspace"]
+            F_eff = _build_rhs(window_rhs_constant, workspace)
             if len(fixed_idx) > 0:
                 F_eff.setValues(fixed_idx, fixed_vals)
                 F_eff.assemble()
-            ksp = ksp_cache
+            ksp = ksp_cache["ksp"]
+            solver_cache = ksp_cache
             _logger.debug("KSP cache hit: reusing factorized K_eff for sub-iteration")
         else:
             # First sub-iteration: assemble K_eff, apply full BCs, factorize.
             K_eff = self._assemble_inertial_effective_system(K_current, self.M, C_current, a0, a1)
-            F_eff = _build_rhs()
+            window_rhs_constant = _build_window_rhs_constant()
+            workspace = _create_window_workspace()
+            F_eff = _build_rhs(window_rhs_constant, workspace)
             # K_eff.zeroRows: zeros fixed rows, sets diagonal=1, adjusts F_eff at fixed DOFs.
             if len(fixed_idx) > 0:
                 U_fixed = K_eff.createVecRight()
@@ -1956,23 +2255,44 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             ksp = PETSc.KSP().create(comm=self.comm)
             ksp.setOperators(K_eff)
             ksp.setType("preonly")
-            ksp.getPC().setType("lu")
+            pc = ksp.getPC()
+            pc.setType("lu")
+            # Use MUMPS for distributed (multi-rank) solves; default LU for serial.
+            if self.comm.size > 1:
+                pc.setFactorSolverType("mumps")
             ksp.setFromOptions()
             ksp.setUp()  # LU factorization — reused for all sub-iterations in this window
+            solver_cache = {
+                "ksp": ksp,
+                "operator": K_eff,
+                "workspace": workspace,
+                "window_rhs_constant": window_rhs_constant,
+            }
             _logger.debug("KSP cache miss: factorizing K_eff for new FSI window")
 
+        workspace = solver_cache["workspace"]
+
         # Solve: K_eff · u_e_new = F_eff
-        u_e_new = self.M.createVecRight()
+        u_e_new = workspace["u_trial"]
         ksp.solve(F_eff, u_e_new)
-        F_eff.destroy()
 
-        # Update velocity and acceleration using Newmark formulas
-        v_e_new = self._newmark_velocity_update(
-            u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta, gamma
-        )
-        a_e_new = self._newmark_acceleration_update(u_e_new, u_e_prev, v_e_prev, a_e_prev, dt, beta)
+        # Update acceleration and velocity using reusable workspace vectors.
+        delta_u = workspace["delta_u"]
+        u_e_new.copy(result=delta_u)
+        delta_u.axpy(-1.0, u_e_prev)
 
-        return u_e_new, v_e_new, a_e_new, ksp
+        a_e_new = workspace["a_trial"]
+        a_e_new.set(0.0)
+        a_e_new.axpy(a0, delta_u)
+        a_e_new.axpy(-a2, v_e_prev)
+        a_e_new.axpy(-a3, a_e_prev)
+
+        v_e_new = workspace["v_trial"]
+        v_e_new.copy(v_e_prev)
+        v_e_new.axpy(dt * (1.0 - gamma), a_e_prev)
+        v_e_new.axpy(dt * gamma, a_e_new)
+
+        return u_e_new, v_e_new, a_e_new, solver_cache
 
     def _newmark_velocity_update(
         self,
@@ -2029,6 +2349,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         v_new.axpy(c1, v_prev)  # v_new += c1 * v_prev
         v_new.axpy(c2, a_prev)  # v_new += c2 * a_prev
 
+        du.destroy()
+
         return v_new
 
     def _newmark_acceleration_update(
@@ -2082,6 +2404,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         a_new.axpy(a0, du)  # a_new += a0 * du
         a_new.axpy(-a2, v_prev)  # a_new -= a2 * v_prev
         a_new.axpy(-a3, a_prev)  # a_new -= a3 * a_prev
+
+        du.destroy()
 
         return a_new
 
@@ -2276,6 +2600,14 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                     self._eta_m,
                 )
 
+            _logger.warning(
+                "Rayleigh auto coefficients computed at θ=0 (reference geometry). "
+                "They are applied as C(θ)=η_m·M+η_k·K(θ) at all orientations. "
+                "For composite shells, K(θ) eigenvalues may differ from K(0) when "
+                "material axes are not aligned with the rotation axis — effective ζ "
+                "may deviate from the design value at large rotation angles."
+            )
+
             self._print_phase(
                 5, 6, f"Rayleigh auto: η_k={self._eta_k:.4e} s  η_m={self._eta_m:.4e} 1/s"
             )
@@ -2392,6 +2724,14 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         diag_vec.destroy()
         return total_inertia
 
+    def _get_mass_diagonal_array(self) -> NDArray:
+        """Return the lumped mass diagonal as a cached NumPy array."""
+        if self._mass_diagonal_array is None:
+            diag_vec = self.M.getDiagonal()
+            self._mass_diagonal_array = diag_vec.getArray(readonly=True).copy()
+            diag_vec.destroy()
+        return self._mass_diagonal_array
+
     def _compute_gravity_load_vector(self) -> NDArray:
         """
         Compute gravity load vector F_g = M·g for all DOFs.
@@ -2408,13 +2748,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         if not self._include_gravity:
             return np.zeros(self.domain.dofs_count, dtype=np.float64)
 
-        # M is lumped diagonal matrix
-        # F_g[i] = M[i] * g[component_i]
-        from petsc4py import PETSc
-
-        M_diag = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
-        self.M.getDiagonal(M_diag)
-        M_array = M_diag.getArray()
+        # M is lumped diagonal matrix, so F_g[i] = M[i] * g[component_i].
+        M_array = self._get_mass_diagonal_array()
 
         F_gravity = np.zeros(self.domain.dofs_count, dtype=np.float64)
         dofs_per_node = self.domain.dofs_per_node
@@ -2456,6 +2791,153 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
     # - Deprecation or promotion decision
     #
     # See docs/rotor_inertial_solver_tasks.md for full task list
+
+    # =========================================================================
+    # Output Methods (CSV + VTU)
+    # =========================================================================
+
+    def _extract_nodal_translation_field(self, full_vec: NDArray) -> NDArray:
+        """Reshape full DOF vector to (n_nodes, 3) translational components."""
+        n_nodes = len(self.domain.nodes)
+        dofs_per_node = self.domain.dofs_per_node
+        nodal = np.asarray(full_vec, dtype=np.float64).reshape(n_nodes, dofs_per_node)
+        n_comp = min(3, dofs_per_node)
+        out = np.zeros((n_nodes, 3), dtype=np.float64)
+        out[:, :n_comp] = nodal[:, :n_comp]
+        return out
+
+    def _scatter_nodal_translation_field(self, nodal_field: NDArray, n_total: int) -> NDArray:
+        """Scatter (n_nodes, 3) translational field into full DOF layout."""
+        n_nodes = len(self.domain.nodes)
+        dofs_per_node = self.domain.dofs_per_node
+        full = np.zeros(n_total, dtype=np.float64)
+        reshaped = full.reshape(n_nodes, dofs_per_node)
+        width = min(3, dofs_per_node, nodal_field.shape[1])
+        reshaped[:, :width] = nodal_field[:, :width]
+        return full
+
+    def _compute_performance_coefficients(
+        self,
+        thrust: float,
+        torque_aero: float,
+        omega: float,
+        radius: float,
+    ) -> Tuple[float, float, float, float]:
+        """Return (Ct, Cp, Cq, TSR) using stored fluid density and flow velocity."""
+        _MIN = 1e-12
+        area = np.pi * radius * radius
+        q_dyn = 0.5 * self._fluid_density * self._flow_velocity**2
+        power_aero = torque_aero * omega
+        denom_f = q_dyn * area
+        denom_p = q_dyn * area * self._flow_velocity
+        denom_q = q_dyn * area * radius
+        ct = thrust / denom_f if abs(denom_f) > _MIN else 0.0
+        cp = power_aero / denom_p if abs(denom_p) > _MIN else 0.0
+        cq = torque_aero / denom_q if abs(denom_q) > _MIN else 0.0
+        tsr = abs(omega) * radius / self._flow_velocity if abs(self._flow_velocity) > _MIN else 0.0
+        return ct, cp, cq, tsr
+
+    def _write_restart_state(
+        self,
+        t: float,
+        theta: float,
+        omega: float,
+        alpha: float,
+    ) -> None:
+        """Append kinematics to ``rotor_restart_state.csv`` (rank 0 only).
+
+        Same format as the corotational solver so restart tools are compatible.
+        """
+        if not self._is_primary_rank():
+            return
+        import csv as _csv
+
+        output_folder = self.solver_params.get("output_folder", "results")
+        csv_path = os.path.join(output_folder, "rotor_restart_state.csv")
+        os.makedirs(output_folder, exist_ok=True)
+        write_header = not os.path.exists(csv_path)
+        with open(csv_path, "a", newline="") as fh:
+            writer = _csv.writer(fh)
+            if write_header:
+                writer.writerow(["Time [s]", "Theta [rad]", "Omega [rad/s]", "Alpha [rad/s2]"])
+            writer.writerow([f"{t:.9f}", f"{theta:.9f}", f"{omega:.9f}", f"{alpha:.9f}"])
+
+    def _log_rotor_performance(
+        self,
+        t: float,
+        omega_rpm: float,
+        omega_rad: float,
+        alpha: float,
+        angle_deg: float,
+        thrust: float,
+        torque_aero: float,
+        torque_gravity: float,
+        torque_total: float,
+        power_aero: float,
+        power_total: float,
+        cp: float,
+        cq: float,
+        ct: float,
+        tsr: float,
+        torque_aero_global: NDArray,
+        torque_total_global: NDArray,
+        max_displacement: float,
+        deformed_radius: Optional[float] = None,
+    ) -> None:
+        """Write per-window performance metrics to ``rotor_performance.csv``.
+
+        Column layout mirrors the corotational solver for direct comparison:
+        time/kinematics, forces, torques, power, coefficients, global torque
+        vectors, structural response.  The "Inertial Torque" column is always
+        zero in this formulation (reference load is an EOM term, not a
+        separately tracked torque component).
+        """
+        if not self._is_primary_rank():
+            return
+
+        output_folder = self.solver_params.get("output_folder", "results")
+        os.makedirs(output_folder, exist_ok=True)
+        log_path = os.path.join(output_folder, "rotor_performance.csv")
+        file_exists = os.path.exists(log_path)
+
+        structural_efficiency = (
+            float(np.clip(-(torque_total - torque_aero) / torque_aero, 0.0, 1.0))
+            if abs(torque_aero) > 1e-12
+            else 0.0
+        )
+        radius_str = f"{deformed_radius:.6f}" if deformed_radius is not None else ""
+
+        try:
+            with open(log_path, "a") as f:
+                if not file_exists:
+                    f.write(
+                        "Time [s],Angle [deg],Speed [RPM],Omega [rad/s],Alpha [rad/s2],"
+                        "Aero Thrust [N],"
+                        "Aero Torque [Nm],Non-Aero Torque [Nm],Inertial Torque [Nm],"
+                        "Gravity Torque [Nm],Total Torque [Nm],"
+                        "Aero Power [W],Total Power [W],Structural Efficiency,"
+                        "Cp,Cq,Ct,TSR,"
+                        "Aero Torque X [Nm],Aero Torque Y [Nm],Aero Torque Z [Nm],"
+                        "Total Torque X [Nm],Total Torque Y [Nm],Total Torque Z [Nm],"
+                        "Max Displacement [m],Deformed Radius [m]\n"
+                    )
+                torque_non_aero = torque_total - torque_aero
+                f.write(
+                    f"{t:.6f},{angle_deg:.4f},{omega_rpm:.4f},"
+                    f"{omega_rad:.4f},{alpha:.6e},"
+                    f"{thrust:.6e},"
+                    f"{torque_aero:.6e},{torque_non_aero:.6e},{0.0:.6e},"
+                    f"{torque_gravity:.6e},{torque_total:.6e},"
+                    f"{power_aero:.6e},{power_total:.6e},{structural_efficiency:.6f},"
+                    f"{cp:.6f},{cq:.6f},{ct:.6f},{tsr:.6f},"
+                    f"{torque_aero_global[0]:.6e},{torque_aero_global[1]:.6e},"
+                    f"{torque_aero_global[2]:.6e},"
+                    f"{torque_total_global[0]:.6e},{torque_total_global[1]:.6e},"
+                    f"{torque_total_global[2]:.6e},"
+                    f"{max_displacement:.6e},{radius_str}\n"
+                )
+        except Exception as e:
+            _logger.warning("Failed to write rotor_performance.csv: %s", e)
 
     # =========================================================================
     # Helper Methods (for console output and utilities)
