@@ -363,6 +363,13 @@ class RotorConfig:
     force_jump_factor: float = 1000.0
     transform_displacement_to_inertial: bool = True
     gravity: List[float] = field(default_factory=lambda: [0.0, 0.0, -9.81])
+    # Controls what displacement the inertial solver writes to preCICE.
+    # "elastic" (default): writes u_e only. Use with inertial-aware CFD participants
+    #   that handle rigid rotation separately via GlobalSolidMesh/AngularVelocity.
+    # "total": writes u_e + u_rigid = x - X_0. Use with standard OpenFOAM adapters
+    #   that expect total displacement from the original reference configuration.
+    # Ignored by the corotational solver.
+    precice_displacement_mode: str = "elastic"
     # DEPRECATED: use postprocess.fluid_density / postprocess.flow_velocity instead.
     # Kept for backward compatibility only.
     fluid_density: Optional[float] = None
@@ -387,6 +394,7 @@ class RotorConfig:
             "send_omega_to_precice": self.send_omega_to_precice,
             "force_jump_factor": self.force_jump_factor,
             "transform_displacement_to_inertial": self.transform_displacement_to_inertial,
+            "precice_displacement_mode": self.precice_displacement_mode,
             "gravity": self.gravity,
         }
         if self.moment_of_inertia is not None:

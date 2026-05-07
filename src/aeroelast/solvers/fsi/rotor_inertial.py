@@ -301,9 +301,12 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 "include_spin_softening is set but NOT used in inertial solver "
                 "(no K_SP in inertial frame)"
             )
-        if rotor_cfg.get("include_centrifugal", True):
-            # Centrifugal is always "included" via -M·a_ref, but the flag has no effect
-            pass
+        if not rotor_cfg.get("include_centrifugal", True):
+            _logger.warning(
+                "include_centrifugal=False has no effect in the inertial solver. "
+                "Centrifugal acceleration is implicitly included via -M·a_ref and "
+                "cannot be disabled independently."
+            )
         if rotor_cfg.get("include_coriolis", False):
             _logger.warning(
                 "include_coriolis is set but NOT used in inertial solver "
@@ -321,6 +324,22 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         self._send_omega_to_precice = rotor_cfg.get("send_omega_to_precice", True)
         self._omega_mesh_name: str = rotor_cfg.get("omega_mesh_name", "GlobalSolidMesh")
         self._omega_write_data_name: str = rotor_cfg.get("omega_write_data", "AngularVelocity")
+
+        # preCICE displacement mode: controls what the solver writes to the coupling mesh.
+        #   "elastic" (default): writes u_e only (elastic deformation over rotating reference).
+        #               Use with inertial-aware CFD participants that handle rigid rotation
+        #               separately via GlobalSolidMesh/AngularVelocity.
+        #   "total":   writes u_e + u_rigid = x - X_0 (total displacement from original config).
+        #               Use with standard OpenFOAM / CFD participants that expect absolute
+        #               displacement. The rigid component R(θ)·X_0 - X_0 is added internally.
+        _precice_mode = rotor_cfg.get("precice_displacement_mode", "elastic")
+        if _precice_mode not in ("elastic", "total"):
+            raise ValueError(
+                f"precice_displacement_mode must be 'elastic' or 'total', got {_precice_mode!r}. "
+                f"Use 'elastic' for inertial-aware CFD participants (GlobalSolidMesh pattern) "
+                f"or 'total' for standard OpenFOAM adapters."
+            )
+        self._precice_displacement_mode: str = _precice_mode
 
         # Displacement transformation flag
         # For the inertial solver, this MUST be False (or omitted).
@@ -857,6 +876,14 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 if hasattr(self._omega_provider, "get_state")
                 else None
             ),
+            # Structural matrices at checkpoint time.
+            # These are NOT deep-copied because K and C are rebuilt from scratch
+            # on every converged window and are not modified in-place during
+            # sub-iterations. Storing the reference is sufficient.
+            # After rollback, these references restore the correct matrices
+            # so the solver reuses K(θ_ckpt) / C(θ_ckpt) without re-assembling.
+            "K_current": None,  # filled by solve() after checkpoint call
+            "C_current": None,  # filled by solve() after checkpoint call
         }
 
         # Copy vector contents
@@ -1060,12 +1087,30 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # (This would be detected by checking that u_e remains bounded even as
         # the rotor rotates many revolutions)
 
-        adapter.write_data(mesh_name, data_name, u_e_global)
+        if self._precice_displacement_mode == "total":
+            # u_total = u_e + u_rigid, where u_rigid = R(θ)·X_0 - X_0
+            # This is required when the CFD participant expects total displacement
+            # from the original (unrotated) reference configuration.
+            X_0 = self._interface_coords_reference  # (n_interface_nodes, 3)
+            R = self._coord_transforms.rotation_matrix(theta)
+            X_rotated = (R @ X_0.T).T  # (n_interface_nodes, 3)
+            u_rigid = (X_rotated - X_0).ravel()  # flatten to (n_interface_nodes * 3,)
+            u_fsi = u_e_global + u_rigid
+            _logger.debug(
+                f"Wrote TOTAL displacement to '{mesh_name}/{data_name}': "
+                f"||u_e||={np.linalg.norm(u_e_global):.3e} "
+                f"||u_rigid||={np.linalg.norm(u_rigid):.3e} "
+                f"||u_total||={np.linalg.norm(u_fsi):.3e} (θ={np.degrees(theta):.1f}°)"
+            )
+        else:
+            u_fsi = u_e_global
+            _logger.debug(
+                f"Wrote elastic displacement to '{mesh_name}/{data_name}': "
+                f"||u_e||={np.linalg.norm(u_e_global):.3e} "
+                f"(θ={np.degrees(theta):.1f}°, elastic only, NO rigid-body component)"
+            )
 
-        _logger.debug(
-            f"Wrote elastic displacement to '{mesh_name}/{data_name}': ||u_e||={np.linalg.norm(u_e_global):.3e} "
-            f"(θ={np.degrees(theta):.1f}°, elastic only, NO rigid-body component)"
-        )
+        adapter.write_data(mesh_name, data_name, u_fsi)
 
     def _write_omega_to_global_mesh(
         self, adapter: Adapter, mesh_name: str, data_name: str, omega: float
@@ -1474,6 +1519,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # Phase 2: Extract interface nodes
         interface_coords, interface_dofs = self._extract_interface_nodes()
 
+        # Store reference coordinates for use in precice_displacement_mode='total'.
+        # These are the unrotated (theta=0) interface coords and must never be mutated.
+        self._interface_coords_reference = interface_coords.copy()
+
         if self._rotor_radius is None:
             self._rotor_radius = self._compute_rotor_radius(interface_coords)
             self._print_info(f"Auto-detected rotor radius: {self._rotor_radius:.4f} m")
@@ -1554,6 +1603,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             # Checkpoint if preCICE requires (implicit coupling sub-iterations)
             if adapter.requires_writing_checkpoint:
                 checkpoint = self._checkpoint_elastic_state(u_e, v_e, a_e, theta, omega, alpha)
+                # Store current structural matrices in checkpoint so that rollback
+                # can restore K(θ) and C(θ) consistent with the checkpointed kinematics.
+                checkpoint["K_current"] = K_current
+                checkpoint["C_current"] = C_current
                 iteration_count = 0
 
             # Read aero forces (global frame, no transformation)
@@ -1618,6 +1671,11 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 theta = float(checkpoint["theta"])
                 omega = float(checkpoint["omega"])
                 alpha = float(checkpoint["alpha"])
+                # Restore structural matrices to be consistent with restored θ.
+                # Without this, K_current/C_current would reflect post-rollback
+                # geometry while kinematics reflect checkpoint geometry.
+                K_current = checkpoint["K_current"]
+                C_current = checkpoint["C_current"]
             else:
                 # Window converged!
                 window_count += 1
@@ -1984,6 +2042,19 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         self._print_phase(2, 4, "Assembling mass matrix (lumped, invariant under rotation)...")
         self.M = self.domain.assemble_mass_matrix_lumped()
+
+        # Guard: the inertial solver computes F_ref = -M·a_ref assuming M is diagonal.
+        # If the assembler returns a consistent (non-diagonal) mass matrix, the product
+        # would be silently incorrect. Fail loudly rather than produce wrong physics.
+        _n_rows = self.M.getSize()[0]
+        _n_nz = int(self.M.getInfo()["nz_used"])
+        if _n_nz > _n_rows:
+            raise NotImplementedError(
+                f"LinearDynamicFSIRotorInertialSolver requires a lumped (diagonal) mass "
+                f"matrix, but the assembled M has {_n_nz} non-zeros for {_n_rows} DOFs. "
+                f"The F_ref = -M·a_ref formula is only correct for diagonal M. "
+                f"Switch to lumped mass assembly or implement the full matrix-vector product."
+            )
 
         # Force vector and boundary conditions
         self._print_phase(3, 4, "Setting up boundary conditions...")
