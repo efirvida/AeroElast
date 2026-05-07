@@ -1,0 +1,54 @@
+[
+  {
+    "rebuild": {
+      "label": "rebuild",
+      "material": "Al",
+      "n_nodes": 49,
+      "n_dofs": 294,
+      "n_windows": 12,
+      "time_init_s": 0.23046546799014322,
+      "time_per_window_s": 0.0071068179968278855,
+      "time_total_s": 0.08557303895941004,
+      "eig_error_max": 4.962660664203255e-15,
+      "speedup": 1.0
+    },
+    "update_coords": {
+      "label": "update_coords",
+      "material": "Al",
+      "n_nodes": 49,
+      "n_dofs": 294,
+      "n_windows": 12,
+      "time_init_s": 0.005715492006856948,
+      "time_per_window_s": 0.004538448978564702,
+      "time_total_s": 0.054758035024860874,
+      "eig_error_max": 4.962660664203255e-15,
+      "speedup": 1.5659133837118595
+    }
+  },
+  {
+    "rebuild": {
+      "label": "rebuild",
+      "material": "CFRP",
+      "n_nodes": 49,
+      "n_dofs": 294,
+      "n_windows": 12,
+      "time_init_s": 0.011635524017037824,
+      "time_per_window_s": 0.011187191004864872,
+      "time_total_s": 0.13473962098942138,
+      "eig_error_max": 3.881014377383537e-15,
+      "speedup": 1.0
+    },
+    "update_coords": {
+      "label": "update_coords",
+      "material": "CFRP",
+      "n_nodes": 49,
+      "n_dofs": 294,
+      "n_windows": 12,
+      "time_init_s": 0.010024410003097728,
+      "time_per_window_s": 0.004607944501913153,
+      "time_total_s": 0.055011205055052415,
+      "eig_error_max": 3.881014377383537e-15,
+      "speedup": 2.4278050658422883
+    }
+  }
+]
