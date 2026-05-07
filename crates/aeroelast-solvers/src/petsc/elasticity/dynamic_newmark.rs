@@ -863,6 +863,56 @@ impl NewmarkStepper {
         self.refactorize(self.dt_last)
     }
 
+    /// Update the elastic stiffness matrix K and refactorize `K_eff`.
+    ///
+    /// This method is used by the **inertial rotor solver** to update K(θ) when
+    /// the structural geometry rotates. The co-rotational solver does NOT use this
+    /// method because its K is constant (evaluated in the rotating frame).
+    ///
+    /// `k_vals` must have the **same length and COO ordering** as the original
+    /// stiffness matrix passed to `new()`. After updating K, Rayleigh damping
+    /// (if active) is recomputed as `C = η_k·K + η_m·M`, and `K_eff` is
+    /// refactorized to incorporate the new stiffness.
+    ///
+    /// # Arguments
+    /// * `k_vals` — new stiffness matrix values at the same COO positions
+    ///
+    /// # Errors
+    /// Returns a `PetscError` if the PETSc refactorization fails.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// // Inertial solver: reassemble K at rotated geometry θ
+    /// let k_theta = assemble_stiffness_at_theta(theta);
+    /// stepper.update_elastic_stiffness(&k_theta)?;
+    /// ```
+    pub fn update_elastic_stiffness(&mut self, k_vals: &[f64]) -> Result<(), PetscError> {
+        assert_eq!(
+            k_vals.len(),
+            self.k_vals.len(),
+            "k_vals must have the same COO length as the original K ({} != {})",
+            k_vals.len(),
+            self.k_vals.len(),
+        );
+
+        // Update stored K values
+        self.k_vals.copy_from_slice(k_vals);
+
+        // If Rayleigh damping is active, recompute C = η_k·K + η_m·M
+        if let DampingModel::Rayleigh { eta_k, eta_m } = self.damping_model {
+            for (c, (&k, &m)) in self
+                .c_vals
+                .iter_mut()
+                .zip(self.k_vals.iter().zip(self.m_vals.iter()))
+            {
+                *c = eta_k * k + eta_m * m;
+            }
+        }
+
+        // Refactorize K_eff with the new K (and C if Rayleigh is active)
+        self.refactorize(self.dt_last)
+    }
+
     /// Update the spin-softening stiffness contribution and refactorize `K_eff`.
     ///
     /// `ksp_vals` must have the **same length and COO ordering** as `k_vals`
@@ -1541,6 +1591,92 @@ mod tests {
         assert!(
             amp_end < amp_start * 0.5,
             "Damping not working: amp_end={amp_end:.3e} >= 0.5 * amp_start={amp_start:.3e}"
+        );
+    }
+
+    // ── Inertial rotor solver: K(θ) update test ───────────────────────────────
+
+    /// Test `update_elastic_stiffness()` with a 1-DOF spring-mass system.
+    ///
+    /// Scenario:
+    /// - Initial K=k₁, start from rest: u₀=0, v₀=0
+    /// - Apply constant load F=10 for 5 steps → system accelerates
+    /// - Change K → k₂ via `update_elastic_stiffness()`
+    /// - Continue for 5 more steps → verify response changes
+    ///
+    /// We verify:
+    /// 1. System accepts new K without crash
+    /// 2. Rayleigh damping updates C = η_k·K + η_m·M when active
+    /// 3. Numerical solution remains stable after K update
+    #[test]
+    fn test_update_elastic_stiffness() {
+        let k1 = 100.0f64;
+        let k2 = 400.0f64;  // stiffer spring → smaller displacements
+        let m = 1.0f64;
+        let eta_k = 0.01f64;
+        let eta_m = 0.05f64;
+        let dt = 0.01f64;
+
+        let mut stepper = make_stepper(k1, m, 0.0, dt)
+            .with_rayleigh_damping(eta_k, eta_m)
+            .expect("with_rayleigh_damping failed");
+
+        stepper.set_initial_conditions(&[0.0], &[0.0]);
+
+        // Phase 1: Apply F=10 for 5 steps with K=k₁
+        for _ in 0..5 {
+            stepper.step(&[10.0], dt).expect("step phase 1 failed");
+        }
+        let u_before_k_change = stepper.current_u()[0];
+
+        // Verify damping coefficient before change: C = η_k·k₁ + η_m·m
+        let c_expected_before = eta_k * k1 + eta_m * m;
+        assert!(
+            (stepper.c_vals[0] - c_expected_before).abs() < 1e-12,
+            "C before update: got {}, expected {c_expected_before}",
+            stepper.c_vals[0]
+        );
+
+        // Phase 2: Change K to k₂
+        stepper.update_elastic_stiffness(&[k2])
+            .expect("update_elastic_stiffness failed");
+
+        // Verify K was updated
+        assert!(
+            (stepper.k_vals[0] - k2).abs() < 1e-12,
+            "K not updated: got {}, expected {k2}",
+            stepper.k_vals[0]
+        );
+
+        // Verify damping coefficient updated: C = η_k·k₂ + η_m·m
+        let c_expected_after = eta_k * k2 + eta_m * m;
+        assert!(
+            (stepper.c_vals[0] - c_expected_after).abs() < 1e-12,
+            "C not updated: got {}, expected {c_expected_after}",
+            stepper.c_vals[0]
+        );
+
+        // Phase 3: Continue for 5 more steps with K=k₂
+        for _ in 0..5 {
+            stepper.step(&[10.0], dt).expect("step phase 2 failed");
+        }
+        let u_after_k_change = stepper.current_u()[0];
+
+        // Verify response changed (stiffer spring → smaller displacement growth)
+        // Since we're applying the same force, the stiffer spring should resist more
+        assert!(
+            u_after_k_change > 0.0,
+            "Displacement should be positive after applying F=10"
+        );
+        assert!(
+            u_after_k_change > u_before_k_change,
+            "Displacement should grow over time under constant load"
+        );
+
+        // Verify numerical stability (no NaN, no explosion)
+        assert!(
+            u_after_k_change.is_finite() && u_after_k_change < 100.0,
+            "Solution unstable: u={u_after_k_change}"
         );
     }
 }

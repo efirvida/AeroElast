@@ -1,8 +1,10 @@
-/// Rotor physics utilities for the co-rotational FSI solver.
+/// Rotor physics utilities for FSI solvers (co-rotational and inertial).
 ///
 /// Provides:
 /// - [`RotorTransforms`]  — Rodrigues rotation, force/displacement coordinate transforms.
-/// - Inertial force functions — centrifugal, Coriolis, Euler (operating on flat arrays).
+/// - Rotating-frame inertial forces — centrifugal, Coriolis, Euler (co-rotational solver).
+/// - Inertial-frame physics — [`compute_rigid_body_acceleration_inertial`],
+///   [`compute_reference_load_vector`] (inertial solver).
 /// - [`build_ksp_diag`]   — spin-softening K_SP diagonal expanded to the K sparsity pattern.
 /// - [`compute_torque`]   — scalar torque about the rotation axis from nodal forces.
 /// - [`compute_performance_coefficients`] — Ct, Cp, Cq, TSR.
@@ -311,6 +313,131 @@ pub fn compute_gravity_force(masses: &[f64], g_rot: &[f64; 3]) -> Vec<f64> {
         out[b] = m * g_rot[0];
         out[b + 1] = m * g_rot[1];
         out[b + 2] = m * g_rot[2];
+    }
+    out
+}
+
+// ── Inertial-frame rigid-body acceleration ────────────────────────────────────
+
+/// Compute rigid-body reference acceleration in the INERTIAL (global) frame.
+///
+/// For a node at position `r_i = X_rot_i − center` (where `X_rot_i` is the
+/// node coordinate already rotated by R(θ)), the inertial acceleration is:
+///
+///   `a_ref_i = α × r_i + ω × (ω × r_i)`
+///
+/// This is the reference acceleration field used by the inertial rotor solver
+/// to compute the load vector `F_ref = −M·a_ref` that accounts for the rigid-body
+/// inertial effects without introducing fictitious forces.
+///
+/// # Arguments
+/// * `coords_rotated` — flat node coordinates `[x0,y0,z0,…]` already rotated
+///   to the current angle θ (i.e., `R(θ)·X₀`), in the global frame.
+/// * `axis` — rotation axis unit vector `n̂`
+/// * `center` — rotation center coordinates
+/// * `omega` — angular velocity ω [rad/s]
+/// * `alpha` — angular acceleration α [rad/s²]
+///
+/// # Returns
+/// Flat acceleration array `[ax0,ay0,az0,…]` in the global frame, length `n_nodes * 3`.
+///
+/// # Notes
+/// The two terms:
+/// - `α × r`: tangential acceleration (Euler term)
+/// - `ω × (ω × r)`: centripetal acceleration pointing toward the axis
+///
+/// This is the ONLY inertial reference load needed in the inertial formulation;
+/// centrifugal, Coriolis, and Euler forces are NOT applied separately (they
+/// would be fictitious forces in the rotating frame).
+pub fn compute_rigid_body_acceleration_inertial(
+    coords_rotated: &[f64],
+    axis: &[f64; 3],
+    center: &[f64; 3],
+    omega: f64,
+    alpha: f64,
+) -> Vec<f64> {
+    let n = coords_rotated.len() / 3;
+    let mut out = vec![0.0f64; n * 3];
+
+    // Early return if both ω and α are zero
+    if omega.abs() < 1e-14 && alpha.abs() < 1e-14 {
+        return out;
+    }
+
+    let omega_sq = omega * omega;
+
+    // α_vec = α · n̂
+    let ax = alpha * axis[0];
+    let ay = alpha * axis[1];
+    let az = alpha * axis[2];
+
+    for i in 0..n {
+        let b = i * 3;
+        // r = coords_rotated - center
+        let rx = coords_rotated[b] - center[0];
+        let ry = coords_rotated[b + 1] - center[1];
+        let rz = coords_rotated[b + 2] - center[2];
+
+        // Tangential term: a_tang = α × r
+        let tang_x = ay * rz - az * ry;
+        let tang_y = az * rx - ax * rz;
+        let tang_z = ax * ry - ay * rx;
+
+        // Centripetal term: a_cent = ω² · r_perp, where r_perp = r - (r·n̂)·n̂
+        let r_dot_axis = rx * axis[0] + ry * axis[1] + rz * axis[2];
+        let rpx = rx - r_dot_axis * axis[0];
+        let rpy = ry - r_dot_axis * axis[1];
+        let rpz = rz - r_dot_axis * axis[2];
+
+        let cent_x = omega_sq * rpx;
+        let cent_y = omega_sq * rpy;
+        let cent_z = omega_sq * rpz;
+
+        // Total reference acceleration: a_ref = a_tang + a_cent
+        out[b] = tang_x + cent_x;
+        out[b + 1] = tang_y + cent_y;
+        out[b + 2] = tang_z + cent_z;
+    }
+    out
+}
+
+/// Compute the reference load vector `F_ref = −M_lumped ⊙ a_ref`.
+///
+/// This converts the rigid-body reference acceleration field (computed by
+/// `compute_rigid_body_acceleration_inertial`) into a nodal force vector
+/// ready to be scattered into the reduced-DOF global force vector.
+///
+/// # Arguments
+/// * `a_ref` — flat acceleration array `[ax0,ay0,az0,…]` length `n_nodes * 3`
+/// * `masses` — per-node scalar masses, length `n_nodes`
+///
+/// # Returns
+/// Flat force array `[fx0,fy0,fz0,…]` length `n_nodes * 3`, where each
+/// component is `f[i*3+j] = -masses[i] * a_ref[i*3+j]`.
+///
+/// # Notes
+/// The negative sign is critical: the load vector `F_ref` appears on the RHS
+/// as `−M·a_ref` to account for the d'Alembert inertial force in the global frame.
+pub fn compute_reference_load_vector(
+    a_ref: &[f64],
+    masses: &[f64],
+) -> Vec<f64> {
+    let n = masses.len();
+    assert_eq!(
+        a_ref.len(),
+        n * 3,
+        "a_ref must have length n_nodes * 3 (got {} for {} nodes)",
+        a_ref.len(),
+        n
+    );
+
+    let mut out = vec![0.0f64; n * 3];
+    for i in 0..n {
+        let b = i * 3;
+        let m = masses[i];
+        out[b] = -m * a_ref[b];
+        out[b + 1] = -m * a_ref[b + 1];
+        out[b + 2] = -m * a_ref[b + 2];
     }
     out
 }
@@ -1134,5 +1261,111 @@ mod tests {
         let (w, a) = p.get(0.0);
         assert!((w - 5.0).abs() < 1e-12, "w={w}");
         assert!((a - 1.0).abs() < 1e-12, "a={a}");
+    }
+
+    // ── Inertial-frame physics tests ───────────────────────────────────────────
+
+    #[test]
+    fn rigid_body_acceleration_pure_rotation() {
+        // Pure rotation (ω≠0, α=0) → centripetal only: a = ω²·r_perp
+        // Node at [1,0,0], axis Z, center origin, ω=2.0 → a = 4·[1,0,0]
+        let coords = vec![1.0, 0.0, 0.0];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+        let omega = 2.0;
+        let alpha = 0.0;
+
+        let a_ref = compute_rigid_body_acceleration_inertial(&coords, &axis, &center, omega, alpha);
+
+        assert_eq!(a_ref.len(), 3);
+        assert!((a_ref[0] - 4.0).abs() < 1e-13, "ax={}", a_ref[0]);
+        assert!(a_ref[1].abs() < 1e-14, "ay={}", a_ref[1]);
+        assert!(a_ref[2].abs() < 1e-14, "az={}", a_ref[2]);
+    }
+
+    #[test]
+    fn rigid_body_acceleration_pure_angular_acceleration() {
+        // Pure angular acceleration (ω=0, α≠0) → tangential only: a = α×r
+        // Node at [1,0,0], axis Z, center origin, α=3.0 → a = [0,0,3]×[1,0,0] = [0,3,0]
+        let coords = vec![1.0, 0.0, 0.0];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+        let omega = 0.0;
+        let alpha = 3.0;
+
+        let a_ref = compute_rigid_body_acceleration_inertial(&coords, &axis, &center, omega, alpha);
+
+        assert_eq!(a_ref.len(), 3);
+        assert!(a_ref[0].abs() < 1e-14, "ax={}", a_ref[0]);
+        assert!((a_ref[1] - 3.0).abs() < 1e-13, "ay={}", a_ref[1]);
+        assert!(a_ref[2].abs() < 1e-14, "az={}", a_ref[2]);
+    }
+
+    #[test]
+    fn rigid_body_acceleration_both_components() {
+        // Combined ω and α → tangential + centripetal
+        // Node at [1,0,0], axis Z, ω=1.0, α=2.0
+        // Tangential: α×r = [0,0,2]×[1,0,0] = [0,2,0]
+        // Centripetal: ω²·r_perp = 1·[1,0,0] = [1,0,0]
+        // Total: [1,2,0]
+        let coords = vec![1.0, 0.0, 0.0];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+        let omega = 1.0;
+        let alpha = 2.0;
+
+        let a_ref = compute_rigid_body_acceleration_inertial(&coords, &axis, &center, omega, alpha);
+
+        assert_eq!(a_ref.len(), 3);
+        assert!((a_ref[0] - 1.0).abs() < 1e-13, "ax={}", a_ref[0]);
+        assert!((a_ref[1] - 2.0).abs() < 1e-13, "ay={}", a_ref[1]);
+        assert!(a_ref[2].abs() < 1e-14, "az={}", a_ref[2]);
+    }
+
+    #[test]
+    fn rigid_body_acceleration_zero_at_rest() {
+        // ω=0, α=0 → early return with zeros
+        let coords = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+
+        let a_ref = compute_rigid_body_acceleration_inertial(&coords, &axis, &center, 0.0, 0.0);
+
+        assert_eq!(a_ref.len(), 6);
+        for v in &a_ref {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
+    fn reference_load_vector_single_node() {
+        // F_ref = -M·a_ref for a_ref=[2,3,4], m=5 → F=[-10,-15,-20]
+        let a_ref = vec![2.0, 3.0, 4.0];
+        let masses = vec![5.0];
+
+        let f_ref = compute_reference_load_vector(&a_ref, &masses);
+
+        assert_eq!(f_ref.len(), 3);
+        assert!((f_ref[0] + 10.0).abs() < 1e-13, "fx={}", f_ref[0]);
+        assert!((f_ref[1] + 15.0).abs() < 1e-13, "fy={}", f_ref[1]);
+        assert!((f_ref[2] + 20.0).abs() < 1e-13, "fz={}", f_ref[2]);
+    }
+
+    #[test]
+    fn reference_load_vector_multi_node() {
+        // Two nodes: a_ref=[1,0,0, 0,2,0], masses=[3,4]
+        // F_ref = [-3,0,0, 0,-8,0]
+        let a_ref = vec![1.0, 0.0, 0.0, 0.0, 2.0, 0.0];
+        let masses = vec![3.0, 4.0];
+
+        let f_ref = compute_reference_load_vector(&a_ref, &masses);
+
+        assert_eq!(f_ref.len(), 6);
+        assert!((f_ref[0] + 3.0).abs() < 1e-13, "fx0={}", f_ref[0]);
+        assert!(f_ref[1].abs() < 1e-14, "fy0={}", f_ref[1]);
+        assert!(f_ref[2].abs() < 1e-14, "fz0={}", f_ref[2]);
+        assert!(f_ref[3].abs() < 1e-14, "fx1={}", f_ref[3]);
+        assert!((f_ref[4] + 8.0).abs() < 1e-13, "fy1={}", f_ref[4]);
+        assert!(f_ref[5].abs() < 1e-14, "fz1={}", f_ref[5]);
     }
 }
