@@ -16,14 +16,14 @@
 Covers spec requirements: **Omega-Rebuild Policy for K_G and K_SP** and
 **Configurable Omega-Rebuild Thresholds on RotorConfig**.
 
-- [ ] 3.1 Add in-crate Rust unit tests for `omega_changed_significantly` predicate
+- [x] 3.1 Add in-crate Rust unit tests for `omega_changed_significantly` predicate
   (`crates/aeroelast-solvers/src/petsc/fsi/rotor_fsi.rs`, new `#[cfg(test)]` block).
   Cover: stable ω → skip; large jump > high threshold → rebuild; ω→0 → rebuild;
   first-call (`omega_sq_at_last` unset) → rebuild; edge case where both ω² < `eps=1e-12`
   → rebuild (guard against divide-by-zero). Tests MUST fail before the predicate exists;
   acceptance: all pass after 3.2.
 
-- [ ] 3.2 Extract `omega_changed_significantly(omega_new, omega_last, threshold_rebuild,
+- [x] 3.2 Extract `omega_changed_significantly(omega_new, omega_last, threshold_rebuild,
   threshold_skip, currently_rebuilt) -> bool` into `rotor_fsi.rs`.
   Semantics (from design §Decision): relative `|Δ(ω²)|/ω²` predicate with hysteresis;
   when `max(ω², ω_last²) < eps` fall back to `true` (rebuild). The existing absolute
@@ -31,17 +31,17 @@ Covers spec requirements: **Omega-Rebuild Policy for K_G and K_SP** and
   only as the `eps` guard, not as the rebuild criterion. Acceptance: unit tests in 3.1
   all pass; `cargo test` green in `aeroelast-solvers`.
 
-- [ ] 3.3 Replace K_G rebuild gate (`rotor_fsi.rs:439-457`) with a call to
+- [x] 3.3 Replace K_G rebuild gate (`rotor_fsi.rs:439-457`) with a call to
   `omega_changed_significantly` using the new predicate. No threshold value change —
   defaults remain `0.005`/`0.003`. Acceptance: behaviour-equivalent; existing
   `test_rotor_rust_parity.py` passes unchanged.
 
-- [ ] 3.4 Replace K_SP rebuild gate (`rotor_fsi.rs:808`) with a call to the same
+- [x] 3.4 Replace K_SP rebuild gate (`rotor_fsi.rs:808`) with a call to the same
   `omega_changed_significantly` predicate. Acceptance: same as 3.3; additionally verify
   with `test_rotor_physical_consistency.py::test_kg_hysteresis_prevents_chattering`
   (already exercises the hysteresis path).
 
-- [ ] 3.5 Add `omega_rebuild_rel_high: float` (default `0.005`) and
+- [x] 3.5 Add `omega_rebuild_rel_high: float` (default `0.005`) and
   `omega_rebuild_rel_low: float` (default `0.003`) to `RotorConfig` in
   `src/aeroelast/core/config.py`. Forward through `RotorConfig.to_dict()` and thread
   through the Rust `RotorFSIConfig` struct in
@@ -49,13 +49,13 @@ Covers spec requirements: **Omega-Rebuild Policy for K_G and K_SP** and
   these fields uses the defaults; a YAML that sets them overrides the predicate
   thresholds; `test_rotor_rust_parity.py` still passes.
 
-- [ ] 3.6 Wire new threshold fields through the PyO3 binding in
+- [x] 3.6 Wire new threshold fields through the PyO3 binding in
   `crates/aeroelast-py/src/lib.rs` so `run_rotor_fsi_solver` accepts and passes them.
   Also thread from the Python call site in `rotor.py` (~`:2150` neighbourhood).
   Acceptance: smoke test — instantiate `RotorConfig` with explicit thresholds and
   confirm the Rust solver receives them (assert via debug log or a new test parameter).
 
-- [ ] 3.7 Add `tests/test_omega_rebuild_predicate.py` (Python integration layer).
+- [x] 3.7 Add `tests/test_omega_rebuild_predicate.py` (Python integration layer).
   Verify rebuild count on a ramped-ω synthetic case matches the expected reduction vs
   the old absolute-threshold policy. Acceptance: rebuild count with new predicate ≤
   rebuild count with old policy on all parametrized ω ramps.

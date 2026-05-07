@@ -33,6 +33,7 @@ def _omega_changed_significantly(
     threshold_rebuild: float,
     threshold_skip: float,
     currently_rebuilt: bool,
+    eps: float = 1e-8,
 ) -> bool:
     """Python replica of the Rust ``omega_changed_significantly`` predicate.
 
@@ -49,22 +50,24 @@ def _omega_changed_significantly(
         Same, low-band threshold. Applied when ``currently_rebuilt=False``.
     currently_rebuilt : bool
         True if a rebuild was performed < 10 steps ago.
+    eps : float
+        Near-zero ω² guard.  Seeded from ``ksp_omega_threshold²`` (default 1e-4²
+        = 1e-8) per task 3.2: the legacy absolute threshold is rerouted as the
+        eps guard instead of the rebuild criterion.
 
     Returns
     -------
     bool
         True → rebuild; False → skip.
     """
-    EPS = 1e-12
-
     if omega_sq_at_last == float("-inf"):
         return True  # first call always rebuilds
 
     omega_sq_new = omega_new * omega_new
     denom = max(omega_sq_new, omega_sq_at_last)
 
-    if denom < EPS:
-        return True  # ω → 0 guard
+    if denom < eps:
+        return True  # ω → 0 guard (ksp_omega_threshold² defines "near zero")
 
     rel_change = abs(omega_sq_new - omega_sq_at_last) / denom
     threshold = threshold_rebuild if currently_rebuilt else threshold_skip
@@ -230,7 +233,7 @@ def test_predicate_first_call_always_rebuilds():
 
 
 def test_predicate_near_zero_omega_guard():
-    """Both ω near zero (ω² < eps = 1e-12) → always rebuild (divide-by-zero guard)."""
+    """Both ω near zero (ω² < eps = 1e-8 = ksp_omega_threshold²) → always rebuild."""
     assert _omega_changed_significantly(0.0, 0.0, 0.005, 0.003, False)
     assert _omega_changed_significantly(0.0, 0.0, 0.005, 0.003, True)
 

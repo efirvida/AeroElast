@@ -152,7 +152,9 @@ impl RotorFsiConfig {
 ///
 /// **ω → 0 guard**: when `max(ω², ω_last²) < eps` (both near zero), the
 /// relative form would divide by zero.  The predicate returns `true` (rebuild)
-/// in this case to ensure a safe state at startup.
+/// in this case to ensure a safe state at startup.  `eps` is seeded from
+/// `ksp_omega_threshold²` so the legacy absolute threshold continues to define
+/// the "near-zero" region rather than being a hardcoded constant.
 ///
 /// # Arguments
 /// * `omega_new`         — current angular velocity [rad/s]
@@ -160,6 +162,7 @@ impl RotorFsiConfig {
 /// * `threshold_rebuild` — high-band relative threshold (triggers rebuild)
 /// * `threshold_skip`    — low-band relative threshold (suppresses rebuild after a recent one)
 /// * `currently_rebuilt` — `true` if a rebuild was performed recently (use `threshold_rebuild`)
+/// * `eps`               — near-zero guard for ω² (use `ksp_omega_threshold²`)
 ///
 /// # Returns
 /// `true`  → rebuild the matrix
@@ -170,9 +173,8 @@ pub(crate) fn omega_changed_significantly(
     threshold_rebuild: f64,
     threshold_skip: f64,
     currently_rebuilt: bool,
+    eps: f64,
 ) -> bool {
-    const EPS: f64 = 1e-12;
-
     // First call: no prior rebuild — always rebuild.
     if omega_sq_at_last == f64::NEG_INFINITY {
         return true;
@@ -182,7 +184,8 @@ pub(crate) fn omega_changed_significantly(
     let denom = omega_sq_new.max(omega_sq_at_last);
 
     // ω → 0 guard: both values near zero — rebuild to stay in a safe state.
-    if denom < EPS {
+    // eps is seeded from ksp_omega_threshold² (legacy absolute threshold squared).
+    if denom < eps {
         return true;
     }
 
@@ -508,14 +511,17 @@ impl RotorFsiSolver {
         }
 
         // Unified relative-ω² predicate with hysteresis to prevent chattering.
+        // ksp_omega_threshold² seeds the near-zero eps guard (rerouted from its old role).
         let steps_since_rebuild = time_step.saturating_sub(self.last_kg_rebuild_step);
         let recently_rebuilt = steps_since_rebuild < 10;
+        let eps_sq = self.config.ksp_omega_threshold * self.config.ksp_omega_threshold;
         if !omega_changed_significantly(
             omega,
             self.omega_sq_at_last_kg,
             self.config.omega_rebuild_rel_high,
             self.config.omega_rebuild_rel_low,
             recently_rebuilt,
+            eps_sq,
         ) {
             log::trace!(
                 "RotorFsi: K_G rebuild skipped at step {}, ω={:.4} rad/s (ω² stable)",
@@ -872,14 +878,17 @@ impl RotorFsiSolver {
                 let time_step = result.times.len() + 1; // 1-based, before push
 
                 // 5. Rebuild K_SP when ω changes significantly (unified relative predicate).
+                // ksp_omega_threshold² seeds the near-zero eps guard.
                 let steps_since_ksp = time_step.saturating_sub(self.last_ksp_rebuild_step);
                 let ksp_recently_rebuilt = steps_since_ksp < 10;
+                let ksp_eps_sq = self.config.ksp_omega_threshold * self.config.ksp_omega_threshold;
                 if omega_changed_significantly(
                     omega_new,
                     self.omega_sq_at_last_ksp,
                     self.config.omega_rebuild_rel_high,
                     self.config.omega_rebuild_rel_low,
                     ksp_recently_rebuilt,
+                    ksp_eps_sq,
                 ) {
                     self.last_ksp_rebuild_step = time_step;
                     self.apply_ksp(omega_new)?;
@@ -1023,47 +1032,53 @@ mod tests {
     }
 
     // ── Tests for omega_changed_significantly predicate (task 3.1 / 3.2) ──────
+    //
+    // eps = (1e-4)² = 1e-8 mirrors the default ksp_omega_threshold² used in
+    // production call sites, per task 3.2: ksp_omega_threshold is rerouted as
+    // the eps guard for the near-zero ω² branch.
 
     /// Stable ω (change well below both thresholds) → skip.
     #[test]
     fn omega_pred_stable_omega_skips() {
+        let eps = 1e-8_f64; // (1e-4)^2
         let omega_base = 100.0f64;
         let omega_sq_last = omega_base * omega_base;
         // 0.1% change — below both 0.5% and 0.3%
         let omega_new = omega_base * (1.0 + 0.001);
         // Not recently rebuilt
-        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false));
+        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false, eps));
         // Recently rebuilt
-        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true));
+        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true, eps));
     }
 
     /// Large jump above high threshold → rebuild regardless of hysteresis state.
     #[test]
     fn omega_pred_large_jump_rebuilds() {
+        let eps = 1e-8_f64;
         let omega_base = 100.0f64;
         let omega_sq_last = omega_base * omega_base;
         // 0.8% change — above both 0.5% and 0.3%
         let omega_new = omega_base * (1.0 + 0.004);
         // Not recently rebuilt: 0.8% > 0.3% → rebuild
-        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false));
+        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false, eps));
         // Recently rebuilt: 0.8% > 0.5% → rebuild
-        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true));
+        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true, eps));
     }
 
-    /// ω → 0: both values below eps → always rebuild (avoid divide-by-zero).
+    /// ω → 0: both ω² values below eps → always rebuild (avoid divide-by-zero).
     #[test]
     fn omega_pred_omega_to_zero_always_rebuilds() {
-        // Use values whose squares are both exactly 0, well below EPS = 1e-12.
-        let omega_new = 0.0;
-        let omega_sq_last = 0.0;
-        // max(0, 0) = 0 < 1e-12 → rebuild
-        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false));
-        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true));
+        // Use eps = 1e-8; values whose squares are both 0 → below eps → rebuild.
+        let eps = 1e-8_f64;
+        // max(0, 0) = 0 < eps → rebuild
+        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, false, eps));
+        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, true, eps));
     }
 
     /// First call (omega_sq_at_last = NEG_INFINITY) → always rebuild.
     #[test]
     fn omega_pred_first_call_always_rebuilds() {
+        let eps = 1e-8_f64;
         let omega_new = 50.0;
         assert!(omega_changed_significantly(
             omega_new,
@@ -1071,6 +1086,7 @@ mod tests {
             0.005,
             0.003,
             false,
+            eps,
         ));
         assert!(omega_changed_significantly(
             omega_new,
@@ -1078,6 +1094,7 @@ mod tests {
             0.005,
             0.003,
             true,
+            eps,
         ));
         // Also for zero omega on first call
         assert!(omega_changed_significantly(
@@ -1086,6 +1103,7 @@ mod tests {
             0.005,
             0.003,
             false,
+            eps,
         ));
     }
 
@@ -1096,6 +1114,7 @@ mod tests {
     /// - `currently_rebuilt = false` (low  bar = 0.3%) → 0.4% > 0.3% → rebuild
     #[test]
     fn omega_pred_hysteresis_between_thresholds() {
+        let eps = 1e-8_f64;
         let omega_base = 100.0f64;
         let omega_sq_last = omega_base * omega_base;
         // 0.4% ω change → 0.8% ω² change (approximation: Δω²/ω² ≈ 2Δω/ω = 0.8%)
@@ -1106,16 +1125,17 @@ mod tests {
         assert!(rel > 0.003 && rel < 0.005, "rel={rel} must be in (0.003, 0.005)");
 
         // recently rebuilt → use high threshold (0.005) → change < 0.5% → skip
-        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true));
+        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true, eps));
         // not recently rebuilt → use low threshold (0.003) → change > 0.3% → rebuild
-        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false));
+        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false, eps));
     }
 
     /// Both omega² values exactly at the eps guard → rebuild.
     #[test]
     fn omega_pred_eps_boundary_rebuilds() {
-        // max(ω², ω_last²) exactly at 0.0 → below EPS
-        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, false));
-        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, true));
+        // max(ω², ω_last²) = 0.0 < eps → below guard → rebuild
+        let eps = 1e-8_f64;
+        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, false, eps));
+        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, true, eps));
     }
 }
