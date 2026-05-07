@@ -4212,19 +4212,21 @@ fn compute_rayleigh_auto(
 
     let n_free = fd.len();
 
-    // ── Reduce K (and M sharing K's sparsity pattern) ─────────────────────
+    // ── Reduce K ──────────────────────────────────────────────────────────
     let (kr_red, kc_red, kv_red) = setup::reduce_coo(kr, kc, kv, fd);
-    let (_, _, mv_red)            = setup::reduce_coo(mr, mc, mv, fd);
 
-    // Lump mass diagonal from the reduced consistent mass
-    let mut m_diag = vec![0.0f64; n_free];
-    for (&row, &val) in kr_red.iter().zip(mv_red.iter()) {
-        if row >= 0 && (row as usize) < n_free {
-            m_diag[row as usize] += val.abs();
-        }
-    }
+    // ── Reduce and lump M using M's OWN row/col indices ───────────────────
+    // BUG FIX: the old code zipped kr_red (K row indices) with mv_red (M
+    // values).  When M is already diagonal/lumped (n_free entries) and K is
+    // banded (>> n_free entries), zip truncates at n_free → mass ≈ 0 for
+    // most DOFs → eigenvalues near 0 → catastrophically wrong Rayleigh
+    // coefficients.  Fix: reduce M with its own indices, then use
+    // lump_mass_coo (which also applies the rotational-DOF mass floor).
+    let (mr_red, mc_red, mv_red) = setup::reduce_coo(mr, mc, mv, fd);
+    let (_, _, m_lump_vals)      = setup::lump_mass_coo(&mr_red, &mc_red, &mv_red, n_free);
+
     // Distribute diagonal values onto K's sparsity for PETSc assembly
-    let mv_expanded = setup::expand_diag_to_sparsity(&m_diag, &kr_red, &kc_red);
+    let mv_expanded = setup::expand_diag_to_sparsity(&m_lump_vals, &kr_red, &kc_red);
 
     // ── Assemble PETSc matrices ────────────────────────────────────────────
     let k_mat = assemble_seq_aij(&kr_red, &kc_red, &kv_red, n_free)
