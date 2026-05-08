@@ -359,6 +359,8 @@ class RotorConfig:
     kg_update_interval: int = 0
     force_ramp_time: float = 0.0
     send_omega_to_precice: bool = True
+    send_velocity_to_precice: bool = False
+    velocity_write_data: str = "Velocity"
     force_max_magnitude: Optional[float] = None
     force_jump_factor: float = 1000.0
     # Relative |Δ(ω²)|/ω² thresholds for the unified K_G / K_SP rebuild predicate.
@@ -399,6 +401,8 @@ class RotorConfig:
             "kg_update_interval": self.kg_update_interval,
             "force_ramp_time": self.force_ramp_time,
             "send_omega_to_precice": self.send_omega_to_precice,
+            "send_velocity_to_precice": self.send_velocity_to_precice,
+            "velocity_write_data": self.velocity_write_data,
             "force_jump_factor": self.force_jump_factor,
             "transform_displacement_to_inertial": self.transform_displacement_to_inertial,
             "precice_displacement_mode": self.precice_displacement_mode,
