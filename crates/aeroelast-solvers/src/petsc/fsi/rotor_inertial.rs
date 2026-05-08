@@ -34,7 +34,7 @@
 /// # Feature gate
 /// Compiled only with `--features fsi`.
 
-use aeroelast_core::assembly::assembler::MeshAssembler;
+use aeroelast_core::assembly::assembler::{MaterialSpec, MeshAssembler};
 
 use crate::petsc::elasticity::dynamic_newmark::{NewmarkCheckpoint, NewmarkStepper};
 use crate::petsc::fsi::force_utils::{apply_cap, apply_ramp};
@@ -43,7 +43,7 @@ use crate::petsc::fsi::rotor_physics::{
     OmegaCheckpoint, OmegaProvider, PerformanceCoefficients, RotorTransforms,
     compute_gravity_force, compute_performance_coefficients,
     compute_rigid_body_acceleration_inertial, compute_reference_load_vector,
-    compute_thrust, compute_torque,
+    compute_rigid_body_velocity_inertial, compute_thrust, compute_torque,
 };
 
 // ── Step callback type ─────────────────────────────────────────────────────────
@@ -94,6 +94,9 @@ pub struct InertialRotorFsiConfig {
     /// Enable reference acceleration forces (F_ref = −M·a_ref).
     /// Should always be `true` for physical correctness unless debugging.
     pub include_reference_acceleration: bool,
+    /// Include centrifugal prestress as a dynamic K_G(θ, ω) term assembled on
+    /// the current rotated geometry and updated together with K(θ).
+    pub include_geometric_stiffness: bool,
 
     // ── Stiffness reassembly ──────────────────────────────────────────────────
     /// Rebuild K(θ) every N converged steps. `0` and `1` both mean every step.
@@ -233,6 +236,11 @@ pub struct InertialRotorFsiSolver {
     k_red_rows: Vec<i32>,
     /// Reduced K column indices (reference COO structure, post-BC reduction).
     k_red_cols: Vec<i32>,
+    /// Maps full reassembled K_G COO entries into the reference reduced K COO.
+    kg_coo_map: Vec<i32>,
+    /// Per-element density (or mass-per-area for composites) used to build the
+    /// centrifugal prestress K_G(θ, ω).
+    rho_per_elem: Vec<f64>,
 
     // ── Stiffness update tracking ─────────────────────────────────────────────
     /// ω² at the last K(θ) rebuild (for relative change check).
@@ -339,6 +347,31 @@ impl InertialRotorFsiSolver {
 
         let transforms = RotorTransforms::new(axis_normalized, config.rotation_center);
 
+        let rho_per_elem: Vec<f64> = assembler
+            .materials
+            .iter()
+            .map(|m| match m {
+                MaterialSpec::Isotropic { rho, .. } => *rho,
+                MaterialSpec::Composite { mass_per_area, .. } => *mass_per_area,
+                MaterialSpec::PlaneStress { rho, .. } => *rho,
+                MaterialSpec::Solid3D { rho, .. } => *rho,
+            })
+            .collect();
+
+        let kg_coo_map = if config.include_geometric_stiffness {
+            let dummy_sigma = vec![[0.0f64; 3]; assembler.topology.n_elems];
+            let (kg_rows_full, kg_cols_full, _) = assembler.assemble_geometric_k(&dummy_sigma);
+            crate::petsc::fsi::setup::build_kg_coo_map(
+                &kg_rows_full,
+                &kg_cols_full,
+                &free_dofs,
+                &k_red_rows,
+                &k_red_cols,
+            )
+        } else {
+            Vec::new()
+        };
+
         Ok(InertialRotorFsiSolver {
             config,
             assembler,
@@ -354,6 +387,8 @@ impl InertialRotorFsiSolver {
             k_red_nnz,
             k_red_rows,
             k_red_cols,
+            kg_coo_map,
+            rho_per_elem,
             n_iface,
             iface_dofs,
             iface_nodes,
@@ -522,15 +557,29 @@ impl InertialRotorFsiSolver {
         }
         let k_vals_red = apply_kg_coo_map(&self.k_coo_map, &k_vals, self.k_red_nnz);
 
+        let kg_vals_red = if self.config.include_geometric_stiffness {
+            let (_, _, kg_vals_full) = self.assembler.assemble_centrifugal_k(
+                omega,
+                self.transforms.axis,
+                self.transforms.center,
+                &self.rho_per_elem,
+            );
+            apply_kg_coo_map(&self.kg_coo_map, &kg_vals_full, self.k_red_nnz)
+        } else {
+            vec![0.0f64; self.k_red_nnz]
+        };
+
         // Compute spin-softening K_SP(ω, θ).
         //
         // In the inertial frame, the full linearized EOM is:
         //   M·ü_e + C·u̇_e + [K(θ) + K_SP(ω)]·u_e = F_aero + F_g + F_ref
         //
         // K_SP arises from linearizing the centripetal term ω×(ω×u_e) around
-        // u_e=0. For lumped mass and rotation axis n̂:
-        //   K_SP[node, j] = −ω²·m[node]·(1 − n̂_j²)   j=0,1,2
-        //   K_SP[node, j] = 0                           j≥3 (rotational DOFs)
+        // u_e=0. For lumped mass and rotation axis n̂, each translational node
+        // contributes the 3×3 block:
+        //   K_SP,node = −ω²·m[node]·(I − n̂⊗n̂)
+        // with zero rotational rows/cols. For tilted axes this introduces
+        // physically required off-diagonal translational couplings.
         //
         // K_SP is negative-definite in the perpendicular-to-axis subspace
         // (spin-softening). Including it prevents overestimating flapwise
@@ -559,9 +608,9 @@ impl InertialRotorFsiSolver {
             n_full_dofs,
         );
 
-        // Update K(θ) and K_SP(ω,θ) together → single refactorization.
+        // Update K(θ), K_G(θ,ω), and K_SP(ω,θ) together → single refactorization.
         self.stepper
-            .update_elastic_stiffness_and_spin_softening(&k_vals_red, &ksp_vals_red)
+            .update_tangent_terms(&k_vals_red, &kg_vals_red, &ksp_vals_red)
             .map_err(FsiError::StepperError)?;
 
         self.omega_sq_at_last_k_rebuild = omega * omega;
@@ -570,8 +619,9 @@ impl InertialRotorFsiSolver {
 
         let elapsed = t_start.elapsed();
         log::info!(
-            "InertialRotorFsi: stiffness reassembly done in {:.3}s (step {}, θ={:.4}rad, ω={:.4}rad/s)",
+            "InertialRotorFsi: stiffness reassembly done in {:.3}s (step {}, θ={:.4}rad, ω={:.4}rad/s, K_G={})",
             elapsed.as_secs_f64(), time_step, self.theta, omega
+            , self.config.include_geometric_stiffness
         );
 
         Ok(())
@@ -815,6 +865,18 @@ impl InertialRotorFsiSolver {
             let step_t = self.stepper.step(&f_red, dt)?.t;
             let t_solve_ms = t_solve.elapsed().as_secs_f64() * 1e3;
 
+            // When exporting total kinematics, the rigid contribution must use
+            // the current window target θ, not the last converged geometry.
+            let iface_coords_target = if self.config.displacement_mode == DisplacementMode::Total {
+                Some(crate::petsc::fsi::setup::rotate_mesh_coords(
+                    &iface_coords,
+                    &self.transforms,
+                    theta_target,
+                ))
+            } else {
+                None
+            };
+
             // ── Gather interface displacements (elastic or total) ─────────────
             let u_red = self.stepper.current_u().to_vec();
             let u_post_step_norm: f64 = u_red.iter().map(|x| x * x).sum::<f64>().sqrt();
@@ -833,14 +895,16 @@ impl InertialRotorFsiSolver {
                         .collect()
                 }
                 DisplacementMode::Total => {
-                    // Write total displacement (u_elastic + u_rigid)
-                    // Compute rigid-body displacement: u_rigid = rotated_coords - ref_coords
+                    // Write total displacement using the rigid kinematics frozen
+                    // for the CURRENT window: u_total = u_elastic + (R(θ_target)X₀ - X₀).
+                    let iface_coords_rotated = iface_coords_target
+                        .as_ref()
+                        .expect("total displacement mode requires target rigid coordinates");
                     let mut disp_total = Vec::with_capacity(self.iface_dofs.len());
-                    for &node in &self.iface_nodes {
-                        let i_ref = node * 3;
-                        let i_rot = node * 3;
+                    for (iface_idx, &node) in self.iface_nodes.iter().enumerate() {
+                        let i_ref = iface_idx * 3;
                         for j in 0..3 {
-                            let u_rigid = self.coords_rotated[i_rot + j] - self.coords_ref[i_ref + j];
+                            let u_rigid = iface_coords_rotated[i_ref + j] - iface_coords[i_ref + j];
                             let dof = (node * self.config.dofs_per_node + j) as i32;
                             let u_elastic = if let Ok(pos) = free_dofs.binary_search(&dof) {
                                 u_red[pos]
@@ -871,16 +935,45 @@ impl InertialRotorFsiSolver {
             // ── Write nodal velocities to preCICE (aerodynamic damping) ──────
             if let Some(ref vdata) = self.config.velocity_write_data {
                 let v_red = self.stepper.current_v().to_vec();
-                let vel_iface: Vec<f64> = self.iface_dofs
-                    .iter()
-                    .map(|&dof| {
-                        if let Ok(pos) = free_dofs.binary_search(&(dof as i32)) {
-                            v_red[pos]
-                        } else {
-                            0.0
+                let vel_iface: Vec<f64> = match self.config.displacement_mode {
+                    DisplacementMode::Elastic => self
+                        .iface_dofs
+                        .iter()
+                        .map(|&dof| {
+                            if let Ok(pos) = free_dofs.binary_search(&(dof as i32)) {
+                                v_red[pos]
+                            } else {
+                                0.0
+                            }
+                        })
+                        .collect(),
+                    DisplacementMode::Total => {
+                        let iface_coords_rotated = iface_coords_target
+                            .as_ref()
+                            .expect("total displacement mode requires target rigid coordinates");
+                        let vel_rigid = compute_rigid_body_velocity_inertial(
+                            iface_coords_rotated,
+                            &self.transforms.axis,
+                            &self.transforms.center,
+                            omega_step,
+                        );
+
+                        let mut vel_total = Vec::with_capacity(self.iface_dofs.len());
+                        for (iface_idx, &node) in self.iface_nodes.iter().enumerate() {
+                            let i = iface_idx * 3;
+                            for j in 0..3 {
+                                let dof = (node * self.config.dofs_per_node + j) as i32;
+                                let v_elastic = if let Ok(pos) = free_dofs.binary_search(&dof) {
+                                    v_red[pos]
+                                } else {
+                                    0.0
+                                };
+                                vel_total.push(v_elastic + vel_rigid[i + j]);
+                            }
                         }
-                    })
-                    .collect();
+                        vel_total
+                    }
+                };
                 participant.write_data(
                     &self.config.fsi.coupling_mesh,
                     vdata,
@@ -992,7 +1085,7 @@ impl InertialRotorFsiSolver {
                     })
                     .collect();
 
-                let (tau_vec, tau_aero) = compute_torque(
+                let (_tau_vec, tau_aero) = compute_torque(
                     &iface_coords_rotated,
                     &disp_iface_full,
                     &forces_raw,
@@ -1000,10 +1093,36 @@ impl InertialRotorFsiSolver {
                     &self.transforms.center,
                 );
 
-                // Update omega provider if using Computed mode
-                if let OmegaProvider::Computed { .. } = &mut self.omega_provider {
-                    self.omega_provider.update_from_torque(tau_aero, dt, step_t);
-                }
+                // Gravity torque about the rotation axis must also drive ω.
+                // In the inertial formulation gravity is already expressed in
+                // the global frame, so compute the body torque directly from
+                // the current rotated geometry plus the elastic displacement.
+                let tau_gravity = if self.config.gravity_active() {
+                    let f_gravity = compute_gravity_force(&self.masses, &self.config.gravity);
+                    let mut disp_nodes_full = Vec::with_capacity(self.masses.len() * 3);
+                    for node in 0..self.masses.len() {
+                        for j in 0..3 {
+                            let dof = node * dofs_per_node + j;
+                            disp_nodes_full.push(if dof < u_full.len() { u_full[dof] } else { 0.0 });
+                        }
+                    }
+                    let (_, tau_g) = compute_torque(
+                        &self.coords_rotated,
+                        &disp_nodes_full,
+                        &f_gravity,
+                        &self.transforms.axis,
+                        &self.transforms.center,
+                    );
+                    tau_g
+                } else {
+                    0.0
+                };
+
+                // Update ω from the physical driving torque only. The provider
+                // itself no-ops for constant/ramped modes and handles the
+                // post-ramp transition for RampedComputed.
+                self.omega_provider
+                    .update_from_torque(tau_aero + tau_gravity, dt, step_t);
 
                 // Store final state
                 result.u_final = u_red.to_vec();
@@ -1028,9 +1147,9 @@ impl InertialRotorFsiSolver {
 
                 log::info!(
                     "InertialRotorFsi step {}: t={:.4} θ={:.4}rad ω_window={:.4}rad/s ω_state={:.4}rad/s \
-                     τ_aero={:.3e}N·m  Ct={:.4} Cp={:.4} TSR={:.3}",
+                     τ_aero={:.3e}N·m τ_grav={:.3e}N·m  Ct={:.4} Cp={:.4} TSR={:.3}",
                     self.time_step, step_t, self.theta, omega_step, omega_state,
-                    tau_aero, perf.ct, perf.cp, perf.tsr
+                    tau_aero, tau_gravity, perf.ct, perf.cp, perf.tsr
                 );
 
                 // Per-step callback — always pass physical (unramped) forces

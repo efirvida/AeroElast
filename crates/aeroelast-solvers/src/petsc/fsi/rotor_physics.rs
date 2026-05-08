@@ -4,8 +4,9 @@
 /// - [`RotorTransforms`]  — Rodrigues rotation, force/displacement coordinate transforms.
 /// - Rotating-frame inertial forces — centrifugal, Coriolis, Euler (co-rotational solver).
 /// - Inertial-frame physics — [`compute_rigid_body_acceleration_inertial`],
-///   [`compute_reference_load_vector`] (inertial solver).
-/// - [`build_ksp_diag`]   — spin-softening K_SP diagonal expanded to the K sparsity pattern.
+///   [`compute_rigid_body_velocity_inertial`], [`compute_reference_load_vector`]
+///   (inertial solver).
+/// - [`build_ksp_vals`]   — spin-softening K_SP values aligned to the K sparsity pattern.
 /// - [`compute_torque`]   — scalar torque about the rotation axis from nodal forces.
 /// - [`compute_performance_coefficients`] — Ct, Cp, Cq, TSR.
 /// - [`OmegaProvider`]    — angular-velocity provider (constant, ramped, computed, mixed).
@@ -15,8 +16,6 @@
 ///
 /// # Feature gate
 /// Compiled only with `--features fsi`.
-
-use crate::petsc::fsi::setup::expand_diag_to_sparsity;
 
 // ── Skew-symmetric helper ──────────────────────────────────────────────────────
 
@@ -404,6 +403,56 @@ pub fn compute_rigid_body_acceleration_inertial(
     out
 }
 
+/// Compute rigid-body velocity in the INERTIAL (global) frame.
+///
+/// For a node at position `r_i = X_rot_i − center` (where `X_rot_i` is the
+/// current rigidly rotated coordinate), the rigid-body velocity is:
+///
+///   `v_rigid_i = ω × r_i`
+///
+/// This is needed when the inertial solver exports **total** kinematics to a
+/// CFD participant. In `Elastic` mode the rigid part is intentionally omitted.
+///
+/// # Arguments
+/// * `coords_rotated` — flat node coordinates `[x0,y0,z0,…]` already rotated
+///   to the target angle θ, in the global frame.
+/// * `axis` — rotation axis unit vector `n̂`
+/// * `center` — rotation center coordinates
+/// * `omega` — angular velocity ω [rad/s]
+///
+/// # Returns
+/// Flat velocity array `[vx0,vy0,vz0,…]` in the global frame, length `n_nodes * 3`.
+pub fn compute_rigid_body_velocity_inertial(
+    coords_rotated: &[f64],
+    axis: &[f64; 3],
+    center: &[f64; 3],
+    omega: f64,
+) -> Vec<f64> {
+    let n = coords_rotated.len() / 3;
+    let mut out = vec![0.0f64; n * 3];
+
+    if omega.abs() < 1e-14 {
+        return out;
+    }
+
+    let wx = omega * axis[0];
+    let wy = omega * axis[1];
+    let wz = omega * axis[2];
+
+    for i in 0..n {
+        let b = i * 3;
+        let rx = coords_rotated[b] - center[0];
+        let ry = coords_rotated[b + 1] - center[1];
+        let rz = coords_rotated[b + 2] - center[2];
+
+        out[b] = wy * rz - wz * ry;
+        out[b + 1] = wz * rx - wx * rz;
+        out[b + 2] = wx * ry - wy * rx;
+    }
+
+    out
+}
+
 /// Compute the reference load vector `F_ref = −M_lumped ⊙ a_ref`.
 ///
 /// This converts the rigid-body reference acceleration field (computed by
@@ -555,22 +604,21 @@ pub fn build_coriolis_matrix(
 
 // ── Spin-softening K_SP ────────────────────────────────────────────────────────
 
-/// Build the spin-softening K_SP diagonal in the **full** (unreduced) DOF space,
-/// then expand it to the K sparsity pattern so it can be passed to
-/// [`NewmarkStepper::update_spin_softening`].
+/// Build spin-softening `K_SP` aligned with the reduced K COO sparsity.
 ///
 /// ANSYS Eq. 3-74 / 14-55 for lumped mass:
 /// ```text
-/// K_SP[dof_base + j] = −ω² · m_node · (1 − n̂ⱼ²)   for j = 0, 1, 2  (translational)
-/// K_SP[dof_base + j] = 0                              for j ≥ 3  (rotational)
+/// K_SP,node = −ω² · m_node · (I − n̂⊗n̂)   on the 3×3 translational block
+/// K_SP,node = 0                            on rotational rows/cols and inter-node couplings
 /// ```
 ///
-/// The result is negative, reducing the effective stiffness perpendicular to
-/// the rotation axis (spin-softening effect).
+/// For axes aligned with a global basis vector this reduces to a diagonal block.
+/// For arbitrary axes the translational block contains off-diagonal couplings,
+/// so treating `K_SP` as a pure diagonal is physically wrong.
 ///
 /// # Arguments
 /// * `m_lumped_full` — lumped mass diagonal of the **full** (unreduced) system,
-///   length `n_full_dofs`.  Only translational DOFs carry mass (rotational = 0).
+///   length `n_full_dofs`. Only translational DOFs carry mass (rotational = 0).
 /// * `axis`          — rotation axis unit vector
 /// * `omega`         — angular velocity (rad/s)
 /// * `dofs_per_node` — DOFs per FEM node (typically 6 for shells)
@@ -590,33 +638,49 @@ pub fn build_ksp_vals(
     free_dofs: &[i32],
     n_full_dofs: usize,
 ) -> Vec<f64> {
-    // 1. Build the K_SP diagonal in the full DOF space.
+    if omega == 0.0 {
+        return vec![0.0; k_rows.len()];
+    }
+
     let omega_sq = omega * omega;
-    let n_nodes = n_full_dofs / dofs_per_node;
-    let mut ksp_full = vec![0.0f64; n_full_dofs];
-    for i in 0..n_nodes {
-        let base = i * dofs_per_node;
-        for j in 0..3_usize {
-            let dof = base + j;
-            if dof < n_full_dofs {
-                let m = m_lumped_full[dof];
-                ksp_full[dof] = -omega_sq * m * (1.0 - axis[j] * axis[j]);
+    let projector = [
+        [1.0 - axis[0] * axis[0], -axis[0] * axis[1], -axis[0] * axis[2]],
+        [-axis[1] * axis[0], 1.0 - axis[1] * axis[1], -axis[1] * axis[2]],
+        [-axis[2] * axis[0], -axis[2] * axis[1], 1.0 - axis[2] * axis[2]],
+    ];
+
+    k_rows
+        .iter()
+        .zip(k_cols.iter())
+        .map(|(&r_red, &c_red)| {
+            let (Some(&r_global_i32), Some(&c_global_i32)) =
+                (free_dofs.get(r_red as usize), free_dofs.get(c_red as usize))
+            else {
+                return 0.0;
+            };
+
+            let r_global = r_global_i32 as usize;
+            let c_global = c_global_i32 as usize;
+            if r_global >= n_full_dofs || c_global >= n_full_dofs {
+                return 0.0;
             }
-        }
-        // Rotational DOFs (j >= 3) remain zero.
-    }
 
-    // 2. Reduce to the free DOFs (BC reduction): extract the diagonal at free DOF positions.
-    let n_red = free_dofs.len();
-    let mut ksp_red = vec![0.0f64; n_red];
-    for (i, &global_dof) in free_dofs.iter().enumerate() {
-        if (global_dof as usize) < n_full_dofs {
-            ksp_red[i] = ksp_full[global_dof as usize];
-        }
-    }
+            let r_local = r_global % dofs_per_node;
+            let c_local = c_global % dofs_per_node;
+            if r_local >= 3 || c_local >= 3 {
+                return 0.0;
+            }
 
-    // 3. Expand the reduced diagonal to the K sparsity pattern.
-    expand_diag_to_sparsity(&ksp_red, k_rows, k_cols)
+            let r_node = r_global / dofs_per_node;
+            let c_node = c_global / dofs_per_node;
+            if r_node != c_node {
+                return 0.0;
+            }
+
+            let m_row = m_lumped_full[r_global];
+            -omega_sq * m_row * projector[r_local][c_local]
+        })
+        .collect()
 }
 
 // ── Torque computation ─────────────────────────────────────────────────────────
@@ -1279,6 +1343,56 @@ mod tests {
     }
 
     #[test]
+    fn omega_provider_ramped_computed_ignores_torque_during_ramp() {
+        let mut p = OmegaProvider::RampedComputed {
+            omega_target: 10.0,
+            t_ramp: 5.0,
+            moment_of_inertia: 100.0,
+            shaft_torque: 0.0,
+            omega: 0.0,
+            alpha: 0.0,
+            alpha_prev: None,
+            ramp_completed: false,
+            current_time: 0.0,
+        };
+
+        p.update_from_torque(200.0, 1.0, 2.0);
+
+        let cp = p.checkpoint();
+        assert!(!cp.ramp_completed, "torque must be ignored while still ramping");
+        assert!((cp.omega - 0.0).abs() < 1e-12, "stored omega changed during ramp");
+        assert!((cp.alpha - 0.0).abs() < 1e-12, "stored alpha changed during ramp");
+        assert!((cp.current_time - 2.0).abs() < 1e-12, "current_time not tracked during ramp");
+    }
+
+    #[test]
+    fn omega_provider_ramped_computed_updates_after_ramp_completion() {
+        let mut p = OmegaProvider::RampedComputed {
+            omega_target: 10.0,
+            t_ramp: 5.0,
+            moment_of_inertia: 100.0,
+            shaft_torque: 0.0,
+            omega: 0.0,
+            alpha: 0.0,
+            alpha_prev: None,
+            ramp_completed: false,
+            current_time: 0.0,
+        };
+
+        // First call completes the ramp and seeds the dynamic phase.
+        p.update_from_torque(200.0, 1.0, 5.0);
+        let cp_after_ramp = p.checkpoint();
+        assert!(cp_after_ramp.ramp_completed, "ramp should complete at t=t_ramp");
+        assert!((cp_after_ramp.omega - 10.0).abs() < 1e-12, "omega should jump to target at ramp completion");
+
+        // Next call must use the dynamic torque update (Euler on first dynamic step).
+        p.update_from_torque(200.0, 1.0, 6.0);
+        let (w, a) = p.get(6.0);
+        assert!((w - 12.0).abs() < 1e-12, "w={w}");
+        assert!((a - 2.0).abs() < 1e-12, "a={a}");
+    }
+
+    #[test]
     fn omega_provider_computed_window_kinematics_is_second_order() {
         let p = OmegaProvider::Computed {
             moment_of_inertia: 100.0,
@@ -1387,6 +1501,35 @@ mod tests {
     }
 
     #[test]
+    fn rigid_body_velocity_pure_rotation() {
+        // Node at [1,0,0], axis Z, ω=2 → v = [0,0,2]×[1,0,0] = [0,2,0]
+        let coords = vec![1.0, 0.0, 0.0];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+
+        let v_ref = compute_rigid_body_velocity_inertial(&coords, &axis, &center, 2.0);
+
+        assert_eq!(v_ref.len(), 3);
+        assert!(v_ref[0].abs() < 1e-14, "vx={}", v_ref[0]);
+        assert!((v_ref[1] - 2.0).abs() < 1e-13, "vy={}", v_ref[1]);
+        assert!(v_ref[2].abs() < 1e-14, "vz={}", v_ref[2]);
+    }
+
+    #[test]
+    fn rigid_body_velocity_zero_at_rest() {
+        let coords = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+
+        let v_ref = compute_rigid_body_velocity_inertial(&coords, &axis, &center, 0.0);
+
+        assert_eq!(v_ref.len(), 6);
+        for v in &v_ref {
+            assert_eq!(*v, 0.0);
+        }
+    }
+
+    #[test]
     fn reference_load_vector_single_node() {
         // F_ref = -M·a_ref for a_ref=[2,3,4], m=5 → F=[-10,-15,-20]
         let a_ref = vec![2.0, 3.0, 4.0];
@@ -1416,5 +1559,31 @@ mod tests {
         assert!(f_ref[3].abs() < 1e-14, "fx1={}", f_ref[3]);
         assert!((f_ref[4] + 8.0).abs() < 1e-13, "fy1={}", f_ref[4]);
         assert!(f_ref[5].abs() < 1e-14, "fz1={}", f_ref[5]);
+    }
+
+    #[test]
+    fn build_ksp_vals_includes_off_diagonal_terms_for_tilted_axis() {
+        let inv_sqrt2 = std::f64::consts::FRAC_1_SQRT_2;
+        let axis = [inv_sqrt2, inv_sqrt2, 0.0];
+        let m_lumped_full = vec![3.0, 3.0, 3.0, 0.0, 0.0, 0.0];
+        let k_rows = vec![0, 0, 0, 1, 1, 1, 2, 2, 2];
+        let k_cols = vec![0, 1, 2, 0, 1, 2, 0, 1, 2];
+        let free_dofs = vec![0, 1, 2];
+
+        let ksp = build_ksp_vals(
+            &m_lumped_full,
+            &axis,
+            2.0,
+            6,
+            &k_rows,
+            &k_cols,
+            &free_dofs,
+            6,
+        );
+
+        let expected = [-6.0, 6.0, 0.0, 6.0, -6.0, 0.0, 0.0, 0.0, -12.0];
+        for (actual, expected) in ksp.iter().zip(expected.iter()) {
+            assert!((actual - expected).abs() < 1e-12, "actual={actual}, expected={expected}");
+        }
     }
 }

@@ -35,6 +35,7 @@ pub struct StressStiffenedFsiSolver {
 
     // ── preCICE coupling ─────────────────────────────────────────────────────
     config: FsiConfig,
+    velocity_write_data: Option<String>,
     interface_coords: Vec<f64>,
     interface_dofs: Vec<usize>,
     mesh_dims: usize,
@@ -72,6 +73,7 @@ impl StressStiffenedFsiSolver {
     pub fn new(
         stepper: NewmarkStepper,
         config: FsiConfig,
+        velocity_write_data: Option<String>,
         interface_coords: Vec<f64>,
         interface_dofs: Vec<usize>,
         mesh_dims: usize,
@@ -94,6 +96,7 @@ impl StressStiffenedFsiSolver {
         Self {
             stepper,
             config,
+            velocity_write_data,
             interface_coords,
             interface_dofs,
             mesh_dims,
@@ -276,6 +279,27 @@ impl StressStiffenedFsiSolver {
                 &vertex_ids,
                 &disp_interface,
             )?;
+
+            if let Some(ref vdata) = self.velocity_write_data {
+                let vel_interface: Vec<f64> = self
+                    .interface_dofs
+                    .iter()
+                    .map(|&dof| {
+                        if dof < self.stepper.n_dofs() {
+                            self.stepper.current_v()[dof]
+                        } else {
+                            0.0
+                        }
+                    })
+                    .collect();
+
+                participant.write_data(
+                    &self.config.coupling_mesh,
+                    vdata,
+                    &vertex_ids,
+                    &vel_interface,
+                )?;
+            }
 
             participant.advance(dt)?;
 

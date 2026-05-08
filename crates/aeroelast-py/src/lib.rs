@@ -3609,6 +3609,7 @@ fn run_stress_stiffened_fsi_solver(
     coupling_mesh: &str,
     write_data_name: &str,
     read_data_name: &str,
+    velocity_write_data: Option<String>,
     ramp_time: f64,
     force_max: Option<f64>,
     // Optional restart state (reduced DOF space)
@@ -3704,6 +3705,7 @@ fn run_stress_stiffened_fsi_solver(
         let s = StressStiffenedFsiSolver::new(
             stepper,
             config,
+            velocity_write_data,
             icoords,
             idofs_red,
             mesh_dims,
@@ -4258,7 +4260,7 @@ fn run_inertial_rotor_fsi_solver(
     restart_alpha: Option<f64>,
     restart_ramp_completed: Option<bool>,
     restart_current_time: Option<f64>,
-    // ── Optional initial geometric stiffness K_G (centrifugal prestress) ──────
+    // ── Optional K_G enable sentinel (content ignored by inertial runtime) ───
     kg0_rows: Option<PyReadonlyArray1<i64>>,
     kg0_cols: Option<PyReadonlyArray1<i64>>,
     kg0_vals: Option<PyReadonlyArray1<f64>>,
@@ -4451,17 +4453,7 @@ fn run_inertial_rotor_fsi_solver(
     .and_then(|stepper| stepper.with_rayleigh_damping(eta_k, eta_m))
     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
-    // ── Initial geometric stiffness (centrifugal prestress) ───────────────────
-    if let (Some(kg0r), Some(kg0c), Some(kg0v)) = (kg0_rows, kg0_cols, kg0_vals) {
-        let kg0r_s = kg0r.as_slice().map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-        let kg0c_s = kg0c.as_slice().map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-        let kg0v_s = kg0v.as_slice().map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-        let kg_coo_map = setup::build_kg_coo_map(kg0r_s, kg0c_s, fd, &kr_red, &kc_red);
-        let kg0_red = setup::apply_kg_coo_map(&kg_coo_map, kg0v_s, kr_red.len());
-        stepper
-            .set_initial_geometric_stiffness(&kg0_red)
-            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
-    }
+    let include_geometric_stiffness = kg0_rows.is_some() || kg0_cols.is_some() || kg0_vals.is_some();
 
     // ── FSI base config ───────────────────────────────────────────────────────
     let fsi_config = FsiConfig {
@@ -4481,6 +4473,7 @@ fn run_inertial_rotor_fsi_solver(
         rotation_center: center,
         gravity: grav,
         include_reference_acceleration,
+        include_geometric_stiffness,
         k_update_interval,
         omega_rebuild_threshold,
         theta_rebuild_threshold,

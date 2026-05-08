@@ -464,8 +464,9 @@ impl RotorFsiSolver {
     }
 
     /// Build spin-softening K_SP and Coriolis gyroscopic matrix, apply to stepper.
-    /// 
-    /// K_SP: spin-softening diagonal (centrifugal stiffness reduction).
+    ///
+    /// K_SP: spin-softening translational block operator
+    /// `-ω² M_lump (I - n̂⊗n̂)` aligned to K sparsity.
     /// G_cor: antisymmetric Coriolis matrix (implicit treatment for stability).
     fn apply_ksp(&mut self, omega: f64) -> Result<(), FsiError> {
         if !self.config.include_ksp {

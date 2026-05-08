@@ -555,9 +555,10 @@ pub struct NewmarkStepper {
     /// Geometric stiffness values at the same COO positions as `k_vals`.
     /// All zeros until `update_geometric_stiffness` is called.
     kg_vals: Vec<f64>,
-    /// Spin-softening diagonal contribution at the same COO positions as `k_vals`.
+    /// Spin-softening contribution at the same COO positions as `k_vals`.
     /// All zeros until `update_spin_softening` is called.
-    /// Expanded to the K sparsity via `setup::expand_diag_to_sparsity` before storage.
+    /// For arbitrary rotation axes this may contain off-diagonal translational
+    /// couplings, not just diagonal entries.
     ksp_diag: Vec<f64>,
     /// Coriolis gyroscopic matrix G_cor (antisymmetric, COO format).
     /// Used for implicit treatment of Coriolis forces in rotating frames.
@@ -1064,12 +1065,51 @@ impl NewmarkStepper {
         self.refactorize(self.dt_last)
     }
 
+    /// Update K, runtime K_G, and K_SP simultaneously, then refactorize once.
+    ///
+    /// Intended for the inertial rotor solver where the tangent operator may
+    /// need to refresh the rotated elastic stiffness K(θ), centrifugal
+    /// prestress K_G(θ, ω), and spin-softening K_SP(ω) in the same window.
+    pub fn update_tangent_terms(
+        &mut self,
+        k_vals: &[f64],
+        kg_vals: &[f64],
+        ksp_vals: &[f64],
+    ) -> Result<(), PetscError> {
+        assert_eq!(
+            k_vals.len(),
+            self.k_vals.len(),
+            "k_vals length {} != stored k_vals length {}",
+            k_vals.len(),
+            self.k_vals.len(),
+        );
+        assert_eq!(
+            kg_vals.len(),
+            self.k_vals.len(),
+            "kg_vals length {} != k_vals length {}",
+            kg_vals.len(),
+            self.k_vals.len(),
+        );
+        assert_eq!(
+            ksp_vals.len(),
+            self.k_vals.len(),
+            "ksp_vals length {} != k_vals length {}",
+            ksp_vals.len(),
+            self.k_vals.len(),
+        );
+
+        self.k_vals.copy_from_slice(k_vals);
+        self.kg_vals.copy_from_slice(kg_vals);
+        self.ksp_diag.copy_from_slice(ksp_vals);
+
+        self.refactorize(self.dt_last)
+    }
+
     /// Update the spin-softening stiffness contribution and refactorize `K_eff`.
     ///
     /// `ksp_vals` must have the **same length and COO ordering** as `k_vals`
-    /// (expanded from a diagonal via `setup::expand_diag_to_sparsity`).
-    /// For spin-softening: `K_SP[i] = -ω²·M_lump·(I - n̂⊗n̂)` expanded to the
-    /// K sparsity pattern.
+    /// For spin-softening: `K_SP = -ω²·M_lump·(I - n̂⊗n̂)` aligned to the K
+    /// sparsity pattern.
     ///
     /// After this call `K_eff = (K + K_G_base + K_G_dyn + K_SP) + a₀·M + a₁·C`.
     pub fn update_spin_softening(&mut self, ksp_vals: &[f64]) -> Result<(), PetscError> {
@@ -1086,7 +1126,8 @@ impl NewmarkStepper {
 
     /// Update spin-softening K_SP and Coriolis gyroscopic matrix G_cor, then refactorize.
     ///
-    /// K_SP is a diagonal matrix (spin-softening from centrifugal prestress).
+    /// K_SP is the spin-softening operator from centrifugal prestress, aligned
+    /// to the K sparsity pattern.
     /// G_cor is antisymmetric (Coriolis coupling, for implicit treatment).
     ///
     /// # Arguments
@@ -1556,6 +1597,27 @@ mod tests {
             .update_spin_softening(&[2.0])
             .expect("update_spin_softening failed");
         assert!((stepper.c_vals[0] - c).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_update_tangent_terms_refreshes_all_contributions() {
+        let eta_k = 0.25f64;
+        let eta_m = 0.5f64;
+        let k = 10.0f64;
+        let m = 2.0f64;
+
+        let mut stepper = make_stepper(k, m, eta_k * k + eta_m * m, 0.01)
+            .with_rayleigh_damping(eta_k, eta_m)
+            .expect("with_rayleigh_damping failed");
+
+        stepper
+            .update_tangent_terms(&[11.0], &[3.0], &[2.0])
+            .expect("update_tangent_terms failed");
+
+        assert!((stepper.k_vals[0] - 11.0).abs() < 1e-12);
+        assert!((stepper.kg_vals[0] - 3.0).abs() < 1e-12);
+        assert!((stepper.ksp_diag[0] - 2.0).abs() < 1e-12);
+        assert!((stepper.c_vals[0] - (eta_k * 16.0 + eta_m * m)).abs() < 1e-12);
     }
 
     /// SC-01: Harmonic oscillator u(t)=cos(t) — m=1, k=1, c=0, u0=1, v0=0

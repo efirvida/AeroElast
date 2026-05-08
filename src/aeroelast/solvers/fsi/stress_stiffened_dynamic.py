@@ -93,6 +93,11 @@ class StressStiffenedFSISolver(LinearDynamicFSISolver):
         super().__init__(domain, solver_params)
         gs_cfg = solver_params.get("geometric_stiffness", {})
         self._kg_update_interval: int = max(1, int(gs_cfg.get("update_interval", 1)))
+        rotor_cfg = solver_params.get("rotor") or {}
+        self._send_velocity_to_precice: bool = bool(
+            rotor_cfg.get("send_velocity_to_precice", False)
+        )
+        self._velocity_write_data_name: str = str(rotor_cfg.get("velocity_write_data", "Velocity"))
         _logger.info(
             "StressStiffenedFSISolver: K_G update every %d converged step(s).",
             self._kg_update_interval,
@@ -180,6 +185,11 @@ class StressStiffenedFSISolver(LinearDynamicFSISolver):
             f"β={beta}  γ={gamma}",
             flush=True,
         )
+        if self._send_velocity_to_precice:
+            _logger.info(
+                "StressStiffenedFSISolver: velocity write to preCICE enabled (data=%s)",
+                self._velocity_write_data_name,
+            )
 
         # ── Per-step callback (identical to base class) ────────────────────
         n_total: int = n_full_dofs
@@ -275,6 +285,7 @@ class StressStiffenedFSISolver(LinearDynamicFSISolver):
             mesh_name,
             write_data,
             read_data,
+            self._velocity_write_data_name if self._send_velocity_to_precice else None,
             self._force_ramp_time,
             getattr(self, "_force_max_magnitude", None),
             u0,
