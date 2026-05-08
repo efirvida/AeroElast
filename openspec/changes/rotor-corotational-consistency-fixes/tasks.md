@@ -177,21 +177,30 @@ Covers spec requirements: **Per-Window Inertial Force Field in Rust Result Struc
 
 Covers spec requirement: **Coriolis Treatment Docstring in rotor.py**.
 
-- [ ] 4.1 Update `rotor.py:284-289` "Theoretical Limitations & Risks" section:
+- [x] 4.1 Update `rotor.py:284-289` "Theoretical Limitations & Risks" section:
   replace "explicit lagged Coriolis force on RHS" with a description of the implicit
   `G_cor` LHS placement (`a1·G_cor` contribution to `K_eff`) and the (now confirmed
   and fixed) RHS history term `G_cor·(a1·u_n + a4·v_n + a5·a_n)`. Acceptance: manual
   read confirms no contradiction with the Rust implementation.
 
-- [ ] 4.2 Update the LHS/RHS treatment table at `rotor.py:31-43`: move `F_cor` out of
+- [x] 4.2 Update the LHS/RHS treatment table at `rotor.py:31-43`: move `F_cor` out of
   "explicit lagged" column and into "implicit via G_cor·v_{n+1}" column. Acceptance:
   the table is internally consistent and matches `dynamic_newmark.rs`'s treatment.
+  Also updated the K_eff/F_eff equations at rotor.py:50-51 to include G_cor on both
+  sides (`a₁·([C] + [G_cor])`). Updated class docstring "Numerical Scheme Classification"
+  Coriolis entry from EXPLICIT to IMPLICIT.
 
-- [ ] 4.3 Read-only cross-check: skim `docs/teoria_formulacion_fsi_rotor.md` and
+- [x] 4.3 Read-only cross-check: skim `docs/teoria_formulacion_fsi_rotor.md` and
   `docs/validez_teorica_fsi_rotor_corotational.md` for any sections that still describe
   Coriolis as explicit-lagged. Flag a follow-up note in the PR if yes; do NOT edit the
   docs in this change (out of scope per proposal). Acceptance: a single comment
   recording the finding.
+  - Result: `teoria_formulacion_fsi_rotor.md` is up to date (already describes G_cor on LHS).
+  - Result: `validez_teorica_fsi_rotor_corotational.md` is OUT OF DATE — multiple sections
+    still describe "Coriolis explícito en RHS con velocidad retrasada" and present this as
+    a "limitación significativa" responsible for symmetric Campbell diagrams and incorrect
+    work-by-cycle analysis. **Follow-up needed (out of scope here)**: rewrite those
+    sections to reflect the implicit G_cor treatment now in dynamic_newmark.rs.
 
 ---
 

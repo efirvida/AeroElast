@@ -205,3 +205,49 @@ Initial acceleration: a₀ = M⁻¹·(-G_cor·v₀) = [0,-1]
 correctly. The symmetric MAT_SYMMETRIC hint is intentionally omitted from `assemble_union_aij`.
 The field is `Option<PetscMat>`, so non-rotor callers (where `g_cor_vals` is always empty)
 never allocate or use it — zero overhead on the existing code path.
+
+---
+
+# Apply Progress: rotor-corotational-consistency-fixes (Fix #4 batch)
+
+## Status: done
+
+## Tasks completed
+
+- [x] 4.1 Updated `rotor.py` "Theoretical Limitations & Risks" section #1: replaced
+  "Explicit Coriolis Force" limitation with "Implicit Coriolis Treatment (G_cor)" —
+  describes a₁·G_cor on LHS, RHS history via mat_c_rhs := mat_c ⊕ G_cor, and notes
+  that direct LU factorization handles the non-symmetric merged operator without
+  needing a separate non-symmetric solver.
+- [x] 4.2 Updated LHS/RHS treatment table at module-level docstring: F_cor entry
+  removed, replaced with G_cor on LHS entry. K_eff / F_eff equations updated to
+  include G_cor on both sides (`a₁·([C] + [G_cor])`). Class-level docstring's
+  "Numerical Scheme Classification" entry for Coriolis updated from EXPLICIT to
+  IMPLICIT. Class-level "Coriolis force" bullet rewritten to describe gyroscopic
+  treatment.
+- [x] 4.3 Cross-checked design docs:
+  - `docs/teoria_formulacion_fsi_rotor.md`: up to date, already describes G_cor
+    on LHS as implicit.
+  - `docs/validez_teorica_fsi_rotor_corotational.md`: **out of date** — multiple
+    sections describe Coriolis as explicit-on-RHS-with-lagged-velocity and present
+    this as a "limitación significativa" causing symmetric Campbell diagrams and
+    incorrect work-by-cycle behavior. Per proposal, doc edits are out of scope
+    here; flagged as a follow-up.
+
+## Files changed
+
+- `src/aeroelast/solvers/fsi/rotor.py` — five docstring edits (module-level table,
+  K_eff/F_eff equations, class-level Coriolis bullet, Numerical Scheme Classification,
+  Theoretical Limitations & Risks #1).
+- `openspec/changes/rotor-corotational-consistency-fixes/tasks.md` — Fix #4 marked.
+
+## Tests run
+
+None — Fix #4 is purely documentation / docstring synchronization. No code paths
+changed; nothing to test beyond the existing suite (last green at end of Fix #2).
+
+## Out of scope flagged for follow-up
+
+- `docs/validez_teorica_fsi_rotor_corotational.md`: rewrite the Coriolis-as-explicit
+  sections to reflect the implicit G_cor treatment. Best handled as a docs-only
+  change after this fix-set lands.

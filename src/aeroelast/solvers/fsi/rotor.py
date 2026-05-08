@@ -35,7 +35,9 @@ LHS vs RHS treatment of physical effects:
                      The correction for deformed coords (ω×(ω×u)) is captured
                      implicitly by K_SP·u on the LHS. Evaluating F_cf at X₀+u
                      when K_SP is active would double-count the spin softening.
-    - {F_cor} on RHS: Coriolis force = -2·m·(ω × v), explicit (lagged velocity).
+    - [G_cor] on LHS: Gyroscopic Coriolis matrix 2·M·Ω̃ (Ω̃ = skew-symmetric ω).
+                      Contributes a₁·G_cor to K_eff and matches the RHS history term
+                      via mat_c_rhs := mat_c ⊕ G_cor. Fully implicit; no lagged velocity.
     - {F_euler} on RHS: Euler force = -m·(α × r) at DEFORMED coordinates X₀+u,
                         evaluated only when angular acceleration α ≠ 0.
                         No LHS correction exists for Euler, so explicit evaluation
@@ -47,8 +49,8 @@ Time Integration
 Newmark-β method with β = 0.25, γ = 0.5 (average acceleration, unconditionally
 stable for linear systems). The effective stiffness formulation yields:
 
-    K_eff = [K] + [K_G] + [K_SP] + a₀·[M] + a₁·[C]
-    F_eff = {F} + [M]·(a₀·u + a₂·v + a₃·a) + [C]·(a₁·u + a₄·v + a₅·a)
+    K_eff = [K] + [K_G] + [K_SP] + a₀·[M] + a₁·([C] + [G_cor])
+    F_eff = {F} + [M]·(a₀·u + a₂·v + a₃·a) + ([C] + [G_cor])·(a₁·u + a₄·v + a₅·a)
 
 where a₀..a₅ are Newmark coefficients derived from β, γ, and dt.
 
@@ -234,8 +236,10 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
       LHS (softens in-plane modes in the rotation plane). ANSYS Eq. 3-74.
     - **Centrifugal force**: F_cf = m·ω²·r_⊥ evaluated at X₀ on the RHS.
       The displacement-dependent correction is captured implicitly by K_SP·u.
-    - **Coriolis force**: F_cor = -2·m·(ω × v) explicit on the RHS using the
-      best available velocity estimate (lagged or sub-iteration guess).
+    - **Coriolis (gyroscopic)**: G_cor = 2·M·Ω̃ assembled on the LHS via
+      a₁·G_cor inside Newmark's K_eff. The matching RHS history contribution
+      uses mat_c_rhs := mat_c ⊕ G_cor so the trapezoidal scheme retains
+      second-order accuracy. No lagged velocity is required.
     - **Euler force**: F_euler = -m·(α × r) evaluated at deformed coordinates
       X₀ + u, only when angular acceleration α ≠ 0.
     - **Coordinate transforms**: Forces R^T(θ)·F_global; displacements R(θ)·u_local.
@@ -245,7 +249,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
     - Spin softening: IMPLICIT (K_SP on LHS, solved simultaneously)
     - Stress stiffening: IMPLICIT (K_G on LHS)
     - Centrifugal: IMPLICIT via K_SP + explicit base load at X₀
-    - Coriolis: EXPLICIT (force on RHS, lagged velocity)
+    - Coriolis: IMPLICIT (G_cor on LHS via a₁·G_cor; RHS history via mat_c_rhs)
     - Euler: EXPLICIT (force at X₀+u, only when α ≠ 0)
     - FSI convergence: Handled by preCICE IQN-ILS (no internal iterations)
 
@@ -281,12 +285,14 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
 
     Theoretical Limitations & Risks
     -------------------------------
-    1. Explicit Coriolis Force:
-       The Coriolis term (-2·M(Ω×v)) is treated as an external force on the RHS.
-       This explicit handling may introduce instability for high rotational speeds or
-       very flexible structures unless small time steps are used. The ANSYS-consistent
-       approach would place Coriolis as antisymmetric [G] matrix on the LHS, but
-       this requires a non-symmetric solver (reserved for future).
+    1. Implicit Coriolis Treatment (G_cor):
+       The gyroscopic Coriolis matrix G_cor = 2·M·Ω̃ (Ω̃ skew-symmetric from ω) is
+       added to K_eff on the LHS via a₁·G_cor inside the Newmark refactorize step,
+       and contributes to the RHS history via G_cor·(a₁·u_n + a₄·v_n + a₅·a_n)
+       using a merged operator mat_c_rhs := mat_c ⊕ G_cor. Both terms together
+       preserve trapezoidal Newmark second-order accuracy. The merged operator is
+       non-symmetric (G_cor antisymmetric); the direct LU factorization path
+       handles this correctly without requiring a separate non-symmetric solver.
 
     2. Small Strain Assumption:
        Assumes linear elasticity with stress stiffening only. Does not implement a
