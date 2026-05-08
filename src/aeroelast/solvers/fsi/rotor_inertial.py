@@ -308,9 +308,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 "cannot be disabled independently."
             )
         if rotor_cfg.get("include_coriolis", False):
-            _logger.warning(
-                "(no Coriolis in inertial frame)"
-            )
+            _logger.warning("(no Coriolis in inertial frame)")
         if rotor_cfg.get("include_euler", False):
             _logger.warning(
                 "include_euler is set but NOT used in inertial solver (Euler term is part of a_ref)"
@@ -479,7 +477,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # Reference interface coordinates (set in solve(); used when
         # displacement_mode='total' is configured in the Rust solver).
         self._interface_coords_reference: Optional["NDArray"] = None
-        
+
         # All-node masses (flat, one scalar per node) — extracted during assembly
         # before BCs reduce the matrix size. Set in _assemble_system_matrices().
         self._all_node_masses_full: Optional["NDArray"] = None
@@ -718,8 +716,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         kg0_rows = kg0_cols = kg0_vals = None
         if self._include_geometric_stiffness:
             omega_for_kg = (
-                float(omega_val) if omega_val != 0.0
-                else float(omega_target) if omega_target is not None
+                float(omega_val)
+                if omega_val != 0.0
+                else float(omega_target)
+                if omega_target is not None
                 else 0.0
             )
             if omega_for_kg > 1e-10:
@@ -935,7 +935,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         _m_diag_full = self.M.getDiagonal()
         _m_diag_full_arr = _m_diag_full.getArray(readonly=True).copy()
         _m_diag_full.destroy()
-        self._all_node_masses_full = _m_diag_full_arr.reshape(-1, self.domain.dofs_per_node)[:, 0].copy()
+        self._all_node_masses_full = _m_diag_full_arr.reshape(-1, self.domain.dofs_per_node)[
+            :, 0
+        ].copy()
 
         # Force vector and boundary conditions
         self._print_phase(3, 4, "Setting up boundary conditions...")
