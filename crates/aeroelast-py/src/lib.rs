@@ -4203,6 +4203,7 @@ fn run_inertial_rotor_fsi_solver(
     // ── Stiffness reassembly ──────────────────────────────────────────────────
     k_update_interval: usize,
     omega_rebuild_threshold: f64,
+    theta_rebuild_threshold: f64,
     // ── Displacement mode ─────────────────────────────────────────────────────
     displacement_mode: &str,
     // ── DOF layout ────────────────────────────────────────────────────────────
@@ -4243,6 +4244,8 @@ fn run_inertial_rotor_fsi_solver(
     omega_mesh_name: Option<String>,
     omega_write_data: Option<String>,
     omega_vertex_coord: Option<Vec<f64>>,
+    // ── Optional nodal velocity write (aerodynamic damping) ───────────────────
+    velocity_write_data: Option<String>,
     // ── Optional restart state (reduced DOF space) ────────────────────────────
     u0: Option<PyReadonlyArray1<f64>>,
     v0: Option<PyReadonlyArray1<f64>>,
@@ -4460,6 +4463,7 @@ fn run_inertial_rotor_fsi_solver(
         include_reference_acceleration,
         k_update_interval,
         omega_rebuild_threshold,
+        theta_rebuild_threshold,
         displacement_mode: disp_mode,
         dofs_per_node,
         fluid_density,
@@ -4468,6 +4472,7 @@ fn run_inertial_rotor_fsi_solver(
         omega_mesh_name,
         omega_write_data,
         omega_vertex_coord: omega_vertex_coord_arr,
+        velocity_write_data,
     };
 
     // ── Initial state ─────────────────────────────────────────────────────────

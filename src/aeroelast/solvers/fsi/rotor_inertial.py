@@ -320,10 +320,30 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         _fmax = rotor_cfg.get("force_max_magnitude", None)
         self._force_max_magnitude: Optional[float] = float(_fmax) if _fmax is not None else None
 
+        # K(θ) reassembly cadence. Each rebuild forces a KSP refactorization
+        # (LU/Cholesky), so cadence is a real performance knob. Three triggers
+        # are OR-combined inside the Rust solver:
+        #   - k_update_interval: forced rebuild every N converged windows
+        #   - omega_rebuild_threshold: |Δω²|/ω² (only useful for ramped/computed ω)
+        #   - theta_rebuild_threshold: |Δθ| since last rebuild (rad) — physically
+        #     correct primary trigger (K depends on θ, not ω)
+        # Defaults amortize cost while keeping geometry error bounded.
+        self._k_update_interval = int(rotor_cfg.get("k_update_interval", 20))
+        if self._k_update_interval < 1:
+            self._k_update_interval = 1
+        self._omega_rebuild_threshold = float(rotor_cfg.get("omega_rebuild_threshold", 0.01))
+        self._theta_rebuild_threshold = float(rotor_cfg.get("theta_rebuild_threshold", 0.05))
+
         # Omega output to preCICE (same as corotational)
         self._send_omega_to_precice = rotor_cfg.get("send_omega_to_precice", True)
         self._omega_mesh_name: str = rotor_cfg.get("omega_mesh_name", "GlobalSolidMesh")
         self._omega_write_data_name: str = rotor_cfg.get("omega_write_data", "AngularVelocity")
+
+        # Nodal velocity output to preCICE (aerodynamic damping correction)
+        self._send_velocity_to_precice: bool = bool(
+            rotor_cfg.get("send_velocity_to_precice", False)
+        )
+        self._velocity_write_data_name: str = rotor_cfg.get("velocity_write_data", "Velocity")
 
         # preCICE displacement mode: controls what the solver writes to the coupling mesh.
         #   "elastic" (default): writes u_e only (elastic deformation over rotating reference).
@@ -706,8 +726,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             shaft_torque=shaft_tau,
             gravity=list(self._gravity),
             include_reference_acceleration=True,
-            k_update_interval=1,
-            omega_rebuild_threshold=0.01,
+            k_update_interval=self._k_update_interval,
+            omega_rebuild_threshold=self._omega_rebuild_threshold,
+            theta_rebuild_threshold=self._theta_rebuild_threshold,
             displacement_mode=self._precice_displacement_mode,
             dofs_per_node=self.domain.dofs_per_node,
             fluid_density=self._fluid_density,
@@ -737,6 +758,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             omega_mesh_name=_omega_mesh,
             omega_write_data=_omega_data,
             omega_vertex_coord=_omega_coord,
+            velocity_write_data=(
+                self._velocity_write_data_name if self._send_velocity_to_precice else None
+            ),
             u0=None,
             v0=None,
             a0=None,

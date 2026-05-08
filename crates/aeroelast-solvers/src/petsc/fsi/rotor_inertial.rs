@@ -78,11 +78,18 @@ pub struct InertialRotorFsiConfig {
     // ── Stiffness reassembly ──────────────────────────────────────────────────
     /// Rebuild K(θ) every N converged steps. `0` and `1` both mean every step.
     /// For inertial solver, K(θ) **must** be updated when geometry rotates,
-    /// so this controls the frequency (typically `1` for every window).
+    /// so this controls the maximum window between forced rebuilds.
     pub k_update_interval: usize,
-    /// Relative |Δ(ω²)|/ω² threshold to trigger a K(θ) rebuild when θ changes
-    /// significantly between windows. Default: `0.01` (1% change in ω²).
+    /// Relative |Δ(ω²)|/ω² threshold to trigger an extra K(θ) rebuild when ω
+    /// changes between windows (only meaningful for ramped/computed ω modes —
+    /// constant ω never trips this). Default: `0.01` (1% change in ω²).
     pub omega_rebuild_threshold: f64,
+    /// Absolute |Δθ| threshold (radians) to trigger a K(θ) rebuild when the
+    /// rotation angle has accumulated since the last reassembly. This is the
+    /// physically correct trigger for this solver since K(θ) depends on θ
+    /// (geometry orientation), not on ω. Default: `0.05` rad ≈ 2.86°.
+    /// Set to a small value to rebuild often, large to amortize cost.
+    pub theta_rebuild_threshold: f64,
 
     // ── Displacement mode ─────────────────────────────────────────────────────
     /// Which displacement to write to preCICE: elastic only or total (elastic + rigid).
@@ -108,6 +115,14 @@ pub struct InertialRotorFsiConfig {
     pub omega_write_data: Option<String>,
     /// Single vertex coordinate for the GlobalSolidMesh (typically the rotation center).
     pub omega_vertex_coord: Option<[f64; 3]>,
+
+    // ── Optional nodal velocity write ──────────────────────────────────────────
+    /// Data name to write structural nodal velocities to on the coupling mesh.
+    /// When set, the solver writes the translational velocity (vx, vy, vz) of
+    /// each interface node every coupling iteration so that the BEM participant
+    /// can correct the effective inflow velocity (aerodynamic damping).
+    /// `None` disables velocity writing (default for back-compatibility).
+    pub velocity_write_data: Option<String>,
 }
 
 impl InertialRotorFsiConfig {
@@ -197,6 +212,8 @@ pub struct InertialRotorFsiSolver {
     // ── Stiffness update tracking ─────────────────────────────────────────────
     /// ω² at the last K(θ) rebuild (for relative change check).
     omega_sq_at_last_k_rebuild: f64,
+    /// θ at the last K(θ) rebuild (for absolute change check).
+    theta_at_last_k_rebuild: f64,
     /// Step index of the last K(θ) rebuild.
     step_at_last_k_rebuild: usize,
 
@@ -313,6 +330,7 @@ impl InertialRotorFsiSolver {
             iface_nodes,
             time_step: 0,
             omega_sq_at_last_k_rebuild: f64::NEG_INFINITY,
+            theta_at_last_k_rebuild: 0.0,
             step_at_last_k_rebuild: 0,
             step_callback: None,
             omega_vertex_id: None,
@@ -385,15 +403,25 @@ impl InertialRotorFsiSolver {
 
     /// Rebuild K(θ) when geometry has rotated significantly.
     ///
-    /// Calls `rotate_mesh_coords()` → `assembler.update_node_coordinates()` →
-    /// `assembler.assemble_k()` → `reduce_coo()` → `stepper.update_elastic_stiffness()`.
+    /// Assumes `self.coords_rotated` already tracks `self.theta` (the caller
+    /// updates it at every theta change). Then calls
+    /// `assembler.update_node_coordinates(&self.coords_rotated)` →
+    /// `assembler.assemble_k()` → `apply_kg_coo_map()` →
+    /// `stepper.update_elastic_stiffness()`.
     fn reassemble_k_if_needed(
         &mut self,
         omega: f64,
         time_step: usize,
         free_dofs: &[i32],
     ) -> Result<(), FsiError> {
-        // Check if rebuild is due (by step interval or ω² change)
+        // Rebuild K(θ) when ANY of the following triggers fires:
+        //   1. Forced cadence: every `k_update_interval` converged windows.
+        //   2. ω-change trigger: |Δω²|/ω² above threshold (only useful for
+        //      ramped/computed ω; constant ω never trips this).
+        //   3. θ-change trigger: |Δθ| since last rebuild above threshold.
+        //      This is the physically correct primary trigger for this
+        //      formulation (K depends on θ, not ω). For ConstantOmega this
+        //      is the only way to detect that geometry has drifted.
         let should_rebuild_by_step = self.config.should_update_k_on_step(time_step);
         let should_rebuild_by_omega = {
             let omega_sq_new = omega * omega;
@@ -405,19 +433,19 @@ impl InertialRotorFsiSolver {
                 rel_change > self.config.omega_rebuild_threshold
             }
         };
+        let should_rebuild_by_theta =
+            (self.theta - self.theta_at_last_k_rebuild).abs() > self.config.theta_rebuild_threshold;
 
-        if !should_rebuild_by_step && !should_rebuild_by_omega {
+        if !should_rebuild_by_step && !should_rebuild_by_omega && !should_rebuild_by_theta {
             return Ok(());
         }
 
         let t_start = std::time::Instant::now();
 
-        // Rotate mesh coordinates to current θ
-        use crate::petsc::fsi::setup::rotate_mesh_coords;
-        self.coords_rotated = rotate_mesh_coords(&self.coords_ref, &self.transforms, self.theta);
-
-        // Reassemble K(θ) at rotated geometry and project it back into the
-        // original reduced COO sparsity expected by the Newmark stepper.
+        // Caller guarantees self.coords_rotated tracks self.theta (rotation is
+        // performed immediately after self.theta updates at window convergence
+        // and on checkpoint rollback). Reassembly only needs to project K
+        // into the reduced COO sparsity expected by the Newmark stepper.
         use crate::petsc::fsi::setup::{apply_kg_coo_map, reassemble_k};
         let (_, _, k_vals) = reassemble_k(&mut self.assembler, &self.coords_rotated);
         if k_vals.len() != self.k_coo_map.len() {
@@ -434,6 +462,7 @@ impl InertialRotorFsiSolver {
             .map_err(FsiError::StepperError)?;
 
         self.omega_sq_at_last_k_rebuild = omega * omega;
+        self.theta_at_last_k_rebuild = self.theta;
         self.step_at_last_k_rebuild = time_step;
 
         let elapsed = t_start.elapsed();
@@ -669,6 +698,28 @@ impl InertialRotorFsiSolver {
                 &vertex_ids,
                 &disp_iface,
             )?;
+
+            // ── Write nodal velocities to preCICE (aerodynamic damping) ──────
+            if let Some(ref vdata) = self.config.velocity_write_data {
+                let v_red = self.stepper.current_v().to_vec();
+                let vel_iface: Vec<f64> = self.iface_dofs
+                    .iter()
+                    .map(|&dof| {
+                        if let Ok(pos) = free_dofs.binary_search(&(dof as i32)) {
+                            v_red[pos]
+                        } else {
+                            0.0
+                        }
+                    })
+                    .collect();
+                participant.write_data(
+                    &self.config.fsi.coupling_mesh,
+                    vdata,
+                    &vertex_ids,
+                    &vel_iface,
+                )?;
+            }
+
             let t_write_ms = t_write.elapsed().as_secs_f64() * 1e3;
 
             // ── Write ω to GlobalSolidMesh (if used) ──────────────────────────
@@ -721,6 +772,14 @@ impl InertialRotorFsiSolver {
                 self.time_step += 1;
                 self.theta = theta_target;
 
+                // Keep self.coords_rotated synchronized with self.theta on every
+                // converged window. Required by the lever-arm computation below
+                // and by F_ref/K(θ) on the next iteration; cheap O(n_nodes)
+                // and decouples correctness from K-rebuild cadence.
+                use crate::petsc::fsi::setup::rotate_mesh_coords;
+                self.coords_rotated =
+                    rotate_mesh_coords(&self.coords_ref, &self.transforms, self.theta);
+
                 // Update K(θ) if rotation changed significantly
                 let t_reassemble = std::time::Instant::now();
                 self.reassemble_k_if_needed(omega_step, self.time_step, &free_dofs)?;
@@ -740,8 +799,26 @@ impl InertialRotorFsiSolver {
                     }
                 }
 
+                // Lever arm uses the CURRENT rotated geometry r = R(θ)·X₀ + u_e
+                // − center. The preCICE-registered iface_coords are anchored at
+                // X₀ (θ=0, fixed mesh contract) so they are not the right input
+                // for τ_aero; passing them produced a constant lever-arm bug
+                // that contaminated τ_aero, Cp/Cq, and the ComputedOmega update.
+                let iface_coords_rotated: Vec<f64> = self
+                    .iface_nodes
+                    .iter()
+                    .flat_map(|&node| {
+                        let i = node * 3;
+                        [
+                            self.coords_rotated[i],
+                            self.coords_rotated[i + 1],
+                            self.coords_rotated[i + 2],
+                        ]
+                    })
+                    .collect();
+
                 let (tau_vec, tau_aero) = compute_torque(
-                    &iface_coords,
+                    &iface_coords_rotated,
                     &disp_iface_full,
                     &forces_global,
                     &self.transforms.axis,

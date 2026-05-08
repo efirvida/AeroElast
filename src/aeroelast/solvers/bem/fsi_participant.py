@@ -293,6 +293,7 @@ class BEMFSIParticipant:
         omega_mesh: str | None = None,
         omega_data: str = "AngularVelocity",
         omega_vertex: list[float] | None = None,
+        velocity_data: str | None = "Velocity",
     ) -> None:
         self._mesh = mesh
         self._blade_aero = blade_aero
@@ -312,6 +313,10 @@ class BEMFSIParticipant:
         self._omega_vertex: np.ndarray = (
             np.asarray(omega_vertex, dtype=float) if omega_vertex is not None else np.zeros(3)
         )
+        # Structural velocity preCICE read config (optional).
+        # When set, the BEM reads nodal velocities from the solid participant
+        # and corrects the effective axial inflow per strip (aerodynamic damping).
+        self._velocity_data: str | None = velocity_data
         # Live omega [rad/s] — updated each time window from preCICE read or YAML fallback.
         # Converted to RPM inside _compute_forces before passing to CCBlade.
         self._current_omega: float = float(bem_config.get("omega", 0.0))
@@ -473,6 +478,13 @@ class BEMFSIParticipant:
             else:
                 disp_max = float(np.max(np.linalg.norm(displacements, axis=1)))
 
+            # Read structural velocities for aerodynamic damping correction
+            velocities: np.ndarray | None = None
+            if self._velocity_data is not None:
+                vel_raw = adapter.read_data(self._coupling_mesh, self._velocity_data)
+                if vel_raw is not None and np.asarray(vel_raw).size > 0:
+                    velocities = np.asarray(vel_raw, dtype=float)
+
             # Update omega from preCICE if configured (live rotor speed from Solid)
             if self._omega_mesh is not None:
                 omega_arr = adapter.read_data(self._omega_mesh, self._omega_data)
@@ -499,7 +511,7 @@ class BEMFSIParticipant:
                     self._current_omega = new_omega
 
             # BEM on (possibly deformed) geometry
-            forces, bem_result = self._compute_forces(displacements)
+            forces, bem_result = self._compute_forces(displacements, velocities=velocities)
             force_norm = float(np.linalg.norm(forces))
             if self._previous_iteration_forces is None:
                 force_delta = 0.0
@@ -834,9 +846,31 @@ class BEMFSIParticipant:
     # Force computation (bidirectional)
     # -----------------------------------------------------------------------
 
+    def _compute_strip_flapwise_velocities(self, velocities: np.ndarray) -> np.ndarray:
+        """Return the mean flapwise (normal_dir) velocity component for each strip.
+
+        Parameters
+        ----------
+        velocities : ndarray, shape (n_nodes, 3)
+            Structural nodal velocities read from the preCICE Velocity field.
+
+        Returns
+        -------
+        vy_strip : ndarray, shape (n_strips,)
+            Mean flapwise velocity [m/s] per strip.  Positive means the blade
+            is moving in the +normal_dir direction (flapwise deflection).
+        """
+        vy_strip = np.zeros(len(self._strip_node_indices), dtype=float)
+        for k, idx in enumerate(self._strip_node_indices):
+            if len(idx) == 0:
+                continue
+            vy_strip[k] = float(np.mean(velocities[idx] @ self._normal_dir))
+        return vy_strip
+
     def _compute_forces(
         self,
         displacements: np.ndarray,
+        velocities: np.ndarray | None = None,
     ) -> tuple[np.ndarray, BEMResult]:
         r"""Evaluate BEM on the (possibly deformed) blade and project forces.
 
@@ -879,20 +913,38 @@ class BEMFSIParticipant:
         # Use live accumulated azimuth (integrated from omega each window).
         azimuth = self._azimuth
 
+        # ── Aerodynamic damping: per-strip effective inflow correction ─────────
+        # When structural nodal velocities are available, the effective axial
+        # inflow speed at strip k is V_eff[k] = V_wind - mean(ẏ[strip_k] · n̂)
+        # where n̂ is the flapwise (normal) direction.  This is the dominant
+        # aerodynamic damping term: a flap-up motion reduces lift, opposing the
+        # motion (positive damping).
+        # When all corrections are negligible (< 1e-6 m/s) we keep the scalar
+        # v_inf for back-compatibility with the zero-velocity case at t=0.
+        vy_strip: np.ndarray | None = None
+        if velocities is not None and velocities.shape == (self._n_nodes, 3):
+            vy_strip = self._compute_strip_flapwise_velocities(velocities)
+
         disp_max = float(np.max(np.linalg.norm(displacements, axis=1)))
 
-        if disp_max < 1e-12:
-            # Zero displacement — use pre-built reference solver and projector
+        if disp_max < 1e-12 and vy_strip is None:
+            # Zero displacement and no velocity — use pre-built reference solver
             bem_result = self._bem_solver.compute(v_inf, omega, pitch, azimuth=azimuth)
             forces = self._projector.project(bem_result)
             return forces, bem_result
 
-        # -- Deformed geometry pipeline ------------------------------------
-        r_def, twist_def = self._compute_deformed_geometry(displacements)
-        bem_solver, deformed_aero = self._rebuild_bem_solver(r_def, twist_def)
-
-        deformed_coords = self._ref_coords + displacements
-        projector = self._rebuild_projector(deformed_coords, deformed_aero)
+        if disp_max < 1e-12:
+            # No displacement but velocity correction requested (e.g. first
+            # iteration after startup) — run on reference geometry with correction.
+            bem_solver = self._bem_solver
+            projector = self._projector
+            r_def = self._ref_r.copy()
+        else:
+            # -- Deformed geometry pipeline --------------------------------
+            r_def, twist_def = self._compute_deformed_geometry(displacements)
+            bem_solver, deformed_aero = self._rebuild_bem_solver(r_def, twist_def)
+            deformed_coords = self._ref_coords + displacements
+            projector = self._rebuild_projector(deformed_coords, deformed_aero)
 
         # _strip_node_indices is intentionally kept as the *reference*
         # assignment and is NOT updated from the deformed projector here.
@@ -903,7 +955,26 @@ class BEMFSIParticipant:
         # ForceProjector manages its own independent node-to-strip assignment
         # for force application on the deformed geometry.
 
-        bem_result = bem_solver.compute(v_inf, omega, pitch, azimuth=azimuth)
+        if vy_strip is not None and np.any(np.abs(vy_strip) > 1e-6):
+            # Per-strip effective wind speed: CCBlade accepts a scalar Uinf;
+            # we mimic per-strip correction by computing a mean correction and
+            # passing the span-mean effective Uinf.  A per-strip approach would
+            # require looping over individual BEM calls which is expensive.
+            # Mean correction is a first-order approximation — adequate for
+            # aerodynamic damping estimation in the linear regime.
+            v_eff = v_inf - float(np.mean(vy_strip))
+            logger.debug(
+                "[BEM-FSI] Aero-damping correction: v_inf=%.3f  mean_vy=%.4f  v_eff=%.3f  "
+                "max_vy=%.4f",
+                v_inf,
+                float(np.mean(vy_strip)),
+                v_eff,
+                float(np.max(np.abs(vy_strip))),
+            )
+        else:
+            v_eff = v_inf
+
+        bem_result = bem_solver.compute(v_eff, omega, pitch, azimuth=azimuth)
         forces = projector.project(bem_result)
         return forces, bem_result
 
@@ -1302,4 +1373,5 @@ def build_from_config(
         omega_mesh=omega_mesh,
         omega_data=omega_data,
         omega_vertex=omega_vertex,
+        velocity_data=cfg.get("velocity_data", "Velocity"),
     )
