@@ -208,6 +208,11 @@ pub struct InertialRotorFsiSolver {
     k_coo_map: Vec<i32>,
     /// Number of entries in the reference reduced K COO.
     k_red_nnz: usize,
+    /// Reduced K row indices (reference COO structure, post-BC reduction).
+    /// Stored to compute K_SP expanded to the same COO sparsity on every rebuild.
+    k_red_rows: Vec<i32>,
+    /// Reduced K column indices (reference COO structure, post-BC reduction).
+    k_red_cols: Vec<i32>,
 
     // ── Stiffness update tracking ─────────────────────────────────────────────
     /// ω² at the last K(θ) rebuild (for relative change check).
@@ -254,6 +259,8 @@ impl InertialRotorFsiSolver {
         free_dofs: Vec<i32>,
         k_coo_map: Vec<i32>,
         k_red_nnz: usize,
+        k_red_rows: Vec<i32>,
+        k_red_cols: Vec<i32>,
     ) -> Result<Self, FsiError> {
         let n_iface = iface_nodes.len();
         let dofs_per_node = config.dofs_per_node;
@@ -325,6 +332,8 @@ impl InertialRotorFsiSolver {
             free_dofs,
             k_coo_map,
             k_red_nnz,
+            k_red_rows,
+            k_red_cols,
             n_iface,
             iface_dofs,
             iface_nodes,
@@ -401,6 +410,41 @@ impl InertialRotorFsiSolver {
         }
     }
 
+    /// Compute consistent initial acceleration a₀ = M⁻¹·F₀ for a lumped
+    /// diagonal mass matrix.
+    ///
+    /// For translational DOFs (local index 0–2) the mass is `masses[node]`.
+    /// For rotational DOFs (local index 3–5) the lumped mass is zero, so
+    /// `a₀ = 0` (which is also the physically correct result for a force-
+    /// only initial condition with no rotational inertia in the lumped model).
+    ///
+    /// # Arguments
+    /// * `f0`        — external force vector in the **reduced** free-DOF space.
+    /// * `free_dofs` — sorted global DOF indices for the free system.
+    ///
+    /// # Returns
+    /// `Vec<f64>` of length `free_dofs.len()` with a₀ for each free DOF.
+    fn compute_initial_acceleration(&self, f0: &[f64], free_dofs: &[i32]) -> Vec<f64> {
+        let dofs_per_node = self.config.dofs_per_node;
+        let n_free = free_dofs.len();
+        let mut a0 = vec![0.0f64; n_free];
+        for (j, &gdof) in free_dofs.iter().enumerate() {
+            let local = (gdof as usize) % dofs_per_node;
+            if local < 3 {
+                // Translational DOF: a₀ = F / m
+                let node = (gdof as usize) / dofs_per_node;
+                if node < self.masses.len() {
+                    let m = self.masses[node];
+                    if m > 1e-14 {
+                        a0[j] = f0[j] / m;
+                    }
+                }
+            }
+            // Rotational DOFs: zero rotational inertia in lumped model → a₀ = 0
+        }
+        a0
+    }
+
     /// Rebuild K(θ) when geometry has rotated significantly.
     ///
     /// Assumes `self.coords_rotated` already tracks `self.theta` (the caller
@@ -447,6 +491,7 @@ impl InertialRotorFsiSolver {
         // and on checkpoint rollback). Reassembly only needs to project K
         // into the reduced COO sparsity expected by the Newmark stepper.
         use crate::petsc::fsi::setup::{apply_kg_coo_map, reassemble_k};
+        use crate::petsc::fsi::rotor_physics::build_ksp_vals;
         let (_, _, k_vals) = reassemble_k(&mut self.assembler, &self.coords_rotated);
         if k_vals.len() != self.k_coo_map.len() {
             return Err(FsiError::PreciceError(format!(
@@ -457,8 +502,46 @@ impl InertialRotorFsiSolver {
         }
         let k_vals_red = apply_kg_coo_map(&self.k_coo_map, &k_vals, self.k_red_nnz);
 
-        // Update stepper K
-        self.stepper.update_elastic_stiffness(&k_vals_red)
+        // Compute spin-softening K_SP(ω, θ).
+        //
+        // In the inertial frame, the full linearized EOM is:
+        //   M·ü_e + C·u̇_e + [K(θ) + K_SP(ω)]·u_e = F_aero + F_g + F_ref
+        //
+        // K_SP arises from linearizing the centripetal term ω×(ω×u_e) around
+        // u_e=0. For lumped mass and rotation axis n̂:
+        //   K_SP[node, j] = −ω²·m[node]·(1 − n̂_j²)   j=0,1,2
+        //   K_SP[node, j] = 0                           j≥3 (rotational DOFs)
+        //
+        // K_SP is negative-definite in the perpendicular-to-axis subspace
+        // (spin-softening). Including it prevents overestimating flapwise
+        // eigenfrequencies at operating speed. Without K_SP the solver
+        // over-stiffens the blade by ω²·m_⊥/k for each mode.
+        let n_full_dofs = self.assembler.topology.dofs_count();
+        let dofs_per_node = self.config.dofs_per_node;
+        // Expand node masses (one per node) to full DOF space (dofs_per_node per node).
+        let mut m_lumped_full = vec![0.0f64; n_full_dofs];
+        for (i, &m) in self.masses.iter().enumerate() {
+            for j in 0..3_usize {
+                let dof = i * dofs_per_node + j;
+                if dof < n_full_dofs {
+                    m_lumped_full[dof] = m;
+                }
+            }
+        }
+        let ksp_vals_red = build_ksp_vals(
+            &m_lumped_full,
+            &self.transforms.axis,
+            omega,
+            dofs_per_node,
+            &self.k_red_rows,
+            &self.k_red_cols,
+            free_dofs,
+            n_full_dofs,
+        );
+
+        // Update K(θ) and K_SP(ω,θ) together → single refactorization.
+        self.stepper
+            .update_elastic_stiffness_and_spin_softening(&k_vals_red, &ksp_vals_red)
             .map_err(FsiError::StepperError)?;
 
         self.omega_sq_at_last_k_rebuild = omega * omega;
@@ -549,6 +632,62 @@ impl InertialRotorFsiSolver {
         let n_dofs = free_dofs.len();
         let n_data = self.n_iface * mesh_dims;
 
+        // ── Correct initial acceleration a₀ = M⁻¹·F₀ ─────────────────────────
+        // When u₀ = v₀ = a₀ = 0 (fresh start, not a restart), the Newmark
+        // scheme defaults to a₀ = 0. This is only correct when all external
+        // static loads at t = 0 are zero. With gravity and/or reference-frame
+        // centrifugal loads, F₀ ≠ 0 → a₀ = 0 introduces a spurious transient
+        // that decays over several cycles.
+        //
+        // Heuristic for "fresh start": current time is at the initial time AND
+        // the entire state vector is zero (user did not provide a non-trivial
+        // a₀ via FsiInitialState). Skip when any component is non-zero to
+        // respect explicit restart states.
+        {
+            let t0 = self.stepper.current_time();
+            let a_is_zero = self.stepper.current_a().iter().all(|&x| x == 0.0);
+            let u_is_zero = self.stepper.current_u().iter().all(|&x| x == 0.0);
+            let has_static_loads =
+                self.config.gravity_active() || self.config.include_reference_acceleration;
+
+            if a_is_zero && u_is_zero && has_static_loads {
+                let (omega_0, alpha_0) = self.omega_provider.get(t0);
+                let mut f0 = vec![0.0f64; n_dofs];
+
+                if self.config.include_reference_acceleration {
+                    use crate::petsc::fsi::rotor_physics::{
+                        compute_reference_load_vector, compute_rigid_body_acceleration_inertial,
+                    };
+                    let a_ref0 = compute_rigid_body_acceleration_inertial(
+                        &self.coords_rotated,
+                        &self.transforms.axis,
+                        &self.transforms.center,
+                        omega_0,
+                        alpha_0,
+                    );
+                    let f_ref0 = compute_reference_load_vector(&a_ref0, &self.masses);
+                    self.scatter_node_forces(&f_ref0, &mut f0, &free_dofs);
+                }
+                if self.config.gravity_active() {
+                    use crate::petsc::fsi::rotor_physics::compute_gravity_force;
+                    let f_g0 = compute_gravity_force(&self.masses, &self.config.gravity);
+                    self.scatter_node_forces(&f_g0, &mut f0, &free_dofs);
+                }
+
+                let a0 = self.compute_initial_acceleration(&f0, &free_dofs);
+                let a0_norm: f64 = a0.iter().map(|x| x * x).sum::<f64>().sqrt();
+                log::info!(
+                    "InertialRotorFsi: computed a₀ from static loads (||a₀||={:.3e}, ω₀={:.4}rad/s)",
+                    a0_norm, omega_0
+                );
+                self.stepper.set_initial_conditions_with_acceleration(
+                    &vec![0.0f64; n_dofs],
+                    &vec![0.0f64; n_dofs],
+                    &a0,
+                );
+            }
+        }
+
         // Checkpoint storage for implicit coupling
         let mut newmark_cp: Option<NewmarkCheckpoint> = None;
         let mut omega_cp: Option<OmegaCheckpoint> = None;
@@ -599,6 +738,10 @@ impl InertialRotorFsiSolver {
             let t_read_ms = t_read.elapsed().as_secs_f64() * 1e3;
 
             // ── Force pre-processing (ramp + cap, global frame) ───────────────
+            // Save physical (unramped) forces for torque/thrust/Ct/Cp after
+            // convergence. The ramp is a purely numerical start-up artifact and
+            // must NOT contaminate aerodynamic diagnostics or OmegaProvider.
+            let forces_raw = forces_global.clone();
             apply_ramp(&mut forces_global, t, self.config.fsi.ramp_time);
             if let Some(max_f) = self.config.fsi.force_max {
                 apply_cap(&mut forces_global, max_f, mesh_dims);
@@ -820,7 +963,7 @@ impl InertialRotorFsiSolver {
                 let (tau_vec, tau_aero) = compute_torque(
                     &iface_coords_rotated,
                     &disp_iface_full,
-                    &forces_global,
+                    &forces_raw,
                     &self.transforms.axis,
                     &self.transforms.center,
                 );
@@ -836,8 +979,8 @@ impl InertialRotorFsiSolver {
                 result.a_final = self.stepper.current_a().to_vec();
                 result.times.push(step_t);
 
-                // Performance coefficients
-                let thrust = compute_thrust(&forces_global, &self.transforms.axis);
+                // Performance coefficients use physical (unramped) forces.
+                let thrust = compute_thrust(&forces_raw, &self.transforms.axis);
                 let power_aero = tau_aero * omega_step;
                 let perf = compute_performance_coefficients(
                     thrust,
@@ -858,9 +1001,9 @@ impl InertialRotorFsiSolver {
                     tau_aero, perf.ct, perf.cp, perf.tsr
                 );
 
-                // Per-step callback
+                // Per-step callback — always pass physical (unramped) forces
                 if let Some(ref cb) = self.step_callback {
-                    let force_mag = forces_global.iter().map(|x| x * x).sum::<f64>().sqrt();
+                    let force_mag = forces_raw.iter().map(|x| x * x).sum::<f64>().sqrt();
                     cb(
                         step_t,
                         self.time_step,
@@ -869,7 +1012,7 @@ impl InertialRotorFsiSolver {
                         self.stepper.current_v(),
                         self.stepper.current_a(),
                         force_mag,
-                        &forces_global,
+                        &forces_raw,
                         omega_state,
                         alpha_state,
                         self.theta,
