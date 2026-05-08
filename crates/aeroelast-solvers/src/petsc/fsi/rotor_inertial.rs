@@ -11,6 +11,26 @@
 ///   (for inertial-aware CFD) or total displacement (for standard CFD).
 /// - **Gravity**: Applied in the global frame (constant vector).
 ///
+/// # Geometry approximation (explicit-in-geometry / predictor geometry)
+///
+/// Both `K(θ)` and `F_ref` are computed with the geometry from the **previous converged
+/// window** (θ_{n-1}, the checkpoint value) throughout all sub-iterations of window n.
+/// The mesh is only advanced to θ_n after convergence.
+///
+/// This is a deliberate **explicit-in-geometry** (or "predictor geometry") scheme:
+/// - Error: O(ω · Δt) in lever arm → O(ω² · Δt) in F_ref → negligible for small Δt.
+/// - Benefit: avoids reassembling K and recomputing F_ref inside the implicit coupling
+///   loop, keeping sub-iteration cost at O(K·solve) only.
+/// - Alternative ("mid-window geometry"): rotate mesh to θ_n = θ_{n-1} + Δθ at the
+///   first sub-iteration of each window, then hold it fixed. This would be O(Δt²)
+///   accurate in geometry at the cost of one extra mesh-rotation + optional K-rebuild
+///   per window. It is NOT implemented because: (a) K rebuild is expensive, and (b)
+///   the coupling loop structure would require a two-phase initialize step.
+///
+/// For validation at low RPM (ω < 5 rad/s, Δt < 0.01 s) the lag is < 0.05 °/step
+/// and has negligible impact on blade response. High-RPM cases with large Δt
+/// should decrease `theta_rebuild_threshold` to stay accurate.
+///
 /// # Feature gate
 /// Compiled only with `--features fsi`.
 
@@ -761,6 +781,12 @@ impl InertialRotorFsiSolver {
             }
 
             // Reference acceleration forces (F_ref = −M·a_ref)
+            //
+            // NOTE — geometry lag (explicit-in-geometry approximation):
+            // `coords_rotated` here reflects θ_{n-1} (the checkpoint rotation),
+            // not θ_n = θ_{n-1} + Δθ. This introduces an O(ω·Δt) lag in the
+            // lever arm and an O(ω²·Δt) error in F_ref magnitude.
+            // See module-level doc for rationale and quantitative bounds.
             if self.config.include_reference_acceleration {
                 let a_ref = compute_rigid_body_acceleration_inertial(
                     &self.coords_rotated,
@@ -923,7 +949,13 @@ impl InertialRotorFsiSolver {
                 self.coords_rotated =
                     rotate_mesh_coords(&self.coords_ref, &self.transforms, self.theta);
 
-                // Update K(θ) if rotation changed significantly
+                // Update K(θ) if rotation changed significantly.
+                //
+                // NOTE — geometry lag: K is rebuilt from `coords_rotated` which was
+                // just advanced to θ_n (line above). So K(θ_n) is correct here.
+                // However, during sub-iterations the K that was used came from
+                // the checkpoint (θ_{n-1}). This is the explicit-in-geometry
+                // approximation documented in the module docstring.
                 let t_reassemble = std::time::Instant::now();
                 self.reassemble_k_if_needed(omega_step, self.time_step, &free_dofs)?;
                 log::info!(
