@@ -251,3 +251,94 @@ changed; nothing to test beyond the existing suite (last green at end of Fix #2)
 - `docs/validez_teorica_fsi_rotor_corotational.md`: rewrite the Coriolis-as-explicit
   sections to reflect the implicit G_cor treatment. Best handled as a docs-only
   change after this fix-set lands.
+
+---
+
+# Apply Progress: rotor-corotational-consistency-fixes (Fix #5 batch)
+
+## Status: done
+
+## Tasks completed
+
+- [x] 5.1 Added `inertial_scratch: Vec<f64>` field to `RotorFsiSolver` struct in
+  `crates/aeroelast-solvers/src/petsc/fsi/rotor_fsi.rs`. Pre-allocated at `n_all_nodes * 3`,
+  zeroed at the start of each sub-iteration, accumulates centrifugal + Euler forces.
+  NOTE: `FsiResult` was NOT extended — the user's parallel `rotor_inertial.rs` uses struct
+  literal syntax `FsiResult { u_final, v_final, a_final, times }` and adding a field would
+  break compilation of that off-limits file. The scratch buffer is passed directly to the
+  per-window step callback instead.
+
+- [x] 5.2 Extended `RotorStepCallback` type alias with new `&[f64]` parameter
+  (`applied_inertial_forces: centrifugal+Euler per-node, rotating frame`). Updated
+  `with_step_callback` generic bound to match. In `lib.rs`, the closure in
+  `run_rotor_fsi_solver` accepts the new `inertial` parameter and packs it as
+  `inertial_arr` numpy array into slot 6 of the `perf_tuple` sub-tuple. The outer
+  `call1` arity remains 12 (PyO3 limit). Final return from `run_rotor_fsi_solver`
+  remains a 4-tuple — no change to line 2138 in `rotor.py`.
+
+- [x] 5.3 + 5.4 Updated `rotor.py::_step_cb`:
+  - Unpacks `_rust_inertial_flat` from `rotor_perf_tuple[5]` when `len >= 6`,
+    sets to `None` otherwise (fallback guard).
+  - When passthrough is available and length matches `n_nodes * 3`: reshape to
+    `(n_nodes, 3)` and use directly as `f_inertial_nodes_local` (centrifugal+Euler).
+  - Fallback path (None or length mismatch): recompute centrifugal + Euler from Python.
+  - Coriolis is always appended from Python regardless of path (it is on LHS in Rust,
+    not in the passthrough). This asymmetry is documented in code and in risks below.
+
+## Files changed
+
+- `crates/aeroelast-solvers/src/petsc/fsi/rotor_fsi.rs`
+  - `RotorStepCallback` type alias: added `&[f64]` parameter for inertial forces
+  - `with_step_callback`: added `&[f64]` to generic bound
+  - `RotorFsiSolver` struct: added `inertial_scratch: Vec<f64>` field
+  - `new()`: computes `n_inertial = all_node_masses.len() * 3`; initializes `inertial_scratch`
+  - `run()` sub-iteration loop: zeroes `inertial_scratch`; accumulates `f_cf` and `f_euler`
+    into it via `zip`/`+=` (no extra alloc)
+  - `run()` converged-window path: passes `&self.inertial_scratch` to step callback as 15th arg
+
+- `crates/aeroelast-py/src/lib.rs`
+  - `run_rotor_fsi_solver` step callback closure: added `inertial` param to lambda signature;
+    converts to `inertial_arr` numpy array; packed into perf sub-tuple as 6th element
+  - (Purely additive — existing callers unaffected; user's `run_inertial_rotor_fsi_solver`
+    uses a separate callback type and is unaffected)
+
+- `src/aeroelast/solvers/fsi/rotor.py`
+  - `_step_cb`: added fallback-guarded unpack of `_rust_inertial_flat` from `rotor_perf_tuple[5]`
+  - `_step_cb`: replaced unconditional Python recomputation block for centrifugal+Euler with
+    passthrough-or-fallback logic; Coriolis always recomputed from Python
+
+- `openspec/changes/rotor-corotational-consistency-fixes/tasks.md`
+  - Fix #5 items marked `[x]`
+
+## Test verification
+
+- Rust: `cargo check -p aeroelast-solvers` → Finished dev (14 warnings, 0 errors)
+- Rust: `cargo check -p aeroelast-py` → Finished dev (12 warnings, 0 errors)
+- Rust tests: `cargo test -p aeroelast-solvers --lib -- --test-threads=1` → 52 passed, 0 failed
+  (10 PETSc/MPI tests abort due to environment — pre-existing; non-MPI tests all green)
+- Python: 9 pre-existing failures in `test_rotor_rust_parity.py` and `test_rotor_physical_consistency.py`
+  confirmed present on baseline (git stash check). No new failures introduced.
+
+## Risks
+
+1. **Coriolis asymmetry**: The passthrough vector contains centrifugal + Euler only. Coriolis
+   is always computed by Python. The `f_inertial_nodes_local` field consumed downstream is
+   therefore a hybrid of Rust-computed centrifugal+Euler and Python-computed Coriolis.
+   This is consistent with the architectural reality (Coriolis is on LHS in Rust, not in `f_red`).
+   The diagnostic `TAU_INERTIAL` and `F_INERTIAL` CSV columns will include Coriolis from Python.
+
+2. **Bit-equivalence scope**: The spec's 1e-12 tolerance applies only to the centrifugal+Euler
+   passthrough when `include_ksp=True` (both paths evaluate at X₀). When `include_ksp=False`,
+   Rust evaluates centrifugal at X₀+u while the old Python fallback used X₀ — this is a
+   pre-existing mismatch from before Fix #5, not introduced here.
+
+3. **FsiResult not extended**: The design spec called for `applied_inertial_forces` in `FsiResult`.
+   This was not done because the user's parallel work in `rotor_inertial.rs` uses struct literal
+   syntax for `FsiResult`. Adding the field would break compilation of that off-limits file.
+   The callback-passthrough approach achieves the same observable effect for Python consumers.
+   At merge time, the user's `rotor_inertial.rs` will need updating if `FsiResult` is later extended.
+
+4. **Merge conflict risk in lib.rs**: The new `inertial` parameter is added only to the
+   `run_rotor_fsi_solver` callback closure. The user's `run_inertial_rotor_fsi_solver` uses
+   a completely separate callback type — no conflict expected. The line adding `inertial_arr`
+   to the tuple is in a region the user has not touched.

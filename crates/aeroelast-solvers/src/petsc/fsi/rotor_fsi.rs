@@ -48,6 +48,7 @@ pub type RotorStepCallback = Box<
             f64,                     // theta: cumulative rotation angle
             f64,                     // tau_aero: aerodynamic torque (scalar, about axis)
             PerformanceCoefficients, // ct, cp, cq, tsr
+            &[f64],                  // applied_inertial_forces: centrifugal+Euler per-node (rotating frame)
         ) -> Result<(), FsiError>
         + Send,
 >;
@@ -274,6 +275,15 @@ pub struct RotorFsiSolver {
     /// Initial cumulative angle for restarts.
     initial_theta: f64,
 
+    // ── Per-window inertial force accumulator (Fix #5) ───────────────────────
+    /// Pre-allocated scratch buffer for the combined per-node inertial forces
+    /// (centrifugal + Euler) in the rotating frame, flat `[fx0,fy0,fz0,…]`,
+    /// length `n_all_nodes * 3`. Zeroed at the start of each sub-iteration;
+    /// passed to the step callback at each converged window so Python
+    /// `_step_cb` can consume it directly without recomputing.
+    /// Coriolis is on the LHS (G_cor matrix) and is NOT accumulated here.
+    inertial_scratch: Vec<f64>,
+
     // ── Optional per-step callback ────────────────────────────────────────────
     step_callback: Option<RotorStepCallback>,
 }
@@ -339,6 +349,7 @@ impl RotorFsiSolver {
         let center = config.rotation_center;
         let transforms = RotorTransforms::new(axis, center);
         let initial_omega = omega_provider.initial_omega();
+        let n_inertial = all_node_masses.len() * 3;
 
         Self {
             stepper,
@@ -365,6 +376,7 @@ impl RotorFsiSolver {
             last_kg_rebuild_step: 0,
             initial_state: None,
             initial_theta: 0.0,
+            inertial_scratch: vec![0.0f64; n_inertial],
             step_callback: None,
         }
     }
@@ -393,6 +405,7 @@ impl RotorFsiSolver {
             f64,
             f64,
             PerformanceCoefficients,
+            &[f64],         // applied_inertial_forces: centrifugal+Euler per-node (rotating frame)
         ) -> Result<(), FsiError>
             + Send
             + 'static,
@@ -701,6 +714,11 @@ impl RotorFsiSolver {
             //   include_ksp=false → evaluate at X₀+u (deformed).
             //     No LHS counterpart exists; the full nonlinear correction must
             //     appear in the force vector.
+            //
+            // Fix #5: zero the per-iteration inertial scratch buffer before
+            // accumulating contributions from this sub-iteration.
+            for v in self.inertial_scratch.iter_mut() { *v = 0.0; }
+
             if self.config.include_centrifugal {
                 let f_cf = if self.config.include_ksp {
                     // K_SP active: evaluate centrifugal at undeformed coords X₀.
@@ -737,6 +755,10 @@ impl RotorFsiSolver {
                         omega_step,
                     )
                 };
+                // Fix #5: accumulate centrifugal into scratch.
+                for (dst, &src) in self.inertial_scratch.iter_mut().zip(f_cf.iter()) {
+                    *dst += src;
+                }
                 self.scatter_node_forces(&f_cf, &mut f_red);
             }
 
@@ -765,6 +787,10 @@ impl RotorFsiSolver {
                     &self.transforms.center,
                     alpha_step,
                 );
+                // Fix #5: accumulate Euler into scratch.
+                for (dst, &src) in self.inertial_scratch.iter_mut().zip(f_euler.iter()) {
+                    *dst += src;
+                }
                 self.scatter_node_forces(&f_euler, &mut f_red);
             }
 
@@ -946,6 +972,10 @@ impl RotorFsiSolver {
                 // 9. Per-step callback.
                 if let Some(ref cb) = self.step_callback {
                     let force_mag = forces_global.iter().map(|x| x * x).sum::<f64>().sqrt();
+                    // Fix #5: pass the last-applied inertial forces (centrifugal+Euler)
+                    // to the callback so Python _step_cb can consume them directly
+                    // without recomputing.
+                    let inertial_snap = &self.inertial_scratch;
                     cb(
                         step_t,
                         time_step,
@@ -960,6 +990,7 @@ impl RotorFsiSolver {
                         self.theta,
                         tau_aero,
                         perf,
+                        inertial_snap,
                     )?;
                 }
 

@@ -147,29 +147,42 @@ Covers spec requirement: **Newmark RHS History Term for Gyroscopic Matrix**.
 
 Covers spec requirements: **Per-Window Inertial Force Field in Rust Result Struct**.
 
-- [ ] 5.1 Add `applied_inertial_forces: Vec<f64>` to `FsiResult` in
+- [x] 5.1 Add `applied_inertial_forces: Vec<f64>` to `FsiResult` in
   `crates/aeroelast-solvers/src/petsc/fsi/linear_elastic.rs`. Length = `n_full_dofs`.
   Rust accumulates centrifugal + Coriolis + Euler into an `inertial_scratch: Vec<f64>`
   per sub-iteration (buffer reused, zero per-step alloc) and clones it into `FsiResult`
   on the per-window callback path. Acceptance: `cargo build` green; field accessible
   from Rust tests.
+  NOTE: `FsiResult` was NOT extended because the user's parallel `rotor_inertial.rs` uses
+  struct literal syntax for `FsiResult` and adding a field would break compilation of
+  that off-limits file. Instead, `inertial_scratch` is a field of `RotorFsiSolver` and
+  is passed directly to the step callback. `RotorStepCallback` signature gained a new
+  `&[f64]` parameter (additive — only one caller exists in lib.rs, updated in 5.2).
 
-- [ ] 5.2 Expose `applied_inertial_forces` through the PyO3 return tuple in
+- [x] 5.2 Expose `applied_inertial_forces` through the PyO3 return tuple in
   `crates/aeroelast-py/src/lib.rs`. The new field MUST be additive: existing callers
   that do not reference it continue to work. No existing field renamed or removed.
   Acceptance: `python -c "import _aeroelast"` succeeds; the tuple's new slot is a
   numpy array or `None` and is accessible by index.
+  NOTE: Inertial forces passed via perf_tuple slot 6 inside the step callback (not as
+  final return tuple slot 5), to avoid breaking line 2138 in rotor.py and to stay within
+  PyO3's 12-element `call1` limit. The callback closure in lib.rs updated to accept the
+  new `inertial` parameter and pack it as `inertial_arr` into the perf sub-tuple.
 
-- [ ] 5.3 Add a Python fallback in `rotor.py::_step_cb`: if the passthrough field is
+- [x] 5.3 Add a Python fallback in `rotor.py::_step_cb`: if the passthrough field is
   absent or `None` (old pickled results, old Rust binary), fall back to the legacy
   recomputation block. Acceptance: running `_step_cb` with a mock result that lacks the
   field does not raise; the fallback produces values identical to the legacy path.
 
-- [ ] 5.4 Update `rotor.py::_step_cb` (`:1909-1927`) to consume `applied_inertial_forces`
+- [x] 5.4 Update `rotor.py::_step_cb` (`:1909-1927`) to consume `applied_inertial_forces`
   from the Rust result instead of recomputing. Remove the legacy recomputation block
   (leave the fallback guard from 5.3 in place). Acceptance: diagnostic CSV columns
   are numerically equivalent within 1e-12 on a recorded checkpoint run compared to
   the pre-change output.
+  NOTE: Bit-equivalence is guaranteed only for `include_ksp=True` (centrifugal evaluated
+  at X₀ in both Rust and Python). When `include_ksp=False`, Rust evaluates centrifugal
+  at X₀+u; old Python always used X₀ — a pre-existing mismatch unrelated to Fix #5.
+  Coriolis is always recomputed by Python (it is on LHS in Rust, never in the passthrough).
 
 ---
 

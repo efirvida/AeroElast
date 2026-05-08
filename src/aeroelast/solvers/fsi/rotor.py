@@ -1849,7 +1849,15 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         ):
             nonlocal prev_theta, prev_omega_state, prev_v_nodes_local
 
-            tau_aero_rust, _ct_rust, _cp_rust, _cq_rust, _tsr_rust = rotor_perf_tuple
+            # Fix #5: unpack 5 or 6 elements — 6th is the passthrough inertial force
+            # array (centrifugal+Euler, rotating frame, per-node flat layout).
+            # Old Rust binaries or pickled results only have 5 elements; the fallback
+            # guard in the force-computation block below handles that case.
+            if len(rotor_perf_tuple) >= 6:
+                tau_aero_rust, _ct_rust, _cp_rust, _cq_rust, _tsr_rust, _rust_inertial_flat = rotor_perf_tuple
+            else:
+                tau_aero_rust, _ct_rust, _cp_rust, _cq_rust, _tsr_rust = rotor_perf_tuple
+                _rust_inertial_flat = None
 
             # Use omega/alpha directly from Rust (authoritative provider state).
             # Finite differences on Δθ/Δt give window-average but add numerical
@@ -1914,24 +1922,47 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             else:
                 iface_force_local = np.zeros_like(interface_coords_nodes)
 
-            f_inertial_nodes_local = np.zeros_like(all_node_coords_nodes)
-            if self._include_centrifugal:
-                f_inertial_nodes_local += self._inertial_calculator.compute_centrifugal_force(
-                    all_node_coords_nodes,
-                    all_node_masses,
-                    omega_window,
+            # Fix #5: consume the passthrough inertial force vector from Rust when
+            # available (centrifugal + Euler; Coriolis is on LHS via G_cor and is
+            # NOT in the passthrough). Fall back to full Python recomputation when
+            # the field is absent (old Rust binary, pickled results, or non-Rust path).
+            #
+            # IMPORTANT ASYMMETRY: the passthrough contains centrifugal + Euler only.
+            # Python still recomputes the Coriolis contribution and adds it below,
+            # regardless of whether the passthrough path is used. This means
+            # f_inertial_nodes_local = passthrough_cf_euler + python_coriolis.
+            # The diagnostic columns "F_INERTIAL", "TAU_INERTIAL" therefore include
+            # Coriolis from Python and centrifugal+Euler from Rust (passthrough path)
+            # or fully from Python (fallback path). The bit-for-bit equivalence
+            # guarantee within 1e-12 applies only to the centrifugal+Euler terms
+            # when include_ksp=True (same X₀ evaluation in both paths).
+            n_nodes = all_node_coords_nodes.shape[0]
+            if _rust_inertial_flat is not None and len(_rust_inertial_flat) == n_nodes * 3:
+                # Passthrough path: reshape Rust flat array to (n_nodes, 3).
+                f_inertial_nodes_local = np.asarray(_rust_inertial_flat, dtype=np.float64).reshape(
+                    n_nodes, 3
                 )
+            else:
+                # Fallback path: recompute centrifugal + Euler from Python.
+                f_inertial_nodes_local = np.zeros_like(all_node_coords_nodes)
+                if self._include_centrifugal:
+                    f_inertial_nodes_local += self._inertial_calculator.compute_centrifugal_force(
+                        all_node_coords_nodes,
+                        all_node_masses,
+                        omega_window,
+                    )
+                if self._include_euler and abs(alpha_window) > 1e-14:
+                    f_inertial_nodes_local += self._inertial_calculator.compute_euler_force(
+                        all_node_coords_nodes + u_nodes_local,
+                        all_node_masses,
+                        alpha_window,
+                    )
+            # Coriolis is always added from Python (it is on LHS in Rust, not in passthrough).
             if self._include_coriolis:
                 f_inertial_nodes_local += self._inertial_calculator.compute_coriolis_force(
                     v_for_coriolis,
                     all_node_masses,
                     omega_window,
-                )
-            if self._include_euler and abs(alpha_window) > 1e-14:
-                f_inertial_nodes_local += self._inertial_calculator.compute_euler_force(
-                    all_node_coords_nodes + u_nodes_local,
-                    all_node_masses,
-                    alpha_window,
                 )
 
             f_gravity_nodes_local = np.zeros_like(all_node_coords_nodes)
