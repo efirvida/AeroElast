@@ -1,18 +1,20 @@
 """
-Inertial Frame Rotor FSI Solver.
+Inertial Frame Rotor FSI Solver — Python configuration wrapper.
 
-This module provides the LinearDynamicFSIRotorInertialSolver for rotor FSI
-problems using an alternative formulation where:
+The FSI solve loop is implemented in Rust:
+    crates/aeroelast-solvers/src/petsc/fsi/rotor_inertial.rs
+    (InertialRotorFsiSolver)
 
-- The unknown is ELASTIC DISPLACEMENT (u_e) in global coordinates over a
-  rigidly-rotated reference configuration
-- The structural mesh rotates internally but the preCICE interface remains FIXED
-- No rotating-frame fictitious forces (no K_SP, no K_G in this version,
-  no Coriolis gyroscopic matrix)
-- The reference load -M·a_ref accounts for rigid-body inertial acceleration
+This module provides LinearDynamicFSIRotorInertialSolver, a thin Python
+configuration and assembly wrapper that:
+  1. Parses solver parameters from fem_model_properties.
+  2. Assembles K, M, C matrices via PETSc and converts them to COO format.
+  3. Extracts interface nodes and computes rotor geometry (radius, inertia).
+  4. Delegates the full preCICE coupling loop to the Rust solver via
+     ``_aeroelast.run_inertial_rotor_fsi_solver(...)``.
 
-Mathematical Formulation
-------------------------
+Physical formulation (solved in Rust)
+--------------------------------------
 The equation of motion in the INERTIAL frame is:
 
     [M]{ü_e} + [C(θ)]{u̇_e} + [K(θ)]{u_e} = {F_aero} + {F_g} - [M]{a_ref}
@@ -23,22 +25,17 @@ where:
 - K(θ), C(θ): assembled on the rigidly-rotated structural geometry
 - a_ref = α × r + ω × (ω × r): rigid-body reference acceleration
 
-The preCICE interface contract:
-- SolidMesh vertices registered at REFERENCE coordinates (t=0, no rotation)
-- Write data: elastic displacement u_e in global frame (NOT total displacement)
-- Read data: aerodynamic forces in global frame (no transformation needed)
-- GlobalSolidMesh: representative angular velocity (same as corotational solver)
-
-This formulation is physically consistent with the inertial frame perspective
-and avoids the need for K_SP, K_G, or Coriolis terms that appear in the
-corotational rotating-frame formulation.
+preCICE interface contract:
+- SolidMesh vertices at REFERENCE coordinates (t=0, no rotation)
+- Write data: elastic displacement u_e in global frame
+- Read data: aerodynamic forces in global frame (no transformation)
+- GlobalSolidMesh: representative angular velocity
 
 See docs/rotor_inertial_solver_design.md for full design documentation.
 """
 
 import logging
 import os
-import time
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -46,7 +43,6 @@ from numpy.typing import NDArray
 
 from aeroelast.core.mesh import MeshModel
 
-from .base import Adapter
 from .corotational import (
     ComputedOmega,
     ConstantOmega,
@@ -459,898 +455,17 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # In Phase 2 (optimization), we may track whether θ changed significantly.
         self._last_assembly_theta: Optional[float] = None
 
-        # Reference interface coordinates (set in solve(); initialized to None so
-        # attribute always exists for _write_elastic_displacement_to_precice).
+        # Reference interface coordinates (set in solve(); used when
+        # displacement_mode='total' is configured in the Rust solver).
         self._interface_coords_reference: Optional["NDArray"] = None
+        
+        # All-node masses (flat, one scalar per node) — extracted during assembly
+        # before BCs reduce the matrix size. Set in _assemble_system_matrices().
+        self._all_node_masses_full: Optional["NDArray"] = None
 
         # Lumped mass diagonal is invariant under rigid rotation; cache it once
         # to avoid recreating PETSc diagonal vectors on every FSI sub-iteration.
         self._mass_diagonal_array: Optional[NDArray] = None
-
-    # =========================================================================
-    # Phase 3: Structural Assembly on Internally Rotated Geometry
-    # =========================================================================
-
-    def _rotate_structural_geometry_internal(self, theta: float) -> np.ndarray:
-        """
-        Rotate mesh node coordinates by angle theta for structural assembly.
-
-        The inertial solver assembles structural matrices (K, C) in the
-        rotated configuration at each time step. This method computes the
-        rotated nodal coordinates X_rot = R(θ)·X_0 without modifying the
-        stored MeshModel.nodes, which remain in the reference (unrotated)
-        configuration.
-
-        Parameters
-        ----------
-        theta : float
-            Rotation angle [rad] around the rotation axis.
-
-        Returns
-        -------
-        np.ndarray, shape (n_nodes, 3)
-            Rotated nodal coordinates in global frame. Each row is [x, y, z]
-            for one node.
-
-        Notes
-        -----
-        - This method is called before structural assembly at each time step
-        - The returned coordinates differ from MeshModel.nodes by exactly R(θ)
-        - Used to rebuild the assembler with rotated geometry (Task 3.2)
-        """
-        # MeshModel stores nodes as a list; coords_array preserves the mesh order
-        # used by the assembler, which is what the rotated geometry must match.
-        original_coords = np.asarray(self.domain.mesh.coords_array, dtype=np.float64)
-
-        # Rotate using CoordinateTransforms
-        rotated_coords = self._coord_transforms.rotate_point_cloud(
-            coords=original_coords,
-            theta=theta,
-        )
-
-        return rotated_coords
-
-    def _rebuild_assembler_with_rotated_geometry(
-        self,
-        rotated_coords: np.ndarray,
-    ) -> "MeshAssembler":
-        """
-        Rebuild structural assembler with rotated nodal coordinates.
-
-        This method clones the mesh model, updates nodal coordinates to the
-        rotated configuration, and reconstructs the MeshAssembler. This allows
-        structural matrices (K, C) to be assembled in the rotated frame without
-        modifying the original mesh stored in self.domain.
-
-        Parameters
-        ----------
-        rotated_coords : np.ndarray, shape (n_nodes, 3)
-            Rotated nodal coordinates from _rotate_structural_geometry_internal()
-
-        Returns
-        -------
-        MeshAssembler
-            New assembler object built on rotated geometry
-
-        Notes
-        -----
-        - Creates a shallow copy of the mesh to avoid side effects
-        - Only node coordinates are modified; connectivity remains unchanged
-        - Called at each time step before structural assembly (Task 3.2)
-        - In Phase 9 (optimization), this can be replaced with incremental updates
-        """
-        import copy
-
-        from aeroelast.core.assembler import MeshAssembler
-
-        # Deep-copy the mesh so node coordinates can be updated without mutating
-        # the reference configuration kept in self.domain.mesh.
-        rotated_mesh = copy.deepcopy(self.domain.mesh)
-        rotated_mesh.coords_array = np.asarray(rotated_coords, dtype=np.float64)
-
-        # Reconstruct assembler with rotated geometry
-        # This follows the "Phase 1" assembly path from linear_dynamic.py:907
-        rotated_assembler = MeshAssembler(
-            mesh=rotated_mesh,
-            model=self.model_properties,
-        )
-
-        return rotated_assembler
-
-    def _assemble_or_reuse_mass_matrix(self) -> "PETSc.Mat":
-        """
-        Assemble mass matrix once and reuse across all timesteps.
-
-        The mass matrix M is invariant under rigid-body rotation because it
-        depends only on element density and volume, not on nodal coordinates.
-        Therefore, M can be assembled once in the reference configuration and
-        reused at all rotated orientations.
-
-        Returns
-        -------
-        PETSc.Mat
-            Lumped mass matrix (assembled once, cached in self._mass_matrix_cached)
-
-        Notes
-        -----
-        - Mass matrix invariance: M(R(θ)·X) = M(X) for rotation matrix R
-        - Assembled once on first call, then returned from cache
-        - Task 3.3: Verify M before and after rotation is identical (FP tolerance)
-        """
-        # Check if mass matrix is already cached
-        if hasattr(self, "_mass_matrix_cached") and self._mass_matrix_cached is not None:
-            return self._mass_matrix_cached
-
-        # Assemble mass matrix once using original (unrotated) geometry
-        # Use the domain's assembler (which has original coordinates)
-        self._mass_matrix_cached = self.domain.assemble_mass_matrix_lumped()
-
-        return self._mass_matrix_cached
-
-    def _assemble_rayleigh_damping(
-        self,
-        K_theta: "PETSc.Mat",
-        M: "PETSc.Mat",
-    ) -> "PETSc.Mat":
-        """
-        Assemble Rayleigh damping matrix C(θ) = η_m·M + η_k·K(θ).
-
-        The damping matrix has two components:
-        - η_m·M: Mass-proportional (constant, M is invariant)
-        - η_k·K(θ): Stiffness-proportional (orientation-dependent)
-
-        Parameters
-        ----------
-        K_theta : PETSc.Mat
-            Stiffness matrix assembled on rotated geometry at angle θ
-        M : PETSc.Mat
-            Mass matrix (invariant, assembled once)
-
-        Returns
-        -------
-        PETSc.Mat
-            Rayleigh damping matrix C(θ)
-
-        Notes
-        -----
-        - If damping is disabled, returns zero matrix
-        - With η_k=0, damping is constant (η_m·M only)
-        - With η_k≠0, damping varies with orientation (stiffness term updates)
-        - Task 3.4: Verify orientation-dependent path with η_k≠0
-        """
-        if not self._damping_enabled:
-            # Return zero damping matrix
-            C = K_theta.duplicate(copy=False)  # Same sparsity pattern
-            C.zeroEntries()
-            return C
-
-        # Start with mass-proportional term: C = η_m·M
-        C = M.duplicate(copy=True)  # Deep copy of M
-        C.scale(self._eta_m)
-
-        # Add stiffness-proportional term: C += η_k·K(θ)
-        if self._eta_k != 0.0:
-            C.axpy(self._eta_k, K_theta)  # C = C + η_k·K(θ)
-
-        return C
-
-    def _ensure_elastic_boundary_conditions(self) -> None:
-        """
-        Verify that Dirichlet boundary conditions are homogeneous (elastic-only).
-
-        The inertial solver solves for elastic displacement u_e over a rotating
-        reference frame. Root boundary conditions must constrain elastic motion
-        (u_e = 0), NOT impose time-dependent rigid-body displacement.
-
-        This method checks self.dirichlet_conditions and raises an error if
-        any non-zero prescribed displacement is found.
-
-        Raises
-        ------
-        ValueError
-            If any Dirichlet BC has non-zero prescribed value (time-dependent constraint)
-
-        Notes
-        -----
-        - Elastic unknown space: u_e = 0 at root means "no elastic deformation"
-        - Rigid rotation is handled by rotating the reference configuration x̂(t)
-        - Total displacement x(t) = x̂(t) + u_e(t), so u_e=0 ⇒ x follows rigid rotation
-        - Task 3.5: Verify constrained DOFs stay homogeneous
-        """
-        if not hasattr(self, "dirichlet_conditions") or not self.dirichlet_conditions:
-            return  # No BCs to check
-
-        # Check for non-zero prescribed displacements
-        non_zero_bcs = [
-            (dof, val) for dof, val in self.dirichlet_conditions.items() if abs(val) > 1e-12
-        ]
-
-        if non_zero_bcs:
-            raise ValueError(
-                f"Inertial rotor solver requires homogeneous (zero) Dirichlet BCs. "
-                f"Found {len(non_zero_bcs)} non-zero prescribed displacements:\n"
-                f"  {non_zero_bcs[:5]}\n"  # Show first 5 violations
-                f"The unknown is elastic displacement u_e over a rotating reference. "
-                f"Root constraints must be u_e=0 (elastic-only), not time-dependent "
-                f"rigid-body displacements."
-            )
-
-    # =========================================================================
-    # Phase 3 Complete
-    # =========================================================================
-    # Tasks 3.1-3.5 implemented:
-    # ✓ 3.1: _rotate_structural_geometry_internal()
-    # ✓ 3.2: _rebuild_assembler_with_rotated_geometry()
-    # ✓ 3.3: _assemble_or_reuse_mass_matrix()
-    # ✓ 3.4: _assemble_rayleigh_damping()
-    # ✓ 3.5: _ensure_elastic_boundary_conditions()
-
-    # =========================================================================
-    # Phase 4: Newmark Step for the Inertial Formulation
-    # =========================================================================
-
-    def _assemble_inertial_effective_system(
-        self,
-        K_theta: "PETSc.Mat",
-        M: "PETSc.Mat",
-        C_theta: "PETSc.Mat",
-        a0: float,
-        a1: float,
-        result: Optional["PETSc.Mat"] = None,
-    ) -> "PETSc.Mat":
-        """
-        Assemble the effective stiffness matrix for the inertial formulation.
-
-        K_eff = K(θ) + a0·M + a1·C(θ)
-
-        This is the standard Newmark effective stiffness WITHOUT the rotating-frame
-        terms K_G, K_SP, or G_cor that appear in the corotational solver.
-
-        Parameters
-        ----------
-        K_theta : PETSc.Mat
-            Stiffness matrix assembled on the rigidly-rotated geometry.
-        M : PETSc.Mat
-            Mass matrix (invariant under rotation).
-        C_theta : PETSc.Mat
-            Damping matrix C = η_m·M + η_k·K(θ).
-        a0 : float
-            Newmark coefficient for mass: a0 = 1/(β·Δt²).
-        a1 : float
-            Newmark coefficient for damping: a1 = γ/(β·Δt).
-
-        Returns
-        -------
-        K_eff : PETSc.Mat
-            Effective stiffness matrix for the Newmark solve.
-
-        Notes
-        -----
-        When rotation is disabled (θ = 0), this reduces to the standard
-        LinearDynamicFSI effective system:
-            K_eff = K₀ + a0·M + a1·C₀
-
-        Verification:
-        - Set ω = 0, α = 0 → K(θ=0) = K₀, C(θ=0) = C₀
-        - Result should match LinearDynamicFSISolver._assemble_effective_stiffness()
-        """
-        import petsc4py.PETSc as PETSc
-
-        # Create or refresh the effective matrix in-place so the same PETSc.Mat
-        # object can be reused across windows. On this PETSc build zeroRows() may
-        # shrink constrained rows, so refresh through AXPY with an unknown pattern
-        # instead of assuming exact structural equality with K_theta.
-        if result is None:
-            K_eff = K_theta.copy()
-        else:
-            K_eff = result
-            try:
-                K_eff.zeroEntries()
-                K_eff.axpy(
-                    1.0,
-                    K_theta,
-                    structure=PETSc.Mat.Structure.UNKNOWN_NONZERO_PATTERN,
-                )
-            except PETSc.Error:
-                K_eff = K_theta.copy()
-                _logger.debug(
-                    "Recreated cached K_eff because PETSc reported an incompatible sparsity pattern"
-                )
-
-        K_eff.axpy(
-            a0,
-            M,
-            structure=PETSc.Mat.Structure.UNKNOWN_NONZERO_PATTERN,
-        )  # K_eff += a0·M
-        K_eff.axpy(
-            a1,
-            C_theta,
-            structure=PETSc.Mat.Structure.UNKNOWN_NONZERO_PATTERN,
-        )  # K_eff += a1·C(θ)
-        K_eff.assemble()
-
-        _logger.debug(
-            "Assembled inertial K_eff: K(θ) + %.3e·M + %.3e·C(θ) (no K_G, K_SP, G_cor)",
-            a0,
-            a1,
-        )
-
-        return K_eff
-
-    def _configure_reusable_factorization_ksp(
-        self,
-        ksp: "PETSc.KSP",
-        factorization_type: Optional[str] = None,
-    ) -> str:
-        """Configure direct factorization reuse hints for window-to-window solves."""
-        from petsc4py import PETSc
-
-        factorization_type = (factorization_type or self._petsc_factorization_type).lower()
-        if factorization_type not in {"cholesky", "lu"}:
-            raise ValueError(f"Unsupported PETSc factorization type: {factorization_type}")
-
-        ksp.setType("preonly")
-        pc = ksp.getPC()
-        pc.setType(factorization_type)
-        pc.setReusePreconditioner(False)
-        if self.comm.size > 1:
-            pc.setFactorSolverType("mumps")
-
-        prefix = self._petsc_factor_options_prefix
-        if prefix:
-            opts = PETSc.Options()
-            opts.prefixPush(prefix)
-            if self._petsc_factor_reuse_ordering:
-                opts.setValue("pc_factor_reuse_ordering", "true")
-            if self._petsc_factor_reuse_fill:
-                opts.setValue("pc_factor_reuse_fill", "true")
-            if self._petsc_factor_mat_ordering_type:
-                opts.setValue(
-                    "pc_factor_mat_ordering_type",
-                    str(self._petsc_factor_mat_ordering_type),
-                )
-            opts.prefixPop()
-            ksp.setOptionsPrefix(prefix)
-
-        ksp.setFromOptions()
-        return factorization_type
-
-    def _fallback_factorization_type(self, factorization_type: str) -> Optional[str]:
-        """Return the next direct factorization to try after a setup failure."""
-        normalized = factorization_type.lower()
-        if normalized == "cholesky":
-            return "lu"
-        return None
-
-    def _assemble_inertial_rhs(
-        self,
-        F_aero_global: NDArray,
-        F_gravity_global: NDArray,
-        a_ref_nodal: NDArray,
-        u_n: NDArray,
-        v_n: NDArray,
-        a_n: NDArray,
-        a0: float,
-        a2: float,
-        a3: float,
-        a6: float,
-        a7: float,
-    ) -> NDArray:
-        """
-        Assemble the RHS vector for the inertial Newmark step.
-
-        F_eff = F_aero + F_g - M·a_ref + M·(a0·u_n + a2·v_n + a3·a_n)
-                + C·(a1·u_n + a6·v_n + a7·a_n)
-
-        Key differences from corotational solver:
-        - No force-frame transformation (forces already in global frame)
-        - Reference load -M·a_ref replaces rotating-frame fictitious forces
-        - u_n, v_n, a_n are ELASTIC displacements/velocities/accelerations
-
-        Parameters
-        ----------
-        F_aero_global : ndarray, shape (n_free_dofs,)
-            Aerodynamic forces from preCICE in global coordinates (BC-reduced).
-        F_gravity_global : ndarray, shape (n_free_dofs,)
-            Gravity forces in global coordinates (BC-reduced).
-        a_ref_nodal : ndarray, shape (n_nodes, 3)
-            Rigid-body reference acceleration at each node in global coordinates.
-        u_n : ndarray, shape (n_free_dofs,)
-            Elastic displacement at time n.
-        v_n : ndarray, shape (n_free_dofs,)
-            Elastic velocity at time n.
-        a_n : ndarray, shape (n_free_dofs,)
-            Elastic acceleration at time n.
-        a0, a2, a3, a6, a7 : float
-            Newmark coefficients.
-
-        Returns
-        -------
-        F_eff : ndarray, shape (n_free_dofs,)
-            Effective RHS vector for the Newmark solve.
-
-        Notes
-        -----
-        Sign convention verification:
-        - Pure rigid rotation (u_e = 0): External forces = M·a_ref → equilibrium
-        - a_ref points radially inward (centripetal) → -M·a_ref points outward
-        """
-        # Convert nodal acceleration to DOF load vector
-        M_diag_full = self._get_mass_diagonal_array()
-        F_ref_full = self._inertial_calculator.compute_reference_load_vector(
-            a_ref_nodal, M_diag_full, dofs_per_node=self.domain.dofs_per_node
-        )
-        # Reduce to free DOFs
-        F_ref = F_ref_full[self.domain.free_dof_indices]
-
-        # Newmark history terms
-        F_hist_mass = a0 * u_n + a2 * v_n + a3 * a_n
-        F_hist_damp = a6 * v_n + a7 * a_n  # a1·u_n term absorbed into K_eff
-
-        # Apply M and C to history terms
-        M_hist = np.zeros_like(F_hist_mass)
-        C_hist = np.zeros_like(F_hist_damp)
-
-        self.M.mult(F_hist_mass, M_hist)
-        self.C.mult(F_hist_damp, C_hist)
-
-        # Assemble RHS
-        F_eff = F_aero_global + F_gravity_global + F_ref + M_hist + C_hist
-
-        _logger.debug(
-            f"Inertial RHS: ||F_aero||={np.linalg.norm(F_aero_global):.2e}, "
-            f"||F_g||={np.linalg.norm(F_gravity_global):.2e}, "
-            f"||F_ref||={np.linalg.norm(F_ref):.2e}"
-        )
-
-        return F_eff
-
-    def _checkpoint_elastic_state(
-        self,
-        u_e: "PETSc.Vec",
-        v_e: "PETSc.Vec",
-        a_e: "PETSc.Vec",
-        theta: float,
-        omega: float,
-        alpha: float,
-    ) -> Dict[str, Any]:
-        """
-        Checkpoint the elastic state and rigid-body kinematics.
-
-        The inertial solver state includes:
-        - Elastic displacement, velocity, acceleration (u_e, v_e, a_e)
-        - Rigid-body kinematics (theta, omega, alpha)
-
-        This is distinct from the corotational solver checkpoint which stores
-        displacement in the rotating frame.
-
-        Parameters
-        ----------
-        u_e : PETSc.Vec
-            Elastic displacement vector.
-        v_e : PETSc.Vec
-            Elastic velocity vector.
-        a_e : PETSc.Vec
-            Elastic acceleration vector.
-        theta : float
-            Accumulated rotation angle [rad].
-        omega : float
-            Angular velocity [rad/s].
-        alpha : float
-            Angular acceleration [rad/s²].
-
-        Returns
-        -------
-        checkpoint : dict
-            State dictionary for rollback.
-
-        Notes
-        -----
-        Verification: After rollback, the solver must reproduce the same
-        subsequent time history within tolerance (see Phase 7 tests).
-        """
-        checkpoint = {
-            # Elastic state vectors (deep copy)
-            "u_e": u_e.duplicate(),
-            "v_e": v_e.duplicate(),
-            "a_e": a_e.duplicate(),
-            # Rigid-body kinematics
-            "theta": float(theta),
-            "omega": float(omega),
-            "alpha": float(alpha),
-            # OmegaProvider state (if applicable)
-            "omega_provider_state": (
-                self._omega_provider.get_state()
-                if hasattr(self._omega_provider, "get_state")
-                else None
-            ),
-            # Structural matrices at checkpoint time.
-            # These are NOT deep-copied because K and C are rebuilt from scratch
-            # on every converged window and are not modified in-place during
-            # sub-iterations. Storing the reference is sufficient.
-            # After rollback, these references restore the correct matrices
-            # so the solver reuses K(θ_ckpt) / C(θ_ckpt) without re-assembling.
-            "K_current": None,  # filled by solve() after checkpoint call
-            "C_current": None,  # filled by solve() after checkpoint call
-        }
-
-        # Copy vector contents
-        u_e.copy(result=checkpoint["u_e"])
-        v_e.copy(result=checkpoint["v_e"])
-        a_e.copy(result=checkpoint["a_e"])
-
-        return checkpoint
-
-    def _rollback_elastic_state(
-        self,
-        checkpoint: Dict[str, Any],
-        u_e: "PETSc.Vec",
-        v_e: "PETSc.Vec",
-        a_e: "PETSc.Vec",
-    ) -> None:
-        """
-        Rollback to a previously checkpointed state.
-
-        Restores:
-        - Elastic displacement, velocity, acceleration
-        - Rigid-body kinematics
-        - OmegaProvider state (if applicable)
-
-        Parameters
-        ----------
-        checkpoint : dict
-            State dictionary from _checkpoint_elastic_state().
-        u_e : PETSc.Vec
-            Elastic displacement vector to restore.
-        v_e : PETSc.Vec
-            Elastic velocity vector to restore.
-        a_e : PETSc.Vec
-            Elastic acceleration vector to restore.
-
-        Notes
-        -----
-        After rollback, the next Newmark step should reuse the same K(θ), C(θ)
-        from the checkpointed window kinematics (no reassembly needed within
-        the same FSI window).
-        """
-        # Restore elastic state vectors
-        checkpoint["u_e"].copy(result=u_e)
-        checkpoint["v_e"].copy(result=v_e)
-        checkpoint["a_e"].copy(result=a_e)
-
-        # Restore OmegaProvider state
-        if checkpoint.get("omega_provider_state") is not None:
-            if hasattr(self._omega_provider, "set_state"):
-                self._omega_provider.set_state(checkpoint["omega_provider_state"])
-        # Keep instance vars consistent with restored provider state.
-        self._omega = float(checkpoint["omega"])
-        self._alpha = float(checkpoint["alpha"])
-
-    # =========================================================================
-    # Phase 4 Complete
-    # =========================================================================
-    # Tasks 4.1-4.4 implemented:
-    # ✓ 4.1: _assemble_inertial_effective_system()
-    # ✓ 4.2: _assemble_inertial_rhs()
-    # ✓ 4.3: State variables are elastic (u_e, v_e, a_e)
-    # ✓ 4.4: _checkpoint_elastic_state(), _rollback_elastic_state()
-
-    # =========================================================================
-    # Phase 5: preCICE Contract with Fixed Interface Mesh
-    # =========================================================================
-
-    def _register_interface_at_reference_coords(
-        self, adapter: Adapter, mesh_name: str, interface_coords: NDArray
-    ) -> NDArray:
-        """
-        Register interface vertices with preCICE using REFERENCE coordinates only.
-
-        The inertial solver keeps the preCICE SolidMesh fixed at the initial
-        reference coordinates (t=0, θ=0). The mesh does NOT rotate on the preCICE
-        side, even though the internal structural geometry rotates.
-
-        This is a critical difference from a potential rotating-mesh approach:
-        - Vertices registered ONCE at t=0
-        - Coordinates NEVER updated during simulation
-        - Only elastic displacement is written (not rigid-body motion)
-
-        Parameters
-        ----------
-        adapter : Adapter
-            preCICE adapter instance.
-        mesh_name : str
-            Name of the preCICE mesh (typically "SolidMesh").
-        interface_coords : ndarray, shape (n_interface_nodes, 3)
-            Interface node coordinates at REFERENCE configuration (unrotated).
-
-        Returns
-        -------
-        vertex_ids : ndarray
-            preCICE vertex IDs for the registered vertices.
-
-        Notes
-        -----
-        Verification: Repeated FSI windows must NOT attempt to re-register or
-        move vertices. The mesh remains geometrically stationary from preCICE's
-        perspective.
-        """
-        # Register vertices at reference coordinates
-        vertex_ids = adapter.register_coupling_mesh(mesh_name, interface_coords)
-
-        _logger.info(
-            f"Registered {len(vertex_ids)} vertices on '{mesh_name}' at REFERENCE coords "
-            f"(fixed preCICE interface for inertial solver)"
-        )
-
-        return vertex_ids
-
-    def _read_forces_from_precice_global(
-        self, adapter: Adapter, mesh_name: str, data_name: str
-    ) -> NDArray:
-        """
-        Read aerodynamic forces from preCICE in GLOBAL coordinates (no transformation).
-
-        The inertial solver formulation requires forces in the global inertial frame.
-        Unlike the corotational solver, we do NOT apply R^T(θ) transformation because:
-        - The equation of motion is written in the global frame
-        - F_aero is already expressed in global coordinates by the CFD participant
-        - The elastic displacement u_e is also in global coordinates
-
-        Parameters
-        ----------
-        adapter : Adapter
-            preCICE adapter instance.
-        mesh_name : str
-            Name of the preCICE mesh.
-        data_name : str
-            Name of the force data field (e.g., "Force").
-
-        Returns
-        -------
-        F_aero_global : ndarray, shape (n_interface_nodes * dim,)
-            Aerodynamic forces in global coordinates (flattened).
-
-        Notes
-        -----
-        Verification: The force path contains NO coordinate transformation.
-        Compare with corotational solver which applies:
-            F_local = R^T(θ) · F_global
-        """
-        F_aero_global = np.asarray(adapter.read_data(mesh_name, data_name), dtype=np.float64)
-
-        # preCICE vector data typically arrives as shape (n_interface_nodes, dim).
-        # The inertial solver uses a flat interface-DOF layout everywhere else,
-        # matching self._interface_dofs.ravel(). Normalize once here.
-        if F_aero_global.ndim == 2:
-            F_aero_global = F_aero_global[:, : self.domain.spatial_dim].reshape(-1)
-        else:
-            F_aero_global = F_aero_global.reshape(-1)
-
-        _logger.debug(
-            f"Read forces from '{mesh_name}/{data_name}': ||F||={np.linalg.norm(F_aero_global):.3e} "
-            f"(global frame, NO transformation)"
-        )
-
-        return F_aero_global
-
-    def _write_elastic_displacement_to_precice(
-        self,
-        adapter: Adapter,
-        mesh_name: str,
-        data_name: str,
-        u_e_global: NDArray,
-        theta: float,
-    ) -> None:
-        """
-        Write ONLY elastic displacement to preCICE (not total displacement).
-
-        Critical preCICE contract for the inertial solver:
-            u_fsi = u_e^{global}  (elastic displacement in global frame)
-
-        This is NOT:
-            u_fsi = x - X_0  (total displacement from original reference)
-            u_fsi = R(θ) · u_local  (transformed displacement)
-
-        The CFD participant is responsible for applying rigid-body rotation using
-        GlobalSolidMesh (ω data). The structural solver sends ONLY the elastic
-        deformation over the rigidly-rotated reference.
-
-        Physical interpretation:
-            x(t) = x̂(t) + u_e(t)
-            x̂(t) = R(θ(t)) · X_0  (rigid reference, handled by CFD)
-            u_e(t) = elastic response (what we send)
-
-        Parameters
-        ----------
-        adapter : Adapter
-            preCICE adapter instance.
-        mesh_name : str
-            Name of the preCICE mesh (typically "SolidMesh").
-        data_name : str
-            Name of the displacement data field (e.g., "Displacement").
-        u_e_global : ndarray, shape (n_interface_nodes * dim,)
-            Elastic displacement in global coordinates (flattened).
-        theta : float
-            Current rotation angle (for logging/debugging only, NOT used in computation).
-
-        Notes
-        -----
-        Verification: An internal test should fail if this method accidentally
-        writes x̂ + u_e (total position) instead of just u_e.
-
-        Compatibility warning: If the CFD participant expects total displacement
-        instead of elastic displacement, the coupling will produce WRONG physics.
-        This must be documented and checked at configuration time.
-        """
-        # Assertion: ensure we're not accidentally adding rigid-body motion
-        # (This would be detected by checking that u_e remains bounded even as
-        # the rotor rotates many revolutions)
-
-        if self._precice_displacement_mode == "total":
-            # u_total = u_e + u_rigid, where u_rigid = R(θ)·X_0 - X_0
-            # This is required when the CFD participant expects total displacement
-            # from the original (unrotated) reference configuration.
-            X_0 = self._interface_coords_reference  # (n_interface_nodes, 3)
-            R = self._coord_transforms.rotation_matrix(theta)
-            X_rotated = (R @ X_0.T).T  # (n_interface_nodes, 3)
-            u_rigid = (X_rotated - X_0).ravel()  # flatten to (n_interface_nodes * 3,)
-            u_fsi = u_e_global + u_rigid
-            _logger.debug(
-                f"Wrote TOTAL displacement to '{mesh_name}/{data_name}': "
-                f"||u_e||={np.linalg.norm(u_e_global):.3e} "
-                f"||u_rigid||={np.linalg.norm(u_rigid):.3e} "
-                f"||u_total||={np.linalg.norm(u_fsi):.3e} (θ={np.degrees(theta):.1f}°)"
-            )
-        else:
-            u_fsi = u_e_global
-            _logger.debug(
-                f"Wrote elastic displacement to '{mesh_name}/{data_name}': "
-                f"||u_e||={np.linalg.norm(u_e_global):.3e} "
-                f"(θ={np.degrees(theta):.1f}°, elastic only, NO rigid-body component)"
-            )
-
-        adapter.write_data(mesh_name, data_name, u_fsi)
-
-    def _write_omega_to_global_mesh(
-        self, adapter: Adapter, mesh_name: str, data_name: str, omega: float
-    ) -> None:
-        """
-        Write representative angular velocity to GlobalSolidMesh (same as corotational solver).
-
-        The GlobalSolidMesh pattern is unchanged from the corotational solver:
-        - Single scalar value representing the rotor's angular velocity
-        - Used by CFD participant to rotate its own mesh or apply kinematics
-        - Typically written to a single-vertex "global" mesh
-
-        Parameters
-        ----------
-        adapter : Adapter
-            preCICE adapter instance.
-        mesh_name : str
-            Name of the global mesh (typically "GlobalSolidMesh").
-        data_name : str
-            Name of the omega data field (e.g., "AngularVelocity").
-        omega : float
-            Angular velocity magnitude in rad/s.
-
-        Notes
-        -----
-        Verification: A fixed-omega case should write the same ω history as
-        the corotational solver (exact match).
-        """
-        omega_array = np.array([omega], dtype=np.float64)
-        adapter.write_data(mesh_name, data_name, omega_array)
-
-        _logger.debug(
-            f"Wrote omega to '{mesh_name}/{data_name}': {omega:.6f} rad/s "
-            f"({np.degrees(omega):.2f} °/s)"
-        )
-
-    def _check_coupling_compatibility(self, adapter: Adapter) -> None:
-        """
-        Check that the CFD participant expects elastic displacement (not total displacement).
-
-        This is a configuration-time guard to prevent silent wrong physics.
-        If the CFD participant is configured to expect total displacement
-        (x - X_0), the inertial solver will produce incorrect results because
-        it only sends u_e (elastic component).
-
-        Raises
-        ------
-        RuntimeError
-            If the coupling configuration is incompatible with the inertial solver.
-
-        Notes
-        -----
-        Future enhancement: Read preCICE config XML to detect participant type
-        or add a metadata field that declares displacement contract.
-        For now, this is a placeholder with a clear warning message.
-        """
-        # TODO: Implement actual check by parsing preCICE config or adding metadata
-        # For now, just log a warning
-        _logger.warning(
-            "Inertial solver writes ELASTIC displacement only (u_e), NOT total displacement. "
-            "Verify that your CFD participant expects this contract and handles rigid-body "
-            "rotation via GlobalSolidMesh (omega data). If the CFD expects total displacement "
-            "(x - X_0), the coupling will produce WRONG physics."
-        )
-
-    # =========================================================================
-    # Phase 5 Complete
-    # =========================================================================
-    # Tasks 5.1-5.5 implemented:
-    # ✓ 5.1: _register_interface_at_reference_coords()
-    # ✓ 5.2: _read_forces_from_precice_global()
-    # ✓ 5.3: _write_elastic_displacement_to_precice()
-    # ✓ 5.4: _write_omega_to_global_mesh()
-    # ✓ 5.5: _check_coupling_compatibility()
-
-    # =========================================================================
-    # Future Implementation Methods (Phase 6-10)
-    # =========================================================================
-    # The following methods will be implemented in subsequent phases:
-    #
-    # Phase 6: Omega Dynamics and Torque Accounting
-    # =========================================================================
-
-    def _compute_torque_from_forces(
-        self,
-        nodal_coords: NDArray,
-        nodal_disps: NDArray,
-        nodal_forces: NDArray,
-    ) -> Tuple[NDArray, float]:
-        """
-        Compute torque vector in global frame and scalar projection on the rotation axis.
-
-        This is the CORE torque calculation method shared by aerodynamic, gravity,
-        and total torque computations. The inertial solver uses this directly without
-        coordinate transformations (unlike the corotational solver which applies R(θ)).
-
-        Algorithm:
-        1. Compute lever arms: r = (x + u_e) - center
-        2. Compute torque vector: τ = Σ (r × F)
-        3. Project onto rotation axis: τ_scalar = τ · ê_axis
-
-        Parameters
-        ----------
-        nodal_coords : ndarray, shape (n_nodes, dim)
-            Reference nodal coordinates (unrotated, global frame).
-        nodal_disps : ndarray, shape (n_nodes, dim)
-            Elastic displacements (global frame).
-        nodal_forces : ndarray, shape (n_nodes, dim)
-            Nodal forces (global frame).
-
-        Returns
-        -------
-        torque_global : ndarray, shape (3,)
-            Torque vector in global coordinates.
-        torque_scalar : float
-            Scalar torque projected onto the rotation axis (positive = axis direction).
-
-        Notes
-        -----
-        Verification: For a purely radial force field with constant |F|, the scalar
-        torque should equal n_nodes * |F| * r_avg (zero if forces are along radii).
-        """
-        # Ensure 3D vectors (pad with zeros if 2D mesh)
-        coords_3d = self._ensure_3d_vectors(nodal_coords)
-        disps_3d = self._ensure_3d_vectors(nodal_disps)
-        forces_3d = self._ensure_3d_vectors(nodal_forces)
-
-        # Compute current positions: x = X + u_e
-        positions = coords_3d + disps_3d
-
-        # Compute lever arms from rotation center
-        lever_arms = positions - self._rotation_center
-
-        # Compute torque vector: τ = Σ (r × F)
-        torque_contributions = np.cross(lever_arms, forces_3d)
-        torque_global = np.sum(torque_contributions, axis=0)
-
-        # Project onto rotation axis
-        torque_scalar = float(np.dot(torque_global, self._rotation_axis))
-
-        return torque_global, torque_scalar
 
     def _ensure_3d_vectors(self, array_2d: NDArray) -> NDArray:
         """
@@ -1375,205 +490,6 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             return array_3d
         else:
             raise ValueError(f"Expected array with dim=2 or dim=3, got shape {array_2d.shape}")
-
-    def _compute_aerodynamic_torque(
-        self, interface_coords: NDArray, interface_disps: NDArray, F_aero: NDArray
-    ) -> Tuple[NDArray, float]:
-        """
-        Compute aerodynamic torque from preCICE forces.
-
-        Uses only external aerodynamic forces (no reference load, no inertial terms).
-        This is the driving torque component from fluid-structure interaction.
-
-        Parameters
-        ----------
-        interface_coords : ndarray, shape (n_interface_nodes, dim)
-            Interface node coordinates at reference configuration.
-        interface_disps : ndarray, shape (n_interface_nodes, dim)
-            Elastic displacements at interface nodes.
-        F_aero : ndarray, shape (n_interface_nodes * dim,)
-            Aerodynamic forces from preCICE (flattened).
-
-        Returns
-        -------
-        tau_aero_global : ndarray, shape (3,)
-            Aerodynamic torque vector (global frame).
-        tau_aero_scalar : float
-            Aerodynamic torque projected onto rotation axis.
-
-        Notes
-        -----
-        Verification: In steady rotation with zero elastic deformation, the aero
-        torque should balance the drag torque computed from power coefficient.
-        """
-        # Reshape flattened force array
-        dim = interface_coords.shape[1]
-        n_interface = len(interface_coords)
-        F_aero_2d = F_aero.reshape((n_interface, dim))
-
-        tau_aero_global, tau_aero_scalar = self._compute_torque_from_forces(
-            interface_coords, interface_disps, F_aero_2d
-        )
-
-        _logger.debug(
-            f"Aerodynamic torque: ||τ||={np.linalg.norm(tau_aero_global):.3e}, "
-            f"τ_axis={tau_aero_scalar:.3e}"
-        )
-
-        return tau_aero_global, tau_aero_scalar
-
-    def _compute_gravity_torque(
-        self, nodal_coords: NDArray, nodal_disps: NDArray, F_gravity: NDArray
-    ) -> Tuple[NDArray, float]:
-        """
-        Compute gravity torque from nodal gravity loads.
-
-        Parameters
-        ----------
-        nodal_coords : ndarray, shape (n_nodes, dim)
-            Reference nodal coordinates (unrotated).
-        nodal_disps : ndarray, shape (n_nodes, dim)
-            Elastic displacements.
-        F_gravity : ndarray, shape (n_nodes * dim,)
-            Gravity force vector (flattened).
-
-        Returns
-        -------
-        tau_grav_global : ndarray, shape (3,)
-            Gravity torque vector (global frame).
-        tau_grav_scalar : float
-            Gravity torque projected onto rotation axis.
-
-        Notes
-        -----
-        Verification: For a rotor with uniform mass distribution and rotation
-        axis aligned with gravity, the gravity torque should oscillate at 1P
-        frequency as the rotor rotates.
-        """
-        dim = nodal_coords.shape[1]
-        n_nodes = len(nodal_coords)
-        # F_gravity has n_nodes * dofs_per_node elements; extract translational
-        # components only (first `dim` per node) to match nodal_coords shape.
-        F_grav_2d = F_gravity.reshape(n_nodes, -1)[:, :dim]
-
-        tau_grav_global, tau_grav_scalar = self._compute_torque_from_forces(
-            nodal_coords, nodal_disps, F_grav_2d
-        )
-
-        _logger.debug(
-            f"Gravity torque: ||τ||={np.linalg.norm(tau_grav_global):.3e}, "
-            f"τ_axis={tau_grav_scalar:.3e}"
-        )
-
-        return tau_grav_global, tau_grav_scalar
-
-    def _compute_driving_torque(
-        self,
-        interface_coords: NDArray,
-        interface_disps: NDArray,
-        F_aero: NDArray,
-        nodal_coords: NDArray,
-        nodal_disps: NDArray,
-        F_gravity: NDArray,
-    ) -> float:
-        """
-        Compute total driving torque for OmegaProvider dynamics.
-
-        Driving torque is the SUM of external forces ONLY:
-            tau_driving = tau_aero + tau_gravity + tau_shaft
-
-        The reference load -M·a_ref is NOT included because it is an inertial
-        reaction (internal to the structure), not an external driving force.
-
-        Parameters
-        ----------
-        interface_coords : ndarray
-            Interface node coordinates at reference configuration.
-        interface_disps : ndarray
-            Elastic displacements at interface nodes.
-        F_aero : ndarray
-            Aerodynamic forces from preCICE.
-        nodal_coords : ndarray
-            All nodal coordinates at reference configuration.
-        nodal_disps : ndarray
-            Elastic displacements at all nodes.
-        F_gravity : ndarray
-            Gravity forces at all nodes.
-
-        Returns
-        -------
-        tau_driving : float
-            Total driving torque (aero + gravity + shaft).
-
-        Notes
-        -----
-        Verification: A test with only reference load (no aero, no gravity) must
-        produce zero driving torque, preventing the rotor from self-acceleration.
-        """
-        _, tau_aero = self._compute_aerodynamic_torque(interface_coords, interface_disps, F_aero)
-        _, tau_gravity = self._compute_gravity_torque(nodal_coords, nodal_disps, F_gravity)
-
-        # Shaft torque (assumed zero in current implementation, future extension)
-        tau_shaft = 0.0
-
-        tau_driving = tau_aero + tau_gravity + tau_shaft
-
-        _logger.debug(
-            f"Driving torque components: aero={tau_aero:.3e}, "
-            f"gravity={tau_gravity:.3e}, shaft={tau_shaft:.3e}, "
-            f"total={tau_driving:.3e}"
-        )
-
-        return tau_driving
-
-    def _update_omega_after_converged_window(
-        self, tau_driving: float, dt: float, current_time: float
-    ) -> None:
-        """
-        Update angular velocity using OmegaProvider after a converged FSI window.
-
-        This MUST be called ONLY after the FSI window has converged (no rollbacks).
-        The OmegaProvider state machine ensures omega evolves with the correct
-        semantics (ramped, constant, or computed from torque balance).
-
-        Parameters
-        ----------
-        tau_driving : float
-            Total driving torque (aero + gravity + shaft).
-        dt : float
-            Time step size for the converged window.
-        current_time : float
-            Simulation time at the end of the converged window.
-
-        Notes
-        -----
-        Verification: For ComputedOmega or RampedComputedOmega, the omega history
-        should match the corotational solver given identical external loads.
-
-        For ConstantOmega, omega should remain unchanged regardless of tau_driving.
-        """
-        self._omega_provider.update(tau_driving, dt)
-
-        # Cache updated state
-        self._omega, self._alpha = self._omega_provider.get_omega(current_time)
-
-        _logger.debug(
-            f"Updated omega after converged window: ω={self._omega:.6f} rad/s, "
-            f"α={self._alpha:.6f} rad/s², θ={self._theta:.6f} rad"
-        )
-
-    # =========================================================================
-    # Phase 6 Complete
-    # =========================================================================
-    # Tasks 6.1-6.4 implemented:
-    # ✓ 6.1: _update_omega_after_converged_window() - reuses OmegaProvider workflow
-    # ✓ 6.2: _compute_driving_torque() - external forces only (aero + gravity + shaft)
-    # ✓ 6.3: Torque logging via _compute_aerodynamic_torque(), _compute_gravity_torque()
-    # ✓ 6.4: Representative window omega used consistently (from OmegaProvider)
-
-    # =========================================================================
-    # Main solve() Method - Orchestrates Full FSI Cycle
-    # =========================================================================
 
     def solve(self) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec"]:
         """
@@ -1607,13 +523,6 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec]
             Final (displacement, velocity, acceleration) vectors.
         """
-        from petsc4py import PETSc
-
-        from .base import Adapter
-
-        # Checkpoint/restart (not fully implemented yet - stub for now)
-        checkpoint_state = None  # TODO: implement _try_restore_checkpoint()
-        t_restart = float(self.solver_params.get("start_time", 0.0))
 
         self._print_header("FSI DYNAMIC ANALYSIS - INERTIAL ROTOR SOLVER")
 
@@ -1642,1064 +551,235 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             # Re-initialize provider with computed inertia (same logic as corotational)
             self._resolve_auto_inertia_provider(estimated_inertia)
 
-        # Phase 4: Initialize preCICE adapter
-        self._print_phase(1, 2, "Initializing preCICE adapter...")
-        cfg = self.model_properties["solver"]["coupling"]
-
-        # Inertial solver: register the coupling mesh at the FIXED reference
-        # coordinates (θ=0).  The mesh never moves from preCICE's perspective;
-        # only elastic displacement u_e is written each window.
-        _coupling_meshes: Dict[str, np.ndarray] = {cfg["coupling_mesh"]: interface_coords}
-
-        # GlobalSolidMesh (single vertex at origin) must ALWAYS be registered
-        # if it is declared in the preCICE config, regardless of whether omega
-        # is exchanged dynamically. send_omega_to_precice only controls whether
-        # preCICE receives the live omega or the constant initial value.
-        _coupling_meshes[self._omega_mesh_name] = np.zeros((1, 3), dtype=np.float64)
-
-        adapter = Adapter(
-            participant=cfg["participant"],
-            config_file=cfg["config_file"],
-            coupling_meshes=_coupling_meshes,
+        return self._solve_via_rust(
+            bc_manager=bc_manager,
+            interface_coords=interface_coords,
         )
 
-        # Register vertices first so write_data (below) can look up vertex IDs.
-        adapter.register_meshes()
-
-        # preCICE requires initial data before initialize() when the exchange
-        # has initialize="true".  Write zero displacement and constant omega now.
-        if adapter.requires_initial_data:
-            _write_data_name = (
-                cfg["write_data"] if isinstance(cfg["write_data"], str) else cfg["write_data"][0]
-            )
-            zero_disp = np.zeros_like(interface_coords)
-            adapter.write_data(cfg["coupling_mesh"], _write_data_name, zero_disp)
-            if self._send_omega_to_precice:
-                _init_omega_val, _ = self._omega_provider.get_omega(t_restart)
-            else:
-                _init_omega_val = self._omega_provider.initial_omega
-            _init_omega = np.array([_init_omega_val], dtype=np.float64)
-            adapter.write_data(self._omega_mesh_name, self._omega_write_data_name, _init_omega)
-
-        adapter.initialize()
-        dt = adapter.dt
-
-        self._print_phase(2, 2, f"preCICE initialized. dt={dt:.4e} s")
-
-        # Phase 5: Time loop initialization
-        t = t_restart
-        theta = 0.0  # Accumulated rotation angle [rad]
-        omega, alpha = self._omega_provider.get_omega(t)
-        window_count = 0
-        iteration_count = 0
-
-        # State vectors (elastic displacement, velocity, acceleration)
-        u_e = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
-        v_e = u_e.duplicate()
-        a_e = u_e.duplicate()
-        u_e.set(0.0)
-        v_e.set(0.0)
-        a_e.set(0.0)
-
-        # Gravity load (constant in global frame)
-        F_gravity = self._compute_gravity_load_vector()
-
-        # Current matrices (will be updated after each converged window)
-        K_current = self.K
-        C_current = self._assemble_rayleigh_damping(K_current, self.M)
-
-        # Checkpoint storage for sub-iterations
-        checkpoint: Dict[str, Any] = {}
-
-        # KSP cache: K_eff factorization is constant within an FSI window
-        # (K, C, M, theta, omega, alpha are all frozen during sub-iterations).
-        # Cache both the factorized KSP and its operator matrix so both can be
-        # destroyed explicitly when the window rolls over.
-        _ksp_window_cache: Optional[Dict[str, Any]] = None
-
-        # Force-cap activation counter (Warning #5)
-        _n_force_cap_activations: int = 0
-        _FORCE_CAP_LOG_INTERVAL: int = 50
-
-        # Re-assembly timing for K(theta) after each converged window.
-        _stiffness_reassembly_count: int = 0
-        _stiffness_reassembly_total_s: float = 0.0
-        _stiffness_reassembly_min_s: float = float("inf")
-        _stiffness_reassembly_max_s: float = 0.0
-
-        def _destroy_petsc_object(obj: Any) -> None:
-            if obj is None or not hasattr(obj, "destroy"):
-                return
-            try:
-                obj.destroy()
-            except Exception as exc:
-                _logger.debug("PETSc cleanup skipped: %s", exc)
-
-        def _destroy_window_solver_cache(cache: Optional[Dict[str, Any]]) -> None:
-            if cache is None:
-                return
-            if isinstance(cache, dict):
-                _destroy_petsc_object(cache.get("ksp"))
-                _destroy_petsc_object(cache.get("operator"))
-                workspace = cache.get("workspace", {})
-                if isinstance(workspace, dict):
-                    for obj in workspace.values():
-                        _destroy_petsc_object(obj)
-                return
-            _destroy_petsc_object(cache)
-
-        def _invalidate_window_solver_cache(cache: Optional[Dict[str, Any]]) -> None:
-            if cache is None or not isinstance(cache, dict):
-                return
-            cache["factorization_valid"] = False
-            cache["window_rhs_constant"] = None
-
-        def _workspace_owns_vector(cache: Optional[Dict[str, Any]], vec: Any) -> bool:
-            if cache is None or not isinstance(cache, dict):
-                return False
-            workspace = cache.get("workspace", {})
-            if not isinstance(workspace, dict):
-                return False
-            return any(vec is work_vec for work_vec in workspace.values())
-
-        def _destroy_checkpoint_vectors(state: Optional[Dict[str, Any]]) -> None:
-            if not state:
-                return
-            for key in ("u_e", "v_e", "a_e"):
-                _destroy_petsc_object(state.get(key))
-
-        self._print_separator()
-        if self._is_primary_rank():
-            print("  Starting FSI coupling loop...\n", flush=True)
-
-        # Phase 6: preCICE coupling loop
-        while adapter.is_coupling_ongoing:
-            # Checkpoint if preCICE requires (implicit coupling sub-iterations)
-            if adapter.requires_writing_checkpoint:
-                _destroy_checkpoint_vectors(checkpoint)
-                checkpoint = self._checkpoint_elastic_state(u_e, v_e, a_e, theta, omega, alpha)
-                # Store current structural matrices in checkpoint so that rollback
-                # can restore K(θ) and C(θ) consistent with the checkpointed kinematics.
-                checkpoint["K_current"] = K_current
-                checkpoint["C_current"] = C_current
-                # New window: keep the PETSc LU context alive, but mark the
-                # factorization as stale so the next first step recomputes the
-                # numeric factorization for the updated K_eff.
-                _invalidate_window_solver_cache(_ksp_window_cache)
-                iteration_count = 0
-
-            # Read aero forces (global frame, no transformation)
-            F_aero = self._read_forces_from_precice_global(
-                adapter,
-                cfg["coupling_mesh"],
-                cfg["read_data"][0] if isinstance(cfg["read_data"], list) else cfg["read_data"],
-            )
-
-            # Apply force ramp: scale aerodynamic forces linearly from 0 to full
-            # during the ramp phase to avoid impulsive loading at t=0 which can
-            # cause divergence in the Newmark integration.
-            if self._force_ramp_time > 0.0 and t < self._force_ramp_time:
-                ramp_factor = t / self._force_ramp_time
-                F_aero = F_aero * ramp_factor
-                _logger.debug(
-                    f"Force ramp active: t={t:.4f}s / ramp_time={self._force_ramp_time:.4f}s, "
-                    f"factor={ramp_factor:.4f}"
-                )
-
-            # Apply magnitude cap: clip per-component norm to prevent numerical blowup
-            # from pathological CFD spikes.
-            if self._force_max_magnitude is not None:
-                f_norm = float(np.linalg.norm(F_aero))
-                if f_norm > self._force_max_magnitude:
-                    F_aero = F_aero * (self._force_max_magnitude / f_norm)
-                    _n_force_cap_activations += 1
-                    _logger.warning(
-                        f"Force capped: ||F_aero||={f_norm:.3e} > cap={self._force_max_magnitude:.3e}. "
-                        f"Scaling by {self._force_max_magnitude / f_norm:.4f}."
-                    )
-            # Log cap activation fraction periodically
-            if (
-                self._force_max_magnitude is not None
-                and window_count > 0
-                and window_count % _FORCE_CAP_LOG_INTERVAL == 0
-            ):
-                _logger.info(
-                    f"Force cap statistics: activated {_n_force_cap_activations}/{window_count} windows "
-                    f"({100.0 * _n_force_cap_activations / window_count:.1f}%)"
-                )
-
-            # Solve FSI step (elastic displacement increment)
-            u_e_new, v_e_new, a_e_new, _ksp_window_cache = self._solve_fsi_step(
-                F_aero,
-                F_gravity,
-                dt,
-                theta,
-                omega,
-                alpha,
-                u_e,
-                v_e,
-                a_e,
-                bc_manager,
-                K_current,
-                C_current,
-                ksp_cache=_ksp_window_cache,
-                window_index=window_count + 1,
-                iteration_index=iteration_count + 1,
-            )
-
-            # Extract interface elastic displacement
-            u_e_interface = self._extract_interface_values(u_e_new, interface_dofs)
-
-            # Write elastic displacement to preCICE (NOT total displacement)
-            self._write_elastic_displacement_to_precice(
-                adapter,
-                cfg["coupling_mesh"],
-                cfg["write_data"][0] if isinstance(cfg["write_data"], list) else cfg["write_data"],
-                u_e_interface,
-                theta,
-            )
-
-            # Write omega to GlobalSolidMesh every window. When dynamic omega
-            # exchange is disabled, keep sending the constant initial value so
-            # the preCICE mesh stays valid without changing the fluid-side rpm.
-            omega_to_precice = (
-                omega if self._send_omega_to_precice else self._omega_provider.initial_omega
-            )
-            self._write_omega_to_global_mesh(
-                adapter, self._omega_mesh_name, self._omega_write_data_name, omega_to_precice
-            )
-
-            # Log iteration
-            iteration_count += 1
-            if self._is_primary_rank() and getattr(self, "_debug_interface", False):
-                u_norm = float(np.linalg.norm(u_e_interface))
-                f_norm = float(np.linalg.norm(F_aero))
-                print(
-                    f"  [FSI] window={window_count:4d} iter={iteration_count:2d} "
-                    f"| ||u_e||={u_norm:.6e} m | ||F_aero||={f_norm:.6e} N",
-                    flush=True,
-                )
-
-            # Advance preCICE (may trigger sub-iteration or window advance)
-            adapter.advance(dt)
-
-            # Rollback or converge
-            if adapter.requires_reading_checkpoint:
-                # Sub-iteration did not converge, restore checkpoint
-                self._rollback_elastic_state(checkpoint, u_e, v_e, a_e)
-                theta = float(checkpoint["theta"])
-                omega = float(checkpoint["omega"])
-                alpha = float(checkpoint["alpha"])
-                # Restore structural matrices to be consistent with restored θ.
-                # Without this, K_current/C_current would reflect post-rollback
-                # geometry while kinematics reflect checkpoint geometry.
-                K_current = checkpoint["K_current"]
-                C_current = checkpoint["C_current"]
-            else:
-                # Window converged!
-                window_count += 1
-                t += dt
-
-                # Compute driving torque from aerodynamic and gravity forces.
-                # Lever arms must use R(θ)·X₀ (current rotated position), not X₀.
-                nodal_coords_rotated = self._rotate_structural_geometry_internal(theta)
-                rotated_interface_coords = self._coord_transforms.rotate_point_cloud(
-                    coords=self._ensure_3d_vectors(interface_coords),
-                    theta=theta,
-                )[:, : interface_coords.shape[1]]
-                # Extract translational nodal displacements from converged u_e_new
-                # (u_e_new is a PETSc.Vec; .getArray() returns the local partition)
-                # Preserve the converged state before releasing the per-window
-                # workspace, which owns the trial vectors returned by
-                # _solve_fsi_step().
-                u_e_window = u_e_new
-                v_e_window = v_e_new
-                a_e_window = a_e_new
-                if _workspace_owns_vector(_ksp_window_cache, u_e_new):
-                    u_e_new.copy(result=u_e)
-                    u_e_window = u_e
-                if _workspace_owns_vector(_ksp_window_cache, v_e_new):
-                    v_e_new.copy(result=v_e)
-                    v_e_window = v_e
-                if _workspace_owns_vector(_ksp_window_cache, a_e_new):
-                    a_e_new.copy(result=a_e)
-                    a_e_window = a_e
-
-                _n_nodes_full = nodal_coords_rotated.shape[0]
-                _dpn = self.domain.dofs_per_node
-                u_e_nodal = u_e_window.getArray().reshape(_n_nodes_full, _dpn)[:, :3]
-                # Compute torque components individually (needed for CSV output)
-                tau_aero_global, tau_aero = self._compute_aerodynamic_torque(
-                    rotated_interface_coords, u_e_interface, F_aero
-                )
-                tau_grav_global, tau_grav = self._compute_gravity_torque(
-                    nodal_coords_rotated, u_e_nodal, F_gravity
-                )
-                tau_driving = tau_aero + tau_grav
-                tau_total_global = tau_aero_global + tau_grav_global
-
-                # Energy balance check for ComputedOmega / RampedComputedOmega (Warning #4).
-                # ΔKE_rotor ≈ τ_driving · ω_avg · dt; large discrepancy signals torque error.
-                _omega_before = omega
-
-                # Update omega using OmegaProvider dynamics
-                self._update_omega_after_converged_window(tau_driving, dt, t)
-                omega = self._omega
-                alpha = self._alpha
-
-                _I_provider = getattr(self._omega_provider, "_I", None)
-                if _I_provider is not None and abs(_omega_before) > 1e-6:
-                    _delta_ke = 0.5 * _I_provider * (omega**2 - _omega_before**2)
-                    _omega_avg = 0.5 * (_omega_before + omega)
-                    _expected_work = tau_driving * _omega_avg * dt
-                    _denom = abs(_expected_work) + 1e-12
-                    _ke_err = abs(_delta_ke - _expected_work) / _denom
-                    if _ke_err > 0.01:
-                        _logger.warning(
-                            f"Energy imbalance at t={t:.4f}s: "
-                            f"ΔKE={_delta_ke:.3e} J, expected={_expected_work:.3e} J, "
-                            f"err={_ke_err * 100:.1f}% (>1%% threshold). "
-                            f"τ_driving={tau_driving:.3e} N·m, ω_avg={_omega_avg:.4f} rad/s"
-                        )
-
-                # Accumulate rotation angle for next window
-                theta += omega * dt
-
-                # Normalize theta to prevent float precision loss in sin/cos for
-                # long simulations (> ~100 revolutions, theta > 200*pi).
-                # The rotation matrix R(theta) only depends on theta mod 2*pi,
-                # so wrapping is exact and does not change physics.
-                # Wrap theta to [0, 2π) after every full revolution to keep the
-                # value bounded; sin/cos are periodic so physics is unchanged.
-                theta = theta % (2.0 * np.pi)
-
-                # The factorization and window matrices are no longer valid once
-                # the geometry is advanced to the next converged orientation.
-                _invalidate_window_solver_cache(_ksp_window_cache)
-                old_K_current = K_current
-                old_C_current = C_current
-
-                # Rotate internal structural geometry for next window.
-                # Fast path: update node coords in-place via Rust API (preserves topology,
-                # avoids full assembler rebuild — 2-4× faster for large meshes).
-                # Fallback: reconstruct the assembler when the fast path is unavailable.
-                rotated_coords = self._rotate_structural_geometry_internal(theta)
-                rust_asm = getattr(self.domain, "_rust", None)
-                if rust_asm is not None and hasattr(rust_asm, "update_node_coordinates"):
-                    rust_asm.update_node_coordinates(rotated_coords)
-                    _logger.debug("Geometry update via Rust fast path (update_node_coordinates)")
-                else:
-                    new_asm = self._rebuild_assembler_with_rotated_geometry(rotated_coords)
-                    self.domain._rust = new_asm._rust
-                    self.domain._rust_mesh = new_asm._rust_mesh
-                    _logger.debug("Geometry update via full assembler rebuild (fallback)")
-
-                # Rebuild matrices on rotated geometry. Log only the stiffness
-                # assembly time so it can be profiled independently from the
-                # geometry update and damping assembly.
-                next_window_index = window_count + 1
-                _stiffness_reassembly_t0 = time.perf_counter()
-                K_current = self.domain.assemble_stiffness_matrix()
-                stiffness_reassembly_elapsed_s = time.perf_counter() - _stiffness_reassembly_t0
-                _stiffness_reassembly_count += 1
-                _stiffness_reassembly_total_s += stiffness_reassembly_elapsed_s
-                _stiffness_reassembly_min_s = min(
-                    _stiffness_reassembly_min_s, stiffness_reassembly_elapsed_s
-                )
-                _stiffness_reassembly_max_s = max(
-                    _stiffness_reassembly_max_s, stiffness_reassembly_elapsed_s
-                )
-                _logger.info(
-                    "[rotor_inertial] window=%d stiffness reassembly done in %.3fs",
-                    next_window_index,
-                    stiffness_reassembly_elapsed_s,
-                )
-                C_current = self._assemble_rayleigh_damping(K_current, self.M)
-                if old_C_current is not None:
-                    _destroy_petsc_object(old_C_current)
-                if old_K_current is not None and old_K_current is not self.K:
-                    _destroy_petsc_object(old_K_current)
-
-                # ── CSV + VTU output ─────────────────────────────────────────
-                _dpn = self.domain.dofs_per_node
-                _n_nodes = len(self.domain.nodes)
-
-                u_full = u_e_window.getArray().copy()
-                v_full = v_e_window.getArray().copy()
-                a_full = a_e_window.getArray().copy()
-
-                # Thrust: sum of aero forces at interface projected onto axis
-                _n_iface = len(interface_coords)
-                _dim = interface_coords.shape[1]
-                F_aero_2d = F_aero.reshape(_n_iface, _dim)
-                thrust = float(
-                    np.dot(
-                        np.sum(F_aero_2d, axis=0),
-                        self._coord_transforms.axis[:_dim],
-                    )
-                )
-
-                # Deformed rotor radius
-                _iface_disp_2d = (
-                    u_e_interface.reshape(_n_iface, _dim)
-                    if u_e_interface.ndim == 1
-                    else u_e_interface
-                )
-                deformed_radius = self._compute_rotor_radius(
-                    interface_coords + _iface_disp_2d[:, : interface_coords.shape[1]]
-                )
-
-                # Performance coefficients
-                ct, cp, cq, tsr = self._compute_performance_coefficients(
-                    thrust, tau_aero, omega, deformed_radius
-                )
-
-                # Derived scalars
-                power_aero = tau_aero * omega
-                power_total = tau_driving * omega
-                angle_deg = float(np.degrees(theta))
-                omega_rpm = float(omega * 60.0 / (2.0 * np.pi))
-                max_disp = float(
-                    np.max(np.linalg.norm(u_full.reshape(_n_nodes, _dpn)[:, :3], axis=1))
-                )
-                applied_force_mag = float(np.linalg.norm(F_aero))
-
-                # --- rotor_performance.csv ---
-                self._log_rotor_performance(
-                    t=t,
-                    omega_rpm=omega_rpm,
-                    omega_rad=omega,
-                    alpha=alpha,
-                    angle_deg=angle_deg,
-                    thrust=thrust,
-                    torque_aero=tau_aero,
-                    torque_gravity=tau_grav,
-                    torque_total=tau_driving,
-                    power_aero=power_aero,
-                    power_total=power_total,
-                    cp=cp,
-                    cq=cq,
-                    ct=ct,
-                    tsr=tsr,
-                    torque_aero_global=tau_aero_global,
-                    torque_total_global=tau_total_global,
-                    max_displacement=max_disp,
-                    deformed_radius=deformed_radius,
-                )
-
-                # --- rotor_restart_state.csv ---
-                self._write_restart_state(t, theta, omega, alpha)
-
-                should_write_heavy_output = (
-                    self._checkpoint_manager is None or self._checkpoint_manager.should_write(t)
-                )
-                if should_write_heavy_output:
-                    # Stress fields are among the heaviest per-window allocations,
-                    # so keep them aligned with the configured output cadence.
-                    stress_fields = self._compute_stress_fields(u_full)
-
-                    # --- structural_report.csv ---
-                    self._log_structural_report(
-                        t=t,
-                        time_step=window_count,
-                        u_full=u_full,
-                        v_full=v_full,
-                        a_full=a_full,
-                        stress_fields=stress_fields,
-                        applied_force_mag=applied_force_mag,
-                    )
-
-                    # --- probes.csv ---
-                    self._log_probe_data(
-                        t=t,
-                        time_step=window_count,
-                        u_full=u_full,
-                        v_full=v_full,
-                        stress_fields=stress_fields,
-                    )
-
-                    # --- VTU checkpoint ---
-                    # Scatter aero forces into full DOF array for field export
-                    F_aero_full = np.zeros(u_full.shape, dtype=np.float64)
-                    F_aero_full_2d = F_aero_full.reshape(_n_nodes, _dpn)
-                    F_aero_full_2d[self._interface_node_ids, :_dim] = F_aero_2d
-                    extra_fields: Dict[str, Any] = {
-                        "F_AERO": F_aero_full.copy(),
-                        "F_GRAVITY": F_gravity.copy(),
-                        "F_TOTAL": (F_aero_full + F_gravity).copy(),
-                        "OMEGA": np.full(_n_nodes, float(omega), dtype=np.float64),
-                        "THETA": np.full(_n_nodes, float(theta), dtype=np.float64),
-                        **stress_fields,
-                    }
-                    self._handle_checkpoint(
-                        t=t,
-                        time_step=window_count,
-                        dt=dt,
-                        u_red=u_full,
-                        v_red=v_full,
-                        a_red=a_full,
-                        u_full=u_full,
-                        v_full=v_full,
-                        a_full=a_full,
-                        extra_fields=extra_fields,
-                    )
-                # ── end output ───────────────────────────────────────────────
-
-                # Copy state for next iteration
-                if u_e_window is not u_e:
-                    u_e_window.copy(result=u_e)
-                if v_e_window is not v_e:
-                    v_e_window.copy(result=v_e)
-                if a_e_window is not a_e:
-                    a_e_window.copy(result=a_e)
-
-                # Reset iteration counter
-                iteration_count = 0
-
-            for _tmp_vec, _state_vec in ((u_e_new, u_e), (v_e_new, v_e), (a_e_new, a_e)):
-                if _tmp_vec is not _state_vec and not _workspace_owns_vector(
-                    _ksp_window_cache, _tmp_vec
-                ):
-                    _destroy_petsc_object(_tmp_vec)
-
-        _destroy_window_solver_cache(_ksp_window_cache)
-        _destroy_checkpoint_vectors(checkpoint)
-
-        if _stiffness_reassembly_count > 0:
-            _logger.info(
-                "[rotor_inertial] stiffness reassembly summary: count=%d total=%.3fs avg=%.3fs min=%.3fs max=%.3fs",
-                _stiffness_reassembly_count,
-                _stiffness_reassembly_total_s,
-                _stiffness_reassembly_total_s / _stiffness_reassembly_count,
-                _stiffness_reassembly_min_s,
-                _stiffness_reassembly_max_s,
-            )
-
-        # Finalize preCICE
-        adapter.finalize()
-
-        if self._is_primary_rank():
-            print("\n" + "═" * 70, flush=True)
-            print(f"  FSI coupling complete. Total windows: {window_count}", flush=True)
-            print("═" * 70 + "\n", flush=True)
-
-        return u_e, v_e, a_e
-
     # =========================================================================
-    # Per-Step Solve Method
+    # Rust fast-path delegate
     # =========================================================================
 
-    def _solve_fsi_step(
+    def _solve_via_rust(
         self,
-        F_aero: NDArray,
-        F_gravity: NDArray,
-        dt: float,
-        theta: float,
-        omega: float,
-        alpha: float,
-        u_e_prev: "PETSc.Vec",
-        v_e_prev: "PETSc.Vec",
-        a_e_prev: "PETSc.Vec",
         bc_manager: "BoundaryConditionManager",
-        K_current: "PETSc.Mat",
-        C_current: "PETSc.Mat",
-        ksp_cache: Optional[Dict[str, Any]] = None,
-        window_index: Optional[int] = None,
-        iteration_index: Optional[int] = None,
-    ) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec", Optional[Dict[str, Any]]]:
-        """
-        Solve one FSI sub-iteration step using Newmark integration.
+        interface_coords: "NDArray",
+    ) -> Tuple["PETSc.Vec", "PETSc.Vec", "PETSc.Vec"]:
+        """Delegate the FSI loop to the compiled Rust solver.
 
-        Assembles and solves:
-            K_eff · u_e_new = F_eff
-
-        where:
-            K_eff = K(θ) + a₀·M + a₁·C(θ)
-            F_eff = F_aero + F_gravity - F_ref + M·(a₀·u_prev + a₂·v_prev + a₃·a_prev)
+        Mirrors the pattern used by
+        ``LinearDynamicFSIRotorCorotationalSolver._solve_via_rust``.  The
+        Python solver remains the authoritative reference / fallback.
 
         Parameters
         ----------
-        F_aero : ndarray
-            Aerodynamic forces from preCICE (global frame, full DOF vector).
-        F_gravity : ndarray
-            Gravity load vector (constant in global frame).
-        dt : float
-            Time step size [s].
-        theta : float
-            Current rotation angle [rad].
-        omega : float
-            Angular velocity [rad/s].
-        alpha : float
-            Angular acceleration [rad/s²].
-        u_e_prev : PETSc.Vec
-            Elastic displacement at previous iteration.
-        v_e_prev : PETSc.Vec
-            Elastic velocity at previous iteration.
-        a_e_prev : PETSc.Vec
-            Elastic acceleration at previous iteration.
-        bc_manager : BoundaryConditionManager
-            Boundary condition manager with free DOFs.
-        K_current : PETSc.Mat
-            Stiffness matrix at current orientation K(θ).
-        C_current : PETSc.Mat
-            Damping matrix at current orientation C(θ).
-
-        Returns
-        -------
-        Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec, Optional[Dict[str, Any]]]
-            Updated (u_e_new, v_e_new, a_e_new) vectors and the cached solver
-            state for subsequent sub-iterations in the same FSI window.
-
-        Notes
-        -----
-        This implements the inertial formulation:
-            M·ü_e + C(θ)·u̇_e + K(θ)·u_e = F_aero + F_gravity - M·a_ref
-
-        where a_ref = α × r + ω × (ω × r) is the rigid-body reference acceleration.
-
-        K_eff = K(θ) + a₀·M + a₁·C(θ) is constant within an FSI window because
-        K, C, M, theta, omega, and alpha are all frozen during sub-iterations.
-        Passing ksp_cache avoids re-factorizing on every sub-iteration.
+        bc_manager :
+            Boundary condition manager with ``free_dofs`` populated.
+        interface_coords :
+            (n_iface_nodes × 3) array of interface node coordinates in the
+            reference (θ=0) frame.
         """
-        from petsc4py import PETSc
+        import _aeroelast  # noqa: PLC0415
+        import numpy as np  # noqa: PLC0415
 
-        # Newmark-β coefficients (β=0.25, γ=0.5 — average acceleration, unconditionally stable)
-        # K_eff = K(θ) + a₀·M + a₁·C(θ)
-        # F_eff = F_aero + F_g + F_ref + M·(a₀·u_n + a₂·v_n + a₃·a_n) + C·(a₁·u_n + v_n)
-        beta = 0.25
-        gamma = 0.5
-        a0 = 1.0 / (beta * dt * dt)  # 4/Δt²
-        a1 = gamma / (beta * dt)  # 2/Δt
-        a2 = 1.0 / (beta * dt)  # 4/Δt
-        a3 = 1.0 / (2.0 * beta) - 1.0  # 1.0
+        from petsc4py import PETSc  # noqa: PLC0415
 
-        # Dirichlet BC data from bc_manager
-        fixed_dofs_dict = bc_manager.fixed_dofs  # Dict[int, float]
-        fixed_idx = np.array(list(fixed_dofs_dict.keys()), dtype=PETSc.IntType)
-        fixed_vals = np.array(list(fixed_dofs_dict.values()), dtype=PETSc.ScalarType)
-
-        interface_dofs_flat = self._interface_dofs.ravel()
-        n_trans = min(3, self.domain.dofs_per_node)
-        mass_diag_nodes = self._get_mass_diagonal_array().reshape(-1, self.domain.dofs_per_node)
-
-        def _create_window_workspace() -> Dict[str, "PETSc.Vec"]:
-            vec_template = self.M.createVecRight()
-            workspace = {
-                "M_hist_in": vec_template.duplicate(),
-                "M_hist_out": vec_template.duplicate(),
-                "C_hist_in": vec_template.duplicate(),
-                "C_hist_out": vec_template.duplicate(),
-                "F_eff": vec_template.duplicate(),
-                "u_trial": vec_template.duplicate(),
-                "v_trial": vec_template.duplicate(),
-                "a_trial": vec_template.duplicate(),
-                "delta_u": vec_template.duplicate(),
-            }
-            vec_template.destroy()
-            return workspace
-
-        def _build_window_rhs_constant() -> NDArray:
-            """Build the window-constant RHS part: gravity + reference load."""
-            nodal_coords = self._rotate_structural_geometry_internal(theta)
-            a_ref_nodal = self._inertial_calculator.compute_rigid_body_acceleration_inertial(
-                nodal_coords, omega, alpha
+        rust_asm = getattr(self.domain, "_rust", None)
+        if rust_asm is None:
+            raise RuntimeError(
+                "Rust assembler (domain._rust) is not available; "
+                "cannot delegate to run_inertial_rotor_fsi_solver."
             )
 
-            window_rhs = np.array(F_gravity, copy=True)
-            window_rhs_nodes = window_rhs.reshape(-1, self.domain.dofs_per_node)
-            window_rhs_nodes[:, :n_trans] += (
-                -mass_diag_nodes[:, :n_trans] * a_ref_nodal[:, :n_trans]
-            )
-            return window_rhs
+        k_rows, k_cols, k_vals = self._petsc_to_coo(self.K)
+        m_rows, m_cols, m_vals = self._petsc_to_coo(self.M)
 
-        def _build_rhs(
-            window_rhs_constant: NDArray, workspace: Dict[str, "PETSc.Vec"]
-        ) -> "PETSc.Vec":
-            """
-            Assemble full-DOF effective RHS (before BC enforcement):
+        free_dofs = bc_manager.free_dofs.astype(np.int32)
+        n_total: int = int(self.K.getSize()[0])
+        _free_dofs_arr = np.asarray(free_dofs, dtype=np.int32)
 
-                F_eff = F_aero_full + F_gravity + F_ref
-                        + M·(a0·u_n + a2·v_n + a3·a_n)
-                        + C·(a1·u_n + v_n)
+        # Fixed DOF values (Dirichlet)
+        _fixed_dof_vals: dict = dict(bc_manager.fixed_dofs)
 
-            F_ref = -M·a_ref  (rigid-body reference load, sign already applied by
-            compute_reference_load_vector).
-            """
-            F_aero_flat = np.asarray(F_aero, dtype=np.float64).reshape(-1)
-            n_force = min(len(interface_dofs_flat), len(F_aero_flat))
+        # All-node masses (flat, one scalar per node) — extracted before BC application
+        # to include masses for ALL nodes (both free and fixed).
+        all_node_masses_np = self._all_node_masses_full
 
-            # 1. Newmark history terms via full-DOF PETSc matrix-vector products.
-            M_hist_in = workspace["M_hist_in"]
-            M_hist_in.set(0.0)
-            M_hist_in.axpy(a0, u_e_prev)
-            M_hist_in.axpy(a2, v_e_prev)
-            M_hist_in.axpy(a3, a_e_prev)
-            M_hist_in.assemble()
-            M_hist_out = workspace["M_hist_out"]
-            self.M.mult(M_hist_in, M_hist_out)
-
-            # C·(a1·u_n + v_n)
-            C_hist_in = workspace["C_hist_in"]
-            C_hist_in.set(0.0)
-            C_hist_in.axpy(a1, u_e_prev)
-            C_hist_in.axpy(1.0, v_e_prev)
-            C_hist_in.assemble()
-            C_hist_out = workspace["C_hist_out"]
-            C_current.mult(C_hist_in, C_hist_out)
-
-            # 2. Sum all contributions into F_eff without allocating new full-DOF arrays.
-            F_eff = workspace["F_eff"]
-            F_eff_arr = F_eff.getArray()
-            np.copyto(F_eff_arr, window_rhs_constant)
-            F_eff_arr += M_hist_out.array
-            F_eff_arr += C_hist_out.array
-            if n_force > 0:
-                np.add.at(F_eff_arr, interface_dofs_flat[:n_force], F_aero_flat[:n_force])
-            F_eff.assemble()
-            return F_eff
-
-        # -----------------------------------------------------------------------
-        # KSP cache: K_eff = K(θ) + a₀·M + a₁·C(θ) is CONSTANT within an FSI
-        # window (θ, ω, α, K, C, M all frozen during sub-iterations).
-        # The direct factorization is computed once and reused for all sub-iterations.
-        # -----------------------------------------------------------------------
-        factorization_valid = bool(
-            ksp_cache is not None
-            and isinstance(ksp_cache, dict)
-            and ksp_cache.get("factorization_valid", False)
+        # Interface node indices (0-based) — same sorted node IDs as _extract_interface_nodes
+        node_id_to_idx = self.domain.mesh.node_id_to_index
+        iface_node_indices = np.array(
+            [node_id_to_idx[nid] for nid in self._interface_node_ids],
+            dtype=np.uintp,
         )
-        preferred_factorization_type = self._petsc_factorization_type
-        if ksp_cache is not None and isinstance(ksp_cache, dict):
-            cached_factorization_type = ksp_cache.get("factorization_type")
-            if cached_factorization_type:
-                preferred_factorization_type = str(cached_factorization_type).lower()
 
-        if factorization_valid:
-            # Fast path: only the RHS changes; K_eff (with BCs) is already cached.
-            window_rhs_constant = ksp_cache["window_rhs_constant"]
-            workspace = ksp_cache["workspace"]
-            F_eff = _build_rhs(window_rhs_constant, workspace)
-            if len(fixed_idx) > 0:
-                # Elastic BCs are homogeneous in this solver, so after the first
-                # zeroRowsColumns() application we only need to reassert the fixed
-                # entries on subsequent RHS updates inside the same window.
-                F_eff.setValues(fixed_idx, fixed_vals)
-                F_eff.assemble()
-            ksp = ksp_cache["ksp"]
-            solver_cache = ksp_cache
-            _logger.debug("KSP cache hit: reusing factorized K_eff for sub-iteration")
+        # Newmark parameters
+        beta = float(self.solver_params.get("beta", 0.25))
+        gamma = float(self.solver_params.get("gamma", 0.5))
+        dt_hint = float(self.solver_params.get("dt", 0.0))
+
+        # preCICE config
+        cfg = self.model_properties["solver"]["coupling"]
+        mesh_name = cfg["coupling_mesh"]
+        write_data = (
+            cfg["write_data"] if isinstance(cfg["write_data"], str) else cfg["write_data"][0]
+        )
+        read_data = cfg["read_data"] if isinstance(cfg["read_data"], str) else cfg["read_data"][0]
+
+        # Omega provider → Rust-compatible params
+        from .corotational import (  # noqa: PLC0415
+            ConstantOmega,
+            RampedOmega,
+            ComputedOmega,
+            RampedComputedOmega,
+        )
+
+        p = self._omega_provider
+        if isinstance(p, ConstantOmega):
+            omega_mode, omega_val, omega_target, t_ramp, moi, shaft_tau = (
+                "constant",
+                float(p._omega),
+                None,
+                None,
+                None,
+                None,
+            )
+        elif isinstance(p, RampedOmega):
+            omega_mode, omega_val, omega_target, t_ramp, moi, shaft_tau = (
+                "ramped",
+                0.0,
+                float(p._target_omega),
+                float(p._ramp_time),
+                None,
+                None,
+            )
+        elif isinstance(p, ComputedOmega):
+            omega_mode, omega_val, omega_target, t_ramp, moi, shaft_tau = (
+                "computed",
+                float(p._omega),
+                None,
+                None,
+                float(p._I),
+                float(p._tau_shaft),
+            )
+        elif isinstance(p, RampedComputedOmega):
+            omega_mode, omega_val, omega_target, t_ramp, moi, shaft_tau = (
+                "ramped_computed",
+                0.0,
+                float(p._target_omega),
+                float(p._ramp_time),
+                float(p._I),
+                float(p._tau_shaft),
+            )
         else:
-            # First sub-iteration: assemble K_eff, apply full BCs, factorize.
-            _first_iter_t0 = time.perf_counter()
-
-            previous_operator = None
-            reused_operator = None
-            reused_workspace = None
-            reused_ksp = None
-            if ksp_cache is not None and isinstance(ksp_cache, dict):
-                reused_operator = ksp_cache.get("operator")
-                previous_operator = reused_operator
-                reused_workspace = ksp_cache.get("workspace")
-                reused_ksp = ksp_cache.get("ksp")
-
-            _t = time.perf_counter()
-            K_eff = self._assemble_inertial_effective_system(
-                K_current,
-                self.M,
-                C_current,
-                a0,
-                a1,
-                result=reused_operator,
-            )
-            effective_system_elapsed_s = time.perf_counter() - _t
-
-            _t = time.perf_counter()
-            window_rhs_constant = _build_window_rhs_constant()
-            window_rhs_constant_elapsed_s = time.perf_counter() - _t
-
-            workspace = reused_workspace
-            if workspace is None:
-                _t = time.perf_counter()
-                workspace = _create_window_workspace()
-                workspace_alloc_elapsed_s = time.perf_counter() - _t
-            else:
-                workspace_alloc_elapsed_s = 0.0
-
-            _t = time.perf_counter()
-            F_eff = _build_rhs(window_rhs_constant, workspace)
-            rhs_build_elapsed_s = time.perf_counter() - _t
-
-            bc_elapsed_s = 0.0
-            # Preserve symmetry for Cholesky by eliminating both rows and columns.
-            if len(fixed_idx) > 0:
-                _t = time.perf_counter()
-                U_fixed = K_eff.createVecRight()
-                U_fixed.setValues(fixed_idx, fixed_vals)
-                U_fixed.assemble()
-                K_eff.zeroRowsColumns(fixed_idx, 1.0, U_fixed, F_eff)
-                K_eff.assemble()
-                U_fixed.destroy()
-                bc_elapsed_s = time.perf_counter() - _t
-
-            ksp = reused_ksp
-            if ksp is None:
-                ksp = PETSc.KSP().create(comm=self.comm)
-            else:
-                ksp.getPC().setReusePreconditioner(False)
-
-            ksp_mode = "reused" if reused_ksp is not None else "new"
-            operator_mode = (
-                "reused"
-                if previous_operator is not None and K_eff is previous_operator
-                else "recreated"
-                if previous_operator is not None
-                else "new"
-            )
-            workspace_mode = "reused" if reused_workspace is not None else "new"
-            operator_binding_mode = (
-                "retained"
-                if reused_ksp is not None
-                and previous_operator is not None
-                and K_eff is previous_operator
-                else "rebound"
+            omega_val_0, _ = p.get_omega(0.0)
+            omega_mode, omega_val, omega_target, t_ramp, moi, shaft_tau = (
+                "constant",
+                float(omega_val_0),
+                None,
+                None,
+                None,
+                None,
             )
 
-            if previous_operator is not None and K_eff is not previous_operator:
-                previous_operator.destroy()
+        # Omega GlobalSolidMesh (optional)
+        _omega_mesh = self._omega_mesh_name if self._send_omega_to_precice else None
+        _omega_data = self._omega_write_data_name if self._send_omega_to_precice else None
+        _omega_coord = list(self._coord_transforms.center) if self._send_omega_to_precice else None
 
-            factorization_type = preferred_factorization_type
-            fallback_factorization_type = None
-            while True:
-                self._configure_reusable_factorization_ksp(ksp, factorization_type)
-                if operator_binding_mode == "rebound":
-                    ksp.setOperators(K_eff)
-                try:
-                    _t = time.perf_counter()
-                    ksp.setUp()  # Direct factorization — reused for all sub-iterations in this window
-                    factorization_elapsed_s = time.perf_counter() - _t
-                    break
-                except PETSc.Error as exc:
-                    next_factorization_type = self._fallback_factorization_type(factorization_type)
-                    if next_factorization_type is None:
-                        raise
-                    _logger.warning(
-                        "PETSc %s factorization failed for inertial K_eff; retrying with %s (%s)",
-                        factorization_type,
-                        next_factorization_type,
-                        exc,
-                    )
-                    fallback_factorization_type = factorization_type
-                    factorization_type = next_factorization_type
-                    operator_binding_mode = "rebound"
-                    ksp.reset()
-
-            if fallback_factorization_type is not None:
-                factorization_mode = (
-                    f"{fallback_factorization_type}_fallback_to_{factorization_type}"
-                )
-            elif reused_ksp is not None:
-                factorization_mode = f"refactorization_{factorization_type}"
-            else:
-                factorization_mode = f"fresh_{factorization_type}"
-            solver_cache = {
-                "ksp": ksp,
-                "operator": K_eff,
-                "workspace": workspace,
-                "window_rhs_constant": window_rhs_constant,
-                "factorization_type": factorization_type,
-                "factorization_valid": True,
-            }
-            _logger.debug(
-                "KSP cache miss: factorizing K_eff for %s FSI window with %s",
-                "reused" if reused_ksp is not None else "new",
-                factorization_type,
+        if self._is_primary_rank():
+            print(
+                f"  [Rust] Delegating to run_inertial_rotor_fsi_solver "
+                f"(mode={omega_mode}, disp={self._precice_displacement_mode})",
+                flush=True,
             )
 
-        workspace = solver_cache["workspace"]
+        u_final_red, v_final_red, a_final_red, times = _aeroelast.run_inertial_rotor_fsi_solver(
+            assembler=rust_asm,
+            rotation_axis=list(self._coord_transforms.axis),
+            rotation_center=list(self._coord_transforms.center),
+            all_node_masses=all_node_masses_np,
+            omega_mode=omega_mode,
+            omega=omega_val,
+            omega_target=omega_target,
+            t_ramp=t_ramp,
+            moment_of_inertia=moi,
+            shaft_torque=shaft_tau,
+            gravity=list(self._gravity),
+            include_reference_acceleration=True,
+            k_update_interval=1,
+            omega_rebuild_threshold=0.01,
+            displacement_mode=self._precice_displacement_mode,
+            dofs_per_node=self.domain.dofs_per_node,
+            fluid_density=self._fluid_density,
+            flow_velocity=self._flow_velocity,
+            rotor_radius=float(self._rotor_radius),
+            k_rows=k_rows,
+            k_cols=k_cols,
+            k_vals=k_vals,
+            m_rows=m_rows,
+            m_cols=m_cols,
+            m_vals=m_vals,
+            free_dofs=free_dofs,
+            eta_k=self._eta_k,
+            eta_m=self._eta_m,
+            beta=beta,
+            gamma=gamma,
+            dt=dt_hint,
+            interface_nodes=iface_node_indices,
+            mesh_dims=self.domain.spatial_dim,
+            participant_name=cfg["participant"],
+            config_file=cfg["config_file"],
+            coupling_mesh=mesh_name,
+            write_data_name=write_data,
+            read_data_name=read_data,
+            ramp_time=float(self._force_ramp_time),
+            force_max=self._force_max_magnitude,
+            omega_mesh_name=_omega_mesh,
+            omega_write_data=_omega_data,
+            omega_vertex_coord=_omega_coord,
+            u0=None,
+            v0=None,
+            a0=None,
+            t0=0.0,
+            theta0=0.0,
+            restart_omega=None,
+            restart_alpha=None,
+            restart_ramp_completed=None,
+            restart_current_time=None,
+            step_callback=None,
+        )
 
-        # Solve: K_eff · u_e_new = F_eff
-        u_e_new = workspace["u_trial"]
-
-        solve_elapsed_s = 0.0
-        state_update_elapsed_s = 0.0
-        _t = time.perf_counter()
-        ksp.solve(F_eff, u_e_new)
-        solve_elapsed_s = time.perf_counter() - _t
-
-        # Update acceleration and velocity using reusable workspace vectors.
-        _t = time.perf_counter()
-        delta_u = workspace["delta_u"]
-        u_e_new.copy(result=delta_u)
-        delta_u.axpy(-1.0, u_e_prev)
-
-        a_e_new = workspace["a_trial"]
-        a_e_new.set(0.0)
-        a_e_new.axpy(a0, delta_u)
-        a_e_new.axpy(-a2, v_e_prev)
-        a_e_new.axpy(-a3, a_e_prev)
-
-        v_e_new = workspace["v_trial"]
-        v_e_new.copy(v_e_prev)
-        v_e_new.axpy(dt * (1.0 - gamma), a_e_prev)
-        v_e_new.axpy(dt * gamma, a_e_new)
-        state_update_elapsed_s = time.perf_counter() - _t
-
-        if not factorization_valid:
-            first_iteration_total_elapsed_s = time.perf_counter() - _first_iter_t0
-            _logger.info(
-                "[rotor_inertial] window=%s iter=%s first-step timings: total=%.3fs K_eff=%.3fs rhs_const=%.3fs workspace=%.3fs rhs=%.3fs bc=%.3fs factorization=%.3fs solve=%.3fs state=%.3fs factorization_path=%s ksp=%s operator=%s workspace_buf=%s",
-                window_index if window_index is not None else "?",
-                iteration_index if iteration_index is not None else "?",
-                first_iteration_total_elapsed_s,
-                effective_system_elapsed_s,
-                window_rhs_constant_elapsed_s,
-                workspace_alloc_elapsed_s,
-                rhs_build_elapsed_s,
-                bc_elapsed_s,
-                factorization_elapsed_s,
-                solve_elapsed_s,
-                state_update_elapsed_s,
-                factorization_mode,
-                ksp_mode,
-                f"{operator_mode}:{operator_binding_mode}",
-                workspace_mode,
+        n_steps = len(times)
+        if n_steps > 0 and self._is_primary_rank():
+            print(
+                f"  ✓ Inertial FSI loop complete: "
+                f"{n_steps} converged steps, t_final={times[-1]:.4f} s",
+                flush=True,
             )
+        elif self._is_primary_rank():
+            print("  ⚠️ Inertial FSI loop returned 0 converged steps.", flush=True)
 
-        return u_e_new, v_e_new, a_e_new, solver_cache
+        # Expand reduced DOF arrays back to full-DOF PETSc vectors
+        u_final_full = np.zeros(n_total, dtype=np.float64)
+        v_final_full = np.zeros(n_total, dtype=np.float64)
+        a_final_full = np.zeros(n_total, dtype=np.float64)
 
-    def _newmark_velocity_update(
-        self,
-        u_new: "PETSc.Vec",
-        u_prev: "PETSc.Vec",
-        v_prev: "PETSc.Vec",
-        a_prev: "PETSc.Vec",
-        dt: float,
-        beta: float,
-        gamma: float,
-    ) -> "PETSc.Vec":
-        """
-        Compute Newmark velocity update.
+        if n_steps > 0:
+            u_final_full[_free_dofs_arr] = np.asarray(u_final_red, dtype=np.float64)
+            for dof, val in _fixed_dof_vals.items():
+                u_final_full[dof] = val
+            v_final_full[_free_dofs_arr] = np.asarray(v_final_red, dtype=np.float64)
+            a_final_full[_free_dofs_arr] = np.asarray(a_final_red, dtype=np.float64)
 
-        v_new = γ/(β·Δt) · (u_new - u_prev) + (1 - γ/β)·v_prev + Δt·(1 - γ/(2β))·a_prev
+        u_vec = PETSc.Vec().createWithArray(u_final_full, comm=self.comm)
+        v_vec = PETSc.Vec().createWithArray(v_final_full, comm=self.comm)
+        a_vec = PETSc.Vec().createWithArray(a_final_full, comm=self.comm)
 
-        Parameters
-        ----------
-        u_new : PETSc.Vec
-            New displacement.
-        u_prev : PETSc.Vec
-            Previous displacement.
-        v_prev : PETSc.Vec
-            Previous velocity.
-        a_prev : PETSc.Vec
-            Previous acceleration.
-        dt : float
-            Time step size.
-        beta : float
-            Newmark β parameter.
-        gamma : float
-            Newmark γ parameter.
+        self.u = u_vec
+        self.v = v_vec
+        self.a = a_vec
 
-        Returns
-        -------
-        PETSc.Vec
-            Updated velocity vector.
-        """
-        from petsc4py import PETSc
-
-        a1 = gamma / (beta * dt)
-        c1 = 1.0 - gamma / beta
-        c2 = dt * (1.0 - gamma / (2.0 * beta))
-
-        v_new = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
-        v_new.set(0.0)
-
-        # v_new = a1 * (u_new - u_prev) + c1 * v_prev + c2 * a_prev
-        du = u_new.duplicate()
-        u_new.copy(result=du)
-        du.axpy(-1.0, u_prev)  # du = u_new - u_prev
-
-        v_new.axpy(a1, du)  # v_new += a1 * du
-        v_new.axpy(c1, v_prev)  # v_new += c1 * v_prev
-        v_new.axpy(c2, a_prev)  # v_new += c2 * a_prev
-
-        du.destroy()
-
-        return v_new
-
-    def _newmark_acceleration_update(
-        self,
-        u_new: "PETSc.Vec",
-        u_prev: "PETSc.Vec",
-        v_prev: "PETSc.Vec",
-        a_prev: "PETSc.Vec",
-        dt: float,
-        beta: float,
-    ) -> "PETSc.Vec":
-        """
-        Compute Newmark acceleration update.
-
-        a_new = 1/(β·Δt²) · (u_new - u_prev - Δt·v_prev) - (1/(2β) - 1)·a_prev
-
-        Parameters
-        ----------
-        u_new : PETSc.Vec
-            New displacement.
-        u_prev : PETSc.Vec
-            Previous displacement.
-        v_prev : PETSc.Vec
-            Previous velocity.
-        a_prev : PETSc.Vec
-            Previous acceleration.
-        dt : float
-            Time step size.
-        beta : float
-            Newmark β parameter.
-
-        Returns
-        -------
-        PETSc.Vec
-            Updated acceleration vector.
-        """
-        from petsc4py import PETSc
-
-        a0 = 1.0 / (beta * dt * dt)
-        a2 = 1.0 / (beta * dt)
-        a3 = 1.0 / (2.0 * beta) - 1.0
-
-        a_new = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
-        a_new.set(0.0)
-
-        # a_new = a0 * (u_new - u_prev) - a2 * v_prev - a3 * a_prev
-        du = u_new.duplicate()
-        u_new.copy(result=du)
-        du.axpy(-1.0, u_prev)  # du = u_new - u_prev
-
-        a_new.axpy(a0, du)  # a_new += a0 * du
-        a_new.axpy(-a2, v_prev)  # a_new -= a2 * v_prev
-        a_new.axpy(-a3, a_prev)  # a_new -= a3 * a_prev
-
-        du.destroy()
-
-        return a_new
-
-    def _extract_interface_values(self, vec: "PETSc.Vec", interface_dofs: NDArray) -> NDArray:
-        """
-        Extract interface DOF values from a global PETSc vector.
-
-        Parameters
-        ----------
-        vec : PETSc.Vec
-            Global DOF vector.
-        interface_dofs : ndarray, shape (n_interface_nodes, dofs_per_node)
-            Global DOF indices for interface nodes.
-
-        Returns
-        -------
-        ndarray, shape (n_interface_nodes, dofs_per_node)
-            Extracted interface values.
-        """
-        vec_array = vec.getArray()
-        return vec_array[interface_dofs.ravel()].reshape(interface_dofs.shape)
+        return u_vec, v_vec, a_vec
 
     def _resolve_auto_inertia_provider(self, inertia: float) -> None:
         """
@@ -2789,6 +869,13 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 f"The F_ref = -M·a_ref formula is only correct for diagonal M. "
                 f"Switch to lumped mass assembly or implement the full matrix-vector product."
             )
+
+        # Extract all-node masses BEFORE applying BCs (for F_ref = -M·a_ref computation)
+        # The diagonal of M has size n_dofs_total; we take the x-DOF mass for each node.
+        _m_diag_full = self.M.getDiagonal()
+        _m_diag_full_arr = _m_diag_full.getArray(readonly=True).copy()
+        _m_diag_full.destroy()
+        self._all_node_masses_full = _m_diag_full_arr.reshape(-1, self.domain.dofs_per_node)[:, 0].copy()
 
         # Force vector and boundary conditions
         self._print_phase(3, 4, "Setting up boundary conditions...")
@@ -3004,213 +1091,6 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             self._mass_diagonal_array = diag_vec.getArray(readonly=True).copy()
             diag_vec.destroy()
         return self._mass_diagonal_array
-
-    def _compute_gravity_load_vector(self) -> NDArray:
-        """
-        Compute gravity load vector F_g = M·g for all DOFs.
-
-        Returns
-        -------
-        F_gravity : ndarray, shape (n_dofs,)
-            Gravity load vector (flattened).
-
-        Notes
-        -----
-        Verification: For a uniform rotor, ||F_g|| should equal total_mass * ||g||.
-        """
-        if not self._include_gravity:
-            return np.zeros(self.domain.dofs_count, dtype=np.float64)
-
-        # M is lumped diagonal matrix, so F_g[i] = M[i] * g[component_i].
-        M_array = self._get_mass_diagonal_array()
-
-        F_gravity = np.zeros(self.domain.dofs_count, dtype=np.float64)
-        dofs_per_node = self.domain.dofs_per_node
-        gravity_3d = np.pad(self._gravity, (0, max(0, 3 - len(self._gravity))))[:3]
-
-        for i in range(len(M_array)):
-            component_idx = i % dofs_per_node
-            if component_idx < len(gravity_3d):
-                F_gravity[i] = M_array[i] * gravity_3d[component_idx]
-
-        return F_gravity
-
-    # =========================================================================
-    # Phase 7-10 Placeholder
-    # =========================================================================
-    # The following methods will be implemented in subsequent phases:
-    #
-    # Phase 7: Prototype Validation
-    # - Unit tests for pure rigid rotation (u_e ~ 0)
-    # - Gravity-only test with 1P torque modulation
-    # - Reference load analytical verification
-    # - preCICE contract regression test
-    # - Checkpoint/restart coverage
-    #
-    # Phase 8: Comparative Benchmarking
-    # - Side-by-side test with corotational solver
-    # - Physical convergence validation
-    # - Torque balance verification
-    # - Displacement magnitude comparison
-    #
-    # Phase 9: Performance Optimization
-    # - Matrix caching strategies
-    # - Geometry update alternatives (API vs reconstruction)
-    # - Profiling and bottleneck identification
-    #
-    # Phase 10: Product Decision and Cleanup
-    # - Performance vs accuracy tradeoffs
-    # - Documentation of validated use cases
-    # - Deprecation or promotion decision
-    #
-    # See docs/rotor_inertial_solver_tasks.md for full task list
-
-    # =========================================================================
-    # Output Methods (CSV + VTU)
-    # =========================================================================
-
-    def _extract_nodal_translation_field(self, full_vec: NDArray) -> NDArray:
-        """Reshape full DOF vector to (n_nodes, 3) translational components."""
-        n_nodes = len(self.domain.nodes)
-        dofs_per_node = self.domain.dofs_per_node
-        nodal = np.asarray(full_vec, dtype=np.float64).reshape(n_nodes, dofs_per_node)
-        n_comp = min(3, dofs_per_node)
-        out = np.zeros((n_nodes, 3), dtype=np.float64)
-        out[:, :n_comp] = nodal[:, :n_comp]
-        return out
-
-    def _scatter_nodal_translation_field(self, nodal_field: NDArray, n_total: int) -> NDArray:
-        """Scatter (n_nodes, 3) translational field into full DOF layout."""
-        n_nodes = len(self.domain.nodes)
-        dofs_per_node = self.domain.dofs_per_node
-        full = np.zeros(n_total, dtype=np.float64)
-        reshaped = full.reshape(n_nodes, dofs_per_node)
-        width = min(3, dofs_per_node, nodal_field.shape[1])
-        reshaped[:, :width] = nodal_field[:, :width]
-        return full
-
-    def _compute_performance_coefficients(
-        self,
-        thrust: float,
-        torque_aero: float,
-        omega: float,
-        radius: float,
-    ) -> Tuple[float, float, float, float]:
-        """Return (Ct, Cp, Cq, TSR) using stored fluid density and flow velocity."""
-        _MIN = 1e-12
-        area = np.pi * radius * radius
-        q_dyn = 0.5 * self._fluid_density * self._flow_velocity**2
-        power_aero = torque_aero * omega
-        denom_f = q_dyn * area
-        denom_p = q_dyn * area * self._flow_velocity
-        denom_q = q_dyn * area * radius
-        ct = thrust / denom_f if abs(denom_f) > _MIN else 0.0
-        cp = power_aero / denom_p if abs(denom_p) > _MIN else 0.0
-        cq = torque_aero / denom_q if abs(denom_q) > _MIN else 0.0
-        tsr = abs(omega) * radius / self._flow_velocity if abs(self._flow_velocity) > _MIN else 0.0
-        return ct, cp, cq, tsr
-
-    def _write_restart_state(
-        self,
-        t: float,
-        theta: float,
-        omega: float,
-        alpha: float,
-    ) -> None:
-        """Append kinematics to ``rotor_restart_state.csv`` (rank 0 only).
-
-        Same format as the corotational solver so restart tools are compatible.
-        """
-        if not self._is_primary_rank():
-            return
-        import csv as _csv
-
-        output_folder = self.solver_params.get("output_folder", "results")
-        csv_path = os.path.join(output_folder, "rotor_restart_state.csv")
-        os.makedirs(output_folder, exist_ok=True)
-        write_header = not os.path.exists(csv_path)
-        with open(csv_path, "a", newline="") as fh:
-            writer = _csv.writer(fh)
-            if write_header:
-                writer.writerow(["Time [s]", "Theta [rad]", "Omega [rad/s]", "Alpha [rad/s2]"])
-            writer.writerow([f"{t:.9f}", f"{theta:.9f}", f"{omega:.9f}", f"{alpha:.9f}"])
-
-    def _log_rotor_performance(
-        self,
-        t: float,
-        omega_rpm: float,
-        omega_rad: float,
-        alpha: float,
-        angle_deg: float,
-        thrust: float,
-        torque_aero: float,
-        torque_gravity: float,
-        torque_total: float,
-        power_aero: float,
-        power_total: float,
-        cp: float,
-        cq: float,
-        ct: float,
-        tsr: float,
-        torque_aero_global: NDArray,
-        torque_total_global: NDArray,
-        max_displacement: float,
-        deformed_radius: Optional[float] = None,
-    ) -> None:
-        """Write per-window performance metrics to ``rotor_performance.csv``.
-
-        Column layout mirrors the corotational solver for direct comparison:
-        time/kinematics, forces, torques, power, coefficients, global torque
-        vectors, structural response.  The "Inertial Torque" column is always
-        zero in this formulation (reference load is an EOM term, not a
-        separately tracked torque component).
-        """
-        if not self._is_primary_rank():
-            return
-
-        output_folder = self.solver_params.get("output_folder", "results")
-        os.makedirs(output_folder, exist_ok=True)
-        log_path = os.path.join(output_folder, "rotor_performance.csv")
-        file_exists = os.path.exists(log_path)
-
-        structural_efficiency = (
-            float(np.clip(-(torque_total - torque_aero) / torque_aero, 0.0, 1.0))
-            if abs(torque_aero) > 1e-12
-            else 0.0
-        )
-        radius_str = f"{deformed_radius:.6f}" if deformed_radius is not None else ""
-
-        try:
-            with open(log_path, "a") as f:
-                if not file_exists:
-                    f.write(
-                        "Time [s],Angle [deg],Speed [RPM],Omega [rad/s],Alpha [rad/s2],"
-                        "Aero Thrust [N],"
-                        "Aero Torque [Nm],Non-Aero Torque [Nm],Inertial Torque [Nm],"
-                        "Gravity Torque [Nm],Total Torque [Nm],"
-                        "Aero Power [W],Total Power [W],Structural Efficiency,"
-                        "Cp,Cq,Ct,TSR,"
-                        "Aero Torque X [Nm],Aero Torque Y [Nm],Aero Torque Z [Nm],"
-                        "Total Torque X [Nm],Total Torque Y [Nm],Total Torque Z [Nm],"
-                        "Max Displacement [m],Deformed Radius [m]\n"
-                    )
-                torque_non_aero = torque_total - torque_aero
-                f.write(
-                    f"{t:.6f},{angle_deg:.4f},{omega_rpm:.4f},"
-                    f"{omega_rad:.4f},{alpha:.6e},"
-                    f"{thrust:.6e},"
-                    f"{torque_aero:.6e},{torque_non_aero:.6e},{0.0:.6e},"
-                    f"{torque_gravity:.6e},{torque_total:.6e},"
-                    f"{power_aero:.6e},{power_total:.6e},{structural_efficiency:.6f},"
-                    f"{cp:.6f},{cq:.6f},{ct:.6f},{tsr:.6f},"
-                    f"{torque_aero_global[0]:.6e},{torque_aero_global[1]:.6e},"
-                    f"{torque_aero_global[2]:.6e},"
-                    f"{torque_total_global[0]:.6e},{torque_total_global[1]:.6e},"
-                    f"{torque_total_global[2]:.6e},"
-                    f"{max_displacement:.6e},{radius_str}\n"
-                )
-        except Exception as e:
-            _logger.warning("Failed to write rotor_performance.csv: %s", e)
 
     # =========================================================================
     # Helper Methods (for console output and utilities)
