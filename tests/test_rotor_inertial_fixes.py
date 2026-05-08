@@ -139,7 +139,7 @@ class TestARefUsesRotatedCoords:
         assert a_wrong[0, 0] < -0.9 * omega**2 * R
 
     @pytest.mark.parametrize("theta", [0.0, np.pi / 6, np.pi / 4, np.pi / 2, np.pi, 3 * np.pi / 2])
-    def test_centripetal_magnitude_invariant_under_rotation(self, z_axis):
+    def test_centripetal_magnitude_invariant_under_rotation(self, z_axis, theta):
         """
         |a_ref| = ω²·r_perp is independent of θ — magnitude must be the same
         regardless of which position (X₀ or R(θ)·X₀) we use, because the
@@ -153,16 +153,13 @@ class TestARefUsesRotatedCoords:
         omega = 7.0
         X0 = np.array([[R, 0.0, 0.0]])
 
-        def test_theta(theta):
-            X_rot = ct_z.rotate_point_cloud(X0, theta)
-            a = z_axis.compute_rigid_body_acceleration_inertial(X_rot, omega)
-            mag = float(np.linalg.norm(a[0]))
-            expected = omega**2 * R
-            assert_allclose(
-                mag, expected, rtol=1e-10, err_msg=f"Magnitude wrong at θ={np.degrees(theta):.0f}°"
-            )
-
-        test_theta(theta)
+        X_rot = ct_z.rotate_point_cloud(X0, theta)
+        a = z_axis.compute_rigid_body_acceleration_inertial(X_rot, omega)
+        mag = float(np.linalg.norm(a[0]))
+        expected = omega**2 * R
+        assert_allclose(
+            mag, expected, rtol=1e-10, err_msg=f"Magnitude wrong at θ={np.degrees(theta):.0f}°"
+        )
 
     def test_zero_theta_reference_and_rotated_agree(self, z_axis):
         """At θ=0 reference and rotated coordinates are identical."""
@@ -580,10 +577,11 @@ class TestInertialConsistencyAcrossFixes:
                 ),
             )
 
-    def test_centripetal_load_is_radially_inward(self):
+    def test_centripetal_load_is_radially_outward(self):
         """
-        -M·a_ref must point from the node toward the rotation axis (radially inward).
-        For Z-axis rotation, this means F_ref = (−m·ω²·x, −m·ω²·y, 0) at each node.
+        -M·a_ref must point away from the rotation axis (radially outward / centrifugal).
+        Because a_ref = ω×(ω×r) is centripetal (inward), F_ref = -M·a_ref is centrifugal
+        (outward).  For Z-axis rotation at node [R,0,0]: F_ref ∝ (+R, 0, 0) outward.
         """
         calc = InertialForcesCalculator(
             rotation_axis=[0.0, 0.0, 1.0],
@@ -608,11 +606,12 @@ class TestInertialConsistencyAcrossFixes:
             r_hat = r_vec / np.linalg.norm(r_vec)
             F_hat = F_ref_node / (np.linalg.norm(F_ref_node) + 1e-30)
 
-            # Dot product with inward radial direction (−r̂) must be ≈ +1
-            dot = float(np.dot(F_hat, -r_hat))
+            # Dot product with outward radial direction (+r̂) must be ≈ +1
+            # F_ref = -M·a_ref is centrifugal (outward) because a_ref = ω×(ω×r) is inward
+            dot = float(np.dot(F_hat, r_hat))
             assert_allclose(
                 dot,
                 1.0,
                 atol=1e-8,
-                err_msg=f"F_ref must be radially inward at θ={np.degrees(theta):.0f}°",
+                err_msg=f"F_ref must be radially outward (centrifugal) at θ={np.degrees(theta):.0f}°",
             )

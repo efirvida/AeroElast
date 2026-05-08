@@ -383,15 +383,18 @@ pub fn compute_rigid_body_acceleration_inertial(
         let tang_y = az * rx - ax * rz;
         let tang_z = ax * ry - ay * rx;
 
-        // Centripetal term: a_cent = ω² · r_perp, where r_perp = r - (r·n̂)·n̂
+        // Centripetal term: a_cent = ω×(ω×r) = -ω² · r_perp (radially INWARD)
+        // where r_perp = r - (r·n̂)·n̂ is the component of r perpendicular to the axis.
+        // Note the negative sign: ω×(ω×r) points toward the axis (centripetal),
+        // not away from it (centrifugal).
         let r_dot_axis = rx * axis[0] + ry * axis[1] + rz * axis[2];
         let rpx = rx - r_dot_axis * axis[0];
         let rpy = ry - r_dot_axis * axis[1];
         let rpz = rz - r_dot_axis * axis[2];
 
-        let cent_x = omega_sq * rpx;
-        let cent_y = omega_sq * rpy;
-        let cent_z = omega_sq * rpz;
+        let cent_x = -omega_sq * rpx;
+        let cent_y = -omega_sq * rpy;
+        let cent_z = -omega_sq * rpz;
 
         // Total reference acceleration: a_ref = a_tang + a_cent
         out[b] = tang_x + cent_x;
@@ -1267,8 +1270,10 @@ mod tests {
 
     #[test]
     fn rigid_body_acceleration_pure_rotation() {
-        // Pure rotation (ω≠0, α=0) → centripetal only: a = ω²·r_perp
-        // Node at [1,0,0], axis Z, center origin, ω=2.0 → a = 4·[1,0,0]
+        // Pure rotation (ω≠0, α=0) → centripetal only: a = ω×(ω×r) = -ω²·r_perp (inward)
+        // Node at [1,0,0], axis Z, center origin, ω=2.0:
+        //   ω×r = (0,0,2)×(1,0,0) = (0,2,0)
+        //   ω×(ω×r) = (0,0,2)×(0,2,0) = (-4,0,0)  ← inward (-x direction)
         let coords = vec![1.0, 0.0, 0.0];
         let axis = [0.0, 0.0, 1.0];
         let center = [0.0, 0.0, 0.0];
@@ -1278,7 +1283,7 @@ mod tests {
         let a_ref = compute_rigid_body_acceleration_inertial(&coords, &axis, &center, omega, alpha);
 
         assert_eq!(a_ref.len(), 3);
-        assert!((a_ref[0] - 4.0).abs() < 1e-13, "ax={}", a_ref[0]);
+        assert!((a_ref[0] + 4.0).abs() < 1e-13, "ax={}", a_ref[0]);
         assert!(a_ref[1].abs() < 1e-14, "ay={}", a_ref[1]);
         assert!(a_ref[2].abs() < 1e-14, "az={}", a_ref[2]);
     }
@@ -1306,8 +1311,8 @@ mod tests {
         // Combined ω and α → tangential + centripetal
         // Node at [1,0,0], axis Z, ω=1.0, α=2.0
         // Tangential: α×r = [0,0,2]×[1,0,0] = [0,2,0]
-        // Centripetal: ω²·r_perp = 1·[1,0,0] = [1,0,0]
-        // Total: [1,2,0]
+        // Centripetal: ω×(ω×r) = -ω²·r_perp = -1·[1,0,0] = [-1,0,0]  (inward)
+        // Total: [-1,2,0]
         let coords = vec![1.0, 0.0, 0.0];
         let axis = [0.0, 0.0, 1.0];
         let center = [0.0, 0.0, 0.0];
@@ -1317,7 +1322,7 @@ mod tests {
         let a_ref = compute_rigid_body_acceleration_inertial(&coords, &axis, &center, omega, alpha);
 
         assert_eq!(a_ref.len(), 3);
-        assert!((a_ref[0] - 1.0).abs() < 1e-13, "ax={}", a_ref[0]);
+        assert!((a_ref[0] + 1.0).abs() < 1e-13, "ax={}", a_ref[0]);
         assert!((a_ref[1] - 2.0).abs() < 1e-13, "ay={}", a_ref[1]);
         assert!(a_ref[2].abs() < 1e-14, "az={}", a_ref[2]);
     }
