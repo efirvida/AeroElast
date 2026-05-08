@@ -143,7 +143,7 @@ pub enum DisplacementMode {
 // ── Solver state ───────────────────────────────────────────────────────────────
 
 /// Internal state of the inertial rotor FSI solver.
-struct InertialRotorFsiSolver {
+pub struct InertialRotorFsiSolver {
     // ── Configuration ─────────────────────────────────────────────────────────
     config: InertialRotorFsiConfig,
 
@@ -173,11 +173,13 @@ struct InertialRotorFsiSolver {
     coords_rotated: Vec<f64>,
     /// Nodal masses (flat, length = n_nodes) for F_ref = −M·a_ref.
     masses: Vec<f64>,
+    /// Sorted free global DOF indices for the reduced structural system.
+    free_dofs: Vec<i32>,
 
     // ── Interface state ───────────────────────────────────────────────────────
     /// Number of interface (coupling) nodes.
     n_iface: usize,
-    /// DOF indices for the interface nodes (length = n_iface × dofs_per_node).
+    /// Translational DOF indices for the interface nodes (length = n_iface × 3).
     iface_dofs: Vec<usize>,
     /// Interface node indices (0-based, length = n_iface).
     iface_nodes: Vec<usize>,
@@ -185,6 +187,12 @@ struct InertialRotorFsiSolver {
     // ── Convergence tracking ──────────────────────────────────────────────────
     /// 1-based converged time step counter.
     time_step: usize,
+
+    // ── Reference reduced-K mapping ──────────────────────────────────────────
+    /// Maps full reassembled K(θ) COO entries into the reference reduced K COO.
+    k_coo_map: Vec<i32>,
+    /// Number of entries in the reference reduced K COO.
+    k_red_nnz: usize,
 
     // ── Stiffness update tracking ─────────────────────────────────────────────
     /// ω² at the last K(θ) rebuild (for relative change check).
@@ -213,6 +221,9 @@ impl InertialRotorFsiSolver {
     /// * `omega_provider` — angular velocity provider (Constant, Ramped, Computed)
     /// * `iface_nodes` — interface node indices (0-based)
     /// * `masses`   — nodal masses (flat, length = n_nodes)
+    /// * `free_dofs` — sorted free global DOF indices for the reduced system
+    /// * `k_coo_map` — mapping from full K COO entries to reduced reference COO
+    /// * `k_red_nnz` — number of entries in the reduced reference K COO
     ///
     /// # Returns
     /// `Result<Self, FsiError>` — ready to call `with_initial_state()` and `run()`.
@@ -223,14 +234,24 @@ impl InertialRotorFsiSolver {
         omega_provider: OmegaProvider,
         iface_nodes: Vec<usize>,
         masses: Vec<f64>,
+        free_dofs: Vec<i32>,
+        k_coo_map: Vec<i32>,
+        k_red_nnz: usize,
     ) -> Result<Self, FsiError> {
         let n_iface = iface_nodes.len();
         let dofs_per_node = config.dofs_per_node;
+        if dofs_per_node < 3 {
+            return Err(FsiError::PreciceError(format!(
+                "inertial solver requires at least 3 translational DOFs per node, got {}",
+                dofs_per_node,
+            )));
+        }
 
-        // Build interface DOF indices
-        let mut iface_dofs = Vec::with_capacity(n_iface * dofs_per_node);
+        // Build interface translational DOF indices only. preCICE Displacement
+        // is a 3D vector field and must not include rotational shell DOFs.
+        let mut iface_dofs = Vec::with_capacity(n_iface * 3);
         for &node in &iface_nodes {
-            for d in 0..dofs_per_node {
+            for d in 0..3 {
                 iface_dofs.push(node * dofs_per_node + d);
             }
         }
@@ -239,11 +260,34 @@ impl InertialRotorFsiSolver {
         let coords_ref = assembler.topology.node_coords.clone();
         let coords_rotated = coords_ref.clone();
 
+        let n_nodes = coords_ref.len() / 3;
+        if masses.len() != n_nodes {
+            return Err(FsiError::PreciceError(format!(
+                "inertial solver requires one nodal mass per mesh node (got {} masses for {} nodes)",
+                masses.len(),
+                n_nodes,
+            )));
+        }
+
+        let n_red_dofs = stepper.n_dofs();
+        if free_dofs.len() != n_red_dofs {
+            return Err(FsiError::PreciceError(format!(
+                "inertial solver free_dofs length {} does not match reduced stepper size {}",
+                free_dofs.len(),
+                n_red_dofs,
+            )));
+        }
+        if k_red_nnz == 0 {
+            return Err(FsiError::PreciceError(
+                "inertial solver requires a non-empty reduced K sparsity".to_string(),
+            ));
+        }
+
         // Normalize rotation axis
         let axis = config.rotation_axis;
         let axis_norm = (axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]).sqrt();
         if axis_norm < 1e-14 {
-            return Err(FsiError::InvalidConfig(
+            return Err(FsiError::PreciceError(
                 "rotation_axis must have non-zero magnitude".to_string(),
             ));
         }
@@ -261,6 +305,9 @@ impl InertialRotorFsiSolver {
             coords_ref,
             coords_rotated,
             masses,
+            free_dofs,
+            k_coo_map,
+            k_red_nnz,
             n_iface,
             iface_dofs,
             iface_nodes,
@@ -283,9 +330,9 @@ impl InertialRotorFsiSolver {
     /// `Result<Self, FsiError>` — ready to call `with_step_callback()` or `run()`.
     pub fn with_initial_state(mut self, state: &FsiInitialState) -> Result<Self, FsiError> {
         self.stepper.set_initial_conditions_with_acceleration(
-            &state.displacement,
-            &state.velocity,
-            &state.acceleration,
+            &state.u,
+            &state.v,
+            &state.a,
         );
         Ok(self)
     }
@@ -363,17 +410,24 @@ impl InertialRotorFsiSolver {
             return Ok(());
         }
 
+        let t_start = std::time::Instant::now();
+
         // Rotate mesh coordinates to current θ
         use crate::petsc::fsi::setup::rotate_mesh_coords;
         self.coords_rotated = rotate_mesh_coords(&self.coords_ref, &self.transforms, self.theta);
 
-        // Reassemble K(θ) at rotated geometry
-        use crate::petsc::fsi::setup::reassemble_k;
-        let (k_rows, k_cols, k_vals) = reassemble_k(&mut self.assembler, &self.coords_rotated);
-
-        // Reduce to free-DOF system
-        use crate::petsc::fsi::setup::reduce_coo;
-        let (_, _, k_vals_red) = reduce_coo(&k_rows, &k_cols, &k_vals, free_dofs);
+        // Reassemble K(θ) at rotated geometry and project it back into the
+        // original reduced COO sparsity expected by the Newmark stepper.
+        use crate::petsc::fsi::setup::{apply_kg_coo_map, reassemble_k};
+        let (_, _, k_vals) = reassemble_k(&mut self.assembler, &self.coords_rotated);
+        if k_vals.len() != self.k_coo_map.len() {
+            return Err(FsiError::PreciceError(format!(
+                "reassembled K COO length {} does not match reference mapping length {}",
+                k_vals.len(),
+                self.k_coo_map.len(),
+            )));
+        }
+        let k_vals_red = apply_kg_coo_map(&self.k_coo_map, &k_vals, self.k_red_nnz);
 
         // Update stepper K
         self.stepper.update_elastic_stiffness(&k_vals_red)
@@ -382,9 +436,10 @@ impl InertialRotorFsiSolver {
         self.omega_sq_at_last_k_rebuild = omega * omega;
         self.step_at_last_k_rebuild = time_step;
 
+        let elapsed = t_start.elapsed();
         log::info!(
-            "InertialRotorFsi: K(θ) rebuilt at step {}, θ={:.4}rad, ω={:.4}rad/s",
-            time_step, self.theta, omega
+            "InertialRotorFsi: stiffness reassembly done in {:.3}s (step {}, θ={:.4}rad, ω={:.4}rad/s)",
+            elapsed.as_secs_f64(), time_step, self.theta, omega
         );
 
         Ok(())
@@ -412,8 +467,7 @@ impl InertialRotorFsiSolver {
             1,
         )?;
 
-        let mesh_dims = participant.get_mesh_dimensions(&self.config.fsi.coupling_mesh)?;
-        let dt = participant.initialize()?;
+        let mesh_dims = participant.get_mesh_dimensions(&self.config.fsi.coupling_mesh)? as usize;
 
         // Define coupling mesh vertices (interface nodes, global frame)
         let iface_coords: Vec<f64> = self.iface_nodes.iter()
@@ -423,25 +477,45 @@ impl InertialRotorFsiSolver {
             })
             .collect();
 
-        let vertex_ids = participant.set_mesh_vertices(
+        let n_vertices = iface_coords.len() / mesh_dims.max(1);
+        let mut vertex_ids = vec![0i32; n_vertices];
+        participant.set_mesh_vertices(
             &self.config.fsi.coupling_mesh,
             &iface_coords,
+            &mut vertex_ids,
         )?;
 
         // Optional GlobalSolidMesh for ω communication
-        let omega_vertex_ids = if let (Some(ref mesh), Some(ref coords)) = (
+        let omega_vertex_ids: Option<Vec<i32>> = if let (Some(ref mesh), Some(ref coords)) = (
             &self.config.omega_mesh_name,
             &self.config.omega_vertex_coord,
         ) {
-            Some(participant.set_mesh_vertices(mesh, &coords[..])?)
+            let mut ids = vec![0i32; 1];
+            participant.set_mesh_vertices(mesh, &coords[..], &mut ids)?;
+            Some(ids)
         } else {
             None
         };
 
-        // Determine free DOFs (assuming all DOFs are free for now — caller should provide)
-        // For a real implementation, this would come from boundary conditions.
-        let n_full_dofs = self.assembler.topology.dofs_count();
-        let free_dofs: Vec<i32> = (0..n_full_dofs as i32).collect();
+        // Write initial omega before initialize() when preCICE requires it.
+        // This satisfies the initialize="true" exchange for AngularVelocity.
+        if participant.requires_initial_data()? {
+            if let (Some(mesh), Some(wdata), Some(ids)) = (
+                &self.config.omega_mesh_name,
+                &self.config.omega_write_data,
+                &omega_vertex_ids,
+            ) {
+                // InertialRotorFsiSolver always starts from t=0 (no restart support yet)
+                let omega_init = self.omega_provider.get(0.0).0;
+                participant.write_data(mesh, wdata, ids, &[omega_init])?;
+            }
+        }
+
+        participant.initialize()?;
+        let mut dt = participant.get_max_time_step_size()?;
+
+        // Use the BC reduction provided by the caller.
+        let free_dofs = self.free_dofs.clone();
 
         let n_dofs = free_dofs.len();
         let n_data = self.n_iface * mesh_dims;
@@ -459,14 +533,23 @@ impl InertialRotorFsiSolver {
         };
 
         // Main coupling loop
-        let mut dt = dt;
+        let mut sub_iter: u32 = 0;
+        let mut window_num: u32 = 0;
         while participant.is_coupling_ongoing()? {
             // ── Save checkpoint ───────────────────────────────────────────────
             if participant.requires_writing_checkpoint()? {
                 newmark_cp = Some(self.stepper.checkpoint());
                 omega_cp = Some(self.omega_provider.checkpoint());
                 theta_cp = self.theta;
+                sub_iter = 0;
+                window_num += 1;
+                let u_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
+                log::debug!(
+                    "InertialRotorFsi: [w={} iter=0] CHECKPOINT SAVED  ||u||={:.3e}  t={:.6}  theta={:.6}",
+                    window_num, u_norm, self.stepper.current_time(), self.theta
+                );
             }
+            sub_iter += 1;
 
             let t = self.stepper.current_time();
             let window_kin = self.omega_provider.kinematics_over_step(t, dt);
@@ -475,6 +558,7 @@ impl InertialRotorFsiSolver {
             let theta_target = self.theta + window_kin.theta_increment;
 
             // ── Read forces from preCICE (global frame) ───────────────────────
+            let t_read = std::time::Instant::now();
             let mut forces_global = vec![0.0f64; n_data];
             participant.read_data(
                 &self.config.fsi.coupling_mesh,
@@ -483,6 +567,7 @@ impl InertialRotorFsiSolver {
                 dt,
                 &mut forces_global,
             )?;
+            let t_read_ms = t_read.elapsed().as_secs_f64() * 1e3;
 
             // ── Force pre-processing (ramp + cap, global frame) ───────────────
             apply_ramp(&mut forces_global, t, self.config.fsi.ramp_time);
@@ -491,6 +576,7 @@ impl InertialRotorFsiSolver {
             }
 
             // ── Assemble global reduced force vector ──────────────────────────
+            let t_assemble = std::time::Instant::now();
             let mut f_red = vec![0.0f64; n_dofs];
 
             // Scatter aero forces at interface DOFs
@@ -521,12 +607,20 @@ impl InertialRotorFsiSolver {
                 self.scatter_node_forces(&f_g, &mut f_red, &free_dofs);
             }
 
+            let t_assemble_ms = t_assemble.elapsed().as_secs_f64() * 1e3;
+            let f_norm: f64 = forces_global.iter().map(|x| x * x).sum::<f64>().sqrt();
+            let f_red_norm: f64 = f_red.iter().map(|x| x * x).sum::<f64>().sqrt();
+            let u_pre_step_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
+
             // ── Advance structural state ──────────────────────────────────────
+            let t_solve = std::time::Instant::now();
             let step_t = self.stepper.step(&f_red, dt)?.t;
+            let t_solve_ms = t_solve.elapsed().as_secs_f64() * 1e3;
 
             // ── Gather interface displacements (elastic or total) ─────────────
-            let u_red = self.stepper.current_u();
-            let disp_iface = match self.config.displacement_mode {
+            let u_red = self.stepper.current_u().to_vec();
+            let u_post_step_norm: f64 = u_red.iter().map(|x| x * x).sum::<f64>().sqrt();
+            let disp_iface: Vec<f64> = match self.config.displacement_mode {
                 DisplacementMode::Elastic => {
                     // Write elastic displacement only (u_e)
                     self.iface_dofs
@@ -563,12 +657,19 @@ impl InertialRotorFsiSolver {
             };
 
             // ── Write displacements to preCICE ────────────────────────────────
+            let d_norm: f64 = disp_iface.iter().map(|x| x * x).sum::<f64>().sqrt();
+            log::debug!(
+                "InertialRotorFsi: [w={} iter={}] ||F_raw||={:.3e}  ||f_red||={:.3e}  ||u_before||={:.3e}  ||u_after||={:.3e}  ||D_written||={:.3e}",
+                window_num, sub_iter, f_norm, f_red_norm, u_pre_step_norm, u_post_step_norm, d_norm
+            );
+            let t_write = std::time::Instant::now();
             participant.write_data(
                 &self.config.fsi.coupling_mesh,
                 &self.config.fsi.write_data,
                 &vertex_ids,
                 &disp_iface,
             )?;
+            let t_write_ms = t_write.elapsed().as_secs_f64() * 1e3;
 
             // ── Write ω to GlobalSolidMesh (if used) ──────────────────────────
             if let (Some(ref ids), Some(ref mesh), Some(ref wdata)) = (
@@ -578,17 +679,35 @@ impl InertialRotorFsiSolver {
             ) {
                 participant.write_data(mesh, wdata, ids, &[omega_step])?;
             }
-
+            let t_advance = std::time::Instant::now();
             participant.advance(dt)?;
+            let t_advance_ms = t_advance.elapsed().as_secs_f64() * 1e3;
+            log::debug!(
+                "InertialRotorFsi: [w={} iter={}] timing(ms): read={:.1} assemble={:.1} solve={:.1} write={:.1} advance={:.1}",
+                window_num, sub_iter, t_read_ms, t_assemble_ms, t_solve_ms, t_write_ms, t_advance_ms
+            );
 
             // ── Implicit coupling: restore or commit ──────────────────────────
             if participant.requires_reading_checkpoint()? {
                 match (newmark_cp.as_ref(), omega_cp.as_ref()) {
                     (Some(ncp), Some(ocp)) => {
+                        let u_before_restore_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
                         self.stepper.restore(ncp);
                         self.omega_provider.restore(ocp);
                         self.theta = theta_cp;
-                        // Note: coords_rotated will be recomputed in next K rebuild
+                        
+                        // CRITICAL: Re-rotate coords to theta_cp to maintain consistency.
+                        // If we don't do this, coords_rotated will be out of sync with theta
+                        // until the next K rebuild, causing incorrect reference forces.
+                        use crate::petsc::fsi::setup::rotate_mesh_coords;
+                        self.coords_rotated = rotate_mesh_coords(&self.coords_ref, &self.transforms, self.theta);
+                        
+                        let u_after_restore_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
+                        let cp_u_norm: f64 = ncp.u.iter().map(|x| x * x).sum::<f64>().sqrt();
+                        log::debug!(
+                            "InertialRotorFsi: [w={} iter={}] ROLLBACK  ||u_before||={:.3e}  ||u_after||={:.3e}  ||cp.u||={:.3e}",
+                            window_num, sub_iter, u_before_restore_norm, u_after_restore_norm, cp_u_norm
+                        );
                     }
                     _ => {
                         return Err(FsiError::PreciceError(
@@ -603,22 +722,23 @@ impl InertialRotorFsiSolver {
                 self.theta = theta_target;
 
                 // Update K(θ) if rotation changed significantly
+                let t_reassemble = std::time::Instant::now();
                 self.reassemble_k_if_needed(omega_step, self.time_step, &free_dofs)?;
+                log::info!(
+                    "InertialRotorFsi: [w={}] K(θ) reassembly: {:.1}ms",
+                    window_num, t_reassemble.elapsed().as_secs_f64() * 1e3
+                );
 
                 // Compute aerodynamic torque (global frame)
-                let u_full = self.expand_to_full(u_red, &free_dofs);
-                let disp_iface_full: Vec<f64> = self.iface_nodes.iter()
-                    .flat_map(|&node| {
-                        (0..3).map(move |j| {
-                            let dof = node * self.config.dofs_per_node + j;
-                            if dof < u_full.len() {
-                                u_full[dof]
-                            } else {
-                                0.0
-                            }
-                        })
-                    })
-                    .collect();
+                let u_full = self.expand_to_full(&u_red, &free_dofs);
+                let dofs_per_node = self.config.dofs_per_node;
+                let mut disp_iface_full = Vec::with_capacity(self.iface_nodes.len() * 3);
+                for &node in &self.iface_nodes {
+                    for j in 0..3 {
+                        let dof = node * dofs_per_node + j;
+                        disp_iface_full.push(if dof < u_full.len() { u_full[dof] } else { 0.0 });
+                    }
+                }
 
                 let (tau_vec, tau_aero) = compute_torque(
                     &iface_coords,
@@ -668,7 +788,7 @@ impl InertialRotorFsiSolver {
                         step_t,
                         self.time_step,
                         dt,
-                        u_red,
+                        &u_red,
                         self.stepper.current_v(),
                         self.stepper.current_a(),
                         force_mag,
