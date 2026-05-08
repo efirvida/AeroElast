@@ -130,3 +130,78 @@ being applied when ω started at its steady-state value.
 - `test_kg_hysteresis_prevents_chattering`: fails on baseline (stash-verified)
 - `TestMapOmegaProvider::test_constant_omega` and 8 others: fail on baseline (stash-verified)
 - All `test_rotor_rust_parity.py::TestRotorAutoInertia` tests: SKIP (no Rust binary in this env)
+
+---
+
+# Apply Progress: rotor-corotational-consistency-fixes (Fix #2 batch)
+
+## Status: done
+
+## Tasks completed
+
+- [x] 2.1 Added `test_gcor_rhs_history_secondorder` Rust unit test inside `dynamic_newmark.rs`
+  `#[cfg(test)]` block. NOTE: task specified `tests/test_newmark_coriolis_history.py` but was
+  implemented as a Rust in-crate test per the invocation prompt directive (PyO3 extension not
+  rebuildable in this environment; Python test would exercise the OLD binary). The Rust test
+  uses the public API (`update_spin_softening_and_gyroscopic`, `step`) and measures convergence
+  order via L2 error at three halved dt values. CONFIRMED FAIL before fix (slope = -1.153,
+  err_coarse=7.318e-1 but err_medium=1.627e0 — error grows as dt shrinks, confirming
+  unbounded drift from missing G_cor history); PASS after fix (slope_cm=1.9996, slope_mf=1.9999).
+
+- [x] 2.2 Modified `refactorize()` in `dynamic_newmark.rs`:
+  - Added `assemble_union_aij()` helper function (assembles non-symmetric AIJ matrix
+    from two COO sets via `ADD_VALUES`; does NOT set MAT_SYMMETRIC).
+  - Added `MATAIJ_STR` constant (duplicated from `assembler.rs` for local use).
+  - Added `mat_c_rhs: Option<PetscMat>` field to `NewmarkStepper` struct.
+  - In `refactorize()`: when `g_cor_vals` is non-empty, builds `mat_c_rhs = C ⊕ G_cor`
+    by concatenating COO triplets and calling `assemble_union_aij`. When empty, sets
+    `mat_c_rhs = None`. Initialized to `None` in `new()`.
+
+- [x] 2.3 Modified `step()` in `dynamic_newmark.rs`:
+  - The C-history MatMult now uses `self.mat_c_rhs.as_ref().unwrap_or(&self.mat_c)`.
+  - When G_cor is absent: `mat_c_rhs` is `None`, falls back to `mat_c` — zero-cost
+    for all non-rotor callers (LinearDynamicSolver, FSI base, etc.).
+  - When G_cor is active: uses the pre-built `mat_c_rhs` — single MatMult, zero new
+    allocations per step.
+
+- [x] 2.4 Python test runs:
+  - `test_rotor_physical_consistency.py`: same pre-existing 1 failure, no new failures.
+  - `test_rotor_rust_parity.py`: same 9 pre-existing failures, no new failures.
+  - NOTE: Python tests exercise OLD binary (_aeroelast not rebuildable). Numerical
+    validation at runtime deferred to orchestrator's rebuild step. Convergence-order
+    gate is the Rust unit test (2.1), which passed cleanly.
+
+## Files changed
+
+- `crates/aeroelast-solvers/src/petsc/elasticity/dynamic_newmark.rs`
+  - Added `MATAIJ_STR` constant
+  - Added `assemble_union_aij()` free function (non-symmetric union of two COO sets)
+  - `NewmarkStepper` struct: added `mat_c_rhs: Option<PetscMat>` field
+  - `new()`: added `mat_c_rhs: None` initialization
+  - `refactorize()`: builds `mat_c_rhs` when `g_cor_vals` non-empty, else `None`
+  - `step()`: routes C-history MatMult through `mat_c_rhs` (falls back to `mat_c`)
+  - `#[cfg(test)]`: added `make_2dof_stepper()`, `run_coriolis_and_get_error()`,
+    `test_gcor_rhs_history_secondorder()` in existing tests module
+
+## Test verification
+
+- Rust: 62 library unit tests — 62 passed, 0 failed (sequential: `--test-threads=1`)
+- Rust convergence gate: `test_gcor_rhs_history_secondorder` — PASS (slope_cm=1.9996, slope_mf=1.9999; measured empirically, not assumed)
+- `fsi_mock_loop.rs` integration tests: 4 pre-existing failures (user's in-progress inertial
+  solver work, NOT touched by Fix #2)
+- Python rotor tests: 9 pre-existing failures, no new failures
+
+## Analytical solution verification
+
+System: M·ü + G_cor·u̇ = 0, M=I, G_cor=[[0,-1],[1,0]]
+Reduces to: ṗ₁=p₂, ṗ₂=-p₁ with p(0)=[1,0]
+Solution: p₁(t)=cos(t), p₂(t)=-sin(t)
+Displacement: u₁(t)=sin(t), u₂(t)=cos(t)-1
+Initial acceleration: a₀ = M⁻¹·(-G_cor·v₀) = [0,-1]
+
+## Risk note
+
+`mat_c_rhs` is built as a non-symmetric matrix. PETSc LU handles non-symmetric matrices
+correctly. The symmetric MAT_SYMMETRIC hint is intentionally omitted from `assemble_union_aij`.
+The field is `Option<PetscMat>`, so non-rotor callers (where `g_cor_vals` is always empty)
+never allocate or use it — zero overhead on the existing code path.

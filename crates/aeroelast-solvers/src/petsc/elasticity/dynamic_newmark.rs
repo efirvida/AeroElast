@@ -25,6 +25,10 @@ use super::super::infra::ffi::{self, INSERT_VALUES, PETSC_INFINITY};
 use super::super::infra::mat::{check, PetscError, PetscMat};
 use super::super::infra::vec::PetscVec;
 
+// "seqaij" matrix type string (same as in assembler.rs, duplicated here for local use).
+const MATAIJ_STR: &std::ffi::CStr =
+    unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"seqaij\0") };
+
 // ── C-string constants ────────────────────────────────────────────────────────
 
 const KSPCG: &std::ffi::CStr =
@@ -92,6 +96,70 @@ fn build_vec(values: &[f64]) -> Result<PetscVec, PetscError> {
         check(ffi::VecAssemblyEnd(v.as_raw()), "VecAssemblyEnd")?;
     }
     Ok(v)
+}
+
+/// Assemble a PETSc AIJ matrix from the union of two COO triplet sets.
+///
+/// The resulting matrix has the union sparsity pattern of both sets; entries at
+/// shared `(row, col)` positions are SUMMED (PETSc ADD_VALUES semantics).
+///
+/// Unlike `assemble_seq_aij`, this function does NOT mark the matrix symmetric.
+/// Use it for matrices that are NOT symmetric (e.g., `mat_c_rhs = mat_c + G_cor`,
+/// where `mat_c` is symmetric but `G_cor` is antisymmetric).
+///
+/// # Arguments
+/// * `rows_a`, `cols_a`, `vals_a` — first COO set (e.g., damping C)
+/// * `rows_b`, `cols_b`, `vals_b` — second COO set (e.g., Coriolis G_cor)
+/// * `n_dof` — matrix dimension
+fn assemble_union_aij(
+    rows_a: &[i32],
+    cols_a: &[i32],
+    vals_a: &[f64],
+    rows_b: &[i32],
+    cols_b: &[i32],
+    vals_b: &[f64],
+    n_dof: usize,
+) -> Result<PetscMat, PetscError> {
+    let mut rows = rows_a.to_vec();
+    rows.extend_from_slice(rows_b);
+    let mut cols = cols_a.to_vec();
+    cols.extend_from_slice(cols_b);
+    let mut vals = vals_a.to_vec();
+    vals.extend_from_slice(vals_b);
+
+    let n = n_dof as i32;
+    let ncoo = rows.len() as i32;
+
+    ensure_initialized()?;
+
+    unsafe {
+        let comm = ffi::petsc_comm_self();
+        let mut raw_mat = std::ptr::null_mut();
+
+        check(ffi::MatCreate(comm, &mut raw_mat), "MatCreate(union)")?;
+        check(ffi::MatSetType(raw_mat, MATAIJ_STR.as_ptr()), "MatSetType(union)")?;
+        check(ffi::MatSetSizes(raw_mat, n, n, n, n), "MatSetSizes(union)")?;
+
+        // Preallocation via union COO pattern — PETSc deduces sparsity from triplets.
+        check(
+            ffi::MatSetPreallocationCOO(raw_mat, ncoo, rows.as_ptr(), cols.as_ptr()),
+            "MatSetPreallocationCOO(union)",
+        )?;
+
+        // ADD_VALUES: duplicate (row,col) entries are summed — correct for C ⊕ G_cor.
+        check(
+            ffi::MatSetValuesCOO(raw_mat, vals.as_ptr(), ffi::ADD_VALUES),
+            "MatSetValuesCOO(union)",
+        )?;
+
+        check(ffi::MatAssemblyBegin(raw_mat, ffi::MAT_FINAL_ASSEMBLY), "MatAssemblyBegin(union)")?;
+        check(ffi::MatAssemblyEnd(raw_mat, ffi::MAT_FINAL_ASSEMBLY), "MatAssemblyEnd(union)")?;
+
+        // Do NOT set MAT_SYMMETRIC — the union of a symmetric and antisymmetric matrix
+        // is generally non-symmetric.
+
+        Ok(PetscMat::from_raw(raw_mat))
+    }
 }
 
 /// Extract the diagonal of the lumped mass matrix from its COO representation.
@@ -513,6 +581,20 @@ pub struct NewmarkStepper {
     // diagonal is stored in `m_diag` and the M·x product is done in pure Rust
     // (element-wise multiply) without any PETSc involvement.
     mat_c: PetscMat,
+    /// Combined damping + Coriolis matrix for the RHS C-history term.
+    ///
+    /// `mat_c_rhs = mat_c ⊕ G_cor` (union of C and G_cor sparsity patterns, values summed).
+    ///
+    /// When G_cor is active (non-empty `g_cor_vals`), this holds the matrix that represents
+    /// `(C + G_cor)·(a1·u + a4·v + a5·a)` in the RHS history contribution.  The Newmark
+    /// trapezoidal substitution `v_{n+1} = a1·(u_{n+1}-u_n) - a4·v_n - a5·a_n` means any
+    /// matrix on the LHS with coefficient `a1` must also contribute a history term to the RHS.
+    /// G_cor enters the LHS as `a1·G_cor` (see `refactorize`), so the history term
+    /// `G_cor·(a1·u_n + a4·v_n + a5·a_n)` must appear in the RHS.
+    ///
+    /// `None` when G_cor is empty (non-rotor callers or `include_coriolis=false`);
+    /// `step()` falls back to `mat_c` in that case — zero new allocations per step.
+    mat_c_rhs: Option<PetscMat>,
 
     // ── Diagonal of the lumped mass matrix ───────────────────────────────────
     /// `m_diag[i]` = M[i,i].  Computed once in `new()` from the COO m_vals.
@@ -682,6 +764,7 @@ impl NewmarkStepper {
             k_eff,
             ksp,
             mat_c,
+            mat_c_rhs: None,
             m_diag,
             rhs_scratch,
             work_x,
@@ -791,6 +874,29 @@ impl NewmarkStepper {
             }
         }
         
+        // Build mat_c_rhs = mat_c ⊕ G_cor for the RHS C-history MatMult.
+        //
+        // The Newmark trapezoidal scheme places G_cor on the LHS with coefficient a1.
+        // By the Newmark velocity substitution, this creates an equal history term
+        // G_cor·(a1·u_n + a4·v_n + a5·a_n) that must appear in the RHS.
+        // mat_c_rhs combines mat_c and G_cor so that step() can perform a single MatMult.
+        //
+        // When G_cor is absent, mat_c_rhs = None and step() falls back to mat_c (zero cost).
+        self.mat_c_rhs = if !self.g_cor_vals.is_empty() {
+            let m = assemble_union_aij(
+                &self.rows,
+                &self.cols,
+                &self.c_vals,
+                &self.g_cor_rows,
+                &self.g_cor_cols,
+                &self.g_cor_vals,
+                self.n_dofs,
+            )?;
+            Some(m)
+        } else {
+            None
+        };
+
         self.k_eff = k_eff;
         self.mat_c = mat_c;
 
@@ -1044,10 +1150,18 @@ impl NewmarkStepper {
             }
             check(ffi::VecRestoreArray(self.work_x.as_raw(), &mut px), "VecRestoreArray(work_x)")?;
 
-            // y = C · work_x  (one MatMult — C is sparse but usually small η_k·K)
+            // y = (C + G_cor) · work_x  (one MatMult — uses mat_c_rhs when G_cor is active)
+            //
+            // Fix #2: G_cor is on the LHS as a1·G_cor (see refactorize). By the Newmark
+            // velocity substitution, this requires a matching RHS history term
+            // G_cor·(a1·u_n + a4·v_n + a5·a_n).  mat_c_rhs = mat_c ⊕ G_cor absorbs
+            // both contributions into a single MatMult — zero new allocations per step.
+            // When G_cor is absent (non-rotor callers), mat_c_rhs is None and we fall
+            // back to mat_c, preserving the existing code path.
+            let c_rhs_mat = self.mat_c_rhs.as_ref().unwrap_or(&self.mat_c);
             check(
-                ffi::MatMult(self.mat_c.as_raw(), self.work_x.as_raw(), self.work_y.as_raw()),
-                "MatMult(C)",
+                ffi::MatMult(c_rhs_mat.as_raw(), self.work_x.as_raw(), self.work_y.as_raw()),
+                "MatMult(C+G_cor)",
             )?;
 
             // rhs_scratch += work_y  (VecGetArrayRead: no copy, just pointer)
@@ -1591,6 +1705,143 @@ mod tests {
         assert!(
             amp_end < amp_start * 0.5,
             "Damping not working: amp_end={amp_end:.3e} >= 0.5 * amp_start={amp_start:.3e}"
+        );
+    }
+
+    // ── Fix #2: G_cor RHS history — Coriolis convergence order test ──────────
+
+    /// Build a 2-DOF `NewmarkStepper` with a full 2×2 sparsity pattern
+    /// so that G_cor off-diagonal entries (0,1) and (1,0) can be added to K_eff.
+    ///
+    /// Mass is lumped diagonal (m at (0,0) and (1,1); 0 at off-diagonals).
+    /// Stiffness and damping values are uniform across the full pattern.
+    fn make_2dof_stepper(m: f64, k: f64, c: f64, dt: f64) -> NewmarkStepper {
+        // Full 2×2 COO pattern (diagonal + off-diagonal) so K_eff can hold G_cor entries.
+        let rows = vec![0i32, 0i32, 1i32, 1i32];
+        let cols = vec![0i32, 1i32, 0i32, 1i32];
+        // K: diagonal only (off-diagonal = 0)
+        let k_vals = vec![k, 0.0, 0.0, k];
+        // M: lumped diagonal (off-diagonal = 0)
+        let m_vals = vec![m, 0.0, 0.0, m];
+        // C: diagonal only
+        let c_vals = vec![c, 0.0, 0.0, c];
+        NewmarkStepper::new(
+            &rows, &cols, &k_vals,
+            &rows, &cols, &m_vals,
+            &rows, &cols, &c_vals,
+            2,
+            0.25,
+            0.5,
+            dt,
+        ).expect("2-DOF NewmarkStepper::new failed")
+    }
+
+    /// Run the pure Coriolis precession system M·ü + G_cor·u̇ = 0 for `n_steps`
+    /// steps at the given `dt`, starting from u₀=[0,0], v₀=[1,0].
+    ///
+    /// G_cor = [[0,-1],[1,0]] (g=1, m=1).
+    ///
+    /// ODE reduces to ṗ₁ = p₂, ṗ₂ = -p₁ (p = u̇).
+    /// With p(0) = [1,0]: p₁(t) = cos(t), p₂(t) = -sin(t).
+    /// Integrating: u₁(t) = sin(t), u₂(t) = cos(t) - 1.
+    ///
+    /// Initial acceleration from M·a₀ = -G_cor·v₀ = -[0,1] → a₀ = [0,-1].
+    ///
+    /// Returns the L2 error |u_numerical - u_exact| at t = n_steps·dt.
+    fn run_coriolis_and_get_error(dt: f64, n_steps: usize) -> f64 {
+        let m = 1.0f64;
+        let g = 1.0f64; // G_cor scale
+        let omega = g / m; // precession frequency (ω=1)
+
+        let mut stepper = make_2dof_stepper(m, 0.0, 0.0, dt);
+
+        // G_cor = g·[[0,-1],[1,0]] in COO:
+        //   (0,1) → -g,   (1,0) → +g
+        let g_rows = vec![0i32, 1i32];
+        let g_cols = vec![1i32, 0i32];
+        let g_vals = vec![-g, g];
+
+        // ksp_vals must have same length as k_vals (4 entries for the 2×2 COO)
+        stepper.update_spin_softening_and_gyroscopic(
+            &[0.0f64, 0.0f64, 0.0f64, 0.0f64], // K_SP = 0
+            &g_rows,
+            &g_cols,
+            &g_vals,
+        ).expect("update_spin_softening_and_gyroscopic failed");
+
+        // Initial conditions: u₀ = [0,0], v₀ = [1, 0]
+        // Initial acceleration: from M·a₀ = -G_cor·v₀ = -[[0,-1],[1,0]]·[1,0] = [0,-1]
+        // (K=0, F=0 → M·a₀ = F - K·u₀ - G_cor·v₀ = -G_cor·v₀)
+        stepper.set_initial_conditions_with_acceleration(
+            &[0.0, 0.0], // u₀
+            &[1.0, 0.0], // v₀
+            &[0.0, -1.0], // a₀ = M⁻¹·(-G_cor·v₀) = -[0,1]
+        );
+
+        let f_zero = vec![0.0f64, 0.0f64];
+        for _ in 0..n_steps {
+            stepper.step(&f_zero, dt).expect("step failed");
+        }
+
+        let t_final = n_steps as f64 * dt;
+        // Exact solution: u₁(t) = sin(ωt)/ω, u₂(t) = (cos(ωt) - 1)/ω  (ω = g/m = 1)
+        let u_exact_1 = (omega * t_final).sin() / omega;
+        let u_exact_2 = ((omega * t_final).cos() - 1.0) / omega;
+
+        let u_num = stepper.current_u();
+        let e1 = u_num[0] - u_exact_1;
+        let e2 = u_num[1] - u_exact_2;
+        (e1 * e1 + e2 * e2).sqrt()
+    }
+
+    /// Fix #2 regression gate — convergence order test.
+    ///
+    /// System: M·ü + G_cor·u̇ = 0 (pure Coriolis, no stiffness, no structural damping)
+    ///   M = I (m=1), G_cor = [[0,-1],[1,0]] (g=1)
+    ///   u₀ = [0,0], v₀ = [1,0]
+    ///
+    /// Exact solution: u₁(t) = sin(t), u₂(t) = 1 - cos(t).
+    ///
+    /// The Newmark trapezoidal scheme (β=0.25, γ=0.5) is 2nd-order accurate.
+    /// When the G_cor history term is MISSING from the RHS (the bug), the scheme
+    /// degrades to 1st-order for this system.
+    ///
+    /// This test asserts 2nd-order convergence (slope ≥ 1.7 after step halving).
+    /// It FAILS before Fix #2 (slope ≈ 1.0) and PASSES after (slope ≈ 2.0).
+    #[test]
+    fn test_gcor_rhs_history_secondorder() {
+        // Three successively halved time steps
+        let t_final = 0.5f64; // short enough to stay in linear regime
+        let dt_coarse = 0.05f64;
+        let dt_medium = dt_coarse / 2.0;
+        let dt_fine = dt_coarse / 4.0;
+
+        let n_coarse = (t_final / dt_coarse).round() as usize;
+        let n_medium = (t_final / dt_medium).round() as usize;
+        let n_fine   = (t_final / dt_fine).round() as usize;
+
+        let err_coarse = run_coriolis_and_get_error(dt_coarse, n_coarse);
+        let err_medium = run_coriolis_and_get_error(dt_medium, n_medium);
+        let err_fine   = run_coriolis_and_get_error(dt_fine, n_fine);
+
+        // Convergence slope (should be ≈ 2 for trapezoidal Newmark)
+        // slope = log2(err_coarse / err_medium) — measured between coarse and medium
+        let slope_cm = (err_coarse / err_medium).log2();
+        // slope between medium and fine
+        let slope_mf = (err_medium / err_fine).log2();
+
+        // Both must be ≥ 1.7 to confirm 2nd-order convergence.
+        // Pre-fix (bug): slope ≈ 1.0; post-fix: slope ≈ 2.0.
+        assert!(
+            slope_cm >= 1.7,
+            "Convergence order coarse→medium = {slope_cm:.3} (expected ≥ 1.7 for O(dt²)); \
+             err_coarse={err_coarse:.3e}, err_medium={err_medium:.3e}. \
+             If this is ~1.0, Fix #2 G_cor RHS history term is missing."
+        );
+        assert!(
+            slope_mf >= 1.7,
+            "Convergence order medium→fine = {slope_mf:.3} (expected ≥ 1.7 for O(dt²)); \
+             err_medium={err_medium:.3e}, err_fine={err_fine:.3e}."
         );
     }
 
