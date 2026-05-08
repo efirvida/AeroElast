@@ -1390,9 +1390,13 @@ fn compute_geometric_stiffness_contribution(
     g: usize,
     sigma: &Vector3<f64>,
 ) -> Mat24 {
+    // sigma is in [Pa] (average membrane stress = N/h).
+    // The geometric stiffness formula needs resultants N [N/m] = sigma * h.
+    // Consistent with MITC3's compute_k_sigma_local which also multiplies by h.
+    let h = pre.thickness;
     let s_m = Matrix2::new(
-        sigma[0], sigma[2],
-        sigma[2], sigma[1],
+        sigma[0] * h, sigma[2] * h,
+        sigma[2] * h, sigma[1] * h,
     );
 
     let mut s_tilde = SMatrix::<f64, 6, 6>::zeros();
@@ -1415,17 +1419,19 @@ fn compute_geometric_stiffness_contribution(
 /// Compute geometric stiffness K_sigma in LOCAL coordinates.
 /// Integrates over 4 Gauss points, computing stress at each point.
 fn compute_geometric_stiffness_local(pre: &Mitc4Precomputed, u_local: &Vec24) -> Mat24 {
-    let cm = &pre.constitutive.cm; // cm = A matrix, sigma = N/h = cm * eps_m
+    // Use cm_raw (= A/h [Pa]) so that compute_geometric_stiffness_contribution,
+    // which multiplies by h, correctly reconstructs N = cm_raw * eps * h = cm * eps.
+    let cm_raw = &pre.constitutive.cm_raw;
 
     let mut k_sigma = Mat24::zeros();
     for g in 0..N_GAUSS {
         let xi = GAUSS_XI[g];
         let eta = GAUSS_ETA[g];
 
-        // sigma at this Gauss point (force per unit length)
+        // Average membrane stress σ [Pa] at this Gauss point
         let bm = b_m_mitc4_plus(pre, xi, eta);
         let eps_m = bm * u_local;
-        let sigma_g = cm * eps_m;
+        let sigma_g = cm_raw * eps_m;
 
         k_sigma += compute_geometric_stiffness_contribution(pre, g, &sigma_g);
     }

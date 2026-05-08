@@ -156,9 +156,10 @@ impl StressStiffenedFsiSolver {
         let (sigma, _) = self.assembler.compute_stress_field(&u_full, 0.0, 0);
 
         // Skip K_G update when stresses are negligible (e.g. at t≈0).
+        // Use max absolute value so that compressive (negative) stresses are not missed.
         let max_s = sigma
             .iter()
-            .flat_map(|s| s.iter().copied())
+            .flat_map(|s| s.iter().copied().map(f64::abs))
             .fold(0.0_f64, f64::max);
         if max_s <= 1e-20 {
             return Ok(());
