@@ -2,7 +2,7 @@
 
 Verifies that the PyO3 binding ``_aeroelast.run_inertial_rotor_fsi_solver``
 is callable with the expected signature and marshals arguments correctly.
-
+    def test_solve_via_rust_passes_dynamic_geometric_stiffness_flag(self, monkeypatch):
 Test groups:
 
 ``TestInertialRotorRustBinding``
@@ -18,6 +18,7 @@ Test groups:
 from __future__ import annotations
 
 import inspect
+import sys
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
@@ -34,6 +35,17 @@ except (ImportError, OSError):
     _HAS_PETSC = False
 
 try:
+    from petsc4py import PETSc
+    from aeroelast.solvers.fsi.corotational import ConstantOmega
+    from aeroelast.solvers.fsi.rotor_inertial import LinearDynamicFSIRotorInertialSolver
+
+    _HAS_INERTIAL_WRAPPER = True
+except (ImportError, OSError):
+    _HAS_INERTIAL_WRAPPER = False
+    ConstantOmega = None  # type: ignore[assignment]
+    LinearDynamicFSIRotorInertialSolver = None  # type: ignore[assignment,misc]
+
+try:
     import _aeroelast  # type: ignore[import]
 
     _HAS_RUST = hasattr(_aeroelast, "run_inertial_rotor_fsi_solver")
@@ -42,6 +54,11 @@ except (ImportError, OSError):
 
 _skip_rust = pytest.mark.skipif(
     not _HAS_RUST, reason="_aeroelast.run_inertial_rotor_fsi_solver not available"
+)
+
+_skip_inertial_wrapper = pytest.mark.skipif(
+    not _HAS_INERTIAL_WRAPPER,
+    reason="LinearDynamicFSIRotorInertialSolver or PETSc not available",
 )
 
 
@@ -527,7 +544,284 @@ class TestDisplacementModeValidation:
 
 
 # ---------------------------------------------------------------------------
-# Group 3 — Physics Validation (requires isolated API or preCICE mock)
+# Group 3 — Python wrapper regressions
+# ---------------------------------------------------------------------------
+
+
+@_skip_inertial_wrapper
+class TestInertialWrapperMarshalling:
+    def test_solve_via_rust_ignores_initial_geometric_stiffness(self, monkeypatch):
+        solver = object.__new__(LinearDynamicFSIRotorInertialSolver)
+        solver.K = type("FakeMat", (), {"getSize": lambda self: (3, 3)})()
+        solver.M = object()
+        solver._petsc_to_coo = lambda _mat: (
+            np.array([0], dtype=np.int32),
+            np.array([0], dtype=np.int32),
+            np.array([1.0], dtype=np.float64),
+        )
+        solver._all_node_masses_full = np.array([1.0], dtype=np.float64)
+        solver._interface_node_ids = [1]
+        solver.solver_params = {"beta": 0.25, "gamma": 0.5, "dt": 0.1}
+        solver.model_properties = {
+            "solver": {
+                "coupling": {
+                    "participant": "Solid",
+                    "config_file": "precice-config.xml",
+                    "coupling_mesh": "SolidMesh",
+                    "write_data": "Displacement",
+                    "read_data": "Force",
+                }
+            }
+        }
+        solver._omega_provider = ConstantOmega(omega=5.0)
+        solver._coord_transforms = type(
+            "CoordStub",
+            (),
+            {
+                "center": np.array([0.0, 0.0, 0.0], dtype=np.float64),
+                "axis": np.array([0.0, 0.0, 1.0], dtype=np.float64),
+            },
+        )()
+        solver._gravity = np.array([0.0, 0.0, -9.81], dtype=np.float64)
+        solver._k_update_interval = 1
+        solver._omega_rebuild_threshold = 0.01
+        solver._theta_rebuild_threshold = 0.05
+        solver._precice_displacement_mode = "elastic"
+        solver._fluid_density = 1.225
+        solver._flow_velocity = 10.0
+        solver._rotor_radius = 1.0
+        solver._eta_k = 0.01
+        solver._eta_m = 0.05
+        solver._force_ramp_time = 0.0
+        solver._force_max_magnitude = None
+        solver._send_omega_to_precice = False
+        solver._omega_mesh_name = "GlobalSolidMesh"
+        solver._omega_write_data_name = "AngularVelocity"
+        solver._send_velocity_to_precice = False
+        solver._velocity_write_data_name = None
+        solver._include_geometric_stiffness = True
+        solver._is_primary_rank = lambda: False
+        solver.comm = PETSc.COMM_SELF
+
+        assemble_called = False
+
+        def _assemble_geometric_stiffness(**_kwargs):
+            nonlocal assemble_called
+            assemble_called = True
+            raise AssertionError("assemble_geometric_stiffness should not be called")
+
+        solver.domain = type(
+            "DomainStub",
+            (),
+            {
+                "_rust": object(),
+                "dofs_per_node": 3,
+                "spatial_dim": 3,
+                "mesh": type("MeshStub", (), {"node_id_to_index": {1: 0}})(),
+                "assemble_geometric_stiffness": staticmethod(_assemble_geometric_stiffness),
+            },
+        )()
+
+        captured = {}
+
+        def _fake_run_inertial_rotor_fsi_solver(**kwargs):
+            captured.update(kwargs)
+            return [], [], [], []
+
+        monkeypatch.setitem(
+            sys.modules,
+            "_aeroelast",
+            type(
+                "AeroelastStub",
+                (),
+                {
+                    "run_inertial_rotor_fsi_solver": staticmethod(
+                        _fake_run_inertial_rotor_fsi_solver
+                    )
+                },
+            )(),
+        )
+
+        bc_manager = type(
+            "BcManagerStub", (), {"free_dofs": np.array([0], dtype=np.int32), "fixed_dofs": {}}
+        )()
+
+        solver._solve_via_rust(
+            bc_manager=bc_manager,
+            interface_coords=np.array([[1.0, 0.0, 0.0]], dtype=np.float64),
+        )
+
+        assert assemble_called is False
+        assert captured["kg0_rows"].size == 0
+        assert captured["kg0_cols"].size == 0
+        assert captured["kg0_vals"].size == 0
+
+    def test_solve_via_rust_wires_output_callback_and_finalizes_checkpoints(self, monkeypatch):
+        solver = object.__new__(LinearDynamicFSIRotorInertialSolver)
+        solver.K = type("FakeMat", (), {"getSize": lambda self: (3, 3)})()
+        solver.M = object()
+        solver._petsc_to_coo = lambda _mat: (
+            np.array([0], dtype=np.int32),
+            np.array([0], dtype=np.int32),
+            np.array([1.0], dtype=np.float64),
+        )
+        solver._all_node_masses_full = np.array([2.0], dtype=np.float64)
+        solver._interface_node_ids = [1]
+        solver.solver_params = {
+            "beta": 0.25,
+            "gamma": 0.5,
+            "dt": 0.1,
+            "output_folder": "results",
+        }
+        solver.model_properties = {
+            "solver": {
+                "coupling": {
+                    "participant": "Solid",
+                    "config_file": "precice-config.xml",
+                    "coupling_mesh": "SolidMesh",
+                    "write_data": "Displacement",
+                    "read_data": "Force",
+                }
+            }
+        }
+        solver._omega_provider = ConstantOmega(omega=5.0)
+        solver._coord_transforms = CoordinateTransforms([0.0, 0.0, 1.0], [0.0, 0.0, 0.0])
+        solver._inertial_calculator = InertialForcesCalculator(
+            [0.0, 0.0, 1.0],
+            [0.0, 0.0, 0.0],
+        )
+        solver._gravity = np.array([0.0, 0.0, -9.81], dtype=np.float64)
+        solver._include_gravity = True
+        solver._rotation_center = np.array([0.0, 0.0, 0.0], dtype=np.float64)
+        solver._rotation_axis = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+        solver._k_update_interval = 1
+        solver._omega_rebuild_threshold = 0.01
+        solver._theta_rebuild_threshold = 0.05
+        solver._precice_displacement_mode = "elastic"
+        solver._fluid_density = 1.225
+        solver._flow_velocity = 10.0
+        solver._rotor_radius = 1.0
+        solver._eta_k = 0.01
+        solver._eta_m = 0.05
+        solver._force_ramp_time = 0.0
+        solver._force_max_magnitude = None
+        solver._send_omega_to_precice = False
+        solver._omega_mesh_name = "GlobalSolidMesh"
+        solver._omega_write_data_name = "AngularVelocity"
+        solver._send_velocity_to_precice = False
+        solver._velocity_write_data_name = None
+        solver._include_geometric_stiffness = False
+        solver._stress_output_interval = 1
+        solver._theta = 0.0
+        solver._is_primary_rank = lambda: False
+        solver.comm = PETSc.COMM_SELF
+
+        node = type(
+            "NodeStub",
+            (),
+            {"id": 1, "coords": np.array([1.0, 0.0, 0.0]), "x": 1.0, "y": 0.0, "z": 0.0},
+        )()
+        solver.domain = type(
+            "DomainStub",
+            (),
+            {
+                "_rust": object(),
+                "dofs_per_node": 3,
+                "spatial_dim": 3,
+                "nodes": [node],
+                "mesh": type("MeshStub", (), {"node_id_to_index": {1: 0}})(),
+            },
+        )()
+
+        calls = {
+            "perf": 0,
+            "restart": 0,
+            "report": 0,
+            "probe": 0,
+            "checkpoint": 0,
+            "finalize": 0,
+        }
+        solver._compute_stress_fields = lambda _u_full: {}
+        solver._log_rotor_performance = lambda **_kwargs: calls.__setitem__(
+            "perf", calls["perf"] + 1
+        )
+        solver._write_restart_state = lambda **_kwargs: calls.__setitem__(
+            "restart", calls["restart"] + 1
+        )
+        solver._log_structural_report = lambda **_kwargs: calls.__setitem__(
+            "report", calls["report"] + 1
+        )
+        solver._log_probe_data = lambda **_kwargs: calls.__setitem__("probe", calls["probe"] + 1)
+        solver._handle_checkpoint = lambda **_kwargs: calls.__setitem__(
+            "checkpoint", calls["checkpoint"] + 1
+        )
+        solver._checkpoint_manager = type(
+            "CheckpointStub",
+            (),
+            {
+                "should_write": staticmethod(lambda _t: True),
+                "finalize": staticmethod(
+                    lambda timeout=60.0: calls.__setitem__("finalize", calls["finalize"] + 1)
+                ),
+            },
+        )()
+
+        captured = {}
+
+        def _fake_run_inertial_rotor_fsi_solver(**kwargs):
+            captured.update(kwargs)
+            kwargs["step_callback"](
+                0.1,
+                1,
+                0.1,
+                np.array([0.01, 0.0, 0.0], dtype=np.float64),
+                np.array([0.0, 0.0, 0.0], dtype=np.float64),
+                np.array([0.0, 0.0, 0.0], dtype=np.float64),
+                5.0,
+                np.array([0.0, 5.0, 0.0], dtype=np.float64),
+                5.0,
+                0.0,
+                0.25,
+                (5.0, 0.0, 0.0, 0.0, 0.0),
+            )
+            return [0.01, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.1]
+
+        monkeypatch.setitem(
+            sys.modules,
+            "_aeroelast",
+            type(
+                "AeroelastStub",
+                (),
+                {
+                    "run_inertial_rotor_fsi_solver": staticmethod(
+                        _fake_run_inertial_rotor_fsi_solver
+                    )
+                },
+            )(),
+        )
+
+        bc_manager = type(
+            "BcManagerStub",
+            (),
+            {"free_dofs": np.array([0, 1, 2], dtype=np.int32), "fixed_dofs": {}},
+        )()
+
+        solver._solve_via_rust(
+            bc_manager=bc_manager,
+            interface_coords=np.array([[1.0, 0.0, 0.0]], dtype=np.float64),
+        )
+
+        assert captured["step_callback"] is not None
+        assert calls["perf"] == 1
+        assert calls["restart"] == 1
+        assert calls["report"] == 1
+        assert calls["probe"] == 1
+        assert calls["checkpoint"] == 1
+        assert calls["finalize"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Group 4 — Physics Validation (requires isolated API or preCICE mock)
 # ---------------------------------------------------------------------------
 
 
@@ -615,7 +909,7 @@ class TestInertialPhysics:
 
 
 # ---------------------------------------------------------------------------
-# Group 4 — Integration Parity (requires full solver + preCICE mock)
+# Group 5 — Integration Parity (requires full solver + preCICE mock)
 # ---------------------------------------------------------------------------
 
 

@@ -53,6 +53,7 @@ from .corotational import (
     RampedOmega,
 )
 from .linear_dynamic import LinearDynamicFSISolver
+from .rotor import LinearDynamicFSIRotorCorotationalSolver
 
 _logger = logging.getLogger(__name__)
 
@@ -108,8 +109,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
     ------------------------
     All rotor configuration parameters are the same as the corotational solver,
     except physics flags that don't apply:
-    - include_geometric_stiffness: SUPPORTED — assembles K_G from centrifugal
-      prestress (static solve at ω₀) and passes it to the Newmark stepper.
+        - include_geometric_stiffness: SUPPORTED — enables dynamic K_G(θ, ω)
+            assembly in Rust on the rotated geometry used for K(θ).
     - include_spin_softening: SUPPORTED — K_SP diagonal assembled in Rust and
       updated when ω changes (see reassemble_k_if_needed).
     - include_centrifugal: NOT used (replaced by -M·a_ref)
@@ -283,7 +284,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         self._rotation_axis = np.array(rotation_axis, dtype=np.float64)
 
         # Physics flags
-        # include_geometric_stiffness: K_G from centrifugal prestress (static solve at ω₀)
+        # include_geometric_stiffness: enables dynamic K_G(θ, ω) assembly in
+        # the Rust inertial runtime. The wrapper only forwards the flag; the
+        # actual K_G is assembled on the current rotated geometry in Rust.
         # include_spin_softening: K_SP diagonal updated in Rust when ω changes
         # Other corotational-specific flags (Coriolis, Euler, centrifugal body) are
         # replaced by the inertial reference frame body force -M·a_ref.
@@ -292,9 +295,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         )
         if rotor_cfg.get("include_geometric_stiffness", False):
             _logger.info(
-                "include_geometric_stiffness=True: K_G will be assembled from "
-                "centrifugal prestress at ω₀=%.4f rad/s and passed to the Newmark stepper.",
-                omega_value,
+                "include_geometric_stiffness=True: enabling dynamic K_G(theta, omega) "
+                "assembly in the inertial Rust runtime.",
             )
         if rotor_cfg.get("include_spin_softening", False):
             _logger.debug(
@@ -338,7 +340,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         self._omega_mesh_name: str = rotor_cfg.get("omega_mesh_name", "GlobalSolidMesh")
         self._omega_write_data_name: str = rotor_cfg.get("omega_write_data", "AngularVelocity")
 
-        # Nodal velocity output to preCICE (aerodynamic damping correction)
+        # Nodal velocity output to preCICE. In Rust this follows the same
+        # kinematic contract as displacement_mode: elastic-only in "elastic"
+        # mode, or elastic + rigid-body velocity in "total" mode.
         self._send_velocity_to_precice: bool = bool(
             rotor_cfg.get("send_velocity_to_precice", False)
         )
@@ -712,39 +716,28 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 flush=True,
             )
 
-        # ── Initial geometric stiffness K_G (centrifugal prestress) ──────────
+        # ── Geometric stiffness enable sentinel ───────────────────────────────
+        # The inertial Rust runtime assembles K_G(θ, ω) itself on the rotated
+        # geometry. Keep the legacy kwargs as a sentinel so the binding can
+        # enable the feature without relying on a stale θ=0 matrix from Python.
         kg0_rows = kg0_cols = kg0_vals = None
         if self._include_geometric_stiffness:
-            omega_for_kg = (
-                float(omega_val)
-                if omega_val != 0.0
-                else float(omega_target)
-                if omega_target is not None
-                else 0.0
-            )
-            if omega_for_kg > 1e-10:
-                try:
-                    K_G = self.domain.assemble_geometric_stiffness(
-                        omega=omega_for_kg,
-                        rotation_axis=list(self._coord_transforms.axis),
-                        rotation_center=list(self._coord_transforms.center),
-                    )
-                    kg0_rows, kg0_cols, kg0_vals = self._petsc_to_coo(K_G)
-                    kg0_rows = kg0_rows.astype(np.int64)
-                    kg0_cols = kg0_cols.astype(np.int64)
-                    kg0_vals = kg0_vals.astype(np.float64)
-                    if self._is_primary_rank():
-                        print(
-                            f"  ✓ K_G assembled at ω₀={omega_for_kg:.4f} rad/s "
-                            f"(nnz={len(kg0_vals)})",
-                            flush=True,
-                        )
-                except Exception as e:
-                    _logger.warning(
-                        "Could not assemble K_G for inertial solver: %s. Proceeding without.", e
-                    )
-            else:
-                _logger.debug("include_geometric_stiffness=True but ω₀≈0; K_G skipped.")
+            kg0_rows = np.empty(0, dtype=np.int64)
+            kg0_cols = np.empty(0, dtype=np.int64)
+            kg0_vals = np.empty(0, dtype=np.float64)
+
+        all_node_coords_nodes = self._ensure_3d_vectors(
+            np.array([n.coords for n in self.domain.nodes], dtype=np.float64)
+        )
+        interface_coords_nodes = self._ensure_3d_vectors(np.asarray(interface_coords))
+        step_callback = self._build_output_step_callback(
+            n_total=n_total,
+            free_dofs=free_dofs,
+            fixed_dof_vals=_fixed_dof_vals,
+            all_node_coords_nodes=all_node_coords_nodes,
+            interface_coords_nodes=interface_coords_nodes,
+            interface_node_indices=iface_node_indices,
+        )
 
         u_final_red, v_final_red, a_final_red, times = _aeroelast.run_inertial_rotor_fsi_solver(
             assembler=rust_asm,
@@ -806,7 +799,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             kg0_rows=kg0_rows,
             kg0_cols=kg0_cols,
             kg0_vals=kg0_vals,
-            step_callback=None,
+            step_callback=step_callback,
         )
 
         n_steps = len(times)
@@ -818,6 +811,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             )
         elif self._is_primary_rank():
             print("  ⚠️ Inertial FSI loop returned 0 converged steps.", flush=True)
+
+        checkpoint_manager = getattr(self, "_checkpoint_manager", None)
+        if checkpoint_manager is not None:
+            checkpoint_manager.finalize(timeout=60.0)
 
         # Expand reduced DOF arrays back to full-DOF PETSc vectors
         u_final_full = np.zeros(n_total, dtype=np.float64)
@@ -1077,25 +1074,15 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         return self._interface_coords, self._interface_dofs
 
-    def _compute_rotor_radius(self, interface_coords: NDArray) -> float:
-        """
-        Auto-detect rotor radius from interface coordinates.
-
-        Parameters
-        ----------
-        interface_coords : ndarray, shape (n_nodes, dim)
-            Interface node coordinates.
-
-        Returns
-        -------
-        radius : float
-            Maximum radial distance from rotation center.
-
-        Notes
-        -----
-        Verification: Should match corotational solver's auto-detection.
-        """
+    def _compute_rotor_radius(
+        self,
+        interface_coords: NDArray,
+        interface_disps: Optional[NDArray] = None,
+    ) -> float:
+        """Compute rotor radius as max perpendicular distance from rotation axis."""
         coords_3d = self._ensure_3d_vectors(interface_coords)
+        if interface_disps is not None:
+            coords_3d = coords_3d + self._ensure_3d_vectors(interface_disps)
         radial_vectors = coords_3d - self._rotation_center
         radial_distances = np.linalg.norm(
             radial_vectors
@@ -1103,6 +1090,267 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             axis=1,
         )
         return float(np.max(radial_distances))
+
+    _write_restart_state = LinearDynamicFSIRotorCorotationalSolver._write_restart_state
+    _log_rotor_performance = LinearDynamicFSIRotorCorotationalSolver._log_rotor_performance
+    _build_omega_checkpoint_state = (
+        LinearDynamicFSIRotorCorotationalSolver._build_omega_checkpoint_state
+    )
+    _extract_nodal_translation_field = (
+        LinearDynamicFSIRotorCorotationalSolver._extract_nodal_translation_field
+    )
+    _scatter_nodal_translation_field = (
+        LinearDynamicFSIRotorCorotationalSolver._scatter_nodal_translation_field
+    )
+    _compute_performance_coefficients = (
+        LinearDynamicFSIRotorCorotationalSolver._compute_performance_coefficients
+    )
+
+    def _compute_global_axis_torque(
+        self,
+        nodal_coords: NDArray,
+        nodal_disps: NDArray,
+        nodal_forces: NDArray,
+    ) -> Tuple[NDArray, float]:
+        """Compute torque directly in the inertial frame."""
+        coords_3d = self._ensure_3d_vectors(nodal_coords)
+        disps_3d = self._ensure_3d_vectors(nodal_disps)
+        forces_3d = self._ensure_3d_vectors(nodal_forces)
+
+        rel_pos = coords_3d + disps_3d - self._coord_transforms.center
+        torque_global = np.sum(np.cross(rel_pos, forces_3d), axis=0)
+        torque_scalar = float(np.dot(torque_global, self._coord_transforms.axis))
+        return torque_global, torque_scalar
+
+    def _build_output_step_callback(
+        self,
+        *,
+        n_total: int,
+        free_dofs: NDArray,
+        fixed_dof_vals: Dict[int, float],
+        all_node_coords_nodes: NDArray,
+        interface_coords_nodes: NDArray,
+        interface_node_indices: NDArray,
+    ):
+        """Build the per-window callback that writes CSV, probes, and checkpoints."""
+        free_dofs_arr = np.asarray(free_dofs, dtype=np.int64)
+        all_node_masses = np.asarray(self._all_node_masses_full, dtype=np.float64)
+
+        def _step_cb(
+            t,
+            time_step,
+            dt,
+            u_red,
+            v_red,
+            a_red,
+            force_mag,
+            forces_iface,
+            omega,
+            alpha,
+            theta,
+            rotor_perf_tuple,
+        ):
+            checkpoint_manager = getattr(self, "_checkpoint_manager", None)
+            tau_aero_rust = float(rotor_perf_tuple[0]) if len(rotor_perf_tuple) > 0 else 0.0
+            omega_window = float(omega)
+            alpha_window = float(alpha)
+            self._theta = float(theta)
+
+            u_full = np.zeros(n_total, dtype=np.float64)
+            v_full = np.zeros(n_total, dtype=np.float64)
+            a_full = np.zeros(n_total, dtype=np.float64)
+
+            u_full[free_dofs_arr] = np.asarray(u_red, dtype=np.float64)
+            v_full[free_dofs_arr] = np.asarray(v_red, dtype=np.float64)
+            a_full[free_dofs_arr] = np.asarray(a_red, dtype=np.float64)
+            for dof, val in fixed_dof_vals.items():
+                u_full[dof] = val
+
+            u_nodes_global = self._extract_nodal_translation_field(u_full)
+
+            needs_stress = (
+                self._stress_output_interval <= 1
+                or (time_step % self._stress_output_interval == 0)
+                or (checkpoint_manager is not None and checkpoint_manager.should_write(t))
+                or bool(getattr(self, "_probe_node_ids", []))
+            )
+            stress_fields = self._compute_stress_fields(u_full) if needs_stress else {}
+
+            coords_rotated = self._coord_transforms.rotate_point_cloud(all_node_coords_nodes, theta)
+            iface_coords_rotated = self._coord_transforms.rotate_point_cloud(
+                interface_coords_nodes, theta
+            )
+
+            iface_force_global = np.zeros((len(interface_node_indices), 3), dtype=np.float64)
+            if forces_iface is not None and len(forces_iface) > 0:
+                iface_force_global = self._ensure_3d_vectors(
+                    np.asarray(forces_iface, dtype=np.float64).reshape(-1, self.domain.spatial_dim)
+                )
+
+            iface_u_global = u_nodes_global[np.asarray(interface_node_indices, dtype=np.int64)]
+
+            f_aero_nodes_global = np.zeros_like(all_node_coords_nodes)
+            for local_idx, node_idx in enumerate(interface_node_indices):
+                f_aero_nodes_global[int(node_idx)] += iface_force_global[local_idx]
+
+            a_ref_global = self._inertial_calculator.compute_rigid_body_acceleration_inertial(
+                coords_rotated,
+                omega_window,
+                alpha_window,
+            )
+            f_inertial_nodes_global = -all_node_masses[:, np.newaxis] * a_ref_global
+
+            f_gravity_nodes_global = np.zeros_like(all_node_coords_nodes)
+            if self._include_gravity:
+                f_gravity_nodes_global = all_node_masses[:, np.newaxis] * self._gravity
+
+            f_total_nodes_global = (
+                f_aero_nodes_global + f_inertial_nodes_global + f_gravity_nodes_global
+            )
+
+            tau_aero_global, tau_aero = self._compute_global_axis_torque(
+                iface_coords_rotated,
+                iface_u_global,
+                iface_force_global,
+            )
+            if abs(tau_aero) <= 1.0e-14 and abs(tau_aero_rust) > 1.0e-14:
+                tau_aero = tau_aero_rust
+                tau_aero_global = self._coord_transforms.axis * tau_aero_rust
+
+            _, tau_inertial = self._compute_global_axis_torque(
+                coords_rotated,
+                u_nodes_global,
+                f_inertial_nodes_global,
+            )
+            _, tau_gravity = self._compute_global_axis_torque(
+                coords_rotated,
+                u_nodes_global,
+                f_gravity_nodes_global,
+            )
+            tau_total_global, tau_total = self._compute_global_axis_torque(
+                coords_rotated,
+                u_nodes_global,
+                f_total_nodes_global,
+            )
+
+            thrust = float(np.dot(np.sum(iface_force_global, axis=0), self._coord_transforms.axis))
+            deformed_radius = self._compute_rotor_radius(iface_coords_rotated, iface_u_global)
+            ct, cp, cq, tsr = self._compute_performance_coefficients(
+                thrust,
+                tau_aero,
+                omega_window,
+                deformed_radius,
+            )
+
+            torque_non_aero = tau_total - tau_aero
+            power_aero = tau_aero * omega_window
+            power_total = tau_total * omega_window
+            structural_efficiency = (
+                float(np.clip(-torque_non_aero / tau_aero, 0.0, 1.0))
+                if abs(tau_aero) > 1.0e-14
+                else 0.0
+            )
+            max_displacement = (
+                float(np.max(np.linalg.norm(u_nodes_global, axis=1)))
+                if len(u_nodes_global) > 0
+                else 0.0
+            )
+
+            force_fields = {
+                "F_AERO_RAW": self._scatter_nodal_translation_field(f_aero_nodes_global, n_total),
+                "F_AERO": self._scatter_nodal_translation_field(f_aero_nodes_global, n_total),
+                "F_INERTIAL": self._scatter_nodal_translation_field(
+                    f_inertial_nodes_global,
+                    n_total,
+                ),
+                "F_GRAVITY": self._scatter_nodal_translation_field(
+                    f_gravity_nodes_global,
+                    n_total,
+                ),
+                "F_TOTAL": self._scatter_nodal_translation_field(f_total_nodes_global, n_total),
+                "OMEGA": omega_window,
+                "ALPHA": alpha_window,
+                "OMEGA_STATE": omega,
+                "ALPHA_STATE": alpha,
+                "THETA": theta,
+                "TAU_AERO": tau_aero,
+                "TAU_INERTIAL": tau_inertial,
+                "TAU_GRAVITY": tau_gravity,
+                "TAU_TOTAL": tau_total,
+                "THRUST": thrust,
+                "DEFORMED_RADIUS": deformed_radius,
+                "CT": ct,
+                "CP": cp,
+                "CQ": cq,
+                "TSR": tsr,
+            }
+            force_fields.update(stress_fields)
+
+            self._log_rotor_performance(
+                t=t,
+                omega_rpm=omega_window * 60.0 / (2.0 * np.pi),
+                omega_rad=omega_window,
+                alpha=alpha_window,
+                angle_deg=np.degrees(theta),
+                thrust=thrust,
+                torque_aero=tau_aero,
+                torque_non_aero=torque_non_aero,
+                torque_inertial=tau_inertial,
+                torque_gravity=tau_gravity,
+                torque_total=tau_total,
+                power_aero=power_aero,
+                power_total=power_total,
+                structural_efficiency=structural_efficiency,
+                cp=cp,
+                cq=cq,
+                ct=ct,
+                tsr=tsr,
+                torque_aero_global=tau_aero_global,
+                torque_total_global=tau_total_global,
+                max_displacement=max_displacement,
+                deformed_radius=deformed_radius,
+            )
+            self._write_restart_state(
+                t=t,
+                theta=theta,
+                omega=omega,
+                alpha=alpha,
+            )
+            self._log_structural_report(
+                t=t,
+                time_step=time_step,
+                u_full=u_full,
+                v_full=v_full,
+                a_full=a_full,
+                stress_fields=force_fields,
+                applied_force_mag=force_mag,
+            )
+            self._log_probe_data(
+                t=t,
+                time_step=time_step,
+                u_full=u_full,
+                v_full=v_full,
+                stress_fields=force_fields,
+            )
+            checkpoint_kwargs = {
+                "theta": theta,
+                **self._build_omega_checkpoint_state(t=t, omega=omega, alpha=alpha),
+            }
+            self._handle_checkpoint(
+                t=t,
+                time_step=time_step,
+                dt=dt,
+                u_red=np.asarray(u_red, dtype=np.float64),
+                v_red=np.asarray(v_red, dtype=np.float64),
+                a_red=np.asarray(a_red, dtype=np.float64),
+                u_full=u_full,
+                v_full=v_full,
+                a_full=a_full,
+                extra_fields=force_fields,
+                **checkpoint_kwargs,
+            )
+
+        return _step_cb
 
     def _compute_estimated_inertia(self) -> float:
         """
