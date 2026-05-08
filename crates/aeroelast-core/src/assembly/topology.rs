@@ -155,6 +155,29 @@ impl MeshTopology {
         }
         coords
     }
+
+    /// Update node coordinates (used by inertial rotor solver for K(θ) reassembly).
+    ///
+    /// # Arguments
+    /// * `coords` — new node coordinates (flat, length = n_nodes × 3)
+    ///
+    /// # Panics
+    /// Panics if `coords.len() != self.node_coords.len()`.
+    ///
+    /// # Notes
+    /// After calling this, any `MeshAssembler` using this topology MUST call
+    /// `recompute_after_coord_update()` to rebuild element precomputed data,
+    /// otherwise stiffness assembly will use stale geometry.
+    pub fn update_node_coords(&mut self, coords: &[f64]) {
+        assert_eq!(
+            coords.len(),
+            self.node_coords.len(),
+            "coords must have length n_nodes * 3 (got {} for {} nodes)",
+            coords.len(),
+            self.n_nodes
+        );
+        self.node_coords.copy_from_slice(coords);
+    }
 }
 
 #[cfg(test)]
