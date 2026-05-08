@@ -3940,6 +3940,7 @@ fn run_rotor_fsi_solver(
             shaft_torque: shaft_torque.unwrap_or(0.0),
             omega: restart_omega.unwrap_or(omega),
             alpha: restart_alpha.unwrap_or(0.0),
+            alpha_prev: None,
         },
         "ramped_computed" => {
             let omega_target = omega_target.ok_or_else(|| {
@@ -3977,6 +3978,7 @@ fn run_rotor_fsi_solver(
                 shaft_torque: shaft_torque.unwrap_or(0.0),
                 omega: omega_state,
                 alpha: alpha_state,
+                alpha_prev: None,
                 ramp_completed,
                 current_time,
             }
@@ -4312,10 +4314,10 @@ fn run_inertial_rotor_fsi_solver(
     let (_, _, mv_red) = setup::reduce_coo(mr, mc, mv, fd);
     let n_free = fd.len();
 
-    let kr_i64: Vec<i64> = kr.iter().map(|&x| x as i64).collect();
-    let kc_i64: Vec<i64> = kc.iter().map(|&x| x as i64).collect();
-    let k_coo_map = setup::build_kg_coo_map(&kr_i64, &kc_i64, fd, &kr_red, &kc_red);
-    let k_red_nnz = kr_red.len();
+    // NOTE: k_coo_map is built later from the Rust assembler's own K sparsity
+    // (after rust_assembler.assemble_k()), which is the authoritative source.
+    // The Python-side COO (kr/kc as i32) was previously used here to build a
+    // first map, but it was immediately shadowed → dead code, now removed.
 
     let mut m_diag = vec![0.0f64; n_free];
     for (row, &v) in (0..).zip(mv_red.iter()) {
@@ -4356,6 +4358,7 @@ fn run_inertial_rotor_fsi_solver(
             shaft_torque: shaft_torque.unwrap_or(0.0),
             omega: restart_omega.unwrap_or(omega),
             alpha: restart_alpha.unwrap_or(0.0),
+            alpha_prev: None,
         },
         "ramped_computed" => {
             let omega_target = omega_target.ok_or_else(|| {
@@ -4393,6 +4396,7 @@ fn run_inertial_rotor_fsi_solver(
                 shaft_torque: shaft_torque.unwrap_or(0.0),
                 omega: omega_state,
                 alpha: alpha_state,
+                alpha_prev: None,
                 ramp_completed,
                 current_time,
             }
@@ -4505,6 +4509,8 @@ fn run_inertial_rotor_fsi_solver(
         fd.to_vec(),
         k_coo_map,
         k_red_nnz,
+        kr_red.to_vec(),
+        kc_red.to_vec(),
     )
     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?
     .with_initial_state(&initial_state)

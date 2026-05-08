@@ -1019,6 +1019,51 @@ impl NewmarkStepper {
         self.refactorize(self.dt_last)
     }
 
+    /// Update K and K_SP simultaneously, then refactorize once.
+    ///
+    /// More efficient than calling [`update_elastic_stiffness`] followed by
+    /// [`update_spin_softening`] when both change together — avoids a double
+    /// factorization of `K_eff`.
+    ///
+    /// Intended for the inertial rotor solver where K(θ) and K_SP(ω,θ) are
+    /// always updated at the same reassembly event.
+    pub fn update_elastic_stiffness_and_spin_softening(
+        &mut self,
+        k_vals: &[f64],
+        ksp_vals: &[f64],
+    ) -> Result<(), PetscError> {
+        assert_eq!(
+            k_vals.len(),
+            self.k_vals.len(),
+            "k_vals length {} != stored k_vals length {}",
+            k_vals.len(),
+            self.k_vals.len(),
+        );
+        assert_eq!(
+            ksp_vals.len(),
+            self.k_vals.len(),
+            "ksp_vals length {} != k_vals length {}",
+            ksp_vals.len(),
+            self.k_vals.len(),
+        );
+
+        self.k_vals.copy_from_slice(k_vals);
+        self.ksp_diag.copy_from_slice(ksp_vals);
+
+        // If Rayleigh damping is active, recompute C = η_k·K + η_m·M
+        if let DampingModel::Rayleigh { eta_k, eta_m } = self.damping_model {
+            for (c, (&k, &m)) in self
+                .c_vals
+                .iter_mut()
+                .zip(self.k_vals.iter().zip(self.m_vals.iter()))
+            {
+                *c = eta_k * k + eta_m * m;
+            }
+        }
+
+        self.refactorize(self.dt_last)
+    }
+
     /// Update the spin-softening stiffness contribution and refactorize `K_eff`.
     ///
     /// `ksp_vals` must have the **same length and COO ordering** as `k_vals`

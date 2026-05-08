@@ -782,6 +782,8 @@ pub fn compute_performance_coefficients(
 pub struct OmegaCheckpoint {
     pub omega: f64,
     pub alpha: f64,
+    /// Previous alpha (t_{n-1}) for Adams-Bashforth 2 on restore. `None` on first step.
+    pub alpha_prev: Option<f64>,
     /// For `RampedComputed`: whether the ramp phase has been completed.
     pub ramp_completed: bool,
     /// Internal time tracked by the provider (for `RampedComputed` phase detection).
@@ -796,7 +798,10 @@ pub struct OmegaCheckpoint {
 /// # Variants
 /// * `Constant`      — ω = const, α = 0 always.
 /// * `Ramped`        — linear ramp ω(t) = ω_target · min(t/t_ramp, 1).
-/// * `Computed`      — dynamic ω from `I·dω/dt = τ_driving + τ_shaft` (Euler).
+/// * `Computed`      — dynamic ω from `I·dω/dt = τ_driving + τ_shaft`.
+///   Uses **Adams-Bashforth 2** (AB2) once a previous α is available, falling
+///   back to Euler on the first step.  This gives O(Δt²) accuracy in ω at
+///   the cost of storing one extra scalar `alpha_prev`.
 /// * `RampedComputed`— ramp until `t ≥ t_ramp`, then `Computed`.
 #[derive(Debug, Clone)]
 pub enum OmegaProvider {
@@ -813,6 +818,9 @@ pub enum OmegaProvider {
         /// Current dynamic state.
         omega: f64,
         alpha: f64,
+        /// Previous α (step n−1) for Adams-Bashforth 2. `None` until the
+        /// second converged window (first step uses Euler fallback).
+        alpha_prev: Option<f64>,
     },
     RampedComputed {
         omega_target: f64,
@@ -822,6 +830,9 @@ pub enum OmegaProvider {
         /// Current dynamic state (used after ramp completion).
         omega: f64,
         alpha: f64,
+        /// Previous α for AB2 (set after ramp completion). `None` until the
+        /// second post-ramp converged window.
+        alpha_prev: Option<f64>,
         ramp_completed: bool,
         current_time: f64,
     },
@@ -925,9 +936,23 @@ impl OmegaProvider {
     /// For `RampedComputed`, ignored while still in the ramp phase.
     pub fn update_from_torque(&mut self, tau_driving: f64, dt: f64, t: f64) {
         match self {
-            OmegaProvider::Computed { moment_of_inertia, shaft_torque, omega, alpha } => {
-                *alpha = (tau_driving + *shaft_torque) / *moment_of_inertia;
-                *omega += *alpha * dt;
+            OmegaProvider::Computed {
+                moment_of_inertia,
+                shaft_torque,
+                omega,
+                alpha,
+                alpha_prev,
+            } => {
+                let alpha_new = (tau_driving + *shaft_torque) / *moment_of_inertia;
+                // Adams-Bashforth 2 when a previous step is available,
+                // otherwise fall back to Euler on the first step.
+                if let Some(a_prev) = *alpha_prev {
+                    *omega += (1.5 * alpha_new - 0.5 * a_prev) * dt;
+                } else {
+                    *omega += alpha_new * dt;
+                }
+                *alpha_prev = Some(*alpha);
+                *alpha = alpha_new;
             }
             OmegaProvider::RampedComputed {
                 omega_target,
@@ -936,6 +961,7 @@ impl OmegaProvider {
                 shaft_torque,
                 omega,
                 alpha,
+                alpha_prev,
                 ramp_completed,
                 current_time,
             } => {
@@ -945,13 +971,20 @@ impl OmegaProvider {
                         // Transition to dynamic phase.
                         *omega = *omega_target;
                         *alpha = 0.0;
+                        *alpha_prev = None; // Reset AB2 history at ramp-to-dynamic transition.
                         *ramp_completed = true;
                     }
                     // Still ramping — torque update ignored.
                     return;
                 }
-                *alpha = (tau_driving + *shaft_torque) / *moment_of_inertia;
-                *omega += *alpha * dt;
+                let alpha_new = (tau_driving + *shaft_torque) / *moment_of_inertia;
+                if let Some(a_prev) = *alpha_prev {
+                    *omega += (1.5 * alpha_new - 0.5 * a_prev) * dt;
+                } else {
+                    *omega += alpha_new * dt;
+                }
+                *alpha_prev = Some(*alpha);
+                *alpha = alpha_new;
             }
             _ => {}
         }
@@ -963,30 +996,35 @@ impl OmegaProvider {
             OmegaProvider::Constant { omega } => OmegaCheckpoint {
                 omega: *omega,
                 alpha: 0.0,
+                alpha_prev: None,
                 ramp_completed: true,
                 current_time: 0.0,
             },
             OmegaProvider::Ramped { .. } => OmegaCheckpoint {
                 omega: 0.0,
                 alpha: 0.0,
+                alpha_prev: None,
                 ramp_completed: false,
                 current_time: 0.0,
             },
-            OmegaProvider::Computed { omega, alpha, .. } => OmegaCheckpoint {
+            OmegaProvider::Computed { omega, alpha, alpha_prev, .. } => OmegaCheckpoint {
                 omega: *omega,
                 alpha: *alpha,
+                alpha_prev: *alpha_prev,
                 ramp_completed: true,
                 current_time: 0.0,
             },
             OmegaProvider::RampedComputed {
                 omega,
                 alpha,
+                alpha_prev,
                 ramp_completed,
                 current_time,
                 ..
             } => OmegaCheckpoint {
                 omega: *omega,
                 alpha: *alpha,
+                alpha_prev: *alpha_prev,
                 ramp_completed: *ramp_completed,
                 current_time: *current_time,
             },
@@ -996,19 +1034,22 @@ impl OmegaProvider {
     /// Restore the state from a checkpoint.
     pub fn restore(&mut self, cp: &OmegaCheckpoint) {
         match self {
-            OmegaProvider::Computed { omega, alpha, .. } => {
+            OmegaProvider::Computed { omega, alpha, alpha_prev, .. } => {
                 *omega = cp.omega;
                 *alpha = cp.alpha;
+                *alpha_prev = cp.alpha_prev;
             }
             OmegaProvider::RampedComputed {
                 omega,
                 alpha,
+                alpha_prev,
                 ramp_completed,
                 current_time,
                 ..
             } => {
                 *omega = cp.omega;
                 *alpha = cp.alpha;
+                *alpha_prev = cp.alpha_prev;
                 *ramp_completed = cp.ramp_completed;
                 *current_time = cp.current_time;
             }
@@ -1228,8 +1269,9 @@ mod tests {
             shaft_torque: 0.0,
             omega: 0.0,
             alpha: 0.0,
+            alpha_prev: None,
         };
-        // tau_driving = 100 N·m, dt = 1.0 → alpha = 1.0, omega = 1.0
+        // tau_driving = 100 N·m, dt = 1.0 → alpha = 1.0, omega = 1.0 (Euler first step)
         p.update_from_torque(100.0, 1.0, 0.0);
         let (w, a) = p.get(0.0);
         assert!((w - 1.0).abs() < 1e-12, "w={w}");
@@ -1243,6 +1285,7 @@ mod tests {
             shaft_torque: 0.0,
             omega: 5.0,
             alpha: 2.0,
+            alpha_prev: None,
         };
         let kin = p.kinematics_over_step(0.0, 0.5);
         assert!((kin.omega_step - 5.5).abs() < 1e-12, "omega_step={}", kin.omega_step);
@@ -1257,6 +1300,7 @@ mod tests {
             shaft_torque: 0.0,
             omega: 5.0,
             alpha: 1.0,
+            alpha_prev: None,
         };
         let cp = p.checkpoint();
         p.update_from_torque(200.0, 1.0, 0.0); // changes state
