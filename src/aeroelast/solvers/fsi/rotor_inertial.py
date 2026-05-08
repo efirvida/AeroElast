@@ -108,8 +108,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
     ------------------------
     All rotor configuration parameters are the same as the corotational solver,
     except physics flags that don't apply:
-    - include_geometric_stiffness: NOT used (no K_G in this version)
-    - include_spin_softening: NOT used (no K_SP)
+    - include_geometric_stiffness: SUPPORTED — assembles K_G from centrifugal
+      prestress (static solve at ω₀) and passes it to the Newmark stepper.
+    - include_spin_softening: SUPPORTED — K_SP diagonal assembled in Rust and
+      updated when ω changes (see reassemble_k_if_needed).
     - include_centrifugal: NOT used (replaced by -M·a_ref)
     - include_coriolis: NOT used (no Coriolis in inertial frame)
     - include_euler: NOT used (Euler term is part of a_ref)
@@ -280,24 +282,24 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         self._rotation_center = np.array(rotation_center, dtype=np.float64)
         self._rotation_axis = np.array(rotation_axis, dtype=np.float64)
 
-        # Physics flags (corotational-specific flags NOT used in inertial solver)
-        # These are read from config but ignored in the inertial implementation:
-        # - include_geometric_stiffness: No K_G in this version
-        # - include_spin_softening: No K_SP (inertial frame has no spin softening)
-        # - include_centrifugal: Replaced by -M·a_ref (centripetal component)
-        # - include_coriolis: No Coriolis in inertial frame
-        # - include_euler: Replaced by -M·a_ref (tangential component)
-        #
-        # We log a warning if these are explicitly set to True, to avoid confusion.
+        # Physics flags
+        # include_geometric_stiffness: K_G from centrifugal prestress (static solve at ω₀)
+        # include_spin_softening: K_SP diagonal updated in Rust when ω changes
+        # Other corotational-specific flags (Coriolis, Euler, centrifugal body) are
+        # replaced by the inertial reference frame body force -M·a_ref.
+        self._include_geometric_stiffness: bool = bool(
+            rotor_cfg.get("include_geometric_stiffness", False)
+        )
         if rotor_cfg.get("include_geometric_stiffness", False):
-            _logger.warning(
-                "include_geometric_stiffness is set but NOT used in inertial solver "
-                "(no K_G in this formulation)"
+            _logger.info(
+                "include_geometric_stiffness=True: K_G will be assembled from "
+                "centrifugal prestress at ω₀=%.4f rad/s and passed to the Newmark stepper.",
+                omega_value,
             )
         if rotor_cfg.get("include_spin_softening", False):
-            _logger.warning(
-                "include_spin_softening is set but NOT used in inertial solver "
-                "(no K_SP in inertial frame)"
+            _logger.debug(
+                "include_spin_softening=True: K_SP is assembled in Rust "
+                "(reassemble_k_if_needed) — no Python-side action needed."
             )
         if not rotor_cfg.get("include_centrifugal", True):
             _logger.warning(
@@ -307,7 +309,6 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             )
         if rotor_cfg.get("include_coriolis", False):
             _logger.warning(
-                "include_coriolis is set but NOT used in inertial solver "
                 "(no Coriolis in inertial frame)"
             )
         if rotor_cfg.get("include_euler", False):
@@ -713,6 +714,38 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 flush=True,
             )
 
+        # ── Initial geometric stiffness K_G (centrifugal prestress) ──────────
+        kg0_rows = kg0_cols = kg0_vals = None
+        if self._include_geometric_stiffness:
+            omega_for_kg = (
+                float(omega_val) if omega_val != 0.0
+                else float(omega_target) if omega_target is not None
+                else 0.0
+            )
+            if omega_for_kg > 1e-10:
+                try:
+                    K_G = self.domain.assemble_geometric_stiffness(
+                        omega=omega_for_kg,
+                        rotation_axis=list(self._coord_transforms.axis),
+                        rotation_center=list(self._coord_transforms.center),
+                    )
+                    kg0_rows, kg0_cols, kg0_vals = self._petsc_to_coo(K_G)
+                    kg0_rows = kg0_rows.astype(np.int64)
+                    kg0_cols = kg0_cols.astype(np.int64)
+                    kg0_vals = kg0_vals.astype(np.float64)
+                    if self._is_primary_rank():
+                        print(
+                            f"  ✓ K_G assembled at ω₀={omega_for_kg:.4f} rad/s "
+                            f"(nnz={len(kg0_vals)})",
+                            flush=True,
+                        )
+                except Exception as e:
+                    _logger.warning(
+                        "Could not assemble K_G for inertial solver: %s. Proceeding without.", e
+                    )
+            else:
+                _logger.debug("include_geometric_stiffness=True but ω₀≈0; K_G skipped.")
+
         u_final_red, v_final_red, a_final_red, times = _aeroelast.run_inertial_rotor_fsi_solver(
             assembler=rust_asm,
             rotation_axis=list(self._coord_transforms.axis),
@@ -770,6 +803,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             restart_alpha=None,
             restart_ramp_completed=None,
             restart_current_time=None,
+            kg0_rows=kg0_rows,
+            kg0_cols=kg0_cols,
+            kg0_vals=kg0_vals,
             step_callback=None,
         )
 
