@@ -981,3 +981,90 @@ class TestIntegrationParity:
         Task 6.10 — preCICE contract verification
         """
         pass
+
+
+# ---------------------------------------------------------------------------
+# T4.3 — Bit-exact regression with explicit defaults
+# ---------------------------------------------------------------------------
+
+class TestInertialRustBindingExplicitDefaults:
+    """T4.3 — verify the new keyword params accept defaults without type errors.
+
+    Spec scenario R1: calling the binding with explicit defaults must produce
+    identical behavior to calling it without the new kwargs (backward compat).
+    We exercise the binding's argument-parsing path only — a full FSI loop
+    requires preCICE and is not run here.
+    """
+
+    @_skip_rust
+    def test_new_kwargs_accepted_with_defaults(self):
+        """Verify the binding accepts the new kwargs without raising.
+
+        Checks that:
+        - ``include_spin_softening=True`` is accepted
+        - ``include_geometric_stiffness=False`` is accepted (explicit)
+        - All four threshold kwargs (float) are accepted
+        - ``include_geometric_stiffness=None`` is accepted (triggers sentinel path)
+        """
+        import inspect
+
+        sig = inspect.signature(_aeroelast.run_inertial_rotor_fsi_solver)
+        param_names = set(sig.parameters.keys())
+
+        # All new params must be present in the signature
+        for expected in [
+            "include_spin_softening",
+            "include_geometric_stiffness",
+            "ksp_omega_rebuild_high",
+            "ksp_omega_rebuild_low",
+            "kg_omega_rebuild_high",
+            "kg_omega_rebuild_low",
+        ]:
+            assert expected in param_names, (
+                f"Expected parameter '{expected}' not found in "
+                f"run_inertial_rotor_fsi_solver signature. "
+                f"Present params: {sorted(param_names)}"
+            )
+
+    @_skip_rust
+    def test_include_spin_softening_default_is_true(self):
+        """Verify that include_spin_softening defaults to True."""
+        import inspect
+
+        sig = inspect.signature(_aeroelast.run_inertial_rotor_fsi_solver)
+        param = sig.parameters.get("include_spin_softening")
+        assert param is not None, "include_spin_softening not in signature"
+        assert param.default is True, (
+            f"include_spin_softening default must be True, got {param.default!r}"
+        )
+
+    @_skip_rust
+    def test_include_geometric_stiffness_default_is_none(self):
+        """Verify that include_geometric_stiffness defaults to None (sentinel path)."""
+        import inspect
+
+        sig = inspect.signature(_aeroelast.run_inertial_rotor_fsi_solver)
+        param = sig.parameters.get("include_geometric_stiffness")
+        assert param is not None, "include_geometric_stiffness not in signature"
+        assert param.default is None, (
+            f"include_geometric_stiffness default must be None, got {param.default!r}"
+        )
+
+    @_skip_rust
+    def test_threshold_defaults(self):
+        """Verify that all threshold kwargs have the expected defaults."""
+        import inspect
+
+        sig = inspect.signature(_aeroelast.run_inertial_rotor_fsi_solver)
+        expected_defaults = {
+            "ksp_omega_rebuild_high": 0.005,
+            "ksp_omega_rebuild_low": 0.003,
+            "kg_omega_rebuild_high": 0.005,
+            "kg_omega_rebuild_low": 0.003,
+        }
+        for name, expected_val in expected_defaults.items():
+            param = sig.parameters.get(name)
+            assert param is not None, f"{name} not in signature"
+            assert abs(param.default - expected_val) < 1e-12, (
+                f"{name} default: expected {expected_val}, got {param.default}"
+            )

@@ -203,3 +203,90 @@ Se descarta para la primera iteracion porque combina dos riesgos a la vez: cambi
 3. El nuevo solver no usa $[\mathbf{K}_G]$, $[\mathbf{K}_{SP}]$ ni $[\mathbf{G}_{cor}]$ en la fase inicial.
 4. La carga inercial rigid-body $-[\mathbf{M}]\ddot{\hat{\mathbf{x}}}$ queda implementada y validada con casos simples.
 5. Existe un benchmark reproducible de comparacion entre `Corotational` e `Inertial` en terminos de torque, desplazamiento y costo.
+
+---
+
+## Addendum: K_SP and K_G Hysteresis Triggers (inertial-spin-softening-kg)
+
+This section documents the changes introduced by the `inertial-spin-softening-kg` SDD change, which adds per-matrix Δω-driven rebuild triggers for $[\mathbf{K}_{SP}]$ and $[\mathbf{K}_G]$ in the inertial rotor FSI solver.
+
+### Context
+
+K_G and K_SP were already implemented in the Rust inertial solver (`rotor_inertial.rs`) before this change. The original design doc above stated they would not be included in the initial version; they were added in a later iteration. This addendum documents the configuration surface and rebuild semantics introduced to make them controllable.
+
+### New YAML Configuration Keys
+
+The following keys are accepted under the `rotor:` block in the simulation YAML:
+
+```yaml
+rotor:
+  # ... existing keys ...
+
+  # Enable spin-softening stiffness K_SP (default: true).
+  # K_SP = -ω² · M_lump · (I - n̂⊗n̂), added to effective stiffness K_eff.
+  include_spin_softening: true
+
+  # Enable geometric stiffness K_G from centrifugal prestress (default: false).
+  # Replaces the deprecated kg0_rows/cols/vals sentinel pattern.
+  include_geometric_stiffness: false
+
+  # Hysteresis thresholds for K_SP rebuild (relative Δω² / ω²):
+  #   rebuild when |Δ(ω²)| / ω² > ksp_omega_rebuild_high  (when not currently rebuilt)
+  #   suppress rebuild when |Δ(ω²)| / ω² < ksp_omega_rebuild_low  (when currently rebuilt)
+  ksp_omega_rebuild_high: 0.005
+  ksp_omega_rebuild_low: 0.003
+
+  # Hysteresis thresholds for K_G rebuild (same semantics as K_SP thresholds):
+  kg_omega_rebuild_high: 0.005
+  kg_omega_rebuild_low: 0.003
+```
+
+**Defaults summary:**
+
+| Key | Default | Notes |
+|-----|---------|-------|
+| `include_spin_softening` | `true` | Active by default; set `false` to disable entirely |
+| `include_geometric_stiffness` | `false` | Opt-in; replaces `kg0_rows/cols/vals` sentinel |
+| `ksp_omega_rebuild_high` | `0.005` | Relative Δω² threshold to trigger K_SP rebuild |
+| `ksp_omega_rebuild_low` | `0.003` | Relative Δω² threshold to suppress K_SP rebuild (hysteresis) |
+| `kg_omega_rebuild_high` | `0.005` | Relative Δω² threshold to trigger K_G rebuild |
+| `kg_omega_rebuild_low` | `0.003` | Relative Δω² threshold to suppress K_G rebuild (hysteresis) |
+
+### Rebuild Trigger Semantics
+
+Each matrix (K_SP, K_G) has an independent two-threshold hysteresis predicate:
+
+```
+omega_changed_significantly(omega_new, omega_sq_at_last_rebuild,
+                            threshold_high, threshold_low, currently_rebuilt) → bool
+```
+
+The predicate returns `true` (trigger rebuild) when:
+- ω = 0 and the matrix was previously built (needs to go to zero), OR
+- `currently_rebuilt = false` and relative change > `threshold_high`, OR
+- `currently_rebuilt = true` and relative change > `threshold_low`.
+
+This prevents oscillation near a threshold: once a rebuild is triggered, the bar to suppress it is lower than the bar to trigger the next one.
+
+State variables `omega_sq_at_last_ksp_rebuild` and `omega_sq_at_last_kg_rebuild` track the ω² value at the last rebuild for each matrix independently. Both are initialized to `f64::NEG_INFINITY` so the first window always triggers a rebuild.
+
+### Single Refactorization Invariant (Spec Scenario R5)
+
+When K(θ), K_G, and K_SP all trigger in the same coupling window, the solver calls `update_tangent_terms(k_vals, kg_vals, ksp_vals)` exactly once. This results in a single `refactorize()` call regardless of how many matrices changed. The new `NewmarkStepper::refactorize_count()` accessor exposes this counter for testing.
+
+If only K_G changes (K_SP and K(θ) unchanged), the solver reuses the stored `stepper.k_vals()` and `stepper.ksp_vals()` slices and still calls `update_tangent_terms` once, passing the unchanged slices alongside the new K_G values.
+
+### Checkpoint / Restore for Tracker State
+
+Two new fields are captured in `InertialKgKspCheckpoint` and saved alongside the structural checkpoint:
+
+- `omega_sq_at_last_ksp_rebuild`
+- `omega_sq_at_last_kg_rebuild`
+- `last_ksp_rebuild_step`
+- `last_kg_rebuild_step`
+
+Without this, a preCICE rollback would restore ω to its pre-window value but leave the rebuild-step trackers pointing to a future step, causing the first post-rollback rebuild to be suppressed incorrectly.
+
+### Deprecated: kg0_rows/cols/vals Sentinel
+
+The previous pattern of passing non-empty `kg0_rows`, `kg0_cols`, `kg0_vals` to `run_inertial_rotor_fsi_solver` as a sentinel to enable K_G is deprecated. Use `include_geometric_stiffness: true` instead. A deprecation warning is emitted at runtime if the sentinel is detected. The sentinel will be removed in a future version.

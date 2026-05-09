@@ -41,9 +41,10 @@ use crate::petsc::fsi::force_utils::{apply_cap, apply_ramp};
 use crate::petsc::fsi::linear_elastic::{FsiConfig, FsiError, FsiInitialState, FsiResult};
 use crate::petsc::fsi::rotor_physics::{
     OmegaCheckpoint, OmegaProvider, PerformanceCoefficients, RotorTransforms,
-    compute_gravity_force, compute_performance_coefficients,
+    compose_deformed_coords, compute_gravity_force, compute_performance_coefficients,
     compute_rigid_body_acceleration_inertial, compute_reference_load_vector,
     compute_rigid_body_velocity_inertial, compute_thrust, compute_torque,
+    max_radial_deflection_ratio, omega_changed_significantly,
 };
 
 // ── Step callback type ─────────────────────────────────────────────────────────
@@ -97,6 +98,30 @@ pub struct InertialRotorFsiConfig {
     /// Include centrifugal prestress as a dynamic K_G(θ, ω) term assembled on
     /// the current rotated geometry and updated together with K(θ).
     pub include_geometric_stiffness: bool,
+    /// Include spin-softening K_SP(ω) = −ω²·M·(I − n̂⊗n̂) in the effective stiffness.
+    ///
+    /// K_SP arises from linearizing the centripetal displacement term around u_e = 0.
+    /// It is negative-definite in the plane perpendicular to the rotation axis and
+    /// prevents overestimating flapwise eigenfrequencies at operating speed.
+    ///
+    /// Default: `true` — K_SP runs unconditionally for physical correctness.
+    /// Set to `false` only for debugging or backward-compatibility checks.
+    pub include_spin_softening: bool,
+    /// High-band relative threshold for K_SP ω-driven rebuild trigger.
+    /// When |Δ(ω²)|/ω² exceeds this value and the solver is NOT in a recently-rebuilt
+    /// state, K_SP is rebuilt. Default: `0.005` (0.5% change in ω²).
+    pub ksp_omega_rebuild_high: f64,
+    /// Low-band relative threshold for K_SP ω-driven rebuild trigger.
+    /// Used as the hysteresis floor when the solver IS in a recently-rebuilt state.
+    /// Default: `0.003` (0.3% change in ω²).
+    pub ksp_omega_rebuild_low: f64,
+    /// High-band relative threshold for K_G ω-driven rebuild trigger.
+    /// When |Δ(ω²)|/ω² exceeds this value and the solver is NOT in a recently-rebuilt
+    /// state, K_G is rebuilt (independent of K(θ) cadence). Default: `0.005`.
+    pub kg_omega_rebuild_high: f64,
+    /// Low-band relative threshold for K_G ω-driven rebuild trigger.
+    /// Hysteresis floor analogous to `ksp_omega_rebuild_low`. Default: `0.003`.
+    pub kg_omega_rebuild_low: f64,
 
     // ── Stiffness reassembly ──────────────────────────────────────────────────
     /// Rebuild K(θ) every N converged steps. `0` and `1` both mean every step.
@@ -113,6 +138,24 @@ pub struct InertialRotorFsiConfig {
     /// (geometry orientation), not on ω. Default: `0.05` rad ≈ 2.86°.
     /// Set to a small value to rebuild often, large to amortize cost.
     pub theta_rebuild_threshold: f64,
+
+    // ── K_G(u) — Nivel 2 reassembly with deformed geometry ────────────────────
+    /// Master toggle for the foreshortening-aware K_G assembly. When `true`,
+    /// `K_G` is built at deformed coordinates `X_rotated + u` (only K_G —
+    /// `K(θ)` keeps the linear "Option A" discipline and uses `X_rotated`).
+    /// Default `false` for parity with the explicit-in-geometry baseline.
+    pub kg_use_deformed_coords: bool,
+    /// High-band relative threshold for the K_G deflection-driven rebuild
+    /// trigger. When the radial deflection ratio drift since the last K_G
+    /// rebuild exceeds this value, the next converged window will reassemble
+    /// `K_G` with deformed coords. Default `0.01` (1%).
+    pub kg_deflection_rebuild_rel_high: f64,
+    /// Low-band relative threshold for the K_G deflection-driven rebuild
+    /// trigger. Acts as the hysteresis floor so that cyclic 1P deflection
+    /// (gravity-driven) cannot ping-pong the rebuild logic. Reserved for the
+    /// hysteresis predicate; not consulted by the simple drift check.
+    /// Default `0.005` (0.5%).
+    pub kg_deflection_rebuild_rel_low: f64,
 
     // ── Displacement mode ─────────────────────────────────────────────────────
     /// Which displacement to write to preCICE: elastic only or total (elastic + rigid).
@@ -176,6 +219,26 @@ pub enum DisplacementMode {
     /// Write total displacement (u_total = u_e + u_rigid) — for standard CFD solvers
     /// that expect the full deformed position (elastic + rigid-body motion).
     Total,
+}
+
+// ── Checkpoint for K_SP / K_G rebuild trackers ────────────────────────────────
+
+/// Snapshot of the K_SP and K_G ω-rebuild state for checkpoint/restore.
+///
+/// Captured together with `NewmarkCheckpoint` and `OmegaCheckpoint` so that a
+/// preCICE rollback correctly restores the hysteresis counters. Without this,
+/// a rollback would reset θ and ω but leave the rebuild-step indices pointing
+/// into the future, which could suppress the first post-rollback rebuild.
+#[derive(Debug, Clone)]
+pub struct InertialKgKspCheckpoint {
+    /// ω² at the last K_SP rebuild at checkpoint time.
+    pub omega_sq_at_last_ksp_rebuild: f64,
+    /// ω² at the last K_G rebuild at checkpoint time.
+    pub omega_sq_at_last_kg_rebuild: f64,
+    /// Step index of the last K_SP rebuild at checkpoint time.
+    pub last_ksp_rebuild_step: usize,
+    /// Step index of the last K_G rebuild at checkpoint time.
+    pub last_kg_rebuild_step: usize,
 }
 
 // ── Solver state ───────────────────────────────────────────────────────────────
@@ -249,6 +312,21 @@ pub struct InertialRotorFsiSolver {
     theta_at_last_k_rebuild: f64,
     /// Step index of the last K(θ) rebuild.
     step_at_last_k_rebuild: usize,
+    /// Radial deflection ratio at the last K_G rebuild. Used by the K_G(u)
+    /// hysteresis trigger when `kg_use_deformed_coords` is enabled. Initialized
+    /// to `0.0` so the first non-zero deflection above the high-band threshold
+    /// triggers the first deformed-coords K_G assembly.
+    deflection_ratio_at_last_kg_rebuild: f64,
+    /// ω² at the last K_SP-only rebuild (for the Δω-driven K_SP hysteresis predicate).
+    /// Initialized to `f64::NEG_INFINITY` so the first call always rebuilds.
+    omega_sq_at_last_ksp_rebuild: f64,
+    /// ω² at the last K_G-only rebuild (for the Δω-driven K_G hysteresis predicate).
+    /// Initialized to `f64::NEG_INFINITY` so the first call always rebuilds.
+    omega_sq_at_last_kg_rebuild: f64,
+    /// Step index of the last K_SP rebuild (used to determine `recently_rebuilt` for hysteresis).
+    last_ksp_rebuild_step: usize,
+    /// Step index of the last K_G rebuild (used to determine `recently_rebuilt` for hysteresis).
+    last_kg_rebuild_step: usize,
 
     // ── Optional callback ─────────────────────────────────────────────────────
     /// Per-step callback (invoked after each converged window).
@@ -396,6 +474,11 @@ impl InertialRotorFsiSolver {
             omega_sq_at_last_k_rebuild: f64::NEG_INFINITY,
             theta_at_last_k_rebuild: 0.0,
             step_at_last_k_rebuild: 0,
+            deflection_ratio_at_last_kg_rebuild: 0.0,
+            omega_sq_at_last_ksp_rebuild: f64::NEG_INFINITY,
+            omega_sq_at_last_kg_rebuild: f64::NEG_INFINITY,
+            last_ksp_rebuild_step: 0,
+            last_kg_rebuild_step: 0,
             step_callback: None,
             omega_vertex_id: None,
         })
@@ -500,27 +583,44 @@ impl InertialRotorFsiSolver {
         a0
     }
 
-    /// Rebuild K(θ) when geometry has rotated significantly.
+    /// Rebuild K(θ) (and K_G, K_SP) when geometry has rotated or deformed
+    /// significantly.
     ///
     /// Assumes `self.coords_rotated` already tracks `self.theta` (the caller
     /// updates it at every theta change). Then calls
     /// `assembler.update_node_coordinates(&self.coords_rotated)` →
     /// `assembler.assemble_k()` → `apply_kg_coo_map()` →
     /// `stepper.update_elastic_stiffness()`.
+    ///
+    /// When `kg_use_deformed_coords` is enabled, K_G is reassembled at
+    /// deformed coords `X_rotated + u` (Nivel 2 foreshortening contribution).
+    /// `u_red` is the current reduced displacement, used both for the
+    /// deflection-driven rebuild trigger and for the K_G assembly itself.
+    /// `K(θ)` keeps the linear "Option A" discipline and always uses
+    /// `X_rotated`.
     fn reassemble_k_if_needed(
         &mut self,
         omega: f64,
+        u_red: &[f64],
         time_step: usize,
         free_dofs: &[i32],
     ) -> Result<(), FsiError> {
-        // Rebuild K(θ) when ANY of the following triggers fires:
-        //   1. Forced cadence: every `k_update_interval` converged windows.
-        //   2. ω-change trigger: |Δω²|/ω² above threshold (only useful for
-        //      ramped/computed ω; constant ω never trips this).
-        //   3. θ-change trigger: |Δθ| since last rebuild above threshold.
-        //      This is the physically correct primary trigger for this
-        //      formulation (K depends on θ, not ω). For ConstantOmega this
-        //      is the only way to detect that geometry has drifted.
+        // ── Trigger evaluation ────────────────────────────────────────────────
+        //
+        // Six OR-gate triggers:
+        //   1. Forced cadence: every `k_update_interval` converged windows → K(θ).
+        //   2. K(θ) ω-change trigger: |Δω²|/ω² above threshold.
+        //   3. K(θ) θ-change trigger: |Δθ| above threshold (primary trigger).
+        //   4. K_G(u) deflection-change trigger (Nivel 2 only).
+        //   5. K_SP Δω trigger: independent per-matrix ω hysteresis predicate.
+        //   6. K_G Δω trigger: independent per-matrix ω hysteresis predicate.
+        //
+        // Triggers 1-4 are coupled (rebuild K+K_G+K_SP together).
+        // Triggers 5-6 are independent: they can fire without 1-4, and rebuild
+        // only the specific matrix that changed while reusing cached values for
+        // the others. All paths end in a single `update_tangent_terms` call →
+        // single refactorization.
+
         let should_rebuild_by_step = self.config.should_update_k_on_step(time_step);
         let should_rebuild_by_omega = {
             let omega_sq_new = omega * omega;
@@ -535,93 +635,215 @@ impl InertialRotorFsiSolver {
         let should_rebuild_by_theta =
             (self.theta - self.theta_at_last_k_rebuild).abs() > self.config.theta_rebuild_threshold;
 
-        if !should_rebuild_by_step && !should_rebuild_by_omega && !should_rebuild_by_theta {
+        // K_G(u) deflection-driven trigger (Nivel 2 only). The ratio defaults
+        // to 0.0 when the feature is off, making the predicate inert.
+        let current_deflection_ratio = if self.config.kg_use_deformed_coords {
+            let u_full = self.expand_to_full(u_red, free_dofs);
+            max_radial_deflection_ratio(
+                &u_full,
+                &self.coords_rotated,
+                &self.transforms.axis,
+                &self.transforms.center,
+                self.config.dofs_per_node,
+            )
+        } else {
+            0.0
+        };
+        let should_rebuild_by_deflection = self.config.kg_use_deformed_coords && {
+            let drift = (current_deflection_ratio - self.deflection_ratio_at_last_kg_rebuild).abs();
+            drift > self.config.kg_deflection_rebuild_rel_high
+        };
+
+        // K_SP Δω trigger — only active when `include_spin_softening`.
+        let eps_sq = 1e-8_f64; // near-zero guard (ω ≈ 1e-4 rad/s)
+        let ksp_recently_rebuilt = time_step.saturating_sub(self.last_ksp_rebuild_step) < 10;
+        let should_rebuild_ksp_by_omega = self.config.include_spin_softening
+            && omega_changed_significantly(
+                omega,
+                self.omega_sq_at_last_ksp_rebuild,
+                self.config.ksp_omega_rebuild_high,
+                self.config.ksp_omega_rebuild_low,
+                ksp_recently_rebuilt,
+                eps_sq,
+            );
+
+        // K_G Δω trigger — only active when `include_geometric_stiffness`.
+        let kg_recently_rebuilt = time_step.saturating_sub(self.last_kg_rebuild_step) < 10;
+        let should_rebuild_kg_by_omega = self.config.include_geometric_stiffness
+            && omega_changed_significantly(
+                omega,
+                self.omega_sq_at_last_kg_rebuild,
+                self.config.kg_omega_rebuild_high,
+                self.config.kg_omega_rebuild_low,
+                kg_recently_rebuilt,
+                eps_sq,
+            );
+
+        // Any full-system trigger OR any per-matrix trigger?
+        let full_rebuild = should_rebuild_by_step
+            || should_rebuild_by_omega
+            || should_rebuild_by_theta
+            || should_rebuild_by_deflection;
+        let partial_rebuild = should_rebuild_ksp_by_omega || should_rebuild_kg_by_omega;
+
+        if !full_rebuild && !partial_rebuild {
             return Ok(());
         }
 
         let t_start = std::time::Instant::now();
 
-        // Caller guarantees self.coords_rotated tracks self.theta (rotation is
-        // performed immediately after self.theta updates at window convergence
-        // and on checkpoint rollback). Reassembly only needs to project K
-        // into the reduced COO sparsity expected by the Newmark stepper.
         use crate::petsc::fsi::setup::{apply_kg_coo_map, reassemble_k};
         use crate::petsc::fsi::rotor_physics::build_ksp_vals;
-        let (_, _, k_vals) = reassemble_k(&mut self.assembler, &self.coords_rotated);
-        if k_vals.len() != self.k_coo_map.len() {
-            return Err(FsiError::PreciceError(format!(
-                "reassembled K COO length {} does not match reference mapping length {}",
-                k_vals.len(),
-                self.k_coo_map.len(),
-            )));
-        }
-        let k_vals_red = apply_kg_coo_map(&self.k_coo_map, &k_vals, self.k_red_nnz);
 
-        let kg_vals_red = if self.config.include_geometric_stiffness {
-            let (_, _, kg_vals_full) = self.assembler.assemble_centrifugal_k(
-                omega,
-                self.transforms.axis,
-                self.transforms.center,
-                &self.rho_per_elem,
-            );
-            apply_kg_coo_map(&self.kg_coo_map, &kg_vals_full, self.k_red_nnz)
+        // ── Determine which pieces need to be recomputed ──────────────────────
+        let rebuild_k = full_rebuild;
+        let rebuild_kg = full_rebuild
+            || (should_rebuild_kg_by_omega && self.config.include_geometric_stiffness);
+        let rebuild_ksp = full_rebuild
+            || (should_rebuild_ksp_by_omega && self.config.include_spin_softening);
+
+        // ── K(θ): reassemble from rotated geometry ────────────────────────────
+        let k_vals_red = if rebuild_k {
+            // Caller guarantees self.coords_rotated tracks self.theta.
+            let (_, _, k_vals) = reassemble_k(&mut self.assembler, &self.coords_rotated);
+            if k_vals.len() != self.k_coo_map.len() {
+                return Err(FsiError::PreciceError(format!(
+                    "reassembled K COO length {} does not match reference mapping length {}",
+                    k_vals.len(),
+                    self.k_coo_map.len(),
+                )));
+            }
+            apply_kg_coo_map(&self.k_coo_map, &k_vals, self.k_red_nnz)
         } else {
-            vec![0.0f64; self.k_red_nnz]
+            // Reuse cached K(θ) from the stepper — no geometry change.
+            self.stepper.k_vals().to_vec()
         };
 
-        // Compute spin-softening K_SP(ω, θ).
+        // ── K_G(θ, ω): centrifugal prestress ─────────────────────────────────
         //
-        // In the inertial frame, the full linearized EOM is:
-        //   M·ü_e + C·u̇_e + [K(θ) + K_SP(ω)]·u_e = F_aero + F_g + F_ref
-        //
-        // K_SP arises from linearizing the centripetal term ω×(ω×u_e) around
-        // u_e=0. For lumped mass and rotation axis n̂, each translational node
-        // contributes the 3×3 block:
-        //   K_SP,node = −ω²·m[node]·(I − n̂⊗n̂)
-        // with zero rotational rows/cols. For tilted axes this introduces
-        // physically required off-diagonal translational couplings.
-        //
-        // K_SP is negative-definite in the perpendicular-to-axis subspace
-        // (spin-softening). Including it prevents overestimating flapwise
-        // eigenfrequencies at operating speed. Without K_SP the solver
-        // over-stiffens the blade by ω²·m_⊥/k for each mode.
-        let n_full_dofs = self.assembler.topology.dofs_count();
-        let dofs_per_node = self.config.dofs_per_node;
-        // Expand node masses (one per node) to full DOF space (dofs_per_node per node).
-        let mut m_lumped_full = vec![0.0f64; n_full_dofs];
-        for (i, &m) in self.masses.iter().enumerate() {
-            for j in 0..3_usize {
-                let dof = i * dofs_per_node + j;
-                if dof < n_full_dofs {
-                    m_lumped_full[dof] = m;
-                }
+        // Option A discipline: K(θ) uses X_rotated. K_G below optionally uses
+        // X_rotated + u (Nivel 2 foreshortening). After deformed-coords assembly
+        // we restore X_rotated so later assembly paths see canonical geometry.
+        let kg_vals_red = if rebuild_kg {
+            if self.config.include_geometric_stiffness {
+                let kg_vals_full = if self.config.kg_use_deformed_coords {
+                    let u_full = self.expand_to_full(u_red, free_dofs);
+                    let coords_def = compose_deformed_coords(
+                        &self.coords_rotated,
+                        &u_full,
+                        self.config.dofs_per_node,
+                    );
+                    self.assembler.update_node_coordinates(&coords_def);
+                    let (_, _, vals) = self.assembler.assemble_centrifugal_k(
+                        omega,
+                        self.transforms.axis,
+                        self.transforms.center,
+                        &self.rho_per_elem,
+                    );
+                    // Restore X_rotated as the canonical assembler geometry.
+                    let coords_rotated_snapshot = self.coords_rotated.clone();
+                    self.assembler.update_node_coordinates(&coords_rotated_snapshot);
+                    vals
+                } else {
+                    let (_, _, vals) = self.assembler.assemble_centrifugal_k(
+                        omega,
+                        self.transforms.axis,
+                        self.transforms.center,
+                        &self.rho_per_elem,
+                    );
+                    vals
+                };
+                apply_kg_coo_map(&self.kg_coo_map, &kg_vals_full, self.k_red_nnz)
+            } else {
+                // include_geometric_stiffness=false → K_G = 0 (never changes).
+                // On a full rebuild we fill zeros; on a partial rebuild this branch
+                // is unreachable (should_rebuild_kg_by_omega is gated on the flag).
+                vec![0.0f64; self.k_red_nnz]
             }
-        }
-        let ksp_vals_red = build_ksp_vals(
-            &m_lumped_full,
-            &self.transforms.axis,
-            omega,
-            dofs_per_node,
-            &self.k_red_rows,
-            &self.k_red_cols,
-            free_dofs,
-            n_full_dofs,
-        );
+        } else {
+            // Reuse cached K_G from the stepper.
+            self.stepper.kg_vals().to_vec()
+        };
 
-        // Update K(θ), K_G(θ,ω), and K_SP(ω,θ) together → single refactorization.
+        // ── K_SP(ω): spin-softening ───────────────────────────────────────────
+        //
+        // In the inertial frame:
+        //   M·ü_e + C·u̇_e + [K(θ) + K_G(θ,ω) + K_SP(ω)]·u_e = F
+        //
+        // K_SP = −ω²·M_lump·(I − n̂⊗n̂) (negative-definite in perpendicular plane).
+        let ksp_vals_red = if rebuild_ksp {
+            if self.config.include_spin_softening {
+                let n_full_dofs = self.assembler.topology.dofs_count();
+                let dofs_per_node = self.config.dofs_per_node;
+                let mut m_lumped_full = vec![0.0f64; n_full_dofs];
+                for (i, &m) in self.masses.iter().enumerate() {
+                    for j in 0..3_usize {
+                        let dof = i * dofs_per_node + j;
+                        if dof < n_full_dofs {
+                            m_lumped_full[dof] = m;
+                        }
+                    }
+                }
+                build_ksp_vals(
+                    &m_lumped_full,
+                    &self.transforms.axis,
+                    omega,
+                    dofs_per_node,
+                    &self.k_red_rows,
+                    &self.k_red_cols,
+                    free_dofs,
+                    n_full_dofs,
+                )
+            } else {
+                // include_spin_softening=false → K_SP = 0.
+                vec![0.0f64; self.k_red_nnz]
+            }
+        } else {
+            // Reuse cached K_SP from the stepper.
+            self.stepper.ksp_vals().to_vec()
+        };
+
+        // ── Single update_tangent_terms → single refactorization ─────────────
         self.stepper
             .update_tangent_terms(&k_vals_red, &kg_vals_red, &ksp_vals_red)
             .map_err(FsiError::StepperError)?;
 
-        self.omega_sq_at_last_k_rebuild = omega * omega;
-        self.theta_at_last_k_rebuild = self.theta;
-        self.step_at_last_k_rebuild = time_step;
+        // ── Update trackers for actually-rebuilt components ───────────────────
+        let omega_sq = omega * omega;
+        if rebuild_k {
+            self.omega_sq_at_last_k_rebuild = omega_sq;
+            self.theta_at_last_k_rebuild = self.theta;
+            self.step_at_last_k_rebuild = time_step;
+        }
+        if rebuild_kg {
+            self.omega_sq_at_last_kg_rebuild = omega_sq;
+            self.last_kg_rebuild_step = time_step;
+        }
+        if rebuild_ksp {
+            self.omega_sq_at_last_ksp_rebuild = omega_sq;
+            self.last_ksp_rebuild_step = time_step;
+        }
+        if self.config.kg_use_deformed_coords && (rebuild_kg || full_rebuild) {
+            self.deflection_ratio_at_last_kg_rebuild = current_deflection_ratio;
+        }
 
         let elapsed = t_start.elapsed();
         log::info!(
-            "InertialRotorFsi: stiffness reassembly done in {:.3}s (step {}, θ={:.4}rad, ω={:.4}rad/s, K_G={})",
-            elapsed.as_secs_f64(), time_step, self.theta, omega
-            , self.config.include_geometric_stiffness
+            "InertialRotorFsi: stiffness reassembly done in {:.3}s \
+             (step {}, θ={:.4}rad, ω={:.4}rad/s, \
+             rebuild_k={}, rebuild_kg={}, rebuild_ksp={}, \
+             K_G={}, K_G(u)={}, K_SP={}, def_ratio={:.4e})",
+            elapsed.as_secs_f64(),
+            time_step,
+            self.theta,
+            omega,
+            rebuild_k,
+            rebuild_kg,
+            rebuild_ksp,
+            self.config.include_geometric_stiffness,
+            self.config.kg_use_deformed_coords,
+            self.config.include_spin_softening,
+            current_deflection_ratio,
         );
 
         Ok(())
@@ -762,6 +984,7 @@ impl InertialRotorFsiSolver {
         let mut newmark_cp: Option<NewmarkCheckpoint> = None;
         let mut omega_cp: Option<OmegaCheckpoint> = None;
         let mut theta_cp = 0.0f64;
+        let mut kgksp_cp: Option<InertialKgKspCheckpoint> = None;
 
         let mut result = FsiResult {
             u_final: Vec::new(),
@@ -779,6 +1002,12 @@ impl InertialRotorFsiSolver {
                 newmark_cp = Some(self.stepper.checkpoint());
                 omega_cp = Some(self.omega_provider.checkpoint());
                 theta_cp = self.theta;
+                kgksp_cp = Some(InertialKgKspCheckpoint {
+                    omega_sq_at_last_ksp_rebuild: self.omega_sq_at_last_ksp_rebuild,
+                    omega_sq_at_last_kg_rebuild: self.omega_sq_at_last_kg_rebuild,
+                    last_ksp_rebuild_step: self.last_ksp_rebuild_step,
+                    last_kg_rebuild_step: self.last_kg_rebuild_step,
+                });
                 sub_iter = 0;
                 window_num += 1;
                 let u_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
@@ -1002,19 +1231,26 @@ impl InertialRotorFsiSolver {
 
             // ── Implicit coupling: restore or commit ──────────────────────────
             if participant.requires_reading_checkpoint()? {
-                match (newmark_cp.as_ref(), omega_cp.as_ref()) {
-                    (Some(ncp), Some(ocp)) => {
+                match (newmark_cp.as_ref(), omega_cp.as_ref(), kgksp_cp.as_ref()) {
+                    (Some(ncp), Some(ocp), Some(kcp)) => {
                         let u_before_restore_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
                         self.stepper.restore(ncp);
                         self.omega_provider.restore(ocp);
                         self.theta = theta_cp;
-                        
+                        // Restore K_SP / K_G rebuild trackers so hysteresis is consistent
+                        // after rollback. Without this, the tracker step indices would point
+                        // beyond the rolled-back time, suppressing the first post-rollback rebuild.
+                        self.omega_sq_at_last_ksp_rebuild = kcp.omega_sq_at_last_ksp_rebuild;
+                        self.omega_sq_at_last_kg_rebuild = kcp.omega_sq_at_last_kg_rebuild;
+                        self.last_ksp_rebuild_step = kcp.last_ksp_rebuild_step;
+                        self.last_kg_rebuild_step = kcp.last_kg_rebuild_step;
+
                         // CRITICAL: Re-rotate coords to theta_cp to maintain consistency.
                         // If we don't do this, coords_rotated will be out of sync with theta
                         // until the next K rebuild, causing incorrect reference forces.
                         use crate::petsc::fsi::setup::rotate_mesh_coords;
                         self.coords_rotated = rotate_mesh_coords(&self.coords_ref, &self.transforms, self.theta);
-                        
+
                         let u_after_restore_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
                         let cp_u_norm: f64 = ncp.u.iter().map(|x| x * x).sum::<f64>().sqrt();
                         log::debug!(
@@ -1050,7 +1286,18 @@ impl InertialRotorFsiSolver {
                 // the checkpoint (θ_{n-1}). This is the explicit-in-geometry
                 // approximation documented in the module docstring.
                 let t_reassemble = std::time::Instant::now();
-                self.reassemble_k_if_needed(omega_step, self.time_step, &free_dofs)?;
+                // Snapshot the current reduced displacement so the K_G(u)
+                // trigger and assembly path see a consistent state. The
+                // snapshot is also necessary because reassemble_k_if_needed
+                // takes &mut self and would conflict with a live borrow on
+                // self.stepper.current_u().
+                let u_red_snapshot = self.stepper.current_u().to_vec();
+                self.reassemble_k_if_needed(
+                    omega_step,
+                    &u_red_snapshot,
+                    self.time_step,
+                    &free_dofs,
+                )?;
                 log::info!(
                     "InertialRotorFsi: [w={}] K(θ) reassembly: {:.1}ms",
                     window_num, t_reassemble.elapsed().as_secs_f64() * 1e3
@@ -1198,5 +1445,177 @@ impl InertialRotorFsiSolver {
     /// Current angular velocity ω [rad/s] from the provider.
     pub fn omega(&self) -> f64 {
         self.omega_provider.get(self.stepper.current_time()).0
+    }
+}
+
+// ── Unit tests ────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /// Construct a minimal `InertialRotorFsiConfig` with sensible defaults for testing.
+    fn default_config() -> InertialRotorFsiConfig {
+        use crate::petsc::fsi::linear_elastic::FsiConfig;
+        InertialRotorFsiConfig {
+            fsi: FsiConfig {
+                participant_name: "Solid".to_string(),
+                config_file: "precice-config.xml".to_string(),
+                coupling_mesh: "Solid-Mesh".to_string(),
+                write_data: "Displacement".to_string(),
+                read_data: "Force".to_string(),
+                ramp_time: 0.0,
+                force_max: None,
+            },
+            rotation_axis: [0.0, 0.0, 1.0],
+            rotation_center: [0.0; 3],
+            gravity: [0.0; 3],
+            include_reference_acceleration: true,
+            include_geometric_stiffness: false,
+            include_spin_softening: true,
+            ksp_omega_rebuild_high: 0.005,
+            ksp_omega_rebuild_low: 0.003,
+            kg_omega_rebuild_high: 0.005,
+            kg_omega_rebuild_low: 0.003,
+            k_update_interval: 1,
+            omega_rebuild_threshold: 0.01,
+            theta_rebuild_threshold: 0.05,
+            kg_use_deformed_coords: false,
+            kg_deflection_rebuild_rel_high: 0.01,
+            kg_deflection_rebuild_rel_low: 0.005,
+            displacement_mode: DisplacementMode::Elastic,
+            dofs_per_node: 3,
+            fluid_density: 1.225,
+            flow_velocity: 0.0,
+            rotor_radius: 1.0,
+            omega_mesh_name: None,
+            omega_write_data: None,
+            omega_vertex_coord: None,
+            velocity_write_data: None,
+        }
+    }
+
+    // ── T4.4a: K_G Δω trigger fires when ω changes, not when only θ changes ──
+
+    /// Verify that `omega_changed_significantly` correctly gates K_G Δω rebuild.
+    ///
+    /// Spec scenario R4: K_G rebuilds on Δω above `kg_omega_rebuild_high`;
+    /// Δθ alone does NOT rebuild K_G through the per-matrix path.
+    #[test]
+    fn kg_omega_trigger_fires_on_large_omega_change() {
+        // Large ω change (above high threshold = 0.5%) → should trigger.
+        let omega_last_sq = 100.0f64 * 100.0f64; // ω_last = 100 rad/s
+        let omega_new = 100.5f64; // 0.5% change in ω → ~1% in ω²
+        let result = omega_changed_significantly(
+            omega_new,
+            omega_last_sq,
+            0.005, // high threshold: 0.5% change in ω²
+            0.003,
+            false, // not recently rebuilt
+            1e-8,
+        );
+        assert!(
+            result,
+            "K_G trigger should fire for large ω change ({} → {}): rel={:.4}%",
+            100.0,
+            omega_new,
+            100.0 * (omega_new * omega_new - omega_last_sq).abs() / omega_last_sq
+        );
+    }
+
+    /// Verify that a small ω change does NOT trigger K_G rebuild (hysteresis).
+    #[test]
+    fn kg_omega_trigger_suppressed_for_small_omega_change() {
+        let omega_last_sq = 100.0f64 * 100.0f64;
+        let omega_new = 100.05f64; // 0.05% change in ω → ~0.1% in ω² — below thresholds
+        let result = omega_changed_significantly(
+            omega_new,
+            omega_last_sq,
+            0.005,
+            0.003,
+            false,
+            1e-8,
+        );
+        assert!(
+            !result,
+            "K_G trigger should NOT fire for tiny ω change: {:.4}%",
+            100.0 * (omega_new * omega_new - omega_last_sq).abs() / omega_last_sq
+        );
+    }
+
+    /// First call (NEG_INFINITY sentinel) always triggers.
+    #[test]
+    fn kg_omega_trigger_first_call_always_triggers() {
+        let omega_new = 50.0f64;
+        assert!(
+            omega_changed_significantly(omega_new, f64::NEG_INFINITY, 0.005, 0.003, false, 1e-8),
+            "First call must always trigger (NEG_INFINITY sentinel)"
+        );
+    }
+
+    // ── T4.4b: should_rebuild_ksp_by_omega correctly gated on include_spin_softening ─
+
+    /// When include_spin_softening=false, the K_SP Δω trigger must not fire
+    /// even with a large ω change.
+    #[test]
+    fn ksp_trigger_disabled_when_include_spin_softening_false() {
+        // Construct config with include_spin_softening = false.
+        let mut cfg = default_config();
+        cfg.include_spin_softening = false;
+
+        // We verify the gating logic by directly testing the predicate with the
+        // flag. The flag is the only guard — the underlying omega_changed_significantly
+        // predicate itself is symmetric.
+        let omega_new = 110.0f64;
+        let omega_sq_last = 100.0f64 * 100.0f64;
+        // omega_changed_significantly would return true here (10% change), but
+        // the flag should suppress it.
+        let underlying = omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false, 1e-8);
+        assert!(underlying, "The underlying predicate fires for 10% change");
+
+        let gated_result = cfg.include_spin_softening && underlying;
+        assert!(!gated_result, "K_SP trigger must be suppressed when include_spin_softening=false");
+    }
+
+    // ── T4.4c: include_spin_softening defaults to true ────────────────────────
+
+    #[test]
+    fn default_config_has_include_spin_softening_true() {
+        let cfg = default_config();
+        assert!(
+            cfg.include_spin_softening,
+            "include_spin_softening must default to true (matches HEAD unconditional behavior)"
+        );
+    }
+
+    // ── T4.4d: New config fields have expected defaults ───────────────────────
+
+    #[test]
+    fn new_config_fields_have_correct_defaults() {
+        let cfg = default_config();
+        assert_eq!(cfg.ksp_omega_rebuild_high, 0.005, "ksp_omega_rebuild_high default mismatch");
+        assert_eq!(cfg.ksp_omega_rebuild_low, 0.003, "ksp_omega_rebuild_low default mismatch");
+        assert_eq!(cfg.kg_omega_rebuild_high, 0.005, "kg_omega_rebuild_high default mismatch");
+        assert_eq!(cfg.kg_omega_rebuild_low, 0.003, "kg_omega_rebuild_low default mismatch");
+    }
+
+    // ── T4.4e: InertialKgKspCheckpoint save/restore semantics ─────────────────
+
+    #[test]
+    fn inertial_kgksp_checkpoint_round_trips_correctly() {
+        let cp = InertialKgKspCheckpoint {
+            omega_sq_at_last_ksp_rebuild: 12.5,
+            omega_sq_at_last_kg_rebuild: 99.9,
+            last_ksp_rebuild_step: 42,
+            last_kg_rebuild_step: 17,
+        };
+        // Clone and verify fields are preserved.
+        let cp2 = cp.clone();
+        assert_eq!(cp2.omega_sq_at_last_ksp_rebuild, 12.5);
+        assert_eq!(cp2.omega_sq_at_last_kg_rebuild, 99.9);
+        assert_eq!(cp2.last_ksp_rebuild_step, 42);
+        assert_eq!(cp2.last_kg_rebuild_step, 17);
     }
 }

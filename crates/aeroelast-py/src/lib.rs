@@ -3797,6 +3797,10 @@ fn run_rotor_fsi_solver(
     ksp_omega_threshold: f64,
     omega_rebuild_rel_high: f64,
     omega_rebuild_rel_low: f64,
+    // ── K_G(u) — Nivel 2 deformed-coords K_G ──────────────────────────────────
+    kg_use_deformed_coords: bool,
+    kg_deflection_rebuild_rel_high: f64,
+    kg_deflection_rebuild_rel_low: f64,
     // ── DOF layout ────────────────────────────────────────────────────────────
     dofs_per_node: usize,
     // ── Performance coefficients ──────────────────────────────────────────────
@@ -4069,6 +4073,9 @@ fn run_rotor_fsi_solver(
         ksp_omega_threshold,
         omega_rebuild_rel_high,
         omega_rebuild_rel_low,
+        kg_use_deformed_coords,
+        kg_deflection_rebuild_rel_high,
+        kg_deflection_rebuild_rel_low,
         dofs_per_node,
         fluid_density,
         flow_velocity,
@@ -4183,6 +4190,33 @@ fn run_rotor_fsi_solver(
 /// `(u_final, v_final, a_final, times)`
 /// Flat reduced-DOF arrays for the last converged step; times accumulates all step times.
 #[pyfunction]
+#[pyo3(signature = (
+    assembler, rotation_axis, rotation_center,
+    all_node_masses, omega_mode, omega,
+    omega_target, t_ramp, moment_of_inertia, shaft_torque,
+    gravity, include_reference_acceleration,
+    k_update_interval, omega_rebuild_threshold, theta_rebuild_threshold,
+    kg_use_deformed_coords, kg_deflection_rebuild_rel_high, kg_deflection_rebuild_rel_low,
+    displacement_mode, dofs_per_node,
+    fluid_density, flow_velocity, rotor_radius,
+    k_rows, k_cols, k_vals,
+    m_rows, m_cols, m_vals,
+    free_dofs, eta_k, eta_m,
+    beta, gamma, dt,
+    interface_nodes, mesh_dims,
+    participant_name, config_file, coupling_mesh,
+    write_data_name, read_data_name, ramp_time, force_max,
+    omega_mesh_name, omega_write_data, omega_vertex_coord,
+    velocity_write_data,
+    u0, v0, a0, t0, theta0,
+    restart_omega, restart_alpha, restart_ramp_completed, restart_current_time,
+    kg0_rows, kg0_cols, kg0_vals,
+    step_callback,
+    include_geometric_stiffness=None,
+    include_spin_softening=true,
+    ksp_omega_rebuild_high=0.005, ksp_omega_rebuild_low=0.003,
+    kg_omega_rebuild_high=0.005, kg_omega_rebuild_low=0.003
+))]
 #[cfg(feature = "fsi")]
 #[allow(clippy::too_many_arguments)]
 fn run_inertial_rotor_fsi_solver(
@@ -4208,6 +4242,10 @@ fn run_inertial_rotor_fsi_solver(
     k_update_interval: usize,
     omega_rebuild_threshold: f64,
     theta_rebuild_threshold: f64,
+    // ── K_G(u) — Nivel 2 deformed-coords K_G ──────────────────────────────────
+    kg_use_deformed_coords: bool,
+    kg_deflection_rebuild_rel_high: f64,
+    kg_deflection_rebuild_rel_low: f64,
     // ── Displacement mode ─────────────────────────────────────────────────────
     displacement_mode: &str,
     // ── DOF layout ────────────────────────────────────────────────────────────
@@ -4260,12 +4298,27 @@ fn run_inertial_rotor_fsi_solver(
     restart_alpha: Option<f64>,
     restart_ramp_completed: Option<bool>,
     restart_current_time: Option<f64>,
-    // ── Optional K_G enable sentinel (content ignored by inertial runtime) ───
+    // ── Optional K_G enable sentinel (deprecated — use include_geometric_stiffness) ──
     kg0_rows: Option<PyReadonlyArray1<i64>>,
     kg0_cols: Option<PyReadonlyArray1<i64>>,
     kg0_vals: Option<PyReadonlyArray1<f64>>,
     // ── Optional per-step callback ────────────────────────────────────────────
     step_callback: Option<Py<PyAny>>,
+    // ── New keyword-only args with defaults (backward-compatible additions) ────
+    /// When `None` (default): derived from `kg0_*` sentinel for backward compat.
+    /// When `Some(false)`: explicitly disable K_G.
+    /// When `Some(true)`: explicitly enable K_G (overrides sentinel).
+    include_geometric_stiffness: Option<bool>,
+    /// Include spin-softening K_SP(ω). Default: `true` (matches HEAD unconditional behavior).
+    include_spin_softening: bool,
+    /// High-band relative threshold for K_SP Δω rebuild trigger. Default: 0.005.
+    ksp_omega_rebuild_high: f64,
+    /// Low-band relative threshold for K_SP Δω rebuild trigger. Default: 0.003.
+    ksp_omega_rebuild_low: f64,
+    /// High-band relative threshold for K_G Δω rebuild trigger. Default: 0.005.
+    kg_omega_rebuild_high: f64,
+    /// Low-band relative threshold for K_G Δω rebuild trigger. Default: 0.003.
+    kg_omega_rebuild_low: f64,
 ) -> PyResult<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>)> {
     use aeroelast_solvers::petsc::elasticity::dynamic_newmark::NewmarkStepper;
     use aeroelast_solvers::petsc::fsi::linear_elastic::{FsiConfig, FsiInitialState};
@@ -4453,7 +4506,23 @@ fn run_inertial_rotor_fsi_solver(
     .and_then(|stepper| stepper.with_rayleigh_damping(eta_k, eta_m))
     .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
-    let include_geometric_stiffness = kg0_rows.is_some() || kg0_cols.is_some() || kg0_vals.is_some();
+    // ── Resolve include_geometric_stiffness (explicit arg overrides sentinel) ──
+    let kg_sentinel_active = kg0_rows.is_some() || kg0_cols.is_some() || kg0_vals.is_some();
+    let include_geometric_stiffness_resolved = match include_geometric_stiffness {
+        Some(b) => b,
+        None => {
+            // Backward-compat shim: if any kg0_* sentinel was passed, treat as true.
+            if kg_sentinel_active {
+                log::warn!(
+                    "run_inertial_rotor_fsi_solver: kg0_rows/cols/vals sentinel is deprecated. \
+                     Pass `include_geometric_stiffness=True` explicitly instead."
+                );
+                true
+            } else {
+                false
+            }
+        }
+    };
 
     // ── FSI base config ───────────────────────────────────────────────────────
     let fsi_config = FsiConfig {
@@ -4473,10 +4542,18 @@ fn run_inertial_rotor_fsi_solver(
         rotation_center: center,
         gravity: grav,
         include_reference_acceleration,
-        include_geometric_stiffness,
+        include_geometric_stiffness: include_geometric_stiffness_resolved,
+        include_spin_softening,
+        ksp_omega_rebuild_high,
+        ksp_omega_rebuild_low,
+        kg_omega_rebuild_high,
+        kg_omega_rebuild_low,
         k_update_interval,
         omega_rebuild_threshold,
         theta_rebuild_threshold,
+        kg_use_deformed_coords,
+        kg_deflection_rebuild_rel_high,
+        kg_deflection_rebuild_rel_low,
         displacement_mode: disp_mode,
         dofs_per_node,
         fluid_density,

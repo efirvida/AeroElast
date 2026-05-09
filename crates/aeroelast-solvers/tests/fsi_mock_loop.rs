@@ -704,3 +704,163 @@ fn test_parity_iea15() {
     //   - Ct within 2% of Python baseline
     todo!("SC-08: implement with IEA-15 mesh and live preCICE environment");
 }
+
+// ── T4.6 — Single-refactorization invariant for co-update windows ─────────────
+
+/// T4.6 — When K(θ), K_G, and K_SP all trigger a rebuild in the same co-update
+/// window, exactly ONE `refactorize()` call should occur (not one per component).
+///
+/// This is the spec scenario R5 invariant: `update_tangent_terms` is the single
+/// entry point that accepts all three stiffness components at once and calls
+/// `refactorize()` exactly once.
+///
+/// Test strategy:
+/// 1. Build a 3-DOF stepper (shell node: 3 translational DOFs).
+/// 2. Record the initial `refactorize_count` after construction (= 0, lazy factorization).
+/// 3. Simulate N co-update windows where K(θ), K_G, and K_SP are all "updated":
+///    call `update_tangent_terms(k_vals, kg_vals, ksp_vals)` once per window.
+/// 4. After each window, assert `refactorize_count` increased by exactly 1.
+/// 5. After N windows, total `refactorize_count` = N (exactly one per co-update).
+#[test]
+fn test_single_refactorize_per_co_update_window() {
+    // 3-DOF diagonal system (simulates 1 shell node: 3 translational DOFs)
+    // Diagonal sparsity: rows[i] == cols[i] == i for i in 0..3
+    let rows = vec![0i32, 1, 2];
+    let cols = vec![0i32, 1, 2];
+
+    let k_vals = vec![1_000.0f64, 1_000.0, 1_000.0]; // elastic stiffness diagonal
+    let m_vals = vec![1.0f64, 1.0, 1.0];              // lumped mass diagonal
+    let c_vals = vec![0.0f64, 0.0, 0.0];              // undamped
+
+    let dt = 1e-3f64;
+
+    let mut stepper = NewmarkStepper::new(
+        &rows, &cols, &k_vals,
+        &rows, &cols, &m_vals,
+        &rows, &cols, &c_vals,
+        3,    // n_dofs
+        0.25, // beta (trapezoidal — unconditionally stable)
+        0.5,  // gamma
+        dt,
+    ).expect("NewmarkStepper::new failed");
+
+    // After construction: `new()` defers factorization to first KSPSolve, so count = 0.
+    let count_after_new = stepper.refactorize_count();
+    assert_eq!(
+        count_after_new, 0,
+        "Expected 0 refactorizes after new() (lazy factorization), got {count_after_new}"
+    );
+
+    // Simulate N co-update windows with changing K_G and K_SP values (omega ramp).
+    // Each window calls update_tangent_terms once → exactly 1 refactorize per window.
+    let n_windows = 5usize;
+
+    // Spin-softening K_SP = -ω² · m · P,  for Y-axis rotation:
+    //   P_xx = 1,  P_yy = 0,  P_zz = 1  (Y is rotation axis, no softening along Y)
+    // So ksp_diag = [-ω²·m, 0, -ω²·m].
+    // K_G: centrifugal prestress — increases with ω².
+    // We vary ω each window to simulate the omega-ramp trigger path.
+
+    let omega_values = [5.0f64, 7.0, 10.0, 13.0, 15.0]; // rad/s per window
+    let m_node = 1.0f64;
+
+    for (win_idx, &omega) in omega_values.iter().enumerate() {
+        let count_before = stepper.refactorize_count();
+
+        // K_G = centrifugal stiffening: diagonal approximation K_G,xx = +ω²·m
+        // (simplified for test — exact physical assembly not required here)
+        let kg_vals = vec![omega * omega * m_node, 0.0, omega * omega * m_node];
+
+        // K_SP = spin-softening (Y-axis rotation → softens X and Z DOFs)
+        let ksp_vals = vec![
+            -omega * omega * m_node, // DOF 0 (X): softened
+            0.0,                     // DOF 1 (Y): along rotation axis — no softening
+            -omega * omega * m_node, // DOF 2 (Z): softened
+        ];
+
+        // K(θ) = elastic stiffness (may change with corotational geometry update).
+        // Use slightly perturbed values to simulate corotational K rebuild.
+        let theta_factor = 1.0 + 0.001 * omega; // small geometric update
+        let k_new = vec![
+            k_vals[0] * theta_factor,
+            k_vals[1] * theta_factor,
+            k_vals[2] * theta_factor,
+        ];
+
+        // THE KEY CALL: all three stiffness components updated in ONE call → ONE refactorize.
+        stepper
+            .update_tangent_terms(&k_new, &kg_vals, &ksp_vals)
+            .expect("update_tangent_terms failed");
+
+        let count_after = stepper.refactorize_count();
+        assert_eq!(
+            count_after - count_before, 1,
+            "Window {win_idx}: expected exactly 1 refactorize from update_tangent_terms, \
+             got {} (before={count_before}, after={count_after})",
+            count_after - count_before,
+        );
+
+        // Advance the stepper by one step (zero external force — just advance time).
+        stepper.step(&[0.0, 0.0, 0.0], dt).expect("step failed");
+    }
+
+    // Total refactorize count: 0 (from new, lazy) + n_windows (one per co-update).
+    let total = stepper.refactorize_count();
+    assert_eq!(
+        total,
+        n_windows,
+        "Total refactorize_count: expected {n_windows} (one per co-update window), got {total}"
+    );
+}
+
+/// T4.6b — Verify that calling update_geometric_stiffness and update_spin_softening
+/// separately also each count as one refactorize (regression guard).
+///
+/// This ensures no caller bypasses the single-refactorize invariant by accident:
+/// if K_G and K_SP trigger independently (different omega thresholds), each
+/// individual update adds exactly 1 to refactorize_count.
+#[test]
+fn test_individual_stiffness_updates_each_count_one_refactorize() {
+    let rows = vec![0i32, 1, 2];
+    let cols = vec![0i32, 1, 2];
+
+    let k_vals = vec![500.0f64, 500.0, 500.0];
+    let m_vals = vec![2.0f64, 2.0, 2.0];
+    let c_vals = vec![0.0f64, 0.0, 0.0];
+    let dt = 5e-4f64;
+
+    let mut stepper = NewmarkStepper::new(
+        &rows, &cols, &k_vals,
+        &rows, &cols, &m_vals,
+        &rows, &cols, &c_vals,
+        3,
+        0.25,
+        0.5,
+        dt,
+    ).expect("NewmarkStepper::new failed");
+
+    let count_initial = stepper.refactorize_count();
+    assert_eq!(count_initial, 0, "Initial refactorize_count should be 0 (lazy factorization in new())");
+
+    // Update K_G alone → 1 refactorize.
+    let kg_vals = vec![10.0f64, 0.0, 10.0];
+    stepper
+        .update_geometric_stiffness(&kg_vals)
+        .expect("update_geometric_stiffness failed");
+    assert_eq!(
+        stepper.refactorize_count(),
+        count_initial + 1,
+        "update_geometric_stiffness should add exactly 1 refactorize"
+    );
+
+    // Update K_SP alone → 1 more refactorize.
+    let ksp_vals = vec![-5.0f64, 0.0, -5.0];
+    stepper
+        .update_spin_softening(&ksp_vals)
+        .expect("update_spin_softening failed");
+    assert_eq!(
+        stepper.refactorize_count(),
+        count_initial + 2,
+        "update_spin_softening should add exactly 1 refactorize"
+    );
+}

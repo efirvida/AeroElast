@@ -206,6 +206,28 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         - rotate_point_cloud(): Rotate structural mesh geometry internally
         - compute_rigid_body_acceleration_inertial(): Compute a_ref
         - compute_reference_load_vector(): Convert a_ref to F_ref = -M·a_ref
+
+        YAML keys for the new spin-softening and K_G ω-rebuild features:
+
+        .. code-block:: yaml
+
+            solver:
+              rotor:
+                # Spin-softening K_SP = -ω²·M·(I - n̂⊗n̂).
+                # Default: true. Set false only for debugging (reduces accuracy).
+                include_spin_softening: true
+
+                # Geometric stiffness (centrifugal prestress) K_G(θ, ω).
+                # Default: false.
+                include_geometric_stiffness: false
+
+                # Per-matrix Δω hysteresis thresholds.
+                # Rebuild K_SP when |Δ(ω²)|/ω² exceeds ksp_omega_rebuild_high
+                # (not recently rebuilt) or ksp_omega_rebuild_low (recently rebuilt).
+                ksp_omega_rebuild_high: 0.005   # 0.5% change in ω²
+                ksp_omega_rebuild_low: 0.003    # 0.3% change in ω²
+                kg_omega_rebuild_high: 0.005
+                kg_omega_rebuild_low: 0.003
         """
         rotor_cfg = self.solver_params.get("rotor", {})
 
@@ -287,21 +309,62 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # include_geometric_stiffness: enables dynamic K_G(θ, ω) assembly in
         # the Rust inertial runtime. The wrapper only forwards the flag; the
         # actual K_G is assembled on the current rotated geometry in Rust.
-        # include_spin_softening: K_SP diagonal updated in Rust when ω changes
-        # Other corotational-specific flags (Coriolis, Euler, centrifugal body) are
-        # replaced by the inertial reference frame body force -M·a_ref.
+        # include_spin_softening: K_SP = -ω²·M·(I - n̂⊗n̂) updated in Rust when ω
+        # changes beyond the configured hysteresis thresholds. Default: True
+        # (matches HEAD unconditional behavior — do NOT change the default).
         self._include_geometric_stiffness: bool = bool(
             rotor_cfg.get("include_geometric_stiffness", False)
         )
-        if rotor_cfg.get("include_geometric_stiffness", False):
+        self._include_spin_softening: bool = bool(
+            rotor_cfg.get("include_spin_softening", True)
+        )
+        # Per-matrix Δω hysteresis thresholds.
+        # K_SP thresholds: rebuild K_SP when |Δ(ω²)|/ω² exceeds these.
+        _ksp_high = rotor_cfg.get("ksp_omega_rebuild_high", 0.005)
+        _ksp_low = rotor_cfg.get("ksp_omega_rebuild_low", 0.003)
+        if not isinstance(_ksp_high, (int, float)):
+            raise ValueError(
+                f"ksp_omega_rebuild_high must be a float, got {type(_ksp_high).__name__!r}"
+            )
+        if not isinstance(_ksp_low, (int, float)):
+            raise ValueError(
+                f"ksp_omega_rebuild_low must be a float, got {type(_ksp_low).__name__!r}"
+            )
+        self._ksp_omega_rebuild_high: float = float(_ksp_high)
+        self._ksp_omega_rebuild_low: float = float(_ksp_low)
+        # K_G thresholds: rebuild K_G when |Δ(ω²)|/ω² exceeds these.
+        _kg_high = rotor_cfg.get("kg_omega_rebuild_high", 0.005)
+        _kg_low = rotor_cfg.get("kg_omega_rebuild_low", 0.003)
+        if not isinstance(_kg_high, (int, float)):
+            raise ValueError(
+                f"kg_omega_rebuild_high must be a float, got {type(_kg_high).__name__!r}"
+            )
+        if not isinstance(_kg_low, (int, float)):
+            raise ValueError(
+                f"kg_omega_rebuild_low must be a float, got {type(_kg_low).__name__!r}"
+            )
+        self._kg_omega_rebuild_high: float = float(_kg_high)
+        self._kg_omega_rebuild_low: float = float(_kg_low)
+
+        if self._include_geometric_stiffness:
             _logger.info(
                 "include_geometric_stiffness=True: enabling dynamic K_G(theta, omega) "
                 "assembly in the inertial Rust runtime.",
             )
-        if rotor_cfg.get("include_spin_softening", False):
+        if not self._include_spin_softening:
+            _logger.warning(
+                "include_spin_softening=False: K_SP is disabled. This reduces physical "
+                "accuracy at operating speed (flapwise eigenfrequencies over-estimated)."
+            )
+        else:
             _logger.debug(
-                "include_spin_softening=True: K_SP is assembled in Rust "
-                "(reassemble_k_if_needed) — no Python-side action needed."
+                "include_spin_softening=True: K_SP assembled in Rust "
+                "(reassemble_k_if_needed). Δω thresholds: ksp_high=%.4f ksp_low=%.4f, "
+                "kg_high=%.4f kg_low=%.4f",
+                self._ksp_omega_rebuild_high,
+                self._ksp_omega_rebuild_low,
+                self._kg_omega_rebuild_high,
+                self._kg_omega_rebuild_low,
             )
         if not rotor_cfg.get("include_centrifugal", True):
             _logger.warning(
@@ -334,6 +397,29 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             self._k_update_interval = 1
         self._omega_rebuild_threshold = float(rotor_cfg.get("omega_rebuild_threshold", 0.01))
         self._theta_rebuild_threshold = float(rotor_cfg.get("theta_rebuild_threshold", 0.05))
+
+        # K_G(u) — Nivel 2 deformed-coords K_G assembly. When enabled, the
+        # Rust runtime reassembles K_G at X_rotated + u whenever the radial
+        # deflection ratio drift exceeds the high-band threshold (with the
+        # low-band reserved for hysteresis). Defaults preserve the legacy
+        # explicit-in-geometry baseline.
+        self._kg_use_deformed_coords: bool = bool(
+            rotor_cfg.get("kg_use_deformed_coords", False)
+        )
+        self._kg_deflection_rebuild_rel_high = float(
+            rotor_cfg.get("kg_deflection_rebuild_rel_high", 0.01)
+        )
+        self._kg_deflection_rebuild_rel_low = float(
+            rotor_cfg.get("kg_deflection_rebuild_rel_low", 0.005)
+        )
+        if self._kg_use_deformed_coords:
+            _logger.info(
+                "kg_use_deformed_coords=True: K_G will be reassembled at "
+                "X_rotated + u (Nivel 2 foreshortening). High/low rebuild "
+                "thresholds = %.4f / %.4f",
+                self._kg_deflection_rebuild_rel_high,
+                self._kg_deflection_rebuild_rel_low,
+            )
 
         # Omega output to preCICE (same as corotational)
         self._send_omega_to_precice = rotor_cfg.get("send_omega_to_precice", True)
@@ -716,15 +802,11 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
                 flush=True,
             )
 
-        # ── Geometric stiffness enable sentinel ───────────────────────────────
-        # The inertial Rust runtime assembles K_G(θ, ω) itself on the rotated
-        # geometry. Keep the legacy kwargs as a sentinel so the binding can
-        # enable the feature without relying on a stale θ=0 matrix from Python.
-        kg0_rows = kg0_cols = kg0_vals = None
-        if self._include_geometric_stiffness:
-            kg0_rows = np.empty(0, dtype=np.int64)
-            kg0_cols = np.empty(0, dtype=np.int64)
-            kg0_vals = np.empty(0, dtype=np.float64)
+        # ── Geometric stiffness: use explicit kwarg (deprecate sentinel) ─────
+        # Pass include_geometric_stiffness explicitly; keep kg0_* as None so
+        # callers still using the legacy sentinel pattern are not broken by the
+        # presence of the shim in the Rust binding.
+        kg0_rows = kg0_cols = kg0_vals = None  # sentinel kept as None (deprecated path)
 
         all_node_coords_nodes = self._ensure_3d_vectors(
             np.array([n.coords for n in self.domain.nodes], dtype=np.float64)
@@ -755,6 +837,9 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             k_update_interval=self._k_update_interval,
             omega_rebuild_threshold=self._omega_rebuild_threshold,
             theta_rebuild_threshold=self._theta_rebuild_threshold,
+            kg_use_deformed_coords=self._kg_use_deformed_coords,
+            kg_deflection_rebuild_rel_high=self._kg_deflection_rebuild_rel_high,
+            kg_deflection_rebuild_rel_low=self._kg_deflection_rebuild_rel_low,
             displacement_mode=self._precice_displacement_mode,
             dofs_per_node=self.domain.dofs_per_node,
             fluid_density=self._fluid_density,
@@ -800,6 +885,12 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             kg0_cols=kg0_cols,
             kg0_vals=kg0_vals,
             step_callback=step_callback,
+            include_geometric_stiffness=self._include_geometric_stiffness,
+            include_spin_softening=self._include_spin_softening,
+            ksp_omega_rebuild_high=self._ksp_omega_rebuild_high,
+            ksp_omega_rebuild_low=self._ksp_omega_rebuild_low,
+            kg_omega_rebuild_high=self._kg_omega_rebuild_high,
+            kg_omega_rebuild_low=self._kg_omega_rebuild_low,
         )
 
         n_steps = len(times)
