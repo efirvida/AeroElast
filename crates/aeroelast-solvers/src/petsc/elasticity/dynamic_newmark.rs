@@ -636,6 +636,12 @@ pub struct NewmarkStepper {
     a7: f64,
 
     n_dofs: usize,
+
+    // ── Diagnostics (test support) ───────────────────────────────────────────
+    /// Total number of `refactorize()` calls since construction.
+    /// Incremented in `refactorize()` for diagnostic assertions in tests.
+    /// Zero cost in production (no conditional, no branch).
+    refactorize_count: usize,
 }
 
 impl Drop for NewmarkStepper {
@@ -788,6 +794,7 @@ impl NewmarkStepper {
             a6,
             a7,
             n_dofs,
+            refactorize_count: 0,
         })
     }
 
@@ -918,6 +925,7 @@ impl NewmarkStepper {
         self.a6 = a6;
         self.a7 = a7;
         self.dt_last = dt;
+        self.refactorize_count += 1;
         Ok(())
     }
 
@@ -1412,6 +1420,38 @@ impl NewmarkStepper {
         self.v = v.to_vec();
         self.a = a.to_vec();
         self.t = t;
+    }
+
+    /// Borrow the current elastic stiffness COO values (same COO ordering as `k_rows`/`k_cols`).
+    ///
+    /// Allows callers to reuse K values when only K_G or K_SP changed, avoiding
+    /// a full K(θ) reassembly when the geometry has not moved.
+    pub fn k_vals(&self) -> &[f64] {
+        &self.k_vals
+    }
+
+    /// Borrow the current geometric stiffness COO values aligned to the K sparsity pattern.
+    ///
+    /// Returns the runtime K_G contribution (not the base `kg_base_vals`). Zero until
+    /// `update_geometric_stiffness` or `update_tangent_terms` has been called.
+    pub fn kg_vals(&self) -> &[f64] {
+        &self.kg_vals
+    }
+
+    /// Borrow the current spin-softening COO values aligned to the K sparsity pattern.
+    ///
+    /// Zero until `update_spin_softening` or `update_tangent_terms` has been called.
+    pub fn ksp_vals(&self) -> &[f64] {
+        &self.ksp_diag
+    }
+
+    /// Return the number of times `refactorize()` has been called since construction.
+    ///
+    /// Used in tests to assert the single-refactorization invariant: when K(θ), K_G and
+    /// K_SP all trigger in the same co-update window, exactly one refactorization should
+    /// occur (not one per matrix component).
+    pub fn refactorize_count(&self) -> usize {
+        self.refactorize_count
     }
 }
 

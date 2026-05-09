@@ -1188,6 +1188,158 @@ pub fn estimate_moment_of_inertia(
     inertia
 }
 
+// ── Geometric stiffness K_G(u) helpers ─────────────────────────────────────────
+
+/// Compose deformed nodal coordinates from rotated reference coords + nodal
+/// translation DOFs.
+///
+/// `coords_def[3·i + k] = coords[3·i + k] + u_full[i·dofs_per_node + k]`
+/// for `k ∈ {0,1,2}` (the translational DOFs). Rotational DOFs in `u_full`
+/// are ignored.
+///
+/// Used to assemble `K_G(θ, u)` capturing the foreshortening contribution from
+/// the elastic deformation. Call sites:
+/// - `crates/aeroelast-solvers/src/petsc/fsi/rotor_inertial.rs` (inertial solver)
+/// - `crates/aeroelast-solvers/src/petsc/fsi/rotor_fsi.rs`     (corotational solver)
+///
+/// # Arguments
+/// * `coords`         — flat node coordinates `[x0,y0,z0,…]`, length `n_nodes * 3`
+///                      (typically the rotated reference geometry `X_ref · R(θ)`)
+/// * `u_full`         — flat full DOF displacement vector,
+///                      length `n_nodes * dofs_per_node`
+/// * `dofs_per_node`  — DOFs per FEM node (must be ≥ 3)
+///
+/// # Returns
+/// Flat deformed coords `[x0+ux0, y0+uy0, z0+uz0, …]`, length `n_nodes * 3`.
+///
+/// # Panics
+/// If `dofs_per_node < 3` or if the nodal counts derived from `coords` and
+/// `u_full` disagree.
+pub fn compose_deformed_coords(
+    coords: &[f64],
+    u_full: &[f64],
+    dofs_per_node: usize,
+) -> Vec<f64> {
+    assert!(
+        dofs_per_node >= 3,
+        "dofs_per_node must be >= 3 for compose_deformed_coords, got {}",
+        dofs_per_node
+    );
+    let n_nodes = coords.len() / 3;
+    assert_eq!(
+        n_nodes,
+        u_full.len() / dofs_per_node,
+        "compose_deformed_coords: coords ({} nodes) and u_full ({} nodes) disagree",
+        n_nodes,
+        u_full.len() / dofs_per_node,
+    );
+    let mut out = vec![0.0f64; n_nodes * 3];
+    for i in 0..n_nodes {
+        let cb = i * 3;
+        let ub = i * dofs_per_node;
+        out[cb] = coords[cb] + u_full[ub];
+        out[cb + 1] = coords[cb + 1] + u_full[ub + 1];
+        out[cb + 2] = coords[cb + 2] + u_full[ub + 2];
+    }
+    out
+}
+
+/// Compute the maximum perpendicular-to-axis deflection ratio.
+///
+/// `ratio = max_i ||u_⊥,i|| / max_j ||r_⊥,j||`
+///
+/// where the perpendicular projections are taken with respect to the rotation
+/// axis `n̂`:
+/// - `u_⊥,i = u_trans,i − (u_trans,i · n̂)·n̂`  (perpendicular component of the
+///   nodal translation)
+/// - `r_⊥,j = (X_j − center) − ((X_j − center) · n̂)·n̂`  (perpendicular
+///   radial position of node `j` relative to the rotation axis)
+///
+/// Acts as the trigger metric for `K_G(θ, u)` reassembly: comparing the change
+/// in this dimensionless ratio across windows captures foreshortening-dominant
+/// deformation evolution while remaining invariant to absolute blade size.
+///
+/// # Arguments
+/// * `u_full`         — flat full DOF displacement, length `n_nodes * dofs_per_node`
+/// * `coords`         — flat node coordinates `[x0,y0,z0,…]`, length `n_nodes * 3`
+///                      (rotated reference geometry, NOT deformed)
+/// * `axis`           — rotation axis unit vector
+/// * `center`         — rotation center
+/// * `dofs_per_node`  — DOFs per FEM node (must be ≥ 3)
+///
+/// # Returns
+/// Dimensionless ratio in `[0, +∞)`. Returns `0.0` when:
+/// - all nodes are on the rotation axis (`max_r_⊥ ≈ 0`), or
+/// - `u_full` is the zero vector.
+///
+/// # Panics
+/// If `dofs_per_node < 3` or if the nodal counts derived from `coords` and
+/// `u_full` disagree.
+pub fn max_radial_deflection_ratio(
+    u_full: &[f64],
+    coords: &[f64],
+    axis: &[f64; 3],
+    center: &[f64; 3],
+    dofs_per_node: usize,
+) -> f64 {
+    assert!(
+        dofs_per_node >= 3,
+        "dofs_per_node must be >= 3 for max_radial_deflection_ratio, got {}",
+        dofs_per_node
+    );
+    let n_nodes = coords.len() / 3;
+    if n_nodes == 0 {
+        return 0.0;
+    }
+    assert_eq!(
+        n_nodes,
+        u_full.len() / dofs_per_node,
+        "max_radial_deflection_ratio: coords ({} nodes) and u_full ({} nodes) disagree",
+        n_nodes,
+        u_full.len() / dofs_per_node,
+    );
+
+    let mut max_u_perp_sq = 0.0f64;
+    let mut max_r_perp_sq = 0.0f64;
+
+    for i in 0..n_nodes {
+        let cb = i * 3;
+        let ub = i * dofs_per_node;
+
+        // r_perp = (coords - center) - ((coords - center) · n̂) · n̂
+        let rx = coords[cb] - center[0];
+        let ry = coords[cb + 1] - center[1];
+        let rz = coords[cb + 2] - center[2];
+        let rda = rx * axis[0] + ry * axis[1] + rz * axis[2];
+        let rpx = rx - rda * axis[0];
+        let rpy = ry - rda * axis[1];
+        let rpz = rz - rda * axis[2];
+        let r_perp_sq = rpx * rpx + rpy * rpy + rpz * rpz;
+        if r_perp_sq > max_r_perp_sq {
+            max_r_perp_sq = r_perp_sq;
+        }
+
+        // u_perp = u_trans - (u_trans · n̂) · n̂
+        let ux = u_full[ub];
+        let uy = u_full[ub + 1];
+        let uz = u_full[ub + 2];
+        let uda = ux * axis[0] + uy * axis[1] + uz * axis[2];
+        let upx = ux - uda * axis[0];
+        let upy = uy - uda * axis[1];
+        let upz = uz - uda * axis[2];
+        let u_perp_sq = upx * upx + upy * upy + upz * upz;
+        if u_perp_sq > max_u_perp_sq {
+            max_u_perp_sq = u_perp_sq;
+        }
+    }
+
+    if max_r_perp_sq < 1e-30 {
+        return 0.0;
+    }
+
+    (max_u_perp_sq / max_r_perp_sq).sqrt()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1584,6 +1736,382 @@ mod tests {
         let expected = [-6.0, 6.0, 0.0, 6.0, -6.0, 0.0, 0.0, 0.0, -12.0];
         for (actual, expected) in ksp.iter().zip(expected.iter()) {
             assert!((actual - expected).abs() < 1e-12, "actual={actual}, expected={expected}");
+        }
+    }
+
+    // ── compose_deformed_coords ────────────────────────────────────────────────
+
+    #[test]
+    fn compose_deformed_coords_zero_u_returns_reference() {
+        let coords = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let u_full = vec![0.0; 12]; // 2 nodes × 6 DOFs (SHELL)
+        let out = compose_deformed_coords(&coords, &u_full, 6);
+        assert_eq!(out, coords);
+    }
+
+    #[test]
+    fn compose_deformed_coords_dofs_per_node_3_uses_full_u() {
+        // dofs_per_node = 3 (e.g., SOLID): all three components of u contribute
+        let coords = vec![1.0, 0.0, 0.0];
+        let u_full = vec![0.5, -0.2, 0.1];
+        let out = compose_deformed_coords(&coords, &u_full, 3);
+        assert!((out[0] - 1.5).abs() < 1e-14, "x={}", out[0]);
+        assert!((out[1] + 0.2).abs() < 1e-14, "y={}", out[1]);
+        assert!((out[2] - 0.1).abs() < 1e-14, "z={}", out[2]);
+    }
+
+    #[test]
+    fn compose_deformed_coords_dofs_per_node_6_ignores_rotational_dofs() {
+        // SHELL layout: u_full = [u, v, w, θx, θy, θz] per node
+        // Only the translational DOFs (first 3) must update coords; rotations are ignored.
+        let coords = vec![1.0, 0.0, 0.0, 2.0, 0.0, 0.0];
+        let u_full = vec![
+            0.1, 0.2, 0.3, 1.0, 2.0, 3.0, // node 0: trans + rot
+            0.4, 0.5, 0.6, 4.0, 5.0, 6.0, // node 1: trans + rot
+        ];
+        let out = compose_deformed_coords(&coords, &u_full, 6);
+        let expected = vec![1.1, 0.2, 0.3, 2.4, 0.5, 0.6];
+        for (a, e) in out.iter().zip(expected.iter()) {
+            assert!((a - e).abs() < 1e-14, "got {a}, expected {e}");
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "dofs_per_node must be >= 3 for compose_deformed_coords")]
+    fn compose_deformed_coords_panics_on_low_dofs_per_node() {
+        let coords = vec![0.0, 0.0, 0.0];
+        let u_full = vec![0.0, 0.0];
+        let _ = compose_deformed_coords(&coords, &u_full, 2);
+    }
+
+    #[test]
+    #[should_panic(expected = "compose_deformed_coords: coords")]
+    fn compose_deformed_coords_panics_on_node_count_mismatch() {
+        // 2 nodes in coords, 1 node in u_full
+        let coords = vec![1.0, 0.0, 0.0, 2.0, 0.0, 0.0];
+        let u_full = vec![0.0, 0.0, 0.0, 0.0, 0.0, 0.0]; // only 1 node × 6 DOFs
+        let _ = compose_deformed_coords(&coords, &u_full, 6);
+    }
+
+    // ── max_radial_deflection_ratio ────────────────────────────────────────────
+
+    #[test]
+    fn max_radial_deflection_ratio_zero_u_returns_zero() {
+        let coords = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+        let u_full = vec![0.0; 12];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+        let r = max_radial_deflection_ratio(&u_full, &coords, &axis, &center, 6);
+        assert!(r.abs() < 1e-14, "got {r}");
+    }
+
+    #[test]
+    fn max_radial_deflection_ratio_axial_u_returns_zero() {
+        // Axis Z, u purely along Z → u_perp = 0 (axial sliding doesn't affect K_G)
+        let coords = vec![1.0, 0.0, 0.0];
+        let u_full = vec![0.0, 0.0, 0.5, 0.0, 0.0, 0.0]; // dofs_per_node=6
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+        let r = max_radial_deflection_ratio(&u_full, &coords, &axis, &center, 6);
+        assert!(r.abs() < 1e-14, "got {r}");
+    }
+
+    #[test]
+    fn max_radial_deflection_ratio_radial_u_single_node() {
+        // Node at (1,0,0), axis Z. u = (0.1, 0, 0):
+        //   u_perp = (0.1, 0, 0), |u_perp| = 0.1
+        //   r_perp = (1, 0, 0),   |r_perp| = 1.0
+        //   ratio = 0.1
+        let coords = vec![1.0, 0.0, 0.0];
+        let u_full = vec![0.1, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+        let r = max_radial_deflection_ratio(&u_full, &coords, &axis, &center, 6);
+        assert!((r - 0.1).abs() < 1e-13, "got {r}");
+    }
+
+    #[test]
+    fn max_radial_deflection_ratio_uses_independent_max_u_and_max_r() {
+        // Node 0: r_perp=(2,0,0), u_perp=(0.2,0,0)
+        // Node 1: r_perp=(1,0,0), u_perp=(0.5,0,0)
+        // max|u_perp|² = 0.25 (node 1), max|r_perp|² = 4.0 (node 0)
+        // ratio = sqrt(0.25 / 4.0) = 0.25
+        let coords = vec![2.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+        let u_full = vec![
+            0.2, 0.0, 0.0, 0.0, 0.0, 0.0,
+            0.5, 0.0, 0.0, 0.0, 0.0, 0.0,
+        ];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+        let r = max_radial_deflection_ratio(&u_full, &coords, &axis, &center, 6);
+        assert!((r - 0.25).abs() < 1e-13, "got {r}");
+    }
+
+    #[test]
+    fn max_radial_deflection_ratio_all_nodes_on_axis_returns_zero() {
+        // All nodes on the rotation axis → max_r_perp ≈ 0 → guarded return 0
+        let coords = vec![0.0, 0.0, 1.0, 0.0, 0.0, 2.0];
+        let u_full = vec![1.0; 12]; // arbitrary nonzero u
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+        let r = max_radial_deflection_ratio(&u_full, &coords, &axis, &center, 6);
+        assert_eq!(r, 0.0);
+    }
+
+    #[test]
+    fn max_radial_deflection_ratio_respects_center_offset() {
+        // Center at (10,0,0), node at (11,0,0), axis Z
+        //   r_perp = (11-10, 0, 0) = (1, 0, 0), |r_perp| = 1
+        //   u_perp = (0.3, 0, 0)
+        //   ratio = 0.3
+        let coords = vec![11.0, 0.0, 0.0];
+        let u_full = vec![0.3, 0.0, 0.0, 0.0, 0.0, 0.0];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [10.0, 0.0, 0.0];
+        let r = max_radial_deflection_ratio(&u_full, &coords, &axis, &center, 6);
+        assert!((r - 0.3).abs() < 1e-13, "got {r}");
+    }
+
+    #[test]
+    fn max_radial_deflection_ratio_tilted_axis() {
+        // Axis = (1,0,0)/√1 = X. Node at (0, 1, 0), u_trans = (0.4, 0.3, 0).
+        //   r_perp from X axis = (0, 1, 0) − 0·(1,0,0) = (0, 1, 0), |r_perp| = 1
+        //   u_perp = (0.4, 0.3, 0) − 0.4·(1,0,0) = (0, 0.3, 0), |u_perp| = 0.3
+        //   ratio = 0.3
+        let coords = vec![0.0, 1.0, 0.0];
+        let u_full = vec![0.4, 0.3, 0.0, 0.0, 0.0, 0.0];
+        let axis = [1.0, 0.0, 0.0];
+        let center = [0.0, 0.0, 0.0];
+        let r = max_radial_deflection_ratio(&u_full, &coords, &axis, &center, 6);
+        assert!((r - 0.3).abs() < 1e-13, "got {r}");
+    }
+
+    #[test]
+    #[should_panic(expected = "dofs_per_node must be >= 3 for max_radial_deflection_ratio")]
+    fn max_radial_deflection_ratio_panics_on_low_dofs_per_node() {
+        let coords = vec![1.0, 0.0, 0.0];
+        let u_full = vec![0.0, 0.0];
+        let axis = [0.0, 0.0, 1.0];
+        let center = [0.0, 0.0, 0.0];
+        let _ = max_radial_deflection_ratio(&u_full, &coords, &axis, &center, 2);
+    }
+}
+
+// ── omega_changed_significantly predicate ─────────────────────────────────────
+
+/// Hysteresis predicate for ω-driven matrix rebuilds (K_SP or K_G).
+///
+/// Returns `true` when a rebuild should fire, `false` when it can be skipped.
+///
+/// # Arguments
+/// * `omega_new`       — current angular velocity [rad/s]
+/// * `omega_sq_at_last` — ω² at the last rebuild (`f64::NEG_INFINITY` on first call)
+/// * `threshold_rebuild` — high-band relative threshold (triggers rebuild)
+/// * `threshold_skip`    — low-band relative threshold (suppresses rebuild after a recent one)
+/// * `currently_rebuilt` — `true` if a rebuild was performed recently (use `threshold_rebuild`)
+/// * `eps`               — near-zero guard for ω² (use `ksp_omega_threshold²`)
+///
+/// # Returns
+/// `true`  → rebuild the matrix
+/// `false` → skip the rebuild
+pub fn omega_changed_significantly(
+    omega_new: f64,
+    omega_sq_at_last: f64,
+    threshold_rebuild: f64,
+    threshold_skip: f64,
+    currently_rebuilt: bool,
+    eps: f64,
+) -> bool {
+    // First call: no prior rebuild — always rebuild.
+    if omega_sq_at_last == f64::NEG_INFINITY {
+        return true;
+    }
+
+    let omega_sq_new = omega_new * omega_new;
+    let denom = omega_sq_new.max(omega_sq_at_last);
+
+    // ω → 0 guard: both values near zero — rebuild to stay in a safe state.
+    // eps is seeded from ksp_omega_threshold² (legacy absolute threshold squared).
+    if denom < eps {
+        return true;
+    }
+
+    let rel_change = (omega_sq_new - omega_sq_at_last).abs() / denom;
+
+    // Hysteresis: use a higher bar when we recently rebuilt (prevents chattering).
+    let threshold = if currently_rebuilt {
+        threshold_rebuild
+    } else {
+        threshold_skip
+    };
+
+    rel_change >= threshold
+}
+
+// ── Tests for omega_changed_significantly and build_ksp_vals (T4.5) ───────────
+
+#[cfg(test)]
+mod tests_spin_softening {
+    use super::*;
+
+    // ── omega_changed_significantly ───────────────────────────────────────────
+
+    /// First call (NEG_INFINITY) always triggers regardless of omega value.
+    #[test]
+    fn omega_pred_first_call_always_rebuilds() {
+        let eps = 1e-8_f64;
+        // Non-zero omega on first call.
+        assert!(omega_changed_significantly(50.0, f64::NEG_INFINITY, 0.005, 0.003, false, eps));
+        assert!(omega_changed_significantly(50.0, f64::NEG_INFINITY, 0.005, 0.003, true, eps));
+        // Zero omega on first call.
+        assert!(omega_changed_significantly(0.0, f64::NEG_INFINITY, 0.005, 0.003, false, eps));
+    }
+
+    /// Both ω values below the near-zero guard → always rebuild.
+    #[test]
+    fn omega_pred_near_zero_guard_always_rebuilds() {
+        let eps = 1e-8_f64;
+        // max(0², 0²) = 0 < eps → rebuild.
+        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, false, eps));
+        assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, true, eps));
+    }
+
+    /// Change well below both thresholds → skip rebuild.
+    #[test]
+    fn omega_pred_stable_omega_skips() {
+        let eps = 1e-8_f64;
+        let omega_last_sq = 100.0f64 * 100.0f64;
+        // 0.1% change in ω → ~0.2% in ω², well below both 0.3% and 0.5%.
+        let omega_new = 100.0 * (1.0 + 0.001);
+        assert!(!omega_changed_significantly(omega_new, omega_last_sq, 0.005, 0.003, false, eps));
+        assert!(!omega_changed_significantly(omega_new, omega_last_sq, 0.005, 0.003, true, eps));
+    }
+
+    /// Large change (above both thresholds) always rebuilds.
+    #[test]
+    fn omega_pred_large_change_always_rebuilds() {
+        let eps = 1e-8_f64;
+        let omega_last_sq = 100.0f64 * 100.0f64;
+        // 1% change in ω → ~2% in ω², well above both thresholds.
+        let omega_new = 100.0 * (1.0 + 0.005);
+        assert!(omega_changed_significantly(omega_new, omega_last_sq, 0.005, 0.003, false, eps));
+        assert!(omega_changed_significantly(omega_new, omega_last_sq, 0.005, 0.003, true, eps));
+    }
+
+    /// Hysteresis: change between thresholds behaves correctly.
+    #[test]
+    fn omega_pred_hysteresis_between_thresholds() {
+        let eps = 1e-8_f64;
+        let omega_base = 100.0f64;
+        let omega_sq_last = omega_base * omega_base;
+        // 0.2% change in ω → ~0.4% in ω² (between 0.3% skip and 0.5% rebuild).
+        let omega_new = omega_base * (1.0 + 0.002);
+        let omega_sq_new = omega_new * omega_new;
+        let rel = (omega_sq_new - omega_sq_last).abs() / omega_sq_new.max(omega_sq_last);
+        assert!(
+            rel > 0.003 && rel < 0.005,
+            "Test setup: rel {rel:.4} must be in (0.003, 0.005)"
+        );
+        // recently_rebuilt=true → use high threshold (0.005) → rel < 0.005 → skip
+        assert!(!omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, true, eps));
+        // recently_rebuilt=false → use low threshold (0.003) → rel > 0.003 → rebuild
+        assert!(omega_changed_significantly(omega_new, omega_sq_last, 0.005, 0.003, false, eps));
+    }
+
+    // ── build_ksp_vals ────────────────────────────────────────────────────────
+
+    /// Zero omega → all zeros (no spin-softening at rest).
+    #[test]
+    fn ksp_zero_for_zero_omega() {
+        let m_lumped = vec![1.0, 0.0, 0.0]; // 1 node × 3 DOFs
+        let axis = [0.0f64, 0.0, 1.0];
+        let omega = 0.0f64;
+        let rows = vec![0i32, 1, 2];
+        let cols = vec![0i32, 1, 2];
+        let free_dofs = vec![0i32, 1, 2];
+        let vals = build_ksp_vals(&m_lumped, &axis, omega, 3, &rows, &cols, &free_dofs, 3);
+        assert!(vals.iter().all(|&v| v == 0.0), "Expected all zeros for omega=0: {vals:?}");
+    }
+
+    /// For Z-axis rotation, DOF along Z is not spin-softened (axis direction).
+    #[test]
+    fn ksp_z_axis_rotation_no_softening_along_axis() {
+        // 1 node × 3 DOFs; mass only on DOF 0 (x-direction).
+        let m_lumped = vec![1.0, 0.0, 0.0];
+        let axis = [0.0f64, 0.0, 1.0]; // Z rotation axis
+        let omega = 10.0f64;
+        let rows = vec![0i32, 1, 2]; // diagonal only
+        let cols = vec![0i32, 1, 2];
+        let free_dofs = vec![0i32, 1, 2];
+        let vals = build_ksp_vals(&m_lumped, &axis, omega, 3, &rows, &cols, &free_dofs, 3);
+        // Z DOF (index 2) is along rotation axis → K_SP = 0.
+        assert_eq!(
+            vals[2], 0.0,
+            "K_SP for Z DOF (along rotation axis) must be zero"
+        );
+        // X DOF (index 0) is perpendicular to Z → K_SP = -ω²·m·(1 - nz²) = -100·1·1 = -100.
+        let expected_x = -omega * omega * m_lumped[0] * (1.0 - axis[2] * axis[2]);
+        let expected_x_actual = -omega * omega * 1.0 * (1.0 - 0.0 * 0.0); // = -100
+        // Note: m_lumped[0] = 1.0 applies to DOF 0. For Z axis, projector[0][0] = 1 - nz²·0 = 1.
+        // Actually projector = I - n̂⊗n̂ = I - [0,0,1]⊗[0,0,1]; P[0][0] = 1 - 0 = 1.
+        assert!(
+            (vals[0] - expected_x_actual).abs() < 1e-10,
+            "K_SP for X DOF: expected {expected_x_actual}, got {}",
+            vals[0]
+        );
+    }
+
+    /// K_SP scales as ω² (spec scenario R3 verification).
+    #[test]
+    fn ksp_scales_with_omega_squared() {
+        let m_lumped = vec![2.0, 0.0, 0.0]; // mass on DOF 0
+        let axis = [0.0f64, 1.0, 0.0]; // Y rotation axis
+        let rows = vec![0i32];
+        let cols = vec![0i32];
+        let free_dofs = vec![0i32];
+
+        let ksp_10 = build_ksp_vals(&m_lumped, &axis, 10.0, 3, &rows, &cols, &free_dofs, 3);
+        let ksp_20 = build_ksp_vals(&m_lumped, &axis, 20.0, 3, &rows, &cols, &free_dofs, 3);
+
+        if ksp_10[0] != 0.0 {
+            let ratio = ksp_20[0] / ksp_10[0];
+            assert!(
+                (ratio - 4.0).abs() < 1e-10,
+                "K_SP should scale as ω²: ratio {ratio} != 4"
+            );
+        }
+    }
+
+    /// K_SP matrix is symmetric (projector I - n̂⊗n̂ is symmetric).
+    #[test]
+    fn ksp_matrix_is_symmetric() {
+        let n_nodes = 2;
+        let dofs_per_node = 3;
+        let n_full = n_nodes * dofs_per_node;
+        let m_lumped: Vec<f64> = (0..n_full).map(|i| if i < 3 { 1.0 } else { 0.0 }).collect();
+        let axis = [0.0f64, 0.0, 1.0];
+        let omega = 5.0f64;
+        let free_dofs: Vec<i32> = (0..n_full as i32).collect();
+        let mut rows = Vec::new();
+        let mut cols = Vec::new();
+        for r in 0..n_full as i32 {
+            for c in 0..n_full as i32 {
+                rows.push(r);
+                cols.push(c);
+            }
+        }
+        let ksp = build_ksp_vals(&m_lumped, &axis, omega, dofs_per_node, &rows, &cols, &free_dofs, n_full);
+        // Verify K[i,j] == K[j,i]
+        let n = n_full;
+        for i in 0..n {
+            for j in 0..n {
+                let kij = ksp[i * n + j];
+                let kji = ksp[j * n + i];
+                assert!(
+                    (kij - kji).abs() < 1e-14,
+                    "K_SP[{i},{j}]={kij} != K_SP[{j},{i}]={kji}: not symmetric"
+                );
+            }
         }
     }
 }

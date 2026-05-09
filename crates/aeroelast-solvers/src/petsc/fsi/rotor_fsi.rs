@@ -20,9 +20,14 @@ use crate::petsc::fsi::linear_elastic::{FsiConfig, FsiError, FsiInitialState, Fs
 use crate::petsc::fsi::rotor_physics::{
     OmegaCheckpoint, OmegaProvider, PerformanceCoefficients, RotorTransforms,
     build_coriolis_matrix, build_ksp_vals,
-    compute_centrifugal_force, compute_euler_force, compute_gravity_force,
-    compute_performance_coefficients, compute_thrust, compute_torque,
+    compose_deformed_coords, compute_centrifugal_force, compute_euler_force,
+    compute_gravity_force, compute_performance_coefficients, compute_thrust,
+    compute_torque, max_radial_deflection_ratio,
 };
+
+// Re-export `omega_changed_significantly` so the test block (which uses `use super::*`)
+// can continue to call it by its original name without modification.
+pub(crate) use crate::petsc::fsi::rotor_physics::omega_changed_significantly;
 
 // ── Step callback type ─────────────────────────────────────────────────────────
 
@@ -96,6 +101,22 @@ pub struct RotorFsiConfig {
     /// one was just performed (hysteresis lower band). Default: `0.003` (0.3%).
     pub omega_rebuild_rel_low: f64,
 
+    // ── K_G(u) — Nivel 2 reassembly with deformed geometry ────────────────────
+    /// Master toggle for the foreshortening-aware K_G assembly. When `true`,
+    /// `K_G` is built at deformed coordinates `X_ref + u` (rotating frame: the
+    /// reference geometry doesn't rotate, so `X_ref` is the canonical mesh).
+    /// Default `false` for parity with the explicit-in-geometry baseline.
+    pub kg_use_deformed_coords: bool,
+    /// High-band relative threshold for the K_G deflection-driven rebuild
+    /// trigger. When the radial deflection ratio drift since the last K_G
+    /// rebuild exceeds this value, the next converged window will reassemble
+    /// `K_G` with deformed coords. Default `0.01` (1%).
+    pub kg_deflection_rebuild_rel_high: f64,
+    /// Low-band relative threshold for the K_G deflection-driven rebuild
+    /// trigger. Reserved for the hysteresis predicate; not consulted by the
+    /// simple drift check. Default `0.005` (0.5%).
+    pub kg_deflection_rebuild_rel_low: f64,
+
     // ── DOF layout ────────────────────────────────────────────────────────────
     /// DOFs per FEM node (typically 6 for shells).
     pub dofs_per_node: usize,
@@ -133,73 +154,6 @@ impl RotorFsiConfig {
     fn should_update_kg_on_step(&self, time_step: usize) -> bool {
         time_step % self.normalized_kg_update_interval() == 0
     }
-}
-
-// ── Unified ω-rebuild predicate ────────────────────────────────────────────────
-
-/// Decide whether a stiffness matrix (K_G or K_SP) should be rebuilt.
-///
-/// Uses a relative `|Δ(ω²)| / max(ω², ω_last²)` test with two-threshold
-/// hysteresis to prevent chattering:
-///
-/// * `threshold_rebuild` — rebuild when the relative change exceeds this value.
-///   Applied when **not** in the "just rebuilt" state (i.e. `currently_rebuilt = false`).
-/// * `threshold_skip`    — skip rebuild when the relative change is below this
-///   value.  Applied when `currently_rebuilt = true` (high bar to rebuild again
-///   soon after the last rebuild).
-///
-/// **First-call semantics**: when `omega_sq_at_last` is `f64::NEG_INFINITY` (never
-/// set), the predicate always returns `true`.
-///
-/// **ω → 0 guard**: when `max(ω², ω_last²) < eps` (both near zero), the
-/// relative form would divide by zero.  The predicate returns `true` (rebuild)
-/// in this case to ensure a safe state at startup.  `eps` is seeded from
-/// `ksp_omega_threshold²` so the legacy absolute threshold continues to define
-/// the "near-zero" region rather than being a hardcoded constant.
-///
-/// # Arguments
-/// * `omega_new`         — current angular velocity [rad/s]
-/// * `omega_sq_at_last`  — ω² at the previous rebuild; `f64::NEG_INFINITY` if never rebuilt
-/// * `threshold_rebuild` — high-band relative threshold (triggers rebuild)
-/// * `threshold_skip`    — low-band relative threshold (suppresses rebuild after a recent one)
-/// * `currently_rebuilt` — `true` if a rebuild was performed recently (use `threshold_rebuild`)
-/// * `eps`               — near-zero guard for ω² (use `ksp_omega_threshold²`)
-///
-/// # Returns
-/// `true`  → rebuild the matrix
-/// `false` → skip the rebuild
-pub(crate) fn omega_changed_significantly(
-    omega_new: f64,
-    omega_sq_at_last: f64,
-    threshold_rebuild: f64,
-    threshold_skip: f64,
-    currently_rebuilt: bool,
-    eps: f64,
-) -> bool {
-    // First call: no prior rebuild — always rebuild.
-    if omega_sq_at_last == f64::NEG_INFINITY {
-        return true;
-    }
-
-    let omega_sq_new = omega_new * omega_new;
-    let denom = omega_sq_new.max(omega_sq_at_last);
-
-    // ω → 0 guard: both values near zero — rebuild to stay in a safe state.
-    // eps is seeded from ksp_omega_threshold² (legacy absolute threshold squared).
-    if denom < eps {
-        return true;
-    }
-
-    let rel_change = (omega_sq_new - omega_sq_at_last).abs() / denom;
-
-    // Hysteresis: use a higher bar when we recently rebuilt (prevents chattering).
-    let threshold = if currently_rebuilt {
-        threshold_rebuild
-    } else {
-        threshold_skip
-    };
-
-    rel_change >= threshold
 }
 
 // ── Solver struct ──────────────────────────────────────────────────────────────
@@ -269,6 +223,11 @@ pub struct RotorFsiSolver {
     omega_sq_at_last_kg: f64,
     /// Step number of last K_G rebuild (for hysteresis logic).
     last_kg_rebuild_step: usize,
+    /// Radial deflection ratio at the last K_G rebuild. Used by the K_G(u)
+    /// trigger when `kg_use_deformed_coords` is enabled. Initialized to `0.0`
+    /// so the first non-zero deflection above the high-band threshold triggers
+    /// the first deformed-coords K_G assembly.
+    deflection_ratio_at_last_kg_rebuild: f64,
 
     // ── Optional restart state ────────────────────────────────────────────────
     initial_state: Option<FsiInitialState>,
@@ -374,6 +333,7 @@ impl RotorFsiSolver {
             last_ksp_rebuild_step: 0,
             omega_sq_at_last_kg: f64::NEG_INFINITY,
             last_kg_rebuild_step: 0,
+            deflection_ratio_at_last_kg_rebuild: 0.0,
             initial_state: None,
             initial_theta: 0.0,
             inertial_scratch: vec![0.0f64; n_inertial],
@@ -516,7 +476,20 @@ impl RotorFsiSolver {
     ///
     /// Calls `stepper.set_initial_geometric_stiffness` (writes to `kg_base_vals`) so the
     /// centrifugal prestress is always included in K_eff regardless of runtime deformation.
-    fn update_kg_if_needed(&mut self, omega: f64, time_step: usize) -> Result<(), FsiError> {
+    ///
+    /// When `kg_use_deformed_coords` is enabled, K_G is reassembled at deformed
+    /// coords `X_ref + u` (Nivel 2 foreshortening contribution). `u_red` is the
+    /// current reduced displacement, used both for the deflection-driven rebuild
+    /// trigger and for the K_G assembly itself. After the deformed-coords
+    /// assembly the original `all_node_coords` are pushed back to the assembler
+    /// so that any later assembly path sees the canonical reference geometry
+    /// (Option A discipline: K stays linear, only K_G uses X_ref + u).
+    fn update_kg_if_needed(
+        &mut self,
+        omega: f64,
+        u_red: &[f64],
+        time_step: usize,
+    ) -> Result<(), FsiError> {
         if !self.config.include_kg {
             return Ok(());
         }
@@ -524,51 +497,112 @@ impl RotorFsiSolver {
             return Ok(());
         }
 
-        // Unified relative-ω² predicate with hysteresis to prevent chattering.
-        // ksp_omega_threshold² seeds the near-zero eps guard (rerouted from its old role).
+        // Trigger #1: ω-change predicate (existing behavior).
+        // ksp_omega_threshold² seeds the near-zero eps guard.
         let steps_since_rebuild = time_step.saturating_sub(self.last_kg_rebuild_step);
         let recently_rebuilt = steps_since_rebuild < 10;
         let eps_sq = self.config.ksp_omega_threshold * self.config.ksp_omega_threshold;
-        if !omega_changed_significantly(
+        let omega_significant = omega_changed_significantly(
             omega,
             self.omega_sq_at_last_kg,
             self.config.omega_rebuild_rel_high,
             self.config.omega_rebuild_rel_low,
             recently_rebuilt,
             eps_sq,
-        ) {
+        );
+
+        // Trigger #2: K_G(u) deflection-change predicate (Nivel 2 only).
+        // When `kg_use_deformed_coords` is off the ratio is forced to 0 and
+        // the predicate stays inert.
+        let current_deflection_ratio = if self.config.kg_use_deformed_coords {
+            let u_full = self.expand_to_full(u_red);
+            max_radial_deflection_ratio(
+                &u_full,
+                &self.all_node_coords,
+                &self.transforms.axis,
+                &self.transforms.center,
+                self.config.dofs_per_node,
+            )
+        } else {
+            0.0
+        };
+        let deflection_significant = self.config.kg_use_deformed_coords && {
+            let drift = (current_deflection_ratio
+                - self.deflection_ratio_at_last_kg_rebuild)
+                .abs();
+            drift > self.config.kg_deflection_rebuild_rel_high
+        };
+
+        if !omega_significant && !deflection_significant {
             log::trace!(
-                "RotorFsi: K_G rebuild skipped at step {}, ω={:.4} rad/s (ω² stable)",
-                time_step, omega,
+                "RotorFsi: K_G rebuild skipped at step {}, ω={:.4} rad/s, def_ratio={:.4e} (no trigger)",
+                time_step, omega, current_deflection_ratio,
             );
             return Ok(());
         }
 
-        let asm = match &self.assembler {
-            Some(a) => a,
-            None => return Ok(()),
-        };
+        // Bail out if there's no assembler (K_G updates require one).
+        if self.assembler.is_none() {
+            return Ok(());
+        }
 
-        // Build rho_per_elem from assembler materials.
-        use aeroelast_core::assembly::assembler::MaterialSpec;
-        let rho_per_elem: Vec<f64> = asm
-            .materials
-            .iter()
-            .map(|m| match m {
-                MaterialSpec::Isotropic { rho, .. } => *rho,
-                MaterialSpec::Composite { mass_per_area, .. } => *mass_per_area,
-                MaterialSpec::PlaneStress { rho, .. } => *rho,
-                MaterialSpec::Solid3D { rho, .. } => *rho,
-            })
-            .collect();
-
+        // ── Pre-extract values needed under the &mut self.assembler borrow ───
         let axis = self.config.rotation_axis;
         let center = self.config.rotation_center;
-        let (_, _, kg_vals_full) = asm.assemble_centrifugal_k(omega, axis, center, &rho_per_elem);
+        let dofs_per_node = self.config.dofs_per_node;
+        let n_red_nnz = self.k_rows.len();
+        let kg_use_deformed = self.config.kg_use_deformed_coords;
+
+        // Compose deformed coords / snapshot original coords up-front so the
+        // mut-borrow scope below stays contained.
+        let (coords_def, coords_orig) = if kg_use_deformed {
+            let u_full = self.expand_to_full(u_red);
+            let coords_def =
+                compose_deformed_coords(&self.all_node_coords, &u_full, dofs_per_node);
+            let coords_orig = self.all_node_coords.clone();
+            (coords_def, coords_orig)
+        } else {
+            (Vec::new(), Vec::new())
+        };
+
+        // ── K_G assembly under a scoped &mut assembler borrow ─────────────────
+        let kg_vals_full = {
+            use aeroelast_core::assembly::assembler::MaterialSpec;
+            let asm = self
+                .assembler
+                .as_mut()
+                .expect("assembler presence checked above");
+
+            let rho_per_elem: Vec<f64> = asm
+                .materials
+                .iter()
+                .map(|m| match m {
+                    MaterialSpec::Isotropic { rho, .. } => *rho,
+                    MaterialSpec::Composite { mass_per_area, .. } => *mass_per_area,
+                    MaterialSpec::PlaneStress { rho, .. } => *rho,
+                    MaterialSpec::Solid3D { rho, .. } => *rho,
+                })
+                .collect();
+
+            if kg_use_deformed {
+                asm.update_node_coordinates(&coords_def);
+                let (_, _, vals) =
+                    asm.assemble_centrifugal_k(omega, axis, center, &rho_per_elem);
+                // Restore X_ref so any later assembly path sees the canonical
+                // reference geometry.
+                asm.update_node_coordinates(&coords_orig);
+                vals
+            } else {
+                let (_, _, vals) =
+                    asm.assemble_centrifugal_k(omega, axis, center, &rho_per_elem);
+                vals
+            }
+        };
+
         let kg_red = crate::petsc::fsi::setup::apply_kg_coo_map(
             &self.kg_coo_map,
             &kg_vals_full,
-            self.k_rows.len(),
+            n_red_nnz,
         );
 
         self.stepper
@@ -577,10 +611,13 @@ impl RotorFsiSolver {
 
         self.omega_sq_at_last_kg = omega * omega;
         self.last_kg_rebuild_step = time_step;
+        if kg_use_deformed {
+            self.deflection_ratio_at_last_kg_rebuild = current_deflection_ratio;
+        }
 
         let kg_norm: f64 = kg_red.iter().map(|x| x * x).sum::<f64>().sqrt();
         log::info!(
-            "RotorFsi: K_G rebuilt at step {time_step}, ω={omega:.4} rad/s, ||K_G||_F = {kg_norm:.3e}"
+            "RotorFsi: K_G rebuilt at step {time_step}, ω={omega:.4} rad/s, K_G(u)={kg_use_deformed}, def_ratio={current_deflection_ratio:.4e}, ||K_G||_F = {kg_norm:.3e}"
         );
         Ok(())
     }
@@ -941,7 +978,11 @@ impl RotorFsiSolver {
                 }
 
                 // 6. Rebuild K_G from centrifugal prestress on the configured cadence.
-                self.update_kg_if_needed(omega_new, time_step)?;
+                //    Snapshot the current reduced displacement so the K_G(u) trigger and
+                //    deformed-coords assembly path see a consistent state and we don't
+                //    conflict with the &mut self borrow inside update_kg_if_needed.
+                let u_red_snapshot = self.stepper.current_u().to_vec();
+                self.update_kg_if_needed(omega_new, &u_red_snapshot, time_step)?;
 
                 // 7. Overwrite final state (no history accumulation — O(n_dofs) RAM).
                 result.u_final = self.stepper.current_u().to_vec();
@@ -1051,6 +1092,9 @@ mod tests {
             ksp_omega_threshold: 1e-4,
             omega_rebuild_rel_high: 0.005,
             omega_rebuild_rel_low: 0.003,
+            kg_use_deformed_coords: false,
+            kg_deflection_rebuild_rel_high: 0.01,
+            kg_deflection_rebuild_rel_low: 0.005,
             dofs_per_node: 6,
             fluid_density: 1.225,
             flow_velocity: 10.0,
