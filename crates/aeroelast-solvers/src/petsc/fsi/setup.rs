@@ -124,17 +124,31 @@ pub fn build_kg_coo_map(
 /// # Arguments
 /// * `kg_coo_map` — precomputed index map, same length as `full_vals`.
 /// * `full_vals`  — raw element-assembled K_G values.
+/// * `out`        — reduced output buffer in reference sparsity order. Cleared in-place.
+pub fn apply_kg_coo_map_inplace(kg_coo_map: &[i32], full_vals: &[f64], out: &mut [f64]) {
+    out.fill(0.0);
+    for (&idx, &val) in kg_coo_map.iter().zip(full_vals.iter()) {
+        if idx >= 0 {
+            out[idx as usize] += val;
+        }
+    }
+}
+
+/// Apply a precomputed K_G COO map (from [`build_kg_coo_map`]) to a value slice.
+///
+/// Allocates and returns a reduced output vector. Prefer [`apply_kg_coo_map_inplace`]
+/// on hot paths to avoid per-step allocations.
+///
+/// # Arguments
+/// * `kg_coo_map` — precomputed index map, same length as `full_vals`.
+/// * `full_vals`  — raw element-assembled K_G values.
 /// * `n_ref`      — length of the reduced output vector (= `ref_rows.len()`).
 ///
 /// # Returns
 /// A `Vec<f64>` of length `n_ref` with accumulated values in reduced sparsity order.
 pub fn apply_kg_coo_map(kg_coo_map: &[i32], full_vals: &[f64], n_ref: usize) -> Vec<f64> {
     let mut out = vec![0.0f64; n_ref];
-    for (&idx, &val) in kg_coo_map.iter().zip(full_vals.iter()) {
-        if idx >= 0 {
-            out[idx as usize] += val;
-        }
-    }
+    apply_kg_coo_map_inplace(kg_coo_map, full_vals, &mut out);
     out
 }
 

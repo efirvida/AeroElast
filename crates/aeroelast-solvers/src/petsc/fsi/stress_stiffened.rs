@@ -57,6 +57,12 @@ pub struct StressStiffenedFsiSolver {
     /// Precomputed mapping: full K_G COO index → output index in reduced K sparsity
     /// (or -1 for entries outside the free-DOF set).  Eliminates per-timestep HashMap.
     kg_coo_map: Vec<i32>,
+    /// Reusable full-space displacement buffer (avoids per-step alloc in `expand_u`).
+    u_full_buf: Vec<f64>,
+    /// Reusable membrane stress vector for geometric assembly.
+    sigma_m_buf: Vec<[f64; 3]>,
+    /// Reusable reduced K_G buffer in stepper sparsity order.
+    kg_red_buf: Vec<f64>,
 }
 
 impl StressStiffenedFsiSolver {
@@ -92,6 +98,8 @@ impl StressStiffenedFsiSolver {
             stepper.k_rows(),
             stepper.k_cols(),
         );
+        let n_elems = assembler.topology.n_elems;
+        let k_nnz = stepper.k_rows().len();
 
         Self {
             stepper,
@@ -107,6 +115,9 @@ impl StressStiffenedFsiSolver {
             n_full_dofs,
             kg_update_interval: kg_update_interval.max(1),
             kg_coo_map,
+            u_full_buf: vec![0.0; n_full_dofs],
+            sigma_m_buf: vec![[0.0; 3]; n_elems],
+            kg_red_buf: vec![0.0; k_nnz],
         }
     }
 
@@ -132,13 +143,12 @@ impl StressStiffenedFsiSolver {
 
     // ── Internal helpers ──────────────────────────────────────────────────────
 
-    /// Expand a reduced-DOF vector to the full DOF vector.
-    fn expand_u(&self, u_red: &[f64]) -> Vec<f64> {
-        let mut u_full = vec![0.0f64; self.n_full_dofs];
+    /// Expand a reduced-DOF vector into the reusable full-DOF buffer.
+    fn expand_u_into_buffer(&mut self, u_red: &[f64]) {
+        self.u_full_buf.fill(0.0);
         for (i, &dof) in self.free_dofs_i32.iter().enumerate() {
-            u_full[dof as usize] = u_red[i];
+            self.u_full_buf[dof as usize] = u_red[i];
         }
-        u_full
     }
 
     /// Rebuild K_G from the current deformation state and update the stepper.
@@ -150,20 +160,10 @@ impl StressStiffenedFsiSolver {
             return Ok(());
         }
 
-        let u_full = self.expand_u(u_red);
+        self.expand_u_into_buffer(u_red);
 
         // Recover element-centroid membrane stresses (z=0, membrane-only).
-        let (sigma, _) = self.assembler.compute_stress_field(&u_full, 0.0, 0);
-
-        // Skip K_G update when stresses are negligible (e.g. at t≈0).
-        // Use max absolute value so that compressive (negative) stresses are not missed.
-        let max_s = sigma
-            .iter()
-            .flat_map(|s| s.iter().copied().map(f64::abs))
-            .fold(0.0_f64, f64::max);
-        if max_s <= 1e-20 {
-            return Ok(());
-        }
+        let (sigma, _) = self.assembler.compute_stress_field(&self.u_full_buf, 0.0, 0);
 
         // Convert to membrane 3-vector [σxx, σyy, σxy] (Voigt 6→3).
         // compute_stress_field returns [σxx, σyy, σzz, τxy, τyz, τzx],
@@ -176,17 +176,32 @@ impl StressStiffenedFsiSolver {
         // B-matrix picks up rigid-body rotation as apparent membrane compression.
         // Physically, stress-stiffening only occurs under tensile pre-stress, so
         // zeroing compressive elements is both safe and correct.
+        let mut max_s = 0.0f64;
         let mut n_tensile = 0usize;
         let mut n_compressive = 0usize;
-        let sigma_m: Vec<[f64; 3]> = sigma.iter().map(|s| {
+        for (s, sigma_m) in sigma.iter().zip(self.sigma_m_buf.iter_mut()) {
+            for &v in s {
+                let av = v.abs();
+                if av > max_s {
+                    max_s = av;
+                }
+            }
+
             if s[0] + s[1] >= 0.0 {
                 n_tensile += 1;
-                [s[0], s[1], s[3]]
+                *sigma_m = [s[0], s[1], s[3]];
             } else {
                 n_compressive += 1;
-                [0.0, 0.0, 0.0]
+                *sigma_m = [0.0, 0.0, 0.0];
             }
-        }).collect();
+        }
+
+        // Skip K_G update when stresses are negligible (e.g. at t≈0).
+        // Use max absolute value so that compressive (negative) stresses are not missed.
+        if max_s <= 1e-20 {
+            return Ok(());
+        }
+
         if n_compressive > 0 {
             log::debug!(
                 "StressStiffened step {time_step}: K_G tensile_elems={n_tensile} compressive_zeroed={n_compressive}"
@@ -195,21 +210,24 @@ impl StressStiffenedFsiSolver {
 
         // Assemble full K_G COO values and accumulate via precomputed map.
         let (_, _, kg_vals_full) =
-            self.assembler.assemble_geometric_k(&sigma_m);
-        let kg_red = crate::petsc::fsi::setup::apply_kg_coo_map(
+            self.assembler.assemble_geometric_k(&self.sigma_m_buf);
+        setup::apply_kg_coo_map_inplace(
             &self.kg_coo_map,
             &kg_vals_full,
-            self.stepper.k_rows().len(),
+            &mut self.kg_red_buf,
         );
 
         self.stepper
-            .update_geometric_stiffness(&kg_red)
+            .update_geometric_stiffness(&self.kg_red_buf)
             .map_err(FsiError::StepperError)?;
 
-        let kg_norm: f64 = kg_red.iter().map(|x| x * x).sum::<f64>().sqrt();
-        log::info!(
-            "StressStiffened step {time_step}: ||K_G||_F={kg_norm:.3e} tensile={n_tensile} compressive_zeroed={n_compressive}"
-        );
+        let info_stride = (self.kg_update_interval * 20).max(1);
+        if time_step % info_stride == 0 || n_compressive > 0 {
+            let kg_norm: f64 = self.kg_red_buf.iter().map(|x| x * x).sum::<f64>().sqrt();
+            log::info!(
+                "StressStiffened step {time_step}: ||K_G||_F={kg_norm:.3e} tensile={n_tensile} compressive_zeroed={n_compressive}"
+            );
+        }
 
         Ok(())
     }
@@ -248,6 +266,13 @@ impl StressStiffenedFsiSolver {
         let n_data = n_vertices * self.mesh_dims;
         let mut checkpoint: Option<NewmarkCheckpoint> = None;
         let mut result = FsiResult::default();
+        let mut forces = vec![0.0f64; n_data];
+        let mut f_global = vec![0.0f64; n_dofs];
+        let mut disp_interface = vec![0.0f64; self.interface_dofs.len()];
+        let mut vel_interface = self
+            .velocity_write_data
+            .as_ref()
+            .map(|_| vec![0.0f64; self.interface_dofs.len()]);
 
         while participant.is_coupling_ongoing()? {
             // ── Save checkpoint before implicit coupling iteration ─────────────
@@ -256,7 +281,6 @@ impl StressStiffenedFsiSolver {
             }
 
             // ── Read forces from preCICE ───────────────────────────────────────
-            let mut forces = vec![0.0f64; n_data];
             participant.read_data(
                 &self.config.coupling_mesh,
                 &self.config.read_data,
@@ -273,7 +297,7 @@ impl StressStiffenedFsiSolver {
             }
 
             // ── Scatter interface forces → global DOF vector ───────────────────
-            let mut f_global = vec![0.0f64; n_dofs];
+            f_global.fill(0.0);
             for (local_idx, &global_dof) in self.interface_dofs.iter().enumerate() {
                 if local_idx < forces.len() && global_dof < n_dofs {
                     f_global[global_dof] += forces[local_idx];
@@ -284,17 +308,10 @@ impl StressStiffenedFsiSolver {
             let step_t = self.stepper.step(&f_global, dt)?.t;
 
             // ── Gather interface displacements ─────────────────────────────────
-            let disp_interface: Vec<f64> = self
-                .interface_dofs
-                .iter()
-                .map(|&dof| {
-                    if dof < self.stepper.n_dofs() {
-                        self.stepper.current_u()[dof]
-                    } else {
-                        0.0
-                    }
-                })
-                .collect();
+            let u_cur = self.stepper.current_u();
+            for (i, &dof) in self.interface_dofs.iter().enumerate() {
+                disp_interface[i] = if dof < n_dofs { u_cur[dof] } else { 0.0 };
+            }
 
             // ── Write displacements to preCICE ────────────────────────────────
             participant.write_data(
@@ -304,24 +321,17 @@ impl StressStiffenedFsiSolver {
                 &disp_interface,
             )?;
 
-            if let Some(ref vdata) = self.velocity_write_data {
-                let vel_interface: Vec<f64> = self
-                    .interface_dofs
-                    .iter()
-                    .map(|&dof| {
-                        if dof < self.stepper.n_dofs() {
-                            self.stepper.current_v()[dof]
-                        } else {
-                            0.0
-                        }
-                    })
-                    .collect();
+            if let (Some(vdata), Some(vel_buf)) = (self.velocity_write_data.as_ref(), vel_interface.as_mut()) {
+                let v_cur = self.stepper.current_v();
+                for (i, &dof) in self.interface_dofs.iter().enumerate() {
+                    vel_buf[i] = if dof < n_dofs { v_cur[dof] } else { 0.0 };
+                }
 
                 participant.write_data(
                     &self.config.coupling_mesh,
                     vdata,
                     &vertex_ids,
-                    &vel_interface,
+                    vel_buf,
                 )?;
             }
 
@@ -340,17 +350,16 @@ impl StressStiffenedFsiSolver {
                 }
             } else {
                 // Converged time window — overwrite final state (no history accumulation).
-                result.u_final = self.stepper.current_u().to_vec();
-                result.v_final = self.stepper.current_v().to_vec();
-                result.a_final = self.stepper.current_a().to_vec();
                 result.times.push(step_t);
 
                 let time_step = result.times.len(); // 1-based
 
                 // ── K_G update ────────────────────────────────────────────────
-                // Clone u to release the immutable borrow before the mutable update_kg call.
-                let u_snapshot = self.stepper.current_u().to_vec();
-                self.update_kg(&u_snapshot, time_step)?;
+                if time_step % self.kg_update_interval == 0 {
+                    // Clone u only when K_G update is actually needed.
+                    let u_snapshot = self.stepper.current_u().to_vec();
+                    self.update_kg(&u_snapshot, time_step)?;
+                }
 
                 // ── Per-step callback ─────────────────────────────────────────
                 if let Some(ref cb) = self.step_callback {
@@ -372,6 +381,9 @@ impl StressStiffenedFsiSolver {
         }
 
         participant.finalize()?;
+        result.u_final = self.stepper.current_u().to_vec();
+        result.v_final = self.stepper.current_v().to_vec();
+        result.a_final = self.stepper.current_a().to_vec();
         Ok(result)
     }
 
