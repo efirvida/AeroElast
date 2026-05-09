@@ -168,7 +168,30 @@ impl StressStiffenedFsiSolver {
         // Convert to membrane 3-vector [σxx, σyy, σxy] (Voigt 6→3).
         // compute_stress_field returns [σxx, σyy, σzz, τxy, τyz, τzx],
         // for shell membrane: σzz=τyz=τzx=0, so index 3 = τxy = σxy.
-        let sigma_m: Vec<[f64; 3]> = sigma.iter().map(|s| [s[0], s[1], s[3]]).collect();
+        //
+        // STABILITY FILTER: only include elements with net tensile membrane state
+        // (trace σxx+σyy ≥ 0).  Elements with negative trace produce compressive
+        // K_G contributions that soften K_eff and can cause divergence — this
+        // happens in twisted shell elements at large deflections because the linear
+        // B-matrix picks up rigid-body rotation as apparent membrane compression.
+        // Physically, stress-stiffening only occurs under tensile pre-stress, so
+        // zeroing compressive elements is both safe and correct.
+        let mut n_tensile = 0usize;
+        let mut n_compressive = 0usize;
+        let sigma_m: Vec<[f64; 3]> = sigma.iter().map(|s| {
+            if s[0] + s[1] >= 0.0 {
+                n_tensile += 1;
+                [s[0], s[1], s[3]]
+            } else {
+                n_compressive += 1;
+                [0.0, 0.0, 0.0]
+            }
+        }).collect();
+        if n_compressive > 0 {
+            log::debug!(
+                "StressStiffened step {time_step}: K_G tensile_elems={n_tensile} compressive_zeroed={n_compressive}"
+            );
+        }
 
         // Assemble full K_G COO values and accumulate via precomputed map.
         let (_, _, kg_vals_full) =
@@ -185,7 +208,7 @@ impl StressStiffenedFsiSolver {
 
         let kg_norm: f64 = kg_red.iter().map(|x| x * x).sum::<f64>().sqrt();
         log::info!(
-            "StressStiffened step {time_step}: ||K_G||_F (reduced) = {kg_norm:.3e}"
+            "StressStiffened step {time_step}: ||K_G||_F={kg_norm:.3e} tensile={n_tensile} compressive_zeroed={n_compressive}"
         );
 
         Ok(())
