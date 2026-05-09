@@ -4175,6 +4175,23 @@ fn run_rotor_fsi_solver(
     ))
 }
 
+///
+/// # Parameters (keyword-only with defaults)
+///
+/// - `include_geometric_stiffness`: When `None` (default), derived from `kg0_*` sentinel for
+///   backward compatibility. When `Some(false)`, explicitly disable K_G. When `Some(true)`,
+///   explicitly enable K_G (overrides sentinel).
+/// - `include_spin_softening`: Include spin-softening K_SP(ω). Default: `true` (matches HEAD
+///   unconditional behavior).
+/// - `ksp_omega_rebuild_high`: High-band relative threshold for K_SP Δω rebuild trigger.
+///   Default: 0.005.
+/// - `ksp_omega_rebuild_low`: Low-band relative threshold for K_SP Δω rebuild trigger.
+///   Default: 0.003.
+/// - `kg_omega_rebuild_high`: High-band relative threshold for K_G Δω rebuild trigger.
+///   Default: 0.005.
+/// - `kg_omega_rebuild_low`: Low-band relative threshold for K_G Δω rebuild trigger.
+///   Default: 0.003.
+///
 // ── run_inertial_rotor_fsi_solver ─────────────────────────────────────────────
 /// Inertial-frame FSI solver for rotating structures (rotor blades).
 ///
@@ -4305,19 +4322,11 @@ fn run_inertial_rotor_fsi_solver(
     // ── Optional per-step callback ────────────────────────────────────────────
     step_callback: Option<Py<PyAny>>,
     // ── New keyword-only args with defaults (backward-compatible additions) ────
-    /// When `None` (default): derived from `kg0_*` sentinel for backward compat.
-    /// When `Some(false)`: explicitly disable K_G.
-    /// When `Some(true)`: explicitly enable K_G (overrides sentinel).
     include_geometric_stiffness: Option<bool>,
-    /// Include spin-softening K_SP(ω). Default: `true` (matches HEAD unconditional behavior).
     include_spin_softening: bool,
-    /// High-band relative threshold for K_SP Δω rebuild trigger. Default: 0.005.
     ksp_omega_rebuild_high: f64,
-    /// Low-band relative threshold for K_SP Δω rebuild trigger. Default: 0.003.
     ksp_omega_rebuild_low: f64,
-    /// High-band relative threshold for K_G Δω rebuild trigger. Default: 0.005.
     kg_omega_rebuild_high: f64,
-    /// Low-band relative threshold for K_G Δω rebuild trigger. Default: 0.003.
     kg_omega_rebuild_low: f64,
 ) -> PyResult<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>)> {
     use aeroelast_solvers::petsc::elasticity::dynamic_newmark::NewmarkStepper;
