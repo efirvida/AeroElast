@@ -370,6 +370,23 @@ class RotorConfig:
     #                         one (hysteresis, default 0.3%).
     omega_rebuild_rel_high: float = 0.005
     omega_rebuild_rel_low: float = 0.003
+    # K_G(u) — Nivel 2 reassembly with deformed geometry.
+    # When kg_use_deformed_coords is True, K_G is reassembled at coords X₀+u
+    # whenever the perpendicular-to-axis deflection ratio crosses the rebuild
+    # band, capturing the foreshortening contribution that K_G(X₀) misses.
+    # kg_use_deformed_coords:           master toggle (default OFF for parity
+    #                                   with the explicit-in-geometry baseline).
+    # kg_deflection_rebuild_rel_high:   high-band threshold (default 1%).
+    # kg_deflection_rebuild_rel_low:    low-band threshold for hysteresis
+    #                                   (default 0.5%) — avoids ping-pong rebuilds
+    #                                   under cyclic 1P gravity loading.
+    # kg_initial_prestress_iters:       Nivel 1 — number of static prestress
+    #                                   solves at t=0 to converge K_G(u_static)
+    #                                   before entering the dynamic loop. 0 = off.
+    kg_use_deformed_coords: bool = False
+    kg_deflection_rebuild_rel_high: float = 0.01
+    kg_deflection_rebuild_rel_low: float = 0.005
+    kg_initial_prestress_iters: int = 0
     transform_displacement_to_inertial: bool = True
     gravity: List[float] = field(default_factory=lambda: [0.0, 0.0, -9.81])
     # Controls what displacement the inertial solver writes to preCICE.
@@ -409,6 +426,10 @@ class RotorConfig:
             "gravity": self.gravity,
             "omega_rebuild_rel_high": self.omega_rebuild_rel_high,
             "omega_rebuild_rel_low": self.omega_rebuild_rel_low,
+            "kg_use_deformed_coords": self.kg_use_deformed_coords,
+            "kg_deflection_rebuild_rel_high": self.kg_deflection_rebuild_rel_high,
+            "kg_deflection_rebuild_rel_low": self.kg_deflection_rebuild_rel_low,
+            "kg_initial_prestress_iters": self.kg_initial_prestress_iters,
         }
         if self.moment_of_inertia is not None:
             d["moment_of_inertia"] = self.moment_of_inertia

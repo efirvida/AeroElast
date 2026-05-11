@@ -317,5 +317,44 @@ def test_rotor_config_custom_thresholds_forwarded():
     assert d["omega_rebuild_rel_low"] == pytest.approx(0.005)
 
 
+@pytest.mark.skipif(
+    _try_import_rotor_config() is None,
+    reason="aeroelast.core.config not importable in this environment",
+)
+def test_rotor_config_exposes_kg_deformed_coords_fields():
+    """RotorConfig.to_dict() must include the K_G(u) Nivel-2 fields with correct defaults."""
+    RotorConfig = _try_import_rotor_config()
+    cfg = RotorConfig()
+    d = cfg.to_dict()
+    assert "kg_use_deformed_coords" in d, "kg_use_deformed_coords missing from to_dict()"
+    assert "kg_deflection_rebuild_rel_high" in d, "kg_deflection_rebuild_rel_high missing from to_dict()"
+    assert "kg_deflection_rebuild_rel_low" in d, "kg_deflection_rebuild_rel_low missing from to_dict()"
+    assert "kg_initial_prestress_iters" in d, "kg_initial_prestress_iters missing from to_dict()"
+    assert d["kg_use_deformed_coords"] is False, "default should be OFF for parity with baseline"
+    assert d["kg_deflection_rebuild_rel_high"] == pytest.approx(0.01)
+    assert d["kg_deflection_rebuild_rel_low"] == pytest.approx(0.005)
+    assert d["kg_initial_prestress_iters"] == 0
+
+
+@pytest.mark.skipif(
+    _try_import_rotor_config() is None,
+    reason="aeroelast.core.config not importable in this environment",
+)
+def test_rotor_config_kg_custom_values_forwarded():
+    """RotorConfig with custom K_G(u) values must forward them through to_dict()."""
+    RotorConfig = _try_import_rotor_config()
+    cfg = RotorConfig(
+        kg_use_deformed_coords=True,
+        kg_deflection_rebuild_rel_high=0.02,
+        kg_deflection_rebuild_rel_low=0.008,
+        kg_initial_prestress_iters=3,
+    )
+    d = cfg.to_dict()
+    assert d["kg_use_deformed_coords"] is True
+    assert d["kg_deflection_rebuild_rel_high"] == pytest.approx(0.02)
+    assert d["kg_deflection_rebuild_rel_low"] == pytest.approx(0.008)
+    assert d["kg_initial_prestress_iters"] == 3
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
