@@ -1974,8 +1974,15 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                 f_aero_nodes_local + f_inertial_nodes_local + f_gravity_nodes_local
             )
 
+            # interface_coords_nodes are stored in the global (inertial) frame.
+            # iface_u_local and iface_force_local are already in the rotating frame.
+            # Convert reference coords to the rotating frame before computing r×F
+            # so that rel_pos = coords_local + disps_local - center is consistent.
+            iface_coords_local = self._coord_transforms.to_rotating(
+                interface_coords_nodes, theta
+            )
             tau_aero_global, tau_aero = self._compute_axis_torque(
-                interface_coords_nodes,
+                iface_coords_local,
                 iface_u_local,
                 iface_force_local,
                 theta,
@@ -1989,20 +1996,23 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                     self._coord_transforms.axis * tau_aero_rust, theta
                 )
 
+            all_node_coords_local = self._coord_transforms.to_rotating(
+                all_node_coords_nodes, theta
+            )
             _, tau_inertial = self._compute_axis_torque(
-                all_node_coords_nodes,
+                all_node_coords_local,
                 u_nodes_local,
                 f_inertial_nodes_local,
                 theta,
             )
             _, tau_gravity = self._compute_axis_torque(
-                all_node_coords_nodes,
+                all_node_coords_local,
                 u_nodes_local,
                 f_gravity_nodes_local,
                 theta,
             )
             tau_total_global, tau_total = self._compute_axis_torque(
-                all_node_coords_nodes,
+                all_node_coords_local,
                 u_nodes_local,
                 f_total_nodes_local,
                 theta,
