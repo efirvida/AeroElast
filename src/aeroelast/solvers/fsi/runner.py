@@ -130,6 +130,16 @@ class FSIRunner:
     def _is_bem(self) -> bool:
         return self.config.solver.type == SolverType.BEM_STANDALONE.value
 
+    @property
+    def _uses_generator_composite_materials(self) -> bool:
+        gen_config = self.config.mesh.generator
+        return (
+            self.config.material is None
+            and self.config.mesh.source == MeshSource.GENERATOR.value
+            and gen_config is not None
+            and gen_config.type in (MeshGeneratorType.BLADE.value, MeshGeneratorType.ROTOR.value)
+        )
+
     def run(self) -> Any:
         """
         Execute the complete FSI simulation pipeline.
@@ -644,6 +654,54 @@ class FSIRunner:
         self._console.print(f"      Loading mesh from: {file_path}")
         return MeshModel.load(str(file_path), format=file_config.format)
 
+    def _rehydrate_composite_generator(self) -> None:
+        """Rebuild generator metadata needed for composite-property extraction."""
+        if self._mesh_generator is not None or not self._uses_generator_composite_materials:
+            return
+
+        gen_config = self.config.mesh.generator
+        if gen_config is None:
+            return
+
+        params = gen_config.params
+
+        if gen_config.type == MeshGeneratorType.ROTOR.value:
+            yaml_file = params["yaml_file"]
+            if self.config_path and not Path(yaml_file).is_absolute():
+                yaml_file = str(self.config_path.parent / yaml_file)
+
+            generator = RotorMesh(
+                yaml_file=yaml_file,
+                n_blades=params.get("n_blades", 3),
+                hub_radius=params.get("hub_radius"),
+                element_size=params.get("element_size", 0.5),
+                n_samples=params.get("n_samples", 300),
+            )
+        else:
+            yaml_file = params.get("yaml_file")
+            excel_file = params.get("excel_file")
+            airfoil_dir = params.get("airfoil_dir")
+
+            if yaml_file and self.config_path and not Path(yaml_file).is_absolute():
+                yaml_file = str(self.config_path.parent / yaml_file)
+            if excel_file and self.config_path and not Path(excel_file).is_absolute():
+                excel_file = str(self.config_path.parent / excel_file)
+            if airfoil_dir and self.config_path and not Path(airfoil_dir).is_absolute():
+                airfoil_dir = str(self.config_path.parent / airfoil_dir)
+
+            generator = BladeMesh(
+                yaml_file=yaml_file,
+                excel_file=excel_file,
+                airfoil_dir=airfoil_dir,
+                element_size=params.get("element_size", 0.15),
+                n_samples=params.get("n_samples", 300),
+                span_grading=params.get("span_grading", "chord"),
+            )
+
+        self._console.print("      Rehydrating composite metadata from generator...")
+        generator.generate(renumber=None, verbose=False)
+        self._mesh_generator = generator
+
     def _generate_mesh(self) -> MeshModel:
         """Generate mesh using the configured generator."""
         gen_config = self.config.mesh.generator
@@ -939,7 +997,7 @@ class FSIRunner:
         self._blade_properties = None
 
         # Check if blade/rotor generator provides composite properties
-        if self._mesh_generator is not None and self.config.material is None:
+        if self._uses_generator_composite_materials:
             self._blade_properties = self._extract_blade_properties()
             self._console.print(
                 f"      Composite properties from blade YAML: "
@@ -1011,6 +1069,10 @@ class FSIRunner:
             ``PyMeshAssembler.from_model()``.
         """
         from ...models.blade.model import build_rust_properties  # noqa: PLC0415
+
+        self._rehydrate_composite_generator()
+        if self._mesh_generator is None:
+            raise RuntimeError("Composite generator metadata is not available.")
 
         numad_data = self._mesh_generator.numad_mesh_data
         return build_rust_properties(numad_data)
@@ -1565,7 +1627,7 @@ class FSIRunner:
             self.mesh = self._setup_mesh()
 
         element_data = None
-        if self._mesh_generator is not None and self.config.material is None:
+        if self._uses_generator_composite_materials:
             # Extract composite properties and build visualization fields
             if self._blade_properties is None:
                 self._blade_properties = self._extract_blade_properties()
