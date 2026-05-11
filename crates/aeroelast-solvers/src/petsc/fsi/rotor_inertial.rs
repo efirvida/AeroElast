@@ -34,11 +34,14 @@
 /// # Feature gate
 /// Compiled only with `--features fsi`.
 
+use std::time::Instant;
+
 use aeroelast_core::assembly::assembler::{MaterialSpec, MeshAssembler};
 
 use crate::petsc::elasticity::dynamic_newmark::{NewmarkCheckpoint, NewmarkStepper};
 use crate::petsc::fsi::force_utils::{apply_cap, apply_ramp};
 use crate::petsc::fsi::linear_elastic::{FsiConfig, FsiError, FsiInitialState, FsiResult};
+use crate::petsc::fsi::profiling::WindowProfiler;
 use crate::petsc::fsi::rotor_physics::{
     OmegaCheckpoint, OmegaProvider, PerformanceCoefficients, RotorTransforms,
     compose_deformed_coords, compute_gravity_force, compute_performance_coefficients,
@@ -996,9 +999,12 @@ impl InertialRotorFsiSolver {
         // Main coupling loop
         let mut sub_iter: u32 = 0;
         let mut window_num: u32 = 0;
+        let mut prof = WindowProfiler::new("InertialRotorFsi");
         while participant.is_coupling_ongoing()? {
             // ── Save checkpoint ───────────────────────────────────────────────
             if participant.requires_writing_checkpoint()? {
+                prof.start_window();
+                let t_cp = Instant::now();
                 newmark_cp = Some(self.stepper.checkpoint());
                 omega_cp = Some(self.omega_provider.checkpoint());
                 theta_cp = self.theta;
@@ -1008,6 +1014,7 @@ impl InertialRotorFsiSolver {
                     last_ksp_rebuild_step: self.last_ksp_rebuild_step,
                     last_kg_rebuild_step: self.last_kg_rebuild_step,
                 });
+                prof.record_since("checkpoint_save", t_cp);
                 sub_iter = 0;
                 window_num += 1;
                 let u_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
@@ -1025,7 +1032,7 @@ impl InertialRotorFsiSolver {
             let theta_target = self.theta + window_kin.theta_increment;
 
             // ── Read forces from preCICE (global frame) ───────────────────────
-            let t_read = std::time::Instant::now();
+            let t_read = Instant::now();
             let mut forces_global = vec![0.0f64; n_data];
             participant.read_data(
                 &self.config.fsi.coupling_mesh,
@@ -1034,20 +1041,22 @@ impl InertialRotorFsiSolver {
                 dt,
                 &mut forces_global,
             )?;
-            let t_read_ms = t_read.elapsed().as_secs_f64() * 1e3;
+            prof.record_since("precice_read", t_read);
 
             // ── Force pre-processing (ramp + cap, global frame) ───────────────
             // Save physical (unramped) forces for torque/thrust/Ct/Cp after
             // convergence. The ramp is a purely numerical start-up artifact and
             // must NOT contaminate aerodynamic diagnostics or OmegaProvider.
+            let t_fp = Instant::now();
             let forces_raw = forces_global.clone();
             apply_ramp(&mut forces_global, t, self.config.fsi.ramp_time);
             if let Some(max_f) = self.config.fsi.force_max {
                 apply_cap(&mut forces_global, max_f, mesh_dims);
             }
+            prof.record_since("force_preproc", t_fp);
 
             // ── Assemble global reduced force vector ──────────────────────────
-            let t_assemble = std::time::Instant::now();
+            let t_assemble = Instant::now();
             let mut f_red = vec![0.0f64; n_dofs];
 
             // Scatter aero forces at interface DOFs
@@ -1084,15 +1093,15 @@ impl InertialRotorFsiSolver {
                 self.scatter_node_forces(&f_g, &mut f_red, &free_dofs);
             }
 
-            let t_assemble_ms = t_assemble.elapsed().as_secs_f64() * 1e3;
+            prof.record_since("force_scatter_ref_grav", t_assemble);
             let f_norm: f64 = forces_global.iter().map(|x| x * x).sum::<f64>().sqrt();
             let f_red_norm: f64 = f_red.iter().map(|x| x * x).sum::<f64>().sqrt();
             let u_pre_step_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
 
             // ── Advance structural state ──────────────────────────────────────
-            let t_solve = std::time::Instant::now();
+            let t_solve = Instant::now();
             let step_t = self.stepper.step(&f_red, dt)?.t;
-            let t_solve_ms = t_solve.elapsed().as_secs_f64() * 1e3;
+            prof.record_since("newmark_step", t_solve);
 
             // When exporting total kinematics, the rigid contribution must use
             // the current window target θ, not the last converged geometry.
@@ -1153,7 +1162,7 @@ impl InertialRotorFsiSolver {
                 "InertialRotorFsi: [w={} iter={}] ||F_raw||={:.3e}  ||f_red||={:.3e}  ||u_before||={:.3e}  ||u_after||={:.3e}  ||D_written||={:.3e}",
                 window_num, sub_iter, f_norm, f_red_norm, u_pre_step_norm, u_post_step_norm, d_norm
             );
-            let t_write = std::time::Instant::now();
+            let t_write = Instant::now();
             participant.write_data(
                 &self.config.fsi.coupling_mesh,
                 &self.config.fsi.write_data,
@@ -1211,8 +1220,6 @@ impl InertialRotorFsiSolver {
                 )?;
             }
 
-            let t_write_ms = t_write.elapsed().as_secs_f64() * 1e3;
-
             // ── Write ω to GlobalSolidMesh (if used) ──────────────────────────
             if let (Some(ref ids), Some(ref mesh), Some(ref wdata)) = (
                 &omega_vertex_ids,
@@ -1221,16 +1228,15 @@ impl InertialRotorFsiSolver {
             ) {
                 participant.write_data(mesh, wdata, ids, &[omega_step])?;
             }
-            let t_advance = std::time::Instant::now();
+            prof.record_since("precice_write", t_write);
+
+            let t_advance = Instant::now();
             participant.advance(dt)?;
-            let t_advance_ms = t_advance.elapsed().as_secs_f64() * 1e3;
-            log::debug!(
-                "InertialRotorFsi: [w={} iter={}] timing(ms): read={:.1} assemble={:.1} solve={:.1} write={:.1} advance={:.1}",
-                window_num, sub_iter, t_read_ms, t_assemble_ms, t_solve_ms, t_write_ms, t_advance_ms
-            );
+            prof.record_since("precice_advance", t_advance);
 
             // ── Implicit coupling: restore or commit ──────────────────────────
             if participant.requires_reading_checkpoint()? {
+                let t_rs = Instant::now();
                 match (newmark_cp.as_ref(), omega_cp.as_ref(), kgksp_cp.as_ref()) {
                     (Some(ncp), Some(ocp), Some(kcp)) => {
                         let u_before_restore_norm: f64 = self.stepper.current_u().iter().map(|x| x * x).sum::<f64>().sqrt();
@@ -1265,6 +1271,7 @@ impl InertialRotorFsiSolver {
                         ))
                     }
                 }
+                prof.record_since("checkpoint_restore", t_rs);
             } else {
                 // ── Converged time window ─────────────────────────────────────
                 self.time_step += 1;
@@ -1275,8 +1282,10 @@ impl InertialRotorFsiSolver {
                 // and by F_ref/K(θ) on the next iteration; cheap O(n_nodes)
                 // and decouples correctness from K-rebuild cadence.
                 use crate::petsc::fsi::setup::rotate_mesh_coords;
+                let t_rot = Instant::now();
                 self.coords_rotated =
                     rotate_mesh_coords(&self.coords_ref, &self.transforms, self.theta);
+                prof.record_since("mesh_rotate", t_rot);
 
                 // Update K(θ) if rotation changed significantly.
                 //
@@ -1285,7 +1294,7 @@ impl InertialRotorFsiSolver {
                 // However, during sub-iterations the K that was used came from
                 // the checkpoint (θ_{n-1}). This is the explicit-in-geometry
                 // approximation documented in the module docstring.
-                let t_reassemble = std::time::Instant::now();
+                let t_reassemble = Instant::now();
                 // Snapshot the current reduced displacement so the K_G(u)
                 // trigger and assembly path see a consistent state. The
                 // snapshot is also necessary because reassemble_k_if_needed
@@ -1298,10 +1307,7 @@ impl InertialRotorFsiSolver {
                     self.time_step,
                     &free_dofs,
                 )?;
-                log::info!(
-                    "InertialRotorFsi: [w={}] K(θ) reassembly: {:.1}ms",
-                    window_num, t_reassemble.elapsed().as_secs_f64() * 1e3
-                );
+                prof.record_since("k_reassemble_if_needed", t_reassemble);
 
                 // Compute aerodynamic torque (global frame)
                 let u_full = self.expand_to_full(&u_red, &free_dofs);
@@ -1401,6 +1407,7 @@ impl InertialRotorFsiSolver {
 
                 // Per-step callback — always pass physical (unramped) forces
                 if let Some(ref cb) = self.step_callback {
+                    let t_cb = Instant::now();
                     let force_mag = forces_raw.iter().map(|x| x * x).sum::<f64>().sqrt();
                     cb(
                         step_t,
@@ -1417,9 +1424,13 @@ impl InertialRotorFsiSolver {
                         tau_aero,
                         perf,
                     )?;
+                    prof.record_since("callback", t_cb);
                 }
 
                 dt = participant.get_max_time_step_size()?;
+
+                // ── Per-window profiling summary (debug log) ──────────────────
+                prof.log_summary(step_t, self.time_step);
             }
         }
 

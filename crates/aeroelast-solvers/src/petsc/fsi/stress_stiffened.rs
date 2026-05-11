@@ -15,11 +15,14 @@
 /// # Feature gate
 /// Compiled only with `--features fsi`.
 
+use std::time::Instant;
+
 use aeroelast_core::assembly::assembler::MeshAssembler;
 
 use crate::petsc::elasticity::dynamic_newmark::{NewmarkCheckpoint, NewmarkStepper};
 use crate::petsc::fsi::force_utils::{apply_cap, apply_ramp};
 use crate::petsc::fsi::linear_elastic::{FsiConfig, FsiError, FsiInitialState, FsiResult, StepCallback};
+use crate::petsc::fsi::profiling::WindowProfiler;
 use crate::petsc::fsi::setup;
 
 // ── Solver struct ─────────────────────────────────────────────────────────────
@@ -155,7 +158,16 @@ impl StressStiffenedFsiSolver {
     ///
     /// Does nothing when the stress field is essentially zero (avoids a
     /// no-op refactorization at t ≈ 0 when loads are still ramping up).
-    fn update_kg(&mut self, u_red: &[f64], time_step: usize) -> Result<(), FsiError> {
+    ///
+    /// Records timing for the three internal phases under the names
+    /// `stress_recovery`, `kg_assemble`, and `kg_factorize` so the per-window
+    /// summary breaks down the per-call cost of the geometric-stiffness update.
+    fn update_kg(
+        &mut self,
+        u_red: &[f64],
+        time_step: usize,
+        prof: &mut WindowProfiler,
+    ) -> Result<(), FsiError> {
         if time_step % self.kg_update_interval != 0 {
             return Ok(());
         }
@@ -163,22 +175,20 @@ impl StressStiffenedFsiSolver {
         self.expand_u_into_buffer(u_red);
 
         // Recover element-centroid membrane stresses (z=0, membrane-only).
+        let t_sr = Instant::now();
         let (sigma, _) = self.assembler.compute_stress_field(&self.u_full_buf, 0.0, 0);
+        prof.record_since("stress_recovery", t_sr);
 
-        // Convert to membrane 3-vector [σxx, σyy, σxy] (Voigt 6→3).
-        // compute_stress_field returns [σxx, σyy, σzz, τxy, τyz, τzx],
-        // for shell membrane: σzz=τyz=τzx=0, so index 3 = τxy = σxy.
+        // Convert recovered stress field to per-element membrane 3-vector
+        // [σxx, σyy, σxy] (Voigt 6→3). `compute_stress_field` returns
+        // [σxx, σyy, σzz, τxy, τyz, τzx]; for shell membrane σzz=τyz=τzx=0,
+        // so index 3 = τxy = σxy.
         //
-        // STABILITY FILTER: only include elements with net tensile membrane state
-        // (trace σxx+σyy ≥ 0).  Elements with negative trace produce compressive
-        // K_G contributions that soften K_eff and can cause divergence — this
-        // happens in twisted shell elements at large deflections because the linear
-        // B-matrix picks up rigid-body rotation as apparent membrane compression.
-        // Physically, stress-stiffening only occurs under tensile pre-stress, so
-        // zeroing compressive elements is both safe and correct.
+        // The positive-part (tensile) filter that prevents spurious compressive
+        // K_G contributions from twisted shells under large rotation lives
+        // inside `MeshAssembler::assemble_geometric_k` itself, so all solvers
+        // inherit it automatically — no per-solver filtering needed here.
         let mut max_s = 0.0f64;
-        let mut n_tensile = 0usize;
-        let mut n_compressive = 0usize;
         for (s, sigma_m) in sigma.iter().zip(self.sigma_m_buf.iter_mut()) {
             for &v in s {
                 let av = v.abs();
@@ -186,29 +196,16 @@ impl StressStiffenedFsiSolver {
                     max_s = av;
                 }
             }
-
-            if s[0] + s[1] >= 0.0 {
-                n_tensile += 1;
-                *sigma_m = [s[0], s[1], s[3]];
-            } else {
-                n_compressive += 1;
-                *sigma_m = [0.0, 0.0, 0.0];
-            }
+            *sigma_m = [s[0], s[1], s[3]];
         }
 
         // Skip K_G update when stresses are negligible (e.g. at t≈0).
-        // Use max absolute value so that compressive (negative) stresses are not missed.
         if max_s <= 1e-20 {
             return Ok(());
         }
 
-        if n_compressive > 0 {
-            log::debug!(
-                "StressStiffened step {time_step}: K_G tensile_elems={n_tensile} compressive_zeroed={n_compressive}"
-            );
-        }
-
         // Assemble full K_G COO values and accumulate via precomputed map.
+        let t_asm = Instant::now();
         let (_, _, kg_vals_full) =
             self.assembler.assemble_geometric_k(&self.sigma_m_buf);
         setup::apply_kg_coo_map_inplace(
@@ -216,16 +213,19 @@ impl StressStiffenedFsiSolver {
             &kg_vals_full,
             &mut self.kg_red_buf,
         );
+        prof.record_since("kg_assemble", t_asm);
 
+        let t_fact = Instant::now();
         self.stepper
             .update_geometric_stiffness(&self.kg_red_buf)
             .map_err(FsiError::StepperError)?;
+        prof.record_since("kg_factorize", t_fact);
 
         let info_stride = (self.kg_update_interval * 20).max(1);
-        if time_step % info_stride == 0 || n_compressive > 0 {
+        if time_step % info_stride == 0 {
             let kg_norm: f64 = self.kg_red_buf.iter().map(|x| x * x).sum::<f64>().sqrt();
             log::info!(
-                "StressStiffened step {time_step}: ||K_G||_F={kg_norm:.3e} tensile={n_tensile} compressive_zeroed={n_compressive}"
+                "StressStiffened step {time_step}: ||K_G||_F={kg_norm:.3e}"
             );
         }
 
@@ -273,14 +273,19 @@ impl StressStiffenedFsiSolver {
             .velocity_write_data
             .as_ref()
             .map(|_| vec![0.0f64; self.interface_dofs.len()]);
+        let mut prof = WindowProfiler::new("StressStiffened");
 
         while participant.is_coupling_ongoing()? {
             // ── Save checkpoint before implicit coupling iteration ─────────────
             if participant.requires_writing_checkpoint()? {
+                prof.start_window();
+                let t_cp = Instant::now();
                 checkpoint = Some(self.stepper.checkpoint());
+                prof.record_since("checkpoint_save", t_cp);
             }
 
             // ── Read forces from preCICE ───────────────────────────────────────
+            let t_io = Instant::now();
             participant.read_data(
                 &self.config.coupling_mesh,
                 &self.config.read_data,
@@ -288,32 +293,42 @@ impl StressStiffenedFsiSolver {
                 dt,
                 &mut forces,
             )?;
+            prof.record_since("precice_read", t_io);
 
             // ── Force pre-processing ───────────────────────────────────────────
+            let t_fp = Instant::now();
             let t = self.stepper.current_time();
             apply_ramp(&mut forces, t, self.config.ramp_time);
             if let Some(max_f) = self.config.force_max {
                 apply_cap(&mut forces, max_f, self.mesh_dims);
             }
+            prof.record_since("force_preproc", t_fp);
 
             // ── Scatter interface forces → global DOF vector ───────────────────
+            let t_sc = Instant::now();
             f_global.fill(0.0);
             for (local_idx, &global_dof) in self.interface_dofs.iter().enumerate() {
                 if local_idx < forces.len() && global_dof < n_dofs {
                     f_global[global_dof] += forces[local_idx];
                 }
             }
+            prof.record_since("force_scatter", t_sc);
 
             // ── Advance structural state ───────────────────────────────────────
+            let t_step = Instant::now();
             let step_t = self.stepper.step(&f_global, dt)?.t;
+            prof.record_since("newmark_step", t_step);
 
             // ── Gather interface displacements ─────────────────────────────────
+            let t_gather = Instant::now();
             let u_cur = self.stepper.current_u();
             for (i, &dof) in self.interface_dofs.iter().enumerate() {
                 disp_interface[i] = if dof < n_dofs { u_cur[dof] } else { 0.0 };
             }
+            prof.record_since("disp_gather", t_gather);
 
             // ── Write displacements to preCICE ────────────────────────────────
+            let t_wr = Instant::now();
             participant.write_data(
                 &self.config.coupling_mesh,
                 &self.config.write_data,
@@ -334,11 +349,15 @@ impl StressStiffenedFsiSolver {
                     vel_buf,
                 )?;
             }
+            prof.record_since("precice_write", t_wr);
 
+            let t_adv = Instant::now();
             participant.advance(dt)?;
+            prof.record_since("precice_advance", t_adv);
 
             // ── Implicit coupling: restore or commit ──────────────────────────
             if participant.requires_reading_checkpoint()? {
+                let t_rs = Instant::now();
                 match checkpoint {
                     Some(ref cp) => self.stepper.restore(cp),
                     None => {
@@ -348,6 +367,7 @@ impl StressStiffenedFsiSolver {
                         ))
                     }
                 }
+                prof.record_since("checkpoint_restore", t_rs);
             } else {
                 // Converged time window — overwrite final state (no history accumulation).
                 result.times.push(step_t);
@@ -355,14 +375,16 @@ impl StressStiffenedFsiSolver {
                 let time_step = result.times.len(); // 1-based
 
                 // ── K_G update ────────────────────────────────────────────────
+                // `update_kg` internally records `stress_recovery`, `kg_assemble`
+                // and `kg_factorize` sub-sections via the same profiler.
                 if time_step % self.kg_update_interval == 0 {
-                    // Clone u only when K_G update is actually needed.
                     let u_snapshot = self.stepper.current_u().to_vec();
-                    self.update_kg(&u_snapshot, time_step)?;
+                    self.update_kg(&u_snapshot, time_step, &mut prof)?;
                 }
 
                 // ── Per-step callback ─────────────────────────────────────────
                 if let Some(ref cb) = self.step_callback {
+                    let t_cb = Instant::now();
                     let force_mag = forces.iter().map(|x| x * x).sum::<f64>().sqrt();
                     cb(
                         step_t,
@@ -374,9 +396,13 @@ impl StressStiffenedFsiSolver {
                         force_mag,
                         &forces,
                     )?;
+                    prof.record_since("callback", t_cb);
                 }
 
                 dt = participant.get_max_time_step_size()?;
+
+                // ── Per-window profiling summary (debug log) ──────────────────
+                prof.log_summary(step_t, time_step);
             }
         }
 

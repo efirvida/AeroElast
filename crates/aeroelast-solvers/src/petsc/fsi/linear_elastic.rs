@@ -13,8 +13,11 @@
 /// - [`LinearElasticFsiSolver`] — the solver struct with a `run()` method
 /// - [`FsiError`] — error type for FSI operations
 
+use std::time::Instant;
+
 use crate::petsc::elasticity::dynamic_newmark::{NewmarkCheckpoint, NewmarkStepper};
 use crate::petsc::fsi::force_utils::{apply_cap, apply_ramp};
+use crate::petsc::fsi::profiling::WindowProfiler;
 
 // ── Error type ────────────────────────────────────────────────────────────────
 
@@ -280,16 +283,22 @@ impl LinearElasticFsiSolver {
         let n_data = n_vertices * self.mesh_dims;
         let mut checkpoint: Option<NewmarkCheckpoint> = None;
         let mut result = FsiResult::default();
+        let mut prof = WindowProfiler::new("LinearElastic");
 
         while participant.is_coupling_ongoing()? {
             // ── Implicit coupling: save state before iteration ────────────────
             if participant.requires_writing_checkpoint()? {
+                // First sub-iteration of a new converged window — reset timers.
+                prof.start_window();
+                let t = Instant::now();
                 checkpoint = Some(self.stepper.checkpoint());
+                prof.record_since("checkpoint_save", t);
             }
 
             // ── Read forces from preCICE (flat: n_vertices × mesh_dims) ───────
             // read_data fills an out-param buffer.
             let mut forces = vec![0.0f64; n_data];
+            let t_io = Instant::now();
             participant.read_data(
                 &self.config.coupling_mesh,
                 &self.config.read_data,
@@ -297,28 +306,36 @@ impl LinearElasticFsiSolver {
                 dt,
                 &mut forces,
             )?;
+            prof.record_since("precice_read", t_io);
 
             // ── Force pre-processing: ramp and cap ────────────────────────────
+            let t_fp = Instant::now();
             let t = self.stepper.current_time();
             apply_ramp(&mut forces, t, self.config.ramp_time);
             if let Some(max_f) = self.config.force_max {
                 apply_cap(&mut forces, max_f, self.mesh_dims);
             }
+            prof.record_since("force_preproc", t_fp);
 
             // ── Scatter interface forces into the global DOF vector ───────────
             // Use += so that multiple interface components mapping to the same
             // global DOF accumulate correctly (e.g. shared interface nodes).
+            let t_sc = Instant::now();
             let mut f_global = vec![0.0f64; n_dofs];
             for (local_idx, &global_dof) in self.interface_dofs.iter().enumerate() {
                 if local_idx < forces.len() && global_dof < n_dofs {
                     f_global[global_dof] += forces[local_idx];
                 }
             }
+            prof.record_since("force_scatter", t_sc);
 
             // ── Advance the structural state by one time step ─────────────────
+            let t_step = Instant::now();
             let step_t = self.stepper.step(&f_global, dt)?.t;
+            prof.record_since("newmark_step", t_step);
 
             // ── Gather interface displacements (DOF → vertex component) ───────
+            let t_gather = Instant::now();
             let disp_interface: Vec<f64> = self
                 .interface_dofs
                 .iter()
@@ -330,23 +347,29 @@ impl LinearElasticFsiSolver {
                     }
                 })
                 .collect();
+            prof.record_since("disp_gather", t_gather);
 
             // ── Write displacements to preCICE ────────────────────────────────
+            let t_wr = Instant::now();
             participant.write_data(
                 &self.config.coupling_mesh,
                 &self.config.write_data,
                 &vertex_ids,
                 &disp_interface,
             )?;
+            prof.record_since("precice_write", t_wr);
 
             // ── Advance the coupling ──────────────────────────────────────────
+            let t_adv = Instant::now();
             participant.advance(dt)?;
+            prof.record_since("precice_advance", t_adv);
 
             // ── Implicit coupling: restore or commit ──────────────────────────
             if participant.requires_reading_checkpoint()? {
                 // Iteration not converged — restore state and retry.
                 // dt is NOT updated here: the next iteration of the same window
                 // must reuse the same dt to keep Newmark coefficients consistent.
+                let t_rs = Instant::now();
                 match checkpoint {
                     Some(ref cp) => self.stepper.restore(cp),
                     None => {
@@ -356,6 +379,7 @@ impl LinearElasticFsiSolver {
                         ))
                     }
                 }
+                prof.record_since("checkpoint_restore", t_rs);
             } else {
                 // Converged time window — overwrite final state (no history accumulation).
                 result.u_final = self.stepper.current_u().to_vec();
@@ -366,13 +390,18 @@ impl LinearElasticFsiSolver {
                 // Invoke per-step callback BEFORE advancing dt so the callback
                 // receives the dt that was actually used for this window.
                 if let Some(ref cb) = self.step_callback {
+                    let t_cb = Instant::now();
                     let time_step = result.times.len(); // 1-based
                     let force_mag = forces.iter().map(|x| x * x).sum::<f64>().sqrt();
                     cb(step_t, time_step, dt, self.stepper.current_u(), self.stepper.current_v(), self.stepper.current_a(), force_mag, &forces)?;
+                    prof.record_since("callback", t_cb);
                 }
 
                 // Only advance dt after convergence; never mid-window.
                 dt = participant.get_max_time_step_size()?;
+
+                // ── Per-window profiling summary (debug log) ──────────────────
+                prof.log_summary(step_t, result.times.len());
             }
         }
 
