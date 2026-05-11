@@ -781,6 +781,16 @@ impl MeshAssembler {
     ///   For plane/solid elements this is a no-op (returns zero).
     ///
     /// Returns `(rows, cols, vals)` COO triplets.
+    ///
+    /// # Stability filter
+    /// Each element's membrane stress is projected onto its tensile (positive-
+    /// eigenvalue) part via `tensile_part_membrane` before contributing to K_σ.
+    /// Compressive principal directions do not stiffen the structure
+    /// physically and, for twisted shells under large rigid rotation, the
+    /// linear B-matrix can produce spurious compressive principal stresses
+    /// that trigger non-physical local buckling modes. Filtering at the
+    /// canonical assembly path ensures every solver inherits the correct
+    /// behaviour automatically.
     pub fn assemble_geometric_k(&self, sigma: &[[f64; 3]]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
         assert_eq!(
             sigma.len(),
@@ -793,7 +803,8 @@ impl MeshAssembler {
         let mut vals = Vec::new();
 
         for e in 0..self.topology.n_elems {
-            let sv = Vector3::new(sigma[e][0], sigma[e][1], sigma[e][2]);
+            let s_filt = tensile_part_membrane(sigma[e]);
+            let sv = Vector3::new(s_filt[0], s_filt[1], s_filt[2]);
 
             let kg_flat: Vec<f64> = match &self.precomputed[e] {
                 PrecomputedElem::Tri(pre) => {
@@ -1319,6 +1330,75 @@ impl MeshAssembler {
 }
 
 // ============================================================================
+// Helper: positive-part (tensile) projection of a 2D membrane stress tensor
+// ============================================================================
+
+/// Project a membrane stress tensor onto its tensile (positive-eigenvalue) part.
+///
+/// Geometric stiffening (K_G) is physically generated only by membrane tension.
+/// Compressive principal stresses produce a negative contribution that softens
+/// K_eff and is non-physical for stress-stiffening. Twisted shell elements
+/// under large rigid-body rotation can also exhibit spurious compressive
+/// principal stresses arising from the linear B-matrix (rigid-rotation artefact);
+/// without filtering, those spurious components trigger local buckling modes
+/// that have no physical reality.
+///
+/// This filter applies the spectral positive-part decomposition:
+/// `σ⁺ = Σ_i max(λ_i, 0) · v_i v_iᵀ` where (λ_i, v_i) are the eigenpairs of
+/// the 2×2 symmetric membrane stress matrix. Compressive principal directions
+/// are dropped, tensile ones are kept. For a fully tensile or fully zero
+/// state, σ⁺ = σ (no-op).
+///
+/// Closed-form for 2×2 symmetric matrices — no iterative eigensolver.
+fn tensile_part_membrane(sigma: [f64; 3]) -> [f64; 3] {
+    let sx = sigma[0];
+    let sy = sigma[1];
+    let sxy = sigma[2];
+
+    let trace_half = 0.5 * (sx + sy);
+    let det = sx * sy - sxy * sxy;
+    // For a real symmetric matrix the discriminant is non-negative analytically;
+    // numerical roundoff can push it slightly below zero. Clamp at 0.
+    let disc = (trace_half * trace_half - det).max(0.0);
+    let sqrt_disc = disc.sqrt();
+    let lam_max = trace_half + sqrt_disc;
+    let lam_min = trace_half - sqrt_disc;
+
+    // Both principals non-negative → no filtering needed.
+    if lam_min >= 0.0 {
+        return sigma;
+    }
+    // Both principals non-positive → zero contribution.
+    if lam_max <= 0.0 {
+        return [0.0, 0.0, 0.0];
+    }
+
+    // Mixed state (lam_max > 0 > lam_min): keep only the tensile projection.
+    // Eigenvector v_max for lam_max from the 2×2 system (A − lam_max·I)·v = 0:
+    //   row 1: (sx − lam_max)·vx + sxy·vy = 0  ⇒  v ∝ (sxy, lam_max − sx)
+    //   row 2: sxy·vx + (sy − lam_max)·vy = 0  ⇒  v ∝ (lam_max − sy, sxy)
+    // Use the row with larger off-diagonal magnitude for numerical stability;
+    // fall back to a canonical basis vector when sxy ≈ 0 (already diagonal).
+    let scale = trace_half.abs().max(1.0);
+    let (vx, vy) = if sxy.abs() > 1e-15 * scale {
+        let ex = sxy;
+        let ey = lam_max - sx;
+        let n = (ex * ex + ey * ey).sqrt();
+        (ex / n, ey / n)
+    } else if sx >= sy {
+        (1.0, 0.0)
+    } else {
+        (0.0, 1.0)
+    };
+
+    [
+        lam_max * vx * vx,
+        lam_max * vy * vy,
+        lam_max * vx * vy,
+    ]
+}
+
+// ============================================================================
 // Helper: build constitutive data from MaterialSpec
 // ============================================================================
 
@@ -1643,6 +1723,123 @@ mod tests {
         for &v in &vals {
             assert!(v.is_finite(), "geometric K entry is not finite");
         }
+    }
+
+    // ── tensile_part_membrane: positive-part spectral filter ─────────────────
+
+    fn approx_eq(a: f64, b: f64, tol: f64) -> bool {
+        (a - b).abs() <= tol
+    }
+
+    #[test]
+    fn test_tensile_filter_zero() {
+        let f = tensile_part_membrane([0.0, 0.0, 0.0]);
+        assert_eq!(f, [0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_tensile_filter_pure_tensile_isotropic() {
+        // σ_xx = σ_yy > 0, σ_xy = 0 → both principals positive and equal.
+        // Filter must be a no-op.
+        let s = [5.0e6, 5.0e6, 0.0];
+        let f = tensile_part_membrane(s);
+        for i in 0..3 {
+            assert!(approx_eq(f[i], s[i], 1e-9 * 5e6), "isotropic tensile modified");
+        }
+    }
+
+    #[test]
+    fn test_tensile_filter_pure_tensile_biaxial_with_shear() {
+        // σ_xx = 1e6, σ_yy = 5e5, σ_xy = 2e5 → both principals positive.
+        // trace = 1.5e6, det = 5e11 - 4e10 = 4.6e11, both eigenvalues > 0.
+        let s = [1.0e6, 0.5e6, 0.2e6];
+        let f = tensile_part_membrane(s);
+        for i in 0..3 {
+            assert!(approx_eq(f[i], s[i], 1e-9 * 1e6), "tensile biaxial modified");
+        }
+    }
+
+    #[test]
+    fn test_tensile_filter_pure_compressive() {
+        // Both principals negative → zero contribution.
+        let s = [-1.0e6, -5.0e5, 1.0e5];
+        let f = tensile_part_membrane(s);
+        for i in 0..3 {
+            assert!(f[i].abs() < 1e-9 * 1e6, "compressive case not zeroed: {f:?}");
+        }
+    }
+
+    #[test]
+    fn test_tensile_filter_mixed_diagonal() {
+        // Already-diagonal mixed state σ = diag(10, -2). Tensile principal is 10,
+        // aligned with x-axis → filtered tensor is diag(10, 0).
+        let s = [10.0, -2.0, 0.0];
+        let f = tensile_part_membrane(s);
+        assert!(approx_eq(f[0], 10.0, 1e-12));
+        assert!(approx_eq(f[1], 0.0, 1e-12));
+        assert!(approx_eq(f[2], 0.0, 1e-12));
+    }
+
+    #[test]
+    fn test_tensile_filter_mixed_off_diagonal() {
+        // σ = [[5, 6],[6, 5]] → eigenvalues 11 and -1, eigenvectors at ±45°.
+        // Tensile part: 11 · (1/√2, 1/√2)·(1/√2, 1/√2)ᵀ = [[5.5, 5.5],[5.5, 5.5]]
+        let s = [5.0, 5.0, 6.0];
+        let f = tensile_part_membrane(s);
+        assert!(approx_eq(f[0], 5.5, 1e-10));
+        assert!(approx_eq(f[1], 5.5, 1e-10));
+        assert!(approx_eq(f[2], 5.5, 1e-10));
+    }
+
+    #[test]
+    fn test_tensile_filter_output_is_psd() {
+        // For any input, the filtered tensor must be positive semi-definite:
+        // trace ≥ 0 AND det ≥ 0. Sweep a range of mixed states.
+        let cases = [
+            [10.0, -1.0, 2.0],
+            [-5.0, 8.0, 3.0],
+            [1.0, -4.0, 5.0],
+            [-3.0, -7.0, 1.0],   // pure compressive
+            [2.0, 3.0, 0.5],     // pure tensile
+            [0.0, 0.0, 1.0],     // trace zero, off-diagonal nonzero (eigenvalues ±1)
+        ];
+        for s in cases.iter() {
+            let f = tensile_part_membrane(*s);
+            let tr = f[0] + f[1];
+            let det = f[0] * f[1] - f[2] * f[2];
+            assert!(tr >= -1e-10, "filtered trace negative for {s:?}: {tr}");
+            assert!(det >= -1e-10, "filtered det negative for {s:?}: {det}");
+        }
+    }
+
+    #[test]
+    fn test_tensile_filter_preserves_pure_tensile_trace() {
+        // For an input that is already PSD, trace is preserved exactly.
+        let cases = [
+            [3.0, 5.0, 1.5],
+            [1.0e6, 2.0e6, 5.0e5],
+            [0.0, 7.0, 0.0],
+        ];
+        for s in cases.iter() {
+            let f = tensile_part_membrane(*s);
+            let tr_s = s[0] + s[1];
+            let tr_f = f[0] + f[1];
+            assert!(
+                approx_eq(tr_s, tr_f, 1e-10 * tr_s.abs().max(1.0)),
+                "trace not preserved for tensile input {s:?}: {tr_s} → {tr_f}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_assemble_geometric_k_compressive_input_yields_zero() {
+        // Verify integration: feeding a fully compressive stress field through
+        // assemble_geometric_k produces zero K_G (filtered out).
+        let asm = two_tri_assembler();
+        let sigma = vec![[-1.0e6f64, -5.0e5, 1.0e5]; 2];
+        let (_, _, vals) = asm.assemble_geometric_k(&sigma);
+        let norm: f64 = vals.iter().map(|v| v * v).sum::<f64>().sqrt();
+        assert!(norm < 1e-6, "compressive stress should be filtered out, got ||K_G||={norm:e}");
     }
 
     #[test]
