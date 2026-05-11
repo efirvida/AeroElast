@@ -1981,10 +1981,47 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             iface_coords_local = self._coord_transforms.to_rotating(
                 interface_coords_nodes, theta
             )
+            # interface_coords_nodes are stored in the global (inertial) frame.
+            # iface_u_local and iface_force_local are already in the rotating frame.
+            # Convert reference coords to the rotating frame before computing r×F
+            # so that rel_pos = coords_local + disps_local - center is consistent.
+            iface_coords_local = self._coord_transforms.to_rotating(
+                interface_coords_nodes, theta
+            )
             tau_aero_global, tau_aero = self._compute_axis_torque(
                 iface_coords_local,
                 iface_u_local,
                 iface_force_local,
+                theta,
+            )
+            if abs(tau_aero) <= _MIN_DENOMINATOR and abs(tau_aero_rust) > _MIN_DENOMINATOR:
+                tau_aero = float(tau_aero_rust)
+                # Reconstruct consistent global torque vector: assume torque is
+                # primarily axial (standard for rotors) so the global vector is
+                # just the axis scaled by the scalar projected onto it.
+                tau_aero_global = self._coord_transforms.to_inertial(
+                    self._coord_transforms.axis * tau_aero_rust, theta
+                )
+
+            all_node_coords_local = self._coord_transforms.to_rotating(
+                all_node_coords_nodes, theta
+            )
+            _, tau_inertial = self._compute_axis_torque(
+                all_node_coords_local,
+                u_nodes_local,
+                f_inertial_nodes_local,
+                theta,
+            )
+            _, tau_gravity = self._compute_axis_torque(
+                all_node_coords_local,
+                u_nodes_local,
+                f_gravity_nodes_local,
+                theta,
+            )
+            tau_total_global, tau_total = self._compute_axis_torque(
+                all_node_coords_local,
+                u_nodes_local,
+                f_total_nodes_local,
                 theta,
             )
             if abs(tau_aero) <= _MIN_DENOMINATOR and abs(tau_aero_rust) > _MIN_DENOMINATOR:
