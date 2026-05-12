@@ -4,6 +4,7 @@ Provides a thin interface between the fem-shell aerodynamic data layer
 (``BladeAero``) and the NREL CCBlade BEM solver.
 """
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -203,8 +204,9 @@ class BEMSolver:
         # BEM theory is singular at omega=0 (no tangential velocity).
         # Substitute a tiny rotation so the solver converges while keeping
         # the physics essentially unchanged (tip-speed ratio ~ 0).
+        # copysign preserves the rotation direction (CW = negative RPM convention).
         _OMEGA_EPS = 1e-3  # RPM
-        omega_bem = omega if abs(omega) > _OMEGA_EPS else _OMEGA_EPS
+        omega_bem = omega if abs(omega) > _OMEGA_EPS else math.copysign(_OMEGA_EPS, omega)
 
         # Distributed loads at the given azimuth
         loads, _ = self.rotor.distributedAeroLoads(v_inf, omega_bem, pitch, azimuth)

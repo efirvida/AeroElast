@@ -789,7 +789,11 @@ class BEMFSIParticipant:
         # The blade elongates spanwise under large flapwise deformations, so
         # strip centroids can exceed the reference rotor_radius.  A fixed
         # Rtip_ref causes Prandtl factortip < 0 → exp(+) > 1 → acos(NaN).
-        deformed_rtip = float(np.max(r_def)) * 1.001
+        #
+        # r_def is in blade-local frame (0 → blade_length); rotor_radius is in
+        # rotor frame (hub_radius + blade_length).  Add hub_radius before
+        # comparing so both values are in the same coordinate system.
+        deformed_rtip = (float(np.max(r_def)) + ba.hub_radius) * 1.001
         rotor_radius = max(deformed_rtip, ba.rotor_radius)
 
         deformed_aero = BladeAero(
@@ -906,9 +910,11 @@ class BEMFSIParticipant:
         """
         v_inf = float(self._bem_cfg.get("wind_speed", 45.0))
         # _current_omega is in rad/s (received from Solid via preCICE or YAML).
-        # CCBlade expects RPM.
+        # CCBlade expects RPM and assumes CCW rotation (standard HAWT convention).
+        # The structural solver uses CW rotation around +Y (right-hand rule with
+        # omega vector pointing in -Y), so we negate here to match CCBlade's convention.
         import math as _math  # noqa: PLC0415
-        omega = self._current_omega * 60.0 / (2.0 * _math.pi)
+        omega = -self._current_omega * 60.0 / (2.0 * _math.pi)
         pitch = float(self._bem_cfg.get("pitch", 0.0))
         # Use live accumulated azimuth (integrated from omega each window).
         azimuth = self._azimuth
