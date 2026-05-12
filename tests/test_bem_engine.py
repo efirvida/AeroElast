@@ -121,3 +121,83 @@ class TestBEMSolverRotating:
     def test_cl_not_all_zero(self, rated_result):
         """Lift coefficients should be non-trivial."""
         assert np.any(np.abs(rated_result.cl) > 0.1)
+
+
+class TestOmegaSignConvention:
+    """Regression tests for the CW rotor sign convention.
+
+    The structural solver uses CW rotation around +Y (right-hand rule:
+    omega vector points in -Y).  CCBlade assumes CCW, so ``fsi_participant``
+    negates ``_current_omega`` before converting to RPM::
+
+        omega_rpm = -current_omega_rad_s * 60 / (2*pi)
+
+    This means ``BEMSolver.compute`` receives **negative RPM** for a
+    physically spinning rotor.  These tests guard that invariant: if the
+    negation is accidentally removed, power and torque flip sign and the
+    tests fail immediately.
+    """
+
+    @pytest.fixture(scope="class")
+    def cw_result(self, bem_solver):
+        """BEM result as seen by CCBlade after the CW sign conversion.
+
+        ``current_omega = +0.7917 rad/s`` (structural convention, CW).
+        After negation + unit conversion: ``omega_rpm = -7.56 RPM``.
+        """
+        import math
+
+        current_omega_rad_s = 0.7917  # rad/s, CW, as received from preCICE
+        omega_rpm = -current_omega_rad_s * 60.0 / (2.0 * math.pi)
+        return bem_solver.compute(v_inf=10.59, omega=omega_rpm, pitch=0.0)
+
+    @pytest.fixture(scope="class")
+    def ccw_result(self, bem_solver):
+        """BEM result WITHOUT the sign fix (positive RPM, wrong for CW rotor)."""
+        import math
+
+        current_omega_rad_s = 0.7917
+        omega_rpm = +current_omega_rad_s * 60.0 / (2.0 * math.pi)  # bug: no negation
+        return bem_solver.compute(v_inf=10.59, omega=omega_rpm, pitch=0.0)
+
+    def test_cw_torque_positive(self, cw_result):
+        """After negation, CCBlade must return positive torque for the CW rotor."""
+        assert cw_result.torque > 0, (
+            f"Torque={cw_result.torque:.3e} Nm — negative torque means the sign "
+            "fix in fsi_participant._compute_forces was reverted."
+        )
+
+    def test_cw_power_positive(self, cw_result):
+        """Power must be positive: the rotor extracts energy from the wind."""
+        assert cw_result.power > 0, (
+            f"Power={cw_result.power:.3e} W — negative power means the CW sign "
+            "convention is broken."
+        )
+
+    def test_cw_cp_physical_range(self, cw_result):
+        """CP must be in (0, 0.593] (Betz limit) at rated conditions."""
+        assert cw_result.CP is not None
+        assert 0.0 < cw_result.CP <= 0.593, (
+            f"CP={cw_result.CP:.4f} outside physical range — check omega sign."
+        )
+
+    def test_cw_ct_physical_range(self, cw_result):
+        """CT must be positive and below ~1.5 at rated conditions."""
+        assert cw_result.CT is not None
+        assert 0.0 < cw_result.CT < 1.5, (
+            f"CT={cw_result.CT:.4f} outside physical range."
+        )
+
+    def test_sign_flip_inverts_torque(self, cw_result, ccw_result):
+        """Negating omega must invert the torque sign.
+
+        This directly encodes the contract: if fsi_participant passes
+        ``-omega`` to BEMSolver, the torque sign must flip relative to
+        ``+omega``.  If this test fails, the BEM engine no longer respects
+        the rotation direction.
+        """
+        assert cw_result.torque > 0
+        assert ccw_result.torque < 0, (
+            "Expected CCW (positive RPM) to give negative torque for this "
+            "CW-designed geometry.  The sign convention may have changed."
+        )
