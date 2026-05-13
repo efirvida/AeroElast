@@ -1725,7 +1725,7 @@ class RotorHubMesh:
         nose_radius: float | None = None,
         hub_length_factor: float = 1.1,
         connector_radius_factor: float = 0.5,
-        connector_length_factor: float = 0.25,
+        connector_length_factor: float = 1.01,
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
@@ -1901,9 +1901,9 @@ class RotorHubMesh:
             if self.hub_length is not None
             else float(self.hub_length_factor * root_diameter)
         )
-        # Extend past the hub surface by a fraction of the root diameter so the
-        # connector cylinder overlaps the hub and root region.
-        connector_length = float(hub_radius + self.connector_length_factor * root_diameter)
+        # The connector cylinder starts at the rotor center, so its total length
+        # should only slightly exceed the hub radius to guarantee overlap.
+        connector_length = float(self.connector_length_factor * hub_radius)
         connector_radius = (
             float(self.connector_radius)
             if self.connector_radius is not None

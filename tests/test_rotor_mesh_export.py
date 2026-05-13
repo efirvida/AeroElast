@@ -85,7 +85,7 @@ def test_rotor_hub_mesh_default_connector_radius_matches_root_profile_scale():
     assert connector_radius == pytest.approx(2.75)
 
 
-def test_rotor_hub_mesh_default_connector_length_extends_past_hub_radius():
+def test_rotor_hub_mesh_default_connector_length_only_slightly_exceeds_hub_radius():
     hub = RotorHubMesh(yaml_file="dummy.yaml")
 
     _, connector_length, _, _ = hub._resolve_hub_geometry_parameters(
@@ -93,7 +93,7 @@ def test_rotor_hub_mesh_default_connector_length_extends_past_hub_radius():
         root_diameter=5.5,
     )
 
-    assert connector_length == pytest.approx(5.375)
+    assert connector_length == pytest.approx(4.04)
 
 
 def test_rotor_hub_mesh_default_connector_radius_is_bounded_by_hub_radius():
