@@ -2160,18 +2160,71 @@ mod tests {
 
     #[test]
     fn test_polar_decomposition() {
-        // For small displacement gradients, polar decomposition should give approximately orthogonal R
-        let h = Matrix3::new(
-            0.001, 0.0,  0.0,
-            0.0,  0.001, 0.0,
-            0.0,  0.0,  0.0,
+        let tol = 1e-10_f64;
+
+        let rot_x = |theta: f64| Matrix3::new(
+            1.0, 0.0, 0.0,
+            0.0, theta.cos(), -theta.sin(),
+            0.0, theta.sin(),  theta.cos(),
         );
-        let (r, _u) = Mitc4Precomputed::polar_decomposition(&h);
-        // R should be approximately orthogonal (R^T R ≈ I)
-        let rt_r = r.transpose() * &r;
-        let ident = Matrix3::identity();
-        let diff = &rt_r - &ident;
-        assert!(diff.norm() < 0.05, "R should be approximately orthogonal, got norm {}", diff.norm());
+        let rot_y = |theta: f64| Matrix3::new(
+             theta.cos(), 0.0, theta.sin(),
+             0.0,         1.0, 0.0,
+            -theta.sin(), 0.0, theta.cos(),
+        );
+        let rot_z = |theta: f64| Matrix3::new(
+            theta.cos(), -theta.sin(), 0.0,
+            theta.sin(),  theta.cos(), 0.0,
+            0.0,          0.0,         1.0,
+        );
+
+        let check_case = |f: Matrix3<f64>, expected_r: Option<Matrix3<f64>>| {
+            let h = f - Matrix3::identity();
+            let (r, _u) = Mitc4Precomputed::polar_decomposition(&h);
+
+            let ortho_err = (r * r.transpose() - Matrix3::identity()).norm();
+            assert!(ortho_err < tol, "R must be orthogonal, err={ortho_err:e}");
+
+            let det_r = r.determinant();
+            assert!((det_r - 1.0).abs() < tol, "det(R) must be +1, got {det_r:e}");
+
+            if let Some(r_exp) = expected_r {
+                let r_err = (r - r_exp).norm();
+                assert!(r_err < tol, "R mismatch, err={r_err:e}");
+            }
+        };
+
+        // Rotación pura 0°
+        check_case(Matrix3::identity(), Some(Matrix3::identity()));
+
+        // Rotación pura 30° alrededor de Z
+        check_case(rot_z(std::f64::consts::PI / 6.0), Some(rot_z(std::f64::consts::PI / 6.0)));
+
+        // Rotación pura 45° alrededor de Y
+        check_case(rot_y(std::f64::consts::FRAC_PI_4), Some(rot_y(std::f64::consts::FRAC_PI_4)));
+
+        // Rotación pura 90° alrededor de X
+        check_case(rot_x(std::f64::consts::FRAC_PI_2), Some(rot_x(std::f64::consts::FRAC_PI_2)));
+
+        // Deformación pura (sin rotación) -> R ≈ I
+        check_case(
+            Matrix3::new(
+                1.01, 0.0, 0.0,
+                0.0,  0.99, 0.0,
+                0.0,  0.0,  1.02,
+            ),
+            Some(Matrix3::identity()),
+        );
+
+        // Elemento casi singular (det(F) ≈ 0.001): no panicar, R ortogonal
+        check_case(
+            Matrix3::new(
+                0.1, 0.0, 0.0,
+                0.0, 0.1, 0.0,
+                0.0, 0.0, 0.1,
+            ),
+            None,
+        );
     }
 
     #[test]
