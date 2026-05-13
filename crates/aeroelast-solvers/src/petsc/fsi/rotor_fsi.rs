@@ -1377,4 +1377,20 @@ mod tests {
         assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, false, eps));
         assert!(omega_changed_significantly(0.0, 0.0, 0.005, 0.003, true, eps));
     }
+
+    #[test]
+    fn corotational_kt_coords_follow_theta_for_zero_displacement() {
+        use std::f64::consts::FRAC_PI_2;
+
+        let transforms = RotorTransforms::new([0.0, 0.0, 1.0], [0.0, 0.0, 0.0]);
+        let coords_ref = vec![1.0, 0.0, 0.0];
+
+        // This is exactly the transform used in update_kt_if_needed.
+        let coords_rotated = transforms.disps_to_inertial(&coords_ref, FRAC_PI_2);
+
+        // (1,0,0) rotated 90° around +Z => (0,1,0)
+        assert!(coords_rotated[0].abs() < 1e-12, "x={}", coords_rotated[0]);
+        assert!((coords_rotated[1] - 1.0).abs() < 1e-12, "y={}", coords_rotated[1]);
+        assert!(coords_rotated[2].abs() < 1e-12, "z={}", coords_rotated[2]);
+    }
 }
