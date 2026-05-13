@@ -910,11 +910,14 @@ class BEMFSIParticipant:
         """
         v_inf = float(self._bem_cfg.get("wind_speed", 45.0))
         # _current_omega is in rad/s (received from Solid via preCICE or YAML).
-        # CCBlade expects RPM and assumes CCW rotation (standard HAWT convention).
-        # The structural solver uses CW rotation around +Y (right-hand rule with
-        # omega vector pointing in -Y), so we negate here to match CCBlade's convention.
+        # CCBlade expects RPM. The structural solver uses RHR convention around
+        # +Y (omega > 0 = clockwise viewed from -Y). CCBlade also assumes the
+        # blade rotates in the positive RPM direction, which matches our omega > 0.
+        # No sign change needed: tangential_direction=[-1,0,0] in the YAML already
+        # maps CCBlade's Tp (driving force) to the correct -X direction in the
+        # structural frame.
         import math as _math  # noqa: PLC0415
-        omega = -self._current_omega * 60.0 / (2.0 * _math.pi)
+        omega = self._current_omega * 60.0 / (2.0 * _math.pi)
         pitch = float(self._bem_cfg.get("pitch", 0.0))
         # Use live accumulated azimuth (integrated from omega each window).
         azimuth = self._azimuth

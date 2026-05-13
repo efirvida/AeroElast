@@ -3,10 +3,29 @@
 Maps per-span-station aerodynamic loads (Np, Tp) from a BEM computation
 onto the finite-element mesh nodes, preserving the total integrated force
 and moment on each chordwise strip.
+
+Reference-point convention
+--------------------------
+All per-strip moments and nodal offsets are expressed about the
+**aerodynamic centre** (AC) of the strip, i.e. the point at
+``aerodynamic_center × chord`` measured from the estimated leading edge
+along the local chord direction.
+
+Using the AC as the unique reference point for both the moment balance
+and the nodal offset vectors means:
+
+* The geometric transfer term  ``r_{AC→ref} × F``  is identically zero —
+  it only appears when ``ref ≠ AC``.
+* The only moment distributed to the nodes is the aerodynamic pitching
+  moment ``M_AC`` from the BEM polars (Cm coefficient), which is the
+  physically correct quantity.
+* The result is **independent of mesh density asymmetry** between the
+  leading and trailing edges, which would bias an arithmetic-mean
+  centroid toward the denser side.
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List
 
 import numpy as np
@@ -26,8 +45,9 @@ class _Strip:
     node_indices: np.ndarray  # indices into mesh.nodes
     r_center: float  # span-wise centre (m, from hub)
     dr: float  # strip width (m)
-    centroid: np.ndarray  # 3-D centroid of strip nodes
-    offsets: np.ndarray  # (n, 3) node positions relative to centroid
+    centroid: np.ndarray  # 3-D arithmetic mean of strip nodes (used for PCA only)
+    ac_position: np.ndarray  # 3-D position of the aerodynamic centre
+    offsets: np.ndarray  # (n, 3) node positions relative to *ac_position*
 
 
 class ForceProjector:
@@ -116,11 +136,24 @@ class ForceProjector:
         # Handle nodes exactly at the tip boundary
         node_strip[span_coords == r_high[-1]] = len(r_stations) - 1
 
-        # Build strip objects
+        # Build strip objects.
+        #
+        # For each strip we need the aerodynamic centre (AC) position so that
+        # nodal offsets are expressed relative to AC — the physically correct
+        # reference point for the moment balance (see module docstring).
+        #
+        # The AC position requires knowing the local chord direction, which is
+        # estimated via PCA on the strip node coordinates.  Both computations
+        # are done here in a single pass so that _Strip.offsets already uses
+        # the AC as its origin.
         self._strips: List[_Strip] = []
         self._n_nodes = n_nodes
+        self._strip_chord_dirs: list[np.ndarray] = []
+
         for k in range(len(r_stations)):
             idx = np.where(node_strip == k)[0]
+            station = blade_aero.stations[k]
+
             if len(idx) == 0:
                 # Empty strip – create a placeholder
                 self._strips.append(
@@ -129,83 +162,85 @@ class ForceProjector:
                         r_center=float(r_stations[k]),
                         dr=float(r_high[k] - r_low[k]),
                         centroid=np.zeros(3),
+                        ac_position=np.zeros(3),
                         offsets=np.zeros((0, 3)),
                     )
                 )
+                self._strip_chord_dirs.append(self._tangential_dir.copy())
                 continue
+
             strip_coords = coords[idx]
+            # Arithmetic mean — used only for PCA centering, not as moment
+            # reference (which would be biased by uneven LE/TE node density).
             centroid = strip_coords.mean(axis=0)
+
+            # ------------------------------------------------------------------
+            # Chord direction via PCA on the chordwise plane (⊥ span_dir)
+            # ------------------------------------------------------------------
+            if len(idx) >= 2:
+                off = strip_coords - centroid
+                off_plane = off - np.outer(off @ span_dir, span_dir)
+                chord_dir = self._tangential_dir.copy()  # fallback
+                if np.linalg.norm(off_plane) >= 1e-12:
+                    _, _, Vt = np.linalg.svd(off_plane, full_matrices=False)
+                    cd = Vt[0]
+                    # Orient consistently (avoid ±π flips at tip sections)
+                    if abs(np.dot(cd, self._tangential_dir)) >= abs(
+                        np.dot(cd, self._normal_dir)
+                    ):
+                        if np.dot(cd, self._tangential_dir) < 0:
+                            cd = -cd
+                    else:
+                        if np.dot(cd, self._normal_dir) < 0:
+                            cd = -cd
+                    c_norm = np.linalg.norm(cd)
+                    if c_norm > 1e-12:
+                        chord_dir = cd / c_norm
+            else:
+                chord_dir = self._tangential_dir.copy()
+
+            self._strip_chord_dirs.append(chord_dir)
+
+            # ------------------------------------------------------------------
+            # Aerodynamic centre position (3-D)
+            #
+            # LE is estimated as the node with the minimum projection onto
+            # chord_dir.  The AC lies at aerodynamic_center × chord from that
+            # point (default: c/4).
+            # ------------------------------------------------------------------
+            chord_proj = strip_coords @ chord_dir
+            le_proj = float(np.min(chord_proj))
+            ac_proj = le_proj + station.airfoil.aerodynamic_center * station.chord
+            # Span-wise component: use the strip's mean span coordinate so the
+            # AC sits on the strip mid-plane (not offset spanwise).
+            span_proj = float(centroid @ span_dir)
+            # Chordwise-normal component: use the centroid projection onto the
+            # direction ⊥ both span and chord (i.e. the thickness direction).
+            thickness_dir = np.cross(span_dir, chord_dir)
+            thickness_dir_norm = np.linalg.norm(thickness_dir)
+            if thickness_dir_norm > 1e-12:
+                thickness_dir /= thickness_dir_norm
+                thick_proj = float(centroid @ thickness_dir)
+            else:
+                thickness_dir = np.zeros(3)
+                thick_proj = 0.0
+
+            ac_position = (
+                ac_proj * chord_dir
+                + span_proj * span_dir
+                + thick_proj * thickness_dir
+            )
+
             self._strips.append(
                 _Strip(
                     node_indices=idx,
                     r_center=float(r_stations[k]),
                     dr=float(r_high[k] - r_low[k]),
                     centroid=centroid,
-                    offsets=strip_coords - centroid,
+                    ac_position=ac_position,
+                    offsets=strip_coords - ac_position,
                 )
             )
-
-        # ------------------------------------------------------------------
-        # Per-strip chord directions and AC-to-centroid offset vectors.
-        #
-        # BEM polars define Cm (and therefore Mp) about the aerodynamic
-        # centre (AC, typically at c/4).  ForceProjector._distribute()
-        # balances moments about the strip *centroid*, so the transfer is:
-        #
-        #   M_centroid = M_AC + r_{AC→centroid} × F_strip
-        #
-        # The second term — the moment arm contribution — is often larger
-        # than M_AC for typical wind-turbine blades and must not be omitted.
-        # ------------------------------------------------------------------
-        self._strip_chord_dirs: list[np.ndarray] = []
-        self._strip_ac_offsets: list[np.ndarray] = []
-
-        for k, strip in enumerate(self._strips):
-            idx = strip.node_indices
-            station = blade_aero.stations[k]
-
-            if len(idx) < 2:
-                # Not enough nodes for PCA — fall back, zero AC offset
-                self._strip_chord_dirs.append(self._tangential_dir.copy())
-                self._strip_ac_offsets.append(np.zeros(3))
-                continue
-
-            strip_pts = coords[idx]
-            off = strip_pts - strip_pts.mean(axis=0)
-            # Project offsets onto the plane ⊥ span_dir
-            off_plane = off - np.outer(off @ span_dir, span_dir)
-            if np.linalg.norm(off_plane) < 1e-12:
-                self._strip_chord_dirs.append(self._tangential_dir.copy())
-                self._strip_ac_offsets.append(np.zeros(3))
-                continue
-
-            _, _, Vt = np.linalg.svd(off_plane, full_matrices=False)
-            chord_dir = Vt[0]
-            # Orient using most-aligned reference direction (avoids ±π
-            # sign flips at tip sections where chord ⊥ normal_dir)
-            if abs(np.dot(chord_dir, self._tangential_dir)) >= abs(
-                np.dot(chord_dir, self._normal_dir)
-            ):
-                if np.dot(chord_dir, self._tangential_dir) < 0:
-                    chord_dir = -chord_dir
-            else:
-                if np.dot(chord_dir, self._normal_dir) < 0:
-                    chord_dir = -chord_dir
-            c_norm = np.linalg.norm(chord_dir)
-            if c_norm > 1e-12:
-                chord_dir /= c_norm
-            else:
-                chord_dir = self._tangential_dir.copy()
-            self._strip_chord_dirs.append(chord_dir)
-
-            # LE estimated as the node with minimum chordwise projection
-            chord_proj = strip_pts @ chord_dir
-            le_proj = float(np.min(chord_proj))
-            ac_proj = le_proj + station.airfoil.aerodynamic_center * station.chord
-            centroid_proj = float(strip.centroid @ chord_dir)
-            # Vector from AC to strip centroid (along chord direction only;
-            # the span-normal component is negligible for thin shells)
-            self._strip_ac_offsets.append((centroid_proj - ac_proj) * chord_dir)
 
     # ------------------------------------------------------------------
     #  Public API
@@ -238,18 +273,16 @@ class ForceProjector:
             # Global force vector for the strip
             F_strip = F_n * self._normal_dir + F_t * self._tangential_dir
 
-            # Moment about strip centroid:
-            #   M_centroid = M_AC + r_{AC→centroid} × F_strip
-            # M_AC is the aerodynamic pitching moment from BEM polars (about
-            # the aerodynamic centre).  The geometric transfer term accounts
-            # for the moment arm between the AC and the centroid of the strip
-            # nodes and is always present regardless of Mp availability.
-            M_ac = (
+            # Moment about the aerodynamic centre (AC).
+            #
+            # Because _Strip.offsets are measured from the AC, the geometric
+            # transfer term  r_{AC→ref} × F  is identically zero here.
+            # The only moment to distribute is M_AC from the BEM polars.
+            M_strip = (
                 float(bem_result.Mp[k]) * strip.dr * self._span_dir
                 if bem_result.Mp is not None
                 else np.zeros(3)
             )
-            M_strip = M_ac + np.cross(self._strip_ac_offsets[k], F_strip)
 
             # Distribute to nodes (constrained minimum-norm)
             f_nodes = self._distribute(strip, F_strip, M_strip)
