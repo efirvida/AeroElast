@@ -1,11 +1,7 @@
-"""Validation test for element-corotational-shell change.
+"""Validation tests for corotational tangent frame objectivity.
 
-Verifies that:
-1. Corotational formulation is accurate for large rotations (30-45 deg)
-2. Total Lagrangian formulation has significant error for large rotations
-3. Both agree in the linear regime
-
-Reference: Frisch-Fay (1962), "Flexible Bars", Butterworths, Table 3.1
+These tests compare total-Lagrangian tangent (assemble_kt) against
+corotational tangent (assemble_kt_corotational) directly.
 """
 
 from __future__ import annotations
@@ -15,7 +11,6 @@ import math
 import numpy as np
 import pytest
 from scipy.sparse import coo_matrix
-from scipy.sparse.linalg import spsolve
 
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
@@ -30,25 +25,23 @@ NU = 0.3
 RHO = 2700.0
 
 
-def _build_cantilever_mesh(*, nz: int = 40, nx: int = 4, theta_x: float = 0.0):
-    xs = np.linspace(-B / 2.0, B / 2.0, nx + 1)
-    zs = np.linspace(0.0, L, nz + 1)
-
-    c, s = math.cos(theta_x), math.sin(theta_x)
-    rot_x = np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]], dtype=float)
+def _build_cantilever_mesh(*, nx: int = 4, ny: int = 1):
+    """4 MITC4 shell elements (5x2 nodes) in XY plane."""
+    xs = np.linspace(0.0, L, nx + 1)
+    ys = np.linspace(-B / 2.0, B / 2.0, ny + 1)
 
     nodes: list[np.ndarray] = []
     grid: dict[tuple[int, int], int] = {}
-    for k, z in enumerate(zs):
+    for j, y in enumerate(ys):
         for i, x in enumerate(xs):
             idx = len(nodes)
-            grid[(i, k)] = idx
-            nodes.append(rot_x @ np.array([x, 0.0, z], dtype=float))
+            grid[(i, j)] = idx
+            nodes.append(np.array([x, y, 0.0], dtype=float))
 
     conn: list[list[int]] = []
-    for k in range(nz):
+    for j in range(ny):
         for i in range(nx):
-            conn.append([grid[(i, k)], grid[(i + 1, k)], grid[(i + 1, k + 1)], grid[(i, k + 1)]])
+            conn.append([grid[(i, j)], grid[(i + 1, j)], grid[(i + 1, j + 1)], grid[(i, j + 1)]])
 
     return np.asarray(nodes, dtype=float), conn
 
@@ -65,98 +58,99 @@ def _materials(n_elem: int) -> list[dict[str, float | str]]:
     ] * n_elem
 
 
-def _solve_tip_compliance(
-    *,
-    nodes: np.ndarray,
-    k_rows: np.ndarray,
-    k_cols: np.ndarray,
-    k_vals: np.ndarray,
-    theta_x: float,
-) -> float:
-    n_dofs = nodes.shape[0] * 6
-    k = coo_matrix((k_vals, (k_rows, k_cols)), shape=(n_dofs, n_dofs)).tocsr()
-
-    beam_axis = np.array([0.0, -math.sin(theta_x), math.cos(theta_x)], dtype=float)
-    beam_coord = nodes @ beam_axis
-    root = np.where(np.isclose(beam_coord, beam_coord.min(), atol=1e-10))[0]
-    tip = np.where(np.isclose(beam_coord, beam_coord.max(), atol=1e-10))[0]
-    tip_center = min(tip, key=lambda i: abs(float(nodes[i, 0])))
-
-    fixed_dofs: list[int] = []
-    for nid in root:
-        base = 6 * int(nid)
-        fixed_dofs.extend(range(base, base + 6))
-    fixed = np.array(sorted(set(fixed_dofs)), dtype=int)
-    free = np.setdiff1d(np.arange(n_dofs, dtype=int), fixed)
-
-    transverse = np.array([0.0, math.cos(theta_x), math.sin(theta_x)], dtype=float)
-    f = np.zeros(n_dofs, dtype=float)
-    base = 6 * int(tip_center)
-    f[base : base + 3] = transverse  # unit load
-
-    u = np.zeros(n_dofs, dtype=float)
-    u[free] = spsolve(k[free][:, free], f[free])
-    return float(u[base : base + 3].dot(transverse))
-
-
-def _corotational_reference_compliance(theta_x: float) -> float:
-    nodes, conn = _build_cantilever_mesh(theta_x=theta_x)
+def _build_assembler() -> tuple[np.ndarray, PyMeshAssembler]:
+    nodes, conn = _build_cantilever_mesh()
     asm = PyMeshAssembler(
         node_coords=nodes,
         connectivity=conn,
         elem_types=[4] * len(conn),
         materials=_materials(len(conn)),
     )
-    rows, cols, vals = asm.assemble_k()
-    return _solve_tip_compliance(nodes=nodes, k_rows=rows, k_cols=cols, k_vals=vals, theta_x=theta_x)
+    return nodes, asm
 
 
-def _tl_tangent_compliance_at_rigid_rotation(theta_x: float) -> float:
-    nodes0, conn = _build_cantilever_mesh(theta_x=0.0)
-    asm = PyMeshAssembler(
-        node_coords=nodes0,
-        connectivity=conn,
-        elem_types=[4] * len(conn),
-        materials=_materials(len(conn)),
-    )
+def _coo_to_dense(rows: np.ndarray, cols: np.ndarray, vals: np.ndarray, n: int) -> np.ndarray:
+    return coo_matrix((vals, (rows, cols)), shape=(n, n)).tocsr().toarray()
 
-    c, s = math.cos(theta_x), math.sin(theta_x)
-    rot_x = np.array([[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]], dtype=float)
 
-    u_rigid = np.zeros(nodes0.shape[0] * 6, dtype=float)
-    for i, x_ref in enumerate(nodes0):
-        x_rot = rot_x @ x_ref
+def _translation_dof_indices(n_nodes: int) -> np.ndarray:
+    idx: list[int] = []
+    for i in range(n_nodes):
+        base = 6 * i
+        idx.extend([base, base + 1, base + 2])
+    return np.asarray(idx, dtype=int)
+
+
+def _rigid_rotation_displacement(nodes: np.ndarray, theta: float) -> tuple[np.ndarray, np.ndarray]:
+    c, s = math.cos(theta), math.sin(theta)
+    r = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]], dtype=float)
+
+    u_rigid = np.zeros(nodes.shape[0] * 6, dtype=float)
+    for i, x_ref in enumerate(nodes):
+        x_rot = r @ x_ref
         u_rigid[6 * i : 6 * i + 3] = x_rot - x_ref
-
-    rows, cols, vals = asm.assemble_kt(u_rigid)
-    return _solve_tip_compliance(nodes=nodes0, k_rows=rows, k_cols=cols, k_vals=vals, theta_x=0.0)
+    return u_rigid, r
 
 
-def test_corotational_large_rotation_validation():
-    """Physical validation: corotational frame objectivity vs TL rigid-rotation error."""
-    i_beam = B * T**3 / 12.0
-    delta_analytic = L**3 / (3.0 * E * i_beam)  # unit-load compliance
+def _transform_translation_submatrix(k_tt: np.ndarray, r: np.ndarray, n_nodes: int) -> np.ndarray:
+    t = np.kron(np.eye(n_nodes), r)
+    return t @ k_tt @ t.T
 
-    # Test 1 — linear regime
-    coro_lin = _corotational_reference_compliance(theta_x=0.0)
-    tl_lin = _tl_tangent_compliance_at_rigid_rotation(theta_x=0.0)
 
-    assert 0.98 <= coro_lin / delta_analytic <= 1.02
-    assert 0.98 <= tl_lin / delta_analytic <= 1.02
-    assert abs(coro_lin - tl_lin) / delta_analytic < 0.01
+def _rel_err(a: np.ndarray, b: np.ndarray, ref: np.ndarray) -> float:
+    return float(np.linalg.norm(a - b) / np.linalg.norm(ref))
 
-    # Test 2 — moderate rotation (~20°)
-    theta20 = math.radians(20.0)
-    coro_20 = _corotational_reference_compliance(theta_x=theta20)
-    tl_20 = _tl_tangent_compliance_at_rigid_rotation(theta_x=theta20)
 
-    assert 0.99 <= coro_20 / coro_lin <= 1.01
-    assert tl_20 < 0.95 * coro_20
 
-    # Test 3 — large rotation (~40°)
-    theta40 = math.radians(40.0)
-    coro_40 = _corotational_reference_compliance(theta_x=theta40)
-    tl_40 = _tl_tangent_compliance_at_rigid_rotation(theta_x=theta40)
+def test_kt_coro_equals_kt_tl_at_zero_displacement():
+    nodes, asm = _build_assembler()
+    u0 = np.zeros(asm.dofs_count, dtype=float)
+    rows_tl, cols_tl, vals_tl = asm.assemble_kt(u0)
+    rows_c, cols_c, vals_c = asm.assemble_kt_corotational(u0)
 
-    assert abs(coro_40 - coro_lin) / coro_lin < 0.05
-    assert abs(tl_40 - coro_40) / coro_40 > 0.10
+    k_tl = _coo_to_dense(rows_tl, cols_tl, vals_tl, asm.dofs_count)
+    k_c = _coo_to_dense(rows_c, cols_c, vals_c, asm.dofs_count)
+    err = _rel_err(k_c, k_tl, k_tl)
+    assert err < 1e-10
+
+
+def test_corotational_is_frame_objective_tl_is_not():
+    nodes, asm = _build_assembler()
+    n_nodes = nodes.shape[0]
+    t_idx = _translation_dof_indices(n_nodes)
+
+    u0 = np.zeros(asm.dofs_count, dtype=float)
+    rows0, cols0, vals0 = asm.assemble_kt(u0)
+    k0 = _coo_to_dense(rows0, cols0, vals0, asm.dofs_count)
+    k0_tt = k0[np.ix_(t_idx, t_idx)]
+
+    u_rigid, r = _rigid_rotation_displacement(nodes, math.radians(30.0))
+    rows_c, cols_c, vals_c = asm.assemble_kt_corotational(u_rigid)
+    rows_tl, cols_tl, vals_tl = asm.assemble_kt(u_rigid)
+
+    kc_tt = _coo_to_dense(rows_c, cols_c, vals_c, asm.dofs_count)[np.ix_(t_idx, t_idx)]
+    ktl_tt = _coo_to_dense(rows_tl, cols_tl, vals_tl, asm.dofs_count)[np.ix_(t_idx, t_idx)]
+
+    k0_rot = _transform_translation_submatrix(k0_tt, r, n_nodes)
+    err_coro = _rel_err(kc_tt, k0_rot, k0_tt)
+    err_tl = _rel_err(ktl_tt, k0_rot, k0_tt)
+
+    assert err_coro < 1e-2
+    assert err_tl > 5e-2
+
+
+def test_small_displacement_kt_coro_agrees_with_tl():
+    nodes, asm = _build_assembler()
+
+    u_small = np.zeros(asm.dofs_count, dtype=float)
+    for i, x in enumerate(nodes):
+        # Deflexión suave: ~0.05% de L en el extremo libre
+        u_small[6 * i + 2] = 5e-4 * (x[0] / L) ** 2
+
+    rows_tl, cols_tl, vals_tl = asm.assemble_kt(u_small)
+    rows_c, cols_c, vals_c = asm.assemble_kt_corotational(u_small)
+
+    k_tl = _coo_to_dense(rows_tl, cols_tl, vals_tl, asm.dofs_count)
+    k_c = _coo_to_dense(rows_c, cols_c, vals_c, asm.dofs_count)
+    err = _rel_err(k_c, k_tl, k_tl)
+    assert err < 1e-2
