@@ -1340,8 +1340,11 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             )
 
             torque_non_aero = tau_total - tau_aero
-            power_aero = tau_aero * omega_window
-            power_total = tau_total * omega_window
+            # tau_aero < 0 for a wind turbine in this frame convention (driving
+            # force in -X, rotation_axis = +Y). Negate for physically meaningful
+            # reporting: power_aero > 0 means energy extracted from the wind.
+            power_aero = -tau_aero * omega_window
+            power_total = -tau_total * omega_window
             structural_efficiency = (
                 float(np.clip(-torque_non_aero / tau_aero, 0.0, 1.0))
                 if abs(tau_aero) > 1.0e-14

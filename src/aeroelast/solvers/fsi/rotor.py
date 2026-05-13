@@ -1674,18 +1674,33 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         omega: float,
         radius: float,
     ) -> Tuple[float, float, float, float]:
-        """Compute ``Ct``, ``Cp``, ``Cq`` and ``TSR`` using the given rotor radius."""
+        """Compute ``Ct``, ``Cp``, ``Cq`` and ``TSR`` using the given rotor radius.
+
+        Sign convention note
+        --------------------
+        The structural solver uses RHR around +Y (omega > 0, clockwise from -Y).
+        The driving tangential force projects onto -X in the structural frame, so
+        ``tau_aero = r × F · ŷ < 0`` for a powered wind turbine and
+        ``power_aero = tau_aero * omega < 0`` (energy extracted *from* the fluid).
+
+        Ct, Cp, Cq are reported as positive quantities (standard wind-turbine
+        convention) by negating ``tau_aero`` and ``power_aero`` before
+        normalisation.  Thrust projects onto +Y (axial direction = rotation axis)
+        and is already positive, so Ct needs no sign correction.
+        """
         area = np.pi * radius * radius
         q_dyn = 0.5 * self._fluid_density * self._flow_velocity * self._flow_velocity
-        power_aero = torque_aero * omega
+        # Negate: tau_aero < 0 and power_aero < 0 for energy-extracting rotor
+        power_extracted = -torque_aero * omega
+        torque_extracted = -torque_aero
 
         denom_force = q_dyn * area
         denom_power = q_dyn * area * self._flow_velocity
         denom_torque = q_dyn * area * radius
 
         ct = thrust / denom_force if abs(denom_force) > _MIN_DENOMINATOR else 0.0
-        cp = power_aero / denom_power if abs(denom_power) > _MIN_DENOMINATOR else 0.0
-        cq = torque_aero / denom_torque if abs(denom_torque) > _MIN_DENOMINATOR else 0.0
+        cp = power_extracted / denom_power if abs(denom_power) > _MIN_DENOMINATOR else 0.0
+        cq = torque_extracted / denom_torque if abs(denom_torque) > _MIN_DENOMINATOR else 0.0
         tsr = (
             abs(omega) * radius / self._flow_velocity
             if abs(self._flow_velocity) > _MIN_DENOMINATOR
@@ -2072,8 +2087,11 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             )
 
             torque_non_aero = tau_total - tau_aero
-            power_aero = tau_aero * omega_window
-            power_total = tau_total * omega_window
+            # tau_aero < 0 for a wind turbine in this frame convention (driving
+            # force in -X, rotation_axis = +Y). Negate for physically meaningful
+            # reporting: power_aero > 0 means energy extracted from the wind.
+            power_aero = -tau_aero * omega_window
+            power_total = -tau_total * omega_window
             structural_efficiency = (
                 float(np.clip(-torque_non_aero / tau_aero, 0.0, 1.0))
                 if abs(tau_aero) > _MIN_DENOMINATOR

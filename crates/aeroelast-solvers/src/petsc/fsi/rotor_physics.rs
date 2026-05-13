@@ -827,9 +827,15 @@ pub fn compute_performance_coefficients(
     let denom_power = q_dyn * area * flow_velocity;
     let denom_torque = q_dyn * area * radius;
 
+    // Sign convention: the structural solver uses RHR around +Y (omega > 0,
+    // clockwise from -Y). The driving tangential force projects onto -X, so
+    // tau_aero < 0 and power_aero < 0 for a wind-turbine extracting energy.
+    // Ct, Cp, Cq are reported as positive quantities (standard HAWT convention)
+    // by negating tau and power before normalisation.
+    // Thrust projects onto +Y (axial) and is already positive — no sign flip.
     let ct = if denom_force.abs() > min_denom { thrust / denom_force } else { 0.0 };
-    let cp = if denom_power.abs() > min_denom { power_aero / denom_power } else { 0.0 };
-    let cq = if denom_torque.abs() > min_denom { torque_aero / denom_torque } else { 0.0 };
+    let cp = if denom_power.abs() > min_denom { -power_aero / denom_power } else { 0.0 };
+    let cq = if denom_torque.abs() > min_denom { -torque_aero / denom_torque } else { 0.0 };
     let tsr = if flow_velocity.abs() > min_denom {
         omega.abs() * radius / flow_velocity
     } else {
