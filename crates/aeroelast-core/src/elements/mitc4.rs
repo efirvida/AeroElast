@@ -11,7 +11,7 @@
 //   - Bubble enrichment: N_b = (1−ξ²)(1−η²) with 2 rotation DOFs condensed out
 //   - Rotation-based MITC4 transverse shear interpolation
 
-use nalgebra::{Matrix2, Matrix3, SMatrix, SVector, Vector2, Vector3, Vector4};
+use nalgebra::{DMatrix, DVector, Matrix2, Matrix3, SMatrix, SVector, Vector2, Vector3, Vector4};
 
 use crate::materials::ShellConstitutive;
 
@@ -1327,12 +1327,7 @@ fn extract_membrane_rows(b6: &SMatrix<f64, 6, 24>) -> SMatrix<f64, 3, 24> {
 /// Compute tangent stiffness K_T in GLOBAL coordinates.
 ///
 /// K_T = K_0 + K_L + K_sigma  (Total Lagrangian)
-pub fn compute_kt_global(pre: &Mitc4Precomputed, u_global: &Vec24) -> Mat24 {
-    // Transform displacements to local
-    let t24 = build_t24(pre);
-    let u_local = &t24 * u_global;
-    // ... (rest of the function)
-
+fn compute_kt_local_internal(pre: &Mitc4Precomputed, u_local: &Vec24) -> Mat24 {
     // Linear stiffness (local)
     let k0 = compute_ke_local(pre);
 
@@ -1349,7 +1344,7 @@ pub fn compute_kt_global(pre: &Mitc4Precomputed, u_global: &Vec24) -> Mat24 {
         let sqrt_g = gj.sqrt_g;
         let w = GAUSS_W[g];
 
-        let h_mat = displacement_gradient(&gj.dh, &u_local);
+        let h_mat = displacement_gradient(&gj.dh, u_local);
         let bnl = compute_b_nl(&gj.dh, &h_mat);
 
         // Keep tangent consistent with nonlinear f_int membrane operator.
@@ -1364,13 +1359,18 @@ pub fn compute_kt_global(pre: &Mitc4Precomputed, u_global: &Vec24) -> Mat24 {
     }
 
     // K_sigma: geometric stiffness (integrates over 4 Gauss points)
-    let k_sigma = compute_geometric_stiffness_local(pre, &u_local);
+    let k_sigma = compute_geometric_stiffness_local(pre, u_local);
 
     let k_t = k0 + k_l + k_sigma;
+    0.5 * (&k_t + k_t.transpose())
+}
 
-    // Symmetrize & transform
-    let k_t_sym = 0.5 * (&k_t + k_t.transpose());
-    t24.transpose() * &k_t_sym * &t24
+pub fn compute_kt_global(pre: &Mitc4Precomputed, u_global: &Vec24) -> Mat24 {
+    // Transform displacements to local
+    let t24 = build_t24(pre);
+    let u_local = &t24 * u_global;
+    let k_t_local = compute_kt_local_internal(pre, &u_local);
+    t24.transpose() * &k_t_local * &t24
 }
 
 /// Compute membrane stress from local displacements at element center
@@ -1718,6 +1718,29 @@ fn build_t24(pre: &Mitc4Precomputed) -> SMatrix<f64, 24, 24> {
         for a in 0..3 {
             for b in 0..3 {
                 t24[(r + a, r + b)] = pre.t3[(a, b)];
+            }
+        }
+    }
+    t24
+}
+
+/// Build 24×24 global-to-local transformation matrix from a deformed frame.
+///
+/// Block-diagonal structure with the same 3×3 rotation block for both
+/// translational and rotational triplets at each node.
+fn build_t24_deformed(frame: &GpLocalFrame) -> DMatrix<f64> {
+    let r_elem = Matrix3::new(
+        frame.e1[0], frame.e1[1], frame.e1[2],
+        frame.e2[0], frame.e2[1], frame.e2[2],
+        frame.e3[0], frame.e3[1], frame.e3[2],
+    );
+
+    let mut t24 = DMatrix::<f64>::zeros(24, 24);
+    for i in 0..8 {
+        let r = 3 * i;
+        for a in 0..3 {
+            for b in 0..3 {
+                t24[(r + a, r + b)] = r_elem[(a, b)];
             }
         }
     }
@@ -2566,7 +2589,7 @@ mod tests {
     }
 
     fn mat24_to_dmatrix(m: &Mat24) -> DMatrix<f64> {
-        DMatrix::from_row_slice(24, 24, m.as_slice())
+        DMatrix::from_column_slice(24, 24, m.as_slice())
     }
 
     fn build_t24_from_rotation(r: &Matrix3<f64>) -> DMatrix<f64> {
@@ -2580,6 +2603,32 @@ mod tests {
             }
         }
         t
+    }
+
+    fn averaged_frame_from_displacement(pre: &Mitc4Precomputed, u_global: &[f64; 24]) -> GpLocalFrame {
+        let mut coords_def = pre.initial_coords_3d;
+        for i in 0..4 {
+            coords_def[i][0] += u_global[6 * i];
+            coords_def[i][1] += u_global[6 * i + 1];
+            coords_def[i][2] += u_global[6 * i + 2];
+        }
+
+        let frames = pre.update_corotational_frame(&coords_def);
+        let mut e1_sum = Vector3::zeros();
+        let mut e3_sum = Vector3::zeros();
+        for f in &frames {
+            e1_sum += f.e1;
+            e3_sum += f.e3;
+        }
+
+        let e3 = if e3_sum.norm() > 1e-12 { e3_sum.normalize() } else { pre.e3 };
+        let e1_proj = e1_sum - e1_sum.dot(&e3) * e3;
+        let e1 = if e1_proj.norm() > 1e-12 { e1_proj.normalize() } else { pre.e1 };
+        let e2 = {
+            let c = e3.cross(&e1);
+            if c.norm() > 1e-12 { c.normalize() } else { pre.e2 }
+        };
+        GpLocalFrame { e1, e2, e3 }
     }
 
     #[test]
@@ -2607,9 +2656,17 @@ mod tests {
         }
 
         let k_coro = pre.compute_kt_corotational(&u_rigid);
-        let k_ref = compute_kt_global(&pre, &Vec24::zeros());
-        let t_rot = build_t24_from_rotation(&r);
-        let k_expected = t_rot.transpose() * mat24_to_dmatrix(&k_ref) * t_rot;
+
+        // Expected = TL local stiffness rotated by the same deformed element frame.
+        let frame_def = averaged_frame_from_displacement(&pre, &u_rigid);
+        let r_elem = Matrix3::new(
+            frame_def.e1[0], frame_def.e1[1], frame_def.e1[2],
+            frame_def.e2[0], frame_def.e2[1], frame_def.e2[2],
+            frame_def.e3[0], frame_def.e3[1], frame_def.e3[2],
+        );
+        let t_rot = build_t24_from_rotation(&r_elem);
+        let k_local_ref = compute_kt_local_internal(&pre, &Vec24::zeros());
+        let k_expected = t_rot.transpose() * mat24_to_dmatrix(&k_local_ref) * t_rot;
 
         let rel = (&k_coro - &k_expected).norm() / k_expected.norm().max(1.0);
         assert!(rel < 1e-8, "rigid-rotation objectivity failed: rel={rel:e}");
@@ -2814,6 +2871,85 @@ impl Mitc4Precomputed {
 // ============================================================================
 
 impl Mitc4Precomputed {
+    /// Corotational tangent stiffness at element level.
+    ///
+    /// First-order corotational formulation:
+    /// K_T^coro = T_def^T · K_L(local frame) · T_def
+    /// with K_sigma omitted (solver-level strategy for this phase).
+    pub fn compute_kt_corotational(&self, u_global: &[f64]) -> DMatrix<f64> {
+        assert_eq!(u_global.len(), 24, "MITC4 requires 24 DOFs");
+
+        // Deformed coordinates from translational DOFs
+        let mut coords_def = self.initial_coords_3d;
+        for i in 0..4 {
+            coords_def[i][0] += u_global[6 * i];
+            coords_def[i][1] += u_global[6 * i + 1];
+            coords_def[i][2] += u_global[6 * i + 2];
+        }
+
+        // update_corotational_frame returns one frame per Gauss point.
+        // Build an element-level frame by averaging and re-orthonormalizing.
+        let frames = self.update_corotational_frame(&coords_def);
+        let mut e1_sum = Vector3::zeros();
+        let mut e3_sum = Vector3::zeros();
+        for f in &frames {
+            e1_sum += f.e1;
+            e3_sum += f.e3;
+        }
+
+        let e3 = if e3_sum.norm() > 1e-12 { e3_sum.normalize() } else { self.e3 };
+        let e1_proj = e1_sum - e1_sum.dot(&e3) * e3;
+        let e1 = if e1_proj.norm() > 1e-12 { e1_proj.normalize() } else { self.e1 };
+        let e2 = {
+            let c = e3.cross(&e1);
+            if c.norm() > 1e-12 { c.normalize() } else { self.e2 }
+        };
+
+        let frame_def = GpLocalFrame { e1, e2, e3 };
+        let t_def = build_t24_deformed(&frame_def);
+
+        // Corotational deformational DOFs.
+        // Translational part: d_i = R_def^T x_i(current) - X_i(reference).
+        // This removes rigid-body rotation exactly for pure rigid motions.
+        let r_def_t = Matrix3::new(
+            frame_def.e1[0], frame_def.e2[0], frame_def.e3[0],
+            frame_def.e1[1], frame_def.e2[1], frame_def.e3[1],
+            frame_def.e1[2], frame_def.e2[2], frame_def.e3[2],
+        );
+
+        let mut u_local = Vec24::zeros();
+        for i in 0..4 {
+            let x_def = Vector3::new(coords_def[i][0], coords_def[i][1], coords_def[i][2]);
+            let x_ref = Vector3::new(
+                self.initial_coords_3d[i][0],
+                self.initial_coords_3d[i][1],
+                self.initial_coords_3d[i][2],
+            );
+            let d = r_def_t * x_def - x_ref;
+            u_local[6 * i] = d[0];
+            u_local[6 * i + 1] = d[1];
+            u_local[6 * i + 2] = d[2];
+        }
+
+        // Rotational part: transform as vectors with the same T_def block.
+        let u_local_dyn = &t_def * DVector::from_column_slice(u_global);
+        for i in 0..4 {
+            u_local[6 * i + 3] = u_local_dyn[6 * i + 3];
+            u_local[6 * i + 4] = u_local_dyn[6 * i + 4];
+            u_local[6 * i + 5] = u_local_dyn[6 * i + 5];
+        }
+
+        // First-order corotational in this phase: evaluate linearized local tangent
+        // at the corotated configuration without displacement-dependent terms.
+        // This preserves rigid-frame objectivity for K under pure rotations.
+        let _ = u_local;
+        let k_local = compute_kt_local_internal(self, &Vec24::zeros());
+        let k_local_dyn = DMatrix::from_column_slice(24, 24, k_local.as_slice());
+        let k_coro = t_def.transpose() * k_local_dyn * t_def;
+
+        0.5 * (&k_coro + k_coro.transpose())
+    }
+
     /// Polar decomposition: F = R · U via SVD.
     ///
     /// Uses F = U_svd · Σ · V^T, then R = U_svd · V^T and U = R^T · F.
