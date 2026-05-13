@@ -359,6 +359,8 @@ class RotorConfig:
     include_coriolis: bool = True
     include_euler: bool = True
     kg_update_interval: int = 0
+    use_corotational_kt: bool = False
+    kt_coro_update_freq: int = 1
     force_ramp_time: float = 0.0
     send_omega_to_precice: bool = True
     send_velocity_to_precice: bool = False
@@ -418,6 +420,8 @@ class RotorConfig:
             "include_coriolis": self.include_coriolis,
             "include_euler": self.include_euler,
             "kg_update_interval": self.kg_update_interval,
+            "use_corotational_kt": self.use_corotational_kt,
+            "kt_coro_update_freq": self.kt_coro_update_freq,
             "force_ramp_time": self.force_ramp_time,
             "send_omega_to_precice": self.send_omega_to_precice,
             "send_velocity_to_precice": self.send_velocity_to_precice,
