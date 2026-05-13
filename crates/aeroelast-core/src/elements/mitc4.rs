@@ -1927,6 +1927,7 @@ pub fn compute_element_stress(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use nalgebra::DMatrix;
     use crate::materials::isotropic::IsotropicMaterial;
     use crate::materials::Material;
 
@@ -2562,6 +2563,126 @@ mod tests {
             "K_T(u=0) must be identical to K_linear_global, diff norm = {}",
             diff.norm()
         );
+    }
+
+    fn mat24_to_dmatrix(m: &Mat24) -> DMatrix<f64> {
+        DMatrix::from_row_slice(24, 24, m.as_slice())
+    }
+
+    fn build_t24_from_rotation(r: &Matrix3<f64>) -> DMatrix<f64> {
+        let mut t = DMatrix::<f64>::zeros(24, 24);
+        for i in 0..8 {
+            let row = 3 * i;
+            for a in 0..3 {
+                for b in 0..3 {
+                    t[(row + a, row + b)] = r[(a, b)];
+                }
+            }
+        }
+        t
+    }
+
+    #[test]
+    fn test_corotational_kt_frame_objectivity_rigid_rotation() {
+        let pre = make_pre();
+        let mut u_rigid = [0.0_f64; 24];
+
+        let theta = std::f64::consts::FRAC_PI_4;
+        let r = Matrix3::new(
+            theta.cos(), -theta.sin(), 0.0,
+            theta.sin(),  theta.cos(), 0.0,
+            0.0,          0.0,         1.0,
+        );
+
+        for i in 0..4 {
+            let x = Vector3::new(
+                pre.initial_coords_3d[i][0],
+                pre.initial_coords_3d[i][1],
+                pre.initial_coords_3d[i][2],
+            );
+            let x_rot = r * x;
+            u_rigid[6 * i] = x_rot[0] - x[0];
+            u_rigid[6 * i + 1] = x_rot[1] - x[1];
+            u_rigid[6 * i + 2] = x_rot[2] - x[2];
+        }
+
+        let k_coro = pre.compute_kt_corotational(&u_rigid);
+        let k_ref = compute_kt_global(&pre, &Vec24::zeros());
+        let t_rot = build_t24_from_rotation(&r);
+        let k_expected = t_rot.transpose() * mat24_to_dmatrix(&k_ref) * t_rot;
+
+        let rel = (&k_coro - &k_expected).norm() / k_expected.norm().max(1.0);
+        assert!(rel < 1e-8, "rigid-rotation objectivity failed: rel={rel:e}");
+    }
+
+    #[test]
+    fn test_corotational_kt_is_symmetric() {
+        let pre = make_pre();
+        let mut u = [0.0_f64; 24];
+        u[0] = 1e-3;
+        u[1] = -8e-4;
+        u[8] = 4e-4;
+        u[15] = 2e-4;
+        u[22] = -3e-4;
+
+        let k_coro = pre.compute_kt_corotational(&u);
+        let skew = &k_coro - k_coro.transpose();
+        assert!(skew.norm() < 1e-10, "K_T_coro must be symmetric, skew={:e}", skew.norm());
+    }
+
+    #[test]
+    fn test_corotational_kt_matches_tl_in_linear_regime() {
+        let pre = make_pre();
+        let mut u_arr = [0.0_f64; 24];
+        for i in 0..4 {
+            u_arr[6 * i] = 5e-5 * (i as f64 + 1.0);
+            u_arr[6 * i + 1] = -3e-5 * (i as f64 + 1.0);
+            u_arr[6 * i + 2] = 2e-5;
+            u_arr[6 * i + 3] = 1e-5;
+            u_arr[6 * i + 4] = -1e-5;
+            u_arr[6 * i + 5] = 5e-6;
+        }
+
+        let u_vec = Vec24::from_row_slice(&u_arr);
+        let k_tl = compute_kt_global(&pre, &u_vec);
+        let k_coro = pre.compute_kt_corotational(&u_arr);
+        let k_tl_dyn = mat24_to_dmatrix(&k_tl);
+
+        let rel = (&k_coro - &k_tl_dyn).norm() / k_tl_dyn.norm().max(1.0);
+        assert!(rel < 1e-3, "linear-regime mismatch too large: rel={rel:e}");
+    }
+
+    #[test]
+    fn test_corotational_kt_differs_from_tl_for_large_rotation() {
+        let pre = make_pre();
+        let mut u_rigid = [0.0_f64; 24];
+
+        let theta = std::f64::consts::FRAC_PI_4;
+        let r = Matrix3::new(
+            theta.cos(), 0.0, theta.sin(),
+            0.0,         1.0, 0.0,
+            -theta.sin(),0.0, theta.cos(),
+        );
+
+        for i in 0..4 {
+            let x = Vector3::new(
+                pre.initial_coords_3d[i][0],
+                pre.initial_coords_3d[i][1],
+                pre.initial_coords_3d[i][2],
+            );
+            let x_rot = r * x;
+            u_rigid[6 * i] = x_rot[0] - x[0];
+            u_rigid[6 * i + 1] = x_rot[1] - x[1];
+            u_rigid[6 * i + 2] = x_rot[2] - x[2];
+        }
+
+        let k_coro = pre.compute_kt_corotational(&u_rigid);
+        let u_vec = Vec24::from_row_slice(&u_rigid);
+        let k_tl = compute_kt_global(&pre, &u_vec);
+        let k_tl_dyn = mat24_to_dmatrix(&k_tl);
+
+        let rel = (&k_coro - &k_tl_dyn).norm() / k_tl_dyn.norm().max(1.0);
+        assert!(rel > 5e-2, "large-rotation difference should be significant, rel={rel:e}");
     }
 }
 
