@@ -61,6 +61,11 @@ def get_direction_cosines(xDir, xyDir):
     a1 = (1.0 / mag) * xDir
     zDir = cross_prod(xDir, xyDir)
     mag = np.linalg.norm(zDir)
+    if mag < 1e-14:
+        # xyDir collapsed to zero (e.g. tip section with zero chord).
+        # Fall back to a global z-axis so the element is not degenerate.
+        zDir = np.array([0.0, 0.0, 1.0])
+        mag = 1.0
     a3 = (1.0 / mag) * zDir
     a2 = cross_prod(a3, a1)
     dirCos = np.array([a1, a2, a3])

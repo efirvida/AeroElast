@@ -300,6 +300,9 @@ def correct_orient(aprxOri, elCrd, elType):
         return aprxOri
     v2 = cross_prod(v0, v1)
     mag = np.linalg.norm(v2)
+    if mag < 1e-14:
+        # Degenerate element (e.g. tip with zero chord) — skip orientation fix.
+        return aprxOri
     v2 = (1.0 / mag) * v2
     a2 = aprxOri[2]
     dp = np.dot(v2, a2)
