@@ -88,12 +88,16 @@ class ForceProjector:
         n_nodes = coords.shape[0]
         hub_r = hub_radius if hub_radius is not None else blade_aero.hub_radius
 
-        # Span coordinate for every mesh node (distance from hub centre
-        # measured along the span direction)
-        span_coords = coords @ span_dir  # projection
+        # Span coordinate for every mesh node (distance along the span
+        # direction, in the blade-local frame where the root is at 0).
+        # The mesh root node sits at hub_radius along the span direction, so
+        # we subtract the hub_radius offset to align with the BEM stations.
+        span_coords = coords @ span_dir - hub_r  # blade-local [0, blade_length]
 
-        # BEM station radial positions
-        r_stations = blade_aero.r  # already from hub centre
+        # BEM station radial positions are stored from the rotor centre
+        # (hub_radius + blade-local span).  Subtract hub_radius so they are
+        # expressed in the same blade-local frame as span_coords.
+        r_stations = blade_aero.r - hub_r  # now blade-local [0, blade_length]
 
         # Build strip boundaries at midpoints between stations
         r_mid = 0.5 * (r_stations[:-1] + r_stations[1:])
