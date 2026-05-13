@@ -1756,6 +1756,31 @@ impl PyMeshAssembler {
         ))
     }
 
+    /// Assemble the corotational tangent stiffness matrix K_T(u).
+    ///
+    /// Parameters
+    /// ----------
+    /// u : np.ndarray shape (dofs_count,) — global displacement vector
+    ///
+    /// Returns (rows, cols, vals) as numpy int64/float64 arrays.
+    pub fn assemble_kt_corotational<'py>(
+        &self,
+        py: Python<'py>,
+        u: PyReadonlyArray1<f64>,
+    ) -> PyResult<(
+        pyo3::Bound<'py, PyArray1<i64>>,
+        pyo3::Bound<'py, PyArray1<i64>>,
+        pyo3::Bound<'py, PyArray1<f64>>,
+    )> {
+        let u_slice = u.as_slice()?;
+        let (rows, cols, vals) = self.inner.assemble_kt_corotational(u_slice);
+        Ok((
+            Array1::from(rows).into_pyarray(py),
+            Array1::from(cols).into_pyarray(py),
+            Array1::from(vals).into_pyarray(py),
+        ))
+    }
+
     /// Assemble the global internal force vector f_int(u).
     ///
     /// Parameters
