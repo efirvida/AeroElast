@@ -427,6 +427,10 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         self._include_coriolis = rotor_cfg.get("include_coriolis", True)
         self._include_euler = rotor_cfg.get("include_euler", True)
         self._kg_update_interval = int(rotor_cfg.get("kg_update_interval", 0))
+        self._use_corotational_kt = bool(rotor_cfg.get("use_corotational_kt", False))
+        self._kt_coro_update_freq = int(rotor_cfg.get("kt_coro_update_freq", 1))
+        if self._kt_coro_update_freq < 1:
+            self._kt_coro_update_freq = 1
         self._kg_use_deformed_coords: bool = bool(rotor_cfg.get("kg_use_deformed_coords", False))
         self._kg_deflection_rebuild_rel_high: float = float(rotor_cfg.get("kg_deflection_rebuild_rel_high", 0.01))
         self._kg_deflection_rebuild_rel_low: float = float(rotor_cfg.get("kg_deflection_rebuild_rel_low", 0.005))
@@ -2220,19 +2224,21 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             rust_asm,
             n_full_dofs,
             self._kg_update_interval,
-            list(self._coord_transforms.axis),
-            list(self._coord_transforms.center),
-            all_node_coords,
-            all_node_masses,
-            omega_mode,
-            omega_val,
-            omega_target,
-            t_ramp,
-            moi,
-            shaft_tau,
-            list(self._gravity),
-            self._include_centrifugal,
-            self._include_coriolis,
+            use_corotational_kt=self._use_corotational_kt,
+            kt_coro_update_freq=self._kt_coro_update_freq,
+            rotation_axis=list(self._coord_transforms.axis),
+            rotation_center=list(self._coord_transforms.center),
+            all_node_coords=all_node_coords,
+            all_node_masses=all_node_masses,
+            omega_mode=omega_mode,
+            omega=omega_val,
+            omega_target=omega_target,
+            t_ramp=t_ramp,
+            moment_of_inertia=moi,
+            shaft_torque=shaft_tau,
+            gravity=list(self._gravity),
+            include_centrifugal=self._include_centrifugal,
+            include_coriolis=self._include_coriolis,
             include_euler=self._include_euler,
             include_kg=self._include_geometric_stiffness,
             include_ksp=self._include_spin_softening,

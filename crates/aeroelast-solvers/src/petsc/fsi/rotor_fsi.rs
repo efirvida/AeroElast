@@ -90,6 +90,13 @@ pub struct RotorFsiConfig {
     pub include_kg: bool,
     /// Rebuild K_G every N converged steps. `0` and `1` both mean every step.
     pub kg_update_interval: usize,
+    /// Enable corotational tangent stiffness rebuilds K_T(u) in the FSI loop.
+    ///
+    /// Default: `false` for strict backward compatibility (no K_T(u) updates).
+    pub use_corotational_kt: bool,
+    /// Rebuild corotational K_T every N converged steps.
+    /// `0` and `1` both mean every step.
+    pub kt_coro_update_freq: u32,
     /// Enable spin-softening K_SP diagonal update.
     pub include_ksp: bool,
     /// Rebuild K_SP when |Δω| exceeds this threshold [rad/s].
@@ -157,6 +164,21 @@ impl RotorFsiConfig {
     fn should_update_kg_on_step(&self, time_step: usize) -> bool {
         time_step % self.normalized_kg_update_interval() == 0
     }
+
+    /// Normalize corotational K_T cadence so legacy `0` means every step.
+    fn normalized_kt_coro_update_freq(&self) -> u32 {
+        self.kt_coro_update_freq.max(1)
+    }
+
+    /// Whether the corotational element frame should be refreshed this step.
+    fn should_update_coro_frame_on_step(&self, coro_step_counter: u32) -> bool {
+        coro_step_counter % self.normalized_kt_coro_update_freq() == 0
+    }
+
+    /// Whether K_T corotational update should run on this converged step.
+    fn should_update_corotational_kt(&self, coro_step_counter: u32) -> bool {
+        self.use_corotational_kt && self.should_update_coro_frame_on_step(coro_step_counter)
+    }
 }
 
 // ── Solver struct ──────────────────────────────────────────────────────────────
@@ -216,6 +238,9 @@ pub struct RotorFsiSolver {
     /// (or -1 for entries outside the free-DOF set). Computed once in `new()`,
     /// eliminates all per-timestep HashMap allocations in `update_geometric_stiffness`.
     kg_coo_map: Vec<i32>,
+    /// Precomputed mapping: full K/K_T COO index → output index in reduced K sparsity
+    /// (or -1 for entries outside free DOFs). Computed once in `new()`.
+    k_coo_map: Vec<i32>,
     /// ω² at the last K_SP rebuild. Used by `omega_changed_significantly`.
     /// Initialized to `NEG_INFINITY` to guarantee the first rebuild always fires.
     omega_sq_at_last_ksp: f64,
@@ -245,6 +270,8 @@ pub struct RotorFsiSolver {
     /// `_step_cb` can consume it directly without recomputing.
     /// Coriolis is on the LHS (G_cor matrix) and is NOT accumulated here.
     inertial_scratch: Vec<f64>,
+    /// Independent converged-window counter for corotational K_T cadence.
+    coro_step_counter: u32,
 
     // ── Optional per-step callback ────────────────────────────────────────────
     step_callback: Option<RotorStepCallback>,
@@ -293,18 +320,27 @@ impl RotorFsiSolver {
         }
 
         // Precompute K_G COO → output index map (once, avoids per-timestep HashMap).
-        let kg_coo_map = if let Some(ref asm) = assembler {
+        let (kg_coo_map, k_coo_map) = if let Some(ref asm) = assembler {
             let dummy = vec![[0.0f64; 3]; asm.topology.n_elems];
             let (rows, cols, _) = asm.assemble_geometric_k(&dummy);
-            crate::petsc::fsi::setup::build_kg_coo_map(
+            let kg_map = crate::petsc::fsi::setup::build_kg_coo_map(
                 &rows,
                 &cols,
                 &free_dofs_i32,
                 &k_rows,
                 &k_cols,
-            )
+            );
+            let (k_rows_full, k_cols_full, _) = asm.assemble_k();
+            let k_map = crate::petsc::fsi::setup::build_kg_coo_map(
+                &k_rows_full,
+                &k_cols_full,
+                &free_dofs_i32,
+                &k_rows,
+                &k_cols,
+            );
+            (kg_map, k_map)
         } else {
-            Vec::new()
+            (Vec::new(), Vec::new())
         };
 
         let axis = config.rotation_axis;
@@ -332,6 +368,7 @@ impl RotorFsiSolver {
             k_rows,
             k_cols,
             kg_coo_map,
+            k_coo_map,
             omega_sq_at_last_ksp: f64::NEG_INFINITY,
             last_ksp_rebuild_step: 0,
             omega_sq_at_last_kg: f64::NEG_INFINITY,
@@ -340,6 +377,7 @@ impl RotorFsiSolver {
             initial_state: None,
             initial_theta: 0.0,
             inertial_scratch: vec![0.0f64; n_inertial],
+            coro_step_counter: 0,
             step_callback: None,
         }
     }
@@ -621,6 +659,39 @@ impl RotorFsiSolver {
         let kg_norm: f64 = kg_red.iter().map(|x| x * x).sum::<f64>().sqrt();
         log::info!(
             "RotorFsi: K_G rebuilt at step {time_step}, ω={omega:.4} rad/s, K_G(u)={kg_use_deformed}, def_ratio={current_deflection_ratio:.4e}, ||K_G||_F = {kg_norm:.3e}"
+        );
+        Ok(())
+    }
+
+    /// Rebuild K_T (linear or corotational) from current displacement when enabled.
+    fn update_kt_if_needed(&mut self, u_red: &[f64], coro_step_counter: u32) -> Result<(), FsiError> {
+        if !self.config.should_update_corotational_kt(coro_step_counter) {
+            return Ok(());
+        }
+        if self.assembler.is_none() {
+            return Ok(());
+        }
+
+        let u_full = self.expand_to_full(u_red);
+        let n_red_nnz = self.k_rows.len();
+        let k_vals_full = {
+            let asm = self
+                .assembler
+                .as_mut()
+                .expect("assembler presence checked above");
+            let (_, _, vals) = asm.assemble_kt_corotational(&u_full);
+            vals
+        };
+
+        let k_red = crate::petsc::fsi::setup::apply_kg_coo_map(&self.k_coo_map, &k_vals_full, n_red_nnz);
+        self.stepper
+            .update_elastic_stiffness(&k_red)
+            .map_err(FsiError::StepperError)?;
+
+        log::info!(
+            "RotorFsi: K_T rebuilt at corotational step {} (corotational={})",
+            coro_step_counter,
+            self.config.use_corotational_kt
         );
         Ok(())
     }
@@ -1013,13 +1084,19 @@ impl RotorFsiSolver {
                 self.update_kg_if_needed(omega_new, &u_red_snapshot, time_step)?;
                 prof.record_since("kg_update_if_needed", t_kg);
 
-                // 7. Overwrite final state (no history accumulation — O(n_dofs) RAM).
+                // 7. Optional K_T(u) rebuild in the structural frame.
+                let t_kt = Instant::now();
+                self.coro_step_counter = self.coro_step_counter.saturating_add(1);
+                self.update_kt_if_needed(&u_red_snapshot, self.coro_step_counter)?;
+                prof.record_since("kt_update_if_needed", t_kt);
+
+                // 8. Overwrite final state (no history accumulation — O(n_dofs) RAM).
                 result.u_final = self.stepper.current_u().to_vec();
                 result.v_final = self.stepper.current_v().to_vec();
                 result.a_final = self.stepper.current_a().to_vec();
                 result.times.push(step_t);
 
-                // 8. Performance coefficients.
+                // 9. Performance coefficients.
                 let thrust = compute_thrust(&forces_global, &self.transforms.axis);
                 let power_aero = tau_aero * omega_step;
                 let perf = compute_performance_coefficients(
@@ -1040,7 +1117,7 @@ impl RotorFsiSolver {
                     step_t, self.theta, perf.ct, perf.cp, perf.tsr
                 );
 
-                // 9. Per-step callback.
+                // 10. Per-step callback.
                 if let Some(ref cb) = self.step_callback {
                     let t_cb = Instant::now();
                     let force_mag = forces_global.iter().map(|x| x * x).sum::<f64>().sqrt();
@@ -1122,6 +1199,8 @@ mod tests {
             include_euler: false,
             include_kg: true,
             kg_update_interval,
+            use_corotational_kt: false,
+            kt_coro_update_freq: 1,
             include_ksp: true,
             ksp_omega_threshold: 1e-4,
             omega_rebuild_rel_high: 0.005,
@@ -1158,6 +1237,37 @@ mod tests {
         assert!(!cfg.should_update_kg_on_step(4));
         assert!(!cfg.should_update_kg_on_step(5));
         assert!(cfg.should_update_kg_on_step(6));
+    }
+
+    #[test]
+    fn kt_coro_update_freq_zero_means_every_step() {
+        let mut cfg = dummy_config(1);
+        cfg.kt_coro_update_freq = 0;
+        assert_eq!(cfg.normalized_kt_coro_update_freq(), 1);
+        assert!(cfg.should_update_coro_frame_on_step(1));
+        assert!(cfg.should_update_coro_frame_on_step(2));
+        assert!(cfg.should_update_coro_frame_on_step(3));
+    }
+
+    #[test]
+    fn kt_coro_update_freq_updates_on_multiples_only() {
+        let mut cfg = dummy_config(1);
+        cfg.kt_coro_update_freq = 5;
+        assert_eq!(cfg.normalized_kt_coro_update_freq(), 5);
+        assert!(!cfg.should_update_coro_frame_on_step(1));
+        assert!(!cfg.should_update_coro_frame_on_step(4));
+        assert!(cfg.should_update_coro_frame_on_step(5));
+        assert!(!cfg.should_update_coro_frame_on_step(9));
+        assert!(cfg.should_update_coro_frame_on_step(10));
+    }
+
+    #[test]
+    fn corotational_kt_disabled_keeps_baseline_path() {
+        let mut cfg = dummy_config(1);
+        cfg.use_corotational_kt = false;
+        for step in 1..=10 {
+            assert!(!cfg.should_update_corotational_kt(step));
+        }
     }
 
     // ── Tests for omega_changed_significantly predicate (task 3.1 / 3.2) ──────

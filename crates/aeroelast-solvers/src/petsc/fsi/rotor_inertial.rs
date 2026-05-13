@@ -135,6 +135,13 @@ pub struct InertialRotorFsiConfig {
     /// changes between windows (only meaningful for ramped/computed ω modes —
     /// constant ω never trips this). Default: `0.01` (1% change in ω²).
     pub omega_rebuild_threshold: f64,
+    /// Enable corotational tangent stiffness rebuilds K_T(u, θ) in the inertial loop.
+    ///
+    /// Default: `false` for strict backward compatibility.
+    pub use_corotational_kt: bool,
+    /// Rebuild corotational K_T every N converged steps when enabled.
+    /// `0` and `1` both mean every step.
+    pub kt_coro_update_freq: u32,
     /// Absolute |Δθ| threshold (radians) to trigger a K(θ) rebuild when the
     /// rotation angle has accumulated since the last reassembly. This is the
     /// physically correct trigger for this solver since K(θ) depends on θ
@@ -208,6 +215,21 @@ impl InertialRotorFsiConfig {
     /// Whether K(θ) should be rebuilt on this 1-based converged step index.
     fn should_update_k_on_step(&self, time_step: usize) -> bool {
         time_step % self.normalized_k_update_interval() == 0
+    }
+
+    /// Normalize corotational K_T cadence so legacy `0` means every step.
+    fn normalized_kt_coro_update_freq(&self) -> u32 {
+        self.kt_coro_update_freq.max(1)
+    }
+
+    /// Whether the corotational element frame should be refreshed this step.
+    fn should_update_coro_frame_on_step(&self, coro_step_counter: u32) -> bool {
+        coro_step_counter % self.normalized_kt_coro_update_freq() == 0
+    }
+
+    /// Whether K_T corotational update should run on this converged step.
+    fn should_update_corotational_kt(&self, coro_step_counter: u32) -> bool {
+        self.use_corotational_kt && self.should_update_coro_frame_on_step(coro_step_counter)
     }
 }
 
@@ -291,6 +313,8 @@ pub struct InertialRotorFsiSolver {
     // ── Convergence tracking ──────────────────────────────────────────────────
     /// 1-based converged time step counter.
     time_step: usize,
+    /// Independent converged-window counter for corotational K_T cadence.
+    coro_step_counter: u32,
 
     // ── Reference reduced-K mapping ──────────────────────────────────────────
     /// Maps full reassembled K(θ) COO entries into the reference reduced K COO.
@@ -474,6 +498,7 @@ impl InertialRotorFsiSolver {
             iface_dofs,
             iface_nodes,
             time_step: 0,
+            coro_step_counter: 0,
             omega_sq_at_last_k_rebuild: f64::NEG_INFINITY,
             theta_at_last_k_rebuild: 0.0,
             step_at_last_k_rebuild: 0,
@@ -625,6 +650,8 @@ impl InertialRotorFsiSolver {
         // single refactorization.
 
         let should_rebuild_by_step = self.config.should_update_k_on_step(time_step);
+        let should_update_coro_frame =
+            self.config.should_update_corotational_kt(self.coro_step_counter);
         let should_rebuild_by_omega = {
             let omega_sq_new = omega * omega;
             let denom = omega_sq_new.max(self.omega_sq_at_last_k_rebuild);
@@ -695,7 +722,7 @@ impl InertialRotorFsiSolver {
 
         let t_start = std::time::Instant::now();
 
-        use crate::petsc::fsi::setup::{apply_kg_coo_map, reassemble_k};
+        use crate::petsc::fsi::setup::apply_kg_coo_map;
         use crate::petsc::fsi::rotor_physics::build_ksp_vals;
 
         // ── Determine which pieces need to be recomputed ──────────────────────
@@ -708,7 +735,14 @@ impl InertialRotorFsiSolver {
         // ── K(θ): reassemble from rotated geometry ────────────────────────────
         let k_vals_red = if rebuild_k {
             // Caller guarantees self.coords_rotated tracks self.theta.
-            let (_, _, k_vals) = reassemble_k(&mut self.assembler, &self.coords_rotated);
+            // Always refresh element precomputed data at the rotated geometry.
+            self.assembler.update_node_coordinates(&self.coords_rotated);
+            let (_, _, k_vals) = if should_update_coro_frame {
+                let u_full = self.expand_to_full(u_red, free_dofs);
+                self.assembler.assemble_kt_corotational(&u_full)
+            } else {
+                self.assembler.assemble_k()
+            };
             if k_vals.len() != self.k_coo_map.len() {
                 return Err(FsiError::PreciceError(format!(
                     "reassembled K COO length {} does not match reference mapping length {}",
@@ -835,7 +869,7 @@ impl InertialRotorFsiSolver {
             "InertialRotorFsi: stiffness reassembly done in {:.3}s \
              (step {}, θ={:.4}rad, ω={:.4}rad/s, \
              rebuild_k={}, rebuild_kg={}, rebuild_ksp={}, \
-             K_G={}, K_G(u)={}, K_SP={}, def_ratio={:.4e})",
+             K_G={}, K_G(u)={}, K_SP={}, K_T_coro_update={}, def_ratio={:.4e})",
             elapsed.as_secs_f64(),
             time_step,
             self.theta,
@@ -846,6 +880,7 @@ impl InertialRotorFsiSolver {
             self.config.include_geometric_stiffness,
             self.config.kg_use_deformed_coords,
             self.config.include_spin_softening,
+            should_update_coro_frame,
             current_deflection_ratio,
         );
 
@@ -1275,6 +1310,7 @@ impl InertialRotorFsiSolver {
             } else {
                 // ── Converged time window ─────────────────────────────────────
                 self.time_step += 1;
+                self.coro_step_counter = self.coro_step_counter.saturating_add(1);
                 self.theta = theta_target;
 
                 // Keep self.coords_rotated synchronized with self.theta on every
@@ -1492,6 +1528,8 @@ mod tests {
             kg_omega_rebuild_low: 0.003,
             k_update_interval: 1,
             omega_rebuild_threshold: 0.01,
+            use_corotational_kt: false,
+            kt_coro_update_freq: 1,
             theta_rebuild_threshold: 0.05,
             kg_use_deformed_coords: false,
             kg_deflection_rebuild_rel_high: 0.01,
@@ -1610,6 +1648,39 @@ mod tests {
         assert_eq!(cfg.ksp_omega_rebuild_low, 0.003, "ksp_omega_rebuild_low default mismatch");
         assert_eq!(cfg.kg_omega_rebuild_high, 0.005, "kg_omega_rebuild_high default mismatch");
         assert_eq!(cfg.kg_omega_rebuild_low, 0.003, "kg_omega_rebuild_low default mismatch");
+        assert!(!cfg.use_corotational_kt, "use_corotational_kt must default to false");
+        assert_eq!(cfg.kt_coro_update_freq, 1, "kt_coro_update_freq must default to 1");
+    }
+
+    #[test]
+    fn kt_coro_update_freq_zero_means_every_step() {
+        let mut cfg = default_config();
+        cfg.kt_coro_update_freq = 0;
+        assert_eq!(cfg.normalized_kt_coro_update_freq(), 1);
+        assert!(cfg.should_update_coro_frame_on_step(1));
+        assert!(cfg.should_update_coro_frame_on_step(2));
+        assert!(cfg.should_update_coro_frame_on_step(3));
+    }
+
+    #[test]
+    fn kt_coro_update_freq_updates_on_multiples_only() {
+        let mut cfg = default_config();
+        cfg.kt_coro_update_freq = 5;
+        assert_eq!(cfg.normalized_kt_coro_update_freq(), 5);
+        assert!(!cfg.should_update_coro_frame_on_step(1));
+        assert!(!cfg.should_update_coro_frame_on_step(4));
+        assert!(cfg.should_update_coro_frame_on_step(5));
+        assert!(!cfg.should_update_coro_frame_on_step(9));
+        assert!(cfg.should_update_coro_frame_on_step(10));
+    }
+
+    #[test]
+    fn corotational_kt_disabled_keeps_baseline_path() {
+        let mut cfg = default_config();
+        cfg.use_corotational_kt = false;
+        for step in 1..=10 {
+            assert!(!cfg.should_update_corotational_kt(step));
+        }
     }
 
     // ── T4.4e: InertialKgKspCheckpoint save/restore semantics ─────────────────

@@ -3765,6 +3765,33 @@ fn run_stress_stiffened_fsi_solver(
 /// `(u_final, v_final, a_final, times)`
 /// Flat reduced-DOF arrays for the last converged step; times accumulates all step times.
 #[pyfunction]
+#[pyo3(signature = (
+    assembler, n_full_dofs, kg_update_interval,
+    rotation_axis, rotation_center,
+    all_node_coords, all_node_masses,
+    omega_mode, omega,
+    omega_target, t_ramp, moment_of_inertia, shaft_torque,
+    gravity, include_centrifugal, include_coriolis, include_euler,
+    include_kg, include_ksp, ksp_omega_threshold,
+    omega_rebuild_rel_high, omega_rebuild_rel_low,
+    kg_use_deformed_coords, kg_deflection_rebuild_rel_high, kg_deflection_rebuild_rel_low,
+    dofs_per_node, fluid_density, flow_velocity, rotor_radius,
+    k_rows, k_cols, k_vals,
+    m_rows, m_cols, m_vals,
+    free_dofs,
+    eta_k, eta_m,
+    beta, gamma, dt,
+    interface_coords, interface_dofs_global, mesh_dims,
+    participant_name, config_file, coupling_mesh,
+    write_data_name, read_data_name, ramp_time, force_max,
+    omega_mesh_name, omega_write_data, omega_vertex_coord,
+    u0, v0, a0, t0, theta0,
+    restart_omega, restart_alpha, restart_ramp_completed, restart_current_time,
+    kg0_rows, kg0_cols, kg0_vals,
+    step_callback,
+    use_corotational_kt=false,
+    kt_coro_update_freq=1
+))]
 #[cfg(feature = "fsi")]
 #[allow(clippy::too_many_arguments)]
 fn run_rotor_fsi_solver(
@@ -3856,6 +3883,9 @@ fn run_rotor_fsi_solver(
     kg0_vals: Option<PyReadonlyArray1<f64>>,
     // ── Optional per-step callback ────────────────────────────────────────────
     step_callback: Option<Py<PyAny>>,
+    // ── Optional corotational K_T wiring (backward-compatible defaults) ──────
+    use_corotational_kt: bool,
+    kt_coro_update_freq: u32,
 ) -> PyResult<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>)> {
     use aeroelast_solvers::petsc::elasticity::dynamic_newmark::NewmarkStepper;
     use aeroelast_solvers::petsc::fsi::linear_elastic::{FsiConfig, FsiInitialState};
@@ -4069,6 +4099,8 @@ fn run_rotor_fsi_solver(
         include_euler,
         include_kg,
         kg_update_interval,
+        use_corotational_kt,
+        kt_coro_update_freq,
         include_ksp,
         ksp_omega_threshold,
         omega_rebuild_rel_high,
@@ -4232,7 +4264,8 @@ fn run_rotor_fsi_solver(
     include_geometric_stiffness=None,
     include_spin_softening=true,
     ksp_omega_rebuild_high=0.005, ksp_omega_rebuild_low=0.003,
-    kg_omega_rebuild_high=0.005, kg_omega_rebuild_low=0.003
+    kg_omega_rebuild_high=0.005, kg_omega_rebuild_low=0.003,
+    use_corotational_kt=false, kt_coro_update_freq=1
 ))]
 #[cfg(feature = "fsi")]
 #[allow(clippy::too_many_arguments)]
@@ -4328,6 +4361,8 @@ fn run_inertial_rotor_fsi_solver(
     ksp_omega_rebuild_low: f64,
     kg_omega_rebuild_high: f64,
     kg_omega_rebuild_low: f64,
+    use_corotational_kt: bool,
+    kt_coro_update_freq: u32,
 ) -> PyResult<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>)> {
     use aeroelast_solvers::petsc::elasticity::dynamic_newmark::NewmarkStepper;
     use aeroelast_solvers::petsc::fsi::linear_elastic::{FsiConfig, FsiInitialState};
@@ -4559,6 +4594,8 @@ fn run_inertial_rotor_fsi_solver(
         kg_omega_rebuild_low,
         k_update_interval,
         omega_rebuild_threshold,
+        use_corotational_kt,
+        kt_coro_update_freq,
         theta_rebuild_threshold,
         kg_use_deformed_coords,
         kg_deflection_rebuild_rel_high,

@@ -395,6 +395,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         self._k_update_interval = int(rotor_cfg.get("k_update_interval", 20))
         if self._k_update_interval < 1:
             self._k_update_interval = 1
+        self._use_corotational_kt: bool = bool(rotor_cfg.get("use_corotational_kt", False))
+        self._kt_coro_update_freq: int = int(rotor_cfg.get("kt_coro_update_freq", 1))
+        if self._kt_coro_update_freq < 1:
+            self._kt_coro_update_freq = 1
         self._omega_rebuild_threshold = float(rotor_cfg.get("omega_rebuild_threshold", 0.01))
         self._theta_rebuild_threshold = float(rotor_cfg.get("theta_rebuild_threshold", 0.05))
 
@@ -836,6 +840,8 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
             include_reference_acceleration=True,
             k_update_interval=self._k_update_interval,
             omega_rebuild_threshold=self._omega_rebuild_threshold,
+            use_corotational_kt=self._use_corotational_kt,
+            kt_coro_update_freq=self._kt_coro_update_freq,
             theta_rebuild_threshold=self._theta_rebuild_threshold,
             kg_use_deformed_coords=self._kg_use_deformed_coords,
             kg_deflection_rebuild_rel_high=self._kg_deflection_rebuild_rel_high,
