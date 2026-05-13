@@ -1233,10 +1233,26 @@ class FSISimulationConfig:
         # Parse postprocess configuration
         postprocess_config = None
         postprocess_data = data.get("postprocess")
+        # Also accept top-level "performance:" key as alias for postprocess
+        # fluid_density / flow_velocity (used by LinearDynamicFSIRotorInertialSolver).
+        perf_alias = data.get("performance") or {}
         if postprocess_data:
             postprocess_config = PostprocessConfig(
                 watchpoint_file=postprocess_data.get("watchpoint_file"),
                 plots=postprocess_data.get("plots"),
+                fluid_density=(
+                    postprocess_data.get("fluid_density")
+                    or perf_alias.get("fluid_density")
+                ),
+                flow_velocity=(
+                    postprocess_data.get("flow_velocity")
+                    or perf_alias.get("flow_velocity")
+                ),
+            )
+        elif perf_alias.get("fluid_density") or perf_alias.get("flow_velocity"):
+            postprocess_config = PostprocessConfig(
+                fluid_density=perf_alias.get("fluid_density"),
+                flow_velocity=perf_alias.get("flow_velocity"),
             )
 
         # Parse BEM configuration (for BEMStandalone solver)
