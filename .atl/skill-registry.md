@@ -4,10 +4,21 @@
 | Skill | Trigger | Description |
 |-------|---------|-------------|
 | run-fsi-simulation | Launch, monitor, and diagnose OpenFOAM + preCICE FSI simulations on SLURM | Launch, monitor, and diagnose OpenFOAM + preCICE FSI simulations on SLURM. Use when: submitting FSI jobs, checking job status, diagnosing divergence, reading SLURM logs, checking preCICE convergence, restarting failed runs. |
+| build-aeroelast | compilar aeroelast, build aeroelast, maturin, GLIBCXX error, AttributeError PyMeshAssembler, rebuild Rust, stale .so | Compile and install the aeroelast Python+Rust package on SDumont HPC. Required after any Rust change. |
 
 ## User-Level Skills
 | Skill | Trigger | Description |
 |-------|---------|-------------|
+| sdd-init | sdd init, iniciar sdd, openspec init | Initialize SDD context, testing capabilities, registry, and persistence. |
+| sdd-explore | sdd explore, explore idea, clarify requirement | Explore SDD ideas before committing to a change. |
+| sdd-propose | sdd propose, create proposal | Create an SDD change proposal with intent, scope, and approach. |
+| sdd-spec | sdd spec, write spec, delta spec | Write SDD delta specs with requirements and scenarios. |
+| sdd-design | sdd design, technical design | Create the SDD technical design and architecture approach. |
+| sdd-tasks | sdd tasks, break into tasks | Break an SDD change into implementation tasks. |
+| sdd-apply | sdd apply, implement tasks | Implement SDD tasks from specs and design. |
+| sdd-verify | sdd verify, verify change | Execute tests and prove implementation matches specs. |
+| sdd-archive | sdd archive, archive change | Archive a completed SDD change by syncing delta specs. |
+| sdd-onboard | sdd onboard, walk through sdd | Walk users through the SDD workflow on the real codebase. |
 | m06-error-handling | Result, Option, Error, ?, unwrap, expect, panic, anyhow, thiserror | CRITICAL: Use for error handling. |
 | domain-cloud-native | kubernetes, k8s, docker, container, grpc, tonic, microservice | Use when building cloud-native apps. |
 | domain-iot | IoT, Internet of Things, sensor, MQTT, device, edge computing | Use when building IoT apps. |
@@ -47,3 +58,8 @@
 | rust-skill-creator | create rust skill, create crate skill | Use when creating skills for Rust crates or std library. |
 | m14-mental-model | mental model, how to think about ownership | Use when learning Rust concepts. |
 | m05-type-driven | type state, PhantomData, newtype, marker trait | CRITICAL: Use for type-driven design. |
+| chained-pr | PRs over 400 lines, stacked PRs, review slices | Split oversized changes into chained PRs. |
+| cognitive-doc-design | writing guides, READMEs, RFCs, onboarding docs | Design docs that reduce cognitive load. |
+| comment-writer | PR feedback, issue replies, reviews, Slack messages | Write warm, direct collaboration comments. |
+| work-unit-commits | implementation, commit splitting, chained PRs | Plan commits as reviewable work units. |
+| skill-registry | update skills, skill registry, actualizar skills | Create or update the project skill registry. |
