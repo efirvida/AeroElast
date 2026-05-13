@@ -676,6 +676,7 @@ class FSIRunner:
                 hub_radius=params.get("hub_radius"),
                 element_size=params.get("element_size", 0.5),
                 n_samples=params.get("n_samples", 300),
+                airfoil_spacing=params.get("airfoil_spacing", "constant"),
             )
         else:
             yaml_file = params.get("yaml_file")
@@ -696,6 +697,7 @@ class FSIRunner:
                 element_size=params.get("element_size", 0.15),
                 n_samples=params.get("n_samples", 300),
                 span_grading=params.get("span_grading", "chord"),
+                airfoil_spacing=params.get("airfoil_spacing", "constant"),
             )
 
         self._console.print("      Rehydrating composite metadata from generator...")
@@ -761,6 +763,7 @@ class FSIRunner:
                 hub_radius=params.get("hub_radius"),
                 element_size=params.get("element_size", 0.5),
                 n_samples=params.get("n_samples", 300),
+                airfoil_spacing=params.get("airfoil_spacing", "constant"),
             )
             mesh = generator.generate(renumber="rcm")
             self._mesh_generator = generator
@@ -785,6 +788,7 @@ class FSIRunner:
                 element_size=params.get("element_size", 0.15),
                 n_samples=params.get("n_samples", 300),
                 span_grading=params.get("span_grading", "chord"),
+                airfoil_spacing=params.get("airfoil_spacing", "constant"),
             )
             mesh = generator.generate(renumber=None)
             self._mesh_generator = generator

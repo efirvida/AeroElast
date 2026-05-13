@@ -1045,6 +1045,7 @@ class BladeMesh:
         airfoil_dir: str = None,
         refine_tip: bool = True,
         span_grading: str = "chord",
+        airfoil_spacing: str = "constant",
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
@@ -1053,6 +1054,7 @@ class BladeMesh:
         self.n_samples = n_samples
         self.refine_tip = refine_tip
         self.span_grading = span_grading
+        self.airfoil_spacing = airfoil_spacing
         self._numad_blade = None
         self._numad_mesh = None
 
@@ -1102,7 +1104,7 @@ class BladeMesh:
 
         # Resample airfoils
         for stat in self._numad_blade.definition.stations:
-            stat.airfoil.resample(n_samples=self.n_samples)
+            stat.airfoil.resample(n_samples=self.n_samples, spacing=self.airfoil_spacing)
 
         # Update geometry
         if verbose:
@@ -1115,7 +1117,9 @@ class BladeMesh:
         # sections whose chord ratio exceeds a threshold so that element
         # aspect ratios stay reasonable.
         if self.refine_tip:
-            self._refine_high_gradient_sections(verbose=verbose)
+            self._refine_high_gradient_sections(
+                element_size=self.element_size, verbose=verbose
+            )
 
         # Expand trailing edge
         n_stations = self._numad_blade.geometry.coordinates.shape[2]
@@ -1150,17 +1154,29 @@ class BladeMesh:
 
         return mesh_model
 
-    def _refine_high_gradient_sections(self, chord_ratio_threshold=0.5, verbose=True):
+    def _refine_high_gradient_sections(
+        self,
+        chord_ratio_threshold=0.5,
+        element_size: float | None = None,
+        min_ar_ratio: float = 4.0,
+        verbose=True,
+    ):
         """Add interpolated stations where the chord ratio between adjacent
         sections is below *chord_ratio_threshold* (i.e. chord shrinks by
         more than 50 %).  Stations are subdivided until the ratio of the
         smaller chord to the larger chord in every pair exceeds the
         threshold, up to a maximum of 3 subdivisions per original gap.
+
+        A station is skipped if the resulting spanwise gap would be smaller
+        than ``element_size * min_ar_ratio``, which would produce elements
+        with aspect ratio worse than *min_ar_ratio* and potentially degenerate
+        direction cosines at the tip.
         """
         blade = self._numad_blade
         ichord = blade.geometry.ichord
         ispan = blade.ispan.copy()
         added = 0
+        skipped = 0
 
         for _ in range(3):  # iterate because adding a station shifts indices
             ichord = blade.geometry.ichord
@@ -1171,6 +1187,12 @@ class BladeMesh:
                 c_lo = min(ichord[i], ichord[i + 1])
                 c_hi = max(ichord[i], ichord[i + 1])
                 if c_hi > 0 and c_lo / c_hi < chord_ratio_threshold:
+                    gap = ispan[i + 1] - ispan[i]
+                    # The inserted section splits the gap in two halves.
+                    # Each half must be wide enough to avoid degenerate AR.
+                    if element_size is not None and (gap / 2) < element_size * min_ar_ratio:
+                        skipped += 1
+                        continue
                     mid = 0.5 * (ispan[i] + ispan[i + 1])
                     blade.add_interpolated_station(mid)
                     added += 1
@@ -1181,6 +1203,11 @@ class BladeMesh:
 
         if verbose and added > 0:
             print(f"      Added {added} interpolated section(s) for tip refinement")
+        if verbose and skipped > 0:
+            print(
+                f"      Skipped {skipped} tip refinement(s): gap too narrow "
+                f"(would produce AR > {1/min_ar_ratio:.0%} of element_size)"
+            )
 
     def _deduplicate_and_create_mesh(self, mesh_model: "MeshModel", verbose: bool = True):
         """
@@ -1403,12 +1430,14 @@ class RotorMesh:
         hub_radius: float | None = None,
         element_size: float = 0.1,
         n_samples: int = 300,
+        airfoil_spacing: str = "constant",
     ):
         self.yaml_file = yaml_file
         self.n_blades = n_blades
         self.hub_radius = hub_radius
         self.element_size = element_size
         self.n_samples = n_samples
+        self.airfoil_spacing = airfoil_spacing
         self._blade_generator: BladeMesh = None
 
     def generate(self, renumber: str | None = None, verbose: bool = True) -> "MeshModel":
@@ -1441,6 +1470,7 @@ class RotorMesh:
             yaml_file=self.yaml_file,
             element_size=self.element_size,
             n_samples=self.n_samples,
+            airfoil_spacing=self.airfoil_spacing,
         )
         base_mesh = self._blade_generator.generate(renumber=None, verbose=verbose)
 
