@@ -679,6 +679,14 @@ impl RotorFsiSolver {
                 .assembler
                 .as_mut()
                 .expect("assembler presence checked above");
+
+            // Frame consistency: u_full is in the rotating frame. Keep
+            // assembler reference coords in the same frame at current θ.
+            let coords_rotated = self
+                .transforms
+                .disps_to_inertial(&self.all_node_coords, self.theta);
+            asm.update_node_coordinates(&coords_rotated);
+
             let (_, _, vals) = asm.assemble_kt_corotational(&u_full);
             vals
         };
