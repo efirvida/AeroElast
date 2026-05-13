@@ -23,15 +23,18 @@ import numpy as np
 def _import_gmsh():
     """Lazy import of gmsh to avoid loading libGLU on headless systems."""
     import sys
+
     mod = importlib.import_module("gmsh")
     # Make the module accessible as a module-level name so that helper
     # methods that reference the bare name ``gmsh`` can find it.
     sys.modules[__name__].__dict__["gmsh"] = mod
     return mod
 
+
 from aeroelast.core.mesh.entities import (
     ELEMENT_NODES_MAP,
     SOLID_ELEMENT_NODES_MAP,
+    ElementSet,
     ElementType,
     MeshElement,
     Node,
@@ -435,24 +438,20 @@ class BoxSurfaceMesh:
         self.faces = {
             "bottom": self._create_face_loop([edges["l1"], edges["l2"], edges["l3"], edges["l4"]]),
             "top": self._create_face_loop([edges["l5"], edges["l6"], edges["l7"], edges["l8"]]),
-            "front": self._create_face_loop(
-                [
-                    edges["l3"],
-                    edges["l12"],
-                    -edges["l7"],
-                    -edges["l11"],
-                ]
-            ),
+            "front": self._create_face_loop([
+                edges["l3"],
+                edges["l12"],
+                -edges["l7"],
+                -edges["l11"],
+            ]),
             "back": self._create_face_loop([edges["l1"], edges["l10"], -edges["l5"], -edges["l9"]]),
             "left": self._create_face_loop([-edges["l4"], edges["l12"], edges["l8"], -edges["l9"]]),
-            "right": self._create_face_loop(
-                [
-                    edges["l2"],
-                    edges["l11"],
-                    -edges["l6"],
-                    -edges["l10"],
-                ]
-            ),
+            "right": self._create_face_loop([
+                edges["l2"],
+                edges["l11"],
+                -edges["l6"],
+                -edges["l10"],
+            ]),
         }
 
         for name, face_tag in self.faces.items():
@@ -673,13 +672,11 @@ class MultiFlapMesh:
         positions = []
         for i in range(self.n_flaps):
             x_left = x_start + i * (self.flap_width + self.x_spacing)
-            positions.append(
-                {
-                    "index": i + 1,
-                    "x_left": x_left,
-                    "x_right": x_left + self.flap_width,
-                }
-            )
+            positions.append({
+                "index": i + 1,
+                "x_left": x_left,
+                "x_right": x_left + self.flap_width,
+            })
         return positions
 
     def generate(self) -> "MeshModel":
@@ -740,15 +737,13 @@ class MultiFlapMesh:
             p_right = gmsh.model.geo.addPoint(fp["x_right"], y_flap_top, 0)
             self.points[f"ft_{fp['index']}_left"] = p_left
             self.points[f"ft_{fp['index']}_right"] = p_right
-            flap_top_points.append(
-                {
-                    "index": fp["index"],
-                    "x_left": fp["x_left"],
-                    "x_right": fp["x_right"],
-                    "p_left": p_left,
-                    "p_right": p_right,
-                }
-            )
+            flap_top_points.append({
+                "index": fp["index"],
+                "x_left": fp["x_left"],
+                "x_right": fp["x_right"],
+                "p_left": p_left,
+                "p_right": p_right,
+            })
 
         self._create_base_structure(base_bottom_points, base_top_points, flap_positions)
         self._create_flaps(base_top_points, flap_top_points, flap_positions)
@@ -773,14 +768,12 @@ class MultiFlapMesh:
             vertical_lines.append(l_vert)
 
         for i in range(len(bottom_lines)):
-            loop = gmsh.model.geo.addCurveLoop(
-                [
-                    bottom_lines[i],
-                    vertical_lines[i + 1],
-                    -top_lines[i],
-                    -vertical_lines[i],
-                ]
-            )
+            loop = gmsh.model.geo.addCurveLoop([
+                bottom_lines[i],
+                vertical_lines[i + 1],
+                -top_lines[i],
+                -vertical_lines[i],
+            ])
             surf = gmsh.model.geo.addPlaneSurface([loop])
             self.base_surfaces.append(surf)
 
@@ -811,16 +804,14 @@ class MultiFlapMesh:
             loop = gmsh.model.geo.addCurveLoop([l_left, l_top, l_right, l_bottom])
             surf = gmsh.model.geo.addPlaneSurface([loop])
 
-            self.flap_surfaces.append(
-                {
-                    "index": idx,
-                    "surface": surf,
-                    "l_left": l_left,
-                    "l_top": l_top,
-                    "l_right": l_right,
-                    "l_bottom": l_bottom,
-                }
-            )
+            self.flap_surfaces.append({
+                "index": idx,
+                "surface": surf,
+                "l_left": l_left,
+                "l_top": l_top,
+                "l_right": l_right,
+                "l_bottom": l_bottom,
+            })
 
     def _add_physical_groups(self, flap_positions):
         """Add physical groups for boundary conditions"""
@@ -1117,9 +1108,7 @@ class BladeMesh:
         # sections whose chord ratio exceeds a threshold so that element
         # aspect ratios stay reasonable.
         if self.refine_tip:
-            self._refine_high_gradient_sections(
-                element_size=self.element_size, verbose=verbose
-            )
+            self._refine_high_gradient_sections(element_size=self.element_size, verbose=verbose)
 
         # Expand trailing edge
         n_stations = self._numad_blade.geometry.coordinates.shape[2]
@@ -1206,7 +1195,7 @@ class BladeMesh:
         if verbose and skipped > 0:
             print(
                 f"      Skipped {skipped} tip refinement(s): gap too narrow "
-                f"(would produce AR > {1/min_ar_ratio:.0%} of element_size)"
+                f"(would produce AR > {1 / min_ar_ratio:.0%} of element_size)"
             )
 
     def _deduplicate_and_create_mesh(self, mesh_model: "MeshModel", verbose: bool = True):
@@ -1418,23 +1407,33 @@ class RotorMesh:
 
     Examples
     --------
-    >>> rotor = RotorMesh("blade.yaml", n_blades=3, hub_radius=1.5)
+    >>> rotor = RotorMesh(yaml_file="blade.yaml", n_blades=3, hub_radius=1.5)
     >>> mesh = rotor.generate(renumber="rcm")
     >>> mesh.write_mesh("rotor.vtk")
     """
 
+    BLADE_PART_SET_PREFIX = "rotor_blade_"
+
     def __init__(
         self,
-        yaml_file: str,
-        n_blades: int,
+        yaml_file: str | None = None,
+        n_blades: int = 3,
         hub_radius: float | None = None,
+        hub_diameter: float | None = None,
+        rotor_diameter: float | None = None,
         element_size: float = 0.1,
         n_samples: int = 300,
+        excel_file: str | None = None,
+        airfoil_dir: str | None = None,
         airfoil_spacing: str = "constant",
     ):
         self.yaml_file = yaml_file
+        self.excel_file = excel_file
+        self.airfoil_dir = airfoil_dir
         self.n_blades = n_blades
         self.hub_radius = hub_radius
+        self.hub_diameter = hub_diameter
+        self.rotor_diameter = rotor_diameter
         self.element_size = element_size
         self.n_samples = n_samples
         self.airfoil_spacing = airfoil_spacing
@@ -1468,6 +1467,8 @@ class RotorMesh:
             print("\nGenerating base blade mesh...")
         self._blade_generator = BladeMesh(
             yaml_file=self.yaml_file,
+            excel_file=self.excel_file,
+            airfoil_dir=self.airfoil_dir,
             element_size=self.element_size,
             n_samples=self.n_samples,
             airfoil_spacing=self.airfoil_spacing,
@@ -1479,12 +1480,15 @@ class RotorMesh:
                 f"  Base blade: {base_mesh.node_count} nodes, {base_mesh.elements_count} elements"
             )
 
-        # Get hub_radius from blade definition if not provided
-        actual_hub_radius = self.hub_radius
-        if actual_hub_radius is None:
-            actual_hub_radius = self._blade_generator.numad_blade.definition.hub_diameter / 2
-            if verbose:
-                print(f"  Using hub radius from blade definition: {actual_hub_radius}")
+        actual_hub_radius, hub_radius_source = self._resolve_hub_radius()
+        if verbose:
+            if hub_radius_source == "explicit":
+                print(f"  Using explicit hub radius: {actual_hub_radius}")
+            else:
+                print(
+                    "  Using hub radius from blade definition "
+                    f"({hub_radius_source}): {actual_hub_radius}"
+                )
 
         if verbose:
             print(f"\nGenerating rotor mesh with {self.n_blades} blades...")
@@ -1530,6 +1534,40 @@ class RotorMesh:
 
         return rotor_mesh
 
+    def _resolve_hub_radius(self) -> tuple[float, str]:
+        """Resolve the radial blade offset using explicit or NuMAD geometry."""
+        if self._blade_generator is None:
+            raise RuntimeError(
+                "Rotor mesh has not been initialized. Generate the blade mesh first."
+            )
+
+        definition = self._blade_generator.numad_blade.definition
+        if self.hub_diameter is not None:
+            definition.hub_diameter = float(self.hub_diameter)
+        if self.rotor_diameter is not None:
+            definition.rotor_diameter = float(self.rotor_diameter)
+
+        try:
+            return definition.resolve_hub_radius(override=self.hub_radius)
+        except ValueError as exc:
+            if (
+                self.excel_file is not None
+                and self.hub_radius is None
+                and self.hub_diameter is None
+                and self.rotor_diameter is None
+            ):
+                raise ValueError(
+                    "Unable to determine hub radius from Excel blade definition. "
+                    "Pass hub_radius explicitly or provide hub_diameter/rotor_diameter "
+                    "when exporting a RotorMesh from Excel."
+                ) from exc
+            raise
+
+    @classmethod
+    def blade_part_set_name(cls, blade_index: int) -> str:
+        """Return the aggregate set name used for a full rotor blade."""
+        return f"{cls.BLADE_PART_SET_PREFIX}{blade_index + 1}"
+
     def _create_blade_copy(self, base_mesh: "MeshModel", blade_index: int) -> "MeshModel":
         """Create a copy of the base blade mesh with renamed sets."""
         from aeroelast.core.mesh.entities import ElementSet
@@ -1563,6 +1601,12 @@ class RotorMesh:
             new_set_name = f"{name}_blade_{blade_index + 1}"
             new_set_elements = {element_map[e.id] for e in element_set.elements}
             blade_mesh.add_element_set(ElementSet(new_set_name, new_set_elements))
+
+        # Aggregate sets allow exporting an entire blade without reverse-engineering
+        # the fine-grained material/region set naming.
+        blade_part_name = self.blade_part_set_name(blade_index)
+        blade_mesh.add_node_set(NodeSet(blade_part_name, set(node_map.values())))
+        blade_mesh.add_element_set(ElementSet(blade_part_name, set(element_map.values())))
 
         return blade_mesh
 
@@ -1646,6 +1690,326 @@ class RotorMesh:
             element_size=element_size,
             n_samples=n_samples,
         ).generate(renumber=renumber)
+
+
+class RotorHubMesh:
+    """
+    Generates a CFD-oriented hub surface mesh for a wind turbine rotor.
+
+    The generated geometry uses Gmsh OCC booleans to fuse:
+    - a central hub cylinder aligned with the rotor axis (Y),
+    - one radial connector cylinder per blade, and
+    - a spherical nose on the front face so the hub is not flat.
+
+    The hub dimensions are derived from the blade definition when not given
+    explicitly. In particular, the default hub length is slightly larger than
+    the diameter of the first blade profile.
+    """
+
+    SURFACE_SET_NAME = "hub_surface"
+
+    def __init__(
+        self,
+        yaml_file: str | None = None,
+        n_blades: int = 3,
+        hub_radius: float | None = None,
+        hub_diameter: float | None = None,
+        rotor_diameter: float | None = None,
+        element_size: float = 0.1,
+        n_samples: int = 300,
+        excel_file: str | None = None,
+        airfoil_dir: str | None = None,
+        airfoil_spacing: str = "constant",
+        hub_length: float | None = None,
+        connector_radius: float | None = None,
+        nose_radius: float | None = None,
+        hub_length_factor: float = 1.1,
+        connector_radius_factor: float = 0.5,
+        connector_length_factor: float = 0.25,
+    ):
+        self.yaml_file = yaml_file
+        self.excel_file = excel_file
+        self.airfoil_dir = airfoil_dir
+        self.n_blades = n_blades
+        self.hub_radius = hub_radius
+        self.hub_diameter = hub_diameter
+        self.rotor_diameter = rotor_diameter
+        self.element_size = element_size
+        self.n_samples = n_samples
+        self.airfoil_spacing = airfoil_spacing
+
+        self.hub_length = hub_length
+        self.connector_radius = connector_radius
+        self.nose_radius = nose_radius
+        self.hub_length_factor = hub_length_factor
+        self.connector_radius_factor = connector_radius_factor
+        self.connector_length_factor = connector_length_factor
+
+        self._numad_blade = None
+
+    def generate(self, renumber: str | None = None, verbose: bool = True) -> "MeshModel":
+        """Generate the fused hub surface mesh."""
+        from aeroelast.core.mesh.model import MeshModel
+
+        self._load_blade_definition(verbose=verbose)
+
+        actual_hub_radius, hub_radius_source = self._resolve_hub_radius()
+        root_profile = self._first_profile_coords()
+        root_diameter = self._estimate_first_profile_diameter(root_profile)
+        hub_length, connector_length, connector_radius, nose_radius = (
+            self._resolve_hub_geometry_parameters(actual_hub_radius, root_diameter)
+        )
+
+        if verbose:
+            print("\nGenerating rotor hub mesh...")
+            if hub_radius_source == "explicit":
+                print(f"  Using explicit hub radius: {actual_hub_radius}")
+            else:
+                print(
+                    "  Using hub radius from blade definition "
+                    f"({hub_radius_source}): {actual_hub_radius}"
+                )
+            print(f"  First profile diameter: {root_diameter:.3f} m")
+            print(f"  Hub length: {hub_length:.3f} m")
+            print(f"  Connector length: {connector_length:.3f} m")
+            print(f"  Connector radius: {connector_radius:.3f} m")
+            print(f"  Nose radius: {nose_radius:.3f} m")
+
+        gmsh = _import_gmsh()
+        gmsh.initialize()
+        try:
+            gmsh.option.setNumber("General.Terminal", 0)
+            gmsh.model.add("rotor_hub")
+
+            self._create_geometry(
+                hub_radius=actual_hub_radius,
+                hub_length=hub_length,
+                connector_length=connector_length,
+                connector_radius=connector_radius,
+                nose_radius=nose_radius,
+            )
+            self._configure_mesh(root_diameter=root_diameter)
+
+            gmsh.model.occ.synchronize()
+
+            surface_tags = [tag for dim, tag in gmsh.model.getEntities(2)]
+            if surface_tags:
+                gmsh.model.addPhysicalGroup(2, surface_tags, name=self.SURFACE_SET_NAME)
+
+            gmsh.model.mesh.generate(2)
+
+            mesh_model = self._create_mesh_model(MeshModel)
+            if renumber is not None:
+                mesh_model.renumber_mesh(algorithm=renumber)
+
+            if verbose:
+                print(
+                    f"  Rotor hub mesh generated: {mesh_model.node_count} nodes, "
+                    f"{mesh_model.elements_count} elements"
+                )
+
+            return mesh_model
+        finally:
+            gmsh.finalize()
+
+    def _load_blade_definition(self, verbose: bool = True) -> None:
+        """Load the blade definition and update its geometry without meshing."""
+        try:
+            from aeroelast.models.blade.numad import Blade as numadBlade
+        except ImportError as exc:
+            raise ImportError(
+                "RotorHubMesh requires the numad module. "
+                "Make sure aeroelast.models.blade.numad is available."
+            ) from exc
+
+        if verbose:
+            print("  Loading blade definition for hub geometry...")
+
+        self._numad_blade = numadBlade()
+        if self.excel_file:
+            self._numad_blade.read_excel(self.excel_file, airfoil_dir=self.airfoil_dir)
+        elif self.yaml_file:
+            self._numad_blade.read_yaml(self.yaml_file)
+        else:
+            raise ValueError("RotorHubMesh requires either yaml_file or excel_file")
+
+        for station in self._numad_blade.definition.stations:
+            station.airfoil.resample(n_samples=self.n_samples, spacing=self.airfoil_spacing)
+
+        self._numad_blade.update_blade()
+
+    def _resolve_hub_radius(self) -> tuple[float, str]:
+        """Resolve the hub radius using the same priority as RotorMesh."""
+        if self._numad_blade is None:
+            raise RuntimeError("Blade definition has not been initialized yet.")
+
+        definition = self._numad_blade.definition
+        if self.hub_diameter is not None:
+            definition.hub_diameter = float(self.hub_diameter)
+        if self.rotor_diameter is not None:
+            definition.rotor_diameter = float(self.rotor_diameter)
+
+        try:
+            return definition.resolve_hub_radius(override=self.hub_radius)
+        except ValueError as exc:
+            if (
+                self.excel_file is not None
+                and self.hub_radius is None
+                and self.hub_diameter is None
+                and self.rotor_diameter is None
+            ):
+                raise ValueError(
+                    "Unable to determine hub radius from Excel blade definition. "
+                    "Pass hub_radius explicitly or provide hub_diameter/rotor_diameter "
+                    "when exporting a RotorHubMesh from Excel."
+                ) from exc
+            raise
+
+    def _first_profile_coords(self) -> np.ndarray:
+        """Return XYZ coordinates of the first blade profile from the updated geometry."""
+        if self._numad_blade is None:
+            raise RuntimeError("Blade definition has not been initialized yet.")
+
+        coords = np.asarray(self._numad_blade.geometry.coordinates, dtype=float)
+        if coords.ndim != 3 or coords.shape[2] == 0:
+            raise ValueError("Blade geometry does not contain any spanwise stations.")
+        return coords[:, :, 0]
+
+    @staticmethod
+    def _estimate_first_profile_diameter(profile_coords: np.ndarray) -> float:
+        """Estimate the first-profile diameter from its XY footprint."""
+        profile_coords = np.asarray(profile_coords, dtype=float)
+        if profile_coords.ndim != 2 or profile_coords.shape[0] < 3 or profile_coords.shape[1] < 2:
+            raise ValueError("At least 3 profile points with XY coordinates are required.")
+
+        profile_xy = profile_coords[:, :2]
+        centroid = profile_xy.mean(axis=0)
+        radii = np.linalg.norm(profile_xy - centroid, axis=1)
+        diameter = 2.0 * float(radii.max())
+        if diameter <= 0.0:
+            raise ValueError("First profile diameter must be positive.")
+        return diameter
+
+    def _resolve_hub_geometry_parameters(
+        self,
+        hub_radius: float,
+        root_diameter: float,
+    ) -> tuple[float, float, float, float]:
+        """Resolve the fused hub geometry dimensions from defaults and overrides."""
+        hub_length = (
+            float(self.hub_length)
+            if self.hub_length is not None
+            else float(self.hub_length_factor * root_diameter)
+        )
+        # Extend past the hub surface by a fraction of the root diameter so the
+        # connector cylinder overlaps the hub and root region.
+        connector_length = float(hub_radius + self.connector_length_factor * root_diameter)
+        connector_radius = (
+            float(self.connector_radius)
+            if self.connector_radius is not None
+            else float(min(self.connector_radius_factor * root_diameter, 0.95 * hub_radius))
+        )
+        nose_radius = float(self.nose_radius) if self.nose_radius is not None else float(hub_radius)
+
+        if hub_length <= 0.0:
+            raise ValueError("Hub length must be positive.")
+        if connector_length <= 0.0:
+            raise ValueError("Connector length must be positive.")
+        if connector_radius <= 0.0:
+            raise ValueError("Connector radius must be positive.")
+        if nose_radius <= 0.0:
+            raise ValueError("Nose radius must be positive.")
+
+        return hub_length, connector_length, connector_radius, nose_radius
+
+    def _create_geometry(
+        self,
+        hub_radius: float,
+        hub_length: float,
+        connector_length: float,
+        connector_radius: float,
+        nose_radius: float,
+    ) -> None:
+        """Create and fuse the central hub, blade connectors, and front nose."""
+        hub_cylinder = gmsh.model.occ.addCylinder(
+            0.0,
+            -0.5 * hub_length,
+            0.0,
+            0.0,
+            hub_length,
+            0.0,
+            hub_radius,
+        )
+        front_nose = gmsh.model.occ.addSphere(0.0, -0.5 * hub_length, 0.0, nose_radius)
+
+        tools = [(3, front_nose)]
+        for blade_idx in range(self.n_blades):
+            angle_rad = blade_idx * 2.0 * np.pi / self.n_blades
+            direction = np.array([np.sin(angle_rad), 0.0, np.cos(angle_rad)], dtype=float)
+            connector = gmsh.model.occ.addCylinder(
+                0.0,
+                0.0,
+                0.0,
+                *(direction * connector_length),
+                connector_radius,
+            )
+            tools.append((3, connector))
+
+        gmsh.model.occ.fuse([(3, hub_cylinder)], tools, removeObject=True, removeTool=True)
+
+    def _configure_mesh(self, root_diameter: float) -> None:
+        """Configure a reasonable surface mesh size for the hub geometry."""
+        surface_size = min(float(self.element_size), 0.25 * root_diameter)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMin", surface_size)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", surface_size)
+        gmsh.option.setNumber("Mesh.Algorithm", 6)
+
+    def _create_mesh_model(self, MeshModelClass) -> "MeshModel":
+        """Convert the meshed Gmsh hub surfaces into a MeshModel."""
+        mesh_model = MeshModelClass()
+
+        elem_types, elem_tags_list, elem_node_tags_list = gmsh.model.mesh.getElements(2, -1)
+        used_node_tags = set()
+        parsed_elements = []
+
+        for i, elem_type in enumerate(elem_types):
+            props = gmsh.model.mesh.getElementProperties(elem_type)
+            num_nodes = props[3]
+            current_elem_tags = np.asarray(elem_tags_list[i], dtype=np.int64)
+            current_elem_node_tags = np.asarray(elem_node_tags_list[i], dtype=np.int64).reshape(
+                -1, num_nodes
+            )
+            parsed_elements.append((current_elem_tags, current_elem_node_tags))
+            for tags in current_elem_node_tags:
+                used_node_tags.update(tags)
+
+        node_tags, coords, _ = gmsh.model.mesh.getNodes()
+        coords = np.asarray(coords, dtype=float).reshape(-1, 3)
+
+        node_map = {}
+        for tag, coord in zip(node_tags, coords):
+            if tag not in used_node_tags:
+                continue
+            node = Node(coord, geometric_node=True)
+            mesh_model.add_node(node)
+            node_map[int(tag)] = node
+
+        for elem_tags, current_elem_node_tags in parsed_elements:
+            del elem_tags
+            for nodes_gmsh in current_elem_node_tags:
+                nodes = [node_map[int(tag)] for tag in nodes_gmsh]
+                element_type = ELEMENT_NODES_MAP.get(len(nodes))
+                if element_type is None:
+                    continue
+                mesh_model.add_element(MeshElement(nodes=nodes, element_type=element_type))
+
+        all_nodes = set(mesh_model.nodes)
+        all_elements = set(mesh_model.elements)
+        mesh_model.add_node_set(NodeSet(name="all", nodes=all_nodes))
+        mesh_model.add_node_set(NodeSet(name=self.SURFACE_SET_NAME, nodes=all_nodes))
+        mesh_model.add_element_set(ElementSet(name=self.SURFACE_SET_NAME, elements=all_elements))
+
+        return mesh_model
 
 
 class CylindricalSurfaceMesh:
@@ -2933,8 +3297,8 @@ class MixedElementBeamMesh:
 
     def generate(self) -> "MeshModel":
         """Generate beam mesh with mixed elements."""
+        from aeroelast.core.mesh.entities import ElementSet, Node
         from aeroelast.core.mesh.model import MeshModel
-        from aeroelast.core.mesh.entities import Node, ElementSet
 
         Node._id_counter = 0
         MeshElement._id_counter = 0
@@ -3114,8 +3478,8 @@ class PyramidTransitionMesh:
 
     def generate(self) -> "MeshModel":
         """Generate mesh with pyramid transitions."""
+        from aeroelast.core.mesh.entities import ElementSet, Node
         from aeroelast.core.mesh.model import MeshModel
-        from aeroelast.core.mesh.entities import Node, ElementSet
 
         Node._id_counter = 0
         MeshElement._id_counter = 0

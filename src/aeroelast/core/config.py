@@ -509,6 +509,23 @@ class NodeSetConfig:
 
 
 @dataclass
+class MeshPartExportConfig:
+    """Configuration for exporting named mesh parts into separate files."""
+
+    enabled: bool = False
+    format: str = "stl"
+    output_dir: str = "mesh_parts"
+
+    def __post_init__(self):
+        mesh_format = self.format.lstrip(".").lower()
+        if not mesh_format:
+            raise ValueError("Mesh part export format cannot be empty")
+        if not self.output_dir:
+            raise ValueError("Mesh part export output_dir cannot be empty")
+        self.format = mesh_format
+
+
+@dataclass
 class MeshGeneratorConfig:
     """Configuration for mesh generation."""
 
@@ -545,6 +562,7 @@ class MeshConfig:
     # Output mesh file (format inferred from extension)
     # Supported formats: .vtk, .vtu, .msh, .inp (CalculiX), .h5/.hdf5, .obj, .stl
     output_file: Optional[str] = None
+    export_parts: Optional[MeshPartExportConfig] = None
     # Renumbering algorithm applied after loading/generating ("rcm" or None)
     renumber: Optional[str] = None
     # Node sets created by geometric criteria after loading
@@ -1020,6 +1038,7 @@ class FSISimulationConfig:
         mesh_data = data.get("mesh", {})
         mesh_file = None
         mesh_generator = None
+        export_parts_config = None
 
         if mesh_data.get("source") == MeshSource.FILE.value:
             file_data = mesh_data.get("file", {})
@@ -1048,6 +1067,14 @@ class FSISimulationConfig:
                 for ns in node_sets_data
             ]
 
+        export_parts_data = mesh_data.get("export_parts")
+        if export_parts_data is not None:
+            export_parts_data = dict(export_parts_data)
+            output_dir = export_parts_data.get("output_dir")
+            if base_path and output_dir and not Path(output_dir).is_absolute():
+                export_parts_data["output_dir"] = str(base_path / output_dir)
+            export_parts_config = MeshPartExportConfig(**export_parts_data)
+
         mesh_config = MeshConfig(
             source=mesh_data.get("source"),
             file=mesh_file,
@@ -1055,6 +1082,7 @@ class FSISimulationConfig:
             output_file=mesh_data.get(
                 "output_file", mesh_data.get("output_vtk")
             ),  # backward compat
+            export_parts=export_parts_config,
             renumber=mesh_data.get("renumber"),
             node_sets=node_sets_config,
         )

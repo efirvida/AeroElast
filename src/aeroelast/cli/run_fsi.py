@@ -60,6 +60,13 @@ mesh:
   # Supported formats: .vtk, .vtu, .msh, .inp (CalculiX), .h5/.hdf5, .obj, .stl
   output_file: "mesh.vtk"
 
+    # Optional: Export separate files for rotor blades.
+    # Currently this supports RotorMesh blade parts only; hub geometry is not generated.
+    # export_parts:
+    #   enabled: true
+    #   format: "stl"
+    #   output_dir: "mesh_parts"
+
   # Optional: Renumber mesh for better solver performance
   # renumber: "rcm"  # Reverse Cuthill-McKee reordering
 
@@ -270,9 +277,13 @@ GENERATOR_TEMPLATES = {
     params:
       yaml_file: "reference_turbines/yamls/IEA-15-240-RWT.yaml"  # Path to blade YAML
       n_blades: 3          # Number of blades in rotor
-      hub_radius: null     # Hub radius [m] (null = use blade definition)
+            hub_radius: null     # Hub radius [m] (null = use blade definition or derive from rotor radius)
       element_size: 0.5    # Target element size [m]
       n_samples: 300       # Samples for airfoil discretization
+    export_parts:
+        enabled: true
+        format: "stl"
+        output_dir: "blade_parts"
 """,
     "BladeMesh": """  generator:
     type: "BladeMesh"

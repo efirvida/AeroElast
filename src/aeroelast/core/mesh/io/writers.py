@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, Optional
 
 import meshio
 import numpy as np
@@ -260,7 +260,7 @@ def _prop_isotropic_data(prop) -> dict:
 
 
 # ============================================================================
-# Boundary loop utilities for STL tip closing
+# Boundary loop utilities for STL boundary closing
 # ============================================================================
 
 
@@ -462,9 +462,8 @@ def write_meshio(mesh: "MeshModel", filename: str, close_tip: bool = None, **kwa
     filename : str
         Output file path.  Format is inferred from extension.
     close_tip : bool, optional
-        When *True* and the output format is STL, boundary loops at the
-        blade tip (maximum spanwise coordinate) are capped with fan
-        triangles so the resulting STL is watertight.
+        When *True* and the output format is STL, open boundary loops are
+        capped with fan triangles so the resulting STL is watertight.
         *None* (default) auto-enables for STL format.
     **kwargs
         Extra arguments forwarded to :func:`meshio.write`.
@@ -537,24 +536,15 @@ def write_meshio(mesh: "MeshModel", filename: str, close_tip: bool = None, **kwa
                     triangles.append([indices[0], indices[1], indices[2]])
                     triangles.append([indices[0], indices[2], indices[3]])
 
-            # Close blade tip boundary loops
+            # Close shell boundary loops so exported STL parts are watertight.
             if close_tip and triangles:
                 loops = _find_boundary_loops(mesh)
                 if loops:
-                    # Identify the tip loop: highest average spanwise coord (Z)
-                    coords = mesh.coords_array
                     id_to_idx = mesh.node_id_to_index
-                    loop_avg_z = []
                     for loop in loops:
-                        avg_z = np.mean([coords[id_to_idx[nid], 2] for nid in loop])
-                        loop_avg_z.append(avg_z)
-                    tip_loop_idx = int(np.argmax(loop_avg_z))
-                    tip_loop = loops[tip_loop_idx]
-
-                    cap_tris, centroid = _cap_tip_loop(tip_loop, points, id_to_idx)
-                    # Append centroid to points array
-                    points = np.vstack([points, centroid.reshape(1, 3)])
-                    triangles.extend(cap_tris)
+                        cap_tris, centroid = _cap_tip_loop(loop, points, id_to_idx)
+                        points = np.vstack([points, centroid.reshape(1, 3)])
+                        triangles.extend(cap_tris)
 
             if triangles:
                 cells = [("triangle", np.array(triangles))]
@@ -1074,13 +1064,15 @@ def _write_ccx_inp_file(
 def _write_ccx_materials(f, properties: Dict) -> None:
     """Write *MATERIAL blocks for every unique material found in properties."""
     try:
-        from _aeroelast import Laminate as _RL, OrthotropicMaterial as _RMat  # noqa: PLC0415
+        from _aeroelast import Laminate as _RL  # noqa: PLC0415
+        from _aeroelast import OrthotropicMaterial as _RMat
 
         _has_rust = True
     except ImportError:
         _has_rust = False
     try:
-        from aeroelast.core.material import IsotropicMaterial, OrthotropicMaterial as PyOrtho  # noqa: PLC0415
+        from aeroelast.core.material import IsotropicMaterial  # noqa: PLC0415
+        from aeroelast.core.material import OrthotropicMaterial as PyOrtho
         from aeroelast.core.properties import CompositeShellProperty, ShellProperty  # noqa: PLC0415
 
         _has_py = True
@@ -1575,12 +1567,12 @@ def _write_ccx_modal_step(
 
     if boundary_nodeset:
         nset_name = f"N{boundary_nodeset.upper()}"
-        f.write(f"*BOUNDARY\n")
+        f.write("*BOUNDARY\n")
         f.write(f"{nset_name}, 1, 6, 0.0\n")
     else:
         # Fall back to first available node set
         for name in mesh.node_sets:
-            f.write(f"*BOUNDARY\n")
+            f.write("*BOUNDARY\n")
             f.write(f"N{name.upper()}, 1, 6, 0.0\n")
             break
 

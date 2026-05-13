@@ -15,8 +15,8 @@ Or from command line:
 """
 
 import logging
-import time
 import os
+import time
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
@@ -477,6 +477,8 @@ class FSIRunner:
             mesh.write_mesh(self.config.mesh.output_file)
             self._console.print(f"      Written: {self.config.mesh.output_file}")
 
+        self._export_mesh_parts(mesh)
+
         # Print mesh statistics
         self._print_mesh_statistics(mesh)
 
@@ -485,6 +487,32 @@ class FSIRunner:
             self._log_mesh_analysis(mesh)
 
         return mesh
+
+    def _export_mesh_parts(self, mesh: MeshModel) -> None:
+        """Export configured mesh parts into separate files."""
+        export_cfg = self.config.mesh.export_parts
+        if export_cfg is None or not export_cfg.enabled:
+            return
+
+        set_names = sorted(
+            name
+            for name in mesh.element_sets_names
+            if name.startswith(RotorMesh.BLADE_PART_SET_PREFIX)
+        )
+        if not set_names:
+            raise ValueError(
+                "mesh.export_parts is enabled, but no rotor blade element sets were found. "
+                "This option currently supports RotorMesh blade exports."
+            )
+
+        written_files = mesh.write_element_sets(
+            export_cfg.output_dir,
+            set_names,
+            export_cfg.format,
+        )
+        self._console.print(
+            f"      Written {len(written_files)} mesh parts to: {export_cfg.output_dir}"
+        )
 
     def _print_mesh_statistics(self, mesh: MeshModel) -> None:
         """Print mesh topology and element size statistics."""
@@ -666,14 +694,27 @@ class FSIRunner:
         params = gen_config.params
 
         if gen_config.type == MeshGeneratorType.ROTOR.value:
-            yaml_file = params["yaml_file"]
-            if self.config_path and not Path(yaml_file).is_absolute():
+            yaml_file = params.get("yaml_file")
+            excel_file = params.get("excel_file")
+            airfoil_dir = params.get("airfoil_dir")
+            hub_diameter = params.get("hub_diameter")
+            rotor_diameter = params.get("rotor_diameter")
+
+            if yaml_file and self.config_path and not Path(yaml_file).is_absolute():
                 yaml_file = str(self.config_path.parent / yaml_file)
+            if excel_file and self.config_path and not Path(excel_file).is_absolute():
+                excel_file = str(self.config_path.parent / excel_file)
+            if airfoil_dir and self.config_path and not Path(airfoil_dir).is_absolute():
+                airfoil_dir = str(self.config_path.parent / airfoil_dir)
 
             generator = RotorMesh(
                 yaml_file=yaml_file,
+                excel_file=excel_file,
+                airfoil_dir=airfoil_dir,
                 n_blades=params.get("n_blades", 3),
                 hub_radius=params.get("hub_radius"),
+                hub_diameter=hub_diameter,
+                rotor_diameter=rotor_diameter,
                 element_size=params.get("element_size", 0.5),
                 n_samples=params.get("n_samples", 300),
                 airfoil_spacing=params.get("airfoil_spacing", "constant"),
@@ -682,6 +723,8 @@ class FSIRunner:
             yaml_file = params.get("yaml_file")
             excel_file = params.get("excel_file")
             airfoil_dir = params.get("airfoil_dir")
+            hub_diameter = params.get("hub_diameter")
+            rotor_diameter = params.get("rotor_diameter")
 
             if yaml_file and self.config_path and not Path(yaml_file).is_absolute():
                 yaml_file = str(self.config_path.parent / yaml_file)
@@ -751,16 +794,25 @@ class FSIRunner:
             ).generate()
 
         elif gen_type == MeshGeneratorType.ROTOR.value:
-            # Resolve relative path for blade YAML if needed
-            yaml_file = params["yaml_file"]
-            if self.config_path and not Path(yaml_file).is_absolute():
-                # Path relative to config file
+            yaml_file = params.get("yaml_file")
+            excel_file = params.get("excel_file")
+            airfoil_dir = params.get("airfoil_dir")
+
+            if yaml_file and self.config_path and not Path(yaml_file).is_absolute():
                 yaml_file = str(self.config_path.parent / yaml_file)
+            if excel_file and self.config_path and not Path(excel_file).is_absolute():
+                excel_file = str(self.config_path.parent / excel_file)
+            if airfoil_dir and self.config_path and not Path(airfoil_dir).is_absolute():
+                airfoil_dir = str(self.config_path.parent / airfoil_dir)
 
             generator = RotorMesh(
                 yaml_file=yaml_file,
+                excel_file=excel_file,
+                airfoil_dir=airfoil_dir,
                 n_blades=params.get("n_blades", 3),
                 hub_radius=params.get("hub_radius"),
+                hub_diameter=hub_diameter,
+                rotor_diameter=rotor_diameter,
                 element_size=params.get("element_size", 0.5),
                 n_samples=params.get("n_samples", 300),
                 airfoil_spacing=params.get("airfoil_spacing", "constant"),
@@ -1500,6 +1552,7 @@ class FSIRunner:
     def _print_static_tip_results(self, result) -> None:
         """Extract tip-node displacements from the static solution and print + save to CSV."""
         import csv
+
         import numpy as np
         from rich.table import Table
 

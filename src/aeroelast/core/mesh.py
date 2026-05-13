@@ -28,12 +28,14 @@ from aeroelast.core.mesh import (  # Entities; Model; Generators; I/O
     MultiFlapMesh,
     Node,
     NodeSet,
+    RotorHubMesh,
     RotorMesh,
     SquareShapeMesh,
     load_hdf5,
     load_mesh,
     load_meshio,
     load_pickle,
+    selectors,
     write_ccx_mesh,
     write_gmsh_mesh,
     write_hdf5,
@@ -41,7 +43,6 @@ from aeroelast.core.mesh import (  # Entities; Model; Generators; I/O
     write_meshio,
     write_pickle,
     write_plot3d,
-    selectors,
 )
 
 __all__ = [
@@ -60,6 +61,7 @@ __all__ = [
     "MultiFlapMesh",
     "BladeMesh",
     "RotorMesh",
+    "RotorHubMesh",
     # Writers
     "write_mesh",
     "write_meshio",

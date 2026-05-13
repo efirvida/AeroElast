@@ -89,6 +89,11 @@ mesh:
       element_size: 0.5
   # Optional: write mesh to file for inspection / preCICE support-radius tuning
   # output_file: "fluid_mesh.vtk"
+    # Optional: export separate rotor blades when using RotorMesh
+    # export_parts:
+    #   enabled: true
+    #   format: "stl"
+    #   output_dir: "blade_parts"
 
 bem:
   wind_speed: 10.59           # m/s
@@ -173,13 +178,28 @@ def _build_mesh(cfg: dict, config_path: Path):
             mesh = generator.generate(renumber=None)
 
         elif gen_type == MeshGeneratorType.ROTOR.value:
-            yaml_file = _resolve(params["yaml_file"])
+            yaml_file = params.get("yaml_file")
+            excel_file = params.get("excel_file")
+            airfoil_dir = params.get("airfoil_dir")
+            hub_diameter = params.get("hub_diameter")
+            rotor_diameter = params.get("rotor_diameter")
+            if yaml_file:
+                yaml_file = _resolve(yaml_file)
+            if excel_file:
+                excel_file = _resolve(excel_file)
+            if airfoil_dir:
+                airfoil_dir = _resolve(airfoil_dir)
             generator = RotorMesh(
                 yaml_file=yaml_file,
+                excel_file=excel_file,
+                airfoil_dir=airfoil_dir,
                 n_blades=params.get("n_blades", 3),
                 hub_radius=params.get("hub_radius"),
+                hub_diameter=hub_diameter,
+                rotor_diameter=rotor_diameter,
                 element_size=params.get("element_size", 0.5),
                 n_samples=params.get("n_samples", 300),
+                airfoil_spacing=params.get("airfoil_spacing", "constant"),
             )
             mesh = generator.generate(renumber="rcm")
 
@@ -238,13 +258,36 @@ def _build_mesh(cfg: dict, config_path: Path):
         mesh.write_mesh(_resolve(output_file))
         logging.info("[BEM-FSI] Mesh written to %s", output_file)
 
+    export_parts_cfg = mesh_cfg.get("export_parts")
+    if export_parts_cfg and export_parts_cfg.get("enabled", False):
+        mesh_format = str(export_parts_cfg.get("format", "stl")).lstrip(".").lower()
+        output_dir = _resolve(export_parts_cfg.get("output_dir", "mesh_parts"))
+        set_names = sorted(
+            name
+            for name in mesh.element_sets_names
+            if name.startswith(RotorMesh.BLADE_PART_SET_PREFIX)
+        )
+        if not set_names:
+            raise ValueError(
+                "mesh.export_parts is enabled, but no rotor blade element sets were found. "
+                "This option currently supports RotorMesh blade exports."
+            )
+        written_files = mesh.write_element_sets(output_dir, set_names, mesh_format)
+        logging.info(
+            "[BEM-FSI] Wrote %d mesh parts to %s",
+            len(written_files),
+            output_dir,
+        )
+
     # Optional: filter to a specific node set (e.g. "allOuterShellNods" to
     # exclude shear-web nodes from the aerodynamic coupling mesh).
     # The BEM participant only needs node coordinates for preCICE registration
     # and force projection — elements are not required after this point.
     # The full mesh (with elements) is kept as viz_mesh for VTU surface output.
     viz_mesh = None
-    coupling_node_set = gen_cfg.get("coupling_node_set") if source != MeshSource.FILE.value else None
+    coupling_node_set = (
+        gen_cfg.get("coupling_node_set") if source != MeshSource.FILE.value else None
+    )
     if coupling_node_set:
         try:
             ns = mesh.get_node_set(coupling_node_set)

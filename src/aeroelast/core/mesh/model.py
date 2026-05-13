@@ -543,6 +543,71 @@ class MeshModel:
                 set_names.append(e_set)
         return set_names
 
+    def extract_submesh(self, element_set_names: str | Iterable[str]) -> "MeshModel":
+        """Create a new mesh containing only elements from the requested sets.
+
+        Intersecting node sets and element sets are preserved in the resulting
+        mesh when they contain at least one entity from the extracted subset.
+        """
+        if isinstance(element_set_names, str):
+            requested_names = [element_set_names]
+        else:
+            requested_names = list(element_set_names)
+
+        if not requested_names:
+            raise ValueError("At least one element set name is required to extract a submesh.")
+
+        missing = [name for name in requested_names if name not in self.element_sets]
+        if missing:
+            raise ValueError(f"Element sets not found: {missing}")
+
+        selected_element_ids = set()
+        for name in requested_names:
+            selected_element_ids.update(self.element_sets[name].element_ids)
+
+        if not selected_element_ids:
+            raise ValueError(f"Selected element sets contain no elements: {requested_names}")
+
+        submesh = MeshModel()
+        node_map: Dict[int, Node] = {}
+
+        selected_node_ids: Set[int] = set()
+        for element in self.elements:
+            if element.id in selected_element_ids:
+                selected_node_ids.update(element.node_ids)
+
+        for node in self.nodes:
+            if node.id not in selected_node_ids:
+                continue
+            new_node = Node(node.coords.copy(), geometric_node=node.geometric_node)
+            submesh.add_node(new_node)
+            node_map[node.id] = new_node
+
+        element_map: Dict[int, MeshElement] = {}
+        for element in self.elements:
+            if element.id not in selected_element_ids:
+                continue
+            new_nodes = [node_map[node.id] for node in element.nodes]
+            new_element = MeshElement(new_nodes, element.element_type)
+            submesh.add_element(new_element)
+            element_map[element.id] = new_element
+
+        for name, node_set in self.node_sets.items():
+            subset_nodes = {node_map[node_id] for node_id in node_set.node_ids if node_id in node_map}
+            if subset_nodes:
+                submesh.add_node_set(NodeSet(name, subset_nodes))
+
+        for name, element_set in self.element_sets.items():
+            subset_elements = {
+                element_map[element.id]
+                for element in element_set.elements
+                if element.id in element_map
+            }
+            if subset_elements:
+                submesh.add_element_set(ElementSet(name, subset_elements))
+
+        return submesh
+
     # =========================================================================
     # I/O Methods
     # =========================================================================
@@ -561,6 +626,38 @@ class MeshModel:
             Additional arguments passed to the underlying writer.
         """
         write_mesh(self, filename, **kwargs)
+
+    def write_element_sets(
+        self,
+        output_dir: str | Path,
+        element_set_names: Iterable[str],
+        file_format: str,
+        **kwargs,
+    ) -> List[Path]:
+        """Write one file per requested element set.
+
+        Parameters
+        ----------
+        output_dir : str or Path
+            Directory where the part files will be written.
+        element_set_names : Iterable[str]
+            Element set names to export.
+        file_format : str
+            Output format/extension without leading dot, e.g. ``"stl"``.
+        **kwargs
+            Extra arguments forwarded to :meth:`write_mesh` for each part.
+        """
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        mesh_format = file_format.lstrip(".")
+        written_files: List[Path] = []
+        for set_name in element_set_names:
+            target_path = output_dir / f"{set_name}.{mesh_format}"
+            self.extract_submesh(set_name).write_mesh(str(target_path), **kwargs)
+            written_files.append(target_path)
+
+        return written_files
 
     def save(self, filepath: str, format: str = "auto", compression: str = "gzip") -> None:
         """

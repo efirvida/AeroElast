@@ -1,4 +1,5 @@
 # for type hints
+import numpy as np
 from numpy import ndarray
 
 from aeroelast.models.blade.numad.objects.airfoil import Airfoil
@@ -172,3 +173,73 @@ class Definition:
         self.stations.append(new_station)
 
         return self
+
+    @property
+    def blade_length(self) -> float | None:
+        """Blade length inferred from the available span definition."""
+        span_source = self.span if self.span is not None else self.ispan
+        if span_source is None or len(span_source) == 0:
+            return None
+
+        span = np.asarray(span_source, dtype=float)
+        return float(span.max() - span.min())
+
+    @property
+    def rotor_radius(self) -> float | None:
+        """Rotor radius derived from ``rotor_diameter`` when available."""
+        if self.rotor_diameter is None:
+            return None
+        return float(self.rotor_diameter) / 2.0
+
+    def resolve_hub_radius(
+        self, override: float | None = None, *, tolerance: float = 1e-6
+    ) -> tuple[float, str]:
+        """Resolve hub radius from explicit input or NuMAD/WindIO geometry.
+
+        Resolution priority is:
+        1. Explicit ``override`` provided by the caller.
+        2. ``hub_diameter / 2`` when the hub definition exists.
+        3. ``rotor_diameter / 2 - blade_length`` as a fallback.
+
+        Returns
+        -------
+        tuple[float, str]
+            The resolved hub radius and a short string describing the source.
+        """
+        if override is not None:
+            radius = float(override)
+            if radius < 0:
+                raise ValueError(f"hub_radius must be non-negative, got {radius}")
+            return radius, "explicit"
+
+        direct_radius = None
+        if self.hub_diameter is not None:
+            direct_radius = float(self.hub_diameter) / 2.0
+
+        derived_radius = None
+        blade_length = self.blade_length
+        rotor_radius = self.rotor_radius
+        if rotor_radius is not None and blade_length is not None:
+            derived_radius = rotor_radius - blade_length
+
+        if direct_radius is not None:
+            radius = direct_radius
+            source = "hub_diameter"
+        elif derived_radius is not None:
+            radius = derived_radius
+            source = "rotor_diameter_minus_blade_length"
+        else:
+            raise ValueError(
+                "Unable to determine hub radius from blade definition. "
+                "Provide hub_radius explicitly or ensure the YAML defines hub diameter "
+                "or a consistent rotor diameter and blade span."
+            )
+
+        if radius < -tolerance:
+            raise ValueError(
+                f"Resolved hub radius is negative ({radius}). Check hub and rotor geometry."
+            )
+        if radius < 0:
+            radius = 0.0
+
+        return float(radius), source
