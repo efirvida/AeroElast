@@ -2693,34 +2693,37 @@ impl Mitc4Precomputed {
 // ============================================================================
 
 impl Mitc4Precomputed {
-    /// Polar decomposition: F = R · U using Symmetric SVD approximation
-    /// For 3×3, we compute U = sqrt(C) where C = F^T·F, then R = F·U^{-1}
-    /// Returns (R_inc, U_inc)
+    /// Polar decomposition: F = R · U via SVD.
+    ///
+    /// Uses F = U_svd · Σ · V^T, then R = U_svd · V^T and U = R^T · F.
+    /// If det(R) < 0, applies Umeyama-style correction by flipping the
+    /// column associated with the smallest singular value.
     pub fn polar_decomposition(h: &Matrix3<f64>) -> (Matrix3<f64>, Matrix3<f64>) {
         let f = Matrix3::identity() + h;
-        
-        // Compute C = F^T · F (right Cauchy-Green)
-        let ct = f.transpose() * &f;
-        
-        // For small strains, use Newton iteration to find U ≈ sqrt(C)
-        // U = 0.5*(C + I) as initial guess, then iterate: U_new = 0.5*(U + C*U^{-1})
-        let mut u = 0.5 * (&ct + Matrix3::identity());
-        for _ in 0..3 {
-            if let Some(u_inv) = u.try_inverse() {
-                u = 0.5 * (&u + &ct * &u_inv);
-            } else {
-                break;
+
+        let svd = f.svd(true, true);
+        let u_mat = svd.u.expect("SVD U failed");
+        let vt = svd.v_t.expect("SVD Vt failed");
+
+        let mut r = u_mat * vt;
+
+        if r.determinant() < 0.0 {
+            let mut min_idx = 0usize;
+            let mut min_sigma = svd.singular_values[0];
+            for i in 1..3 {
+                if svd.singular_values[i] < min_sigma {
+                    min_sigma = svd.singular_values[i];
+                    min_idx = i;
+                }
             }
+
+            let mut u_corr = u_mat;
+            u_corr.set_column(min_idx, &(-u_mat.column(min_idx)));
+            r = u_corr * vt;
         }
-        
-        // R = F · U^{-1}
-        let r_inc = if let Some(u_inv) = u.try_inverse() {
-            &f * &u_inv
-        } else {
-            Matrix3::identity()
-        };
-        
-        (r_inc, u)
+
+        let u_stretch = r.transpose() * f;
+        (r, u_stretch)
     }
 
     /// Compute log strain from the right stretch tensor U.
