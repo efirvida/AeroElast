@@ -932,11 +932,25 @@ impl MeshAssembler {
         (rows, cols, vals)
     }
 
-    /// Assemble corotational tangent stiffness matrix K_T^coro.
+    /// Assemble corotational tangent stiffness matrix `K_T^coro`.
     ///
-    /// For MITC3/MITC4 elements uses element-level corotational primitives.
-    /// For non-shell elements falls back to linear `K_e` assembly (same behavior
-    /// as `assemble_kt`), logging a warning once per process.
+    /// What it does:
+    /// - MITC3/MITC4: dispatches to element-level corotational tangents
+    ///   (`compute_kt_corotational`), then scatters into global COO.
+    /// - Non-shell elements: falls back to linear `K_e` (same behavior as
+    ///   [`Self::assemble_kt`]) and logs a one-time warning.
+    ///
+    /// Current limitation:
+    /// - This phase is first-order corotational and does **not** add an explicit
+    ///   geometric stiffness contribution `K_σ` at assembly time.
+    ///   Use [`Self::assemble_geometric_k`] (or solver-level `K_G` updates) when
+    ///   geometric/prestress effects are required.
+    ///
+    /// When to use:
+    /// - Use this method for large rigid-body rotations where frame objectivity
+    ///   of the tangent is important.
+    /// - Use [`Self::assemble_kt`] for the baseline total-Lagrangian tangent or
+    ///   when you explicitly rely on its `K_σ` pathway.
     pub fn assemble_kt_corotational(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
         assert_eq!(u.len(), self.dofs_count, "displacement vector length mismatch");
 
