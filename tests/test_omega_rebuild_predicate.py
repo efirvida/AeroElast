@@ -356,5 +356,33 @@ def test_rotor_config_kg_custom_values_forwarded():
     assert d["kg_initial_prestress_iters"] == 3
 
 
+@pytest.mark.skipif(
+    _try_import_rotor_config() is None,
+    reason="aeroelast.core.config not importable in this environment",
+)
+def test_rotor_config_exposes_corotational_kt_defaults():
+    """RotorConfig.to_dict() must include corotational K_T flags with defaults."""
+    RotorConfig = _try_import_rotor_config()
+    cfg = RotorConfig()
+    d = cfg.to_dict()
+    assert "use_corotational_kt" in d, "use_corotational_kt missing from to_dict()"
+    assert "kt_coro_update_freq" in d, "kt_coro_update_freq missing from to_dict()"
+    assert d["use_corotational_kt"] is False
+    assert d["kt_coro_update_freq"] == 1
+
+
+@pytest.mark.skipif(
+    _try_import_rotor_config() is None,
+    reason="aeroelast.core.config not importable in this environment",
+)
+def test_rotor_config_forwards_corotational_kt_custom_values():
+    """Custom corotational K_T fields must be forwarded through to_dict()."""
+    RotorConfig = _try_import_rotor_config()
+    cfg = RotorConfig(use_corotational_kt=True, kt_coro_update_freq=5)
+    d = cfg.to_dict()
+    assert d["use_corotational_kt"] is True
+    assert d["kt_coro_update_freq"] == 5
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
