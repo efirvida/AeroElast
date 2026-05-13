@@ -5,6 +5,7 @@
 
 use nalgebra::Vector3;
 use rayon::prelude::*;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::assembly::topology::{ElemType, MeshTopology};
 use crate::elements::mitc3::{self, Mitc3Precomputed};
@@ -906,6 +907,153 @@ impl MeshAssembler {
                         solid::pyramid5_ke(c, e_mod, nu).as_slice().to_vec()
                     }
                     PrecomputedElem::Pyramid13(c) => {
+                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
+                        solid::pyramid13_ke(c, e_mod, nu).as_slice().to_vec()
+                    }
+                };
+                let mut r = Vec::new();
+                let mut c_idx = Vec::new();
+                let mut v = Vec::new();
+                scatter_elem_matrix(dofs, &kt_flat, &mut r, &mut c_idx, &mut v);
+                (r, c_idx, v)
+            })
+            .collect();
+
+        let total_nnz: usize = per_elem.iter().map(|(r, _, _)| r.len()).sum();
+        let mut rows = Vec::with_capacity(total_nnz);
+        let mut cols = Vec::with_capacity(total_nnz);
+        let mut vals = Vec::with_capacity(total_nnz);
+        for (r, c, v) in per_elem {
+            rows.extend(r);
+            cols.extend(c);
+            vals.extend(v);
+        }
+
+        (rows, cols, vals)
+    }
+
+    /// Assemble corotational tangent stiffness matrix K_T^coro.
+    ///
+    /// For MITC3/MITC4 elements uses element-level corotational primitives.
+    /// For non-shell elements falls back to linear `K_e` assembly (same behavior
+    /// as `assemble_kt`), logging a warning once per process.
+    pub fn assemble_kt_corotational(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
+        assert_eq!(u.len(), self.dofs_count, "displacement vector length mismatch");
+
+        static WARN_NON_SHELL_FALLBACK: AtomicBool = AtomicBool::new(false);
+
+        let per_elem: Vec<(Vec<i64>, Vec<i64>, Vec<f64>)> = (0..self.topology.n_elems)
+            .into_par_iter()
+            .map(|e| {
+                let dofs = &self.dof_connectivity[e];
+                let kt_flat: Vec<f64> = match &self.precomputed[e] {
+                    PrecomputedElem::Tri(pre) => {
+                        let ue = extract_elem_disp_18(u, dofs);
+                        let kt = mitc3::compute_kt_corotational(pre, ue.as_slice());
+                        kt.as_slice().to_vec()
+                    }
+                    PrecomputedElem::Quad(pre) => {
+                        let ue = extract_elem_disp_24(u, dofs);
+                        let kt = pre.compute_kt_corotational(ue.as_slice());
+                        kt.as_slice().to_vec()
+                    }
+                    // Fallback for non-shell elements
+                    PrecomputedElem::Plane4(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = plane_stress_en(&self.materials[e]);
+                        Quad4Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
+                    }
+                    PrecomputedElem::Plane8(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = plane_stress_en(&self.materials[e]);
+                        Quad8Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
+                    }
+                    PrecomputedElem::Plane9(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = plane_stress_en(&self.materials[e]);
+                        Quad9Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
+                    }
+                    PrecomputedElem::Hexa8(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
+                        solid::hexa8_ke(c, e_mod, nu).as_slice().to_vec()
+                    }
+                    PrecomputedElem::Hexa20(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
+                        solid::hexa20_ke(c, e_mod, nu).as_slice().to_vec()
+                    }
+                    PrecomputedElem::Tetra4(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
+                        solid::tetra4_ke(c, e_mod, nu).as_slice().to_vec()
+                    }
+                    PrecomputedElem::Tetra10(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
+                        solid::tetra10_ke(c, e_mod, nu).as_slice().to_vec()
+                    }
+                    PrecomputedElem::Wedge6(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
+                        solid::wedge6_ke(c, e_mod, nu).as_slice().to_vec()
+                    }
+                    PrecomputedElem::Wedge15(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
+                        solid::wedge15_ke(c, e_mod, nu).as_slice().to_vec()
+                    }
+                    PrecomputedElem::Pyramid5(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
+                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
+                        solid::pyramid5_ke(c, e_mod, nu).as_slice().to_vec()
+                    }
+                    PrecomputedElem::Pyramid13(c) => {
+                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
+                            eprintln!(
+                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
+                            );
+                        }
                         let (e_mod, nu) = solid3d_en(&self.materials[e]);
                         solid::pyramid13_ke(c, e_mod, nu).as_slice().to_vec()
                     }
@@ -1853,6 +2001,97 @@ mod tests {
         assert_eq!(vals_k.len(), vals_kt.len(), "K and KT should have same entries at u=0");
         for (v1, v2) in vals_k.iter().zip(vals_kt.iter()) {
             assert!((v1 - v2).abs() < 1e-6 * v1.abs().max(1.0), "K and KT differ at zero disp");
+        }
+    }
+
+    #[test]
+    fn test_assemble_kt_corotational_matches_kt_for_mitc3_zero_u() {
+        let asm = two_tri_assembler();
+        let u = vec![0.0f64; asm.dofs_count];
+        let (_, _, vals_kt) = asm.assemble_kt(&u);
+        let (_, _, vals_coro) = asm.assemble_kt_corotational(&u);
+        assert_eq!(vals_kt.len(), vals_coro.len());
+        for (a, b) in vals_kt.iter().zip(vals_coro.iter()) {
+            assert!((a - b).abs() < 1e-9 * a.abs().max(1.0));
+        }
+    }
+
+    #[test]
+    fn test_assemble_kt_corotational_matches_kt_for_single_mitc4_zero_u() {
+        let node_coords = vec![
+            0.0, 0.0, 0.0,
+            1.0, 0.0, 0.0,
+            1.0, 1.0, 0.0,
+            0.0, 1.0, 0.0,
+        ];
+        let connectivity = vec![vec![0usize, 1, 2, 3]];
+        let elem_types = vec![ElemType::Mitc4];
+        let topology = MeshTopology::new(node_coords, connectivity, elem_types);
+        let mat = MaterialSpec::Isotropic {
+            e: 2.0e11,
+            nu: 0.3,
+            rho: 7800.0,
+            thickness: 0.01,
+            shear_correction: 5.0 / 6.0,
+            drilling_scale: 1.0,
+        };
+        let asm = MeshAssembler::new(topology, vec![mat]);
+
+        let u = vec![0.0f64; asm.dofs_count];
+        let (_, _, vals_kt) = asm.assemble_kt(&u);
+        let (_, _, vals_coro) = asm.assemble_kt_corotational(&u);
+        assert_eq!(vals_kt.len(), vals_coro.len());
+        for (a, b) in vals_kt.iter().zip(vals_coro.iter()) {
+            assert!((a - b).abs() < 1e-9 * a.abs().max(1.0));
+        }
+    }
+
+    #[test]
+    fn test_assemble_kt_corotational_mixed_mitc3_mitc4_linear_sum_at_zero() {
+        let node_coords = vec![
+            0.0, 0.0, 0.0, // 0
+            1.0, 0.0, 0.0, // 1
+            1.0, 1.0, 0.0, // 2
+            0.0, 1.0, 0.0, // 3
+            2.0, 0.0, 0.0, // 4
+        ];
+        let connectivity = vec![
+            vec![0usize, 1, 2, 3], // MITC4
+            vec![1usize, 4, 2],    // MITC3
+        ];
+        let elem_types = vec![ElemType::Mitc4, ElemType::Mitc3];
+        let topology = MeshTopology::new(node_coords, connectivity, elem_types);
+        let mat = MaterialSpec::Isotropic {
+            e: 2.0e11,
+            nu: 0.3,
+            rho: 7800.0,
+            thickness: 0.01,
+            shear_correction: 5.0 / 6.0,
+            drilling_scale: 1.0,
+        };
+        let asm = MeshAssembler::new(topology, vec![mat.clone(), mat]);
+
+        let u = vec![0.0f64; asm.dofs_count];
+        let (_, _, vals_kt) = asm.assemble_kt(&u);
+        let (_, _, vals_coro) = asm.assemble_kt_corotational(&u);
+        assert_eq!(vals_kt.len(), vals_coro.len());
+        for (a, b) in vals_kt.iter().zip(vals_coro.iter()) {
+            assert!((a - b).abs() < 1e-8 * a.abs().max(1.0));
+        }
+    }
+
+    #[test]
+    fn test_assemble_kt_backward_compatibility_unchanged() {
+        let asm = two_tri_assembler();
+        let mut u = vec![0.0f64; asm.dofs_count];
+        for i in 0..asm.dofs_count {
+            u[i] = ((i as f64) * 1e-6).sin() * 1e-4;
+        }
+        let (_, _, vals_before) = asm.assemble_kt(&u);
+        let (_, _, vals_after) = asm.assemble_kt(&u);
+        assert_eq!(vals_before.len(), vals_after.len());
+        for (a, b) in vals_before.iter().zip(vals_after.iter()) {
+            assert_eq!(a, b);
         }
     }
 

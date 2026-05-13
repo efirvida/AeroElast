@@ -13,6 +13,7 @@
 
 use nalgebra::{DMatrix, DVector, Matrix2, Matrix3, SMatrix, SVector, Vector2, Vector3, Vector4};
 
+use crate::elements::corotational_utils;
 use crate::materials::ShellConstitutive;
 
 // ============================================================================
@@ -2204,7 +2205,7 @@ mod tests {
 
         let check_case = |f: Matrix3<f64>, expected_r: Option<Matrix3<f64>>| {
             let h = f - Matrix3::identity();
-            let (r, _u) = Mitc4Precomputed::polar_decomposition(&h);
+            let (r, _u) = corotational_utils::polar_decomposition(&h);
 
             let ortho_err = (r * r.transpose() - Matrix3::identity()).norm();
             assert!(ortho_err < tol, "R must be orthogonal, err={ortho_err:e}");
@@ -2950,39 +2951,6 @@ impl Mitc4Precomputed {
         0.5 * (&k_coro + k_coro.transpose())
     }
 
-    /// Polar decomposition: F = R · U via SVD.
-    ///
-    /// Uses F = U_svd · Σ · V^T, then R = U_svd · V^T and U = R^T · F.
-    /// If det(R) < 0, applies Umeyama-style correction by flipping the
-    /// column associated with the smallest singular value.
-    pub fn polar_decomposition(h: &Matrix3<f64>) -> (Matrix3<f64>, Matrix3<f64>) {
-        let f = Matrix3::identity() + h;
-
-        let svd = f.svd(true, true);
-        let u_mat = svd.u.expect("SVD U failed");
-        let vt = svd.v_t.expect("SVD Vt failed");
-
-        let mut r = u_mat * vt;
-
-        if r.determinant() < 0.0 {
-            let mut min_idx = 0usize;
-            let mut min_sigma = svd.singular_values[0];
-            for i in 1..3 {
-                if svd.singular_values[i] < min_sigma {
-                    min_sigma = svd.singular_values[i];
-                    min_idx = i;
-                }
-            }
-
-            let mut u_corr = u_mat;
-            u_corr.set_column(min_idx, &(-u_mat.column(min_idx)));
-            r = u_corr * vt;
-        }
-
-        let u_stretch = r.transpose() * f;
-        (r, u_stretch)
-    }
-
     /// Compute log strain from the right stretch tensor U.
 /// For small strains: ln(U) ≈ U - I
 /// The full computation uses eigenvalue decomposition for large strains.
@@ -2995,7 +2963,7 @@ pub fn log_strain_from_polar(u: &Matrix3<f64>) -> Matrix3<f64> {
 
     /// Compute membrane strain in Voigt form using log strain
     pub fn compute_membrane_strain_log(h: &Matrix3<f64>) -> Vector3<f64> {
-        let (_r_inc, u_inc) = Self::polar_decomposition(h);
+        let (_r_inc, u_inc) = corotational_utils::polar_decomposition(h);
         let eps_log = Self::log_strain_from_polar(&u_inc);
         Vector3::new(eps_log[(0, 0)], eps_log[(1, 1)], 2.0 * eps_log[(0, 1)])
     }

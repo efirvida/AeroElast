@@ -6,8 +6,9 @@
 // All geometry-constant quantities are precomputed once per element.
 // No heap allocations in the hot path — fixed-size nalgebra matrices throughout.
 
-use nalgebra::{Matrix2, Matrix3, SMatrix, SVector, Vector2, Vector3};
+use nalgebra::{DMatrix, Matrix2, Matrix3, SMatrix, SVector, Vector2, Vector3};
 
+use crate::elements::corotational_utils::LocalFrame3;
 use crate::materials::ShellConstitutive;
 
 // ============================================================================
@@ -728,6 +729,61 @@ fn transform_to_global(k_local: &Mat18, t3: &Matrix3<f64>) -> Mat18 {
     t18.transpose() * k_local * &t18
 }
 
+/// Update corotational local frame from deformed MITC3 node coordinates.
+pub fn update_corotational_frame_mitc3(coords_def: &[[f64; 3]; 3]) -> LocalFrame3 {
+    let p0 = Vector3::new(coords_def[0][0], coords_def[0][1], coords_def[0][2]);
+    let p1 = Vector3::new(coords_def[1][0], coords_def[1][1], coords_def[1][2]);
+    let p2 = Vector3::new(coords_def[2][0], coords_def[2][1], coords_def[2][2]);
+
+    let v01 = p1 - p0;
+    let v02 = p2 - p0;
+
+    let e1 = if v01.norm() > 1e-12 {
+        v01.normalize()
+    } else {
+        Vector3::new(1.0, 0.0, 0.0)
+    };
+
+    let n = e1.cross(&v02);
+    let e3 = if n.norm() > 1e-12 {
+        n.normalize()
+    } else {
+        Vector3::new(0.0, 0.0, 1.0)
+    };
+
+    let e2_raw = e3.cross(&e1);
+    let e2 = if e2_raw.norm() > 1e-12 {
+        e2_raw.normalize()
+    } else {
+        Vector3::new(0.0, 1.0, 0.0)
+    };
+
+    LocalFrame3 { e1, e2, e3 }
+}
+
+/// Build 18×18 global-to-local transformation matrix from deformed frame.
+///
+/// Block-diagonal with 6 repeated 3×3 rotation blocks (3 translational + 3 rotational
+/// triplets over 3 nodes total).
+pub fn build_t18_deformed(frame: &LocalFrame3) -> DMatrix<f64> {
+    let r_elem = Matrix3::new(
+        frame.e1[0], frame.e1[1], frame.e1[2],
+        frame.e2[0], frame.e2[1], frame.e2[2],
+        frame.e3[0], frame.e3[1], frame.e3[2],
+    );
+
+    let mut t18 = DMatrix::<f64>::zeros(18, 18);
+    for i in 0..6 {
+        let r = 3 * i;
+        for a in 0..3 {
+            for b in 0..3 {
+                t18[(r + a, r + b)] = r_elem[(a, b)];
+            }
+        }
+    }
+    t18
+}
+
 // ============================================================================
 // Nonlinear: Displacement gradient, Green-Lagrange strain
 // ============================================================================
@@ -911,6 +967,62 @@ pub fn compute_kt_global(pre: &Mitc3Precomputed, u_global: &Vec18) -> Mat18 {
     let k_t_local = 0.5 * (&k_t_local + k_t_local.transpose());
 
     transform_to_global(&k_t_local, &pre.t3)
+}
+
+/// Compute first-order corotational tangent stiffness for MITC3 in global coordinates.
+///
+/// Formulation: K_T^coro = T_def^T · K_L(local frame) · T_def,
+/// where K_L is evaluated as the linearized local tangent at zero corotated
+/// displacement (same phase strategy used by MITC4).
+pub fn compute_kt_corotational(pre: &Mitc3Precomputed, u_global: &[f64]) -> DMatrix<f64> {
+    assert_eq!(u_global.len(), 18, "MITC3 requires 18 DOFs");
+
+    let mut coords_def = [[0.0_f64; 3], [0.0_f64; 3], [0.0_f64; 3]];
+
+    // Rebuild from true initial 3D geometry using inverse local-to-global map from pre.t3.
+    // pre.local_coords are element-local, so use original reference coords extracted from t3
+    // path via local basis: x_global = t3^T * x_local.
+    let t3t = pre.t3.transpose();
+    for i in 0..3 {
+        let x_local = Vector3::new(pre.local_coords[2 * i], pre.local_coords[2 * i + 1], 0.0);
+        let x_global = t3t * x_local;
+        coords_def[i][0] = x_global[0] + u_global[6 * i];
+        coords_def[i][1] = x_global[1] + u_global[6 * i + 1];
+        coords_def[i][2] = x_global[2] + u_global[6 * i + 2];
+    }
+
+    let frame = update_corotational_frame_mitc3(&coords_def);
+    let t_def = build_t18_deformed(&frame);
+
+    let k_local = compute_kt_local(pre, &Vec18::zeros());
+    let k_local_dyn = DMatrix::from_column_slice(18, 18, k_local.as_slice());
+    let k_coro = t_def.transpose() * k_local_dyn * t_def;
+
+    0.5 * (&k_coro + k_coro.transpose())
+}
+
+fn compute_kt_local(pre: &Mitc3Precomputed, u_local: &Vec18) -> Mat18 {
+    let k0 = compute_ke_local(pre);
+    let h_mat = displacement_gradient(pre, u_local);
+    let eps_gl = gl_strain_voigt(&h_mat);
+    let sigma_m = &pre.constitutive.cm_raw * &eps_gl;
+    let k_sigma = compute_k_sigma_local(pre, &sigma_m);
+
+    let dh = &pre.dh;
+    let b_l = compute_b_l(dh);
+    let b_nl = compute_b_nl(dh, &h_mat);
+    let cm_raw = &pre.constitutive.cm_raw;
+    let area = pre.area;
+    let h = pre.thickness;
+
+    let k_l = area
+        * h
+        * (b_l.transpose() * cm_raw * &b_nl
+            + b_nl.transpose() * cm_raw * &b_l
+            + b_nl.transpose() * cm_raw * &b_nl);
+
+    let k_t_local = k0 + k_l + k_sigma;
+    0.5 * (&k_t_local + k_t_local.transpose())
 }
 
 // ============================================================================
@@ -1174,6 +1286,7 @@ pub fn compute_element_stress(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::elements::corotational_utils;
     use crate::materials::isotropic::IsotropicMaterial;
     use crate::materials::Material;
 
@@ -1185,6 +1298,88 @@ mod tests {
         let shell = mat.constitutive(thickness, 5.0 / 6.0);
         let node_coords: [f64; 9] = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
         Mitc3Precomputed::new(&node_coords, shell, thickness, 2.0e11, 1.0)
+    }
+
+    #[test]
+    fn test_polar_decomposition_shared_function() {
+        let theta = std::f64::consts::FRAC_PI_4;
+        let r_exp = Matrix3::new(
+            theta.cos(), -theta.sin(), 0.0,
+            theta.sin(), theta.cos(), 0.0,
+            0.0, 0.0, 1.0,
+        );
+        let h = r_exp - Matrix3::identity();
+        let (r, _u) = corotational_utils::polar_decomposition(&h);
+        assert!((r - r_exp).norm() < 1e-10, "shared polar decomposition must recover rigid rotation");
+    }
+
+    #[test]
+    fn test_corotational_initial_frame_xy_plane() {
+        let coords = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        let frame = update_corotational_frame_mitc3(&coords);
+        assert!((frame.e3 - Vector3::new(0.0, 0.0, 1.0)).norm() < 1e-12);
+    }
+
+    #[test]
+    fn test_build_t18_deformed_identity_blocks_undeformed() {
+        let coords = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        let frame = update_corotational_frame_mitc3(&coords);
+        let t18 = build_t18_deformed(&frame);
+        for i in 0..18 {
+            for j in 0..18 {
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert!(
+                    (t18[(i, j)] - expected).abs() < 1e-12,
+                    "T18 identity mismatch at ({i},{j})"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_compute_kt_corotational_is_symmetric() {
+        let pre = make_pre();
+        let u = [
+            1e-4, -2e-4, 1e-4, 0.0, 0.0, 0.0,
+            -1e-4, 1e-4, -2e-4, 0.0, 0.0, 0.0,
+            2e-4, 1e-4, 1e-4, 0.0, 0.0, 0.0,
+        ];
+        let k = compute_kt_corotational(&pre, &u);
+        for i in 0..18 {
+            for j in 0..18 {
+                assert!((k[(i, j)] - k[(j, i)]).abs() < 1e-10);
+            }
+        }
+    }
+
+    #[test]
+    fn test_compute_kt_corotational_linear_consistency_small_u() {
+        let pre = make_pre();
+        let u = [
+            1e-8, -2e-8, 1e-8, 0.0, 0.0, 0.0,
+            -1e-8, 1e-8, -2e-8, 0.0, 0.0, 0.0,
+            2e-8, 1e-8, 1e-8, 0.0, 0.0, 0.0,
+        ];
+        let mut u_vec = Vec18::zeros();
+        for i in 0..18 {
+            u_vec[i] = u[i];
+        }
+        let k_tl = compute_kt_global(&pre, &u_vec);
+        let k_coro = compute_kt_corotational(&pre, &u);
+        let k_tl_dyn = DMatrix::from_column_slice(18, 18, k_tl.as_slice());
+
+        let diff = &k_coro - &k_tl_dyn;
+        let denom = k_tl_dyn.norm().max(1.0);
+        let rel = diff.norm() / denom;
+        assert!(rel < 1e-3, "small-displacement corotational vs TL mismatch: rel={rel:e}");
     }
 
     #[test]
