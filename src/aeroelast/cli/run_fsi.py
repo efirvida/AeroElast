@@ -30,7 +30,7 @@ from pathlib import Path
 # Template YAML configuration
 TEMPLATE_CONFIG = """# FSI Simulation Configuration
 # ============================
-# This file defines a complete FSI simulation for fem-shell.
+# This file defines a complete FSI simulation for AeroElast.
 
 #============================================================================
 # MESH CONFIGURATION

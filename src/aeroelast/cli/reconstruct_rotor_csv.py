@@ -19,13 +19,13 @@ This correctly handles the typical restart scenario where:
 
 Usage
 -----
-    fem-shell-reconstruct-csv results/
+    aeroelast-reconstruct-csv results/
 
     # Read output_folder from YAML config
-    fem-shell-reconstruct-csv results/ --config simulation.yaml
+    aeroelast-reconstruct-csv results/ --config simulation.yaml
 
     # Override output file
-    fem-shell-reconstruct-csv results/ --output recovered.csv
+    aeroelast-reconstruct-csv results/ --output recovered.csv
 """
 
 from __future__ import annotations
@@ -267,7 +267,7 @@ def _output_from_yaml(yaml_path: str) -> Optional[str]:
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="fem-shell-reconstruct-csv",
+        prog="aeroelast-reconstruct-csv",
         description=(
             "Reconstruct rotor_performance.csv merging checkpoint kinematics\n"
             "with any existing rotor_performance.csv rows."

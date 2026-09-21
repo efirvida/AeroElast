@@ -1233,7 +1233,7 @@ def build_from_config(
     """Construct a :class:`BEMFSIParticipant` from a YAML config dict.
 
     The dict is expected to match the schema documented in
-    ``docs/cli-reference.md`` for ``fem-shell-bem-fsi``.
+    ``docs/cli-reference.md`` for ``aeroelast-bem-fsi``.
 
     Parameters
     ----------

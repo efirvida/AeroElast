@@ -1,3 +1,3 @@
 """
-Command Line Interface module for fem-shell.
+Command Line Interface module for AeroElast.
 """

@@ -3,16 +3,16 @@
 
 Runs a BEM-based preCICE fluid participant as a standalone process,
 equivalent to launching OpenFOAM on the fluid side.  The structural
-solver (``fem-shell-fsi``) must be started in a separate process before
+solver (``aeroelast-fsi``) must be started in a separate process before
 or concurrently with this command.
 
 Usage
 -----
 ::
 
-    fem-shell-bem-fsi simulation.yaml
-    fem-shell-bem-fsi simulation.yaml --workdir /path/to/case
-    fem-shell-bem-fsi --template
+    aeroelast-bem-fsi simulation.yaml
+    aeroelast-bem-fsi simulation.yaml --workdir /path/to/case
+    aeroelast-bem-fsi --template
 
 Configuration file schema
 -------------------------
@@ -73,7 +73,7 @@ import yaml
 _TEMPLATE = """\
 # BEM-FSI fluid participant configuration
 # ========================================
-# Launch with: fem-shell-bem-fsi simulation.yaml
+# Launch with: aeroelast-bem-fsi simulation.yaml
 
 participant: "Fluid"
 config_file: "precice-config.xml"
@@ -273,7 +273,7 @@ def _build_mesh(cfg: dict, config_path: Path):
 def main(argv=None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
-        prog="fem-shell-bem-fsi",
+        prog="aeroelast-bem-fsi",
         description=(
             "BEM-based preCICE fluid participant for FSI coupling. "
             "Runs as an independent process alongside the structural solver."
@@ -281,9 +281,9 @@ def main(argv=None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "examples:\n"
-            "  fem-shell-bem-fsi simulation.yaml\n"
-            "  fem-shell-bem-fsi simulation.yaml --workdir /path/to/case\n"
-            "  fem-shell-bem-fsi --template > simulation.yaml\n"
+            "  aeroelast-bem-fsi simulation.yaml\n"
+            "  aeroelast-bem-fsi simulation.yaml --workdir /path/to/case\n"
+            "  aeroelast-bem-fsi --template > simulation.yaml\n"
         ),
     )
     parser.add_argument(

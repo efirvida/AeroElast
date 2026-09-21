@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-fem-shell-monitor — CLI entry point for the FSI Monitor TUI.
+aeroelast-monitor — CLI entry point for the FSI Monitor TUI.
 
 Monitors a running (or completed) FSI simulation in real time.
 Reads rotor_performance.csv and optional checkpoints — independent of solver.
 
 Usage:
-    fem-shell-monitor /path/to/sim/workdir
-    fem-shell-monitor /path/to/sim/workdir --csv-name my_output.csv
-    fem-shell-monitor /path/to/sim/workdir --refresh-interval 1.0
+    aeroelast-monitor /path/to/sim/workdir
+    aeroelast-monitor /path/to/sim/workdir --csv-name my_output.csv
+    aeroelast-monitor /path/to/sim/workdir --refresh-interval 1.0
 """
 
 import argparse
@@ -17,9 +17,9 @@ from pathlib import Path
 
 
 def main() -> None:
-    """Entry point for fem-shell-monitor CLI."""
+    """Entry point for aeroelast-monitor CLI."""
     parser = argparse.ArgumentParser(
-        prog="fem-shell-monitor",
+        prog="aeroelast-monitor",
         description=(
             "Real-time TUI dashboard for FSI simulations. "
             "Reads rotor_performance.csv and checkpoints; no solver connection required."

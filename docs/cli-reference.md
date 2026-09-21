@@ -1,4 +1,4 @@
-# fem-shell-fsi CLI Reference
+# aeroelast-fsi CLI Reference
 
 Command-line interface for running FEM shell/solid FSI simulations coupled with
 OpenFOAM via preCICE. All simulation parameters are defined in a single YAML file.
@@ -6,11 +6,11 @@ OpenFOAM via preCICE. All simulation parameters are defined in a single YAML fil
 ## Installation
 
 ```bash
-cd fem-shell
+cd AeroElast
 pip install -e .
 ```
 
-This registers the `fem-shell-fsi` command globally.
+This registers the `aeroelast-fsi` command globally.
 
 ---
 
@@ -18,18 +18,18 @@ This registers the `fem-shell-fsi` command globally.
 
 ```bash
 # 1. Generate a template configuration
-fem-shell-fsi --template > simulation.yaml
+aeroelast-fsi --template > simulation.yaml
 
 # 2. Edit simulation.yaml with your parameters
 
 # 3. Validate the configuration
-fem-shell-fsi simulation.yaml --validate
+aeroelast-fsi simulation.yaml --validate
 
 # 4. Preview what will run (no execution)
-fem-shell-fsi simulation.yaml --preview
+aeroelast-fsi simulation.yaml --preview
 
 # 5. Run the simulation
-fem-shell-fsi simulation.yaml
+aeroelast-fsi simulation.yaml
 ```
 
 ---
@@ -39,7 +39,7 @@ fem-shell-fsi simulation.yaml
 ### Synopsis
 
 ```
-fem-shell-fsi [config.yaml] [OPTIONS]
+aeroelast-fsi [config.yaml] [OPTIONS]
 ```
 
 ### Options
@@ -60,25 +60,25 @@ fem-shell-fsi [config.yaml] [OPTIONS]
 
 ```bash
 # Print template with BoxVolumeMesh generator example
-fem-shell-fsi --template --generator BoxVolumeMesh > simulation.yaml
+aeroelast-fsi --template --generator BoxVolumeMesh > simulation.yaml
 
 # List generators and their default node sets
-fem-shell-fsi --list-generators
+aeroelast-fsi --list-generators
 
 # Validate config (exits 0 = valid, 1 = errors)
-fem-shell-fsi simulation.yaml --validate
+aeroelast-fsi simulation.yaml --validate
 
 # Preview parsed config without running
-fem-shell-fsi simulation.yaml --preview
+aeroelast-fsi simulation.yaml --preview
 
 # Run from a different working directory
-fem-shell-fsi simulation.yaml --workdir /path/to/case/solid
+aeroelast-fsi simulation.yaml --workdir /path/to/case/solid
 
 # Verbose logging (DEBUG level)
-fem-shell-fsi simulation.yaml -v
+aeroelast-fsi simulation.yaml -v
 
 # Visualize mesh interactively
-fem-shell-fsi simulation.yaml --view
+aeroelast-fsi simulation.yaml --view
 ```
 
 ---
@@ -559,7 +559,7 @@ The `location` parameter controls the evaluation point on the shell thickness:
 
 ### BEM force projection mesh requirements
 
-When using a BEM aerodynamic participant (`fem-shell-bem`), each BEM strip
+When using a BEM aerodynamic participant (`aeroelast-bem`), each BEM strip
 must contain **at least two** coupling-mesh nodes.  A strip with a single node
 cannot represent the aerodynamic pitching moment as a force couple; `M_strip` is
 dropped and a `WARNING` is emitted.  To suppress the warning, refine the mesh
@@ -855,4 +855,4 @@ mapping each section:
 | `problem = Solver(mesh, model_config)` | Automatic from `solver.type` |
 | `problem.solve()` | Automatic |
 
-Run `fem-shell-fsi --validate` after conversion to verify correctness.
+Run `aeroelast-fsi --validate` after conversion to verify correctness.

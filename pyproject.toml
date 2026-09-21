@@ -91,6 +91,11 @@ select = [
 
 [project.scripts]
 aeroelast = "aeroelast.cli.aeroelast:main"
+aeroelast-fsi = "aeroelast.cli.run_fsi:main"
+aeroelast-bem-fsi = "aeroelast.cli.run_bem_fsi:main"
+aeroelast-monitor = "aeroelast.cli.fsi_monitor:main"
+aeroelast-reconstruct-csv = "aeroelast.cli.reconstruct_rotor_csv:main"
+# Deprecated aliases (kept for compatibility with existing scripts)
 fem-shell-fsi = "aeroelast.cli.run_fsi:main"
 fem-shell-bem-fsi = "aeroelast.cli.run_bem_fsi:main"
 fem-shell-monitor = "aeroelast.cli.fsi_monitor:main"
