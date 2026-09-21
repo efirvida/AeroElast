@@ -284,8 +284,33 @@ the following key works:
 - Jonkman, J., Butterfield, S., Musial, W., Scott, G., *Definition of a 5-MW
   Reference Wind Turbine for Offshore System Development*, NREL/TP-500-38060, 2009.
 
-The theoretical notes and reference PDFs collected under `elements_theory/`
-are retained for provenance and study.
+### Element formulation references
+
+The MITC3/MITC4 shell element formulations implemented in this repository
+follow these publications:
+
+- Ko, Y., Lee, P.-S., "A new MITC4+ shell element," *Computers & Structures*,
+  182:404–418, 2017.
+- Ko, Y., Lee, P.-S., Bathe, K.J., "Performance of the MITC3+ and MITC4+ shell
+  elements in widely-used benchmark problems," *Computers & Structures*,
+  193:187–206, 2017.
+- Jeon, H.-M., Lee, Y., Lee, P.-S., "The MITC3+ shell element in geometric
+  nonlinear analysis," *Computers & Structures*, 146:91–104, 2015.
+- Ko, Y., Lee, P.-S., "The MITC4+ shell element in geometric nonlinear
+  analysis," *Computers & Structures*, 185:1–14, 2017.
+- A comparative formulation of DKMQ, DSQ and MITC4 quadrilateral plate elements
+  with new numerical results based on s-norm tests, *Computers & Structures*,
+  204:48–64, 2018.
+- Towards improving the 2D-MITC4 element for analysis of plane stress and
+  strain problems, *Computers & Structures*, 275:106933, 2023.
+- Cui, X., Peng, G., Ran, Q., Zhang, H., Li, S., "Derivation and implementation
+  of one-point quadrature quadrilateral shell element with MITC4+ method
+  (MITC4+R)," *Computers & Structures*, 291:107207, 2024.
+- Continuum mechanics-based shell elements with six degrees of freedom at each
+  node, *Computers & Structures*, 308:107622, 2025.
+
+The reference PDFs used during development were removed from the repository;
+the citations above are the canonical sources.
 
 ## Validation Summary
 
