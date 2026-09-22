@@ -26,8 +26,9 @@ pub type Vec20 = SVector<f64, 20>;
 // ============================================================================
 // Gauss quadrature (Hammer points, degree 2 on triangle)
 // ============================================================================
-// N_GAUSS, GAUSS_R, GAUSS_S, GAUSS_W sourced from crate::quadrature::hammer_tri_3pt,
-// but we keep local consts here for zero-overhead reference in the hot path.
+// N_GAUSS, GAUSS_R, GAUSS_S, GAUSS_W are the Hammer degree-2 triangle rule
+// (points 1/6,2/3 mixed, weight 1/3 each); kept local here for zero-overhead
+// reference in the hot path.
 
 const N_GAUSS: usize = 3;
 

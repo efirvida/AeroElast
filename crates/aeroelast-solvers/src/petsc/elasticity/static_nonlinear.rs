@@ -51,6 +51,7 @@ use aeroelast_core::assembly::MeshAssembler;
 
 use super::super::assembler::{assemble_seq_aij, create_vec, ensure_initialized};
 use super::super::infra::ffi::{self, PETSC_INFINITY};
+use super::super::infra::handles::{PetscKsp, PetscSnes};
 use super::super::infra::mat::{check, PetscError};
 
 // ── C-string constants ────────────────────────────────────────────────────────
@@ -494,47 +495,53 @@ pub fn nonlinear_static_solve_with_guess(
                 )?;
             }
 
-            let mut ksp_pred: ffi::KSP = std::ptr::null_mut();
-            check(ffi::KSPCreate(comm, &mut ksp_pred), "KSPCreate(pred)")?;
+            let mut raw_ksp_pred: ffi::KSP = std::ptr::null_mut();
+            check(ffi::KSPCreate(comm, &mut raw_ksp_pred), "KSPCreate(pred)")?;
+
+            // Wrap immediately — PetscKsp::Drop calls KSPDestroy on any error path.
+            let ksp_pred = PetscKsp::from_raw(raw_ksp_pred);
+
             check(
-                ffi::KSPSetOperators(ksp_pred, jac.as_raw(), jac.as_raw()),
+                ffi::KSPSetOperators(ksp_pred.as_raw(), jac.as_raw(), jac.as_raw()),
                 "KSPSetOperators(pred)",
             )?;
             check(
-                ffi::KSPSetType(ksp_pred, KSPPREONLY.as_ptr()),
+                ffi::KSPSetType(ksp_pred.as_raw(), KSPPREONLY.as_ptr()),
                 "KSPSetType(pred)",
             )?;
             let mut pc_pred: ffi::PC = std::ptr::null_mut();
-            check(ffi::KSPGetPC(ksp_pred, &mut pc_pred), "KSPGetPC(pred)")?;
+            check(ffi::KSPGetPC(ksp_pred.as_raw(), &mut pc_pred), "KSPGetPC(pred)")?;
             check(
                 ffi::PCSetType(pc_pred, PCLU.as_ptr()),
                 "PCSetType(pred)",
             )?;
             check(
-                ffi::KSPSolve(ksp_pred, b_pred.as_raw(), x_vec.as_raw()),
+                ffi::KSPSolve(ksp_pred.as_raw(), b_pred.as_raw(), x_vec.as_raw()),
                 "KSPSolve(pred)",
             )?;
-            check(ffi::KSPDestroy(&mut ksp_pred), "KSPDestroy(pred)")?;
         }
 
         // ── Create SNES ───────────────────────────────────────────────────
-        let mut snes: ffi::SNES = std::ptr::null_mut();
-        check(ffi::SNESCreate(comm, &mut snes), "SNESCreate")?;
+        let mut raw_snes: ffi::SNES = std::ptr::null_mut();
+        check(ffi::SNESCreate(comm, &mut raw_snes), "SNESCreate")?;
+
+        // Wrap immediately — PetscSnes::Drop calls SNESDestroy on any error path.
+        let snes = PetscSnes::from_raw(raw_snes);
 
         // Store our context so callbacks can recover it
         check(
-            ffi::SNESSetApplicationContext(snes, ctx_ptr),
+            ffi::SNESSetApplicationContext(snes.as_raw(), ctx_ptr),
             "SNESSetApplicationContext",
         )?;
 
         // ── Register callbacks ────────────────────────────────────────────
         check(
-            ffi::SNESSetFunction(snes, r_vec.as_raw(), form_residual, ctx_ptr),
+            ffi::SNESSetFunction(snes.as_raw(), r_vec.as_raw(), form_residual, ctx_ptr),
             "SNESSetFunction",
         )?;
         check(
             ffi::SNESSetJacobian(
-                snes,
+                snes.as_raw(),
                 jac.as_raw(),
                 jac.as_raw(),
                 form_jacobian,
@@ -546,7 +553,7 @@ pub fn nonlinear_static_solve_with_guess(
         // ── Tolerances ────────────────────────────────────────────────────
         check(
             ffi::SNESSetTolerances(
-                snes,
+                snes.as_raw(),
                 config.atol,
                 config.rtol,
                 config.stol,
@@ -565,7 +572,7 @@ pub fn nonlinear_static_solve_with_guess(
         // MUMPS at 191k DOFs requires ~3–5 GB → OOM on cluster.
         // FGMRES + ILU(2) uses ~0.6 GB and is robust for nonlinear shell K_T.
         let mut ksp: ffi::KSP = std::ptr::null_mut();
-        check(ffi::SNESGetKSP(snes, &mut ksp), "SNESGetKSP")?;
+        check(ffi::SNESGetKSP(snes.as_raw(), &mut ksp), "SNESGetKSP")?;
         let mut pc: ffi::PC = std::ptr::null_mut();
         check(ffi::KSPGetPC(ksp, &mut pc), "KSPGetPC")?;
 
@@ -633,7 +640,7 @@ pub fn nonlinear_static_solve_with_guess(
         // step when the GL correction causes ||R|| to grow, ensuring convergence
         // for load steps where the full Newton step would otherwise overshoot.
         let mut linesearch: ffi::SNESLineSearch = std::ptr::null_mut();
-        check(ffi::SNESGetLineSearch(snes, &mut linesearch), "SNESGetLineSearch")?;
+        check(ffi::SNESGetLineSearch(snes.as_raw(), &mut linesearch), "SNESGetLineSearch")?;
         check(
             ffi::SNESLineSearchSetType(linesearch, SNESLINESEARCHBT.as_ptr()),
             "SNESLineSearchSetType(bt)",
@@ -646,31 +653,31 @@ pub fn nonlinear_static_solve_with_guess(
         // ── Allow runtime overrides ───────────────────────────────────────
         // e.g. -snes_type newtonal  → arc-length
         //      -snes_monitor        → print residual each iteration
-        check(ffi::SNESSetFromOptions(snes), "SNESSetFromOptions")?;
+        check(ffi::SNESSetFromOptions(snes.as_raw()), "SNESSetFromOptions")?;
 
         // ── Solve R(u) = 0 ────────────────────────────────────────────────
         // b = null (no RHS shift — R already includes -F_ext in the callback)
         check(
-            ffi::SNESSolve(snes, std::ptr::null_mut(), x_vec.as_raw()),
+            ffi::SNESSolve(snes.as_raw(), std::ptr::null_mut(), x_vec.as_raw()),
             "SNESSolve",
         )?;
 
         // ── Diagnostics ───────────────────────────────────────────────────
         let mut reason: i32 = 0;
         check(
-            ffi::SNESGetConvergedReason(snes, &mut reason),
+            ffi::SNESGetConvergedReason(snes.as_raw(), &mut reason),
             "SNESGetConvergedReason",
         )?;
 
         let mut its: i32 = 0;
         check(
-            ffi::SNESGetIterationNumber(snes, &mut its),
+            ffi::SNESGetIterationNumber(snes.as_raw(), &mut its),
             "SNESGetIterationNumber",
         )?;
 
         let mut fnorm: f64 = 0.0;
         check(
-            ffi::SNESGetFunctionNorm(snes, &mut fnorm),
+            ffi::SNESGetFunctionNorm(snes.as_raw(), &mut fnorm),
             "SNESGetFunctionNorm",
         )?;
 
@@ -682,13 +689,13 @@ pub fn nonlinear_static_solve_with_guess(
 
         let mut snes_linear_its: i32 = 0;
         check(
-            ffi::SNESGetLinearSolveIterations(snes, &mut snes_linear_its),
+            ffi::SNESGetLinearSolveIterations(snes.as_raw(), &mut snes_linear_its),
             "SNESGetLinearSolveIterations",
         )?;
 
         let mut snes_func_evals: i32 = 0;
         check(
-            ffi::SNESGetNumberFunctionEvals(snes, &mut snes_func_evals),
+            ffi::SNESGetNumberFunctionEvals(snes.as_raw(), &mut snes_func_evals),
             "SNESGetNumberFunctionEvals",
         )?;
 
@@ -733,10 +740,8 @@ pub fn nonlinear_static_solve_with_guess(
             );
         }
 
-        // ── Cleanup ───────────────────────────────────────────────────────
-        check(ffi::SNESDestroy(&mut snes), "SNESDestroy")?;
-
         // ── Extract solution ──────────────────────────────────────────────
+        // (snes is dropped here — PetscSnes::Drop calls SNESDestroy)
         let displacements = x_vec.to_vec()?;
 
         Ok(NonlinearStaticResult {

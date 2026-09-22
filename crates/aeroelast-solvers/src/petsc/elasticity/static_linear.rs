@@ -3,10 +3,9 @@
 /// Solves the system K·u = F where K is the stiffness matrix and F is the
 /// load vector, both as assembled PETSc objects.
 ///
-/// # Solver configuration (auto-selected based on problem size)
-/// - Small problems (n_dof < 5000): CG + LU (direct, robust)
-/// - Large problems (n_dof >= 5000): CG + GAMG (iterative, scalable)
-///   Falls back to LU if GAMG fails to converge
+/// # Solver configuration
+/// CG preconditioned with LU (direct solver) — robust and exact for all
+/// problem sizes (SPD stiffness matrices).
 ///
 /// # Boundary conditions
 /// The caller is responsible for applying Dirichlet BCs to K and F before
@@ -14,6 +13,7 @@
 /// knows about assembled matrices and vectors.
 use super::super::assembler::{create_vec, ensure_initialized};
 use super::super::infra::ffi::{self, PETSC_INFINITY};
+use super::super::infra::handles::PetscKsp;
 use super::super::infra::mat::{check, PetscMat, PetscError};
 use super::super::infra::vec::PetscVec;
 
@@ -22,16 +22,9 @@ use super::super::infra::vec::PetscVec;
 const KSPCG: &std::ffi::CStr =
     unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"cg\0") };
 
-// GAMG (algebraic multigrid) — good for large scalable problems
-const PCGAMG: &std::ffi::CStr =
-    unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"gamg\0") };
-
 // LU direct solver — robust for small ill-conditioned matrices
 const PCLU: &std::ffi::CStr =
     unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"lu\0") };
-
-// Threshold for switching from LU to GAMG
-const LU_TO_GAMG_THRESHOLD: usize = 5000;
 
 // ── Result type ───────────────────────────────────────────────────────────────
 
@@ -72,72 +65,68 @@ pub fn linear_static_solve(
 ) -> Result<LinearStaticResult, PetscError> {
     ensure_initialized()?;
 
-    // ── Intelligent preconditioner selection ───────────────────────────
-    // Strategy: always try LU first (robust). For large problems, also try GAMG in parallel 
-    // and use whichever converges first. This gives best of both worlds.
-    let try_gamg = n_dof >= LU_TO_GAMG_THRESHOLD;
-
     unsafe {
         let comm = ffi::petsc_comm_self();
 
         // ── Create KSP ────────────────────────────────────────────────────────
-        let mut ksp: ffi::KSP = std::ptr::null_mut();
-        check(ffi::KSPCreate(comm, &mut ksp), "KSPCreate")?;
+        let mut raw_ksp: ffi::KSP = std::ptr::null_mut();
+        check(ffi::KSPCreate(comm, &mut raw_ksp), "KSPCreate")?;
+
+        // Wrap immediately — PetscKsp::Drop calls KSPDestroy on any error path.
+        let ksp = PetscKsp::from_raw(raw_ksp);
 
         // CG — optimal for symmetric positive definite stiffness matrices.
-        check(ffi::KSPSetType(ksp, KSPCG.as_ptr()), "KSPSetType(cg)")?;
+        check(ffi::KSPSetType(ksp.as_raw(), KSPCG.as_ptr()), "KSPSetType(cg)")?;
 
         // ── Preconditioner ────────────────────────────────────────────────────
         // Always use LU (robust, always converges)
         let mut pc: ffi::PC = std::ptr::null_mut();
-        check(ffi::KSPGetPC(ksp, &mut pc), "KSPGetPC")?;
+        check(ffi::KSPGetPC(ksp.as_raw(), &mut pc), "KSPGetPC")?;
         check(ffi::PCSetType(pc, PCLU.as_ptr()), "PCSetType(lu)")?;
 
         // ── Operators ─────────────────────────────────────────────────────────
         check(
-            ffi::KSPSetOperators(ksp, k.as_raw(), k.as_raw()),
+            ffi::KSPSetOperators(ksp.as_raw(), k.as_raw(), k.as_raw()),
             "KSPSetOperators",
         )?;
 
         // ── Tolerances ─────────────────────────────────────────────────────────
         // Large rtol for LU (direct solver doesn't iterate)
         check(
-            ffi::KSPSetTolerances(ksp, 1e-8, 1e-12, PETSC_INFINITY, 1000),
+            ffi::KSPSetTolerances(ksp.as_raw(), 1e-8, 1e-12, PETSC_INFINITY, 1000),
             "KSPSetTolerances",
         )?;
 
         // Allow runtime override via -ksp_* flags (e.g., -ksp_view, -ksp_monitor)
-        check(ffi::KSPSetFromOptions(ksp), "KSPSetFromOptions")?;
+        check(ffi::KSPSetFromOptions(ksp.as_raw()), "KSPSetFromOptions")?;
 
         // ── Allocate solution vector ────────────────────────────────────────────
         let u = create_vec(n_dof)?;
 
         // ── Solve K·u = F ────────────────────────────────────────────────────
-        check(ffi::KSPSolve(ksp, f.as_raw(), u.as_raw()), "KSPSolve")?;
+        check(ffi::KSPSolve(ksp.as_raw(), f.as_raw(), u.as_raw()), "KSPSolve")?;
 
         // ── Diagnostics ─────────────────────────────────────────────────────
         let mut reason: i32 = 0;
         check(
-            ffi::KSPGetConvergedReason(ksp, &mut reason),
+            ffi::KSPGetConvergedReason(ksp.as_raw(), &mut reason),
             "KSPGetConvergedReason",
         )?;
 
         let mut its: i32 = 0;
         check(
-            ffi::KSPGetIterationNumber(ksp, &mut its),
+            ffi::KSPGetIterationNumber(ksp.as_raw(), &mut its),
             "KSPGetIterationNumber",
         )?;
 
         let mut rnorm: f64 = 0.0;
         check(
-            ffi::KSPGetResidualNorm(ksp, &mut rnorm),
+            ffi::KSPGetResidualNorm(ksp.as_raw(), &mut rnorm),
             "KSPGetResidualNorm",
         )?;
 
-        // ── Cleanup ───────────────────────────────────────────────────────────
-        check(ffi::KSPDestroy(&mut ksp), "KSPDestroy")?;
-
         // ── Extract solution ──────────────────────────────────────────────────
+        // (ksp is dropped here — PetscKsp::Drop calls KSPDestroy)
         let displacements = u.to_vec()?;
 
         Ok(LinearStaticResult {

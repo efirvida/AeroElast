@@ -33,8 +33,8 @@ type Mat24x2 = SMatrix<f64, 24, 2>;
 // ============================================================================
 // Gauss quadrature (2×2 Gauss-Legendre on quad)
 // ============================================================================
-// GP value and the 4-point flat rule match crate::quadrature::gauss_quad_2x2().
-// Local consts used here for zero-overhead access in hot path.
+// GP value and the 4-point flat rule are the standard 2×2 Gauss-Legendre
+// rule on [−1,1]². Local consts used here for zero-overhead access in hot path.
 
 const N_GAUSS: usize = 4;
 const GP: f64 = 0.577_350_269_189_625_8; // 1/√3

@@ -9,7 +9,6 @@ name = "aeroelast_mesh"
 crate-type = ["rlib"]
 
 [dependencies]
-aeroelast-core = { path = "../aeroelast-core" }
 nalgebra = "0.34.2"
 rayon = "1.10"
 thiserror = "2"
