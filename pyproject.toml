@@ -47,7 +47,7 @@ features = ["pyo3/extension-module"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py312"
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
@@ -109,6 +109,9 @@ dev = [
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
+    # Formatter/linter. Pinned to a major so `ruff format` output stays stable
+    # across developer machines; the config lives in [tool.ruff] above.
+    "ruff>=0.16,<0.17",
 ]
 mesh = [
     # Triangle is kept out of the base install because upstream wheels may lag
