@@ -37,13 +37,10 @@ from ...core.material import IsotropicMaterial, OrthotropicMaterial
 from ...core.mesh import (
     BladeMesh,
     BoxSurfaceMesh,
-    BoxVolumeMesh,
     MeshModel,
     MultiFlapMesh,
     RotorMesh,
     SquareShapeMesh,
-    check_mesh_quality,
-    verify_solid_element_orientations,
 )
 from ...elements import ElementFamily as ElemFamily
 
@@ -447,12 +444,6 @@ class FSIRunner:
             )
             mesh.renumber_mesh(algorithm=self.config.mesh.renumber, verbose=True)
 
-        # Mesh quality checks for solid elements
-        if self.config.elements.family == ElementFamily.SOLID.value:
-            self._console.print("      Running solid element quality checks...")
-            verify_solid_element_orientations(mesh, fix_inplace=True)
-            check_mesh_quality(mesh)
-
         # Create node sets from geometric criteria
         if self.config.mesh.node_sets:
             self._create_node_sets(mesh)
@@ -725,17 +716,6 @@ class FSIRunner:
             )
             mesh = generator.generate(renumber=None)
             self._mesh_generator = generator
-
-        elif gen_type == MeshGeneratorType.BOX_VOLUME.value:
-            mesh = BoxVolumeMesh(
-                center=tuple(params["center"]),
-                dims=tuple(params["dims"]),
-                nx=params["nx"],
-                ny=params["ny"],
-                nz=params["nz"],
-                element_type=params.get("element_type", "hex"),
-                quadratic=params.get("quadratic", False),
-            ).generate()
 
         else:
             raise ValueError(f"Unknown mesh generator type: {gen_type}")
@@ -1018,7 +998,6 @@ class FSIRunner:
         family_map = {
             ElementFamily.PLANE.value: ElemFamily.PLANE,
             ElementFamily.SHELL.value: ElemFamily.SHELL,
-            ElementFamily.SOLID.value: ElemFamily.SOLID,
         }
         elem_family = family_map[self.config.elements.family]
 

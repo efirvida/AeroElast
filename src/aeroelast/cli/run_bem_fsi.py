@@ -121,7 +121,6 @@ def _build_mesh(cfg: dict, config_path: Path):
     from aeroelast.core.mesh import (
         BladeMesh,
         BoxSurfaceMesh,
-        BoxVolumeMesh,
         MeshModel,
         MultiFlapMesh,
         RotorMesh,
@@ -201,17 +200,6 @@ def _build_mesh(cfg: dict, config_path: Path):
                 nz=params["nz"],
                 quadratic=params.get("quadratic", False),
                 triangular=params.get("triangular", False),
-            ).generate()
-
-        elif gen_type == MeshGeneratorType.BOX_VOLUME.value:
-            mesh = BoxVolumeMesh(
-                center=tuple(params["center"]),
-                dims=tuple(params["dims"]),
-                nx=params["nx"],
-                ny=params["ny"],
-                nz=params["nz"],
-                element_type=params.get("element_type", "hex"),
-                quadratic=params.get("quadratic", False),
             ).generate()
 
         elif gen_type == MeshGeneratorType.MULTIFLAP.value:

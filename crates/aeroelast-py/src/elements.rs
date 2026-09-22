@@ -849,7 +849,7 @@ pub(crate) fn batch_me_quad9<'py>(
 ///
 /// Mirrors `aeroelast.elements.ElementFamily` (IntEnum).
 /// Values are kept identical for drop-in compatibility:
-///   SHELL = 2, PLANE = 3, SOLID = 4
+///   SHELL = 2, PLANE = 3
 #[pyclass(name = "ElementFamily", eq, eq_int, hash, frozen)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum PyElementFamily {
@@ -857,6 +857,4 @@ pub(crate) enum PyElementFamily {
     Shell = 2,
     #[pyo3(name = "PLANE")]
     Plane = 3,
-    #[pyo3(name = "SOLID")]
-    Solid = 4,
 }

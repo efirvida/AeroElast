@@ -683,16 +683,11 @@ class LinearDynamicFSISolver(LinearDynamicSolver):
         """Compute stress and strain fields for checkpoint VTU export."""
         sr = StressRecovery(self.domain, u_full)
         has_shell = self.domain.element_family == ElementFamily.SHELL
-        has_solid = self.domain.element_family == ElementFamily.SOLID
 
         out: Dict[str, np.ndarray] = {}
-        if has_shell and not has_solid:
+        if has_shell:
             out.update(sr.compute_nodal_stresses_all_layers_dict(stress_type=StressType.TOTAL))
             out.update(sr.compute_nodal_strains_all_layers_dict())
-        elif has_solid and not has_shell:
-            result = sr.compute_nodal_stresses()
-            out.update(result.to_dict())
-            out.update({f"strain_{k}": v for k, v in sr.compute_nodal_strains().to_dict().items()})
         else:
             out.update(sr.compute_nodal_stresses_all_layers_dict(stress_type=StressType.TOTAL))
             out.update(sr.compute_nodal_strains_all_layers_dict())

@@ -45,7 +45,7 @@ mesh:
   # Option 2: Generate programmatically
   # source: "generator"
   # generator:
-  #   # Available types: "SquareShapeMesh", "BoxSurfaceMesh", "BoxVolumeMesh",
+  #   # Available types: "SquareShapeMesh", "BoxSurfaceMesh",
   #   #                  "MultiFlapMesh", "RotorMesh", "BladeMesh"
   #   type: "SquareShapeMesh"
   #   params:
@@ -98,7 +98,7 @@ material:
 # ELEMENT CONFIGURATION
 #============================================================================
 elements:
-  family: "PLANE"    # "PLANE" for 2D, "SHELL" for 3D shell, "SOLID" for 3D solid
+  family: "PLANE"    # "PLANE" for 2D, "SHELL" for 3D shell
   # thickness: 0.1   # Required only for SHELL elements
 
 #============================================================================
@@ -283,17 +283,6 @@ GENERATOR_TEMPLATES = {
 # Note: When using BladeMesh, the 'material' section can be omitted.
 # Composite properties are extracted automatically from the blade YAML sections.
 """,
-    "BoxVolumeMesh": """  generator:
-    type: "BoxVolumeMesh"
-    params:
-      center: [0, 5.0, 0]        # Center coordinates [x, y, z]
-      dims: [1.0, 10.0, 1.0]     # Box dimensions [dx, dy, dz]
-      nx: 4                       # Elements in X direction
-      ny: 20                      # Elements in Y direction
-      nz: 4                       # Elements in Z direction
-      element_type: "hex"         # "hex", "tet", "wedge", "mixed"
-      quadratic: false
-""",
 }
 
 
@@ -340,10 +329,6 @@ def list_generators() -> None:
     print("   Single wind turbine blade mesh from WindIO YAML definition")
     print("   Node sets: RootNodes, allOuterShellNods")
     print("   Material: auto-extracted composite properties from YAML sections")
-
-    print("\n6. BoxVolumeMesh")
-    print("   3D solid volume mesh with hex/tet/wedge elements")
-    print("   Node sets: left, right, top, bottom, front, back")
 
     print("\nUse --template --generator <name> for example configuration")
 

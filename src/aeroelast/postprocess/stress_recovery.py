@@ -101,8 +101,6 @@ from typing import TYPE_CHECKING, Dict, Optional, Tuple
 
 import numpy as np
 
-from aeroelast.elements import ElementFamily
-
 if TYPE_CHECKING:
     from aeroelast.core.assembler import MeshAssembler
 
@@ -426,8 +424,7 @@ class StressRecovery:
             z_factor = _Z_FACTOR.get(location, 0.0)
             stype_int = _STRESS_TYPE.get(stress_type, 2)
             sigma_all, _ = _rust.compute_stress_field(self.u, z_factor, stype_int)
-            has_solid = self.domain.model.get("element_family") == ElementFamily.SOLID
-            return self._build_stress_result(sigma_all, is_3d=has_solid)
+            return self._build_stress_result(sigma_all, is_3d=False)
 
         raise NotImplementedError(
             "compute_element_stresses: non-centroid gauss_point evaluation requires "
@@ -520,7 +517,6 @@ class StressRecovery:
 
             sigma_sum = np.zeros((n_nodes, 6))
             weight_sum = np.zeros(n_nodes)
-            has_solid = self.domain.model.get("element_family") == ElementFamily.SOLID
 
             for elem_idx, mesh_elem in enumerate(self.domain.elements):
                 node_ids = mesh_elem.node_ids
@@ -532,7 +528,7 @@ class StressRecovery:
             mask = weight_sum > 0
             sigma_avg = np.zeros((n_nodes, 6))
             sigma_avg[mask] = sigma_sum[mask] / weight_sum[mask, np.newaxis]
-            return self._build_stress_result(sigma_avg, is_3d=has_solid)
+            return self._build_stress_result(sigma_avg, is_3d=False)
 
         raise NotImplementedError(
             "compute_nodal_stresses: requires a live Rust assembler (domain._rust). "
@@ -707,8 +703,7 @@ class StressRecovery:
             }
             z_factor = _Z_FACTOR.get(location, 0.0)
             _, eps_all = _rust.compute_stress_field(self.u, z_factor, 2)
-            has_solid = self.domain.model.get("element_family") == ElementFamily.SOLID
-            return self._build_strain_result(eps_all, is_3d=has_solid)
+            return self._build_strain_result(eps_all, is_3d=False)
 
         raise NotImplementedError(
             "compute_element_strains: non-centroid gauss_point evaluation requires "
@@ -766,7 +761,6 @@ class StressRecovery:
 
             eps_sum = np.zeros((n_nodes, 6))
             weight_sum = np.zeros(n_nodes)
-            has_solid = self.domain.model.get("element_family") == ElementFamily.SOLID
 
             for elem_idx, mesh_elem in enumerate(self.domain.elements):
                 node_ids = mesh_elem.node_ids
@@ -778,7 +772,7 @@ class StressRecovery:
             mask = weight_sum > 0
             eps_avg = np.zeros((n_nodes, 6))
             eps_avg[mask] = eps_sum[mask] / weight_sum[mask, np.newaxis]
-            return self._build_strain_result(eps_avg, is_3d=has_solid)
+            return self._build_strain_result(eps_avg, is_3d=False)
 
         raise NotImplementedError(
             "compute_nodal_strains: requires a live Rust assembler (domain._rust). "

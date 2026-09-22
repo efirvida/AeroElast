@@ -25,7 +25,6 @@ Examples
 --------
 Run CalculiX first::
 
-    cd simulations/blade/solid
     ccx blade_modal
     python /path/to/tools/postprocess_ccx_modal.py blade_modal.dat \\
         --frd blade_modal.frd \\

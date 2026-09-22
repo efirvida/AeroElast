@@ -204,11 +204,14 @@ class MaterialType(str, Enum):
 
 
 class ElementFamily(str, Enum):
-    """Element family type."""
+    """Element family type.
+
+    Supported families: ``PLANE`` (2-D plane stress/strain) and ``SHELL``
+    (3-D shell).
+    """
 
     PLANE = "PLANE"
     SHELL = "SHELL"
-    SOLID = "SOLID"
 
 
 class SolverType(str, Enum):
@@ -230,7 +233,6 @@ class MeshGeneratorType(str, Enum):
 
     SQUARE = "SquareShapeMesh"
     BOX = "BoxSurfaceMesh"
-    BOX_VOLUME = "BoxVolumeMesh"
     MULTIFLAP = "MultiFlapMesh"
     BLADE = "BladeMesh"
     ROTOR = "RotorMesh"
@@ -462,7 +464,6 @@ class MeshGeneratorConfig:
         mapping = {
             MeshGeneratorType.SQUARE.value: SquareMeshParams,
             MeshGeneratorType.BOX.value: BoxMeshParams,
-            MeshGeneratorType.BOX_VOLUME.value: BoxVolumeMeshParams,
             MeshGeneratorType.MULTIFLAP.value: MultiFlapMeshParams,
             MeshGeneratorType.BLADE.value: BladeMeshParams,
             MeshGeneratorType.ROTOR.value: RotorMeshParams,
@@ -594,7 +595,6 @@ class ElementConfig:
         valid_families = (
             ElementFamily.PLANE.value,
             ElementFamily.SHELL.value,
-            ElementFamily.SOLID.value,
         )
         if self.family not in valid_families:
             raise ValueError(f"Invalid element family: {self.family}")
@@ -1373,8 +1373,6 @@ class FSISimulationConfig:
         if self.solver.type == SolverType.LINEAR_DYNAMIC_FSI_ROTOR.value:
             if not self.solver.rotor:
                 warnings.append("LinearDynamicFSIRotor solver requires rotor configuration")
-            if self.elements.family != ElementFamily.SOLID.value:
-                warnings.append("LinearDynamicFSIRotor solver typically uses SOLID elements")
 
         # Check boundary conditions reference valid nodesets
         # (This would need mesh to be loaded to fully validate)

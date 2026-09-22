@@ -2229,11 +2229,10 @@ class LinearDynamicFSIRotorSolver(LinearDynamicFSISolver):
 
         # Detect whether we have shell elements
         has_shell = self.domain.element_family == ElementFamily.SHELL
-        has_solid = self.domain.element_family == ElementFamily.SOLID
 
         out: Dict[str, np.ndarray] = {}
 
-        if has_shell and not has_solid:
+        if has_shell:
             # Pure shell mesh → export all three layers
             out.update(
                 sr.compute_nodal_stresses_all_layers_dict(
@@ -2241,13 +2240,8 @@ class LinearDynamicFSIRotorSolver(LinearDynamicFSISolver):
                 )
             )
             out.update(sr.compute_nodal_strains_all_layers_dict())
-        elif has_solid and not has_shell:
-            # Pure solid mesh → single set of results (no layer prefix)
-            result = sr.compute_nodal_stresses()
-            out.update(result.to_dict())
-            out.update({f"strain_{k}": v for k, v in sr.compute_nodal_strains().to_dict().items()})
         else:
-            # Mixed mesh → export shell layers + solid (with prefix)
+            # Non-shell mesh → export shell layers
             out.update(
                 sr.compute_nodal_stresses_all_layers_dict(
                     stress_type=StressType.TOTAL,
