@@ -1,7 +1,7 @@
 # AeroElast
 
 AeroElast is a high-performance finite element toolkit for structural and
-aeroelastic simulation of shell, solid, and plane structures, with a focus on
+aeroelastic simulation of shell and plane structures, with a focus on
 wind turbine blade FSI (fluid–structure interaction).
 
 The project combines a **Rust computation core** with **Python ergonomics**:
@@ -20,7 +20,7 @@ workflows are evolving rather than frozen.
 
 ## Current Scope
 
-- finite element support for plane, shell, and solid elements
+- finite element support for plane and shell elements
 - isotropic, orthotropic, and laminated composite material models
 - static, dynamic, modal, and FSI structural solvers
 - rotor-oriented FSI workflows with angular-velocity feedback to CFD
@@ -69,7 +69,7 @@ turnkey installers, or broad industrial validation.
 ### Mesh and model utilities
 
 - built-in mesh generators such as `SquareShapeMesh`, `BoxSurfaceMesh`,
-  `BoxVolumeMesh`, `MultiFlapMesh`, `BladeMesh`, and `RotorMesh`
+  `MultiFlapMesh`, `BladeMesh`, and `RotorMesh`
 - mesh import/export utilities for common engineering formats
 - geometric node-set creation from coordinate, box, distance, and direction
   criteria
@@ -339,11 +339,6 @@ are updated as results are confirmed; no unverified numbers are published.
 - Large-rotation benchmark problems — _error: pending_
 - Orthotropic shell parity — _error: pending_
 - Composite shell (laminate) validation — _error: pending_
-
-### Solid elements
-
-- Solid element benchmark suite — _error: pending_
-- Mixed solid element validation — _error: pending_
 
 ### Beam / structural validation
 

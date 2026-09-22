@@ -137,7 +137,41 @@ slice B closes the workspace. **Do not commit between A and B.**
 | A | `aeroelast-core` only (6 files): `elements/solid.rs`, `elements/mod.rs`, `elements/reference.rs`, `assembly/topology.rs`, `assembly/assembler.rs`, `materials/mod.rs` | `cargo check -p aeroelast-core` → 0 errors; `cargo test -p aeroelast-core` → exactly 1 failure (the known mitc4 drill). `-p aeroelast-py` is EXPECTED to fail here. |
 | B | `aeroelast-mesh` + `aeroelast-solvers` + `aeroelast-py`: `mesh/src/entities.rs`, `mesh/src/io/hdf5.rs`, `solvers/.../rotor_fsi.rs`, `solvers/.../linear_elastic.rs`, `py/src/elements.rs`, `py/src/lib.rs`, `py/src/mesh.rs`, `py/src/assembler.rs` | `cargo check -p aeroelast-py` in BOTH feature configurations → 0 errors; exactly 31 `wrap_pyfunction!` + 6 `add_class` (37 registrations) |
 | C | Python mesh layer, config, assembler maps, solvers, CLI, exports, tools | `python -c "import aeroelast"`; no dangling reference to a removed symbol |
-| D | Delete the two test files, fix `test_beam_4cases_parity.py`, docs | full `pytest -m "not slow"`; expected **1 Rust + 11 Python** non-green |
+| D | Delete `tests/test_vol_mesh.py`; fix `tests/test_beam_4cases_parity.py:277`; clean the stale solid prose in `postprocess/stress_recovery.py`; update README, `docs/cli-reference.md` and `.github/**` | full `pytest -m "not slow"`; expected **37 failed / 330 passed / 27 skipped / 11 errors**, the pre-existing baseline |
+
+## Progress
+
+| Slice | State |
+|---|---|
+| A | done, committed with B |
+| B | done, committed with A as `7b295f3` |
+| C | done, split in two: `dd2e05a` (callers) and `9230ea2` (definitions) |
+| D | **not started** |
+
+### Two things the slices learned that the plan did not predict
+
+1. **`tests/test_solid_elements.py` was deleted in slice C, not D.** All 59 of its cases
+exercise code removed by C — the element codes no longer resolve — so it belongs with
+the removal. Committing 59 red tests would have left a commit that `git bisect` flags
+and no reviewer can attribute. With it gone the suite returns to its exact baseline.
+2. **`core/mesh/io/readers.py` had to be added to slice C's surfaces.** Its module-level
+`MESHIO_TYPE_MAP` references all 9 solid `ElementType` variants and it is imported at
+`import aeroelast` time, so deleting the variants without it breaks the import. Two
+further removals were also authorised: `volumetric_remesh` and `check_mesh_quality`,
+which read as generic helpers but are solid-only with zero consumers.
+
+### Slice D remaining work
+
+- Delete `tests/test_vol_mesh.py` (the accepted debt recorded above: it covers NuMAD's
+  volumetric pipeline, which is kept, but its 37 failures are fixture-driven and it has
+  no consumer).
+- `tests/test_beam_4cases_parity.py:277` still references `ElementType.hexahedron` inside
+  a helper used only by slow-marked tests. It does not affect the non-slow counts.
+- `src/aeroelast/postprocess/stress_recovery.py` still has docstrings naming solid
+  element families (lines 16, 299, 316-323, 385). No code identifier dangles; this is
+  prose residue.
+- README, `docs/cli-reference.md` and `.github/**` still advertise the removed volume
+  generators and the `SOLID` family.
 
 Every writer task for these slices must state explicitly: **never run `cargo fmt`,
 `rustfmt`, or any formatter**, touch only the named files, and report
@@ -166,8 +200,8 @@ cargo check -p aeroelast-py   --no-default-features --manifest-path crates/Cargo
 
 ## Tasks
 
-- [ ] A Remove solid support from `aeroelast-core` (6 files). Verified by core's own gate; workspace expected to be broken until B.
-- [ ] B Remove the remaining solid referrers from `aeroelast-mesh`, `aeroelast-solvers` and `aeroelast-py`; close the workspace.
-- [ ] C Remove solid helpers, generators, config, solver, CLI and export references from Python.
-- [ ] D Delete the solid tests, fix the parity test, update docs.
+- [x] A Remove solid support from `aeroelast-core` (6 files). Verified by core's own gate; workspace expected to be broken until B.
+- [x] B Remove the remaining solid referrers from `aeroelast-mesh`, `aeroelast-solvers` and `aeroelast-py`; close the workspace. Committed with A as `7b295f3`.
+- [x] C Remove the Python callers (`dd2e05a`) and then the Python definitions (`9230ea2`).
+- [ ] D Delete `test_vol_mesh.py`, fix the HEXA8 helper in `test_beam_4cases_parity.py`, clean the stale solid prose in `stress_recovery.py`, update the docs.
 - [ ] V Final verification and commit.
