@@ -118,16 +118,30 @@ compiler enumerates every non-exhaustive match), which makes it the safest step
 and the best way to discover sites. No Python production code calls the solid
 batch functions, so the Python side is not blocked by it.
 
-**Why the Rust work is a single slice:** removing the `ElemType` solid variants
-from `aeroelast-core` immediately breaks `aeroelast-py`, whose code arms map
-integer codes onto those variants. Core and py cannot be removed separately
-without leaving the workspace non-compiling, so they are one work unit.
+**Why the Rust work is sliced along crate boundaries.** A first attempt gave one
+writer all four Rust crates at once (~16 files). It ran out of capacity partway:
+it left `aeroelast-core/src/assembly/assembler.rs` (145 solid references, the bulk
+of the work) untouched, never reached `aeroelast-mesh/src/entities.rs`,
+`io/hdf5.rs`, `rotor_fsi.rs` or `linear_elastic.rs`, and reformatted unrelated
+files with a formatter it had been told not to run. Each slice below is small
+enough for one writer run.
+
+**Why core and py cannot be committed separately.** Removing the `ElemType` solid
+variants from `aeroelast-core` immediately breaks `aeroelast-py`, whose code arms
+map integer codes onto those variants. So `cargo check -p aeroelast-core` passing
+does NOT mean the workspace compiles: slice A is verified with core's own gate and
+slice B closes the workspace. **Do not commit between A and B.**
 
 | Slice | Content | Gate |
 |---|---|---|
-| R | All Rust crates: core, mesh, solvers, py | `cargo test -p aeroelast-core` → exactly 1 failure (the known mitc4 drill); `cargo check` both configs → 0 errors; symbol count 53 → **37** |
-| P | Python mesh layer, config, assembler maps, solvers, CLI, exports, tools | `python -c "import aeroelast"`; no dangling reference to a removed symbol |
-| T | Delete the two test files, fix `test_beam_4cases_parity.py`, docs | full `pytest -m "not slow"`; expected **1 Rust + 11 Python** non-green |
+| A | `aeroelast-core` only (6 files): `elements/solid.rs`, `elements/mod.rs`, `elements/reference.rs`, `assembly/topology.rs`, `assembly/assembler.rs`, `materials/mod.rs` | `cargo check -p aeroelast-core` → 0 errors; `cargo test -p aeroelast-core` → exactly 1 failure (the known mitc4 drill). `-p aeroelast-py` is EXPECTED to fail here. |
+| B | `aeroelast-mesh` + `aeroelast-solvers` + `aeroelast-py`: `mesh/src/entities.rs`, `mesh/src/io/hdf5.rs`, `solvers/.../rotor_fsi.rs`, `solvers/.../linear_elastic.rs`, `py/src/elements.rs`, `py/src/lib.rs`, `py/src/mesh.rs`, `py/src/assembler.rs` | `cargo check -p aeroelast-py` in BOTH feature configurations → 0 errors; exactly 31 `wrap_pyfunction!` + 6 `add_class` (37 registrations) |
+| C | Python mesh layer, config, assembler maps, solvers, CLI, exports, tools | `python -c "import aeroelast"`; no dangling reference to a removed symbol |
+| D | Delete the two test files, fix `test_beam_4cases_parity.py`, docs | full `pytest -m "not slow"`; expected **1 Rust + 11 Python** non-green |
+
+Every writer task for these slices must state explicitly: **never run `cargo fmt`,
+`rustfmt`, or any formatter**, touch only the named files, and report
+`git diff --stat` so scope violations are visible.
 
 ## Verification commands
 
@@ -152,7 +166,8 @@ cargo check -p aeroelast-py   --no-default-features --manifest-path crates/Cargo
 
 ## Tasks
 
-- [ ] R Remove solid support from all four Rust crates (one work unit).
-- [ ] P Remove solid helpers, generators, config, solver, CLI and export references from Python.
-- [ ] T Delete the solid tests, fix the parity test, update docs.
+- [ ] A Remove solid support from `aeroelast-core` (6 files). Verified by core's own gate; workspace expected to be broken until B.
+- [ ] B Remove the remaining solid referrers from `aeroelast-mesh`, `aeroelast-solvers` and `aeroelast-py`; close the workspace.
+- [ ] C Remove solid helpers, generators, config, solver, CLI and export references from Python.
+- [ ] D Delete the solid tests, fix the parity test, update docs.
 - [ ] V Final verification and commit.
