@@ -17,7 +17,6 @@ from .core.material import IsotropicMaterial, OrthotropicMaterial
 from .core.mesh import (  # Model; Entities; Generators; I/O; Utilities
     BladeMesh,
     BoxSurfaceMesh,
-    BoxVolumeMesh,
     ElementSet,
     ElementType,
     MeshElement,
@@ -27,9 +26,7 @@ from .core.mesh import (  # Model; Entities; Generators; I/O; Utilities
     NodeSet,
     RotorMesh,
     SquareShapeMesh,
-    check_mesh_quality,
     load_mesh,
-    verify_solid_element_orientations,
     write_mesh,
 )
 
@@ -116,14 +113,11 @@ __all__ = (
         "ElementType",
         "SquareShapeMesh",
         "BoxSurfaceMesh",
-        "BoxVolumeMesh",
         "MultiFlapMesh",
         "BladeMesh",
         "RotorMesh",
         "load_mesh",
         "write_mesh",
-        "check_mesh_quality",
-        "verify_solid_element_orientations",
         # Materials
         "IsotropicMaterial",
         "OrthotropicMaterial",

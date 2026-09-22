@@ -379,16 +379,6 @@ ELEMENTS_TO_CALCULIX = {
     "quad": "S4",
     "quad8": "S8R",
     "quad9": "S9",
-    # 3D Solid elements
-    "tetra": "C3D4",
-    "tetra10": "C3D10",
-    "hexahedron": "C3D8",
-    "hexahedron20": "C3D20",
-    "hexahedron27": "C3D27",
-    "wedge": "C3D6",
-    "wedge15": "C3D15",
-    "pyramid": "C3D5",
-    "pyramid13": "C3D13",
 }
 
 ELEMENT_TYPE_TO_GMSH = {
@@ -398,16 +388,6 @@ ELEMENT_TYPE_TO_GMSH = {
     ElementType.quad: 3,  # 4-node quadrangle
     ElementType.quad8: 16,  # 8-node second order quadrangle
     ElementType.quad9: 10,  # 9-node second order quadrangle
-    # 3D Volumetric elements
-    ElementType.tetra: 4,  # 4-node tetrahedron
-    ElementType.tetra10: 11,  # 10-node second order tetrahedron
-    ElementType.hexahedron: 5,  # 8-node hexahedron
-    ElementType.hexahedron20: 17,  # 20-node second order hexahedron
-    ElementType.hexahedron27: 12,  # 27-node second order hexahedron
-    ElementType.wedge: 6,  # 6-node prism/wedge
-    ElementType.wedge15: 18,  # 15-node second order prism
-    ElementType.pyramid: 7,  # 5-node pyramid
-    ElementType.pyramid13: 19,  # 13-node second order pyramid
 }
 
 
@@ -487,84 +467,37 @@ def write_meshio(mesh: "MeshModel", filename: str, close_tip: bool = None, **kwa
         close_tip = ext == ".stl"
 
     if ext == ".stl":
-        # Check if mesh has volume elements
-        has_volume = any(
-            el.element_type.name
-            in (
-                "tetra",
-                "tetra10",
-                "hexahedron",
-                "hexahedron20",
-                "hexahedron27",
-                "wedge",
-                "wedge15",
-                "pyramid",
-                "pyramid13",
-            )
-            for el in mesh.elements
-        )
+        # Extract surface triangles or triangulate quads
+        triangles = []
+        for el in mesh.elements:
+            indices = tuple(mesh.node_id_to_index[nid] for nid in el.node_ids)
+            if len(indices) == 3:
+                triangles.append(indices)
+            elif len(indices) == 4:
+                triangles.append([indices[0], indices[1], indices[2]])
+                triangles.append([indices[0], indices[2], indices[3]])
 
-        if has_volume:
-            face_count = defaultdict(int)
-            for element in mesh.elements:
-                faces = mesh._get_element_faces(element)
-                if not faces:
-                    continue
-                for face in faces:
-                    face_key = tuple(sorted(face))
-                    face_count[face_key] += 1
+        # Close blade tip boundary loops
+        if close_tip and triangles:
+            loops = _find_boundary_loops(mesh)
+            if loops:
+                # Identify the tip loop: highest average spanwise coord (Z)
+                coords = mesh.coords_array
+                id_to_idx = mesh.node_id_to_index
+                loop_avg_z = []
+                for loop in loops:
+                    avg_z = np.mean([coords[id_to_idx[nid], 2] for nid in loop])
+                    loop_avg_z.append(avg_z)
+                tip_loop_idx = int(np.argmax(loop_avg_z))
+                tip_loop = loops[tip_loop_idx]
 
-            boundary_faces = []
-            for element in mesh.elements:
-                faces = mesh._get_element_faces(element)
-                if not faces:
-                    continue
-                for face in faces:
-                    face_key = tuple(sorted(face))
-                    if face_count[face_key] == 1:
-                        # Convert node IDs to indices
-                        indices = [mesh.node_id_to_index[nid] for nid in face]
-                        if len(indices) == 3:
-                            boundary_faces.append(indices)
-                        elif len(indices) == 4:
-                            # Triangulate quad
-                            boundary_faces.append([indices[0], indices[1], indices[2]])
-                            boundary_faces.append([indices[0], indices[2], indices[3]])
+                cap_tris, centroid = _cap_tip_loop(tip_loop, points, id_to_idx)
+                # Append centroid to points array
+                points = np.vstack([points, centroid.reshape(1, 3)])
+                triangles.extend(cap_tris)
 
-            if boundary_faces:
-                cells = [("triangle", np.array(boundary_faces))]
-        else:
-            # Extract surface triangles or triangulate quads
-            triangles = []
-            for el in mesh.elements:
-                indices = tuple(mesh.node_id_to_index[nid] for nid in el.node_ids)
-                if len(indices) == 3:
-                    triangles.append(indices)
-                elif len(indices) == 4:
-                    triangles.append([indices[0], indices[1], indices[2]])
-                    triangles.append([indices[0], indices[2], indices[3]])
-
-            # Close blade tip boundary loops
-            if close_tip and triangles:
-                loops = _find_boundary_loops(mesh)
-                if loops:
-                    # Identify the tip loop: highest average spanwise coord (Z)
-                    coords = mesh.coords_array
-                    id_to_idx = mesh.node_id_to_index
-                    loop_avg_z = []
-                    for loop in loops:
-                        avg_z = np.mean([coords[id_to_idx[nid], 2] for nid in loop])
-                        loop_avg_z.append(avg_z)
-                    tip_loop_idx = int(np.argmax(loop_avg_z))
-                    tip_loop = loops[tip_loop_idx]
-
-                    cap_tris, centroid = _cap_tip_loop(tip_loop, points, id_to_idx)
-                    # Append centroid to points array
-                    points = np.vstack([points, centroid.reshape(1, 3)])
-                    triangles.extend(cap_tris)
-
-            if triangles:
-                cells = [("triangle", np.array(triangles))]
+        if triangles:
+            cells = [("triangle", np.array(triangles))]
 
     # Default grouping for non-STL or if STL didn't yield bound cells
     if not cells:
@@ -1422,11 +1355,9 @@ def _write_ccx_sections(
     quadratic: bool = False,
     angle_bucket_sets: Optional[Dict[str, Dict[int, list[int]]]] = None,
 ) -> None:
-    """Write *SHELL SECTION or *SOLID SECTION blocks for each element set.
+    """Write *SHELL SECTION blocks for each element set.
 
-    Detects element types in the mesh to determine whether to use:
-    - *SOLID SECTION for 3D solid elements (C3D*)
-    - *SHELL SECTION for 2D shell elements (S3/S4/S6/S8R)
+    Shell elements (S3/S4/S6/S8R) are written as ``*SHELL SECTION``.
 
     When *quadratic* is True, composite laminates use ``*SHELL SECTION,
     COMPOSITE`` with per-ply thickness/material/orientation — requires S8R/S6.
@@ -1447,22 +1378,6 @@ def _write_ccx_sections(
     except ImportError:
         CompositeShellProperty = None
         ShellProperty = None
-
-    # Detect if mesh contains shell or solid elements
-    has_solid_elements = any(
-        el.element_type.name
-        in (
-            "hexahedron",
-            "tetra",
-            "wedge",
-            "pyramid",
-            "hexahedron20",
-            "tetra10",
-            "wedge15",
-            "pyramid13",
-        )
-        for el in mesh.elements
-    )
 
     f.write("**\n")
     f.write("** ===========================================\n")
@@ -1555,21 +1470,13 @@ def _write_ccx_sections(
                 f.write(f"{t:.6E}\n")
         elif isinstance(prop, dict) and prop.get("type") == "isotropic":
             mat_name = prop.get("name", f"MAT_{set_name}")
-            if has_solid_elements:
-                # Use *SOLID SECTION for 3D solid elements (C3D*)
-                f.write(f"*SOLID SECTION, ELSET={elset_name}, MATERIAL={mat_name}\n")
-                # No thickness needed for solids - CCX infers from element geometry
-            else:
-                # Use *SHELL SECTION for 2D shell elements (S3/S4/S6/S8R)
-                thickness = prop.get("thickness", 1.0)
-                f.write(f"*SHELL SECTION, ELSET={elset_name}, MATERIAL={mat_name}\n")
-                f.write(f"{thickness:.6E}\n")
+            # Use *SHELL SECTION for 2D shell elements (S3/S4/S6/S8R)
+            thickness = prop.get("thickness", 1.0)
+            f.write(f"*SHELL SECTION, ELSET={elset_name}, MATERIAL={mat_name}\n")
+            f.write(f"{thickness:.6E}\n")
         elif ShellProperty is not None and isinstance(prop, ShellProperty):
-            if has_solid_elements:
-                f.write(f"*SOLID SECTION, ELSET={elset_name}, MATERIAL={prop.material.name}\n")
-            else:
-                f.write(f"*SHELL SECTION, ELSET={elset_name}, MATERIAL={prop.material.name}\n")
-                f.write(f"{prop.thickness:.6E}\n")
+            f.write(f"*SHELL SECTION, ELSET={elset_name}, MATERIAL={prop.material.name}\n")
+            f.write(f"{prop.thickness:.6E}\n")
 
 
 def _write_ccx_modal_step(

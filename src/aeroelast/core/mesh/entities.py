@@ -18,7 +18,7 @@ from pyvista.core.celltype import CellType
 class ElementType(IntEnum):
     """Enumeration of supported element types.
 
-    Includes 2D surface elements and 3D volumetric elements.
+    Includes 2D surface elements.
     Values correspond to PyVista/VTK cell type constants.
     """
 
@@ -29,42 +29,15 @@ class ElementType(IntEnum):
     quad8 = CellType.QUADRATIC_QUAD
     quad9 = CellType.LAGRANGE_QUADRILATERAL
 
-    # 3D Volumetric elements
-    tetra = CellType.TETRA
-    tetra10 = CellType.QUADRATIC_TETRA
-    hexahedron = CellType.HEXAHEDRON
-    hexahedron20 = CellType.QUADRATIC_HEXAHEDRON
-    hexahedron27 = CellType.TRIQUADRATIC_HEXAHEDRON
-    wedge = CellType.WEDGE
-    wedge15 = CellType.QUADRATIC_WEDGE
-    pyramid = CellType.PYRAMID
-    pyramid13 = CellType.QUADRATIC_PYRAMID
-
 
 # Mapping from node count to element type (for automatic element type detection)
-# Note: This is ambiguous for some counts (e.g., 6 could be triangle6 or wedge)
-# Use element_type parameter when constructing MeshElement for volumetric elements
 ELEMENT_NODES_MAP = {
-    # 2D elements (default for ambiguous counts)
+    # 2D elements
     3: ElementType.triangle,
-    4: ElementType.quad,  # Could be tetra, use explicit type
-    8: ElementType.quad8,  # Could be hexahedron, use explicit type
+    4: ElementType.quad,
+    8: ElementType.quad8,
     9: ElementType.quad9,
-    # Unambiguous 2D
-    6: ElementType.triangle6,  # Could be wedge, use explicit type
-}
-
-# Mapping for 3D volumetric elements by node count
-SOLID_ELEMENT_NODES_MAP = {
-    4: ElementType.tetra,
-    5: ElementType.pyramid,
-    6: ElementType.wedge,
-    8: ElementType.hexahedron,
-    10: ElementType.tetra10,
-    13: ElementType.pyramid13,
-    15: ElementType.wedge15,
-    20: ElementType.hexahedron20,
-    27: ElementType.hexahedron27,
+    6: ElementType.triangle6,
 }
 
 

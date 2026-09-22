@@ -317,19 +317,6 @@ class RotorMeshParams:
 
 
 @dataclass
-class BoxVolumeMeshParams:
-    """Parameters for BoxVolumeMesh generator (solid elements)."""
-
-    center: tuple
-    dims: tuple
-    nx: int
-    ny: int
-    nz: int
-    element_type: str = "hex"  # "hex", "tet", "wedge", "mixed"
-    quadratic: bool = False
-
-
-@dataclass
 class RotorConfig:
     """Configuration for LinearDynamicFSIRotorSolver rotor physics.
 
