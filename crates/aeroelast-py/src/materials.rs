@@ -15,7 +15,6 @@ use aeroelast_core::Material;
 /// Expected keys (composite): type="composite", cm=[9], cb=[9], cs=[4],
 ///                            thickness, e_equiv, mass_per_area, rotational_inertia
 /// Expected keys (plane_stress): type="plane_stress", e, nu, rho, thickness
-/// Expected keys (solid_3d): type="solid_3d", e, nu, rho
 pub(crate) fn parse_material(py: Python, obj: &Py<PyAny>) -> PyResult<MaterialSpec> {
     let dict = obj.bind(py);
     let mat_type: String = dict.get_item("type")
@@ -81,14 +80,8 @@ pub(crate) fn parse_material(py: Python, obj: &Py<PyAny>) -> PyResult<MaterialSp
                 .unwrap_or(1.0);
             Ok(MaterialSpec::PlaneStress { e, nu, rho, thickness })
         }
-        "solid_3d" => {
-            let e: f64 = dict.get_item("e")?.extract()?;
-            let nu: f64 = dict.get_item("nu")?.extract()?;
-            let rho: f64 = dict.get_item("rho")?.extract()?;
-            Ok(MaterialSpec::Solid3D { e, nu, rho })
-        }
         other => Err(pyo3::exceptions::PyValueError::new_err(format!(
-            "unknown material type '{}', expected 'isotropic', 'composite', 'plane_stress', or 'solid_3d'", other
+            "unknown material type '{}', expected 'isotropic', 'composite', or 'plane_stress'", other
         ))),
     }
 }

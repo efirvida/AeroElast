@@ -140,14 +140,6 @@ fn vtk_code_to_element_type(code: i64) -> ElementType {
         9  => ElementType::Quad4,
         23 => ElementType::Quad8,
         36 => ElementType::Quad9,
-        10 => ElementType::Tetra4,
-        24 => ElementType::Tetra10,
-        12 => ElementType::Hexa8,
-        25 => ElementType::Hexa20,
-        13 => ElementType::Wedge6,
-        26 => ElementType::Wedge15,
-        14 => ElementType::Pyramid5,
-        27 => ElementType::Pyramid13,
         _  => ElementType::Quad4, // fallback
     }
 }

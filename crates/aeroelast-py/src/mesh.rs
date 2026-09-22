@@ -163,14 +163,6 @@ impl PyMeshModel {
                 104 => ElementType::Quad4,
                 108 => ElementType::Quad8,
                 109 => ElementType::Quad9,
-                208 => ElementType::Hexa8,
-                220 => ElementType::Hexa20,
-                304 => ElementType::Tetra4,
-                310 => ElementType::Tetra10,
-                306 => ElementType::Wedge6,
-                315 => ElementType::Wedge15,
-                305 => ElementType::Pyramid5,
-                313 => ElementType::Pyramid13,
                 _ => if n_nodes_e == 3 { ElementType::Triangle3 } else { ElementType::Quad4 },
             }
         };

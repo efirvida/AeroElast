@@ -47,16 +47,11 @@ impl PyMeshAssembler {
     ///       3   = MITC3,       4   = MITC4
     ///       33  = MITC3Composite, 44 = MITC4Composite
     ///       104 = QUAD4,       108 = QUAD8,       109 = QUAD9
-    ///       208 = HEXA8,       220 = HEXA20
-    ///       304 = TETRA4,      310 = TETRA10
-    ///       306 = WEDGE6,      315 = WEDGE15
-    ///       305 = PYRAMID5,    313 = PYRAMID13
     /// materials : list[dict]
     ///     Per-element material dicts.  Supported types:
     ///     isotropic   — {type, e, nu, rho, thickness, shear_correction}
     ///     composite   — {type, cm, cb, cs, thickness, e_equiv, mass_per_area, rotational_inertia}
     ///     plane_stress — {type, e, nu, rho, thickness}
-    ///     solid_3d    — {type, e, nu, rho}
     #[new]
     pub fn new(
         node_coords: PyReadonlyArray2<f64>,
@@ -87,14 +82,6 @@ impl PyMeshAssembler {
                 104 => Ok(ElemType::Quad4),
                 108 => Ok(ElemType::Quad8),
                 109 => Ok(ElemType::Quad9),
-                208 => Ok(ElemType::Hexa8),
-                220 => Ok(ElemType::Hexa20),
-                304 => Ok(ElemType::Tetra4),
-                310 => Ok(ElemType::Tetra10),
-                306 => Ok(ElemType::Wedge6),
-                315 => Ok(ElemType::Wedge15),
-                305 => Ok(ElemType::Pyramid5),
-                313 => Ok(ElemType::Pyramid13),
                 other => Err(pyo3::exceptions::PyValueError::new_err(format!(
                     "unknown elem_type code {}: see PyMeshAssembler docstring for valid codes", other
                 ))),
@@ -150,14 +137,6 @@ impl PyMeshAssembler {
                 104 => Ok(ElemType::Quad4),
                 108 => Ok(ElemType::Quad8),
                 109 => Ok(ElemType::Quad9),
-                208 => Ok(ElemType::Hexa8),
-                220 => Ok(ElemType::Hexa20),
-                304 => Ok(ElemType::Tetra4),
-                310 => Ok(ElemType::Tetra10),
-                306 => Ok(ElemType::Wedge6),
-                315 => Ok(ElemType::Wedge15),
-                305 => Ok(ElemType::Pyramid5),
-                313 => Ok(ElemType::Pyramid13),
                 other => Err(pyo3::exceptions::PyValueError::new_err(format!(
                     "unknown elem_type code {other} from MeshModel::build_connectivity_arrays"
                 ))),
@@ -403,7 +382,7 @@ impl PyMeshAssembler {
                 )));
             };
 
-            // Override elem_type from mesh entities (for solid elements etc.)
+            // Override elem_type from mesh entities (e.g. plane element codes)
             let final_etype = {
                 let mesh_code = code_i32[i];
                 match mesh_code as u16 {
@@ -414,14 +393,6 @@ impl PyMeshAssembler {
                     104 => ElemType::Quad4,
                     108 => ElemType::Quad8,
                     109 => ElemType::Quad9,
-                    208 => ElemType::Hexa8,
-                    220 => ElemType::Hexa20,
-                    304 => ElemType::Tetra4,
-                    310 => ElemType::Tetra10,
-                    306 => ElemType::Wedge6,
-                    315 => ElemType::Wedge15,
-                    305 => ElemType::Pyramid5,
-                    313 => ElemType::Pyramid13,
                     // For shell elements loaded from HDF5 without composite info,
                     // use the composite/isotropic determination from property
                     _ => etype,

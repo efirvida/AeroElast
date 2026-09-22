@@ -11,7 +11,6 @@ use nalgebra::{Matrix2, Matrix3};
 pub enum ElementFamily {
     Shell = 2,
     Plane = 3,
-    Solid = 4,
 }
 
 /// Constitutive matrices for a shell element.
