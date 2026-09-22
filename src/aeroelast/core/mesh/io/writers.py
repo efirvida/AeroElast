@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import meshio
 import numpy as np
@@ -23,6 +23,13 @@ if TYPE_CHECKING:
     from aeroelast.core.mesh.model import MeshModel
 
 from aeroelast.core.mesh.entities import ElementType
+
+# Property objects accepted by the CalculiX writers: a Python ``ShellProperty``
+# or ``CompositeShellProperty``, a Rust ``_aeroelast.Laminate``, or the plain
+# isotropic dict form.  The concrete classes are optional at runtime (they are
+# imported lazily), so this alias is deliberately loose instead of a union of
+# types that may not be importable.
+ShellPropertyType = Any
 
 # ============================================================================
 # Property duck-typing helpers — support both Rust-native and Python types
@@ -1340,7 +1347,7 @@ def _write_ccx_orientations(
     # Include bucket-derived angles (used by Rust laminate per-element orientation)
     if angle_bucket_sets:
         for buckets in angle_bucket_sets.values():
-            for bucket_tenths in buckets.keys():
+            for bucket_tenths in buckets:
                 angles.add(bucket_tenths / 10.0)
 
     if not angles:
@@ -1887,13 +1894,13 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
         physical_tag = 1
 
         elset_tags = {}
-        for name in mesh.element_sets.keys():
+        for name in mesh.element_sets:
             physical_names.append((2, physical_tag, name))
             elset_tags[name] = physical_tag
             physical_tag += 1
 
         nset_tags = {}
-        for name in mesh.node_sets.keys():
+        for name in mesh.node_sets:
             physical_names.append((0, physical_tag, name))
             nset_tags[name] = physical_tag
             physical_tag += 1
@@ -1933,7 +1940,7 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
         max_coords = coords.max(axis=0)
 
         if mesh.element_sets:
-            for name, element_set in mesh.element_sets.items():
+            for name, _element_set in mesh.element_sets.items():
                 f.write(f"{surface_tag} {min_coords[0]} {min_coords[1]} {min_coords[2]} ")
                 f.write(f"{max_coords[0]} {max_coords[1]} {max_coords[2]} ")
                 f.write(f"1 {elset_tags[name]} 0\n")
@@ -1949,7 +1956,7 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
         f.write("$Nodes\n")
         f.write(f"1 {len(mesh.nodes)} 1 {len(mesh.nodes)}\n")
         f.write(f"2 1 0 {len(mesh.nodes)}\n")
-        for i, node in enumerate(mesh.nodes):
+        for i, _node in enumerate(mesh.nodes):
             f.write(f"{i + 1}\n")
         for node in mesh.nodes:
             f.write(f"{node.x} {node.y} {node.z}\n")
@@ -2045,11 +2052,11 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
             f.write(f"{len(mesh.nodes)}\n")
 
             node_values = {}
-            for i, node in enumerate(mesh.nodes):
+            for _i, node in enumerate(mesh.nodes):
                 node_values[node.id] = 0
 
             set_value = 1
-            for name, node_set in mesh.node_sets.items():
+            for _name, node_set in mesh.node_sets.items():
                 for node_id in node_set.node_ids:
                     node_values[node_id] = set_value
                 set_value += 1
