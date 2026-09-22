@@ -40,7 +40,7 @@ from textual.reactive import reactive
 from textual.screen import ModalScreen
 from textual.widgets import Footer, Input, Static
 
-from aeroelast.fsi_monitor.data_provider import FSIDataProvider, PLOTTABLE_METRICS
+from aeroelast.fsi_monitor.data_provider import FSIDataProvider
 from aeroelast.fsi_monitor.tui.panels.forces import ForcesPanel
 from aeroelast.fsi_monitor.tui.panels.plot_panel import PlotPanel
 from aeroelast.fsi_monitor.tui.panels.power import PowerPanel

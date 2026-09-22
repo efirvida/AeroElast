@@ -16,7 +16,6 @@ import numpy as np
 from aeroelast.core.mesh import selectors
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.io import load_mesh, write_hdf5, write_mesh, write_pickle
-from aeroelast.core.viewer import plot_mesh
 
 
 class MeshModel:
@@ -826,6 +825,8 @@ class MeshModel:
             Per-element scalar fields for colour mapping.  Keys are field
             names (e.g. ``"Thickness"``), values map element IDs to scalars.
         """
+        from aeroelast.core.viewer import plot_mesh
+
         plot_mesh(
             self,
             color_by_sets=color_by_sets,

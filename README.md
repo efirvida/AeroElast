@@ -82,16 +82,27 @@ turnkey installers, or broad industrial validation.
 
 ## Installation
 
-The Python package targets Python 3.12+.
+The Python package targets Python 3.12+. The Rust extension (`_aeroelast`) is
+required and is built automatically during `pip install` via maturin.
+
+Recommended dev install using a dedicated conda environment with the native
+solver dependencies (PETSc/SLEPc, MPI, preCICE). `hdf5` is pinned to 1.14
+because the Rust HDF5 bindings do not support the HDF5 2.x series.
 
 ```bash
+conda create -n aeroelast-dev -c conda-forge python=3.12 petsc slepc openmpi precice pyprecice hdf5=1.14
+conda activate aeroelast-dev
 cd AeroElast
+export HDF5_DIR="$CONDA_PREFIX"
+export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig:$CONDA_PREFIX/share/pkgconfig"
 pip install -e .
 ```
 
-This installs the package in editable mode and registers the available CLI
-commands. The Rust extension (`aeroelast_py`) is built when the Rust toolchain
-is available; the Python-only path degrades gracefully.
+`pip install -e .` builds the Rust extension (`_aeroelast`) with maturin and
+registers the available CLI commands. The two `export` lines point the Rust
+build scripts at the conda-provided HDF5, PETSc/SLEPc and preCICE. Without the
+compiled extension the package cannot import, so the conda env (or an
+equivalent environment providing PETSc/SLEPc/preCICE) is mandatory.
 
 If you need Triangle-based meshing helpers, install the optional extra:
 
@@ -118,8 +129,8 @@ Some workflows require software that is not bundled with this repository:
 - PETSc/SLEPc for the native solver crates
 - an MPI runtime for distributed runs where applicable
 
-If preCICE is not available in the environment, the package still imports, but
-FSI solvers are disabled.
+If preCICE is not available in the environment, the Rust extension cannot be
+linked (the `fsi` feature is on by default) and the build will fail.
 
 ## Quick Start
 

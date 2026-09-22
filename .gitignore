@@ -87,7 +87,8 @@ crates/target/
 **/log.*
 **/*.log
 **/*.png
-**/core.*
+**/core
+**/core.[0-9]*
 
 # Archivos de salida específicos en cualquier ubicación
 **/*.foam
@@ -100,3 +101,6 @@ crates/target/
 # Casos con múltiples niveles de nesting
 **/examples/**/[0-9]*
 !**/examples/**/0.orig
+
+# CodeGraph local index
+.codegraph/

@@ -11,7 +11,6 @@ This module contains the fundamental building blocks for mesh representation:
 from enum import IntEnum
 from typing import Iterable, List, Optional, Sequence, Set, Tuple, Union
 
-import matplotlib.pyplot as plt
 import numpy as np
 from pyvista.core.celltype import CellType
 
@@ -209,6 +208,8 @@ class MeshElement:
         show_mid_nodes : bool, optional
             Whether to show mid-side nodes. Default is True.
         """
+        import matplotlib.pyplot as plt
+
         plt.figure()
         plt.title(f"Element {self.id} (Type: {self.element_type.name.upper()})")
         plt.gca().set_aspect("equal", adjustable="box")

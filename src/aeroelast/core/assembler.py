@@ -746,7 +746,7 @@ class MeshAssembler:
 
         raise RuntimeError(
             "Rust backend (_aeroelast) required for tangent stiffness assembly. "
-            "Install with: cd crates/_aeroelast && maturin develop --release"
+            "Install with: cd crates/aeroelast-py && maturin develop --release"
         )
 
     def assemble_internal_forces(
@@ -788,5 +788,5 @@ class MeshAssembler:
 
         raise RuntimeError(
             "Rust backend (_aeroelast) required for internal force assembly. "
-            "Install with: cd crates/_aeroelast && maturin develop --release"
+            "Install with: cd crates/aeroelast-py && maturin develop --release"
         )
