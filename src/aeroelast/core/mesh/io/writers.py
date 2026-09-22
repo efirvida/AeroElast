@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, Optional
 
 import meshio
 import numpy as np
@@ -788,28 +788,32 @@ def _build_quadratic_mesh_data(mesh: "MeshModel") -> Dict:
             m01 = _get_midside(nids[0], nids[1])
             m12 = _get_midside(nids[1], nids[2])
             m20 = _get_midside(nids[2], nids[0])
-            elements.append((
-                "S6",
-                [nids[0] + 1, nids[1] + 1, nids[2] + 1, m01 + 1, m12 + 1, m20 + 1],
-            ))
+            elements.append(
+                (
+                    "S6",
+                    [nids[0] + 1, nids[1] + 1, nids[2] + 1, m01 + 1, m12 + 1, m20 + 1],
+                )
+            )
         elif etype == "quad":
             m01 = _get_midside(nids[0], nids[1])
             m12 = _get_midside(nids[1], nids[2])
             m23 = _get_midside(nids[2], nids[3])
             m30 = _get_midside(nids[3], nids[0])
-            elements.append((
-                "S8R",
-                [
-                    nids[0] + 1,
-                    nids[1] + 1,
-                    nids[2] + 1,
-                    nids[3] + 1,
-                    m01 + 1,
-                    m12 + 1,
-                    m23 + 1,
-                    m30 + 1,
-                ],
-            ))
+            elements.append(
+                (
+                    "S8R",
+                    [
+                        nids[0] + 1,
+                        nids[1] + 1,
+                        nids[2] + 1,
+                        nids[3] + 1,
+                        m01 + 1,
+                        m12 + 1,
+                        m23 + 1,
+                        m30 + 1,
+                    ],
+                )
+            )
         else:
             ccx_type = ELEMENTS_TO_CALCULIX.get(etype, etype)
             elements.append((ccx_type, [n + 1 for n in nids]))
@@ -1192,16 +1196,20 @@ def _write_ccx_materials(f, properties: Dict) -> None:
             a = prop.abd_matrix()
             import numpy as np  # noqa: PLC0415
 
-            D = np.array([
-                [float(a[3, 3]), float(a[3, 4]), float(a[3, 5])],
-                [float(a[4, 3]), float(a[4, 4]), float(a[4, 5])],
-                [float(a[5, 3]), float(a[5, 4]), float(a[5, 5])],
-            ])
-            A = np.array([
-                [float(a[0, 0]), float(a[0, 1]), float(a[0, 2])],
-                [float(a[1, 0]), float(a[1, 1]), float(a[1, 2])],
-                [float(a[2, 0]), float(a[2, 1]), float(a[2, 2])],
-            ])
+            D = np.array(
+                [
+                    [float(a[3, 3]), float(a[3, 4]), float(a[3, 5])],
+                    [float(a[4, 3]), float(a[4, 4]), float(a[4, 5])],
+                    [float(a[5, 3]), float(a[5, 4]), float(a[5, 5])],
+                ]
+            )
+            A = np.array(
+                [
+                    [float(a[0, 0]), float(a[0, 1]), float(a[0, 2])],
+                    [float(a[1, 0]), float(a[1, 1]), float(a[1, 2])],
+                    [float(a[2, 0]), float(a[2, 1]), float(a[2, 2])],
+                ]
+            )
             if t > 0 and abs(np.linalg.det(D)) > 1e-30:
                 S_D = np.linalg.inv(D) * (t**3 / 12.0)
                 E1 = 1.0 / S_D[0, 0]
@@ -1323,13 +1331,11 @@ def _write_ccx_orientations(
             if plies is None:
                 continue
             for ply in plies:
-                if span_direction is not None or abs(ply["angle"]) > 1e-10:
-                    angles.add(ply["angle"])
+                angles.add(ply["angle"])
         elif _prop_is_composite(prop):
             if CompositeShellProperty is not None and isinstance(prop, CompositeShellProperty):
                 for ply in prop.laminate.plies:
-                    if span_direction is not None or abs(ply.angle) > 1e-10:
-                        angles.add(ply.angle)
+                    angles.add(ply.angle)
 
     # Include bucket-derived angles (used by Rust laminate per-element orientation)
     if angle_bucket_sets:
@@ -1480,21 +1486,17 @@ def _write_ccx_sections(
                     t_ply = t / max(prop.n_plies, 1)
                     for i in range(prop.n_plies):
                         ply_mat_name = f"MAT_{set_name}_P{i}"
-                        if span_direction is not None:
-                            ori_name = _ccx_orientation_name(0.0)
-                            f.write(f"{t_ply:.6E}, , {ply_mat_name}, {ori_name}\n")
-                        else:
-                            f.write(f"{t_ply:.6E}, , {ply_mat_name}\n")
+                        ori_name = _ccx_orientation_name(0.0)
+                        f.write(f"{t_ply:.6E}, , {ply_mat_name}, {ori_name}\n")
                     continue
                 for i, ply in enumerate(plies):
                     ply_mat_name = f"MAT_{set_name}_P{i}"
                     ply_angle = ply["angle"]
                     ply_t = ply["thickness"]
-                    if span_direction is not None or abs(ply_angle) > 1e-10:
-                        ori_name = _ccx_orientation_name(ply_angle)
-                        f.write(f"{ply_t:.6E}, , {ply_mat_name}, {ori_name}\n")
-                    else:
-                        f.write(f"{ply_t:.6E}, , {ply_mat_name}\n")
+                    # CCX inherits the previous ply's orientation when the field is
+                    # omitted, so every ply must name one explicitly — including 0°.
+                    ori_name = _ccx_orientation_name(ply_angle)
+                    f.write(f"{ply_t:.6E}, , {ply_mat_name}, {ori_name}\n")
             else:
                 # S4/S3 — *SHELL SECTION, MATERIAL= with orthotropic equivalent
                 if span_direction is not None and buckets_for_set:
@@ -1529,11 +1531,11 @@ def _write_ccx_sections(
                 # S8R/S6 — *SHELL SECTION, COMPOSITE with per-ply detail
                 f.write(f"*SHELL SECTION, ELSET={elset_name}, COMPOSITE\n")
                 for ply in prop.laminate.plies:
-                    if span_direction is not None or abs(ply.angle) > 1e-10:
-                        ori_name = _ccx_orientation_name(ply.angle)
-                        f.write(f"{ply.thickness:.6E}, , {ply.material.name}, {ori_name}\n")
-                    else:
-                        f.write(f"{ply.thickness:.6E}, , {ply.material.name}\n")
+                    # Always name the orientation: CCX inherits the previous ply's
+                    # orientation when this field is omitted, so a 0° ply placed
+                    # after a rotated ply would silently inherit that rotation.
+                    ori_name = _ccx_orientation_name(ply.angle)
+                    f.write(f"{ply.thickness:.6E}, , {ply.material.name}, {ori_name}\n")
             else:
                 # S4/S3 — *SHELL SECTION, MATERIAL= with orthotropic equivalent
                 if span_direction is not None:
@@ -1575,12 +1577,12 @@ def _write_ccx_modal_step(
 
     if boundary_nodeset:
         nset_name = f"N{boundary_nodeset.upper()}"
-        f.write(f"*BOUNDARY\n")
+        f.write("*BOUNDARY\n")
         f.write(f"{nset_name}, 1, 6, 0.0\n")
     else:
         # Fall back to first available node set
         for name in mesh.node_sets:
-            f.write(f"*BOUNDARY\n")
+            f.write("*BOUNDARY\n")
             f.write(f"N{name.upper()}, 1, 6, 0.0\n")
             break
 
@@ -1969,11 +1971,13 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
                 for el_type, elements in elements_by_type.items():
                     gmsh_type = ELEMENT_TYPE_TO_GMSH.get(el_type)
                     if gmsh_type:
-                        element_blocks.append({
-                            "entity_tag": elset_entity_tags[name],
-                            "gmsh_type": gmsh_type,
-                            "elements": elements,
-                        })
+                        element_blocks.append(
+                            {
+                                "entity_tag": elset_entity_tags[name],
+                                "gmsh_type": gmsh_type,
+                                "elements": elements,
+                            }
+                        )
 
             elements_in_sets = set()
             for el_set in mesh.element_sets.values():
@@ -1990,11 +1994,13 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
                 for el_type, elements in elements_by_type.items():
                     gmsh_type = ELEMENT_TYPE_TO_GMSH.get(el_type)
                     if gmsh_type:
-                        element_blocks.append({
-                            "entity_tag": 1,
-                            "gmsh_type": gmsh_type,
-                            "elements": elements,
-                        })
+                        element_blocks.append(
+                            {
+                                "entity_tag": 1,
+                                "gmsh_type": gmsh_type,
+                                "elements": elements,
+                            }
+                        )
         else:
             elements_by_type = {}
             for el in mesh.elements:
@@ -2005,11 +2011,13 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
             for el_type, elements in elements_by_type.items():
                 gmsh_type = ELEMENT_TYPE_TO_GMSH.get(el_type)
                 if gmsh_type:
-                    element_blocks.append({
-                        "entity_tag": 1,
-                        "gmsh_type": gmsh_type,
-                        "elements": elements,
-                    })
+                    element_blocks.append(
+                        {
+                            "entity_tag": 1,
+                            "gmsh_type": gmsh_type,
+                            "elements": elements,
+                        }
+                    )
 
         total_elements = sum(len(block["elements"]) for block in element_blocks)
         f.write(f"{len(element_blocks)} {total_elements} 1 {total_elements}\n")
