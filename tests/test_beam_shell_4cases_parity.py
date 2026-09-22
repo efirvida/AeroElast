@@ -27,6 +27,8 @@ from scipy.optimize import linear_sum_assignment
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
+from conftest import ccx_bin_or_skip
+
 pytest.importorskip("petsc4py", reason="PETSc not available")
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
@@ -304,7 +306,8 @@ def _parse_ccx_frequencies(dat_path: Path, n_modes: int = 5) -> np.ndarray:
 
 
 def _ccx_bin() -> str:
-    return "/scratch/leahk/eduardo.donestevez/venv/bin/ccx"
+    """Find CCX binary or skip (shared resolver in ``conftest``)."""
+    return ccx_bin_or_skip()
 
 
 def _run_ccx(ccx_bin: str, workdir: Path, stem: str) -> None:

@@ -16,7 +16,6 @@ Analytical solutions used for validation.
 
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -27,21 +26,17 @@ import pytest
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
+from conftest import ccx_bin_or_skip
+
 pytest.importorskip("petsc4py", reason="PETSc not available")
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
 from _aeroelast import PyMeshAssembler, modal_solve_coo
 
-from aeroelast.core.bc import DirichletCondition, NodalLoad
 from aeroelast.core.material import IsotropicMaterial
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.io.writers import write_ccx_mesh
 from aeroelast.core.mesh.model import MeshModel
-from aeroelast.core.properties import ShellProperty
-from aeroelast.elements import ElementFamily
-from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
-from aeroelast.solvers.elasticity.static_nonlinear import StaticNonlinearSolver
-from aeroelast.solvers.modal import ModalSolver
 
 
 pytestmark = [pytest.mark.slow]
@@ -219,7 +214,7 @@ def _compare_modal_frequencies(
     Prints both frequency arrays and relative errors, then fails via pytest if any
     error exceeds 5% (hard limit for formulation improvements tracking).
     """
-    print(f"\n[Modal Comparison]")
+    print("\n[Modal Comparison]")
     print(f"  AeroElast frequencies: {freqs_ae}")
     print(f"  CCX frequencies:        {freqs_ccx}")
 
@@ -236,8 +231,8 @@ def _compare_modal_frequencies(
 
 
 def _ccx_bin_or_skip() -> str:
-    ccx_bin = "/scratch/leahk/eduardo.donestevez/venv/bin/ccx"
-    return ccx_bin
+    """Find CCX binary or skip (shared resolver in ``conftest``)."""
+    return ccx_bin_or_skip()
 
 
 def _build_beam_mesh(*, nz: int = 10, nx: int = 2, ny: int = 2) -> MeshModel:
@@ -409,8 +404,6 @@ class TestBeam4CasesParity:
             case_dir.mkdir(exist_ok=True)
             inp = case_dir / f"{stem}.inp"
 
-            from aeroelast.core.mesh.io.writers import write_ccx_mesh
-
             write_ccx_mesh(
                 mesh,
                 str(inp),
@@ -498,8 +491,6 @@ class TestBeam4CasesParity:
         modal_dir.mkdir(exist_ok=True)
         stem = "beam_modal"
         inp = modal_dir / f"{stem}.inp"
-
-        from aeroelast.core.mesh.io.writers import write_ccx_mesh
 
         write_ccx_mesh(
             mesh,

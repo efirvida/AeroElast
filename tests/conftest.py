@@ -2,8 +2,43 @@
 
 import ctypes
 import os
+import shutil
 
 import pytest
+
+
+# ---------------------------------------------------------------------------
+# CalculiX (ccx) executable resolution
+# ---------------------------------------------------------------------------
+# Legacy HPC path, kept only as a last-resort fallback.  ``CCX_BIN`` and
+# ``PATH`` take precedence, so a local install is found first.
+_LEGACY_CCX_BIN = "/scratch/leahk/eduardo.donestevez/venv/bin/ccx"
+
+
+def ccx_bin_or_skip() -> str:
+    """Return a usable CalculiX (ccx) executable, or skip the calling test.
+
+    Resolution order:
+
+    1. ``CCX_BIN`` environment variable, when it points at an existing file.
+    2. ``ccx`` on ``PATH``.
+    3. ``CalculiX`` on ``PATH``.
+    4. Legacy HPC fallback ``/scratch/leahk/eduardo.donestevez/venv/bin/ccx``.
+    """
+    candidates = []
+    env_bin = os.environ.get("CCX_BIN")
+    if env_bin:
+        candidates.append(env_bin)
+    candidates.append(shutil.which("ccx"))
+    candidates.append(shutil.which("CalculiX"))
+    candidates.append(_LEGACY_CCX_BIN)
+
+    for candidate in candidates:
+        if candidate and os.path.isfile(candidate):
+            return candidate
+
+    pytest.skip("CalculiX (ccx) not found; set CCX_BIN or install calculix")
+
 
 # ---------------------------------------------------------------------------
 # GLU library — required by gmsh (equivalent to `module load glu`)

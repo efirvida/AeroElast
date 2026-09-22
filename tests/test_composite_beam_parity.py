@@ -14,10 +14,7 @@ This test validates composite shell formulation against CalculiX.
 
 from __future__ import annotations
 
-import os
-import re
 import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -25,20 +22,19 @@ import pytest
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
+from conftest import ccx_bin_or_skip
+
 pytest.importorskip("petsc4py", reason="PETSc not available")
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
-from _aeroelast import PyMeshAssembler, modal_solve_coo
+from _aeroelast import PyMeshAssembler
 
-from aeroelast.core.bc import DirichletCondition, NodalLoad
 from aeroelast.core.laminate import create_laminate_from_angles
-from aeroelast.core.material import IsotropicMaterial, Material, OrthotropicMaterial
+from aeroelast.core.material import Material
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.io.writers import write_ccx_mesh
 from aeroelast.core.mesh.model import MeshModel
-from aeroelast.core.properties import CompositeShellProperty, ShellProperty
-from aeroelast.elements import ElementFamily
-from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
+from aeroelast.core.properties import CompositeShellProperty
 
 pytestmark = [pytest.mark.slow]
 
@@ -63,61 +59,71 @@ nu12 = 0.3  # Poisson ratio
 
 
 def _parse_frd_disp(frd_file: Path, node_ids: list[int]) -> dict[int, np.ndarray]:
-    """Parse displacement from FRD file - parse all nodes, find max."""
-    import re
+    """Parse the last FRD displacement block, returning only requested nodes.
 
-    disps = {}
-    in_disp = False
-    
-    with open(frd_file) as f:
-        content = f.read()
-    
-    for line in content.splitlines():
-        if "-4" in line and "DISP" in line:
-            in_disp = True
+    CalculiX writes nodal records in fixed-width columns
+    (``(1X,'-1',I10,3E12.5)``): a negative component abuts the previous one
+    with no separator, so a greedy character-class regex silently drops every
+    node that has a negative component.  The node number is read from columns
+    4-13 and each component from the following 12-column fields.
+    """
+    wanted = set(node_ids)
+    disps: dict[int, np.ndarray] = {}
+
+    with open(frd_file, "r", encoding="utf-8", errors="replace") as handle:
+        lines = handle.readlines()
+
+    last_disp_start = -1
+    for i, line in enumerate(lines):
+        if "-4" in line and "DISP" in line.upper():
+            last_disp_start = i
+
+    if last_disp_start == -1:
+        return disps
+
+    for line in lines[last_disp_start + 1 :]:
+        stripped = line.strip()
+        if not stripped:
             continue
-        if in_disp:
-            if line.startswith(" -3"):
-                break
-            if line.startswith(" -1"):
-                # Try pattern with separated numbers (parse ALL nodes)
-                matches = re.findall(
-                    r'-1\s+(\d+)\s+([0-9.eE+-]+)\s+([0-9.eE+-]+)\s+([0-9.eE+-]+)',
-                    line
-                )
-                if matches:
-                    for nid_str, u_str, v_str, w_str in matches:
-                        try:
-                            nid = int(nid_str)
-                            disps[nid] = np.array([float(u_str), float(v_str), float(w_str)])
-                        except (ValueError, IndexError):
-                            continue
-                else:
-                    # Try concatenated pattern
-                    matches2 = re.findall(r'-1\s+(\d+)([0-9.eE+-]{10,})', line)
-                    for nid_str, rest in matches2:
-                        try:
-                            nid = int(nid_str)
-                            if len(rest) >= 24:
-                                disps[nid] = np.array([
-                                    float(rest[-24:-12]),
-                                    float(rest[-12:]),
-                                    0.0
-                                ])
-                        except (ValueError, IndexError):
-                            continue
+        if stripped.startswith("-3") or stripped.startswith("*") or "STEP" in stripped.upper():
+            break
+        if not stripped.startswith("-1"):
+            continue
+        try:
+            node_id = int(line[3:13])
+            if node_id not in wanted:
+                continue
+            disps[node_id] = np.array(
+                [float(line[13:25]), float(line[25:37]), float(line[37:49])],
+                dtype=float,
+            )
+        except ValueError:
+            continue
+
     return disps
 
 
 def _run_ccx(inp_path: Path, ccx_bin: str) -> subprocess.CompletedProcess:
-    """Run CalculiX on input file."""
-    os.chdir(inp_path.parent)
-    result = subprocess.run(
+    """Run CalculiX on input file, inside its own directory.
+
+    ``cwd`` is passed to the subprocess instead of mutating the process-wide
+    working directory with ``os.chdir`` (which leaked into later tests).
+    """
+    return subprocess.run(
         [ccx_bin, inp_path.stem],
+        cwd=inp_path.parent,
         capture_output=True,
         text=True,
     )
-    return result
+
+
+def _fail_ccx(result: subprocess.CompletedProcess, inp_path: Path) -> None:
+    """Hard-fail on a non-zero CCX exit; ccx writes its diagnostics to stdout."""
+    pytest.fail(
+        f"CCX failed for {inp_path.name} (rc={result.returncode}):\n"
+        f"STDOUT tail:\n{result.stdout[-2000:]}\n"
+        f"STDERR tail:\n{result.stderr[-2000:]}"
+    )
 
 
 # ============================================================================
@@ -125,8 +131,12 @@ def _run_ccx(inp_path: Path, ccx_bin: str) -> subprocess.CompletedProcess:
 # ============================================================================
 
 
-def _build_composite_plate_mesh() -> MeshModel:
+def _build_composite_plate_mesh(nx: int = 4, ny: int = 10) -> MeshModel:
     """Build cantilever plate mesh for composite shell test.
+
+    ``nx`` and ``ny`` are the element counts along X (width) and Y (length);
+    the defaults reproduce the original 4x10 mesh.  Other densities are used
+    by the laminate mesh-dependence study.
 
     The mesh is a proper 2D shell cantilever in the XY plane:
     - X: width direction (-B/2 to +B/2)
@@ -137,9 +147,13 @@ def _build_composite_plate_mesh() -> MeshModel:
     This matches the CCX *SHELL SECTION setup where the shell lies in
     the XY plane and deforms out-of-plane (Z displacement).
     """
-    nx = 4  # elements along X
-    ny = 10  # elements along Y (length)
     h_shell = thickness  # shell thickness (for reference, not a 3D mesh)
+
+    # Reset global counters so node ids are 0-based and contiguous.  The CCX
+    # quadratic upgrade indexes coordinates by node id, so a stale counter
+    # (from a previous mesh built in the same process) breaks it.
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
 
     mesh = MeshModel()
 
@@ -192,55 +206,44 @@ def _write_composite_ccx_inp(
     inp_path: Path,
     mesh: MeshModel,
     load_vector: tuple[float, float, float],
+    laminate=None,
 ) -> None:
-    """Write CCX input for composite cantilever using aeroelast writer."""
-    from aeroelast.core.mesh.io.writers import write_ccx_mesh
-    
-    # Build composite property - 8-ply symmetric [0/90/45/-45]s
-    from aeroelast.core.laminate import create_laminate_from_angles
-    from aeroelast.core.material import Material
-    
-    mat = Material(
-        name="comp",
-        E=(E1, E2, E2),
-        G=(G12, G12, G12),
-        nu=(nu12, nu12, 0.0),
-        rho=0.0,
-    )
-    ply_t = thickness / 8
-    angles = [0.0, 90.0, 45.0, -45.0, -45.0, 45.0, 90.0, 0.0]
-    laminate = create_laminate_from_angles(mat, ply_t, angles)
-    
-    props = {
-        "plate": {
-            "type": "composite",
-            "laminate": laminate,
-            "thickness": thickness,
-        }
-    }
-    
-    # Use equivalent orthotropic instead of full laminate to avoid CCX crash
-    # The coupling B matrix is still used in AeroElast
-    e_equiv = (E1 + E2) / 2
-    props_simple = {
-        "plate": {
-            "type": "isotropic",
-            "e": e_equiv,
-            "nu": nu12,
-            "rho": 0.0,
-            "thickness": thickness,
-        }
-    }
-    
-    # Try to use composite if possible, fallback to isotropic
-    # Use aeroelast writer with LinearStatic solver
+    """Write CCX input for a laminate (S8R + COMPOSITE section).
+
+    ``laminate`` defaults to the real 8-ply symmetric [0/90/45/-45]s laminate,
+    preserving the original behaviour.  Pass an explicit laminate to override
+    it -- e.g. a single-ply isotropic laminate used to isolate the
+    element-formulation difference from the material difference.
+    """
+
+    if laminate is None:
+        # Build the real 8-ply symmetric [0/90/45/-45]s laminate.
+        from aeroelast.core.laminate import create_laminate_from_angles
+        from aeroelast.core.material import Material
+
+        mat = Material(
+            name="comp",
+            E=(E1, E2, E2),
+            G=(G12, G12, G12),
+            nu=(nu12, nu12, 0.0),
+            rho=0.0,
+        )
+        ply_t = thickness / 8
+        angles = [0.0, 90.0, 45.0, -45.0, -45.0, 45.0, 90.0, 0.0]
+        laminate = create_laminate_from_angles(mat, ply_t, angles)
+
+    # CCX needs S8R + *SHELL SECTION, COMPOSITE for a real laminate; linear S4
+    # does not support composite sections, so quadratic=True is required.
+    props = {"plate": CompositeShellProperty(laminate=laminate)}
+
     write_ccx_mesh(
         mesh,
         str(inp_path),
-        properties=props_simple,
+        properties=props,
         load_nodeset="free_center",
         load_vector=list(load_vector),
         solver_type="LinearStatic",
+        quadratic=True,
     )
 
 
@@ -249,9 +252,7 @@ def _write_composite_ccx_inp(
 # ============================================================================
 
 
-def _make_laminate_mat(
-    E1: float, E2: float, G12: float, nu12: float, thickness: float
-) -> dict:
+def _make_laminate_mat(E1: float, E2: float, G12: float, nu12: float, thickness: float) -> dict:
     """Compute ABD matrices and return a material dict for PyMeshAssembler.
 
     Uses the Python CLT to build the 8-ply symmetric [0/90/45/-45]s layup,
@@ -278,10 +279,10 @@ def _make_laminate_mat(
     Cs = laminate.Cs
 
     # Flatten for Rust binding: row-major
-    cm = A.ravel()              # 9 elements
-    cb_coupling = B.ravel()     # 9 elements
-    cb = D.ravel()              # 9 elements
-    cs = Cs.ravel()             # 4 elements
+    cm = A.ravel()  # 9 elements
+    cb_coupling = B.ravel()  # 9 elements
+    cb = D.ravel()  # 9 elements
+    cs = Cs.ravel()  # 4 elements
 
     h = laminate.total_thickness
     rho_eq = 0.0  # no density needed for stiffness test
@@ -307,13 +308,8 @@ def _make_laminate_mat(
 
 
 def _ccx_bin_or_skip() -> str:
-    """Find CCX binary or skip."""
-    import shutil
-
-    ccx = shutil.which("ccx") or shutil.which("CalculiX")
-    if ccx is None:
-        pytest.skip("CalculiX (ccx) not found in PATH")
-    return ccx
+    """Find CCX binary or skip (shared resolver in ``conftest``)."""
+    return ccx_bin_or_skip()
 
 
 # =============================================================================
@@ -431,37 +427,38 @@ def test_composite_axial_tension(tmp_path: Path):
     u = np.zeros(n, dtype=float)
     u[free] = u_free
 
-    aero_disp = u[i0:i0 + 6]
+    aero_disp = u[i0 : i0 + 6]
 
     # CCX solution
     inp_path = tmp_path / "composite_axial.inp"
     _write_composite_ccx_inp(inp_path, mesh, load)
-    
+
     # Get node IDs for CCX output
-    node_ids = [mesh.node_id_to_index[n.id] + 1 for n in mesh.get_node_set("free_center").nodes.values()]
+    node_ids = [
+        mesh.node_id_to_index[n.id] + 1 for n in mesh.get_node_set("free_center").nodes.values()
+    ]
 
     result = _run_ccx(inp_path, ccx_bin)
     if result.returncode != 0:
-        pytest.xfail(f"CCX failed (may be version/system issue): {result.stderr[:200]}")
+        _fail_ccx(result, inp_path)
 
     frd_path = inp_path.with_suffix(".frd")
     if not frd_path.exists():
-        pytest.xfail("No FRD output from CCX")
+        pytest.fail(f"No FRD output from CCX for {inp_path.name}")
 
     ccx_disp = _parse_frd_disp(frd_path, node_ids)
     if not ccx_disp:
-        pytest.skip("Could not parse CCX displacements")
+        pytest.fail(f"Could not parse CCX displacements from {frd_path.name}")
 
-    # Get max displacement (any node)
-    ccx_uy = max(abs(v[1]) for v in ccx_disp.values())
+    # Compare the same free-centre node on both sides
+    ccx_uy = abs(ccx_disp[node_ids[0]][1])
 
-    # Compare
     aero_uy = abs(aero_disp[1])
     rel_error = abs(aero_uy - ccx_uy) / max(ccx_uy, 1e-10)
-    print(f"AeroElast UY: {aero_uy*1e6:.2f} um, CCX: {ccx_uy*1e6:.2f} um")
-    print(f"Relative error: {rel_error*100:.2f}%")
+    print(f"AeroElast UY: {aero_uy * 1e6:.2f} um, CCX: {ccx_uy * 1e6:.2f} um")
+    print(f"Relative error: {rel_error * 100:.2f}%")
 
-    assert rel_error < 0.1, f"Composite axial: {rel_error*100:.1f}% error (max 10%)"
+    assert rel_error < 0.1, f"Composite axial: {rel_error * 100:.1f}% error (max 10%)"
 
 
 # Test de composite shell - isotrópico equivalente
@@ -480,13 +477,15 @@ def test_composite_isotropic_equiv(tmp_path: Path):
 
     # Isotropic equivalent material (average E, same as CCX)
     e_equiv = (E1 + E2) / 2
-    mats_iso = [{
-        "type": "isotropic",
-        "e": e_equiv,
-        "nu": nu12,
-        "rho": 0.0,
-        "thickness": thickness,
-    }] * len(mesh.elements)
+    mats_iso = [
+        {
+            "type": "isotropic",
+            "e": e_equiv,
+            "nu": nu12,
+            "rho": 0.0,
+            "thickness": thickness,
+        }
+    ] * len(mesh.elements)
 
     asm_iso = PyMeshAssembler(
         node_coords=node_coords, connectivity=conn, elem_types=elem_types, materials=mats_iso
@@ -518,34 +517,48 @@ def test_composite_isotropic_equiv(tmp_path: Path):
     u = np.zeros(n, dtype=float)
     u[free] = u_free
 
-    aero_iso_disp = u[i0:i0 + 6]
+    aero_iso_disp = u[i0 : i0 + 6]
 
-    # CCX solution
+    # CCX solution -- the same isotropic material expressed as a single-ply
+    # laminate.  A single isotropic ply gives A = Q*t and D = Q*t^3/12 with
+    # Q11 = E/(1 - nu^2), i.e. exactly an isotropic shell, so the only
+    # remaining difference is the element formulation (MITC4 vs S8R).
+    g_iso = e_equiv / (2.0 * (1.0 + nu12))
+    mat_iso = Material(
+        name="iso",
+        E=(e_equiv, e_equiv, e_equiv),
+        G=(g_iso, g_iso, g_iso),
+        nu=(nu12, nu12, nu12),
+        rho=0.0,
+    )
+    lam_iso = create_laminate_from_angles(mat_iso, thickness, [0.0])
     inp_path = tmp_path / "composite_iso.inp"
-    _write_composite_ccx_inp(inp_path, mesh, load)
+    _write_composite_ccx_inp(inp_path, mesh, load, laminate=lam_iso)
 
     result = _run_ccx(inp_path, ccx_bin)
     if result.returncode != 0:
-        pytest.xfail(f"CCX failed: {result.stderr[:200]}")
+        _fail_ccx(result, inp_path)
 
     frd_path = inp_path.with_suffix(".frd")
     if not frd_path.exists():
-        pytest.xfail("No FRD output from CCX")
+        pytest.fail(f"No FRD output from CCX for {inp_path.name}")
 
-    node_ids = [mesh.node_id_to_index[n.id] + 1 for n in mesh.get_node_set("free_center").nodes.values()]
+    node_ids = [
+        mesh.node_id_to_index[n.id] + 1 for n in mesh.get_node_set("free_center").nodes.values()
+    ]
     ccx_disp = _parse_frd_disp(frd_path, node_ids)
     if not ccx_disp:
-        pytest.skip("Could not parse CCX displacements")
+        pytest.fail(f"Could not parse CCX displacements from {frd_path.name}")
 
-    ccx_uy = max(abs(v[1]) for v in ccx_disp.values())
+    ccx_uy = abs(ccx_disp[node_ids[0]][1])
 
     # Compare
     aero_uy = abs(aero_iso_disp[1])
     rel_error = abs(aero_uy - ccx_uy) / max(ccx_uy, 1e-10)
-    print(f"Isotropic equiv UY: {aero_uy*1e6:.2f} um, CCX: {ccx_uy*1e6:.2f} um")
-    print(f"Relative error: {rel_error*100:.2f}%")
+    print(f"Isotropic equiv UY: {aero_uy * 1e6:.2f} um, CCX: {ccx_uy * 1e6:.2f} um")
+    print(f"Relative error: {rel_error * 100:.2f}%")
 
-    assert rel_error < 0.1, f"Isotropic equiv: {rel_error*100:.1f}% error (max 10%)"
+    assert rel_error < 0.1, f"Isotropic equiv: {rel_error * 100:.1f}% error (max 10%)"
 
 
 # Test de composite shell - bending
@@ -597,31 +610,33 @@ def test_composite_bending(tmp_path: Path):
     u = np.zeros(n, dtype=float)
     u[free] = u_free
 
-    aero_disp = u[i0:i0 + 6]
+    aero_disp = u[i0 : i0 + 6]
 
     # CCX solution
     inp_path = tmp_path / "composite_bending.inp"
     _write_composite_ccx_inp(inp_path, mesh, load)
 
-    node_ids = [mesh.node_id_to_index[n.id] + 1 for n in mesh.get_node_set("free_center").nodes.values()]
+    node_ids = [
+        mesh.node_id_to_index[n.id] + 1 for n in mesh.get_node_set("free_center").nodes.values()
+    ]
 
     result = _run_ccx(inp_path, ccx_bin)
     if result.returncode != 0:
-        pytest.xfail(f"CCX failed (may be version/system issue): {result.stderr[:200]}")
+        _fail_ccx(result, inp_path)
 
     frd_path = inp_path.with_suffix(".frd")
     if not frd_path.exists():
-        pytest.xfail("No FRD output from CCX")
+        pytest.fail(f"No FRD output from CCX for {inp_path.name}")
 
     ccx_disp = _parse_frd_disp(frd_path, node_ids)
     if not ccx_disp:
-        pytest.xfail("Could not parse CCX displacements")
+        pytest.fail(f"Could not parse CCX displacements from {frd_path.name}")
 
-    ccx_vals = list(ccx_disp.values())[0]
+    ccx_vals = ccx_disp[node_ids[0]]
 
     # Compare (CCX has 3 DOFs, MITC4 has 6)
     rel_error = abs(aero_disp[0] - ccx_vals[0]) / max(abs(ccx_vals[0]), 1e-10)
-    print(f"AeroElast X: {aero_disp[0]*1e6:.2f} um, CCX: {ccx_vals[0]*1e6:.2f} um")
-    print(f"Relative error: {rel_error*100:.2f}%")
+    print(f"AeroElast X: {aero_disp[0] * 1e6:.2f} um, CCX: {ccx_vals[0] * 1e6:.2f} um")
+    print(f"Relative error: {rel_error * 100:.2f}%")
 
-    assert rel_error < 0.1, f"Composite bending: {rel_error*100:.1f}% error (max 10%)"
+    assert rel_error < 0.1, f"Composite bending: {rel_error * 100:.1f}% error (max 10%)"
