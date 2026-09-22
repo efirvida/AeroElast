@@ -237,7 +237,9 @@ class MeshModel:
         n_elements = len(self.elements)
 
         if verbose:
-            print(f"        Building adjacency graph ({n_nodes:,} nodes, {n_elements:,} elements)...")
+            print(
+                f"        Building adjacency graph ({n_nodes:,} nodes, {n_elements:,} elements)..."
+            )
 
         def compute_bandwidth():
             max_diff = 0

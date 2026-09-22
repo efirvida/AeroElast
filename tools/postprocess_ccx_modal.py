@@ -37,7 +37,7 @@ import math
 import re
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 # ---------------------------------------------------------------------------
 # .dat parser — full modal results
@@ -47,12 +47,8 @@ from typing import Dict, List, Optional
 _NUM = r"[+\-]?\d+[\d.]*(?:[EeDd][+\-]?\d+)?"
 
 # Data row: integer mode followed by 4 or 6 floats
-_ROW4 = re.compile(
-    r"^\s*(\d+)\s+({n})\s+({n})\s+({n})\s+({n})\s*$".format(n=_NUM)
-)
-_ROW6 = re.compile(
-    r"^\s*(\d+)\s+({n})\s+({n})\s+({n})\s+({n})\s+({n})\s+({n})\s*$".format(n=_NUM)
-)
+_ROW4 = re.compile(r"^\s*(\d+)\s+({n})\s+({n})\s+({n})\s+({n})\s*$".format(n=_NUM))
+_ROW6 = re.compile(r"^\s*(\d+)\s+({n})\s+({n})\s+({n})\s+({n})\s+({n})\s+({n})\s*$".format(n=_NUM))
 
 
 def _parse_table_section(lines, start_idx, n_cols):
@@ -113,9 +109,9 @@ def parse_dat(dat_path):
     text = dat_path.read_text(errors="replace")
     lines = text.splitlines()
 
-    frequencies = {}   # type: Dict[int, float]
-    eff_mass = {}      # type: Dict[int, List[float]]  # 6 directions
-    total_mass = []    # type: List[float]             # 6 directions
+    frequencies = {}  # type: Dict[int, float]
+    eff_mass = {}  # type: Dict[int, List[float]]  # 6 directions
+    total_mass = []  # type: List[float]             # 6 directions
 
     DIR_LABELS = ["Ux", "Uy", "Uz", "Rx", "Ry", "Rz"]
 
@@ -202,6 +198,7 @@ def parse_dat_frequencies(dat_path):
 # .frd parser — mode shapes → directional content
 # ---------------------------------------------------------------------------
 
+
 def parse_frd_mode_shapes(frd_path: Path, n_modes: int) -> List[Dict[str, float]]:
     """Parse CalculiX .frd file and compute directional RMS per mode.
 
@@ -239,9 +236,7 @@ def parse_frd_mode_shapes(frd_path: Path, n_modes: int) -> List[Dict[str, float]
     sum_sq = [0.0, 0.0, 0.0]
     n_nodes = 0
 
-    node_data_pat = re.compile(
-        r"^\s*-1\s+\d+\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)"
-    )
+    node_data_pat = re.compile(r"^\s*-1\s+\d+\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)\s+([\d.eE+\-]+)")
     step_pat = re.compile(r"^\s*1PSTEP\s+(\d+)", re.IGNORECASE)
 
     # Report progress for large files
@@ -306,21 +301,25 @@ def _store_mode(sum_sq, n_nodes, results):
     if total < 1e-30:
         results.append({"Ux_pct": 0.0, "Uy_pct": 0.0, "Uz_pct": 0.0})
     else:
-        results.append({
-            "Ux_pct": (rms[0] / total) * 100.0,
-            "Uy_pct": (rms[1] / total) * 100.0,
-            "Uz_pct": (rms[2] / total) * 100.0,
-        })
+        results.append(
+            {
+                "Ux_pct": (rms[0] / total) * 100.0,
+                "Uy_pct": (rms[1] / total) * 100.0,
+                "Uz_pct": (rms[2] / total) * 100.0,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
 # CSV fem-shell results parser
 # ---------------------------------------------------------------------------
 
+
 def parse_femshell_csv(csv_path):
     # type: (Path) -> List[float]
     """Read fem-shell modal CSV export (mode, freq_hz, ...) → list of Hz."""
     import csv
+
     freqs = []
     with open(str(csv_path), newline="") as f:
         reader = csv.DictReader(f)
@@ -339,6 +338,7 @@ def parse_femshell_csv_full(csv_path):
     (List[Dict[str,float]]) matching the same structure as parse_dat().
     """
     import csv
+
     freqs = []
     participation = []
     with open(str(csv_path), newline="") as f:
@@ -354,7 +354,7 @@ def parse_femshell_csv_full(csv_path):
                 kl = k.lower()
                 if kl.startswith("eff_mass_") and kl.endswith("_pct"):
                     # e.g. eff_mass_Ux_pct  -> Ux%
-                    dirname = k[len("eff_mass_"):-len("_pct")]
+                    dirname = k[len("eff_mass_") : -len("_pct")]
                     pf[dirname + "%"] = float(v)
             participation.append(pf)
     return {"frequencies": freqs, "participation": participation}
@@ -363,6 +363,7 @@ def parse_femshell_csv_full(csv_path):
 # ---------------------------------------------------------------------------
 # Comparative table: CCX vs fem-shell side by side
 # ---------------------------------------------------------------------------
+
 
 def _dominant_type(pf_row, cols):
     # type: (Dict[str, float], List[str]) -> str
@@ -374,11 +375,11 @@ def _dominant_type(pf_row, cols):
 
 
 def display_comparison(
-    ccx_freqs,        # type: List[float]
-    ccx_pf,           # type: List[Dict[str, float]]
-    fem_freqs,        # type: List[float]
-    fem_pf,           # type: List[Dict[str, float]]
-    ref_freqs=None,   # type: Optional[List[float]]
+    ccx_freqs,  # type: List[float]
+    ccx_pf,  # type: List[Dict[str, float]]
+    fem_freqs,  # type: List[float]
+    fem_pf,  # type: List[Dict[str, float]]
+    ref_freqs=None,  # type: Optional[List[float]]
     ref_label="Ref",  # type: str
 ):
     # type: (...) -> None
@@ -471,16 +472,14 @@ def display_comparison(
     # Summary line
     if deltas_ccx_fem:
         mean_cf = sum(deltas_ccx_fem) / len(deltas_ccx_fem)
-        console.print(
-            "  CCX vs fem-shell mean |delta|: [bold cyan]%.2f%%[/bold cyan]" % mean_cf
-        )
+        console.print("  CCX vs fem-shell mean |delta|: [bold cyan]%.2f%%[/bold cyan]" % mean_cf)
     if deltas_ccx_ref:
         mean_cr = sum(deltas_ccx_ref) / len(deltas_ccx_ref)
         mean_fr = sum(deltas_fem_ref) / len(deltas_fem_ref)
         console.print(
             "  CCX vs %s mean |delta|: [bold]%.1f%%[/bold]   "
-            "fem-shell vs %s mean |delta|: [bold]%.1f%%[/bold]" % (
-                ref_label, mean_cr, ref_label, mean_fr)
+            "fem-shell vs %s mean |delta|: [bold]%.1f%%[/bold]"
+            % (ref_label, mean_cr, ref_label, mean_fr)
         )
     console.print()
 
@@ -497,7 +496,13 @@ def _display_comparison_plain(
     print("=" * 80)
 
     hdr = "%5s  %12s  %8s  %12s  %8s  %10s" % (
-        "Mode", "CCX[Hz]", "CCXType", "FEM[Hz]", "FEMType", "CCX-FEM%")
+        "Mode",
+        "CCX[Hz]",
+        "CCXType",
+        "FEM[Hz]",
+        "FEMType",
+        "CCX-FEM%",
+    )
     if ref_freqs:
         hdr += "  %12s  %8s  %8s" % (ref_label + "[Hz]", "CCX-Ref%", "FEM-Ref%")
     print(hdr)
@@ -510,7 +515,13 @@ def _display_comparison_plain(
         ccx_type = _dominant_type(ccx_pf[i] if i < len(ccx_pf) else {}, pf_cols)
         fem_type = _dominant_type(fem_pf[i] if i < len(fem_pf) else {}, pf_cols)
         line = "%5d  %12.6f  %8s  %12.6f  %8s  %+9.2f%%" % (
-            i + 1, fc, ccx_type, ff, fem_type, delta_cf)
+            i + 1,
+            fc,
+            ccx_type,
+            ff,
+            fem_type,
+            delta_cf,
+        )
         if ref_freqs and i < len(ref_freqs):
             fr = ref_freqs[i]
             d_cr = (fc - fr) / fr * 100.0 if fr > 0 else float("nan")
@@ -518,7 +529,6 @@ def _display_comparison_plain(
             line += "  %12.6f  %+7.1f%%  %+7.1f%%" % (fr, d_cr, d_fr)
         print(line)
     print()
-
 
 
 def parse_femshell_csv_full(csv_path):
@@ -529,6 +539,7 @@ def parse_femshell_csv_full(csv_path):
     (List[Dict[str,float]]) matching the same structure as parse_dat().
     """
     import csv
+
     freqs = []
     participation = []
     with open(str(csv_path), newline="") as f:
@@ -544,7 +555,7 @@ def parse_femshell_csv_full(csv_path):
                 kl = k.lower()
                 if kl.startswith("eff_mass_") and kl.endswith("_pct"):
                     # e.g. eff_mass_Ux_pct  -> Ux%
-                    dirname = k[len("eff_mass_"):-len("_pct")]
+                    dirname = k[len("eff_mass_") : -len("_pct")]
                     pf[dirname + "%"] = float(v)
             participation.append(pf)
     return {"frequencies": freqs, "participation": participation}
@@ -553,6 +564,7 @@ def parse_femshell_csv_full(csv_path):
 # ---------------------------------------------------------------------------
 # Comparative table: CCX vs fem-shell side by side
 # ---------------------------------------------------------------------------
+
 
 def _dominant_type(pf_row, cols):
     # type: (Dict[str, float], List[str]) -> str
@@ -564,11 +576,11 @@ def _dominant_type(pf_row, cols):
 
 
 def display_comparison(
-    ccx_freqs,        # type: List[float]
-    ccx_pf,           # type: List[Dict[str, float]]
-    fem_freqs,        # type: List[float]
-    fem_pf,           # type: List[Dict[str, float]]
-    ref_freqs=None,   # type: Optional[List[float]]
+    ccx_freqs,  # type: List[float]
+    ccx_pf,  # type: List[Dict[str, float]]
+    fem_freqs,  # type: List[float]
+    fem_pf,  # type: List[Dict[str, float]]
+    ref_freqs=None,  # type: Optional[List[float]]
     ref_label="Ref",  # type: str
 ):
     # type: (...) -> None
@@ -661,16 +673,14 @@ def display_comparison(
     # Summary line
     if deltas_ccx_fem:
         mean_cf = sum(deltas_ccx_fem) / len(deltas_ccx_fem)
-        console.print(
-            "  CCX vs fem-shell mean |delta|: [bold cyan]%.2f%%[/bold cyan]" % mean_cf
-        )
+        console.print("  CCX vs fem-shell mean |delta|: [bold cyan]%.2f%%[/bold cyan]" % mean_cf)
     if deltas_ccx_ref:
         mean_cr = sum(deltas_ccx_ref) / len(deltas_ccx_ref)
         mean_fr = sum(deltas_fem_ref) / len(deltas_fem_ref)
         console.print(
             "  CCX vs %s mean |delta|: [bold]%.1f%%[/bold]   "
-            "fem-shell vs %s mean |delta|: [bold]%.1f%%[/bold]" % (
-                ref_label, mean_cr, ref_label, mean_fr)
+            "fem-shell vs %s mean |delta|: [bold]%.1f%%[/bold]"
+            % (ref_label, mean_cr, ref_label, mean_fr)
         )
     console.print()
 
@@ -687,7 +697,13 @@ def _display_comparison_plain(
     print("=" * 80)
 
     hdr = "%5s  %12s  %8s  %12s  %8s  %10s" % (
-        "Mode", "CCX[Hz]", "CCXType", "FEM[Hz]", "FEMType", "CCX-FEM%")
+        "Mode",
+        "CCX[Hz]",
+        "CCXType",
+        "FEM[Hz]",
+        "FEMType",
+        "CCX-FEM%",
+    )
     if ref_freqs:
         hdr += "  %12s  %8s  %8s" % (ref_label + "[Hz]", "CCX-Ref%", "FEM-Ref%")
     print(hdr)
@@ -700,7 +716,13 @@ def _display_comparison_plain(
         ccx_type = _dominant_type(ccx_pf[i] if i < len(ccx_pf) else {}, pf_cols)
         fem_type = _dominant_type(fem_pf[i] if i < len(fem_pf) else {}, pf_cols)
         line = "%5d  %12.6f  %8s  %12.6f  %8s  %+9.2f%%" % (
-            i + 1, fc, ccx_type, ff, fem_type, delta_cf)
+            i + 1,
+            fc,
+            ccx_type,
+            ff,
+            fem_type,
+            delta_cf,
+        )
         if ref_freqs and i < len(ref_freqs):
             fr = ref_freqs[i]
             d_cr = (fc - fr) / fr * 100.0 if fr > 0 else float("nan")
@@ -708,7 +730,6 @@ def _display_comparison_plain(
             line += "  %12.6f  %+7.1f%%  %+7.1f%%" % (fr, d_cr, d_fr)
         print(line)
     print()
-
 
 
 # ---------------------------------------------------------------------------
@@ -720,8 +741,8 @@ _DIR_LABELS = ["Ux", "Uy", "Uz", "Rx", "Ry", "Rz"]
 
 
 def display_results(
-    ccx_frequencies,   # type: List[float]
-    participation,     # type: List[Dict[str, float]]  — Ux%..Rz% from .dat
+    ccx_frequencies,  # type: List[float]
+    participation,  # type: List[Dict[str, float]]  — Ux%..Rz% from .dat
     ref_frequencies=None,  # type: Optional[List[float]]
     label="CalculiX",  # type: str
     dir_content=None,  # type: Optional[List[Dict[str, float]]]  — legacy FRD
@@ -732,8 +753,7 @@ def display_results(
     # is unavailable but FRD data was parsed
     if not participation and dir_content:
         participation = [
-            {"Ux%": d["Ux_pct"], "Uy%": d["Uy_pct"], "Uz%": d["Uz_pct"]}
-            for d in dir_content
+            {"Ux%": d["Ux_pct"], "Uy%": d["Uy_pct"], "Uz%": d["Uz_pct"]} for d in dir_content
         ]
 
     try:
@@ -820,16 +840,17 @@ def display_results(
         if valid:
             deltas = [abs((c - r) / r * 100) for c, r in valid]
             console.print(
-                "  Mean absolute error vs reference: [bold]%.1f%%[/bold]" % (sum(deltas) / len(deltas))
+                "  Mean absolute error vs reference: [bold]%.1f%%[/bold]"
+                % (sum(deltas) / len(deltas))
             )
     console.print()
 
 
 def _display_plain(
-    ccx_frequencies,   # type: List[float]
-    participation,     # type: List[Dict[str, float]]
-    ref_frequencies,   # type: Optional[List[float]]
-    label,             # type: str
+    ccx_frequencies,  # type: List[float]
+    participation,  # type: List[Dict[str, float]]
+    ref_frequencies,  # type: Optional[List[float]]
+    label,  # type: str
 ):
     # type: (...) -> None
     """Fallback plain-text table (no rich dependency)."""
@@ -877,6 +898,7 @@ def _display_plain(
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def build_parser():
     p = argparse.ArgumentParser(

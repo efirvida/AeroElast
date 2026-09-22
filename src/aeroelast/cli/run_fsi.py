@@ -380,16 +380,12 @@ def validate_config(config_path: str) -> bool:
                     yaml_dt = config.solver.time_step
                     xml_dt = precice_time.time_window_size
                     if abs(yaml_dt - xml_dt) / max(abs(xml_dt), 1e-30) > 1e-6:
-                        mismatches.append(
-                            f"time_step: YAML={yaml_dt:.2e} vs preCICE={xml_dt:.2e}"
-                        )
+                        mismatches.append(f"time_step: YAML={yaml_dt:.2e} vs preCICE={xml_dt:.2e}")
                 if precice_time.max_time and config.solver.total_time:
                     yaml_t = config.solver.total_time
                     xml_t = precice_time.max_time
                     if abs(yaml_t - xml_t) / max(abs(xml_t), 1e-30) > 1e-6:
-                        mismatches.append(
-                            f"total_time: YAML={yaml_t:.2e} vs preCICE={xml_t:.2e}"
-                        )
+                        mismatches.append(f"total_time: YAML={yaml_t:.2e} vs preCICE={xml_t:.2e}")
                 if mismatches:
                     print("\n  ⚠ preCICE time parameter mismatch:")
                     for m in mismatches:
@@ -399,8 +395,10 @@ def validate_config(config_path: str) -> bool:
                     print("\n  ✓ YAML ↔ preCICE time parameters match")
 
                 if precice_info.rbf_mappings:
-                    print(f"\n  ℹ {len(precice_info.rbf_mappings)} RBF mapping(s) found"
-                          " — run with --view or full run for radius validation against mesh")
+                    print(
+                        f"\n  ℹ {len(precice_info.rbf_mappings)} RBF mapping(s) found"
+                        " — run with --view or full run for radius validation against mesh"
+                    )
 
         if not warnings:
             print("\n✓ Configuration is valid")

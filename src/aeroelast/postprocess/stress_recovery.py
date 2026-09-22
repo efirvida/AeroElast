@@ -415,16 +415,16 @@ class StressRecovery:
         if _rust is not None and r0 == 0.0 and s0 == 0.0:
             _Z_FACTOR = {
                 StressLocation.BOTTOM: -0.5,
-                StressLocation.MIDDLE:  0.0,
-                StressLocation.TOP:    +0.5,
+                StressLocation.MIDDLE: 0.0,
+                StressLocation.TOP: +0.5,
             }
             _STRESS_TYPE = {
                 StressType.MEMBRANE: 0,
-                StressType.BENDING:  1,
-                StressType.TOTAL:    2,
+                StressType.BENDING: 1,
+                StressType.TOTAL: 2,
             }
-            z_factor   = _Z_FACTOR.get(location, 0.0)
-            stype_int  = _STRESS_TYPE.get(stress_type, 2)
+            z_factor = _Z_FACTOR.get(location, 0.0)
+            stype_int = _STRESS_TYPE.get(stress_type, 2)
             sigma_all, _ = _rust.compute_stress_field(self.u, z_factor, stype_int)
             has_solid = self.domain.model.get("element_family") == ElementFamily.SOLID
             return self._build_stress_result(sigma_all, is_3d=has_solid)
@@ -498,13 +498,13 @@ class StressRecovery:
         if _rust is not None:
             _Z_FACTOR_NS = {
                 StressLocation.BOTTOM: -0.5,
-                StressLocation.MIDDLE:  0.0,
-                StressLocation.TOP:    +0.5,
+                StressLocation.MIDDLE: 0.0,
+                StressLocation.TOP: +0.5,
             }
             _STRESS_TYPE_NS = {
                 StressType.MEMBRANE: 0,
-                StressType.BENDING:  1,
-                StressType.TOTAL:    2,
+                StressType.BENDING: 1,
+                StressType.TOTAL: 2,
             }
             z_factor = _Z_FACTOR_NS.get(location, 0.0)
             stype_int = _STRESS_TYPE_NS.get(stress_type, 2)
@@ -702,8 +702,8 @@ class StressRecovery:
         if _rust is not None and r0 == 0.0 and s0 == 0.0:
             _Z_FACTOR = {
                 StressLocation.BOTTOM: -0.5,
-                StressLocation.MIDDLE:  0.0,
-                StressLocation.TOP:    +0.5,
+                StressLocation.MIDDLE: 0.0,
+                StressLocation.TOP: +0.5,
             }
             z_factor = _Z_FACTOR.get(location, 0.0)
             _, eps_all = _rust.compute_stress_field(self.u, z_factor, 2)
@@ -750,8 +750,8 @@ class StressRecovery:
         if _rust is not None:
             _Z_FACTOR_NE = {
                 StressLocation.BOTTOM: -0.5,
-                StressLocation.MIDDLE:  0.0,
-                StressLocation.TOP:    +0.5,
+                StressLocation.MIDDLE: 0.0,
+                StressLocation.TOP: +0.5,
             }
             z_factor = _Z_FACTOR_NE.get(location, 0.0)
             _, eps_elem = _rust.compute_stress_field(self.u, z_factor, 2)
@@ -1038,8 +1038,6 @@ class StressRecovery:
         )
 
 
-
-
 def compute_von_mises(
     sigma_xx: np.ndarray,
     sigma_yy: np.ndarray,
@@ -1125,14 +1123,16 @@ def compute_principal_stresses(
 
     # Full 3-D via StressRecovery helper
     n = len(sigma_xx)
-    s = np.column_stack([
-        sigma_xx,
-        sigma_yy,
-        np.asarray(sigma_zz),
-        sigma_xy,
-        np.asarray(tau_yz) if tau_yz is not None else np.zeros(n),
-        np.asarray(tau_zx) if tau_zx is not None else np.zeros(n),
-    ])
+    s = np.column_stack(
+        [
+            sigma_xx,
+            sigma_yy,
+            np.asarray(sigma_zz),
+            sigma_xy,
+            np.asarray(tau_yz) if tau_yz is not None else np.zeros(n),
+            np.asarray(tau_zx) if tau_zx is not None else np.zeros(n),
+        ]
+    )
     s1, s2, s3, _ = StressRecovery._principal_3d(s)
     return s1, s2, s3
 

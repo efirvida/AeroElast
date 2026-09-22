@@ -934,37 +934,45 @@ def _compute_wedge_volume(coords: np.ndarray) -> float:
     dL1_deta, dL2_deta, dL3_deta = -1, 0, 1
     dLm_dzeta, dLp_dzeta = -0.5, 0.5
 
-    dN_dxi = np.array([
-        dL1_dxi * Lm,
-        dL2_dxi * Lm,
-        dL3_dxi * Lm,
-        dL1_dxi * Lp,
-        dL2_dxi * Lp,
-        dL3_dxi * Lp,
-    ])
-    dN_deta = np.array([
-        dL1_deta * Lm,
-        dL2_deta * Lm,
-        dL3_deta * Lm,
-        dL1_deta * Lp,
-        dL2_deta * Lp,
-        dL3_deta * Lp,
-    ])
-    dN_dzeta = np.array([
-        L1 * dLm_dzeta,
-        L2 * dLm_dzeta,
-        L3 * dLm_dzeta,
-        L1 * dLp_dzeta,
-        L2 * dLp_dzeta,
-        L3 * dLp_dzeta,
-    ])
+    dN_dxi = np.array(
+        [
+            dL1_dxi * Lm,
+            dL2_dxi * Lm,
+            dL3_dxi * Lm,
+            dL1_dxi * Lp,
+            dL2_dxi * Lp,
+            dL3_dxi * Lp,
+        ]
+    )
+    dN_deta = np.array(
+        [
+            dL1_deta * Lm,
+            dL2_deta * Lm,
+            dL3_deta * Lm,
+            dL1_deta * Lp,
+            dL2_deta * Lp,
+            dL3_deta * Lp,
+        ]
+    )
+    dN_dzeta = np.array(
+        [
+            L1 * dLm_dzeta,
+            L2 * dLm_dzeta,
+            L3 * dLm_dzeta,
+            L1 * dLp_dzeta,
+            L2 * dLp_dzeta,
+            L3 * dLp_dzeta,
+        ]
+    )
 
     corners = coords[:6]
-    J = np.array([
-        [dN_dxi @ corners[:, 0], dN_dxi @ corners[:, 1], dN_dxi @ corners[:, 2]],
-        [dN_deta @ corners[:, 0], dN_deta @ corners[:, 1], dN_deta @ corners[:, 2]],
-        [dN_dzeta @ corners[:, 0], dN_dzeta @ corners[:, 1], dN_dzeta @ corners[:, 2]],
-    ])
+    J = np.array(
+        [
+            [dN_dxi @ corners[:, 0], dN_dxi @ corners[:, 1], dN_dxi @ corners[:, 2]],
+            [dN_deta @ corners[:, 0], dN_deta @ corners[:, 1], dN_deta @ corners[:, 2]],
+            [dN_dzeta @ corners[:, 0], dN_dzeta @ corners[:, 1], dN_dzeta @ corners[:, 2]],
+        ]
+    )
     return np.linalg.det(J)
 
 
@@ -993,11 +1001,13 @@ def _compute_hexa_volume(coords: np.ndarray) -> float:
     dN_dzeta = np.array([-1, -1, -1, -1, 1, 1, 1, 1]) / 8
 
     corners = coords[:8]
-    J = np.array([
-        [dN_dxi @ corners[:, 0], dN_dxi @ corners[:, 1], dN_dxi @ corners[:, 2]],
-        [dN_deta @ corners[:, 0], dN_deta @ corners[:, 1], dN_deta @ corners[:, 2]],
-        [dN_dzeta @ corners[:, 0], dN_dzeta @ corners[:, 1], dN_dzeta @ corners[:, 2]],
-    ])
+    J = np.array(
+        [
+            [dN_dxi @ corners[:, 0], dN_dxi @ corners[:, 1], dN_dxi @ corners[:, 2]],
+            [dN_deta @ corners[:, 0], dN_deta @ corners[:, 1], dN_deta @ corners[:, 2]],
+            [dN_dzeta @ corners[:, 0], dN_dzeta @ corners[:, 1], dN_dzeta @ corners[:, 2]],
+        ]
+    )
     return np.linalg.det(J)
 
 

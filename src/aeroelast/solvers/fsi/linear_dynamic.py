@@ -872,13 +872,15 @@ class LinearDynamicFSISolver(LinearDynamicSolver):
                     for i, nid in enumerate(self._probe_node_ids):
                         nd = nodes[nid]
                         tag = f"P{i}(n{nd.id})"
-                        cols.extend([
-                            f"{tag} Ux [m]",
-                            f"{tag} Uy [m]",
-                            f"{tag} Uz [m]",
-                            f"{tag} |V| [m/s]",
-                            f"{tag} VonMises TOP [Pa]",
-                        ])
+                        cols.extend(
+                            [
+                                f"{tag} Ux [m]",
+                                f"{tag} Uy [m]",
+                                f"{tag} Uz [m]",
+                                f"{tag} |V| [m/s]",
+                                f"{tag} VonMises TOP [Pa]",
+                            ]
+                        )
                     f.write(",".join(cols) + "\n")
 
                 parts = [f"{t:.6f}", str(time_step)]
@@ -886,13 +888,15 @@ class LinearDynamicFSISolver(LinearDynamicSolver):
                     ux, uy, uz = float(u_mat[nid, 0]), float(u_mat[nid, 1]), float(u_mat[nid, 2])
                     vmag = float(np.linalg.norm(v_mat[nid, :3]))
                     vm = float(vm_top[nid]) if vm_top is not None else 0.0
-                    parts.extend([
-                        f"{ux:.6e}",
-                        f"{uy:.6e}",
-                        f"{uz:.6e}",
-                        f"{vmag:.6e}",
-                        f"{vm:.6e}",
-                    ])
+                    parts.extend(
+                        [
+                            f"{ux:.6e}",
+                            f"{uy:.6e}",
+                            f"{uz:.6e}",
+                            f"{vmag:.6e}",
+                            f"{vm:.6e}",
+                        ]
+                    )
                 f.write(",".join(parts) + "\n")
         except Exception as e:
             _console.print(f"  [yellow]⚠ Failed to write probe data: {e}[/yellow]")

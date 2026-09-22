@@ -154,7 +154,10 @@ class TestRustCOOAssembly:
 
         assert K_rust_dense.shape == K_py_dense.shape
         np.testing.assert_allclose(
-            K_rust_dense, K_py_dense, atol=1e-6, rtol=1e-10,
+            K_rust_dense,
+            K_py_dense,
+            atol=1e-6,
+            rtol=1e-10,
             err_msg="K (Rust COO) != K (PETSc loop)",
         )
 
@@ -171,7 +174,10 @@ class TestRustCOOAssembly:
 
         assert M_rust_dense.shape == M_py_dense.shape
         np.testing.assert_allclose(
-            M_rust_dense, M_py_dense, atol=1e-6, rtol=1e-10,
+            M_rust_dense,
+            M_py_dense,
+            atol=1e-6,
+            rtol=1e-10,
             err_msg="M (Rust COO) != M (PETSc loop)",
         )
 
@@ -195,7 +201,10 @@ class TestTangentStiffness:
         KT = _petsc_to_dense(asm.assemble_tangent_stiffness(u_zero))
 
         np.testing.assert_allclose(
-            KT, K, atol=1e-6, rtol=1e-10,
+            KT,
+            K,
+            atol=1e-6,
+            rtol=1e-10,
             err_msg="KT(u=0) != K",
         )
 
@@ -210,9 +219,7 @@ class TestInternalForces:
 
     def test_fint_zero_at_zero(self, assembler):
         """fint(u=0) must be zero."""
-        fint = _petsc_to_array(
-            assembler.assemble_internal_forces(np.zeros(assembler.dofs_count))
-        )
+        fint = _petsc_to_array(assembler.assemble_internal_forces(np.zeros(assembler.dofs_count)))
         np.testing.assert_allclose(fint, 0.0, atol=1e-10)
 
     def test_fint_linear_equals_ku(self, assembler):
@@ -230,7 +237,9 @@ class TestInternalForces:
         mask = np.abs(ku) > 1e-12 * np.max(np.abs(ku))
         if mask.any():
             np.testing.assert_allclose(
-                fint[mask], ku[mask], rtol=1e-6,
+                fint[mask],
+                ku[mask],
+                rtol=1e-6,
                 err_msg="fint(u, linear) != K·u",
             )
 
@@ -257,9 +266,7 @@ class TestNewtonRaphsonConsistency:
             rel_err = np.max(np.abs(lhs[mask] - rhs[mask]) / np.abs(lhs[mask]))
             # MITC4 on flat elements: ~1e-3; allow up to 2e-3 for
             # the shared formulation limitation on non-planar cases.
-            assert rel_err < 2e-3, (
-                f"NR consistency failed: max relative error = {rel_err:.2e}"
-            )
+            assert rel_err < 2e-3, f"NR consistency failed: max relative error = {rel_err:.2e}"
 
 
 class TestRustGroupCoverage:

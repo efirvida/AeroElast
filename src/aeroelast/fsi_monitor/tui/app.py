@@ -363,12 +363,12 @@ class _FSIApp(App):
     """
 
     BINDINGS = [
-        ("q",              "quit",             "Quit"),
-        ("l",              "toggle_log",       "Lin/Log"),
-        ("left",           "prev_metric",      "Prev metric"),
-        ("right",          "next_metric",      "Next metric"),
-        ("question_mark",  "toggle_help",      "Help"),
-        ("i",              "toggle_info",      "Info"),
+        ("q", "quit", "Quit"),
+        ("l", "toggle_log", "Lin/Log"),
+        ("left", "prev_metric", "Prev metric"),
+        ("right", "next_metric", "Next metric"),
+        ("question_mark", "toggle_help", "Help"),
+        ("i", "toggle_info", "Info"),
     ]
 
     def __init__(self, provider: FSIDataProvider, csv_path: Path, **kwargs):
@@ -411,6 +411,7 @@ class _FSIApp(App):
 
     def action_set_start_time(self) -> None:
         """Open modal to set plot start-time filter."""
+
         def _on_result(t: float | None) -> None:
             if t is not None:
                 self.query_one("#plot-panel", PlotPanel).set_start_time(t)

@@ -171,11 +171,13 @@ class AnalyticalReferences:
                 * a**4
                 * (4 * a**2 / (np.pi**6 * D))
                 * (
-                    np.sum([
-                        (-1) ** (m + n) / (m * n * (m**2 + n**2 * a**2 / b**2) ** 3)
-                        for m in [1, 3]
-                        for n in [1, 3]
-                    ])
+                    np.sum(
+                        [
+                            (-1) ** (m + n) / (m * n * (m**2 + n**2 * a**2 / b**2) ** 3)
+                            for m in [1, 3]
+                            for n in [1, 3]
+                        ]
+                    )
                 )
             )
 
@@ -690,7 +692,6 @@ class TestModalAnalysis:
 
 
 if __name__ == "__main__":
-    import sys
 
     test_classes = [
         TestLinearStaticCantilever,

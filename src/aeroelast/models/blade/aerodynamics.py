@@ -211,8 +211,8 @@ def _viterna_extrapolation(
 
     # Reference point: take the stall angle from the last attached-flow point
     # (last alpha before we switch to Viterna on each side)
-    alpha_stall_pos = alpha_attach[-1]   # e.g. +25°
-    alpha_stall_neg = alpha_attach[0]    # e.g. -25°
+    alpha_stall_pos = alpha_attach[-1]  # e.g. +25°
+    alpha_stall_neg = alpha_attach[0]  # e.g. -25°
     cl_stall_pos = cl_attach[-1]
     cd_stall_pos = cd_attach[-1]
     cl_stall_neg = cl_attach[0]
@@ -252,9 +252,11 @@ def _viterna_extrapolation(
                 cl_full[i] = 0.0
                 cd_full[i] = cd_max
             else:
-                cl_full[i] = cd_max / 2.0 * np.sin(2.0 * a) + A2p * ca ** 2 / sa
-                cd_full[i] = cd_max * sa ** 2 + B2p * ca
-            cm_full[i] = np.interp(a, alpha_attach, cm_attach, left=cm_attach[-1], right=cm_attach[-1])
+                cl_full[i] = cd_max / 2.0 * np.sin(2.0 * a) + A2p * ca**2 / sa
+                cd_full[i] = cd_max * sa**2 + B2p * ca
+            cm_full[i] = np.interp(
+                a, alpha_attach, cm_attach, left=cm_attach[-1], right=cm_attach[-1]
+            )
         else:
             # Viterna equations — post-stall negative (mirror about zero)
             sa, ca = np.sin(a), np.cos(a)
@@ -263,9 +265,11 @@ def _viterna_extrapolation(
                 cl_full[i] = 0.0
                 cd_full[i] = cd_max
             else:
-                cl_full[i] = cd_max / 2.0 * np.sin(2.0 * a) + A2n * ca ** 2 / sa
-                cd_full[i] = cd_max * sa ** 2 - B2n * ca
-            cm_full[i] = np.interp(a, alpha_attach, cm_attach, left=cm_attach[0], right=cm_attach[0])
+                cl_full[i] = cd_max / 2.0 * np.sin(2.0 * a) + A2n * ca**2 / sa
+                cd_full[i] = cd_max * sa**2 - B2n * ca
+            cm_full[i] = np.interp(
+                a, alpha_attach, cm_attach, left=cm_attach[0], right=cm_attach[0]
+            )
 
     # Ensure cd is non-negative everywhere
     cd_full = np.maximum(cd_full, 0.0)
@@ -415,8 +419,11 @@ def _load_from_excel(
             rel_t = float(af.percentthick / 100.0) if af.percentthick else 0.0
 
             polars = _generate_polars_neuralfoil(
-                coords, re=default_re, model_size=neuralfoil_model,
-                ar=viterna_ar, confidence_threshold=viterna_confidence_threshold,
+                coords,
+                re=default_re,
+                model_size=neuralfoil_model,
+                ar=viterna_ar,
+                confidence_threshold=viterna_confidence_threshold,
             )
 
             airfoil_aero = AirfoilAero(
@@ -599,8 +606,11 @@ def load_blade_aero(
         # Fallback: generate with NeuralFoil if no polars
         if not polars:
             polars = _generate_polars_neuralfoil(
-                coords, re=default_re, model_size=neuralfoil_model,
-                ar=viterna_ar, confidence_threshold=viterna_confidence_threshold,
+                coords,
+                re=default_re,
+                model_size=neuralfoil_model,
+                ar=viterna_ar,
+                confidence_threshold=viterna_confidence_threshold,
             )
 
         airfoil = AirfoilAero(

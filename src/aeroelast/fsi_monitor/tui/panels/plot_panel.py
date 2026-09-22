@@ -110,6 +110,7 @@ class PlotPanel(Widget):
             # how sparse the solver timesteps are relative to terminal columns.
             if len(xs) >= 2:
                 import numpy as _np
+
                 xi = _np.linspace(xs[0], xs[-1], max(len(xs), 400))
                 yi = _np.interp(xi, xs, ys)
                 xs, ys = xi.tolist(), yi.tolist()
@@ -189,4 +190,3 @@ class PlotPanel(Widget):
     @property
     def start_time(self) -> float | None:
         return self._start_time
-

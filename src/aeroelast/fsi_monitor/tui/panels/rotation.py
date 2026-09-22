@@ -66,15 +66,15 @@ class RotationPanel(Static):
 
         lines = [
             "[bold cyan]ROTATION[/]",
-            _row("Time",         _v(g.get("Time [s]"), 4),             "s"),
+            _row("Time", _v(g.get("Time [s]"), 4), "s"),
             _angle_row(g.get("Angle [deg]")),
-            _row("Speed",        _v(g.get("Speed [RPM]"), 1),          "RPM"),
-            _row("ω",            _v(g.get("Omega [rad/s]"), 4),        "rad/s"),
-            _row("α",            _v(g.get("Alpha [rad/s2]"), 2),       "rad/s²"),
+            _row("Speed", _v(g.get("Speed [RPM]"), 1), "RPM"),
+            _row("ω", _v(g.get("Omega [rad/s]"), 4), "rad/s"),
+            _row("α", _v(g.get("Alpha [rad/s2]"), 2), "rad/s²"),
             "",
             "[bold blue]STRUCTURE[/]",
-            _row("Max Disp",     _v(r.get("Max Displacement [m]"), 6), "m"),
-            _row("Def Radius",   _v(r.get("Deformed Radius [m]"), 4), "m"),
+            _row("Max Disp", _v(r.get("Max Displacement [m]"), 6), "m"),
+            _row("Def Radius", _v(r.get("Deformed Radius [m]"), 4), "m"),
         ]
         self._content = "\n".join(lines)
 

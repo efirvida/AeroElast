@@ -39,6 +39,7 @@ from aeroelast.solvers.fsi.time_integration import NewmarkCoefficients
 # ---------------------------------------------------------------------------
 try:
     from aeroelast.solvers.fsi.stress_stiffened_dynamic import StressStiffenedFSISolver
+
     _HAS_FSI = True
 except ImportError:
     _HAS_FSI = False
@@ -50,6 +51,7 @@ _skip_fsi = pytest.mark.skipif(not _HAS_FSI, reason="preCICE shared library not 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_plate_mesh(nx: int = 4, ny: int = 4, L: float = 1.0) -> MeshModel:
     """Build a flat MITC4 square plate mesh (nx × ny quads) in the XY plane."""
@@ -70,8 +72,7 @@ def _build_plate_mesh(nx: int = 4, ny: int = 4, L: float = 1.0) -> MeshModel:
         for i in range(nx):
             mesh.add_element(
                 MeshElement(
-                    nodes=[grid[(i, j)], grid[(i + 1, j)],
-                           grid[(i + 1, j + 1)], grid[(i, j + 1)]],
+                    nodes=[grid[(i, j)], grid[(i + 1, j)], grid[(i + 1, j + 1)], grid[(i, j + 1)]],
                     element_type=ElementType.quad,
                 )
             )
@@ -113,8 +114,9 @@ def _build_bc_manager(domain: MeshAssembler, mesh: MeshModel) -> BoundaryConditi
     F = PETSc.Vec().createMPI(domain.dofs_count, comm=PETSc.COMM_WORLD)
     F.set(0.0)
 
-    bc_mgr = BoundaryConditionManager(stiffness=K, load=F, mass=M_c,
-                                      dof_per_node=domain.dofs_per_node)
+    bc_mgr = BoundaryConditionManager(
+        stiffness=K, load=F, mass=M_c, dof_per_node=domain.dofs_per_node
+    )
     pinned_nodes = [n for n in domain.nodes if abs(n.coords[0]) < 1e-12]
     dofs: list[int] = []
     for node in pinned_nodes:
@@ -125,8 +127,9 @@ def _build_bc_manager(domain: MeshAssembler, mesh: MeshModel) -> BoundaryConditi
     return bc_mgr
 
 
-def _make_solver(mesh: MeshModel, domain: MeshAssembler,
-                 update_interval: int = 1) -> "StressStiffenedFSISolver":
+def _make_solver(
+    mesh: MeshModel, domain: MeshAssembler, update_interval: int = 1
+) -> "StressStiffenedFSISolver":
     """Instantiate the solver bypassing the preCICE-dependent __init__."""
     cfg = _model_cfg()
     cfg["solver"]["geometric_stiffness"]["update_interval"] = update_interval
@@ -144,6 +147,7 @@ def _make_solver(mesh: MeshModel, domain: MeshAssembler,
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def plate_setup():
     """Shared plate mesh + domain + bc_manager for all tests."""
@@ -157,16 +161,14 @@ def plate_setup():
 # Group 1 — K_G pipeline tests (NO preCICE needed)
 # ---------------------------------------------------------------------------
 
+
 class TestKGAssemblyPipeline:
     """Verify the K_G assembly + StressRecovery pipeline without preCICE."""
 
     def test_assemble_geometric_stiffness_from_stress_field(self, plate_setup):
         """assembler.assemble_geometric_stiffness(stress_field=…) must return a PETSc.Mat."""
         mesh, domain, bc_mgr = plate_setup
-        stress_field = {
-            e.id: np.array([1e6, 5e5, 0.0])
-            for e in domain.elements
-        }
+        stress_field = {e.id: np.array([1e6, 5e5, 0.0]) for e in domain.elements}
         K_G = domain.assemble_geometric_stiffness(stress_field=stress_field)
         assert isinstance(K_G, PETSc.Mat)
         assert K_G.getSize()[0] == domain.dofs_count
@@ -241,11 +243,13 @@ class TestKGAssemblyPipeline:
 
         stress_field: dict[int, np.ndarray] = {}
         for i, elem in enumerate(domain.elements):
-            sigma = np.array([
-                elem_result.sigma_xx[i],
-                elem_result.sigma_yy[i],
-                elem_result.sigma_xy[i],
-            ])
+            sigma = np.array(
+                [
+                    elem_result.sigma_xx[i],
+                    elem_result.sigma_yy[i],
+                    elem_result.sigma_xy[i],
+                ]
+            )
             if np.max(np.abs(sigma)) > 1e-20:
                 stress_field[elem.id] = sigma
 
@@ -284,6 +288,7 @@ class TestKGAssemblyPipeline:
 # Group 2 — Solver hook tests (require preCICE for the class import)
 # ---------------------------------------------------------------------------
 
+
 @_skip_fsi
 class TestStressStiffenedHook:
     """Unit tests for _post_convergence_hook — require preCICE library."""
@@ -302,9 +307,14 @@ class TestStressStiffenedHook:
         u_zero.set(0.0)
 
         result = solver._post_convergence_hook(
-            u=u_zero, time_step=1, K_eff=K_eff,
-            K_red=K_red, M_red=M_red, C_red=None,
-            coeffs=coeffs, bc_manager=bc_mgr,
+            u=u_zero,
+            time_step=1,
+            K_eff=K_eff,
+            K_red=K_red,
+            M_red=M_red,
+            C_red=None,
+            coeffs=coeffs,
+            bc_manager=bc_mgr,
         )
         assert result is None
 
@@ -327,9 +337,14 @@ class TestStressStiffenedHook:
         u_mem.setArray(arr)
 
         result = solver._post_convergence_hook(
-            u=u_mem, time_step=1, K_eff=K_eff_old,
-            K_red=K_red, M_red=M_red, C_red=None,
-            coeffs=coeffs, bc_manager=bc_mgr,
+            u=u_mem,
+            time_step=1,
+            K_eff=K_eff_old,
+            K_red=K_red,
+            M_red=M_red,
+            C_red=None,
+            coeffs=coeffs,
+            bc_manager=bc_mgr,
         )
 
         if result is None:
@@ -356,16 +371,26 @@ class TestStressStiffenedHook:
         u_nz.setArray(arr)
 
         result_3 = solver._post_convergence_hook(
-            u=u_nz, time_step=3, K_eff=K_eff,
-            K_red=K_red, M_red=M_red, C_red=None,
-            coeffs=coeffs, bc_manager=bc_mgr,
+            u=u_nz,
+            time_step=3,
+            K_eff=K_eff,
+            K_red=K_red,
+            M_red=M_red,
+            C_red=None,
+            coeffs=coeffs,
+            bc_manager=bc_mgr,
         )
         assert result_3 is None, "update_interval=5 must skip rebuild at step 3."
 
         result_5 = solver._post_convergence_hook(
-            u=u_nz, time_step=5, K_eff=K_eff,
-            K_red=K_red, M_red=M_red, C_red=None,
-            coeffs=coeffs, bc_manager=bc_mgr,
+            u=u_nz,
+            time_step=5,
+            K_eff=K_eff,
+            K_red=K_red,
+            M_red=M_red,
+            C_red=None,
+            coeffs=coeffs,
+            bc_manager=bc_mgr,
         )
         assert result_5 is None or isinstance(result_5, PETSc.Mat), (
             "At step divisible by update_interval hook must return None or Mat."
@@ -376,17 +401,20 @@ class TestStressStiffenedHook:
 # Group 3 — Configuration tests (no preCICE needed for these)
 # ---------------------------------------------------------------------------
 
+
 class TestStressStiffenedConfig:
     """Configuration and registration tests."""
 
     def test_solver_type_enum_exists(self):
         from aeroelast.core.config import SolverType
+
         assert hasattr(SolverType, "STRESS_STIFFENED_DYNAMIC_FSI")
         assert SolverType.STRESS_STIFFENED_DYNAMIC_FSI.value == "StressStiffenedDynamicFSI"
 
     @_skip_fsi
     def test_solver_inherits_linear_dynamic(self):
         from aeroelast.solvers.fsi.linear_dynamic import LinearDynamicFSISolver
+
         assert issubclass(StressStiffenedFSISolver, LinearDynamicFSISolver)
 
     @_skip_fsi

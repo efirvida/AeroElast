@@ -11,8 +11,6 @@ import pytest
 
 from aeroelast.core.material import OrthotropicMaterial
 from aeroelast.core.laminate import (
-    Ply,
-    Laminate,
     create_laminate_from_angles,
 )
 
@@ -63,43 +61,51 @@ def ply_thickness():
 @pytest.fixture
 def tri_coords():
     """Right-angle triangle element in the XY plane."""
-    return np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-    ])
+    return np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ]
+    )
 
 
 @pytest.fixture
 def quad_coords():
     """1x1 square element in the XY plane."""
-    return np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-    ])
+    return np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ]
+    )
 
 
 @pytest.fixture
 def tri_coords_3d():
     """Triangular element tilted in 3D space."""
-    return np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.3],
-        [0.5, 0.8, 0.1],
-    ])
+    return np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.3],
+            [0.5, 0.8, 0.1],
+        ]
+    )
 
 
 @pytest.fixture
 def quad_coords_3d():
     """Quadrilateral element tilted in 3D space."""
-    return np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.1, 0.2],
-        [1.1, 1.0, 0.3],
-        [0.0, 0.9, 0.1],
-    ])
+    return np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.1, 0.2],
+            [1.1, 1.0, 0.3],
+            [0.0, 0.9, 0.1],
+        ]
+    )
 
 
 # =============================================================================
@@ -119,8 +125,13 @@ def _rust_ke_mitc3(coords, laminate):
     e_equiv = a_trace / (3.0 * h)
 
     ke_flat = fsc.batch_ke_mitc3_composite(
-        coords_flat, cm, b_coupling, cb, cs,
-        np.array([h]), np.array([e_equiv]),
+        coords_flat,
+        cm,
+        b_coupling,
+        cb,
+        cs,
+        np.array([h]),
+        np.array([e_equiv]),
     )
     return np.asarray(ke_flat).reshape(18, 18)
 
@@ -129,12 +140,11 @@ def _rust_me_mitc3(coords, laminate):
     """Compute MITC3 composite mass via Rust batch function."""
     coords_flat = coords.ravel()[np.newaxis, :]
     mpa = sum(p.material.rho * p.thickness for p in laminate.plies)
-    ri = sum(
-        p.material.rho * (p.z_top ** 3 - p.z_bottom ** 3) / 3
-        for p in laminate.plies
-    )
+    ri = sum(p.material.rho * (p.z_top**3 - p.z_bottom**3) / 3 for p in laminate.plies)
     me_flat = fsc.batch_me_mitc3_composite(
-        coords_flat, np.array([mpa]), np.array([ri]),
+        coords_flat,
+        np.array([mpa]),
+        np.array([ri]),
     )
     return np.asarray(me_flat).reshape(18, 18)
 
@@ -151,8 +161,13 @@ def _rust_ke_mitc4(coords, laminate):
     e_equiv = a_trace / (3.0 * h)
 
     ke_flat = fsc.batch_ke_mitc4_composite(
-        coords_flat, cm, b_coupling, cb, cs,
-        np.array([h]), np.array([e_equiv]),
+        coords_flat,
+        cm,
+        b_coupling,
+        cb,
+        cs,
+        np.array([h]),
+        np.array([e_equiv]),
     )
     return np.asarray(ke_flat).reshape(24, 24)
 
@@ -161,12 +176,11 @@ def _rust_me_mitc4(coords, laminate):
     """Compute MITC4 composite mass via Rust batch function."""
     coords_flat = coords.ravel()[np.newaxis, :]
     mpa = sum(p.material.rho * p.thickness for p in laminate.plies)
-    ri = sum(
-        p.material.rho * (p.z_top ** 3 - p.z_bottom ** 3) / 3
-        for p in laminate.plies
-    )
+    ri = sum(p.material.rho * (p.z_top**3 - p.z_bottom**3) / 3 for p in laminate.plies)
     me_flat = fsc.batch_me_mitc4_composite(
-        coords_flat, np.array([mpa]), np.array([ri]),
+        coords_flat,
+        np.array([mpa]),
+        np.array([ri]),
     )
     return np.asarray(me_flat).reshape(24, 24)
 
@@ -189,10 +203,7 @@ def _laminate_to_mat_dict(laminate) -> dict:
     a_trace = np.trace(laminate.A)
     e_equiv = a_trace / (3.0 * h)
     mpa = sum(p.material.rho * p.thickness for p in laminate.plies)
-    ri = sum(
-        p.material.rho * (p.z_top ** 3 - p.z_bottom ** 3) / 3
-        for p in laminate.plies
-    )
+    ri = sum(p.material.rho * (p.z_top**3 - p.z_bottom**3) / 3 for p in laminate.plies)
     return {
         "type": "composite",
         "cm": laminate.A.ravel().tolist(),
@@ -224,9 +235,7 @@ class TestMITC3BatchSanity:
         laminate = create_laminate_from_angles(carbon_epoxy, ply_thickness, [0, 90, 90, 0])
         ke = _rust_ke_mitc3(tri_coords, laminate)
         eigvals = np.linalg.eigvalsh(ke)
-        assert np.all(eigvals >= -1e-6 * max(eigvals)), (
-            f"Negative eigenvalue: {eigvals.min():.4e}"
-        )
+        assert np.all(eigvals >= -1e-6 * max(eigvals)), f"Negative eigenvalue: {eigvals.min():.4e}"
 
     def test_me_shape_and_symmetry(self, carbon_epoxy, ply_thickness, tri_coords):
         laminate = create_laminate_from_angles(carbon_epoxy, ply_thickness, [0, 90, 90, 0])
@@ -281,9 +290,7 @@ class TestMITC4BatchSanity:
         laminate = create_laminate_from_angles(carbon_epoxy, ply_thickness, [0, 90, 90, 0])
         ke = _rust_ke_mitc4(quad_coords, laminate)
         eigvals = np.linalg.eigvalsh(ke)
-        assert np.all(eigvals >= -1e-6 * max(eigvals)), (
-            f"Negative eigenvalue: {eigvals.min():.4e}"
-        )
+        assert np.all(eigvals >= -1e-6 * max(eigvals)), f"Negative eigenvalue: {eigvals.min():.4e}"
 
     def test_me_shape_and_symmetry(self, carbon_epoxy, ply_thickness, quad_coords):
         laminate = create_laminate_from_angles(carbon_epoxy, ply_thickness, [0, 90, 90, 0])
@@ -346,14 +353,18 @@ class TestBatchComposite:
         e_equiv = np.trace(laminate.A) / (3.0 * h)
 
         ke_flat = fsc.batch_ke_mitc3_composite(
-            coords_batch, cm, b_coupling, cb, cs,
-            np.full(n, h), np.full(n, e_equiv),
+            coords_batch,
+            cm,
+            b_coupling,
+            cb,
+            cs,
+            np.full(n, h),
+            np.full(n, e_equiv),
         )
         ke_batch = np.asarray(ke_flat).reshape(n, 18, 18)
 
         for i, ke in enumerate(ke_batch):
-            np.testing.assert_allclose(ke, ke.T, atol=1e-6,
-                                       err_msg=f"Element {i}: K not symmetric")
+            np.testing.assert_allclose(ke, ke.T, atol=1e-6, err_msg=f"Element {i}: K not symmetric")
             eigvals = np.linalg.eigvalsh(ke)
             assert np.all(eigvals >= -1e-6 * max(eigvals)), (
                 f"Element {i}: negative eigenvalue {eigvals.min():.4e}"
@@ -377,14 +388,18 @@ class TestBatchComposite:
         e_equiv = np.trace(laminate.A) / (3.0 * h)
 
         ke_flat = fsc.batch_ke_mitc4_composite(
-            coords_batch, cm, b_coupling, cb, cs,
-            np.full(n, h), np.full(n, e_equiv),
+            coords_batch,
+            cm,
+            b_coupling,
+            cb,
+            cs,
+            np.full(n, h),
+            np.full(n, e_equiv),
         )
         ke_batch = np.asarray(ke_flat).reshape(n, 24, 24)
 
         for i, ke in enumerate(ke_batch):
-            np.testing.assert_allclose(ke, ke.T, atol=1e-6,
-                                       err_msg=f"Element {i}: K not symmetric")
+            np.testing.assert_allclose(ke, ke.T, atol=1e-6, err_msg=f"Element {i}: K not symmetric")
             eigvals = np.linalg.eigvalsh(ke)
             assert np.all(eigvals >= -1e-6 * max(eigvals)), (
                 f"Element {i}: negative eigenvalue {eigvals.min():.4e}"
@@ -404,8 +419,7 @@ class TestCompositeSanity:
         laminate = create_laminate_from_angles(carbon_epoxy, ply_thickness, [0, 90, 90, 0])
         rust_ke = _rust_ke_mitc3(tri_coords, laminate)
         eigvals = np.linalg.eigvalsh(rust_ke)
-        assert np.all(eigvals >= -1e-6 * max(eigvals)), \
-            f"Negative eigenvalue: {eigvals.min():.4e}"
+        assert np.all(eigvals >= -1e-6 * max(eigvals)), f"Negative eigenvalue: {eigvals.min():.4e}"
 
     def test_me_positive_semidefinite(self, carbon_epoxy, ply_thickness, tri_coords):
         """Mass eigenvalues should be non-negative."""
@@ -433,12 +447,11 @@ class TestCompositeSanity:
         ke_thin = _rust_ke_mitc3(tri_coords, thin_lam)
         ke_thick = _rust_ke_mitc3(tri_coords, thick_lam)
 
-        assert np.linalg.norm(ke_thick) > np.linalg.norm(ke_thin), \
+        assert np.linalg.norm(ke_thick) > np.linalg.norm(ke_thin), (
             "Thicker laminate should be stiffer"
+        )
 
-    def test_assembler_composite_mitc3_symmetry(
-        self, carbon_epoxy, ply_thickness, tri_coords
-    ):
+    def test_assembler_composite_mitc3_symmetry(self, carbon_epoxy, ply_thickness, tri_coords):
         """PyMeshAssembler with composite material gives symmetric K/M."""
         laminate = create_laminate_from_angles(carbon_epoxy, ply_thickness, [0, 90, 90, 0])
         mat_dict = _laminate_to_mat_dict(laminate)
@@ -446,7 +459,7 @@ class TestCompositeSanity:
         asm = PyMeshAssembler(
             node_coords=tri_coords,
             connectivity=[[0, 1, 2]],
-            elem_types=[3],   # MITC3 = 3
+            elem_types=[3],  # MITC3 = 3
             materials=[mat_dict],
         )
         K = _dense_from_asm(asm, "K")
@@ -455,9 +468,7 @@ class TestCompositeSanity:
         np.testing.assert_allclose(K, K.T, atol=1e-6, err_msg="K not symmetric")
         np.testing.assert_allclose(M, M.T, atol=1e-10, err_msg="M not symmetric")
 
-    def test_assembler_composite_mitc4_symmetry(
-        self, carbon_epoxy, ply_thickness, quad_coords
-    ):
+    def test_assembler_composite_mitc4_symmetry(self, carbon_epoxy, ply_thickness, quad_coords):
         """PyMeshAssembler with composite material gives symmetric K/M (MITC4)."""
         laminate = create_laminate_from_angles(carbon_epoxy, ply_thickness, [0, 45, -45, 0])
         mat_dict = _laminate_to_mat_dict(laminate)
@@ -465,7 +476,7 @@ class TestCompositeSanity:
         asm = PyMeshAssembler(
             node_coords=quad_coords,
             connectivity=[[0, 1, 2, 3]],
-            elem_types=[44],   # MITC4Composite = 44
+            elem_types=[44],  # MITC4Composite = 44
             materials=[mat_dict],
         )
         K = _dense_from_asm(asm, "K")

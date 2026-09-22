@@ -35,9 +35,7 @@ class NewmarkCoefficients:
     a7: float
 
     @classmethod
-    def from_newmark_params(
-        cls, beta: float, gamma: float, dt: float
-    ) -> "NewmarkCoefficients":
+    def from_newmark_params(cls, beta: float, gamma: float, dt: float) -> "NewmarkCoefficients":
         """Create coefficients from Newmark parameters and time step."""
         return cls(
             a0=1.0 / (beta * dt**2),

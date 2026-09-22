@@ -42,7 +42,7 @@ import numpy as np
 _logger = logging.getLogger(__name__)
 
 _MIN_DENOM = 1e-12
-_TIME_TOL  = 5e-5   # seconds — tolerance for deduplication between sources
+_TIME_TOL = 5e-5  # seconds — tolerance for deduplication between sources
 
 # CSV header — must match _log_rotor_performance in rotor.py
 _CSV_HEADER = (
@@ -60,6 +60,7 @@ _CSV_HEADER = (
 # ---------------------------------------------------------------------------
 # Loaders
 # ---------------------------------------------------------------------------
+
 
 def _load_checkpoints(results_dir: str) -> List[Dict]:
     """
@@ -96,7 +97,7 @@ def _load_checkpoints(results_dir: str) -> List[Dict]:
         npz = os.path.join(path, "state.npz")
         try:
             with np.load(npz) as data:
-                t     = float(data["t"])     if "t"     in data.files else t_folder
+                t = float(data["t"]) if "t" in data.files else t_folder
                 theta = float(data["theta"]) if "theta" in data.files else 0.0
                 omega = float(data["omega"]) if "omega" in data.files else 0.0
                 alpha = float(data["alpha"]) if "alpha" in data.files else None
@@ -114,16 +115,21 @@ def _load_checkpoints(results_dir: str) -> List[Dict]:
             row["alpha"] = float("nan")
         elif i == 0:
             dt = rows[1]["t"] - rows[0]["t"]
-            row["alpha"] = ((rows[1]["omega"] - rows[0]["omega"]) / dt
-                            if dt > _MIN_DENOM else float("nan"))
+            row["alpha"] = (
+                (rows[1]["omega"] - rows[0]["omega"]) / dt if dt > _MIN_DENOM else float("nan")
+            )
         elif i == n - 1:
             dt = rows[-1]["t"] - rows[-2]["t"]
-            row["alpha"] = ((rows[-1]["omega"] - rows[-2]["omega"]) / dt
-                            if dt > _MIN_DENOM else float("nan"))
+            row["alpha"] = (
+                (rows[-1]["omega"] - rows[-2]["omega"]) / dt if dt > _MIN_DENOM else float("nan")
+            )
         else:
             dt = rows[i + 1]["t"] - rows[i - 1]["t"]
-            row["alpha"] = ((rows[i + 1]["omega"] - rows[i - 1]["omega"]) / dt
-                            if dt > _MIN_DENOM else float("nan"))
+            row["alpha"] = (
+                (rows[i + 1]["omega"] - rows[i - 1]["omega"]) / dt
+                if dt > _MIN_DENOM
+                else float("nan")
+            )
 
     return rows
 
@@ -160,6 +166,7 @@ def _load_performance_csv(results_dir: str) -> List[Dict]:
 # Main reconstruction logic
 # ---------------------------------------------------------------------------
 
+
 def reconstruct(
     results_dir: str,
     output: Optional[str] = None,
@@ -189,8 +196,8 @@ def reconstruct(
         output = os.path.join(results_dir, "rotor_performance_reconstructed.csv")
 
     # Load both sources
-    perf_rows  = _load_performance_csv(results_dir)
-    ckpt_rows  = _load_checkpoints(results_dir)
+    perf_rows = _load_performance_csv(results_dir)
+    ckpt_rows = _load_checkpoints(results_dir)
     print(f"Found {len(ckpt_rows)} checkpoint(s) in '{results_dir}'.")
 
     # Build set of times already covered by rotor_performance.csv
@@ -215,17 +222,14 @@ def reconstruct(
         omega_rpm = omega * 30.0 / np.pi
         alpha_str = f"{alpha:.6e}" if (alpha is not None and not np.isnan(alpha)) else ""
 
-        raw_line = (
-            f"{t:.6f},{angle_deg:.4f},{omega_rpm:.4f},{omega:.6e},{alpha_str},"
-            f"{blank}"
-        )
+        raw_line = f"{t:.6f},{angle_deg:.4f},{omega_rpm:.4f},{omega:.6e},{alpha_str},{blank}"
         extra_rows.append({"t": t, "raw_line": raw_line, "source": "ckpt"})
 
     # Merge and sort by time
     all_rows = sorted(perf_rows + extra_rows, key=lambda r: r["t"])
 
     n_full = sum(1 for r in all_rows if r["source"] == "perf")
-    n_kin  = sum(1 for r in all_rows if r["source"] == "ckpt")
+    n_kin = sum(1 for r in all_rows if r["source"] == "ckpt")
 
     os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)
     with open(output, "w") as fh:
@@ -244,6 +248,7 @@ def reconstruct(
 # YAML config reader
 # ---------------------------------------------------------------------------
 
+
 def _output_from_yaml(yaml_path: str) -> Optional[str]:
     """Return ``output.folder`` from an FSI YAML config, or None."""
     try:
@@ -255,15 +260,13 @@ def _output_from_yaml(yaml_path: str) -> Optional[str]:
     with open(yaml_path) as fh:
         cfg = yaml.safe_load(fh)
 
-    return (
-        cfg.get("output", {}).get("folder")
-        or cfg.get("solver", {}).get("output_folder")
-    )
+    return cfg.get("output", {}).get("folder") or cfg.get("solver", {}).get("output_folder")
 
 
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -280,17 +283,20 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Results directory (contains <t>/state.npz and optionally rotor_performance.csv).",
     )
     p.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         metavar="YAML",
         help="FSI YAML config file (reads output.folder to locate results_dir).",
     )
     p.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         metavar="FILE",
         help="Output CSV path (default: <results_dir>/rotor_performance_reconstructed.csv).",
     )
     p.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable debug logging.",
     )
@@ -326,6 +332,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"ERROR: {e}", file=sys.stderr)
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 

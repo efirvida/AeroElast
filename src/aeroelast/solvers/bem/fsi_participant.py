@@ -528,6 +528,7 @@ class BEMFSIParticipant:
 
                 # Integrate azimuth: Δθ [deg] = ω [rad/s] × Δt [s] × (180/π)
                 import math as _math  # noqa: PLC0415
+
                 self._azimuth += _math.degrees(self._current_omega * dt)
                 self._azimuth %= 360.0  # keep in [0, 360)
 
@@ -872,6 +873,7 @@ class BEMFSIParticipant:
         # _current_omega is in rad/s (received from Solid via preCICE or YAML).
         # CCBlade expects RPM.
         import math as _math  # noqa: PLC0415
+
         omega = self._current_omega * 60.0 / (2.0 * _math.pi)
         pitch = float(self._bem_cfg.get("pitch", 0.0))
         # Use live accumulated azimuth (integrated from omega each window).

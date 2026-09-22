@@ -31,7 +31,6 @@ from aeroelast.core.mesh.entities import (
     NodeSet,
 )
 from aeroelast.core.mesh.model import MeshModel
-from aeroelast.core.properties import CompositeShellProperty, ShellProperty
 from aeroelast.elements import ElementFamily
 from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
 
@@ -285,9 +284,9 @@ class TestSimplySupportedBeam:
         for node in center_nodes:
             node_idx = mesh.nodes.index(node)
             node_dofs = [node_idx * solver.domain.dofs_per_node + d for d in range(6)]
-            solver.add_nodal_loads([
-                NodalLoad(node_dofs, [0.0, 0.0, P / len(center_nodes), 0.0, 0.0, 0.0])
-            ])
+            solver.add_nodal_loads(
+                [NodalLoad(node_dofs, [0.0, 0.0, P / len(center_nodes), 0.0, 0.0, 0.0])]
+            )
 
         u_vec = solver.solve()
         u = u_vec.reshape(-1, solver.domain.dofs_per_node)

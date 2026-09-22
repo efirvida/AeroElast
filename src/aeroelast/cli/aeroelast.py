@@ -54,11 +54,13 @@ Examples:
         help="Path to YAML configuration file",
     )
     parser.add_argument(
-        "--workdir", "-w",
+        "--workdir",
+        "-w",
         help="Working directory (default: directory of the config file)",
     )
     parser.add_argument(
-        "--preview", "-p",
+        "--preview",
+        "-p",
         action="store_true",
         help="Print parsed configuration and exit",
     )
@@ -68,12 +70,14 @@ Examples:
         help="Validate configuration file and exit",
     )
     parser.add_argument(
-        "--template", "-t",
+        "--template",
+        "-t",
         action="store_true",
         help="Print a template YAML configuration to stdout and exit",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Enable verbose logging",
     )
@@ -99,6 +103,7 @@ Examples:
     if args.template:
         # Reuse the template from run_fsi to keep them in sync
         from aeroelast.cli.run_fsi import TEMPLATE_CONFIG
+
         print(TEMPLATE_CONFIG)
         return 0
 
@@ -116,6 +121,7 @@ Examples:
     # --preview
     if args.preview:
         from aeroelast.core.config import FSISimulationConfig
+
         cfg = FSISimulationConfig.from_yaml(str(config_path))
         print(cfg)
         return 0
@@ -123,12 +129,14 @@ Examples:
     # --validate
     if args.validate:
         from aeroelast.cli.run_fsi import validate_config
+
         return 0 if validate_config(str(config_path)) else 1
 
     # --export-ccx
     if args.export_ccx:
         try:
             from aeroelast.solvers.fsi.runner import FSIRunner
+
             runner = FSIRunner(str(config_path), args.workdir)
             num_modes = 10
             if runner.config.solver.num_modes:
@@ -137,9 +145,12 @@ Examples:
             elem_cfg = getattr(runner.config, "elements", None)
             if elem_cfg is not None and getattr(elem_cfg, "span_direction", None) is not None:
                 span_direction = tuple(float(v) for v in elem_cfg.span_direction)
-            runner.export_calculix(args.export_ccx, num_modes=num_modes,
-                                   span_direction=span_direction,
-                                   quadratic=args.ccx_quadratic)
+            runner.export_calculix(
+                args.export_ccx,
+                num_modes=num_modes,
+                span_direction=span_direction,
+                quadratic=args.ccx_quadratic,
+            )
             return 0
         except Exception as e:
             logging.exception("CalculiX export failed")
@@ -151,20 +162,20 @@ Examples:
         # Peek at the YAML to detect BEM-FSI configs without importing the
         # full runner (avoids the LinearDynamicFSI default path).
         import yaml as _yaml
+
         with open(config_path) as _f:
             _raw = _yaml.safe_load(_f)
-        _is_bem_fsi = (
-            "bem" in _raw
-            and _raw.get("solver", {}).get("type", "BEMFSI") == "BEMFSI"
-        )
+        _is_bem_fsi = "bem" in _raw and _raw.get("solver", {}).get("type", "BEMFSI") == "BEMFSI"
         if _is_bem_fsi:
             from aeroelast.cli.run_bem_fsi import main as _bem_main
+
             _argv = [str(config_path)]
             if args.workdir:
                 _argv += ["--workdir", args.workdir]
             return _bem_main(_argv)
 
         from aeroelast.solvers.fsi.runner import FSIRunner
+
         runner = FSIRunner(str(config_path), args.workdir)
         runner.run()
         return 0

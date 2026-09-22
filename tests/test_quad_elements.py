@@ -20,6 +20,7 @@ from _aeroelast import PyMeshAssembler  # noqa: E402
 # Helper
 # =============================================================================
 
+
 def _build_dense(asm: PyMeshAssembler, which: str) -> np.ndarray:
     """Assemble K or M into a dense matrix from COO triplets."""
     if which == "K":
@@ -33,8 +34,9 @@ def _build_dense(asm: PyMeshAssembler, which: str) -> np.ndarray:
     return mat
 
 
-def _make_assembler(nodes_3d: np.ndarray, connectivity: list,
-                    elem_type_code: int, mat_dict: dict) -> PyMeshAssembler:
+def _make_assembler(
+    nodes_3d: np.ndarray, connectivity: list, elem_type_code: int, mat_dict: dict
+) -> PyMeshAssembler:
     return PyMeshAssembler(
         node_coords=nodes_3d,
         connectivity=[connectivity],
@@ -47,43 +49,50 @@ def _make_assembler(nodes_3d: np.ndarray, connectivity: list,
 # Node coordinates — in the XY plane (z=0), but passed as 3D
 # =============================================================================
 
+
 def _quad4_nodes_3d():
     """Unit square QUAD4 in XY plane."""
-    return np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-    ])
+    return np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ]
+    )
 
 
 def _quad8_nodes_3d():
     """QUAD8 unit square with midside nodes."""
-    return np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.5, 0.0, 0.0],
-        [1.0, 0.5, 0.0],
-        [0.5, 1.0, 0.0],
-        [0.0, 0.5, 0.0],
-    ])
+    return np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.5, 0.0, 0.0],
+            [1.0, 0.5, 0.0],
+            [0.5, 1.0, 0.0],
+            [0.0, 0.5, 0.0],
+        ]
+    )
 
 
 def _quad9_nodes_3d():
     """QUAD9 unit square with midside + center nodes."""
-    return np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [1.0, 1.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [0.5, 0.0, 0.0],
-        [1.0, 0.5, 0.0],
-        [0.5, 1.0, 0.0],
-        [0.0, 0.5, 0.0],
-        [0.5, 0.5, 0.0],
-    ])
+    return np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.5, 0.0, 0.0],
+            [1.0, 0.5, 0.0],
+            [0.5, 1.0, 0.0],
+            [0.0, 0.5, 0.0],
+            [0.5, 0.5, 0.0],
+        ]
+    )
 
 
 # =============================================================================
@@ -97,7 +106,7 @@ QUAD_CONFIGS = {
         "nodes_fn": _quad4_nodes_3d,
         "code": 104,
         "n_nodes": 4,
-        "n_dofs": 8,   # 2 DOFs per node (plane stress)
+        "n_dofs": 8,  # 2 DOFs per node (plane stress)
         "rigid_modes": 3,
     },
     "Quad8": {
@@ -143,8 +152,9 @@ class TestStiffnessMatrix:
 
     def test_symmetry(self, quad_setup):
         K = _build_dense(quad_setup["asm"], "K")
-        np.testing.assert_allclose(K, K.T, atol=1e-6,
-                                   err_msg=f"{quad_setup['name']}: K not symmetric")
+        np.testing.assert_allclose(
+            K, K.T, atol=1e-6, err_msg=f"{quad_setup['name']}: K not symmetric"
+        )
 
     def test_rigid_body_modes(self, quad_setup):
         """Plane stress K has 3 rigid body modes (tx, ty, rz)."""
@@ -177,8 +187,9 @@ class TestMassMatrix:
 
     def test_symmetry(self, quad_setup):
         M = _build_dense(quad_setup["asm"], "M")
-        np.testing.assert_allclose(M, M.T, atol=1e-10,
-                                   err_msg=f"{quad_setup['name']}: M not symmetric")
+        np.testing.assert_allclose(
+            M, M.T, atol=1e-10, err_msg=f"{quad_setup['name']}: M not symmetric"
+        )
 
     def test_positive_semi_definite(self, quad_setup):
         M = _build_dense(quad_setup["asm"], "M")
@@ -216,16 +227,15 @@ class TestRigidBodyModes:
         rz = np.zeros(n_nodes * 2)
         for i in range(n_nodes):
             x, y = nodes[i, 0], nodes[i, 1]
-            rz[2 * i]     = -y
-            rz[2 * i + 1] =  x
+            rz[2 * i] = -y
+            rz[2 * i + 1] = x
 
         K_norm = np.linalg.norm(K, ord="fro")
         for label, mode in [("tx", tx), ("ty", ty), ("rz", rz)]:
             residual = K @ mode
             rel_err = np.max(np.abs(residual)) / K_norm if K_norm > 0 else np.max(np.abs(residual))
             assert rel_err < 1e-10, (
-                f"{name}: rigid mode {label} not in null space. "
-                f"Relative error: {rel_err:.4e}"
+                f"{name}: rigid mode {label} not in null space. Relative error: {rel_err:.4e}"
             )
 
 

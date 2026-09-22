@@ -364,7 +364,7 @@ def create_offset_layers(nodes, elements, n_layers, first_thickness, growth_rate
     all_layers = [nodes.copy()]
     current = nodes.copy()
     for k in range(n_layers):
-        thickness = first_thickness * (growth_rate ** k)
+        thickness = first_thickness * (growth_rate**k)
         current = current + normals * thickness
         all_layers.append(current.copy())
 
@@ -411,7 +411,6 @@ def create_offset_layers(nodes, elements, n_layers, first_thickness, growth_rate
             ]
         },
     }
-
 
 
 def create_outer_domain_unstructured(
@@ -463,7 +462,7 @@ def create_outer_domain_unstructured(
     """
     import math
     from scipy.spatial import Delaunay
-    from shapely.geometry import Polygon as _SPoly, Point as _SPt
+    from shapely.geometry import Point as _SPt
 
     outer_nodes = np.asarray(outer_nodes, dtype=float)
     N_inner = len(outer_nodes)
@@ -476,28 +475,28 @@ def create_outer_domain_unstructured(
     # nodes from the same spanwise station across many Z values, making    #
     # each per-Z group have only 1-3 nodes and a degenerate polygon.       #
     # ------------------------------------------------------------------ #
-    z_group = np.asarray(node_z_ref, dtype=float) if node_z_ref is not None \
-              else outer_nodes[:, 2]
+    z_group = np.asarray(node_z_ref, dtype=float) if node_z_ref is not None else outer_nodes[:, 2]
 
-    z = outer_nodes[:, 2]          # actual Z (used for cylinder placement)
+    z = outer_nodes[:, 2]  # actual Z (used for cylinder placement)
     z_span = max(z_group.max() - z_group.min(), 1e-12)
     tol_z = max(1e-6 * z_span, 1e-12)
     z_int = np.round(z_group / tol_z).astype(np.int64)
     unique_zi = np.unique(z_int)
     N_z = len(unique_zi)
 
-    sec_cx = np.empty(N_z); sec_cy = np.empty(N_z); z_vals = np.empty(N_z)
+    sec_cx = np.empty(N_z)
+    sec_cy = np.empty(N_z)
+    z_vals = np.empty(N_z)
     for k, zi in enumerate(unique_zi):
         mask = z_int == zi
         sec_cx[k] = outer_nodes[mask, 0].mean()
         sec_cy[k] = outer_nodes[mask, 1].mean()
-        z_vals[k]  = outer_nodes[mask, 2].mean()
+        z_vals[k] = outer_nodes[mask, 2].mean()
 
     # Validate cylinder radius
     for k, zi in enumerate(unique_zi):
         mask = z_int == zi
-        r_max = np.hypot(outer_nodes[mask, 0] - sec_cx[k],
-                         outer_nodes[mask, 1] - sec_cy[k]).max()
+        r_max = np.hypot(outer_nodes[mask, 0] - sec_cx[k], outer_nodes[mask, 1] - sec_cy[k]).max()
         if r_max >= cylinder_radius:
             raise ValueError(
                 f"create_outer_domain_unstructured: at Z={z_vals[k]:.3f} m "
@@ -511,13 +510,17 @@ def create_outer_domain_unstructured(
     # ------------------------------------------------------------------ #
     theta = np.linspace(0, 2.0 * math.pi, n_cyl_theta, endpoint=False)
     CYL0 = N_inner
-    cyl_xyz = np.array([
-        [sec_cx[k] + cylinder_radius * math.cos(th),
-         sec_cy[k] + cylinder_radius * math.sin(th),
-         z_vals[k]]
-        for k in range(N_z)
-        for th in theta
-    ])
+    cyl_xyz = np.array(
+        [
+            [
+                sec_cx[k] + cylinder_radius * math.cos(th),
+                sec_cy[k] + cylinder_radius * math.sin(th),
+                z_vals[k],
+            ]
+            for k in range(N_z)
+            for th in theta
+        ]
+    )
     all_nodes_out = np.vstack([outer_nodes, cyl_xyz])
 
     # ------------------------------------------------------------------ #
@@ -527,14 +530,14 @@ def create_outer_domain_unstructured(
 
     def _make_poly(pts_2d):
         from shapely.geometry import MultiPoint as _SMPt
+
         hull = _SMPt(pts_2d.tolist()).convex_hull
         if hull.geom_type == "Polygon":
             return hull
         # Degenerate section (tip/root with < 3 non-collinear pts): tiny buffer
         return hull.buffer(1e-6)
 
-    inner_poly_per_z = [_make_poly(outer_nodes[idx, :2])
-                        for idx in inner_idx_per_z]
+    inner_poly_per_z = [_make_poly(outer_nodes[idx, :2]) for idx in inner_idx_per_z]
 
     # ------------------------------------------------------------------ #
     # Per-slab 3D Delaunay → tet4                                         #
@@ -545,24 +548,22 @@ def create_outer_domain_unstructured(
     all_tets = []
 
     for k in range(N_z - 1):
-        i_k  = inner_idx_per_z[k]           # global indices in all_nodes_out
+        i_k = inner_idx_per_z[k]  # global indices in all_nodes_out
         i_k1 = inner_idx_per_z[k + 1]
-        c_k  = np.arange(CYL0 + k * n_cyl_theta,
-                         CYL0 + (k + 1) * n_cyl_theta)
-        c_k1 = np.arange(CYL0 + (k + 1) * n_cyl_theta,
-                         CYL0 + (k + 2) * n_cyl_theta)
+        c_k = np.arange(CYL0 + k * n_cyl_theta, CYL0 + (k + 1) * n_cyl_theta)
+        c_k1 = np.arange(CYL0 + (k + 1) * n_cyl_theta, CYL0 + (k + 2) * n_cyl_theta)
 
         slab_global = np.concatenate([i_k, i_k1, c_k, c_k1])
-        slab_pts    = all_nodes_out[slab_global]   # (N_slab, 3)
+        slab_pts = all_nodes_out[slab_global]  # (N_slab, 3)
 
         try:
             dt = Delaunay(slab_pts)
         except Exception:
             continue
 
-        z_k  = z_vals[k]
+        z_k = z_vals[k]
         z_k1 = z_vals[k + 1]
-        poly_k  = inner_poly_per_z[k]
+        poly_k = inner_poly_per_z[k]
         poly_k1 = inner_poly_per_z[k + 1]
 
         for simplex in dt.simplices:
@@ -591,7 +592,7 @@ def create_outer_domain_unstructured(
     cyl_labels = list(range(CYL0, CYL0 + N_z * n_cyl_theta))
 
     return {
-        "nodes":    all_nodes_out,
+        "nodes": all_nodes_out,
         "elements": elements,
         "sets": {"node": [{"name": "cylinderSurface", "labels": cyl_labels}]},
     }

@@ -12,7 +12,9 @@ blades_path = os.path.join(
 
 # Find all .yaml files in the directory
 if os.path.isdir(blades_path):
-    yaml_files = [os.path.join(blades_path, f) for f in os.listdir(blades_path) if f.endswith(".yaml")]
+    yaml_files = [
+        os.path.join(blades_path, f) for f in os.listdir(blades_path) if f.endswith(".yaml")
+    ]
 else:
     yaml_files = []
 

@@ -243,7 +243,9 @@ def _build_mesh(cfg: dict, config_path: Path):
     # and force projection — elements are not required after this point.
     # The full mesh (with elements) is kept as viz_mesh for VTU surface output.
     viz_mesh = None
-    coupling_node_set = gen_cfg.get("coupling_node_set") if source != MeshSource.FILE.value else None
+    coupling_node_set = (
+        gen_cfg.get("coupling_node_set") if source != MeshSource.FILE.value else None
+    )
     if coupling_node_set:
         try:
             ns = mesh.get_node_set(coupling_node_set)

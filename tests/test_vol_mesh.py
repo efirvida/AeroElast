@@ -16,21 +16,34 @@ from aeroelast.models.blade.numad.mesh_gen.mesh3d import create_offset_layers
 # Helpers / synthetic geometry
 # ---------------------------------------------------------------------------
 
+
 def _unit_square_mesh():
     """A 2x2 grid of quad4 elements forming a flat XY plane (Z=0).
     9 nodes, 4 quads.  Expected normals: +Z everywhere.
     """
-    nodes = np.array([
-        [0, 0, 0], [1, 0, 0], [2, 0, 0],
-        [0, 1, 0], [1, 1, 0], [2, 1, 0],
-        [0, 2, 0], [1, 2, 0], [2, 2, 0],
-    ], dtype=float)
-    elements = np.array([
-        [0, 1, 4, 3],
-        [1, 2, 5, 4],
-        [3, 4, 7, 6],
-        [4, 5, 8, 7],
-    ], dtype=int)
+    nodes = np.array(
+        [
+            [0, 0, 0],
+            [1, 0, 0],
+            [2, 0, 0],
+            [0, 1, 0],
+            [1, 1, 0],
+            [2, 1, 0],
+            [0, 2, 0],
+            [1, 2, 0],
+            [2, 2, 0],
+        ],
+        dtype=float,
+    )
+    elements = np.array(
+        [
+            [0, 1, 4, 3],
+            [1, 2, 5, 4],
+            [3, 4, 7, 6],
+            [4, 5, 8, 7],
+        ],
+        dtype=int,
+    )
     return nodes, elements
 
 
@@ -44,16 +57,14 @@ def _cylinder_ring_mesh(n=12, r=1.0, z=0.0):
     top = np.column_stack([r * np.cos(angles), r * np.sin(angles), np.full(n, z + 1.0)])
     nodes = np.vstack([bot, top])  # shape (2n, 3)
     # Quads: [i, (i+1)%n, (i+1)%n + n, i + n]
-    elements = np.array([
-        [i, (i + 1) % n, (i + 1) % n + n, i + n]
-        for i in range(n)
-    ], dtype=int)
+    elements = np.array([[i, (i + 1) % n, (i + 1) % n + n, i + n] for i in range(n)], dtype=int)
     return nodes, elements
 
 
 # ---------------------------------------------------------------------------
 # TestGetVertexNormals
 # ---------------------------------------------------------------------------
+
 
 class TestGetVertexNormals:
     def test_output_shape(self):
@@ -73,9 +84,7 @@ class TestGetVertexNormals:
         # Translate so centroid is at (1,1,0)
         normals = get_vertex_normals(nodes, elements)
         # All normals should have dominant Z component
-        assert np.all(np.abs(normals[:, 2]) > 0.9), (
-            f"Expected +Z normals, got: {normals}"
-        )
+        assert np.all(np.abs(normals[:, 2]) > 0.9), f"Expected +Z normals, got: {normals}"
 
     def test_cylinder_normals_point_outward(self):
         """Cylinder ring normals must point radially outward (away from Z axis)."""
@@ -101,6 +110,7 @@ class TestGetVertexNormals:
 # TestCreateOffsetLayers
 # ---------------------------------------------------------------------------
 
+
 class TestCreateOffsetLayers:
     @pytest.fixture
     def cylinder_mesh(self):
@@ -108,7 +118,9 @@ class TestCreateOffsetLayers:
 
     def test_return_keys(self, cylinder_mesh):
         nodes, elements = cylinder_mesh
-        result = create_offset_layers(nodes, elements, n_layers=3, first_thickness=0.01, growth_rate=1.2)
+        result = create_offset_layers(
+            nodes, elements, n_layers=3, first_thickness=0.01, growth_rate=1.2
+        )
         assert "nodes" in result
         assert "elements" in result
         assert "sets" in result
@@ -117,19 +129,25 @@ class TestCreateOffsetLayers:
         nodes, elements = cylinder_mesh
         N = len(nodes)
         n_layers = 4
-        result = create_offset_layers(nodes, elements, n_layers=n_layers, first_thickness=0.01, growth_rate=1.2)
+        result = create_offset_layers(
+            nodes, elements, n_layers=n_layers, first_thickness=0.01, growth_rate=1.2
+        )
         assert len(result["nodes"]) == N * (n_layers + 1)
 
     def test_element_count(self, cylinder_mesh):
         nodes, elements = cylinder_mesh
         M = len(elements)  # all quads in this mesh
         n_layers = 4
-        result = create_offset_layers(nodes, elements, n_layers=n_layers, first_thickness=0.01, growth_rate=1.2)
+        result = create_offset_layers(
+            nodes, elements, n_layers=n_layers, first_thickness=0.01, growth_rate=1.2
+        )
         assert len(result["elements"]) == M * n_layers
 
     def test_hex8_shape(self, cylinder_mesh):
         nodes, elements = cylinder_mesh
-        result = create_offset_layers(nodes, elements, n_layers=3, first_thickness=0.01, growth_rate=1.2)
+        result = create_offset_layers(
+            nodes, elements, n_layers=3, first_thickness=0.01, growth_rate=1.2
+        )
         assert result["elements"].shape[1] == 8
 
     def test_first_layer_thickness(self, cylinder_mesh):
@@ -137,7 +155,9 @@ class TestCreateOffsetLayers:
         nodes, elements = cylinder_mesh
         N = len(nodes)
         first_thickness = 0.05
-        result = create_offset_layers(nodes, elements, n_layers=5, first_thickness=first_thickness, growth_rate=1.0)
+        result = create_offset_layers(
+            nodes, elements, n_layers=5, first_thickness=first_thickness, growth_rate=1.0
+        )
         all_nodes = result["nodes"]
         layer0 = all_nodes[:N]
         layer1 = all_nodes[N : 2 * N]
@@ -149,7 +169,9 @@ class TestCreateOffsetLayers:
         nodes, elements = cylinder_mesh
         N = len(nodes)
         growth_rate = 1.3
-        result = create_offset_layers(nodes, elements, n_layers=5, first_thickness=0.01, growth_rate=growth_rate)
+        result = create_offset_layers(
+            nodes, elements, n_layers=5, first_thickness=0.01, growth_rate=growth_rate
+        )
         all_nodes = result["nodes"]
         t1 = np.linalg.norm(all_nodes[N : 2 * N] - all_nodes[:N], axis=1).mean()
         t2 = np.linalg.norm(all_nodes[2 * N : 3 * N] - all_nodes[N : 2 * N], axis=1).mean()
@@ -158,7 +180,9 @@ class TestCreateOffsetLayers:
     def test_blade_wall_set(self, cylinder_mesh):
         nodes, elements = cylinder_mesh
         N = len(nodes)
-        result = create_offset_layers(nodes, elements, n_layers=3, first_thickness=0.01, growth_rate=1.2)
+        result = create_offset_layers(
+            nodes, elements, n_layers=3, first_thickness=0.01, growth_rate=1.2
+        )
         set_names = {s["name"] for s in result["sets"]["node"]}
         assert "bladeWallNodes" in set_names
         wall = next(s for s in result["sets"]["node"] if s["name"] == "bladeWallNodes")
@@ -168,7 +192,9 @@ class TestCreateOffsetLayers:
         nodes, elements = cylinder_mesh
         N = len(nodes)
         n_layers = 3
-        result = create_offset_layers(nodes, elements, n_layers=n_layers, first_thickness=0.01, growth_rate=1.2)
+        result = create_offset_layers(
+            nodes, elements, n_layers=n_layers, first_thickness=0.01, growth_rate=1.2
+        )
         outer = next(s for s in result["sets"]["node"] if s["name"] == "outerBoundaryNodes")
         assert len(outer["labels"]) == N
         assert min(outer["labels"]) == n_layers * N
@@ -177,7 +203,9 @@ class TestCreateOffsetLayers:
         """Every hex element should have positive Jacobian at its first corner."""
         nodes, elements = cylinder_mesh
         n_layers = 3
-        result = create_offset_layers(nodes, elements, n_layers=n_layers, first_thickness=0.01, growth_rate=1.2)
+        result = create_offset_layers(
+            nodes, elements, n_layers=n_layers, first_thickness=0.01, growth_rate=1.2
+        )
         all_nodes = result["nodes"]
         neg = 0
         for el in result["elements"]:
@@ -194,7 +222,9 @@ class TestCreateOffsetLayers:
         nodes, elements = _unit_square_mesh()
         mixed = elements.copy()
         mixed[0, 3] = -1  # make one element a triangle
-        result = create_offset_layers(nodes, mixed, n_layers=2, first_thickness=0.01, growth_rate=1.1)
+        result = create_offset_layers(
+            nodes, mixed, n_layers=2, first_thickness=0.01, growth_rate=1.1
+        )
         # Only 3 quad elements should be extruded (one was a tri)
         assert len(result["elements"]) == 3 * 2
 
@@ -202,6 +232,7 @@ class TestCreateOffsetLayers:
 # ---------------------------------------------------------------------------
 # TestGetVolMesh — integration with real blade
 # ---------------------------------------------------------------------------
+
 
 class TestGetVolMesh:
     """Integration tests that require the IEA-15-240-RWT.yaml fixture."""
@@ -214,6 +245,7 @@ class TestGetVolMesh:
     @pytest.fixture(scope="class")
     def vol_mesh(self, iea_numad_blade):
         from aeroelast.models.blade.numad.mesh_gen import get_vol_mesh
+
         return get_vol_mesh(
             iea_numad_blade,
             elementSize=self.ELEMENT_SIZE,
@@ -267,6 +299,8 @@ class TestGetVolMesh:
             if np.linalg.det(np.array([v1, v2, v3])) <= 0:
                 neg += 1
         assert neg == 0, f"{neg} negative-Jacobian elements in blade BL mesh"
+
+
 """
 Unit tests for the volumetric mesh pipeline (cap closure + hex extrusion).
 
@@ -279,24 +313,25 @@ Covers:
   - mesh_gen: get_vol_mesh with overset_layers > 0 using the IEA-15-240-RWT blade
 """
 
-import os
 import pathlib
 import tempfile
 
-import numpy as np
 import pytest
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
-IEA_YAML = pathlib.Path(__file__).parent.parent / "examples" / "blade" / "bem" / "IEA-15-240-RWT.yaml"
+IEA_YAML = (
+    pathlib.Path(__file__).parent.parent / "examples" / "blade" / "bem" / "IEA-15-240-RWT.yaml"
+)
 
 
 @pytest.fixture(scope="module")
 def iea_blade():
     """Load the IEA-15-240-RWT numad Blade object once per module."""
     from aeroelast.models.blade.numad import Blade as numadBlade
+
     blade = numadBlade()
     blade.read_yaml(str(IEA_YAML))
     n_stations = blade.geometry.coordinates.shape[2]
@@ -321,9 +356,18 @@ def simple_hex_mesh():
     """Two-cell aligned hex mesh for quality tests."""
     nodes = np.array(
         [
-            [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0],
-            [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1],
-            [0, 0, 2], [1, 0, 2], [1, 1, 2], [0, 1, 2],
+            [0, 0, 0],
+            [1, 0, 0],
+            [1, 1, 0],
+            [0, 1, 0],
+            [0, 0, 1],
+            [1, 0, 1],
+            [1, 1, 1],
+            [0, 1, 1],
+            [0, 0, 2],
+            [1, 0, 2],
+            [1, 1, 2],
+            [0, 1, 2],
         ],
         dtype=float,
     )
@@ -341,6 +385,7 @@ def simple_hex_mesh():
 # cap_mesh
 # ---------------------------------------------------------------------------
 
+
 class TestTfiBlock:
     def test_shape(self, airfoil_loop):
         from aeroelast.models.blade.numad.mesh_gen.cap_mesh import _tfi_block
@@ -348,7 +393,7 @@ class TestTfiBlock:
         N, M = 5, 3
         lower = np.linspace([0, 0, 0], [1, 0, 0], N)
         upper = np.linspace([0, 1, 0], [1, 1, 0], N)
-        left  = np.linspace(lower[0], upper[0], M)
+        left = np.linspace(lower[0], upper[0], M)
         right = np.linspace(lower[-1], upper[-1], M)
 
         nodes, quads = _tfi_block(lower, upper, left, right)
@@ -361,18 +406,18 @@ class TestTfiBlock:
         from aeroelast.models.blade.numad.mesh_gen.cap_mesh import _tfi_block
 
         N, M = 4, 3
-        lower = np.array([[0,0,0],[1,0,0],[2,0,0],[3,0,0]], dtype=float)
-        upper = np.array([[0,2,0],[1,2,0],[2,2,0],[3,2,0]], dtype=float)
-        left  = np.linspace(lower[0], upper[0], M)
+        lower = np.array([[0, 0, 0], [1, 0, 0], [2, 0, 0], [3, 0, 0]], dtype=float)
+        upper = np.array([[0, 2, 0], [1, 2, 0], [2, 2, 0], [3, 2, 0]], dtype=float)
+        left = np.linspace(lower[0], upper[0], M)
         right = np.linspace(lower[-1], upper[-1], M)
 
         nodes, _ = _tfi_block(lower, upper, left, right)
         nodes_2d = nodes.reshape(M, N, 3)
 
-        np.testing.assert_allclose(nodes_2d[0, 0],  lower[0],  atol=1e-12)
+        np.testing.assert_allclose(nodes_2d[0, 0], lower[0], atol=1e-12)
         np.testing.assert_allclose(nodes_2d[0, -1], lower[-1], atol=1e-12)
-        np.testing.assert_allclose(nodes_2d[-1, 0], upper[0],  atol=1e-12)
-        np.testing.assert_allclose(nodes_2d[-1,-1], upper[-1], atol=1e-12)
+        np.testing.assert_allclose(nodes_2d[-1, 0], upper[0], atol=1e-12)
+        np.testing.assert_allclose(nodes_2d[-1, -1], upper[-1], atol=1e-12)
 
 
 class TestGenerateCapQuads:
@@ -404,8 +449,7 @@ class TestGenerateCapQuads:
         from aeroelast.models.blade.numad.mesh_gen.cap_mesh import generate_cap_quads
 
         out_n = np.array([0.0, 0.0, -1.0])
-        nodes, quads = generate_cap_quads(airfoil_loop, le_idx=18, n_rows=1,
-                                           outward_normal=out_n)
+        nodes, quads = generate_cap_quads(airfoil_loop, le_idx=18, n_rows=1, outward_normal=out_n)
         for q in quads:
             v0 = nodes[q[1]] - nodes[q[0]]
             v1 = nodes[q[3]] - nodes[q[0]]
@@ -440,16 +484,27 @@ class TestBuildCapMeshData:
 # element_utils — get_vertex_normals
 # ---------------------------------------------------------------------------
 
+
 class TestGetVertexNormals:
     def _make_flat_quad_mesh(self):
-        nodes = np.array([
-            [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0],
-            [2, 0, 0], [2, 1, 0],
-        ], dtype=float)
-        elements = np.array([
-            [0, 1, 2, 3, -1, -1, -1, -1],
-            [1, 4, 5, 2, -1, -1, -1, -1],
-        ], dtype=int)
+        nodes = np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [1, 1, 0],
+                [0, 1, 0],
+                [2, 0, 0],
+                [2, 1, 0],
+            ],
+            dtype=float,
+        )
+        elements = np.array(
+            [
+                [0, 1, 2, 3, -1, -1, -1, -1],
+                [1, 4, 5, 2, -1, -1, -1, -1],
+            ],
+            dtype=int,
+        )
         return nodes, elements
 
     def test_unit_normals(self):
@@ -477,13 +532,12 @@ class TestGetVertexNormals:
 # mesh3d — create_offset_layers
 # ---------------------------------------------------------------------------
 
+
 class TestCreateOffsetLayers:
     def _tube_shell(self, n_circ=8, n_span=3):
         angles = np.linspace(0, 2 * np.pi, n_circ, endpoint=False)
         zs = np.linspace(0.0, 1.0, n_span)
-        surf_nodes = np.array(
-            [[np.cos(a), np.sin(a), z] for z in zs for a in angles], dtype=float
-        )
+        surf_nodes = np.array([[np.cos(a), np.sin(a), z] for z in zs for a in angles], dtype=float)
         quads = []
         for j in range(n_span - 1):
             for i in range(n_circ):
@@ -517,13 +571,13 @@ class TestCreateOffsetLayers:
         v_n = get_vertex_normals(shell["nodes"], shell["elements"])
         n_layers = 3
         first_t = 0.1
-        growth  = 1.5
+        growth = 1.5
         vol = create_offset_layers(shell, n_layers, first_t, growth, v_n)
 
         n_surf = len(shell["nodes"])
         # radii of the original surface vs last offset layer
-        r_surf  = np.linalg.norm(shell["nodes"][:, :2], axis=1).mean()
-        r_outer = np.linalg.norm(vol["nodes"][n_layers * n_surf:, :2], axis=1).mean()
+        r_surf = np.linalg.norm(shell["nodes"][:, :2], axis=1).mean()
+        r_outer = np.linalg.norm(vol["nodes"][n_layers * n_surf :, :2], axis=1).mean()
         assert r_outer > r_surf
 
     def test_required_sets_present(self):
@@ -573,7 +627,7 @@ class TestCreateOffsetLayers:
         vol = create_offset_layers(shell, n_layers, 0.2, 1.0, v_n, cyl_blend_exp=1.0)
 
         n_surf = len(surf_nodes)
-        outer_nodes = vol["nodes"][n_layers * n_surf:]  # outermost layer
+        outer_nodes = vol["nodes"][n_layers * n_surf :]  # outermost layer
 
         # XY displacement from surface
         disp_xy = outer_nodes[:, :2] - surf_nodes[:, :2]
@@ -590,7 +644,9 @@ class TestCreateOffsetLayers:
 
         dots = np.sum(disp_hat * radial_hat, axis=1)
         np.testing.assert_allclose(
-            dots, 1.0, atol=1e-10,
+            dots,
+            1.0,
+            atol=1e-10,
             err_msg="At cyl_blend_exp=1.0 outer layer, XY displacement must be radial",
         )
 
@@ -634,22 +690,24 @@ class TestCreateOffsetLayers:
             r = np.array([nd[0], nd[1], 0.0])
             v_n[i] = r / np.linalg.norm(r)
         v_n[cap_bot_idx] = [0.0, 0.0, -1.0]
-        v_n[cap_top_idx] = [0.0, 0.0,  1.0]
+        v_n[cap_top_idx] = [0.0, 0.0, 1.0]
 
         # Minimal shell (oml quads only; cap quad would need 4 nodes — skip)
         shell = {"nodes": all_nodes, "elements": oml_quads}
 
         vol_normal = create_offset_layers(shell, n_layers, t0, 1.0, v_n)
-        vol_blend  = create_offset_layers(shell, n_layers, t0, 1.0, v_n, cyl_blend_exp=2.0)
+        vol_blend = create_offset_layers(shell, n_layers, t0, 1.0, v_n, cyl_blend_exp=2.0)
 
         n_surf = len(all_nodes)
         # Cap nodes are the last two in all_nodes / each offset layer
         for k in range(1, n_layers + 1):
             off = k * n_surf
             xy_normal = vol_normal["nodes"][off + cap_bot_idx : off + cap_top_idx + 1, :2]
-            xy_blend  = vol_blend["nodes"][off + cap_bot_idx : off + cap_top_idx + 1, :2]
+            xy_blend = vol_blend["nodes"][off + cap_bot_idx : off + cap_top_idx + 1, :2]
             np.testing.assert_allclose(
-                xy_blend, xy_normal, atol=1e-12,
+                xy_blend,
+                xy_normal,
+                atol=1e-12,
                 err_msg=f"Cap XY positions changed at layer {k} with cyl_blend",
             )
 
@@ -657,6 +715,7 @@ class TestCreateOffsetLayers:
 # ---------------------------------------------------------------------------
 # mesh_quality
 # ---------------------------------------------------------------------------
+
 
 class TestMeshQuality:
     def test_perfect_alignment_zero_nonortho(self, simple_hex_mesh):
@@ -687,7 +746,7 @@ class TestMeshQuality:
         # relative to the shared face normal without touching the shared face.
         nodes_skewed[2] += np.array([0.4, 0.3, 0.0])
 
-        angles_orig,   _ = non_orthogonality(nodes, elements)
+        angles_orig, _ = non_orthogonality(nodes, elements)
         angles_skewed, _ = non_orthogonality(nodes_skewed, elements)
         assert angles_skewed.max() > angles_orig.max()
 
@@ -698,7 +757,7 @@ class TestLaplacianSmooth:
         from aeroelast.models.blade.numad.mesh_gen.mesh_quality import laplacian_smooth
 
         nodes, quads = generate_cap_quads(airfoil_loop, 18, n_rows=3)
-        fixed = list(range(len(airfoil_loop)))           # keep boundary loop fixed
+        fixed = list(range(len(airfoil_loop)))  # keep boundary loop fixed
         smoothed = laplacian_smooth(nodes, quads, fixed_nodes=fixed, n_iter=5)
 
         assert smoothed.shape == nodes.shape
@@ -729,6 +788,7 @@ class TestLaplacianSmooth:
 # mesh_io
 # ---------------------------------------------------------------------------
 
+
 class TestExportVtk:
     def _minimal_meshdata(self, simple_hex_mesh):
         nodes, elements = simple_hex_mesh
@@ -737,7 +797,7 @@ class TestExportVtk:
             "elements": elements,
             "sets": {
                 "element": [{"name": "all", "labels": [0, 1]}],
-                "node":    [{"name": "bottom", "labels": [0, 1, 2, 3]}],
+                "node": [{"name": "bottom", "labels": [0, 1, 2, 3]}],
             },
         }
 
@@ -773,8 +833,8 @@ class TestExportVtk:
         from aeroelast.models.blade.numad.mesh_gen.mesh_io import export_surface_vtk
 
         # Build a tiny quad surface
-        nodes = np.array([[0,0,0],[1,0,0],[1,1,0],[0,1,0]], dtype=float)
-        elements = np.array([[0,1,2,3,-1,-1,-1,-1]], dtype=int)
+        nodes = np.array([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]], dtype=float)
+        elements = np.array([[0, 1, 2, 3, -1, -1, -1, -1]], dtype=int)
         meshdata = {"nodes": nodes, "elements": elements, "sets": {}}
 
         with tempfile.TemporaryDirectory() as td:
@@ -787,6 +847,7 @@ class TestExportVtk:
 # Integration — get_vol_mesh with IEA-15-240-RWT  (coarse, fast)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(not IEA_YAML.exists(), reason="IEA-15-240-RWT YAML not found")
 class TestGetVolMeshIEA:
     """End-to-end tests using the IEA-15-240-RWT blade."""
@@ -795,12 +856,14 @@ class TestGetVolMeshIEA:
     def shell_only(self, iea_blade):
         """Shell mesh without overset (default behaviour, backward-compatible)."""
         from aeroelast.models.blade.numad.mesh_gen import get_vol_mesh
+
         return get_vol_mesh(iea_blade, elementSize=1.0)
 
     @pytest.fixture(scope="class")
     def vol_mesh(self, iea_blade):
         """Closed volumetric mesh with 3 hex layers."""
         from aeroelast.models.blade.numad.mesh_gen import get_vol_mesh
+
         return get_vol_mesh(
             iea_blade,
             elementSize=1.0,
@@ -840,6 +903,7 @@ class TestGetVolMeshIEA:
     def test_vol_element_count(self, vol_mesh, iea_blade):
         """Vol mesh must have strictly more elements than a shell mesh."""
         from aeroelast.models.blade.numad.mesh_gen import get_vol_mesh
+
         shell = get_vol_mesh(iea_blade, elementSize=1.0)
         assert len(vol_mesh["elements"]) > len(shell["elements"])
 
@@ -883,9 +947,7 @@ class TestGetVolMeshIEA:
         closed-body assumption required for overset CFD extrusion.
         """
         names = {s["name"] for s in vol_mesh["sets"]["element"]}
-        assert "allShearWebEls" not in names, (
-            "Overset mesh must not contain shear-web elements"
-        )
+        assert "allShearWebEls" not in names, "Overset mesh must not contain shear-web elements"
         # Also verify no web node count bleed: elements must only come from OML + caps
         for s in vol_mesh["sets"]["element"]:
             assert "web" not in s["name"].lower() and "sw" not in s["name"].lower(), (
@@ -951,12 +1013,14 @@ class TestGetVolMeshIEA:
 # cyl_blend_exp: cylinder convergence
 # ---------------------------------------------------------------------------
 
+
 class TestCylBlendExp:
     """Tests for cyl_blend_exp=2.0 (restored default) with TE zone exclusion."""
 
     @pytest.fixture(scope="class")
     def blended_mesh(self, iea_blade):
         from aeroelast.models.blade.numad.mesh_gen import get_vol_mesh
+
         return get_vol_mesh(
             iea_blade,
             elementSize=1.0,
@@ -971,6 +1035,7 @@ class TestCylBlendExp:
         """get_vol_mesh must use cyl_blend_exp=2.0 when not specified."""
         from aeroelast.models.blade.numad.mesh_gen import get_vol_mesh
         import inspect
+
         sig = inspect.signature(get_vol_mesh)
         assert sig.parameters["overset_cyl_blend_exp"].default == 2.0
 
@@ -996,16 +1061,19 @@ class TestCylBlendExp:
         )
 
         def count_neg_jac(vol):
-            nodes = vol["nodes"]; els = vol["elements"]
+            nodes = vol["nodes"]
+            els = vol["elements"]
             return sum(
-                1 for e in els
+                1
+                for e in els
                 if np.dot(
                     np.cross(nodes[e[1]] - nodes[e[0]], nodes[e[3]] - nodes[e[0]]),
                     nodes[e[4]] - nodes[e[0]],
-                ) <= 0
+                )
+                <= 0
             )
 
-        negj_none  = count_neg_jac(get_vol_mesh(iea_blade, **kwargs, overset_cyl_blend_exp=None))
+        negj_none = count_neg_jac(get_vol_mesh(iea_blade, **kwargs, overset_cyl_blend_exp=None))
         negj_blend = count_neg_jac(get_vol_mesh(iea_blade, **kwargs, overset_cyl_blend_exp=2.0))
 
         assert negj_blend <= negj_none, (
@@ -1025,12 +1093,14 @@ class TestCylBlendExp:
 # Two-zone mesh: BL zone + outer uniform zone
 # ---------------------------------------------------------------------------
 
+
 class TestOuterZone:
     """Tests for overset_outer_layers (uniform outer zone)."""
 
     @pytest.fixture(scope="class")
     def two_zone_mesh(self, iea_blade):
         from aeroelast.models.blade.numad.mesh_gen import get_vol_mesh
+
         return get_vol_mesh(
             iea_blade,
             elementSize=1.0,
@@ -1044,6 +1114,7 @@ class TestOuterZone:
     @pytest.fixture(scope="class")
     def bl_only_mesh(self, iea_blade):
         from aeroelast.models.blade.numad.mesh_gen import get_vol_mesh
+
         return get_vol_mesh(
             iea_blade,
             elementSize=1.0,
@@ -1060,7 +1131,7 @@ class TestOuterZone:
 
     def test_outer_zone_element_count(self, two_zone_mesh, bl_only_mesh):
         """Total elements = BL_elements + outer_layers * n_surface_quads."""
-        n_bl    = len(bl_only_mesh["elements"])
+        n_bl = len(bl_only_mesh["elements"])
         n_total = len(two_zone_mesh["elements"])
         n_surf_quads = n_bl // 5  # bl_layers=5
         assert n_total == n_bl + 3 * n_surf_quads

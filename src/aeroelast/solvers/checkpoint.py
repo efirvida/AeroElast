@@ -179,10 +179,12 @@ class AsyncCheckpointWriter:
 
             # Registrar para PVD
             with self._lock:
-                self._written_times.append((
-                    t,
-                    os.path.join(f"{t:.{self.time_precision}g}", "fields.vtu"),
-                ))
+                self._written_times.append(
+                    (
+                        t,
+                        os.path.join(f"{t:.{self.time_precision}g}", "fields.vtu"),
+                    )
+                )
                 # Update PVD incrementally so it's always up-to-date even if simulation is cancelled
                 self._update_pvd_incremental()
 
@@ -394,10 +396,12 @@ class AsyncCheckpointWriter:
                         # keep first 3 translational components as a 3D vector field
                         f_node = data.reshape(n_nodes_vtu, self.dofs_per_node)[:, :3]
                         if f_node.shape[1] < 3:
-                            f_node = np.hstack([
-                                f_node,
-                                np.zeros((n_nodes_vtu, 3 - f_node.shape[1])),
-                            ])
+                            f_node = np.hstack(
+                                [
+                                    f_node,
+                                    np.zeros((n_nodes_vtu, 3 - f_node.shape[1])),
+                                ]
+                            )
                         point_data[name] = f_node
                     else:
                         point_data[name] = data
@@ -915,10 +919,12 @@ class CheckpointManager:
                         # keep first 3 translational components as a 3D vector field
                         f_node = data.reshape(n_nodes_vtu, self.dofs_per_node)[:, :3]
                         if f_node.shape[1] < 3:
-                            f_node = np.hstack([
-                                f_node,
-                                np.zeros((n_nodes_vtu, 3 - f_node.shape[1])),
-                            ])
+                            f_node = np.hstack(
+                                [
+                                    f_node,
+                                    np.zeros((n_nodes_vtu, 3 - f_node.shape[1])),
+                                ]
+                            )
                         point_data[name] = f_node
                     else:
                         point_data[name] = data

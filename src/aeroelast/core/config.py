@@ -1284,12 +1284,14 @@ class FSISimulationConfig:
                 result["solver"]["damping"] = damping_dict
             else:
                 # Include auto-computation parameters
-                damping_dict.update({
-                    "zeta": d.zeta,
-                    "mode_i": d.mode_i,
-                    "mode_j": d.mode_j,
-                    "num_modes": d.num_modes,
-                })
+                damping_dict.update(
+                    {
+                        "zeta": d.zeta,
+                        "mode_i": d.mode_i,
+                        "mode_j": d.mode_j,
+                        "num_modes": d.num_modes,
+                    }
+                )
                 if d.zeta_1 is not None:
                     damping_dict["zeta_1"] = d.zeta_1
                 if d.zeta_2 is not None:
@@ -1392,17 +1394,21 @@ class FSISimulationConfig:
             lines.append(f"  Generator: {self.mesh.generator.type}")
 
         if self.material is not None:
-            lines.extend([
-                f"Material: {self.material.type} ({self.material.name})",
-                f"  E={self.material.E}, nu={self.material.nu}, rho={self.material.rho}",
-            ])
+            lines.extend(
+                [
+                    f"Material: {self.material.type} ({self.material.name})",
+                    f"  E={self.material.E}, nu={self.material.nu}, rho={self.material.rho}",
+                ]
+            )
         else:
             lines.append("Material: from blade/rotor YAML (composite)")
 
-        lines.extend([
-            f"Elements: {self.elements.family}",
-            f"Solver: {self.solver.type}",
-        ])
+        lines.extend(
+            [
+                f"Elements: {self.elements.family}",
+                f"Solver: {self.solver.type}",
+            ]
+        )
 
         # Handle optional time parameters
         if self.solver.type == SolverType.MODAL.value:

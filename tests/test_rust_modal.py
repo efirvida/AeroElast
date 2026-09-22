@@ -19,12 +19,9 @@ from petsc4py import PETSc  # noqa: E402
 slepc4py = pytest.importorskip("slepc4py", reason="SLEPc not available")
 from slepc4py import SLEPc  # noqa: E402
 
-_aeroelast = pytest.importorskip(
-    "_aeroelast", reason="Rust backend not available"
-)
+_aeroelast = pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
 from aeroelast.core.assembler import MeshAssembler  # noqa: E402
-from aeroelast.core.bc import BoundaryConditionManager, DirichletCondition  # noqa: E402
 from aeroelast.core.material import IsotropicMaterial  # noqa: E402
 from aeroelast.core.mesh.entities import ElementType, MeshElement, Node  # noqa: E402
 from aeroelast.core.mesh.model import MeshModel  # noqa: E402
@@ -119,9 +116,7 @@ def _clamped_edge_dofs(mesh, dofs_per_node, axis=0, value=0.0):
 
 def _python_modal_solve(K_petsc, M_petsc, free_dofs_arr, num_modes, n_total_dofs):
     """Reference modal solve using SLEPc (identical logic to ModalSolver.solve)."""
-    free_is = PETSc.IS().createGeneral(
-        free_dofs_arr.astype(PETSc.IntType), comm=PETSc.COMM_WORLD
-    )
+    free_is = PETSc.IS().createGeneral(free_dofs_arr.astype(PETSc.IntType), comm=PETSc.COMM_WORLD)
     K_red = K_petsc.createSubMatrix(free_is, free_is)
     M_red = M_petsc.createSubMatrix(free_is, free_is)
     n_red = K_red.getSize()[0]
@@ -249,6 +244,7 @@ def _rust_modal_solve(assembler, free_dofs_arr, num_modes):
 # Test: MITC4 clamped cantilever plate
 # ---------------------------------------------------------------------------
 
+
 class TestMITC4ModalCantilever:
     """Clamped cantilever plate (one edge fixed) — MITC4 elements."""
 
@@ -264,9 +260,7 @@ class TestMITC4ModalCantilever:
         self.mesh = mesh
 
         # Clamp x=0 edge
-        self.clamped_dofs = _clamped_edge_dofs(
-            mesh, asm.dofs_per_node, axis=0, value=0.0
-        )
+        self.clamped_dofs = _clamped_edge_dofs(mesh, asm.dofs_per_node, axis=0, value=0.0)
         all_dofs = np.arange(asm.dofs_count, dtype=np.int64)
         fixed = np.array(self.clamped_dofs, dtype=np.int64)
         self.free_dofs = np.setdiff1d(all_dofs, fixed)
@@ -292,16 +286,18 @@ class TestMITC4ModalCantilever:
         n = min(len(py_freq), len(rs_freq))
         for i in range(n):
             err = abs(py_freq[i] - rs_freq[i]) / py_freq[i] if py_freq[i] > 0 else 0
-            print(f"  {i+1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
+            print(f"  {i + 1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
 
-        np.testing.assert_allclose(rs_freq[:n], py_freq[:n], rtol=1e-4,
-                                   err_msg="Rust frequencies diverge from Python/SLEPc")
+        np.testing.assert_allclose(
+            rs_freq[:n],
+            py_freq[:n],
+            rtol=1e-4,
+            err_msg="Rust frequencies diverge from Python/SLEPc",
+        )
 
     def test_mode_shapes_orthogonal(self):
         """Rust mode shapes are M-orthogonal (via element mass)."""
-        rs_freq, rs_modes = _rust_modal_solve(
-            self.assembler, self.free_dofs, self.num_modes
-        )
+        rs_freq, rs_modes = _rust_modal_solve(self.assembler, self.free_dofs, self.num_modes)
         # Mode shapes should be approximately orthogonal
         n_modes = rs_modes.shape[1]
         for i in range(n_modes):
@@ -312,6 +308,7 @@ class TestMITC4ModalCantilever:
 # ---------------------------------------------------------------------------
 # Test: MITC3 clamped cantilever plate
 # ---------------------------------------------------------------------------
+
 
 class TestMITC3ModalCantilever:
     """Clamped cantilever plate (one edge fixed) — MITC3 elements."""
@@ -327,9 +324,7 @@ class TestMITC3ModalCantilever:
         self.assembler = asm
         self.mesh = mesh
 
-        self.clamped_dofs = _clamped_edge_dofs(
-            mesh, asm.dofs_per_node, axis=0, value=0.0
-        )
+        self.clamped_dofs = _clamped_edge_dofs(mesh, asm.dofs_per_node, axis=0, value=0.0)
         all_dofs = np.arange(asm.dofs_count, dtype=np.int64)
         fixed = np.array(self.clamped_dofs, dtype=np.int64)
         self.free_dofs = np.setdiff1d(all_dofs, fixed)
@@ -340,9 +335,7 @@ class TestMITC3ModalCantilever:
 
         K = asm.assemble_stiffness_matrix()
         M = asm.assemble_mass_matrix()
-        py_freq, _ = _python_modal_solve(
-            K, M, self.free_dofs, self.num_modes, asm.dofs_count
-        )
+        py_freq, _ = _python_modal_solve(K, M, self.free_dofs, self.num_modes, asm.dofs_count)
         K.destroy()
         M.destroy()
 
@@ -353,7 +346,7 @@ class TestMITC3ModalCantilever:
         n = min(len(py_freq), len(rs_freq))
         for i in range(n):
             err = abs(py_freq[i] - rs_freq[i]) / py_freq[i] if py_freq[i] > 0 else 0
-            print(f"  {i+1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
+            print(f"  {i + 1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
 
         np.testing.assert_allclose(rs_freq[:n], py_freq[:n], rtol=1e-4)
 
@@ -361,6 +354,7 @@ class TestMITC3ModalCantilever:
 # ---------------------------------------------------------------------------
 # Test: Simply supported plate (all edges pinned)
 # ---------------------------------------------------------------------------
+
 
 class TestSimplySupportedPlate:
     """Simply supported plate — known analytical solution convergence."""
@@ -401,9 +395,7 @@ class TestSimplySupportedPlate:
         asm = self.assembler
         K = asm.assemble_stiffness_matrix()
         M = asm.assemble_mass_matrix()
-        py_freq, _ = _python_modal_solve(
-            K, M, self.free_dofs, self.num_modes, asm.dofs_count
-        )
+        py_freq, _ = _python_modal_solve(K, M, self.free_dofs, self.num_modes, asm.dofs_count)
         K.destroy()
         M.destroy()
 
@@ -414,7 +406,7 @@ class TestSimplySupportedPlate:
         n = min(len(py_freq), len(rs_freq))
         for i in range(n):
             err = abs(py_freq[i] - rs_freq[i]) / py_freq[i] if py_freq[i] > 0 else 0
-            print(f"  {i+1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
+            print(f"  {i + 1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
 
         np.testing.assert_allclose(rs_freq[:n], py_freq[:n], rtol=1e-4)
 
@@ -441,6 +433,7 @@ class TestSimplySupportedPlate:
 # ---------------------------------------------------------------------------
 # Test: COO path — mixed mesh compatibility
 # ---------------------------------------------------------------------------
+
 
 class TestCOOModalSolve:
     """Test modal_solve_coo path using COO from coo_assembly."""
@@ -484,13 +477,15 @@ class TestCOOModalSolve:
         )
         freq_coo = np.asarray(freq_coo)
 
-        np.testing.assert_allclose(freq_coo, freq_ref, rtol=1e-10,
-                                   err_msg="COO and PyMeshAssembler paths diverge")
+        np.testing.assert_allclose(
+            freq_coo, freq_ref, rtol=1e-10, err_msg="COO and PyMeshAssembler paths diverge"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Benchmark
 # ---------------------------------------------------------------------------
+
 
 class TestModalBenchmark:
     """Performance comparison: Python/SLEPc vs Rust modal solve."""
@@ -505,8 +500,10 @@ class TestModalBenchmark:
         print("\n" + "=" * 70)
         print("  MITC4 Modal Solve Benchmark: Rust (nalgebra) vs Python (SLEPc)")
         print("=" * 70)
-        print(f"  {'Size':>8s}  {'DOFs':>6s}  {'Free':>6s}  {'Python [s]':>10s}"
-              f"  {'Rust [s]':>10s}  {'Speedup':>8s}")
+        print(
+            f"  {'Size':>8s}  {'DOFs':>6s}  {'Free':>6s}  {'Python [s]':>10s}"
+            f"  {'Rust [s]':>10s}  {'Speedup':>8s}"
+        )
 
         for nx, ny in self.sizes:
             mesh = _build_quad_plate(nx, ny, 1.0)
@@ -520,9 +517,7 @@ class TestModalBenchmark:
             t0 = time.perf_counter()
             K = asm.assemble_stiffness_matrix()
             M = asm.assemble_mass_matrix()
-            py_freq, _ = _python_modal_solve(
-                K, M, free_dofs, self.num_modes, asm.dofs_count
-            )
+            py_freq, _ = _python_modal_solve(K, M, free_dofs, self.num_modes, asm.dofs_count)
             py_time = time.perf_counter() - t0
             K.destroy()
             M.destroy()
@@ -533,8 +528,10 @@ class TestModalBenchmark:
             rs_time = time.perf_counter() - t0
 
             speedup = py_time / rs_time if rs_time > 0 else float("inf")
-            print(f"  {nx}x{ny:>3d}  {asm.dofs_count:6d}  {len(free_dofs):6d}"
-                  f"  {py_time:10.4f}  {rs_time:10.4f}  {speedup:7.1f}x")
+            print(
+                f"  {nx}x{ny:>3d}  {asm.dofs_count:6d}  {len(free_dofs):6d}"
+                f"  {py_time:10.4f}  {rs_time:10.4f}  {speedup:7.1f}x"
+            )
 
             # Verify results match
             n = min(len(py_freq), len(rs_freq))
@@ -545,6 +542,7 @@ class TestModalBenchmark:
 # Composite modal validation
 # ---------------------------------------------------------------------------
 
+
 class TestCompositeModal:
     """Modal analysis with composite (laminated) shell elements.
 
@@ -554,7 +552,7 @@ class TestCompositeModal:
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        from aeroelast.core.laminate import Laminate, Ply, create_laminate_from_angles
+        from aeroelast.core.laminate import create_laminate_from_angles
         from aeroelast.core.material import OrthotropicMaterial
         from aeroelast.core.mesh.entities import ElementSet
         from aeroelast.core.properties import CompositeShellProperty
@@ -605,40 +603,38 @@ class TestCompositeModal:
 
         K = asm.assemble_stiffness_matrix()
         M = asm.assemble_mass_matrix()
-        py_freq, _ = _python_modal_solve(
-            K, M, self.free_dofs, self.num_modes, asm.dofs_count
-        )
+        py_freq, _ = _python_modal_solve(K, M, self.free_dofs, self.num_modes, asm.dofs_count)
         K.destroy()
         M.destroy()
 
         rs_freq, _ = _rust_modal_solve(asm, self.free_dofs, self.num_modes)
 
-        print(f"\n  Composite MITC4 Cantilever ({self.nx}x{self.ny})"
-              f" — {len(self.free_dofs)} free DOFs")
-        print(f"  Layup: [0/45/-45/90]s Carbon/Epoxy")
+        print(
+            f"\n  Composite MITC4 Cantilever ({self.nx}x{self.ny})"
+            f" — {len(self.free_dofs)} free DOFs"
+        )
+        print("  Layup: [0/45/-45/90]s Carbon/Epoxy")
         print(f"  {'Mode':>4s}  {'Python [Hz]':>14s}  {'Rust [Hz]':>14s}  {'Rel.Err':>10s}")
         n = min(len(py_freq), len(rs_freq))
         for i in range(n):
             err = abs(py_freq[i] - rs_freq[i]) / py_freq[i] if py_freq[i] > 0 else 0
-            print(f"  {i+1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
+            print(f"  {i + 1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
 
         np.testing.assert_allclose(
-            rs_freq[:n], py_freq[:n], rtol=1e-4,
+            rs_freq[:n],
+            py_freq[:n],
+            rtol=1e-4,
             err_msg="Composite frequencies diverge between Rust and Python",
         )
 
     def test_composite_stiffer_than_isotropic(self):
         """Composite plate has different frequencies than isotropic steel."""
-        rs_freq_comp, _ = _rust_modal_solve(
-            self.assembler, self.free_dofs, self.num_modes
-        )
+        rs_freq_comp, _ = _rust_modal_solve(self.assembler, self.free_dofs, self.num_modes)
 
         # Build isotropic steel plate for comparison
         mesh_iso = _build_quad_plate(self.nx, self.ny, 1.0)
         asm_iso = MeshAssembler(mesh_iso, _model_cfg())
-        clamped_iso = _clamped_edge_dofs(
-            mesh_iso, asm_iso.dofs_per_node, axis=0, value=0.0
-        )
+        clamped_iso = _clamped_edge_dofs(mesh_iso, asm_iso.dofs_per_node, axis=0, value=0.0)
         all_dofs = np.arange(asm_iso.dofs_count, dtype=np.int64)
         fixed = np.array(clamped_iso, dtype=np.int64)
         free_iso = np.setdiff1d(all_dofs, fixed)
@@ -646,10 +642,13 @@ class TestCompositeModal:
         rs_freq_iso, _ = _rust_modal_solve(asm_iso, free_iso, self.num_modes)
 
         # Frequencies should be DIFFERENT (composite vs isotropic)
-        assert not np.allclose(rs_freq_comp, rs_freq_iso, rtol=0.01), \
+        assert not np.allclose(rs_freq_comp, rs_freq_iso, rtol=0.01), (
             "Composite and isotropic frequencies should differ"
-        print(f"\n  Composite vs Isotropic (first mode): "
-              f"{rs_freq_comp[0]:.2f} vs {rs_freq_iso[0]:.2f} Hz")
+        )
+        print(
+            f"\n  Composite vs Isotropic (first mode): "
+            f"{rs_freq_comp[0]:.2f} vs {rs_freq_iso[0]:.2f} Hz"
+        )
 
 
 class TestCompositeModalMITC3:
@@ -703,21 +702,21 @@ class TestCompositeModalMITC3:
 
         K = asm.assemble_stiffness_matrix()
         M = asm.assemble_mass_matrix()
-        py_freq, _ = _python_modal_solve(
-            K, M, self.free_dofs, self.num_modes, asm.dofs_count
-        )
+        py_freq, _ = _python_modal_solve(K, M, self.free_dofs, self.num_modes, asm.dofs_count)
         K.destroy()
         M.destroy()
 
         rs_freq, _ = _rust_modal_solve(asm, self.free_dofs, self.num_modes)
 
-        print(f"\n  Composite MITC3 Cantilever ({self.nx}x{self.ny})"
-              f" — {len(self.free_dofs)} free DOFs")
+        print(
+            f"\n  Composite MITC3 Cantilever ({self.nx}x{self.ny})"
+            f" — {len(self.free_dofs)} free DOFs"
+        )
         print(f"  {'Mode':>4s}  {'Python [Hz]':>14s}  {'Rust [Hz]':>14s}  {'Rel.Err':>10s}")
         n = min(len(py_freq), len(rs_freq))
         for i in range(n):
             err = abs(py_freq[i] - rs_freq[i]) / py_freq[i] if py_freq[i] > 0 else 0
-            print(f"  {i+1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
+            print(f"  {i + 1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
 
         np.testing.assert_allclose(rs_freq[:n], py_freq[:n], rtol=1e-4)
 
@@ -726,6 +725,7 @@ class TestCompositeModalMITC3:
 # Composite modal validation
 # ---------------------------------------------------------------------------
 
+
 class TestCompositeModal:
     """Modal analysis with composite (laminated) shell elements.
 
@@ -735,7 +735,7 @@ class TestCompositeModal:
 
     @pytest.fixture(autouse=True)
     def setup(self):
-        from aeroelast.core.laminate import Laminate, Ply, create_laminate_from_angles
+        from aeroelast.core.laminate import create_laminate_from_angles
         from aeroelast.core.material import OrthotropicMaterial
         from aeroelast.core.mesh.entities import ElementSet
         from aeroelast.core.properties import CompositeShellProperty
@@ -786,40 +786,38 @@ class TestCompositeModal:
 
         K = asm.assemble_stiffness_matrix()
         M = asm.assemble_mass_matrix()
-        py_freq, _ = _python_modal_solve(
-            K, M, self.free_dofs, self.num_modes, asm.dofs_count
-        )
+        py_freq, _ = _python_modal_solve(K, M, self.free_dofs, self.num_modes, asm.dofs_count)
         K.destroy()
         M.destroy()
 
         rs_freq, _ = _rust_modal_solve(asm, self.free_dofs, self.num_modes)
 
-        print(f"\n  Composite MITC4 Cantilever ({self.nx}x{self.ny})"
-              f" — {len(self.free_dofs)} free DOFs")
-        print(f"  Layup: [0/45/-45/90]s Carbon/Epoxy")
+        print(
+            f"\n  Composite MITC4 Cantilever ({self.nx}x{self.ny})"
+            f" — {len(self.free_dofs)} free DOFs"
+        )
+        print("  Layup: [0/45/-45/90]s Carbon/Epoxy")
         print(f"  {'Mode':>4s}  {'Python [Hz]':>14s}  {'Rust [Hz]':>14s}  {'Rel.Err':>10s}")
         n = min(len(py_freq), len(rs_freq))
         for i in range(n):
             err = abs(py_freq[i] - rs_freq[i]) / py_freq[i] if py_freq[i] > 0 else 0
-            print(f"  {i+1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
+            print(f"  {i + 1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
 
         np.testing.assert_allclose(
-            rs_freq[:n], py_freq[:n], rtol=1e-4,
+            rs_freq[:n],
+            py_freq[:n],
+            rtol=1e-4,
             err_msg="Composite frequencies diverge between Rust and Python",
         )
 
     def test_composite_stiffer_than_isotropic(self):
         """Composite plate has different frequencies than isotropic steel."""
-        rs_freq_comp, _ = _rust_modal_solve(
-            self.assembler, self.free_dofs, self.num_modes
-        )
+        rs_freq_comp, _ = _rust_modal_solve(self.assembler, self.free_dofs, self.num_modes)
 
         # Build isotropic steel plate for comparison
         mesh_iso = _build_quad_plate(self.nx, self.ny, 1.0)
         asm_iso = MeshAssembler(mesh_iso, _model_cfg())
-        clamped_iso = _clamped_edge_dofs(
-            mesh_iso, asm_iso.dofs_per_node, axis=0, value=0.0
-        )
+        clamped_iso = _clamped_edge_dofs(mesh_iso, asm_iso.dofs_per_node, axis=0, value=0.0)
         all_dofs = np.arange(asm_iso.dofs_count, dtype=np.int64)
         fixed = np.array(clamped_iso, dtype=np.int64)
         free_iso = np.setdiff1d(all_dofs, fixed)
@@ -827,10 +825,13 @@ class TestCompositeModal:
         rs_freq_iso, _ = _rust_modal_solve(asm_iso, free_iso, self.num_modes)
 
         # Frequencies should be DIFFERENT (composite vs isotropic)
-        assert not np.allclose(rs_freq_comp, rs_freq_iso, rtol=0.01), \
+        assert not np.allclose(rs_freq_comp, rs_freq_iso, rtol=0.01), (
             "Composite and isotropic frequencies should differ"
-        print(f"\n  Composite vs Isotropic (first mode): "
-              f"{rs_freq_comp[0]:.2f} vs {rs_freq_iso[0]:.2f} Hz")
+        )
+        print(
+            f"\n  Composite vs Isotropic (first mode): "
+            f"{rs_freq_comp[0]:.2f} vs {rs_freq_iso[0]:.2f} Hz"
+        )
 
 
 class TestCompositeModalMITC3:
@@ -884,20 +885,20 @@ class TestCompositeModalMITC3:
 
         K = asm.assemble_stiffness_matrix()
         M = asm.assemble_mass_matrix()
-        py_freq, _ = _python_modal_solve(
-            K, M, self.free_dofs, self.num_modes, asm.dofs_count
-        )
+        py_freq, _ = _python_modal_solve(K, M, self.free_dofs, self.num_modes, asm.dofs_count)
         K.destroy()
         M.destroy()
 
         rs_freq, _ = _rust_modal_solve(asm, self.free_dofs, self.num_modes)
 
-        print(f"\n  Composite MITC3 Cantilever ({self.nx}x{self.ny})"
-              f" — {len(self.free_dofs)} free DOFs")
+        print(
+            f"\n  Composite MITC3 Cantilever ({self.nx}x{self.ny})"
+            f" — {len(self.free_dofs)} free DOFs"
+        )
         print(f"  {'Mode':>4s}  {'Python [Hz]':>14s}  {'Rust [Hz]':>14s}  {'Rel.Err':>10s}")
         n = min(len(py_freq), len(rs_freq))
         for i in range(n):
             err = abs(py_freq[i] - rs_freq[i]) / py_freq[i] if py_freq[i] > 0 else 0
-            print(f"  {i+1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
+            print(f"  {i + 1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
 
         np.testing.assert_allclose(rs_freq[:n], py_freq[:n], rtol=1e-4)

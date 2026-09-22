@@ -73,8 +73,15 @@ class DynamicNewmarkSolver(Solver):
         validated = {**defaults, **params}
 
         numeric_params = [
-            "beta", "gamma", "eta_m", "eta_k", "safety_factor",
-            "total_time", "time_step", "force_max_cap", "force_ramp_time",
+            "beta",
+            "gamma",
+            "eta_m",
+            "eta_k",
+            "safety_factor",
+            "total_time",
+            "time_step",
+            "force_max_cap",
+            "force_ramp_time",
             "write_interval",
         ]
         for param in numeric_params:
@@ -321,9 +328,7 @@ class DynamicNewmarkSolver(Solver):
         K_eff.axpy(a1_c, C)
         return K_eff
 
-    def _initialize_state_vectors(
-        self, K: PETSc.Mat
-    ) -> Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec]:
+    def _initialize_state_vectors(self, K: PETSc.Mat) -> Tuple[PETSc.Vec, PETSc.Vec, PETSc.Vec]:
         """Initialize u, v, a state vectors to zero."""
         u = K.createVecRight()
         v = K.createVecRight()
