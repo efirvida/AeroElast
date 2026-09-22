@@ -86,11 +86,12 @@ The Python package targets Python 3.12+. The Rust extension (`_aeroelast`) is
 required and is built automatically during `pip install` via maturin.
 
 Recommended dev install using a dedicated conda environment with the native
-solver dependencies (PETSc/SLEPc, MPI, preCICE). `hdf5` is pinned to 1.14
-because the Rust HDF5 bindings do not support the HDF5 2.x series.
+solver dependencies (PETSc/SLEPc and their Python bindings, MPI, preCICE).
+`hdf5` is pinned to 1.14 because the Rust HDF5 bindings do not support the
+HDF5 2.x series.
 
 ```bash
-conda create -n aeroelast-dev -c conda-forge python=3.12 petsc slepc openmpi precice pyprecice hdf5=1.14
+conda create -n aeroelast-dev -c conda-forge python=3.12 petsc slepc petsc4py slepc4py openmpi precice pyprecice hdf5=1.14
 conda activate aeroelast-dev
 cd AeroElast
 export HDF5_DIR="$CONDA_PREFIX"
@@ -126,7 +127,8 @@ Some workflows require software that is not bundled with this repository:
 
 - preCICE for FSI coupling
 - OpenFOAM for CFD-side coupled simulations
-- PETSc/SLEPc for the native solver crates
+- PETSc/SLEPc (C libraries) for the native solver crates, plus `petsc4py`
+  and `slepc4py` for the Python solver layer and test suite
 - an MPI runtime for distributed runs where applicable
 
 If preCICE is not available in the environment, the Rust extension cannot be
