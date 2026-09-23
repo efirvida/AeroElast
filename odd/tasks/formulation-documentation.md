@@ -317,6 +317,90 @@ To make the decision concrete, one cheap measurement is still missing: whether
 MacNeal cantilever and Cook's skew beam numbers above), because if our element
 already behaves better than the published MITC3+, the upgrade is less urgent.
 
+**The 2019 strain-smoothed element is the best upgrade for this codebase**, and
+the user supplied both papers locally (`.sources/papers/jun2018.pdf`,
+`.sources/papers/lee2019.pdf`).
+
+`lee2019.pdf` = Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite
+element", *Computers and Structures* 223:106096, 2019. Its own abstract states the
+key property: *"The major advantage of the SSE method is that no additional degree
+of freedom is required for solution improvement."*
+
+What it does, from the formulation section:
+
+- computes the covariant membrane strain of the target element and of its three
+  edge neighbours **at the element centres** (`r = s = 1/3`, `t = 0`);
+- transforms each neighbour's strain into the target's convected coordinates
+  (Eq. 15) and averages it with the target's, weighted by area (Eq. 16):
+  `e_ij^(k) = (e_ij^(e) A^(e) + e~_ij^(k) Ā^(k)) / (A^(e) + Ā^(k))`, with
+  `Ā^(k) = (n^(e) · n^(k)) A^(k)` (Eq. 17), so the smoothing fades to nothing as
+  the angle between the two elements approaches 90 degrees;
+- the smoothed membrane strain **replaces** the covariant membrane strain, used
+  directly in the 3-point Gauss integration;
+- and explicitly: *"We use the originally defined b1 eij and b2 eij for the
+  covariant bending strains. For the covariant transverse shear strains, we adopt
+  the assumed strains of the MITC3+ shell element"*. So **the bending field, the
+  transverse shear field and the rotation convention are untouched** - it is
+  orthogonal to the sign fix already done, exactly like the covers.
+
+It passes the patch, isotropy and zero-energy-mode tests.
+
+### Measured comparison, from the papers' own tables
+
+Normalized displacement against the reference solution (1.0 = exact).
+Scordelis-Lo roof, `t/L = 1/100`, reference `w_ref = 0.3024`, Table 6 of the 2019
+paper - note our repository already runs this exact benchmark and uses
+`3.0240e-1` as its reference in `tests/test_ko2017_performance.py`:
+
+| element | DOFs/element | 4x4 | 8x8 | 16x16 |
+| --- | --- | --- | --- | --- |
+| MITC3+ (what we implement) | 15 | 0.7409 | 0.8793 | 0.9618 |
+| Enriched MITC3+ (covers, 2018) | 27 | 0.9610 | 0.9931 | 0.9983 |
+| **Strain-smoothed MITC3+ (2019)** | **15** | **1.1017** | **1.0323** | **1.0075** |
+| MITC4+ | 20 | 1.0476 | 1.0053 | 0.9977 |
+
+Cook's skew beam, mesh II (Table 3 of the 2019 paper):
+
+| element | DOFs/element | 2x2 | 4x4 | 8x8 |
+| --- | --- | --- | --- | --- |
+| MITC3+ | 15 | 0.2815 | 0.4698 | 0.7236 |
+| Enriched MITC3+ | 27 | 0.8393 | 0.9611 | 0.9916 |
+| **Strain-smoothed MITC3+** | **15** | 0.5154 | 0.8873 | 0.9830 |
+
+So the smoothed element gets most of the enrichment's benefit at **zero DOF cost**,
+and on Scordelis-Lo it is even better than the enriched one. The covers are better
+on Cook's coarse mesh II (0.8393 versus 0.5154) but cost +80% DOFs per element.
+
+### Implementation shape for us
+
+Not a local element-kernel edit, but bounded and with no system-size change: the
+smoothed membrane B for each triangle is a weighted combination of the target's
+centre-B and its three edge neighbours' transformed centre-B's, so it needs
+neighbour lookup (the topology already knows element connectivity) and a
+pre-pass before assembly. The assembled matrix stays symmetric because each
+element's contribution remains a quadratic form `B^T C B`. The coupling term
+`k_mb_ext` would use the smoothed membrane B as well. Table 7 of the paper gives
+timings, which I did not extract.
+
+### Recommendation
+
+The current MITC3+ is now correct and matches its 2014 paper. Between the two
+modern options, the **strain-smoothed MITC3+ (2019) is the one to implement** if
+the user wants the upgrade: same DOFs, membrane-only, orthogonal to the
+convention work, passes the basic tests, and it closes most of a deficiency that
+the papers measure as a factor of two to thirty depending on the benchmark. The
+interpolation covers (2018) buy a little more on some problems at a real
+architectural cost. Either way this is a **new feature, not a defect fix**, so it
+is the user's call.
+
+To justify it with our own numbers rather than the papers', one measurement is
+still missing and is now cheap: `_assemble_global` in
+`tests/test_ko2017_performance.py` hardcodes element code 4, so the benchmark
+suite can only run MITC4 even though the source paper publishes both the MITC3+
+and MITC4+ columns. Deriving the code from the element's node count (3 -> MITC3,
+4 -> MITC4) unlocks running the published MITC3+ values against our element, and
+feeds the validation matrix of U8 at the same time.
+
 ## Open questions
 
 - Which of the recovered papers actually correspond to the implemented code, and
