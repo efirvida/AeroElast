@@ -131,8 +131,6 @@ class AsyncCheckpointWriter:
             except Exception:
                 # Queue.Empty exception - timeout, continuar esperando
                 continue
-            except Exception as e:
-                logger.error(f"Error in async checkpoint writer: {e}", exc_info=True)
 
     def _execute_write_task(self, task: Dict[str, Any]) -> None:
         """
@@ -174,7 +172,7 @@ class AsyncCheckpointWriter:
                 try:
                     self._write_deformed_mesh(mesh_path, u_full)
                 except Exception as e:
-                    logger.error(f"Failed to write deformed mesh: {e}", exc_info=True)
+                    logger.exception("Failed to write deformed mesh: %s", e)
                     print(f"  ❌ ERROR writing deformed mesh: {e}", flush=True)
 
             # Registrar para PVD
@@ -196,7 +194,7 @@ class AsyncCheckpointWriter:
             )
 
         except Exception as e:
-            logger.error(f"Failed to write checkpoint: {e}", exc_info=True)
+            logger.exception("Failed to write checkpoint: %s", e)
             # Print to stdout for visibility even without logging configured
             print(f"  ❌ ERROR writing checkpoint: {e}", flush=True)
 
@@ -295,7 +293,7 @@ class AsyncCheckpointWriter:
         try:
             self._queue.join()
         except Exception as e:
-            logger.warning(f"Error waiting for queue completion: {e}")
+            logger.warning("Error waiting for queue completion: %s", e)
 
         # Señalizar al worker que se detenga
         self._stop_event.set()
@@ -327,7 +325,7 @@ class AsyncCheckpointWriter:
                 f.write("  </Collection>\n")
                 f.write("</VTKFile>\n")
         except Exception as e:
-            logger.warning(f"Failed to update PVD file: {e}")
+            logger.warning("Failed to update PVD file: %s", e)
 
     def _write_vtu(
         self,

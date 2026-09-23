@@ -268,7 +268,6 @@ class LinearDynamicFSISolver(LinearDynamicSolver):
             # Reconstruct aerodynamic force fields for VTU export.
             # forces_iface is flat [fx0,fy0,fz0, ...] over interface nodes.
             iface_dofs_flat = interface_dofs_global_flat  # captured from outer scope
-            mesh_dim = self.domain.spatial_dim
             force_fields = {}
             if forces_iface is not None and len(forces_iface) > 0:
                 f_raw_full = np.zeros(n_total, dtype=np.float64)

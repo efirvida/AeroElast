@@ -92,7 +92,6 @@ class ModalSolver(Solver):
         # the K/M needed by its constructor.
         logger.info("[modal] computing free DOFs from BCs...")
         _t = time.perf_counter()
-        from petsc4py import PETSc
 
         K_petsc = self.domain.assemble_stiffness_matrix()
         F_petsc = K_petsc.createVecRight()
@@ -187,7 +186,7 @@ class ModalSolver(Solver):
         # Build free-DOF index map for restricting M to the reduced space
         free_map = {int(g): i for i, g in enumerate(free_dofs)}
         mask = np.array(
-            [(r in free_map and c in free_map) for r, c in zip(m_rows, m_cols)],
+            [(r in free_map and c in free_map) for r, c in zip(m_rows, m_cols, strict=False)],
             dtype=bool,
         )
         rr = np.array([free_map[int(r)] for r in m_rows[mask]], dtype=np.int32)
@@ -273,7 +272,6 @@ class ModalSolver(Solver):
 
         vector_form = self.vector_form
         vector_components = [c for v in vector_form.values() for c in v]
-        n_components = len(vector_components)
         dpn = self.domain.dofs_per_node
 
         points = self.mesh_obj.coords_array
@@ -330,7 +328,7 @@ class ModalSolver(Solver):
         root.set("type", "Collection")
         root.set("version", "0.1")
         collection = SubElement(root, "Collection")
-        for i, (name, freq) in enumerate(zip(vtu_names, frequencies)):
+        for _i, (name, freq) in enumerate(zip(vtu_names, frequencies, strict=False)):
             ds = SubElement(collection, "DataSet")
             ds.set("timestep", f"{freq:.6f}")
             ds.set("group", "")

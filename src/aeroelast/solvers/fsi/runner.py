@@ -301,7 +301,7 @@ class FSIRunner:
                             "shear_correction": shear_correction,
                             "drilling_scale": drilling_scale,
                         }
-                        for set_name in self.mesh.element_sets.keys()
+                        for set_name in self.mesh.element_sets
                     }
 
         write_ccx_mesh(
@@ -857,7 +857,6 @@ class FSIRunner:
         recommended_max = spacing["max"] * 3
 
         # Check each RBF mapping
-        coupling_mesh = self.config.coupling.coupling_mesh or ""
         warnings = []
         for rbf in self._precice_info.rbf_mappings:
             sr = rbf.support_radius

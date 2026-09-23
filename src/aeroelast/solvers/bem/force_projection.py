@@ -6,7 +6,7 @@ and moment on each chordwise strip.
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import List
 
 import numpy as np
@@ -86,7 +86,6 @@ class ForceProjector:
 
         coords = mesh.coords_array  # (N, 3)
         n_nodes = coords.shape[0]
-        hub_r = hub_radius if hub_radius is not None else blade_aero.hub_radius
 
         # Span coordinate for every mesh node (distance from hub centre
         # measured along the span direction)

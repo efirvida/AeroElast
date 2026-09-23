@@ -77,16 +77,6 @@ class CoordinateTransforms:
         self._K = self._skew_symmetric(self._axis)
         self._K2 = self._K @ self._K
 
-    @property
-    def axis(self) -> NDArray:
-        """Rotation axis unit vector."""
-        return self._axis
-
-    @property
-    def center(self) -> NDArray:
-        """Rotation center coordinates."""
-        return self._center
-
     @staticmethod
     def _skew_symmetric(v: NDArray) -> NDArray:
         """Compute skew-symmetric matrix from vector v such that K @ x = v × x."""

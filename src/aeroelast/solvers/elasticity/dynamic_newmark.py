@@ -445,7 +445,7 @@ class DynamicNewmarkSolver(Solver):
             f.write('<?xml version="1.0"?>\n')
             f.write('<VTKFile type="Collection" version="1.0">\n')
             f.write("  <Collection>\n")
-            for t, vtk_file in zip(times, vtk_files):
+            for t, vtk_file in zip(times, vtk_files, strict=False):
                 rel_path = os.path.basename(vtk_file)
                 f.write(f'    <DataSet timestep="{t}" part="0" file="{rel_path}"/>\n')
             f.write("  </Collection>\n")
