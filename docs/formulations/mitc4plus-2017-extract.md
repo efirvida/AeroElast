@@ -100,6 +100,47 @@ displacement-based `e_rr^m = (x_r + s·x_d)·(u_r + s·u_d)` **quadratic** in `s
 n = (x_r × x_s) / ‖x_r × x_s‖
 ```
 
+**Eq. (11)** — the dual basis vectors on the plane P:
+
+```text
+m^ri · x_rj = δ_ij,   m^ri · n = 0     with r_1 = r, r_2 = s
+```
+
+**Eq. (12)** — the distortion vector decomposed into in-plane and out-of-plane
+parts:
+
+```text
+x_d = (x_d · m^r) x_r + (x_d · m^s) x_s + (x_d · n) n
+```
+
+`m^r · x_d` and `m^s · x_d` are the in-plane distortions, `x_d · n` the
+out-of-plane distortion. The paper notes the length of `x_d` becomes non-zero for
+both in-plane and out-of-plane distortions, and that membrane locking occurs
+because of out-of-plane distortions of the geometry.
+
+**Eq. (13)** — the edge vectors:
+
+```text
+x_e^1 = (x_2 − x_1)/2 = −x_r − x_d = −∂x_m/∂r (0,  1)
+x_e^2 = (x_3 − x_2)/2 = −x_s + x_d = −∂x_m/∂s (−1, 0)
+x_e^3 = (x_4 − x_3)/2 =  x_r − x_d =  ∂x_m/∂r (0, −1)
+x_e^4 = (x_1 − x_4)/2 =  x_s + x_d =  ∂x_m/∂s (1,  0)
+```
+
+**Eq. (14)** — the edge strains, each containing only two nodal displacements:
+
+```text
+e_rr^m(0,  1) = x_e^1 · u_e^1        e_rr^m(0, −1) = x_e^3 · u_e^3
+e_ss^m(1,  0) = x_e^4 · u_e^4        e_ss^m(−1, 0) = x_e^2 · u_e^2
+```
+
+The paper is explicit about why this matters: *"The use of the edge strains in
+Eq. (14) is important to establish an improved behavior in bending-dominated
+problems."* Checked against Eq. (15) at the tying points: the two agree, because
+Eq. (17) says the sampled value at A *is* `e_rr|con + e_rr|lin + e_rs|bil`, which
+is exactly Eq. (15) evaluated at (0,1). So Eq. (14) is an efficient way to compute
+the same quantity, not a different one.
+
 ## Assumed membrane strain field (Section 3.2, p. 408)
 
 **Fig. 4** — the five tying points for the assumed membrane field:
@@ -137,6 +178,29 @@ e_rs^m(E) = e_rs^m|con
 ẽ_ss^m = ẽ_ss^m
 ẽ_rs^m = ẽ_rs^m + ½·e_rr^m|lin·r + ½·e_ss^m|lin·s
 ```
+
+**Eq. (15)** — the displacement-based membrane strains in terms of the
+characteristic vectors:
+
+```text
+e_rr^m = e_rr^m|con + e_rr^m|lin·s + e_rs^m|bil·s²
+e_ss^m = e_ss^m|con + e_ss^m|lin·r + e_rs^m|bil·r²
+e_rs^m = e_rs^m|con + ½e_rr^m|lin·r + ½e_ss^m|lin·s + e_rs^m|bil·rs
+```
+
+**Eq. (16)** — the parts:
+
+```text
+e_rr^m|con = x_r · u_r        e_ss^m|con = x_s · u_s
+                            e_rs^m|con = ½(x_r · u_s + x_s · u_r)
+e_rr^m|lin = x_r · u_d + x_d · u_r
+e_ss^m|lin = x_s · u_d + x_d · u_s
+e_rs^m|bil = x_d · u_d
+```
+
+This is the field our `compute_covariant_membrane_b_row` builds: its
+`g_r·(∂u/∂r)` with `g_r = x_r + s·x_d` and `∂u/∂r = u_r + s·u_d` expands to
+`x_r·u_r + s(x_r·u_d + x_d·u_r) + s²(x_d·u_d)`, term for term Eq. (15).
 
 **Eq. (20)** — the inverse relations, comparing Eq. (19) with the
 displacement-based field of Eq. (15):
@@ -177,14 +241,19 @@ Not yet transcribed, and deliberately not guessed:
 
 - **Eqs. (1)–(6)** — the shell kinematics and the geometry definitions feeding
   Eq. (7a). On PDF pages 2–3.
-- **Eqs. (11)–(16)** — the assumed transverse shear construction and the
-  displacement-based strain field Eq. (15) that Eq. (20) is compared against.
-  Around PDF pages 5–6; page 6 is the one to read next.
-- **Eqs. (21)–(27)** — the remaining relations of Section 3.2/3.3, including the
-  in-plane distortions of Eq. (23) that the removed `c_r`, `c_s` coefficients
-  were built from.
+- **The assumed transverse shear construction itself** (the MITC4 tying that
+  Eq. 8 of paper B shares). The page-finding from `pdftotext` put it on page 6,
+  which turned out to be the benchmark section — the extraction is unreliable for
+  this, so the next reader should page through 4–5 visually instead of trusting a
+  text search.
+- **Eqs. (21)–(27)** — the remaining relations of Section 3.2/3.3.
 - **Tables 1–2 and the benchmark sections** — these live in paper **B**, and
   `docs/validation-matrix.md` already records the values the tests use.
+
+Note on the two reads that failed: `pdftotext` reported Eq. (16) on PDF page 6
+and Eqs. (17)–(19) on page 5. The first was wrong — page 6 is Fig. 9 and the
+cylindrical shell benchmark — and the second was right. A text search is a hint
+about where to look, never a substitute for looking.
 
 ## How this maps to the code
 
