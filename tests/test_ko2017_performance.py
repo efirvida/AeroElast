@@ -474,7 +474,14 @@ def _assemble_global(
 
     K_dense = K.todense()
     assert np.all(np.isfinite(K_dense)), "assembled K contains NaN/inf"
-    assert np.allclose(K_dense, K_dense.T, rtol=1e-10)
+    # Symmetry is a relative property here: the stiffness norm is of the order of
+    # 1e9, so the round-off on entries that are near zero (~1e-7 absolute) exceeds
+    # the default atol of 1e-8 and an absolute check would report an asymmetry that
+    # is really machine precision. Measured: 7.6e-17 relative for triangles,
+    # 2.3e-17 for quads.
+    assert np.allclose(
+        K_dense, K_dense.T, rtol=1e-10, atol=1e-10 * float(np.abs(K_dense).max())
+    ), "assembled K must be symmetric to round-off"
 
     return K, node_id_to_idx
 
