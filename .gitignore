@@ -100,3 +100,18 @@ crates/target/
 # Casos con múltiples niveles de nesting
 **/examples/**/[0-9]*
 !**/examples/**/0.orig
+
+# HPC job logs, scratch and local artifacts (never repo material)
+*.out
+*.err
+_TMP_/
+.Trash-1000/
+output/
+logs/
+bin/
+solid_mesh.vtu
+*.vtu
+tools/wine-*.AppImage
+tests/blades/
+tests/hub.stl
+.atl/.skill-registry.cache.json
