@@ -437,6 +437,31 @@ fn covariant_to_local_mapping(j_loc: &Matrix2<f64>) -> Matrix3<f64> {
     )
 }
 
+/// ERC covariant-to-local strain transform (4x4): S * J0^(4x4).
+///
+/// Winkler & Plakomytis Eqs. (102) + (107).  It maps the covariant nonsymmetric
+/// strain `[e11, e22, e12, e21]^(A)` to the local ERC vector
+/// `[e11, e22, 2*e(12), 2*e[12]]^(T)`.
+///
+/// Eq. (102) as printed gives rows 3 and 4 equal to the plain `e12` and `e21`
+/// transform rows, which cannot produce the Eq. (107) left-hand side; the rows
+/// below are the corrected ERC rows (row 3 = row3(J0) + row4(J0),
+/// row 4 = row3(J0) - row4(J0)).  With the same index map as the 3x3 `J0`
+/// (`J1^1 = j11, J1^2 = j21, J2^1 = j12, J2^2 = j22`).
+fn erc_covariant_to_local(j_inv: &Matrix2<f64>) -> SMatrix<f64, 4, 4> {
+    let j11 = j_inv[(0, 0)];
+    let j12 = j_inv[(0, 1)];
+    let j21 = j_inv[(1, 0)];
+    let j22 = j_inv[(1, 1)];
+
+    SMatrix::<f64, 4, 4>::from_row_slice(&[
+        j11 * j11,             j21 * j21,             j11 * j21,             j21 * j11,
+        j12 * j12,             j22 * j22,             j12 * j22,             j22 * j12,
+        2.0 * j11 * j12,       2.0 * j21 * j22,       j11 * j22 + j12 * j21, j21 * j12 + j22 * j11,
+        0.0,                   0.0,                   j11 * j22 - j12 * j21, j21 * j12 - j22 * j11,
+    ])
+}
+
 /// Compute j_loc and its inverse at an arbitrary (xi, eta) from 3D geometry.
 fn compute_j_loc_at(
     coords_3d: &[[f64; 3]; 4],
@@ -1075,6 +1100,40 @@ fn b_drill(dh: &SMatrix<f64, 2, 4>, n_vals: &[f64; 4]) -> Vec24 {
         bd[thz_idx] = -n_vals[i];
     }
     bd
+}
+
+/// Compatible 4-component ERC strain-displacement operator (4x24), LOCAL frame.
+///
+/// Winkler & Plakomytis (ECCOMAS 2016), Eq. (104):
+///     E_erc = [ e11, e22, 2*e(12), 2*e[12] ]^T
+/// where `e(12)` is the symmetric part and `e[12]` the antisymmetric part of the
+/// micropolar strain.  Rows 0..2 are the MITC4+ assumed membrane (already local);
+/// row 3 carries the drill rotation constraint `c` of Eq. (115),
+///     c = thz + 0.5*(du/dy - dv/dx),   so   2*e[12] = 2*c.
+/// `b_drill * u == -c`, therefore row 3 is `-2 * b_drill`.
+fn b_erc(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 4, 24> {
+    let b_m = b_m_mitc4_plus(pre, xi, eta);
+
+    // Build dh exactly as the `compute_j_loc_at` callers do, so the drill row
+    // uses the same regularized inverse Jacobian as the membrane operator.
+    let (_, j_inv) = compute_j_loc_at(&pre.initial_coords_3d, &pre.e1, &pre.e2, xi, eta);
+    let (dn_dxi, dn_deta) = shape_function_derivatives(xi, eta);
+    let mut dh = SMatrix::<f64, 2, 4>::zeros();
+    for i in 0..4 {
+        dh[(0, i)] = j_inv[(0, 0)] * dn_dxi[i] + j_inv[(1, 0)] * dn_deta[i];
+        dh[(1, i)] = j_inv[(0, 1)] * dn_dxi[i] + j_inv[(1, 1)] * dn_deta[i];
+    }
+    let n_vals = shape_functions(xi, eta);
+    let bd = b_drill(&dh, &n_vals);
+
+    let mut b = SMatrix::<f64, 4, 24>::zeros();
+    for j in 0..24 {
+        b[(0, j)] = b_m[(0, j)];
+        b[(1, j)] = b_m[(1, j)];
+        b[(2, j)] = b_m[(2, j)];
+        b[(3, j)] = -2.0 * bd[j];
+    }
+    b
 }
 
 // ============================================================================
@@ -3081,6 +3140,250 @@ mod tests {
         );
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Winkler & Plakomytis ERC operator (additive, not wired into stiffness)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_b_erc_rows_match_the_mitc4_plus_membrane() {
+        for pre in [make_pre(), make_pre_warped()] {
+            for g in 0..N_GAUSS {
+                let xi = GAUSS_XI[g];
+                let eta = GAUSS_ETA[g];
+                let b_erc = b_erc(&pre, xi, eta);
+                let b_m = b_m_mitc4_plus(&pre, xi, eta);
+
+                let mut diff = SMatrix::<f64, 3, 24>::zeros();
+                for i in 0..3 {
+                    for j in 0..24 {
+                        diff[(i, j)] = b_erc[(i, j)] - b_m[(i, j)];
+                    }
+                }
+                let rel = diff.norm() / b_m.norm();
+                assert!(
+                    rel < 1e-12,
+                    "ERC membrane rows must equal the MITC4+ membrane rows: \
+                     GP {g}, relative difference = {rel:.3e}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_b_erc_drill_row_is_minus_two_b_drill() {
+        for pre in [make_pre(), make_pre_warped()] {
+            for g in 0..N_GAUSS {
+                let xi = GAUSS_XI[g];
+                let eta = GAUSS_ETA[g];
+
+                let (_, j_inv) =
+                    compute_j_loc_at(&pre.initial_coords_3d, &pre.e1, &pre.e2, xi, eta);
+                let (dn_dxi, dn_deta) = shape_function_derivatives(xi, eta);
+                let mut dh = SMatrix::<f64, 2, 4>::zeros();
+                for i in 0..4 {
+                    dh[(0, i)] = j_inv[(0, 0)] * dn_dxi[i] + j_inv[(1, 0)] * dn_deta[i];
+                    dh[(1, i)] = j_inv[(0, 1)] * dn_dxi[i] + j_inv[(1, 1)] * dn_deta[i];
+                }
+                let n_vals = shape_functions(xi, eta);
+                let expected = -2.0 * b_drill(&dh, &n_vals);
+
+                let b_erc = b_erc(&pre, xi, eta);
+                let mut diff = Vec24::zeros();
+                for j in 0..24 {
+                    diff[j] = b_erc[(3, j)] - expected[j];
+                }
+                let rel = diff.norm() / expected.norm();
+                assert!(
+                    rel < 1e-12,
+                    "ERC drill row must be -2 * b_drill: \
+                     GP {g}, relative difference = {rel:.3e}"
+                );
+            }
+        }
+    }
+
+    /// The MITC4+ assumed membrane rows (0..2) are rigid-body invariant: a
+    /// rigid-body motion of the element must produce no membrane strain.  This
+    /// holds on flat AND warped geometry.
+    #[test]
+    fn test_b_erc_membrane_rows_annihilate_rigid_body_modes() {
+        let mut worst_label = "";
+        let mut worst_gp = 0_usize;
+        let mut worst_residual = 0.0_f64;
+
+        for pre in [make_pre(), make_pre_warped()] {
+            // `rigid_body_modes` builds GLOBAL DOFs; `b_erc` is a LOCAL operator.
+            let t24 = build_t24(&pre);
+            for (label, u) in rigid_body_modes(&pre) {
+                let u_local = t24 * u;
+                for g in 0..N_GAUSS {
+                    let b = b_erc(&pre, GAUSS_XI[g], GAUSS_ETA[g]);
+                    let r = b * u_local;
+                    let mem = Vector3::new(r[0], r[1], r[2]);
+                    let denom = b.norm() * u_local.norm();
+                    let residual = if denom > 0.0 { mem.norm() / denom } else { 0.0 };
+                    if residual > worst_residual {
+                        worst_label = label;
+                        worst_gp = g;
+                        worst_residual = residual;
+                    }
+                }
+            }
+        }
+
+        assert!(
+            worst_residual < 1e-10,
+            "the ERC membrane rows must annihilate all six rigid-body modes; \
+             worst is '{worst_label}' at Gauss point {worst_gp} with \
+             |B_mem u| / (|B| |u|) = {worst_residual:.3e}"
+        );
+    }
+
+    /// On a flat element the drill constraint is rigid-body invariant.
+    #[test]
+    fn test_b_erc_drill_row_is_rigid_body_invariant_on_flat_geometry() {
+        let pre = make_pre();
+        let t24 = build_t24(&pre);
+        let mut worst_label = "";
+        let mut worst_residual = 0.0_f64;
+
+        for (label, u) in rigid_body_modes(&pre) {
+            let u_local = t24 * u;
+            for g in 0..N_GAUSS {
+                let b = b_erc(&pre, GAUSS_XI[g], GAUSS_ETA[g]);
+                let r = b * u_local;
+                let denom = b.norm() * u_local.norm();
+                let residual = if denom > 0.0 { r[3].abs() / denom } else { 0.0 };
+                if residual > worst_residual {
+                    worst_label = label;
+                    worst_residual = residual;
+                }
+            }
+        }
+
+        assert!(
+            worst_residual < 1e-10,
+            "flat element: the ERC drill row must annihilate all six rigid-body \
+             modes; worst is '{worst_label}' with |B_drill u| / (|B| |u|) = \
+             {worst_residual:.3e}"
+        );
+    }
+
+    /// KNOWN LIMITATION, measured and pre-existing (not introduced by `b_erc`).
+    ///
+    /// On warped geometry the drill constraint `c = thz + 1/2*(du/dy - dv/dx)` is
+    /// NOT rigid-body invariant.  A rigid rotation of the element carries the
+    /// out-of-plane nodal offset `z_I` into the local in-plane displacement, so
+    /// `1/2*(du/dy - dv/dx) = -1/2*omega*dz/dy != 0` while `thz = 0`.  Winkler &
+    /// Plakomytis handle exactly this with the nodal warping correction of
+    /// Eqs. (130)-(132) (`u_l = u_G + skew(w_I t3) theta_G`, `w_I` = distance to
+    /// the middle surface), which this element does not apply.
+    ///
+    /// The same defect is visible one level up: `compute_ke_global` on the warped
+    /// element leaves a rigid-body rotation residual of ~6e-7, against ~1e-18 on
+    /// the flat element.  See `odd/tasks/mitc4-warping-enrichment.md`.
+    ///
+    /// This test pins the measured magnitude so a future warping correction (which
+    /// must drop it by orders of magnitude) cannot land silently.
+    #[test]
+    fn test_b_erc_drill_row_warping_residual_is_characterized() {
+        let pre = make_pre_warped();
+        let t24 = build_t24(&pre);
+        let mut worst_residual = 0.0_f64;
+
+        for (_, u) in rigid_body_modes(&pre) {
+            let u_local = t24 * u;
+            for g in 0..N_GAUSS {
+                let b = b_erc(&pre, GAUSS_XI[g], GAUSS_ETA[g]);
+                let r = b * u_local;
+                let denom = b.norm() * u_local.norm();
+                let residual = if denom > 0.0 { r[3].abs() / denom } else { 0.0 };
+                if residual > worst_residual {
+                    worst_residual = residual;
+                }
+            }
+        }
+
+        assert!(
+            (1.0e-4..1.0e-2).contains(&worst_residual),
+            "warped drill-row rigid-body residual must stay in the measured band \
+             [1e-4, 1e-2] (measured ~1.1e-3); got {worst_residual:.3e}.  If it \
+             dropped, the Winkler Eqs. (130)-(132) warping correction probably \
+             landed: update this characterization.  If it grew, the drill \
+             constraint regressed."
+        );
+    }
+
+    #[test]
+    fn test_erc_covariant_to_local_reduces_to_the_3x3_mapping() {
+        let a = 1.3e-3_f64;
+        let b = -2.1e-3_f64;
+        let g = 0.7e-3_f64;
+        let cov = SVector::<f64, 4>::new(a, b, 0.5 * g, 0.5 * g);
+        let expected3 = Vector3::new(a, b, g);
+
+        for pre in [make_pre(), make_pre_warped()] {
+            for gp in 0..N_GAUSS {
+                let (j_loc, j_inv) = compute_j_loc_at(
+                    &pre.initial_coords_3d,
+                    &pre.e1,
+                    &pre.e2,
+                    GAUSS_XI[gp],
+                    GAUSS_ETA[gp],
+                );
+
+                let out = erc_covariant_to_local(&j_inv) * cov;
+                let reference = covariant_to_local_mapping(&j_loc) * expected3;
+                let out3 = Vector3::new(out[0], out[1], out[2]);
+
+                let rel = (out3 - reference).norm() / reference.norm();
+                assert!(
+                    rel < 1e-12,
+                    "ERC first three components must reduce to the 3x3 mapping: \
+                     GP {gp}, relative difference = {rel:.3e}"
+                );
+
+                let rel4 = out[3].abs() / out.norm();
+                assert!(
+                    rel4 < 1e-12,
+                    "ERC fourth component must vanish for a symmetric covariant input: \
+                     GP {gp}, |out[3]| / |out| = {rel4:.3e}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_erc_covariant_to_local_antisymmetric_row_scales_with_det() {
+        for pre in [make_pre(), make_pre_warped()] {
+            for gp in 0..N_GAUSS {
+                let (_, j_inv) = compute_j_loc_at(
+                    &pre.initial_coords_3d,
+                    &pre.e1,
+                    &pre.e2,
+                    GAUSS_XI[gp],
+                    GAUSS_ETA[gp],
+                );
+                let erc = erc_covariant_to_local(&j_inv);
+                let det = j_inv.determinant();
+
+                // Row 3 applied to [0, 0, 1, 0] and [0, 0, 0, 1].
+                let rel_e12 = (erc[(3, 2)] - det).abs() / det.abs();
+                let rel_e21 = (erc[(3, 3)] + det).abs() / det.abs();
+
+                assert!(
+                    rel_e12 < 1e-12,
+                    "ERC antisymmetric row at e12 must equal det: \
+                     GP {gp}, relative difference = {rel_e12:.3e}"
+                );
+                assert!(
+                    rel_e21 < 1e-12,
+                    "ERC antisymmetric row at e21 must equal -det: \
+                     GP {gp}, relative difference = {rel_e21:.3e}"
+                );
+            }
+        }
+    }
 }
 
 // ============================================================================
