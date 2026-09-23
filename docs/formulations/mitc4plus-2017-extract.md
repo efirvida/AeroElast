@@ -1,0 +1,207 @@
+# MITC4+ formulation extract — Ko, Lee & Bathe (2017), C&S 182:404–418
+
+A persistent transcription of the equations and figures this repository's MITC4+
+implementation is checked against, so that verifying the code does not require
+re-reading the PDF each time.
+
+**This is an extract, not a substitute for the paper.** Every equation below was
+read from the PDF with vision. Nothing here is reconstructed from memory, and the
+gaps are marked as gaps rather than filled in.
+
+## The two 2017 papers, and why the distinction matters
+
+| | Paper | Role | File |
+|---|---|---|---|
+| **A** | Ko, Lee & Bathe (2017), *"A new MITC4+ shell element"*, **Computers and Structures 182:404–418** | **The formulation.** Defines the assumed membrane and shear fields. This document. | `.sources/papers/A_new_MITC4+_shell_element.pdf` |
+| **B** | Ko, Lee, Lee & Bathe (2017), *"Performance of the MITC3+ and MITC4+ shell elements in widely-used benchmark problems"*, **Computers and Structures 193:187–206** | **The benchmarks.** Publishes the values the tests compare against (Tables 3–19). | `.sources/papers/1-s2.0-S0045794917309550-main.pdf` |
+
+Paper **B** is the judge, paper **A** is the law. Citing one for the other is a
+real error: an earlier comment in `mitc4.rs` cited *"Ko et al. 2017, Eqs. 27a-c"*
+for the membrane blending, and neither paper has such equations.
+
+## How to read the PDF
+
+```bash
+pdftoppm -png -f <page> -l <page> -r 320 <pdf> /tmp/out
+# then crop with PIL and read the image
+```
+
+**Never use `pdftotext` for equations.** Its default extraction interleaves the
+two columns and loses superscripts; with `-layout` it still mangles two-column
+equation blocks. Both failure modes have already produced wrong readings in this
+project.
+
+## Element geometry and kinematics
+
+**Eq. (7a)** — the covariant in-plane strain decomposition (p. 406):
+
+```text
+e_ij = e_ij^m + t·e_ij^b1 + t²·e_ij^b2        with i,j = 1,2
+```
+
+**Eq. (7b)** — the membrane part. *This is the term the MITC4+ modifies*:
+
+```text
+e_ij^m = ½( ∂x_m/∂r_i · ∂u_m/∂r_j + ∂x_m/∂r_j · ∂u_m/∂r_i )
+```
+
+**Eq. (7c)** — the first bending part:
+
+```text
+e_ij^b1 = ½( ∂x_m/∂r_i · ∂u_b/∂r_j + ∂x_m/∂r_j · ∂u_b/∂r_i
+           + ∂x_b/∂r_i · ∂u_m/∂r_j + ∂x_b/∂r_j · ∂u_m/∂r_i )
+```
+
+**Eq. (7d)**:
+
+```text
+e_ij^b2 = ½( ∂x_b/∂r_i · ∂u_b/∂r_j + ∂x_b/∂r_j · ∂u_b/∂r_i )
+```
+
+**Eq. (8a)** — characteristic geometry and its enrichment (p. 406):
+
+```text
+x_m = Σ_{i=1..4} h_i(r,s) x_i
+x_b = ½ Σ_{i=1..4} a_i h_i(r,s) V_n^i
+```
+
+**Eq. (8b)** — the displacement field and its enrichment:
+
+```text
+u_m = Σ_{i=1..4} h_i(r,s) u_i
+u_b = ½ Σ_{i=1..4} a_i h_i(r,s) ( −V_2^i α_i + V_1^i β_i )
+```
+
+`a_i` are the four edge vectors (Fig. 3(d)), `V_n^i` the nodal normal, `V_1^i`,
+`V_2^i` the nodal in-plane vectors and `α_i`, `β_i` the nodal rotations about
+them. Note that **`x_b` vanishes for a flat element** (the edge vectors have no
+normal component), so this enrichment is the element's *warping* treatment.
+
+**Relations following from Eq. (2) in Eqs. (8a) and (8b)** (p. 406):
+
+```text
+∂x_m/∂r = x_r + s·x_d        ∂x_m/∂s = x_s + r·x_d
+∂u_m/∂r = u_r + s·u_d        ∂u_m/∂s = u_s + r·u_d
+```
+
+**Eq. (9)** — the characteristic vectors, with ξ_i, η_i = ±1:
+
+```text
+x_r = ¼ Σ ξ_i x_i     x_s = ¼ Σ η_i x_i     x_d = ¼ Σ ξ_i η_i x_i
+u_r = ¼ Σ ξ_i u_i     u_s = ¼ Σ η_i u_i     u_d = ¼ Σ ξ_i η_i u_i
+```
+
+`x_d` connects the centres of the two diagonals. It is what makes the
+displacement-based `e_rr^m = (x_r + s·x_d)·(u_r + s·u_d)` **quadratic** in `s`.
+
+**Eq. (10)** — the element plane normal:
+
+```text
+n = (x_r × x_s) / ‖x_r × x_s‖
+```
+
+## Assumed membrane strain field (Section 3.2, p. 408)
+
+**Fig. 4** — the five tying points for the assumed membrane field:
+
+| point | (r, s) | sampled component |
+|---|---|---|
+| A | (0, +1) | `e_rr^m(A)` |
+| B | (0, −1) | `e_rr^m(B)` |
+| C | (+1, 0) | `e_ss^m(C)` |
+| D | (−1, 0) | `e_ss^m(D)` |
+| E | (0, 0) | `e_rs^m(E)` |
+
+**Eq. (17)** — the five sampled strains, decomposed:
+
+```text
+e_rr^m(A) = e_rr^m|con + e_rr^m|lin + e_rs^m|bil
+e_rr^m(B) = e_rr^m|con − e_rr^m|lin + e_rs^m|bil
+e_ss^m(C) = e_ss^m|con + e_ss^m|lin + e_rs^m|bil
+e_ss^m(D) = e_ss^m|con − e_ss^m|lin + e_rs^m|bil
+e_rs^m(E) = e_rs^m|con
+```
+
+**Eq. (18)** — the assumed field, linear in the respective coordinate:
+
+```text
+ẽ_rr^m = ½(e_rr^m(A) + e_rr^m(B)) + ½(e_rr^m(A) − e_rr^m(B))·s
+ẽ_ss^m = ½(e_ss^m(C) + e_ss^m(D)) + ½(e_ss^m(C) − e_ss^m(D))·r
+ẽ_rs^m = e_rs^m(E) = e_rs^m|con
+```
+
+**Eq. (19)** — with the linear shear terms the patch test requires:
+
+```text
+ẽ_rr^m = ẽ_rr^m
+ẽ_ss^m = ẽ_ss^m
+ẽ_rs^m = ẽ_rs^m + ½·e_rr^m|lin·r + ½·e_ss^m|lin·s
+```
+
+**Eq. (20)** — the inverse relations, comparing Eq. (19) with the
+displacement-based field of Eq. (15):
+
+```text
+e_rr^m = ẽ_rr^m − e_rs^m|bil + e_rs^m|bil·s²
+e_ss^m = ẽ_ss^m − e_rs^m|bil + e_rs^m|bil·r²
+e_rs^m = ẽ_rs^m + e_rs^m|bil·r·s
+```
+
+The paper's own summary: the assumed field is *"one order lower than implicitly
+given in the original displacement-based element"* — Eq. (18) deliberately
+discards the quadratic part that Eq. (20) shows the displacement-based field has.
+
+**There are no geometry-dependent coefficients in Eqs. (18)–(19).** An earlier
+version of `b_m_mitc4_plus` multiplied five such coefficients (`a_a`..`a_e`) into
+quadratic terms; they are not in the paper.
+
+## Transverse shear
+
+The paper states (p. 405): *"The MITC4+ shell element uses the same assumed
+transverse shear strain fields as the MITC4 shell element, but also assumed
+membrane strains to also alleviate membrane locking."*
+
+**Fig. 2(a)** of paper **B** draws that shared field, with tying points A (top,
+s=1), B (bottom, s=−1), C (right, r=1), D (left, r=−1):
+
+```text
+ẽ_rt = ½(1+s)·e_rt^(A) + ½(1−s)·e_rt^(B)
+ẽ_st = ½(1+r)·e_st^(C) + ½(1−r)·e_st^(D)
+```
+
+The MITC4 original is Dvorkin & Bathe (1984), Engineering Computations 1:77–88.
+
+## Gaps in this extract
+
+Not yet transcribed, and deliberately not guessed:
+
+- **Eqs. (1)–(6)** — the shell kinematics and the geometry definitions feeding
+  Eq. (7a). On PDF pages 2–3.
+- **Eqs. (11)–(16)** — the assumed transverse shear construction and the
+  displacement-based strain field Eq. (15) that Eq. (20) is compared against.
+  Around PDF pages 5–6; page 6 is the one to read next.
+- **Eqs. (21)–(27)** — the remaining relations of Section 3.2/3.3, including the
+  in-plane distortions of Eq. (23) that the removed `c_r`, `c_s` coefficients
+  were built from.
+- **Tables 1–2 and the benchmark sections** — these live in paper **B**, and
+  `docs/validation-matrix.md` already records the values the tests use.
+
+## How this maps to the code
+
+| paper | code | status |
+|---|---|---|
+| Fig. 4 tying points A–E | `compute_covariant_membrane_b_row` call sites in `Mitc4Precomputed::new` | **match** (A(0,1), B(0,−1), C(1,0), D(−1,0), E(0,0)) |
+| Eq. (17) sampling | `compute_covariant_membrane_b_row` | **match** |
+| Eqs. (18)–(19) assumed membrane | `b_m_mitc4_plus` | **match** since commit `dc7593e` |
+| Eq. (9) characteristic vectors, `∂x_m/∂r = x_r + s·x_d` | `compute_j3d` via the bilinear shape derivatives | **match** (verified algebraically) |
+| Eq. (7b) membrane | `compute_covariant_membrane_b_row` | **match** |
+| Eq. (7c)/(7d) bending, `∂x_b` terms | `b_kappa`, `b_kappa_bubble` | **not verified** — the `∂x_b·∂u_m` warping term is not obviously present |
+| Eq. (8a) `x_b` | none | **missing** — no warping enrichment in the geometry |
+| Eq. (8b) `u_b` | `bubble_function` = `(1−ξ²)(1−η²)`, 2 DOFs | **diverges** — the paper's enrichment is per-node and carries the rotations `α_i`, `β_i` |
+| Eq. (10) normal | `compute_local_coordinate_system` | **match** (e3 = mean of the two diagonal normals) |
+
+The open question this extract exists to answer: our MITC4 gives **0.7313** on
+the thin twisted beam at N=8 where paper **B**'s MITC4 gives **0.9959**, while our
+MITC3 gives **0.9932** where paper **B**'s MITC3+ gives **0.9932** exactly. The
+defect is in the quad path, and the last two rows above are the only parts of the
+formulation not yet checked against the paper.
