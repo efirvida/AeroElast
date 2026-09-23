@@ -284,8 +284,13 @@ class TestForceProjectionOutput:
         np.testing.assert_allclose(forces[:, 1], 0.0, atol=1e-8)
         np.testing.assert_allclose(forces[:, 2], 0.0, atol=1e-8)
 
-        # X component should be non-zero
-        assert np.abs(forces[:, 0]).sum() > 0
+        # X component must be non-zero AND positive: Np = +500 N/m along
+        # normal_direction = [1, 0, 0] gives a positive total normal force
+        # (measured: every nodal x-force = +250 N, Σ = +6000 N), so a sign
+        # inversion in the projection would now fail this assertion.
+        assert forces[:, 0].sum() > 0, (
+            f"Projected normal force has wrong sign: Σfx={forces[:, 0].sum():.3e}"
+        )
 
 
 class TestSingleNodeStrip:

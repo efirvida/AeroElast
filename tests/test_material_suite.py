@@ -191,6 +191,22 @@ def _in_plane_lat_tip(P, L, EA, I_inplane):
     return P * L**3 / (3.0 * EA * I_inplane)
 
 
+def _clt_b_coupling_tip_deflection(lam):
+    """Reddy CLT tip deflection of a clamped-free strip under axial force.
+
+        w_tip = B11 * F * L² / (2 * A11 * D11_eff * b),  D11_eff = D11 - B11²/A11
+
+    B11 < 0 for the [0/90] stack used here, so a positive axial force
+    produces a negative transverse tip displacement.  MITC4Comp reproduces
+    this sign (validated below); MITC3Comp does not (Finding 1).
+    """
+    A11 = lam.A[0, 0]
+    B11 = lam.B[0, 0]
+    D11 = lam.D[0, 0]
+    D11_eff = D11 - B11**2 / A11
+    return B11 * F * L**2 / (2.0 * A11 * D11_eff * B)
+
+
 # =============================================================================
 # SECTION 1: Isotropic — MITC4 and MITC3
 # =============================================================================
@@ -565,23 +581,22 @@ class TestAsymmetricLaminates:
         lam = self._lam_asym()
         assert lam.B[0, 0] < 0, f"Expected B11 < 0 for [0° bot / 90° top], got {lam.B[0, 0]:.3e}"
 
-    def test_axial_produces_bending_mitc4comp(self):
-        """[0/90] MITC4Comp under axial Fz: must develop transverse displacement Uy ≠ 0 (B-coupling)."""
-        lam = self._lam_asym()
-        prop = _lam_prop(lam)
-        coords, conn, clamped, tips = _cantilever_quad_mesh(2, 20)
-        asm = PyMeshAssembler(coords, conn, [44] * len(conn), [prop] * len(conn))
-        f = np.zeros(asm.dofs_count)
-        for nd in tips:
-            f[nd * 6 + 2] = F / len(tips)  # axial load
-        u = _solve(asm, f, clamped)
-        uy = _tip_disp(u, tips, 1)
-        # Must produce measurable transverse deflection
-        assert abs(uy) > 1e-8, f"B-coupling missing: Uy={uy:.3e} under axial load"
-
+    @pytest.mark.xfail(
+        strict=True,
+        reason="MITC3's out-of-plane rotational DOF is the negation of the physical "
+        "rotation, so its B-coupling sign is inverted: measured uy = +2.6277e-03 "
+        "against MITC4Comp's -2.6280e-03 for the same [0/90] laminate and load. "
+        "See odd/tasks/test-suite-physical-correctness.md, Finding 1.",
+    )
     def test_axial_produces_bending_mitc3comp(self):
-        """[0/90] MITC3Comp under axial Fz: must develop Uy ≠ 0."""
+        """[0/90] MITC3Comp under axial Fz: B-coupling must match the CLT sign.
+
+        Measured MITC3Comp uy = +2.6277e-03 against the CLT/MITC4Comp reference
+        -2.6160e-03, so the signed comparison below fails as expected: this is
+        the documented MITC3 sign defect (Finding 1), not a test bug.
+        """
         lam = self._lam_asym()
+        ref = _clt_b_coupling_tip_deflection(lam)
         prop = _lam_prop(lam)
         coords, conn, clamped, tips = _cantilever_tri_mesh(2, 20)
         asm = PyMeshAssembler(coords, conn, [33] * len(conn), [prop] * len(conn))
@@ -590,7 +605,11 @@ class TestAsymmetricLaminates:
             f[nd * 6 + 2] = F / len(tips)
         u = _solve(asm, f, clamped)
         uy = _tip_disp(u, tips, 1)
-        assert abs(uy) > 1e-8, f"MITC3Comp B-coupling missing: Uy={uy:.3e}"
+        err = abs(uy - ref) / abs(ref)
+        assert err < self.TOL, (
+            f"[0/90] MITC3Comp B-coupling tip Uy: {err * 100:.1f}% error "
+            f"(FEM={uy * 1e6:.3f} um, ref={ref * 1e6:.3f} um)"
+        )
 
     def test_b_coupling_analytical_mitc4comp(self):
         """[0/90] MITC4Comp: axial Fz tip deflection in Uy matches CLT analytical.
@@ -601,12 +620,8 @@ class TestAsymmetricLaminates:
         """
         total_h = 0.004
         lam = self._lam_asym(total_h)
-        A11 = lam.A[0, 0]
-        B11 = lam.B[0, 0]
-        D11 = lam.D[0, 0]
-        D11_eff = D11 - B11**2 / A11
         # w_tip = B11 * P * L² / (2 * A11 * D11_eff * b)
-        ref = B11 * F * L**2 / (2.0 * A11 * D11_eff * B)
+        ref = _clt_b_coupling_tip_deflection(lam)
 
         prop = _lam_prop(lam)
         coords, conn, clamped, tips = _cantilever_quad_mesh(2, 20)
@@ -637,7 +652,17 @@ class TestAsymmetricLaminates:
             f[nd * 6 + 1] = F / len(tips)  # transverse load
         u = _solve(asm, f, clamped)
         uz = _tip_disp(u, tips, 2)
-        assert abs(uz) > 1e-10, f"B-coupling missing: Uz={uz:.3e} under transverse load"
+        # Sign derivation (rigorous, anchored to CLT + Maxwell–Betti):
+        # the reciprocal axial case gives w_tip = B11*F*L²/(2*A11*D11_eff*b) < 0
+        # because B11 < 0 for this [0/90] stack (validated by
+        # test_b_coupling_analytical_mitc4comp).  The stiffness matrix is
+        # symmetric, so by Maxwell–Betti reciprocity the transverse tip load
+        # produces the same axial tip displacement: Uz = w_tip < 0.
+        # Measured Uz = -2.6280e-03, equal to the axial-case Uy to 13 digits.
+        assert uz < -1e-10, (
+            f"B-coupling sign wrong: Uz={uz:.3e} (expected < 0 because B11 < 0 "
+            f"inverts the reciprocal coupling)"
+        )
 
     def test_symmetric_no_coupling_under_axial(self):
         """[0/90/90/0] MITC4Comp: B=0 → no transverse displacement under axial load."""

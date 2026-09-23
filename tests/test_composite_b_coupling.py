@@ -172,8 +172,10 @@ def test_b_coupling_produces_bending_under_axial_load():
     assembler = _aeroelast.PyMeshAssembler(coords.astype(np.float64), conn, etypes, [prop] * n_elem)
 
     # Small axial tip force — must stay in linear regime.
-    # B11 ≈ -92.5 kN, A11 ≈ 207 MN/m → κ/N = B/A ≈ -4.5e-7 m/N → w_tip = κ*L²/2
-    # At P=0.5N → w_tip ≈ 0.056 mm (δ/L ≈ 1e-4) — safely linear.
+    # B11 = -8.573249e4 N (< 0 for [0/90] with the 0° ply on the bottom), so
+    # κ/N = B11/A11 < 0 and the strip bends in -z.  The CLT value for this
+    # geometry is w_tip = -2.161433e-05 m (≈ -0.0217 mm, |w_tip| ≈ 2.17e-5 m,
+    # δ/L ≈ 4e-5) — safely linear.
     P = 0.5  # N total
     f_ext = np.zeros(n_dof)
     for nd in tips:
@@ -198,9 +200,12 @@ def test_b_coupling_produces_bending_under_axial_load():
     u = np.asarray(u)
     w_tip = np.mean([u[6 * nd + 2] for nd in tips])
 
-    # B-coupling must produce measurable lateral bending (expect ~0.05 mm)
-    assert abs(w_tip) > 1e-6, (
-        f"B-coupling missing: w_tip={w_tip:.3e} (expected |w_tip| >> 0 for asymmetric laminate)"
+    # B-coupling must bend the strip in the CLT-predicted direction: B11 < 0 for
+    # this [0/90] stack (0° ply on the bottom) drives a negative transverse
+    # deflection under positive axial tension.  The CLT reference for this
+    # geometry is -2.161433e-05 m against the measured -2.1660e-05 m (0.21%).
+    assert w_tip < -1e-6, (
+        f"B-coupling wrong sign: w_tip={w_tip:.3e} (expected < 0 because B11 < 0)"
     )
 
 
@@ -298,9 +303,10 @@ def test_symmetric_laminate_no_bending_under_axial_load():
 def test_b_coupling_sign():
     """
     For [0/90] with 0° on bottom (z < 0) and 90° on top (z > 0):
-    B11 < 0.  Under positive axial tension (N11 > 0) the beam bends
-    upward (w_tip > 0) because the coupling moment M = B·ε drives
-    positive curvature.
+    B11 < 0.  Under positive axial tension (N11 > 0) the coupling moment
+    M = B·ε = (B11/A11)·N11 is negative, so the beam bends in -z:
+    w_tip < 0.  The CLT reference for this geometry is -2.161433e-05 m
+    against the measured -2.1660e-05 m (0.21%).
 
     This test verifies both that B-coupling is active AND that the sign
     is physically correct for the given stacking sequence.
@@ -360,10 +366,12 @@ def test_b_coupling_sign():
     u = np.asarray(u)
     w_tip = np.mean([u[6 * nd + 2] for nd in tips])
 
-    # B-coupling must produce bending (|w_tip| >> 0).
-    # The sign depends on the element κ-convention internals; we check magnitude only.
-    assert abs(w_tip) > 1e-6, (
-        f"B-coupling sign test: |w_tip|={abs(w_tip):.3e} < 1e-6 — coupling not active"
+    # B-coupling must bend the strip in the CLT-predicted direction: B11 < 0 for
+    # this [0/90] stack (0° ply on the bottom) drives a negative transverse
+    # deflection under positive axial tension.  The CLT reference for this
+    # geometry is -2.161433e-05 m against the measured -2.1660e-05 m (0.21%).
+    assert w_tip < -1e-6, (
+        f"B-coupling wrong sign: w_tip={w_tip:.3e} (expected < 0 because B11 < 0)"
     )
     # Ensure symmetric laminate gives opposite/zero response (qualitative sanity)
     # — already covered by test_symmetric_laminate_no_bending_under_axial_load.
