@@ -296,3 +296,43 @@ Also: the module-level `REFERENCE_VALUES` table (which does contain the correct 
 ## New work unit
 
 - **T9** replace the seven sign-blind assertions with signed comparisons against a reference (or an explicit, documented sign assertion).
+
+## Progress log (final state of this session)
+
+Branch `test/physical-correctness`, 12 commits, nothing pushed.
+
+| Task | State | Commit / evidence |
+| --- | --- | --- |
+| T1 mass tests | **done** | `55d65e7` — exact extraction + consistent-mass coefficients; 15 tests pass (was 9 with 1 red); two mutations prove liveness |
+| T2 delete dead drill operator | **done** | `4a46af2` — Rust 73/1F -> 71/0F |
+| T3a MITC4 invariants | **done** | `785a48d` — 5 invariants, all mutation-checked |
+| T3b MITC3 invariants | **done, with the rigid-body test red by design** | `21c5fbe` — the disposition chosen was option A: keep the strict failing test as the evidence rather than `#[ignore]` it or adapt it to the element's convention |
+| T4 shell mass invariants | **done** | `ae34315` (MITC4), `21c5fbe` (MITC3) — symmetry/PSD, total mass `rho*h*A`, exact coefficients, rotary inertia; three mutations per element prove liveness |
+| T5 analytical assertion in the parity suite | **done** | `e252665` — 4 analytical cases now run instead of skipping; free-face mean instead of the loaded node (5.09% -> 0.56% axial); window 2% |
+| T6 axial convergence study | **done** | `e0bdbd3` — 2.702% (4,2), 1.154% (8,4), 0.748% (16,8), 0.487% (32,16), monotone, finest below 1% |
+| T7 Hook reference | **done** | `b611ad7` — the paper's Table 14 N=8 value 0.9782 replaces 1.12; 3% window; liveness proved by restoring 1.12 (fails at 11.37%) |
+| T8 decorative tolerances | **done** | `e0bdbd3` (FX/FY/FZ 5% -> 3%, ratio -50%/+20% -> +-2%) and `9bb85a8` (`assert_relative_error`'s hidden 5% ceiling removed, 7 duplicate `np.isclose` calls dropped) |
+| T9 sign-blind assertions | in flight | 6 sites across 3 files |
+
+### Verified suite state after T1-T8
+
+| Check | Before | After |
+| --- | --- | --- |
+| `pytest -m "not slow"` | 1 failed / 338 passed / 4 skipped | **345 passed / 4 skipped / 0 failed** (before T3b's red test was committed) |
+| `pytest tests/test_shell_validation_fixed.py` | 6 passed, one window that could not fail | 7 passed, four windows mutation-proved |
+| `pytest tests/test_beam_shell_4cases_parity.py` | 4 skipped without CalculiX | 4 passed (analytical) + 5 skipped (CCX) |
+| `cargo test -p aeroelast-core` | 73 tests / 1 failed | 89 tests / 88 passed, the single failure being the MITC3 rigid-body finding |
+
+Note: `cargo test -p aeroelast-mesh` and `-p aeroelast-solvers` still cannot run on this machine (the `hdf5-metno-sys` and `precice` build scripts fail), so their tests are unmeasured.
+
+### Residual work
+
+- **T9**: the six sign-blind sites. Two of them (`test_composite_b_coupling.py`) already state the physical sign in their own docstrings while checking only the magnitude; one of those is literally named `test_b_coupling_sign` and says "we check magnitude only" — the exact excuse that let Finding 1 through. `test_material_suite.py::test_axial_produces_bending_mitc3comp` becomes the signed CLT comparison and is expected to fail, so it is marked `xfail(strict=True)` with the defect reference, keeping the suite's red count at one while still turning into a failure the moment the production sign is fixed.
+- `test_material_suite.py::test_bending_produces_extension_mitc4comp` and `test_force_projection.py:288`: signed only if the sign is determinate; otherwise the magnitude check stays with an explicit note.
+- **Finding 1's production fix** remains unauthorized. The decisive experiment (revert the shear sign in `eval_covariant_shear_ext`) measured:
+  - Rust suite 81/81 (the rigid-body test passes);
+  - mixed-mesh errors drop to the pure-case level (0.682% and 1.009%);
+  - composite and coupling suites: 48 passed;
+  - but five MITC3-only tests that apply a moment to the `theta_y` DOF fail with a purely negated tip deflection (`w_tip = -6.3740` against a reference `6.3662`): `test_linear_tip_moment_sign`, `test_cantilever_large_rotation_half_circle[10]` and three `test_equilibrium_path` cases.
+
+  So the sign is load-bearing in two directions: reverting it fixes the cross-element convention and rigid-body invariance but breaks the tests that encode the flipped convention. `test_linear_tip_moment_sign` asserts `w_tip > 0` for a positive moment on the `theta_y` DOF; under the physical convention (where `theta_y` is the rotation vector component and `theta_y = -w_,x` in the thin limit) a positive moment about +y gives `w_tip < 0`, so that expectation is convention-dependent rather than physical. The remaining four are large-rotation paths whose reported sign follows the same convention. The fix therefore has two halves and needs an explicit decision.
