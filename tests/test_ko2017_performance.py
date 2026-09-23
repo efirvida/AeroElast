@@ -455,7 +455,11 @@ def _assemble_global(
     for elem in mesh.elements:
         node_ids_elem = [n.id for n in elem.nodes]
         connectivity.append([node_id_to_idx[nid] for nid in node_ids_elem])
-        elem_types.append(4)
+        # Derive the element code from the element's node count: the same
+        # benchmark mesh can be run with quads (MITC4, code 4) and with triangles
+        # (MITC3, code 3), and the source paper publishes both columns.  A quad
+        # still gets code 4, so every existing expectation is unchanged.
+        elem_types.append(3 if len(node_ids_elem) == 3 else 4)
         mats.append(_material_dict(material, thickness))
 
     node_coords_arr = np.asarray([n.coords[:3] for n in nodes_sorted], dtype=float)
