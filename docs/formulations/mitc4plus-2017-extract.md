@@ -274,3 +274,88 @@ the thin twisted beam at N=8 where paper **B**'s MITC4 gives **0.9959**, while o
 MITC3 gives **0.9932** where paper **B**'s MITC3+ gives **0.9932** exactly. The
 defect is in the quad path, and the last two rows above are the only parts of the
 formulation not yet checked against the paper.
+
+---
+
+# Handoff: the open defect and how to attack it
+
+**Goal.** Make our MITC4 reproduce the paper's values on the thin twisted beam, so
+the two `xfail(strict)` cases in `tests/test_ko2017_performance.py` flip on their
+own.
+
+**The defect, measured.** Thin twisted beam (`t/L = 0.0002667`), in-plane load,
+90° twist, **N = 8**:
+
+| element | ours | paper B |
+|---|---|---|
+| MITC3 (triangles) | **0.9932** | **0.9932** (MITC3+, Table 12) — exact |
+| MITC4 (quads) | **0.7313** | **0.9959** (MITC4, Table 12) |
+
+At N=16 the quad gives 0.9131 where the paper gives 0.9975; N=4 gives 0.4207. It
+converges, but far too slowly — the locking signature. The quad is right on every
+flat and curved **non-warped** case (Scordelis-Lo +0.15% against the published
+column, the square plates), and wrong only on the warped twisted beam. So the
+defect is the **warped-quad treatment**.
+
+**Already verified against paper A** (so do not re-check these): the Fig. 4 tying
+points, Eqs. (7b), (9)–(19), (10), and the shared transverse shear field of
+paper B's Fig. 2(a).
+
+**Already refuted by measurement** (so do not re-try these): the membrane-bending
+coupling in the union assembly; the frame mixing there (a real defect, fixed in
+`3c7230e`, but not this); the SRI centre-shear patch (0.7307 vs 0.7313); the
+assumed membrane blending (rewritten per Eqs. 18–19 in `dc7593e`, bit-identical);
+the shear bubble (0.7312 vs 0.7313); and the edge strains of Eq. (14), which are
+algebraically the same as Eq. (15) at the tying points.
+
+**What is left — the only unchecked part of the formulation:**
+
+1. **Eq. (8a), `x_b = ½ Σ a_i h_i V_n^i`** — no implementation. `x_b` is the
+   element's warping enrichment and it vanishes for a flat element.
+2. **Eq. (8b), `u_b = ½ Σ a_i h_i (−V_2^i α_i + V_1^i β_i)`** — our
+   `bubble_function` is `(1−ξ²)(1−η²)` with **2 DOFs**; the paper's enrichment is
+   **per node and carries the rotations**. This is a real divergence.
+3. **Eqs. (7c)/(7d), the `∂x_b` terms** — the bending strain's warping
+   contribution. `b_kappa` / `b_kappa_bubble` do not obviously have it.
+
+Changing (2) makes `kbb` stop being 2×2, so `compute_ke_local`, `compute_fint` and
+`compute_kt` all change together. The consistency guards
+(`test_fint_linear_nonlinear_parity`, `test_kt_fint_directional_derivative`,
+`test_assemble_kt_linear_matches_k_at_zero`) are load-bearing and will catch a
+partial wiring — they already did once, during the drill work.
+
+**Method that works.** Read equations with vision, never `pdftotext`. Validate
+every change with the A/B against the paper's triangular column: the triangular
+element matching to four digits is what turned "we are 8.5% off" into "the quad is
+27% off and the triangle is perfect". A change that produces an identical number
+is still a result — it eliminates a hypothesis.
+
+**Machine limits.** Never run these benchmarks at N ≥ 32: the assembly is sparse
+but `spsolve` does a SuperLU LU whose fill-in needs tens of GB, and a probe at N=32
+was killed for memory. N ≤ 16 is ~47 s per case.
+
+**Commands.**
+
+```bash
+# build the extension (conda env, preCICE pkg-config for the solvers crate)
+source ~/miniconda3/etc/profile.d/conda.sh && conda activate aeroelast-dev
+export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig" HDF5_DIR="$CONDA_PREFIX"
+python -m maturin develop --release
+
+# the A/B probe: quad vs triangle on the thin twisted beam at N=8
+export PATH="$HOME/miniconda3/envs/aeroelast-dev/bin:$PATH"
+python /tmp/probe_tri.py          # rebuild this if /tmp was cleared
+
+# suites
+cd crates && cargo test -p aeroelast-core -q          # 112 passed
+cargo test -p aeroelast-solvers --lib -- --test-threads=1   # 41 passed; parallel CRASHES (PETSc/preCICE are not thread-safe)
+python -m pytest -m "not slow" -q                     # 345 passed, 2 xfailed, 2 skipped
+
+# the papers
+.sources/papers/A_new_MITC4+_shell_element.pdf        # paper A: formulation
+.sources/papers/1-s2.0-S0045794917309550-main.pdf     # paper B: benchmarks
+```
+
+**Acceptance.** The twisted beam at N=8 and N=16 reaches ~0.9959 / 0.9975, the
+`xfail(strict)` cases start failing as XPASS, and removing the markers leaves the
+suite green.
