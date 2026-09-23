@@ -15,18 +15,6 @@ from typing import TYPE_CHECKING, List, Tuple
 
 import numpy as np
 
-
-def _import_gmsh():
-    """Lazy import of gmsh to avoid loading libGLU on headless systems."""
-    import sys
-
-    mod = importlib.import_module("gmsh")
-    # Make the module accessible as a module-level name so that helper
-    # methods that reference the bare name ``gmsh`` can find it.
-    sys.modules[__name__].__dict__["gmsh"] = mod
-    return mod
-
-
 from aeroelast.core.mesh.entities import (
     ELEMENT_NODES_MAP,
     ElementType,
@@ -34,6 +22,22 @@ from aeroelast.core.mesh.entities import (
     Node,
     NodeSet,
 )
+
+
+# Populated on first use by ``_import_gmsh``; kept as an explicit module-level
+# name so that the helper methods which reference the bare ``gmsh`` are
+# statically resolvable instead of relying on a dynamic injection into this
+# module's dict.
+gmsh = None
+
+
+def _import_gmsh():
+    """Lazy import of gmsh to avoid loading libGLU on headless systems."""
+    global gmsh
+    if gmsh is None:
+        gmsh = importlib.import_module("gmsh")
+    return gmsh
+
 
 if TYPE_CHECKING:
     from aeroelast.core.mesh.model import MeshModel
@@ -195,7 +199,7 @@ class SquareShapeMesh:
         elementTypes, elementTags, nodeTags = gmsh.model.mesh.getElements(2)
 
         geometric_node_tags = set()
-        for et, conn in zip(elementTypes, nodeTags):
+        for et, _conn in zip(elementTypes, nodeTags, strict=False):
             props = gmsh.model.mesh.getElementProperties(et)
             total_nodes = props[3]
             e_type = ELEMENT_NODES_MAP[total_nodes]
@@ -217,7 +221,7 @@ class SquareShapeMesh:
         node_tags = node_tags[p]
         coords = coords[p]
 
-        for tag, coord in zip(node_tags, coords):
+        for tag, coord in zip(node_tags, coords, strict=False):
             if tag in geometric_node_tags:
                 n = Node(coord, geometric_node=True)
             else:
@@ -293,7 +297,7 @@ class SquareShapeMesh:
                 mesh_model.add_node_set(NodeSet(name=name, nodes=node_objs))
                 boundary_nodes_objs.update(node_objs)
 
-        all_nodes = {node for node in mesh_model.nodes}
+        all_nodes = set(mesh_model.nodes)
         mesh_model.add_node_set(NodeSet(name="all", nodes=all_nodes))
 
         surface_nodes = all_nodes - boundary_nodes_objs
@@ -498,7 +502,7 @@ class BoxSurfaceMesh:
         elementTypes, elementTags, nodeTags = gmsh.model.mesh.getElements(2)
 
         geometric_node_tags = set()
-        for et, conn in zip(elementTypes, nodeTags):
+        for et, _conn in zip(elementTypes, nodeTags, strict=False):
             props = gmsh.model.mesh.getElementProperties(et)
             total_nodes = props[3]
             e_type = ELEMENT_NODES_MAP[total_nodes]
@@ -515,7 +519,7 @@ class BoxSurfaceMesh:
         node_tags, coords, _ = gmsh.model.mesh.getNodes()
         coords = np.array(coords).reshape(-1, 3)
 
-        for tag, coord in zip(node_tags, coords):
+        for tag, coord in zip(node_tags, coords, strict=False):
             if tag in geometric_node_tags:
                 mesh_model.add_node(Node(coord, geometric_node=True))
             else:
@@ -570,7 +574,7 @@ class BoxSurfaceMesh:
                 node_objs = {mesh_model.get_node_by_id(nid) for nid in node_ids}
                 mesh_model.add_node_set(NodeSet(name=name, nodes=node_objs))
 
-        all_nodes = {node for node in mesh_model.nodes}
+        all_nodes = set(mesh_model.nodes)
         mesh_model.add_node_set(NodeSet(name="all", nodes=all_nodes))
 
     @classmethod
@@ -881,7 +885,7 @@ class MultiFlapMesh:
         elementTypes, elementTags, nodeTags = gmsh.model.mesh.getElements(2)
 
         geometric_node_tags = set()
-        for et, conn in zip(elementTypes, nodeTags):
+        for et, _conn in zip(elementTypes, nodeTags, strict=False):
             props = gmsh.model.mesh.getElementProperties(et)
             total_nodes = props[3]
             e_type = ELEMENT_NODES_MAP[total_nodes]
@@ -899,7 +903,7 @@ class MultiFlapMesh:
         coords = np.array(coords).reshape(-1, 3)
 
         self._gmsh_tag_to_id = {}
-        for i, (tag, coord) in enumerate(zip(node_tags, coords)):
+        for i, (tag, coord) in enumerate(zip(node_tags, coords, strict=False)):
             is_geometric = tag in geometric_node_tags
             mesh_model.add_node(Node(coord, geometric_node=is_geometric))
             self._gmsh_tag_to_id[int(tag)] = i
@@ -973,7 +977,7 @@ class MultiFlapMesh:
                 node_objs = {mesh_model.get_node_by_id(nid) for nid in node_ids}
                 mesh_model.add_node_set(NodeSet(name=name, nodes=node_objs))
 
-        all_nodes = {node for node in mesh_model.nodes}
+        all_nodes = set(mesh_model.nodes)
         mesh_model.add_node_set(NodeSet(name="all", nodes=all_nodes))
 
         if "base_bottom" in mesh_model.node_sets:
@@ -1860,7 +1864,7 @@ class CylindricalSurfaceMesh:
         coords = np.array(coords).reshape(-1, 3)
         node_map_gmsh = {}  # gmsh_tag -> Node object
 
-        for tag, coord in zip(node_tags, coords):
+        for tag, coord in zip(node_tags, coords, strict=False):
             if tag in used_node_tags:
                 # Basic node creation
                 node = Node(coord, geometric_node=False)
@@ -1868,7 +1872,7 @@ class CylindricalSurfaceMesh:
                 node_map_gmsh[tag] = node
 
         # 3. Create elements
-        for et, current_elem_node_tags in parsed_elements:
+        for _et, current_elem_node_tags in parsed_elements:
             for nodes_gmsh in current_elem_node_tags:
                 nodes = [node_map_gmsh[tag] for tag in nodes_gmsh]
                 e_type = ELEMENT_NODES_MAP.get(len(nodes), ElementType.quad)
@@ -2170,13 +2174,13 @@ class RaaschHookMesh:
         node_tags, coords, _ = gmsh.model.mesh.getNodes()
         coords = np.array(coords).reshape(-1, 3)
         node_map = {}
-        for tag, coord in zip(node_tags, coords):
+        for tag, coord in zip(node_tags, coords, strict=False):
             if tag in used_node_tags:
                 node = Node(coord, geometric_node=False)
                 mesh_model.add_node(node)
                 node_map[tag] = node
 
-        for et, current_elem_node_tags in parsed_elements:
+        for _et, current_elem_node_tags in parsed_elements:
             for nodes_gmsh in current_elem_node_tags:
                 nodes = [node_map[tag] for tag in nodes_gmsh]
                 e_type = ELEMENT_NODES_MAP.get(len(nodes), ElementType.quad)
