@@ -98,17 +98,54 @@ MITC3 work (directive 3).
   SRI scheme (`mitc4.rs:946-953`, already cited to Hughes, Taylor &
   Kanoknukulchai 1977) and the assumed-strain/MITC machinery.
 
-### U5 - MITC3 sign fix and modernisation
+### U5 - MITC3 sign fix (DONE, commit `d6f37fb`) and modernisation (open)
 
-- Establish from the MITC4/D paper (and the MITC3+ papers) which rotation
-  convention is authoritative, then fix `eval_covariant_shear_ext` and the five
-  tests whose expectations encode the inverted convention
-  (`test_linear_tip_moment_sign`, `test_cantilever_large_rotation_half_circle`,
-  three `test_equilibrium_path` cases).
-- Search for the most recent MITC3 papers and decide whether to move to a newer
-  version; record the reference either way.
-- Unblocks: the mixed-mesh correctness, the composite B-coupling sign, and the
-  `xfail(strict=True)` marker added in `test_axial_produces_bending_mitc3comp`.
+**Done.** `eval_covariant_shear_ext` restored to the physical director, verified
+byte-identical to `b136ce5^` for all eight rotation assignments, with the
+derivation from Ko, Bathe & Zhang 2025 Eq. (3a) in the comment. The five MITC3
+tests that encoded the inverted convention were corrected (`_analytical_tip`
+negates its transverse component, `REFERENCE_TABLE`'s four w_ref become
+-6.3662, -6.3662, -2.1221, 0.0000, `test_linear_tip_moment_sign` asserts
+`w_tip < 0`), and the now-obsolete `xfail(strict=True)` on
+`test_material_suite.py::test_axial_produces_bending_mitc3comp` was removed.
+
+Measured, three independent symptoms resolved:
+
+| symptom | before | after |
+| --- | --- | --- |
+| physical rigid-body mode, MITC3 `compute_ke_global` | penalised, `norm(Ku)/norm(K_bs) = 0.786` | free, worst residual 1.252576e-17 |
+| mixed mesh, triangles on the last row only | 27.637% | **0.682%** (= all-quad) |
+| mixed mesh, alternating triangle rows | 99.813% | **1.009%** (= all-triangle) |
+| MITC3Comp B-coupling, [0/90] axial | +2.627691e-03 | **-2.627691e-03**, 0.45% from CLT |
+
+Pure meshes unchanged (0.682% / 1.015%), which is the control that this is a
+convention fix and not a stiffness change. `cargo test -p aeroelast-core` 89
+passed / 0 failed; `pytest -m "not slow"` 345 passed / 4 skipped / 0 failed.
+
+**Open, and it changes how this is documented, not what was done.** The two
+reference papers write the rotation differently:
+
+| Paper | Offset displacement |
+| --- | --- |
+| MITC3+ 2014, Eq. (2) | `(t/2) Σ a_i h_i (V_i2·α_i + V_i1·β_i)` - rotation parameters α, β |
+| MITC4/D 2025, Eq. (3a) | `(t/2) Σ a_i h_i (θ_i × V_in)` - the rotation vector θ |
+
+With `V_in = e3` and `V_i1 = e1`, Eq. (3a) gives `u_y = -z·θx` while Eq. (2) gives
+`u_y = +z·α` if `V_i2 = V_in × V_i1` and `u_y = -z·α` if `V_i2 = V_i1 × V_in`. So
+MITC3+'s α is either `+θx` or `-θx` depending on how the paper defines `V_i2`,
+and that definition could not be extracted reliably from the recovered PDF (the
+subscripts come out mangled). Either way the fix is right for a codebase that
+mixes elements, but the document must say which of these it is:
+
+- if MITC3+ defines the basis as MITC4/D does, then `b136ce5` **deviated from
+  MITC3's own paper** and the fix restores fidelity;
+- if MITC3+ uses the opposite sign, then the code was faithful to each paper and
+  the **two papers use different DOF conventions**, so mixing them requires
+  standardising on one, with the 2025 paper as the tiebreaker.
+
+Also still to do, per directive 3: search for the most recent MITC3 work (a
+MITC3/D equivalent of the 2025 paper would align the two families by
+construction) and record the reference either way.
 
 ### U6 - MITC4/D drill operator, evaluated before it is wired
 
