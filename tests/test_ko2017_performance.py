@@ -1576,9 +1576,16 @@ def _hook_measure_displacement(mesh: MeshModel, m: dict[int, int], u: np.ndarray
 @pytest.mark.parametrize(
     "expected_norm",
     [
-        # Values from Ko, Lee & Bathe (2017) - MITC4+ paper reference values
-        # Note: Our MITC4 class implements the MITC4+ formulation internally
-        1.12,  # Tabla 14 N=16
+        # Ko, Lee & Bathe, "Performance of the MITC3+ and MITC4+ shell elements in
+        # widely used benchmark problems", section 3.6 + Table 14.  The reference
+        # displacement is wref = 4.82482, obtained with the MITC9 element at N=64.
+        # Table 14, MITC4+ column: N=2 0.9531, N=4 0.9635, N=8 0.9782,
+        # N=16 0.9911, N=32 0.9973 -- it converges to 1.0 from below.
+        #
+        # The previous expectation here was 1.12, which appears nowhere in that
+        # table (it made the comparison fail by 10.6% and was never asserted, see
+        # the assertion below).  The mesh built here is n_width = 8, i.e. N=8.
+        0.9782,  # Tabla 14, N=8
     ],
 )
 def test_3_6_hook_table_14_minimal_fix(expected_norm):
@@ -1616,8 +1623,21 @@ def test_3_6_hook_table_14_minimal_fix(expected_norm):
 
     norm = _run_case(case)
     print(f"Hook MITC4: normalized = {norm:.4f} (expected {expected_norm})")
-    # Verify we're in the right range
-    assert norm > 0.1
+
+    # The published value must be met, not merely approached from the right
+    # side.  Measured convergence of this implementation (n_width = 2, 4, 6, 8,
+    # 12, 16): 0.96034, 0.98175, 0.98813, 0.99268, 0.99844, 1.00164, i.e. the
+    # same convergence to 1.0 the paper reports, reached slightly faster.  At
+    # this mesh the deviation from the paper's N=8 value is 1.48%, and the
+    # window leaves room for that implementation difference while still failing
+    # loudly for a wrong formulation (which would move the value by tens of
+    # percent).  The previous assertion was `assert norm > 0.1`, which could not
+    # fail for any formulation.
+    rel_err = abs(norm - expected_norm) / expected_norm
+    assert rel_err < 0.03, (
+        f"Hook tip deflection: normalized = {norm:.5f}, paper Table 14 N=8 = "
+        f"{expected_norm}, rel err = {rel_err:.2%} (measured 1.48%)"
+    )
 
 
 # -----------------------------------------------------------------------------
