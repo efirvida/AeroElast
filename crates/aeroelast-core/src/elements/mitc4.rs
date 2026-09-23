@@ -2378,6 +2378,175 @@ mod tests {
             diff.norm()
         );
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Global stiffness invariants: symmetry, PSD, rigid body, patch tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Element centroid from the initial global coordinates.
+    fn element_centroid(pre: &Mitc4Precomputed) -> Vector3<f64> {
+        let mut c = Vector3::zeros();
+        for i in 0..4 {
+            c += Vector3::new(
+                pre.initial_coords_3d[i][0],
+                pre.initial_coords_3d[i][1],
+                pre.initial_coords_3d[i][2],
+            );
+        }
+        c / 4.0
+    }
+
+    /// Physical rigid-body field: ``u = t + omega x (x - x_c)``, ``theta = omega``.
+    ///
+    /// This is the definition of a rigid body motion and does not depend on the
+    /// element's own kinematic conventions, so it is the right way to test
+    /// rigid-body invariance.
+    fn rigid_body_mode(
+        pre: &Mitc4Precomputed,
+        translation: Vector3<f64>,
+        omega: Vector3<f64>,
+    ) -> Vec24 {
+        let centroid = element_centroid(pre);
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            let x = Vector3::new(
+                pre.initial_coords_3d[i][0],
+                pre.initial_coords_3d[i][1],
+                pre.initial_coords_3d[i][2],
+            );
+            let disp = translation + omega.cross(&(x - centroid));
+            for k in 0..3 {
+                u[6 * i + k] = disp[k];
+                u[6 * i + 3 + k] = omega[k];
+            }
+        }
+        u
+    }
+
+    fn rigid_body_modes(pre: &Mitc4Precomputed) -> [(&'static str, Vec24); 6] {
+        let z = Vector3::zeros();
+        let ex = Vector3::new(1.0, 0.0, 0.0);
+        let ey = Vector3::new(0.0, 1.0, 0.0);
+        let ez = Vector3::new(0.0, 0.0, 1.0);
+        [
+            ("translation x", rigid_body_mode(pre, ex, z)),
+            ("translation y", rigid_body_mode(pre, ey, z)),
+            ("translation z", rigid_body_mode(pre, ez, z)),
+            ("rotation x", rigid_body_mode(pre, z, ex)),
+            ("rotation y", rigid_body_mode(pre, z, ey)),
+            ("rotation z", rigid_body_mode(pre, z, ez)),
+        ]
+    }
+
+    /// ``|K u| / (|K| |u|)``: scale-free measure of an invariant residual.
+    fn scaled_residual(k: &Mat24, u: &Vec24) -> f64 {
+        let denom = k.norm() * u.norm();
+        if denom > 0.0 { (k * u).norm() / denom } else { 0.0 }
+    }
+
+    #[test]
+    fn test_ke_global_is_symmetric() {
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+        let asymmetry = (&k - k.transpose()).norm() / k.norm();
+        assert!(
+            asymmetry < 1e-12,
+            "K_global must be symmetric: relative asymmetry = {asymmetry:.3e}"
+        );
+    }
+
+    #[test]
+    fn test_ke_global_is_positive_semidefinite() {
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+        let symmetric_part = (&k + k.transpose()) * 0.5;
+        let eigenvalues = nalgebra::SymmetricEigen::new(symmetric_part).eigenvalues;
+        let lambda_min = eigenvalues.iter().cloned().fold(f64::INFINITY, f64::min);
+        let lambda_max = eigenvalues.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            lambda_min > -1e-9 * lambda_max,
+            "K_global must be positive semi-definite: \
+             lambda_min = {lambda_min:.6e}, lambda_max = {lambda_max:.6e}"
+        );
+    }
+
+    #[test]
+    fn test_ke_global_leaves_all_six_rigid_body_modes_free() {
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+
+        let mut worst_label = "";
+        let mut worst_residual = 0.0_f64;
+        for (label, u) in rigid_body_modes(&pre) {
+            let residual = scaled_residual(&k, &u);
+            if residual > worst_residual {
+                worst_label = label;
+                worst_residual = residual;
+            }
+        }
+
+        assert!(
+            worst_residual < 1e-10,
+            "all six rigid-body modes must be in the null space of K_global; \
+             worst is '{worst_label}' with |K u| / (|K| |u|) = {worst_residual:.3e}"
+        );
+    }
+
+    #[test]
+    fn test_membrane_patch_reproduces_constant_strain_at_every_gauss_point() {
+        let pre = make_pre();
+
+        // u = a x + b y, v = c x + d y  =>  eps = [a, d, b + c], constant.
+        let (a, b, c, d) = (1.0e-3, -4.0e-4, 2.0e-4, 7.0e-4);
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            let x = pre.initial_coords_3d[i][0];
+            let y = pre.initial_coords_3d[i][1];
+            u[6 * i] = a * x + b * y;
+            u[6 * i + 1] = c * x + d * y;
+        }
+
+        let expected = Vector3::new(a, d, b + c);
+        for g in 0..N_GAUSS {
+            let eps = b_m_mitc4_plus(&pre, GAUSS_XI[g], GAUSS_ETA[g]) * u;
+            let error = (eps - expected).norm() / expected.norm();
+            // 1e-10 relative is far above the measured round-off of the
+            // blended MITC4+ operator (~4e-12 for this field, i.e. ~4e-15
+            // absolute on a 1e-3 strain) and far below any real formulation
+            // error, which would be O(1) relative.
+            assert!(
+                error < 1e-10,
+                "membrane patch test at Gauss point {g}: eps = {eps:?}, \
+                 expected = {expected:?}, relative error = {error:.3e}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_bending_patch_reproduces_constant_curvature_at_every_gauss_point() {
+        let pre = make_pre();
+
+        // w = 0.5 kxx x^2 with theta_y = dw/dx = kxx x  =>  kappa = [kxx, 0, 0].
+        let kxx = 1.0e-3;
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            let x = pre.initial_coords_3d[i][0];
+            u[6 * i + 2] = 0.5 * kxx * x * x;
+            u[6 * i + 4] = kxx * x;
+        }
+
+        let expected = Vector3::new(kxx, 0.0, 0.0);
+        for g in 0..N_GAUSS {
+            let kappa = b_kappa(&pre.gp_jacobians[g].dh) * u;
+            let error = (kappa - expected).norm() / expected.norm();
+            assert!(
+                error < 1e-10,
+                "bending patch test at Gauss point {g}: kappa = {kappa:?}, \
+                 expected = {expected:?}, relative error = {error:.3e}"
+            );
+        }
+    }
+
 }
 
 // ============================================================================
