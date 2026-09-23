@@ -397,8 +397,9 @@ class TestLinearStaticCantilever:
 
         print(f"\nLinear FX: FEM={ux:.3e}, Ana={ana:.3e}, Error={error:.1f}%")
 
-        # Should match within 10%
-        assert error < 5.0, f"FY error {error:.1f}% too large"
+        # The comment said "within 10%" over an enforced 5%, and the message
+        # named FY inside the FX test.  `error` is already a percentage.
+        assert error < 5.0, f"FX error {error:.1f}% too large"
 
     def test_fy_in_plane(self):
         """FY: In-plane loading (shear/membrane combination)."""

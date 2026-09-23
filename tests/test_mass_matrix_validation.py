@@ -611,8 +611,9 @@ class TestModalMassConvergence:
                 error * 100,
             )
 
-            # Enforce strict max tolerance of 5%
-            tol = 0.05 if nx <= 2 else 0.05
+            # Both branches of the original `0.05 if nx <= 2 else 0.05` were the
+            # same value, so it never branched; this is the 5% it always applied.
+            tol = 0.05
             assert error < tol, f"Frequency error: {error * 100:.1f}% (tol {tol * 100:.0f}%)"
 
         except AssertionError:

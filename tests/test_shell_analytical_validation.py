@@ -601,9 +601,11 @@ class TestShearLocking:
         # Shear locking causes stiffer response
         ratio = delta_numerical / delta_beam
 
-        # As plate gets thinner, should approach 1.0
-        # Enforce strict max tolerance of 5%
-        tol = 0.05 if thickness_ratio < 0.01 else 0.05
+        # As the plate gets thinner the ratio should approach 1.0, and shear
+        # locking is what pushes it away.  The tolerance was written as
+        # `0.05 if thickness_ratio < 0.01 else 0.05`, whose branches are the same
+        # value, so it never branched; it is now the single 5% it always applied.
+        tol = 0.05
 
         assert ratio > (1 - tol), (
             f"Shear locking: ratio={ratio:.3f} (should → 1.0), h/L={thickness_ratio}"
