@@ -62,7 +62,6 @@ def build_shell_mesh(*, nz: int = 10, nx: int = 2) -> MeshModel:
 
     # Grid: X from 0 to B, Z from 0 to L, Y=0 (flat plate in XZ plane)
     xs = np.linspace(0, B, nx + 1)
-    ys = np.zeros(nx + 1)  # Y = 0 (flat)
     zs = np.linspace(0, L, nz + 1)
 
     grid: dict[tuple[int, int], Node] = {}
@@ -114,6 +113,7 @@ def analytical_tip_displacement(
     """
     I = b * t**3 / 12  # Moment of inertia
     k = 5 / 6  # Shear correction factor (rectangular cross-section)
+    G = E / (2.0 * (1.0 + nu))  # Shear modulus
 
     # Bending + shear
     delta = F * L**3 / (3 * E * I) + F * L / (k * G * b * t)

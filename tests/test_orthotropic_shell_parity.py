@@ -25,8 +25,8 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
 from _aeroelast import PyMeshAssembler, linear_static_solve_coo
 
-from aeroelast.core.laminate import Laminate, Ply, create_laminate_from_angles
-from aeroelast.core.material import IsotropicMaterial, OrthotropicMaterial
+from aeroelast.core.laminate import Laminate, create_laminate_from_angles
+from aeroelast.core.material import OrthotropicMaterial
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.core.properties import CompositeShellProperty

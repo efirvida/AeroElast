@@ -14,7 +14,6 @@ import pytest
 
 from aeroelast.models.blade.aerodynamics import (
     AirfoilAero,
-    BladeAero,
     PolarData,
     load_blade_aero,
 )

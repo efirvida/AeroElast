@@ -26,7 +26,7 @@ import pytest
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
-_aeroelast = pytest.importorskip("_aeroelast", reason="Rust backend not available")
+pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from _aeroelast import PyMeshAssembler
 
 from aeroelast.core.material import IsotropicMaterial

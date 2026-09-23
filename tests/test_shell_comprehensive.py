@@ -552,7 +552,6 @@ class TestNonlinearStaticCantilever:
     def test_large_displacement_tip_load(self):
         """Divergent nonlinear solves must raise instead of returning garbage."""
         L, b, h = 1.0, 0.1, 0.001
-        E, nu = 2.1e11, 0.3
         P = 600.0
 
         # Get linear solution first
@@ -658,7 +657,6 @@ class TestModalAnalysis:
     def test_higher_modes(self):
         """Validate higher modes."""
         L, b, h = 1.0, 0.1, 0.001
-        E, nu, rho = 2.1e11, 0.3, 7800.0
 
         mesh = build_cantilever_mesh(L=L, b=b)
         prop = ShellProperty(material=STEEL, thickness=h)

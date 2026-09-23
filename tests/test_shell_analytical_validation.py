@@ -121,7 +121,6 @@ class TestCantileverBeam:
         L, b, h = 1.0, 0.1, 0.01  # m, m, m
         P = 100.0  # N
         E = material_steel.E
-        nu = material_steel.nu
 
         # Analytical deflection
         I = b * h**3 / 12  # bending moment of inertia
@@ -170,7 +169,6 @@ class TestCantileverBeam:
         # Load: tip load at free end
         free = [n for n in mesh.nodes if np.isclose(n.x, L, atol=1e-12)]
         mesh.add_node_set(NodeSet("tip", set(free)))
-        tip_dofs = solver.get_dofs_by_nodeset_name("tip")
         # For a point load P in Z, we apply P/N_nodes per node
         # Simplified: one load per node in the set
         for node in free:

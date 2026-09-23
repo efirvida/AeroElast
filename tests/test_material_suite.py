@@ -36,16 +36,15 @@ Element type codes: 3=MITC3, 4=MITC4, 33=MITC3Composite, 44=MITC4Composite
 
 from __future__ import annotations
 
-import math
 import warnings
 
 import numpy as np
 import pytest
 
-_ae = pytest.importorskip("_aeroelast", reason="Rust backend not available")
+pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from _aeroelast import PyMeshAssembler
 
-from aeroelast.core.laminate import Laminate, Ply, compute_Qbar, create_laminate_from_angles
+from aeroelast.core.laminate import Laminate, create_laminate_from_angles
 from aeroelast.core.material import IsotropicMaterial, OrthotropicMaterial
 
 
@@ -487,7 +486,6 @@ class TestSymmetricLaminates:
         """
         lam = self._lam_0_90_s()
         A11 = lam.A[0, 0]
-        h = lam.total_thickness
         EI_in = A11 * B**3 / 12.0
         ref = _euler_bernoulli_tip(F, L, EI_in)
         prop = _lam_prop(lam)
@@ -668,7 +666,6 @@ class TestIsoEquivalence:
         h = 0.01
         E, nu, rho = E_ISO, NU_ISO, RHO_ISO
         G = E / (2 * (1 + nu))
-        k = 5.0 / 6.0
 
         # Single isotropic layer
         single = _iso_prop(_ISO, h)
@@ -799,11 +796,11 @@ class TestABDMatrices:
 
         Qb = compute_Qbar(_ORTHO, 45.0)
         assert abs(Qb[0, 0] - Qb[1, 1]) / max(abs(Qb[0, 0]), 1.0) < 1e-8, (
-            f"Q11_bar ≠ Q22_bar at 45°"
+            "Q11_bar ≠ Q22_bar at 45°"
         )
         # At +45°: Q16_bar = Q26_bar (same sign, both positive)
         assert abs(Qb[0, 2] - Qb[1, 2]) / max(abs(Qb[0, 2]), 1.0) < 1e-8, (
-            f"Q16_bar ≠ Q26_bar at 45°"
+            "Q16_bar ≠ Q26_bar at 45°"
         )
 
     def test_qbar_0_equals_q(self):
@@ -812,7 +809,7 @@ class TestABDMatrices:
 
         Q = compute_Q(_ORTHO)
         Qb = compute_Qbar(_ORTHO, 0.0)
-        assert np.allclose(Q, Qb, rtol=1e-10), f"Qbar(0°) ≠ Q"
+        assert np.allclose(Q, Qb, rtol=1e-10), "Qbar(0°) ≠ Q"
 
     def test_qbar_90_swaps_e1_e2(self):
         """Qbar at 90°: Q11_bar = Q22 (0°) and Q22_bar = Q11 (0°)."""

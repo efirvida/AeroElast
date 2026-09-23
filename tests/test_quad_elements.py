@@ -29,7 +29,7 @@ def _build_dense(asm: PyMeshAssembler, which: str) -> np.ndarray:
         rows, cols, vals = asm.assemble_m()
     n = asm.dofs_count
     mat = np.zeros((n, n))
-    for r, c, v in zip(rows, cols, vals):
+    for r, c, v in zip(rows, cols, vals, strict=False):
         mat[r, c] += v
     return mat
 

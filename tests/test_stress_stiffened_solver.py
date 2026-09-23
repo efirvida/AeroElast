@@ -21,8 +21,8 @@ import pytest
 # ---------------------------------------------------------------------------
 # Skip the whole module if PETSc is not available (CI without MPI/PETSc)
 # ---------------------------------------------------------------------------
-petsc4py = pytest.importorskip("petsc4py", reason="PETSc not available")
-from petsc4py import PETSc  # noqa: E402
+pytest.importorskip("petsc4py", reason="PETSc not available")
+from petsc4py import PETSc
 
 from aeroelast.core.assembler import MeshAssembler
 from aeroelast.core.bc import BoundaryConditionManager, DirichletCondition
@@ -200,7 +200,7 @@ class TestKGAssemblyPipeline:
         dense = np.zeros((n, n))
         for i in range(n):
             row_cols, row_vals = K_G_red.getRow(i)
-            for c, v in zip(row_cols, row_vals):
+            for c, v in zip(row_cols, row_vals, strict=False):
                 dense[i, c] = v
 
         eigs = np.linalg.eigvalsh(dense)

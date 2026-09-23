@@ -147,8 +147,6 @@ def _build_composite_plate_mesh(nx: int = 4, ny: int = 10) -> MeshModel:
     This matches the CCX *SHELL SECTION setup where the shell lies in
     the XY plane and deforms out-of-plane (Z displacement).
     """
-    h_shell = thickness  # shell thickness (for reference, not a 3D mesh)
-
     # Reset global counters so node ids are 0-based and contiguous.  The CCX
     # quadratic upgrade indexes coordinates by node id, so a stale counter
     # (from a previous mesh built in the same process) breaks it.

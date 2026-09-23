@@ -212,8 +212,10 @@ class TestElementMassVsTotalMass:
             analytical_mass = L * b * rho * h
 
             logger.info(
-                f"Element {element_type}: matrix_mass={physical_mass:.1f}, "
-                f"analytical={analytical_mass:.1f}"
+                "Element %s: matrix_mass=%.1f, analytical=%.1f",
+                element_type,
+                physical_mass,
+                analytical_mass,
             )
 
             # Enforce strict max tolerance of 5%
@@ -349,9 +351,10 @@ class TestLumpedMassMatrix:
         error = abs(m_lumped - m_expected) / m_expected
 
         logger.info(
-            f"Lumped mass: {m_lumped:.1f} kg, "
-            f"analytical: {m_expected:.1f} kg, "
-            f"error: {error * 100:.1f}%"
+            "Lumped mass: %.1f kg, analytical: %.1f kg, error: %.1f%%",
+            m_lumped,
+            m_expected,
+            error * 100,
         )
 
         # Enforce strict max tolerance of 5%
@@ -430,9 +433,12 @@ class TestModalMassConvergence:
             error = abs(freq - f_analytical) / f_analytical
 
             logger.info(
-                f"Mesh {nx}x{ny}: f1={freq:.1f} Hz, "
-                f"analytical={f_analytical:.1f} Hz, "
-                f"error={error * 100:.1f}%"
+                "Mesh %sx%s: f1=%.1f Hz, analytical=%.1f Hz, error=%.1f%%",
+                nx,
+                ny,
+                freq,
+                f_analytical,
+                error * 100,
             )
 
             # Enforce strict max tolerance of 5%
@@ -514,7 +520,7 @@ class TestMassMatrixTrace:
         # Physical mass from matrix trace (with 4/3 factor)
         physical_mass = compute_physical_mass_from_matrix(m_rows, m_cols, m_vals, dofs_per_node)
 
-        logger.info(f"Trace mass: {physical_mass:.1f}, analytical: {m_total:.1f}")
+        logger.info("Trace mass: %.1f, analytical: %.1f", physical_mass, m_total)
 
         # Check: mass should be close to analytical
         error = abs(physical_mass - m_total) / m_total
@@ -575,7 +581,7 @@ class TestMassMatrixSymmetry:
         try:
             from scipy.sparse import coo_matrix
 
-            M_mat = domain.assemble_mass_matrix()
+            domain.assemble_mass_matrix()
             m_rows, m_cols, m_vals = domain._rust.assemble_m()
 
             dofs = domain.dofs_per_node * len(mesh.nodes)
@@ -585,7 +591,7 @@ class TestMassMatrixSymmetry:
             M_diff = M_sparse - M_sparse.T
             max_diff = np.abs(M_diff.data).max() if M_diff.nnz > 0 else 0.0
 
-            logger.info(f"Symmetry check: max_diff={max_diff:.2e}")
+            logger.info("Symmetry check: max_diff=%.2e", max_diff)
 
             assert max_diff < 1e-10, f"Mass matrix not symmetric: {max_diff}"
 
