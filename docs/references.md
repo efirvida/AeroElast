@@ -80,8 +80,11 @@ has no entry in this bibliography.
   the first page). It enriches only the membrane displacement field, leaves the
   rotation convention and the assumed transverse shear field untouched, and adds
   4 DOFs per node (27 DOFs per element against MITC3+'s 15). It is the reference
-  for the interpolation-covers upgrade option, which this repository has not
-  adopted; see `docs/formulations/shell-elements.md` section 4.3.*
+  for the interpolation-covers upgrade option, which this repository has **not**
+  adopted: the only MITC3 enhancement being implemented here is the 2019
+  strain-smoothed element below. The volume and page range are not printed on the
+  held copy (an accepted manuscript, "To appear in"), so they come from the
+  published record rather than from the PDF.*
 
 - Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite element",
   *Computers and Structures*, 223:106096, 2019.

@@ -238,8 +238,10 @@ Eq. (27c).
 ### 2.4 Transverse shear — Dvorkin & Bathe 1984
 
 Reference: Dvorkin, E.N., Bathe, K.-J., "A continuum mechanics based four-node
-shell element for general non-linear analysis", *Engineering Computations*,
-1984 — `.sources/papers/A_Continuum_Mechanics_Based_Four-Node_Shell_Element_for_General_Nonlinear_Analysis.pdf`.
+shell element for general non-linear analysis", *Engineering Computations*
+1:77–88, 1984 — the page footer of the held scan prints
+`Eng. Comput., 1984, Vol. 1, March 77`, and the last page prints 88; no DOI is
+printed — `.sources/papers/A_Continuum_Mechanics_Based_Four-Node_Shell_Element_for_General_Nonlinear_Analysis.pdf`.
 
 **Status of the verification: partial. Report honestly.**
 
@@ -575,11 +577,11 @@ are quantified in §4.1.
 
 ### 4.3 Pending: strain-smoothed MITC3+
 
-Lee, Y., Lee, P.-S., "The strain-smoothed MITC3+ shell element", planned. The
-intent is to replace the constant-strain triangle membrane field of §3.5 with a
-smoothed field. `docs/references.md` currently has **no** entry for this work and
-there is no held copy, so the volume/pages/DOI must be verified before it is cited
-anywhere in the repository. Not implemented in this revision.
+Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite element", planned.
+The intent is to replace the constant-strain triangle membrane field of §3.5 with
+a smoothed field. A copy is now held at `.sources/papers/lee2019.pdf`; the
+citation is verified there (item 6) and `docs/references.md` carries the same
+corrected entry. Not implemented in this revision.
 
 ### 4.4 `quad.rs` has no literature citation
 
@@ -615,7 +617,9 @@ the 2014 paper confirms or refutes that mapping. It is stated here as open.
 ### References
 
 1. Dvorkin, E.N., Bathe, K.-J., "A continuum mechanics based four-node shell
-   element for general non-linear analysis", *Engineering Computations*, 1984.
+   element for general non-linear analysis", *Engineering Computations* 1:77–88,
+   1984 (footer prints `Eng. Comput., 1984, Vol. 1, March 77`; last page 88; no DOI
+   printed) —
    `.sources/papers/A_Continuum_Mechanics_Based_Four-Node_Shell_Element_for_General_Nonlinear_Analysis.pdf`.
    (Displayed equations not text-extractable from the held scan — §2.4.)
 2. Hughes, T.J.R., Taylor, R.L., Kanoknukulchai, W., "A simple and efficient finite
@@ -634,12 +638,15 @@ the 2014 paper confirms or refutes that mapping. It is stated here as open.
    performance", *Computers and Structures* 138:12–23, 2014,
    doi:10.1016/j.compstruc.2014.02.005.
    `.sources/papers/The_MITC3+_shell_element_and_its_performance.pdf`.
-6. Lee, Y., Lee, P.-S., "The strain-smoothed MITC3+ shell element", *Computers and
-   Structures* 223:106096, 2019 — **planned; not held, not verified, not in
-   `docs/references.md`**. §4.3.
+6. Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite element",
+   *Computers and Structures* 223:106096, 2019,
+   doi:10.1016/j.compstruc.2019.07.005.
+   `.sources/papers/lee2019.pdf` (authors: Chaemin Lee, Phill-Seung Lee; the first
+   author is **not** Youngyu Lee of item 5). **Planned implementation; verified
+   against the held copy; entry present in `docs/references.md`.** §4.3.
 
 `docs/references.md` is the canonical bibliography for the repository. Where this
 document and `docs/references.md` disagree, or where `docs/references.md` is
-missing an entry (items 6 and the Hughes–Brezzi attribution of §2.6),
+missing an entry (the Hughes–Brezzi attribution of §2.6),
 `docs/references.md` should be corrected — this document deliberately does not
 duplicate its per-entry verification annotations.
