@@ -1313,20 +1313,53 @@ def _twisted_beam_fixed(mesh: MeshModel, m: dict[int, int], *, tol: float = 1e-6
     return fixed
 
 
-# Twisted beam: per-case tolerance and xfail annotations
+# Twisted beam: per-case expectation and xfail annotations
 # -------------------------------------------------------------------------
-# The thin cases (t/L=0.0002667) originally required the Ko 2017 butterfly/crop-circle
-# enhanced transverse shear modes to avoid membrane locking. Our MITC4+ now achieves
-# 91% of reference with 5% tolerance (0.92 ± 5% = [0.87, 0.97]), so the xfail is lifted.
-# The thick case (t/L=0.02667) converges well at N=16 since the physical shear
-# stiffness is large enough to dominate the parasitic contribution.
+# The expectations are the published MITC4 column of Ko, Lee, Lee & Bathe 2017 at
+# the mesh this test builds - N x 6N with N = 16, which is the paper's own mesh -
+# read from the paper's tables: Table 12 (in-plane load) and Table 13
+# (out-of-plane load).  For t/L = 0.02667 both are 0.9972; for t/L = 0.0002667
+# they are 0.9975 and 0.9980.
+#
+# This used to expect 1.02 and 0.99 (thick) and 0.92 (thin), which were not the
+# paper's values: 1.02 sat above the paper's 0.9972 and 0.92 encoded what this
+# element happens to produce.  The thin comment said so outright - "our MITC4+
+# now achieves 91% of reference ... so the xfail is lifted" - so the window
+# existed to accommodate an 8.5% deviation and the xfail was lifted to accept it.
+#
+# Measured at N=16: thick 1.0001 / 0.9999, i.e. 0.3% above the paper, and thin
+# 0.9131 / 0.9112, i.e. 8.5% and 8.7% below it.  The thick cases agree; the thin
+# cases do not, and they are the shear/membrane-sensitive ones.  The paper's
+# plain MITC4 - no "+" enhancement - already reaches 0.9975 there, so this is not
+# explained by the Ko 2017 enhanced transverse shear modes alone.
+#
+# The thin cases therefore carry the paper's value as the expectation and are
+# xfail(strict): they fail today, and they will fail again the moment the element
+# starts passing, until the expectation is genuinely met.
 _TWISTED_BEAM_CASES = [
     # (t_over_L, load_case, P_val, uref_in, uref_out, expected, tol, xfail_reason)
-    (0.02667, "In-plane", 1.0, 5.4240e-3, 1.7540e-3, 1.02, 0.10, None),
-    (0.02667, "Out-of-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.99, 0.05, None),
-    # Thin cases: MITC4+ achieves ~91% of reference (within 5% tolerance)
-    (0.0002667, "In-plane", 1.0e-6, 5.2560e-3, 1.2940e-3, 0.92, 0.05, None),
-    (0.0002667, "Out-of-plane", 1.0e-6, 5.2560e-3, 1.2940e-3, 0.92, 0.05, None),
+    (0.02667, "In-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.9972, 0.01, None),
+    (0.02667, "Out-of-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.9972, 0.01, None),
+    (
+        0.0002667,
+        "In-plane",
+        1.0e-6,
+        5.2560e-3,
+        1.2940e-3,
+        0.9975,
+        0.01,
+        "thin twisted beam is 8.5% below the published MITC4 value (Table 12, N=16)",
+    ),
+    (
+        0.0002667,
+        "Out-of-plane",
+        1.0e-6,
+        5.2560e-3,
+        1.2940e-3,
+        0.9980,
+        0.01,
+        "thin twisted beam is 8.7% below the published MITC4 value (Table 13, N=16)",
+    ),
 ]
 
 
@@ -1363,9 +1396,10 @@ def test_3_5_twisted_beam_tables_12_to_13(
     The thick case (t/L=0.02667) converges well at N=16 since the physical shear
     stiffness is large enough to dominate the parasitic contribution.
 
-    The thin case (t/L=0.0002667) requires the Ko 2017 butterfly/crop-circle
-    enhanced shear interpolation to avoid membrane locking in twisted geometries.
-    Until implemented, those cases are marked xfail.
+    The thin case (t/L=0.0002667) is 8.5% below the published MITC4 value: the
+    case is shear/membrane sensitive and the element does not reproduce it.  It is
+    marked xfail(strict) with the published value as the expectation, so the suite
+    reports the deviation instead of accepting it.
 
     References:
     - Dvorkin, E.N. and Bathe, K.J. (1984). Engineering Computations, 1, 77-88.
