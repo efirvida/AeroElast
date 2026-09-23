@@ -34,7 +34,7 @@ _bc_names = []
 try:
     # Keep top-level imports tolerant to missing PETSc so lightweight CLI paths
     # like `--preview` can import aeroelast without pulling solver backends.
-    from .core.bc import BodyForce, DirichletCondition
+    from .core.bc import BodyForce as BodyForce, DirichletCondition as DirichletCondition
 
     _bc_names = ["BodyForce", "DirichletCondition"]
 except ImportError:
@@ -44,7 +44,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Constitutive models (failure criteria)
 # ---------------------------------------------------------------------------
-from .constitutive import (
+from .constitutive import (  # noqa: E402
     FailureMode,
     FailureResult,
     evaluate_ply_failure,
@@ -56,7 +56,7 @@ from .constitutive import (
 # ---------------------------------------------------------------------------
 # Elements
 # ---------------------------------------------------------------------------
-from .elements import ElementFamily
+from .elements import ElementFamily  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Solvers
@@ -65,7 +65,11 @@ _solver_names = []
 try:
     # Linear/static/modal solvers depend on PETSc. Import them lazily here so
     # mesh/config utilities remain usable in environments without petsc4py.
-    from .solvers import LinearDynamicSolver, LinearStaticSolver, ModalSolver
+    from .solvers import (
+        LinearDynamicSolver as LinearDynamicSolver,
+        LinearStaticSolver as LinearStaticSolver,
+        ModalSolver as ModalSolver,
+    )
 
     _solver_names = ["LinearStaticSolver", "LinearDynamicSolver", "ModalSolver"]
 except ImportError:
@@ -77,11 +81,11 @@ try:
     # FSI support is optional because it depends on preCICE and related native
     # libraries that are not required for preview/validation workflows.
     from .solvers.fsi import (
-        FSIRunner,
-        LinearDynamicFSIRotorSolver,
-        LinearDynamicFSISolver,
-        StressStiffenedFSISolver,
-        run_from_yaml,
+        FSIRunner as FSIRunner,
+        LinearDynamicFSIRotorSolver as LinearDynamicFSIRotorSolver,
+        LinearDynamicFSISolver as LinearDynamicFSISolver,
+        StressStiffenedFSISolver as StressStiffenedFSISolver,
+        run_from_yaml as run_from_yaml,
     )
 
     _fsi_names = [
@@ -98,7 +102,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Stress recovery / post-processing
 # ---------------------------------------------------------------------------
-from .postprocess.stress_recovery import StrainResult, StressRecovery, StressResult
+from .postprocess.stress_recovery import StrainResult, StressRecovery, StressResult  # noqa: E402
 
 __all__ = (
     [
