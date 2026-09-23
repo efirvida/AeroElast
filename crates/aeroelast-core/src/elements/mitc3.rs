@@ -511,7 +511,7 @@ fn b_gamma_ext(
 // Membrane B-matrix (3×18) — standard CST
 // ============================================================================
 
-type Mat3x18 = SMatrix<f64, 3, 18>;
+pub type Mat3x18 = SMatrix<f64, 3, 18>;
 
 fn b_membrane(dh: &Matrix2x3) -> Mat3x18 {
     let mut bm = Mat3x18::zeros();
@@ -570,6 +570,25 @@ fn b_drill(r: f64, s: f64, dh: &Matrix2x3) -> RowVec18 {
 /// The bending-shear part uses the MITC3+ bubble enrichment and is statically
 /// condensed from a 20-DOF to 18-DOF space.
 pub fn compute_ke_local(pre: &Mitc3Precomputed) -> Mat18 {
+    let bm = b_membrane(&pre.dh);
+    compute_ke_local_with_membrane(pre, &[bm; N_GAUSS])
+}
+
+/// Compute the 18×18 element stiffness in LOCAL coordinates using a prescribed
+/// membrane strain operator at each Gauss point.
+///
+/// `bm_gp[gp]` is the local Cartesian membrane B matrix used at Gauss point
+/// `gp`.  Passing the element's own `b_membrane` at all three points reproduces
+/// [`compute_ke_local`] exactly, which is what keeps the MITC3+ of Lee, Lee &
+/// Bathe 2014 available.  Passing the strain-smoothed operators built by
+/// [`smoothed_membrane_b`] gives the strain-smoothed MITC3+ of Lee & Lee 2019.
+///
+/// Only the membrane field is parameterised.  The bending and transverse shear
+/// fields below are the MITC3+ ones either way, which is what the 2019 paper
+/// prescribes: *"We use the originally defined b1 eij and b2 eij for the
+/// covariant bending strains. For the covariant transverse shear strains, we
+/// adopt the assumed strains of the MITC3+ shell element."*
+pub fn compute_ke_local_with_membrane(pre: &Mitc3Precomputed, bm_gp: &[Mat3x18; N_GAUSS]) -> Mat18 {
     let area = pre.area;
     let cm = &pre.constitutive.cm;
     let cb = &pre.constitutive.cb;
@@ -578,11 +597,6 @@ pub fn compute_ke_local(pre: &Mitc3Precomputed) -> Mat18 {
     let dh = &pre.dh;
     let j_inv = &pre.j_inv;
 
-    // --- Membrane stiffness (constant B for CST) ---
-    let bm = b_membrane(dh);
-    // For CST, B is constant → K_m = area * Bm^T Cm Bm (weights sum to 1)
-    let km = area * (bm.transpose() * cm * &bm);
-
     // --- Drilling stiffness ---
     let mut k_drill_total = Mat18::zeros();
     for gp in 0..N_GAUSS {
@@ -590,7 +604,13 @@ pub fn compute_ke_local(pre: &Mitc3Precomputed) -> Mat18 {
         k_drill_total += (GAUSS_W[gp] * area * pre.k_drill) * (bd.transpose() * &bd);
     }
 
-    // --- Bending + shear + B-coupling with MITC3+ bubble (extended 20-DOF) ---
+    // --- Membrane, bending, shear and B-coupling over the Gauss points ---
+    //
+    // The membrane term is accumulated inside this loop rather than before it,
+    // because a smoothed membrane operator differs from Gauss point to Gauss
+    // point.  The weights sum to one, so a constant operator reproduces the
+    // previous `area * bm^T cm bm` exactly.
+    let mut km = Mat18::zeros();
     let mut k_ext = Mat20::zeros();
     // B-coupling: bm^T · B · bk_ext  (18×20) — full extended space
     let mut k_mb_ext = SMatrix::<f64, 18, 20>::zeros();
@@ -598,10 +618,12 @@ pub fn compute_ke_local(pre: &Mitc3Precomputed) -> Mat18 {
         let r = GAUSS_R[gp];
         let s = GAUSS_S[gp];
         let w = GAUSS_W[gp];
+        let bm = &bm_gp[gp];
 
         let bk = b_kappa_ext(r, s, j_inv);
         let bg = b_gamma_ext(r, s, pre);
 
+        km += (w * area) * (bm.transpose() * cm * bm);
         k_ext += w * area * (bk.transpose() * cb * &bk + bg.transpose() * cs * &bg);
 
         // Membrane-bending coupling
@@ -646,6 +668,86 @@ pub fn compute_ke_local(pre: &Mitc3Precomputed) -> Mat18 {
 pub fn compute_ke_global(pre: &Mitc3Precomputed) -> Mat18 {
     let k_local = compute_ke_local(pre);
     transform_to_global(&k_local, &pre.t3)
+}
+
+/// Number of nodes in the union layout a smoothed element spans: the target's
+/// three nodes plus the unique node of each of its three edge neighbours.
+pub const SMOOTHED_UNION_NODES: usize = 6;
+
+/// The strain-smoothed membrane strain operators of a target triangle, one per
+/// Gauss point, expressed over the union DOF layout.
+///
+/// Reference: Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite
+/// element", *Computers and Structures* 223:106096, 2019.  The weights come from
+/// [`crate::elements::smoothing::smoothed_membrane_strain`], which also holds
+/// the derivation: Eq. (15) carries each neighbour's covariant strain into the
+/// target's convected coordinates, Eqs. (16) and (17) average it with the target
+/// weighted by projected area, the boundary rule falls back to the target's own
+/// strain when an edge has no neighbour, and Eq. (18) assigns the three pairwise
+/// strains to the three Gauss points cyclically.
+///
+/// `entries[0]` is the target and `entries[1 + k]` is the element across local
+/// edge `k`; `slots[entry][local_node]` is the union slot (0..6) that the
+/// entry's local node occupies.  A `None` entry contributes nothing because the
+/// boundary rule has already folded its weight onto the target.
+///
+/// The returned matrices have `6 * SMOOTHED_UNION_NODES` columns, so the caller
+/// assembles them over the union of the target's and the neighbours' DOFs.
+pub fn smoothed_membrane_b(
+    target: &Mitc3Precomputed,
+    entries: &[Option<&Mitc3Precomputed>; 4],
+    slots: &[[usize; 3]; 4],
+    weights: &[[Matrix3<f64>; 4]; N_GAUSS],
+) -> [SMatrix<f64, 3, { 6 * SMOOTHED_UNION_NODES }>; N_GAUSS] {
+    // Each entry's membrane operator, converted to the target's convected
+    // coordinates.  The target's own operator needs no convected transform.
+    let mut covariant: [Option<SMatrix<f64, 3, 18>>; 4] = [None, None, None, None];
+    for entry in 0..4 {
+        let Some(pre) = entries[entry] else {
+            continue;
+        };
+        let own = crate::elements::smoothing::tensor_operator(&pre.j_mat) * b_membrane(&pre.dh);
+        covariant[entry] = Some(if entry == 0 {
+            own
+        } else {
+            crate::elements::smoothing::convected_operator(&target.j_mat, &pre.j_mat)
+                .map_or(own.clone(), |transform| transform * own)
+        });
+    }
+
+    // Back to the target's local Cartesian frame.  A singular target Jacobian is
+    // degenerate geometry; the identity keeps the operator finite rather than
+    // producing NaN.
+    let back = crate::elements::smoothing::tensor_operator(
+        &target.j_mat.try_inverse().unwrap_or_else(Matrix2::identity),
+    );
+
+    let mut out = [SMatrix::<f64, 3, { 6 * SMOOTHED_UNION_NODES }>::zeros(); N_GAUSS];
+    for gp in 0..N_GAUSS {
+        let mut cov = SMatrix::<f64, 3, { 6 * SMOOTHED_UNION_NODES }>::zeros();
+        for entry in 0..4 {
+            let Some(b_entry) = &covariant[entry] else {
+                continue;
+            };
+            let w = &weights[gp][entry];
+            if w.norm() < f64::MIN_POSITIVE {
+                continue;
+            }
+            for local_node in 0..3 {
+                let column = 6 * local_node;
+                let target_column = 6 * slots[entry][local_node];
+                for dof in 0..6 {
+                    for row in 0..3 {
+                        cov[(row, target_column + dof)] += w[(row, 0)] * b_entry[(0, column + dof)]
+                            + w[(row, 1)] * b_entry[(1, column + dof)]
+                            + w[(row, 2)] * b_entry[(2, column + dof)];
+                    }
+                }
+            }
+        }
+        out[gp] = back * cov;
+    }
+    out
 }
 
 // ============================================================================
@@ -1595,6 +1697,125 @@ mod tests {
                 error < 1e-14,
                 "rotation direction {k}: rotary mass {total:.6e} != \
                  rho*h^3/12*A {expected:.6e} (relative error {error:.3e})"
+            );
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Strain-smoothed membrane field (Lee & Lee 2019, Eqs. 15-18)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// The triangle frame the smoothing needs, taken from the precomputed data.
+    fn triangle_frame(pre: &Mitc3Precomputed) -> crate::elements::smoothing::TriangleFrame {
+        crate::elements::smoothing::TriangleFrame {
+            j_mat: pre.j_mat,
+            area: pre.area,
+            normal: Vector3::new(pre.t3[(2, 0)], pre.t3[(2, 1)], pre.t3[(2, 2)]),
+        }
+    }
+
+    /// The 18 local nodal displacements of the linear field
+    /// `u = [a x + b y, c x + d y]`, whose constant strain is `[a, d, b + c]`.
+    fn linear_field(pre: &Mitc3Precomputed, a: f64, b: f64, c: f64, d: f64) -> Vec18 {
+        let mut u = Vec18::zeros();
+        for i in 0..3 {
+            let x = pre.local_coords[2 * i];
+            let y = pre.local_coords[2 * i + 1];
+            u[6 * i] = a * x + b * y;
+            u[6 * i + 1] = c * x + d * y;
+        }
+        u
+    }
+
+    /// Scatter an entry's local displacements into the union layout.
+    fn place_in_union(slots: [usize; 3], u_local: &Vec18, u_union: &mut SMatrix<f64, { 6 * SMOOTHED_UNION_NODES }, 1>) {
+        for local_node in 0..3 {
+            for dof in 0..6 {
+                u_union[6 * slots[local_node] + dof] = u_local[6 * local_node + dof];
+            }
+        }
+    }
+
+    #[test]
+    fn default_membrane_path_is_the_un_smoothed_one() {
+        // Passing the element's own membrane operator at every Gauss point must
+        // reproduce compute_ke_local exactly.  This is what keeps the MITC3+ of
+        // Lee, Lee & Bathe 2014 available while the smoothed field is added.
+        let pre = make_pre();
+        let bm = b_membrane(&pre.dh);
+        let with = compute_ke_local_with_membrane(&pre, &[bm; N_GAUSS]);
+        let without = compute_ke_local(&pre);
+        let difference = (with - without).norm();
+        assert!(
+            difference < 1e-15,
+            "the un-smoothed path must be unchanged, difference = {difference:.3e}"
+        );
+    }
+
+    #[test]
+    fn a_boundary_triangle_reproduces_its_own_membrane_operator() {
+        // With no neighbours the boundary rule makes every pairwise strain the
+        // element's own, so the smoothed operator must equal b_membrane in the
+        // target's columns and put nothing on the neighbour slots.
+        let pre = make_pre();
+        let frames = [triangle_frame(&pre)];
+        let neighbours = [[None, None, None]];
+        let operator = crate::elements::smoothing::smoothed_membrane_strain(&frames, &neighbours);
+
+        let entries = [Some(&pre), None, None, None];
+        let slots = [[0usize, 1, 2], [3, 4, 5], [3, 4, 5], [3, 4, 5]];
+        let smoothed = smoothed_membrane_b(&pre, &entries, &slots, &operator[0].weights);
+
+        let bm = b_membrane(&pre.dh);
+        for gp in 0..N_GAUSS {
+            let own = smoothed[gp].fixed_columns::<18>(0).into_owned();
+            assert!(
+                (own - bm).norm() < 1e-15,
+                "Gauss point {gp}: own columns differ by {:.3e}",
+                (own - bm).norm()
+            );
+            let others = smoothed[gp].fixed_columns::<18>(18).into_owned();
+            assert!(
+                others.norm() < 1e-15,
+                "Gauss point {gp}: neighbour block should be zero, got {:.3e}",
+                others.norm()
+            );
+        }
+    }
+
+    #[test]
+    fn the_smoothed_field_passes_the_membrane_patch_test() {
+        // A constant strain field must survive the smoothing: each element's
+        // smoothed operator, applied to that field, must return the same strain.
+        // This exercises the covariant transforms of Eq. (15) and the assignment
+        // of Eq. (18), which are the parts that can silently scale or rotate the
+        // field.
+        let target = make_pre();
+        let other = make_pre();
+        let frames = [triangle_frame(&target), triangle_frame(&other)];
+        let neighbours = [[Some(1), Some(1), Some(1)], [Some(0), None, None]];
+        let operator = crate::elements::smoothing::smoothed_membrane_strain(&frames, &neighbours);
+
+        let entries = [Some(&target), Some(&other), Some(&other), Some(&other)];
+        let slots = [[0usize, 1, 2], [3, 1, 2], [3, 1, 2], [3, 1, 2]];
+        let smoothed = smoothed_membrane_b(&target, &entries, &slots, &operator[0].weights);
+
+        let (a, b, c, d) = (1.0e-3, -4.0e-4, 2.0e-4, 7.0e-4);
+        let expected = Vector3::new(a, d, b + c);
+        let u_local = linear_field(&target, a, b, c, d);
+
+        let mut u_union = SMatrix::<f64, { 6 * SMOOTHED_UNION_NODES }, 1>::zeros();
+        place_in_union(slots[0], &u_local, &mut u_union);
+        place_in_union(slots[1], &u_local, &mut u_union);
+        place_in_union(slots[2], &u_local, &mut u_union);
+        place_in_union(slots[3], &u_local, &mut u_union);
+
+        for gp in 0..N_GAUSS {
+            let strain = smoothed[gp] * u_union;
+            let error = (strain - expected).norm() / expected.norm();
+            assert!(
+                error < 1e-12,
+                "Gauss point {gp}: smoothed strain {strain:?} != {expected:?} (rel {error:.3e})"
             );
         }
     }

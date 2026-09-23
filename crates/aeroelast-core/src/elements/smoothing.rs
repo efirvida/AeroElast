@@ -51,7 +51,7 @@ use nalgebra::{Matrix2, Matrix3, Vector2, Vector3};
 /// (m e m^T)22 = m21^2 e11 + m22^2 e22 + m21 m22 (2 e12)
 /// 2 (m e m^T)12 = 2 m11 m21 e11 + 2 m12 m22 e22 + (m11 m22 + m12 m21)(2 e12)
 /// ```
-fn tensor_operator(m: &Matrix2<f64>) -> Matrix3<f64> {
+pub fn tensor_operator(m: &Matrix2<f64>) -> Matrix3<f64> {
     let (m11, m12) = (m[(0, 0)], m[(0, 1)]);
     let (m21, m22) = (m[(1, 0)], m[(1, 1)]);
     Matrix3::new(
