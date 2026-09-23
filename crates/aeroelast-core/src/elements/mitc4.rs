@@ -740,6 +740,182 @@ fn b_m_mitc4_plus(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 3, 
     t * b_cov
 }
 
+// ============================================================================
+// MITC4/D and MITC4+/D drill-membrane operator
+// ============================================================================
+//
+// Transcribed from Ko, Bathe & Zhang (2025), "Continuum mechanics-based shell
+// elements with six degrees of freedom at each node - the MITC4/D and
+// MITC4+/D elements", Computers and Structures 308:107622. This is the
+// strain contribution driven by the four nodal drill rotations. It is NOT yet
+// wired into any stiffness/force path.
+
+/// Simplified ("curl") derivatives of the four fictitious mid-side shape
+/// functions used by the MITC4/D drill-membrane field.
+///
+/// Ko et al. 2025, Eq. (10) places the fictitious mid-side nodes 5..8 at the
+/// mid-points of the four element edges (Fig. 3(a)):
+///
+///   h5 = 1/2 (1 - s^2)(1 + r)  ->  right  edge (r = +1)
+///   h6 = 1/2 (1 - r^2)(1 + s)  ->  top    edge (s = +1)
+///   h7 = 1/2 (1 - s^2)(1 - r)  ->  left   edge (r = -1)
+///   h8 = 1/2 (1 - r^2)(1 - s)  ->  bottom edge (s = -1)
+///
+/// Their derivatives are simplified (the paper's "curl" approximation) to:
+///
+///   Eq. (11a): [h5,r h6,r h7,r h8,r] = [0, 1/2(-2r)(1+s), 0, 1/2(-2r)(1-s)]
+///   Eq. (11b): [h5,s h6,s h7,s h8,s] = [1/2(-2s)(1+r), 0, 1/2(-2s)(1-r), 0]
+///
+/// i.e. h5,r = 0, h5,s = -s(1+r); h6,r = -r(1+s), h6,s = 0; and so on. The
+/// zero entries are deliberate: keeping only the dominant derivative on each
+/// edge preserves the patch tests without raising the required integration
+/// order (text below Eq. (11b)).
+///
+/// The return order is the paper's [5, 6, 7, 8] = [right, top, left, bottom].
+/// It is NOT the element's geometric edge order [bottom, right, top, left];
+/// the old deleted implementation paired the two and was wrong.
+#[inline(always)]
+fn drill_midside_shape_derivatives(xi: f64, eta: f64) -> [(f64, f64); 4] {
+    let r = xi;
+    let s = eta;
+    [
+        (0.0, -s * (1.0 + r)), // h5: right edge
+        (-r * (1.0 + s), 0.0), // h6: top edge
+        (0.0, -s * (1.0 - r)), // h7: left edge
+        (-r * (1.0 - s), 0.0), // h8: bottom edge
+    ]
+}
+
+/// Drill-membrane strain-displacement operator B_md (3×24) for the MITC4/D
+/// and MITC4+/D elements.
+///
+/// Ko et al. 2025, Eqs. (5), (13b-c), (17a-b), (18), (19a-c) and (21). Returns
+/// the local-frame drill-membrane strain [e_11, e_22, 2 e_12] produced by the
+/// four nodal drill rotations.
+///
+/// Eq. (17a) is the usual displacement-based strain e_ij(theta) =
+/// (1/2)(u_{i,j} + u_{j,i}), already supplied by the standard membrane
+/// B-matrix. This operator implements the assumed-interpolation strain of
+/// Eq. (17b):
+///
+///   e~_ij(theta) = (j0/j) (1/2)(u~_{i,j} + u~_{j,i}),
+///
+/// with j = det[g_r g_s g_t] and j0 = j(0,0,0). Substituting the assumed
+/// mid-side interpolation Eq. (11) into Eq. (17b) gives the components of
+/// Eq. (18) (edge I connects nodes i and i+1):
+///
+///   e~rr = (j0/j) h~_{m,r}^I (theta_{i+1}-theta_i) x_m^I . (-x_r^I × V_D)
+///   e~ss = -(j0/j) h~_{m,s}^I (theta_{i+1}-theta_i) x_m^I . (x_s^I × V_D)
+///   e~rs = (1/2)(j0/j) [ h~_{m,s}^I x_m^I . (-x_r^I × V_D)
+///                      - h~_{m,r}^I x_m^I . (x_s^I × V_D) ] (theta_{i+1}-theta_i)
+///
+/// Element DOF layout (code convention): node i owns DOFs 6i .. 6i+5, the
+/// drill rotation being DOF 6i+5. The paper numbers the corner nodes so that
+/// node 1 = (r,s) = (+1,+1) and then runs counter-clockwise (Eq. (2)), so
+///
+///   paper 1 (+,+) -> code node 2
+///   paper 2 (-,+) -> code node 3
+///   paper 3 (-,-) -> code node 0
+///   paper 4 (+,-) -> code node 1
+///
+/// and the paper's four fictitious mid-side edges (Fig. 3(a)) are
+///
+///   I = 5: right  edge, paper (4,1) -> code (1,2), mid-point ( 1, 0)
+///   I = 6: top    edge, paper (1,2) -> code (2,3), mid-point ( 0, 1)
+///   I = 7: left   edge, paper (2,3) -> code (3,0), mid-point (-1, 0)
+///   I = 8: bottom edge, paper (3,4) -> code (0,1), mid-point ( 0,-1)
+///
+/// Two deviations of the earlier deleted implementation are corrected here and
+/// confirmed against the paper:
+///   (1) Eq. (13c) carries a 1/8 factor: x_m^I = 1/8 (x_i - x_{i+1}) and
+///       ||x_m^I|| = L_I / 8 (page 7). The old code used the full edge vector,
+///       making the drill strain 8x too large.
+///   (2) h5..h8 are ordered [right, top, left, bottom] (Eq. (10), Eq. (11) and
+///       Fig. 3(a)), not [bottom, right, top, left].
+fn b_md_mitc4_plus(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 3, 24> {
+    // Eq. (5): V_D is the unit normal of the flat plane P at the element
+    // centre, V_D = (xr × xs)/||xr × xs|| with xr = g_r(0,0,0) and
+    // xs = g_s(0,0,0).
+    let (x_r0, x_s0) = compute_j3d(&pre.initial_coords_3d, 0.0, 0.0);
+    let normal0 = x_r0.cross(&x_s0);
+    let vd = if normal0.norm() > 1e-14 {
+        normal0.normalize()
+    } else if pre.e3.norm() > 1e-14 {
+        pre.e3.normalize()
+    } else {
+        Vector3::new(0.0, 0.0, 1.0)
+    };
+
+    // Eq. (17b): the drill-membrane strain carries the ratio j0/j, where
+    // j = det[g_r g_s g_t] at the Gauss point and j0 = j(0,0,0). For a shell of
+    // constant thickness this reduces to |g_r × g_s|(0,0) / |g_r × g_s|(r,s).
+    let (g_r, g_s) = compute_j3d(&pre.initial_coords_3d, xi, eta);
+    let j = g_r.cross(&g_s).norm().max(1e-14);
+    let j0 = normal0.norm().max(1e-14);
+    let jac_ratio = j0 / j;
+
+    // Paper's simplified mid-side derivatives, ordered [5, 6, 7, 8].
+    let dh_mid = drill_midside_shape_derivatives(xi, eta);
+
+    // Paper edge -> code node pair (start, end) and edge mid-point (r, s).
+    // The paper's edge I connects paper nodes i and i+1 and contributes with
+    // (theta_{i+1} - theta_i); the mapping above gives the code node pair.
+    let edge_start = [1usize, 2, 3, 0];
+    let edge_end = [2usize, 3, 0, 1];
+    let edge_mid = [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)];
+
+    let mut b_cov = SMatrix::<f64, 3, 24>::zeros();
+
+    for e in 0..4 {
+        let i = edge_start[e];
+        let k = edge_end[e];
+
+        // Eq. (13c): x_m^I = 1/8 (x_i - x_{i+1}), so ||x_m^I|| = L_I / 8.
+        let node_i = Vector3::new(
+            pre.initial_coords_3d[i][0],
+            pre.initial_coords_3d[i][1],
+            pre.initial_coords_3d[i][2],
+        );
+        let node_k = Vector3::new(
+            pre.initial_coords_3d[k][0],
+            pre.initial_coords_3d[k][1],
+            pre.initial_coords_3d[k][2],
+        );
+        let x_m = (node_i - node_k) / 8.0;
+
+        // Eq. (13b): x_r^I = g_r, x_s^I = g_s at the mid-point of edge I.
+        let (xi_e, eta_e) = edge_mid[e];
+        let (x_r_e, x_s_e) = compute_j3d(&pre.initial_coords_3d, xi_e, eta_e);
+
+        // Eq. (19c): c_r^I = x_m · (-x_r^I × V_D), c_s^I = x_m · (x_s^I × V_D).
+        let c_r = x_m.dot(&(-x_r_e.cross(&vd)));
+        let c_s = x_m.dot(&(x_s_e.cross(&vd)));
+
+        let (h_r, h_s) = dh_mid[e];
+
+        // Eq. (18): each edge contributes with (theta_{i+1} - theta_i), so the
+        // coefficient is added with -/+ at the start/end node.
+        let coeff_rr = jac_ratio * h_r * c_r;
+        let coeff_ss = -jac_ratio * h_s * c_s;
+        let coeff_rs = 0.5 * jac_ratio * (h_s * c_r - h_r * c_s);
+
+        b_cov[(0, 6 * i + 5)] -= coeff_rr;
+        b_cov[(0, 6 * k + 5)] += coeff_rr;
+        b_cov[(1, 6 * i + 5)] -= coeff_ss;
+        b_cov[(1, 6 * k + 5)] += coeff_ss;
+        // The third covariant slot stores the engineering shear 2 e_rs.
+        b_cov[(2, 6 * i + 5)] -= 2.0 * coeff_rs;
+        b_cov[(2, 6 * k + 5)] += 2.0 * coeff_rs;
+    }
+
+    // Eq. (21): transform the covariant drill-membrane strain to the local
+    // orthonormal frame using the constant element-centre base vectors
+    // (g_i = g_i(0,0,0), g^i = g^i(0,0,0)).
+    let (j_loc0, _) = compute_j_loc_at(&pre.initial_coords_3d, &pre.e1, &pre.e2, 0.0, 0.0);
+    let t = covariant_to_local_mapping(&j_loc0);
+    t * b_cov
+}
+
 /// Standard membrane B-matrix (3×24) at a GP (for stress recovery, nonlinear)
 fn b_m_standard(dh: &SMatrix<f64, 2, 4>) -> SMatrix<f64, 3, 24> {
     let mut bm = SMatrix::<f64, 3, 24>::zeros();
@@ -2670,6 +2846,224 @@ mod tests {
                  rho*h^3/12*A {expected:.6e} (relative error {error:.3e})"
             );
         }
+    }
+
+    // ========================================================================
+    // MITC4/D and MITC4+/D drill-membrane operator (Eqs. 5, 11, 13c, 18, 19, 21)
+    // ========================================================================
+
+    /// Build a warped (non-planar) quad element for the drill-operator tests.
+    fn make_pre_warped() -> Mitc4Precomputed {
+        let thickness = 0.01_f64;
+        let mat = IsotropicMaterial::new(2.0e11, 0.3, 7800.0);
+        let shell = mat.constitutive(thickness, 5.0 / 6.0);
+        let node_coords: [f64; 12] = [
+            0.0, 0.0, 0.00,
+            1.0, 0.0, 0.08,
+            1.1, 1.0, 0.00,
+            0.0, 0.9, -0.05,
+        ];
+        Mitc4Precomputed::new(&node_coords, shell, thickness, 2.0e11, 1.0)
+    }
+
+    /// Eq. (10) fictitious mid-side functions, ordered [right, top, left, bottom]
+    /// = [h5, h6, h7, h8].
+    fn midside_shape_function(i: usize, r: f64, s: f64) -> f64 {
+        match i {
+            0 => 0.5 * (1.0 - s * s) * (1.0 + r), // h5 right
+            1 => 0.5 * (1.0 - r * r) * (1.0 + s), // h6 top
+            2 => 0.5 * (1.0 - s * s) * (1.0 - r), // h7 left
+            _ => 0.5 * (1.0 - r * r) * (1.0 - s), // h8 bottom
+        }
+    }
+
+    #[test]
+    fn test_drill_midside_derivatives_match_paper_eq11() {
+        // Eq. (11a)/(11b): the simplified derivatives keep exactly one non-zero
+        // component per edge and drop the other. Verify the kept component equals
+        // the exact derivative of the Eq. (10) function and the dropped one is 0.
+        for g in 0..N_GAUSS {
+            let r = GAUSS_XI[g];
+            let s = GAUSS_ETA[g];
+            let dh = drill_midside_shape_derivatives(r, s);
+
+            // Central differences of the Eq. (10) functions (exact for quadratics).
+            let eps = 1.0e-6;
+            let d5_ds = (midside_shape_function(0, r, s + eps)
+                - midside_shape_function(0, r, s - eps))
+                / (2.0 * eps);
+            let d6_dr = (midside_shape_function(1, r + eps, s)
+                - midside_shape_function(1, r - eps, s))
+                / (2.0 * eps);
+            let d7_ds = (midside_shape_function(2, r, s + eps)
+                - midside_shape_function(2, r, s - eps))
+                / (2.0 * eps);
+            let d8_dr = (midside_shape_function(3, r + eps, s)
+                - midside_shape_function(3, r - eps, s))
+                / (2.0 * eps);
+
+            assert!((dh[0].0 - 0.0).abs() < 1e-12, "GP {g}: h5_r must be 0");
+            assert!((dh[0].1 - d5_ds).abs() < 1e-9, "GP {g}: h5_s");
+            assert!((dh[1].0 - d6_dr).abs() < 1e-9, "GP {g}: h6_r");
+            assert!((dh[1].1 - 0.0).abs() < 1e-12, "GP {g}: h6_s must be 0");
+            assert!((dh[2].0 - 0.0).abs() < 1e-12, "GP {g}: h7_r must be 0");
+            assert!((dh[2].1 - d7_ds).abs() < 1e-9, "GP {g}: h7_s");
+            assert!((dh[3].0 - d8_dr).abs() < 1e-9, "GP {g}: h8_r");
+            assert!((dh[3].1 - 0.0).abs() < 1e-12, "GP {g}: h8_s must be 0");
+        }
+
+        // Edge assignment from Fig. 3(a)/Eq. (10): each h_I is non-zero at its
+        // own edge mid-point and vanishes on the opposite edge.
+        assert!(midside_shape_function(0, 1.0, 0.0).abs() > 0.1); // h5 right
+        assert!(midside_shape_function(0, -1.0, 0.0).abs() < 1e-12); // not left
+        assert!(midside_shape_function(1, 0.0, 1.0).abs() > 0.1); // h6 top
+        assert!(midside_shape_function(1, 0.0, -1.0).abs() < 1e-12); // not bottom
+        assert!(midside_shape_function(2, -1.0, 0.0).abs() > 0.1); // h7 left
+        assert!(midside_shape_function(2, 1.0, 0.0).abs() < 1e-12); // not right
+        assert!(midside_shape_function(3, 0.0, -1.0).abs() > 0.1); // h8 bottom
+        assert!(midside_shape_function(3, 0.0, 1.0).abs() < 1e-12); // not top
+    }
+
+    #[test]
+    fn test_drill_membrane_operator_uniform_drill_zero_at_gauss_points() {
+        // A constant drill rotation across all four nodes is the zero-energy
+        // mode the operator must not penalise. Evaluated at the real Gauss
+        // points, where the midside derivatives are non-zero (at the element
+        // centre they all vanish and the check would be vacuous).
+        let pre = make_pre();
+        let theta = 1.0e-3_f64;
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            u[6 * i + 5] = theta;
+        }
+
+        let mut worst = 0.0_f64;
+        for g in 0..N_GAUSS {
+            let bm = b_md_mitc4_plus(&pre, GAUSS_XI[g], GAUSS_ETA[g]);
+            let eps = bm * u;
+            worst = worst.max(eps.norm());
+        }
+        println!("uniform drill: worst |eps| over Gauss points = {worst:.3e}");
+        assert!(
+            worst < 1.0e-13,
+            "uniform drill rotation must not create drill-membrane strain, got {worst:.3e}"
+        );
+    }
+
+    #[test]
+    fn test_drill_membrane_operator_rigid_body_rotation_zero_at_gauss_points() {
+        // A rigid-body rotation omega gives a drill rotation theta_D = omega . V_D
+        // at every node. V_D is a single element vector, so that drill field is
+        // uniform and the operator must return zero at every Gauss point, on a
+        // warped element as well as a flat one.
+        let pre = make_pre_warped();
+        let (x_r0, x_s0) = compute_j3d(&pre.initial_coords_3d, 0.0, 0.0);
+        let vd = x_r0.cross(&x_s0).normalize();
+
+        let omega = Vector3::new(3.0e-3, -2.0e-3, 5.0e-3);
+        let theta_d = omega.dot(&vd);
+
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            u[6 * i + 5] = theta_d;
+        }
+
+        let mut worst = 0.0_f64;
+        for g in 0..N_GAUSS {
+            let bm = b_md_mitc4_plus(&pre, GAUSS_XI[g], GAUSS_ETA[g]);
+            let eps = bm * u;
+            worst = worst.max(eps.norm());
+        }
+        println!("rigid-body rotation: worst |eps| over Gauss points = {worst:.3e}");
+        assert!(
+            worst < 1.0e-13,
+            "rigid-body rotation must not create drill-membrane strain, got {worst:.3e}"
+        );
+    }
+
+    #[test]
+    fn test_drill_membrane_operator_preserves_membrane_patch_test() {
+        // Linear in-plane field u = (a x + b y, c x + d y) on the unit square.
+        // The standard membrane B-matrix reproduces the constant strain
+        // [a, d, b + c] at every Gauss point, and the drill-membrane operator
+        // (with zero drill rotations) must add nothing.
+        let pre = make_pre();
+        let (a, b, c, d) = (1.3e-3, -0.7e-3, 0.4e-3, 2.1e-3);
+
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            let x = pre.local_coords[i][0];
+            let y = pre.local_coords[i][1];
+            u[6 * i] = a * x + b * y;
+            u[6 * i + 1] = c * x + d * y;
+        }
+
+        let expected = Vector3::new(a, d, b + c);
+        for g in 0..N_GAUSS {
+            let gj = &pre.gp_jacobians[g];
+            let eps_std = b_m_standard(&gj.dh) * u;
+            assert!(
+                (eps_std - expected).norm() < 1e-12,
+                "GP {g}: standard membrane patch strain {eps_std:?} != {expected:?}"
+            );
+
+            let eps_d = b_md_mitc4_plus(&pre, GAUSS_XI[g], GAUSS_ETA[g]) * u;
+            println!("patch test GP {g}: |drill eps| = {:.3e}", eps_d.norm());
+            assert!(
+                eps_d.norm() < 1.0e-13,
+                "GP {g}: drill operator disturbed the patch test, got {:.3e}",
+                eps_d.norm()
+            );
+        }
+    }
+
+    #[test]
+    fn test_drill_membrane_operator_nonzero_for_nonuniform_drill() {
+        // Non-uniform drill rotations must produce a non-zero drill-membrane
+        // strain at every Gauss point, so the zero-strain tests cannot pass
+        // vacuously. All four nodal values are distinct.
+        let pre = make_pre();
+        let pattern = [1.0e-3, -0.4e-3, 0.7e-3, -1.2e-3];
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            u[6 * i + 5] = pattern[i];
+        }
+
+        for g in 0..N_GAUSS {
+            let bm = b_md_mitc4_plus(&pre, GAUSS_XI[g], GAUSS_ETA[g]);
+            let eps = bm * u;
+            println!("non-uniform drill GP {g}: |eps| = {:.3e}", eps.norm());
+            assert!(
+                eps.norm() > 1.0e-6,
+                "non-uniform drill rotation should create drill-membrane strain at GP {g}, got {:.3e}",
+                eps.norm()
+            );
+        }
+    }
+
+    #[test]
+    fn test_drill_membrane_operator_sign() {
+        // Sign guard. Unit square, a single non-zero drill rotation theta at code
+        // node 3 = (0,1) = paper node 2. For the unit square the centre
+        // covariant->local map is 4*I, and Eq. (19d) gives the covariant shear
+        // row B_rs = [0, a/16, 0, -a/16] at Gauss point (a, a), a = 1/sqrt(3).
+        // Hence the local engineering shear is 2 e_12 = +a*theta/2.
+        let pre = make_pre();
+        let a = GP;
+        let theta = 1.0_f64;
+        let mut u = Vec24::zeros();
+        u[6 * 3 + 5] = theta;
+
+        let eps = b_md_mitc4_plus(&pre, a, a) * u;
+        let expected = Vector3::new(0.0, 0.0, a * theta / 2.0);
+        println!(
+            "sign GP(a,a): eps = [{:.6e}, {:.6e}, {:.6e}] (expected third {:.6e})",
+            eps[0], eps[1], eps[2], expected[2]
+        );
+        assert!(
+            (eps - expected).norm() < 1e-10,
+            "drill-membrane sign changed: got {eps:?}, expected {expected:?}"
+        );
     }
 
 }
