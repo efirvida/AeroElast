@@ -3,7 +3,9 @@
 Change: `mitc4plusd-faithful` · phase: **apply** · store: openspec (Engram mirror:
 `sdd/mitc4plusd-faithful/apply-progress`).
 
-Work unit: **WU1 — fixtures (tasks 2.1, 2.2, 2.3)**.
+Work units: **WU1 — fixtures (tasks 2.1, 2.2, 2.3)** and **WU2 — element core:
+geometry, coefficients, directors and kinematics (tasks 3.1, 3.2, 3.3, 3.4)**. This
+file is cumulative; the WU1 record is preserved below and the WU2 record follows it.
 
 ## Structured status consumed
 
@@ -131,5 +133,135 @@ module and the `mod.rs` line).
 ## Next
 
 `next_recommended: parent-lifecycle` for WU1's own boundary is not applicable — the
-change has 54 pending tasks. The next implementable unit is **WU2** (task 3.1 module
+change has pending tasks. The next implementable unit is **WU2** (task 3.1 module
 skeleton, then 3.2–3.4), which builds on this fixtures module.
+
+---
+
+## WU2 — element core: geometry, coefficients, directors, kinematics
+
+Work unit: **WU2 (tasks 3.1, 3.2, 3.3, 3.4)**. This section is appended to the WU1
+record above; WU1's bytes are preserved.
+
+### Structured status consumed (WU2)
+
+- Source: native SDD status engine (authoritative, `artifactStore: openspec`).
+- `changeName`: `mitc4plusd-faithful`; `applyState`: `ready`; `nextRecommended`:
+  `apply`.
+- `actionContext.mode`: `repo-local`; `workspaceRoot`:
+  `/home/efirvida/Desktop/dev/fem-shell`; `allowedEditRoots`:
+  `/home/efirvida/Desktop/dev/fem-shell`. All edits stayed inside the workspace and
+  inside WU2's authorized edit roots (`mitc4_plusd.rs`, `tasks.md`, `apply-progress.md`).
+- `taskProgress` at entry: 59 total / 8 completed / 51 pending.
+- Review workload gate: `Decision needed before apply: No`, `Chained PRs recommended:
+  No`, `Chain strategy: size-exception`, `400-line budget risk: High`. The session
+  resolved delivery as **single-pr with an explicitly accepted `size:exception`** and a
+  700-line review budget, so WU2 proceeded.
+
+### Completed tasks (WU2, persisted checkboxes updated in `tasks.md`)
+
+- [x] **3.1** Module skeleton — already satisfied by WU1; the recorded deviation (inline
+  `#[cfg(test)] mod tests`, no separate `mitc4_plusd/tests.rs`) is noted on the task.
+- [x] **3.2** `Mitc4PlusDPrecomputed` struct + constructor + the eight geometry helpers.
+- [x] **3.3** `compute_node_directors` (ADR-4 option B), `vn`/`v1`/`v2`/`a_i`.
+- [x] **3.4** Kinematics interpolation (`interpolate_position`, `interpolate_displacement`).
+
+### Files changed (WU2)
+
+| File | Change |
+| --- | --- |
+| `crates/aeroelast-core/src/elements/mitc4_plusd.rs` | extended: the WU2 production core (geometry, coefficients, directors, kinematics) plus the 5 new tests in the existing inline test module |
+| `openspec/changes/mitc4plusd-faithful/tasks.md` | 3.1–3.4 checked; the 3.1 deviation note added |
+| `openspec/changes/mitc4plusd-faithful/apply-progress.md` | this WU2 section |
+
+Diff stat (`crates/aeroelast-core/src/elements/mitc4_plusd.rs`, tracked):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 1013 +++++++++++++++++++++
+1 file changed, 1013 insertions(+)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**: the hybrid
+is byte-identical. No file outside the authorized set was touched. `elements/mod.rs`
+was not edited (the module was already registered in WU1).
+
+### Verification (WU2)
+
+Command (workspace root is `crates/`):
+
+```text
+cd crates && cargo test -p aeroelast-core
+```
+
+Result: **135 passed / 0 failed** (WU1's 130 + the 5 new WU2 tests).
+`rustfmt --edition 2021 --check` is clean for the file.
+
+### New tests and what each asserts
+
+| Test | Asserts |
+| --- | --- |
+| `test_geometry_flat_rectangle_zero_xd_and_zero_coefficients_eq27_reduces_eq18` | on a flat rectangle `x_d = 0`, `c_r = c_s = 0`, `d = -1`, all five `a_*` zero; Eq. (27a)/(27b) collapse term-by-term onto Eq. (18a)/(18b) and Eq. (27c) onto Eq. (19c) for arbitrary sampled tying strains |
+| `test_geometry_dual_basis_identities_eq11` | Eq. (11) on flat-distorted, ruled-warped and doubly-warped quads: `m^r.x_r = m^s.x_s = 1`, `m^r.x_s = m^s.x_r = 0`, `m^r.n = m^s.n = 0` |
+| `test_geometry_a_E_is_positive_eq27c` | `a_E = +2 c_r c_s / d` (positive sign as printed, p. 410) on the coefficients' own inputs with `c_r c_s > 0`, `d > 0`; the same closed form on a real flat distorted element; the negated (deleted) form rejected by `> 1e-6` relative |
+| `test_geometry_node_directors_reduce_to_n_vec_when_flat` | `V_n^i = n_vec` to `1e-14` for all four nodes on a flat square and a flat distorted quad; `V_1^i`, `V_2^i` orthonormal with a right-handed `(V_1, V_2, V_n)`; non-vacuity: the four directors differ by `> 1e-6` on the warped fixture F-W |
+| `test_kinematics_displacement_field_matches_eq1_to_eq3` | Eq. (1) position at `t = 0, ±1`; the identity `θ x V_n = -V_2 α + V_1 β`; Eq. (3a) `u(t=0)` is the membrane interpolation and `u(t=1)-u(t=0) = ½ Σ a_i h_i (θ_i x V_n^i)`; `θ` parallel to `V_n` produces no director rotation (the 2017 core is blind to the drill component) |
+
+### TDD evidence (WU2, explicit test-first; `strict_tdd: false`)
+
+The 5 tests were written first and observed **RED** (unresolved API: `E0425` on
+`interpolate_displacement`/`interpolate_position`/`Mitc4PlusDPrecomputed::new`). The
+production code was then added and the suite went **GREEN** (135/0). Each test was
+then shown to be able to fail by a deliberate perturbation of the implementation:
+
+| # | Perturbation | Test shown RED | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `x_d` wrong sign pattern in `compute_characteristic_vectors` | `test_geometry_flat_rectangle_...` | `x_d = [-1,0,0]`, expected `0` |
+| 2 | `m_r`/`m_s` swapped in the dual-basis return | `test_geometry_dual_basis_identities_eq11` | `flat-distorted: m^r.x_r = 0` |
+| 3 | `a_e = -2 c_r c_s / d` (the deleted sign) | `test_geometry_a_E_is_positive_eq27c` | `a_E must be positive, got -4.5714...` |
+| 4 | director sub-normal sign alignment flipped | `test_geometry_node_directors_...` | director returned `-n_vec` |
+| 5 | `theta.cross(&vn)` replaced by `theta` in `interpolate_displacement` | `test_kinematics_displacement_field_...` | `u(t=1)-u(t=0) != half the director rotation` |
+| 6 | director term dropped from `interpolate_position` | `test_kinematics_displacement_field_...` | Eq. (1) position mismatch at `t = ±1` |
+
+After restoring every perturbation the suite is **135 passed / 0 failed**.
+
+### Deviations from design (WU2)
+
+1. **3.1 module layout (recorded in the WU1 file header and on the task).** No separate
+   `mitc4_plusd/tests.rs`; the tests live inline, per the repository convention adopted
+   in WU1. The task's verification substring `mitc4_plusd::tests::fixtures` is therefore
+   `mitc4_plusd::tests::`.
+2. **`test_geometry_a_E_is_positive_eq27c` fixture.** The task and design ask for
+   `a_E > 0` "for an element with `c_r c_s > 0`". Since `a_E = +2 c_r c_s / d`, that
+   requires `d > 0`, i.e. `c_r^2 + c_s^2 > 1`, which no convex quad of the repository's
+   fixtures reaches (a brute-force search over convex 2D integer quads found none; it
+   needs an extreme 3D warped distortion). The test therefore exercises the closed form
+   directly on its own inputs (`x_d`, `m_r`, `m_s` with `c_r c_s > 0`, `d > 0`) and
+   re-checks the same closed form on a real flat distorted element, rejecting the
+   negated form both times. The sign error the test exists to catch is fully covered.
+3. **Constructor signature.** `Mitc4PlusDPrecomputed::new(node_coords, constitutive,
+   thickness)` for WU2. The ADR-1 `applied_shear_correction` argument and the stored
+   `cs_uncorrected` are **not** added here; they land in WU4 (task 5.2). This is the
+   design's own slicing, and WU4 owns the call-site updates in this same file.
+4. **WU2 size.** 1013 changed lines vs the design's ~300 forecast, above the ~350
+   per-unit guide and the 700 session budget. Covered by the accepted session
+   `size:exception`; the overrun is the paper/equation doc comments required by the task
+   (every stored quantity and helper) and the 6-perturbation RED evidence. No test, doc
+   or citation was dropped.
+5. **Staged `dead_code` warnings.** Three helpers used only by WU3
+   (`regularized_inverse_2x2`, `covariant_to_local_mapping`, `shear_covariant_to_local`)
+   and the two kinematics helpers (used only by the tests until WU5) warn as "never
+   used" in the lib build. This matches the existing `mitc4.rs`/`quad.rs` state, which
+   already carries such staged-helper warnings; no `#[allow(dead_code)]` was added.
+   `cargo test` is unaffected.
+
+### Remaining tasks (WU2)
+
+All WU2 tasks 3.1–3.4 are complete. WU3 (task 4.1 onwards) is next. The section-2
+unchecked line is unchanged from the WU1 record (task 2.4, deferred to WU4).
+
+### Workload / PR boundary (WU2)
+
+Single PR, accepted `size:exception`. WU2 is a self-contained review slice: it extends
+`mitc4_plusd.rs` with the geometry/coefficient/director/kinematics core and its five
+tests, with a green tree, its own verification, and rollback = delete the WU2 block
+(the WU1 fixtures and `mod.rs` line are untouched).
