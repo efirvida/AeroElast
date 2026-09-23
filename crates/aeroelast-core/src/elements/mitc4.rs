@@ -2547,6 +2547,131 @@ mod tests {
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Mass matrix invariants
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Total translational mass per direction: the sum of the 4x4 sub-block of
+    /// one direction.  For a consistent mass matrix built from a partition of
+    /// unity this equals `rho * h * A` exactly, for every element type.
+    fn translational_mass_per_direction(m: &Mat24) -> [f64; 3] {
+        let mut totals = [0.0; 3];
+        for (d, total) in totals.iter_mut().enumerate() {
+            let mut sum = 0.0;
+            for i in (d..24).step_by(6) {
+                for j in (d..24).step_by(6) {
+                    sum += m[(i, j)];
+                }
+            }
+            *total = sum;
+        }
+        totals
+    }
+
+    /// Total rotary-inertia mass per rotation direction: `rho * h^3 / 12 * A`.
+    fn rotary_mass_per_direction(m: &Mat24) -> [f64; 3] {
+        let mut totals = [0.0; 3];
+        for (k, total) in totals.iter_mut().enumerate() {
+            let mut sum = 0.0;
+            for i in (3 + k..24).step_by(6) {
+                for j in (3 + k..24).step_by(6) {
+                    sum += m[(i, j)];
+                }
+            }
+            *total = sum;
+        }
+        totals
+    }
+
+    #[test]
+    fn test_me_global_is_symmetric_and_positive_semidefinite() {
+        let pre = make_pre();
+        let m = compute_me_global(&pre, 7800.0);
+
+        let asymmetry = (&m - m.transpose()).norm() / m.norm();
+        assert!(
+            asymmetry < 1e-14,
+            "M_global must be symmetric: relative asymmetry = {asymmetry:.3e}"
+        );
+
+        let symmetric_part = (&m + m.transpose()) * 0.5;
+        let eigenvalues = nalgebra::SymmetricEigen::new(symmetric_part).eigenvalues;
+        let lambda_min = eigenvalues.iter().cloned().fold(f64::INFINITY, f64::min);
+        let lambda_max = eigenvalues.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            lambda_min > -1e-12 * lambda_max,
+            "M_global must be positive semi-definite: \
+             lambda_min = {lambda_min:.6e}, lambda_max = {lambda_max:.6e}"
+        );
+    }
+
+    #[test]
+    fn test_me_global_total_translational_mass_is_rho_h_a() {
+        let pre = make_pre();
+        let rho = 7800.0;
+        let m = compute_me_global(&pre, rho);
+        let expected = rho * pre.thickness * pre.element_area;
+
+        for (d, total) in translational_mass_per_direction(&m).iter().enumerate() {
+            let error = (total - expected).abs() / expected;
+            assert!(
+                error < 1e-14,
+                "direction {d}: total mass {total:.6e} != rho*h*A {expected:.6e} \
+                 (relative error {error:.3e})"
+            );
+        }
+    }
+
+    #[test]
+    fn test_me_global_matches_the_exact_bilinear_coefficients() {
+        let pre = make_pre();
+        let rho = 7800.0;
+        let m = compute_me_global(&pre, rho);
+        let mass = rho * pre.thickness * pre.element_area;
+
+        // Bilinear consistent mass on a rectangle (or parallelogram): per
+        // translational direction M_ii = m/9, adjacent M_ij = m/18 and
+        // opposite M_ij = m/36.  The quadrature is exact for these products,
+        // so the tolerance is round-off, not discretisation.
+        let coefficient = |i: i64, j: i64| match (i - j).abs() {
+            0 => 4.0 / 36.0,
+            1 | 3 => 2.0 / 36.0,
+            _ => 1.0 / 36.0,
+        };
+
+        for d in 0..3 {
+            for i in 0..4_i64 {
+                for j in 0..4_i64 {
+                    let expected = coefficient(i, j) * mass;
+                    let actual = m[(6 * i as usize + d, 6 * j as usize + d)];
+                    let error = (actual - expected).abs() / mass;
+                    assert!(
+                        error < 1e-14,
+                        "M[{i},{j}] direction {d}: {actual:.6e} != {expected:.6e} \
+                         (relative error {error:.3e})"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_me_global_rotary_inertia_is_rho_h3_a_over_12() {
+        let pre = make_pre();
+        let rho = 7800.0;
+        let m = compute_me_global(&pre, rho);
+        let expected = rho * pre.thickness.powi(3) / 12.0 * pre.element_area;
+
+        for (k, total) in rotary_mass_per_direction(&m).iter().enumerate() {
+            let error = (total - expected).abs() / expected;
+            assert!(
+                error < 1e-14,
+                "rotation direction {k}: rotary mass {total:.6e} != \
+                 rho*h^3/12*A {expected:.6e} (relative error {error:.3e})"
+            );
+        }
+    }
+
 }
 
 // ============================================================================
