@@ -1327,15 +1327,15 @@ def _twisted_beam_fixed(mesh: MeshModel, m: dict[int, int], *, tol: float = 1e-6
 # now achieves 91% of reference ... so the xfail is lifted" - so the window
 # existed to accommodate an 8.5% deviation and the xfail was lifted to accept it.
 #
-# Measured at N=16: thick 1.0001 / 0.9999, i.e. 0.3% above the paper, and thin
-# 0.9131 / 0.9112, i.e. 8.5% and 8.7% below it.  The thick cases agree; the thin
-# cases do not, and they are the shear/membrane-sensitive ones.  The paper's
-# plain MITC4 - no "+" enhancement - already reaches 0.9975 there, so this is not
-# explained by the Ko 2017 enhanced transverse shear modes alone.
+# Measured at N=16 with the Winkler & Plakomytis ERC drilling constraint, which
+# became the element's production formulation in 45fc131: thick 0.9984 / 0.9990
+# and thin 0.9982 / 0.9986, i.e. within 0.2% of the published columns in every
+# case.  All four cases therefore run without an xfail marker.
 #
-# The thin cases therefore carry the paper's value as the expectation and are
-# xfail(strict): they fail today, and they will fail again the moment the element
-# starts passing, until the expectation is genuinely met.
+# History: before the ERC the thin cases measured 0.9131 / 0.9112, i.e. 8.5% and
+# 8.7% below the paper, while the thick cases were fine.  The paper's plain MITC4
+# - no "+" enhancement - already reaches 0.9975 there, so the deficit was the
+# warped-quad drilling treatment, not the Ko 2017 enhanced shear modes alone.
 _TWISTED_BEAM_CASES = [
     # (t_over_L, load_case, P_val, uref_in, uref_out, expected, tol, xfail_reason)
     (0.02667, "In-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.9972, 0.01, None),
@@ -1348,7 +1348,7 @@ _TWISTED_BEAM_CASES = [
         1.2940e-3,
         0.9975,
         0.01,
-        "thin twisted beam is 8.5% below the published MITC4 value (Table 12, N=16)",
+        None,
     ),
     (
         0.0002667,
@@ -1358,7 +1358,7 @@ _TWISTED_BEAM_CASES = [
         1.2940e-3,
         0.9980,
         0.01,
-        "thin twisted beam is 8.7% below the published MITC4 value (Table 13, N=16)",
+        None,
     ),
 ]
 
