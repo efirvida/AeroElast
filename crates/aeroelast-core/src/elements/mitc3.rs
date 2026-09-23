@@ -513,6 +513,15 @@ fn b_gamma_ext(
 
 pub type Mat3x18 = SMatrix<f64, 3, 18>;
 
+/// The union DOF count of a strain-smoothed element: six nodes times six DOFs.
+pub const SMOOTHED_UNION_DOFS: usize = 6 * SMOOTHED_UNION_NODES;
+
+/// The membrane strain operator of a smoothed element, over the union layout.
+pub type Mat3Union = SMatrix<f64, 3, { SMOOTHED_UNION_DOFS }>;
+
+/// The element stiffness of a smoothed element, over the union layout.
+pub type MatUnion = SMatrix<f64, { SMOOTHED_UNION_DOFS }, { SMOOTHED_UNION_DOFS }>;
+
 fn b_membrane(dh: &Matrix2x3) -> Mat3x18 {
     let mut bm = Mat3x18::zeros();
 
@@ -664,6 +673,107 @@ pub fn compute_ke_local_with_membrane(pre: &Mitc3Precomputed, bm_gp: &[Mat3x18; 
     0.5 * (&k_local + k_local.transpose())
 }
 
+/// The element stiffness over the union DOF layout of a strain-smoothed element.
+///
+/// Rows and columns `0..18` are the target's own DOFs; `18..36` are the unique
+/// node of each of the three edge neighbours, in edge order.  The bending,
+/// transverse shear and drilling terms act only on the target's own DOFs - the
+/// 2019 paper keeps them as they are - while the membrane and the
+/// membrane-bending coupling use the supplied union membrane operators, which is
+/// what couples the target to its neighbours.
+///
+/// With a membrane operator whose first 18 columns are the element's own
+/// `b_membrane` and whose remaining columns are zero, the top-left 18x18 block
+/// reproduces [`compute_ke_local`] exactly.  That is the property the unit test
+/// pins down, and it is what makes this a strict extension of the MITC3+ of Lee,
+/// Lee & Bathe 2014 rather than a replacement.
+pub fn compute_ke_union_smoothed(pre: &Mitc3Precomputed, bm_union: &[Mat3Union; N_GAUSS]) -> MatUnion {
+    const U: usize = SMOOTHED_UNION_DOFS;
+    let area = pre.area;
+    let cm = &pre.constitutive.cm;
+    let cb = &pre.constitutive.cb;
+    let cb_coupling = &pre.constitutive.cb_coupling;
+    let cs = &pre.constitutive.cs;
+    let dh = &pre.dh;
+    let j_inv = &pre.j_inv;
+
+    // --- Drilling stiffness: the target's own DOFs only ---
+    let mut k_drill = Mat18::zeros();
+    for gp in 0..N_GAUSS {
+        let bd = b_drill(GAUSS_R[gp], GAUSS_S[gp], dh);
+        k_drill += (GAUSS_W[gp] * area * pre.k_drill) * (bd.transpose() * &bd);
+    }
+    let mut k_drill_union = MatUnion::zeros();
+    k_drill_union
+        .fixed_view_mut::<18, 18>(0, 0)
+        .copy_from(&k_drill);
+
+    // --- Membrane and coupling over the union; bending and shear on the element ---
+    let mut km = MatUnion::zeros();
+    let mut k_ext = Mat20::zeros();
+    let mut k_mb_ext = SMatrix::<f64, U, 20>::zeros();
+    for gp in 0..N_GAUSS {
+        let r = GAUSS_R[gp];
+        let s = GAUSS_S[gp];
+        let w = GAUSS_W[gp];
+        let bm = &bm_union[gp];
+
+        let bk = b_kappa_ext(r, s, j_inv);
+        let bg = b_gamma_ext(r, s, pre);
+
+        km += (w * area) * (bm.transpose() * cm * bm);
+        k_ext += w * area * (bk.transpose() * cb * &bk + bg.transpose() * cs * &bg);
+        k_mb_ext += (w * area) * (bm.transpose() * cb_coupling * &bk);
+    }
+
+    // The element-only bending and shear block lives in the target's own DOFs.
+    let mut k_uu = MatUnion::zeros();
+    k_uu.fixed_view_mut::<18, 18>(0, 0)
+        .copy_from(&k_ext.fixed_view::<18, 18>(0, 0));
+    let k_uq = k_ext.fixed_view::<18, 2>(0, 18).into_owned();
+    let k_qu = k_ext.fixed_view::<2, 18>(18, 0).into_owned();
+    let k_qq = k_ext.fixed_view::<2, 2>(18, 18).into_owned();
+
+    let k_mb_uu: SMatrix<f64, U, 18> = k_mb_ext.fixed_view::<U, 18>(0, 0).into_owned();
+    let k_mb_uq: SMatrix<f64, U, 2> = k_mb_ext.fixed_view::<U, 2>(0, 18).into_owned();
+
+    // 2x2 inverse of the bubble block (explicit, as in the un-smoothed path).
+    let det_qq = k_qq[(0, 0)] * k_qq[(1, 1)] - k_qq[(0, 1)] * k_qq[(1, 0)];
+    let inv_qq = SMatrix::<f64, 2, 2>::new(
+        k_qq[(1, 1)] / det_qq,
+        -k_qq[(0, 1)] / det_qq,
+        -k_qq[(1, 0)] / det_qq,
+        k_qq[(0, 0)] / det_qq,
+    );
+
+    // The target's own u-q block, then the coupling's.
+    let mut k_uq_union = SMatrix::<f64, U, 2>::zeros();
+    k_uq_union.fixed_view_mut::<18, 2>(0, 0).copy_from(&k_uq);
+    let k_uq_full = k_uq_union + &k_mb_uq;
+    let k_qu_full = k_uq_full.transpose();
+
+    // The coupling's u-u contribution.  In the element's own space it is
+    // `k_mb_uu + k_mb_uu^T`, the two cross terms of the coupling's virtual work.
+    // In the union space those two terms are transposes of each other and land in
+    // different sub-blocks of the same 36x36 matrix: the first spans all union
+    // rows against the target's own columns, the second the target's own rows
+    // against all union columns.
+    let mut coupling_rows = MatUnion::zeros();
+    coupling_rows
+        .fixed_view_mut::<U, 18>(0, 0)
+        .copy_from(&k_mb_uu);
+    let mut coupling_columns = MatUnion::zeros();
+    coupling_columns
+        .fixed_view_mut::<18, U>(0, 0)
+        .copy_from(&k_mb_uu.transpose());
+    let k_mb_sym = coupling_rows + coupling_columns;
+
+    let k_bs_cond = k_uu + k_mb_sym - &k_uq_full * &inv_qq * &k_qu_full;
+    let k_total = km + k_drill_union + k_bs_cond;
+
+    0.5 * (&k_total + k_total.transpose())
+}
+
 /// Compute the 18×18 element stiffness in GLOBAL coordinates.
 pub fn compute_ke_global(pre: &Mitc3Precomputed) -> Mat18 {
     let k_local = compute_ke_local(pre);
@@ -698,7 +808,7 @@ pub fn smoothed_membrane_b(
     entries: &[Option<&Mitc3Precomputed>; 4],
     slots: &[[usize; 3]; 4],
     weights: &[[Matrix3<f64>; 4]; N_GAUSS],
-) -> [SMatrix<f64, 3, { 6 * SMOOTHED_UNION_NODES }>; N_GAUSS] {
+) -> [Mat3Union; N_GAUSS] {
     // Each entry's membrane operator, converted to the target's convected
     // coordinates.  The target's own operator needs no convected transform.
     let mut covariant: [Option<SMatrix<f64, 3, 18>>; 4] = [None, None, None, None];
@@ -722,9 +832,9 @@ pub fn smoothed_membrane_b(
         &target.j_mat.try_inverse().unwrap_or_else(Matrix2::identity),
     );
 
-    let mut out = [SMatrix::<f64, 3, { 6 * SMOOTHED_UNION_NODES }>::zeros(); N_GAUSS];
+    let mut out = [Mat3Union::zeros(); N_GAUSS];
     for gp in 0..N_GAUSS {
-        let mut cov = SMatrix::<f64, 3, { 6 * SMOOTHED_UNION_NODES }>::zeros();
+        let mut cov = Mat3Union::zeros();
         for entry in 0..4 {
             let Some(b_entry) = &covariant[entry] else {
                 continue;
@@ -1741,6 +1851,46 @@ mod tests {
                 u_union[6 * slots[local_node] + dof] = u_local[6 * local_node + dof];
             }
         }
+    }
+
+    #[test]
+    fn the_union_stiffness_reduces_to_the_element_without_neighbours() {
+        // With a membrane operator whose first 18 columns are the element's own
+        // b_membrane and whose remaining columns are zero - exactly what the
+        // boundary rule produces for a triangle with no neighbours - the union
+        // stiffness must reproduce compute_ke_local in its top-left block.  This
+        // is the property that makes the smoothed path a strict extension of the
+        // 2014 MITC3+ rather than a replacement, and it covers the drilling term,
+        // the bubble condensation and the coupling's two cross terms at once.
+        let pre = make_pre();
+        let frames = [triangle_frame(&pre)];
+        let neighbours = [[None, None, None]];
+        let operator = crate::elements::smoothing::smoothed_membrane_strain(&frames, &neighbours);
+        let entries = [Some(&pre), None, None, None];
+        let slots = [[0usize, 1, 2], [3, 4, 5], [3, 4, 5], [3, 4, 5]];
+        let bm_union = smoothed_membrane_b(&pre, &entries, &slots, &operator[0].weights);
+
+        let union = compute_ke_union_smoothed(&pre, &bm_union);
+        let own = compute_ke_local(&pre);
+
+        let top_left = union.fixed_view::<18, 18>(0, 0).into_owned();
+        let difference = (top_left - own).norm() / own.norm();
+        // A relative tolerance: the union path performs the same arithmetic in a
+        // different order and on wider matrices, so the two agree to round-off
+        // rather than bit for bit.  The stiffness norm is of the order of 1e9, so
+        // an absolute threshold here would be measuring nothing.
+        assert!(
+            difference < 1e-12,
+            "the union stiffness must reduce to the element, relative difference = {difference:.3e}"
+        );
+
+        // The unused neighbour slots must stay uncoupled.
+        let coupling = union.fixed_view::<18, 18>(0, 18).into_owned();
+        assert!(
+            coupling.norm() < 1e-12 * own.norm(),
+            "unexpected neighbour coupling = {:.3e}",
+            coupling.norm()
+        );
     }
 
     #[test]
