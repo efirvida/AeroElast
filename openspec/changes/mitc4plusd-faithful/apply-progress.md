@@ -426,3 +426,171 @@ Single PR, accepted `size:exception`. WU3 is one review slice: the four B-operat
 the drill verification, extending `mitc4_plusd.rs` with a green tree, its own
 verification `command` and rollback = revert the WU3 block (WU1/WU2 and `mod.rs` are
 untouched).
+
+---
+
+## WU4 (constitutive half) — the ADR-1 uncorrected transverse-shear mechanism (task 5.4's material half)
+
+Work unit: the **constitutive half of WU4**, deliberately split out. This unit lands only
+the ADR-1 material-side mechanism (`materials/mod.rs`, `materials/laminate.rs`) and its
+own unit tests. The stiffness assembly — `resultant_moment_matrix`, `compute_ke_local` /
+`compute_ke_global`, the drill contribution, the `cs_uncorrected` element wiring and the
+element-level discriminating tests (tasks 5.1–5.3, 5.5–5.8, and task 5.4's own
+verification commands) — is **not** in scope here; it is the next unit. Appended to the
+WU1/WU2/WU3 record above; earlier bytes are preserved.
+
+### Structured status consumed (WU4-constitutive)
+
+- Source: native SDD status engine (authoritative, `artifactStore: openspec`).
+- `changeName`: `mitc4plusd-faithful`; `applyState`: `ready`; `nextRecommended`: `apply`.
+- `actionContext.mode`: `repo-local`; `workspaceRoot`:
+  `/home/efirvida/Desktop/dev/fem-shell`; `allowedEditRoots`:
+  `/home/efirvida/Desktop/dev/fem-shell`. All edits stayed inside the workspace and
+  inside this unit's authorized edit roots (`materials/mod.rs`, `materials/laminate.rs`,
+  `tasks.md`, `apply-progress.md`).
+- `taskProgress` at entry: 59 total / 17 completed / 42 pending. It is **unchanged** on
+  exit: task 5.4's own verification is element-level and stays unchecked; the mechanism
+  is recorded in a note on that task rather than as a completed checkbox.
+- Review workload gate: `Decision needed before apply: No`, `Chained PRs recommended:
+  No`, `Chain strategy: size-exception`, `400-line budget risk: High`. The session
+  resolved delivery as **single-pr with an explicitly accepted `size:exception`** and a
+  700-line review budget, so this unit proceeded.
+
+### What landed (additive only)
+
+- `ShellConstitutive::transverse_shear_uncorrected(&self, applied_k: f64) -> Matrix2<f64>`
+  — returns `cs / applied_k` when `applied_k > 0`, else `cs` unchanged. `ShellConstitutive`
+  keeps **exactly its five fields**; no sixth field was added.
+- `Laminate::applied_shear_correction_factor(&self) -> f64` — returns
+  `shear_correction_factor` for a single-ply laminate, `1.0` for a multi-ply one (the
+  factor `compute_shear_stiffness` actually applied).
+
+This is the same material channel that task 10.1 names; it landed early here because the
+uncorrected-shear mechanism is what task 5.4 is about. A cross-reference note was added
+on task 10.1; its wiring (`MaterialSpec::Composite` field, PyO3 call sites) remains for
+WU9.
+
+### Files changed (WU4-constitutive)
+
+| File | Change |
+| --- | --- |
+| `crates/aeroelast-core/src/materials/mod.rs` | **+126 lines**: the `transverse_shear_uncorrected` accessor (+ doc comment) and a new `#[cfg(test)] mod tests` with 5 tests |
+| `crates/aeroelast-core/src/materials/laminate.rs` | **+42 lines**: the `applied_shear_correction_factor` accessor (+ doc comment) and 1 test in the existing test module |
+| `openspec/changes/mitc4plusd-faithful/tasks.md` | the task 5.4 mechanism note and the task 10.1 cross-reference note |
+| `openspec/changes/mitc4plusd-faithful/apply-progress.md` | this WU4-constitutive section |
+
+Diff stat (the two Rust files):
+
+```text
+crates/aeroelast-core/src/materials/laminate.rs |  42 ++++++++
+crates/aeroelast-core/src/materials/mod.rs      | 126 ++++++++++++++++++++++++
+2 files changed, 168 insertions(+)
+```
+
+`git diff --numstat` reports **168 added / 0 deleted** for both files: every added line is
+new, no pre-existing line was modified or removed. `git diff --stat
+crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical),
+and no file outside the authorized set was touched (`git status --short` shows only the
+two materials files modified plus the pre-existing untracked `.pi/`).
+
+### Verification (WU4-constitutive)
+
+Command (workspace root is `crates/`):
+
+```text
+cd crates && cargo test -p aeroelast-core
+```
+
+Result: **146 passed / 0 failed** (baseline 140 + the 6 new tests). Focused run
+`cargo test -p aeroelast-core materials::` → **18 passed / 0 failed**. `cargo clippy -p
+aeroelast-core --all-targets` reports **no lint on the new lines** (the pre-existing
+`op_ref` lints in the older laminate tests were left untouched). `rustfmt --check` on
+these files is not clean, but **that is pre-existing** (the materials files are not
+rustfmt-formatted at HEAD, e.g. `composite.rs`/`failure.rs`); the new code follows the
+file's existing compact style and the diff stays purely additive — reformatting the whole
+file would have violated the additive-only constraint.
+
+### New tests and what each asserts
+
+| Test | Asserts |
+| --- | --- |
+| `materials::tests::test_transverse_shear_uncorrected_single_isotropic_ply_equals_g_h` | a single isotropic ply's `cs` is exactly `k·G·h` (`≤ 1e-12` rel), the reported applied factor is `k`, and `transverse_shear_uncorrected(k)` recovers the uncorrected `G·h` (`≤ 1e-12` rel) |
+| `materials::tests::test_transverse_shear_uncorrected_isotropic_constitutive_removes_k` | the isotropic `ShellConstitutive` (`cs = k·G·h`) yields `G·h` after removing `k` (`≤ 1e-12` rel) |
+| `materials::tests::test_transverse_shear_uncorrected_multi_ply_is_cs_unchanged` | a multi-ply laminate reports applied factor `1.0` and `transverse_shear_uncorrected(1.0)` equals `cs` unchanged (`≤ 1e-12` rel) — i.e. it does **not** divide by `k` there |
+| `materials::tests::test_transverse_shear_uncorrected_discriminates_naive_multi_ply_division` | the rejected mechanism (c) — divide the multi-ply `cs` by the laminate's scalar `shear_correction_factor` — differs from the correct value by **`> 1e-3` relative** (asserted, so the test cannot pass vacuously) |
+| `materials::tests::test_transverse_shear_uncorrected_nonpositive_factor_returns_cs` | `applied_k = 0` and `applied_k < 0` both return `cs` unchanged, with no division by zero |
+| `materials::laminate::tests::test_applied_shear_correction_factor_single_and_multi_ply` | the accessor returns `shear_correction_factor` (`5/6`) for a single-ply laminate and exactly `1.0` for a three-ply one |
+
+### TDD evidence (explicit test-first; `strict_tdd: false`)
+
+**RED (all six).** The tests were written first, against accessors that did not exist.
+`cd crates && cargo test -p aeroelast-core materials::` failed to compile with **12
+errors**, every one of the form:
+
+```text
+error[E0599]: no method named `applied_shear_correction_factor` found for struct `laminate::Laminate`
+error[E0599]: no method named `transverse_shear_uncorrected` found for struct `ShellConstitutive`
+```
+
+The two accessors were then added and the suite went **GREEN** (146/0). Each test was
+afterwards shown to fail for a deliberately wrong implementation; restoring the file
+returns 146/0.
+
+| # | Perturbation | Tests shown RED | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `applied_shear_correction_factor` returns `self.shear_correction_factor` always (the unsound mechanism) | `test_applied_shear_correction_factor_single_and_multi_ply`; `test_transverse_shear_uncorrected_multi_ply_is_cs_unchanged`; `test_transverse_shear_uncorrected_discriminates_naive_multi_ply_division` | multi-ply returned `0.8333…` vs `1.0` (×2); the discriminator's `rel = 0` (`> 1e-3` failed), proving the discriminator catches the unsound mechanism |
+| 2 | `transverse_shear_uncorrected` divides unconditionally (drops the `applied_k > 0` guard) | `test_transverse_shear_uncorrected_nonpositive_factor_returns_cs` | `left: [[inf, NaN], [NaN, inf]]` vs `cs` — the divide-by-zero is caught |
+| 3 | `transverse_shear_uncorrected` multiplies by `applied_k` instead of dividing | `test_transverse_shear_uncorrected_single_isotropic_ply_equals_g_h`; `test_transverse_shear_uncorrected_isotropic_constitutive_removes_k` | uncorrected returned `k²·G·h` instead of `G·h` |
+
+### Preserved-laminate invariant (hard user constraint)
+
+- **Additive proof.** `git diff --numstat` for `materials/mod.rs` + `materials/laminate.rs`
+is `168  0` (and `168  0` per file): no pre-existing line was changed or removed. The two
+accessors are new `pub` methods; `ShellConstitutive`'s five fields, `Laminate`'s fields and
+`compute_shear_stiffness` are untouched.
+- **Existing tests unchanged and passing.** The 7 pre-existing laminate tests
+(`test_laminate_symmetric`, `test_laminate_to_shell_constitutive`, `test_z_offset_zero`,
+`test_z_offset_transforms_b_d`, `test_asymmetric_laminate_has_nonzero_b`, plus the
+`materials::failure` set) are part of the 146/0 run with their original assertions and
+no edit to any expectation or tolerance. `git diff` contains no modification to them.
+- **No other material file touched.** `orthotropic.rs`, `composite.rs`, `failure.rs`,
+`isotropic.rs` are byte-identical.
+
+### Deviations from design (WU4-constitutive)
+
+1. **Scope split (user-directed, recorded).** The material-side mechanism is nominally
+task 10.1's code; it was requested here as "task 5.4's mechanism" and landed early. This
+is not a design deviation — the mechanism is exactly ADR-1's chosen accessors — only a
+sequencing note, and it is cross-referenced on both tasks 5.4 and 10.1.
+2. **No design deviation in the accessor bodies.** `transverse_shear_uncorrected` is
+byte-for-byte the ADR-1 snippet (`if applied_k > 0.0 { self.cs / applied_k } else {
+self.cs }`), and `applied_shear_correction_factor` is the ADR-1 snippet verbatim.
+3. **`rustfmt` not applied to the files** (see Verification): pre-existing non-clean
+state; applying it would break the additive-only diff. No line of new code depends on it.
+
+### Remaining tasks (WU4-constitutive)
+
+The next implementable unit is the **stiffness assembly** (tasks 5.1–5.3, 5.5–5.8 and the
+element-level half of 5.4). The exact remaining unchecked lines of section 5:
+
+```text
+- [ ] **5.1 `resultant_moment_matrix`** … <!-- sdd-owner: implementation -->
+- [ ] **5.2 `compute_ke_local` / `compute_ke_global` + the drill contribution + the `cs_uncorrected` wiring + the test-local reference implementation.** … <!-- sdd-owner: implementation -->
+- [ ] **5.3 Drill stiffness provenance.** … <!-- sdd-owner: implementation -->
+- [ ] **5.4 Uncorrected transverse shear — the discriminating test.** … <!-- sdd-owner: implementation -->
+  - **Mechanism done (constitutive half, this unit); element-level tests deferred to the assembly unit.** …
+- [ ] **5.5 Integration rule.** … <!-- sdd-owner: implementation -->
+- [ ] **5.6 Local matrix shapes.** … <!-- sdd-owner: implementation -->
+- [ ] **5.7 Drill-DOF energy behaviour.** … <!-- sdd-owner: implementation -->
+- [ ] **5.8 Mid-surface restriction (ADR-6 / G7).** … <!-- sdd-owner: implementation -->
+```
+
+(The lines are elided with `…` for readability; the full text is in `tasks.md` at section
+5, and each line's bytes are unchanged apart from the note appended under 5.4.) Task 2.4
+remains the recorded WU4 deferral. Sections 6–13 remain pending.
+
+### Workload / PR boundary (WU4-constitutive)
+
+Single PR, accepted `size:exception`. This unit is one small, self-contained review slice:
+168 additive lines across the two material files, a green tree, its own verification and
+rollback = revert the two accessors and their tests (the WU1–WU3 bytes are untouched).

@@ -205,6 +205,21 @@ impl Laminate {
         self.to_shell_constitutive_with_offset(0.0)
     }
 
+    /// The scalar correction `compute_shear_stiffness` actually applied to `cs`.
+    ///
+    /// `shear_correction_factor` on the single-ply branch, which builds
+    /// `cs = k·G·h`; `1.0` on the multi-ply energy-equivalence branch, which
+    /// builds the section stiffness with no scalar factor (the scalar survives
+    /// only in that branch's degenerate fallbacks). This is the factor a caller
+    /// such as `ShellConstitutive::transverse_shear_uncorrected` must remove, so
+    /// the multi-ply `cs` passes through verbatim.
+    ///
+    /// Additive: the public behaviour and every numerical result of `Laminate`
+    /// are unchanged.
+    pub fn applied_shear_correction_factor(&self) -> f64 {
+        if self.plies.len() == 1 { self.shear_correction_factor } else { 1.0 }
+    }
+
     /// Build a `ShellConstitutive` with reference surface offset.
     ///
     /// When the reference surface is offset from the laminate midsurface by `z_offset`:
@@ -359,5 +374,32 @@ mod tests {
         assert!(!lam.is_symmetric(), "asymmetric laminate should have B ≠ 0");
         let shell = lam.to_shell_constitutive();
         assert!(shell.cb_coupling.norm() > 1e-6, "B matrix should be non-zero for asymmetric laminate");
+    }
+
+    #[test]
+    fn test_applied_shear_correction_factor_single_and_multi_ply() {
+        let mat = OrthotropicMaterial::new(
+            1.0e11, 1.0e10, 1.0e10,
+            5.0e9, 5.0e9, 5.0e9,
+            0.3, 0.3, 0.3,
+            1600.0,
+        );
+        let k = 5.0 / 6.0;
+
+        // Single ply: `compute_shear_stiffness` applied the scalar `k`.
+        let single = Laminate::new(vec![Ply::new(mat, 0.002, 0.0)], k).unwrap();
+        assert_eq!(single.applied_shear_correction_factor(), k);
+
+        // Multi-ply: the energy-equivalence branch applied no scalar factor.
+        let multi = Laminate::new(
+            vec![
+                Ply::new(mat, 0.002, 0.0),
+                Ply::new(mat, 0.002, 90.0),
+                Ply::new(mat, 0.002, 0.0),
+            ],
+            k,
+        )
+        .unwrap();
+        assert_eq!(multi.applied_shear_correction_factor(), 1.0);
     }
 }
