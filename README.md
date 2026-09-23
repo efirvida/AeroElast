@@ -271,59 +271,20 @@ in the corresponding package metadata.
 
 ### Scientific references
 
+The canonical bibliography for this repository is
+[docs/references.md](docs/references.md). It lists the shell element
+formulations, the constitutive and failure models, the time-integration and
+finite element references, the partitioned FSI coupling and BEM aerodynamics
+references, and the third-party software this project builds on, with full
+author lists and a DOI wherever one could be verified.
+
 The formulation implemented in this repository is documented in
-[docs/FSI_ROTOR_PAPER_DRAFT.md](docs/FSI_ROTOR_PAPER_DRAFT.md) and builds on
-the following key works:
-
-- Bathe, K.J., *Finite Element Procedures*, 2nd ed., Prentice Hall, 2014.
-- Bucalem, M.L., Bathe, K.J., "Higher-order MITC general shell elements,"
-  *Int. J. Numer. Meth. Eng.*, 36(21):3729–3754, 1993.
-- Crisfield, M.A., *Non-linear Finite Element Analysis of Solids and
-  Structures*, Vol. 2, Wiley, 1997.
-- Géradin, M., Rixen, D., *Mechanical Vibrations: Theory and Application to
-  Structural Dynamics*, 3rd ed., Wiley, 2015.
-- Goldstein, H., Poole, C., Safko, J., *Classical Mechanics*, 3rd ed.,
-  Addison Wesley, 2002.
-- Bungartz, H.J., et al., "preCICE – A fully parallel library for multi-physics
-  surface coupling," *Computers & Fluids*, 141:250–258, 2016.
-- Küttler, U., Wall, W.A., "Fixed-point fluid–structure interaction solvers
-  with dynamic relaxation," *Comput. Mech.*, 43(1):61–72, 2008.
-- Degroote, J., Bathe, K.J., Vierendeels, J., "Performance of a new partitioned
-  procedure versus a monolithic procedure in fluid–structure interaction,"
-  *Computers & Structures*, 87(11–12):793–801, 2009.
-- Ning, S.A., "A simple solution method for the blade element momentum
-  equations with guaranteed convergence," *Wind Energy*, 17(9):1327–1345, 2014.
-- Moriarty, P.J., Hansen, A.C., *AeroDyn Theory Manual*, NREL/TP-500-36881, 2005.
-- Jonkman, J., Butterfield, S., Musial, W., Scott, G., *Definition of a 5-MW
-  Reference Wind Turbine for Offshore System Development*, NREL/TP-500-38060, 2009.
-
-### Element formulation references
-
-The MITC3/MITC4 shell element formulations implemented in this repository
-follow these publications:
-
-- Ko, Y., Lee, P.-S., "A new MITC4+ shell element," *Computers & Structures*,
-  182:404–418, 2017.
-- Ko, Y., Lee, P.-S., Bathe, K.J., "Performance of the MITC3+ and MITC4+ shell
-  elements in widely-used benchmark problems," *Computers & Structures*,
-  193:187–206, 2017.
-- Jeon, H.-M., Lee, Y., Lee, P.-S., "The MITC3+ shell element in geometric
-  nonlinear analysis," *Computers & Structures*, 146:91–104, 2015.
-- Ko, Y., Lee, P.-S., "The MITC4+ shell element in geometric nonlinear
-  analysis," *Computers & Structures*, 185:1–14, 2017.
-- A comparative formulation of DKMQ, DSQ and MITC4 quadrilateral plate elements
-  with new numerical results based on s-norm tests, *Computers & Structures*,
-  204:48–64, 2018.
-- Towards improving the 2D-MITC4 element for analysis of plane stress and
-  strain problems, *Computers & Structures*, 275:106933, 2023.
-- Cui, X., Peng, G., Ran, Q., Zhang, H., Li, S., "Derivation and implementation
-  of one-point quadrature quadrilateral shell element with MITC4+ method
-  (MITC4+R)," *Computers & Structures*, 291:107207, 2024.
-- Continuum mechanics-based shell elements with six degrees of freedom at each
-  node, *Computers & Structures*, 308:107622, 2025.
-
-The reference PDFs used during development were removed from the repository;
-the citations above are the canonical sources.
+[docs/FSI_ROTOR_PAPER_DRAFT.md](docs/FSI_ROTOR_PAPER_DRAFT.md). The reference
+PDFs used during development now live in the gitignored `.sources/papers/`
+directory: they had been removed from the working tree but were still in git
+history, and they have been recovered. `docs/references.md` maps the
+publications it lists to those recovered files and marks every field that still
+needs verification.
 
 ## Validation Summary
 
