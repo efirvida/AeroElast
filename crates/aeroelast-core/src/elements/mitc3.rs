@@ -314,7 +314,8 @@ impl Mitc3Precomputed {
         // splitting), the material must be rotated to avoid a frame mismatch.
         let constitutive = rotate_constitutive_to_local(constitutive, &e1, &e3);
 
-        // Drilling stiffness
+        // Drilling stiffness. No source is established for the 0.15 factor;
+        // it is the same uncited penalty as in mitc4.rs.
         let k_drill = e_modulus * thickness * thickness * 0.15 * drilling_scale;
 
         // Precompute tying point shear evaluations (extended space)
@@ -552,6 +553,9 @@ fn b_membrane(dh: &Matrix2x3) -> Mat3x18 {
 
 type RowVec18 = SMatrix<f64, 1, 18>;
 
+/// Drilling B-row (1×18): gamma = (dv/dx - du/dy)/2 - theta_z.
+/// No source is cited here; `mitc4.rs::b_drill` applies the same operator with an
+/// unverified "Hughes & Brezzi" attribution (see docs/references.md §1).
 fn b_drill(r: f64, s: f64, dh: &Matrix2x3) -> RowVec18 {
     let h = shape_functions(r, s);
     let mut bd = RowVec18::zeros();
@@ -1059,6 +1063,9 @@ fn t18(t3: &Matrix3<f64>) -> Mat18 {
 // ============================================================================
 // Nonlinear: Displacement gradient, Green-Lagrange strain
 // ============================================================================
+// Uncited: Cartesian total-Lagrangian formulation with the CST field. Jeon, Lee,
+// Lee & Bathe (2015), C&S 146:91-104, is the MITC3+ nonlinear paper, but it uses
+// MITC-interpolated covariant strains, so no source is confirmed for this path.
 
 /// Compute displacement gradient H = ∂u/∂X at centroid.
 ///

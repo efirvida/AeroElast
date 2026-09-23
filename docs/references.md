@@ -101,6 +101,20 @@ cites nor implements were removed.
   *Verified against `.sources/papers/1-s2.0-S0045794924003511-main.pdf` (authors: Yeongbin Ko, Klaus-Jürgen Bathe, Xinwei Zhang; DOI printed as `https://doi.org/10.1016/j.compstruc.2024.107622`). `.sources/papers/MITC_D_elements_published.pdf` is a scanned copy of the same paper with no text layer, so nothing can be read from it; it is a duplicate of the file above. The README entry carried a title only.*
   *Cited by the code: `crates/aeroelast-core/src/elements/mitc3.rs:393`.*
 
+- Hughes, T.J.R., Brezzi, F., "On drilling degrees of freedom", *Computer
+  Methods in Applied Mechanics and Engineering*, 72(1):105–121, 1989.
+  DOI: to verify.
+  *Identified from the reference list of the held copy of Ko, Bathe & Zhang 2025
+  (`.sources/papers/1-s2.0-S0045794924003511-main.pdf`, item [13]), which cites it
+  for the drilling degrees of freedom. The Hughes–Brezzi paper itself is **not**
+  held, so this identification is second-hand and the DOI could not be read. The
+  code names the pair with no work at all: `/// Drilling B-vector (Hughes &
+  Brezzi, 1×24)` (`mitc4.rs:1085`) and `// Priority 3: Enhanced Drill Rotation
+  (Hughes-Brezzi with variable penalty)` (`mitc4.rs:3335`). The `0.15` penalty
+  factor used with that operator is attributed to nothing, in either element.*
+  *Cited by the code: `crates/aeroelast-core/src/elements/mitc4.rs:1085`,
+  `crates/aeroelast-core/src/elements/mitc4.rs:3335`.*
+
 ## 2. Constitutive and failure models
 
 - Reddy, J.N., *Mechanics of Laminated Composite Plates and Shells: Theory and
@@ -152,6 +166,43 @@ cites nor implements were removed.
   *Source: repository citation (README, `docs/FSI_ROTOR_PAPER_DRAFT.md:637`, `docs/teoria_formulacion_fsi_rotor.md:855`). A classical mechanics text rather than a finite element reference; it is listed here because it is the reference for the non-inertial (rotating) frame treatment used in the rotor FSI formulation, and it fits no other group.*
   *Source of an implemented feature; the code does not cite it (see the audit).*
 
+- Cook, R.D., Malkus, D.S., Plesha, M.E., Witt, R.J., *Concepts and Applications
+  of Finite Element Analysis*, 4th ed., 2002. DOI: to verify.
+  *Source: repository citation — `src/aeroelast/postprocess/stress_recovery.py:53-55`
+  gives the author list, the title and the edition; the publisher is not given and
+  the work is not held. Also cited as "Cook et al. 'Concepts and Applications of
+  Finite Element Analysis'" at `tests/test_shell_comprehensive.py:15`.*
+  *Cited by the code: `src/aeroelast/postprocess/stress_recovery.py:53`,
+  `tests/test_shell_comprehensive.py:15`.*
+
+- Hinton, E., Campbell, J.S., "Local and Global Smoothing of Discontinuous Finite
+  Element Functions Using a Least Squares Method", *International Journal for
+  Numerical Methods in Engineering*, 8:461–480, 1974. DOI: to verify.
+  *Source: repository citation — `src/aeroelast/postprocess/stress_recovery.py:57-59`
+  gives authors, title, journal, volume and pages (no issue number); it is not
+  re-verified against a held copy. It grounds the Gauss-to-node extrapolation in
+  the stress recovery.*
+  *Cited by the code: `src/aeroelast/postprocess/stress_recovery.py:57`.*
+
+- Zienkiewicz, O.C., Zhu, J.Z., "The Superconvergent Patch Recovery and a
+  posteriori error estimates", *International Journal for Numerical Methods in
+  Engineering*, 33:1331–1364, 1992. DOI: to verify.
+  *Source: repository citation — `src/aeroelast/postprocess/stress_recovery.py:60-63`
+  gives authors, title, journal, volume and pages; it is not re-verified against a
+  held copy. It is named as the theoretical basis for the nodal stress smoothing.*
+  *Cited by the code: `src/aeroelast/postprocess/stress_recovery.py:60`.*
+
+- Knight, N.F., "Raasch challenge for shell elements", *AIAA Journal*,
+  35(2):375–381, 1997. DOI: to verify.
+  *Read from the reference list of two held copies, `.sources/papers/1-s2.0-S0045794917309550-main.pdf`
+  item [30] and `.sources/papers/mitc4+_no_lineal.pdf.pdf` item [36]; the paper
+  itself is not held, so the DOI could not be read. The code cites it as
+  "Knight (1997)" alone (`src/aeroelast/core/mesh/generators.py:2010,2023`,
+  `tests/test_ko2017_performance.py:1455`), for the Raasch hook geometry and its
+  benchmark parameters.*
+  *Cited by the code: `src/aeroelast/core/mesh/generators.py:2010`,
+  `tests/test_ko2017_performance.py:1455`.*
+
 ## 4. Software and vendored code
 
 Software is identified by upstream URL and licence; DOIs do not apply.
@@ -185,3 +236,55 @@ Software is identified by upstream URL and licence; DOIs do not apply.
 - **NeuralFoil**, Apache-2.0 — neural-network airfoil aerodynamics.
   Upstream: <https://github.com/peterdsharples/NeuralFoil>
   *Used by the code: `src/aeroelast/models/blade/aerodynamics.py:316`.*
+
+## 5. Verification benchmarks and manuals
+
+These are not journal articles; DOIs do not apply. Neither manual or report is
+held, so the section and report numbers below are repository assertions.
+
+- **NAFEMS** benchmark reports — cited by report number only: "NAFEMS R7191,
+  R7301 (linear benchmarks)" and "NAFEMS R0024 (nonlinear benchmarks)". NAFEMS
+  is the organisation that publishes the benchmark reports.
+  *Cited by the code: `tests/test_shell_comprehensive.py:11` ("NAFEMS benchmarks
+  (linear and nonlinear)"), `tests/test_shell_comprehensive.py:82-83`. The code
+  gives no report titles and none is held, so no title is asserted here.*
+
+- **Abaqus** (Dassault Systèmes Simulia) — *Abaqus Theory Guide* 2016, §3.6.x
+  (S4R composite shell), and the *ABAQUS Verification Manual*. Proprietary; DOIs
+  do not apply.
+  *Cited by the code: `tests/test_shell_comprehensive.py:12,84` ("ABAQUS
+  verification manual"), `tests/test_shell_analytical_validation.py:9` ("Abaqus
+  Theory Guide 2016, Section 3.6.x"), `crates/aeroelast-core/src/elements/mitc4.rs:95`
+  ("S4R-style enhancements (Abaqus formulation)") and
+  `docs/s4r_composite_shell_formulation.md:3` (Theory Guide 2016 §3.6.1, §3.6.5,
+  §3.6.8). Neither manual is held.*
+
+## 6. Aerodynamics and post-stall extrapolation
+
+- Viterna, Corrigan (1981) — the post-stall polar extrapolation. **Attribution
+  incomplete:** the code gives the author surnames, the year and the equation
+  only — `# Viterna & Corrigan (1981) eq. 8: Cd_max = 1.11 + 0.018·AR` — with no
+  title, venue, volume or pages, and no copy is held, so those are not asserted
+  here. DOI: to verify.
+  *Cited by the code: `src/aeroelast/models/blade/aerodynamics.py:209` (the brief
+  named `src/aeroelast/constitutive/aerodynamics.py:209`; that path does not exist
+  in this tree).*
+
+## 7. Gap list
+
+Entries here are **not** bibliography entries. They are sources the code cites
+that must not be added, or citations that must be resolved before an entry can be
+written.
+
+- **ANSYS MAPDL Theory Reference** — cited at `src/aeroelast/solvers/fsi/rotor.py`
+  ("cf. ANSYS MAPDL Theory Reference, Eq. 14-57, §14.4.1"; also lines 24, 77, 84,
+  221, 234, 263, 287) and
+  `crates/aeroelast-solvers/src/petsc/fsi/rotor_physics.rs:432` ("ANSYS Eq. 3-74 /
+  14-55"), for the gyroscopic matrix, spin softening and the rotating-frame
+  equation of motion. **Status: to be replaced.** The manual is proprietary and is
+  not a verifiable source, and the user's decision is to replace it with the
+  original source rather than add it here. The likely original for the gyroscopic
+  and rotating-frame terms is Géradin & Rixen (already an entry in §3), with
+  Goldstein, Poole & Safko for the non-inertial frame treatment. **The replacement
+  must be verified against the original before it is made**, and none of the ANSYS
+  equation numbers may be carried over unverified.

@@ -562,6 +562,8 @@ impl Mitc4Precomputed {
         let b_ss_d = compute_covariant_membrane_b_row(&coords_3d, &e1, &e2, &e3,-1.0,  0.0, 1);
         let b_rs_e = compute_covariant_membrane_b_row(&coords_3d, &e1, &e2, &e3, 0.0,  0.0, 2);
 
+        // Drilling penalty 0.15 * E * h^2 (x drilling_scale). No source is
+        // established for the 0.15 factor; no held paper contains it.
         let k_drill = e_mod * thickness * thickness * 0.15 * drilling_scale;
 
         // Compute element area from Gauss point areas
@@ -1082,7 +1084,9 @@ fn b_gamma_mitc4_plus(
     (bs_nodal, bs_bubble)
 }
 
-/// Drilling B-vector (Hughes & Brezzi, 1×24)
+/// Drilling B-vector (1×24): gamma = (dv/dx - du/dy)/2 - theta_z.
+/// Attributed in the code to "Hughes & Brezzi" - most likely Hughes & Brezzi
+/// (1989), "On drilling degrees of freedom", CMAME 72(1):105-121, not held.
 fn b_drill(dh: &SMatrix<f64, 2, 4>, n_vals: &[f64; 4]) -> Vec24 {
     let mut bd = Vec24::zeros();
     for i in 0..4 {
@@ -3332,7 +3336,9 @@ impl Mitc4Precomputed {
 }
 
 // ============================================================================
-// Priority 3: Enhanced Drill Rotation (Hughes-Brezzi with variable penalty)
+// Priority 3: Enhanced Drill Rotation ("Hughes-Brezzi" with variable penalty).
+// Same incomplete attribution as `b_drill`: no work is named and the variable
+// penalty factor (0.1-0.2 below) has no source.
 // ============================================================================
 
 impl Mitc4Precomputed {

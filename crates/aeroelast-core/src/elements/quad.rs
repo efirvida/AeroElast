@@ -3,6 +3,10 @@
 // Implements QUAD4, QUAD8, and QUAD9 isoparametric elements for plane
 // elasticity (plane strain formulation matching the Python reference).
 //
+// Citation gap: no literature source is cited for these elements. They are
+// checked only against the removed Python reference ("matches Python"), which is
+// circular; no paper for QUAD4/QUAD8/QUAD9 plane elasticity is held.
+//
 // Formulation:
 //   K = ∫ Bᵀ·C·B dΩ
 //   M = ∫ ρ·Nᵀ·N dΩ
