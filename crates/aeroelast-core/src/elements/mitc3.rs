@@ -1633,7 +1633,10 @@ mod tests {
         let symmetric_part = (&m + m.transpose()) * 0.5;
         let eigenvalues = nalgebra::SymmetricEigen::new(symmetric_part).eigenvalues;
         let lambda_min = eigenvalues.iter().cloned().fold(f64::INFINITY, f64::min);
-        let lambda_max = eigenvalues.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let lambda_max = eigenvalues
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
         assert!(
             lambda_min > -1e-12 * lambda_max,
             "M_global must be positive semi-definite: \
@@ -1728,7 +1731,11 @@ mod tests {
     }
 
     /// Scatter an entry's local displacements into the union layout.
-    fn place_in_union(slots: [usize; 3], u_local: &Vec18, u_union: &mut SMatrix<f64, { 6 * SMOOTHED_UNION_NODES }, 1>) {
+    fn place_in_union(
+        slots: [usize; 3],
+        u_local: &Vec18,
+        u_union: &mut SMatrix<f64, { 6 * SMOOTHED_UNION_NODES }, 1>,
+    ) {
         for local_node in 0..3 {
             for dof in 0..6 {
                 u_union[6 * slots[local_node] + dof] = u_local[6 * local_node + dof];
@@ -1819,5 +1826,4 @@ mod tests {
             );
         }
     }
-
 }
