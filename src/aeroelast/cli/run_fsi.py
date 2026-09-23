@@ -83,12 +83,12 @@ mesh:
 material:
   type: "isotropic"  # "isotropic" or "orthotropic"
   name: "Steel"
-  
+
   # Isotropic material properties
   E: 4.0e6       # Young's modulus [Pa]
   nu: 0.3        # Poisson's ratio [-]
   rho: 3000.0    # Density [kg/m³]
-  
+
   # Orthotropic properties (uncomment if type: "orthotropic")
   # E: [E1, E2, E3]        # Young's modulus in 3 directions
   # G: [G12, G23, G31]     # Shear modulus in 3 planes
@@ -108,21 +108,21 @@ solver:
   # Solver type: "LinearStatic", "LinearDynamic", "LinearDynamicFSI",
   #              "LinearDynamicFSIRotor", or "Modal"
   type: "LinearDynamicFSI"
-  
+
   # Time parameters
   total_time: 5.0    # Total simulation time [s]
   time_step: 0.001   # Time step size [s]
-  
+
   # Newmark-β integration parameters (optional)
   newmark:
     beta: 0.25   # Newmark beta (0.25 = constant average acceleration)
     gamma: 0.5   # Newmark gamma (0.5 = no numerical damping)
-  
+
   # Rayleigh damping parameters (optional)
   damping:
     eta_m: 1.0e-4  # Mass proportional damping
     eta_k: 1.0e-4  # Stiffness proportional damping
-  
+
   # Advanced options
   use_critical_dt: false  # Auto-calculate critical time step
   safety_factor: 0.8      # Safety factor for critical dt
@@ -177,19 +177,19 @@ coupling:
   participant: "Solid"                    # preCICE participant name
   config_file: "../precice-config.xml"    # Path to preCICE config (relative to this file)
   coupling_mesh: "Solid-Mesh"             # Name of coupling mesh in preCICE config
-  
+
   # Data exchange (can be lists for multiple fields)
   write_data:
     - "Displacement"      # Data to write to preCICE
   read_data:
     - "Force"             # Data to read from preCICE
-  
+
   # Coupling boundaries (from mesh node sets)
   boundaries:
     - "left"
     - "top"
     - "right"
-  
+
   # Force limiting (optional, for stability)
   # force_max_cap: 1.0e6       # Maximum force per node [N]
   # force_ramp_time: 0.01      # Ramp time for force application [s]
@@ -200,19 +200,19 @@ coupling:
 output:
   folder: "results"         # Output folder for checkpoints
   write_interval: 0.1       # Checkpoint interval [s] (0 = disabled)
-  
+
   # Restart configuration (OpenFOAM-style)
   start_from: "startTime"   # "startTime" or "latestTime"
   start_time: 0.0           # Initial time if start_from="startTime"
-  
+
   # Deformed mesh output
   save_deformed_mesh: true  # Save deformed mesh at checkpoints
   deformed_mesh_scale: 1.0  # Scale factor for displacements
-  
+
   # VTK output
   write_vtk: true
   vtk_file: "mesh.vtk"
-  
+
   # Initial state
   write_initial_state: true  # Write t=0 state
 
@@ -222,7 +222,7 @@ output:
 postprocess:
   # preCICE watchpoint file for plotting
   watchpoint_file: "precice-Solid-watchpoint-Flap-Tip.log"
-  
+
   # Automatic plot generation
   plots:
     displacement: "displacement.png"
@@ -508,7 +508,7 @@ Examples:
             runner.visualize()
             return 0
         except Exception as e:
-            logging.error(f"Visualization failed: {e}")
+            logging.error("Visualization failed: %s", e)
             return 1
 
     # Validate only

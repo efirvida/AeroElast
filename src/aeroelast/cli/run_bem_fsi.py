@@ -346,7 +346,7 @@ def main(argv=None) -> int:
         participant = build_from_config(mesh, cfg, viz_mesh=viz_mesh)
         participant.run()
     except Exception as exc:
-        logging.error("BEM-FSI participant failed: %s", exc, exc_info=True)
+        logging.exception("BEM-FSI participant failed: %s", exc)
         return 1
 
     return 0

@@ -93,7 +93,7 @@ class PlotPanel(Widget):
 
         # Apply start-time filter
         if self._start_time is not None and xs:
-            pairs = [(x, y) for x, y in zip(xs, ys) if x >= self._start_time]
+            pairs = [(x, y) for x, y in zip(xs, ys, strict=False) if x >= self._start_time]
             if pairs:
                 xs, ys = [p2[0] for p2 in pairs], [p2[1] for p2 in pairs]
             else:

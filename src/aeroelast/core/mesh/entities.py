@@ -251,7 +251,7 @@ class MeshElement:
 
         # Node labels
         if show_node_ids:
-            for i, (xi, yi) in enumerate(zip(x, y)):
+            for i, (xi, yi) in enumerate(zip(x, y, strict=False)):
                 va = "bottom" if i in [0, 4, 7] else "top" if i in [2, 3, 6] else "center"
                 ha = "right" if i in [0, 3, 7] else "left" if i in [1, 2, 5] else "center"
                 plt.text(

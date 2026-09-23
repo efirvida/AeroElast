@@ -82,7 +82,7 @@ class _ElemProxyList:
 
     def __iter__(self):
         if self._nids is not None:
-            for eid, nids in zip(self._ids, self._nids):
+            for eid, nids in zip(self._ids, self._nids, strict=False):
                 yield _ElemProxy(eid, nids)
         else:
             for eid in self._ids:

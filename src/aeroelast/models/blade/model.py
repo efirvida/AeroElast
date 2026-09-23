@@ -307,7 +307,7 @@ class Blade:
                 )  # Índices en orden inverso
 
             # Crear LineString del segmento
-            segment_line = shp.LineString(list(zip(segment_x, segment_y)))
+            segment_line = shp.LineString(list(zip(segment_x, segment_y, strict=False)))
             total_length = segment_line.length
 
             # Calcular distancias para los puntos equidistantes
@@ -366,7 +366,7 @@ class Blade:
             current_z = z_spline[0]
 
             # AIRFOIL SECTION
-            coords = list(zip(airfoil_spline_x, airfoil_spline_y))
+            coords = list(zip(airfoil_spline_x, airfoil_spline_y, strict=False))
             airfoil_polygon = shp.Polygon(coords)
 
             # Encontrar LE y TE con el nuevo método

@@ -238,7 +238,6 @@ def _viterna_extrapolation(
     cm_full = np.zeros_like(alpha_full)
 
     for i, a in enumerate(alpha_full):
-        a_deg = alpha_full_deg[i]
         if alpha_stall_neg <= a <= alpha_stall_pos:
             # Attached-flow regime: interpolate from NeuralFoil data
             cl_full[i] = np.interp(a, alpha_attach, cl_attach)
@@ -565,7 +564,6 @@ def load_blade_aero(
     blade_bem = data["components"]["blade"]["outer_shape_bem"]
 
     # Reference axis z → blade length
-    ref_z_grid = np.array(blade_bem["reference_axis"]["z"]["grid"], dtype=float)
     ref_z_vals = np.array(blade_bem["reference_axis"]["z"]["values"], dtype=float)
     blade_length = ref_z_vals[-1]
     rotor_radius = hub_radius + blade_length if rotor_diameter == 0 else rotor_diameter / 2.0

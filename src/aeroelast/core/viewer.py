@@ -77,7 +77,7 @@ def _to_vtk_order(element) -> list[int]:
     return [node_ids[i] for i in order]
 
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
 
 class BladeGeometryVisualizer:
@@ -190,7 +190,7 @@ class BladeGeometryVisualizer:
         airfoil_ids = [airfoil_id_map[ref] for ref in airfoil_refs]
 
         # Create scatter plot with text annotations
-        scatter = ax.scatter(
+        ax.scatter(
             span_positions, airfoil_ids, c=airfoil_ids, cmap="tab20", s=100, edgecolor="k", zorder=3
         )
 

@@ -60,11 +60,7 @@ def detect_open_boundaries(mesh: "MeshModel") -> bool:
             edge_count[edge] += 1
 
     # Check if any edge is shared by only one face (open boundary)
-    for count in edge_count.values():
-        if count == 1:
-            return True
-
-    return False
+    return any(count == 1 for count in edge_count.values())
 
 
 def get_open_boundary_loops(mesh: "MeshModel") -> List[List[int]]:
@@ -327,7 +323,7 @@ def boolean_union_meshes(
 
     # Convert all FEM meshes to Trimesh meshes
     trimesh_meshes = []
-    for mesh_idx, mesh in enumerate(surface_meshes):
+    for mesh in surface_meshes:
         # Build node_id to index mapping
         node_id_to_idx = {node.id: idx for idx, node in enumerate(mesh.nodes)}
 

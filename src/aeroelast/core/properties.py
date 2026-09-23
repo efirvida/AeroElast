@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from typing import Dict, Union
 
-import numpy as np
-
 from aeroelast.core.laminate import Laminate
 from aeroelast.core.material import IsotropicMaterial, MaterialType
 

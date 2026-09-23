@@ -1018,13 +1018,13 @@ def _write_ccx_inp_file(
 def _write_ccx_materials(f, properties: Dict) -> None:
     """Write *MATERIAL blocks for every unique material found in properties."""
     try:
-        from _aeroelast import Laminate as _RL, OrthotropicMaterial as _RMat  # noqa: PLC0415
+        from _aeroelast import Laminate as _RL, OrthotropicMaterial as _RMat  # noqa: PLC0415, F401
 
         _has_rust = True
     except ImportError:
         _has_rust = False
     try:
-        from aeroelast.core.material import IsotropicMaterial, OrthotropicMaterial as PyOrtho  # noqa: PLC0415
+        from aeroelast.core.material import IsotropicMaterial, OrthotropicMaterial as PyOrtho  # noqa: PLC0415, F401
         from aeroelast.core.properties import CompositeShellProperty, ShellProperty  # noqa: PLC0415
 
         _has_py = True
@@ -1054,21 +1054,6 @@ def _write_ccx_materials(f, properties: Dict) -> None:
                 continue
             for i, ply in enumerate(plies):
                 m = ply["material"]
-                # Build a stable key from the material constants (rounded to
-                # avoid float noise).  Using 4 significant figures is enough
-                # to distinguish physically different materials.
-                key = (
-                    round(m["e1"], -3),
-                    round(m["e2"], -3),
-                    round(m["e3"], -3),
-                    round(m["g12"], -3),
-                    round(m["g23"], -3),
-                    round(m["g13"], -3),
-                    round(m["nu12"], 4),
-                    round(m["nu23"], 4),
-                    round(m["nu31"], 4),
-                    round(m["rho"], 2),
-                )
                 mat_name = f"MAT_{set_name}_P{i}"
                 # Use deduplication: if same constants already stored under a
                 # different name we still need a mapping from (set_name, ply_i)
