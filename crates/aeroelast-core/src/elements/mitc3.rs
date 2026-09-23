@@ -314,7 +314,10 @@ impl Mitc3Precomputed {
         // splitting), the material must be rotated to avoid a frame mismatch.
         let constitutive = rotate_constitutive_to_local(constitutive, &e1, &e3);
 
-        // Drilling stiffness
+        // Drilling stiffness: k_drill = 0.15 · E · t²  (times optional user scale factor)
+        // Factor 0.15 calibrated so the penalty fixes the zero-energy drilling mode without
+        // perturbing physical deflection or frequency results.
+        // Reference: docs/validation_theory/06_mitc_elementos_shell.md §"Rigidez de perforacion"
         let k_drill = e_modulus * thickness * thickness * 0.15 * drilling_scale;
 
         // Precompute tying point shear evaluations (extended space)
@@ -388,21 +391,25 @@ fn eval_covariant_shear_ext(
         b_ert[w_idx] = dhi_dr;
         b_est[w_idx] = dhi_ds;
 
-        // Rotation contribution: from V3 ≈ e3 − θy·e1 + θx·e2
-        // e_rt = dw/dr + V3·g_r = dw/dr − θy·g_r[0] + θx·g_r[1]
-        b_ert[thy_idx] = -f[i] * g_r[0];
-        b_ert[thx_idx] =  f[i] * g_r[1];
+        // Rotation contribution: from the physical director V3 = e3 + θy·e1 − θx·e2
+        // (same convention as MITC4; see the MITC4/D paper Eq. (3a): the
+        // out-of-surface displacement is (t/2)(θ × V_in), so θ is the physical
+        // rotation vector).  b_136ce5 had this inverted and only single-element
+        // meshes hid it (energy is quadratic, so a global sign flip cancels).
+        // e_rt = dw/dr + V3·g_r = dw/dr + θy·g_r[0] − θx·g_r[1]
+        b_ert[thy_idx] =  f[i] * g_r[0];
+        b_ert[thx_idx] = -f[i] * g_r[1];
 
-        b_est[thy_idx] = -f[i] * g_s[0];
-        b_est[thx_idx] =  f[i] * g_s[1];
+        b_est[thy_idx] =  f[i] * g_s[0];
+        b_est[thx_idx] = -f[i] * g_s[1];
     }
 
     // Bubble rotations (indices 18, 19)
-    b_ert[19] = -f[3] * g_r[0]; // thy4
-    b_ert[18] =  f[3] * g_r[1]; // thx4
+    b_ert[19] =  f[3] * g_r[0]; // thy4
+    b_ert[18] = -f[3] * g_r[1]; // thx4
 
-    b_est[19] = -f[3] * g_s[0];
-    b_est[18] =  f[3] * g_s[1];
+    b_est[19] =  f[3] * g_s[0];
+    b_est[18] = -f[3] * g_s[1];
 
     (b_ert, b_est)
 }

@@ -1,0 +1,46 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=12:00:00
+#SBATCH -e zeta_%j.err
+#SBATCH -J zeta_sweep
+#SBATCH -o zeta_%j.out
+#SBATCH -p sequana_cpu
+
+# Zeta sweep: yaw=0 flexible FSI, 30 s, three Rayleigh damping ratios.
+#   z_003   — zeta=0.03  (campaign baseline)
+#   z_00048 — zeta=0.0048 (ElastoDyn BldFlDmp1, 0.48%)
+#   z_000   — zeta=0.0   (no structural damping)
+# Velocity feedback is inert in the corotational solver (solid never writes
+# Velocity), so the fluid yaml uses velocity_data: null for all cases.
+set -euo pipefail
+
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+CASES_DIR="${SUBMIT_DIR}/zeta_sweep"
+RESULTS_BASE="${RESULTS_BASE:-${SCRATCH}/zeta_sweep_results}"
+RUN_SOLID="${SUBMIT_DIR}/IEA15MW/_run_solid.sh"
+RUN_FLUID="${SUBMIT_DIR}/IEA15MW/_run_fluid.sh"
+
+PIDS=()
+for Z in z_003 z_00048 z_000; do
+    CASE_DIR="${RESULTS_BASE}/${Z}"
+    LOG_DIR="${CASE_DIR}/logs"
+    mkdir -p "${LOG_DIR}"
+    echo "Case: ${Z} (30 s, yaw=0)"
+    echo "Output: ${CASE_DIR}"
+    ( cd "${CASE_DIR}" && "${RUN_SOLID}" "${CASES_DIR}/${Z}/solid_corotational_yaw_0.yaml" ) \
+        >> "${LOG_DIR}/solid.log" 2>&1 &
+    PIDS+=($!)
+    sleep 2
+    ( cd "${CASE_DIR}" && "${RUN_FLUID}" "${CASES_DIR}/${Z}/fluid_yaw_0.yaml" "${CASE_DIR}" ) \
+        >> "${LOG_DIR}/fluid.log" 2>&1 &
+    PIDS+=($!)
+done
+
+FAILED=0
+for PID in "${PIDS[@]}"; do
+    wait "${PID}" || FAILED=$((FAILED+1))
+done
+
+[[ ${FAILED} -eq 0 ]] && echo "ZETA SWEEP OK" || echo "ZETA SWEEP FAILED (${FAILED} exits)"
+exit ${FAILED}

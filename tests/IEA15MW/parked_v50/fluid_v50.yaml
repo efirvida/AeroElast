@@ -1,0 +1,89 @@
+# BEM-FSI fluid participant configuration — IEA 15 MW, rated operation
+# ======================================================================
+# Launch with: fem-shell-bem-fsi simulation.yaml
+#
+# This participant acts as the "fluid" side of the preCICE coupling.
+# It computes aerodynamic forces via BEM (CCBlade) at each coupling
+# iteration, using the current structural displacement from preCICE to
+# account for blade deformation (updated twist, radial position).
+#
+# Companion solid config:  ../solid/simulation.yaml
+# preCICE config:          ../precice-config.xml
+
+# ── preCICE coupling ────────────────────────────────────────────────────
+participant:  "Fluid"
+config_file:  "../precice-config.xml"
+coupling_mesh: "Fluid-Mesh"
+velocity_data: null  # Disable velocity coupling (not in precice-config.xml)
+
+# Blade definition — NuMAD Excel (single source for geometry AND aerodynamics).
+# load_blade_aero detects .xlsx and generates all polars via NeuralFoil;
+# airfoil coordinates are resolved from airfoils/ next to the Excel file.
+# Path is relative to this file's directory (fluid/).
+blade_file: "../../IEA-15-240-RWT.yaml"
+
+# ── Fluid mesh (BEM coupling mesh) ──────────────────────────────────────
+# Generator params are IDENTICAL to solid/simulation.yaml so both meshes
+# produce the same outer-shell node coordinates. preCICE nearest-neighbor
+# then maps with zero interpolation error.
+mesh:
+  source: "generator"
+  generator:
+    type: "BladeMesh"
+    params:
+      yaml_file:  "../../IEA-15-240-RWT.yaml"
+      airfoil_dir: "../blade_definition/airfoils"
+      element_size: 0.25     # must match solid/simulation.yaml
+      n_samples: 300         # must match solid/simulation.yaml
+      span_grading: "chord"  # must match solid/simulation.yaml
+    coupling_node_set: "allOuterShellNods"  # exclude shear-web nodes from aero coupling
+  output_file: "fluid_mesh.vtu"
+
+# ── BEM operating conditions ─────────────────────────────────────────────
+# IEA 15 MW rated point (Bortolotti et al., 2019, Table 1):
+#   v_rated = 10.59 m/s,  Ω_rated = 7.56 RPM = 0.7917 rad/s,  pitch ≈ 0°
+bem:
+  wind_speed:         50        # m/s — rated wind speed
+  omega:              0.0       # rad/s (7.56 RPM)
+  pitch:             90.0       # deg — bandera/feathered (flujo alineado con cuerda, alpha~0°)
+  yaw:               8.0        # deg
+
+  air_density:        1.225     # kg/m³ — standard sea-level
+  dynamic_viscosity:  1.81e-5   # Pa·s  — standard air at 20 °C
+
+  hub_height:       150.0       # m
+  shear_exp:          0.2       # wind shear exponent (power law)
+  n_blades:           3
+  hub_radius:         0.0       # m — wind tunnel (cantilevered blade, no hub)
+
+  # NeuralFoil polar model (used when CCBlade Cm is not directly available)
+  default_re:         1.0e7
+  neuralfoil_model:   "large"
+
+  # Viterna–Corrigan extrapolation settings (post-stall polar, ±180°).
+  # viterna_ar: blade aspect ratio for cd_max = 1.11 + 0.13·AR.
+  #   Default 17 suits IEA-15 outer sections (~3.32 at 90°).
+  #   Use ~3–5 for cylindrical root sections (cd_90 ~ 1.1–1.4).
+  # viterna_confidence_threshold: NeuralFoil analysis_confidence cutoff.
+  #   Points below this are handed off to Viterna. 0.5 is a good default.
+  viterna_ar:                    17.0
+  viterna_confidence_threshold:  0.5
+
+  precone:            0.0       # deg
+  tilt:               0.0       # deg
+
+  # Coordinate system: blade axis along Z, wind/thrust along Y.
+  span_direction:        [0.0, 0.0, 1.0]
+  normal_direction:      [0.0, 1.0, 0.0]   # Np projected onto Y (flapwise, wind direction)
+  # NOTE: LE is at +X (max thickness at 30% chord from +X end, standard airfoil).
+  # IEA-15 rotates CCW from upstream → blade at 12 o'clock moves in -X.
+  # Positive Tp (CCBlade convention) = force in rotation direction = -X.
+  # sign: [-1,0,0] also corrects the LE estimate in force_projection.py
+  #        (LE = min projection along tangential_dir = min(-x) = max(x) = +1.186 ✓).
+  tangential_direction:  [-1.0, 0.0, 0.0]  # Tp projected onto -X (CCW rotation direction)
+
+# ── Output ───────────────────────────────────────────────────────────────
+output:
+  folder:       "bem_fsi_results"
+  log_interval: 1   # print diagnostics every coupling window
+  write_vtu:    false # only write sectional CSV; skip fields.vtu and bem_sections.vtu

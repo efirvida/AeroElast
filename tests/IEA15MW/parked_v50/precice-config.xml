@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  preCICE configuration for BEM-FEM FSI coupling
+  ================================================
+  Fluid:  BEM participant (fem-shell-bem-fsi)  provides Fluid-Mesh
+  Solid:  FEM shell solver (fem-shell-fsi)     provides Solid-Mesh
+
+  Data exchange:
+  Force:        Fluid writes on Fluid-Mesh  =RBF conserv=>  Solid reads on Solid-Mesh
+  Displacement: Solid writes on Solid-Mesh  =RBF consist=>  Fluid reads on Fluid-Mesh
+
+  Coupling scheme:
+  Parallel-implicit with IQN-ILS quasi-Newton acceleration.
+  Time-window-size drives the Newmark structural integrator; BEM is quasi-static
+  within each window so no internal BEM time stepping is needed.
+
+  IEA 15 MW rated operation:
+  v_wind = 10.59 m/s,  Omega = 7.56 RPM = 0.7917 rad/s,  pitch = 0 deg
+-->
+
+<precice-configuration>
+
+  <profiling mode="off" />
+
+  <log>
+    <sink
+      filter="%Severity% > debug and %Rank% = 0"
+      format="---[precice] %ColorizedSeverity% %Message%"
+      enabled="true" />
+  </log>
+
+  <!-- ─── Data fields ─────────────────────────────────────────────────────── -->
+  <data:vector name="Force" />
+  <data:vector name="Displacement" />
+    <!--  Velocity: nodal structural velocity [m/s] used by BEM to apply
+      aerodynamic damping correction via effective inflow. -->
+    <data:vector name="Velocity" />
+
+  <!-- ─── Meshes ──────────────────────────────────────────────────────────── -->
+  <!--  Fluid-Mesh and Solid-Mesh are generated from the same BladeMesh
+        generator with identical parameters (element_size=0.25, n_samples=300).
+        Outer-shell node coordinates are identical; nearest-neighbor mapping
+        is therefore exact (zero interpolation error). -->
+  <mesh name="Fluid-Mesh" dimensions="3">
+    <use-data name="Force" />
+    <use-data name="Displacement" />
+    <use-data name="Velocity" />
+  </mesh>
+
+  <!--  Solid-Mesh: FEM shell solver registers allOuterShellNods (subset of
+        the full shell mesh; excludes internal shear-web nodes). -->
+  <mesh name="Solid-Mesh" dimensions="3">
+    <use-data name="Force" />
+    <use-data name="Displacement" />
+    <use-data name="Velocity" />
+  </mesh>
+
+  <!-- ─── Participants ─────────────────────────────────────────────────────── -->
+  <participant name="Fluid">
+    <!-- BEM participant owns Fluid-Mesh and performs RBF mapping -->
+    <provide-mesh name="Fluid-Mesh" />
+    <receive-mesh name="Solid-Mesh" from="Solid" />
+
+    <write-data name="Force"        mesh="Fluid-Mesh" />
+    <read-data  name="Displacement" mesh="Fluid-Mesh" />
+    <read-data  name="Velocity"     mesh="Fluid-Mesh" />
+
+    <!-- Force: Fluid-Mesh to Solid-Mesh, conservative.
+         nearest-neighbor is exact because both meshes share identical
+         outer-shell node coordinates (same BladeMesh generator + params). -->
+    <mapping:nearest-neighbor direction="write" from="Fluid-Mesh" to="Solid-Mesh" constraint="conservative" />
+
+    <!-- Displacement: Solid-Mesh to Fluid-Mesh, consistent. -->
+    <mapping:nearest-neighbor direction="read" from="Solid-Mesh" to="Fluid-Mesh" constraint="consistent" />
+  </participant>
+
+  <participant name="Solid">
+    <!-- FEM shell solver owns Solid-Mesh; no mapping needed on this side -->
+    <provide-mesh name="Solid-Mesh" />
+
+    <write-data name="Displacement" mesh="Solid-Mesh" />
+    <write-data name="Velocity"     mesh="Solid-Mesh" />
+    <read-data  name="Force"        mesh="Solid-Mesh" />
+  </participant>
+
+  <!-- ─── Communication ───────────────────────────────────────────────────── -->
+  <!--  Solid is acceptor (starts first and waits), Fluid is connector.
+        exchange-directory ".." resolves to the case root (bem/) when both
+        solvers run from their respective solid/ and fluid/ subdirectories. -->
+  <m2n:sockets acceptor="Solid" connector="Fluid" exchange-directory=".." />
+
+  <!-- ─── Coupling scheme ──────────────────────────────────────────────────── -->
+  <coupling-scheme:parallel-implicit>
+        <!--  Structural time step = coupling dt (paper setup: 6.25e-4 s).
+          Fluid dt is 1.25e-4 s with one coupling exchange every 5 steps. -->
+        <time-window-size value="1e-2" />
+    <max-time value="50.0" />
+
+    <participants first="Fluid" second="Solid" />
+
+    <exchange data="Force"        mesh="Solid-Mesh" from="Fluid" to="Solid" />
+    <exchange data="Displacement" mesh="Solid-Mesh" from="Solid" to="Fluid" />
+    <exchange data="Velocity"     mesh="Solid-Mesh" from="Solid" to="Fluid" />
+
+    <max-iterations value="70" />
+
+        <!--  Paper setup: 1e-4 on both displacement and force. -->
+        <relative-convergence-measure limit="1e-4" data="Displacement" mesh="Solid-Mesh" />
+         <relative-convergence-measure limit="1e-4" data="Force" mesh="Solid-Mesh" />
+
+    <!--  IQN-ILS quasi-Newton acceleration (Aitken for first window, then full QN).
+          initial-relaxation 0.1 is conservative for the first window where the
+          force ramp introduces a sudden load change. -->
+    <acceleration:IQN-ILS>
+      <data name="Displacement" mesh="Solid-Mesh" />
+      <preconditioner type="residual-sum" />
+      <filter type="QR2" limit="1e-25" />
+      <initial-relaxation value="0.5" />
+      <max-used-iterations value="15" />
+      <time-windows-reused value="2" />
+    </acceleration:IQN-ILS>
+  </coupling-scheme:parallel-implicit>
+
+</precice-configuration>

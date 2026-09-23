@@ -51,6 +51,11 @@ FORCE_METRICS = [
 POWER_METRICS = [
     "Aero Power [W]",
     "Total Power [W]",
+    "Aero Power Single Blade [W]",
+    "Aero Power Rotor Equivalent [W]",
+    "Total Power Single Blade [W]",
+    "Total Power Rotor Equivalent [W]",
+    "Blade Count [-]",
     "Structural Efficiency",
     "Cp",
     "Cq",

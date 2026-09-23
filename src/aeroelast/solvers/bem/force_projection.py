@@ -84,7 +84,9 @@ class ForceProjector:
         normal_direction=None,
         tangential_direction=None,
         hub_radius: float | None = None,
+        include_pitching_moment: bool = True,
     ):
+        self._include_pitching_moment = include_pitching_moment
         span_dir = np.asarray(
             span_direction if span_direction is not None else [0.0, 0.0, 1.0],
             dtype=float,
@@ -110,9 +112,11 @@ class ForceProjector:
 
         # Span coordinate for every mesh node (distance along the span
         # direction, in the blade-local frame where the root is at 0).
-        # The mesh root node sits at hub_radius along the span direction, so
-        # we subtract the hub_radius offset to align with the BEM stations.
-        span_coords = coords @ span_dir - hub_r  # blade-local [0, blade_length]
+        # The BladeMesh coordinates are already blade-local (root at 0),
+        # so NO hub offset is subtracted here — subtracting it shifted all
+        # strips by hub_radius and emptied the root strip (2026-09-09,
+        # diverged the yaml-blade FSI campaign whose hub_radius = 3.97 m).
+        span_coords = coords @ span_dir  # blade-local [0, blade_length]
 
         # BEM station radial positions are stored from the rotor centre
         # (hub_radius + blade-local span).  Subtract hub_radius so they are
@@ -280,7 +284,7 @@ class ForceProjector:
             # The only moment to distribute is M_AC from the BEM polars.
             M_strip = (
                 float(bem_result.Mp[k]) * strip.dr * self._span_dir
-                if bem_result.Mp is not None
+                if (bem_result.Mp is not None and self._include_pitching_moment)
                 else np.zeros(3)
             )
 

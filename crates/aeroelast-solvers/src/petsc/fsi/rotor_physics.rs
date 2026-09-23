@@ -496,19 +496,24 @@ pub fn compute_reference_load_vector(
 
 // ── Coriolis gyroscopic matrix ─────────────────────────────────────────────────
 
-/// Build the Coriolis gyroscopic matrix G_cor (antisymmetric, 3×3 blocks).
+/// Build the LHS gyroscopic matrix G_LHS for implicit Coriolis treatment.
 ///
-/// For a rotating frame with angular velocity ω, Coriolis acceleration is:
-///   a_cor = -2·ω × v
+/// The Coriolis fictitious force in the rotating frame is:
+///   F_cor = -2m·(ω × v)
 ///
-/// In matrix form: F_cor = G_cor · v, where G_cor is antisymmetric.
+/// Treating Coriolis implicitly means moving it to the LHS of the EOM:
+///   [M]{ü} + ([C] + G_LHS){u̇} + [K]{u} = F_ext
 ///
-/// For each node with mass m_i, the 3×3 block is:
-///   G_i = -2·m_i·Ω, where Ω is the skew-symmetric cross-product matrix:
+/// where G_LHS = +2·m·Ω̃ (positive), and Ω̃ is the skew-symmetric
+/// cross-product matrix:
 ///
-///   Ω = [  0   -ωz   ωy ]
+///   Ω̃ = [  0   -ωz   ωy ]
 ///       [  ωz   0   -ωx ]
 ///       [ -ωy   ωx   0  ]
+///
+/// Note: G_LHS ≠ F_cor/v — the force matrix is G_force = -2m·Ω̃ = -G_LHS.
+/// This function returns G_LHS (the LHS form), NOT G_force. Callers that add
+/// this matrix to K_eff via ADD_VALUES get the correct implicit treatment.
 ///
 /// This function returns the REDUCED matrix in COO format, ready to add to
 /// the Newmark effective damping matrix for implicit treatment.
@@ -561,7 +566,8 @@ pub fn build_coriolis_matrix(
     
     for node in 0..n_nodes {
         let m = masses[node];
-        let coeff = -2.0 * m;
+        // G_LHS = +2·m·Ω̃  (LHS implicit form; the Coriolis force is F_cor = -G_LHS·v)
+        let coeff = 2.0 * m;
 
         // Global DOF base for this node's translations
         let base = node * dofs_per_node;
@@ -569,14 +575,14 @@ pub fn build_coriolis_matrix(
         // 6 off-diagonal entries per node (diagonal is zero in antisymmetric matrix)
         let entries = [
             // Row 0 (u): couples with v, w
-            (0, 1, -wz * coeff),  // G[u, v] = +2m·ωz
-            (0, 2,  wy * coeff),  // G[u, w] = -2m·ωy
+            (0, 1, -wz * coeff),  // G_LHS[u, v] = -2m·ωz
+            (0, 2,  wy * coeff),  // G_LHS[u, w] = +2m·ωy
             // Row 1 (v): couples with u, w
-            (1, 0,  wz * coeff),  // G[v, u] = -2m·ωz
-            (1, 2, -wx * coeff),  // G[v, w] = +2m·ωx
+            (1, 0,  wz * coeff),  // G_LHS[v, u] = +2m·ωz
+            (1, 2, -wx * coeff),  // G_LHS[v, w] = -2m·ωx
             // Row 2 (w): couples with u, v
-            (2, 0, -wy * coeff),  // G[w, u] = +2m·ωy
-            (2, 1,  wx * coeff),  // G[w, v] = -2m·ωx
+            (2, 0, -wy * coeff),  // G_LHS[w, u] = -2m·ωy
+            (2, 1,  wx * coeff),  // G_LHS[w, v] = +2m·ωx
         ];
 
         for (local_row, local_col, value) in &entries {

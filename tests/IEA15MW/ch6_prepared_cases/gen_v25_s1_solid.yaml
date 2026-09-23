@@ -1,0 +1,78 @@
+mesh:
+  source: generator
+  generator:
+    type: BladeMesh
+    params:
+      yaml_file: ../../IEA-15-240-RWT.yaml
+      airfoil_dir: ../blade_definition/airfoils
+      element_size: 0.25
+      n_samples: 300
+      span_grading: chord
+  renumber: rcm
+  output_file: solid_mesh.vtu
+elements:
+  family: SHELL
+  span_direction:
+  - 0.0
+  - 0.0
+  - 1.0
+solver:
+  type: LinearDynamicFSIRotor
+  solver_type: direct
+  newmark:
+    beta: 0.25
+    gamma: 0.5
+  damping:
+    enabled: true
+    zeta: 0.03
+    mode_i: 1
+    mode_j: 2
+    num_modes: 10
+  rotor:
+    omega: 0.7872360607268416
+    omega_ramp_time: 0
+    force_ramp_time: 0
+    rotation_axis:
+    - 0.0
+    - 1.0
+    - 0.0
+    gravity:
+    - 0.0
+    - 0.0
+    - -9.81
+    rotation_center:
+    - 0.0
+    - 0.0
+    - 0.0
+    include_geometric_stiffness: true
+    include_spin_softening: true
+    include_centrifugal: true
+    include_coriolis: true
+    include_euler: true
+    moment_of_inertia: null
+    send_omega_to_precice: true
+    kg_update_interval: 0
+    kg_use_deformed_coords: true
+    use_corotational_kt: false
+    kt_coro_update_freq: 1
+boundary_conditions:
+  dirichlet:
+  - nodeset: RootNodes
+    value: 0.0
+coupling:
+  participant: Solid
+  config_file: ../precice-config.xml
+  coupling_mesh: Solid-Mesh
+  write_data: Displacement
+  read_data: Force
+  boundaries:
+  - allOuterShellNods
+output:
+  folder: results_dlc_1_1_corotational
+  write_interval: 0.5
+  start_from: latestTime
+  save_deformed_mesh: false
+  deformed_mesh_scale: 1.0
+performance:
+  fluid_density: 1.225
+  flow_velocity: 25

@@ -1,0 +1,56 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=06:00:00
+#SBATCH -e step1b_%j.err
+#SBATCH -J step1b_smoke_fsi
+#SBATCH -o step1b_%j.out
+#SBATCH -p sequana_cpu
+
+# Step 1b: smoke FSI 30 s yaw=0 with the rotorspin fix — the decisive test:
+# the flexible thrust must land BELOW the rigid anchor (2.541 MN, shear 0).
+set -euo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+SUBMIT_DIR=/scratch/leahk/eduardo.donestevez/fem-shell/tests
+CASES_DIR=${SUBMIT_DIR}/smoke_fix
+RESULTS_BASE=${SCRATCH}/smoke_fix_results
+CASE_DIR=${RESULTS_BASE}/base_fix
+rm -rf ${CASE_DIR}
+mkdir -p ${CASE_DIR}/logs
+( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_solid.sh ${CASES_DIR}/base_fix/solid_corotational_yaw_0.yaml ) \
+    >> ${CASE_DIR}/logs/solid.log 2>&1 &
+SOLID_PID=$!
+sleep 2
+( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_fluid.sh ${CASES_DIR}/base_fix/fluid_yaw_0.yaml ${CASE_DIR} ) \
+    >> ${CASE_DIR}/logs/fluid.log 2>&1 &
+FLUID_PID=$!
+
+FAILED=0
+wait ${SOLID_PID} || { echo "[FAIL] solid exit=$?"; FAILED=1; }
+wait ${FLUID_PID} || { echo "[FAIL] fluid exit=$?"; FAILED=1; }
+[[ ${FAILED} -eq 0 ]] && echo "STEP1b SMOKE OK" || echo "STEP1b SMOKE FAILED"
+
+python3 - <<'PY'
+import numpy as np, csv
+p = '/scratch/leahk/eduardo.donestevez/smoke_fix_results/base_fix/fluid/bem_report.csv'
+t = []; th = []; d = []
+with open(p) as f:
+    rdr = csv.DictReader(f)
+    for row in rdr:
+        t.append(float(row['Time [s]'])); th.append(float(row['Thrust [N]']))
+        d.append(float(row['Tip Disp Mag [m]']))
+t = np.array(t); th = np.array(th); d = np.array(d)
+m = (t >= 15) & (t <= 30)
+print(f'SMOKE thrust steady: {th[m].mean()/1e6:.3f} MN  (rigid anchor 2.541)')
+print(f'SMOKE tip steady:    {d[m].mean():.2f} m')
+print(f'SMOKE thrust p2p:    {(th[m].max()-th[m].min())/1e3:.1f} kN')
+PY
+
+echo "STEP1b DONE"

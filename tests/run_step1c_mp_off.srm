@@ -1,0 +1,68 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=06:00:00
+#SBATCH -e step1c_%j.err
+#SBATCH -J step1c_mp_off
+#SBATCH -o step1c_%j.out
+#SBATCH -p sequana_cpu
+
+# Step 1c: smoke FSI with the BEM pitching moment DISABLED — isolates the Mp
+# contribution to the excessive aeroelastic de-loading (-32% vs expected -10%).
+set -euo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+SUBMIT_DIR=/scratch/leahk/eduardo.donestevez/fem-shell/tests
+CASES_DIR=${SUBMIT_DIR}/smoke_fix
+RESULTS_BASE=${SCRATCH}/smoke_fix_results
+CASE_DIR=${RESULTS_BASE}/mp_off
+rm -rf ${CASE_DIR}
+mkdir -p ${CASE_DIR}/logs
+( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_solid.sh ${CASES_DIR}/mp_off/solid_corotational_yaw_0.yaml ) \
+    >> ${CASE_DIR}/logs/solid.log 2>&1 &
+SOLID_PID=$!
+sleep 2
+( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_fluid.sh ${CASES_DIR}/mp_off/fluid_yaw_0.yaml ${CASE_DIR} ) \
+    >> ${CASE_DIR}/logs/fluid.log 2>&1 &
+FLUID_PID=$!
+
+FAILED=0
+wait ${SOLID_PID} || { echo "[FAIL] solid exit=$?"; FAILED=1; }
+wait ${FLUID_PID} || { echo "[FAIL] fluid exit=$?"; FAILED=1; }
+[[ ${FAILED} -eq 0 ]] && echo "STEP1c SMOKE OK" || echo "STEP1c SMOKE FAILED"
+
+python3 - <<'PY'
+import numpy as np, csv, glob
+p = sorted(glob.glob('/scratch/leahk/eduardo.donestevez/smoke_fix_results/mp_off/fluid/*/bem_sectional.csv'))[-1]
+t = []; th = []
+with open('/scratch/leahk/eduardo.donestevez/smoke_fix_results/mp_off/fluid/bem_report.csv') as f:
+    rdr = csv.DictReader(f)
+    for row in rdr:
+        t.append(float(row['Time [s]'])); th.append(float(row['Thrust [N]']))
+t = np.array(t); th = np.array(th)
+m = (t >= 15) & (t <= 30)
+print(f'MP-OFF thrust steady: {th[m].mean()/1e6:.3f} MN  (rigid anchor 2.541; MP-ON was 1.736)')
+
+rows = []
+with open(p) as fh:
+    next(fh)
+    for line in fh:
+        parts = line.split(',')
+        if len(parts) >= 17:
+            rows.append([float(x) for x in parts[:17]])
+rows = np.array(rows)
+from aeroelast.models.blade.aerodynamics import load_blade_aero
+blade = load_blade_aero('tests/IEA-15-240-RWT.yaml', hub_radius=0.0)
+r = rows[:, 0]; twist_def = rows[:, 3]
+tw_ref = np.interp(r, [s.r for s in blade.stations], [np.rad2deg(s.twist) for s in blade.stations])
+d_twist = twist_def - tw_ref
+print(f'MP-OFF elastic twist: mid {d_twist[8:44].mean():+.2f} deg, tip {d_twist[-6:].mean():+.2f} deg')
+PY
+
+echo "STEP1c DONE"

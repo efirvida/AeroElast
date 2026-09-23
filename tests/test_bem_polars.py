@@ -14,10 +14,10 @@ import pytest
 
 from aeroelast.models.blade.aerodynamics import (
     AirfoilAero,
-    BladeAero,
     PolarData,
     load_blade_aero,
 )
+from aeroelast.solvers.bem.engine import _build_ccblade_polar_columns
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
 IEA_YAML = str(_PROJECT_ROOT / "IEA-15-240-RWT.yaml")
@@ -198,3 +198,34 @@ class TestBladeAeroYAML:
 
     def test_twist_property_shape(self, blade_aero):
         assert blade_aero.twist.shape == (len(blade_aero.stations),)
+
+
+def test_ccblade_polar_columns_expand_narrow_alpha_range():
+    alpha = np.deg2rad(np.array([-20.0, 0.0, 20.0], dtype=float))
+    polar = PolarData(
+        alpha=alpha,
+        cl=np.array([-0.8, 0.0, 0.8], dtype=float),
+        cd=np.array([0.06, 0.01, 0.06], dtype=float),
+        cm=np.array([0.0, 0.0, 0.0], dtype=float),
+        re=1.0e6,
+    )
+    airfoil = AirfoilAero(
+        name="narrow-alpha",
+        coordinates=np.zeros((5, 2), dtype=float),
+        relative_thickness=0.2,
+        aerodynamic_center=0.25,
+        polars=[polar],
+    )
+
+    alpha_deg, re_list, cl, cd, cm = _build_ccblade_polar_columns(airfoil)
+
+    assert alpha_deg[0] == -180.0
+    assert alpha_deg[-1] == 180.0
+    assert re_list == [1.0e6]
+    assert cl.shape == (alpha_deg.size, 1)
+    assert cd.shape == (alpha_deg.size, 1)
+    assert cm.shape == (alpha_deg.size, 1)
+    assert np.all(cd >= 0.0)
+
+    idx_zero = int(np.where(np.isclose(alpha_deg, 0.0))[0][0])
+    np.testing.assert_allclose(cl[idx_zero, 0], 0.0, atol=1.0e-12)

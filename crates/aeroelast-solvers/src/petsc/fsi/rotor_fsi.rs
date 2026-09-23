@@ -680,13 +680,12 @@ impl RotorFsiSolver {
                 .as_mut()
                 .expect("assembler presence checked above");
 
-            // Frame consistency: u_full is in the rotating frame. Keep
-            // assembler reference coords in the same frame at current θ.
-            let coords_rotated = self
-                .transforms
-                .disps_to_inertial(&self.all_node_coords, self.theta);
-            asm.update_node_coordinates(&coords_rotated);
-
+            // The corotational solver operates in the rotating frame:
+            // - `all_node_coords` are the reference geometry X0 in the rotating frame (never changes)
+            // - `u_full` is the displacement vector in the rotating frame
+            // Both are already consistent — do NOT rotate all_node_coords to inertial before this call.
+            // (Contrast with the inertial solver, which consistently uses coords_rotated = R(θ)·X0
+            // because its u_full is also expressed in the global/inertial frame.)
             let (_, _, vals) = asm.assemble_kt_corotational(&u_full);
             vals
         };

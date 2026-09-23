@@ -1,0 +1,47 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=06:00:00
+#SBATCH -e suite_%j.err
+#SBATCH -J validation_suite
+#SBATCH -o suite_%j.out
+#SBATCH -p sequana_cpu
+
+# Validation battery — everything independent of the coupling fix:
+# element benchmarks, BEM standalone, S-0..S-6 one-way/structural,
+# Campbell, V-01/V-02/V-03/V-05, mass matrix, power reporting.
+set -euo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+cd /scratch/leahk/eduardo.donestevez/fem-shell
+
+python3 -m pytest \
+  tests/test_bem_engine.py \
+  tests/test_bem_polars.py \
+  tests/test_box_torsion_bending_benchmark.py \
+  tests/test_force_projection.py \
+  tests/test_iea15mw_s0_omega_zero_consistency.py \
+  tests/test_iea15mw_s1_sectional.py \
+  tests/test_iea15mw_s2_static_prescribed.py \
+  tests/test_iea15mw_s3_newmark_transient.py \
+  tests/test_iea15mw_s5_oneway.py \
+  tests/test_iea15mw_s6_oneway_dynamic.py \
+  tests/test_iea15mw_sx_campbell.py \
+  tests/test_iea15mw_sx_campbell_cross.py \
+  tests/test_iea15mw_v01_rotor_performance.py \
+  tests/test_iea15mw_v02_natural_frequencies.py \
+  tests/test_iea15mw_v03_static_gravity.py \
+  tests/test_iea15mw_v05_structural_properties.py \
+  tests/test_mass_matrix_validation.py \
+  tests/test_rotor_performance_report.py \
+  tests/test_rotor_physical_consistency.py \
+  -q --tb=short 2>&1 | tail -30
+
+echo "SUITE DONE"

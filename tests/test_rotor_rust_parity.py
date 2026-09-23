@@ -571,6 +571,14 @@ class TestRotorAutoInertia:
         solver._include_euler = True
         solver._include_geometric_stiffness = True
         solver._include_spin_softening = True
+        solver._use_corotational_kt = False
+        solver._kt_coro_update_freq = 1
+        solver._ksp_omega_threshold = 1e-4
+        solver._omega_rebuild_rel_high = 0.005
+        solver._omega_rebuild_rel_low = 0.003
+        solver._kg_use_deformed_coords = False
+        solver._kg_deflection_rebuild_rel_high = 0.01
+        solver._kg_deflection_rebuild_rel_low = 0.006
         solver._kg_update_interval = 0
         solver._fluid_density = 1.225
         solver._flow_velocity = 10.0
@@ -587,7 +595,16 @@ class TestRotorAutoInertia:
             axis=np.array([0.0, 0.0, 1.0], dtype=np.float64),
         )
         node = SimpleNamespace(coords=np.array([1.0, 0.0, 0.0], dtype=np.float64))
-        solver.domain = SimpleNamespace(nodes=[node], dofs_per_node=3, spatial_dim=3, _rust=None)
+        solver.domain = SimpleNamespace(
+            nodes=[node], dofs_per_node=3, spatial_dim=3,
+            _rust=SimpleNamespace(
+                assemble_m=lambda: (
+                    np.array([0, 1, 2], dtype=np.int64),
+                    np.array([0, 1, 2], dtype=np.int64),
+                    np.array([1.0, 1.0, 1.0], dtype=np.float64),
+                ),
+            ),
+        )
         solver._coupling_cfg = {
             "participant": "Solid",
             "config_file": "precice-config.xml",
@@ -702,8 +719,9 @@ class TestRotorAutoInertia:
             radius=3.0,
         )
 
-        assert cp_def < cp_ref
-        assert cq_def < cq_ref
+        # the radius enters the swept area: a larger rotor lowers the |Cp|
+        assert abs(cp_def) < abs(cp_ref), (cp_def, cp_ref)
+        assert abs(cq_def) < abs(cq_ref), (cq_def, cq_ref)
         assert tsr_def > tsr_ref
 
     def test_solve_auto_radius_uses_python_helper(self):
@@ -865,6 +883,9 @@ class TestRotorRustBinding:
             1e-4,  # ksp_omega_threshold
             0.005,  # omega_rebuild_rel_high
             0.003,  # omega_rebuild_rel_low
+            False,  # kg_use_deformed_coords
+            0.01,  # kg_deflection_rebuild_rel_high
+            0.006,  # kg_deflection_rebuild_rel_low
             dofs_per_node,
             1.225,  # fluid_density
             10.0,  # flow_velocity
@@ -903,6 +924,7 @@ class TestRotorRustBinding:
         if self._binding_supports_restart_args():
             args.extend([None, None, None, None])
         args.extend([None, None, None])  # kg0_rows, kg0_cols, kg0_vals
+        # use_corotational_kt / kt_coro_update_freq have defaults — omitted
 
         return _aeroelast.run_rotor_fsi_solver(*args, step_callback=step_callback)  # type: ignore[name-defined]
 
@@ -1000,6 +1022,9 @@ class TestRotorRustBinding:
                 1e-4,   # ksp_omega_threshold
                 0.005,  # omega_rebuild_rel_high
                 0.003,  # omega_rebuild_rel_low
+                False,  # kg_use_deformed_coords
+                0.01,   # kg_deflection_rebuild_rel_high
+                0.006,  # kg_deflection_rebuild_rel_low
                 3,
                 1.225,
                 10.0,

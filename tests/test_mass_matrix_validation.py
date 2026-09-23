@@ -14,6 +14,7 @@ Tests:
 from __future__ import annotations
 
 import logging
+
 import numpy as np
 import pytest
 
@@ -21,9 +22,9 @@ from aeroelast.core.bc import DirichletCondition
 from aeroelast.core.material import IsotropicMaterial
 from aeroelast.core.mesh.entities import ElementType, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.model import MeshModel
+from aeroelast.elements import ElementFamily
 from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
 from aeroelast.solvers.modal import ModalSolver
-from aeroelast.elements import ElementFamily
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +51,25 @@ def triangle_area(x1: float, y1: float, x2: float, y2: float, x3: float, y3: flo
 # =============================================================================
 
 
-def compute_physical_mass_from_matrix(m_rows, m_cols, m_vals, dofs_per_node: int) -> float:
-    """Extract physical (translational) mass from assembled mass matrix.
+def compute_physical_mass_from_matrix(
+    m_rows, m_cols, m_vals, dofs_per_node: int, element_type: str = "quad4"
+) -> float:
+    """Extract approximate physical (translational) mass from assembled mass matrix.
 
-    For consistent mass matrices, the diagonal sum is 4/3 times the physical mass.
-    So physical_mass = 0.75 * sum(diagonal).
+    Uses the relationship between tr(M_consistent) and physical mass, which is
+    element-type dependent:
+
+    - MITC4 (4-node quad, bilinear):  tr(M_trans) = (4/3)·m  → factor = 0.75
+    - MITC3 (3-node triangle, linear): tr(M_trans) = (3/2)·m  → factor = 2/3 ≈ 0.667
+
+    This function uses factor=0.75 (MITC4 assumption). For pure MITC3 meshes the
+    estimate is ~12.5% high. For mixed meshes the error is intermediate.
+
+    NOTE: tr(M) here sums ALL 6 DOFs/node (translational + rotational). Rotational
+    inertia adds ρ·h³/12 terms which are typically negligible for thin shells
+    (h² << 1) but inflate the estimate slightly on thick elements.
+
+    This helper is used for diagnostic mass checks only; it does not feed the solver.
     """
     try:
         from scipy.sparse import coo_matrix
@@ -67,9 +82,11 @@ def compute_physical_mass_from_matrix(m_rows, m_cols, m_vals, dofs_per_node: int
     # Get diagonal entries sum
     diag_sum = M_sparse.diagonal().sum()
 
-    # For consistent mass: tr(M) = 4/3 * physical_mass
-    # So physical_mass = 0.75 * tr(M)
-    physical_mass = diag_sum * 0.75
+    # Element-type dependent tr(M_trans)/m factor:
+    #   MITC4 (bilinear):  4/3 -> 0.75
+    #   MITC3 (linear):    3/2 -> 2/3
+    factor = 2.0 / 3.0 if "tri3" in str(element_type) else 0.75
+    physical_mass = diag_sum * factor
 
     return physical_mass
 
@@ -206,7 +223,8 @@ class TestElementMassVsTotalMass:
             dofs_per_node = domain.dofs_per_node
 
             # Compute physical mass from matrix diagonal
-            physical_mass = compute_physical_mass_from_matrix(m_rows, m_cols, m_vals, dofs_per_node)
+            physical_mass = compute_physical_mass_from_matrix(
+                m_rows, m_cols, m_vals, dofs_per_node, element_type=element_type)
 
             # Analytical mass
             analytical_mass = L * b * rho * h

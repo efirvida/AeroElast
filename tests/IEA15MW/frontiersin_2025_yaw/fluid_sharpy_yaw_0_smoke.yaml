@@ -1,0 +1,74 @@
+participant: Fluid
+config_file: ../precice-config.xml
+coupling_mesh: Fluid-Mesh
+displacement_data: Displacement
+velocity_data: Velocity
+blade_file: ../../IEA-15-240-RWT.yaml
+mesh:
+  source: generator
+  generator:
+    type: RotorMesh
+    params:
+      yaml_file: ../../IEA-15-240-RWT.yaml
+      airfoil_dir: ../../airfoils
+      element_size: 2.0
+      n_samples: 80
+      airfoil_spacing: constant
+      n_blades: 3
+      hub_radius: 3.0
+  output_file: fluid_mesh.vtu
+aero:
+  backend: sharpy
+  blade_file: ../../IEA-15-240-RWT.yaml
+  rotor:
+    n_blades: 3
+    hub_radius: 3.0
+    rotation_axis:
+    - 0.0
+    - 1.0
+    - 0.0
+    rotation_center:
+    - 0.0
+    - 0.0
+    - 0.0
+  backend_config:
+    model: vlm
+    omega:
+      initial: 0.7906341464750989
+      mesh: GlobalFluidMesh
+      data: AngularVelocity
+      vertex:
+      - 0.0
+      - 0.0
+      - 0.0
+    wind_speed: 10.59
+    wind_direction:
+    - 0.0
+    - 1.0
+    - 0.0
+    air_density: 1.225
+    dynamic_viscosity: 1.81e-05
+    hub_height: 150.0
+    shear_exp: 0.0
+    default_re: 1.0e7
+    neuralfoil_model: large
+    chord_panels: 4
+    dphi_deg: 5.0
+    mstar: 2
+    wake_revolutions: 0.05
+    n_points_camber: 100
+    polar_re: 1.0e7
+    num_cores: 1
+    rebuild_per_step: false
+    solver_settings:
+      horseshoe: false
+      cfl1: true
+      n_rollup: 0
+      rollup_aic_refresh: 1
+      rollup_tolerance: 1.0e-8
+      vortex_radius: 1.0e-6
+      vortex_radius_wake_ind: 1.0e-6
+output:
+  folder: fluid_sharpy
+  log_interval: 1
+  write_vtu: false

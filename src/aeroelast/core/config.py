@@ -233,6 +233,7 @@ class SolverType(str, Enum):
     MODAL = "Modal"
     BEM_STANDALONE = "BEMStandalone"
     BEM_FSI = "BEMFSI"
+    AERO_FSI = "AeroFSI"
 
 
 class MeshGeneratorType(str, Enum):
@@ -786,7 +787,12 @@ class SolverConfig:
         ValueError
             If required parameters are missing.
         """
-        if self.type in (SolverType.MODAL.value, SolverType.BEM_STANDALONE.value):
+        if self.type in (
+            SolverType.MODAL.value,
+            SolverType.BEM_STANDALONE.value,
+            SolverType.BEM_FSI.value,
+            SolverType.AERO_FSI.value,
+        ):
             return  # Modal / BEM analysis does not require time parameters
         if self.total_time is None:
             raise ValueError(
@@ -1124,10 +1130,12 @@ class FSISimulationConfig:
         if rotor_data:
             rotor_config = RotorConfig(**rotor_data)
 
-        # Auto-infer BEMFSI when the YAML has a 'bem' section but no explicit
-        # solver type — avoids forcing BEM-FSI configs to declare solver: type.
+        # Auto-infer standalone aerodynamic participants when the YAML has an
+        # aerodynamic section but no explicit solver type.
         _default_solver_type = "LinearDynamicFSI"
-        if "type" not in solver_data and "bem" in data:
+        if "type" not in solver_data and "aero" in data:
+            _default_solver_type = SolverType.AERO_FSI.value
+        elif "type" not in solver_data and "bem" in data:
             _default_solver_type = SolverType.BEM_FSI.value
 
         solver_config = SolverConfig(
@@ -1269,12 +1277,10 @@ class FSISimulationConfig:
                 watchpoint_file=postprocess_data.get("watchpoint_file"),
                 plots=postprocess_data.get("plots"),
                 fluid_density=(
-                    postprocess_data.get("fluid_density")
-                    or perf_alias.get("fluid_density")
+                    postprocess_data.get("fluid_density") or perf_alias.get("fluid_density")
                 ),
                 flow_velocity=(
-                    postprocess_data.get("flow_velocity")
-                    or perf_alias.get("flow_velocity")
+                    postprocess_data.get("flow_velocity") or perf_alias.get("flow_velocity")
                 ),
             )
         elif perf_alias.get("fluid_density") or perf_alias.get("flow_velocity"):

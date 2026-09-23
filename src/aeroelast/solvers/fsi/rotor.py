@@ -11,11 +11,13 @@ Governing Equation (Rotating Reference Frame)
 The equation of motion solved at each time step is (cf. ANSYS MAPDL Theory
 Reference, Eq. 14-57, §14.4.1):
 
-    [M]{ü} + [C]{u̇} + ([K] + [K_G] + [K_SP]){u} = {F_aero} + {F_cf} + {F_cor} + {F_euler} + {F_g}
+    [M]{ü} + ([C] + [G_cor]){u̇} + ([K] + [K_G] + [K_SP]){u} = {F_aero} + {F_cf} + {F_euler} + {F_g}
 
 where:
     [M]    — Lumped mass matrix (diagonal, row-sum of consistent mass).
     [C]    — Rayleigh damping matrix: C = η_m·M + η_k·K.
+    [G_cor]— Gyroscopic Coriolis matrix: G_cor = 2·M·Ω̃ (Ω̃ = skew-symmetric operator of ω).
+             Treated IMPLICITLY on the LHS; no lagged explicit Coriolis force on the RHS.
     [K]    — Linear elastic stiffness matrix (MITC3 shell elements).
     [K_G]  — Geometric stiffness (stress stiffening) from centrifugal prestress.
              Assembled element-by-element: K_G = ∫ B_G^T · S̃ · B_G dA,
@@ -171,6 +173,7 @@ rotation axis, updated each step with elastic deformation).
 
 from __future__ import annotations
 
+import collections
 import logging
 import os
 from typing import Any, Dict, Optional, Tuple
@@ -193,7 +196,6 @@ from .corotational import (
 )
 from .linear_dynamic import LinearDynamicFSISolver
 
-
 # =============================================================================
 # Module Constants
 # =============================================================================
@@ -206,6 +208,11 @@ _MIN_DENOMINATOR = 1e-6
 
 # Default physics values
 _DEFAULT_GRAVITY = (0.0, 0.0, -9.81)
+# Default rotation axis: Z-axis (0,0,1).
+# NOTE: LinearDynamicFSIRotorInertialSolver uses Y-axis (0,1,0) as its default
+# because its Phase-1 geometry strategy was developed with a horizontal-axis turbine
+# where the rotor shaft is aligned with Y. Always set rotation_axis explicitly in
+# YAML to avoid silent orientation mismatches between the two solver variants.
 _DEFAULT_ROTATION_AXIS = (0, 0, 1)
 _DEFAULT_ROTATION_CENTER = (0, 0, 0)
 _DEFAULT_FLUID_DENSITY = 1.225  # kg/m³ (air at sea level)
@@ -432,8 +439,12 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         if self._kt_coro_update_freq < 1:
             self._kt_coro_update_freq = 1
         self._kg_use_deformed_coords: bool = bool(rotor_cfg.get("kg_use_deformed_coords", False))
-        self._kg_deflection_rebuild_rel_high: float = float(rotor_cfg.get("kg_deflection_rebuild_rel_high", 0.01))
-        self._kg_deflection_rebuild_rel_low: float = float(rotor_cfg.get("kg_deflection_rebuild_rel_low", 0.005))
+        self._kg_deflection_rebuild_rel_high: float = float(
+            rotor_cfg.get("kg_deflection_rebuild_rel_high", 0.01)
+        )
+        self._kg_deflection_rebuild_rel_low: float = float(
+            rotor_cfg.get("kg_deflection_rebuild_rel_low", 0.005)
+        )
         self._ksp_omega_threshold: float = float(rotor_cfg.get("ksp_omega_threshold", 1e-4))
         self._omega_rebuild_rel_high: float = float(rotor_cfg.get("omega_rebuild_rel_high", 0.005))
         self._omega_rebuild_rel_low: float = float(rotor_cfg.get("omega_rebuild_rel_low", 0.003))
@@ -483,6 +494,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             or rotor_cfg.get("flow_velocity")
             or _DEFAULT_FLOW_VELOCITY
         )
+        self._n_blades = int(perf_cfg.get("n_blades") or rotor_cfg.get("n_blades") or 3)
         if not perf_cfg and (
             rotor_cfg.get("fluid_density") is not None or rotor_cfg.get("flow_velocity") is not None
         ):
@@ -535,6 +547,15 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         """Initialize state tracking variables."""
         # Current rotation angle (updated during time stepping)
         self._theta = 0.0
+
+        # Ring buffer of (t, power_aero, power_total) single-blade samples,
+        # used to build the instantaneous rotor power as the sum over blade
+        # azimuthal phases (see _rotor_power_phase_sum). 6000 samples cover
+        # 60 s at the standard 0.01 s window — well over one revolution
+        # (~8 s at 7.55 RPM).
+        self._power_phase_history: "collections.deque[Tuple[float, float, float]]" = (
+            collections.deque(maxlen=6000)
+        )
 
         # State tracking for dynamic updates
 
@@ -1105,6 +1126,21 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             Maximum nodal displacement magnitude [m].
         deformed_radius : float, optional
             Current deformed rotor radius [m].
+
+        Notes
+        -----
+        The coupled structural model represents one blade. The legacy
+        ``Aero Power [W]`` and ``Total Power [W]`` columns therefore remain
+        single-blade quantities. Explicit ``Single Blade`` and ``Rotor
+        Equivalent`` columns are written so post-processing can choose the
+        correct convention without guessing.
+
+        The ``Rotor Equivalent`` columns are NOT a plain ``n_blades ×``
+        scaling: the instantaneous single-blade power depends on the blade
+        azimuth (gravity, yaw, elastic deformation), so the rotor total is
+        the sum of the three azimuthal phases reconstructed from the
+        single-blade history (see ``_rotor_power_phase_sum``). The mean is
+        unchanged with respect to the legacy 3× scaling.
         """
         if not self._is_primary_rank():
             return
@@ -1113,6 +1149,14 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         os.makedirs(output_folder, exist_ok=True)
         log_path = os.path.join(output_folder, "rotor_performance.csv")
         file_exists = os.path.exists(log_path)
+        n_blades = int(getattr(self, "_n_blades", 3))
+        aero_power_rotor, total_power_rotor = self._rotor_power_phase_sum(
+            t=t,
+            power_aero=power_aero,
+            power_total=power_total,
+            omega_rad=omega_rad,
+            n_blades=n_blades,
+        )
 
         try:
             with open(log_path, "a") as f:
@@ -1122,7 +1166,10 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                         "Aero Thrust [N],"
                         "Aero Torque [Nm],Non-Aero Torque [Nm],Inertial Torque [Nm],"
                         "Gravity Torque [Nm],Total Torque [Nm],"
-                        "Aero Power [W],Total Power [W],Structural Efficiency,"
+                        "Aero Power [W],Total Power [W],"
+                        "Aero Power Single Blade [W],Aero Power Rotor Equivalent [W],"
+                        "Total Power Single Blade [W],Total Power Rotor Equivalent [W],"
+                        "Blade Count [-],Structural Efficiency,"
                         "Cp,Cq,Ct,TSR,"
                         "Aero Torque X [Nm],Aero Torque Y [Nm],Aero Torque Z [Nm],"
                         "Total Torque X [Nm],Total Torque Y [Nm],Total Torque Z [Nm],"
@@ -1137,7 +1184,10 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                     f"{thrust:.6e},"
                     f"{torque_aero:.6e},{torque_non_aero:.6e},{torque_inertial:.6e},"
                     f"{torque_gravity:.6e},{torque_total:.6e},"
-                    f"{power_aero:.6e},{power_total:.6e},{structural_efficiency:.6f},"
+                    f"{power_aero:.6e},{power_total:.6e},"
+                    f"{power_aero:.6e},{aero_power_rotor:.6e},"
+                    f"{power_total:.6e},{total_power_rotor:.6e},"
+                    f"{n_blades},{structural_efficiency:.6f},"
                     f"{cp:.6f},{cq:.6f},{ct:.6f},{tsr:.6f},"
                     f"{torque_aero_global[0]:.6e},{torque_aero_global[1]:.6e},"
                     f"{torque_aero_global[2]:.6e},"
@@ -1148,6 +1198,83 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                 f.write(line)
         except Exception as e:
             _logger.warning("Failed to write rotor log: %s", e)
+
+    def _rotor_power_phase_sum(
+        self,
+        t: float,
+        power_aero: float,
+        power_total: float,
+        omega_rad: float,
+        n_blades: int,
+    ) -> Tuple[float, float]:
+        """Instantaneous rotor power as the sum over blade azimuthal phases.
+
+        The structural model simulates a single blade; the legacy ``3×``
+        scaling is exact for the **mean** power but wrong for the
+        instantaneous signal: with gravity, yaw and elastic deformation, the
+        single-blade power is a function of the blade azimuth, so the three
+        blades (at ψ, ψ + 2π/3, ψ + 4π/3) contribute different instantaneous
+        values.
+
+        In a periodic steady state the single-blade power at azimuth ψ + k·2π/3
+        equals the value the simulated blade had one third of a revolution
+        earlier (period 2π / ω). The rotor total is therefore recovered from
+        the single-blade history ring buffer:
+
+            P_rotor(t) = Σ_k P_blade(t - k·T/3),  T = 2π / ω
+
+        with linear interpolation between logged samples. Until the buffer
+        covers 2T/3 (first revolution), the missing phase terms fall back to
+        the current sample — equivalent to the legacy 3× scaling for those
+        rows, so the mean is preserved from the very first window.
+
+        Parameters
+        ----------
+        t : float
+            Current time [s].
+        power_aero : float
+            Single-blade aerodynamic power [W].
+        power_total : float
+            Single-blade total power [W].
+        omega_rad : float
+            Angular velocity [rad/s].
+        n_blades : int
+            Number of blades.
+
+        Returns
+        -------
+        Tuple[float, float]
+            (aero_power_rotor, total_power_rotor) — instantaneous rotor
+            totals [W].
+        """
+        history = getattr(self, "_power_phase_history", None)
+        if history is None or abs(omega_rad) <= _MIN_DENOMINATOR:
+            return power_aero * n_blades, power_total * n_blades
+
+        history.append((float(t), float(power_aero), float(power_total)))
+        if len(history) < 3:
+            return power_aero * n_blades, power_total * n_blades
+
+        period = 2.0 * np.pi / abs(omega_rad)
+        lag = period / n_blades
+
+        times = np.fromiter((s[0] for s in history), dtype=np.float64, count=len(history))
+        pa_hist = np.fromiter((s[1] for s in history), dtype=np.float64, count=len(history))
+        pt_hist = np.fromiter((s[2] for s in history), dtype=np.float64, count=len(history))
+
+        aero_rotor = float(power_aero)
+        total_rotor = float(power_total)
+        for k in range(1, n_blades):
+            target = t - k * lag
+            if target <= times[0]:
+                # History not deep enough — fall back to current phase value.
+                aero_rotor += power_aero
+                total_rotor += power_total
+                continue
+            aero_rotor += float(np.interp(target, times, pa_hist))
+            total_rotor += float(np.interp(target, times, pt_hist))
+
+        return aero_rotor, total_rotor
 
     # =========================================================================
     # Main Solve Method
@@ -1216,6 +1343,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                             omega=omega_initial,
                             rotation_axis=self._coord_transforms.axis,
                             rotation_center=self._coord_transforms.center,
+                            free_dofs=bc_manager.free_dofs,
                         )
                     except Exception as e:
                         _logger.warning("Could not reassemble K_G after checkpoint mismatch: %s", e)
@@ -1319,33 +1447,39 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         self._print_phase(1, 6, "Assembling stiffness matrix...")
         self.K = self.domain.assemble_stiffness_matrix()
 
-        self._print_phase(2, 6, "Assembling mass matrix (lumped in Rust)...")
-        self.M = self.domain.assemble_mass_matrix_lumped()
-
-        # Geometric stiffness
-        K_G = None
-        if self._include_geometric_stiffness:
-            self._print_phase(3, 6, "Assembling geometric stiffness (centrifugal)...")
-            try:
-                K_G = self.domain.assemble_geometric_stiffness(
-                    omega=omega_initial,
-                    rotation_axis=self._coord_transforms.axis,
-                    rotation_center=self._coord_transforms.center,
-                )
-            except Exception as e:
-                _logger.warning("Could not assemble K_G: %s. Proceeding without.", e)
-                K_G = None
-        else:
-            self._print_phase(3, 6, "Geometric stiffness: skipped")
+        # Consistent mass matrix: the lumped mass puts the full nodal mass
+        # on the rotational DOFs, which destabilises the Newmark integration
+        # at the blade tip (thin panels with a near-zero effective rotational
+        # stiffness; the yaml-blade campaign diverged at t~0.1 s, 2026-09-09).
+        self._print_phase(2, 6, "Assembling mass matrix (consistent)...")
+        self.M = self.domain.assemble_mass_matrix()
 
         # Force vector and boundary conditions
         force_temp = PETSc.Vec().createMPI(self.domain.dofs_count, comm=self.comm)
         force_temp.set(0.0)
         self.F = force_temp
 
-        self._print_phase(4, 6, "Applying boundary conditions...")
+        self._print_phase(3, 6, "Applying boundary conditions...")
         bc_manager = BoundaryConditionManager(self.K, self.F, self.M, self.domain.dofs_per_node)
         bc_manager.apply_dirichlet(self.dirichlet_conditions)
+
+        # Geometric stiffness — the centrifugal pre-stress static solve needs
+        # the free-DOF elimination from the boundary conditions.
+        K_G = None
+        if self._include_geometric_stiffness:
+            self._print_phase(4, 6, "Assembling geometric stiffness (centrifugal)...")
+            try:
+                K_G = self.domain.assemble_geometric_stiffness(
+                    omega=omega_initial,
+                    rotation_axis=self._coord_transforms.axis,
+                    rotation_center=self._coord_transforms.center,
+                    free_dofs=bc_manager.free_dofs,
+                )
+            except Exception as e:
+                _logger.warning("Could not assemble K_G: %s. Proceeding without.", e)
+                K_G = None
+        else:
+            self._print_phase(4, 6, "Geometric stiffness: skipped")
 
         if self._is_primary_rank():
             print(
@@ -1759,19 +1893,21 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         )
         all_node_coords = all_node_coords_nodes.ravel()
 
-        # ── Per-node scalar lumped mass (first translational DOF per node) ──
-        diag_vec = self.M.getDiagonal()
-        diag_arr = diag_vec.getArray(readonly=True)
+        # ── Per-node scalar mass from the mass matrix (partition of unity:
+        # row-sum over the translational rows — valid for consistent AND
+        # lumped mass matrices) ──
+        mr, mc, mv = self.domain._rust.assemble_m()
+        mr = np.asarray(mr)
+        mv = np.asarray(mv)
         dofs = self.domain.dofs_per_node
         n_nodes = len(self.domain.nodes)
         all_node_masses = np.array(
             [
-                float(diag_arr[i * dofs]) if i * dofs < len(diag_arr) else 0.0
+                float(mv[mr == i * dofs].sum()) if (mr == i * dofs).any() else 0.0
                 for i in range(n_nodes)
             ],
             dtype=np.float64,
         )
-        diag_vec.destroy()
 
         # ── OmegaProvider mapping ───────────────────────────────────────────
         omega_mode, omega_val, omega_target, t_ramp, moi, shaft_tau = self._map_omega_provider()
@@ -1876,7 +2012,9 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             # Old Rust binaries or pickled results only have 5 elements; the fallback
             # guard in the force-computation block below handles that case.
             if len(rotor_perf_tuple) >= 6:
-                tau_aero_rust, _ct_rust, _cp_rust, _cq_rust, _tsr_rust, _rust_inertial_flat = rotor_perf_tuple
+                tau_aero_rust, _ct_rust, _cp_rust, _cq_rust, _tsr_rust, _rust_inertial_flat = (
+                    rotor_perf_tuple
+                )
             else:
                 tau_aero_rust, _ct_rust, _cp_rust, _cq_rust, _tsr_rust = rotor_perf_tuple
                 _rust_inertial_flat = None
@@ -2000,16 +2138,12 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
             # iface_u_local and iface_force_local are already in the rotating frame.
             # Convert reference coords to the rotating frame before computing r×F
             # so that rel_pos = coords_local + disps_local - center is consistent.
-            iface_coords_local = self._coord_transforms.to_rotating(
-                interface_coords_nodes, theta
-            )
+            iface_coords_local = self._coord_transforms.to_rotating(interface_coords_nodes, theta)
             # interface_coords_nodes are stored in the global (inertial) frame.
             # iface_u_local and iface_force_local are already in the rotating frame.
             # Convert reference coords to the rotating frame before computing r×F
             # so that rel_pos = coords_local + disps_local - center is consistent.
-            iface_coords_local = self._coord_transforms.to_rotating(
-                interface_coords_nodes, theta
-            )
+            iface_coords_local = self._coord_transforms.to_rotating(interface_coords_nodes, theta)
             tau_aero_global, tau_aero = self._compute_axis_torque(
                 iface_coords_local,
                 iface_u_local,
@@ -2025,9 +2159,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                     self._coord_transforms.axis * tau_aero_rust, theta
                 )
 
-            all_node_coords_local = self._coord_transforms.to_rotating(
-                all_node_coords_nodes, theta
-            )
+            all_node_coords_local = self._coord_transforms.to_rotating(all_node_coords_nodes, theta)
             _, tau_inertial = self._compute_axis_torque(
                 all_node_coords_local,
                 u_nodes_local,
@@ -2055,9 +2187,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                     self._coord_transforms.axis * tau_aero_rust, theta
                 )
 
-            all_node_coords_local = self._coord_transforms.to_rotating(
-                all_node_coords_nodes, theta
-            )
+            all_node_coords_local = self._coord_transforms.to_rotating(all_node_coords_nodes, theta)
             _, tau_inertial = self._compute_axis_torque(
                 all_node_coords_local,
                 u_nodes_local,

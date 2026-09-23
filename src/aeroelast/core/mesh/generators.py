@@ -1136,6 +1136,17 @@ class BladeMesh:
                 print(f"      Renumbering mesh using {renumber} algorithm...")
             mesh_model.renumber_mesh(algorithm=renumber)
 
+        # Canonicalise the element windings AFTER any renumbering: every normal
+        # must point away from the section centreline, otherwise the
+        # per-element ply-angle offset (signed about the winding-dependent
+        # normal) flips the material orientation of mixed-winding elements.
+        # See aeroelast/core/mesh/winding.py.
+        from aeroelast.core.mesh.winding import canonicalize_windings
+
+        n_flipped = canonicalize_windings(mesh_model, span_axis=2)
+        if verbose and n_flipped:
+            print(f"      Canonicalised {n_flipped} element winding(s)")
+
         if verbose:
             print(
                 f"      Blade mesh generated: {mesh_model.node_count} nodes, {mesh_model.elements_count} elements"

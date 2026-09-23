@@ -1,0 +1,41 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=12:00:00
+#SBATCH -e exp_%j.err
+#SBATCH -J exp_aerodamp_off
+#SBATCH -o exp_%j.out
+#SBATCH -p sequana_cpu
+
+# Exp 1a: yaw=0 flexible FSI, 30 s, structural velocity feedback DISABLED
+# (fluid_yaw_0.yaml: velocity_data: null). Isolates the aeroelastic-damping
+# contribution to the flexible-load overshoot (+8% vs rigid BEM).
+set -euo pipefail
+
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+CASES_DIR="${SUBMIT_DIR}/exp_aero_damp_off"
+RESULTS_BASE="${RESULTS_BASE:-${SCRATCH}/exp_results_aerodamp_off}"
+RUN_SOLID="${SUBMIT_DIR}/IEA15MW/_run_solid.sh"
+RUN_FLUID="${SUBMIT_DIR}/IEA15MW/_run_fluid.sh"
+
+CASE_DIR="${RESULTS_BASE}/yaw_0"
+LOG_DIR="${CASE_DIR}/logs"
+mkdir -p "${LOG_DIR}"
+
+echo "Case: yaw=0 exp 1a (30 s, aeroelastic damping OFF)"
+echo "Output: ${CASE_DIR}"
+
+( cd "${CASE_DIR}" && "${RUN_SOLID}" "${CASES_DIR}/yaw_0/solid_corotational_yaw_0.yaml" ) \
+    >> "${LOG_DIR}/solid.log" 2>&1 &
+SOLID_PID=$!
+sleep 2
+( cd "${CASE_DIR}" && "${RUN_FLUID}" "${CASES_DIR}/yaw_0/fluid_yaw_0.yaml" "${CASE_DIR}" ) \
+    >> "${LOG_DIR}/fluid.log" 2>&1 &
+FLUID_PID=$!
+
+FAILED=0
+wait "${SOLID_PID}" || { echo "[FAIL] solid exit=$?"; FAILED=$((FAILED+1)); }
+wait "${FLUID_PID}" || { echo "[FAIL] fluid exit=$?"; FAILED=$((FAILED+1)); }
+
+[[ ${FAILED} -eq 0 ]] && echo "EXP 1a OK" || echo "EXP 1a FAILED"
+exit ${FAILED}

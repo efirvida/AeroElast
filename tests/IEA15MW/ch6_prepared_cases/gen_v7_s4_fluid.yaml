@@ -1,0 +1,59 @@
+participant: Fluid
+config_file: ../precice-config.xml
+coupling_mesh: Fluid-Mesh
+displacement_data: Displacement
+velocity_data: Velocity
+blade_file: ../../IEA-15-240-RWT.yaml
+mesh:
+  source: generator
+  generator:
+    type: BladeMesh
+    params:
+      yaml_file: ../../IEA-15-240-RWT.yaml
+      airfoil_dir: ../blade_definition/airfoils
+      element_size: 0.25
+      n_samples: 300
+      airfoil_spacing: constant
+      span_grading: chord
+    coupling_node_set: allOuterShellNods
+  output_file: fluid_mesh.vtu
+bem:
+  wind_speed: 7
+  pitch: 0.0
+  yaw: 0.0
+  omega:
+    initial: 0.5207902785814665
+    mesh: GlobalFluidMesh
+    data: AngularVelocity
+    vertex:
+    - 0.0
+    - 0.0
+    - 0.0
+  air_density: 1.225
+  dynamic_viscosity: 1.81e-05
+  hub_height: 150.0
+  shear_exp: 0.2
+  n_blades: 3
+  hub_radius: 0.0
+  default_re: 1.0e7
+  neuralfoil_model: large
+  viterna_ar: 17.0
+  viterna_confidence_threshold: 0.5
+  precone: 0.0
+  tilt: 0.0
+  span_direction:
+  - 0.0
+  - 0.0
+  - 1.0
+  normal_direction:
+  - 0.0
+  - 1.0
+  - 0.0
+  tangential_direction:
+  - -1.0
+  - 0.0
+  - 0.0
+output:
+  folder: bem_fsi_results_dlc_1_1
+  log_interval: 1
+  write_vtu: false

@@ -1,0 +1,41 @@
+#!/bin/bash
+#SBATCH --mail-type=END,FAIL
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=24:00:00
+#SBATCH -e anim_%j.err
+#SBATCH -J yaw0_anim_rigid
+#SBATCH -o anim_%j.out
+#SBATCH -p sequana_cpu
+
+# yaw=0 rigid-blade FSI case (E scaled x1e4) with fine checkpoints (write_interval 0.1 s + the deformed
+# mesh) for the presentation animation.
+set -euo pipefail
+
+SUBMIT_DIR="${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
+CASES_DIR="${SUBMIT_DIR}/frontiersin_2025_yaw_anim"
+RESULTS_BASE="${RESULTS_BASE:-${SCRATCH}/frontiersin_anim_yaw0_rigid}"
+RUN_SOLID="${SUBMIT_DIR}/_run_solid.sh"
+RUN_FLUID="${SUBMIT_DIR}/_run_fluid.sh"
+
+CASE_DIR="${RESULTS_BASE}/yaw_0"
+LOG_DIR="${CASE_DIR}/logs"
+mkdir -p "${LOG_DIR}"
+
+echo "Case: yaw=0 rigid anim (write_interval 0.1, deformed mesh)"
+echo "Output: ${CASE_DIR}"
+
+( cd "${CASE_DIR}" && "${RUN_SOLID}" "${CASES_DIR}/solid_corotational_rigid_yaw_0.yaml" ) \
+    >> "${LOG_DIR}/solid.log" 2>&1 &
+SOLID_PID=$!
+sleep 2
+( cd "${CASE_DIR}" && "${RUN_FLUID}" "${CASES_DIR}/fluid_yaw_0.yaml" "${CASE_DIR}" ) \
+    >> "${LOG_DIR}/fluid.log" 2>&1 &
+FLUID_PID=$!
+
+FAILED=0
+wait "${SOLID_PID}" || { echo "[FAIL] solid exit=$?"; FAILED=$((FAILED+1)); }
+wait "${FLUID_PID}" || { echo "[FAIL] fluid exit=$?"; FAILED=$((FAILED+1)); }
+
+[[ ${FAILED} -eq 0 ]] && echo "ANIM CASE OK" || echo "ANIM CASE FAILED"
+exit ${FAILED}

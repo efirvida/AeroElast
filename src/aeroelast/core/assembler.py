@@ -691,6 +691,7 @@ class MeshAssembler:
         omega: Optional[float] = None,
         rotation_axis: Optional[np.ndarray] = None,
         rotation_center: Optional[np.ndarray] = None,
+        free_dofs: Optional[np.ndarray] = None,
     ) -> PETSc.Mat:
         """
         Assemble the global geometric stiffness matrix for stress stiffening effects.
@@ -704,7 +705,10 @@ class MeshAssembler:
 
         The method supports two modes of operation:
         1. Direct stress field: Provide membrane stress for each element
-        2. Centrifugal loading: Automatically compute prestress from rotation parameters
+        2. Centrifugal loading: Solve the static centrifugal pre-stress problem
+           ``K u = f_cf`` (root-clamped via ``free_dofs``) and recover the
+           element membrane force resultants from ``u`` — the accumulated
+           centrifugal tension is captured exactly by static equilibrium.
 
         Parameters
         ----------
@@ -720,6 +724,10 @@ class MeshAssembler:
             Required if omega is provided.
         rotation_center : np.ndarray, optional
             Point on rotation axis (3,). Default [0, 0, 0] (origin).
+        free_dofs : np.ndarray, optional
+            Global DOF indices that are NOT clamped (i.e., the complement of the
+            boundary-condition set).  Required when ``omega`` is provided: the
+            centrifugal pre-stress static solve needs the clamped-root elimination.
 
         Returns
         -------
@@ -729,7 +737,8 @@ class MeshAssembler:
         Raises
         ------
         ValueError
-            If neither stress_field nor omega is provided
+            If neither stress_field nor omega is provided, or if omega is
+            provided without free_dofs.
 
         Notes
         -----
@@ -792,13 +801,46 @@ class MeshAssembler:
                         sigma_array[i, :3] = sv[:3]
                 rows, cols, vals = self._rust.assemble_geometric_k(sigma_array)
             else:
-                # Rust-accelerated centrifugal prestress
-                rows, cols, vals = self._rust.assemble_centrifugal_k(
+                if free_dofs is None:
+                    raise ValueError(
+                        "centrifugal K_G requires free_dofs: the pre-stress static "
+                        "solve K u = f_cf needs the clamped-root DOF elimination"
+                    )
+                free_dofs = np.asarray(free_dofs, dtype=np.int64)
+
+                # 1. Centrifugal nodal load (Rust, lumped per element)
+                f_full = np.asarray(self._rust.centrifugal_load(
                     float(omega),
                     list(map(float, rotation_axis)),
                     list(map(float, rotation_center)),
                     self._rho_per_elem,
+                ))
+
+                # 2. Static solve K u = f on the free DOFs
+                k_rows, k_cols, k_vals = self._rust.assemble_k()
+                K_full = self._coo_to_petsc(k_rows, k_cols, k_vals)
+                is_free = PETSc.IS().createGeneral(
+                    free_dofs.astype(PETSc.IntType), comm=self.comm
                 )
+                K_red = K_full.createSubMatrix(is_free, is_free)
+
+                u_red = PETSc.Vec().createSeq(len(free_dofs), comm=self.comm)
+                f_red = PETSc.Vec().createSeq(len(free_dofs), comm=self.comm)
+                f_red.setArray(f_full[free_dofs])
+                ksp = PETSc.KSP().create(self.comm)
+                ksp.setOperators(K_red)
+                ksp.setType("preonly")
+                pc = ksp.getPC()
+                pc.setType("lu")
+                pc.setFactorSolverType("mumps")
+                ksp.setFromOptions()
+                ksp.solve(f_red, u_red)
+
+                u_full = np.zeros(self.dofs_count, dtype=np.float64)
+                u_full[free_dofs] = u_red.getArray()
+
+                # 3. K_G from the membrane state of the pre-stress solution
+                rows, cols, vals = self._rust.assemble_geometric_k_from_disp(u_full)
             return self._coo_to_petsc(rows, cols, vals)
 
         # ------------------------------------------------------------------

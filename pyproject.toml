@@ -92,6 +92,8 @@ select = [
 [project.scripts]
 aeroelast = "aeroelast.cli.aeroelast:main"
 fem-shell-fsi = "aeroelast.cli.run_fsi:main"
+fem-shell-aero-fsi = "aeroelast.cli.run_aero_fsi:main"
+fem-shell-aero-report-info = "aeroelast.cli.aero_report_info:main"
 fem-shell-bem-fsi = "aeroelast.cli.run_bem_fsi:main"
 fem-shell-monitor = "aeroelast.cli.fsi_monitor:main"
 fem-shell-reconstruct-csv = "aeroelast.cli.reconstruct_rotor_csv:main"
@@ -126,6 +128,12 @@ bem = [
     "numpy",
     "neuralfoil",
 ]
+sharpy = [
+    # SHARPy is kept optional because current ic-sharpy pins numpy/scipy to
+    # older ranges (<2.0 / <1.14) that conflict with aeroelast base deps.
+    # It also builds compiled UVLM extensions and requires SDumont GCC runtime.
+    "ic-sharpy>=2.4",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -140,6 +148,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "benchmark: marks tests as benchmark tests",
     "composite: marks tests for composite materials",
+    "integration: marks tests that require completed simulation output files",
 ]
 
 [tool.coverage.run]

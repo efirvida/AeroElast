@@ -16,6 +16,7 @@ Supported solver types (solver.type in YAML):
     Modal           — natural frequencies and mode shapes (SLEPc)
     LinearStatic    — static linear analysis
     LinearDynamic   — transient Newmark-β integration
+    AeroFSI         — standalone aerodynamic participant for preCICE coupling
 """
 
 import argparse
@@ -387,14 +388,19 @@ Examples:
 
         with open(config_path) as _f:
             _raw = _yaml.safe_load(_f)
-        _is_bem_fsi = "bem" in _raw and _raw.get("solver", {}).get("type", "BEMFSI") == "BEMFSI"
-        if _is_bem_fsi:
-            from aeroelast.cli.run_bem_fsi import main as _bem_main
+        _solver_type = _raw.get("solver", {}).get("type")
+        _is_aero_fsi = (
+            (_solver_type == "AeroFSI")
+            or ("aero" in _raw and _solver_type in (None, "AeroFSI"))
+            or ("bem" in _raw and _solver_type in (None, "BEMFSI", "AeroFSI"))
+        )
+        if _is_aero_fsi:
+            from aeroelast.cli.run_aero_fsi import main as _aero_main
 
             _argv = [str(config_path)]
             if args.workdir:
                 _argv += ["--workdir", args.workdir]
-            return _bem_main(_argv)
+            return _aero_main(_argv)
 
         from aeroelast.solvers.fsi.runner import FSIRunner
 

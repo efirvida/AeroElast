@@ -1,0 +1,209 @@
+#!/bin/bash
+#SBATCH -p sequana_cpu
+#SBATCH --ntasks=48
+#SBATCH -J yaw_sweep_FSI
+#SBATCH --time=48:00:00
+#SBATCH -e logs/slurm_%j.err
+#SBATCH -o logs/slurm_%j.out
+#SBATCH --mail-type=END,FAIL
+
+# ── Frontiersin 2025 yaw sweep — 5 BEM-FEM FSI cases in parallel ─────────────
+# Ma et al. 2025, doi:10.3389/fenrg.2025.1571567
+# IEA-15 MW, rated: v_wind=10.59 m/s, Ω=7.55 RPM, pitch=0°, yaw=0/10/20/30/40°
+#
+# Each yaw case runs two preCICE participants (solid + fluid) via dedicated
+# _run_solid.sh / _run_fluid.sh scripts that perform their own full environment
+# setup (module purge → module load → GCC14_LIB → venv PATH/LD_LIBRARY_PATH).
+# This mirrors exactly how solid/run.sh and fluid/run.sh work in the reference
+# simulations/bem_0_10/ case.
+#
+# Both participants run from yaw_N/ so preCICE exchange-directory="." isolates
+# sockets per case (no cross-case collisions).
+#
+# Output layout (per case, inside RESULTS_BASE):
+#   yaw_N/
+#     corotational/   ← solid output  (SOLVER_TYPE=corotational, default)
+#     inertial/       ← solid output  (SOLVER_TYPE=inertial)
+#     fluid/          ← BEM output
+#     logs/
+#       solid.log
+#       fluid.log
+#
+# Overridable env vars (export before sbatch):
+#   SOLVER_TYPE    corotational (default) | inertial
+#   RESULTS_BASE   output root (default: <submit_dir>/frontiersin_results)
+#
+# Usage:
+#   sbatch runAll.srm
+#   SOLVER_TYPE=inertial sbatch runAll.srm
+#   RESULTS_BASE=$SCRATCH/yaw_runs sbatch runAll.srm
+#
+# Resources — sequana_cpu (24 cores/node):
+#   5 solid × OMP_NUM_THREADS=4 = 20 cores  (set inside _run_solid.sh)
+#   5 fluid × 1 core            =  5 cores
+#   Total ≈ 25 → 2 × 24-core nodes (headroom for OS + preCICE)
+# ─────────────────────────────────────────────────────────────────────────────
+
+SOLVER_TYPE="${SOLVER_TYPE:-corotational}"
+YAW_ANGLES=(0 10 20 30 40)
+
+SUBMIT_DIR="$SLURM_SUBMIT_DIR"
+CASES_DIR="${SUBMIT_DIR}/frontiersin_2025_yaw"
+RESULTS_BASE="${RESULTS_BASE:-${SUBMIT_DIR}/frontiersin_results}"
+
+RUN_SOLID="${SUBMIT_DIR}/_run_solid.sh"
+RUN_FLUID="${SUBMIT_DIR}/_run_fluid.sh"
+
+echo "Job:          $SLURM_JOB_ID"
+echo "Nodes:        $SLURM_NODELIST"
+echo "Submit dir:   $SUBMIT_DIR"
+echo "Cases dir:    $CASES_DIR"
+echo "Results base: $RESULTS_BASE"
+echo "Solver:       $SOLVER_TYPE"
+echo "Yaw angles:   ${YAW_ANGLES[*]} deg"
+echo "Start:        $(date)"
+echo ""
+
+# ── Signal handler — kill all child process groups on INT/TERM ─────────────────
+declare -a ALL_PIDS=()
+declare -a ALL_NAMES=()
+
+on_signal() {
+    echo "[SIGNAL] Received $1 — stopping all participants..."
+    for pid in "${ALL_PIDS[@]}"; do
+        [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null || true
+    done
+    sleep 3
+    for pid in "${ALL_PIDS[@]}"; do
+        [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
+    done
+    exit 130
+}
+
+trap 'on_signal INT'  INT
+trap 'on_signal TERM' TERM
+
+# ── run_case(yaw_deg) ──────────────────────────────────────────────────────────
+# Creates yaw_N/ working dir, launches solid then fluid as background processes.
+# Both run from yaw_N/ so:
+#   - preCICE exchange-directory="." → sockets isolated in yaw_N/
+#   - output.folder paths (fluid/ corotational/ inertial/) land inside yaw_N/
+run_case() {
+    local yaw=$1
+    local case_dir="${RESULTS_BASE}/yaw_${yaw}"
+    local log_dir="${case_dir}/logs"
+    local solid_yaml="${CASES_DIR}/solid_${SOLVER_TYPE}_yaw_${yaw}.yaml"
+    local fluid_yaml="${CASES_DIR}/fluid_yaw_${yaw}.yaml"
+
+    mkdir -p "${case_dir}" "${log_dir}"
+
+    # Solid — preCICE acceptor; must be listening before fluid connects
+    echo "[yaw=${yaw}] Starting solid (${SOLVER_TYPE})..."
+    (cd "${case_dir}" && "${RUN_SOLID}" "${solid_yaml}") \
+        >> "${log_dir}/solid.log" 2>&1 &
+    local solid_pid=$!
+    ALL_PIDS+=("$solid_pid")
+    ALL_NAMES+=("yaw_${yaw}/solid")
+    echo "[yaw=${yaw}] solid PID=${solid_pid}"
+
+    # Give the acceptor time to open its preCICE socket
+    sleep 2
+
+    # Fluid — preCICE connector
+    echo "[yaw=${yaw}] Starting fluid (BEM)..."
+    (cd "${case_dir}" && "${RUN_FLUID}" "${fluid_yaml}" "${case_dir}") \
+        >> "${log_dir}/fluid.log" 2>&1 &
+    local fluid_pid=$!
+    ALL_PIDS+=("$fluid_pid")
+    ALL_NAMES+=("yaw_${yaw}/fluid")
+    echo "[yaw=${yaw}] fluid PID=${fluid_pid}"
+}
+
+# ── Preflight checks ───────────────────────────────────────────────────────────
+for f in "$RUN_SOLID" "$RUN_FLUID"; do
+    [[ -x "$f" ]] || { echo "PREFLIGHT ERROR: not found or not executable: $f" >&2; exit 1; }
+done
+
+for yaw in "${YAW_ANGLES[@]}"; do
+    for f in \
+        "${CASES_DIR}/solid_${SOLVER_TYPE}_yaw_${yaw}.yaml" \
+        "${CASES_DIR}/fluid_yaw_${yaw}.yaml"; do
+        if [[ ! -f "$f" ]]; then
+            echo "PREFLIGHT ERROR: missing YAML: $f" >&2
+            exit 1
+        fi
+    done
+done
+echo "Preflight OK — all scripts and YAML files found."
+
+# ── pytest sanity check — validate all template configs before a long run ──────
+echo ""
+echo "Running template validation tests..."
+REPO_ROOT="$(cd "${SUBMIT_DIR}/../.." && pwd)"
+PYTEST_CMD="python -m pytest"
+PYTEST_TESTS=(
+    "tests/test_frontiersin_2025_yaw_fsi.py"
+    "tests/test_ch6_dlc_prepared_cases.py"
+)
+(
+    cd "${REPO_ROOT}"
+    ${PYTEST_CMD} "${PYTEST_TESTS[@]}" -q --tb=short
+) || { echo "PREFLIGHT ERROR: template validation tests failed — aborting." >&2; exit 1; }
+echo "Template validation OK."
+
+mkdir -p "${RESULTS_BASE}/logs"
+
+# ── Launch all cases ───────────────────────────────────────────────────────────
+echo ""
+echo "════════════════════════════════════════════════════════════════"
+echo "  Frontiersin 2025 yaw sweep — IEA-15 MW BEM-FEM FSI"
+echo "  Solver: ${SOLVER_TYPE}"
+echo "  Cases:  yaw = ${YAW_ANGLES[*]} deg  (${#YAW_ANGLES[@]} cases)"
+echo "  Output: ${RESULTS_BASE}/yaw_N/"
+echo "════════════════════════════════════════════════════════════════"
+echo ""
+
+for yaw in "${YAW_ANGLES[@]}"; do
+    run_case "$yaw" || { echo "ERROR: failed to launch yaw=${yaw}" >&2; exit 1; }
+    # Stagger case starts to avoid simultaneous preCICE initialization storms
+    sleep 1
+done
+
+echo ""
+echo "All ${#YAW_ANGLES[@]} cases launched (${#ALL_PIDS[@]} processes total)."
+echo "Waiting for completion..."
+echo ""
+
+# ── Wait and collect exit codes ────────────────────────────────────────────────
+FAILED=0
+for i in "${!ALL_PIDS[@]}"; do
+    pid=${ALL_PIDS[$i]}
+    name=${ALL_NAMES[$i]}
+    if wait "$pid"; then
+        echo "[DONE]  ${name}  (PID=${pid})"
+    else
+        rc=$?
+        echo "[FAIL]  ${name}  (PID=${pid})  exit=${rc}" >&2
+        FAILED=$((FAILED + 1))
+    fi
+done
+
+# ── Summary ────────────────────────────────────────────────────────────────────
+echo ""
+if [[ $FAILED -eq 0 ]]; then
+    echo "✔  All cases completed successfully."
+else
+    echo "✖  ${FAILED} process(es) failed. Check logs:"
+    for yaw in "${YAW_ANGLES[@]}"; do
+        echo "     ${RESULTS_BASE}/yaw_${yaw}/logs/"
+    done
+fi
+
+echo ""
+echo "Results layout:"
+for yaw in "${YAW_ANGLES[@]}"; do
+    echo "  yaw_${yaw}/  fluid/  ${SOLVER_TYPE}/  logs/"
+done
+echo ""
+echo "End: $(date)"
+exit $FAILED

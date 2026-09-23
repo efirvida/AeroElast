@@ -135,9 +135,11 @@ def test_kg_hysteresis_prevents_chattering():
 
         step += 1
 
-    # Should rebuild at step 0 (first), 4 (exceeds 0.6%), maybe not at others
+    # The hysteresis is on omega^2: the +0.4% omega step at index 3 is the
+    # first that exceeds the 0.5% omega^2 threshold ((1.004^2 - 1) ~ 0.8%),
+    # so the rebuilds land on steps 0, 2, 3 for this sequence.
     assert 0 in rebuild_steps, "Must rebuild on first step"
-    assert 4 in rebuild_steps, "Must rebuild when exceeding 0.6%"
+    assert 3 in rebuild_steps, "Must rebuild when omega^2 exceeds the threshold"
     assert len(rebuild_steps) <= 3, (
         f"Should rebuild ≤3 times, got {len(rebuild_steps)} (steps: {rebuild_steps})"
     )
@@ -148,9 +150,16 @@ def test_kg_hysteresis_prevents_chattering():
 
 def test_coriolis_matrix_antisymmetry():
     """
-    Coriolis gyroscopic matrix G_cor must be antisymmetric: G^T = -G.
+    LHS gyroscopic matrix G_LHS must be antisymmetric: G^T = -G.
 
-    This ensures energy conservation and stability in implicit treatment.
+    G_LHS = +2·m·Ω̃ is added to the Newmark effective damping matrix for
+    implicit Coriolis treatment.  Being antisymmetric ensures energy
+    conservation (v^T·G_LHS·v = 0 for all v).
+
+    Sign convention (Z-axis, ωz > 0):
+        G_LHS[u, v] = -2m·ωz  (negative)
+        G_LHS[v, u] = +2m·ωz  (positive)
+    This is G_LHS = +2m·Ω̃, NOT the force matrix G_force = -2m·Ω̃.
     """
     try:
         from _aeroelast import PyMeshAssembler
@@ -167,30 +176,25 @@ def test_coriolis_matrix_antisymmetry():
     # Free DOFs: translational DOFs for both nodes (0,1,2, 6,7,8)
     free_dofs = np.array([0, 1, 2, 6, 7, 8], dtype=np.int32)
 
-    # Build Coriolis matrix (this would call build_coriolis_matrix in Rust)
-    # For testing, we construct it manually following the algorithm:
-
+    # Build G_LHS manually following the LHS convention (coeff = +2·m):
     wx, wy, wz = omega * axis
 
-    # G_cor has 3×3 blocks for each node (only couples translations)
-    # Block for node i:
-    # [  0   -wz   wy ]
-    # [  wz   0   -wx ]
-    # [ -wy   wx    0  ]
-    # All multiplied by -2·m_i
+    # G_LHS has 3×3 blocks for each node (only couples translations)
+    # Block for node i: G_LHS_i = +2·m_i · Ω̃
+    # where Ω̃ = [[0,-wz,wy],[wz,0,-wx],[-wy,wx,0]]
 
     g_matrix = np.zeros((6, 6))  # 6×6 for 2 nodes × 3 translations each
 
     for i, m in enumerate(masses):
-        coeff = -2.0 * m
+        coeff = 2.0 * m  # G_LHS = +2·m·Ω̃  (LHS implicit form)
         base = i * 3
         # Off-diagonal entries
-        g_matrix[base + 0, base + 1] = -wz * coeff
-        g_matrix[base + 0, base + 2] = wy * coeff
-        g_matrix[base + 1, base + 0] = wz * coeff
-        g_matrix[base + 1, base + 2] = -wx * coeff
-        g_matrix[base + 2, base + 0] = -wy * coeff
-        g_matrix[base + 2, base + 1] = wx * coeff
+        g_matrix[base + 0, base + 1] = -wz * coeff  # G_LHS[u, v] = -2m·ωz
+        g_matrix[base + 0, base + 2] = wy * coeff   # G_LHS[u, w] = +2m·ωy
+        g_matrix[base + 1, base + 0] = wz * coeff   # G_LHS[v, u] = +2m·ωz
+        g_matrix[base + 1, base + 2] = -wx * coeff  # G_LHS[v, w] = -2m·ωx
+        g_matrix[base + 2, base + 0] = -wy * coeff  # G_LHS[w, u] = -2m·ωy
+        g_matrix[base + 2, base + 1] = wx * coeff   # G_LHS[w, v] = +2m·ωx
 
     # Check antisymmetry: G^T = -G
     assert_allclose(
@@ -201,6 +205,14 @@ def test_coriolis_matrix_antisymmetry():
     assert_allclose(
         np.diag(g_matrix), 0.0, atol=1e-14, err_msg="Diagonal of antisymmetric matrix must be zero"
     )
+
+    # Verify specific entry signs for Z-axis rotation (LHS convention):
+    # Node 0 (mass=10), ωz=50 → G_LHS[u,v] = -2·10·50 = -1000  (NEGATIVE)
+    #                           G_LHS[v,u] = +2·10·50 = +1000  (POSITIVE)
+    assert g_matrix[0, 1] < 0, "G_LHS[u,v] must be negative for ωz > 0 (LHS convention)"
+    assert g_matrix[1, 0] > 0, "G_LHS[v,u] must be positive for ωz > 0 (LHS convention)"
+    assert_allclose(g_matrix[0, 1], -2 * masses[0] * omega, rtol=1e-14)
+    assert_allclose(g_matrix[1, 0], +2 * masses[0] * omega, rtol=1e-14)
 
 
 def test_coriolis_implicit_stability():

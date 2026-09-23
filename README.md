@@ -69,16 +69,27 @@ The project targets Python 3.12+.
 
 ```bash
 cd fem-shell
+module load glu gcc/14.2.0_sequana
 pip install -e .
 ```
 
 This installs the package in editable mode and registers the available CLI
 commands.
 
+On SDumont, load GCC before any `aeroelast`/`fem-shell-*` execution and keep
+its `libstdc++` first in `LD_LIBRARY_PATH` to satisfy `GLIBCXX_3.4.32+`
+runtime requirements.
+
 If you need Triangle-based meshing helpers, install the optional extra:
 
 ```bash
 pip install -e .[mesh]
+```
+
+If you want the SHARPy aerodynamic backend, install the optional extra:
+
+```bash
+pip install -e .[sharpy]
 ```
 
 ### Optional external dependencies
@@ -145,10 +156,18 @@ fem-shell-reconstruct-csv results/
 The package currently provides three command-line entry points:
 
 - `fem-shell-fsi` - run or inspect YAML-defined simulations
+- `fem-shell-aero-report-info` - inspect generated Aero-FSI report manifests
 - `fem-shell-monitor` - monitor rotor/FSI runs from CSV output
 - `fem-shell-reconstruct-csv` - rebuild missing rotor performance histories
 
 Detailed CLI documentation is available in [docs/cli-reference.md](docs/cli-reference.md).
+
+Generic Aero-FSI report consumers should also read
+[docs/aero-fsi-report-schema.md](docs/aero-fsi-report-schema.md), which explains
+the generated CSV files and the accompanying schema manifest.
+
+The current IEA-15 MW VLM-versus-BEM validation status is documented in
+[docs/vlm-bem-iea15mw-validation.md](docs/vlm-bem-iea15mw-validation.md).
 
 ## Repository Layout
 
@@ -192,6 +211,14 @@ assertions; this reflects element accuracy limits on coarse meshes, not solver
 correctness.
 
 ## Post-processing
+
+Generic Aero-FSI runs now emit an `aero_report_schema.json` manifest alongside
+their CSV outputs. It records the report files, schema versions, and stable
+field ordering so downstream tools do not have to infer column meaning from the
+first emitted row.
+
+See [docs/aero-fsi-report-schema.md](docs/aero-fsi-report-schema.md) for the
+quick path and field-level guidance.
 
 The `StressRecovery` class (`src/fem_shell/postprocess/stress_recovery.py`)
 computes element-centroidal and node-averaged stress and strain fields from the

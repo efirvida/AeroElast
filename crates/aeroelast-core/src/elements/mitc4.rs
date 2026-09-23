@@ -569,6 +569,10 @@ impl Mitc4Precomputed {
         let b_ss_d = compute_covariant_membrane_b_row(&coords_3d, &e1, &e2, &e3,-1.0,  0.0, 1);
         let b_rs_e = compute_covariant_membrane_b_row(&coords_3d, &e1, &e2, &e3, 0.0,  0.0, 2);
 
+        // Drilling stiffness: k_drill = 0.15 · E · t²  (times optional user scale factor)
+        // Factor 0.15 calibrated so the penalty fixes the zero-energy drilling mode without
+        // perturbing physical deflection or frequency results.
+        // Reference: docs/validation_theory/06_mitc_elementos_shell.md §"Rigidez de perforacion"
         let k_drill = e_mod * thickness * thickness * 0.15 * drilling_scale;
 
         // ============================================================================

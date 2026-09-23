@@ -1,0 +1,90 @@
+# B1 + B2 — h/dt convergence campaign manifest
+# Cierra F5 (única grieta bloqueante de la revisión integral para paper P1).
+#
+# Mismo punto operativo que frontiersin_2025_yaw_cases.yaml (caso yaw=0°),
+# solo varía la discretización espacial (B1) o temporal (B2). El baseline
+# (element_size=0.25, dt=0.01) NO se re-corre — ya está en
+# $SCRATCH/frontiersin_results_corotational/yaw_0/.
+
+turbine: IEA-15MW
+
+reference:
+  internal: docs/validation_results_v01_v02_v04.md
+  closes_gap: "F5 — convergencia h y dt no reportada"
+  campaign_baseline: frontiersin_2025_yaw_cases.yaml (yaw_deg=0, corotacional)
+
+nominal_conditions:
+  wind_speed_mps: 10.59
+  omega_rpm: 7.55
+  omega_rads: 0.7906341464750989
+  pitch_deg: 0.0
+  yaw_deg: 0.0
+  hub_height_m: 150.0
+  shear_exp: 0.0
+  air_density_kgm3: 1.225
+  max_time_s: 30.0
+  steady_window: [20.0, 30.0]
+  solver_type: corotational
+
+baseline:
+  tag: h_baseline_dt_baseline
+  element_size_m: 0.25
+  time_window_size_s: 0.01
+  source_results: ${SCRATCH}/frontiersin_results_corotational/yaw_0/
+  note: NOT re-run; results reused for the convergence plot.
+
+cases:
+  - tag: h_coarse
+    family: B1
+    description: "Spatial mesh coarse (element_size ×2 baseline)"
+    element_size_m: 0.5
+    time_window_size_s: 0.01
+    solid_yaml: solid_h_coarse.yaml
+    fluid_yaml: fluid_h_coarse.yaml
+    precice_config: precice-config-dt01.xml
+
+  - tag: h_fine
+    family: B1
+    description: "Spatial mesh fine (element_size ÷2 baseline)"
+    element_size_m: 0.125
+    time_window_size_s: 0.01
+    solid_yaml: solid_h_fine.yaml
+    fluid_yaml: fluid_h_fine.yaml
+    precice_config: precice-config-dt01.xml
+
+  - tag: dt_coarse
+    family: B2
+    description: "Temporal step coarse (time-window-size ×2 baseline)"
+    element_size_m: 0.25
+    time_window_size_s: 0.02
+    solid_yaml: solid_dt_coarse.yaml
+    fluid_yaml: fluid_dt_coarse.yaml
+    precice_config: precice-config-dt02.xml
+
+  - tag: dt_fine
+    family: B2
+    description: "Temporal step fine (time-window-size ÷2 baseline)"
+    element_size_m: 0.25
+    time_window_size_s: 0.005
+    solid_yaml: solid_dt_fine.yaml
+    fluid_yaml: fluid_dt_fine.yaml
+    precice_config: precice-config-dt005.xml
+
+acceptance_criteria:
+  - "B1: |flap_mean(h_fine) − flap_mean(h_baseline)| / flap_mean(h_baseline) < 1 %"
+  - "B1: |flap_mean(h_baseline) − flap_mean(h_coarse)| / flap_mean(h_baseline) < 5 %"
+  - "B2: same with element_size → time-window-size"
+  - "Both: solver completes without divergence; preCICE residuals < 1e-4"
+
+postprocess:
+  script: docs/validation_plots/plot_convergence_b1_b2.py
+  output_figure: docs/validation_plots/figures/fig_v04_convergence_b1_b2.png
+  output_csv: docs/validation_data/generated/convergence_b1_b2_summary.csv
+  metrics:
+    - flap_mean
+    - flap_std
+    - flap_pp
+    - power_mean
+    - torque_mean
+    - precice_avg_iter_per_window
+    - wall_time_per_simulated_second

@@ -1,0 +1,78 @@
+# Frontiersin 2025 - Ma et al.
+# "Study on the aeroelastic performance of 15 MW wind turbine under yaw condition"
+# Front. Energy Res. 13:1571567. doi: 10.3389/fenrg.2025.1571567
+#
+# IEA-15 MW rated operating point, uniform inflow (shear_exp=0), yaw sweep.
+# Aerodynamic method: LL-FVW + B-L dynamic stall (article).
+# Our solver:         BEM (CCBlade) + yaw correction — steady uniform inflow.
+# Reference values in the CSV are BEM-adapted estimates derived from the article's
+# figures; tolerances are generous (±50%) to account for LL-FVW vs BEM differences.
+
+turbine: IEA-15MW
+
+reference:
+  doi: 10.3389/fenrg.2025.1571567
+  title: "Study on the aeroelastic performance of 15 MW wind turbine under yaw condition"
+  authors: "Ma L, Li Y, Zhou L, Yang D, Shen X, Du Z"
+  year: 2025
+  journal: "Front. Energy Res."
+
+nominal_conditions:
+  wind_speed_mps: 10.59
+  omega_rpm: 7.55
+  omega_rads: 0.7906341464750989
+  pitch_deg: 0.0
+  hub_height_m: 150.0
+  shear_exp: 0.0
+  air_density_kgm3: 1.225
+  note: >
+    Article Section 3.1: "the wind speed and rotational speed are set to 10.59 m/s and
+    7.55 rpm, respectively. Besides, the servo control is not activated."
+
+cases:
+  - yaw_deg: 0
+    label: "rated_uniform"
+    description: "Aligned inflow (no yaw) — steady uniform, rated condition"
+    fluid_yaml: frontiersin_2025_yaw/fluid_yaw_0.yaml
+    solid_corotational_yaml: frontiersin_2025_yaw/solid_corotational_yaw_0.yaml
+    solid_inertial_yaml: frontiersin_2025_yaw/solid_inertial_yaw_0.yaml
+    # Same nominal conditions (U=10.59 m/s, Ω=7.55 rpm, yaw=0°) are used in:
+    # [R11] Zhou et al. (2025) doi:10.1016/j.energy.2025.138488 — Table 4 tip deflections:
+    #   flapwise 13.86 m, edgewise −1.22 m, torsional −3.60 deg (their "Present" model)
+    #   ALM-GEBT reference: flapwise 14.10 m, edgewise −1.27 m, torsional −3.77 deg
+
+  - yaw_deg: 10
+    label: "yaw_10"
+    description: "10 deg yaw misalignment"
+    fluid_yaml: frontiersin_2025_yaw/fluid_yaw_10.yaml
+    solid_corotational_yaml: frontiersin_2025_yaw/solid_corotational_yaw_10.yaml
+    solid_inertial_yaml: frontiersin_2025_yaw/solid_inertial_yaw_10.yaml
+
+  - yaw_deg: 20
+    label: "yaw_20"
+    description: "20 deg yaw misalignment (main analysis case in article Section 3.2)"
+    fluid_yaml: frontiersin_2025_yaw/fluid_yaw_20.yaml
+    solid_corotational_yaml: frontiersin_2025_yaw/solid_corotational_yaw_20.yaml
+    solid_inertial_yaml: frontiersin_2025_yaw/solid_inertial_yaw_20.yaml
+
+  - yaw_deg: 30
+    label: "yaw_30"
+    description: "30 deg yaw misalignment (Section 3.4 yaw sweep)"
+    fluid_yaml: frontiersin_2025_yaw/fluid_yaw_30.yaml
+    solid_corotational_yaml: frontiersin_2025_yaw/solid_corotational_yaw_30.yaml
+    solid_inertial_yaml: frontiersin_2025_yaw/solid_inertial_yaw_30.yaml
+
+  - yaw_deg: 40
+    label: "yaw_40"
+    description: "40 deg yaw misalignment (Section 3.4 yaw sweep)"
+    fluid_yaml: frontiersin_2025_yaw/fluid_yaw_40.yaml
+    solid_corotational_yaml: frontiersin_2025_yaw/solid_corotational_yaw_40.yaml
+    solid_inertial_yaml: frontiersin_2025_yaw/solid_inertial_yaw_40.yaml
+
+article_findings:
+  - "Flexible blade flapwise tip deflection reaches ~15 m at yaw=20 deg (Figure 11)"
+  - "Mean flapwise deflection decreases monotonically as yaw angle increases (Figure 16a)"
+  - "Mean power decreases and fluctuation amplitude increases with increasing yaw (Figure 15a)"
+  - "At yaw=20 deg: mean power and thrust of flexible blade are lower than rigid blade"
+  - "Torsional deflection at blade tip: 3-4 deg, nose-down (reduces effective AoA)"
+  - "Flapwise velocity is the primary driver of increased AoA fluctuation amplitude"

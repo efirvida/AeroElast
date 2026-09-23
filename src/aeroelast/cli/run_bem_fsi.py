@@ -375,16 +375,33 @@ def main(argv=None) -> int:
 
     # Change working directory
     workdir = Path(args.workdir).resolve() if args.workdir else config_path.parent
-    os.chdir(workdir)
     logging.info("[BEM-FSI] Working directory: %s", workdir)
 
     # Load YAML
     with open(config_path) as f:
         cfg = yaml.safe_load(f)
 
-    # Resolve config_file path (preCICE XML) relative to workdir
-    if "config_file" in cfg and not Path(cfg["config_file"]).is_absolute():
-        cfg["config_file"] = str(workdir / cfg["config_file"])
+    # Resolve file paths that are relative to the config file's directory BEFORE
+    # changing CWD.  The working directory (workdir) controls where preCICE sockets
+    # and output files land; it must NOT affect how config-referenced data files are
+    # found.  All relative paths in the YAML are anchored at config_path.parent.
+    yaml_dir = config_path.parent
+
+    def _resolve(val: str) -> str:
+        p = Path(val)
+        return str((yaml_dir / p).resolve()) if not p.is_absolute() else val
+
+    if "config_file" in cfg:
+        cfg["config_file"] = _resolve(cfg["config_file"])
+    if "blade_file" in cfg:
+        cfg["blade_file"] = _resolve(cfg["blade_file"])
+    mesh_gen = cfg.get("mesh", {}).get("generator", {}).get("params", {})
+    if "excel_file" in mesh_gen:
+        mesh_gen["excel_file"] = _resolve(mesh_gen["excel_file"])
+    if "airfoil_dir" in mesh_gen:
+        mesh_gen["airfoil_dir"] = _resolve(mesh_gen["airfoil_dir"])
+
+    os.chdir(workdir)
 
     # Build the mesh (user's responsibility to configure)
     try:

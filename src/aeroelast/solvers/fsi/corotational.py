@@ -21,9 +21,9 @@ Forces are transformed between frames:
 - u_global = R · u_local    (for outgoing displacements)
 
 Inertial forces in the rotating frame:
-- Centrifugal: F_cf = m · ω × (ω × r)
-- Coriolis: F_cor = 2m · ω × v
-- Euler: F_euler = m · α × r  (where α = dω/dt)
+- Centrifugal: F_cf = -m · (ω × (ω × r)) = m · ω² · r_⊥  (radially outward)
+- Coriolis: F_cor = -2m · (ω × v)   [fictitious, d'Alembert sign]
+- Euler: F_euler = -m · (α × r)     [fictitious, d'Alembert sign; α = dω/dt]
 
 Inertial Rotor Solver — Rotated Geometry Strategy
 --------------------------------------------------
@@ -456,6 +456,13 @@ class InertialForcesCalculator:
 
         The negative sign is because we're computing the fictitious force
         that appears in the rotating frame equation of motion.
+
+        **Diagnostic use only.**  In production FSI runs the Coriolis effect
+        is treated implicitly on the LHS via the gyroscopic matrix
+        G_cor = 2·M·Ω̃, which enters K_eff as a₁·G_cor and the RHS history
+        via mat_c_rhs := mat_c ⊕ G_cor (see rotor.py module docstring).
+        This method is called only in the step callback for torque accounting
+        and diagnostic outputs; it does NOT feed the structural solve.
 
         Parameters
         ----------

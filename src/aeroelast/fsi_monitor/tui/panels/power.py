@@ -93,12 +93,22 @@ class PowerPanel(Static):
             if non_aero is not None and omega is not None
             else None
         )
+        p_aero_blade = g("Aero Power Single Blade [W]")
+        if p_aero_blade is None:
+            p_aero_blade = g("Aero Power [W]")
+        p_aero_rotor = g("Aero Power Rotor Equivalent [W]")
+        p_total_blade = g("Total Power Single Blade [W]")
+        if p_total_blade is None:
+            p_total_blade = g("Total Power [W]")
+        p_total_rotor = g("Total Power Rotor Equivalent [W]")
 
         lines = [
             "[bold green]PERFORMANCE[/]",
-            _row("P aero",     _v(g("Aero Power [W]"), 2),  "W"),
+            _row("P aero blade", _v(p_aero_blade, 2), "W"),
+            _row("P aero rotor", _v(p_aero_rotor, 2), "W"),
             _row("P non-aero", _v(p_non_aero, 2),           "W"),
-            _p_total_row(g("Total Power [W]")),
+            _p_total_row(p_total_blade),
+            _row("P total rotor", _v(p_total_rotor, 2), "W"),
             _eff_row(g("Structural Efficiency")),
             "[dim]── aero coefficients ─────────────[/]",
             _row("Cp",         _v(g("Cp"), 4),              ""),

@@ -10,6 +10,8 @@ import numpy as np
 
 from aeroelast.models.blade.aerodynamics import AirfoilAero, BladeAero
 
+_CCBLADE_ALPHA_GRID_DEG = np.arange(-180.0, 181.0, 1.0, dtype=float)
+
 
 @dataclass
 class BEMResult:
@@ -84,25 +86,104 @@ def _build_ccairfoil(airfoil: AirfoilAero):
     """Convert an ``AirfoilAero`` to a CCBlade ``CCAirfoil``."""
     from ccblade.ccblade import CCAirfoil
 
-    polars_sorted = sorted(airfoil.polars, key=lambda p: p.re)
-    re_list = [p.re for p in polars_sorted]
-    alpha_deg = np.rad2deg(polars_sorted[0].alpha)
-
-    if len(polars_sorted) == 1:
-        p = polars_sorted[0]
-        cl = p.cl.reshape(-1, 1)
-        cd = p.cd.reshape(-1, 1)
-        cm = p.cm.reshape(-1, 1)
-    else:
-        cl = np.column_stack([p.cl for p in polars_sorted])
-        cd = np.column_stack([p.cd for p in polars_sorted])
-        cm = np.column_stack([p.cm for p in polars_sorted])
+    alpha_deg, re_list, cl, cd, cm = _build_ccblade_polar_columns(airfoil)
 
     coords = airfoil.coordinates
     x = coords[:, 0] if coords is not None and len(coords) > 0 else []
     y = coords[:, 1] if coords is not None and len(coords) > 0 else []
 
     return CCAirfoil(alpha_deg, re_list, cl, cd, cm=cm, x=x, y=y, AFName=airfoil.name)
+
+
+def _build_ccblade_polar_columns(
+    airfoil: AirfoilAero,
+    *,
+    alpha_grid_deg: np.ndarray = _CCBLADE_ALPHA_GRID_DEG,
+) -> tuple[np.ndarray, list[float], np.ndarray, np.ndarray, np.ndarray]:
+    """Build CCBlade-ready polar tables on a common alpha grid.
+
+    CCBlade evaluates airfoil tables in degree space and emits warnings when
+    the queried angle of attack falls outside the provided alpha range. To keep
+    behaviour stable across mixed polar sources, every polar is resampled to a
+    shared full-range grid [-180 deg, +180 deg].
+    """
+
+    if not airfoil.polars:
+        raise ValueError(f"Airfoil '{airfoil.name}' has no polar tables")
+
+    alpha_grid_deg = np.asarray(alpha_grid_deg, dtype=float).reshape(-1)
+    if alpha_grid_deg.size < 2:
+        raise ValueError("alpha_grid_deg must contain at least two entries")
+
+    polars_sorted = sorted(airfoil.polars, key=lambda p: p.re)
+    re_list = [float(p.re) for p in polars_sorted]
+
+    cl_cols: list[np.ndarray] = []
+    cd_cols: list[np.ndarray] = []
+    cm_cols: list[np.ndarray] = []
+
+    for polar in polars_sorted:
+        alpha_deg, cl_vals, cd_vals, cm_vals = _prepare_polar_for_ccblade(polar)
+        cl_cols.append(
+            np.interp(
+                alpha_grid_deg,
+                alpha_deg,
+                cl_vals,
+                left=cl_vals[0],
+                right=cl_vals[-1],
+            )
+        )
+        cd_col = np.interp(alpha_grid_deg, alpha_deg, cd_vals, left=cd_vals[0], right=cd_vals[-1])
+        cd_cols.append(np.maximum(cd_col, 0.0))
+        cm_cols.append(
+            np.interp(
+                alpha_grid_deg,
+                alpha_deg,
+                cm_vals,
+                left=cm_vals[0],
+                right=cm_vals[-1],
+            )
+        )
+
+    cl = np.column_stack(cl_cols)
+    cd = np.column_stack(cd_cols)
+    cm = np.column_stack(cm_cols)
+    return alpha_grid_deg, re_list, cl, cd, cm
+
+
+def _prepare_polar_for_ccblade(polar) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return sorted unique alpha/cl/cd/cm arrays in degrees for one polar."""
+
+    alpha = np.asarray(polar.alpha, dtype=float).reshape(-1)
+    cl = np.asarray(polar.cl, dtype=float).reshape(-1)
+    cd = np.asarray(polar.cd, dtype=float).reshape(-1)
+    cm = np.asarray(polar.cm, dtype=float).reshape(-1)
+
+    if not (alpha.size == cl.size == cd.size == cm.size) or alpha.size < 2:
+        raise ValueError("Polar arrays must have the same length >= 2")
+
+    alpha_max = float(np.max(np.abs(alpha)))
+    if alpha_max <= 2.0 * np.pi + 1.0e-6:
+        alpha_deg = np.rad2deg(alpha)
+    else:
+        alpha_deg = alpha
+
+    order = np.argsort(alpha_deg)
+    alpha_sorted = alpha_deg[order]
+    cl_sorted = cl[order]
+    cd_sorted = cd[order]
+    cm_sorted = cm[order]
+
+    alpha_unique, unique_idx = np.unique(alpha_sorted, return_index=True)
+    if alpha_unique.size < 2:
+        raise ValueError("Polar alpha grid must contain at least two unique values")
+
+    return (
+        alpha_unique,
+        cl_sorted[unique_idx],
+        cd_sorted[unique_idx],
+        cm_sorted[unique_idx],
+    )
 
 
 class BEMSolver:

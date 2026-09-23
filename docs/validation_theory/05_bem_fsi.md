@@ -76,7 +76,8 @@ donde $\epsilon_{BEM}$ es una tolerancia por estacion, tipicamente del orden de 
 
 En la zona de punta de la pala, el factor de induccion axial tiende a valores proximos a $1$ para ciertas condiciones de operacion, lo que hace que el denominador $1 - a_k$ se aproxime a cero. La correccion de Glauert modifica la relacion de impulso para valores altos de $a_k$, tipicamente cuando $a_k > 0.4$, evitando la singularidad numerica y aproximando mejor el comportamiento real del flujo en esa zona.
 
-En la zona de raiz, la velocidad tangencial $\Omega r_k$ es pequena y el angulo de inflow $\phi_k$ puede ser cercano a $90^\circ$, lo que genera angulos de ataque elevados fuera del rango lineal de las polares. Desde el punto de vista del participante BEM, esa estacion se resuelve de la misma forma, pero los coeficientes aerodinamicos extrapolados fuera del rango de las tablas de polares tienen mayor incertidumbre. Es una limitacion declarada de la formulacion.\n
+En la zona de raiz, la velocidad tangencial $\Omega r_k$ es pequena y el angulo de inflow $\phi_k$ puede ser cercano a $90^\circ$, lo que genera angulos de ataque elevados fuera del rango lineal de las polares. Desde el punto de vista del participante BEM, esa estacion se resuelve de la misma forma, pero los coeficientes aerodinamicos extrapolados fuera del rango de las tablas de polares tienen mayor incertidumbre. Es una limitacion declarada de la formulacion.
+
 ## Realimentacion aeroelastica: radio deformado y twist elastico
 
 La carga aerodinamica no se calcula sobre la geometria original, sino sobre una geometria actualizada por la deformacion estructural. Ademas, el participante puede leer la velocidad angular global del rotor y velocidades nodales estructurales para corregir el inflow efectivo cuando ese canal de acoplamiento esta habilitado.

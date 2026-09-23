@@ -22,6 +22,11 @@ use super::super::infra::vec::PetscVec;
 const KSPCG: &std::ffi::CStr =
     unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"cg\0") };
 
+// GMRES — fallback for indefinite (non-SPD) operators, e.g. Updated-
+// Lagrangian steps where membrane compression makes K_e indefinite.
+const KSPGMRES: &std::ffi::CStr =
+    unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"gmres\0") };
+
 // GAMG (algebraic multigrid) — good for large scalable problems
 const PCGAMG: &std::ffi::CStr =
     unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"gamg\0") };
@@ -110,18 +115,52 @@ pub fn linear_static_solve(
         check(ffi::KSPSetFromOptions(ksp), "KSPSetFromOptions")?;
 
         // ── Allocate solution vector ────────────────────────────────────────────
-        let u = create_vec(n_dof)?;
+        let mut u = create_vec(n_dof)?;
 
         // ── Solve K·u = F ────────────────────────────────────────────────────
         check(ffi::KSPSolve(ksp, f.as_raw(), u.as_raw()), "KSPSolve")?;
 
-        // ── Diagnostics ─────────────────────────────────────────────────────
         let mut reason: i32 = 0;
         check(
             ffi::KSPGetConvergedReason(ksp, &mut reason),
             "KSPGetConvergedReason",
         )?;
 
+        // ── GMRES fallback for indefinite operators ──────────────────────────
+        // CG fails on indefinite matrices (reason <= 0): Updated-Lagrangian
+        // steps with membrane compression make K_e non-SPD.  GMRES + LU
+        // handles non-SPD operators.
+        if reason <= 0 {
+            check(ffi::KSPDestroy(&mut ksp), "KSPDestroy")?;
+            ksp = std::ptr::null_mut();
+            check(ffi::KSPCreate(comm, &mut ksp), "KSPCreate(gmres)")?;
+            check(ffi::KSPSetType(ksp, KSPGMRES.as_ptr()), "KSPSetType(gmres)")?;
+            let mut pc_g: ffi::PC = std::ptr::null_mut();
+            check(ffi::KSPGetPC(ksp, &mut pc_g), "KSPGetPC(gmres)")?;
+            check(ffi::PCSetType(pc_g, PCLU.as_ptr()), "PCSetType(lu)")?;
+            check(
+                ffi::KSPSetOperators(ksp, k.as_raw(), k.as_raw()),
+                "KSPSetOperators(gmres)",
+            )?;
+            check(
+                ffi::KSPSetTolerances(ksp, 1e-8, 1e-12, PETSC_INFINITY, 1000),
+                "KSPSetTolerances(gmres)",
+            )?;
+            check(ffi::KSPSetFromOptions(ksp), "KSPSetFromOptions(gmres)")?;
+
+            let mut u2 = create_vec(n_dof)?;
+            check(ffi::KSPSolve(ksp, f.as_raw(), u2.as_raw()), "KSPSolve(gmres)")?;
+            let mut u_raw = u.as_raw();
+            check(ffi::VecDestroy(&mut u_raw), "VecDestroy(cg-u)")?;
+            u = u2;
+
+            check(
+                ffi::KSPGetConvergedReason(ksp, &mut reason),
+                "KSPGetConvergedReason(gmres)",
+            )?;
+        }
+
+        // ── Diagnostics ─────────────────────────────────────────────────────
         let mut its: i32 = 0;
         check(
             ffi::KSPGetIterationNumber(ksp, &mut its),
@@ -139,6 +178,13 @@ pub fn linear_static_solve(
 
         // ── Extract solution ──────────────────────────────────────────────────
         let displacements = u.to_vec()?;
+
+        if reason <= 0 {
+            return Err(PetscError {
+                code: reason,
+                context: "linear_static_solve: KSP did not converge (CG and GMRES fallback)",
+            });
+        }
 
         Ok(LinearStaticResult {
             displacements,

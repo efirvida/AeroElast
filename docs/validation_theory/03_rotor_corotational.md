@@ -206,7 +206,7 @@ $$
 $$
 
 $$
-    heta^{n+1} = \theta^n + \Delta \theta^n.
+    \theta^{n+1} = \theta^n + \Delta \theta^n.
 $$
 
 Por lo tanto, dentro de una ventana el solver estructural trabaja con una velocidad angular efectiva
@@ -225,6 +225,8 @@ La formulacion admite cuatro comportamientos fisicos distintos para $\omega$:
 - **Rampa prescrita**: $\omega$ crece linealmente hasta un valor objetivo y no depende de los torques calculados.
 - **Dinamica calculada**: $\omega$ evoluciona por el balance de torque anterior, con Euler en el primer paso y Adams-Bashforth 2 despues.
 - **Rampa mas dinamica**: durante la rampa los torques se ignoran; una vez alcanzado el final de rampa, el estado se reinicializa en $\omega = \omega_{target}$ y desde ahi el solver pasa al modo dinamico calculado.
+
+> **Nota de implementacion — integracion de omega:** El esquema Adams-Bashforth 2 descrito arriba es el que ejecuta la ruta Rust de alta performance (`OmegaProvider::Computed` en `rotor_physics.rs`). La clase Python equivalente `ComputedOmega` (en `corotational.py`) usa **solo Euler de primer orden** sin AB2; esta ruta Python se emplea unicamente en tests de paridad y callbacks diagnosticos, no en simulaciones FSI de produccion. Los tests que comparen dinamica de $\omega$ entre la ruta Python y la Rust veran diferencias de orden $O(\Delta t^2)$ en los modos dinamicos, que es esperado y correcto.
 
 ## Extraccion de torques desde fuerzas nodales
 
@@ -276,6 +278,30 @@ Dentro de cada ventana temporal:
 
 Este es un esquema particionado implicito: la convergencia de la iteracion fluido-estructura la decide el acoplador, mientras que la parte estructural aporta una resolucion totalmente implicita del subproblema dinamico en marco rotante.
 
+### Estrategia de reensamble de K_G y K_SP
+
+El reensamble de las matrices de rigidez dependientes del estado se controla con una banda de histeresis de dos umbrales para evitar refactorizaciones excesivas.
+
+**K_SP (spin softening)** se reconstrye cuando la variacion relativa de $\omega^2$ entre la ventana actual y la ultima en que se reensamble supera un umbral alto, y no vuelve a reconstruirse hasta que esa variacion baja por debajo de un umbral bajo:
+
+$$
+\text{rebuild K\_SP si } \frac{|\omega_{\text{new}}^2 - \omega_{\text{last}}^2|}{\omega_{\text{last}}^2} > \varepsilon_{K_{SP},\text{high}},
+\qquad
+\text{suprimir si} < \varepsilon_{K_{SP},\text{low}}.
+$$
+
+Los valores por defecto son $\varepsilon_{K_{SP},\text{high}} = 0.005$ (0.5%) y $\varepsilon_{K_{SP},\text{low}} = 0.003$ (0.3%). Ademas, $K_{SP}$ no se activa hasta que $\omega$ supera un minimo absoluto $\omega_{\min} = 10^{-4}$ rad/s (`ksp_omega_threshold`), para evitar divisiones por valores nominalmente nulos al arranque.
+
+**K_G (stress stiffening)** sigue una logica analogamente, pero el indicador de cambio es la variacion relativa en la norma de desplazamiento elastico convergido:
+
+$$
+\text{rebuild K\_G si } \frac{\|u_{\text{new}}\| - \|u_{\text{last}}\|}{\|u_{\text{last}}\|} > \varepsilon_{K_G,\text{high}},
+$$
+
+con $\varepsilon_{K_G,\text{high}} = 0.01$ (1%) y $\varepsilon_{K_G,\text{low}} = 0.005$ (0.5%) por defecto.
+
+Estos parametros son configurables via YAML en la seccion `solver.rotor`: `omega_rebuild_rel_high`, `omega_rebuild_rel_low`, `kg_deflection_rebuild_rel_high`, `kg_deflection_rebuild_rel_low`, `ksp_omega_threshold`.
+
 ## Variables de salida relevantes para validacion
 
 La formulacion corrotacional permite validar simultaneamente:
@@ -286,9 +312,13 @@ La formulacion corrotacional permite validar simultaneamente:
 - coeficientes globales como empuje, potencia y razones adimensionales del rotor;
 - efecto conjunto de $K_G$ y $K_{SP}$ sobre la respuesta dinamica.
 
+> **Nota de implementacion — eje de rotacion por defecto:** Este solver (`LinearDynamicFSIRotorCorotationalSolver`) usa el eje **Z** $(0,0,1)$ como valor por defecto de `rotation_axis`. El solver inercial alternativo (`LinearDynamicFSIRotorInertialSolver`, descrito en el informe 04) usa el eje **Y** $(0,1,0)$ por defecto. Siempre especificar `rotation_axis` explicitamente en el YAML para evitar diferencias silenciosas al comparar ambos solvers.
+
 ## Tratamiento del amortiguamiento
 
-La formulacion usa amortiguamiento de Rayleigh $C = \eta_m M + \eta_k K$, con las mismas propiedades e interpretacion descritas en el informe 02. En el contexto del rotor corrotacional aparece un segundo mecanismo de disipacion aparente: el termino giroscopico $G_{cor} \dot{u}$ no es disipativo en el sentido termodinamico, pero puede transferir energia entre modos y alterar la respuesta transitoria medida. Es importante no confundirlo con amortiguamiento estructural.
+La formulacion usa amortiguamiento de Rayleigh tangente-consistente
+$$C = \eta_m M + \eta_k (K + K_G + K_{SP}),$$
+no $\eta_k K$ puro. La matriz de amortiguamiento se recalcula cada vez que $K_G$ o $K_{SP}$ cambian, de modo que los modos rigidizados centrifugamente y los modos suavizados por spin-softening se amortiguan proporcionalmente a su rigidez tangente efectiva. Esto es fisicamente mas consistente que usar solo $K$ elastico, pero implica que un usuario que calibre $\eta_k$ a partir de una razon de amortiguamiento objetivo $\zeta_i = \eta_k \omega_i / 2$ debe usar las frecuencias naturales del rotor a la velocidad de operacion (que incluyen $K_G$ y $K_{SP}$), no las frecuencias en reposo. Ver informe 02 para la convencion de nombres ($\eta_k$ = rigidez-proporcional, $\eta_m$ = masa-proporcional). En el contexto del rotor corrotacional aparece un segundo mecanismo de disipacion aparente: el termino giroscopico $G_{cor} \dot{u}$ no es disipativo en el sentido termodinamico, pero puede transferir energia entre modos y alterar la respuesta transitoria medida. Es importante no confundirlo con amortiguamiento estructural.
 
 Ademas, el acoplamiento FSI introduce amortiguamiento aerodinamico como efecto emergente: si el fluido opone fuerzas de resistencia al movimiento de la estructura, la respuesta convergida resulta amortiguada aunque el modelo estructural puro no tenga disipacion adicional. Este efecto no tiene un coeficiente prescrito en la formulacion estructural y solo puede cuantificarse en resultados acoplados.
 
@@ -363,4 +393,6 @@ Para verificar la equivalencia en la practica, el caso de referencia recomendado
 
 Una discrepancia sistematica en los modos bajos seria una senal de diferencia en el tratamiento del termino de spin softening o en el ensamble de $K_G$. Una discrepancia en la evolucion angular indicaria una diferencia en el calculo de torques desde fuerzas nodales.
 
-## Mensaje central para el articulo debe presentarse como una dinamica estructural lineal enriquecida en un marco rotante, donde stress stiffening, spin softening y giroscopicos se incorporan en la ecuacion estructural, mientras que la velocidad angular del rotor se actualiza mediante un balance de torques externos. Ese equilibrio entre fidelidad fisica y costo computacional es el nucleo teorico que conviene validar experimental o numericamente.
+## Mensaje central para el articulo
+
+La formulacion corrotacional debe presentarse como una dinamica estructural lineal enriquecida en un marco rotante, donde stress stiffening, spin softening y giroscopicos se incorporan en la ecuacion estructural, mientras que la velocidad angular del rotor se actualiza mediante un balance de torques externos. Ese equilibrio entre fidelidad fisica y costo computacional es el nucleo teorico que conviene validar experimental o numericamente.

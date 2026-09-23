@@ -29,10 +29,11 @@ pip install -e .[bem]    # BEM aero (requires CCBlade — see pyproject.toml for
 # Lint (Ruff, line-length=100, target py38 for ruff but project requires py3.12+)
 ruff check
 
-# Full test suite (excludes two modules with stale imports)
+# Full test suite (excludes stale imports and the WIP 3D volumetric-mesh pipeline)
 python -m pytest tests/ -q --tb=short \
     --ignore=tests/test_blade_mesh.py \
-    --ignore=tests/test_rotor_inertial.py
+    --ignore=tests/test_rotor_inertial.py \
+    --ignore=tests/test_vol_mesh.py
 
 # Single test
 pytest tests/test_rotor_rust_parity.py::test_name -v
@@ -125,6 +126,44 @@ The corotational solver is the production rotor solver. See `docs/teoria_formula
 - `moment_of_inertia: "auto"` triggers automatic I computation from mesh (lumped mass × r_perp²).
 - `send_omega_to_precice: true` causes the solver to write `AngularVelocity` on a `GlobalSolidMesh` (single vertex at rotation center). This is handled internally — do NOT add it to `coupling.write_data`.
 
+### Canonical blade input (since 2026-09-08)
+
+The official IEA 15 MW blade in WindIO format is `tests/IEA-15-240-RWT.yaml`
+(`BladeMesh(yaml_file=...)` / `mesh.generator.params.yaml_file` in campaign
+YAMLs). The previous input `NuMAD_utd_iea15mw.xlsx` (UTD re-modeling,
+AIAA 2023-2093) has a TE reinforcement 30–75% thinner than the official
+layup, which reduced edgewise stiffness by ~30% outboard (S-2 static tip
+deflection +40–55% vs beam references; official blade closes at +8.1%).
+Full evidence: `docs/blade_input_divergence_utd_vs_official.md`. The
+convergence_b1_b2 campaign runs intentionally remain on the UTD blade as an
+input-sensitivity record. Do not re-introduce `excel_file:
+NuMAD_utd_iea15mw.xlsx` in new validation work.
+
+### Centrifugal geometric stiffness (since 2026-09-09)
+
+`MeshAssembler.assemble_geometric_stiffness(omega=...)` solves the centrifugal
+pre-stress problem **statically** (`K u = f_cf` on the free DOFs, then
+`assemble_geometric_k_from_disp` recovers the membrane stresses from `u`).
+The old approximation `σ = ρω²r·l_char` (local, per-element) was 2–3 orders of
+magnitude too small — rotating modes were ≈ parked. The method now **requires
+`free_dofs`** (clamped-root elimination); callers in `rotor.py` and the
+diagnose tools pass `bc_manager.free_dofs`. `assemble_geometric_k` interprets
+its σ input as **Pa** and multiplies by `h` internally (do not pre-multiply by
+thickness). S-4 (rotating modal vs OpenFAST v5 MBC3, `tests/test_iea15mw_s4_rotating_modal.py`)
+closes: 1st flap +0.6%, 1st edge −4.5%, 2nd flap −1.5% at 7.56 rpm.
+
+### OpenFAST environment (for S-4/S-5 targets)
+
+OpenFAST v5.0.0 (conda-forge) runs the IEA 15 MW monopile deck; the repo's
+v4.2 inputs were converted to the v5 schema (deltas documented in Engram,
+`config/openfast-5-0-0-corriendo-iea-15-mw-deck-v4-2-v5-0-convertido`).
+Key setup: micromamba env `openfast`, ROSCO `libdiscon.so` compiled with
+gfortran in `/tmp/opencode/ROSCO/rosco/controller/build`, run decks in
+`/tmp/opencode/ofrun*` (S-4 = linearization at 7.56 rpm with only blade
+DOFs; S-5 = 100 s rated run with 313 OutList channels). MBC3 post-processing
+via `openfast_toolbox` (`pip install git+https://github.com/OpenFAST/openfast_toolbox`,
+`openfast_toolbox.linearization.mbc.fx_mbc3`).
+
 ### Omega Provider modes
 
 | `moment_of_inertia` | `omega_ramp_time` | Provider class       |
@@ -172,6 +211,7 @@ If preCICE is missing, the package still imports — FSI solvers are simply disa
 ## Known test-suite quirks
 
 - `tests/test_blade_mesh.py` and `tests/test_rotor_inertial.py` have stale imports — exclude them by default (see test command above).
+- `tests/test_vol_mesh.py` tests the WIP 3D boundary-layer volumetric-mesh pipeline (`get_vertex_normals`/`create_offset_layers`/`get_vol_mesh`, currently returning zeros). Out of scope for the shell-element validation; exclude it from validation runs.
 - `tests/test_ko2017_performance.py` has 8 pre-existing failures with tight tolerances on coarse distributed meshes — these are NOT regressions.
 - Some benchmarks under `tests/` are intentionally heavy and unsuitable for quick smoke tests.
 

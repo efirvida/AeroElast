@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=12:00:00
+#SBATCH -e s7conv_%j.err
+#SBATCH -J s7_convergence
+#SBATCH -o s7conv_%j.out
+#SBATCH -p sequana_cpu
+
+# S-7 torsion at 0.25 and 0.125 m — does the outboard twist ratio converge?
+set -euo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+cd /scratch/leahk/eduardo.donestevez/fem-shell
+echo "=== S-7 at 0.25 m ==="
+python3 tools/run_s7_torsion.py --element-size 0.25 --moment 1000.0 2>&1 | tail -6
+echo "=== S-7 at 0.125 m ==="
+python3 tools/run_s7_torsion.py --element-size 0.125 --moment 1000.0 2>&1 | tail -6
+echo "S7CONV DONE"

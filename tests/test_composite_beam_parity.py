@@ -110,10 +110,15 @@ def _parse_frd_disp(frd_file: Path, node_ids: list[int]) -> dict[int, np.ndarray
 
 
 def _run_ccx(inp_path: Path, ccx_bin: str) -> subprocess.CompletedProcess:
-    """Run CalculiX on input file."""
-    os.chdir(inp_path.parent)
+    """Run CalculiX on input file, in its own directory.
+
+    Uses ``subprocess.run(cwd=...)`` instead of ``os.chdir`` so the test does
+    not leak the process working directory into the rest of the suite (a raw
+    chdir here used to break every later file-relative test).
+    """
     result = subprocess.run(
         [ccx_bin, inp_path.stem],
+        cwd=inp_path.parent,
         capture_output=True,
         text=True,
     )

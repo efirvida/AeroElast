@@ -231,9 +231,11 @@ class DynamicNewmarkSolver(Solver):
         beta = self.solver_params["beta"]
         gamma = self.solver_params["gamma"]
         a0 = 1.0 / (beta * dt**2)
-        a1_v = 1.0 / (beta * dt)
-        a1_c = gamma / (beta * dt)
-        a3 = 1.0 / (2 * beta) - 1.0
+        a1_v = 1.0 / (beta * dt)       # Newmark a2: multiplies v in M-history
+        a1_c = gamma / (beta * dt)     # Newmark a1: multiplies u in C-history
+        a3 = 1.0 / (2 * beta) - 1.0   # Newmark a3
+        a4 = gamma / beta - 1.0        # Newmark a4: multiplies v in C-history
+        a5 = dt / 2.0 * (gamma / beta - 2.0)  # Newmark a5: multiplies a in C-history
 
         K_eff = self._assemble_effective_matrix(K_red, M_red, C_red, a0, a1_c)
         ksp.setOperators(K_eff)
@@ -245,7 +247,9 @@ class DynamicNewmarkSolver(Solver):
         for step in track(range(n_steps), description="Processing..."):
             t = step * dt
 
-            F_eff = self._compute_effective_force(M_red, C_red, u, v, a, a0, a1_v, a3, t)
+            F_eff = self._compute_effective_force(
+                M_red, C_red, u, v, a, a0, a1_v, a3, a1_c, a4, a5, t
+            )
             ksp.solve(F_eff, u_new)
             self._update_acceleration(u_new, u, v, a, a_new, a0, a1_v, a3)
             self._update_velocity(v, a, a_new, v_new, dt, gamma)
@@ -343,18 +347,34 @@ class DynamicNewmarkSolver(Solver):
         a0: float,
         a1_v: float,
         a3: float,
+        a1_c: float,
+        a4: float,
+        a5: float,
         t: float,
     ) -> PETSc.Vec:
-        """Compute F_eff = F(t) + M*(a0*u + a1_v*v + a3*a)."""
+        """Compute Newmark effective force:
+
+        F_eff = F(t)
+              + M·(a0·u + a2·v + a3·a)      [a2 = a1_v = 1/(β·dt)]
+              + C·(a1·u + a4·v + a5·a)      [a1 = a1_c = γ/(β·dt)]
+        """
         F_eff = self._time_dependent_load(t)
 
         temp = M.createVecRight()
+        # M-history
         M.mult(u, temp)
         F_eff.axpy(a0, temp)
         M.mult(v, temp)
         F_eff.axpy(a1_v, temp)
         M.mult(a, temp)
         F_eff.axpy(a3, temp)
+        # C-history (was missing — without this, Rayleigh damping has no effect on RHS)
+        C.mult(u, temp)
+        F_eff.axpy(a1_c, temp)
+        C.mult(v, temp)
+        F_eff.axpy(a4, temp)
+        C.mult(a, temp)
+        F_eff.axpy(a5, temp)
 
         return F_eff
 

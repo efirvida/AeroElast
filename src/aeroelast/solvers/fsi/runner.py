@@ -797,6 +797,8 @@ class FSIRunner:
             yaml_file = params.get("yaml_file")
             excel_file = params.get("excel_file")
             airfoil_dir = params.get("airfoil_dir")
+            hub_diameter = params.get("hub_diameter")
+            rotor_diameter = params.get("rotor_diameter")
 
             if yaml_file and self.config_path and not Path(yaml_file).is_absolute():
                 yaml_file = str(self.config_path.parent / yaml_file)
@@ -1131,7 +1133,36 @@ class FSIRunner:
             raise RuntimeError("Composite generator metadata is not available.")
 
         numad_data = self._mesh_generator.numad_mesh_data
-        return build_rust_properties(numad_data)
+        return self._expand_rotor_blade_properties(build_rust_properties(numad_data))
+
+    def _expand_rotor_blade_properties(self, properties: dict[str, Any]) -> dict[str, Any]:
+        """Map base-blade composite properties onto RotorMesh blade-suffixed sets.
+
+        ``build_rust_properties()`` returns section properties keyed by the
+        base blade element-set names produced by ``BladeMesh``. ``RotorMesh``
+        duplicates those sets as ``<set_name>_blade_N`` for each blade, so the
+        structural assembler needs the property map expanded to those concrete
+        set names.
+        """
+        gen_config = self.config.mesh.generator
+        if (
+            self.mesh is None
+            or gen_config is None
+            or gen_config.type != MeshGeneratorType.ROTOR.value
+        ):
+            return properties
+
+        expanded: dict[str, Any] = {}
+        for mesh_set_name in self.mesh.element_sets_names:
+            if mesh_set_name in properties:
+                expanded[mesh_set_name] = properties[mesh_set_name]
+                continue
+
+            base_name, sep, _blade_suffix = mesh_set_name.rpartition("_blade_")
+            if sep and base_name in properties:
+                expanded[mesh_set_name] = properties[base_name]
+
+        return expanded or properties
 
     def _build_model_config(self) -> Dict[str, Any]:
         """Build the model configuration dictionary for the solver."""
@@ -1187,10 +1218,13 @@ class FSIRunner:
         if self.config.elements.thickness:
             model_config["elements"]["thickness"] = self.config.elements.thickness
 
-        # Add Newmark parameters
+        # Add Newmark parameters (average acceleration defaults — unconditionally stable)
         if self.config.solver.newmark:
             model_config["solver"]["beta"] = self.config.solver.newmark.beta
             model_config["solver"]["gamma"] = self.config.solver.newmark.gamma
+        else:
+            model_config["solver"]["beta"] = 0.25
+            model_config["solver"]["gamma"] = 0.5
 
         # Add damping parameters
         if self.config.solver.damping:

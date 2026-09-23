@@ -9,7 +9,7 @@ properties along the span for use by BEM solvers.
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import yaml
@@ -102,6 +102,10 @@ class AeroStation:
         Aerodynamic twist in radians (positive nose-up).
     pitch_axis : float
         Chordwise pitch-axis position (fraction of chord).
+    prebend : float
+        Reference-axis prebend offset in metres.
+    sweep : float
+        Reference-axis sweep offset in metres.
     airfoil : AirfoilAero
         Reference airfoil for this station.
     """
@@ -112,6 +116,8 @@ class AeroStation:
     twist: float
     pitch_axis: float
     airfoil: AirfoilAero
+    prebend: float = 0.0
+    sweep: float = 0.0
 
 
 @dataclass
@@ -156,9 +162,25 @@ class BladeAero:
         """Twist at each station (rad)."""
         return np.array([s.twist for s in self.stations])
 
+    @property
+    def prebend(self) -> np.ndarray:
+        """Reference-axis prebend at each station (m)."""
+        return np.array([s.prebend for s in self.stations])
+
+    @property
+    def sweep(self) -> np.ndarray:
+        """Reference-axis sweep at each station (m)."""
+        return np.array([s.sweep for s in self.stations])
+
 
 def _parse_polars_from_yaml(af_data: dict) -> List[PolarData]:
-    """Extract polar tables from a WindIO airfoil entry."""
+    """Extract polar tables from a WindIO airfoil entry.
+
+    Degenerate tables (e.g. the official circular-root polar with only two
+    alpha points) are expanded to a full [-π, π] range so the BEM
+    interpolation never extrapolates (which produced NaN induction at the
+    root station and diverged the FSI coupling, 2026-09-09).
+    """
     polars = []
     for polar_entry in af_data.get("polars", []):
         re_val = float(polar_entry["re"])
@@ -166,6 +188,12 @@ def _parse_polars_from_yaml(af_data: dict) -> List[PolarData]:
         cl = np.array(polar_entry["c_l"]["values"], dtype=float)
         cd = np.array(polar_entry["c_d"]["values"], dtype=float)
         cm = np.array(polar_entry["c_m"]["values"], dtype=float)
+        if alpha.size < 4:
+            alpha_full = np.linspace(-np.pi, np.pi, 361)
+            cl = np.full_like(alpha_full, float(np.mean(cl)))
+            cd = np.full_like(alpha_full, float(np.mean(cd)))
+            cm = np.full_like(alpha_full, float(np.mean(cm)))
+            alpha = alpha_full
         # Ensure alpha is sorted
         sort_idx = np.argsort(alpha)
         polars.append(
@@ -373,6 +401,51 @@ def _generate_polars_neuralfoil(
     ]
 
 
+def _extract_reference_axis_from_numad_geometry(
+    blade: Any,
+    *,
+    pitch_axes: np.ndarray,
+) -> Optional[tuple[np.ndarray, np.ndarray]]:
+    """Estimate prebend/sweep from NuMAD 3D sections using LE-TE chord lines.
+
+    The reference point at each station is reconstructed on the local chord as
+    ``LE + pitch_axis * (TE - LE)``. This follows the same geometric idea used
+    to build a VLM reference line from TE/LE data.
+    """
+    coords = getattr(getattr(blade, "geometry", None), "coordinates", None)
+    if coords is None or np.size(coords) == 0:
+        try:
+            blade.update_blade()
+        except Exception:
+            return None
+        coords = getattr(getattr(blade, "geometry", None), "coordinates", None)
+        if coords is None or np.size(coords) == 0:
+            return None
+
+    coords = np.asarray(coords, dtype=float)
+    if coords.ndim != 3 or coords.shape[2] != pitch_axes.size:
+        return None
+
+    le_index_raw = getattr(getattr(blade, "geometry", None), "LEindex", None)
+    if le_index_raw is None:
+        return None
+    le_index = int(le_index_raw)
+    if le_index < 0 or le_index >= coords.shape[0]:
+        return None
+
+    ref_points = np.zeros((coords.shape[2], 3), dtype=float)
+    for station_index in range(coords.shape[2]):
+        section = coords[:, :, station_index]
+        te_point = 0.5 * (section[0] + section[-1])
+        le_point = section[le_index]
+        ref_points[station_index] = (
+            le_point + float(pitch_axes[station_index]) * (te_point - le_point)
+        )
+
+    # NuMAD geometry frame uses: x -> sweep direction, y -> prebend direction.
+    return ref_points[:, 1], ref_points[:, 0]
+
+
 def _load_from_excel(
     excel_path: Path,
     default_re: float,
@@ -442,6 +515,28 @@ def _load_from_excel(
     chord = defn.chord
     twist_rad = np.deg2rad(defn.degreestwist)
     aerocenter = defn.aerocenter if defn.aerocenter is not None else np.full_like(span, 0.25)
+    prebend = np.asarray(defn.prebend, dtype=float) if defn.prebend is not None else None
+    if prebend is None or prebend.size != len(span):
+        prebend = np.zeros_like(span, dtype=float)
+    sweep = np.asarray(defn.sweep, dtype=float) if defn.sweep is not None else None
+    if sweep is None or sweep.size != len(span):
+        sweep = np.zeros_like(span, dtype=float)
+
+    has_prebend = np.ptp(prebend) > 1.0e-8
+    has_sweep = np.ptp(sweep) > 1.0e-8
+    if not has_prebend or not has_sweep:
+        estimated_axis = _extract_reference_axis_from_numad_geometry(
+            blade,
+            pitch_axes=np.asarray(aerocenter, dtype=float),
+        )
+        if estimated_axis is not None:
+            prebend_est, sweep_est = estimated_axis
+            # Guard against twist/chord-offset artefacts when true prebend/sweep
+            # data are unavailable in legacy definitions.
+            if not has_prebend and np.ptp(prebend_est) > 1.0e-1:
+                prebend = prebend_est
+            if not has_sweep and np.ptp(sweep_est) > 8.0e-1:
+                sweep = sweep_est
 
     stations: List[AeroStation] = []
     for i, s in enumerate(span):
@@ -458,6 +553,8 @@ def _load_from_excel(
                 chord=float(chord[i]),
                 twist=float(twist_rad[i]),
                 pitch_axis=float(aerocenter[i]),
+                prebend=float(prebend[i]),
+                sweep=float(sweep[i]),
                 airfoil=airfoils[af_idx],
             )
         )
@@ -579,6 +676,24 @@ def load_blade_aero(
     af_pos_grid = np.array(blade_bem["airfoil_position"]["grid"], dtype=float)
     af_pos_labels = blade_bem["airfoil_position"]["labels"]
 
+    # Reference axis offsets (prebend/sweep). Missing components default to zero.
+    ref_axis = blade_bem.get("reference_axis", {})
+    ref_x = ref_axis.get("x")
+    if ref_x is not None:
+        ref_x_grid = np.array(ref_x["grid"], dtype=float)
+        ref_x_vals = np.array(ref_x["values"], dtype=float)
+    else:
+        ref_x_grid = ref_z_grid.copy()
+        ref_x_vals = np.zeros_like(ref_x_grid, dtype=float)
+
+    ref_y = ref_axis.get("y")
+    if ref_y is not None:
+        ref_y_grid = np.array(ref_y["grid"], dtype=float)
+        ref_y_vals = np.array(ref_y["values"], dtype=float)
+    else:
+        ref_y_grid = ref_z_grid.copy()
+        ref_y_vals = np.zeros_like(ref_y_grid, dtype=float)
+
     # --- Parse airfoils ---
     af_data_list = data["airfoils"]
     af_name_map: dict[str, int] = {}
@@ -631,6 +746,8 @@ def load_blade_aero(
     station_chord = np.interp(station_grid, chord_grid, chord_vals)
     station_twist = np.interp(station_grid, twist_grid, twist_vals)
     station_pa = np.interp(station_grid, pa_grid, pa_vals)
+    station_prebend = np.interp(station_grid, ref_x_grid, ref_x_vals)
+    station_sweep = np.interp(station_grid, ref_y_grid, ref_y_vals)
 
     # For each station, find the nearest airfoil by interpolating af_pos_grid
     af_indices_float = np.interp(
@@ -650,6 +767,8 @@ def load_blade_aero(
                 chord=float(station_chord[i]),
                 twist=float(station_twist[i]),
                 pitch_axis=float(station_pa[i]),
+                prebend=float(station_prebend[i]),
+                sweep=float(station_sweep[i]),
                 airfoil=airfoils[af_idx],
             )
         )

@@ -1,0 +1,30 @@
+# Chapter 6 (NREL/TP-5000-75698) - Table 6-1
+# IEC DLC settings used for V-06 FSI load-assessment validation.
+# Source text extracted from tests/IEA15MW/75698.pdf.txt.
+
+dlcs:
+  - dlc: "1.1"
+    wind_condition: "NTM"
+    wind_speeds: "3:2:25 m/s"
+    additional_settings: "-"
+    seeds: 6
+    simulations: 72
+
+  - dlc: "6.1"
+    wind_condition: "EWM"
+    wind_speeds: "V50"
+    additional_settings: "Yaw +/-8 deg"
+    seeds: 6
+    simulations: 12
+
+  - dlc: "6.3"
+    wind_condition: "EWM"
+    wind_speeds: "V1"
+    additional_settings: "Yaw +/-20 deg"
+    seeds: 6
+    simulations: 12
+
+metocean:
+  Vr_mps: 10.8
+  V50_mps: 50.0
+  V1_mps: 40.0

@@ -294,6 +294,9 @@ class BEMFSIParticipant:
         omega_data: str = "AngularVelocity",
         omega_vertex: list[float] | None = None,
         velocity_data: str | None = "Velocity",
+        deformed_twist: bool = True,
+        deformed_radius: bool = True,
+        include_pitching_moment: bool = True,
     ) -> None:
         self._mesh = mesh
         self._blade_aero = blade_aero
@@ -317,6 +320,11 @@ class BEMFSIParticipant:
         # When set, the BEM reads nodal velocities from the solid participant
         # and corrects the effective axial inflow per strip (aerodynamic damping).
         self._velocity_data: str | None = velocity_data
+        # Feedback isolation toggles (diagnostic experiments): each disables
+        # one geometric feedback term of the deformed BEM rebuild.
+        self._deformed_twist: bool = deformed_twist
+        self._deformed_radius: bool = deformed_radius
+        self._include_pitching_moment: bool = include_pitching_moment
         # Live omega [rad/s] — updated each time window from preCICE read or YAML fallback.
         # Converted to RPM inside _compute_forces before passing to CCBlade.
         self._current_omega: float = float(bem_config.get("omega", 0.0))
@@ -364,6 +372,7 @@ class BEMFSIParticipant:
             span_direction=self._span_dir,
             normal_direction=self._normal_dir,
             tangential_direction=self._tangential_dir,
+            include_pitching_moment=self._include_pitching_moment,
         )
         self._projector = ref_projector
 
@@ -611,20 +620,57 @@ class BEMFSIParticipant:
         r_def = np.empty(n_strips)
         twist_def = np.empty(n_strips)
 
-        # Chord directions on the deformed configuration.
-        # _compute_strip_chord_dirs resolves the SVD 180° sign ambiguity
-        # against self._normal_dir, but the blade chord is nearly
-        # perpendicular to the normal (flapwise) direction, so
-        # dot(chord_dir, normal_dir) ≈ 0 and the sign is numerical noise.
-        # Re-orient each deformed chord dir to be in the same hemisphere as
-        # its reference counterpart so that delta_twist = arctan2(sin,cos) is
-        # always small (elastic) rather than jumping to ±π.
-        def_chord_dirs = self._compute_strip_chord_dirs(deformed_coords)
-        for k in range(n_strips):
-            if np.dot(def_chord_dirs[k], self._ref_chord_dirs[k]) < 0:
-                def_chord_dirs[k] = -def_chord_dirs[k]
+        # Local deformed span axis per strip: the tangent of the deformed
+        # centroid line, smoothed over a +/-2 m window (the Camarena &
+        # Almeida frame measurement).  Projecting the section on this axis
+        # (instead of the fixed global span) excludes the elastic-line slope
+        # from the chord direction and the twist.  With large flap
+        # deflections the global-z projection leaks dy/dz (up to ~18 deg at
+        # the tip) into the extracted twist and inflates the aeroelastic
+        # de-loading (the "twist excess" of the 2026-09-16 diagnosis).
+        # The tangent is the difference of the deformed centroids of the
+        # dense bands [zc-2.0, zc-0.7] and [zc+0.7, zc+2.0] (all mesh nodes
+        # in the window, not just the BEM strips, which are 3-5 m apart):
+        # a tangent taken between adjacent strips is too short, picks up the
+        # local elastic-line curvature and the asymmetric section
+        # distortion, and over-reads the twist (8.8 vs 4.2 deg at the tip).
+        zz = self._ref_coords[:, 2]
+        z_min = float(zz.min())
+        z_max = float(zz.max())
+        t_locals = np.zeros((n_strips, 3))
+        for k, idx in enumerate(self._strip_node_indices):
+            if len(idx) == 0:
+                t_locals[k] = self._span_dir
+                continue
+            zc = self._ref_coords[idx, 2].mean()
+            lo = np.nonzero((zz >= zc - 2.0) & (zz <= zc - 0.7))[0]
+            hi = np.nonzero((zz >= zc + 0.7) & (zz <= zc + 2.0))[0]
+            if hi.size == 0:
+                # tip strip: no nodes above — slide the window down so both
+                # bands lie below the section and the tangent still points
+                # toward the tip (hi above lo)
+                hi = np.nonzero((zz >= zc - 0.9) & (zz <= zc - 0.2))[0]
+                lo = np.nonzero((zz >= zc - 2.9) & (zz <= zc - 2.2))[0]
+            if lo.size == 0:
+                # root strip: no nodes below — slide the window up
+                hi = np.nonzero((zz >= zc + 2.2) & (zz <= zc + 2.9))[0]
+                lo = np.nonzero((zz >= zc + 0.2) & (zz <= zc + 0.9))[0]
+            if lo.size == 0 or hi.size == 0:
+                t_locals[k] = self._span_dir
+                continue
+            t = deformed_coords[hi].mean(axis=0) - deformed_coords[lo].mean(axis=0)
+            nrm = np.linalg.norm(t)
+            t_locals[k] = t / nrm if nrm > 1e-12 else self._span_dir
 
-        s = self._span_dir
+        # Frame twist: rotation of the LE->TE chord vector about the local
+        # deformed span axis.  The SVD of the full section contour is NOT
+        # used for the deformed configuration: its principal axis is
+        # dominated by the trailing-edge panel distortion, which over-reads
+        # the elastic twist by 2-3x (9.7 vs 4.2 deg under the S-8c loads,
+        # 2026-09-16 diagnosis).  The LE-TE vector is the aerodynamic chord;
+        # its rotation about the local tangent is the frame twist measured
+        # by Camarena & Anderson 2025 and Almeida et al. 2025, and it is the
+        # quantity that closes the FSI de-loading against the BeamDyn anchor.
         for k in range(n_strips):
             idx = self._strip_node_indices[k]
             if len(idx) == 0:
@@ -632,27 +678,60 @@ class BEMFSIParticipant:
                 twist_def[k] = self._ref_twist[k]
                 continue
 
-            # Deformed radial position (mean span-wise projection)
-            strip_span = deformed_coords[idx] @ s
-            r_def[k] = float(np.mean(strip_span))
+            s_k = t_locals[k]
 
-            # Elastic twist from chord direction rotation
-            c_ref = self._ref_chord_dirs[k]
-            c_def = def_chord_dirs[k]
-            cos_a = float(np.clip(np.dot(c_ref, c_def), -1.0, 1.0))
-            sin_a = float(np.dot(np.cross(c_ref, c_def), s))
-            delta_twist = np.arctan2(sin_a, cos_a)
+            # Deformed radial position (mean span-wise projection).  The
+            # blade_aero stations are ROTOR radii (hub_radius + span), so the
+            # mesh span coordinate must be offset by the hub radius to stay
+            # consistent with the BEM rotor definition (Rhub).  Without the
+            # offset, root strips land inside the hub and the induction
+            # degenerates (2026-09-09: diverged the yaml-blade FSI campaign).
+            strip_span = deformed_coords[idx] @ s_k
 
-            twist_def[k] = self._ref_twist[k] + delta_twist
+            # Elastic twist from the chord vector rotation
+            xyz_ref = self._ref_coords[idx]
+            xyz_def = deformed_coords[idx]
+            le_r = self._ref_coords[idx[np.argmin(xyz_ref[:, 0])]]
+            te_r = self._ref_coords[idx[np.argmax(xyz_ref[:, 0])]]
+            le_d = xyz_def[np.argmin(xyz_ref[:, 0])]
+            te_d = xyz_def[np.argmax(xyz_ref[:, 0])]
+            v_ref = te_r - le_r
+            v_def = te_d - le_d
+            v_ref_p = v_ref - np.dot(v_ref, s_k) * s_k
+            v_def_p = v_def - np.dot(v_def, s_k) * s_k
+            n_ref = float(np.linalg.norm(v_ref_p))
+            n_def = float(np.linalg.norm(v_def_p))
+            if n_ref < 1e-12 or n_def < 1e-12:
+                delta_twist = 0.0
+            else:
+                cos_a = float(np.clip(np.dot(v_ref_p, v_def_p) / (n_ref * n_def), -1.0, 1.0))
+                sin_a = float(np.dot(np.cross(v_ref_p, v_def_p), s_k) / (n_ref * n_def))
+                delta_twist = np.arctan2(sin_a, cos_a)
+
+            if self._deformed_radius:
+                r_def[k] = float(np.mean(strip_span)) + self._blade_aero.hub_radius
+            else:
+                r_def[k] = self._ref_r[k]
+
+            if self._deformed_twist:
+                twist_def[k] = self._ref_twist[k] + delta_twist
+            else:
+                twist_def[k] = self._ref_twist[k]
 
         return r_def, twist_def
 
     def _compute_strip_chord_dirs(
         self,
         coords: np.ndarray,
+        span_axis: np.ndarray | None = None,
     ) -> list[np.ndarray]:
         r"""Estimate a chord-direction unit vector for each BEM strip via
         SVD-based PCA of the cross-section node distribution.
+
+        ``span_axis`` optionally provides a per-strip local axis (the tangent
+        of the deformed centroid line); the offsets are projected on the
+        plane perpendicular to it.  With ``None`` the global ``_span_dir`` is
+        used (reference configuration).
 
         **Method (per strip k):**
 
@@ -685,6 +764,9 @@ class BEMFSIParticipant:
         ----------
         coords : ndarray, shape (n_nodes, 3)
             Nodal coordinates (reference or deformed).
+        span_axis : ndarray, shape (n_strips, 3), optional
+            Per-strip local axis (deformed centroid-line tangent).  When
+            given, the SVD projection uses it instead of the global span.
 
         Returns
         -------
@@ -694,17 +776,19 @@ class BEMFSIParticipant:
         chord_dirs: list[np.ndarray] = []
         s = self._span_dir
 
-        for idx in self._strip_node_indices:
+        for k, idx in enumerate(self._strip_node_indices):
             if len(idx) < 2:
                 chord_dirs.append(self._normal_dir.copy())
                 continue
+
+            s_k = self._span_dir if span_axis is None else span_axis[k]
 
             strip_pts = coords[idx]
             centroid = strip_pts.mean(axis=0)
             offsets = strip_pts - centroid
 
-            # Project offsets onto the plane ⊥ span_dir
-            offsets_plane = offsets - np.outer(offsets @ s, s)
+            # Project offsets onto the plane ⊥ the (local) span axis
+            offsets_plane = offsets - np.outer(offsets @ s_k, s_k)
 
             _, _, Vt = np.linalg.svd(offsets_plane, full_matrices=False)
             chord_dir = Vt[0]
@@ -844,6 +928,7 @@ class BEMFSIParticipant:
             span_direction=self._span_dir,
             normal_direction=self._normal_dir,
             tangential_direction=self._tangential_dir,
+            include_pitching_moment=self._include_pitching_moment,
         )
 
     # -----------------------------------------------------------------------
@@ -1383,4 +1468,7 @@ def build_from_config(
         omega_data=omega_data,
         omega_vertex=omega_vertex,
         velocity_data=cfg.get("velocity_data", "Velocity"),
+        deformed_twist=bool(cfg.get("deformed_twist", True)),
+        deformed_radius=bool(cfg.get("deformed_radius", True)),
+        include_pitching_moment=bool(cfg.get("include_pitching_moment", True)),
     )

@@ -53,6 +53,8 @@ VENV_DIR     := $(SCRATCH)/venv
 SOURCES_DIR  := $(PWD)/.sources
 BUILD_DIR    := $(SOURCES_DIR)/build
 CCBLADE_SRC  := $(BUILD_DIR)/ccblade
+SHARPY_VERSION  := 2.4
+SHARPY_SRC      := $(BUILD_DIR)/sharpy
 
 # Build Commands
 NPROC         := 3
@@ -92,9 +94,9 @@ export LD_LIBRARY_PATH := $(LD_LIBRARY_PATH):$(VENV_DIR)/lib:$(VENV_DIR)/lib64:/
 #-------------------------------------------------------------------------------
 # Main Targets
 #-------------------------------------------------------------------------------
-.PHONY: all clean pip docker docker-build docker-build-low-memory ccblade
+.PHONY: all clean pip docker docker-build docker-build-low-memory ccblade sharpy
 
-all: module_load python slepc precice python_env ccblade openfoam
+all: module_load python slepc precice python_env ccblade sharpy openfoam
 	pip freeze > requirements.lock
 	@echo "====================================="
 	@echo "# All components built successfully #"
@@ -114,6 +116,8 @@ clean:
 download_sources: $(SOURCES_DIR)/download.done
 
 ccblade: $(VENV_DIR)/.ccblade.done
+
+sharpy: $(VENV_DIR)/.sharpy.done
 
 openfoam: $(VENV_DIR)/.openfoam.done
 
@@ -276,6 +280,68 @@ $(VENV_DIR)/.ccblade.done: $(VENV_DIR)/.python_env.done
 		LD_LIBRARY_PATH=$(VENV_DIR)/lib:$(VENV_DIR)/lib64:/usr/lib64/psm2-compat \
 		$(VENV_DIR)/bin/python setup.py build_ext --inplace && \
 		$(VENV_DIR)/bin/pip install --no-build-isolation --no-deps -e .
+	@touch $@
+
+#-------------------------------------------------------------------------------
+# SHARPy Installation (VLM/UVLM aerodynamic solver)
+#-------------------------------------------------------------------------------
+# SHARPy must be compiled from source on SDumont because the PyPI wheel
+# (ic-sharpy) was built for glibc 2.35 while SDumont runs glibc 2.28.
+# Steps:
+#   1. Clone SHARPy $(SHARPY_VERSION) and its submodules (UVLM, xbeam).
+#   2. Apply a try/except guard around the tvtk import in modalutils.py
+#      (tvtk/mayavi is not available on SDumont and is only needed for the
+#       modal post-processing solver, not for VLM/UVLM runs).
+#   3. Run cmake + make to build libuvlm.so and libxbeam.so from C++/Fortran.
+#   4. Symlink the .so files into the directories that uvlmlib.py/xbeamlib.py
+#      look up at runtime (SharpyDir/UVLM/ and SharpyDir/xbeam/).
+#   5. Register SHARPy as an editable install (PIP_NOBUILD=yes skips the
+#      duplicate cmake invocation in setup.py).
+#   6. Restore numpy/scipy to aeroelast-compatible versions (SHARPy pins
+#      older versions in its metadata which pip may have downgraded).
+#
+# Note: port 80 is blocked on SDumont compute nodes. SHARPy submodules use
+#   http://github.com URLs; the git rewrite rule converts them to https://.
+#-------------------------------------------------------------------------------
+$(VENV_DIR)/.sharpy.done: $(VENV_DIR)/.python_env.done
+	@echo "Building SHARPy $(SHARPY_VERSION) from source..."
+	# SDumont: port 80 blocked; submodules use http:// — rewrite to https://
+	git config --global url."https://github.com".insteadOf "http://github.com"
+	@if [ ! -d $(SHARPY_SRC) ]; then \
+		git clone --depth=1 --branch $(SHARPY_VERSION) \
+			https://github.com/ImperialCollegeLondon/sharpy.git $(SHARPY_SRC); \
+	fi
+	cd $(SHARPY_SRC) && git submodule update --init --recursive
+	# Patch ALL files with bare tvtk imports (mayavi/tvtk not available on SDumont;
+	# affects modalutils.py, aerogridplot.py, beamplot.py, plotflowfield.py,
+	# cleanup.py, gridbox.py — SHARPy eagerly imports all solvers/postprocs
+	# via __init__.py so any un-guarded import crashes the whole package).
+	$(VENV_DIR)/bin/python3 -c "\
+import pathlib; \
+old = 'from tvtk.api import tvtk, write_data'; \
+new = 'try:\n    from tvtk.api import tvtk, write_data\nexcept ImportError:\n    tvtk = None\n    write_data = None'; \
+[p.write_text(p.read_text().replace(old, new)) \
+ for p in pathlib.Path('$(SHARPY_SRC)/sharpy').rglob('*.py') \
+ if old in p.read_text() and 'except ImportError' not in p.read_text()]"
+	# Build C++ libraries (UVLM) and Fortran library (xbeam)
+	mkdir -p $(SHARPY_SRC)/build_cmake
+	cd $(SHARPY_SRC)/build_cmake && \
+		LD_LIBRARY_PATH=$(VENV_DIR)/lib:$(VENV_DIR)/lib64:/usr/lib64/psm2-compat \
+		/scratch/app_sequana/cmake/3.30.3/bin/cmake .. \
+			-DCMAKE_BUILD_TYPE=Release \
+			-DBLAS_LIBRARIES=/usr/lib64/libblas.so.3 \
+			-DLAPACK_LIBRARIES=/usr/lib64/liblapack.so.3 && \
+		make -j$(NPROC)
+	# Create symlink dirs where uvlmlib.py / xbeamlib.py look for the .so at runtime
+	mkdir -p $(SHARPY_SRC)/UVLM $(SHARPY_SRC)/xbeam
+	ln -sf $(SHARPY_SRC)/build_cmake/lib/UVLM/libuvlm.so   $(SHARPY_SRC)/UVLM/libuvlm.so
+	ln -sf $(SHARPY_SRC)/build_cmake/lib/xbeam/libxbeam.so $(SHARPY_SRC)/xbeam/libxbeam.so
+	# Install as editable; PIP_NOBUILD=yes skips setup.py's own cmake (already built)
+	LD_LIBRARY_PATH=$(VENV_DIR)/lib:$(VENV_DIR)/lib64:/usr/lib64/psm2-compat \
+		PIP_NOBUILD=yes $(VENV_DIR)/bin/pip install --no-deps -e $(SHARPY_SRC)
+	# Restore numpy/scipy to versions required by aeroelast (SHARPy pins older ones)
+	LD_LIBRARY_PATH=$(VENV_DIR)/lib:$(VENV_DIR)/lib64:/usr/lib64/psm2-compat \
+		$(VENV_DIR)/bin/pip install "numpy>=2.4.4" "scipy>=1.17.1"
 	@touch $@
 
 #-------------------------------------------------------------------------------

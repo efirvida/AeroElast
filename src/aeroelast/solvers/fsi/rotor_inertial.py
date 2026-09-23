@@ -35,7 +35,6 @@ See docs/rotor_inertial_solver_design.md for full design documentation.
 """
 
 import logging
-import os
 from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
@@ -48,7 +47,6 @@ from .corotational import (
     ConstantOmega,
     CoordinateTransforms,
     InertialForcesCalculator,
-    OmegaProvider,
     RampedComputedOmega,
     RampedOmega,
 )
@@ -58,6 +56,10 @@ from .rotor import LinearDynamicFSIRotorCorotationalSolver
 _logger = logging.getLogger(__name__)
 
 # Default configuration values
+# NOTE: Default rotation axis is Y-axis (0,1,0) — horizontal-axis turbine convention
+# used during Phase-1 implementation. LinearDynamicFSIRotorCorotationalSolver defaults
+# to Z-axis (0,0,1). Always set rotation_axis explicitly in YAML to avoid silent
+# orientation mismatches between the two solver variants.
 _DEFAULT_ROTATION_AXIS = np.array([0.0, 1.0, 0.0])
 _DEFAULT_ROTATION_CENTER = np.array([0.0, 0.0, 0.0])
 _DEFAULT_GRAVITY = np.array([0.0, 0.0, -9.81])
@@ -315,9 +317,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         self._include_geometric_stiffness: bool = bool(
             rotor_cfg.get("include_geometric_stiffness", False)
         )
-        self._include_spin_softening: bool = bool(
-            rotor_cfg.get("include_spin_softening", True)
-        )
+        self._include_spin_softening: bool = bool(rotor_cfg.get("include_spin_softening", True))
         # Per-matrix Δω hysteresis thresholds.
         # K_SP thresholds: rebuild K_SP when |Δ(ω²)|/ω² exceeds these.
         _ksp_high = rotor_cfg.get("ksp_omega_rebuild_high", 0.005)
@@ -407,9 +407,7 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         # deflection ratio drift exceeds the high-band threshold (with the
         # low-band reserved for hysteresis). Defaults preserve the legacy
         # explicit-in-geometry baseline.
-        self._kg_use_deformed_coords: bool = bool(
-            rotor_cfg.get("kg_use_deformed_coords", False)
-        )
+        self._kg_use_deformed_coords: bool = bool(rotor_cfg.get("kg_use_deformed_coords", False))
         self._kg_deflection_rebuild_rel_high = float(
             rotor_cfg.get("kg_deflection_rebuild_rel_high", 0.01)
         )
@@ -694,7 +692,6 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         """
         import _aeroelast  # noqa: PLC0415
         import numpy as np  # noqa: PLC0415
-
         from petsc4py import PETSc  # noqa: PLC0415
 
         rust_asm = getattr(self.domain, "_rust", None)
@@ -740,10 +737,10 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
 
         # Omega provider → Rust-compatible params
         from .corotational import (  # noqa: PLC0415
-            ConstantOmega,
-            RampedOmega,
             ComputedOmega,
+            ConstantOmega,
             RampedComputedOmega,
+            RampedOmega,
         )
 
         p = self._omega_provider
@@ -1469,7 +1466,6 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         float
             Total moment of inertia [kg·m²] about the rotation axis.
         """
-        from petsc4py import PETSc
 
         if self.M is None:
             _logger.warning("Mass matrix not available for inertia estimation.")
@@ -1573,7 +1569,6 @@ class LinearDynamicFSIRotorInertialSolver(LinearDynamicFSISolver):
         vals : ndarray
             Matrix values.
         """
-        from petsc4py import PETSc
 
         mat_csr = mat.convert("mpiaij")
         indptr, indices, data = mat_csr.getValuesCSR()

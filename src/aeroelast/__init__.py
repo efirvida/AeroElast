@@ -60,7 +60,18 @@ from .constitutive import (
 # ---------------------------------------------------------------------------
 # Elements
 # ---------------------------------------------------------------------------
-from .elements import ElementFamily
+try:
+    from .elements import ElementFamily
+except ImportError as exc:
+    message = str(exc)
+    if "GLIBCXX_" in message or "libstdc++.so.6" in message:
+        raise ImportError(
+            "aeroelast requires GCC runtime libraries in this environment. "
+            "On SDumont run: 'module load glu gcc/14.2.0_sequana' and prepend "
+            "that GCC libstdc++ path to LD_LIBRARY_PATH before executing aeroelast. "
+            f"Original error: {exc}"
+        ) from exc
+    raise
 
 # ---------------------------------------------------------------------------
 # Solvers

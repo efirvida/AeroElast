@@ -261,6 +261,12 @@ class TestInertialRotorRustBinding:
                 restart_ramp_completed=None,
                 restart_current_time=None,
                 step_callback=None,
+                kg_use_deformed_coords=False,
+                kg_deflection_rebuild_rel_high=0.005,
+                kg_deflection_rebuild_rel_low=0.003,
+                kg0_rows=np.array([], dtype=np.int64),
+                kg0_cols=np.array([], dtype=np.int64),
+                kg0_vals=np.array([], dtype=np.float64),
             )
 
     def test_displacement_mode_total_accepted(self):
@@ -325,6 +331,12 @@ class TestInertialRotorRustBinding:
                 restart_ramp_completed=None,
                 restart_current_time=None,
                 step_callback=None,
+                kg_use_deformed_coords=False,
+                kg_deflection_rebuild_rel_high=0.005,
+                kg_deflection_rebuild_rel_low=0.003,
+                kg0_rows=np.array([], dtype=np.int64),
+                kg0_cols=np.array([], dtype=np.int64),
+                kg0_vals=np.array([], dtype=np.float64),
             )
 
     def test_invalid_displacement_mode_raises(self):
@@ -389,6 +401,12 @@ class TestInertialRotorRustBinding:
                 restart_ramp_completed=None,
                 restart_current_time=None,
                 step_callback=None,
+                kg_use_deformed_coords=False,
+                kg_deflection_rebuild_rel_high=0.005,
+                kg_deflection_rebuild_rel_low=0.003,
+                kg0_rows=np.array([], dtype=np.int64),
+                kg0_cols=np.array([], dtype=np.int64),
+                kg0_vals=np.array([], dtype=np.float64),
             )
 
     def test_omega_mode_ramped_requires_target(self):
@@ -454,6 +472,12 @@ class TestInertialRotorRustBinding:
                 restart_ramp_completed=None,
                 restart_current_time=None,
                 step_callback=None,
+                kg_use_deformed_coords=False,
+                kg_deflection_rebuild_rel_high=0.005,
+                kg_deflection_rebuild_rel_low=0.003,
+                kg0_rows=np.array([], dtype=np.int64),
+                kg0_cols=np.array([], dtype=np.int64),
+                kg0_vals=np.array([], dtype=np.float64),
             )
 
 
@@ -540,6 +564,12 @@ class TestDisplacementModeValidation:
                 restart_ramp_completed=None,
                 restart_current_time=None,
                 step_callback=None,
+                kg_use_deformed_coords=False,
+                kg_deflection_rebuild_rel_high=0.005,
+                kg_deflection_rebuild_rel_low=0.003,
+                kg0_rows=np.array([], dtype=np.int64),
+                kg0_cols=np.array([], dtype=np.int64),
+                kg0_vals=np.array([], dtype=np.float64),
             )
 
 
@@ -600,6 +630,19 @@ class TestInertialWrapperMarshalling:
         solver._send_velocity_to_precice = False
         solver._velocity_write_data_name = None
         solver._include_geometric_stiffness = True
+        solver._include_spin_softening = True
+        solver._use_corotational_kt = False
+        solver._kt_coro_update_freq = 1
+        solver._ksp_omega_threshold = 1e-4
+        solver._omega_rebuild_rel_high = 0.005
+        solver._omega_rebuild_rel_low = 0.003
+        solver._kg_use_deformed_coords = False
+        solver._kg_deflection_rebuild_rel_high = 0.01
+        solver._kg_deflection_rebuild_rel_low = 0.006
+        solver._ksp_omega_rebuild_high = 0.005
+        solver._ksp_omega_rebuild_low = 0.003
+        solver._kg_omega_rebuild_high = 0.01
+        solver._kg_omega_rebuild_low = 0.006
         solver._is_primary_rank = lambda: False
         solver.comm = PETSc.COMM_SELF
 
@@ -614,9 +657,15 @@ class TestInertialWrapperMarshalling:
             "DomainStub",
             (),
             {
-                "_rust": object(),
+                "_rust": type("RustStub", (), {
+                    "assemble_m": staticmethod(lambda: (
+                        np.array([0, 1, 2], dtype=np.int64),
+                        np.array([0, 1, 2], dtype=np.int64),
+                        np.array([1.0, 1.0, 1.0], dtype=np.float64)))},
+                )(),
                 "dofs_per_node": 3,
                 "spatial_dim": 3,
+                "nodes": [type("NodeStub", (), {"coords": np.array([0.0, 0.0, 0.0], dtype=np.float64)})()],
                 "mesh": type("MeshStub", (), {"node_id_to_index": {1: 0}})(),
                 "assemble_geometric_stiffness": staticmethod(_assemble_geometric_stiffness),
             },
@@ -652,9 +701,9 @@ class TestInertialWrapperMarshalling:
         )
 
         assert assemble_called is False
-        assert captured["kg0_rows"].size == 0
-        assert captured["kg0_cols"].size == 0
-        assert captured["kg0_vals"].size == 0
+        for key in ("kg0_rows", "kg0_cols", "kg0_vals"):
+            v = captured[key]
+            assert v is None or getattr(v, "size", 0) == 0, (key, v)
 
     def test_solve_via_rust_wires_output_callback_and_finalizes_checkpoints(self, monkeypatch):
         solver = object.__new__(LinearDynamicFSIRotorInertialSolver)
@@ -685,7 +734,9 @@ class TestInertialWrapperMarshalling:
             }
         }
         solver._omega_provider = ConstantOmega(omega=5.0)
+        from aeroelast.solvers.fsi.corotational import CoordinateTransforms  # noqa: E402
         solver._coord_transforms = CoordinateTransforms([0.0, 0.0, 1.0], [0.0, 0.0, 0.0])
+        from aeroelast.solvers.fsi.corotational import InertialForcesCalculator  # noqa: E402
         solver._inertial_calculator = InertialForcesCalculator(
             [0.0, 0.0, 1.0],
             [0.0, 0.0, 0.0],
@@ -711,6 +762,19 @@ class TestInertialWrapperMarshalling:
         solver._send_velocity_to_precice = False
         solver._velocity_write_data_name = None
         solver._include_geometric_stiffness = False
+        solver._include_spin_softening = True
+        solver._use_corotational_kt = False
+        solver._kt_coro_update_freq = 1
+        solver._ksp_omega_threshold = 1e-4
+        solver._omega_rebuild_rel_high = 0.005
+        solver._omega_rebuild_rel_low = 0.003
+        solver._kg_use_deformed_coords = False
+        solver._kg_deflection_rebuild_rel_high = 0.01
+        solver._kg_deflection_rebuild_rel_low = 0.006
+        solver._ksp_omega_rebuild_high = 0.005
+        solver._ksp_omega_rebuild_low = 0.003
+        solver._kg_omega_rebuild_high = 0.01
+        solver._kg_omega_rebuild_low = 0.006
         solver._stress_output_interval = 1
         solver._theta = 0.0
         solver._is_primary_rank = lambda: False
@@ -725,7 +789,12 @@ class TestInertialWrapperMarshalling:
             "DomainStub",
             (),
             {
-                "_rust": object(),
+                "_rust": type("RustStub", (), {
+                    "assemble_m": staticmethod(lambda: (
+                        np.array([0, 1, 2], dtype=np.int64),
+                        np.array([0, 1, 2], dtype=np.int64),
+                        np.array([1.0, 1.0, 1.0], dtype=np.float64)))},
+                )(),
                 "dofs_per_node": 3,
                 "spatial_dim": 3,
                 "nodes": [node],

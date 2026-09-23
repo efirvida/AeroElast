@@ -1928,6 +1928,62 @@ impl PyMeshAssembler {
         ))
     }
 
+    /// Nodal centrifugal load vector for the pre-stress static solve.
+    ///
+    /// Returns a np.ndarray of shape (dofs_count,) with the lumped nodal
+    /// centrifugal forces `rho_A * omega^2 * r` (radial direction).
+    pub fn centrifugal_load<'py>(
+        &self,
+        py: Python<'py>,
+        omega: f64,
+        rotation_axis: [f64; 3],
+        rotation_center: [f64; 3],
+        rho_per_elem: PyReadonlyArray1<f64>,
+    ) -> PyResult<pyo3::Bound<'py, PyArray1<f64>>> {
+        let rho_slice = rho_per_elem.as_slice()?;
+        if rho_slice.len() != self.inner.topology.n_elems {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "rho_per_elem must have length n_elems={}; got {}",
+                self.inner.topology.n_elems,
+                rho_slice.len()
+            )));
+        }
+        let f = self
+            .inner
+            .centrifugal_load(omega, rotation_axis, rotation_center, rho_slice);
+        Ok(Array1::from(f).into_pyarray(py))
+    }
+
+    /// Geometric stiffness K_σ from a full displacement field.
+    ///
+    /// Recovers membrane force resultants at each shell element centroid and
+    /// assembles the geometric stiffness.  Use with the displacement solution
+    /// of the centrifugal pre-stress static solve `K u = f_cf`.
+    pub fn assemble_geometric_k_from_disp<'py>(
+        &self,
+        py: Python<'py>,
+        u: PyReadonlyArray1<f64>,
+    ) -> PyResult<(
+        pyo3::Bound<'py, PyArray1<i64>>,
+        pyo3::Bound<'py, PyArray1<i64>>,
+        pyo3::Bound<'py, PyArray1<f64>>,
+    )> {
+        let u_slice = u.as_slice()?;
+        if u_slice.len() != self.inner.dofs_count {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "u must have length dofs_count={}; got {}",
+                self.inner.dofs_count,
+                u_slice.len()
+            )));
+        }
+        let (rows, cols, vals) = self.inner.assemble_geometric_k_from_disp(u_slice);
+        Ok((
+            Array1::from(rows).into_pyarray(py),
+            Array1::from(cols).into_pyarray(py),
+            Array1::from(vals).into_pyarray(py),
+        ))
+    }
+
     /// Compute element-centroid stress and strain for every element.
     ///
     /// Parameters

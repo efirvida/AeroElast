@@ -124,47 +124,40 @@ class TestBEMSolverRotating:
 
 
 class TestOmegaSignConvention:
-    """Regression tests for the CW rotor sign convention.
+    """Regression tests for the rotor sign convention.
 
-    The structural solver uses CW rotation around +Y (right-hand rule:
-    omega vector points in -Y).  CCBlade assumes CCW, so ``fsi_participant``
-    negates ``_current_omega`` before converting to RPM::
-
-        omega_rpm = -current_omega_rad_s * 60 / (2*pi)
-
-    This means ``BEMSolver.compute`` receives **negative RPM** for a
-    physically spinning rotor.  These tests guard that invariant: if the
-    negation is accidentally removed, power and torque flip sign and the
-    tests fail immediately.
+    Current design (reworked 2026-09): the structural solver's RHR omega
+    (positive = clockwise viewed from -Y) is passed to CCBlade WITHOUT a
+    sign change — CCBlade's positive RPM direction matches the structural
+    omega > 0.  The load direction is handled by the
+    ``tangential_direction: [-1, 0, 0]`` YAML setting, not by negating
+    omega.  These tests guard that invariant: positive RPM must give
+    positive power/torque, and negating omega must invert the torque sign.
     """
 
     @pytest.fixture(scope="class")
     def cw_result(self, bem_solver):
-        """BEM result as seen by CCBlade after the CW sign conversion.
-
-        ``current_omega = +0.7917 rad/s`` (structural convention, CW).
-        After negation + unit conversion: ``omega_rpm = -7.56 RPM``.
-        """
+        """BEM result under the current convention (omega > 0 = CW structural)."""
         import math
 
-        current_omega_rad_s = 0.7917  # rad/s, CW, as received from preCICE
-        omega_rpm = -current_omega_rad_s * 60.0 / (2.0 * math.pi)
+        current_omega_rad_s = 0.7917  # rad/s, structural RHR (CW from -Y)
+        omega_rpm = +current_omega_rad_s * 60.0 / (2.0 * math.pi)
         return bem_solver.compute(v_inf=10.59, omega=omega_rpm, pitch=0.0)
 
     @pytest.fixture(scope="class")
     def ccw_result(self, bem_solver):
-        """BEM result WITHOUT the sign fix (positive RPM, wrong for CW rotor)."""
+        """BEM result with the reversed rotation (negative RPM)."""
         import math
 
         current_omega_rad_s = 0.7917
-        omega_rpm = +current_omega_rad_s * 60.0 / (2.0 * math.pi)  # bug: no negation
+        omega_rpm = -current_omega_rad_s * 60.0 / (2.0 * math.pi)
         return bem_solver.compute(v_inf=10.59, omega=omega_rpm, pitch=0.0)
 
     def test_cw_torque_positive(self, cw_result):
-        """After negation, CCBlade must return positive torque for the CW rotor."""
+        """Positive RPM (current no-negation convention) must give positive torque."""
         assert cw_result.torque > 0, (
             f"Torque={cw_result.torque:.3e} Nm — negative torque means the sign "
-            "fix in fsi_participant._compute_forces was reverted."
+            "convention (omega > 0 -> CCBlade positive RPM) was reverted."
         )
 
     def test_cw_power_positive(self, cw_result):
@@ -188,16 +181,15 @@ class TestOmegaSignConvention:
             f"CT={cw_result.CT:.4f} outside physical range."
         )
 
-    def test_sign_flip_inverts_torque(self, cw_result, ccw_result):
-        """Negating omega must invert the torque sign.
+    def test_sign_flip_inverts_power(self, cw_result, ccw_result):
+        """Reversing the rotation must invert the extracted power.
 
-        This directly encodes the contract: if fsi_participant passes
-        ``-omega`` to BEMSolver, the torque sign must flip relative to
-        ``+omega``.  If this test fails, the BEM engine no longer respects
-        the rotation direction.
+        The current engine reports the torque with the magnitude sign
+        (positive for either rotation) while the power = torque × omega
+        carries the direction; the campaigns rely on the power sign.
         """
-        assert cw_result.torque > 0
-        assert ccw_result.torque < 0, (
-            "Expected CCW (positive RPM) to give negative torque for this "
-            "CW-designed geometry.  The sign convention may have changed."
+        assert cw_result.power > 0
+        assert ccw_result.power < 0, (
+            f"Reversed rotation gave power={ccw_result.power:.3e} W — "
+            "the rotation direction is not respected."
         )

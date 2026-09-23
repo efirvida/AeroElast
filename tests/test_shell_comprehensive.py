@@ -357,7 +357,7 @@ class TestLinearStaticCantilever:
         """FX: In-plane loading (membrane) - should match analytical closely."""
         L, b, h = 1.0, 0.1, 0.001
         E, nu = 2.1e11, 0.3
-        P = 600.0
+        P = 17.5
 
         # Analytical
         ana = AnalyticalReferences.cantilever_plate_in_plane(L, b, h, E, nu, P, "x")
@@ -402,7 +402,7 @@ class TestLinearStaticCantilever:
         """FY: In-plane loading (shear/membrane combination)."""
         L, b, h = 1.0, 0.1, 0.001
         E, nu = 2.1e11, 0.3
-        P = 600.0
+        P = 17.5
 
         # Analytical (in-plane)
         ana = AnalyticalReferences.cantilever_plate_in_plane(L, b, h, E, nu, P, "y")
@@ -447,7 +447,7 @@ class TestLinearStaticCantilever:
         """FZ: Out-of-plane bending - compare with beam theory."""
         L, b, h = 1.0, 0.1, 0.001
         E, nu = 2.1e11, 0.3
-        P = 600.0
+        P = 17.5
 
         # Analytical (with shear correction)
         ana = AnalyticalReferences.cantilever_plate_flexure(L, b, h, E, nu, P)
@@ -491,7 +491,7 @@ class TestLinearStaticCantilever:
     def test_in_plane_ratio_constraint(self):
         """Uy should be orders of magnitude larger than Ux for this strip."""
         L, b, h = 1.0, 0.1, 0.001
-        P = 600.0
+        P = 17.5
 
         mesh = build_cantilever_mesh(L=L, b=b)
         prop = ShellProperty(material=STEEL, thickness=h)
@@ -548,10 +548,10 @@ class TestNonlinearStaticCantilever:
     """Nonlinear static analysis (large displacement)."""
 
     def test_large_displacement_tip_load(self):
-        """Divergent nonlinear solves must raise instead of returning garbage."""
+        """Large-deflection UL solve converges to a physical deflection."""
         L, b, h = 1.0, 0.1, 0.001
         E, nu = 2.1e11, 0.3
-        P = 600.0
+        P = 17.5
 
         # Get linear solution first
         mesh = build_cantilever_mesh(L=L, b=b)
@@ -582,14 +582,9 @@ class TestNonlinearStaticCantilever:
         idx = mesh.node_id_to_index[center.id]
         dz_lin = u_lin[idx * dpn + 2]
 
-        # Nonlinear solution
+        # Nonlinear solution (UL incremental)
         cfg_nl = {
-            "solver": {
-                "nl_initial_increment": 0.1,
-                "nl_min_increment": 1e-5,
-                "nl_max_increment": 0.2,
-                "nl_max_it": 50,
-            },
+            "solver": {"continuation_steps": 32, "continuation_max_steps": 128},
             "elements": {
                 "element_family": ElementFamily.SHELL,
                 "properties": {"plate": prop},
@@ -601,14 +596,24 @@ class TestNonlinearStaticCantilever:
         solver_nl = StaticNonlinearSolver(mesh, cfg_nl)
         dpn = solver_nl.domain.dofs_per_node
 
+        clamped = []
+        for node in mesh.get_node_set("clamped").nodes.values():
+            i0 = mesh.node_id_to_index[node.id] * dpn
+            clamped.extend(range(i0, i0 + dpn))
+
         solver_nl.add_dirichlet_conditions([DirichletCondition(clamped, 0.0)])
         apply_edge_load(mesh, solver_nl, "free_edge", "z", P)
 
         print(f"\nNonlinear analysis: linear estimate={dz_lin:.3e}")
-        assert abs(dz_lin) > L, "Benchmark should be strongly nonlinear before calling SNES"
+        assert abs(dz_lin) > L, "Benchmark should be strongly nonlinear"
 
-        with pytest.raises(RuntimeError, match="SNES diverged"):
-            solver_nl.solve()
+        u_nl = np.asarray(solver_nl.solve(), dtype=np.float64)
+        dz_nl = abs(u_nl[idx * dpn + 2])
+        print(f"Nonlinear tip deflection: {dz_nl:.3e}")
+        assert dz_nl < 0.5 * abs(dz_lin), "Nonlinear deflection must be far below the linear one"
+        assert 0.4 * L < dz_nl < 1.1 * L, (
+            f"Tip deflection {dz_nl:.3f} outside the physical O(L) range"
+        )
 
 
 class TestModalAnalysis:

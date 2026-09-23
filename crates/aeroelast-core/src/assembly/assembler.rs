@@ -737,12 +737,12 @@ impl MeshAssembler {
         for e in 0..self.topology.n_elems {
             let fe: Vec<f64> = match &self.precomputed[e] {
                 PrecomputedElem::Tri(pre) => {
-                    let rho = material_rho(&self.materials[e]);
+                    let rho = material_rho(&self.materials[e], pre.thickness);
                     let fvec = mitc3::compute_body_load_global(pre, rho, &g);
                     fvec.as_slice().to_vec()
                 }
                 PrecomputedElem::Quad(pre) => {
-                    let rho = material_rho(&self.materials[e]);
+                    let rho = material_rho(&self.materials[e], pre.thickness);
                     let fvec = mitc4::compute_body_load_global(pre, rho, &g);
                     fvec.as_slice().to_vec()
                 }
@@ -1370,6 +1370,138 @@ impl MeshAssembler {
     }
 
     // -----------------------------------------------------------------------
+    // Static-solve centrifugal prestress (physically consistent K_G)
+    // -----------------------------------------------------------------------
+
+    /// Nodal centrifugal load vector for the pre-stress static solve.
+    ///
+    /// The body force per unit area is `rho_A * omega^2 * r` (radial).  For
+    /// each shell element the consistent nodal forces are approximated with
+    /// an equal lumped split of the element total: `rho_A * omega^2 * r_c *
+    /// A_e / n_nodes` per node, projected on the radial direction.  Plane and
+    /// solid elements contribute nothing.
+    pub fn centrifugal_load(
+        &self,
+        omega: f64,
+        rotation_axis: [f64; 3],
+        rotation_center: [f64; 3],
+        rho_per_elem: &[f64],
+    ) -> Vec<f64> {
+        assert_eq!(
+            rho_per_elem.len(),
+            self.topology.n_elems,
+            "rho_per_elem length must equal n_elems"
+        );
+
+        let axis = {
+            let a = Vector3::new(rotation_axis[0], rotation_axis[1], rotation_axis[2]);
+            let n = a.norm();
+            if n > 1e-30 { a / n } else { Vector3::new(0.0, 0.0, 1.0) }
+        };
+        let center = Vector3::new(rotation_center[0], rotation_center[1], rotation_center[2]);
+        let mut f = vec![0.0; self.dofs_count];
+
+        for e in 0..self.topology.n_elems {
+            let is_shell = matches!(
+                self.precomputed[e],
+                PrecomputedElem::Tri(_) | PrecomputedElem::Quad(_)
+            );
+            if !is_shell {
+                continue;
+            }
+
+            let coords_flat = self.topology.elem_coords(e);
+            let n_nodes = coords_flat.len() / 3;
+
+            let mut cx = 0.0f64;
+            let mut cy = 0.0f64;
+            let mut cz = 0.0f64;
+            for n in 0..n_nodes {
+                cx += coords_flat[3 * n];
+                cy += coords_flat[3 * n + 1];
+                cz += coords_flat[3 * n + 2];
+            }
+            let inv_n = 1.0 / n_nodes as f64;
+            let centroid = Vector3::new(cx * inv_n, cy * inv_n, cz * inv_n);
+
+            let r_vec = centroid - center;
+            let r_parallel = r_vec.dot(&axis) * axis;
+            let r_radial_vec = r_vec - r_parallel;
+            let r_radial = r_radial_vec.norm();
+            if r_radial < 1e-10 {
+                continue;
+            }
+            let radial_dir = r_radial_vec / r_radial;
+
+            let area = if n_nodes >= 4 {
+                let p0 = Vector3::new(coords_flat[0], coords_flat[1], coords_flat[2]);
+                let p2 = Vector3::new(coords_flat[6], coords_flat[7], coords_flat[8]);
+                let p3 = Vector3::new(coords_flat[9], coords_flat[10], coords_flat[11]);
+                let p1 = Vector3::new(coords_flat[3], coords_flat[4], coords_flat[5]);
+                let v1 = p2 - p0;
+                let v2 = p3 - p1;
+                0.5 * v1.cross(&v2).norm()
+            } else {
+                let p0 = Vector3::new(coords_flat[0], coords_flat[1], coords_flat[2]);
+                let p1 = Vector3::new(coords_flat[3], coords_flat[4], coords_flat[5]);
+                let p2 = Vector3::new(coords_flat[6], coords_flat[7], coords_flat[8]);
+                0.5 * (p1 - p0).cross(&(p2 - p0)).norm()
+            };
+
+            let total = rho_per_elem[e] * omega * omega * r_radial * area;
+            let per_node = total / n_nodes as f64;
+            let dofs = &self.dof_connectivity[e];
+            for n in 0..n_nodes {
+                for d in 0..3 {
+                    f[dofs[6 * n + d]] += per_node * radial_dir[d];
+                }
+            }
+        }
+
+        f
+    }
+
+    /// Geometric stiffness K_σ from a displacement field (membrane stresses).
+    ///
+    /// Recovers the membrane stresses `[σ_xx, σ_yy, σ_xy]` (Pa) at each
+    /// shell element centroid from `u` (full DOF vector) via
+    /// `compute_element_stress(..., stress_type=0)`, then assembles K_σ with
+    /// `assemble_geometric_k`.  Note that `assemble_geometric_k` interprets
+    /// its input as stress (Pa) and multiplies by the element thickness
+    /// internally to obtain the force resultants.
+    ///
+    /// This is the physically consistent way to obtain the centrifugal
+    /// geometric stiffness: solve `K u = f_cf` (static, root-clamped) and
+    /// feed the resulting membrane state — the accumulated centrifugal
+    /// tension is captured exactly by static equilibrium.
+    pub fn assemble_geometric_k_from_disp(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
+        assert_eq!(u.len(), self.dofs_count, "displacement vector length mismatch");
+
+        let n_elems = self.topology.n_elems;
+        let mut sigma = vec![[0.0f64; 3]; n_elems];
+
+        for e in 0..n_elems {
+            let dofs = &self.dof_connectivity[e];
+            let (sig6, _): ([f64; 6], [f64; 6]) = match &self.precomputed[e] {
+                PrecomputedElem::Tri(pre) => {
+                    let ue = extract_elem_disp_18(u, dofs);
+                    mitc3::compute_element_stress(pre, &ue, 0.0, 0)
+                }
+                PrecomputedElem::Quad(pre) => {
+                    let ue = extract_elem_disp_24(u, dofs);
+                    mitc4::compute_element_stress(pre, &ue, 0.0, 0)
+                }
+                _ => continue,
+            };
+            sigma[e][0] = sig6[0];
+            sigma[e][1] = sig6[1];
+            sigma[e][2] = sig6[3];
+        }
+
+        self.assemble_geometric_k(&sigma)
+    }
+
+    // -----------------------------------------------------------------------
     // compute_stress_field: element-centroid stress and strain recovery
     // -----------------------------------------------------------------------
 
@@ -1594,10 +1726,21 @@ fn build_constitutive_mitc4(
     build_constitutive_mitc3(mat) // same signature
 }
 
-fn material_rho(mat: &MaterialSpec) -> f64 {
+/// Return volumetric density (kg/m³) for use in body-load assembly.
+///
+/// For isotropic and solid materials the density is stored directly.
+/// For composite shell elements the stored value is `mass_per_area` (kg/m²),
+/// which is the physically correct integrated quantity for mass-matrix assembly.
+/// To obtain the volumetric density needed by `compute_body_load_global` —
+/// which internally multiplies by the element thickness — we divide by `h`:
+///
+///   rho [kg/m³] = mass_per_area [kg/m²] / h [m]
+///
+/// so that `rho * h = mass_per_area` recovers the correct surface density.
+fn material_rho(mat: &MaterialSpec, h: f64) -> f64 {
     match mat {
         MaterialSpec::Isotropic { rho, .. } => *rho,
-        MaterialSpec::Composite { mass_per_area, .. } => *mass_per_area,
+        MaterialSpec::Composite { mass_per_area, .. } => mass_per_area / h,
         MaterialSpec::PlaneStress { rho, .. } => *rho,
         MaterialSpec::Solid3D { rho, .. } => *rho,
     }

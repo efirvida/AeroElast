@@ -92,7 +92,23 @@ r_{n+1} = f_{fsi,n+1} + M(a_0 u_n + a_2 \dot{u}_n + a_3 \ddot{u}_n)
 + C(a_1 u_n + a_4 \dot{u}_n + a_5 \ddot{u}_n).
 $$
 
-La solucion del paso entrega $u_{n+1}$, y luego se recuperan aceleracion y velocidad mediante las identidades de Newmark. Esta formulacion es no iterativa dentro de cada solve estructural: la no linealidad del problema acoplado se resuelve a nivel de la iteracion particionada con el fluido.
+La solucion del paso entrega $u_{n+1}$, y luego se recuperan aceleracion y velocidad mediante las identidades de Newmark:
+
+$$
+\ddot{u}_{n+1} = a_0 (u_{n+1} - u_n) - a_2 \dot{u}_n - a_3 \ddot{u}_n,
+$$
+
+$$
+\dot{u}_{n+1} = \dot{u}_n + a_6 \ddot{u}_n + a_7 \ddot{u}_{n+1},
+$$
+
+donde los coeficientes de actualizacion de estado son
+
+$$
+a_6 = \Delta t (1 - \gamma), \qquad a_7 = \gamma \, \Delta t.
+$$
+
+Estos dos pasos completan la iteracion de Newmark: primero se resuelve $u_{n+1}$ con el sistema efectivo, luego se recupera $\ddot{u}_{n+1}$ por la primera identidad, y finalmente se avanza $\dot{u}_{n+1}$ con la segunda. La implementacion expone los ocho coeficientes $a_0 \ldots a_7$ en la clase `NewmarkCoefficients` de `time_integration.py`. Esta formulacion es no iterativa dentro de cada solve estructural: la no linealidad del problema acoplado se resuelve a nivel de la iteracion particionada con el fluido.
 
 ## Masa lumped para la integracion transitoria FSI
 

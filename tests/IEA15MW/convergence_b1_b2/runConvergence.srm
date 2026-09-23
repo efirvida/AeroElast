@@ -1,0 +1,153 @@
+#!/bin/bash
+#SBATCH -p sequana_cpu
+#SBATCH --ntasks=48
+#SBATCH -J b1b2_convergence
+#SBATCH --time=24:00:00
+#SBATCH -e logs/slurm_%j.err
+#SBATCH -o logs/slurm_%j.out
+#SBATCH --mail-type=END,FAIL
+
+# ── B1+B2 — h/dt convergence campaign for V-04 corotacional FSI ──────────────
+# Closes F5 (only blocking gap for paper P1). See README.md for case definition.
+#
+# Cases (4 new runs, baseline reused from frontiersin_results_corotational/yaw_0/):
+#   h_coarse   element_size=0.5,   dt=0.01
+#   h_fine     element_size=0.125, dt=0.01
+#   dt_coarse  element_size=0.25,  dt=0.02
+#   dt_fine    element_size=0.25,  dt=0.005
+#
+# Each runs solid + fluid as preCICE participants. Working dir per case isolates
+# the preCICE sockets (exchange-directory="." in each precice-config-*.xml).
+#
+# Resources: 4 cases × (1 solid OMP×4 + 1 fluid) = 20 cores. Fits in 1 node.
+# But Walltime: h_fine is ~4× more expensive than baseline (mesh ×2 in both
+# spanwise+chordwise directions), and dt_fine is 2× more expensive temporally
+# than baseline. With 30 s simulated and baseline 11 min/s, expect:
+#   h_baseline ≈ 5.5 h   (not re-run)
+#   h_coarse   ≈ 1.4 h
+#   h_fine     ≈ 22 h
+#   dt_coarse  ≈ 2.8 h
+#   dt_fine    ≈ 11 h
+# Pad to 24 h job ceiling — h_fine is the bottleneck.
+#
+# Overridable env vars:
+#   RESULTS_BASE   output root (default: $SCRATCH/convergence_b1_b2_results)
+#
+# Usage:
+#   cd tests/IEA15MW/convergence_b1_b2
+#   sbatch runConvergence.srm
+
+set -uo pipefail
+
+
+
+CASES=(h_coarse h_fine dt_coarse dt_fine)
+
+SUBMIT_DIR="$SLURM_SUBMIT_DIR"
+RESULTS_BASE="${RESULTS_BASE:-${SCRATCH}/convergence_b1_b2_results}"
+
+RUN_SOLID="${SUBMIT_DIR}/../_run_solid.sh"
+RUN_FLUID="${SUBMIT_DIR}/../_run_fluid.sh"
+
+ALL_PIDS=()
+ALL_NAMES=()
+
+echo "Job:          ${SLURM_JOB_ID:-N/A}"
+echo "Nodes:        ${SLURM_NODELIST:-N/A}"
+echo "Submit dir:   $SUBMIT_DIR"
+echo "Cases:        ${CASES[*]}"
+echo "Results:      ${RESULTS_BASE}/<case>/"
+echo ""
+
+# ── Preflight ────────────────────────────────────────────────────────────────
+for f in "$RUN_SOLID" "$RUN_FLUID"; do
+    [[ -x "$f" ]] || { echo "PREFLIGHT ERROR: not found or not executable: $f" >&2; exit 1; }
+done
+
+for case in "${CASES[@]}"; do
+    for f in \
+        "${SUBMIT_DIR}/solid_${case}.yaml" \
+        "${SUBMIT_DIR}/fluid_${case}.yaml"; do
+        [[ -f "$f" ]] || { echo "PREFLIGHT ERROR: missing YAML: $f" >&2; exit 1; }
+    done
+done
+echo "Preflight OK — all YAMLs present."
+
+mkdir -p "${RESULTS_BASE}/logs"
+
+# ── run_case(tag) ────────────────────────────────────────────────────────────
+run_case() {
+    local tag=$1
+    local case_dir="${RESULTS_BASE}/${tag}"
+    local log_dir="${case_dir}/logs"
+    local solid_yaml="${SUBMIT_DIR}/solid_${tag}.yaml"
+    local fluid_yaml="${SUBMIT_DIR}/fluid_${tag}.yaml"
+
+    mkdir -p "${case_dir}" "${log_dir}"
+
+    echo "[${tag}] starting solid..."
+    (cd "${case_dir}" && "${RUN_SOLID}" "${solid_yaml}") \
+        >> "${log_dir}/solid.log" 2>&1 &
+    local solid_pid=$!
+    ALL_PIDS+=("$solid_pid")
+    ALL_NAMES+=("${tag}/solid")
+    echo "[${tag}] solid PID=${solid_pid}"
+
+    sleep 2
+
+    echo "[${tag}] starting fluid..."
+    (cd "${case_dir}" && "${RUN_FLUID}" "${fluid_yaml}" "${case_dir}") \
+        >> "${log_dir}/fluid.log" 2>&1 &
+    local fluid_pid=$!
+    ALL_PIDS+=("$fluid_pid")
+    ALL_NAMES+=("${tag}/fluid")
+    echo "[${tag}] fluid PID=${fluid_pid}"
+}
+
+# ── Launch all cases ─────────────────────────────────────────────────────────
+echo ""
+echo "════════════════════════════════════════════════════════════════"
+echo "  B1+B2 convergence campaign — IEA-15 MW BEM-FEM FSI corotacional"
+echo "  yaw=0°, V=10.59 m/s, Ω=7.55 RPM, pitch=0°, 30 s simulated"
+echo "════════════════════════════════════════════════════════════════"
+echo ""
+
+for case in "${CASES[@]}"; do
+    run_case "$case" || { echo "ERROR: failed to launch ${case}" >&2; exit 1; }
+    sleep 1
+done
+
+echo ""
+echo "All ${#CASES[@]} cases launched (${#ALL_PIDS[@]} processes)."
+echo "Waiting for completion..."
+echo ""
+
+# ── Wait and collect exit codes ──────────────────────────────────────────────
+FAILED=0
+for i in "${!ALL_PIDS[@]}"; do
+    pid=${ALL_PIDS[$i]}
+    name=${ALL_NAMES[$i]}
+    if wait "$pid"; then
+        echo "[DONE]  ${name}  (PID=${pid})"
+    else
+        rc=$?
+        echo "[FAIL]  ${name}  (PID=${pid})  exit=${rc}" >&2
+        FAILED=$((FAILED + 1))
+    fi
+done
+
+echo ""
+if [[ $FAILED -eq 0 ]]; then
+    echo "✔  All convergence cases completed successfully."
+else
+    echo "✖  ${FAILED} process(es) failed. Check logs in ${RESULTS_BASE}/<case>/logs/"
+fi
+
+echo ""
+echo "Results layout:"
+for case in "${CASES[@]}"; do
+    echo "  ${case}/  corotational/  fluid/  logs/"
+done
+echo ""
+echo "End: $(date)"
+exit $FAILED

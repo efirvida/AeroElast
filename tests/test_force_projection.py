@@ -30,13 +30,15 @@ def _make_rectangular_mesh(n_span: int, n_chord: int, span_length: float, chord_
 
     Returns (mesh, hub_radius).
     """
-    hub_radius = 3.0  # arbitrary
+    hub_radius = 3.0  # arbitrary (the BEM stations' rotor-centre origin)
     Node._id_counter = 0
     MeshElement._id_counter = 0
 
     nodes = []
     for j in range(n_span):
-        z = hub_radius + j * span_length / (n_span - 1)
+        # blade-local span (root at 0) — matches the ForceProjector's
+        # convention (no hub offset in the mesh coordinates)
+        z = j * span_length / (n_span - 1)
         for i in range(n_chord):
             x = i * chord_length / (n_chord - 1)
             nodes.append(Node([x, 0.0, z]))
@@ -305,10 +307,10 @@ class TestSingleNodeStrip:
         span_length = 10.0
         n_stations = 5
 
-        # Create nodes along span, one per strip
+        # Create nodes along span, one per strip (blade-local, root at 0)
         nodes = []
         for j in range(n_stations):
-            z = hub_r + j * span_length / (n_stations - 1)
+            z = j * span_length / (n_stations - 1)
             nodes.append(Node([0.5, 0.0, z]))
 
         # Minimal triangle elements (not used by projector, but mesh needs them)

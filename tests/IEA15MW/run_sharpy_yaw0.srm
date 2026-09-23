@@ -1,0 +1,120 @@
+#!/bin/bash
+#SBATCH -p sequana_cpu
+#SBATCH --ntasks=2
+#SBATCH -J yaw0_sharpy_fsi
+#SBATCH --time=24:00:00
+#SBATCH -e logs/slurm_sharpy_%j.err
+#SBATCH -o logs/slurm_sharpy_%j.out
+#SBATCH --mail-type=END,FAIL
+
+set -euo pipefail
+
+# Test profile: keep CPU usage low unless explicitly overridden.
+export OMP_NUM_THREADS="${OMP_NUM_THREADS:-1}"
+export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-1}"
+export MKL_NUM_THREADS="${MKL_NUM_THREADS:-1}"
+
+SOLVER_TYPE="${SOLVER_TYPE:-corotational}"
+YAW="0"
+FLUID_YAML_BASENAME="${FLUID_YAML_BASENAME:-fluid_sharpy_yaw_0.yaml}"
+SOLID_YAML_BASENAME="${SOLID_YAML_BASENAME:-solid_${SOLVER_TYPE}_sharpy_yaw_${YAW}.yaml}"
+
+SUBMIT_DIR="$SLURM_SUBMIT_DIR"
+CASES_DIR="${SUBMIT_DIR}/frontiersin_2025_yaw"
+RESULTS_BASE="${RESULTS_BASE:-${SUBMIT_DIR}/frontiersin_sharpy_results}"
+
+RUN_SOLID="${SUBMIT_DIR}/_run_solid.sh"
+RUN_FLUID="${SUBMIT_DIR}/_run_fluid.sh"
+
+SOLID_YAML="${CASES_DIR}/${SOLID_YAML_BASENAME}"
+FLUID_YAML="${CASES_DIR}/${FLUID_YAML_BASENAME}"
+
+CASE_DIR="${RESULTS_BASE}/yaw_${YAW}_sharpy"
+LOG_DIR="${CASE_DIR}/logs"
+
+echo "Job:          $SLURM_JOB_ID"
+echo "Nodes:        $SLURM_NODELIST"
+echo "Submit dir:   $SUBMIT_DIR"
+echo "Case dir:     $CASE_DIR"
+echo "Solver:       $SOLVER_TYPE"
+echo "OMP threads:  $OMP_NUM_THREADS"
+echo "Solid YAML:   $SOLID_YAML"
+echo "Fluid YAML:   $FLUID_YAML"
+echo "Start:        $(date)"
+echo ""
+
+for f in "$RUN_SOLID" "$RUN_FLUID" "$SOLID_YAML" "$FLUID_YAML"; do
+    if [[ ! -f "$f" ]]; then
+        echo "PREFLIGHT ERROR: missing file: $f" >&2
+        exit 1
+    fi
+done
+
+for f in "$RUN_SOLID" "$RUN_FLUID"; do
+    if [[ ! -x "$f" ]]; then
+        echo "PREFLIGHT ERROR: script is not executable: $f" >&2
+        exit 1
+    fi
+done
+
+mkdir -p "$CASE_DIR" "$LOG_DIR" "${RESULTS_BASE}/logs"
+
+declare -a PIDS=()
+
+on_signal() {
+    echo "[SIGNAL] Received $1, terminating participants..."
+    for pid in "${PIDS[@]}"; do
+        [[ -n "$pid" ]] && kill -TERM "$pid" 2>/dev/null || true
+    done
+    sleep 2
+    for pid in "${PIDS[@]}"; do
+        [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
+    done
+    exit 130
+}
+
+trap 'on_signal INT' INT
+trap 'on_signal TERM' TERM
+
+echo "Starting solid participant..."
+(cd "$CASE_DIR" && "$RUN_SOLID" "$SOLID_YAML") >> "$LOG_DIR/solid.log" 2>&1 &
+SOLID_PID=$!
+PIDS+=("$SOLID_PID")
+echo "Solid PID: $SOLID_PID"
+
+sleep 3
+
+echo "Starting SHARPy fluid participant..."
+(cd "$CASE_DIR" && "$RUN_FLUID" "$FLUID_YAML" "$CASE_DIR") >> "$LOG_DIR/fluid.log" 2>&1 &
+FLUID_PID=$!
+PIDS+=("$FLUID_PID")
+echo "Fluid PID: $FLUID_PID"
+
+FAILED=0
+
+if wait "$SOLID_PID"; then
+    echo "[DONE] solid participant"
+else
+    rc=$?
+    echo "[FAIL] solid participant exit=$rc" >&2
+    FAILED=$((FAILED + 1))
+fi
+
+if wait "$FLUID_PID"; then
+    echo "[DONE] fluid participant"
+else
+    rc=$?
+    echo "[FAIL] fluid participant exit=$rc" >&2
+    FAILED=$((FAILED + 1))
+fi
+
+echo ""
+if [[ $FAILED -eq 0 ]]; then
+    echo "Completed successfully"
+else
+    echo "Completed with failures: $FAILED"
+    echo "Inspect logs at: $LOG_DIR"
+fi
+echo "End: $(date)"
+
+exit $FAILED

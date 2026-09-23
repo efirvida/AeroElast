@@ -91,6 +91,10 @@ Esta estrategia puede resumirse asi:
 
 Fisicamente esto equivale a un esquema predictor en geometria. La aproximacion reduce el costo computacional dentro de la iteracion de acoplamiento, a cambio de introducir un error controlado que depende de la rapidez con que cambia la rotacion entre ventanas.
 
+> **Nota de implementacion — eje de rotacion por defecto:** Este solver usa el eje **Y** $(0,1,0)$ como valor por defecto de `rotation_axis` (convencion de turbina de eje horizontal adoptada durante la fase inicial de implementacion). El solver corrotacional (`LinearDynamicFSIRotorCorotationalSolver`, descrito en el informe 03) usa el eje **Z** $(0,0,1)$ por defecto. Siempre especificar `rotation_axis` explicitamente en el YAML.
+
+> **Nota de implementacion — reensamble completo:** Cada vez que la geometria se actualiza, se construye una nueva instancia del ensamblador (`PyMeshAssembler`) sobre las coordenadas nodales rotadas. No se usa una transformacion matricial $K(\theta) = T^T K_0 T$; el ensamblador recalcula integrales de elemento desde cero sobre la geometria rotada. Cualquier cache interno del ensamblador (funciones de forma, coordenadas locales) se reinicializa en cada ventana convergida.
+
 ## Integracion temporal del subproblema estructural
 
 La parte estructural del solver inertial se resuelve con el mismo esquema implicito de Newmark usado en la dinamica estructural base. En forma reducida,
@@ -285,7 +289,7 @@ La formulacion inertial y la formulacion corrotacional (informe 03) son represen
 Cuando $\alpha = 0$, la deformacion elastica es pequena y el sistema se encuentra en estado estacionario, la carga de referencia se reduce al termino centripeto:
 
 $$
-F_{ref} = -M \, \omega^2 \, (r - (r \cdot \hat{n}) \hat{n}),
+F_{ref} = +M \, \omega^2 \, (r - (r \cdot \hat{n}) \hat{n}),
 $$
 
 que es la forma continua de la fuerza centrifuga. Bajo esas condiciones, el equilibrio de la formulacion inertial coincide con el de la formulacion corrotacional hasta orden $\mathcal{O}(|u_e|^2)$. Esta equivalencia es la base para la validacion cruzada.
@@ -306,4 +310,6 @@ Ver la seccion equivalente en el informe 03 para el protocolo completo. Desde el
 - confirmar que la actualizacion de $\omega$ produce la misma trayectoria temporal que en el corrotacional ante la misma secuencia de torques;
 - confirmar que la geometria rotada y el campo de desplazamiento elastico en estado estacionario reproducen la posicion global del corrotacional.
 
-## Mensaje central para el articulo debe presentarse como una descomposicion entre rotacion rigida y deformacion elastica en el marco global. Su nucleo teorico esta en la carga equivalente $F_{ref} = -M a_{ref}$ y en el reensamble sobre geometria rotada. Ese es el corazon fisico del modelo. Las extensiones dependientes de $\omega$ y el grado de madurez del acoplamiento completo deben declararse con cautela y transparencia.
+## Mensaje central para el articulo
+
+La formulacion inertial debe presentarse como una descomposicion entre rotacion rigida y deformacion elastica en el marco global. Su nucleo teorico esta en la carga equivalente $F_{ref} = -M a_{ref}$ y en el reensamble sobre geometria rotada. Ese es el corazon fisico del modelo. Las extensiones dependientes de $\omega$ y el grado de madurez del acoplamiento completo deben declararse con cautela y transparencia.

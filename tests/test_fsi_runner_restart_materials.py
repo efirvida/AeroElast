@@ -51,3 +51,37 @@ def test_create_material_uses_blade_properties_on_checkpoint_restart(monkeypatch
     assert material is None
     assert calls == [True]
     assert runner._blade_properties is expected_properties
+
+
+def test_expand_rotor_blade_properties_maps_base_sets_to_blade_suffixes():
+    runner = object.__new__(FSIRunner)
+    runner.config = SimpleNamespace(
+        mesh=SimpleNamespace(
+            generator=SimpleNamespace(type=MeshGeneratorType.ROTOR.value),
+        )
+    )
+    runner.mesh = SimpleNamespace(
+        element_sets_names=[
+            "shell_skin_blade_1",
+            "shell_skin_blade_2",
+            "spar_cap_blade_1",
+            "rotor_blade_1",
+        ]
+    )
+
+    shell_skin = object()
+    spar_cap = object()
+
+    expanded = FSIRunner._expand_rotor_blade_properties(
+        runner,
+        {
+            "shell_skin": shell_skin,
+            "spar_cap": spar_cap,
+        },
+    )
+
+    assert expanded == {
+        "shell_skin_blade_1": shell_skin,
+        "shell_skin_blade_2": shell_skin,
+        "spar_cap_blade_1": spar_cap,
+    }

@@ -1,0 +1,100 @@
+# FEM shell solid participant configuration — IEA 15 MW, rated operation
+# ========================================================================
+# Launch with: fem-shell-fsi simulation.yaml
+#
+# This participant models the blade structural response via a linear-dynamic
+# FEM shell solver coupled to the BEM fluid participant via preCICE.
+# The blade is fixed at the root and loaded by BEM aerodynamic forces mapped
+# from the fluid mesh via conservative RBF interpolation.
+#
+# Companion fluid config:  ../fluid/simulation.yaml
+# preCICE config:          ../precice-config.xml
+
+# ── Structural mesh ─────────────────────────────────────────────────────
+mesh:
+  source: "generator"
+  generator:
+    type: "BladeMesh"
+    params:
+      # NuMAD Excel file with composite layup; airfoil coords in airfoils/.
+      # Paths are relative to this file's directory (solid/).
+      yaml_file:  "../../IEA-15-240-RWT.yaml"
+      airfoil_dir: "../blade_definition/airfoils"
+      element_size: 0.25   # m — finer than BEM mesh; RBF bridges gap
+      n_samples: 300
+      span_grading: "chord"
+  renumber: "rcm"          # Reverse Cuthill–McKee for better solver performance
+  output_file: "solid_mesh.vtu"
+
+# Material properties are read automatically from the blade YAML layup sections.
+
+# ── Element family ──────────────────────────────────────────────────────
+elements:
+  family: "SHELL"
+  # Blade span axis is Z; fibre orientation 0° = spanwise.
+  span_direction: [0.0, 0.0, 1.0]
+
+# ── Solver ──────────────────────────────────────────────────────────────
+solver:
+  type: "StressStiffenedDynamicFSI"
+  # type: "LinearDynamicFSI"
+  solver_type: "direct"     # MUMPS direct solver — robust for shell composites
+
+  # Ramp aerodynamic forces over 2 s (~1 flapwise period) to avoid impulsive
+  # excitation of the first flapwise mode at startup (DLC 6.1, parked blade).
+  force_ramp_time: 2.0
+
+  # Newmark-β constant-average-acceleration (unconditionally stable, no damping).
+  newmark:
+    beta:  0.25
+    gamma: 0.5
+
+  # Rayleigh damping  C = η_m · M + η_k · K
+  # Increased to 3 % to overcome marginal negative aerodynamic damping at
+  # pitch=90° (galloping-like mechanism, Den Hartog criterion).
+  damping:
+    enabled: true
+    zeta: 0.03           # target damping ratio (3 %)
+    mode_i: 1            # first reference mode  (1-based)
+    mode_j: 2            # second reference mode (1-based)
+    num_modes: 10        # modes to compute in the mini modal solve
+
+  # Geometric stiffness K_G updated every coupling window to capture
+  # stress-stiffening and spin-softening at large deformations.
+  geometric_stiffness:
+    update_interval: 1
+
+# ── Boundary conditions ──────────────────────────────────────────────────
+boundary_conditions:
+  dirichlet:
+    - nodeset: "RootNodes"
+      value: 0.0        # fully clamped root (all 6 DOFs fixed)
+
+# ── preCICE coupling ─────────────────────────────────────────────────────
+coupling:
+  participant:  "Solid"
+  config_file:  "../precice-config.xml"
+  coupling_mesh: "Solid-Mesh"
+  write_data:   "Displacement"
+  read_data:    "Force"
+
+  # Interface boundary: all nodes on the outer aerodynamic shell surface
+  # (excludes internal shear-web nodes that are not in contact with the fluid).
+  boundaries:
+    - "allOuterShellNods"
+
+# ── Output ────────────────────────────────────────────────────────────────
+output:
+  folder:             "results"
+  write_interval:     0.5   # reduced disk footprint (official-model campaign)
+  start_from:         "latestTime"
+  save_deformed_mesh: false
+  deformed_mesh_scale: 1.0
+
+# ── Post-processing (optional) ───────────────────────────────────────────
+# Uncomment after the first run to generate displacement/force plots.
+# postprocess:
+#   watchpoint_file: "precice-Solid-watchpoint-Flap-Tip.log"
+#   plots:
+#     displacement: "tip_displacement.png"
+#     force:        "interface_forces.png"

@@ -381,10 +381,18 @@ class LinearDynamicFSISolver(LinearDynamicSolver):
         """Compute Rayleigh damping coefficients automatically from modal analysis.
 
         Uses the two-point method: given damping ratios ζ_i, ζ_j at two
-        natural frequencies ω_i, ω_j, solves the system:
+        natural frequencies ω_i, ω_j, solves the 2×2 system implied by
+        ζ = η_m/(2ω) + η_k·ω/2 at each target mode, yielding:
 
-            α (η_k) = 2·(ζ_i·ω_i − ζ_j·ω_j) / (ω_i² − ω_j²)
-            β (η_m) = 2·ω_i·ω_j·(ζ_j·ω_i − ζ_i·ω_j) / (ω_i² − ω_j²)
+            η_k = 2·(ζ_i·ω_i − ζ_j·ω_j) / (ω_i² − ω_j²)   [stiffness-proportional, s]
+            η_m = 2·ω_i·ω_j·(ζ_j·ω_i − ζ_i·ω_j) / (ω_i² − ω_j²)  [mass-proportional, 1/s]
+
+        Note: this codebase uses the symbols η_k (stiffness) and η_m (mass) to
+        match the notation in docs/validation_theory/02_fsi_lineal_stress_stiffened.md,
+        i.e. C = η_m·M + η_k·K.  Some textbooks (Cook, Bathe) use α for the
+        mass-proportional term and β for the stiffness-proportional term — the
+        opposite labelling.  Do not confuse the local variables ``alpha``/``beta``
+        inside this function with the Newmark integration parameters β and γ.
 
         Tries the Rust fast-path (``_aeroelast.compute_rayleigh_auto``) first.
         Falls back to SLEPc if the Rust extension is unavailable.
@@ -909,8 +917,10 @@ class LinearDynamicFSISolver(LinearDynamicSolver):
         print("  [1/5] Assembling stiffness matrix...", flush=True)
         self.K = self.domain.assemble_stiffness_matrix()
 
-        print("  [2/5] Assembling mass matrix (lumped in Rust)...", flush=True)
-        self.M = self.domain.assemble_mass_matrix_lumped()
+        print("  [2/5] Assembling mass matrix (consistent)...", flush=True)
+        # Consistent mass: the lumped mass on the rotational DOFs destabilises
+        # the Newmark integration at the blade tip (see rotor.py, 2026-09-09).
+        self.M = self.domain.assemble_mass_matrix()
 
         # --- mass diagnostic: sum translational DOFs of M_lumped ---
         _m_diag = self.M.createVecRight()

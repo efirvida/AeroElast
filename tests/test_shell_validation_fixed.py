@@ -258,7 +258,7 @@ class TestNonlinearStatic:
     """Nonlinear static tests."""
 
     def test_geometric_nonlinearity(self):
-        """Divergent nonlinear solves must raise instead of returning a vector."""
+        """Large-deflection UL solve converges to a physical deflection."""
         mesh = _build_cantilever_mesh()
         prop = ShellProperty(material=STEEL, thickness=h)
 
@@ -275,19 +275,16 @@ class TestNonlinearStatic:
         solver_lin = StaticLinearSolver(mesh, cfg_lin)
         dpn = solver_lin.domain.dofs_per_node
         solver_lin.add_dirichlet_conditions([DirichletCondition(_clamped_dofs(mesh, dpn), 0.0)])
-        solver_lin.add_nodal_loads(_load_as_nodal(mesh, dpn, (0.0, 0.0, 600.0, 0.0, 0.0, 0.0)))
+        solver_lin.add_nodal_loads(_load_as_nodal(mesh, dpn, (0.0, 0.0, 17.5, 0.0, 0.0, 0.0)))
 
         u_lin = solver_lin.solve()
         center = _center_free_edge_node(mesh)
         idx = mesh.node_id_to_index[center.id]
         dz_lin = abs(u_lin[idx * dpn + 2])
 
-        # Nonlinear
+        # Nonlinear (UL incremental)
         cfg_nl = {
-            "solver": {
-                "nl_initial_increment": 0.1,
-                "nl_max_increments": 50,
-            },
+            "solver": {"continuation_steps": 32, "continuation_max_steps": 128},
             "elements": {
                 "element_family": ElementFamily.SHELL,
                 "properties": {"plate": prop},
@@ -298,13 +295,20 @@ class TestNonlinearStatic:
         mesh = _build_cantilever_mesh()
         solver_nl = StaticNonlinearSolver(mesh, cfg_nl)
         solver_nl.add_dirichlet_conditions([DirichletCondition(_clamped_dofs(mesh, dpn), 0.0)])
-        solver_nl.add_nodal_loads(_load_as_nodal(mesh, dpn, (0.0, 0.0, 600.0, 0.0, 0.0, 0.0)))
+        solver_nl.add_nodal_loads(_load_as_nodal(mesh, dpn, (0.0, 0.0, 17.5, 0.0, 0.0, 0.0)))
 
         print(f"\nLinear estimate before nonlinear solve: {dz_lin:.3e}")
-        assert dz_lin > L, "Benchmark should be strongly nonlinear before calling SNES"
+        assert dz_lin > L, "Benchmark should be strongly nonlinear"
 
-        with pytest.raises(RuntimeError, match="SNES diverged"):
-            solver_nl.solve()
+        u_nl = np.asarray(solver_nl.solve(), dtype=np.float64)
+        dz_nl = abs(u_nl[idx * dpn + 2])
+        print(f"Nonlinear tip deflection: {dz_nl:.3e}")
+        # Exact elastica for alpha=PL²/EI=10: w/L = 0.8034.  The first-order
+        # UL gives ~0.9·L; the linear estimate is 3.3·L.
+        assert dz_nl < 0.5 * dz_lin, "Nonlinear deflection must be far below the linear one"
+        assert 0.4 * L < dz_nl < 1.1 * L, (
+            f"Tip deflection {dz_nl:.3f} outside the physical O(L) range"
+        )
 
 
 class TestModal:

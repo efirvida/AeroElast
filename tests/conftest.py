@@ -5,6 +5,18 @@ import os
 
 import pytest
 
+# Directories under tests/ that are NOT pytest test packages (papers,
+# external repo clones, data collections).  Without this, pytest recurses
+# into them and errors during collection.
+#
+# NOTE: test_vol_mesh.py is stale against the removed cap_mesh module (same
+# category as test_blade_mesh.py) — exclude it on the CLI:
+#   --ignore=tests/test_vol_mesh.py
+collect_ignore = [
+    "IEA15MW/validation papers",
+    "IEA15MW/75698.pdf.txt",
+]
+
 
 def _prepend_ld_library_path(path: str) -> None:
     current = os.environ.get("LD_LIBRARY_PATH", "")
@@ -45,6 +57,11 @@ _ensure_shared_lib("libGLU.so.1", _GLU_LIB_PATH)
 # The file is large so it lives outside the repo in the simulations tree,
 # but a copy may also exist inside examples/.
 _BLADE_YAML_CANDIDATES = [
+    # Co-located with tests (highest priority)
+    os.path.join(
+        os.path.dirname(__file__),
+        "IEA-15-240-RWT.yaml",
+    ),
     # Inside repo (preferred when present)
     os.path.join(
         os.path.dirname(__file__),
@@ -115,3 +132,17 @@ def iea_numad_blade(iea_blade_yaml):
     n_stations = blade.geometry.coordinates.shape[2]
     blade.expand_blade_geometry_te(0.001 * np.ones(n_stations))
     return blade
+
+
+@pytest.fixture(scope="session")
+def iea_blade_xlsx():
+    """Return the Path to NuMAD_utd_iea15mw.xlsx or skip the test."""
+    from pathlib import Path
+
+    path = Path(__file__).parent / "NuMAD_utd_iea15mw.xlsx"
+    if not path.is_file():
+        pytest.skip(
+            "NuMAD_utd_iea15mw.xlsx not found. "
+            "Place a copy in the tests/ directory."
+        )
+    return path

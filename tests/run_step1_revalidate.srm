@@ -1,0 +1,80 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=12:00:00
+#SBATCH -e step1_%j.err
+#SBATCH -J step1_revalidate
+#SBATCH -o step1_%j.out
+#SBATCH -p sequana_cpu
+
+# Step 1: re-validation with the rotorspin fix + zeta=3% (single change)
+#   Part A: full structural validation suite
+#   Part B: smoke FSI 30 s yaw=0 (the flexible-thrust check vs anchor 2.541 MN)
+set -euo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+cd /scratch/leahk/eduardo.donestevez/fem-shell
+
+echo "=== PART A: validation suite ==="
+python3 -m pytest \
+  tests/test_bem_engine.py \
+  tests/test_bem_polars.py \
+  tests/test_box_torsion_bending_benchmark.py \
+  tests/test_force_projection.py \
+  tests/test_iea15mw_s0_omega_zero_consistency.py \
+  tests/test_iea15mw_s1_sectional.py \
+  tests/test_iea15mw_s2_static_prescribed.py \
+  tests/test_iea15mw_s3_newmark_transient.py \
+  tests/test_iea15mw_s5_oneway.py \
+  tests/test_iea15mw_s6_oneway_dynamic.py \
+  tests/test_iea15mw_s7_torsion.py \
+  tests/test_iea15mw_sx_campbell.py \
+  tests/test_iea15mw_sx_campbell_cross.py \
+  tests/test_iea15mw_v01_rotor_performance.py \
+  tests/test_iea15mw_v02_natural_frequencies.py \
+  tests/test_iea15mw_v03_static_gravity.py \
+  tests/test_iea15mw_v05_structural_properties.py \
+  tests/test_mass_matrix_validation.py \
+  tests/test_rotor_performance_report.py \
+  tests/test_rotor_physical_consistency.py \
+  -q --tb=short 2>&1 | tail -20
+
+echo "=== PART B: smoke FSI ==="
+SUBMIT_DIR=/scratch/leahk/eduardo.donestevez/fem-shell/tests
+CASES_DIR=${SUBMIT_DIR}/smoke_fix
+RESULTS_BASE=${SCRATCH}/smoke_fix_results
+CASE_DIR=${RESULTS_BASE}/base_fix
+mkdir -p ${CASE_DIR}/logs
+( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_solid.sh ${CASES_DIR}/base_fix/solid_corotational_yaw_0.yaml ) \
+    >> ${CASE_DIR}/logs/solid.log 2>&1 &
+SOLID_PID=$!
+sleep 2
+( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_fluid.sh ${CASES_DIR}/base_fix/fluid_yaw_0.yaml ${CASE_DIR} ) \
+    >> ${CASE_DIR}/logs/fluid.log 2>&1 &
+FLUID_PID=$!
+
+FAILED=0
+wait ${SOLID_PID} || { echo "[FAIL] solid exit=$?"; FAILED=1; }
+wait ${FLUID_PID} || { echo "[FAIL] fluid exit=$?"; FAILED=1; }
+[[ ${FAILED} -eq 0 ]] && echo "STEP1 SMOKE OK" || echo "STEP1 SMOKE FAILED"
+
+python3 - <<'PY'
+import numpy as np, csv
+p = '/scratch/leahk/eduardo.donestevez/smoke_fix_results/base_fix/fluid/bem_report.csv'
+t = []; th = []
+with open(p) as f:
+    rdr = csv.DictReader(f)
+    for row in rdr:
+        t.append(float(row['Time [s]'])); th.append(float(row['Thrust [N]']))
+t = np.array(t); th = np.array(th)
+m = t >= 15
+print(f'SMOKE thrust steady [15,30]: {th[m].mean()/1e6:.3f} MN (anchor rigid 2.541 MN)')
+PY
+
+echo "STEP1 DONE"

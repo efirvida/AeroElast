@@ -1,0 +1,31 @@
+#!/bin/bash
+#SBATCH -p sequana_cpu
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH -J b1b2_postprocess
+#SBATCH --time=00:30:00
+#SBATCH -e logs/slurm_%j.err
+#SBATCH -o logs/slurm_%j.out
+#SBATCH --mail-type=END,FAIL
+
+# ── B1+B2 postprocessing — regenerate convergence summary + figure ───────────
+# Depends on the yaw_0 baseline (11592370) and the B1+B2 re-run (11592348). Runs the plot script against the
+# b1fix results base + the 100 s baseline.
+
+set -euo pipefail
+
+REPO="$SCRATCH/fem-shell"
+export RESULTS_BASE="$SCRATCH/convergence_b1_b2_results_official"
+export BASELINE_PATH="$SCRATCH/frontiersin_results_corotational_100s/yaw_0"
+export SCRATCH="$SCRATCH"
+
+module purge
+module load gcc/14.2.0_sequana
+
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/
+
+python "$REPO/docs/validation_plots/plot_convergence_b1_b2.py"
+echo "Postprocess done: $(date)"

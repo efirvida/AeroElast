@@ -1,0 +1,22 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=06:00:00
+#SBATCH -e s8c_%j.err
+#SBATCH -J s8c_twist_sign
+#SBATCH -o s8c_%j.out
+#SBATCH -p sequana_cpu
+
+# S-8c: elastic twist sign under AD rated loads vs the BeamDyn anchor
+set -euo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+cd /scratch/leahk/eduardo.donestevez/fem-shell
+python3 tools/run_s8c_twist_sign.py 2>&1 | tail -10
+echo "S-8c DONE"
