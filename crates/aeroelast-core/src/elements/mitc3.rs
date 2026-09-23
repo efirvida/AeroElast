@@ -1282,4 +1282,311 @@ mod tests {
         assert!(sigma[2].is_finite());
         assert!(sigma[0] + sigma[1] >= 0.0, "centrifugal stress trace must be non-negative");
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Global stiffness invariants: symmetry, PSD, rigid body, patch tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Global coordinates of node `i` reconstructed from the element frame.
+    ///
+    /// `t3` maps global -> local (``local = t3 * global``), so the inverse is
+    /// ``global = t3^T * local`` with the local z coordinate zero. This keeps
+    /// the rigid-body helper generic even though MITC3 exposes no
+    /// ``initial_coords_3d`` field.
+    fn node_global_coords(pre: &Mitc3Precomputed, i: usize) -> Vector3<f64> {
+        let x_local = pre.local_coords[2 * i];
+        let y_local = pre.local_coords[2 * i + 1];
+        pre.t3.transpose() * Vector3::new(x_local, y_local, 0.0)
+    }
+
+    /// Element centroid from the reconstructed global coordinates.
+    fn element_centroid(pre: &Mitc3Precomputed) -> Vector3<f64> {
+        let mut c = Vector3::zeros();
+        for i in 0..3 {
+            c += node_global_coords(pre, i);
+        }
+        c / 3.0
+    }
+
+    /// Physical rigid-body field: ``u = t + omega x (x - x_c)``, ``theta = omega``.
+    ///
+    /// This is the definition of a rigid body motion and does not depend on the
+    /// element's own kinematic conventions, so it is the right way to test
+    /// rigid-body invariance.
+    fn rigid_body_mode(
+        pre: &Mitc3Precomputed,
+        translation: Vector3<f64>,
+        omega: Vector3<f64>,
+    ) -> Vec18 {
+        let centroid = element_centroid(pre);
+        let mut u = Vec18::zeros();
+        for i in 0..3 {
+            let x = node_global_coords(pre, i);
+            let disp = translation + omega.cross(&(x - centroid));
+            for k in 0..3 {
+                u[6 * i + k] = disp[k];
+                u[6 * i + 3 + k] = omega[k];
+            }
+        }
+        u
+    }
+
+    fn rigid_body_modes(pre: &Mitc3Precomputed) -> [(&'static str, Vec18); 6] {
+        let z = Vector3::zeros();
+        let ex = Vector3::new(1.0, 0.0, 0.0);
+        let ey = Vector3::new(0.0, 1.0, 0.0);
+        let ez = Vector3::new(0.0, 0.0, 1.0);
+        [
+            ("translation x", rigid_body_mode(pre, ex, z)),
+            ("translation y", rigid_body_mode(pre, ey, z)),
+            ("translation z", rigid_body_mode(pre, ez, z)),
+            ("rotation x", rigid_body_mode(pre, z, ex)),
+            ("rotation y", rigid_body_mode(pre, z, ey)),
+            ("rotation z", rigid_body_mode(pre, z, ez)),
+        ]
+    }
+
+    /// ``|K u| / (|K| |u|)``: scale-free measure of an invariant residual.
+    fn scaled_residual(k: &Mat18, u: &Vec18) -> f64 {
+        let denom = k.norm() * u.norm();
+        if denom > 0.0 { (k * u).norm() / denom } else { 0.0 }
+    }
+
+    #[test]
+    fn test_ke_global_is_symmetric() {
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+        let asymmetry = (&k - k.transpose()).norm() / k.norm();
+        assert!(
+            asymmetry < 1e-12,
+            "K_global must be symmetric: relative asymmetry = {asymmetry:.3e}"
+        );
+    }
+
+    #[test]
+    fn test_ke_global_is_positive_semidefinite() {
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+        let symmetric_part = (&k + k.transpose()) * 0.5;
+        let eigenvalues = nalgebra::SymmetricEigen::new(symmetric_part).eigenvalues;
+        let lambda_min = eigenvalues.iter().cloned().fold(f64::INFINITY, f64::min);
+        let lambda_max = eigenvalues.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            lambda_min > -1e-9 * lambda_max,
+            "K_global must be positive semi-definite: \
+             lambda_min = {lambda_min:.6e}, lambda_max = {lambda_max:.6e}"
+        );
+    }
+
+    #[test]
+    fn test_ke_global_leaves_all_six_rigid_body_modes_free() {
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+
+        let mut worst_label = "";
+        let mut worst_residual = 0.0_f64;
+        for (label, u) in rigid_body_modes(&pre) {
+            let residual = scaled_residual(&k, &u);
+            if residual > worst_residual {
+                worst_label = label;
+                worst_residual = residual;
+            }
+        }
+
+        assert!(
+            worst_residual < 1e-10,
+            "all six rigid-body modes must be in the null space of K_global; \
+             worst is '{worst_label}' with |K u| / (|K| |u|) = {worst_residual:.3e}"
+        );
+    }
+
+    #[test]
+    fn test_membrane_patch_reproduces_constant_strain_at_every_gauss_point() {
+        let pre = make_pre();
+
+        // u = a x + b y, v = c x + d y  =>  eps = [a, d, b + c], constant.
+        let (a, b, c, d) = (1.0e-3, -4.0e-4, 2.0e-4, 7.0e-4);
+        let mut u = Vec18::zeros();
+        for i in 0..3 {
+            let x = pre.local_coords[2 * i];
+            let y = pre.local_coords[2 * i + 1];
+            u[6 * i] = a * x + b * y;
+            u[6 * i + 1] = c * x + d * y;
+        }
+
+        let expected = Vector3::new(a, d, b + c);
+        let bm = b_membrane(&pre.dh);
+        for g in 0..N_GAUSS {
+            let eps = &bm * &u;
+            let error = (eps - expected).norm() / expected.norm();
+            // 1e-10 relative is far above the measured round-off of this
+            // operator (~4e-12 for a 1e-3 field) and far below any real
+            // formulation error, which would be O(1) relative.
+            assert!(
+                error < 1e-10,
+                "membrane patch test at Gauss point {g}: eps = {eps:?}, \
+                 expected = {expected:?}, relative error = {error:.3e}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_bending_patch_reproduces_constant_curvature_at_every_gauss_point() {
+        let pre = make_pre();
+
+        // w = 0.5 kxx x^2 with theta_y = dw/dx = kxx x  =>  kappa = [kxx, 0, 0].
+        let kxx = 1.0e-3;
+        let mut u20 = Vec20::zeros();
+        for i in 0..3 {
+            let x = pre.local_coords[2 * i];
+            u20[6 * i + 2] = 0.5 * kxx * x * x;
+            u20[6 * i + 4] = kxx * x;
+        }
+
+        // Entries 18 (theta_x4) and 19 (theta_y4) are the two internal bubble
+        // rotations. `b_kappa_ext` is built from the ENRICHED shape derivatives
+        // fi = hi - f4/3, so a constant-curvature state is represented only when
+        // the bubble rotations carry the field value at the bubble node (the
+        // element centroid in local coordinates); zeroing them instead feeds the
+        // operator a NON-constant-curvature field and it correctly returns a
+        // non-constant curvature.
+        //
+        // This is the API-forced deviation from the MITC4 reference: MITC4's
+        // nodal `b_kappa` is unenriched, so its patch test needs no bubble DOF.
+        // MITC3 exposes only the enriched 3x20 operator.
+        let x_centroid = (pre.local_coords[0] + pre.local_coords[2] + pre.local_coords[4]) / 3.0;
+        u20[19] = kxx * x_centroid; // theta_y4 = theta_y(centroid)
+        u20[18] = 0.0; // theta_x4 = theta_x(centroid) = 0
+
+        let expected = Vector3::new(kxx, 0.0, 0.0);
+        for g in 0..N_GAUSS {
+            let kappa = b_kappa_ext(GAUSS_R[g], GAUSS_S[g], &pre.j_inv) * u20;
+            let error = (kappa - expected).norm() / expected.norm();
+            // Same rationale as the membrane patch: ~4e-12 round-off for a
+            // 1e-3 field vs. O(1) for a real formulation error.
+            assert!(
+                error < 1e-10,
+                "bending patch test at Gauss point {g}: kappa = {kappa:?}, \
+                 expected = {expected:?}, relative error = {error:.3e}"
+            );
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // Mass matrix invariants
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// Total translational mass per direction: the sum of the 3x3 sub-block of
+    /// one direction.  For a consistent mass matrix built from a partition of
+    /// unity this equals `rho * h * A` exactly, for every element type.
+    fn translational_mass_per_direction(m: &Mat18) -> [f64; 3] {
+        let mut totals = [0.0; 3];
+        for (d, total) in totals.iter_mut().enumerate() {
+            let mut sum = 0.0;
+            for i in (d..18).step_by(6) {
+                for j in (d..18).step_by(6) {
+                    sum += m[(i, j)];
+                }
+            }
+            *total = sum;
+        }
+        totals
+    }
+
+    /// Total rotary-inertia mass per rotation direction: `rho * h^3 / 12 * A`.
+    fn rotary_mass_per_direction(m: &Mat18) -> [f64; 3] {
+        let mut totals = [0.0; 3];
+        for (k, total) in totals.iter_mut().enumerate() {
+            let mut sum = 0.0;
+            for i in (3 + k..18).step_by(6) {
+                for j in (3 + k..18).step_by(6) {
+                    sum += m[(i, j)];
+                }
+            }
+            *total = sum;
+        }
+        totals
+    }
+
+    #[test]
+    fn test_me_global_is_symmetric_and_positive_semidefinite() {
+        let pre = make_pre();
+        let m = compute_me_global(&pre, 7800.0);
+
+        let asymmetry = (&m - m.transpose()).norm() / m.norm();
+        assert!(
+            asymmetry < 1e-14,
+            "M_global must be symmetric: relative asymmetry = {asymmetry:.3e}"
+        );
+
+        let symmetric_part = (&m + m.transpose()) * 0.5;
+        let eigenvalues = nalgebra::SymmetricEigen::new(symmetric_part).eigenvalues;
+        let lambda_min = eigenvalues.iter().cloned().fold(f64::INFINITY, f64::min);
+        let lambda_max = eigenvalues.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            lambda_min > -1e-12 * lambda_max,
+            "M_global must be positive semi-definite: \
+             lambda_min = {lambda_min:.6e}, lambda_max = {lambda_max:.6e}"
+        );
+    }
+
+    #[test]
+    fn test_me_global_total_translational_mass_is_rho_h_a() {
+        let pre = make_pre();
+        let rho = 7800.0;
+        let m = compute_me_global(&pre, rho);
+        let expected = rho * pre.thickness * pre.area;
+
+        for (d, total) in translational_mass_per_direction(&m).iter().enumerate() {
+            let error = (total - expected).abs() / expected;
+            assert!(
+                error < 1e-14,
+                "direction {d}: total mass {total:.6e} != rho*h*A {expected:.6e} \
+                 (relative error {error:.3e})"
+            );
+        }
+    }
+
+    #[test]
+    fn test_me_global_matches_the_exact_linear_triangle_coefficients() {
+        let pre = make_pre();
+        let rho = 7800.0;
+        let m = compute_me_global(&pre, rho);
+        let mass = rho * pre.thickness * pre.area;
+
+        // Linear-triangle consistent mass: per translational direction
+        // M_ii = m/6 and M_ij = m/12.  The 3-point rule is exact for these
+        // quadratic products, so the tolerance is round-off.
+        for d in 0..3 {
+            for i in 0..3 {
+                for j in 0..3 {
+                    let expected = if i == j { mass / 6.0 } else { mass / 12.0 };
+                    let actual = m[(6 * i + d, 6 * j + d)];
+                    let error = (actual - expected).abs() / mass;
+                    assert!(
+                        error < 1e-14,
+                        "M[{i},{j}] direction {d}: {actual:.6e} != {expected:.6e} \
+                         (relative error {error:.3e})"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_me_global_rotary_inertia_is_rho_h3_a_over_12() {
+        let pre = make_pre();
+        let rho = 7800.0;
+        let m = compute_me_global(&pre, rho);
+        let expected = rho * pre.thickness.powi(3) / 12.0 * pre.area;
+
+        for (k, total) in rotary_mass_per_direction(&m).iter().enumerate() {
+            let error = (total - expected).abs() / expected;
+            assert!(
+                error < 1e-14,
+                "rotation direction {k}: rotary mass {total:.6e} != \
+                 rho*h^3/12*A {expected:.6e} (relative error {error:.3e})"
+            );
+        }
+    }
+
 }
