@@ -61,11 +61,6 @@ pub struct Mitc4Precomputed {
     /// Thickness
     pub thickness: f64,
     /// MITC4+ membrane blending coefficients
-    pub a_a: f64,
-    pub a_b: f64,
-    pub a_c: f64,
-    pub a_d: f64,
-    pub a_e: f64,
     /// Characteristic vectors (Ko et al. 2017)
     pub x_r: Vector3<f64>,
     pub x_s: Vector3<f64>,
@@ -346,28 +341,6 @@ fn compute_characteristic_vectors(
     (x_r, x_s, x_d, n_vec, m_r, m_s)
 }
 
-fn compute_membrane_coefficients(
-    x_d: &Vector3<f64>,
-    m_r: &Vector3<f64>,
-    m_s: &Vector3<f64>,
-) -> (f64, f64, f64, f64, f64) {
-    let c_r = x_d.dot(m_r);
-    let c_s = x_d.dot(m_s);
-
-    let mut d = c_r * c_r + c_s * c_s - 1.0;
-    if d.abs() < 1e-12 {
-        d = if d >= 0.0 { 1e-12 } else { -1e-12 };
-    }
-
-    let a_a = c_r * (c_r - 1.0) / (2.0 * d);
-    let a_b = c_r * (c_r + 1.0) / (2.0 * d);
-    let a_c = c_s * (c_s - 1.0) / (2.0 * d);
-    let a_d = c_s * (c_s + 1.0) / (2.0 * d);
-    let a_e = -2.0 * c_r * c_s / d;
-
-    (a_a, a_b, a_c, a_d, a_e)
-}
-
 #[inline(always)]
 fn regularized_inverse_2x2(m: &Matrix2<f64>) -> Matrix2<f64> {
     let scale = m[(0, 0)]
@@ -514,8 +487,7 @@ impl Mitc4Precomputed {
 
         // Characteristic vectors & membrane coefficients
         let (x_r, x_s, x_d, n_vec, m_r, m_s) = compute_characteristic_vectors(&coords_3d);
-        let (a_a, a_b, a_c, a_d, a_e) = compute_membrane_coefficients(&x_d, &m_r, &m_s);
-
+    
         // Precompute Jacobians at Gauss points (3D covariant)
         let mut gp_jacobians = [GpJacobian {
             j_loc: Matrix2::zeros(),
@@ -631,8 +603,7 @@ impl Mitc4Precomputed {
             constitutive,
             k_drill,
             thickness,
-            a_a, a_b, a_c, a_d, a_e,
-            x_r, x_s, x_d, n_vec, m_r, m_s,
+                x_r, x_s, x_d, n_vec, m_r, m_s,
             initial_coords_3d: coords_3d,
             e1, e2, e3,
             gp_jacobians,
@@ -660,33 +631,33 @@ fn b_m_mitc4_plus(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 3, 
     let r = xi;
     let s = eta;
 
-    let a_a = pre.a_a;
-    let a_b = pre.a_b;
-    let a_c = pre.a_c;
-    let a_d = pre.a_d;
-    let a_e = pre.a_e;
-
-    // Blended covariant B-rows (Ko et al. 2017, Eqs. 27a-c)
-    let b_rr =
-          (0.5 * (1.0 - 2.0 * a_a + s + 2.0 * a_a * s * s)) * pre.b_rr_a
-        + (0.5 * (1.0 - 2.0 * a_b - s + 2.0 * a_b * s * s)) * pre.b_rr_b
-        + a_c * (-1.0 + s * s) * pre.b_ss_c
-        + a_d * (-1.0 + s * s) * pre.b_ss_d
-        + a_e * (-1.0 + s * s) * pre.b_rs_e;
-
-    let b_ss =
-          a_a * (-1.0 + r * r) * pre.b_rr_a
-        + a_b * (-1.0 + r * r) * pre.b_rr_b
-        + (0.5 * (1.0 - 2.0 * a_c + r + 2.0 * a_c * r * r)) * pre.b_ss_c
-        + (0.5 * (1.0 - 2.0 * a_d - r + 2.0 * a_d * r * r)) * pre.b_ss_d
-        + a_e * (-1.0 + r * r) * pre.b_rs_e;
-
-    let b_rs =
-          0.25 * (r + 4.0 * a_a * r * s) * pre.b_rr_a
-        + 0.25 * (-r + 4.0 * a_b * r * s) * pre.b_rr_b
-        + 0.25 * (s + 4.0 * a_c * r * s) * pre.b_ss_c
-        + 0.25 * (-s + 4.0 * a_d * r * s) * pre.b_ss_d
-        + (1.0 + a_e * r * s) * pre.b_rs_e;
+    // The assumed membrane strain field of Ko, Lee & Bathe (2017), "A new MITC4+
+    // shell element", C&S 182:404-418, Eqs. (17)-(19).  The five covariant
+    // strains of Eq. (17) are sampled at the tying points of Fig. 4 - A(0,1),
+    // B(0,-1), C(1,0), D(-1,0) and E(0,0) - and Eqs. (18)-(19) reassemble them as
+    // a pure LINEAR interpolation:
+    //
+    //   e_rr = 1/2(e_rr^A + e_rr^B) + 1/2(e_rr^A - e_rr^B) s
+    //   e_ss = 1/2(e_ss^C + e_ss^D) + 1/2(e_ss^C - e_ss^D) r
+    //   e_rs = e_rs^E + 1/4(e_rr^A - e_rr^B) r + 1/4(e_ss^C - e_ss^D) s
+    //
+    // The last line is the linear shear term Eq. (19) adds so that the element
+    // passes the patch test.  This is what makes the field "one order lower than
+    // implicitly given in the original displacement-based element": the
+    // displacement-based e_rr^m = (x_r + s x_d).(u_r + s u_d) is QUADRATIC in s
+    // through the distortion vector x_d of Eq. (9), and Eq. (18) deliberately
+    // discards that quadratic part instead of carrying it.
+    //
+    // The paper has no geometry-dependent coefficients here.  An earlier version
+    // of this function multiplied five such coefficients (a_a..a_e) into quadratic
+    // s^2 and r^2 terms; they vanish for a regular element, which is why every flat
+    // and curved non-warped benchmark passed, and become non-zero exactly for a
+    // warped element, which is why the twisted beam locked.
+    let b_rr = 0.5 * (1.0 + s) * pre.b_rr_a + 0.5 * (1.0 - s) * pre.b_rr_b;
+    let b_ss = 0.5 * (1.0 + r) * pre.b_ss_c + 0.5 * (1.0 - r) * pre.b_ss_d;
+    let b_rs = pre.b_rs_e
+        + 0.25 * r * (pre.b_rr_a - pre.b_rr_b)
+        + 0.25 * s * (pre.b_ss_c - pre.b_ss_d);
 
     // Stack: B_covariant = [B_rr; B_ss; 2*B_rs] (3×24)
     let mut b_cov = SMatrix::<f64, 3, 24>::zeros();
