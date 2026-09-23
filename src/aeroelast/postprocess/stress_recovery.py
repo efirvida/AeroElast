@@ -1,21 +1,16 @@
 """
-Stress and Strain Recovery Module for Shell and Solid Elements.
+Stress and Strain Recovery Module for Shell Elements.
 
 This module recovers nodal stress and strain fields from a displacement
 solution vector and computes the derived engineering quantities (Von Mises,
 principal stresses, maximum shear) that are standard outputs in commercial
 FEA post-processors such as ANSYS, Abaqus and Nastran.
 
-Two element families are supported:
-
-* **Shell elements** (MITC3, MITC4) — Reissner–Mindlin plate/shell theory,
-  plane-stress assumption (σ_zz = 0).  Three components are recovered:
-  σ_xx, σ_yy, σ_xy.  The through-thickness variation is captured by
-  evaluating at TOP (+h/2), MIDDLE (0) and BOTTOM (−h/2) surfaces.
-
-* **Solid elements** (HEXA8/20, TETRA4/10, WEDGE6/15, PYRAMID5/13) —
-  full 3-D elasticity.  Six Voigt components are recovered:
-  σ_xx, σ_yy, σ_zz, τ_xy, τ_yz, τ_zx.
+Shell elements (MITC3, MITC4) are supported — Reissner–Mindlin
+plate/shell theory, plane-stress assumption (σ_zz = 0).  Three components
+are recovered: σ_xx, σ_yy, σ_xy.  The through-thickness variation is
+captured by evaluating at TOP (+h/2), MIDDLE (0) and BOTTOM (−h/2)
+surfaces.
 
 Shell Theory
 ------------
@@ -40,30 +35,6 @@ The stress is evaluated at the element's **parametric node coordinates**
 (natural coordinates of the element nodes), then contributions from
 adjacent elements are averaged at shared nodes (SPR-style nodal smoothing).
 
-Solid Theory
-------------
-For 3-D solid elements the stress at any interior point is:
-
-    σ = C · ε = C · B(ξ, η, ζ) · u_e
-
-where C is the 6×6 constitutive (elasticity) tensor and B is the 6×(3·n)
-strain–displacement matrix evaluated at parametric coordinates (ξ, η, ζ).
-
-Stresses are most accurate at the **Gauss integration points**
-(superconvergent points of B), not at the nodes.  To obtain nodal values
-the module uses a **Gauss-to-Node extrapolation matrix**:
-
-    E = N_gp⁻¹    (when n_gp = n_nodes — exact inverse)
-    E = pinv(N_gp) (otherwise — Moore–Penrose pseudo-inverse)
-
-where N_gp is the (n_gp × n_nodes) matrix whose row *i* contains the shape
-functions evaluated at Gauss point *i*.  Multiplying E · σ_gp yields the
-best nodal estimate of the stress field within each element.  Values at
-nodes shared by multiple elements are then averaged.
-
-This approach matches the *stress extrapolation* procedure used in
-ANSYS Mechanical (ESHAPE), Abaqus (EXTRAPOLATE=YES) and Nastran (GPSTRESS).
-
 Derived Quantities
 ------------------
 Von Mises equivalent stress (3-D general form, reduces to the plane-stress
@@ -74,12 +45,8 @@ formula when σ_zz = τ_yz = τ_zx = 0):
 
 Principal stresses:
 
-* **2-D (shells):** Mohr's circle  —  σ₁,₂ = (σ_xx+σ_yy)/2
+* **Shells:** Mohr's circle  —  σ₁,₂ = (σ_xx+σ_yy)/2
   ± √[(σ_xx−σ_yy)²/4 + τ_xy²] ;  τ_max = (σ₁ − σ₂) / 2.
-* **3-D (solids):** Closed-form cubic eigenvalue of the Cauchy stress
-  tensor via the three tensor invariants I₁, I₂, I₃.  The three roots
-  are obtained with the trigonometric (Cardano) formula without any
-  iterative solver.  τ_max = (σ₁ − σ₃) / 2.
 
 References
 ----------
@@ -115,9 +82,6 @@ class StressLocation(Enum):
     * ``TOP``    — z = +h/2 (outer fibre, tension under positive bending).
     * ``MIDDLE`` — z = 0    (mid-surface, membrane stress only).
     * ``BOTTOM`` — z = −h/2 (inner fibre, compression under positive bending).
-
-    For solid elements this parameter is ignored; the full 3-D stress
-    state is computed directly at the Gauss points.
     """
 
     TOP = "top"
@@ -137,9 +101,6 @@ class StressType(Enum):
       arises from curvature (plate bending).
     * ``TOTAL``    — σ = σ_m + σ_b(z).  Combined stress at the
       requested ``StressLocation``.
-
-    For solid elements the decomposition is not applicable: the full
-    3-D stress is always computed regardless of this parameter.
     """
 
     MEMBRANE = "membrane"
@@ -152,32 +113,21 @@ class StressResult:
     """
     Container for stress computation results.
 
-    For shell elements (plane stress), only ``sigma_xx``, ``sigma_yy``
-    and ``sigma_xy`` are non-zero.  For solid elements the full 3-D
-    tensor is populated (``sigma_zz``, ``tau_yz``, ``tau_zx``).
+    Plane-stress shell results: only ``sigma_xx``, ``sigma_yy`` and
+    ``sigma_xy`` are non-zero.
 
     Attributes
     ----------
     sigma_xx, sigma_yy, sigma_xy : np.ndarray
-        In-plane stress components (always present).
+        In-plane stress components.
     von_mises : np.ndarray
         Von Mises equivalent stress (general 3-D formula).
     sigma_1, sigma_2 : np.ndarray
-        Maximum / minimum principal stresses (2-D Mohr circle when
-        ``sigma_zz`` is absent; full eigenvalue if 3-D).
-    sigma_3 : np.ndarray or None
-        Third principal stress (only for 3-D solid elements).
+        Maximum / minimum principal stresses (2-D Mohr circle).
     tau_max : np.ndarray
         Maximum shear stress.
     principal_angle : np.ndarray
-        Angle (rad) of first principal direction from x-axis (2-D only;
-        set to 0 for 3-D since direction is a full eigenvector).
-    sigma_zz : np.ndarray or None
-        Out-of-plane normal stress (solid elements).
-    tau_yz : np.ndarray or None
-        Transverse shear stress yz (solid elements).
-    tau_zx : np.ndarray or None
-        Transverse shear stress zx (solid elements).
+        Angle (rad) of first principal direction from x-axis.
     """
 
     sigma_xx: np.ndarray
@@ -188,11 +138,6 @@ class StressResult:
     sigma_2: np.ndarray
     tau_max: np.ndarray
     principal_angle: np.ndarray
-    # 3-D fields (None when plane-stress / shell)
-    sigma_zz: Optional[np.ndarray] = None
-    tau_yz: Optional[np.ndarray] = None
-    tau_zx: Optional[np.ndarray] = None
-    sigma_3: Optional[np.ndarray] = None
 
     def to_dict(self) -> Dict[str, np.ndarray]:
         """Convert to dictionary for VTK output."""
@@ -206,14 +151,6 @@ class StressResult:
             "tau_max": self.tau_max,
             "principal_angle": np.degrees(self.principal_angle),
         }
-        if self.sigma_zz is not None:
-            d["sigma_zz"] = self.sigma_zz
-        if self.tau_yz is not None:
-            d["tau_yz"] = self.tau_yz
-        if self.tau_zx is not None:
-            d["tau_zx"] = self.tau_zx
-        if self.sigma_3 is not None:
-            d["sigma_3"] = self.sigma_3
         return d
 
 
@@ -232,14 +169,6 @@ class StrainResult:
         Principal strains (max / min).
     gamma_max : np.ndarray
         Maximum shear strain.
-    epsilon_zz : np.ndarray or None
-        Out-of-plane normal strain (solid elements).
-    gamma_yz : np.ndarray or None
-        Transverse shear strain yz (solid elements).
-    gamma_zx : np.ndarray or None
-        Transverse shear strain zx (solid elements).
-    epsilon_3 : np.ndarray or None
-        Third principal strain (solid elements).
     """
 
     epsilon_xx: np.ndarray
@@ -248,11 +177,6 @@ class StrainResult:
     epsilon_1: np.ndarray
     epsilon_2: np.ndarray
     gamma_max: np.ndarray
-    # 3-D fields
-    epsilon_zz: Optional[np.ndarray] = None
-    gamma_yz: Optional[np.ndarray] = None
-    gamma_zx: Optional[np.ndarray] = None
-    epsilon_3: Optional[np.ndarray] = None
 
     def to_dict(self) -> Dict[str, np.ndarray]:
         """Convert to dictionary for VTK output."""
@@ -264,20 +188,12 @@ class StrainResult:
             "epsilon_2": self.epsilon_2,
             "gamma_max": self.gamma_max,
         }
-        if self.epsilon_zz is not None:
-            d["epsilon_zz"] = self.epsilon_zz
-        if self.gamma_yz is not None:
-            d["gamma_yz"] = self.gamma_yz
-        if self.gamma_zx is not None:
-            d["gamma_zx"] = self.gamma_zx
-        if self.epsilon_3 is not None:
-            d["epsilon_3"] = self.epsilon_3
         return d
 
 
 class StressRecovery:
     """
-    Stress and strain recovery engine for shell and solid finite elements.
+    Stress and strain recovery engine for shell finite elements.
 
     This class takes a converged displacement solution and recovers the
     complete Cauchy stress tensor at nodes or element centres, together
@@ -296,15 +212,9 @@ class StressRecovery:
          strain–displacement matrices ``B_m``, ``B_κ`` produce a plane-
          stress triplet [σ_xx, σ_yy, τ_xy] at a chosen parametric
          point (r, s) and through-thickness location z.
-       * *Solid elements (HEXA, TETRA, WEDGE, PYRAMID)*:  The 6×(3n)
-         strain–displacement matrix ``B(ξ, η, ζ)`` is evaluated at each
-         Gauss integration point.  The product C · B · u_e yields the
-         full Voigt stress vector [σ_xx, σ_yy, σ_zz, τ_xy, τ_yz, τ_zx].
 
     3. **Nodal smoothing** — stresses from adjacent elements are averaged
-       at shared nodes.  For solid elements the Gauss-point values are
-       first **extrapolated to the element nodes** via the pseudo-inverse
-       extrapolation matrix ``E = pinv(N_gp)`` before averaging.
+       at shared nodes.
 
     Supported Element Topologies
     ----------------------------
@@ -313,14 +223,6 @@ class StressRecovery:
     ============  =====  =======  ===================================
     MITC3           3       3     Hammer (triangle)
     MITC4           4       4     2×2 Gauss–Legendre
-    TETRA4          4       1     Single centroid point
-    TETRA10        10       4     4-point Hammer
-    HEXA8           8       8     2×2×2 Gauss–Legendre
-    HEXA20         20      27     3×3×3 Gauss–Legendre
-    WEDGE6          6       6     Triangle × 2-pt Gauss
-    WEDGE15        15      21     Triangle × 3-pt Gauss (higher order)
-    PYRAMID5        5       8     Based on collapsed hex mapping
-    PYRAMID13      13      18     Higher-order collapsed hex
     ============  =====  =======  ===================================
 
     Parameters
@@ -329,9 +231,8 @@ class StressRecovery:
         Mesh assembler that owns the element map, node coordinates,
         constitutive properties and DOF connectivity.
     u : np.ndarray or PETSc.Vec
-        Full (unreduced) displacement solution vector.  For shell
-        elements it contains 6 DOFs per node [u, v, w, θ_x, θ_y, θ_z];
-        for solid elements 3 DOFs per node [u, v, w].
+        Full (unreduced) displacement solution vector.  It contains
+        6 DOFs per node [u, v, w, θ_x, θ_y, θ_z].
 
     Attributes
     ----------
@@ -340,13 +241,7 @@ class StressRecovery:
     n_elements : int
         Total number of elements in the mesh.
     dofs_per_node : int
-        Number of DOFs per node (6 for shells, 3 for solids).
-
-    Notes
-    -----
-    The extrapolation matrices are **cached** per element topology
-    (``_extrap_cache``) so that they are computed only once regardless
-    of the number of elements of each type.
+        Number of DOFs per node (6 for shells).
     """
 
     def __init__(self, domain: "MeshAssembler", u):
@@ -376,14 +271,11 @@ class StressRecovery:
 
         This method provides one stress state per element, suitable for
         contour plots at element centres ("element results" in commercial
-        codes).  The evaluation strategy differs by element family:
+        codes).
 
-        * **Shell elements** — stress is evaluated at the parametric
-          point *gauss_point* (default: element centre) and
-          through-thickness location *z* (from *location*).
-        * **Solid elements** — the Gauss-point stresses are **averaged**.
-          For low-order elements (HEXA8, TETRA4) this average coincides
-          with the stress evaluated at the element's parametric centroid.
+        Stress is evaluated at the parametric point *gauss_point*
+        (default: element centre) and through-thickness location *z*
+        (from *location*).
 
         Parameters
         ----------
@@ -397,11 +289,9 @@ class StressRecovery:
         Returns
         -------
         StressResult
-            One stress state per element.  For shells only the in-plane
-            components (σ_xx, σ_yy, τ_xy) are populated; for solids the
-            full 3-D tensor is available.
+            One stress state per element.  Only the in-plane components
+            (σ_xx, σ_yy, τ_xy) are populated.
         """
-        n_elem = self.n_elements
         r0, s0 = gauss_point
 
         # ------------------------------------------------------------------
@@ -424,7 +314,7 @@ class StressRecovery:
             z_factor = _Z_FACTOR.get(location, 0.0)
             stype_int = _STRESS_TYPE.get(stress_type, 2)
             sigma_all, _ = _rust.compute_stress_field(self.u, z_factor, stype_int)
-            return self._build_stress_result(sigma_all, is_3d=False)
+            return self._build_stress_result(sigma_all)
 
         raise NotImplementedError(
             "compute_element_stresses: non-centroid gauss_point evaluation requires "
@@ -455,16 +345,6 @@ class StressRecovery:
           of each node).  Each element contributes its own stress value
           to the global node; contributions from all surrounding elements
           are then averaged (or area-weighted).
-        * **Solid elements** — stresses are first computed at every
-          **Gauss integration point** (superconvergent locations) and
-          then **extrapolated to element nodes** via the pseudo-inverse
-          extrapolation matrix ``E = pinv(N_gp)`` (see
-          ``_get_extrapolation_matrix``).  The extrapolated element-nodal
-          values are then averaged at shared global nodes.
-
-        This two-step procedure (Gauss → element-node → global average)
-        is the standard approach described in Zienkiewicz & Zhu (1992)
-        and implemented in most commercial codes.
 
         Parameters
         ----------
@@ -475,14 +355,13 @@ class StressRecovery:
         smoothing : str, default ``"average"``
             Smoothing mode.  ``"average"`` gives equal weight to every
             contributing element; ``"area_weighted"`` weights by element
-            area (shells) or volume (solids).
+            area (shells).
 
         Returns
         -------
         StressResult
             Nodal stress field with shape ``(n_nodes,)`` for each
-            component.  For mixed meshes (shell + solid), both in-plane
-            and 3-D components are populated.
+            component.
         """
         n_nodes = self.n_nodes
 
@@ -528,7 +407,7 @@ class StressRecovery:
             mask = weight_sum > 0
             sigma_avg = np.zeros((n_nodes, 6))
             sigma_avg[mask] = sigma_sum[mask] / weight_sum[mask, np.newaxis]
-            return self._build_stress_result(sigma_avg, is_3d=False)
+            return self._build_stress_result(sigma_avg)
 
         raise NotImplementedError(
             "compute_nodal_stresses: requires a live Rust assembler (domain._rust). "
@@ -555,9 +434,6 @@ class StressRecovery:
         * ``"TOP"`` — z = +h/2 (outer fibre)
         * ``"MID"`` — z = 0   (mid-surface, membrane only)
         * ``"BOT"`` — z = −h/2 (inner fibre)
-
-        For solid elements the through-thickness location is irrelevant;
-        the same 3-D stress field is returned for all three keys.
 
         Parameters
         ----------
@@ -593,8 +469,7 @@ class StressRecovery:
 
             {LAYER}_{component}
 
-        Examples: ``TOP_von_mises``, ``MID_sigma_xx``, ``BOT_tau_max``,
-        ``TOP_sigma_zz`` (3-D solids), etc.
+        Examples: ``TOP_von_mises``, ``MID_sigma_xx``, ``BOT_tau_max``, etc.
 
         Parameters
         ----------
@@ -633,9 +508,6 @@ class StressRecovery:
 
         Examples: ``TOP_epsilon_xx``, ``MID_gamma_xy``, ``BOT_epsilon_1``.
 
-        For solid elements the through-thickness location is irrelevant;
-        the same strain field is returned for all three keys.
-
         Parameters
         ----------
         smoothing : str, default ``"average"``
@@ -671,8 +543,7 @@ class StressRecovery:
         Mirrors ``compute_element_stresses`` but returns the engineering
         strain tensor instead of the Cauchy stress.
 
-        * **Shell** — evaluates ε_m + z·κ at *gauss_point* / *location*.
-        * **Solid** — averages the Gauss-point strains.
+        Evaluates ε_m + z·κ at *gauss_point* / *location*.
 
         Parameters
         ----------
@@ -688,7 +559,6 @@ class StressRecovery:
             shear strains are *engineering* values (γ = 2ε).
         """
         r0, s0 = gauss_point
-        n_elem = self.n_elements
 
         # ------------------------------------------------------------------
         # Fast path: delegate to the Rust assembler when available and the
@@ -703,7 +573,7 @@ class StressRecovery:
             }
             z_factor = _Z_FACTOR.get(location, 0.0)
             _, eps_all = _rust.compute_stress_field(self.u, z_factor, 2)
-            return self._build_strain_result(eps_all, is_3d=False)
+            return self._build_strain_result(eps_all)
 
         raise NotImplementedError(
             "compute_element_strains: non-centroid gauss_point evaluation requires "
@@ -723,8 +593,6 @@ class StressRecovery:
 
         * **Shell** — ε(z) = ε_m + z·κ evaluated at each element's
           parametric node coordinates, then averaged at shared nodes.
-        * **Solid** — Gauss-point strains are extrapolated to element
-          nodes via ``E = pinv(N_gp)`` and averaged globally.
 
         Parameters
         ----------
@@ -772,7 +640,7 @@ class StressRecovery:
             mask = weight_sum > 0
             eps_avg = np.zeros((n_nodes, 6))
             eps_avg[mask] = eps_sum[mask] / weight_sum[mask, np.newaxis]
-            return self._build_strain_result(eps_avg, is_3d=False)
+            return self._build_strain_result(eps_avg)
 
         raise NotImplementedError(
             "compute_nodal_strains: requires a live Rust assembler (domain._rust). "
@@ -901,7 +769,6 @@ class StressRecovery:
         tau_max : np.ndarray, shape (N,)
             Absolute maximum shear stress = (σ₁ − σ₃) / 2.
         """
-        n = s.shape[0]
         sxx, syy, szz = s[:, 0], s[:, 1], s[:, 2]
         txy, tyz, tzx = s[:, 3], s[:, 4], s[:, 5]
 
@@ -937,41 +804,27 @@ class StressRecovery:
         return sigma_1, sigma_2, sigma_3, tau_max
 
     # ------------------------------------------------------------------
-    def _build_stress_result(self, sigma: np.ndarray, is_3d: bool) -> StressResult:
+    def _build_stress_result(self, sigma: np.ndarray) -> StressResult:
         """Assemble a ``StressResult`` from a raw Voigt stress array.
 
         Given an ``(N, 6)`` array of Voigt stresses (nodal or elemental),
         this factory method computes all derived quantities (Von Mises,
         principal stresses, maximum shear, principal angle) and packages
-        them into a ``StressResult`` dataclass.
-
-        The computation path depends on *is_3d*:
-
-        * **is_3d = False** (shells) — 2-D Mohr’s circle for σ₁, σ₂,
-          θ_p.  Only in-plane components are populated.
-        * **is_3d = True** (solids)  — full 3-D cubic eigenvalue for
-          σ₁, σ₂, σ₃.  All six Voigt components are populated.
+        them into a ``StressResult`` dataclass.  Principal stresses come
+        from 2-D Mohr’s circle for σ₁, σ₂, θ_p, so only the in-plane
+        components are populated.
 
         Parameters
         ----------
         sigma : np.ndarray, shape (N, 6)
             Voigt stress array [σ_xx, σ_yy, σ_zz, τ_xy, τ_yz, τ_zx].
-        is_3d : bool
-            If *True*, populate out-of-plane fields and use 3-D
-            eigenvalue solver; otherwise use 2-D Mohr’s circle.
 
         Returns
         -------
         StressResult
         """
         vm = self._von_mises_3d(sigma)
-
-        if is_3d:
-            s1, s2, s3, tau = self._principal_3d(sigma)
-            angle = np.zeros(sigma.shape[0])
-        else:
-            s1, s2, tau, angle = self._principal_2d(sigma[:, 0], sigma[:, 1], sigma[:, 3])
-            s3 = None
+        s1, s2, tau, angle = self._principal_2d(sigma[:, 0], sigma[:, 1], sigma[:, 3])
 
         return StressResult(
             sigma_xx=sigma[:, 0],
@@ -982,27 +835,18 @@ class StressRecovery:
             sigma_2=s2,
             tau_max=tau,
             principal_angle=angle,
-            sigma_zz=sigma[:, 2] if is_3d else None,
-            tau_yz=sigma[:, 4] if is_3d else None,
-            tau_zx=sigma[:, 5] if is_3d else None,
-            sigma_3=s3,
         )
 
-    def _build_strain_result(self, eps: np.ndarray, is_3d: bool) -> StrainResult:
+    def _build_strain_result(self, eps: np.ndarray) -> StrainResult:
         """Assemble a ``StrainResult`` from a raw Voigt strain array.
 
         Computes principal strains and maximum shear strain via in-plane
-        Mohr’s circle on the (ε_xx, ε_yy, γ_xy/2) components.  For 3-D
-        elements the out-of-plane components (ε_zz, γ_yz, γ_zx) are
-        included in the result but the 3-D principal strain computation
-        is not yet implemented (``epsilon_3`` is set to *None*).
+        Mohr’s circle on the (ε_xx, ε_yy, γ_xy/2) components.
 
         Parameters
         ----------
         eps : np.ndarray, shape (N, 6)
             Voigt strain array [ε_xx, ε_yy, ε_zz, γ_xy, γ_yz, γ_zx].
-        is_3d : bool
-            If *True*, populate out-of-plane strain fields.
 
         Returns
         -------
@@ -1025,10 +869,6 @@ class StressRecovery:
             epsilon_1=e1,
             epsilon_2=e2,
             gamma_max=gmax,
-            epsilon_zz=eps[:, 2] if is_3d else None,
-            gamma_yz=eps[:, 4] if is_3d else None,
-            gamma_zx=eps[:, 5] if is_3d else None,
-            epsilon_3=None,  # Could compute 3-D principal strains similarly
         )
 
 
