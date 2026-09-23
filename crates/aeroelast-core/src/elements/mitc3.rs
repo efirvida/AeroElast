@@ -689,13 +689,15 @@ pub fn compute_ke_local_with_membrane(pre: &Mitc3Precomputed, bm_gp: &[Mat3x18; 
 /// membrane-bending coupling use the supplied union membrane operators, which is
 /// what couples the target to its neighbours.
 ///
-/// The result is in the assembled **global** DOF space, because the membrane
-/// operators handed in already carry each element's own rotation.  With an
-/// operator whose first 18 columns are the element's own `b_membrane` (in global
-/// DOFs) and whose remaining columns are zero, the top-left 18x18 block
-/// reproduces `transform_to_global(compute_ke_local(pre), t3)` exactly.  That is
-/// the property the unit test pins down, and it is what makes this a strict
-/// extension of the MITC3+ of Lee, Lee & Bathe 2014 rather than a replacement.
+/// The result is in the union's **local** DOF space; rotate it with
+/// [`transform_union_to_global`] before assembling.  With a membrane operator
+/// whose first 18 columns are the element's own `b_membrane` and whose remaining
+/// columns are zero, the top-left 18x18 block reproduces [`compute_ke_local`]
+/// exactly.  That is the property the unit tests pin down - for an isotropic
+/// material and again with the membrane-bending coupling switched on, because
+/// the isotropic case alone cannot see the coupling - and it is what makes this a
+/// strict extension of the MITC3+ of Lee, Lee & Bathe 2014 rather than a
+/// replacement.
 pub fn compute_ke_union_smoothed(pre: &Mitc3Precomputed, bm_union: &[Mat3Union; N_GAUSS]) -> MatUnion {
     const U: usize = SMOOTHED_UNION_DOFS;
     let area = pre.area;
@@ -786,7 +788,7 @@ pub fn compute_ke_union_smoothed(pre: &Mitc3Precomputed, bm_union: &[Mat3Union; 
 
 /// The internal force of a strain-smoothed element, over the union layout.
 ///
-/// `u_union` holds the union's **global** DOF components.  The linear part is
+/// `u_union` holds the union's **local** DOF components.  The linear part is
 /// `K_union · u_union`, with `K_union` the stiffness of
 /// [`compute_ke_union_smoothed`], so at zero displacement this agrees with it
 /// exactly - which is what keeps `K` and `K_T` consistent.
@@ -805,8 +807,9 @@ pub fn compute_fint_union_smoothed(
     let mut f = compute_ke_union_smoothed(pre, bm_union) * u_union;
 
     if nonlinear {
-        let u_target_global = u_union.fixed_rows::<18>(0).into_owned();
-        let u_local = global_to_local_disp(&u_target_global, &pre.t3);
+        // The union vector is already in local components, so the target's own
+        // rows are its local DOFs and no rotation is needed here.
+        let u_local = u_union.fixed_rows::<18>(0).into_owned();
         let h_mat = displacement_gradient(pre, &u_local);
         let eps_gl = gl_strain_voigt(&h_mat);
         let sigma_m = &pre.constitutive.cm_raw * &eps_gl;
@@ -815,10 +818,9 @@ pub fn compute_fint_union_smoothed(
         let b_nl = compute_b_nl(&pre.dh, &h_mat);
         let b_total = b_l + b_nl;
 
-        let f_local = (pre.area * pre.thickness) * (b_total.transpose() * &sigma_m);
-        let f_global = local_to_global_force(&f_local, &pre.t3);
+        let f_nonlinear = (pre.area * pre.thickness) * (b_total.transpose() * &sigma_m);
         let mut target_rows = f.fixed_rows::<18>(0).into_owned();
-        target_rows += f_global;
+        target_rows += f_nonlinear;
         f.fixed_rows_mut::<18>(0).copy_from(&target_rows);
     }
 
@@ -827,7 +829,7 @@ pub fn compute_fint_union_smoothed(
 
 /// The tangent stiffness of a strain-smoothed element, over the union layout.
 ///
-/// `u_union` holds the union's **global** DOF components.  The linear part is
+/// `u_union` holds the union's **local** DOF components.  The linear part is
 /// exactly [`compute_ke_union_smoothed`], so at zero displacement this equals the
 /// assembled `K` - the consistency the assembler's `K`/`K_T` test checks.
 ///
@@ -841,8 +843,8 @@ pub fn compute_kt_union_smoothed(
 ) -> MatUnion {
     let k0 = compute_ke_union_smoothed(pre, bm_union);
 
-    let u_target_global = u_union.fixed_rows::<18>(0).into_owned();
-    let u_local = global_to_local_disp(&u_target_global, &pre.t3);
+    // The union vector is already in local components.
+    let u_local = u_union.fixed_rows::<18>(0).into_owned();
 
     let h_mat = displacement_gradient(pre, &u_local);
     let eps_gl = gl_strain_voigt(&h_mat);
@@ -860,14 +862,53 @@ pub fn compute_kt_union_smoothed(
             + b_nl.transpose() * cm_raw * &b_nl);
 
     let nonlinear_local = k_l_local + k_sigma_local;
-    let t = t18(&pre.t3);
-    let nonlinear_global = t.transpose() * nonlinear_local * &t;
 
     let mut out = k0;
     let mut target_block = out.fixed_view::<18, 18>(0, 0).into_owned();
-    target_block += nonlinear_global;
+    target_block += nonlinear_local;
     out.fixed_view_mut::<18, 18>(0, 0).copy_from(&target_block);
     0.5 * (&out + out.transpose())
+}
+
+
+/// The union's local-to-global rotation: the target's frame for its own nodes
+/// (slots 0..2) and each neighbour's own frame for its unique node (slot 3 + k).
+///
+/// This is what makes the union assembly frame-consistent.  The smoothed
+/// operator maps each element's own local DOFs, so the finished stiffness must be
+/// rotated block by block with the frame of the element that owns each slot -
+/// using the target's frame for all six slots would be wrong for the neighbours.
+///
+/// `frames[slot]` is the owning element's `t3`; a padded boundary slot never
+/// carries weight, so its frame is irrelevant.
+pub fn union_rotation(frames: &[Matrix3<f64>; SMOOTHED_UNION_NODES]) -> MatUnion {
+    let mut t = MatUnion::zeros();
+    for (slot, frame) in frames.iter().enumerate() {
+        let base = 6 * slot;
+        for a in 0..3 {
+            for b in 0..3 {
+                t[(base + a, base + b)] = frame[(a, b)];
+            }
+        }
+    }
+    t
+}
+
+/// Rotate a union stiffness from the union's local DOFs to global ones.
+pub fn transform_union_to_global(
+    k_local: &MatUnion,
+    frames: &[Matrix3<f64>; SMOOTHED_UNION_NODES],
+) -> MatUnion {
+    let t = union_rotation(frames);
+    t.transpose() * k_local * t
+}
+
+/// Rotate a union force from the union's local DOFs to global ones.
+pub fn union_force_to_global(
+    f_local: &VecUnion,
+    frames: &[Matrix3<f64>; SMOOTHED_UNION_NODES],
+) -> VecUnion {
+    union_rotation(frames).transpose() * f_local
 }
 
 /// Compute the 18×18 element stiffness in GLOBAL coordinates.
@@ -897,10 +938,11 @@ pub const SMOOTHED_UNION_NODES: usize = 6;
 /// entry's local node occupies.  A `None` entry contributes nothing because the
 /// boundary rule has already folded its weight onto the target.
 ///
-/// The returned matrices act on the union's **global** DOF components and
-/// produce the target's **local** Cartesian membrane strain, so the stiffness
-/// `B^T C B` and the force `B^T sigma` come out directly in the assembled global
-/// system and need no further rotation.
+/// The returned matrices act on the union's **local** DOF components - the
+/// target's own for its nodes, each neighbour's own for its unique node - and
+/// produce the target's local Cartesian membrane strain.  The finished stiffness
+/// is rotated to global by [`transform_union_to_global`], which uses each
+/// element's own frame, so no frame is mixed anywhere inside the operator.
 pub fn smoothed_membrane_b(
     target: &Mitc3Precomputed,
     entries: &[Option<&Mitc3Precomputed>; 4],
@@ -914,12 +956,13 @@ pub fn smoothed_membrane_b(
         let Some(pre) = entries[entry] else {
             continue;
         };
-        // Each entry contributes through its own global DOFs, so the operator
-        // comes out directly in the assembled system's coordinates: the entry's
-        // local membrane operator composed with its own rotation.
-        let own = crate::elements::smoothing::tensor_operator(&pre.j_mat)
-            * b_membrane(&pre.dh)
-            * t18(&pre.t3);
+        // Everything here stays in the union's LOCAL DOFs: the target's own
+        // components for its nodes and each neighbour's own components for its
+        // unique node.  Mixing frames inside the operator is what made the
+        // coupling wrong - `bm_union` would act on global components while `bk`,
+        // `bg` and the drilling operator act on the target's local ones.  The
+        // caller rotates the finished stiffness with `transform_union_to_global`.
+        let own = crate::elements::smoothing::tensor_operator(&pre.j_mat) * b_membrane(&pre.dh);
         covariant[entry] = Some(if entry == 0 {
             own
         } else {
@@ -1966,6 +2009,37 @@ mod tests {
     }
 
     #[test]
+    fn the_union_stiffness_reduces_to_the_element_with_the_coupling_active() {
+        // The isotropic reduction test cannot see the membrane-bending coupling,
+        // because cb_coupling is identically zero for an isotropic material.
+        // This one switches the coupling on, so the union treatment of the
+        // coupling's two cross terms is actually exercised.
+        let mut shell =
+            IsotropicMaterial::new(2.0e11, 0.3, 7800.0).constitutive(0.01, 5.0 / 6.0);
+        shell.cb_coupling = SMatrix::<f64, 3, 3>::identity() * 1.0e6;
+        let coords: [f64; 9] = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0];
+        let pre = Mitc3Precomputed::new(&coords, shell, 0.01, 2.0e11, 1.0);
+
+        let frames = [triangle_frame(&pre)];
+        let neighbours = [[None, None, None]];
+        let operator = crate::elements::smoothing::smoothed_membrane_strain(&frames, &neighbours);
+        let entries = [Some(&pre), None, None, None];
+        let slots = [[0usize, 1, 2], [3, 4, 5], [3, 4, 5], [3, 4, 5]];
+        let bm_union = smoothed_membrane_b(&pre, &entries, &slots, &operator[0].weights);
+
+        let union = compute_ke_union_smoothed(&pre, &bm_union);
+        let own = compute_ke_local(&pre);
+
+        let top_left = union.fixed_view::<18, 18>(0, 0).into_owned();
+        let difference = (top_left - own).norm() / own.norm();
+        assert!(
+            difference < 1e-12,
+            "with the coupling active the union stiffness must still reduce to the element, \
+             relative difference = {difference:.3e}"
+        );
+    }
+
+    #[test]
     fn the_union_stiffness_reduces_to_the_element_without_neighbours() {
         // With a membrane operator whose first 18 columns are the element's own
         // b_membrane and whose remaining columns are zero - exactly what the
@@ -1983,9 +2057,9 @@ mod tests {
         let bm_union = smoothed_membrane_b(&pre, &entries, &slots, &operator[0].weights);
 
         let union = compute_ke_union_smoothed(&pre, &bm_union);
-        // Both sides in global coordinates: the union stiffness acts on global
-        // DOFs, so the element must be transformed to compare.
-        let own = transform_to_global(&compute_ke_local(&pre), &pre.t3);
+        // Both sides in the target's local DOFs: the union assembly is local, and
+        // transform_union_to_global does the rotation for the assembled system.
+        let own = compute_ke_local(&pre);
 
         let top_left = union.fixed_view::<18, 18>(0, 0).into_owned();
         let difference = (top_left - own).norm() / own.norm();
