@@ -71,6 +71,29 @@ has no entry in this bibliography.
   Structures*, 193:187–206, 2017. DOI: 10.1016/j.compstruc.2017.08.003.
   *Verified against `.sources/papers/1-s2.0-S0045794917309550-main.pdf` and the duplicate `.sources/papers/Performance_of_the_MITC3+_and_MITC4+_shell_elements_in_widely_used_benchmark_problems.pdf` (authors: Yeongbin Ko, Youngyu Lee, Phill-Seung Lee, Klaus-Jürgen Bathe; DOI printed as `http://dx.doi.org/10.1016/j.compstruc.2017.08.003`).*
 
+- Jun, H., Yoon, K., Lee, P.-S., Bathe, K.-J., "The MITC3+ shell element
+  enriched in membrane displacements by interpolation covers", *Computer Methods
+  in Applied Mechanics and Engineering*, 337:458–480, 2018.
+  DOI: 10.1016/j.cma.2018.04.007.
+  *Verified against `.sources/papers/jun2018.pdf` (accepted manuscript; authors:
+  Hyungmin Jun, Kyungho Yoon, Phill-Seung Lee, Klaus-Jürgen Bathe; DOI printed on
+  the first page). It enriches only the membrane displacement field, leaves the
+  rotation convention and the assumed transverse shear field untouched, and adds
+  4 DOFs per node (27 DOFs per element against MITC3+'s 15). It is the reference
+  for the interpolation-covers upgrade option, which this repository has not
+  adopted; see `docs/formulations/shell-elements.md` section 4.3.*
+
+- Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite element",
+  *Computers and Structures*, 223:106096, 2019.
+  DOI: 10.1016/j.compstruc.2019.07.005.
+  *Verified against `.sources/papers/lee2019.pdf` (authors: Chaemin Lee,
+  Phill-Seung Lee — note the first author is **not** Youngyu Lee of the 2014 and
+  2015 papers; DOI printed on the first page). It smooths the membrane strain
+  with the target element and its three edge neighbours, at the same DOF count as
+  MITC3+, and leaves the bending field, the transverse shear field and the
+  rotation convention untouched. This is the formulation being implemented in
+  this repository; see `odd/tasks/formulation-documentation.md` units S1-S4.*
+
 - Katili, I., Batoz, J.-L., Maknun, I.J., Lardeur, P., "A comparative
   formulation of DKMQ, DSQ and MITC4 quadrilateral plate elements with new
   numerical results based on s-norm tests", *Computers and Structures*,
