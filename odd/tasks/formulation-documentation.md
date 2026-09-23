@@ -245,7 +245,8 @@ recovered papers. Each is a verified identity, not a resemblance.
 | `mitc4.rs` `b_md_mitc4_plus` (deleted in `4a46af2`) | Ko, Bathe & Zhang 2025 Eqs. (5), (17a), (17b) | **verified, exact** |
 | Rotation convention of `compute_ke_global` | Ko, Bathe & Zhang 2025 Eq. (3a) | MITC4 matches; **MITC3 does not** (U5b) |
 | SRI split in `compute_ke_local` (`mitc4.rs:946-953`) | Hughes, Taylor & Kanoknukulchai 1977 | cited, not yet re-verified |
-| `mitc3.rs` `b_gamma_ext` ("Eq. 15"/"Eq. 16") | Lee, Lee & Bathe 2014 (MITC3+, CAS 138:12-23) | **to verify**: the comment names the equations but not the paper |
+| `mitc3.rs` `b_gamma_ext` constant part | Lee, Lee & Bathe 2014 **Eq. (15)** | **verified, exact** (Eq. (16) is the linear part; Eq. (17) the total) |
+| `mitc3.rs` `b_gamma_ext` linear part | Lee, Lee & Bathe 2014 Eq. (16), tying points D/E/F | **verified, exact** |
 | `mitc4.rs` `b_gamma_mitc4` | Dvorkin & Bathe 1984 (the original MITC4) | to verify |
 
 ### MITC4+ membrane operator, verified term by term
@@ -477,6 +478,51 @@ The 2014 MITC3+ behaviour has to remain available and correct: the smoothed fiel
 is an addition, and if the smoothing is not applied (or the topology is absent)
 the element must fall back to the current MITC3+ membrane field. The existing
 tests, including the corrected moment-sign expectations, must keep passing.
+
+### U2 - Shell element formulations (i) - FIRST VERSION DELIVERED
+
+`docs/formulations/shell-elements.md`, 645 lines: scope and conventions, MITC4+,
+MITC3+, and known deviations plus references. Written against the recovered PDFs
+page by page, with every equation read from the named page and an explicit
+verification status per mapping. MITC4/D, the strain-smoothed MITC3+ and the
+plane quads are declared pending in later revisions.
+
+**It corrected three of my own briefed claims**, each verified afterwards:
+
+1. The MITC3+ **constant** shear part is **Eq. (15)**, not Eq. (16); Eq. (16) is
+the **linear** part and Eq. (17) is the total field. I had it wrong in this
+document and in memory. Re-extracting page 4 of the 2014 paper with
+`pdftotext -layout` (which preserves the superscripts the default extraction
+mangles) confirms it, and the code's own comments - "Constant part (Eq. 15)",
+"Linear part (Eq. 16)" - were right all along. `b_gamma_ext` matches Eq. (15) for
+the constant part and Eq. (16) for the linear part **exactly**, including
+`c_hat = (e_rt(F) - e_rt(D)) - (e_st(F) - e_st(E))` and the `1/3`, `(3s-1)`,
+`(1-3r)` factors.
+2. `b_drill` **does** carry an attribution: `/// Drilling B-vector (Hughes &
+   Brezzi, 1x24)`. It is incomplete - no title, year or venue, and
+   `docs/references.md` has no Hughes-Brezzi entry - but it is not "no citation".
+3. The `1/8` scaling and the rotation of `b_gamma_mitc4` **cannot** be verified
+   against Dvorkin & Bathe 1984: the recovered scan has no text layer over its
+   displayed equations. The document reproduces instead the same field as it
+   appears unnumbered in Ko et al. 2017 section 2 and flags the rest as open.
+
+### New findings from that work
+
+- **No hourglass control reaches the assembled stiffness.**
+  `compute_hourglass_stiffness` and `compute_hourglass_forces` are referenced only
+  from `#[cfg(test)]` tests and defined at `mitc4.rs:2787,2794`;
+  `compute_ke_local` returns `k_m + k_mb_coup + k_mb + k_bs + k_drill` with no
+  hourglass term, and nothing in `assembly/assembler.rs` calls them. The
+  "S4R-style" scaffolding (`hg_factor`, `h_vec`, `h_orth`, `hg_stiffness_factor`)
+  is precomputed and unused. Either it is dead code to delete or a missing
+  stabilisation to wire - a decision for the user.
+- The MITC3+ 2014 enrichment coefficient could not be confirmed from the
+  extraction: the operator glyph between `h_i` and `f4` is lost, so `hi - f4` and
+  `hi - f4/3` are indistinguishable in the text. The code uses `hi - f4/3`.
+  Recorded as unresolved, not as a defect.
+- The sign of `alpha`, `beta` in the MITC3+ 2014 Eq. (2) versus the rotation
+  vector in the MITC4/D 2025 Eq. (3a) remains open; the document records what was
+  tried.
 
 ## Open questions
 
