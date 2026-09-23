@@ -70,8 +70,38 @@ the assumed membrane field alone.
 > "We note that **the element formulation does not include any numerical
 > factor**, and consider next the isotropy, zero energy mode and patch tests."
 
-**The paper's own basic tests are: isotropy, zero-energy modes, patch tests.**
-That is the acceptance list for "pasa los tests teóricos de su formulación".
+**The paper's own basic tests are: isotropy, zero-energy modes, patch tests**
+(Section 4, "Basic numerical tests", pp. 410–411).  That is the acceptance list
+for *"pasa los tests teóricos de su formulación"*, and paper A states the three
+precisely:
+
+> **Isotropy.** "... sequence of node numbering, i.e. on the element orientation
+> [1,3,15–18].  The element **passes the test of spatial isotropy**."
+> → the single-element stiffness must be invariant under the element's
+> orientation / the node-numbering sequence.
+>
+> **Zero energy mode.** "In the zero energy mode test, the number of zero
+> eigenvalues of the stiffness matrix of a **single unsupported element** are
+> counted [1–3,9–18].  For the new element only the **six zero eigenvalues
+> corresponding to the six rigid body modes** are obtained.  That is, the element
+> passes the zero energy mode test."
+> → exactly six, no more, on an unsupported element.
+>
+> **Patch tests.** "We perform **three patch tests: the membrane, bending and
+> shearing patch tests**, see Refs. [1–3,9–18].  The mesh geometry is shown in
+> **Fig. 5**.  The patch of elements is subjected to the minimum number of
+> constraints to prevent rigid body motions and the nodal point forces on the
+> boundary corresponding to the constant stress states are applied.  The patch
+> tests are passed if the correct values of **constant stress fields** are
+> calculated at any location within the mesh.  The element passes the membrane,
+> bending and shearing patch tests."
+> → three separate patch tests, on the **distorted** mesh of Fig. 5 (the 10 × 10
+> square whose interior nodes are at (2,2), (4,7), (8,7), (8,3)), with the minimum
+> constraints against rigid-body motion and boundary nodal forces from the
+> constant stress states.
+The convergence studies (Section 5) measure the error in the **s-norm of Hiller
+& Bathe**, Eq. (28), with the exact solution replaced by a very fine-mesh
+reference `u_ref` when no analytical solution exists.
 
 **The transverse shear (p. 405):** the MITC4 assumed field of Dvorkin & Bathe
 (1984), tying points A (top, s=+1), B (bottom, s=−1), C (right, r=+1),

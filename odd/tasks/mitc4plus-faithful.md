@@ -1,13 +1,51 @@
-# Feature: a faithful MITC4+ (Ko, Lee & Bathe 2017), as the base for MITC4/D 2025
+# Feature: the MITC4+/D — a faithful element, driven by its theoretical tests
 
 ## Objective
 
-Implement paper A's element as it is written, with nothing added, so that it
+Implement the element as the papers write it, with nothing added, so that it
 passes **the paper's own basic tests** — isotropy, zero-energy modes, patch tests
-— and then the published benchmark columns. This element is the base on which the
-2025 MITC4/D (Ko, Bathe & Zhang, *continuum mechanics-based shell elements with
-six degrees of freedom at each node*) will later be built. Application target:
-wind-turbine blades — flexible, curved, warped.
+— and then the repository's existing theoretical tests from the other references.
+Application target: wind-turbine blades — flexible, curved, warped.
+
+## Scope decision (user, this session): go straight to the 6-DOF MITC4+/D
+
+The 2017 element (paper A) has **5 DOF/node and no drilling DOF**, while this
+repository's whole assembly is 6-DOF: `dofs_per_node = 6` in
+`crates/aeroelast-core/src/assembly/assembler.rs`, `Vec24`/`[f64;576]` in
+`crates/aeroelast-py/src/elements.rs`, and `_FAMILY_PROPERTIES[SHELL] = (6, 3)` in
+`src/aeroelast/core/assembler.py`.  Three options were put to the user; the user
+chose the third:
+
+> **Implement the 5-DOF faithful core and add the 6th DOF from the start using the
+> 2025 MITC4/D drill-membrane strain, which is penalty-free.**
+
+So the target element is the **MITC4+/D** of Ko, Bathe & Zhang (2025),
+*"Continuum mechanics-based shell elements with six degrees of freedom at each
+node − the MITC4/D and MITC4+/D elements"* — i.e. the 2017 MITC4+ formulation
+(membrane Eqs. 21–27, MITC4 assumed shear, displacement-based bending, 2×2×2, no
+numerical factor) **plus** the 2025 drilling DOF.  The repository already carries
+the 2025 drill-membrane operator, transcribed and currently dead:
+`b_md_mitc4_plus` in `crates/aeroelast-core/src/elements/mitc4.rs`.
+
+Consequences to honour:
+- The 2017 Tier-1 tests (isotropy, exactly six zero eigenvalues, membrane/bending/
+  shearing patch tests) apply to the element's core, and must still hold **with**
+  the drilling DOF present — the zero-energy count in particular must stay exactly
+  six.
+- The 2025 paper's own basic tests must be read and added to Tier 1 (see
+  `.sources/papers/1-s2.0-S0045794924003511-main.pdf`, 21 pages — to be read with
+  vision, next).
+- Nothing from the current hybrid is inherited: not the 6-DOF drilling penalty,
+  not the ERC, not `β_w`, not the SRI, not the 2-DOF bubble, not the shear
+  correction factor, not the (18)-(19) membrane.
+
+## SDD
+
+This work runs as an SDD change: `openspec/changes/mitc4plusd-faithful/`
+(store `openspec` + Engram mirror).  Phases: init ✅ → explore ✅ → proposal → spec
+→ design → tasks → apply → verify → archive.  Preflight: auto, single-pr,
+review budget 700 (accepted `size:exception`), `strict_tdd: false` (see
+`openspec/config.yaml`).
 
 ## Why a new element rather than a patch
 
