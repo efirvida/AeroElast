@@ -648,11 +648,14 @@ fn b_m_mitc4_plus(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 3, 
     // through the distortion vector x_d of Eq. (9), and Eq. (18) deliberately
     // discards that quadratic part instead of carrying it.
     //
-    // The paper has no geometry-dependent coefficients here.  An earlier version
-    // of this function multiplied five such coefficients (a_a..a_e) into quadratic
-    // s^2 and r^2 terms; they vanish for a regular element, which is why every flat
-    // and curved non-warped benchmark passed, and become non-zero exactly for a
-    // warped element, which is why the twisted beam locked.
+    // This function implements the Choi-Paik starting field, Eqs. (18)-(19).  It
+    // is NOT the paper's final new-MITC4+ field: that is Eqs. (21)-(27), which
+    // carry five geometry-dependent coefficients a_A..a_E (a_A = c_r(c_r-1)/(2d),
+    // ..., a_E = 2 c_r c_s/d, with c_r = x_d·m^r, c_s = x_d·m^s, d = c_r²+c_s²-1).
+    // They vanish for a flat rectangle (x_d = 0 -> c_r = c_s = 0) and for the
+    // twisted-beam mesh (x_d is purely out-of-plane), which is why this function
+    // is bit-identical to Eqs. (21)-(27) on every benchmark this repository runs.
+    // See docs/formulations/mitc4plus-2017-extract.md for the full transcription.
     let b_rr = 0.5 * (1.0 + s) * pre.b_rr_a + 0.5 * (1.0 - s) * pre.b_rr_b;
     let b_ss = 0.5 * (1.0 + r) * pre.b_ss_c + 0.5 * (1.0 - r) * pre.b_ss_d;
     let b_rs = pre.b_rs_e

@@ -215,9 +215,69 @@ The paper's own summary: the assumed field is *"one order lower than implicitly
 given in the original displacement-based element"* — Eq. (18) deliberately
 discards the quadratic part that Eq. (20) shows the displacement-based field has.
 
-**There are no geometry-dependent coefficients in Eqs. (18)–(19).** An earlier
-version of `b_m_mitc4_plus` multiplied five such coefficients (`a_a`..`a_e`) into
-quadratic terms; they are not in the paper.
+**Correction (this repository, 2026-09-23).** The paragraph that used to sit here
+claimed *"there are no geometry-dependent coefficients in Eqs. (18)–(19)"* and
+that the five `a_a`..`a_e` coefficients were not in the paper. **That reading was
+wrong.** Eq. (18) is only the Choi–Paik starting field; the paper's *new MITC4+*
+field is Eqs. (21)–(27), which do carry five geometry-dependent coefficients.
+Commit `dc7593e` removed them as "unsourced" on the basis of that wrong reading.
+They are reproduced below.
+
+**Eq. (21)–(22)** — the assumed bilinear term and the patch-test condition:
+
+```text
+ẽ_rs^m|bil = B1·(e_rr^m|con + e_rs^m|bil) + B2·(e_ss^m|con + e_rs^m|bil)
+          + B3·e_rs^m|con + B4·e_rr^m|lin + B5·e_ss^m|lin
+ẽ_rs^m|bil = e_rs^m|bil   when the element geometry is flat (x_d · n = 0)
+```
+
+**Eq. (23)–(25)** — the constants, with `c_r = x_d·m^r`, `c_s = x_d·m^s`,
+`d = c_r² + c_s² − 1`:
+
+```text
+B1 = c_r²/d      B2 = c_s²/d      B3 = 2c_r c_s/d
+B4 = −c_r/d      B5 = −c_s/d
+
+ẽ_rs^m|bil = (c_r/d)[c_r(e_rr^m|con + e_rs^m|bil) − e_rr^m|lin]
+          + (c_s/d)[c_s(e_ss^m|con + e_rs^m|bil) − e_ss^m|lin]
+          + (2c_r c_s/d)·e_rs^m|con
+```
+
+**Eq. (26)** — the final assumed field:
+
+```text
+ẽ_rr^m = ê_rr^m − ẽ_rs^m|bil + ẽ_rs^m|bil·s²
+ẽ_ss^m = ê_ss^m − ẽ_rs^m|bil + ẽ_rs^m|bil·r²
+ẽ_rs^m = ê_rs^m + ẽ_rs^m|bil·r·s
+```
+
+**Eq. (27a–c)** — the efficient form, with
+`a_A = c_r(c_r−1)/(2d)`, `a_B = c_r(c_r+1)/(2d)`, `a_C = c_s(c_s−1)/(2d)`,
+`a_D = c_s(c_s+1)/(2d)`, `a_E = 2c_r c_s/d`:
+
+```text
+ẽ_rr^m = ½(1 − 2a_A + s + 2a_A s²) e_rr^m(A)
+       + ½(1 − 2a_B − s + 2a_B s²) e_rr^m(B)
+       + a_C(−1 + s²) e_ss^m(C) + a_D(−1 + s²) e_ss^m(D)
+       + a_E(−1 + s²) e_rs^m(E)
+
+ẽ_ss^m = a_A(−1 + r²) e_rr^m(A) + a_B(−1 + r²) e_rr^m(B)
+       + ½(1 − 2a_C + r + 2a_C r²) e_ss^m(C)
+       + ½(1 − 2a_D − r + 2a_D r²) e_ss^m(D)
+       + a_E(−1 + r²) e_rs^m(E)
+
+ẽ_rs^m = ¼(r + 4a_A·rs) e_rr^m(A) + ¼(−r + 4a_B·rs) e_rr^m(B)
+       + ¼(s + 4a_C·rs) e_ss^m(C) + ¼(−s + 4a_D·rs) e_ss^m(D)
+       + (1 + a_E·rs) e_rs^m(E)
+```
+
+For a flat **rectangle** `x_d = 0`, so `c_r = c_s = 0`, `d = −1` and all five
+coefficients vanish: Eq. (27) reduces to Eq. (18). That is why removing them was
+bit-identical on every rectangular benchmark. For a flat **distorted** element
+`x_d ≠ 0` in-plane, and for a **warped** quad `x_d·n ≠ 0`; the coefficients are
+then non-zero. For the twisted-beam mesh the quads are ruled, `x_d` is purely
+out-of-plane, `c_r = c_s = 0`, and they vanish again — so they are **not** the
+thin twisted-beam fix either.
 
 ## Transverse shear
 
@@ -246,7 +306,8 @@ Not yet transcribed, and deliberately not guessed:
   which turned out to be the benchmark section — the extraction is unreliable for
   this, so the next reader should page through 4–5 visually instead of trusting a
   text search.
-- **Eqs. (21)–(27)** — the remaining relations of Section 3.2/3.3.
+- **Eqs. (21)–(27)** — transcribed above (the new MITC4+ assumed field with its
+  five coefficients).
 - **Tables 1–2 and the benchmark sections** — these live in paper **B**, and
   `docs/validation-matrix.md` already records the values the tests use.
 
