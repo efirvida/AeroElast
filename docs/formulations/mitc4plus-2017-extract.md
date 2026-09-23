@@ -349,6 +349,24 @@ They are reproduced below.
 ẽ_rs^m|bil = e_rs^m|bil   when the element geometry is flat (x_d · n = 0)
 ```
 
+`transcription-verified: 2026-09-23 p.409`
+
+**Note F2 (2026-09-23, WU0) — Eq. (21) as printed is defective; do not "fix" the
+quote.** As printed, Eq. (21) has no leading term, so for a flat rectangle (where
+`c_r = c_s = 0` makes `B1..B5` all zero) it would give `ẽ_rs^m|bil = 0`, which
+contradicts the patch-test condition Eq. (22) printed immediately below it
+(`ẽ_rs^m|bil = e_rs^m|bil` for a flat element).  The independent proof that a
+leading `+ e_rs^m|bil` term is required is **Eq. (27c)**, whose coefficient of
+`e_rs^m(E)` is printed as **`(1 + a_E·rs)`** — the bare `1` *is* that leading term.
+The transcription above therefore reproduces the printed (defective) form, and the
+implementation must use the form with the leading term, i.e. Eq. (27c) or Eq. (21)
+plus `e_rs^m|bil`.
+
+**Note F1 (2026-09-23, WU0) — Eq. (27a–c) is the closed form of Eqs. (21)+(26).**
+Substituting Eq. (25) into Eq. (26) and collecting terms gives Eq. (27a–c)
+exactly, and at `c_r = c_s = 0` (flat rectangle) Eq. (27) reduces term by term to
+Eq. (18).  So the element implements **Eq. (27)**, not the intermediate Eq. (21).
+
 **Eq. (23)–(25)** — the constants, with `c_r = x_d·m^r`, `c_s = x_d·m^s`,
 `d = c_r² + c_s² − 1`:
 

@@ -51,12 +51,20 @@ Substituting Eq. (16b) into Eq. (17b) gives the individual "drill-membrane"
 components (superscript `md`):
 
 ```text
-ẽ_rr^md = (j0/j) ũ_rr(θ) = (j0/j) h̃_m,r^i (θ_{i-1}^D − θ_i^D) x_m^i · (−x_r^i × V^D)
-ẽ_ss^md = (j0/j) ũ_ss(θ) = −(j0/j) h̃_m,s^i (θ_{i-1}^D − θ_i^D) x_m^i · ( x_s^i × V^D)
+ẽ_rr^md = (j0/j) ũ_rr(θ) = (j0/j) h̃_m,r^l (θ_{i+1}^D − θ_i^D) x_m^l · (−x_r^l × V^D)
+ẽ_ss^md = (j0/j) ũ_ss(θ) = −(j0/j) h̃_m,s^l (θ_{i+1}^D − θ_i^D) x_m^l · ( x_s^l × V^D)
 ẽ_rs^md = ½ (j0/j) (ũ_r,s(θ) + ũ_s,r(θ))
-        = ½ (j0/j) [ h̃_m,s^i x_m^i · (−x_r^i × V^D) − h̃_m,r^i x_m^i · (x_s^i × V^D) ] (θ_{i-1}^D − θ_i^D)
+        = ½ (j0/j) [ h̃_m,s^l x_m^l · (−x_r^l × V^D) − h̃_m,r^l x_m^l · (x_s^l × V^D) ] (θ_{i+1}^D − θ_i^D)
                                                                               (18)
 ```
+
+**Correction (2026-09-23, WU0).** The first transcription of this equation read
+`(θ_{i-1}^D − θ_i^D)`. That was a **misreading**: Eq. (16a)/(16b) on p. 7 print
+`(θ_{i+1}^D − θ_i^D)` with *"the edge `l` corresponds to nodes `i` and `i + 1`"*, and
+Eq. (12d) confirms it independently (`θ_5^D = (L_5/8)(θ_4^D − θ_1^D)`, edge 5 joining
+nodes 1 and 4).  The dead code's `θ_{i+1} − θ_i` was therefore **right** and the
+extract was wrong.  The superscript is `l` (the edge / fictitious mid-side node),
+not `i`.
 
 **Two facts that matter for the implementation** (p. 8, in words):
 
@@ -175,13 +183,208 @@ this repository's target element, and the 2017 set must still hold *with* the
 drilling DOF present — the zero-energy count in particular must remain exactly
 six.
 
+## The full formulation, Eqs. (1)–(16) (transcribed 2026-09-23, WU0)
+
+Read from PDF pp. 2–7 with vision. This closes the gap that the drill operator's
+term-by-term verification needed.
+
+### 2.1 Geometry and displacement interpolation (pp. 2, 4)
+
+```text
+x(r,s,t) = Σ_{i=1..4} h_i(r,s) x_i + (t/2) Σ_{i=1..4} a_i h_i(r,s) V_n^i                  (1)
+
+h_i(r,s) = ¼ (1 + ξ_i r)(1 + η_i s),   i = 1,2,3,4
+[ξ_1 ξ_2 ξ_3 ξ_4] = [ 1  −1  −1   1 ]
+[η_1 η_2 η_3 η_4] = [ 1   1  −1  −1 ]                                                   (2)
+
+u(r,s,t) = Σ h_i(r,s) u_i + (t/2) Σ a_i h_i(r,s) (θ_i × V_n^i)                        (3a)
+u_i = u_x^i i_x + u_y^i i_y + u_z^i i_z                                                 (3b)
+θ_i = θ_x^i i_x + θ_y^i i_y + θ_z^i i_z                                                 (3c)
+V_1^i = (i_y × V_n^i)/‖i_y × V_n^i‖ ;   V_2^i = V_n^i × V_1^i                          (3d)
+```
+
+**The 2025 element's rotation DOF is the global rotation VECTOR `θ_i` with three
+components `(θ_x, θ_y, θ_z)`**, not the 2017 paper's two director angles
+`(α_i, β_i)`.  This is the **sixth DOF**: the third component is the drill.  It
+also means the paper's DOF convention is the same as this repository's —
+`(θ_x, θ_y, θ_z)` per node — so no `(α, β)` conversion is needed at the boundary.
+
+### Strain decomposition (p. 4)
+
+```text
+e_ij = e_ij^m + t·e_ij^b1 + t²·e_ij^b2        with i, j = 1, 2                      (8a)
+
+e_ij^m  = ½ (∂x_m/∂r_i · ∂u_m/∂r_j + ∂x_m/∂r_j · ∂u_m/∂r_i)                        (8b)
+e_ij^b1 = ½ (∂x_m/∂r_i·∂u_b/∂r_j + ∂x_m/∂r_j·∂u_b/∂r_i
+            + ∂x_b/∂r_i·∂u_m/∂r_j + ∂x_b/∂r_j·∂u_m/∂r_i)                             (8c)
+e_ij^b2 = ½ (∂x_b/∂r_i · ∂u_b/∂r_j + ∂x_b/∂r_j · ∂u_b/∂r_i)                        (8d)
+
+x_m = Σ h_i(r,s) x_i ,   x_b = ½ Σ a_i h_i(r,s) V_n^i                              (9a)
+u_m = Σ h_i(r,s) u_i ,   u_b = ½ Σ a_i h_i(r,s) (θ_i × V_n^i)                       (9b)
+```
+
+*"The first term `e_ij^m` in Eq. (8a) is the covariant in-plane membrane strain at
+the shell mid-surface (t = 0), and the remaining terms are the covariant in-plane
+strains due to bending."* — i.e. the same split as the 2017 paper.
+
+### Characteristic vectors and the plane P (p. 3)
+
+```text
+g_i = ∂x/∂r_i ,  u_i = ∂u/∂r_i      with r_1 = r, r_2 = s, r_3 = t              (4a)
+g_r = x_r + s·x_d ,  u_,r = u_r + s·u_d
+g_s = x_s + r·x_d ,  u_,s = u_s + r·u_d                                            (4b)
+x_r = ¼ Σ ξ_i x_i ,  x_s = ¼ Σ η_i x_i ,  x_d = ¼ Σ ξ_i η_i x_i
+u_r = ¼ Σ ξ_i u_i ,  u_s = ¼ Σ η_i u_i ,  u_d = ¼ Σ ξ_i η_i u_i                     (4c)
+
+V^D = (x_r × x_s)/‖x_r × x_s‖ ,   x_r = g_r(0,0,0) ,   x_s = g_s(0,0,0)              (5)
+```
+
+`V^D` is the normal to the plane `P` at the element **centre** — one vector per
+element.
+
+### The rotation decomposition (p. 3)
+
+```text
+θ_i^D = θ_i^D V^D                              (drill rotation about V^D)           (6a)
+θ_i^S = α_i V_1^i + β_i V_2^i                  (standard rotation)                  (6b)
+θ_i    = θ_i^S + θ_i^D                                                               (6c)
+θ_i    = α_i V_1^i + β_i V_2^i + γ_i V_n^i                                           (6d)
+δγ_i   = δθ_i^D (V_n^i · V^D)                                                        (6e)
+θ_i^D  = α_i(V_1^i·V^D) + β_i(V_2^i·V^D) + γ_i(V_n^i·V^D)                            (6f)
+
+e_ij = ½ (g_i · u_j + g_j · u_i)                                                     (7)
+```
+
+The paper states that *"the components in Eq. (6d) give directly the global
+components in Eq. (3c), and vice versa"*, and that `(α_i, β_i, γ_i)` are used to
+update the directors `(V_1^i, V_2^i, V_n^i)`.
+
+### 2.2 New interpolation functions (p. 4)
+
+*"In the formulation to include the drill rotation we create just a **single
+additional interpolation function (along the edges)** to have stability of the
+element for in-plane rotations, pass the patch test when the rotation is free
+(without use of a special procedure) and improve the element behavior."*
+
+```text
+[h_5 h_6 h_7 h_8] = [ ½(1−s²)(1+r) , ½(1−r²)(1+s) , ½(1−s²)(1−r) , ½(1−r²)(1−s) ]    (10)
+```
+
+**Eq. (10) is byte-identical to the repository's `midside_shape_function`.**
+
+```text
+[h̃_5,r h̃_6,r h̃_7,r h̃_8,r] = [ 0 , ½(−2r)(1+s) , 0 , ½(−2r)(1−s) ] ,  h̃'_m,r = h̃_l,r   (11a)
+[h̃_5,s h̃_6,s h̃_7,s h̃_8,s] = [ ½(−2s)(1+r) , 0 , ½(−2s)(1−r) , 0 ] ,  h̃'_m,s = h̃_l,s   (11b)
+```
+
+**Eqs. (11a)/(11b) are byte-identical to the repository's
+`drill_midside_shape_derivatives`** — including the deliberate zeros.  The paper's
+justification is explicit: *"the zeros in Eq. (11b) are introduced to avoid a
+higher order of numerical integration than used with the original elements.  The
+important point is that this simplification can be used with the basic and patch
+tests still satisfied, and we also see good convergence behavior."*  This is the
+"curl" simplification the code's comment calls it.
+
+### The fictitious mid-side nodes (p. 6)
+
+```text
+u_t^5(l) = (1 − l/L_5) u_t^4 + (l/L_5) u_t^1                                       (12a)
+u_n^5(l) = (1 − l/L_5) u_n^4 + (l/L_5) u_n^1 + (4l/L_5)(1 − l/L_5) θ_5^D            (12b)
+
+∂u_n^5/∂l |_{l=L_5} − ∂u_n^5/∂l |_{l=0} = −θ_4 + θ_1                               (12c)
+
+θ_5^D = (L_5/8)(θ_4 − θ_1) = (L_5/8)(θ_4^D − θ_1^D)                                 (12d)
+```
+
+**Edge 5 joins nodes 1 and 4** (the paper says so in words: *"the normal
+displacement at node 5 (along the edge of node 5 between nodes 1 and 4)"*).
+Eq. (12d) is therefore the authoritative statement of the edge convention:
+**`θ_m^D = (L_m/8)(θ_b^D − θ_a^D)` for the edge joining corner nodes `a` and
+`b`**, which for edge 5 is `θ_4^D − θ_1^D`.  That is the same ordering as
+Eq. (16a)/(16b)'s `(θ_{i+1}^D − θ_i^D)` and it is what settles the WU0
+convention question: the **`θ_{i+1} − θ_i` order is correct**.
+
+### Drill kinematics (pp. 6–7)
+
+```text
+u_r^l m^r + u_s^l m^s = u_n^l ĩ_n + u_t^l ĩ_t                                    (13a)
+ĩ_t = x_m^l/‖x_m^l‖ ,   ĩ_n = ĩ_t × V^D                                            (13b)
+[x_m^5 x_m^6 x_m^7 x_m^8] = [ ⅛(x_4 − x_1) , ⅛(x_1 − x_2) , ⅛(x_2 − x_3) , ⅛(x_3 − x_4) ]   (13c)
+
+u_r^l = u_n^l ĩ_n·x_r^l + u_t^l ĩ_t·x_r^l ,   u_s^l = u_n^l ĩ_n·x_s^l + u_t^l ĩ_t·x_s^l   (14a)
+u_t^l = u_θ^l(l) ĩ_n·x_r^l ,   u_s^l = u_θ^l(l) ĩ_n·x_s^l                         (14b)
+u_θ^5(l) = (4l/L_5)(1 − l/L_5) θ_5^D ,   similarly for edges 6, 7, 8               (14c)
+u_r^l(l) = (1/‖x_m^l‖)( u_θ^l(l) x_m^l × V^D · x_r^l )                              (14d)
+u_s^l(l) = (1/‖x_m^l‖)( u_θ^l(l) x_m^l × V^D · x_s^l )                              (14e)
+
+u_r = h̃_m^l u_r^l(L_l/2) = (1/‖x_m^l‖) [ −h̃_m^l u_θ^l(L_l/2) x_m^l × V^D ] · x_?^l   (15a)
+u_s = h̃_m^l u_s^l(L_l/2) = (1/‖x_m^l‖) [ −h̃_m^l u_θ^l(L_l/2) x_m^l × V^D ] · x_?^l   (15b)
+```
+
+*"in which we use `l = L_l/2` for each edge because the tying is performed at the
+fictitious nodes and also `‖x_m^l‖ = L_l/8`."*  (Consistent with Eq. (13c):
+`‖x_m^5‖ = ⅛‖x_4 − x_1‖ = ⅛ L_5`.)
+
+**Open transcription detail:** the trailing dot product in Eqs. (15a)/(15b) prints
+as `x_m^l` in both, which cannot be right — by analogy with (14d)/(14e) it should
+be `x_r^l` in (15a) and `x_s^l` in (15b).  Recorded as an ambiguity rather than
+silently corrected; the implementation must resolve it against the strain
+symmetry.
+
+### The displacement fields the strain is built from (p. 7)
+
+```text
+ū_r(θ) =  h_l (θ_{i+1}^D − θ_i^D) x_m^l · (−x_r^l × V^D)
+ū_s(θ) = −h_l (θ_{i+1}^D − θ_i^D) x_m^l · ( x_s^l × V^D)                            (16a)
+
+ũ_r(θ) =  h̃_m^l (θ_{i+1}^D − θ_i^D) x_m^l · (−x_r^l × V^D)
+ũ_s(θ) = −h̃_m^l (θ_{i+1}^D − θ_i^D) x_m^l · ( x_s^l × V^D)                          (16b)
+```
+
+*"where the edge `l` corresponds to nodes `i` and `i + 1`.  Eq. (16a) is the
+displacement-based interpolation of the drill effect with the standard mid-side
+interpolation `h_m^l = h_l` given in Eq. (10).  Next use the 'assumed
+interpolation' at the edges.  By applying Eq. (11) to Eq. (16a), we obtain"*
+Eq. (16b).  Substituting (16b) into (17b) then gives the strain, Eq. (18).
+
+**A key statement, p. 6, verbatim:** *"we utilize the vector `V^D` at the element
+center about which to measure all rotations at the nodal points (that is, we use
+`θ_i = θ_i^D` for all nodes `i = 1, 2, ..., 8`, hence all nodal drill rotations are
+measured as drill rotations about the same vector `V^D`).  It then follows that
+continuity between edge displacements is always obtained, and the rigid body mode
+test is always satisfied even when the shell element is curved."*
+
+### What this settles
+
+| question | answer, with the source |
+| --- | --- |
+| DOF convention | the global rotation vector `θ_i = (θ_x, θ_y, θ_z)` per node — Eq. (3c). 6 DOF/node, same as this repository |
+| the drill component | `θ_i^D = θ_i · V^D` — Eq. (6a)/(6f) |
+| the mid-side functions | Eq. (10), byte-identical to the repo's `midside_shape_function` |
+| the "curl" derivatives | Eqs. (11a)/(11b), byte-identical to the repo's `drill_midside_shape_derivatives`, zeros included and justified by the paper |
+| the edge ordering | `(θ_{i+1}^D − θ_i^D)`, edge `l` joining nodes `i` and `i+1` — Eq. (16a)/(16b), confirmed by Eq. (12d) |
+| `V^D` | one vector per element, the plane-P normal at the centre — Eq. (5) |
+| `‖x_m^l‖` | `L_l/8` — Eq. (13c) and the p. 7 text |
+
 ## Gaps in this extract
 
-- **Eqs. (1)-(16)** of the 2025 paper — the kinematics, the geometry and the
-  displacement interpolation feeding Eqs. (17)/(18) — are **not yet transcribed**.
-  They live on PDF pages 2-8 and are needed for the term-by-term verification of
-  the drill operator and for the `h̃_m` mid-side functions.
+- ~~**Eqs. (1)-(16)**~~ — **transcribed** in the section above (WU0, 2026-09-23).
+  `transcription-verified: 2026-09-23 pp.2-7`
 - **Eqs. (19)-(25)** and the full `θ_z` interpolation are not yet transcribed.
+  `transcription-verified: 2026-09-23 p.8` for Eq. (18) only.
 - The **load magnitudes** of the three patch tests (see above).
 - The **convergence-study norm** used in Section 3 (the paper reuses the
   s-norm of Hiller & Bathe from the 2017 paper, Eq. 28 there).
+
+## WU0 result: the transverse-shear metric question (task 1.4)
+
+Task 1.4 asked whether paper A prints its own covariant transverse-shear metric
+normalization.  **It does, as Eq. (4)**: `e_ij = ½(g_i·u_j + g_j·u_i)` with
+`r_1 = r, r_2 = s, r_3 = t`, so the covariant transverse shear is
+`e_rt = ½(g_r·u_t + g_t·u_r)` and likewise for `e_st`.  What paper A does **not**
+print is the construction of the tying-point values `e_rt^(A)` etc. beyond the
+interpolation itself (`ẽ_rt = ½(1+s)e_rt^A + ½(1−s)e_rt^B`, p. 405), which it
+defers to **Dvorkin & Bathe (1984), Engineering Computations 1:77-88** — not held
+in `.sources/papers/`.  So the design's §2.2 definition stands for the tying-point
+metric, and this is the recorded answer: printed for the covariant definition,
+not printed for the tying-point construction.
