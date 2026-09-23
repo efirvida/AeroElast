@@ -265,3 +265,164 @@ Single PR, accepted `size:exception`. WU2 is a self-contained review slice: it e
 `mitc4_plusd.rs` with the geometry/coefficient/director/kinematics core and its five
 tests, with a green tree, its own verification, and rollback = delete the WU2 block
 (the WU1 fixtures and `mod.rs` line are untouched).
+
+---
+
+## WU3 — the B-operators (tasks 4.1, 4.2, 4.3, 4.4, 4.5)
+
+Work unit: **WU3**. Appended to the WU1/WU2 record above; earlier bytes preserved.
+
+### Structured status consumed (WU3)
+
+- Source: native SDD status engine (authoritative, `artifactStore: openspec`).
+- `changeName`: `mitc4plusd-faithful`; `applyState`: `ready`; `nextRecommended`: `apply`.
+- `actionContext.mode`: `repo-local`; `workspaceRoot`:
+  `/home/efirvida/Desktop/dev/fem-shell`; `allowedEditRoots`:
+  `/home/efirvida/Desktop/dev/fem-shell`. All edits stayed inside the workspace and
+  inside WU3's authorized edit roots (`mitc4_plusd.rs`, `tasks.md`,
+  `apply-progress.md`).
+- `taskProgress` at entry: 59 total / 12 completed / 47 pending.
+- Review workload gate: `Decision needed before apply: No`, `Chained PRs recommended:
+  No`, `Chain strategy: size-exception`, `400-line budget risk: High`. The session
+  resolved delivery as **single-pr with an explicitly accepted `size:exception`** and a
+  700-line review budget, so WU3 proceeded.
+
+### Completed tasks (persisted checkboxes updated in `tasks.md`)
+
+- [x] **4.1** the five covariant membrane tying rows + `b_membrane_2017` (Eq. 27).
+- [x] **4.2** `b_bending_2017` → `(B_b1, B_b2)` (Eqs. 7c/7d + Eq. 8a).
+- [x] **4.3** `b_shear_mitc4` + the four stored tying operators +
+  `shear_covariant_to_local`.
+- [x] **4.4** `b_drill_membrane_2025` (Eq. 18) + `drill_midside_shape_derivatives` +
+  `tests::drill::b_md_reference` + the five asserted rejections.
+- [x] **4.5** the `c_r`/`c_s` collision test.
+
+### Files changed (WU3)
+
+| File | Change |
+| --- | --- |
+| `crates/aeroelast-core/src/elements/mitc4_plusd.rs` | extended: the WU3 production operators (`j_loc_at`, `local_components`, `covariant_membrane_b_row`, `b_membrane_covariant_2017` / `b_membrane_2017`, `b_bending_covariant_2017` / `b_bending_2017`, `compute_shear_tie` / `b_shear_mitc4`, `DrillEdgeTerm` / `compute_drill_edges`, `drill_midside_shape_derivatives`, `drill_jacobian_ratio`, `b_drill_membrane_2025`), the new `Mitc4PlusDPrecomputed` fields (`b_rr_a`…`b_rs_e`, `b_shear_tie`, `drill_edges`) and the five WU3 tests in the inline test module (with `mod drill`) |
+| `openspec/changes/mitc4plusd-faithful/tasks.md` | 4.1–4.5 checked; the 4.4 module-layout deviation recorded |
+| `openspec/changes/mitc4plusd-faithful/apply-progress.md` | this WU3 section |
+
+Diff stat (tracked file, vs the WU2 commit `2f6cdf0`):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 1180 ++++++++++++++++++++-
+1 file changed, 1176 insertions(+), 4 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**: the hybrid
+is byte-identical. No file outside the authorized set was touched. `elements/mod.rs`
+was not edited.
+
+### Verification (WU3)
+
+Command (workspace root is `crates/`):
+
+```text
+cd crates && cargo test -p aeroelast-core
+```
+
+Result: **140 passed / 0 failed** (the WU2 baseline 135 + the 5 new WU3 tests).
+`rustfmt --edition 2021 --check` is clean for the file. `cargo clippy -p
+aeroelast-core --all-targets` reports no lint on the WU3 code other than the same
+staged `dead_code` "never used" warnings WU2 already documented (the operators are
+exercised by the tests and are wired into the stiffness in WU4/WU5). No
+`#[allow(dead_code)]` was added.
+
+### New tests and what each asserts
+
+| Test | Asserts |
+| --- | --- |
+| `test_t1a_membrane_eq22_flat_tying_condition` | Eq. (22) `ẽ_rs^m\|bil = e_rs^m\|bil = x_d·u_d` to `1e-14` absolute on the flat distorted quad (non-vacuous, `\|bil\| > 1e-6`); the same comparison separates by `> 1e-6` relative on the doubly warped quad; the mapped operator equals the covariant field with its third row doubled followed by the point-wise mapping (proves the `2 e_rs` factor sits at the mapping, not in Eq. 27c); and Eq. (27c) reduces to Eq. (18c)'s `e_rs(E) + ½e_rr\|lin r + ½e_ss\|lin s` on a flat rectangle (note F2 / the leading `1`). |
+| `test_identity_bending_operator_matches_eq7c_eq7d` | `b_bending_covariant_2017 == bending_reference` (Eqs. 7c/7d including `∂x_b·∂u_m` of Eq. 8a) to `1e-10` relative at the four Gauss points on the flat rectangle and the doubly warped quad; both operators are 3×24 with no condensed internal DOF; the `∂x_b·∂u_m` term is present (separates by `> 1e-6` on the warped quad) and vanishes `≤ 1e-14` on the flat one. |
+| `test_shear_mitc4_flat_reduces_to_mindlin_assumed_field` | at the four DB84 tying points the local operator equals the standard Mindlin shears `γ_13 = w_,x + θ_y`, `γ_23 = w_,y − θ_x` to `1e-12`; non-vacuity: at a Gauss point the assumed field differs from the point-wise Mindlin field by `> 1e-6` relative. |
+| `test_identity_drill_operator_matches_eq18_term_by_term` | **Oracle 1**: `b_drill_membrane_2025` vs `tests::drill::b_md_reference` entry by entry (72 entries) to `1e-12` absolute at 9 points (4 Gauss + 4 edge mid-points + centre) on flat square, flat distorted, ruled warped and doubly warped quads. **Oracle 2**: the five wrong variants each separate from Eq. (18) above their margin (`V^D → e3` `>1e-6`; missing `1/8` `>1e-3`; edge order `[bottom,right,top,left]` `>1e-6`; flipped edge difference `>1e-6`; `θ_z` alone `>1e-6`). |
+| `test_identity_cr_cs_2017_and_2025_are_different_quantities` | `pre.c_r_mem`/`c_s_mem` equal `x_d·m^r`/`x_d·m^s` (Eq. 25); the stored `drill_edges[e].c_r/c_s` equal the independently recomputed Eq. (18)/(19c) values; and the 2017 and 2025 quantities separate by `> 1e-6` relative on the warped quad. |
+
+### TDD evidence (WU3, explicit test-first; `strict_tdd: false`)
+
+The five tests were written first and observed **RED**: `cargo test` failed to compile
+with `error[E0432]: unresolved imports super::b_bending_2017, …, super::drill_edges …`
+and `error[E0609]: no field drill_edges on type Mitc4PlusDPrecomputed`. The production
+operators were then added and the suite went **GREEN** (140/0). Each test was
+afterwards shown to fail for a wrong implementation; restoring the file returns 140/0.
+
+| # | Test shown RED | Perturbation | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `test_t1a_membrane_eq22_flat_tying_condition` | drop the Eq. (27c) leading `1` (`(a_E rs)` instead of `(1 + a_E rs)`) | flat-rectangle Eq. (18c) reduction mismatch |
+| 2 | same | negate `a_E` in Eq. (27c) | flat bilinear-coefficient mismatch |
+| 3 | `test_identity_bending_operator_matches_eq7c_eq7d` | zero the `∂x_b·∂u_m` term of Eq. (8a) | B_b1 mismatch vs Eq. (7c) at a Gauss point |
+| 4 | `test_shear_mitc4_flat_reduces_to_mindlin_assumed_field` | swap the A/B tying rows | tying-point Mindlin mismatch |
+| 5 | `test_identity_drill_operator_matches_eq18_term_by_term` | `V^D → e3` (both `c_r/c_s` and `θ^D`) | `ruled-warped [0][4]`: `0` vs `−1.88e-4` |
+| 6 | same | drop the `1/8` of Eq. (13c) | `flat-square [2][11]`: `−2.309` vs `−0.2887` |
+| 7 | same | `h̃` edge order `[bottom, right, top, left]` | `flat-square [0][5]`: `−6.10e-2` vs `0` |
+| 8 | same | flip the edge-difference sign | `flat-square [2][11]`: `+0.2887` vs `−0.2887` |
+| 9 | same | `θ_z` alone in place of `θ·V^D` | `ruled-warped [0][4]`: `0` vs `−1.88e-4` |
+| 10 | `test_identity_cr_cs_2017_and_2025_are_different_quantities` | set the stored `drill_edges` c-values to `0.0` | stored `c_r` mismatch |
+| 11 | `test_identity_drill_operator_matches_eq18_term_by_term` (the 4.5 conflation) | substitute the 2017 `c_r_mem`/`c_s_mem` into the drill operator | `flat-square [2][11]`: `0` vs `−0.2887` |
+
+Rows 5–9 are the design's five asserted rejections; the in-test variant assertions and
+these production perturbations are the two sides of the same evidence.
+
+### Findings (WU3)
+
+1. **The Eq. (22) test needed one extra assertion to cover note F2.** The task's
+   specified comparison extracts the bilinear (`r·s`) coefficient; a four-corner second
+   difference is blind to a constant offset, so dropping Eq. (27c)'s leading `1` does
+   not move that coefficient. The test now additionally asserts the flat-rectangle
+   reduction to Eq. (18c), which the leading `1` *is* required for — that assertion is
+   what row 1 above shows RED. No extract defect is implied; the extract's Eq. (18) and
+   note F2 agree with the implementation.
+2. **No error found in either extract.** The production Eq. (18) operator agrees with
+   the independently written `b_md_reference` to `1e-12` at every sample point on all
+   four quads, and Eq. (22) holds exactly on flat geometry (also re-derived
+   algebraically: `a_A e_rr(A) + … + a_E e_rs(E) = x_d·u_d` when `x_d·n = 0`). No vision
+   re-read was needed and neither extract was edited.
+3. **A test-side frame bug was found and fixed during test-first.** The first `true_bil`
+   applied the local-frame projection twice (the DOFs are already local components); the
+   failure exposed it and the test now projects `x_d` only. The production operator was
+   correct throughout.
+
+### Deviations from design (WU3)
+
+1. **4.4 module layout (recorded on the task).** Tasks name `…/tests/drill.rs`; per the
+   WU1 repository-convention decision the independent reference lives in `mod drill`
+   inside the inline `#[cfg(test)] mod tests`. It still shares no code with
+   `b_drill_membrane_2025`.
+2. **WU3 size.** ~1180 changed lines vs the design's ~350 forecast and the 700-line
+   session budget. Covered by the accepted session `size:exception`. The overrun is the
+   paper/equation doc comments on every operator plus the independent drill reference,
+   its one-parameter wrong variants, the 4-quad × 9-point × 72-entry comparison and the
+   11-row RED evidence. No test, doc or citation was dropped.
+3. **`b_membrane_covariant_2017` / `b_bending_covariant_2017` helpers.** The design lists
+   only `b_membrane_2017` and `b_bending_2017 (→ B_b1, B_b2)`. The covariant halves are
+   split out so the Eq. (27) / Eqs. (7c)-(7d) assembly can be tested independently of
+   the covariant→local mapping, and so the `2 e_rs` factor's placement is explicit. The
+   designed entry points are unchanged and delegate to them.
+
+### Remaining tasks (WU3)
+
+The next implementable unit is **WU4** (tasks 5.1–5.8); the exact remaining unchecked
+lines of section 5 are:
+
+```text
+- [ ] **5.1 `resultant_moment_matrix`** (the `W_00 … W_22` block matrix of design §2.3, with `W_22 = cm/9` from paper A's 2×2 `t`-rule), with the multi-ply approximation documented in the doc comment. Touches `mitc4_plusd.rs`, `mitc4_plusd/tests.rs`. Verification: a unit test of the moment entries against their closed forms; no spec-fixed name exists, so this is stated as a design-derived unit test rather than a spec test. Satisfies: Requirement 1 item 8. <!-- sdd-owner: implementation -->
+- [ ] **5.2 `compute_ke_local` / `compute_ke_global` + the drill contribution + the `cs_uncorrected` wiring + the test-local reference implementation.** Touches `mitc4_plusd.rs`, `mitc4_plusd/tests.rs`. Verification: `cd crates && cargo test -p aeroelast-core test_identity_ke_lock_matches_2017_core_plus_2025_drill` — `max|K_prod − K_ref| ≤ 1e-10·max|K_ref|` on flat square, flat distorted, ruled warped and doubly warped quads, with the same bound on the membrane and transverse-shear blocks. Satisfies: Requirement 1 scenario 1. <!-- sdd-owner: implementation -->
+- [ ] **5.3 Drill stiffness provenance.** Touches `mitc4_plusd.rs`, `mitc4_plusd/tests.rs`. Verification: `cd crates && cargo test -p aeroelast-core test_identity_drill_stiffness_comes_only_from_eq26` — non-zero on warped geometry; exactly symmetric; **exactly zero on every translational row/column block**; exactly zero on every rotation block other than the drill's own on flat geometry; and `|u_rbᵀ K u_rb| ≤ 1e-12·λ_max·‖u_rb‖²` for the six rigid-body fields. Satisfies: Requirement 1 scenario 2 (design §9.1 interpretation, already reflected in spec rev 4). <!-- sdd-owner: implementation -->
+- [ ] **5.4 Uncorrected transverse shear — the discriminating test.** Touches `mitc4_plusd.rs`, `mitc4_plusd/tests.rs`. Verification: `cd crates && cargo test -p aeroelast-core test_identity_transverse_shear_uses_uncorrected_shear_modulus` (block vs closed-form `∫ B_γᵀ (G·I) B_γ dA` to `1e-10`; the `5/6` value rejected by `> 1e-3` relative, asserted) and `cd crates && cargo test -p aeroelast-core test_identity_transverse_shear_invariant_to_shear_correction_factor` (ADR-1's two-`pre` construction on isotropic and single-ply laminate, plus the two non-vacuity controls: the `k`-carrying control differs by `> 1e-3` relative). Satisfies: Requirement 16. <!-- sdd-owner: implementation -->
+- [ ] **5.5 Integration rule.** Touches `mitc4_plusd.rs`, `mitc4_plusd/tests.rs`. Verification: `cd crates && cargo test -p aeroelast-core test_identity_integration_rule_is_2x2x2_and_discriminates_surface_only` on the strongly warped quad — matches the three-term reference to `1e-10` and differs from the surface-only reference by `> 1e-4` relative (asserted). Satisfies: Requirement 1 item 8. <!-- sdd-owner: implementation -->
+- [ ] **5.6 Local matrix shapes.** Touches `mitc4_plusd.rs`, `mitc4_plusd/tests.rs`. Verification: `cd crates && cargo test -p aeroelast-core test_kinematics_local_matrices_are_24x24` — `K`, `M`, `K_T` exactly 24×24 and `f_int` exactly 24 long, drilling at slot `6i+5`. Satisfies: Requirement 2. <!-- sdd-owner: implementation -->
+- [ ] **5.7 Drill-DOF energy behaviour.** Touches `mitc4_plusd.rs`, `mitc4_plusd/tests.rs`. Verification: `cd crates && cargo test -p aeroelast-core test_kinematics_drill_dof_is_theta_z_through_eq26_operator` — energy `≤ 1e-12·λ_max·‖u‖²` for a pure rigid rotation about `V_n`, and non-zero energy on the warped `θ_z` pattern only through the Eq. (26) operator. Satisfies: Requirement 2. <!-- sdd-owner: implementation -->
+- [ ] **5.8 Mid-surface restriction (ADR-6 / G7).** Touches `mitc4_plusd.rs`, `mitc4_plusd/tests.rs`. Verification: `cd crates && cargo test -p aeroelast-core test_identity_element_uses_midsurface_constitutive` — the element's constitutive equals `Laminate::to_shell_constitutive()` — plus the supporting static check `grep -n "to_shell_constitutive_with_offset" crates/aeroelast-core/src/elements/mitc4_plusd.rs` returns no match (supporting, not normative). Satisfies: Requirement 16 scenario 2. <!-- sdd-owner: implementation -->
+```
+
+Sections 6–13 remain pending in `tasks.md`; task 2.4 remains the recorded WU4 deferral.
+
+### Workload / PR boundary (WU3)
+
+Single PR, accepted `size:exception`. WU3 is one review slice: the four B-operators and
+the drill verification, extending `mitc4_plusd.rs` with a green tree, its own
+verification `command` and rollback = revert the WU3 block (WU1/WU2 and `mod.rs` are
+untouched).

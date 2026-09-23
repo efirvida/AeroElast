@@ -60,9 +60,26 @@
 //   six degrees of freedom at each node - the MITC4/D and MITC4+/D elements",
 //   Computers and Structures 308:107622.
 
-use nalgebra::{Matrix2, Matrix3, Vector3};
+use nalgebra::{Matrix2, Matrix3, SMatrix, Vector3};
 
 use crate::materials::ShellConstitutive;
+
+/// The bilinear node coordinates `(xi_i, eta_i)` of Ko, Bathe & Zhang (2025),
+/// C&S 308:107622, Eq. (2), p. 2, in the repository's node order (node 0 at
+/// `(-1,-1)`, counter-clockwise):
+///
+/// ```text
+/// [xi_1 xi_2 xi_3 xi_4]  = [ 1 -1 -1  1 ]   (paper numbering)
+/// [eta_1 eta_2 eta_3 eta_4] = [ 1  1 -1 -1 ]
+/// ```
+const NODE_XI: [f64; 4] = [-1.0, 1.0, 1.0, -1.0];
+const NODE_ETA: [f64; 4] = [-1.0, -1.0, 1.0, 1.0];
+
+/// Read node `i` of a four-node element as a 3D vector.
+#[inline(always)]
+fn node_vec(coords_3d: &[[f64; 3]; 4], i: usize) -> Vector3<f64> {
+    Vector3::new(coords_3d[i][0], coords_3d[i][1], coords_3d[i][2])
+}
 
 // ============================================================================
 // Shape functions
@@ -547,6 +564,25 @@ pub struct Mitc4PlusDPrecomputed {
     /// `j0 = j(0,0,0)` with `j = det[g_r g_s g_t]|_{(r,s,0)}`, Ko, Bathe &
     /// Zhang (2025), C&S 308:107622, Eq. (17b) context, p. 8.
     pub j0: f64,
+    /// The five covariant membrane tying rows of Ko, Lee & Bathe (2017),
+    /// C&S 182:404-418, Eqs. (15)-(17), sampled at the Fig. 4 tying points
+    /// A(0,+1), B(0,-1), C(+1,0), D(-1,0), E(0,0). Translational slots only;
+    /// each row is `e_rr`, `e_ss` or `e_rs` (not doubled).
+    pub b_rr_a: [f64; 24],
+    pub b_rr_b: [f64; 24],
+    pub b_ss_c: [f64; 24],
+    pub b_ss_d: [f64; 24],
+    pub b_rs_e: [f64; 24],
+    /// The four covariant transverse-shear tying operators of Dvorkin & Bathe
+    /// (1984), Engineering Computations 1:77-88, Eq. (3), as reproduced in
+    /// Ko, Lee & Bathe (2017), C&S 182:404-418, p. 405, ordered
+    /// `[A(top,s=+1), B(bottom,s=-1), C(right,r=+1), D(left,r=-1)]`. Row 0 is
+    /// the `e_rt` component, row 1 the `e_st` component.
+    pub b_shear_tie: [SMatrix<f64, 2, 24>; 4],
+    /// The four drill-membrane edge terms of Ko, Bathe & Zhang (2025),
+    /// C&S 308:107622, Eqs. (13c)/(18), in the paper's edge order
+    /// `l = 5..8` = [right, top, left, bottom].
+    pub drill_edges: [DrillEdgeTerm; 4],
 }
 
 impl Mitc4PlusDPrecomputed {
@@ -589,6 +625,25 @@ impl Mitc4PlusDPrecomputed {
         };
         let j0 = centre_normal.dot(&g_t0);
 
+        // The five covariant membrane tying rows of Ko, Lee & Bathe (2017),
+        // C&S 182:404-418, Eqs. (15)-(17), at Fig. 4's A, B, C, D, E.
+        let b_rr_a = covariant_membrane_b_row(&x_r, &x_s, &x_d, &e1, &e2, &e3, 0.0, 1.0, 0);
+        let b_rr_b = covariant_membrane_b_row(&x_r, &x_s, &x_d, &e1, &e2, &e3, 0.0, -1.0, 0);
+        let b_ss_c = covariant_membrane_b_row(&x_r, &x_s, &x_d, &e1, &e2, &e3, 1.0, 0.0, 1);
+        let b_ss_d = covariant_membrane_b_row(&x_r, &x_s, &x_d, &e1, &e2, &e3, -1.0, 0.0, 1);
+        let b_rs_e = covariant_membrane_b_row(&x_r, &x_s, &x_d, &e1, &e2, &e3, 0.0, 0.0, 2);
+        // The four transverse-shear tying operators (DB84 Eq. 3): A(top),
+        // B(bottom), C(right), D(left).
+        let b_shear_tie = [
+            compute_shear_tie(&coords_3d, &vn, &a_i, &e1, &e2, &e3, 0.0, 1.0),
+            compute_shear_tie(&coords_3d, &vn, &a_i, &e1, &e2, &e3, 0.0, -1.0),
+            compute_shear_tie(&coords_3d, &vn, &a_i, &e1, &e2, &e3, 1.0, 0.0),
+            compute_shear_tie(&coords_3d, &vn, &a_i, &e1, &e2, &e3, -1.0, 0.0),
+        ];
+        // The four drill-membrane edge terms of Ko, Bathe & Zhang (2025),
+        // C&S 308:107622, Eq. (13c)/(18).
+        let drill_edges = compute_drill_edges(&coords_3d, &v_d);
+
         Mitc4PlusDPrecomputed {
             local_coords,
             t3,
@@ -614,6 +669,13 @@ impl Mitc4PlusDPrecomputed {
             a_coeffs,
             v_d,
             j0,
+            b_rr_a,
+            b_rr_b,
+            b_ss_c,
+            b_ss_d,
+            b_rs_e,
+            b_shear_tie,
+            drill_edges,
         }
     }
 }
@@ -676,14 +738,433 @@ fn interpolate_displacement(
     u
 }
 
+// ============================================================================
+// WU3 — the B-operators
+// ============================================================================
+//
+// Citations are self-contained (author-year plus journal, volume and pages):
+//
+//   Ko, Lee & Bathe (2017), "A new MITC4+ shell element", Computers and
+//   Structures 182:404-418.
+//   Dvorkin & Bathe (1984), "A continuum mechanics based four-node shell
+//   element for general nonlinear analysis", Engineering Computations 1:77-88
+//   (reproduced in Ko, Lee & Bathe (2017), C&S 182:404-418, p. 405).
+//   Ko, Bathe & Zhang (2025), "Continuum mechanics-based shell elements with
+//   six degrees of freedom at each node - the MITC4/D and MITC4+/D elements",
+//   Computers and Structures 308:107622.
+
+/// The mid-surface Jacobian `j_loc[alpha][a] = g_a . e_alpha` (alpha = 1, 2;
+/// a = r, s) at `(r, s)`.
+///
+/// With `g_r = x_r + s x_d` and `g_s = x_s + r x_d` (Ko, Lee & Bathe (2017),
+/// C&S 182:404-418, Eq. (9), p. 406), this is the matrix inverted by Eq. (11)
+/// and used by [`covariant_to_local_mapping`].
+fn j_loc_at(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> Matrix2<f64> {
+    let (g_r, g_s, _) = compute_j3d_enriched(&pre.initial_coords_3d, &pre.vn, &pre.a_i, r, s, 0.0);
+    Matrix2::new(
+        g_r.dot(&pre.e1),
+        g_s.dot(&pre.e1),
+        g_r.dot(&pre.e2),
+        g_s.dot(&pre.e2),
+    )
+}
+
+/// Components of a 3D vector in the element's local orthonormal frame.
+#[inline(always)]
+fn local_components(pre: &Mitc4PlusDPrecomputed, v: &Vector3<f64>) -> Vector3<f64> {
+    Vector3::new(v.dot(&pre.e1), v.dot(&pre.e2), v.dot(&pre.e3))
+}
+
+/// One displacement-based covariant membrane strain row (1x24) of
+/// Ko, Lee & Bathe (2017), C&S 182:404-418, Eqs. (15)-(17), p. 408, sampled at
+/// `(r, s)`. `component`: 0 = `e_rr`, 1 = `e_ss`, 2 = `e_rs` (not doubled).
+///
+/// ```text
+/// e_rr^m(r,s) = (x_r + s x_d) . (u_r + s u_d)
+/// e_ss^m(r,s) = (x_s + r x_d) . (u_s + r u_d)
+/// e_rs^m(r,s) = 1/2[(x_r + s x_d).(u_s + r u_d) + (x_s + r x_d).(u_r + s u_d)]
+/// ```
+///
+/// with `u_r = 1/4 sum xi_i u_i`, `u_s = 1/4 sum eta_i u_i`,
+/// `u_d = 1/4 sum xi_i eta_i u_i` (Eq. 9). The rows carry translational slots
+/// only. The five rows are sampled at the Fig. 4 tying points A(0,+1),
+/// B(0,-1), C(+1,0), D(-1,0), E(0,0).
+fn covariant_membrane_b_row(
+    x_r: &Vector3<f64>,
+    x_s: &Vector3<f64>,
+    x_d: &Vector3<f64>,
+    e1: &Vector3<f64>,
+    e2: &Vector3<f64>,
+    e3: &Vector3<f64>,
+    r: f64,
+    s: f64,
+    component: usize,
+) -> [f64; 24] {
+    let g_r = x_r + s * x_d;
+    let g_s = x_s + r * x_d;
+    let gr = [g_r.dot(e1), g_r.dot(e2), g_r.dot(e3)];
+    let gs = [g_s.dot(e1), g_s.dot(e2), g_s.dot(e3)];
+    let mut b = [0.0f64; 24];
+    for i in 0..4 {
+        let a_r = 0.25 * NODE_XI[i];
+        let a_s = 0.25 * NODE_ETA[i];
+        let a_d = 0.25 * NODE_XI[i] * NODE_ETA[i];
+        for k in 0..3 {
+            b[6 * i + k] = match component {
+                0 => (a_r + s * a_d) * gr[k],
+                1 => (a_s + r * a_d) * gs[k],
+                _ => 0.5 * ((a_s + r * a_d) * gr[k] + (a_r + s * a_d) * gs[k]),
+            };
+        }
+    }
+    b
+}
+
+/// The assumed covariant membrane strain rows `[e~_rr, e~_ss, e~_rs]` of
+/// Ko, Lee & Bathe (2017), C&S 182:404-418, Eqs. (27a-c), p. 410.
+///
+/// Note F1 of `docs/formulations/mitc4plus-2017-extract.md`: Eqs. (27a-c) is
+/// the closed form of Eqs. (21)+(26) and its Eq. (27c) coefficient
+/// `(1 + a_E r s)` carries the leading `e_rs^m|bil` term the printed Eq. (21)
+/// omits (note F2). The engineering shear `2 e_rs` is applied by
+/// [`b_membrane_2017`] at the covariant-to-local mapping, not here.
+fn b_membrane_covariant_2017(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> SMatrix<f64, 3, 24> {
+    let a = pre.a_coeffs;
+    let mut b = SMatrix::<f64, 3, 24>::zeros();
+    for j in 0..24 {
+        b[(0, j)] = 0.5 * (1.0 - 2.0 * a[0] + s + 2.0 * a[0] * s * s) * pre.b_rr_a[j]
+            + 0.5 * (1.0 - 2.0 * a[1] - s + 2.0 * a[1] * s * s) * pre.b_rr_b[j]
+            + a[2] * (-1.0 + s * s) * pre.b_ss_c[j]
+            + a[3] * (-1.0 + s * s) * pre.b_ss_d[j]
+            + a[4] * (-1.0 + s * s) * pre.b_rs_e[j];
+        b[(1, j)] = a[0] * (-1.0 + r * r) * pre.b_rr_a[j]
+            + a[1] * (-1.0 + r * r) * pre.b_rr_b[j]
+            + 0.5 * (1.0 - 2.0 * a[2] + r + 2.0 * a[2] * r * r) * pre.b_ss_c[j]
+            + 0.5 * (1.0 - 2.0 * a[3] - r + 2.0 * a[3] * r * r) * pre.b_ss_d[j]
+            + a[4] * (-1.0 + r * r) * pre.b_rs_e[j];
+        b[(2, j)] = 0.25 * (r + 4.0 * a[0] * r * s) * pre.b_rr_a[j]
+            + 0.25 * (-r + 4.0 * a[1] * r * s) * pre.b_rr_b[j]
+            + 0.25 * (s + 4.0 * a[2] * r * s) * pre.b_ss_c[j]
+            + 0.25 * (-s + 4.0 * a[3] * r * s) * pre.b_ss_d[j]
+            + (1.0 + a[4] * r * s) * pre.b_rs_e[j];
+    }
+    b
+}
+
+/// The MITC4+ assumed membrane strain of Ko, Lee & Bathe (2017),
+/// C&S 182:404-418, Eqs. (27a-c) mapped point-wise to the local orthonormal
+/// frame. Returns the local `[e_11, e_22, 2 e_12]` rows.
+fn b_membrane_2017(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> SMatrix<f64, 3, 24> {
+    let mut cov = b_membrane_covariant_2017(pre, r, s);
+    for j in 0..24 {
+        cov[(2, j)] *= 2.0;
+    }
+    let t = covariant_to_local_mapping(&j_loc_at(pre, r, s));
+    t * cov
+}
+
+/// The displacement-based bending strain rows of Ko, Lee & Bathe (2017),
+/// C&S 182:404-418, Eqs. (7c)/(7d), p. 406, including the `dx_b . du_m`
+/// contribution of Eq. (8a), p. 406.
+///
+/// Returns the covariant `(e^b1, e^b2)` triples, each `[e_rr, e_ss, 2 e_rs]`,
+/// so the caller maps them with [`covariant_to_local_mapping`].
+fn b_bending_covariant_2017(
+    pre: &Mitc4PlusDPrecomputed,
+    r: f64,
+    s: f64,
+) -> (SMatrix<f64, 3, 24>, SMatrix<f64, 3, 24>) {
+    let (dn_dr, dn_ds) = shape_function_derivatives(r, s);
+    // x_m tangents (Eq. 9), in the local frame.
+    let xm_r = local_components(pre, &(pre.x_r + s * pre.x_d));
+    let xm_s = local_components(pre, &(pre.x_s + r * pre.x_d));
+    // x_b tangents (Eq. 8a); V_n^i are stored in the local frame.
+    let mut xb_r = Vector3::zeros();
+    let mut xb_s = Vector3::zeros();
+    for i in 0..4 {
+        xb_r += 0.5 * pre.a_i[i] * dn_dr[i] * pre.vn[i];
+        xb_s += 0.5 * pre.a_i[i] * dn_ds[i] * pre.vn[i];
+    }
+
+    let mut b1 = SMatrix::<f64, 3, 24>::zeros();
+    let mut b2 = SMatrix::<f64, 3, 24>::zeros();
+    for i in 0..4 {
+        // Coefficients of u_i in du_m/dr and du_m/ds.
+        let um_r = 0.25 * NODE_XI[i] * (1.0 + s * NODE_ETA[i]);
+        let um_s = 0.25 * NODE_ETA[i] * (1.0 + r * NODE_XI[i]);
+        // Coefficients of (theta_i x V_n^i) in du_b/dr and du_b/ds.
+        let ub_r = 0.5 * pre.a_i[i] * dn_dr[i];
+        let ub_s = 0.5 * pre.a_i[i] * dn_ds[i];
+        let vn = pre.vn[i];
+        // (theta x V)[k] = sum_bb L[k][bb] theta[bb].
+        let cross = [
+            [0.0, vn[2], -vn[1]],
+            [-vn[2], 0.0, vn[0]],
+            [vn[1], -vn[0], 0.0],
+        ];
+        for k in 0..3 {
+            // Eq. (7c), the dx_b . du_m part of Eq. (8a).
+            b1[(0, 6 * i + k)] += xb_r[k] * um_r;
+            b1[(1, 6 * i + k)] += xb_s[k] * um_s;
+            b1[(2, 6 * i + k)] += 0.5 * (xb_r[k] * um_s + xb_s[k] * um_r);
+            for bb in 0..3 {
+                let ubk = ub_r * cross[k][bb];
+                let ubs = ub_s * cross[k][bb];
+                // Eq. (7c), the dx_m . du_b part.
+                b1[(0, 6 * i + 3 + bb)] += xm_r[k] * ubk;
+                b1[(1, 6 * i + 3 + bb)] += xm_s[k] * ubs;
+                b1[(2, 6 * i + 3 + bb)] += 0.5 * (xm_r[k] * ubs + xm_s[k] * ubk);
+                // Eq. (7d).
+                b2[(0, 6 * i + 3 + bb)] += xb_r[k] * ubk;
+                b2[(1, 6 * i + 3 + bb)] += xb_s[k] * ubs;
+                b2[(2, 6 * i + 3 + bb)] += 0.5 * (xb_r[k] * ubs + xb_s[k] * ubk);
+            }
+        }
+    }
+    // Engineering shear: double the third covariant row.
+    for j in 0..24 {
+        b1[(2, j)] *= 2.0;
+        b2[(2, j)] *= 2.0;
+    }
+    (b1, b2)
+}
+
+/// The MITC4+ bending strain operators of Ko, Lee & Bathe (2017),
+/// C&S 182:404-418, Eqs. (7c)/(7d), mapped to the local frame. Returns
+/// `(B_b1, B_b2)`, each 3x24. The matrix is 24x24 in the assembly: there is no
+/// condensed internal DOF.
+fn b_bending_2017(
+    pre: &Mitc4PlusDPrecomputed,
+    r: f64,
+    s: f64,
+) -> (SMatrix<f64, 3, 24>, SMatrix<f64, 3, 24>) {
+    let (c1, c2) = b_bending_covariant_2017(pre, r, s);
+    let t = covariant_to_local_mapping(&j_loc_at(pre, r, s));
+    (t * c1, t * c2)
+}
+
+// ============================================================================
+// MITC4 assumed transverse shear (Dvorkin & Bathe 1984, Eq. 3, reproduced in
+// Ko, Lee & Bathe (2017), C&S 182:404-418, p. 405)
+// ============================================================================
+
+/// Build the covariant transverse-shear tying operator (2x24) at one tying
+/// point. Row 0 is `e_rt`, row 1 is `e_st` (Ko, Lee & Bathe (2017),
+/// C&S 182:404-418, Eq. (4), p. 405):
+///
+/// ```text
+/// e_rt = 1/2 (g_r . u_t + g_t . u_r)     e_st = 1/2 (g_s . u_t + g_t . u_s)
+/// ```
+///
+/// with `u_t = u_b = 1/2 sum a_i h_i (theta_i x V_n^i)` (Eq. 3, Eq. 8b) and
+/// `u_r = du_m/dr`, `u_s = du_m/ds` at `t = 0` (Eq. 9). The metric
+/// normalization to the local frame is applied point-wise afterwards by
+/// [`shear_covariant_to_local`]; no factor is introduced here.
+#[allow(clippy::too_many_arguments)]
+fn compute_shear_tie(
+    coords_3d: &[[f64; 3]; 4],
+    vn: &[Vector3<f64>; 4],
+    a_i: &[f64; 4],
+    e1: &Vector3<f64>,
+    e2: &Vector3<f64>,
+    e3: &Vector3<f64>,
+    r: f64,
+    s: f64,
+) -> SMatrix<f64, 2, 24> {
+    let (dn_dr, dn_ds) = shape_function_derivatives(r, s);
+    let h = shape_functions(r, s);
+    let (g_r_g, g_s_g, g_t_g) = compute_j3d_enriched(coords_3d, vn, a_i, r, s, 0.0);
+    let g_r = Vector3::new(g_r_g.dot(e1), g_r_g.dot(e2), g_r_g.dot(e3));
+    let g_s = Vector3::new(g_s_g.dot(e1), g_s_g.dot(e2), g_s_g.dot(e3));
+    let g_t = Vector3::new(g_t_g.dot(e1), g_t_g.dot(e2), g_t_g.dot(e3));
+    let mut b = SMatrix::<f64, 2, 24>::zeros();
+    for i in 0..4 {
+        // g_r . u_t = 1/2 a_i h_i theta_i . (V_n^i x g_r).
+        let vxg_r = vn[i].cross(&g_r);
+        let vxg_s = vn[i].cross(&g_s);
+        for k in 0..3 {
+            b[(0, 6 * i + k)] = 0.5 * g_t[k] * dn_dr[i];
+            b[(1, 6 * i + k)] = 0.5 * g_t[k] * dn_ds[i];
+            b[(0, 6 * i + 3 + k)] = 0.25 * a_i[i] * h[i] * vxg_r[k];
+            b[(1, 6 * i + 3 + k)] = 0.25 * a_i[i] * h[i] * vxg_s[k];
+        }
+    }
+    b
+}
+
+/// The MITC4 assumed transverse shear of Dvorkin & Bathe (1984),
+/// Engineering Computations 1:77-88, Eq. (3), as reproduced in Ko, Lee &
+/// Bathe (2017), C&S 182:404-418, p. 405:
+///
+/// ```text
+/// e~_rt = 1/2(1+s) e_rt^A + 1/2(1-s) e_rt^B      tying A (top, s=+1), B (bottom, s=-1)
+/// e~_st = 1/2(1+r) e_st^C + 1/2(1-r) e_st^D      tying C (right, r=+1), D (left, r=-1)
+/// ```
+///
+/// The covariant field is mapped to the local frame by
+/// [`shear_covariant_to_local`] (the 3D dual-basis form of the design, since
+/// Ko, Lee & Bathe (2017), C&S 182:404-418 prints the covariant definition
+/// (Eq. 4) but defers the tying-point construction to Dvorkin & Bathe (1984)).
+/// Returns the local `[gamma_13, gamma_23]` rows (2x24).
+fn b_shear_mitc4(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> SMatrix<f64, 2, 24> {
+    let mut cov = SMatrix::<f64, 2, 24>::zeros();
+    for j in 0..24 {
+        cov[(0, j)] = 0.5 * (1.0 + s) * pre.b_shear_tie[0][(0, j)]
+            + 0.5 * (1.0 - s) * pre.b_shear_tie[1][(0, j)];
+        cov[(1, j)] = 0.5 * (1.0 + r) * pre.b_shear_tie[2][(1, j)]
+            + 0.5 * (1.0 - r) * pre.b_shear_tie[3][(1, j)];
+    }
+    let (g_r, g_s, g_t) =
+        compute_j3d_enriched(&pre.initial_coords_3d, &pre.vn, &pre.a_i, r, s, 0.0);
+    let t = shear_covariant_to_local(&g_r, &g_s, &g_t, &pre.e1, &pre.e2, &pre.e3);
+    t * cov
+}
+
+// ============================================================================
+// Drill-membrane strain (Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. 18)
+// ============================================================================
+
+/// The four edge terms `(start, end, c_r^l, c_s^l)` of the Eq. (18)
+/// drill-membrane operator, in the paper's edge order `l = 5..8` =
+/// [right, top, left, bottom].
+#[derive(Clone, Copy, Debug)]
+pub struct DrillEdgeTerm {
+    /// Code node `i` of the paper's edge node pair `(i, i+1)` (subtracted).
+    pub start: usize,
+    /// Code node `i+1` (added).
+    pub end: usize,
+    /// `c_r^l = x_m^l . (-x_r^l x V^D)`, Eq. (18)/(19c).
+    pub c_r: f64,
+    /// `c_s^l = x_m^l . ( x_s^l x V^D)`, Eq. (18)/(19c).
+    pub c_s: f64,
+}
+
+/// The code node pair `(i, i+1)` of each drill edge, in the paper's order
+/// `l = 5..8` = [right, top, left, bottom]. Derived from Eq. (2)'s paper node
+/// numbering `1=(+1,+1), 2=(-1,+1), 3=(-1,-1), 4=(+1,-1)` and Eq. (13c)'s
+/// edge vectors `x_m^5 = 1/8(x_4 - x_1)`, `x_m^6 = 1/8(x_1 - x_2)`,
+/// `x_m^7 = 1/8(x_2 - x_3)`, `x_m^8 = 1/8(x_3 - x_4)`.
+const DRILL_EDGE_NODES: [(usize, usize); 4] = [(1, 2), (2, 3), (3, 0), (0, 1)];
+
+/// The mid-point `(r, s)` of each drill edge, in the same order.
+const DRILL_EDGE_MID: [(f64, f64); 4] = [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)];
+
+/// Compute the four edge terms of Eq. (13c)/(18): `x_m^l = 1/8 (x_i - x_{i+1})`
+/// and `c_r^l`, `c_s^l` from the mid-surface tangents at the edge mid-point.
+fn compute_drill_edges(coords_3d: &[[f64; 3]; 4], v_d: &Vector3<f64>) -> [DrillEdgeTerm; 4] {
+    let mut out = [DrillEdgeTerm {
+        start: 0,
+        end: 0,
+        c_r: 0.0,
+        c_s: 0.0,
+    }; 4];
+    for e in 0..4 {
+        let (start, end) = DRILL_EDGE_NODES[e];
+        let (r_m, s_m) = DRILL_EDGE_MID[e];
+        // Eq. (13c): x_m^l = 1/8 (x_i - x_{i+1}), so ||x_m^l|| = L_l / 8.
+        let x_m = 0.125 * (node_vec(coords_3d, start) - node_vec(coords_3d, end));
+        // Eq. (13b): the mid-surface tangents at the edge mid-point.
+        let (dn_dr, dn_ds) = shape_function_derivatives(r_m, s_m);
+        let mut x_r = Vector3::zeros();
+        let mut x_s = Vector3::zeros();
+        for j in 0..4 {
+            x_r += dn_dr[j] * node_vec(coords_3d, j);
+            x_s += dn_ds[j] * node_vec(coords_3d, j);
+        }
+        out[e] = DrillEdgeTerm {
+            start,
+            end,
+            c_r: x_m.dot(&(-x_r.cross(v_d))),
+            c_s: x_m.dot(&(x_s.cross(v_d))),
+        };
+    }
+    out
+}
+
+/// The simplified ("curl") derivatives of the four drill mid-side functions,
+/// Ko, Bathe & Zhang (2025), C&S 308:107622, Eqs. (10), (11a)/(11b), p. 5:
+///
+/// ```text
+/// [h~_5,r h~_6,r h~_7,r h~_8,r] = [ 0, -r(1+s), 0, -r(1-s) ]      (11a)
+/// [h~_5,s h~_6,s h~_7,s h~_8,s] = [ -s(1+r), 0, -s(1-r), 0 ]      (11b)
+/// ```
+///
+/// The zeros are the paper's deliberate simplification (text below Eq. 11b),
+/// which keeps the required integration order without losing the patch tests.
+/// The return order is the paper's [right, top, left, bottom] = [5, 6, 7, 8].
+#[inline(always)]
+fn drill_midside_shape_derivatives(r: f64, s: f64) -> [(f64, f64); 4] {
+    [
+        (0.0, -s * (1.0 + r)),
+        (-r * (1.0 + s), 0.0),
+        (0.0, -s * (1.0 - r)),
+        (-r * (1.0 - s), 0.0),
+    ]
+}
+
+/// The ratio `j0 / j` of Eq. (17b), Ko, Bathe & Zhang (2025),
+/// C&S 308:107622, p. 8, with `j = det[g_r g_s g_t]|_{(r,s,0)}` and
+/// `j0 = j(0,0,0)`. Exact scalar triple product, not a surface-measure ratio.
+fn drill_jacobian_ratio(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> f64 {
+    let (g_r, g_s, g_t) =
+        compute_j3d_enriched(&pre.initial_coords_3d, &pre.vn, &pre.a_i, r, s, 0.0);
+    let j = g_r.cross(&g_s).dot(&g_t);
+    if j.abs() > 1e-30 {
+        pre.j0 / j
+    } else {
+        0.0
+    }
+}
+
+/// The drill-membrane strain-displacement operator `B_md` (3x24) of
+/// Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (18), p. 8:
+///
+/// ```text
+/// e~_rr^md = (j0/j) h~_m,r^l (theta_{i+1}^D - theta_i^D) x_m^l . (-x_r^l x V^D)
+/// e~_ss^md = -(j0/j) h~_m,s^l (theta_{i+1}^D - theta_i^D) x_m^l . ( x_s^l x V^D)
+/// e~_rs^md = 1/2 (j0/j) [ h~_m,s^l x_m^l . (-x_r^l x V^D)
+///                        - h~_m,r^l x_m^l . ( x_s^l x V^D) ] (theta_{i+1}^D - theta_i^D)
+/// ```
+///
+/// with the drill rotation `theta_i^D = theta_i . V^D` of Eq. (6a)/(6f), one
+/// element-normal `V^D` of Eq. (5), and the edge `l` joining nodes `i` and
+/// `i+1` (Eq. 16a/16b, confirmed by Eq. 12d). The covariant operator is mapped
+/// with the constant element-centre base vectors of Eq. (21) (ADR-3).
+fn b_drill_membrane_2025(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> SMatrix<f64, 3, 24> {
+    let ratio = drill_jacobian_ratio(pre, r, s);
+    let dh = drill_midside_shape_derivatives(r, s);
+    let mut b_cov = SMatrix::<f64, 3, 24>::zeros();
+    for e in 0..4 {
+        let edge = pre.drill_edges[e];
+        let (h_r, h_s) = dh[e];
+        let coeff_rr = ratio * h_r * edge.c_r;
+        let coeff_ss = -ratio * h_s * edge.c_s;
+        let coeff_rs = 0.5 * ratio * (h_s * edge.c_r - h_r * edge.c_s);
+        for beta in 0..3 {
+            let vd = pre.v_d[beta];
+            b_cov[(0, 6 * edge.start + 3 + beta)] -= coeff_rr * vd;
+            b_cov[(0, 6 * edge.end + 3 + beta)] += coeff_rr * vd;
+            b_cov[(1, 6 * edge.start + 3 + beta)] -= coeff_ss * vd;
+            b_cov[(1, 6 * edge.end + 3 + beta)] += coeff_ss * vd;
+            b_cov[(2, 6 * edge.start + 3 + beta)] -= 2.0 * coeff_rs * vd;
+            b_cov[(2, 6 * edge.end + 3 + beta)] += 2.0 * coeff_rs * vd;
+        }
+    }
+    let t = covariant_to_local_mapping(&j_loc_at(pre, 0.0, 0.0));
+    t * b_cov
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        compute_membrane_coefficients_2017, interpolate_displacement, interpolate_position,
-        shape_functions, Mitc4PlusDPrecomputed,
+        b_bending_2017, b_bending_covariant_2017, b_drill_membrane_2025, b_membrane_2017,
+        b_membrane_covariant_2017, b_shear_mitc4, compute_membrane_coefficients_2017,
+        covariant_to_local_mapping, interpolate_displacement, interpolate_position, j_loc_at,
+        node_vec, shape_function_derivatives, shape_functions, Mitc4PlusDPrecomputed,
+        DRILL_EDGE_MID, NODE_ETA, NODE_XI,
     };
     use crate::materials::{isotropic::IsotropicMaterial, Material, ShellConstitutive};
-    use nalgebra::{DMatrix, Vector3};
+    use nalgebra::{DMatrix, SMatrix, Vector3};
 
     // ========================================================================
     // The 2017 and 2025 boundary-condition fixtures — the star patch
@@ -1522,5 +2003,696 @@ mod tests {
                 "theta parallel to V_n must give no director rotation, got {u}"
             );
         }
+    }
+
+    // ========================================================================
+    // WU3 — the B-operators (tasks 4.1-4.5)
+    // ========================================================================
+
+    /// The 2x2 Gauss coordinate `±1/sqrt(3)`.
+    const GP: f64 = 0.577_350_269_189_625_8;
+
+    /// A generic 24-vector with distinct, non-trivial entries.
+    fn generic_dofs() -> [f64; 24] {
+        let mut d = [0.0f64; 24];
+        let mut v = 0.037_f64;
+        for (k, dk) in d.iter_mut().enumerate() {
+            v = v * 1.7 + 0.019 * (k as f64 + 1.0);
+            *dk = v.sin();
+        }
+        d
+    }
+
+    fn row_dot_3(m: &SMatrix<f64, 3, 24>, row: usize, dofs: &[f64; 24]) -> f64 {
+        (0..24).map(|j| m[(row, j)] * dofs[j]).sum()
+    }
+
+    fn row_dot_2(m: &SMatrix<f64, 2, 24>, row: usize, dofs: &[f64; 24]) -> f64 {
+        (0..24).map(|j| m[(row, j)] * dofs[j]).sum()
+    }
+
+    fn scale_3(m: &SMatrix<f64, 3, 24>) -> f64 {
+        let mut s = 0.0f64;
+        for i in 0..3 {
+            for j in 0..24 {
+                s = s.max(m[(i, j)].abs());
+            }
+        }
+        s
+    }
+
+    /// Components of a 3D vector in the element's local orthonormal frame.
+    fn local_components(pre: &Mitc4PlusDPrecomputed, v: &Vector3<f64>) -> Vector3<f64> {
+        Vector3::new(v.dot(&pre.e1), v.dot(&pre.e2), v.dot(&pre.e3))
+    }
+
+    #[test]
+    fn test_t1a_membrane_eq22_flat_tying_condition() {
+        // Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (22): on a flat element
+        // (x_d . n = 0) the assumed bilinear shear coefficient e~_rs^m|bil
+        // equals its displacement-based counterpart e_rs^m|bil = x_d . u_d
+        // (Eq. 16).
+        let dofs = generic_dofs();
+
+        // The assumed bilinear coefficient, extracted exactly from the
+        // production covariant field
+        //   e~_rs(r,s) = e_rs(E) + 1/2 e_rr|lin r + 1/2 e_ss|lin s + bil r s
+        // (Eq. 27c) by the four-corner second difference.
+        let assumed_bil = |pre: &Mitc4PlusDPrecomputed| {
+            let f = |r: f64, s: f64| row_dot_3(&b_membrane_covariant_2017(pre, r, s), 2, &dofs);
+            0.25 * (f(1.0, 1.0) - f(1.0, -1.0) - f(-1.0, 1.0) + f(-1.0, -1.0))
+        };
+
+        // The independent Eq. (16)/(17) strain parts, recomputed from the DOFs
+        // and the stored geometry: (e_rr|con, e_ss|con, e_rs|con, e_rr|lin,
+        // e_ss|lin, e_rs|bil = x_d . u_d).
+        let parts = |pre: &Mitc4PlusDPrecomputed| {
+            let mut u_r = Vector3::zeros();
+            let mut u_s = Vector3::zeros();
+            let mut u_d = Vector3::zeros();
+            for i in 0..4 {
+                let ui = Vector3::new(dofs[6 * i], dofs[6 * i + 1], dofs[6 * i + 2]);
+                u_r += 0.25 * NODE_XI[i] * ui;
+                u_s += 0.25 * NODE_ETA[i] * ui;
+                u_d += 0.25 * NODE_XI[i] * NODE_ETA[i] * ui;
+            }
+            let x_r = local_components(pre, &pre.x_r);
+            let x_s = local_components(pre, &pre.x_s);
+            let x_d = local_components(pre, &pre.x_d);
+            (
+                x_r.dot(&u_r),
+                x_s.dot(&u_s),
+                0.5 * (x_r.dot(&u_s) + x_s.dot(&u_r)),
+                x_r.dot(&u_d) + x_d.dot(&u_r),
+                x_s.dot(&u_d) + x_d.dot(&u_s),
+                x_d.dot(&u_d),
+            )
+        };
+        let true_bil = |pre: &Mitc4PlusDPrecomputed| parts(pre).5;
+
+        // Flat distorted element: x_d is in-plane (x_d . n = 0), so Eq. (22)
+        // must hold exactly.
+        let flat = pre_from(&FLAT_DISTORTED);
+        assert!(
+            flat.x_d.dot(&flat.n_vec).abs() <= 1e-14 * flat.x_d.norm().max(1.0),
+            "flat fixture is not flat: x_d . n = {}",
+            flat.x_d.dot(&flat.n_vec)
+        );
+        let a_flat = assumed_bil(&flat);
+        let t_flat = true_bil(&flat);
+        assert!(
+            t_flat.abs() > 1e-6,
+            "flat fixture gives a zero bilinear coefficient; the check would be vacuous"
+        );
+        assert!(
+            (a_flat - t_flat).abs() <= 1e-14,
+            "flat element: Eq. (22) violated: e~_rs^m|bil = {a_flat}, e_rs^m|bil = {t_flat}"
+        );
+
+        // The engineering-shear factor `2 e_rs` is applied at the
+        // covariant-to-local mapping, not inside Eq. (27c): the mapped operator
+        // equals the covariant field with its third row doubled, followed by
+        // the point-wise mapping.
+        let (rr, ss) = (0.37, -0.62);
+        let mapped = b_membrane_2017(&flat, rr, ss);
+        let mut cov2 = b_membrane_covariant_2017(&flat, rr, ss);
+        for j in 0..24 {
+            cov2[(2, j)] *= 2.0;
+        }
+        let expect = covariant_to_local_mapping(&j_loc_at(&flat, rr, ss)) * cov2;
+        for i in 0..3 {
+            for j in 0..24 {
+                assert!(
+                    (mapped[(i, j)] - expect[(i, j)]).abs() <= 1e-14,
+                    "engineering-shear placement [{i}][{j}]: {} vs {}",
+                    mapped[(i, j)],
+                    expect[(i, j)]
+                );
+            }
+        }
+
+        // Warped element: x_d . n != 0, so Eq. (22) must fail measurably.
+        let warped = pre_from(&DOUBLY_WARPED);
+        assert!(
+            warped.x_d.dot(&warped.n_vec).abs() > 1e-3,
+            "warped fixture is flat"
+        );
+        let a_w = assumed_bil(&warped);
+        let t_w = true_bil(&warped);
+        let scale = a_w.abs().max(t_w.abs()).max(1e-30);
+        assert!(
+            (a_w - t_w).abs() > 1e-6 * scale,
+            "warped element: Eq. (22) not violated, no separation ({a_w} vs {t_w})"
+        );
+
+        // Note F2 of `docs/formulations/mitc4plus-2017-extract.md`: on a flat
+        // RECTANGLE (c_r = c_s = 0) Eq. (27c) must reduce to Eq. (18c)'s
+        //   e_rs(E) + 1/2 e_rr|lin r + 1/2 e_ss|lin s,
+        // which requires the leading `1` of `(1 + a_E r s)`. Dropping it is
+        // caught here (the four-corner extraction above cannot see a constant
+        // offset).
+        let rect = pre_from(&RECT);
+        let (_, _, e_rs_con, e_rr_lin, e_ss_lin, _) = parts(&rect);
+        for &(r, s) in &[(0.3, -0.4), (-0.7, 0.2), (0.0, 0.0)] {
+            let got = row_dot_3(&b_membrane_covariant_2017(&rect, r, s), 2, &dofs);
+            let expected = e_rs_con + 0.5 * e_rr_lin * r + 0.5 * e_ss_lin * s;
+            assert!(
+                (got - expected).abs() <= 1e-14,
+                "flat rectangle Eq. (18c) reduction at ({r},{s}): {got} vs {expected}"
+            );
+        }
+    }
+
+    /// Test-local evaluation of Ko, Lee & Bathe (2017), C&S 182:404-418,
+    /// Eqs. (7c)/(7d) with the `x_b` enrichment of Eq. (8a). Returns the
+    /// covariant `[e_rr, e_ss, 2 e_rs]` rows of `e^b1` and `e^b2`.
+    fn bending_reference(
+        pre: &Mitc4PlusDPrecomputed,
+        r: f64,
+        s: f64,
+        include_xb_um: bool,
+    ) -> (SMatrix<f64, 3, 24>, SMatrix<f64, 3, 24>) {
+        let (dn_dr, dn_ds) = shape_function_derivatives(r, s);
+        // x_m tangents (Eq. 9) in local components.
+        let mut xm_r = Vector3::zeros();
+        let mut xm_s = Vector3::zeros();
+        for i in 0..4 {
+            xm_r += dn_dr[i] * node_vec(&pre.initial_coords_3d, i);
+            xm_s += dn_ds[i] * node_vec(&pre.initial_coords_3d, i);
+        }
+        let xm_r = local_components(pre, &xm_r);
+        let xm_s = local_components(pre, &xm_s);
+        // x_b tangents (Eq. 8a) are already in the local frame.
+        let mut xb_r = Vector3::zeros();
+        let mut xb_s = Vector3::zeros();
+        for i in 0..4 {
+            xb_r += 0.5 * pre.a_i[i] * dn_dr[i] * pre.vn[i];
+            xb_s += 0.5 * pre.a_i[i] * dn_ds[i] * pre.vn[i];
+        }
+
+        let mut b1 = SMatrix::<f64, 3, 24>::zeros();
+        let mut b2 = SMatrix::<f64, 3, 24>::zeros();
+        for i in 0..4 {
+            let um_r = 0.25 * NODE_XI[i] * (1.0 + s * NODE_ETA[i]);
+            let um_s = 0.25 * NODE_ETA[i] * (1.0 + r * NODE_XI[i]);
+            let ub_r = 0.5 * pre.a_i[i] * dn_dr[i];
+            let ub_s = 0.5 * pre.a_i[i] * dn_ds[i];
+            let vn = pre.vn[i];
+            let cross = [
+                [0.0, vn[2], -vn[1]],
+                [-vn[2], 0.0, vn[0]],
+                [vn[1], -vn[0], 0.0],
+            ];
+            for k in 0..3 {
+                if include_xb_um {
+                    b1[(0, 6 * i + k)] += xb_r[k] * um_r;
+                    b1[(1, 6 * i + k)] += xb_s[k] * um_s;
+                    b1[(2, 6 * i + k)] += 0.5 * (xb_r[k] * um_s + xb_s[k] * um_r);
+                }
+                for bb in 0..3 {
+                    let ubk = ub_r * cross[k][bb];
+                    let ubs = ub_s * cross[k][bb];
+                    b1[(0, 6 * i + 3 + bb)] += xm_r[k] * ubk;
+                    b1[(1, 6 * i + 3 + bb)] += xm_s[k] * ubs;
+                    b1[(2, 6 * i + 3 + bb)] += 0.5 * (xm_r[k] * ubs + xm_s[k] * ubk);
+                    b2[(0, 6 * i + 3 + bb)] += xb_r[k] * ubk;
+                    b2[(1, 6 * i + 3 + bb)] += xb_s[k] * ubs;
+                    b2[(2, 6 * i + 3 + bb)] += 0.5 * (xb_r[k] * ubs + xb_s[k] * ubk);
+                }
+            }
+        }
+        for j in 0..24 {
+            b1[(2, j)] *= 2.0;
+            b2[(2, j)] *= 2.0;
+        }
+        (b1, b2)
+    }
+
+    #[test]
+    fn test_identity_bending_operator_matches_eq7c_eq7d() {
+        let points = [(GP, GP), (GP, -GP), (-GP, GP), (-GP, -GP)];
+        for (name, geo, expect_xb_um) in [
+            ("flat-rect", RECT, false),
+            ("doubly-warped", DOUBLY_WARPED, true),
+        ] {
+            let pre = pre_from(&geo);
+
+            // The local bending matrices are 3x24 each: no condensed DOF.
+            let (bb1, bb2) = b_bending_2017(&pre, 0.0, 0.0);
+            assert_eq!(bb1.shape(), (3, 24), "{name}: B_b1 shape");
+            assert_eq!(bb2.shape(), (3, 24), "{name}: B_b2 shape");
+
+            let mut max_sep = 0.0f64;
+            for &(r, s) in &points {
+                let (c1, c2) = b_bending_covariant_2017(&pre, r, s);
+                let (r1, r2) = bending_reference(&pre, r, s, true);
+                let s1 = scale_3(&r1).max(1e-30);
+                let s2 = scale_3(&r2).max(1e-30);
+                for k in 0..3 {
+                    for j in 0..24 {
+                        assert!(
+                            (c1[(k, j)] - r1[(k, j)]).abs() <= 1e-10 * s1 + 1e-13,
+                            "{name} B_b1[{k}][{j}] at ({r},{s}): {} vs Eq. (7c) {}",
+                            c1[(k, j)],
+                            r1[(k, j)]
+                        );
+                        assert!(
+                            (c2[(k, j)] - r2[(k, j)]).abs() <= 1e-10 * s2 + 1e-13,
+                            "{name} B_b2[{k}][{j}] at ({r},{s}): {} vs Eq. (7d) {}",
+                            c2[(k, j)],
+                            r2[(k, j)]
+                        );
+                    }
+                }
+                // Non-vacuity of the Eq. (8a) `dx_b . du_m` term.
+                let (r1_without, _) = bending_reference(&pre, r, s, false);
+                for k in 0..3 {
+                    for j in 0..24 {
+                        max_sep = max_sep.max((r1[(k, j)] - r1_without[(k, j)]).abs());
+                    }
+                }
+            }
+            if expect_xb_um {
+                assert!(
+                    max_sep > 1e-6,
+                    "{name}: dx_b . du_m term of Eq. (8a) is absent (separation {max_sep})"
+                );
+            } else {
+                assert!(
+                    max_sep <= 1e-14,
+                    "{name}: dx_b . du_m must vanish on flat geometry (got {max_sep})"
+                );
+            }
+        }
+    }
+
+    /// The standard Mindlin transverse shear of a flat plate in the element's
+    /// local frame: `gamma_13 = w_,x + theta_y`, `gamma_23 = w_,y - theta_x`.
+    fn mindlin_shear(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64, dofs: &[f64; 24]) -> [f64; 2] {
+        let (dn_dr, dn_ds) = shape_function_derivatives(r, s);
+        let h = shape_functions(r, s);
+        let mut j = [[0.0f64; 2]; 2];
+        for i in 0..4 {
+            let lx = pre.local_coords[i][0];
+            let ly = pre.local_coords[i][1];
+            j[0][0] += dn_dr[i] * lx;
+            j[0][1] += dn_ds[i] * lx;
+            j[1][0] += dn_dr[i] * ly;
+            j[1][1] += dn_ds[i] * ly;
+        }
+        let det = j[0][0] * j[1][1] - j[0][1] * j[1][0];
+        let inv = [
+            [j[1][1] / det, -j[0][1] / det],
+            [-j[1][0] / det, j[0][0] / det],
+        ];
+        let (mut w_x, mut w_y, mut thx, mut thy) = (0.0, 0.0, 0.0, 0.0);
+        for i in 0..4 {
+            let dn_dx = inv[0][0] * dn_dr[i] + inv[0][1] * dn_ds[i];
+            let dn_dy = inv[1][0] * dn_dr[i] + inv[1][1] * dn_ds[i];
+            w_x += dn_dx * dofs[6 * i + 2];
+            w_y += dn_dy * dofs[6 * i + 2];
+            thx += h[i] * dofs[6 * i + 3];
+            thy += h[i] * dofs[6 * i + 4];
+        }
+        [w_x + thy, w_y - thx]
+    }
+
+    #[test]
+    fn test_shear_mitc4_flat_reduces_to_mindlin_assumed_field() {
+        // DB84 Eq. (3) as reproduced in Ko, Lee & Bathe (2017), C&S 182:404-418,
+        // p. 405. On a flat element the tying-point values are the standard
+        // Mindlin shears gamma_13 = w_,x + theta_y, gamma_23 = w_,y - theta_x.
+        let pre = pre_from(&RECT);
+        let dofs = generic_dofs();
+
+        for &(r, s, comp) in &[
+            (0.0f64, 1.0f64, 0usize),
+            (0.0, -1.0, 0),
+            (1.0, 0.0, 1),
+            (-1.0, 0.0, 1),
+        ] {
+            let got = row_dot_2(&b_shear_mitc4(&pre, r, s), comp, &dofs);
+            let exp = mindlin_shear(&pre, r, s, &dofs)[comp];
+            assert!(
+                (got - exp).abs() <= 1e-12 * exp.abs().max(1.0),
+                "tying point ({r},{s}) component {comp}: MITC4 {got} vs Mindlin {exp}"
+            );
+        }
+
+        // Non-vacuity: away from the tying points the assumed field is NOT the
+        // point-wise Mindlin field, so the check above is not the naive operator.
+        let b = b_shear_mitc4(&pre, GP, GP);
+        let got = [row_dot_2(&b, 0, &dofs), row_dot_2(&b, 1, &dofs)];
+        let exp = mindlin_shear(&pre, GP, GP, &dofs);
+        let sep = (got[0] - exp[0]).abs().max((got[1] - exp[1]).abs());
+        let scale = got[0]
+            .abs()
+            .max(got[1].abs())
+            .max(exp[0].abs())
+            .max(exp[1].abs())
+            .max(1e-30);
+        assert!(
+            sep > 1e-6 * scale,
+            "assumed and point-wise shear coincide at a Gauss point ({sep} vs {scale})"
+        );
+    }
+
+    /// Test-local reference for the drill-membrane operator, written from the
+    /// printed Eq. (18) alone (Ko, Bathe & Zhang (2025), C&S 308:107622, p. 8).
+    /// It shares no code with `b_drill_membrane_2025`: it recomputes `x_m^l`,
+    /// `x_r^l`, `x_s^l`, `j`, `j0`, `theta^D` and the paper's edge order
+    /// independently. If it ever disagrees with the production operator, the
+    /// resolution is a recorded vision re-read of the paper, never a silent
+    /// edit of this reference.
+    mod drill {
+        use super::*;
+
+        /// Paper node `p` (1..4) -> code node, Ko, Bathe & Zhang (2025),
+        /// C&S 308:107622, Eq. (2): paper 1=(+1,+1), 2=(-1,+1), 3=(-1,-1),
+        /// 4=(+1,-1).
+        const PAPER_TO_CODE: [usize; 4] = [2, 3, 0, 1];
+
+        /// Eq. (13c): the four edge vectors, paper edge order `l = 5..8` =
+        /// [right, top, left, bottom]. Entry `(a, b)` is the paper node pair of
+        /// edge `l` and `x_m^l = 1/8 (x_a - x_b)`.
+        const EDGE_PAPER: [(usize, usize); 4] = [(4, 1), (1, 2), (2, 3), (3, 4)];
+
+        /// Mid-point `(r, s)` of each edge `l = 5..8`.
+        const EDGE_MID: [(f64, f64); 4] = [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)];
+
+        fn shape(r: f64, s: f64) -> [f64; 4] {
+            [
+                0.25 * (1.0 - r) * (1.0 - s),
+                0.25 * (1.0 + r) * (1.0 - s),
+                0.25 * (1.0 + r) * (1.0 + s),
+                0.25 * (1.0 - r) * (1.0 + s),
+            ]
+        }
+
+        fn dshape(r: f64, s: f64) -> ([f64; 4], [f64; 4]) {
+            (
+                [
+                    -0.25 * (1.0 - s),
+                    0.25 * (1.0 - s),
+                    0.25 * (1.0 + s),
+                    -0.25 * (1.0 + s),
+                ],
+                [
+                    -0.25 * (1.0 - r),
+                    -0.25 * (1.0 + r),
+                    0.25 * (1.0 + r),
+                    0.25 * (1.0 - r),
+                ],
+            )
+        }
+
+        /// The exact `j(r,s) = det[g_r g_s g_t]|_{(r,s,0)}` of Eq. (17b).
+        fn jacobian(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> f64 {
+            let (dn_dr, dn_ds) = dshape(r, s);
+            let h = shape(r, s);
+            let mut g_r = Vector3::zeros();
+            let mut g_s = Vector3::zeros();
+            let mut g_t = Vector3::zeros();
+            for i in 0..4 {
+                g_r += dn_dr[i] * node_vec(&pre.initial_coords_3d, i);
+                g_s += dn_ds[i] * node_vec(&pre.initial_coords_3d, i);
+                g_t += 0.5 * pre.a_i[i] * h[i] * pre.vn[i];
+            }
+            g_r.cross(&g_s).dot(&g_t)
+        }
+
+        /// The `V^D` of Eq. (5), recomputed from the geometry.
+        pub fn drill_normal(pre: &Mitc4PlusDPrecomputed) -> Vector3<f64> {
+            let (dn_dr, dn_ds) = dshape(0.0, 0.0);
+            let mut x_r = Vector3::zeros();
+            let mut x_s = Vector3::zeros();
+            for i in 0..4 {
+                x_r += dn_dr[i] * node_vec(&pre.initial_coords_3d, i);
+                x_s += dn_ds[i] * node_vec(&pre.initial_coords_3d, i);
+            }
+            x_r.cross(&x_s).normalize()
+        }
+
+        /// The exact 3x3 covariant-to-local map of Eq. (21): the constant
+        /// element-centre base vectors.
+        fn centre_map(
+            pre: &Mitc4PlusDPrecomputed,
+            b_cov: &SMatrix<f64, 3, 24>,
+        ) -> SMatrix<f64, 3, 24> {
+            let (dn_dr, dn_ds) = dshape(0.0, 0.0);
+            let mut g_r = Vector3::zeros();
+            let mut g_s = Vector3::zeros();
+            for i in 0..4 {
+                g_r += dn_dr[i] * node_vec(&pre.initial_coords_3d, i);
+                g_s += dn_ds[i] * node_vec(&pre.initial_coords_3d, i);
+            }
+            let (j00, j01) = (g_r.dot(&pre.e1), g_s.dot(&pre.e1));
+            let (j10, j11) = (g_r.dot(&pre.e2), g_s.dot(&pre.e2));
+            // The same de-singularising shift the production mapping uses; a
+            // numerical guard, not a formulation term.
+            let scale = j00
+                .abs()
+                .max(j01.abs())
+                .max(j10.abs())
+                .max(j11.abs())
+                .max(1.0);
+            let eps = scale * 1.0e-12;
+            let (a, b, c, d) = (j00 + eps, j01, j10, j11 + eps);
+            let det = a * d - b * c;
+            let (i11, i12, i21, i22) = (d / det, -b / det, -c / det, a / det);
+            let t = [
+                [i11 * i11, i21 * i21, i11 * i21],
+                [i12 * i12, i22 * i22, i12 * i22],
+                [2.0 * i11 * i12, 2.0 * i21 * i22, i11 * i22 + i12 * i21],
+            ];
+            let mut out = SMatrix::<f64, 3, 24>::zeros();
+            for i in 0..3 {
+                for j in 0..24 {
+                    out[(i, j)] =
+                        t[i][0] * b_cov[(0, j)] + t[i][1] * b_cov[(1, j)] + t[i][2] * b_cov[(2, j)];
+                }
+            }
+            out
+        }
+
+        /// The clean reference: Eq. (18) verbatim.
+        pub fn b_md_reference(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> SMatrix<f64, 3, 24> {
+            let vd = drill_normal(pre);
+            b_md_parameterised(pre, r, s, &vd, &vd, 0.125, &[0, 1, 2, 3], 1.0)
+        }
+
+        /// The reference with one ingredient deliberately wrong, so the five
+        /// known-risk deviations are shown to be rejected: `xm_scale` (the 1/8
+        /// of Eq. 13c), `edge_perm` (the `h~` pairing order), the
+        /// edge-difference `sign`, `v_d` (the vector in `c_r`/`c_s`) and
+        /// `v_theta` (the vector of `theta^D = theta . v_theta`).
+        #[allow(clippy::too_many_arguments)]
+        pub fn b_md_parameterised(
+            pre: &Mitc4PlusDPrecomputed,
+            r: f64,
+            s: f64,
+            v_d: &Vector3<f64>,
+            v_theta: &Vector3<f64>,
+            xm_scale: f64,
+            edge_perm: &[usize; 4],
+            sign: f64,
+        ) -> SMatrix<f64, 3, 24> {
+            let j = jacobian(pre, r, s);
+            let j0 = jacobian(pre, 0.0, 0.0);
+            let ratio = if j.abs() > 1e-30 { j0 / j } else { 0.0 };
+
+            // Eq. (11a)/(11b): the four "curl" derivatives, paper order
+            // [right, top, left, bottom].
+            let dh = [
+                (0.0, -s * (1.0 + r)),
+                (-r * (1.0 + s), 0.0),
+                (0.0, -s * (1.0 - r)),
+                (-r * (1.0 - s), 0.0),
+            ];
+
+            let mut b_cov = SMatrix::<f64, 3, 24>::zeros();
+            for l in 0..4 {
+                let (a, b) = EDGE_PAPER[l];
+                let icode = PAPER_TO_CODE[a - 1];
+                let kcode = PAPER_TO_CODE[b - 1];
+                // Eq. (13c): x_m^l = 1/8 (x_i - x_{i+1}).
+                let x_m = xm_scale
+                    * (node_vec(&pre.initial_coords_3d, icode)
+                        - node_vec(&pre.initial_coords_3d, kcode));
+                // Eq. (13b): the mid-surface tangents at the edge mid-point.
+                let (rm, sm) = EDGE_MID[l];
+                let (dn_dr, dn_ds) = dshape(rm, sm);
+                let mut x_r = Vector3::zeros();
+                let mut x_s = Vector3::zeros();
+                for i in 0..4 {
+                    x_r += dn_dr[i] * node_vec(&pre.initial_coords_3d, i);
+                    x_s += dn_ds[i] * node_vec(&pre.initial_coords_3d, i);
+                }
+                let c_r = x_m.dot(&(-x_r.cross(v_d)));
+                let c_s = x_m.dot(&(x_s.cross(v_d)));
+                let (h_r, h_s) = dh[edge_perm[l]];
+                let coeff_rr = ratio * h_r * c_r;
+                let coeff_ss = -ratio * h_s * c_s;
+                let coeff_rs = 0.5 * ratio * (h_s * c_r - h_r * c_s);
+                for beta in 0..3 {
+                    let vt = v_theta[beta];
+                    b_cov[(0, 6 * icode + 3 + beta)] -= sign * coeff_rr * vt;
+                    b_cov[(0, 6 * kcode + 3 + beta)] += sign * coeff_rr * vt;
+                    b_cov[(1, 6 * icode + 3 + beta)] -= sign * coeff_ss * vt;
+                    b_cov[(1, 6 * kcode + 3 + beta)] += sign * coeff_ss * vt;
+                    b_cov[(2, 6 * icode + 3 + beta)] -= sign * 2.0 * coeff_rs * vt;
+                    b_cov[(2, 6 * kcode + 3 + beta)] += sign * 2.0 * coeff_rs * vt;
+                }
+            }
+            centre_map(pre, &b_cov)
+        }
+    }
+
+    #[test]
+    fn test_identity_drill_operator_matches_eq18_term_by_term() {
+        // Oracle 1: the production Eq. (18) operator vs the independent
+        // reference, entry by entry at 9 sample points on four quads.
+        let points = [
+            (GP, GP),
+            (GP, -GP),
+            (-GP, GP),
+            (-GP, -GP),
+            (0.0, 1.0),
+            (1.0, 0.0),
+            (0.0, -1.0),
+            (-1.0, 0.0),
+            (0.0, 0.0),
+        ];
+        let flat_square = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        for (name, geo) in [
+            ("flat-square", flat_square),
+            ("flat-distorted", FLAT_DISTORTED),
+            ("ruled-warped", RULED_WARPED),
+            ("doubly-warped", DOUBLY_WARPED),
+        ] {
+            let pre = pre_from(&geo);
+            for &(r, s) in &points {
+                let prod = b_drill_membrane_2025(&pre, r, s);
+                let refr = drill::b_md_reference(&pre, r, s);
+                for i in 0..3 {
+                    for j in 0..24 {
+                        assert!(
+                            (prod[(i, j)] - refr[(i, j)]).abs() <= 1e-12,
+                            "{name} ({r},{s}) entry [{i}][{j}]: production {} vs Eq. (18) {} ",
+                            prod[(i, j)],
+                            refr[(i, j)]
+                        );
+                    }
+                }
+            }
+        }
+
+        // Oracle 2: the five known-risk deviations are asserted to be rejected.
+        let pre = pre_from(&DOUBLY_WARPED);
+        let vd = drill::drill_normal(&pre);
+        let e3 = Vector3::new(0.0, 0.0, 1.0);
+        let refr = drill::b_md_reference(&pre, GP, GP);
+        let ref_scale = scale_3(&refr).max(1e-30);
+        let rel = |m: &SMatrix<f64, 3, 24>| {
+            let mut d = 0.0f64;
+            for i in 0..3 {
+                for j in 0..24 {
+                    d = d.max((m[(i, j)] - refr[(i, j)]).abs());
+                }
+            }
+            d / ref_scale
+        };
+        let variants: [(&str, SMatrix<f64, 3, 24>, f64); 5] = [
+            (
+                "V^D -> e3",
+                drill::b_md_parameterised(&pre, GP, GP, &e3, &e3, 0.125, &[0, 1, 2, 3], 1.0),
+                1e-6,
+            ),
+            (
+                "missing 1/8",
+                drill::b_md_parameterised(&pre, GP, GP, &vd, &vd, 1.0, &[0, 1, 2, 3], 1.0),
+                1e-3,
+            ),
+            (
+                "edge order [bottom,right,top,left]",
+                drill::b_md_parameterised(&pre, GP, GP, &vd, &vd, 0.125, &[1, 2, 3, 0], 1.0),
+                1e-6,
+            ),
+            (
+                "flipped edge difference",
+                drill::b_md_parameterised(&pre, GP, GP, &vd, &vd, 0.125, &[0, 1, 2, 3], -1.0),
+                1e-6,
+            ),
+            (
+                "theta_z alone",
+                drill::b_md_parameterised(&pre, GP, GP, &vd, &e3, 0.125, &[0, 1, 2, 3], 1.0),
+                1e-6,
+            ),
+        ];
+        for (name, variant, margin) in variants {
+            assert!(
+                rel(&variant) > margin,
+                "rejection '{name}': not distinguished from Eq. (18) (relative {})",
+                rel(&variant)
+            );
+        }
+    }
+
+    #[test]
+    fn test_identity_cr_cs_2017_and_2025_are_different_quantities() {
+        // The two papers reuse the symbols c_r, c_s for different quantities:
+        //  - Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (25): c_r = x_d . m^r.
+        //  - Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (18)/(19c):
+        //    c_r^l = x_m^l . (-x_r^l x V^D).
+        // Conflating them would silently corrupt the drill operator.
+        let pre = pre_from(&DOUBLY_WARPED);
+
+        // The 2017 quantity is the stored x_d . m^r / x_d . m^s.
+        assert!((pre.c_r_mem - pre.x_d.dot(&pre.m_r)).abs() <= 1e-14);
+        assert!((pre.c_s_mem - pre.x_d.dot(&pre.m_s)).abs() <= 1e-14);
+
+        // The 2025 quantity, recomputed independently for each edge.
+        let mut min_rel = f64::INFINITY;
+        for e in 0..4 {
+            let term = pre.drill_edges[e];
+            let x_m = (node_vec(&pre.initial_coords_3d, term.start)
+                - node_vec(&pre.initial_coords_3d, term.end))
+                / 8.0;
+            let (rm, sm) = DRILL_EDGE_MID[e];
+            let (dn_dr, dn_ds) = shape_function_derivatives(rm, sm);
+            let mut x_r = Vector3::zeros();
+            let mut x_s = Vector3::zeros();
+            for i in 0..4 {
+                x_r += dn_dr[i] * node_vec(&pre.initial_coords_3d, i);
+                x_s += dn_ds[i] * node_vec(&pre.initial_coords_3d, i);
+            }
+            let cr_md = x_m.dot(&(-x_r.cross(&pre.v_d)));
+            let cs_md = x_m.dot(&(x_s.cross(&pre.v_d)));
+            assert!(
+                (term.c_r - cr_md).abs() <= 1e-14 * cr_md.abs().max(1.0),
+                "edge {e} stored c_r {} != Eq. (18) {cr_md}",
+                term.c_r
+            );
+            assert!(
+                (term.c_s - cs_md).abs() <= 1e-14 * cs_md.abs().max(1.0),
+                "edge {e} stored c_s {} != Eq. (18) {cs_md}",
+                term.c_s
+            );
+
+            let scale_r = cr_md.abs().max(pre.c_r_mem.abs()).max(1e-30);
+            let scale_s = cs_md.abs().max(pre.c_s_mem.abs()).max(1e-30);
+            min_rel = min_rel
+                .min((cr_md - pre.c_r_mem).abs() / scale_r)
+                .min((cs_md - pre.c_s_mem).abs() / scale_s);
+        }
+        assert!(
+            min_rel > 1e-6,
+            "2017 and 2025 c_r/c_s are not distinguished (min relative diff {min_rel})"
+        );
     }
 }
