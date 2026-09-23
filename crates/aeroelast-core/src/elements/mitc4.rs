@@ -58,6 +58,14 @@ pub struct Mitc4Precomputed {
     pub constitutive: ShellConstitutive,
     /// Drilling stiffness factor: E·h²·0.15
     pub k_drill: f64,
+    /// Drilling penalty scale as passed to `new` (mirrors `Mitc3Precomputed`).
+    pub drilling_scale: f64,
+    /// Winkler & Plakomytis Eq. (110) warping parameter `beta_w` (`BETA_W`).
+    ///
+    /// It scales the drill-rotation gradient stabilization added by
+    /// `compute_ke_local_erc` and mirrored in the nonlinear
+    /// `compute_fint_global`.
+    pub beta_w: f64,
     /// Thickness
     pub thickness: f64,
     /// MITC4+ membrane blending coefficients
@@ -627,6 +635,8 @@ impl Mitc4Precomputed {
             t3,
             constitutive,
             k_drill,
+            drilling_scale,
+            beta_w: BETA_W,
             thickness,
                 x_r, x_s, x_d, n_vec, m_r, m_s,
             initial_coords_3d: coords_3d,
@@ -1102,6 +1112,35 @@ fn b_drill(dh: &SMatrix<f64, 2, 4>, n_vals: &[f64; 4]) -> Vec24 {
     bd
 }
 
+/// Shape-function derivatives in the LOCAL frame at `(xi, eta)`, built exactly
+/// as the drill row of `b_erc` builds them (same regularized inverse Jacobian),
+/// so the warping operator differentiates the same `theta_z` interpolation.
+fn drill_dh(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 2, 4> {
+    let (_, j_inv) = compute_j_loc_at(&pre.initial_coords_3d, &pre.e1, &pre.e2, xi, eta);
+    let (dn_dxi, dn_deta) = shape_function_derivatives(xi, eta);
+    let mut dh = SMatrix::<f64, 2, 4>::zeros();
+    for i in 0..4 {
+        dh[(0, i)] = j_inv[(0, 0)] * dn_dxi[i] + j_inv[(1, 0)] * dn_deta[i];
+        dh[(1, i)] = j_inv[(0, 1)] * dn_dxi[i] + j_inv[(1, 1)] * dn_deta[i];
+    }
+    dh
+}
+
+/// Drill-rotation gradient B-operator (2x24): rows are `d(theta_z)/dx` and
+/// `d(theta_z)/dy` in the LOCAL frame, from the same `dh` the drill row uses.
+///
+/// Winkler & Plakomytis Eq. (110) warping term `beta_w * (t^3/12) * mu *
+/// K_3a * delta K_3a` with `K_3a = d(theta_z)/dx_a`; the paper calls `beta_w`
+/// "the warping parameter".
+fn b_drill_grad(dh: &SMatrix<f64, 2, 4>) -> SMatrix<f64, 2, 24> {
+    let mut b = SMatrix::<f64, 2, 24>::zeros();
+    for i in 0..4 {
+        b[(0, 6 * i + 5)] = dh[(0, i)];
+        b[(1, 6 * i + 5)] = dh[(1, i)];
+    }
+    b
+}
+
 /// Compatible 4-component ERC strain-displacement operator (4x24), LOCAL frame.
 ///
 /// Winkler & Plakomytis (ECCOMAS 2016), Eq. (104):
@@ -1114,15 +1153,9 @@ fn b_drill(dh: &SMatrix<f64, 2, 4>, n_vals: &[f64; 4]) -> Vec24 {
 fn b_erc(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 4, 24> {
     let b_m = b_m_mitc4_plus(pre, xi, eta);
 
-    // Build dh exactly as the `compute_j_loc_at` callers do, so the drill row
-    // uses the same regularized inverse Jacobian as the membrane operator.
-    let (_, j_inv) = compute_j_loc_at(&pre.initial_coords_3d, &pre.e1, &pre.e2, xi, eta);
-    let (dn_dxi, dn_deta) = shape_function_derivatives(xi, eta);
-    let mut dh = SMatrix::<f64, 2, 4>::zeros();
-    for i in 0..4 {
-        dh[(0, i)] = j_inv[(0, 0)] * dn_dxi[i] + j_inv[(1, 0)] * dn_deta[i];
-        dh[(1, i)] = j_inv[(0, 1)] * dn_dxi[i] + j_inv[(1, 1)] * dn_deta[i];
-    }
+    // Same `dh` as `drill_dh`, so the drill row and the warping operator
+    // differentiate the same `theta_z` interpolation with the same Jacobian.
+    let dh = drill_dh(pre, xi, eta);
     let n_vals = shape_functions(xi, eta);
     let bd = b_drill(&dh, &n_vals);
 
@@ -1137,108 +1170,212 @@ fn b_erc(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 4, 24> {
 }
 
 // ============================================================================
-// Stiffness matrix computation
+// Winkler & Plakomytis ERC stiffness (the production path)
 // ============================================================================
 
-/// Compute element stiffness matrix K_e in LOCAL coordinates (24×24)
-pub fn compute_ke_local(pre: &Mitc4Precomputed) -> Mat24 {
+/// Winkler & Plakomytis Eq. (110) warping parameter `beta_w`.
+///
+/// Table 1 of Winkler & Plakomytis (ECCOMAS 2016) gives `beta_w = 0.01` for
+/// LFS4-MP, and their Figs. 3/7/9/21 show the solution is insensitive to it
+/// over {0, 0.01, 0.1}; LFS4-ERC itself uses `beta_w = 0`.
+const BETA_W: f64 = 0.01;
+
+/// Eq. (103): interpolation of the eight assumed enhanced-strain parameters
+/// `alpha_e` onto the four covariant nonsymmetric components
+/// `[e11, e22, e12, e21]^(A)` at (xi, eta) = (r, s).
+fn m8_erc(xi: f64, eta: f64) -> SMatrix<f64, 4, 8> {
+    let r = xi;
+    let s = eta;
+    SMatrix::<f64, 4, 8>::from_row_slice(&[
+        r,   0.0, 0.0, 0.0, r * s, 0.0,   0.0,   0.0,
+        0.0, s,   0.0, 0.0, 0.0,   r * s, 0.0,   0.0,
+        0.0, 0.0, r,   0.0, 0.0,   0.0,   r * s, 0.0,
+        0.0, 0.0, 0.0, s,   0.0,   0.0,   0.0,   r * s,
+    ])
+}
+
+/// Symmetric rank-revealing pseudo-inverse of the 8x8 ERC enhanced-strain
+/// block via its eigendecomposition `k_bb = Q diag(lam) Q^T`.
+///
+/// Under SRI the block is only positive *semi*-definite: the centre-point
+/// shear split leaves the enhanced in-plane shear unpenalized and
+/// `m8_erc(0,0)` is zero, so a plain inverse does not exist.  Eigenvalues below
+/// `1e-10 * max|lam|` are treated as zero and dropped; the rest are inverted.
+/// Unlike the previous diagonal-regularized inverse this stays symmetric and
+/// cannot inject a rank-one negative term.
+fn pseudo_inverse_8x8(m: &SMatrix<f64, 8, 8>) -> SMatrix<f64, 8, 8> {
+    let sym = 0.5 * (m + m.transpose());
+    let eig = nalgebra::SymmetricEigen::new(sym);
+
+    let mut lambda_max = 0.0_f64;
+    for lam in eig.eigenvalues.iter() {
+        lambda_max = lambda_max.max(lam.abs());
+    }
+    let tol = 1.0e-10 * lambda_max;
+
+    let mut inv_diag = eig.eigenvalues;
+    for i in 0..8 {
+        inv_diag[i] = if inv_diag[i] > tol {
+            1.0 / inv_diag[i]
+        } else {
+            0.0
+        };
+    }
+
+    let q = eig.eigenvectors;
+    q * SMatrix::<f64, 8, 8>::from_diagonal(&inv_diag) * q.transpose()
+}
+
+/// ERC 4x4 constitutive matrix in the ERC vector basis (Winkler Eq. 110).
+///
+/// The 3x3 block is the element's A matrix (`cm`); the drill entry is
+/// `beta * t * mu / 4` (`= beta * cm[(2,2)] / 4`, since `cm[(2,2)] == t * G`).
+/// `use_sri` zeroes the in-plane shear row/column of the 3x3 block; the caller
+/// integrates that row at the element centre, exactly as `compute_ke_local`
+/// splits the membrane.
+fn erc_c4(pre: &Mitc4Precomputed, beta: f64, use_sri: bool) -> SMatrix<f64, 4, 4> {
     let cm = &pre.constitutive.cm;
-    let cb = &pre.constitutive.cb;
-    let cb_coupling = &pre.constitutive.cb_coupling; // B matrix (membrane-bending coupling)
-    let cs = &pre.constitutive.cs;
 
-    // --- Membrane stiffness: MITC4+ blending + Selective Reduced Integration ---
-    //
-    // Despite MITC4+ blending, residual in-plane shear locking persists for
-    // distorted or high-aspect-ratio elements.  SRI evaluates the in-plane shear
-    // stiffness at a single centre point (ξ=η=0) where parasitic shear vanishes
-    // for symmetric bending modes.  The same split is applied consistently in
-    // compute_fint_global (SRI-consistent virtual work) to maintain KT/fint
-    // NR tangent consistency.
-    //
-    // References:
-    //   Hughes, Taylor & Kanoknukulchai (1977) — SRI for Q4 membrane element.
-    //   Ko, Lee & Bathe (2017), C&S 182:404–418 — MITC4+ blending.
+    let mut c4 = SMatrix::<f64, 4, 4>::zeros();
+    for i in 0..3 {
+        for j in 0..3 {
+            c4[(i, j)] = cm[(i, j)];
+        }
+    }
+    c4[(3, 3)] = beta * cm[(2, 2)] / 4.0;
 
-    let mut cm_normal = *cm;
-    cm_normal[(0, 2)] = 0.0; cm_normal[(1, 2)] = 0.0;
-    cm_normal[(2, 0)] = 0.0; cm_normal[(2, 1)] = 0.0;
-    cm_normal[(2, 2)] = 0.0;
-    let c_shear = cm[(2, 2)];
+    if use_sri {
+        for i in 0..3 {
+            c4[(i, 2)] = 0.0;
+            c4[(2, i)] = 0.0;
+        }
+    }
 
-    let mut k_m = Mat24::zeros();
+    c4
+}
+
+/// ERC strain operators at a Gauss point: compatible `B = b_erc` (4x24) and
+/// enhanced `P = (j0/j) * erc_covariant_to_local(j_inv) * M8` (4x8), with
+/// `j0 = |g_r x g_s|` at the element centre and `j = sqrt_g` at the Gauss point.
+/// `M8` is the printed Eq. (103) interpolation `m8_erc`.
+fn erc_operators(
+    pre: &Mitc4Precomputed,
+    xi: f64,
+    eta: f64,
+) -> (SMatrix<f64, 4, 24>, SMatrix<f64, 4, 8>) {
+    // Reference Jacobian at the element centre (Eq. 96: e~ = (j0/j) * ...).
+    let (g_r0, g_s0) = compute_j3d(&pre.initial_coords_3d, 0.0, 0.0);
+    let j0 = g_r0.cross(&g_s0).norm();
+
+    // `sqrt_g` reproduces `pre.gp_jacobians[g].sqrt_g` bit-for-bit, since the
+    // constructor stores exactly `compute_j3d(..).cross(..).norm()`.
+    let (g_r, g_s) = compute_j3d(&pre.initial_coords_3d, xi, eta);
+    let sqrt_g = g_r.cross(&g_s).norm();
+
+    let b = b_erc(pre, xi, eta);
+    let (_, j_inv) = compute_j_loc_at(&pre.initial_coords_3d, &pre.e1, &pre.e2, xi, eta);
+    let p = (j0 / sqrt_g) * erc_covariant_to_local(&j_inv) * m8_erc(xi, eta);
+
+    (b, p)
+}
+
+/// Condensed enhanced-strain operator `alpha_u = -k_bb^{-1} * k_qb` (8x24),
+/// so the total ERC strain is `(B + P*alpha_u) u`.
+fn erc_condensation(pre: &Mitc4Precomputed, beta: f64) -> SMatrix<f64, 8, 24> {
+    let c4 = erc_c4(pre, beta, true);
+
+    let mut k_qb = SMatrix::<f64, 24, 8>::zeros();
+    let mut k_bb = SMatrix::<f64, 8, 8>::zeros();
+
     for g in 0..N_GAUSS {
-        let xi  = GAUSS_XI[g];
+        let xi = GAUSS_XI[g];
         let eta = GAUSS_ETA[g];
         let sqrt_g = pre.gp_jacobians[g].sqrt_g;
         let w = GAUSS_W[g];
-        let bm = b_m_mitc4_plus(pre, xi, eta);
-        k_m += (bm.transpose() * &cm_normal * &bm) * (w * sqrt_g);
+
+        let (b, p) = erc_operators(pre, xi, eta);
+
+        k_qb += (b.transpose() * c4 * &p) * (w * sqrt_g);
+        k_bb += (p.transpose() * c4 * &p) * (w * sqrt_g);
     }
-    {
+
+    -pseudo_inverse_8x8(&k_bb) * k_qb.transpose()
+}
+
+/// ERC element stiffness in LOCAL coordinates from the Winkler & Plakomytis
+/// (ECCOMAS 2016) modified Hu-Washizu functional, Eq. (110), with static
+/// condensation of the eight enhanced-strain parameters `alpha_e`.
+///
+/// With `B = b_erc` (Eq. 104), `P = (j0/j) * erc_covariant_to_local(j_inv) * M^(8)`
+/// (Eqs. 96, 102, 103) and `C4 = [[cm, 0], [0, beta * cm[2,2] / 4]]`:
+/// `k_qq = ∫BᵀC4B`, `k_qb = ∫BᵀC4P`, `k_bb = ∫PᵀC4P`, and
+/// `k_erc = k_qq - k_qb k_bb⁻¹ k_qbᵀ`.  `cm[(2,2)] == t * G == t * mu`, so the
+/// drill entry is `beta * cm[(2,2)] / 4.0`.
+///
+/// Bending + shear (bubble-condensed) and the membrane-bending B-coupling are
+/// reused unchanged from the previous MITC4+ linear path, so this function
+/// changes only the membrane + drilling block.  `compute_ke_local` now delegates
+/// here with `beta = pre.drilling_scale` and `use_sri = true`.
+pub fn compute_ke_local_erc(pre: &Mitc4Precomputed, beta: f64, use_sri: bool) -> Mat24 {
+    let cm = &pre.constitutive.cm;
+    let cb_coupling = &pre.constitutive.cb_coupling;
+
+    // --- C4 (4x4): 3x3 membrane block + drilling entry (SRI-split) ---
+    // SRI suppresses the in-plane shear row/column of the 3x3 block in the 4-GP
+    // loop and integrates it at the centre point below, exactly as
+    // `compute_ke_local` splits the membrane block.  The drill entry is kept.
+    let c4_normal = erc_c4(pre, beta, use_sri);
+    let c_shear = cm[(2, 2)];
+
+    // Winkler & Plakomytis Eq. (110) warping stabilization: penalize the drill
+    // rotation gradient `d(theta_z)/dx_a`.  `cm[(2,2)] == t * mu`, so
+    // `c_w = beta_w * (t^3/12) * mu`.  `pre.beta_w = 0` disables it.
+    let c_w = pre.beta_w * (pre.thickness.powi(3) / 12.0) * (cm[(2, 2)] / pre.thickness);
+
+    let mut k_qq = Mat24::zeros();
+    let mut k_qb = SMatrix::<f64, 24, 8>::zeros();
+    let mut k_bb = SMatrix::<f64, 8, 8>::zeros();
+    let mut k_w = Mat24::zeros();
+
+    for g in 0..N_GAUSS {
+        let xi = GAUSS_XI[g];
+        let eta = GAUSS_ETA[g];
+        let sqrt_g = pre.gp_jacobians[g].sqrt_g;
+        let w = GAUSS_W[g];
+
+        let (b, p) = erc_operators(pre, xi, eta);
+
+        k_qq += (b.transpose() * c4_normal * &b) * (w * sqrt_g);
+        k_qb += (b.transpose() * c4_normal * &p) * (w * sqrt_g);
+        k_bb += (p.transpose() * c4_normal * &p) * (w * sqrt_g);
+
+        // Drill-rotation gradient penalty, same Gauss points and weights.
+        let bw = b_drill_grad(&drill_dh(pre, xi, eta));
+        k_w += (bw.transpose() * bw) * (c_w * w * sqrt_g);
+    }
+
+    // SRI centre-point in-plane shear term, matching `compute_ke_local`.  The
+    // ERC vector's row 2 is the same in-plane shear, so `b_erc` row 2 is used.
+    if use_sri {
         let (g_r_c, g_s_c) = compute_j3d(&pre.initial_coords_3d, 0.0, 0.0);
         let sqrt_g_c = g_r_c.cross(&g_s_c).norm();
-        let bm_c = b_m_mitc4_plus(pre, 0.0, 0.0);
-        let b_shear: SMatrix<f64, 1, 24> = bm_c.fixed_rows::<1>(2).into();
-        k_m += b_shear.transpose() * c_shear * b_shear * (4.0 * sqrt_g_c);
-    }
-    let k_m = 0.5 * (&k_m + k_m.transpose());
-
-    // --- Bending + shear with bubble condensation ---
-    let mut knn_b = Mat24::zeros();
-    let mut knb_b = SMatrix::<f64, 24, 2>::zeros();
-    let mut kbb_b = Matrix2::zeros();
-    let mut k_mb_coup = Mat24::zeros(); // B-coupling: membrane × bending
-
-    let mut knn_s = Mat24::zeros();
-    let mut knb_s = SMatrix::<f64, 24, 2>::zeros();
-    let mut kbb_s = Matrix2::zeros();
-
-    for g in 0..N_GAUSS {
-        let xi = GAUSS_XI[g];
-        let eta = GAUSS_ETA[g];
-        let gj = &pre.gp_jacobians[g];
-        let gb = &pre.gp_bubble[g];
-        let sqrt_g = gj.sqrt_g;
-        let w = GAUSS_W[g];
-
-        // Bending
-        let bk = b_kappa(&gj.dh);
-        let bkb = b_kappa_bubble(&gj.j_inv, gb.dnb_dxi, gb.dnb_deta);
-
-        knn_b += (bk.transpose() * cb * &bk) * (w * sqrt_g);
-        knb_b += (bk.transpose() * cb * &bkb) * (w * sqrt_g);
-        kbb_b += (bkb.transpose() * cb * &bkb) * (w * sqrt_g);
-
-        // Membrane-bending B-coupling: K_mb += bm^T · B · bk
-        let bm_gp = b_m_mitc4_plus(pre, xi, eta);
-        k_mb_coup += (bm_gp.transpose() * cb_coupling * &bk) * (w * sqrt_g);
-
-        // Shear
-        let (bs_nodal, bs_bubble) = b_gamma_mitc4_plus(
-            &pre.local_coords, xi, eta, sqrt_g, gb.nb,
-        );
-
-        knn_s += (bs_nodal.transpose() * cs * &bs_nodal) * (w * sqrt_g);
-        knb_s += (bs_nodal.transpose() * cs * &bs_bubble) * (w * sqrt_g);
-        kbb_s += (bs_bubble.transpose() * cs * &bs_bubble) * (w * sqrt_g);
+        let b_c = b_erc(pre, 0.0, 0.0);
+        let b_shear: SMatrix<f64, 1, 24> = b_c.fixed_rows::<1>(2).into();
+        k_qq += b_shear.transpose() * c_shear * b_shear * (4.0 * sqrt_g_c);
     }
 
-    // B-coupling: add symmetric cross term (membrane × bending)
-    let k_mb = k_mb_coup.transpose();
+    // Static condensation of the enhanced-strain parameters.
+    let k_erc_raw = k_qq - &k_qb * pseudo_inverse_8x8(&k_bb) * k_qb.transpose();
+    let k_erc = 0.5 * (&k_erc_raw + k_erc_raw.transpose());
 
-    let knn = knn_b + knn_s;
-    let knb = knb_b + knb_s;
-    let kbb = kbb_b + kbb_s;
-
-    // Static condensation: K = Knn - Knb @ Kbb^{-1} @ Knb^T
-    // Regularize the 2×2 bubble block instead of dropping condensation entirely.
-    let kbb_inv = regularized_inverse_2x2(&kbb);
-    let k_bs_raw = knn - &knb * kbb_inv * knb.transpose();
+    // --- Bending + shear (bubble-condensed), unchanged from compute_ke_local ---
+    // `compute_bending_shear_condensed` computes exactly the `k_bs_raw` block of
+    // `compute_ke_local`; applying the same symmetrization reproduces `k_bs`.
+    let k_bs_raw = compute_bending_shear_condensed(pre);
     let k_bs = 0.5 * (&k_bs_raw + k_bs_raw.transpose());
 
-    // --- Drilling stiffness ---
-    let mut k_drill = Mat24::zeros();
+    // --- Membrane-bending B-coupling, unchanged from compute_ke_local ---
+    let mut k_mb_coup = Mat24::zeros();
     for g in 0..N_GAUSS {
         let xi = GAUSS_XI[g];
         let eta = GAUSS_ETA[g];
@@ -1246,13 +1383,27 @@ pub fn compute_ke_local(pre: &Mitc4Precomputed) -> Mat24 {
         let sqrt_g = gj.sqrt_g;
         let w = GAUSS_W[g];
 
-        let n_vals = shape_functions(xi, eta);
-        let bd = b_drill(&gj.dh, &n_vals);
-
-        k_drill += (&bd * bd.transpose()) * (pre.k_drill * w * sqrt_g);
+        let bk = b_kappa(&gj.dh);
+        let bm_gp = b_m_mitc4_plus(pre, xi, eta);
+        k_mb_coup += (bm_gp.transpose() * cb_coupling * &bk) * (w * sqrt_g);
     }
+    let k_coupling = k_mb_coup + k_mb_coup.transpose();
 
-    k_m + k_mb_coup + k_mb + k_bs + k_drill
+    k_erc + k_coupling + k_bs + k_w
+}
+
+// ============================================================================
+// Stiffness matrix computation
+// ============================================================================
+
+/// Compute element stiffness matrix K_e in LOCAL coordinates (24×24).
+///
+/// Production linear path: the membrane + drilling stiffness comes from the
+/// Winkler & Plakomytis ERC formulation (`compute_ke_local_erc`), with the SRI
+/// split and the element's `drilling_scale` as the ERC drill weight.  Bending,
+/// transverse shear and the membrane-bending coupling are unchanged.
+pub fn compute_ke_local(pre: &Mitc4Precomputed) -> Mat24 {
+    compute_ke_local_erc(pre, pre.drilling_scale, true)
 }
 
 /// Compute element stiffness matrix in GLOBAL coordinates (24×24)
@@ -1579,23 +1730,26 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
         let cb = &pre.constitutive.cb;            // D matrix: bending stiffness
         let cs = &pre.constitutive.cs;            // transverse shear stiffness
 
-        // SRI split: cm_normal suppresses in-plane shear (cm[2,2]) in the 4-GP loop.
-        // The in-plane shear is integrated at a single centre point (ξ=η=0), matching
-        // the compute_ke_local SRI scheme to preserve KT / fint NR consistency.
-        let mut cm_normal = *cm;
-        cm_normal[(0, 2)] = 0.0; cm_normal[(1, 2)] = 0.0;
-        cm_normal[(2, 0)] = 0.0; cm_normal[(2, 1)] = 0.0;
-        cm_normal[(2, 2)] = 0.0;
+        // SRI split: the ERC 4x4 constitutive matrix suppresses the in-plane
+        // shear (cm[2,2]) in the 4-GP loop; the in-plane shear is integrated at a
+        // single centre point (ξ=η=0), matching the compute_ke_local ERC SRI
+        // scheme to preserve KT / fint NR consistency.
         let c_shear = cm[(2, 2)];
 
         // =====================================================================
-        // Nonlinear f_int: full MITC4+ ABD formulation with bubble condensation
+        // Nonlinear f_int: ERC membrane + drilling with bubble condensation
         // =====================================================================
-        // NOTE: EAS (Enhanced Assumed Strains) is intentionally NOT used here.
-        // The linear stiffness (compute_ke_local) uses SRI but not EAS, so using
-        // EAS in fint would make KT inconsistent with fint (NR consistency broken).
-        // The MITC4+ assumed covariant B-matrix + SRI already prevents membrane
-        // locking without EAS.
+        // The membrane + drilling block uses the same Winkler & Plakomytis ERC
+        // operators as the production linear path (`compute_ke_local`), so the
+        // linear part of f_int reproduces the ERC stiffness and NR consistency
+        // is preserved.  The eight enhanced-strain parameters are condensed once
+        // per element (geometry only), exactly as in `compute_ke_local_erc`.
+        let alpha_u = erc_condensation(pre, pre.drilling_scale);
+        let c4_n = erc_c4(pre, pre.drilling_scale, true);
+
+        // Winkler & Plakomytis Eq. (110) warping stabilization, mirrored from
+        // `compute_ke_local_erc` so K_T / f_int NR consistency is preserved.
+        let c_w = pre.beta_w * (pre.thickness.powi(3) / 12.0) * (cm[(2, 2)] / pre.thickness);
 
         // Pre-loop: build bubble condensation operator (bending + shear combined)
         // u_b = bubble_op · u_local   where bubble_op = -kbb_inv · knb^T
@@ -1643,26 +1797,36 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
             let gb = &pre.gp_bubble[g];
             let sqrt_g = gj.sqrt_g;
 
-            // ── D2: membrane strain from MITC4+ assumed strain + GL correction ──
+            // ── D2: ERC membrane strain + Green-Lagrange correction ────────────
             // H = du/dX (displacement gradient)
             let h_mat = displacement_gradient(&gj.dh, &u_local);
 
-            // Linear MITC4+ membrane strain B · u
-            let bm_l = b_m_mitc4_plus(pre, xi, eta);
-            let eps_m_linear = bm_l * &u_local;
+            // ERC compatible + enhanced strain: eps = (B + P·alpha_u) u  (4-vector)
+            let (b_erc_gp, p_erc_gp) = erc_operators(pre, xi, eta);
+            let mut eps_erc = b_erc_gp * &u_local + p_erc_gp * (alpha_u * &u_local);
 
-            // Nonlinear Green-Lagrange correction: ε_NL = ½·(H^T·H)_Voigt
+            // Nonlinear Green-Lagrange correction: ε_NL = ½·(H^T·H)_Voigt.
+            // Rows 0..2 only; the ERC drill row (3) has no nonlinear correction.
             let eps_m_nl = Vector3::new(
                 0.5 * (h_mat[(0, 0)].powi(2) + h_mat[(1, 0)].powi(2) + h_mat[(2, 0)].powi(2)),
                 0.5 * (h_mat[(0, 1)].powi(2) + h_mat[(1, 1)].powi(2) + h_mat[(2, 1)].powi(2)),
                 h_mat[(0, 0)] * h_mat[(0, 1)] + h_mat[(1, 0)] * h_mat[(1, 1)] + h_mat[(2, 0)] * h_mat[(2, 1)],
             );
-            let eps_m = eps_m_linear + eps_m_nl;
+            for r in 0..3 {
+                eps_erc[r] += eps_m_nl[r];
+            }
+            // ERC membrane strain (rows 0..2), reused by the ABD coupling term.
+            let eps_m = Vector3::new(eps_erc[0], eps_erc[1], eps_erc[2]);
 
-            // B_NL for virtual work: B_total = B_mitc4+ + B_NL
+            // B_NL for virtual work: B_total = B_erc + B_NL (rows 0..2 only)
             let bnl = compute_b_nl(&gj.dh, &h_mat);
             let bm_nl = extract_membrane_rows(&bnl);
-            let bm_total = bm_l + bm_nl;
+            let mut b_total = b_erc_gp;
+            for r in 0..3 {
+                for j in 0..24 {
+                    b_total[(r, j)] += bm_nl[(r, j)];
+                }
+            }
 
             // ── D3: condensed bubble DOFs ─────────────────────────────────────
             let u_b = bubble_op * &u_local; // 2-element bubble displacement
@@ -1677,8 +1841,7 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
             }
             let kappa = bk * &u_rot + bkb * u_b;
 
-            // ── Resultants with ABD coupling (SRI: cm_normal only; shear handled at centre) ──
-            let n_resultant = &cm_normal * &eps_m + cb_coupling * &kappa;
+            // ── Resultants: ERC membrane + ABD bending coupling ───────────────
             let m_resultant = cb_coupling * &eps_m + cb * &kappa;
 
             // ── D1: transverse shear ─────────────────────────────────────────
@@ -1690,9 +1853,13 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
 
         // ── Virtual work accumulation ─────────────────────────────────────
         let factor = w * sqrt_g;
-        f += bm_total.transpose() * &n_resultant * factor;
+        f += b_total.transpose() * (c4_n * &eps_erc) * factor;
         f += bk.transpose() * &m_resultant * factor;
         f += bs_nodal.transpose() * &q_resultant * factor;
+
+        // Drill-rotation gradient warping term (linear in u).
+        let bw = b_drill_grad(&drill_dh(pre, xi, eta));
+        f += bw.transpose() * (c_w * (bw * &u_local)) * factor;
 
     }
 
@@ -1722,24 +1889,25 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
                 + h_mat_c[(1, 0)] * h_mat_c[(1, 1)]
                 + h_mat_c[(2, 0)] * h_mat_c[(2, 1)];
 
-            let bm_l_c = b_m_mitc4_plus(pre, 0.0, 0.0);
+            // ERC row 2 is the same in-plane shear as MITC4+ row 2, but the ERC
+            // operator is the source of truth for the production membrane path.
+            let b_erc_c = b_erc(pre, 0.0, 0.0);
+            let b_shear_lin_c: SMatrix<f64, 1, 24> = b_erc_c.fixed_rows::<1>(2).into();
+
             let bnl_c  = compute_b_nl(&dh_c, &h_mat_c);
             let bm_nl_c = extract_membrane_rows(&bnl_c);
-            let bm_total_c = bm_l_c + bm_nl_c;
 
             // Total in-plane shear strain at centre (linear + NL)
-            let eps_shear_c = (bm_l_c * &u_local)[2] + eps_m_nl_shear_c;
+            let eps_shear_c = (b_shear_lin_c * &u_local)[0] + eps_m_nl_shear_c;
             let n_shear_c   = c_shear * eps_shear_c;
 
-            let b_shear_c: SMatrix<f64, 1, 24> = bm_total_c.fixed_rows::<1>(2).into();
+            let b_shear_c = b_shear_lin_c + bm_nl_c.fixed_rows::<1>(2);
             f += b_shear_c.transpose() * n_shear_c * (4.0 * sqrt_g_c);
         }
 
-        // =====================================================================
-        // Drilling stiffness (penalty for out-of-plane rotation)
-        // =====================================================================
-        let k_dr = compute_drilling_stiffness(pre);
-        f += k_dr * &u_local;
+        // The ERC 4th component (drill rotation constraint) replaces the old
+        // out-of-plane drilling penalty; it is already included in the ERC
+        // membrane + drilling virtual work above.
 
         f
     };
@@ -1793,23 +1961,6 @@ fn compute_bending_shear_condensed(pre: &Mitc4Precomputed) -> Mat24 {
 
     let kbb_inv = regularized_inverse_2x2(&kbb);
     knn - &knb * kbb_inv * knb.transpose()
-}
-
-fn compute_drilling_stiffness(pre: &Mitc4Precomputed) -> Mat24 {
-    let mut k_drill = Mat24::zeros();
-    for g in 0..N_GAUSS {
-        let xi = GAUSS_XI[g];
-        let eta = GAUSS_ETA[g];
-        let gj = &pre.gp_jacobians[g];
-        let sqrt_g = gj.sqrt_g;
-        let w = GAUSS_W[g];
-
-        let n_vals = shape_functions(xi, eta);
-        let bd = b_drill(&gj.dh, &n_vals);
-
-        k_drill += (&bd * bd.transpose()) * (pre.k_drill * w * sqrt_g);
-    }
-    k_drill
 }
 
 // ============================================================================
@@ -1996,9 +2147,12 @@ pub fn compute_element_stress(
     let cm_raw = &pre.constitutive.cm_raw;
     let h = pre.thickness;
 
-    // Membrane
-    let bm = b_m_mitc4_plus(pre, xi, eta);
-    let eps_m = bm * &u_local;
+    // Membrane: ERC strain (B + P·alpha_u) u rows 0..2 at the centroid, matching
+    // the production stiffness path so reported stress and stiffness agree.
+    let alpha_u = erc_condensation(pre, pre.drilling_scale);
+    let (b_erc_c, p_erc_c) = erc_operators(pre, xi, eta);
+    let eps_erc = b_erc_c * &u_local + p_erc_c * (alpha_u * &u_local);
+    let eps_m = Vector3::new(eps_erc[0], eps_erc[1], eps_erc[2]);
     let sig_m = cm_raw * eps_m;
 
     // Bending
@@ -3141,7 +3295,7 @@ mod tests {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Winkler & Plakomytis ERC operator (additive, not wired into stiffness)
+    // Winkler & Plakomytis ERC operator (the production stiffness path)
     // ─────────────────────────────────────────────────────────────────────────
 
     #[test]
@@ -3384,6 +3538,43 @@ mod tests {
             }
         }
     }
+
+    /// The ERC element stiffness is symmetric and preserves all six rigid-body
+    /// modes on flat geometry.  `compute_ke_local_erc` returns LOCAL coordinates
+    /// (like `compute_ke_local`), so the global rigid-body DOFs are mapped
+    /// through `build_t24`.
+    #[test]
+    fn test_ke_local_erc_flat_rigid_body_and_symmetry() {
+        let pre = make_pre();
+        let k = compute_ke_local_erc(&pre, 1.0, false);
+
+        let asym = (k - k.transpose()).norm() / k.norm();
+        assert!(
+            asym < 1e-12,
+            "ERC stiffness must be symmetric; ||K - Kᵀ|| / ||K|| = {asym:.3e}"
+        );
+
+        let t24 = build_t24(&pre);
+        let mut worst_label = "";
+        let mut worst_residual = 0.0_f64;
+        for (label, u) in rigid_body_modes(&pre) {
+            let u_local = t24 * u;
+            let r = &k * &u_local;
+            let denom = k.norm() * u_local.norm();
+            let residual = if denom > 0.0 { r.norm() / denom } else { 0.0 };
+            if residual > worst_residual {
+                worst_label = label;
+                worst_residual = residual;
+            }
+        }
+
+        assert!(
+            worst_residual < 1e-10,
+            "the ERC stiffness must leave all six rigid-body modes free; \
+             worst is '{worst_label}' with |K u| / (|K| |u|) = {worst_residual:.3e}"
+        );
+    }
+
 }
 
 // ============================================================================
