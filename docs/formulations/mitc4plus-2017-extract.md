@@ -19,6 +19,90 @@ Paper **B** is the judge, paper **A** is the law. Citing one for the other is a
 real error: an earlier comment in `mitc4.rs` cited *"Ko et al. 2017, Eqs. 27a-c"*
 for the membrane blending, and neither paper has such equations.
 
+## The element as paper A actually defines it (full re-read, 2026-09-23)
+
+This section was written after reading PDF pages 2–7 (journal pp. 405–410) with
+vision. It exists because the code had drifted far enough that the element it
+implements is **not** this one, and the difference is architectural, not a
+coefficient.
+
+**The kinematics is continuum-mechanics-based and 3D (Eqs. 1–3, p. 405).**
+
+```text
+x(r,s,t) = Σ_{i=1..4} h_i(r,s) x_i + (t/2) Σ_{i=1..4} a_i h_i(r,s) V_n^i      (1)
+u(r,s,t) = Σ_{i=1..4} h_i(r,s) u_i + (t/2) Σ_{i=1..4} a_i h_i(r,s) (−V_2^i α_i + V_1^i β_i)   (3)
+```
+
+- `a_i` is the **shell thickness at node i** and `V_n^i` the **director vector**
+  at node i (the paper says so in words, right after Eq. 1). Fig. 3(d)'s red
+  arrows are the *edge* vectors `x_e^k` of Eq. (13), which are a different thing.
+- The through-thickness coordinate is `t ∈ [−1, 1]`, scaled by `t/2`.
+- **The DOF per node are 5, not 6**: three translations `u_i` plus two director
+  rotations `α_i` (about `V_1^i`) and `β_i` (about `V_2^i`). **There is no
+  drilling rotation in this element at all.** The rotation of the director about
+  `V_n^i` does not appear in Eq. (3), so it is not a DOF.
+
+**The strain measure is the covariant 3D strain (Eqs. 4–5):**
+
+```text
+e_ij = ½ (g_i · u_j + g_j · u_i),   g_i = ∂x/∂r_i,  u_i = ∂u/∂r_i,
+with r_1 = r, r_2 = s, r_3 = t.                                              (4), (5)
+```
+
+**Only the membrane term is modified (p. 406, in words):**
+
+> "The first term `e_ij^m` in Eq. (7a) is the covariant in-plane membrane strain
+> at the shell mid-surface (t = 0), and the remaining terms are the covariant
+> in-plane strains due to bending.  The in-plane membrane strain, see Eq. (7b),
+> can in general induce locking and it is this term that we modify as described
+> below; **we leave the other terms in Eq. (7a) as they are and evaluate them
+> using the displacement formulation**."
+
+So the bending terms (7c)/(7d) — including their `∂x_b` warping parts — are **not**
+assumed; they are the plain displacement-based ones.  The MITC4+ contribution is
+the assumed membrane field alone.
+
+**Integration and the absence of any numerical factor (p. 410, in words):**
+
+> "In the numerical solutions, we use **2 × 2 × 2 Gauss integration** over the
+> element domain for all shell elements considered."
+>
+> "We note that **the element formulation does not include any numerical
+> factor**, and consider next the isotropy, zero energy mode and patch tests."
+
+**The paper's own basic tests are: isotropy, zero-energy modes, patch tests.**
+That is the acceptance list for "pasa los tests teóricos de su formulación".
+
+**The transverse shear (p. 405):** the MITC4 assumed field of Dvorkin & Bathe
+(1984), tying points A (top, s=+1), B (bottom, s=−1), C (right, r=+1),
+D (left, r=−1):
+
+```text
+e_rt = ½(1+s) e_rt^(A) + ½(1−s) e_rt^(B)     e_st = ½(1+r) e_st^(C) + ½(1−r) e_st^(D)
+```
+
+**Sign correction to §2.3 below.** The paper prints (p. 410, after Eq. 27c)
+`a_E = 2 c_r c_s / d` — **positive**.  §2.3 of this extract wrote
+`aE = -2 cr cs / d`, and the deleted `compute_membrane_coefficients` implemented
+the negative form.  Both are wrong.
+
+**The five architectural deviations of this repository's element.**  For the
+audit, the things that do NOT belong to paper A:
+
+| # | paper A | this repository |
+|---|---|---|
+| 1 | 5 DOF/node (3 translations + 2 director rotations), no drilling | 6 DOF/node with a drilling rotation |
+| 2 | 3D continuum kinematics, director `V_n^i`, thickness coordinate `t` | flat projection onto a local 2D frame, ABD resultants |
+| 3 | director enrichment (Eq. 8b) is part of the kinematics | a separate 2-DOF `(1−ξ²)(1−η²)` rotation bubble |
+| 4 | full 2×2×2 Gauss integration, no numerical factor | selective reduced integration of the in-plane shear |
+| 5 | membrane Eqs. (21)–(27) | membrane Eqs. (18)–(19) (`compute_membrane_coefficients` deleted) |
+
+Plus a sixth that is material rather than kinematic: the repository's transverse
+shear uses a shear correction factor, while paper A states there is no numerical
+factor.  And, on top of the element itself, the repository layers a Winkler &
+Plakomytis ERC drilling treatment and a `beta_w` warping penalty — both from a
+different element in a different paper.
+
 ## How to read the PDF
 
 ```bash
@@ -72,10 +156,14 @@ u_m = Σ_{i=1..4} h_i(r,s) u_i
 u_b = ½ Σ_{i=1..4} a_i h_i(r,s) ( −V_2^i α_i + V_1^i β_i )
 ```
 
-`a_i` are the four edge vectors (Fig. 3(d)), `V_n^i` the nodal normal, `V_1^i`,
-`V_2^i` the nodal in-plane vectors and `α_i`, `β_i` the nodal rotations about
-them. Note that **`x_b` vanishes for a flat element** (the edge vectors have no
-normal component), so this enrichment is the element's *warping* treatment.
+`a_i` is the **shell thickness at node i** (paper A, p. 405, right after Eq. 1:
+*"a_i and V_n^i denote the shell thickness and the director vector at the node"*),
+`V_n^i` the nodal normal, `V_1^i`, `V_2^i` the nodal in-plane vectors and `α_i`,
+`β_i` the two director rotations.  Fig. 3(d)'s red arrows are the *edge* vectors
+`x_e^k` of Eq. (13), a different quantity.  Note that **`x_b` vanishes for a flat
+element** (the edge vectors have no normal component), so this enrichment is the
+element's *warping* treatment, and it is part of the kinematics rather than a
+separate bubble.
 
 **Relations following from Eq. (2) in Eqs. (8a) and (8b)** (p. 406):
 
@@ -253,7 +341,8 @@ B4 = −c_r/d      B5 = −c_s/d
 
 **Eq. (27a–c)** — the efficient form, with
 `a_A = c_r(c_r−1)/(2d)`, `a_B = c_r(c_r+1)/(2d)`, `a_C = c_s(c_s−1)/(2d)`,
-`a_D = c_s(c_s+1)/(2d)`, `a_E = 2c_r c_s/d`:
+`a_D = c_s(c_s+1)/(2d)`, `a_E = 2c_r c_s/d`  ← **positive**; see the sign
+correction in the re-read section above.
 
 ```text
 ẽ_rr^m = ½(1 − 2a_A + s + 2a_A s²) e_rr^m(A)
