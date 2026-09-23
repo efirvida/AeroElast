@@ -401,6 +401,83 @@ and MITC4+ columns. Deriving the code from the element's node count (3 -> MITC3,
 4 -> MITC4) unlocks running the published MITC3+ values against our element, and
 feeds the validation matrix of U8 at the same time.
 
+### S1-S4 - Implement the strain-smoothed MITC3+ (AUTHORISED by the user)
+
+Reference: Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite
+element", *Computers and Structures* 223:106096, 2019 (`.sources/papers/lee2019.pdf`).
+The formulation below was extracted from the paper with `pdftotext -layout` on
+page 5, which recovers the superscripts that the default extraction mangles.
+
+#### The formulation, faithfully
+
+Per target triangle `e`, with mid-surface area `A^(e)` and unit centre normal
+`n^(e)`, and its three edge neighbours `k`:
+
+1. **Neighbour strain in the target's convected coordinates**, Eq. (15):
+   `e_ij^(k) = e_ln^(k) (g_i^(e)·g^l^(k)) (g_j^(e)·g^n^(k))`, `i,j = 1,2`, using the
+   covariant base vectors of the target and the contravariant base vectors of the
+   neighbour (`g_i^(k)·g^j^(k) = delta_i^j`). Out-of-plane strains are neglected.
+2. **Pairwise smoothing**, Eq. (16), weighted by area:
+   `ê_ij^(k) = ( e_ij^(e) A^(e) + e~_ij^(k) Ā^(k) ) / ( A^(e) + Ā^(k) )`, with the
+   neighbour's area **projected onto the target's mid-surface plane**, Eq. (17):
+   `Ā^(k) = (n^(e)·n^(k)) A^(k)`. So the smoothing fades to nothing as the angle
+   between the two elements approaches 90 degrees.
+3. **Boundary rule**, stated in the text right after Eq. (17): *"we use
+   m ê_ij = m e_ij if the kth edge of the target element is located along
+   boundary"*. A boundary edge has no neighbour, so the pairwise strain falls
+   back to the target's own strain.
+4. **Assignment to the three Gauss points**, Eq. (18), cyclic pairing:
+   `e^(A) = (ê^(3) + ê^(1))/2`, `e^(B) = (ê^(1) + ê^(2))/2`,
+   `e^(C) = (ê^(2) + ê^(3))/2`.
+5. Eq. (19) gives the equivalent explicit interpolation with `p = 1/6`,
+   `q = 2/3`, but the paper states it *"is not utilized in actual computation of
+   the stiffness matrix. We use the assigned strains in Eq. (18) directly in the
+   3-point Gauss integration"*.
+6. **Everything else stays MITC3+**: *"We use the originally defined b1 eij and
+   b2 eij in Eqs. (11) and (12) for the covariant bending strains. For the
+   covariant transverse shear strains, we adopt the assumed strains of the MITC3+
+   shell element, in Eqs. (7) and (8)."* So the bending field, the transverse
+   shear field and the rotation convention are untouched - the change is
+   orthogonal to the sign fix already made.
+
+#### Work units
+
+- **S1 - the smoothing operator.** Edge-neighbour topology for triangles plus the
+  smoothed covariant membrane B per element (Eqs. 15-18), as a pure function with
+  unit tests: a constant-strain patch must return that same strain (averaging
+  identical values), the boundary rule must fall back to the element's own strain,
+  and a flat two-element case must reproduce the expected area-weighted average.
+- **S2 - wire it into the stiffness.** The smoothed membrane B replaces the
+  covariant membrane strain in the MITC3 stiffness, including the
+  membrane-bending coupling term; bending and transverse shear untouched. The
+  element kernel must gain an entry point that accepts the precomputed smoothed B,
+  since the smoothing is not a per-element-local quantity.
+- **S3 - validate.** Patch, isotropy and zero-energy-mode tests (the paper says it
+  passes all three); the published columns versus our element (Scordelis-Lo,
+  Cook's skew beam, hyperbolic paraboloid); mixed MITC3/MITC4 meshes; the rigid
+  body invariant; and the full suite. Note the measured target: on the
+  Scordelis-Lo roof the paper reports 1.1017/1.0323/1.0075 for the smoothed
+  element against 0.7409/0.8793/0.9618 for MITC3+, and on the von Mises stress
+  error at point B, mesh I 24.76/13.30/6.99 against 45.56/22.52/10.66.
+- **S4 - document.** Add the element to `docs/formulations/shell-elements.md` with
+  its code -> paper -> equation map, and add the 2018 and 2019 papers to
+  `docs/references.md` (the 2019 one is not there yet).
+
+#### Prerequisite for S3
+
+`_assemble_global` in `tests/test_ko2017_performance.py` hardcodes element code
+4, so the benchmark suite can only run MITC4 even though the source paper
+publishes both the MITC3+ and the MITC4+ columns. Deriving the code from the
+element's node count (3 -> MITC3, 4 -> MITC4) is required to compare against the
+published MITC3+ column, and it feeds U8's validation matrix at the same time.
+
+#### What must not change
+
+The 2014 MITC3+ behaviour has to remain available and correct: the smoothed field
+is an addition, and if the smoothing is not applied (or the topology is absent)
+the element must fall back to the current MITC3+ membrane field. The existing
+tests, including the corrected moment-sign expectations, must keep passing.
+
 ## Open questions
 
 - Which of the recovered papers actually correspond to the implemented code, and
