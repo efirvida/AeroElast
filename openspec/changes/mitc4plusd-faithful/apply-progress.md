@@ -15,8 +15,8 @@ Change `mitc4plusd-faithful` · phase **apply** · artifact store `openspec` · 
 - Source: native SDD status engine (authoritative, `artifactStore: openspec`) · `changeName` `mitc4plusd-faithful` · `applyState` `ready` · `nextRecommended` `apply`.
 - `actionContext.mode`: `repo-local`; `workspaceRoot` and `allowedEditRoots` were, on every unit, `/home/efirvida/Desktop/dev/fem-shell`. Every edit stayed inside the workspace and inside the unit's authorized edit roots.
 - Review workload gate (identical on every unit): `Decision needed before apply: No`, `Chained PRs recommended: No`, `Chain strategy: size-exception`, `400-line budget risk: High`. The session resolved delivery as **single PR with an explicitly accepted `size:exception`** and a **700-line review budget**.
-- Task progress: **59 tasks · 5 → 8 → 12 → 17 → 25 completed.** Per-unit entry counts: WU1 `5/54`, WU2 `8/51`, WU3 `12/47`, WU4a `17/42`, WU4b `17/42`. WU4a closed no checkbox (its mechanism is recorded as a note on task 5.4 instead), so it left `17/42` unchanged and WU4b inherited that same `17/42`; WU4b then closed tasks 5.1–5.8. *Ambiguity kept as reported: the `17/42` entry line therefore appears for both WU4a and WU4b; it is not resolved here by guessing.*
-- Test-count trajectory: **120 → 130 → 135 → 140 → 146 → 155** passed / 0 failed.
+- Task progress: **59 tasks · 5 → 8 → 12 → 17 → 25 → 28 completed.** Per-unit entry counts: WU1 `5/54`, WU2 `8/51`, WU3 `12/47`, WU4a `17/42`, WU4b `17/42`, WU5 `25/34 → 28/31` (tasks 6.1, 6.2, 6.4; 6.3 stays unchecked because its named verification is task 9.2). WU4a closed no checkbox (its mechanism is recorded as a note on task 5.4 instead), so it left `17/42` unchanged and WU4b inherited that same `17/42`; WU4b then closed tasks 5.1–5.8. *Ambiguity kept as reported: the `17/42` entry line therefore appears for both WU4a and WU4b; it is not resolved here by guessing.*
+- Test-count trajectory: **120 → 130 → 135 → 140 → 146 → 155 → 165** passed / 0 failed.
 
 ---
 
@@ -310,20 +310,82 @@ Rows 3, 9 and 10 are the non-vacuity controls the task names for 5.3 and 5.4: ea
 
 ---
 
+## WU5 — the assembly-facing API (tasks 6.1, 6.2, 6.4; 6.3 deferred)
+
+**Closed.** 6.1 `compute_fint_global` (linear + bounded nonlinear) and `compute_kt_global`; 6.2 `compute_me_global` / `compute_me_composite_global`; 6.4 the corotational machinery (`quaternion_to_matrix`, `quaternion_from_vector`, `rotate_vector_by_quaternion`, `quaternion_multiply`, `update_normals_with_displacements`, `polar_decomposition`, `log_strain_from_polar`, `compute_membrane_strain_log`, `update_corotational_frame`, `frame_incremental_rotation`), the `GpLocalFrame` type and `extract_elem_disp_24`. **6.3 stayed `- [ ]`** (`compute_body_load_global`, `compute_k_sigma_global`, `compute_centrifugal_prestress`, `compute_element_stress`): the four functions landed, but the task's own verification is the retargeted T2I names of task 9.2, which was not run here; no test name was invented.
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` extended with the WU5 API (the `Vec24` alias; `local_shape_derivatives`, `displacement_gradient`, `membrane_strain_nl`, `compute_b_nl`, `extract_membrane_rows`, `compute_b_geometric`, `geometric_stiffness_contribution`, `geometric_stiffness_local`, `geometric_stiffness_from_stress`, `membrane_nonlinear_correction`, `element_area`, `compute_me_with_inertias`; `compute_fint_global`, `compute_kt_global`, `compute_me_global`, `compute_me_composite_global`, `compute_body_load_global`, `compute_k_sigma_global`, `compute_centrifugal_prestress`, `compute_element_stress`, `extract_elem_disp_24`; the `GpLocalFrame` type and the corotational impl block), plus the 10 new tests in the inline test module and the test-import additions; `tasks.md` (6.1/6.2/6.4 checked with notes, 6.3 left unchecked with a deferral note); `apply-progress.md`. Diff stat (tracked file, vs the WU4b commit `8eec86c`):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 1005 ++++++++++++++++++++-
+1 file changed, 998 insertions(+), 7 deletions(-)
+```
+
+The 7 deletions are import reformatting only (`use nalgebra::{...}` gains `SVector, Vector4`; the test `use super::{...}` list is rustfmt-wrapped). `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` and `git diff --numstat` for it are **empty**: the hybrid is byte-identical. No file outside the authorized set was touched (`git status --short` shows only `mitc4_plusd.rs` modified plus the pre-existing untracked `.pi/`).
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **165 passed / 0 failed** (155 → 165; the WU4b baseline 155 + the 10 new tests). Focused: `test_kt_zero_matches_ke` 2/0, `test_fint_linear_nonlinear_parity` 2/0, `test_kt_fint_directional_derivative_with_drill_dofs` 2/0, `test_kt_fint_directional_derivative` 6/0, `me_global` 12/0 (each includes the hybrid's own copy). `rustfmt --edition 2021 --check` is clean for the file. `cargo clippy -p aeroelast-core --all-targets` reports **no warning in the WU5 line ranges** (the remaining `mitc4_plusd.rs` lints are the pre-existing WU2–WU4 ones: staged `dead_code`, complex-type/too-many-arguments, and the original test module's `op_ref` patterns).
+
+**Tests.**
+
+| Test | Asserts |
+| --- | --- |
+| `test_kt_zero_matches_ke` | `K_T(u=0)` equals `T^T K_linear T` bit for bit (`diff.norm() < 1e-10`) |
+| `test_fint_linear_nonlinear_parity` | `f_int(nonlinear) − K u` is `O(‖u‖²)`: `rel_err < 1e-1` at `‖u‖ ≈ 2.3e-4` |
+| `test_kt_fint_directional_derivative` | translational perturbation: `K_T(u)·δu ≈ f_int(u+δu) − f_int(u)` (`rel_err < 5e-2`) |
+| `test_kt_fint_directional_derivative_rotations` | rotational (`θx`, `θy`) perturbation: the same bound |
+| `test_kt_fint_directional_derivative_with_drill_dofs` | the drill slot `6i+5` excited in base and perturbation: the same bound |
+| `test_me_global_is_symmetric_and_positive_semidefinite` | `M` symmetric to `1e-14` relative and PSD |
+| `test_me_global_total_translational_mass_is_rho_h_a` | every translational direction sums to `rho·h·A` to `1e-14` relative |
+| `test_me_global_matches_the_exact_bilinear_coefficients` | `M_ii = m/9`, adjacent `m/18`, opposite `m/36` to `1e-14` relative (quadrature-exact) |
+| `test_me_global_rotary_inertia_is_rho_h3_a_over_12` | every rotational direction sums to `rho·h³/12·A` to `1e-14` relative |
+| `test_me_composite_global_matches_the_rho_h_construction` | `compute_me_composite_global(pre, rho·h, rho·h³/12)` equals `compute_me_global(pre, rho)` to `1e-12` relative (design-derived name, no spec-fixed name) |
+
+**Test-first** (`strict_tdd: false`). **RED (compile).** The 10 tests were written first, against production functions that did not exist. `cd crates && cargo test -p aeroelast-core` failed to compile with:
+
+```text
+error[E0432]: unresolved imports `super::compute_fint_global`, `super::compute_kt_global`,
+`super::compute_me_composite_global`, `super::compute_me_global`, `super::element_area`, `super::Vec24`
+```
+
+The production API was then added and the suite went **GREEN** (165/0). Each test was afterwards shown to fail for a deliberately wrong implementation; restoring the file returns 165/0.
+
+| # | Test shown RED | Perturbation | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `test_kt_fint_directional_derivative_rotations` | **partial wiring:** `K_T`'s `k0` replaced by the membrane + drill blocks only (bending/shear dropped) while `f_int` keeps them | `rel_err = 1.00` (want < 5e-2) |
+| 2 | `test_kt_zero_matches_ke` | `K_T(0)` built from `compute_ke_local_with_drill(pre, false)` | `diff norm = 9065471553.6` (want < 1e-10) |
+| 3 | `test_fint_linear_nonlinear_parity` | `membrane_nonlinear_correction` returns a **linear** term (`0.5 K u`) instead of the `O(u²)` correction | `rel_err = 5.00e-1` (want < 1e-1) |
+| 4 | `test_me_global_total_translational_mass_is_rho_h_a`; `test_me_global_matches_the_exact_bilinear_coefficients` | translational inertia doubled (`m_trans × 2`) | `total mass 1.56e4 != rho h A 7.8e3 (relative error 1.000e0)` |
+
+Rows 1 and 2 are the consistency guards the task calls load-bearing: the deliberately partial wiring of the tangent makes the directional-derivative test fail, and a `K_T(0)` built from a different linear operator makes the zero test fail. A fourth perturbation (dropping the drill block from `f_int` alone) left the drill directional-derivative test at `rel_err = 2.5e-8` because that test's constant `du[6i+5]` pattern lies in the drill operator's rigid-body null space — recorded as a finding, not hidden.
+
+**Deviations / findings.**
+
+1. **6.3 left unchecked, by design.** The four functions are implemented, but the task names no new test and defers its verification to task 9.2; inventing a name is forbidden by the task. Recorded on the task.
+2. **The nonlinear path is bounded, not paper-faithful** (design open item 5 / risk 9). `nonlinear = false` returns `K u` exactly; `nonlinear = true` adds the repository's total-Lagrangian membrane correction (`1/2 H^T H` with the exact `K_L` and the geometric `K_sigma`). Neither paper provides a nonlinear MITC4+/D formulation for this repository's updated-Lagrangian form, so the bound is recorded and T2B is the oracle. No formulation was invented.
+3. **`compute_fint_global`'s linear part is exactly `compute_ke_local · u`** (the nonlinear path adds the membrane correction as a difference), so `f_int(nonlinear) − K u` is `O(u²)` by construction and the parity test is non-vacuous.
+4. **`compute_kt_global` transforms without post-symmetrising** (`t24^T k_t_sym t24`), matching the hybrid, so `K_T(0)` equals `T^T K_0 T` bit for bit (the `test_kt_zero_matches_ke` guard). The mass and other global transforms still use `transform_to_global`, which symmetrises.
+5. **`extract_elem_disp_24` landed in `mitc4_plusd.rs`** (the design lists it there); the assembler's own copy in `assembler.rs` is untouched and is retargeted at WU9. The element module's copy is additive and unused until then.
+6. **`element_area` is a function, not a stored field.** The design's §2.1 lists `pub element_area: f64`; WU2 did not store it, so WU5 computes it from the 2×2 surface measure (used by the mass tests and `compute_centrifugal_prestress`). No behaviour depends on the difference.
+7. **`update_normals_with_displacements` uses `pre.vn[i]`** as the initial director (the new struct has no `initial_normals` placeholder); the corotational machinery is otherwise the retargeted, formulation-independent port. `GpLocalFrame` is re-declared in this module because the hybrid's type lives in `mitc4.rs`.
+8. **WU5 size.** 998 added / 7 removed lines vs the design's ~300 forecast, above the ~350 per-unit guide and the 700 session budget; covered by the accepted session `size:exception`. The overrun is the paper/equation doc comments on every new function, the 10 tests, and the corotational port. No test, doc or citation was dropped.
+
+---
+
 ## Remaining tasks
 
-All tasks of sections 2–5 that this change has reached are complete except the two recorded deferrals below. `tasks.md` is the canonical list of the exact unchecked lines; it currently reports **25 checked / 34 unchecked of 59**.
+All tasks of sections 2–6 that this change has reached are complete except the three recorded deferrals below. `tasks.md` is the canonical list of the exact unchecked lines; it currently reports **28 checked / 31 unchecked of 59**.
 
 - **Task 2.4 (still unchecked; deferred).** *Boundary-traction loader and the 48-DOF dense patch assembler* `assemble_star_patch(&[Mitc4PlusDPrecomputed; 5]) -> DMatrix<f64>`, with Gauss-rule boundary integration and a dense LU solve. Touches `…/tests/fixtures.rs`. Verification: the self-test asserts the assembled 48×48 matrix is symmetric and that its six rigid-body fields carry zero energy; it is added and observed **failing** (RED) until WU4 lands. Satisfies: Requirement 6/7/8; Requirement 12. **Deferred to WU4 (recorded):** this task needs `Mitc4PlusDPrecomputed`, which does not exist until WU2–WU4; writing the assembler now would produce a broken build rather than a red test. It lands with WU4 once the element type exists and stays unchecked here (its recorded deferral text still says "it lands with WU4").
-- **Task 5.6 (partially deferred).** The `M` / `K_T` / `f_int` shapes belong to tasks 6.1/6.2 (WU5); WU4 asserted the `K` local/global 24×24 and the drill-slot layout and recorded the deferral on the task.
-- **Sections 6–13 remain pending** (WU5–WU11): the element core's assembly-facing API, the Tier-1a/Tier-1b tests, the move of the layout-bound Tier-2 tests, the flip, the retirement, and docs/guard tests.
+- **Task 5.6 (partially deferred).** The `M` / `K_T` / `f_int` shapes belong to tasks 6.1/6.2 (WU5); WU4 asserted the `K` local/global 24×24 and the drill-slot layout and recorded the deferral on the task. WU5 landed `compute_me_global`/`compute_kt_global`/`compute_fint_global`; the `M`/`K_T`/`f_int` shape assertions themselves remain with the Tier-1 test units.
+- **Task 6.3 (still unchecked; deferred verification).** The four functions (`compute_body_load_global`, `compute_k_sigma_global`, `compute_centrifugal_prestress`, `compute_element_stress`) landed in `mitc4_plusd.rs`, but the task names no new test and defers its verification to the retargeted T2I names of task 9.2, which was not run in WU5. No test name was invented.
+- **Sections 7–13 remain pending** (WU6–WU11): the Tier-1a/Tier-1b tests, the move of the layout-bound Tier-2 tests, the flip, the retirement, and docs/guard tests. Section 6's WU5 landed 6.1/6.2/6.4 and left 6.3 to task 9.2.
 
 ## Workload and PR boundary (cumulative)
 
 - Delivery, once for the whole change: **single PR with an explicitly accepted `size:exception`**, against a **700-line review budget** and a 400-line budget risk marked `High`. Each unit is its own review slice with its own rollback: WU1 = delete the module and the `mod.rs` line; WU2 = delete the WU2 block (WU1 fixtures and `mod.rs` untouched); WU3 = revert the WU3 block (WU1/WU2 and `mod.rs` untouched); WU4a = revert the two accessors and their tests (WU1–WU3 bytes untouched); WU4b = revert the WU4 block (WU1–WU3 and WU4a bytes otherwise untouched; the frame fix does modify four WU2/WU3 operator lines, called out on task 5.3).
-- Cumulative changed lines at the end of WU4b, as reported per unit: `WU1 495 · WU2 1013 · WU3 1180 (1176+/4−) · WU4a 168 · WU4b 1278+/27−`, i.e. roughly **4.1k lines** against the 700-line budget. The overrun is deliberate and covered by the accepted session `size:exception`. *Ambiguity kept as reported: the WU2 (1013) and WU3 (1180) figures read like the file's cumulative line count rather than a per-unit delta (WU1 was a 494-line new file), so the sum above is the sum of the figures as reported, not a recomputed delta; it is not resolved here by guessing.*
+- Cumulative changed lines at the end of WU4b, as reported per unit: `WU1 495 · WU2 1013 · WU3 1180 (1176+/4−) · WU4a 168 · WU4b 1278+/27−`, i.e. roughly **4.1k lines** against the 700-line budget. WU5 adds `998+/7−` (the 7 deletions are import reformatting only). The overrun is deliberate and covered by the accepted session `size:exception`. *Ambiguity kept as reported: the WU2 (1013) and WU3 (1180) figures read like the file's cumulative line count rather than a per-unit delta (WU1 was a 494-line new file), so the sum above is the sum of the figures as reported, not a recomputed delta; it is not resolved here by guessing.*
 - No unit dropped a test, doc or citation for size; each recorded that explicitly.
 
 ## Next
 
-The next implementable unit is **WU5** (tasks 6.1–6.4): the element core's assembly-facing API (`M` / `K_T` / `f_int` shapes, building on WU4b). Sections 7–13 follow; task 2.4 remains the recorded deferral.
+The next implementable unit is **WU6** (tasks 7.1–7.4): the Tier-1a tests of the 2017 core, building on WU4b/WU5. Task 2.4 and task 6.3 remain the recorded deferrals.
