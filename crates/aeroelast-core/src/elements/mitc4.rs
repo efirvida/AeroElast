@@ -916,6 +916,40 @@ fn b_md_mitc4_plus(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 3,
     t * b_cov
 }
 
+/// Total mid-surface membrane strain-displacement operator (3×24):
+///
+///   B_mem(r, s) = B_m(MITC4+) (r, s) + B_md (r, s)
+///
+/// Ko et al. 2025, Eq. (22a) adds the drill-membrane strain of Eq. (21) to the
+/// in-plane strain:
+///
+///   e_ij = e_m_ij + e_md_ij + t b1_ij + t^2 b2_ij   with  i, j = 1, 2,
+///
+/// so the drill-membrane field belongs to the membrane (mid-surface) strain and
+/// must ride along wherever that strain feeds the constitutive relation. Every
+/// site used by the stiffness (K), the internal force (f_int) and the tangent
+/// (K_T) consistency chain calls this helper for the membrane (A) term; a
+/// partial wiring breaks the mutual-derivative contract between them.
+///
+/// Deliberate exception: the membrane-bending coupling (B) terms — k_mb_coup in
+/// compute_ke_local and the cb_coupling terms of compute_fint_global — stay on
+/// the standard membrane operator b_m_mitc4_plus, because SRI drops the
+/// drill in-plane shear stiffness and folding the drill strain into an
+/// indefinite B turns K_local indefinite in the non-isotropic PSD test.
+///
+/// The drill-membrane strain is linear in the nodal drill rotations, so it is
+/// added to the linear membrane strain B_m·u (and to the stress recovered from
+/// that strain); it does not receive an additional Green-Lagrange correction.
+///
+/// Note: B_md(0, 0) = 0 — all four simplified mid-side derivatives of Eq. (11)
+/// vanish at the element centre — so call sites evaluated only at (0, 0) (the
+/// SRI in-plane-shear term and the centre-point stress recovery) are unaffected
+/// either way; those sites deliberately keep calling b_m_mitc4_plus.
+#[inline]
+fn b_membrane_total(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 3, 24> {
+    b_m_mitc4_plus(pre, xi, eta) + b_md_mitc4_plus(pre, xi, eta)
+}
+
 /// Standard membrane B-matrix (3×24) at a GP (for stress recovery, nonlinear)
 fn b_m_standard(dh: &SMatrix<f64, 2, 4>) -> SMatrix<f64, 3, 24> {
     let mut bm = SMatrix::<f64, 3, 24>::zeros();
@@ -1141,12 +1175,19 @@ pub fn compute_ke_local(pre: &Mitc4Precomputed) -> Mat24 {
         let eta = GAUSS_ETA[g];
         let sqrt_g = pre.gp_jacobians[g].sqrt_g;
         let w = GAUSS_W[g];
-        let bm = b_m_mitc4_plus(pre, xi, eta);
+        // Eq. (22a): the 4-GP membrane stiffness uses the total mid-surface
+        // membrane operator B_m + B_md, so the drill-membrane field contributes
+        // to K exactly as it contributes to f_int below.
+        let bm = b_membrane_total(pre, xi, eta);
         k_m += (bm.transpose() * &cm_normal * &bm) * (w * sqrt_g);
     }
     {
         let (g_r_c, g_s_c) = compute_j3d(&pre.initial_coords_3d, 0.0, 0.0);
         let sqrt_g_c = g_r_c.cross(&g_s_c).norm();
+        // Deliberately NOT b_membrane_total: this term only consumes row 2
+        // (engineering in-plane shear) and B_md(0, 0) = 0 because the Eq. (11)
+        // mid-side derivatives all vanish at the element centre, so the
+        // drill-membrane field adds nothing to the SRI shear term.
         let bm_c = b_m_mitc4_plus(pre, 0.0, 0.0);
         let b_shear: SMatrix<f64, 1, 24> = bm_c.fixed_rows::<1>(2).into();
         k_m += b_shear.transpose() * c_shear * b_shear * (4.0 * sqrt_g_c);
@@ -1179,7 +1220,13 @@ pub fn compute_ke_local(pre: &Mitc4Precomputed) -> Mat24 {
         knb_b += (bk.transpose() * cb * &bkb) * (w * sqrt_g);
         kbb_b += (bkb.transpose() * cb * &bkb) * (w * sqrt_g);
 
-        // Membrane-bending B-coupling: K_mb += bm^T · B · bk
+        // Membrane-bending B-coupling: K_mb += bm^T · B · bk.
+        // Deliberately kept on the standard MITC4+ membrane operator: the drill
+        // strain is NOT carried into the laminate coupling B here, matching the
+        // cb_coupling terms of compute_fint_global. Folding it in makes K_local
+        // indefinite in the non-isotropic PSD test because the SRI shear split
+        // (below) drops the drill in-plane shear stiffness while the coupling
+        // would keep its shear cross-terms.
         let bm_gp = b_m_mitc4_plus(pre, xi, eta);
         k_mb_coup += (bm_gp.transpose() * cb_coupling * &bk) * (w * sqrt_g);
 
@@ -1437,7 +1484,11 @@ pub fn compute_kt_global(pre: &Mitc4Precomputed, u_global: &Vec24) -> Mat24 {
         let bnl = compute_b_nl(&gj.dh, &h_mat);
 
         // Keep tangent consistent with nonlinear f_int membrane operator.
-        let bm_l = b_m_mitc4_plus(pre, xi, eta);
+        // Eq. (22a): B_l is the total mid-surface membrane operator
+        // (MITC4+ assumed strain + MITC4/D drill-membrane strain), matching
+        // bm_l in compute_fint_global. Together with the membrane part of K_0
+        // (compute_ke_local) this reproduces B_total^T C B_total exactly.
+        let bm_l = b_membrane_total(pre, xi, eta);
         let bm_nl = extract_membrane_rows(&bnl);
 
         k_l += (
@@ -1463,6 +1514,9 @@ fn compute_membrane_stress(pre: &Mitc4Precomputed, u_local: &Vec24) -> Vector3<f
     let cm = &pre.constitutive.cm;
 
     // Evaluate at element center using the covariant MITC4+ membrane B-matrix.
+    // Deliberately NOT b_membrane_total: this is a stress-recovery path (not part
+    // of the K / f_int consistency pair) and it is evaluated at (0, 0) where the
+    // drill-membrane operator vanishes identically, B_md(0, 0) = 0.
     let bm = b_m_mitc4_plus(pre, 0.0, 0.0);
     let eps_m = bm * u_local;
     cm * eps_m
@@ -1506,8 +1560,12 @@ fn compute_geometric_stiffness_local(pre: &Mitc4Precomputed, u_local: &Vec24) ->
         let xi = GAUSS_XI[g];
         let eta = GAUSS_ETA[g];
 
-        // sigma at this Gauss point (force per unit length)
-        let bm = b_m_mitc4_plus(pre, xi, eta);
+        // sigma at this Gauss point (force per unit length).
+        // Eq. (22a): K_sigma is the d(B_nl^T)/du · N part of the tangent, so the
+        // resultant N must come from the same total membrane strain
+        // (B_m + B_md)·u as compute_fint_global; otherwise K_T is not the
+        // derivative of f_int. The drill-membrane field enters N here.
+        let bm = b_membrane_total(pre, xi, eta);
         let eps_m = bm * u_local;
         let sigma_g = cm * eps_m;
 
@@ -1616,9 +1674,15 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
             // H = du/dX (displacement gradient)
             let h_mat = displacement_gradient(&gj.dh, &u_local);
 
-            // Linear MITC4+ membrane strain B · u
-            let bm_l = b_m_mitc4_plus(pre, xi, eta);
+            // Linear membrane strain, Eq. (22a): B_m (MITC4+ assumed strain)
+            // plus B_md (MITC4/D drill-membrane strain) evaluated at this GP.
+            // bm_std is kept separately because the membrane-bending coupling B
+            // is deliberately built from the standard membrane strain only (see
+            // compute_ke_local, k_mb_coup).
+            let bm_std = b_m_mitc4_plus(pre, xi, eta);
+            let bm_l = bm_std + b_md_mitc4_plus(pre, xi, eta);
             let eps_m_linear = bm_l * &u_local;
+            let eps_m_linear_std = bm_std * &u_local;
 
             // Nonlinear Green-Lagrange correction: ε_NL = ½·(H^T·H)_Voigt
             let eps_m_nl = Vector3::new(
@@ -1627,6 +1691,8 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
                 h_mat[(0, 0)] * h_mat[(0, 1)] + h_mat[(1, 0)] * h_mat[(1, 1)] + h_mat[(2, 0)] * h_mat[(2, 1)],
             );
             let eps_m = eps_m_linear + eps_m_nl;
+            // Same strain without the drill-membrane term, for the B coupling.
+            let eps_m_std = eps_m_linear_std + eps_m_nl;
 
             // B_NL for virtual work: B_total = B_mitc4+ + B_NL
             let bnl = compute_b_nl(&gj.dh, &h_mat);
@@ -1647,8 +1713,14 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
             let kappa = bk * &u_rot + bkb * u_b;
 
             // ── Resultants with ABD coupling (SRI: cm_normal only; shear handled at centre) ──
-            let n_resultant = &cm_normal * &eps_m + cb_coupling * &kappa;
-            let m_resultant = cb_coupling * &eps_m + cb * &kappa;
+            // Eq. (22a): the drill-membrane strain feeds the membrane (A)
+            // resultant N through eps_m. The membrane-bending coupling B is built
+            // from the standard membrane strain eps_m_std, matching k_mb_coup in
+            // compute_ke_local (folding the drill strain into B makes K_local
+            // indefinite in the non-isotropic PSD test because SRI drops the
+            // drill in-plane shear stiffness). N = A·ε + B·κ is therefore split
+            // in the virtual work below into its A and B parts.
+            let m_resultant = cb_coupling * &eps_m_std + cb * &kappa;
 
             // ── D1: transverse shear ─────────────────────────────────────────
             let (bs_nodal, bs_bubble) = b_gamma_mitc4_plus(
@@ -1658,8 +1730,12 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
             let q_resultant = cs * gamma;
 
         // ── Virtual work accumulation ─────────────────────────────────────
+        // Membrane (A) part: full total operator B_m + B_md, Eq. (22a).
+        // B coupling: standard membrane operator B_m only, so the tangent stays
+        // symmetric with compute_ke_local's k_mb_coup = Σ Bm^T · B · Bk.
         let factor = w * sqrt_g;
-        f += bm_total.transpose() * &n_resultant * factor;
+        f += (bm_total.transpose() * (&cm_normal * &eps_m)
+              + bm_std.transpose() * (cb_coupling * &kappa)) * factor;
         f += bk.transpose() * &m_resultant * factor;
         f += bs_nodal.transpose() * &q_resultant * factor;
 
@@ -1691,6 +1767,10 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
                 + h_mat_c[(1, 0)] * h_mat_c[(1, 1)]
                 + h_mat_c[(2, 0)] * h_mat_c[(2, 1)];
 
+            // Deliberately NOT b_membrane_total: only row 2 (engineering
+            // in-plane shear) is consumed and B_md(0, 0) = 0 (Eq. (11) mid-side
+            // derivatives vanish at the centre), mirroring the centre term in
+            // compute_ke_local. The drill operator cannot add shear here.
             let bm_l_c = b_m_mitc4_plus(pre, 0.0, 0.0);
             let bnl_c  = compute_b_nl(&dh_c, &h_mat_c);
             let bm_nl_c = extract_membrane_rows(&bnl_c);
@@ -1968,7 +2048,9 @@ pub fn compute_element_stress(
     let cm_raw = &pre.constitutive.cm_raw;
     let h = pre.thickness;
 
-    // Membrane
+    // Membrane. Deliberately NOT b_membrane_total: stress recovery, not part of
+    // the K / f_int consistency pair, and evaluated at the centroid (xi, eta) =
+    // (0, 0) where the drill-membrane operator is identically zero, B_md(0,0)=0.
     let bm = b_m_mitc4_plus(pre, xi, eta);
     let eps_m = bm * &u_local;
     let sig_m = cm_raw * eps_m;
@@ -2379,6 +2461,84 @@ mod tests {
     /// For small displacements, f_int(nonlinear, u) ≈ K_linear · u + O(‖u‖²).
     /// This is the fundamental consistency check: the nonlinear f_int must
     /// reduce to the linear stiffness law as u → 0.
+    #[test]
+    fn test_ke_global_has_exactly_six_zero_modes() {
+        // The element must have exactly the six rigid-body modes in its null
+        // space - no more.  A spurious mode (a classic hourglass, or a
+        // drill-shear mode with no stiffness) would show up here and nowhere
+        // else: the benchmarks do not excite it unless a mesh happens to.
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+        let symmetric = (&k + k.transpose()) * 0.5;
+        let eigenvalues = nalgebra::SymmetricEigen::new(symmetric).eigenvalues;
+
+        let lambda_max = eigenvalues
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
+        let threshold = 1e-9 * lambda_max;
+        let zero_modes = eigenvalues
+            .iter()
+            .filter(|value| value.abs() < threshold)
+            .count();
+
+        assert_eq!(
+            zero_modes, 6,
+            "K_global must have exactly 6 zero modes (3 translations + 3 rotations), found {zero_modes}; \
+             the smallest non-zero eigenvalue is {:.3e} against lambda_max {:.3e}",
+            eigenvalues
+                .iter()
+                .cloned()
+                .filter(|value| value.abs() >= threshold)
+                .fold(f64::INFINITY, f64::min),
+            lambda_max
+        );
+    }
+
+    #[test]
+    fn test_kt_fint_directional_derivative_with_drill_dofs() {
+        // The other consistency guards excite only translations, and the
+        // rotations one excites only theta_x and theta_y, so `b_md * u` is zero
+        // for all of them and none can see the drill-membrane path.  This one
+        // excites the drill DOF (6i + 5) in both the base state and the
+        // perturbation, so K_T and f_int are compared where the drill operator
+        // actually contributes.
+        let pre = make_pre();
+
+        let mut u_base = Vec24::zeros();
+        for i in 0..4 {
+            u_base[6 * i] = 2.0e-4 * (i as f64 + 1.0);
+            u_base[6 * i + 1] = -1.0e-4 * (i as f64 + 1.0);
+            u_base[6 * i + 5] = 3.0e-4 * (i as f64 + 1.0);
+        }
+
+        let k_t = compute_kt_global(&pre, &u_base);
+
+        let delta = 1.0e-6_f64;
+        let mut du = Vec24::zeros();
+        for i in 0..4 {
+            du[6 * i] = delta;
+            du[6 * i + 1] = -delta;
+            du[6 * i + 5] = delta;
+        }
+
+        let k_t_du = &k_t * &du;
+
+        let f_plus = compute_fint_global(&pre, &(&u_base + &du), true);
+        let f_base = compute_fint_global(&pre, &u_base, true);
+        let f_diff = &f_plus - &f_base;
+
+        let num = (&k_t_du - &f_diff).norm();
+        let denom = f_diff.norm().max(1.0);
+        let rel_err = if denom > 1e-30 { num / denom } else { 0.0 };
+
+        assert!(
+            rel_err < 0.05,
+            "K_T·δu ≈ f_int(u+δu) - f_int(u) with the drill DOF excited: \
+             rel_err = {rel_err:.2e} (want < 5e-2)"
+        );
+    }
+
     #[test]
     fn test_fint_linear_nonlinear_parity() {
         let pre = make_pre();
