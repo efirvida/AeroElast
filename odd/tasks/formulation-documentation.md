@@ -196,6 +196,46 @@ Still to extract for U2/U5: the paper's explicit covariant transverse-shear
 definition in terms of `w` and the rotations (section 2.4 and the interpolation
 Eq. (3)), to quote it directly in the code -> equation map.
 
+## Verified code -> equation mappings
+
+These are the entries of U2's map that have been checked term by term against the
+recovered papers. Each is a verified identity, not a resemblance.
+
+| Code | Paper | Status |
+| --- | --- | --- |
+| `mitc4.rs` `b_m_mitc4_plus` rows `b_rr`, `b_ss`, `b_rs` | Ko, Lee & Bathe 2017 ("A new MITC4+ shell element", CAS 182:404-418) Eqs. (27a), (27b), (27c) | **verified, exact** |
+| `mitc4.rs` `drill_midside_shape_derivatives` (deleted in `4a46af2`) | Ko, Bathe & Zhang 2025 Eq. (11a) | **verified, exact** |
+| `mitc4.rs` `b_md_mitc4_plus` (deleted in `4a46af2`) | Ko, Bathe & Zhang 2025 Eqs. (5), (17a), (17b) | **verified, exact** |
+| Rotation convention of `compute_ke_global` | Ko, Bathe & Zhang 2025 Eq. (3a) | MITC4 matches; **MITC3 does not** (U5b) |
+| SRI split in `compute_ke_local` (`mitc4.rs:946-953`) | Hughes, Taylor & Kanoknukulchai 1977 | cited, not yet re-verified |
+| `mitc3.rs` `b_gamma_ext` ("Eq. 15"/"Eq. 16") | Lee, Lee & Bathe 2014 (MITC3+, CAS 138:12-23) | **to verify**: the comment names the equations but not the paper |
+| `mitc4.rs` `b_gamma_mitc4` | Dvorkin & Bathe 1984 (the original MITC4) | to verify |
+
+### MITC4+ membrane operator, verified term by term
+
+Paper Eqs. (27a-c), transcribed:
+
+```text
+(27a) e~rr = 1/2(1 - 2aA + s + 2aA s^2) e_rr(A)
+           + 1/2(1 - 2aB - s + 2aB s^2) e_rr(B)
+           + aC(-1 + s^2) e_ss(C) + aD(-1 + s^2) e_ss(D) + aE(-1 + s^2) e_rs(E)
+
+(27b) e~ss = aA(-1 + r^2) e_rr(A) + aB(-1 + r^2) e_rr(B)
+           + 1/2(1 - 2aC + r + 2aC r^2) e_ss(C)
+           + 1/2(1 - 2aD - r + 2aD r^2) e_ss(D) + aE(-1 + r^2) e_rs(E)
+
+(27c) e~rs = 1/4(r + 4aA rs) e_rr(A) + 1/4(-r + 4aB rs) e_rr(B)
+           + 1/4(s + 4aC rs) e_ss(C) + 1/4(-s + 4aD rs) e_ss(D)
+           + (1 + aE rs) e_rs(E)
+```
+
+The code's three rows are the same expressions with `a_a..a_e` and
+`pre.b_rr_a`, `pre.b_rr_b`, `pre.b_ss_c`, `pre.b_ss_d`, `pre.b_rs_e` in the same
+order. The tying points A-E and the blending coefficients are therefore in the
+right places, which is worth having on record: this operator is the production
+membrane path for MITC4, and it had no reference in the file beyond
+"(Ko et al. 2017, Eqs. 27a-c)".
+
 ## Open questions
 
 - Which of the recovered papers actually correspond to the implemented code, and
