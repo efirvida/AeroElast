@@ -740,98 +740,6 @@ fn b_m_mitc4_plus(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 3, 
     t * b_cov
 }
 
-/// Simplified fictitious midside derivatives used by the MITC4+/D
-/// drill-membrane enhancement.
-///
-/// Return order is edges [bottom, right, top, left]. The simplified form keeps
-/// only the dominant derivative on each edge, matching the paper's reduced
-/// interpolation strategy to preserve patch tests without increasing the
-/// numerical integration order.
-#[inline(always)]
-fn drill_midside_shape_derivatives(xi: f64, eta: f64) -> [(f64, f64); 4] {
-    // Ko et al. 2025, Eq (11) — "curl" (simplified) derivatives of midside shape functions.
-    // The zeros are DELIBERATE: they avoid higher-order integration than the base element.
-    // [h̃5,r  h̃6,r  h̃7,r  h̃8,r] = [0,  -r(1+s),  0,  -r(1-s)]
-    // [h̃5,s  h̃6,s  h̃7,s  h̃8,s] = [-s(1+r),  0,  -s(1-r),  0]
-    // Edge ordering: edge0=bottom(h5,r=-1..1,s=-1), edge1=right(h6,r=1,s=-1..1),
-    //                edge2=top(h7,r=-1..1,s=1),     edge3=left(h8,r=-1,s=-1..1)
-    [
-        (0.0,               -eta * (1.0 + xi)),  // h5: h̃r=0, h̃s=-s(1+r)
-        (-xi * (1.0 + eta), 0.0              ),  // h6: h̃r=-r(1+s), h̃s=0
-        (0.0,               -eta * (1.0 - xi)),  // h7: h̃r=0, h̃s=-s(1-r)
-        (-xi * (1.0 - eta), 0.0              ),  // h8: h̃r=-r(1-s), h̃s=0
-    ]
-}
-
-/// MITC4+/D-inspired drill-induced membrane strain operator.
-///
-/// The current production code already contains MITC4+ membrane/shear fields
-/// plus a standalone drill penalty. This operator adds the missing membrane
-/// strain contribution driven by drill-rotation differences along the four
-/// element edges, following the fictitious midside-node construction of the
-/// MITC4+/D formulation.
-fn b_md_mitc4_plus(pre: &Mitc4Precomputed, xi: f64, eta: f64) -> SMatrix<f64, 3, 24> {
-    let mut b_cov = SMatrix::<f64, 3, 24>::zeros();
-
-    let (g_r0, g_s0) = compute_j3d(&pre.initial_coords_3d, 0.0, 0.0);
-    let sqrt_g0 = g_r0.cross(&g_s0).norm().max(1e-14);
-    let (g_r, g_s) = compute_j3d(&pre.initial_coords_3d, xi, eta);
-    let sqrt_g = g_r.cross(&g_s).norm().max(1e-14);
-    let jac_ratio = sqrt_g0 / sqrt_g;
-
-    let vd = if pre.e3.norm() > 1e-14 {
-        pre.e3 / pre.e3.norm()
-    } else {
-        Vector3::new(0.0, 0.0, 1.0)
-    };
-
-    let edge_midpoints = [(0.0, -1.0), (1.0, 0.0), (0.0, 1.0), (-1.0, 0.0)];
-    let dh_mid = drill_midside_shape_derivatives(xi, eta);
-
-    for edge in 0..4 {
-        let i = edge;
-        let j = (edge + 1) % 4;
-        let theta_i = 6 * i + 5;
-        let theta_j = 6 * j + 5;
-
-        let node_i = Vector3::new(
-            pre.initial_coords_3d[i][0],
-            pre.initial_coords_3d[i][1],
-            pre.initial_coords_3d[i][2],
-        );
-        let node_j = Vector3::new(
-            pre.initial_coords_3d[j][0],
-            pre.initial_coords_3d[j][1],
-            pre.initial_coords_3d[j][2],
-        );
-        let x_m = node_j - node_i;
-
-        let (xi_e, eta_e) = edge_midpoints[edge];
-        let (x_r_e, x_s_e) = compute_j3d(&pre.initial_coords_3d, xi_e, eta_e);
-        let (h_r, h_s) = dh_mid[edge];
-
-        let coeff_rr = jac_ratio * h_r * x_m.dot(&(-(x_r_e.cross(&vd))));
-        let coeff_ss = -jac_ratio * h_s * x_m.dot(&(x_s_e.cross(&vd)));
-        let coeff_rs = 0.5
-            * jac_ratio
-            * (h_s * x_m.dot(&(-(x_r_e.cross(&vd))))
-                - h_r * x_m.dot(&(x_s_e.cross(&vd))));
-
-        b_cov[(0, theta_i)] -= coeff_rr;
-        b_cov[(0, theta_j)] += coeff_rr;
-        b_cov[(1, theta_i)] -= coeff_ss;
-        b_cov[(1, theta_j)] += coeff_ss;
-        b_cov[(2, theta_i)] -= 2.0 * coeff_rs;
-        b_cov[(2, theta_j)] += 2.0 * coeff_rs;
-    }
-
-    // Per Ko et al. 2025 Eq (21): the covariant→local transformation for the
-    // drill-membrane strain uses the CONSTANT element-center metric g_i(0,0,0).
-    let (j_loc0, _) = compute_j_loc_at(&pre.initial_coords_3d, &pre.e1, &pre.e2, 0.0, 0.0);
-    let t = covariant_to_local_mapping(&j_loc0);
-    t * b_cov
-}
-
 /// Standard membrane B-matrix (3×24) at a GP (for stress recovery, nonlinear)
 fn b_m_standard(dh: &SMatrix<f64, 2, 4>) -> SMatrix<f64, 3, 24> {
     let mut bm = SMatrix::<f64, 3, 24>::zeros();
@@ -2446,40 +2354,6 @@ mod tests {
         assert!(
             rel_err < 0.05,
             "K_T·δu ≈ f_int(u+δu) - f_int(u) for rotational DOFs: rel_err = {rel_err:.2e} (want < 5e-2)"
-        );
-    }
-
-    #[test]
-    fn test_drill_membrane_operator_zero_for_uniform_drill() {
-        let pre = make_pre();
-        let bm_d = b_md_mitc4_plus(&pre, 0.0, 0.0);
-
-        let mut u = Vec24::zeros();
-        for i in 0..4 {
-            u[6 * i + 5] = 1.0e-3;
-        }
-
-        let eps = bm_d * u;
-        assert!(
-            eps.norm() < 1.0e-12,
-            "uniform drill rotation must not create membrane strain, got {:?}",
-            eps
-        );
-    }
-
-    #[test]
-    fn test_drill_membrane_operator_detects_drill_gradient() {
-        let pre = make_pre();
-        let bm_d = b_md_mitc4_plus(&pre, 0.0, 0.0);
-
-        let mut u = Vec24::zeros();
-        u[5] = -1.0e-3;
-        u[11] = 1.0e-3;
-
-        let eps = bm_d * u;
-        assert!(
-            eps.norm() > 1.0e-12,
-            "drill gradient should create membrane strain contribution"
         );
     }
 
