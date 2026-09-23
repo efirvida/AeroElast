@@ -95,13 +95,7 @@ pub struct Mitc4Precomputed {
     // Priority 1: S4R-style enhancements (Abaqus formulation)
     // ============================================================================
 
-    /// Hourglass stiffness factor: K_hg = 0.005 · G · h · A (Abaqus/Standard)
-    pub hg_stiffness_factor: f64,
-    /// Orthogonalized hourglass vector (24-DOF) for membrane stabilization
-    pub h_orth: Vec24,
-    /// Shear modulus for hourglass computation
-    pub g_shear: f64,
-    /// Element area (for hourglass stiffness)
+    /// Element area
     pub element_area: f64,
 
     /// Nodal normals at reference configuration (for quaternion update)
@@ -570,39 +564,8 @@ impl Mitc4Precomputed {
 
         let k_drill = e_mod * thickness * thickness * 0.15 * drilling_scale;
 
-        // ============================================================================
-        // S4R-style: Hourglass control (Abaqus formulation)
-        // ============================================================================
-
         // Compute element area from Gauss point areas
         let element_area: f64 = (0..N_GAUSS).map(|g| gp_jacobians[g].sqrt_g * GAUSS_W[g]).sum();
-
-        // Compute shear modulus from constitutive (approximate from cm_raw)
-        let g_shear = {
-            let cm_raw = &constitutive.cm_raw;
-            // G = E/(2*(1+nu)) ≈ using the shear term from cm_raw
-            // For isotropic: cm_raw[2,2] = E/(2*(1+nu))
-            cm_raw[(2, 2)]
-        };
-
-        // Compute hourglass stiffness factor: K_hg = 0.005 * G * h * A (Abaqus/Standard)
-        let hg_factor = 0.005 * g_shear * thickness * element_area;
-
-        // Compute hourglass vector: standard alternating pattern
-        // h_vec = [1, -1, 1, -1] for each DOF component
-        // But orthogonalized against rigid body modes: subtract the mean
-        let mut h_vec = Vec24::zeros();
-        for i in 0..4 {
-            let sign = if i % 2 == 0 { 1.0 } else { -1.0 };
-            for j in 0..3 {
-                // translational DOFs only (0,1,2) - hourglass is membrane mode
-                h_vec[6 * i + j] = sign;
-            }
-        }
-
-        // For orthogonalization, we subtract the constant mode: no need for a quad element
-        // since bilinear shape functions already have zero mean for constant strain
-        let h_orth = h_vec; // Already orthogonal for bilinear functions
 
         // ============================================================================
         // S4R-style: Quaternion rotation tracking
@@ -675,9 +638,6 @@ impl Mitc4Precomputed {
             b_rr_a, b_rr_b, b_ss_c, b_ss_d, b_rs_e,
 
             // S4 fields
-            hg_stiffness_factor: hg_factor,
-            h_orth,
-            g_shear,
             element_area,
             initial_normals,
             quaternions,
@@ -1744,9 +1704,6 @@ pub fn compute_fint_global(pre: &Mitc4Precomputed, u_global: &Vec24, nonlinear: 
         let k_dr = compute_drilling_stiffness(pre);
         f += k_dr * &u_local;
 
-        // NOTE: Hourglass forces NOT added here - MITC4+ uses EAS + bubble enrichment
-        // which controls spurious modes without hourglass stabilization.
-
         f
     };
 
@@ -2185,38 +2142,8 @@ mod tests {
 
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Priority 1: Hourglass, Quaternion, Log Strain tests
+    // Priority 1: Quaternion, Log Strain tests
     // ─────────────────────────────────────────────────────────────────────────
-
-    #[test]
-    fn test_hourglass_stiffness_nonzero() {
-        let pre = make_pre();
-        let k_hg = Mitc4Precomputed::compute_hourglass_stiffness(&pre);
-        // Hourglass stiffness should be non-zero and symmetric
-        assert!(k_hg.norm() > 1e-10, "hourglass stiffness should be non-zero");
-        let diff = &k_hg - k_hg.transpose();
-        assert!(diff.norm() < 1e-12, "hourglass stiffness must be symmetric");
-    }
-
-    #[test]
-    fn test_hourglass_forces_zero_displacement() {
-        let pre = make_pre();
-        let u_zero = Vec24::zeros();
-        let f_hg = Mitc4Precomputed::compute_hourglass_forces(&pre, &u_zero);
-        assert!(f_hg.norm() < 1e-15, "zero displacement → zero hourglass forces");
-    }
-
-    #[test]
-    fn test_hourglass_forces_proportional() {
-        let pre = make_pre();
-        let mut u_test = Vec24::zeros();
-        // Apply uniform displacement pattern that should trigger hourglass
-        for i in 0..24 {
-            u_test[i] = (i as f64) * 0.001;
-        }
-        let f_hg = Mitc4Precomputed::compute_hourglass_forces(&pre, &u_test);
-        assert!(f_hg.norm() > 1e-12, "non-zero displacement should produce hourglass forces");
-    }
 
     #[test]
     fn test_quaternion_identity() {
@@ -3176,34 +3103,6 @@ mod tests {
         );
     }
 
-}
-
-// ============================================================================
-// S4R-style: Hourglass Control (Priority 1)
-// ============================================================================
-
-impl Mitc4Precomputed {
-    /// Compute hourglass strain z_hg at Gauss point from nodal displacements
-    /// z_hg = Σ h_orth^I · u^I  where h_orth is the orthogonalized hourglass vector
-    #[inline]
-    pub fn compute_hourglass_strain(u_local: &Vec24, h_orth: &Vec24) -> f64 {
-        u_local.dot(h_orth)
-    }
-
-    /// Compute hourglass force vector f_hg (24-DOF)
-    /// F_hg = K_hg · z_hg · h_orth
-    /// K_hg = 0.005 · G · h · A  (Abaqus/Standard factor)
-    pub fn compute_hourglass_forces(pre: &Mitc4Precomputed, u_local: &Vec24) -> Vec24 {
-        let z_hg = Self::compute_hourglass_strain(u_local, &pre.h_orth);
-        pre.hg_stiffness_factor * z_hg * pre.h_orth
-    }
-
-    /// Compute hourglass stiffness K_hg (24×24)
-    /// K_hg = K_hg_factor · (h_orth ⊗ h_orth)
-    pub fn compute_hourglass_stiffness(pre: &Mitc4Precomputed) -> Mat24 {
-        let h_orth = &pre.h_orth;
-        pre.hg_stiffness_factor * (h_orth * h_orth.transpose())
-    }
 }
 
 // ============================================================================
