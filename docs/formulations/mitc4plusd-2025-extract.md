@@ -14,6 +14,13 @@ equations). Gaps are marked as gaps.
 - File: `.sources/papers/1-s2.0-S0045794924003511-main.pdf` (21 pages).
 - Companion/duplicate: `.sources/papers/MITC_D_elements_published.pdf`.
 
+**No letter shorthand in this document.**  `mitc4plus-2017-extract.md` labels its
+two 2017 papers "A" (the formulation, C&S 182) and "B" (the benchmarks, C&S 193).
+That shorthand is **local to that document and is NOT reused here**: in this file
+every reference names its paper, and the 2025 MITC4+/D paper is never called
+"paper B".  Where a cross-reference is needed it is spelled out as
+"Ko, Lee & Bathe (2017), C&S 182:404–418".
+
 ## What this element is, and its relation to the 2017 MITC4+
 
 The 2017 element (Ko, Lee & Bathe, C&S 182:404-418 — see
@@ -139,7 +146,8 @@ surrounding     : B-A-(8,7)-(4,7)     A-D-(8,3)-(8,7)
                   D-C-(2,2)-(8,3)     C-B-(4,7)-(2,2)
 ```
 
-This is the **same mesh as paper A's Fig. 5** (the 2017 extract).  The mesh
+This is the **same mesh as Ko, Lee & Bathe (2017), C&S 182:404–418, Fig. 5**
+(recorded in `mitc4plus-2017-extract.md`).  The mesh
 generation is therefore fully determined and needs no equivalent-patch deviation.
 
 ### Fig. 7(b)(c)(d) — the boundary conditions (read from the figure; p. 5)
@@ -172,7 +180,7 @@ constant-stress recovery rather than a displacement value.
 
 ## 2017 vs 2025: which tests apply to what
 
-| test | 2017 (paper A) | 2025 (paper B) |
+| test | Ko, Lee & Bathe (2017), C&S 182 | Ko, Bathe & Zhang (2025), C&S 308 |
 | --- | --- | --- |
 | isotropy | yes (spatial) | yes (spatial) |
 | zero-energy modes | exactly six, single unsupported element | yes, rigid body modes properly represented |
@@ -378,12 +386,12 @@ test is always satisfied even when the shell element is curved."*
 
 ## WU0 result: the transverse-shear metric question (task 1.4)
 
-Task 1.4 asked whether paper A prints its own covariant transverse-shear metric
-normalization.  **It does, as Eq. (4)**: `e_ij = ½(g_i·u_j + g_j·u_i)` with
-`r_1 = r, r_2 = s, r_3 = t`, so the covariant transverse shear is
-`e_rt = ½(g_r·u_t + g_t·u_r)` and likewise for `e_st`.  What paper A does **not**
-print is the construction of the tying-point values `e_rt^(A)` etc. beyond the
-interpolation itself (`ẽ_rt = ½(1+s)e_rt^A + ½(1−s)e_rt^B`, p. 405), which it
+Task 1.4 asked whether Ko, Lee & Bathe (2017) prints its own covariant
+transverse-shear metric normalization.  **It does, as Eq. (4)**:
+`e_ij = ½(g_i·u_j + g_j·u_i)` with `r_1 = r, r_2 = s, r_3 = t`, so the covariant
+transverse shear is `e_rt = ½(g_r·u_t + g_t·u_r)` and likewise for `e_st`.  What
+that paper does **not** print is the construction of the tying-point values
+`e_rt^(A)` etc. beyond the interpolation itself (`ẽ_rt = ½(1+s)e_rt^A + ½(1−s)e_rt^B`, p. 405), which it
 defers to **Dvorkin & Bathe (1984), Engineering Computations 1:77-88** — not held
 in `.sources/papers/`.  So the design's §2.2 definition stands for the tying-point
 metric, and this is the recorded answer: printed for the covariant definition,
