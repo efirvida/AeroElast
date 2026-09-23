@@ -201,7 +201,7 @@ class WatchpointPlotter:
 
     def print_info(self):
         """Print data summary."""
-        print(f"\nWatchpoint Data Summary")
+        print("\nWatchpoint Data Summary")
         print(f"   File: {self.file_path.name}")
         print(f"   Case: {self.case_name}")
         print(f"   Time steps: {len(self.df)}")

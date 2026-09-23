@@ -136,7 +136,7 @@ def find_log_file(case_path: Path) -> Optional[Path]:
                 content = f.read(5000)
                 if "Solving for" in content:
                     return log_file
-        except:
+        except Exception:
             pass
 
     return None
@@ -697,21 +697,21 @@ def main():
 Examples:
   # List available data sources
   %(prog)s /path/to/case --list
-  
+
   # Plot residuals
   %(prog)s /path/to/case residuals Ux Uy Uz p
   %(prog)s /path/to/case residuals --all
   %(prog)s /path/to/case residuals --all --final
-  
+
   # Plot forces (auto-detects force.dat)
   %(prog)s /path/to/case blade01Forces
   %(prog)s /path/to/case blade01Forces force
   %(prog)s /path/to/case blade01Forces moment
   %(prog)s /path/to/case blade01Forces --components x z --type pressure
-  
+
   # Plot fieldMinMax
   %(prog)s /path/to/case fieldMinMax
-  
+
   # Save to file
   %(prog)s /path/to/case residuals --all --save residuals.png
         """,
