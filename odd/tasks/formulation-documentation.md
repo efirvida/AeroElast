@@ -273,6 +273,50 @@ right places, which is worth having on record: this operator is the production
 membrane path for MITC4, and it had no reference in the file beyond
 "(Ko et al. 2017, Eqs. 27a-c)".
 
+### U5c - The most recent MITC3 work (searched)
+
+**There is no MITC3/D.** The 2025 `/D` paper covers the 4-node elements only
+(its own title: "the MITC4/D and MITC4+/D elements"), so the two families cannot
+be aligned by adopting a triangular `/D` element. The modern MITC3 line is
+different work, and it targets a different weakness: the MITC3+ membrane field is
+that of the displacement-based constant-strain triangle, and the improvements
+below enrich the membrane behaviour.
+
+| Option | Reference | What it changes | Cost |
+| --- | --- | --- | --- |
+| **Interpolation covers** | Jun, H., Yoon, K., Lee, P.-S., Bathe, K.-J., "The MITC3+ shell element enriched in membrane displacements by interpolation covers", *Comput. Methods Appl. Mech. Engrg.* 337:458-480, 2018, doi:10.1016/j.cma.2018.04.007 | Only the membrane displacement field, via cover-based enrichment `u = standard + Σ H_i û_i`. **Does not change the rotation convention and does not change the assumed transverse shear field.** Passes the isotropy, patch and zero-energy tests. | 9 DOFs per corner node instead of 5 (element = 27 nodal + 2 internal, the 2 condensed) |
+| Strain-smoothed MITC3+ | *Computers and Structures*, 2019, doi:10.1016/j.compstruc.2019.07.005 | Improves the membrane strain with the strain-smoothed element method | No special smoothing domains, no additional DOFs |
+| CC-MITC3+ | *Archive of Applied Mechanics*, 2025, doi:10.1007/s00419-025-02922-4 | Constant-curvature correction in a Hu-Washizu three-field framework, plus an Allman-like membrane, for rib-stiffened shells | not extracted |
+| CS-MITC3+ / CS-MITC18+ | *Thin-Walled Structures*, 2024 (S0263823124006955); HSDT-type variant, 2026 | Cell-based smoothed, Allman-type with **real drilling DOFs** | not extracted |
+| Benchmark suite | "Benchmark tests of MITC triangular shell elements", *Structural Engineering and Mechanics* 68 | Not a formulation: a benchmark reference for the MITC3 family, useful for the validation matrix | - |
+
+**The reported gain from interpolation covers is large**, which matters because it
+says the deficiency is real rather than cosmetic. From the paper's own tables,
+normalized values against the reference solution:
+
+- Cook's skew beam, mesh I: **0.95 / 0.99 / 1.00 / 1.00** versus MITC3+
+  0.50 / 0.76 / 0.92 / 0.98; mesh II: **0.84 / 0.96 / 0.99 / 1.00** versus
+  MITC3+ 0.28 / 0.47 / 0.72 / 0.90;
+- MacNeal's cantilever, tip shear and tip moment: **~0.95-1.00** versus MITC3+
+  **~0.011-0.037**, i.e. the standard MITC3+ is roughly a factor of 30 off on
+  that problem;
+- Scordelis-Lo roof: **0.9610 / 0.9931 / 0.9983** versus MITC3+
+  0.7312 / 0.8743 / 0.9593.
+
+**Recommendation.** The current MITC3+ is now correct (rigid-body invariant,
+mixed meshes at the pure-mesh accuracy, B-coupling sign right) and it is what the
+recovered 2014 paper specifies. Moving to an enriched MITC3 is a **new feature**,
+not a defect fix, and the interpolation-cover option changes the number of DOFs
+per node, so it is an architectural decision rather than a local edit. It is also
+orthogonal to the convention work already done, since it leaves the rotation
+convention and the transverse shear field untouched. That decision is the user's;
+the references and the measured baseline are recorded here either way.
+
+To make the decision concrete, one cheap measurement is still missing: whether
+**this repository's** MITC3+ reproduces the reported membrane deficiency (the
+MacNeal cantilever and Cook's skew beam numbers above), because if our element
+already behaves better than the published MITC3+, the upgrade is less urgent.
+
 ## Open questions
 
 - Which of the recovered papers actually correspond to the implemented code, and
