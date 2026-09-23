@@ -581,19 +581,15 @@ class TestAsymmetricLaminates:
         lam = self._lam_asym()
         assert lam.B[0, 0] < 0, f"Expected B11 < 0 for [0° bot / 90° top], got {lam.B[0, 0]:.3e}"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="MITC3's out-of-plane rotational DOF is the negation of the physical "
-        "rotation, so its B-coupling sign is inverted: measured uy = +2.6277e-03 "
-        "against MITC4Comp's -2.6280e-03 for the same [0/90] laminate and load. "
-        "See odd/tasks/test-suite-physical-correctness.md, Finding 1.",
-    )
     def test_axial_produces_bending_mitc3comp(self):
         """[0/90] MITC3Comp under axial Fz: B-coupling must match the CLT sign.
 
-        Measured MITC3Comp uy = +2.6277e-03 against the CLT/MITC4Comp reference
-        -2.6160e-03, so the signed comparison below fails as expected: this is
-        the documented MITC3 sign defect (Finding 1), not a test bug.
+        Measured MITC3Comp uy = -2.627691e-03 against the CLT reference
+        -2.616014e-03 (0.45%) and MITC4Comp's -2.627972e-03, i.e. the same sign
+        as the reference.  This test previously carried a strict xfail because
+        MITC3's out-of-plane rotation sign was inverted and gave +2.627691e-03,
+        the same magnitude with the opposite sign; the marker was removed when
+        the shear sign was corrected in eval_covariant_shear_ext.
         """
         lam = self._lam_asym()
         ref = _clt_b_coupling_tip_deflection(lam)

@@ -388,21 +388,31 @@ fn eval_covariant_shear_ext(
         b_ert[w_idx] = dhi_dr;
         b_est[w_idx] = dhi_ds;
 
-        // Rotation contribution: from V3 ≈ e3 − θy·e1 + θx·e2
-        // e_rt = dw/dr + V3·g_r = dw/dr − θy·g_r[0] + θx·g_r[1]
-        b_ert[thy_idx] = -f[i] * g_r[0];
-        b_ert[thx_idx] =  f[i] * g_r[1];
+        // Rotation contribution: physical Reissner–Mindlin director.
+        //
+        // From Ko, Bathe & Zhang 2025 (MITC4/D), Eq. (3a), the offset
+        // displacement interpolates as
+        //     u(r,s,t) = Σ h_i u_i + (t/2) Σ a_i h_i (θ_i × V_in),
+        // where θ is the physical rotation vector and V_in the shell director.
+        // Linearizing the director about the flat reference gives
+        //     V3 = e3 + θ × e3 = e3 + θy·e1 − θx·e2,
+        // hence
+        //     e_rt = dw/dr + V3·g_r = dw/dr + θy·g_r[0] − θx·g_r[1].
+        // This is the Cartesian convention γ_xz = w_,x + θy and
+        // γ_yz = w_,y − θx, the same one b_gamma_mitc4 uses.
+        b_ert[thy_idx] = f[i] * g_r[0];
+        b_ert[thx_idx] = -f[i] * g_r[1];
 
-        b_est[thy_idx] = -f[i] * g_s[0];
-        b_est[thx_idx] =  f[i] * g_s[1];
+        b_est[thy_idx] = f[i] * g_s[0];
+        b_est[thx_idx] = -f[i] * g_s[1];
     }
 
     // Bubble rotations (indices 18, 19)
-    b_ert[19] = -f[3] * g_r[0]; // thy4
-    b_ert[18] =  f[3] * g_r[1]; // thx4
+    b_ert[19] = f[3] * g_r[0]; // thy4
+    b_ert[18] = -f[3] * g_r[1]; // thx4
 
-    b_est[19] = -f[3] * g_s[0];
-    b_est[18] =  f[3] * g_s[1];
+    b_est[19] = f[3] * g_s[0];
+    b_est[18] = -f[3] * g_s[1];
 
     (b_ert, b_est)
 }
