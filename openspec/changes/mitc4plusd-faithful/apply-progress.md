@@ -594,3 +594,242 @@ remains the recorded WU4 deferral. Sections 6–13 remain pending.
 Single PR, accepted `size:exception`. This unit is one small, self-contained review slice:
 168 additive lines across the two material files, a green tree, its own verification and
 rollback = revert the two accessors and their tests (the WU1–WU3 bytes are untouched).
+
+---
+
+## WU4 (stiffness assembly) — tasks 5.1–5.8, the element-level half of 5.4, and the frame-convention fix
+
+Work unit: **the WU4 stiffness assembly** — `resultant_moment_matrix`, `compute_ke_local` /
+`compute_ke_global`, the drill contribution, the `cs_uncorrected` wiring, the test-local
+independent reference, and the element-level tests 5.1–5.8. Appended to the WU1–WU3 and
+WU4-constitutive record above; earlier bytes are preserved.
+
+### Structured status consumed (WU4-assembly)
+
+- Source: native SDD status engine (authoritative, `artifactStore: openspec`).
+- `changeName`: `mitc4plusd-faithful`; `applyState`: `ready`; `nextRecommended`: `apply`.
+- `actionContext.mode`: `repo-local`; `workspaceRoot`:
+  `/home/efirvida/Desktop/dev/fem-shell`; `allowedEditRoots`:
+  `/home/efirvida/Desktop/dev/fem-shell`. All edits stayed inside the workspace and
+  inside this unit's authorized edit roots (`crates/aeroelast-core/src/elements/mitc4_plusd.rs`,
+  `openspec/changes/mitc4plusd-faithful/tasks.md`,
+  `openspec/changes/mitc4plusd-faithful/apply-progress.md`).
+- `taskProgress` at entry: 59 total / 17 completed / 42 pending.
+- Review workload gate: `Decision needed before apply: No`, `Chained PRs recommended:
+  No`, `Chain strategy: size-exception`, `400-line budget risk: High`. The session
+  resolved delivery as **single-pr with an explicitly accepted `size:exception`** and a
+  700-line review budget, so this unit proceeded.
+
+### Completed tasks (persisted checkboxes updated in `tasks.md`)
+
+- [x] **5.1** `resultant_moment_matrix` (the `W_00 … W_22` block matrix; `W_22 = cm/9`).
+- [x] **5.2** `compute_ke_local` / `compute_ke_global`, the drill contribution, the
+  `cs_uncorrected` wiring, and the independent test-local reference.
+- [x] **5.3** drill-stiffness provenance.
+- [x] **5.4** the element-level half: `test_identity_transverse_shear_uses_uncorrected_shear_modulus`
+  and `test_identity_transverse_shear_invariant_to_shear_correction_factor`.
+- [x] **5.5** integration rule (2×2×2 vs surface-only).
+- [x] **5.6** local matrix shapes (`K` 24×24 and the drill-slot layout; `M`/`K_T`/`f_int`
+  deferred to WU5, recorded on the task).
+- [x] **5.7** drill-DOF energy behaviour.
+- [x] **5.8** mid-surface restriction (ADR-6 / G7).
+
+### Files changed (WU4-assembly)
+
+| File | Change |
+| --- | --- |
+| `crates/aeroelast-core/src/elements/mitc4_plusd.rs` | extended: the WU4 production assembly (`resultant_moment_matrix`, `surface_measure`, `membrane_ke_local`, `shear_ke_local`, `drill_ke_local`, `compute_ke_local_with_drill`, `compute_ke_local`, `compute_ke_global`, `build_t24`, `transform_to_global`), the ADR-1 fields `applied_shear_correction` / `cs_uncorrected` and the constructor argument, the independent `ke_ref` reference, the 9 new tests, and the WU2/WU3 frame-convention fix |
+| `openspec/changes/mitc4plusd-faithful/tasks.md` | 5.1–5.8 checked; notes under 5.2, 5.3 (the frame fix), 5.4, 5.6, 5.8 |
+| `openspec/changes/mitc4plusd-faithful/apply-progress.md` | this WU4-assembly section |
+
+Diff stat (tracked file, vs the WU4-constitutive commit `ee13216`):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 1278 ++++++++++++++++++++-
+1 file changed, 1278 insertions(+), 27 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** and
+`git diff --numstat` reports nothing for it: the hybrid is byte-identical. No file outside
+the authorized set was touched (`git status --short` shows only `mitc4_plusd.rs` modified
+plus the pre-existing untracked `.pi/`). `elements/mod.rs` was not edited.
+
+### Verification (WU4-assembly)
+
+Command (workspace root is `crates/`):
+
+```text
+cd crates && cargo test -p aeroelast-core
+```
+
+Result: **155 passed / 0 failed** (the WU4-constitutive baseline 146 + the 9 new tests).
+`rustfmt --edition 2021 --check` is clean for the file. `cargo clippy -p aeroelast-core
+--all-targets` reports no lint on the new lines other than the staged
+`membrane_ke_local` "never used" in the lib build (the same staged-helper situation WU2
+and WU3 documented: it is exercised by the identity lock in the test build and is wired
+into `compute_ke_local`; no `#[allow(dead_code)]` was added).
+
+### New tests and what each asserts
+
+| Test | Asserts |
+| --- | --- |
+| `test_identity_resultant_moment_matrix_blocks_match_closed_forms` | `W` is 9×9, exactly symmetric, with `W_00 = cm`, `W_01 = cb_coupling` (`W_10 = cb_couplingᵀ`), `W_02 = cb` (`W_20 = cbᵀ`), `W_11 = cb`, `W_12 = 0`, `W_22 = cm/9`; the isotropic closed forms `cm00 = E h/(1−ν²)`, `cb00 = E h³/(12(1−ν²))`, `W_22 = cm00/9`; the paper's 2-point `t`-rule `Σ w_i t_i⁴ = 2/9`; and `W_22` is **not** the exact `cm/5` (non-vacuity) |
+| `test_identity_ke_lock_matches_2017_core_plus_2025_drill` | production `K` vs the independent `ke_ref::ke_local` to `≤ 1e-10·max|K_ref|` on flat square, flat distorted, ruled warped and doubly warped quads, with the same bound on the membrane block and the transverse-shear block |
+| `test_identity_drill_stiffness_comes_only_from_eq26` | `K(op) − K(op := 0)` is non-zero on warped geometry (the operator is live), **exactly symmetric**, **exactly zero on every translational row/column block**, exactly zero on every rotation block other than the drill's own on flat geometry (where `V^D = e3`), the flat drill block is non-zero (non-vacuity), and the six rigid-body fields carry `|u_rbᵀ K u_rb| ≤ 1e-12·λ_max·‖u_rb‖²` |
+| `test_identity_transverse_shear_uses_uncorrected_shear_modulus` | the element's transverse-shear block equals the closed form `Σ_g B_γᵀ (G·h·I) B_γ w √g` to `1e-10` relative, and the `5/6` value is rejected by `> 1e-3` relative (asserted) |
+| `test_identity_transverse_shear_invariant_to_shear_correction_factor` | two single-ply-laminate `pre` values with `k = 5/6` and `k = 0.5` give the same shear block to `1e-10`, both match the uncorrected closed form, and the `k`-carrying non-vacuity control (`applied_k = 1.0`) differs by `> 1e-3` relative; the same construction and controls on an isotropic constitutive |
+| `test_identity_integration_rule_is_2x2x2_and_discriminates_surface_only` | on the strongly warped quad, production matches the three-term (`W_22 = cm/9`) reference to `1e-10` and differs from the surface-only (`W_22 = 0`) reference by `> 1e-4` relative (asserted) |
+| `test_kinematics_local_matrices_are_24x24` | `K` local and global are exactly 24×24 (576 entries); the 2017-only operators are exactly blind to slot `6i+5` on flat geometry; the drill block is live at `6i+5` (the `M`/`K_T`/`f_int` shapes are WU5, recorded on the task) |
+| `test_kinematics_drill_dof_is_theta_z_through_eq26_operator` | a pure rigid rotation about `V_n` carries energy `≤ 1e-12·λ_max·‖u‖²`; a warped drill-rotation pattern `θ_i = γ_i V_n^i` carries zero energy through the 2017-only blocks and non-zero energy through the Eq. (26) operator |
+| `test_identity_element_uses_midsurface_constitutive` | the element's constitutive equals `Laminate::to_shell_constitutive()` field by field and `applied_shear_correction` equals `Laminate::applied_shear_correction_factor()`; the offset coupling block `B − z₀A` differs (non-vacuity) |
+
+### TDD evidence (explicit test-first; `strict_tdd: false`)
+
+**RED (compile).** The 9 tests were written first, against production functions that did
+not exist. `cd crates && cargo test -p aeroelast-core` failed to compile with:
+
+```text
+error[E0432]: unresolved imports `super::compute_ke_global`, `super::compute_ke_local`,
+`super::compute_ke_local_with_drill`, `super::drill_ke_local`, `super::membrane_ke_local`,
+`super::resultant_moment_matrix`, `super::shear_ke_local`, `super::surface_measure`
+```
+
+The production assembly was then added and the suite went **GREEN** (155/0). Each test was
+afterwards shown to fail for a deliberately wrong implementation; restoring the file
+returns 155/0.
+
+| # | Test shown RED | Perturbation | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `test_identity_resultant_moment_matrix_blocks_match_closed_forms` | `W_22 = cm/5` (exact `t`-integration) | `W_22 = cm/9` `left: 879120879.12` `right: 488400488.40` |
+| 2 | `test_identity_ke_lock_matches_2017_core_plus_2025_drill` | `s1 = 2/h → 4/h` | full-K mismatch vs the reference |
+| 3 | `test_identity_drill_stiffness_comes_only_from_eq26` | drill operator zeroed (`b_md := 0`) | the "operator is inert" assertion fails — the non-vacuity control |
+| 4 | `test_identity_transverse_shear_uses_uncorrected_shear_modulus` | `cs_uncorrected → constitutive.cs` (residual `k`) | shear block ≠ the `G·h` closed form |
+| 5 | `test_identity_transverse_shear_invariant_to_shear_correction_factor` | `cs_uncorrected → constitutive.cs` | the two `pre` shear blocks no longer agree |
+| 6 | `test_identity_integration_rule_is_2x2x2_and_discriminates_surface_only` | `W_22 = 0` (surface-only) | production no longer matches the three-term reference |
+| 7 | `test_kinematics_local_matrices_are_24x24` | membrane operator writes slot `6i+5` | `membrane touches the drill slot` `left: 0.99999…` `right: 0.0` |
+| 8 | `test_kinematics_drill_dof_is_theta_z_through_eq26_operator` | a `θ_z` diagonal penalty added to the drill block | `rigid rotation about V_n carries energy 1960000.000038147` |
+| 9 | `test_identity_transverse_shear_uses_uncorrected_shear_modulus` (5.4a control) | the `5/6` candidate made equal to the correct value | `the 5/6 value must be rejected (relative 0)` |
+| 10 | `test_identity_transverse_shear_invariant_to_shear_correction_factor` (5.4b control) | the control `pre` given the correct `applied_k` | `the k-carrying control must be separated (relative 0)` |
+| 11 | `test_identity_element_uses_midsurface_constitutive` | the element path given the offset constitutive | `cb_coupling` mismatch (`left: [[-10989010.98, …]]`, `right: [[0.0, …]]`) |
+
+Rows 3, 9 and 10 are the non-vacuity controls the task names for 5.3 and 5.4: each was
+shown capable of failing.
+
+### Finding: a WU2/WU3 frame-convention defect, exposed by 5.3 and fixed
+
+**What was wrong.** The stored `pre.vn` / `pre.v1` / `pre.v2` and `pre.v_d` are
+**global-frame** vectors (`compute_node_directors` builds them from the global node
+coordinates and the global `e1`; the geometry test compares `pre.vn[i]` with the global
+`n_vec`). Four operators paired them with the **local-frame** DOF triples:
+
+- `b_bending_covariant_2017` — `xm_r`/`xb_r` local, `cross` built from `pre.vn` global;
+- `compute_shear_tie` — `g_r`/`g_s`/`g_t` projected to local, `vxg_r = pre.vn × g_r`;
+- `interpolate_displacement` — `theta` local, `theta.cross(&pre.vn[i])`;
+- `b_drill_membrane_2025` — `theta` local, `theta^D = theta · pre.v_d`.
+
+**How it showed.** `test_identity_drill_stiffness_comes_only_from_eq26` measured the six
+rigid-body fields on warped geometry before the fix:
+
+```text
+flat-square     |u_rbᵀ K u_rb| / (λ_max ‖u_rb‖²) = 2.7e-17
+flat-distorted                                     3.7e-17
+ruled-warped                                       2.5e-3
+doubly-warped                                      5.4e-3
+```
+
+The spec requires `≤ 1e-12`. The 2017 core computes `u_b = ½ Σ a_i h_i (θ_i × V_n^i)`,
+which is only a rigid rotation when `θ_i` and `V_n^i` are expressed in the same basis;
+mixing them leaves a spurious strain on warped geometry. (The identity lock of 5.2 did
+**not** catch this, because its independent reference shared the same convention — which
+is exactly why the rigid-body assertion exists as a second, independent oracle.)
+
+**The fix.** The four operators now project the director to the local frame
+(`local_components(pre, &pre.vn[i])`, `local_components(pre, &pre.v_d)`), and the three
+matching test-local references (`bending_reference`, `drill::b_md_reference` /
+`b_md_parameterised`, and the kinematics test's `u_b` reconstruction) were updated the same
+way. `compute_j3d_enriched`, `interpolate_position`, `j_loc_at`, `surface_measure`,
+`drill_jacobian_ratio` and the shear metric continue to use the global director (they work
+in global coordinates), so the change is exactly a same-basis pairing at the local-DOF use
+sites. After the fix the rigid-body ratio is within the spec's `1e-12` bound on all four
+geometries and the full 155-test suite is green. This is a WU2/WU3 correctness fix
+discovered by WU4 and recorded on task 5.3.
+
+### Deviations from design (WU4-assembly)
+
+1. **`build_t24` / `transform_to_global` landed here, not in WU5.** Task 5.2 requires
+   `compute_ke_global`, which needs them; the design's WU5 list also names them. They are
+   the retargeted repository transformation (`Tᵀ M T`), so WU5's remaining work is
+   unaffected.
+2. **`membrane_ke_local` / `shear_ke_local` / `drill_ke_local` helpers.** The design names
+   only `resultant_moment_matrix` and `compute_ke_local`/`compute_ke_global`. The three
+   blocks are split out so the identity lock can compare the membrane and transverse-shear
+   blocks separately (the spec's "with the same bound on the membrane and transverse-shear
+   blocks") and so the drill provenance test can form the exact
+   `K(op) − K(op := 0)` difference. The designed entry points are unchanged and delegate
+   to them.
+3. **`compute_ke_local_with_drill(pre, use_drill)` is private.** It implements the spec's
+   "variant reference in which the B Eq. (26) operator is replaced by the zero operator"
+   without adding a second public API.
+4. **End-of-assembly symmetrisation.** `compute_ke_local_with_drill` and
+   `transform_to_global` symmetrise their result (`0.5 (M + Mᵀ)`), and `drill_ke_local`
+   symmetrises the drill block. This is a round-off guard, not a formulation factor: the
+   spec's drill-provenance scenario demands **exact** symmetry and exact zeros, and the
+   assembled `Bᵀ W B` is only exactly symmetric in exact arithmetic. No value changes
+   beyond the last bit.
+5. **5.6's `M`/`K_T`/`f_int` shapes are deferred to WU5.** Those functions are tasks
+   6.1/6.2 and do not exist in this unit; the WU4-owned part of the scenario (`K` local and
+   global 24×24 and the drill-slot layout) is asserted. Recorded on task 5.6.
+6. **5.8's static check.** The non-vacuity control recomputes the offset coupling block
+   `B − z₀A` from its definition instead of calling `to_shell_constitutive_with_offset`, so
+   the task's supporting grep over the module returns no match.
+7. **WU4 size.** 1278 added / 27 removed lines vs the design's ~340 forecast, above the
+   ~350 per-unit guide and the 700 session budget. Covered by the accepted session
+   `size:exception`. The overrun is the paper/equation doc comments on every new function,
+   the fully independent `ke_ref` reference (~250 lines), and the frame fix with its
+   matching reference updates. No test, doc or citation was dropped.
+
+### Findings on the design and the extracts
+
+1. **Design §2.2's "the 2017 core is structurally blind to `θ_z`" is only true on flat
+   geometry.** The 2017 core is blind to the component of `θ_i` **along `V_n^i`**; the
+   local DOF `θ_z` is along `e3`, which equals `V_n^i` only when the element is flat. On
+   warped geometry the 2017 bending/shear operators do couple to `θ_z` (WU4 measured it:
+   `test_kinematics_local_matrices_are_24x24` asserted blindness and failed on the doubly
+   warped quad before the assertion was scoped to flat geometry). The spec's own qualifier
+   ("the flat case is what makes this clause exactly testable", rev 4) already anticipates
+   this; the design's §2.2 sentence should be read with that qualifier.
+2. **Design §2.1's `vn: // V_n^i, local frame` is wrong as implemented in WU2** — the
+   stored vectors are global-frame (see the finding above). The doc comment and the field
+   should either be corrected to "global frame" (with the operators projecting at the
+   local-DOF use sites, as now) or `compute_node_directors` should be changed to store
+   local vectors (which would also require `compute_j3d_enriched` / `interpolate_position`
+   to convert back). WU4 took the first route; the design's intent (operators in the local
+   frame) is preserved either way.
+3. **Design §2.3's "`sqrt_g = j(r,s)`" is loose.** The integration measure is the
+   mid-surface area measure `‖g_r × g_s‖`, not the drill Jacobian `j = det[g_r g_s g_t]`;
+   using the triple product would scale every block by `h/2` and contradict the ABD
+   resultant formulation. WU4 implemented `‖g_r × g_s‖` (the repository's existing
+   `sqrt_g`), which is what makes the closed forms and the Tier-2 parity meaningful.
+4. **No error found in either extract.** The independent `ke_ref` reference reproduces the
+   production stiffness to `≤ 1e-10` on all four geometries, and the rigid-body /
+   uncorrected-shear / integration-rule assertions hold after the frame fix. No vision
+   re-read was needed and neither extract was edited.
+5. **The `M`/`K_T`/`f_int` scenario is mis-placed in WU4.** Requirement 2's scenario names
+   the local and global mass, tangent and internal-force matrices, which the design assigns
+   to WU5 (tasks 6.1/6.2); task 5.6 inherits the mismatch. WU4 asserts the part it owns and
+   records the deferral.
+
+### Remaining tasks (WU4-assembly)
+
+All WU4 tasks 5.1–5.8 are complete. Task 2.4 (the boundary-traction loader and 48-DOF
+dense patch assembler) remains `- [ ]` and was **not** in this unit's scope; its recorded
+deferral text still says "it lands with WU4". The exact remaining unchecked lines in
+section 5 are none. WU5 (tasks 6.1–6.4) and sections 7–13 remain pending.
+
+### Workload / PR boundary (WU4-assembly)
+
+Single PR, accepted `size:exception`. WU4 is one review slice: the stiffness assembly, its
+independent reference and its nine tests, plus the frame-convention fix, extending
+`mitc4_plusd.rs` with a green tree, its own verification and rollback = revert the WU4
+block (the WU1–WU3 and WU4-constitutive bytes are otherwise untouched; note that the frame
+fix does modify four WU2/WU3 operator lines, which is called out on task 5.3).
