@@ -374,6 +374,110 @@ test is always satisfied even when the shell element is curved."*
 | `V^D` | one vector per element, the plane-P normal at the centre — Eq. (5) |
 | `‖x_m^l‖` | `L_l/8` — Eq. (13c) and the p. 7 text |
 
+## The drill-membrane strain as a matrix, and the zero-energy-mode question
+### Eqs. (19)–(25), pp. 10 and 12 (transcribed 2026-09-23, from the WU6 failure)
+
+This section was written to answer a question WU6 raised: the element has EIGHT
+zero modes on a flat element and SEVEN on the distorted and warped ones, where
+the paper says exactly six.  Reading Eqs. (19)–(25) answers it, and the answer is
+not the one the design expected.
+
+**Eq. (19a)** — the drill-membrane strain as a matrix times the four corner drill
+rotations:
+
+```text
+[ẽ_rr^md  ẽ_ss^md  ẽ_rs^md]^T  =  B̃ [θ_1^D  θ_2^D  θ_3^D  θ_4^D]^T ,   B̃ = (j0/j) [B̃_rr ; B̃_ss ; B̃_rs]     (19a)
+```
+
+**Eq. (19b)** — the full form, with the edge index `l` and the edge coefficients
+`c_r^l`, `c_s^l`:
+
+```text
+B̃_rr = [ h̃_m,r^5 c_r^5 − h̃_m,r^6 c_r^6 ,  h̃_m,r^6 c_r^6 − h̃_m,r^7 c_r^7 ,
+          h̃_m,r^7 c_r^7 − h̃_m,r^8 c_r^8 ,  h̃_m,r^8 c_r^8 − h̃_m,r^5 c_r^5 ]
+
+B̃_ss = [ −h̃_m,s^5 c_s^5 + h̃_m,s^6 c_s^6 ,  −h̃_m,s^6 c_s^6 + h̃_m,s^7 c_s^7 ,
+          −h̃_m,s^7 c_s^7 + h̃_m,s^8 c_s^8 ,  −h̃_m,s^8 c_s^8 + h̃_m,s^5 c_s^5 ]
+
+B̃_rs = ½ ( [ −h̃_m,r^5 c_s^5 + h̃_m,r^6 c_s^6 ,  −h̃_m,r^6 c_s^6 + h̃_m,r^7 c_s^7 ,
+              −h̃_m,r^7 c_s^7 + h̃_m,r^8 c_s^8 ,  −h̃_m,r^8 c_s^8 + h̃_m,r^5 c_s^5 ]
+          + [  h̃_m,s^5 c_r^5 − h̃_m,s^6 c_r^6 ,   h̃_m,s^6 c_r^6 − h̃_m,s^7 c_r^7 ,
+               h̃_m,s^7 c_r^7 − h̃_m,s^8 c_r^8 ,   h̃_m,s^8 c_r^8 − h̃_m,s^5 c_r^5 ] )   (19b)
+```
+
+**Eq. (19c)** — the edge coefficients, which are the 2025 quantity (NOT the 2017
+`c_r = x_d·m^r`):
+
+```text
+c_r^l = x_m^l · (−x_r^l × V^D) ,      c_s^l = x_m^l · (x_s^l × V^D)                    (19c)
+```
+
+**Eq. (19d)** is the same `B̃` in a "simpler form" using Eq. (11)'s curl
+derivatives, in which `h̃_m,r^5 = h̃_m,r^7 = 0` and `h̃_m,s^6 = h̃_m,s^8 = 0`.
+
+**Eq. (20)** — the MITC4 assumed transverse shear, as in the 2017 paper:
+`ẽ_rt = ½(1+s)e_rt^(A) + ½(1−s)e_rt^(B)`, `ẽ_st = ½(1+r)e_st^(C) + ½(1−r)e_st^(D)`.
+
+**Eq. (21)** — the drill-membrane strain transformed to the natural coordinate
+system: `e_ij^md = (g_i·g^k)(g_j·g^l) ẽ_kl^md`.  The paper notes that `g_i` and
+`g^i` are evaluated at the element **centre** and are constant over the element,
+and that *"the strain in Eq. (21) is calculated only once through the thickness t,
+and the calculation of the coefficients `c_r^l`, `c_s^l` and `(g_i·g^k)` is only
+performed once per each element."*
+
+**Eq. (22a)** — the total strain of the element the paper calls **MITC4/D**:
+
+```text
+e_ij = e_ij^m + e_ij^md + t·e_ij^b1 + t²·e_ij^b2      with i, j = 1, 2                 (22a)
+```
+
+which is the same structure as Eq. (26), the **MITC4+/D**.  Eqs. (22b)/(22c)
+relate the "standard" displacement-based strain to the natural-coordinate one
+through the centre base vectors.  Eq. (23a) repeats the 2017 decomposition
+(`e_rr^m = e_rr|con + e_rr|lin·s + e_rs|bil·s²`, etc.).
+
+**Eqs. (24)–(25)** are **not** a drill term.  They are the derivation of the 2017
+membrane coefficients by the transformation chain
+`[a_0|rr … a_4|rs] = Q(r,s) R(r,s) S`, with `Q`, `R`, `S` printed in (25b)–(25c)
+and the `n_i`, `m_i` in (25d).  The paper says the coefficients "require only few
+bases to be calculated, and the computation is performed only once per element",
+and that Eq. (24) "include the improvements proposed in Ref. [8] for the MITC4+
+element".  **There is no additional term that penalizes or constrains a constant
+drill rotation.**
+
+### What this settles, and what it breaks
+
+**Every column of `B̃` is a DIFFERENCE of edge terms** — `B̃_rr`'s columns are
+`(5→6)`, `(6→7)`, `(7→8)`, `(8→5)`, so they sum to zero, and the same telescoping
+holds for `B̃_ss` and `B̃_rs`.  Therefore:
+
+> **A constant drill rotation `θ^D` produces zero drill-membrane strain by
+> construction of the paper's own Eq. (19).**
+
+And the 2017 core is blind to the drill direction, so a field with `u = 0` and
+`θ_z` constant carries zero energy in **every** term.  That is exactly the surplus
+zero mode WU6 measured, and it is **the paper's behaviour, not an implementation
+defect**.  It also explains why the paper's own patch tests (Fig. 7(b)(c)(d))
+leave `θ_z` free at every node **except the corner node B**: constraining it at one
+node is precisely what removes the constant mode.
+
+Consequences that must be carried forward:
+
+1. **The constant-drill zero mode is by design.**  Requirement 5's "exactly six
+   zero eigenvalues" is therefore **not reconcilable with Eq. (19) as printed**,
+   unless the drill is constrained (as the patch tests do) or the requirement is
+   restated as "exactly six rigid-body modes plus the drill operator's own null
+   space".  This is a **spec defect**, not an element defect.
+2. **The second surplus mode on the flat rectangle** follows from Eq. (19d)'s
+   curl zeros: with `h̃_m,r^5 = h̃_m,r^7 = 0`, `B̃_rr` has rank 2 instead of 4, so
+   the drill block loses two directions on a flat element and one on a warped one
+   — which matches the measured 8 and 7.
+3. The paper's Section 3.1 statement that the elements pass the zero-energy-mode
+   test with rigid body modes "properly represented" is therefore either
+   qualified (the drill constrained) or loose.  **It cannot be reproduced from
+   Eqs. (19)–(25) as printed**, and this extract records that rather than
+   pretending the equations agree.
+
 ## Gaps in this extract
 
 - ~~**Eqs. (1)-(16)**~~ — **transcribed** in the section above (WU0, 2026-09-23).
