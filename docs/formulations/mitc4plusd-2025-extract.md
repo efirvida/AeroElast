@@ -445,48 +445,33 @@ and that Eq. (24) "include the improvements proposed in Ref. [8] for the MITC4+
 element".  **There is no additional term that penalizes or constrains a constant
 drill rotation.**
 
-### An inconsistency in the paper's own reduction, Eqs. (14)–(18) (found 2026-09-24)
+### The (15) → (16a) reduction is CORRECT — an earlier note here was wrong (corrected 2026-09-24)
 
-Read from p. 7 with vision, to settle why the two THICK twisted-beam cells come out
-2–3x too soft while the three thin ones match.
-
-**The paper's derivation carries a per-edge `1/‖x_m^I‖`:**
-
-```text
-u_r^I(l) = (1/‖x_m^I‖)(u_θ^I(l) x_m^I × V^D · x_r^I)                        (14d)
-u_s^I(l) = (1/‖x_m^I‖)(u_θ^I(l) x_m^I × V^D · x_s^I)                        (14e)
-u_r = h_m^I u_r^I(L_I/2) = (1/‖x_m^I‖)[ −h_m^I u_θ^I(L_I/2) x_r^I × V^D ]·x_m^I     (15a)
-u_s = h_m^I u_s^I(L_I/2) = (1/‖x_m^I‖)[ −h_m^I u_θ^I(L_I/2) x_s^I × V^D ]·x_m^I     (15b)
-```
-
-and it states in words, on the same page: *"in which we use `l = L_I/2` for each edge
-because the tying is performed at the fictitious nodes and also `‖x_m^I‖ = L_I/8`."*
-So the factor is `8/L_I`.
-
-**But Eq. (16a) — which the paper presents as the reduction of Eq. (15), *"Using the
-geometric relations (Eq. (12d) and (13c)), the displacement fields assumed in Eq. (15)
-reduce to"* — drops it:**
+**Correction.** An earlier version of this section claimed the paper's Eq. (16a) dropped a
+`1/‖x_m^I‖` that Eq. (15a) carries, and called the paper internally inconsistent.  **That
+was wrong, and the error was mine.**  A vision re-read of the whole chain shows the factor
+cancels exactly:
 
 ```text
-ū_r(θ) =  h_I (θ_{i+1}^D − θ_i^D) x_m^I · (−x_r^I × V^D)
-ū_s(θ) = −h_I (θ_{i+1}^D − θ_i^D) x_m^I · ( x_s^I × V^D)                     (16a)
+θ_n^l   = (L_l/8)(θ_{i+1}^D − θ_i^D)          Eq. (12d), and Eq. (14c) gives u_θ^l(L_l/2) = θ_n^l
+so   u_θ^l(L_l/2) = (L_l/8) Δθ^D
+and  1/‖x_m^l‖ = 8/L_l                          the paper says ‖x_m^l‖ = L_l/8 in words, p. 7
+⇒   (1/‖x_m^l‖) · u_θ^l(L_l/2) = (8/L_l)(L_l/8) Δθ^D = Δθ^D
 ```
 
-Eq. (16b) keeps the same shape with `h̃_m^I` in place of `h_I`, and Eq. (18) — the
-operative strain — inherits it.  **Eq. (16a) is dimensionally inconsistent without
-that factor**: `x_m^I·(x_r^I × V^D)` already carries `L²`, and the result is a
-displacement, so the `θ·L²` needs the `1/L` that `1/‖x_m^I‖` supplies (`θ·L²/L = θ·L`).
+So Eq. (15a)'s `(1/‖x_m^I‖)[ −h_m^I u_θ^I(L_I/2) x_r^I × V^D ]·x_m^I` **reduces term for term
+to** Eq. (16a)'s `h_I (θ_{i+1}^D − θ_i^D) x_m^I·(−x_r^I × V^D)`, which is exactly what the
+paper says it does (*"Using the geometric relations (Eq. (12d) and (13c)), the displacement
+fields assumed in Eq. (15) reduce to"*).  `c_r^l = x_m^l·(−x_r^l × V^D)` with the raw
+`x_m^l = ⅛(x_i − x_{i+1})` **is** the paper's coefficient, Eq. (16b) and Eq. (18) inherit
+it correctly, and the implementation follows them correctly.  **There is no factor error
+in the paper here and none in the code.**
 
-**Consequence for this repository, measured:** the implementation follows Eq. (18), so
-its drill block `B̃ᵀ C B̃` is `(8/L_I)²` too small.  The earlier edge-convention note
-(above) and this one are the paper's **second** internal inconsistency; the first is
-the missing leading term in the 2017 paper's Eq. (21) (note F2 of that extract).  Both
-were found by measuring, not by trusting the equations.
+The measurements below are kept as the record of a **refuted hypothesis** — they measure a
+variant the paper never writes, and they are the evidence that that variant is not the
+paper's form:
 
-**But adopting the Eq. (15) form is not a fix by itself — it is a trade.** Measured on
-the five twisted-beam cells (this repository's element, `h = 0.32` for the thick cases):
-
-| case | published | with Eq. (18) | with Eq. (15)'s factor |
+| case | published | the paper's form (Eq. 18) | the `8/L` variant |
 | --- | --- | --- | --- |
 | thin N=8 in | 0.9959 | 0.9958 | 0.9732 |
 | thin N=16 in | 0.9975 | 0.9978 | 0.9728 |
@@ -494,12 +479,16 @@ the five twisted-beam cells (this repository's element, `h = 0.32` for the thick
 | thick N=16 in | 0.9972 | **1.9623** | **1.0141** |
 | thick N=16 out | 0.9972 | **2.9933** | **0.9028** |
 
-So the factor repairs the thick in-plane cell but overshoots the thick out-of-plane by
-9.5% and pushes all three thin cells 2.3–3.1% below the published columns — the same
-thin-wants-soft / thick-wants-stiff conflict, reversed.  **At least one further error
-remains**, and it is not a drill *scale*: neither paper has one, and none may be added.
-Settling it needs a deeper pass over the drill's cross terms, the Eq. (21) centre
-metric and the through-thickness integration than this session had.
+What **is** still open is the two thick cells, and it is **not** a drill factor: WU9d swept
+the drill magnitude and found that **no drill magnitude reaches the published cells** — at
+infinite drill stiffness the cells go to thick-in `1.00983`, thick-out `0.90127`, thin-in
+`0.96841`, i.e. wrong in both directions; the per-cell multipliers the cells would need are
+`≈0.5` (thin in), `≈30` (thick out) and `>1e4` (thick in), which are **mutually
+inconsistent**.  The paper's drill stiffness scales as `h¹` while the rotational stiffness
+scales as `h³`, and **the paper's own convergence tests are all thin (`t/L ≤ 1/100`)** while
+this repository's thick case is `t/L = 0.02667 ≈ 1/37.5`.  The through-thickness `t¹`/`t²`
+placements, the Eq. (21) centre metric, the `j0/j` ratio, the Eq. (19c) edge coefficients,
+`s2` and `W_22` were each measured and are **inert or already correct**.
 
 ### What this settles, and what it breaks
 

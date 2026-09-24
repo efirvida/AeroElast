@@ -991,3 +991,115 @@ The papers do not support a form that keeps the thin cells unmoved: the only pap
 3. **What I could not do.** I did not re-read the PDF pages myself: the task pointed at `docs/formulations/mitc4plusd-2025-extract.md`, and the `1/‖x_m^l‖` reading rests on that extract's transcription of Eqs. (14d)/(15a) and the literal Eq. (18) block. A vision re-read of p. 6–8 is the next step if the paper's intent must be settled. The two thick cells therefore remain `~2–3×` too soft, and **WU10 (S4) must not start**.
 
 **Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.
+
+---
+
+## WU9d — the second drill error: **the paper's (15)→(16a) "inconsistency" does not exist, and there is no second constant factor — measured negative result, no fix applied**
+
+**Scope.** Diagnosis only. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (a temporary `wu9d_*` harness was added and removed; the production file is **byte-identical** to the WU9b state), this record, and `tasks.md`. `mitc4.rs` read-only and untouched (`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is empty); no tolerance changed, no test weakened, no penalty and no numerical factor added, no commit. The flip stays reverted, so the live extension is still the hybrid.
+
+**Instrument.** The Python probes dispatch the hybrid, so the measurement is a Rust reproduction of the benchmark's own mesh and BCs (`_build_twisted_beam_mesh`: `length = 12`, `width = 1.1`, `nx = 6N`, `ny = N`, y-row node order, `[n00, n10, n11, n01]`; clamped root at `x = 0`; tip point load at `(12, 0, 0)` on global dof 2 (in-plane) or 1 (out-of-plane); `MAT_TB` `E = 29e6`, `nu = 0.22`; `h = 12·t/L`), assembled into a banded store and solved by a banded Cholesky. **Validation:** banded == dense `nalgebra` LU to `1.3e-6` relative (thin) / `1.4e-11` (thick); the hybrid column reproduces the recorded WU9b/WU9c hybrid cells to `≤ 0.02%`; the new-element column reproduces WU9b's post-fix thin cells and its `1.9623 / 2.9933` thick cells. The five cells are therefore directly comparable with the session table.
+
+### Finding 1 — the paper's `1/‖x_m^I‖` is **not** dropped: Eqs. (15a)→(16a) is exact
+
+Read from the PDF with vision (`.sources/papers/1-s2.0-S0045794924003511-main.pdf`, Ko, Bathe & Zhang (2025), C&S 308:107622, pp. 3, 4, 6, 7, 8, 10, 20).
+
+- p. 6, Eq. (12d): `θ_n^l = (L_l/8)(θ_4 − θ_1) = (L_l/8)(θ_4^D − θ_1^D)` — verified from Eqs. (12b)/(12c) by differentiating the quadratic `/`; its units are a **length** (the text: "the last term corresponds to the normal displacement at node 5").
+- p. 7, Eq. (14c): `u_θ^l(l) = (4l/L_l)(1 − l/L_l) θ_n^l`; at `l = L_l/2` the factor is `2·½ = 1`, so **`u_θ^l(L_l/2) = θ_n^l = (L_l/8)(θ^D diff)`**.
+- p. 7, Eq. (15a): `u_r = (1/‖x_m^l‖)[−h_m^l u_θ^l(L_l/2) x_r^l × V^D]·x_m^l`, `‖x_m^l‖ = L_l/8`. Substituting gives `(8/L_l)·(L_l/8)(θ^D diff)·(x_r^l × V^D)·x_m^l = −h_m^l (θ^D diff)(x_r^l × V^D)·x_m^l` — **which is Eq. (16a) term for term**, with `h_m^l = h_l`.
+- p. 7, the paper's own sentence: *"Using the geometric relations (Eq. (12d) and (13c)), the displacement fields assumed in Eq. (15) reduce to [Eq. 16a]."* Eq. (12d) is exactly the relation that supplies `L_l/8`; the paper says the reduction uses it.
+
+So the `1/‖x_m^l‖` is cancelled by the `L_l/8` inside `u_θ^l(L_l/2)`, and **`c_r^l = x_m^l·(−x_r^l × V^D)` with the raw `x_m^l = ⅛(x_i − x_{i+1})` (Eqs. 13c/19c/18) is the paper's coefficient, not an omission.** Independent corroboration: the paper's `c_r^l`/`c_s^l` must be *dimensionally* consistent with the `e_ij^m` of Eq. (7) `½(g_i·u_j + g_j·u_i)` (units `L²`); the raw `x_m^l` gives `c_r^l ~ L²` and the `ẽ^md` of Eq. (18) units `L²` like `ē^m`, whereas a unit `x_m^l` would give `L` and break the sum in Eq. (22a).
+
+**Consequence.** `docs/formulations/mitc4plusd-2025-extract.md`'s 2026-09-24 note ("an inconsistency in the paper's own reduction") and WU9c's premise are **incorrect**: the note's dimensional argument ignores the `L_I/8` that Eq. (12d) puts inside `u_θ^I(L_I/2)`. The implementation's Eq. (18) form is the paper's form — verified term-by-term against the paper's own Eq. (18) on p. 8, Eqs. (19b)/(19c)/(19d) on p. 10 and Eqs. (A.2)/(A.4)/(A.5) on p. 20 — including the paper's node order (`1=(r,s)=(1,1)`, `2=(−1,1)`, `3=(−1,−1)`, `4=(1,−1)`, Fig. 3(a)/Fig. 4(a)), the edge order (`5,6,7,8` = right, top, left, bottom), the `θ_{i+1}^D − θ_i^D` telescoping difference form, the `h̃_{m,·}^l` zeros of Eqs. (11a)/(11b), and the one-`V^D`-per-element rule of Eq. (5). WU9c's "trade" therefore measured a variant the paper never writes (it divided by `‖x_m^l‖` *without* the compensating `L_l/8`), and the inference drawn from it ("at least one further error remains") is unsupported.
+
+### Finding 2 — no second constant-factor error exists in the drill path (measured)
+
+**(a) The drill→∞ limit itself is wrong, so no drill magnitude can reach the published cells.** At `N = 16` (`f` = the drill-block multiplier):
+
+| cell | `f=1` | `f=1e2` | `f=1e4` | `f=1e6` | `f=1e9` | hybrid | published (session table) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| thick in | `1.96233` | `1.02369` | `1.01376` | `1.01046` | **`1.00983`** | `0.99838` | `0.9972` |
+| thick out | `2.99329` | `0.92338` | `0.90240` | `0.90137` | **`0.90127`** | `0.99901` | `0.9972` |
+| thin in | `0.99773` | `0.98697` | `0.97129` | **`0.96841`** | `0.42742`¹ | `0.99823` | `0.9975` |
+| thin out | `0.99866` | `0.99026` | `0.96581` | **`0.96139`** | `0.60483`¹ | `0.99860` | `0.9980` |
+
+¹ conditioning break-down of the direct solve; the pre-break-down plateau is quoted.
+
+The thick cells **cannot** be reached at any drill magnitude: thick-in's floor is `1.0098` (above the `0.997` target) and thick-out's floor is `0.9013` (below it). The per-cell multiplier that *would* match the hybrid is `≈0.5` (thin-in, `N = 8`), `≈30` (thick-out), and `>1e4` (thick-in) — i.e. **h-dependent and mutually inconsistent**, which is precisely the "only a scale" case the task told me to stop on.
+
+**(b) Every geometric neighbour of the drill was varied at `N = 8`** (new/hybrid ratio; `N = 8` hybrid `= 0.99797 / 0.99831 / 0.99763 / 0.99777` for thick-in / thick-out / thin-in / thin-out):
+
+| variant | thick in | thick out | thin in | thin out |
+| --- | --- | --- | --- | --- |
+| production (Eq. 18 form, raw `x_m`, raw `x_r`) | `1.25132` | `1.42450` | `0.99581` | `0.99690` |
+| Eq. (21) metric at the Gauss point vs the centre | `1.25132` | `1.42450` | `0.99581` | `0.99690` (identical to 5 digits) |
+| `j0/j ≡ 1` | `1.25129` | `1.42444` | `0.99581` | `0.99690` |
+| `c_r`, `c_s` ÷ `‖x_m^l‖` (the WU9c "8/L") | `1.01326` | `0.89958` | `0.97321` | `0.96848` |
+| `c_r`, `c_s` × `‖x_m^l‖` (`L/8`) | `89.27194` | `195.92533` | `1.02095` | `1.06881` |
+| `c_r`, `c_s` with unit edge tangents (`÷‖x_r^l‖`, `÷‖x_s^l‖`) | `1.01434` | `0.90160` | `0.97819` | `0.97642` |
+| unit `x_m^l` **and** unit edge tangents | `1.00956` | `0.89819` | `0.97101` | `0.96269` |
+
+The Eq. (21) centre metric, the `j0/j` ratio (Eq. 17b) and the Eq. (19c) edge coefficients are therefore **not** the source of a constant factor: the first two are numerically inert and every admissible rescaling lands on the same near-saturated `1.01 / 0.90 / 0.97` trade, never on the published cells.
+
+**(c) The placement of `e_ij^md` cannot be the missing stiffness.** Eq. (22a) was re-read from p. 10 at 400 dpi: `e_ij = e_ij^m + e_ij^md + t·e_ij^b1 + t²·e_ij^b2`, `i,j = 1,2` — `e^md` **is** the `t⁰` term and the code places it there. Folding it into the element's own 9-row B vector (which restores every `W_00`/`W_01`/`W_02` cross term automatically) gives, at `N = 8`:
+
+| placement of `e^md` | thick in | thick out | thin in | thin out |
+| --- | --- | --- | --- | --- |
+| separate block, `cm` (production) | `1.25132` | `1.42450` | `0.99581` | `0.99690` |
+| folded into the `t⁰` row (`W_00`,`W_01`,`W_02` cross terms) | `1.27854` | `1.35525` | `0.99459` | `0.99616` |
+| folded into the `t¹` row with `s1` (effective `s1²W_11 = cm/3`) | `1.72529` | `2.47038` | `0.99647` | `0.99738` |
+| folded into the `t²` row with `s2` (effective `s2²W_22 = cm/9`) | `3.23880` | `5.42437` | `0.99665` | `0.99801` |
+| either slot at `f = 1e4` | `1.0088 / 1.0095` | `0.8981 / 0.9014` | `0.9642 / 0.9672` | `0.9570 / 0.9601` |
+
+The `t¹` and `t²` slots are **3× and 9× weaker** than the membrane slot (they carry the paper's own `s1`/`s2` B-scalings `2/h` and `4/h²` against `W_11 = W_02 = cb`), so the membrane `t⁰` slot with `cm` is already the *largest* of the three placements: a different placement cannot supply the missing stiffness.
+
+**(d) The WU9b neighbour (`s2`, `W_22`) is clean.** `W_22 = cm·h⁴/144` gives the effective `E2-E2` coefficient `s2²W_22 = cm/9`, which is exactly the paper's own `2×2` `t`-rule (`∫t⁴dt → 2/9`) — the double-scaling is gone and the rule is applied once. The term is numerically inert on these five cells (`e2 ×0.5 / ×2 / ×4` moves them by `< 1e-4` relative), and the drill path contains **no** `s2`, `s1` or other `1/h`-power: the drill is the `t⁰` strain integrated with `cm = ∫C dz`, and `cm` is the exact `2`-point `t` integral of a constant. Block-sensitivity at `N = 8` (thick-in): `bend ×2 → 0.519`, `drill ×1e4 → 1.012`, `memb ×1e4 → 1.218`, `shear ×1e4 → 1.247`, `e2 ×1e4 → 2.436`; on thin-in the response is *pure bending* (`bend ×2 → 0.2504`, i.e. exactly `1/K`), which is why the thin cells pin the bending block and the thick cells are drill-dominated.
+
+**(e) Where the residual actually lives (why it is not a drill factor).** Single thick twisted element (the beam's element near `x = 6`, `h = 0.32`), local frame:
+
+| quantity | new element | hybrid |
+| --- | --- | --- |
+| `\|K\|∞` | `6.6090e6` | `6.4937e6` (1.8% apart) |
+| rotation diagonals node 0, slots `(θ1, θ2, θ3)` | `5.914e4 / 3.767e4 / 1.363e3` | `5.665e4 / 3.592e4 / 2.299e3` |
+| drill-block norm `\|K_drill\|` | `1.3620e3` (`2.10e-4` of `\|K_hyb\|`) | `\|K(ds=1) − K(ds=0)\|∞ = 4.5643e6` (`0.703` of `\|K_hyb\|`) |
+| drill-slot diagonal with the drill block removed | `6.959e-1` | — |
+
+The two elements' assembled element matrices agree to 1.8%, and the new element's drill DOF is coupled to every other term by only `≈5e-4` of its own stiffness — the drill is an almost separate field. Consistently, the **hybrid's** twisted-beam answer is insensitive to its own drill parameter (thick-in `N = 8`: `drilling_scale = 0.01 → 1.03057`, `0.1 → 1.00099`, `1 → 0.99797`, `10 → 0.99767`, `100 → 0.99764`; thin cells invariant to `≤1e-4`, `N = 16` identical pattern), i.e. **the hybrid's stiffness comes from the 2017 core, while the new element's thick cells are drill-dominated and its thin cells are not.** The residual is therefore not a constant factor anywhere in the drill path but the `h`-power relation between the two: the paper's drill stiffness is `∝ h¹` (`cm = C·h`) while the rotational stiffness it coexists with is `∝ h³` (`s1²W_11 = C·h/3`), so the paper's penalty-free drill is a `1e4`-scale lever at `h = 0.32` and a negligible one at `h = 0.0032`. This is a statement about the paper's MITC4+/D versus the 5-DOF MITC4+ column we compare against — and it fits the paper's own evidence: every convergence test the paper prints (§3, Figs. 12, 13, 15, 16) is thin (`t/L ≤ 1/100`), so the thick regime is not exercised there. Recorded as the unit's finding; **no test was corrected and no tolerance changed**, because nothing proves a pinned construction wrong.
+
+### The fix: **none applied**
+
+Per the task's hard constraint (no drill scale, no penalty, no numerical factor; "if the only fix is a scale, stop and report that"), and because the only variants that move the thick cells toward the published values — a uniform drill multiplier, the per-edge `8/L_I`, the unit-tangent coefficient — are all *scales*, and none of them fixes all five cells.
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 0 lines (WU9b state, byte-identical)
+openspec/changes/mitc4plusd-faithful/tasks.md     | 1 note under task 10.7
+openspec/changes/mitc4plusd-faithful/apply-progress.md | this section
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**; no dispatch, PyO3, assembler or material file touched; not committed.
+
+### The five twisted-beam cells (production element, unchanged — thin shown unmoved)
+
+| case | published (session table) | hybrid | new element (WU9d) | vs WU9c |
+| --- | --- | --- | --- | --- |
+| thin N=8 in | `0.9959` | `0.99763` | **`0.99581`** | unmoved (`≤0.01%`) |
+| thin N=16 in | `0.9975` | `0.99823` | **`0.99773`** | unmoved |
+| thin N=16 out | `0.9980` | `0.99860` | **`0.99866`** | unmoved |
+| thick N=16 in | `0.9972` | `0.99838` | **`1.96233`** | unmoved |
+| thick N=16 out | `0.9972` | `0.99901` | **`2.99329`** | unmoved |
+
+The three thin cells are unmoved to `≤0.01%` because no production line changed; they match the published cells to `≤0.06%`.
+
+### Rust suite
+
+`cd crates && cargo test -p aeroelast-core test_t1a_` → **6 passed / 0 failed**; `test_t1b_` → **6 passed / 0 failed**; full `cargo test -p aeroelast-core` → **168 passed / 0 failed** (unchanged baseline). No Tier-1 test touched, no tolerance changed, no `#[ignore]`/`xfail` added.
+
+### Deviations / findings / what could not be done
+
+1. **The task's "established" first error is not an error.** Eqs. (15a)→(16a) is exact; the extract's note and WU9c's premise should be corrected. This is the unit's substantive result: the paper's drill operator as implemented is faithful, and the "8/L" variant it was compared against is not the paper's.
+2. **No second constant-factor error exists in the drill path** — evidence in Finding 2(a)–(d).
+3. **The residual is a scale/`h`-power mismatch, not a factor**: the drill→∞ limit is itself off in both directions (`1.0098` / `0.9013` at `N = 16`), so no drill magnitude, and (because `t¹`/`t²` are 3×/9× weaker and the metric/`j0/j`/edge-coefficient variants are inert or equivalent) no placement or geometric neighbour, can fix the two thick cells while keeping the three thin ones. Reported, not tuned.
+4. **What I could not do.** (i) I did not find an admissible fix, so the thick cells remain `~2–3×` too soft as first measured in WU9/WU9b; **WU10 (S4) must not start**. (ii) I did not re-derive the paper's Appendix-A notation for `h_r|_{s=±1}` (p. 20) beyond checking that Eqs. (A.5) reproduces Eq. (19b)'s telescoping structure and pairing; the code follows Eq. (18)/(19b), and the identity test is the oracle. (iii) The `f = 1e9` thin cells could not be measured (the direct solve breaks down); the `1e6` plateau is quoted instead.
+
+**Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.
