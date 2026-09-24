@@ -153,14 +153,25 @@ fn shape_function_derivatives(r: f64, s: f64) -> ([f64; 4], [f64; 4]) {
 /// Local orthonormal frame `(e1, e2, e3)` and the projected 2D node
 /// coordinates of the four nodes.
 ///
-/// `e3` is the average of the two diagonal triangle normals of the quad, as
-/// used by the repository's existing shell elements; `e1` is edge `0 -> 1`
-/// orthogonalized against `e3`; `e2 = e3 x e1`.
+/// `e3` is the **area-weighted** normal of the two diagonal triangles
+/// `(0,1,2)` and `(0,2,3)`, i.e. the normalized sum of their raw
+/// (unnormalized) cross products. For a bilinear quad this is exactly the
+/// paper's plane normal `n = (x_r x x_s)/||x_r x x_s||` of Ko, Lee & Bathe
+/// (2017), C&S 182:404-418, Eq. (10), p. 406 — the identity
+/// `x_r x x_s = (n1 + n2)/8` holds for every quad — and is therefore a
+/// function of the geometry alone, independent of the node-numbering sequence.
 ///
-/// The frame is the repository's local reference system, not a paper equation;
-/// it is the same construction the assembly layers already use. The paper's own
-/// plane normal is `n_vec` (Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (10))
-/// and is computed separately by [`compute_characteristic_vectors`].
+/// `e1` is edge `0 -> 1` orthogonalized against `e3`; `e2 = e3 x e1`. `e1` is
+/// not unique under a cyclic renumbering (it rotates in the `(e1, e2)` plane),
+/// but the operators below are frame-covariant under an in-plane rotation about
+/// `e3`, so the global stiffness does not depend on it.
+///
+/// WU6d finding: averaging the two **unit** triangle normals instead of the raw
+/// ones gives a different `e3` on warped geometry with unequal triangle areas,
+/// one that swaps with the diagonal under a cyclic node renumbering; the
+/// covariant-to-local mapping is then no longer frame-covariant and `K_global`
+/// acquires a spurious node-order dependence. See
+/// `test_t1a_isotropy_element_orientation_and_node_sequence_invariant`.
 ///
 /// Returns `(local_coords[4][2], e1, e2, e3)`.
 fn compute_local_coordinate_system(
@@ -173,17 +184,21 @@ fn compute_local_coordinate_system(
         Vector3::new(coords_3d[3][0], coords_3d[3][1], coords_3d[3][2]),
     ];
 
-    // Average normal of the two diagonal triangles (0,1,2) and (0,2,3).
+    // Area-weighted normal of the two diagonal triangles (0,1,2) and (0,2,3):
+    // sum the RAW cross products (not their unit normals), so that
+    // `normalize(n1 + n2)` is the paper's Eq. (10) normal `normalize(x_r x x_s)`
+    // for every geometry. Normalizing each triangle first would make `e3`
+    // depend on which diagonal the node sequence selects (WU6d).
     let n1 = (nodes[1] - nodes[0]).cross(&(nodes[2] - nodes[0]));
     let n2 = (nodes[2] - nodes[0]).cross(&(nodes[3] - nodes[0]));
     let mut e3 = Vector3::zeros();
     let mut count = 0;
     if n1.norm() > 1e-12 {
-        e3 += n1.normalize();
+        e3 += n1;
         count += 1;
     }
     if n2.norm() > 1e-12 {
-        e3 += n2.normalize();
+        e3 += n2;
         count += 1;
     }
     if count > 0 {
@@ -3583,6 +3598,15 @@ mod tests {
         }
 
         // Oracle 2: the five known-risk deviations are asserted to be rejected.
+        //
+        // WU6d note on `theta_z alone`: after the local frame's `e3` was corrected
+        // to the paper's Eq. (10) normal, `V^D = e3` identically
+        // (Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (5)/(10); Ko, Lee &
+        // Bathe (2017), C&S 182:404-418, Eq. (10)), so `theta^D = theta . V^D`
+        // IS the local drill slot. The implementation risk the row guards is
+        // therefore "use the GLOBAL vertical instead of `V^D`", which is what
+        // `local_components(&pre, &e3)` with `e3 = (0,0,1)_global` expresses.
+        // Passing the raw global vector as local components would be vacuous now.
         let pre = pre_from(&DOUBLY_WARPED);
         let vd = drill::drill_normal(&pre);
         let e3 = Vector3::new(0.0, 0.0, 1.0);
@@ -3620,8 +3644,17 @@ mod tests {
                 1e-6,
             ),
             (
-                "theta_z alone",
-                drill::b_md_parameterised(&pre, GP, GP, &vd, &e3, 0.125, &[0, 1, 2, 3], 1.0),
+                "theta_z alone (global z instead of V^D)",
+                drill::b_md_parameterised(
+                    &pre,
+                    GP,
+                    GP,
+                    &vd,
+                    &local_components(&pre, &e3),
+                    0.125,
+                    &[0, 1, 2, 3],
+                    1.0,
+                ),
                 1e-6,
             ),
         ];

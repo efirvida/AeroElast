@@ -528,3 +528,37 @@ Both perturbations make the test fail, so the drill-null-space assertions are lo
 2. **Only spec-changed bounds were relaxed**: the separation `1e-6 → 1e-9` and the non-vacuity clause. Nothing else moved.
 3. **Citations** are self-contained (Ko, Lee & Bathe (2017), C&S 182:404-418; Ko, Bathe & Zhang (2025), C&S 308:107622) and anchored to `docs/references.md`; no "paper A/B" shorthand.
 4. **WU6c size.** 102 added / 36 removed for `mitc4_plusd.rs`, within the accepted session `size:exception`. No test, doc or citation was dropped.
+
+## WU6d — task 7.2 (T1.1): the warped node-sequence failure is a real element defect, fixed
+
+**Task 7.2 now `- [x]`.** `strict_tdd: false`; the fix is one production expression plus one stale test-oracle row.
+
+**Diagnosis: (b), a real order-dependent element construction — not a test-comparison defect.** The T1.1 test already forms the induced permutation correctly (`expected[(6a+ka,6b+kb)] = k0[(6·seq[a]+ka, 6·seq[b]+kb)]`, i.e. `P K_ref Pᵀ`), so (a) is ruled out. Decisively, the mapping-independent energy of the *same physical field* `u_perm` on the *same physical element* differs by `2.076e-3` relative (`u_perm^T K_new u_perm` vs `u_ref^T K0 u_ref`), which a pure re-indexing cannot produce; and the discrepancy is in the 2017 core, not the drill: re-running with the Eq. (26) block switched off gives the identical `max|D|` (`nodrill = full = 1.385e9`, split tt/tr/rt/rr `1.39e9 / 1.98e8 / 1.98e8 / 2.42e8`).
+
+**Root cause (measured).** `compute_local_coordinate_system` built the local `e3` from the two **unit** diagonal-triangle normals, `normalize(n1) + normalize(n2)`, whereas the paper's plane normal is the **area-weighted** `n = (x_r x x_s)/‖x_r x x_s‖` of Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (10), p. 406. The identity `x_r x x_s = (n1 + n2)/8` holds for every bilinear quad (algebraic check: with `p=-x0+x2`, `q=x1-x3`, `16 x_r x x_s = -2 p x q = 2(n1+n2)`), so the raw sum is Eq. (10) and the unit sum is not. On RULED_WARPED the two triangle areas differ (`‖n1‖ = 2.592`, `‖n2‖ = 2.040`) and the two differ by **2.4°**: old `e3 = (0.0225, 0.3322, 0.9431)` vs Eq. (10) `n_vec = v_d = (0, 0.3714, 0.9285)`. A cyclic renumbering swaps the `0-2` diagonal for `1-3`, so the pseudo-normal — and with it the whole local frame, out of plane — changes between the two orderings while the physical element is unchanged. The 2×2 covariant-to-local mapping (`covariant_to_local_mapping(j_loc)`, `j_loc = g_a · e_b`) is a genuine change of frame only when `e3` is the tangent-plane normal; with `e3 ≠ V^D` the dropped `g_a · e3` component makes the mapping non-covariant, so `K_global` acquired the observed node-order dependence. (This supersedes the WU4b premise "on warped geometry `V^D ≠ e3`", which was a consequence of this bug.)
+
+**Fix.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs`, `compute_local_coordinate_system`: sum the **raw** cross products before normalizing, so `e3 = normalize(n1 + n2) = normalize(x_r x x_s) =` Eq. (10) `= v_d` for every geometry (verified: `e3 · n_vec = 1` to `≤3.4e-16` on flat-square, flat-distorted, ruled-warped, doubly-warped, for both `[1,2,3,0]` and `[0,3,2,1]`). `e1` (edge `0→1`) is still node-order-dependent, but only by an in-plane rotation about `e3`, which the operators handle covariantly; the doc comment now states this.
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 57 ++++++++++++++++++-----
+ 1 file changed, 45 insertions(+), 12 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical). `rustfmt --edition 2021 --check` is clean. Three files touched, exactly as scoped.
+
+**Count before → after.** `cd crates && cargo test -p aeroelast-core` → **169 passed / 2 failed → 170 passed / 1 failed**. The single remaining failure is the separate shearing blocker T1.3c (`test_t1a_shearing_patch_constant_stress_fig5_mesh`).
+
+**Measured evidence (RED → GREEN), T1.1 node sequences.** Bound `1e-12·max|K| = 1.913e-1` on RULED_WARPED (`max|K| = 1.913e11`).
+
+| Case | RED `max\|K_new − P K_ref Pᵀ\|` | GREEN | RED energy rel | GREEN energy rel |
+| --- | --- | --- | --- | --- |
+| ruled-warped `[1,2,3,0]` | `1.385e9` = **7.242e-3·max\|K\|** | `1.620e-2` = **8.250e-14·max\|K\|** | `2.076e-3` | `6.853e-14` |
+| ruled-warped `[3,0,1,2]` | (unreached) | `8.250e-14·max\|K\|` | — | `6.729e-14` |
+| doubly-warped `[1,2,3,0]` | `1.916e8` = 1.235e-3 (diagnostic) | `7.320e-14·max\|K\|` | — | — |
+| flat-square / flat-distorted (all sequences) | `≤ 7.77e-13·max\|K\|` | unchanged (`≤ 7.77e-13`) | | |
+
+Permuted eigenvalues agreed both before and after (`2.341e-14·λ_max` on the failing case), which is what pointed at a basis/frame change rather than an isotropy error. Orientation invariance remains green (`worst |Δλ| = 3.05e-4…6.10e-4` vs `1e-10·λ_max = 28.6…51.1`).
+
+**Test-first.** No strict TDD. **RED** = the original run at HEAD (`/tmp/t11.log`): `ruled-warped: node sequence [1, 2, 3, 0] gives 1.385e9 > 1e-12 max|K| (1.913e-1)`; **GREEN** = the same test after the one-expression fix: `ok. 1 passed` and the suite `170/1`.
+
+**Collateral fix (recorded; a strengthening, not a weakening).** With `e3 = V^D` identically, the `θ^D = θ·V^D` projection `local_components(pre, &pre.v_d)` equals the local drill slot, so Oracle 2's `theta_z alone` row (which passed the raw global `(0,0,1)` as a local triple) became vacuous — measured `rejection 'theta_z alone': not distinguished from Eq. (18) (relative 0)`. Its premise (`V^D ≠ e3`) was itself a consequence of the bug. The row is re-aimed to the genuine remaining risk, using the **global** vertical instead of `V^D` (`v_theta = local_components(pre, &ẑ_global)`), which is rejected by `>1e-6`; the other four rejections are unchanged. **No bound was touched**: `1e-12·max|K|`, `1e-10·λ_max` and `1e-10` relative energy all stand exactly where the spec fixes them. `test_identity_drill_operator_matches_eq18_term_by_term`, `test_identity_drill_stiffness_comes_only_from_eq26`, `test_identity_ke_lock_matches_2017_core_plus_2025_drill` and `test_t1a_zero_energy_modes_single_unsupported_element_six_or_seven` all pass.
