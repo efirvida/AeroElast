@@ -254,18 +254,28 @@ fn compute_local_coordinate_system(
     let v2b = nodes[3] - nodes[0];
     let n2 = v1b.cross(&v2b);
 
+    // Eq. (10) of Ko, Lee & Bathe (2017), C&S 182:404-418, p. 406: the element
+    // plane normal is the AREA-WEIGHTED normal `(x_r x x_s)/||x_r x x_s||`.  For
+    // a bilinear quad `x_r x x_s = (n1 + n2)/8`, so the RAW sum of the two
+    // diagonal cross products IS the paper's normal and the sum of their UNIT
+    // normals is not.  Averaging the unit normals makes `e3` depend on which
+    // diagonal the node numbering picks: on a warped element whose two triangles
+    // have different areas the two differ by degrees, so a cyclic renumbering
+    // changes the frame while the element does not, and the 2x2
+    // covariant-to-local mapping - which drops the `g_a . e3` component - stops
+    // being a valid change of frame.  Sum the raw products, as the MITC4+/D
+    // module does.
     let mut e3 = Vector3::zeros();
     let mut count = 0;
     if n1.norm() > 1e-12 {
-        e3 += n1.normalize();
+        e3 += n1;
         count += 1;
     }
     if n2.norm() > 1e-12 {
-        e3 += n2.normalize();
+        e3 += n2;
         count += 1;
     }
     if count > 0 {
-        e3 /= count as f64;
         e3 = e3.normalize();
     } else {
         e3 = Vector3::new(0.0, 0.0, 1.0);
