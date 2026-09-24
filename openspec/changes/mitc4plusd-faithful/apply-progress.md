@@ -15,8 +15,8 @@ Change `mitc4plusd-faithful` · phase **apply** · artifact store `openspec` · 
 - Source: native SDD status engine (authoritative, `artifactStore: openspec`) · `changeName` `mitc4plusd-faithful` · `applyState` `ready` · `nextRecommended` `apply`.
 - `actionContext.mode`: `repo-local`; `workspaceRoot` and `allowedEditRoots` were, on every unit, `/home/efirvida/Desktop/dev/fem-shell`. Every edit stayed inside the workspace and inside the unit's authorized edit roots.
 - Review workload gate (identical on every unit): `Decision needed before apply: No`, `Chained PRs recommended: No`, `Chain strategy: size-exception`, `400-line budget risk: High`. The session resolved delivery as **single PR with an explicitly accepted `size:exception`** and a **700-line review budget**.
-- Task progress: **59 tasks · 5 → 8 → 12 → 17 → 25 → 28 completed.** Per-unit entry counts: WU1 `5/54`, WU2 `8/51`, WU3 `12/47`, WU4a `17/42`, WU4b `17/42`, WU5 `25/34 → 28/31` (tasks 6.1, 6.2, 6.4; 6.3 stays unchecked because its named verification is task 9.2). WU4a closed no checkbox (its mechanism is recorded as a note on task 5.4 instead), so it left `17/42` unchanged and WU4b inherited that same `17/42`; WU4b then closed tasks 5.1–5.8. *Ambiguity kept as reported: the `17/42` entry line therefore appears for both WU4a and WU4b; it is not resolved here by guessing.*
-- Test-count trajectory: **120 → 130 → 135 → 140 → 146 → 155 → 165** passed / 0 failed.
+- Task progress: **59 tasks · 5 → 8 → 12 → 17 → 25 → 28 → 33 completed.** Per-unit entry counts: WU1 `5/54`, WU2 `8/51`, WU3 `12/47`, WU4a `17/42`, WU4b `17/42`, WU5 `25/34 → 28/31`, WU6 `28/31 → 33/26` (tasks 2.4, 7.1, 7.2, 7.3, 7.4; 6.3 stays unchecked because its named verification is task 9.2). WU4a closed no checkbox (its mechanism is recorded as a note on task 5.4 instead), so it left `17/42` unchanged and WU4b inherited that same `17/42`; WU4b then closed tasks 5.1–5.8. *Ambiguity kept as reported: the `17/42` entry line therefore appears for both WU4a and WU4b; it is not resolved here by guessing.*
+- Test-count trajectory: **120 → 130 → 135 → 140 → 146 → 155 → 165 → 168 passed / 3 failed.** The 3 failures are the WU6 Tier-1a verdict (T1.1 warped node-sequence, T1.2 zero-energy count, T1.3c shearing) and are reported, not hidden; see `## WU6`.
 
 ---
 
@@ -371,14 +371,63 @@ Rows 1 and 2 are the consistency guards the task calls load-bearing: the deliber
 
 ---
 
+
+---
+
+## WU6 — Tier 1a: the 2017 paper's own basic tests (tasks 7.1–7.4, plus the deferred task 2.4)
+
+**Closed.** 2.4 (the 48-DOF patch assembler, whose recorded deferral said "WU4" but which WU4 did not carry); 7.1 rigid-body fixture + T1.2 zero-energy; 7.2 T1.1 isotropy; 7.3 T1.3a membrane patch; 7.4 T1.3b bending patch **and** T1.3c shearing patch. The paper's own verdict: **three of the six WU6 tests fail as specified** (T1.1 on warped geometry, T1.2 zero-energy count, T1.3c shearing). Everything is reported as measured; nothing was weakened, loosened or reinterpreted to pass.
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (the inline test module: `sorted_eigenvalues`, `rotation_matrix`, `rotate_geom`, `rotate_dofs`, `rotate_eng3_to_global`, `rotate_stress_to_global`, `rotate_shear_to_global`, `STAR_BOUNDARY`, `star_elem_coords`, `star_patch_pres`, `assemble_star_patch`, `boundary_integrate`, `solve_constrained`, `star_elem_disp`, `membrane_strain`, `membrane_uv`, `bending_field`, `interior_shear_moment`, the six new tests, and the test `use` line adding `DVector, Matrix3`); `openspec/changes/mitc4plusd-faithful/tasks.md`; this file. Diff stat:
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 882 +++++++++++++++++++++-
+1 file changed, 882 insertions(+), 1 deletion(-)
+```
+
+The single deletion is the test-module `use nalgebra::{...}` line. `git diff --stat`/`--numstat` for `crates/aeroelast-core/src/elements/mitc4.rs` is **empty**: the hybrid is byte-identical. No file outside the authorized set was touched (`git status --short` shows only `mitc4_plusd.rs` modified plus the pre-existing untracked `.pi/`). `rustfmt --edition 2021 --check` is clean for the file.
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **168 passed / 3 failed** (165/0 → 168/3; the 165 baseline + 6 new tests = 171, of which 3 fail). The 3 failures ARE the WU6 verdict and are reported, not hidden: `test_t1a_zero_energy_modes_single_unsupported_element_exactly_six`, `test_t1a_isotropy_element_orientation_and_node_sequence_invariant`, `test_t1a_shearing_patch_constant_stress_fig5_mesh`.
+
+**Tests and measured values.**
+
+| Test | Asserts | Measured |
+| --- | --- | --- |
+| `test_assemble_star_patch_is_symmetric_and_rigid_body_free` (task 2.4) | the 48×48 patch matrix is symmetric (`≤ 1e-12 max|K|`) and its six rigid-body fields carry `|uᵀKu| ≤ 1e-12 λ_max ‖u‖²` | symmetric; all six within the bound; **PASS** |
+| `test_t1a_zero_energy_modes_single_unsupported_element_exactly_six` | exactly 6 with `|λ| ≤ 1e-10 λ_max`; six rigid-body fields annihilated; `|λ_7| ≥ 1e-6 λ_max` on flat-rectangle, flat-distorted, ruled-warped, doubly-warped | rigid-body residuals `7.7e-17/1.1e-16/1.2e-16/9.8e-17`; **zero-count 8/7/7/7**; `|λ_7|/λ_max = 5.0e-17/1.5e-16/2.6e-16/1.3e-16`; **FAIL** |
+| `test_t1a_isotropy_element_orientation_and_node_sequence_invariant` | eigenvalues ≤ `1e-10 λ_max` over ≥4 orientations incl. π/2; node sequences to `1e-12 max|K|`; `uᵀKu` to `1e-10` relative | orientation: worst `|Δλ| = 6.1e-4/3.7e-4/5.5e-4` vs `28.6/40.9/50.8`; `uᵀKu ≤ 1.4e-15`; node sequences: flat `1.5e-16 max|K|`, flat-distorted `≤7.8e-13`, **ruled-warped `7.2e-3`** (energy `2.1e-3` rel); **FAIL** |
+| `test_t1a_membrane_patch_constant_stress_fig5_mesh` | constant σ to `1e-8` relative/floor for σ_xx, σ_yy, τ_xy alone; spread `≤1e-8` | rel errors `8.8e-12/6.4e-12/5.9e-12`; spreads `7.5e-12/6.1e-12/7.7e-12`; **PASS** |
+| `test_t1a_bending_patch_constant_curvature_fig5_mesh` | constant κ to `1e-8` relative; spread `≤1e-8` | rel errors `7.6e-12/7.3e-12/5.3e-12`; spreads `9.5e-12/1.2e-11/3.6e-12`; **PASS** |
+| `test_t1a_shearing_patch_constant_stress_fig5_mesh` | constant transverse shear to `1e-8` relative; spread `≤1e-8`; no `5/6` | design load (boundary tractions): error `6.70` rel, spread `9.77` rel; pointwise completion (boundary + `∫N_i q`): error `1.63`, spread `2.30`; **FAIL** |
+
+**Findings (reported, not adjusted).**
+
+1. **T1.2 — the element has 8/7 zero modes, not 6.** The six physical rigid-body fields are exactly annihilated (residual `≤1.2e-16 λ_max`) and the separation is `>1e-6 λ_max`, so the surplus modes are real zero eigenvalues. They live in the `{u_x,u_y,θ_z}` subspace: a **uniform `θ_z` drill mode** (`u=0`, `θ_z=const`; zero energy on every geometry because Eq. (18)'s drill strain sees only edge differences) and, on the axis-aligned flat rectangle, a second non-uniform `θ_z` mode (the drill operator loses rank when the `c_r`/`c_s` edge coefficients vanish on the rectangle). Diagnostic: constraining `θ_z` gives exactly 6 zero modes on the flat element, so the 2017 core passes and the surplus comes from the 2025 drill block. The design §4.3 note ("a constant `θ^D` makes every drill edge difference vanish, so exactly six zero modes survive the addition of the drilling DOF") does not follow: the vanishing differences also leave the `θ_z`-only mode free.
+2. **T1.1 — the warped global stiffness is not node-sequence invariant.** Orientation invariance and the flat/flat-distorted node sequences pass, but the ruled-warped element's `[1,2,3,0]` renumbering changes the entries by `7.2e-3 max|K|` (bound `1e-12`) and the mapping-independent energy by `2.1e-3` relative, while the permuted eigenvalues match to `2.3e-14 λ_max`. A formulation isotropy error would move the eigenvalues; this does not, so the deviation is a **frame/numbering inconsistency for warped geometry** (consistent with the WU4 frame-convention finding), not an isotropy error. The later sequences were not reached because the test asserts on `[1,2,3,0]` first.
+3. **T1.3c — design §4.2's shearing load derivation is not well-posed.** A constant transverse-shear resultant `q` is not an equilibrium state of the Mindlin element: the rotation rows of the internal force `∫ B_γᵀ q dA` are not balanced by boundary tractions alone, so the design's `f_i = ∮ N_i (q·n) dΓ` does not produce the constant state. Completing the derivation with the pointwise interior moment `f_θx,i = -∫N_i q23`, `f_θy,i = +∫N_i q13` also fails (`1.63` rel), because the assumed MITC4 operator's rotation rows are not the pointwise ones and the load is then element-dependent (vacuous). The papers' own shearing patch (Ko, Bathe & Zhang (2025), C&S 308:107622, Fig. 7(c): `u_x` constrained at the interior nodes, load in `+y` at `A`) is an **in-plane** shear state, not a transverse one; the spec's Requirement 8 "constant transverse shear stress" therefore cannot be tested by this route. **No load was chosen to make the test pass.**
+4. **No element change was made.** Every operator, coefficient and assembly path is byte-identical to WU5 except the tests. The two test-side bugs found while building the fixtures — stress rotated with the engineering-strain convention (fixed with `rotate_stress_to_global`) and the bending exact field's sign convention (aligned with the element's own flat operator) — were **test** bugs; the membrane/bending patch tests pass at `~1e-11` relative once the loads are correct.
+
+**Test-first evidence (RED → GREEN, and non-vacuity controls).** `strict_tdd: false`; the task explicitly required a red-first demonstration. The suite was observed RED first (the WU6 block failed to compile against the not-yet-written helpers), then each behaviour was shown load-bearing by perturbing it:
+- Membrane load **zeroed** → `max|σ_gp − σ| = 1.000` relative (restored: `8.8e-12`).
+- Bending load **zeroed** → `max|κ_gp − κ| = 1.0` relative (restored: `7.6e-12`).
+- Drill block **disabled** (`compute_ke_local_with_drill(pre, false)`) → T1.2 zero-count `10/10/10/10` (from `8/7/7/7`), so the count responds to the drill operator.
+- Local frame **pinned** to a global axis in `compute_local_coordinate_system` → T1.1 orientation `worst |Δλ| = 3.185e11` vs the `28.6` bound, so the orientation check is real.
+After restoring every perturbation the suite is back to **168 passed / 3 failed** with exactly the three WU6 verdicts above.
+
+**Deviations.**
+
+1. **Task 2.4 landed here, not in WU4** (its recorded deferral said WU4; WU4 did not carry it). Recorded on the task.
+2. **Module layout** remains the WU1 decision (inline `#[cfg(test)] mod tests`, no separate `mitc4_plusd/tests.rs`); the helpers live in that module.
+3. **Design §4.2's shearing load** deviates from the implementation by necessity — implementing it as written is what produces the T1.3c failure; see finding 3.
+4. **WU6 size.** 882 added / 1 removed vs the design's ~300 forecast, within the accepted session `size:exception`. The overrun is the patch assembler + solver + boundary/moment integrators, the five load/state fixtures and the printed measured-value evidence. No test, doc or citation was dropped.
+
 ## Remaining tasks
 
-All tasks of sections 2–6 that this change has reached are complete except the three recorded deferrals below. `tasks.md` is the canonical list of the exact unchecked lines; it currently reports **28 checked / 31 unchecked of 59**.
+All tasks of sections 2–7 that this change has reached are complete except the one recorded deferral below. `tasks.md` is the canonical list of the exact unchecked lines; it currently reports **33 checked / 26 unchecked of 59**.
 
-- **Task 2.4 (still unchecked; deferred).** *Boundary-traction loader and the 48-DOF dense patch assembler* `assemble_star_patch(&[Mitc4PlusDPrecomputed; 5]) -> DMatrix<f64>`, with Gauss-rule boundary integration and a dense LU solve. Touches `…/tests/fixtures.rs`. Verification: the self-test asserts the assembled 48×48 matrix is symmetric and that its six rigid-body fields carry zero energy; it is added and observed **failing** (RED) until WU4 lands. Satisfies: Requirement 6/7/8; Requirement 12. **Deferred to WU4 (recorded):** this task needs `Mitc4PlusDPrecomputed`, which does not exist until WU2–WU4; writing the assembler now would produce a broken build rather than a red test. It lands with WU4 once the element type exists and stays unchecked here (its recorded deferral text still says "it lands with WU4").
 - **Task 5.6 (partially deferred).** The `M` / `K_T` / `f_int` shapes belong to tasks 6.1/6.2 (WU5); WU4 asserted the `K` local/global 24×24 and the drill-slot layout and recorded the deferral on the task. WU5 landed `compute_me_global`/`compute_kt_global`/`compute_fint_global`; the `M`/`K_T`/`f_int` shape assertions themselves remain with the Tier-1 test units.
 - **Task 6.3 (still unchecked; deferred verification).** The four functions (`compute_body_load_global`, `compute_k_sigma_global`, `compute_centrifugal_prestress`, `compute_element_stress`) landed in `mitc4_plusd.rs`, but the task names no new test and defers its verification to the retargeted T2I names of task 9.2, which was not run in WU5. No test name was invented.
-- **Sections 7–13 remain pending** (WU6–WU11): the Tier-1a/Tier-1b tests, the move of the layout-bound Tier-2 tests, the flip, the retirement, and docs/guard tests. Section 6's WU5 landed 6.1/6.2/6.4 and left 6.3 to task 9.2.
+- **Sections 8–13 remain pending** (WU7–WU11): the Tier-1b tests, the move of the layout-bound Tier-2 tests, the flip, the retirement, and docs/guard tests. Section 7's WU6 landed 7.1–7.4 (and the deferred 2.4); its three Tier-1a failures are open findings in `## WU6`.
 
 ## Workload and PR boundary (cumulative)
 
@@ -388,4 +437,4 @@ All tasks of sections 2–6 that this change has reached are complete except the
 
 ## Next
 
-The next implementable unit is **WU6** (tasks 7.1–7.4): the Tier-1a tests of the 2017 core, building on WU4b/WU5. Task 2.4 and task 6.3 remain the recorded deferrals.
+The next implementable unit is **WU7** (tasks 8.1–8.4): the Tier-1b tests of the 2025 six-DOF element, building on WU5. Task 6.3 remains the recorded deferral. The Tier-1a failures of `## WU6` are open findings and are not resolved here.

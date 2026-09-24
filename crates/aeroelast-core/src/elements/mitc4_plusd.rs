@@ -2130,7 +2130,7 @@ mod tests {
     use crate::materials::laminate::{Laminate, Ply};
     use crate::materials::orthotropic::OrthotropicMaterial;
     use crate::materials::{isotropic::IsotropicMaterial, Material, ShellConstitutive};
-    use nalgebra::{DMatrix, Matrix2, SMatrix, Vector3};
+    use nalgebra::{DMatrix, DVector, Matrix2, Matrix3, SMatrix, Vector3};
 
     // ========================================================================
     // The 2017 and 2025 boundary-condition fixtures — the star patch
@@ -4936,5 +4936,890 @@ mod tests {
             max_abs_diff(&m, &m_composite) <= 1e-12 * max_abs(&m),
             "the composite mass path must reproduce the rho h / rho h^3/12 construction"
         );
+    }
+
+    // ========================================================================
+    // WU6 - Tier 1a: the 2017 paper's own basic tests
+    //
+    // Ko, Lee & Bathe (2017), "A new MITC4+ shell element", Computers and
+    // Structures 182:404-418, Section 4 ("Basic numerical tests"), pp. 410-411:
+    //
+    //   Isotropy    - "the element passes the test of spatial isotropy": the
+    //                 stiffness is invariant under the element's orientation and
+    //                 the node-numbering sequence.
+    //   Zero energy - "the number of zero eigenvalues of the stiffness matrix of
+    //                 a single unsupported element are counted ... For the new
+    //                 element only the six zero eigenvalues corresponding to the
+    //                 six rigid body modes are obtained."
+    //   Patch tests - "We perform three patch tests: the membrane, bending and
+    //                 shearing patch tests ... The patch of elements is subjected
+    //                 to the minimum number of constraints to prevent rigid body
+    //                 motions and the nodal point forces on the boundary
+    //                 corresponding to the constant stress states are applied.
+    //                 The patch tests are passed if the correct values of
+    //                 constant stress fields are calculated at any location
+    //                 within the mesh."
+    //
+    // The Fig. 5 mesh is `STAR_NODES`/`STAR_ELEMS` (WU1: Ko, Lee & Bathe (2017),
+    // C&S 182:404-418, Fig. 5, p. 407, = Ko, Bathe & Zhang (2025),
+    // C&S 308:107622, Fig. 7(a)); `BC_2017_PATCH` is the minimum constraint set.
+    // The load magnitudes are NOT published: design Section 4.2 derives them
+    // element-independently from the constant state, which is what these
+    // fixtures do. No load below is built from the element stiffness, so a
+    // wrong element cannot pass by construction.
+    // ========================================================================
+
+    /// Eigenvalues of the symmetrised 24x24 stiffness, sorted ascending.
+    fn sorted_eigenvalues(k: &Mat24) -> Vec<f64> {
+        let mut sym = *k;
+        for i in 0..24 {
+            for j in 0..24 {
+                sym[(i, j)] = 0.5 * (k[(i, j)] + k[(j, i)]);
+            }
+        }
+        let mut eig: Vec<f64> = sym.symmetric_eigenvalues().iter().cloned().collect();
+        eig.sort_by(|a, b| a.total_cmp(b));
+        eig
+    }
+
+    /// Rotation matrix by `angle` about `axis` (Rodrigues).
+    fn rotation_matrix(axis: [f64; 3], angle: f64) -> Matrix3<f64> {
+        let a = Vector3::new(axis[0], axis[1], axis[2]).normalize();
+        let (s, c) = angle.sin_cos();
+        let k = Matrix3::new(0.0, -a[2], a[1], a[2], 0.0, -a[0], -a[1], a[0], 0.0);
+        Matrix3::identity() + s * k + (1.0 - c) * (k * k)
+    }
+
+    /// Rigidly rotate a four-node element geometry.
+    fn rotate_geom(c: &[[f64; 3]; 4], r: &Matrix3<f64>) -> [[f64; 3]; 4] {
+        let mut out = [[0.0f64; 3]; 4];
+        for i in 0..4 {
+            let v = r * Vector3::new(c[i][0], c[i][1], c[i][2]);
+            out[i] = [v[0], v[1], v[2]];
+        }
+        out
+    }
+
+    /// Co-rotate a 24-DOF field with `R`: both the translational and the
+    /// rotational nodal triples are rotated (the DOFs co-rotate with the
+    /// element, Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (3)).
+    fn rotate_dofs(u: &[f64; 24], r: &Matrix3<f64>) -> [f64; 24] {
+        let mut out = [0.0f64; 24];
+        for i in 0..4 {
+            for k in 0..3 {
+                for b in 0..3 {
+                    out[6 * i + k] += r[(k, b)] * u[6 * i + b];
+                    out[6 * i + 3 + k] += r[(k, b)] * u[6 * i + 3 + b];
+                }
+            }
+        }
+        out
+    }
+
+    /// Rotate an engineering 3-vector `[v11, v22, 2 v12]` from the element's
+    /// local frame to the global frame (`t3` maps global -> local).
+    fn rotate_eng3_to_global(t3: &Matrix3<f64>, v: &Vector3<f64>) -> Vector3<f64> {
+        let t = Matrix3::new(v[0], 0.5 * v[2], 0.0, 0.5 * v[2], v[1], 0.0, 0.0, 0.0, 0.0);
+        let r = t3.transpose();
+        let tg = r * t * r.transpose();
+        Vector3::new(tg[(0, 0)], tg[(1, 1)], 2.0 * tg[(0, 1)])
+    }
+
+    /// Rotate the stress-like 3-vector `[s11, s22, s12]` from the element's local
+    /// frame to the global frame. Unlike an engineering strain, the third
+    /// component is the tensor shear `s12` (not `2 s12`).
+    fn rotate_stress_to_global(t3: &Matrix3<f64>, v: &Vector3<f64>) -> Vector3<f64> {
+        let t = Matrix3::new(v[0], v[2], 0.0, v[2], v[1], 0.0, 0.0, 0.0, 0.0);
+        let r = t3.transpose();
+        let tg = r * t * r.transpose();
+        Vector3::new(tg[(0, 0)], tg[(1, 1)], tg[(0, 1)])
+    }
+
+    /// Rotate the transverse-shear 2-vector `[gamma_13, gamma_23]` to the
+    /// global frame (`t3` maps global -> local).
+    fn rotate_shear_to_global(t3: &Matrix3<f64>, g: &[f64; 2]) -> [f64; 2] {
+        let t = Matrix3::new(
+            0.0,
+            0.0,
+            0.5 * g[0],
+            0.0,
+            0.0,
+            0.5 * g[1],
+            0.5 * g[0],
+            0.5 * g[1],
+            0.0,
+        );
+        let r = t3.transpose();
+        let tg = r * t * r.transpose();
+        [2.0 * tg[(0, 2)], 2.0 * tg[(1, 2)]]
+    }
+
+    // ------------------------------------------------------------------
+    // 7.1 - the rigid-body fixture and the zero-energy test (T1.2)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn test_t1a_zero_energy_modes_single_unsupported_element_exactly_six() {
+        // Ko, Lee & Bathe (2017), "A new MITC4+ shell element", Computers and
+        // Structures 182:404-418, Section 4 ("Basic numerical tests"), p. 410:
+        // "In the zero energy mode test, the number of zero eigenvalues of the
+        //  stiffness matrix of a single unsupported element are counted ...
+        //  For the new element only the six zero eigenvalues corresponding to
+        //  the six rigid body modes are obtained.  That is, the element passes
+        //  the zero energy mode test."
+        //
+        // The rigid-body fields are the design 4.3 construction
+        // `u_i = t + omega x (x_i - x_c)`, `theta_i = omega` (constant), in the
+        // element's 6-DOF layout (Ko, Lee & Bathe (2017), C&S 182:404-418,
+        // Eq. (3)); the element-local form is `rigid_body_fields`.
+        let geoms = [
+            ("flat-rectangle", RECT),
+            ("flat-distorted", FLAT_DISTORTED),
+            ("ruled-warped", RULED_WARPED),
+            ("doubly-warped", DOUBLY_WARPED),
+        ];
+        let mut results = Vec::new();
+        for (name, c) in geoms {
+            let pre = pre_from(&c);
+            let k = compute_ke_local(&pre);
+            let lam = sorted_eigenvalues(&k);
+            let lam_max = lam.iter().fold(0.0f64, |m, &v| m.max(v.abs()));
+            let tol = 1e-10 * lam_max;
+            let zeros = lam.iter().filter(|v| v.abs() <= tol).count();
+            let sep = lam.iter().map(|v| v.abs()).nth(6).unwrap();
+
+            let mut worst_rb = 0.0f64;
+            let mut worst_field = 0usize;
+            for (i, u) in rigid_body_fields(&pre).iter().enumerate() {
+                let ku = k * Vec24::from_column_slice(u);
+                let inf = ku.iter().fold(0.0f64, |m, &v| m.max(v.abs()));
+                let un = u.iter().fold(0.0f64, |m, &v| m.max(v.abs()));
+                let ratio = inf / (lam_max * un);
+                if ratio > worst_rb {
+                    worst_rb = ratio;
+                    worst_field = i;
+                }
+            }
+            results.push((
+                name,
+                zeros,
+                sep,
+                lam_max,
+                worst_rb,
+                worst_field,
+                lam.iter().map(|v| v.abs()).take(8).collect::<Vec<_>>(),
+            ));
+        }
+        for (name, zeros, sep, lam_max, worst_rb, worst_field, first8) in &results {
+            println!(
+                "T1.2 {name}: lambda_max={lam_max:.6e}; |lambda_1..8|={first8:?}; zero-count={zeros}; \
+                 |lambda_7|={sep:.6e} ({:.3e} lambda_max); worst ||K u_rb||_inf/(lambda_max ||u_rb||_inf)={worst_rb:.3e} (field {worst_field})",
+                sep / lam_max
+            );
+        }
+        // Diagnostic (not asserted): the same element with the drill DOF
+        // theta_z constrained to zero, i.e. the 2017 core proper in the 24-DOF
+        // layout (5 DOF/node). This isolates whether the extra zero modes above
+        // come from the 2025 drill DOF or from the 2017 core.
+        for (name, c) in [("flat-rectangle", RECT), ("ruled-warped", RULED_WARPED)] {
+            let k = compute_ke_local(&pre_from(&c));
+            let keep: Vec<usize> = (0..24).filter(|i| i % 6 != 5).collect();
+            let m = keep.len();
+            let mut red = DMatrix::zeros(m, m);
+            for (a, &i) in keep.iter().enumerate() {
+                for (b, &j) in keep.iter().enumerate() {
+                    red[(a, b)] = k[(i, j)];
+                }
+            }
+            let sym = (&red + red.transpose()) * 0.5;
+            let lam: Vec<f64> = sym.symmetric_eigenvalues().iter().cloned().collect();
+            let lam_max = lam.iter().fold(0.0f64, |m, &v| m.max(v.abs()));
+            let zeros = lam.iter().filter(|v| v.abs() <= 1e-10 * lam_max).count();
+            println!(
+                "T1.2 {name} (theta_z constrained): lambda_max={lam_max:.3e}; zero-count={zeros} (the 2017 core proper)"
+            );
+        }
+
+        for (name, zeros, sep, lam_max, worst_rb, _wf, _f8) in &results {
+            assert_eq!(
+                *zeros, 6,
+                "{name}: expected exactly six zero eigenvalues, got {zeros} (lambda_max {lam_max:.3e})"
+            );
+            assert!(
+                *sep >= 1e-6 * lam_max,
+                "{name}: the seventh eigenvalue {sep:.3e} is not separated from the six zero modes by 1e-6 lambda_max ({:.3e})",
+                1e-6 * lam_max
+            );
+            assert!(
+                *worst_rb <= 1e-10,
+                "{name}: ||K u_rb||_inf/(lambda_max ||u_rb||_inf) = {worst_rb:.3e}"
+            );
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 7.2 - isotropy of the 2017 core (T1.1)
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn test_t1a_isotropy_element_orientation_and_node_sequence_invariant() {
+        // Ko, Lee & Bathe (2017), C&S 182:404-418, Section 4, p. 410:
+        // "The element behavior should not depend on the ... sequence of node
+        //  numbering, i.e. on the element orientation ... The element passes
+        //  the test of spatial isotropy."
+        //
+        // The rotated element's stiffness is formed in global coordinates so
+        // that the rotations act on the co-rotated DOF, and the symmetrised
+        // eigenvalues are compared to the reference; the node-sequence variants
+        // rebuild the element with a permuted connectivity and must reproduce
+        // the exactly-permuted entries `P K P^T` of the reference matrix.
+        let axis = [1.0, 2.0, 3.0];
+        let angles = [
+            0.0,
+            0.7,
+            core::f64::consts::FRAC_PI_4,
+            core::f64::consts::FRAC_PI_2,
+        ];
+        let geoms = [
+            ("flat-square", FLAT_SQUARE),
+            ("flat-distorted", FLAT_DISTORTED),
+            ("ruled-warped", RULED_WARPED),
+        ];
+        let u_ref = generic_dofs();
+
+        for (name, c) in geoms {
+            let k0 = compute_ke_global(&pre_from(&c));
+            let lam0 = sorted_eigenvalues(&k0);
+            let lam_max0 = lam0.iter().fold(0.0f64, |m, &v| m.max(v.abs()));
+            let q0 = quadratic(&u_ref, &k0);
+
+            let mut worst_eig = 0.0f64;
+            let mut worst_energy = 0.0f64;
+            for &theta in angles.iter() {
+                let r = rotation_matrix(axis, theta);
+                let k = compute_ke_global(&pre_from(&rotate_geom(&c, &r)));
+                let lam = sorted_eigenvalues(&k);
+                for i in 0..24 {
+                    worst_eig = worst_eig.max((lam[i] - lam0[i]).abs());
+                }
+                let u_rot = rotate_dofs(&u_ref, &r);
+                let q = quadratic(&u_rot, &k);
+                worst_energy = worst_energy.max((q - q0).abs() / q0.abs().max(1e-30));
+            }
+            println!(
+                "T1.1 {name}: worst |dlambda|={worst_eig:.3e} (1e-10 lambda_max={:.3e}); \
+                 worst |duKu|/|uKu|={worst_energy:.3e}",
+                1e-10 * lam_max0
+            );
+            assert!(
+                worst_eig <= 1e-10 * lam_max0,
+                "{name}: orientation changes an eigenvalue by {worst_eig:.3e} > 1e-10 lambda_max ({:.3e})",
+                1e-10 * lam_max0
+            );
+            assert!(
+                worst_energy <= 1e-10,
+                "{name}: the co-rotated strain energy is not invariant ({worst_energy:.3e} relative)"
+            );
+
+            // Node-numbering sequences (Ko, Lee & Bathe (2017), C&S
+            // 182:404-418, p. 410). `seq[k]` is the reference vertex placed at
+            // the new element's local slot `k`.
+            let seqs = [
+                [0usize, 1, 2, 3],
+                [1, 2, 3, 0],
+                [2, 3, 0, 1],
+                [3, 0, 1, 2],
+                [0, 3, 2, 1],
+            ];
+            let kmax = max_abs(&k0);
+            for seq in seqs {
+                let mut cp = [[0.0f64; 3]; 4];
+                for kk in 0..4 {
+                    cp[kk] = c[seq[kk]];
+                }
+                let kp = compute_ke_global(&pre_from(&cp));
+                let mut expected = Mat24::zeros();
+                for a in 0..4 {
+                    for b in 0..4 {
+                        for ka in 0..6 {
+                            for kb in 0..6 {
+                                expected[(6 * a + ka, 6 * b + kb)] =
+                                    k0[(6 * seq[a] + ka, 6 * seq[b] + kb)];
+                            }
+                        }
+                    }
+                }
+                let d = max_abs_diff(&kp, &expected);
+                let lam_new = sorted_eigenvalues(&kp);
+                let dlam = (0..24)
+                    .map(|i| (lam_new[i] - lam0[i]).abs())
+                    .fold(0.0f64, f64::max);
+                // Physical (mapping-independent) check: the same physical field
+                // expressed in the two node orders must carry the same energy.
+                let mut u_perm = [0.0f64; 24];
+                for a in 0..4 {
+                    for kk in 0..6 {
+                        u_perm[6 * a + kk] = u_ref[6 * seq[a] + kk];
+                    }
+                }
+                let q_perm = quadratic(&u_perm, &kp);
+                let q_rel = (q_perm - q0).abs() / q0.abs().max(1e-30);
+                println!(
+                    "T1.1 {name}: node-sequence {seq:?}: max|K_new - P K_ref P^T|={d:.3e} ({:.3e} max|K|); \
+                     eigenvalue delta={dlam:.3e} ({:.3e} lambda_max); u^T K u rel={q_rel:.3e}",
+                    d / kmax,
+                    dlam / lam_max0
+                );
+                assert!(
+                    d <= 1e-12 * kmax,
+                    "{name}: node sequence {seq:?} gives {d:.3e} > 1e-12 max|K| ({:.3e})",
+                    1e-12 * kmax
+                );
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 7.3/7.4 - the patch tests: the Fig. 5 mesh, the minimum constraints and
+    // the boundary nodal loads derived element-independently from the constant
+    // state (design 4.2).
+    // ------------------------------------------------------------------
+
+    /// The star patch's outer boundary, counter-clockwise, as `(start, end)`
+    /// patch-node pairs; the outward normal of `(p -> q)` is `(dy, -dx)/L`.
+    const STAR_BOUNDARY: [(usize, usize); 4] = [(0, 1), (1, 2), (2, 3), (3, 0)];
+
+    /// Node coordinates of star-patch element `e` as a `[[f64; 3]; 4]` list.
+    fn star_elem_coords(nodes: &[[f64; 3]; 8], e: usize) -> [[f64; 3]; 4] {
+        let el = STAR_ELEMS[e];
+        [nodes[el[0]], nodes[el[1]], nodes[el[2]], nodes[el[3]]]
+    }
+
+    /// The five element `pre` values of the star patch.
+    fn star_patch_pres(nodes: &[[f64; 3]; 8]) -> [Mitc4PlusDPrecomputed; 5] {
+        [
+            pre_from(&star_elem_coords(nodes, 0)),
+            pre_from(&star_elem_coords(nodes, 1)),
+            pre_from(&star_elem_coords(nodes, 2)),
+            pre_from(&star_elem_coords(nodes, 3)),
+            pre_from(&star_elem_coords(nodes, 4)),
+        ]
+    }
+
+    /// Assemble the 48-DOF star-patch stiffness (task 2.4, design 4.2 step 3).
+    fn assemble_star_patch(pres: &[Mitc4PlusDPrecomputed; 5]) -> DMatrix<f64> {
+        let mut k = DMatrix::zeros(48, 48);
+        for (e, pre) in pres.iter().enumerate() {
+            let ke = compute_ke_global(pre);
+            let el = STAR_ELEMS[e];
+            for a in 0..4 {
+                for b in 0..4 {
+                    for ka in 0..6 {
+                        for kb in 0..6 {
+                            k[(6 * el[a] + ka, 6 * el[b] + kb)] += ke[(6 * a + ka, 6 * b + kb)];
+                        }
+                    }
+                }
+            }
+        }
+        k
+    }
+
+    /// Integrate a distributed load `per_length(point, outward_normal) ->
+    /// [f64; 6]` over the patch's outer boundary with 2-point Gauss per edge
+    /// (design 4.2 step 2).
+    fn boundary_integrate<F>(nodes: &[[f64; 3]; 8], mut per_length: F) -> DVector<f64>
+    where
+        F: FnMut([f64; 3], [f64; 2]) -> [f64; 6],
+    {
+        let mut f = DVector::zeros(48);
+        for &(s, e) in STAR_BOUNDARY.iter() {
+            let p = nodes[s];
+            let q = nodes[e];
+            let d = [q[0] - p[0], q[1] - p[1]];
+            let l = (d[0] * d[0] + d[1] * d[1]).sqrt();
+            let n = [d[1] / l, -d[0] / l];
+            for xi in [(-GP, 1.0f64), (GP, 1.0)] {
+                let x = [
+                    p[0] + 0.5 * (1.0 + xi.0) * d[0],
+                    p[1] + 0.5 * (1.0 + xi.0) * d[1],
+                    0.0,
+                ];
+                let load = per_length(x, n);
+                let ns = 0.5 * (1.0 - xi.0);
+                let ne = 0.5 * (1.0 + xi.0);
+                for kk in 0..6 {
+                    f[6 * s + kk] += xi.1 * (l * 0.5) * ns * load[kk];
+                    f[6 * e + kk] += xi.1 * (l * 0.5) * ne * load[kk];
+                }
+            }
+        }
+        f
+    }
+
+    /// Solve the constrained patch system `K_ff u_f = f_f - K_fc u_c` with a
+    /// dense LU (design 4.2 step 3).
+    fn solve_constrained(
+        k: &DMatrix<f64>,
+        f: &DVector<f64>,
+        prescribed: &[(usize, f64)],
+    ) -> DVector<f64> {
+        let n = k.nrows();
+        let mut fixed = vec![false; n];
+        let mut u = DVector::zeros(n);
+        for &(d, v) in prescribed {
+            assert!(!fixed[d], "duplicate constrained dof {d}");
+            fixed[d] = true;
+            u[d] = v;
+        }
+        let free: Vec<usize> = (0..n).filter(|&i| !fixed[i]).collect();
+        let m = free.len();
+        let mut kff = DMatrix::zeros(m, m);
+        let mut rhs = DVector::zeros(m);
+        for (a, &i) in free.iter().enumerate() {
+            rhs[a] = f[i];
+            for (b, &j) in free.iter().enumerate() {
+                kff[(a, b)] = k[(i, j)];
+            }
+            for &(d, v) in prescribed.iter() {
+                rhs[a] -= k[(i, d)] * v;
+            }
+        }
+        let sol = kff
+            .lu()
+            .solve(&rhs)
+            .expect("star-patch constrained system must be non-singular");
+        for (a, &i) in free.iter().enumerate() {
+            u[i] = sol[a];
+        }
+        u
+    }
+
+    /// The element displacement (global, 24) of star-patch element `e` from a
+    /// 48-DOF patch vector.
+    fn star_elem_disp(u: &DVector<f64>, e: usize) -> Vec24 {
+        let el = STAR_ELEMS[e];
+        let mut ue = Vec24::zeros();
+        for a in 0..4 {
+            for kk in 0..6 {
+                ue[6 * a + kk] = u[6 * el[a] + kk];
+            }
+        }
+        ue
+    }
+
+    /// Plane-stress membrane strain `eps = cm_raw^{-1} sigma` (engineering
+    /// shear) for the isotropic shell constitutive `shell_iso`.
+    fn membrane_strain(sigma: &Vector3<f64>) -> Vector3<f64> {
+        shell_iso()
+            .cm_raw
+            .try_inverse()
+            .expect("cm_raw must be invertible")
+            * sigma
+    }
+
+    /// Exact in-plane displacement of a constant membrane strain at `(x, y)`.
+    fn membrane_uv(eps: &Vector3<f64>, x: f64, y: f64) -> [f64; 2] {
+        [eps[0] * x + 0.5 * eps[2] * y, 0.5 * eps[2] * x + eps[1] * y]
+    }
+
+    #[test]
+    fn test_assemble_star_patch_is_symmetric_and_rigid_body_free() {
+        // Task 2.4 self-test (landed with WU6, which needs the assembler): the
+        // assembled 48x48 star-patch matrix is symmetric and its six
+        // rigid-body fields carry zero energy.
+        let pres = star_patch_pres(&STAR_NODES);
+        let k = assemble_star_patch(&pres);
+        assert_eq!(k.shape(), (48, 48));
+        let mut asym = 0.0f64;
+        let mut kmax = 0.0f64;
+        for i in 0..48 {
+            for j in 0..48 {
+                asym = asym.max((k[(i, j)] - k[(j, i)]).abs());
+                kmax = kmax.max(k[(i, j)].abs());
+            }
+        }
+        assert!(
+            asym <= 1e-12 * kmax,
+            "assembled star-patch K is not symmetric: {asym:.3e} vs 1e-12 max|K| ({:.3e})",
+            1e-12 * kmax
+        );
+
+        let mut sym = k.clone();
+        for i in 0..48 {
+            for j in 0..48 {
+                sym[(i, j)] = 0.5 * (k[(i, j)] + k[(j, i)]);
+            }
+        }
+        let eig = sym.symmetric_eigen();
+        let lam_max = eig.eigenvalues.iter().fold(0.0f64, |m, &v| m.max(v.abs()));
+        let rb = rigid_body_modes();
+        for j in 0..6 {
+            let u = rb.column(j);
+            let e = (u.transpose() * &k * u)[(0, 0)];
+            let un = u.norm_squared();
+            assert!(
+                e.abs() <= 1e-12 * lam_max * un,
+                "rigid-body column {j} carries energy {e:.3e} > 1e-12 lambda_max ||u||^2 ({:.3e})",
+                1e-12 * lam_max * un
+            );
+        }
+    }
+
+    #[test]
+    fn test_t1a_membrane_patch_constant_stress_fig5_mesh() {
+        // Ko, Lee & Bathe (2017), "A new MITC4+ shell element", Computers and
+        // Structures 182:404-418, Section 4, pp. 410-411: the membrane patch
+        // test on the Fig. 5 mesh (Ko, Lee & Bathe (2017), C&S 182:404-418,
+        // Fig. 5, p. 407), with the minimum constraints against rigid-body
+        // motion and the boundary nodal forces of the constant stress state.
+        //
+        // The paper publishes no load magnitudes. The load is derived here
+        // element-independently (design 4.2 step 2) as the boundary traction of
+        // the constant state integrated with the bilinear shape functions,
+        //   f_i = contour_integral N_i (N . n) dGamma,   N = sigma h,
+        // 2-point Gauss per boundary edge. Nothing uses the element stiffness,
+        // so a wrong element cannot pass by construction; zeroing the load
+        // makes the test fail (the non-vacuity control recorded in WU6).
+        let nodes = STAR_NODES;
+        let h = 1.0f64;
+        let pres = star_patch_pres(&nodes);
+        let k = assemble_star_patch(&pres);
+
+        let states = [
+            ("sigma_xx", [1.0f64, 0.0, 0.0]),
+            ("sigma_yy", [0.0, 1.0, 0.0]),
+            ("tau_xy", [0.0, 0.0, 1.0]),
+        ];
+        for (name, sig) in states {
+            let sigma = Vector3::new(sig[0], sig[1], sig[2]);
+            let eps = membrane_strain(&sigma);
+
+            let f = boundary_integrate(&nodes, |_x, n| {
+                [
+                    (sigma[0] * n[0] + sigma[2] * n[1]) * h,
+                    (sigma[2] * n[0] + sigma[1] * n[1]) * h,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                ]
+            });
+
+            let mut prescribed = Vec::new();
+            for bc in BC_2017_PATCH {
+                let uv = membrane_uv(&eps, nodes[bc.node][0], nodes[bc.node][1]);
+                let val = match bc.dof {
+                    0 => uv[0],
+                    1 => uv[1],
+                    _ => 0.0,
+                };
+                prescribed.push((6 * bc.node + bc.dof, val));
+            }
+
+            let u = solve_constrained(&k, &f, &prescribed);
+            let snorm = sigma.norm();
+            let floor = 1e-10 * snorm;
+            let mut err_max = 0.0f64;
+            let mut vals: Vec<Vector3<f64>> = Vec::new();
+            for (e, pe) in pres.iter().enumerate() {
+                let ue = star_elem_disp(&u, e);
+                let ul = build_t24(pe) * ue;
+                for g in 0..GAUSS_XI.len() {
+                    let bm = b_membrane_2017(pe, GAUSS_XI[g], GAUSS_ETA[g]);
+                    let sig_l = pe.constitutive.cm_raw * (bm * ul);
+                    let sig_g = rotate_stress_to_global(&pe.t3, &sig_l);
+                    err_max = err_max.max((sig_g - sigma).norm());
+                    vals.push(sig_g);
+                }
+            }
+            let spread = (0..3)
+                .map(|c| {
+                    let mut lo = f64::INFINITY;
+                    let mut hi = f64::NEG_INFINITY;
+                    for v in &vals {
+                        lo = lo.min(v[c]);
+                        hi = hi.max(v[c]);
+                    }
+                    hi - lo
+                })
+                .fold(0.0f64, f64::max);
+            println!(
+                "T1.3a {name}: max|sigma_gp - sigma|={err_max:.3e} (rel {:.3e}); \
+                 spread={spread:.3e} (rel {:.3e}); floor {floor:.3e}",
+                err_max / snorm,
+                spread / snorm
+            );
+            assert!(
+                err_max <= 1e-8 * snorm + floor,
+                "{name}: recovered membrane stress error {err_max:.3e} > 1e-8 ||sigma|| + floor ({:.3e})",
+                1e-8 * snorm + floor
+            );
+            assert!(
+                spread <= 1e-8 * snorm + floor,
+                "{name}: recovered membrane stress spread {spread:.3e} > 1e-8 ||sigma|| + floor ({:.3e})",
+                1e-8 * snorm + floor
+            );
+        }
+    }
+
+    /// The exact Mindlin displacement field of a constant curvature state
+    /// `kappa = [kxx, kyy, 2 kxy]` in the patch frame, in the sign convention of
+    /// the element's own flat bending operator (Ko, Lee & Bathe (2017),
+    /// C&S 182:404-418, Eqs. (7c)/(7d), p. 406, verified by the flat reduction
+    /// `gamma_13 = w,x + theta_y`, `gamma_23 = w,y - theta_x`):
+    /// `kappa_11 = theta_y,x`, `kappa_22 = -theta_x,y`,
+    /// `2 kappa_12 = theta_y,y - theta_x,x`. Hence
+    /// `w = -1/2 (kxx x^2 + 2 kxy x y + kyy y^2)`,
+    /// `theta_x = -(kxy x + kyy y)`, `theta_y = kxx x + kxy y`.
+    fn bending_field(kappa: &[f64; 3], x: f64, y: f64) -> [f64; 6] {
+        let (kxx, kyy, kxy) = (kappa[0], kappa[1], 0.5 * kappa[2]);
+        let w = -0.5 * (kxx * x * x + 2.0 * kxy * x * y + kyy * y * y);
+        [0.0, 0.0, w, -(kxy * x + kyy * y), kxx * x + kxy * y, 0.0]
+    }
+
+    #[test]
+    fn test_t1a_bending_patch_constant_curvature_fig5_mesh() {
+        // Ko, Lee & Bathe (2017), "A new MITC4+ shell element", Computers and
+        // Structures 182:404-418, Section 4, pp. 410-411: the bending patch
+        // test on the Fig. 5 mesh, with the minimum constraints and the
+        // boundary nodal moments of a constant curvature (constant moment)
+        // state (Ko, Lee & Bathe (2017), C&S 182:404-418, Eqs. (7c)/(7d)).
+        //
+        // The paper publishes no load magnitudes. The load is derived
+        // element-independently (design 4.2 step 2) from the constant moment
+        // resultant `M = cb kappa`: for the virtual work
+        // `integral M : delta kappa dA` the divergence theorem gives the
+        // boundary moment tractions
+        //   m_theta_x = -(Mxy nx + Myy ny),  m_theta_y = Mxx nx + Mxy ny,
+        // with no transverse force (a constant moment field is in equilibrium
+        // with `Q_n = 0`). Nothing uses the element stiffness.
+        let nodes = STAR_NODES;
+        let h = 1.0f64;
+        let pres = star_patch_pres(&nodes);
+        let k = assemble_star_patch(&pres);
+        let cb = shell_iso().cb;
+
+        let states = [
+            ("kappa_xx", [1.0e-3f64, 0.0, 0.0]),
+            ("kappa_yy", [0.0, 1.0e-3, 0.0]),
+            ("kappa_xy", [0.0, 0.0, 1.0e-3]),
+        ];
+        for (name, kap) in states {
+            let kappa = Vector3::new(kap[0], kap[1], kap[2]);
+            let m = cb * kappa; // [Mxx, Myy, Mxy]
+
+            let f = boundary_integrate(&nodes, |_x, n| {
+                [
+                    0.0,
+                    0.0,
+                    0.0,
+                    -(m[2] * n[0] + m[1] * n[1]),
+                    m[0] * n[0] + m[2] * n[1],
+                    0.0,
+                ]
+            });
+
+            // The prescribed values are the exact field's values at the
+            // constrained DOFs of BC_2017_PATCH; `bending_field` makes them
+            // explicit (all happen to vanish here: C is the origin and A lies
+            // on the u_y = 0 line).
+            let prescribed: Vec<(usize, f64)> = BC_2017_PATCH
+                .iter()
+                .map(|bc| {
+                    let fld = bending_field(&kap, nodes[bc.node][0], nodes[bc.node][1]);
+                    (6 * bc.node + bc.dof, fld[bc.dof])
+                })
+                .collect();
+
+            let u = solve_constrained(&k, &f, &prescribed);
+            let knorm = kappa.norm();
+            let floor = 1e-10 * knorm;
+            let mut err_max = 0.0f64;
+            let mut vals: Vec<Vector3<f64>> = Vec::new();
+            for (e, pe) in pres.iter().enumerate() {
+                let ue = star_elem_disp(&u, e);
+                let ul = build_t24(pe) * ue;
+                for g in 0..GAUSS_XI.len() {
+                    let (b1, _b2) = b_bending_2017(pe, GAUSS_XI[g], GAUSS_ETA[g]);
+                    let kap_l = (2.0 / h) * (b1 * ul);
+                    let kap_g = rotate_eng3_to_global(&pe.t3, &kap_l);
+                    err_max = err_max.max((kap_g - kappa).norm());
+                    vals.push(kap_g);
+                }
+            }
+            let spread = (0..3)
+                .map(|c| {
+                    let mut lo = f64::INFINITY;
+                    let mut hi = f64::NEG_INFINITY;
+                    for v in &vals {
+                        lo = lo.min(v[c]);
+                        hi = hi.max(v[c]);
+                    }
+                    hi - lo
+                })
+                .fold(0.0f64, f64::max);
+            println!(
+                "T1.3b {name}: max|kappa_gp - kappa|={err_max:.3e} (rel {:.3e}); \
+                 spread={spread:.3e} (rel {:.3e})",
+                err_max / knorm,
+                spread / knorm
+            );
+            assert!(
+                err_max <= 1e-8 * knorm + floor,
+                "{name}: recovered curvature error {err_max:.3e} > 1e-8 ||kappa|| + floor ({:.3e})",
+                1e-8 * knorm + floor
+            );
+            assert!(
+                spread <= 1e-8 * knorm + floor,
+                "{name}: recovered curvature spread {spread:.3e} > 1e-8 ||kappa|| + floor ({:.3e})",
+                1e-8 * knorm + floor
+            );
+        }
+    }
+
+    /// The interior moment conjugate to the rotation DOFs for a constant
+    /// transverse-shear resultant `q = [q13, q23]`:
+    /// `f_theta_x,i = -integral N_i q23 dA`, `f_theta_y,i = +integral N_i q13 dA`
+    /// (design 4.2 completed; see the shearing test's derivation).
+    fn interior_shear_moment(pres: &[Mitc4PlusDPrecomputed; 5], q: [f64; 2]) -> DVector<f64> {
+        let mut f = DVector::zeros(48);
+        for (e, pe) in pres.iter().enumerate() {
+            let el = STAR_ELEMS[e];
+            for g in 0..GAUSS_XI.len() {
+                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                let w = GAUSS_W[g] * surface_measure(pe, r, s);
+                let n = shape_functions(r, s);
+                for a in 0..4 {
+                    f[6 * el[a] + 3] += w * n[a] * (-q[1]);
+                    f[6 * el[a] + 4] += w * n[a] * q[0];
+                }
+            }
+        }
+        f
+    }
+
+    #[test]
+    fn test_t1a_shearing_patch_constant_stress_fig5_mesh() {
+        // Ko, Lee & Bathe (2017), "A new MITC4+ shell element", Computers and
+        // Structures 182:404-418, Section 4, pp. 410-411, and the MITC4 assumed
+        // transverse shear of Dvorkin & Bathe (1984), "A continuum mechanics
+        // based four-node shell element for general nonlinear analysis",
+        // Engineering Computations 1:77-88, Eq. (3), reproduced in Ko, Lee &
+        // Bathe (2017), C&S 182:404-418, p. 405. No shear correction factor is
+        // applied: the element consumes the uncorrected `G h` (Ko, Lee &
+        // Bathe (2017), C&S 182:404-418, p. 410).
+        //
+        // DERIVATION OF THE LOAD (design 4.2, as written). The paper publishes
+        // no load magnitudes. The design derives the boundary nodal forces of
+        // the constant state as `f_i = contour_integral N_i (q . n) dGamma` with
+        // `q = (q13, q23) = G h (gamma_13, gamma_23)`, integrated with 2-point
+        // Gauss per boundary edge and computed element-independently from `q`
+        // and the mesh (nothing uses the element stiffness).
+        //
+        // FINDING (recorded in `apply-progress.md`, WU6): that load does not
+        // produce a constant transverse shear. A constant shear resultant is
+        // not an equilibrium state of a Mindlin plate: the rotation rows of the
+        // element's internal force `integral B_gamma^T q dA` are not balanced by
+        // boundary tractions alone (the pointwise-mindlin completion of the
+        // design's derivation adds `f_theta_x,i = -integral N_i q23 dA`,
+        // `f_theta_y,i = +integral N_i q13 dA`, printed below as the
+        // `complete` diagnostic, and it too does not recover the constant
+        // state, because the assumed MITC4 operator's rotation rows are not the
+        // pointwise ones). Both measured values are printed before the
+        // assertion; the assertion is on the design's boundary-only load. The
+        // design 4.2 derivation is therefore wrong for the shearing patch, and
+        // the paper's own shearing patch (Ko, Bathe & Zhang (2025),
+        // C&S 308:107622, Fig. 7(c): u_x constrained at the interior nodes, load
+        // in +y at A) is an in-plane shear state, not a transverse one.
+        let nodes = STAR_NODES;
+        let e_mod = 2.0e11f64;
+        let nu = 0.3f64;
+        let gh = e_mod / (2.0 * (1.0 + nu)); // the uncorrected G h, h = 1
+        let pres = star_patch_pres(&nodes);
+        let k = assemble_star_patch(&pres);
+
+        let states = [("gamma_13", [1.0e-3f64, 0.0]), ("gamma_23", [0.0, 1.0e-3])];
+        for (name, gam) in states {
+            let gamma = [gam[0], gam[1]];
+            let q = [gh * gamma[0], gh * gamma[1]];
+
+            let f_boundary = boundary_integrate(&nodes, |_x, n| {
+                [0.0, 0.0, q[0] * n[0] + q[1] * n[1], 0.0, 0.0, 0.0]
+            });
+            let f_full = &f_boundary + interior_shear_moment(&pres, q);
+
+            // The exact field: constant rotations `theta_x = -gamma_23`,
+            // `theta_y = gamma_13`, `w = 0` (zero curvature, constant shear).
+            let prescribed: Vec<(usize, f64)> = BC_2017_PATCH
+                .iter()
+                .map(|bc| {
+                    let v = match bc.dof {
+                        3 => -gamma[1],
+                        4 => gamma[0],
+                        _ => 0.0,
+                    };
+                    (6 * bc.node + bc.dof, v)
+                })
+                .collect();
+
+            let u_full = solve_constrained(&k, &f_full, &prescribed);
+            let u_boundary = solve_constrained(&k, &f_boundary, &prescribed);
+
+            let gnorm = (gamma[0] * gamma[0] + gamma[1] * gamma[1]).sqrt();
+            let floor = 1e-10 * gnorm;
+            let measure = |u: &DVector<f64>| -> (f64, f64) {
+                let mut err = 0.0f64;
+                let mut vals: Vec<[f64; 2]> = Vec::new();
+                for (e, pe) in pres.iter().enumerate() {
+                    let ue = star_elem_disp(u, e);
+                    let ul = build_t24(pe) * ue;
+                    for g in 0..GAUSS_XI.len() {
+                        let gl = b_shear_mitc4(pe, GAUSS_XI[g], GAUSS_ETA[g]) * ul;
+                        let gg = rotate_shear_to_global(&pe.t3, &[gl[0], gl[1]]);
+                        let d = ((gg[0] - gamma[0]).powi(2) + (gg[1] - gamma[1]).powi(2)).sqrt();
+                        err = err.max(d);
+                        vals.push(gg);
+                    }
+                }
+                let spread = (0..2)
+                    .map(|c| {
+                        let mut lo = f64::INFINITY;
+                        let mut hi = f64::NEG_INFINITY;
+                        for v in &vals {
+                            lo = lo.min(v[c]);
+                            hi = hi.max(v[c]);
+                        }
+                        hi - lo
+                    })
+                    .fold(0.0f64, f64::max);
+                (err, spread)
+            };
+
+            let (err_full, spread_full) = measure(&u_full);
+            let (err_b, spread_b) = measure(&u_boundary);
+            println!(
+                "T1.3c {name}: complete load (boundary + interior moment): \
+                 max|gamma_gp - gamma|={err_full:.3e} (rel {:.3e}); spread={spread_full:.3e} (rel {:.3e})",
+                err_full / gnorm,
+                spread_full / gnorm
+            );
+            println!(
+                "T1.3c {name}: boundary-only (design 4.2 as written): \
+                 max|gamma_gp - gamma|={err_b:.3e} (rel {:.3e}); spread={spread_b:.3e} (rel {:.3e})",
+                err_b / gnorm,
+                spread_b / gnorm
+            );
+            assert!(
+                err_b <= 1e-8 * gnorm + floor,
+                "{name}: recovered shear error {err_b:.3e} > 1e-8 ||gamma|| + floor ({:.3e})",
+                1e-8 * gnorm + floor
+            );
+            assert!(
+                spread_b <= 1e-8 * gnorm + floor,
+                "{name}: recovered shear spread {spread_b:.3e} > 1e-8 ||gamma|| + floor ({:.3e})",
+                1e-8 * gnorm + floor
+            );
+        }
     }
 }
