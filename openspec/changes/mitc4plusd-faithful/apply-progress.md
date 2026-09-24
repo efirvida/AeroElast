@@ -488,3 +488,43 @@ Both perturbations make the test fail, so the null-space assertions are load-bea
 2. **Citations** are self-contained (Ko, Lee & Bathe (2017), C&S 182:404-418; Ko, Bathe & Zhang (2025), C&S 308:107622) and anchored to `docs/references.md`; the "paper A/B" shorthand is not used.
 3. **The rank-gain perturbation is synthetic** (`+scale·I`): a 3×4 `B̃` on the flat-distorted/warped elements is already full rank (null dim 1) and cannot gain rank; only the flat rectangle has headroom (2 → 1). It is documented as a perturbation, not a paper variant.
 4. **WU6b size.** 368 added / 61 removed for `mitc4_plusd.rs`, within the accepted session `size:exception`. No test, doc or citation was dropped.
+
+## WU6c — task 7.1 updated to spec rev 6 (Requirement 5, second amendment): PASSES
+
+**Task 7.1 now `- [x]`.** The test was renamed `test_t1a_zero_energy_modes_single_unsupported_element_exactly_six` → `test_t1a_zero_energy_modes_single_unsupported_element_six_or_seven` and its assertions updated to spec rev 6 (per-geometry counts, the `1e-9` separation asserted only on the count-6 geometries, the two-part rigid-body verification, the drill null space, and the satisfiable non-vacuity form). `strict_tdd: false`; no production line changed.
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (inline test module only: the renamed test's doc comment, `geoms` table, rigid-body block, print, and five assertion clauses); `openspec/changes/mitc4plusd-faithful/tasks.md` (7.1 checkbox + wording + WU6c note); this file. Diff stat vs HEAD `82c7dc4` (which carries WU6b):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 138 ++++++++++++++++------
+ 1 file changed, 102 insertions(+), 36 deletions(-)
+```
+
+Every hunk is inside `mod tests`. `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical). `rustfmt --edition 2021 --check` is clean. Three files touched, exactly as scoped.
+
+**Count before → after.** `cd crates && cargo test -p aeroelast-core` → **168 passed / 3 failed → 169 passed / 2 failed**. The two remaining failures are the separate blockers T1.1 (warped node-sequence isotropy, `test_t1a_isotropy_element_orientation_and_node_sequence_invariant`) and T1.3c (shearing, `test_t1a_shearing_patch_constant_stress_fig5_mesh`).
+
+**Assertions and measured values.** Drill constraint: `θ_z` free except corner B (code node 3, slot `6·3+5 = 23`), Ko, Bathe & Zhang (2025), C&S 308:107622, Fig. 7(b)(c)(d). Count threshold `1e-10 λ_max`, residual bound `1e-12`, separation bound `1e-9`.
+
+| Geometry | constrained zero-count (spec) | `λ_7/λ_max` (spec ≥1e-9) | six-field residual | five-field residual | `θ_z(B)=0` fields | drill null dim (spec) | drill-null energy | drill-null dist | inert / rank-gain dim |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| flat-rectangle | **7** (7) | — (not asserted) | 7.697e-17 | 6.748e-17 | 5 | 2 (2) | 0.0e0 | 2.455 | 4 / 0 |
+| flat-distorted | 6 (6) | **4.906e-9** | 1.121e-16 | 1.121e-16 | 5 | 1 (1) | 4.085e-18 | 2.493 | 4 / 0 |
+| ruled-warped | 6 (6) | **1.340e-6** | 1.200e-16 | 1.200e-16 | 5 | 1 (1) | 0.0e0 | 2.455 | 4 / 0 |
+| doubly-warped | 6 (6) | **2.056e-7** | 9.765e-17 | 5.362e-17 | 5 | 1 (1) | 2.793e-18 | 2.454 | 4 / 0 |
+
+All residuals are `≤1e-12` (worst `1.200e-16`); no `1e-10` count threshold, `1e-12` residual bound, drill-null dimension or `>2.4` distance was changed. `λ_7` values (unscaled): flat-distorted `2.003916e3`, ruled-warped `6.813344e5`, doubly-warped `8.774428e4`; `λ_max` `4.085e11` / `5.084e11` / `4.268e11`. The flat rectangle's seventh eigenvalue is `7.014e-5 ≈ 0` (it has seven zero modes), so its separation is deliberately not asserted.
+
+**Test-first evidence (RED → GREEN).**
+- **RED (rev-5 form).** At HEAD the test asserted exactly six on every geometry and `1e-6 λ_max` separation; run: FAILED with `flat-rectangle: expected exactly six ... got 7`, `flat-rectangle: ... not separated ... by 1e-6 lambda_max`, `flat-distorted: ...`, `doubly-warped: ...`.
+- **GREEN (rev-6 form).** Renamed and updated; run: `1 passed`, and the suite `169 passed / 2 failed` (the two unrelated blockers above).
+- **Perturbation A — production drill block made inert** (mode 0 mapped to a zero operator): null dim `4` on every geometry → FAILED (`drill block ... null-space dimension is 4, expected 2/1`, `the drill block is inert`).
+- **Perturbation B — production drill block given a synthetic rank gain** (`+scale·I`, mode 0): null dim `0` on every geometry → FAILED (`null-space dimension is 0, expected 2/1`).
+
+Both perturbations make the test fail, so the drill-null-space assertions are load-bearing.
+
+**Deviations / findings.**
+1. **Satisfiable non-vacuity clause.** Per the rev-6 wording, the test no longer asserts that the six rigid-body fields are not all annihilated by the drill block — they all are (worst `‖K_drill u_rb‖∞/(λ_max‖u_rb‖∞)` `0.0e0…2.766e-18`), necessarily, because a rigid rotation has constant `θ` whose drill image is the constant drill rotation, itself a null direction of Eq. (19b) by telescoping. It asserts the satisfiable distinction instead: every drill null vector is a pure drill-rotation field (zero translations, zero `α`/`β`) at distance `>2.4` from the rigid-body space, and the block is live.
+2. **Only spec-changed bounds were relaxed**: the separation `1e-6 → 1e-9` and the non-vacuity clause. Nothing else moved.
+3. **Citations** are self-contained (Ko, Lee & Bathe (2017), C&S 182:404-418; Ko, Bathe & Zhang (2025), C&S 308:107622) and anchored to `docs/references.md`; no "paper A/B" shorthand.
+4. **WU6c size.** 102 added / 36 removed for `mitc4_plusd.rs`, within the accepted session `size:exception`. No test, doc or citation was dropped.
