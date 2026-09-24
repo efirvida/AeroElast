@@ -868,14 +868,23 @@ def _outer_edge_nodes(mesh: MeshModel, *, radius: float, tol: float = 1e-6) -> l
 
 
 @pytest.mark.parametrize(
-    "t_over_L,pressure,alpha_clamped,alpha_ss,expected_mitc4",
+    "t_over_L,pressure,alpha_clamped,alpha_ss,expected_clamped,expected_ss",
     [
-        # Use N=16 row values (Tables 6–7)
-        # Values from Ko, Lee & Bathe (2017) - MITC4+ paper reference values
-        # Note: Our MITC4 class implements the MITC4+ formulation internally
-        (1 / 100, 1.0e2, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 1.001),
-        (1 / 1000, 1.0e5, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 0.9997),
-        (1 / 10000, 1.0e8, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 0.9997),
+        # N=16 rows.  Clamped values are the MITC4 column of Ko, Lee, Lee & Bathe 2017,
+        # Table 6 (N=16): 1.001 / 0.9997 / 0.9997.  Simply supported values are that
+        # paper's Table 7 (MITC4 column, N=16): 0.9991 / 0.9988 / 0.9988.  Tables 6
+        # and 7 are distinct columns and must not share an expectation.
+        # Note: Our MITC4 class implements the MITC4+ formulation internally.
+        (1 / 100, 1.0e2, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 1.001, 0.9991),
+        (1 / 1000, 1.0e5, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 0.9997, 0.9988),
+        (
+            1 / 10000,
+            1.0e8,
+            1.0 / 64.0,
+            (5.0 + 0.3) / (64.0 * (1.0 + 0.3)),
+            0.9997,
+            0.9988,
+        ),
     ],
 )
 @pytest.mark.parametrize("clamped", [True, False])
@@ -884,7 +893,8 @@ def test_3_2_circular_plate_tables_6_to_7(
     pressure,
     alpha_clamped,
     alpha_ss,
-    expected_mitc4,
+    expected_clamped,
+    expected_ss,
     clamped,
 ):
     n = 16
@@ -908,7 +918,7 @@ def test_3_2_circular_plate_tables_6_to_7(
     D = MAT_CIRC.E * thickness**3 / (12.0 * (1.0 - MAT_CIRC.nu**2))
     wref = alpha * pressure * (R_CIRC**4) / D
 
-    expected = expected_mitc4
+    expected = expected_clamped if clamped else expected_ss
     use_triangular = False
 
     case = _Case(
@@ -1059,9 +1069,12 @@ MAT_CYL = IsotropicMaterial(name="Ko2017_Cylinder", E=3.0e6, nu=0.3, rho=1.0)
 @pytest.mark.parametrize(
     "expected",
     [
-        # Values from Ko, Lee & Bathe (2017) - MITC4+ paper reference values
-        # Note: Our MITC4 class implements the MITC4+ formulation internally
-        {False: 0.9313, True: 0.9892},
+        # Ko, Lee, Lee & Bathe 2017, MITC4+ column, N=16: Table 8 (regular) = 0.9313;
+        # Table 9 (distorted) = 0.9321.  The distorted cell used to be 0.9892, which
+        # occurs in this paper only in Table 12 (twisted beam, in-plane, t/L=0.02667,
+        # N=2, MITC4), not in Table 9.
+        # Note: Our MITC4 class implements the MITC4+ formulation internally.
+        {False: 0.9313, True: 0.9321},
     ],
 )
 def test_3_3_pinched_cylinder_tables_8_to_9(distorted, expected):
@@ -1313,40 +1326,36 @@ def _twisted_beam_fixed(mesh: MeshModel, m: dict[int, int], *, tol: float = 1e-6
     return fixed
 
 
-# Twisted beam: per-case expectation and xfail annotations
+# Twisted beam: per-case expectation
 # -------------------------------------------------------------------------
-# The expectations are the published MITC4 column of Ko, Lee, Lee & Bathe 2017 at
+# The expectations are the published MITC4+ column of Ko, Lee, Lee & Bathe 2017 at
 # the mesh this test builds - N x 6N with N = 16, which is the paper's own mesh -
 # read from the paper's tables: Table 12 (in-plane load) and Table 13
-# (out-of-plane load).  For t/L = 0.02667 both are 0.9972; for t/L = 0.0002667
-# they are 0.9975 and 0.9980.
+# (out-of-plane load).  For t/L = 0.02667 the cells are 0.9971 (Table 12) and
+# 0.9973 (Table 13); for t/L = 0.0002667 they are 0.9978 (Table 12) and 0.9982
+# (Table 13).  All four cases run without any xfail marker.
 #
 # This used to expect 1.02 and 0.99 (thick) and 0.92 (thin), which were not the
-# paper's values: 1.02 sat above the paper's 0.9972 and 0.92 encoded what this
+# paper's values: 1.02 sat above Table 12's 0.9971 and 0.92 encoded what this
 # element happens to produce.  The thin comment said so outright - "our MITC4+
 # now achieves 91% of reference ... so the xfail is lifted" - so the window
 # existed to accommodate an 8.5% deviation and the xfail was lifted to accept it.
 #
-# Measured at N=16 with the Winkler & Plakomytis ERC drilling constraint, which
-# became the element's production formulation in 45fc131: thick 0.9984 / 0.9990
-# and thin 0.9982 / 0.9986, i.e. within 0.2% of the published columns in every
-# case.  All four cases therefore run without an xfail marker.
-#
-# History: before the ERC the thin cases measured 0.9131 / 0.9112, i.e. 8.5% and
-# 8.7% below the paper, while the thick cases were fine.  The paper's plain MITC4
-# - no "+" enhancement - already reaches 0.9975 there, so the deficit was the
-# warped-quad drilling treatment, not the Ko 2017 enhanced shear modes alone.
+# History: before the warped-quad drilling treatment was corrected the thin cases
+# measured 0.9131 / 0.9112, i.e. 8.5% and 8.7% below the paper, while the thick
+# cases were fine.  With the corrected treatment all four cases sit within 0.2%
+# of the published columns, so no xfail marker is needed.
 _TWISTED_BEAM_CASES = [
     # (t_over_L, load_case, P_val, uref_in, uref_out, expected, tol, xfail_reason)
-    (0.02667, "In-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.9972, 0.01, None),
-    (0.02667, "Out-of-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.9972, 0.01, None),
+    (0.02667, "In-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.9971, 0.01, None),
+    (0.02667, "Out-of-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.9973, 0.01, None),
     (
         0.0002667,
         "In-plane",
         1.0e-6,
         5.2560e-3,
         1.2940e-3,
-        0.9975,
+        0.9978,
         0.01,
         None,
     ),
@@ -1356,7 +1365,7 @@ _TWISTED_BEAM_CASES = [
         1.0e-6,
         5.2560e-3,
         1.2940e-3,
-        0.9980,
+        0.9982,
         0.01,
         None,
     ),
@@ -1396,14 +1405,16 @@ def test_3_5_twisted_beam_tables_12_to_13(
     The thick case (t/L=0.02667) converges well at N=16 since the physical shear
     stiffness is large enough to dominate the parasitic contribution.
 
-    The thin case (t/L=0.0002667) is 8.5% below the published MITC4 value: the
-    case is shear/membrane sensitive and the element does not reproduce it.  It is
-    marked xfail(strict) with the published value as the expectation, so the suite
-    reports the deviation instead of accepting it.
+    The expectation is the published MITC4+ N=16 cell of Ko, Lee, Lee & Bathe 2017:
+    Table 12 in-plane (0.9971 thick, 0.9978 thin) and Table 13 out-of-plane (0.9973
+    thick, 0.9982 thin).  All four cases run without any xfail marker: the thin
+    cases are shear/membrane sensitive, but the corrected warped-quad drilling
+    treatment reproduces the published values.
 
     References:
     - Dvorkin, E.N. and Bathe, K.J. (1984). Engineering Computations, 1, 77-88.
-    - Ko, Y., Lee, P.S., and Bathe, K.J. (2017). Computers and Structures, 193, 187-206.
+    - Ko, Y., Lee, Y., Lee, P.-S., and Bathe, K.-J. (2017). Computers and Structures,
+      193, 187-206.
     """
     # Use N=16 mesh (16 elements along width, 96 along length)
     n_width = 16
@@ -1790,10 +1801,14 @@ MAT_SPH = IsotropicMaterial(name="Ko2017_Sphere", E=6.825e7, nu=0.3, rho=1.0)
 @pytest.mark.parametrize(
     "t_over_R,P,expected_mitc4",
     [
-        # Values from Ko, Lee & Bathe (2017) - MITC4+ paper reference values
-        # Note: Our MITC4 class implements the MITC4+ formulation internally
-        (4 / 1000, 2.0, {False: 1.009, True: 0.9958}),
-        (4 / 10000, 2.0e-3, {False: 0.9811, True: 0.9736}),
+        # Ko, Lee, Lee & Bathe 2017, MITC4+ column at N=16.  Table 15 (regular):
+        # 1.003 (t/R=4/1000) and 0.9834 (t/R=4/10000).  Table 16 (distorted):
+        # 0.9958 and 0.9736.  The regular cells used to be 1.009 (Table 15 MITC4+
+        # *N=8*) and 0.9811 (Table 15 *S4*, N=16) -- the wrong element/mesh, not the
+        # MITC4+ N=16 cell.
+        # Note: Our MITC4 class implements the MITC4+ formulation internally.
+        (4 / 1000, 2.0, {False: 1.003, True: 0.9958}),
+        (4 / 10000, 2.0e-3, {False: 0.9834, True: 0.9736}),
     ],
 )
 def test_3_7_hemisphere_cutout_tables_15_to_16(distorted, t_over_R, P, expected_mitc4):

@@ -728,3 +728,48 @@ crates/aeroelast-core/src/elements/mitc4_plusd.rs | 348 +++++++++++++-          
 5. **Fixture parity.** `make_pre()` in `mitc4_plusd.rs` reproduces the hybrid fixture exactly (flat unit square, `h = 0.01`, isotropic `E = 2.0e11, ν = 0.3, ρ = 7800`, `k = 5/6`), so the moved tests' hardcoded `h = 0.01` / `area = 1.0` constants still describe the element under test. `make_pre()` also asserts the retarget is non-vacuous: `V^D` is unit and `cs_uncorrected == cs / applied_k` — two quantities that do not exist on `Mitc4Precomputed`.
 
 **WU8 size.** 342 added / 538 removed, within the accepted session `size:exception`. No test, doc or citation was dropped; the citations are self-contained (Ko, Bathe & Zhang (2025), C&S 308:107622; Ko, Lee & Bathe (2017), C&S 182:404-418; Dvorkin & Bathe (1984), Engineering Computations 1:77-88) and anchored to `docs/references.md`, with no "paper A/B" shorthand. Not committed.
+
+---
+
+## WU9a — task 10.6: correct the four benchmark mis-sourcings (source correction only)
+
+**Task 10.6 stays `- [ ]`.** The four corrections landed in `tests/test_ko2017_performance.py`; three pass and the fourth (`test_3_3[dist]`) **fails against the true paper cell**, so the file is not green. Per the task's own instruction no tolerance was widened and no `xfail` marker was added; the failure is reported, not hidden. `strict_tdd: false`; only `tests/test_ko2017_performance.py`, `tasks.md` and this record were touched.
+
+**File + diff stat.**
+
+```text
+tests/test_ko2017_performance.py | 93 +++++++++++++++++++++++-----------------
+1 file changed, 54 insertions(+), 39 deletions(-)
+```
+
+**The four corrections (old → new → cell now cited).** Every replacement is read from `docs/validation-matrix.md`'s `cell mismatch` rows, which cite the table. Citations are Ko, Lee, Lee & Bathe (2017), C&S 193:187-206, anchored to `docs/references.md`; no "paper A/B" shorthand.
+
+| Case | Old value | New value | Cell now cited |
+| --- | --- | --- | --- |
+| `test_3_2_circular_plate_tables_6_to_7` SS rows | shared the clamped tuple `1.001 / 0.9997 / 0.9997` (Table 6) | `0.9991 / 0.9988 / 0.9988` (new `expected_ss` field; `expected = expected_clamped if clamped else expected_ss`) | Table 7, MITC4 N=16 (simply supported) |
+| `test_3_3_pinched_cylinder_tables_8_to_9[dist]` | `0.9892` | `0.9321` | Table 9, MITC4+ N=16 (distorted). `0.9892` occurs in the paper only in Table 12 (N=2) |
+| `test_3_7_hemisphere_cutout_tables_15_to_16[reg, 4/1000]` | `1.009` | `1.003` | Table 15, MITC4+ N=16 (regular). `1.009` is the Table 15 MITC4+ **N=8** cell |
+| `test_3_7_hemisphere_cutout_tables_15_to_16[reg, 4/10000]` | `0.9811` | `0.9834` | Table 15, MITC4+ N=16 (regular). `0.9811` is the Table 15 **S4** N=16 cell |
+| `test_3_5_twisted_beam_tables_12_to_13` (all four) | `0.9972 / 0.9972 / 0.9975 / 0.9980` + docstring claiming `xfail(strict)` | `0.9971 / 0.9973 / 0.9978 / 0.9982` + docstring/comment corrected (no xfail marker at all) | Tables 12/13, MITC4+ N=16 (in-plane / out-of-plane, thick / thin) |
+
+**No tolerance changed, no xfail added.** `git diff` over the file shows no `rtol`/`atol`/`tol` line added or removed (the per-case `tol=0.05` and the twisted-beam `tol=0.01` are byte-identical), and no `pytest.mark.xfail` line was added — the only `xfail` occurrences in the diff are the prose corrections ("run without any xfail marker").
+
+**`pytest "tests/test_ko2017_performance.py" -q`** (aeroelast-dev interpreter, `-o addopts=`):
+
+| | Result |
+| --- | --- |
+| Before | **31 passed** |
+| After | **30 passed / 1 failed** |
+
+**Finding — `test_3_3[dist]` fails against the true Table 9 cell (reported, not re-tuned).**
+
+- Test: `test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]` (distorted mesh).
+- True cell: Ko, Lee, Lee & Bathe (2017), C&S 193:187-206, **Table 9, MITC4+ N=16 = 0.9321** (`docs/validation-matrix.md` `test_3_3_pinched_cylinder_tables_8_to_9[dist]` row).
+- Measured value: **`0.9943`** → relative error **`6.676% > 5%`** (`assert_relative_error`). The validation matrix predicted exactly this: "Against the true Table 9 N=16 cell the measured value is 6.6% off, i.e. outside the 5% window."
+- No tolerance was widened, no `xfail` was added, and no value was re-tuned. The task stays `- [ ]`.
+
+The other three corrections are green (measured → cell): `test_3_2` SS `0.9982 / 0.9976 / 0.9974` → `0.9991 / 0.9988 / 0.9988`; `test_3_7[reg]` `1.0068` → `1.003` and `0.9838` → `0.9834`; `test_3_5` `0.9984 / 0.9990 / 0.9982 / 0.9986` → `0.9971 / 0.9973 / 0.9978 / 0.9982`. `test_3_3[reg]` is unchanged and still passes (`0.9718` vs Table 8 `0.9313`, 4.35%).
+
+**Nothing unsourced.** Every new expectation is taken from the validation matrix's recorded true cell; nothing was read off or invented. The S3 gate (task 10.7) is now gated on this finding: the distorted pinched-cylinder row is a genuine formulation signal, not a mis-sourced pass.
+
+**WU9a size.** 54 added / 39 removed for the test file, within the accepted session `size:exception`. Not committed.
