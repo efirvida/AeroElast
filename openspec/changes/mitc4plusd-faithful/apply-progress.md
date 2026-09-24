@@ -655,3 +655,76 @@ Every hunk in `mitc4_plusd.rs` is inside the inline `#[cfg(test)] mod tests` (he
 3. **8.2 — recorded name deviation.** The task line's verification name `test_t1b_zero_energy_modes_exactly_six_with_drill_dof` is the pre-rev-6 name; the test uses the spec rev 6 name `test_t1b_zero_energy_modes_six_or_seven_with_drill_dof`. The element, the fixture and the measurements are the same as WU6c's Requirement-5 test (there is only one production element), so the two tests are the Tier-1a and Tier-1b framings of the same measurement; Requirement 10 adds the "drilling DOF carries non-zero stiffness in at least one non-rigid mode" clause, which this test asserts via the drill block's largest eigenvector (energy `1.282e10…1.438e10`, distance `2.449` from the rigid-body space).
 4. **The shearing strong form is the in-plane state (spec rev 8).** `test_t1b_strong_patch_shearing_constant_and_zero_stress` uses the constant in-plane `τ_xy` state (`σ_xx = σ_yy = 0`), the Fig. 7(c) BC set and the state's consistent boundary tractions — the same state as the Tier-1a shearing test, as the spec requires; the transverse reading was withdrawn (Evidence gap G9). The state, BCs, load derivation, tolerances and the two non-vacuity controls are unchanged from the spec.
 5. **WU7 size.** 974 added / 0 removed for `mitc4_plusd.rs` (the six tests plus their helpers) vs the design's ~330 forecast, within the accepted session `size:exception`. No test, doc or citation was dropped; every test carries a self-contained citation (Ko, Bathe & Zhang (2025), C&S 308:107622; Ko, Lee & Bathe (2017), C&S 182:404-418; Dvorkin & Bathe (1984), Engineering Computations 1:77-88) anchored to `docs/references.md`, with no "paper A/B" shorthand.
+
+---
+
+## WU8 — move the layout-bound Tier-2 Rust tests onto the new element (S2, tasks 9.1–9.3)
+
+**Closed.** 9.1, 9.2, 9.3. `strict_tdd: false`; no production line changed.
+
+**What moved.** The T2A/T2B and T2I tests of design §5.1 moved out of `mitc4.rs`'s `#[cfg(test)] mod tests` and were retargeted from `Mitc4Precomputed` to `Mitc4PlusDPrecomputed`. 22 names moved (11 T2A/T2B + 11 T2I); 13 are new copies in `mitc4_plusd.rs`, 9 already had retargeted copies there (WU5) and only the hybrid's copies were deleted. `test_ke_local_eigenvalues_nonsymmetric` is excluded per the task text. `test_ke_global_has_exactly_six_zero_modes` is **not** moved — see Finding 1.
+
+| Moved name | Asserts against `Mitc4PlusDPrecomputed` |
+| --- | --- |
+| `test_ke_local_flat_plate_parity` | `compute_ke_local` symmetric (`< 1e-10`) and non-zero (`> 1e-6`) |
+| `test_ke_global_is_symmetric` | `compute_ke_global` relative asymmetry `< 1e-12` |
+| `test_ke_global_is_positive_semidefinite` | `λ_min > -1e-9·λ_max` |
+| `test_ke_global_leaves_all_six_rigid_body_modes_free` | six physical rigid-body fields `\|Ku\|/(\|K\|\|u\|) < 1e-10` (measured `≤ 3.34e-17`) |
+| `test_membrane_patch_reproduces_constant_strain_at_every_gauss_point` | `b_membrane_2017` (Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (27)) reproduces `[a, d, b+c]` to `1e-10` relative at all 4 Gauss points |
+| `test_bending_patch_reproduces_constant_curvature_at_every_gauss_point` | `b_bending_2017`'s `e^b1` (Eq. (7a), `t = 2z/h`) recovers `kappa = (2/h)·e^b1 = [kxx, 0, 0]` to `1e-10` relative |
+| `test_kt_zero_matches_ke` | `K_T(0) == Tᵀ·K_local·T` to `1e-10` |
+| `test_fint_linear_nonlinear_parity` | `f_int(nonlinear) - K·u` is `O(u²)`: rel `< 1e-1` |
+| `test_kt_fint_directional_derivative` | `K_T·δu ≈ Δf_int` to `0.05` |
+| `test_kt_fint_directional_derivative_rotations` | same, exciting `θ_x`/`θ_y`, to `0.05` |
+| `test_kt_fint_directional_derivative_with_drill_dofs` | same, exciting slot `6i+5`, to `0.05` |
+| `test_body_load_global_zero_gravity` | `f.norm() < 1e-12` |
+| `test_body_load_global_z_gravity` | only `f_z` non-zero; total `f_z = ρ·h·\|g\|·A` (`1e-4`) |
+| `test_k_sigma_global_zero_stress` | `K_sigma.norm() < 1e-12` |
+| `test_k_sigma_global_symmetric` | `\|K - Kᵀ\| < 1e-6·max(\|K\|, 1)` |
+| `test_k_sigma_global_matches_local_transformed` | `compute_k_sigma_global == transform_to_global(geometric_stiffness_from_stress)` (`< 1e-6`) |
+| `test_centrifugal_prestress_on_axis` | `σ.norm() < 1e-6` |
+| `test_centrifugal_prestress_nonzero` | all components finite; trace `≥ 0` |
+| `test_me_global_is_symmetric_and_positive_semidefinite` | `M` asymmetry `< 1e-14`; `λ_min > -1e-12·λ_max` |
+| `test_me_global_total_translational_mass_is_rho_h_a` | per-direction total `= ρ·h·A` (`1e-14`) |
+| `test_me_global_matches_the_exact_bilinear_coefficients` | `M_ij = {4,2,1}/36·m` (`1e-14`) |
+| `test_me_global_rotary_inertia_is_rho_h3_a_over_12` | per-rotation total `= ρ·h³/12·A` (`1e-14`) |
+
+**Files changed (diff stat).**
+
+```text
+crates/aeroelast-core/src/elements/mitc4.rs       | 532 ----------------------  (0 insertions, 532 deletions)
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 348 +++++++++++++-          (342 insertions, 6 deletions)
+2 files changed, 342 insertions(+), 538 deletions(-)
+```
+
+`mitc4.rs`: all five diff hunks are inside `mod tests` (hunk starts 2217/2239/2471/2497/2556, all ≥ the `#[cfg(test)]` line). The **production prefix is byte-identical to HEAD**: comparing `git show HEAD:…/mitc4.rs` and the working file up to `#[cfg(test)]\nmod tests {` gives `identical: True` (`83,989` bytes both). Deleted from the hybrid's test module: the 22 moved tests, the two mass helpers (`translational_mass_per_direction`, `rotary_mass_per_direction`) and `scaled_residual`, whose only callers were the moved tests. `element_centroid` / `rigid_body_mode` / `rigid_body_modes` **stay** — the hybrid's remaining T2J tests still call them. No file outside the two scoped Rust files, `tasks.md` and this record was touched (`git status --short` shows only those two `.rs` files modified plus the pre-existing untracked `.pi/`).
+
+**Count arithmetic.** `cd crates && cargo test -p aeroelast-core`:
+
+| | Count |
+| --- | --- |
+| Before | **177 passed / 0 failed** |
+| Moved out of `mitc4.rs` | **−22** (11 T2A/T2B + 11 T2I) |
+| Moved in to `mitc4_plusd.rs` | **+13** (the 9 already-retargeted copies were already counted; the other 13 are new) |
+| Excluded | **2** (`test_ke_local_eigenvalues_nonsymmetric` per the task text; `test_ke_global_has_exactly_six_zero_modes` per Finding 1 — both stay in `mitc4.rs`, so neither is added or removed) |
+| After | **168 passed / 0 failed** |
+
+`177 − 22 + 13 = 168`. Every one of the 22 moved names passes against `Mitc4PlusDPrecomputed` (each was also run individually: `cargo test -p aeroelast-core <name>` → `0 failed`).
+
+**"Exists exactly once" — exact grep.** `grep -rnE "fn (…all 22 names…|test_ke_global_has_exactly_six_zero_modes|test_ke_local_eigenvalues_nonsymmetric)\(" crates/`:
+
+- **7 of the 22 moved names return exactly one hit** — the new `mitc4_plusd.rs` copy: `test_ke_local_flat_plate_parity`, `test_kt_zero_matches_ke`, `test_fint_linear_nonlinear_parity`, `test_kt_fint_directional_derivative`, `test_kt_fint_directional_derivative_rotations`, `test_kt_fint_directional_derivative_with_drill_dofs`, `test_me_global_matches_the_exact_bilinear_coefficients`.
+- **The other 15 return two hits**, and in every case the second hit is **`mitc3.rs`**, the MITC3+ triangle element's own pre-existing test of the same generic invariant — entirely outside this change's scope and never one of the hybrid's copies: `test_ke_global_is_symmetric` (mitc3:1733), `…_is_positive_semidefinite` (1744), `…_leaves_all_six_rigid_body_modes_free` (1759), `test_membrane_patch_…` (1781), `test_bending_patch_…` (1811), `test_me_global_is_symmetric_and_positive_semidefinite` (1888), `…_total_translational_mass_is_rho_h_a` (1913), `…_rotary_inertia_is_rho_h3_a_over_12` (1956), `test_body_load_global_zero_gravity` (1569), `…_z_gravity` (1577), `test_k_sigma_global_zero_stress` (1606), `…_symmetric` (1614), `…_matches_local_transformed` (1626), `test_centrifugal_prestress_on_axis` (1637), `…_nonzero` (1650). **Within the mitc4 family each name exists exactly once** — the hybrid's copy is deleted, not duplicated, so the suite does not double-count. `grep -rn "fn <name>" crates/aeroelast-core/src/elements/mitc4.rs` for any moved name returns **no** hit.
+- `test_ke_global_has_exactly_six_zero_modes` → one hit, `mitc4.rs:2440` (unchanged). `test_ke_local_eigenvalues_nonsymmetric` → one hit, `mitc4.rs:2219` (unchanged).
+
+**S2 gate (task 9.3).** Recorded, **GREEN, before the flip**: `cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed**; the hybrid's copies of all 22 moved names are removed; every moved name passes against `Mitc4PlusDPrecomputed`; `mitc4.rs`'s production prefix is byte-identical to HEAD. `rustfmt --edition 2021 --check` is clean for `mitc4_plusd.rs` (`mitc4.rs` carries only pre-existing rustfmt diffs in production code, untouched here). No new compiler warning: `cargo build -p aeroelast-core --tests` reports the same 8 pre-existing warnings (mitc3 `k_qu`, reference.rs imports, the hybrid's `green_lagrange_strain`/`compute_b_l`/`compute_membrane_stress`, `let e` at `mitc4.rs:3309`, and the pre-existing snake-case test name) as before the move.
+
+**Findings (reported, not adjusted).**
+
+1. **`test_ke_global_has_exactly_six_zero_modes` cannot be retargeted without changing its bound — it is left unmodified in `mitc4.rs`.** Measured: on the flat unit square `compute_ke_global(&pre)` has **8** eigenvalues below `1e-9·λ_max` (`λ_max = 2.857e11`, threshold `2.857e2`; the eight are `±3.1e-5 … 1.0e-6`), not 6. The extra two are the flat-rectangle drill-block null space of Ko, Bathe & Zhang (2025), C&S 308:107622 (spec rev 6 Requirement 10; measured dim 2 flat / 1 elsewhere in WU6/WU7). Asserting `zero_modes == 6` against `Mitc4PlusDPrecomputed` would be a false invariant, so per the unit's instruction ("a test whose retarget would have required changing a bound … reported as a finding, not adjusted") the test was **not** moved and **not** edited. Its invariant is not lost: `test_t1a_zero_energy_modes_single_unsupported_element_six_or_seven` (task 7.1) and `test_t1b_zero_energy_modes_six_or_seven_with_drill_dof` (task 8.2) already assert the count under the paper's own drill constraint. **Parent decision needed:** add this name to the exclusion set (and to task 11.2's delete list, alongside `test_ke_local_eigenvalues_nonsymmetric`) or amend Requirement 12. Until then the S2 gate's "hybrid's copies removed" holds for 22 of the 23 in-scope names.
+2. **Retarget normalization, not a bound change.** `test_bending_patch_reproduces_constant_curvature_at_every_gauss_point`: the hybrid's `b_kappa` returns the classical curvature `κ`; the new element's `b_bending_2017` returns the paper's `t`-linear bending strain measure `e^b1` (Eq. (7a), `t = 2z/h`). The moved test recovers `κ = (2/h)·e^b1`; the expected vector `[kxx, 0, 0]` and the `1e-10` relative bound are the hybrid's, unchanged. Measured `4.0e-12` relative.
+3. **No `compute_element_stress` T2I test exists to move.** `grep -rn "fn .*element_stress" crates/` returns nothing; task 9.2's name list includes it, but there is no hybrid test of that name, so nothing was moved and no name was invented.
+4. **Helper rename (not a test rename).** The hybrid's `rigid_body_modes` helper became `physical_rigid_body_modes` in `mitc4_plusd.rs`, because the WU1 Tier-1 BC fixture already defines `rigid_body_modes()` (a `DMatrix<f64>`) in that module. No test name changed.
+5. **Fixture parity.** `make_pre()` in `mitc4_plusd.rs` reproduces the hybrid fixture exactly (flat unit square, `h = 0.01`, isotropic `E = 2.0e11, ν = 0.3, ρ = 7800`, `k = 5/6`), so the moved tests' hardcoded `h = 0.01` / `area = 1.0` constants still describe the element under test. `make_pre()` also asserts the retarget is non-vacuous: `V^D` is unit and `cs_uncorrected == cs / applied_k` — two quantities that do not exist on `Mitc4Precomputed`.
+
+**WU8 size.** 342 added / 538 removed, within the accepted session `size:exception`. No test, doc or citation was dropped; the citations are self-contained (Ko, Bathe & Zhang (2025), C&S 308:107622; Ko, Lee & Bathe (2017), C&S 182:404-418; Dvorkin & Bathe (1984), Engineering Computations 1:77-88) and anchored to `docs/references.md`, with no "paper A/B" shorthand. Not committed.

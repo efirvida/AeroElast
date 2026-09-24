@@ -2133,15 +2133,16 @@ impl Mitc4PlusDPrecomputed {
 mod tests {
     use super::{
         b_bending_2017, b_bending_covariant_2017, b_drill_membrane_2025, b_membrane_2017,
-        b_membrane_covariant_2017, b_shear_mitc4, build_t24, compute_fint_global,
+        b_membrane_covariant_2017, b_shear_mitc4, build_t24, compute_body_load_global,
+        compute_centrifugal_prestress, compute_fint_global, compute_k_sigma_global,
         compute_ke_global, compute_ke_local, compute_ke_local_with_drill, compute_kt_global,
         compute_me_composite_global, compute_me_global, compute_membrane_coefficients_2017,
         covariant_to_local_mapping, drill_jacobian_ratio, drill_ke_local,
-        drill_midside_shape_derivatives, element_area, interpolate_displacement,
-        interpolate_position, j_loc_at, membrane_ke_local, node_vec, resultant_moment_matrix,
-        shape_function_derivatives, shape_functions, shear_ke_local, surface_measure, Mat24,
-        Mitc4PlusDPrecomputed, Vec24, DRILL_EDGE_MID, GAUSS_ETA, GAUSS_W, GAUSS_XI, NODE_ETA,
-        NODE_XI, N_GAUSS,
+        drill_midside_shape_derivatives, element_area, geometric_stiffness_from_stress,
+        interpolate_displacement, interpolate_position, j_loc_at, membrane_ke_local, node_vec,
+        resultant_moment_matrix, shape_function_derivatives, shape_functions, shear_ke_local,
+        surface_measure, transform_to_global, Mat24, Mitc4PlusDPrecomputed, Vec24, DRILL_EDGE_MID,
+        GAUSS_ETA, GAUSS_W, GAUSS_XI, NODE_ETA, NODE_XI, N_GAUSS,
     };
     use crate::materials::laminate::{Laminate, Ply};
     use crate::materials::orthotropic::OrthotropicMaterial;
@@ -7293,6 +7294,341 @@ mod tests {
             worst_warped_c > 1e-8,
             "variant (c) (theta_z constrained at every node) differs from (a) by only \
              {worst_warped_c:.3e} on the warped patch (must exceed 1e-8)"
+        );
+    }
+
+    // ========================================================================
+    // WU8 (S2) - the layout-bound Tier-2 tests, moved onto the new element
+    //
+    // These are the T2A/T2B and T2I tests of design Section 5.1. They were moved
+    // out of the hybrid `mitc4.rs` test module (S2, before the flip) and
+    // retargeted from `Mitc4Precomputed` to `Mitc4PlusDPrecomputed`. The
+    // assertions, fields and tolerances are the originals: no bound was widened,
+    // no assertion dropped and no test renamed. `make_pre()` reproduces the
+    // hybrid fixture (a flat unit square, thickness 0.01, isotropic
+    // E = 2.0e11, nu = 0.3, rho = 7800, k = 5/6) so the moved tests' hardcoded
+    // fixture constants still describe the element they exercise.
+    // ========================================================================
+
+    /// The hybrid `mitc4.rs` fixture, rebuilt for `Mitc4PlusDPrecomputed`.
+    fn make_pre() -> Mitc4PlusDPrecomputed {
+        let thickness = 0.01_f64;
+        let mat = IsotropicMaterial::new(2.0e11, 0.3, 7800.0);
+        let shell = mat.constitutive(thickness, 5.0 / 6.0);
+        let node_coords: [f64; 12] = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0];
+        let pre = Mitc4PlusDPrecomputed::new(&node_coords, shell, thickness, 5.0 / 6.0);
+        // Explicit retarget evidence (not vacuous): the MITC4+/D element stores
+        // the single drill normal `V^D` of Ko, Bathe & Zhang (2025),
+        // C&S 308:107622, Eq. (5), and the ADR-1 uncorrected transverse-shear
+        // stiffness `cs / applied_k` - neither exists on `Mitc4Precomputed`.
+        assert!(
+            (pre.v_d.norm() - 1.0).abs() < 1e-14,
+            "V^D must be a unit vector, got {}",
+            pre.v_d.norm()
+        );
+        let cs_diff = (pre.cs_uncorrected - pre.constitutive.cs / (5.0 / 6.0)).norm();
+        assert!(
+            cs_diff < 1e-12 * pre.constitutive.cs.norm(),
+            "cs_uncorrected must be cs / applied_k, diff = {cs_diff}"
+        );
+        pre
+    }
+
+    #[test]
+    fn test_ke_local_flat_plate_parity() {
+        let pre = make_pre();
+        let ke = compute_ke_local(&pre);
+
+        // We expect Ke to be symmetric
+        let diff = &ke - ke.transpose();
+        assert!(diff.norm() < 1e-10, "Ke must be symmetric");
+
+        // For a unit square, the membrane part of Ke should be non-zero
+        assert!(ke.norm() > 1e-6, "Ke should not be zero");
+    }
+
+    /// Element centroid from the initial global coordinates.
+    fn element_centroid(pre: &Mitc4PlusDPrecomputed) -> Vector3<f64> {
+        let mut c = Vector3::zeros();
+        for i in 0..4 {
+            c += Vector3::new(
+                pre.initial_coords_3d[i][0],
+                pre.initial_coords_3d[i][1],
+                pre.initial_coords_3d[i][2],
+            );
+        }
+        c / 4.0
+    }
+
+    /// Physical rigid-body field: ``u = t + omega x (x - x_c)``, ``theta = omega``.
+    fn rigid_body_mode(
+        pre: &Mitc4PlusDPrecomputed,
+        translation: Vector3<f64>,
+        omega: Vector3<f64>,
+    ) -> Vec24 {
+        let centroid = element_centroid(pre);
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            let x = Vector3::new(
+                pre.initial_coords_3d[i][0],
+                pre.initial_coords_3d[i][1],
+                pre.initial_coords_3d[i][2],
+            );
+            let disp = translation + omega.cross(&(x - centroid));
+            for k in 0..3 {
+                u[6 * i + k] = disp[k];
+                u[6 * i + 3 + k] = omega[k];
+            }
+        }
+        u
+    }
+
+    /// The six *labelled* physical rigid-body fields (helper name differs from
+    /// the hybrid's `rigid_body_modes` because the Tier-1 BC fixture already
+    /// owns that name in this module; the fields and the assertions are the
+    /// hybrid's).
+    fn physical_rigid_body_modes(pre: &Mitc4PlusDPrecomputed) -> [(&'static str, Vec24); 6] {
+        let z = Vector3::zeros();
+        let ex = Vector3::new(1.0, 0.0, 0.0);
+        let ey = Vector3::new(0.0, 1.0, 0.0);
+        let ez = Vector3::new(0.0, 0.0, 1.0);
+        [
+            ("translation x", rigid_body_mode(pre, ex, z)),
+            ("translation y", rigid_body_mode(pre, ey, z)),
+            ("translation z", rigid_body_mode(pre, ez, z)),
+            ("rotation x", rigid_body_mode(pre, z, ex)),
+            ("rotation y", rigid_body_mode(pre, z, ey)),
+            ("rotation z", rigid_body_mode(pre, z, ez)),
+        ]
+    }
+
+    /// ``|K u| / (|K| |u|)``: scale-free measure of an invariant residual.
+    fn scaled_residual(k: &Mat24, u: &Vec24) -> f64 {
+        let denom = k.norm() * u.norm();
+        if denom > 0.0 {
+            (k * u).norm() / denom
+        } else {
+            0.0
+        }
+    }
+
+    #[test]
+    fn test_ke_global_is_symmetric() {
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+        let asymmetry = (&k - k.transpose()).norm() / k.norm();
+        assert!(
+            asymmetry < 1e-12,
+            "K_global must be symmetric: relative asymmetry = {asymmetry:.3e}"
+        );
+    }
+
+    #[test]
+    fn test_ke_global_is_positive_semidefinite() {
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+        let symmetric_part = (&k + k.transpose()) * 0.5;
+        let eigenvalues = nalgebra::SymmetricEigen::new(symmetric_part).eigenvalues;
+        let lambda_min = eigenvalues.iter().cloned().fold(f64::INFINITY, f64::min);
+        let lambda_max = eigenvalues
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
+        assert!(
+            lambda_min > -1e-9 * lambda_max,
+            "K_global must be positive semi-definite: \
+             lambda_min = {lambda_min:.6e}, lambda_max = {lambda_max:.6e}"
+        );
+    }
+
+    #[test]
+    fn test_ke_global_leaves_all_six_rigid_body_modes_free() {
+        let pre = make_pre();
+        let k = compute_ke_global(&pre);
+
+        let mut worst_label = "";
+        let mut worst_residual = 0.0_f64;
+        for (label, u) in physical_rigid_body_modes(&pre) {
+            let residual = scaled_residual(&k, &u);
+            if residual > worst_residual {
+                worst_label = label;
+                worst_residual = residual;
+            }
+        }
+
+        assert!(
+            worst_residual < 1e-10,
+            "all six rigid-body modes must be in the null space of K_global; \
+             worst is '{worst_label}' with |K u| / (|K| |u|) = {worst_residual:.3e}"
+        );
+    }
+
+    #[test]
+    fn test_membrane_patch_reproduces_constant_strain_at_every_gauss_point() {
+        let pre = make_pre();
+
+        // u = a x + b y, v = c x + d y  =>  eps = [a, d, b + c], constant.
+        let (a, b, c, d) = (1.0e-3, -4.0e-4, 2.0e-4, 7.0e-4);
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            let x = pre.initial_coords_3d[i][0];
+            let y = pre.initial_coords_3d[i][1];
+            u[6 * i] = a * x + b * y;
+            u[6 * i + 1] = c * x + d * y;
+        }
+
+        let expected = Vector3::new(a, d, b + c);
+        for g in 0..N_GAUSS {
+            let eps = b_membrane_2017(&pre, GAUSS_XI[g], GAUSS_ETA[g]) * u;
+            let error = (eps - expected).norm() / expected.norm();
+            // 1e-10 relative is far above the measured round-off of the
+            // Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (27) operator
+            // (~4e-12 for this field, i.e. ~4e-15 absolute on a 1e-3 strain)
+            // and far below any real formulation error, which would be O(1).
+            assert!(
+                error < 1e-10,
+                "membrane patch test at Gauss point {g}: eps = {eps:?}, \
+                 expected = {expected:?}, relative error = {error:.3e}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_bending_patch_reproduces_constant_curvature_at_every_gauss_point() {
+        let pre = make_pre();
+
+        // w = 0.5 kxx x^2 with theta_y = dw/dx = kxx x  =>  kappa = [kxx, 0, 0].
+        let kxx = 1.0e-3;
+        let mut u = Vec24::zeros();
+        for i in 0..4 {
+            let x = pre.initial_coords_3d[i][0];
+            u[6 * i + 2] = 0.5 * kxx * x * x;
+            u[6 * i + 4] = kxx * x;
+        }
+
+        let expected = Vector3::new(kxx, 0.0, 0.0);
+        for g in 0..N_GAUSS {
+            // `b_bending_2017` returns the paper's t-linear bending strain
+            // measure e^b1 (Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (7a),
+            // with the through-thickness coordinate t = 2z/h), so the physical
+            // curvature is kappa = (2/h) e^b1. The invariant and its 1e-10
+            // relative bound are the hybrid's; only the operator's
+            // normalization is expressed.
+            let (b1, _b2) = b_bending_2017(&pre, GAUSS_XI[g], GAUSS_ETA[g]);
+            let kappa = (2.0 / pre.thickness) * (b1 * u);
+            let error = (kappa - expected).norm() / expected.norm();
+            assert!(
+                error < 1e-10,
+                "bending patch test at Gauss point {g}: kappa = {kappa:?}, \
+                 expected = {expected:?}, relative error = {error:.3e}"
+            );
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // T2I - the body-load, initial-stress and stress-recovery entry points
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn test_body_load_global_zero_gravity() {
+        let pre = make_pre();
+        let g = Vector3::zeros();
+        let f = compute_body_load_global(&pre, 7800.0, &g);
+        assert!(f.norm() < 1e-12, "zero gravity -> zero body load");
+    }
+
+    #[test]
+    fn test_body_load_global_z_gravity() {
+        let pre = make_pre();
+        let g = Vector3::new(0.0, 0.0, -9.81);
+        let f = compute_body_load_global(&pre, 7800.0, &g);
+
+        // Only translational z-DOFs should be non-zero
+        for i in 0..4 {
+            assert!(f[6 * i].abs() < 1e-10, "node {i} fx should be ~0");
+            assert!(f[6 * i + 1].abs() < 1e-10, "node {i} fy should be ~0");
+            assert!(f[6 * i + 2].abs() > 1e-6, "node {i} fz should be nonzero");
+            for k in 3..6 {
+                assert!(
+                    f[6 * i + k].abs() < 1e-12,
+                    "node {i} rotational dof {k} should be 0"
+                );
+            }
+        }
+
+        // Total z-force = rho h |g| area (area = 1.0 for unit square)
+        let area = 1.0_f64;
+        let h = 0.01_f64;
+        let rho = 7800.0_f64;
+        let expected_total_fz = rho * h * (-9.81) * area;
+        let total_fz: f64 = (0..4).map(|i| f[6 * i + 2]).sum();
+        assert!(
+            (total_fz - expected_total_fz).abs() < 1e-4,
+            "total fz: got {total_fz}, expected {expected_total_fz}"
+        );
+    }
+
+    #[test]
+    fn test_k_sigma_global_zero_stress() {
+        let pre = make_pre();
+        let sigma = Vector3::zeros();
+        let k = compute_k_sigma_global(&pre, &sigma);
+        assert!(k.norm() < 1e-12, "zero stress -> zero K_sigma");
+    }
+
+    #[test]
+    fn test_k_sigma_global_symmetric() {
+        let pre = make_pre();
+        let sigma = Vector3::new(1.0e6, 0.5e6, 0.2e6);
+        let k = compute_k_sigma_global(&pre, &sigma);
+        let diff = k - k.transpose();
+        assert!(
+            diff.norm() < 1e-6 * k.norm().max(1.0),
+            "K_sigma_global must be symmetric"
+        );
+    }
+
+    #[test]
+    fn test_k_sigma_global_matches_local_transformed() {
+        let pre = make_pre();
+        let sigma = Vector3::new(1.0e6, 0.5e6, 0.2e6);
+        let k_local = geometric_stiffness_from_stress(&pre, &sigma);
+        let k_global_direct = compute_k_sigma_global(&pre, &sigma);
+        let k_global_manual = transform_to_global(&pre, &k_local);
+        let diff = k_global_direct - k_global_manual;
+        assert!(
+            diff.norm() < 1e-6,
+            "compute_k_sigma_global must equal transform(k_local)"
+        );
+    }
+
+    #[test]
+    fn test_centrifugal_prestress_on_axis() {
+        let pre = make_pre();
+        let axis = Vector3::new(0.0, 0.0, 1.0);
+        // Place center at the centroid (0.5, 0.5, 0) -> r_radial ~ 0
+        let center = Vector3::new(0.5, 0.5, 0.0);
+        let centroid = Vector3::new(0.5, 0.5, 0.0);
+        let sigma = compute_centrifugal_prestress(&pre, 100.0, &axis, &center, &centroid, 7800.0);
+        assert!(
+            sigma.norm() < 1e-6,
+            "element on axis -> zero centrifugal stress"
+        );
+    }
+
+    #[test]
+    fn test_centrifugal_prestress_nonzero() {
+        let pre = make_pre();
+        let axis = Vector3::new(0.0, 0.0, 1.0);
+        let center = Vector3::zeros();
+        let centroid = Vector3::new(0.5, 0.5, 0.0);
+        let sigma = compute_centrifugal_prestress(&pre, 100.0, &axis, &center, &centroid, 7800.0);
+        assert!(sigma[0].is_finite());
+        assert!(sigma[1].is_finite());
+        assert!(sigma[2].is_finite());
+        assert!(
+            sigma[0] + sigma[1] >= 0.0,
+            "centrifugal stress trace must be non-negative"
         );
     }
 }
