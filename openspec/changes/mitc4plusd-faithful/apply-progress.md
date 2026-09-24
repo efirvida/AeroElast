@@ -438,3 +438,53 @@ All tasks of sections 2–7 that this change has reached are complete except the
 ## Next
 
 The next implementable unit is **WU7** (tasks 8.1–8.4): the Tier-1b tests of the 2025 six-DOF element, building on WU5. Task 6.3 remains the recorded deferral. The Tier-1a failures of `## WU6` are open findings and are not resolved here.
+
+---
+
+## WU6b — the amended Requirement 5 test (task 7.1), spec rev 5
+
+**Task 7.1 stays `- [ ]`: the amended form STILL FAILS.** The test was rewritten to spec rev 5 (drill constrained as Ko, Bathe & Zhang (2025), C&S 308:107622, Fig. 7 constrains it, plus the drill block's own null space characterized explicitly) and re-measured. Two clauses of the amended requirement are unattainable as printed; both are spec-level, not element defects, and nothing was weakened to pass.
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (inline test module only: the import line plus `drill_operator_eq19`, `drill_operator_eq19_edges`, `drill_block_eq19`, `drill_block_null_space`, `reduced_eigenvalues`, `max_abs_34`, and the rewritten test); `openspec/changes/mitc4plusd-faithful/tasks.md` (the 7.1 note); this file. Diff stat (HEAD `bb0d671` is the WU6 commit, so this is the WU6b delta):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 429 +++++++++++++++++++---
+1 file changed, 368 insertions(+), 61 deletions(-)
+```
+
+Every hunk is inside `mod tests`; no production line changed. `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical). `rustfmt --edition 2021 --check` is clean.
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **168 passed / 3 failed** (before → after: 168/3 → 168/3; the rewritten test still fails, so the count does not reach the expected 169/2). The 3 failures are the WU6 verdict: this test, T1.1 (warped node sequence) and T1.3c (shearing).
+
+**Assertions and measured values.** The drill-constrained system is the 23×23 reduction with `θ_z` (slot `6·3+5 = 23`) removed — corner B, Ko, Bathe & Zhang (2025), C&S 308:107622, Fig. 7(b)(c)(d). Count threshold `1e-10 λ_max`, residual bound `1e-12`, separation bound `1e-6 λ_max`.
+
+| Geometry | constrained zero-count (spec 6) | worst `‖K u_rb‖∞/(λ_max‖u_rb‖∞)` | `|λ_7|` vs `1e-6 λ_max` | drill null dim (spec) | inert / rank-gain dim | drill-null energy | drill-null distance from rigid-body space |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| flat-rectangle | **7** | 7.70e-17 | 7.01e-5 vs 4.52e5 | 2 (2) | 4 / 0 | 0 | 2.455 |
+| flat-distorted | 6 | 1.12e-16 | 2.00e3 vs 4.09e5 | 1 (1) | 4 / 0 | 4.1e-18 | 2.493 |
+| ruled-warped | 6 | 1.20e-16 | 6.81e5 vs 5.08e5 | 1 (1) | 4 / 0 | 0 | 2.455 |
+| doubly-warped | 6 | 9.77e-17 | 8.77e4 vs 4.27e5 | 1 (1) | 4 / 0 | 2.8e-18 | 2.454 |
+
+Asserted clauses: (1) exactly six zero eigenvalues with `θ_z` free except at corner B; (2) `‖K u_rb‖∞ ≤ 1e-12 λ_max ‖u_rb‖∞` for each of the six fields and `|λ_7| ≥ 1e-6 λ_max`; (3) the drill block `B̃ᵀ C B̃` (4×4, Eq. 19a/19b, recovered from the production operator by projecting each node's rotation triple onto the unit `V^D`, and independently rebuilt from Eq. (19b)'s edge terms to `≤1e-12` of scale) has null space exactly the constant drill rotation (dim 1) plus the Eq. (19d) curl-induced `θ_z` hourglass on the flat rectangle (dim 2), every null vector a pure drill rotation (zero translations and zero `α`/`β`) annihilated by `drill_ke_local` and at distance `> 2.4` from the rigid-body space; (4) non-vacuity: the block is live, an inert block gives dim 4, a rank gain gives dim 0, and the six rigid-body fields' drill images are the constant drill rotation (the paper's own null direction). **Recorded deviation from clause 4's literal wording:** the clause asks the test to assert the six rigid-body fields are *not all* annihilated by the drill block, but they **all are** (measured `‖K_drill u_rb‖∞/(λ_max‖u_rb‖∞) = 0.000e0` for all six), because a rigid-body rotation has constant `θ_i = ω`, so its drill image `θ^D = ω·V^D` is the constant drill rotation — a null direction of Eq. (19b) by the spec's own telescoping argument. The literal clause is therefore unsatisfiable and contradicts the spec's own clause 3; the test asserts the satisfiable distinction instead (pure drill-rotation null vectors at distance `>2.4` from the rigid-body space, and a live block). Reported, not weakened.
+
+**Findings (the amended form still fails; reported, not adjusted).**
+
+1. **The flat-rectangle count is 7, not 6.** The unconstrained flat rectangle has 8 zero modes = 6 rigid-body + the 2-dim drill null space. The paper's own `θ_z`-at-one-corner device is a single linear condition, so it removes exactly ONE dimension: 8 → 7. It cannot remove both drill directions (they are spanned by the node-1/3 and node-0/2 hourglass vectors, so any single node leaves one direction), and it also kills the `ω_z` rigid-body rotation (constant `θ_z`), so only **5 of the 6** rigid-body fields satisfy `θ_z(B)=0`. A count of 6 needs `θ_z` constrained at two or more nodes, or the drill null space counted separately — which clause 3 already does. Clauses 1 and 3 are therefore mutually inconsistent on the flat rectangle.
+2. **The `1e-6 λ_max` separation is unattainable.** The first elastic (soft drill) eigenvalue is `2.0e3…8.8e4` while `λ_max ≈ 4–5e11` (the membrane scale), so `λ_7/λ_max ≈ 5e-9…1.5e-6 < 1e-6` on three of four geometries (ruled-warped passes at `1.3e-6`). The zero/non-zero gap is still 8–9 orders of magnitude, so the count is unambiguous; the bound is simply far tighter than the element's condition number permits. Not relaxed.
+3. **What the amended form does establish.** The drill block's own null space is exactly the spec's values (2/1/1/1), every null vector is a pure drill-rotation field, the six rigid-body fields are annihilated to `≤1.2e-16`, and the non-vacuity perturbations fire. Clause 3 and the rigid-body annihilation are confirmed; only the count/separation clauses fail.
+
+**Test-first / RED → GREEN and the two non-vacuity perturbations.** `strict_tdd: false`, but the task required a red-first demonstration.
+
+- **RED (old form).** At HEAD the test asserted the unamended bare count of six on the unconstrained element and failed (`8/7/7/7`).
+- **Amended form.** Rewritten and run: still FAILS, on the flat-rectangle count and the separation (above). There is no GREEN to report; the failure is the finding.
+- **Perturbation A — inert drill block** (the production `drill_block_null_space(&pre, 0)` replaced by the inert mode 1): null dim `4` on every geometry → the test fails with `the drill block B~^T C B~ null-space dimension is 4, expected 2/1`, `the drill block is inert`, and a non-zero drill-null energy (`1.4e-2…3.1e-2`).
+- **Perturbation B — rank gain** (production replaced by mode 2, a synthetic `+scale·I`): null dim `0` on every geometry → the test fails with `null-space dimension is 0, expected 2/1`.
+
+Both perturbations make the test fail, so the null-space assertions are load-bearing rather than vacuous.
+
+**Deviations / notes.**
+
+1. **Task 7.1 stays `- [ ]`.** The amended test fails on the count/separation; no assertion, threshold or element path was changed to pass.
+2. **Citations** are self-contained (Ko, Lee & Bathe (2017), C&S 182:404-418; Ko, Bathe & Zhang (2025), C&S 308:107622) and anchored to `docs/references.md`; the "paper A/B" shorthand is not used.
+3. **The rank-gain perturbation is synthetic** (`+scale·I`): a 3×4 `B̃` on the flat-distorted/warped elements is already full rank (null dim 1) and cannot gain rank; only the flat rectangle has headroom (2 → 1). It is documented as a perturbation, not a paper variant.
+4. **WU6b size.** 368 added / 61 removed for `mitc4_plusd.rs`, within the accepted session `size:exception`. No test, doc or citation was dropped.
