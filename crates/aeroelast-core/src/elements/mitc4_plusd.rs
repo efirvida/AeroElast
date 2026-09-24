@@ -6084,148 +6084,241 @@ mod tests {
         }
     }
 
-    /// The interior moment conjugate to the rotation DOFs for a constant
-    /// transverse-shear resultant `q = [q13, q23]`:
-    /// `f_theta_x,i = -integral N_i q23 dA`, `f_theta_y,i = +integral N_i q13 dA`
-    /// (design 4.2 completed; see the shearing test's derivation).
-    fn interior_shear_moment(pres: &[Mitc4PlusDPrecomputed; 5], q: [f64; 2]) -> DVector<f64> {
-        let mut f = DVector::zeros(48);
-        for (e, pe) in pres.iter().enumerate() {
-            let el = STAR_ELEMS[e];
-            for g in 0..GAUSS_XI.len() {
-                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
-                let w = GAUSS_W[g] * surface_measure(pe, r, s);
-                let n = shape_functions(r, s);
-                for a in 0..4 {
-                    f[6 * el[a] + 3] += w * n[a] * (-q[1]);
-                    f[6 * el[a] + 4] += w * n[a] * q[0];
-                }
-            }
-        }
-        f
-    }
-
     #[test]
     fn test_t1a_shearing_patch_constant_stress_fig5_mesh() {
-        // Ko, Lee & Bathe (2017), "A new MITC4+ shell element", Computers and
-        // Structures 182:404-418, Section 4, pp. 410-411, and the MITC4 assumed
-        // transverse shear of Dvorkin & Bathe (1984), "A continuum mechanics
-        // based four-node shell element for general nonlinear analysis",
-        // Engineering Computations 1:77-88, Eq. (3), reproduced in Ko, Lee &
-        // Bathe (2017), C&S 182:404-418, p. 405. No shear correction factor is
-        // applied: the element consumes the uncorrected `G h` (Ko, Lee &
-        // Bathe (2017), C&S 182:404-418, p. 410).
+        // Ko, Bathe & Zhang (2025), "Continuum mechanics-based shell elements
+        // with six degrees of freedom at each node - the MITC4/D and MITC4+/D
+        // elements", Computers and Structures 308:107622, Fig. 7(c) (p. 5) and
+        // Section 3.1 (p. 14); Ko, Lee & Bathe (2017), "A new MITC4+ shell
+        // element", Computers and Structures 182:404-418, Section 4
+        // (pp. 410-411) and Eqs. (17)-(27). Spec rev 7, Requirement "Tier 1a -
+        // shearing patch test".
         //
-        // DERIVATION OF THE LOAD (design 4.2, as written). The paper publishes
-        // no load magnitudes. The design derives the boundary nodal forces of
-        // the constant state as `f_i = contour_integral N_i (q . n) dGamma` with
-        // `q = (q13, q23) = G h (gamma_13, gamma_23)`, integrated with 2-point
-        // Gauss per boundary edge and computed element-independently from `q`
-        // and the mesh (nothing uses the element stiffness).
+        // STATE (the 2025 strong form). A constant IN-PLANE shear
+        // `tau_xy = tau` with `sigma_xx = sigma_yy = 0` and every
+        // transverse-shear and moment resultant zero. Its exact displacement
+        // field is the simple shear
+        //   u_x = 0,  u_y = (tau / G_xy) x,
+        // a constant in-plane shear strain plus the rigid rotation that makes
+        // it satisfy the Fig. 7(c) constraint set. This is an in-plane state,
+        // NOT a transverse one. (Dvorkin & Bathe (1984), Engineering
+        // Computations 1:77-88, Eq. (3), reproduced in Ko, Lee & Bathe (2017),
+        // C&S 182:404-418, p. 405, is the element's transverse-shear field and
+        // is not exercised by this state.)
         //
-        // FINDING (recorded in `apply-progress.md`, WU6): that load does not
-        // produce a constant transverse shear. A constant shear resultant is
-        // not an equilibrium state of a Mindlin plate: the rotation rows of the
-        // element's internal force `integral B_gamma^T q dA` are not balanced by
-        // boundary tractions alone (the pointwise-mindlin completion of the
-        // design's derivation adds `f_theta_x,i = -integral N_i q23 dA`,
-        // `f_theta_y,i = +integral N_i q13 dA`, printed below as the
-        // `complete` diagnostic, and it too does not recover the constant
-        // state, because the assumed MITC4 operator's rotation rows are not the
-        // pointwise ones). Both measured values are printed before the
-        // assertion; the assertion is on the design's boundary-only load. The
-        // design 4.2 derivation is therefore wrong for the shearing patch, and
-        // the paper's own shearing patch (Ko, Bathe & Zhang (2025),
-        // C&S 308:107622, Fig. 7(c): u_x constrained at the interior nodes, load
-        // in +y at A) is an in-plane shear state, not a transverse one.
+        // BOUNDARY CONDITIONS. The figure-read Fig. 7(c) set
+        // (`BC_2025_PATCH.shearing`): B(0,10) fully clamped; C(0,0):
+        // u_x=u_z=0, theta_x=theta_y=0; the four interior nodes
+        // (4,7),(8,7),(8,3),(2,2): u_x=theta_x=theta_y=0; theta_z free except
+        // at B; the load at A(10,10) in +y. Every prescribed value is zero
+        // because the exact field takes the value zero at every constrained
+        // DOF; that is asserted below rather than assumed. (The Tier-1a
+        // membrane/bending tests use the derived `BC_2017_PATCH`; this test uses
+        // the figure-read Fig. 7(c) set the requirement fixes.)
+        //
+        // LOAD (well posed). The constant in-plane state's consistent boundary
+        // tractions
+        //   f_i += integral N_i (sigma . n) dGamma,  sigma = [[0, tau],[tau,0]],
+        // integrated with the bilinear boundary shape functions (2-point Gauss
+        // per edge), independently of the element stiffness. `sigma_ij,j = 0`
+        // for the constant state, so the tractions balance: this derivation IS
+        // well posed where the withdrawn transverse one was not. The 2025
+        // figure shows a single +y arrow at A and does not publish the load's
+        // magnitude or distribution; the constant state's complete
+        // boundary-traction vector also loads C and D, and that figure-schematic
+        // deviation is recorded (proposal 2.1, spec Evidence gap G9).
+        //
+        // TOLERANCES (unchanged). tau_xy to 1e-8 relative (absolute floor
+        // 1e-10 ||sigma||); the spread of tau_xy across all Gauss points
+        // <= 1e-8 ||sigma||; every analytically-zero component (sigma_xx,
+        // sigma_yy, the transverse-shear and moment resultants) <= 1e-10 ||sigma||.
+        //
+        // NON-VACUITY. The test MUST fail if (a) the load is zeroed, or (b) the
+        // load is derived from a constant transverse shear resultant (the
+        // withdrawn design 4.2 derivation). Both controls are run and asserted
+        // below.
         let nodes = STAR_NODES;
-        let e_mod = 2.0e11f64;
-        let nu = 0.3f64;
-        let gh = e_mod / (2.0 * (1.0 + nu)); // the uncorrected G h, h = 1
+        let h = 1.0f64;
+        let tau = 1.0f64;
+        let sigma = Vector3::new(0.0, 0.0, tau);
+        let snorm = sigma.norm();
+        let floor = 1e-10 * snorm;
         let pres = star_patch_pres(&nodes);
         let k = assemble_star_patch(&pres);
+        let gamma = membrane_strain(&sigma)[2]; // tau / G_xy
 
-        let states = [("gamma_13", [1.0e-3f64, 0.0]), ("gamma_23", [0.0, 1.0e-3])];
-        for (name, gam) in states {
-            let gamma = [gam[0], gam[1]];
-            let q = [gh * gamma[0], gh * gamma[1]];
-
-            let f_boundary = boundary_integrate(&nodes, |_x, n| {
-                [0.0, 0.0, q[0] * n[0] + q[1] * n[1], 0.0, 0.0, 0.0]
-            });
-            let f_full = &f_boundary + interior_shear_moment(&pres, q);
-
-            // The exact field: constant rotations `theta_x = -gamma_23`,
-            // `theta_y = gamma_13`, `w = 0` (zero curvature, constant shear).
-            let prescribed: Vec<(usize, f64)> = BC_2017_PATCH
-                .iter()
-                .map(|bc| {
-                    let v = match bc.dof {
-                        3 => -gamma[1],
-                        4 => gamma[0],
-                        _ => 0.0,
-                    };
-                    (6 * bc.node + bc.dof, v)
-                })
-                .collect();
-
-            let u_full = solve_constrained(&k, &f_full, &prescribed);
-            let u_boundary = solve_constrained(&k, &f_boundary, &prescribed);
-
-            let gnorm = (gamma[0] * gamma[0] + gamma[1] * gamma[1]).sqrt();
-            let floor = 1e-10 * gnorm;
-            let measure = |u: &DVector<f64>| -> (f64, f64) {
-                let mut err = 0.0f64;
-                let mut vals: Vec<[f64; 2]> = Vec::new();
-                for (e, pe) in pres.iter().enumerate() {
-                    let ue = star_elem_disp(u, e);
-                    let ul = build_t24(pe) * ue;
-                    for g in 0..GAUSS_XI.len() {
-                        let gl = b_shear_mitc4(pe, GAUSS_XI[g], GAUSS_ETA[g]) * ul;
-                        let gg = rotate_shear_to_global(&pe.t3, &[gl[0], gl[1]]);
-                        let d = ((gg[0] - gamma[0]).powi(2) + (gg[1] - gamma[1]).powi(2)).sqrt();
-                        err = err.max(d);
-                        vals.push(gg);
-                    }
-                }
-                let spread = (0..2)
-                    .map(|c| {
-                        let mut lo = f64::INFINITY;
-                        let mut hi = f64::NEG_INFINITY;
-                        for v in &vals {
-                            lo = lo.min(v[c]);
-                            hi = hi.max(v[c]);
-                        }
-                        hi - lo
-                    })
-                    .fold(0.0f64, f64::max);
-                (err, spread)
-            };
-
-            let (err_full, spread_full) = measure(&u_full);
-            let (err_b, spread_b) = measure(&u_boundary);
-            println!(
-                "T1.3c {name}: complete load (boundary + interior moment): \
-                 max|gamma_gp - gamma|={err_full:.3e} (rel {:.3e}); spread={spread_full:.3e} (rel {:.3e})",
-                err_full / gnorm,
-                spread_full / gnorm
-            );
-            println!(
-                "T1.3c {name}: boundary-only (design 4.2 as written): \
-                 max|gamma_gp - gamma|={err_b:.3e} (rel {:.3e}); spread={spread_b:.3e} (rel {:.3e})",
-                err_b / gnorm,
-                spread_b / gnorm
-            );
+        // (1) The state satisfies every Fig. 7(c) constraint: the exact field
+        // equals the fixture's prescribed value at each constrained DOF.
+        let exact = |x: f64, _y: f64| -> [f64; 6] { [0.0, gamma * x, 0.0, 0.0, 0.0, 0.0] };
+        for bc in BC_2025_PATCH.shearing {
+            let e = exact(nodes[bc.node][0], nodes[bc.node][1]);
             assert!(
-                err_b <= 1e-8 * gnorm + floor,
-                "{name}: recovered shear error {err_b:.3e} > 1e-8 ||gamma|| + floor ({:.3e})",
-                1e-8 * gnorm + floor
-            );
-            assert!(
-                spread_b <= 1e-8 * gnorm + floor,
-                "{name}: recovered shear spread {spread_b:.3e} > 1e-8 ||gamma|| + floor ({:.3e})",
-                1e-8 * gnorm + floor
+                (e[bc.dof] - bc.value).abs() <= 1e-14,
+                "Fig. 7(c) constraint (node {}, dof {}): exact field {} != prescribed {}",
+                bc.node,
+                bc.dof,
+                e[bc.dof],
+                bc.value
             );
         }
+        let prescribed: Vec<(usize, f64)> = BC_2025_PATCH
+            .shearing
+            .iter()
+            .map(|bc| (6 * bc.node + bc.dof, bc.value))
+            .collect();
+
+        // Non-vacuity of the constraint check: the four interior nodes are
+        // where Fig. 7(c) pins u_x and leaves u_y free, and the exact field's
+        // u_y = gamma x is non-zero there, so the field is non-trivial and the
+        // constraint set is not over-constrained.
+        for n in [4usize, 5, 6, 7] {
+            let uy = exact(nodes[n][0], nodes[n][1])[1];
+            assert!(
+                uy.abs() > 1e-15,
+                "interior node {n}: exact u_y = gamma x must be non-zero, got {uy}"
+            );
+        }
+
+        // The constant in-plane state's consistent boundary tractions,
+        // element-independent (spec Requirement 8, "the load derivation").
+        let inplane_load = boundary_integrate(&nodes, |_x, n| {
+            [
+                (sigma[0] * n[0] + sigma[2] * n[1]) * h,
+                (sigma[2] * n[0] + sigma[1] * n[1]) * h,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ]
+        });
+
+        // Recovery at every Gauss point of every element. Returns
+        // (tau_xy error, tau_xy spread, max analytically-zero membrane
+        // component, max bending (moment) component, max transverse-shear
+        // resultant component).
+        let measure = |u: &DVector<f64>| -> (f64, f64, f64, f64, f64) {
+            let mut err = 0.0f64;
+            let mut zero_mem = 0.0f64;
+            let mut bending = 0.0f64;
+            let mut shear = 0.0f64;
+            let mut taus: Vec<f64> = Vec::new();
+            for (e, pe) in pres.iter().enumerate() {
+                let ue = star_elem_disp(u, e);
+                let ul = build_t24(pe) * ue;
+                for g in 0..GAUSS_XI.len() {
+                    let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                    let sig_m = pe.constitutive.cm_raw * (b_membrane_2017(pe, r, s) * ul);
+                    let sig_g = rotate_stress_to_global(&pe.t3, &sig_m);
+                    err = err.max((sig_g[2] - tau).abs());
+                    zero_mem = zero_mem.max(sig_g[0].abs()).max(sig_g[1].abs());
+                    taus.push(sig_g[2]);
+                    // The moment resultant, in stress units: the through-thickness
+                    // bending stress at the surface t = 1, `cm_raw (e_b1 + e_b2)`.
+                    let (b1, b2) = b_bending_2017(pe, r, s);
+                    let sig_b = pe.constitutive.cm_raw * ((b1 + b2) * ul);
+                    let sig_bg = rotate_stress_to_global(&pe.t3, &sig_b);
+                    for c in 0..3 {
+                        bending = bending.max(sig_bg[c].abs());
+                    }
+                    // The transverse-shear resultant `Q = G h gamma`
+                    // (uncorrected, Ko, Lee & Bathe (2017), C&S 182:404-418,
+                    // p. 410), in force-per-length; with h = 1 it is the
+                    // recovered transverse shear stress.
+                    let q = pe.cs_uncorrected * (b_shear_mitc4(pe, r, s) * ul);
+                    let qg = rotate_shear_to_global(&pe.t3, &[q[0], q[1]]);
+                    shear = shear.max(qg[0].abs()).max(qg[1].abs());
+                }
+            }
+            let spread = {
+                let mut lo = f64::INFINITY;
+                let mut hi = f64::NEG_INFINITY;
+                for v in &taus {
+                    lo = lo.min(*v);
+                    hi = hi.max(*v);
+                }
+                hi - lo
+            };
+            (err, spread, zero_mem, bending, shear)
+        };
+
+        let u = solve_constrained(&k, &inplane_load, &prescribed);
+        let (err, spread, zero_mem, bending, shear) = measure(&u);
+        println!(
+            "T1.3c in-plane tau_xy={tau}: max|tau_gp - tau|={:.3e} (rel {:.3e}); \
+             spread={:.3e} (rel {:.3e}); zero membrane={:.3e}; \
+             moment/bending={:.3e}; transverse shear={:.3e}; floor={floor:.3e}",
+            err,
+            err / snorm,
+            spread,
+            spread / snorm,
+            zero_mem,
+            bending,
+            shear
+        );
+        assert!(
+            err <= 1e-8 * snorm + floor,
+            "tau_xy: recovered error {err:.3e} > 1e-8 ||sigma|| + floor ({:.3e})",
+            1e-8 * snorm + floor
+        );
+        assert!(
+            spread <= 1e-8 * snorm + floor,
+            "tau_xy: recovered spread {spread:.3e} > 1e-8 ||sigma|| + floor ({:.3e})",
+            1e-8 * snorm + floor
+        );
+        assert!(
+            zero_mem <= 1e-10 * snorm,
+            "sigma_xx/sigma_yy: {zero_mem:.3e} > 1e-10 ||sigma|| ({:.3e})",
+            1e-10 * snorm
+        );
+        assert!(
+            bending <= 1e-10 * snorm,
+            "moment resultant (surface bending stress): {bending:.3e} > 1e-10 ||sigma|| ({:.3e})",
+            1e-10 * snorm
+        );
+        assert!(
+            shear <= 1e-10 * snorm,
+            "transverse-shear resultant: {shear:.3e} > 1e-10 ||sigma|| ({:.3e})",
+            1e-10 * snorm
+        );
+
+        // (2) Non-vacuity (a): zeroing the load recovers a zero state, not the
+        // prescribed tau_xy, so the tolerance above fails.
+        let u_zero = solve_constrained(&k, &DVector::zeros(48), &prescribed);
+        let (err_zero, _, _, _, _) = measure(&u_zero);
+        println!(
+            "T1.3c non-vacuity (a) zeroed load: max|tau_gp - tau|={:.3e} (rel {:.3e})",
+            err_zero,
+            err_zero / snorm
+        );
+        assert!(
+            err_zero / snorm > 1e-3,
+            "zeroed-load control must fail the 1e-8 tolerance, measured {:.3e}",
+            err_zero / snorm
+        );
+
+        // (3) Non-vacuity (b): the withdrawn design 4.2 derivation, a load from
+        // a constant TRANSVERSE shear resultant q = G h gamma, does not
+        // reproduce the in-plane state (spec Evidence gap G9). The same Fig.
+        // 7(c) BC set is used, so the only difference from the main solve is
+        // the load derivation.
+        let gamma_t = 1.0e-3f64;
+        let q = [2.0e11 / (2.0 * (1.0 + 0.3)) * gamma_t, 0.0];
+        let transverse_load = boundary_integrate(&nodes, |_x, n| {
+            [0.0, 0.0, q[0] * n[0] + q[1] * n[1], 0.0, 0.0, 0.0]
+        });
+        let u_trans = solve_constrained(&k, &transverse_load, &prescribed);
+        let (err_trans, _, _, _, shear_trans) = measure(&u_trans);
+        println!(
+            "T1.3c non-vacuity (b) withdrawn transverse load: max|tau_gp - tau|={:.3e} \
+             (rel {:.3e}); transverse shear={:.3e}",
+            err_trans,
+            err_trans / snorm,
+            shear_trans
+        );
+        assert!(
+            err_trans / snorm > 1e-3,
+            "withdrawn transverse-load control must fail the 1e-8 tolerance, measured {:.3e}",
+            err_trans / snorm
+        );
     }
 }

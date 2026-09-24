@@ -562,3 +562,53 @@ Permuted eigenvalues agreed both before and after (`2.341e-14·λ_max` on the fa
 **Test-first.** No strict TDD. **RED** = the original run at HEAD (`/tmp/t11.log`): `ruled-warped: node sequence [1, 2, 3, 0] gives 1.385e9 > 1e-12 max|K| (1.913e-1)`; **GREEN** = the same test after the one-expression fix: `ok. 1 passed` and the suite `170/1`.
 
 **Collateral fix (recorded; a strengthening, not a weakening).** With `e3 = V^D` identically, the `θ^D = θ·V^D` projection `local_components(pre, &pre.v_d)` equals the local drill slot, so Oracle 2's `theta_z alone` row (which passed the raw global `(0,0,1)` as a local triple) became vacuous — measured `rejection 'theta_z alone': not distinguished from Eq. (18) (relative 0)`. Its premise (`V^D ≠ e3`) was itself a consequence of the bug. The row is re-aimed to the genuine remaining risk, using the **global** vertical instead of `V^D` (`v_theta = local_components(pre, &ẑ_global)`), which is rejected by `>1e-6`; the other four rejections are unchanged. **No bound was touched**: `1e-12·max|K|`, `1e-10·λ_max` and `1e-10` relative energy all stand exactly where the spec fixes them. `test_identity_drill_operator_matches_eq18_term_by_term`, `test_identity_drill_stiffness_comes_only_from_eq26`, `test_identity_ke_lock_matches_2017_core_plus_2025_drill` and `test_t1a_zero_energy_modes_single_unsupported_element_six_or_seven` all pass.
+
+---
+
+## WU6e — task 7.4's shearing half rewritten to the amended Requirement 8 (spec rev 7): PASSES
+
+**Task 7.4 now `- [x]`** (its bending half already passed in WU6). `strict_tdd: false`; no production line changed — the rewrite is entirely inside the inline `#[cfg(test)] mod tests`.
+
+**What changed.** `test_t1a_shearing_patch_constant_stress_fig5_mesh` implemented the withdrawn transverse-shear load derivation and was the suite's single failure. It is rewritten to the amended requirement: the constant **in-plane** shear state `τ_xy = τ` with `σ_xx = σ_yy = 0` (every transverse-shear and moment resultant zero) and exact field `u_x = 0`, `u_y = (τ/G_xy)·x`; the figure-read **Fig. 7(c)** BC set `BC_2025_PATCH.shearing` (`B` fully clamped; `C: u_x = u_z = 0`, `θ_x = θ_y = 0`; the four interior nodes `u_x = θ_x = θ_y = 0`; `θ_z` free except at `B`; the load at `A` in `+y`); the load is the constant in-plane state's **consistent boundary tractions** `f_i += ∫_edge N_i (σ·n) dΓ`, `σ = [[0, τ],[τ, 0]]`, integrated with the bilinear boundary shape functions (2-point Gauss per edge), independently of the element stiffness (`σ_ij,j = 0`, so the tractions balance — this derivation IS well posed where the withdrawn transverse one was not); the requirement's unchanged tolerances; and both non-vacuity clauses. The withdrawn `interior_shear_moment` helper was deleted (its only caller was the old test). The test uses `BC_2025_PATCH.shearing`, not `BC_2017_PATCH`: the requirement fixes the figure-read Fig. 7(c) set for this test, and the neighbouring membrane/bending Tier-1a tests keep the derived `BC_2017_PATCH`.
+
+**Files + diff stat.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (inline test module only: the deleted `interior_shear_moment` helper and the rewritten `test_t1a_shearing_patch_constant_stress_fig5_mesh`); `openspec/changes/mitc4plusd-faithful/tasks.md` (7.4 checked + the WU6e note); this file.
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 222 +++++++++++++---------  (222 insertions, 129 deletions)
+openspec/changes/mitc4plusd-faithful/tasks.md      |   2 +-
+2 files changed, 224 insertions(+), 130 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical). `rustfmt --edition 2021 --check` is clean for the file. No file outside the three scoped files was touched (`git status --short` shows only `mitc4_plusd.rs` and `tasks.md` modified plus the pre-existing untracked `.pi/`).
+
+**Count before → after.** `cd crates && cargo test -p aeroelast-core` → **170 passed / 1 failed → 171 passed / 0 failed**. The one failure was this shearing test (the withdrawn transverse derivation); Tier 1a is now closed.
+
+**Assertions and measured values** (τ = 1, `‖σ‖ = 1`, absolute floor `1e-10·‖σ‖ = 1e-10`).
+
+| Assertion | Bound | Measured |
+| --- | --- | --- |
+| recovered `τ_xy` vs prescribed, max over all Gauss points | `≤ 1e-8·‖σ‖ + floor` = `1.01e-8` | **`4.767e-12`** absolute (`4.767e-12` relative) |
+| spread of `τ_xy` across all Gauss points | `≤ 1e-8·‖σ‖ + floor` = `1.01e-8` | **`3.034e-12`** absolute (`3.034e-12` relative) |
+| analytically-zero membrane components `σ_xx`, `σ_yy` | `≤ 1e-10·‖σ‖` = `1e-10` | **`4.314e-12`** |
+| moment resultant (surface bending stress at `t = 1`) | `≤ 1e-10·‖σ‖` = `1e-10` | **`0.0e0`** |
+| transverse-shear resultant `Q = G·h·γ` | `≤ 1e-10·‖σ‖` = `1e-10` | **`0.0e0`** |
+
+No tolerance was widened and no bound was weakened.
+
+**Fig. 7(c) constraint check.** The test asserts, for every `(node, dof)` in `BC_2025_PATCH.shearing`, that the exact field's value equals the fixture's prescribed value: `C(0,0)` gives `u_x = 0`; the four interior nodes `(4,7),(8,7),(8,3),(2,2)` give `u_x = 0`; `B(0,10)` is clamped and its `u_y = γ·0 = 0`; `θ_x = θ_y = 0` everywhere. The check is made non-vacuous by asserting that at the four interior nodes the free `u_y = γ·x` is non-zero (`|u_y| > 1e-15`), so the constraint set pins `u_x` but does not over-constrain the constant-shear state.
+
+**Two non-vacuity controls (both fail the tolerance, as required).**
+
+| Control | Measured |
+| --- | --- |
+| (a) load zeroed | recovered `τ_xy` error **`1.000` relative** (`> 1e-3`, so the `1e-8` assertion would fail) |
+| (b) withdrawn design 4.2 load from a constant **transverse** shear resultant `q = G·h·γ` (`γ13 = 1e-3`), same Fig. 7(c) BC set | recovered `τ_xy` error **`1.000` relative**; recovered transverse shear **`1.156e8`** |
+
+**RED → GREEN.** **RED** = the test at HEAD `acfca1d` (the withdrawn derivation): `T1.3c gamma_13: boundary-only (design 4.2 as written): max|gamma_gp - gamma|=6.696e-3 (rel 6.696e0); spread=9.772e-3 (rel 9.772e0)` → `FAILED` (the old assertion was on the transverse shear, `6.696e-3 > 1e-8·‖γ‖ + floor`). **GREEN** = the rewritten in-plane test: `ok. 1 passed` and the suite `171/0`.
+
+**Deviations.**
+
+1. **The load is the state's complete consistent boundary-traction vector.** The 2025 figure shows a single `+y` arrow at `A` and publishes neither the load's magnitude nor its distribution; the constant `τ_xy` state's boundary tractions also load corners `C` and `D`. The fixture uses the complete traction vector (with the figure's `+y` arrow at `A` retained as the loaded corner) and records the figure-schematic deviation (proposal §2.1, spec Evidence gap G9) rather than reducing the load to a single point load. The load's magnitude is fixed by the constant in-plane state; it was not chosen, scaled or fitted.
+2. **The moment/transverse-shear zero-components are asserted through the recovered stress-level quantities** (surface bending stress at `t = 1`, and the uncorrected shear resultant `Q = G·h·γ`), which are the stress-level forms of the moment and transverse-shear resultants and are directly comparable to `‖σ‖`; both measure exactly `0.0e0` on this flat patch.
+3. **`BC_2025_PATCH.shearing` is used, not `BC_2017_PATCH`** (recorded in the test comment): the amended requirement fixes the figure-read Fig. 7(c) set for the shearing test. `BC_2017_PATCH` remains the derived minimum set of the membrane/bending Tier-1a tests.
+4. **WU6e size.** 222 added / 129 removed for `mitc4_plusd.rs` (the deleted helper plus the rewritten test), within the accepted session `size:exception`. No test, doc or citation was dropped; the citations are self-contained (Ko, Bathe & Zhang (2025), C&S 308:107622; Ko, Lee & Bathe (2017), C&S 182:404-418; Dvorkin & Bathe (1984), Engineering Computations 1:77-88) and anchored to `docs/references.md`, with no "paper A/B" shorthand.
