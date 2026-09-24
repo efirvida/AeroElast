@@ -773,3 +773,221 @@ The other three corrections are green (measured → cell): `test_3_2` SS `0.9982
 **Nothing unsourced.** Every new expectation is taken from the validation matrix's recorded true cell; nothing was read off or invented. The S3 gate (task 10.7) is now gated on this finding: the distorted pinched-cylinder row is a genuine formulation signal, not a mis-sourced pass.
 
 **WU9a size.** 54 added / 39 removed for the test file, within the accepted session `size:exception`. Not committed.
+
+---
+
+## WU9 — the flip (S3, tasks 10.1–10.5, 10.7): **the gate is RED; the new element's absolute stiffness is wrong**
+
+**Closed.** 10.1 (material-channel wiring), 10.2 (`MaterialSpec::Composite.applied_shear_correction`), 10.3 (dispatch), 10.4 (PyO3 internals), 10.5 (composite batch's open factor channel), 10.7 (**recorded** — the run is RED). `tasks.md` is now **47 checked / 12 unchecked of 59**. `strict_tdd: false`; no tolerance, no test and no element file was changed to accommodate the flip (the prompt forbids fixing it here). **WU10 (S4) must not start.**
+
+**Files changed (diff stat).**
+
+```text
+crates/aeroelast-core/src/assembly/assembler.rs   | 106 ++++++++++++++++------   (79+, 27-)
+crates/aeroelast-core/src/elements/mitc4_plusd.rs |   5 +-                       (4+, 1-)
+crates/aeroelast-py/src/assembler.rs              |   7 +-                       (6+, 1-)
+crates/aeroelast-py/src/elements.rs               |  57 ++++++++----             (40+, 17-)
+crates/aeroelast-py/src/materials.rs              |   8 +-                       (7+, 1-)
+5 files changed, 136 insertions(+), 47 deletions(-)
+```
+
+`git diff --stat` for `crates/aeroelast-core/src/assembly/topology.rs`, `crates/aeroelast-core/src/elements/mitc4.rs`, `src/aeroelast/core/assembler.py`, `src/aeroelast/core/laminate.py` and the other `materials/*.rs` is **empty**. The 47 deletions are the replaced call sites, the old `build_constitutive_mitc4`, the unused `e_eq` binding and rustfmt line-wrapping — no test, doc or citation was dropped.
+
+**What landed.**
+
+- `MaterialSpec::Composite` gains `applied_shear_correction: f64`; `aeroelast-py/src/assembler.rs` fills it from `corrected_lam.applied_shear_correction_factor()`. `ShellConstitutive`/`Laminate` are untouched.
+- `PrecomputedElem::Quad(Mitc4PlusDPrecomputed)`; both constructor sites and `update_reference` call `Mitc4PlusDPrecomputed::new(&c12, constitutive, thickness, applied_shear_correction)`; every `mitc4::…` in the assembler is `mitc4_plusd::…`; `build_constitutive_mitc4_plusd` returns `(constitutive, thickness, applied_shear_correction)` (isotropic → `shear_correction`; composite → the field); `extract_elem_disp_24 → mitc4_plusd::Vec24`.
+- The six PyO3 MITC4 kernels call `mitc4_plusd`; isotropic kernels pass `shear_correction`, the composite kernels pass `1.0` (task 10.5).
+
+**The S3 gate — every command and its recorded result.**
+
+| # | Command | Result |
+| --- | --- | --- |
+| 1 | `cd crates && cargo test -p aeroelast-core test_t1a_` | **6 passed / 0 failed** |
+| 2 | `cd crates && cargo test -p aeroelast-core test_t1b_` | **6 passed / 0 failed** |
+| 3 | `cd crates && cargo test -p aeroelast-core` (Tier 2 Rust) | **168 passed / 0 failed** |
+| 4 | `cargo test -p aeroelast-core materials::` | **19 passed / 0 failed** |
+| 5 | maturin rebuild (`python -m maturin develop --release`) | **succeeded** (installed) |
+| 6 | `python -m pytest "tests/test_rust_composite.py::TestMITC4BatchSanity" -q` | **8 passed / 0 failed** |
+| 7 | `python -m pytest -m "not slow" -q` | **334 passed / 13 failed / 2 skipped** (spec baseline 345/2/2 → **11 new failures**) |
+| 8 | spec laminate/composite preserved-invariant command | **53 passed / 2 failed** |
+| 9 | `python -m pytest "tests/test_ko2017_performance.py" -q` | **25 passed / 6 failed** (WU9a baseline 30/1) |
+| 10 | PyO3 surface check | names, `#[pyo3(signature=…)]` lines and argument declarations **content-identical to HEAD**; `[f64; 576]` ×6, `[f64; 24]` ×2; `_FAMILY_PROPERTIES[SHELL] = (6, 3)` untouched |
+| 11 | `git diff --stat topology.rs` / `mitc4.rs` | **empty** (both untouched) |
+
+The spec's two named "pre-existing failures" are **stale at HEAD**: `tests/test_rust_composite.py::TestBatchComposite::test_batch_ke_mitc4_multiple` now **passes** (26/0 for that file), and `tests/test_shell_convergence.py::test_in_bending_convergence` does not exist (`test_in_plane_bending_convergence` passes). The 13 gate failures are therefore all attributable to the flip.
+
+**The twisted-beam comparison this unit exists to produce.**
+
+| Case | Published cell | Hybrid before | New element after | Verdict |
+| --- | --- | --- | --- | --- |
+| thin quad N=8, in-plane | 0.9959 | **0.9976** | **0.0740** | trails — ~13.5× too stiff |
+| thin quad N=16, in-plane | 0.9975 | **0.9982** | **0.0757** | trails — ~13.2× too stiff |
+| thin quad N=16, out-of-plane | 0.9980 | **0.9986** | **0.1919** | trails — ~5.2× too stiff |
+| thick quad N=16 (t/L=0.02667), in-plane | 0.9972 | **0.9984** | **1.9477** | trails — ~1.95× too soft |
+| thick quad N=16, out-of-plane | 0.9972 | **0.9990** | **2.9818** | trails — ~2.99× too soft |
+
+Commands: `python /tmp/probe_drill.py {8,16} quad {in,out} 1.0` and `python /tmp/probe_thick.py 16 0.02667 {in,out} 1.0`. **Verdict: the new element neither matches nor beats the hybrid on the twisted beam; it trails catastrophically on the thin cases and overshoots by ~2–3× on the thick ones.** It *does* beat the hybrid on the pinched cylinder (below).
+
+**Element-level attribution (not a dispatch defect).** Calling the two elements directly on the same coordinates (bypassing the assembler and PyO3), the new `compute_ke_global` differs from the hybrid's by **32.2% in norm** on a flat and a warped quad. Diagonal ratios: translational ≈1.03–1.04; transverse `w` ≈4.1–4.2; rotations `θx/θy` **4.07 flat, 19.06 warped**; drill `θz` 0.67. Block decomposition on the flat quad shows the **transverse-shear block dominates the rotation diagonal** (`shear diag[3] = 6.41e5` of `6.49e5`) and is ~4× the hybrid's whole rotation diagonal — consistent with the hybrid's bubble/SRI/`5/6` being removed, but the magnitude is far beyond the published element's behaviour. The dispatch itself is correct: the same element that fails here is the one the Tier-1 tests validated. This is a **WU2–WU7 element-formulation finding**, reported not fixed.
+
+**Every Python test whose measured value moved (old → new → the cell).**
+
+| Test | Old (hybrid) | New (MITC4+/D) | Cell / bound |
+| --- | --- | --- | --- |
+| `test_3_5[thin in]` | 0.9982 | **0.0757** | Table 12 N=16 = 0.9978, `tol 0.01` |
+| `test_3_5[thin out]` | 0.9986 | **0.1919** | Table 13 N=16 = 0.9982, `tol 0.01` |
+| `test_3_5[thick in]` | 0.9984 | **1.9477** | Table 12 N=16 = 0.9971, `tol 0.01` |
+| `test_3_5[thick out]` | 0.9990 | **2.9818** | Table 13 N=16 = 0.9973, `tol 0.01` |
+| `test_3_6_hook[0.9782]` | ≈0.9927 (docstring: 1.48%) | **1.1017** (12.63%) | Table 14 N=8 = 0.9782, `tol 3%` |
+| `test_3_3[dist]` | 0.9943 (6.676%) | **0.9822** (5.373%) | Table 9 N=16 = 0.9321, `tol 5%` |
+| `test_3_3[reg]` | 0.9718 (4.35%, PASS) | **0.9224** (0.95%, PASS) | Table 8 N=16 = 0.9313 — **improved** |
+| `TestIsoEquivalence::test_n_iso_plies_equal_single_layer_mitc4` | <1% (PASS) | **3.434%** | `tol 1%` |
+| `TestIsotropicAnalytical::test_mitc4_in_plane_lateral` | <5% (PASS) | **9.0%** (FEM 173.4 µm vs 190.5 µm) | `tol 5%` |
+| `TestSimplySupportedPlate::test_analytical_convergence` | PASS | **IndexError — 0 modes** | — |
+| `TestSimplySupportedPlate::test_frequencies_match_python` | PASS | **eigenvector shifted** (rigid mode dropped: `[50.16,131.3,131.3,211.3]` vs `[5.96e-4,50.16,131.3,131.3]`) | `rtol 1e-4` |
+| `TestLinearStaticCantilever::test_fy_in_plane` | PASS | **37.5% > 5%** | `tol 5%` |
+| `TestLinearStatic::test_fy` | 11.3662 mm, 0.55% | **37.71%** | ref 11.4286 mm, `tol 3%` |
+| `TestLinearStatic::test_ratio_physical` | 402.38 | **251.55** | beam theory 400.00, 2% window |
+| `test_multi_layer_iso_equivalence` | <1e-4 | **5.43e-2** | `tol 1e-4` |
+| `test_composite_bending` | PASS | **28.5%** | `tol 10%` |
+
+**`test_3_3[dist]` disposition (the WU9a finding).** The new element **moves it toward the true cell**: 0.9943 → **0.9822** (cell 0.9321), i.e. the error drops from **6.676% to 5.373%** — still outside the 5% window, so the finding is **improved but not resolved**. The direction (stiffer, closer to Table 9) is the same direction as the element's systematic over-stiffness, so this row remains a genuine formulation signal and the task 10.6 source correction stands.
+
+**The laminate/composite preserved invariant is VIOLATED by the flip** (Requirement 15 / spec: "A laminate capability regression SHALL be treated as a change failure"). `tests/test_orthotropic_shell_parity.py::test_multi_layer_iso_equivalence` fails at 5.43e-2 vs `1e-4` and `tests/test_composite_beam_parity.py::test_composite_bending` at 28.5% vs 10%. The **material modules themselves are byte-identical** (`git diff` empty for `materials/{laminate,orthotropic,composite,failure,isotropic}.rs`, `src/aeroelast/core/laminate.py`); the regression is in the element's use of the constitutive, not in the laminate models.
+
+**Deviations / findings.**
+
+1. **`crates/aeroelast-py/src/materials.rs` is a compile-required site the task does not name.** Adding the field to `MaterialSpec::Composite` forces the raw-dict constructor (`parse_material`, line 71) to be updated; it now passes `applied_shear_correction: 1.0` (no `Laminate`, so no scalar was applied) with a comment. Minimal (7+/1−); recorded because the task's authorized-roots list omits the file.
+2. **`mitc4_plusd::element_area` was made `pub` (5+/1−).** The assembler's `total_elemental_mass` read the hybrid's public `element_area` field, which `Mitc4PlusDPrecomputed` does not carry (WU5 made it a function). This is a one-word visibility change in an authorized-for-the-change file; the alternative (the partition-of-unity shortcut the plane branch uses) would have made the mass check self-referential.
+3. **The design's "now-unused `e_mod` argument" is imprecise.** `e_mod` is still consumed to build the isotropic constitutive (`IsotropicMaterial::new(e_mod, nu, 0)`); it is unused only as an *element-constructor* argument. The parameter is kept (frozen signature) and a comment names the out-of-scope signature change. The composite kernels' `e_equiv` **is** genuinely now-unused and is bound to `_e_arr`.
+4. **The gate is red and nothing was done about it.** Per the prompt, no tolerance was changed, no test was re-tuned, and no element file was fixed; the failing element is reported, not patched. The two 5/1 and 7/1 edits above are the only changes outside the task's named file list.
+5. **WU10 is blocked.** Task 11.x must not start: the design's ordering rule is explicit that S4 requires S3 green, and S3 is red on the Python Tier-2 and the preserved-invariant command.
+
+**WU9 size.** 136 added / 47 removed for the five Rust files, within the accepted session `size:exception`. Not committed.
+
+---
+
+## WU9b — the thin twisted-beam collapse: `W_22` double-scaled, not the shear metric
+
+**Scope.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` only (+ this record and `tasks.md`). `mitc4.rs` read-only; no tolerance changed; no Tier-1 test weakened. The flip is reverted, so the live extension is the hybrid.
+
+**Hypothesis tested and FALSIFIED (numbers).** On the flat rectangle `[[0,0,0],[2,0,0],[2,1,0],[0,1,0]]` (isotropic, `h = 1`), the new element's `b_shear_mitc4` is entry-for-entry identical to a verbatim copy of the hybrid's `b_gamma_mitc4`: `max|D| = 2.2e-16…2.8e-17`, `rel ≤ 2.8e-16` at all four Gauss points, and the resulting shear blocks are identical (`‖K_shear‖ = 2.213164e11` both, ratio `1.0000`). The design's dual-basis `T = diag(4, 8)` reproduces the standard Mindlin operator there. Adding the omitted symmetric contraction term `(g^t·e_α)(g^i·e_3)` to `shear_covariant_to_local` changed the N=2 thin-in deflection by `0.0000%` (`0.070147` → `0.070149`), so it was reverted. On the thick twisted element `b_shear_mitc4` also matches the hybrid (`rel = 7.7e-15`). **The transverse-shear metric is not the defect.**
+
+**Diagnosis — the exact factor and where it enters.** `resultant_moment_matrix` sets `W_22 = cm/9` (Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (7a) block matrix) while `compute_ke_local_with_drill` **also** scales the `B_b2` block by `s2 = 4/h²`; the paper's 2×2 `t`-rule therefore enters twice and the effective `E2-E2` coefficient becomes `s2²·W_22 = (16/h⁴)(cm/9)` instead of `cm/9`, i.e. **`16/h⁴` too large** (`1.5e11` at thin `h = 0.0032`). This `E2` block — not the transverse-shear block — is what dominates the rotation diagonal, so WU9's "shear block ≈4× the hybrid's" was a mis-attribution. Entry-by-entry against the hybrid on the flat rectangle, the corrected element's diagonal ratios are `w = 1.456`, `θx = 1.19`, `θy = 1.33` (translations `1.03–1.05`, drill `0.66`) where the pre-fix rotation ratios were `w ≈4.1–4.2`, `θx/θy ≈4.07`.
+
+**Fix.** `W_22` is the raw 4th moment under the paper's own rule: `∫z⁴C dz → (h/2)(h/2)⁴(2/9)C = cm·h⁴/144`. `resultant_moment_matrix` now takes `thickness` and sets `W_22 = cm·h⁴/144`; the effective `s2²·W_22 = cm/9` is unchanged from the paper's value, only the intermediate B-scaling is no longer duplicated. The `ke_ref` test-local reference was corrected in lockstep.
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 61 +++++++++++---------------
+1 file changed, 61 insertions(+), 28 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**; no dispatch or PyO3 file touched.
+
+**Test corrected (a correction, not a weakening).** `test_identity_resultant_moment_matrix_blocks_match_closed_forms` pinned `W_22 = cm/9` — the double-scaled value, not the paper's defined moment. It now pins `W_22 = cm·h⁴/144` and the **effective** `s2²·W_22 = cm/9`, and still rejects the exact `cm/5` value by `> 1e-3`. The `1e-12` tolerance and every other assertion (ABD blocks, exact symmetry, the `2/9` t-rule) are unchanged. `test_identity_transverse_shear_*` are untouched because the shear construction did not change.
+
+**Tier-1 / full Rust.** `cargo test -p aeroelast-core test_t1a_` → **6 passed / 0 failed**; `test_t1b_` → **6 passed / 0 failed**; `test_identity_` → **10 passed**; full `cargo test -p aeroelast-core` → **168 passed / 0 failed**.
+
+**The five twisted-beam cases.** The probe scripts could not be used: the extension dispatches the hybrid (the flip is reverted) and this unit's scope forbids re-touching the dispatch/PyO3 files, so the measurement is a Rust reproduction of the benchmark's own mesh and BCs (`_build_twisted_beam_mesh` + clamped root + tip point load, `tests/test_ko2017_performance.py`), solved with a banded Cholesky validated against the dense N=4 solve (agreement `5e-5`). The hybrid column reproduces the Python hybrid cells to `≤ 0.14%`.
+
+| case | published | hybrid | new (after fix) | before (WU9) |
+| --- | --- | --- | --- | --- |
+| thin N=8 in | 0.9959 | 0.9962 | **0.9957** | 0.0740 |
+| thin N=16 in | 0.9975 | 0.9979 | **0.9976** | 0.0757 |
+| thin N=16 out | 0.9980 | 0.9984 | **0.9986** | 0.1919 |
+| thick N=16 in | 0.9972 | 0.9984 | **1.9623** | 1.9477 |
+| thick N=16 out | 0.9972 | 0.9990 | **2.9933** | 2.9818 |
+
+(÷1e6 for the thin `P = 1e-6` runs.) **The three thin cells now match the published cells to `≤ 0.06%`.**
+
+**Residual — the two thick cells remain ~2–3× too soft, and this is not the shear metric.** The softness is present before and after the fix, is insensitive to the shear construction, to the ADR-1 factor (`cs = (5/6)·G·h` gives `1.9632`) and to the omitted membrane–drill cross term (`ẽ^m + e^md` gives `1.0987` at N=4), and is dominated by the drill block: turning it off gives `144.3`, scaling it `4×` gives `1.2524` (N=16) / `1.0251` (N=4), `16×` gives `1.0139` (N=4). The drill operator itself is verified against Eq. (18) to `1e-12` in Tier 1, so the residual is a drill/stabilization magnitude-and-convergence question. **Not fixed** — a drill scale is not an ingredient either paper has, and the task forbids adding one.
+
+**Findings.** (1) The `b_gamma_mitc4` hypothesis does not hold. (2) The thin-case defect is a through-thickness moment applied `16/h⁴` too stiff because `W_22 = cm/9` and `B_b2` both carried the `4/h²` factor. (3) The `ke_ref` identity-lock reference shared the same `W_22 = cm/9` convention, so it could not catch the error; the benchmark is the oracle that did. (4) The two thick cells were already broken pre-WU9 and are a separate drill/stabilization issue, not the transverse shear.
+
+**Skill resolution.** `paths-injected` (no skill paths were supplied for this unit; the SDD apply contract was followed from the prompt). Not committed.
+
+---
+
+## WU9c — the thick twisted-beam residual: **no wrong `h`-dependence; the missing ingredient is a paper-internal inconsistency, and applying it is a trade — not fixed**
+
+**Scope.** Diagnosis only. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (diagnostic code added and removed; production byte-identical to the WU9b state), this record. `mitc4.rs` read-only; no tolerance changed; no Tier-1 test touched. The flip stays reverted, so the live extension is still the hybrid.
+
+**Instrument.** The Python probe cannot be used (the extension dispatches the hybrid), so the measurement is a Rust port of the benchmark's own mesh and BCs (`_build_twisted_beam_mesh`, y-fastest node numbering, clamped root, tip point load; `tests/test_ko2017_performance.py::test_3_5`), solved with a banded Cholesky validated against a dense `nalgebra` solve (`chol err = 2.2e-16`) and against the Python hybrid: the hybrid column reproduces `0.9984 / 0.9990` (thick N=16 in/out), i.e. the recorded WU9b cells, to `< 0.02%`.
+
+### The `h`-scaling, measured before any change (fixed twisted cell, `x = 6.0`)
+
+Drill block norm `|K_drill|` and the hybrid's drill block (`|K_drill|(drilling_scale=1) − |K_drill|(drilling_scale=0)`), same element, `h` swept `10×`:
+
+| `h` | `\|K_drill\|` new | `p` (power of `h`) | `\|K_drill\|` hybrid block | `p` | ratio new/hyb |
+| --- | --- | --- | --- | --- | --- |
+| `3.2e-3` | `1.361827e1` | — | `4.563718e4` | — | `2.9840e-4` |
+| `3.2e-2` | `1.361827e2` | **1.000** | `4.563719e5` | **1.000** | `2.9840e-4` |
+| `3.2e-1` | `1.361827e3` | **1.000** | `4.563717e6` | **1.000** | `2.9840e-4` |
+| `1.0` | `4.255710e3` | — | `1.426162e7` | — | `2.9840e-4` |
+
+**The new drill block scales exactly as `h¹`, exactly as the hybrid's, and the ratio is `h`-independent.** There is no wrong `h`-power in the drill block. Full benchmark, in-plane, error `e(h) = u_new/u_hyb − 1`:
+
+| `h` | `e` | `e(h/2)/e(h)` | absolute deficit `u_new − u_hyb` |
+| --- | --- | --- | --- |
+| `0.32` | `0.9653` | — | `5.229e-3` |
+| `0.16` | `0.2462` | `3.92` | `1.049e-2` |
+| `0.08` | `0.0619` | `3.98` | `2.099e-2` |
+| `0.04` | `0.0155` | `3.99` | `4.200e-2` |
+
+**`e(h) ∝ h²` and the absolute deficit ∝ `h⁻¹`.** That is the signature of a *constant-factor* drill-stiffness deficit (the drill contributes stiffness `∝ h`, so the extra compliance is `∝ 1/h`), **not** of a wrong `h`-power. The hypothesis the task set out to test is falsified.
+
+### The diagnosis — the quantity identified
+
+The drill operator `b_drill_membrane_2025` implements the printed strain Eq. (18) faithfully (Tier-1 `test_identity_drill_operator_matches_eq18_term_by_term`, `1e-12`), and every listed candidate checks out: the Eq. (21) centre metric is applied with `j_loc(0,0)`; `j0 = (x_r×x_s)·g_t(0,0)` and `j = (g_r×g_s)·g_t(r,s)` are the paper's exact scalar triple products; `x_m^l = ⅛(x_i − x_{i+1})` matches Eq. (13c) and `‖x_m^l‖ = L_l/8`.
+
+The one place the paper contradicts itself is the **per-edge normalization**:
+
+- the paper's *derivation* carries it — Eq. (14d) `u_r^l(l) = (1/‖x_m^l‖)(…)` and Eq. (15a) `(1/‖x_m^l‖)[…]`, with the text *"‖x_m^l‖ = L_l/8"* (`mitc4plusd-2025-extract.md:325,328-329,333`);
+- the paper's *operative strain*, Eq. (16b) → Eq. (18), prints `c_r = x_m^l·(−x_r^l×V^D)` with **no `1/‖x_m^l‖`** (`…:44-65,100`).
+
+The code follows Eq. (18), so `c_r ∼ (L/8)·L` and the drill stiffness is `(8/L)²` too small — a **constant per-edge factor**, not an `h`-power. This is the quantity the residual lives in. (The extract itself flags only the trailing-dot ambiguity in Eqs. (15a)/(15b); it does not flag the missing normalization.)
+
+### The paper-supported candidate, measured: it is a trade, not a fix
+
+Dividing `c_r`, `c_s` by `‖x_m^l‖` (i.e. using the unit edge tangent, the Eq. (14d)/(15a) form) and re-solving the five cells:
+
+| case | published | hybrid | current | with `1/‖x_m^l‖` |
+| --- | --- | --- | --- | --- |
+| thin N=8 in | `0.9959` | `0.9976` | **`0.9958`** | `0.9732` |
+| thin N=16 in | `0.9975` | `0.9982` | **`0.9978`** | `0.9728` |
+| thin N=16 out | `0.9980` | `0.9986` | **`0.9987`** | `0.9684` |
+| thick N=16 in | `0.9972` | `0.9984` | **`1.9623`** | `1.0141` |
+| thick N=16 out | `0.9972` | `0.9990` | **`2.9933`** | `0.9028` |
+
+It fixes thick in-plane (`1.96 → 1.01`, `1.7%`) but **overshoots thick out-of-plane to `0.9028` (`9.5%` too stiff)** and **moves all three thin cells `2.3–3.1%` below the published values**. That is the same thin/stiff–thick/soft trade the ERC work fought, only reversed. The omitted `e^m + e^md` cross term of Eq. (26) (`mitc4plusd-2025-extract.md:29-32`) was also measured: it makes the thick cells slightly *softer* (`1.9653 → 1.9924` at `h=0.32`, `1.2462 → 1.2532` at `h=0.16`) and moves nothing else, so it is not the deficit either.
+
+### The fix: **none applied**
+
+The papers do not support a form that keeps the thin cells unmoved: the only paper-supported correction (the `1/‖x_m^l‖` of Eq. (15a)) is a trade; the cross term goes the wrong way; and a pure drill *scale* is in neither paper. Per the task, this is reported, not tuned. No production line changed, no tolerance changed, no test changed, no penalty added. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` is byte-identical to the WU9b state; `git diff --stat` for it is `61 insertions / 28 deletions` (all WU9b's `W_22` fix), and WU9c contributes `0` net lines. `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**.
+
+### The five twisted-beam cells (production, unchanged — thin shown unmoved)
+
+| case | published | hybrid | new element (WU9c) | vs WU9b |
+| --- | --- | --- | --- | --- |
+| thin N=8 in | `0.9959` | `0.9976` | **`0.9958`** | unmoved (`≤0.02%`) |
+| thin N=16 in | `0.9975` | `0.9982` | **`0.9978`** | unmoved (`≤0.02%`) |
+| thin N=16 out | `0.9980` | `0.9986` | **`0.9987`** | unmoved (`≤0.02%`) |
+| thick N=16 in | `0.9972` | `0.9984` | **`1.9623`** | unmoved |
+| thick N=16 out | `0.9972` | `0.9990` | **`2.9933`** | unmoved |
+
+### Rust suite
+
+`cd crates && cargo test -p aeroelast-core test_t1a_` → **6 passed / 0 failed**; `test_t1b_` → **6 passed / 0 failed**; `test_identity_` → **10 passed / 0 failed**; full `cargo test -p aeroelast-core` → **168 passed / 0 failed**.
+
+### Tests corrected
+
+**None.** The diagnosis does not prove any pinned construction wrong — the Eq. (18) form the drill identity test pins is the one that best reproduces the paper's own five cells. Correcting it to the `1/‖x_m^l‖` form would weaken the benchmark (4 of 5 cells move off the published values), so no test was touched.
+
+### Deviations / findings / what could not be done
+
+1. **No `h`-dependence defect exists in the drill path.** The drill block scales `h¹`, the same as the hybrid's; the error scales `h²` because the *effect* of a constant-factor drill deficit on a beam whose bending compliance is `h⁻³` is `h²`. The task's premise is falsified by measurement.
+2. **The defect is a paper-internal inconsistency.** The paper's operative strain Eq. (18) drops the `1/‖x_m^l‖` normalization that its own derivation Eqs. (14d)/(15a) carries. Faithfully implementing Eq. (18) is why the thick cells are soft; faithfully implementing Eq. (15a) is why the thin and thick-out cells break.
+3. **What I could not do.** I did not re-read the PDF pages myself: the task pointed at `docs/formulations/mitc4plusd-2025-extract.md`, and the `1/‖x_m^l‖` reading rests on that extract's transcription of Eqs. (14d)/(15a) and the literal Eq. (18) block. A vision re-read of p. 6–8 is the next step if the paper's intent must be settled. The two thick cells therefore remain `~2–3×` too soft, and **WU10 (S4) must not start**.
+
+**Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.

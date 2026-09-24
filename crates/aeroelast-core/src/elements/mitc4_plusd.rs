@@ -1257,35 +1257,49 @@ fn b_drill_membrane_2025(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> SMatrix
 /// `e(z) = e^m + (2z/h) e^b1 + (4z^2/h^2) e^b2` expands to the blocks
 ///
 /// ```text
-/// W_00 = int C dz      = cm            (membrane)
-/// W_01 = int z C dz    = cb_coupling   (membrane-bending coupling)
-/// W_02 = int z^2 C dz  = cb            (membrane-E2 coupling)
-/// W_11 = int z^2 C dz  = cb            (bending)
-/// W_12 = int z^3 C dz  = 0             (odd moment)
-/// W_22 = int z^4 C dz  = cm/9          (E2)
+/// W_00 = int C dz      = cm               (membrane)
+/// W_01 = int z C dz    = cb_coupling      (membrane-bending coupling)
+/// W_02 = int z^2 C dz  = cb               (membrane-E2 coupling)
+/// W_11 = int z^2 C dz  = cb               (bending)
+/// W_12 = int z^3 C dz  = 0                (odd moment)
+/// W_22 = int z^4 C dz  = cm h^4 / 144     (E2)
 /// ```
 ///
-/// so the repository's ABD blocks act verbatim and no scaling factor appears in
-/// the stiffness assembly. The `cm/9` of `W_22` is **the paper's own 2x2 rule in
-/// the through-thickness coordinate `t`** (Ko, Lee & Bathe (2017),
+/// The `cm h^4 / 144` of `W_22` is the **4th moment** under the paper's own
+/// 2x2 rule in the through-thickness coordinate `t` (Ko, Lee & Bathe (2017),
 /// C&S 182:404-418, p. 410: "2 x 2 x 2 Gauss integration over the element
-/// domain"): two-point Gauss in `t` gives `int t^4 dt -> 2/9` where exact
-/// integration gives `2/5`, so
-/// `int z^4 C dz -> (16/h^4)(h/2)(h/2)^4(2/9) C = h C/9 = cm/9`. It is the
-/// paper's own under-integration, not a factor invented here.
+/// domain"): two-point Gauss in `t = 2z/h` gives `int t^4 dt -> 2/9` where exact
+/// integration gives `2/5`, so with `cm = int C dz = C h`,
+/// `int z^4 C dz -> (h/2)(h/2)^4(2/9) C = h^5 C / 144 = cm h^4 / 144`.
+///
+/// The `(4/h^2)` of `E2` is carried by the B-operator, so `W_22` is the raw
+/// 4th moment and **not** its `(4/h^2)^2`-scaled value: the effective `E2-E2`
+/// coefficient the stiffness sees is
+/// `(4/h^2)^2 W_22 = (16/h^4)(cm h^4/144) = cm/9`, the paper's
+/// under-integrated value. Applying the `(4/h^2)^2` scaling to both `B_b2` and
+/// `W_22` (the pre-WU9b form, `W_22 = cm/9`) multiplies the term by `16/h^4`,
+/// which over-stiffens thin warped elements by orders of magnitude (the
+/// MacNeal-Harder twisted beam, `tests/test_ko2017_performance.py::test_3_5`).
 ///
 /// RECORDED APPROXIMATION (design Section 9, risk 7). For a homogeneous section
-/// `cm/9` is exact under the paper's rule. For a **multi-ply laminate** it uses
-/// the section's thickness-average membrane stiffness (the same smearing
+/// `cm h^4/144` is exact under the paper's rule. For a **multi-ply laminate** it
+/// uses the section's thickness-average membrane stiffness (the same smearing
 /// `cm_raw` already documents) in the `E2-E2` block only, instead of the true
 /// `int z^4 C(z) dz`; the term it multiplies is second order in the warping, and
 /// the surface-only discrimination of
 /// `test_identity_integration_rule_is_2x2x2_and_discriminates_surface_only`
 /// makes the approximation visible to a test rather than hidden.
-pub fn resultant_moment_matrix(constitutive: &ShellConstitutive) -> SMatrix<f64, 9, 9> {
+pub fn resultant_moment_matrix(
+    constitutive: &ShellConstitutive,
+    thickness: f64,
+) -> SMatrix<f64, 9, 9> {
     let cm = &constitutive.cm;
     let cb = &constitutive.cb;
     let cbc = &constitutive.cb_coupling;
+    // int z^4 C dz under the paper's 2x2 t-rule: the 4th moment of the
+    // through-thickness coordinate, `cm h^4 / 144`, with the section's
+    // thickness-average cm (recorded approximation for multi-ply laminates).
+    let w22 = cm * (thickness.powi(4) / 144.0);
     let mut w = SMatrix::<f64, 9, 9>::zeros();
     for i in 0..3 {
         for j in 0..3 {
@@ -1295,7 +1309,7 @@ pub fn resultant_moment_matrix(constitutive: &ShellConstitutive) -> SMatrix<f64,
             w[(i, 6 + j)] = cb[(i, j)];
             w[(6 + i, j)] = cb[(j, i)];
             w[(3 + i, 3 + j)] = cb[(i, j)];
-            w[(6 + i, 6 + j)] = cm[(i, j)] / 9.0;
+            w[(6 + i, 6 + j)] = w22[(i, j)];
         }
     }
     w
@@ -1372,7 +1386,7 @@ fn drill_ke_local(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
 /// or off, so the provenance test can form the exact difference
 /// `K(operator) - K(operator := 0)` the spec fixes.
 fn compute_ke_local_with_drill(pre: &Mitc4PlusDPrecomputed, use_drill: bool) -> Mat24 {
-    let w = resultant_moment_matrix(&pre.constitutive);
+    let w = resultant_moment_matrix(&pre.constitutive, pre.thickness);
     let s1 = 2.0 / pre.thickness;
     let s2 = 4.0 / (pre.thickness * pre.thickness);
     let mut k = Mat24::zeros();
@@ -4006,8 +4020,15 @@ mod tests {
             t * cov
         }
 
-        /// The resultant/moment matrix `W`, recomputed independently.
-        fn moment_matrix(c: &ShellConstitutive, include_w22: bool) -> SMatrix<f64, 9, 9> {
+        /// The resultant/moment matrix `W`, recomputed independently. `W_22` is
+        /// the raw 4th moment `int z^4 C dz` under the paper's 2x2 t-rule
+        /// (`cm h^4/144`); the `(4/h^2)` of `E2` is carried by `b` below.
+        fn moment_matrix(
+            c: &ShellConstitutive,
+            thickness: f64,
+            include_w22: bool,
+        ) -> SMatrix<f64, 9, 9> {
+            let w22 = c.cm * (thickness.powi(4) / 144.0);
             let mut w = SMatrix::<f64, 9, 9>::zeros();
             for i in 0..3 {
                 for j in 0..3 {
@@ -4018,7 +4039,7 @@ mod tests {
                     w[(6 + i, j)] = c.cb[(j, i)];
                     w[(3 + i, 3 + j)] = c.cb[(i, j)];
                     if include_w22 {
-                        w[(6 + i, 6 + j)] = c.cm[(i, j)] / 9.0;
+                        w[(6 + i, 6 + j)] = w22[(i, j)];
                     }
                 }
             }
@@ -4026,7 +4047,7 @@ mod tests {
         }
 
         fn assemble(pre: &Mitc4PlusDPrecomputed, g: &Geom, include_w22: bool) -> Mat24 {
-            let w = moment_matrix(&pre.constitutive, include_w22);
+            let w = moment_matrix(&pre.constitutive, pre.thickness, include_w22);
             let s1 = 2.0 / pre.thickness;
             let s2 = 4.0 / (pre.thickness * pre.thickness);
             let mut k = Mat24::zeros();
@@ -4210,8 +4231,12 @@ mod tests {
         let e = 2.0e11;
         let nu = 0.3;
         let c = IsotropicMaterial::new(e, nu, 7800.0).constitutive(h, 5.0 / 6.0);
-        let w = resultant_moment_matrix(&c);
+        let w = resultant_moment_matrix(&c, h);
         assert_eq!(w.shape(), (9, 9));
+        // W_22 is the raw 4th moment `int z^4 C dz` under the paper's 2x2
+        // t-rule; the `(4/h^2)` of `E2` is carried by the B-operator, so the
+        // **effective** E2-E2 coefficient is `(4/h^2)^2 W_22 = cm/9`.
+        let w22 = c.cm * (h.powi(4) / 144.0);
         for i in 0..3 {
             for j in 0..3 {
                 assert_eq!(w[(i, j)], c.cm[(i, j)], "W_00 = cm");
@@ -4220,7 +4245,7 @@ mod tests {
                 assert_eq!(w[(3 + i, j)], c.cb_coupling[(j, i)], "W_10 = cb_coupling^T");
                 assert_eq!(w[(i, 6 + j)], c.cb[(i, j)], "W_02 = cb");
                 assert_eq!(w[(6 + i, j)], c.cb[(j, i)], "W_20 = cb^T");
-                assert_eq!(w[(6 + i, 6 + j)], c.cm[(i, j)] / 9.0, "W_22 = cm/9");
+                assert_eq!(w[(6 + i, 6 + j)], w22[(i, j)], "W_22 = int z^4 C dz");
                 assert_eq!(w[(3 + i, 6 + j)], 0.0, "W_12 = 0 (odd moment)");
                 assert_eq!(w[(6 + i, 3 + j)], 0.0, "W_21 = 0 (odd moment)");
             }
@@ -4237,16 +4262,24 @@ mod tests {
         assert!((w[(0, 0)] - cm00).abs() <= 1e-12 * cm00, "W_00 closed form");
         assert!((w[(3, 3)] - cb00).abs() <= 1e-12 * cb00, "W_11 closed form");
         assert!(
-            (w[(6, 6)] - cm00 / 9.0).abs() <= 1e-12 * cm00,
-            "W_22 = cm/9"
+            (w[(6, 6)] - cm00 * h.powi(4) / 144.0).abs() <= 1e-12 * (cm00 * h.powi(4) / 144.0),
+            "W_22 = cm h^4/144 (int z^4 C dz under the 2x2 t-rule)"
         );
         // The paper's 2x2 t-rule gives int t^4 dt = 2/9 (not the exact 2/5).
         let t = 1.0 / 3.0f64.sqrt();
         let t4 = 2.0 * t.powi(4);
         assert!((t4 - 2.0 / 9.0).abs() <= 1e-15, "2-point t-rule gives 2/9");
+        // The effective E2-E2 coefficient the stiffness sees is cm/9, not the
+        // exact cm/5: negligible at h=0.02, so assert it on the scaled value.
+        let s2 = 4.0 / (h * h);
+        let eff = s2 * s2 * w[(6, 6)];
         assert!(
-            (w[(6, 6)] - cm00 / 5.0).abs() > 1e-3 * (cm00 / 5.0),
-            "W_22 must be the paper's cm/9, not the exact cm/5"
+            (eff - cm00 / 9.0).abs() <= 1e-9 * cm00,
+            "effective E2-E2 coefficient must be the paper's cm/9, got {eff}"
+        );
+        assert!(
+            (eff - cm00 / 5.0).abs() > 1e-3 * (cm00 / 5.0),
+            "effective E2-E2 must be the paper's cm/9, not the exact cm/5"
         );
     }
 
