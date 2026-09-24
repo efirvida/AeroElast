@@ -445,6 +445,62 @@ and that Eq. (24) "include the improvements proposed in Ref. [8] for the MITC4+
 element".  **There is no additional term that penalizes or constrains a constant
 drill rotation.**
 
+### An inconsistency in the paper's own reduction, Eqs. (14)–(18) (found 2026-09-24)
+
+Read from p. 7 with vision, to settle why the two THICK twisted-beam cells come out
+2–3x too soft while the three thin ones match.
+
+**The paper's derivation carries a per-edge `1/‖x_m^I‖`:**
+
+```text
+u_r^I(l) = (1/‖x_m^I‖)(u_θ^I(l) x_m^I × V^D · x_r^I)                        (14d)
+u_s^I(l) = (1/‖x_m^I‖)(u_θ^I(l) x_m^I × V^D · x_s^I)                        (14e)
+u_r = h_m^I u_r^I(L_I/2) = (1/‖x_m^I‖)[ −h_m^I u_θ^I(L_I/2) x_r^I × V^D ]·x_m^I     (15a)
+u_s = h_m^I u_s^I(L_I/2) = (1/‖x_m^I‖)[ −h_m^I u_θ^I(L_I/2) x_s^I × V^D ]·x_m^I     (15b)
+```
+
+and it states in words, on the same page: *"in which we use `l = L_I/2` for each edge
+because the tying is performed at the fictitious nodes and also `‖x_m^I‖ = L_I/8`."*
+So the factor is `8/L_I`.
+
+**But Eq. (16a) — which the paper presents as the reduction of Eq. (15), *"Using the
+geometric relations (Eq. (12d) and (13c)), the displacement fields assumed in Eq. (15)
+reduce to"* — drops it:**
+
+```text
+ū_r(θ) =  h_I (θ_{i+1}^D − θ_i^D) x_m^I · (−x_r^I × V^D)
+ū_s(θ) = −h_I (θ_{i+1}^D − θ_i^D) x_m^I · ( x_s^I × V^D)                     (16a)
+```
+
+Eq. (16b) keeps the same shape with `h̃_m^I` in place of `h_I`, and Eq. (18) — the
+operative strain — inherits it.  **Eq. (16a) is dimensionally inconsistent without
+that factor**: `x_m^I·(x_r^I × V^D)` already carries `L²`, and the result is a
+displacement, so the `θ·L²` needs the `1/L` that `1/‖x_m^I‖` supplies (`θ·L²/L = θ·L`).
+
+**Consequence for this repository, measured:** the implementation follows Eq. (18), so
+its drill block `B̃ᵀ C B̃` is `(8/L_I)²` too small.  The earlier edge-convention note
+(above) and this one are the paper's **second** internal inconsistency; the first is
+the missing leading term in the 2017 paper's Eq. (21) (note F2 of that extract).  Both
+were found by measuring, not by trusting the equations.
+
+**But adopting the Eq. (15) form is not a fix by itself — it is a trade.** Measured on
+the five twisted-beam cells (this repository's element, `h = 0.32` for the thick cases):
+
+| case | published | with Eq. (18) | with Eq. (15)'s factor |
+| --- | --- | --- | --- |
+| thin N=8 in | 0.9959 | 0.9958 | 0.9732 |
+| thin N=16 in | 0.9975 | 0.9978 | 0.9728 |
+| thin N=16 out | 0.9980 | 0.9987 | 0.9684 |
+| thick N=16 in | 0.9972 | **1.9623** | **1.0141** |
+| thick N=16 out | 0.9972 | **2.9933** | **0.9028** |
+
+So the factor repairs the thick in-plane cell but overshoots the thick out-of-plane by
+9.5% and pushes all three thin cells 2.3–3.1% below the published columns — the same
+thin-wants-soft / thick-wants-stiff conflict, reversed.  **At least one further error
+remains**, and it is not a drill *scale*: neither paper has one, and none may be added.
+Settling it needs a deeper pass over the drill's cross terms, the Eq. (21) centre
+metric and the through-thickness integration than this session had.
+
 ### What this settles, and what it breaks
 
 **Every column of `B̃` is a DIFFERENCE of edge terms** — `B̃_rr`'s columns are
