@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 import warnings
 
-import matplotlib.pyplot as plt
 import numpy as np
 import shapely as shp
 from scipy.interpolate import CubicSpline
@@ -10,7 +9,6 @@ from scipy.interpolate import CubicSpline
 from aeroelast.core.material import Material, OrthotropicMaterial
 from aeroelast.core.mesh import MeshModel
 from aeroelast.core.mesh.generators import BladeMesh, RotorMesh
-from aeroelast.core.viewer import BladeGeometryVisualizer
 from aeroelast.elements import ElementFamily
 
 
@@ -125,6 +123,10 @@ class Blade:
         """Display blade geometry plots."""
         if self._numad_blade is None:
             raise RuntimeError("Mesh has not been generated yet. Call generate_mesh() first.")
+        import matplotlib.pyplot as plt
+
+        from aeroelast.core.viewer import BladeGeometryVisualizer
+
         visualizer = BladeGeometryVisualizer(self._numad_blade)
         visualizer.plot_airfoil_type_distribution()
         visualizer.plot_chord_distribution()
@@ -258,7 +260,7 @@ class Blade:
                 s_new = np.linspace(0, s[-1], n_points)
                 new_x = cs_x(s_new)
                 new_y = cs_y(s_new)
-            except:
+            except Exception:
                 # Fallback a interpolación lineal si CubicSpline falla
                 s_new = np.linspace(0, s[-1], n_points)
                 new_x = np.interp(s_new, s, x)

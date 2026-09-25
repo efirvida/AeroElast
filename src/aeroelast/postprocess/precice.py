@@ -1,7 +1,6 @@
 import io
 from typing import Optional
 
-import matplotlib.pyplot as plt
 import polars as pl
 
 
@@ -39,6 +38,8 @@ class FSIDataVisualizer:
             component (int, optional): Componente específico a graficar (0, 1, 2). Si None, grafica todas.
             save_path (str, optional): Ruta para guardar la figura. Si None, muestra la figura.
         """
+        import matplotlib.pyplot as plt
+
         plt.figure(figsize=(10, 6))
 
         if component is not None:
@@ -76,9 +77,11 @@ class FSIDataVisualizer:
         Grafica las fuerzas a lo largo del tiempo.
 
         Args:
-            component (int, optional): Componente específica a graficar (0, 1, 2). Si None, grafica todas.
+            component (int, optional): Componente específico a graficar (0, 1, 2). Si None, grafica todas.
             save_path (str, optional): Ruta para guardar la figura. Si None, muestra la figura.
         """
+        import matplotlib.pyplot as plt
+
         plt.figure(figsize=(10, 6))
 
         if component is not None:
@@ -115,6 +118,8 @@ class FSIDataVisualizer:
         Args:
             save_path (str, optional): Ruta para guardar la figura. Si None, muestra la figura.
         """
+        import matplotlib.pyplot as plt
+
         fig = plt.figure(figsize=(10, 8))
 
         if self.dimensions == 2:

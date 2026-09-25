@@ -7,7 +7,7 @@
 # - preCICE compilado desde código fuente
 # - PETSc/SLEPc compilados desde código fuente (rama release)
 # - Adaptador OpenFOAM-preCICE compilado
-# - fem_shell y todas las dependencias Python
+# - aeroelast y todas las dependencias Python
 # ================================================================================
 # Uso:
 #   make help          - Mostrar ayuda
@@ -18,7 +18,7 @@
 #   make precice       - Solo preCICE
 #   make adapter       - Solo adaptador OpenFOAM-preCICE
 #   make python-deps   - Solo paquetes Python
-#   make fem-shell     - Solo fem_shell
+#   make aeroelast     - Solo aeroelast
 #   make clean         - Limpiar archivos temporales
 # ================================================================================
 
@@ -30,7 +30,7 @@ SHELL := /bin/bash
 FOAM_VERSION ?= 2506
 PRECICE_VERSION ?= 3.3.0
 INSTALL_PREFIX ?= /usr/local
-BUILD_DIR ?= /tmp/fem-shell-build
+BUILD_DIR ?= /tmp/aeroelast-build
 NPROC ?= $(shell nproc)
 
 # Colores para output
@@ -41,16 +41,16 @@ BLUE := \033[0;34m
 NC := \033[0m # No Color
 
 # ================== Targets principales ================== #
-.PHONY: all help deps openfoam petsc precice adapter python-deps fem-shell clean check-wsl env-setup clean-all clean-all-force verify
+.PHONY: all help deps openfoam petsc precice adapter python-deps aeroelast clean check-wsl env-setup clean-all clean-all-force verify
 
-all: check-wsl deps openfoam petsc precice adapter python-deps fem-shell env-setup
+all: check-wsl deps openfoam petsc precice adapter python-deps aeroelast env-setup
 	@echo -e "$(GREEN)✓ Instalación completa finalizada$(NC)"
 	@echo -e "$(YELLOW)Por favor, cierra y vuelve a abrir tu terminal o ejecuta:$(NC)"
 	@echo -e "  source ~/.bashrc"
 
 help:
 	@echo -e "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
-	@echo -e "$(BLUE)  Makefile para fem-shell en WSL Ubuntu 24.04$(NC)"
+	@echo -e "$(BLUE)  Makefile para aeroelast en WSL Ubuntu 24.04$(NC)"
 	@echo -e "$(BLUE)═══════════════════════════════════════════════════════════════$(NC)"
 	@echo ""
 	@echo -e "$(GREEN)Uso:$(NC)"
@@ -61,7 +61,7 @@ help:
 	@echo "  make precice       - Solo preCICE"
 	@echo "  make adapter       - Solo adaptador OpenFOAM-preCICE"
 	@echo "  make python-deps   - Solo paquetes Python"
-	@echo "  make fem-shell     - Solo fem_shell"
+	@echo "  make aeroelast     - Solo aeroelast"
 	@echo "  make clean         - Limpiar archivos temporales"
 	@echo "  make clean-all     - Limpiar instalación completa (excepto APT)"
 	@echo "  make clean-all-force - Limpiar todo sin confirmación"
@@ -283,31 +283,31 @@ $(BUILD_DIR)/.python-deps-installed: $(BUILD_DIR)/.petsc-installed $(BUILD_DIR)/
 	@touch $@
 	@echo -e "$(GREEN)✓ Paquetes Python instalados$(NC)"
 
-# ================== fem_shell ================== #
-fem-shell: python-deps
-	@echo -e "$(BLUE)▶ Instalando fem_shell...$(NC)"
+# ================== aeroelast ================== #
+aeroelast: python-deps
+	@echo -e "$(BLUE)▶ Instalando aeroelast...$(NC)"
 	pip3 install --break-system-packages --no-deps -e .
-	@echo -e "$(GREEN)✓ fem_shell instalado$(NC)"
+	@echo -e "$(GREEN)✓ aeroelast instalado$(NC)"
 
 # ================== Configuración del entorno ================== #
 env-setup:
 	@echo -e "$(BLUE)▶ Configurando variables de entorno...$(NC)"
 	@# Crear archivo de configuración
-	@echo '# ========== fem-shell Environment Setup ==========' > ~/.fem-shell-env
-	@echo 'export PETSC_DIR=$(INSTALL_PREFIX)' >> ~/.fem-shell-env
-	@echo 'export SLEPC_DIR=$(INSTALL_PREFIX)' >> ~/.fem-shell-env
-	@echo 'export LD_LIBRARY_PATH=$(INSTALL_PREFIX)/lib:$$LD_LIBRARY_PATH' >> ~/.fem-shell-env
-	@echo '' >> ~/.fem-shell-env
-	@echo '# Alias para cargar OpenFOAM (paquete oficial)' >> ~/.fem-shell-env
-	@echo '# Uso: foam (inicia subshell con entorno OpenFOAM)' >> ~/.fem-shell-env
-	@echo 'alias foam="/usr/bin/openfoam$(FOAM_VERSION)"' >> ~/.fem-shell-env
-	@echo '# =================================================' >> ~/.fem-shell-env
+	@echo '# ========== aeroelast Environment Setup ==========' > ~/.aeroelast-env
+	@echo 'export PETSC_DIR=$(INSTALL_PREFIX)' >> ~/.aeroelast-env
+	@echo 'export SLEPC_DIR=$(INSTALL_PREFIX)' >> ~/.aeroelast-env
+	@echo 'export LD_LIBRARY_PATH=$(INSTALL_PREFIX)/lib:$$LD_LIBRARY_PATH' >> ~/.aeroelast-env
+	@echo '' >> ~/.aeroelast-env
+	@echo '# Alias para cargar OpenFOAM (paquete oficial)' >> ~/.aeroelast-env
+	@echo '# Uso: foam (inicia subshell con entorno OpenFOAM)' >> ~/.aeroelast-env
+	@echo 'alias foam="/usr/bin/openfoam$(FOAM_VERSION)"' >> ~/.aeroelast-env
+	@echo '# =================================================' >> ~/.aeroelast-env
 	@# Añadir al .bashrc si no existe
-	@if ! grep -q "fem-shell-env" ~/.bashrc 2>/dev/null; then \
+	@if ! grep -q "aeroelast-env" ~/.bashrc 2>/dev/null; then \
 		echo '' >> ~/.bashrc; \
-		echo '# Load fem-shell environment' >> ~/.bashrc; \
-		echo 'if [ -f ~/.fem-shell-env ]; then' >> ~/.bashrc; \
-		echo '    source ~/.fem-shell-env' >> ~/.bashrc; \
+		echo '# Load aeroelast environment' >> ~/.bashrc; \
+		echo 'if [ -f ~/.aeroelast-env ]; then' >> ~/.bashrc; \
+		echo '    source ~/.aeroelast-env' >> ~/.bashrc; \
 		echo 'fi' >> ~/.bashrc; \
 		echo -e "$(GREEN)✓ Configuración añadida a ~/.bashrc$(NC)"; \
 	else \
@@ -377,7 +377,7 @@ clean-all: clean
 	@echo -e "$(YELLOW)  - PETSc, SLEPc y preCICE de $(INSTALL_PREFIX)$(NC)"
 	@echo -e "$(YELLOW)  - Adaptador OpenFOAM compilado$(NC)"
 	@echo -e "$(YELLOW)  - Paquetes Python (petsc4py, slepc4py, pyprecice, etc.)$(NC)"
-	@echo -e "$(YELLOW)  - fem_shell y configuración de entorno$(NC)"
+	@echo -e "$(YELLOW)  - aeroelast y configuración de entorno$(NC)"
 	@read -p "¿Estás seguro? [y/N] " -n 1 -r; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
 		echo -e "\n$(BLUE)▶ Eliminando librerías compiladas...$(NC)"; \
@@ -391,13 +391,13 @@ clean-all: clean
 		fi; \
 		echo -e "$(BLUE)▶ Desinstalando paquetes Python...$(NC)"; \
 		pip3 uninstall -y --break-system-packages \
-			petsc4py slepc4py pyprecice precice-cli fem-shell \
+			petsc4py slepc4py pyprecice precice-cli aeroelast \
 			gmsh trimesh meshio pyvista pyvistaqt \
 			numpy-stl triangle plot3d nevergrad 2>/dev/null || true; \
 		echo -e "$(BLUE)▶ Eliminando configuración de entorno...$(NC)"; \
-		rm -f ~/.fem-shell-env; \
-		if grep -q "fem-shell-env" ~/.bashrc 2>/dev/null; then \
-			sed -i '/# Load fem-shell environment/,+4d' ~/.bashrc; \
+		rm -f ~/.aeroelast-env; \
+		if grep -q "aeroelast-env" ~/.bashrc 2>/dev/null; then \
+			sed -i '/# Load aeroelast environment/,+4d' ~/.bashrc; \
 		fi; \
 		sudo ldconfig; \
 		echo -e "\n$(GREEN)✓ Limpieza completa finalizada$(NC)"; \
@@ -420,13 +420,13 @@ clean-all-force: clean
 	fi
 	@echo -e "$(BLUE)▶ Desinstalando paquetes Python...$(NC)"
 	@pip3 uninstall -y --break-system-packages \
-		petsc4py slepc4py pyprecice precice-cli fem-shell \
+		petsc4py slepc4py pyprecice precice-cli aeroelast \
 		gmsh trimesh meshio pyvista pyvistaqt \
 		numpy-stl triangle plot3d nevergrad 2>/dev/null || true
 	@echo -e "$(BLUE)▶ Eliminando configuración de entorno...$(NC)"
-	@rm -f ~/.fem-shell-env || true
-	@if grep -q "fem-shell-env" ~/.bashrc 2>/dev/null; then \
-		sed -i '/# Load fem-shell environment/,+4d' ~/.bashrc; \
+	@rm -f ~/.aeroelast-env || true
+	@if grep -q "aeroelast-env" ~/.bashrc 2>/dev/null; then \
+		sed -i '/# Load aeroelast environment/,+4d' ~/.bashrc; \
 	fi
 	@sudo ldconfig || true
 	@echo -e "$(GREEN)✓ Limpieza completa finalizada$(NC)"
@@ -465,8 +465,8 @@ verify:
 	else \
 		echo -e "$(RED)✗$(NC)"; \
 	fi
-	@echo -n "fem_shell: "
-	@if python3 -c "import fem_shell" 2>/dev/null; then \
+	@echo -n "aeroelast: "
+	@if python3 -c "import aeroelast" 2>/dev/null; then \
 		echo -e "$(GREEN)✓$(NC)"; \
 	else \
 		echo -e "$(RED)✗$(NC)"; \

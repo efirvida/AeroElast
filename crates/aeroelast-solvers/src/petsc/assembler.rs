@@ -64,48 +64,47 @@ pub fn assemble_seq_aij(
         let comm = ffi::petsc_comm_self();
         let mut raw_mat = std::ptr::null_mut();
 
-        // Create and configure
+        // Create
         check(ffi::MatCreate(comm, &mut raw_mat), "MatCreate")?;
-        check(
-            ffi::MatSetType(raw_mat, MATAIJ.as_ptr()),
-            "MatSetType",
-        )?;
-        check(
-            ffi::MatSetSizes(raw_mat, n, n, n, n),
-            "MatSetSizes",
-        )?;
+
+        // Wrap immediately — PetscMat::Drop calls MatDestroy on any error path.
+        let mat = PetscMat::from_raw(raw_mat);
+
+        // Configure
+        check(ffi::MatSetType(mat.as_raw(), MATAIJ.as_ptr()), "MatSetType")?;
+        check(ffi::MatSetSizes(mat.as_raw(), n, n, n, n), "MatSetSizes")?;
 
         // Preallocate via COO pattern — PETSc deduces sparsity from the triplets
         check(
-            ffi::MatSetPreallocationCOO(raw_mat, ncoo, rows.as_ptr(), cols.as_ptr()),
+            ffi::MatSetPreallocationCOO(mat.as_raw(), ncoo, rows.as_ptr(), cols.as_ptr()),
             "MatSetPreallocationCOO",
         )?;
 
         // Insert values — ADD_VALUES: duplicate (row,col) entries are SUMMED.
         // This is essential for FEM: shared DOFs between elements accumulate contributions.
         check(
-            ffi::MatSetValuesCOO(raw_mat, vals.as_ptr(), ADD_VALUES),
+            ffi::MatSetValuesCOO(mat.as_raw(), vals.as_ptr(), ADD_VALUES),
             "MatSetValuesCOO",
         )?;
 
         // Assemble
         check(
-            ffi::MatAssemblyBegin(raw_mat, MAT_FINAL_ASSEMBLY),
+            ffi::MatAssemblyBegin(mat.as_raw(), MAT_FINAL_ASSEMBLY),
             "MatAssemblyBegin",
         )?;
         check(
-            ffi::MatAssemblyEnd(raw_mat, MAT_FINAL_ASSEMBLY),
+            ffi::MatAssemblyEnd(mat.as_raw(), MAT_FINAL_ASSEMBLY),
             "MatAssemblyEnd",
         )?;
 
         // Mark symmetric — enables Cholesky factorization path in PETSc PC
         // FEM stiffness and mass matrices are always symmetric.
         check(
-            ffi::MatSetOption(raw_mat, MAT_SYMMETRIC, PETSC_TRUE),
+            ffi::MatSetOption(mat.as_raw(), MAT_SYMMETRIC, PETSC_TRUE),
             "MatSetOption(MAT_SYMMETRIC)",
         )?;
 
-        Ok(PetscMat::from_raw(raw_mat))
+        Ok(mat)
     }
 }
 
@@ -133,9 +132,13 @@ pub fn create_vec(n_dof: usize) -> Result<crate::petsc::infra::vec::PetscVec, Pe
         let mut raw_vec = std::ptr::null_mut();
 
         check(ffi::VecCreate(comm, &mut raw_vec), "VecCreate")?;
-        check(ffi::VecSetSizes(raw_vec, n, PETSC_DECIDE), "VecSetSizes")?;
-        check(ffi::VecSetFromOptions(raw_vec), "VecSetFromOptions")?;
 
-        Ok(crate::petsc::infra::vec::PetscVec::from_raw(raw_vec, n_dof))
+        // Wrap immediately — PetscVec::Drop calls VecDestroy on any error path.
+        let vec = crate::petsc::infra::vec::PetscVec::from_raw(raw_vec, n_dof);
+
+        check(ffi::VecSetSizes(vec.as_raw(), n, PETSC_DECIDE), "VecSetSizes")?;
+        check(ffi::VecSetFromOptions(vec.as_raw()), "VecSetFromOptions")?;
+
+        Ok(vec)
     }
 }

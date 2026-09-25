@@ -14,7 +14,6 @@ dependencies = [
 name = "aeroelast-mesh"
 version = "0.1.0"
 dependencies = [
- "aeroelast-core",
  "hdf5-metno",
  "nalgebra",
  "ndarray",

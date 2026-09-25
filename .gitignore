@@ -87,7 +87,8 @@ crates/target/
 **/log.*
 **/*.log
 **/*.png
-**/core.*
+**/core
+**/core.[0-9]*
 
 # Archivos de salida específicos en cualquier ubicación
 **/*.foam
@@ -114,4 +115,6 @@ solid_mesh.vtu
 tools/wine-*.AppImage
 tests/blades/
 tests/hub.stl
-.atl/.skill-registry.cache.json
+
+# CodeGraph local index
+.codegraph/

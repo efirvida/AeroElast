@@ -7,7 +7,6 @@ import numpy as np
 from aeroelast.core.assembler import MeshAssembler
 from aeroelast.core.bc import BodyForce, DirichletCondition, NodalLoad
 from aeroelast.core.mesh import MeshModel
-from aeroelast.core.viewer import plot_results
 from aeroelast.elements import ElementFamily
 
 
@@ -467,6 +466,8 @@ class Solver(ABC):
         mesh_object.write(output_file, file_format="vtk")
 
     def view_results(self):
+        from aeroelast.core.viewer import plot_results
+
         # 'vector_form' is assumed to be a dict mapping vector field names to lists of component names.
         vector_form = self.vector_form
         vector_components = [comp for vector in vector_form.values() for comp in vector]

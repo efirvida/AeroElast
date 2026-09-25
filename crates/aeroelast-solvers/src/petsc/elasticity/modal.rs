@@ -4,6 +4,7 @@
 /// where K is stiffness and M is mass matrix (both assembled PETSc Mats).
 use super::super::assembler::create_vec;
 use super::super::infra::ffi::{EPS_GHEP, EPS_TARGET_MAGNITUDE, PETSC_DEFAULT};
+use super::super::infra::handles::PetscEps;
 use super::super::infra::mat::{check, PetscError, PetscMat};
 use super::super::infra::ffi as ffi;
 
@@ -51,9 +52,12 @@ pub fn modal_solve(
 
     unsafe {
         let comm = ffi::petsc_comm_self();
-        let mut eps: ffi::EPS = std::ptr::null_mut();
+        let mut raw_eps: ffi::EPS = std::ptr::null_mut();
 
-        check(ffi::EPSCreate(comm, &mut eps), "EPSCreate")?;
+        check(ffi::EPSCreate(comm, &mut raw_eps), "EPSCreate")?;
+
+        // Wrap immediately — PetscEps::Drop calls EPSDestroy on any error path.
+        let eps = PetscEps::from_raw(raw_eps);
 
         // Determine matrix size for dimension clamping
         let mut k_rows: i32 = 0;
@@ -62,28 +66,28 @@ pub fn modal_solve(
 
         // Set K (operator A) and M (operator B) for K·x = λ·M·x
         check(
-            ffi::EPSSetOperators(eps, k.as_raw(), m.as_raw()),
+            ffi::EPSSetOperators(eps.as_raw(), k.as_raw(), m.as_raw()),
             "EPSSetOperators",
         )?;
 
         // Generalized Hermitian Eigenvalue Problem
         check(
-            ffi::EPSSetProblemType(eps, EPS_GHEP),
+            ffi::EPSSetProblemType(eps.as_raw(), EPS_GHEP),
             "EPSSetProblemType",
         )?;
 
         // Find smallest eigenvalues (closest to target 0)
         check(
-            ffi::EPSSetWhichEigenpairs(eps, EPS_TARGET_MAGNITUDE),
+            ffi::EPSSetWhichEigenpairs(eps.as_raw(), EPS_TARGET_MAGNITUDE),
             "EPSSetWhichEigenpairs",
         )?;
-        check(ffi::EPSSetTarget(eps, 0.0), "EPSSetTarget")?;
+        check(ffi::EPSSetTarget(eps.as_raw(), 0.0), "EPSSetTarget")?;
 
         // Configure ST: SINVERT with shift=0, KSP=preonly, PC=LU
         // SINVERT enables shift-and-invert: finds eigenvalues near target=0 efficiently.
         // PC=LU: direct factorization of (K - σ·M).
         let mut st: ffi::ST = std::ptr::null_mut();
-        check(ffi::EPSGetST(eps, &mut st), "EPSGetST")?;
+        check(ffi::EPSGetST(eps.as_raw(), &mut st), "EPSGetST")?;
         check(
             ffi::STSetType(st, STSINVERT.as_ptr()),
             "STSetType(sinvert)",
@@ -106,27 +110,27 @@ pub fn modal_solve(
         // Request extra modes for better Krylov-Schur convergence (matches Python impl)
         let eff_n_modes = (n_modes + 5).min(k_rows as usize) as i32;
         check(
-            ffi::EPSSetDimensions(eps, eff_n_modes, PETSC_DEFAULT, PETSC_DEFAULT),
+            ffi::EPSSetDimensions(eps.as_raw(), eff_n_modes, PETSC_DEFAULT, PETSC_DEFAULT),
             "EPSSetDimensions",
         )?;
 
         // Set convergence tolerances (matches Python: tol=1e-10, max_it=1000)
         check(
-            ffi::EPSSetTolerances(eps, 1e-10, 1000),
+            ffi::EPSSetTolerances(eps.as_raw(), 1e-10, 1000),
             "EPSSetTolerances",
         )?;
 
         // Allow runtime override via -eps_* options
-        check(ffi::EPSSetFromOptions(eps), "EPSSetFromOptions")?;
+        check(ffi::EPSSetFromOptions(eps.as_raw()), "EPSSetFromOptions")?;
 
         // Setup and solve
-        check(ffi::EPSSetUp(eps), "EPSSetUp")?;
-        check(ffi::EPSSolve(eps), "EPSSolve")?;
+        check(ffi::EPSSetUp(eps.as_raw()), "EPSSetUp")?;
+        check(ffi::EPSSolve(eps.as_raw()), "EPSSolve")?;
 
         // Query converged count
         let mut nconv: i32 = 0;
         check(
-            ffi::EPSGetConverged(eps, &mut nconv),
+            ffi::EPSGetConverged(eps.as_raw(), &mut nconv),
             "EPSGetConverged",
         )?;
 
@@ -148,7 +152,7 @@ pub fn modal_solve(
             let mut ki: f64 = 0.0;
 
             check(
-                ffi::EPSGetEigenpair(eps, i, &mut kr, &mut ki, vr.as_raw(), vi.as_raw()),
+                ffi::EPSGetEigenpair(eps.as_raw(), i, &mut kr, &mut ki, vr.as_raw(), vi.as_raw()),
                 "EPSGetEigenpair",
             )?;
 
@@ -156,8 +160,7 @@ pub fn modal_solve(
             eigenvectors.push(vr.to_vec()?);
         }
 
-        // Cleanup EPS
-        check(ffi::EPSDestroy(&mut eps), "EPSDestroy")?;
+        // (eps is dropped here — PetscEps::Drop calls EPSDestroy)
 
         Ok(ModalResult {
             eigenvalues,

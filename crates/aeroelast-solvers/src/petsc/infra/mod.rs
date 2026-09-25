@@ -4,10 +4,12 @@
 ///
 /// ```text
 /// infra/
-/// ├── ffi  — Raw C bindings for PETSc and SLEPc
-/// ├── mat  — RAII PetscMat wrapper (owns Mat handle, calls MatDestroy on drop)
-/// └── vec  — RAII PetscVec wrapper (owns Vec handle, calls VecDestroy on drop)
+/// ├── ffi      — Raw C bindings for PETSc and SLEPc
+/// ├── mat      — RAII PetscMat wrapper (owns Mat handle, calls MatDestroy on drop)
+/// ├── vec      — RAII PetscVec wrapper (owns Vec handle, calls VecDestroy on drop)
+/// └── handles  — RAII wrappers for KSP/EPS/SNES handles (call *Destroy on drop)
 /// ```
 pub mod ffi;
+pub mod handles;
 pub mod mat;
 pub mod vec;

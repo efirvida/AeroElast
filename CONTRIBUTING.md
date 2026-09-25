@@ -1,4 +1,4 @@
-# Contributing to fem-shell
+# Contributing to AeroElast
 
 Contributions are allowed and welcome even though the project itself is not
 open-source in the OSI sense.

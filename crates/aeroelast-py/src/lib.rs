@@ -916,6 +916,14 @@ fn newmark_beta_solve_coo<'py>(
 // PETSc pipeline: assemble + modal solve via SLEPc
 // ============================================================================
 
+/// Stable name for capsules wrapping a `PetscMat`.
+///
+/// `petsc_modal_solve` verifies this name via `PyCapsule::pointer_checked`
+/// before casting the capsule pointer to `PetscMat`, preventing UB from
+/// arbitrary capsules being passed in.
+const PETSC_MAT_CAPSULE_NAME: &std::ffi::CStr =
+    unsafe { std::ffi::CStr::from_bytes_with_nul_unchecked(b"aeroelast.PetscMat\0") };
+
 /// Assemble a global stiffness or mass matrix into a PETSc Mat (AIJ sequential).
 ///
 /// Accepts COO triplets produced by `coo_assembly` and returns an opaque
@@ -947,7 +955,8 @@ fn petsc_assemble_matrix<'py>(
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
     // Move `mat` into the capsule. PyO3 boxes it internally; Drop runs MatDestroy.
-    PyCapsule::new(py, mat, None)
+    // Name the capsule so `petsc_modal_solve` can validate it before casting.
+    PyCapsule::new(py, mat, Some(std::ffi::CString::from(PETSC_MAT_CAPSULE_NAME)))
 }
 
 /// Modal solve using SLEPc EPS on two PETSc matrices (K and M).
@@ -968,19 +977,20 @@ fn petsc_modal_solve<'py>(
     m_capsule: &Bound<'py, PyCapsule>,
     n_modes: usize,
 ) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<f64>>)> {
-    // SAFETY: both capsules were created by `petsc_assemble_matrix` in this module,
-    // so they contain valid `PetscMat` values. `pointer_checked(None)` returns a
-    // NonNull<c_void> pointing to the boxed value; we cast and reborrow as shared ref.
+    // SAFETY: the capsule name must match the one set by `petsc_assemble_matrix`
+    // (`aeroelast.PetscMat`). `pointer_checked(Some(name))` validates the capsule
+    // name AND non-null pointer before we cast and reborrow as a shared ref, so a
+    // mismatched/wrong capsule returns a Python error instead of UB.
     let k = unsafe {
         k_capsule
-            .pointer_checked(None)
+            .pointer_checked(Some(PETSC_MAT_CAPSULE_NAME))
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?
             .cast::<aeroelast_solvers::PetscMat>()
             .as_ref()
     };
     let m = unsafe {
         m_capsule
-            .pointer_checked(None)
+            .pointer_checked(Some(PETSC_MAT_CAPSULE_NAME))
             .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?
             .cast::<aeroelast_solvers::PetscMat>()
             .as_ref()
