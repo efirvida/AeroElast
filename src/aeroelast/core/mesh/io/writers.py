@@ -698,7 +698,8 @@ def write_ccx_mesh(
         )
 
     # Write files
-    _write_ccx_msh_file(mesh, msh_file, quadratic_data=quadratic_data)
+    _write_ccx_msh_file(mesh, msh_file, quadratic_data=quadratic_data,
+                            properties=properties)
     _write_ccx_nam_file(
         mesh,
         nam_file,
@@ -833,8 +834,31 @@ def _write_ccx_msh_file(
     mesh: "MeshModel",
     filename: str,
     quadratic_data: Optional[Dict] = None,
+    properties: Optional[Dict] = None,
 ) -> None:
-    """Write the .msh file containing nodes and elements."""
+    """Write the .msh file containing nodes and elements.
+
+    Elements are grouped by (region element set, CCX type) and each block
+    carries the region's ELSET name -- the same ``E<SETNAME>`` the
+    ``*SHELL SECTION`` lines reference.  Emitting a single ``ELSET=Eall``
+    left every section pointing at an undefined set, so CalculiX saw the
+    elements with no section at all and died in ``gen3delem`` with
+    "first thickness ... is zero".
+
+    The sets that carry a section are DISJOINT (every element belongs to
+    exactly one), so each element lands in exactly one block.
+    """
+    # element index -> region elset tag, from the sets that have a section
+    region_of: Dict[int, str] = {}
+    if properties:
+        for set_name in properties:
+            eset = mesh.element_sets.get(set_name)
+            if eset is None:
+                continue
+            tag = f"E{set_name.upper()}"
+            for eid in eset.element_ids:
+                region_of[eid] = tag
+
     with open(filename, "wt") as f:
         if quadratic_data is not None:
             # --- Quadratic mesh ---
@@ -843,13 +867,14 @@ def _write_ccx_msh_file(
             for i, nd in enumerate(all_nodes):
                 f.write(f"{i + 1:8d}, {nd[0]:14.6E}, {nd[1]:14.6E}, {nd[2]:14.6E}\n")
 
-            # Group elements by CCX type
-            elements_by_type: Dict[str, list] = {}
+            grouped: Dict[tuple, list] = {}
             for i, (ccx_type, nids) in enumerate(quadratic_data["elements"]):
-                elements_by_type.setdefault(ccx_type, []).append((i, nids))
+                el_id = mesh.elements[i].id if i < len(mesh.elements) else None
+                elset = region_of.get(el_id, "Eall")
+                grouped.setdefault((elset, ccx_type), []).append((i, nids))
 
-            for ccx_type, elems in elements_by_type.items():
-                f.write(f"*ELEMENT, TYPE={ccx_type}, ELSET=Eall\n")
+            for (elset, ccx_type), elems in grouped.items():
+                f.write(f"*ELEMENT, TYPE={ccx_type}, ELSET={elset}\n")
                 for i, nids in elems:
                     node_ids_str = ", ".join(str(n) for n in nids)
                     f.write(f"{i + 1:8d}, {node_ids_str}\n")
@@ -859,20 +884,20 @@ def _write_ccx_msh_file(
             for i, nd in enumerate(mesh.nodes):
                 f.write(f"{i + 1:8d}, {nd.x:14.6E}, {nd.y:14.6E}, {nd.z:14.6E}\n")
 
-            elements_by_type: Dict[str, list] = {}
+            grouped_lin: Dict[tuple, list] = {}
             for i, el in enumerate(mesh.elements):
                 el_type_name = el.element_type.name
-                if el_type_name not in elements_by_type:
-                    elements_by_type[el_type_name] = []
-                elements_by_type[el_type_name].append((i, el))
+                if el_type_name not in ELEMENTS_TO_CALCULIX:
+                    continue
+                ccx_type = ELEMENTS_TO_CALCULIX[el_type_name]
+                elset = region_of.get(el.id, "Eall")
+                grouped_lin.setdefault((elset, ccx_type), []).append((i, el))
 
-            for el_type_name, elements in elements_by_type.items():
-                if el_type_name in ELEMENTS_TO_CALCULIX:
-                    ccx_type = ELEMENTS_TO_CALCULIX[el_type_name]
-                    f.write(f"*ELEMENT, TYPE={ccx_type}, ELSET=Eall\n")
-                    for i, el in elements:
-                        node_ids_str = ", ".join(str(n + 1) for n in el.node_ids)
-                        f.write(f"{i + 1:8d}, {node_ids_str}\n")
+            for (elset, ccx_type), elements in grouped_lin.items():
+                f.write(f"*ELEMENT, TYPE={ccx_type}, ELSET={elset}\n")
+                for i, el in elements:
+                    node_ids_str = ", ".join(str(n + 1) for n in el.node_ids)
+                    f.write(f"{i + 1:8d}, {node_ids_str}\n")
 
 
 def _write_ccx_nam_file(
