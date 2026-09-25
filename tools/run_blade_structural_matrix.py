@@ -76,6 +76,8 @@ def main() -> None:
     ap.add_argument("--case-index", type=int, default=None,
                     help="run ONLY this case (0-based) and write --csv for it alone; "
                          "for a SLURM job array over the independent cases")
+    ap.add_argument("--max-removals", type=int, default=50,
+                    help="how many CalculiX-unprocessable elements to drop per case")
     ap.add_argument("--work-dir", type=Path,
                     default=Path("/scratch/leahk/eduardo.donestevez/tmp/opencode/blade_ccx"))
     args = ap.parse_args()
@@ -188,14 +190,52 @@ def _run_ccx_column(mesh, props, rows, args) -> None:
         case_dir.mkdir(exist_ok=True)
         stem = f"blade_{name}"
         inp = case_dir / f"{stem}.inp"
-        write_ccx_mesh(
-            mesh, str(inp), properties=props,
-            boundary_nodeset="RootNodes", solver_type="LinearStatic",
-            load_nodeset="TipNodes", load_vector=list(vec),
-            span_direction=(0.0, 0.0, 1.0), quadratic=True,
-        )
-        _run_ccx(ccx_bin, case_dir, stem)
+
+        # CalculiX cannot always quadratize the blade's slivers: it stops with
+        # "*ERROR in e_c3d: nonpositive jacobian ... element N".  Treat that as
+        # a CalculiX limitation and drop the offending element, then retry,
+        # until it runs.  A handful of elements out of tens of thousands does
+        # not move the global response -- but the count and the ids are
+        # recorded, never hidden.
+        import copy
+        import re
+
+        work_mesh = copy.deepcopy(mesh)
+        removed: list[int] = []
         frd = case_dir / f"{stem}.frd"
+        for attempt in range(args.max_removals + 1):
+            if inp.exists():
+                inp.unlink()
+            write_ccx_mesh(
+                work_mesh, str(inp), properties=props,
+                boundary_nodeset="RootNodes", solver_type="LinearStatic",
+                load_nodeset="TipNodes", load_vector=list(vec),
+                span_direction=(0.0, 0.0, 1.0), quadratic=True,
+            )
+            # _run_ccx raises RuntimeError carrying CCX's stdout on failure
+            # (and clears the workdir beforehand), so parse the exception.
+            try:
+                _run_ccx(ccx_bin, case_dir, stem)
+                break
+            except RuntimeError as exc:
+                blob = str(exc)
+            m = re.search(r"nonpositive jacobian\s+determinant in element\s+(\d+)", blob)
+            if not m:
+                tail = "\n".join(blob.strip().splitlines()[-12:])
+                print(f"  {name:>22}: CCX failed with a NON-element error "
+                      f"(removed so far: {len(removed)}); last output:\n{tail}")
+                break
+            bad = int(m.group(1)) - 1          # CCX element ids are 1-based
+            if bad < 0 or bad >= len(work_mesh.elements):
+                print(f"  {name:>22}: bad element id {bad+1} out of range")
+                break
+            removed.append(bad + 1)
+            work_mesh.elements.pop(bad)        # mesh.elements is a plain list
+        row["ccx_removed_count"] = len(removed)
+        row["ccx_removed_ids"] = ";".join(str(i) for i in removed)
+        if removed:
+            print(f"  {name:>22}: removed {len(removed)} element(s) CalculiX could "
+                  f"not quadratize: {removed[:8]}{'...' if len(removed) > 8 else ''}")
         if not frd.exists():
             print(f"  {name:>22}: CCX produced no FRD")
             row["ccx_m"] = ""

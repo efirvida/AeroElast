@@ -103,6 +103,10 @@ def _build_angle_bucket_sets(
 
     # Only composite sets with known properties
     out: Dict[str, Dict[int, list[int]]] = {}
+    # Look elements up BY ID, not by list position: the two coincide only
+    # while nothing is ever removed from mesh.elements, and the blade CCX
+    # path drops CalculiX-unprocessable elements.
+    by_id = {el.id: el for el in mesh.elements}
     for set_name, element_set in mesh.element_sets.items():
         prop = properties.get(set_name)
         if prop is None or not _prop_is_composite(prop):
@@ -110,8 +114,8 @@ def _build_angle_bucket_sets(
 
         buckets: Dict[int, list[int]] = {}
         for elem_id in element_set.element_ids:
-            el = mesh.elements[elem_id]
-            if len(el.node_ids) < 3:
+            el = by_id.get(elem_id)
+            if el is None or len(el.node_ids) < 3:
                 continue
             # Use first 4 nodes for quads, first 3 for tris (matching Rust logic intent)
             node_ids = el.node_ids[:4] if len(el.node_ids) >= 4 else el.node_ids[:3]
