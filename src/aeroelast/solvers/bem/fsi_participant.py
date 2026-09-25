@@ -874,10 +874,14 @@ class BEMFSIParticipant:
         # strip centroids can exceed the reference rotor_radius.  A fixed
         # Rtip_ref causes Prandtl factortip < 0 → exp(+) > 1 → acos(NaN).
         #
-        # r_def is in blade-local frame (0 → blade_length); rotor_radius is in
-        # rotor frame (hub_radius + blade_length).  Add hub_radius before
-        # comparing so both values are in the same coordinate system.
-        deformed_rtip = (float(np.max(r_def)) + ba.hub_radius) * 1.001
+        # ``r_def`` comes from ``self._ref_r = blade_aero.r``, i.e. it is
+        # ALREADY in the rotor frame (hub_radius + blade_length), exactly like
+        # ``ba.rotor_radius``.  Adding hub_radius here double-counted it and
+        # pushed Rtip to ~125 m on a 121 m rotor, progressively defeating the
+        # Prandtl tip loss as the blade deformed — which over-predicts the
+        # outboard load, deforms the blade further, and closes a positive
+        # feedback loop in the same direction as the measured de-loading.
+        deformed_rtip = float(np.max(r_def)) * 1.001
         rotor_radius = max(deformed_rtip, ba.rotor_radius)
 
         deformed_aero = BladeAero(
@@ -1025,6 +1029,12 @@ class BEMFSIParticipant:
             # Zero displacement and no velocity — use pre-built reference solver
             bem_result = self._bem_solver.compute(v_inf, omega, pitch, azimuth=azimuth)
             forces = self._projector.project(bem_result)
+            # Rigid reference window: the baseline every later window is
+            # compared against (deformed flag = 0).
+            self._last_diag = {
+                "deformed": 0.0,
+                "delta_twist": np.zeros(len(bem_result.r), dtype=float),
+            }
             return forces, bem_result
 
         if disp_max < 1e-12:
@@ -1033,12 +1043,25 @@ class BEMFSIParticipant:
             bem_solver = self._bem_solver
             projector = self._projector
             r_def = self._ref_r.copy()
+            # Still rigid: record the reference baseline so the diagnostic does
+            # not carry a stale row from a previous window.
+            self._last_diag = {
+                "deformed": 0.0,
+                "delta_twist": np.zeros(len(self._ref_r), dtype=float),
+            }
         else:
             # -- Deformed geometry pipeline --------------------------------
             r_def, twist_def = self._compute_deformed_geometry(displacements)
             bem_solver, deformed_aero = self._rebuild_bem_solver(r_def, twist_def)
             deformed_coords = self._ref_coords + displacements
             projector = self._rebuild_projector(deformed_coords, deformed_aero)
+            # Coupling diagnostic: the section rotation the deformed geometry
+            # fed to CCBlade, per strip, relative to the undeformed blade.
+            self._last_diag = {
+                "deformed": 1.0,
+                "delta_twist": np.asarray(twist_def, dtype=float)
+                - np.asarray(self._ref_twist, dtype=float),
+            }
 
         # _strip_node_indices is intentionally kept as the *reference*
         # assignment and is NOT updated from the deformed projector here.
@@ -1325,6 +1348,50 @@ class BEMFSIParticipant:
                 f"{tip_disp_x:.6e},{tip_disp_y:.6e},{tip_disp_z:.6e},{tip_disp_mag:.6e},"
                 f"{max_force:.6e}\n"
             )
+
+        # -- coupling diagnostic, written to a SEPARATE file so that the
+        # -- bem_report.csv layout (consumed by the campaign analysis) is
+        # -- untouched.  Row 0 (rigid window) is the baseline for the later
+        # -- deformed windows.
+        diag = getattr(self, "_last_diag", None)
+        dt = np.asarray(diag["delta_twist"], dtype=float) if diag is not None else None
+        if dt is not None and len(dt) == len(bem_result.r):
+            diag_path = self._output_folder / "bem_diag.csv"
+            write_diag_header = not diag_path.exists()
+            r_arr = np.asarray(bem_result.r, dtype=float)
+            r_max = float(r_arr[-1]) if r_arr[-1] > 0 else 1.0
+            alpha = np.asarray(bem_result.alpha, dtype=float)
+            cl = np.asarray(bem_result.cl, dtype=float)
+            Re = getattr(bem_result, "Re", None)
+            Mp = bem_result.Mp
+            names: list[str] = []
+            values: list[float] = []
+            for frac in (0.3, 0.5, 0.7, 0.9):
+                k = int(np.argmin(np.abs(r_arr / r_max - frac)))
+                tag = f"{int(round(frac * 100)):02d}"
+                re_k = (
+                    float(Re[k])
+                    if Re is not None and len(Re) == len(r_arr)
+                    else float("nan")
+                )
+                mp_k = (
+                    float(Mp[k])
+                    if Mp is not None and len(Mp) == len(r_arr)
+                    else float("nan")
+                )
+                names += [
+                    f"dtwist_{tag}[deg]", f"alpha_{tag}[deg]", f"cl_{tag}",
+                    f"Re_{tag}", f"Mp_{tag}[Nm/m]",
+                ]
+                values += [float(np.degrees(dt[k])), alpha[k], cl[k], re_k, mp_k]
+            with open(diag_path, "a") as f:
+                if write_diag_header:
+                    f.write("Time [s],Step,deformed," + ",".join(names) + "\n")
+                f.write(
+                    f"{time:.6f},{step},{diag['deformed']:.1f},"
+                    + ",".join(f"{v:.6e}" for v in values)
+                    + "\n"
+                )
 
     def _update_pvd(self, folder: "Path", pvd_name: str, filename: str, time: float) -> None:
         """Append a timestep entry to the PVD collection file."""

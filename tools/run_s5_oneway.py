@@ -110,11 +110,35 @@ CH_FN = "AB1N{n:03d}Fn"
 CH_FT = "AB1N{n:03d}Ft"
 
 
-def extract_ad_loads(out_path: Path, ad_blade_path: Path, t_lo=80.0, t_hi=100.0):
+def _default_hub_radius() -> float:
+    """Hub radius from the WindIO blade definition.
+
+    This is the datum the rest of the model uses: ``BladeMesh`` translates the
+    blade by it (rotor frame) and the aero loader builds stations at
+    ``hub_radius + eta * blade_length``.  For the IEA 15 MW it is 3.97 m,
+    matching the official ElastoDyn deck (HubRad 3.97, TipRad 120.97).
+    """
+    import yaml
+
+    data = yaml.safe_load((REPO / "tests" / "IEA-15-240-RWT.yaml").read_text())
+    hub = data.get("components", {}).get("hub", {})
+    osb = hub.get("outer_shape_bem", hub)
+    return float(osb.get("diameter", 0.0)) / 2.0
+
+
+def extract_ad_loads(out_path: Path, ad_blade_path: Path, t_lo=80.0, t_hi=100.0,
+                     hub_radius: float | None = None):
     """Mean AD blade-1 loads over [t_lo, t_hi] s + station positions.
 
-    Returns (r_m, fn_nm, ft_nm, twist_deg): spanwise positions (m from blade
-    root), mean Fn/Ft per unit length (N/m), and the geometric twist (deg).
+    Returns (r_m, fn_nm, ft_nm, twist_deg): spanwise positions (m from the
+    ROTOR APEX, i.e. BladeMesh's frame and the structural mesh), mean Fn/Ft
+    per unit length (N/m), and the geometric twist (deg).
+
+    The AeroDyn blade file stores ``BlSpn`` measured from the BLADE ROOT, so
+    the hub radius is added here.  Without it the loads stay in the
+    blade-local frame while the mesh lives in the rotor frame, and every load
+    lands ``hub_radius`` outboard of the airfoil that produced it (the S-5
+    OoP comparison drops ~19 % on the IEA blade).
     """
     with open(out_path) as f:
         lines = f.readlines()
@@ -150,7 +174,12 @@ def extract_ad_loads(out_path: Path, ad_blade_path: Path, t_lo=80.0, t_hi=100.0)
     for n in range(1, n_nodes + 1):
         fn[n - 1] = data[sel, names.index(CH_FN.format(n=n))].mean()
         ft[n - 1] = data[sel, names.index(CH_FT.format(n=n))].mean()
-    return blspn, fn, ft, twist
+
+    # BlSpn is measured from the blade root; the model (mesh, aero loader and
+    # the official ElastoDyn deck) uses the rotor apex.  Add the hub radius so
+    # r_m is in the rotor frame.
+    r_m = blspn + (hub_radius if hub_radius is not None else _default_hub_radius())
+    return r_m, fn, ft, twist
 
 
 def build_assembly(element_size=0.5):

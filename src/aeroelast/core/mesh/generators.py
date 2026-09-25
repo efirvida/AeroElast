@@ -1037,6 +1037,8 @@ class BladeMesh:
         refine_tip: bool = True,
         span_grading: str = "chord",
         airfoil_spacing: str = "constant",
+        hub_radius: float | None = None,
+        rotor_frame: bool = True,
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
@@ -1046,6 +1048,8 @@ class BladeMesh:
         self.refine_tip = refine_tip
         self.span_grading = span_grading
         self.airfoil_spacing = airfoil_spacing
+        self.hub_radius = hub_radius
+        self.rotor_frame = rotor_frame
         self._numad_blade = None
         self._numad_mesh = None
 
@@ -1146,6 +1150,41 @@ class BladeMesh:
         n_flipped = canonicalize_windings(mesh_model, span_axis=2)
         if verbose and n_flipped:
             print(f"      Canonicalised {n_flipped} element winding(s)")
+
+        # ── Put the blade in the ROTOR frame ────────────────────────────────
+        # RotorMesh already translates every blade by the hub radius.  The
+        # single-blade BladeMesh did not, so the structural mesh lived in the
+        # blade-local frame (0 → blade_length) while the aero side lives in
+        # the rotor frame: its loader builds stations at
+        # ``hub_radius + eta * blade_length`` (aerodynamics.py) and CCBlade
+        # uses those radii for the tip speed and the tip loss.  With mixed
+        # frames the force projector assigns each BEM strip to the mesh node
+        # at the same *absolute* span, landing every load ~hub_radius
+        # outboard of the airfoil that produced it, and the structural solver
+        # auto-detected the blade-local tip (117 m) as the rotor radius,
+        # under-applying the centrifugal stiffening (~6.5 %).
+        # Set ``rotor_frame=False`` to keep the historical blade-local
+        # coordinates (structural-only studies that do not care about the
+        # radial datum).
+        if self.rotor_frame:
+            if self.hub_radius is None:
+                try:
+                    actual_hub_radius, _source = (
+                        self._numad_blade.definition.resolve_hub_radius()
+                    )
+                except (AttributeError, ValueError):
+                    actual_hub_radius = 0.0
+            else:
+                actual_hub_radius = float(self.hub_radius)
+            if actual_hub_radius > 0:
+                mesh_model.translate_mesh(
+                    vector=(0, 0, 1), distance=float(actual_hub_radius)
+                )
+                if verbose:
+                    print(
+                        "      Translated blade to rotor frame: "
+                        f"Z += {actual_hub_radius:.4f} m"
+                    )
 
         if verbose:
             print(
