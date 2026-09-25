@@ -45,13 +45,49 @@ RATED_WIND = 10.59
 RATED_OMEGA = 0.7872360607268416  # rad/s (7.52 rpm)
 R = 120.97  # m
 TSR_OPT = 9.0
-PITCH_SLOPE = 1.8  # deg per m/s above the rated
+PITCH_SLOPE = 1.8  # deg per m/s above the rated (fallback only)
+
+# Reference operating schedule: the IEA 15 MW tabular "Rotor Performance" sheet
+# (wind -> pitch, rotor speed, power).  Using the table keeps BOTH ends honest:
+# below rated the controller holds the 5 rpm minimum with fine pitch (the
+# analytic TSR-9 law put 3 m/s at 2.1 rpm and 0 deg pitch, a different
+# operating point), and above rated it regulates 15 MW with the real pitch
+# ramp (a constant slope over-pitches the high-wind end).
+_REF_CSV = (
+    Path(__file__).resolve().parents[2]
+    / "docs" / "validation_data" / "reference_iea15mw_rotor_performance.csv"
+)
+_REF_WIND = _REF_PITCH = _REF_RPM = None
+if _REF_CSV.exists():
+    import csv as _csv
+
+    _rows = list(_csv.DictReader(_REF_CSV.open()))
+    _REF_WIND = [float(r["wind_mps"]) for r in _rows]
+    _REF_PITCH = [float(r["pitch_deg"]) for r in _rows]
+    _REF_RPM = [float(r["rpm"]) for r in _rows]
+
+
+def _interp(x: float, xs, ys) -> float:
+    if x <= xs[0]:
+        return ys[0]
+    if x >= xs[-1]:
+        return ys[-1]
+    for i in range(1, len(xs)):
+        if x <= xs[i]:
+            t = (x - xs[i - 1]) / (xs[i] - xs[i - 1])
+            return ys[i - 1] + t * (ys[i] - ys[i - 1])
+    return ys[-1]
 
 
 def schedule(wind: float) -> tuple[float, float]:
+    """Reference rotor speed [rad/s] and pitch [deg] at the given wind."""
+    if _REF_WIND is not None:
+        rpm = _interp(wind, _REF_WIND, _REF_RPM)
+        pitch = _interp(wind, _REF_WIND, _REF_PITCH)
+        return rpm * 2.0 * 3.141592653589793 / 60.0, pitch
+    # fallback: analytic TSR-9 law capped at rated (legacy behaviour)
     omega = min(TSR_OPT * wind / R, RATED_OMEGA)
-    pitch = max(0.0, (wind - RATED_WIND) * PITCH_SLOPE)
-    return omega, pitch
+    return omega, max(0.0, (wind - RATED_WIND) * PITCH_SLOPE)
 
 
 def make_case(case_id: str, wind: float, seed: int) -> tuple[Path, Path]:
