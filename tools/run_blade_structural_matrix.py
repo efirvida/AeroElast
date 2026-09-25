@@ -46,6 +46,8 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
+# The CalculiX helpers (_run_ccx, _frd_disp_at_point) live in the test tree.
+sys.path.insert(0, str(REPO / "tests"))
 
 FORCE_N = 1.0e6          # 1 MN tip load (matches the S-2 LC2/LC3 magnitude)
 DISTRIB_Q = 5.0e3        # 5 kN/m spanwise distributed (matches the S-2 LC4)
@@ -71,6 +73,9 @@ def main() -> None:
                     / "blade_structural_matrix.csv")
     ap.add_argument("--ccx", action="store_true",
                     help="also run full-blade CalculiX (heavy; intended for HPC)")
+    ap.add_argument("--case-index", type=int, default=None,
+                    help="run ONLY this case (0-based) and write --csv for it alone; "
+                         "for a SLURM job array over the independent cases")
     ap.add_argument("--work-dir", type=Path,
                     default=Path("/scratch/leahk/eduardo.donestevez/tmp/opencode/blade_ccx"))
     args = ap.parse_args()
@@ -92,9 +97,14 @@ def main() -> None:
           f"{len(props)} element sets")
     beam = BeamReference.from_mesh(mesh, *_load_refs())
 
+    selected = list(enumerate(CASES))
+    if args.case_index is not None:
+        selected = [selected[args.case_index]]
+        print(f"single-case mode: index {args.case_index} -> {selected[0][1][0]}")
+
     rows = []
     print(f"\n{'case':>22} {'shell [m]':>14} {'beam [m]':>14} {'rel err':>9}")
-    for name, load, comp in CASES:
+    for case_i, (name, load, comp) in selected:
         u = run_shell_case(mesh, props, load)
         d_shell = shell_tip_displacement(mesh, u)
         d_beam = beam_tip_displacement(beam, load)
@@ -112,7 +122,12 @@ def main() -> None:
         })
 
     if args.ccx:
-        _run_ccx_column(mesh, props, rows, args)
+        # Tip-load cases only; in single-case mode just this one.
+        tip_cases = ("B1_tip_flap", "B2_tip_edge", "B4_traction_axial", "B5_compression_axial")
+        if args.case_index is not None and rows[0]["case"] not in tip_cases:
+            print(f"  {rows[0]['case']}: no CCX path (*DLOAD/couple not wired)")
+        else:
+            _run_ccx_column(mesh, props, rows, args)
 
     args.csv.parent.mkdir(parents=True, exist_ok=True)
     with args.csv.open("w", newline="") as fh:
@@ -187,8 +202,11 @@ def _run_ccx_column(mesh, props, rows, args) -> None:
             continue
         # average tip displacement over the tip section, same component as shell
         idx = {"ux": 0, "uy": 1, "uz": 2}[row["component"]]
+        # The FRD holds the DEFORMED coordinates, so the tolerance must cover
+        # the tip displacement (a 1 MN axial load moves it ~0.4 mm; the helper
+        # defaults to 1e-9 and finds nothing).
         vals = [
-            float(np.asarray(_frd_disp_at_point(frd, xyz))[idx])
+            float(np.asarray(_frd_disp_at_point(frd, xyz, tol=5e-3))[idx])
             for xyz in tip_xyz.values()
         ]
         row["ccx_m"] = float(np.mean(vals))
