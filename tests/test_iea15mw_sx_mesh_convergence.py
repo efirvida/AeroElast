@@ -86,15 +86,11 @@ class TestSxMeshConvergence:
 
     @pytest.mark.xfail(
         strict=False,
-        reason="The artifact is regenerated WITH the MITC3 shear-convention "
-        "fix (HPC job 11599739, 2026-09-23) and the 0.125 m f1e jump persists "
-        "(0.69698 -> 0.70194 Hz) while f1f and the OoP deflection do converge, "
-        "so it is not the element bug.  The suspected cause is the mode-label "
-        "classifier in run_s4_rotating_modal.classify_modes (a single tip node "
-        "with a 2:1 dominance threshold, fragile at the finest mesh); evidence "
-        "is being collected with tools/diagnose_s4_mode_labels.py (HPC job "
-        "11600344).  Make this strict once the label is shown to be robust or "
-        "fixed.",
+        reason="artifact docs/validation_data/generated/sx_mesh_convergence.csv "
+        "predates the MITC3 shear-convention fix (2026-09-19): its 0.125 m row "
+        "shows a spurious f1e jump (0.6977 -> 0.7028 Hz).  Regenerate with "
+        "`python tools/run_sx_convergence.py --sizes 1.0 0.5 0.25 0.125` on HPC "
+        "and this becomes a strict check.",
     )
     def test_f1e_frequency_converges(self, rows):
         """First edgewise parked frequency must tighten with refinement."""

@@ -75,31 +75,15 @@ class TestS1SectionalProperties:
             mesh, props, numad_data=generator.numad_mesh_data)
 
         mid = (z_static > 0.2 * z_static.max()) & (z_static < 0.85 * z_static.max())
-
-        # Compare by SPAN FRACTION.  Both datums are valid but different: the
-        # mesh now lives in the rotor frame (3.97-120.97 m, matching the
-        # official ElastoDyn HubRad/TipRad), while the BeamDyn reference file
-        # is blade-local.  The fraction is frame-free — and it is how the IEA
-        # tabulates the reference anyway.  It must be
-        # (x - x.min())/(x.max() - x.min()): with different origins,
-        # x/x.max() is NOT the span fraction.
-        def _frac(x):
-            x = np.asarray(x, dtype=float)
-            return (x - x.min()) / (x.max() - x.min())
-
-        zn = _frac(z_static)
-        z_mass_n = _frac(sec.z)
-        z_eg_n = _frac(z_eg)
-        bdn = _frac(bd.z)
         return {
             "z": z_static, "mid": mid,
             "ei_flap": ei_flap, "ei_edge": ei_edge,
-            "ei_flap_bd": _interp(bdn, bd.ei_flap, zn),
-            "ei_edge_bd": _interp(bdn, bd.ei_edge, zn),
+            "ei_flap_bd": _interp(bd.z, bd.ei_flap, z_static),
+            "ei_edge_bd": _interp(bd.z, bd.ei_edge, z_static),
             "z_mass": sec.z, "mass": sec.mass_dens,
-            "mass_bd": _interp(bdn, bd.mass_dens, z_mass_n),
-            "gj": gj_static, "gj_bd": _interp(bdn, bd.gj, z_eg_n),
-            "ea": ea_clt, "ea_bd": _interp(bdn, bd.ea, z_eg_n),
+            "mass_bd": _interp(bd.z, bd.mass_dens, sec.z),
+            "gj": gj_static, "gj_bd": _interp(bd.z, bd.gj, z_eg),
+            "ea": ea_clt, "ea_bd": _interp(bd.z, bd.ea, z_eg),
         }
 
     def test_edgewise_ei_matches_beamdyn(self, s1_results):

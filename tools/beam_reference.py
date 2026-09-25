@@ -244,26 +244,12 @@ class BeamReference:
         self.flap_dir = flap_dir
         self.ed = ed
         self.g = np.asarray(g, dtype=np.float64)
-        # Interpolate the reference data by SPAN FRACTION.  The mesh may live
-        # in the rotor frame (BladeMesh translates the blade by the hub radius,
-        # matching the official ElastoDyn HubRad 3.97 / TipRad 120.97) while
-        # the ElastoDyn/BeamDyn blade files are blade-local.  Using absolute z
-        # silently mixes the two datums and shifts every property by the hub
-        # radius.  Note the fraction must be (x - x.min())/(x.max() - x.min()):
-        # when the origins differ, x/x.max() is NOT the span fraction.
-        def _frac(x):
-            x = np.asarray(x, dtype=np.float64)
-            return (x - x.min()) / (x.max() - x.min())
-
-        z_n = _frac(z)
-        ed_n = _frac(ed.z)
-        self.ei_flap = _interp(ed_n, ed.ei_flap, z_n)
-        self.ei_edge = _interp(ed_n, ed.ei_edge, z_n)
-        self.mass_dens = _interp(ed_n, ed.mass_dens, z_n)
+        self.ei_flap = _interp(ed.z, ed.ei_flap, z)
+        self.ei_edge = _interp(ed.z, ed.ei_edge, z)
+        self.mass_dens = _interp(ed.z, ed.mass_dens, z)
         if bd is not None:
-            bd_n = _frac(bd.z)
-            self.gj = _interp(bd_n, bd.gj, z_n)
-            self.ea = _interp(bd_n, bd.ea, z_n)
+            self.gj = _interp(bd.z, bd.gj, z)
+            self.ea = _interp(bd.z, bd.ea, z)
         else:
             self.gj = np.full_like(z, 1e12)
             self.ea = np.full_like(z, 1e12)
