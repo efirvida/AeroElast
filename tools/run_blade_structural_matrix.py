@@ -71,6 +71,8 @@ def main() -> None:
                     / "blade_structural_matrix.csv")
     ap.add_argument("--ccx", action="store_true",
                     help="also run full-blade CalculiX (heavy; intended for HPC)")
+    ap.add_argument("--work-dir", type=Path,
+                    default=Path("/scratch/leahk/eduardo.donestevez/tmp/opencode/blade_ccx"))
     args = ap.parse_args()
 
     from aeroelast.core.mesh.generators import BladeMesh
@@ -110,9 +112,7 @@ def main() -> None:
         })
 
     if args.ccx:
-        print("\n--ccx requested: full-blade CalculiX is not wired here yet; "
-              "see tests/test_composite_ccx_parity.py for the export path "
-              "(properties=build_rust_properties(...), quadratic=True).")
+        _run_ccx_column(mesh, props, rows, args)
 
     args.csv.parent.mkdir(parents=True, exist_ok=True)
     with args.csv.open("w", newline="") as fh:
@@ -120,6 +120,81 @@ def main() -> None:
         w.writeheader()
         w.writerows(rows)
     print(f"\nwrote {args.csv}")
+
+
+def _run_ccx_column(mesh, props, rows, args) -> None:
+    """Full-blade CalculiX column for the tip-load cases.
+
+    Only the tip-load cases are exported: the writer loads a named node set
+    with a single vector, so the spanwise distributed (B3) and gravity (B7)
+    cases have no *DLOAD path yet, and B6 needs a couple rather than a force.
+
+    CalculiX needs quadratic S8R for *SHELL SECTION, COMPOSITE -- with linear
+    S4 the writer falls back to a single-layer section and the laminate is
+    silently lost.  Quadratic also means the FRD numbering includes mid-side
+    nodes, so displacements are matched by COORDINATE, not by node id
+    (_frd_disp_at_point, as test_orthotropic_shell_parity.py does).
+    """
+    import shutil
+
+    from aeroelast.core.mesh.entities import NodeSet
+    from aeroelast.core.mesh.io.writers import write_ccx_mesh
+    from test_beam_4cases_parity import _run_ccx
+    from test_orthotropic_shell_parity import _frd_disp_at_point
+
+    ccx_bin = shutil.which("ccx") or shutil.which("CalculiX")
+    if ccx_bin is None:
+        raise SystemExit("CalculiX (ccx) not found in PATH")
+
+    # Tip node set for the load (the blade mesh ships RootNodes only).
+    coords = np.asarray([[n.x, n.y, n.z] for n in mesh.nodes], dtype=float)
+    z = coords[:, 2]
+    tip_nodes = {n for n in mesh.nodes if n.z >= z.max() - 1e-6}
+    if "TipNodes" not in mesh.node_sets:
+        mesh.add_node_set(NodeSet("TipNodes", tip_nodes))
+    tip_xyz = {mesh.node_id_to_index[n.id]: np.array([n.x, n.y, n.z]) for n in tip_nodes}
+
+    work = Path(args.work_dir)
+    work.mkdir(parents=True, exist_ok=True)
+    print(f"\nCCX column (quadratic S8R, {len(tip_nodes)} tip nodes) -> {work}")
+
+    for row in rows:
+        name = row["case"]
+        if name not in ("B1_tip_flap", "B2_tip_edge", "B4_traction_axial",
+                        "B5_compression_axial"):
+            print(f"  {name:>22}: skipped (needs *DLOAD / couple; not wired)")
+            row["ccx_m"] = ""
+            continue
+        vec = {"B1_tip_flap": (0.0, FORCE_N, 0.0),
+               "B2_tip_edge": (FORCE_N, 0.0, 0.0),
+               "B4_traction_axial": (0.0, 0.0, FORCE_N),
+               "B5_compression_axial": (0.0, 0.0, -FORCE_N)}[name]
+        case_dir = work / name
+        case_dir.mkdir(exist_ok=True)
+        stem = f"blade_{name}"
+        inp = case_dir / f"{stem}.inp"
+        write_ccx_mesh(
+            mesh, str(inp), properties=props,
+            boundary_nodeset="RootNodes", solver_type="LinearStatic",
+            load_nodeset="TipNodes", load_vector=list(vec),
+            span_direction=(0.0, 0.0, 1.0), quadratic=True,
+        )
+        _run_ccx(ccx_bin, case_dir, stem)
+        frd = case_dir / f"{stem}.frd"
+        if not frd.exists():
+            print(f"  {name:>22}: CCX produced no FRD")
+            row["ccx_m"] = ""
+            continue
+        # average tip displacement over the tip section, same component as shell
+        idx = {"ux": 0, "uy": 1, "uz": 2}[row["component"]]
+        vals = [
+            float(np.asarray(_frd_disp_at_point(frd, xyz))[idx])
+            for xyz in tip_xyz.values()
+        ]
+        row["ccx_m"] = float(np.mean(vals))
+        row["ccx_shell_rel_err"] = abs(row["shell_m"] - row["ccx_m"]) / max(abs(row["ccx_m"]), 1e-30)
+        print(f"  {name:>22}: CCX={row['ccx_m']:14.6f} m  "
+              f"(shell {row['shell_m']:.6f}, {row['ccx_shell_rel_err']*100:.2f}% apart)")
 
 
 def _load_refs():
