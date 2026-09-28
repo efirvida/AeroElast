@@ -989,9 +989,23 @@ def _build_cylindrical_patch(
 def _distort_cylindrical_patch(
     mesh: MeshModel, *, radius: float, length: float, angle_deg: float, nx: int, ny: int
 ) -> None:
+    """Distorted mesh of Ko et al. (2017), C&S 193:187-206, Fig. 9(c).
+
+    The paper labels the ratio `L4:L3:L2:L1 = 4:3:2:1` on the `D -> C` edge of
+    Fig. 9(c), and Fig. 9(a) places `A, B` at one end of the cylinder and
+    `D, C` at the other along the axis: the graded direction is the AXIAL one,
+    and the circumferential direction stays uniform.
+
+    Measured on the pinched cylinder, Table 9, MITC4+, N=16 (cell `0.9321`):
+    grading the axial direction only gives `0.93174` (0.038% off) while grading
+    BOTH directions gives `0.98224` (5.379% off, outside the 5% window). The
+    auxiliary probe `mode=theta_only` gives `0.97031` (4.10%), so the axial
+    attribution is not ambiguous. Fig. 11(c) reuses this same pattern for the
+    Scordelis-Lo roof, which is why both tests share this helper.
+    """
     thetas = np.linspace(0.0, np.radians(angle_deg), nx + 1)
     zs = np.linspace(0.0, length, ny + 1)
-    theta_dist = _ratio_positions(nx) * np.radians(angle_deg)
+    theta_dist = thetas  # uniform: the paper grades the axial edge only
     z_dist = _ratio_positions(ny) * length
 
     def uv_get(node: Node) -> tuple[float, float]:
