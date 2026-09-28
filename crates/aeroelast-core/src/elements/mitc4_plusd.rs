@@ -2624,23 +2624,72 @@ fn n_gamma_b_matrix(
     r: f64,
     s: f64,
 ) -> SMatrix<f64, 11, 24> {
-    // Round-off/truncation balance of the printed-expression central difference
-    // (see the function documentation): 2e-5 sits at the measured minimum.
-    const H: f64 = 2.0e-5;
+    n_gamma_b_matrix_at(pre, state, u_local, r, s, N_GAMMA_B_H)
+}
+
+/// The step of [`n_gamma_b_matrix`], i.e. of the `B` used by the internal force
+/// and by the material term of the tangent. It is pinned from BELOW by the
+/// `u = 0` identity the element has to satisfy (`K_T(0) == K_0` to `<= 1e-10`
+/// relative), so it cannot be relaxed to buy accuracy for the geometric term;
+/// that term uses its own step, [`N_GAMMA_GEO_H`].
+const N_GAMMA_B_H: f64 = 2.0e-5;
+
+/// [`n_gamma_b_matrix`] with an explicit central-difference step. Only the
+/// geometric term of [`n_gamma_kt_local`] passes a step other than
+/// [`N_GAMMA_B_H`].
+fn n_gamma_b_matrix_at(
+    pre: &Mitc4PlusDPrecomputed,
+    state: &GlCurrentState,
+    u_local: &Vec24,
+    r: f64,
+    s: f64,
+    h: f64,
+) -> SMatrix<f64, 11, 24> {
     let mut b = SMatrix::<f64, 11, 24>::zeros();
     for j in 0..24 {
         let mut up = *u_local;
-        up[j] += H;
+        up[j] += h;
         let mut um = *u_local;
-        um[j] -= H;
+        um[j] -= h;
         let ep = n_gamma_local_strain(pre, state, &up, r, s);
         let em = n_gamma_local_strain(pre, state, &um, r, s);
         for a in 0..11 {
-            b[(a, j)] = 0.5 * (ep[a] - em[a]) / H;
+            b[(a, j)] = 0.5 * (ep[a] - em[a]) / h;
         }
     }
     b
 }
+
+/// The central-difference step of the geometric term of [`n_gamma_kt_local`],
+/// used by BOTH of its nested differences.
+///
+/// THE STEP CANNOT BE SPLIT, and this is a measurement, not a preference. The
+/// geometric term is the Hessian `sum_a (d2 _0 e~_a / du_i du_j) S_a`, evaluated
+/// as `FD_{H_o}(FD_{H_i}(_0 e~))`. Written out, that composition IS the
+/// four-point cross difference
+///
+/// ```text
+/// [e(u + H_i e_i + H_o e_j) - e(u - H_i e_i + H_o e_j)
+///  - e(u + H_i e_i - H_o e_j) + e(u - H_i e_i - H_o e_j)] / (4 H_i H_o),
+/// ```
+///
+/// whose round-off floor is `eps / (H_i H_o)` against `O(H_i^2)` truncation. The
+/// form this replaced used `(H_i, H_o) = (2e-5, 1e-6)`, a floor of `5e-6`; with
+/// both steps at `h` the floor is `eps / h^2`, balanced against `O(h^2)`
+/// truncation at the classic `h ~ eps^(1/4) ~ 1.2e-4`, for `~eps^(1/2) ~ 1e-8`.
+///
+/// Instrument `n_gamma_geo_stencil_probe` (local frame): the single-step
+/// estimates at `h = 3e-5, 1e-4, 3e-4` agree with each other to `3e-8` while
+/// differing from the split-step form by `7e-6`, FLAT in `h` (`6.655e-6`,
+/// `6.680e-6`, `6.684e-6`). A truncation-limited stencil would move by four
+/// orders of magnitude over that range, so the split-step form is the inaccurate
+/// one and this step gives the Hessian to about `3e-8` -- two orders inside the
+/// `1e-6` tangent-consistency gate.
+///
+/// A consequence worth keeping: both index orders now combine the SAME four
+/// points, so `geo` is exactly symmetric in `(i, j)` by construction instead of
+/// to round-off. Instrument `n_gamma_geo_symmetry_diagnostic`.
+const N_GAMMA_GEO_H: f64 = 1.0e-4;
 
 /// The faithful total-Lagrangian internal force of Eq. (24b),
 /// `^t_0 F_e = int_{0V} B^T ^t_0 S d0V`, on the local 24-DOF increment from the
@@ -2680,7 +2729,11 @@ pub fn n_gamma_fint_local(
 ///
 /// The material term `int B^T C B d0V` is [`n_gamma_w11`] sandwiched by
 /// [`n_gamma_b_matrix`]; the geometric `N`-term is the central difference of `B`
-/// contracted with `S = W _0 e~`, i.e. exactly `int (dB/du)^T S d0V`.
+/// contracted with `S = W _0 e~`, i.e. exactly `int (dB/du)^T S d0V`, taken with
+/// the single step [`N_GAMMA_GEO_H`] in both of its nested differences. The
+/// split-step form this replaced carried a `5e-6` round-off floor and made
+/// `K_t != dF/du` on every element whose local frame is not axis-aligned -- the
+/// producer of the `SNES diverged` large-rotation failures.
 ///
 /// The returned matrix is the derivative of [`n_gamma_fint_local`]:
 /// `F(u) = int B(u)^T W e~(u) d0V`, so
@@ -2705,7 +2758,10 @@ pub fn n_gamma_kt_local(
     state: &GlCurrentState,
     u_local: &Vec24,
 ) -> Mat24 {
-    const H: f64 = 1.0e-6;
+    // Both nested differences use the SAME step: the floor of the composition is
+    // `eps / (H_i H_o)`, so splitting the steps cannot buy accuracy. See
+    // `N_GAMMA_GEO_H` for the measurement behind the value.
+    const H: f64 = N_GAMMA_GEO_H;
     let w = n_gamma_w11(pre);
     let mut mat = Mat24::zeros();
     let mut geo = Mat24::zeros();
@@ -2730,8 +2786,8 @@ pub fn n_gamma_kt_local(
             up[j] += H;
             let mut um = *u_local;
             um[j] -= H;
-            let bp = n_gamma_b_matrix(pre, state, &up, r, s);
-            let bm = n_gamma_b_matrix(pre, state, &um, r, s);
+            let bp = n_gamma_b_matrix_at(pre, state, &up, r, s, H);
+            let bm = n_gamma_b_matrix_at(pre, state, &um, r, s, H);
             for a in 0..11 {
                 for i in 0..24 {
                     geo[(i, j)] += 0.5 * (bp[(a, i)] - bm[(a, i)]) / H * svec[a] * wq;
@@ -3024,12 +3080,13 @@ mod tests {
         gl_strain_increment, gl_strain_increment_components, gl_tying_metrics,
         incremental_disp_gradients, incremental_disp_split,
         interpolate_displacement, interpolate_position, j_loc_at, membrane_ke_local,
-        n_gamma_b_matrix, n_gamma_fint_global, n_gamma_fint_local, n_gamma_kt_global,
+        n_gamma_b_matrix, n_gamma_b_matrix_at, n_gamma_fint_global, n_gamma_fint_local,
+        n_gamma_kt_global,
         n_gamma_kt_local, n_gamma_w11, node_vec,
         resultant_moment_matrix, shape_function_derivatives, shape_functions, shear_ke_local,
         surface_measure, transform_to_global, GlCurrentState, GlIncrement, Mat24,
         Mitc4PlusDPrecomputed, Vec24, DRILL_EDGE_MID, GAUSS_ETA, GAUSS_W, GAUSS_XI, NODE_ETA,
-        NODE_XI, N_GAUSS,
+        NODE_XI, N_GAUSS, N_GAMMA_GEO_H,
     };
     use crate::materials::laminate::{Laminate, Ply};
     use crate::materials::orthotropic::OrthotropicMaterial;
@@ -10934,8 +10991,11 @@ mod tests {
                             up[j] += h_outer;
                             let mut um = u_local;
                             um[j] -= h_outer;
-                            let bp = n_gamma_b_matrix(&pre, &state, &up, r, s);
-                            let bm = n_gamma_b_matrix(&pre, &state, &um, r, s);
+                            // NOTE: both nested differences use the SAME step, which
+                            // is what production does (`N_GAMMA_GEO_H`); see the
+                            // constant's docstring for the measurement.
+                            let bp = n_gamma_b_matrix_at(&pre, &state, &up, r, s, h_outer);
+                            let bm = n_gamma_b_matrix_at(&pre, &state, &um, r, s, h_outer);
                             for a in 0..11 {
                                 for i in 0..24 {
                                     geo[(i, j)] +=
@@ -10948,8 +11008,8 @@ mod tests {
                 };
                 let fd = fd_matrix(|x| n_gamma_fint_global(&pre, x), &u, 1.0e-6);
                 let fds = max_abs(&fd).max(1e-30);
-                print!("  {name} scale={scale:.0e}: rel(kt(h_outer), fd) ");
-                for &ho in &[1.0e-6f64, 1.0e-5, 2.0e-5, 4.0e-5, 1.0e-4] {
+                print!("  {name} scale={scale:.0e}: rel(kt(h), fd) ");
+                for &ho in &[1.0e-6f64, 1.0e-5, 3.0e-5, 1.0e-4, 3.0e-4] {
                     let (kt, _m, _g) = kt_with(ho);
                     let kt = t24.transpose() * kt * t24;
                     let mut d = 0.0f64;
@@ -10961,6 +11021,28 @@ mod tests {
                     print!("h={ho:.0e}:{:.2e} ", d / fds);
                 }
                 println!();
+                // PRODUCTION: the acceptance metric, `|n_gamma_kt_local - dF/du|`
+                // in LOCAL coordinates with a clean reference step. The replica
+                // above is the same construction written out; this line is the
+                // real element.
+                let kt_prod = n_gamma_kt_local(&pre, &state, &u_local);
+                let fd_loc =
+                    fd_matrix(|x| n_gamma_fint_local(&pre, &state, x), &u_local, 1.0e-6);
+                let mut dprot = 0.0f64;
+                let mut atprot = (0usize, 0usize);
+                for i in 0..24 {
+                    for j in 0..24 {
+                        let v = (kt_prod[(i, j)] - fd_loc[(i, j)]).abs();
+                        if v > dprot {
+                            dprot = v;
+                            atprot = (i, j);
+                        }
+                    }
+                }
+                println!(
+                    "    PRODUCTION rel(n_gamma_kt_local, dF/du local) = {:.3e} at {atprot:?}",
+                    dprot / max_abs(&fd_loc).max(1e-30)
+                );
                 let (_, mat, geo) = kt_with(1.0e-6);
                 let mat = t24.transpose() * mat * t24;
                 let geo = t24.transpose() * geo * t24;
@@ -11153,7 +11235,10 @@ mod tests {
                 for x in u.iter_mut() {
                     *x = scale * rnd();
                 }
-                const HO: f64 = 1.0e-6;
+                // Production steps: both nested differences use the SAME step
+                // (`N_GAMMA_GEO_H`), so the replica must too or it stops being a
+                // replica -- the cross-check below catches it if it drifts.
+                const HO: f64 = N_GAMMA_GEO_H;
                 let w = n_gamma_w11(&pre);
                 let mut mat = Mat24::zeros();
                 let mut geo = Mat24::zeros();
@@ -11178,8 +11263,8 @@ mod tests {
                         up[j] += HO;
                         let mut um = u;
                         um[j] -= HO;
-                        let bp = n_gamma_b_matrix(&pre, &state, &up, r, s);
-                        let bm = n_gamma_b_matrix(&pre, &state, &um, r, s);
+                        let bp = n_gamma_b_matrix_at(&pre, &state, &up, r, s, HO);
+                        let bm = n_gamma_b_matrix_at(&pre, &state, &um, r, s, HO);
                         for a in 0..11 {
                             for i in 0..24 {
                                 geo[(i, j)] += 0.5 * (bp[(a, i)] - bm[(a, i)]) / HO * svec[a] * wq;
@@ -11202,10 +11287,9 @@ mod tests {
                 let (ak, sk, atk) = asym(&kt);
                 let (am, sm, _) = asym(&mat);
                 let (ag, sg, atg) = asym(&geo);
-                // Round-off scale of the nested four-point stencil:
-                // eps / (H_i * H_o) times the stress-weighted strain magnitude.
-                const HI: f64 = 2.0e-5;
-                let floor = f64::EPSILON / (HI * HO) * we_max;
+                // Round-off scale of the four-point stencil: eps / h^2, times the
+                // stress-weighted strain magnitude.
+                let floor = f64::EPSILON / (HO * HO) * we_max;
                 println!(
                     "  scale={scale:.0e}: max|We|={we_max:.3e} max|kt|={sk:.3e} max|mat|={sm:.3e} max|geo|={sg:.3e}"
                 );
@@ -11216,7 +11300,7 @@ mod tests {
                     ag / sg.max(1e-300)
                 );
                 println!(
-                    "    |geo-geo^T| / [eps/(Hi*Ho)*max|We|] = {:.3e}",
+                    "    |geo-geo^T| / [eps/h^2*max|We|] = {:.3e}",
                     ag / floor.max(1e-300)
                 );
             }
@@ -11352,7 +11436,7 @@ mod tests {
                 mat.abs().max()
             );
             println!(
-                "    nested H_i=2e-5 H_o=1e-6 : |geo-geo^T|/|geo|={:.3e}",
+                "    superseded split-step (H_i=2e-5, H_o=1e-6): |geo-geo^T|/|geo|={:.3e}",
                 an / sn.max(1e-300)
             );
             for &h in hs {

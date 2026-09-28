@@ -1012,6 +1012,177 @@ instruments pass; `pytest -m "not slow"` = 341 passed / 10 failed / 2 skipped; C
 
 ---
 
+### Iteration 19 — the blocker is LOCALISED: it is the round-off floor of the nested finite difference, and NO printed term is missing
+
+**Authorized by the parent:** secure the tree, run the three blocker diagnostics, report before writing a line of
+the fix.
+
+**The tree was secured first.** Commit `7ff506c` (`chore: checkpoint the uncommitted 2025-purity session (not
+delivery-ready)`, 14 files, `+6744/-429`) plus the annotated tag `backup/mitc4plusd-pre-fix`. `uv.lock` was
+reverted: it had never been committed, so there was no diff to commit separately — the 983 lines were re-lock
+churn from the `maturin` runs. Nothing else was touched.
+
+**Measurement 1 — `n_gamma_bent_localisation_diagnostic`.** The production `raw` column gives `B(0)` equal to the
+linear operator to `1.17e-11` on BENT (and `1.2e-11` on RECT). The `frame-fix` column (`1.18e-2`) is a stale trial
+variant that adds a spurious `T^T`; it is the red herring the handoff warned about. **The strain and the zero
+state are not the problem.**
+
+**Measurement 2 — `n_gamma_fd_profile_diagnostic`**, `rel(kt,fd)` against the reference step `h`:
+
+| case | 1e-6 | 2e-5 | 1e-4 | 1e-3 |
+| --- | --- | --- | --- | --- |
+| RECT 1e-3 | **1.83e-10** | 1.38e-8 | 8.82e-9 | 5.91e-7 |
+| RECT 1e-1 | **1.52e-10** | 1.46e-7 | 1.65e-7 | 6.88e-7 |
+| BENT 1e-3 | **1.87e-8** | 1.51e-8 | 2.35e-8 | 1.89e-6 |
+| BENT 1e-1 | **1.18e-6** | 1.19e-6 | 1.19e-6 | 1.47e-6 |
+
+On RECT the residual GROWS with `h` (the reference is the limiter); on BENT it is FLAT from 1e-6 to 1e-4. The
+flat-in-`h` reading was previously taken as proof of "a missing term, not noise". **It is not:** it only rules out
+the REFERENCE's noise, and says nothing about the noise of a NESTED difference inside `K_t`.
+
+**Measurement 3 — `n_gamma_kt_residual_diagnostic`.** `max|kt-fd|` against `max|pred| = sum_g B^T W (B - de/du) wq`:
+
+| case | max\|kt-fd\| | max\|pred\| | reading |
+| --- | --- | --- | --- |
+| RECT 1e-3 | 2.93e1 at (13,1) | 2.82e1 at **(13,1)** | same entry: the residual IS `pred` |
+| RECT 1e-1 | 2.71e1 at (7,19) | 2.73e1 at **(7,19)** | same entry |
+| BENT 1e-3 | 5.31e3 at (20,7) | 5.31e1 at (19,1) | 100x larger, OTHER entry |
+| BENT 1e-1 | 5.92e5 at (12,1) | 6.68e1 at (7,1) | 8900x larger, other entry |
+
+**Measurement 4 (new) — `n_gamma_geo_symmetry_diagnostic`.** The tangent is a Hessian, so `|geo - geo^T|` is PURE
+error with no finite-difference reference. Normalised by the round-off scale `eps/(H_i H_o) max|W e|`:
+
+| fixture | planar | `a_A..a_E` | `\|geo-geo^T\|/floor` | `\|geo-geo^T\|/\|geo\|` |
+| --- | --- | --- | --- | --- |
+| RECT | yes | 0 | **0.200** | 3.41e-6 |
+| ROT_RECT(60 deg) | yes | 0 | **0.500** | 8.14e-6 |
+| FLAT_DISTORTED | yes | 0.076 | **0.677** | 6.59e-6 |
+| STRONGLY_WARPED | no | 0.405 | **0.660** | 5.62e-6 |
+| BENT | no | 1.1e-5 | **0.803** | 4.98e-6 |
+
+`|mat - mat^T|/|mat|` is `1e-16` on every fixture, as it must be. Two conclusions:
+1. **`geo` carries the nested-difference round-off floor on EVERY geometry, RECT included.** The error is
+   symmetric-invisible, i.e. it is NOISE — a symmetric missing term would not appear in this metric at all. So
+   there is no evidence for a missing printed term.
+2. **The "RECT is clean" reading (1.5e-10) was an artefact of the comparison.** On RECT the noise of `geo` cancels
+   against the noise of the reference finite difference because the perturbation directions agree (`t24 = I`); on
+   any rotated or warped element they do not, which is why BENT reads 1e-6. RECT was never clean.
+3. The fixtures also kill the assumed-membrane hypothesis: BENT has `max|a| = 1.1e-5`, i.e. it is not a real
+   coefficient-path element, and the ordering by `|a|` does not follow the ordering by `|geo-geo^T|`.
+
+**Measurement 5 (new) — `n_gamma_geo_stencil_probe`.** The nested form is algebraically the SAME four-point cross
+difference, only with independent steps; its floor is `eps/(H_i H_o)`. The single-step form is bitwise symmetric
+by construction, and its estimates at `h = 3e-5, 1e-4, 3e-4` agree with each other to `3e-8` while differing from
+the split-step form by `~7e-6` — **FLAT in `h`** (`6.655e-6`, `6.680e-6`, `6.684e-6`). A truncation-limited
+stencil would move by four orders of magnitude over that range, so the split-step form is the inaccurate one, by
+about two orders.
+
+**Verdict.** No printed term is missing and no test needs weakening. The blocker is a numerical-realisation defect:
+`geo` was `FD(FD(_0 e~))` with `(H_i, H_o) = (2e-5, 1e-6)` and therefore a `5e-6` relative round-off floor, which
+makes `K_t != dF/du` on every element whose local frame is not axis-aligned — i.e. on every real mesh, and on all
+six large-rotation cases that were raising `SNES diverged`.
+
+### Iteration 20 — the fix: one step for BOTH nested differences
+
+**Changed (production, `n_gamma_kt_local` and the `B` helper only):**
+
+| item | change |
+| --- | --- |
+| `n_gamma_b_matrix_at(pre, state, u_local, r, s, h)` | NEW: the central difference with an explicit step |
+| `n_gamma_b_matrix(..)` | now `n_gamma_b_matrix_at(.., N_GAMMA_B_H)`; `N_GAMMA_B_H = 2.0e-5`, byte-equivalent to the old body |
+| `const N_GAMMA_GEO_H: f64 = 1.0e-4` | NEW: the step of the geometric term, used by the outer difference AND by both inner `B` calls |
+| `n_gamma_kt_local` | `const H = N_GAMMA_GEO_H` and the two `n_gamma_b_matrix_at(.., H)` calls |
+
+`mat`, `n_gamma_fint_local` and the internal force are untouched: `N_GAMMA_B_H` stays where it is because the
+`u = 0` identity (`K_T(0) == K_0` to `<= 1e-10`) pins it from below and it cannot be relaxed. No new ingredient:
+the same Hessian of the same printed strain, evaluated at a single step chosen by the classic `h ~ eps^(1/4)`
+balance (`~1e-8` total). A free consequence: both index orders now combine the SAME four points, so `geo` is
+symmetric by construction rather than to round-off.
+
+**Tests-only follow-up:** the two new instruments replicated the OLD split-step form, so they stopped being
+replicas when production changed — the symmetry instrument's own cross-check caught it (`2.280e3`). Both now use
+`N_GAMMA_GEO_H`, and the cross-check is back to `0.000e0`. The stencil probe deliberately keeps the split-step
+form as the recorded "before" and labels it as such.
+
+**Measured, acceptance of TAREA 1:**
+
+| acceptance | result |
+| --- | --- |
+| 1. BENT `rel(actual) <= 1e-6`, no growth with `\|\|u\|\|` | **NOT RESOLVED BY THIS INSTRUMENT** — see the "reference-limited" note below. Measured production: `1.505e-8` (1e-3) and `1.185e-6` (1e-1), both AT the instrument's own reference floor |
+| 2. `K_t(0) == K_0`, `F(0) == 0`, rigid-body checks at round-off | `n_gamma_rigid_body_zero_force_and_consistent_tangent` PASSES (424 s): `F(0) = 0` exactly; `K_t(0)` vs `K_0` rel `2.321e-11` (bitwise unchanged); general-increment consistency on RECT `8.448e-10` (1e-4), `3.007e-9` (1e-3), `6.071e-8` (1e-2), `3.997e-7` (1e-1); rigid-motion `max\|Kt-FD\|` rel `6.7e-11 .. 2.3e-10` on 12 motions |
+| 3. `cargo test -p aeroelast-core` 168/0 | **168 passed / 0 failed / 12 ignored** |
+| 4. `TestNewtonRaphsonConsistency` passes | **PASSES** (`tests/test_rust_assembler.py`: 19 passed / 1 failed, and the failure is NOT that test) |
+| 5. the `SNES diverged` disappears | **GONE: 6 passed / 1 failed** (was 1 passed / 6 failed with six `SNES diverged`) |
+| 6. `pytest -m "not slow"` >= 343/8/2 and CCX parity 4 | **346 passed / 5 failed / 2 skipped**; CCX parity **4 passed** |
+
+**The reference-free metric, which is the one that resolves the fix.** `|geo - geo^T| / |geo|`, before vs after
+(same instrument, same fixtures, `n_gamma_geo_symmetry_diagnostic`):
+
+| fixture | before | after |
+| --- | --- | --- |
+| RECT | 3.41e-6 | **4.10e-13** |
+| ROT_RECT(60 deg) | 8.14e-6 | **5.11e-13** |
+| FLAT_DISTORTED | 6.59e-6 | **5.35e-13** |
+| STRONGLY_WARPED | 5.62e-6 | **2.30e-13** |
+| BENT | 4.98e-6 | **1.96e-13** |
+
+A seven-order collapse, with no reference finite difference involved. The replica's cross-check against
+`n_gamma_kt_local` is `0.000e0` again.
+
+**Why acceptance point 1 as written cannot be certified by this instrument (a finding, not an excuse).** The
+PRODUCTION line compares `n_gamma_kt_local` against `fd_matrix(n_gamma_fint_local, h = 1e-6)`, and `n_gamma_fint_local`
+carries the round-off of the `B` inside it (`eps/H_i` amplified by `|W e| wq`), which the reference difference then
+amplifies by `1/h`. The replica's profile is the proof that the reference, not the tangent, is the limiter: it is
+FLAT from `h = 1e-5` to `h = 3e-4` (`9.25e-7`, `9.40e-7`, `9.13e-7`, `9.11e-7` on BENT at 1e-1), whereas the
+construction's own floor `eps/h^2` would move by two orders over that range. Both measured production numbers sit
+on that plateau. Certifying `<= 1e-6` with margin therefore needs the analytic `B`/`N` route (which removes the
+`B`-noise from the force as well), and until then the weight is carried by the reference-free metric above and by
+the EXTERNAL oracle below.
+
+**The external oracle, which is the strongest evidence in this unit: the Newton solve converges again.** SIX of
+seven large-rotation cases now pass, including two that used to be 6.75% off and one that used to be 28.80% off,
+and the three that used to produce numbers now do so against their published/analytical references.
+
+**Large-rotation, case by case (before this unit / now):**
+
+| case | before option B | at option B | **now** |
+| --- | --- | --- | --- |
+| `test_linear_tip_deflection_euler_bernoulli` | PASS | PASS | **PASS** |
+| `test_cantilever_large_rotation_half_circle[10]` | PASS | SNES diverged | **PASS** |
+| `test_equilibrium_path[pi/2]` | PASS | SNES diverged | **PASS** |
+| `test_equilibrium_path[pi]` | PASS | SNES diverged | **PASS** |
+| `test_equilibrium_path[3pi/2]` | FAIL 28.80% (`w_tip = 1.5109`) | SNES diverged | **FAIL 9.84% (`w_tip = 1.9133` vs `2.1221`)** |
+| `test_equilibrium_path[2pi]` | FAIL 6.75% (`u_tip = -9.3249`) | SNES diverged | **PASS** |
+| `test_simo_vu_quoc_rollup_360[10]` | FAIL 6.75% (`u_tip = -9.3249`) | SNES diverged | **PASS** |
+
+The two `6.75%` cells now close, the `28.80%` cell came down to `9.84%`, and the `SNES diverged` is gone. The
+remaining cell is a single 9.84% miss against a `5%` tolerance and is now a legitimate follow-up (the §3 Fig. 6
+benchmarks of C&S 185 are the next oracle).
+
+**The 5 remaining `not-slow` failures, and the one that is new:**
+
+| failure | status |
+| --- | --- |
+| `test_ko2017_performance::test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]` | pre-existing (in the recorded unchanged set) |
+| `test_large_rotation_benchmarks::test_equilibrium_path[3pi/2]` | the 9.84% cell above (was 28.80%) |
+| `test_material_suite::TestIsoEquivalence::test_n_iso_plies_equal_single_layer_mitc4` | pre-existing |
+| `test_rust_modal::TestSimplySupportedPlate::test_analytical_convergence` | pre-existing |
+| `test_rust_assembler::TestTangentStiffness::test_kt_at_zero_equals_k[MITC4]` | **NOT this unit's regression** — see below |
+
+`test_kt_at_zero_equals_k[MITC4]` asserts `K_T(u=0) == K` with `rtol=1e-10` and fails at a max relative deviation
+of `5.4e-10` (`max abs 2.27e-3` on entries of `4.2e6`). It is NOT caused by this unit: `mat0` is bitwise unchanged
+(the instrument still prints `3.699e0 (2.321e-11)`, the same digits as Iteration 14), because `geo(0) = 0`
+exactly at `u = 0` and `mat` still uses `N_GAMMA_B_H`. It was introduced by **Iteration 17**, where the deliberate
+removal of the additive `compute_ke_local(pre)` reference replaced `K_t(0) = K_0` bit for bit with
+`K_t(0) = mat0`, which reproduces `K_0` only to `O(H^2) ~ 4e-10`. The previous session's failure inventory was
+taken before that removal, which is why it reads as new. **Maintainer decision (this session): DO NOT re-baseline.** `rtol=1e-10` stays and the test stays red. No
+tolerance was widened and no assertion was deleted. It is recorded as a known consequence of a
+finite-difference `B(0)`, and the way to close it green is the analytic `B`/`N` of the printed equations, which
+makes `K_t(0) = K_0` exact again (and removes the `B`-noise from the internal force, which is also what currently
+limits acceptance point 1).
+
+---
+
 ## HANDOFF — state at the end of the session (2026-09-24)
 
 **Branch:** `test/physical-correctness`. **NOTHING committed this session** (last commit is the previous
@@ -1048,11 +1219,20 @@ N-beta, N-gamma, option-B delegation, the instruments), `crates/aeroelast-py/src
 - **The gate with the flip measured**: `pytest -m "not slow"` 343/8/2 (HEAD baseline 344/3/2) — the flat
   in-plane family now PASSES.
 
-### THE CURRENT BLOCKER (the next unit's job)
+### THE BLOCKER — **RESOLVED in iterations 19-20** (kept for the record)
 
 Option B is applied, so the production nonlinear path is the faithful pair — and it **DIVERGES on large
 rotations** (`RuntimeError: SNES diverged` on 6 of 7 cases in `tests/test_large_rotation_benchmarks.py`;
 `test_rust_assembler.py::TestNewtonRaphsonConsistency` rel 4.52 vs 2e-3; `pytest -m "not slow"` 341/10/2).
+
+**RESOLVED.** The residual was the round-off floor `eps/(H_i H_o) = 5e-6` of `geo` computed as a finite difference
+of a finite difference — NOT a missing printed term (the handoff's Eq. (25) `N_ij` hypothesis was the right place
+to look and the wrong cause). Both of `geo`'s nested differences now use the SINGLE step `N_GAMMA_GEO_H = 1e-4`.
+The `SNES diverged` is gone: `tests/test_large_rotation_benchmarks.py` = **6 passed / 1 failed** (the one cell at
+9.84%, was 28.80%); `TestNewtonRaphsonConsistency` **passes**; `pytest -m "not slow"` = **346 passed / 5 failed /
+2 skipped**; `cargo test -p aeroelast-core` = 168/0. See iterations 19 and 20 for the measurements. Backlog is now
+the single 9.84% cell, the §3 Fig. 6 oracle of C&S 185, and the analytic `B`/`N` route that would also make
+`K_t(0) == K_0` exact again (today it is `mat0`, good to `O(H^2) ~ 4e-10`).
 
 **Measured diagnosis (corrected, iteration 18):**
 - The strain/zero-state construction is CORRECT on flat, slender AND bent geometry (`raw` B(0) vs the linear
