@@ -11051,4 +11051,360 @@ mod tests {
             }
         }
     }
+
+    /// DIAGNOSTIC (temporary): the REFERENCE-FREE error of the N-gamma tangent,
+    /// and the geometry class that error belongs to.
+    ///
+    /// The tangent is a Hessian, so `geo` must be symmetric in `(i, j)` in every
+    /// configuration. The antisymmetric part `X - X^T` is therefore pure error,
+    /// and it separates the two candidate causes with no finite-difference
+    /// reference at all:
+    ///
+    /// - ROUND-OFF of the nested difference: the two index orders evaluate
+    ///   different four-point stencils (`H_i` and `H_o` swap roles), so their
+    ///   round-offs are uncorrelated and `|geo - geo^T|` sits at the noise floor
+    ///   `~ eps/(H_i H_o) max|W e|`.
+    /// - A MISSING OR WRONG SYMMETRIC TERM: it contributes equally to both index
+    ///   orders and leaves `|geo - geo^T|` at the floor while `|kt - dF/du|`
+    ///   stays large.
+    ///
+    /// The fixtures separate the other two candidate causes, non-planarity
+    /// (`x_d` out of the mid-surface, the `zeta`/director path) and the assumed
+    /// membrane coefficients `a_A..a_E` of Eq. (15e) (identically zero only when
+    /// `x_d = 0`):
+    ///
+    /// ```text
+    /// fixture          planar  x_d   a_A..a_E
+    /// RECT             yes     0     0
+    /// ROT_RECT(60deg)  yes     0     0
+    /// FLAT_DISTORTED   yes     != 0  != 0
+    /// STRONGLY_WARPED  no      != 0  != 0
+    /// BENT             no      != 0  != 0
+    /// ```
+    #[test]
+    #[ignore = "diagnostic: reference-free tangent symmetry by geometry"]
+    fn n_gamma_geo_symmetry_diagnostic() {
+        fn asym(m: &Mat24) -> (f64, f64, (usize, usize)) {
+            let mut best = 0.0f64;
+            let mut at = (0usize, 0usize);
+            let mut scale = 0.0f64;
+            for i in 0..24 {
+                for j in 0..24 {
+                    scale = scale.max(m[(i, j)].abs());
+                    let d = (m[(i, j)] - m[(j, i)]).abs();
+                    if d > best {
+                        best = d;
+                        at = (i, j);
+                    }
+                }
+            }
+            (best, scale, at)
+        }
+
+        const ROT_RECT: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [2.0, 0.866_025_403_784_438_6, 1.0],
+            [0.0, 0.866_025_403_784_438_6, 1.0],
+        ];
+        const BENT: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.01],
+            [2.0, 1.0, 0.025],
+            [1.0, 1.0, 0.011],
+        ];
+
+        let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut rnd = move || {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            (((seed >> 11) as f64) / ((1u64 << 53) as f64)) * 2.0 - 1.0
+        };
+        let mut cross_checked = false;
+
+        for (name, c) in [
+            ("RECT", &RECT),
+            ("ROT_RECT(60)", &ROT_RECT),
+            ("FLAT_DISTORTED", &FLAT_DISTORTED),
+            ("STRONGLY_WARPED", &STRONGLY_WARPED),
+            ("BENT", &BENT),
+        ] {
+            let pre = pre_from(c);
+            let state = GlCurrentState {
+                coords: pre.initial_coords_3d,
+                vn: pre.vn,
+                v1: pre.v1,
+                v2: pre.v2,
+                a_i: pre.a_i,
+            };
+            let (cur_vecs, _n, m_r, m_s) = gl_current_characteristic_vectors(&state);
+            let (_cr, _cs, d, coeff) =
+                compute_membrane_coefficients_2017(&cur_vecs[2], &m_r, &m_s);
+            println!(
+                "\n=== {name}: |x_d|/|x_r|={:.3e} d={:.3e} max|a|={:.3e}",
+                cur_vecs[2].norm() / cur_vecs[0].norm(),
+                d,
+                coeff.iter().fold(0.0f64, |m, v| m.max(v.abs()))
+            );
+            for &scale in &[1.0e-3f64, 1.0e-1] {
+                // Local-frame increment, as the other N-gamma diagnostics use.
+                let mut u = Vec24::zeros();
+                for x in u.iter_mut() {
+                    *x = scale * rnd();
+                }
+                const HO: f64 = 1.0e-6;
+                let w = n_gamma_w11(&pre);
+                let mut mat = Mat24::zeros();
+                let mut geo = Mat24::zeros();
+                let mut we_max = 0.0f64;
+                for g in 0..N_GAUSS {
+                    let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                    let wq = GAUSS_W[g] * surface_measure(&pre, r, s);
+                    let mut e = nalgebra::SVector::<f64, 11>::zeros();
+                    for (a, v) in
+                        super::n_gamma_local_strain(&pre, &state, &u, r, s).iter().enumerate()
+                    {
+                        e[a] = *v;
+                    }
+                    let b = n_gamma_b_matrix(&pre, &state, &u, r, s);
+                    mat += (b.transpose() * w * b) * wq;
+                    let svec = w * e;
+                    for a in 0..11 {
+                        we_max = we_max.max(svec[a].abs());
+                    }
+                    for j in 0..24 {
+                        let mut up = u;
+                        up[j] += HO;
+                        let mut um = u;
+                        um[j] -= HO;
+                        let bp = n_gamma_b_matrix(&pre, &state, &up, r, s);
+                        let bm = n_gamma_b_matrix(&pre, &state, &um, r, s);
+                        for a in 0..11 {
+                            for i in 0..24 {
+                                geo[(i, j)] += 0.5 * (bp[(a, i)] - bm[(a, i)]) / HO * svec[a] * wq;
+                            }
+                        }
+                    }
+                }
+                let kt = mat + geo;
+                if !cross_checked {
+                    let kt_prod = n_gamma_kt_local(&pre, &state, &u);
+                    let mut dd = 0.0f64;
+                    for i in 0..24 {
+                        for j in 0..24 {
+                            dd = dd.max((kt_prod[(i, j)] - kt[(i, j)]).abs());
+                        }
+                    }
+                    println!("    replication cross-check vs n_gamma_kt_local: {dd:.3e}");
+                    cross_checked = true;
+                }
+                let (ak, sk, atk) = asym(&kt);
+                let (am, sm, _) = asym(&mat);
+                let (ag, sg, atg) = asym(&geo);
+                // Round-off scale of the nested four-point stencil:
+                // eps / (H_i * H_o) times the stress-weighted strain magnitude.
+                const HI: f64 = 2.0e-5;
+                let floor = f64::EPSILON / (HI * HO) * we_max;
+                println!(
+                    "  scale={scale:.0e}: max|We|={we_max:.3e} max|kt|={sk:.3e} max|mat|={sm:.3e} max|geo|={sg:.3e}"
+                );
+                println!(
+                    "    |kt-kt^T|/|kt|={:.3e} at {atk:?} | |mat-mat^T|/|mat|={:.3e} | |geo-geo^T|/|geo|={:.3e} at {atg:?}",
+                    ak / sk.max(1e-300),
+                    am / sm.max(1e-300),
+                    ag / sg.max(1e-300)
+                );
+                println!(
+                    "    |geo-geo^T| / [eps/(Hi*Ho)*max|We|] = {:.3e}",
+                    ag / floor.max(1e-300)
+                );
+            }
+        }
+    }
+
+    /// DIAGNOSTIC (temporary): does a SINGLE-STEP four-point stencil for the
+    /// geometric term reach the accuracy the nested difference cannot?
+    ///
+    /// `geo` is the Hessian `sum_a (d2 _0 e~_a / du_i du_j) S_a`, which the
+    /// production code estimates as `FD(FD(e))` with an inner step `H_i = 2e-5`
+    /// (set by the `B(0)` accuracy) and an outer step `H_o = 1e-6`. That
+    /// composition has the round-off floor `eps / (H_i H_o)` and the two steps
+    /// cannot both be relaxed, so the floor is what the previous instrument
+    /// measured. The same Hessian can be estimated by the single-step four-point
+    /// cross difference
+    ///
+    /// ```text
+    /// d2 e / du_i du_j ~ [e(u + h e_i + h e_j) - e(u + h e_i - h e_j)
+    ///                     - e(u - h e_i + h e_j) + e(u - h e_i - h e_j)] / (4 h^2),
+    /// ```
+    ///
+    /// whose round-off is `eps / h^2` and whose truncation is `O(h^2)`, balanced
+    /// at the classic `h ~ eps^(1/4) ~ 1e-4` with total error `~ eps^(1/2) ~ 1e-8`
+    /// -- two orders below the `1e-6` the consistency gate asks for. The stencil
+    /// is also EXACTLY symmetric in `(i, j)` (both index orders combine the same
+    /// four points), so it is measurable with no reference at all through
+    /// `|X - X^T| / |X|`.
+    #[test]
+    #[ignore = "diagnostic: geometric-term stencil accuracy probe"]
+    fn n_gamma_geo_stencil_probe() {
+        fn asym(m: &Mat24) -> (f64, f64) {
+            let mut best = 0.0f64;
+            let mut scale = 0.0f64;
+            for i in 0..24 {
+                for j in 0..24 {
+                    scale = scale.max(m[(i, j)].abs());
+                    best = best.max((m[(i, j)] - m[(j, i)]).abs());
+                }
+            }
+            (best, scale)
+        }
+        fn rel(a: &Mat24, b: &Mat24) -> (f64, f64) {
+            let mut d = 0.0f64;
+            let mut s = 0.0f64;
+            for i in 0..24 {
+                for j in 0..24 {
+                    d = d.max((a[(i, j)] - b[(i, j)]).abs());
+                    s = s.max(b[(i, j)].abs());
+                }
+            }
+            (d, s)
+        }
+
+        const ROT_RECT: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [2.0, 0.866_025_403_784_438_6, 1.0],
+            [0.0, 0.866_025_403_784_438_6, 1.0],
+        ];
+        const BENT: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.01],
+            [2.0, 1.0, 0.025],
+            [1.0, 1.0, 0.011],
+        ];
+
+        let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut rnd = move || {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            (((seed >> 11) as f64) / ((1u64 << 53) as f64)) * 2.0 - 1.0
+        };
+
+        for (name, c) in [
+            ("RECT", &RECT),
+            ("ROT_RECT(60)", &ROT_RECT),
+            ("FLAT_DISTORTED", &FLAT_DISTORTED),
+            ("BENT", &BENT),
+        ] {
+            let pre = pre_from(c);
+            let state = GlCurrentState {
+                coords: pre.initial_coords_3d,
+                vn: pre.vn,
+                v1: pre.v1,
+                v2: pre.v2,
+                a_i: pre.a_i,
+            };
+            let mut u = Vec24::zeros();
+            for x in u.iter_mut() {
+                *x = 1.0e-1 * rnd();
+            }
+            let w = n_gamma_w11(&pre);
+            let hs: &[f64] = if name == "BENT" {
+                &[3.0e-5, 1.0e-4, 3.0e-4]
+            } else {
+                &[1.0e-4]
+            };
+            let mut mat = Mat24::zeros();
+            let mut geo_nested = Mat24::zeros();
+            for g in 0..N_GAUSS {
+                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                let wq = GAUSS_W[g] * surface_measure(&pre, r, s);
+                let mut e = nalgebra::SVector::<f64, 11>::zeros();
+                for (a, v) in
+                    super::n_gamma_local_strain(&pre, &state, &u, r, s).iter().enumerate()
+                {
+                    e[a] = *v;
+                }
+                let b = n_gamma_b_matrix(&pre, &state, &u, r, s);
+                mat += (b.transpose() * w * b) * wq;
+                let svec = w * e;
+                const HO: f64 = 1.0e-6;
+                for j in 0..24 {
+                    let mut up = u;
+                    up[j] += HO;
+                    let mut um = u;
+                    um[j] -= HO;
+                    let bp = n_gamma_b_matrix(&pre, &state, &up, r, s);
+                    let bm = n_gamma_b_matrix(&pre, &state, &um, r, s);
+                    for a in 0..11 {
+                        for i in 0..24 {
+                            geo_nested[(i, j)] +=
+                                0.5 * (bp[(a, i)] - bm[(a, i)]) / HO * svec[a] * wq;
+                        }
+                    }
+                }
+            }
+            let (an, sn) = asym(&geo_nested);
+            println!(
+                "\n=== {name}: scale=1e-1  max|mat|={:.3e} max|geo_nest|={sn:.3e}",
+                mat.abs().max()
+            );
+            println!(
+                "    nested H_i=2e-5 H_o=1e-6 : |geo-geo^T|/|geo|={:.3e}",
+                an / sn.max(1e-300)
+            );
+            for &h in hs {
+                let mut g4 = Mat24::zeros();
+                for g in 0..N_GAUSS {
+                    let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                    let wq = GAUSS_W[g] * surface_measure(&pre, r, s);
+                    let mut e = nalgebra::SVector::<f64, 11>::zeros();
+                    for (a, v) in
+                        super::n_gamma_local_strain(&pre, &state, &u, r, s).iter().enumerate()
+                    {
+                        e[a] = *v;
+                    }
+                    let svec = w * e;
+                    for i in 0..24 {
+                        for j in i..24 {
+                            let mut pp = u;
+                            pp[i] += h;
+                            pp[j] += h;
+                            let mut pm = u;
+                            pm[i] += h;
+                            pm[j] -= h;
+                            let mut mp = u;
+                            mp[i] -= h;
+                            mp[j] += h;
+                            let mut mm = u;
+                            mm[i] -= h;
+                            mm[j] -= h;
+                            let epp = super::n_gamma_local_strain(&pre, &state, &pp, r, s);
+                            let epm = super::n_gamma_local_strain(&pre, &state, &pm, r, s);
+                            let emp = super::n_gamma_local_strain(&pre, &state, &mp, r, s);
+                            let emm = super::n_gamma_local_strain(&pre, &state, &mm, r, s);
+                            let mut acc = 0.0f64;
+                            for a in 0..11 {
+                                acc += ((epp[a] - epm[a] - emp[a] + emm[a]) / (4.0 * h * h))
+                                    * svec[a];
+                            }
+                            g4[(i, j)] += acc * wq;
+                            if i != j {
+                                g4[(j, i)] += acc * wq;
+                            }
+                        }
+                    }
+                }
+                let (a4, s4) = asym(&g4);
+                let (d, sc) = rel(&g4, &geo_nested);
+                println!(
+                    "    4-pt h={h:.0e}          : |geo-geo^T|/|geo|={:.3e} | |g4-gn|/|gn|={:.3e} (|g4|={s4:.3e}, |gn|={sc:.3e})",
+                    a4 / s4.max(1e-300),
+                    d / sc.max(1e-300)
+                );
+            }
+        }
+    }
 }
