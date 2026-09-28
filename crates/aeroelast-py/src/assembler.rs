@@ -298,7 +298,17 @@ impl PyMeshAssembler {
             cs[2] = corrected_lam.cs[(1,0)];
             cs[3] = corrected_lam.cs[(1,1)];
 
-            Ok(MaterialSpec::Composite { cm, cb_coupling, cb, cs, thickness: h, e_equiv, mass_per_area, rotational_inertia })
+            Ok(MaterialSpec::Composite {
+                cm,
+                cb_coupling,
+                cb,
+                cs,
+                thickness: h,
+                e_equiv,
+                mass_per_area,
+                rotational_inertia,
+                applied_shear_correction: corrected_lam.applied_shear_correction_factor(),
+            })
         };
 
         // Enum to distinguish composite vs isotropic without PyO3 objects in hot path

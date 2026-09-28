@@ -351,16 +351,24 @@ They are reproduced below.
 
 `transcription-verified: 2026-09-23 p.409`
 
-**Note F2 (2026-09-23, WU0) — Eq. (21) as printed is defective; do not "fix" the
-quote.** As printed, Eq. (21) has no leading term, so for a flat rectangle (where
-`c_r = c_s = 0` makes `B1..B5` all zero) it would give `ẽ_rs^m|bil = 0`, which
-contradicts the patch-test condition Eq. (22) printed immediately below it
-(`ẽ_rs^m|bil = e_rs^m|bil` for a flat element).  The independent proof that a
-leading `+ e_rs^m|bil` term is required is **Eq. (27c)**, whose coefficient of
-`e_rs^m(E)` is printed as **`(1 + a_E·rs)`** — the bare `1` *is* that leading term.
-The transcription above therefore reproduces the printed (defective) form, and the
-implementation must use the form with the leading term, i.e. Eq. (27c) or Eq. (21)
-plus `e_rs^m|bil`.
+**Note F2 — CORRECTED 2026-09-24: the printed Eq. (21) is NOT defective.** The
+earlier note here (2026-09-23, WU0) claimed that "as printed, Eq. (21) has no
+leading term", "proved" by Eq. (27c)'s `(1 + a_E·rs)` coefficient. A vision
+re-read of p. 409 and of **Appendix A, p. 416** refutes it: Eq. (21) printed does
+contain `e_rs^m|bil`, inside the `B_1` and `B_2` parentheses, with coefficient
+`B_1 + B_2 = (c_r²+c_s²)/d = 1 + 1/d`; and the paper's own **Eq. (A.7)** — the
+substitution of Eq. (A.6) into Eq. (21) — is
+`(c_r²/d)(e_rr|con + e_rs|bil) + (c_s²/d)(e_ss|con + e_rs|bil) + (2c_rc_s/d)e_rs|con − (c_r/d)e_rr|lin − (c_s/d)e_ss|lin`,
+i.e. Eq. (25) with the `e_rs|bil` terms retained. Eq. (21) and Eq. (25) are the
+same equation with `B_1..B_5` substituted. The `(1 + a_E·rs)` coefficient of
+Eq. (27c) multiplies `e_rs^m(E) = e_rs^m|con` (the bare `1` comes from Eq. (19)'s
+added linear terms with `ē_rs = e_rs^m|con`, the `a_E·rs` from Eq. (26)'s
+`ẽ_rs^m|bil·rs`), so it proves nothing about Eq. (21). The old "flat rectangle"
+argument is void too: on a flat rectangle `x_d = 0`, so `e_rs^m|bil = 0` and
+Eq. (22) requires `ẽ_rs^m|bil = 0` — no contradiction. The implementation
+implements Eq. (27a-c), which is the printed closed form and is correct; only the
+motivating claim was wrong. Full record:
+`openspec/changes/mitc4plusd-faithful/fidelity-audit.md` §B-audit record.
 
 **Note F1 (2026-09-23, WU0) — Eq. (27a–c) is the closed form of Eqs. (21)+(26).**
 Substituting Eq. (25) into Eq. (26) and collecting terms gives Eq. (27a–c)

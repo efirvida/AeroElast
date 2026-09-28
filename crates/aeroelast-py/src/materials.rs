@@ -68,7 +68,8 @@ pub(crate) fn parse_material(py: Python, obj: &Py<PyAny>) -> PyResult<MaterialSp
             cb.copy_from_slice(&cb_list);
             cs.copy_from_slice(&cs_list);
 
-            Ok(MaterialSpec::Composite { cm, cb_coupling, cb, cs, thickness, e_equiv, mass_per_area, rotational_inertia })
+            // Raw-dict composite path has no `Laminate`, so no scalar was applied.
+            Ok(MaterialSpec::Composite { cm, cb_coupling, cb, cs, thickness, e_equiv, mass_per_area, rotational_inertia, applied_shear_correction: 1.0 })
         }
         "plane_stress" => {
             let e: f64 = dict.get_item("e")?.extract()?;

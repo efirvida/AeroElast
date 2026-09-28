@@ -39,11 +39,15 @@ Column conventions:
   printing its residual; `not measured` means it was not obtainable in this pass.
 - **Notes** — flags per section 5.
 
-Shorthand: S4 = CCX 4-node linear shell, S8R = CCX 8-node quadratic reduced-integration
-shell (used for `*SHELL SECTION, COMPOSITE`), MITC4+ / MITC3+ = the elements documented in
+Shorthand: S4 = CCX 4-node linear shell, S8 = CCX 8-node quadratic full-integration
+shell, S8R = CCX 8-node quadratic reduced-integration shell (used for
+`*SHELL SECTION, COMPOSITE`), MITC4+ / MITC3+ = the elements documented in
 `docs/formulations/shell-elements.md` §2 and §3. `write_ccx_mesh(quadratic=False)` maps
-quads to `S4` and `quadratic=True` maps them to `S8R`
-(`src/aeroelast/core/mesh/io/writers.py:379`).
+quads to `S4` and `quadratic=True` maps them to `S8R`. The explicit
+`write_ccx_mesh(shell_element_type=...)` selector overrides that mapping with `"S4"`,
+`"S8"` or `"S8R"` (and rejects `"S4"`/`"S8"` for a composite section, which CalculiX
+only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
+(`src/aeroelast/core/mesh/io/writers.py`).
 
 ## 2. Suite snapshot
 
@@ -179,6 +183,29 @@ Structural notes on this module:
 | --- | --- | --- | --- | --- | --- |
 | `test_in_plane_bending_convergence` | observed order of the MITC4 in-plane tip displacement over 4 meshes, by Richardson self-convergence, plus the extrapolated limit | analytical `P L^3/(3 E I)` with `I = t B^3/12`; the Timoshenko-vs-Euler-Bernoulli shear floor is derived in the comment (9.6 um on 1230 um ≈ 0.8%) | `MIN_ORDER = 1.5` and `EXTRAPOLATED_TOL = 0.02`, both justified in the module docstring | orders 1.7416 and 1.7638 (agree, delta = 0.022); Richardson limit 1238.1350 um vs 1230.7692 um = 0.5985% | the strongest tolerance justification in the suite; the raw pairwise orders (2.878, 0.153, -0.698) are printed and explicitly not asserted |
 | `test_composite_laminate_gap_mesh_study` | whether the AeroElast-vs-CCX laminate gap shrinks (mesh artifact) or plateaus (formulation/ABD) | **CCX 2.23, S8R** across 4 meshes; no gap value asserted | none: the only assertions are `np.all(np.isfinite(...))` and `... > 0` | gaps -4.2527 / -1.7312 / -1.3546 / -1.7294%; verdict printed: `PLATEAUS -> formulation / ABD` | an analysis script, not a test: it cannot fail for any formulation. The docstring says "No gap value is asserted yet", so this is deliberate, but it should be read as a measurement, not as coverage |
+
+### 4.6 `test_ccx_shell_element_types_parity.py` (4)
+
+In-plane bending strip (defect #4): `L x b x h = 1.0 x 0.1 x 0.001 m`, isotropic
+`E = 2.1e11`, `nu = 0.3`, `rho = 7800`, regular **8x4** quad mesh, every node at `x = 0`
+clamped in 6 DOF, total `600 N` in `+y` on the free edge `x = L`, measured `uy` at the
+free-edge centre node `(L, b/2)`. Analytical reference `F L^3/(3 E I)`, `I = h b^3/12` ->
+`1.142857E-02 m`. Decks are written through the new
+`write_ccx_mesh(shell_element_type=...)` selector; the strip is statically determinate, so
+`S4` uses a consistent 4-node edge traction and `S8`/`S8R` a consistent 3-node edge
+traction (corner `1/6`, midside `2/3`), each with resultant `600 N`.
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_ccx_element_types_agree_with_each_other` | S4 vs S8 vs S8R centre deflection, 8x4 | **CCX 2.23, S4 / S8 / S8R** (three independent runs) | `TOL_AGREEMENT = 0.02`, justified in the module docstring against the mesh study | S4 1.135840E-02, S8 1.145430E-02, S8R 1.148490E-02 m; spread (max-min)/min = 1.1137% | the same deck at 4x2 / 8x4 / 16x8 gives spreads 2.67% / 1.11% / 0.42%, so the family difference falls with refinement |
+| `test_ccx_element_type_matches_analytical[S4]` | S4 centre `uy` vs beam theory, 8x4 | analytical `F L^3/(3 E I) = 1.142857E-02 m` | `TOL_ANALYTICAL = 0.02`, justified in the module docstring | 1.135840E-02 m, 0.6140% | consistent 4-node edge traction, resultant 600 N |
+| `test_ccx_element_type_matches_analytical[S8]` | S8 centre `uy` vs beam theory, 8x4 | same analytical | 0.02 | 1.145430E-02 m, 0.2251% | quadratic mesh; S8 is CCX full integration and is not in `ELEMENTS_TO_CALCULIX` -- the type is threaded through `_build_quadratic_mesh_data` |
+| `test_ccx_element_type_matches_analytical[S8R]` | S8R centre `uy` vs beam theory, 8x4 | same analytical | 0.02 | 1.148490E-02 m, 0.4929% | same load; S8R is the `*SHELL SECTION, COMPOSITE` element |
+
+The three independent CalculiX formulations bracket the analytical value and agree with
+each other within 1.11%, so the CCX reference model for the strip is not the source of the
+37.7% AeroElast gap on the new shell element. The module skips cleanly when CalculiX is
+absent (`conftest.ccx_bin_or_skip`, path overridable with `CCX_BIN`).
 
 ## 5. Analytical group
 

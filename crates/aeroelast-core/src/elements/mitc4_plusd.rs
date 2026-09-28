@@ -60,7 +60,7 @@
 //   six degrees of freedom at each node - the MITC4/D and MITC4+/D elements",
 //   Computers and Structures 308:107622.
 
-use nalgebra::{Matrix2, Matrix3, SMatrix, SVector, Vector3, Vector4};
+use nalgebra::{Matrix2, Matrix3, SMatrix, SVector, Vector2, Vector3, Vector4};
 
 use crate::materials::ShellConstitutive;
 
@@ -757,6 +757,7 @@ impl Mitc4PlusDPrecomputed {
 /// ```text
 /// x(r,s,t) = sum h_i x_i + (t/2) sum a_i h_i V_n^i,   t in [-1, 1]
 /// ```
+#[cfg(test)]
 fn interpolate_position(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64, t: f64) -> Vector3<f64> {
     let h = shape_functions(r, s);
     let mut x = Vector3::zeros();
@@ -786,6 +787,7 @@ fn interpolate_position(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64, t: f64) -> 
 /// `V_n^i` is annihilated: `theta_z` is carried in the DOF vector but is
 /// **unconsumed by the 2017 core**. The drill rotation enters through the 2025
 /// operator (WU3), where it is `theta_i^D = theta_i . V^D`.
+#[cfg(test)]
 fn interpolate_displacement(
     pre: &Mitc4PlusDPrecomputed,
     r: f64,
@@ -890,10 +892,14 @@ fn covariant_membrane_b_row(
 /// The assumed covariant membrane strain rows `[e~_rr, e~_ss, e~_rs]` of
 /// Ko, Lee & Bathe (2017), C&S 182:404-418, Eqs. (27a-c), p. 410.
 ///
-/// Note F1 of `docs/formulations/mitc4plus-2017-extract.md`: Eqs. (27a-c) is
-/// the closed form of Eqs. (21)+(26) and its Eq. (27c) coefficient
-/// `(1 + a_E r s)` carries the leading `e_rs^m|bil` term the printed Eq. (21)
-/// omits (note F2). The engineering shear `2 e_rs` is applied by
+/// Eqs. (27a-c) is the closed form of Eqs. (17)+(18)+(19)+(21)/(25)+(26):
+/// Appendix A Eq. (A.7), p. 416, is Eq. (21) with the printed `B_1..B_5`
+/// substituted and retains the `e_rs^m|bil` terms, and substituting
+/// Eqs. (25)/(26) into the assumed field reproduces (27a-c) term for term
+/// (audit record: `openspec/changes/mitc4plusd-faithful/fidelity-audit.md`,
+/// §B-audit record, 2026-09-24). The `(1 + a_E r s)` coefficient of Eq. (27c) is
+/// the coefficient of the sampled `e_rs^m(E)`, not of `e_rs^m|bil`.
+/// The engineering shear `2 e_rs` is applied by
 /// [`b_membrane_2017`] at the covariant-to-local mapping, not here.
 fn b_membrane_covariant_2017(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> SMatrix<f64, 3, 24> {
     let a = pre.a_coeffs;
@@ -1328,6 +1334,7 @@ fn surface_measure(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> f64 {
 
 /// The membrane block `sum_g B_m^T cm B_m w sqrt_g` (local, 24x24). Exposed to
 /// the identity lock, which compares it with the test-local reference block.
+#[cfg(test)]
 fn membrane_ke_local(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
     let cm = &pre.constitutive.cm;
     let mut k = Mat24::zeros();
@@ -1364,6 +1371,7 @@ fn shear_ke_local(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
 /// provenance assertions of
 /// `test_identity_drill_stiffness_comes_only_from_eq26` can be exact; the
 /// symmetrisation is a round-off guard, not a formulation factor.
+#[cfg(test)]
 fn drill_ke_local(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
     let cm = &pre.constitutive.cm;
     let mut m = Mat24::zeros();
@@ -1393,7 +1401,16 @@ fn compute_ke_local_with_drill(pre: &Mitc4PlusDPrecomputed, use_drill: bool) -> 
     for g in 0..N_GAUSS {
         let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
         let sqrt_g = surface_measure(pre, r, s);
-        let bm = b_membrane_2017(pre, r, s);
+        // Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (22a), p. 10:
+        //   e_ij = e_ij^m + e_ij^md + t e_ij^b1 + t^2 e_ij^b2.
+        // The drill-membrane strain is ADDED to the assumed membrane strain, so
+        // the t^0 row is `B_m + B_md` and the single `W` block supplies the
+        // paper's cross terms. Adding the drill as a separate energy block would
+        // drop them (and make the drill inert at the solution).
+        let mut bm = b_membrane_2017(pre, r, s);
+        if use_drill {
+            bm += b_drill_membrane_2025(pre, r, s);
+        }
         let (bb1, bb2) = b_bending_2017(pre, r, s);
         let mut b = SMatrix::<f64, 9, 24>::zeros();
         for i in 0..3 {
@@ -1406,9 +1423,6 @@ fn compute_ke_local_with_drill(pre: &Mitc4PlusDPrecomputed, use_drill: bool) -> 
         k += (b.transpose() * w * b) * (GAUSS_W[g] * sqrt_g);
     }
     k += shear_ke_local(pre);
-    if use_drill {
-        k += drill_ke_local(pre);
-    }
     // Round-off guard only (no formulation factor): the assembled sum is
     // exactly symmetric in exact arithmetic, and the exact-symmetry and
     // exact-zero assertions of the drill provenance test need it to be so in
@@ -1426,16 +1440,24 @@ fn compute_ke_local_with_drill(pre: &Mitc4PlusDPrecomputed, use_drill: bool) -> 
 /// Compute the element stiffness in LOCAL coordinates (24x24):
 ///
 /// ```text
-/// K = sum_g [B_m; (2/h) B_b1; (4/h^2) B_b2]^T W [..] w sqrt_g
+/// K = sum_g [B_m + B_md; (2/h) B_b1; (4/h^2) B_b2]^T W [..] w sqrt_g
 ///   + sum_g B_gamma^T cs_uncorrected B_gamma w sqrt_g
-///   + sum_g B_md^T cm B_md w sqrt_g
 /// ```
+///
+/// The drill-membrane strain is **added to the assumed membrane strain**, per
+/// Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (22a), p. 10:
+/// `e_ij = e_ij^m + e_ij^md + t e_ij^b1 + t^2 e_ij^b2`. The single `W` block
+/// therefore carries the paper's cross terms as well: `(e^m)^T C e^md` at the
+/// `t^0` level and `(e^m + e^md)^T C e^b2` at the `t^2` level (the `W`
+/// `(m, b2)` entry `cb`). Adding the drill as an independent energy block would
+/// drop both cross terms and would make the drill inert at the solution (a free
+/// `theta_z` drives its own strain to zero).
 ///
 /// with the moment matrix `W` of [`resultant_moment_matrix`], the 2x2 surface
 /// rule (Ko, Lee & Bathe (2017), C&S 182:404-418, p. 410; Ko, Bathe & Zhang
 /// (2025), C&S 308:107622, §3.1, p. 13) and **no numerical factor**: the drill
-/// term is the penalty-free B Eq. (26) strain and the shear block is the
-/// uncorrected `G h` of ADR-1.
+/// term is the penalty-free 2025 drill-membrane strain (Eqs. (18)/(19d)/(22a))
+/// and the shear block is the uncorrected `G h` of ADR-1.
 pub fn compute_ke_local(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
     compute_ke_local_with_drill(pre, true)
 }
@@ -1513,7 +1535,9 @@ fn local_shape_derivatives(pre: &Mitc4PlusDPrecomputed, r: f64, s: f64) -> SMatr
 }
 
 /// Displacement gradient `H = du/dX` (3x3, the third column zero) from the
-/// local shape-function derivatives and the local 24-vector.
+/// local shape-function derivatives and the local 24-vector. Used only by the
+/// superseded bounded path, hence `#[cfg(test)]`.
+#[cfg(test)]
 fn displacement_gradient(dh: &SMatrix<f64, 2, 4>, u: &Vec24) -> Matrix3<f64> {
     let mut u_nodes = [[0.0f64; 3]; 4];
     for i in 0..4 {
@@ -1542,8 +1566,10 @@ fn displacement_gradient(dh: &SMatrix<f64, 2, 4>, u: &Vec24) -> Matrix3<f64> {
 /// open item 5 (risk 9). Neither Ko, Lee & Bathe (2017), C&S 182:404-418 nor
 /// Ko, Bathe & Zhang (2025), C&S 308:107622 prints a nonlinear MITC4+/D
 /// formulation for this repository's updated-Lagrangian form, so the linear
-/// path is paper-faithful and this correction is bounded and oracle-checked by
-/// the T2B consistency set.
+/// path is paper-faithful and this correction is bounded. It is superseded by
+/// the faithful total-Lagrangian pair and is used only by the `#[cfg(test)]`
+/// historical reference, hence `#[cfg(test)]`.
+#[cfg(test)]
 fn membrane_strain_nl(h: &Matrix3<f64>) -> Vector3<f64> {
     Vector3::new(
         0.5 * (h[(0, 0)].powi(2) + h[(1, 0)].powi(2) + h[(2, 0)].powi(2)),
@@ -1553,7 +1579,9 @@ fn membrane_strain_nl(h: &Matrix3<f64>) -> Vector3<f64> {
 }
 
 /// Derivative of [`membrane_strain_nl`] with respect to the local 24-vector,
-/// `B_nl` (6x24; rows 0, 1, 3 carry `[E_xx, E_yy, 2 E_xy]`).
+/// `B_nl` (6x24; rows 0, 1, 3 carry `[E_xx, E_yy, 2 E_xy]`). Used only by the
+/// superseded bounded path, hence `#[cfg(test)]`.
+#[cfg(test)]
 fn compute_b_nl(dh: &SMatrix<f64, 2, 4>, h: &Matrix3<f64>) -> SMatrix<f64, 6, 24> {
     let mut bnl = SMatrix::<f64, 6, 24>::zeros();
     for i in 0..4 {
@@ -1576,7 +1604,9 @@ fn compute_b_nl(dh: &SMatrix<f64, 2, 4>, h: &Matrix3<f64>) -> SMatrix<f64, 6, 24
     bnl
 }
 
-/// Extract the membrane rows `[0, 1, 3]` from a 6x24 matrix into a 3x24.
+/// Extract the membrane rows `[0, 1, 3]` from a 6x24 matrix into a 3x24. Used
+/// only by the superseded bounded path, hence `#[cfg(test)]`.
+#[cfg(test)]
 fn extract_membrane_rows(b6: &SMatrix<f64, 6, 24>) -> SMatrix<f64, 3, 24> {
     let mut b3 = SMatrix::<f64, 3, 24>::zeros();
     for j in 0..24 {
@@ -1629,21 +1659,6 @@ fn geometric_stiffness_contribution(
     (bg.transpose() * s_tilde * bg) * (GAUSS_W[g] * sqrt_g)
 }
 
-/// Initial-stress stiffness `K_sigma` in LOCAL coordinates from the current
-/// displacement state: the membrane resultant `sigma = cm (B_m u)` is evaluated
-/// at every Gauss point and contracted with `B_geo`.
-fn geometric_stiffness_local(pre: &Mitc4PlusDPrecomputed, u_local: &Vec24) -> Mat24 {
-    let cm = &pre.constitutive.cm;
-    let mut k = Mat24::zeros();
-    for g in 0..N_GAUSS {
-        let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
-        let bm = b_membrane_2017(pre, r, s);
-        let sigma_g = cm * (bm * u_local);
-        k += geometric_stiffness_contribution(pre, g, &sigma_g);
-    }
-    0.5 * (k + k.transpose())
-}
-
 /// Initial-stress stiffness in LOCAL coordinates from a pre-computed membrane
 /// resultant state `sigma = [N_xx, N_yy, N_xy]`.
 fn geometric_stiffness_from_stress(pre: &Mitc4PlusDPrecomputed, sigma: &Vector3<f64>) -> Mat24 {
@@ -1654,7 +1669,9 @@ fn geometric_stiffness_from_stress(pre: &Mitc4PlusDPrecomputed, sigma: &Vector3<
     0.5 * (k + k.transpose())
 }
 
-/// The bounded nonlinear membrane correction to the internal force:
+/// SUPERSEDED bounded nonlinear membrane correction — retained ONLY as the
+/// historical "before" reference for the `#[ignore]`d N-alpha and N-gamma
+/// instruments.
 ///
 /// ```text
 /// f_corr = sum_g [ B_total^T cm eps - B_m^T cm (B_m u) ] w sqrt_g
@@ -1668,11 +1685,15 @@ fn geometric_stiffness_from_stress(pre: &Mitc4PlusDPrecomputed, sigma: &Vector3<
 /// Ko, Lee & Bathe (2017), C&S 182:404-418 nor Ko, Bathe & Zhang (2025),
 /// C&S 308:107622 provides a nonlinear MITC4+/D formulation for this
 /// repository's updated-Lagrangian form, so only this total-Lagrangian covariant
-/// correction is carried. The T2B consistency set
-/// (`test_kt_zero_matches_ke`, `test_fint_linear_nonlinear_parity`, the
-/// directional-derivative triple) is its oracle; a paper-faithful nonlinear
-/// derivation is explicitly deferred, not invented.
-fn membrane_nonlinear_correction(pre: &Mitc4PlusDPrecomputed, u_local: &Vec24) -> Vec24 {
+/// correction is carried. It was superseded by the faithful total-Lagrangian
+/// pair `n_gamma_fint_global` / `n_gamma_kt_global` (N-delta, option B); this
+/// body is `#[cfg(test)]`-only and is called solely by the two `#[ignore]`d
+/// instruments as the recorded "before".
+#[cfg(test)]
+fn membrane_nonlinear_correction_bounded_superseded(
+    pre: &Mitc4PlusDPrecomputed,
+    u_local: &Vec24,
+) -> Vec24 {
     let cm = &pre.constitutive.cm;
     let mut f = Vec24::zeros();
     for g in 0..N_GAUSS {
@@ -1700,76 +1721,1067 @@ fn membrane_nonlinear_correction(pre: &Mitc4PlusDPrecomputed, u_local: &Vec24) -
     f
 }
 
+/// SUPERSEDED bounded internal force — the historical "before" reference for
+/// the `#[ignore]`d N-alpha and N-gamma instruments. Not the production path:
+/// the production nonlinear path is [`n_gamma_fint_global`].
+#[cfg(test)]
+fn compute_fint_global_bounded_superseded(
+    pre: &Mitc4PlusDPrecomputed,
+    u_global: &Vec24,
+) -> Vec24 {
+    let t24 = build_t24(pre);
+    let u_local = t24 * u_global;
+    let f_local = compute_ke_local(pre) * u_local
+        + membrane_nonlinear_correction_bounded_superseded(pre, &u_local);
+    t24.transpose() * f_local
+}
+
 /// Compute the internal force vector in GLOBAL coordinates (24 long).
 ///
-/// `nonlinear = false` returns `K u` exactly. `nonlinear = true` adds the
-/// bounded total-Lagrangian membrane correction of
-/// [`membrane_nonlinear_correction`]; the bending, transverse-shear and drill
-/// contributions stay linear (their geometric parts are carried by `K_sigma` of
-/// [`compute_kt_global`]).
+/// `nonlinear = false` returns `K u` exactly (the linear path, unchanged).
 ///
-/// The nonlinear path is bounded: see the note on
-/// [`membrane_nonlinear_correction`].
+/// `nonlinear = true` delegates to the faithful total-Lagrangian formulation
+/// [`n_gamma_fint_global`] (Ko, Lee & Bathe (2017), C&S 185:1-14, Eq. (24b) on
+/// the §2.4 incremental strains of Eqs. (19)-(23)), which is now the production
+/// nonlinear behaviour of this element (N-delta, option B). The superseded
+/// bounded correction survives only as the `#[cfg(test)]` historical reference
+/// [`compute_fint_global_bounded_superseded`] for the `#[ignore]`d
+/// instruments.
 pub fn compute_fint_global(
     pre: &Mitc4PlusDPrecomputed,
     u_global: &Vec24,
     nonlinear: bool,
 ) -> Vec24 {
+    if nonlinear {
+        return n_gamma_fint_global(pre, u_global);
+    }
     let t24 = build_t24(pre);
     let u_local = t24 * u_global;
-
-    let f_local = if !nonlinear {
-        compute_ke_local(pre) * u_local
-    } else {
-        compute_ke_local(pre) * u_local + membrane_nonlinear_correction(pre, &u_local)
-    };
-
-    t24.transpose() * f_local
+    t24.transpose() * (compute_ke_local(pre) * u_local)
 }
 
 /// Compute the tangent stiffness `K_T` in GLOBAL coordinates (24x24).
 ///
-/// Total Lagrangian: `K_T = K_0 + K_L + K_sigma`, where `K_0` is the linear
-/// stiffness, `K_L` the initial-displacement stiffness of the bounded membrane
-/// correction and `K_sigma` the initial-stress (geometric) stiffness. At
-/// `u = 0` both corrections vanish, so `K_T(0) = K_0` exactly.
-///
-/// The tangent is symmetrised in the local frame before the transformation, but
-/// the transformation itself is **not** post-symmetrised, so `K_T(0)` equals
-/// `T^T K_0 T` bit for bit (the `test_kt_zero_matches_ke` guard).
+/// Delegates to the faithful total-Lagrangian tangent [`n_gamma_kt_global`]
+/// (Ko, Lee & Bathe (2017), C&S 185:1-14, Eq. (24a)). That tangent is the
+/// derivative of [`compute_fint_global`]`(.., true)` to round-off and satisfies
+/// `K_T(0) = K_0` bit for bit, so the linear and nonlinear paths share one
+/// operator.
 pub fn compute_kt_global(pre: &Mitc4PlusDPrecomputed, u_global: &Vec24) -> Mat24 {
-    let t24 = build_t24(pre);
-    let u_local = t24 * u_global;
+    n_gamma_kt_global(pre, u_global)
+}
 
-    let k0 = compute_ke_local(pre);
-    let cm = &pre.constitutive.cm;
+// ============================================================================
+// N-alpha — faithful incremental (total-Lagrangian) kinematics
+// ============================================================================
+//
+// Ko, Lee & Bathe (2017), "The MITC4+ shell element in geometric nonlinear
+// analysis", Computers and Structures 185:1-14, §2.1-2.2, pp. 2-3.
+//
+// This block adds the paper's incremental kinematic building blocks as
+// self-contained functions over a plain-data current state. They are now the
+// production nonlinear path: the public `compute_fint_global(.., true)` and
+// `compute_kt_global` delegate to the N-gamma pair built on them (N-delta,
+// option B), so the faithful formulation is what every solver calls.
+//
+// Notation (`^t` = the current configuration at time `t`, `^0` = the initial
+// configuration, `zeta` = the thickness coordinate, `r_1 = r`, `r_2 = s`,
+// `r_3 = zeta`):
+//
+//   Eq. (4c) `^{t+dt}V_n^i - ^t V_n^i = theta_i x ^t V_n^i
+//            + 1/2 theta_i x (theta_i x ^t V_n^i)`,
+//            `theta_i = ^t V_1^i alpha_i + ^t V_2^i beta_i`.
+//   Eq. (5b) `u_m = sum_{i=1..4} h_i u_i`.
+//   Eq. (5c) `u_b1 = 1/2 sum_i a_i h_i (-^t V_2^i alpha_i + ^t V_1^i beta_i)`,
+//            `u_b2 = -1/4 sum_i a_i h_i (alpha_i^2 + beta_i^2) ^t V_n^i`.
+//   Eq. (6)  `u_1 = u_m + zeta u_b1`, `u_2 = zeta u_b2`.
+//   Eq. (7)  `^t_0 e_ij = 1/2(^t g_i . ^t g_j - ^0 g_i . ^0 g_j)` with
+//            `^t g_i = d ^t x / d r_i`.
+//   Eq. (8)  `_0 e_ij = 1/2(^t g_i . u_j + u_i . ^t g_j + u_i . u_j)` with
+//            `u_i = d u / d r_i`.
+//   Eq. (9)  `_0 e_ij = _0 e_ij + _0 eta_ij`, with
+//            `_0 e_ij  = 1/2(^t g_i . u_{1,j} + u_{1,i} . ^t g_j)` (linear) and
+//            `_0 eta_ij = 1/2(u_{1,i} . u_{1,j} + ^t g_i . u_{2,j}
+//                        + u_{2,i} . ^t g_j)` (nonlinear, three terms).
 
-    // K_L: initial-displacement stiffness of the nonlinear membrane strain.
-    let mut k_l = Mat24::zeros();
-    for g in 0..N_GAUSS {
-        let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
-        let sqrt_g = surface_measure(pre, r, s);
-        let dh = local_shape_derivatives(pre, r, s);
-        let h_mat = displacement_gradient(&dh, &u_local);
-        let bnl = compute_b_nl(&dh, &h_mat);
-        let bm = b_membrane_2017(pre, r, s);
-        let bm_nl = extract_membrane_rows(&bnl);
-        k_l += (bm.transpose() * cm * bm_nl
-            + bm_nl.transpose() * cm * bm
-            + bm_nl.transpose() * cm * bm_nl)
-            * (GAUSS_W[g] * sqrt_g);
+/// The current configuration (`^t`, the state at time `t`) the faithful
+/// incremental kinematics of Ko, Lee & Bathe (2017), C&S 185:1-14, Eqs. (1),
+/// (4c), (7)-(9), needs.
+///
+/// It is plain data, decoupled from [`Mitc4PlusDPrecomputed`], so the same
+/// functions can later be driven by a re-precomputed (updated) state or by the
+/// frozen initial state. Eq. (1) makes the directors `^t V_n^i` current
+/// quantities and Eq. (7) makes the covariant base vectors `^t g_i` current.
+#[derive(Clone, Copy, Debug)]
+pub struct GlCurrentState {
+    /// Current node coordinates `^t x_i` (global).
+    pub coords: [[f64; 3]; 4],
+    /// Current nodal directors `^t V_n^i`, Eq. (1).
+    pub vn: [Vector3<f64>; 4],
+    /// Current in-plane directors `^t V_1^i` of Eq. (4c).
+    pub v1: [Vector3<f64>; 4],
+    /// Current in-plane directors `^t V_2^i = ^t V_n^i x ^t V_1^i` of Eq. (4c).
+    pub v2: [Vector3<f64>; 4],
+    /// Per-node thickness `a_i` of Eq. (1).
+    pub a_i: [f64; 4],
+}
+
+/// The incremental unknowns of one load step: the nodal displacement
+/// increments `u_i` of Eq. (4b) and the two director-rotation components
+/// `alpha_i`, `beta_i` of Eqs. (4c)/(5c).
+///
+/// `alpha_i` and `beta_i` are the rotations of `^t V_n^i` about `^t V_1^i` and
+/// `^t V_2^i`, i.e. `alpha_i = theta_i . ^t V_1^i` and
+/// `beta_i = theta_i . ^t V_2^i` for a nodal rotation vector `theta_i`.
+#[derive(Clone, Copy, Debug)]
+pub struct GlIncrement {
+    /// Nodal displacement increments `u_i` (global), Eq. (4b).
+    pub u: [[f64; 3]; 4],
+    /// Director rotation about `^t V_1^i`, Eq. (4c).
+    pub alpha: [f64; 4],
+    /// Director rotation about `^t V_2^i`, Eq. (4c).
+    pub beta: [f64; 4],
+}
+
+/// The director increment `^{t+dt}V_n - ^t V_n` of Ko, Lee & Bathe (2017),
+/// C&S 185:1-14, Eq. (4c), to quadratic order:
+///
+/// ```text
+/// theta x V_n + 1/2 theta x (theta x V_n)
+/// ```
+///
+/// with `theta = ^t V_1 alpha + ^t V_2 beta` the nodal rotation vector. Calling
+/// it with `theta` already formed from the `(alpha, beta)` pair is Eq. (4c)
+/// verbatim.
+pub fn director_increment_quadratic(vn: &Vector3<f64>, theta: &Vector3<f64>) -> Vector3<f64> {
+    theta.cross(vn) + 0.5 * theta.cross(&theta.cross(vn))
+}
+
+/// The per-node director contributions of Eqs. (5c) at `h_i = 1`:
+///
+/// ```text
+/// t1_i = 1/2 a_i (-^t V_2^i alpha_i + ^t V_1^i beta_i)
+/// t2_i = -1/4 a_i (alpha_i^2 + beta_i^2) ^t V_n^i
+/// ```
+///
+/// so that `u_b1 = sum_i h_i t1_i` and `u_b2 = sum_i h_i t2_i`. Shared by
+/// [`incremental_disp_split`] and [`incremental_disp_gradients`].
+#[inline]
+fn node_director_terms(
+    state: &GlCurrentState,
+    inc: &GlIncrement,
+    i: usize,
+) -> (Vector3<f64>, Vector3<f64>) {
+    let alpha = inc.alpha[i];
+    let beta = inc.beta[i];
+    let a2 = alpha * alpha + beta * beta;
+    (
+        0.5 * state.a_i[i] * (-state.v2[i] * alpha + state.v1[i] * beta),
+        -0.25 * state.a_i[i] * a2 * state.vn[i],
+    )
+}
+
+/// The Eq. (6) split `u = u_1 + u_2` at `(r, s, zeta)`, built from Eq. (5b)
+/// (`u_m`) and Eq. (5c) (`u_b1`, `u_b2`, the **quadratic** director term):
+///
+/// ```text
+/// u_1 = u_m + zeta u_b1,   u_2 = zeta u_b2
+/// ```
+///
+/// Returns `(u_1, u_2)`.
+pub fn incremental_disp_split(
+    state: &GlCurrentState,
+    inc: &GlIncrement,
+    r: f64,
+    s: f64,
+    zeta: f64,
+) -> (Vector3<f64>, Vector3<f64>) {
+    let h = shape_functions(r, s);
+    let mut u_m = Vector3::zeros();
+    let mut u_b1 = Vector3::zeros();
+    let mut u_b2 = Vector3::zeros();
+    for i in 0..4 {
+        let ui = Vector3::new(inc.u[i][0], inc.u[i][1], inc.u[i][2]);
+        let (t1, t2) = node_director_terms(state, inc, i);
+        u_m += h[i] * ui;
+        u_b1 += h[i] * t1;
+        u_b2 += h[i] * t2;
     }
+    (u_m + zeta * u_b1, zeta * u_b2)
+}
 
-    let k_sigma = geometric_stiffness_local(pre, &u_local);
+/// Derivatives of the Eq. (6) split with respect to `(r, s, zeta)`, i.e. the
+/// `u_{1,i}` and `u_{2,i}` of Eq. (9).
+///
+/// `u_1 = u_m(r,s) + zeta u_b1(r,s)` and `u_2 = zeta u_b2(r,s)`, so the `r`/`s`
+/// derivatives act on the shape functions and the `zeta` derivative is `u_b1` /
+/// `u_b2`. Returns `(u_{1,r}, u_{1,s}, u_{1,t})` and `(u_{2,r}, u_{2,s}, u_{2,t})`
+/// in that order (`r_3 = zeta`).
+fn incremental_disp_gradients(
+    state: &GlCurrentState,
+    inc: &GlIncrement,
+    r: f64,
+    s: f64,
+    zeta: f64,
+) -> ([Vector3<f64>; 3], [Vector3<f64>; 3]) {
+    let h = shape_functions(r, s);
+    let (dn_dr, dn_ds) = shape_function_derivatives(r, s);
+    let mut u_m = Vector3::zeros();
+    let mut u_b1 = Vector3::zeros();
+    let mut u_b2 = Vector3::zeros();
+    let mut u_m_r = Vector3::zeros();
+    let mut u_m_s = Vector3::zeros();
+    let mut u_b1_r = Vector3::zeros();
+    let mut u_b1_s = Vector3::zeros();
+    let mut u_b2_r = Vector3::zeros();
+    let mut u_b2_s = Vector3::zeros();
+    for i in 0..4 {
+        let ui = Vector3::new(inc.u[i][0], inc.u[i][1], inc.u[i][2]);
+        let (t1, t2) = node_director_terms(state, inc, i);
+        u_m += h[i] * ui;
+        u_b1 += h[i] * t1;
+        u_b2 += h[i] * t2;
+        u_m_r += dn_dr[i] * ui;
+        u_m_s += dn_ds[i] * ui;
+        u_b1_r += dn_dr[i] * t1;
+        u_b1_s += dn_ds[i] * t1;
+        u_b2_r += dn_dr[i] * t2;
+        u_b2_s += dn_ds[i] * t2;
+    }
+    (
+        [
+            u_m_r + zeta * u_b1_r,
+            u_m_s + zeta * u_b1_s,
+            u_b1,
+        ],
+        [zeta * u_b2_r, zeta * u_b2_s, u_b2],
+    )
+}
 
-    let k_t = k0 + k_l + k_sigma;
-    let mut k_t_sym = k_t;
-    for i in 0..24 {
-        for j in 0..24 {
-            k_t_sym[(i, j)] = 0.5 * (k_t[(i, j)] + k_t[(j, i)]);
+/// The current covariant base vectors `[^t g_r, ^t g_s, ^t g_zeta]` of
+/// Eq. (7) at `(r, s, zeta)`, formed from the current node coordinates
+/// `^t x_i` and the current directors `^t V_n^i`:
+///
+/// ```text
+/// ^t x(r,s,zeta) = sum_i h_i ^t x_i + (zeta/2) sum_i a_i h_i ^t V_n^i
+/// ^t g_a = d ^t x / d r_a,  ^t g_zeta = d ^t x / d zeta
+/// ```
+///
+/// which is the enriched base-vector construction of [`compute_j3d_enriched`]
+/// evaluated on the current state.
+fn gl_current_base_vectors(
+    state: &GlCurrentState,
+    r: f64,
+    s: f64,
+    zeta: f64,
+) -> [Vector3<f64>; 3] {
+    let (g_r, g_s, g_t) =
+        compute_j3d_enriched(&state.coords, &state.vn, &state.a_i, r, s, zeta);
+    [g_r, g_s, g_t]
+}
+
+/// Assemble the six independent covariant components of Eq. (9) from the
+/// current base vectors `^t g_i` and the split gradients `u_{1,i}`, `u_{2,i}`.
+///
+/// Component order is `[rr, ss, tt, rs, rt, st]` and the shear components are
+/// the tensor components (not doubled). The linear and nonlinear parts are
+/// returned separately:
+///
+/// ```text
+/// _0 e_ij   = 1/2(^t g_i . u_{1,j} + u_{1,i} . ^t g_j)
+/// _0 eta_ij = 1/2(u_{1,i} . u_{1,j} + ^t g_i . u_{2,j} + u_{2,i} . ^t g_j)
+/// ```
+fn gl_strain_increment_components(
+    g: &[Vector3<f64>; 3],
+    u1: &[Vector3<f64>; 3],
+    u2: &[Vector3<f64>; 3],
+) -> ([f64; 6], [f64; 6]) {
+    // The six independent index pairs (r,s,zeta) = (0,1,2).
+    const PAIRS: [(usize, usize); 6] = [(0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2)];
+    let mut e_lin = [0.0f64; 6];
+    let mut eta_nl = [0.0f64; 6];
+    for (k, &(i, j)) in PAIRS.iter().enumerate() {
+        e_lin[k] = 0.5 * (g[i].dot(&u1[j]) + u1[i].dot(&g[j]));
+        eta_nl[k] = 0.5 * (u1[i].dot(&u1[j]) + g[i].dot(&u2[j]) + u2[i].dot(&g[j]));
+    }
+    (e_lin, eta_nl)
+}
+
+/// The incremental covariant Green-Lagrange strains of Ko, Lee & Bathe (2017),
+/// C&S 185:1-14, Eq. (9), at `(r, s, zeta)`: the linear part `_0 e_ij` and the
+/// nonlinear part `_0 eta_ij` (with its three printed terms), using the CURRENT
+/// base vectors `^t g_i` of Eq. (7).
+///
+/// Returns two six-component vectors in the order `[rr, ss, tt, rs, rt, st]`
+/// with tensor (undoubled) shear components. A finite rigid-body rotation must
+/// make `_0 e_ij + _0 eta_ij` vanish to the paper's retained order; the
+/// companion test `n_alpha_rigid_rotation_gives_zero_gl_strain_increment`
+/// measures that identity and the necessity of the quadratic `u_2` term.
+pub fn gl_strain_increment(
+    state: &GlCurrentState,
+    inc: &GlIncrement,
+    r: f64,
+    s: f64,
+    zeta: f64,
+) -> ([f64; 6], [f64; 6]) {
+    let g = gl_current_base_vectors(state, r, s, zeta);
+    let (u1, u2) = incremental_disp_gradients(state, inc, r, s, zeta);
+    gl_strain_increment_components(&g, &u1, &u2)
+}
+
+// ============================================================================
+// N-beta — the paper's assumed strain fields on the total-Lagrangian strains
+// ============================================================================
+//
+// Ko, Lee & Bathe (2017), "The MITC4+ shell element in geometric nonlinear
+// analysis", Computers and Structures 185:1-14, §2.3-2.4, pp. 3-4.
+//
+// This block adds the paper's assumed strain fields on the total-Lagrangian
+// (Green-Lagrange) strains of the N-alpha block. They feed the N-gamma pair,
+// which the public `compute_fint_global(.., true)` / `compute_kt_global` now
+// delegate to (N-delta, option B). The `^0`
+// (initial-configuration) input is the precomputed element `pre`; the `^t`
+// (current-configuration) input is the plain-data [`GlCurrentState`] the
+// N-alpha block already uses.
+//
+// The assumed fields:
+//
+//   Eq. (10)   §2.2, assumed covariant transverse shear,
+//              `^t_0 e~_rzeta = 1/2(1+s) ^t_0 e_rzeta^(A)
+//                              + 1/2(1-s) ^t_0 e_rzeta^(B)`,
+//              `^t_0 e~_szeta = 1/2(1+r) ^t_0 e_szeta^(C)
+//                              + 1/2(1-r) ^t_0 e_szeta^(D)`.
+//   Eq. (11a)  the through-thickness split `^t_0 e_ij = ^t_0 e_ij^m
+//              + zeta ^t_0 e_ij^b1 + zeta^2 ^t_0 e_ij^b2` (this block supplies
+//              the `m` term only; `b1`/`b2` are N-gamma).
+//   Eqs. (12b)/(12c): `^t g_ij^m = ^t x_{m,i} . ^t x_{m,j}
+//              + ^t x_{m,j} . ^t x_{m,i}`.
+//   Eq. (13)   `^t x_{m,r} = ^t x_r + s ^t x_d`,
+//              `^t x_{m,s} = ^t x_s + r ^t x_d`.
+//   Eq. (14)   `^t n = (^t x_r x ^t x_s)/||^t x_r x ^t x_s||`, dual basis
+//              `^t m^r`, `^t m^s` on the plane.
+//   Eq. (15a)  `^t_0 e~_ij^m = 1/2 ^t g~_ij^m - 1/2 ^0 g~_ij^m`,
+//   Eqs. (15b)/(15c)/(15d) give `^t g~_ij^m` from the five tying metrics with
+//              the CURRENT coefficients `^t a_A..^t a_E` (same formulas as the
+//              linear element, evaluated on the current configuration).
+
+/// The current characteristic vectors and dual basis of Ko, Lee & Bathe (2017),
+/// C&S 185:1-14, Eqs. (13)/(14) / C&S 182:404-418, Eq. (9)-(11):
+///
+/// ```text
+/// ^t x_r = 1/4 sum_i xi_i  ^t x_i
+/// ^t x_s = 1/4 sum_i eta_i ^t x_i
+/// ^t x_d = 1/4 sum_i xi_i eta_i ^t x_i
+/// ^t n = (^t x_r x ^t x_s)/||^t x_r x ^t x_s||
+/// ^t m^r, ^t m^s : ^t m^{r_i} . ^t x_{r_j} = delta_ij, ^t m^{r_i} . ^t n = 0
+/// ```
+///
+/// Returns `([^t x_r, ^t x_s, ^t x_d], ^t n, ^t m^r, ^t m^s)`.
+pub fn gl_current_characteristic_vectors(
+    state: &GlCurrentState,
+) -> (
+    [Vector3<f64>; 3],
+    Vector3<f64>,
+    Vector3<f64>,
+    Vector3<f64>,
+) {
+    let (x_r, x_s, x_d, n_vec, m_r, m_s) = compute_characteristic_vectors(&state.coords);
+    ([x_r, x_s, x_d], n_vec, m_r, m_s)
+}
+
+/// The mid-surface metric components of Ko, Lee & Bathe (2017), C&S 185:1-14,
+/// Eqs. (12b)/(12c), at `(r, s)`, built from the Eq. (13) mid-surface tangents
+/// `^t x_{m,r} = ^t x_r + s ^t x_d` and `^t x_{m,s} = ^t x_s + r ^t x_d`:
+///
+/// ```text
+/// ^t g_rr^m = 2 ^t x_{m,r} . ^t x_{m,r}
+/// ^t g_ss^m = 2 ^t x_{m,s} . ^t x_{m,s}
+/// ^t g_rs^m = ^t x_{m,r} . ^t x_{m,s} + ^t x_{m,s} . ^t x_{m,r}
+/// ```
+///
+/// Returns `[^t g_rr^m, ^t g_ss^m, ^t g_rs^m]`. The same formula gives
+/// `^0 g_ij^m` when fed the initial characteristic vectors.
+pub fn gl_mid_metrics(
+    x_r: &Vector3<f64>,
+    x_s: &Vector3<f64>,
+    x_d: &Vector3<f64>,
+    r: f64,
+    s: f64,
+) -> [f64; 3] {
+    let x_mr = x_r + s * x_d;
+    let x_ms = x_s + r * x_d;
+    [
+        2.0 * x_mr.dot(&x_mr),
+        2.0 * x_ms.dot(&x_ms),
+        x_mr.dot(&x_ms) + x_ms.dot(&x_mr),
+    ]
+}
+
+/// The five tying metrics of the MITC4+ assumed membrane field,
+/// Ko, Lee & Bathe (2017), C&S 185:1-14, Eqs. (15b)/(15c)/(15d): evaluated at
+/// the same five tying points as the linear element (Fig. 4 of
+/// C&S 182:404-418), A(0,+1) for `g_rr^m(A)`, B(0,-1) for `g_rr^m(B)`,
+/// C(+1,0) for `g_ss^m(C)`, D(-1,0) for `g_ss^m(D)`, E(0,0) for `g_rs^m(E)`.
+///
+/// Returns `[g_rr^m(A), g_rr^m(B), g_ss^m(C), g_ss^m(D), g_rs^m(E)]`.
+pub fn gl_tying_metrics(x_r: &Vector3<f64>, x_s: &Vector3<f64>, x_d: &Vector3<f64>) -> [f64; 5] {
+    let a = gl_mid_metrics(x_r, x_s, x_d, 0.0, 1.0)[0];
+    let b = gl_mid_metrics(x_r, x_s, x_d, 0.0, -1.0)[0];
+    let c = gl_mid_metrics(x_r, x_s, x_d, 1.0, 0.0)[1];
+    let d = gl_mid_metrics(x_r, x_s, x_d, -1.0, 0.0)[1];
+    let e = gl_mid_metrics(x_r, x_s, x_d, 0.0, 0.0)[2];
+    [a, b, c, d, e]
+}
+
+/// The assumed mid-surface metric `[^t g~_rr^m, ^t g~_ss^m, ^t g~_rs^m]` of
+/// Ko, Lee & Bathe (2017), C&S 185:1-14, Eqs. (15b)/(15c)/(15d), at `(r, s)`.
+///
+/// `tie = [g_rr^m(A), g_rr^m(B), g_ss^m(C), g_ss^m(D), g_rs^m(E)]` are the five
+/// tying metrics of [`gl_tying_metrics`]; `coeffs = [a_A, a_B, a_C, a_D, a_E]`
+/// are the [`compute_membrane_coefficients_2017`] coefficients evaluated on the
+/// configuration the tying metrics come from. The coefficient structure is
+/// exactly the linear element's (Eqs. 27a-c), only the coefficients and the
+/// tying metrics are current quantities.
+pub fn gl_assumed_mid_metric(coeffs: &[f64; 5], tie: &[f64; 5], r: f64, s: f64) -> [f64; 3] {
+    let a = coeffs;
+    let g = tie;
+    [
+        0.5 * (1.0 - 2.0 * a[0] + s + 2.0 * a[0] * s * s) * g[0]
+            + 0.5 * (1.0 - 2.0 * a[1] - s + 2.0 * a[1] * s * s) * g[1]
+            + a[2] * (-1.0 + s * s) * g[2]
+            + a[3] * (-1.0 + s * s) * g[3]
+            + a[4] * (-1.0 + s * s) * g[4],
+        a[0] * (-1.0 + r * r) * g[0]
+            + a[1] * (-1.0 + r * r) * g[1]
+            + 0.5 * (1.0 - 2.0 * a[2] + r + 2.0 * a[2] * r * r) * g[2]
+            + 0.5 * (1.0 - 2.0 * a[3] - r + 2.0 * a[3] * r * r) * g[3]
+            + a[4] * (-1.0 + r * r) * g[4],
+        0.25 * (r + 4.0 * a[0] * r * s) * g[0]
+            + 0.25 * (-r + 4.0 * a[1] * r * s) * g[1]
+            + 0.25 * (s + 4.0 * a[2] * r * s) * g[2]
+            + 0.25 * (-s + 4.0 * a[3] * r * s) * g[3]
+            + (1.0 + a[4] * r * s) * g[4],
+    ]
+}
+
+/// The total-Lagrangian assumed membrane strain of Ko, Lee & Bathe (2017),
+/// C&S 185:1-14, Eq. (15a):
+///
+/// ```text
+/// ^t_0 e~_ij^m = 1/2 ^t g~_ij^m - 1/2 ^0 g~_ij^m,   i, j = 1, 2
+/// ```
+///
+/// CONVENTION. Eq. (12b) prints the assumed metric as the symmetric Gram sum
+/// `^t g_ij^m = ^t x_{m,i} . ^t x_{m,j} + ^t x_{m,j} . ^t x_{m,i}`, i.e. TWICE
+/// the metric `^t m_ij^m = ^t x_{m,i} . ^t x_{m,j}`. [`gl_tying_metrics`] and
+/// [`gl_assumed_mid_metric`] therefore return the paper's doubled `g~`, so the
+/// `1/2` of Eq. (15a) already converts it to the metric (`1/2 g~ = m~`). The
+/// Green-Lagrange strain carried by the validated linear operator
+/// [`b_membrane_covariant_2017`] is the further `1/2` of the metric difference,
+///
+/// ```text
+/// ^t_0 e~_ij^m = 1/2(^t m~_ij^m - ^0 m~_ij^m) = 1/4(^t g~_ij^m - ^0 g~_ij^m),
+/// ```
+///
+/// so the total conversion from the doubled tying metric is `1/4` -- exactly the
+/// `0.25 * (next_tie - cur_tie)` that [`n_gamma_local_strain`] uses. An earlier
+/// implementation applied the literal `1/2` of Eq. (15a) to the already-doubled
+/// `g~`, returning twice the linear path's strain; the error cancelled against
+/// the doubling of `gl_mid_metrics` in its own measurement, which is why that
+/// check was vacuous.
+///
+/// The current assumed metric `^t g~_ij^m` is Eqs. (15b-d) with the current
+/// tying metrics [`gl_tying_metrics`] of `state` and the current coefficients
+/// [`compute_membrane_coefficients_2017`] on `state`; the initial
+/// `^0 g~_ij^m` uses the precomputed `pre` geometry and `pre.a_coeffs`. Returns
+/// `[^t_0 e~_rr^m, ^t_0 e~_ss^m, ^t_0 e~_rs^m]` (tensor, undoubled shear).
+pub fn gl_assumed_membrane_strain(
+    pre: &Mitc4PlusDPrecomputed,
+    state: &GlCurrentState,
+    r: f64,
+    s: f64,
+) -> [f64; 3] {
+    let cur_assumed = gl_assumed_metric_of_state(state, r, s);
+
+    let init_tie = gl_tying_metrics(&pre.x_r, &pre.x_s, &pre.x_d);
+    let init_assumed = gl_assumed_mid_metric(&pre.a_coeffs, &init_tie, r, s);
+
+    [
+        0.25 * cur_assumed[0] - 0.25 * init_assumed[0],
+        0.25 * cur_assumed[1] - 0.25 * init_assumed[1],
+        0.25 * cur_assumed[2] - 0.25 * init_assumed[2],
+    ]
+}
+
+/// The next configuration `^{t+dt}` of one increment, using the paper's own
+/// solution-procedure updates:
+///
+///   Eq. (4b)  `^{t+dt}x_i = ^t x_i + u_i` (nodal geometry),
+///   Eq. (26)  `^{t+dt}V_n^i = Q ^t V_n^i`, `^{t+dt}V_1^i = Q ^t V_1^i`,
+///             `^{t+dt}V_2^i = Q ^t V_2^i`, with `Q` the quaternion rotation of
+///             `theta_i = alpha_i ^t V_1^i + beta_i ^t V_2^i`.
+///
+/// Eq. (26) prints the exact finite rotation (`q_0 = cos(theta_i/2)`,
+/// `[q_1 q_2 q_3]^T = theta_i/theta_i sin(theta_i/2)`), and its use here is what
+/// makes a finite rigid-body field leave the total metric — and therefore every
+/// Green-Lagrange strain — invariant to round-off. Shared by
+/// [`gl_assumed_membrane_increment`] and the N-gamma block.
+pub fn advance_gl_state(state: &GlCurrentState, inc: &GlIncrement) -> GlCurrentState {
+    let mut next = *state;
+    for i in 0..4 {
+        for k in 0..3 {
+            next.coords[i][k] += inc.u[i][k];
+        }
+        let theta = inc.alpha[i] * state.v1[i] + inc.beta[i] * state.v2[i];
+        let q = Mitc4PlusDPrecomputed::quaternion_from_vector(&theta);
+        next.vn[i] = Mitc4PlusDPrecomputed::rotate_vector_by_quaternion(&state.vn[i], &q);
+        next.v1[i] = Mitc4PlusDPrecomputed::rotate_vector_by_quaternion(&state.v1[i], &q);
+        next.v2[i] = Mitc4PlusDPrecomputed::rotate_vector_by_quaternion(&state.v2[i], &q);
+    }
+    next
+}
+
+/// The assumed mid-surface metric `[^t g~_rr^m, ^t g~_ss^m, ^t g~_rs^m]` of one
+/// configuration `^t` alone, Ko, Lee & Bathe (2017), C&S 185:1-14,
+/// Eqs. (15b)/(15c)/(15d): the tying metrics [`gl_tying_metrics`] of `state`
+/// combined with the coefficients [`compute_membrane_coefficients_2017`] of the
+/// **same** configuration (Eqs. 15b-d with Eqs. 12b/12c). Returns the paper's
+/// **doubled** `g~` (Eq. 12b), not the metric; [`gl_assumed_membrane_strain`]
+/// applies the `1/4` conversion of Eq. (15a) plus the Green-Lagrange `1/2`.
+fn gl_assumed_metric_of_state(state: &GlCurrentState, r: f64, s: f64) -> [f64; 3] {
+    let (vecs, _n, m_r, m_s) = gl_current_characteristic_vectors(state);
+    let (_c_r, _c_s, _d, coeff) = compute_membrane_coefficients_2017(&vecs[2], &m_r, &m_s);
+    let tie = gl_tying_metrics(&vecs[0], &vecs[1], &vecs[2]);
+    gl_assumed_mid_metric(&coeff, &tie, r, s)
+}
+
+/// The assumed **increment** of the membrane strain over one step,
+/// `^{t+dt}_0 e~_ij^m - ^t_0 e~_ij^m`.
+///
+/// CONVENTION (the same as [`gl_assumed_membrane_strain`]). Eq. (12b) prints
+/// `^t g_ij^m = ^t x_{m,i} . ^t x_{m,j} + ^t x_{m,j} . ^t x_{m,i}`, twice the
+/// metric, and Eq. (15a) is `^t_0 e~ = 1/2 ^t g~ - 1/2 ^0 g~`; the `1/2` of
+/// Eq. (15a) turns `g~` into the metric and the Green-Lagrange `1/2` of the
+/// metric difference gives the strain, so the total conversion from the doubled
+/// tying metric is `1/4`: `0.25 * (^{t+dt}tie - ^t tie)`.
+///
+/// Ko, Lee & Bathe (2017), C&S 185:1-14, §2.4 (Eqs. 21a-c and 22) states the
+/// assumed INCREMENTAL in-plane field with the CURRENT coefficients
+/// `^t a_A..^t a_E` (Eq. 15e), evaluated on `state` and **frozen**, applied to
+/// the one-step increment of the tying metrics. That is the construction used
+/// here. Differencing the two total assumed metrics `1/4(^{t+dt}g~ - ^t g~)`,
+/// each with its own coefficients, would instead add the Eq. (15e)
+/// coefficient-change term (which is `O(1)` in the initial metric), and the
+/// `u = 0` operator would then not be the element's linear membrane operator;
+/// the total form belongs to the state ([`gl_assumed_membrane_strain`]), not to
+/// the tangent. This is the same frozen-coefficient form [`n_gamma_local_strain`]
+/// uses, so the `u = 0` derivative of the returned field is
+/// [`b_membrane_covariant_2017`].
+///
+/// Returns `[^{t+dt}e~_rr^m - ^t e~_rr^m, ...]`, tensor shear undoubled.
+pub fn gl_assumed_membrane_increment(
+    state: &GlCurrentState,
+    inc: &GlIncrement,
+    r: f64,
+    s: f64,
+) -> [f64; 3] {
+    let next = advance_gl_state(state, inc);
+    let (cur_vecs, _n, m_r, m_s) = gl_current_characteristic_vectors(state);
+    let (_c_r, _c_s, _d, cur_coeff) =
+        compute_membrane_coefficients_2017(&cur_vecs[2], &m_r, &m_s);
+    let (next_vecs, _n_next, _m_r_next, _m_s_next) = gl_current_characteristic_vectors(&next);
+    let cur_tie = gl_tying_metrics(&cur_vecs[0], &cur_vecs[1], &cur_vecs[2]);
+    let next_tie = gl_tying_metrics(&next_vecs[0], &next_vecs[1], &next_vecs[2]);
+    let mut dtie = [0.0f64; 5];
+    for k in 0..5 {
+        dtie[k] = 0.25 * (next_tie[k] - cur_tie[k]);
+    }
+    gl_assumed_mid_metric(&cur_coeff, &dtie, r, s)
+}
+
+/// The assumed covariant transverse shear of Ko, Lee & Bathe (2017),
+/// C&S 185:1-14, Eq. (10):
+///
+/// ```text
+/// ^t_0 e~_rzeta = 1/2(1+s) ^t_0 e_rzeta^(A) + 1/2(1-s) ^t_0 e_rzeta^(B)
+/// ^t_0 e~_szeta = 1/2(1+r) ^t_0 e_szeta^(C) + 1/2(1-r) ^t_0 e_szeta^(D)
+/// ```
+///
+/// The tying values are the Eq. (9) TL shear increments at the MITC4 tying
+/// points A(0,+1), B(0,-1), C(+1,0), D(-1,0), i.e. the `rt = 4` and `st = 5`
+/// components of [`gl_strain_increment`] (linear + nonlinear), sampled at
+/// `zeta`. Returns `(^t_0 e~_rzeta, ^t_0 e~_szeta)`, tensor shear undoubled.
+pub fn gl_assumed_transverse_shear(
+    state: &GlCurrentState,
+    inc: &GlIncrement,
+    r: f64,
+    s: f64,
+    zeta: f64,
+) -> (f64, f64) {
+    let rt = |r_t: f64, s_t: f64| {
+        let (e_lin, eta_nl) = gl_strain_increment(state, inc, r_t, s_t, zeta);
+        e_lin[4] + eta_nl[4]
+    };
+    let st = |r_t: f64, s_t: f64| {
+        let (e_lin, eta_nl) = gl_strain_increment(state, inc, r_t, s_t, zeta);
+        e_lin[5] + eta_nl[5]
+    };
+    (
+        0.5 * (1.0 + s) * rt(0.0, 1.0) + 0.5 * (1.0 - s) * rt(0.0, -1.0),
+        0.5 * (1.0 + r) * st(1.0, 0.0) + 0.5 * (1.0 - r) * st(-1.0, 0.0),
+    )
+}
+
+// ============================================================================
+// N-gamma — faithful total-Lagrangian internal force and tangent stiffness
+// ============================================================================
+//
+// Ko, Lee & Bathe (2017), "The MITC4+ shell element in geometric nonlinear
+// analysis", Computers and Structures 185:1-14, §2.4-2.5, pp. 6-7.
+//
+// What the paper prints (all C&S 185:1-14):
+//
+//   Eq. (8)/(9)   `_0 e_ij = 1/2(^t g_i . u_j + u_i . ^t g_j + u_i . u_j)`
+//                 with `u = u_1 + u_2` of Eqs. (5b)/(5c)/(6) — the INCREMENTAL
+//                 Green-Lagrange strain about the current configuration `^t`;
+//   Eq. (20a-g)   its point-wise `zeta^0/zeta^1/zeta^2` coefficients,
+//                 `_0 e_ij` (Eqs. 20b-d) and `_0 eta_ij` (Eqs. 20e-g);
+//   Eq. (21a-c)   the assumed incremental in-plane field, applied by Eq. (22)
+//                 to the incremental tying strains of Eqs. (20b)/(20e);
+//   Eq. (19)      the assumed incremental transverse shear (Eq. 10 for `^t_0`);
+//   Eq. (23)      `_0 e~_ij = _0 e~_kl (^0 L_i . ^0 g^k)(^0 L_j . ^0 g^l)`;
+//   Eq. (24b)     `^t_0 F_e = int_{0V} B_ij^T ^t_0 S_ij d0V`  — internal force;
+//   Eq. (24a)     `^t K_e = int_{0V} B_ij^T C_ijkl B_kl d0V
+//                            + int_{0V} ^t_0 S_ij N_ij d0V`   — tangent stiffness;
+//   Eq. (25)      `_0 e_ij = B_ij U_e`, `delta _0 eta_ij = delta U_e^T N_ij U_e`.
+//
+// The paper does not print `B_ij` or `N_ij` in closed form. This block therefore
+// implements Eq. (24a)/(24b) with the consistent linearization of exactly the
+// printed INCREMENTAL strain expressions of §2.4, evaluated about the current
+// configuration `^t = state` supplied by the caller. §2.4's incremental object
+// is not §2.3's total TL strain: Eqs. (15a-d) apply the assumed field to the
+// metric of EACH configuration with that configuration's own coefficients
+// `^t a_A..^t a_E` (Eq. 15e), so differencing them injects the coefficient-change
+// term into `u = 0`; Eqs. (21)/(22) apply the assumed field to the incremental
+// tying STRAINS with the CURRENT coefficients only, which is the object whose
+// `u = 0` derivative is the element's linear strain operator.
+//
+// The strain vector is the nine-component through-thickness triple
+// `[_0 e~^m + _0 eta~^m; (2/h)(_0 e~^b1 + _0 eta~^b1); (4/h^2)(_0 e~^b2 +
+// _0 eta~^b2)]` of the linear element (same `W` block and the same `2 x 2`
+// surface rule) plus the two local transverse shears. The internal force is
+// `f = int B^T S dV`, and the tangent keeps Eq. (24a)'s two terms:
+// `int B^T C B dV` (material) and the `N`-term `int (dB/du)^T S dV`
+// (geometric), with `B = d(e~)/du` and `S = W e~`. Because `B` is not printed,
+// it is obtained by central differences of the printed strain expressions; the
+// same construction is used for the internal force, so the pair is consistent
+// by construction and Eq. (24a) holds for the implemented strains.
+
+/// The 11-component local strain vector of the N-gamma element at one surface
+/// point `(r, s)`: the **incremental** assumed in-plane strain of §2.4,
+/// Ko, Lee & Bathe (2017), C&S 185:1-14, pp. 6-7.
+///
+/// ```text
+/// [ _0 e~_11^m, _0 e~_22^m, 2 _0 e~_12^m,                    Eq. (22) + (21a-c),
+///   (2/h) _0 e_11^b1, (2/h) _0 e_22^b1, (2/h) 2 _0 e_12^b1,  Eq. (20a) zeta^1,
+///   (4/h^2) _0 e_11^b2, ... , (4/h^2) 2 _0 e_12^b2,          Eq. (20a) zeta^2,
+///   _0 e~_r zeta, _0 e~_s zeta ]                             Eq. (19).
+/// ```
+///
+/// Each entry is the printed equation:
+///
+/// * Eq. (20a), p. 6 left:
+///   `_0 e_ij = _0 e_ij^m + zeta _0 e_ij^b1 + zeta^2 _0 e_ij^b2` and
+///   `_0 eta_ij = _0 eta_ij^m + zeta _0 eta_ij^b1 + zeta^2 _0 eta_ij^b2`
+///   (`i, j = 1, 2`). The `zeta^0` slice is Eqs. (20b) + (20e),
+///   `_0 e_ij^m = 1/2(^t x_{m,i} . u_{m,j} + ^t x_{m,j} . u_{m,i})` and
+///   `_0 eta_ij^m = 1/2 u_{m,i} . u_{m,j}`; the `+1`/`-1` slices are
+///   Eqs. (20c) + (20f) and Eqs. (20d) + (20g); the `u_{b2}` terms of (20f)/(20g)
+///   are the ones the old bounded path lacked and are present here.
+/// * Eq. (21a-c), p. 7 left, applied to the incremental tying strains per
+///   Eq. (22), p. 7 left: the assumed in-plane field with the coefficient
+///   structure of Eq. (15e) but only the **current** coefficients `^t a_A..^t a_E`
+///   (the state's geometry), the tying points `(A)..(E)` of Fig. 4.
+/// * Eq. (23), p. 7 right: the covariant-to-local map with the `^0` metric and
+///   the `^0` frame (`[[covariant_to_local_mapping]]` of `j_loc_at(pre, r, s)`).
+/// * Eq. (19), p. 5/6: the assumed incremental transverse shear at the MITC4
+///   tying points, mapped by [`shear_covariant_to_local`].
+///
+/// The strain at `zeta` is evaluated as the exact Green-Lagrange increment of
+/// Eqs. (7)/(8), `_0 e_ij(zeta) = 1/2(^{t+dt}g_i . ^{t+dt}g_j - ^t g_i . ^t g_j)`,
+/// whose point-wise expansion IS Eqs. (20b-g): its `zeta^2` coefficient,
+/// `1/2(u_{b,i} . u_{b,j} + ^t x_{b,i} . u_{b2,j} + ^t x_{b,j} . u_{b2,i})`, is
+/// Eq. (20g) plus the Eq. (20d) pair under `u_b = u_{b1} + u_{b2}` of Eq. (5c).
+/// The director increment is the exact rotation of Eq. (4c)/(26) (see
+/// [`gl_state_after_local`]) instead of its printed truncation `u_{b1} + u_{b2}`:
+/// the two agree through the paper's retained order `O(phi^2)` and differ only at
+/// `O(phi^3)`, and the exact form is what leaves every slice invariant to
+/// round-off under a finite rigid-body rotation.
+///
+/// The membrane slice adds the 2025 drill-membrane strain to the Eq. (22)
+/// membrane row (Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (22a), p. 10),
+/// exactly as the linear element does.
+///
+/// Because every slice is an increment about `state` and the assumed field's
+/// coefficients and tying values are both taken from `state` and frozen, the
+/// `u = 0` limit of [`n_gamma_b_matrix`] is the element's LINEAR strain operator
+/// -- the Eq. (15a) total form differenced one assumed total per configuration
+/// and its `u = 0` derivative therefore carried the Eq. (15e) coefficient-change
+/// term (which is `O(1)` in the initial metric, not `O(u)`).
+///
+/// A finite rigid-body field leaves every metric (and therefore every slice)
+/// invariant to round-off, so the assembled force of [`n_gamma_fint_local`] is
+/// exactly zero for translations and finite rotations.
+fn n_gamma_local_strain(
+    pre: &Mitc4PlusDPrecomputed,
+    state: &GlCurrentState,
+    u_local: &Vec24,
+    r: f64,
+    s: f64,
+) -> [f64; 11] {
+    let next = gl_state_after_local(pre, state, u_local);
+    // Eq. (23): the covariant-to-local map uses the `^0` metric and `^0` frame.
+    let tmap = covariant_to_local_mapping(&j_loc_at(pre, r, s));
+    let s1 = 2.0 / pre.thickness;
+    let s2 = 4.0 / (pre.thickness * pre.thickness);
+
+    // Eqs. (21a-c) + (22): the assumed in-plane field on the INCREMENTAL tying
+    // strains of Eq. (20b)/(20e), with the CURRENT coefficients `^t a_A..^t a_E`
+    // of Eq. (15e) (evaluated on `state` and frozen, so no coefficient increment
+    // enters). [`gl_tying_metrics`] reports the paper's symmetric metric form
+    // `^t g_ij^m = ^t x_{m,i} . ^t x_{m,j} + ^t x_{m,j} . ^t x_{m,i}`
+    // (Eqs. 12b/12c), i.e. twice the Gram metric, and the tying strain of
+    // Eq. (20b) is the `1/2` of the `1/2 ^t g~ - 1/2 ^0 g~` of Eq. (15a): the
+    // `1/4` below is exactly that pair of factors, and it makes the `u = 0`
+    // derivative of this slice equal `pre.b_rr_a[j]` etc. -- the operator
+    // [`b_membrane_2017`] of the validated linear path uses.
+    let (cur_vecs, _n, m_r, m_s) = gl_current_characteristic_vectors(state);
+    let (_c_r, _c_s, _d, cur_coeff) =
+        compute_membrane_coefficients_2017(&cur_vecs[2], &m_r, &m_s);
+    let (next_vecs, _n_next, _m_r_next, _m_s_next) = gl_current_characteristic_vectors(&next);
+    let cur_tie = gl_tying_metrics(&cur_vecs[0], &cur_vecs[1], &cur_vecs[2]);
+    let next_tie = gl_tying_metrics(&next_vecs[0], &next_vecs[1], &next_vecs[2]);
+    let mut dtie = [0.0f64; 5];
+    for k in 0..5 {
+        dtie[k] = 0.25 * (next_tie[k] - cur_tie[k]);
+    }
+    let am = gl_assumed_mid_metric(&cur_coeff, &dtie, r, s);
+    // Engineering shear `2 _0 e~_12` for the Eq. (23) mapping, matching
+    // [`b_membrane_2017`].
+    let m_loc = tmap * Vector3::new(am[0], am[1], 2.0 * am[2]);
+    // Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (22a): the drill-membrane
+    // strain is added to the membrane row (linear, constant operator).
+    let md = b_drill_membrane_2025(pre, r, s) * u_local;
+
+    // Eq. (20a): the exact covariant through-thickness slices, engineering shear
+    // triple `[e_rr, e_ss, 2 e_rs]` for the Eq. (23) mapping. The reference
+    // configuration is `state` (`^t`), so this is the increment of Eqs. (7)/(8)
+    // and not the total TL strain about `^0`.
+    let cov = |zeta: f64| -> Vector3<f64> {
+        let (g_r, g_s, _) =
+            compute_j3d_enriched(&next.coords, &next.vn, &state.a_i, r, s, zeta);
+        let (g0_r, g0_s, _) =
+            compute_j3d_enriched(&state.coords, &state.vn, &state.a_i, r, s, zeta);
+        Vector3::new(
+            0.5 * (g_r.dot(&g_r) - g0_r.dot(&g0_r)),
+            0.5 * (g_s.dot(&g_s) - g0_s.dot(&g0_s)),
+            g_r.dot(&g_s) - g0_r.dot(&g0_s),
+        )
+    };
+    let e0 = cov(0.0);
+    let ep = cov(1.0);
+    let em = cov(-1.0);
+    let b1_loc = tmap * (0.5 * (ep - em));
+    let b2_loc = tmap * (0.5 * (ep + em) - e0);
+
+    // Eq. (19): assumed transverse shear on the incremental tying shears.
+    let tie_rz = |rt: f64, st: f64| {
+        let (g_r, _, g_t) =
+            compute_j3d_enriched(&next.coords, &next.vn, &state.a_i, rt, st, 0.0);
+        let (g0_r, _, g0_t) =
+            compute_j3d_enriched(&state.coords, &state.vn, &state.a_i, rt, st, 0.0);
+        0.5 * (g_r.dot(&g_t) - g0_r.dot(&g0_t))
+    };
+    let tie_sz = |rt: f64, st: f64| {
+        let (_, g_s, g_t) =
+            compute_j3d_enriched(&next.coords, &next.vn, &state.a_i, rt, st, 0.0);
+        let (_, g0_s, g0_t) =
+            compute_j3d_enriched(&state.coords, &state.vn, &state.a_i, rt, st, 0.0);
+        0.5 * (g_s.dot(&g_t) - g0_s.dot(&g0_t))
+    };
+    let e_rz = 0.5 * (1.0 + s) * tie_rz(0.0, 1.0) + 0.5 * (1.0 - s) * tie_rz(0.0, -1.0);
+    let e_sz = 0.5 * (1.0 + r) * tie_sz(1.0, 0.0) + 0.5 * (1.0 - r) * tie_sz(-1.0, 0.0);
+    // Eq. (23): mapped with the `^0` metric and `^0` frame, as the linear path's
+    // [`b_shear_mitc4`] does.
+    let (g0_r0, g0_s0, g0_t0) =
+        compute_j3d_enriched(&pre.initial_coords_3d, &pre.vn, &pre.a_i, r, s, 0.0);
+    let tshear = shear_covariant_to_local(&g0_r0, &g0_s0, &g0_t0, &pre.e1, &pre.e2, &pre.e3);
+    let gamma = tshear * Vector2::new(e_rz, e_sz);
+
+    [
+        m_loc[0] + md[0],
+        m_loc[1] + md[1],
+        m_loc[2] + md[2],
+        s1 * b1_loc[0],
+        s1 * b1_loc[1],
+        s1 * b1_loc[2],
+        s2 * b2_loc[0],
+        s2 * b2_loc[1],
+        s2 * b2_loc[2],
+        gamma[0],
+        gamma[1],
+    ]
+}
+
+/// The next configuration of one local 24-DOF increment `u_local`: Eq. (4b) for
+/// the nodal geometry and Eq. (26) for the directors.
+///
+/// FRAME. `u_local` is the LOCAL-frame increment (`[`build_t24`]` is
+/// `u_local = T u_global`), while `state.coords`, `state.vn`, `state.v1`,
+/// `state.v2` are physical GLOBAL-frame vectors (`pre.initial_coords_3d` and the
+/// Eq. (1)/(3d) nodal directors; see ADR-2). Eq. (4b) prints
+/// `^{t+dt}x_i = ^t x_i + u_i` and Eq. (5b) `u_m = sum_i h_i u_i` with `u_i` a
+/// *vector*, so its representation must be carried into the frame of `^t x_i`
+/// before it is added: `u_i = u_x e1 + u_y e2 + u_z e3`. Both the translational
+/// and the rotational triples are therefore mapped through the local frame, and
+/// `d(next)/d(u_local)` is then the element's LINEAR operator [`b_membrane_2017`]
+/// etc. Adding the local components to the global coordinates directly (the
+/// earlier form) instead made `B(0)` the operator of a fictitious element whose
+/// translational DOFs act along the global axes: measured at `u = 0`, relatives
+/// `1.2e-2` (membrane), `2.0e-5` (b1) and `1.2e-2` (shear) on a warped element
+/// and `4.5e-1` on a 60-degree-rotated flat element, while an axis-aligned flat
+/// element was unaffected.
+fn gl_state_after_local(
+    pre: &Mitc4PlusDPrecomputed,
+    state: &GlCurrentState,
+    u_local: &Vec24,
+) -> GlCurrentState {
+    let mut next = *state;
+    for i in 0..4 {
+        let du = pre.e1 * u_local[6 * i]
+            + pre.e2 * u_local[6 * i + 1]
+            + pre.e3 * u_local[6 * i + 2];
+        for k in 0..3 {
+            next.coords[i][k] += du[k];
+        }
+        let theta = pre.e1 * u_local[6 * i + 3]
+            + pre.e2 * u_local[6 * i + 4]
+            + pre.e3 * u_local[6 * i + 5];
+        let q = Mitc4PlusDPrecomputed::quaternion_from_vector(&theta);
+        next.vn[i] = Mitc4PlusDPrecomputed::rotate_vector_by_quaternion(&state.vn[i], &q);
+        next.v1[i] = Mitc4PlusDPrecomputed::rotate_vector_by_quaternion(&state.v1[i], &q);
+        next.v2[i] = Mitc4PlusDPrecomputed::rotate_vector_by_quaternion(&state.v2[i], &q);
+    }
+    next
+}
+
+/// The 11x11 constitutive-resultant block of the N-gamma element: the nine-row
+/// through-thickness moment matrix [`resultant_moment_matrix`] (Eq. 16's
+/// `[1, zeta, zeta^2]` moments) in the first nine rows, and the uncorrected
+/// transverse-shear stiffness `G h` of ADR-1 in the last two.
+fn n_gamma_w11(pre: &Mitc4PlusDPrecomputed) -> SMatrix<f64, 11, 11> {
+    let w9 = resultant_moment_matrix(&pre.constitutive, pre.thickness);
+    let mut w = SMatrix::<f64, 11, 11>::zeros();
+    for i in 0..9 {
+        for j in 0..9 {
+            w[(i, j)] = w9[(i, j)];
         }
     }
-    t24.transpose() * k_t_sym * t24
+    for i in 0..2 {
+        for j in 0..2 {
+            w[(9 + i, 9 + j)] = pre.cs_uncorrected[(i, j)];
+        }
+    }
+    w
+}
+
+/// The strain-displacement matrix `B = d(_0 e~)/du` (11x24) of the N-gamma
+/// strain vector, obtained by central differences of [`n_gamma_local_strain`]
+/// with a step of `H = 2.0e-5`. This is the consistent linearization of the
+/// printed incremental strain expressions (the paper prints Eq. (25)
+/// `_0 e_ij = B_ij U_e` but not `B_ij`, p. 7 right).
+///
+/// The step is the round-off/truncation balance of that difference: the printed
+/// strain is a difference of `O(1)` metric quantities, so its absolute round-off
+/// is `~eps` independently of the strain value, and the resulting `B` carries
+/// `~eps/H` noise against `O(H^2)` truncation. Measured on the `u = 0` assembly
+/// residual of `n_gamma_rigid_body_zero_force_and_consistent_tangent` (relative):
+/// `3.2e-10` at `H = 1e-6` (noise) and `5.5e-10` at `H = 1e-4` (truncation), so
+/// the two terms balance near `H = 2e-5`, where the residual is `7e-11` -- under
+/// the `1e-10` the measurement asks for, and six orders below its `1e-6`
+/// consistency gate.
+///
+/// At `u = 0` this matrix is the element's LINEAR strain operator: the strain of
+/// [`n_gamma_local_strain`] is an increment about `state` with the assumed
+/// field's coefficients and tying values frozen at `state`, so its central
+/// difference at `u = 0` reproduces the linear rows of the element
+/// (Eqs. 27a-c / 7c / 7d of C&S 182:404-418 plus the Eq. 26 drill row of
+/// C&S 308:107622), to round-off.
+fn n_gamma_b_matrix(
+    pre: &Mitc4PlusDPrecomputed,
+    state: &GlCurrentState,
+    u_local: &Vec24,
+    r: f64,
+    s: f64,
+) -> SMatrix<f64, 11, 24> {
+    // Round-off/truncation balance of the printed-expression central difference
+    // (see the function documentation): 2e-5 sits at the measured minimum.
+    const H: f64 = 2.0e-5;
+    let mut b = SMatrix::<f64, 11, 24>::zeros();
+    for j in 0..24 {
+        let mut up = *u_local;
+        up[j] += H;
+        let mut um = *u_local;
+        um[j] -= H;
+        let ep = n_gamma_local_strain(pre, state, &up, r, s);
+        let em = n_gamma_local_strain(pre, state, &um, r, s);
+        for a in 0..11 {
+            b[(a, j)] = 0.5 * (ep[a] - em[a]) / H;
+        }
+    }
+    b
+}
+
+/// The faithful total-Lagrangian internal force of Eq. (24b),
+/// `^t_0 F_e = int_{0V} B^T ^t_0 S d0V`, on the local 24-DOF increment from the
+/// current configuration `state`. The 2x2 surface rule carries
+/// `^t_0 S = W _0 e~` with the through-thickness moments of [`n_gamma_w11`], and
+/// `B` is the Eq. (25) matrix of [`n_gamma_b_matrix`] built from the
+/// [`n_gamma_local_strain`] increment of Eqs. (19)-(22).
+///
+/// At `u = 0` the force is exactly zero, and for any rigid-body field it is
+/// zero to round-off (see `n_gamma_rigid_body_zero_force_and_consistent_tangent`).
+pub fn n_gamma_fint_local(
+    pre: &Mitc4PlusDPrecomputed,
+    state: &GlCurrentState,
+    u_local: &Vec24,
+) -> Vec24 {
+    let w = n_gamma_w11(pre);
+    let mut f = Vec24::zeros();
+    for g in 0..N_GAUSS {
+        let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+        let sg = surface_measure(pre, r, s);
+        let mut e = SVector::<f64, 11>::zeros();
+        for (a, v) in n_gamma_local_strain(pre, state, u_local, r, s).iter().enumerate() {
+            e[a] = *v;
+        }
+        let b = n_gamma_b_matrix(pre, state, u_local, r, s);
+        f += (b.transpose() * (w * e)) * (GAUSS_W[g] * sg);
+    }
+    f
+}
+
+/// The faithful total-Lagrangian tangent of Eq. (24a) on the local 24-DOF
+/// increment from `state`:
+///
+/// ```text
+/// ^t K_e = int B^T C B d0V + int (dB/du)^T S d0V
+/// ```
+///
+/// The material term `int B^T C B d0V` is [`n_gamma_w11`] sandwiched by
+/// [`n_gamma_b_matrix`]; the geometric `N`-term is the central difference of `B`
+/// contracted with `S = W _0 e~`, i.e. exactly `int (dB/du)^T S d0V`.
+///
+/// The returned matrix is the derivative of [`n_gamma_fint_local`]:
+/// `F(u) = int B(u)^T W e~(u) d0V`, so
+/// `dF/du = int (dB/du)^T W e~ d0V + int B^T W (d e~/du) d0V`. The two terms are
+/// the contraction above and `mat = int B^T W B d0V`; the paper prints Eq. (25)
+/// but not `B`, and [`n_gamma_b_matrix`]'s finite-difference `B` is what both
+/// terms use, so the pair is consistent by construction.
+///
+/// There is deliberately NO additive `compute_ke_local(pre)` reference. An
+/// earlier construction returned `compute_ke_local(pre) + (mat - mat0)` with
+/// `mat0 = int B(0)^T W11 B(0)`, which forces `K_t(0) == K_0` bit for bit, but
+/// `mat0` equals `compute_ke_local(pre)` only for a FLAT element; on a warped
+/// (non-planar) element the two differ by a state-constant matrix (measured
+/// relative `2.95e-3` on a warped fixture), and adding that constant back makes
+/// `K_t` differ from `dF/du` by the same constant -- which broke the incremental
+/// solver's Newton line search. `K_t(0)` is now the exact elementwise `u = 0`
+/// limit of `dF/du`, namely `mat0`; on a flat element it reproduces the linear
+/// stiffness to round-off (relative `2.3e-11` on `RECT`, see
+/// `n_gamma_rigid_body_zero_force_and_consistent_tangent`).
+pub fn n_gamma_kt_local(
+    pre: &Mitc4PlusDPrecomputed,
+    state: &GlCurrentState,
+    u_local: &Vec24,
+) -> Mat24 {
+    const H: f64 = 1.0e-6;
+    let w = n_gamma_w11(pre);
+    let mut mat = Mat24::zeros();
+    let mut geo = Mat24::zeros();
+    for g in 0..N_GAUSS {
+        let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+        let sg = surface_measure(pre, r, s);
+        let wq = GAUSS_W[g] * sg;
+        let mut e = SVector::<f64, 11>::zeros();
+        for (a, v) in n_gamma_local_strain(pre, state, u_local, r, s).iter().enumerate() {
+            e[a] = *v;
+        }
+        let b = n_gamma_b_matrix(pre, state, u_local, r, s);
+        mat += (b.transpose() * w * b) * wq;
+        // Geometric term: `geo[i][j] = sum_a (dB[a][i]/du[j]) S[a]`. The
+        // quadrature weight `wq` is the same one the material term uses; without
+        // it the term is the unweighted Gauss-point sum, which is not
+        // `int (dB/du)^T S d0V` for a general element and is off by the
+        // (constant) measure factor on a flat one.
+        let svec = w * e;
+        for j in 0..24 {
+            let mut up = *u_local;
+            up[j] += H;
+            let mut um = *u_local;
+            um[j] -= H;
+            let bp = n_gamma_b_matrix(pre, state, &up, r, s);
+            let bm = n_gamma_b_matrix(pre, state, &um, r, s);
+            for a in 0..11 {
+                for i in 0..24 {
+                    geo[(i, j)] += 0.5 * (bp[(a, i)] - bm[(a, i)]) / H * svec[a] * wq;
+                }
+            }
+        }
+    }
+    mat + geo
+}
+
+/// Global-coordinate wrapper of [`n_gamma_fint_local`] for the initial element
+/// geometry: `f_global = T^T f_local`, `u_local = T u_global`.
+///
+/// **Known limitation (not fixed here).** The `GlCurrentState` is rebuilt from
+/// the INITIAL element geometry (`pre.initial_coords_3d`, `pre.vn`, `pre.v1`,
+/// `pre.v2`, `pre.a_i`), so this is the first-step
+/// (reference-configuration) linearisation of the formulation, not the
+/// last-converged state of a load step. Threading the last-converged state is
+/// the solver's job and is a follow-up.
+pub fn n_gamma_fint_global(pre: &Mitc4PlusDPrecomputed, u_global: &Vec24) -> Vec24 {
+    let t24 = build_t24(pre);
+    let state = GlCurrentState {
+        coords: pre.initial_coords_3d,
+        vn: pre.vn,
+        v1: pre.v1,
+        v2: pre.v2,
+        a_i: pre.a_i,
+    };
+    t24.transpose() * n_gamma_fint_local(pre, &state, &(t24 * u_global))
+}
+
+/// Global-coordinate wrapper of [`n_gamma_kt_local`] for the initial element
+/// geometry: `K_global = T^T K_local T`.
+///
+/// **Known limitation (not fixed here).** The `GlCurrentState` is rebuilt from
+/// the INITIAL element geometry (`pre.initial_coords_3d`, `pre.vn`, `pre.v1`,
+/// `pre.v2`, `pre.a_i`), so this is the first-step
+/// (reference-configuration) linearisation of the formulation, not the
+/// last-converged state of a load step. Threading the last-converged state is
+/// the solver's job and is a follow-up.
+pub fn n_gamma_kt_global(pre: &Mitc4PlusDPrecomputed, u_global: &Vec24) -> Mat24 {
+    let t24 = build_t24(pre);
+    let state = GlCurrentState {
+        coords: pre.initial_coords_3d,
+        vn: pre.vn,
+        v1: pre.v1,
+        v2: pre.v2,
+        a_i: pre.a_i,
+    };
+    t24.transpose() * n_gamma_kt_local(pre, &state, &(t24 * u_global)) * t24
 }
 
 /// Mid-surface area of the element: `sum_g w_g ||g_r x g_s||` under the 2x2
@@ -1945,25 +2957,19 @@ pub fn extract_elem_disp_24(u: &[f64], dofs: &[usize]) -> Vec24 {
 }
 
 // ============================================================================
-// Corotational machinery (retargeted, formulation-independent)
+// Finite-rotation helpers — the paper's Eq. (26)
 // ============================================================================
 //
-// Ported from the repository's existing S4R-style machinery. These helpers are
-// independent of the element formulation: they rotate the nodal directors and
-// extract the logarithmic membrane strain for the corotational frame update.
-// The large-rotation Python benchmarks (`tests/test_large_rotation_benchmarks.py`)
-// are their oracle, judged at the S3 gate (task 10.7).
-
-/// Local orthonormal frame at a Gauss point.
-#[derive(Clone, Copy)]
-pub struct GpLocalFrame {
-    /// First in-plane tangent (e1).
-    pub e1: Vector3<f64>,
-    /// Second in-plane tangent (e2).
-    pub e2: Vector3<f64>,
-    /// Normal (e3).
-    pub e3: Vector3<f64>,
-}
+// Ko, Lee & Bathe (2017), C&S 185:1-14, Eq. (26): the director frame of the
+// current configuration is the exact finite rotation of the reference frame,
+// applied to `^t V_n^i`, `^t V_1^i`, `^t V_2^i`. `gl_state_after_local` is the
+// only consumer of these helpers.
+//
+// The corotational scaffolding that used to live here (`GpLocalFrame`, polar
+// decomposition, logarithmic strain, `update_corotational_frame`,
+// `frame_incremental_rotation`, `update_normals_with_displacements`) was
+// unsourced — the paper is total Lagrangian, not corotational — and had zero
+// call sites; N-delta deleted it.
 
 impl Mitc4PlusDPrecomputed {
     /// Rotation matrix from a unit quaternion `q = [q0, qx, qy, qz]`:
@@ -1999,148 +3005,6 @@ impl Mitc4PlusDPrecomputed {
     pub fn rotate_vector_by_quaternion(v: &Vector3<f64>, q: &Vector4<f64>) -> Vector3<f64> {
         Self::quaternion_to_matrix(q) * v
     }
-
-    /// Compose quaternions: `q = q1 (x) q2`.
-    pub fn quaternion_multiply(q1: &Vector4<f64>, q2: &Vector4<f64>) -> Vector4<f64> {
-        let (q1_0, q1x, q1y, q1z) = (q1[0], q1[1], q1[2], q1[3]);
-        let (q2_0, q2x, q2y, q2z) = (q2[0], q2[1], q2[2], q2[3]);
-        Vector4::new(
-            q1_0 * q2_0 - q1x * q2x - q1y * q2y - q1z * q2z,
-            q1_0 * q2x + q1x * q2_0 + q1y * q2z - q1z * q2y,
-            q1_0 * q2y - q1x * q2z + q1y * q2_0 + q1z * q2x,
-            q1_0 * q2z + q1x * q2y - q1y * q2x + q1z * q2_0,
-        )
-    }
-
-    /// Updated nodal directors from a local displacement increment. The initial
-    /// directors are the element's own `V_n^i` (ADR-4 option B), not a
-    /// placeholder field.
-    pub fn update_normals_with_displacements(
-        pre: &Mitc4PlusDPrecomputed,
-        delta_u_local: &Vec24,
-    ) -> [Vector3<f64>; 4] {
-        let mut updated_normals: [Vector3<f64>; 4] = [Vector3::zeros(); 4];
-        for i in 0..4 {
-            let theta = Vector3::new(
-                delta_u_local[6 * i + 3],
-                delta_u_local[6 * i + 4],
-                delta_u_local[6 * i + 5],
-            );
-            let q_inc = Self::quaternion_from_vector(&theta);
-            updated_normals[i] = Self::rotate_vector_by_quaternion(&pre.vn[i], &q_inc);
-        }
-        updated_normals
-    }
-
-    /// Polar decomposition `F = R U` by Newton iteration on `U = sqrt(F^T F)`;
-    /// returns `(R, U)`.
-    pub fn polar_decomposition(h: &Matrix3<f64>) -> (Matrix3<f64>, Matrix3<f64>) {
-        let f = Matrix3::identity() + h;
-        let ct = f.transpose() * f;
-        let mut u = 0.5 * (ct + Matrix3::identity());
-        for _ in 0..3 {
-            if let Some(u_inv) = u.try_inverse() {
-                u = 0.5 * (u + ct * u_inv);
-            } else {
-                break;
-            }
-        }
-        let r_inc = if let Some(u_inv) = u.try_inverse() {
-            f * u_inv
-        } else {
-            Matrix3::identity()
-        };
-        (r_inc, u)
-    }
-
-    /// Logarithmic strain from the right stretch tensor `U` (small-strain
-    /// approximation `ln(U) ~ U - I`).
-    pub fn log_strain_from_polar(u: &Matrix3<f64>) -> Matrix3<f64> {
-        u - Matrix3::identity()
-    }
-
-    /// Membrane strain in Voigt form from the logarithmic strain of the
-    /// displacement gradient.
-    pub fn compute_membrane_strain_log(h: &Matrix3<f64>) -> Vector3<f64> {
-        let (_r_inc, u_inc) = Self::polar_decomposition(h);
-        let eps_log = Self::log_strain_from_polar(&u_inc);
-        Vector3::new(eps_log[(0, 0)], eps_log[(1, 1)], 2.0 * eps_log[(0, 1)])
-    }
-
-    /// Updated corotational frame at every Gauss point from the current nodal
-    /// coordinates. Falls back to the reference frame at that point when the
-    /// deformed tangents degenerate.
-    pub fn update_corotational_frame(
-        &self,
-        current_coords: &[[f64; 3]; 4],
-    ) -> [GpLocalFrame; N_GAUSS] {
-        let mut updated_frames: [GpLocalFrame; N_GAUSS] = [GpLocalFrame {
-            e1: Vector3::zeros(),
-            e2: Vector3::zeros(),
-            e3: Vector3::zeros(),
-        }; N_GAUSS];
-
-        for g in 0..N_GAUSS {
-            let xi = GAUSS_XI[g];
-            let eta = GAUSS_ETA[g];
-
-            // Reference frame at this Gauss point (fallback).
-            let (gr0, gs0, _) =
-                compute_j3d_enriched(&self.initial_coords_3d, &self.vn, &self.a_i, xi, eta, 0.0);
-            let n0 = gr0.cross(&gs0);
-            let e3_0 = if n0.norm() > 1e-12 {
-                n0.normalize()
-            } else {
-                self.e3
-            };
-            let mut e1_0 = gr0 - gr0.dot(&e3_0) * e3_0;
-            if e1_0.norm() < 1e-12 {
-                e1_0 = self.e1 - self.e1.dot(&e3_0) * e3_0;
-            }
-            let e1_0 = e1_0.normalize();
-            let e2_0 = e3_0.cross(&e1_0).normalize();
-
-            // Deformed tangents.
-            let (g_r_def, g_s_def, _) =
-                compute_j3d_enriched(current_coords, &self.vn, &self.a_i, xi, eta, 0.0);
-            let n_cross = g_r_def.cross(&g_s_def);
-            let e3_new = if n_cross.norm() > 1e-12 {
-                n_cross.normalize()
-            } else {
-                e3_0
-            };
-            let g_r_proj = g_r_def - g_r_def.dot(&e3_new) * e3_new;
-            let e1_new = if g_r_proj.norm() > 1e-12 {
-                g_r_proj.normalize()
-            } else {
-                e1_0
-            };
-            let e2_new = if e3_new.norm() > 1e-12 && e1_new.norm() > 1e-12 {
-                e3_new.cross(&e1_new).normalize()
-            } else {
-                e2_0
-            };
-
-            updated_frames[g] = GpLocalFrame {
-                e1: e1_new,
-                e2: e2_new,
-                e3: e3_new,
-            };
-        }
-
-        updated_frames
-    }
-
-    /// Incremental rotation from the old to the new corotational frame:
-    /// `R_inc = R_new R_old^T`.
-    pub fn frame_incremental_rotation(
-        old_frame: &GpLocalFrame,
-        new_frame: &GpLocalFrame,
-    ) -> Matrix3<f64> {
-        let r_old = Matrix3::from_columns(&[old_frame.e1, old_frame.e2, old_frame.e3]);
-        let r_new = Matrix3::from_columns(&[new_frame.e1, new_frame.e2, new_frame.e3]);
-        r_new * r_old.transpose()
-    }
 }
 
 #[cfg(test)]
@@ -2148,15 +3012,24 @@ mod tests {
     use super::{
         b_bending_2017, b_bending_covariant_2017, b_drill_membrane_2025, b_membrane_2017,
         b_membrane_covariant_2017, b_shear_mitc4, build_t24, compute_body_load_global,
-        compute_centrifugal_prestress, compute_fint_global, compute_k_sigma_global,
+        compute_centrifugal_prestress, compute_fint_global,
+        compute_fint_global_bounded_superseded, compute_k_sigma_global,
         compute_ke_global, compute_ke_local, compute_ke_local_with_drill, compute_kt_global,
         compute_me_composite_global, compute_me_global, compute_membrane_coefficients_2017,
-        covariant_to_local_mapping, drill_jacobian_ratio, drill_ke_local,
-        drill_midside_shape_derivatives, element_area, geometric_stiffness_from_stress,
-        interpolate_displacement, interpolate_position, j_loc_at, membrane_ke_local, node_vec,
+        covariant_to_local_mapping, director_increment_quadratic, drill_jacobian_ratio,
+        drill_ke_local, drill_midside_shape_derivatives, element_area,
+        geometric_stiffness_from_stress, gl_assumed_membrane_increment,
+        gl_assumed_membrane_strain, gl_assumed_mid_metric, gl_assumed_transverse_shear,
+        gl_current_base_vectors, gl_current_characteristic_vectors,
+        gl_strain_increment, gl_strain_increment_components, gl_tying_metrics,
+        incremental_disp_gradients, incremental_disp_split,
+        interpolate_displacement, interpolate_position, j_loc_at, membrane_ke_local,
+        n_gamma_b_matrix, n_gamma_fint_global, n_gamma_fint_local, n_gamma_kt_global,
+        n_gamma_kt_local, n_gamma_w11, node_vec,
         resultant_moment_matrix, shape_function_derivatives, shape_functions, shear_ke_local,
-        surface_measure, transform_to_global, Mat24, Mitc4PlusDPrecomputed, Vec24, DRILL_EDGE_MID,
-        GAUSS_ETA, GAUSS_W, GAUSS_XI, NODE_ETA, NODE_XI, N_GAUSS,
+        surface_measure, transform_to_global, GlCurrentState, GlIncrement, Mat24,
+        Mitc4PlusDPrecomputed, Vec24, DRILL_EDGE_MID, GAUSS_ETA, GAUSS_W, GAUSS_XI, NODE_ETA,
+        NODE_XI, N_GAUSS,
     };
     use crate::materials::laminate::{Laminate, Ply};
     use crate::materials::orthotropic::OrthotropicMaterial;
@@ -4056,7 +4929,11 @@ mod tests {
                 let gr = g.x_r + s * g.x_d;
                 let gs = g.x_s + r * g.x_d;
                 let sqrt_g = gr.cross(&gs).norm();
-                let bm = membrane_local(pre, g, r, s);
+                // Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (22a), p. 10:
+                // the drill-membrane strain is SUMMED into the membrane row, so
+                // the single `W` block carries the paper's cross terms too.
+                let mut bm = membrane_local(pre, g, r, s);
+                bm += drill::b_md_reference(pre, r, s);
                 let (c1, c2) = bending_reference(pre, r, s, true);
                 let b1 = map_local(pre, g, r, s, &c1);
                 let b2 = map_local(pre, g, r, s, &c2);
@@ -4071,7 +4948,6 @@ mod tests {
                 k += (b.transpose() * w * b) * (GAUSS_W[gi] * sqrt_g);
             }
             k += shear_local_block(pre, g);
-            k += drill_block(pre, g);
             k
         }
 
@@ -4352,18 +5228,36 @@ mod tests {
                 );
             }
         }
-        // (c) Every translational row/column block is exactly zero.
+        // (c) Eq. (22a) structure: the drill-membrane strain is SUMMED into the
+        // membrane row, so the drill's stiffness difference is
+        //   `B_m^T W B_md + B_md^T W B_m + B_md^T W B_md`
+        // and therefore couples the translational and rotational slots. Two
+        // exact consequences are asserted (the old "only the rotational blocks
+        // are touched" form belonged to the superseded separate-block split):
+        //   (i) every TRANSLATIONAL-translational block is still exactly zero —
+        //       no term of the folded difference has both factors on
+        //       translational slots; and
+        //   (ii) the translational-rotational coupling is NON-VACUOUS: the
+        //       paper's membrane-drill cross term is present. Its absence was
+        //       exactly the deviation this identity lock used to miss, because
+        //       its reference shared the split.
+        let mut coupling = 0.0f64;
         for i in 0..4 {
             for j in 0..4 {
                 for a in 0..3 {
                     for b in 0..3 {
                         assert_eq!(diff[(6 * i + a, 6 * j + b)], 0.0, "t-t block");
-                        assert_eq!(diff[(6 * i + a, 6 * j + 3 + b)], 0.0, "t-r block");
-                        assert_eq!(diff[(6 * i + 3 + a, 6 * j + b)], 0.0, "r-t block");
+                        coupling = coupling
+                            .max(diff[(6 * i + a, 6 * j + 3 + b)].abs())
+                            .max(diff[(6 * i + 3 + a, 6 * j + b)].abs());
                     }
                 }
             }
         }
+        assert!(
+            coupling > 1e-10 * scale,
+            "the Eq. (22a) membrane-drill coupling is missing: max |t-r| = {coupling}"
+        );
         // (d) On flat geometry V^D = e3, so every rotation block other than the
         // drill's own is exactly zero.
         let flat = pre_from(&RECT);
@@ -4741,9 +5635,16 @@ mod tests {
         let k_linear_global = t24.transpose() * k_linear * t24;
 
         let diff = k_t_zero - k_linear_global;
+        // `K_T(0)` is the exact elementwise `u = 0` limit of `dF/du`,
+        // `int B(0)^T W11 B(0)`, with NO additive `compute_ke_local` reference
+        // (see `n_gamma_kt_local`). The earlier additive reference made the two
+        // bit-identical but broke `K_t = dF/du` on warped elements; the
+        // finite-difference limit reproduces the closed-form linear stiffness to
+        // a tight relative bound instead.
+        let rel = diff.norm() / k_linear_global.norm().max(1e-30);
         assert!(
-            diff.norm() < 1e-10,
-            "K_T(u=0) must be identical to K_linear_global, diff norm = {}",
+            rel < 1e-9,
+            "K_T(u=0) must match K_linear_global to round-off, rel = {rel:.3e} (diff norm = {})",
             diff.norm()
         );
     }
@@ -7663,5 +8564,2491 @@ mod tests {
             sigma[0] + sigma[1] >= 0.0,
             "centrifugal stress trace must be non-negative"
         );
+    }
+
+    // ========================================================================
+    // WU9i — block isolation of defect #4
+    // (MEASUREMENT INSTRUMENT, NOT A GATE; `#[ignore]`d on purpose)
+    // ========================================================================
+
+    /// WU9i — block isolation of defect #4 (MEASUREMENT INSTRUMENT, NOT A GATE).
+    ///
+    /// Defect #4 (`openspec/changes/mitc4plusd-faithful/fidelity-audit.md`): the
+    /// flat in-plane bending of the 8x4 cantilever strip is ~37% too stiff. The
+    /// WU9f flip measured `uY/uX = 251.55` against the beam-theory 400.00 while
+    /// the hybrid is 0.04% off. On a flat element the transverse-shear block and
+    /// the bending block have non-zero entries only on {u_z, theta_x, theta_y},
+    /// so for the symmetric in-plane solution the flat in-plane stiffness is
+    /// exactly `membrane + drill`. `test_fx` (axial) passes while `test_fy` and
+    /// `test_ratio_physical` fail, so the defect is in the GRADIENT response.
+    ///
+    /// This instrument SOLVES the exact failing case densely (mirrors
+    /// `tests/test_shell_validation_fixed.py::_build_cantilever_mesh`, without
+    /// importing it) and decomposes the FULL solution's energy by block. It
+    /// MEASURES; it does not confirm a hypothesis and it fixes nothing. Run it
+    /// with `cargo test -p aeroelast-core wu9i -- --ignored --nocapture`.
+    ///
+    /// RESOLVED 2026-09-24: defect #4 was the missing Eq. (22a) coupling — the
+    /// drill was added as an independent energy block instead of being summed
+    /// into the membrane strain. With the fold the FULL ratio is 400.3877
+    /// (+0.10% vs beam theory) and the cross terms appear in the shares; the
+    /// pre-fold value 251.5515 is kept in the printed output as the recorded
+    /// baseline.
+    #[test]
+    #[ignore = "WU9i measurement instrument (defect #4 block isolation); run with --ignored --nocapture"]
+    fn wu9i_block_isolation_flat_inplane_strip() {
+        // ---- the exact failing case: 8x4 cantilever strip, L=1, b=0.1, h=1 mm ----
+        const L: f64 = 1.0;
+        const WIDTH: f64 = 0.1;
+        const H: f64 = 0.001;
+        const E: f64 = 2.1e11;
+        const NU: f64 = 0.3;
+        const NX: usize = 8;
+        const NY: usize = 4;
+        const NNODES: usize = (NX + 1) * (NY + 1); // 45
+        const NDOF: usize = 6 * NNODES; // 270
+        const NELEM: usize = NX * NY; // 32
+        const SHEAR_CORRECTION: f64 = 5.0 / 6.0;
+        const P_TOTAL: f64 = 600.0;
+        const P_PER_NODE: f64 = P_TOTAL / (NY as f64 + 1.0); // 120 N on each free-edge node
+
+        // ---- element-local stiffness builders (nested fn: no captures) ----
+        fn symmetrise(k: &Mat24) -> Mat24 {
+            let mut out = *k;
+            for i in 0..24 {
+                for j in 0..24 {
+                    out[(i, j)] = 0.5 * (k[(i, j)] + k[(j, i)]);
+                }
+            }
+            out
+        }
+
+        /// The production 9-row `[bm; s1 bb1; s2 bb2]^T W [..]` contribution of
+        /// `compute_ke_local_with_drill` (identical recipe, symmetrised).
+        fn ke_bend9(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
+            let w = resultant_moment_matrix(&pre.constitutive, pre.thickness);
+            let s1 = 2.0 / pre.thickness;
+            let s2 = 4.0 / (pre.thickness * pre.thickness);
+            let mut k = Mat24::zeros();
+            for g in 0..N_GAUSS {
+                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                let sqrt_g = surface_measure(pre, r, s);
+                // Eq. (22a): the same folded `t^0` row the production uses.
+                let mut bm = b_membrane_2017(pre, r, s);
+                bm += b_drill_membrane_2025(pre, r, s);
+                let (bb1, bb2) = b_bending_2017(pre, r, s);
+                let mut b = SMatrix::<f64, 9, 24>::zeros();
+                for i in 0..3 {
+                    for j in 0..24 {
+                        b[(i, j)] = bm[(i, j)];
+                        b[(3 + i, j)] = s1 * bb1[(i, j)];
+                        b[(6 + i, j)] = s2 * bb2[(i, j)];
+                    }
+                }
+                k += (b.transpose() * w * b) * (GAUSS_W[g] * sqrt_g);
+            }
+            symmetrise(&k)
+        }
+
+        /// Variant 3/4: ONLY the membrane field changes. The covariant rows are
+        /// the COMPATIBLE (displacement-based) ones of
+        /// `covariant_membrane_b_row` (`comp = 0,1,2`, row 2 doubled as the
+        /// engineering shear `2 e_rs`), mapped by the production point-wise
+        /// covariant-to-local map (`covariant_to_local_mapping(j_loc_at(..))`,
+        /// numerically identical to `ke_ref::map_local`). Bending, shear and
+        /// drill are the production blocks, untouched.
+        fn ke_compat(pre: &Mitc4PlusDPrecomputed, use_drill: bool) -> Mat24 {
+            let w = resultant_moment_matrix(&pre.constitutive, pre.thickness);
+            let s1 = 2.0 / pre.thickness;
+            let s2 = 4.0 / (pre.thickness * pre.thickness);
+            let mut k = Mat24::zeros();
+            for g in 0..N_GAUSS {
+                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                let sqrt_g = surface_measure(pre, r, s);
+                let map = covariant_to_local_mapping(&j_loc_at(pre, r, s));
+                let mut cov = SMatrix::<f64, 3, 24>::zeros();
+                for comp in 0..3 {
+                    let row = super::covariant_membrane_b_row(
+                        &pre.x_r, &pre.x_s, &pre.x_d, &pre.e1, &pre.e2, &pre.e3, r, s, comp,
+                    );
+                    let factor = if comp == 2 { 2.0 } else { 1.0 };
+                    for j in 0..24 {
+                        cov[(comp, j)] = factor * row[j];
+                    }
+                }
+                let mut bm = map * cov;
+                if use_drill {
+                    // Eq. (22a): the drill-membrane strain is summed into the
+                    // membrane row, exactly as the production now does.
+                    bm += b_drill_membrane_2025(pre, r, s);
+                }
+                let (bb1, bb2) = b_bending_2017(pre, r, s);
+                let mut b = SMatrix::<f64, 9, 24>::zeros();
+                for i in 0..3 {
+                    for j in 0..24 {
+                        b[(i, j)] = bm[(i, j)];
+                        b[(3 + i, j)] = s1 * bb1[(i, j)];
+                        b[(6 + i, j)] = s2 * bb2[(i, j)];
+                    }
+                }
+                k += (b.transpose() * w * b) * (GAUSS_W[g] * sqrt_g);
+            }
+            let mut out = symmetrise(&k);
+            out += shear_ke_local(pre);
+            symmetrise(&out)
+        }
+
+        fn ke_full(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
+            compute_ke_local_with_drill(pre, true)
+        }
+        fn ke_no_drill(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
+            compute_ke_local_with_drill(pre, false)
+        }
+        fn ke_compat_full(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
+            ke_compat(pre, true)
+        }
+        fn ke_compat_no_drill(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
+            ke_compat(pre, false)
+        }
+        fn ke_memb(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
+            membrane_ke_local(pre)
+        }
+        fn ke_shear(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
+            shear_ke_local(pre)
+        }
+        fn ke_drill(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
+            drill_ke_local(pre)
+        }
+
+        /// The membrane block alone, but with the COMPATIBLE covariant rows in
+        /// place of the assumed MITC4+ field (used to show that on this flat,
+        /// undistorted mesh the two fields coincide).
+        fn compat_membrane_ke(pre: &Mitc4PlusDPrecomputed) -> Mat24 {
+            let cm = &pre.constitutive.cm;
+            let mut k = Mat24::zeros();
+            for g in 0..N_GAUSS {
+                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                let sqrt_g = surface_measure(pre, r, s);
+                let map = covariant_to_local_mapping(&j_loc_at(pre, r, s));
+                let mut cov = SMatrix::<f64, 3, 24>::zeros();
+                for comp in 0..3 {
+                    let row = super::covariant_membrane_b_row(
+                        &pre.x_r, &pre.x_s, &pre.x_d, &pre.e1, &pre.e2, &pre.e3, r, s, comp,
+                    );
+                    let factor = if comp == 2 { 2.0 } else { 1.0 };
+                    for j in 0..24 {
+                        cov[(comp, j)] = factor * row[j];
+                    }
+                }
+                let bm = map * cov;
+                k += (bm.transpose() * cm * bm) * (GAUSS_W[g] * sqrt_g);
+            }
+            k
+        }
+
+        // ---- mesh (node index = j*(NX+1) + i, exactly as the reference mesh) ----
+        let nidx = |i: usize, j: usize| j * (NX + 1) + i;
+        let gdof = |n: usize, k: usize| 6 * n + k;
+        let centre = nidx(NX, NY / 2); // free-edge centre node (x = L, y = b/2)
+        let node_xyz: Vec<[f64; 3]> = (0..NNODES)
+            .map(|n| {
+                let (i, j) = (n % (NX + 1), n / (NX + 1));
+                [
+                    L * (i as f64) / (NX as f64),
+                    WIDTH * (j as f64) / (NY as f64),
+                    0.0,
+                ]
+            })
+            .collect();
+        let mut elem_coords: Vec<[[f64; 3]; 4]> = Vec::with_capacity(NELEM);
+        let mut elem_nodes: Vec<[usize; 4]> = Vec::with_capacity(NELEM);
+        for j in 0..NY {
+            for i in 0..NX {
+                let n = [nidx(i, j), nidx(i + 1, j), nidx(i + 1, j + 1), nidx(i, j + 1)];
+                elem_coords.push([node_xyz[n[0]], node_xyz[n[1]], node_xyz[n[2]], node_xyz[n[3]]]);
+                elem_nodes.push(n);
+            }
+        }
+
+        let build_pre = |c: &[[f64; 3]; 4]| {
+            let constitutive =
+                IsotropicMaterial::new(E, NU, 7800.0).constitutive(H, SHEAR_CORRECTION);
+            Mitc4PlusDPrecomputed::new(&coords12(c), constitutive, H, SHEAR_CORRECTION)
+        };
+
+        // ---- global assembly `K = sum_e T24^T K_e T24` ----
+        let assemble_global = |ke_of: fn(&Mitc4PlusDPrecomputed) -> Mat24| -> DMatrix<f64> {
+            let mut kg = DMatrix::zeros(NDOF, NDOF);
+            for e in 0..NELEM {
+                let pre = build_pre(&elem_coords[e]);
+                let ke_local = ke_of(&pre);
+                let t24 = build_t24(&pre);
+                let ke = t24.transpose() * ke_local * t24;
+                for a in 0..4 {
+                    for b in 0..4 {
+                        for ka in 0..6 {
+                            for kb in 0..6 {
+                                kg[(gdof(elem_nodes[e][a], ka), gdof(elem_nodes[e][b], kb))] +=
+                                    ke[(6 * a + ka, 6 * b + kb)];
+                            }
+                        }
+                    }
+                }
+            }
+            kg
+        };
+
+        // ---- dense reduced solve (tiny: <= 240x240) ----
+        let solve_reduced = |kg: &DMatrix<f64>, f: &DVector<f64>, fixed: &[usize]| -> Option<DVector<f64>> {
+            let n = kg.nrows();
+            let mut is_fixed = vec![false; n];
+            for &d in fixed {
+                is_fixed[d] = true;
+            }
+            let free: Vec<usize> = (0..n).filter(|&i| !is_fixed[i]).collect();
+            let m = free.len();
+            let mut kff = DMatrix::zeros(m, m);
+            for (a, &i) in free.iter().enumerate() {
+                for (b, &jj) in free.iter().enumerate() {
+                    kff[(a, b)] = kg[(i, jj)];
+                }
+            }
+            let mut rhs = DVector::zeros(m);
+            for (a, &i) in free.iter().enumerate() {
+                rhs[a] = f[i];
+            }
+            let sol = kff.lu().solve(&rhs)?;
+            let mut u = DVector::zeros(n);
+            for (a, &i) in free.iter().enumerate() {
+                u[i] = sol[a];
+            }
+            Some(u)
+        };
+
+        // ---- singularity evidence: spectrum of the constrained K ----
+        let reduced_spectrum = |kg: &DMatrix<f64>, fixed: &[usize]| -> (Vec<f64>, f64) {
+            let n = kg.nrows();
+            let mut is_fixed = vec![false; n];
+            for &d in fixed {
+                is_fixed[d] = true;
+            }
+            let free: Vec<usize> = (0..n).filter(|&i| !is_fixed[i]).collect();
+            let m = free.len();
+            let mut red = DMatrix::zeros(m, m);
+            for (a, &i) in free.iter().enumerate() {
+                for (b, &j) in free.iter().enumerate() {
+                    red[(a, b)] = kg[(i, j)];
+                }
+            }
+            let sym = (&red + red.transpose()) * 0.5;
+            let mut eig: Vec<f64> = sym.symmetric_eigenvalues().iter().cloned().collect();
+            eig.sort_by(|a, b| a.total_cmp(b));
+            let lam_max = eig.iter().fold(0.0f64, |mx, &v| mx.max(v.abs()));
+            (eig, lam_max)
+        };
+
+        // ---- boundary conditions and loads ----
+        let mut clamped: Vec<usize> = Vec::new();
+        for j in 0..=NY {
+            for k in 0..6 {
+                clamped.push(gdof(nidx(0, j), k)); // every DOF of the x = 0 nodes
+            }
+        }
+        let mut theta_z: Vec<usize> = Vec::new();
+        for n in 0..NNODES {
+            theta_z.push(gdof(n, 5));
+        }
+        // Every DOF other than the in-plane translations (u_x, u_y) at every
+        // node: the membrane block has no stiffness for the remaining DOFs on a
+        // flat element, so this isolates the purely in-plane subsystem.
+        let mut non_inplane: Vec<usize> = Vec::new();
+        for n in 0..NNODES {
+            for k in 2..6 {
+                non_inplane.push(gdof(n, k));
+            }
+        }
+        let load_vector = |dir: usize| -> DVector<f64> {
+            let mut f = DVector::zeros(NDOF);
+            for j in 0..=NY {
+                f[gdof(nidx(NX, j), dir)] += P_PER_NODE;
+            }
+            f
+        };
+        let f_x = load_vector(0);
+        let f_y = load_vector(1);
+
+        // ---- one variant: assemble, count near-zero modes, solve both loads ----
+        let run = |label: &str,
+                   ke_of: fn(&Mitc4PlusDPrecomputed) -> Mat24,
+                   extra_fixed: &[usize]|
+         -> (DMatrix<f64>, Option<DVector<f64>>, Option<DVector<f64>>) {
+            let kg = assemble_global(ke_of);
+            let mut fixed = clamped.clone();
+            fixed.extend_from_slice(extra_fixed);
+            fixed.sort_unstable();
+            fixed.dedup();
+            let reduced = NDOF - fixed.len();
+            let (eig, lam_max) = reduced_spectrum(&kg, &fixed);
+            let n_zero_8 = eig.iter().filter(|&&v| v.abs() < 1e-8 * lam_max).count();
+            let n_zero_12 = eig.iter().filter(|&&v| v.abs() < 1e-12 * lam_max).count();
+            let smallest: Vec<String> = eig.iter().take(6).map(|v| format!("{v:.4e}")).collect();
+            let sol_x = solve_reduced(&kg, &f_x, &fixed);
+            let sol_y = solve_reduced(&kg, &f_y, &fixed);
+            match (&sol_x, &sol_y) {
+                (Some(ux), Some(uy)) => {
+                    let (rx, ry) = (ux[gdof(centre, 0)], uy[gdof(centre, 1)]);
+                    println!(
+                        "WU9i {label:<31} ux = {rx:.12e} m   uy = {ry:.12e} m   ratio uy/ux = {:>9.4}   [reduced {reduced} dof, lam_max {lam_max:.4e}, near-zero(1e-8) {n_zero_8}, near-zero(1e-12) {n_zero_12}, smallest eps = {}]",
+                        ry / rx,
+                        smallest.join(", ")
+                    );
+                }
+                _ => println!(
+                    "WU9i {label:<31} SINGULAR: dense LU reports no solution for the reduced {reduced}-dof constrained K; near-zero(1e-8) {n_zero_8}, near-zero(1e-12) {n_zero_12} of lam_max = {lam_max:.4e}; smallest eps = {}",
+                    smallest.join(", ")
+                ),
+            }
+            (kg, sol_x, sol_y)
+        };
+
+        let ux_ref = P_TOTAL * L / (E * WIDTH * H);
+        println!(
+            "\n=== WU9i: flat in-plane block isolation (8x4 cantilever, L={L}, b={WIDTH}, h={H}, E={E:.1e}, nu={NU}) ==="
+        );
+        println!(
+            "nodes = {NNODES}, dofs = {NDOF}, elements = {NELEM}, clamped dofs = {}, analytical ux = 600 L/(E b h) = {ux_ref:.9e} m",
+            clamped.len()
+        );
+
+        let (k_full, sol_x_full, sol_y_full) = run("1. FULL", ke_full, &[]);
+        let (_k_nd, _sx_nd, _sy_nd) = run("2. NO_DRILL", ke_no_drill, &[]);
+        let (_k_ndt, _sx_ndt, _sy_ndt) = run("2b. NO_DRILL + theta_z=0", ke_no_drill, &theta_z);
+        let (_k_c, _sx_c, _sy_c) = run("3. COMPAT_MEMB", ke_compat_full, &[]);
+        let (_k_cn, _sx_cn, _sy_cn) = run("4. COMPAT_MEMB_NO_DRILL", ke_compat_no_drill, &[]);
+        let (_k_cnt, _sx_cnt, _sy_cnt) =
+            run("4b. COMPAT_MEMB_NO_DRILL + theta_z=0", ke_compat_no_drill, &theta_z);
+        let (_k_mo, _sx_mo, _sy_mo) = run("5. MEMBRANE_ONLY (in-plane only)", ke_memb, &non_inplane);
+
+        // Is the assumed MITC4+ membrane field different from the compatible
+        // one on this flat, undistorted mesh? (element-wise, first element)
+        let pre0 = build_pre(&elem_coords[0]);
+        let km_assumed = membrane_ke_local(&pre0);
+        let km_compat = compat_membrane_ke(&pre0);
+        println!(
+            "WU9i membrane block, assumed MITC4+ vs compatible (element 0): max|K_assumed - K_compat| = {:.3e}, max|K_assumed| = {:.4e}, relative {:.3e}",
+            max_abs_diff(&km_assumed, &km_compat),
+            max_abs(&km_assumed),
+            max_abs_diff(&km_assumed, &km_compat) / max_abs(&km_assumed).max(f64::MIN_POSITIVE)
+        );
+
+        let (ux_full, uy_full) = match (&sol_x_full, &sol_y_full) {
+            (Some(ux), Some(uy)) => (ux.clone(), uy.clone()),
+            _ => panic!("WU9i: the FULL variant must be non-singular (the drill block regularises it)"),
+        };
+        let ratio_full = uy_full[gdof(centre, 1)] / ux_full[gdof(centre, 0)];
+        let ux_full_centre = ux_full[gdof(centre, 0)];
+        println!(
+            "WU9i instrument validation: FULL ratio = {ratio_full:.4} vs beam theory 400.0 -> {:.2}% (the pre-Eq.(22a) separate-block value was 251.5515, -37.1%); FULL ux = {ux_full_centre:.9e} vs analytical {ux_ref:.9e} -> {:.2}%",
+            100.0 * (ratio_full - 400.0).abs() / 400.0,
+            100.0 * (ux_full_centre - ux_ref).abs() / ux_ref
+        );
+
+        // ---- block energy decomposition on the FULL solution ----
+        let k_memb = assemble_global(ke_memb);
+        let k_shear = assemble_global(ke_shear);
+        let k_drill = assemble_global(ke_drill);
+        // The bending+coupling share is taken BY DIFFERENCE: with Eq. (22a)
+        // `K_full = K_9row(folded) + K_shear`, and the folded `t^0` row is
+        // `B_m + B_md`, so subtracting the pure membrane and pure drill blocks
+        // leaves the paper's cross terms plus the bending rows.
+        let k_bend = &k_full - &k_memb - &k_shear - &k_drill;
+        // Cross-check against the explicit folded 9-row recipe minus the pure
+        // membrane and the pure drill blocks: that residual is
+        // `k_cross + k_bending`, exactly what `k_bend` is by difference.
+        let k9 = assemble_global(ke_bend9);
+        let k_bend_recipe = &k9 - &k_memb - &k_drill;
+        let mut max_diff = 0.0f64;
+        let mut max_ref = 0.0f64;
+        for i in 0..NDOF {
+            for j in 0..NDOF {
+                max_diff = max_diff.max((k_bend[(i, j)] - k_bend_recipe[(i, j)]).abs());
+                max_ref = max_ref.max(k_bend_recipe[(i, j)].abs());
+            }
+        }
+        println!(
+            "WU9i bending share route: by difference == ([bm; s1 bb1; s2 bb2]^T W [..] - K_membrane) to {max_diff:.3e} abs / {:.3e} rel (max|K_bend| = {max_ref:.4e})",
+            max_diff / max_ref.max(f64::MIN_POSITIVE)
+        );
+
+        let energy = |k: &DMatrix<f64>, u: &DVector<f64>| -> f64 {
+            let mut s = 0.0;
+            for i in 0..k.nrows() {
+                let mut row = 0.0;
+                for j in 0..k.ncols() {
+                    row += k[(i, j)] * u[j];
+                }
+                s += u[i] * row;
+            }
+            s
+        };
+
+        let mut shares_all: Vec<[f64; 4]> = Vec::new();
+        for (load_label, u) in [("+x (axial)", &ux_full), ("+y (in-plane bending)", &uy_full)] {
+            let e_total = energy(&k_full, u);
+            let shares = [
+                energy(&k_memb, u) / e_total,
+                energy(&k_bend, u) / e_total,
+                energy(&k_shear, u) / e_total,
+                energy(&k_drill, u) / e_total,
+            ];
+            println!(
+                "WU9i block energy shares (FULL solution, load {load_label}): membrane {:.12}, bending {:.12}, shear {:.12}, drill {:.12} | sum {:.16} (u^T K u = {e_total:.6e})",
+                shares[0],
+                shares[1],
+                shares[2],
+                shares[3],
+                shares.iter().sum::<f64>()
+            );
+            shares_all.push(shares);
+        }
+
+        // (a) the four shares must be finite and partition u^T K u.
+        for shares in &shares_all {
+            let total: f64 = shares.iter().sum();
+            assert!(
+                shares.iter().all(|s| s.is_finite()),
+                "block energy shares must be finite: {shares:?}"
+            );
+            assert!(
+                (total - 1.0).abs() <= 1e-10,
+                "block shares must sum to 1 within 1e-10: sum = {total:.17}"
+            );
+        }
+
+        // (b) The faithful (Eq. (22a)) element must match the beam-theory
+        // `4 L^2 / b^2 = 400` within the repo test's 2% window. Before the fold
+        // the same instrument measured 251.5515 (-37.1%); that value is
+        // recorded in the output above, not asserted.
+        assert!(
+            (ratio_full - 400.0).abs() <= 0.02 * 400.0,
+            "WU9i instrument validation: FULL ratio {ratio_full:.4} is not within 2% of the beam-theory 400.0"
+        );
+    }
+
+    // ========================================================================
+    // t2025 — the paper's own Table 1 slender plane-stress cantilever
+    // (MEASUREMENT INSTRUMENT, NOT A GATE; `#[ignore]`d on purpose)
+    // ========================================================================
+
+    /// Ko, Bathe & Zhang (2025), C&S 308:107622, §3.2 (Fig. 8, mesh type 1) and
+    /// Table 1, the "vertical deflection (`-u_y`) at the tip (average of
+    /// displacements at nodes near point A) for the slender cantilever
+    /// problems" (MEASUREMENT INSTRUMENT, NOT A GATE).
+    ///
+    /// The cell reproduced here is the flat plane-stress **MITC4+/D** column for
+    /// **mesh type 1** (the regular mesh): the paper publishes `0.0976755`,
+    /// against its own reference solution `0.1081`. The other mesh-type-1 cells
+    /// are MITC4 `0.010088` and MITC4-IC `0.107328`.
+    ///
+    /// Geometry (Fig. 8a, self-consistent with the reference value):
+    /// `L = 6.0` (x), in-plane height `h = 0.2` (y), out-of-plane thickness
+    /// `t = 0.1`, `E = 1.0e7`, `nu = 0.3`, tip load `P = 1.0` in `-y`. The
+    /// Euler-Bernoulli tip deflection `P L^3/(3 E I)` with
+    /// `I = t h^3/12 = 6.6667e-5` is `0.108`, i.e. the paper's reference. Mesh
+    /// type 1 is the regular `6 x 1` quad mesh: 14 nodes, 84 DOF, 6 elements.
+    ///
+    /// Why this exists: `defect #4` (the missing Eq. (22a) coupling, fixed) was
+    /// measured with `wu9i_block_isolation_flat_inplane_strip`, whose strip has
+    /// a different aspect ratio and no published counterpart. This instrument is
+    /// the harder sibling: slender (element aspect ratio 5), dominated by the
+    /// in-plane bending response, and it compares our element against the
+    /// paper's **own published numbers** rather than against beam theory alone.
+    ///
+    /// It MEASURES; it confirms nothing and it changes no production code. The
+    /// assembly reuses the repository's own global element matrix
+    /// (`compute_ke_global`, i.e. `T^T K_e T`) and the module's dense
+    /// constrained solver (`solve_constrained`); only the mesh scatter is local.
+    ///
+    /// Run with:
+    /// `cargo test -p aeroelast-core t2025_table1 -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "2025 paper Table 1 measurement instrument; run with --ignored --nocapture"]
+    fn t2025_table1_slender_plane_stress_cantilever() {
+        // ---- published cells (Ko, Bathe & Zhang (2025), C&S 308:107622, Table 1,
+        //      mesh type 1 = regular mesh; see the fidelity audit's citation). ----
+        const PUB_MITC4: f64 = 0.010088;
+        const PUB_MITC4_IC: f64 = 0.107328;
+        const PUB_MITC4_D: f64 = 0.0976755; // the column our element must match (or not)
+        const PUB_REFERENCE: f64 = 0.1081;
+        const BEND_THEORY: f64 = 0.108; // P L^3 / (3 E I)
+        // Deliberately broad physical bracket for the instrument: from the
+        // paper's MITC4 cell up to a little above its reference solution.
+        const BRACKET_LO: f64 = PUB_MITC4;
+        const BRACKET_HI: f64 = 0.115;
+
+        // ---- Fig. 8a geometry, material and load ----
+        const L: f64 = 6.0;
+        const HEIGHT: f64 = 0.2;
+        const THICKNESS: f64 = 0.1;
+        const E: f64 = 1.0e7;
+        const NU: f64 = 0.3;
+        const SHEAR_CORRECTION: f64 = 5.0 / 6.0;
+        const P_TOTAL: f64 = 1.0; // downward (-y) at the free edge
+        // ---- mesh type 1: the regular `NX x NY` quad mesh ----
+        const NX: usize = 6;
+        const NY: usize = 1;
+        const NNODES: usize = (NX + 1) * (NY + 1); // 14
+        const NDOF: usize = 6 * NNODES; // 84
+        const NELEM: usize = NX * NY; // 6
+
+        let nidx = |i: usize, j: usize| j * (NX + 1) + i;
+        let gdof = |n: usize, k: usize| 6 * n + k;
+
+        let node_xyz: Vec<[f64; 3]> = (0..NNODES)
+            .map(|n| {
+                let (i, j) = (n % (NX + 1), n / (NX + 1));
+                [
+                    L * (i as f64) / (NX as f64),
+                    HEIGHT * (j as f64) / (NY as f64),
+                    0.0,
+                ]
+            })
+            .collect();
+        let mut elem_coords: Vec<[[f64; 3]; 4]> = Vec::with_capacity(NELEM);
+        let mut elem_nodes: Vec<[usize; 4]> = Vec::with_capacity(NELEM);
+        for j in 0..NY {
+            for i in 0..NX {
+                let n = [nidx(i, j), nidx(i + 1, j), nidx(i + 1, j + 1), nidx(i, j + 1)];
+                elem_coords.push([
+                    node_xyz[n[0]],
+                    node_xyz[n[1]],
+                    node_xyz[n[2]],
+                    node_xyz[n[3]],
+                ]);
+                elem_nodes.push(n);
+            }
+        }
+
+        // ---- global assembly `K = sum_e T^T K_e T` (production global matrix) ----
+        let mut kg = DMatrix::zeros(NDOF, NDOF);
+        for e in 0..NELEM {
+            let constitutive =
+                IsotropicMaterial::new(E, NU, 7800.0).constitutive(THICKNESS, SHEAR_CORRECTION);
+            let pre = Mitc4PlusDPrecomputed::new(
+                &coords12(&elem_coords[e]),
+                constitutive,
+                THICKNESS,
+                SHEAR_CORRECTION,
+            );
+            let ke = compute_ke_global(&pre);
+            for a in 0..4 {
+                for b in 0..4 {
+                    for ka in 0..6 {
+                        for kb in 0..6 {
+                            kg[(gdof(elem_nodes[e][a], ka), gdof(elem_nodes[e][b], kb))] +=
+                                ke[(6 * a + ka, 6 * b + kb)];
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- clamp all 6 DOF at `x = 0` (the paper's clamped edge) ----
+        let mut prescribed: Vec<(usize, f64)> = Vec::new();
+        for j in 0..=NY {
+            for k in 0..6 {
+                prescribed.push((gdof(nidx(0, j), k), 0.0));
+            }
+        }
+
+        // ---- tip load: `P` in `-y`, one nodal load per free-edge node ----
+        let p_per_node = P_TOTAL / ((NY + 1) as f64);
+        let mut f: DVector<f64> = DVector::zeros(NDOF);
+        for j in 0..=NY {
+            f[gdof(nidx(NX, j), 1)] -= p_per_node;
+        }
+        let applied_total: f64 = (0..NDOF).map(|i| -f[i]).sum();
+
+        // ---- solve with the module's dense constrained solver ----
+        let u = solve_constrained(&kg, &f, &prescribed);
+
+        // ---- measure: `-u_y` at A = average of `u_y` over the free-edge nodes ----
+        let uy_avg: f64 =
+            (0..=NY).map(|j| u[gdof(nidx(NX, j), 1)]).sum::<f64>() / ((NY + 1) as f64);
+        let tip = -uy_avg;
+
+        let r_pub = tip / PUB_MITC4_D;
+        let r_ref = tip / PUB_REFERENCE;
+        let r_eb = tip / BEND_THEORY;
+        let pos_in_bracket = (tip - BRACKET_LO) / (BRACKET_HI - BRACKET_LO);
+
+        println!("\n=== 2025 Table 1 instrument: slender plane-stress cantilever, mesh type 1 ===");
+        println!(
+            "geometry: L = {L}, h = {HEIGHT}, t = {THICKNESS}, E = {E:.1e}, nu = {NU}, shear correction {SHEAR_CORRECTION:.6}"
+        );
+        println!(
+            "mesh: {NX}x{NY} regular quads, {NNODES} nodes, {NDOF} dof, {NELEM} elements, {} clamped dof (all 6 at x = 0); load P = {P_TOTAL} in -y -> {p_per_node} per free-edge node (applied total {applied_total})",
+            prescribed.len()
+        );
+        println!(
+            "measured -u_y at A (average over the {}-node free edge) = {tip:.12e}",
+            NY + 1
+        );
+        println!("published 2025 Table 1, mesh type 1 (ours / published):");
+        println!(
+            "  MITC4     = {PUB_MITC4:.6}  -> {:.6}",
+            tip / PUB_MITC4
+        );
+        println!(
+            "  MITC4-IC  = {PUB_MITC4_IC:.6}  -> {:.6}",
+            tip / PUB_MITC4_IC
+        );
+        println!("  MITC4+/D  = {PUB_MITC4_D:.7}  -> {r_pub:.9}  (difference {:+.3e})", tip - PUB_MITC4_D);
+        println!("  reference = {PUB_REFERENCE:.4}  -> {r_ref:.6}");
+        println!("  Euler-Bernoulli P L^3/(3 E I) = {BEND_THEORY:.4}  -> {r_eb:.6}");
+        println!(
+            "bracket [{BRACKET_LO:.6}, {BRACKET_HI}]: measured value sits {:.3}% into it",
+            100.0 * pos_in_bracket
+        );
+        println!(
+            "reading: vs published MITC4+/D -> {:+.2}%; vs reference -> {:+.2}%; vs beam theory -> {:+.2}%",
+            100.0 * (r_pub - 1.0),
+            100.0 * (r_ref - 1.0),
+            100.0 * (r_eb - 1.0)
+        );
+
+        // ---- loose instrument assertions (the parent draws the verdict) ----
+        assert!(
+            tip.is_finite(),
+            "the measured tip deflection must be finite, got {tip}"
+        );
+        assert!(
+            tip >= BRACKET_LO && tip <= BRACKET_HI,
+            "the measured tip deflection {tip:.9e} must lie inside the broad physical bracket [{BRACKET_LO}, {BRACKET_HI}]"
+        );
+        // Non-vacuity: the load must be the one that produces the measured value.
+        assert!(
+            (applied_total - P_TOTAL).abs() < 1e-15,
+            "the applied nodal load must total P = {P_TOTAL}, got {applied_total}"
+        );
+        assert!(
+            tip > 1e-3,
+            "the measured tip deflection {tip:.9e} must be non-vacuous (> 1e-3)"
+        );
+    }
+
+    // ========================================================================
+    // t2025 Table 2 — the paper's own CURVED (annular-sector) plane-stress
+    // cantilever (MEASUREMENT INSTRUMENT, NOT A GATE; `#[ignore]`d on purpose)
+    // ========================================================================
+
+    /// Ko, Bathe & Zhang (2025), C&S 308:107622, Table 2, "Vertical
+    /// displacements at the tip (point A) for the curved beam problem"
+    /// (Fig. 9): plane stress, `E = 1.0e3`, `nu = 0.0`, unit out-of-plane
+    /// thickness, `1 x N` meshes (N straight-sided quads along the arc, one
+    /// radially). (MEASUREMENT INSTRUMENT, NOT A GATE.)
+    ///
+    /// Why this exists (task T3): the Table 1 instrument reproduces the paper's
+    /// regular-mesh MITC4+/D cell `0.0976755` to machine precision, but Table
+    /// 1's REGULAR mesh has `x_d = 0`, so the 2017 assumed-membrane coefficients
+    /// `a_A..a_E` are INACTIVE there. The one open fidelity question is whether
+    /// our assumed membrane equals the 2025 one where those coefficients are
+    /// live, i.e. on a curvature-capturing mesh with `x_d != 0`. This curved
+    /// beam is exactly such a case: every flat trapezoidal element has
+    /// `x_d != 0`, so `a_A..a_E` load the solution.
+    ///
+    /// Geometry (Fig. 9; cross-checked against beam theory): a 90-degree
+    /// annular sector, inner radius `Ri = 10`, outer radius `Ro = 15` (radial
+    /// wall thickness 5), unit thickness, `E = 1.0e3`, `nu = 0.0`. The sector
+    /// is placed so the CLAMPED edge is the radial segment at `theta = 0`
+    /// (from `(10, 0)` to `(15, 0)`) and the FREE edge is at `theta = 90`
+    /// (from `(0, 10)` to `(0, 15)`). Point A is the free-end INNER corner,
+    /// `(0, 10)` = node `inner(N)`. The tip load `P = 600` acts at A in `+y`,
+    /// which at `theta = 90` is the OUTWARD RADIAL direction — a transverse
+    /// (bending) load. Beam theory `delta = pi P R^3 / (4 E I)` with
+    /// `R = (Ri + Ro)/2 = 12.5`, `I = 1 * 5^3 / 12` gives `P ~ 611` for
+    /// `delta = 90`, matching the paper's `P = 600` and reference `90.1`.
+    ///
+    /// Published cells (Table 2, Fig. 9):
+    /// ```text
+    /// element     1x2        1x4        1x8
+    /// MITC4       22.5988    57.9325    79.9218
+    /// MITC4-IC    52.2291    84.6070    89.3023
+    /// MITC4/D     51.2489    84.1086    89.1698
+    /// MITC4+/D    51.2692    84.1444    89.2077   <- ours must match, or not
+    /// reference   90.1 (all meshes)
+    /// ```
+    ///
+    /// LOAD PLACEMENT / MEASUREMENT NODE (the reconstruction choices). A `1 x N`
+    /// mesh has NO mid-surface node, so `P = 600` has to be reconstructed from
+    /// the two free-edge nodes. The PRIMARY case places ALL 600 at point A
+    /// (the inner tip node) and measures `u_y` at point A. Because beam theory
+    /// needs the resultant to act at the mid-surface radius `R = 12.5`, this
+    /// instrument ALSO sweeps the three natural placements (inner / outer /
+    /// split 300-300) crossed with the three measurement nodes (inner / outer /
+    /// average) and both element orientations, and prints all of them. Only a
+    /// placement that puts the resultant at `R = 12.5` (i.e. the split) can
+    /// reproduce the reference `90.1`; a single-corner placement at `R = 10` or
+    /// `R = 15` shifts the effective lever arm by `R^3`.
+    ///
+    /// CURVED vs STRAIGHT-SIDED: this kernel is a 4-node element, so the arc is
+    /// approximated by straight-sided chords (there is no mid-side-node element
+    /// available). The mesh-refinement cases 1x2 / 1x4 / 1x8 in the paper are
+    /// the counterpart of that approximation; the sweep prints all three for
+    /// the reconstruction that best matches the published `1x4` cell.
+    ///
+    /// The assembly reuses the repository's own global element matrix
+    /// (`compute_ke_global`, i.e. `T^T K_e T`) and the module's dense
+    /// constrained solver (`solve_constrained`); only the curved mesh build and
+    /// the scatter are local to this instrument. It MEASURES; it confirms
+    /// nothing and changes no production line.
+    ///
+    /// Run with:
+    /// `cargo test -p aeroelast-core t2025_table2 -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "2025 paper Table 2 curved-beam measurement instrument; run with --ignored --nocapture"]
+    fn t2025_table2_curved_plane_stress_beam() {
+        // ---- published Table 2 cells (Ko, Bathe & Zhang (2025), C&S 308:107622) ----
+        const PUB_MITC4_1X2: f64 = 22.5988;
+        const PUB_MITC4_1X4: f64 = 57.9325;
+        const PUB_MITC4_1X8: f64 = 79.9218;
+        const PUB_MITC4_IC_1X4: f64 = 84.6070;
+        const PUB_MITC4_D_1X4: f64 = 84.1086;
+        const PUB_MITC4PLUS_D_1X2: f64 = 51.2692;
+        const PUB_MITC4PLUS_D_1X4: f64 = 84.1444; // the column ours must match (or not)
+        const PUB_MITC4PLUS_D_1X8: f64 = 89.2077;
+        const PUB_REFERENCE: f64 = 90.1;
+        // Deliberately broad physical bracket for the instrument: from the
+        // paper's MITC4 1x2 cell up to just above its reference solution.
+        const BRACKET_LO: f64 = PUB_MITC4_1X2;
+        const BRACKET_HI: f64 = 92.0;
+        // "Tight margin" for deciding whether the 1x4 reconstruction matched.
+        const MATCH_MARGIN: f64 = 0.01; // 1%
+
+        // ---- the instrument's dense solve over one curved `1 x N` mesh ----
+        //
+        // Returns `(u_y at the inner tip node, u_y at the outer tip node)` for
+        // the given along-arc element count, nodal tip loads (in `+y`) and
+        // element orientation. It reuses `compute_ke_global` + `solve_constrained`.
+        fn solve_curved_beam(
+            n_along: usize,
+            inner_load: f64,
+            outer_load: f64,
+            natural_order: bool,
+        ) -> (f64, f64) {
+            // Fig. 9 geometry, material and load.
+            const RI: f64 = 10.0;
+            const RO: f64 = 15.0;
+            const THICKNESS: f64 = 1.0;
+            const E: f64 = 1.0e3;
+            const NU: f64 = 0.0;
+            const SHEAR_CORRECTION: f64 = 5.0 / 6.0;
+
+            let n_per_arc = n_along + 1;
+            let nnodes = 2 * n_per_arc;
+            let ndof = 6 * nnodes;
+            let nelem = n_along;
+
+            let gdof = |n: usize, k: usize| 6 * n + k;
+            let inner = |i: usize| i;
+            let outer = |i: usize| n_per_arc + i;
+            let theta =
+                |i: usize| (i as f64) * std::f64::consts::FRAC_PI_2 / (n_along as f64);
+
+            // Nodes on the two arcs at theta = 0 .. 90 degrees; clamped edge at
+            // theta = 0, free edge at theta = 90, tip load pushing in +y.
+            let mut node_xyz: Vec<[f64; 3]> = Vec::with_capacity(nnodes);
+            for i in 0..n_per_arc {
+                let t = theta(i);
+                node_xyz.push([RI * t.cos(), RI * t.sin(), 0.0]);
+            }
+            for i in 0..n_per_arc {
+                let t = theta(i);
+                node_xyz.push([RO * t.cos(), RO * t.sin(), 0.0]);
+            }
+
+            // Straight-sided quads. `natural_order` is the inner-arc then
+            // outer-arc listing [inner_e, inner_e+1, outer_e+1, outer_e]; the
+            // reversed cycle flips the element normal (orientation variant).
+            let mut elem_nodes: Vec<[usize; 4]> = Vec::with_capacity(nelem);
+            let mut elem_coords: Vec<[[f64; 3]; 4]> = Vec::with_capacity(nelem);
+            for e in 0..nelem {
+                let n = if natural_order {
+                    [inner(e), inner(e + 1), outer(e + 1), outer(e)]
+                } else {
+                    [inner(e), outer(e), outer(e + 1), inner(e + 1)]
+                };
+                elem_nodes.push(n);
+                elem_coords.push([
+                    node_xyz[n[0]],
+                    node_xyz[n[1]],
+                    node_xyz[n[2]],
+                    node_xyz[n[3]],
+                ]);
+            }
+
+            // Global assembly `K = sum_e T^T K_e T` (production global matrix).
+            let mut kg = DMatrix::zeros(ndof, ndof);
+            for e in 0..nelem {
+                let constitutive = IsotropicMaterial::new(E, NU, 7800.0)
+                    .constitutive(THICKNESS, SHEAR_CORRECTION);
+                let pre = Mitc4PlusDPrecomputed::new(
+                    &coords12(&elem_coords[e]),
+                    constitutive,
+                    THICKNESS,
+                    SHEAR_CORRECTION,
+                );
+                let ke = compute_ke_global(&pre);
+                for a in 0..4 {
+                    for b in 0..4 {
+                        for ka in 0..6 {
+                            for kb in 0..6 {
+                                kg[(gdof(elem_nodes[e][a], ka), gdof(elem_nodes[e][b], kb))] +=
+                                    ke[(6 * a + ka, 6 * b + kb)];
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Clamp all 6 DOF at the theta = 0 edge (inner + outer node 0).
+            let mut prescribed: Vec<(usize, f64)> = Vec::new();
+            for k in 0..6 {
+                prescribed.push((gdof(inner(0), k), 0.0));
+                prescribed.push((gdof(outer(0), k), 0.0));
+            }
+
+            // Tip load in `+y` at the free edge.
+            let mut f: DVector<f64> = DVector::zeros(ndof);
+            f[gdof(inner(n_along), 1)] += inner_load;
+            f[gdof(outer(n_along), 1)] += outer_load;
+
+            let u = solve_constrained(&kg, &f, &prescribed);
+            (u[gdof(inner(n_along), 1)], u[gdof(outer(n_along), 1)])
+        }
+
+        // ---- PRIMARY: all P at point A (inner tip node), measured at A ----
+        let (primary_inner, _primary_outer) = solve_curved_beam(4, 600.0, 0.0, true);
+        let primary = primary_inner;
+
+        println!("\n=== 2025 Table 2 instrument: CURVED plane-stress cantilever (Fig. 9) ===");
+        println!(
+            "geometry: 90-deg annular sector, Ri = 10, Ro = 15, t = 1, E = 1.0e3, nu = 0.0, shear correction {:.6}",
+            5.0 / 6.0
+        );
+        println!(
+            "primary case: 1x4 mesh (4 along arc x 1 radial = 10 nodes / 60 dof); P = 600 in +y at point A = inner tip node; measure u_y at point A"
+        );
+        println!("  our 1x4 value at A = {primary:.12e}");
+        println!("  ratio to published MITC4+/D (84.1444) = {:.9}", primary / PUB_MITC4PLUS_D_1X4);
+        println!("  ratio to published MITC4/D  (84.1086) = {:.9}", primary / PUB_MITC4_D_1X4);
+        println!("  ratio to published reference(90.1  ) = {:.9}", primary / PUB_REFERENCE);
+        println!(
+            "  difference vs MITC4+/D = {:+.6e}; vs reference = {:+.6e}",
+            primary - PUB_MITC4PLUS_D_1X4,
+            primary - PUB_REFERENCE
+        );
+
+        // ---- RECONSTRUCTION SWEEP (1x4): load placement x measurement node x orientation ----
+        // A 1xN mesh has no mid-surface node: the load resultant must sit at
+        // R = (Ri+Ro)/2 = 12.5 to reproduce the reference 90.1, which is the
+        // 300/300 split. This sweep is the evidence the parent needs to decide
+        // whether any mismatch is a formulation difference or a reconstruction
+        // artefact.
+        let loads: [(&str, f64, f64); 3] = [
+            ("all 600 at inner(A)", 600.0, 0.0),
+            ("all 600 at outer", 0.0, 600.0),
+            ("split 300/300", 300.0, 300.0),
+        ];
+        let measures = ["inner(A)", "outer", "average"];
+
+        println!("\nreconstruction sweep on the 1x4 mesh (value at each measurement node):");
+        println!(
+            "  {:<20} {:<10} {:>16} {:>16} {:>16} {:>12}",
+            "load placement", "orientation", "u_y inner(A)", "u_y outer", "u_y average", "dA/84.1444"
+        );
+
+        // Best reconstruction of the published 1x4 cell, tracked by index for
+        // the refinement cases below: (relative error, load index, measure
+        // index, natural-order flag).
+        let mut best: (f64, usize, usize, bool) = (f64::INFINITY, 0, 0, true);
+        for (load_idx, &(label, li, lo)) in loads.iter().enumerate() {
+            for &natural in &[true, false] {
+                let (ui, uo) = solve_curved_beam(4, li, lo, natural);
+                let vals = [ui, uo, 0.5 * (ui + uo)];
+                let orient = if natural { "natural" } else { "reversed" };
+                println!(
+                    "  {:<20} {:<10} {:>16.9} {:>16.9} {:>16.9} {:>12.6}",
+                    label,
+                    orient,
+                    vals[0],
+                    vals[1],
+                    vals[2],
+                    vals[0] / PUB_MITC4PLUS_D_1X4
+                );
+                for (m, &v) in vals.iter().enumerate() {
+                    let err = (v - PUB_MITC4PLUS_D_1X4).abs() / PUB_MITC4PLUS_D_1X4;
+                    if err < best.0 {
+                        best = (err, load_idx, m, natural);
+                    }
+                }
+            }
+        }
+
+        let (best_err, best_load, best_measure, best_natural) = best;
+        let best_label = loads[best_load].0;
+        println!(
+            "\nclosest 1x4 reconstruction to 84.1444: load = {best_label}, measure = {}, orientation = {} -> relative error {:.4}%",
+            measures[best_measure],
+            if best_natural { "natural" } else { "reversed" },
+            100.0 * best_err
+        );
+        let matched = best_err <= MATCH_MARGIN;
+        println!(
+            "1x4 match within the {:.1}% tight margin: {}",
+            100.0 * MATCH_MARGIN,
+            matched
+        );
+
+        // ---- REFINEMENT CASES: add 1x2 / 1x8 only when the 1x4 matched ----
+        if matched {
+            // Recover the best reconstruction's load pair.
+            let (li, lo) = (loads[best_load].1, loads[best_load].2);
+            println!(
+                "\n1x2 / 1x8 for the matched reconstruction (load = {best_label}, measure = {}, orientation = {}):",
+                measures[best_measure],
+                if best_natural { "natural" } else { "reversed" }
+            );
+            for (n, published) in
+                [(2usize, PUB_MITC4PLUS_D_1X2), (8usize, PUB_MITC4PLUS_D_1X8)]
+            {
+                let (ui, uo) = solve_curved_beam(n, li, lo, best_natural);
+                let v = match best_measure {
+                    0 => ui,
+                    1 => uo,
+                    _ => 0.5 * (ui + uo),
+                };
+                println!(
+                    "  1x{n}: our value = {v:.9}  published MITC4+/D = {published:.4}  ratio = {:.6}  difference = {:+.6e}",
+                    v / published,
+                    v - published
+                );
+            }
+            println!("  reference (all meshes) = {PUB_REFERENCE:.4}");
+        } else {
+            println!(
+                "\nno 1x4 reconstruction is within {:.1}% of 84.1444; 1x2 and 1x8 are NOT added (per the task instruction).",
+                100.0 * MATCH_MARGIN
+            );
+        }
+
+        // ---- loose instrument assertions on the PRIMARY value (the parent draws the verdict) ----
+        assert!(
+            primary.is_finite(),
+            "the measured tip displacement must be finite, got {primary}"
+        );
+        assert!(
+            primary >= BRACKET_LO && primary <= BRACKET_HI,
+            "the measured tip displacement {primary:.9e} must lie inside the broad physical bracket [{BRACKET_LO}, {BRACKET_HI}]"
+        );
+        assert!(
+            primary > 1e-3,
+            "the measured tip displacement {primary:.9e} must be non-vacuous (> 1e-3)"
+        );
+    }
+
+    // ========================================================================
+    // N-alpha — faithful incremental kinematics: the rigid-rotation identity
+    // (MEASUREMENT INSTRUMENT, NOT A GATE; `#[ignore]`d on purpose)
+    // ========================================================================
+
+    /// N-alpha — the rigid-body-rotation identity of Ko, Lee & Bathe (2017),
+    /// C&S 185:1-14, Eq. (9) (MEASUREMENT INSTRUMENT, NOT A GATE).
+    ///
+    /// A finite rigid-body rotation about an in-plane axis (here `e1`, so
+    /// `theta = phi e1` is perpendicular to `V_n = e3`) must produce a zero
+    /// incremental Green-Lagrange strain `_0 e_ij + _0 eta_ij` to the paper's
+    /// retained order. The current state is the flat `RECT` element (time `t`);
+    /// the increment is `u_i = (R - I) x_i`, `alpha_i = theta . V_1^i`,
+    /// `beta_i = theta . V_2^i`.
+    ///
+    /// The measurement prints, for angles 10/30/60/90 degrees:
+    ///   * the max `|_0 e + _0 eta|` over several `(r,s,zeta)` points, `zeta` in
+    ///     {-1, 0, 1}, and its `phi^3`-normalised value (the retained order);
+    ///   * the same residual with the `u_2` term forced to zero (the
+    ///     non-vacuity control: without the quadratic `u_b2` of Eq. (5c) the
+    ///     residual is `O(phi^2)` and much larger);
+    ///   * the production nonlinear path's residual on the same rigid
+    ///     rotation, `||compute_fint_global(.., true)|| / (||K_0|| ||u||)`,
+    ///     which after N-delta (option B) IS the faithful pair and must be at
+    ///     round-off;
+    ///   * the SUPERSEDED bounded path's residual,
+    ///     `||compute_fint_global_bounded_superseded(..)|| / (||K_0|| ||u||)`,
+    ///     kept only as the recorded historical "before".
+    ///
+    /// Run it with `cargo test -p aeroelast-core n_alpha -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "N-alpha rigid-rotation identity measurement; run with --ignored --nocapture"]
+    fn n_alpha_rigid_rotation_gives_zero_gl_strain_increment() {
+        let pre = pre_from(&RECT);
+        let state = GlCurrentState {
+            coords: pre.initial_coords_3d,
+            vn: pre.vn,
+            v1: pre.v1,
+            v2: pre.v2,
+            a_i: pre.a_i,
+        };
+
+        // Several (r, s, zeta) points, including the surfaces zeta = +-1.
+        let points: [(f64, f64, f64); 9] = [
+            (0.0, 0.0, -1.0),
+            (0.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0),
+            (0.577_350_269_189_625_8, -0.577_350_269_189_625_8, -1.0),
+            (0.577_350_269_189_625_8, 0.577_350_269_189_625_8, 1.0),
+            (-0.4, 0.7, 1.0),
+            (0.8, 0.3, 0.5),
+            (1.0, -1.0, -1.0),
+            (-1.0, -1.0, 1.0),
+        ];
+
+        // Frobenius scale of the linear stiffness, for the current-path residual.
+        let k0 = compute_ke_local(&pre);
+        let mut k_fro = 0.0f64;
+        for i in 0..24 {
+            for j in 0..24 {
+                k_fro += k0[(i, j)] * k0[(i, j)];
+            }
+        }
+        let k_fro = k_fro.sqrt();
+
+        const AXIS: [f64; 3] = [1.0, 0.0, 0.0];
+        let angles_deg = [10.0f64, 30.0, 60.0, 90.0];
+
+        println!("\nN-alpha rigid rotation about e1 (flat RECT, current state = flat):");
+        println!(
+            "{:>8}  {:>14}  {:>16}  {:>14}  {:>16}  {:>16}  {:>14}  {:>14}",
+            "phi[deg]",
+            "max|e+eta|",
+            "max|e+eta|/phi^3",
+            "max|e|(u2=0)",
+            "max|e|/phi^2",
+            "ratio(no/yes)",
+            "prod fint/Ku",
+            "bounded fint/Ku"
+        );
+
+        let mut worst_phi3 = 0.0f64;
+        for &deg in &angles_deg {
+            let phi = deg.to_radians();
+            let r_mat = rotation_matrix(AXIS, phi);
+            let theta = phi * Vector3::new(AXIS[0], AXIS[1], AXIS[2]);
+
+            // Increment: u_i = (R - I) x_i; alpha/beta from theta and the
+            // current directors (Eq. 4c).
+            let mut inc = GlIncrement {
+                u: [[0.0f64; 3]; 4],
+                alpha: [0.0f64; 4],
+                beta: [0.0f64; 4],
+            };
+            let mut director_diff = 0.0f64;
+            for i in 0..4 {
+                let x = Vector3::new(
+                    state.coords[i][0],
+                    state.coords[i][1],
+                    state.coords[i][2],
+                );
+                let urel = r_mat * x - x;
+                inc.u[i] = [urel[0], urel[1], urel[2]];
+                inc.alpha[i] = theta.dot(&state.v1[i]);
+                inc.beta[i] = theta.dot(&state.v2[i]);
+
+                // Eq. (4c) consistency: the quadratic director increment must
+                // reproduce the exact rotated director to O(phi^3).
+                let d_inc = director_increment_quadratic(&state.vn[i], &theta);
+                let d_exact = r_mat * state.vn[i] - state.vn[i];
+                director_diff = director_diff.max((d_inc - d_exact).norm());
+            }
+
+            let mut with_u2 = 0.0f64;
+            let mut without_u2 = 0.0f64;
+            for &(r, s, zeta) in &points {
+                let (e_lin, eta_nl) = gl_strain_increment(&state, &inc, r, s, zeta);
+                for k in 0..6 {
+                    with_u2 = with_u2.max((e_lin[k] + eta_nl[k]).abs());
+                }
+                // Non-vacuity control: force the Eq. (6) quadratic part u_2 to
+                // zero, keeping only the paper's three Eq. (9) terms.
+                let g = gl_current_base_vectors(&state, r, s, zeta);
+                let (u1, u2) = incremental_disp_gradients(&state, &inc, r, s, zeta);
+                let u2_zero = [Vector3::zeros(); 3];
+                let (e_lin0, eta_nl0) = gl_strain_increment_components(&g, &u1, &u2_zero);
+                for k in 0..6 {
+                    without_u2 = without_u2.max((e_lin0[k] + eta_nl0[k]).abs());
+                }
+                // The point split of Eq. (6) and the gradient set must agree:
+                // d/dzeta of the split is `u_b1` / `u_b2` (the third gradient
+                // entries), which is exactly what the strain assembly uses.
+                let (u1_at_0, u2_at_0) = incremental_disp_split(&state, &inc, r, s, 0.0);
+                let (u1_at_1, u2_at_1) = incremental_disp_split(&state, &inc, r, s, 1.0);
+                let dn1 = ((u1_at_1 - u1_at_0) - u1[2]).norm();
+                let dn2 = ((u2_at_1 - u2_at_0) - u2[2]).norm();
+                assert!(
+                    dn1 < 1.0e-12 && dn2 < 1.0e-12,
+                    "Eq. (6) split gradient mismatch at ({r},{s},{zeta}): {dn1:.3e}, {dn2:.3e}"
+                );
+            }
+
+            // Production nonlinear path (N-delta, option B): the faithful
+            // pair. It must satisfy the rigid-rotation identity to round-off.
+            let mut u_rot = Vec24::zeros();
+            for i in 0..4 {
+                u_rot[6 * i] = inc.u[i][0];
+                u_rot[6 * i + 1] = inc.u[i][1];
+                u_rot[6 * i + 2] = inc.u[i][2];
+                u_rot[6 * i + 3] = theta[0];
+                u_rot[6 * i + 4] = theta[1];
+                u_rot[6 * i + 5] = theta[2];
+            }
+            let u_norm = u_rot.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let f_cur = compute_fint_global(&pre, &u_rot, true);
+            let f_norm = f_cur.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let f_rel = f_norm / (k_fro * u_norm);
+            // Superseded bounded path: the historical "before" number, printed
+            // for the record only.
+            let f_bounded = compute_fint_global_bounded_superseded(&pre, &u_rot);
+            let fb_norm = f_bounded.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let f_bounded_rel = fb_norm / (k_fro * u_norm);
+
+            let phi3 = phi.powi(3);
+            let phi2 = phi * phi;
+            worst_phi3 = worst_phi3.max(with_u2 / phi3);
+            println!(
+                "{:>8.1}  {:>14.6e}  {:>16.6e}  {:>14.6e}  {:>16.6e}  {:>16.3e}  {:>14.6e}  {:>14.6e}  (Eq.4c dn={:.2e})",
+                deg,
+                with_u2,
+                with_u2 / phi3,
+                without_u2,
+                without_u2 / phi2,
+                without_u2 / with_u2,
+                f_rel,
+                f_bounded_rel,
+                director_diff
+            );
+
+            // The paper's identity, to the retained order: the residual is
+            // bounded by O(phi^3).
+            assert!(
+                with_u2 <= 1.0e-12 + 1.0 * phi3,
+                "phi = {deg} deg: max |_0 e + _0 eta| = {with_u2:.3e} exceeds the retained order phi^3 = {phi3:.3e}"
+            );
+            // Non-vacuity: with u_2 zeroed the residual is O(phi^2), so the
+            // quadratic director term of Eq. (5c) is what removes the leading
+            // error and this measurement discriminates.
+            assert!(
+                without_u2 > 1.5 * with_u2,
+                "phi = {deg} deg: dropping u_2 must break the identity; with = {with_u2:.3e}, without = {without_u2:.3e}"
+            );
+            assert!(
+                without_u2 > 1.0e-3,
+                "phi = {deg} deg: the u_2 control must be non-vacuous, got {without_u2:.3e}"
+            );
+            // Eq. (4c) is reproduced to quadratic order.
+            assert!(
+                director_diff <= 1.0 * phi3,
+                "phi = {deg} deg: Eq. (4c) director error {director_diff:.3e} exceeds phi^3 = {phi3:.3e}"
+            );
+            // The production nonlinear path (N-delta, option B) is now the
+            // faithful pair, so it satisfies the rigid-rotation identity to
+            // round-off; this is the OPPOSITE of the superseded bounded path's
+            // recorded failure below.
+            assert!(
+                f_rel < 1.0e-10,
+                "phi = {deg} deg: the production nonlinear path must satisfy the rigid rotation to round-off, got {f_rel:.3e}"
+            );
+            // The superseded bounded path does not satisfy the identity: the
+            // historical "before" that motivated the faithful implementation.
+            assert!(
+                f_bounded_rel > 1.0e-5,
+                "phi = {deg} deg: the superseded bounded path was expected to fail the rigid rotation, got {f_bounded_rel:.3e}"
+            );
+        }
+        println!(
+            "worst max|e+eta|/phi^3 over the sweep: {worst_phi3:.6e} (roughly angle independent = O(phi^3))"
+        );
+    }
+
+    // ========================================================================
+    // N-beta — the paper's assumed fields on the TL strains
+    // (MEASUREMENT INSTRUMENT, NOT A GATE; `#[ignore]`d on purpose)
+    // ========================================================================
+
+    /// N-beta — the assumed strain fields of Ko, Lee & Bathe (2017),
+    /// C&S 185:1-14, Eqs. (10) and (15a-d) (MEASUREMENT INSTRUMENT, NOT A GATE).
+    ///
+    /// (1) **DECISIVE acceptance.** The N-beta assumed INCREMENTAL membrane
+    ///     operator at `u = 0` must equal the LINEAR assumed membrane operator
+    ///     (the same class of check that exposed the N-gamma factor-2 defect):
+    ///     the covariant rows are compared to `b_membrane_covariant_2017` and,
+    ///     with the engineering-shear/`^0`-frame mapping applied, to
+    ///     `b_membrane_2017`, at the sample points AND the five tying points.
+    ///     `max|difference| / max|linear| <= 1e-10`. The N-beta operator is
+    ///     built by central differences of [`gl_assumed_membrane_increment`],
+    ///     so it cannot pass by sharing a factor with the reference.
+    /// (2) **Flat reduction.** On a flat parallelogram (`^t x_d = 0`) the current
+    ///     coefficients `^t a_A..^t a_E` vanish, Eqs. (15b-d) collapse onto the
+    ///     linear interpolation, and the assumed membrane must reproduce the
+    ///     displacement-based TL membrane. Both sides now use the SAME,
+    ///     explicitly-stated convention `1/2(m_cur - m_init)` with
+    ///     `m = x_m . x_m` -- NOT `gl_mid_metrics`, whose `2 m` doubling
+    ///     cancelled the old defect. Two cases: the literal `^t x = ^0 x` and a
+    ///     stretched/sheared flat parallelogram with a nonzero membrane.
+    /// (3) **Non-vacuity.** Perturbing one coefficient away from its natural
+    ///     zero (`^t a_E = 0.5`) breaks the reduction; setting `^t a_E = 0` on a
+    ///     distorted flat quad where it is naturally nonzero changes the field.
+    /// (4) **Rigid rotation.** With the assumed fields (Eqs. 15b-d and Eq. 10)
+    ///     applied to the N-alpha Eq. (9) increment of a finite rigid rotation
+    ///     about the in-plane axis `e1`, the residual must stay at `O(phi^3)`.
+    ///
+    /// A `1e-12`-scale magnitude report accompanies (1): a common-factor
+    /// regression in the assumed field makes `max|difference| / max|linear|`
+    /// jump from round-off to `O(1)`, which the report makes visible.
+    ///
+    /// Run it with `cargo test -p aeroelast-core n_beta -- --ignored --nocapture`.
+    #[test]
+    #[ignore = "N-beta assumed-field measurement; run with --ignored --nocapture"]
+    fn n_beta_assumed_fields_reduce_to_displacement_based_on_flat() {
+        let pre = pre_from(&RECT);
+        let state0 = GlCurrentState {
+            coords: pre.initial_coords_3d,
+            vn: pre.vn,
+            v1: pre.v1,
+            v2: pre.v2,
+            a_i: pre.a_i,
+        };
+
+        let init_vecs = [pre.x_r, pre.x_s, pre.x_d];
+        let init_tie = gl_tying_metrics(&init_vecs[0], &init_vecs[1], &init_vecs[2]);
+
+        let points: [(f64, f64); 5] = [
+            (0.0, 0.0),
+            (0.37, -0.62),
+            (0.8, 0.3),
+            (-1.0, 1.0),
+            (0.577_350_269_189_625_8, -0.577_350_269_189_625_8),
+        ];
+
+        // Displacement-based TL membrane with the SAME convention as Eq. (15a)
+        // after undoing the Eq. (12b) doubling: `1/2(m_cur - m_init)` with
+        // `m = x_m . x_m`, built directly from the geometry and NOT from
+        // `gl_mid_metrics` (which returns the doubled `2 m`).
+        let direct_membrane = |state: &GlCurrentState, r: f64, s: f64| -> [f64; 3] {
+            let metric_of = |v: &[Vector3<f64>; 3]| -> [f64; 3] {
+                let g_r = v[0] + s * v[2];
+                let g_s = v[1] + r * v[2];
+                [g_r.dot(&g_r), g_s.dot(&g_s), g_r.dot(&g_s)]
+            };
+            let (cur, _n, _mr, _ms) = gl_current_characteristic_vectors(state);
+            let mc = metric_of(&cur);
+            let mi = metric_of(&init_vecs);
+            [
+                0.5 * (mc[0] - mi[0]),
+                0.5 * (mc[1] - mi[1]),
+                0.5 * (mc[2] - mi[2]),
+            ]
+        };
+
+        // ---- (1) DECISIVE: the N-beta assumed INCREMENTAL membrane operator at
+        //      u = 0 equals the LINEAR assumed membrane operator ----
+        //
+        // Central differences of `gl_assumed_membrane_increment` in the
+        // increment's nodal DOFs. The membrane metric depends only on the nodal
+        // positions (not the directors), so the rotational columns are
+        // identically zero; the flat RECT's local frame is the global one.
+        let nb_operator = |state: &GlCurrentState, r: f64, s: f64| -> [[f64; 24]; 3] {
+            let h = 1.0e-4;
+            let mut op = [[0.0f64; 24]; 3];
+            for j in 0..12 {
+                let node = j / 3;
+                let k = j % 3;
+                let col = 6 * node + k;
+                let mut inc_p = GlIncrement {
+                    u: [[0.0; 3]; 4],
+                    alpha: [0.0; 4],
+                    beta: [0.0; 4],
+                };
+                let mut inc_m = inc_p;
+                inc_p.u[node][k] = h;
+                inc_m.u[node][k] = -h;
+                let ep = gl_assumed_membrane_increment(state, &inc_p, r, s);
+                let em = gl_assumed_membrane_increment(state, &inc_m, r, s);
+                for row in 0..3 {
+                    op[row][col] = (ep[row] - em[row]) / (2.0 * h);
+                }
+            }
+            op
+        };
+
+        let op_points: [(f64, f64); 10] = [
+            (0.0, 0.0),
+            (0.37, -0.62),
+            (0.8, 0.3),
+            (-1.0, 1.0),
+            (0.577_350_269_189_625_8, -0.577_350_269_189_625_8),
+            (0.0, 1.0),  // A
+            (0.0, -1.0), // B
+            (1.0, 0.0),  // C
+            (-1.0, 0.0), // D
+            (0.5, -0.25),
+        ];
+        let mut op_diff_cov = 0.0f64;
+        let mut op_scale_cov = 0.0f64;
+        let mut op_diff_loc = 0.0f64;
+        let mut op_scale_loc = 0.0f64;
+        for &(r, s) in &op_points {
+            let nb = nb_operator(&state0, r, s);
+            let bcov = b_membrane_covariant_2017(&pre, r, s);
+            let bloc = b_membrane_2017(&pre, r, s);
+            let tmap = covariant_to_local_mapping(&j_loc_at(&pre, r, s));
+            for j in 0..24 {
+                // Covariant rows (tensor shear).
+                let nb_cov = Vector3::new(nb[0][j], nb[1][j], nb[2][j]);
+                let lin_cov = Vector3::new(bcov[(0, j)], bcov[(1, j)], bcov[(2, j)]);
+                op_diff_cov = op_diff_cov.max((nb_cov - lin_cov).norm());
+                op_scale_cov = op_scale_cov.max(bcov[(0, j)].abs());
+                op_scale_cov = op_scale_cov.max(bcov[(1, j)].abs());
+                op_scale_cov = op_scale_cov.max(bcov[(2, j)].abs());
+                // Local rows: engineering shear (`2 e_12`) and the Eq. (23)
+                // `^0`-metric mapping, matching `b_membrane_2017`.
+                let nb_loc = tmap * Vector3::new(nb[0][j], nb[1][j], 2.0 * nb[2][j]);
+                let lin_loc = Vector3::new(bloc[(0, j)], bloc[(1, j)], bloc[(2, j)]);
+                op_diff_loc = op_diff_loc.max((nb_loc - lin_loc).norm());
+                op_scale_loc = op_scale_loc.max(bloc[(0, j)].abs());
+                op_scale_loc = op_scale_loc.max(bloc[(1, j)].abs());
+                op_scale_loc = op_scale_loc.max(bloc[(2, j)].abs());
+            }
+        }
+        let op_rel_cov = op_diff_cov / op_scale_cov;
+        let op_rel_loc = op_diff_loc / op_scale_loc;
+        println!("\nN-beta (1) DECISIVE: incremental assumed membrane operator at u = 0");
+        println!(
+            "  covariant rows vs b_membrane_covariant_2017: max|diff| = {op_diff_cov:.6e}, max|linear| = {op_scale_cov:.6e}, rel = {op_rel_cov:.6e}"
+        );
+        println!(
+            "  local rows (2 e_12) vs b_membrane_2017:      max|diff| = {op_diff_loc:.6e}, max|linear| = {op_scale_loc:.6e}, rel = {op_rel_loc:.6e}"
+        );
+        println!(
+            "  a common-factor regression would make either rel O(1) instead of ~1e-12"
+        );
+        assert!(
+            op_rel_cov <= 1.0e-10,
+            "N-beta incremental covariant operator must equal b_membrane_covariant_2017, rel = {op_rel_cov:.3e}"
+        );
+        assert!(
+            op_rel_loc <= 1.0e-10,
+            "N-beta incremental local operator must equal b_membrane_2017, rel = {op_rel_loc:.3e}"
+        );
+
+        // ---- (1a) literal: ^t x = ^0 x ----
+        let (vecs0, _n0, mr0, ms0) = gl_current_characteristic_vectors(&state0);
+        assert!(
+            vecs0[2].norm() < 1.0e-14,
+            "^t x_d = {} must vanish on the flat RECT",
+            vecs0[2]
+        );
+        let (_cr0, _cs0, _d0, coeff0) = compute_membrane_coefficients_2017(&vecs0[2], &mr0, &ms0);
+        for (k, a) in coeff0.iter().enumerate() {
+            assert!(
+                a.abs() < 1.0e-14,
+                "^t a[{k}] = {a} must vanish on the flat RECT"
+            );
+        }
+        let mut res_a = 0.0f64;
+        for &(r, s) in &points {
+            let assumed = gl_assumed_membrane_strain(&pre, &state0, r, s);
+            let direct = direct_membrane(&state0, r, s);
+            for k in 0..3 {
+                res_a = res_a.max((assumed[k] - direct[k]).abs());
+            }
+        }
+        println!("\nN-beta (1a) flat reduction, literal ^t x = ^0 x: max|e~^m - e^m| = {res_a:.6e}");
+        assert!(res_a < 1.0e-14, "residual {res_a:.3e}");
+
+        // ---- (1b) flat parallelogram, genuinely deformed (nonzero membrane) ----
+        // An affine image of the flat RECT: still flat, still a parallelogram,
+        // so ^t x_d = 0 and every current coefficient vanishes.
+        let deformed: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [3.0, 0.0, 0.0],
+            [3.4, 1.1, 0.0],
+            [0.4, 1.1, 0.0],
+        ];
+        let state = GlCurrentState {
+            coords: deformed,
+            vn: pre.vn,
+            v1: pre.v1,
+            v2: pre.v2,
+            a_i: pre.a_i,
+        };
+        let (vecs, _n, mr, ms) = gl_current_characteristic_vectors(&state);
+        let scale = vecs[0].norm().max(vecs[1].norm());
+        assert!(
+            vecs[2].norm() <= 1.0e-14 * scale,
+            "^t x_d = {} must vanish on a parallelogram",
+            vecs[2]
+        );
+        let (_cr, _cs, _d, coeff) = compute_membrane_coefficients_2017(&vecs[2], &mr, &ms);
+        for (k, a) in coeff.iter().enumerate() {
+            assert!(
+                a.abs() <= 1.0e-12,
+                "^t a[{k}] = {a} must vanish on a parallelogram"
+            );
+        }
+        let mut res_b = 0.0f64;
+        let mut mem_norm = 0.0f64;
+        for &(r, s) in &points {
+            let assumed = gl_assumed_membrane_strain(&pre, &state, r, s);
+            let direct = direct_membrane(&state, r, s);
+            for k in 0..3 {
+                res_b = res_b.max((assumed[k] - direct[k]).abs());
+                mem_norm = mem_norm.max(direct[k].abs());
+            }
+        }
+        println!(
+            "N-beta (1b) flat reduction, deformed parallelogram: max|e~^m - e^m| = {res_b:.6e}, max|e^m| = {mem_norm:.6e}"
+        );
+        assert!(
+            mem_norm > 1.0e-3,
+            "the deformed-parallelogram membrane must be non-vacuous, got {mem_norm:.3e}"
+        );
+        assert!(res_b < 1.0e-12, "residual {res_b:.3e}");
+
+        // ---- (2a) non-vacuity: perturb one coefficient away from zero ----
+        let cur_tie = gl_tying_metrics(&vecs[0], &vecs[1], &vecs[2]);
+        let mut coef_pert = coeff;
+        coef_pert[4] = 0.5;
+        let mut res_pert = 0.0f64;
+        for &(r, s) in &points {
+            let assumed = gl_assumed_mid_metric(&coef_pert, &cur_tie, r, s);
+            let init_assumed = gl_assumed_mid_metric(&pre.a_coeffs, &init_tie, r, s);
+            let direct = direct_membrane(&state, r, s);
+            for k in 0..3 {
+                let e = 0.25 * assumed[k] - 0.25 * init_assumed[k];
+                res_pert = res_pert.max((e - direct[k]).abs());
+            }
+        }
+        println!(
+            "N-beta (2a) non-vacuity, ^t a_E perturbed 0.0 -> 0.5 on the flat parallelogram: max|e~^m - e^m| = {res_pert:.6e}"
+        );
+        assert!(
+            res_pert > 1.0e-3,
+            "perturbing ^t a_E must break the flat reduction, got {res_pert:.3e}"
+        );
+
+        // ---- (2b) the literal control: set ^t a_E = 0 where it is nonzero ----
+        let pre_d = pre_from(&FLAT_DISTORTED);
+        let state_d = GlCurrentState {
+            coords: FLAT_DISTORTED,
+            vn: pre_d.vn,
+            v1: pre_d.v1,
+            v2: pre_d.v2,
+            a_i: pre_d.a_i,
+        };
+        let (vecs_d, _n_d, mr_d, ms_d) = gl_current_characteristic_vectors(&state_d);
+        let (_cr_d, _cs_d, _d_d, coeff_d) =
+            compute_membrane_coefficients_2017(&vecs_d[2], &mr_d, &ms_d);
+        assert!(
+            coeff_d[4].abs() > 1.0e-6,
+            "FLAT_DISTORTED must have ^t a_E != 0, got {}",
+            coeff_d[4]
+        );
+        let tie_d = gl_tying_metrics(&vecs_d[0], &vecs_d[1], &vecs_d[2]);
+        let mut coef_zero = coeff_d;
+        coef_zero[4] = 0.0;
+        let mut d_zero = 0.0f64;
+        for &(r, s) in &points {
+            let natural = gl_assumed_mid_metric(&coeff_d, &tie_d, r, s);
+            let zeroed = gl_assumed_mid_metric(&coef_zero, &tie_d, r, s);
+            for k in 0..3 {
+                d_zero = d_zero.max((natural[k] - zeroed[k]).abs());
+            }
+        }
+        println!(
+            "N-beta (2b) non-vacuity, ^t a_E set to 0 on FLAT_DISTORTED (natural a_E = {:.6e}): max|e~^m(a_E) - e~^m(0)| = {d_zero:.6e}",
+            coeff_d[4]
+        );
+        assert!(
+            d_zero > 1.0e-6,
+            "setting ^t a_E = 0 must change the assumed field, got {d_zero:.3e}"
+        );
+
+        // ---- (3) rigid rotation with the assumed fields applied ----
+        //
+        // Two in-plane axes: `e1` (the N-alpha instrument's axis) and the
+        // in-plane diagonal `(e1 + e2)/sqrt(2)`. About `e1` the membrane
+        // residual is identically zero by symmetry and only the assumed shear
+        // is exercised; the diagonal axis makes the assumed membrane residual
+        // nonzero, so the membrane field is measured too.
+        let diag = (Vector3::new(1.0, 0.0, 0.0) + Vector3::new(0.0, 1.0, 0.0)).normalize();
+        let axes: [(&str, [f64; 3]); 2] = [
+            ("e1", [1.0, 0.0, 0.0]),
+            ("(e1+e2)/sqrt2", [diag[0], diag[1], diag[2]]),
+        ];
+        let angles_deg = [10.0f64, 30.0, 60.0, 90.0];
+        let rot_points: [(f64, f64, f64); 9] = [
+            (0.0, 0.0, -1.0),
+            (0.0, 0.0, 0.0),
+            (0.0, 0.0, 1.0),
+            (0.577_350_269_189_625_8, -0.577_350_269_189_625_8, -1.0),
+            (0.577_350_269_189_625_8, 0.577_350_269_189_625_8, 1.0),
+            (-0.4, 0.7, 1.0),
+            (0.8, 0.3, 0.5),
+            (1.0, -1.0, -1.0),
+            (-1.0, -1.0, 1.0),
+        ];
+
+        for &(axis_name, axis) in &axes {
+            println!(
+                "\nN-beta (3) rigid rotation about the in-plane axis {axis_name} with the assumed fields applied (flat RECT, current state = flat):"
+            );
+            println!(
+                "{:>8}  {:>16}  {:>16}  {:>16}  {:>16}  {:>14}  {:>14}",
+                "phi[deg]",
+                "max|e~^m|",
+                "/phi^3",
+                "max|e~_sh|",
+                "/phi^3",
+                "ratio m/d",
+                "ratio s/d"
+            );
+
+            let mut worst_mem_phi3 = 0.0f64;
+            let mut worst_sh_phi3 = 0.0f64;
+            for &deg in &angles_deg {
+                let phi = deg.to_radians();
+                let r_mat = rotation_matrix(axis, phi);
+                let theta = phi * Vector3::new(axis[0], axis[1], axis[2]);
+
+                let mut inc = GlIncrement {
+                    u: [[0.0f64; 3]; 4],
+                    alpha: [0.0f64; 4],
+                    beta: [0.0f64; 4],
+                };
+                for i in 0..4 {
+                    let x = Vector3::new(
+                        state0.coords[i][0],
+                        state0.coords[i][1],
+                        state0.coords[i][2],
+                    );
+                    let urel = r_mat * x - x;
+                    inc.u[i] = [urel[0], urel[1], urel[2]];
+                    inc.alpha[i] = theta.dot(&state0.v1[i]);
+                    inc.beta[i] = theta.dot(&state0.v2[i]);
+                }
+
+                let mut mem_assumed = 0.0f64;
+                let mut mem_direct = 0.0f64;
+                let mut sh_assumed = 0.0f64;
+                let mut sh_direct = 0.0f64;
+                for &(r, s, zeta) in &rot_points {
+                    let a = gl_assumed_membrane_increment(&state0, &inc, r, s);
+                    let (e_lin, eta_nl) = gl_strain_increment(&state0, &inc, r, s, 0.0);
+                    for k in 0..3 {
+                        mem_assumed = mem_assumed.max(a[k].abs());
+                        mem_direct = mem_direct.max((e_lin[k] + eta_nl[k]).abs());
+                    }
+                    let (sh_r, sh_s) = gl_assumed_transverse_shear(&state0, &inc, r, s, zeta);
+                    let (e_lin6, eta_nl6) = gl_strain_increment(&state0, &inc, r, s, zeta);
+                    for (idx, v) in [(4usize, sh_r), (5usize, sh_s)] {
+                        sh_assumed = sh_assumed.max(v.abs());
+                        sh_direct = sh_direct.max((e_lin6[idx] + eta_nl6[idx]).abs());
+                    }
+                }
+
+                let phi3 = phi.powi(3);
+                worst_mem_phi3 = worst_mem_phi3.max(mem_assumed / phi3);
+                worst_sh_phi3 = worst_sh_phi3.max(sh_assumed / phi3);
+                println!(
+                    "{:>8.1}  {:>16.6e}  {:>16.6e}  {:>16.6e}  {:>16.6e}  {:>14.3}  {:>14.3}",
+                    deg,
+                    mem_assumed,
+                    mem_assumed / phi3,
+                    sh_assumed,
+                    sh_assumed / phi3,
+                    mem_assumed / mem_direct.max(1.0e-30),
+                    sh_assumed / sh_direct.max(1.0e-30)
+                );
+
+                // The assumed fields are bounded linear combinations of the
+                // Eq. (9) tying values; both residuals must stay at the retained
+                // order `O(phi^3)` relative to their own displacement-based value.
+                assert!(
+                    mem_assumed <= 1.0e-12 + 20.0 * mem_direct,
+                    "phi = {deg} deg: assumed membrane {mem_assumed:.3e} exceeds 20x the direct {mem_direct:.3e}"
+                );
+                assert!(
+                    sh_assumed <= 1.0e-12 + 20.0 * sh_direct,
+                    "phi = {deg} deg: assumed shear {sh_assumed:.3e} exceeds 20x the direct {sh_direct:.3e}"
+                );
+                assert!(
+                    mem_direct <= 1.0 * phi3,
+                    "phi = {deg} deg: direct membrane {mem_direct:.3e} exceeds phi^3 = {phi3:.3e}"
+                );
+                assert!(
+                    sh_direct <= 1.0 * phi3,
+                    "phi = {deg} deg: direct shear {sh_direct:.3e} exceeds phi^3 = {phi3:.3e}"
+                );
+            }
+            println!(
+                "worst assumed-field max/phi^3 on {axis_name}: membrane {worst_mem_phi3:.6e}, shear {worst_sh_phi3:.6e} (roughly angle independent = O(phi^3))"
+            );
+        }
+    }
+
+    // ========================================================================
+    // N-gamma — the faithful TL internal force and tangent
+    // (MEASUREMENT INSTRUMENT, NOT A GATE; `#[ignore]`d on purpose)
+    // ========================================================================
+
+    /// N-gamma — the implementation-consistency identities of the faithful
+    /// total-Lagrangian pair `n_gamma_fint_local` (Eq. (24b)) and
+    /// `n_gamma_kt_local` (Eq. (24a)):
+    ///
+    /// 1. `^t_0 F_e = 0` at `u = 0`, exactly (it is `B^T W e~` with `e~ = 0`).
+    /// 2. `^t K_e = d ^t_0 F_e / d u` by central differences — Eq. (24a) must be
+    ///    the consistent linearisation of Eq. (24b). This is measured for the 12
+    ///    rigid motions below AND for general random increments at several `||u||`
+    ///    (check 4), because the geometric term vanishes on a rigid motion.
+    /// 3. `^t K_e(0) = K_0` to round-off (the exact `u = 0` limit of `dF/du`; the
+    ///    earlier bit-for-bit equality was a construction artefact of a removed
+    ///    additive reference — see `n_gamma_kt_local`).
+    ///
+    /// The flat `RECT` element is used because its local frame coincides with
+    /// the global one, so `build_t24` is the identity and the local and global
+    /// 24-vectors agree; the measurement is then about the formulation, not the
+    /// frame.
+    ///
+    /// The rigid-body residual `||F|| / (||K_0|| ||u||)` is PRINTED for the
+    /// faithful local pair, for the PRODUCTION global path
+    /// (`compute_fint_global(.., true)`), which after N-delta (option B) IS the
+    /// faithful pair, and for the SUPERSEDED bounded path
+    /// (`compute_fint_global_bounded_superseded(..)`) kept as the recorded
+    /// historical "before". The production value is ASSERTED at round-off; the
+    /// bounded value is printed only. The exact strain-level discriminator lives
+    /// in `n_alpha_rigid_rotation_gives_zero_gl_strain_increment`.
+    #[test]
+    #[ignore = "N-gamma rigid-body force + consistent-tangent measurement; run with --ignored --nocapture"]
+    fn n_gamma_rigid_body_zero_force_and_consistent_tangent() {
+        let pre = pre_from(&RECT);
+        let state = GlCurrentState {
+            coords: pre.initial_coords_3d,
+            vn: pre.vn,
+            v1: pre.v1,
+            v2: pre.v2,
+            a_i: pre.a_i,
+        };
+        let k0 = compute_ke_local(&pre);
+        let k0_scale = max_abs(&k0).max(1e-30);
+        let zero = Vec24::zeros();
+        let vec_norm = |v: &[f64; 24]| -> f64 { v.iter().map(|x| x * x).sum::<f64>().sqrt() };
+
+        // (1) exactly zero at u = 0.
+        let f0 = n_gamma_fint_local(&pre, &state, &zero);
+        let mut f0_buf = [0.0f64; 24];
+        for i in 0..24 {
+            f0_buf[i] = f0[i];
+        }
+        let f0_norm = vec_norm(&f0_buf);
+        println!("\nN-gamma (1) |F_int(0)| = {f0_norm:.3e} (exactly zero)");
+        assert_eq!(f0_norm, 0.0, "F_int must be exactly zero at u = 0");
+
+        // (3) K_t(0) == K_0 to round-off.
+        let kt0 = n_gamma_kt_local(&pre, &state, &zero);
+        let mut kt0_dev = 0.0f64;
+        for i in 0..24 {
+            for j in 0..24 {
+                if kt0[(i, j)] != k0[(i, j)] {
+                    kt0_dev = kt0_dev.max((kt0[(i, j)] - k0[(i, j)]).abs());
+                }
+            }
+        }
+        println!(
+            "N-gamma (3) K_t(0) vs K_0: max|difference| = {kt0_dev:.3e} (relative {:.3e})",
+            kt0_dev / k0_scale
+        );
+        // `K_t(0)` is the exact u = 0 limit of `dF/du`, `int B(0)^T W11 B(0)`,
+        // NOT an additive `compute_ke_local` reference (see `n_gamma_kt_local`).
+        // On the flat RECT that limit reproduces the linear stiffness to
+        // round-off; a bit-for-bit equality was a construction artefact of the
+        // removed additive reference and is not a paper requirement.
+        assert!(
+            kt0_dev / k0_scale < 1.0e-9,
+            "K_t(0) must equal K_0 to a tight relative bound, got {:.3e}",
+            kt0_dev / k0_scale
+        );
+
+        // (0) Diagnostic: does the 11-component ZERO-STATE assembly,
+        // `int B(0)^T W11 B(0)`, reproduce the nine-row linear stiffness
+        // `compute_ke_local(pre)`? If it does not, `n_gamma_kt_local`'s additive
+        // `compute_ke_local(pre)` reference injects the spurious difference
+        // `compute_ke_local - mat0` and the returned matrix cannot be the
+        // derivative of `n_gamma_fint_local` — which is what the (2) check shows.
+        let w11 = n_gamma_w11(&pre);
+        let mut mat0 = Mat24::zeros();
+        for g in 0..N_GAUSS {
+            let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+            let wq = GAUSS_W[g] * surface_measure(&pre, r, s);
+            let b0 = n_gamma_b_matrix(&pre, &state, &zero, r, s);
+            mat0 += (b0.transpose() * w11 * b0) * wq;
+        }
+        let mut dm = 0.0f64;
+        for i in 0..24 {
+            for j in 0..24 {
+                dm = dm.max((mat0[(i, j)] - k0[(i, j)]).abs());
+            }
+        }
+        println!(
+            "N-gamma (0) max|B(0)^T W11 B(0) - compute_ke_local| = {dm:.3e} (scale {k0_scale:.3e}, relative {:.3e})",
+            dm / k0_scale
+        );
+        // C&S 185 is the 2017 MITC4+ formulation, which has NO drilling DOF, while
+        // the production `compute_ke_local` is the 2025 MITC4+/D (the drill folded
+        // into the membrane, Eq. (22a)). The correct u = 0 reference for the
+        // N-gamma block is therefore the NO-DRILL linear stiffness; comparing
+        // against the drilled one conflates "the drill is missing" with "the
+        // 11-component assembly is wrong".
+        let k0_nodrill = compute_ke_local_with_drill(&pre, false);
+        let k0n_scale = max_abs(&k0_nodrill).max(1e-30);
+        let mut dmn = 0.0f64;
+        for i in 0..24 {
+            for j in 0..24 {
+                dmn = dmn.max((mat0[(i, j)] - k0_nodrill[(i, j)]).abs());
+            }
+        }
+        println!(
+            "N-gamma (0b) max|B(0)^T W11 B(0) - compute_ke_local_with_drill(false)| = {dmn:.3e} (scale {k0n_scale:.3e}, relative {:.3e})",
+            dmn / k0n_scale
+        );
+        println!(
+            "N-gamma (0c) max|compute_ke_local - compute_ke_local_with_drill(false)| = {:.3e} (the drill block's size)",
+            {
+                let mut d = 0.0f64;
+                for i in 0..24 {
+                    for j in 0..24 {
+                        d = d.max((k0[(i, j)] - k0_nodrill[(i, j)]).abs());
+                    }
+                }
+                d
+            }
+        );
+
+        let axes: [([f64; 3], &str); 3] = [
+            ([1.0, 0.0, 0.0], "e1 (in-plane)"),
+            ([0.0, 0.0, 1.0], "e3 (element normal)"),
+            (
+                [
+                    0.577_350_269_189_625_8,
+                    0.577_350_269_189_625_8,
+                    0.577_350_269_189_625_8,
+                ],
+                "skew (1,1,1)/sqrt3",
+            ),
+        ];
+        let angles_deg = [1.0f64, 10.0, 45.0, 90.0];
+
+        println!(
+            "{:>20}  {:>8}  {:>16}  {:>16}  {:>16}  {:>14}  {:>14}",
+            "axis",
+            "phi[deg]",
+            "faithful |F|/Ku",
+            "prod |F|/Ku",
+            "bounded |F|/Ku",
+            "max|Kt-FD|",
+            "rel"
+        );
+
+        for &(axis, label) in &axes {
+            for &deg in &angles_deg {
+                let phi = deg.to_radians();
+                let r_mat = rotation_matrix(axis, phi);
+                let theta = phi * Vector3::new(axis[0], axis[1], axis[2]);
+
+                let mut u = Vec24::zeros();
+                for i in 0..4 {
+                    let x = Vector3::new(
+                        state.coords[i][0],
+                        state.coords[i][1],
+                        state.coords[i][2],
+                    );
+                    let urel = r_mat * x - x;
+                    u[6 * i] = urel[0];
+                    u[6 * i + 1] = urel[1];
+                    u[6 * i + 2] = urel[2];
+                    u[6 * i + 3] = theta[0];
+                    u[6 * i + 4] = theta[1];
+                    u[6 * i + 5] = theta[2];
+                }
+                let mut u_buf = [0.0f64; 24];
+                for i in 0..24 {
+                    u_buf[i] = u[i];
+                }
+                let u_norm = vec_norm(&u_buf).max(1e-30);
+
+                let f_faithful = n_gamma_fint_local(&pre, &state, &u);
+                let mut ff_buf = [0.0f64; 24];
+                for i in 0..24 {
+                    ff_buf[i] = f_faithful[i];
+                }
+                let f_production = compute_fint_global(&pre, &u, true);
+                let mut fp_buf = [0.0f64; 24];
+                for i in 0..24 {
+                    fp_buf[i] = f_production[i];
+                }
+                let f_bounded = compute_fint_global_bounded_superseded(&pre, &u);
+                let mut fb_buf = [0.0f64; 24];
+                for i in 0..24 {
+                    fb_buf[i] = f_bounded[i];
+                }
+                let rel_faithful = vec_norm(&ff_buf) / (k0_scale * u_norm);
+                let rel_production = vec_norm(&fp_buf) / (k0_scale * u_norm);
+                let rel_bounded = vec_norm(&fb_buf) / (k0_scale * u_norm);
+
+                // (2) K_t = dF/du by central differences.
+                const H: f64 = 1.0e-6;
+                let kt = n_gamma_kt_local(&pre, &state, &u);
+                let mut fd = Mat24::zeros();
+                for j in 0..24 {
+                    let mut up = u;
+                    up[j] += H;
+                    let mut um = u;
+                    um[j] -= H;
+                    let fp = n_gamma_fint_local(&pre, &state, &up);
+                    let fm = n_gamma_fint_local(&pre, &state, &um);
+                    for i in 0..24 {
+                        fd[(i, j)] = (fp[i] - fm[i]) / (2.0 * H);
+                    }
+                }
+                let mut dmax = 0.0f64;
+                let mut smax = 0.0f64;
+                for i in 0..24 {
+                    for j in 0..24 {
+                        dmax = dmax.max((kt[(i, j)] - fd[(i, j)]).abs());
+                        smax = smax.max(fd[(i, j)].abs());
+                    }
+                }
+                let rel_fd = dmax / smax.max(1e-30);
+
+                println!(
+                    "{label:>20}  {deg:>8.1}  {rel_faithful:>16.3e}  {rel_production:>16.3e}  {rel_bounded:>16.3e}  {dmax:>14.3e}  {rel_fd:>14.3e}"
+                );
+
+                // (2) is the gate: the printed tangent must be the derivative of
+                // the printed force (central differences are O(H^2) exact).
+                assert!(
+                    rel_fd < 1.0e-6,
+                    "{label} {deg} deg: K_t differs from dF/du by {rel_fd:.3e}"
+                );
+                // The PRODUCTION nonlinear path (N-delta, option B) is the
+                // faithful pair, so its rigid-body force residual must be at
+                // round-off (the superseded bounded path is only printed).
+                assert!(
+                    rel_production < 1.0e-10,
+                    "{label} {deg} deg: the production nonlinear path rigid-body residual {rel_production:.3e} is not round-off"
+                );
+            }
+        }
+        // ------------------------------------------------------------------
+        // (4) GENERAL-increment consistency. On a rigid motion `S = W e~` is
+        // zero, so the geometric term `int (dB/du)^T S d0V` is invisible and
+        // the table above cannot discriminate it. `K_t = dF/du` must also hold
+        // for a general random increment, and the relative residual must NOT
+        // grow with `||u||` because `S` is proportional to the strain. This is
+        // the identity the production Newton line search exercises.
+        // ------------------------------------------------------------------
+        let fd_rel = |k: &Mat24, fd: &Mat24| -> f64 {
+            let mut d = 0.0f64;
+            for i in 0..24 {
+                for j in 0..24 {
+                    d = d.max((k[(i, j)] - fd[(i, j)]).abs());
+                }
+            }
+            d / max_abs(fd).max(1e-30)
+        };
+        let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+        let mut rnd = move || {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            (((seed >> 11) as f64) / ((1u64 << 53) as f64)) * 2.0 - 1.0
+        };
+        println!("\nN-gamma (4) general-increment consistency (initial state, RECT):");
+        println!("{:>8}  {:>16}  {:>16}", "|u|", "local rel", "global rel");
+        for &scale in &[1.0e-4f64, 1.0e-3, 1.0e-2, 1.0e-1] {
+            let mut u = Vec24::zeros();
+            for x in u.iter_mut() {
+                *x = scale * rnd();
+            }
+            const HG: f64 = 1.0e-6;
+            let kt = n_gamma_kt_local(&pre, &state, &u);
+            let fd = fd_matrix(|x| n_gamma_fint_local(&pre, &state, x), &u, HG);
+            let ktg = n_gamma_kt_global(&pre, &u);
+            let fdg = fd_matrix(|x| n_gamma_fint_global(&pre, x), &u, HG);
+            let rl = fd_rel(&kt, &fd);
+            let rg = fd_rel(&ktg, &fdg);
+            println!("{scale:>8.0e}  {rl:>16.3e}  {rg:>16.3e}");
+            assert!(
+                rl < 1.0e-6,
+                "general increment |u|={scale:.0e}: local K_t != dF/du (rel {rl:.3e})"
+            );
+            assert!(
+                rg < 1.0e-6,
+                "general increment |u|={scale:.0e}: global K_t != dF/du (rel {rg:.3e})"
+            );
+        }
+        println!("(\"prod |F|/Ku\" is `compute_fint_global(.., true)`, the production nonlinear path; \"bounded |F|/Ku\" is the superseded `compute_fint_global_bounded_superseded(..)`, the recorded historical before.)");
+    }
+
+    /// Central-difference Jacobian of a force function. Diagnostic only.
+    fn fd_matrix<F: Fn(&Vec24) -> Vec24>(f: F, u: &Vec24, h: f64) -> Mat24 {
+        let mut fd = Mat24::zeros();
+        for j in 0..24 {
+            let mut up = *u;
+            up[j] += h;
+            let mut um = *u;
+            um[j] -= h;
+            let fp = f(&up);
+            let fm = f(&um);
+            for i in 0..24 {
+                fd[(i, j)] = (fp[i] - fm[i]) / (2.0 * h);
+            }
+        }
+        fd
+    }
+
+    #[test]
+    #[ignore = "slender element consistency probe"]
+    fn n_gamma_slender_element_probe() {
+        const SLENDER: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [10.0, 0.0, 0.0],
+            [10.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+        ];
+        // A mildly warped element, like one incremental step of a bent beam.
+        const BENT: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.01],
+            [2.0, 1.0, 0.025],
+            [1.0, 1.0, 0.011],
+        ];
+        for (name, c) in [("RECT", &RECT), ("SLENDER", &SLENDER), ("BENT", &BENT)] {
+            let pre = pre_from(c);
+            let state = GlCurrentState {
+                coords: pre.initial_coords_3d,
+                vn: pre.vn,
+                v1: pre.v1,
+                v2: pre.v2,
+                a_i: pre.a_i,
+            };
+            let k0 = compute_ke_local(&pre);
+            let k0s = max_abs(&k0).max(1e-30);
+            let w11 = n_gamma_w11(&pre);
+            let zero = Vec24::zeros();
+            let mut m0 = Mat24::zeros();
+            for g in 0..N_GAUSS {
+                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                let wq = GAUSS_W[g] * surface_measure(&pre, r, s);
+                let b0 = n_gamma_b_matrix(&pre, &state, &zero, r, s);
+                m0 += (b0.transpose() * w11 * b0) * wq;
+            }
+            let mut dm = 0.0f64;
+            let mut dmn = 0.0f64;
+            let nod = compute_ke_local_with_drill(&pre, false);
+            for i in 0..24 {
+                for j in 0..24 {
+                    dm = dm.max((m0[(i, j)] - k0[(i, j)]).abs());
+                    dmn = dmn.max((m0[(i, j)] - nod[(i, j)]).abs());
+                }
+            }
+            println!(
+                "{name}: max|mat0 - compute_ke_local| = {dm:.3e} (rel {:.3e}); max|mat0 - nodrill| = {dmn:.3e}",
+                dm / k0s
+            );
+            let s1 = 2.0 / pre.thickness;
+            let s2 = 4.0 / (pre.thickness * pre.thickness);
+            for g in 0..N_GAUSS {
+                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                let b0 = n_gamma_b_matrix(&pre, &state, &Vec24::zeros(), r, s);
+                let mut bl = SMatrix::<f64, 11, 24>::zeros();
+                let bm = b_membrane_2017(&pre, r, s) + b_drill_membrane_2025(&pre, r, s);
+                let (bb1, bb2) = b_bending_2017(&pre, r, s);
+                let bs = b_shear_mitc4(&pre, r, s);
+                for i in 0..3 {
+                    for j in 0..24 {
+                        bl[(i, j)] = bm[(i, j)];
+                        bl[(3 + i, j)] = s1 * bb1[(i, j)];
+                        bl[(6 + i, j)] = s2 * bb2[(i, j)];
+                    }
+                }
+                for i in 0..2 {
+                    for j in 0..24 {
+                        bl[(9 + i, j)] = bs[(i, j)];
+                    }
+                }
+                let mut blk = [0.0f64; 4];
+                for a in 0..11 {
+                    for j in 0..24 {
+                        let blk_idx = match a {
+                            0..=2 => 0,
+                            3..=5 => 1,
+                            6..=8 => 2,
+                            _ => 3,
+                        };
+                        blk[blk_idx] = blk[blk_idx].max((b0[(a, j)] - bl[(a, j)]).abs());
+                    }
+                }
+                println!(
+                    "  {name} g{g}: B0-Blin per block m/b1/b2/s = {:.3e}/{:.3e}/{:.3e}/{:.3e}",
+                    blk[0], blk[1], blk[2], blk[3]
+                );
+            }
+            let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+            let mut rnd = move || {
+                seed = seed
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                (((seed >> 11) as f64) / ((1u64 << 53) as f64)) * 2.0 - 1.0
+            };
+            for &scale in &[1.0e-3f64, 1.0e-2, 0.1, 0.4] {
+                let mut u = Vec24::zeros();
+                for x in u.iter_mut() {
+                    *x = scale * rnd();
+                }
+                let kt = n_gamma_kt_global(&pre, &u);
+                let fd = fd_matrix(|x| n_gamma_fint_global(&pre, x), &u, 1.0e-6);
+                let mut d = 0.0f64;
+                for i in 0..24 {
+                    for j in 0..24 {
+                        d = d.max((kt[(i, j)] - fd[(i, j)]).abs());
+                    }
+                }
+                println!(
+                    "  {name}: scale={scale:.0e} rel={:.3e}",
+                    d / max_abs(&fd).max(1e-30)
+                );
+            }
+        }
+    }
+
+    /// DIAGNOSTIC (temporary): row-by-row localisation of the bent-geometry
+    /// `B(0)` mismatch, separating the local/global frame handling of the
+    /// translational DOF columns from the strain-term construction.
+    #[test]
+    #[ignore = "diagnostic: BENT B(0) row-by-row localisation"]
+    fn n_gamma_bent_localisation_diagnostic() {
+        const BENT: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.01],
+            [2.0, 1.0, 0.025],
+            [1.0, 1.0, 0.011],
+        ];
+        const ROT_RECT: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [2.0, 0.866_025_403_784_438_6, 1.0],
+            [0.0, 0.866_025_403_784_438_6, 1.0],
+        ];
+        for (name, c) in [("RECT", &RECT), ("ROT_RECT(60deg)", &ROT_RECT), ("BENT", &BENT)] {
+            let pre = pre_from(c);
+            let state = GlCurrentState {
+                coords: pre.initial_coords_3d,
+                vn: pre.vn,
+                v1: pre.v1,
+                v2: pre.v2,
+                a_i: pre.a_i,
+            };
+            let mut frame_dev = 0.0f64;
+            for a in 0..3 {
+                for b in 0..3 {
+                    let ident = if a == b { 1.0 } else { 0.0 };
+                    frame_dev = frame_dev.max((pre.t3[(a, b)] - ident).abs());
+                }
+            }
+            println!("\n=== {name}: max|t3 - I| = {frame_dev:.3e}");
+            println!("  e1 = {:?}", pre.e1.as_slice());
+            println!("  e2 = {:?}", pre.e2.as_slice());
+            println!("  e3 = {:?}", pre.e3.as_slice());
+            let s1 = 2.0 / pre.thickness;
+            let s2 = 4.0 / (pre.thickness * pre.thickness);
+            for g in 0..N_GAUSS {
+                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                let b0 = n_gamma_b_matrix(&pre, &state, &Vec24::zeros(), r, s);
+                // Frame-corrected: the code perturbs global coords with the
+                // local components; B_true = B_code * diag(T^T, I).
+                let mut bc = b0;
+                for i in 0..4 {
+                    for k in 0..3 {
+                        for a in 0..11 {
+                            let mut v = 0.0;
+                            for cc in 0..3 {
+                                v += b0[(a, 6 * i + cc)] * pre.t3[(k, cc)];
+                            }
+                            bc[(a, 6 * i + k)] = v;
+                        }
+                    }
+                }
+                let mut bl = SMatrix::<f64, 11, 24>::zeros();
+                let bm = b_membrane_2017(&pre, r, s) + b_drill_membrane_2025(&pre, r, s);
+                let (bb1, bb2) = b_bending_2017(&pre, r, s);
+                let bs = b_shear_mitc4(&pre, r, s);
+                for i in 0..3 {
+                    for j in 0..24 {
+                        bl[(i, j)] = bm[(i, j)];
+                        bl[(3 + i, j)] = s1 * bb1[(i, j)];
+                        bl[(6 + i, j)] = s2 * bb2[(i, j)];
+                    }
+                }
+                for i in 0..2 {
+                    for j in 0..24 {
+                        bl[(9 + i, j)] = bs[(i, j)];
+                    }
+                }
+                let blk = |b: &SMatrix<f64, 11, 24>| -> [f64; 4] {
+                    let mut out = [0.0f64; 4];
+                    for a in 0..11 {
+                        let idx = match a {
+                            0..=2 => 0,
+                            3..=5 => 1,
+                            6..=8 => 2,
+                            _ => 3,
+                        };
+                        for j in 0..24 {
+                            out[idx] = out[idx].max((b[(a, j)] - bl[(a, j)]).abs());
+                        }
+                    }
+                    out
+                };
+                let k0 = blk(&b0);
+                let kc = blk(&bc);
+                println!(
+                    "  g{g}:      raw   m/b1/b2/s = {:.3e}/{:.3e}/{:.3e}/{:.3e}",
+                    k0[0], k0[1], k0[2], k0[3]
+                );
+                println!(
+                    "  g{g}: frame-fix  m/b1/b2/s = {:.3e}/{:.3e}/{:.3e}/{:.3e}",
+                    kc[0], kc[1], kc[2], kc[3]
+                );
+                for (label, rows) in [
+                    ("membrane", vec![0usize, 1, 2]),
+                    ("shear", vec![9usize, 10]),
+                ] {
+                    for row in rows {
+                        let mut best = (0.0f64, 0usize);
+                        for j in 0..24 {
+                            let d = (b0[(row, j)] - bl[(row, j)]).abs();
+                            if d > best.0 {
+                                best = (d, j);
+                            }
+                        }
+                        println!(
+                            "    raw  {label} row {row}: max={:.3e} at col {} (lin={:.6}, b0={:.6})",
+                            best.0,
+                            best.1,
+                            bl[(row, best.1)],
+                            b0[(row, best.1)]
+                        );
+                        let mut bestc = (0.0f64, 0usize);
+                        for j in 0..24 {
+                            let d = (bc[(row, j)] - bl[(row, j)]).abs();
+                            if d > bestc.0 {
+                                bestc = (d, j);
+                            }
+                        }
+                        println!(
+                            "    fix  {label} row {row}: max={:.3e} at col {} (lin={:.6}, bc={:.6})",
+                            bestc.0,
+                            bestc.1,
+                            bl[(row, bestc.1)],
+                            bc[(row, bestc.1)]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    /// DIAGNOSTIC (temporary): the finite-difference noise/truncation profile
+    /// of `B` and of the `K_t == dF/du` consistency residual.
+    #[test]
+    #[ignore = "diagnostic: FD noise/truncation profile"]
+    fn n_gamma_fd_profile_diagnostic() {
+        const BENT: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.01],
+            [2.0, 1.0, 0.025],
+            [1.0, 1.0, 0.011],
+        ];
+        for (name, c) in [("RECT", &RECT), ("BENT", &BENT)] {
+            let pre = pre_from(c);
+            let state = GlCurrentState {
+                coords: pre.initial_coords_3d,
+                vn: pre.vn,
+                v1: pre.v1,
+                v2: pre.v2,
+                a_i: pre.a_i,
+            };
+            let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+            let mut rnd = move || {
+                seed = seed
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                (((seed >> 11) as f64) / ((1u64 << 53) as f64)) * 2.0 - 1.0
+            };
+            for &scale in &[1.0e-3f64, 1.0e-1, 0.4] {
+                let mut u = Vec24::zeros();
+                for x in u.iter_mut() {
+                    *x = scale * rnd();
+                }
+                let (r, s) = (GAUSS_XI[0], GAUSS_ETA[0]);
+                let b_at = |h: f64, uu: &Vec24| -> SMatrix<f64, 11, 24> {
+                    let mut b = SMatrix::<f64, 11, 24>::zeros();
+                    for j in 0..24 {
+                        let mut up = *uu;
+                        up[j] += h;
+                        let mut um = *uu;
+                        um[j] -= h;
+                        let ep = super::n_gamma_local_strain(&pre, &state, &up, r, s);
+                        let em = super::n_gamma_local_strain(&pre, &state, &um, r, s);
+                        for a in 0..11 {
+                            b[(a, j)] = 0.5 * (ep[a] - em[a]) / h;
+                        }
+                    }
+                    b
+                };
+                let b0 = b_at(2.0e-5, &u);
+                print!("  {name} scale={scale:.0e}: |B(h)-B(2e-5)|/|B| " );
+                for &h in &[1.0e-5f64, 4.0e-5f64, 8.0e-5f64, 1.6e-4f64] {
+                    let bh = b_at(h, &u);
+                    let mut d = 0.0f64;
+                    for a in 0..11 {
+                        for j in 0..24 {
+                            d = d.max((bh[(a, j)] - b0[(a, j)]).abs());
+                        }
+                    }
+                    print!("h={h:.0e}:{:.2e} ", d / bl_matrix_max(&b0).max(1e-30));
+                }
+                println!();
+                // Column-by-column: translation column 0 and rotation column 3.
+                for &col in &[0usize, 3] {
+                    print!("    col {col}: ");
+                    for &h in &[1.0e-5, 2.0e-5, 4.0e-5, 8.0e-5, 1.6e-4] {
+                        let bh = b_at(h, &u);
+                        print!("h={h:.0e}:{:.6e} ", bh[(0, col)]);
+                    }
+                    println!();
+                }
+                // K_t vs fd at several outer steps.
+                let kt = n_gamma_kt_global(&pre, &u);
+                print!("    rel(kt, fd): ");
+                for &h in &[1.0e-6f64, 2.0e-5f64, 1.0e-4f64, 1.0e-3f64] {
+                    let fd = fd_matrix(|x| n_gamma_fint_global(&pre, x), &u, h);
+                    let mut d = 0.0f64;
+                    for i in 0..24 {
+                        for j in 0..24 {
+                            d = d.max((kt[(i, j)] - fd[(i, j)]).abs());
+                        }
+                    }
+                    print!("h={h:.0e}:{:.2e} ", d / max_abs(&fd).max(1e-30));
+                }
+                println!();
+            }
+        }
+    }
+
+    /// Largest absolute entry of an 11x24 operator (diagnostic helper).
+    fn bl_matrix_max(b: &SMatrix<f64, 11, 24>) -> f64 {
+        let mut m = 0.0f64;
+        for a in 0..11 {
+            for j in 0..24 {
+                m = m.max(b[(a, j)].abs());
+            }
+        }
+        m
+    }
+
+    /// DIAGNOSTIC (temporary): decompose the `K_t - dF/du` residual of
+    /// `n_gamma_kt_local` into its `mat`/`geo` parts and test whether the
+    /// geometric term's nested finite difference is the source.
+    #[test]
+    #[ignore = "diagnostic: K_t - dF/du decomposition"]
+    fn n_gamma_kt_residual_diagnostic() {
+        const BENT: [[f64; 3]; 4] = [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.01],
+            [2.0, 1.0, 0.025],
+            [1.0, 1.0, 0.011],
+        ];
+        for (name, c) in [("RECT", &RECT), ("BENT", &BENT)] {
+            let pre = pre_from(c);
+            let state = GlCurrentState {
+                coords: pre.initial_coords_3d,
+                vn: pre.vn,
+                v1: pre.v1,
+                v2: pre.v2,
+                a_i: pre.a_i,
+            };
+            let mut seed: u64 = 0x9E37_79B9_7F4A_7C15;
+            let mut rnd = move || {
+                seed = seed
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                (((seed >> 11) as f64) / ((1u64 << 53) as f64)) * 2.0 - 1.0
+            };
+            for &scale in &[1.0e-3f64, 0.1] {
+                let mut u = Vec24::zeros();
+                for x in u.iter_mut() {
+                    *x = scale * rnd();
+                }
+                let w = n_gamma_w11(&pre);
+                let t24 = build_t24(&pre);
+                let u_local = t24 * u;
+                // Replicate n_gamma_kt_local with a configurable outer step
+                // (local coordinates; the caller maps to global).
+                let kt_with = |h_outer: f64| -> (Mat24, Mat24, Mat24) {
+                    let mut mat = Mat24::zeros();
+                    let mut geo = Mat24::zeros();
+                    for g in 0..N_GAUSS {
+                        let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                        let wq = GAUSS_W[g] * surface_measure(&pre, r, s);
+                        let mut e = nalgebra::SVector::<f64, 11>::zeros();
+                        for (a, v) in
+                            super::n_gamma_local_strain(&pre, &state, &u_local, r, s).iter().enumerate()
+                        {
+                            e[a] = *v;
+                        }
+                        let b = n_gamma_b_matrix(&pre, &state, &u_local, r, s);
+                        mat += (b.transpose() * w * b) * wq;
+                        let svec = w * e;
+                        for j in 0..24 {
+                            let mut up = u_local;
+                            up[j] += h_outer;
+                            let mut um = u_local;
+                            um[j] -= h_outer;
+                            let bp = n_gamma_b_matrix(&pre, &state, &up, r, s);
+                            let bm = n_gamma_b_matrix(&pre, &state, &um, r, s);
+                            for a in 0..11 {
+                                for i in 0..24 {
+                                    geo[(i, j)] +=
+                                        0.5 * (bp[(a, i)] - bm[(a, i)]) / h_outer * svec[a] * wq;
+                                }
+                            }
+                        }
+                    }
+                    (mat + geo, mat, geo)
+                };
+                let fd = fd_matrix(|x| n_gamma_fint_global(&pre, x), &u, 1.0e-6);
+                let fds = max_abs(&fd).max(1e-30);
+                print!("  {name} scale={scale:.0e}: rel(kt(h_outer), fd) ");
+                for &ho in &[1.0e-6f64, 1.0e-5, 2.0e-5, 4.0e-5, 1.0e-4] {
+                    let (kt, _m, _g) = kt_with(ho);
+                    let kt = t24.transpose() * kt * t24;
+                    let mut d = 0.0f64;
+                    for i in 0..24 {
+                        for j in 0..24 {
+                            d = d.max((kt[(i, j)] - fd[(i, j)]).abs());
+                        }
+                    }
+                    print!("h={ho:.0e}:{:.2e} ", d / fds);
+                }
+                println!();
+                let (_, mat, geo) = kt_with(1.0e-6);
+                let mat = t24.transpose() * mat * t24;
+                let geo = t24.transpose() * geo * t24;
+                println!(
+                    "    max|mat|={:.3e} max|geo|={:.3e} max|fd|={:.3e}",
+                    max_abs(&mat),
+                    max_abs(&geo),
+                    max_abs(&fd)
+                );
+                // Direct: is the B operator the derivative of the strain?
+                let (r, s) = (GAUSS_XI[0], GAUSS_ETA[0]);
+                let b2 = n_gamma_b_matrix(&pre, &state, &u_local, r, s);
+                let mut dfdu = SMatrix::<f64, 11, 24>::zeros();
+                for j in 0..24 {
+                    let mut up = u_local;
+                    up[j] += 1.0e-6;
+                    let mut um = u_local;
+                    um[j] -= 1.0e-6;
+                    let ep = super::n_gamma_local_strain(&pre, &state, &up, r, s);
+                    let em = super::n_gamma_local_strain(&pre, &state, &um, r, s);
+                    for a in 0..11 {
+                        dfdu[(a, j)] = 0.5 * (ep[a] - em[a]) / 1.0e-6;
+                    }
+                }
+                let mut db = 0.0f64;
+                for a in 0..11 {
+                    for j in 0..24 {
+                        db = db.max((b2[(a, j)] - dfdu[(a, j)]).abs());
+                    }
+                }
+                println!(
+                    "    g0: max|B(2e-5) - de/du(1e-6)|/max|B| = {:.3e}",
+                    db / bl_matrix_max(&b2).max(1e-30)
+                );
+                // Predicted residual `sum_g B^T W (B - de/du) wq` at every
+                // Gauss point, plus the actual `kt - fd` and its argmax.
+                let mut pred = Mat24::zeros();
+                for g in 0..N_GAUSS {
+                    let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                    let wq = GAUSS_W[g] * surface_measure(&pre, r, s);
+                    let bg = n_gamma_b_matrix(&pre, &state, &u_local, r, s);
+                    let mut dg = SMatrix::<f64, 11, 24>::zeros();
+                    for j in 0..24 {
+                        let mut up = u_local;
+                        up[j] += 1.0e-6;
+                        let mut um = u_local;
+                        um[j] -= 1.0e-6;
+                        let ep = super::n_gamma_local_strain(&pre, &state, &up, r, s);
+                        let em = super::n_gamma_local_strain(&pre, &state, &um, r, s);
+                        for a in 0..11 {
+                            dg[(a, j)] = 0.5 * (ep[a] - em[a]) / 1.0e-6;
+                        }
+                    }
+                    let mut dmax = 0.0f64;
+                    for a in 0..11 {
+                        for j in 0..24 {
+                            dmax = dmax.max((bg[(a, j)] - dg[(a, j)]).abs());
+                        }
+                    }
+                    print!("    g{g} max|B-de/du|={dmax:.2e} ");
+                    pred += (bg.transpose() * w * (bg - dg)) * wq;
+                }
+                println!();
+                let (kt, _m, _gg) = kt_with(1.0e-6);
+                let kt = t24.transpose() * kt * t24;
+                let mut actual = 0.0f64;
+                let mut ai = (0usize, 0usize);
+                let mut pi = (0usize, 0usize);
+                let mut pmax = 0.0f64;
+                for i in 0..24 {
+                    for j in 0..24 {
+                        let d = (kt[(i, j)] - fd[(i, j)]).abs();
+                        if d > actual {
+                            actual = d;
+                            ai = (i, j);
+                        }
+                        let dp = pred[(i, j)].abs();
+                        if dp > pmax {
+                            pmax = dp;
+                            pi = (i, j);
+                        }
+                    }
+                }
+                println!(
+                    "    max|kt-fd|={actual:.2e} at {ai:?}; max|pred|={pmax:.2e} at {pi:?}; rel(actual)={:.2e}",
+                    actual / fds
+                );
+            }
+        }
     }
 }

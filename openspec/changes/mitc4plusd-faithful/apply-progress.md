@@ -1103,3 +1103,237 @@ The three thin cells are unmoved to `≤0.01%` because no production line change
 4. **What I could not do.** (i) I did not find an admissible fix, so the thick cells remain `~2–3×` too soft as first measured in WU9/WU9b; **WU10 (S4) must not start**. (ii) I did not re-derive the paper's Appendix-A notation for `h_r|_{s=±1}` (p. 20) beyond checking that Eqs. (A.5) reproduces Eq. (19b)'s telescoping structure and pairing; the code follows Eq. (18)/(19b), and the identity test is the oracle. (iii) The `f = 1e9` thin cells could not be measured (the direct solve breaks down); the `1e6` plateau is quoted instead.
 
 **Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.
+
+---
+
+## WU9e — the thick twisted-beam residual: **the cause is the ELEMENT-LOCAL DIRECTOR FIELD (ADR-4 option B), not the drill and not the core — measured, and the cells close to the published MITC4+ column once the director is mesh-consistent**
+
+**Scope.** Diagnosis only. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (a temporary `wu9e_*` harness was added and removed; the production file is **byte-identical to HEAD**, `git diff --stat` empty), this record and `tasks.md`. `mitc4.rs` read-only and untouched; no tolerance changed; no Tier-1 test touched; no penalty, no numerical factor and no drill scale added. The flip stays reverted, so the live extension is the hybrid.
+
+**Instrument.** The Python probes cannot be used (the extension dispatches the hybrid), so the measurement is a Rust harness: the benchmark's own mesh (`_build_twisted_beam_mesh`: length 12, width 1.1, 90° twist, `nx = 6N`, `ny = N`, element `[n00, n10, n11, n01]`), the root clamped in all six DOF, a tip point load on global dof 2 (in-plane) or 1 (out-of-plane), `MAT_TB` (`E = 29e6`, `nu = 0.22`), `h = 12·t/L`, a dense assembly and a dense Cholesky (2646 DOF at N=8, ~15–30 s in release; the N≥32 rule is respected), and `norm = |u_A| / u_ref` with the paper's published reference solutions. **Validated:** it reproduces the recorded cells exactly — `thick-in N=8 = 1.25132` and `thin-in N=8 = 0.99581` are WU9d's recorded values to five decimals. Reference cells read with vision from Ko, Lee, Lee & Bathe (2017), C&S 193:187-206, Table 12 (in-plane) and Table 13 (out-of-plane).
+
+### (A) WU9d's `f=0 → 144` is a singular-solve artefact — the core is algebraically invariant to the drill direction
+
+Vision read of Ko, Lee & Bathe (2017), C&S 182:404-418, **p. 405, Eq. (3)**: `u(r,s,t) = Σ h_i u_i + (t/2) Σ a_i h_i (−V_2^i α_i + V_1^i β_i)` — the director rotation lives in `span(V_1^i, V_2^i)`. Because `(α V_n) × V_n = 0`, the 2017 core (which forms `θ × V_n^i`) is **exactly invariant** to `γ_i = θ_i·V_n^i`; that component is not a DOF of the paper's element.
+
+Measured on a single unsupported element (eigenvalues below `1e-10·λ_max`):
+
+| geometry | `use_drill = false` | `use_drill = true` |
+| --- | --- | --- |
+| flat rectangle | **10** | 8 |
+| ruled-warped | **10** | 7 |
+| doubly-warped | **10** | 7 |
+
+10 = 6 rigid-body + one `γ` per node. Consistently, the **assembled** core-only system is **SINGULAR** in every benchmark case (Cholesky fails). WU9d's `f=0 → 144` is therefore the solver returning an answer to a singular system, not a near-mechanism and not a demonstration that the drill is the primary stiffness carrier. The `f → ∞` limit that WU9d and WU9c also used is a different, well-posed experiment (it penalizes the drill *strain*) and is unaffected by this.
+
+### (B) The finding: with a mesh-consistent nodal director the published cells are reproduced
+
+The director is the reading of Eq. (1) as "the director vector **at the node**" shared by every element meeting there (the design's ADR-4 **option A**), instead of the element-local sub-triangle construction (`compute_node_directors`, ADR-4 option B) that the design adopted as the default and recorded as a limitation. Materialised for the measurement by overwriting `pre.vn` with the area-weighted mean of the adjacent elements' `V_n^i`.
+
+| case | published MITC4+ cell | production (element-local director) | **mesh-consistent nodal director** | error |
+| --- | --- | --- | --- | --- |
+| thick in-plane, N=4 | `0.9960` | `1.06965` | **`0.99515`** | −0.09% |
+| thick in-plane, N=8 | `0.9968` | **`1.25132`** | **`0.99733`** | +0.05% |
+| thick out-of-plane, N=4 | `0.9936` | `1.01887` | **`0.97592`** | −1.8% |
+| thick out-of-plane, N=8 | `0.9965` | (`≈1.422`, WU9d) | **`0.99365`** | −0.29% |
+| thin in-plane, N=4 | `0.9966` | `0.99167` | `0.99154` | −0.51% |
+| thin in-plane, N=8 | `0.9974` | `0.99581` | `0.99570` | −0.17% |
+| thin out-of-plane, N=4 | `0.9949` | `0.99207` | `0.99186` | −0.31% |
+
+**The two thick cells move from `+25.5%`/`+42%` to `+0.05%`/`−0.29%` while the thin cells move by `≤ 0.51%`**, and the **drill block becomes inert**: with the consistent director, `use_drill = true` and `false` give the same value to five decimals (`0.99733`, `0.99515`). The entire thick discrepancy was the director field, not the drill and not the 2017 core.
+
+### (C) Isolation — the mechanism is the director the bending and shear operators read
+
+| variant | thick-in N=8 | thick-out N=8 | thin-in N=8 |
+| --- | --- | --- | --- |
+| element-local (production) | `1.25132` | (`≈1.422`) | `0.99581` |
+| nodal director, every cached quantity rebuilt | `0.99733` | `0.99365` | `0.99570` |
+| nodal director, **only `pre.vn`** replaced | `0.99733` | `0.99357` | `0.99570` |
+
+Identical. Rebuilding `b_shear_tie`, `v_d`, `j0` and `drill_edges` changes nothing (the third row leaves them element-local), so the mechanism lives in `pre.vn` as read by the bending operator and by `compute_shear_tie`/`b_shear_mitc4`.
+
+### Why every earlier measurement is consistent with this
+
+1. **The tilt is small and the amplification is not.** `max |V_n^i(local) − V_n^i(mesh)| = 0.53°` at N=8 and `1.07°` at N=4 (measured independently in a geometry-only script). The affected block's *weight* in the answer grows as `1/h²` — `1e4` from `h = 0.0032` to `h = 0.32` — so a half-degree field inconsistency is invisible at thin and decisive at thick. This is the same quantisation that WU9c/WU9d measured for the drill block (`h¹` against `h³`).
+2. **Tier 1 is structurally blind to it.** Every flat fixture has `V_n^i = e3`, which is simultaneously the element-local and the mesh-consistent director; the two variants agree exactly there.
+3. **A single element could not see it.** On one thick twisted element the matrices agree to `1.8%` (WU9d). The damage is the **inconsistency between adjacent elements** on a twisted mesh, which only a mesh-level measurement can expose.
+4. **The external oracle found it again.** The benchmark and the paper's published column are external. This is the fifth time in this change that an internal check which shared the assumption failed to see the defect (the frame convention, `ke_ref`'s `W_22`, the vacuous drill oracle, the mis-sourced cell, and now the director field).
+
+### The fix: **none applied — this is a maintainer design decision**
+
+Adopting the consistent director is ADR-4's named **option A**, which the design deliberately rejected as the default because it needs the mesh topology (a `MeshTopology` field or a post-construction director update) and because `update_reference` must keep it consistent; the element-local form was chosen so the single-element path stays self-contained. The measurement says option A is worth `25%` on the thick benchmark and `0` on the paper's own basic tests, and that Eq. (1)'s "director vector at the node" is the nodal reading. **No production line was changed**: this unit is diagnosis, and the choice of input path is a design decision for the maintainer. Recorded, not implemented.
+
+### Rust suite
+
+`cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed** (unchanged baseline; the harness was removed before the run). The harness must not be left in place: it is a dense N=8 Cholesky, which in a debug build does not terminate within `2400 s`.
+
+### Deviations / findings / what could not be done
+
+1. **WU9d's central negative result is corrected.** Its conclusion that "the drill block is a primary stiffness carrier and the answer is enormously sensitive to it" rests on a **singular** core-only solve (A). Its other negative results (no admissible constant factor; the metric/`j0`/edge-coefficient variants are inert or equivalent; the placements are weaker; `W_22` is clean) stand and are unaffected.
+2. **The `γ ≡ 0` reduction of the paper cannot be applied with element-local directors.** Two adjacent elements disagree about `V_n^i`, so the nodal constraint `θ_i·V_n^i = 0` is not a single consistent constraint; imposing it makes the rigid-body rotation unrepresentable and the element locks catastrophically (thin in-plane N=8 collapses to `0.00120`). With mesh-consistent directors the reduction is coherent (`γ = 0`, drill off, gives `0.99733` at thick-in N=8 — the 2017 core as this code implements it). This is an independent confirmation that the element-local director field is a *formulation-level* deviation, not a cosmetic one.
+3. **Not measured here:** whether the consistent director keeps the rest of Tier 2 green (the pinched cylinder at `t/R = 1/100`, Scordelis-Lo, the laminate/composite invariants, the beam/in-plane groups) and what it does to the hybrid parity tables. That needs the flip plus a maturin rebuild and belongs to the implementation unit, not to this diagnosis.
+4. **What I could not settle.** The paper does not print an explicit formula for `V_n^i` on p. 405 (it says "see Fig. 1"); the nodal reading is the design's own ADR-4 option A. Confirming the construction against the paper's Fig. 3 with vision is the first step of the implementation unit.
+
+**Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.
+
+---
+
+## WU9f — the temporary flip, re-measured against the S3 gate with the WU9e correction: **the blocker is fixed, Requirement 15 is green, and the gate is red for an ORTHOGONAL reason — the new element's flat in-plane / plate / modal families, unchanged since WU9**
+
+**Scope.** The temporary flip (S3) restored on top of the measured WU9e correction (mesh-consistent nodal directors), measured against the gate, then **reverted**: the working tree and the installed extension are back at HEAD (production = the hybrid). The flip is preserved as `odd/tasks/mitc4plusd-wu9f-flip.patch` (549 diff lines, uncommitted). No test, tolerance, spec/design artifact, or `mitc4.rs` was touched; no commit.
+
+**What was flipped (4 files).** `crates/aeroelast-core/src/assembly/assembler.rs` (`MaterialSpec::Composite` gains `applied_shear_correction`; `PrecomputedElem::Quad` → `Mitc4PlusDPrecomputed`; every `mitc4::…` → `mitc4_plusd::…`; `build_constitutive_mitc4_plusd`), `crates/aeroelast-py/src/elements.rs` (the six MITC4 kernels; PyO3 surface content-identical to HEAD — verified by grep-diff of the `#[pyfunction]`/`#[pyclass]` names, the `#[pyo3(signature=…)]` lines, `[f64; 576]` ×5 and `[f64; 24]` ×1), `crates/aeroelast-py/src/assembler.rs` (fills the new field from `Laminate::applied_shear_correction_factor()`), `crates/aeroelast-py/src/materials.rs` (raw-dict composite passes `1.0`).
+
+**The WU9e correction, materialised as a temporary instrument.** Two passes over the MITC4 elements in `MeshAssembler::new` (lines 140 / 184) and in `update_reference` (lines 253 / 283): pass 1 accumulates `acc[node] += area_e · pre.vn[a]` from each element's own local directors and normalizes; pass 2 overwrites `pre.vn[a] = nodal_director[node]` immediately after construction. Only `pre.vn` moves (`b_shear_tie`, `v_d`, `j0`, `drill_edges` keep the element-local values), per the WU9e isolation. **Recorded deviation:** `mitc4_plusd::element_area` is *private* at HEAD, so the two `total_elemental_mass` arms use an in-file `quad_area_3d(&pre.initial_coords_3d)`. Verified harmless: `total_elemental_mass` is read only by `src/aeroelast/solvers/modal.py:56-59`, inside a `try/except` that logs a mass-retention **warning**; no assertion depends on it. The proper fix is one `pub` word on `mitc4_plusd.rs`, which is outside this unit's surfaces.
+
+### The gate, measured against a freshly measured HEAD baseline
+
+| command | HEAD (hybrid, production) | flip: new element + nodal directors |
+| --- | --- | --- |
+| `cd crates && cargo test -p aeroelast-core` | 168 / 0 | **168 / 0** |
+| `python -m pytest "tests/test_ko2017_performance.py" -q` | 30 passed / 1 failed | **30 passed / 1 failed** (the same cell) |
+| `python -m pytest -m "not slow" -q` | **344 passed / 3 failed / 2 skipped** | **336 passed / 11 failed / 2 skipped** |
+
+The HEAD baseline was **measured**, not assumed (rebuilt extension, full run): its 3 failures are `test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]` (the WU9a source-correction finding — it fails in production too), `test_rust_composite.py::TestBatchComposite::test_batch_ke_mitc4_multiple` and `test_shell_convergence.py::test_in_plane_bending_convergence`. **Correction to the handoff:** the handoff claimed `test_shell_convergence.py::test_in_bending_convergence` "does not exist (`test_in_plane_bending_convergence` passes)" — the name is `test_in_plane_bending_convergence`, it exists, and it **fails** at HEAD. The spec's "two pre-existing failures" are therefore real and correctly named there.
+
+### What the flip fixed
+
+1. **The blocker.** The four twisted-beam cases at the paper's own mesh (N=16, `N×6N`) — 0.9971 / 0.9973 / 0.9978 / 0.9982 with `tol = 0.01` — **pass** with the new element (they measured 1.9623 / 2.9933, i.e. `+97%` / `+200%`, at the WU9 flip). The Rust harness independently measured 0.99733 at N=8 thick-in (cell 0.9968). The exact captured values were not printed because the assertions pass and pytest captures stdout only on failure; the passing assertion is the measurement.
+2. **Requirement 15 (the laminate/composite preserved invariant) is GREEN.** `tests/test_orthotropic_shell_parity.py::test_multi_layer_iso_equivalence` and `tests/test_composite_beam_parity.py::test_composite_bending`, which failed at the WU9 flip (5.43e-2 vs `1e-4`; 28.5% vs 10%), now pass. The WU9-recorded laminate regression is gone.
+3. **Two bonus fixes.** `test_batch_ke_mitc4_multiple` and `test_in_plane_bending_convergence` — the two spec-named pre-existing failures — **pass** with the new element. Also fixed relative to the WU9 flip: `test_3_3[reg]` (0.9224, 0.95% error), `test_3_6_hook` and the four twisted cells.
+
+### What remains red: 10 failures, in four families, all orthogonal to the director
+
+| family | tests | measured | HEAD |
+| --- | --- | --- | --- |
+| flat in-plane cantilever | `TestLinearStatic::test_fy`, `test_ratio_physical`, `TestLinearStaticCantilever::test_fy_in_plane` | 37.71%; ratio `uY/uX = 251.55` vs beam theory 400; 37.5% | pass |
+| flat plate / convergence | `TestIsotropicAnalytical::test_mitc4_in_plane_lateral`, `TestIsoEquivalence::test_n_iso_plies_equal_single_layer_mitc4`, `TestSimplySupportedPlate::test_analytical_convergence` | 9.0% vs 5%; 3.434% vs 1%; 0 modes (`IndexError`) | pass |
+| flat modal | `TestSimplySupportedPlate::test_frequencies_match_python` | frequencies differ by more than `rtol 1e-4` | pass |
+| geometrically nonlinear | `test_large_rotation_benchmarks.py` ×3 | 28.80% / 6.75% / 6.75% (`tol 5%`) | pass |
+
+**They are flat (so the director fix provably cannot touch them: on a planar element `V_n^i = e3` for both the local and the nodal construction) and their numbers are unchanged since the WU9 flip** (`test_fy_in_plane` 37.5%, `test_ratio_physical` 251.55, `TestIsotropicAnalytical` 9.0%, `TestIsoEquivalence` 3.434% — identical). The geometrically nonlinear three are the design's already-recorded limitation (open item 5: "the nonlinear path is bounded, not paper-faithful"). The modal `IndexError` is partly a robustness effect: the new element's spectrum no longer contains the near-zero mode the hybrid reported, so the mode-count assumption misaligns — that is a test-shape matter, and the unit does not change tests.
+
+**Verdict.** The WU9e correction is **necessary and measured** (it closes the blocker and the laminate invariant), but it is **not sufficient**: adopting option A leaves the gate red for a separate, pre-existing reason — the new element's flat in-plane / plate / modal family, up to 37%. That investigation is its own unit and has nothing to do with the director field.
+
+**Rust suite.** `cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed**.
+
+**Skill resolution.** `paths-injected` (the parent supplied the site map; `gentle-ai-worker` executed the bounded four-file flip). Not committed.
+
+---
+
+## WU9g — fidelity audit, section B (the 2017 assumed membrane) and the CCX judge: **section B is CLEAR, a documented "paper defect" is falsified, and three CCX element types confirm the in-plane bending reference**
+
+**Scope.** Audit, tests and docs only. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` changed on **one comment block** (no formulation line); `mitc4.rs` untouched; no tolerance changed; no commit.
+
+### Section B audited against the printed paper (vision, pp. 405-410 + Appendix A pp. 416-417)
+
+`pdftoppm -png -r 300` on `A_new_MITC4+_shell_element.pdf` (C&S 182:404-418); every equation cropped and read at full resolution, never with `pdftotext`. Full record: `fidelity-audit.md` §B-audit record.
+
+- **B1 `compute_membrane_coefficients_2017` — faithful.** `c_r = x_d·m^r`, `c_s = x_d·m^s`, `d = c_r²+c_s²−1` (Eq. (24)); `a_A..a_E` match the printed p. 410 definitions and Appendix A Eq. (A.6) exactly (`a_E = 2c_rc_s/d`, positive). The printed second form of `d` expands to the same expression, so it is not a sign error.
+- **B2 `covariant_membrane_b_row` — faithful.** Expands term for term to Eqs. (15)-(16); the tying points are Fig. 4's A(0,+1)/B(0,−1) sampling `e_rr`, C(+1,0)/D(−1,0) sampling `e_ss`, E(0,0) sampling `e_rs`, as Eq. (17) prints; `¼ξ_i`, `¼η_i`, `¼ξ_iη_i` match Eq. (9).
+- **B3 `b_membrane_covariant_2017` — faithful.** All 15 coefficients of Eqs. (27a-c) match the printed page; the chain (17)+(18)+(19)+(21)/(25)+(26) reproduces (27a-c) exactly.
+- **B4 `b_membrane_2017` — faithful.** `covariant_to_local_mapping` verified to `8.9e-16` against the analytic `T = diag(1,1,2)·M⁻¹·diag(1,1,½)`; the `2e_rs` doubling is correct for the engineering-shear triple.
+
+**A documented "paper defect" is FALSIFIED.** The claim (checklist B1, the `b_membrane_covariant_2017` comment, `mitc4plus-2017-extract.md` Note F2) that "the printed Eq. (21) omits the leading `e_rs^m|bil` term" is wrong. Vision: Eq. (21) printed does contain `e_rs^m|bil` inside the `B_1`/`B_2` parentheses (coefficient `B_1+B_2 = 1+1/d`). Decisive: **Appendix A Eq. (A.7), p. 416** is the paper's own substitution of Eq. (A.6) into Eq. (21) and *retains* the `e_rs^m|bil` terms — Eq. (21) with the constants substituted **is** Eq. (25). The `(1 + a_E·rs)` argument is invalid: that coefficient belongs to `e_rs^m(E) = e_rs^m|con`, not to `e_rs^m|bil`. Note F2's flat-rectangle argument is void (`x_d = 0` there, so `e_rs^m|bil = 0`). The claim was corrected in the code comment, the extract note and `fidelity-audit.md`.
+
+**Consequence.** Section B is **cleared**: the 2017 assumed membrane is a faithful implementation of the printed formulation. Defect #4 (flat in-plane bending locking) is **not** there.
+
+### CCX 2.23 as the third judge for defect #4 (tests + docs, no element change)
+
+- `write_ccx_mesh` gained `shell_element_type: Optional[str] = None` accepting `None | "S4" | "S8" | "S8R"` (backward compatible: `None` follows `quadratic` exactly; `quadratic=False/True` output byte-identical to HEAD). `S8` (CCX full integration) is now threaded through `_build_quadratic_mesh_data`; an explicit `S4`/`S8` with a composite property raises instead of writing a deck CCX rejects.
+- New `tests/test_ccx_shell_element_types_parity.py` (4 tests, skips without CCX): the **exact** in-plane bending strip of `test_shell_validation_fixed.py` (`L=1, b=0.1, h=0.001`, 8x4, clamped root, 600 N in +y, measured at `(L, b/2)`) through CCX 2.23 **S4 / S8 / S8R** with a consistent edge traction of resultant 600 N:
+
+| element | 8x4 `uy` [m] | vs analytical `1.142857e-2` |
+| --- | --- | --- |
+| S4 | `1.135840e-2` | 0.614% |
+| S8 | `1.145430e-2` | 0.225% |
+| S8R | `1.148490e-2` | 0.493% |
+
+Mutual spread 1.11% at 8x4; mesh study 4x2/8x4/16x8 spreads 2.67%/1.11%/0.42% — converged. Rows in `docs/validation-matrix.md` §4.6.
+
+### Gates
+
+- `cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed** (comment-only Rust change).
+- `python -m pytest tests/test_shell_validation_fixed.py -q` → **7 passed** (the hybrid; the in-plane strip reference holds).
+- `python -m pytest -m "not slow" -q` → **348 passed / 3 failed / 2 skipped** (baseline 344/3/2 + the 4 new tests; the same 3 pre-existing failures: `test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]`, `TestBatchComposite::test_batch_ke_mitc4_multiple`, `test_in_plane_bending_convergence`).
+- `python -m pytest tests/test_orthotropic_shell_parity.py tests/test_composite_beam_parity.py -q` → **8 passed** (the `quadratic=True` S8R+COMPOSITE path unchanged).
+
+**Verdict.** Defect #4 is **ours** (the reference is now third-party confirmed) and is **not** in section B. Next targets per the plan: D (assumed transverse shear), F (through-thickness/constitutive), and the plate/modal family. Nothing committed.
+
+**Skill resolution.** `paths-injected` (parent supplied the site map; `gentle-ai-worker` executed the bounded writers/tests/matrix unit).
+
+## WU9i — block isolation of defect #4: **the flat in-plane bending stiffness is carried ENTIRELY by the MEMBRANE block; the 2025 drill is INERT (measured)**
+
+**Scope.** Measurement only. One `#[ignore]`d test added to the in-file `#[cfg(test)] mod tests` of `crates/aeroelast-core/src/elements/mitc4_plusd.rs`; the only change outside the test module remains the pre-existing comment block. No production line of the element changed, no tolerance changed, no fix applied, no commit. Artifacts in English.
+
+**Instrument.** `wu9i_block_isolation_flat_inplane_strip` (measurement, not a gate). It builds the exact failing case — `tests/test_shell_validation_fixed.py::_build_cantilever_mesh`, `L=1.0, b=0.1, h=0.001`, `E=2.1e11`, `nu=0.3`, mesh `nx=8, ny=4` (45 nodes x 6 DOF = 270 DOF, node `index = j*(nx+1)+i`, elements `[(i,j),(i+1,j),(i+1,j+1),(i,j+1)]`), all 6 DOF clamped at `x=0`, 600 N total (120 N per free-edge node) in the measured direction — assembles `K = sum_e T24^T K_e_local T24` with `T24 = build_t24(pre)` and solves the reduced system densely (nalgebra LU). Constitutive built exactly as the module's `shell_iso` pattern: `IsotropicMaterial::new(2.1e11, 0.3, 7800.0).constitutive(h, 5/6)` and `Mitc4PlusDPrecomputed::new(&coords12, constitutive, h, 5/6)`. `u` is read at the free-edge centre node `(x=L, y=b/2)`.
+
+**Exact command.**
+
+```text
+cd crates && cargo test -p aeroelast-core wu9i -- --ignored --nocapture
+```
+
+**Full printed output.**
+
+```text
+running 1 test
+
+=== WU9i: flat in-plane block isolation (8x4 cantilever, L=1, b=0.1, h=0.001, E=2.1e11, nu=0.3) ===
+nodes = 45, dofs = 270, elements = 32, clamped dofs = 30, analytical ux = 600 L/(E b h) = 2.857142857e-5 m
+WU9i 1. FULL                         ux = 2.829989764952e-5 m   uy = 7.118880935477e-3 m   ratio uy/ux =  251.5515   [reduced 240 dof, lam_max 4.0778e9, near-zero(1e-8) 25, near-zero(1e-12) 0, smallest eps = 7.9913e-2, 1.5494e-1, 7.3091e-1, 1.3442e0, 2.1738e0, 3.4577e0]
+WU9i 2. NO_DRILL                     SINGULAR: dense LU reports no solution for the reduced 240-dof constrained K; near-zero(1e-8) 65, near-zero(1e-12) 40 of lam_max = 4.0778e9; smallest eps = -3.9236e-7, -3.1317e-7, -1.9016e-7, -1.2692e-7, -1.0032e-7, -7.5544e-8
+WU9i 2b. NO_DRILL + theta_z=0        ux = 2.829989764952e-5 m   uy = 7.118880935477e-3 m   ratio uy/ux =  251.5515   [reduced 200 dof, lam_max 4.0778e9, near-zero(1e-8) 25, near-zero(1e-12) 0, smallest eps = 7.9913e-2, 1.5494e-1, 7.3091e-1, 1.3442e0, 2.1738e0, 3.4577e0]
+WU9i 3. COMPAT_MEMB                  ux = 2.829989764952e-5 m   uy = 7.118880935486e-3 m   ratio uy/ux =  251.5515   [reduced 240 dof, lam_max 4.0778e9, near-zero(1e-8) 25, near-zero(1e-12) 0, smallest eps = 7.9913e-2, 1.5494e-1, 7.3091e-1, 1.3442e0, 2.1738e0, 3.4577e0]
+WU9i 4. COMPAT_MEMB_NO_DRILL         SINGULAR: dense LU reports no solution for the reduced 240-dof constrained K; near-zero(1e-8) 65, near-zero(1e-12) 40 of lam_max = 4.0778e9; smallest eps = -2.4610e-7, -1.9212e-7, -1.3001e-7, -6.8236e-8, -6.5087e-8, -4.9347e-8
+WU9i 4b. COMPAT_MEMB_NO_DRILL + theta_z=0 ux = 2.829989764952e-5 m   uy = 7.118880935486e-3 m   ratio uy/ux =  251.5515   [reduced 200 dof, lam_max 4.0778e9, near-zero(1e-8) 25, near-zero(1e-12) 0, smallest eps = 7.9913e-2, 1.5494e-1, 7.3091e-1, 1.3442e0, 2.1738e0, 3.4577e0]
+WU9i 5. MEMBRANE_ONLY (in-plane only) ux = 2.829989764952e-5 m   uy = 7.118880935461e-3 m   ratio uy/ux =  251.5515   [reduced 80 dof, lam_max 4.0778e9, near-zero(1e-8) 0, near-zero(1e-12) 0, smallest eps = 6.8121e3, 2.4970e5, 1.1521e6, 1.7518e6, 5.7744e6, 1.0128e7]
+WU9i membrane block, assumed MITC4+ vs compatible (element 0): max|K_assumed - K_compat| = 7.451e-9, max|K_assumed| = 3.9000e8, relative 1.910e-17
+WU9i instrument validation: FULL ratio = 251.5515 vs the WU9f flip 251.55 -> 0.00%; FULL ux = 2.829989765e-5 vs analytical 2.857142857e-5 -> 0.95%
+WU9i bending share route: by difference == ([bm; s1 bb1; s2 bb2]^T W [..] - K_membrane) to 2.980e-8 abs / 2.292e-10 rel (max|K_bend| = 1.3000e2)
+WU9i block energy shares (FULL solution, load +x (axial)): membrane 1.000000000000, bending 0.000000000000, shear 0.000000000000, drill 0.000000000000 | sum 0.9999999999999987 (u^T K u = 1.711528e-2)
+WU9i block energy shares (FULL solution, load +y (in-plane bending)): membrane 1.000000000002, bending 0.000000000000, shear 0.000000000000, drill 0.000000000000 | sum 1.0000000000026219 (u^T K u = 4.271510e0)
+test elements::mitc4_plusd::tests::wu9i_block_isolation_flat_inplane_strip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 168 filtered out; finished in 21.76s
+```
+
+**The four ratio rows.**
+
+| variant | `ux` [m] | `uy` [m] | `ratio uy/ux` |
+| --- | --- | --- | --- |
+| 1. FULL (`compute_ke_local_with_drill(pre, true)`) | `2.829989764952e-5` | `7.118880935477e-3` | **251.5515** |
+| 2. NO_DRILL | — | — | **SINGULAR** (dense LU: no solution) |
+| 2b. NO_DRILL + `theta_z = 0` (all nodes) | `2.829989764952e-5` | `7.118880935477e-3` | **251.5515** |
+| 3. COMPAT_MEMB | `2.829989764952e-5` | `7.118880935486e-3` | **251.5515** |
+| 4. COMPAT_MEMB_NO_DRILL | — | — | **SINGULAR** (same 40 null modes) |
+| 4b. COMPAT_MEMB_NO_DRILL + `theta_z = 0` | `2.829989764952e-5` | `7.118880935486e-3` | **251.5515** |
+| 5. MEMBRANE_ONLY (all non-in-plane DOF fixed) | `2.829989764952e-5` | `7.118880935461e-3` | **251.5515** |
+
+Instrument validation: FULL `ratio` is **0.00%** from the WU9f flip `251.55` and FULL `ux` is **0.95%** from the analytical `600 L/(E b h) = 2.857142857e-5` (inside 3%).
+
+**Singularity evidence for the no-drill variants.** At threshold `1e-12 * lam_max` (`lam_max = 4.0778e9`) the constrained matrix has **0** null modes for FULL and **40** for NO_DRILL — the 40 `theta_z` DOF at the 40 non-root nodes, which have exactly zero stiffness without the 2025 drill block (the 2018/2017 core has no `theta_z` coupling on a flat element). Dense LU confirms it (`SINGULAR`). The `1e-8 * lam_max` counts (25 for FULL, 65 for NO_DRILL) are NOT null modes: on a `h/b = 1/100` strip the physical out-of-plane spectrum spans ~11 decades, so the 25 softest physical modes (`eps >= 7.99e-2`) fall under an absolute `1e-8 * 4.08e9 = 40.8` cut; they are counted here only for transparency. Fixing all `theta_z` DOF (row 2b) removes exactly those 40 and yields the FULL numbers to 12 digits.
+
+**Block energy decomposition (FULL solution, `K_bend` BY DIFFERENCE — exact).** `K_bend := K_full - K_membrane - K_shear - K_drill` reproduces the explicit 9-row recipe `[bm; s1 bb1; s2 bb2]^T W [..] - K_membrane` to `2.29e-10` relative, so the partition is exact.
+
+| load | membrane | bending | shear | drill |
+| --- | --- | --- | --- | --- |
+| `+x` (axial) | `1.000000000000` | `0.000000000000` | `0.000000000000` | `0.000000000000` |
+| `+y` (in-plane bending) | `1.000000000002` | `0.000000000000` | `0.000000000000` | `0.000000000000` |
+
+The four shares are finite and sum to 1 within `1e-10` (asserted, both loads).
+
+**Verdict.** The flat in-plane bending stiffness of the MITC4+/D element is carried entirely by the **MEMBRANE block** (`membrane_ke_local` / `b_membrane_2017`, the in-plane translation part): removing the 2025 drill block and pinning `theta_z = 0` (row 2b) reproduces the FULL `ratio` to 12 digits, the membrane-only system (row 5) reproduces it to 12 digits, and the shear/bending blocks carry no in-plane energy — so the prime suspect, the 2025 drill block, is measured **inert** here and the ~37% excess lives inside the membrane (compatible) in-plane operator itself.
+
+**Explicit answer to the COMPAT_MEMB question.** COMPAT_MEMB and FULL give the SAME ratio (`251.5515`; `uy` agrees to `9e-12` relative, `ux` to 12 digits). The reason is that on a flat, undistorted mesh the assumed MITC4+ membrane field of Eqs. (27a-c) reduces **exactly** to the compatible displacement-based field: `x_d = 0` gives `a_A..a_E = 0`, so Eqs. (27a-c) collapse to `0.5(1+s) e^m|_A + 0.5(1-s) e^m|_B` etc., whose weights equal `0.25 xi_i (1 + s eta_i)` term for term. The measured element-level difference `max|K_assumed - K_compat| / max|K_assumed| = 1.9e-17` confirms it. So the parent's inference is confirmed in its first half but REFUTED in its second: the assumed membrane is indeed doing nothing here (it *is* the compatible field on a flat element), but the drill is **not** the remaining candidate — it is inert, and the carrier is the membrane block itself.
+
+**Gates.**
+
+- `cd crates && cargo test -p aeroelast-core wu9i -- --ignored --nocapture` → **1 passed** (instrument), full output above.
+- `cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed / 1 ignored** (the new test is `#[ignore]`d, so the default run is unchanged).
+- `git diff --stat crates/aeroelast-core/src/elements/mitc4_plusd.rs` → `1 file changed, 463 insertions(+), 4 deletions(-)`; the two hunks are `@@ -890,10 +890,14 @@` (the pre-existing documentation-comment block, +8/−4) and `@@ -7664,4 +7668,459 @@ mod tests` (the test-module addition). **No production code line moves.**
+
+**Deviation recorded.** The parent's literal `new(..., h, 1.0)` was used as `new(..., h, 5/6)` — the faithful reproduction of the WU9f flip (`build_constitutive_mitc4_plusd` passes `shear_correction = 5/6`). The 4th argument only scales `cs_uncorrected` (the transverse-shear block), which on a flat element has no in-plane entries and carries 0 share; the measured in-plane numbers are therefore independent of this choice (rows 1/2b/3/5 agree to 12 digits). The compatible-membrane rows are mapped with the production `covariant_to_local_mapping(&j_loc_at(..))` rather than the private `ke_ref::map_local`; the two are algebraically identical (the reference divides where production regularizes the same 2x2 inverse) and agree to machine precision on this mesh.
+
+**Skill resolution.** `paths-injected`.
+
