@@ -1078,7 +1078,8 @@ stencil would move by four orders of magnitude over that range, so the split-ste
 about two orders.
 
 **Verdict.** No printed term is missing and no test needs weakening. The blocker is a numerical-realisation defect:
-`geo` was `FD(FD(_0 e~))` with `(H_i, H_o) = (2e-5, 1e-6)` and therefore a `5e-6` relative round-off floor, which
+`geo` was `FD(FD(_0 e~))` with `(H_i, H_o) = (2e-5, 1e-6)` and therefore an `eps/(H_i H_o) = 1.1e-5` round-off
+bound (measured asymmetry `3.4e-6 .. 8.1e-6`, i.e. `0.2 .. 0.8` of it), which
 makes `K_t != dF/du` on every element whose local frame is not axis-aligned — i.e. on every real mesh, and on all
 six large-rotation cases that were raising `SNES diverged`.
 
@@ -1225,7 +1226,7 @@ Option B is applied, so the production nonlinear path is the faithful pair — a
 rotations** (`RuntimeError: SNES diverged` on 6 of 7 cases in `tests/test_large_rotation_benchmarks.py`;
 `test_rust_assembler.py::TestNewtonRaphsonConsistency` rel 4.52 vs 2e-3; `pytest -m "not slow"` 341/10/2).
 
-**RESOLVED.** The residual was the round-off floor `eps/(H_i H_o) = 5e-6` of `geo` computed as a finite difference
+**RESOLVED.** The residual was the round-off bound `eps/(H_i H_o) = 1.1e-5` of `geo` computed as a finite difference
 of a finite difference — NOT a missing printed term (the handoff's Eq. (25) `N_ij` hypothesis was the right place
 to look and the wrong cause). Both of `geo`'s nested differences now use the SINGLE step `N_GAMMA_GEO_H = 1e-4`.
 The `SNES diverged` is gone: `tests/test_large_rotation_benchmarks.py` = **6 passed / 1 failed** (the one cell at

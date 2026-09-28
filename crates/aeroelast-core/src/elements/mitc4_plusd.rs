@@ -2673,10 +2673,23 @@ fn n_gamma_b_matrix_at(
 ///  - e(u + H_i e_i - H_o e_j) + e(u - H_i e_i - H_o e_j)] / (4 H_i H_o),
 /// ```
 ///
-/// whose round-off floor is `eps / (H_i H_o)` against `O(H_i^2)` truncation. The
-/// form this replaced used `(H_i, H_o) = (2e-5, 1e-6)`, a floor of `5e-6`; with
-/// both steps at `h` the floor is `eps / h^2`, balanced against `O(h^2)`
-/// truncation at the classic `h ~ eps^(1/4) ~ 1.2e-4`, for `~eps^(1/2) ~ 1e-8`.
+/// whose round-off bound is `eps |e_us| / (H_i H_o)` -- the four evaluations'
+/// round-off over `4 H_i H_o` -- against `(H_i^2/12) |e''''|` truncation. The
+/// form this replaced used `(H_i, H_o) = (2e-5, 1e-6)`, whose bound is
+/// `eps/(H_i H_o) = 1.1e-5`; the measured asymmetry was `3.4e-6 .. 8.1e-6`, i.e.
+/// `0.2 .. 0.8` of that bound, on all five fixtures of
+/// `n_gamma_geo_symmetry_diagnostic`. With both steps at `h` the bound becomes
+/// `eps/h^2` against `O(h^2)`, whose optimum is the classic
+/// `h* = (12 eps)^(1/4) ~ 2.3e-4` with total error `~eps^(1/2) ~ 1e-8`.
+///
+/// WHY THIS IS NOT [`N_GAMMA_B_H`], and why the two optima differ. `B` is a
+/// FIRST central difference: its balance is `eps|e_us|/h` against `(h^2/6)|e'''|`,
+/// whose optimum is the classic `h* = (6 eps)^(1/3) ~ 1.1e-5` -- the order of
+/// [`N_GAMMA_B_H`], and also what the `u = 0` identity requires (the measured
+/// minimum near `H = 2e-5` recorded in [`n_gamma_b_matrix`]). This term is a
+/// SECOND (cross) difference, one order worse in both directions, so its optimum
+/// is about twenty times larger. Sharing one step with `B` is exactly what made
+/// the composition's floor `eps/(H_i H_o)`.
 ///
 /// Instrument `n_gamma_geo_stencil_probe` (local frame): the single-step
 /// estimates at `h = 3e-5, 1e-4, 3e-4` agree with each other to `3e-8` while
@@ -2731,7 +2744,8 @@ pub fn n_gamma_fint_local(
 /// [`n_gamma_b_matrix`]; the geometric `N`-term is the central difference of `B`
 /// contracted with `S = W _0 e~`, i.e. exactly `int (dB/du)^T S d0V`, taken with
 /// the single step [`N_GAMMA_GEO_H`] in both of its nested differences. The
-/// split-step form this replaced carried a `5e-6` round-off floor and made
+/// split-step form this replaced carried an `eps/(H_i H_o) = 1.1e-5` round-off
+/// bound (measured `3.4e-6 .. 8.1e-6`) and made
 /// `K_t != dF/du` on every element whose local frame is not axis-aligned -- the
 /// producer of the `SNES diverged` large-rotation failures.
 ///
