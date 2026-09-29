@@ -1632,3 +1632,30 @@ would mean the exact rotation was doing work the printed kinematics does not.
 
 No test is added for this; the acceptance is the existing suite plus the external
 oracle.
+
+**Refinement after reading the helpers (same session).** The wiring does NOT need
+`gl_assumed_membrane_increment` or `gl_assumed_transverse_shear`: both return the
+TOTAL (`[f64; 3]` and `(f64, f64)`), not the split, and the membrane one goes through
+`advance_gl_state` + the tying METRICS, which is the higher-order route. The assumed
+fields are instead built directly from `gl_strain_increment` at the tying points, which
+is the printed chain and is already split:
+
+1. `gl_increment_from_local(pre, state, u_local) -> GlIncrement` -- additive, ~15 lines:
+   `u_i = e1 u_x + e2 u_y + e3 u_z` (the local frame, as `gl_state_after_local` does),
+   `theta_i = e1 u_rx + e2 u_ry + e3 u_rz`, `alpha_i = theta_i . ^t V_1^i`,
+   `beta_i = theta_i . ^t V_2^i` (the `GlIncrement` docs, Eq. 4c).
+2. the through-thickness slices `(e_lin, eta)` from
+   `gl_strain_increment(state, &inc, r, s, zeta)` at `zeta = 0, +1, -1`, components
+   `[rr, ss, tt, rs, rt, st]` with the TENSOR shear at index 3 (so the engineering
+   doubling stays where it is today, in the `m` row's `tmap` map).
+3. the five tying strains at A(0,1), B(0,-1), C(1,0), D(-1,0), E(0,0) from the same
+   call at `zeta = 0`, taking `rr`, `rr`, `ss`, `ss`, `rs`; that IS the `dtie` of
+   Eq. (20b)/(20e), and feeding it to `gl_assumed_mid_metric` with the frozen
+   coefficients of `state` is Eq. (21) verbatim -- both parts.
+4. the two assumed tying shears from components `rt` and `st` at the four tying points,
+   interpolated by Eq. (19)'s `1/2(1+s)` and `1/2(1+r)`, both parts.
+5. `zeta`-scaling, the Eq. (23) `tmap`, the engineering-shear doubling for the `m` row,
+   and the Eq. (22a) drill row (`b_drill_membrane_2025`, linear) exactly as today.
+
+Then `eta` is quadratic in `U` by construction, the polarization extraction of
+Iteration 24 is exact, and the two entry points lose every finite difference.
