@@ -2025,3 +2025,40 @@ and an explicit drift note instead of a fresh table that would drift again unsee
 13.1 is recorded with the three end states and their commands, including the provenance caveat
 that the Rust figure predates only documentation changes. What remains is 13.2 -- the bounded
 post-apply review and the lifecycle-gate decision -- which is a maintainer gate, and the archive.
+
+### Iteration 35 — the receipt-driven review was offered and declined for this candidate
+
+Receipt-driven development flagged this worktree as holding an unreviewed candidate
+(`target sha256:19a85809...`), and the first question was whether the maintainer had explicitly
+left that exact target unreviewed. It had not: the 13.2 decision recorded earlier was mine, not
+an explicit disposition from the maintainer, and the target itself had changed since the first
+inspection (it was `43f25231...` then, before the archive and its follow-up commits). So the
+review was inspected rather than skipped.
+
+The inspection came back `ready` -- the intended-untracked selection that had blocked the first
+attempt was resolved by excluding `.pi/` locally through `.git/info/exclude`, so the only
+eligible path disappeared from the inventory -- and it offered `review.start` with the full
+evidence binding: target `19a85809...`, `base-ref 7a2196fe` (`origin/main`), `--committed-only`,
+`--consent=relay`. START was issued with exactly that scope, and the answer was a decline:
+
+```text
+outcome              consent-declined-this-candidate
+lineage_created      false
+mutation_performed   false
+reset_eligible       false
+changed_files        150
+changed_lines        50388
+risk_level           high   (evidence: code that starts other processes, src/aeroelast/cli/aeroelast.py)
+correction_budget    0
+```
+
+No lineage was created and nothing was mutated, which is what those two flags prove. The
+candidate therefore stays unreviewed, and per the discipline a declined consent is not retried:
+it is reported and the work continues.
+
+Two things worth recording from the envelope itself. The controller's own count is
+**50 388 changed lines across 150 files**, which is **126 times** the 400-line review budget the
+session preflight fixes; that number independently confirms the 13.2 analysis that a whole-
+candidate review is not a review anybody could perform honestly, and that the honest mechanism
+is a chosen slice. And the risk evidence is real but pre-existing: the flagged file is the CLI,
+which starts subprocesses upstream of anything this change touched.
