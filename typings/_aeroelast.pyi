@@ -20,9 +20,15 @@ Keep the symbol list in sync with `crates/aeroelast-py/src/lib.rs`'s
 
 from typing import Any
 
-class _Loose:
-    """Base for the extension's classes: any attribute, any call."""
+class _LooseMeta(type):
+    """Class-level attribute access (e.g. ``PyMeshAssembler.from_model``)."""
 
+    def __getattr__(cls, name: str) -> Any: ...
+
+class _Loose(metaclass=_LooseMeta):
+    """Base for the extension's classes: any constructor, attribute or call."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None: ...
     def __getattr__(self, name: str) -> Any: ...
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
 
