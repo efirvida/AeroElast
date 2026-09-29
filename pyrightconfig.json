@@ -1,0 +1,14 @@
+{
+  "stubPath": "typings",
+  "comment": [
+    "`_aeroelast` is the compiled PyO3 extension installed by `maturin develop`.",
+    "It ships no `.pyi`, so a checker resolving the `.so` cannot know its members",
+    "and reports every `from _aeroelast import X` as an unknown symbol -- six test",
+    "modules plus `src/aeroelast/solvers` and `src/aeroelast/models` import from it.",
+    "`typings/_aeroelast.pyi` declares that surface loosely so the names resolve and",
+    "a typo in an import is still caught.",
+    "This file is the canonical pyright configuration: pyright reads it in",
+    "preference to `[tool.pyright]` in `pyproject.toml`, so the setting lives here",
+    "only."
+  ]
+}
