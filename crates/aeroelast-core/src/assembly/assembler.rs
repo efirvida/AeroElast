@@ -8,7 +8,7 @@ use rayon::prelude::*;
 
 use crate::assembly::topology::{ElemType, MeshTopology};
 use crate::elements::mitc3::{self, Mitc3Precomputed};
-use crate::elements::mitc4_plusd::{self, Mitc4PlusDPrecomputed};
+use crate::elements::mitc4::{self, Mitc4Precomputed};
 use crate::elements::quad::{Quad4Precomputed, Quad8Precomputed, Quad9Precomputed};
 use crate::materials::{
     composite::composite_constitutive, isotropic::IsotropicMaterial, Material,
@@ -91,7 +91,7 @@ pub enum MaterialSpec {
 #[derive(Clone)]
 enum PrecomputedElem {
     Tri(Mitc3Precomputed),
-    Quad(Mitc4PlusDPrecomputed),
+    Quad(Mitc4Precomputed),
     // QUAD plane elements: store 2D coords
     Plane4([[f64; 2]; 4]),
     Plane8([[f64; 2]; 8]),
@@ -179,8 +179,8 @@ impl MeshAssembler {
                     let mut c12 = [0.0f64; 12];
                     c12.copy_from_slice(&coords);
                     let (constitutive, thickness, applied_shear_correction) =
-                        build_constitutive_mitc4_plusd(mat);
-                    let mut pre = Mitc4PlusDPrecomputed::new(
+                        build_constitutive_mitc4(mat);
+                    let mut pre = Mitc4Precomputed::new(
                         &c12,
                         constitutive,
                         thickness,
@@ -285,8 +285,8 @@ impl MeshAssembler {
                     let mut c12 = [0.0f64; 12];
                     c12.copy_from_slice(&coords);
                     let (constitutive, thickness, applied_shear_correction) =
-                        build_constitutive_mitc4_plusd(mat);
-                    let mut pre = Mitc4PlusDPrecomputed::new(
+                        build_constitutive_mitc4(mat);
+                    let mut pre = Mitc4Precomputed::new(
                         &c12,
                         constitutive,
                         thickness,
@@ -349,7 +349,7 @@ impl MeshAssembler {
                     ke.as_slice().to_vec()
                 }
                 PrecomputedElem::Quad(pre) => {
-                    let ke = mitc4_plusd::compute_ke_global(pre);
+                    let ke = mitc4::compute_ke_global(pre);
                     ke.as_slice().to_vec()
                 }
                 PrecomputedElem::Plane4(c) => {
@@ -401,10 +401,10 @@ impl MeshAssembler {
                 PrecomputedElem::Quad(pre) => {
                     let me = match &self.materials[e] {
                         MaterialSpec::Isotropic { rho, .. } => {
-                            mitc4_plusd::compute_me_global(pre, *rho)
+                            mitc4::compute_me_global(pre, *rho)
                         }
                         MaterialSpec::Composite { mass_per_area, rotational_inertia, .. } => {
-                            mitc4_plusd::compute_me_composite_global(pre, *mass_per_area, *rotational_inertia)
+                            mitc4::compute_me_composite_global(pre, *mass_per_area, *rotational_inertia)
                         }
                         _ => panic!("MITC4 element requires Isotropic or Composite material"),
                     };
@@ -528,9 +528,9 @@ impl MeshAssembler {
             }
             PrecomputedElem::Quad(pre) => {
                 let me = match &self.materials[e] {
-                    MaterialSpec::Isotropic { rho, .. } => mitc4_plusd::compute_me_global(pre, *rho),
+                    MaterialSpec::Isotropic { rho, .. } => mitc4::compute_me_global(pre, *rho),
                     MaterialSpec::Composite { mass_per_area, rotational_inertia, .. } =>
-                        mitc4_plusd::compute_me_composite_global(pre, *mass_per_area, *rotational_inertia),
+                        mitc4::compute_me_composite_global(pre, *mass_per_area, *rotational_inertia),
                     _ => panic!("MITC4 requires Isotropic or Composite material"),
                 };
                 me.as_slice().to_vec()
@@ -573,7 +573,7 @@ impl MeshAssembler {
                 }
                 PrecomputedElem::Quad(pre) => {
                     let rho = material_rho(&self.materials[e]);
-                    let fvec = mitc4_plusd::compute_body_load_global(pre, rho, &g);
+                    let fvec = mitc4::compute_body_load_global(pre, rho, &g);
                     fvec.as_slice().to_vec()
                 }
                 // For plane elements body load is not implemented yet;
@@ -624,7 +624,7 @@ impl MeshAssembler {
                     kg.as_slice().to_vec()
                 }
                 PrecomputedElem::Quad(pre) => {
-                    let kg = mitc4_plusd::compute_k_sigma_global(pre, &sv);
+                    let kg = mitc4::compute_k_sigma_global(pre, &sv);
                     kg.as_slice().to_vec()
                 }
                 // Geometric stiffness not implemented for plane in this assembler
@@ -665,7 +665,7 @@ impl MeshAssembler {
                     }
                     PrecomputedElem::Quad(pre) => {
                         let ue = extract_elem_disp_24(u, dofs);
-                        let kt = mitc4_plusd::compute_kt_global(pre, &ue);
+                        let kt = mitc4::compute_kt_global(pre, &ue);
                         kt.as_slice().to_vec()
                     }
                     // For plane elements: K_T = K_e (linear only)
@@ -735,7 +735,7 @@ impl MeshAssembler {
                         }
                         PrecomputedElem::Quad(pre) => {
                             let ue = extract_elem_disp_24(u, dofs);
-                            let fvec = mitc4_plusd::compute_fint_global(pre, &ue, nonlinear);
+                            let fvec = mitc4::compute_fint_global(pre, &ue, nonlinear);
                             fvec.as_slice().to_vec()
                         }
                         // For plane: f_int = K · u_e (linear only)
@@ -983,7 +983,7 @@ impl MeshAssembler {
                 }
                 PrecomputedElem::Quad(pre) => {
                     let ue = extract_elem_disp_24(u, dofs);
-                    mitc4_plusd::compute_element_stress(pre, &ue, z_factor, stress_type)
+                    mitc4::compute_element_stress(pre, &ue, z_factor, stress_type)
                 }
                 // Plane (2-D) elements: recover via K·u is not stress — use B·u directly.
                 // We delegate to the plane-element centroid stress recovery
@@ -1043,7 +1043,7 @@ fn build_constitutive_mitc3(
 /// Constitutive, thickness and the ADR-1 applied shear-correction scalar for a
 /// MITC4+/D element. Isotropic materials report `shear_correction`; composites
 /// report the factor the laminate model applied to `cs` (task 10.2).
-fn build_constitutive_mitc4_plusd(
+fn build_constitutive_mitc4(
     mat: &MaterialSpec,
 ) -> (crate::materials::ShellConstitutive, f64, f64) {
     match mat {
@@ -1136,8 +1136,8 @@ fn mitc4_nodal_directors(
         let mut c12 = [0.0f64; 12];
         c12.copy_from_slice(&coords);
         let (constitutive, thickness, applied_shear_correction) =
-            build_constitutive_mitc4_plusd(&materials[e]);
-        let pre = Mitc4PlusDPrecomputed::new(
+            build_constitutive_mitc4(&materials[e]);
+        let pre = Mitc4Precomputed::new(
             &c12,
             constitutive,
             thickness,
@@ -1236,8 +1236,8 @@ fn extract_elem_disp_18(u: &[f64], dofs: &[usize]) -> mitc3::Vec18 {
 }
 
 /// Extract 24-DOF element displacement from global vector.
-fn extract_elem_disp_24(u: &[f64], dofs: &[usize]) -> mitc4_plusd::Vec24 {
-    let mut ue = mitc4_plusd::Vec24::zeros();
+fn extract_elem_disp_24(u: &[f64], dofs: &[usize]) -> mitc4::Vec24 {
+    let mut ue = mitc4::Vec24::zeros();
     for (local, &global) in dofs.iter().enumerate() {
         ue[local] = u[global];
     }

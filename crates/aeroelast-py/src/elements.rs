@@ -6,7 +6,7 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 
 use aeroelast_core::elements::mitc3::{self, Mitc3Precomputed};
-use aeroelast_core::elements::mitc4_plusd::{self, Mitc4PlusDPrecomputed};
+use aeroelast_core::elements::mitc4::{self, Mitc4Precomputed};
 use aeroelast_core::elements::quad::{Quad4Precomputed, Quad8Precomputed, Quad9Precomputed};
 use aeroelast_core::materials::composite::composite_constitutive;
 use aeroelast_core::materials::isotropic::IsotropicMaterial;
@@ -240,8 +240,8 @@ pub(crate) fn batch_ke_mitc4<'py>(
             for i in 0..12 {
                 node_coords[i] = coords_arr[[e, i]];
             }
-            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
-            let ke = mitc4_plusd::compute_ke_global(&pre);
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
+            let ke = mitc4::compute_ke_global(&pre);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {
                 for j in 0..24 {
@@ -285,8 +285,8 @@ pub(crate) fn batch_me_mitc4<'py>(
             for i in 0..12 {
                 node_coords[i] = coords_arr[[e, i]];
             }
-            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
-            let me = mitc4_plusd::compute_me_global(&pre, rho);
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
+            let me = mitc4::compute_me_global(&pre, rho);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {
                 for j in 0..24 {
@@ -334,9 +334,9 @@ pub(crate) fn batch_kt_mitc4<'py>(
             for i in 0..12 {
                 node_coords[i] = coords_arr[[e, i]];
             }
-            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
 
-            let mut u = mitc4_plusd::Vec24::zeros();
+            let mut u = mitc4::Vec24::zeros();
             for i in 0..24 {
                 u[i] = disp_arr[[e, i]];
             }
@@ -346,7 +346,7 @@ pub(crate) fn batch_kt_mitc4<'py>(
             // element geometry, so this is the first-step
             // (reference-configuration) linearisation; threading the
             // last-converged state belongs to the solver and is a follow-up.
-            let kt = mitc4_plusd::n_gamma_kt_global(&pre, &u);
+            let kt = mitc4::n_gamma_kt_global(&pre, &u);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {
                 for j in 0..24 {
@@ -397,9 +397,9 @@ pub(crate) fn batch_fint_mitc4<'py>(
             for i in 0..12 {
                 node_coords[i] = coords_arr[[e, i]];
             }
-            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
 
-            let mut u = mitc4_plusd::Vec24::zeros();
+            let mut u = mitc4::Vec24::zeros();
             for i in 0..24 {
                 u[i] = disp_arr[[e, i]];
             }
@@ -410,9 +410,9 @@ pub(crate) fn batch_fint_mitc4<'py>(
             // linearisation; threading the last-converged state belongs to the
             // solver and is a follow-up.
             let f = if nonlinear {
-                mitc4_plusd::n_gamma_fint_global(&pre, &u)
+                mitc4::n_gamma_fint_global(&pre, &u)
             } else {
-                mitc4_plusd::compute_fint_global(&pre, &u, false)
+                mitc4::compute_fint_global(&pre, &u, false)
             };
             let mut flat = [0.0f64; 24];
             for i in 0..24 {
@@ -593,8 +593,8 @@ pub(crate) fn batch_ke_mitc4_composite<'py>(
 
             let constitutive = composite_constitutive(&a, &b, &d, &cs, h);
             // `e_equiv` has no MITC4+/D constructor argument (out-of-scope PyO3 change).
-            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive, h, 1.0);
-            let ke = mitc4_plusd::compute_ke_global(&pre);
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive, h, 1.0);
+            let ke = mitc4::compute_ke_global(&pre);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {
                 for j in 0..24 {
@@ -644,8 +644,8 @@ pub(crate) fn batch_me_mitc4_composite<'py>(
                 cs: nalgebra::Matrix2::identity(),
                 cm_raw: nalgebra::Matrix3::identity(),
             };
-            let pre = Mitc4PlusDPrecomputed::new(&node_coords, dummy, 1.0, 1.0);
-            let me = mitc4_plusd::compute_me_composite_global(&pre, m_trans, m_rot);
+            let pre = Mitc4Precomputed::new(&node_coords, dummy, 1.0, 1.0);
+            let me = mitc4::compute_me_composite_global(&pre, m_trans, m_rot);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {
                 for j in 0..24 {

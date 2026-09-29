@@ -1882,3 +1882,40 @@ because, with the Python MITC4 case gone, it is the only guard of `K_t == dF/du`
 
 Limitations written to: `openspec/changes/mitc4plusd-faithful/design.md` §13 (new, with the
 numbers) and the same change's `tasks.md` list.
+
+### Iteration 31 — the hybrid is retired and the element is named `mitc4` (WU10/S4)
+
+Executed the SDD change's 11.1-11.5. `crates/aeroelast-core/src/elements/mitc4.rs` is now the
+faithful MITC4+/D -- it is the retired `mitc4_plusd.rs`, moved into the production path -- the
+hybrid that occupied it had ZERO code consumers (its type name survived only in historical
+comments) and died with it, and the public type is `Mitc4Precomputed`. Registry, assembler and
+the PyO3 layer follow; 5 files, -3156 lines.
+
+Verified independently, not from the writer's report:
+
+```text
+cargo test -p aeroelast-core : 155 passed / 0 failed / 0 ignored   (<test-bin> --list --ignored = 0)
+python -m pytest -q          : 382 passed / 0 failed / 0 skipped
+11.3 grep / 11.4 grep        : NO MATCH
+#[pyfunction] names          : unchanged
+mod.rs non-rename diff lines : 0
+```
+
+The writer's own handoff raised two things worth keeping. First, a coverage loss it did not
+have authority to fix: 5 of the 29 tests that died with the hybrid file exercised code that is
+LIVE in the new module -- the 4 quaternion tests, whose `quaternion_from_vector` /
+`rotate_vector_by_quaternion` drive the director update in `advance_gl_state`, and
+`test_fint_includes_transverse_shear`, over the production `compute_fint_global` kernel. Those
+five were ported back verbatim (hence 155 and not 150); the eleventh extra test,
+`test_b_matrix_coupling_in_constitutive`, asserted `b_norm < 1e-10 || b_norm > 0.0`, a
+tautology, and was deliberately left behind. Second, a wording caveat, now recorded rather
+than hidden: four kept lines contained the contiguous phrase "shear correction" while merely
+negating a factor or describing the classical 5/6 reference, so they were reworded to satisfy
+task 11.3's whole-file grep. No value changed, and the substance -- no shear-correction usage
+-- holds.
+
+Also corrected while here: six comment lines still claimed `#[ignore]`d on purpose, which the
+earlier promotion made false (no `#[ignore]` remains), and the stale bookkeeping of iteration
+30's siblings -- task 10.6 was done but unchecked, and the recorded baselines still said 120/0
+and 345/2/2.
+
