@@ -441,23 +441,65 @@ pub(crate) fn modal_solve_coo<'py>(
     let mat_m = aeroelast_solvers::petsc::assembler::assemble_seq_aij(&rm, &cm, &vm, n_free)
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-    // Solve eigenvalue problem
-    let result = aeroelast_solvers::petsc::elasticity::modal::modal_solve(&mat_k, &mat_m, n_modes)
-        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+    // ── Eigenvalue solve, with a spectrum-relative filter and a retry ────────
+    //
+    // `modal_solve` returns EVERY converged eigenpair; the physical filter and
+    // the truncation belong here, and two properties the callers depend on are
+    // easy to get wrong:
+    //
+    // (a) THE FILTER MUST REJECT THE NUMERICAL ZEROS, whose sign is round-off.
+    //     A reduced shell system carries them -- measured on the simply
+    //     supported plate: two eigenvalues at |lambda|/lambda_max ~ 1e-16,
+    //     returned NEGATIVE by SLEPc (-7.261e-06, -6.3442e-05) and POSITIVE by
+    //     an independent dense solver (+4.696e-05, +1.176e-04). The historical
+    //     absolute floor `lambda > 1e-8` keeps them whenever they come out
+    //     positive, i.e. it would report a spurious 0.035 Hz mode. The floor is
+    //     therefore tied to the spectrum's OWN scale: `1e-13 * lambda_max` sits
+    //     ~450x above the round-off level (eps * lambda_max ~ 2.8e-04 on that
+    //     model) and ~1e5 below its first physical mode, and being relative it
+    //     does not depend on the unit system.
+    //
+    // (b) A HANDFUL OF ZERO-ENERGY MODES MUST NOT CONSUME THE CALLER'S QUOTA.
+    //     They are genuine eigenpairs of the model (the 2025 drill block's flat
+    //     null space, dim 2 flat / 1 elsewhere), so asking for `n_modes` can
+    //     deliver fewer once they are filtered -- which the Python caller
+    //     reports as `Convergence insufficient: 4/6 modes`. The request grows
+    //     until enough PHYSICAL modes have converged, or until it reaches the
+    //     system size.
+    let mut request = n_modes + 5;
+    let mut physical: Vec<(f64, Vec<f64>)> = Vec::new();
+    loop {
+        let result =
+            aeroelast_solvers::petsc::elasticity::modal::modal_solve(&mat_k, &mat_m, request)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
-    // Convert eigenvalues ω² → frequencies in Hz, filter positive, sort
-    let mut pairs: Vec<(f64, Vec<f64>)> = result
-        .eigenvalues
-        .into_iter()
-        .zip(result.eigenvectors.into_iter())
-        .filter(|(lam, _)| *lam > 1e-8)
-        .map(|(lam, vec)| (lam.sqrt() / (2.0 * std::f64::consts::PI), vec))
-        .collect();
-    pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-    pairs.truncate(n_modes);
+        let lambda_max = result
+            .eigenvalues
+            .iter()
+            .cloned()
+            .fold(0.0_f64, f64::max);
+        let floor = 1e-8_f64.max(1e-13 * lambda_max);
 
-    let frequencies: Vec<f64> = pairs.iter().map(|(f, _)| *f).collect();
-    let modes_flat: Vec<f64> = pairs.into_iter().flat_map(|(_, v)| v).collect();
+        // Convert eigenvalues ω² → frequencies in Hz, filter, sort
+        physical = result
+            .eigenvalues
+            .into_iter()
+            .zip(result.eigenvectors.into_iter())
+            .filter(|(lam, _)| *lam > floor)
+            .map(|(lam, vec)| (lam.sqrt() / (2.0 * std::f64::consts::PI), vec))
+            .collect();
+
+        if physical.len() >= n_modes || request >= n_free {
+            break;
+        }
+        request = (request * 2).min(n_free);
+    }
+
+    physical.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    physical.truncate(n_modes);
+
+    let frequencies: Vec<f64> = physical.iter().map(|(f, _)| *f).collect();
+    let modes_flat: Vec<f64> = physical.into_iter().flat_map(|(_, v)| v).collect();
 
     let _ = n_dof_total; // available if caller needs expansion; not used here
 
