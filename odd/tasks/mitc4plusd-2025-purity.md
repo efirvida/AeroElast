@@ -1385,3 +1385,23 @@ state between Newton steps belongs to the solver.
 linear, `The_MITC4+_shell_element_in_geometric_nonlinear_analysis.pdf` = C&S 185 nonlinear,
 `1-s2.0-S0045794924003511-main.pdf` = 2025 MITC4+/D; `1-s2.0-S0045794917309550-main.pdf` = the BENCHMARK
 paper, not a formulation).
+
+### Open item saved for later (modal, at the maintainer's request)
+
+The modal path is important for the maintainer's analyses, so this is recorded
+rather than acted on. Two things to verify before trusting the numbers:
+
+1. **The participation factors use RIGID-BODY direction vectors** (unit
+   translations, and rotations with their lever arms `u = omega x r`) restricted
+   to the free DOFs, with `m_total = r^T M r` and
+   `Gamma = (phi^T M r)^2 / ((phi^T M phi) m_total)`. That is the free-free
+   definition. For a SUPPORTED structure (a blade clamped at the root) the
+   standard base-excitation influence vector is the static displacement of the
+   free DOFs under a unit support motion, which is a different vector, so the
+   percentages are not the classical effective modal mass and do not sum to 100.
+2. **`M`'s smallest eigenvalue is 6.31e-07** on the simply-supported plate:
+   positive, but small (the rotational inertia is small). A generalized
+   eigenproblem needs `M` positive definite, so a model with a very small
+   thickness or density should be checked.
+
+No new tests were added for this, deliberately.
