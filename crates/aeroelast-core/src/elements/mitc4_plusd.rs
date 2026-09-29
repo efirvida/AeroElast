@@ -11242,56 +11242,6 @@ mod tests {
     /// instrument localises any convention mismatch by block, and it printed exactly
     /// what it says: membrane, b2 and shear at machine zero, and the `b1` row's
     /// ROTATION columns a factor 4 too large (RECT ratio spread exactly [1, 4]).
-    #[test]
-    #[ignore = "diagnostic: per-block B(0) convention check"]
-    fn n_gamma_b_linear_block_check() {
-        for (name, c) in [("RECT", &RECT), ("FLAT_DISTORTED", &FLAT_DISTORTED)] {
-            let pre = pre_from(c);
-            let state = GlCurrentState {
-                coords: pre.initial_coords_3d,
-                vn: pre.vn,
-                v1: pre.v1,
-                v2: pre.v2,
-                a_i: pre.a_i,
-            };
-            let s1 = 2.0 / pre.thickness;
-            let s2 = 4.0 / (pre.thickness * pre.thickness);
-            println!("\n=== {name} ===");
-            for g in 0..N_GAUSS {
-                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
-                let bl = n_gamma_b_matrix(&pre, &state, &Vec24::zeros(), r, s);
-                let bm = b_membrane_2017(&pre, r, s) + b_drill_membrane_2025(&pre, r, s);
-                let (bb1, bb2) = b_bending_2017(&pre, r, s);
-                let bs = b_shear_mitc4(&pre, r, s);
-                let (mut dm, mut sm, mut d1, mut s1m, mut d2, mut s2m, mut ds, mut ssm) =
-                    (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
-                for i in 0..3 {
-                    for j in 0..24 {
-                        dm = dm.max((bl[(i, j)] - bm[(i, j)]).abs());
-                        sm = sm.max(bm[(i, j)].abs());
-                        d1 = d1.max((bl[(3 + i, j)] - s1 * bb1[(i, j)]).abs());
-                        s1m = s1m.max((s1 * bb1[(i, j)]).abs());
-                        d2 = d2.max((bl[(6 + i, j)] - s2 * bb2[(i, j)]).abs());
-                        s2m = s2m.max((s2 * bb2[(i, j)]).abs());
-                    }
-                }
-                for i in 0..2 {
-                    for j in 0..24 {
-                        ds = ds.max((bl[(9 + i, j)] - bs[(i, j)]).abs());
-                        ssm = ssm.max(bs[(i, j)].abs());
-                    }
-                }
-                let rl = |d: f64, m: f64| if m > 0.0 { d / m } else { 0.0 };
-                println!(
-                    "  g{g}: membrane {:.3e} | b1 {:.3e} | b2 {:.3e} | shear {:.3e}",
-                    rl(dm, sm),
-                    rl(d1, s1m),
-                    rl(d2, s2m),
-                    rl(ds, ssm)
-                );
-            }
-        }
-    }
 
 
     /// DIAGNOSTIC (temporary): per-block comparison of the strain's `B(0)` against the
