@@ -267,7 +267,9 @@ Stated explicitly because each of these was part of the documentation before the
 element was rewritten, and none of them is part of the element now:
 
 - no selective reduced integration: the in-plane shear is integrated by the same
-  2 × 2 rule as everything else, and there is no centre-point substitution;
+  2 × 2 rule as everything else, and there is no centre-point substitution. The
+  retired scheme was Hughes, Taylor & Kanoknukulchai 1977 (References item 2, kept
+  as a retired source for exactly this reason);
 - no factor on the transverse shear stiffness: the assumed MITC4 field is the only
   mechanism, so the classical `5/6` reference value appears in this document only
   where a benchmark is compared against a classical solution;
@@ -488,6 +490,10 @@ are quantified in §4.1.
 - Tests were corrected alongside, because they had encoded the inverted convention
   rather than the physics; an `xfail(strict=True)` marker on
   `test_material_suite.py::test_axial_produces_bending_mitc3comp` was removed.
+- **This restored fidelity to the 2014 paper, not just internal consistency.** §4.5
+  reads Eq. (2) from the rendered page: the paper's own convention is the physical
+  one, so `b136ce5` had deviated from MITC3+'s source and `d6f37fb` put the code back
+  on it.
 
 ### 4.2 Resolved: the MITC4/D drill-membrane operator
 
@@ -500,44 +506,168 @@ in production. Its formulation is §2.5 and its validation is
 
 ### 4.3 The strain-smoothed MITC3+
 
-Lee & Lee (2019) replace the constant-strain triangle membrane field of §3.5 with a
-smoothed field assembled over the patch of elements sharing each edge. This **is
-implemented**: the smoothing primitives are `elements/smoothing.rs` (the covariant
-tensor operator, the edge-neighbour connectivity and the pairwise smoothed strain)
-and `elements/mitc3.rs` carries the union-DOF layout and the smoothed stiffness
-over six nodes. It is not described equation by equation in this document yet; the
-held copy is `.sources/papers/lee2019.pdf`.
+Reference: Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite element",
+*Computers and Structures* 223:106096, 2019, doi:10.1016/j.compstruc.2019.07.005 —
+`.sources/papers/lee2019.pdf`. The first author is Chaemin Lee, **not** Youngyu Lee
+of item 5.
+
+**What it changes, and what it does not.** Only the membrane field. The paper is
+explicit: *"We use the originally defined b1 eij and b2 eij in Eqs. (11) and (12)
+for the covariant bending strains. For the covariant transverse shear strains, we
+adopt the assumed strains of the MITC3+ shell element, in Eqs. (7) and (8)."* So the
+bending field (§3.3, §3.4), the transverse shear field (§3.1) and the rotation
+convention (§3.6) are the MITC3+ ones unchanged. The smoothing is therefore
+orthogonal to the rotation-sign correction of §4.1: it could have been applied
+before that fix and would have been equally wrong, and applying it changes nothing
+about the convention.
+
+The membrane strain of a target triangle `e` is evaluated at the element centre
+(`r = s = 1/3`, `t = 0`) and smoothed with the strains of the three elements across
+its edges.
+
+**Eq. (15) — the neighbour's strain in the target's convected coordinates.**
+
+```text
+e_ij^(k) = e_ln^(k) (g_i^(e) . g^l^(k)) (g_j^(e) . g^n^(k)),    i, j = 1, 2
+```
+
+Because a contravariant base vector is a row of `J^-T` (from `g_i . g^j =
+delta_i^j`), `g_i^(e) . g^l^(k) = (J_e J_k^-1)_il`, so the whole transform is
+`e~ = M e M^T` with `M = J_e J_k^-1`. `smoothing.rs::convected_operator` is exactly
+that, and returns `None` for a singular neighbour Jacobian.
+
+**Eq. (17) — the neighbour's area projected on the target's mid-surface.**
+
+```text
+A_bar^(k) = (n^(e) . n^(k)) A^(k)
+```
+
+`n` are the unit centre normals, so the factor is `cos(theta)` and the projected area
+vanishes at 90 degrees: the smoothing fades to nothing as the two elements become
+perpendicular. `smoothing.rs::projected_area`.
+
+**Eq. (16) — the area-weighted pairwise smoothed strain.**
+
+```text
+ê_ij^(k) = ( e_ij^(e) A^(e) + e~_ij^(k) A_bar^(k) ) / ( A^(e) + A_bar^(k) )
+```
+
+`smoothing.rs::pairwise_smoothed`. **Boundary rule**, stated in the text right after
+Eq. (17): *"we use ê_ij = e_ij if the kth edge of the target element is located along
+boundary"*. An edge with no neighbour, or with a degenerate one, falls back to the
+element's own strain; `smoothed_membrane_strain` implements that by putting the
+identity on the target entry.
+
+**Eq. (18) — assignment to the three Gauss points, cyclic.**
+
+```text
+e^(A) = (ê^(3) + ê^(1))/2     e^(B) = (ê^(1) + ê^(2))/2     e^(C) = (ê^(2) + ê^(3))/2
+```
+
+`smoothing.rs::assign_to_gauss_points`, and the `PAIRS = [[2,0],[0,1],[1,2]]` table in
+`smoothed_membrane_strain`. Every edge appears in exactly two of the three assigned
+strains.
+
+Eq. (19) gives the equivalent explicit interpolation (`p = 1/6`, `q = 2/3`), but the
+paper states it *"is not utilized in actual computation of the stiffness matrix. We
+use the assigned strains in Eq. (18) directly in the 3-point Gauss integration"*, so
+the code uses Eq. (18) as well.
+
+| Code | Paper | Verified |
+| --- | --- | --- |
+| `smoothing.rs::tensor_operator` | the `M e M^T` form of Eq. (15) on the engineering strain vector | yes, algebraically |
+| `smoothing.rs::convected_operator` | Eq. (15), with `M = J_e J_k^-1` | yes, from the `g_i . g^j = delta_i^j` identity |
+| `smoothing.rs::projected_area` | Eq. (17) | yes |
+| `smoothing.rs::pairwise_smoothed` | Eq. (16) | yes |
+| `smoothing.rs::smoothed_membrane_strain` boundary branch | the boundary rule after Eq. (17) | yes |
+| `smoothing.rs::assign_to_gauss_points`, `PAIRS` | Eq. (18) | yes |
+| `mitc3.rs::compute_ke_local_with_membrane` | the smoothing changes the membrane term only; `bm_gp[gp]` is the per-Gauss-point membrane operator | yes |
+| `mitc3.rs` union layout, `SMOOTHED_UNION_NODES = 6`, `SMOOTHED_UNION_DOFS = 36` | the six-node union of the target and its edge-neighbour node sets | yes |
+
+**Implementation status.** The smoothing primitives are `elements/smoothing.rs`: the
+covariant tensor operator of Eq. (15), the edge-neighbour connectivity, the projected
+area of Eq. (17), the pairwise average of Eq. (16), the boundary rule and the
+assignment of Eq. (18), each with its own unit test. `elements/mitc3.rs` carries the
+union layout and `compute_ke_local_with_membrane`, which takes the membrane operator
+per Gauss point: passing the element's own `b_membrane` reproduces MITC3+ exactly,
+which is what keeps the 2014 element available, and passing the smoothed operators
+gives the smoothed element.
+
+**It is not wired into the production path.** Nothing under `crates/aeroelast-py` or
+`crates/aeroelast-core/src/assembly` references the smoothed entry points, so it is a
+Rust kernel with unit tests rather than an element a user can select. The production
+shell quadrilateral is the MITC4+/D of §2 and the production triangle is the MITC3+
+of §3.
 
 ### 4.4 `quad.rs` has no literature citation
 
 `crates/aeroelast-core/src/elements/quad.rs` carries the comment "elasticity (plane
 strain formulation matching the Python reference)" and "Constitutive matrix: plane
 strain with Lamé coefficients (matches Python). No thickness multiplier (matching
-Python reference)." There is no paper, no author, no DOI. The justification is
-circular: the Rust implementation is validated against the Python implementation,
-and nothing establishes which formulation either one is. This is a documentation
-defect, not a numerical one, but it blocks any future claim that the plane
-quadrilaterals are a published formulation.
+Python reference)." There is no paper, no author, no DOI, and the justification is
+circular: the Rust implementation is validated against the Python implementation, and
+nothing establishes which formulation either one is.
 
-### 4.5 Open: sign of `alpha`, `beta` in the MITC3+ 2014 paper
+**What the code is, read rather than guessed.** The standard displacement-based
+plane-strain finite element of any textbook, with isoparametric 4-, 8- and 9-node
+quadrilaterals, the Lamé plane-strain constitutive matrix and Gauss integration via
+`elements/reference.rs`. That is a formulation one can *name* but not one this
+repository *took from* a paper, which is why no citation is invented for it here.
+
+**The gap is declared, not papered over.** Two tempting wrong closures are ruled out
+explicitly. The held Choi & Lee 2023 paper
+(`.sources/papers/1-s2.0-S0045794922001936-main.pdf`, "Towards improving the 2D-MITC4
+element for analysis of plane stress and strain problems") is a **different** element
+— an assumed-strain MITC4 for the in-plane problem — and must not be attributed to
+this displacement-based kernel. And "matches the Python reference" is not a source
+at all. Closing the gap means either citing the textbook the implementation follows,
+which is a documentation change, or leaving it explicit; either way this section is
+the record that the gap is known and not an oversight.
+
+### 4.5 Resolved: the MITC3+ 2014 rotation convention is the physical one
 
 **Question.** Do the MITC3+ 2014 rotation parameters `alpha`, `beta` in its Eq. (2)
 carry the same sign convention as the physical rotation vector `theta` in Ko, Bathe
-& Zhang 2025 Eq. (3a), which the code now uses?
+& Zhang 2025 Eq. (3a), which the code uses?
 
-**What was tried.** Reading the MITC3+ 2014 paper directly:
+**Answer: yes, the same convention.** Read from the **rendered page** rather than
+from text extraction, the 2014 paper's Eq. (2) is
 
-- Eq. (2) reads `u(r,s,t) = sum h_i u_i + (t/2) sum a_i h_i (V_i2 alpha_i + V_i1 beta_i)`.
-- The only definition given is prose: "`alpha_i` and `beta_i` are the rotations of
-  the director vector `V_in` about `V_i1` and `V_i2`, respectively" (journal p. 14).
-  There is no Cartesian dictionary and no relation to a physical rotation vector.
-- Eqs. (3), (8) and (14)–(17) are written entirely in covariant components, so they
-  do not disambiguate either.
+```text
+u(r,s,t) = sum h_i u_i + (t/2) sum a_i h_i ( - V_2^i alpha_i + V_1^i beta_i )
+```
 
-**Result: unresolved.** Against Ko et al. 2025 Eq. (3a), `theta x V_in` with
-`V_in = e3` expands to `theta_y V_i2 - theta_x V_i1` (given `V_i1 = e1`,
-`V_i2 = e2`), which would map `alpha -> theta_y` and `beta -> -theta_x`. Nothing in
-the 2014 paper confirms or refutes that mapping. It is stated here as open.
+with the prose: *"V_1^i and V_2^i are unit vectors orthogonal to V_n^i and to each
+other, and alpha_i and beta_i are the rotations of the director vector V_n^i about
+V_1^i and V_2^i, respectively, at node i"*
+(`.sources/papers/The_MITC3+_shell_element_and_its_performance.pdf`, PDF page 2,
+journal p. 13).
+
+A rotation of the director by `alpha` about `V_1` moves a point at offset `t/2` along
+the director by `(t/2) alpha (V_1 x V_n)`, and one by `beta` about `V_2` by
+`(t/2) beta (V_2 x V_n)`. For a right-handed triad `(V_1, V_2, V_n)`,
+`V_1 x V_n = -V_2` and `V_2 x V_n = V_1`, so the offset term is
+`(t/2)(-alpha V_2 + beta V_1)`, which is Eq. (2) exactly as printed. That same
+expression is `(t/2)(theta x V_n)` for `theta = alpha V_1 + beta V_2`, i.e. Ko, Bathe
+& Zhang 2025 Eq. (3a) term for term. **The two papers use the same convention**, and
+the code's `V3 = e3 + theta_y e1 - theta_x e2` is the 2014 paper's own form for a
+right-handed triad, not a choice imposed from outside it.
+
+**Why this was recorded as open, and what was wrong.** The earlier entry quoted
+Eq. (2) as `(V_i2 alpha_i + V_i1 beta_i)`, without the minus sign on the `V_2` term.
+That minus is printed in the paper; the text extraction dropped it, and its loss is
+what made the two conventions look opposite. The extraction also read the prose as
+giving no Cartesian dictionary, which is true but irrelevant: the prose pins the
+rotations to `V_1` and `V_2`, which is enough once Eq. (2)'s signs are read
+correctly. The conclusion: there was never a conflict to resolve, and the sign
+correction of §4.1 restored **fidelity to the 2014 paper**, not merely internal
+consistency.
+
+**Caveat that remains, and it is narrow.** The mapping above assumes `(V_1, V_2, V_n)`
+is right-handed. The paper leaves the pair `V_1`, `V_2` free up to that choice, so a
+reader who takes the opposite handedness gets `(alpha, beta) = (-theta_x, -theta_y)`.
+Nothing in the paper fixes the handedness, so "the same convention" is asserted for
+the right-handed triad the code uses, which is the standard one for a shell element.
 
 ### References
 
@@ -549,7 +679,11 @@ the 2014 paper confirms or refutes that mapping. It is stated here as open.
    (Displayed equations not text-extractable from the held scan — §2.4.)
 2. Hughes, T.J.R., Taylor, R.L., Kanoknukulchai, W., "A simple and efficient finite
    element for plate bending", *International Journal for Numerical Methods in
-   Engineering* 11(10):1529–1543, 1977. DOI to verify. No held copy — §2.5.
+   Engineering* 11(10):1529–1543, 1977, doi:10.1002/nme.1620111005. No held copy.
+   **Retired source**: this is where the selective reduced integration of the
+   superseded hybrid came from. The element described here has none, so the entry is
+   kept for the history in §2.6, not because §2 uses it. The DOI was verified against
+   the Wiley record and the MaRDI portal entry.
 3. Ko, Y., Lee, P.-S., Bathe, K.-J., "A new MITC4+ shell element", *Computers and
    Structures* 182:404–418, 2017, doi:10.1016/j.compstruc.2016.11.004.
    `.sources/papers/1-s2.0-S0045794916309464-main.pdf`.
@@ -567,11 +701,13 @@ the 2014 paper confirms or refutes that mapping. It is stated here as open.
    *Computers and Structures* 223:106096, 2019,
    doi:10.1016/j.compstruc.2019.07.005.
    `.sources/papers/lee2019.pdf` (authors: Chaemin Lee, Phill-Seung Lee; the first
-   author is **not** Youngyu Lee of item 5). **Planned implementation; verified
-   against the held copy; entry present in `docs/references.md`.** §4.3.
+   author is **not** Youngyu Lee of item 5). **Implemented** — §4.3 describes it
+   equation by equation; verified against the held copy; entry present in
+   `docs/references.md`.
 
 `docs/references.md` is the canonical bibliography for the repository. Where this
-document and `docs/references.md` disagree, or where `docs/references.md` is
-missing an entry (the Hughes–Brezzi attribution of §2.6),
-`docs/references.md` should be corrected — this document deliberately does not
-duplicate its per-entry verification annotations.
+document and `docs/references.md` disagree, `docs/references.md` should be
+corrected — this document deliberately does not duplicate its per-entry verification
+annotations. The Hughes–Brezzi drilling attribution that §2.6 used to depend on is
+recorded there in §1, together with the note that it is not the source of the
+current element.

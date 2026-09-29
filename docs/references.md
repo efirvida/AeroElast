@@ -148,9 +148,21 @@ cites nor implements were removed.
 
 - Hughes, T.J.R., Taylor, R.L., Kanoknukulchai, W., "A simple and efficient
   finite element for plate bending", *International Journal for Numerical
-  Methods in Engineering*, 11(10):1529–1543, 1977. DOI: to verify.
-  *Source: repository citation (`crates/aeroelast-core/src/elements/mitc4.rs:953`) for authors and year; the journal, volume and pages come from the published record and are not re-verified against a held copy. It is the reference for the selective reduced integration split of the in-plane shear term in `compute_ke_local`.*
-  *Cited by the code: `crates/aeroelast-core/src/elements/mitc4.rs:953`.*
+  Methods in Engineering*, 11(10):1529–1543, 1977,
+  doi:10.1002/nme.1620111005.
+  *DOI verified against the Wiley record (`onlinelibrary.wiley.com/doi/10.1002/nme.1620111005`)
+  and the MaRDI portal entry, both of which give volume 11, issue 10, pages
+  1529–1543; no PDF is held. The previous entry said "DOI: to verify" and named
+  `mitc4.rs:953` as the citing location, which is no longer true.*
+  *Historical source of a RETIRED ingredient. It is the selective reduced
+  integration of the in-plane shear term that the superseded hybrid MITC4+ carried.
+  The faithful MITC4+/D that replaced it contains no selective reduced integration
+  (`docs/formulations/shell-elements.md` §2.6, guarded by
+  `tests/test_mitc4plusd_traceability.py`), and no line of the code cites this work
+  any more, so it is kept as the origin of an ingredient whose retirement is
+  documented rather than as a reference the code uses. The `Hughes, T.J.R., Brezzi,
+  F.` entry below is a different work and is still the attributed origin of the
+  retired drilling penalty.*
 
 - Bathe, K.J., *Finite Element Procedures*, 2nd ed., Prentice Hall, 2014.
   DOI: to verify. *Source: repository citation (README, `docs/FSI_ROTOR_PAPER_DRAFT.md:647`, `docs/teoria_formulacion_fsi_rotor.md:862`).*
