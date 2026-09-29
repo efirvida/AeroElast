@@ -11,11 +11,22 @@ that has one.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
 import numpy as np
 import pytest
+
+#: One row of the CalculiX "E I G E N V A L U E   O U T P U T" table:
+#: mode number then four numbers (frequency, and three more / eigenvalue / etc.).
+_FREQ_ROW = re.compile(
+    r"^\s*(\d+)\s+"
+    r"([+\-]?\d+(?:\.\d+)?(?:[EeDd][+\-]?\d+)?)\s+"
+    r"([+\-]?\d+(?:\.\d+)?(?:[EeDd][+\-]?\d+)?)\s+"
+    r"([+\-]?\d+(?:\.\d+)?(?:[EeDd][+\-]?\d+)?)\s+"
+    r"([+\-]?\d+(?:\.\d+)?(?:[EeDd][+\-]?\d+)?)\s*$"
+)
 
 
 def run_ccx(inp_path: Path, ccx_bin: str) -> subprocess.CompletedProcess:
@@ -82,3 +93,27 @@ def parse_frd_disp(frd_file: Path, node_ids: list[int]) -> dict[int, np.ndarray]
             continue
 
     return disps
+
+
+def parse_ccx_frequencies(dat_path: Path, n_modes: int = 5) -> np.ndarray:
+    """Parse eigenfrequencies (Hz) from a CalculiX ``.dat`` file."""
+    dat_file = dat_path.with_suffix(".dat")
+    if not dat_file.exists():
+        raise RuntimeError(f"DAT file not found: {dat_file}")
+
+    out: dict[int, float] = {}
+    in_eig = False
+    for line in dat_file.read_text(errors="replace").splitlines():
+        up = line.upper()
+        if "E I G E N V A L U E" in up and "O U T P U T" in up:
+            in_eig = True
+            continue
+        if not in_eig:
+            continue
+        m = _FREQ_ROW.match(line)
+        if m:
+            out[int(m.group(1))] = float(m.group(4).replace("D", "E"))
+
+    if not out:
+        raise RuntimeError(f"No frequencies parsed from {dat_file}")
+    return np.array([out[k] for k in sorted(out)][:n_modes], dtype=float)
