@@ -1468,3 +1468,59 @@ already on the retirement's delete list, so the deletions left no orphans.
 
 **Also fixed in this pass, earlier:** the `3pi/2` cell's mesh, the modal solver's clamp
 and its spectrum-relative filter (commits `9f64e88`, `b40561d`, `7e395ef`).
+
+### Iteration 24 — the analytic B/N route, specified from the paper (the failing test's real fix)
+
+Chosen by the maintainer over deleting `test_kt_at_zero_equals_k[MITC4]`. Authority read
+with vision: Ko, Lee & Bathe (2017), C&S 185:1-14, p. 7, right column.
+
+**Eq. (24a)** `^t K_e = int B_ij^T C_ijkl B_kl d0V + int ^t_0 S_ij N_ij d0V`;
+**Eq. (24b)** `^t_0 F_e = int B_ij^T ^t_0 S_ij d0V`;
+**Eq. (25)** `_0 e~_ij = B_ij U_e` and `delta _0 eta~_ij = delta U_e^T N_ij U_e`.
+
+**The paper does NOT print `B` or `N` in closed form.** It defines them by their
+property, and that is what makes an exact implementation possible without a hand
+derivation:
+
+* `N_ij` is the MATRIX OF THE QUADRATIC FORM of the nonlinear strain: `delta eta =
+  delta U^T N U` means `eta = 1/2 U^T N U`, so `N = d2 eta / dU dU`.
+* `eta` is PURELY QUADRATIC in `U`: Eqs. (20e-g) contribute `u_m,i . u_m,j` (quadratic
+  in the translations) and `^t x . u_b2` with `u_b2 = -1/4 sum a_i h_i (alpha_i^2 +
+  beta_i^2) ^t V_n^i` (quadratic in the rotations). The assumed field of Eq. (21) is
+  LINEAR in the tying values, and Eq. (23) is a linear map, so `eta` stays quadratic.
+
+**Exact extraction, no finite differences anywhere:**
+
+| quantity | how | evaluations |
+| --- | --- | --- |
+| the split `(e_lin, eta)` | with `dg = g(next) - g(state)`, `g.g - g0.g0 = 2 g0.dg + dg.dg`, so `e_lin = g0.dg` and `eta = 1/2 dg.dg`; the same split on the tying metrics and the tying shears | — |
+| `B_L` | `B_L[a][i] = e_lin(e_i)[a]` -- EXACT because `e_lin` is linear in `U` | 24 |
+| `N` | `N[a][i][j] = eta(e_i+e_j)[a] - eta(e_i)[a] - eta(e_j)[a]` -- EXACT because `eta` is quadratic with `eta(0) = 0`; this is polarisation, not a difference quotient, and it has no step and no noise | 300, ONCE per element per Gauss point |
+| `F(u)` | `sum_g wq B(u)^T (W e)` with `B(u) = B_L + N u` | none |
+| `K_t(u)` | `sum_g wq [ B(u)^T W B(u) + sum_a N[a] (W e)[a] ]` | none |
+
+**Why this closes the failing test for real and not by tolerance.** `N u = 0` at
+`u = 0`, so `K_t(0) = sum_g wq B_L^T W B_L`, which is the element's own closed-form
+linear stiffness: `K_t(0) == K_0` becomes exact instead of a finite-difference
+approximation good to `O(H^2) ~ 4e-10`.
+
+**And it makes the tangent exactly `dF/du`.** The geometric term `sum_a N[a] (W e)[a]`
+is the exact `d(dF/du)` term, so the consistency instruments stop being limited by
+their own reference (today they saturate at ~1e-6 because the reference's `fd` carries
+the noise of the `B` inside `F`), and there is no per-iteration cost: `N` is
+`u`-independent and computed once at construction.
+
+**Acceptance.** `test_kt_at_zero_equals_k[MITC4]` green with `rtol=1e-10` and
+`atol=1e-6` UNCHANGED; `K_t == dF/du` to round-off (the Rust instrument's PRODUCTION
+line, target `<= 1e-10` instead of the current `~1e-6`); the two 2025 table oracles and
+the `n_alpha`/`n_beta`/`n_gamma` instruments still green; `cargo test -p aeroelast-core`
+169/0 with the instrument count unchanged at 9; the full pytest suite 382 passed / 1
+failed -> 383 passed / 0 failed; and the twisted-beam and pinched-cylinder cells
+unmoved (they are the external oracle).
+
+**Also confirmed against the paper while there.** Eqs. (21a), (21b) and (21c) of p. 7
+left were compared term by term with `gl_assumed_mid_metric`: all three components
+match exactly (weights `1/2(1-2a_A+s+2a_A s^2)`, `a_C(-1+s^2)`, ... and the `1/4` and
+`(1+a_E r s)` of (21c)). And Eq. (22)'s statement that the SAME assumed field applies
+to the nonlinear membrane strain is consistent with our code applying it to the full
+tying metric difference, because Eq. (21) is linear in the tying values.
