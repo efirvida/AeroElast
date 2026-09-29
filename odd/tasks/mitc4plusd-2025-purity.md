@@ -1786,3 +1786,38 @@ on the standard fixtures and only the `2 x 1` rectangle exposes it. The translat
 -- and then `test_kt_zero_matches_ke` and the directional-derivative tests must pass with
 the wiring in place. The instrument already prints exactly that list, so each candidate fix
 is one run.
+
+### Iteration 29 — the metric hypothesis is REFUTED; the square gives the clean signature
+
+Adding a SQUARE fixture to the instrument settles it. `FLAT_SQUARE` is `1 x 1`, so
+`|x_r| = |x_s| = 0.5` and any per-index metric factor would predict NO offenders. What it
+prints, with the wiring applied, is the opposite:
+
+```text
+FLAT_SQUARE(1x1):  b1 3.000e0 | membrane, b2, shear at machine zero
+  OFF b1 row 0 (rr): dof 4 (theta_y)          ratio 4.000000e0
+  OFF b1 row 1 (ss): dof 3 (theta_x)          ratio 4.000000e0
+  OFF b1 row 2 (rs): dof 3 and 4 (theta_x, theta_y)  ratio 4.000000e0
+  theta_z (dof 5): NEVER
+```
+
+So Iteration 28's `|x_r|/|x_s|` reading is WRONG: the constant is a uniform **4 = 2^2** on
+every bending-rotation pair, and `theta_z` never appears, i.e. the drilling rotation does
+not drive bending. The `2 x 1` rectangle had produced `rr` 1 / `rs` 2 / `ss` 4 because it
+MIXES that constant 4 with its own metric ratio -- the anisotropic fixture transformed the
+signature instead of exposing it. Two lessons: the square is the fixture that names it, and
+a clean `{1, 2, 4}` pattern was a coincidence of `4` with a metric ratio of `2`, not
+evidence for the metric explanation.
+
+**What is established now:** in the printed Eq. (20c), the BENDING-ROTATION coupling as
+this wiring builds it is uniformly 4x the validated operator's, while the membrane, `b2` and
+shear blocks and the `b1` TRANSLATION columns are exact. The factor is a constant of the
+director-increment term, i.e. `u_b1` or the `x_{b,i}` factor, and 4 = 2 x 2 points at a
+doubled `1/2 a_i` and a doubled rotation measure -- the two halves that the paper's
+`u_b1 = 1/2 a_i (-V_2 alpha + V_1 beta)` and Eq. (4c)'s `theta x V_n` each carry.
+
+**Next, and it is a reading, not a guess:** the rest of
+`b_bending_covariant_2017` -- the ROTATION columns of the reference, which the earlier read
+stopped short of -- compared term by term against `node_director_terms` + the gradients of
+`incremental_disp_gradients`. Whichever of the two factors is halved there is the fix, and
+the instrument's offender list on `FLAT_SQUARE` (which must become EMPTY) is the acceptance.

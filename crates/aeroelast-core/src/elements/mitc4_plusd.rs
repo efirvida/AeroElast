@@ -11262,14 +11262,19 @@ mod tests {
     /// translation columns: exact
     /// ```
     ///
-    /// The factor depends on the STRAIN ROW and only on the ROTATION columns, so it is
-    /// neither a global `u_b1` factor nor a doubled `s1`: it is the in-plane index
-    /// structure of the `zeta`-derivative of Eq. (20c), i.e. of the `^t x_{b,i} . u_m,j`
-    /// term. That is the whole remaining gap.
+    /// With the FLAT_SQUARE fixture added, the signature is clean and the metric
+    /// explanation is REFUTED (a square has `|x_r| = |x_s|`, so a per-index metric
+    /// factor would give no offenders at all): on the square EVERY bending-rotation
+    /// pair of the `b1` row comes out uniformly 4x -- `rr` at `theta_y`, `ss` at
+    /// `theta_x`, `rs` at both -- and `theta_z` never appears, i.e. the drilling
+    /// rotation does not drive bending. So it is the bending-rotation coupling of the
+    /// printed Eq. (20c) that is 4 = 2^2 too large. The `2 x 1` rectangle mixes that
+    /// constant 4 with its own metric ratio and produces the earlier `rr` 1 / `rs` 2 /
+    /// `ss` 4 pattern, which is why the square is the fixture that names it.
     #[test]
     #[ignore = "diagnostic: per-block B(0) convention check"]
     fn n_gamma_b_linear_block_check() {
-        for (name, c) in [("RECT", &RECT), ("FLAT_DISTORTED", &FLAT_DISTORTED)] {
+        for (name, c) in [("FLAT_SQUARE(1x1)", &FLAT_SQUARE), ("RECT(2x1)", &RECT), ("FLAT_DISTORTED", &FLAT_DISTORTED)] {
             let pre = pre_from(c);
             let state = GlCurrentState {
                 coords: pre.initial_coords_3d,
