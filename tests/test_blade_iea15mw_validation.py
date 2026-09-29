@@ -37,6 +37,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 from scipy.optimize import linear_sum_assignment
+from scipy.sparse import coo_matrix
+from scipy.sparse.linalg import spsolve
 
 from conftest import ccx_bin_or_skip
 
@@ -47,8 +49,8 @@ from _aeroelast import Laminate as RustLaminate  # noqa: E402
 from _aeroelast import MeshModel as RustMeshModel  # noqa: E402
 from _aeroelast import PyMeshAssembler, modal_solve_coo  # noqa: E402
 
-from _ccx_io import fail_ccx, parse_ccx_frequencies, run_ccx  # noqa: E402
-from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
+from _ccx_io import fail_ccx, parse_ccx_frequencies, parse_frd_disp, run_ccx  # noqa: E402
+from aeroelast.core.mesh.entities import MeshElement, Node, NodeSet  # noqa: E402
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
 
@@ -61,6 +63,10 @@ SPAN_DIRECTION = (0.0, 0.0, 1.0)
 N_SEARCH = 10  # modes requested from both solvers
 N_COMPARE = 5  # matched pairs asserted against CCX
 
+#: Flapwise direction in this mesh, read off the first mode shape (mode 1 is
+#: y-dominant, mode 2 x-dominant).
+FLAPWISE_DOF = 1
+
 #: Escalera Mendoza et al. 2023 (AIAA 2023-2093), UTD NuMAD model.
 ARTICLE_MASS_KG = 68_077.0
 #: Gaertner et al. 2020 (NREL/TP-5000-75698): "around 65 metric tons".
@@ -71,6 +77,13 @@ ARTICLE_FIRST_MODES = [(0.57, "1st flapwise"), (0.65, "1st edgewise")]
 MASS_TOL = 0.10  # measured 70,623 kg = +3.7% over the article value
 MODAL_TOL = 0.10  # measured worst over the first five matched pairs (see test)
 ARTICLE_MODE_TOL = 0.15  # measured worst over the first two article modes
+
+#: Escalera Mendoza et al. 2023, section V: DLC 1.4 maximum blade root bending
+#: moment 90.4 MNm and maximum out-of-plane tip deflection 23.49 m.
+ARTICLE_ROOT_MOMENT_NM = 90.4e6
+ARTICLE_TIP_DEFLECTION_M = 23.49
+STATIC_TOL = 0.15  # measured AeroElast-vs-CCX static gap (see test)
+ARTICLE_STATIC_TOL = 0.15  # measured gap to the article's DLC 1.4 tip deflection
 
 
 def _to_rust_mesh(mesh, properties: dict):
@@ -136,6 +149,9 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     n = assembler.dofs_count
     k_rows, k_cols, k_vals = assembler.assemble_k()
     m_rows, m_cols, m_vals = assembler.assemble_m()
+    K = coo_matrix(
+        (np.asarray(k_vals), (np.asarray(k_rows), np.asarray(k_cols))), shape=(n, n)
+    ).tocsr()
 
     root = {mesh.node_id_to_index[nid] for nid in mesh.get_node_set("RootNodes").node_ids}
     fixed = {6 * i + d for i in root for d in range(6)}
@@ -176,13 +192,62 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     freqs_ccx = np.sort(parse_ccx_frequencies(inp_path, n_modes=N_SEARCH))
 
     mass = float(assembler.total_elemental_mass())
+
+    # ── Static: a uniform flapwise load scaled so its root moment equals the
+    # article's DLC 1.4 maximum (90.4 MNm).  The load distribution is a proxy --
+    # DLC 1.4 is aero-elastic -- but with the root moment matched the tip
+    # deflection is the quantity the article reports (23.49 m).
+    root_indices = {mesh.node_id_to_index[nid] for nid in mesh.get_node_set("RootNodes").node_ids}
+    load_indices = np.array([i for i in range(len(mesh.nodes)) if i not in root_indices])
+    z = np.array([node.z for node in mesh.nodes])
+    tip_indices = np.where(z >= z.max() - 1e-6)[0]
+    f_per_node = ARTICLE_ROOT_MOMENT_NM / float(np.sum(z[load_indices]))
+
+    force = np.zeros(n, dtype=float)
+    for nd in load_indices:
+        force[6 * nd + FLAPWISE_DOF] = f_per_node
+    u = np.zeros(n, dtype=float)
+    u[free] = spsolve(K[np.ix_(free, free)], force[free])
+    static_ae = float(np.mean([u[6 * nd + FLAPWISE_DOF] for nd in tip_indices]))
+
+    mesh.add_node_set(NodeSet("span_load", {mesh.nodes[i] for i in load_indices}))
+    static_inp = workdir / "blade_static.inp"
+    write_ccx_mesh(
+        mesh,
+        str(static_inp),
+        properties=props,
+        boundary_nodeset="RootNodes",
+        load_nodeset="span_load",
+        load_vector=[0.0, f_per_node * len(load_indices), 0.0],
+        solver_type="LinearStatic",
+        quadratic=True,
+        span_direction=SPAN_DIRECTION,
+    )
+    static_result = run_ccx(static_inp, ccx_bin)
+    if static_result.returncode != 0:
+        fail_ccx(static_result, static_inp)
+    tip_labels = [int(i) + 1 for i in tip_indices]
+    tip_disp = parse_frd_disp(static_inp.with_suffix(".frd"), tip_labels)
+    static_ccx = float(np.mean([tip_disp[label][FLAPWISE_DOF] for label in tip_labels]))
+
+    print(
+        f"  static tip y: aero={static_ae:.2f} m ccx={static_ccx:.2f} m "
+        f"article={ARTICLE_TIP_DEFLECTION_M} m (root moment {ARTICLE_ROOT_MOMENT_NM:.1e} N.m)"
+    )
+
     print(f"\nblade: {mesh.node_count} nodes / {mesh.elements_count} elements / {n} dofs")
     print(f"  mass  {mass:,.0f} kg (article {ARTICLE_MASS_KG:,.0f}, report {REPORT_MASS_KG:,.0f})")
     print(f"  aero  {np.array2string(freqs_ae, precision=3)}")
     print(f"  ccx   {np.array2string(freqs_ccx, precision=3)}")
     print(f"  article {[f for f, _ in ARTICLE_FIRST_MODES]}")
 
-    return {"mass": mass, "ae": freqs_ae, "ccx": freqs_ccx}
+    return {
+        "mass": mass,
+        "ae": freqs_ae,
+        "ccx": freqs_ccx,
+        "static_ae": static_ae,
+        "static_ccx": static_ccx,
+    }
 
 
 def _matched_pairs(freqs_ae: np.ndarray, freqs_ccx: np.ndarray, n: int):
@@ -245,4 +310,30 @@ def test_blade_first_modes_match_article(blade: dict, index: int) -> None:
         f"{label}: computed={computed:.3f} Hz article={expected:.3f} Hz "
         f"rel={rel * 100:.2f}% (tol {ARTICLE_MODE_TOL * 100:.0f}%). "
         f"computed modes: {blade['ae'].tolist()}"
+    )
+
+
+def test_blade_static_tip_deflection_matches_ccx(blade: dict) -> None:
+    """Static flapwise tip deflection agrees with CCX S8R on the same load."""
+    aero = blade["static_ae"]
+    ccx = blade["static_ccx"]
+    rel = abs(aero - ccx) / abs(ccx)
+    assert rel < STATIC_TOL, (
+        f"static tip: aero={aero:.3f} m ccx={ccx:.3f} m rel={rel * 100:.2f}% "
+        f"(tol {STATIC_TOL * 100:.0f}%)"
+    )
+
+
+def test_blade_static_deflection_matches_article_dlc(blade: dict) -> None:
+    """Tip deflection under the article's root moment matches its DLC 1.4 value.
+
+    The load is a uniform flapwise proxy scaled so its root moment equals the
+    article's maximum DLC 1.4 value (90.4 MNm); the article reports 23.49 m for
+    the actual aero-elastic load.  This is the third leg of the static triple.
+    """
+    aero = blade["static_ae"]
+    rel = abs(aero - ARTICLE_TIP_DEFLECTION_M) / ARTICLE_TIP_DEFLECTION_M
+    assert rel < ARTICLE_STATIC_TOL, (
+        f"static tip: aero={aero:.2f} m article={ARTICLE_TIP_DEFLECTION_M} m "
+        f"rel={rel * 100:.2f}% (tol {ARTICLE_STATIC_TOL * 100:.0f}%)"
     )
