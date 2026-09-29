@@ -217,7 +217,11 @@ rules:
     tdd: false
     test_command: ""
   verify:
-    test_command: ""
+    test_command: >-
+      cd /home/efirvida/Desktop/dev/fem-shell/crates &&
+      cargo test -p aeroelast-core &&
+      cd /home/efirvida/Desktop/dev/fem-shell &&
+      python -m pytest -q
     build_command: >-
       source ~/miniconda3/etc/profile.d/conda.sh &&
       conda activate aeroelast-dev &&
@@ -232,7 +236,14 @@ rules:
         aeroelast-solvers cannot be built or verified in this environment
         (preCICE).
       - >-
-        The Python baseline has 2 known failures; do not report them as
-        new regressions.
+        As of commit 56bfd95 both suites are CLEAN, so any failure is a new
+        regression: Rust `cd crates && cargo test -p aeroelast-core` is 175
+        passed / 0 failed / 0 ignored, Python `python -m pytest -q` is 382
+        passed / 0 failed / 0 skipped. The 10 ignored instruments and the 2
+        Python failures of the old baseline were resolved and recorded in
+        `openspec/changes/mitc4plusd-faithful/design.md` section 13.
+      - >-
+        `cargo test -p aeroelast-core` costs about 125 s; 107 s of it is the
+        single promoted gate `n_gamma_rigid_body_zero_force_and_consistent_tangent`.
   archive:
     - Warn before merging destructive deltas.

@@ -973,7 +973,7 @@ Tier 2 is unchanged in *content*: the same test names, the same assertions, the 
 tolerances. What changes is **which element they exercise** (S3, the flip) and the Rust
 type the layout-bound tests construct (S2).
 
-### 5.1 Rust — `cd crates && cargo test -p aeroelast-core` (baseline 120 passed / 0 failed)
+### 5.1 Rust — `cd crates && cargo test -p aeroelast-core` (baseline 175 passed / 0 failed / 0 ignored)
 
 - **T2A / T2B (`mitc4.rs` module `tests`)** — `test_ke_global_leaves_all_six_rigid_body_modes_free`,
   `test_ke_global_has_exactly_six_zero_modes`,
@@ -1008,7 +1008,7 @@ type the layout-bound tests construct (S2).
 - `cargo test -p aeroelast-core materials::` — the laminate/composite unit tests; must
   pass with no edits (the preserved invariant).
 
-### 5.2 Python — `python -m maturin develop --release && python -m pytest -m "not slow" -q` (baseline 345 passed / 2 failed / 2 skipped)
+### 5.2 Python — `python -m maturin develop --release && python -m pytest -m "not slow" -q` (baseline 382 passed / 0 failed / 0 skipped)
 
 All names are the spec's, all assertions and tolerances are unmodified. The only thing
 that changes is the Rust kernel behind them.
