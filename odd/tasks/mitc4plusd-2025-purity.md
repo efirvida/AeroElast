@@ -1524,3 +1524,65 @@ match exactly (weights `1/2(1-2a_A+s+2a_A s^2)`, `a_C(-1+s^2)`, ... and the `1/4
 `(1+a_E r s)` of (21c)). And Eq. (22)'s statement that the SAME assumed field applies
 to the nonlinear membrane strain is consistent with our code applying it to the full
 tying metric difference, because Eq. (21) is linear in the tying values.
+
+### Iteration 25 — the polarisation extraction FAILED, and it names the real question
+
+**What was tried and reverted.** Step 1 (the split of iteration 24) is committed as
+`22e5c91` and verified: the six published cells of C&S 193 come out with the same
+digits as before, so the split reproduces the total exactly. Steps 2-3 followed the
+plan -- extract `B_L[a][i] = e_lin(e_i)[a]` and
+`N[a][i][j] = eta(e_i+e_j) - eta(e_i) - eta(e_j)`, then rebuild `n_gamma_fint_local`
+and `n_gamma_kt_local` with `B(u) = B_L + N u` and no finite difference anywhere --
+and were **reverted**, because two Rust tests fail with an informative number:
+
+```text
+test_kt_zero_matches_ke: K_T(u=0) vs K_linear, rel = 4.423e-2
+```
+
+**4.4% is the size of the drill block** (the instrument prints the same quantity as
+`4.023e-2`). So the extracted "linear part" is NOT the derivative at `u = 0`.
+
+**Root cause, and it is conceptual.** The polarisation identity needs `eta` to be
+QUADRATIC IN `U`. It is not, because `gl_state_after_local` rotates the directors
+with `rotate_vector_by_quaternion` -- the exact finite rotation of Eq. (26) -- so the
+directors are not linear in `theta`, `g` is not linear in `u`, and `"lin" = g0 . dg`
+carries rotation terms of order two and higher. The algebraic identity
+`a.b - a0.b0 = (a0.d + d.b0) + d.d` is still exact as an identity; what fails is the
+CLAIM that its first term is the linear part in `u`. With the exact rotation, the
+strain is `linear + quadratic + cubic + ...` in `u`, and Eq. (25)'s
+`delta _0 eta~ = delta U^T N U` -- whose `N` is a CONSTANT matrix -- presumes the
+quadratic one.
+
+**And that exposes a fidelity question that is bigger than the failing test.** The
+paper prints the strain as `_0 e~ + zeta _0 e~^b1 + zeta^2 _0 e~^b2` with the linear
+part of Eqs. (20b-d) and the QUADRATIC part of Eqs. (20e-g) (`u_m,i . u_m,j`, and
+`^t x . u_b2` with `u_b2 = -1/4 sum a_i h_i (alpha_i^2 + beta_i^2) ^t V_n^i`), while
+Eq. (26) supplies the director update. Read together, the PRINTED strain is
+`linear + quadratic` in `U` with all higher orders dropped -- which is what makes the
+printed `N` a constant matrix and Eq. (24a) self-consistent. Our element instead
+builds the strain from the EXACT rotation, so it computes `linear + quadratic +
+cubic + ...`: more than the paper prints, and outside the structure Eq. (25) assumes.
+
+**Two routes, and this is a maintainer decision:**
+
+* **(A) Derive the rotation's derivatives and chain-rule through them.** Exact with
+  respect to the strain the element currently computes, so NOTHING moves -- no
+  benchmark, no oracle. Needs per node the first and second derivatives of
+  `R(q(theta)) V`, which are analytic from `dq/dtheta`, `d2q/dtheta2` (sinc and its
+  second derivative), `dR/dq` (linear in `q`) and `d2R/dq2` (constant). Consequence:
+  `N` becomes `u`-dependent (the Hessian of a non-quadratic `eta` is not constant),
+  so the code would deviate from Eq. (25)'s structure while being exact for its own
+  strain.
+* **(B) Implement the printed strain literally.** Build the directors as
+  `V_n + u_b1 + u_b2` (Eqs. 5a-c) and the strain as the printed `linear + quadratic`
+  (Eqs. 20a-g, 21, 22, 23), which makes it EXACTLY quadratic in `U`, makes the
+  polarisation exact, and restores Eq. (25)'s constant `N` and (24a)'s structure. Cost:
+  the strain changes at `O(theta^3)`, so the external oracle must be re-verified --
+  the twisted-beam and pinched-cylinder cells may move and would have to be re-measured
+  against Tables 8/9 and 12/13.
+
+Recommendation: **(B)**, because this change's rule is "implement what the paper
+prints" and the printed formulation is the self-consistent one; `gl_state_after_local`'s
+exact rotation is faithful to Eq. (26) but it is what puts the strain outside the
+structure Eq. (25) needs. (A) is the conservative alternative that fixes the tests
+without touching behaviour.
