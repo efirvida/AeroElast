@@ -763,10 +763,11 @@ class TestABDMatrices:
     def test_isotropic_ab_d_ratios(self):
         """Isotropic single ply: D11 = A11 * h²/12."""
         h = 0.01
+        g_iso = E_ISO / (2.0 * (1.0 + 0.3))
         mat = OrthotropicMaterial(
             "IsoCheck",
             E=(E_ISO, E_ISO, E_ISO),
-            G=(E_ISO / (2 * (1 + 0.3)),) * 3,
+            G=(g_iso, g_iso, g_iso),
             nu=(0.3, 0.3, 0.3),
             rho=7850,
         )
@@ -849,7 +850,7 @@ class TestABDMatrices:
 
     def test_cs_positive_definite(self):
         """Cs (transverse shear) matrix must be positive definite for all layups."""
-        layups = [[0], [90], [45], [0, 90], [0, 90, 90, 0], [0, 45, -45, 90, 90, -45, 45, 0]]
+        layups = [[0.0], [90.0], [45.0], [0.0, 90.0], [0.0, 90.0, 90.0, 0.0], [0.0, 45.0, -45.0, 90.0, 90.0, -45.0, 45.0, 0.0]]
         for angles in layups:
             lam = create_laminate_from_angles(_ORTHO, 0.005 / len(angles), angles)
             eigvals = np.linalg.eigvalsh(lam.Cs)
