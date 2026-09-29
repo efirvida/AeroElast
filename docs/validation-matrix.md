@@ -12,8 +12,9 @@ reference and every margin visible.
 
 ## 1. How this matrix was produced
 
-- Working tree: `b2c62ff` (`fix(ko2017): make the assembled-K symmetry check relative,
-  and validate against the published columns`), clean before the run.
+- Working tree: `c7f2bbc`, clean (this refresh). The matrix was first produced at `b2c62ff`,
+  which is hundreds of commits behind; the per-row margins below were captured then and have
+  not all been re-measured since, which is stated again in section 2.
 - Interpreter: `~/miniconda3/envs/aeroelast-dev/bin/python`.
 - CalculiX: **2.23** from `~/miniconda3/envs/aeroelast-dev/bin/ccx`, on `PATH`, so the
   CCX parity tests ran instead of skipping.
@@ -23,10 +24,17 @@ reference and every margin visible.
   (The `-o addopts=` is needed because `pyproject.toml` adds `-v`.)
 - Printed margins were read from a second pass per file using `-s`; the number recorded
   in the *measured margin* column is the one the test itself printed.
-- Paper values were read from the recovered PDFs in `.sources/papers/` with
-  `pdftotext -layout`, not from second-hand notes. The Ko et al. 2017 benchmark tables
-  cited below are from
+- Paper values were read from the recovered PDFs in `.sources/papers/`, not from
+  second-hand notes. The Ko et al. 2017 benchmark tables cited below are from
   `.sources/papers/1-s2.0-S0045794917309550-main.pdf`.
+- **Correction to how those values were read, and what follows from it.** This matrix was
+  first assembled with `pdftotext -layout`, and the project's rule is the opposite: equations
+  are read from the rendered page with vision (`pdftoppm -png`), never by text extraction,
+  because the recovered scans have no text layer over their mathematics and text extraction
+  silently drops or reorders it. Numbers inside plain tables usually survive that, equations
+  do not. Treat therefore any single cell of this matrix as a **lead, not as evidence**: re-read
+  it from the PDF visually before relying on it. The cells this change re-read with vision are
+  named where they appear (the twisted-beam and cylindrical-patch columns of section 3).
 
 Column conventions:
 
@@ -51,44 +59,27 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-| file | tests | passed | skipped | prints margins |
-| --- | --- | --- | --- | --- |
-| `test_beam_shell_4cases_parity.py` | 9 | 9 | – | yes |
-| `test_bem_engine.py` | 0 collected | – | module skipped (`ccblade` missing) | – |
-| `test_bem_polars.py` | 18 | 18 | – | no |
-| `test_blade_mesh.py` | 0 collected | – | empty parameter set | – |
-| `test_composite_b_coupling.py` | 4 | 4 | – | no |
-| `test_composite_beam_parity.py` | 5 | 5 | – | partly |
-| `test_force_projection.py` | 10 | 10 | – | no |
-| `test_fsi_structural_report.py` | 1 | 1 | – | no |
-| `test_isotropic_shell_parity.py` | 1 | 1 | – | yes |
-| `test_ko2017_performance.py` | 31 | 31 | – | yes |
-| `test_large_rotation_benchmarks.py` | 7 | 7 | – | no |
-| `test_mass_matrix_validation.py` | 15 | 15 | – | no (`logger` only) |
-| `test_material_suite.py` | 44 | 44 | – | no |
-| `test_mitc3_benchmarks.py` | 8 | 8 | – | no |
-| `test_orthotropic_shell_parity.py` | 3 | 3 | – | yes |
-| `test_quad_elements.py` | 21 | 21 | – | no |
-| `test_rotor_inertial.py` | 38 | 38 | – | no |
-| `test_rotor_performance_report.py` | 1 | 1 | – | no |
-| `test_rotor_physical_consistency.py` | 20 | 20 | – | no |
-| `test_rotor_rust_parity.py` | 49 | 49 | – | no |
-| `test_rust_assembler.py` | 18 | 18 | – | no |
-| `test_rust_composite.py` | 22 | 22 | – | no |
-| `test_rust_modal.py` | 10 | 10 | – | yes |
-| `test_shell_analytical_validation.py` | 11 | 11 | – | no |
-| `test_shell_comprehensive.py` | 7 | 7 | – | partly |
-| `test_shell_convergence.py` | 2 | 2 | – | yes |
-| `test_shell_validation_fixed.py` | 7 | 7 | – | yes |
-| `test_stress_stiffened_solver.py` | 14 | 14 | – | no |
+Measured at `c7f2bbc` with `python -m pytest -q` -> **386 passed, 0 failed, 0 skipped**,
+and reproduced by `python -m pytest tests --collect-only -q` -> `386 tests collected`.
 
-Skips, both verified:
+Two skips that the first version of this matrix recorded as verified are **resolved**, and
+the two tests they hid now run:
 
-- `tests/test_bem_engine.py:16` — `ccblade not installed`.
-- `tests/test_blade_mesh.py:32` — `got empty parameter set for (blade_file)`, because
-  `blades_path` (`examples/reference_turbines/yamls`) does not exist. A copy of
-  `IEA-15-240-RWT.yaml` does exist at `tests/IEA-15-240-RWT.yaml`, and it is not in
-  `conftest._BLADE_YAML_CANDIDATES` either, so the whole blade-mesh path is unexercised.
+| file | then | now |
+| --- | --- | --- |
+| `test_bem_engine.py` | 0 collected, module skipped (`ccblade` missing) | **14 passed** — CCBlade 1.3.1 is installed in the environment |
+| `test_blade_mesh.py` | 0 collected, empty parameter set | **1 passed** — the module scanned a directory that does not exist and never ran; it now scans its own directory and raises if the parameter set is empty |
+
+Three files were added by the change that produced this refresh: `test_mitc4plusd_traceability.py`
+(3, the documentation-to-code gate) and `test_laminate_invariant_guard.py` (1, the composite
+surface guard).
+
+**Known drift, stated rather than papered over.** The per-file table that used to stand here was
+captured at `b2c62ff` and has drifted as the suite changed: `test_rust_assembler.py` is 19 now,
+not the 18 it recorded, because the MITC4 case of `test_kt_at_zero_equals_k` was removed while
+the file gained tests. Rather than restate a table that would drift again, the authoritative
+number is the total above, which `pytest --collect-only -q` reproduces in seconds. The per-file
+sections from section 3 onward remain the audit trail of the run that first built them.
 
 ## 3. `tests/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)
 
@@ -509,7 +500,7 @@ Grouped by defect class, with the file and the evidence.
 | `test_rotor_rust_parity.py` | `test_call_without_precice_raises_runtime_or_os_error` | accepts any exception except `TypeError`/`AttributeError`; `_PRECICE_ERRORS` is defined and unused |
 | `test_orthotropic_shell_parity.py` | `test_orthotropic_axial` | applies a transverse load |
 | `test_ko2017_performance.py` | `test_3_2_circular_plate_tables_6_to_7` (SS rows) | validates against Table 6, not Table 7 |
-| `test_ko2017_performance.py` | `test_3_5_twisted_beam_tables_12_to_13` | the docstring says the thin cases "are marked xfail"; no xfail marker is applied (`_TWISTED_BEAM_CASES` has `xfail_reason=None` for all four) |
+| `test_ko2017_performance.py` | `test_3_5_twisted_beam_tables_12_to_13` | **RESOLVED** — the docstring and the code now agree: the four cases run with no xfail marker and `_TWISTED_BEAM_CASES` carries `xfail_reason=None` throughout, which is what this row used to flag as a mismatch |
 
 ### 9.4 Tolerances with no stated justification, tolerance/comment mismatches, dead conditionals
 
@@ -616,7 +607,10 @@ The element is implemented but not enabled (`docs/formulations/shell-elements.md
   `w_ref = 0.3024`.
 - The target for an N=16 implementation is therefore **1.0075**, against the **0.9545**
   the unsmoothed element reaches (10.1). The gap is ~5.3% of the reference, and it is the
-  quantity the pending work should be measured against.
+  quantity the smoothed variant's refinement should be measured against (the variant IS
+  implemented -- `elements/smoothing.rs` plus the union layout in `mitc3.rs`; see
+  `docs/formulations/shell-elements.md` section 4.3 -- so this is a comparison target, not
+  pending work).
 - Caveat, stated rather than assumed: Lee & Lee measure at "point B" on Mesh I, while 10.1
   and the live test measure Ko's point A on the regular mesh. The two papers agree on the
   problem definition (`L = 25`, `R = 25`, `t/L = 1/100`, self-weight 90 per unit area,
@@ -630,9 +624,10 @@ The element is implemented but not enabled (`docs/formulations/shell-elements.md
 - Citations and their verification status: `docs/references.md` (Ko et al. 2017 Table-10
   workbench paper, Lee & Lee 2019, Dvorkin & Bathe 1984, Hughes et al. 1977, Ko/Bathe/Zhang
   2025).
-- Element formulation, DOF ordering, rotation convention, SRI and drilling: 
-  `docs/formulations/shell-elements.md` §1, §2 (MITC4+), §3 (MITC3+), §4 (deviations and
-  pending work).
+- Element formulation, DOF ordering, rotation convention and the drilling degree of freedom:
+  `docs/formulations/shell-elements.md` §1 (conventions), §2 (MITC4+/D, the production shell
+  element, including §2.5 for the drilling strain and §2.6 for what the element does NOT
+  contain), §3 (MITC3+), §4 (limitations, history and open questions).
 - Constitutive and CLT: `docs/formulations/materials.md` §2 (A, B, D, `Cs`), §3 (Q, Qbar),
   §4 (ABD to shell mapping).
 - Solvers and time integration: `docs/formulations/solvers.md` §2 (Newmark-beta).
