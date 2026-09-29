@@ -198,7 +198,7 @@ class TestTangentStiffness:
 
         MITC4 is deliberately out of scope here, and the reason is a measured
         limitation, not an oversight (see `odd/tasks/mitc4plusd-2025-purity.md`
-        iterations 24-29 and openspec/changes/mitc4plusd-faithful/design.md
+        iterations 24-29 and openspec/changes/archive/2026-09-29-mitc4plusd-faithful/design.md
         "Known limitations"): this element builds `B(0)` by finite differences at
         step `N_GAMMA_B_H = 2e-5`, so `KT(0)` matches `K` to 6.3e-12 RELATIVE on
         a matrix of norm 4.15e9 -- the FD noise floor. The old assertion paired

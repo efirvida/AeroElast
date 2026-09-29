@@ -890,7 +890,7 @@ fn covariant_membrane_b_row(
 /// Appendix A Eq. (A.7), p. 416, is Eq. (21) with the printed `B_1..B_5`
 /// substituted and retains the `e_rs^m|bil` terms, and substituting
 /// Eqs. (25)/(26) into the assumed field reproduces (27a-c) term for term
-/// (audit record: `openspec/changes/mitc4plusd-faithful/fidelity-audit.md`,
+/// (audit record: `openspec/changes/archive/2026-09-29-mitc4plusd-faithful/fidelity-audit.md`,
 /// §B-audit record, 2026-09-24). The `(1 + a_E r s)` coefficient of Eq. (27c) is
 /// the coefficient of the sampled `e_rs^m(E)`, not of `e_rs^m|bil`.
 /// The engineering shear `2 e_rs` is applied by

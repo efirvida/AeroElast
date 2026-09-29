@@ -375,7 +375,7 @@ argument is void too: on a flat rectangle `x_d = 0`, so `e_rs^m|bil = 0` and
 Eq. (22) requires `ẽ_rs^m|bil = 0` — no contradiction. The implementation
 implements Eq. (27a-c), which is the printed closed form and is correct; only the
 motivating claim was wrong. Full record:
-`openspec/changes/mitc4plusd-faithful/fidelity-audit.md` §B-audit record.
+`openspec/changes/archive/2026-09-29-mitc4plusd-faithful/fidelity-audit.md` §B-audit record.
 
 **Note F1 (2026-09-23, WU0) — Eq. (27a–c) is the closed form of Eqs. (21)+(26).**
 Substituting Eq. (25) into Eq. (26) and collecting terms gives Eq. (27a–c)

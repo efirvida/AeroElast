@@ -4,7 +4,7 @@ The composite transverse shear is the one place where this repository deliberate
 departs from the "no numerical factor" rule of the element formulation: the shell
 element consumes the UNCORRECTED plain section integral of the shear stiffness, and
 the classical ``5/6`` factor stays in the material layer where a user can see and
-change it (ADRs in ``openspec/changes/mitc4plusd-faithful/design.md``). That split
+change it (ADRs in ``openspec/changes/archive/2026-09-29-mitc4plusd-faithful/design.md``). That split
 only holds while the surface carrying it keeps its shape, which is what this test
 pins:
 
