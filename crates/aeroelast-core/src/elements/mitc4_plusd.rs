@@ -2380,68 +2380,52 @@ pub fn gl_assumed_transverse_shear(
 // same construction is used for the internal force, so the pair is consistent
 // by construction and Eq. (24a) holds for the implemented strains.
 
-/// The 11-component local strain vector of the N-gamma element at one surface
-/// point `(r, s)`: the **incremental** assumed in-plane strain of §2.4,
-/// Ko, Lee & Bathe (2017), C&S 185:1-14, pp. 6-7.
+/// The N-gamma local strain of Eqs. (20a)-(23), SPLIT into its linear and its
+/// quadratic (nonlinear) part.
+///
+/// WHY THE SPLIT, AND WHY IT IS EXACT. The paper's Eq. (25) defines the tangent's
+/// two operators by their property -- `_0 e~_ij = B_ij U_e` for the linear part,
+/// `delta _0 eta~_ij = delta U_e^T N_ij U_e` for the nonlinear one -- and prints
+/// neither matrix. Both are extracted exactly from this split by
+/// [`n_gamma_b_linear`] and [`n_gamma_n_matrix`], with no finite difference and no
+/// hand derivation.
+///
+/// The split is an algebraic identity, not a difference quotient. Every quantity
+/// below is a difference of products of two vectors, `a . b - a0 . b0`, and with
+/// `d = a - a0` that is exactly
 ///
 /// ```text
-/// [ _0 e~_11^m, _0 e~_22^m, 2 _0 e~_12^m,                    Eq. (22) + (21a-c),
-///   (2/h) _0 e_11^b1, (2/h) _0 e_22^b1, (2/h) 2 _0 e_12^b1,  Eq. (20a) zeta^1,
-///   (4/h^2) _0 e_11^b2, ... , (4/h^2) 2 _0 e_12^b2,          Eq. (20a) zeta^2,
-///   _0 e~_r zeta, _0 e~_s zeta ]                             Eq. (19).
+/// a . b - a0 . b0 = (a0 . d + d . b0)  +  d . d ,
 /// ```
 ///
-/// Each entry is the printed equation:
+/// a term linear in the increment plus a term quadratic in it. The same identity
+/// covers the metric form `2 a . a - 2 a0 . a0 = (4 a0 . d) + (2 d . d)` and the
+/// cross form `2 a . b - 2 a0 . b0 = 2(a0 . d + d . b0) + 2 d . d`, so the five
+/// tying metrics of Eqs. (15b-d) split the same way. The assumed field of Eq. (21)
+/// and the Eq. (23) map are linear, so they carry the split through unchanged, and
+/// the drill row of Eq. (22a) is linear and contributes nothing to the quadratic
+/// part.
 ///
-/// * Eq. (20a), p. 6 left:
-///   `_0 e_ij = _0 e_ij^m + zeta _0 e_ij^b1 + zeta^2 _0 e_ij^b2` and
-///   `_0 eta_ij = _0 eta_ij^m + zeta _0 eta_ij^b1 + zeta^2 _0 eta_ij^b2`
-///   (`i, j = 1, 2`). The `zeta^0` slice is Eqs. (20b) + (20e),
-///   `_0 e_ij^m = 1/2(^t x_{m,i} . u_{m,j} + ^t x_{m,j} . u_{m,i})` and
-///   `_0 eta_ij^m = 1/2 u_{m,i} . u_{m,j}`; the `+1`/`-1` slices are
-///   Eqs. (20c) + (20f) and Eqs. (20d) + (20g); the `u_{b2}` terms of (20f)/(20g)
-///   are the ones the old bounded path lacked and are present here.
-/// * Eq. (21a-c), p. 7 left, applied to the incremental tying strains per
-///   Eq. (22), p. 7 left: the assumed in-plane field with the coefficient
-///   structure of Eq. (15e) but only the **current** coefficients `^t a_A..^t a_E`
-///   (the state's geometry), the tying points `(A)..(E)` of Fig. 4.
-/// * Eq. (23), p. 7 right: the covariant-to-local map with the `^0` metric and
-///   the `^0` frame (`[[covariant_to_local_mapping]]` of `j_loc_at(pre, r, s)`).
-/// * Eq. (19), p. 5/6: the assumed incremental transverse shear at the MITC4
-///   tying points, mapped by [`shear_covariant_to_local`].
-///
-/// The strain at `zeta` is evaluated as the exact Green-Lagrange increment of
-/// Eqs. (7)/(8), `_0 e_ij(zeta) = 1/2(^{t+dt}g_i . ^{t+dt}g_j - ^t g_i . ^t g_j)`,
-/// whose point-wise expansion IS Eqs. (20b-g): its `zeta^2` coefficient,
-/// `1/2(u_{b,i} . u_{b,j} + ^t x_{b,i} . u_{b2,j} + ^t x_{b,j} . u_{b2,i})`, is
-/// Eq. (20g) plus the Eq. (20d) pair under `u_b = u_{b1} + u_{b2}` of Eq. (5c).
-/// The director increment is the exact rotation of Eq. (4c)/(26) (see
-/// [`gl_state_after_local`]) instead of its printed truncation `u_{b1} + u_{b2}`:
-/// the two agree through the paper's retained order `O(phi^2)` and differ only at
-/// `O(phi^3)`, and the exact form is what leaves every slice invariant to
-/// round-off under a finite rigid-body rotation.
-///
-/// The membrane slice adds the 2025 drill-membrane strain to the Eq. (22)
-/// membrane row (Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (22a), p. 10),
-/// exactly as the linear element does.
+/// [`n_gamma_local_strain`] is the elementwise sum of the two halves, which is what
+/// makes the split checkable: the whole suite pins the total.
 ///
 /// Because every slice is an increment about `state` and the assumed field's
 /// coefficients and tying values are both taken from `state` and frozen, the
-/// `u = 0` limit of [`n_gamma_b_matrix`] is the element's LINEAR strain operator
-/// -- the Eq. (15a) total form differenced one assumed total per configuration
-/// and its `u = 0` derivative therefore carried the Eq. (15e) coefficient-change
-/// term (which is `O(1)` in the initial metric, not `O(u)`).
+/// `u = 0` limit of the linear part is the element's LINEAR strain operator -- the
+/// Eq. (15a) total form differenced one assumed total per configuration and its
+/// `u = 0` derivative therefore carried the Eq. (15e) coefficient-change term
+/// (which is `O(1)` in the initial metric, not `O(u)`).
 ///
 /// A finite rigid-body field leaves every metric (and therefore every slice)
 /// invariant to round-off, so the assembled force of [`n_gamma_fint_local`] is
 /// exactly zero for translations and finite rotations.
-fn n_gamma_local_strain(
+fn n_gamma_local_strain_parts(
     pre: &Mitc4PlusDPrecomputed,
     state: &GlCurrentState,
     u_local: &Vec24,
     r: f64,
     s: f64,
-) -> [f64; 11] {
+) -> ([f64; 11], [f64; 11]) {
     let next = gl_state_after_local(pre, state, u_local);
     // Eq. (23): the covariant-to-local map uses the `^0` metric and `^0` frame.
     let tmap = covariant_to_local_mapping(&j_loc_at(pre, r, s));
@@ -2462,78 +2446,156 @@ fn n_gamma_local_strain(
     let (_c_r, _c_s, _d, cur_coeff) =
         compute_membrane_coefficients_2017(&cur_vecs[2], &m_r, &m_s);
     let (next_vecs, _n_next, _m_r_next, _m_s_next) = gl_current_characteristic_vectors(&next);
-    let cur_tie = gl_tying_metrics(&cur_vecs[0], &cur_vecs[1], &cur_vecs[2]);
-    let next_tie = gl_tying_metrics(&next_vecs[0], &next_vecs[1], &next_vecs[2]);
-    let mut dtie = [0.0f64; 5];
-    for k in 0..5 {
-        dtie[k] = 0.25 * (next_tie[k] - cur_tie[k]);
+
+    // Eqs. (15b-d): the five tying metrics are `2 a . a` (rr at A and B), `2 a . a`
+    // (ss at C and D) and `2 a . b` (rs at E), with the Eq. (13) mid-surface
+    // tangents `a = x_r + s x_d` and `b = x_s + r x_d`. Split exactly.
+    let mid = |v: &[Vector3<f64>; 3], r_t: f64, s_t: f64| (v[0] + s_t * v[2], v[1] + r_t * v[2]);
+    let tie_split = |r_t: f64, s_t: f64, kind: usize| -> (f64, f64) {
+        let (a0, b0) = mid(&cur_vecs, r_t, s_t);
+        let (a1, b1) = mid(&next_vecs, r_t, s_t);
+        let da = a1 - a0;
+        let db = b1 - b0;
+        match kind {
+            0 => (4.0 * a0.dot(&da), 2.0 * da.dot(&da)),
+            1 => (4.0 * b0.dot(&db), 2.0 * db.dot(&db)),
+            _ => (2.0 * (a0.dot(&db) + da.dot(&b0)), 2.0 * da.dot(&db)),
+        }
+    };
+    // Fig. 4's tying points A(0,1), B(0,-1), C(1,0), D(-1,0), E(0,0) with the
+    // metric component each one supplies: rr, rr, ss, ss, rs.
+    let tying_points: [(f64, f64, usize); 5] = [
+        (0.0, 1.0, 0),
+        (0.0, -1.0, 0),
+        (1.0, 0.0, 1),
+        (-1.0, 0.0, 1),
+        (0.0, 0.0, 2),
+    ];
+    let mut dtie_lin = [0.0f64; 5];
+    let mut dtie_nl = [0.0f64; 5];
+    for (k, &(r_t, s_t, kind)) in tying_points.iter().enumerate() {
+        let (lin, nl) = tie_split(r_t, s_t, kind);
+        dtie_lin[k] = 0.25 * lin;
+        dtie_nl[k] = 0.25 * nl;
     }
-    let am = gl_assumed_mid_metric(&cur_coeff, &dtie, r, s);
+    let am_lin = gl_assumed_mid_metric(&cur_coeff, &dtie_lin, r, s);
+    let am_nl = gl_assumed_mid_metric(&cur_coeff, &dtie_nl, r, s);
     // Engineering shear `2 _0 e~_12` for the Eq. (23) mapping, matching
     // [`b_membrane_2017`].
-    let m_loc = tmap * Vector3::new(am[0], am[1], 2.0 * am[2]);
+    let m_loc_lin = tmap * Vector3::new(am_lin[0], am_lin[1], 2.0 * am_lin[2]);
+    let m_loc_nl = tmap * Vector3::new(am_nl[0], am_nl[1], 2.0 * am_nl[2]);
     // Ko, Bathe & Zhang (2025), C&S 308:107622, Eq. (22a): the drill-membrane
-    // strain is added to the membrane row (linear, constant operator).
+    // strain is added to the membrane row (linear, constant operator), so it lands
+    // entirely in the linear part.
     let md = b_drill_membrane_2025(pre, r, s) * u_local;
 
     // Eq. (20a): the exact covariant through-thickness slices, engineering shear
     // triple `[e_rr, e_ss, 2 e_rs]` for the Eq. (23) mapping. The reference
     // configuration is `state` (`^t`), so this is the increment of Eqs. (7)/(8)
     // and not the total TL strain about `^0`.
-    let cov = |zeta: f64| -> Vector3<f64> {
+    let cov_parts = |zeta: f64| -> (Vector3<f64>, Vector3<f64>) {
         let (g_r, g_s, _) =
             compute_j3d_enriched(&next.coords, &next.vn, &state.a_i, r, s, zeta);
         let (g0_r, g0_s, _) =
             compute_j3d_enriched(&state.coords, &state.vn, &state.a_i, r, s, zeta);
-        Vector3::new(
-            0.5 * (g_r.dot(&g_r) - g0_r.dot(&g0_r)),
-            0.5 * (g_s.dot(&g_s) - g0_s.dot(&g0_s)),
-            g_r.dot(&g_s) - g0_r.dot(&g0_s),
+        let dr = g_r - g0_r;
+        let ds = g_s - g0_s;
+        (
+            Vector3::new(
+                g0_r.dot(&dr),
+                g0_s.dot(&ds),
+                g0_r.dot(&ds) + dr.dot(&g0_s),
+            ),
+            Vector3::new(0.5 * dr.dot(&dr), 0.5 * ds.dot(&ds), dr.dot(&ds)),
         )
     };
-    let e0 = cov(0.0);
-    let ep = cov(1.0);
-    let em = cov(-1.0);
-    let b1_loc = tmap * (0.5 * (ep - em));
-    let b2_loc = tmap * (0.5 * (ep + em) - e0);
+    let (e0_lin, e0_nl) = cov_parts(0.0);
+    let (ep_lin, ep_nl) = cov_parts(1.0);
+    let (em_lin, em_nl) = cov_parts(-1.0);
+    let b1_lin = tmap * (0.5 * (ep_lin - em_lin));
+    let b1_nl = tmap * (0.5 * (ep_nl - em_nl));
+    let b2_lin = tmap * (0.5 * (ep_lin + em_lin) - e0_lin);
+    let b2_nl = tmap * (0.5 * (ep_nl + em_nl) - e0_nl);
 
     // Eq. (19): assumed transverse shear on the incremental tying shears.
-    let tie_rz = |rt: f64, st: f64| {
+    let tie_rz_parts = |rt: f64, st: f64| -> (f64, f64) {
         let (g_r, _, g_t) =
             compute_j3d_enriched(&next.coords, &next.vn, &state.a_i, rt, st, 0.0);
         let (g0_r, _, g0_t) =
             compute_j3d_enriched(&state.coords, &state.vn, &state.a_i, rt, st, 0.0);
-        0.5 * (g_r.dot(&g_t) - g0_r.dot(&g0_t))
+        let dr = g_r - g0_r;
+        let dt = g_t - g0_t;
+        (0.5 * (g0_r.dot(&dt) + dr.dot(&g0_t)), 0.5 * dr.dot(&dt))
     };
-    let tie_sz = |rt: f64, st: f64| {
+    let tie_sz_parts = |rt: f64, st: f64| -> (f64, f64) {
         let (_, g_s, g_t) =
             compute_j3d_enriched(&next.coords, &next.vn, &state.a_i, rt, st, 0.0);
         let (_, g0_s, g0_t) =
             compute_j3d_enriched(&state.coords, &state.vn, &state.a_i, rt, st, 0.0);
-        0.5 * (g_s.dot(&g_t) - g0_s.dot(&g0_t))
+        let ds = g_s - g0_s;
+        let dt = g_t - g0_t;
+        (0.5 * (g0_s.dot(&dt) + ds.dot(&g0_t)), 0.5 * ds.dot(&dt))
     };
-    let e_rz = 0.5 * (1.0 + s) * tie_rz(0.0, 1.0) + 0.5 * (1.0 - s) * tie_rz(0.0, -1.0);
-    let e_sz = 0.5 * (1.0 + r) * tie_sz(1.0, 0.0) + 0.5 * (1.0 - r) * tie_sz(-1.0, 0.0);
+    let rz_top = tie_rz_parts(0.0, 1.0);
+    let rz_bot = tie_rz_parts(0.0, -1.0);
+    let sz_right = tie_sz_parts(1.0, 0.0);
+    let sz_left = tie_sz_parts(-1.0, 0.0);
+    let (w_top, w_bot) = (0.5 * (1.0 + s), 0.5 * (1.0 - s));
+    let (w_right, w_left) = (0.5 * (1.0 + r), 0.5 * (1.0 - r));
+    let e_rz_lin = w_top * rz_top.0 + w_bot * rz_bot.0;
+    let e_rz_nl = w_top * rz_top.1 + w_bot * rz_bot.1;
+    let e_sz_lin = w_right * sz_right.0 + w_left * sz_left.0;
+    let e_sz_nl = w_right * sz_right.1 + w_left * sz_left.1;
     // Eq. (23): mapped with the `^0` metric and `^0` frame, as the linear path's
     // [`b_shear_mitc4`] does.
     let (g0_r0, g0_s0, g0_t0) =
         compute_j3d_enriched(&pre.initial_coords_3d, &pre.vn, &pre.a_i, r, s, 0.0);
     let tshear = shear_covariant_to_local(&g0_r0, &g0_s0, &g0_t0, &pre.e1, &pre.e2, &pre.e3);
-    let gamma = tshear * Vector2::new(e_rz, e_sz);
+    let gamma_lin = tshear * Vector2::new(e_rz_lin, e_sz_lin);
+    let gamma_nl = tshear * Vector2::new(e_rz_nl, e_sz_nl);
 
-    [
-        m_loc[0] + md[0],
-        m_loc[1] + md[1],
-        m_loc[2] + md[2],
-        s1 * b1_loc[0],
-        s1 * b1_loc[1],
-        s1 * b1_loc[2],
-        s2 * b2_loc[0],
-        s2 * b2_loc[1],
-        s2 * b2_loc[2],
-        gamma[0],
-        gamma[1],
-    ]
+    (
+        [
+            m_loc_lin[0] + md[0],
+            m_loc_lin[1] + md[1],
+            m_loc_lin[2] + md[2],
+            s1 * b1_lin[0],
+            s1 * b1_lin[1],
+            s1 * b1_lin[2],
+            s2 * b2_lin[0],
+            s2 * b2_lin[1],
+            s2 * b2_lin[2],
+            gamma_lin[0],
+            gamma_lin[1],
+        ],
+        [
+            m_loc_nl[0],
+            m_loc_nl[1],
+            m_loc_nl[2],
+            s1 * b1_nl[0],
+            s1 * b1_nl[1],
+            s1 * b1_nl[2],
+            s2 * b2_nl[0],
+            s2 * b2_nl[1],
+            s2 * b2_nl[2],
+            gamma_nl[0],
+            gamma_nl[1],
+        ],
+    )
+}
+
+/// [`n_gamma_local_strain_parts`]' two halves summed: the strain vector
+/// `[m(3), b1(3), b2(3), gamma(2)]` consumed by the internal force and by the
+/// geometric term's stress.
+fn n_gamma_local_strain(
+    pre: &Mitc4PlusDPrecomputed,
+    state: &GlCurrentState,
+    u_local: &Vec24,
+    r: f64,
+    s: f64,
+) -> [f64; 11] {
+    let (lin, nl) = n_gamma_local_strain_parts(pre, state, u_local, r, s);
+    core::array::from_fn(|a| lin[a] + nl[a])
 }
 
 /// The next configuration of one local 24-DOF increment `u_local`: Eq. (4b) for
