@@ -210,6 +210,9 @@ def _laminate_to_mat_dict(laminate) -> dict:
         "b_coupling": laminate.B.ravel().tolist(),
         "cb": laminate.D.ravel().tolist(),
         "cs": laminate.Cs.ravel().tolist(),
+        # ADR-1 (amended): the element's shear block consumes the UNCORRECTED
+        # section stiffness, not `Cs`.
+        "cs_uncorrected": laminate.shear_stiffness_uncorrected().ravel().tolist(),
         "thickness": h,
         "e_equiv": e_equiv,
         "mass_per_area": mpa,

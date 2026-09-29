@@ -162,6 +162,9 @@ def test_b_coupling_produces_bending_under_axial_load():
         "b_coupling": list(B_mat.flatten()),  # ← the new field
         "cb": list(D.flatten()),
         "cs": [Cs[0, 0], Cs[0, 1], Cs[1, 0], Cs[1, 1]],
+        # ADR-1 (amended): the element's shear block consumes the UNCORRECTED
+        # section stiffness, not `cs` -- this `Cs` carries the explicit k_s factor.
+        "cs_uncorrected": (Cs / k_s).ravel().tolist(),
         "thickness": H,
         "e_equiv": e_equiv,
         "mass_per_area": mass_per_area,
@@ -256,6 +259,9 @@ def test_symmetric_laminate_no_bending_under_axial_load():
         "b_coupling": list(B_mat.flatten()),
         "cb": list(D.flatten()),
         "cs": [Cs[0, 0], Cs[0, 1], Cs[1, 0], Cs[1, 1]],
+        # ADR-1 (amended): the element's shear block consumes the UNCORRECTED
+        # section stiffness, not `cs` -- this `Cs` carries the explicit k_s factor.
+        "cs_uncorrected": (Cs / k_s).ravel().tolist(),
         "thickness": H,
         "e_equiv": e_equiv,
         "mass_per_area": rho_eq * H,
@@ -333,6 +339,9 @@ def test_b_coupling_sign():
         "b_coupling": list(B_mat.flatten()),
         "cb": list(D.flatten()),
         "cs": [Cs[0, 0], Cs[0, 1], Cs[1, 0], Cs[1, 1]],
+        # ADR-1 (amended): the element's shear block consumes the UNCORRECTED
+        # section stiffness, not `cs` -- this `Cs` carries the explicit k_s factor.
+        "cs_uncorrected": (Cs / k_s).ravel().tolist(),
         "thickness": H,
         "e_equiv": e_equiv,
         "mass_per_area": 1600.0 * H,

@@ -293,6 +293,10 @@ def _make_laminate_mat(E1: float, E2: float, G12: float, nu12: float, thickness:
         "b_coupling": cb_coupling.tolist(),
         "cb": cb.tolist(),
         "cs": cs.tolist(),
+        # ADR-1 (amended): the element's shear block consumes the UNCORRECTED
+        # section stiffness, not `Cs` -- `Cs` carries the section's own
+        # correction inside the energy-equivalence formula.
+        "cs_uncorrected": laminate.shear_stiffness_uncorrected().ravel().tolist(),
         "thickness": h,
         "e_equiv": A[0, 0] / h,
         "mass_per_area": mass_per_area,
