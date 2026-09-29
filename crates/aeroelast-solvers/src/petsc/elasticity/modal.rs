@@ -191,5 +191,11 @@ unsafe fn petsc_mat_get_size(
     m: *mut i32,
     n: *mut i32,
 ) -> Result<(), PetscError> {
-    check(ffi::MatGetSize(mat, m, n), "MatGetSize")
+    // `ffi::MatGetSize` is an `extern "C"` declaration, so the CALL is the
+    // unsafe operation and it is named in an explicit block rather than relying
+    // on the implicit one an `unsafe fn` body carries (Rust 2024
+    // `unsafe_op_in_unsafe_fn`). The four `from_raw` constructors elsewhere in
+    // this crate are deliberately NOT wrapped: their bodies are safe (`Self { raw }`)
+    // and an `unsafe` block there would only produce `unused_unsafe`.
+    unsafe { check(ffi::MatGetSize(mat, m, n), "MatGetSize") }
 }
