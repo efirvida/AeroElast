@@ -64,9 +64,11 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-Measured at `e879eba` with `python -m pytest -q` -> **386 passed, 0 failed, 0 skipped**,
-and reproduced by `python -m pytest --collect-only -q` -> `386 tests collected`. The Rust side
-is green too: `cargo test --manifest-path crates/Cargo.toml -p aeroelast-core` -> **155 passed,
+Measured on this tree with `python -m pytest -q` -> **411 passed, 0 failed, 0 skipped**:
+386 at `e879eba` plus `test_composite_layup_parity.py` (18) and
+`test_blade_iea15mw_validation.py` (7). Reproduced by `python -m pytest --collect-only -q`
+-> `411 tests collected`. The Rust side is green too:
+`cargo test --manifest-path crates/Cargo.toml -p aeroelast-core` -> **155 passed,
 0 failed, 0 ignored** (the Cargo workspace root is `crates/`, not the repository root).
 
 Two skips that the first version of this matrix recorded as verified are **resolved**, and
@@ -91,6 +93,11 @@ were captured at `b2c62ff` and several no longer held. Corrected in the section 
 Four files the first version did not cover at all are added: `test_large_rotation_benchmarks.py`
 (7) and `test_mitc3_benchmarks.py` (8) in section 5.4, `test_mitc4plusd_traceability.py` (3) and
 `test_laminate_invariant_guard.py` (1) in section 6.9.
+
+Two more files were added after the first refresh and are described in 4.7 and 4.8:
+`test_composite_layup_parity.py` (18, composite layups and their modal frequencies against
+CCX S8R) and `test_blade_iea15mw_validation.py` (7, the IEA 15 MW blade against CCX and the
+Escalera Mendoza 2023 article).
 
 ## 3. `tests/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)
 
@@ -217,6 +224,41 @@ with a "37.7% AeroElast gap on the new shell element"; that number was carried o
 pre-flip element and has no measured provenance at `e879eba`, so it was removed rather than
 repeated. The module skips cleanly when CalculiX is absent (`conftest.ccx_bin_or_skip`, path
 overridable with `CCX_BIN`).
+
+### 4.7 `test_composite_layup_parity.py` (18)
+
+Five layups of the same clamped-free composite strip (CFRP, L=1.0 m, B=0.1 m, t=5 mm),
+compared against **CCX 2.23 S8R** with `*SHELL SECTION, COMPOSITE` on the same mesh. Load is
+the total resultant distributed over the free edge and the measured quantity is the edge mean,
+so the comparison is a structural response rather than a single-node local effect. This is the
+CCX reference the composite material suite was missing; the layups are the ones that had only
+CLT-analytical or invariant checks.
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_axial_extension_matches_ccx[5 layups]` | mean axial extension under a 1000 N edge resultant, 4x10 mesh | **CCX 2.23, S8R** composite section | 2.5% | 0.10% (`uni_0`) to 1.83% (`uni_90`) | the `uni_90` limit is the soft axial direction |
+| `test_transverse_bending_matches_ccx[5 layups]` | mean out-of-plane deflection under a 100 N edge resultant | **CCX 2.23, S8R** | 1% | 0.11% (`asym_0_90`) to 0.51% (`uni_0`) | – |
+| `test_asymmetric_b_coupling_matches_ccx` | the asymmetric `[0/90]` strip bends out of plane under axial load | **CCX 2.23, S8R** | 2% | 0.37% (`aero 1.6816e-2` vs `ccx 1.6754e-2`) | **the case section 6.8 used to flag as sign-and-floor only**; the test also asserts the CCX reference is macroscopic (`> 1e-3`), so it cannot pass on round-off |
+| `test_symmetric_laminates_have_no_b_coupling[sym_0_90s, quasi_iso]` | B = 0 control: symmetric laminates stay flat | **CCX 2.23, S8R** plus an absolute bound | 1e-11 absolute | aero ~1e-19, ccx ~1e-13 | an absolute bound because both sides are round-off; a relative test here would divide by zero |
+| `test_modal_frequencies_match_ccx[5 layups]` | first five matched eigenfrequencies of the clamped-free strip | **CCX 2.23, S8R** `*FREQUENCY` | 3% | worst 1.26% (`uni_0`, 8x20 mesh) | the modal case runs on 8x20, not 4x10: at 4x10 the highest matched `uni_0` mode is 6.72% off, refining to 1.26% at 8x20 and 0.53% at 16x40. Matching is Hungarian over 10 requested modes |
+
+### 4.8 `test_blade_iea15mw_validation.py` (7)
+
+The IEA 15 MW reference blade, meshed from `tests/IEA-15-240-RWT.yaml` with this repository's
+own `Blade` model at `element_size = 1.0` and given the composite shell properties the model
+derives. Three references on purpose: CCX S8R on the same mesh (tight), the published mass, and
+the published 1st flapwise frequency. Runtime is ~3.5 min, dominated by the CCX modal run.
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_blade_mass_matches_published_models` | total elemental mass of the meshed blade | **Escalera Mendoza et al. 2023 (AIAA 2023-2093)**: 68,077 kg for the UTD NuMAD conversion; **Gaertner et al. 2020 (NREL/TP-5000-75698)**: about 65 t | 10% vs the article, and above the report but within 20% | **70,623 kg** = +3.7% over the article, +8.7% over the report | the article's own conversion is +4.33% over the report, so being above it is expected and asserted as a sign, not parity |
+| `test_blade_modal_frequencies_match_ccx[0..4]` | first five matched eigenfrequencies of the clamped-root blade | **CCX 2.23, S8R** modal on the identical mesh and properties | 10% | worst 4.88%; all five: 1.85%, 1.93%, 2.49%, 3.97%, 4.88% | pairing is Hungarian over 10 requested modes |
+| `test_blade_first_flapwise_matches_article` | the computed frequency closest to the article's first flapwise mode | **Escalera Mendoza et al. 2023, Table 3**: 0.57 Hz | 5% | 0.576 Hz = +1.4% | **OPEN FINDING, documented in the module docstring**: the shell model has extra low modes (0.188, 0.440 Hz) and does not reproduce the article's 1st edgewise (0.65 Hz) or 2nd flapwise (1.72 Hz), because those come from BModes, a beam model. Only the mode that maps cleanly is asserted |
+
+The CCX modal parity is 10% rather than the ~1% the composite strip reaches because the blade
+mesh is coarse relative to the higher mode shapes: the same comparison measured 12.3% at
+`element_size = 1.5` and 15.5% at 2.0, and 1.0 m is the coarsest mesh that is simultaneously
+good for the article's flapwise frequency (0.576 Hz) and for CCX parity.
 
 ## 5. Analytical group
 
@@ -382,7 +424,7 @@ tensile geometric stiffness.
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
 | `test_b_matrix_nonzero_for_asymmetric_laminate` | `max abs(B) > 1.0` for [0/90] | none beyond the CLT structure | absolute `> 1.0` | not printed | absolute threshold on a stiffness-scale quantity; `B` here is O(1e4) |
-| `test_b_coupling_produces_bending_under_axial_load` | `w_tip < -1e-6` under axial tension, MITC4 strip | the docstring quotes `w_tip = -2.161433e-05` (CLT) and the measured `-2.1660e-05` (0.21%) | `w_tip < -1e-6` | not printed | the quoted margin (0.21%) is not asserted: the reference is commented out, only the sign and a magnitude floor are checked. The CLT formula is re-derived in the module, so the docstring's reference is the same arithmetic. |
+| `test_b_coupling_produces_bending_under_axial_load` | `w_tip < -1e-6` under axial tension, MITC4 strip | the docstring quotes `w_tip = -2.161433e-05` (CLT) and the measured `-2.1660e-05` (0.21%) | `w_tip < -1e-6` | not printed | the quoted margin (0.21%) is not asserted: the reference is commented out, only the sign and a magnitude floor are checked. The CLT formula is re-derived in the module, so the docstring's reference is the same arithmetic. Section 4.7 now adds the independent CCX S8R comparison of the same B-coupling signature (0.37%). |
 | `test_symmetric_laminate_no_bending_under_axial_load` | `abs(w_tip) < 1e-9` for [0/90/90/0] | symmetry (B = 0) | `1e-9` absolute | not printed | – |
 | `test_b_coupling_sign` | `B11 < 0` and `w_tip < -1e-6` | as above | `1e-6` floor | not printed | duplicates the previous test's load case; the two share ~80 lines of identical body |
 
