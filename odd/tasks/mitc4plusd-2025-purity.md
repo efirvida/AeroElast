@@ -1586,3 +1586,49 @@ prints" and the printed formulation is the self-consistent one; `gl_state_after_
 exact rotation is faithful to Eq. (26) but it is what puts the strain outside the
 structure Eq. (25) needs. (A) is the conservative alternative that fixes the tests
 without touching behaviour.
+
+### Iteration 26 — route B is a WIRING job: the printed kinematics already exists, with the split
+
+Reconnaissance before implementing route B, and it changes the size of the unit
+completely.
+
+`gl_strain_increment_components(g, u1, u2)` already computes the paper's Eq. (9) WITH
+the linear/nonlinear split as two six-vectors:
+
+```text
+e_lin[k] = 1/2 ( g_i . u1_j + u1_i . g_j )                          // _0 e_ij
+eta_nl[k] = 1/2 ( u1_i . u1_j + g_i . u2_j + u2_i . g_j )           // _0 eta_ij, its three printed terms
+```
+
+over the six index pairs `(r, s, zeta)`, with `gl_current_base_vectors` supplying the
+`^t g_i` of Eq. (7). `incremental_disp_gradients` builds `u_m`, `u_b1`, `u_b2` per node
+from [`GlIncrement`] (Eqs. 5b/5c), and `gl_assumed_membrane_increment` is already the
+frozen-coefficient Eq. (21) form fixed in Iteration 15 (not the D1 total-difference
+form). The file's own N-beta header says this block "feeds the N-gamma pair", and it
+does not: `n_gamma_local_strain` builds the strain from `gl_state_after_local` plus the
+total metric difference, i.e. from the exact rotation, which is what broke the
+polarisation in Iteration 25.
+
+**So route B is: rebuild `n_gamma_local_strain_parts` on those helpers.** Concretely:
+
+1. the through-thickness slices from `gl_strain_increment(state, inc, r, s, zeta)` at
+   `zeta = 0, +1, -1` (already split), mapped by the Eq. (23) `tmap` into the `m`/`b1`/
+   `b2` rows exactly as now;
+2. the assumed membrane from `gl_assumed_membrane_increment` (split);
+3. the assumed transverse shear from `gl_assumed_transverse_shear` (split);
+4. the Eq. (22a) drill row from `b_drill_membrane_2025`, which is linear and lands in
+   the linear part.
+
+`eta` is then quadratic in `U` BY CONSTRUCTION, so the Iteration 24 polarisation
+extraction becomes exact, and with it `B_L`, `N`, `B(u) = B_L + N u`,
+`K_t(0) = int B_L^T W B_L = K_0` and `K_t = dF/du`.
+
+**The verification is the same as Iteration 24's, plus the oracle re-measurement the
+maintainer accepted:** `test_kt_zero_matches_ke` and the directional-derivative tests
+green; the `n_alpha`/`n_beta`/`n_gamma` instruments green; the six published cells of
+C&S 193 (Tables 8/9 and 12/13) RE-MEASURED, because the strain changes at `O(theta^3)`
+-- if they move beyond the recorded 0.01-1.41%, that is itself the finding, because it
+would mean the exact rotation was doing work the printed kinematics does not.
+
+No test is added for this; the acceptance is the existing suite plus the external
+oracle.
