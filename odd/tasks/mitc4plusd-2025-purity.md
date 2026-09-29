@@ -1919,3 +1919,43 @@ earlier promotion made false (no `#[ignore]` remains), and the stale bookkeeping
 30's siblings -- task 10.6 was done but unchecked, and the recorded baselines still said 120/0
 and 345/2/2.
 
+### Iteration 32 — documentation audit: what the docs said vs what the code does
+
+Audit of the production documentation of the implemented elements, contrasted against the
+code, done before the SDD close-out. Audited: `docs/formulations/shell-elements.md` (the
+element reference), `materials.md`, `solvers.md`, `docs/validation-matrix.md`,
+`docs/references.md`, and the two `*-extract.md` working notes.
+
+Inventory first, because "documented" and "implemented" did not match. Implemented:
+`mitc3.rs`, `mitc4.rs`, `quad.rs`, `reference.rs`, `smoothing.rs`. Documented by
+`shell-elements.md`: MITC4+ and MITC3+ only.
+
+| # | finding | severity | evidence |
+| --- | --- | --- | --- |
+| A1 | §2 documented the RETIRED HYBRID, not the element that runs | high | the 11.3/11.4 greps return no match in the module while §2.1/§2.5/§2.6 describe `cm_normal` (SRI), `k_drill = 0.15 E h^2 drilling_scale` and a 2-DOF bubble |
+| A2 | §1/§1.1 called production "MITC4+" and the 2025 drill an "uncommitted working-tree experiment" | high | §1.1 "Pending, not covered by this revision" |
+| A3 | §4.2 "It is being measured ... no values are recorded" | high | false: committed, validated, in the validation matrix |
+| A4 | §4.3 "strain-smoothed MITC3+ ... Not implemented in this revision" | high | false: `smoothing.rs` exists and `mitc3.rs` uses it (union-DOF layout, smoothed element stiffness) |
+| A5 | §2.6 claimed `docs/references.md` has NO Hughes-Brezzi entry | medium | it does, in that file's §1 |
+| A6 | process register in a production reference: commit ids, "working tree", "pending", work-unit ids | medium | 10 markers in the 2025 extract, 5 in validation-matrix, plus commit hashes and xfail history in §1.3/§4.1 |
+| A7 | the element's real public surface is undocumented | medium | `grep '^pub fn' elements/mitc4.rs`: 29 public functions, about 10 described (stress recovery, `compute_k_sigma_global`, centrifugal prestress, body loads, the `gl_*` kinematics) |
+| A8 | an unescaped `|` inside a table cell (`|Ku|/|K_bs|`) broke the §4.1 table render | low | markdownlint MD056, then fixed |
+
+Fixed in this pass, each re-read afterwards to confirm:
+- §2 retitled and partly rewritten: it is MITC4+/D, cites its two papers and the no-numerical-
+  factor statement; §2.1 now describes the element that runs; §2.2 is a faithful ingredient
+  table that keeps an honest "partially" where §2.4 already refused to reconstruct the
+  unreadable 1984 equations; §2.5 is the 2025 drilling strain; §2.6 is an explicit "what this
+  element does not contain" list, and the retirement test guards it.
+- §1/§1.1 rebuilt around the real inventory, with the plane quadrilaterals' missing citation
+  stated as a gap (§4.4) instead of invented.
+- §4.2 and §4.3 corrected to history and to implemented.
+- §3.1's cross-reference repaired: MITC3+ keeps its OWN drilling penalty -- verified, `k_drill`
+  is still live in `mitc3.rs` -- it is simply unrelated to MITC4+/D's.
+- The two extracts now open with a banner saying they are internal working notes; the broken
+  table pipes are escaped.
+
+Left open on purpose, tracked rather than silently skipped: §3 (MITC3+) has not been rewritten
+for humans, §2.3's equation narration is still in the original audit register, the plane
+elements and the smoothed MITC3+ have no equation-level section, and `validation-matrix.md`
+keeps its process markers until SDD task 12.4.

@@ -1,31 +1,26 @@
 # Shell element formulations: code-to-equation reference
 
-Scope of this revision: the two quadrilateral/triangular continuum-mechanics-based
-elements that are currently in production in `crates/aeroelast-core/src/elements/`
-— `mitc4.rs` (MITC4+) and `mitc3.rs` (MITC3+). Every equation below was read from
-the PDF in `.sources/papers/` named with it; equations that could not be read are
-marked as such rather than reconstructed.
-
----
+This is the production reference for the shell and plane elements in
+`crates/aeroelast-core/src/elements/`: what each element implements, which published
+element it is, and which equation of which paper each part comes from. Equations
+were read from the PDFs held in `.sources/papers/`; where an equation could not be
+read, this document says so instead of reconstructing it. The full bibliography,
+including DOIs and the provenance of every held copy, is `docs/references.md`.
 
 ## 1. Scope and conventions
 
-### 1.1 Elements covered in this version
+### 1.1 Implemented elements
 
-| Element | File | Nodes / DOF | Status |
+| Element | File | Nodes / DOF | Paper |
 | --- | --- | --- | --- |
-| MITC4+ | `crates/aeroelast-core/src/elements/mitc4.rs` | 4 × 6 = 24 | documented here |
-| MITC3+ | `crates/aeroelast-core/src/elements/mitc3.rs` | 3 × 6 + 2 = 20 → 18 | documented here |
+| MITC4+/D | `elements/mitc4.rs` | 4 × 6 = 24 | Ko, Lee & Bathe (2017), C&S 182:404–418, with the six-DOF drill-membrane strain of Ko, Bathe & Zhang (2025), C&S 308:107622 |
+| MITC3+ | `elements/mitc3.rs` | 3 × 6 = 18 (+2 bubble) | Lee, Lee & Bathe (2014), C&S 171:21–34 |
+| Strain-smoothed MITC3+ | `elements/mitc3.rs` + `elements/smoothing.rs` | union layout, six nodes | Lee & Lee (2019), C&S 206:181–191 |
+| Plane quadrilaterals and triangles | `elements/quad.rs` (integration via `elements/reference.rs`) | 4/8/9 nodes | **no published formulation cited** — see §4.4 |
 
-**Pending, not covered by this revision:**
-
-- MITC4 (original) and MITC4/D — the six-DOF (drill-including) variant of Ko, Bathe
-  & Zhang 2025. The drill-membrane operator exists only as an uncommitted
-  working-tree experiment (§4.2).
-- The strain-smoothed MITC3+ of Lee & Lee 2019 (§4.3).
-- The plane-stress/plane-strain quadrilaterals and triangles in
-  `crates/aeroelast-core/src/elements/` (`quad.rs` and relatives), which carry no
-  literature citation (§4.4).
+Documented in detail here: §2 (MITC4+/D) and §3 (MITC3+). The plane elements are
+implemented and tested but carry no literature citation, so §4.4 states that gap
+rather than inventing a source for them.
 
 ### 1.2 DOF ordering
 
@@ -98,71 +93,64 @@ local frame**:
 
 ---
 
-## 2. MITC4+ (quadrilateral, 24 DOF)
+## 2. MITC4+/D (quadrilateral, 24 DOF) — the production shell element
 
-Reference: Ko, Y., Lee, P.-S., Bathe, K.-J., "A new MITC4+ shell element",
-*Computers and Structures* 182:404–418, 2017, doi:10.1016/j.compstruc.2016.11.004 —
-`.sources/papers/1-s2.0-S0045794916309464-main.pdf` (duplicate:
-`A_new_MITC4+_shell_element.pdf`).
+The element is the MITC4+ of Ko, Lee & Bathe (2017), *Computers and Structures*
+182:404–418, doi:10.1016/j.compstruc.2016.11.004 — with the sixth, drilling degree
+of freedom supplied by the drill-membrane strain of Ko, Bathe & Zhang (2025),
+*Computers and Structures* 308:107622, doi:10.1016/j.compstruc.2024.107622. That
+combination is what the 2025 paper calls **MITC4+/D**. It is the only shell
+quadrilateral in production: the earlier MITC4+ hybrid that occupied this file was
+retired in full, so nothing below describes a penalty, a reduced-integration split
+or a bubble that the element does not actually contain.
+
+The element introduces **no numerical factor**: no penalty, no factor on the
+transverse shear stiffness, no selective reduced integration. Transverse shear is
+handled by the assumed MITC4 field alone, and the drilling degree of freedom by the
+2025 assumed drill-membrane strain rather than by a penalty.
 
 ### 2.1 As implemented
 
-- **Nodes / integration.** 4 nodes × 6 DOF. `N_GAUSS = 4`; `GAUSS_XI/ETA = ±1/√3`,
-  weights `1.0` — i.e. the 2×2 Gauss-Legendre rule on `[-1,1]^2`, matching the
-  paper's "we use 2×2×2 Gauss integration over the element domain" (journal p. 410).
-- **Membrane field.** The assumed covariant membrane strain of Eq. (27) below,
-  sampled at five tying points. Code tying points (`mitc4.rs`, precomputed in
-  `Mitc4Precomputed::new`):
-
-  ```text
-  A(0,+1)  -> pre.b_rr_a   covariant row  rr
-  B(0,-1)  -> pre.b_rr_b   covariant row  rr
-  C(+1,0)  -> pre.b_ss_c   covariant row  ss
-  D(-1,0)  -> pre.b_ss_d   covariant row  ss
-  E( 0,0)  -> pre.b_rs_e   covariant row  rs
-  ```
-
-  The paper names the same five tying points (A)–(E) (Fig. 4, "Tying positions
-  (A)–(E) for the assumed membrane shear strain field") but presents them
-  graphically: the parametric coordinates quoted above are the code's own
-  parameterisation, not values read off the paper.
-- **Blending coefficients.** `compute_membrane_coefficients(&x_d, &m_r, &m_s)`
-  returns `(a_a..a_e)` from `c_r = x_d·m_r`, `c_s = x_d·m_s`,
-  `d = c_r² + c_s² - 1` — the paper's Eq. (24) plus the `a_A..a_E` block printed
-  immediately after Eq. (27c), both reproduced in §2.3.
-- **Bubble.** `N_b = (1 - xi²)(1 - eta²)` (`bubble_function`), carrying **2 rotation
-  DOF only**, statically condensed:
-  `K = K_nn - K_nb K_bb^{-1} K_nb^T` with a regularized 2×2 inverse
-  (`regularized_inverse_2x2`), symmetrized as
-  `K = 0.5 (K_raw + K_raw^T)`. The 26-DOF extended space appears only inside
-  `compute_ke_local`; the bubble block is never exported.
-- **Transverse shear.** `b_gamma_mitc4` is the rotation-based MITC4 (Dvorkin &
-  Bathe) interpolation — see §2.4. `b_gamma_mitc4_plus` adds the bubble coupling
-  `Bs_bubble = [[0, N_b], [-N_b, 0]]`.
-- **Drilling.** A separate rank-1 penalty, §2.6.
-- **Not implemented.** No hourglass control is applied in the production
-  stiffness path despite the "S4R-style" scaffolding (`hg_factor`, `h_vec`,
-  `hg_stiffness_factor`, `h_orth`) precomputed in the struct and stored in
-  `Mitc4Precomputed`. `compute_ke_local` returns
-  `k_m + k_mb_coup + k_mb + k_bs + k_drill` with no hourglass term, and
-  `compute_hourglass_stiffness` / `compute_hourglass_forces` are referenced only
-  from `#[cfg(test)]` tests in the same file. The scaffolding is dead weight as
-  far as the assembled stiffness is concerned.
+- **Nodes and integration.** 4 nodes × 6 DOF. `N_GAUSS = 4`; `GAUSS_XI/ETA = ±1/√3`
+  with weights `1.0`, i.e. the 2×2 Gauss–Legendre rule on `[-1,1]²`, and `ζ`
+  integrated with the same rule: the paper's "we use 2 × 2 × 2 Gauss integration"
+  (journal p. 410). The through-thickness rule is exact for the bending moments the
+  element forms, because `ζ²` is integrated exactly by the two-point rule.
+- **Membrane field.** The assumed covariant membrane field of Ko, Lee & Bathe
+  (2017): the mid-surface metric assumed through the five tying points (A)–(E) of
+  their Fig. 4, blended by the coefficients of their Eq. (24) and the block printed
+  after Eq. (27c). §2.3 quotes the equations; §2.4 covers the transverse shear.
+- **Transverse shear.** The rotation-based MITC4 (Dvorkin & Bathe 1984)
+  interpolation, sampled on the element edges — §2.4.
+- **Drilling degree of freedom.** The drill-membrane strain of Ko, Bathe & Zhang
+  (2025), Eq. (26), built with the operator of their Eq. (18). It is a *strain*
+  contribution, not a penalty: there is no stiffness coefficient to tune and no
+  scale factor in the code.
+- **Finite rotations.** The kinematics are the Green–Lagrange strain of the
+  offset displacement field of Eq. (3a), linearised in the increment around the
+  current director state (`gl_strain_increment` and the `gl_*` family in
+  `mitc4.rs`). This is what makes the geometric stiffness
+  (`compute_k_sigma_global`) consistent with the internal forces rather than a
+  separate approximation.
+- **No hourglass control, and none needed.** `compute_ke_local` assembles the
+  membrane, bending and transverse-shear blocks of the assumed fields above; there
+  is no hourglass term, and no hourglass stiffness is precomputed.
 
 ### 2.2 Code → equation table
 
-| Code | Paper | Verified |
+| Code (`mitc4.rs`) | Paper and equation | Verified |
 | --- | --- | --- |
-| `b_m_mitc4_plus` row `b_rr` | Eq. (27a) | yes, term by term |
-| `b_m_mitc4_plus` row `b_ss` | Eq. (27b) | yes, term by term |
-| `b_m_mitc4_plus` row `b_rs`, stacked as `2*b_rs` | Eq. (27c) | yes, term by term |
-| `pre.a_a .. pre.a_e` | `a_A .. a_E` after Eq. (27c), from Eq. (24) | yes, term by term |
-| `b_gamma_mitc4` | Dvorkin & Bathe 1984 transverse shear, reproduced unnumbered in Ko et al. 2017 §2 | partially — see §2.4 |
-| `cm_normal` / centre-point shear term in `compute_ke_local` (SRI) | Hughes, Taylor & Kanoknukulchai 1977 | not verifiable from a held copy; see §2.5 |
-| `b_drill` + `k_drill` | code comment names "Hughes & Brezzi" with no title, year or venue | unattributed in practice; see §2.6 |
+| `gl_strain_increment`, `gl_assumed_mid_metric` | Ko, Lee & Bathe (2017), Eqs. (9) and (21a)–(21c) | yes, term by term |
+| membrane tying points (A)–(E) | Ko et al. (2017), Fig. 4 | structurally: the five parametric positions in §2.3 |
+| `compute_membrane_coefficients_2017` | Ko et al. (2017), Eq. (24) and the block after Eq. (27c) | yes, term by term (§2.3) |
+| `b_membrane_2017` rows `rr`, `ss`, `rs` | Ko et al. (2017), Eqs. (27a)–(27c) | yes, term by term (§2.3) |
+| `b_shear_mitc4` | Dvorkin & Bathe (1984), Eq. (3), reproduced unnumbered in Ko et al. (2017) §2 | partially — §2.4 states exactly what could not be read |
+| `b_drill_membrane_2025`, `drill_midside_shape_derivatives` | Ko, Bathe & Zhang (2025), Eqs. (18) and (26) | yes: the operator and the strain it multiplies |
+| `compute_ke_local`, `compute_ke_global` | 2 × 2 × 2 Gauss, no numerical factor | yes |
+| `compute_k_sigma_global` | the geometric stiffness consistent with the Green–Lagrange kinematics above | yes, by the Newton tangent tests |
 
-The code's own comments agree with these numbers for the membrane rows
-(`// Blended covariant B-rows (Ko et al. 2017, Eqs. 27a-c)`).
+Where the table says "partially", the missing part is named in the section it points
+to and is never presented as verified.
 
 ### 2.3 Membrane field — Eqs. (27a), (27b), (27c)
 
@@ -199,36 +187,10 @@ cr = xd . mr      cs = xd . ms      d = cr^2 + cs^2 - 1                         
 The `aA..aE` block is printed separately, after Eq. (27c), in the "with" clause.
 Appendix A is titled "Derivation of the constants in Eq. (24)".
 
-**Code correspondence (verified term by term).**
-
-```rust
-// mitc4.rs, b_m_mitc4_plus — rows b_rr, b_ss, b_rs
-b_rr = 0.5*(1 - 2*a_a + s + 2*a_a*s*s) * pre.b_rr_a
-     + 0.5*(1 - 2*a_b - s + 2*a_b*s*s) * pre.b_rr_b
-     + a_c*(-1 + s*s) * pre.b_ss_c
-     + a_d*(-1 + s*s) * pre.b_ss_d
-     + a_e*(-1 + s*s) * pre.b_rs_e;                                   // = (27a)
-
-b_ss = a_a*(-1 + r*r) * pre.b_rr_a
-     + a_b*(-1 + r*r) * pre.b_rr_b
-     + 0.5*(1 - 2*a_c + r + 2*a_c*r*r) * pre.b_ss_c
-     + 0.5*(1 - 2*a_d - r + 2*a_d*r*r) * pre.b_ss_d
-     + a_e*(-1 + r*r) * pre.b_rs_e;                                   // = (27b)
-
-b_rs = 0.25*(r + 4*a_a*r*s) * pre.b_rr_a
-     + 0.25*(-r + 4*a_b*r*s) * pre.b_rr_b
-     + 0.25*(s + 4*a_c*r*s) * pre.b_ss_c
-     + 0.25*(-s + 4*a_d*r*s) * pre.b_ss_d
-     + (1 + a_e*r*s) * pre.b_rs_e;                                    // = (27c)
-```
-
-and in `compute_membrane_coefficients`:
-
-```rust
-a_a = c_r*(c_r - 1.0)/(2.0*d);   a_b = c_r*(c_r + 1.0)/(2.0*d);
-a_c = c_s*(c_s - 1.0)/(2.0*d);   a_d = c_s*(c_s + 1.0)/(2.0*d);
-a_e = -2.0*c_r*c_s/d;
-```
+**Where this lives in the code.** The implemented rows are in `b_membrane_2017` and
+the assumed mid-metric in `gl_assumed_mid_metric` (`elements/mitc4.rs`); the
+equations above are the 2017 paper's and were not changed when the element was
+rewritten to the printed formulation.
 
 One structural detail: the code stacks the covariant rows as
 `B_cov = [B_rr; B_ss; 2*B_rs]` (`b_cov[(2,j)] = 2.0*b_rs[j]`). The `2*B_rs` is the
@@ -283,73 +245,39 @@ reproduce the original paper's normalisation and its alpha/beta coordinate syste
 because the source equations are unreadable and the reproduction in Ko et al. 2017
 carries neither the angles nor the scaling. This is an open item, not a claim.
 
-### 2.5 Selective reduced integration (SRI) in `compute_ke_local`
+### 2.5 The drilling degree of freedom (2025)
 
-Code, `compute_ke_local` (comment block beginning "Despite MITC4+ blending,
-residual in-plane shear locking persists ..."):
+The sixth DOF is not a penalty. Ko, Bathe & Zhang (2025) introduce a
+drill-membrane strain, Eq. (26) of that paper, built with the midside operator of
+their Eq. (18), and add it to the in-plane strain field. The element consumes it as
+a strain contribution, so its stiffness follows from the constitutive law like any
+other membrane component.
 
-```rust
-let mut cm_normal = *cm;
-cm_normal[(0,2)] = 0.0; cm_normal[(1,2)] = 0.0;
-cm_normal[(2,0)] = 0.0; cm_normal[(2,1)] = 0.0;
-cm_normal[(2,2)] = 0.0;
-let c_shear = cm[(2,2)];
-// 4-GP loop:  k_m += (bm^T * cm_normal * bm) * (w * sqrt_g)
-// centre point: k_m += b_shear^T * c_shear * b_shear * (4 * sqrt_g_c)
-//               with b_shear = row 2 of b_m_mitc4_plus(pre, 0.0, 0.0)
-```
+The practical consequences, and the reason the section exists at all: there is **no
+stiffness coefficient, no scale factor and no user-tunable drilling parameter** in
+the element. A reader arriving from the older documentation — this file used to
+describe a `k_drill = 0.15 · E · h² · drilling_scale` penalty attributed to "Hughes
+& Brezzi" — will not find any of it, because the element no longer contains it. The
+Hughes & Brezzi reference itself does exist, as `docs/references.md` §1 records; it
+is simply no longer the source of this element's drilling stiffness.
 
-That is: **full 2×2 for the normal membrane components** (`eps_xx`, `eps_yy`, and
-the coupling terms struck out) and **one centre point at `xi = eta = 0` for the
-in-plane shear** (`2*eps_xy`), with weight `4 * sqrt_g` (the 2×2 rule's total
-weight) at the centre. The same split is repeated in `compute_fint_global` for
-Newton tangent consistency (comments at `mitc4.rs` on the "SRI-consistent virtual
-work").
+### 2.6 What this element does not contain
 
-**Citation.** The comment names "Hughes, Taylor & Kanoknukulchai (1977) — SRI for Q4
-membrane element", and commit `929db32` ("fix(mitc4): apply selective reduced
-integration to eliminate in-plane bending locking") ends with `Ref: Hughes, Taylor
-& Kanoknukulchai (1977)`.
+Stated explicitly because each of these was part of the documentation before the
+element was rewritten, and none of them is part of the element now:
 
-**What was and was not confirmed:**
+- no selective reduced integration: the in-plane shear is integrated by the same
+  2 × 2 rule as everything else, and there is no centre-point substitution;
+- no factor on the transverse shear stiffness: the assumed MITC4 field is the only
+  mechanism, so the classical `5/6` reference value appears in this document only
+  where a benchmark is compared against a classical solution;
+- no drilling penalty and no scale factor (§2.5);
+- no rotation bubble and no static condensation;
+- no hourglass stiffness.
 
-- Confirmed: the code and the commit both attribute the split to that paper;
-  `docs/references.md` lists Hughes, Taylor & Kanoknukulchai, "A simple and
-  efficient finite element for plate bending", *IJNME* 11(10):1529–1543, 1977.
-- **Not confirmed:** no copy of that paper is in `.sources/papers/`, so the
-  specific claim — that this paper prescribes exactly a 2×2 rule for the normal
-  membrane components and a one-point rule for the in-plane shear — could not be
-  verified. `docs/references.md` itself marks the DOI "to verify" and states that
-  the journal, volume and pages come from the published record and are **not**
-  re-verified against a held copy. The 1977 attribution should be treated as
-  repository assertion, not as verified evidence.
-
-### 2.6 Drilling penalty
-
-`b_drill` (`mitc4.rs`), assembled in `compute_ke_local` over the same 2×2 rule:
-
-```rust
-bd[u_idx]   = -0.5 * dni_dy;
-bd[v_idx]   =  0.5 * dni_dx;
-bd[thz_idx] = -n_vals[i];
-// k_drill += (bd * bd^T) * (pre.k_drill * w * sqrt_g)
-// pre.k_drill = e_mod * thickness^2 * 0.15 * drilling_scale
-```
-
-i.e. the sum of `k_drill = 0.15 * E * h^2 * drilling_scale` weighted against the
-drilling strain `gamma_xz_drill = (v_,x - u_,y)/2 - theta_z` (the `mitc3.rs`
-`b_drill` carries the same comment `// (dv/dx - du/dy)/2 - thetaz`).
-
-**Sourcing, plainly stated.** The doc comment on `b_drill` reads
-`/// Drilling B-vector (Hughes & Brezzi, 1×24)`. That is the whole attribution: two
-author surnames and no title, year, journal or volume. `docs/references.md` has **no**
-Hughes–Brezzi entry, and no such paper is held in `.sources/papers/`. The `0.15`
-penalty factor and the `drilling_scale` multiplier are **not** attributed to
-anything at all in the code. So: the operator cites two names without a work, and
-the specific penalty expression — including the `0.15` coefficient — is uncited.
-This should be resolved before the MITC4/D work (§4.2) lands.
-
----
+The retirement test `test_retirement_removes_hybrid_deviation_surfaces` in
+`elements/mitc4.rs` asserts that these names are absent from the module, so this
+section cannot silently become false again.
 
 ## 3. MITC3+ (triangle, 18 DOF)
 
@@ -413,8 +341,10 @@ doi:10.1016/j.compstruc.2014.02.005 —
   and returns `k_bs_cond = k_uu + k_mb_sym - k_uq_full * inv_qq * k_qu_full` (18×18);
   the full local matrix is `km + k_drill_total + k_bs_cond`.
 - **Drilling.** A single-row penalty on `theta_z`, assembled over the 3-point rule
-  with `k_drill = E * h^2 * 0.15 * drilling_scale` — the same uncited expression as
-  §2.6, and here with **no** source comment at all.
+  with `k_drill = E * h^2 * 0.15 * drilling_scale` — an expression that carries no
+  source comment here and is not attributed to a work. Note that this is MITC3+'s own
+  construction and is unrelated to the MITC4+/D drilling of §2.5, which is a strain
+  contribution with no penalty coefficient at all.
 
 ### 3.2 Code → equation table
 
@@ -539,7 +469,7 @@ are quantified in §4.1.
 
 ---
 
-## 4. Known deviations, pending work and references
+## 4. Limitations, history and open questions
 
 ### 4.1 MITC3 rotation-sign defect and its correction
 
@@ -548,7 +478,7 @@ are quantified in §4.1.
 
   | symptom | before | after |
   | --- | --- | --- |
-  | physical rigid-body mode, MITC3 `compute_ke_global` | penalized (`|Ku|/|K_bs| = 0.786`) | free |
+  | physical rigid-body mode, MITC3 `compute_ke_global` | penalized (`\|Ku\|/\|K_bs\| = 0.786`) | free |
   | mixed mesh, triangles on the last row only | 27.637% error | 0.682% |
   | mixed mesh, triangles on alternating rows | 99.813% error | 1.009% |
   | MITC3Comp B-coupling, [0/90] under axial load | +2.627691e-03 (inverted sign) | -2.627691e-03 |
@@ -559,29 +489,24 @@ are quantified in §4.1.
   rather than the physics; an `xfail(strict=True)` marker on
   `test_material_suite.py::test_axial_produces_bending_mitc3comp` was removed.
 
-### 4.2 Pending: MITC4/D drill-membrane operator
+### 4.2 Resolved: the MITC4/D drill-membrane operator
 
-- `b_md_mitc4_plus` and `drill_midside_shape_derivatives` in `mitc4.rs`. The
-  comment cites "Ko et al. 2025, Eq (11)" for the simplified midside shape
-  derivatives, with deliberately zeroed entries "to avoid higher-order integration
-  than the base element".
-- History: introduced in `929db32`; deleted in `4a46af2` ("delete the unwired
-  drill-membrane operator and its tests" — its two unit tests were vacuous, because
-  they evaluated the operator at `(0,0)` where all four entries are identically
-  zero by construction). It is **present again in the current working tree only as
-  an uncommitted change** (`git diff --stat` shows `mitc4.rs` +95 lines), where it
-  is wired into the SRI loop as
-  `let bm = b_m_mitc4_plus(pre, xi, eta) + b_md_mitc4_plus(pre, xi, eta);`.
-- It is being measured. No values are recorded in this document because no
-  validated measurement was read.
+This section used to describe the drill-membrane operator as an uncommitted
+working-tree experiment that was "being measured". That is no longer true and is
+kept here only as history: the operator is committed, it is the source of the
+element's sixth DOF, and the element it belongs to is the only shell quadrilateral
+in production. Its formulation is §2.5 and its validation is
+`docs/validation-matrix.md`.
 
-### 4.3 Pending: strain-smoothed MITC3+
+### 4.3 The strain-smoothed MITC3+
 
-Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite element", planned.
-The intent is to replace the constant-strain triangle membrane field of §3.5 with
-a smoothed field. A copy is now held at `.sources/papers/lee2019.pdf`; the
-citation is verified there (item 6) and `docs/references.md` carries the same
-corrected entry. Not implemented in this revision.
+Lee & Lee (2019) replace the constant-strain triangle membrane field of §3.5 with a
+smoothed field assembled over the patch of elements sharing each edge. This **is
+implemented**: the smoothing primitives are `elements/smoothing.rs` (the covariant
+tensor operator, the edge-neighbour connectivity and the pairwise smoothed strain)
+and `elements/mitc3.rs` carries the union-DOF layout and the smoothed stiffness
+over six nodes. It is not described equation by equation in this document yet; the
+held copy is `.sources/papers/lee2019.pdf`.
 
 ### 4.4 `quad.rs` has no literature citation
 
