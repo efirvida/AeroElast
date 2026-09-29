@@ -31,7 +31,6 @@ from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, N
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.core.properties import CompositeShellProperty
 
-pytestmark = [pytest.mark.slow]
 
 
 # ============================================================================

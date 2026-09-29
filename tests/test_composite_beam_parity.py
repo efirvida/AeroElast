@@ -36,7 +36,6 @@ from aeroelast.core.mesh.io.writers import write_ccx_mesh
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.core.properties import CompositeShellProperty
 
-pytestmark = [pytest.mark.slow]
 
 
 # ============================================================================

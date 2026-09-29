@@ -41,7 +41,6 @@ from aeroelast.core.mesh.io.writers import write_ccx_mesh
 from aeroelast.core.mesh.model import MeshModel
 
 
-pytestmark = [pytest.mark.slow]
 
 # ============================================================================
 # Material and Geometry Constants

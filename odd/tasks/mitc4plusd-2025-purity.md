@@ -1405,3 +1405,66 @@ rather than acted on. Two things to verify before trusting the numbers:
    thickness or density should be checked.
 
 No new tests were added for this, deliberately.
+
+### Iteration 23 — the test suite normalized: two dead tests revived, one deleted batch, no skips left
+
+The maintainer's rule for this pass: resolve every test or delete the ones that make
+no sense, where "no sense" means a failing or skipped test that has been normalized
+rather than resolved.
+
+**Two tests that were NOT running at all, both reported as harmless skips:**
+
+1. `tests/test_blade_mesh.py::test_blade_mesh_generation` built its parametrisation
+   from `../examples/reference_turbines/yamls`, a directory that does not exist in
+   this tree, so the list was EMPTY: pytest said "got empty parameter set" and the
+   test had never run. It now searches this directory (where
+   `tests/IEA-15-240-RWT.yaml` lives, the one `test_bem_engine.py` uses) and RAISES
+   if the list comes out empty again -- a silently disabled test is worse than a red
+   one. `blade.mesh` is typed optional, so the assertions bind it to a local with an
+   explicit `is not None` check.
+   **Collateral finding:** with the test alive it emits **9867** DeprecationWarnings
+   from `src/aeroelast/core/mesh/generators.py:1299` ("Setting thickness on
+   MeshElement is deprecated. Use a 'properties' dict ..."): the blade mesh generator
+   uses an API the repository has already deprecated, once per element, and that was
+   invisible because the only test exercising it was dead. Production migration debt,
+   not a test matter.
+
+2. `tests/test_bem_engine.py` skipped on `ccblade`. Verified by three independent
+   means that it CANNOT be installed from a channel: PyPI returns HTTP 404, the
+   anaconda.org search returns `[]`, and `conda search -c conda-forge ccblade` says
+   "No match found". The `pyproject.toml` comment was exactly right: it must be built
+   from source. The toolchain WAS installable from conda-forge
+   (`gfortran`, `meson`, `meson-python`; `ninja` was already present), and the
+   documented four steps then worked:
+   `git clone --depth=1 https://github.com/WISDEM/CCBlade.git /tmp/CCBlade`,
+   `python setup.py build_ext --inplace`,
+   `pip install -e /tmp/CCBlade --no-build-isolation --no-deps`.
+   `CCBlade-1.3.1` builds and imports, and the test now runs: **14 passed**.
+
+**The `slow` marker is gone.** It was on three modules
+(`test_beam_shell_4cases_parity.py`, `test_composite_beam_parity.py`,
+`test_orthotropic_shell_parity.py`) and `pyproject.toml`'s `addopts` does NOT carry
+`-m "not slow"`, so the marker alone was hiding them. Measured cost of running them:
+**3.08 s for 17 tests, all green** -- and the blind spot had already bitten once, when
+`test_orthotropic_shell_parity`'s equivalence failure (5.42%) stayed invisible to the
+gate. They are now part of the default run.
+
+**Three measurement instruments deleted (337 lines), because they no longer measure
+anything the suite does not already measure:**
+
+| deleted | why |
+| --- | --- |
+| `n_gamma_slender_element_probe` | superseded by `n_gamma_geo_symmetry_diagnostic` (reference-free, five geometries) and by the PRODUCTION line of `n_gamma_kt_residual_diagnostic`; it was also the source of the misleading "bent-geometry defect" reading that iteration 18 had to correct |
+| `n_gamma_bent_localisation_diagnostic` | it localises a defect that turned out not to exist, and its `frame-fix` column is exactly the trial variant that misled a previous iteration -- keeping it invites the same error, and `raw` is the production column |
+| `n_gamma_fd_profile_diagnostic` | superseded by `n_gamma_geo_stencil_probe`, which measures the same estimator more cleanly and justifies the chosen step |
+
+Kept: `n_gamma_geo_symmetry_diagnostic` (the reference-free metric that closed the
+diagnosis and now guards the fix), `n_gamma_geo_stencil_probe`, `n_gamma_kt_residual_diagnostic`
+(the production acceptance plus the `pred` decomposition), `n_gamma_rigid_body_zero_force_and_consistent_tangent`
+(the tangent gate), `n_alpha_*`, `n_beta_*`, the two 2025 table oracles and `wu9i_*`.
+`cargo test -p aeroelast-core`: **169 passed / 0 failed / 9 ignored** (was 12); the
+remaining `never used` warnings are all in the hybrid `mitc4.rs`, pre-existing and
+already on the retirement's delete list, so the deletions left no orphans.
+
+**Also fixed in this pass, earlier:** the `3pi/2` cell's mesh, the modal solver's clamp
+and its spectrum-relative filter (commits `9f64e88`, `b40561d`, `7e395ef`).
