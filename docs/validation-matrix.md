@@ -12,18 +12,23 @@ reference and every margin visible.
 
 ## 1. How this matrix was produced
 
-- Working tree: `c7f2bbc`, clean (this refresh). The matrix was first produced at `b2c62ff`,
-  which is hundreds of commits behind; the per-row margins below were captured then and have
-  not all been re-measured since, which is stated again in section 2.
-- Interpreter: `~/miniconda3/envs/aeroelast-dev/bin/python`.
+- Working tree: `e879eba`, clean; branch `test/physical-correctness`. This refresh re-ran
+  every numeric row rather than restating the first pass, which was captured at `b2c62ff`
+  (hundreds of commits behind) and mixed numbers from the retired MITC4+ hybrid with numbers
+  from the faithful MITC4+/D that replaced it. That mix is what made the first version read as
+  a defect where there was none (section 3, the thin twisted-beam rows).
+- Interpreter: `~/miniconda3/envs/aeroelast-dev/bin/python`, after
+  `source activate aeroelast-dev`. The repository's own `.venv` is an empty virtualenv; the
+  dependencies and the built `_aeroelast` extension live in the conda environment.
 - CalculiX: **2.23** from `~/miniconda3/envs/aeroelast-dev/bin/ccx`, on `PATH`, so the
   CCX parity tests ran instead of skipping.
 - Suite run:
-  `python -c "import pytest,sys; sys.exit(pytest.main(['tests','-o','addopts=','-q','--tb=no']))"`
-  -> `364 passed, 2 skipped, 1 warning in 138.09s`.
-  (The `-o addopts=` is needed because `pyproject.toml` adds `-v`.)
-- Printed margins were read from a second pass per file using `-s`; the number recorded
-  in the *measured margin* column is the one the test itself printed.
+  `python -m pytest -q` -> `386 passed, 0 failed, 0 skipped` in 633.45s.
+- Printed margins: `python -m pytest -o addopts="" -q -s` -> every *measured margin* below is
+  the value the test itself printed in that run. Rows whose test does not print are marked
+  `not printed`, and that is a statement about the test, not about the element.
+- Per-file test counts in the section headings were re-collected at `e879eba` with
+  `python -m pytest --collect-only -q` and sum to the 386 total.
 - Paper values were read from the recovered PDFs in `.sources/papers/`, not from
   second-hand notes. The Ko et al. 2017 benchmark tables cited below are from
   `.sources/papers/1-s2.0-S0045794917309550-main.pdf`.
@@ -59,8 +64,10 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-Measured at `c7f2bbc` with `python -m pytest -q` -> **386 passed, 0 failed, 0 skipped**,
-and reproduced by `python -m pytest tests --collect-only -q` -> `386 tests collected`.
+Measured at `e879eba` with `python -m pytest -q` -> **386 passed, 0 failed, 0 skipped**,
+and reproduced by `python -m pytest --collect-only -q` -> `386 tests collected`. The Rust side
+is green too: `cargo test --manifest-path crates/Cargo.toml -p aeroelast-core` -> **155 passed,
+0 failed, 0 ignored** (the Cargo workspace root is `crates/`, not the repository root).
 
 Two skips that the first version of this matrix recorded as verified are **resolved**, and
 the two tests they hid now run:
@@ -70,58 +77,68 @@ the two tests they hid now run:
 | `test_bem_engine.py` | 0 collected, module skipped (`ccblade` missing) | **14 passed** — CCBlade 1.3.1 is installed in the environment |
 | `test_blade_mesh.py` | 0 collected, empty parameter set | **1 passed** — the module scanned a directory that does not exist and never ran; it now scans its own directory and raises if the parameter set is empty |
 
-Three files were added by the change that produced this refresh: `test_mitc4plusd_traceability.py`
-(3, the documentation-to-code gate) and `test_laminate_invariant_guard.py` (1, the composite
-surface guard).
+Two files were added by the change that produced the previous refresh and are now described
+here: `test_mitc4plusd_traceability.py` (3, the documentation-to-code gate) and
+`test_laminate_invariant_guard.py` (1, the composite surface guard).
 
-**Known drift, stated rather than papered over.** The per-file table that used to stand here was
-captured at `b2c62ff` and has drifted as the suite changed: `test_rust_assembler.py` is 19 now,
-not the 18 it recorded, because the MITC4 case of `test_kt_at_zero_equals_k` was removed while
-the file gained tests. Rather than restate a table that would drift again, the authoritative
-number is the total above, which `pytest --collect-only -q` reproduces in seconds. The per-file
-sections from section 3 onward remain the audit trail of the run that first built them.
+**Per-file drift, corrected rather than left implicit.** The first version's per-file counts
+were captured at `b2c62ff` and several no longer held. Corrected in the section headings below:
+`test_rust_assembler.py` 19 (was 18), `test_material_suite.py` 41 (was 44),
+`test_rotor_rust_parity.py` 37 (was 49), `test_rotor_inertial.py` 34 (was 38),
+`test_rotor_physical_consistency.py` 22 (was 20), `test_bem_polars.py` 20 (was 18),
+`test_rust_composite.py` 24 (was 22), `test_stress_stiffened_solver.py` 13 (was 14).
+
+Four files the first version did not cover at all are added: `test_large_rotation_benchmarks.py`
+(7) and `test_mitc3_benchmarks.py` (8) in section 5.4, `test_mitc4plusd_traceability.py` (3) and
+`test_laminate_invariant_guard.py` (1) in section 6.9.
 
 ## 3. `tests/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)
 
-All 31 cases print `Norm vs Kirchhoff: <value> (expected: <cell>, error: <x>%)`. Every
-hardcoded `expected_normalized` was checked against the cited table cell of the recovered
-PDF; the *reference* column names the cell, and "cell match" records whether the hardcoded
-number is that cell.
+All 31 cases print `Norm vs Kirchhoff: <value> (expected: <cell>, error: <x>%)`. The
+*measured margin* column below is the value printed at `e879eba`. Every hardcoded
+`expected_normalized` is the paper's MITC4/MITC4+ N=16 cell for the named table; the cells
+that were mis-sourced (the distorted pinched cylinder, the four twisted-beam cells, the two
+regular hemisphere-cutout cells) were corrected by the change archived at `2fd847d`, and the
+*notes* column records what each row used to compare against. **A stale row here is how this
+document can manufacture a false defect: the first version recorded an 8.5% deviation on the
+thin twisted beam that no longer exists (the element now measures 0.9972 / 0.9981 against
+0.9978 / 0.9982).**
 
-Common tolerance: `rtol=0.05` (tests 3.1, 3.2, 3.3, 3.4, 3.6, 3.7, 3.8, 3.9 via
-`assert_relative_error`) and per-case `tol` in 3.5.
+Common tolerance: `rtol=0.05` via `assert_relative_error` (3.1-3.4, 3.6-3.9) and `tol=0.01`
+per case in 3.5.
 
-| test | what it validates | reference | tolerance | measured margin | notes |
+| test | what it validates | reference (paper cell) | tolerance | measured margin at `e879eba` | notes |
 | --- | --- | --- | --- | --- | --- |
-| `test_3_1_square_plate_tables_2_to_5[reg, t/L=1/100..1/10000]` (6 cases: 3 t/L x distorted False) | clamped square plate centre deflection, N=16 quarter model, uniform pressure | Ko 2017 **Table 2** (regular), MITC4 column, N=16: 0.9984 / 0.9980 / 0.9979; `w_ref` alpha = 1.267e-3 in `p L^4/D` | `np.isclose(..., rtol=0.05)` | 1.0029 (0.45%), 1.0004 (0.24%), 0.9981 (0.02%) | cell match |
-| `test_3_1_square_plate_tables_2_to_5[dist, ...]` (3 cases) | same, distorted mesh | Ko 2017 **Table 3**, MITC4 N=16: 1.002 / 1.001 / 1.001 | `rtol=0.05` | 1.0028 (0.08%), 0.9998 (0.12%), 0.9978 (0.32%) | cell match |
-| `test_3_1_square_plate_tables_2_to_5[reg SS]` (3 cases) | simply supported square plate centre deflection | **Table 4**, MITC4 N=16: 1.000 / 0.9998 / 0.9998; alpha = 4.062e-3 | `rtol=0.05` | 1.0057 (0.57%), 1.0004 (0.06%), 0.9998 (0.00%) | cell match |
-| `test_3_1_square_plate_tables_2_to_5[dist SS]` (3 cases) | same, distorted | **Table 5**, MITC4 N=16: 1.003 / 1.003 / 1.003 | `rtol=0.05` | 1.0094 (0.64%), 1.0009 (0.21%), 0.9997 (0.33%) | cell match |
-| `test_3_2_circular_plate_tables_6_to_7[clamped, 3 t/L]` | clamped circular plate centre deflection, N=16 quarter disk | **Table 6** MITC4 N=16: 1.001 / 0.9997 / 0.9997; `w_ref = alpha p R^4/D`, alpha = 1/64 | `rtol=0.05` | 0.9998 (0.12%), 0.9980 (0.17%), 0.9968 (0.29%) | cell match |
-| `test_3_2_circular_plate_tables_6_to_7[ss, 3 t/L]` | simply supported circular plate | **Table 7** MITC4 N=16: 0.9991 / 0.9988 / 0.9988; alpha = (5+nu)/(64(1+nu)) | `rtol=0.05` | 0.9982 (0.28%), 0.9976 (0.21%), 0.9974 (0.23%) | **cell mismatch**: the same `expected_mitc4` tuple (Table 6 values 1.001 / 0.9997 / 0.9997) is passed to both the clamped and the simply supported case, so the SS rows are compared against the clamped column. The name promises Tables 6 *and* 7. |
-| `test_3_3_pinched_cylinder_tables_8_to_9[reg]` | pinched cylinder load-point displacement, N=16, R=300, t=3 | **Table 8** MITC4+ N=16: 0.9313; `w_ref = 1.8248e-5` | `assert_relative_error tol=0.05` | 0.9674 (3.88%) | cell match; only 1.12 pp inside a 5% window |
-| `test_3_3_pinched_cylinder_tables_8_to_9[dist]` | same, distorted mesh | **Table 9** MITC4+ N=16: **0.9321** | `tol=0.05` | 0.9932 (0.41% from the hardcoded value) | **cell mismatch**: the hardcoded 0.9892 is not a Table 9 value. `0.9892` occurs in this paper only in Table 12 (twisted beam, in-plane, t/L=0.02667, N=2, MITC4). Against the true Table 9 N=16 cell the measured value is 6.6% off, i.e. outside the 5% window. |
-| `test_3_4_scordelis_lo_tables_10_to_11[reg]` | Scordelis-Lo roof free-edge centre, N=16, R=25, L=50, th=40deg, t=0.25, rho=360 | **Table 10** MITC4+ N=16: 0.9973; `w_ref = 3.0240e-1` | `tol=0.05` | 0.9988 (0.15%) | cell match |
-| `test_3_4_scordelis_lo_tables_10_to_11[dist]` | same, distorted | **Table 11** MITC4+ N=16: 0.9942 | `tol=0.05` | 1.0006 (0.64%) | cell match |
-| `test_3_5_twisted_beam_tables_12_to_13[0.02667, In-plane]` | MacNeal-Harder twisted beam, N=16x96, tip centre, in-plane | **Table 12** MITC4+ N=16: **0.9971**; `w_ref = 5.4240e-3` | `tol=0.10` | 1.0001 (1.95% from the hardcoded 1.02) | **cell mismatch**: hardcoded 1.02 appears nowhere in Tables 12/13. The 10% window is what absorbs the difference. |
-| `test_3_5_twisted_beam_tables_12_to_13[0.02667, Out-of-plane]` | same, out-of-plane | **Table 13** MITC4+ N=16: 0.9973; `w_ref = 1.7540e-3` | `tol=0.05` | 0.9999 (1.00%) | **cell mismatch** (hardcoded 0.99; 0.99 is not a Table 13 cell either) |
-| `test_3_5_twisted_beam_tables_12_to_13[0.0002667, In-plane]` | thin twisted beam, in-plane | **Table 12** MITC4+ N=16: **0.9978**; `w_ref = 5.2560e-3` | `tol=0.05` | 0.9131 (0.75% from the hardcoded 0.92) | **cell mismatch, expectation tuned to the implementation**: the comment says "MITC4+ achieves ~91% of reference", and 0.92 is that measurement, not the paper's 0.9978. Against the paper cell this case fails by 8.5%, i.e. the window would have to be ~19% wide. Same defect class as the historical Hook 1.12. |
-| `test_3_5_twisted_beam_tables_12_to_13[0.0002667, Out-of-plane]` | thin twisted beam, out-of-plane | **Table 13** MITC4+ N=16: **0.9982**; `w_ref = 1.2940e-3` | `tol=0.05` | 0.9112 (0.95%) | **cell mismatch, expectation tuned to the implementation** (hardcoded 0.92) |
-| `test_3_6_hook_table_14_minimal_fix[0.9782]` | Raasch hook tip deflection, N=8x48, t=2, E=3.3e3 | **Table 14** MITC4+ N=8: 0.9782; `w_ref = 4.82482` (MITC9, N=64) | `rel_err < 0.03`, justified and measured in the comment | 0.9927 (1.48%) | cell match; the reference and the 3% window are documented, and the previous 1.12 / `assert norm > 0.1` are recorded in the comment |
-| `test_3_7_hemisphere_cutout_tables_15_to_16[reg, 4/1000]` | hemisphere with cut-out, regular mesh, N=16, R=10, th0=18deg | **Table 15** MITC4+ N=16: **1.003** | `tol=0.05` | 1.0047 (0.43% from the hardcoded 1.009) | **cell mismatch**: 1.009 is the Table 15 MITC4+ **N=8** cell. Against the correct N=16 cell the margin is 0.17%. |
-| `test_3_7_hemisphere_cutout_tables_15_to_16[reg, 4/10000]` | same, thin | **Table 15** MITC4+ N=16: **0.9834** | `tol=0.05` | 0.9786 (0.25% from the hardcoded 0.9811) | **cell mismatch**: 0.9811 is the Table 15 **S4** N=16 cell. Against MITC4+ N=16 the margin is 0.49%. |
-| `test_3_7_hemisphere_cutout_tables_15_to_16[dist, ...]` (2 cases) | same, distorted mesh | **Table 16** MITC4+ N=16: 0.9958 / 0.9736 | `tol=0.05` | 1.0042 (0.84%), 0.9641 (0.98%) | cell match |
-| `test_3_8_full_hemisphere_table_17[4/1000]` | full hemisphere, N=16, th0=2deg | **Table 17** MITC4+ N=16: 0.9960; `w_ref = 9.24e-2` | `tol=0.05` | 0.9982 (0.22%) | cell match; the mesh skips the pole (th0 = 2 deg) whereas the paper's mesh is not stated to do so |
-| `test_3_8_full_hemisphere_table_17[4/10000]` | same, thin | **Table 17** MITC4+ N=16: 0.9798 | `tol=0.05` | 0.9720 (0.80%) | cell match |
-| `test_3_9_hyperbolic_paraboloid_tables_18_to_19[reg, ...]` (2 cases) | hyperbolic paraboloid free-edge centre, 32x32 on the full saddle | **Table 18** MITC4+ N=16: 0.9762 / 0.9777 | `tol=0.05` | 0.9761 (0.01%), 0.9770 (0.07%) | cell match |
-| `test_3_9_hyperbolic_paraboloid_tables_18_to_19[dist, ...]` (2 cases) | same, distorted | **Table 19** MITC4+ N=16: 0.9904 / 0.9936 | `tol=0.05` | 0.9975 (0.72%), 1.0168 (2.34%) | cell match |
+| `test_3_1_square_plate_tables_2_to_5[reg clamped, t/L=1/100..1/10000]` (3 cases) | clamped square plate centre deflection, N=16 quarter model, uniform pressure | **Table 2**, MITC4 / MITC4+ (identical columns) N=16: 0.9984 / 0.9980 / 0.9979; `w_ref` alpha = 1.267e-3 in `p L^4/D` | `rtol=0.05` | 0.9996 (0.12%), 0.9980 (0.00%), 0.9979 (0.00%) | cell match |
+| `...[dist clamped]` (3 cases) | same, distorted mesh | **Table 3**, N=16: 1.002 / 1.001 / 1.001 | `rtol=0.05` | 0.9991 (0.29%), 0.9975 (0.35%), 0.9974 (0.35%) | cell match |
+| `...[reg SS]` (3 cases) | simply supported square plate centre deflection | **Table 4**, N=16: 1.000 / 0.9998 / 0.9998; alpha = 4.062e-3 | `rtol=0.05` | 1.0026 (0.26%), 0.9998 (0.00%), 0.9998 (0.00%) | cell match |
+| `...[dist SS]` (3 cases) | same, distorted | **Table 5**, N=16: 1.003 / 1.003 / 1.003 | `rtol=0.05` | 1.0074 (0.44%), 0.9998 (0.32%), 0.9996 (0.34%) | cell match |
+| `test_3_2_circular_plate_tables_6_to_7[clamped, 3 t/L]` | clamped circular plate centre deflection, N=16 quarter disk | **Table 6**, MITC4 N=16: 1.001 / 0.9997 / 0.9997; `w_ref = alpha p R^4/D`, alpha = 1/64 | `rtol=0.05` | 0.9971 (0.39%), 0.9967 (0.30%), 0.9967 (0.30%) | cell match |
+| `...[ss, 3 t/L]` | simply supported circular plate | **Table 7**, MITC4 N=16: 0.9991 / 0.9988 / 0.9988; alpha = (5+nu)/(64(1+nu)) | `rtol=0.05` | 0.9975 (0.16%), 0.9974 (0.14%), 0.9974 (0.14%) | **RESOLVED**: the SS case now carries its own Table 7 tuple (`expected_clamped` / `expected_ss` are separate parametrisations). It used to share the Table 6 row, which the first version flagged. |
+| `test_3_3_pinched_cylinder_tables_8_to_9[reg]` | pinched cylinder load-point displacement, N=16, R=300, t=3 | **Table 8**, MITC4+ N=16: 0.9313; `w_ref = 1.8248e-5` | `rtol=0.05` | 0.9182 (1.41%) | cell match; one of the two widest live margins in the module (Scordelis-Lo regular is the other). |
+| `test_3_3_pinched_cylinder_tables_8_to_9[dist]` | same, distorted mesh | **Table 9**, MITC4+ N=16: 0.9321 | `rtol=0.05` | 0.9317 (0.04%) | **RESOLVED**: the expectation used to be 0.9892, which is a Table 12 N=2 MITC4 cell, not a Table 9 value. The pre-fix element measured 0.9943 (6.7% off); the faithful element measures 0.04% off. |
+| `test_3_4_scordelis_lo_tables_10_to_11[reg]` | Scordelis-Lo roof free-edge centre, N=16, R=25, L=50, th=40deg, t=0.25, rho=360 | **Table 10**, MITC4+ N=16: 0.9973; `w_ref = 3.0240e-1` | `rtol=0.05` | 0.9701 (2.73%) | cell match; **the widest live margin in the module**. |
+| `test_3_4_scordelis_lo_tables_10_to_11[dist]` | same, distorted | **Table 11**, MITC4+ N=16: 0.9942 | `rtol=0.05` | 0.9809 (1.34%) | cell match |
+| `test_3_5_twisted_beam_tables_12_to_13[0.02667, In-plane]` | MacNeal-Harder twisted beam, thick, in-plane, N=16x96 | **Table 12**, MITC4+ N=16: 0.9971; `w_ref = 5.4240e-3` | `tol=0.01` | 0.9981 (0.10%) | **RESOLVED**: the hardcoded 1.02 was not a paper cell and is now 0.9971. |
+| `...[0.02667, Out-of-plane]` | same, out-of-plane | **Table 13**, MITC4+ N=16: 0.9973; `w_ref = 1.7540e-3` | `tol=0.01` | 0.9998 (0.25%) | **RESOLVED**: hardcoded 0.99 replaced by 0.9973. |
+| `...[0.0002667, In-plane]` | thin twisted beam, in-plane | **Table 12**, MITC4+ N=16: 0.9978; `w_ref = 5.2560e-3` | `tol=0.01` | 0.9972 (0.06%) | **RESOLVED**: hardcoded 0.92 ("what the element achieves") replaced by the paper's 0.9978; the element now reaches 0.9972, so the 8.5% deviation the first version recorded is gone. |
+| `...[0.0002667, Out-of-plane]` | thin twisted beam, out-of-plane | **Table 13**, MITC4+ N=16: 0.9982; `w_ref = 1.2940e-3` | `tol=0.01` | 0.9981 (0.01%) | **RESOLVED**, same story. |
+| `test_3_6_hook_table_14_minimal_fix[0.9782]` | Raasch hook tip deflection, N=8x48, t=2, E=3.3e3 | **Table 14**, MITC4+ N=8: 0.9782; `w_ref = 4.82482` (MITC9, N=64) | `rel_err < 0.03`, justified and measured in the comment | 0.9814 (0.33%) | cell match; the first version's 0.9927 and the historical 1.12 / `assert norm > 0.1` are recorded in the test comment. |
+| `test_3_7_hemisphere_cutout_tables_15_to_16[reg, 4/1000]` | hemisphere with cut-out, regular mesh, N=16, R=10, th0=18deg | **Table 15**, MITC4+ N=16: 1.003 | `rtol=0.05` | 0.9963 (0.67%) | **RESOLVED**: hardcoded 1.009 was the Table 15 MITC4+ *N=8* cell. |
+| `...[reg, 4/10000]` | same, thin | **Table 15**, MITC4+ N=16: 0.9834 | `rtol=0.05` | 0.9816 (0.18%) | **RESOLVED**: hardcoded 0.9811 was the Table 15 *S4* N=16 cell. |
+| `...[dist, 4/1000]` | same, distorted mesh | **Table 16**, MITC4+ N=16: 0.9958 | `rtol=0.05` | 1.0011 (0.53%) | cell match |
+| `...[dist, 4/10000]` | same, distorted, thin | **Table 16**, MITC4+ N=16: 0.9736 | `rtol=0.05` | 0.9871 (1.39%) | cell match |
+| `test_3_8_full_hemisphere_table_17[4/1000]` | full hemisphere, N=16, th0=2deg | **Table 17**, MITC4+ N=16: 0.9960; `w_ref = 9.24e-2` | `rtol=0.05` | 0.9912 (0.49%) | cell match; the mesh skips the pole (th0 = 2 deg) whereas the paper's mesh is not stated to do so |
+| `...[4/10000]` | same, thin | **Table 17**, MITC4+ N=16: 0.9798 | `rtol=0.05` | 0.9772 (0.26%) | cell match |
+| `test_3_9_hyperbolic_paraboloid_tables_18_to_19[reg, ...]` (2 cases) | hyperbolic paraboloid free-edge centre, 32x32 on the full saddle | **Table 18**, MITC4+ N=16: 0.9762 / 0.9777 | `rtol=0.05` | 0.9681 (0.83%), 0.9681 (0.99%) | cell match |
+| `...[dist, ...]` (2 cases) | same, distorted | **Table 19**, MITC4+ N=16: 0.9904 / 0.9936 | `rtol=0.05` | 0.9955 (0.52%), 1.0138 (2.03%) | cell match |
 
 Structural notes on this module:
 
 - `_assemble_global` derives the element code from the node count
   (`3 if len(node_ids_elem) == 3 else 4`), which is what allows the same benchmark to be
   run with quads or triangles; every live call site currently passes
-  `use_triangular = False`, so the triangular path is unreachable from the suite (section 6
+  `use_triangular = False`, so the triangular path is unreachable from the suite (section 4
   exercises it out of band).
 - The module-level `REFERENCE_VALUES` table named in the audit no longer exists; only
   `PAPER_REFS` exists (line 56) and it *is* read, by `test_3_1` only.
@@ -129,7 +146,7 @@ Structural notes on this module:
   `[x] Norm vs Paper 3D` for it. That line is informational and never asserted, and it is
   wrong by construction: it divides `|disp|` by `PAPER_REFS[...] * pressure` and compares
   the quotient against `expected_normalized` (a *normalized* value). Printed errors run
-  from 527% to 6.2e8%. Nothing fails on it (section 5.5).
+  from 523% to 6.2e8%. Nothing fails on it (section 9.5).
 
 ## 4. CCX parity group
 
@@ -137,18 +154,18 @@ Structural notes on this module:
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `test_linear_static_with_analytical[tension_axial]` | free-face mean axial extension of a 4x20 MITC4 cantilever, point load 1000 N | analytical `F L/(E A)`, stated as a formula in the docstring | `TOL_ANALYTICAL = 0.02`, justified in a comment against measured errors | 0.560% | the test never skips: it needs no CalculiX |
-| `...[compression_axial]` | same, reversed | analytical `-F L/(E A)` | 0.02 | 0.560% | – |
-| `...[bending_fx]` | in-plane bending | analytical `F L^3/(3 E I_y)` | 0.02 | 0.890% | – |
-| `...[transverse_fy]` | out-of-plane bending | analytical `F L^3/(3 E I_x)` | 0.02 | 0.682% | – |
-| `test_linear_static_vs_ccx[4 cases]` | MITC4 vs CCX at the loaded node | **CCX 2.23, S4** (quadratic=False), same 4x20 mesh, point load at free-face centre | `rel_err <= 0.05` | 0.01% (tension), 0.01% (compression), 0.63% (bending_fx), 0.35% (transverse_fy) | the loaded node over-reads the axial cases by 5.09% vs analytical, for both codes; that is why the analytical test uses the face mean |
-| `test_modal_first_five_modes` | first 5 modes from 12 requested, matched by Hungarian assignment | **CCX 2.23, S4** eigenfrequencies, same mesh | `tol=0.05` | max rel err 5.44e-03 (0.54%) | the matching step (not the physical modes) is what keeps this test robust; the printed table shows modes 1-12 on both sides |
+| `test_linear_static_with_analytical[tension_axial]` | free-face mean axial extension of a 4x20 MITC4 cantilever, point load 1000 N | analytical `F L/(E A)`, stated as a formula in the docstring | `TOL_ANALYTICAL = 0.02`, justified in a comment against measured errors | 0.612% | the test never skips: it needs no CalculiX |
+| `...[compression_axial]` | same, reversed | analytical `-F L/(E A)` | 0.02 | 0.612% | – |
+| `...[bending_fx]` | in-plane bending | analytical `F L^3/(3 E I_y)` | 0.02 | 0.873% | – |
+| `...[transverse_fy]` | out-of-plane bending | analytical `F L^3/(3 E I_x)` | 0.02 | 0.749% | – |
+| `test_linear_static_vs_ccx[4 cases]` | MITC4 vs CCX at the loaded node | **CCX 2.23, S4** (quadratic=False), same 4x20 mesh, point load at free-face centre | `rel_err <= 0.05` | 0.70% (tension), 0.70% (compression), 0.62% (bending_fx), 0.28% (transverse_fy) | the loaded node over-reads the axial cases vs analytical (AE 4.37%, CCX 5.10%), for both codes; that is why the analytical test uses the face mean. The first version's 0.01% axial figure was the hybrid element's. |
+| `test_modal_first_five_modes` | first 5 modes from 12 requested, matched by Hungarian assignment | **CCX 2.23, S4** eigenfrequencies, same mesh | `tol=0.05` | max rel err 7.27e-03 (0.73%) | the matching step (not the physical modes) is what keeps this test robust; the printed table shows modes 1-12 on both sides |
 
 ### 4.2 `test_isotropic_shell_parity.py` (1)
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `test_transverse_tip_displacement` | MITC4 vs CCX out-of-plane tip displacement, 2x10 mesh | **CCX 2.23, S4**; the module also defines an analytical Mindlin tip formula that the test never uses | `tol = 0.05` | AE 0.150095 m, CCX 0.145747 m, ratio 0.971, difference 2.9% | two defects: (a) the comment says "Allow 10% tolerance" while the code is 0.05 (`:365-366`); (b) the CCX side is `max abs(V)` over *all* FRD nodes (`:326-356`) while the AeroElast side is the loaded centre node, so the comparison is not like-for-like. The unused `analytical_tip_displacement` helper is dead reference code. |
+| `test_transverse_tip_displacement` | MITC4 vs CCX out-of-plane tip displacement, 2x10 mesh | **CCX 2.23, S4**; the module also defines an analytical Mindlin tip formula that the test never uses | `tol = 0.05` | AE 0.149886 m, CCX 0.145747 m, ratio 0.972, difference 2.8% | (a) **RESOLVED**: the comment used to say "Allow 10% tolerance" over the enforced 5%; it now records that the comment was what was wrong. (b) The CCX side is `max abs(V)` over *all* FRD nodes (`:326-356`) while the AeroElast side is the loaded centre node, so the comparison is not like-for-like. The unused `analytical_tip_displacement` helper is dead reference code. |
 
 ### 4.3 `test_composite_beam_parity.py` (5)
 
@@ -156,24 +173,24 @@ Structural notes on this module:
 | --- | --- | --- | --- | --- | --- |
 | `TestCompositeMaterial::test_laminate_abd_matrices` | ABD dict keys, lengths 9/9/9, thickness passthrough | none (schema test) | exact keys/`==` | not applicable | no numerical reference |
 | `TestCompositeMaterial::test_mesh_connectivity` | node sets exist and sit at y=0 / y=L | mesh construction invariant | `atol=1e-12` | not printed | – |
-| `test_composite_axial_tension` | [0/90/45/-45]s 8-ply laminate axial, 4x10 mesh | **CCX 2.23, S8R** + `*SHELL SECTION, COMPOSITE` (quadratic=True) | `rel_error < 0.1` | AE 46.49 um, CCX 48.09 um, 3.33% | the 10% window has no stated justification. The AeroElast block (mesh, material, assembly) is duplicated verbatim in the body. |
-| `test_composite_isotropic_equiv` | same mesh with an isotropic equivalent mapped through a single-ply laminate | **CCX 2.23, S8R**, single isotropic ply (so only the element formulation differs) | `rel_error < 0.1` | AE 33.90 um, CCX 34.73 um, 2.37% | same unjustified 10% window |
-| `test_composite_bending` | laminate transverse bending, 100 N at the free centre | **CCX 2.23, S8R** | `rel_error < 0.1` | AE 1671.42 um, CCX 1700.86 um, 1.73% | same unjustified 10% window |
+| `test_composite_axial_tension` | [0/90/45/-45]s 8-ply laminate axial, 4x10 mesh | **CCX 2.23, S8R** + `*SHELL SECTION, COMPOSITE` (quadratic=True) | `rel_error < 0.1` | AE 45.87 um, CCX 48.09 um, 4.62% | the 10% window has no stated justification. The AeroElast block (mesh, material, assembly) is duplicated verbatim in the body. |
+| `test_composite_isotropic_equiv` | same mesh with an isotropic equivalent mapped through a single-ply laminate | **CCX 2.23, S8R**, single isotropic ply (so only the element formulation differs) | `rel_error < 0.1` | AE 33.45 um, CCX 34.73 um, 3.67% | same unjustified 10% window |
+| `test_composite_bending` | laminate transverse bending, 100 N at the free centre | **CCX 2.23, S8R** | `rel_error < 0.1` | AE 1671.71 um, CCX 1700.86 um, 1.71% | same unjustified 10% window |
 
 ### 4.4 `test_orthotropic_shell_parity.py` (3)
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `test_orthotropic_axial` | single 0-ply orthotropic laminate, transverse Fy, 4x10 mesh, `elem_type=44` | **CCX 2.23, S8R** + composite section | `rel_error < 0.05` | AE 3 190 709.55 um, CCX 3 172 580.00 um, 0.57% | name says "axial" but the body and docstring apply a transverse load |
-| `test_orthotropic_bending` | [0/90/90/0] in-plane lateral bending, load spread over the tip | analytical `F L^3/(3 EI_in)` with `EI_in = A11 B^3/12`, written out in the docstring | `rel_error < 0.05` | AE 1265.97 um, analytical 1221.54 um, 3.6% | the module docstring claims the lateral-bending tolerance was widened for a ~25-30% MITC4-vs-S8R gap, yet this test compares against the analytical value at 5% and passes at 3.6%; no CalculiX in this test |
-| `test_multi_layer_iso_equivalence` | 4 laminar plies vs 1 layer of the same total thickness, MITC4 vs MITC4Composite | internal identity (A, B, D algebra), documented in the docstring | `rel_diff < 1e-4` | 5.437e-05 | a consistency identity rather than an external reference; the docstring states the algebra, so it is a legitimate duplicate-path check |
+| `test_orthotropic_axial` | single 0-ply orthotropic laminate, transverse Fy, 4x10 mesh, `elem_type=44` | **CCX 2.23, S8R** + composite section | `rel_error < 0.05` | CCX 3 172 580.00 um, 0.54% | name says "axial" but the body and docstring apply a transverse load |
+| `test_orthotropic_bending` | [0/90/90/0] in-plane lateral bending, load spread over the tip | analytical `F L^3/(3 EI_in)` with `EI_in = A11 B^3/12`, written out in the docstring | `rel_error < 0.05` | AE 1266.10 um, analytical 1221.54 um, 3.6% | the module docstring claims the lateral-bending tolerance was widened for a ~25-30% MITC4-vs-S8R gap, yet this test compares against the analytical value at 5% and passes at 3.6%; no CalculiX in this test |
+| `test_multi_layer_iso_equivalence` | 4 laminar plies vs 1 layer of the same total thickness, MITC4 vs MITC4Composite | internal identity (A, B, D algebra), documented in the docstring | `rel_diff < 1e-4` | 9.181e-17 | a consistency identity rather than an external reference; the docstring states the algebra, so it is a legitimate duplicate-path check |
 
 ### 4.5 `test_shell_convergence.py` (2)
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `test_in_plane_bending_convergence` | observed order of the MITC4 in-plane tip displacement over 4 meshes, by Richardson self-convergence, plus the extrapolated limit | analytical `P L^3/(3 E I)` with `I = t B^3/12`; the Timoshenko-vs-Euler-Bernoulli shear floor is derived in the comment (9.6 um on 1230 um ≈ 0.8%) | `MIN_ORDER = 1.5` and `EXTRAPOLATED_TOL = 0.02`, both justified in the module docstring | orders 1.7416 and 1.7638 (agree, delta = 0.022); Richardson limit 1238.1350 um vs 1230.7692 um = 0.5985% | the strongest tolerance justification in the suite; the raw pairwise orders (2.878, 0.153, -0.698) are printed and explicitly not asserted |
-| `test_composite_laminate_gap_mesh_study` | whether the AeroElast-vs-CCX laminate gap shrinks (mesh artifact) or plateaus (formulation/ABD) | **CCX 2.23, S8R** across 4 meshes; no gap value asserted | none: the only assertions are `np.all(np.isfinite(...))` and `... > 0` | gaps -4.2527 / -1.7312 / -1.3546 / -1.7294%; verdict printed: `PLATEAUS -> formulation / ABD` | an analysis script, not a test: it cannot fail for any formulation. The docstring says "No gap value is asserted yet", so this is deliberate, but it should be read as a measurement, not as coverage |
+| `test_in_plane_bending_convergence` | observed order of the MITC4 in-plane tip displacement over 4 meshes, by Richardson self-convergence, plus the extrapolated limit | analytical `P L^3/(3 E I)` with `I = t B^3/12`; the Timoshenko-vs-Euler-Bernoulli shear floor is derived in the comment (9.6 um on 1230 um ≈ 0.8%) | `MIN_ORDER = 1.5` and `EXTRAPOLATED_TOL = 0.02`, both justified in the module docstring | orders 1.7314 and 1.7561 (agree, delta = 0.0247); Richardson limit 1238.1367 um vs 1230.7692 um = 0.5986% | the strongest tolerance justification in the suite; the raw pairwise orders (2.865, 0.164, -0.703) are printed and explicitly not asserted |
+| `test_composite_laminate_gap_mesh_study` | whether the AeroElast-vs-CCX laminate gap shrinks (mesh artifact) or plateaus (formulation/ABD) | **CCX 2.23, S8R** across 4 meshes; no gap value asserted | none: the only assertions are `np.all(np.isfinite(...))` and `... > 0` | gaps -4.1765 / -1.7137 / -1.3512 / -1.7290%; verdict printed: `PLATEAUS -> formulation / ABD` | an analysis script, not a test: it cannot fail for any formulation. The docstring says "No gap value is asserted yet", so this is deliberate, but it should be read as a measurement, not as coverage |
 
 ### 4.6 `test_ccx_shell_element_types_parity.py` (4)
 
@@ -193,10 +210,13 @@ traction (corner `1/6`, midside `2/3`), each with resultant `600 N`.
 | `test_ccx_element_type_matches_analytical[S8]` | S8 centre `uy` vs beam theory, 8x4 | same analytical | 0.02 | 1.145430E-02 m, 0.2251% | quadratic mesh; S8 is CCX full integration and is not in `ELEMENTS_TO_CALCULIX` -- the type is threaded through `_build_quadratic_mesh_data` |
 | `test_ccx_element_type_matches_analytical[S8R]` | S8R centre `uy` vs beam theory, 8x4 | same analytical | 0.02 | 1.148490E-02 m, 0.4929% | same load; S8R is the `*SHELL SECTION, COMPOSITE` element |
 
-The three independent CalculiX formulations bracket the analytical value and agree with
-each other within 1.11%, so the CCX reference model for the strip is not the source of the
-37.7% AeroElast gap on the new shell element. The module skips cleanly when CalculiX is
-absent (`conftest.ccx_bin_or_skip`, path overridable with `CCX_BIN`).
+The three independent CalculiX versions bracket the analytical value and agree with each
+other within 1.11%, so the CCX reference model for the strip is not the source of any
+AeroElast-vs-CCX gap on this problem. The first version of this matrix closed the paragraph
+with a "37.7% AeroElast gap on the new shell element"; that number was carried over from the
+pre-flip element and has no measured provenance at `e879eba`, so it was removed rather than
+repeated. The module skips cleanly when CalculiX is absent (`conftest.ccx_bin_or_skip`, path
+overridable with `CCX_BIN`).
 
 ## 5. Analytical group
 
@@ -217,10 +237,10 @@ No test in this module prints its residual.
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `TestLinearStaticCantilever::test_fx_in_plane` | axial membrane load, 8x4 mesh | analytical `P L/(E A)` | `error < 5.0` (percent) | FEM 2.824e-05, ana 2.857e-05 -> 1.2% | the comment says "Should match within 10%" (`:400`) while the assertion is 5% |
-| `test_fy_in_plane` | in-plane bending, ny=8 | analytical `P L^3/(3 E I_z)`, `I_z = h b^3/12` | `error < 5.0` | FEM 1.134e-02 vs ana 1.143e-02 -> 0.8% (only raw values printed) | 5% unjustified |
-| `test_fz_out_of_plane` | out-of-plane flexure | analytical Timoshenko `P L^3/(3 E I) + P L/(k G A)`, `k=5/6` | `error < 5.0` | FEM 1.121e+02 vs ana 1.143e+02 -> 1.92% | the failure message says "FX error" for the FZ case (`:491`) |
-| `test_in_plane_ratio_constraint` | uY/uX ratio | beam theory `4 (L/b)^2 = 400` | `0.5 ratio_ref <= ratio <= 1.2 ratio_ref` | 399.84 vs 400.00 (0.04%) | the window is asymmetric (-50% / +20%) and unjustified; `test_shell_validation_fixed.py` asserts the same ratio at ±2% |
+| `TestLinearStaticCantilever::test_fx_in_plane` | axial membrane load, 8x4 mesh | analytical `P L/(E A)` | `error < 5.0` (percent) | FEM 2.820e-05, ana 2.857e-05 -> 1.3% | the comment used to say "Should match within 10%" (`:400`) while the assertion is 5%; the test now records that the comment was the wrong part, not the tolerance |
+| `test_fy_in_plane` | in-plane bending, ny=8 | analytical `P L^3/(3 E I_z)`, `I_z = h b^3/12` | `error < 5.0` | FEM 1.134e-02 vs ana 1.143e-02 (raw values only; no error line printed) | 5% unjustified |
+| `test_fz_out_of_plane` | out-of-plane flexure | analytical Timoshenko `P L^3/(3 E I) + P L/(k G A)`, `k=5/6` | `error < 5.0` | FEM 1.120e+02 vs ana(bending only) 1.143e+02 (raw values only) | the printed reference is the bending-only term; 5% unjustified |
+| `test_in_plane_ratio_constraint` | uY/uX ratio | beam theory `4 (L/b)^2 = 400` | `0.5 ratio_ref <= ratio <= 1.2 ratio_ref` | 400.39 vs 400.00 (0.10%) | the window is asymmetric (-50% / +20%) and unjustified; `test_shell_validation_fixed.py` asserts the same ratio at ±2% |
 | `TestNonlinearStaticCantilever::test_large_displacement_tip_load` | "large displacement" response | none: the body asserts the linear estimate exceeds L, then that the solve raises `RuntimeError` | `abs(dz_lin) > L` | linear estimate 1.121e+02 | the name promises a numerical large-displacement validation; the body validates the divergence *error path* only |
 | `TestModalAnalysis::test_first_mode_frequency` | first cantilever mode | analytical `(1.875104^2 / 2pi) sqrt(E I/(rho A L^4))`, `I = b h^3/12` | `error < 5.0` | 0.848 Hz vs 0.838 Hz -> 1.2% | 5% unjustified |
 | `test_higher_modes` | "higher modes" | **none** | only strict monotonicity `f2 > f1`, `f3 > f2` | [0.848, 5.501, 16.542] Hz | the name promises validation; no reference value is compared. `simply_supported_plate_central_load`, `simply_supported_plate_uniform_pressure`, `nonlinear_large_displacement_cantilever` and `build_simply_supported_mesh` are all dead. |
@@ -229,13 +249,30 @@ No test in this module prints its residual.
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `TestLinearStatic::test_fx` | axial, 8x4 | analytical `600 L/(E b h)` | `TOL_STATIC = 3.0` (percent), justified in a comment with the measured errors | 1.15% | – |
+| `TestLinearStatic::test_fx` | axial, 8x4 | analytical `600 L/(E b h)` | `TOL_STATIC = 3.0` (percent), justified in a comment with the measured errors | 1.29% | – |
 | `test_fy` | in-plane bending | analytical `600 L^3/(3 E (h b^3/12))` | 3.0% | 1.19% | – |
-| `test_fz` | out-of-plane bending | analytical `600 L^3/(3 E (b h^3/12))` | 3.0% | 1.92% | – |
-| `test_ratio_physical` | uY/uX ratio | beam theory 400 (documented derivation in the docstring) | ±2%, justified against the measured 399.84 | 399.84 (0.04%) | the docstring records that the previous window was -50%/+20% |
-| `test_axial_load_converges_to_the_analytical_solution` | monotone convergence, 4 meshes | analytical `P L/(E A)` | monotone decrease and finest `error < 0.01`; the exclusion of (2,1) is justified | 2.702%, 1.154%, 0.748%, 0.487% | – |
+| `test_fz` | out-of-plane bending | analytical `600 L^3/(3 E (b h^3/12))` | 3.0% | 1.97% | – |
+| `test_ratio_physical` | uY/uX ratio | beam theory 400 (documented derivation in the docstring) | ±2%, justified against the measured 400.39 | 400.39 (0.10%) | the docstring records that the previous window was -50%/+20% |
+| `test_axial_load_converges_to_the_analytical_solution` | monotone convergence, 4 meshes | analytical `P L/(E A)` | monotone decrease and finest `error < 0.01`; the exclusion of (2,1) is justified | 2.422%, 1.286%, 0.768%, 0.489% | – |
 | `TestNonlinearStatic::test_geometric_nonlinearity` | "geometric nonlinearity" | none: asserts `dz_lin > L`, then `RuntimeError` matching "SNES diverged" | `dz_lin > L` | linear estimate 1.121e+02 | same shape as its `test_shell_comprehensive` twin; no numerical nonlinear reference |
 | `TestModal::test_first_mode` | first cantilever mode | analytical `(1.875104^2 / 2pi) sqrt(E I/(rho A L^4))` | `error < 2.0` (percent) | 0.848 Hz vs 0.838 Hz -> 1.2% | the tolerance is the only one in this module without a justification comment, in a module whose other tolerances all carry one |
+
+### 5.4 `test_large_rotation_benchmarks.py` (7) and `test_mitc3_benchmarks.py` (8)
+
+Both files drive the Updated-Lagrangian incremental solve (`nonlinear_static_solve_coo` +
+`PyMeshAssembler.update_reference`) on a cantilever under pure end moment, with the exact
+elastica as the reference. No test in either file prints its residual, so the measured margin
+column is `not printed` throughout; the assertion is what the code states.
+
+| file / test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `large_rotation` `test_linear_tip_deflection_euler_bernoulli` | linear tip deflection and rotation, small moment | Euler-Bernoulli `P L^3/(3 E I)` | `rtol=1e-8`, `atol=1e-10` | not printed | an independent analytical reference |
+| `large_rotation` `test_cantilever_large_rotation_half_circle[n_elem]` | λ = π half-circle (u_tip = -10.0, w_tip = 6.3662) | exact elastica | `tol = 0.05` relative, each component | not printed | – |
+| `large_rotation` `test_equilibrium_path[lam]` | the four λ control points of `REFERENCE_TABLE` | exact elastica, tabulated in the same file | `tol_rel` for the non-zero component, `tol_abs` for the near-zero one | not printed | **weak reference** (section 9.1): `REFERENCE_TABLE` holds the rounded outputs of `_analytical_tip`, defined in the same file; the formula is correct, but a wrong formula would not be caught. |
+| `large_rotation` `test_simo_vu_quoc_rollup_360[n_elem]` | λ = 2π full roll-up (tip returns to (0,0,0)) | Simo & Vu-Quoc 1986 / Bathe & Bolourchi 1979 (cited in the docstring), compared against the same `_analytical_tip` | relative for u_tip, absolute for w_tip | not printed | same weak-reference note |
+| `mitc3_benchmarks` `test_linear_tip_deflection_euler_bernoulli` | same as the MITC4 case, MITC3+ mesh | Euler-Bernoulli | `rel_err < 0.02` | not printed | – |
+| `mitc3_benchmarks` `test_linear_tip_moment_sign` | that a positive `M_y` produces `w_tip < 0` | sign of the physical rotation | `w_tip < 0` plus `rel_err < 0.02` | not printed | this is the MITC3 sign fix's regression guard |
+| `mitc3_benchmarks` `test_cantilever_large_rotation_half_circle[n_elem]`, `test_equilibrium_path[lam]`, `test_simo_vu_quoc_rollup_360[n_elem]` | same three large-rotation cases for MITC3+ | exact elastica / `REFERENCE_TABLE` | same shape as the MITC4 file | not printed | same weak-reference note |
 
 ## 6. Element and assembly invariants
 
@@ -250,7 +287,7 @@ No test in this module prints its residual.
 | `TestMassMatrix::test_symmetry` / `test_positive_semi_definite` | M symmetric, PSD | matrix invariants | `atol=1e-10` / `-1e-10` | not printed | – |
 | `TestRigidBodyModes::test_rigid_modes_kx_ky_rz` | `K @ mode = 0` for tx, ty, rz built from node coordinates | analytical rigid-body modes `ux=-y, uy=x` | relative `max abs(residual) / norm(K)_F < 1e-10` | not printed | the most meaningful test in the file; reference is the analytical rigid-body field |
 
-### 6.2 `test_material_suite.py` (44)
+### 6.2 `test_material_suite.py` (41)
 
 Reference model: Euler-Bernoulli with `EI` taken from the CLT `A` or `D` block, plus the
 Reddy CLT B-coupling formula. No test prints its margin.
@@ -282,7 +319,7 @@ to `rho*h*A` while the trace does not.
 | `TestExactConsistentMassCoefficients` (4) | single-element coefficients, tri3 (1/6, 1/12) and quad4 (4/36, 2/36, 1/36), and rotary `rho h^3 A/12` | exact `int rho h N_i N_j dA` | `rtol=1e-12, atol=1e-18` | not printed | the only place in the suite that pins a *distribution* rather than a total; the docstring states why a global sum cannot catch a wrong quadrature |
 | `TestConsistentMassDistribution::test_row_sums_match_tributary_areas[tri3/quad4]` | row sums equal `rho h * integral(N_i)` | shape-function tributary areas, computed by shoelace | `rel=1e-12` | not printed | – |
 
-### 6.4 `test_rust_assembler.py` (18)
+### 6.4 `test_rust_assembler.py` (19)
 
 | group | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
@@ -295,7 +332,7 @@ to `rho*h*A` while the trace does not.
 | `TestNewtonRaphsonConsistency::test_nr_consistency` | `KT(u) du = fint(u+du) - fint(u)` | Taylor consistency | `rel_err < 2e-3`, justified with the measured ~1e-3 | not printed | the only tolerance in the file with a justification |
 | `TestRustGroupCoverage::test_py_mesh_assembler_built` | `assembler._rust is not None` | wiring | `is not None` | n/a | a smoke test; cannot fail given the module-level import guard |
 
-### 6.5 `test_rust_composite.py` (22)
+### 6.5 `test_rust_composite.py` (24)
 
 All references are element-matrix invariants or ordering statements; no test prints.
 
@@ -311,18 +348,18 @@ All references are element-matrix invariants or ordering statements; no test pri
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `TestMITC4ModalCantilever::test_frequencies_match` | Rust modal vs SLEPc, 6x4 clamped plate, 6 modes | `_python_modal_solve` (PETSc + SLEPc, `_aeroelast.petsc_modal_solve` vs `modal_solve_coo`) | `rtol=1e-4` | rel err 1.76e-13 .. 3.87e-16 (6 modes) | duplicate-implementation comparison |
+| `TestMITC4ModalCantilever::test_frequencies_match` | Rust modal vs SLEPc, 6x4 clamped plate, 6 modes | `_python_modal_solve` (PETSc + SLEPc, `_aeroelast.petsc_modal_solve` vs `modal_solve_coo`) | `rtol=1e-4` | worst rel err 4.68e-12 (6 modes) | duplicate-implementation comparison |
 | `TestMITC4ModalCantilever::test_mode_shapes_orthogonal` | "mode shapes are M-orthogonal" | none: asserts `norm(mode) > 1e-10` | cannot fail (an eigenvector of a GHEP is nonzero by construction) | not printed | name promises M-orthogonality; body checks a non-zero norm |
 | `TestMITC3ModalCantilever::test_frequencies_match` | same for MITC3 | SLEPc | `rtol=1e-4` | max 9.00e-15 | – |
-| `TestSimplySupportedPlate::test_frequencies_match_python` | pinned-edge plate, 8x8 | SLEPc | `rtol=1e-4` | max 9.81e-15 | – |
-| `TestSimplySupportedPlate::test_analytical_convergence` | first mode of a pinned plate | Kirchhoff `f11 = (pi/L^2) sqrt(D/(rho h))`, `D = E h^3/(12(1-nu^2))` | `rel_err < 0.05`, "expect ~1-5% for 8x8" | 49.9985 Hz vs 49.3288 Hz = 1.36% | – |
+| `TestSimplySupportedPlate::test_frequencies_match_python` | pinned-edge plate, 8x8 | SLEPc | `rtol=1e-4` | max 1.32e-08 | – |
+| `TestSimplySupportedPlate::test_analytical_convergence` | first mode of a pinned plate | Kirchhoff `f11 = (pi/L^2) sqrt(D/(rho h))`, `D = E h^3/(12(1-nu^2))` | `rel_err < 0.05`, "expect ~1-5% for 8x8" | 50.1553 Hz vs 49.3288 Hz = 1.68% | – |
 | `TestCOOModalSolve::test_coo_matches_element_path` | `modal_solve_coo` vs the `PyMeshAssembler` path | cross-path identity | `rtol=1e-10` | not printed | – |
 | `TestModalBenchmark::test_benchmark_mitc4` | 8x8 and 12x12 timing | SLEPc frequencies as the correctness guard | `rtol=1e-3` | 0.3x "speedup" printed for both sizes (Rust slower) | a timing test scored as a test; the print shows Rust losing by ~3x, which is the opposite of what the class name implies |
-| `TestCompositeModal::test_composite_frequencies_match` | quasi-iso composite cantilever | SLEPc | `rtol=1e-4` | max 3.70e-13 | – |
-| `TestCompositeModal::test_composite_stiffer_than_isotropic` | name says "stiffer" | none: asserts the two frequency vectors are *not* `allclose` | `rtol=0.01` inside `allclose` | first mode 0.69 Hz vs 8.68 Hz | the body asserts "different", not "stiffer" |
+| `TestCompositeModal::test_composite_frequencies_match` | quasi-iso composite cantilever | SLEPc | `rtol=1e-4` | max 1.61e-10 | – |
+| `TestCompositeModal::test_composite_stiffer_than_isotropic` | name says "stiffer" | none: asserts the two frequency vectors are *not* `allclose` | `rtol=0.01` inside `allclose` | first mode 0.70 Hz vs 8.72 Hz | the body asserts "different", not "stiffer" |
 | `TestCompositeModalMITC3::test_composite_mitc3_frequencies_match` | same, triangles | SLEPc | `rtol=1e-4` | max 1.36e-14 | – |
 
-### 6.7 `test_stress_stiffened_solver.py` (14)
+### 6.7 `test_stress_stiffened_solver.py` (13)
 
 No test prints a margin. References are PETSc matrix invariants plus the physics of a
 tensile geometric stiffness.
@@ -349,9 +386,22 @@ tensile geometric stiffness.
 | `test_symmetric_laminate_no_bending_under_axial_load` | `abs(w_tip) < 1e-9` for [0/90/90/0] | symmetry (B = 0) | `1e-9` absolute | not printed | – |
 | `test_b_coupling_sign` | `B11 < 0` and `w_tip < -1e-6` | as above | `1e-6` floor | not printed | duplicates the previous test's load case; the two share ~80 lines of identical body |
 
+### 6.9 Documentation and contract guards
+
+These files are gates over text, not over numerics: they read the repository's own sources and
+fail when a guard they pin changes. They were added by the archived change and are why section 2
+can no longer silently disagree with the code.
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_mitc4plusd_traceability.py` scenario 1 (1) | every ingredient row of `shell-elements.md` §2.2 names a code symbol that exists in `mitc4.rs` | the code itself | exact membership | not printed | reads files only; no Rust build |
+| `...` scenario 2 (1) | the production path (before `#[cfg(test)]`) contains no drilling penalty, ERC/`beta_w`, SRI `cm_normal`, rotation bubble, `5/6` shear correction or hourglass scaffolding | the spec's forbidden set | exact absence | not printed | the non-vacuity control runs the same detectors against `mitc3.rs` and asserts they fire (where `k_drill` legitimately lives) |
+| `...` scenario 3 (1) | each author-year citation resolves in `docs/references.md` and each quoted equation in the extracts | the canonical bibliography and the two extract files | exact match | not printed | – |
+| `test_laminate_invariant_guard.py::test_laminate_public_surface_unchanged` (1) | the Rust `ShellConstitutive` field set, the Rust `Laminate` method set and the Python `Laminate`/`Ply` surfaces keep their exact shape | the three declared frozensets | exact set equality | not printed | a change here is a contract change in the composite path, to be made on purpose |
+
 ## 7. Rotor and FSI group
 
-### 7.1 `test_rotor_inertial.py` (38)
+### 7.1 `test_rotor_inertial.py` (34)
 
 No test prints. The module loads `corotational.py` by file path to dodge the package
 `__init__` (PETSc). References are closed-form rigid-body inertia and rotation algebra.
@@ -365,7 +415,7 @@ No test prints. The module loads `corotational.py` by file path to dodge the pac
 | | `test_theta_accumulation_simulation` | none: the test integrates `theta += omega*dt` itself | `rtol=0.001` vs 10 rad | not printed | **tautological**: the accumulation loop is in the test, not in the solver. Only `ConstantOmega.get_omega` is exercised. |
 | | `test_displacement_consistency_over_rotation` | rotation algebra | `decimal=12` | not printed | round-trip identity of the class under test |
 
-### 7.2 `test_rotor_physical_consistency.py` (20)
+### 7.2 `test_rotor_physical_consistency.py` (22)
 
 This file is the suite's worst case for tautological references. No test prints, and **no
 test in this file calls the production code path it claims to protect** — the only import
@@ -379,7 +429,7 @@ is a `_aeroelast` existence probe used to decide whether to skip.
 | `test_coriolis_implicit_stability` | that implicit Coriolis treatment keeps `K_eff` positive definite | none: `K_eff = K + a1 G + a0 M` is built in the test | `all(eigvals > 0)`, `cond < 1e6` | not printed | **tautology** for the same reason; the solver's Newmark assembly is never called. The stated stability claim is not a property of the code. |
 | `test_stress_gate_checkpoint_consistency[1, 5, 10]` | that the stress gate writes stress at checkpoint steps | none: the gate (`stress_interval <= 1 or step % interval == 0 or is_checkpoint`) is re-implemented in the test with a `# <-- CRITICAL` marker | membership of checkpoint steps | not printed | **tautology**: the predicate the test asserts on is written in the test, not read from `rotor.py`. |
 
-### 7.3 `test_rotor_rust_parity.py` (49)
+### 7.3 `test_rotor_rust_parity.py` (37)
 
 No test prints. Two reference classes: (a) the Python implementation of the same helper,
 compared across a stub, and (b) marshalling smoke tests whose expected outcome is "raises
@@ -406,7 +456,7 @@ something other than a TypeError/AttributeError".
 
 ## 8. BEM, aero and mesh group
 
-### 8.1 `test_bem_polars.py` (18)
+### 8.1 `test_bem_polars.py` (20)
 
 No test prints.
 
@@ -419,14 +469,19 @@ No test prints.
 `tests/IEA-15-240-RWT.yaml` is the fixture both this module and `test_bem_engine.py` load;
 it is a copy of the public IEA-15-240-RWT definition, not an independent reference.
 
-### 8.2 `test_bem_engine.py` (module skipped) and `test_blade_mesh.py` (0 collected)
+### 8.2 `test_bem_engine.py` (14) and `test_blade_mesh.py` (1)
+
+Both modules now run. The first version of this matrix recorded them as a skipped module and an
+empty parameter set; that is no longer true (`CCBlade 1.3.1` is installed and the blade module
+scans its own directory). Their tests do not print a residual, so the measured margin column
+below reads `not printed`, not `not measured`.
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `TestBEMSolverParked::test_parked_alpha_close_to_twist` | parked blade AoA = 90deg - twist (geometric identity) | geometry | `residual < 15deg` for `> 80%` of stations, justified as "generous" | **not measured** (module skipped: `ccblade` absent) | thresholds with no derivation (`> 0.8` of stations within 15deg) |
-| `TestBEMSolverParked::test_parked_thrust_positive`, `..._torque_near_zero` (`abs(power) < 1e6`), `..._Np_mostly_positive` (`> 0.7`) | sign/order sanity | none | loose thresholds | not measured | cannot detect a magnitude error |
-| `TestBEMSolverRotating` (5) | rated power/thrust/torque positive, induction in range, Cl non-trivial | none | `frac_ok > 0.7`, `np.any(abs(cl) > 0.1)` | not measured | same class |
-| `test_blade_mesh_generation[NOTSET]` | that meshing a reference turbine produces nodes, elements and root/outer-shell/shear-web node sets | none | `node_count > 0`, `elements_count > 0` | not measured (empty parameter set) | structural smoke test; the assertion cannot fail for a mesh with any content |
+| `TestBEMSolverParked::test_parked_alpha_close_to_twist` | parked blade AoA = 90deg - twist (geometric identity) | geometry | `residual < 15deg` for `> 80%` of stations, justified as "generous" | not printed | thresholds with no derivation (`> 0.8` of stations within 15deg) |
+| `TestBEMSolverParked::test_parked_thrust_positive`, `..._torque_near_zero` (`abs(power) < 1e6`), `..._Np_mostly_positive` (`> 0.7`) | sign/order sanity | none | loose thresholds | not printed | cannot detect a magnitude error |
+| `TestBEMSolverRotating` (5) | rated power/thrust/torque positive, induction in range, Cl non-trivial | none | `frac_ok > 0.7`, `np.any(abs(cl) > 0.1)` | not printed | same class |
+| `test_blade_mesh_generation` | that meshing a reference turbine produces nodes, elements and root/outer-shell/shear-web node sets | none | `node_count > 0`, `elements_count > 0` | not printed (the run prints `Blade mesh generated: 9277 nodes, 9867 elements`) | structural smoke test; the assertion cannot fail for a mesh with any content |
 
 ### 8.3 `test_force_projection.py` (10)
 
@@ -447,7 +502,10 @@ No test prints.
 
 ## 9. Flag summary
 
-Grouped by defect class, with the file and the evidence.
+Grouped by defect class, with the file and the evidence. Re-read against the code at
+`e879eba`: these flags are about the **tests**, not about the element's physics, and the
+entries that no longer hold are marked RESOLVED in place. A flag here does not make the suite
+red, and a green suite does not remove a flag.
 
 ### 9.1 Tautological references (the arithmetic under test re-implemented in the test)
 
@@ -499,15 +557,15 @@ Grouped by defect class, with the file and the evidence.
 | `test_mass_matrix_validation.py:615` | `TestModalMassConvergence::test_first_mode_mass` | asserts a frequency, not a mass |
 | `test_rotor_rust_parity.py` | `test_call_without_precice_raises_runtime_or_os_error` | accepts any exception except `TypeError`/`AttributeError`; `_PRECICE_ERRORS` is defined and unused |
 | `test_orthotropic_shell_parity.py` | `test_orthotropic_axial` | applies a transverse load |
-| `test_ko2017_performance.py` | `test_3_2_circular_plate_tables_6_to_7` (SS rows) | validates against Table 6, not Table 7 |
+| `test_ko2017_performance.py` | `test_3_2_circular_plate_tables_6_to_7` (SS rows) | **RESOLVED** — the SS case now carries its own Table 7 tuple (`expected_clamped` / `expected_ss` are separate parametrisations) |
 | `test_ko2017_performance.py` | `test_3_5_twisted_beam_tables_12_to_13` | **RESOLVED** — the docstring and the code now agree: the four cases run with no xfail marker and `_TWISTED_BEAM_CASES` carries `xfail_reason=None` throughout, which is what this row used to flag as a mismatch |
 
 ### 9.4 Tolerances with no stated justification, tolerance/comment mismatches, dead conditionals
 
 | file:line | item | evidence |
 | --- | --- | --- |
-| `test_isotropic_shell_parity.py:365-366` | comment "Allow 10% tolerance" vs `tol = 0.05` | quoted code |
-| `test_shell_comprehensive.py:400` | comment "Should match within 10%" vs `assert error < 5.0` | quoted code |
+| `test_isotropic_shell_parity.py:365-366` | comment "Allow 10% tolerance" vs `tol = 0.05` | **RESOLVED**: the comment now records that it was the wrong part; the code was 0.05 |
+| `test_shell_comprehensive.py:400` | comment "Should match within 10%" vs `assert error < 5.0` | **RESOLVED**: the comment now records the same, and the internal message no longer says FY inside the FX test |
 | `test_shell_comprehensive.py:544` | `0.5*ratio_ref <= ratio <= 1.2*ratio_ref` | asymmetric and unexplained; `test_shell_validation_fixed` uses ±2% for the same ratio |
 | `test_shell_comprehensive.py:446,491,655` | `error < 5.0` for FY, FZ, modal | no justification comments, unlike `test_shell_validation_fixed.py` where the same physics carries a documented 3% |
 | `test_shell_validation_fixed.py:313` | modal `error < 2.0` | the only unjustified tolerance in a module that justifies all others |
@@ -525,16 +583,17 @@ Grouped by defect class, with the file and the evidence.
 
 | file | printed line | evidence |
 | --- | --- | --- |
-| `test_ko2017_performance.py` | `[x] Norm vs Paper 3D: ...` via `wref_paper` / `expected_paper` | read only by `_run_case`'s print; the printed errors are 527% to 6.2e8%. The comparison divides by a 3D reference and compares against a *normalized* expectation, and only `test_3_1` sets the fields. It is a broken diagnostic, not a validation. |
+| `test_ko2017_performance.py` | `[x] Norm vs Paper 3D: ...` via `wref_paper` / `expected_paper` | read only by `_run_case`'s print; the printed errors are 523% to 6.2e8%. The comparison divides by a 3D reference and compares against a *normalized* expectation, and only `test_3_1` sets the fields. It is a broken diagnostic, not a validation. |
 | `test_shell_convergence.py` | `raw-error log-log fit`, pairwise orders, `gap trend`, `DECISIVE ANSWER` | deliberately not asserted (documented in both cases) |
-| `test_shell_comprehensive.py:542` | `Beam-theory ratio: 400.00` | followed by a ±(-50%/+20%) assertion, so it does carry an assertion, just a very wide one |
+| `test_shell_comprehensive.py:542` | `Beam-theory ratio: 400.00` (measured 400.39) | followed by a ±(-50%/+20%) assertion, so it does carry an assertion, just a very wide one |
 | `test_rust_modal.py` | per-mode tables, benchmark speedups | the frequency tables back a real `rtol=1e-4` assertion; the speedup column backs nothing |
 
 ### 9.6 Configuration drift
 
-- `tests/test_blade_mesh.py` reads only `examples/reference_turbines/yamls`, which does not
-  exist, so its single test never runs; `tests/IEA-15-240-RWT.yaml` exists and is not in
-  `conftest._BLADE_YAML_CANDIDATES` or in the module's list.
+- `tests/test_blade_mesh.py` **RESOLVED**: it used to read only the non-existent
+  `examples/reference_turbines/yamls`, so its single test never ran. It now scans its own
+  directory first and raises on an empty parameter set instead of vanishing; it runs and
+  passes (section 8.2).
 - `tests/test_orthotropic_shell_parity.py` resolves CalculiX with its own
   `shutil.which("ccx")` instead of `conftest.ccx_bin_or_skip()`, so it does not honour
   `CCX_BIN` or the documented fallbacks.
@@ -637,14 +696,20 @@ The element is implemented but not enabled (`docs/formulations/shell-elements.md
 ## 12. Reproducing this matrix
 
 ```bash
-export PATH="$HOME/miniconda3/envs/aeroelast-dev/bin:$PATH"
+source activate aeroelast-dev        # or: export PATH="$HOME/miniconda3/envs/aeroelast-dev/bin:$PATH"
 cd /home/efirvida/Desktop/dev/fem-shell
 
-# counts only (addopts= defeats the -v in pyproject.toml)
-python -c "import pytest,sys; sys.exit(pytest.main(['tests','-o','addopts=','-q','--tb=no']))"
+# Python counts and failures (addopts= defeats the -v in pyproject.toml)
+python -m pytest -q
 
-# printed margins, per file
-python -c "import pytest,sys; sys.exit(pytest.main(['tests/test_ko2017_performance.py','-o','addopts=','-q','-s','--tb=line']))"
+# every printed margin in one run
+python -m pytest -o addopts="" -q -s
+
+# per-file counts used in the section headings
+python -m pytest --collect-only -q
+
+# the Rust side (workspace root is crates/, not the repository root)
+cargo test --manifest-path crates/Cargo.toml -p aeroelast-core
 ```
 
 CCX must be on `PATH` (or `CCX_BIN` set) or the parity rows in 4.1-4.4 turn into skips
