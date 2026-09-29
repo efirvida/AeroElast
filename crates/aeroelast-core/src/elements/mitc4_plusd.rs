@@ -1302,9 +1302,12 @@ pub fn resultant_moment_matrix(
     let cm = &constitutive.cm;
     let cb = &constitutive.cb;
     let cbc = &constitutive.cb_coupling;
-    // int z^4 C dz under the paper's 2x2 t-rule: the 4th moment of the
-    // through-thickness coordinate, `cm h^4 / 144`, with the section's
-    // thickness-average cm (recorded approximation for multi-ply laminates).
+    // `int z^4 C dz` under the paper's 2x2 through-thickness rule, whose value
+    // is `cm h^4 / 144` -- see this function's docstring for the derivation and
+    // for why the exact `h^5/80` is deliberately NOT used. The approximation that
+    // remains is the multi-ply `cm`: the section's thickness-average membrane
+    // stiffness stands in for `sum_k int_{z_k}^{z_k+1} z^4 C_k dz`, and the two
+    // differ whenever the plies differ (design open item 6).
     let w22 = cm * (thickness.powi(4) / 144.0);
     let mut w = SMatrix::<f64, 9, 9>::zeros();
     for i in 0..3 {
