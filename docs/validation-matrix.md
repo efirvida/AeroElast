@@ -64,10 +64,10 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-Measured on this tree with `python -m pytest -q` -> **411 passed, 0 failed, 0 skipped**:
-386 at `e879eba` plus `test_composite_layup_parity.py` (18) and
-`test_blade_iea15mw_validation.py` (7). Reproduced by `python -m pytest --collect-only -q`
--> `411 tests collected`. The Rust side is green too:
+Measured on this tree with `python -m pytest -q` -> **414 passed, 0 failed, 0 skipped**:
+386 at `e879eba` plus `test_composite_layup_parity.py` (18), `test_blade_iea15mw_validation.py`
+(7) and `test_ccx_writer_ids.py` (3). Reproduced by `python -m pytest --collect-only -q`
+-> `414 tests collected`. The Rust side is green too:
 `cargo test --manifest-path crates/Cargo.toml -p aeroelast-core` -> **155 passed,
 0 failed, 0 ignored** (the Cargo workspace root is `crates/`, not the repository root).
 
@@ -96,8 +96,9 @@ Four files the first version did not cover at all are added: `test_large_rotatio
 
 Two more files were added after the first refresh and are described in 4.7 and 4.8:
 `test_composite_layup_parity.py` (18, composite layups and their modal frequencies against
-CCX S8R) and `test_blade_iea15mw_validation.py` (7, the IEA 15 MW blade against CCX and the
-Escalera Mendoza 2023 article).
+CCX S8R), `test_blade_iea15mw_validation.py` (7, the IEA 15 MW blade against CCX and the
+Escalera Mendoza 2023 article) and `test_ccx_writer_ids.py` (3, the CCX writer's id-scheme
+invariance, section 4.9).
 
 ## 3. `tests/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)
 
@@ -259,6 +260,20 @@ The CCX modal parity is 10% rather than the ~1% the composite strip reaches beca
 mesh is coarse relative to the higher mode shapes: the same comparison measured 12.3% at
 `element_size = 1.5` and 15.5% at 2.0, and 1.0 m is the coarsest mesh that is simultaneously
 good for the article's flapwise frequency (0.576 Hz) and for CCX parity.
+
+### 4.9 `test_ccx_writer_ids.py` (3)
+
+The CCX writer's id handling. The entity id counters are process-global, so a mesh built after
+another one has ids that are neither 0-based nor contiguous; the writer used to label the
+`.msh` nodes and element blocks by 1-based index but write the connectivity and the `.nam`
+set members from the raw ids, producing a deck that referenced entities that did not exist.
+The fix is in `src/aeroelast/core/mesh/io/writers.py` (commit `930d055`).
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_deck_is_id_offset_invariant` | the exported `.msh`/`.nam`/`.inp` are byte-identical for 0-based and offset ids | the 0-based deck | exact equality | identical | also pins the deterministic ELSET order, which comes from a set |
+| `test_deck_labels_are_internally_consistent` | every connectivity label and every set member points at an entity that exists | the `.msh` node/element blocks | set containment | consistent | the element `EPLATE` must equal the full element block |
+| `test_offset_ids_give_the_same_ccx_result` | the displacement does not depend on the id scheme | **CCX 2.23, S4** on both decks | 1e-9 relative | 0.0 | the end-to-end proof that the deck is right, not only self-consistent |
 
 ## 5. Analytical group
 
