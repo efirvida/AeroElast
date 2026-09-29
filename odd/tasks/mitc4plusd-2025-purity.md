@@ -1757,3 +1757,32 @@ would move with it), not a doubled `s1` (the translation columns would move), an
 the engineering-vs-tensor doubling (that would touch the `rs` row alone, not `ss`). It is
 the in-plane index structure of the `zeta`-derivative of the printed Eq. (20c) -- the
 `^t x_{b,i} . u_{m,j}` term -- and that is the whole remaining gap.
+
+### Iteration 28 — the b1 factor is a PER-INDEX METRIC mismatch, measured
+
+The offender list of Iteration 27 said the factor is a function of the strain ROW and
+appears only in the rotation columns: `rr` 1, `rs` 2, `ss` 4. That is `2` per `s` index,
+and therefore a power of the element's own metric ratio:
+
+| fixture | `\|x_r\|` | `\|x_s\|` | ratio | predicted `ss` = ratio^2 | measured |
+| --- | --- | --- | --- | --- | --- |
+| RECT | 1.000000 | 0.500000 | 2.000000 | 4.000000 | **4.000000e0** |
+| FLAT_DISTORTED | 1.128051 | 0.651920 | 1.730352 | 2.994118 | ~3.15 (max of the mixed spread) |
+
+The rectangle is `2 x 1`, so `\|x_r\|/\|x_s\|` is exactly 2 and the predicted ratios match the
+measured ones to every printed digit. The distorted fixture's larger `x_r`/`x_s` ratio
+predicts ~3, and its measured spread brackets it (the `tmap` mixes the classes and its
+inverse, `1/1.73 = 0.58`, is the other end of the observed `[0.63, 3.15]`).
+
+**So the wrong quantity is identified, and so is its structure:** the ROTATION part of the
+`b1` row carries one factor of `\|x_j\|` per `j` index, i.e. it is formed in PARAMETER
+derivatives where the validated `b_bending_2017` is in METRIC (physical) ones. It is
+invisible when `\|x_r\| = \|x_s\|` (a square element), which is why the four blocks all agree
+on the standard fixtures and only the `2 x 1` rectangle exposes it. The translation part of
+`b1` is exact because there the same scaling appears on both factors and cancels.
+
+**Acceptance for the fix:** the offender list must be EMPTY on both fixtures -- RECT
+(ratio 2) and FLAT_DISTORTED (ratio 1.73), the second one exercising the non-integer case
+-- and then `test_kt_zero_matches_ke` and the directional-derivative tests must pass with
+the wiring in place. The instrument already prints exactly that list, so each candidate fix
+is one run.
