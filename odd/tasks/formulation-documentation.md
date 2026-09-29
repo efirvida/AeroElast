@@ -565,22 +565,41 @@ tasks** (`openspec/changes/archive/2026-09-29-mitc4plusd-faithful/tasks.md`, 59 
 
 ### What is genuinely left (documentation completeness, not defects)
 
-1. **S4 - §4.3 equation-by-equation.** The strain-smoothed MITC3+ is implemented and has Rust
-   unit tests, but no equation-level section and no Python surface.
-2. **Decide the smoothed element's delivery.** It is not reachable from PyO3 or the assembler:
-   `grep -rn "union\|smoothed" crates/aeroelast-py/src crates/aeroelast-core/src/assembly`
-   returns nothing. Today it is a Rust kernel, not a usable element, so either it gets wired
-   and a Python test, or the gap is stated as deliberate.
-3. **§4.4 `quad.rs` citation.** Stated as a gap; needs a decision (cite a textbook source or
-   keep the gap explicit).
-4. **§4.5 alpha/beta sign** in the MITC3+ 2014 paper. Unresolved from the held copy; recorded
-   as open rather than guessed.
-5. **Bibliography.** `references.md`'s "Hughes, Taylor & Kanoknukulchai 1977" still carries
-   "DOI to verify. No held copy" in `shell-elements.md` §References item 2.
-6. **Minor:** `shell-elements.md` §References' closing paragraph still parenthetically lists
-   the Hughes-Brezzi attribution as a missing bibliography entry, but `references.md:104` now
-   has it; the paragraph is stale.
+**All six items below were closed on 2026-09-29 (commit `b20cd8a`).** They are kept here with
+their disposition rather than deleted, so the next reader can see what was decided and why.
 
-None of 1-6 is a defect in the element or the suite. They are the honest residue of the
-documentation work, and the previous iteration's self-description ("left half-done") reads as
-this residue, not as unfinished core work.
+1. **S4 — §4.3 equation-by-equation.** CLOSED. §4.3 now carries Eqs. (15)–(18) with the code
+   mapping (`convected_operator` for Eq. (15) as `M e M^T` with `M = J_e J_k^-1`,
+   `projected_area` for Eq. (17), `pairwise_smoothed` for Eq. (16), the boundary rule, and
+   `assign_to_gauss_points`/`PAIRS` for Eq. (18)), a code→equation table, and the explicit
+   statement that the element is a Rust kernel with unit tests.
+2. **The smoothed element's delivery.** DECIDED AND STATED, not wired. §4.3 now says so
+   plainly: nothing under `crates/aeroelast-py` or the assembler references the smoothed
+   entry points, so it is a kernel, not a selectable element. Wiring it is a future feature
+   decision, not a documentation gap.
+3. **§4.4 `quad.rs` citation.** DECIDED — the gap stays explicit, and the section now names
+   what the code is (the standard displacement-based plane-strain element) and rules out the
+   two wrong closures (the held Choi & Lee 2023 paper is a different element; "matches the
+   Python reference" is not a source).
+4. **§4.5 alpha/beta sign.** CLOSED, and the earlier entry was **wrong**. Read from the
+   rendered page, the 2014 Eq. (2) is `(-V_2 alpha + V_1 beta)`; the text extraction had
+   dropped the minus, which is what made the two conventions look opposite. For a
+   right-handed triad this equals `(t/2)(theta x V_n)` with `theta = alpha V_1 + beta V_2`,
+   i.e. Ko 2025 Eq. (3a). There was never a conflict: `d6f37fb` restored fidelity to the 2014
+   paper. The narrow remaining caveat (the paper does not fix the handedness) is stated in
+   §4.5.
+5. **Bibliography, Hughes et al. 1977.** CLOSED, and the entry's other claim was stale. DOI
+   verified as `10.1002/nme.1620111005` (Wiley and MaRDI, 11(10):1529–1543). The code no
+   longer cites it: the selective reduced integration it was the source of was retired with
+   the hybrid, so it is reclassified as a **retired source** in `references.md` and in
+   `shell-elements.md` References item 2, and §2.6 now names it.
+6. **References closing paragraph.** CLOSED. It no longer claims the Hughes–Brezzi entry is
+   missing from `docs/references.md`; the entry is there.
+
+None of 1–6 was a defect in the element or the suite; they were the honest residue of the
+documentation work, and the previous iteration's self-description ("left half-done") read as
+this residue, not as unfinished core work. With all six closed, the production element's
+documentation has no known gap: `docs/formulations/shell-elements.md` §2 for the MITC4+/D,
+§3 for the MITC3+, §4 for the limitations and history, and `docs/validation-matrix.md` for the
+measured evidence. What remains on purpose: the **strain-smoothed MITC3+ is documented but
+not wired**, and that is a feature decision recorded in §4.3, not a documentation gap.
