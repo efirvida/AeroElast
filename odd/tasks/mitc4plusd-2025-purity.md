@@ -1659,3 +1659,42 @@ is the printed chain and is already split:
 
 Then `eta` is quadratic in `U` by construction, the polarization extraction of
 Iteration 24 is exact, and the two entry points lose every finite difference.
+
+**Wiring attempt #1 (same session) — structurally wrong, reverted.** The rewrite above
+was implemented and measured. It fails `test_kt_zero_matches_ke` with
+
+```text
+K_T(u=0) must match K_linear_global to round-off, rel = 1.160e0
+```
+
+**116%, not an `O(theta^3)` difference.** So this is NOT the expected (and acceptable)
+small movement from swapping the exact rotation for the printed kinematics: it is a
+convention that does not line up between `gl_strain_increment` and the operators the
+element already validates. The three candidates, in order of suspicion, all inside the
+wiring rather than in route B itself:
+
+1. the ASSUMED MEMBRANE input: the metric route feeds `dtie[k] = 0.25 (metric(next) -
+   metric(cur))`, whose linear part is `a0 . da` on the mid-surface tangent `a`; the
+   wiring feeds `e_lin[comp]` from Eq. (9) at `zeta = 0`. Those should agree
+   (`g_r(0) = a`), but `incremental_disp_gradients` splits the gradient into `u_m`,
+   `u_b1`, `u_b2` and combines them, and which combination reproduces `da` was assumed,
+   not measured;
+2. the TYING SHEAR: the metric route takes `0.5 (g_r . g_t - g0_r . g0_t)` and the
+   wiring takes `gl_strain_increment`'s components 4/5, whose construction goes through
+   the same split;
+3. the ENGINEERING-vs-TENSOR shear convention at the two places it is doubled (the
+   `m` row's `tmap` input and the shear row's `tsigma`).
+
+Reverted; `cargo test -p aeroelast-core` is back to 169 passed / 0 failed / 9 ignored.
+
+**What the two failures have established, which is the real output of this iteration:**
+(i) the polarisation extraction requires `eta` quadratic in `U`, exactly as Eq. (25)
+presumes; (ii) the printed kinematics that satisfies that is `gl_strain_increment` +
+`incremental_disp_gradients`, which exist and are instrumented; (iii) the remaining work
+is a CONVENTION RECONCILIATION, best done by measuring the new `B_L` against the
+element's validated linear operators per block (membrane / b1 / b2 / shear) rather than
+by reading, because the two routes build the same objects through different
+decompositions. That per-block comparison is the next step, and it is cheap: it is a
+diagnostic that prints `max|B_L_new - b_membrane_2017 - b_drill|`, `|B_L - s1 b_bending|`,
+`|B_L - s2 b_bending|` and `|B_L - b_shear_mitc4|` at `u = 0` on a flat element, where
+the answer is known to be zero.
