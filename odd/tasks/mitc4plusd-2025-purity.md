@@ -1698,3 +1698,45 @@ decompositions. That per-block comparison is the next step, and it is cheap: it 
 diagnostic that prints `max|B_L_new - b_membrane_2017 - b_drill|`, `|B_L - s1 b_bending|`,
 `|B_L - s2 b_bending|` and `|B_L - b_shear_mitc4|` at `u = 0` on a flat element, where
 the answer is known to be zero.
+
+### Iteration 27 — the per-block instrument localises the wiring failure to `b1`'s rotation columns
+
+`n_gamma_b_linear_block_check` (new, `#[ignore]`d) compares the strain's `B(0)` against
+the element's validated linear operators block by block, on a flat rectangle and a flat
+distorted quad, at `u = 0`, where the answer is known to be zero.
+
+**Baseline with the current (exact-rotation) strain -- the instrument is calibrated:**
+
+```text
+RECT            g0: membrane 6.551e-12 | b1 7.815e-11 | b2 0.000e0 | shear 3.333e-11
+FLAT_DISTORTED  g0: membrane 1.088e-11 | b1 6.541e-11 | b2 0.000e0 | shear 4.130e-11
+```
+
+All four blocks agree to the finite difference's own accuracy, which independently
+re-confirms that the strain's linear part is the validated operator.
+
+**The same instrument on the iteration-26/27 wiring:**
+
+```text
+RECT            g0: membrane 0.000e0 | b1 3.000e0 | b2 0.000e0 | shear 0.000e0
+FLAT_DISTORTED  g0: membrane 1.652e-16 | b1 1.788e0 | b2 0.000e0 | shear 1.652e-16
+
+RECT      b1 argmax: row 1 (rz), col 3 (rx of node 0): B_L = 3.154701e0, s1*bb1 = 7.886751e-1, ratio = 4.000000e0
+RECT      b1 ratio spread over the block: [1.000000e0, 4.000000e0]
+DISTORTED b1 ratio spread over the block: [6.289985e-1, 3.150451e0]
+```
+
+**Read this carefully:** membrane, `b2` and shear are at MACHINE ZERO, so the Eq. (23)
+`tmap`, the `s1`/`s2` scaling, the engineering-vs-tensor shear convention, the tying-point
+set, the assumed-membrane input and `gl_strain_increment` itself are all CORRECT. Only the
+`b1` row is wrong, and on the rectangle its ratios are EXACTLY `1` and EXACTLY `4`, with
+the largest deviation in a ROTATION column: the `b1` row's rotation columns come out a
+factor 4 too large. On the distorted quad the spread fills in because `tmap` mixes the two
+classes of entries.
+
+That is the whole remaining gap, and it is now a single question: why the `b1` row's
+rotation columns are 4x when the other three blocks and the `b1` translation columns are
+exact. Note `4 = s1 * h = (2/h) * 2h` and `4 = 2^2`, so a doubled director increment
+reaching the `zeta`-difference twice, or an `s1` applied both inside
+`incremental_disp_gradients` and again at the row, are the two shapes to test first --
+with this instrument, one run each.
