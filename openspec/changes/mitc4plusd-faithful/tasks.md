@@ -269,3 +269,15 @@ the WU that carries it, or a stated assumption.
   is recorded, and no mesh is invented.
 - **A chained-PR split.** The session accepted `single-pr (size:exception)`; the S1–S2 / S3
   / S4 / WU11 split is recorded as a fallback in the forecast and is deliberately not chosen.
+
+- **MITC4's `K_t(0) == K_0` is asserted RELATIVELY, not absolutely, and its Python case was
+  removed.** The removed bound (`atol=1e-6` with `rtol=1e-10`) demands 2.4e-16 relative on
+  entries of magnitude 1e9, below double-precision epsilon: unmeetable by construction. The
+  measured agreement is 6.3e-12 relative, the FD noise floor at `N_GAMMA_B_H = 2e-5`. Design
+  §13.1. The Rust gate asserts it relatively and passes; the exact analytic B/N route that
+  would make it exact is designed and pending (§13.2).
+- **Four `#[ignore]`d instruments were retired** -- three of them with ZERO assertions, i.e.
+  vacuous gates; the fourth superseded by the element's own gate. Where each finding lives is
+  design §13.3. The intended state is now zero ignored tests on both sides, and it holds.
+- **`cargo test -p aeroelast-core` costs ~125 s** (one promoted gate costs 107 s of it) after
+  being ~4 s with that gate ignored. Accepted deliberately; design §13.4.

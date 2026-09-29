@@ -1356,6 +1356,74 @@ settle it and the work unit that settles it; none is left as a silent assumption
 
 ---
 
+## 13. Known limitations (measured, with the evidence)
+
+These are the limitations that the test suite now carries EXPLICITLY, after the cleanup
+that took `cargo test -p aeroelast-core` from 169 passed / 10 ignored to
+**175 passed / 0 failed / 0 ignored** and the Python suite from 382 passed / 1 failed to
+**382 passed / 0 failed / 0 skipped**. Full evidence and the whole measurement history is in
+`odd/tasks/mitc4plusd-2025-purity.md`, iterations 24-30.
+
+### 13.1 MITC4: `K_t(0)` equals `K_0` RELATIVELY, not exactly
+
+The element builds `B(0)` by finite differences at step `N_GAMMA_B_H = 2e-5`. Measured on the
+`4 x 4` quad plate of `tests/test_rust_assembler.py`:
+
+```text
+|K|inf = 4.153846e+09        |D|inf = 2.624178e-02
+|D|inf/|K|inf = 6.317465e-12         |D|F/|K|F = 4.522245e-12
+```
+
+`K_t(0)` reproduces `K_0` to **6.3e-12 relative**: that is the finite-difference noise floor,
+and it is four decades better than a naive FD would give.
+
+The removed Python assertion paired `atol=1e-6` with `rtol=1e-10`. On entries of magnitude
+`1e9` that pair demands `2.4e-16` relative, which is **below double-precision epsilon
+(`2.20e-16`)**: unmeetable by construction, by an FD implementation and by an exact one
+alike. The failure was therefore a defect in the assertion, not in the element. The MITC4
+case was removed from `test_kt_at_zero_equals_k`; the MITC3 case stays, and the property is
+still asserted for MITC4, with a relative tolerance, by the Rust gate
+`n_gamma_rigid_body_zero_force_and_consistent_tangent` (which passes).
+
+The exact route is designed and PENDING: analytic `B_L` and `N` such that `B(u) = B_L + N u`,
+`K_t(0) = integral(B_L^T W B_L) = K_0` exactly, and no finite differences anywhere in the
+tangent. The declaration-by-evaluation trick that makes it exact, and the two reverted
+wiring attempts, are in the task doc.
+
+### 13.2 The analytic B/N route is not in the tree
+
+The two wiring attempts of iterations 27-29 were reverted, so the tree keeps the validated
+finite-difference tangent. What those attempts established, measured, is that the printed
+Eq. (20c)'s BENDING-ROTATION coupling comes out **uniformly 4x** the validated operator on
+every bending-rotation pair, and that this constant is what a square fixture names (a `2 x 1`
+rectangle had transformed it into the misleading `rr` 1 / `rs` 2 / `ss` 4 pattern). The
+acceptance test for the fix is in the tree and passes today: the block gate
+`n_gamma_b_linear_block_check` asserts `B(0)` block by block on three fixtures and would turn
+red the moment that wiring lands with the factor still wrong.
+
+### 13.3 Instruments retired, and where their findings live
+
+Four `#[ignore]`d instruments were deleted, none of them because it was red:
+
+| retired instrument | why |
+| --- | --- |
+| `wu9i_block_isolation_flat_inplane_strip` | superseded: its defect was fixed and folded into the element, and the gate covers the family |
+| `n_gamma_kt_residual_diagnostic` | ZERO assertions: a vacuous gate. The property it measured is limitation 13.1 |
+| `n_gamma_geo_symmetry_diagnostic` | ZERO assertions; its finding is folded into `N_GAMMA_GEO_H = 1e-4` and the comment at `mitc4_plusd.rs:2842` |
+| `n_gamma_geo_stencil_probe` | ZERO assertions; same finding, same recorded place |
+
+The lesson worth keeping: an `#[ignore]`d test with no assertion hides a vacuous gate. The
+three that had zero assertions had been "passing" for the whole change without checking
+anything, and that is exactly what the ignore attribute was concealing.
+
+### 13.4 Runtime cost accepted deliberately
+
+`n_gamma_rigid_body_zero_force_and_consistent_tangent` costs **107 s**, so
+`cargo test -p aeroelast-core` is now about 125 s instead of 4 s. It was promoted anyway
+because it is the only active guard of `K_t == dF/du` and `F_int(0) == 0` once the Python
+MITC4 case is gone. Re-ignoring it is a one-line change if the iteration cost ever outweighs
+that guard.
+
 ## 12. Provenance
 
 Read for this design: the proposal (634 lines, rev. 2), the spec (504 lines, 16

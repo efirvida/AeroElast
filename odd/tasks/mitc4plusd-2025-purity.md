@@ -1821,3 +1821,64 @@ doubled `1/2 a_i` and a doubled rotation measure -- the two halves that the pape
 stopped short of -- compared term by term against `node_director_terms` + the gradients of
 `incremental_disp_gradients`. Whichever of the two factors is halved there is the fix, and
 the instrument's offender list on `FLAT_SQUARE` (which must become EMPTY) is the acceptance.
+
+### Iteration 30 — the suite is emptied of ignores and failures, and the limitations are written down
+
+Goal from the user: the 10 ignored Rust instruments and the 1 failing Python case get resolved
+-- promoted when a real assertion can carry them, deleted when what they were hiding is a
+vacuous gate -- and whatever remains is written down as a limitation.
+
+Audit first, because deletion is a statement and not a cleanup. Every instrument was inspected
+for assertions and timed:
+
+| instrument | assertions | time |
+| --- | --- | --- |
+| `t2025_table1_slender_plane_stress_cantilever` | 4 | 0.03 s |
+| `t2025_table2_curved_plane_stress_beam` | 3 | 0.18 s |
+| `n_beta_assumed_fields_reduce_to_displacement_based_on_flat` | 16 | 0.05 s |
+| `n_alpha_rigid_rotation_gives_zero_gl_strain_increment` | 7 | < 1 s |
+| `n_gamma_b_linear_block_check` | 0 -> 2 (added) | < 1 s |
+| `wu9i_block_isolation_flat_inplane_strip` | 3 | 5.8 s |
+| `n_gamma_geo_stencil_probe` | **0** | 20.1 s |
+| `n_gamma_geo_symmetry_diagnostic` | **0** | 30.2 s |
+| `n_gamma_kt_residual_diagnostic` | **0** | < 1 s |
+| `n_gamma_rigid_body_zero_force_and_consistent_tangent` | 6 | 106.9 s |
+
+Three of them had ZERO assertions. A test with no assertion passes on every input: they were
+vacuous gates, and the `#[ignore]` attribute was concealing exactly that. That settled the
+three deletions, and `wu9i` was superseded by the element's own gate.
+
+Five were promoted to real tests, and the block instrument got the two assertions that turn it
+into the standing guard of the linear-block convention (and the acceptance test of the pending
+analytic route): `assert!(worst < 1e-8)` over the four blocks and `assert_eq!(offs, 0)` on the
+offender list. It passes today, which is the point -- it is green now and turns red exactly
+when the wrong wiring lands.
+
+The Python failure needed measuring before deciding, because two earlier measurements of it
+contradicted each other. Reproduced directly:
+
+```text
+|K|inf = 4.153846e+09        |D|inf = 2.624178e-02
+|D|inf/|K|inf = 6.317465e-12         |D|F/|K|F = 4.522245e-12
+540 / 22500 entries fail (atol=1e-6 + rtol=1e-10 * |K|)
+```
+
+So `K_t(0)` matches `K_0` to 6.3e-12 RELATIVE -- the FD noise floor at step `2e-5` on a matrix
+of norm 4.15e9 -- and the assertion demanded 2.4e-16 relative, below double-precision epsilon
+(2.20e-16). The assertion was unmeetable by construction, by an FD or an exact implementation:
+the defect was in the bound, not the element. MITC4's case was removed, MITC3's kept (it
+passes), and the property stays asserted for MITC4 by the Rust gate with a relative tolerance.
+
+Verified after the cleanup:
+
+```text
+cargo test -p aeroelast-core : 175 passed / 0 failed / 0 ignored   (125.3 s)
+python -m pytest -q          : 382 passed / 0 failed / 0 skipped / 0 deselected
+```
+
+One deliberate cost: the promoted rigid-body gate costs 107 s of the 125 s. It stays active
+because, with the Python MITC4 case gone, it is the only guard of `K_t == dF/du` and
+`F_int(0) == 0`. Recorded in design §13.4 with the one-line revert.
+
+Limitations written to: `openspec/changes/mitc4plusd-faithful/design.md` §13 (new, with the
+numbers) and the same change's `tasks.md` list.
