@@ -20,6 +20,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -40,7 +41,6 @@ from aeroelast.core.mesh.io.writers import write_ccx_mesh
 from aeroelast.core.mesh.model import MeshModel
 
 
-pytestmark = [pytest.mark.slow]
 
 # ============================================================================
 # Material and Geometry Constants
@@ -58,6 +58,15 @@ I_y = t * B**3 / 12  # Moment of inertia about Y-axis (in-plane bending, Fx)
 
 FORCE_MAGNITUDE = 1000.0  # N
 DOFS_PER_NODE = 6  # MITC4 shell: 3 translations + 3 rotations
+
+# Tolerance for the analytical comparison of the free-face mean.  Measured
+# relative errors of this mesh (4x20, point load at the free-face centre):
+# tension 0.560%, compression 0.560%, in-plane bending 0.890%, transverse
+# bending 0.682%.  The window leaves room for those discretisation errors while
+# still failing loudly for a wrong formulation, which would be off by tens of
+# percent.  The loaded node over-reads the axial cases by 5.09%, which is why
+# the analytical comparison uses the face mean instead.
+TOL_ANALYTICAL = 0.02
 
 
 # ============================================================================
@@ -368,11 +377,15 @@ def _compare_modal_frequencies(
 class TestBeamShell4CasesParity:
     """Validate AeroElast (MITC4) vs CCX (S4) for 4 shell beam load cases."""
 
-    def _run_static_case(
-        self, case: ShellLoadCase, tmp_path: Path
-    ) -> tuple[float, float, float, float]:
-        """Solve one static shell load case and return AeroElast, CCX, analytical and relative error."""
-        ccx_bin = _ccx_bin()
+    def _solve_static_case(self, case: ShellLoadCase) -> tuple[Any, float, float]:
+        """Solve one static shell load case and return the mesh and two measures.
+
+        Returns ``(mesh, loaded_node_value, free_face_mean)``, both in the
+        displacement component the case measures.  The mean over the whole free
+        face is the quantity beam theory predicts; the loaded node is a local
+        value that over-reads a point load by ~5% in the axial cases (measured
+        against F*L/(E*A): 5.09% at the loaded node, 0.56% for the face mean).
+        """
         mesh = _build_shell_mesh()
 
         node_coords = np.asarray([[n.x, n.y, n.z] for n in mesh.nodes], dtype=float)
@@ -418,7 +431,22 @@ class TestBeamShell4CasesParity:
         u = np.zeros(n, dtype=float)
         u[free] = spsolve(K[free][:, free], f[free])
 
-        ae_disp = float(u[i0 + dof_idx])
+        face = sorted(mesh.get_node_set("free_face").nodes.values(), key=lambda node: node.id)
+        face_values = [
+            float(u[mesh.node_id_to_index[node.id] * DOFS_PER_NODE + dof_idx]) for node in face
+        ]
+
+        return mesh, float(u[i0 + dof_idx]), float(np.mean(face_values))
+
+    def _run_static_case(
+        self, case: ShellLoadCase, tmp_path: Path
+    ) -> tuple[float, float, float, float]:
+        """Compare one static shell load case against CalculiX, which must be installed."""
+        mesh, ae_disp, _ae_mean = self._solve_static_case(case)
+
+        ccx_bin = _ccx_bin()
+        center = next(iter(mesh.get_node_set("free_center").nodes.values()))
+        dof_idx = {"x": 0, "y": 1, "z": 2}[case.analytical_dof]
         anal_disp = _analytical_solution(case)
 
         stem = f"shell_{case.name}"
@@ -466,15 +494,37 @@ class TestBeamShell4CasesParity:
         return ae_disp, ccx_disp, anal_disp, rel_err
 
     @pytest.mark.parametrize("case", STATIC_CASE_PARAMS)
-    def test_linear_static_with_analytical(self, tmp_path: Path, case: ShellLoadCase):
-        """Compare one linear static shell load case against analytical and CCX results."""
+    def test_linear_static_with_analytical(self, case: ShellLoadCase):
+        """The free-face mean must match the beam-theory solution.
 
-        tol = 0.05
+        This is the only independent reference in this module that does not need
+        CalculiX, and it must never skip.  The comparison is against the mean
+        over the free face rather than the loaded node: the model applies a
+        point load at one node of the face, which is not the uniform axial
+        traction the beam formula assumes, so the loaded node over-reads by 5.09%
+        while the face mean is within 0.56%.
+        """
+        _mesh, _ae_disp, ae_mean = self._solve_static_case(case)
+        anal_disp = _analytical_solution(case)
+        rel_err = abs(ae_mean - anal_disp) / abs(anal_disp)
+
+        print(
+            f"\n[{case.name}] analytical={anal_disp:.6E} "
+            f"ae_face_mean={ae_mean:.6E} rel_err={rel_err * 100:.3f}%"
+        )
+
+        assert rel_err <= TOL_ANALYTICAL, (
+            f"{case.name}: ae_face_mean={ae_mean:.6E} analytical={anal_disp:.6E} "
+            f"rel_err={rel_err * 100:.3f}% tol={TOL_ANALYTICAL * 100:.2f}%"
+        )
+
+    @pytest.mark.parametrize("case", STATIC_CASE_PARAMS)
+    def test_linear_static_vs_ccx(self, tmp_path: Path, case: ShellLoadCase):
+        """Compare AeroElast against CalculiX S4; skips when ccx is not installed."""
         ae_disp, ccx_disp, _anal_disp, rel_err = self._run_static_case(case, tmp_path)
 
-        assert rel_err <= tol, (
-            f"{case.name}: ae={ae_disp:.6E} ccx={ccx_disp:.6E} "
-            f"rel_err={rel_err * 100:.2f}% tol={tol * 100:.2f}%"
+        assert rel_err <= 0.05, (
+            f"{case.name}: ae={ae_disp:.6E} ccx={ccx_disp:.6E} rel_err={rel_err * 100:.2f}%"
         )
 
     def test_modal_first_five_modes(self, tmp_path: Path):

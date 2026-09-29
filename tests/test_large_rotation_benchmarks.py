@@ -285,7 +285,7 @@ def test_linear_tip_deflection_euler_bernoulli():
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("n_elem", [10])
+@pytest.mark.parametrize("n_elem", [16])
 def test_cantilever_large_rotation_half_circle(n_elem):
     """
     Cantilever under end moment: λ = M·L/EI = π  (half-circle).
@@ -322,7 +322,7 @@ def test_equilibrium_path(lam, u_ref, w_ref):
     per step stays ≤ 9°.  Tolerance is 5 % relative (or 0.5 m absolute
     when the reference is near zero).
     """
-    n_elem = 10
+    n_elem = 16  # the paper's own mesh: "modeled with a 16 x 1 mesh" (§3.1)
     n_steps = max(20, int(math.ceil(lam / (math.pi / 20))))  # ≤9° per step
 
     node_coords, conn, et, clamped, n_dof, tips = cantilever_mitc4_mesh(n_elem, L, B)

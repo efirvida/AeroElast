@@ -205,6 +205,63 @@ impl Laminate {
         self.to_shell_constitutive_with_offset(0.0)
     }
 
+    /// The scalar correction `compute_shear_stiffness` actually applied to `cs`.
+    ///
+    /// `shear_correction_factor` on the single-ply branch, which builds
+    /// `cs = k·G·h`; `1.0` on the multi-ply energy-equivalence branch, which
+    /// builds the section stiffness with no scalar factor (the scalar survives
+    /// only in that branch's degenerate fallbacks). This is the factor a caller
+    /// such as `ShellConstitutive::transverse_shear_uncorrected` must remove, so
+    /// the multi-ply `cs` passes through verbatim.
+    ///
+    /// Additive: the public behaviour and every numerical result of `Laminate`
+    /// are unchanged.
+    pub fn applied_shear_correction_factor(&self) -> f64 {
+        if self.plies.len() == 1 { self.shear_correction_factor } else { 1.0 }
+    }
+
+    /// The section's transverse-shear stiffness with **no correction factor**:
+    /// the plain thickness integral of the plies' transformed shear stiffness,
+    ///
+    /// ```text
+    /// a_ij = sum_k cbar_s(k)_ij t_k ,
+    /// ```
+    ///
+    /// which for a homogeneous stack of total thickness `h` is exactly `G·h`.
+    ///
+    /// WHY THE ELEMENT NEEDS THIS AND NOT `cs`. Ko, Lee & Bathe (2017),
+    /// C&S 182:404-418, p. 410 states that "the element formulation does not
+    /// include any numerical factor". [`Self::compute_shear_stiffness`]'s
+    /// multi-ply branch builds an *energy-equivalent* `cs` with `Phi(z)`, which
+    /// for a homogeneous section already carries the `5/6` of the parabolic
+    /// shear distribution, and the single-ply branch builds `cs = k·G·h`.
+    /// Feeding either to the element makes a `[0,0,0,0]` stack of four `h/4`
+    /// isotropic plies differ from the single `h` isotropic layer it is
+    /// physically identical to, by 20% in the shear block (measured: 3.434% on
+    /// the assembled `K` trace).
+    ///
+    /// The value here is the one the element's constraint requires, and it is
+    /// confirmed externally: the element reproduces the published twisted-beam
+    /// cells of Ko et al. (2017), C&S 193:187-206, Tables 12/13 -- a
+    /// shear-locking benchmark -- to 0.01-0.25% while its shear input is the
+    /// uncorrected modulus, so the paper's element uses the uncorrected
+    /// modulus too.
+    ///
+    /// Additive: no stored field, no change to `cs`, and every existing
+    /// numerical result of `Laminate` is unchanged.
+    pub fn shear_stiffness_uncorrected(&self) -> Matrix2<f64> {
+        let mut a44 = 0.0_f64;
+        let mut a45 = 0.0_f64;
+        let mut a55 = 0.0_f64;
+        for p in self.plies.iter() {
+            let cbar_s = p.material.compute_cbar_shear(p.angle);
+            a55 += cbar_s[(0, 0)] * p.thickness;
+            a45 += cbar_s[(0, 1)] * p.thickness;
+            a44 += cbar_s[(1, 1)] * p.thickness;
+        }
+        Matrix2::new(a55, a45, a45, a44)
+    }
+
     /// Build a `ShellConstitutive` with reference surface offset.
     ///
     /// When the reference surface is offset from the laminate midsurface by `z_offset`:
@@ -359,5 +416,72 @@ mod tests {
         assert!(!lam.is_symmetric(), "asymmetric laminate should have B ≠ 0");
         let shell = lam.to_shell_constitutive();
         assert!(shell.cb_coupling.norm() > 1e-6, "B matrix should be non-zero for asymmetric laminate");
+    }
+
+    #[test]
+    fn test_applied_shear_correction_factor_single_and_multi_ply() {
+        let mat = OrthotropicMaterial::new(
+            1.0e11, 1.0e10, 1.0e10,
+            5.0e9, 5.0e9, 5.0e9,
+            0.3, 0.3, 0.3,
+            1600.0,
+        );
+        let k = 5.0 / 6.0;
+
+        // Single ply: `compute_shear_stiffness` applied the scalar `k`.
+        let single = Laminate::new(vec![Ply::new(mat, 0.002, 0.0)], k).unwrap();
+        assert_eq!(single.applied_shear_correction_factor(), k);
+
+        // Multi-ply: the energy-equivalence branch applied no scalar factor.
+        let multi = Laminate::new(
+            vec![
+                Ply::new(mat, 0.002, 0.0),
+                Ply::new(mat, 0.002, 90.0),
+                Ply::new(mat, 0.002, 0.0),
+            ],
+            k,
+        )
+        .unwrap();
+        assert_eq!(multi.applied_shear_correction_factor(), 1.0);
+    }
+
+    /// `shear_stiffness_uncorrected` is the plain section integral, and for a
+    /// homogeneous stack of four `h/4` plies it must equal the `G·h` a single
+    /// `h` layer gives -- which is the value the element's shear block requires
+    /// (ADR-1, amended: the material supplies the uncorrected stiffness).
+    #[test]
+    fn test_shear_stiffness_uncorrected_is_the_plain_integral() {
+        let e = 70.0e9;
+        let nu = 0.3;
+        let g = e / (2.0 * (1.0 + nu));
+        let mat = OrthotropicMaterial::new(e, e, e, g, g, g, nu, nu, nu, 2700.0);
+        let k = 5.0 / 6.0;
+        let h = 0.004;
+
+        let multi = Laminate::new(
+            vec![
+                Ply::new(mat, h / 4.0, 0.0),
+                Ply::new(mat, h / 4.0, 0.0),
+                Ply::new(mat, h / 4.0, 0.0),
+                Ply::new(mat, h / 4.0, 0.0),
+            ],
+            k,
+        )
+        .unwrap();
+
+        let uncorrected = multi.shear_stiffness_uncorrected();
+        let expected = Matrix2::new(g * h, 0.0, 0.0, g * h);
+        let err = (uncorrected - expected).norm() / expected.norm();
+        assert!(err <= 1e-12, "plain integral should be G·h, rel err {err}");
+
+        // Non-vacuity: the energy-equivalent `cs` carries the 5/6 of the
+        // parabolic shear distribution, so it must be separated from the
+        // uncorrected value by more than 1e-3 relative -- otherwise this test
+        // would pass under either convention.
+        let rel = (multi.cs - uncorrected).norm() / uncorrected.norm();
+        assert!(
+            rel > 1e-3,
+            "cs and the plain integral must be separated, rel = {rel}"
+        );
     }
 }

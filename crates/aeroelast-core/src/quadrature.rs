@@ -1,5 +1,9 @@
 //! Gaussian quadrature rules for finite element integration.
 //!
+//! Implements 2- and 3-point 1D Gauss-Legendre rules and their 2x2 and 3x3
+//! tensor-product forms. Citation gap: no literature source is cited for these
+//! tables (the MITC3 Hammer rule lives in `elements/mitc3.rs`).
+//!
 //! All rules return statically sized point/weight arrays to avoid heap
 //! allocation in the hot integration path.
 

@@ -103,23 +103,18 @@ OUTPUT_DIR = Path(__file__).parent.parent.parent / "output"
 
 
 def assert_relative_error(value, reference, tol, name=""):
-    """Assert relative error is within tolerance and fails if error > 5%.
+    """Assert the relative error is within ``tol``; ``tol`` is authoritative.
 
-    This function enforces a hard 5% threshold to ensure formulation improvements
-    are tracked. Any error exceeding 5% indicates the need for formulaton refinement.
+    This function used to carry a hard-coded 5% ``pytest.fail`` ceiling on top of
+    ``tol``, which made every call site's tolerance decorative: all of them pass
+    0.05, so the ceiling and the argument were the same number and the argument
+    could never be tightened without also moving the ceiling.
     """
     rel = abs(value - reference) / abs(reference)
-
-    # Hard limit: fail if error exceeds 5% (0.05)
-    if rel > 0.05:
-        pytest.fail(
-            f"{name}: rel error = {rel:.3%} exceeds 5% threshold. "
-            f"value={value:.6e}, reference={reference:.6e}. "
-            f"This formulation needs improvement."
-        )
-
-    # Also check against specified tolerance (softer check for documentation)
-    assert rel < tol, f"{name}: rel error = {rel:.3e} > {tol:.3e}"
+    assert rel < tol, (
+        f"{name}: rel error = {rel:.3%} > tol = {tol:.3%} "
+        f"(value={value:.6e}, reference={reference:.6e})"
+    )
 
 
 def estimate_convergence_order(h, e):
@@ -460,7 +455,11 @@ def _assemble_global(
     for elem in mesh.elements:
         node_ids_elem = [n.id for n in elem.nodes]
         connectivity.append([node_id_to_idx[nid] for nid in node_ids_elem])
-        elem_types.append(4)
+        # Derive the element code from the element's node count: the same
+        # benchmark mesh can be run with quads (MITC4, code 4) and with triangles
+        # (MITC3, code 3), and the source paper publishes both columns.  A quad
+        # still gets code 4, so every existing expectation is unchanged.
+        elem_types.append(3 if len(node_ids_elem) == 3 else 4)
         mats.append(_material_dict(material, thickness))
 
     node_coords_arr = np.asarray([n.coords[:3] for n in nodes_sorted], dtype=float)
@@ -475,7 +474,14 @@ def _assemble_global(
 
     K_dense = K.todense()
     assert np.all(np.isfinite(K_dense)), "assembled K contains NaN/inf"
-    assert np.allclose(K_dense, K_dense.T, rtol=1e-10)
+    # Symmetry is a relative property here: the stiffness norm is of the order of
+    # 1e9, so the round-off on entries that are near zero (~1e-7 absolute) exceeds
+    # the default atol of 1e-8 and an absolute check would report an asymmetry that
+    # is really machine precision. Measured: 7.6e-17 relative for triangles,
+    # 2.3e-17 for quads.
+    assert np.allclose(
+        K_dense, K_dense.T, rtol=1e-10, atol=1e-10 * float(np.abs(K_dense).max())
+    ), "assembled K must be symmetric to round-off"
 
     return K, node_id_to_idx
 
@@ -862,14 +868,23 @@ def _outer_edge_nodes(mesh: MeshModel, *, radius: float, tol: float = 1e-6) -> l
 
 
 @pytest.mark.parametrize(
-    "t_over_L,pressure,alpha_clamped,alpha_ss,expected_mitc4",
+    "t_over_L,pressure,alpha_clamped,alpha_ss,expected_clamped,expected_ss",
     [
-        # Use N=16 row values (Tables 6–7)
-        # Values from Ko, Lee & Bathe (2017) - MITC4+ paper reference values
-        # Note: Our MITC4 class implements the MITC4+ formulation internally
-        (1 / 100, 1.0e2, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 1.001),
-        (1 / 1000, 1.0e5, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 0.9997),
-        (1 / 10000, 1.0e8, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 0.9997),
+        # N=16 rows.  Clamped values are the MITC4 column of Ko, Lee, Lee & Bathe 2017,
+        # Table 6 (N=16): 1.001 / 0.9997 / 0.9997.  Simply supported values are that
+        # paper's Table 7 (MITC4 column, N=16): 0.9991 / 0.9988 / 0.9988.  Tables 6
+        # and 7 are distinct columns and must not share an expectation.
+        # Note: Our MITC4 class implements the MITC4+ formulation internally.
+        (1 / 100, 1.0e2, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 1.001, 0.9991),
+        (1 / 1000, 1.0e5, 1.0 / 64.0, (5.0 + 0.3) / (64.0 * (1.0 + 0.3)), 0.9997, 0.9988),
+        (
+            1 / 10000,
+            1.0e8,
+            1.0 / 64.0,
+            (5.0 + 0.3) / (64.0 * (1.0 + 0.3)),
+            0.9997,
+            0.9988,
+        ),
     ],
 )
 @pytest.mark.parametrize("clamped", [True, False])
@@ -878,7 +893,8 @@ def test_3_2_circular_plate_tables_6_to_7(
     pressure,
     alpha_clamped,
     alpha_ss,
-    expected_mitc4,
+    expected_clamped,
+    expected_ss,
     clamped,
 ):
     n = 16
@@ -902,7 +918,7 @@ def test_3_2_circular_plate_tables_6_to_7(
     D = MAT_CIRC.E * thickness**3 / (12.0 * (1.0 - MAT_CIRC.nu**2))
     wref = alpha * pressure * (R_CIRC**4) / D
 
-    expected = expected_mitc4
+    expected = expected_clamped if clamped else expected_ss
     use_triangular = False
 
     case = _Case(
@@ -918,7 +934,6 @@ def test_3_2_circular_plate_tables_6_to_7(
         wref=float(wref),
     )
     norm = _run_case(case)
-    assert np.isclose(norm, case.expected_normalized, rtol=0.05)
     assert_relative_error(
         norm,
         case.expected_normalized,
@@ -974,9 +989,23 @@ def _build_cylindrical_patch(
 def _distort_cylindrical_patch(
     mesh: MeshModel, *, radius: float, length: float, angle_deg: float, nx: int, ny: int
 ) -> None:
+    """Distorted mesh of Ko et al. (2017), C&S 193:187-206, Fig. 9(c).
+
+    The paper labels the ratio `L4:L3:L2:L1 = 4:3:2:1` on the `D -> C` edge of
+    Fig. 9(c), and Fig. 9(a) places `A, B` at one end of the cylinder and
+    `D, C` at the other along the axis: the graded direction is the AXIAL one,
+    and the circumferential direction stays uniform.
+
+    Measured on the pinched cylinder, Table 9, MITC4+, N=16 (cell `0.9321`):
+    grading the axial direction only gives `0.93174` (0.038% off) while grading
+    BOTH directions gives `0.98224` (5.379% off, outside the 5% window). The
+    auxiliary probe `mode=theta_only` gives `0.97031` (4.10%), so the axial
+    attribution is not ambiguous. Fig. 11(c) reuses this same pattern for the
+    Scordelis-Lo roof, which is why both tests share this helper.
+    """
     thetas = np.linspace(0.0, np.radians(angle_deg), nx + 1)
     zs = np.linspace(0.0, length, ny + 1)
-    theta_dist = _ratio_positions(nx) * np.radians(angle_deg)
+    theta_dist = thetas  # uniform: the paper grades the axial edge only
     z_dist = _ratio_positions(ny) * length
 
     def uv_get(node: Node) -> tuple[float, float]:
@@ -1054,9 +1083,12 @@ MAT_CYL = IsotropicMaterial(name="Ko2017_Cylinder", E=3.0e6, nu=0.3, rho=1.0)
 @pytest.mark.parametrize(
     "expected",
     [
-        # Values from Ko, Lee & Bathe (2017) - MITC4+ paper reference values
-        # Note: Our MITC4 class implements the MITC4+ formulation internally
-        {False: 0.9313, True: 0.9892},
+        # Ko, Lee, Lee & Bathe 2017, MITC4+ column, N=16: Table 8 (regular) = 0.9313;
+        # Table 9 (distorted) = 0.9321.  The distorted cell used to be 0.9892, which
+        # occurs in this paper only in Table 12 (twisted beam, in-plane, t/L=0.02667,
+        # N=2, MITC4), not in Table 9.
+        # Note: Our MITC4 class implements the MITC4+ formulation internally.
+        {False: 0.9313, True: 0.9321},
     ],
 )
 def test_3_3_pinched_cylinder_tables_8_to_9(distorted, expected):
@@ -1091,7 +1123,6 @@ def test_3_3_pinched_cylinder_tables_8_to_9(distorted, expected):
         wref=wref,
     )
     norm = _run_case(case)
-    assert np.isclose(norm, case.expected_normalized, rtol=0.05)
     assert_relative_error(
         norm,
         case.expected_normalized,
@@ -1250,7 +1281,6 @@ def test_3_4_scordelis_lo_tables_10_to_11(distorted, expected):
     )
 
     norm = _run_case(case)
-    assert np.isclose(norm, case.expected_normalized, rtol=0.05)
     assert_relative_error(
         norm,
         case.expected_normalized,
@@ -1310,20 +1340,49 @@ def _twisted_beam_fixed(mesh: MeshModel, m: dict[int, int], *, tol: float = 1e-6
     return fixed
 
 
-# Twisted beam: per-case tolerance and xfail annotations
+# Twisted beam: per-case expectation
 # -------------------------------------------------------------------------
-# The thin cases (t/L=0.0002667) originally required the Ko 2017 butterfly/crop-circle
-# enhanced transverse shear modes to avoid membrane locking. Our MITC4+ now achieves
-# 91% of reference with 5% tolerance (0.92 ± 5% = [0.87, 0.97]), so the xfail is lifted.
-# The thick case (t/L=0.02667) converges well at N=16 since the physical shear
-# stiffness is large enough to dominate the parasitic contribution.
+# The expectations are the published MITC4+ column of Ko, Lee, Lee & Bathe 2017 at
+# the mesh this test builds - N x 6N with N = 16, which is the paper's own mesh -
+# read from the paper's tables: Table 12 (in-plane load) and Table 13
+# (out-of-plane load).  For t/L = 0.02667 the cells are 0.9971 (Table 12) and
+# 0.9973 (Table 13); for t/L = 0.0002667 they are 0.9978 (Table 12) and 0.9982
+# (Table 13).  All four cases run without any xfail marker.
+#
+# This used to expect 1.02 and 0.99 (thick) and 0.92 (thin), which were not the
+# paper's values: 1.02 sat above Table 12's 0.9971 and 0.92 encoded what this
+# element happens to produce.  The thin comment said so outright - "our MITC4+
+# now achieves 91% of reference ... so the xfail is lifted" - so the window
+# existed to accommodate an 8.5% deviation and the xfail was lifted to accept it.
+#
+# History: before the warped-quad drilling treatment was corrected the thin cases
+# measured 0.9131 / 0.9112, i.e. 8.5% and 8.7% below the paper, while the thick
+# cases were fine.  With the corrected treatment all four cases sit within 0.2%
+# of the published columns, so no xfail marker is needed.
 _TWISTED_BEAM_CASES = [
     # (t_over_L, load_case, P_val, uref_in, uref_out, expected, tol, xfail_reason)
-    (0.02667, "In-plane", 1.0, 5.4240e-3, 1.7540e-3, 1.02, 0.10, None),
-    (0.02667, "Out-of-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.99, 0.05, None),
-    # Thin cases: MITC4+ achieves ~91% of reference (within 5% tolerance)
-    (0.0002667, "In-plane", 1.0e-6, 5.2560e-3, 1.2940e-3, 0.92, 0.05, None),
-    (0.0002667, "Out-of-plane", 1.0e-6, 5.2560e-3, 1.2940e-3, 0.92, 0.05, None),
+    (0.02667, "In-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.9971, 0.01, None),
+    (0.02667, "Out-of-plane", 1.0, 5.4240e-3, 1.7540e-3, 0.9973, 0.01, None),
+    (
+        0.0002667,
+        "In-plane",
+        1.0e-6,
+        5.2560e-3,
+        1.2940e-3,
+        0.9978,
+        0.01,
+        None,
+    ),
+    (
+        0.0002667,
+        "Out-of-plane",
+        1.0e-6,
+        5.2560e-3,
+        1.2940e-3,
+        0.9982,
+        0.01,
+        None,
+    ),
 ]
 
 
@@ -1360,13 +1419,16 @@ def test_3_5_twisted_beam_tables_12_to_13(
     The thick case (t/L=0.02667) converges well at N=16 since the physical shear
     stiffness is large enough to dominate the parasitic contribution.
 
-    The thin case (t/L=0.0002667) requires the Ko 2017 butterfly/crop-circle
-    enhanced shear interpolation to avoid membrane locking in twisted geometries.
-    Until implemented, those cases are marked xfail.
+    The expectation is the published MITC4+ N=16 cell of Ko, Lee, Lee & Bathe 2017:
+    Table 12 in-plane (0.9971 thick, 0.9978 thin) and Table 13 out-of-plane (0.9973
+    thick, 0.9982 thin).  All four cases run without any xfail marker: the thin
+    cases are shear/membrane sensitive, but the corrected warped-quad drilling
+    treatment reproduces the published values.
 
     References:
     - Dvorkin, E.N. and Bathe, K.J. (1984). Engineering Computations, 1, 77-88.
-    - Ko, Y., Lee, P.S., and Bathe, K.J. (2017). Computers and Structures, 193, 187-206.
+    - Ko, Y., Lee, Y., Lee, P.-S., and Bathe, K.-J. (2017). Computers and Structures,
+      193, 187-206.
     """
     # Use N=16 mesh (16 elements along width, 96 along length)
     n_width = 16
@@ -1420,7 +1482,6 @@ def test_3_5_twisted_beam_tables_12_to_13(
     )
 
     norm = _run_case(case)
-    assert np.isclose(norm, case.expected_normalized, rtol=tol)
     assert_relative_error(
         norm,
         case.expected_normalized,
@@ -1576,9 +1637,16 @@ def _hook_measure_displacement(mesh: MeshModel, m: dict[int, int], u: np.ndarray
 @pytest.mark.parametrize(
     "expected_norm",
     [
-        # Values from Ko, Lee & Bathe (2017) - MITC4+ paper reference values
-        # Note: Our MITC4 class implements the MITC4+ formulation internally
-        1.12,  # Tabla 14 N=16
+        # Ko, Lee & Bathe, "Performance of the MITC3+ and MITC4+ shell elements in
+        # widely used benchmark problems", section 3.6 + Table 14.  The reference
+        # displacement is wref = 4.82482, obtained with the MITC9 element at N=64.
+        # Table 14, MITC4+ column: N=2 0.9531, N=4 0.9635, N=8 0.9782,
+        # N=16 0.9911, N=32 0.9973 -- it converges to 1.0 from below.
+        #
+        # The previous expectation here was 1.12, which appears nowhere in that
+        # table (it made the comparison fail by 10.6% and was never asserted, see
+        # the assertion below).  The mesh built here is n_width = 8, i.e. N=8.
+        0.9782,  # Tabla 14, N=8
     ],
 )
 def test_3_6_hook_table_14_minimal_fix(expected_norm):
@@ -1616,8 +1684,21 @@ def test_3_6_hook_table_14_minimal_fix(expected_norm):
 
     norm = _run_case(case)
     print(f"Hook MITC4: normalized = {norm:.4f} (expected {expected_norm})")
-    # Verify we're in the right range
-    assert norm > 0.1
+
+    # The published value must be met, not merely approached from the right
+    # side.  Measured convergence of this implementation (n_width = 2, 4, 6, 8,
+    # 12, 16): 0.96034, 0.98175, 0.98813, 0.99268, 0.99844, 1.00164, i.e. the
+    # same convergence to 1.0 the paper reports, reached slightly faster.  At
+    # this mesh the deviation from the paper's N=8 value is 1.48%, and the
+    # window leaves room for that implementation difference while still failing
+    # loudly for a wrong formulation (which would move the value by tens of
+    # percent).  The previous assertion was `assert norm > 0.1`, which could not
+    # fail for any formulation.
+    rel_err = abs(norm - expected_norm) / expected_norm
+    assert rel_err < 0.03, (
+        f"Hook tip deflection: normalized = {norm:.5f}, paper Table 14 N=8 = "
+        f"{expected_norm}, rel err = {rel_err:.2%} (measured 1.48%)"
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -1734,10 +1815,14 @@ MAT_SPH = IsotropicMaterial(name="Ko2017_Sphere", E=6.825e7, nu=0.3, rho=1.0)
 @pytest.mark.parametrize(
     "t_over_R,P,expected_mitc4",
     [
-        # Values from Ko, Lee & Bathe (2017) - MITC4+ paper reference values
-        # Note: Our MITC4 class implements the MITC4+ formulation internally
-        (4 / 1000, 2.0, {False: 1.009, True: 0.9958}),
-        (4 / 10000, 2.0e-3, {False: 0.9811, True: 0.9736}),
+        # Ko, Lee, Lee & Bathe 2017, MITC4+ column at N=16.  Table 15 (regular):
+        # 1.003 (t/R=4/1000) and 0.9834 (t/R=4/10000).  Table 16 (distorted):
+        # 0.9958 and 0.9736.  The regular cells used to be 1.009 (Table 15 MITC4+
+        # *N=8*) and 0.9811 (Table 15 *S4*, N=16) -- the wrong element/mesh, not the
+        # MITC4+ N=16 cell.
+        # Note: Our MITC4 class implements the MITC4+ formulation internally.
+        (4 / 1000, 2.0, {False: 1.003, True: 0.9958}),
+        (4 / 10000, 2.0e-3, {False: 0.9834, True: 0.9736}),
     ],
 )
 def test_3_7_hemisphere_cutout_tables_15_to_16(distorted, t_over_R, P, expected_mitc4):
@@ -1829,7 +1914,6 @@ def test_3_7_hemisphere_cutout_tables_15_to_16(distorted, t_over_R, P, expected_
         wref=uref,
     )
     norm = _run_case(case)
-    assert np.isclose(norm, case.expected_normalized, rtol=0.05)
     assert_relative_error(
         norm,
         case.expected_normalized,
@@ -1933,7 +2017,6 @@ def test_3_8_full_hemisphere_table_17(t_over_R, P, expected_mitc4):
         wref=uref,
     )
     norm = _run_case(case)
-    assert np.isclose(norm, case.expected_normalized, rtol=0.05)
     assert_relative_error(
         norm,
         case.expected_normalized,
@@ -2041,7 +2124,6 @@ def test_3_9_hyperbolic_paraboloid_tables_18_to_19(distorted, t_over_L, rho, exp
         wref=float(wref),
     )
     norm = _run_case(case)
-    assert np.isclose(norm, case.expected_normalized, rtol=0.05)
     assert_relative_error(
         norm,
         case.expected_normalized,

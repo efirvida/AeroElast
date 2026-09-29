@@ -1,0 +1,1339 @@
+# Apply progress — the MITC4+/D element, faithfully implemented
+
+Change `mitc4plusd-faithful` · phase **apply** · artifact store `openspec` · Engram mirror `sdd/mitc4plusd-faithful/apply-progress`. `tasks.md` is the canonical, always-current source for the exact unchecked lines; this file is the durable per-unit record.
+
+| Unit | Scope | Tasks |
+| --- | --- | --- |
+| WU1 | fixtures | 2.1, 2.2, 2.3 |
+| WU2 | element core — geometry, coefficients, directors, kinematics | 3.1, 3.2, 3.3, 3.4 |
+| WU3 | the B-operators | 4.1, 4.2, 4.3, 4.4, 4.5 |
+| WU4a | constitutive half — ADR-1 uncorrected transverse shear | task 5.4's material mechanism (no checkbox; cross-referenced on task 10.1) |
+| WU4b | stiffness assembly | 5.1–5.8, incl. the element-level half of 5.4 |
+
+## Status (change level — recorded once)
+
+- Source: native SDD status engine (authoritative, `artifactStore: openspec`) · `changeName` `mitc4plusd-faithful` · `applyState` `ready` · `nextRecommended` `apply`.
+- `actionContext.mode`: `repo-local`; `workspaceRoot` and `allowedEditRoots` were, on every unit, `/home/efirvida/Desktop/dev/fem-shell`. Every edit stayed inside the workspace and inside the unit's authorized edit roots.
+- Review workload gate (identical on every unit): `Decision needed before apply: No`, `Chained PRs recommended: No`, `Chain strategy: size-exception`, `400-line budget risk: High`. The session resolved delivery as **single PR with an explicitly accepted `size:exception`** and a **700-line review budget**.
+- Task progress: **59 tasks · 5 → 8 → 12 → 17 → 25 → 28 → 33 completed.** Per-unit entry counts: WU1 `5/54`, WU2 `8/51`, WU3 `12/47`, WU4a `17/42`, WU4b `17/42`, WU5 `25/34 → 28/31`, WU6 `28/31 → 33/26` (tasks 2.4, 7.1, 7.2, 7.3, 7.4; 6.3 stays unchecked because its named verification is task 9.2). WU4a closed no checkbox (its mechanism is recorded as a note on task 5.4 instead), so it left `17/42` unchanged and WU4b inherited that same `17/42`; WU4b then closed tasks 5.1–5.8. *Ambiguity kept as reported: the `17/42` entry line therefore appears for both WU4a and WU4b; it is not resolved here by guessing.*
+- Test-count trajectory: **120 → 130 → 135 → 140 → 146 → 155 → 165 → 168 passed / 3 failed.** The 3 failures are the WU6 Tier-1a verdict (T1.1 warped node-sequence, T1.2 zero-energy count, T1.3c shearing) and are reported, not hidden; see `## WU6`.
+
+---
+
+## WU1 — fixtures (tasks 2.1–2.3)
+
+**Closed.** 2.1 star-patch fixture (`STAR_NODES`, `STAR_ELEMS`); 2.2 F-A-BC (derived) and F-B-BC (figure-read) boundary-condition sets; 2.3 F-W warped star patch plus geometry self-tests. Task 2.4 stayed `- [ ]`; its text carries the recorded deferral to WU4.
+
+**Files.** New `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (module header + inline `#[cfg(test)] mod tests`: the fixtures and 10 self-tests, ~494 lines); `elements/mod.rs` (+1 line, `pub mod mitc4_plusd;`); `tasks.md` (2.1–2.3 checked; 2.4 deferral note; WU1 layout-deviation note). Diff stat (intent-to-add for the new file):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 494 ++++++++++++++++++++++
+crates/aeroelast-core/src/elements/mod.rs         |   1 +
+2 files changed, 495 insertions(+)
+```
+
+`mitc4.rs`, `mitc3.rs`, `quad.rs`, the materials and the assembler are byte-identical (`git diff --stat` empty); nothing outside the two authorized Rust files and the change's openspec artifacts was touched.
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **130 passed / 0 failed** (120 → 130; baseline 120 + the 10 new self-tests). `cargo clippy -p aeroelast-core --all-targets` reports **no warning attributable to `mitc4_plusd.rs`**; `rustfmt --check` is clean for the new file.
+
+**Tests.**
+
+| Test | Asserts |
+| --- | --- |
+| `test_star_patch_has_five_elements_and_eight_nodes` | `STAR_ELEMS` has 5 elements, `STAR_NODES` has 8 nodes, every connectivity index is in range |
+| `test_star_patch_all_signed_areas_positive_and_sum_to_100` | every element's signed area is `> 0` (CCW) and the five areas sum to 100 (the 10×10 square) |
+| `test_star_patch_has_no_duplicate_coordinates` | no two of the eight nodes share coordinates |
+| `test_star_patch_central_element_matches_extract` | the central element's vertices are exactly `(2,2) → (8,3) → (8,7) → (4,7)`, the CCW rotation of the extract's `(2,2) → (4,7) → (8,7) → (8,3)` |
+| `test_f_a_bc_constrains_exactly_six_rigid_body_modes` | `rank(constraint_matrix(F_A_BC) · rigid_body_modes) == 6` — the derived set removes exactly the six rigid-body modes |
+| `test_f_b_bc_constrains_exactly_six_rigid_body_modes` | the same rank-6 assertion for the extension, bending and shearing F-B-BC sets |
+| `test_f_b_bc_matches_fig7_bcd` | the exact `(node, dof)` triples of the 2025 extract §Fig. 7(b)(c)(d); every value is zero; `θ_z` (dof 5) is constrained only at corner B |
+| `test_f_w_z_offsets_on_interior_nodes_only` | F-W keeps the four corners at `z = 0` and carries `±0.5` on the four interior nodes only, with every `xy` unchanged from F-A/F-B |
+| `test_f_w_element_normals_differ_from_flat_n_vec` | the flat patch's four sub-quad normals equal `n_vec = e3` to `1e-14`, and every F-W element has a sub-quad normal deviating by `> 1e-3` rad (non-vacuity) |
+| `test_f_w_is_not_a_constant_stress_fixture` | F-W is genuinely non-planar (no flat element), i.e. it cannot serve as a constant-stress fixture |
+
+**Test-first** (`strict_tdd: false`). The fixtures and their self-tests were written together; each self-test was then shown to fail for a wrong fixture and pass for the right one.
+
+- Central element set clockwise `[4,7,6,5]` → `test_star_patch_all_signed_areas_positive_and_sum_to_100` ("element 0 … signed area -22") and `test_star_patch_central_element_matches_extract` (vertex 1 mismatch).
+- F-A-BC replaced by design §4.1's literal set (`D u_x`, `C θ_z`) → `test_f_a_bc_constrains_exactly_six_rigid_body_modes` (rank ≠ 6).
+- F-W flattened (all interior `z = 0`) → `test_f_w_z_offsets_on_interior_nodes_only`, `test_f_w_element_normals_differ_from_flat_n_vec` and `test_f_w_is_not_a_constant_stress_fixture` all fail.
+- After restoration: **130 passed / 0 failed**.
+
+**Deviations / findings.**
+
+1. **Module layout (recorded in the file header).** Tasks name `…/mitc4_plusd/tests/fixtures.rs`; the design fixes `…/mitc4_plusd.rs` and every existing element is a single file with an inline `#[cfg(test)] mod tests`. Per `openspec/config.yaml`'s apply guideline, the fixtures live inline in `mitc4_plusd.rs`; the task's verification substring `mitc4_plusd::tests::fixtures` therefore becomes `mitc4_plusd::tests::`.
+2. **F-A-BC correction (recorded on `F_A_BC` and in the file header).** Design §4.1's derived set (`u_x=u_y=u_z=0` at C; `u_x=0` at D; `u_y=0` at A; `θ_z=0` at C) has **rank 4** on the six rigid-body modes: C=(0,0) and D=(10,0) share `y=0`, so their `u_x=0` rows are the same rigid-body equation, and neither `θ_x` nor `θ_y` is constrained. The fixture uses the corrected minimal set `C: u_x=u_y=u_z=0`, `A: u_y=0`, `C: θ_x=θ_y=0` (rank 6); the RED perturbation above is the proof that the design's literal set fails the required assertion.
+3. **WU1 size.** ~494 changed lines vs the ~200 forecast (still above the ~350 per-unit guide); covered by the accepted session `size:exception`. No test, doc or citation was dropped.
+
+---
+
+## WU2 — element core: geometry, coefficients, directors, kinematics (tasks 3.1–3.4)
+
+**Closed.** 3.1 module skeleton — already satisfied by WU1, with the recorded deviation (inline `#[cfg(test)] mod tests`, no separate `mitc4_plusd/tests.rs`) noted on the task; 3.2 `Mitc4PlusDPrecomputed` struct + constructor + the eight geometry helpers; 3.3 `compute_node_directors` (ADR-4 option B), `vn`/`v1`/`v2`/`a_i`; 3.4 kinematics interpolation (`interpolate_position`, `interpolate_displacement`).
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` extended with the WU2 production core plus the 5 new tests; `tasks.md` (3.1–3.4 checked, 3.1 deviation note); `apply-progress.md`. `elements/mod.rs` was not edited (the module was registered in WU1). Diff stat (`mitc4_plusd.rs`, tracked):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 1013 +++++++++++++++++++++
+1 file changed, 1013 insertions(+)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**: the hybrid is byte-identical; nothing outside the authorized set was touched.
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **135 passed / 0 failed** (130 → 135; WU1's 130 + the 5 new tests). `rustfmt --edition 2021 --check` is clean for the file.
+
+**Tests.**
+
+| Test | Asserts |
+| --- | --- |
+| `test_geometry_flat_rectangle_zero_xd_and_zero_coefficients_eq27_reduces_eq18` | on a flat rectangle `x_d = 0`, `c_r = c_s = 0`, `d = -1`, all five `a_*` zero; Eq. (27a)/(27b) collapse term-by-term onto Eq. (18a)/(18b) and Eq. (27c) onto Eq. (19c) for arbitrary sampled tying strains |
+| `test_geometry_dual_basis_identities_eq11` | Eq. (11) on flat-distorted, ruled-warped and doubly-warped quads: `m^r.x_r = m^s.x_s = 1`, `m^r.x_s = m^s.x_r = 0`, `m^r.n = m^s.n = 0` |
+| `test_geometry_a_E_is_positive_eq27c` | `a_E = +2 c_r c_s / d` (positive sign as printed, p. 410) on the coefficients' own inputs with `c_r c_s > 0`, `d > 0`; the same closed form on a real flat distorted element; the negated (deleted) form rejected by `> 1e-6` relative |
+| `test_geometry_node_directors_reduce_to_n_vec_when_flat` | `V_n^i = n_vec` to `1e-14` for all four nodes on a flat square and a flat distorted quad; `V_1^i`, `V_2^i` orthonormal with a right-handed `(V_1, V_2, V_n)`; non-vacuity: the four directors differ by `> 1e-6` on the warped fixture F-W |
+| `test_kinematics_displacement_field_matches_eq1_to_eq3` | Eq. (1) position at `t = 0, ±1`; the identity `θ x V_n = -V_2 α + V_1 β`; Eq. (3a) `u(t=0)` is the membrane interpolation and `u(t=1)-u(t=0) = ½ Σ a_i h_i (θ_i x V_n^i)`; `θ` parallel to `V_n` produces no director rotation (the 2017 core is blind to the drill component) |
+
+**Test-first** (`strict_tdd: false`). The 5 tests were written first and observed **RED** (unresolved API: `E0425` on `interpolate_displacement` / `interpolate_position` / `Mitc4PlusDPrecomputed::new`). The production code was then added and the suite went **GREEN** (135/0). Each test was then shown able to fail by a deliberate perturbation:
+
+| # | Perturbation | Test shown RED | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `x_d` wrong sign pattern in `compute_characteristic_vectors` | `test_geometry_flat_rectangle_...` | `x_d = [-1,0,0]`, expected `0` |
+| 2 | `m_r`/`m_s` swapped in the dual-basis return | `test_geometry_dual_basis_identities_eq11` | `flat-distorted: m^r.x_r = 0` |
+| 3 | `a_e = -2 c_r c_s / d` (the deleted sign) | `test_geometry_a_E_is_positive_eq27c` | `a_E must be positive, got -4.5714...` |
+| 4 | director sub-normal sign alignment flipped | `test_geometry_node_directors_...` | director returned `-n_vec` |
+| 5 | `theta.cross(&vn)` replaced by `theta` in `interpolate_displacement` | `test_kinematics_displacement_field_...` | `u(t=1)-u(t=0) != half the director rotation` |
+| 6 | director term dropped from `interpolate_position` | `test_kinematics_displacement_field_...` | Eq. (1) position mismatch at `t = ±1` |
+
+After restoring every perturbation the suite is **135 passed / 0 failed**.
+
+**Deviations / findings.**
+
+1. **3.1 module layout** (recorded in the WU1 file header and on the task). No separate `mitc4_plusd/tests.rs`; the tests live inline, per the repository convention adopted in WU1. The task's verification substring `mitc4_plusd::tests::fixtures` is therefore `mitc4_plusd::tests::`.
+2. **`test_geometry_a_E_is_positive_eq27c` fixture.** The task and design ask for `a_E > 0` "for an element with `c_r c_s > 0`". Since `a_E = +2 c_r c_s / d`, that requires `d > 0`, i.e. `c_r^2 + c_s^2 > 1`, which no convex quad of the repository's fixtures reaches (a brute-force search over convex 2D integer quads found none; it needs an extreme 3D warped distortion). The test therefore exercises the closed form directly on its own inputs (`x_d`, `m_r`, `m_s` with `c_r c_s > 0`, `d > 0`) and re-checks the same closed form on a real flat distorted element, rejecting the negated form both times; the sign error the test exists to catch is fully covered.
+3. **Constructor signature.** `Mitc4PlusDPrecomputed::new(node_coords, constitutive, thickness)` for WU2. The ADR-1 `applied_shear_correction` argument and the stored `cs_uncorrected` are **not** added here; they land in WU4 (task 5.2). This is the design's own slicing, and WU4 owns the call-site updates in this same file.
+4. **WU2 size.** 1013 changed lines vs the design's ~300 forecast, above the ~350 per-unit guide and the 700 session budget; covered by the accepted session `size:exception`. The overrun is the paper/equation doc comments required by the task (every stored quantity and helper) and the 6-perturbation RED evidence. No test, doc or citation was dropped.
+5. **Staged `dead_code` warnings.** Three helpers used only by WU3 (`regularized_inverse_2x2`, `covariant_to_local_mapping`, `shear_covariant_to_local`) and the two kinematics helpers (used only by the tests until WU5) warn as "never used" in the lib build. This matches the existing `mitc4.rs`/`quad.rs` state, which already carries such staged-helper warnings; no `#[allow(dead_code)]` was added. `cargo test` is unaffected.
+
+---
+
+## WU3 — the B-operators (tasks 4.1–4.5)
+
+**Closed.** 4.1 the five covariant membrane tying rows + `b_membrane_2017` (Eq. 27); 4.2 `b_bending_2017` → `(B_b1, B_b2)` (Eqs. 7c/7d + Eq. 8a); 4.3 `b_shear_mitc4` + the four stored tying operators + `shear_covariant_to_local`; 4.4 `b_drill_membrane_2025` (Eq. 18) + `drill_midside_shape_derivatives` + `tests::drill::b_md_reference` + the five asserted rejections; 4.5 the `c_r`/`c_s` collision test.
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` extended with the WU3 production operators (`j_loc_at`, `local_components`, `covariant_membrane_b_row`, `b_membrane_covariant_2017` / `b_membrane_2017`, `b_bending_covariant_2017` / `b_bending_2017`, `compute_shear_tie` / `b_shear_mitc4`, `DrillEdgeTerm` / `compute_drill_edges`, `drill_midside_shape_derivatives`, `drill_jacobian_ratio`, `b_drill_membrane_2025`), the new `Mitc4PlusDPrecomputed` fields (`b_rr_a`…`b_rs_e`, `b_shear_tie`, `drill_edges`) and the five WU3 tests in the inline test module (with `mod drill`); `tasks.md` (4.1–4.5 checked, 4.4 module-layout deviation recorded); `apply-progress.md`. Diff stat (tracked file, vs the WU2 commit `2f6cdf0`):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 1180 ++++++++++++++++++++-
+1 file changed, 1176 insertions(+), 4 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**: the hybrid is byte-identical; nothing outside the authorized set was touched. `elements/mod.rs` was not edited.
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **140 passed / 0 failed** (135 → 140; the WU2 baseline 135 + the 5 new WU3 tests). `rustfmt --edition 2021 --check` is clean for the file. `cargo clippy -p aeroelast-core --all-targets` reports no lint on the WU3 code other than the same staged `dead_code` "never used" warnings WU2 already documented (the operators are exercised by the tests and are wired into the stiffness in WU4/WU5); no `#[allow(dead_code)]` was added.
+
+**Tests.**
+
+| Test | Asserts |
+| --- | --- |
+| `test_t1a_membrane_eq22_flat_tying_condition` | Eq. (22) `ẽ_rs^m\|bil = e_rs^m\|bil = x_d·u_d` to `1e-14` absolute on the flat distorted quad (non-vacuous, `\|bil\| > 1e-6`); the same comparison separates by `> 1e-6` relative on the doubly warped quad; the mapped operator equals the covariant field with its third row doubled followed by the point-wise mapping (proves the `2 e_rs` factor sits at the mapping, not in Eq. 27c); and Eq. (27c) reduces to Eq. (18c)'s `e_rs(E) + ½e_rr\|lin r + ½e_ss\|lin s` on a flat rectangle (note F2 / the leading `1`). |
+| `test_identity_bending_operator_matches_eq7c_eq7d` | `b_bending_covariant_2017 == bending_reference` (Eqs. 7c/7d including `∂x_b·∂u_m` of Eq. 8a) to `1e-10` relative at the four Gauss points on the flat rectangle and the doubly warped quad; both operators are 3×24 with no condensed internal DOF; the `∂x_b·∂u_m` term is present (separates by `> 1e-6` on the warped quad) and vanishes `≤ 1e-14` on the flat one. |
+| `test_shear_mitc4_flat_reduces_to_mindlin_assumed_field` | at the four DB84 tying points the local operator equals the standard Mindlin shears `γ_13 = w_,x + θ_y`, `γ_23 = w_,y − θ_x` to `1e-12`; non-vacuity: at a Gauss point the assumed field differs from the point-wise Mindlin field by `> 1e-6` relative. |
+| `test_identity_drill_operator_matches_eq18_term_by_term` | **Oracle 1**: `b_drill_membrane_2025` vs `tests::drill::b_md_reference` entry by entry (72 entries) to `1e-12` absolute at 9 points (4 Gauss + 4 edge mid-points + centre) on flat square, flat distorted, ruled warped and doubly warped quads. **Oracle 2**: the five wrong variants each separate from Eq. (18) above their margin (`V^D → e3` `>1e-6`; missing `1/8` `>1e-3`; edge order `[bottom,right,top,left]` `>1e-6`; flipped edge difference `>1e-6`; `θ_z` alone `>1e-6`). |
+| `test_identity_cr_cs_2017_and_2025_are_different_quantities` | `pre.c_r_mem`/`c_s_mem` equal `x_d·m^r`/`x_d·m^s` (Eq. 25); the stored `drill_edges[e].c_r/c_s` equal the independently recomputed Eq. (18)/(19c) values; and the 2017 and 2025 quantities separate by `> 1e-6` relative on the warped quad. |
+
+**Test-first** (`strict_tdd: false`). The five tests were written first and observed **RED**: `cargo test` failed to compile with `error[E0432]: unresolved imports super::b_bending_2017, …, super::drill_edges …` and `error[E0609]: no field drill_edges on type Mitc4PlusDPrecomputed`. The production operators were then added and the suite went **GREEN** (140/0). Each test was afterwards shown to fail for a wrong implementation; restoring the file returns 140/0.
+
+| # | Test shown RED | Perturbation | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `test_t1a_membrane_eq22_flat_tying_condition` | drop the Eq. (27c) leading `1` (`(a_E rs)` instead of `(1 + a_E rs)`) | flat-rectangle Eq. (18c) reduction mismatch |
+| 2 | same | negate `a_E` in Eq. (27c) | flat bilinear-coefficient mismatch |
+| 3 | `test_identity_bending_operator_matches_eq7c_eq7d` | zero the `∂x_b·∂u_m` term of Eq. (8a) | B_b1 mismatch vs Eq. (7c) at a Gauss point |
+| 4 | `test_shear_mitc4_flat_reduces_to_mindlin_assumed_field` | swap the A/B tying rows | tying-point Mindlin mismatch |
+| 5 | `test_identity_drill_operator_matches_eq18_term_by_term` | `V^D → e3` (both `c_r/c_s` and `θ^D`) | `ruled-warped [0][4]`: `0` vs `−1.88e-4` |
+| 6 | same | drop the `1/8` of Eq. (13c) | `flat-square [2][11]`: `−2.309` vs `−0.2887` |
+| 7 | same | `h̃` edge order `[bottom, right, top, left]` | `flat-square [0][5]`: `−6.10e-2` vs `0` |
+| 8 | same | flip the edge-difference sign | `flat-square [2][11]`: `+0.2887` vs `−0.2887` |
+| 9 | same | `θ_z` alone in place of `θ·V^D` | `ruled-warped [0][4]`: `0` vs `−1.88e-4` |
+| 10 | `test_identity_cr_cs_2017_and_2025_are_different_quantities` | set the stored `drill_edges` c-values to `0.0` | stored `c_r` mismatch |
+| 11 | `test_identity_drill_operator_matches_eq18_term_by_term` (the 4.5 conflation) | substitute the 2017 `c_r_mem`/`c_s_mem` into the drill operator | `flat-square [2][11]`: `0` vs `−0.2887` |
+
+Rows 5–9 are the design's five asserted rejections; the in-test variant assertions and these production perturbations are the two sides of the same evidence.
+
+**Findings.**
+
+1. **The Eq. (22) test needed one extra assertion to cover note F2.** The task's specified comparison extracts the bilinear (`r·s`) coefficient; a four-corner second difference is blind to a constant offset, so dropping Eq. (27c)'s leading `1` does not move that coefficient. The test now additionally asserts the flat-rectangle reduction to Eq. (18c), which the leading `1` *is* required for — that assertion is what row 1 above shows RED. No extract defect is implied; the extract's Eq. (18) and note F2 agree with the implementation.
+2. **No error found in either extract.** The production Eq. (18) operator agrees with the independently written `b_md_reference` to `1e-12` at every sample point on all four quads, and Eq. (22) holds exactly on flat geometry (also re-derived algebraically: `a_A e_rr(A) + … + a_E e_rs(E) = x_d·u_d` when `x_d·n = 0`). No vision re-read was needed and neither extract was edited.
+3. **A test-side frame bug was found and fixed during test-first.** The first `true_bil` applied the local-frame projection twice (the DOFs are already local components); the failure exposed it and the test now projects `x_d` only. The production operator was correct throughout.
+
+**Deviations from design.**
+
+1. **4.4 module layout (recorded on the task).** Tasks name `…/tests/drill.rs`; per the WU1 repository-convention decision the independent reference lives in `mod drill` inside the inline `#[cfg(test)] mod tests`. It still shares no code with `b_drill_membrane_2025`.
+2. **WU3 size.** ~1180 changed lines vs the design's ~350 forecast and the 700-line session budget; covered by the accepted session `size:exception`. The overrun is the paper/equation doc comments on every operator plus the independent drill reference, its one-parameter wrong variants, the 4-quad × 9-point × 72-entry comparison and the 11-row RED evidence. No test, doc or citation was dropped.
+3. **`b_membrane_covariant_2017` / `b_bending_covariant_2017` helpers.** The design lists only `b_membrane_2017` and `b_bending_2017 (→ B_b1, B_b2)`. The covariant halves are split out so the Eq. (27) / Eqs. (7c)-(7d) assembly can be tested independently of the covariant→local mapping, and so the `2 e_rs` factor's placement is explicit; the designed entry points are unchanged and delegate to them.
+
+---
+
+## WU4a — constitutive half: the ADR-1 uncorrected transverse-shear mechanism (task 5.4's material half)
+
+This unit landed only the ADR-1 material-side mechanism (`materials/mod.rs`, `materials/laminate.rs`) and its own unit tests. The stiffness assembly — `resultant_moment_matrix`, `compute_ke_local` / `compute_ke_global`, the drill contribution, the `cs_uncorrected` element wiring and the element-level discriminating tests (tasks 5.1–5.3, 5.5–5.8, and task 5.4's own verification commands) — was **not** in scope here; it is the next unit (WU4b).
+
+**What landed (additive only).** `ShellConstitutive::transverse_shear_uncorrected(&self, applied_k: f64) -> Matrix2<f64>` returns `cs / applied_k` when `applied_k > 0`, else `cs` unchanged; `ShellConstitutive` keeps **exactly its five fields** (no sixth field was added). `Laminate::applied_shear_correction_factor(&self) -> f64` returns `shear_correction_factor` for a single-ply laminate and `1.0` for a multi-ply one (the factor `compute_shear_stiffness` actually applied). This is the same material channel task 10.1 names; it landed early here because the uncorrected-shear mechanism is what task 5.4 is about. A cross-reference note was added on task 10.1; its wiring (`MaterialSpec::Composite` field, PyO3 call sites) remains for WU9.
+
+**Files.** `crates/aeroelast-core/src/materials/mod.rs` **+126 lines** (the `transverse_shear_uncorrected` accessor + doc comment and a new `#[cfg(test)] mod tests` with 5 tests); `crates/aeroelast-core/src/materials/laminate.rs` **+42 lines** (the `applied_shear_correction_factor` accessor + doc comment and 1 test in the existing test module); `tasks.md` (task 5.4 mechanism note, task 10.1 cross-reference note); `apply-progress.md`.
+
+```text
+crates/aeroelast-core/src/materials/laminate.rs |  42 ++++++++
+crates/aeroelast-core/src/materials/mod.rs      | 126 ++++++++++++++++++++++++
+2 files changed, 168 insertions(+)
+```
+
+`git diff --numstat` reports **168 added / 0 deleted** for both files: every added line is new, no pre-existing line was modified or removed. `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical), and no file outside the authorized set was touched (`git status --short` shows only the two materials files modified plus the pre-existing untracked `.pi/`).
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **146 passed / 0 failed** (140 → 146; baseline 140 + the 6 new tests). Focused run `cargo test -p aeroelast-core materials::` → **18 passed / 0 failed**. `cargo clippy -p aeroelast-core --all-targets` reports **no lint on the new lines** (the pre-existing `op_ref` lints in the older laminate tests were left untouched). `rustfmt --check` on these files is **not** clean, but that is **pre-existing** (the materials files are not rustfmt-formatted at HEAD, e.g. `composite.rs`/`failure.rs`); the new code follows the file's existing compact style and the diff stays purely additive — reformatting the whole file would have violated the additive-only constraint.
+
+**Tests.**
+
+| Test | Asserts |
+| --- | --- |
+| `materials::tests::test_transverse_shear_uncorrected_single_isotropic_ply_equals_g_h` | a single isotropic ply's `cs` is exactly `k·G·h` (`≤ 1e-12` rel), the reported applied factor is `k`, and `transverse_shear_uncorrected(k)` recovers the uncorrected `G·h` (`≤ 1e-12` rel) |
+| `materials::tests::test_transverse_shear_uncorrected_isotropic_constitutive_removes_k` | the isotropic `ShellConstitutive` (`cs = k·G·h`) yields `G·h` after removing `k` (`≤ 1e-12` rel) |
+| `materials::tests::test_transverse_shear_uncorrected_multi_ply_is_cs_unchanged` | a multi-ply laminate reports applied factor `1.0` and `transverse_shear_uncorrected(1.0)` equals `cs` unchanged (`≤ 1e-12` rel) — i.e. it does **not** divide by `k` there |
+| `materials::tests::test_transverse_shear_uncorrected_discriminates_naive_multi_ply_division` | the rejected mechanism (c) — divide the multi-ply `cs` by the laminate's scalar `shear_correction_factor` — differs from the correct value by **`> 1e-3` relative** (asserted, so the test cannot pass vacuously) |
+| `materials::tests::test_transverse_shear_uncorrected_nonpositive_factor_returns_cs` | `applied_k = 0` and `applied_k < 0` both return `cs` unchanged, with no division by zero |
+| `materials::laminate::tests::test_applied_shear_correction_factor_single_and_multi_ply` | the accessor returns `shear_correction_factor` (`5/6`) for a single-ply laminate and exactly `1.0` for a three-ply one |
+
+**Test-first** (`strict_tdd: false`). **RED (all six).** The tests were written first, against accessors that did not exist. `cd crates && cargo test -p aeroelast-core materials::` failed to compile with **12 errors**, every one of the form:
+
+```text
+error[E0599]: no method named `applied_shear_correction_factor` found for struct `laminate::Laminate`
+error[E0599]: no method named `transverse_shear_uncorrected` found for struct `ShellConstitutive`
+```
+
+The two accessors were then added and the suite went **GREEN** (146/0). Each test was afterwards shown to fail for a deliberately wrong implementation; restoring the file returns 146/0.
+
+| # | Perturbation | Tests shown RED | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `applied_shear_correction_factor` returns `self.shear_correction_factor` always (the unsound mechanism) | `test_applied_shear_correction_factor_single_and_multi_ply`; `test_transverse_shear_uncorrected_multi_ply_is_cs_unchanged`; `test_transverse_shear_uncorrected_discriminates_naive_multi_ply_division` | multi-ply returned `0.8333…` vs `1.0` (×2); the discriminator's `rel = 0` (`> 1e-3` failed), proving the discriminator catches the unsound mechanism |
+| 2 | `transverse_shear_uncorrected` divides unconditionally (drops the `applied_k > 0` guard) | `test_transverse_shear_uncorrected_nonpositive_factor_returns_cs` | `left: [[inf, NaN], [NaN, inf]]` vs `cs` — the divide-by-zero is caught |
+| 3 | `transverse_shear_uncorrected` multiplies by `applied_k` instead of dividing | `test_transverse_shear_uncorrected_single_isotropic_ply_equals_g_h`; `test_transverse_shear_uncorrected_isotropic_constitutive_removes_k` | uncorrected returned `k²·G·h` instead of `G·h` |
+
+**Preserved-laminate invariant (hard user constraint).**
+
+- **Additive proof.** `git diff --numstat` for `materials/mod.rs` + `materials/laminate.rs` is `168  0` (and `168  0` per file): no pre-existing line was changed or removed. The two accessors are new `pub` methods; `ShellConstitutive`'s five fields, `Laminate`'s fields and `compute_shear_stiffness` are untouched.
+- **Existing tests unchanged and passing.** The 7 pre-existing laminate tests (`test_laminate_symmetric`, `test_laminate_to_shell_constitutive`, `test_z_offset_zero`, `test_z_offset_transforms_b_d`, `test_asymmetric_laminate_has_nonzero_b`, plus the `materials::failure` set) are part of the 146/0 run with their original assertions and no edit to any expectation or tolerance; `git diff` contains no modification to them.
+- **No other material file touched.** `orthotropic.rs`, `composite.rs`, `failure.rs`, `isotropic.rs` are byte-identical.
+
+**Deviations / findings.**
+
+1. **Scope split (user-directed, recorded).** The material-side mechanism is nominally task 10.1's code; it was requested here as "task 5.4's mechanism" and landed early. This is not a design deviation — the mechanism is exactly ADR-1's chosen accessors — only a sequencing note, and it is cross-referenced on both tasks 5.4 and 10.1.
+2. **No design deviation in the accessor bodies.** `transverse_shear_uncorrected` is byte-for-byte the ADR-1 snippet (`if applied_k > 0.0 { self.cs / applied_k } else { self.cs }`), and `applied_shear_correction_factor` is the ADR-1 snippet verbatim.
+3. **`rustfmt` not applied to the files** (see Verification): pre-existing non-clean state; applying it would break the additive-only diff. No line of new code depends on it.
+
+---
+
+## WU4b — stiffness assembly (tasks 5.1–5.8, the element-level half of 5.4, and the frame-convention fix)
+
+**Closed.** 5.1 `resultant_moment_matrix` (the `W_00 … W_22` block matrix; `W_22 = cm/9`); 5.2 `compute_ke_local` / `compute_ke_global`, the drill contribution, the `cs_uncorrected` wiring, and the independent test-local reference; 5.3 drill-stiffness provenance; 5.4 the element-level half (`test_identity_transverse_shear_uses_uncorrected_shear_modulus` and `test_identity_transverse_shear_invariant_to_shear_correction_factor`); 5.5 integration rule (2×2×2 vs surface-only); 5.6 local matrix shapes (`K` 24×24 and the drill-slot layout; `M`/`K_T`/`f_int` deferred to WU5, recorded on the task); 5.7 drill-DOF energy behaviour; 5.8 mid-surface restriction (ADR-6 / G7).
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` extended with the WU4 production assembly (`resultant_moment_matrix`, `surface_measure`, `membrane_ke_local`, `shear_ke_local`, `drill_ke_local`, `compute_ke_local_with_drill`, `compute_ke_local`, `compute_ke_global`, `build_t24`, `transform_to_global`), the ADR-1 fields `applied_shear_correction` / `cs_uncorrected` and the constructor argument, the independent `ke_ref` reference, the 9 new tests, and the WU2/WU3 frame-convention fix; `tasks.md` (5.1–5.8 checked; notes under 5.2, 5.3 (the frame fix), 5.4, 5.6, 5.8); `apply-progress.md`. Diff stat (tracked file, vs the WU4-constitutive commit `ee13216`):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 1278 ++++++++++++++++++++-
+1 file changed, 1278 insertions(+), 27 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** and `git diff --numstat` reports nothing for it: the hybrid is byte-identical. No file outside the authorized set was touched (`git status --short` shows only `mitc4_plusd.rs` modified plus the pre-existing untracked `.pi/`). `elements/mod.rs` was not edited.
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **155 passed / 0 failed** (146 → 155; the WU4a baseline 146 + the 9 new tests). `rustfmt --edition 2021 --check` is clean for the file. `cargo clippy -p aeroelast-core --all-targets` reports no lint on the new lines other than the staged `membrane_ke_local` "never used" in the lib build (the same staged-helper situation WU2/WU3 documented: it is exercised by the identity lock in the test build and is wired into `compute_ke_local`; no `#[allow(dead_code)]` was added).
+
+**Tests.**
+
+| Test | Asserts |
+| --- | --- |
+| `test_identity_resultant_moment_matrix_blocks_match_closed_forms` | `W` is 9×9, exactly symmetric, with `W_00 = cm`, `W_01 = cb_coupling` (`W_10 = cb_couplingᵀ`), `W_02 = cb` (`W_20 = cbᵀ`), `W_11 = cb`, `W_12 = 0`, `W_22 = cm/9`; the isotropic closed forms `cm00 = E h/(1−ν²)`, `cb00 = E h³/(12(1−ν²))`, `W_22 = cm00/9`; the paper's 2-point `t`-rule `Σ w_i t_i⁴ = 2/9`; and `W_22` is **not** the exact `cm/5` (non-vacuity) |
+| `test_identity_ke_lock_matches_2017_core_plus_2025_drill` | production `K` vs the independent `ke_ref::ke_local` to `≤ 1e-10·max\|K_ref\|` on flat square, flat distorted, ruled warped and doubly warped quads, with the same bound on the membrane block and the transverse-shear block |
+| `test_identity_drill_stiffness_comes_only_from_eq26` | `K(op) − K(op := 0)` is non-zero on warped geometry (the operator is live), **exactly symmetric**, **exactly zero on every translational row/column block**, exactly zero on every rotation block other than the drill's own on flat geometry (where `V^D = e3`), the flat drill block is non-zero (non-vacuity), and the six rigid-body fields carry `\|u_rbᵀ K u_rb\| ≤ 1e-12·λ_max·‖u_rb‖²` |
+| `test_identity_transverse_shear_uses_uncorrected_shear_modulus` | the element's transverse-shear block equals the closed form `Σ_g B_γᵀ (G·h·I) B_γ w √g` to `1e-10` relative, and the `5/6` value is rejected by `> 1e-3` relative (asserted) |
+| `test_identity_transverse_shear_invariant_to_shear_correction_factor` | two single-ply-laminate `pre` values with `k = 5/6` and `k = 0.5` give the same shear block to `1e-10`, both match the uncorrected closed form, and the `k`-carrying non-vacuity control (`applied_k = 1.0`) differs by `> 1e-3` relative; the same construction and controls on an isotropic constitutive |
+| `test_identity_integration_rule_is_2x2x2_and_discriminates_surface_only` | on the strongly warped quad, production matches the three-term (`W_22 = cm/9`) reference to `1e-10` and differs from the surface-only (`W_22 = 0`) reference by `> 1e-4` relative (asserted) |
+| `test_kinematics_local_matrices_are_24x24` | `K` local and global are exactly 24×24 (576 entries); the 2017-only operators are exactly blind to slot `6i+5` on flat geometry; the drill block is live at `6i+5` (the `M`/`K_T`/`f_int` shapes are WU5, recorded on the task) |
+| `test_kinematics_drill_dof_is_theta_z_through_eq26_operator` | a pure rigid rotation about `V_n` carries energy `≤ 1e-12·λ_max·‖u‖²`; a warped drill-rotation pattern `θ_i = γ_i V_n^i` carries zero energy through the 2017-only blocks and non-zero energy through the Eq. (26) operator |
+| `test_identity_element_uses_midsurface_constitutive` | the element's constitutive equals `Laminate::to_shell_constitutive()` field by field and `applied_shear_correction` equals `Laminate::applied_shear_correction_factor()`; the offset coupling block `B − z₀A` differs (non-vacuity) |
+
+**Test-first** (`strict_tdd: false`). **RED (compile).** The 9 tests were written first, against production functions that did not exist. `cd crates && cargo test -p aeroelast-core` failed to compile with:
+
+```text
+error[E0432]: unresolved imports `super::compute_ke_global`, `super::compute_ke_local`,
+`super::compute_ke_local_with_drill`, `super::drill_ke_local`, `super::membrane_ke_local`,
+`super::resultant_moment_matrix`, `super::shear_ke_local`, `super::surface_measure`
+```
+
+The production assembly was then added and the suite went **GREEN** (155/0). Each test was afterwards shown to fail for a deliberately wrong implementation; restoring the file returns 155/0.
+
+| # | Test shown RED | Perturbation | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `test_identity_resultant_moment_matrix_blocks_match_closed_forms` | `W_22 = cm/5` (exact `t`-integration) | `W_22 = cm/9` `left: 879120879.12` `right: 488400488.40` |
+| 2 | `test_identity_ke_lock_matches_2017_core_plus_2025_drill` | `s1 = 2/h → 4/h` | full-K mismatch vs the reference |
+| 3 | `test_identity_drill_stiffness_comes_only_from_eq26` | drill operator zeroed (`b_md := 0`) | the "operator is inert" assertion fails — the non-vacuity control |
+| 4 | `test_identity_transverse_shear_uses_uncorrected_shear_modulus` | `cs_uncorrected → constitutive.cs` (residual `k`) | shear block ≠ the `G·h` closed form |
+| 5 | `test_identity_transverse_shear_invariant_to_shear_correction_factor` | `cs_uncorrected → constitutive.cs` | the two `pre` shear blocks no longer agree |
+| 6 | `test_identity_integration_rule_is_2x2x2_and_discriminates_surface_only` | `W_22 = 0` (surface-only) | production no longer matches the three-term reference |
+| 7 | `test_kinematics_local_matrices_are_24x24` | membrane operator writes slot `6i+5` | `membrane touches the drill slot` `left: 0.99999…` `right: 0.0` |
+| 8 | `test_kinematics_drill_dof_is_theta_z_through_eq26_operator` | a `θ_z` diagonal penalty added to the drill block | `rigid rotation about V_n carries energy 1960000.000038147` |
+| 9 | `test_identity_transverse_shear_uses_uncorrected_shear_modulus` (5.4a control) | the `5/6` candidate made equal to the correct value | `the 5/6 value must be rejected (relative 0)` |
+| 10 | `test_identity_transverse_shear_invariant_to_shear_correction_factor` (5.4b control) | the control `pre` given the correct `applied_k` | `the k-carrying control must be separated (relative 0)` |
+| 11 | `test_identity_element_uses_midsurface_constitutive` | the element path given the offset constitutive | `cb_coupling` mismatch (`left: [[-10989010.98, …]]`, `right: [[0.0, …]]`) |
+
+Rows 3, 9 and 10 are the non-vacuity controls the task names for 5.3 and 5.4: each was shown capable of failing.
+
+**Finding: a WU2/WU3 frame-convention defect, exposed by 5.3 and fixed.**
+
+- **What was wrong.** The stored `pre.vn` / `pre.v1` / `pre.v2` and `pre.v_d` are **global-frame** vectors (`compute_node_directors` builds them from the global node coordinates and the global `e1`; the geometry test compares `pre.vn[i]` with the global `n_vec`). Four operators paired them with the **local-frame** DOF triples: `b_bending_covariant_2017` (`xm_r`/`xb_r` local, `cross` built from `pre.vn` global), `compute_shear_tie` (`g_r`/`g_s`/`g_t` projected to local, `vxg_r = pre.vn × g_r`), `interpolate_displacement` (`theta` local, `theta.cross(&pre.vn[i])`), and `b_drill_membrane_2025` (`theta` local, `theta^D = theta · pre.v_d`).
+- **How it showed.** `test_identity_drill_stiffness_comes_only_from_eq26` measured the six rigid-body fields on warped geometry before the fix: `flat-square |u_rbᵀ K u_rb| / (λ_max ‖u_rb‖²) = 2.7e-17`, `flat-distorted 3.7e-17`, `ruled-warped 2.5e-3`, `doubly-warped 5.4e-3`. The spec requires `≤ 1e-12`. The 2017 core computes `u_b = ½ Σ a_i h_i (θ_i × V_n^i)`, which is only a rigid rotation when `θ_i` and `V_n^i` are expressed in the same basis; mixing them leaves a spurious strain on warped geometry. The identity lock of 5.2 did **not** catch this, because its independent reference shared the same convention — which is exactly why the rigid-body assertion exists as a second, independent oracle.
+- **The fix.** The four operators now project the director to the local frame (`local_components(pre, &pre.vn[i])`, `local_components(pre, &pre.v_d)`), and the three matching test-local references (`bending_reference`, `drill::b_md_reference` / `b_md_parameterised`, and the kinematics test's `u_b` reconstruction) were updated the same way. `compute_j3d_enriched`, `interpolate_position`, `j_loc_at`, `surface_measure`, `drill_jacobian_ratio` and the shear metric continue to use the global director (they work in global coordinates), so the change is exactly a same-basis pairing at the local-DOF use sites. After the fix the rigid-body ratio is within the spec's `1e-12` bound on all four geometries and the full 155-test suite is green. This is a WU2/WU3 correctness fix discovered by WU4 and recorded on task 5.3.
+
+**Deviations from design.**
+
+1. **`build_t24` / `transform_to_global` landed here, not in WU5.** Task 5.2 requires `compute_ke_global`, which needs them; the design's WU5 list also names them. They are the retargeted repository transformation (`Tᵀ M T`), so WU5's remaining work is unaffected.
+2. **`membrane_ke_local` / `shear_ke_local` / `drill_ke_local` helpers.** The design names only `resultant_moment_matrix` and `compute_ke_local`/`compute_ke_global`. The three blocks are split out so the identity lock can compare the membrane and transverse-shear blocks separately (the spec's "with the same bound on the membrane and transverse-shear blocks") and so the drill provenance test can form the exact `K(op) − K(op := 0)` difference. The designed entry points are unchanged and delegate to them.
+3. **`compute_ke_local_with_drill(pre, use_drill)` is private.** It implements the spec's "variant reference in which the B Eq. (26) operator is replaced by the zero operator" without adding a second public API.
+4. **End-of-assembly symmetrisation.** `compute_ke_local_with_drill` and `transform_to_global` symmetrise their result (`0.5 (M + Mᵀ)`), and `drill_ke_local` symmetrises the drill block. This is a round-off guard, not a formulation factor: the spec's drill-provenance scenario demands **exact** symmetry and exact zeros, and the assembled `Bᵀ W B` is only exactly symmetric in exact arithmetic. No value changes beyond the last bit.
+5. **5.6's `M`/`K_T`/`f_int` shapes are deferred to WU5.** Those functions are tasks 6.1/6.2 and do not exist in this unit; the WU4-owned part of the scenario (`K` local and global 24×24 and the drill-slot layout) is asserted. Recorded on task 5.6.
+6. **5.8's static check.** The non-vacuity control recomputes the offset coupling block `B − z₀A` from its definition instead of calling `to_shell_constitutive_with_offset`, so the task's supporting grep over the module returns no match.
+7. **WU4 size.** 1278 added / 27 removed lines vs the design's ~340 forecast, above the ~350 per-unit guide and the 700 session budget; covered by the accepted session `size:exception`. The overrun is the paper/equation doc comments on every new function, the fully independent `ke_ref` reference (~250 lines), and the frame fix with its matching reference updates. No test, doc or citation was dropped.
+
+**Findings on the design and the extracts.**
+
+1. **Design §2.2's "the 2017 core is structurally blind to `θ_z`" is only true on flat geometry.** The 2017 core is blind to the component of `θ_i` **along `V_n^i`**; the local DOF `θ_z` is along `e3`, which equals `V_n^i` only when the element is flat. On warped geometry the 2017 bending/shear operators do couple to `θ_z` (WU4 measured it: `test_kinematics_local_matrices_are_24x24` asserted blindness and failed on the doubly warped quad before the assertion was scoped to flat geometry). The spec's own qualifier ("the flat case is what makes this clause exactly testable", rev 4) already anticipates this; the design's §2.2 sentence should be read with that qualifier.
+2. **Design §2.1's `vn: // V_n^i, local frame` is wrong as implemented in WU2** — the stored vectors are global-frame (see the finding above). The doc comment and the field should either be corrected to "global frame" (with the operators projecting at the local-DOF use sites, as now) or `compute_node_directors` should be changed to store local vectors (which would also require `compute_j3d_enriched` / `interpolate_position` to convert back). WU4 took the first route; the design's intent (operators in the local frame) is preserved either way.
+3. **Design §2.3's "`sqrt_g = j(r,s)`" is loose.** The integration measure is the mid-surface area measure `‖g_r × g_s‖`, not the drill Jacobian `j = det[g_r g_s g_t]`; using the triple product would scale every block by `h/2` and contradict the ABD resultant formulation. WU4 implemented `‖g_r × g_s‖` (the repository's existing `sqrt_g`), which is what makes the closed forms and the Tier-2 parity meaningful.
+4. **No error found in either extract.** The independent `ke_ref` reference reproduces the production stiffness to `≤ 1e-10` on all four geometries, and the rigid-body / uncorrected-shear / integration-rule assertions hold after the frame fix. No vision re-read was needed and neither extract was edited.
+5. **The `M`/`K_T`/`f_int` scenario is mis-placed in WU4.** Requirement 2's scenario names the local and global mass, tangent and internal-force matrices, which the design assigns to WU5 (tasks 6.1/6.2); task 5.6 inherits the mismatch. WU4 asserts the part it owns and records the deferral.
+
+---
+
+## WU5 — the assembly-facing API (tasks 6.1, 6.2, 6.4; 6.3 deferred)
+
+**Closed.** 6.1 `compute_fint_global` (linear + bounded nonlinear) and `compute_kt_global`; 6.2 `compute_me_global` / `compute_me_composite_global`; 6.4 the corotational machinery (`quaternion_to_matrix`, `quaternion_from_vector`, `rotate_vector_by_quaternion`, `quaternion_multiply`, `update_normals_with_displacements`, `polar_decomposition`, `log_strain_from_polar`, `compute_membrane_strain_log`, `update_corotational_frame`, `frame_incremental_rotation`), the `GpLocalFrame` type and `extract_elem_disp_24`. **6.3 stayed `- [ ]`** (`compute_body_load_global`, `compute_k_sigma_global`, `compute_centrifugal_prestress`, `compute_element_stress`): the four functions landed, but the task's own verification is the retargeted T2I names of task 9.2, which was not run here; no test name was invented.
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` extended with the WU5 API (the `Vec24` alias; `local_shape_derivatives`, `displacement_gradient`, `membrane_strain_nl`, `compute_b_nl`, `extract_membrane_rows`, `compute_b_geometric`, `geometric_stiffness_contribution`, `geometric_stiffness_local`, `geometric_stiffness_from_stress`, `membrane_nonlinear_correction`, `element_area`, `compute_me_with_inertias`; `compute_fint_global`, `compute_kt_global`, `compute_me_global`, `compute_me_composite_global`, `compute_body_load_global`, `compute_k_sigma_global`, `compute_centrifugal_prestress`, `compute_element_stress`, `extract_elem_disp_24`; the `GpLocalFrame` type and the corotational impl block), plus the 10 new tests in the inline test module and the test-import additions; `tasks.md` (6.1/6.2/6.4 checked with notes, 6.3 left unchecked with a deferral note); `apply-progress.md`. Diff stat (tracked file, vs the WU4b commit `8eec86c`):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 1005 ++++++++++++++++++++-
+1 file changed, 998 insertions(+), 7 deletions(-)
+```
+
+The 7 deletions are import reformatting only (`use nalgebra::{...}` gains `SVector, Vector4`; the test `use super::{...}` list is rustfmt-wrapped). `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` and `git diff --numstat` for it are **empty**: the hybrid is byte-identical. No file outside the authorized set was touched (`git status --short` shows only `mitc4_plusd.rs` modified plus the pre-existing untracked `.pi/`).
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **165 passed / 0 failed** (155 → 165; the WU4b baseline 155 + the 10 new tests). Focused: `test_kt_zero_matches_ke` 2/0, `test_fint_linear_nonlinear_parity` 2/0, `test_kt_fint_directional_derivative_with_drill_dofs` 2/0, `test_kt_fint_directional_derivative` 6/0, `me_global` 12/0 (each includes the hybrid's own copy). `rustfmt --edition 2021 --check` is clean for the file. `cargo clippy -p aeroelast-core --all-targets` reports **no warning in the WU5 line ranges** (the remaining `mitc4_plusd.rs` lints are the pre-existing WU2–WU4 ones: staged `dead_code`, complex-type/too-many-arguments, and the original test module's `op_ref` patterns).
+
+**Tests.**
+
+| Test | Asserts |
+| --- | --- |
+| `test_kt_zero_matches_ke` | `K_T(u=0)` equals `T^T K_linear T` bit for bit (`diff.norm() < 1e-10`) |
+| `test_fint_linear_nonlinear_parity` | `f_int(nonlinear) − K u` is `O(‖u‖²)`: `rel_err < 1e-1` at `‖u‖ ≈ 2.3e-4` |
+| `test_kt_fint_directional_derivative` | translational perturbation: `K_T(u)·δu ≈ f_int(u+δu) − f_int(u)` (`rel_err < 5e-2`) |
+| `test_kt_fint_directional_derivative_rotations` | rotational (`θx`, `θy`) perturbation: the same bound |
+| `test_kt_fint_directional_derivative_with_drill_dofs` | the drill slot `6i+5` excited in base and perturbation: the same bound |
+| `test_me_global_is_symmetric_and_positive_semidefinite` | `M` symmetric to `1e-14` relative and PSD |
+| `test_me_global_total_translational_mass_is_rho_h_a` | every translational direction sums to `rho·h·A` to `1e-14` relative |
+| `test_me_global_matches_the_exact_bilinear_coefficients` | `M_ii = m/9`, adjacent `m/18`, opposite `m/36` to `1e-14` relative (quadrature-exact) |
+| `test_me_global_rotary_inertia_is_rho_h3_a_over_12` | every rotational direction sums to `rho·h³/12·A` to `1e-14` relative |
+| `test_me_composite_global_matches_the_rho_h_construction` | `compute_me_composite_global(pre, rho·h, rho·h³/12)` equals `compute_me_global(pre, rho)` to `1e-12` relative (design-derived name, no spec-fixed name) |
+
+**Test-first** (`strict_tdd: false`). **RED (compile).** The 10 tests were written first, against production functions that did not exist. `cd crates && cargo test -p aeroelast-core` failed to compile with:
+
+```text
+error[E0432]: unresolved imports `super::compute_fint_global`, `super::compute_kt_global`,
+`super::compute_me_composite_global`, `super::compute_me_global`, `super::element_area`, `super::Vec24`
+```
+
+The production API was then added and the suite went **GREEN** (165/0). Each test was afterwards shown to fail for a deliberately wrong implementation; restoring the file returns 165/0.
+
+| # | Test shown RED | Perturbation | Observed failure |
+| --- | --- | --- | --- |
+| 1 | `test_kt_fint_directional_derivative_rotations` | **partial wiring:** `K_T`'s `k0` replaced by the membrane + drill blocks only (bending/shear dropped) while `f_int` keeps them | `rel_err = 1.00` (want < 5e-2) |
+| 2 | `test_kt_zero_matches_ke` | `K_T(0)` built from `compute_ke_local_with_drill(pre, false)` | `diff norm = 9065471553.6` (want < 1e-10) |
+| 3 | `test_fint_linear_nonlinear_parity` | `membrane_nonlinear_correction` returns a **linear** term (`0.5 K u`) instead of the `O(u²)` correction | `rel_err = 5.00e-1` (want < 1e-1) |
+| 4 | `test_me_global_total_translational_mass_is_rho_h_a`; `test_me_global_matches_the_exact_bilinear_coefficients` | translational inertia doubled (`m_trans × 2`) | `total mass 1.56e4 != rho h A 7.8e3 (relative error 1.000e0)` |
+
+Rows 1 and 2 are the consistency guards the task calls load-bearing: the deliberately partial wiring of the tangent makes the directional-derivative test fail, and a `K_T(0)` built from a different linear operator makes the zero test fail. A fourth perturbation (dropping the drill block from `f_int` alone) left the drill directional-derivative test at `rel_err = 2.5e-8` because that test's constant `du[6i+5]` pattern lies in the drill operator's rigid-body null space — recorded as a finding, not hidden.
+
+**Deviations / findings.**
+
+1. **6.3 left unchecked, by design.** The four functions are implemented, but the task names no new test and defers its verification to task 9.2; inventing a name is forbidden by the task. Recorded on the task.
+2. **The nonlinear path is bounded, not paper-faithful** (design open item 5 / risk 9). `nonlinear = false` returns `K u` exactly; `nonlinear = true` adds the repository's total-Lagrangian membrane correction (`1/2 H^T H` with the exact `K_L` and the geometric `K_sigma`). Neither paper provides a nonlinear MITC4+/D formulation for this repository's updated-Lagrangian form, so the bound is recorded and T2B is the oracle. No formulation was invented.
+3. **`compute_fint_global`'s linear part is exactly `compute_ke_local · u`** (the nonlinear path adds the membrane correction as a difference), so `f_int(nonlinear) − K u` is `O(u²)` by construction and the parity test is non-vacuous.
+4. **`compute_kt_global` transforms without post-symmetrising** (`t24^T k_t_sym t24`), matching the hybrid, so `K_T(0)` equals `T^T K_0 T` bit for bit (the `test_kt_zero_matches_ke` guard). The mass and other global transforms still use `transform_to_global`, which symmetrises.
+5. **`extract_elem_disp_24` landed in `mitc4_plusd.rs`** (the design lists it there); the assembler's own copy in `assembler.rs` is untouched and is retargeted at WU9. The element module's copy is additive and unused until then.
+6. **`element_area` is a function, not a stored field.** The design's §2.1 lists `pub element_area: f64`; WU2 did not store it, so WU5 computes it from the 2×2 surface measure (used by the mass tests and `compute_centrifugal_prestress`). No behaviour depends on the difference.
+7. **`update_normals_with_displacements` uses `pre.vn[i]`** as the initial director (the new struct has no `initial_normals` placeholder); the corotational machinery is otherwise the retargeted, formulation-independent port. `GpLocalFrame` is re-declared in this module because the hybrid's type lives in `mitc4.rs`.
+8. **WU5 size.** 998 added / 7 removed lines vs the design's ~300 forecast, above the ~350 per-unit guide and the 700 session budget; covered by the accepted session `size:exception`. The overrun is the paper/equation doc comments on every new function, the 10 tests, and the corotational port. No test, doc or citation was dropped.
+
+---
+
+
+---
+
+## WU6 — Tier 1a: the 2017 paper's own basic tests (tasks 7.1–7.4, plus the deferred task 2.4)
+
+**Closed.** 2.4 (the 48-DOF patch assembler, whose recorded deferral said "WU4" but which WU4 did not carry); 7.1 rigid-body fixture + T1.2 zero-energy; 7.2 T1.1 isotropy; 7.3 T1.3a membrane patch; 7.4 T1.3b bending patch **and** T1.3c shearing patch. The paper's own verdict: **three of the six WU6 tests fail as specified** (T1.1 on warped geometry, T1.2 zero-energy count, T1.3c shearing). Everything is reported as measured; nothing was weakened, loosened or reinterpreted to pass.
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (the inline test module: `sorted_eigenvalues`, `rotation_matrix`, `rotate_geom`, `rotate_dofs`, `rotate_eng3_to_global`, `rotate_stress_to_global`, `rotate_shear_to_global`, `STAR_BOUNDARY`, `star_elem_coords`, `star_patch_pres`, `assemble_star_patch`, `boundary_integrate`, `solve_constrained`, `star_elem_disp`, `membrane_strain`, `membrane_uv`, `bending_field`, `interior_shear_moment`, the six new tests, and the test `use` line adding `DVector, Matrix3`); `openspec/changes/mitc4plusd-faithful/tasks.md`; this file. Diff stat:
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 882 +++++++++++++++++++++-
+1 file changed, 882 insertions(+), 1 deletion(-)
+```
+
+The single deletion is the test-module `use nalgebra::{...}` line. `git diff --stat`/`--numstat` for `crates/aeroelast-core/src/elements/mitc4.rs` is **empty**: the hybrid is byte-identical. No file outside the authorized set was touched (`git status --short` shows only `mitc4_plusd.rs` modified plus the pre-existing untracked `.pi/`). `rustfmt --edition 2021 --check` is clean for the file.
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **168 passed / 3 failed** (165/0 → 168/3; the 165 baseline + 6 new tests = 171, of which 3 fail). The 3 failures ARE the WU6 verdict and are reported, not hidden: `test_t1a_zero_energy_modes_single_unsupported_element_exactly_six`, `test_t1a_isotropy_element_orientation_and_node_sequence_invariant`, `test_t1a_shearing_patch_constant_stress_fig5_mesh`.
+
+**Tests and measured values.**
+
+| Test | Asserts | Measured |
+| --- | --- | --- |
+| `test_assemble_star_patch_is_symmetric_and_rigid_body_free` (task 2.4) | the 48×48 patch matrix is symmetric (`≤ 1e-12 max|K|`) and its six rigid-body fields carry `|uᵀKu| ≤ 1e-12 λ_max ‖u‖²` | symmetric; all six within the bound; **PASS** |
+| `test_t1a_zero_energy_modes_single_unsupported_element_exactly_six` | exactly 6 with `|λ| ≤ 1e-10 λ_max`; six rigid-body fields annihilated; `|λ_7| ≥ 1e-6 λ_max` on flat-rectangle, flat-distorted, ruled-warped, doubly-warped | rigid-body residuals `7.7e-17/1.1e-16/1.2e-16/9.8e-17`; **zero-count 8/7/7/7**; `|λ_7|/λ_max = 5.0e-17/1.5e-16/2.6e-16/1.3e-16`; **FAIL** |
+| `test_t1a_isotropy_element_orientation_and_node_sequence_invariant` | eigenvalues ≤ `1e-10 λ_max` over ≥4 orientations incl. π/2; node sequences to `1e-12 max|K|`; `uᵀKu` to `1e-10` relative | orientation: worst `|Δλ| = 6.1e-4/3.7e-4/5.5e-4` vs `28.6/40.9/50.8`; `uᵀKu ≤ 1.4e-15`; node sequences: flat `1.5e-16 max|K|`, flat-distorted `≤7.8e-13`, **ruled-warped `7.2e-3`** (energy `2.1e-3` rel); **FAIL** |
+| `test_t1a_membrane_patch_constant_stress_fig5_mesh` | constant σ to `1e-8` relative/floor for σ_xx, σ_yy, τ_xy alone; spread `≤1e-8` | rel errors `8.8e-12/6.4e-12/5.9e-12`; spreads `7.5e-12/6.1e-12/7.7e-12`; **PASS** |
+| `test_t1a_bending_patch_constant_curvature_fig5_mesh` | constant κ to `1e-8` relative; spread `≤1e-8` | rel errors `7.6e-12/7.3e-12/5.3e-12`; spreads `9.5e-12/1.2e-11/3.6e-12`; **PASS** |
+| `test_t1a_shearing_patch_constant_stress_fig5_mesh` | constant transverse shear to `1e-8` relative; spread `≤1e-8`; no `5/6` | design load (boundary tractions): error `6.70` rel, spread `9.77` rel; pointwise completion (boundary + `∫N_i q`): error `1.63`, spread `2.30`; **FAIL** |
+
+**Findings (reported, not adjusted).**
+
+1. **T1.2 — the element has 8/7 zero modes, not 6.** The six physical rigid-body fields are exactly annihilated (residual `≤1.2e-16 λ_max`) and the separation is `>1e-6 λ_max`, so the surplus modes are real zero eigenvalues. They live in the `{u_x,u_y,θ_z}` subspace: a **uniform `θ_z` drill mode** (`u=0`, `θ_z=const`; zero energy on every geometry because Eq. (18)'s drill strain sees only edge differences) and, on the axis-aligned flat rectangle, a second non-uniform `θ_z` mode (the drill operator loses rank when the `c_r`/`c_s` edge coefficients vanish on the rectangle). Diagnostic: constraining `θ_z` gives exactly 6 zero modes on the flat element, so the 2017 core passes and the surplus comes from the 2025 drill block. The design §4.3 note ("a constant `θ^D` makes every drill edge difference vanish, so exactly six zero modes survive the addition of the drilling DOF") does not follow: the vanishing differences also leave the `θ_z`-only mode free.
+2. **T1.1 — the warped global stiffness is not node-sequence invariant.** Orientation invariance and the flat/flat-distorted node sequences pass, but the ruled-warped element's `[1,2,3,0]` renumbering changes the entries by `7.2e-3 max|K|` (bound `1e-12`) and the mapping-independent energy by `2.1e-3` relative, while the permuted eigenvalues match to `2.3e-14 λ_max`. A formulation isotropy error would move the eigenvalues; this does not, so the deviation is a **frame/numbering inconsistency for warped geometry** (consistent with the WU4 frame-convention finding), not an isotropy error. The later sequences were not reached because the test asserts on `[1,2,3,0]` first.
+3. **T1.3c — design §4.2's shearing load derivation is not well-posed.** A constant transverse-shear resultant `q` is not an equilibrium state of the Mindlin element: the rotation rows of the internal force `∫ B_γᵀ q dA` are not balanced by boundary tractions alone, so the design's `f_i = ∮ N_i (q·n) dΓ` does not produce the constant state. Completing the derivation with the pointwise interior moment `f_θx,i = -∫N_i q23`, `f_θy,i = +∫N_i q13` also fails (`1.63` rel), because the assumed MITC4 operator's rotation rows are not the pointwise ones and the load is then element-dependent (vacuous). The papers' own shearing patch (Ko, Bathe & Zhang (2025), C&S 308:107622, Fig. 7(c): `u_x` constrained at the interior nodes, load in `+y` at `A`) is an **in-plane** shear state, not a transverse one; the spec's Requirement 8 "constant transverse shear stress" therefore cannot be tested by this route. **No load was chosen to make the test pass.**
+4. **No element change was made.** Every operator, coefficient and assembly path is byte-identical to WU5 except the tests. The two test-side bugs found while building the fixtures — stress rotated with the engineering-strain convention (fixed with `rotate_stress_to_global`) and the bending exact field's sign convention (aligned with the element's own flat operator) — were **test** bugs; the membrane/bending patch tests pass at `~1e-11` relative once the loads are correct.
+
+**Test-first evidence (RED → GREEN, and non-vacuity controls).** `strict_tdd: false`; the task explicitly required a red-first demonstration. The suite was observed RED first (the WU6 block failed to compile against the not-yet-written helpers), then each behaviour was shown load-bearing by perturbing it:
+- Membrane load **zeroed** → `max|σ_gp − σ| = 1.000` relative (restored: `8.8e-12`).
+- Bending load **zeroed** → `max|κ_gp − κ| = 1.0` relative (restored: `7.6e-12`).
+- Drill block **disabled** (`compute_ke_local_with_drill(pre, false)`) → T1.2 zero-count `10/10/10/10` (from `8/7/7/7`), so the count responds to the drill operator.
+- Local frame **pinned** to a global axis in `compute_local_coordinate_system` → T1.1 orientation `worst |Δλ| = 3.185e11` vs the `28.6` bound, so the orientation check is real.
+After restoring every perturbation the suite is back to **168 passed / 3 failed** with exactly the three WU6 verdicts above.
+
+**Deviations.**
+
+1. **Task 2.4 landed here, not in WU4** (its recorded deferral said WU4; WU4 did not carry it). Recorded on the task.
+2. **Module layout** remains the WU1 decision (inline `#[cfg(test)] mod tests`, no separate `mitc4_plusd/tests.rs`); the helpers live in that module.
+3. **Design §4.2's shearing load** deviates from the implementation by necessity — implementing it as written is what produces the T1.3c failure; see finding 3.
+4. **WU6 size.** 882 added / 1 removed vs the design's ~300 forecast, within the accepted session `size:exception`. The overrun is the patch assembler + solver + boundary/moment integrators, the five load/state fixtures and the printed measured-value evidence. No test, doc or citation was dropped.
+
+## Remaining tasks
+
+All tasks of sections 2–7 that this change has reached are complete except the one recorded deferral below. `tasks.md` is the canonical list of the exact unchecked lines; it currently reports **33 checked / 26 unchecked of 59**.
+
+- **Task 5.6 (partially deferred).** The `M` / `K_T` / `f_int` shapes belong to tasks 6.1/6.2 (WU5); WU4 asserted the `K` local/global 24×24 and the drill-slot layout and recorded the deferral on the task. WU5 landed `compute_me_global`/`compute_kt_global`/`compute_fint_global`; the `M`/`K_T`/`f_int` shape assertions themselves remain with the Tier-1 test units.
+- **Task 6.3 (still unchecked; deferred verification).** The four functions (`compute_body_load_global`, `compute_k_sigma_global`, `compute_centrifugal_prestress`, `compute_element_stress`) landed in `mitc4_plusd.rs`, but the task names no new test and defers its verification to the retargeted T2I names of task 9.2, which was not run in WU5. No test name was invented.
+- **Sections 8–13 remain pending** (WU7–WU11): the Tier-1b tests, the move of the layout-bound Tier-2 tests, the flip, the retirement, and docs/guard tests. Section 7's WU6 landed 7.1–7.4 (and the deferred 2.4); its three Tier-1a failures are open findings in `## WU6`.
+
+## Workload and PR boundary (cumulative)
+
+- Delivery, once for the whole change: **single PR with an explicitly accepted `size:exception`**, against a **700-line review budget** and a 400-line budget risk marked `High`. Each unit is its own review slice with its own rollback: WU1 = delete the module and the `mod.rs` line; WU2 = delete the WU2 block (WU1 fixtures and `mod.rs` untouched); WU3 = revert the WU3 block (WU1/WU2 and `mod.rs` untouched); WU4a = revert the two accessors and their tests (WU1–WU3 bytes untouched); WU4b = revert the WU4 block (WU1–WU3 and WU4a bytes otherwise untouched; the frame fix does modify four WU2/WU3 operator lines, called out on task 5.3).
+- Cumulative changed lines at the end of WU4b, as reported per unit: `WU1 495 · WU2 1013 · WU3 1180 (1176+/4−) · WU4a 168 · WU4b 1278+/27−`, i.e. roughly **4.1k lines** against the 700-line budget. WU5 adds `998+/7−` (the 7 deletions are import reformatting only). The overrun is deliberate and covered by the accepted session `size:exception`. *Ambiguity kept as reported: the WU2 (1013) and WU3 (1180) figures read like the file's cumulative line count rather than a per-unit delta (WU1 was a 494-line new file), so the sum above is the sum of the figures as reported, not a recomputed delta; it is not resolved here by guessing.*
+- No unit dropped a test, doc or citation for size; each recorded that explicitly.
+
+## Next
+
+The next implementable unit is **WU7** (tasks 8.1–8.4): the Tier-1b tests of the 2025 six-DOF element, building on WU5. Task 6.3 remains the recorded deferral. The Tier-1a failures of `## WU6` are open findings and are not resolved here.
+
+---
+
+## WU6b — the amended Requirement 5 test (task 7.1), spec rev 5
+
+**Task 7.1 stays `- [ ]`: the amended form STILL FAILS.** The test was rewritten to spec rev 5 (drill constrained as Ko, Bathe & Zhang (2025), C&S 308:107622, Fig. 7 constrains it, plus the drill block's own null space characterized explicitly) and re-measured. Two clauses of the amended requirement are unattainable as printed; both are spec-level, not element defects, and nothing was weakened to pass.
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (inline test module only: the import line plus `drill_operator_eq19`, `drill_operator_eq19_edges`, `drill_block_eq19`, `drill_block_null_space`, `reduced_eigenvalues`, `max_abs_34`, and the rewritten test); `openspec/changes/mitc4plusd-faithful/tasks.md` (the 7.1 note); this file. Diff stat (HEAD `bb0d671` is the WU6 commit, so this is the WU6b delta):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 429 +++++++++++++++++++---
+1 file changed, 368 insertions(+), 61 deletions(-)
+```
+
+Every hunk is inside `mod tests`; no production line changed. `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical). `rustfmt --edition 2021 --check` is clean.
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **168 passed / 3 failed** (before → after: 168/3 → 168/3; the rewritten test still fails, so the count does not reach the expected 169/2). The 3 failures are the WU6 verdict: this test, T1.1 (warped node sequence) and T1.3c (shearing).
+
+**Assertions and measured values.** The drill-constrained system is the 23×23 reduction with `θ_z` (slot `6·3+5 = 23`) removed — corner B, Ko, Bathe & Zhang (2025), C&S 308:107622, Fig. 7(b)(c)(d). Count threshold `1e-10 λ_max`, residual bound `1e-12`, separation bound `1e-6 λ_max`.
+
+| Geometry | constrained zero-count (spec 6) | worst `‖K u_rb‖∞/(λ_max‖u_rb‖∞)` | `|λ_7|` vs `1e-6 λ_max` | drill null dim (spec) | inert / rank-gain dim | drill-null energy | drill-null distance from rigid-body space |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| flat-rectangle | **7** | 7.70e-17 | 7.01e-5 vs 4.52e5 | 2 (2) | 4 / 0 | 0 | 2.455 |
+| flat-distorted | 6 | 1.12e-16 | 2.00e3 vs 4.09e5 | 1 (1) | 4 / 0 | 4.1e-18 | 2.493 |
+| ruled-warped | 6 | 1.20e-16 | 6.81e5 vs 5.08e5 | 1 (1) | 4 / 0 | 0 | 2.455 |
+| doubly-warped | 6 | 9.77e-17 | 8.77e4 vs 4.27e5 | 1 (1) | 4 / 0 | 2.8e-18 | 2.454 |
+
+Asserted clauses: (1) exactly six zero eigenvalues with `θ_z` free except at corner B; (2) `‖K u_rb‖∞ ≤ 1e-12 λ_max ‖u_rb‖∞` for each of the six fields and `|λ_7| ≥ 1e-6 λ_max`; (3) the drill block `B̃ᵀ C B̃` (4×4, Eq. 19a/19b, recovered from the production operator by projecting each node's rotation triple onto the unit `V^D`, and independently rebuilt from Eq. (19b)'s edge terms to `≤1e-12` of scale) has null space exactly the constant drill rotation (dim 1) plus the Eq. (19d) curl-induced `θ_z` hourglass on the flat rectangle (dim 2), every null vector a pure drill rotation (zero translations and zero `α`/`β`) annihilated by `drill_ke_local` and at distance `> 2.4` from the rigid-body space; (4) non-vacuity: the block is live, an inert block gives dim 4, a rank gain gives dim 0, and the six rigid-body fields' drill images are the constant drill rotation (the paper's own null direction). **Recorded deviation from clause 4's literal wording:** the clause asks the test to assert the six rigid-body fields are *not all* annihilated by the drill block, but they **all are** (measured `‖K_drill u_rb‖∞/(λ_max‖u_rb‖∞) = 0.000e0` for all six), because a rigid-body rotation has constant `θ_i = ω`, so its drill image `θ^D = ω·V^D` is the constant drill rotation — a null direction of Eq. (19b) by the spec's own telescoping argument. The literal clause is therefore unsatisfiable and contradicts the spec's own clause 3; the test asserts the satisfiable distinction instead (pure drill-rotation null vectors at distance `>2.4` from the rigid-body space, and a live block). Reported, not weakened.
+
+**Findings (the amended form still fails; reported, not adjusted).**
+
+1. **The flat-rectangle count is 7, not 6.** The unconstrained flat rectangle has 8 zero modes = 6 rigid-body + the 2-dim drill null space. The paper's own `θ_z`-at-one-corner device is a single linear condition, so it removes exactly ONE dimension: 8 → 7. It cannot remove both drill directions (they are spanned by the node-1/3 and node-0/2 hourglass vectors, so any single node leaves one direction), and it also kills the `ω_z` rigid-body rotation (constant `θ_z`), so only **5 of the 6** rigid-body fields satisfy `θ_z(B)=0`. A count of 6 needs `θ_z` constrained at two or more nodes, or the drill null space counted separately — which clause 3 already does. Clauses 1 and 3 are therefore mutually inconsistent on the flat rectangle.
+2. **The `1e-6 λ_max` separation is unattainable.** The first elastic (soft drill) eigenvalue is `2.0e3…8.8e4` while `λ_max ≈ 4–5e11` (the membrane scale), so `λ_7/λ_max ≈ 5e-9…1.5e-6 < 1e-6` on three of four geometries (ruled-warped passes at `1.3e-6`). The zero/non-zero gap is still 8–9 orders of magnitude, so the count is unambiguous; the bound is simply far tighter than the element's condition number permits. Not relaxed.
+3. **What the amended form does establish.** The drill block's own null space is exactly the spec's values (2/1/1/1), every null vector is a pure drill-rotation field, the six rigid-body fields are annihilated to `≤1.2e-16`, and the non-vacuity perturbations fire. Clause 3 and the rigid-body annihilation are confirmed; only the count/separation clauses fail.
+
+**Test-first / RED → GREEN and the two non-vacuity perturbations.** `strict_tdd: false`, but the task required a red-first demonstration.
+
+- **RED (old form).** At HEAD the test asserted the unamended bare count of six on the unconstrained element and failed (`8/7/7/7`).
+- **Amended form.** Rewritten and run: still FAILS, on the flat-rectangle count and the separation (above). There is no GREEN to report; the failure is the finding.
+- **Perturbation A — inert drill block** (the production `drill_block_null_space(&pre, 0)` replaced by the inert mode 1): null dim `4` on every geometry → the test fails with `the drill block B~^T C B~ null-space dimension is 4, expected 2/1`, `the drill block is inert`, and a non-zero drill-null energy (`1.4e-2…3.1e-2`).
+- **Perturbation B — rank gain** (production replaced by mode 2, a synthetic `+scale·I`): null dim `0` on every geometry → the test fails with `null-space dimension is 0, expected 2/1`.
+
+Both perturbations make the test fail, so the null-space assertions are load-bearing rather than vacuous.
+
+**Deviations / notes.**
+
+1. **Task 7.1 stays `- [ ]`.** The amended test fails on the count/separation; no assertion, threshold or element path was changed to pass.
+2. **Citations** are self-contained (Ko, Lee & Bathe (2017), C&S 182:404-418; Ko, Bathe & Zhang (2025), C&S 308:107622) and anchored to `docs/references.md`; the "paper A/B" shorthand is not used.
+3. **The rank-gain perturbation is synthetic** (`+scale·I`): a 3×4 `B̃` on the flat-distorted/warped elements is already full rank (null dim 1) and cannot gain rank; only the flat rectangle has headroom (2 → 1). It is documented as a perturbation, not a paper variant.
+4. **WU6b size.** 368 added / 61 removed for `mitc4_plusd.rs`, within the accepted session `size:exception`. No test, doc or citation was dropped.
+
+## WU6c — task 7.1 updated to spec rev 6 (Requirement 5, second amendment): PASSES
+
+**Task 7.1 now `- [x]`.** The test was renamed `test_t1a_zero_energy_modes_single_unsupported_element_exactly_six` → `test_t1a_zero_energy_modes_single_unsupported_element_six_or_seven` and its assertions updated to spec rev 6 (per-geometry counts, the `1e-9` separation asserted only on the count-6 geometries, the two-part rigid-body verification, the drill null space, and the satisfiable non-vacuity form). `strict_tdd: false`; no production line changed.
+
+**Files.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (inline test module only: the renamed test's doc comment, `geoms` table, rigid-body block, print, and five assertion clauses); `openspec/changes/mitc4plusd-faithful/tasks.md` (7.1 checkbox + wording + WU6c note); this file. Diff stat vs HEAD `82c7dc4` (which carries WU6b):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 138 ++++++++++++++++------
+ 1 file changed, 102 insertions(+), 36 deletions(-)
+```
+
+Every hunk is inside `mod tests`. `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical). `rustfmt --edition 2021 --check` is clean. Three files touched, exactly as scoped.
+
+**Count before → after.** `cd crates && cargo test -p aeroelast-core` → **168 passed / 3 failed → 169 passed / 2 failed**. The two remaining failures are the separate blockers T1.1 (warped node-sequence isotropy, `test_t1a_isotropy_element_orientation_and_node_sequence_invariant`) and T1.3c (shearing, `test_t1a_shearing_patch_constant_stress_fig5_mesh`).
+
+**Assertions and measured values.** Drill constraint: `θ_z` free except corner B (code node 3, slot `6·3+5 = 23`), Ko, Bathe & Zhang (2025), C&S 308:107622, Fig. 7(b)(c)(d). Count threshold `1e-10 λ_max`, residual bound `1e-12`, separation bound `1e-9`.
+
+| Geometry | constrained zero-count (spec) | `λ_7/λ_max` (spec ≥1e-9) | six-field residual | five-field residual | `θ_z(B)=0` fields | drill null dim (spec) | drill-null energy | drill-null dist | inert / rank-gain dim |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| flat-rectangle | **7** (7) | — (not asserted) | 7.697e-17 | 6.748e-17 | 5 | 2 (2) | 0.0e0 | 2.455 | 4 / 0 |
+| flat-distorted | 6 (6) | **4.906e-9** | 1.121e-16 | 1.121e-16 | 5 | 1 (1) | 4.085e-18 | 2.493 | 4 / 0 |
+| ruled-warped | 6 (6) | **1.340e-6** | 1.200e-16 | 1.200e-16 | 5 | 1 (1) | 0.0e0 | 2.455 | 4 / 0 |
+| doubly-warped | 6 (6) | **2.056e-7** | 9.765e-17 | 5.362e-17 | 5 | 1 (1) | 2.793e-18 | 2.454 | 4 / 0 |
+
+All residuals are `≤1e-12` (worst `1.200e-16`); no `1e-10` count threshold, `1e-12` residual bound, drill-null dimension or `>2.4` distance was changed. `λ_7` values (unscaled): flat-distorted `2.003916e3`, ruled-warped `6.813344e5`, doubly-warped `8.774428e4`; `λ_max` `4.085e11` / `5.084e11` / `4.268e11`. The flat rectangle's seventh eigenvalue is `7.014e-5 ≈ 0` (it has seven zero modes), so its separation is deliberately not asserted.
+
+**Test-first evidence (RED → GREEN).**
+- **RED (rev-5 form).** At HEAD the test asserted exactly six on every geometry and `1e-6 λ_max` separation; run: FAILED with `flat-rectangle: expected exactly six ... got 7`, `flat-rectangle: ... not separated ... by 1e-6 lambda_max`, `flat-distorted: ...`, `doubly-warped: ...`.
+- **GREEN (rev-6 form).** Renamed and updated; run: `1 passed`, and the suite `169 passed / 2 failed` (the two unrelated blockers above).
+- **Perturbation A — production drill block made inert** (mode 0 mapped to a zero operator): null dim `4` on every geometry → FAILED (`drill block ... null-space dimension is 4, expected 2/1`, `the drill block is inert`).
+- **Perturbation B — production drill block given a synthetic rank gain** (`+scale·I`, mode 0): null dim `0` on every geometry → FAILED (`null-space dimension is 0, expected 2/1`).
+
+Both perturbations make the test fail, so the drill-null-space assertions are load-bearing.
+
+**Deviations / findings.**
+1. **Satisfiable non-vacuity clause.** Per the rev-6 wording, the test no longer asserts that the six rigid-body fields are not all annihilated by the drill block — they all are (worst `‖K_drill u_rb‖∞/(λ_max‖u_rb‖∞)` `0.0e0…2.766e-18`), necessarily, because a rigid rotation has constant `θ` whose drill image is the constant drill rotation, itself a null direction of Eq. (19b) by telescoping. It asserts the satisfiable distinction instead: every drill null vector is a pure drill-rotation field (zero translations, zero `α`/`β`) at distance `>2.4` from the rigid-body space, and the block is live.
+2. **Only spec-changed bounds were relaxed**: the separation `1e-6 → 1e-9` and the non-vacuity clause. Nothing else moved.
+3. **Citations** are self-contained (Ko, Lee & Bathe (2017), C&S 182:404-418; Ko, Bathe & Zhang (2025), C&S 308:107622) and anchored to `docs/references.md`; no "paper A/B" shorthand.
+4. **WU6c size.** 102 added / 36 removed for `mitc4_plusd.rs`, within the accepted session `size:exception`. No test, doc or citation was dropped.
+
+## WU6d — task 7.2 (T1.1): the warped node-sequence failure is a real element defect, fixed
+
+**Task 7.2 now `- [x]`.** `strict_tdd: false`; the fix is one production expression plus one stale test-oracle row.
+
+**Diagnosis: (b), a real order-dependent element construction — not a test-comparison defect.** The T1.1 test already forms the induced permutation correctly (`expected[(6a+ka,6b+kb)] = k0[(6·seq[a]+ka, 6·seq[b]+kb)]`, i.e. `P K_ref Pᵀ`), so (a) is ruled out. Decisively, the mapping-independent energy of the *same physical field* `u_perm` on the *same physical element* differs by `2.076e-3` relative (`u_perm^T K_new u_perm` vs `u_ref^T K0 u_ref`), which a pure re-indexing cannot produce; and the discrepancy is in the 2017 core, not the drill: re-running with the Eq. (26) block switched off gives the identical `max|D|` (`nodrill = full = 1.385e9`, split tt/tr/rt/rr `1.39e9 / 1.98e8 / 1.98e8 / 2.42e8`).
+
+**Root cause (measured).** `compute_local_coordinate_system` built the local `e3` from the two **unit** diagonal-triangle normals, `normalize(n1) + normalize(n2)`, whereas the paper's plane normal is the **area-weighted** `n = (x_r x x_s)/‖x_r x x_s‖` of Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (10), p. 406. The identity `x_r x x_s = (n1 + n2)/8` holds for every bilinear quad (algebraic check: with `p=-x0+x2`, `q=x1-x3`, `16 x_r x x_s = -2 p x q = 2(n1+n2)`), so the raw sum is Eq. (10) and the unit sum is not. On RULED_WARPED the two triangle areas differ (`‖n1‖ = 2.592`, `‖n2‖ = 2.040`) and the two differ by **2.4°**: old `e3 = (0.0225, 0.3322, 0.9431)` vs Eq. (10) `n_vec = v_d = (0, 0.3714, 0.9285)`. A cyclic renumbering swaps the `0-2` diagonal for `1-3`, so the pseudo-normal — and with it the whole local frame, out of plane — changes between the two orderings while the physical element is unchanged. The 2×2 covariant-to-local mapping (`covariant_to_local_mapping(j_loc)`, `j_loc = g_a · e_b`) is a genuine change of frame only when `e3` is the tangent-plane normal; with `e3 ≠ V^D` the dropped `g_a · e3` component makes the mapping non-covariant, so `K_global` acquired the observed node-order dependence. (This supersedes the WU4b premise "on warped geometry `V^D ≠ e3`", which was a consequence of this bug.)
+
+**Fix.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs`, `compute_local_coordinate_system`: sum the **raw** cross products before normalizing, so `e3 = normalize(n1 + n2) = normalize(x_r x x_s) =` Eq. (10) `= v_d` for every geometry (verified: `e3 · n_vec = 1` to `≤3.4e-16` on flat-square, flat-distorted, ruled-warped, doubly-warped, for both `[1,2,3,0]` and `[0,3,2,1]`). `e1` (edge `0→1`) is still node-order-dependent, but only by an in-plane rotation about `e3`, which the operators handle covariantly; the doc comment now states this.
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 57 ++++++++++++++++++-----
+ 1 file changed, 45 insertions(+), 12 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical). `rustfmt --edition 2021 --check` is clean. Three files touched, exactly as scoped.
+
+**Count before → after.** `cd crates && cargo test -p aeroelast-core` → **169 passed / 2 failed → 170 passed / 1 failed**. The single remaining failure is the separate shearing blocker T1.3c (`test_t1a_shearing_patch_constant_stress_fig5_mesh`).
+
+**Measured evidence (RED → GREEN), T1.1 node sequences.** Bound `1e-12·max|K| = 1.913e-1` on RULED_WARPED (`max|K| = 1.913e11`).
+
+| Case | RED `max\|K_new − P K_ref Pᵀ\|` | GREEN | RED energy rel | GREEN energy rel |
+| --- | --- | --- | --- | --- |
+| ruled-warped `[1,2,3,0]` | `1.385e9` = **7.242e-3·max\|K\|** | `1.620e-2` = **8.250e-14·max\|K\|** | `2.076e-3` | `6.853e-14` |
+| ruled-warped `[3,0,1,2]` | (unreached) | `8.250e-14·max\|K\|` | — | `6.729e-14` |
+| doubly-warped `[1,2,3,0]` | `1.916e8` = 1.235e-3 (diagnostic) | `7.320e-14·max\|K\|` | — | — |
+| flat-square / flat-distorted (all sequences) | `≤ 7.77e-13·max\|K\|` | unchanged (`≤ 7.77e-13`) | | |
+
+Permuted eigenvalues agreed both before and after (`2.341e-14·λ_max` on the failing case), which is what pointed at a basis/frame change rather than an isotropy error. Orientation invariance remains green (`worst |Δλ| = 3.05e-4…6.10e-4` vs `1e-10·λ_max = 28.6…51.1`).
+
+**Test-first.** No strict TDD. **RED** = the original run at HEAD (`/tmp/t11.log`): `ruled-warped: node sequence [1, 2, 3, 0] gives 1.385e9 > 1e-12 max|K| (1.913e-1)`; **GREEN** = the same test after the one-expression fix: `ok. 1 passed` and the suite `170/1`.
+
+**Collateral fix (recorded; a strengthening, not a weakening).** With `e3 = V^D` identically, the `θ^D = θ·V^D` projection `local_components(pre, &pre.v_d)` equals the local drill slot, so Oracle 2's `theta_z alone` row (which passed the raw global `(0,0,1)` as a local triple) became vacuous — measured `rejection 'theta_z alone': not distinguished from Eq. (18) (relative 0)`. Its premise (`V^D ≠ e3`) was itself a consequence of the bug. The row is re-aimed to the genuine remaining risk, using the **global** vertical instead of `V^D` (`v_theta = local_components(pre, &ẑ_global)`), which is rejected by `>1e-6`; the other four rejections are unchanged. **No bound was touched**: `1e-12·max|K|`, `1e-10·λ_max` and `1e-10` relative energy all stand exactly where the spec fixes them. `test_identity_drill_operator_matches_eq18_term_by_term`, `test_identity_drill_stiffness_comes_only_from_eq26`, `test_identity_ke_lock_matches_2017_core_plus_2025_drill` and `test_t1a_zero_energy_modes_single_unsupported_element_six_or_seven` all pass.
+
+---
+
+## WU6e — task 7.4's shearing half rewritten to the amended Requirement 8 (spec rev 7): PASSES
+
+**Task 7.4 now `- [x]`** (its bending half already passed in WU6). `strict_tdd: false`; no production line changed — the rewrite is entirely inside the inline `#[cfg(test)] mod tests`.
+
+**What changed.** `test_t1a_shearing_patch_constant_stress_fig5_mesh` implemented the withdrawn transverse-shear load derivation and was the suite's single failure. It is rewritten to the amended requirement: the constant **in-plane** shear state `τ_xy = τ` with `σ_xx = σ_yy = 0` (every transverse-shear and moment resultant zero) and exact field `u_x = 0`, `u_y = (τ/G_xy)·x`; the figure-read **Fig. 7(c)** BC set `BC_2025_PATCH.shearing` (`B` fully clamped; `C: u_x = u_z = 0`, `θ_x = θ_y = 0`; the four interior nodes `u_x = θ_x = θ_y = 0`; `θ_z` free except at `B`; the load at `A` in `+y`); the load is the constant in-plane state's **consistent boundary tractions** `f_i += ∫_edge N_i (σ·n) dΓ`, `σ = [[0, τ],[τ, 0]]`, integrated with the bilinear boundary shape functions (2-point Gauss per edge), independently of the element stiffness (`σ_ij,j = 0`, so the tractions balance — this derivation IS well posed where the withdrawn transverse one was not); the requirement's unchanged tolerances; and both non-vacuity clauses. The withdrawn `interior_shear_moment` helper was deleted (its only caller was the old test). The test uses `BC_2025_PATCH.shearing`, not `BC_2017_PATCH`: the requirement fixes the figure-read Fig. 7(c) set for this test, and the neighbouring membrane/bending Tier-1a tests keep the derived `BC_2017_PATCH`.
+
+**Files + diff stat.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (inline test module only: the deleted `interior_shear_moment` helper and the rewritten `test_t1a_shearing_patch_constant_stress_fig5_mesh`); `openspec/changes/mitc4plusd-faithful/tasks.md` (7.4 checked + the WU6e note); this file.
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 222 +++++++++++++---------  (222 insertions, 129 deletions)
+openspec/changes/mitc4plusd-faithful/tasks.md      |   2 +-
+2 files changed, 224 insertions(+), 130 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** (the hybrid is byte-identical). `rustfmt --edition 2021 --check` is clean for the file. No file outside the three scoped files was touched (`git status --short` shows only `mitc4_plusd.rs` and `tasks.md` modified plus the pre-existing untracked `.pi/`).
+
+**Count before → after.** `cd crates && cargo test -p aeroelast-core` → **170 passed / 1 failed → 171 passed / 0 failed**. The one failure was this shearing test (the withdrawn transverse derivation); Tier 1a is now closed.
+
+**Assertions and measured values** (τ = 1, `‖σ‖ = 1`, absolute floor `1e-10·‖σ‖ = 1e-10`).
+
+| Assertion | Bound | Measured |
+| --- | --- | --- |
+| recovered `τ_xy` vs prescribed, max over all Gauss points | `≤ 1e-8·‖σ‖ + floor` = `1.01e-8` | **`4.767e-12`** absolute (`4.767e-12` relative) |
+| spread of `τ_xy` across all Gauss points | `≤ 1e-8·‖σ‖ + floor` = `1.01e-8` | **`3.034e-12`** absolute (`3.034e-12` relative) |
+| analytically-zero membrane components `σ_xx`, `σ_yy` | `≤ 1e-10·‖σ‖` = `1e-10` | **`4.314e-12`** |
+| moment resultant (surface bending stress at `t = 1`) | `≤ 1e-10·‖σ‖` = `1e-10` | **`0.0e0`** |
+| transverse-shear resultant `Q = G·h·γ` | `≤ 1e-10·‖σ‖` = `1e-10` | **`0.0e0`** |
+
+No tolerance was widened and no bound was weakened.
+
+**Fig. 7(c) constraint check.** The test asserts, for every `(node, dof)` in `BC_2025_PATCH.shearing`, that the exact field's value equals the fixture's prescribed value: `C(0,0)` gives `u_x = 0`; the four interior nodes `(4,7),(8,7),(8,3),(2,2)` give `u_x = 0`; `B(0,10)` is clamped and its `u_y = γ·0 = 0`; `θ_x = θ_y = 0` everywhere. The check is made non-vacuous by asserting that at the four interior nodes the free `u_y = γ·x` is non-zero (`|u_y| > 1e-15`), so the constraint set pins `u_x` but does not over-constrain the constant-shear state.
+
+**Two non-vacuity controls (both fail the tolerance, as required).**
+
+| Control | Measured |
+| --- | --- |
+| (a) load zeroed | recovered `τ_xy` error **`1.000` relative** (`> 1e-3`, so the `1e-8` assertion would fail) |
+| (b) withdrawn design 4.2 load from a constant **transverse** shear resultant `q = G·h·γ` (`γ13 = 1e-3`), same Fig. 7(c) BC set | recovered `τ_xy` error **`1.000` relative**; recovered transverse shear **`1.156e8`** |
+
+**RED → GREEN.** **RED** = the test at HEAD `acfca1d` (the withdrawn derivation): `T1.3c gamma_13: boundary-only (design 4.2 as written): max|gamma_gp - gamma|=6.696e-3 (rel 6.696e0); spread=9.772e-3 (rel 9.772e0)` → `FAILED` (the old assertion was on the transverse shear, `6.696e-3 > 1e-8·‖γ‖ + floor`). **GREEN** = the rewritten in-plane test: `ok. 1 passed` and the suite `171/0`.
+
+**Deviations.**
+
+1. **The load is the state's complete consistent boundary-traction vector.** The 2025 figure shows a single `+y` arrow at `A` and publishes neither the load's magnitude nor its distribution; the constant `τ_xy` state's boundary tractions also load corners `C` and `D`. The fixture uses the complete traction vector (with the figure's `+y` arrow at `A` retained as the loaded corner) and records the figure-schematic deviation (proposal §2.1, spec Evidence gap G9) rather than reducing the load to a single point load. The load's magnitude is fixed by the constant in-plane state; it was not chosen, scaled or fitted.
+2. **The moment/transverse-shear zero-components are asserted through the recovered stress-level quantities** (surface bending stress at `t = 1`, and the uncorrected shear resultant `Q = G·h·γ`), which are the stress-level forms of the moment and transverse-shear resultants and are directly comparable to `‖σ‖`; both measure exactly `0.0e0` on this flat patch.
+3. **`BC_2025_PATCH.shearing` is used, not `BC_2017_PATCH`** (recorded in the test comment): the amended requirement fixes the figure-read Fig. 7(c) set for the shearing test. `BC_2017_PATCH` remains the derived minimum set of the membrane/bending Tier-1a tests.
+4. **WU6e size.** 222 added / 129 removed for `mitc4_plusd.rs` (the deleted helper plus the rewritten test), within the accepted session `size:exception`. No test, doc or citation was dropped; the citations are self-contained (Ko, Bathe & Zhang (2025), C&S 308:107622; Ko, Lee & Bathe (2017), C&S 182:404-418; Dvorkin & Bathe (1984), Engineering Computations 1:77-88) and anchored to `docs/references.md`, with no "paper A/B" shorthand.
+
+---
+
+## WU7 — Tier 1b: the 2025 paper's own basic tests (tasks 8.1–8.4)
+
+**Closed.** 8.1 spatial isotropy with the drill DOF free; 8.2 six-or-seven zero-energy modes with the drill DOF (spec rev 6, Requirement 10); 8.3 the three strong-form patch tests (extension, bending, **in-plane** shearing — spec rev 8, Requirement 11); 8.4 the `θ_z`-free-except-`B` variants. `strict_tdd: false`; the task carried an explicit test-first instruction and every test was shown RED. `tasks.md` is now **37 checked / 22 unchecked of 59**. All six Tier-1b tests **PASS**; the 2025 paper's own verdict on the six-DOF element is affirmative on all four tasks.
+
+**Files + diff stat** (HEAD `426249d`; the WU6/WU6b–e work is already committed, so this is the WU7 delta):
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 974 ++++++++++++++++++++++  (974 insertions, 0 deletions)
+openspec/changes/mitc4plusd-faithful/tasks.md     |  12 +-                        (8 insertions, 4 deletions)
+```
+
+Every hunk in `mitc4_plusd.rs` is inside the inline `#[cfg(test)] mod tests` (helpers `StrongFormGp`, `strong_form_gauss_points`, `solve_strong_patch`, `max_abs_vec`, `max_abs_diff_vec`, `extension_load`, `bending_load`, `shearing_load`, `distance_from_rigid_body_space`, and the six new tests). **No production line changed.** `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty** — the hybrid is byte-identical. `rustfmt --edition 2021 --check` is clean. No file outside the three scoped files was touched (`git status --short` shows `mitc4_plusd.rs`, `tasks.md` and this file, plus the pre-existing untracked `.pi/`).
+
+**Verification.** `cd crates && cargo test -p aeroelast-core` → **171 passed / 0 failed → 177 passed / 0 failed**. No test fails; no finding required an adjustment.
+
+**Tests, assertions and measured values.** The 2×2 surface rule and `cm_raw` isotropic shell are the fixtures' existing ones. Tolerances are the spec's, unchanged.
+
+| Test (task) | Asserts | Measured |
+| --- | --- | --- |
+| `test_t1b_spatial_isotropy` (8.1) | eigenvalues to `1e-10·λ_max` over 4 orientations (0, 0.7, π/4, π/2) with the drill free; `uᵀKu` to `1e-10` relative for a co-rotated field; the field's drilling component and drill-block energy non-zero | flat-square: worst `\|Δλ\| = 3.052e-4` vs `1e-10·λ_max = 28.57`; worst `\|ΔuᵀKu\|/\|uᵀKu\| = 1.296e-15`; `max\|θ·V^D\| = 1.126`; drill energy `2.316e8`. flat-distorted: `6.104e-4` vs `40.85`; `1.929e-15`; `1.126`; `1.563e9`. ruled-warped: `6.104e-4` vs `51.13`; `7.021e-16`; `1.229`; `6.537e8`. **PASS** |
+| `test_t1b_zero_energy_modes_six_or_seven_with_drill_dof` (8.2) | per-geometry constrained zero-count (7 flat rectangle / 6 others); `λ_7/λ_max ≥ 1e-9` on the count-6 geometries; six rigid-body fields `≤ 1e-12·λ_max` at `‖u‖ = 1` (five with `θ_z(B)=0`); drill null dim 2/1/1/1, pure drill rotations at distance `> 2.4`; non-zero drill stiffness in a non-rigid mode; inert → 4, rank gain → 0 | counts `7 / 6 / 6 / 6`; six-field energy `5.061e-17 / 3.735e-17 / 2.984e-17 / 3.574e-17` of `λ_max` (constrained: same; 5/6 fields); `\|λ_7\|/λ_max = — / 4.906e-9 / 1.329e-6 / 2.055e-7`; `λ_max = 4.523e11 / 4.085e11 / 5.113e11 / 4.270e11`; drill null dims `2 / 1 / 1 / 1`, inert `4`, rank-gain `0`; drill-null energy `0.0 / 4.085e-18 / 0.0 / 1.117e-18`; drill-null distance `2.455 / 2.493 / 2.455 / 2.454`; largest drill mode energy `1.282e10 / 2.048e10 / 1.371e10 / 1.438e10` at distance `2.449`. **PASS** |
+| `test_t1b_strong_patch_extension_constant_and_zero_stress` (8.3a) | `σ_xx` constant to `1e-8` relative in every element; `σ_yy`, `τ_xy`, moments, transverse shear `≤ 1e-10·\|σ\|`; exact field consistent with the Fig. 7(d) zero BCs; zeroed-load control | `σ_xx` error `8.691e-12` (rel `8.691e-12`); zero membrane `1.813e-12`; moment `0.0e0`; transverse shear `0.0e0`; floor `1.000e-10`; zeroed load `1.000e0` relative. **PASS** |
+| `test_t1b_strong_patch_bending_constant_and_zero_stress` (8.3b) | `κ_xx` (`Mxx`) constant to `1e-8` relative; `κ_yy`, `2κ_xy` `≤ 1e-10·\|κ\|`; membrane/transverse shear `≤ 1e-10·σ_scale`; zeroed-load control | curvature error `7.191e-15` (rel `7.191e-12`); zero curvature `5.025e-15`; zero membrane `0.0e0`; transverse shear `1.615e-5` vs the `1e-10·σ_scale = 1.147e-2` bound; floor `1.000e-13`; zeroed load `1.000e0` relative. **PASS** |
+| `test_t1b_strong_patch_shearing_constant_and_zero_stress` (8.3c) | **in-plane** `τ_xy` constant to `1e-8` relative, spread `≤ 1e-8`; `σ_xx`, `σ_yy`, moments, transverse shear `≤ 1e-10·\|σ\|`; zeroed-load and withdrawn-transverse-load controls | `τ_xy` error `4.767e-12`; spread `3.034e-12`; zero membrane `4.314e-12`; moment `0.0e0`; transverse shear `0.0e0`; floor `1.000e-10`; zeroed load `1.000e0`; withdrawn transverse load `1.000e0` (shear `1.156e8`). **PASS** |
+| `test_t1b_drill_theta_z_free_except_corner_b` (8.4) | variants (a) vs (b) agree to `1e-10` on the constant-state patches; variant (c) differs from (a) by `> 1e-8` on the warped patch | flat: (b) vs (a) `0.0e0` for extension, bending, shearing. Warped: (b) vs (a) `4.736e-4 / 4.662e-3 / 4.175e-2`; (c) vs (a) `1.525e-3 / 8.913e-3 / 4.338e-2`; worst (c) vs (a) `4.338e-2 > 1e-8`. **PASS** |
+
+**Test-first evidence (RED → GREEN).** Each test was shown RED by a deliberate perturbation, then restored (no perturbation marker remains; `grep -n "RED PERTURBATION"` returns no match).
+
+- **8.1 RED (element).** Pinning `e3` to a global axis in `compute_local_coordinate_system` → flat-square `worst |Δλ| = 1.024e12` vs `1e-10·λ_max = 28.57`, `worst |ΔuᵀKu|/|uᵀKu| = 3.363`; the test failed on both clauses. Restored → `3.052e-4` / `1.296e-15`.
+- **8.2 RED (element).** `compute_ke_local` → `compute_ke_local_with_drill(pre, false)` → constrained zero-count `9 / 9 / 9 / 9` (from `7 / 6 / 6 / 6`), so the count is driven by the drill block. Restored → `7 / 6 / 6 / 6`.
+- **8.3 RED (load).** Each patch test carries its zeroed-load control in-test: extension `1.000e0`, bending `1.000e0`, shearing `1.000e0` relative, all far above the `1e-8` tolerance; the shearing test additionally carries the withdrawn transverse-load control (`1.000e0`). The loads are derived element-independently from the constant states' boundary tractions, so a wrong element cannot pass by construction.
+- **8.4 RED (load).** Zeroing the patch load makes every variant identical → (c) vs (a) `0.0e0 < 1e-8`, so the separation assertion is load-bearing. Restored → worst (c) vs (a) `4.338e-2`. (Two element perturbations were tried and recorded as non-perturbations: scaling the drill operator by `1e-6`/`1e6` changes the numbers but leaves (c) ≠ (a); forcing `vd_local = (0,0,1)` is a **no-op**, because after the WU6d fix `V^D ≡ e3`, so `local_components(pre, v_d) = (0,0,1)` exactly.)
+
+**Findings and deviations.**
+
+1. **8.4 — the warped (a) vs (b) difference is a scope clarification, not an element defect.** On the warped patch, imposing `θ_z = 0` at corner C changes the solution by `4.736e-4 / 4.662e-3 / 4.175e-2` (extension / bending / shearing), i.e. far above `1e-10`. The paper's *"the use of `θ_z = 0` at the corner node C does not affect the results"* (Ko, Bathe & Zhang (2025), C&S 308:107622, Section 3.1, p. 14) is stated for the **strong-form patch tests**, which are flat; on the flat patch the difference is exactly `0.0e0`. The spec's drill scenario introduces the warped patch only for the variant-(c) separation. The test therefore asserts (a)==(b) on the constant-state patches and **reports** the warped values as a finding rather than asserting a bound the paper does not make there. Nothing was weakened: the (c) vs (a) bound is asserted on the warped patch exactly as the spec fixes it.
+2. **8.3b — the Fig. 7(b) zero BCs admit only the `Mxx` constant-moment state.** The strong form requires the solution to *be* the constant straining mode, so the exact field must satisfy the figure-read zero BCs. For `κ_yy` alone the rigid motion that makes `θ_x(B) = 0` and `w(C) = 0` leaves `w(B) = 50 κ_yy ≠ 0`; for `κ_xy` alone the motion that makes `θ_y(B) = 0` leaves `θ_y(C) = -10 κ_xy ≠ 0`. Only `κ_xx` (`w = -κ_xx x²/2`, `θ_y = κ_xx x`) vanishes at B and C. The strong-form bending state realized is therefore `Mxx`; the derivation is recorded in the test's doc comment. This is an admissibility fact about the figure-read BC set, not a loosened assertion.
+3. **8.2 — recorded name deviation.** The task line's verification name `test_t1b_zero_energy_modes_exactly_six_with_drill_dof` is the pre-rev-6 name; the test uses the spec rev 6 name `test_t1b_zero_energy_modes_six_or_seven_with_drill_dof`. The element, the fixture and the measurements are the same as WU6c's Requirement-5 test (there is only one production element), so the two tests are the Tier-1a and Tier-1b framings of the same measurement; Requirement 10 adds the "drilling DOF carries non-zero stiffness in at least one non-rigid mode" clause, which this test asserts via the drill block's largest eigenvector (energy `1.282e10…1.438e10`, distance `2.449` from the rigid-body space).
+4. **The shearing strong form is the in-plane state (spec rev 8).** `test_t1b_strong_patch_shearing_constant_and_zero_stress` uses the constant in-plane `τ_xy` state (`σ_xx = σ_yy = 0`), the Fig. 7(c) BC set and the state's consistent boundary tractions — the same state as the Tier-1a shearing test, as the spec requires; the transverse reading was withdrawn (Evidence gap G9). The state, BCs, load derivation, tolerances and the two non-vacuity controls are unchanged from the spec.
+5. **WU7 size.** 974 added / 0 removed for `mitc4_plusd.rs` (the six tests plus their helpers) vs the design's ~330 forecast, within the accepted session `size:exception`. No test, doc or citation was dropped; every test carries a self-contained citation (Ko, Bathe & Zhang (2025), C&S 308:107622; Ko, Lee & Bathe (2017), C&S 182:404-418; Dvorkin & Bathe (1984), Engineering Computations 1:77-88) anchored to `docs/references.md`, with no "paper A/B" shorthand.
+
+---
+
+## WU8 — move the layout-bound Tier-2 Rust tests onto the new element (S2, tasks 9.1–9.3)
+
+**Closed.** 9.1, 9.2, 9.3. `strict_tdd: false`; no production line changed.
+
+**What moved.** The T2A/T2B and T2I tests of design §5.1 moved out of `mitc4.rs`'s `#[cfg(test)] mod tests` and were retargeted from `Mitc4Precomputed` to `Mitc4PlusDPrecomputed`. 22 names moved (11 T2A/T2B + 11 T2I); 13 are new copies in `mitc4_plusd.rs`, 9 already had retargeted copies there (WU5) and only the hybrid's copies were deleted. `test_ke_local_eigenvalues_nonsymmetric` is excluded per the task text. `test_ke_global_has_exactly_six_zero_modes` is **not** moved — see Finding 1.
+
+| Moved name | Asserts against `Mitc4PlusDPrecomputed` |
+| --- | --- |
+| `test_ke_local_flat_plate_parity` | `compute_ke_local` symmetric (`< 1e-10`) and non-zero (`> 1e-6`) |
+| `test_ke_global_is_symmetric` | `compute_ke_global` relative asymmetry `< 1e-12` |
+| `test_ke_global_is_positive_semidefinite` | `λ_min > -1e-9·λ_max` |
+| `test_ke_global_leaves_all_six_rigid_body_modes_free` | six physical rigid-body fields `\|Ku\|/(\|K\|\|u\|) < 1e-10` (measured `≤ 3.34e-17`) |
+| `test_membrane_patch_reproduces_constant_strain_at_every_gauss_point` | `b_membrane_2017` (Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (27)) reproduces `[a, d, b+c]` to `1e-10` relative at all 4 Gauss points |
+| `test_bending_patch_reproduces_constant_curvature_at_every_gauss_point` | `b_bending_2017`'s `e^b1` (Eq. (7a), `t = 2z/h`) recovers `kappa = (2/h)·e^b1 = [kxx, 0, 0]` to `1e-10` relative |
+| `test_kt_zero_matches_ke` | `K_T(0) == Tᵀ·K_local·T` to `1e-10` |
+| `test_fint_linear_nonlinear_parity` | `f_int(nonlinear) - K·u` is `O(u²)`: rel `< 1e-1` |
+| `test_kt_fint_directional_derivative` | `K_T·δu ≈ Δf_int` to `0.05` |
+| `test_kt_fint_directional_derivative_rotations` | same, exciting `θ_x`/`θ_y`, to `0.05` |
+| `test_kt_fint_directional_derivative_with_drill_dofs` | same, exciting slot `6i+5`, to `0.05` |
+| `test_body_load_global_zero_gravity` | `f.norm() < 1e-12` |
+| `test_body_load_global_z_gravity` | only `f_z` non-zero; total `f_z = ρ·h·\|g\|·A` (`1e-4`) |
+| `test_k_sigma_global_zero_stress` | `K_sigma.norm() < 1e-12` |
+| `test_k_sigma_global_symmetric` | `\|K - Kᵀ\| < 1e-6·max(\|K\|, 1)` |
+| `test_k_sigma_global_matches_local_transformed` | `compute_k_sigma_global == transform_to_global(geometric_stiffness_from_stress)` (`< 1e-6`) |
+| `test_centrifugal_prestress_on_axis` | `σ.norm() < 1e-6` |
+| `test_centrifugal_prestress_nonzero` | all components finite; trace `≥ 0` |
+| `test_me_global_is_symmetric_and_positive_semidefinite` | `M` asymmetry `< 1e-14`; `λ_min > -1e-12·λ_max` |
+| `test_me_global_total_translational_mass_is_rho_h_a` | per-direction total `= ρ·h·A` (`1e-14`) |
+| `test_me_global_matches_the_exact_bilinear_coefficients` | `M_ij = {4,2,1}/36·m` (`1e-14`) |
+| `test_me_global_rotary_inertia_is_rho_h3_a_over_12` | per-rotation total `= ρ·h³/12·A` (`1e-14`) |
+
+**Files changed (diff stat).**
+
+```text
+crates/aeroelast-core/src/elements/mitc4.rs       | 532 ----------------------  (0 insertions, 532 deletions)
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 348 +++++++++++++-          (342 insertions, 6 deletions)
+2 files changed, 342 insertions(+), 538 deletions(-)
+```
+
+`mitc4.rs`: all five diff hunks are inside `mod tests` (hunk starts 2217/2239/2471/2497/2556, all ≥ the `#[cfg(test)]` line). The **production prefix is byte-identical to HEAD**: comparing `git show HEAD:…/mitc4.rs` and the working file up to `#[cfg(test)]\nmod tests {` gives `identical: True` (`83,989` bytes both). Deleted from the hybrid's test module: the 22 moved tests, the two mass helpers (`translational_mass_per_direction`, `rotary_mass_per_direction`) and `scaled_residual`, whose only callers were the moved tests. `element_centroid` / `rigid_body_mode` / `rigid_body_modes` **stay** — the hybrid's remaining T2J tests still call them. No file outside the two scoped Rust files, `tasks.md` and this record was touched (`git status --short` shows only those two `.rs` files modified plus the pre-existing untracked `.pi/`).
+
+**Count arithmetic.** `cd crates && cargo test -p aeroelast-core`:
+
+| | Count |
+| --- | --- |
+| Before | **177 passed / 0 failed** |
+| Moved out of `mitc4.rs` | **−22** (11 T2A/T2B + 11 T2I) |
+| Moved in to `mitc4_plusd.rs` | **+13** (the 9 already-retargeted copies were already counted; the other 13 are new) |
+| Excluded | **2** (`test_ke_local_eigenvalues_nonsymmetric` per the task text; `test_ke_global_has_exactly_six_zero_modes` per Finding 1 — both stay in `mitc4.rs`, so neither is added or removed) |
+| After | **168 passed / 0 failed** |
+
+`177 − 22 + 13 = 168`. Every one of the 22 moved names passes against `Mitc4PlusDPrecomputed` (each was also run individually: `cargo test -p aeroelast-core <name>` → `0 failed`).
+
+**"Exists exactly once" — exact grep.** `grep -rnE "fn (…all 22 names…|test_ke_global_has_exactly_six_zero_modes|test_ke_local_eigenvalues_nonsymmetric)\(" crates/`:
+
+- **7 of the 22 moved names return exactly one hit** — the new `mitc4_plusd.rs` copy: `test_ke_local_flat_plate_parity`, `test_kt_zero_matches_ke`, `test_fint_linear_nonlinear_parity`, `test_kt_fint_directional_derivative`, `test_kt_fint_directional_derivative_rotations`, `test_kt_fint_directional_derivative_with_drill_dofs`, `test_me_global_matches_the_exact_bilinear_coefficients`.
+- **The other 15 return two hits**, and in every case the second hit is **`mitc3.rs`**, the MITC3+ triangle element's own pre-existing test of the same generic invariant — entirely outside this change's scope and never one of the hybrid's copies: `test_ke_global_is_symmetric` (mitc3:1733), `…_is_positive_semidefinite` (1744), `…_leaves_all_six_rigid_body_modes_free` (1759), `test_membrane_patch_…` (1781), `test_bending_patch_…` (1811), `test_me_global_is_symmetric_and_positive_semidefinite` (1888), `…_total_translational_mass_is_rho_h_a` (1913), `…_rotary_inertia_is_rho_h3_a_over_12` (1956), `test_body_load_global_zero_gravity` (1569), `…_z_gravity` (1577), `test_k_sigma_global_zero_stress` (1606), `…_symmetric` (1614), `…_matches_local_transformed` (1626), `test_centrifugal_prestress_on_axis` (1637), `…_nonzero` (1650). **Within the mitc4 family each name exists exactly once** — the hybrid's copy is deleted, not duplicated, so the suite does not double-count. `grep -rn "fn <name>" crates/aeroelast-core/src/elements/mitc4.rs` for any moved name returns **no** hit.
+- `test_ke_global_has_exactly_six_zero_modes` → one hit, `mitc4.rs:2440` (unchanged). `test_ke_local_eigenvalues_nonsymmetric` → one hit, `mitc4.rs:2219` (unchanged).
+
+**S2 gate (task 9.3).** Recorded, **GREEN, before the flip**: `cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed**; the hybrid's copies of all 22 moved names are removed; every moved name passes against `Mitc4PlusDPrecomputed`; `mitc4.rs`'s production prefix is byte-identical to HEAD. `rustfmt --edition 2021 --check` is clean for `mitc4_plusd.rs` (`mitc4.rs` carries only pre-existing rustfmt diffs in production code, untouched here). No new compiler warning: `cargo build -p aeroelast-core --tests` reports the same 8 pre-existing warnings (mitc3 `k_qu`, reference.rs imports, the hybrid's `green_lagrange_strain`/`compute_b_l`/`compute_membrane_stress`, `let e` at `mitc4.rs:3309`, and the pre-existing snake-case test name) as before the move.
+
+**Findings (reported, not adjusted).**
+
+1. **`test_ke_global_has_exactly_six_zero_modes` cannot be retargeted without changing its bound — it is left unmodified in `mitc4.rs`.** Measured: on the flat unit square `compute_ke_global(&pre)` has **8** eigenvalues below `1e-9·λ_max` (`λ_max = 2.857e11`, threshold `2.857e2`; the eight are `±3.1e-5 … 1.0e-6`), not 6. The extra two are the flat-rectangle drill-block null space of Ko, Bathe & Zhang (2025), C&S 308:107622 (spec rev 6 Requirement 10; measured dim 2 flat / 1 elsewhere in WU6/WU7). Asserting `zero_modes == 6` against `Mitc4PlusDPrecomputed` would be a false invariant, so per the unit's instruction ("a test whose retarget would have required changing a bound … reported as a finding, not adjusted") the test was **not** moved and **not** edited. Its invariant is not lost: `test_t1a_zero_energy_modes_single_unsupported_element_six_or_seven` (task 7.1) and `test_t1b_zero_energy_modes_six_or_seven_with_drill_dof` (task 8.2) already assert the count under the paper's own drill constraint. **Parent decision needed:** add this name to the exclusion set (and to task 11.2's delete list, alongside `test_ke_local_eigenvalues_nonsymmetric`) or amend Requirement 12. Until then the S2 gate's "hybrid's copies removed" holds for 22 of the 23 in-scope names.
+2. **Retarget normalization, not a bound change.** `test_bending_patch_reproduces_constant_curvature_at_every_gauss_point`: the hybrid's `b_kappa` returns the classical curvature `κ`; the new element's `b_bending_2017` returns the paper's `t`-linear bending strain measure `e^b1` (Eq. (7a), `t = 2z/h`). The moved test recovers `κ = (2/h)·e^b1`; the expected vector `[kxx, 0, 0]` and the `1e-10` relative bound are the hybrid's, unchanged. Measured `4.0e-12` relative.
+3. **No `compute_element_stress` T2I test exists to move.** `grep -rn "fn .*element_stress" crates/` returns nothing; task 9.2's name list includes it, but there is no hybrid test of that name, so nothing was moved and no name was invented.
+4. **Helper rename (not a test rename).** The hybrid's `rigid_body_modes` helper became `physical_rigid_body_modes` in `mitc4_plusd.rs`, because the WU1 Tier-1 BC fixture already defines `rigid_body_modes()` (a `DMatrix<f64>`) in that module. No test name changed.
+5. **Fixture parity.** `make_pre()` in `mitc4_plusd.rs` reproduces the hybrid fixture exactly (flat unit square, `h = 0.01`, isotropic `E = 2.0e11, ν = 0.3, ρ = 7800`, `k = 5/6`), so the moved tests' hardcoded `h = 0.01` / `area = 1.0` constants still describe the element under test. `make_pre()` also asserts the retarget is non-vacuous: `V^D` is unit and `cs_uncorrected == cs / applied_k` — two quantities that do not exist on `Mitc4Precomputed`.
+
+**WU8 size.** 342 added / 538 removed, within the accepted session `size:exception`. No test, doc or citation was dropped; the citations are self-contained (Ko, Bathe & Zhang (2025), C&S 308:107622; Ko, Lee & Bathe (2017), C&S 182:404-418; Dvorkin & Bathe (1984), Engineering Computations 1:77-88) and anchored to `docs/references.md`, with no "paper A/B" shorthand. Not committed.
+
+---
+
+## WU9a — task 10.6: correct the four benchmark mis-sourcings (source correction only)
+
+**Task 10.6 stays `- [ ]`.** The four corrections landed in `tests/test_ko2017_performance.py`; three pass and the fourth (`test_3_3[dist]`) **fails against the true paper cell**, so the file is not green. Per the task's own instruction no tolerance was widened and no `xfail` marker was added; the failure is reported, not hidden. `strict_tdd: false`; only `tests/test_ko2017_performance.py`, `tasks.md` and this record were touched.
+
+**File + diff stat.**
+
+```text
+tests/test_ko2017_performance.py | 93 +++++++++++++++++++++++-----------------
+1 file changed, 54 insertions(+), 39 deletions(-)
+```
+
+**The four corrections (old → new → cell now cited).** Every replacement is read from `docs/validation-matrix.md`'s `cell mismatch` rows, which cite the table. Citations are Ko, Lee, Lee & Bathe (2017), C&S 193:187-206, anchored to `docs/references.md`; no "paper A/B" shorthand.
+
+| Case | Old value | New value | Cell now cited |
+| --- | --- | --- | --- |
+| `test_3_2_circular_plate_tables_6_to_7` SS rows | shared the clamped tuple `1.001 / 0.9997 / 0.9997` (Table 6) | `0.9991 / 0.9988 / 0.9988` (new `expected_ss` field; `expected = expected_clamped if clamped else expected_ss`) | Table 7, MITC4 N=16 (simply supported) |
+| `test_3_3_pinched_cylinder_tables_8_to_9[dist]` | `0.9892` | `0.9321` | Table 9, MITC4+ N=16 (distorted). `0.9892` occurs in the paper only in Table 12 (N=2) |
+| `test_3_7_hemisphere_cutout_tables_15_to_16[reg, 4/1000]` | `1.009` | `1.003` | Table 15, MITC4+ N=16 (regular). `1.009` is the Table 15 MITC4+ **N=8** cell |
+| `test_3_7_hemisphere_cutout_tables_15_to_16[reg, 4/10000]` | `0.9811` | `0.9834` | Table 15, MITC4+ N=16 (regular). `0.9811` is the Table 15 **S4** N=16 cell |
+| `test_3_5_twisted_beam_tables_12_to_13` (all four) | `0.9972 / 0.9972 / 0.9975 / 0.9980` + docstring claiming `xfail(strict)` | `0.9971 / 0.9973 / 0.9978 / 0.9982` + docstring/comment corrected (no xfail marker at all) | Tables 12/13, MITC4+ N=16 (in-plane / out-of-plane, thick / thin) |
+
+**No tolerance changed, no xfail added.** `git diff` over the file shows no `rtol`/`atol`/`tol` line added or removed (the per-case `tol=0.05` and the twisted-beam `tol=0.01` are byte-identical), and no `pytest.mark.xfail` line was added — the only `xfail` occurrences in the diff are the prose corrections ("run without any xfail marker").
+
+**`pytest "tests/test_ko2017_performance.py" -q`** (aeroelast-dev interpreter, `-o addopts=`):
+
+| | Result |
+| --- | --- |
+| Before | **31 passed** |
+| After | **30 passed / 1 failed** |
+
+**Finding — `test_3_3[dist]` fails against the true Table 9 cell (reported, not re-tuned).**
+
+- Test: `test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]` (distorted mesh).
+- True cell: Ko, Lee, Lee & Bathe (2017), C&S 193:187-206, **Table 9, MITC4+ N=16 = 0.9321** (`docs/validation-matrix.md` `test_3_3_pinched_cylinder_tables_8_to_9[dist]` row).
+- Measured value: **`0.9943`** → relative error **`6.676% > 5%`** (`assert_relative_error`). The validation matrix predicted exactly this: "Against the true Table 9 N=16 cell the measured value is 6.6% off, i.e. outside the 5% window."
+- No tolerance was widened, no `xfail` was added, and no value was re-tuned. The task stays `- [ ]`.
+
+The other three corrections are green (measured → cell): `test_3_2` SS `0.9982 / 0.9976 / 0.9974` → `0.9991 / 0.9988 / 0.9988`; `test_3_7[reg]` `1.0068` → `1.003` and `0.9838` → `0.9834`; `test_3_5` `0.9984 / 0.9990 / 0.9982 / 0.9986` → `0.9971 / 0.9973 / 0.9978 / 0.9982`. `test_3_3[reg]` is unchanged and still passes (`0.9718` vs Table 8 `0.9313`, 4.35%).
+
+**Nothing unsourced.** Every new expectation is taken from the validation matrix's recorded true cell; nothing was read off or invented. The S3 gate (task 10.7) is now gated on this finding: the distorted pinched-cylinder row is a genuine formulation signal, not a mis-sourced pass.
+
+**WU9a size.** 54 added / 39 removed for the test file, within the accepted session `size:exception`. Not committed.
+
+---
+
+## WU9 — the flip (S3, tasks 10.1–10.5, 10.7): **the gate is RED; the new element's absolute stiffness is wrong**
+
+**Closed.** 10.1 (material-channel wiring), 10.2 (`MaterialSpec::Composite.applied_shear_correction`), 10.3 (dispatch), 10.4 (PyO3 internals), 10.5 (composite batch's open factor channel), 10.7 (**recorded** — the run is RED). `tasks.md` is now **47 checked / 12 unchecked of 59**. `strict_tdd: false`; no tolerance, no test and no element file was changed to accommodate the flip (the prompt forbids fixing it here). **WU10 (S4) must not start.**
+
+**Files changed (diff stat).**
+
+```text
+crates/aeroelast-core/src/assembly/assembler.rs   | 106 ++++++++++++++++------   (79+, 27-)
+crates/aeroelast-core/src/elements/mitc4_plusd.rs |   5 +-                       (4+, 1-)
+crates/aeroelast-py/src/assembler.rs              |   7 +-                       (6+, 1-)
+crates/aeroelast-py/src/elements.rs               |  57 ++++++++----             (40+, 17-)
+crates/aeroelast-py/src/materials.rs              |   8 +-                       (7+, 1-)
+5 files changed, 136 insertions(+), 47 deletions(-)
+```
+
+`git diff --stat` for `crates/aeroelast-core/src/assembly/topology.rs`, `crates/aeroelast-core/src/elements/mitc4.rs`, `src/aeroelast/core/assembler.py`, `src/aeroelast/core/laminate.py` and the other `materials/*.rs` is **empty**. The 47 deletions are the replaced call sites, the old `build_constitutive_mitc4`, the unused `e_eq` binding and rustfmt line-wrapping — no test, doc or citation was dropped.
+
+**What landed.**
+
+- `MaterialSpec::Composite` gains `applied_shear_correction: f64`; `aeroelast-py/src/assembler.rs` fills it from `corrected_lam.applied_shear_correction_factor()`. `ShellConstitutive`/`Laminate` are untouched.
+- `PrecomputedElem::Quad(Mitc4PlusDPrecomputed)`; both constructor sites and `update_reference` call `Mitc4PlusDPrecomputed::new(&c12, constitutive, thickness, applied_shear_correction)`; every `mitc4::…` in the assembler is `mitc4_plusd::…`; `build_constitutive_mitc4_plusd` returns `(constitutive, thickness, applied_shear_correction)` (isotropic → `shear_correction`; composite → the field); `extract_elem_disp_24 → mitc4_plusd::Vec24`.
+- The six PyO3 MITC4 kernels call `mitc4_plusd`; isotropic kernels pass `shear_correction`, the composite kernels pass `1.0` (task 10.5).
+
+**The S3 gate — every command and its recorded result.**
+
+| # | Command | Result |
+| --- | --- | --- |
+| 1 | `cd crates && cargo test -p aeroelast-core test_t1a_` | **6 passed / 0 failed** |
+| 2 | `cd crates && cargo test -p aeroelast-core test_t1b_` | **6 passed / 0 failed** |
+| 3 | `cd crates && cargo test -p aeroelast-core` (Tier 2 Rust) | **168 passed / 0 failed** |
+| 4 | `cargo test -p aeroelast-core materials::` | **19 passed / 0 failed** |
+| 5 | maturin rebuild (`python -m maturin develop --release`) | **succeeded** (installed) |
+| 6 | `python -m pytest "tests/test_rust_composite.py::TestMITC4BatchSanity" -q` | **8 passed / 0 failed** |
+| 7 | `python -m pytest -m "not slow" -q` | **334 passed / 13 failed / 2 skipped** (spec baseline 345/2/2 → **11 new failures**) |
+| 8 | spec laminate/composite preserved-invariant command | **53 passed / 2 failed** |
+| 9 | `python -m pytest "tests/test_ko2017_performance.py" -q` | **25 passed / 6 failed** (WU9a baseline 30/1) |
+| 10 | PyO3 surface check | names, `#[pyo3(signature=…)]` lines and argument declarations **content-identical to HEAD**; `[f64; 576]` ×6, `[f64; 24]` ×2; `_FAMILY_PROPERTIES[SHELL] = (6, 3)` untouched |
+| 11 | `git diff --stat topology.rs` / `mitc4.rs` | **empty** (both untouched) |
+
+The spec's two named "pre-existing failures" are **stale at HEAD**: `tests/test_rust_composite.py::TestBatchComposite::test_batch_ke_mitc4_multiple` now **passes** (26/0 for that file), and `tests/test_shell_convergence.py::test_in_bending_convergence` does not exist (`test_in_plane_bending_convergence` passes). The 13 gate failures are therefore all attributable to the flip.
+
+**The twisted-beam comparison this unit exists to produce.**
+
+| Case | Published cell | Hybrid before | New element after | Verdict |
+| --- | --- | --- | --- | --- |
+| thin quad N=8, in-plane | 0.9959 | **0.9976** | **0.0740** | trails — ~13.5× too stiff |
+| thin quad N=16, in-plane | 0.9975 | **0.9982** | **0.0757** | trails — ~13.2× too stiff |
+| thin quad N=16, out-of-plane | 0.9980 | **0.9986** | **0.1919** | trails — ~5.2× too stiff |
+| thick quad N=16 (t/L=0.02667), in-plane | 0.9972 | **0.9984** | **1.9477** | trails — ~1.95× too soft |
+| thick quad N=16, out-of-plane | 0.9972 | **0.9990** | **2.9818** | trails — ~2.99× too soft |
+
+Commands: `python /tmp/probe_drill.py {8,16} quad {in,out} 1.0` and `python /tmp/probe_thick.py 16 0.02667 {in,out} 1.0`. **Verdict: the new element neither matches nor beats the hybrid on the twisted beam; it trails catastrophically on the thin cases and overshoots by ~2–3× on the thick ones.** It *does* beat the hybrid on the pinched cylinder (below).
+
+**Element-level attribution (not a dispatch defect).** Calling the two elements directly on the same coordinates (bypassing the assembler and PyO3), the new `compute_ke_global` differs from the hybrid's by **32.2% in norm** on a flat and a warped quad. Diagonal ratios: translational ≈1.03–1.04; transverse `w` ≈4.1–4.2; rotations `θx/θy` **4.07 flat, 19.06 warped**; drill `θz` 0.67. Block decomposition on the flat quad shows the **transverse-shear block dominates the rotation diagonal** (`shear diag[3] = 6.41e5` of `6.49e5`) and is ~4× the hybrid's whole rotation diagonal — consistent with the hybrid's bubble/SRI/`5/6` being removed, but the magnitude is far beyond the published element's behaviour. The dispatch itself is correct: the same element that fails here is the one the Tier-1 tests validated. This is a **WU2–WU7 element-formulation finding**, reported not fixed.
+
+**Every Python test whose measured value moved (old → new → the cell).**
+
+| Test | Old (hybrid) | New (MITC4+/D) | Cell / bound |
+| --- | --- | --- | --- |
+| `test_3_5[thin in]` | 0.9982 | **0.0757** | Table 12 N=16 = 0.9978, `tol 0.01` |
+| `test_3_5[thin out]` | 0.9986 | **0.1919** | Table 13 N=16 = 0.9982, `tol 0.01` |
+| `test_3_5[thick in]` | 0.9984 | **1.9477** | Table 12 N=16 = 0.9971, `tol 0.01` |
+| `test_3_5[thick out]` | 0.9990 | **2.9818** | Table 13 N=16 = 0.9973, `tol 0.01` |
+| `test_3_6_hook[0.9782]` | ≈0.9927 (docstring: 1.48%) | **1.1017** (12.63%) | Table 14 N=8 = 0.9782, `tol 3%` |
+| `test_3_3[dist]` | 0.9943 (6.676%) | **0.9822** (5.373%) | Table 9 N=16 = 0.9321, `tol 5%` |
+| `test_3_3[reg]` | 0.9718 (4.35%, PASS) | **0.9224** (0.95%, PASS) | Table 8 N=16 = 0.9313 — **improved** |
+| `TestIsoEquivalence::test_n_iso_plies_equal_single_layer_mitc4` | <1% (PASS) | **3.434%** | `tol 1%` |
+| `TestIsotropicAnalytical::test_mitc4_in_plane_lateral` | <5% (PASS) | **9.0%** (FEM 173.4 µm vs 190.5 µm) | `tol 5%` |
+| `TestSimplySupportedPlate::test_analytical_convergence` | PASS | **IndexError — 0 modes** | — |
+| `TestSimplySupportedPlate::test_frequencies_match_python` | PASS | **eigenvector shifted** (rigid mode dropped: `[50.16,131.3,131.3,211.3]` vs `[5.96e-4,50.16,131.3,131.3]`) | `rtol 1e-4` |
+| `TestLinearStaticCantilever::test_fy_in_plane` | PASS | **37.5% > 5%** | `tol 5%` |
+| `TestLinearStatic::test_fy` | 11.3662 mm, 0.55% | **37.71%** | ref 11.4286 mm, `tol 3%` |
+| `TestLinearStatic::test_ratio_physical` | 402.38 | **251.55** | beam theory 400.00, 2% window |
+| `test_multi_layer_iso_equivalence` | <1e-4 | **5.43e-2** | `tol 1e-4` |
+| `test_composite_bending` | PASS | **28.5%** | `tol 10%` |
+
+**`test_3_3[dist]` disposition (the WU9a finding).** The new element **moves it toward the true cell**: 0.9943 → **0.9822** (cell 0.9321), i.e. the error drops from **6.676% to 5.373%** — still outside the 5% window, so the finding is **improved but not resolved**. The direction (stiffer, closer to Table 9) is the same direction as the element's systematic over-stiffness, so this row remains a genuine formulation signal and the task 10.6 source correction stands.
+
+**The laminate/composite preserved invariant is VIOLATED by the flip** (Requirement 15 / spec: "A laminate capability regression SHALL be treated as a change failure"). `tests/test_orthotropic_shell_parity.py::test_multi_layer_iso_equivalence` fails at 5.43e-2 vs `1e-4` and `tests/test_composite_beam_parity.py::test_composite_bending` at 28.5% vs 10%. The **material modules themselves are byte-identical** (`git diff` empty for `materials/{laminate,orthotropic,composite,failure,isotropic}.rs`, `src/aeroelast/core/laminate.py`); the regression is in the element's use of the constitutive, not in the laminate models.
+
+**Deviations / findings.**
+
+1. **`crates/aeroelast-py/src/materials.rs` is a compile-required site the task does not name.** Adding the field to `MaterialSpec::Composite` forces the raw-dict constructor (`parse_material`, line 71) to be updated; it now passes `applied_shear_correction: 1.0` (no `Laminate`, so no scalar was applied) with a comment. Minimal (7+/1−); recorded because the task's authorized-roots list omits the file.
+2. **`mitc4_plusd::element_area` was made `pub` (5+/1−).** The assembler's `total_elemental_mass` read the hybrid's public `element_area` field, which `Mitc4PlusDPrecomputed` does not carry (WU5 made it a function). This is a one-word visibility change in an authorized-for-the-change file; the alternative (the partition-of-unity shortcut the plane branch uses) would have made the mass check self-referential.
+3. **The design's "now-unused `e_mod` argument" is imprecise.** `e_mod` is still consumed to build the isotropic constitutive (`IsotropicMaterial::new(e_mod, nu, 0)`); it is unused only as an *element-constructor* argument. The parameter is kept (frozen signature) and a comment names the out-of-scope signature change. The composite kernels' `e_equiv` **is** genuinely now-unused and is bound to `_e_arr`.
+4. **The gate is red and nothing was done about it.** Per the prompt, no tolerance was changed, no test was re-tuned, and no element file was fixed; the failing element is reported, not patched. The two 5/1 and 7/1 edits above are the only changes outside the task's named file list.
+5. **WU10 is blocked.** Task 11.x must not start: the design's ordering rule is explicit that S4 requires S3 green, and S3 is red on the Python Tier-2 and the preserved-invariant command.
+
+**WU9 size.** 136 added / 47 removed for the five Rust files, within the accepted session `size:exception`. Not committed.
+
+---
+
+## WU9b — the thin twisted-beam collapse: `W_22` double-scaled, not the shear metric
+
+**Scope.** `crates/aeroelast-core/src/elements/mitc4_plusd.rs` only (+ this record and `tasks.md`). `mitc4.rs` read-only; no tolerance changed; no Tier-1 test weakened. The flip is reverted, so the live extension is the hybrid.
+
+**Hypothesis tested and FALSIFIED (numbers).** On the flat rectangle `[[0,0,0],[2,0,0],[2,1,0],[0,1,0]]` (isotropic, `h = 1`), the new element's `b_shear_mitc4` is entry-for-entry identical to a verbatim copy of the hybrid's `b_gamma_mitc4`: `max|D| = 2.2e-16…2.8e-17`, `rel ≤ 2.8e-16` at all four Gauss points, and the resulting shear blocks are identical (`‖K_shear‖ = 2.213164e11` both, ratio `1.0000`). The design's dual-basis `T = diag(4, 8)` reproduces the standard Mindlin operator there. Adding the omitted symmetric contraction term `(g^t·e_α)(g^i·e_3)` to `shear_covariant_to_local` changed the N=2 thin-in deflection by `0.0000%` (`0.070147` → `0.070149`), so it was reverted. On the thick twisted element `b_shear_mitc4` also matches the hybrid (`rel = 7.7e-15`). **The transverse-shear metric is not the defect.**
+
+**Diagnosis — the exact factor and where it enters.** `resultant_moment_matrix` sets `W_22 = cm/9` (Ko, Lee & Bathe (2017), C&S 182:404-418, Eq. (7a) block matrix) while `compute_ke_local_with_drill` **also** scales the `B_b2` block by `s2 = 4/h²`; the paper's 2×2 `t`-rule therefore enters twice and the effective `E2-E2` coefficient becomes `s2²·W_22 = (16/h⁴)(cm/9)` instead of `cm/9`, i.e. **`16/h⁴` too large** (`1.5e11` at thin `h = 0.0032`). This `E2` block — not the transverse-shear block — is what dominates the rotation diagonal, so WU9's "shear block ≈4× the hybrid's" was a mis-attribution. Entry-by-entry against the hybrid on the flat rectangle, the corrected element's diagonal ratios are `w = 1.456`, `θx = 1.19`, `θy = 1.33` (translations `1.03–1.05`, drill `0.66`) where the pre-fix rotation ratios were `w ≈4.1–4.2`, `θx/θy ≈4.07`.
+
+**Fix.** `W_22` is the raw 4th moment under the paper's own rule: `∫z⁴C dz → (h/2)(h/2)⁴(2/9)C = cm·h⁴/144`. `resultant_moment_matrix` now takes `thickness` and sets `W_22 = cm·h⁴/144`; the effective `s2²·W_22 = cm/9` is unchanged from the paper's value, only the intermediate B-scaling is no longer duplicated. The `ke_ref` test-local reference was corrected in lockstep.
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 61 +++++++++++---------------
+1 file changed, 61 insertions(+), 28 deletions(-)
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**; no dispatch or PyO3 file touched.
+
+**Test corrected (a correction, not a weakening).** `test_identity_resultant_moment_matrix_blocks_match_closed_forms` pinned `W_22 = cm/9` — the double-scaled value, not the paper's defined moment. It now pins `W_22 = cm·h⁴/144` and the **effective** `s2²·W_22 = cm/9`, and still rejects the exact `cm/5` value by `> 1e-3`. The `1e-12` tolerance and every other assertion (ABD blocks, exact symmetry, the `2/9` t-rule) are unchanged. `test_identity_transverse_shear_*` are untouched because the shear construction did not change.
+
+**Tier-1 / full Rust.** `cargo test -p aeroelast-core test_t1a_` → **6 passed / 0 failed**; `test_t1b_` → **6 passed / 0 failed**; `test_identity_` → **10 passed**; full `cargo test -p aeroelast-core` → **168 passed / 0 failed**.
+
+**The five twisted-beam cases.** The probe scripts could not be used: the extension dispatches the hybrid (the flip is reverted) and this unit's scope forbids re-touching the dispatch/PyO3 files, so the measurement is a Rust reproduction of the benchmark's own mesh and BCs (`_build_twisted_beam_mesh` + clamped root + tip point load, `tests/test_ko2017_performance.py`), solved with a banded Cholesky validated against the dense N=4 solve (agreement `5e-5`). The hybrid column reproduces the Python hybrid cells to `≤ 0.14%`.
+
+| case | published | hybrid | new (after fix) | before (WU9) |
+| --- | --- | --- | --- | --- |
+| thin N=8 in | 0.9959 | 0.9962 | **0.9957** | 0.0740 |
+| thin N=16 in | 0.9975 | 0.9979 | **0.9976** | 0.0757 |
+| thin N=16 out | 0.9980 | 0.9984 | **0.9986** | 0.1919 |
+| thick N=16 in | 0.9972 | 0.9984 | **1.9623** | 1.9477 |
+| thick N=16 out | 0.9972 | 0.9990 | **2.9933** | 2.9818 |
+
+(÷1e6 for the thin `P = 1e-6` runs.) **The three thin cells now match the published cells to `≤ 0.06%`.**
+
+**Residual — the two thick cells remain ~2–3× too soft, and this is not the shear metric.** The softness is present before and after the fix, is insensitive to the shear construction, to the ADR-1 factor (`cs = (5/6)·G·h` gives `1.9632`) and to the omitted membrane–drill cross term (`ẽ^m + e^md` gives `1.0987` at N=4), and is dominated by the drill block: turning it off gives `144.3`, scaling it `4×` gives `1.2524` (N=16) / `1.0251` (N=4), `16×` gives `1.0139` (N=4). The drill operator itself is verified against Eq. (18) to `1e-12` in Tier 1, so the residual is a drill/stabilization magnitude-and-convergence question. **Not fixed** — a drill scale is not an ingredient either paper has, and the task forbids adding one.
+
+**Findings.** (1) The `b_gamma_mitc4` hypothesis does not hold. (2) The thin-case defect is a through-thickness moment applied `16/h⁴` too stiff because `W_22 = cm/9` and `B_b2` both carried the `4/h²` factor. (3) The `ke_ref` identity-lock reference shared the same `W_22 = cm/9` convention, so it could not catch the error; the benchmark is the oracle that did. (4) The two thick cells were already broken pre-WU9 and are a separate drill/stabilization issue, not the transverse shear.
+
+**Skill resolution.** `paths-injected` (no skill paths were supplied for this unit; the SDD apply contract was followed from the prompt). Not committed.
+
+---
+
+## WU9c — the thick twisted-beam residual: **no wrong `h`-dependence; the missing ingredient is a paper-internal inconsistency, and applying it is a trade — not fixed**
+
+**Scope.** Diagnosis only. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (diagnostic code added and removed; production byte-identical to the WU9b state), this record. `mitc4.rs` read-only; no tolerance changed; no Tier-1 test touched. The flip stays reverted, so the live extension is still the hybrid.
+
+**Instrument.** The Python probe cannot be used (the extension dispatches the hybrid), so the measurement is a Rust port of the benchmark's own mesh and BCs (`_build_twisted_beam_mesh`, y-fastest node numbering, clamped root, tip point load; `tests/test_ko2017_performance.py::test_3_5`), solved with a banded Cholesky validated against a dense `nalgebra` solve (`chol err = 2.2e-16`) and against the Python hybrid: the hybrid column reproduces `0.9984 / 0.9990` (thick N=16 in/out), i.e. the recorded WU9b cells, to `< 0.02%`.
+
+### The `h`-scaling, measured before any change (fixed twisted cell, `x = 6.0`)
+
+Drill block norm `|K_drill|` and the hybrid's drill block (`|K_drill|(drilling_scale=1) − |K_drill|(drilling_scale=0)`), same element, `h` swept `10×`:
+
+| `h` | `\|K_drill\|` new | `p` (power of `h`) | `\|K_drill\|` hybrid block | `p` | ratio new/hyb |
+| --- | --- | --- | --- | --- | --- |
+| `3.2e-3` | `1.361827e1` | — | `4.563718e4` | — | `2.9840e-4` |
+| `3.2e-2` | `1.361827e2` | **1.000** | `4.563719e5` | **1.000** | `2.9840e-4` |
+| `3.2e-1` | `1.361827e3` | **1.000** | `4.563717e6` | **1.000** | `2.9840e-4` |
+| `1.0` | `4.255710e3` | — | `1.426162e7` | — | `2.9840e-4` |
+
+**The new drill block scales exactly as `h¹`, exactly as the hybrid's, and the ratio is `h`-independent.** There is no wrong `h`-power in the drill block. Full benchmark, in-plane, error `e(h) = u_new/u_hyb − 1`:
+
+| `h` | `e` | `e(h/2)/e(h)` | absolute deficit `u_new − u_hyb` |
+| --- | --- | --- | --- |
+| `0.32` | `0.9653` | — | `5.229e-3` |
+| `0.16` | `0.2462` | `3.92` | `1.049e-2` |
+| `0.08` | `0.0619` | `3.98` | `2.099e-2` |
+| `0.04` | `0.0155` | `3.99` | `4.200e-2` |
+
+**`e(h) ∝ h²` and the absolute deficit ∝ `h⁻¹`.** That is the signature of a *constant-factor* drill-stiffness deficit (the drill contributes stiffness `∝ h`, so the extra compliance is `∝ 1/h`), **not** of a wrong `h`-power. The hypothesis the task set out to test is falsified.
+
+### The diagnosis — the quantity identified
+
+The drill operator `b_drill_membrane_2025` implements the printed strain Eq. (18) faithfully (Tier-1 `test_identity_drill_operator_matches_eq18_term_by_term`, `1e-12`), and every listed candidate checks out: the Eq. (21) centre metric is applied with `j_loc(0,0)`; `j0 = (x_r×x_s)·g_t(0,0)` and `j = (g_r×g_s)·g_t(r,s)` are the paper's exact scalar triple products; `x_m^l = ⅛(x_i − x_{i+1})` matches Eq. (13c) and `‖x_m^l‖ = L_l/8`.
+
+The one place the paper contradicts itself is the **per-edge normalization**:
+
+- the paper's *derivation* carries it — Eq. (14d) `u_r^l(l) = (1/‖x_m^l‖)(…)` and Eq. (15a) `(1/‖x_m^l‖)[…]`, with the text *"‖x_m^l‖ = L_l/8"* (`mitc4plusd-2025-extract.md:325,328-329,333`);
+- the paper's *operative strain*, Eq. (16b) → Eq. (18), prints `c_r = x_m^l·(−x_r^l×V^D)` with **no `1/‖x_m^l‖`** (`…:44-65,100`).
+
+The code follows Eq. (18), so `c_r ∼ (L/8)·L` and the drill stiffness is `(8/L)²` too small — a **constant per-edge factor**, not an `h`-power. This is the quantity the residual lives in. (The extract itself flags only the trailing-dot ambiguity in Eqs. (15a)/(15b); it does not flag the missing normalization.)
+
+### The paper-supported candidate, measured: it is a trade, not a fix
+
+Dividing `c_r`, `c_s` by `‖x_m^l‖` (i.e. using the unit edge tangent, the Eq. (14d)/(15a) form) and re-solving the five cells:
+
+| case | published | hybrid | current | with `1/‖x_m^l‖` |
+| --- | --- | --- | --- | --- |
+| thin N=8 in | `0.9959` | `0.9976` | **`0.9958`** | `0.9732` |
+| thin N=16 in | `0.9975` | `0.9982` | **`0.9978`** | `0.9728` |
+| thin N=16 out | `0.9980` | `0.9986` | **`0.9987`** | `0.9684` |
+| thick N=16 in | `0.9972` | `0.9984` | **`1.9623`** | `1.0141` |
+| thick N=16 out | `0.9972` | `0.9990` | **`2.9933`** | `0.9028` |
+
+It fixes thick in-plane (`1.96 → 1.01`, `1.7%`) but **overshoots thick out-of-plane to `0.9028` (`9.5%` too stiff)** and **moves all three thin cells `2.3–3.1%` below the published values**. That is the same thin/stiff–thick/soft trade the ERC work fought, only reversed. The omitted `e^m + e^md` cross term of Eq. (26) (`mitc4plusd-2025-extract.md:29-32`) was also measured: it makes the thick cells slightly *softer* (`1.9653 → 1.9924` at `h=0.32`, `1.2462 → 1.2532` at `h=0.16`) and moves nothing else, so it is not the deficit either.
+
+### The fix: **none applied**
+
+The papers do not support a form that keeps the thin cells unmoved: the only paper-supported correction (the `1/‖x_m^l‖` of Eq. (15a)) is a trade; the cross term goes the wrong way; and a pure drill *scale* is in neither paper. Per the task, this is reported, not tuned. No production line changed, no tolerance changed, no test changed, no penalty added. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` is byte-identical to the WU9b state; `git diff --stat` for it is `61 insertions / 28 deletions` (all WU9b's `W_22` fix), and WU9c contributes `0` net lines. `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**.
+
+### The five twisted-beam cells (production, unchanged — thin shown unmoved)
+
+| case | published | hybrid | new element (WU9c) | vs WU9b |
+| --- | --- | --- | --- | --- |
+| thin N=8 in | `0.9959` | `0.9976` | **`0.9958`** | unmoved (`≤0.02%`) |
+| thin N=16 in | `0.9975` | `0.9982` | **`0.9978`** | unmoved (`≤0.02%`) |
+| thin N=16 out | `0.9980` | `0.9986` | **`0.9987`** | unmoved (`≤0.02%`) |
+| thick N=16 in | `0.9972` | `0.9984` | **`1.9623`** | unmoved |
+| thick N=16 out | `0.9972` | `0.9990` | **`2.9933`** | unmoved |
+
+### Rust suite
+
+`cd crates && cargo test -p aeroelast-core test_t1a_` → **6 passed / 0 failed**; `test_t1b_` → **6 passed / 0 failed**; `test_identity_` → **10 passed / 0 failed**; full `cargo test -p aeroelast-core` → **168 passed / 0 failed**.
+
+### Tests corrected
+
+**None.** The diagnosis does not prove any pinned construction wrong — the Eq. (18) form the drill identity test pins is the one that best reproduces the paper's own five cells. Correcting it to the `1/‖x_m^l‖` form would weaken the benchmark (4 of 5 cells move off the published values), so no test was touched.
+
+### Deviations / findings / what could not be done
+
+1. **No `h`-dependence defect exists in the drill path.** The drill block scales `h¹`, the same as the hybrid's; the error scales `h²` because the *effect* of a constant-factor drill deficit on a beam whose bending compliance is `h⁻³` is `h²`. The task's premise is falsified by measurement.
+2. **The defect is a paper-internal inconsistency.** The paper's operative strain Eq. (18) drops the `1/‖x_m^l‖` normalization that its own derivation Eqs. (14d)/(15a) carries. Faithfully implementing Eq. (18) is why the thick cells are soft; faithfully implementing Eq. (15a) is why the thin and thick-out cells break.
+3. **What I could not do.** I did not re-read the PDF pages myself: the task pointed at `docs/formulations/mitc4plusd-2025-extract.md`, and the `1/‖x_m^l‖` reading rests on that extract's transcription of Eqs. (14d)/(15a) and the literal Eq. (18) block. A vision re-read of p. 6–8 is the next step if the paper's intent must be settled. The two thick cells therefore remain `~2–3×` too soft, and **WU10 (S4) must not start**.
+
+**Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.
+
+---
+
+## WU9d — the second drill error: **the paper's (15)→(16a) "inconsistency" does not exist, and there is no second constant factor — measured negative result, no fix applied**
+
+**Scope.** Diagnosis only. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (a temporary `wu9d_*` harness was added and removed; the production file is **byte-identical** to the WU9b state), this record, and `tasks.md`. `mitc4.rs` read-only and untouched (`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is empty); no tolerance changed, no test weakened, no penalty and no numerical factor added, no commit. The flip stays reverted, so the live extension is still the hybrid.
+
+**Instrument.** The Python probes dispatch the hybrid, so the measurement is a Rust reproduction of the benchmark's own mesh and BCs (`_build_twisted_beam_mesh`: `length = 12`, `width = 1.1`, `nx = 6N`, `ny = N`, y-row node order, `[n00, n10, n11, n01]`; clamped root at `x = 0`; tip point load at `(12, 0, 0)` on global dof 2 (in-plane) or 1 (out-of-plane); `MAT_TB` `E = 29e6`, `nu = 0.22`; `h = 12·t/L`), assembled into a banded store and solved by a banded Cholesky. **Validation:** banded == dense `nalgebra` LU to `1.3e-6` relative (thin) / `1.4e-11` (thick); the hybrid column reproduces the recorded WU9b/WU9c hybrid cells to `≤ 0.02%`; the new-element column reproduces WU9b's post-fix thin cells and its `1.9623 / 2.9933` thick cells. The five cells are therefore directly comparable with the session table.
+
+### Finding 1 — the paper's `1/‖x_m^I‖` is **not** dropped: Eqs. (15a)→(16a) is exact
+
+Read from the PDF with vision (`.sources/papers/1-s2.0-S0045794924003511-main.pdf`, Ko, Bathe & Zhang (2025), C&S 308:107622, pp. 3, 4, 6, 7, 8, 10, 20).
+
+- p. 6, Eq. (12d): `θ_n^l = (L_l/8)(θ_4 − θ_1) = (L_l/8)(θ_4^D − θ_1^D)` — verified from Eqs. (12b)/(12c) by differentiating the quadratic `/`; its units are a **length** (the text: "the last term corresponds to the normal displacement at node 5").
+- p. 7, Eq. (14c): `u_θ^l(l) = (4l/L_l)(1 − l/L_l) θ_n^l`; at `l = L_l/2` the factor is `2·½ = 1`, so **`u_θ^l(L_l/2) = θ_n^l = (L_l/8)(θ^D diff)`**.
+- p. 7, Eq. (15a): `u_r = (1/‖x_m^l‖)[−h_m^l u_θ^l(L_l/2) x_r^l × V^D]·x_m^l`, `‖x_m^l‖ = L_l/8`. Substituting gives `(8/L_l)·(L_l/8)(θ^D diff)·(x_r^l × V^D)·x_m^l = −h_m^l (θ^D diff)(x_r^l × V^D)·x_m^l` — **which is Eq. (16a) term for term**, with `h_m^l = h_l`.
+- p. 7, the paper's own sentence: *"Using the geometric relations (Eq. (12d) and (13c)), the displacement fields assumed in Eq. (15) reduce to [Eq. 16a]."* Eq. (12d) is exactly the relation that supplies `L_l/8`; the paper says the reduction uses it.
+
+So the `1/‖x_m^l‖` is cancelled by the `L_l/8` inside `u_θ^l(L_l/2)`, and **`c_r^l = x_m^l·(−x_r^l × V^D)` with the raw `x_m^l = ⅛(x_i − x_{i+1})` (Eqs. 13c/19c/18) is the paper's coefficient, not an omission.** Independent corroboration: the paper's `c_r^l`/`c_s^l` must be *dimensionally* consistent with the `e_ij^m` of Eq. (7) `½(g_i·u_j + g_j·u_i)` (units `L²`); the raw `x_m^l` gives `c_r^l ~ L²` and the `ẽ^md` of Eq. (18) units `L²` like `ē^m`, whereas a unit `x_m^l` would give `L` and break the sum in Eq. (22a).
+
+**Consequence.** `docs/formulations/mitc4plusd-2025-extract.md`'s 2026-09-24 note ("an inconsistency in the paper's own reduction") and WU9c's premise are **incorrect**: the note's dimensional argument ignores the `L_I/8` that Eq. (12d) puts inside `u_θ^I(L_I/2)`. The implementation's Eq. (18) form is the paper's form — verified term-by-term against the paper's own Eq. (18) on p. 8, Eqs. (19b)/(19c)/(19d) on p. 10 and Eqs. (A.2)/(A.4)/(A.5) on p. 20 — including the paper's node order (`1=(r,s)=(1,1)`, `2=(−1,1)`, `3=(−1,−1)`, `4=(1,−1)`, Fig. 3(a)/Fig. 4(a)), the edge order (`5,6,7,8` = right, top, left, bottom), the `θ_{i+1}^D − θ_i^D` telescoping difference form, the `h̃_{m,·}^l` zeros of Eqs. (11a)/(11b), and the one-`V^D`-per-element rule of Eq. (5). WU9c's "trade" therefore measured a variant the paper never writes (it divided by `‖x_m^l‖` *without* the compensating `L_l/8`), and the inference drawn from it ("at least one further error remains") is unsupported.
+
+### Finding 2 — no second constant-factor error exists in the drill path (measured)
+
+**(a) The drill→∞ limit itself is wrong, so no drill magnitude can reach the published cells.** At `N = 16` (`f` = the drill-block multiplier):
+
+| cell | `f=1` | `f=1e2` | `f=1e4` | `f=1e6` | `f=1e9` | hybrid | published (session table) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| thick in | `1.96233` | `1.02369` | `1.01376` | `1.01046` | **`1.00983`** | `0.99838` | `0.9972` |
+| thick out | `2.99329` | `0.92338` | `0.90240` | `0.90137` | **`0.90127`** | `0.99901` | `0.9972` |
+| thin in | `0.99773` | `0.98697` | `0.97129` | **`0.96841`** | `0.42742`¹ | `0.99823` | `0.9975` |
+| thin out | `0.99866` | `0.99026` | `0.96581` | **`0.96139`** | `0.60483`¹ | `0.99860` | `0.9980` |
+
+¹ conditioning break-down of the direct solve; the pre-break-down plateau is quoted.
+
+The thick cells **cannot** be reached at any drill magnitude: thick-in's floor is `1.0098` (above the `0.997` target) and thick-out's floor is `0.9013` (below it). The per-cell multiplier that *would* match the hybrid is `≈0.5` (thin-in, `N = 8`), `≈30` (thick-out), and `>1e4` (thick-in) — i.e. **h-dependent and mutually inconsistent**, which is precisely the "only a scale" case the task told me to stop on.
+
+**(b) Every geometric neighbour of the drill was varied at `N = 8`** (new/hybrid ratio; `N = 8` hybrid `= 0.99797 / 0.99831 / 0.99763 / 0.99777` for thick-in / thick-out / thin-in / thin-out):
+
+| variant | thick in | thick out | thin in | thin out |
+| --- | --- | --- | --- | --- |
+| production (Eq. 18 form, raw `x_m`, raw `x_r`) | `1.25132` | `1.42450` | `0.99581` | `0.99690` |
+| Eq. (21) metric at the Gauss point vs the centre | `1.25132` | `1.42450` | `0.99581` | `0.99690` (identical to 5 digits) |
+| `j0/j ≡ 1` | `1.25129` | `1.42444` | `0.99581` | `0.99690` |
+| `c_r`, `c_s` ÷ `‖x_m^l‖` (the WU9c "8/L") | `1.01326` | `0.89958` | `0.97321` | `0.96848` |
+| `c_r`, `c_s` × `‖x_m^l‖` (`L/8`) | `89.27194` | `195.92533` | `1.02095` | `1.06881` |
+| `c_r`, `c_s` with unit edge tangents (`÷‖x_r^l‖`, `÷‖x_s^l‖`) | `1.01434` | `0.90160` | `0.97819` | `0.97642` |
+| unit `x_m^l` **and** unit edge tangents | `1.00956` | `0.89819` | `0.97101` | `0.96269` |
+
+The Eq. (21) centre metric, the `j0/j` ratio (Eq. 17b) and the Eq. (19c) edge coefficients are therefore **not** the source of a constant factor: the first two are numerically inert and every admissible rescaling lands on the same near-saturated `1.01 / 0.90 / 0.97` trade, never on the published cells.
+
+**(c) The placement of `e_ij^md` cannot be the missing stiffness.** Eq. (22a) was re-read from p. 10 at 400 dpi: `e_ij = e_ij^m + e_ij^md + t·e_ij^b1 + t²·e_ij^b2`, `i,j = 1,2` — `e^md` **is** the `t⁰` term and the code places it there. Folding it into the element's own 9-row B vector (which restores every `W_00`/`W_01`/`W_02` cross term automatically) gives, at `N = 8`:
+
+| placement of `e^md` | thick in | thick out | thin in | thin out |
+| --- | --- | --- | --- | --- |
+| separate block, `cm` (production) | `1.25132` | `1.42450` | `0.99581` | `0.99690` |
+| folded into the `t⁰` row (`W_00`,`W_01`,`W_02` cross terms) | `1.27854` | `1.35525` | `0.99459` | `0.99616` |
+| folded into the `t¹` row with `s1` (effective `s1²W_11 = cm/3`) | `1.72529` | `2.47038` | `0.99647` | `0.99738` |
+| folded into the `t²` row with `s2` (effective `s2²W_22 = cm/9`) | `3.23880` | `5.42437` | `0.99665` | `0.99801` |
+| either slot at `f = 1e4` | `1.0088 / 1.0095` | `0.8981 / 0.9014` | `0.9642 / 0.9672` | `0.9570 / 0.9601` |
+
+The `t¹` and `t²` slots are **3× and 9× weaker** than the membrane slot (they carry the paper's own `s1`/`s2` B-scalings `2/h` and `4/h²` against `W_11 = W_02 = cb`), so the membrane `t⁰` slot with `cm` is already the *largest* of the three placements: a different placement cannot supply the missing stiffness.
+
+**(d) The WU9b neighbour (`s2`, `W_22`) is clean.** `W_22 = cm·h⁴/144` gives the effective `E2-E2` coefficient `s2²W_22 = cm/9`, which is exactly the paper's own `2×2` `t`-rule (`∫t⁴dt → 2/9`) — the double-scaling is gone and the rule is applied once. The term is numerically inert on these five cells (`e2 ×0.5 / ×2 / ×4` moves them by `< 1e-4` relative), and the drill path contains **no** `s2`, `s1` or other `1/h`-power: the drill is the `t⁰` strain integrated with `cm = ∫C dz`, and `cm` is the exact `2`-point `t` integral of a constant. Block-sensitivity at `N = 8` (thick-in): `bend ×2 → 0.519`, `drill ×1e4 → 1.012`, `memb ×1e4 → 1.218`, `shear ×1e4 → 1.247`, `e2 ×1e4 → 2.436`; on thin-in the response is *pure bending* (`bend ×2 → 0.2504`, i.e. exactly `1/K`), which is why the thin cells pin the bending block and the thick cells are drill-dominated.
+
+**(e) Where the residual actually lives (why it is not a drill factor).** Single thick twisted element (the beam's element near `x = 6`, `h = 0.32`), local frame:
+
+| quantity | new element | hybrid |
+| --- | --- | --- |
+| `\|K\|∞` | `6.6090e6` | `6.4937e6` (1.8% apart) |
+| rotation diagonals node 0, slots `(θ1, θ2, θ3)` | `5.914e4 / 3.767e4 / 1.363e3` | `5.665e4 / 3.592e4 / 2.299e3` |
+| drill-block norm `\|K_drill\|` | `1.3620e3` (`2.10e-4` of `\|K_hyb\|`) | `\|K(ds=1) − K(ds=0)\|∞ = 4.5643e6` (`0.703` of `\|K_hyb\|`) |
+| drill-slot diagonal with the drill block removed | `6.959e-1` | — |
+
+The two elements' assembled element matrices agree to 1.8%, and the new element's drill DOF is coupled to every other term by only `≈5e-4` of its own stiffness — the drill is an almost separate field. Consistently, the **hybrid's** twisted-beam answer is insensitive to its own drill parameter (thick-in `N = 8`: `drilling_scale = 0.01 → 1.03057`, `0.1 → 1.00099`, `1 → 0.99797`, `10 → 0.99767`, `100 → 0.99764`; thin cells invariant to `≤1e-4`, `N = 16` identical pattern), i.e. **the hybrid's stiffness comes from the 2017 core, while the new element's thick cells are drill-dominated and its thin cells are not.** The residual is therefore not a constant factor anywhere in the drill path but the `h`-power relation between the two: the paper's drill stiffness is `∝ h¹` (`cm = C·h`) while the rotational stiffness it coexists with is `∝ h³` (`s1²W_11 = C·h/3`), so the paper's penalty-free drill is a `1e4`-scale lever at `h = 0.32` and a negligible one at `h = 0.0032`. This is a statement about the paper's MITC4+/D versus the 5-DOF MITC4+ column we compare against — and it fits the paper's own evidence: every convergence test the paper prints (§3, Figs. 12, 13, 15, 16) is thin (`t/L ≤ 1/100`), so the thick regime is not exercised there. Recorded as the unit's finding; **no test was corrected and no tolerance changed**, because nothing proves a pinned construction wrong.
+
+### The fix: **none applied**
+
+Per the task's hard constraint (no drill scale, no penalty, no numerical factor; "if the only fix is a scale, stop and report that"), and because the only variants that move the thick cells toward the published values — a uniform drill multiplier, the per-edge `8/L_I`, the unit-tangent coefficient — are all *scales*, and none of them fixes all five cells.
+
+```text
+crates/aeroelast-core/src/elements/mitc4_plusd.rs | 0 lines (WU9b state, byte-identical)
+openspec/changes/mitc4plusd-faithful/tasks.md     | 1 note under task 10.7
+openspec/changes/mitc4plusd-faithful/apply-progress.md | this section
+```
+
+`git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` is **empty**; no dispatch, PyO3, assembler or material file touched; not committed.
+
+### The five twisted-beam cells (production element, unchanged — thin shown unmoved)
+
+| case | published (session table) | hybrid | new element (WU9d) | vs WU9c |
+| --- | --- | --- | --- | --- |
+| thin N=8 in | `0.9959` | `0.99763` | **`0.99581`** | unmoved (`≤0.01%`) |
+| thin N=16 in | `0.9975` | `0.99823` | **`0.99773`** | unmoved |
+| thin N=16 out | `0.9980` | `0.99860` | **`0.99866`** | unmoved |
+| thick N=16 in | `0.9972` | `0.99838` | **`1.96233`** | unmoved |
+| thick N=16 out | `0.9972` | `0.99901` | **`2.99329`** | unmoved |
+
+The three thin cells are unmoved to `≤0.01%` because no production line changed; they match the published cells to `≤0.06%`.
+
+### Rust suite
+
+`cd crates && cargo test -p aeroelast-core test_t1a_` → **6 passed / 0 failed**; `test_t1b_` → **6 passed / 0 failed**; full `cargo test -p aeroelast-core` → **168 passed / 0 failed** (unchanged baseline). No Tier-1 test touched, no tolerance changed, no `#[ignore]`/`xfail` added.
+
+### Deviations / findings / what could not be done
+
+1. **The task's "established" first error is not an error.** Eqs. (15a)→(16a) is exact; the extract's note and WU9c's premise should be corrected. This is the unit's substantive result: the paper's drill operator as implemented is faithful, and the "8/L" variant it was compared against is not the paper's.
+2. **No second constant-factor error exists in the drill path** — evidence in Finding 2(a)–(d).
+3. **The residual is a scale/`h`-power mismatch, not a factor**: the drill→∞ limit is itself off in both directions (`1.0098` / `0.9013` at `N = 16`), so no drill magnitude, and (because `t¹`/`t²` are 3×/9× weaker and the metric/`j0/j`/edge-coefficient variants are inert or equivalent) no placement or geometric neighbour, can fix the two thick cells while keeping the three thin ones. Reported, not tuned.
+4. **What I could not do.** (i) I did not find an admissible fix, so the thick cells remain `~2–3×` too soft as first measured in WU9/WU9b; **WU10 (S4) must not start**. (ii) I did not re-derive the paper's Appendix-A notation for `h_r|_{s=±1}` (p. 20) beyond checking that Eqs. (A.5) reproduces Eq. (19b)'s telescoping structure and pairing; the code follows Eq. (18)/(19b), and the identity test is the oracle. (iii) The `f = 1e9` thin cells could not be measured (the direct solve breaks down); the `1e6` plateau is quoted instead.
+
+**Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.
+
+---
+
+## WU9e — the thick twisted-beam residual: **the cause is the ELEMENT-LOCAL DIRECTOR FIELD (ADR-4 option B), not the drill and not the core — measured, and the cells close to the published MITC4+ column once the director is mesh-consistent**
+
+**Scope.** Diagnosis only. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (a temporary `wu9e_*` harness was added and removed; the production file is **byte-identical to HEAD**, `git diff --stat` empty), this record and `tasks.md`. `mitc4.rs` read-only and untouched; no tolerance changed; no Tier-1 test touched; no penalty, no numerical factor and no drill scale added. The flip stays reverted, so the live extension is the hybrid.
+
+**Instrument.** The Python probes cannot be used (the extension dispatches the hybrid), so the measurement is a Rust harness: the benchmark's own mesh (`_build_twisted_beam_mesh`: length 12, width 1.1, 90° twist, `nx = 6N`, `ny = N`, element `[n00, n10, n11, n01]`), the root clamped in all six DOF, a tip point load on global dof 2 (in-plane) or 1 (out-of-plane), `MAT_TB` (`E = 29e6`, `nu = 0.22`), `h = 12·t/L`, a dense assembly and a dense Cholesky (2646 DOF at N=8, ~15–30 s in release; the N≥32 rule is respected), and `norm = |u_A| / u_ref` with the paper's published reference solutions. **Validated:** it reproduces the recorded cells exactly — `thick-in N=8 = 1.25132` and `thin-in N=8 = 0.99581` are WU9d's recorded values to five decimals. Reference cells read with vision from Ko, Lee, Lee & Bathe (2017), C&S 193:187-206, Table 12 (in-plane) and Table 13 (out-of-plane).
+
+### (A) WU9d's `f=0 → 144` is a singular-solve artefact — the core is algebraically invariant to the drill direction
+
+Vision read of Ko, Lee & Bathe (2017), C&S 182:404-418, **p. 405, Eq. (3)**: `u(r,s,t) = Σ h_i u_i + (t/2) Σ a_i h_i (−V_2^i α_i + V_1^i β_i)` — the director rotation lives in `span(V_1^i, V_2^i)`. Because `(α V_n) × V_n = 0`, the 2017 core (which forms `θ × V_n^i`) is **exactly invariant** to `γ_i = θ_i·V_n^i`; that component is not a DOF of the paper's element.
+
+Measured on a single unsupported element (eigenvalues below `1e-10·λ_max`):
+
+| geometry | `use_drill = false` | `use_drill = true` |
+| --- | --- | --- |
+| flat rectangle | **10** | 8 |
+| ruled-warped | **10** | 7 |
+| doubly-warped | **10** | 7 |
+
+10 = 6 rigid-body + one `γ` per node. Consistently, the **assembled** core-only system is **SINGULAR** in every benchmark case (Cholesky fails). WU9d's `f=0 → 144` is therefore the solver returning an answer to a singular system, not a near-mechanism and not a demonstration that the drill is the primary stiffness carrier. The `f → ∞` limit that WU9d and WU9c also used is a different, well-posed experiment (it penalizes the drill *strain*) and is unaffected by this.
+
+### (B) The finding: with a mesh-consistent nodal director the published cells are reproduced
+
+The director is the reading of Eq. (1) as "the director vector **at the node**" shared by every element meeting there (the design's ADR-4 **option A**), instead of the element-local sub-triangle construction (`compute_node_directors`, ADR-4 option B) that the design adopted as the default and recorded as a limitation. Materialised for the measurement by overwriting `pre.vn` with the area-weighted mean of the adjacent elements' `V_n^i`.
+
+| case | published MITC4+ cell | production (element-local director) | **mesh-consistent nodal director** | error |
+| --- | --- | --- | --- | --- |
+| thick in-plane, N=4 | `0.9960` | `1.06965` | **`0.99515`** | −0.09% |
+| thick in-plane, N=8 | `0.9968` | **`1.25132`** | **`0.99733`** | +0.05% |
+| thick out-of-plane, N=4 | `0.9936` | `1.01887` | **`0.97592`** | −1.8% |
+| thick out-of-plane, N=8 | `0.9965` | (`≈1.422`, WU9d) | **`0.99365`** | −0.29% |
+| thin in-plane, N=4 | `0.9966` | `0.99167` | `0.99154` | −0.51% |
+| thin in-plane, N=8 | `0.9974` | `0.99581` | `0.99570` | −0.17% |
+| thin out-of-plane, N=4 | `0.9949` | `0.99207` | `0.99186` | −0.31% |
+
+**The two thick cells move from `+25.5%`/`+42%` to `+0.05%`/`−0.29%` while the thin cells move by `≤ 0.51%`**, and the **drill block becomes inert**: with the consistent director, `use_drill = true` and `false` give the same value to five decimals (`0.99733`, `0.99515`). The entire thick discrepancy was the director field, not the drill and not the 2017 core.
+
+### (C) Isolation — the mechanism is the director the bending and shear operators read
+
+| variant | thick-in N=8 | thick-out N=8 | thin-in N=8 |
+| --- | --- | --- | --- |
+| element-local (production) | `1.25132` | (`≈1.422`) | `0.99581` |
+| nodal director, every cached quantity rebuilt | `0.99733` | `0.99365` | `0.99570` |
+| nodal director, **only `pre.vn`** replaced | `0.99733` | `0.99357` | `0.99570` |
+
+Identical. Rebuilding `b_shear_tie`, `v_d`, `j0` and `drill_edges` changes nothing (the third row leaves them element-local), so the mechanism lives in `pre.vn` as read by the bending operator and by `compute_shear_tie`/`b_shear_mitc4`.
+
+### Why every earlier measurement is consistent with this
+
+1. **The tilt is small and the amplification is not.** `max |V_n^i(local) − V_n^i(mesh)| = 0.53°` at N=8 and `1.07°` at N=4 (measured independently in a geometry-only script). The affected block's *weight* in the answer grows as `1/h²` — `1e4` from `h = 0.0032` to `h = 0.32` — so a half-degree field inconsistency is invisible at thin and decisive at thick. This is the same quantisation that WU9c/WU9d measured for the drill block (`h¹` against `h³`).
+2. **Tier 1 is structurally blind to it.** Every flat fixture has `V_n^i = e3`, which is simultaneously the element-local and the mesh-consistent director; the two variants agree exactly there.
+3. **A single element could not see it.** On one thick twisted element the matrices agree to `1.8%` (WU9d). The damage is the **inconsistency between adjacent elements** on a twisted mesh, which only a mesh-level measurement can expose.
+4. **The external oracle found it again.** The benchmark and the paper's published column are external. This is the fifth time in this change that an internal check which shared the assumption failed to see the defect (the frame convention, `ke_ref`'s `W_22`, the vacuous drill oracle, the mis-sourced cell, and now the director field).
+
+### The fix: **none applied — this is a maintainer design decision**
+
+Adopting the consistent director is ADR-4's named **option A**, which the design deliberately rejected as the default because it needs the mesh topology (a `MeshTopology` field or a post-construction director update) and because `update_reference` must keep it consistent; the element-local form was chosen so the single-element path stays self-contained. The measurement says option A is worth `25%` on the thick benchmark and `0` on the paper's own basic tests, and that Eq. (1)'s "director vector at the node" is the nodal reading. **No production line was changed**: this unit is diagnosis, and the choice of input path is a design decision for the maintainer. Recorded, not implemented.
+
+### Rust suite
+
+`cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed** (unchanged baseline; the harness was removed before the run). The harness must not be left in place: it is a dense N=8 Cholesky, which in a debug build does not terminate within `2400 s`.
+
+### Deviations / findings / what could not be done
+
+1. **WU9d's central negative result is corrected.** Its conclusion that "the drill block is a primary stiffness carrier and the answer is enormously sensitive to it" rests on a **singular** core-only solve (A). Its other negative results (no admissible constant factor; the metric/`j0`/edge-coefficient variants are inert or equivalent; the placements are weaker; `W_22` is clean) stand and are unaffected.
+2. **The `γ ≡ 0` reduction of the paper cannot be applied with element-local directors.** Two adjacent elements disagree about `V_n^i`, so the nodal constraint `θ_i·V_n^i = 0` is not a single consistent constraint; imposing it makes the rigid-body rotation unrepresentable and the element locks catastrophically (thin in-plane N=8 collapses to `0.00120`). With mesh-consistent directors the reduction is coherent (`γ = 0`, drill off, gives `0.99733` at thick-in N=8 — the 2017 core as this code implements it). This is an independent confirmation that the element-local director field is a *formulation-level* deviation, not a cosmetic one.
+3. **Not measured here:** whether the consistent director keeps the rest of Tier 2 green (the pinched cylinder at `t/R = 1/100`, Scordelis-Lo, the laminate/composite invariants, the beam/in-plane groups) and what it does to the hybrid parity tables. That needs the flip plus a maturin rebuild and belongs to the implementation unit, not to this diagnosis.
+4. **What I could not settle.** The paper does not print an explicit formula for `V_n^i` on p. 405 (it says "see Fig. 1"); the nodal reading is the design's own ADR-4 option A. Confirming the construction against the paper's Fig. 3 with vision is the first step of the implementation unit.
+
+**Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.
+
+---
+
+## WU9f — the temporary flip, re-measured against the S3 gate with the WU9e correction: **the blocker is fixed, Requirement 15 is green, and the gate is red for an ORTHOGONAL reason — the new element's flat in-plane / plate / modal families, unchanged since WU9**
+
+**Scope.** The temporary flip (S3) restored on top of the measured WU9e correction (mesh-consistent nodal directors), measured against the gate, then **reverted**: the working tree and the installed extension are back at HEAD (production = the hybrid). The flip is preserved as `odd/tasks/mitc4plusd-wu9f-flip.patch` (549 diff lines, uncommitted). No test, tolerance, spec/design artifact, or `mitc4.rs` was touched; no commit.
+
+**What was flipped (4 files).** `crates/aeroelast-core/src/assembly/assembler.rs` (`MaterialSpec::Composite` gains `applied_shear_correction`; `PrecomputedElem::Quad` → `Mitc4PlusDPrecomputed`; every `mitc4::…` → `mitc4_plusd::…`; `build_constitutive_mitc4_plusd`), `crates/aeroelast-py/src/elements.rs` (the six MITC4 kernels; PyO3 surface content-identical to HEAD — verified by grep-diff of the `#[pyfunction]`/`#[pyclass]` names, the `#[pyo3(signature=…)]` lines, `[f64; 576]` ×5 and `[f64; 24]` ×1), `crates/aeroelast-py/src/assembler.rs` (fills the new field from `Laminate::applied_shear_correction_factor()`), `crates/aeroelast-py/src/materials.rs` (raw-dict composite passes `1.0`).
+
+**The WU9e correction, materialised as a temporary instrument.** Two passes over the MITC4 elements in `MeshAssembler::new` (lines 140 / 184) and in `update_reference` (lines 253 / 283): pass 1 accumulates `acc[node] += area_e · pre.vn[a]` from each element's own local directors and normalizes; pass 2 overwrites `pre.vn[a] = nodal_director[node]` immediately after construction. Only `pre.vn` moves (`b_shear_tie`, `v_d`, `j0`, `drill_edges` keep the element-local values), per the WU9e isolation. **Recorded deviation:** `mitc4_plusd::element_area` is *private* at HEAD, so the two `total_elemental_mass` arms use an in-file `quad_area_3d(&pre.initial_coords_3d)`. Verified harmless: `total_elemental_mass` is read only by `src/aeroelast/solvers/modal.py:56-59`, inside a `try/except` that logs a mass-retention **warning**; no assertion depends on it. The proper fix is one `pub` word on `mitc4_plusd.rs`, which is outside this unit's surfaces.
+
+### The gate, measured against a freshly measured HEAD baseline
+
+| command | HEAD (hybrid, production) | flip: new element + nodal directors |
+| --- | --- | --- |
+| `cd crates && cargo test -p aeroelast-core` | 168 / 0 | **168 / 0** |
+| `python -m pytest "tests/test_ko2017_performance.py" -q` | 30 passed / 1 failed | **30 passed / 1 failed** (the same cell) |
+| `python -m pytest -m "not slow" -q` | **344 passed / 3 failed / 2 skipped** | **336 passed / 11 failed / 2 skipped** |
+
+The HEAD baseline was **measured**, not assumed (rebuilt extension, full run): its 3 failures are `test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]` (the WU9a source-correction finding — it fails in production too), `test_rust_composite.py::TestBatchComposite::test_batch_ke_mitc4_multiple` and `test_shell_convergence.py::test_in_plane_bending_convergence`. **Correction to the handoff:** the handoff claimed `test_shell_convergence.py::test_in_bending_convergence` "does not exist (`test_in_plane_bending_convergence` passes)" — the name is `test_in_plane_bending_convergence`, it exists, and it **fails** at HEAD. The spec's "two pre-existing failures" are therefore real and correctly named there.
+
+### What the flip fixed
+
+1. **The blocker.** The four twisted-beam cases at the paper's own mesh (N=16, `N×6N`) — 0.9971 / 0.9973 / 0.9978 / 0.9982 with `tol = 0.01` — **pass** with the new element (they measured 1.9623 / 2.9933, i.e. `+97%` / `+200%`, at the WU9 flip). The Rust harness independently measured 0.99733 at N=8 thick-in (cell 0.9968). The exact captured values were not printed because the assertions pass and pytest captures stdout only on failure; the passing assertion is the measurement.
+2. **Requirement 15 (the laminate/composite preserved invariant) is GREEN.** `tests/test_orthotropic_shell_parity.py::test_multi_layer_iso_equivalence` and `tests/test_composite_beam_parity.py::test_composite_bending`, which failed at the WU9 flip (5.43e-2 vs `1e-4`; 28.5% vs 10%), now pass. The WU9-recorded laminate regression is gone.
+3. **Two bonus fixes.** `test_batch_ke_mitc4_multiple` and `test_in_plane_bending_convergence` — the two spec-named pre-existing failures — **pass** with the new element. Also fixed relative to the WU9 flip: `test_3_3[reg]` (0.9224, 0.95% error), `test_3_6_hook` and the four twisted cells.
+
+### What remains red: 10 failures, in four families, all orthogonal to the director
+
+| family | tests | measured | HEAD |
+| --- | --- | --- | --- |
+| flat in-plane cantilever | `TestLinearStatic::test_fy`, `test_ratio_physical`, `TestLinearStaticCantilever::test_fy_in_plane` | 37.71%; ratio `uY/uX = 251.55` vs beam theory 400; 37.5% | pass |
+| flat plate / convergence | `TestIsotropicAnalytical::test_mitc4_in_plane_lateral`, `TestIsoEquivalence::test_n_iso_plies_equal_single_layer_mitc4`, `TestSimplySupportedPlate::test_analytical_convergence` | 9.0% vs 5%; 3.434% vs 1%; 0 modes (`IndexError`) | pass |
+| flat modal | `TestSimplySupportedPlate::test_frequencies_match_python` | frequencies differ by more than `rtol 1e-4` | pass |
+| geometrically nonlinear | `test_large_rotation_benchmarks.py` ×3 | 28.80% / 6.75% / 6.75% (`tol 5%`) | pass |
+
+**They are flat (so the director fix provably cannot touch them: on a planar element `V_n^i = e3` for both the local and the nodal construction) and their numbers are unchanged since the WU9 flip** (`test_fy_in_plane` 37.5%, `test_ratio_physical` 251.55, `TestIsotropicAnalytical` 9.0%, `TestIsoEquivalence` 3.434% — identical). The geometrically nonlinear three are the design's already-recorded limitation (open item 5: "the nonlinear path is bounded, not paper-faithful"). The modal `IndexError` is partly a robustness effect: the new element's spectrum no longer contains the near-zero mode the hybrid reported, so the mode-count assumption misaligns — that is a test-shape matter, and the unit does not change tests.
+
+**Verdict.** The WU9e correction is **necessary and measured** (it closes the blocker and the laminate invariant), but it is **not sufficient**: adopting option A leaves the gate red for a separate, pre-existing reason — the new element's flat in-plane / plate / modal family, up to 37%. That investigation is its own unit and has nothing to do with the director field.
+
+**Rust suite.** `cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed**.
+
+**Skill resolution.** `paths-injected` (the parent supplied the site map; `gentle-ai-worker` executed the bounded four-file flip). Not committed.
+
+---
+
+## WU9g — fidelity audit, section B (the 2017 assumed membrane) and the CCX judge: **section B is CLEAR, a documented "paper defect" is falsified, and three CCX element types confirm the in-plane bending reference**
+
+**Scope.** Audit, tests and docs only. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` changed on **one comment block** (no formulation line); `mitc4.rs` untouched; no tolerance changed; no commit.
+
+### Section B audited against the printed paper (vision, pp. 405-410 + Appendix A pp. 416-417)
+
+`pdftoppm -png -r 300` on `A_new_MITC4+_shell_element.pdf` (C&S 182:404-418); every equation cropped and read at full resolution, never with `pdftotext`. Full record: `fidelity-audit.md` §B-audit record.
+
+- **B1 `compute_membrane_coefficients_2017` — faithful.** `c_r = x_d·m^r`, `c_s = x_d·m^s`, `d = c_r²+c_s²−1` (Eq. (24)); `a_A..a_E` match the printed p. 410 definitions and Appendix A Eq. (A.6) exactly (`a_E = 2c_rc_s/d`, positive). The printed second form of `d` expands to the same expression, so it is not a sign error.
+- **B2 `covariant_membrane_b_row` — faithful.** Expands term for term to Eqs. (15)-(16); the tying points are Fig. 4's A(0,+1)/B(0,−1) sampling `e_rr`, C(+1,0)/D(−1,0) sampling `e_ss`, E(0,0) sampling `e_rs`, as Eq. (17) prints; `¼ξ_i`, `¼η_i`, `¼ξ_iη_i` match Eq. (9).
+- **B3 `b_membrane_covariant_2017` — faithful.** All 15 coefficients of Eqs. (27a-c) match the printed page; the chain (17)+(18)+(19)+(21)/(25)+(26) reproduces (27a-c) exactly.
+- **B4 `b_membrane_2017` — faithful.** `covariant_to_local_mapping` verified to `8.9e-16` against the analytic `T = diag(1,1,2)·M⁻¹·diag(1,1,½)`; the `2e_rs` doubling is correct for the engineering-shear triple.
+
+**A documented "paper defect" is FALSIFIED.** The claim (checklist B1, the `b_membrane_covariant_2017` comment, `mitc4plus-2017-extract.md` Note F2) that "the printed Eq. (21) omits the leading `e_rs^m|bil` term" is wrong. Vision: Eq. (21) printed does contain `e_rs^m|bil` inside the `B_1`/`B_2` parentheses (coefficient `B_1+B_2 = 1+1/d`). Decisive: **Appendix A Eq. (A.7), p. 416** is the paper's own substitution of Eq. (A.6) into Eq. (21) and *retains* the `e_rs^m|bil` terms — Eq. (21) with the constants substituted **is** Eq. (25). The `(1 + a_E·rs)` argument is invalid: that coefficient belongs to `e_rs^m(E) = e_rs^m|con`, not to `e_rs^m|bil`. Note F2's flat-rectangle argument is void (`x_d = 0` there, so `e_rs^m|bil = 0`). The claim was corrected in the code comment, the extract note and `fidelity-audit.md`.
+
+**Consequence.** Section B is **cleared**: the 2017 assumed membrane is a faithful implementation of the printed formulation. Defect #4 (flat in-plane bending locking) is **not** there.
+
+### CCX 2.23 as the third judge for defect #4 (tests + docs, no element change)
+
+- `write_ccx_mesh` gained `shell_element_type: Optional[str] = None` accepting `None | "S4" | "S8" | "S8R"` (backward compatible: `None` follows `quadratic` exactly; `quadratic=False/True` output byte-identical to HEAD). `S8` (CCX full integration) is now threaded through `_build_quadratic_mesh_data`; an explicit `S4`/`S8` with a composite property raises instead of writing a deck CCX rejects.
+- New `tests/test_ccx_shell_element_types_parity.py` (4 tests, skips without CCX): the **exact** in-plane bending strip of `test_shell_validation_fixed.py` (`L=1, b=0.1, h=0.001`, 8x4, clamped root, 600 N in +y, measured at `(L, b/2)`) through CCX 2.23 **S4 / S8 / S8R** with a consistent edge traction of resultant 600 N:
+
+| element | 8x4 `uy` [m] | vs analytical `1.142857e-2` |
+| --- | --- | --- |
+| S4 | `1.135840e-2` | 0.614% |
+| S8 | `1.145430e-2` | 0.225% |
+| S8R | `1.148490e-2` | 0.493% |
+
+Mutual spread 1.11% at 8x4; mesh study 4x2/8x4/16x8 spreads 2.67%/1.11%/0.42% — converged. Rows in `docs/validation-matrix.md` §4.6.
+
+### Gates
+
+- `cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed** (comment-only Rust change).
+- `python -m pytest tests/test_shell_validation_fixed.py -q` → **7 passed** (the hybrid; the in-plane strip reference holds).
+- `python -m pytest -m "not slow" -q` → **348 passed / 3 failed / 2 skipped** (baseline 344/3/2 + the 4 new tests; the same 3 pre-existing failures: `test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]`, `TestBatchComposite::test_batch_ke_mitc4_multiple`, `test_in_plane_bending_convergence`).
+- `python -m pytest tests/test_orthotropic_shell_parity.py tests/test_composite_beam_parity.py -q` → **8 passed** (the `quadratic=True` S8R+COMPOSITE path unchanged).
+
+**Verdict.** Defect #4 is **ours** (the reference is now third-party confirmed) and is **not** in section B. Next targets per the plan: D (assumed transverse shear), F (through-thickness/constitutive), and the plate/modal family. Nothing committed.
+
+**Skill resolution.** `paths-injected` (parent supplied the site map; `gentle-ai-worker` executed the bounded writers/tests/matrix unit).
+
+## WU9i — block isolation of defect #4: **the flat in-plane bending stiffness is carried ENTIRELY by the MEMBRANE block; the 2025 drill is INERT (measured)**
+
+**Scope.** Measurement only. One `#[ignore]`d test added to the in-file `#[cfg(test)] mod tests` of `crates/aeroelast-core/src/elements/mitc4_plusd.rs`; the only change outside the test module remains the pre-existing comment block. No production line of the element changed, no tolerance changed, no fix applied, no commit. Artifacts in English.
+
+**Instrument.** `wu9i_block_isolation_flat_inplane_strip` (measurement, not a gate). It builds the exact failing case — `tests/test_shell_validation_fixed.py::_build_cantilever_mesh`, `L=1.0, b=0.1, h=0.001`, `E=2.1e11`, `nu=0.3`, mesh `nx=8, ny=4` (45 nodes x 6 DOF = 270 DOF, node `index = j*(nx+1)+i`, elements `[(i,j),(i+1,j),(i+1,j+1),(i,j+1)]`), all 6 DOF clamped at `x=0`, 600 N total (120 N per free-edge node) in the measured direction — assembles `K = sum_e T24^T K_e_local T24` with `T24 = build_t24(pre)` and solves the reduced system densely (nalgebra LU). Constitutive built exactly as the module's `shell_iso` pattern: `IsotropicMaterial::new(2.1e11, 0.3, 7800.0).constitutive(h, 5/6)` and `Mitc4PlusDPrecomputed::new(&coords12, constitutive, h, 5/6)`. `u` is read at the free-edge centre node `(x=L, y=b/2)`.
+
+**Exact command.**
+
+```text
+cd crates && cargo test -p aeroelast-core wu9i -- --ignored --nocapture
+```
+
+**Full printed output.**
+
+```text
+running 1 test
+
+=== WU9i: flat in-plane block isolation (8x4 cantilever, L=1, b=0.1, h=0.001, E=2.1e11, nu=0.3) ===
+nodes = 45, dofs = 270, elements = 32, clamped dofs = 30, analytical ux = 600 L/(E b h) = 2.857142857e-5 m
+WU9i 1. FULL                         ux = 2.829989764952e-5 m   uy = 7.118880935477e-3 m   ratio uy/ux =  251.5515   [reduced 240 dof, lam_max 4.0778e9, near-zero(1e-8) 25, near-zero(1e-12) 0, smallest eps = 7.9913e-2, 1.5494e-1, 7.3091e-1, 1.3442e0, 2.1738e0, 3.4577e0]
+WU9i 2. NO_DRILL                     SINGULAR: dense LU reports no solution for the reduced 240-dof constrained K; near-zero(1e-8) 65, near-zero(1e-12) 40 of lam_max = 4.0778e9; smallest eps = -3.9236e-7, -3.1317e-7, -1.9016e-7, -1.2692e-7, -1.0032e-7, -7.5544e-8
+WU9i 2b. NO_DRILL + theta_z=0        ux = 2.829989764952e-5 m   uy = 7.118880935477e-3 m   ratio uy/ux =  251.5515   [reduced 200 dof, lam_max 4.0778e9, near-zero(1e-8) 25, near-zero(1e-12) 0, smallest eps = 7.9913e-2, 1.5494e-1, 7.3091e-1, 1.3442e0, 2.1738e0, 3.4577e0]
+WU9i 3. COMPAT_MEMB                  ux = 2.829989764952e-5 m   uy = 7.118880935486e-3 m   ratio uy/ux =  251.5515   [reduced 240 dof, lam_max 4.0778e9, near-zero(1e-8) 25, near-zero(1e-12) 0, smallest eps = 7.9913e-2, 1.5494e-1, 7.3091e-1, 1.3442e0, 2.1738e0, 3.4577e0]
+WU9i 4. COMPAT_MEMB_NO_DRILL         SINGULAR: dense LU reports no solution for the reduced 240-dof constrained K; near-zero(1e-8) 65, near-zero(1e-12) 40 of lam_max = 4.0778e9; smallest eps = -2.4610e-7, -1.9212e-7, -1.3001e-7, -6.8236e-8, -6.5087e-8, -4.9347e-8
+WU9i 4b. COMPAT_MEMB_NO_DRILL + theta_z=0 ux = 2.829989764952e-5 m   uy = 7.118880935486e-3 m   ratio uy/ux =  251.5515   [reduced 200 dof, lam_max 4.0778e9, near-zero(1e-8) 25, near-zero(1e-12) 0, smallest eps = 7.9913e-2, 1.5494e-1, 7.3091e-1, 1.3442e0, 2.1738e0, 3.4577e0]
+WU9i 5. MEMBRANE_ONLY (in-plane only) ux = 2.829989764952e-5 m   uy = 7.118880935461e-3 m   ratio uy/ux =  251.5515   [reduced 80 dof, lam_max 4.0778e9, near-zero(1e-8) 0, near-zero(1e-12) 0, smallest eps = 6.8121e3, 2.4970e5, 1.1521e6, 1.7518e6, 5.7744e6, 1.0128e7]
+WU9i membrane block, assumed MITC4+ vs compatible (element 0): max|K_assumed - K_compat| = 7.451e-9, max|K_assumed| = 3.9000e8, relative 1.910e-17
+WU9i instrument validation: FULL ratio = 251.5515 vs the WU9f flip 251.55 -> 0.00%; FULL ux = 2.829989765e-5 vs analytical 2.857142857e-5 -> 0.95%
+WU9i bending share route: by difference == ([bm; s1 bb1; s2 bb2]^T W [..] - K_membrane) to 2.980e-8 abs / 2.292e-10 rel (max|K_bend| = 1.3000e2)
+WU9i block energy shares (FULL solution, load +x (axial)): membrane 1.000000000000, bending 0.000000000000, shear 0.000000000000, drill 0.000000000000 | sum 0.9999999999999987 (u^T K u = 1.711528e-2)
+WU9i block energy shares (FULL solution, load +y (in-plane bending)): membrane 1.000000000002, bending 0.000000000000, shear 0.000000000000, drill 0.000000000000 | sum 1.0000000000026219 (u^T K u = 4.271510e0)
+test elements::mitc4_plusd::tests::wu9i_block_isolation_flat_inplane_strip ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 168 filtered out; finished in 21.76s
+```
+
+**The four ratio rows.**
+
+| variant | `ux` [m] | `uy` [m] | `ratio uy/ux` |
+| --- | --- | --- | --- |
+| 1. FULL (`compute_ke_local_with_drill(pre, true)`) | `2.829989764952e-5` | `7.118880935477e-3` | **251.5515** |
+| 2. NO_DRILL | — | — | **SINGULAR** (dense LU: no solution) |
+| 2b. NO_DRILL + `theta_z = 0` (all nodes) | `2.829989764952e-5` | `7.118880935477e-3` | **251.5515** |
+| 3. COMPAT_MEMB | `2.829989764952e-5` | `7.118880935486e-3` | **251.5515** |
+| 4. COMPAT_MEMB_NO_DRILL | — | — | **SINGULAR** (same 40 null modes) |
+| 4b. COMPAT_MEMB_NO_DRILL + `theta_z = 0` | `2.829989764952e-5` | `7.118880935486e-3` | **251.5515** |
+| 5. MEMBRANE_ONLY (all non-in-plane DOF fixed) | `2.829989764952e-5` | `7.118880935461e-3` | **251.5515** |
+
+Instrument validation: FULL `ratio` is **0.00%** from the WU9f flip `251.55` and FULL `ux` is **0.95%** from the analytical `600 L/(E b h) = 2.857142857e-5` (inside 3%).
+
+**Singularity evidence for the no-drill variants.** At threshold `1e-12 * lam_max` (`lam_max = 4.0778e9`) the constrained matrix has **0** null modes for FULL and **40** for NO_DRILL — the 40 `theta_z` DOF at the 40 non-root nodes, which have exactly zero stiffness without the 2025 drill block (the 2018/2017 core has no `theta_z` coupling on a flat element). Dense LU confirms it (`SINGULAR`). The `1e-8 * lam_max` counts (25 for FULL, 65 for NO_DRILL) are NOT null modes: on a `h/b = 1/100` strip the physical out-of-plane spectrum spans ~11 decades, so the 25 softest physical modes (`eps >= 7.99e-2`) fall under an absolute `1e-8 * 4.08e9 = 40.8` cut; they are counted here only for transparency. Fixing all `theta_z` DOF (row 2b) removes exactly those 40 and yields the FULL numbers to 12 digits.
+
+**Block energy decomposition (FULL solution, `K_bend` BY DIFFERENCE — exact).** `K_bend := K_full - K_membrane - K_shear - K_drill` reproduces the explicit 9-row recipe `[bm; s1 bb1; s2 bb2]^T W [..] - K_membrane` to `2.29e-10` relative, so the partition is exact.
+
+| load | membrane | bending | shear | drill |
+| --- | --- | --- | --- | --- |
+| `+x` (axial) | `1.000000000000` | `0.000000000000` | `0.000000000000` | `0.000000000000` |
+| `+y` (in-plane bending) | `1.000000000002` | `0.000000000000` | `0.000000000000` | `0.000000000000` |
+
+The four shares are finite and sum to 1 within `1e-10` (asserted, both loads).
+
+**Verdict.** The flat in-plane bending stiffness of the MITC4+/D element is carried entirely by the **MEMBRANE block** (`membrane_ke_local` / `b_membrane_2017`, the in-plane translation part): removing the 2025 drill block and pinning `theta_z = 0` (row 2b) reproduces the FULL `ratio` to 12 digits, the membrane-only system (row 5) reproduces it to 12 digits, and the shear/bending blocks carry no in-plane energy — so the prime suspect, the 2025 drill block, is measured **inert** here and the ~37% excess lives inside the membrane (compatible) in-plane operator itself.
+
+**Explicit answer to the COMPAT_MEMB question.** COMPAT_MEMB and FULL give the SAME ratio (`251.5515`; `uy` agrees to `9e-12` relative, `ux` to 12 digits). The reason is that on a flat, undistorted mesh the assumed MITC4+ membrane field of Eqs. (27a-c) reduces **exactly** to the compatible displacement-based field: `x_d = 0` gives `a_A..a_E = 0`, so Eqs. (27a-c) collapse to `0.5(1+s) e^m|_A + 0.5(1-s) e^m|_B` etc., whose weights equal `0.25 xi_i (1 + s eta_i)` term for term. The measured element-level difference `max|K_assumed - K_compat| / max|K_assumed| = 1.9e-17` confirms it. So the parent's inference is confirmed in its first half but REFUTED in its second: the assumed membrane is indeed doing nothing here (it *is* the compatible field on a flat element), but the drill is **not** the remaining candidate — it is inert, and the carrier is the membrane block itself.
+
+**Gates.**
+
+- `cd crates && cargo test -p aeroelast-core wu9i -- --ignored --nocapture` → **1 passed** (instrument), full output above.
+- `cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed / 1 ignored** (the new test is `#[ignore]`d, so the default run is unchanged).
+- `git diff --stat crates/aeroelast-core/src/elements/mitc4_plusd.rs` → `1 file changed, 463 insertions(+), 4 deletions(-)`; the two hunks are `@@ -890,10 +890,14 @@` (the pre-existing documentation-comment block, +8/−4) and `@@ -7664,4 +7668,459 @@ mod tests` (the test-module addition). **No production code line moves.**
+
+**Deviation recorded.** The parent's literal `new(..., h, 1.0)` was used as `new(..., h, 5/6)` — the faithful reproduction of the WU9f flip (`build_constitutive_mitc4_plusd` passes `shear_correction = 5/6`). The 4th argument only scales `cs_uncorrected` (the transverse-shear block), which on a flat element has no in-plane entries and carries 0 share; the measured in-plane numbers are therefore independent of this choice (rows 1/2b/3/5 agree to 12 digits). The compatible-membrane rows are mapped with the production `covariant_to_local_mapping(&j_loc_at(..))` rather than the private `ke_ref::map_local`; the two are algebraically identical (the reference divides where production regularizes the same 2x2 inverse) and agree to machine precision on this mesh.
+
+**Skill resolution.** `paths-injected`.
+

@@ -240,7 +240,7 @@ pub(crate) fn batch_ke_mitc4<'py>(
             for i in 0..12 {
                 node_coords[i] = coords_arr[[e, i]];
             }
-            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, e_mod, 1.0);
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
             let ke = mitc4::compute_ke_global(&pre);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {
@@ -285,7 +285,7 @@ pub(crate) fn batch_me_mitc4<'py>(
             for i in 0..12 {
                 node_coords[i] = coords_arr[[e, i]];
             }
-            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, e_mod, 1.0);
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
             let me = mitc4::compute_me_global(&pre, rho);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {
@@ -306,6 +306,9 @@ pub(crate) fn batch_me_mitc4<'py>(
 }
 
 /// Batch-compute MITC4+ tangent stiffness matrices (global coords, nonlinear).
+///
+/// Uses the faithful total-Lagrangian tangent of Ko, Lee & Bathe (2017),
+/// C&S 185:1-14, Eq. (24a) (`n_gamma_kt_global`).
 #[pyfunction]
 #[pyo3(signature = (coords, displacements, e_mod, nu, thickness, shear_correction=5.0/6.0))]
 pub(crate) fn batch_kt_mitc4<'py>(
@@ -331,14 +334,19 @@ pub(crate) fn batch_kt_mitc4<'py>(
             for i in 0..12 {
                 node_coords[i] = coords_arr[[e, i]];
             }
-            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, e_mod, 1.0);
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
 
             let mut u = mitc4::Vec24::zeros();
             for i in 0..24 {
                 u[i] = disp_arr[[e, i]];
             }
 
-            let kt = mitc4::compute_kt_global(&pre, &u);
+            // Faithful total-Lagrangian tangent, Eq. (24a). KNOWN LIMITATION:
+            // `n_gamma_kt_global` builds its `GlCurrentState` from the INITIAL
+            // element geometry, so this is the first-step
+            // (reference-configuration) linearisation; threading the
+            // last-converged state belongs to the solver and is a follow-up.
+            let kt = mitc4::n_gamma_kt_global(&pre, &u);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {
                 for j in 0..24 {
@@ -358,6 +366,11 @@ pub(crate) fn batch_kt_mitc4<'py>(
 }
 
 /// Batch-compute MITC4+ internal force vectors (global coords).
+///
+/// `nonlinear = true` uses the faithful total-Lagrangian internal force of
+/// Ko, Lee & Bathe (2017), C&S 185:1-14, Eq. (24b) (`n_gamma_fint_global`);
+/// `nonlinear = false` keeps the linear path `K_0 u`
+/// (`compute_fint_global(.., false)`).
 #[pyfunction]
 #[pyo3(signature = (coords, displacements, e_mod, nu, thickness, shear_correction=5.0/6.0, nonlinear=true))]
 pub(crate) fn batch_fint_mitc4<'py>(
@@ -384,14 +397,23 @@ pub(crate) fn batch_fint_mitc4<'py>(
             for i in 0..12 {
                 node_coords[i] = coords_arr[[e, i]];
             }
-            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, e_mod, 1.0);
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
 
             let mut u = mitc4::Vec24::zeros();
             for i in 0..24 {
                 u[i] = disp_arr[[e, i]];
             }
 
-            let f = mitc4::compute_fint_global(&pre, &u, nonlinear);
+            // KNOWN LIMITATION: `n_gamma_fint_global` builds its
+            // `GlCurrentState` from the INITIAL element geometry, so the
+            // nonlinear branch is the first-step (reference-configuration)
+            // linearisation; threading the last-converged state belongs to the
+            // solver and is a follow-up.
+            let f = if nonlinear {
+                mitc4::n_gamma_fint_global(&pre, &u)
+            } else {
+                mitc4::compute_fint_global(&pre, &u, false)
+            };
             let mut flat = [0.0f64; 24];
             for i in 0..24 {
                 flat[i] = f[i];
@@ -545,7 +567,7 @@ pub(crate) fn batch_ke_mitc4_composite<'py>(
     let cb_arr = cb_flat.as_array();
     let cs_arr = cs_flat.as_array();
     let h_arr = thickness.as_array();
-    let e_arr = e_equiv.as_array();
+    let _e_arr = e_equiv.as_array();
     let n_elem = coords_arr.nrows();
 
     let results: Vec<[f64; 576]> = (0..n_elem)
@@ -568,10 +590,10 @@ pub(crate) fn batch_ke_mitc4_composite<'py>(
                 cs[i] = cs_arr[[e, i]];
             }
             let h = h_arr[e];
-            let e_eq = e_arr[e];
 
             let constitutive = composite_constitutive(&a, &b, &d, &cs, h);
-            let pre = Mitc4Precomputed::new(&node_coords, constitutive, h, e_eq, 1.0);
+            // `e_equiv` has no MITC4+/D constructor argument (out-of-scope PyO3 change).
+            let pre = Mitc4Precomputed::new(&node_coords, constitutive, h, 1.0);
             let ke = mitc4::compute_ke_global(&pre);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {
@@ -622,7 +644,7 @@ pub(crate) fn batch_me_mitc4_composite<'py>(
                 cs: nalgebra::Matrix2::identity(),
                 cm_raw: nalgebra::Matrix3::identity(),
             };
-            let pre = Mitc4Precomputed::new(&node_coords, dummy, 1.0, 1.0, 1.0);
+            let pre = Mitc4Precomputed::new(&node_coords, dummy, 1.0, 1.0);
             let me = mitc4::compute_me_composite_global(&pre, m_trans, m_rot);
             let mut flat = [0.0f64; 576];
             for i in 0..24 {

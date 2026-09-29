@@ -362,7 +362,8 @@ class TestIsotropicShellParity:
         print(f"  Ratio (CCX/AE):    {ratio:.3f}")
         print(f"  Difference:        {abs(disp_ccx - disp_ae):.6f} m ({abs(ratio - 1) * 100:.1f}%)")
 
-        # Allow 10% tolerance
+        # The comment here used to say "Allow 10%" over an enforced 5%.  The
+        # value is what ran, so the comment is what was wrong.
         tol = 0.05
         if abs(ratio - 1) > tol:
             pytest.fail(

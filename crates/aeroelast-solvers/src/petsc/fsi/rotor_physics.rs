@@ -429,7 +429,8 @@ pub fn build_coriolis_matrix(
 /// then expand it to the K sparsity pattern so it can be passed to
 /// [`NewmarkStepper::update_spin_softening`].
 ///
-/// ANSYS Eq. 3-74 / 14-55 for lumped mass:
+/// Spin softening for a lumped mass, verified by derivation (the derivation is
+/// written out in `src/aeroelast/solvers/fsi/rotor.py`):
 /// ```text
 /// K_SP[dof_base + j] = −ω² · m_node · (1 − n̂ⱼ²)   for j = 0, 1, 2  (translational)
 /// K_SP[dof_base + j] = 0                              for j ≥ 3  (rotational)

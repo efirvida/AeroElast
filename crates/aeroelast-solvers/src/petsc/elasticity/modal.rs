@@ -134,7 +134,22 @@ pub fn modal_solve(
             "EPSGetConverged",
         )?;
 
-        let n_converged = (nconv as usize).min(n_modes);
+        // Return EVERY converged eigenpair, NOT `min(nconv, n_modes)`.
+        //
+        // The physical filter (`> 1e-8`) and the truncation to `n_modes` belong
+        // to the caller, and both callers already do exactly that:
+        // `modal_solve_coo` in this crate (`filter(..)`, `sort_by`, `truncate`)
+        // and the Python reference `_python_modal_solve` (`valid = eigvals > 1e-8`
+        // then `frequencies[:num_modes]`). Clamping here, BEFORE that filter,
+        // throws away the `+5` margin requested just above and hands the caller
+        // only the spurious modes: a reduced shell system carries near-zero --
+        // and slightly negative -- eigenvalues, and with `EPS_TARGET_MAGNITUDE`
+        // those come FIRST. Measured on the simply-supported 8x8 plate
+        // (390 free DOFs), the two smallest are `-7.261e-06` and `-6.3442e-05`,
+        // so `n_modes = 1` returned a single spurious eigenvalue (the caller's
+        // filter then left an empty list, `IndexError`) and `n_modes = 6`
+        // returned 6 raw but only 4 physical frequencies -- silently short.
+        let n_converged = nconv as usize;
 
         let mut eigenvalues = Vec::with_capacity(n_converged);
         let mut eigenvectors = Vec::with_capacity(n_converged);
@@ -176,5 +191,11 @@ unsafe fn petsc_mat_get_size(
     m: *mut i32,
     n: *mut i32,
 ) -> Result<(), PetscError> {
-    check(ffi::MatGetSize(mat, m, n), "MatGetSize")
+    // `ffi::MatGetSize` is an `extern "C"` declaration, so the CALL is the
+    // unsafe operation and it is named in an explicit block rather than relying
+    // on the implicit one an `unsafe fn` body carries (Rust 2024
+    // `unsafe_op_in_unsafe_fn`). The four `from_raw` constructors elsewhere in
+    // this crate are deliberately NOT wrapped: their bodies are safe (`Self { raw }`)
+    // and an `unsafe` block there would only produce `unused_unsafe`.
+    unsafe { check(ffi::MatGetSize(mat, m, n), "MatGetSize") }
 }
