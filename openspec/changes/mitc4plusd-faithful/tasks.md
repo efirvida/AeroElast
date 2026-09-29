@@ -45,7 +45,7 @@ rollback.
 | --- | --- |
 | `.sources/papers/A_new_MITC4+_shell_element.pdf`, `.sources/papers/1-s2.0-S0045794924003511-main.pdf` | Reference papers. Vision only (`pdftoppm -png -r 300`), never `pdftotext`. |
 | `openspec/changes/mitc4plusd-faithful/proposal.md` (rev 2), `.../specs/mitc4plusd-element/spec.md` (rev 4), `.../design.md` (rev 2) | Frozen upstream artifacts of this change. |
-| `crates/aeroelast-core/src/assembly/topology.rs` | **Untouched by design** (ADR-4 option B: the element computes its own per-node directors, so `MeshTopology` gains no field). |
+| `crates/aeroelast-core/src/assembly/topology.rs` | **Untouched** — no `MeshTopology` field is added. The mesh-consistent nodal directors are computed in `assembler.rs` and overwrite the element-local ones (ADR-4's amendment supersedes the original "option B" reading: option (A)'s content runs, its contract does not). |
 | `crates/aeroelast-core/src/elements/mitc4.rs` | Read-only until WU8 (tests only) and WU10 (deletions only); the live hybrid must stay byte-identical while the new element is built and tested. |
 | `src/aeroelast/core/assembler.py` | Frozen: `_FAMILY_PROPERTIES[SHELL] = (6, 3)`. |
 | `crates/aeroelast-core/src/materials/{orthotropic,composite,failure}.rs`, `src/aeroelast/core/laminate.py`, `src/aeroelast/constitutive/failure.py` | Preserved invariant (Requirement 15); no task may touch them. |

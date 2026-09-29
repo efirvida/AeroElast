@@ -493,6 +493,52 @@ into the assembly layers. (iv) Angle-weighted normals — a refinement with no e
 behind it in either paper. (v) Per-node thickness from the mesh — no such input exists
 and inventing one is scope creep.
 
+**AMENDMENT (this session) — the trigger named above FIRED, and option (A)'s CONTENT is
+already in production. What is stale is the record, and what is left is the contract.**
+
+This ADR kept option (A) as "the named follow-up if a Tier-2 result demands mesh-shared
+directors". That is what happened. WU9e measured a Tier-2 benchmark — the
+MacNeal-Harder twisted beam at `t/L = 0.02667`, the thick case — and with option (B)
+alone the element gives `1.06965` (N=4) / `1.25132` (N=8) against the published MITC4+
+cells `0.9960` / `0.9968`; with a mesh-consistent nodal director it gives `0.99515` /
+`0.99733`. So the "Limitation, recorded" paragraph above is superseded: (B) alone is
+7-25% off on a Tier-2 case and the mesh-shared director is what fixes it.
+
+Production therefore does **(A) by content, (B) by plumbing**:
+`crates/aeroelast-core/src/assembly/assembler.rs:135-184` (`MeshAssembler::new`) and
+`:251-283` (`update_reference`) compute `mitc4_nodal_directors(&topology, &materials)` —
+the area-weighted mean of the adjacent elements' element-local `vn`, normalized per
+global node — and then overwrite `pre.vn[a] = nodal_director[node]` after the
+constructor has already computed the element-local directors.
+
+Measured today, on the cells that fired the trigger:
+`test_3_5_twisted_beam_tables_12_to_13` passes all four cases at **0.01-0.25%** of the
+published Tables 12/13 (thick in-plane `0.9981` vs `0.9971`, thick out-of-plane `0.9998`
+vs `0.9973`, thin `0.9972` vs `0.9978` and `0.9981` vs `0.9982`), and
+`test_ko2017_performance.py` is 31 passed.
+
+**What is stale (a record defect, not a behaviour one).** (i) The decision paragraph still
+reads "Decision: option (B)". (ii) The task list's read-only inputs table still justifies
+`topology.rs` as "**Untouched by design** (ADR-4 option B: the element computes its own
+per-node directors, so `MeshTopology` gains no field)" — `topology.rs` really is
+untouched, but the stated *reason* is no longer the whole story, because the assembler
+overwrites what the element computed. (iii) Option (C) — "Both mechanisms, both tested…
+rejected as overbuilding: two code paths for one quantity" — is de facto what runs: the
+local path is the fallback that gets overwritten.
+
+**The debt this leaves, named.** `pre.vn` is a value the constructor computes and the
+assembler discards — the same shape as the additive `compute_ke_local(pre)` reference that
+was removed from the geometric tangent. The clean forms, in increasing blast radius, are:
+(a) document the overwrite as the pass-2 channel it is (what this amendment does);
+(b) move the mesh-consistent directors into the constructor's contract so nothing is
+computed and thrown away; (c) option (A) proper, with the `MeshTopology` field and the
+`update_reference` recomputation this ADR already scoped. (b) is the one to take next: it
+stays inside the element's own file plus the two `Mitc4PlusDPrecomputed::new` call sites.
+
+**Acceptance for whichever form is taken.** The four `test_3_5_twisted_beam_tables_12_to_13`
+cases stay at 0.01-0.25% of Tables 12/13; the flat Tier-1 fixtures keep `V_n^i = n_vec` to
+round-off; `test_ko2017_performance.py` stays at 31 passed.
+
 ### ADR-5 — Retirement sequencing (§8)
 
 **Decision.** Four ordered stages, each leaving the tree green: **(S1)** build and test
