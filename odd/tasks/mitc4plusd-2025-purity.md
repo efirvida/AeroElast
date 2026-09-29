@@ -1959,3 +1959,43 @@ Left open on purpose, tracked rather than silently skipped: §3 (MITC3+) has not
 for humans, §2.3's equation narration is still in the original audit register, the plane
 elements and the smoothed MITC3+ have no equation-level section, and `validation-matrix.md`
 keeps its process markers until SDD task 12.4.
+
+### Iteration 33 — the two guard tests of 12.1/12.2, with negative controls
+
+`tests/test_mitc4plusd_traceability.py` (three scenarios) and
+`tests/test_laminate_invariant_guard.py` (one test) are in. The suite is
+**386 passed / 0 failed / 0 skipped** and the Rust suite is unchanged at 155 / 0 / 0.
+
+The order was probe, then assert, then break on purpose. Probing first paid for itself
+immediately: the classical `5.0 / 6.0` literal IS in `mitc4.rs`, but inside the tests, which
+compute the classical reference the element is required to miss. A naive whole-file check would
+have failed and the tempting fix would have been to weaken the assertion. The gate now defines
+the production path as the source before `#[cfg(test)]`, which is the honest boundary.
+
+Because a test that has never failed is not evidence, each test was then broken deliberately,
+on a committed tree, one mutation at a time:
+
+| control | mutation | expected |
+| --- | --- | --- |
+| C1 | a table symbol the module does not define (`gl_tying_metrics_FAKE`) | scenario 1 fails |
+| C2 | a forbidden ingredient injected into the production path (`cm_normal`) | scenario 2 fails |
+| C3 | a citation year that does not resolve (`Ko et al. (2099)`) | scenario 3 fails |
+| C4 | an extra field on `ShellConstitutive` | the laminate guard fails |
+
+All four failed as required, and each mutation was reverted with the tree verified clean. C3
+had to be run twice: the first attempt edited a string that does not appear in the file, so it
+proved nothing while looking green. That is the same failure mode as a vacuous assertion, one
+level up, and it is worth remembering.
+
+Scenario 2 also carries a permanent non-vacuity control inside the test itself: the same
+detectors are run against `mitc3.rs`, where `k_drill` legitimately exists, and the test asserts
+they fire there. A typo in a detector name can no longer leave the check passing while checking
+nothing.
+
+Two of my own errors were caught in this iteration and are recorded rather than quietly fixed.
+Task 12.2's text lists `abd_matrix_flat`, which I first amended as non-existent on the strength
+of a Python `dir()` -- it does exist, in the Rust crate; the guard now pins the Rust field set,
+the Rust method set and the Python surface as three separate sets, because they genuinely are
+three different sets. And the full suite took 492 s instead of the usual 165 s on this run; the
+counts add up and nothing failed, so it is recorded as an environmental anomaly rather than
+explained away.
