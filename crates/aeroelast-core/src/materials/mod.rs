@@ -128,7 +128,15 @@ mod tests {
     }
 
     /// A multi-ply laminate's `cs` is the energy-equivalent section stiffness
-    /// with no scalar factor, so the accessor must pass it through verbatim.
+    /// with no scalar factor, so this accessor's arithmetic passes it through
+    /// verbatim.
+    ///
+    /// NOTE (ADR-1 amended): the element no longer *uses* this combination for a
+    /// composite. Its shear block consumes the laminate's plain section integral
+    /// (`Laminate::shear_stiffness_uncorrected`, fed through
+    /// `mitc4_uncorrected_shear` in the assembler), because the energy-equivalent
+    /// `cs` already carries the `5/6` of a homogeneous section. This test pins the
+    /// accessor's own arithmetic, which is unchanged.
     #[test]
     fn test_transverse_shear_uncorrected_multi_ply_is_cs_unchanged() {
         let h = 0.01;

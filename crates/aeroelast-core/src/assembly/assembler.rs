@@ -59,7 +59,17 @@ pub enum MaterialSpec {
         /// Scalar shear-correction factor the material model applied when it
         /// built `cs` (ADR-1): `shear_correction_factor` for a single-ply
         /// laminate, `1.0` for a multi-ply one (or when none was applied).
+        /// Informational for a composite: the element consumes
+        /// [`Self::cs_uncorrected`], not `cs`.
         applied_shear_correction: f64,
+        /// Uncorrected section transverse-shear stiffness, row-major, that the
+        /// element's shear block consumes (ADR-1, amended): the laminate's
+        /// plain thickness integral, NOT `cs`. `cs` carries the section's own
+        /// correction -- `k` on the single-ply branch and the `5/6` of the
+        /// parabolic shear distribution inside the multi-ply energy-equivalent
+        /// formula -- and the element (Ko, Lee & Bathe (2017), C&S 182:404-418,
+        /// p. 410: "does not include any numerical factor") must not see it.
+        cs_uncorrected: [f64; 4],
     },
     /// Plane-stress isotropic material (for QUAD4/8/9 elements).
     PlaneStress {
@@ -176,6 +186,10 @@ impl MeshAssembler {
                         thickness,
                         applied_shear_correction,
                     );
+                    // ADR-1 (amended): the material supplies the uncorrected
+                    // section shear the element consumes. For a composite this
+                    // is the plain integral, not `cs`.
+                    pre.cs_uncorrected = mitc4_uncorrected_shear(mat, &pre.constitutive);
                     // Pass 2 — replace the element-local directors with the
                     // mesh-consistent nodal directors. Measured identical to
                     // also rebuilding `b_shear_tie`, `v_d`, `j0` and
@@ -278,6 +292,7 @@ impl MeshAssembler {
                         thickness,
                         applied_shear_correction,
                     );
+                    pre.cs_uncorrected = mitc4_uncorrected_shear(mat, &pre.constitutive);
                     // Pass 2 — same director overwrite as `new`.
                     for (a, &node) in self.topology.connectivity[e].iter().enumerate() {
                         pre.vn[a] = nodal_director[node];
@@ -1057,6 +1072,36 @@ fn build_constitutive_mitc4_plusd(
             (constitutive, *thickness, *applied_shear_correction)
         }
         _ => panic!("Shell element requires Isotropic or Composite MaterialSpec"),
+    }
+}
+
+/// The uncorrected section transverse-shear stiffness the MITC4+/D shear block
+/// consumes (ADR-1, amended).
+///
+/// The isotropic path removes the scalar its material model applied
+/// (`k·G·h -> G·h`). The composite path takes the laminate's plain section
+/// integral, because the energy-equivalent `cs` already carries the `5/6` of a
+/// homogeneous section: feeding that to the element made a `[0,0,0,0]` stack of
+/// four `h/4` isotropic plies differ from the single `h` layer it is physically
+/// identical to (measured 3.434% on the assembled K trace).
+///
+/// The element's own constructor derives the isotropic value; this overwrites it
+/// with what the material reports, so the element has ONE input convention.
+fn mitc4_uncorrected_shear(
+    mat: &MaterialSpec,
+    constitutive: &crate::materials::ShellConstitutive,
+) -> nalgebra::Matrix2<f64> {
+    match mat {
+        MaterialSpec::Isotropic {
+            shear_correction, ..
+        } => constitutive.transverse_shear_uncorrected(*shear_correction),
+        MaterialSpec::Composite { cs_uncorrected, .. } => nalgebra::Matrix2::new(
+            cs_uncorrected[0],
+            cs_uncorrected[1],
+            cs_uncorrected[2],
+            cs_uncorrected[3],
+        ),
+        _ => panic!("MITC4 element requires Isotropic or Composite MaterialSpec"),
     }
 }
 

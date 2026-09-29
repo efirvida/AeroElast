@@ -298,6 +298,18 @@ impl PyMeshAssembler {
             cs[2] = corrected_lam.cs[(1,0)];
             cs[3] = corrected_lam.cs[(1,1)];
 
+            // ADR-1 (amended): the uncorrected section shear the element
+            // consumes. The energy-equivalent `cs` above carries the section's
+            // own correction -- the 5/6 of a homogeneous stack -- so it must not
+            // be what the element's shear block sees.
+            let cs_plain = corrected_lam.shear_stiffness_uncorrected();
+            let cs_uncorrected = [
+                cs_plain[(0, 0)],
+                cs_plain[(0, 1)],
+                cs_plain[(1, 0)],
+                cs_plain[(1, 1)],
+            ];
+
             Ok(MaterialSpec::Composite {
                 cm,
                 cb_coupling,
@@ -308,6 +320,7 @@ impl PyMeshAssembler {
                 mass_per_area,
                 rotational_inertia,
                 applied_shear_correction: corrected_lam.applied_shear_correction_factor(),
+                cs_uncorrected,
             })
         };
 

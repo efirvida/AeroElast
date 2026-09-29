@@ -165,6 +165,12 @@ def _lam_prop(lam: Laminate) -> dict:
         "b_coupling": lam.B.ravel().tolist(),
         "cb": lam.D.ravel().tolist(),
         "cs": lam.Cs.ravel().tolist(),
+        # ADR-1 (amended): the element's shear block consumes the UNCORRECTED
+        # section integral, not `Cs` -- `Cs` carries the 5/6 of a homogeneous
+        # stack inside the energy-equivalence formula. Without this key the
+        # raw-dict path falls back to `cs` verbatim, and a 4-ply [0,0,0,0]
+        # isotropic stack differs from the single `h` layer it must equal.
+        "cs_uncorrected": lam.shear_stiffness_uncorrected().ravel().tolist(),
         "thickness": h,
         "e_equiv": e_equiv,
         "mass_per_area": mpa,

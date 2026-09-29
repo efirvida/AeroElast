@@ -78,6 +78,11 @@ def _laminate_to_mat_dict(laminate: Laminate) -> dict:
         "b_coupling": laminate.B.ravel().tolist(),
         "cb": laminate.D.ravel().tolist(),
         "cs": laminate.Cs.ravel().tolist(),
+        # ADR-1 (amended): the element's shear block consumes the UNCORRECTED
+        # section integral, not `Cs` -- `Cs` carries the 5/6 of a homogeneous
+        # stack inside the energy-equivalence formula. Without this key the
+        # raw-dict path falls back to `cs` verbatim.
+        "cs_uncorrected": laminate.shear_stiffness_uncorrected().ravel().tolist(),
         "thickness": h,
         "e_equiv": e_equiv,
         "mass_per_area": mpa,

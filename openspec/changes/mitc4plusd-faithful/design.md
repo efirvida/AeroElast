@@ -212,6 +212,69 @@ pins the public surface.
 `shear_correction_factor` moves while `G·h` does not — that is the failure the
 discriminator reports.
 
+**AMENDMENT (this session) — the multi-ply `cs` DOES carry a numerical factor, and the
+verbatim step above is falsified by measurement.**
+
+The decision above reasons: the multi-ply `cs` "is the equilibrium energy-equivalent
+section stiffness with no scalar in it", therefore it "passes through verbatim". The
+first clause is true of the *formula* and false of the *number*. `compute_shear_stiffness`'s
+energy-equivalence branch builds `cs` from the piecewise-quadratic shear stress profile,
+and for a homogeneous stack that derivation **yields exactly `(5/6)·G·h`** — the `5/6`
+of the parabolic distribution, a numerical factor the element must not see. Measured for
+four identical isotropic plies of `h/4` (`E1=E2=E3`, `G1=G2=G3`, `ν=0.3`):
+`cs_55 = cs_44 = (5/6)·G·h`, `cs_45 = 0`, against the plain section integral
+`a_ij = Σ c̄s_ij t_k = G·h` by construction. Pinned in Rust by
+`Laminate::shear_stiffness_uncorrected`'s test, which also asserts the two are separated
+by more than `1e-3` relative so it cannot pass vacuously.
+
+**Consequence, measured.** Because the isotropic path removes its `k` and lands on `G·h`
+while the composite path passed the corrected `cs` through, the two models of the SAME
+homogeneous plate disagreed in the shear block by 20%, and the repository's own
+equivalence tests caught it: `test_material_suite.py::TestIsoEquivalence::test_n_iso_plies_equal_single_layer_mitc4`
+at 3.434% (tolerance 1%), and `test_orthotropic_shell_parity.py::test_multi_layer_iso_equivalence`
+at 5.42% (tolerance 1e-4). The second is slow-marked and was therefore invisible to the
+`-m "not slow"` gate.
+
+**Amended mechanism.** A scalar cannot express the correction, because the
+energy-equivalent `cs` is not a scalar multiple of the plain integral in general
+(`cs_55/a55 ≠ cs_44/a44`); so the material supplies the **uncorrected matrix**, not a
+factor:
+
+1. `Laminate::shear_stiffness_uncorrected() -> Matrix2<f64>` — the plain integral,
+   equal to `G·h` for a homogeneous stack. Additive: no stored field, `cs` and every
+   existing `Laminate` number unchanged.
+2. `MaterialSpec::Composite` gains the **internal** field `cs_uncorrected: [f64; 4]`
+   beside `applied_shear_correction`, filled in `crates/aeroelast-py/src/assembler.rs`
+   from `corrected_lam.shear_stiffness_uncorrected()`. The raw-dict path accepts an
+   optional `cs_uncorrected` key and otherwise keeps `cs` verbatim (its legacy
+   contract; identical to the constructor's own derivation for a factor of 1.0).
+3. The assembler overwrites `pre.cs_uncorrected` from
+   `mitc4_uncorrected_shear(mat, &pre.constitutive)` — the same pass-2 pattern it
+   already uses for the mesh-consistent nodal directors. `ShellConstitutive` keeps
+   exactly its five fields, `applied_shear_correction` stays as the record of what the
+   material model applied, and the element's own constructor derivation is unchanged for
+   direct callers.
+
+**External confirmation that the uncorrected modulus is the right input.** The element
+reproduces the published twisted-beam cells of Ko et al. (2017), C&S 193:187-206,
+Tables 12/13 — a shear-locking benchmark — to 0.01-0.25%, and the pinched-cylinder cells
+of Tables 8/9 to 0.04-1.41%, while its shear input is the uncorrected modulus. The
+paper's element therefore uses the uncorrected modulus too, which is what p. 410's
+"does not include any numerical factor" requires. Measured after the amendment:
+`test_ko2017_performance.py` stays at 31 passed (the isotropic path is untouched),
+`test_material_suite.py` 41 passed, `test_orthotropic_shell_parity.py` 3 passed, and the
+composite files 33 passed.
+
+**Requirement 16 is unaffected.** Its observable — the element's transverse-shear
+contribution is invariant to `k` when `cs = k·G·h` — still holds, and the isotropic path
+that exercises it is bit-identical. The amendment removes a *false premise* from ADR-1's
+rationale, not a commitment of the spec.
+
+**Still open from this amendment.** Five test-side composite dict builders declare `cs`
+explicitly (`test_composite_b_coupling.py` ×3, `test_composite_beam_parity.py`,
+`test_rust_composite.py`) and therefore still hand the element the corrected stiffness;
+they pass today under the legacy convention and moving them is a separate measured step.
+
 ### ADR-2 — Internal structure: a new module, `Mitc4PlusDPrecomputed`, unchanged 24-DOF layout
 
 **Decision.** The faithful element lands in a **new module**

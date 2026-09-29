@@ -68,8 +68,31 @@ pub(crate) fn parse_material(py: Python, obj: &Py<PyAny>) -> PyResult<MaterialSp
             cb.copy_from_slice(&cb_list);
             cs.copy_from_slice(&cs_list);
 
-            // Raw-dict composite path has no `Laminate`, so no scalar was applied.
-            Ok(MaterialSpec::Composite { cm, cb_coupling, cb, cs, thickness, e_equiv, mass_per_area, rotational_inertia, applied_shear_correction: 1.0 })
+            // Optional ADR-1 (amended) channel: the uncorrected section shear the
+            // element consumes. Absent -> `cs` verbatim, which is the legacy
+            // contract of this raw-dict path (the element's own constructor
+            // derivation yields the same value for a factor of 1.0). A caller
+            // that wants the paper's convention must supply it, as the
+            // `Laminate` path does.
+            let cs_uncorrected = match dict.get_item("cs_uncorrected").ok() {
+                Some(v) => {
+                    let list: Vec<f64> = v.extract()?;
+                    if list.len() != 4 {
+                        return Err(pyo3::exceptions::PyValueError::new_err(
+                            "composite material: cs_uncorrected must have 4 elements",
+                        ));
+                    }
+                    let mut arr = [0.0f64; 4];
+                    arr.copy_from_slice(&list);
+                    arr
+                }
+                None => cs,
+            };
+
+            // Raw-dict composite path has no `Laminate`: either the caller
+            // supplied the uncorrected shear, or `cs` stands as its own
+            // uncorrected value (ADR-1 amended).
+            Ok(MaterialSpec::Composite { cm, cb_coupling, cb, cs, thickness, e_equiv, mass_per_area, rotational_inertia, applied_shear_correction: 1.0, cs_uncorrected })
         }
         "plane_stress" => {
             let e: f64 = dict.get_item("e")?.extract()?;
