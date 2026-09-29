@@ -540,3 +540,47 @@ the constant part and Eq. (16) for the linear part **exactly**, including
   (`docs/teoria_formulacion_fsi_rotor.md`, `docs/s4r_composite_shell_formulation.md`);
   the user will correct those separately.
 - Committing the papers: they stay in the gitignored `.sources/papers/`.
+
+## Status reconciliation (2026-09-29, tree at `e879eba`)
+
+This file was written as a working plan and stopped at the S1-S4 plan; the work then continued
+past it, so the units below were still listed as open here long after they closed. Re-read
+against the tree rather than against this file:
+
+| unit | state in this file | actual state at `e879eba` | evidence |
+| --- | --- | --- | --- |
+| U1 canonical bibliography | open | **closed** | `docs/references.md` (290 lines); commits `8aa65fd`, `6b13278`, `0e5f0a4` |
+| U2 shell element reference | "first version delivered" | **closed**, including §2.3 and §3 | `docs/formulations/shell-elements.md` §2.1-2.6, §3.1-3.6, §4.1-4.5; commits `80f50c3`, `b097549`, `4d296d6` |
+| U3 constitutive/materials | open | **closed** | `docs/formulations/materials.md` (508 lines); commit `95cfd16` |
+| U4 solver formulations | open | **closed** | `docs/formulations/solvers.md` (532 lines); commit `95cfd16` |
+| U5 MITC3 sign fix | done (and modernisation open) | **closed** | commit `d6f37fb`; the measured before/after is §4.1 |
+| U6 MITC4/D drill operator | open | **closed by the archived change** | the faithful MITC4+/D carries the 2025 drill strain (§2.5); the dead `b_md_mitc4_plus` was deleted, not wired |
+| U7 ANSYS citations | open | **closed** | no `ANSYS` under `crates/`; `src/aeroelast/solvers/fsi/rotor.py` records what the old equation numbers were |
+| U8 validation matrix | open | **closed, then refreshed** | `docs/validation-matrix.md` re-measured at `e879eba` (386 passed / 0 failed / 0 skipped) |
+| S1-S3 strain-smoothed MITC3+ | plan | **implemented and Rust-unit-tested, not wired** | `elements/smoothing.rs`; `elements/mitc3.rs` union layout + `smoothed_membrane_b`; `shell-elements.md` §4.3 |
+| S4 document the smoothed element | plan | **OPEN** | §4.3 says it "is not described equation by equation in this document yet" |
+
+The SDD change `mitc4plusd-faithful` that owned most of this is archived with **0 unchecked
+tasks** (`openspec/changes/archive/2026-09-29-mitc4plusd-faithful/tasks.md`, 59 checked).
+
+### What is genuinely left (documentation completeness, not defects)
+
+1. **S4 - §4.3 equation-by-equation.** The strain-smoothed MITC3+ is implemented and has Rust
+   unit tests, but no equation-level section and no Python surface.
+2. **Decide the smoothed element's delivery.** It is not reachable from PyO3 or the assembler:
+   `grep -rn "union\|smoothed" crates/aeroelast-py/src crates/aeroelast-core/src/assembly`
+   returns nothing. Today it is a Rust kernel, not a usable element, so either it gets wired
+   and a Python test, or the gap is stated as deliberate.
+3. **§4.4 `quad.rs` citation.** Stated as a gap; needs a decision (cite a textbook source or
+   keep the gap explicit).
+4. **§4.5 alpha/beta sign** in the MITC3+ 2014 paper. Unresolved from the held copy; recorded
+   as open rather than guessed.
+5. **Bibliography.** `references.md`'s "Hughes, Taylor & Kanoknukulchai 1977" still carries
+   "DOI to verify. No held copy" in `shell-elements.md` §References item 2.
+6. **Minor:** `shell-elements.md` §References' closing paragraph still parenthetically lists
+   the Hughes-Brezzi attribution as a missing bibliography entry, but `references.md:104` now
+   has it; the paragraph is stale.
+
+None of 1-6 is a defect in the element or the suite. They are the honest residue of the
+documentation work, and the previous iteration's self-description ("left half-done") reads as
+this residue, not as unfinished core work.
