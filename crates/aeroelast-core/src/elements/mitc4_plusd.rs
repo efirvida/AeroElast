@@ -11293,4 +11293,95 @@ mod tests {
         }
     }
 
+
+    /// DIAGNOSTIC (temporary): per-block comparison of the strain's `B(0)` against the
+    /// element's VALIDATED linear operators, block by block, on flat elements at
+    /// `u = 0` where the answer is known to be zero.
+    ///
+    /// Baseline with the current strain: all four blocks agree to the finite
+    /// difference's own accuracy (~1e-11), which is what calibrates it.
+    ///
+    /// Applied to the iteration-26/27 wiring (the strain rebuilt from the printed
+    /// kinematics `gl_strain_increment`) it printed, at the machine-zero level for
+    /// membrane, b2 and shear, and the OFFENDER LIST below for the one wrong block:
+    ///
+    /// ```text
+    /// b1 row 1 (ss): cols dof 3 (theta_x)          ratio 4.000000e0, all four nodes
+    /// b1 row 2 (rs): cols dof 3, 4 (theta_x, y)    ratio 2.000000e0, all four nodes
+    /// b1 row 0 (rr): none -- exact
+    /// translation columns: exact
+    /// ```
+    ///
+    /// The factor depends on the STRAIN ROW and only on the ROTATION columns, so it is
+    /// neither a global `u_b1` factor nor a doubled `s1`: it is the in-plane index
+    /// structure of the `zeta`-derivative of Eq. (20c), i.e. of the `^t x_{b,i} . u_m,j`
+    /// term. That is the whole remaining gap.
+    #[test]
+    #[ignore = "diagnostic: per-block B(0) convention check"]
+    fn n_gamma_b_linear_block_check() {
+        for (name, c) in [("RECT", &RECT), ("FLAT_DISTORTED", &FLAT_DISTORTED)] {
+            let pre = pre_from(c);
+            let state = GlCurrentState {
+                coords: pre.initial_coords_3d,
+                vn: pre.vn,
+                v1: pre.v1,
+                v2: pre.v2,
+                a_i: pre.a_i,
+            };
+            let s1 = 2.0 / pre.thickness;
+            let s2 = 4.0 / (pre.thickness * pre.thickness);
+            println!("\n=== {name} ===");
+            for g in 0..N_GAUSS {
+                let (r, s) = (GAUSS_XI[g], GAUSS_ETA[g]);
+                let bl = n_gamma_b_matrix(&pre, &state, &Vec24::zeros(), r, s);
+                let bm = b_membrane_2017(&pre, r, s) + b_drill_membrane_2025(&pre, r, s);
+                let (bb1, bb2) = b_bending_2017(&pre, r, s);
+                let bs = b_shear_mitc4(&pre, r, s);
+                let (mut dm, mut sm, mut d1, mut s1m, mut d2, mut s2m, mut ds, mut ssm) =
+                    (0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64, 0.0f64);
+                for i in 0..3 {
+                    for j in 0..24 {
+                        dm = dm.max((bl[(i, j)] - bm[(i, j)]).abs());
+                        sm = sm.max(bm[(i, j)].abs());
+                        d1 = d1.max((bl[(3 + i, j)] - s1 * bb1[(i, j)]).abs());
+                        s1m = s1m.max((s1 * bb1[(i, j)]).abs());
+                        d2 = d2.max((bl[(6 + i, j)] - s2 * bb2[(i, j)]).abs());
+                        s2m = s2m.max((s2 * bb2[(i, j)]).abs());
+                    }
+                }
+                for i in 0..2 {
+                    for j in 0..24 {
+                        ds = ds.max((bl[(9 + i, j)] - bs[(i, j)]).abs());
+                        ssm = ssm.max(bs[(i, j)].abs());
+                    }
+                }
+                // The offending `b1` entries, by strain row and by DOF: the factor is
+                // a function of the ROW and appears only in the ROTATION columns.
+                for i in 0..3 {
+                    for j in 0..24 {
+                        let e = s1 * bb1[(i, j)];
+                        if e.abs() > 1e-9 * s1m {
+                            let r_ij = bl[(3 + i, j)] / e;
+                            if (r_ij - 1.0).abs() > 1e-6 {
+                                println!(
+                                    "      OFF b1 row {i} (node {} dof {}): ratio {r_ij:.6e}",
+                                    j / 6,
+                                    j % 6
+                                );
+                            }
+                        }
+                    }
+                }
+                let rl = |d: f64, m: f64| if m > 0.0 { d / m } else { 0.0 };
+                println!(
+                    "  g{g}: membrane {:.3e} | b1 {:.3e} | b2 {:.3e} | shear {:.3e}",
+                    rl(dm, sm),
+                    rl(d1, s1m),
+                    rl(d2, s2m),
+                    rl(ds, ssm)
+                );
+            }
+        }
+    }
+
 }

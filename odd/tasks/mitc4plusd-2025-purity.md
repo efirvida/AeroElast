@@ -1740,3 +1740,20 @@ exact. Note `4 = s1 * h = (2/h) * 2h` and `4 = 2^2`, so a doubled director incre
 reaching the `zeta`-difference twice, or an `s1` applied both inside
 `incremental_disp_gradients` and again at the row, are the two shapes to test first --
 with this instrument, one run each.
+
+**The offender list, measured.** With the wiring applied the instrument lists every
+offending `b1` entry. On the flat rectangle:
+
+```text
+b1 row 1 (ss):  cols dof 3 (theta_x)         ratio 4.000000e0   -- all four nodes
+b1 row 2 (rs):  cols dof 3, 4 (theta_x, theta_y)  ratio 2.000000e0  -- all four nodes
+b1 row 0 (rr):  none -- exact
+translation columns: exact
+```
+
+The factor is therefore a function of the STRAIN ROW (`rr` 1, `ss` 4, `rs` 2) and it
+appears ONLY in the rotation columns. It is not a global `u_b1` factor (the `rr` row
+would move with it), not a doubled `s1` (the translation columns would move), and not
+the engineering-vs-tensor doubling (that would touch the `rs` row alone, not `ss`). It is
+the in-plane index structure of the `zeta`-derivative of the printed Eq. (20c) -- the
+`^t x_{b,i} . u_{m,j}` term -- and that is the whole remaining gap.
