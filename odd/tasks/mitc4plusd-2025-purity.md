@@ -1184,6 +1184,118 @@ limits acceptance point 1).
 
 ---
 
+### Iteration 21 — the composite shear, the modal solver, and the last gate failures
+
+**Gate trajectory across this batch:** `341/10/2` (option B) → `346/5/2` → `347/4/2` → `348/3/2` →
+`349/2/2` → **`350/1/2`**. The single remaining failure is `test_kt_at_zero_equals_k[MITC4]`
+(`mat0` vs `rtol=1e-10`), whose disposition is already recorded: it stays red by decision, and the
+way to close it green is the analytic `B`/`N` route.
+
+**The composite transverse shear was WRONG, and ADR-1's own rationale was false.** ADR-1 reasoned
+that a multi-ply laminate's `cs` "is the equilibrium energy-equivalent section stiffness **with no
+scalar in it**", therefore it "passes through verbatim". The first clause is true of the *formula*
+and false of the *number*: the energy-equivalence branch derives `cs` from the piecewise-quadratic
+shear stress profile, and for a homogeneous stack that yields exactly `(5/6)·G·h`. Measured for four
+identical isotropic plies of `h/4`: `cs_55 = cs_44 = (5/6)·G·h`, `cs_45 = 0`, against the plain
+section integral `a_ij = Σ c̄s_ij t_k = G·h`. The isotropic path removed its `k` and landed on `G·h`;
+the composite path passed the corrected `cs` through — two models of the SAME homogeneous plate
+disagreeing by 20% in the shear block. The repository's own equivalence tests caught it:
+`test_material_suite::TestIsoEquivalence` at 3.434% (tolerance 1%) and
+`test_orthotropic_shell_parity::test_multi_layer_iso_equivalence` at 5.42% (tolerance 1e-4, and
+slow-marked, hence invisible to the `-m "not slow"` gate). A scalar cannot express the correction
+(the energy-equivalent `cs` is not a scalar multiple of the plain integral in general), so the
+material now supplies the **matrix**: `Laminate::shear_stiffness_uncorrected()`, carried by
+`MaterialSpec::Composite::cs_uncorrected` and overwritten onto `pre.cs_uncorrected` in the assembler.
+External confirmation that the uncorrected modulus is the right input: the element reproduces the
+published twisted-beam cells (a shear-locking benchmark) to 0.01-0.25% while its shear input is the
+uncorrected modulus. Commit `8cbfc0b`; ADR-1's amendment in `design.md` records the falsification.
+
+**The five test-side composite dict builders** still declared the corrected `cs`; they now supply
+`cs_uncorrected` (three as `Cs / k_s`, two via the accessor). Verified rather than assumed: the key
+is LIVE (multiplying it by 1e6 moves the assembled `K` trace by 2.06e+05 relative), and the three
+files stay at 33 passed, so those expectations genuinely do not depend on the shear correction and
+nothing was re-baselined. Commit `84bb65b`.
+
+**The modal failure was a PRODUCTION defect, not a tolerance miss.** `modal_solve` requested
+`n_modes + 5` eigenvalues from SLEPc and then discarded the margin with
+`min(nconv, n_modes)`. The filter and the truncation belong to the caller, and both callers already
+do them (`modal_solve_coo`: `filter(> 1e-8)` then `truncate`; the Python reference:
+`valid = eigvals > 1e-8` then `frequencies[:num_modes]`). Clamping before the filter hands the caller
+only the spurious modes, and a reduced shell system has them: measured raw payload on the SS plate
+8x8 (390 free DOFs), `-7.261e-06` and `-6.3442e-05` come FIRST. So `n_modes = 1` returned one
+spurious eigenvalue, the caller's filter left an empty list, and `test_analytical_convergence` raised
+`IndexError: index 0 is out of bounds for axis 0 with size 0` — recorded as a "numeric convergence"
+failure for months. And `n_modes = 6` returned 6 raw but only 4 physical frequencies, which
+`src/aeroelast/solvers/modal.py` logged as "N modes converged": a user asking for six modes got
+four, silently. Fix: return `nconv`. Commit `b40561d`.
+
+**The `3π/2` cell was the mesh, the third mis-sourcing of this kind.** C&S 185 §3.1 p. 10:
+"The cantilever is modeled with a **16 × 1 mesh**", and Eq. (27) gives the analytical tip
+displacements — which is exactly what the test's `_analytical_tip` implements. So the reference was
+right and the mesh was not (`n_elem = 10`). Measured at `λ = 3π/2` against Eq. (27)
+(`u_ref = -12.12207`, `w_ref = 2.12207`): `n = 10` → `9.84%` (fail); **`n = 16` (the paper's mesh) →
+`3.90%` (pass)**; `n = 32` → `1.06%`; `n = 48` → `0.52%`. Monotone convergence to the exact elastica.
+The 9.84% looked large only because `w_tip` is small (2.12) while the absolute error is ~0.21 — the
+same error is 1.7% on the `u_tip` reference of 12.12. No tolerance was widened. Commit `9f64e88`.
+
+Also in this batch: the non-vacuity guard for the modal comparison (`min(len(py), len(rs))` would
+have let an empty Rust result pass, `923260e`); the `_aeroelast` type stub plus a working
+`pyrightconfig.json` (`9acad27`, fixed in `2ee0ab4` — the first config carried an unrecognised
+`"comment"` key, which makes pyright ABORT config loading, so `stubPath` never took effect); and one
+`unsafe` block named inside `petsc_mat_get_size` only, because the four `from_raw` constructors have
+safe bodies where wrapping would produce `unused_unsafe` (`d5b533b`).
+
+### Iteration 22 — the two near-zero eigenvalues are round-off over a GENUINE 2-dimensional null space
+
+Instrument: the reduced SS-plate system is 390×390, so the whole spectrum can be computed densely and
+independently of SLEPc (scipy `eigh(K, M)`), and the null vectors can be inspected directly.
+
+| | value |
+| --- | --- |
+| `K` symmetry | `max\|K - K^T\|/max\|K\| = 0.000e+00` |
+| `M` | positive definite, `min eig = 6.31e-07` |
+| `λ_max` | `1.250566e+12` (so `ε·λ_max ≈ 2.8e-04`) |
+| scipy (dense, independent) | `+4.696e-05`, `+1.176e-04` |
+| SLEPc (`petsc_modal_solve`) | `-7.261e-06`, `-6.3442e-05` |
+| `\|λ\|/λ_max` | `3.755e-17`, `9.406e-17` — **below the matrix's own rounding floor** |
+| count `\|λ\|/λ_max < 1e-14` | **2** (same in both solvers) |
+
+**The VALUE is meaningless.** Two independent solvers agree on the pattern (exactly two eigenvalues
+below 1e-14) and DISAGREE ON THE SIGN, with both magnitudes under `ε·λ_max`. A number whose sign is
+solver-dependent is not an eigenvalue of anything; it is the rounding of a singular `K`.
+
+**The SINGULARITY is real, and it is a finding.** The two eigenvectors satisfy
+`\|K v\|/(\|K\| \|v\|) = 2.098e-16` and `1.018e-16`, i.e. `K v = 0` to machine precision, so `K` is
+rank-deficient by 2. Their structure is unambiguous — only `uz` and `rz` are non-zero, with EQUAL
+magnitudes at the same nodes:
+
+```text
+mode 0:  uz = 4.188e+01   rz = 4.188e+01   (everything else <= 4.2e-10)
+mode 1:  uz = 1.185e+02   rz = 1.185e+02   (everything else <= 1.4e-10)
+```
+
+over the 49 interior nodes plus the 16 edge nodes' free rotations (65 nodes with `\|v\| > 1e-3`), with
+`v^T M v = 1`. So the null space lives in the **(transverse displacement, drilling rotation)**
+subspace — precisely the DOF pair the 2025 drill is supposed to regularize.
+
+**Two consequences, one recorded assumption and one new open item.**
+
+1. The solver is correct *provided the null-space dimension stays below the `+5` convergence margin*.
+   With 2 it does, and the fix of `b40561d` (return every converged mode so the caller's filter can
+   discard the spurious ones and still truncate to `n_modes`) is what makes it work. That assumption
+   is now recorded rather than implicit.
+2. **OPEN:** for this boundary set (edge translations pinned, rotations free everywhere) the element
+   leaves **two genuine zero-energy `(uz, θz)` modes**, so a STATIC solve of that model would meet a
+   singular `K`. Whether that is a drill-term defect or a boundary-condition matter is not settled
+   here, and it is not a solver problem. It needs its own unit.
+
+**Also recorded, not fixed:** with `n_modes = 6` SLEPc converges 6 of the 11 requested, so after the
+filter 4 physical frequencies survive and the caller gets 4. That is no longer the clamp; it is SLEPc
+converging fewer than `nev` within the tolerance, and the honest disposition (retry with a larger
+`nev`, or document that fewer modes may be returned) is left open.
+
+---
+
 ## HANDOFF — state at the end of the session (2026-09-24)
 
 **Branch:** `test/physical-correctness`. **NOTHING committed this session** (last commit is the previous
