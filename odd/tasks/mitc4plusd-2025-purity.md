@@ -1999,3 +1999,29 @@ the Rust method set and the Python surface as three separate sets, because they 
 three different sets. And the full suite took 492 s instead of the usual 165 s on this run; the
 counts add up and nothing failed, so it is recorded as an environmental anomaly rather than
 explained away.
+
+### Iteration 34 — 12.3, 12.4 and the 13.1 close-out record
+
+12.3 and 12.4 are closed against their own stated conditions rather than against effort spent.
+12.3 asks for two things and both hold: 12.1's three scenarios pass against the rewritten
+section 2, and section 2 no longer presents the SRI split, the `k_drill` penalty or the ERC
+treatment as live. 12.4 is the `validation-matrix.md` refresh, and it turned up more than
+staleness.
+
+The matrix was assembled with `pdftotext -layout`, which is the method this project forbids --
+equations are read from the rendered page with vision, because the recovered scans have no text
+layer over their mathematics and extraction silently drops or reorders it. Table numbers usually
+survive that, equations do not, so the matrix now labels every cell a lead rather than evidence
+and names the cells this change re-read visually. That is a methodological correction in a
+production document, not a formatting nit.
+
+The two skips the matrix recorded as verified facts are both resolved: CCBlade 1.3.1 is
+installed so `test_bem_engine.py` runs (14 passed), and `test_blade_mesh.py`, which scanned a
+directory that does not exist and collected zero, now scans its own (1 passed). Totals went from
+`364 passed / 2 skipped` to **386 passed / 0 failed / 0 skipped**. The per-file table had drifted
+(`test_rust_assembler.py` is 19, not 18), so it was replaced by the reproducible collect command
+and an explicit drift note instead of a fresh table that would drift again unseen.
+
+13.1 is recorded with the three end states and their commands, including the provenance caveat
+that the Rust figure predates only documentation changes. What remains is 13.2 -- the bounded
+post-apply review and the lifecycle-gate decision -- which is a maintainer gate, and the archive.

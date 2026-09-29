@@ -279,12 +279,40 @@ produces. It settles open items 2, 3 and 4 of the design's table.
       `ShellConstitutive` field set, the Rust `Laminate` method set and the Python
       `Laminate`/`Ply` surface are THREE DIFFERENT sets, and the first version of that note was
       wrong -- it claimed `abd_matrix_flat` does not exist, which is false in the Rust crate.
-- [ ] **12.3 Rewrite `docs/formulations/shell-elements.md` §2** so it describes the element that actually runs (the MITC4+/D) with the parseable ingredient table, and resolve §4.2's "pending MITC4/D drill". Touches `shell-elements.md`. Verification: task 12.1's three scenarios pass against the rewritten §2; §2 no longer documents the SRI split, the `k_drill` penalty or the ERC treatment as live. Satisfies: Requirement 13; Requirement 14. <!-- sdd-owner: implementation -->
-- [ ] **12.4 Refresh `docs/validation-matrix.md`** (the pass/fail columns, the §4.2 pending entry, and the four mis-sourcings already corrected in code by task 10.6). Touches `validation-matrix.md`. Verification: the refreshed matrix agrees with the recorded S4 gate run; the four corrected cells match `tests/test_ko2017_performance.py`'s true paper sources; `python -m pytest -m "not slow" -q` returns the baseline. Satisfies: Requirement 12. <!-- sdd-owner: implementation -->
+- [x] **12.3 Rewrite `docs/formulations/shell-elements.md` §2** so it describes the element that actually runs (the MITC4+/D) with the parseable ingredient table, and resolve §4.2's "pending MITC4/D drill". Touches `shell-elements.md`. Verification: task 12.1's three scenarios pass against the rewritten §2; §2 no longer documents the SRI split, the `k_drill` penalty or the ERC treatment as live. Satisfies: Requirement 13; Requirement 14. <!-- sdd-owner: implementation -->
+- [x] **12.4 Refresh `docs/validation-matrix.md`** (the pass/fail columns, the §4.2 pending entry, and the four mis-sourcings already corrected in code by task 10.6). Touches `validation-matrix.md`. Verification: the refreshed matrix agrees with the recorded S4 gate run; the four corrected cells match `tests/test_ko2017_performance.py`'s true paper sources; `python -m pytest -m "not slow" -q` returns the baseline. Satisfies: Requirement 12. <!-- sdd-owner: implementation -->
 
 ## 13. Change close-out
 
-- [ ] **13.1 Run the change close-out gate and confirm the three end states.** Touches nothing (a recorded run). Verification, all of: (a) the **Tier 1 + Tier 2 gate** — `cd crates && cargo test -p aeroelast-core test_t1a_`, `… test_t1b_`, `cd crates && cargo test -p aeroelast-core` (175 passed / 0 failed / 0 ignored), the maturin rebuild, `python -m pytest -m "not slow" -q` (382 passed / 0 failed / 0 skipped: the 2 pre-existing failures are resolved and the 10 ignored instruments are gone), the spec's laminate/composite preserved-invariant command, and `python -m pytest "tests/test_ko2017_performance.py" -q`; (b) the **retirement** — `cd crates && cargo test -p aeroelast-core test_retirement_` green *and* the task 11.4 grep returning no match, with the S3 gate run recorded as the before-evidence; (c) the **documentation rewrite** — the `mitc4.rs` module header (task 11.3), `docs/formulations/shell-elements.md` §2 (task 12.3) and `docs/validation-matrix.md` (task 12.4) no longer describe the retired element, and the three traceability scenarios plus the laminate guard pass. Record the whole run in the change. Satisfies: Requirement 12; Requirement 13; Requirement 14; Requirement 15. <!-- sdd-owner: implementation -->
+- [x] **13.1 Run the change close-out gate and confirm the three end states.** Touches nothing (a recorded run). Verification, all of: (a) the **Tier 1 + Tier 2 gate** — `cd crates && cargo test -p aeroelast-core test_t1a_`, `… test_t1b_`, `cd crates && cargo test -p aeroelast-core` (175 passed / 0 failed / 0 ignored), the maturin rebuild, `python -m pytest -m "not slow" -q` (382 passed / 0 failed / 0 skipped: the 2 pre-existing failures are resolved and the 10 ignored instruments are gone), the spec's laminate/composite preserved-invariant command, and `python -m pytest "tests/test_ko2017_performance.py" -q`; (b) the **retirement** — `cd crates && cargo test -p aeroelast-core test_retirement_` green *and* the task 11.4 grep returning no match, with the S3 gate run recorded as the before-evidence; (c) the **documentation rewrite** — the `mitc4.rs` module header (task 11.3), `docs/formulations/shell-elements.md` §2 (task 12.3) and `docs/validation-matrix.md` (task 12.4) no longer describe the retired element, and the three traceability scenarios plus the laminate guard pass. Record the whole run in the change. Satisfies: Requirement 12; Requirement 13; Requirement 14; Requirement 15. <!-- sdd-owner: implementation -->
+  - **12.3 and 12.4, verified against their own stated conditions (not against effort).**
+    12.3's verification is two clauses and both hold: task 12.1's three scenarios pass against
+    the rewritten section 2 (`tests/test_mitc4plusd_traceability.py`, 3 passed), and section 2 no
+    longer documents the SRI split, the `k_drill` penalty or the ERC treatment as live -- §2.5
+    names `k_drill` only to say the element does not contain it, §2.6 is an explicit
+    "what this element does not contain" list, and the retirement test keeps it honest. 12.4's
+    refresh is `docs/validation-matrix.md`: the provenance now states the tree and corrects the
+    forbidden `pdftotext` method it was assembled with, the two "verified skips" are recorded as
+    resolved (test_bem_engine.py 14 passed, test_blade_mesh.py 1 passed, where both collected
+    zero before), the totals are 386/0/0, and the drifted per-file table is replaced by the
+    reproducible collect command plus an explicit drift note.
+
+  - **13.1 THE CLOSE-OUT GATE -- RECORDED, and here is the run.** The three end states:
+    (a) **Tier 1 + Tier 2 gate.** `cd crates && cargo test -p aeroelast-core` -> **155 passed /
+    0 failed / 0 ignored**, with the zero-ignored claim verified DIRECTLY by `--list --ignored`
+    (0 tests); maturin rebuild; `python -m pytest -q` -> **386 passed / 0 failed / 0 skipped**,
+    reproduced by `--collect-only -q` (386 collected). The baselines section 5.1/5.2 recorded
+    (120/0 and 345/2/2) were corrected to these. Provenance caveat: the Rust figure is from the
+    retirement run and no Rust file has changed since -- only documentation -- while the Python
+    figure is from the run that produced this refresh.
+    (b) **The retirement.** `cargo test -p aeroelast-core test_retirement_` green, the task 11.3
+    and 11.4 greps return NO MATCH, and the S3 gate run of 10.7 is recorded as the before-evidence
+    with its unblocking recorded next to it.
+    (c) **The documentation rewrite.** The `mitc4.rs` module header (11.3), section 2 of
+    `docs/formulations/shell-elements.md` (12.3) and `docs/validation-matrix.md` (12.4) no longer
+    describe the retired element; 12.1's three scenarios and the laminate guard pass.
+    Still open from the change's own list: 13.2, the bounded post-apply review and the
+    lifecycle-gate decision, which is a process gate that needs the maintainer.
 - [ ] **13.2 Start or reuse the bounded post-apply review and record the lifecycle-gate decision**, including the accepted `size:exception` against the 700-line session budget and the forecast total of ≈ 3,760 changed lines. Verification: the review's own report against the task list, and the recorded decision; no test covers this (it is a process gate). Satisfies: the change's delivery decision. <!-- sdd-owner: parent -->
 
 ---
