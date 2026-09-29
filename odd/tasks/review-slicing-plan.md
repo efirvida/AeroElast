@@ -139,3 +139,15 @@ a history rewrite of the branch, not a slice of it.
    grandfathered baseline by explicit maintainer exception.
 3. Do not re-run START on the whole-branch candidate: it is documented to fail, three times
    over, and the provider marks it `not_replayable` / `stop`.
+
+## Decision (maintainer, 2026-09-29)
+
+**The review budget is not the priority.** The requirement is that the MITC4+/D
+element stays physically correct and well documented; code cleanup is deferred to
+a later pass. The slicing plan above is therefore **parked, not executed**: it is
+kept so the option survives, not as a gate on the work.
+
+Nothing about this decision changes the code. The element, its tests and its
+documentation are already in the state the requirement asks for; see
+`docs/formulations/shell-elements.md` section 2 and `docs/validation-matrix.md`
+sections 3 and 4.7-4.9.
