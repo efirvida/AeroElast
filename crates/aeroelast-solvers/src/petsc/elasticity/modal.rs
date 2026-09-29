@@ -134,7 +134,22 @@ pub fn modal_solve(
             "EPSGetConverged",
         )?;
 
-        let n_converged = (nconv as usize).min(n_modes);
+        // Return EVERY converged eigenpair, NOT `min(nconv, n_modes)`.
+        //
+        // The physical filter (`> 1e-8`) and the truncation to `n_modes` belong
+        // to the caller, and both callers already do exactly that:
+        // `modal_solve_coo` in this crate (`filter(..)`, `sort_by`, `truncate`)
+        // and the Python reference `_python_modal_solve` (`valid = eigvals > 1e-8`
+        // then `frequencies[:num_modes]`). Clamping here, BEFORE that filter,
+        // throws away the `+5` margin requested just above and hands the caller
+        // only the spurious modes: a reduced shell system carries near-zero --
+        // and slightly negative -- eigenvalues, and with `EPS_TARGET_MAGNITUDE`
+        // those come FIRST. Measured on the simply-supported 8x8 plate
+        // (390 free DOFs), the two smallest are `-7.261e-06` and `-6.3442e-05`,
+        // so `n_modes = 1` returned a single spurious eigenvalue (the caller's
+        // filter then left an empty list, `IndexError`) and `n_modes = 6`
+        // returned 6 raw but only 4 physical frequencies -- silently short.
+        let n_converged = nconv as usize;
 
         let mut eigenvalues = Vec::with_capacity(n_converged);
         let mut eigenvectors = Vec::with_capacity(n_converged);
