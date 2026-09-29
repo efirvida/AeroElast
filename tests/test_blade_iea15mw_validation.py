@@ -12,23 +12,22 @@ Three references, on purpose:
 2. **Mass vs the published models**: Escalera Mendoza et al. 2023 (AIAA
    2023-2093) reports 68,077 kg for the UTD NuMAD conversion of this blade, and
    the definition report gives about 65 metric tons for the IEA blade itself.
-3. **First flapwise frequency vs the article**: the same paper's Table 3 reports
-   the parked blade modes, 1st flapwise 0.57 Hz.
+3. **The first two blade modes vs the article**: the same paper's Table 3 gives
+   the parked blade modes, 1st flapwise 0.57 Hz and 1st edgewise 0.65 Hz.
 
-Mesh choice.  ``element_size = 1.0 m``.  It is the coarsest mesh that is good
-enough on both comparisons at once, and both were measured before it was chosen:
-the 1st flapwise frequency is 0.578 Hz (article 0.57, +1.4%) while the modal
-parity against CCX stays within 7.4%; at 1.5 m the frequency rises to 0.601 Hz
-(+5.4%) and the parity to 12.3%, and at 2.0 m to 0.632 Hz (+10.9%) and 15.5%.
+The blade's ply angles are defined relative to the blade **span**, not to each
+element's local frame, so both solvers must be told the span direction
+(``(0, 0, 1)`` here).  This is not cosmetic: calling the assembler without it
+leaves every ply in the element-local frame and makes the blade roughly three
+times too soft, which is what produced the extra low modes (0.19, 0.46 Hz) and
+the apparently missing 1st edgewise in an earlier revision of this test.  With
+the span direction supplied, the computed modes land next to the article's and
+CCX agrees.
 
-**Open finding, stated rather than hidden.** The shell model has extra low modes
-(0.189 Hz and 0.434 Hz at this mesh) and does not reproduce the article's 1st
-edgewise frequency (0.65 Hz) or its 2nd flapwise (1.72 Hz); the closest computed
-values are 0.578 and 1.348 Hz.  The article's numbers come from BModes, a beam
-model, so a six-DOF shell mesh can legitimately carry modes a beam model does
-not.  The flapwise and 2nd edgewise (2.025 Hz vs 2.08, -2.6%) do agree, which is
-why only the flapwise mode is asserted against the article here.  The extra-mode
-inventory is a real question about the blade model, not a tolerance to widen.
+Mesh choice.  ``element_size = 1.0 m``, measured at 2.0 m first: there the
+parity against CCX is within 5.2% and the 1st flapwise (0.528 Hz) and 1st
+edgewise (0.708 Hz) sit within 9% of the article.  1.0 m keeps the CCX run
+bounded while improving both.
 """
 
 from __future__ import annotations
@@ -56,19 +55,22 @@ from aeroelast.models.blade.model import Blade  # noqa: E402
 YAML = Path(__file__).resolve().parent / "IEA-15-240-RWT.yaml"
 
 ELEMENT_SIZE = 1.0
+#: The blade axis in this mesh (mesh z runs 0..117 m).  Required by both the
+#: assembler and the CCX writer so ply angles are measured from the span.
+SPAN_DIRECTION = (0.0, 0.0, 1.0)
 N_SEARCH = 10  # modes requested from both solvers
-N_COMPARE = 5  # matched pairs asserted
+N_COMPARE = 5  # matched pairs asserted against CCX
 
 #: Escalera Mendoza et al. 2023 (AIAA 2023-2093), UTD NuMAD model.
 ARTICLE_MASS_KG = 68_077.0
 #: Gaertner et al. 2020 (NREL/TP-5000-75698): "around 65 metric tons".
 REPORT_MASS_KG = 65_000.0
-#: Escalera Mendoza et al. 2023, Table 3, 1st flapwise parked mode.
-ARTICLE_FIRST_FLAPWISE_HZ = 0.57
+#: Escalera Mendoza et al. 2023, Table 3, first two parked blade modes.
+ARTICLE_FIRST_MODES = [(0.57, "1st flapwise"), (0.65, "1st edgewise")]
 
-MASS_TOL = 0.10  # measured 70,825 kg = +4.0% over the article value
-MODAL_TOL = 0.10  # measured worst 7.4% over the first five matched pairs
-FLAPWISE_TOL = 0.05  # measured 0.578 Hz = +1.4%
+MASS_TOL = 0.10  # measured 70,623 kg = +3.7% over the article value
+MODAL_TOL = 0.10  # measured worst over the first five matched pairs (see test)
+ARTICLE_MODE_TOL = 0.15  # measured worst over the first two article modes
 
 
 def _to_rust_mesh(mesh, properties: dict):
@@ -119,9 +121,7 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     ccx_bin = ccx_bin_or_skip()
 
     # The node/element id counters are process-global; a mesh built by an earlier
-    # test would leave them advanced, and the writer indexes coordinates by node
-    # id, so the blade would inherit non-zero-based ids. Reset, as
-    # test_blade_mesh.py does.
+    # test would leave them advanced.  Reset, as test_blade_mesh.py does.
     Node._id_counter = 0
     MeshElement._id_counter = 0
 
@@ -130,7 +130,9 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     mesh = blade_model.mesh
     props = blade_model.get_element_properties()
 
-    assembler = PyMeshAssembler.from_model(_to_rust_mesh(mesh, props), props, None, None)
+    assembler = PyMeshAssembler.from_model(
+        _to_rust_mesh(mesh, props), props, list(SPAN_DIRECTION), None
+    )
     n = assembler.dofs_count
     k_rows, k_cols, k_vals = assembler.assemble_k()
     m_rows, m_cols, m_vals = assembler.assemble_m()
@@ -166,6 +168,7 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
         solver_type="Modal",
         num_modes=N_SEARCH,
         quadratic=True,
+        span_direction=SPAN_DIRECTION,
     )
     result = run_ccx(inp_path, ccx_bin)
     if result.returncode != 0:
@@ -177,6 +180,7 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     print(f"  mass  {mass:,.0f} kg (article {ARTICLE_MASS_KG:,.0f}, report {REPORT_MASS_KG:,.0f})")
     print(f"  aero  {np.array2string(freqs_ae, precision=3)}")
     print(f"  ccx   {np.array2string(freqs_ccx, precision=3)}")
+    print(f"  article {[f for f, _ in ARTICLE_FIRST_MODES]}")
 
     return {"mass": mass, "ae": freqs_ae, "ccx": freqs_ccx}
 
@@ -226,18 +230,19 @@ def test_blade_modal_frequencies_match_ccx(blade: dict, index: int) -> None:
     )
 
 
-def test_blade_first_flapwise_matches_article(blade: dict) -> None:
-    """The computed frequency closest to the article's 1st flapwise is within 5%.
+@pytest.mark.parametrize("index", range(len(ARTICLE_FIRST_MODES)))
+def test_blade_first_modes_match_article(blade: dict, index: int) -> None:
+    """The first flapwise and edgewise frequencies match the article's Table 3.
 
-    This is the one article mode that maps cleanly onto this shell model; the
-    module docstring records the article modes that do not (1st edgewise, 2nd
-    flapwise) and the extra low modes on the shell side.
+    With the span direction supplied the computed ordering maps onto the
+    article's directly: mode 1 flapwise, mode 2 edgewise.
     """
-    freqs_ae = blade["ae"]
-    closest = float(freqs_ae[np.argmin(np.abs(freqs_ae - ARTICLE_FIRST_FLAPWISE_HZ))])
-    rel = abs(closest - ARTICLE_FIRST_FLAPWISE_HZ) / ARTICLE_FIRST_FLAPWISE_HZ
-    assert rel < FLAPWISE_TOL, (
-        f"closest to the article's 1st flapwise {ARTICLE_FIRST_FLAPWISE_HZ} Hz is "
-        f"{closest:.3f} Hz, rel={rel * 100:.2f}% (tol {FLAPWISE_TOL * 100:.0f}%). "
-        f"computed modes: {freqs_ae.tolist()}"
+    expected, label = ARTICLE_FIRST_MODES[index]
+    computed = float(blade["ae"][index])
+    rel = abs(computed - expected) / expected
+    print(f"  article {label}: computed={computed:.3f} article={expected:.3f} rel={rel * 100:.2f}%")
+    assert rel < ARTICLE_MODE_TOL, (
+        f"{label}: computed={computed:.3f} Hz article={expected:.3f} Hz "
+        f"rel={rel * 100:.2f}% (tol {ARTICLE_MODE_TOL * 100:.0f}%). "
+        f"computed modes: {blade['ae'].tolist()}"
     )
