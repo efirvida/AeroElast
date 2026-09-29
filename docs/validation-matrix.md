@@ -64,10 +64,10 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-Measured on this tree with `python -m pytest -q` -> **414 passed, 0 failed, 0 skipped**:
+Measured on this tree with `python -m pytest -q` -> **415 passed, 0 failed, 0 skipped**:
 386 at `e879eba` plus `test_composite_layup_parity.py` (18), `test_blade_iea15mw_validation.py`
-(7) and `test_ccx_writer_ids.py` (3). Reproduced by `python -m pytest --collect-only -q`
--> `414 tests collected`. The Rust side is green too:
+(8) and `test_ccx_writer_ids.py` (3). Reproduced by `python -m pytest --collect-only -q`
+-> `415 tests collected`. The Rust side is green too:
 `cargo test --manifest-path crates/Cargo.toml -p aeroelast-core` -> **155 passed,
 0 failed, 0 ignored** (the Cargo workspace root is `crates/`, not the repository root).
 
@@ -96,7 +96,7 @@ Four files the first version did not cover at all are added: `test_large_rotatio
 
 Two more files were added after the first refresh and are described in 4.7 and 4.8:
 `test_composite_layup_parity.py` (18, composite layups and their modal frequencies against
-CCX S8R), `test_blade_iea15mw_validation.py` (7, the IEA 15 MW blade against CCX and the
+CCX S8R), `test_blade_iea15mw_validation.py` (8, the IEA 15 MW blade against CCX and the
 Escalera Mendoza 2023 article) and `test_ccx_writer_ids.py` (3, the CCX writer's id-scheme
 invariance, section 4.9).
 
@@ -243,23 +243,25 @@ CLT-analytical or invariant checks.
 | `test_symmetric_laminates_have_no_b_coupling[sym_0_90s, quasi_iso]` | B = 0 control: symmetric laminates stay flat | **CCX 2.23, S8R** plus an absolute bound | 1e-11 absolute | aero ~1e-19, ccx ~1e-13 | an absolute bound because both sides are round-off; a relative test here would divide by zero |
 | `test_modal_frequencies_match_ccx[5 layups]` | first five matched eigenfrequencies of the clamped-free strip | **CCX 2.23, S8R** `*FREQUENCY` | 3% | worst 1.26% (`uni_0`, 8x20 mesh) | the modal case runs on 8x20, not 4x10: at 4x10 the highest matched `uni_0` mode is 6.72% off, refining to 1.26% at 8x20 and 0.53% at 16x40. Matching is Hungarian over 10 requested modes |
 
-### 4.8 `test_blade_iea15mw_validation.py` (7)
+### 4.8 `test_blade_iea15mw_validation.py` (8)
 
 The IEA 15 MW reference blade, meshed from `tests/IEA-15-240-RWT.yaml` with this repository's
 own `Blade` model at `element_size = 1.0` and given the composite shell properties the model
 derives. Three references on purpose: CCX S8R on the same mesh (tight), the published mass, and
-the published 1st flapwise frequency. Runtime is ~3.5 min, dominated by the CCX modal run.
+the published first two modes. Runtime is ~3.2 min, dominated by the CCX modal run.
+
+**Both solvers must be told the span direction** (`(0, 0, 1)` here). The blade's ply angles are
+defined relative to the span, and the assembler uses it to compute a per-element angle offset;
+without it every ply sits in the element-local frame, the blade comes out about three times too
+soft, and the first modes are 0.188 / 0.440 Hz with no 1st edgewise. That was a setup error in
+the first revision of this test, not a property of the shell model, and the corrected setup is
+what the numbers below measure.
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
 | `test_blade_mass_matches_published_models` | total elemental mass of the meshed blade | **Escalera Mendoza et al. 2023 (AIAA 2023-2093)**: 68,077 kg for the UTD NuMAD conversion; **Gaertner et al. 2020 (NREL/TP-5000-75698)**: about 65 t | 10% vs the article, and above the report but within 20% | **70,623 kg** = +3.7% over the article, +8.7% over the report | the article's own conversion is +4.33% over the report, so being above it is expected and asserted as a sign, not parity |
-| `test_blade_modal_frequencies_match_ccx[0..4]` | first five matched eigenfrequencies of the clamped-root blade | **CCX 2.23, S8R** modal on the identical mesh and properties | 10% | worst 4.88%; all five: 1.85%, 1.93%, 2.49%, 3.97%, 4.88% | pairing is Hungarian over 10 requested modes |
-| `test_blade_first_flapwise_matches_article` | the computed frequency closest to the article's first flapwise mode | **Escalera Mendoza et al. 2023, Table 3**: 0.57 Hz | 5% | 0.576 Hz = +1.4% | **OPEN FINDING, documented in the module docstring**: the shell model has extra low modes (0.188, 0.440 Hz) and does not reproduce the article's 1st edgewise (0.65 Hz) or 2nd flapwise (1.72 Hz), because those come from BModes, a beam model. Only the mode that maps cleanly is asserted |
-
-The CCX modal parity is 10% rather than the ~1% the composite strip reaches because the blade
-mesh is coarse relative to the higher mode shapes: the same comparison measured 12.3% at
-`element_size = 1.5` and 15.5% at 2.0, and 1.0 m is the coarsest mesh that is simultaneously
-good for the article's flapwise frequency (0.576 Hz) and for CCX parity.
+| `test_blade_modal_frequencies_match_ccx[0..4]` | first five matched eigenfrequencies of the clamped-root blade | **CCX 2.23, S8R** modal on the identical mesh, properties and span direction | 10% | worst 1.65%; all five: 0.44%, 0.71%, 0.78%, 0.84%, 1.65% | pairing is Hungarian over 10 requested modes |
+| `test_blade_first_modes_match_article[flapwise, edgewise]` | the first two computed frequencies | **Escalera Mendoza et al. 2023, Table 3**: 0.57 Hz (1st flapwise), 0.65 Hz (1st edgewise) | 15% | 0.526 Hz (-7.6%) and 0.702 Hz (+8.1%) | with the span direction supplied the ordering maps directly onto the article's: the shell model is 7.6% softer than the BModes beam on flapwise and 8.1% stiffer on edgewise, which is the expected direction for a shell that restrains cross-section warping. The 2.0 m mesh gave the same ordering (0.528 / 0.708) |
 
 ### 4.9 `test_ccx_writer_ids.py` (3)
 
