@@ -403,7 +403,18 @@ class TestSimplySupportedPlate:
 
         print(f"\n  SS Plate ({self.nx}x{self.ny}) — {len(self.free_dofs)} free DOFs")
         print(f"  {'Mode':>4s}  {'Python [Hz]':>14s}  {'Rust [Hz]':>14s}  {'Rel.Err':>10s}")
+        # Non-vacuity guards. `min(len(py), len(rs))` means an EMPTY Rust result
+        # would compare two empty slices and pass -- which is how the sibling
+        # `test_analytical_convergence` failure hid for months behind an
+        # `IndexError` instead of a clear message. These assertions are a
+        # strengthening, not a relaxation: no tolerance moves.
+        assert len(rs_freq) > 0, "Rust modal solve returned no frequencies"
+        assert len(py_freq) > 0, "Python modal solve returned no frequencies"
         n = min(len(py_freq), len(rs_freq))
+        assert n == len(rs_freq), (
+            f"Python returned {len(py_freq)} modes but Rust only {len(rs_freq)}: "
+            f"min() would silently compare fewer modes than Rust produced"
+        )
         for i in range(n):
             err = abs(py_freq[i] - rs_freq[i]) / py_freq[i] if py_freq[i] > 0 else 0
             print(f"  {i + 1:4d}  {py_freq[i]:14.4f}  {rs_freq[i]:14.4f}  {err:10.2e}")
