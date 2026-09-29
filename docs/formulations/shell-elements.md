@@ -141,13 +141,13 @@ handled by the assumed MITC4 field alone, and the drilling degree of freedom by 
 | Code (`mitc4.rs`) | Paper and equation | Verified |
 | --- | --- | --- |
 | `gl_strain_increment`, `gl_assumed_mid_metric` | Ko, Lee & Bathe (2017), Eqs. (9) and (21a)–(21c) | yes, term by term |
-| membrane tying points (A)–(E) | Ko et al. (2017), Fig. 4 | structurally: the five parametric positions in §2.3 |
+| `gl_tying_metrics` — the five tying points (A)–(E) | Ko et al. (2017), Fig. 4 | structurally: the five parametric positions in §2.3 |
 | `compute_membrane_coefficients_2017` | Ko et al. (2017), Eq. (24) and the block after Eq. (27c) | yes, term by term (§2.3) |
 | `b_membrane_2017` rows `rr`, `ss`, `rs` | Ko et al. (2017), Eqs. (27a)–(27c) | yes, term by term (§2.3) |
 | `b_shear_mitc4` | Dvorkin & Bathe (1984), Eq. (3), reproduced unnumbered in Ko et al. (2017) §2 | partially — §2.4 states exactly what could not be read |
 | `b_drill_membrane_2025`, `drill_midside_shape_derivatives` | Ko, Bathe & Zhang (2025), Eqs. (18) and (26) | yes: the operator and the strain it multiplies |
-| `compute_ke_local`, `compute_ke_global` | 2 × 2 × 2 Gauss, no numerical factor | yes |
-| `compute_k_sigma_global` | the geometric stiffness consistent with the Green–Lagrange kinematics above | yes, by the Newton tangent tests |
+| `compute_ke_local`, `compute_ke_global` | Ko, Lee & Bathe (2017), p. 410 — 2 × 2 × 2 Gauss, no numerical factor | yes |
+| `compute_k_sigma_global` | Ko, Lee & Bathe (2017) — the finite-rotation formulation whose geometric stiffness is consistent with the Green–Lagrange kinematics above | yes, by the Newton tangent tests |
 
 Where the table says "partially", the missing part is named in the section it points
 to and is never presented as verified.
