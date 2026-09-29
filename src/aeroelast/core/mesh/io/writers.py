@@ -778,6 +778,11 @@ def _build_quadratic_mesh_data(mesh: "MeshModel", quad_ccx_type: str = "S8R") ->
     """
     nodes = np.array([[n.x, n.y, n.z] for n in mesh.nodes])
     n_original = len(nodes)
+    # Node ids are not guaranteed to be 0-based contiguous: the entity id
+    # counters are process-global.  Index the coordinate array through the
+    # id->index map and emit 1-based *index* labels, so the deck stays
+    # self-consistent for any id scheme.
+    node_index = mesh.node_id_to_index
 
     edge_to_mid: Dict[tuple, int] = {}
     new_nodes: list = []
@@ -788,14 +793,15 @@ def _build_quadratic_mesh_data(mesh: "MeshModel", quad_ccx_type: str = "S8R") ->
         if mid is not None:
             return mid
         mid = n_original + len(new_nodes)
-        new_nodes.append((nodes[n1] + nodes[n2]) / 2.0)
+        new_nodes.append((nodes[node_index[n1]] + nodes[node_index[n2]]) / 2.0)
         edge_to_mid[edge] = mid
         return mid
 
     elements: list = []
     for el in mesh.elements:
-        nids = el.node_ids  # 0-based
+        nids = el.node_ids
         etype = el.element_type.name
+        corners = [node_index[n] + 1 for n in nids]
 
         if etype == "triangle":
             m01 = _get_midside(nids[0], nids[1])
@@ -804,7 +810,7 @@ def _build_quadratic_mesh_data(mesh: "MeshModel", quad_ccx_type: str = "S8R") ->
             elements.append(
                 (
                     "S6",
-                    [nids[0] + 1, nids[1] + 1, nids[2] + 1, m01 + 1, m12 + 1, m20 + 1],
+                    [corners[0], corners[1], corners[2], m01 + 1, m12 + 1, m20 + 1],
                 )
             )
         elif etype == "quad":
@@ -816,10 +822,10 @@ def _build_quadratic_mesh_data(mesh: "MeshModel", quad_ccx_type: str = "S8R") ->
                 (
                     quad_ccx_type,
                     [
-                        nids[0] + 1,
-                        nids[1] + 1,
-                        nids[2] + 1,
-                        nids[3] + 1,
+                        corners[0],
+                        corners[1],
+                        corners[2],
+                        corners[3],
                         m01 + 1,
                         m12 + 1,
                         m23 + 1,
@@ -829,7 +835,7 @@ def _build_quadratic_mesh_data(mesh: "MeshModel", quad_ccx_type: str = "S8R") ->
             )
         else:
             ccx_type = ELEMENTS_TO_CALCULIX.get(etype, etype)
-            elements.append((ccx_type, [n + 1 for n in nids]))
+            elements.append((ccx_type, corners))
 
     # Build extra midside nodes for node sets (edge between two set members)
     node_set_extra: Dict[str, list] = {}
@@ -894,7 +900,9 @@ def _write_ccx_msh_file(
                     ccx_type = ELEMENTS_TO_CALCULIX[el_type_name]
                     f.write(f"*ELEMENT, TYPE={ccx_type}, ELSET=Eall\n")
                     for i, el in elements:
-                        node_ids_str = ", ".join(str(n + 1) for n in el.node_ids)
+                        node_ids_str = ", ".join(
+                            str(mesh.node_id_to_index[n] + 1) for n in el.node_ids
+                        )
                         f.write(f"{i + 1:8d}, {node_ids_str}\n")
 
 
@@ -907,10 +915,18 @@ def _write_ccx_nam_file(
 ) -> None:
     """Write the .nam file containing node sets and element sets."""
     with open(filename, "wt") as f:
+        # Labels in the .msh are 1-based *indices* into mesh.nodes / mesh.elements
+        # (see _write_ccx_msh_file), not the entity ids.  Map through the
+        # id->index tables here so the sets point at the elements that exist.
+        node_index = mesh.node_id_to_index
+        elem_index = mesh.element_id_to_index
+
         # Write element sets
         for name, element_set in mesh.element_sets.items():
             f.write(f"*ELSET, ELSET=E{name.upper()}\n")
-            labels = [el_id + 1 for el_id in element_set.element_ids]
+            # sorted: element_set.element_ids comes from a set, and a deck whose
+            # label order changes between runs is not reproducible.
+            labels = sorted(elem_index[el_id] + 1 for el_id in element_set.element_ids)
             for chunk in split_func(labels):
                 f.write(", ".join(f"{e:8d}" for e in chunk) + "\n")
 
@@ -922,7 +938,7 @@ def _write_ccx_nam_file(
                         continue
                     bucket_elset = _bucket_elset_name(set_name, bucket_tenths)
                     f.write(f"*ELSET, ELSET=E{bucket_elset.upper()}\n")
-                    labels = [el_id + 1 for el_id in elem_ids]
+                    labels = sorted(elem_index[el_id] + 1 for el_id in elem_ids)
                     for chunk in split_func(labels):
                         f.write(", ".join(f"{e:8d}" for e in chunk) + "\n")
 
@@ -930,7 +946,7 @@ def _write_ccx_nam_file(
         ns_extra = quadratic_data["node_set_extra"] if quadratic_data else {}
         for name, node_set in mesh.node_sets.items():
             f.write(f"*NSET, NSET=N{name.upper()}\n")
-            labels = sorted([n_id + 1 for n_id in node_set.node_ids])
+            labels = sorted([node_index[n_id] + 1 for n_id in node_set.node_ids])
             extras = ns_extra.get(name, [])
             if extras:
                 labels = sorted(labels + extras)

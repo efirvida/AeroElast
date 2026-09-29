@@ -49,6 +49,7 @@ from _aeroelast import MeshModel as RustMeshModel  # noqa: E402
 from _aeroelast import PyMeshAssembler, modal_solve_coo  # noqa: E402
 
 from _ccx_io import fail_ccx, parse_ccx_frequencies, run_ccx  # noqa: E402
+from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
 
@@ -116,6 +117,13 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     Returns the mass, the AeroElast frequencies and the CCX frequencies.
     """
     ccx_bin = ccx_bin_or_skip()
+
+    # The node/element id counters are process-global; a mesh built by an earlier
+    # test would leave them advanced, and the writer indexes coordinates by node
+    # id, so the blade would inherit non-zero-based ids. Reset, as
+    # test_blade_mesh.py does.
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
 
     blade_model = Blade(str(YAML), element_size=ELEMENT_SIZE)
     blade_model.generate_mesh()
