@@ -909,9 +909,9 @@ red, and a green suite does not remove a flag.
 | `test_shell_convergence.py` | `test_composite_laminate_gap_mesh_study` | **RESOLVED** — now asserts the AeroElast self-convergence order (`>= 1.5`), a 5% bound on every mesh gap, a 2% bound on the finest-mesh gap, and that refinement does not increase the gap |
 | `test_shell_comprehensive.py:609` | `TestNonlinearStaticCantilever::test_large_displacement_tip_load` | `assert abs(dz_lin) > L` on a linear estimate of 1.121e+02 m |
 | `test_shell_validation_fixed.py:280` | `TestNonlinearStatic::test_geometric_nonlinearity` | `assert dz_lin > L`, same value |
-| `test_stress_stiffened_solver.py:256` | `test_stress_field_dict_from_recovery` | `len(stress_field) > 0` where the field is built from a prescribed `u = 5e-3 x` |
-| `test_stress_stiffened_solver.py` | `test_update_interval_skips_rebuild` | `result_5 is None or isinstance(result_5, PETSc.Mat)` — the second disjunct exhausts the return type |
-| `test_stress_stiffened_solver.py` | `test_keff_with_KG_larger_than_without` | strict `>` between two diagonal sums |
+| `test_stress_stiffened_solver.py` | `test_stress_field_dict_from_recovery` | **RESOLVED** — now asserts the closed-form plane-stress values (`sigma_xx = E/(1-nu^2) eps`, `sigma_yy = nu sigma_xx`, `sigma_xy = 0`) for every one of the 16 elements |
+| `test_stress_stiffened_solver.py` | `test_update_interval_skips_rebuild` | **RESOLVED** — the displacement now strains (a uniform translation made step 5 return `None`); step 3 must skip and step 5 must return a *new* `PETSc.Mat` |
+| `test_stress_stiffened_solver.py` | `test_keff_with_KG_larger_than_without` | **RESOLVED** — asserts the elementwise `diag(K_G_red) >= 0` (no DOF loses stiffness), a positive total increase, a correction-sized bound, and linearity of the `K_G` trace in the prescribed stress |
 | `test_rust_modal.py:305` | `test_mode_shapes_orthogonal` | `assert norm > 1e-10` |
 | `test_rotor_inertial.py:481` | `test_force_transform_and_inertial_combination` | `assert total_mag > 0` |
 | `test_force_projection.py:333` | `test_single_node_per_strip` | `np.all(np.abs(forces[:, 0]) > 0)` — sign-blind |
