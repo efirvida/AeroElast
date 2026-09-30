@@ -74,18 +74,18 @@ number.
 
 ## Index
 
-Six groups, 35 files, 414 tests. Every collected test node is accounted for below;
+Six groups, 36 files, 415 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Ko, Lee, Lee & Bathe 2017 benchmarks | [§3](#3-teststest_ko2017_performancepy-ko-lee-lee--bathe-2017) | 1 | 31 | 31 | 0 | 0.01% – 2.73% | 0 |
-| CCX parity | [§4](#4-ccx-parity-group) | 10 | 67 | 67 | 0 | 0.37% – 12.57% | 7 |
+| CCX parity | [§4](#4-ccx-parity-group) | 11 | 68 | 68 | 0 | 0.37% – 12.57% | 7 |
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
 | Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 10 | 151 | 151 | 0 | 0.45% – 1.68% | 1 |
 | Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
 | BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 58 | 58 | 0 | 0.33% – 40.00% | 1 |
-| **Total** | | **35** | **414** | **414** | **0** | | **9** |
+| **Total** | | **36** | **415** | **415** | **0** | | **9** |
 
 **A large margin is not a failure.** `passed = 441, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -234,7 +234,7 @@ The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 9
 (16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
 Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
 the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
-the diagnostic failures of §13.2. The collected suite is now **414 tests**. Earlier, for
+the diagnostic failures of §13.2. The collected suite is now **415 tests**. Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
 1025.15s. The Rust side is green too: `cargo test --manifest-path crates/Cargo.toml -p
 aeroelast-core` -> **155 passed, 0 failed, 0 ignored** (the Cargo workspace root is `crates/`,
@@ -309,6 +309,7 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_ccx_shell_element_types_parity.py` | 4 | §4.6 |
 | `test_composite_layup_parity.py` | 18 | §4.7 |
 | `test_blade_iea15mw_validation.py` | 18 | §4.8 |
+| `test_blade_iea15mw_mesh_convergence.py` | 1 | §4.8b |
 | `test_ccx_writer_ids.py` | 3 | §4.9 |
 | `test_shell_analytical_validation.py` | 11 | §5.1 |
 | `test_shell_comprehensive.py` | 7 | §5.2 |
@@ -335,7 +336,7 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_force_projection.py` | 10 | §8.3 |
 | `test_bem_openfast_parity.py` | 13 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
-| **35 files** | **414** | |
+| **36 files** | **415** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -522,6 +523,23 @@ what the numbers below measure.
 | `test_blade_modal_frequencies_match_bernardi[0..7]` | the first eight matched frequencies | **Bernardi et al., Wind Energy Science preprint `wes-2025-120`, Table 2**: 0.5369 / 0.7267 / 1.577 / 2.267 / 3.113 / 3.642 / 4.571 / 5.385 Hz (1F, 1E, 2F, 2E, 3F, 1T, 3E, 4F) | 15% | worst 12.3% (highest pair); lower modes 1.9% / 3.4% / 4.4% / 5.3% / 5.8% / 6.8% / 9.8% | an independent beam-based CSD reference from the FSI literature; pairing is Hungarian over 10 computed modes. The shell sits progressively above the beam as the modes go up, the expected direction for a shell that restrains cross-section warping |
 | `test_blade_static_tip_deflection_matches_ccx` | static flapwise tip deflection under a uniform load scaled to the article's DLC 1.4 root moment | **CCX 2.23, S8R** static on the identical mesh, properties and span direction | 15% | aero 21.69 m vs ccx 22.10 m = 1.9% | – |
 | `test_blade_static_deflection_matches_article_dlc` | the same tip deflection against the article's reported value | **Escalera Mendoza et al. 2023, section V**: DLC 1.4 max root moment 90.4 MNm, max out-of-plane tip deflection 23.49 m | 15% | 21.69 m = -7.7% | the load distribution is a **proxy** (DLC 1.4 is aero-elastic); with the root moment matched, the tip deflection is the comparable quantity. A uniform-cantilever beam estimate from the article's own 1st flapwise frequency is **not usable** here: 0.46 m against the shell's 7.5 m for a tip load, a factor of 14, because the blade tapers hard and the tip-load compliance is dominated by the soft outboard section |
+
+### 4.8b `test_blade_iea15mw_mesh_convergence.py` (1)
+
+The same AeroElast-vs-CCX modal comparison as §4.8, repeated on a **2.0 / 1.0 / 0.5 m** mesh
+sequence to show that the residual gap is discretisation, not a floor. Marked ``slow``
+(~11 min, three CCX modal solves). The matched-mode gap falls monotonically on every one of the
+eight modes, and the 0.5 m mesh is bounded:
+
+| element_size | nodes | matched-mode gap range |
+| --- | --- | --- |
+| 2.0 m | 1460 | 1.10% - 5.85% |
+| 1.0 m | 3043 | 0.44% - 2.62% |
+| 0.5 m | 9277 | 0.08% - 2.12% |
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_blade_modal_gap_converges_with_mesh` | the AeroElast-vs-CCX matched-mode gap falls from 2.0 m to 1.0 m to 0.5 m, and the 0.5 m gap is bounded | **CCX 2.23, S8R** modal at each mesh | `FINEST_GAP_TOL = 0.025` plus strict per-mode monotonicity | finest worst 2.12%; every mode decreases coarse -> medium -> fine | the evidence that the §4.8 1.0 m CCX gap is discretisation, not a shell-vs-CCX floor |
 
 ### 4.9 `test_ccx_writer_ids.py` (3)
 
