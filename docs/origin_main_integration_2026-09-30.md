@@ -294,6 +294,33 @@ moved are the small-geometry unit cases.
 | hours-days | the G4 FSI campaigns: yaw 0-40°, V-06, parked, B1/B2 h/dt |
 | report upstream | the MITC4 `K_G` unit mismatch; the two over-specified assertions in `test_blade_iea15mw_mesh_convergence.py`; the composite `0.819` known-behaviour back-out |
 
+### D-quinquies. The work-based convergence scalar, and the issue filed
+
+**The MITC4 `K_G` unit mismatch is reported upstream**: `efirvida/AeroElast#7`, with
+a reproducer that uses only this repository's public API -- one element, one stress,
+two thicknesses -- so it does not depend on the FSI path this branch adds.  The
+reproducer against `2fd847d`: MITC4's `|K_sigma|` is the same for h = 0.10 and
+h = 0.01 (ratio 1.000 where the theory wants 10), while MITC3 scales correctly
+(10.000).  The FSI numbers (S-4's +276%, the S-6 NaN, the +4.3%-against-+4.2%
+cross-check) are carried in the issue as context, labelled as coming from a
+downstream branch.
+
+The node-mean tip displacement only had a readable *trend* (flap reads 7.55 / 7.94
+/ 7.12 m across the meshes), so `tools/blade_ccx_convergence.py` now also reports
+the work done by the load, `W = 1/2 sum f_i . u_i`, a global scalar whose two load
+representations converge to the same uniform traction:
+
+| element_size | nodes | flap | edge | axial |
+|---|---|---|---|---|
+| 2.0 | 1 460 | 10.70% | 11.65% | 14.55% |
+| 1.0 | 3 043 | 6.38% | 5.17% | 9.52% |
+| 0.5 | 9 277 | **3.87%** | **1.55%** | **7.73%** |
+
+Every column falls with the mesh, so the convergence claim now rests on the global
+scalar rather than on a node-count-dependent average.  Axial settles slowest, as
+expected: the resultant is spread over the tip section, so its convergence carries
+the section's local distortion too.
+
 ### C. A deliberate semantic change
 
 `assemble_kt_corotational`'s MITC4 path now uses upstream's total-Lagrangian tangent
