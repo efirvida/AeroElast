@@ -178,6 +178,36 @@ finite entries, symmetry, and "local equals the local transform" -- none pins th
 magnitude or the units, so the mixed convention passes all four.  This is worth
 reporting upstream.
 
+### D-bis. Our own blade CCX test: a metric bug, and one real finding (2026-09-30)
+
+`tests/test_blade_ccx_parity.py` is ours, and it was failing on all five cases with
+78-89% gaps.  Two defects of its own, plus one real question:
+
+1. **The metric compared two different node sets.**  `_tip_metrics` derived its
+   index list as `sorted(disp_nodes)`, and while the CalculiX side passes only the
+   tip nodes, the AeroElast side passed a dict covering every node.  AeroElast's
+   "tip" displacement was therefore the mean over the whole blade (1.796 m) against
+   CalculiX's real tip (8.469 m).  With the tip set named on both sides the flap
+   case is **6.3% apart** and the two axial cases 17.0% -- inside the 20% band.
+2. **The twist was noise.**  A least-squares rotation over the thin tip ring has a
+   tiny denominator; the CalculiX side of the flap case returns +70 deg, which no
+   1e5 N flap load produces.  The twist is now reported, not asserted.
+3. **`tip_torsion` is not comparable.**  The CalculiX writer has no validated
+   couple path: sending the moment as a `*CLOAD` on the sixth DOF makes CalculiX
+   return 418 m and a -42826 deg "twist".  Removed from the case list with the
+   reason recorded; it belongs with S-7/S-8, which use a force couple.
+
+**Still red, on purpose: `tip_edge`.**  AeroElast gives 1.229 m where CalculiX
+gives 3.450 m (64%), while flap matches to 6%.  The flap/edge stiffness ratio is
+6.5 for AeroElast and 2.5 for CalculiX, so the disagreement is in the section's
+**edgewise** stiffness -- a question about the laminate mapping, and the first
+item on the delta list below.
+
+The stronger evidence sits in upstream's own suite: on this tree
+`test_blade_iea15mw_validation.py` passes its flapwise static tip against CCX and
+all five modal frequencies against CCX S8R (11 passed, 7 xfailed by declared
+limits).  The blade pipeline and the element are verified there.
+
 ### C. A deliberate semantic change
 
 `assemble_kt_corotational`'s MITC4 path now uses upstream's total-Lagrangian tangent
