@@ -4,8 +4,9 @@ Three test groups:
 
 ``TestMapOmegaProvider``
     Unit tests for ``_map_omega_provider()`` — verifies that each Python
-    OmegaProvider subclass maps correctly to the Rust parameter tuple.
-    No PETSc or preCICE required.
+    OmegaProvider subclass maps correctly to the Rust parameter tuple.  Calls
+    the real ``LinearDynamicFSIRotorSolver._map_omega_provider``; skips when
+    PETSc/preCICE are unavailable.
 
 ``TestUseRustFlag``
     Verifies ``use_rust: true/false`` in the YAML is picked up by
@@ -82,63 +83,28 @@ _skip_rust = pytest.mark.skipif(
 
 
 # ---------------------------------------------------------------------------
-# Minimal stub for _map_omega_provider (no full aeroelast import needed)
-# ---------------------------------------------------------------------------
-
-
-class _RotorStub:
-    """Minimal object that carries ``_omega_provider`` and a copy of
-    ``_map_omega_provider`` logic.
-
-    The method is inlined so that ``TestMapOmegaProvider`` runs without PETSc
-    or preCICE.  The logic mirrors ``LinearDynamicFSIRotorSolver._map_omega_provider``
-    exactly — any divergence is a test failure waiting to happen.
-    """
-
-    def __init__(self, provider):
-        self._omega_provider = provider
-
-    def _map_omega_provider(self):
-        """Mirror of LinearDynamicFSIRotorSolver._map_omega_provider."""
-        p = self._omega_provider
-        if isinstance(p, ConstantOmega):
-            return "constant", float(p._omega), None, None, None, None
-        if isinstance(p, RampedOmega):
-            return "ramped", 0.0, float(p._target_omega), float(p._ramp_time), None, None
-        if isinstance(p, ComputedOmega):
-            return (
-                "computed",
-                float(p._omega),
-                None,
-                None,
-                float(p._I),
-                float(p._tau_shaft),
-            )
-        if isinstance(p, RampedComputedOmega):
-            return (
-                "ramped_computed",
-                0.0,
-                float(p._target_omega),
-                float(p._ramp_time),
-                float(p._I),
-                float(p._tau_shaft),
-            )
-        # Fallback for TableOmega / FunctionOmega: sample omega at t=0
-        omega_val, _ = p.get_omega(0.0)
-        return "constant", float(omega_val), None, None, None, None
-
-
-# ---------------------------------------------------------------------------
-# Group 1 — _map_omega_provider unit tests (no PETSc, no preCICE)
+# Group 1 — _map_omega_provider unit tests (real solver method)
 # ---------------------------------------------------------------------------
 
 
 class TestMapOmegaProvider:
-    """Verify that every OmegaProvider subclass maps to the correct Rust params."""
+    """Verify that every OmegaProvider subclass maps to the correct Rust params.
+
+    The real ``LinearDynamicFSIRotorSolver._map_omega_provider`` is exercised by
+    building a solver with ``object.__new__`` (bypassing the PETSc/preCICE
+    __init__) and setting only ``_omega_provider``, which is the sole attribute
+    the method reads.
+    """
 
     def _map(self, provider):
-        stub = _RotorStub(provider)
-        return stub._map_omega_provider()
+        if not _HAS_ROTOR:
+            pytest.skip(
+                "preCICE or PETSc not available; cannot exercise the real "
+                "_map_omega_provider"
+            )
+        solver = object.__new__(LinearDynamicFSIRotorSolver)
+        solver._omega_provider = provider
+        return solver._map_omega_provider()
 
     def test_constant_omega(self):
         p = ConstantOmega(omega=10.0)

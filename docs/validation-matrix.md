@@ -896,7 +896,7 @@ red, and a green suite does not remove a flag.
 | `test_rotor_physical_consistency.py` | `test_stress_gate_checkpoint_consistency` | the gate predicate is re-implemented with a `# <-- CRITICAL` comment |
 | `test_rotor_physical_consistency.py` | `test_centrifugal_deformed_geometry` | `F_exact` and `F_cached` are both computed in the test; `_aeroelast` is only a skip probe |
 | `test_rotor_inertial.py` | `TestIntegration::test_theta_accumulation_simulation` | `theta += omega*dt` runs in the test body |
-| `test_rotor_rust_parity.py` | `TestMapOmegaProvider` (8) | `_RotorStub._map_omega_provider` is a hand-copied mirror of the production method |
+| `test_rotor_rust_parity.py` | `TestMapOmegaProvider` (8) | **RESOLVED** — the `_RotorStub` mirror was deleted; the tests now call the real `LinearDynamicFSIRotorSolver._map_omega_provider`, and skip when PETSc/preCICE are unavailable |
 | `test_bem_polars.py` | `TestPolarData::test_evaluate_at_known_alpha` | `cl` is generated as `2 pi sin(alpha)` and compared against `2 pi sin(alpha)` |
 | `test_material_suite.py` | `TestABDMatrices::test_asymmetric_b11_formula` | **RESOLVED** — the reference is now built from the two single plies' *A* matrices (`B11 = h^2/2 (Q11_90 - Q11_0)`, `Q11 = A11/h`) instead of re-implementing the piecewise z-integral, plus the sign and stacking-reversal checks |
 | `test_fsi_structural_report.py`, `test_rotor_performance_report.py` | both tests | the reference is the norm/values the test itself injected |
