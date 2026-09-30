@@ -33,7 +33,8 @@ Logs: `$SCRATCH/tmp/odd-integrate-origin-main/{before-full,after-full3}.log`.
 |---|---|---|---|---|---|---|
 | **before** (`cce8165`) | 974 | 933 | 6 | 0 | 26 | 9 |
 | after, first merge pass (`28339a4`) | 987 | 905 | 15 | 22 | 38 | 6 |
-| **after, all of `main` merged, CCX unblocked, ignores dropped** (`0cfa523`) | 974 | **901** | **18** | **0** | 38 | 17 |
+| after, all of `main`, CCX unblocked, ignores dropped (`0cfa523`) | 974 | 901 | 18 | 0 | 38 | 17 |
+| **after the K_G unit fix and the `airfoil_spacing` pins** (`4ff9a6c`) | 974 | **906** | **13** | **0** | 38 | 17 |
 
 The last row is the honest one to compare against `before` only with a caveat: the two
 later merges (`8f3deca`, `0cfa523`) brought upstream's rewritten test files, which
@@ -137,6 +138,45 @@ Two candidate causes for the S-4 jump, both unresolved:
 - upstream's modal fixes (`b40561d`, `7e395ef`) changed which eigenpairs the solver returns
   and in what order. If the S-4 test classifies "1st flap" by index, a different mode is
   being labelled: 2.1375 Hz is plausible as a higher flap or edge mode.
+
+### C-bis. The K_G unit convention: MITC3 and MITC4 disagreed (found 2026-09-30)
+
+`assemble_geometric_k(sigma)` is one API fed by one `sigma` array, so both shell
+families must read the same quantity.  MITC3's `compute_k_sigma_local` multiplies the
+membrane stress by the element thickness to obtain the force resultant N [N/m].
+The reviewed MITC4 did not: `geometric_stiffness_contribution` used `sigma` directly as
+if it were already N/m.  On a mixed mesh the quad part of K_G therefore came out
+**1/h too stiff** while the triangle part was right, and the IEA 15 MW blade is mostly
+quads.
+
+Measured per term at 7.56 rpm (`$SCRATCH/tmp/odd-integrate-origin-main/diag_s4.py`):
+
+```
+K               1F = 0.5336 Hz   (parked; the pre-stress chain is correct:
+K + K_G         1F = 2.1298 Hz   |u|inf = 0.3759 m, exactly the documented
+K + K_SP        1F = 0.5328 Hz   pre-bend straightening; radial load ~1.2 MN)
+K + K_G + K_SP  1F = 2.1293 Hz   ref 0.5666 Hz
+```
+
+With the factor of `h` restored (`4ff9a6c`):
+
+```
+K + K_G         1F = 0.5565 Hz
+K + K_G + K_SP  1F = 0.5557 Hz   (-1.9% vs 0.5666)
+```
+
+and the centrifugal stiffening contributes **+4.3%** (0.5336 -> 0.5565) against the
+**+4.2%** OpenFAST measures (0.544 -> 0.5666) -- the physical cross-check that the fix
+is the right one, not a tolerance fit.
+
+This single fix closed **S-4** (3/3) and **S-6** (3/3, the NaN was the same inflated
+K_G in the one-way dynamic path).  `tensile_part_membrane`, the other candidate, is a
+no-op for uniaxial tension (a rotating blade) and was not the cause.
+
+**Why upstream never caught it:** their K_G unit tests assert zero-stress-is-zero,
+finite entries, symmetry, and "local equals the local transform" -- none pins the
+magnitude or the units, so the mixed convention passes all four.  This is worth
+reporting upstream.
 
 ### C. A deliberate semantic change
 

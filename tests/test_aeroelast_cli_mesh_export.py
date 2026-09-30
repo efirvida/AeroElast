@@ -101,7 +101,7 @@ def test_aeroelast_cli_exports_rotor_hub_mesh_without_solver_yaml(
         "rotor_diameter": None,
         "element_size": 0.1,
         "n_samples": 300,
-        "airfoil_spacing": "constant",
+        "airfoil_spacing": "cosine",
         "hub_length": 8.0,
         "connector_radius": 1.4,
         "nose_radius": 4.2,
@@ -215,7 +215,7 @@ def test_aeroelast_cli_exports_rotor_blades_from_excel_separately(
         "rotor_diameter": 242.23775645,
         "element_size": 0.1,
         "n_samples": 300,
-        "airfoil_spacing": "constant",
+        "airfoil_spacing": "cosine",
     }
     assert calls["renumber"] is None
     assert calls["verbose"] is False
