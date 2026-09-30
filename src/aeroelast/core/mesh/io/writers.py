@@ -105,8 +105,13 @@ def _build_angle_bucket_sets(
         return {}
     sd = sd / sd_norm
 
-    # Preload node coordinates (0-based node id -> xyz)
+    # Preload node coordinates (0-based node *index* -> xyz)
     coords = np.array([[n.x, n.y, n.z] for n in mesh.nodes], dtype=float)
+    # Entity ids are not guaranteed to be 0-based contiguous (the Node and
+    # MeshElement counters are process-global and nothing resets them), so the
+    # connectivity ids must be mapped to array indices before indexing.  This is
+    # the same id-scheme defect 930d055 fixed for the quadratic mesh builder.
+    node_index = mesh.node_id_to_index
 
     # Only composite sets with known properties
     out: Dict[str, Dict[int, list[int]]] = {}
@@ -126,7 +131,7 @@ def _build_angle_bucket_sets(
                 continue
             # Use first 4 nodes for quads, first 3 for tris (matching Rust logic intent)
             node_ids = el.node_ids[:4] if len(el.node_ids) >= 4 else el.node_ids[:3]
-            pts = coords[np.array(node_ids, dtype=int)]
+            pts = coords[[node_index[n] for n in node_ids]]
 
             p0, p1, p2 = pts[0], pts[1], pts[2]
             v1 = p1 - p0

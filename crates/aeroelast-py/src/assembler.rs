@@ -769,6 +769,43 @@ impl PyMeshAssembler {
         Ok(())
     }
 
+    /// First-order corotational tangent stiffness K_T as COO.
+    ///
+    /// Used by the rotating-frame (corotational) FSI solver and by the
+    /// frame-objectivity validation tests.  The MITC3 path is the corotational
+    /// tangent (`T_def^T K_L T_def`); the MITC4 path is the reviewed element's
+    /// total-Lagrangian tangent, which is the operator that element exposes.
+    ///
+    /// Parameters
+    /// ----------
+    /// u : np.ndarray shape (dofs_count,) — global displacement vector
+    ///
+    /// Returns (rows, cols, vals) as numpy int64/float64 arrays.
+    pub fn assemble_kt_corotational<'py>(
+        &self,
+        py: Python<'py>,
+        u: PyReadonlyArray1<f64>,
+    ) -> PyResult<(
+        pyo3::Bound<'py, PyArray1<i64>>,
+        pyo3::Bound<'py, PyArray1<i64>>,
+        pyo3::Bound<'py, PyArray1<f64>>,
+    )> {
+        let u_slice = u.as_slice()?;
+        if u_slice.len() != self.inner.dofs_count {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "assemble_kt_corotational: u must have length dofs_count={}; got {}",
+                self.inner.dofs_count,
+                u_slice.len()
+            )));
+        }
+        let (rows, cols, vals) = self.inner.assemble_kt_corotational(u_slice);
+        Ok((
+            Array1::from(rows).into_pyarray(py),
+            Array1::from(cols).into_pyarray(py),
+            Array1::from(vals).into_pyarray(py),
+        ))
+    }
+
     /// Nodal centrifugal load vector for the pre-stress static solve.
     ///
     /// Returns a np.ndarray of shape (dofs_count,) with the lumped nodal

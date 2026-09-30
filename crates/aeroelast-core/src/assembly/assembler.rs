@@ -596,12 +596,12 @@ impl MeshAssembler {
         for e in 0..self.topology.n_elems {
             let fe: Vec<f64> = match &self.precomputed[e] {
                 PrecomputedElem::Tri(pre) => {
-                    let rho = material_rho(&self.materials[e]);
+                    let rho = body_load_rho(&self.materials[e], pre.thickness);
                     let fvec = mitc3::compute_body_load_global(pre, rho, &g);
                     fvec.as_slice().to_vec()
                 }
                 PrecomputedElem::Quad(pre) => {
-                    let rho = material_rho(&self.materials[e]);
+                    let rho = body_load_rho(&self.materials[e], pre.thickness);
                     let fvec = mitc4::compute_body_load_global(pre, rho, &g);
                     fvec.as_slice().to_vec()
                 }
@@ -1398,6 +1398,24 @@ fn material_rho(mat: &MaterialSpec) -> f64 {
         MaterialSpec::Isotropic { rho, .. } => *rho,
         MaterialSpec::Composite { mass_per_area, .. } => *mass_per_area,
         MaterialSpec::PlaneStress { rho, .. } => *rho,
+    }
+}
+
+/// Density to hand to a shell body-load kernel, which multiplies it by the
+/// element thickness (`rho_h = rho * pre.thickness`).
+///
+/// `material_rho` returns a *volumetric* density for isotropic and plane-stress
+/// materials but a *mass per area* for composites (`mass_per_area` is
+/// `sum(rho_k * t_k)` over the plies).  Feeding that value straight to the
+/// kernel multiplies the laminate's mass per area by its thickness a second
+/// time, shrinking the gravity load by a factor of the thickness: on the IEA
+/// 15 MW blade that made the root reaction 51.4 kN against an assembled weight
+/// of 693.8 kN, and collapsed the gravity deflection to 5% of the beam value.
+/// Dividing by the thickness recovers the mass per area exactly.
+fn body_load_rho(mat: &MaterialSpec, thickness: f64) -> f64 {
+    match mat {
+        MaterialSpec::Composite { mass_per_area, .. } if thickness > 0.0 => mass_per_area / thickness,
+        other => material_rho(other),
     }
 }
 

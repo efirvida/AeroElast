@@ -182,11 +182,15 @@ def _frd_tip_displacements(frd_path, mesh: MeshModel) -> dict:
     values (the coordinate average washes the twist out because it also picks
     the mid-side nodes of the tip edge).
     """
-    from test_beam_4cases_parity import _frd_disp_at_node_id
+    from _ccx_io import parse_frd_disp  # noqa: PLC0415
 
+    tip_nodes = list(mesh.get_node_set("tip").nodes.values())
+    raw = parse_frd_disp(frd_path, [n.id + 1 for n in tip_nodes])
     out = {}
-    for n in mesh.get_node_set("tip").nodes.values():
-        v = _frd_disp_at_node_id(frd_path, n.id + 1)
+    for n in tip_nodes:
+        v = raw.get(n.id + 1)
+        if v is None:
+            continue
         out[mesh.node_id_to_index[n.id]] = np.asarray(v, dtype=float)
     return out
 
