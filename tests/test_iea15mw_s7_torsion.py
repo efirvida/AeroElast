@@ -29,7 +29,19 @@ from run_s7_torsion import (  # noqa: E402
 )
 
 MOMENT_NM = 1000.0
-ELEMENT_SIZE = 1.0  # coarse — regression guard, not the full campaign mesh
+# Span resolution from the measured convergence of the torsion ratio (the band is
+# [0.7, 1.3] and the shell/GJ ratio sits at the edge of it):
+#
+#   es=2.000  1460 nodes  ratio=1.386
+#   es=1.000  3040 nodes  ratio=1.406   <- the earlier fixture
+#   es=0.500  9271 nodes  ratio=1.303
+#   es=0.250 32325 nodes  ratio=1.286   <- now
+#   es=0.125 120352 nodes ratio=1.273
+#
+# So the 1.406 was coarse-mesh discretisation, not the element's torsional
+# response, and the band itself does not move.  This is a slow test (about 1 min
+# per mesh build), which is why it is marked slow.
+ELEMENT_SIZE = 0.25
 
 
 @pytest.mark.slow
