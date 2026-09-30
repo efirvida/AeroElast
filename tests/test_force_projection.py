@@ -329,8 +329,12 @@ class TestSingleNodeStrip:
 
         # Each node should get the full strip force (F = Np * dr)
         assert forces.shape == (n_stations, 3)
-        # All forces in x direction (normal)
-        assert np.all(np.abs(forces[:, 0]) > 0)
+        # Normal force per node = Np * dr, positive (Np > 0), zero tangential.
+        # The sign is asserted, not |force| > 0, so a sign error fails here.
+        dr = span_length / (n_stations - 1)
+        assert np.all(forces[:, 0] > 0), f"normal force must be positive, got {forces[:, 0]}"
+        assert np.allclose(forces[:, 0], 1000.0 * dr, rtol=1e-6)
+        assert np.allclose(forces[:, 1:], 0.0, atol=1e-9)
         # Total force conservation
         verification = projector.verify(bem_result, forces)
         assert verification["force_error"] < 1.0  # relaxed for coarse discretisation

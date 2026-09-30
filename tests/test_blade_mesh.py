@@ -50,13 +50,18 @@ def test_blade_mesh_generation(blade_file):
     mesh = blade.mesh
     assert mesh is not None, f"{blade_file}: generate_mesh() left blade.mesh unset"
 
-    # Assertions
-    assert mesh.node_count > 0, f"{blade_file} has no nodes"
-    assert mesh.elements_count > 0, f"{blade_file} has no elements"
-    assert "RootNodes" in mesh.node_sets, f"{blade_file} missing 'RootNodes' node set"
-    assert "allOuterShellNods" in mesh.node_sets, (
-        f"{blade_file} missing 'allOuterShellNods' node set"
+    # Exact counts for the reference blade at element_size=0.5, so a silent mesh
+    # change fails here instead of passing on `> 0`.
+    assert mesh.node_count == 9277, f"{blade_file}: {mesh.node_count} nodes, expected 9277"
+    assert mesh.elements_count == 9867, (
+        f"{blade_file}: {mesh.elements_count} elements, expected 9867"
     )
-    assert "allShearWebNods" in mesh.node_sets, (
-        f"{blade_file} missing 'allShearWebNods' node set"
-    )
+    for name, expected in (
+        ("RootNodes", 37),
+        ("allOuterShellNods", 8204),
+        ("allShearWebNods", 2277),
+    ):
+        assert name in mesh.node_sets, f"{blade_file} missing '{name}' node set"
+        assert len(mesh.node_sets[name].node_ids) == expected, (
+            f"{blade_file}: '{name}' has {len(mesh.node_sets[name].node_ids)} nodes, expected {expected}"
+        )
