@@ -77,18 +77,23 @@ number.
 Six groups, 36 files, 441 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
-| group | section | files | tests | passed | failed | measured margin range |
-| --- | --- | --- | --- | --- | --- | --- |
-| Ko, Lee, Lee & Bathe 2017 benchmarks | [§3](#3-teststest_ko2017_performancepy-ko-lee-lee--bathe-2017) | 1 | 31 | 31 | 0 | 0.01% – 2.73% |
-| CCX parity | [§4](#4-ccx-parity-group) | 10 | 66 | 66 | 0 | 0.37% – 12.57% |
-| Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% |
-| Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 10 | 151 | 151 | 0 | 0.45% – 1.68% |
-| Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 5 | 95 | 95 | 0 | algebraic / invariant (`not printed`) |
-| BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 58 | 58 | 0 | 0.33% – 40.00% |
-| **Total** | | **36** | **441** | **441** | **0** | |
+| group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Ko, Lee, Lee & Bathe 2017 benchmarks | [§3](#3-teststest_ko2017_performancepy-ko-lee-lee--bathe-2017) | 1 | 31 | 31 | 0 | 0.01% – 2.73% | 0 |
+| CCX parity | [§4](#4-ccx-parity-group) | 10 | 66 | 66 | 0 | 0.37% – 12.57% | 10 |
+| Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
+| Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 10 | 151 | 151 | 0 | 0.45% – 1.68% | 1 |
+| Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 5 | 95 | 95 | 0 | algebraic / invariant (`not printed`) | 0 |
+| BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 58 | 58 | 0 | 0.33% – 40.00% | 1 |
+| **Total** | | **36** | **441** | **441** | **0** | | **12** |
 
-The *measured margin range* covers the rows that print a numeric residual; the per-row detail
-is in §13. The suite is green: 441 passed, 0 failed.
+**A large margin is not a failure.** `passed = 441, failed = 0` means every assertion held
+**at its own tolerance**. A row can show a large margin only because its tolerance is
+proportionally large: the worst §4 margin (12.57%, the stress test's analytical leg) sits
+inside a 20% tolerance, and the worst §8 margin (40%, the Viterna post-stall leg) inside a
+45% tolerance. The column `tolerances > 5%` counts the rows that break the suite rule; all of
+them, with their reason, are listed in §13.1, and the per-row tolerance, margin and slack are
+in §13. Read a margin only next to its tolerance — never in isolation.
 
 By file and subsection:
 
@@ -250,7 +255,7 @@ reference, the tolerance as the code states it, and the flag for each row.
 | **BEM vs OpenFAST AeroDyn, identical polars** | thrust ≤ **0.45%**, torque ≤ **0.80%**, interior span Δα ≤ 1.36° | §8.4 |
 | BEM vs AeroDyn, yaw / shear | ≤ 0.33% (both), azimuth-averaged | §8.4 |
 | BEM with the repo's own polars | sensitivity ≤ 2.12% (a sensitivity, not a parity) | §8.4 |
-| NeuralFoil + Viterna vs official post-stall | attached Cl ≤ 4%; post-stall Cl ≤ 40%, Cd ≤ 17% | §8.4 |
+| NeuralFoil + Viterna vs official post-stall | attached Cl ≤ 4%; post-stall Cl ≤ 40% and Cd ≤ 17% (inside a 45% tolerance) | §8.4 |
 | Large-rotation elastica | 5% relative per component | §5.4 |
 | Shell K/mass invariants | symmetry, PSD, rigid-body and exact mass coefficients to 1e-12 | §6.1-§6.3 |
 
