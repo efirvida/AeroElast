@@ -276,9 +276,17 @@ def _run_ccx_case(ccx_bin: str, work_dir: Path, shell_element_type: str) -> floa
 
     # Exercise the selector end to end: the emitted element type must be the
     # requested one (and, for S8, must not be S8R).
+    #
+    # The ELSET name is deliberately not pinned: this writer names each element
+    # block after its region so the per-set SHELL SECTION cards can reference it
+    # (a laminate blade needs one section per element set), and asserts the
+    # single ``ELSET=Eall`` form would forbid that.  What the selector owns is
+    # the TYPE, so that is what is asserted.
     msh_text = (work_dir / "strip.msh").read_text()
-    assert f"*ELEMENT, TYPE={shell_element_type}, ELSET=Eall" in msh_text, (
-        f"selector wrote the wrong element type for {shell_element_type}:\n{msh_text[:400]}"
+    emitted_types = set(re.findall(r"^\*ELEMENT, TYPE=(\w+)", msh_text, flags=re.MULTILINE))
+    assert emitted_types == {shell_element_type}, (
+        f"selector wrote element type(s) {sorted(emitted_types)} for a request of "
+        f"{shell_element_type}:\n{msh_text[:400]}"
     )
 
     nodes = _parse_msh_nodes(work_dir / "strip.msh")

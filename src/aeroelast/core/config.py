@@ -314,7 +314,7 @@ class BladeMeshParams:
     yaml_file: str  # Path to blade YAML definition (WindIO format)
     element_size: float = 0.15
     n_samples: int = 300
-    airfoil_spacing: str = "constant"  # "constant" | "cosine" | "half-cosine" | "auto"
+    airfoil_spacing: str = "cosine"  # "constant" | "cosine" | "half-cosine" | "auto"
 
 
 @dataclass
@@ -326,7 +326,7 @@ class RotorMeshParams:
     hub_radius: Optional[float] = None  # If None, uses blade definition
     element_size: float = 0.5
     n_samples: int = 300
-    airfoil_spacing: str = "constant"  # "constant" | "cosine" | "half-cosine" | "auto"
+    airfoil_spacing: str = "cosine"  # "constant" | "cosine" | "half-cosine" | "auto"
 
 
 @dataclass

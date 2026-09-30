@@ -708,7 +708,7 @@ class FSIRunner:
                 rotor_diameter=rotor_diameter,
                 element_size=params.get("element_size", 0.5),
                 n_samples=params.get("n_samples", 300),
-                airfoil_spacing=params.get("airfoil_spacing", "constant"),
+                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
             )
         else:
             yaml_file = params.get("yaml_file")
@@ -731,7 +731,7 @@ class FSIRunner:
                 element_size=params.get("element_size", 0.15),
                 n_samples=params.get("n_samples", 300),
                 span_grading=params.get("span_grading", "chord"),
-                airfoil_spacing=params.get("airfoil_spacing", "constant"),
+                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
             )
 
         self._console.print("      Rehydrating composite metadata from generator...")
@@ -808,7 +808,7 @@ class FSIRunner:
                 rotor_diameter=rotor_diameter,
                 element_size=params.get("element_size", 0.5),
                 n_samples=params.get("n_samples", 300),
-                airfoil_spacing=params.get("airfoil_spacing", "constant"),
+                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
             )
             mesh = generator.generate(renumber="rcm")
             self._mesh_generator = generator
@@ -833,7 +833,7 @@ class FSIRunner:
                 element_size=params.get("element_size", 0.15),
                 n_samples=params.get("n_samples", 300),
                 span_grading=params.get("span_grading", "chord"),
-                airfoil_spacing=params.get("airfoil_spacing", "constant"),
+                airfoil_spacing=params.get("airfoil_spacing", "cosine"),
             )
             mesh = generator.generate(renumber=None)
             self._mesh_generator = generator

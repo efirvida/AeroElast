@@ -1035,7 +1035,7 @@ class BladeMesh:
         airfoil_dir: str = None,
         refine_tip: bool = True,
         span_grading: str = "chord",
-        airfoil_spacing: str = "constant",
+        airfoil_spacing: str = "cosine",
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
@@ -1107,7 +1107,7 @@ class BladeMesh:
         # sections whose chord ratio exceeds a threshold so that element
         # aspect ratios stay reasonable.
         if self.refine_tip:
-            self._refine_high_gradient_sections(element_size=self.element_size, verbose=verbose)
+            self._refine_high_gradient_sections(verbose=verbose)
 
         # Expand trailing edge
         n_stations = self._numad_blade.geometry.coordinates.shape[2]
@@ -1156,8 +1156,6 @@ class BladeMesh:
     def _refine_high_gradient_sections(
         self,
         chord_ratio_threshold=0.5,
-        element_size: float | None = None,
-        min_ar_ratio: float = 4.0,
         verbose=True,
     ):
         """Add interpolated stations where the chord ratio between adjacent
@@ -1166,16 +1164,19 @@ class BladeMesh:
         smaller chord to the larger chord in every pair exceeds the
         threshold, up to a maximum of 3 subdivisions per original gap.
 
-        A station is skipped if the resulting spanwise gap would be smaller
-        than ``element_size * min_ar_ratio``, which would produce elements
-        with aspect ratio worse than *min_ar_ratio* and potentially degenerate
-        direction cosines at the tip.
+        The refinement is unconditional, matching the reference mesh.  An
+        earlier local workaround skipped a refinement when
+        ``gap / 2 < element_size * 4``: that dropped 26 nodes at the tip and
+        left a sliver element CalculiX cannot integrate
+        (``*ERROR in e_c3d: nonpositive jacobian``, element 2790).  The
+        workaround targeted the aspect ratio of the previous element, while
+        the reviewed element and upstream's own mesh test both assume the
+        refined mesh (9277 nodes at element_size = 0.5 m).
         """
         blade = self._numad_blade
         ichord = blade.geometry.ichord
         ispan = blade.ispan.copy()
         added = 0
-        skipped = 0
 
         for _ in range(3):  # iterate because adding a station shifts indices
             ichord = blade.geometry.ichord
@@ -1186,12 +1187,6 @@ class BladeMesh:
                 c_lo = min(ichord[i], ichord[i + 1])
                 c_hi = max(ichord[i], ichord[i + 1])
                 if c_hi > 0 and c_lo / c_hi < chord_ratio_threshold:
-                    gap = ispan[i + 1] - ispan[i]
-                    # The inserted section splits the gap in two halves.
-                    # Each half must be wide enough to avoid degenerate AR.
-                    if element_size is not None and (gap / 2) < element_size * min_ar_ratio:
-                        skipped += 1
-                        continue
                     mid = 0.5 * (ispan[i] + ispan[i + 1])
                     blade.add_interpolated_station(mid)
                     added += 1
@@ -1202,11 +1197,6 @@ class BladeMesh:
 
         if verbose and added > 0:
             print(f"      Added {added} interpolated section(s) for tip refinement")
-        if verbose and skipped > 0:
-            print(
-                f"      Skipped {skipped} tip refinement(s): gap too narrow "
-                f"(would produce AR > {1 / min_ar_ratio:.0%} of element_size)"
-            )
 
     def _deduplicate_and_create_mesh(self, mesh_model: "MeshModel", verbose: bool = True):
         """
@@ -1435,7 +1425,7 @@ class RotorMesh:
         n_samples: int = 300,
         excel_file: str | None = None,
         airfoil_dir: str | None = None,
-        airfoil_spacing: str = "constant",
+        airfoil_spacing: str = "cosine",
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
@@ -1729,7 +1719,7 @@ class RotorHubMesh:
         n_samples: int = 300,
         excel_file: str | None = None,
         airfoil_dir: str | None = None,
-        airfoil_spacing: str = "constant",
+        airfoil_spacing: str = "cosine",
         hub_length: float | None = None,
         connector_radius: float | None = None,
         nose_radius: float | None = None,

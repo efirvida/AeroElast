@@ -291,7 +291,7 @@ Examples:
     )
     parser.add_argument(
         "--airfoil-spacing",
-        default="constant",
+        default="cosine",
         choices=("constant", "cosine", "half-cosine", "auto"),
         help="Airfoil sampling distribution used by direct mesh export",
     )
