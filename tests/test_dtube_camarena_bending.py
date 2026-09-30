@@ -46,7 +46,20 @@ E = 2.0e11
 NU = 0.3
 N_ARC = 32
 N_WEB = 16
-NZ = 100
+# Span resolution from the measured convergence of the tip deflection
+# (beam anchor delta = 24.5254 m, the test bounds the relative gap at 1%):
+#
+#   n_arc/n_web/n_z = 32/16/100   23.3594 m   4.75%   <- the earlier value
+#   n_arc/n_web/n_z = 64/32/100   23.3862 m   4.65%   (section alone: no help)
+#   n_arc/n_web/n_z = 64/32/200   24.2549 m   1.10%   (span: converged)
+#   n_arc/n_web/n_z = 96/48/200   24.2561 m   1.10%   (more section: no change)
+#
+# The 4.75% was span discretisation and is gone.  What is left is a converged
+# 1.10% and it is left red on purpose: it is about ten times the transverse
+# shear estimate in the module docstring (w*L^2/(2GA) ~ 0.1%), so the residual
+# is an open question about the element's bending-shear response, not a mesh
+# artefact and not something to absorb by widening the bound.
+NZ = 200
 
 A_SEC = np.pi * R * T + 2.0 * R * T
 Y_C = -(2.0 * R / np.pi) * (np.pi * R * T) / A_SEC
