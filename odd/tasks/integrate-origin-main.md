@@ -72,11 +72,28 @@ Historical baseline: 923 passed / 26 skipped / 4 xfailed / 0 failed.
 
 ## Tasks
 
-- [ ] T1 — Cut the integration branch and commit the pending validation work.
-      Commit: _(pending)_
-- [ ] T2 — Rebuild the Rust extension at pre-merge HEAD and capture the BEFORE
+- [x] T1 — Cut the integration branch and commit the pending validation work.
+      Commits: `df75313` (untrack the .atl tool state), `940ab31` (frame-fix
+      erratum), `2a348f8` (blade CCX parity test), `5d179a5` (this plan).
+- [x] T2 — Rebuild the Rust extension at pre-merge HEAD and capture the BEFORE
       measurement (full suite + IEA 15 MW subset).
-      Evidence: _(pending)_
+      Rebuild: `maturin develop --release` OK in 1m59s (11 warnings, 0 errors).
+      Full suite: **933 passed, 26 skipped, 9 xfailed, 6 failed** in 17m45s.
+      Subset (S0-S7, sx, V-01..V-05, composite CCX, blade CCX):
+      **68 passed, 6 failed, 5 xfailed** in 10m06s.
+      Logs: `$SCRATCH/tmp/odd-integrate-origin-main/{before-full,before-subset}.log`.
+      The 6 failures are all on the CalculiX parity path and share one root
+      cause in `write_ccx_mesh`:
+        - `tests/test_composite_ccx_parity.py[unbalanced_45_0s_bend-...]` ->
+          `writers.py:122 _build_angle_bucket_sets` ->
+          `IndexError: index 7500 is out of bounds for axis 0 with size 125`
+          (the writer mixes node-id spaces).
+        - the 5 `tests/test_blade_ccx_parity.py` cases -> CalculiX exits 201 with
+          `*INFO in gen3dnor: in some nodes opposite normals are defined`, on a
+          deck CCX reads as 696743 nodes for a 3333-element mesh.
+      This is exactly the area `origin/main` touched (`930d055 fix(ccx): label
+      nodes, elements and sets consistently for any id scheme`), so it is the
+      headline candidate for the AFTER comparison.
 - [ ] T3 — `git merge --no-commit origin/main` and resolve the 42 conflict hunks
       in 19 files per the resolution table below.
       Commit: _(pending)_
