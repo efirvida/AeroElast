@@ -1,0 +1,32 @@
+IEA 15 MW OpenFAST reference deck (vendored subset)
+====================================================
+
+Source:  https://github.com/IEAWindSystems/IEA-15-240-RWT
+Commit:  e4993d63de10f165389534461dd544006750fe60
+License: Apache License 2.0 (see the upstream LICENSE file)
+
+Files vendored (unchanged) from `OpenFAST/IEA-15-240-RWT` and
+`OpenFAST/IEA-15-240-RWT-Monopile`:
+
+  case/IEA-15-240-RWT_AeroDyn15.dat
+      AeroDyn primary file, taken from the Monopile case.  It uses AeroDyn
+      input version 15.03, which requires OpenFAST 4.x (the upstream CI pins
+      `openfast<5.0`).
+  IEA-15-240-RWT/IEA-15-240-RWT_AeroDyn15_blade.dat
+      Blade distributed aerodynamic properties (BlSpn, BlChord, BlTwist,
+      BlAFID; 50 nodes).
+  IEA-15-240-RWT/Airfoils/IEA-15-240-RWT_AeroDyn15_Polar_*.dat
+      50 AirfoilInfo polar tables (Alpha/Cl/Cd/Cm), one per blade node.
+
+Purpose: the A1 BEM parity test (`tests/test_bem_openfast_parity.py`) builds
+the AeroElast blade and the OpenFAST AeroDyn driver case from this single
+source of truth, so both codes use identical geometry and identical polar
+tables.  See `tests/_openfast_bem.py` for the parsing and the switch
+overrides applied to the OpenFAST side.
+
+Reference (please cite the model, not this copy):
+  Gaertner, E., Rinker, J., Sethuraman, L., Zahle, F., Anderson, B., Barter,
+  G., Abbas, N., Meng, F., Bortolotti, P., Skrzypinski, W., Scott, G., Feil,
+  R., Bredmose, H., Dykes, K., Shields, M., Allen, C., Viselli, A.,
+  "Definition of the IEA Wind 15-Megawatt Offshore Reference Wind Turbine",
+  NREL/TP-5000-75698, March 2020, doi:10.2172/1603478.
