@@ -81,18 +81,18 @@ ARTICLE_FIRST_MODES = [(0.57, "1st flapwise"), (0.65, "1st edgewise")]
 #: CSD model (1st flap, 1st edge, 2nd flap, 2nd edge, 3rd flap, 1st torsion,
 #: 3rd edge, 4th flap).
 BERNARDI_MODES_HZ = [0.5369, 0.7267, 1.577, 2.267, 3.113, 3.642, 4.571, 5.385]
-BERNARDI_MODE_TOL = 0.15  # measured worst 12.3% (shell vs the beam-based CSD)
+BERNARDI_MODE_TOL = 0.05  # measured worst 12.3% (shell vs the beam-based CSD)
 
-MASS_TOL = 0.10  # measured 70,623 kg = +3.7% over the article value
-MODAL_TOL = 0.10  # measured worst over the first five matched pairs (see test)
-ARTICLE_MODE_TOL = 0.15  # measured worst over the first two article modes
+MASS_TOL = 0.05  # measured 70,623 kg = +3.7% over the article value
+MODAL_TOL = 0.05  # measured worst over the first five matched pairs (see test)
+ARTICLE_MODE_TOL = 0.05  # measured worst over the first two article modes
 
 #: Escalera Mendoza et al. 2023, section V: DLC 1.4 maximum blade root bending
 #: moment 90.4 MNm and maximum out-of-plane tip deflection 23.49 m.
 ARTICLE_ROOT_MOMENT_NM = 90.4e6
 ARTICLE_TIP_DEFLECTION_M = 23.49
-STATIC_TOL = 0.15  # measured AeroElast-vs-CCX static gap (see test)
-ARTICLE_STATIC_TOL = 0.15  # measured gap to the article's DLC 1.4 tip deflection
+STATIC_TOL = 0.05  # measured AeroElast-vs-CCX static gap (see test)
+ARTICLE_STATIC_TOL = 0.05  # measured gap to the article's DLC 1.4 tip deflection
 
 
 def _to_rust_mesh(mesh, properties: dict):

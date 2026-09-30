@@ -459,7 +459,7 @@ def test_composite_axial_tension(tmp_path: Path):
     print(f"AeroElast UY: {aero_uy * 1e6:.2f} um, CCX: {ccx_uy * 1e6:.2f} um")
     print(f"Relative error: {rel_error * 100:.2f}%")
 
-    assert rel_error < 0.1, f"Composite axial: {rel_error * 100:.1f}% error (max 10%)"
+    assert rel_error < 0.05, f"Composite axial: {rel_error * 100:.1f}% error (max 5%)"
 
 
 # Test de composite shell - isotrópico equivalente
@@ -559,7 +559,7 @@ def test_composite_isotropic_equiv(tmp_path: Path):
     print(f"Isotropic equiv UY: {aero_uy * 1e6:.2f} um, CCX: {ccx_uy * 1e6:.2f} um")
     print(f"Relative error: {rel_error * 100:.2f}%")
 
-    assert rel_error < 0.1, f"Isotropic equiv: {rel_error * 100:.1f}% error (max 10%)"
+    assert rel_error < 0.05, f"Isotropic equiv: {rel_error * 100:.1f}% error (max 5%)"
 
 
 # Test de composite shell - bending
@@ -640,4 +640,4 @@ def test_composite_bending(tmp_path: Path):
     print(f"AeroElast X: {aero_disp[0] * 1e6:.2f} um, CCX: {ccx_vals[0] * 1e6:.2f} um")
     print(f"Relative error: {rel_error * 100:.2f}%")
 
-    assert rel_error < 0.1, f"Composite bending: {rel_error * 100:.1f}% error (max 10%)"
+    assert rel_error < 0.05, f"Composite bending: {rel_error * 100:.1f}% error (max 5%)"

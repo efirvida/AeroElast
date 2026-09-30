@@ -230,8 +230,11 @@ that number, so a reader can tell real drift from a stale cell:
 | + `test_blade_iea15mw_validation.py` +8 (Bernardi modes) | 438 | the eight Bernardi et al. blade modes (§4.8) |
 | + `test_shell_stress_ccx_parity.py` (3) | **441** | outer-fibre stress recovery vs CalculiX `OUTPUT=3D` (§4.10) |
 
-The **full `-s` run at this tree is `441 passed, 0 failed, 0 skipped` in 999.82s (16:39)**,
-with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped. Earlier, for
+The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 999.82s
+(16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
+Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
+the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
+the diagnostic failures of §13.2. The collected suite is now **413 tests**. Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
 1025.15s. The Rust side is green too: `cargo test --manifest-path crates/Cargo.toml -p
 aeroelast-core` -> **155 passed, 0 failed, 0 ignored** (the Cargo workspace root is `crates/`,
@@ -1335,3 +1338,27 @@ of stations — the 80% is a station fraction, not a tolerance). Both are flagge
 So the rule is exceeded by **12 rows**, all in the CCX-parity and BEM-parity families where the
 reference itself is a different model (beam vs shell, or a proxy load).
 
+
+### 13.2 Diagnostic failures under the real 5% bound
+
+A tolerance is the diagnostic instrument. With a widened bound the suite hides a real
+method-vs-method or author-vs-author difference; with the honest bound it stops hiding it and
+every failure states the difference to analyse. Tightening every flagged row to 5% turns the
+ten nodes below red. **Each is a validity statement about AeroElast, not a bug to paper over.**
+
+| test | reference | measured difference | what it says about AeroElast |
+| --- | --- | --- | --- |
+| blade `test_blade_first_modes_match_article[0]` | Escalera Mendoza 2023, Table 3, 1st flapwise 0.57 Hz | 0.526 Hz, -7.6% | the shell is softer than the BModes beam on flapwise (warping restraint) |
+| blade `test_blade_first_modes_match_article[1]` | same, 1st edgewise 0.65 Hz | 0.702 Hz, +8.1% | stiffer than the beam on edgewise |
+| blade `test_blade_static_deflection_matches_article_dlc` | article DLC 1.4 tip 23.49 m | 21.69 m, -7.7% | the load is a static proxy for an aero-elastic DLC |
+| blade `test_blade_modal_frequencies_match_bernardi[3..7]` | Bernardi et al., Table 2 (beam CSD) | up to 12.3% (mode 7) | beam vs shell; the gap grows with mode number |
+| `test_outer_fibre_stress_matches_ccx_and_analytical` (analytical leg) | `M c / I` = 60 MPa | 52.46 MPa, 12.6% | coarse 8x2 linear mesh under bending |
+| `test_viterna_post_stall_matches_aerodyn` | official AeroDyn post-stall table | up to 40% on Cl at 30 deg | NeuralFoil + Viterna vs the official table in the stall band |
+
+The rows that still pass at 5% are the exact-required ones, and they remain evidence:
+composite layup vs CCX S8R (4.62% / 3.67% / 1.71%), blade mass vs Escalera (+3.7%), blade
+modal vs CCX (1.65%), blade static vs CCX (1.9%), outer-fibre stress vs CCX `OUTPUT=3D`
+(1.58%), Bernardi modes 0-2 (<=6.8%). The distinction the tests now encode is exactly the one
+that matters: **same-method comparisons must be tight; different-method or different-author
+comparisons are tight on purpose, so the difference is measured, named and analysed** instead
+of being absorbed by a wide tolerance.

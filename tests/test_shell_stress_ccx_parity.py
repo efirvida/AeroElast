@@ -66,8 +66,8 @@ ANALYTICAL_STRESS = FORCE * L * (H / 2.0) / (B * H**3 / 12.0)
 
 #: Measured: AeroElast 52.46 MPa, CalculiX OUTPUT=3D 57.41 MPa, analytical
 #: 60 MPa.  The coarse 8x2 linear mesh is why the analytical gap is the largest.
-TOL_CCX = 0.15
-TOL_ANALYTICAL = 0.20
+TOL_CCX = 0.05
+TOL_ANALYTICAL = 0.05
 
 _PROP = {"type": "isotropic", "name": "STEEL", "e": E, "nu": NU, "rho": RHO, "thickness": H}
 

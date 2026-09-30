@@ -118,8 +118,8 @@ VITERNA_AIRFOIL = "FFA-W3-211"
 VITERNA_RE = 3.0e6  # the deck polar's Reynolds number
 VITERNA_AR = 17.0  # the repo default for IEA-15 outer sections
 VITERNA_ALPHAS_DEG = [0.0, 10.0, 15.0, 20.0, 30.0, 45.0, 60.0, 90.0]
-TOL_VITERNA_ATTACHED = 0.10  # |alpha| <= 15 deg, relative on Cl
-TOL_VITERNA_POSTSTALL = 0.45  # 20..90 deg, relative on Cl and Cd (measured worst 0.40)
+TOL_VITERNA_ATTACHED = 0.05  # |alpha| <= 15 deg, relative on Cl
+TOL_VITERNA_POSTSTALL = 0.05  # 20..90 deg, relative on Cl and Cd (measured worst 0.40)
 
 
 def _openfast_driver_or_skip() -> Path:
