@@ -1,3 +1,0 @@
-point,v_inf_m_s,omega_rpm,pitch_deg,torque_Nm,power_W,thrust_N,C_T,C_P
-V-01 (NREL rated),10.659,7.518,0,2.13709e+07,1.68249e+07,2.55077e+06,0.79535,0.49218
-V-04 (Frontiers),10.59,7.55,0,2.08837e+07,1.65114e+07,2.54133e+06,0.802766,0.492511

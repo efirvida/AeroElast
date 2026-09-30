@@ -1,3 +1,0 @@
-channel,column,fft_start_s,frequency_resolution_hz,dominant_frequency_hz,dominant_amplitude_m,rms_after_ramp_m,v02_unloaded_reference_hz,shift_vs_v02_pct
-edgewise_proxy_x,Tip Disp X [m],2.0,0.020828993959592198,0.7915017704645035,0.30092347406853326,0.7641858226889968,0.6289939601,25.8361479876003
-flapwise_proxy_y,Tip Disp Y [m],2.0,0.020828993959592198,0.7081857946261347,0.09785420704003694,0.32347156485825457,0.553716632,27.896789386332664
