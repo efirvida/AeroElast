@@ -32,7 +32,7 @@ class StaticNonlinearSolver(Solver):
     stol : float
         Step-length tolerance for SNES (default: 1e-8).
     max_it : int
-        Maximum Newton iterations (default: 50).
+        Maximum Newton iterations (default: 100).
     continuation : bool
         Enable adaptive load continuation fallback when a full-load solve
         diverges (default: True).
@@ -51,7 +51,13 @@ class StaticNonlinearSolver(Solver):
     _DEFAULT_ATOL: float = 1e-10
     _DEFAULT_RTOL: float = 1e-8
     _DEFAULT_STOL: float = 1e-8
-    _DEFAULT_MAX_IT: int = 50
+    _DEFAULT_MAX_IT: int = 100
+    # 100 instead of 50: the large-displacement cantilever benchmark needs one
+    # continuation substep that exceeds 50 Newton iterations, so the old default
+    # diverged on a case the suite exercises.  Measured: with 50 the solve fails
+    # (reason=-5) after burning the continuation budget; with 100 it converges
+    # to the elastica case in 67 total iterations.  Larger loads (>~1.5x) still
+    # need finer continuation and remain outside the solver's validated envelope.
     _DEFAULT_CONTINUATION: bool = True
     _DEFAULT_CONTINUATION_STEPS: int = 8
     _DEFAULT_CONTINUATION_MAX_STEPS: int = 64
