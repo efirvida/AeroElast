@@ -1,0 +1,145 @@
+# Integrating `origin/main` into the IEA 15 MW validation line — measured result
+
+**Date**: 2026-09-30
+**Branch**: `integrate/origin-main-2026-09-30` (from `integrate/main-into-rust` @ `d571917`)
+**Merge commit**: `f5f92f7` (merges `origin/main` @ `dffacab`, 169 commits after the previous
+merge `e2bc081` @ `7a2196f`)
+**Feature log**: `odd/tasks/integrate-origin-main.md`
+
+## Why
+
+`origin/main` carries the reviewed MITC4+/D element, the span-relative ply-angle fix
+(`9de3731`), the "uncorrected section shear" material fix (`8cbfc0b`), the CCX writer
+id-scheme fix (`930d055`), the modal-solver fixes (`b40561d`, `7e395ef`) and the OpenFAST
+AeroDyn comparison (`d10d26d`). We wanted those on the branch where the IEA 15 MW
+validation suite runs, and a measured before/after.
+
+## Method
+
+Same command, same environment, same node, before and after:
+
+```bash
+module load gcc/14.2.0_sequana
+export LD_LIBRARY_PATH=/scratch/app_sequana/gcc/14.2.0/lib64:/scratch/app_sequana/gcc/14.2.0/lib:$LD_LIBRARY_PATH
+python -m pytest tests/ -q --tb=short \
+    --ignore=tests/test_blade_mesh.py --ignore=tests/test_rotor_inertial.py \
+    --ignore=tests/test_vol_mesh.py
+```
+
+Rust rebuilt with `maturin develop --release` at each measurement point.
+Logs: `$SCRATCH/tmp/odd-integrate-origin-main/{before-full,after-full3}.log`.
+
+| | collected | passed | failed | errors | skipped | xfailed |
+|---|---|---|---|---|---|---|
+| **before** (`cce8165`) | 974 | 933 | 6 | 0 | 26 | 9 |
+| **after** (`28339a4`) | 987 | 905 | 15 | 22 | 38 | 6 |
+
+The suite grew by 13 tests; `origin/main` deleted three solid/volumetric test files and
+added its own CalculiX and AeroDyn parity suites (~150 tests, of which some skip).
+
+## What the merge fixed
+
+1. **The CalculiX writer's id scheme.** Before, `write_ccx_mesh` labelled the `.msh` nodes
+   by 1-based index but wrote connectivity and `.nam` sets from raw entity ids, so with
+   drifted ids the deck was corrupt (CalculiX reported 696 743 nodes for a 3 333-element
+   mesh) and `_build_angle_bucket_sets` raised `IndexError: index 7500 is out of bounds for
+   axis 0 with size 125`. After `930d055` (plus the id→index mapping applied to
+   `_build_angle_bucket_sets`, which upstream had missed) the deck is consistent and
+   `test_composite_ccx_parity` passes its linear cases.
+
+2. **The composite gravity load (found while measuring).** `assemble_f_body` handed
+   `material_rho` to the shell body-load kernel, which multiplies by the element thickness,
+   but for a composite that function returns mass per *area*. The load came out a thickness
+   too small: on the IEA 15 MW blade the root reaction was 51 440 N against an assembled
+   weight of 693 771 N (92.6% off) and the gravity deflection collapsed to 5% of the beam
+   value. Fixed with `body_load_rho`; `test_iea15mw_v03_static_gravity` and the S-2
+   `LC1_gravity` cases pass again (12 passed).
+
+3. **Three of our interfaces were dropped by the module split and are now restored**:
+   `PyMeshAssembler::assemble_kt_corotational`, plus the core `centrifugal_load`,
+   `assemble_geometric_k_from_disp` and `update_node_coordinates` that
+   `src/aeroelast/core/assembler.py` and the S-0/S-4 tests call.
+
+4. **Four line-level union artifacts repaired** (merge damage, not physics):
+   `force_projection.py` lost `hub_r = hub_radius if hub_radius is not None else
+   blade_aero.hub_radius` (10 failures), `test_composite_beam_parity::_run_ccx` lost its
+   `return` (3 failures), `test_mitc3_benchmarks.py` mixed ours' load helper with theirs'
+   sign assertion (5 failures), and `generators.py` lost the `ElementSet` import
+   (1 failure). All four are now green.
+
+## What the merge did not fix, and what it moved
+
+### A. One blade-mesh defect blocks every CalculiX parity test (28 tests)
+
+5 `test_blade_ccx_parity` cases + 1 `test_composite_ccx_parity` case + 22 errors in
+upstream's own `test_blade_iea15mw_validation` and `test_ccx_shell_element_types_parity`
+all fail with:
+
+```
+*INFO in gen3dnor: in some nodes opposite normals are defined
+*ERROR in e_c3d: nonpositive jacobian
+       determinant in element        2790
+```
+
+This is **not** caused by the element line: the same blade deck fails with the winding
+canonicalisation disabled (verified), and it failed before the merge too — but before, the
+corrupt id scheme made CalculiX die earlier, so the deck never reached the integration
+stage. The merge turned an invisible defect into a loud one. Element 2790 of the coarse
+blade mesh is degenerate/inverted for the S8R conversion.
+
+### B. Our validation anchors moved (element-behaviour deltas, need re-baselining)
+
+| Anchor | Before | After | Reading |
+|---|---|---|---|
+| V-02 2nd flap | 1.6946 Hz (+2.15%) | 1.5545 Hz (−6.3%, tol 5%) | new element ~8% softer in 2F |
+| S-4 rotating 1F vs OpenFAST MBC3 | 0.5698 Hz (+0.6%) | 2.1375 Hz (+277%) | mode identification or K_G scale — see below |
+| S-7 shell/beam torsion ratio | 1.080 | 1.406 (band ≤1.3) | softer in torsion, the expected direction of `8cbfc0b` |
+| S-6 one-way dynamic OoP mean/std | in band | `nan` | a NaN enters the S-6 path |
+| Box EI vs analytic | <2% | 3.27% | |
+| D-Tube tip vs beam | +0.2% | 4.75% | |
+| UL elastica α=1 | −0.5% | 3.63% | |
+| Composite bend-twist vs CCX | 0.4% (2026-09-25) | AE −0.4499 vs CCX −0.1584 (2.84x) | the `_build_angle_bucket_sets` crash had been hiding this; it is the 3.23x question again |
+
+Two candidate causes for the S-4 jump, both unresolved:
+
+- ours' `assemble_geometric_k` filtered the membrane stress to its **tensile part**
+  (`tensile_part_membrane`) before assembling K_σ; upstream's does not. The merge dropped
+  the filter, so K_G is now assembled from the full (partly compressive) membrane state.
+- upstream's modal fixes (`b40561d`, `7e395ef`) changed which eigenpairs the solver returns
+  and in what order. If the S-4 test classifies "1st flap" by index, a different mode is
+  being labelled: 2.1375 Hz is plausible as a higher flap or edge mode.
+
+### C. A deliberate semantic change
+
+`assemble_kt_corotational`'s MITC4 path now uses upstream's total-Lagrangian tangent
+(`mitc4::compute_kt_global`) because the reviewed element does not expose a corotational
+variant. That is the honest adaptation, and it invalidates
+`test_corotational_large_rotation_validation::test_corotational_is_frame_objective_tl_is_not`,
+which asserts the very property that no longer differs. The test needs a decision: port our
+`Mitc4Precomputed::compute_kt_corotational` into the new element, or restate the test
+around the TL tangent.
+
+## Inherited limitations (not regressions)
+
+- 3D solid elements are gone, in Rust (`7b295f3`) and Python (`9230ea2`). The upstream
+  deletions took `tests/test_solid_elements.py`, `tests/test_vol_mesh.py` and
+  `tests/test_beam_4cases_parity.py` with them; the surviving CCX tests read
+  `tests/_ccx_io.py` instead.
+- The volume-mesh STL boundary-face path in `write_meshio` is gone with them; the STL
+  writer now caps every open boundary loop (upstream capped only the tip loop, which the
+  rotor export test rejects).
+- The `--ignore=tests/test_vol_mesh.py` in the documented command is now a no-op.
+
+## Next steps (decisions needed)
+
+1. **Blade mesh element 2790**: find the degenerate element and fix the generator or the
+   S8R conversion. This unblocks 28 tests, including all of upstream's CalculiX parity.
+2. **S-4**: restore or justify the tensile-part filter, and check the mode classification
+   against the new modal filtering. This is the one anchor whose failure could indicate a
+   real regression rather than a re-baselining.
+3. **S-6 NaN**: trace where the one-way dynamic path produces NaN.
+4. **Re-baseline or investigate** the V-02/S-7/box/D-Tube/elastica deltas. If the new
+   element is the reviewed one, either the tolerances or the anchors move — but each needs
+   a reason, not a shrug.
+5. **K_T corotational**: port `Mitc4Precomputed::compute_kt_corotational` or restate the
+   frame-objectivity test.

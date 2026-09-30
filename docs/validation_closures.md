@@ -5,7 +5,16 @@ Registro de los ítems de validación **cerrados**, con su evidencia y el
 cierre). Este archivo es la fuente para el capítulo de validación del
 artículo y evita re-auditar lo ya cerrado.
 
-Última actualización: 2026-09-18.
+Última actualización: 2026-09-30.
+
+> **2026-09-30 — la línea de elementos cambió.** Se integró `origin/main` (el elemento
+> MITC4+/D revisado, el fix de ángulos de ply span-relative, el fix de corte no corregido,
+> el fix del writer CCX y los fixes del solver modal). **Todos los cierres de G1 y G2 de
+> abajo quedaron invalidados**: son el disparador de re-ejecución que este documento define.
+> Estado medido antes/después, regresiones y próximos pasos:
+> `docs/origin_main_integration_2026-09-30.md`.  Resumen: 933→905 passed, 6→15 failed,
+> 0→22 errors; 28 tests de CalculiX bloqueados por un elemento degenerado de la malla de
+> pala; V-02 2F, S-4 rotante, S-7, S-6 (NaN), box EI, D-Tube y elástica se movieron.
 
 ## Cómo correr la suite de validación
 
@@ -21,6 +30,11 @@ capa límite (`get_vertex_normals`/`create_offset_layers` devuelven ceros):
 fuera del alcance de la validación shell. `test_blade_mesh.py` y
 `test_rotor_inertial.py` tienen imports stale. El paquete tercero
 `tests/IEA15MW/validation papers/github-IEA-15-240-RWT/tests/` no se corre.
+
+Desde el merge de `origin/main` (2026-09-30) el soporte de sólidos 3D ya no
+existe en Rust ni en Python, y upstream borró `test_solid_elements.py`,
+`test_vol_mesh.py` y `test_beam_4cases_parity.py`; el `--ignore` de
+`test_vol_mesh.py` quedó como no-op por compatibilidad.
 
 ---
 

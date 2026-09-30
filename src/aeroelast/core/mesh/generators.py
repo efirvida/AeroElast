@@ -17,6 +17,7 @@ import numpy as np
 
 from aeroelast.core.mesh.entities import (
     ELEMENT_NODES_MAP,
+    ElementSet,
     ElementType,
     MeshElement,
     Node,

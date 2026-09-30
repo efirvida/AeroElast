@@ -211,9 +211,23 @@ If preCICE is missing, the package still imports — FSI solvers are simply disa
 ## Known test-suite quirks
 
 - `tests/test_blade_mesh.py` and `tests/test_rotor_inertial.py` have stale imports — exclude them by default (see test command above).
-- `tests/test_vol_mesh.py` tests the WIP 3D boundary-layer volumetric-mesh pipeline (`get_vertex_normals`/`create_offset_layers`/`get_vol_mesh`, currently returning zeros). Out of scope for the shell-element validation; exclude it from validation runs.
+- `tests/test_vol_mesh.py` no longer exists: the 2026-09-30 merge accepted upstream's removal of 3D solid support (Rust `7b295f3`, Python `9230ea2`), which also deleted `tests/test_solid_elements.py` and `tests/test_beam_4cases_parity.py`. The `--ignore=tests/test_vol_mesh.py` in the test command is now a harmless no-op. The surviving CalculiX checks read `tests/_ccx_io.py`.
 - `tests/test_ko2017_performance.py` has 8 pre-existing failures with tight tolerances on coarse distributed meshes — these are NOT regressions.
 - Some benchmarks under `tests/` are intentionally heavy and unsuitable for quick smoke tests.
+
+## Element line and validation state (since 2026-09-30)
+
+The element kernels and the CalculiX writer now come from `origin/main` (the reviewed
+MITC4+/D element), not from the older local line: `crates/aeroelast-core/src/assembly/`
+was taken from upstream in the merge, and only the K_G-static helpers
+(`centrifugal_load`, `assemble_geometric_k_from_disp`, `update_node_coordinates`,
+`assemble_kt_corotational`) and the `body_load_rho` fix are ours on top.
+
+Before measuring anything, read `docs/origin_main_integration_2026-09-30.md`: it holds the
+before/after suite counts, the 28 CalculiX tests blocked by one degenerate blade-mesh
+element (`*ERROR in e_c3d: nonpositive jacobian`, element 2790), the anchors that moved
+(V-02 2F, S-4 rotating 1F, S-7 torsion, S-6 NaN, box EI, D-Tube, UL elastica), and the
+open decisions. `docs/validation_closures.md` carries the same re-run trigger at the top.
 
 ## SDD workflow
 

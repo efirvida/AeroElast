@@ -1,0 +1,6 @@
+yaw_deg,n_windows,t_start_s,t_end_s,iter_mean,iter_std,iter_max,iter_min,iter_total,no_conv_windows,res_ResRelSolid-Mesh_Displacement_mean_final,res_ResRelSolid-Mesh_Displacement_max_final,res_ResRelSolid-Mesh_Displacement_above_1e-4,res_ResRelSolid-Mesh_Force_mean_final,res_ResRelSolid-Mesh_Force_max_final,res_ResRelSolid-Mesh_Force_above_1e-4
+0,6000,40.0,100.0,3.269,0.744,15,2,19613,0,3.108e-06,9.298e-05,0,1.73e-05,9.969e-05,0
+10,6000,40.0,100.0,3.239,0.759,16,2,19436,0,2.365e-06,9.691e-05,0,1.692e-05,9.993e-05,0
+20,6000,40.0,100.0,3.204,0.731,11,2,19224,0,1.895e-06,4.71e-05,0,1.727e-05,9.994e-05,0
+30,6000,40.0,100.0,3.114,0.719,12,2,18682,0,1.26e-06,4.084e-05,0,1.727e-05,9.978e-05,0
+40,6000,40.0,100.0,2.995,0.72,15,2,17970,0,9.578e-07,8.916e-05,0,1.694e-05,9.996e-05,0

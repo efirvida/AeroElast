@@ -94,22 +94,43 @@ Historical baseline: 923 passed / 26 skipped / 4 xfailed / 0 failed.
       This is exactly the area `origin/main` touched (`930d055 fix(ccx): label
       nodes, elements and sets consistently for any id scheme`), so it is the
       headline candidate for the AFTER comparison.
-- [ ] T3 — `git merge --no-commit origin/main` and resolve the 42 conflict hunks
+- [x] T3 — `git merge --no-commit origin/main` and resolve the 42 conflict hunks
       in 19 files per the resolution table below.
-      Commit: _(pending)_
-- [ ] T4 — Apply the solid-removal consequence: skip/xfail the solid-dependent
+      Commit: `f5f92f7`.  42/42 hunks resolved with a per-hunk, auditable choice
+      (`$SCRATCH/tmp/odd-integrate-origin-main/resolve.py`); the four union
+      artifacts it left were repaired in `f93fc5a` and `28339a4`.
+- [x] T4 — Apply the solid-removal consequence: skip/xfail the solid-dependent
       tests with a documented reason.
-      Commit: _(pending)_
-- [ ] T5 — Rebuild the Rust extension post-merge and fix any build breakage.
-      Commit: _(pending)_
-- [ ] T6 — Capture the AFTER measurement (full suite + IEA 15 MW subset).
-      Evidence: _(pending)_
-- [ ] T7 — Write the before/after comparison on the validation subset, including
+      No skip was needed: upstream's `7e13d1e` deleted the solid test paths
+      (`test_solid_elements.py`, `test_vol_mesh.py`, `test_beam_4cases_parity.py`)
+      along with the Rust and Python support.  The two `ccx_bin_or_skip` helpers
+      from upstream's `conftest.py` were kept (a union) because four test files
+      import `ccx_bin_or_skip` from it.  The surviving CCX tests read
+      `tests/_ccx_io.py`.
+- [x] T5 — Rebuild the Rust extension post-merge and fix any build breakage.
+      Commits: `f5f92f7` (core `centrifugal_load`, `assemble_geometric_k_from_disp`,
+      `update_node_coordinates`, `assemble_kt_corotational`; py `fsi.rs` rebuilt from
+      our five runner signatures; `alpha_prev`/`velocity_write_data` restored) and
+      `28339a4` (py binding for `assemble_kt_corotational`).  Build green.
+- [x] T6 — Capture the AFTER measurement (full suite + IEA 15 MW subset).
+      Full suite: **905 passed, 15 failed, 22 errors, 38 skipped, 6 xfailed**
+      (`after-full3.log`); the earlier passes are in `after-full.log` (41 failed,
+      22 errors) and `after-full2.log` (22 failed, 22 errors) before the union
+      artifacts and the gravity-load unit bug were fixed.
+- [x] T7 — Write the before/after comparison on the validation subset, including
       which previously-failing or xfail items closed.
-      Commit: _(pending)_
-- [ ] T8 — Update `docs/validation_closures.md` and `CLAUDE.md` with the new
+      Commit: `docs/origin_main_integration_2026-09-30.md`.
+- [x] T8 — Update `docs/validation_closures.md` and `CLAUDE.md` with the new
       state and the inherited limitations.
-      Commit: _(pending)_
+      Both updated in the same commit as T7.
+
+## Outcome
+
+See `docs/origin_main_integration_2026-09-30.md`.  In one line: the merge lands the
+reviewed element and the CCX writer fix, and while measuring it we also found and fixed a
+real composite gravity-load unit bug and four merge artifacts — but 28 CalculiX tests are
+blocked by one degenerate blade-mesh element, and six of our validation anchors moved
+(V-02 2F, S-4 rotating 1F, S-7 torsion, S-6 NaN, box EI, D-Tube, elastica).
 
 ## Conflict resolution policy (dry-run inventory)
 

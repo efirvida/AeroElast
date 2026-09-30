@@ -1,0 +1,4 @@
+n_samples,n_nodes,twist_ratio_shell_beam,gj_ratio_shell_beam
+120,9262,0.84341,1.18566
+240,9251,0.84346,1.18559
+480,9251,0.84358,1.18542
