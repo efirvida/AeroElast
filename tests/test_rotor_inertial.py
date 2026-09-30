@@ -445,57 +445,6 @@ class TestOmegaProviders:
 class TestIntegration:
     """Integration tests with simulated forces (no preCICE needed)."""
 
-    def test_force_transform_and_inertial_combination(self):
-        """Test complete force processing pipeline."""
-        # Setup
-        transforms = CoordinateTransforms([0, 0, 1], [0, 0, 0])
-        inertial_calc = InertialForcesCalculator([0, 0, 1], [0, 0, 0])
-
-        # Simulate CFD forces in global frame (thrust in X direction)
-        F_global = np.array([[1000.0, 0.0, 0.0], [1000.0, 0.0, 0.0], [1000.0, 0.0, 0.0]])
-
-        # Rotor at 45 degrees
-        theta = np.pi / 4
-        omega = 10.0
-
-        # Nodes on rotor blade
-        coords = np.array([[1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0]])
-        masses = np.array([5.0, 5.0, 5.0])
-        velocities = np.zeros((3, 3))
-
-        # Transform forces to rotating frame
-        F_local = transforms.transform_force_to_rotating(F_global.flatten(), theta)
-        F_local = F_local.reshape(-1, 3)
-
-        # Compute inertial forces
-        F_inertial, _ = inertial_calc.compute_all_inertial_forces(coords, velocities, masses, omega)
-
-        # Combine
-        F_total = F_local + F_inertial
-
-        # Verify total force has both components
-        assert F_total.shape == (3, 3)
-
-        # Magnitudes should be reasonable
-        total_mag = np.linalg.norm(np.sum(F_total, axis=0))
-        assert total_mag > 0
-
-    def test_theta_accumulation_simulation(self):
-        """Simulate theta accumulation over time steps."""
-        provider = ConstantOmega(omega=10.0)  # 10 rad/s
-        dt = 0.001  # 1 ms time step
-
-        theta = 0.0
-        n_steps = 1000  # 1 second of simulation
-
-        for i in range(n_steps):
-            t = i * dt
-            omega, _ = provider.get_omega(t)
-            theta += omega * dt
-
-        # After 1 second at 10 rad/s, should be at 10 radians
-        assert_allclose(theta, 10.0, rtol=0.001)
-
     def test_displacement_consistency_over_rotation(self):
         """
         Test that displacement magnitude is preserved through

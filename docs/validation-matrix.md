@@ -6,7 +6,7 @@ against**, **the tolerance as the code states it**, and **the margin the run act
 achieved**.
 
 This document exists because the suite scatters reference values and tolerances
-across 36 files: each test hardcodes its own expectation, so a wrong benchmark value
+across 35 files: each test hardcodes its own expectation, so a wrong benchmark value
 can survive inside an assertion that cannot fail. A single matrix makes every
 reference and every margin visible.
 
@@ -74,7 +74,7 @@ number.
 
 ## Index
 
-Six groups, 36 files, 441 tests. Every collected test node is accounted for below;
+Six groups, 35 files, 413 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
@@ -83,9 +83,9 @@ Six groups, 36 files, 441 tests. Every collected test node is accounted for belo
 | CCX parity | [§4](#4-ccx-parity-group) | 10 | 66 | 66 | 0 | 0.37% – 12.57% | 10 |
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
 | Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 10 | 151 | 151 | 0 | 0.45% – 1.68% | 1 |
-| Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 5 | 95 | 95 | 0 | algebraic / invariant (`not printed`) | 0 |
+| Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
 | BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 58 | 58 | 0 | 0.33% – 40.00% | 1 |
-| **Total** | | **36** | **441** | **441** | **0** | | **12** |
+| **Total** | | **35** | **413** | **413** | **0** | | **12** |
 
 **A large margin is not a failure.** `passed = 441, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -129,9 +129,9 @@ By file and subsection:
   - [6.8 `test_composite_b_coupling.py` (4)](#68-test_composite_b_couplingpy-4)
   - [6.9 Documentation and contract guards](#69-documentation-and-contract-guards)
 - [7. Rotor and FSI group](#7-rotor-and-fsi-group)
-  - [7.1 `test_rotor_inertial.py` (34)](#71-test_rotor_inertialpy-34)
-  - [7.2 `test_rotor_physical_consistency.py` (22)](#72-test_rotor_physical_consistencypy-22)
-  - [7.3 `test_rotor_rust_parity.py` (37)](#73-test_rotor_rust_paritypy-37)
+  - [7.1 `test_rotor_inertial.py` (32)](#71-test_rotor_inertialpy-32)
+  - [7.2 `test_rotor_physical_consistency.py` (removed)](#72-test_rotor_physical_consistencypy-22)
+  - [7.3 `test_rotor_rust_parity.py` (33)](#73-test_rotor_rust_paritypy-33)
   - [7.4 `test_rotor_performance_report.py` (1) and `test_fsi_structural_report.py` (1)](#74-test_rotor_performance_reportpy-1-and-test_fsi_structural_reportpy-1)
 - [8. BEM, aero and mesh group](#8-bem-aero-and-mesh-group)
   - [8.1 `test_bem_polars.py` (20)](#81-test_bem_polarspy-20)
@@ -322,9 +322,8 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_composite_b_coupling.py` | 4 | §6.8 |
 | `test_mitc4plusd_traceability.py` | 3 | §6.9 |
 | `test_laminate_invariant_guard.py` | 1 | §6.9 |
-| `test_rotor_inertial.py` | 34 | §7.1 |
-| `test_rotor_physical_consistency.py` | 22 | §7.2 |
-| `test_rotor_rust_parity.py` | 37 | §7.3 |
+| `test_rotor_inertial.py` | 32 | §7.1 |
+| `test_rotor_rust_parity.py` | 33 | §7.3 |
 | `test_rotor_performance_report.py` | 1 | §7.4 |
 | `test_fsi_structural_report.py` | 1 | §7.4 |
 | `test_bem_polars.py` | 20 | §8.1 |
@@ -333,7 +332,7 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_force_projection.py` | 10 | §8.3 |
 | `test_bem_openfast_parity.py` | 13 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
-| **36 files** | **441** | |
+| **35 files** | **413** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -735,7 +734,7 @@ can no longer silently disagree with the code.
 
 ## 7. Rotor and FSI group
 
-### 7.1 `test_rotor_inertial.py` (34)
+### 7.1 `test_rotor_inertial.py` (32)
 
 No test prints. The module loads `corotational.py` by file path to dodge the package
 `__init__` (PETSc). References are closed-form rigid-body inertia and rotation algebra.
@@ -749,7 +748,16 @@ No test prints. The module loads `corotational.py` by file path to dodge the pac
 | | `test_theta_accumulation_simulation` | none: the test integrates `theta += omega*dt` itself | `rtol=0.001` vs 10 rad | not printed | **tautological**: the accumulation loop is in the test, not in the solver. Only `ConstantOmega.get_omega` is exercised. |
 | | `test_displacement_consistency_over_rotation` | rotation algebra | `decimal=12` | not printed | round-trip identity of the class under test |
 
-### 7.2 `test_rotor_physical_consistency.py` (22)
+### 7.2 `test_rotor_physical_consistency.py` (removed)
+
+**REMOVED as a tautology.** Every test in this file re-implemented the production logic in
+the test and asserted on that copy; none called the code it claimed to protect, so none could
+ever fail. The 22 nodes were deleted. The genuine closed-form checks of the rotating-frame
+forces (centrifugal / Coriolis / Euler) live in §7.1 (`test_rotor_inertial.py`), which calls
+`corotational.py`. The K_G gate, the implicit gyroscopic matrix and the stress gate remain
+untested at the unit level; testing them requires exposing the Rust/`rotor.py` paths.
+
+The historical table is kept below for the record.
 
 This file is the suite's worst case for tautological references. No test prints, and **no
 test in this file calls the production code path it claims to protect** — the only import
@@ -763,7 +771,7 @@ is a `_aeroelast` existence probe used to decide whether to skip.
 | `test_coriolis_implicit_stability` | that implicit Coriolis treatment keeps `K_eff` positive definite | none: `K_eff = K + a1 G + a0 M` is built in the test | `all(eigvals > 0)`, `cond < 1e6` | not printed | **tautology** for the same reason; the solver's Newmark assembly is never called. The stated stability claim is not a property of the code. |
 | `test_stress_gate_checkpoint_consistency[1, 5, 10]` | that the stress gate writes stress at checkpoint steps | none: the gate (`stress_interval <= 1 or step % interval == 0 or is_checkpoint`) is re-implemented in the test with a `# <-- CRITICAL` marker | membership of checkpoint steps | not printed | **tautology**: the predicate the test asserts on is written in the test, not read from `rotor.py`. |
 
-### 7.3 `test_rotor_rust_parity.py` (37)
+### 7.3 `test_rotor_rust_parity.py` (33)
 
 No test prints. Two reference classes: (a) the Python implementation of the same helper,
 compared across a stub, and (b) marshalling smoke tests whose expected outcome is "raises
