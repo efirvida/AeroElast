@@ -293,7 +293,8 @@ class TestKGAssemblyPipeline:
         diag_base = K_eff_base.getDiagonal().getArray().copy()
 
         # K_G from a uniform biaxial tensile stress
-        stress_field = {e.id: np.array([1e7, 1e7, 0.0]) for e in domain.elements}
+        sigma = np.array([1e7, 1e7, 0.0])
+        stress_field = {e.id: sigma for e in domain.elements}
         K_G = domain.assemble_geometric_stiffness(stress_field=stress_field)
         K_G_red = bc_mgr.reduce_matrix(K_G)
 
@@ -319,9 +320,10 @@ class TestKGAssemblyPipeline:
             "of the base diagonal; it must remain a correction"
         )
 
-        # K_G is linear in the prescribed stress: doubling it doubles the trace.
+        # K_G is linear in the prescribed stress: feeding the exact same field
+        # scaled by 2 must double the trace.
         K_G_2x = domain.assemble_geometric_stiffness(
-            stress_field={e.id: np.array([2e7, 2e7, 0.0]) for e in domain.elements}
+            stress_field={e.id: 2.0 * sigma for e in domain.elements}
         )
         trace_1x = float(np.sum(delta))
         trace_2x = float(
