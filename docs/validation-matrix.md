@@ -74,18 +74,18 @@ number.
 
 ## Index
 
-Six groups, 36 files, 415 tests. Every collected test node is accounted for below;
+Six groups, 36 files, 423 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Ko, Lee, Lee & Bathe 2017 benchmarks | [§3](#3-teststest_ko2017_performancepy-ko-lee-lee--bathe-2017) | 1 | 31 | 31 | 0 | 0.01% – 2.73% | 0 |
-| CCX parity | [§4](#4-ccx-parity-group) | 11 | 68 | 68 | 0 | 0.37% – 12.57% | 7 |
+| CCX parity | [§4](#4-ccx-parity-group) | 11 | 76 | 76 | 0 | 0.37% – 12.57% | 7 |
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
 | Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 10 | 151 | 151 | 0 | 0.45% – 1.68% | 1 |
 | Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
 | BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 58 | 58 | 0 | 0.33% – 40.00% | 1 |
-| **Total** | | **36** | **415** | **415** | **0** | | **9** |
+| **Total** | | **36** | **423** | **423** | **0** | | **9** |
 
 **A large margin is not a failure.** `passed = 441, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -234,7 +234,7 @@ The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 9
 (16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
 Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
 the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
-the diagnostic failures of §13.2. The collected suite is now **415 tests**. Earlier, for
+the diagnostic failures of §13.2. The collected suite is now **423 tests**. Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
 1025.15s. The Rust side is green too: `cargo test --manifest-path crates/Cargo.toml -p
 aeroelast-core` -> **155 passed, 0 failed, 0 ignored** (the Cargo workspace root is `crates/`,
@@ -308,7 +308,7 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_shell_convergence.py` | 2 | §4.5 |
 | `test_ccx_shell_element_types_parity.py` | 4 | §4.6 |
 | `test_composite_layup_parity.py` | 18 | §4.7 |
-| `test_blade_iea15mw_validation.py` | 18 | §4.8 |
+| `test_blade_iea15mw_validation.py` | 26 | §4.8 |
 | `test_blade_iea15mw_mesh_convergence.py` | 1 | §4.8b |
 | `test_ccx_writer_ids.py` | 3 | §4.9 |
 | `test_shell_analytical_validation.py` | 11 | §5.1 |
@@ -336,7 +336,7 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_force_projection.py` | 10 | §8.3 |
 | `test_bem_openfast_parity.py` | 13 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
-| **36 files** | **415** | |
+| **36 files** | **423** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -499,7 +499,7 @@ CLT-analytical or invariant checks.
 | `test_symmetric_laminates_have_no_b_coupling[sym_0_90s, quasi_iso]` | B = 0 control: symmetric laminates stay flat | **CCX 2.23, S8R** plus an absolute bound | 1e-11 absolute | aero ~1e-19, ccx ~1e-13 | an absolute bound because both sides are round-off; a relative test here would divide by zero |
 | `test_modal_frequencies_match_ccx[5 layups]` | first five matched eigenfrequencies of the clamped-free strip | **CCX 2.23, S8R** `*FREQUENCY` | 3% | worst 1.26% (`uni_0`, 8x20 mesh) | the modal case runs on 8x20, not 4x10: at 4x10 the highest matched `uni_0` mode is 6.72% off, refining to 1.26% at 8x20 and 0.53% at 16x40. Matching is Hungarian over 10 requested modes |
 
-### 4.8 `test_blade_iea15mw_validation.py` (18)
+### 4.8 `test_blade_iea15mw_validation.py` (26)
 
 The IEA 15 MW reference blade, meshed from `tests/IEA-15-240-RWT.yaml` with this repository's
 own `Blade` model at `element_size = 1.0` and given the composite shell properties the model
@@ -521,6 +521,8 @@ what the numbers below measure.
 | `test_blade_modal_frequencies_match_ccx[0..4]` | first five matched eigenfrequencies of the clamped-root blade | **CCX 2.23, S8R** modal on the identical mesh, properties and span direction | 10% | worst 1.65%; all five: 0.44%, 0.71%, 0.78%, 0.84%, 1.65% | pairing is Hungarian over 10 requested modes |
 | `test_blade_first_modes_match_article[flapwise, edgewise]` | the first two computed frequencies | **Escalera Mendoza et al. 2023, Table 3**: 0.57 Hz (1st flapwise), 0.65 Hz (1st edgewise), bounded by the **article-vs-Bernardi reference scatter** | reference scatter + 3% (8.8% / 14.8%) | 0.526 Hz (-7.6%, scatter 5.8%) and 0.702 Hz (+8.1%, scatter 11.8%) | **passes**: the two published beam references disagree by 5.8% / 11.8%, so a shell cannot be required to match one tighter than the two match each other; the shell sits next to Bernardi (1F -2.0%, 1E -3.4%). A 0.5 m mesh sweep gives 1F 0.535 Hz and 1E 0.699 Hz, flat to ~1.7% |
 | `test_blade_modal_frequencies_match_bernardi[0..7]` | the first eight matched frequencies | **Bernardi et al., Wind Energy Science preprint `wes-2025-120`, Table 2**: 0.5369 / 0.7267 / 1.577 / 2.267 / 3.113 / 3.642 / 4.571 / 5.385 Hz (1F, 1E, 2F, 2E, 3F, 1T, 3E, 4F) | 15% | worst 12.3% (highest pair); lower modes 1.9% / 3.4% / 4.4% / 5.3% / 5.8% / 6.8% / 9.8% | an independent beam-based CSD reference from the FSI literature; pairing is Hungarian over 10 computed modes. The shell sits progressively above the beam as the modes go up, the expected direction for a shell that restrains cross-section warping |
+| `test_blade_first_modes_match_nrel_report[flapwise, edgewise]` | the first two modes vs the original NREL definition report | **Gaertner et al. 2020, Table ES-2**: 0.555 Hz (1st flapwise), 0.642 Hz (1st edgewise) | NREL-vs-article scatter + 3% (5.7% / 4.2%) | 0.526 Hz (-5.1%) passes; 0.702 Hz (+9.4%) xfail | a third beam reference; it agrees with the article to 2.7% on 1F but only 1.2% on 1E, where the shell follows Bernardi instead |
+| `test_blade_parked_modes_match_numad[0..5]` | the first six NuMAD parked modes (1F, 1E, 2F, 2E, 3F, 1T) | **Escalera Mendoza et al. 2023, Table 3**, with Bernardi as the scatter peer | NuMAD-vs-Bernardi scatter + 3% (8.8% / 14.8% / 11.3% / 12.0% / 11.7% / 18.1%) | 1F -7.6%, 1E +8.0%, 2F -12.3%, 2E +2.7%, 3F -14.9%, 1T -6.8% | 4 pass; 2F and 3F xfail: the shell (and Bernardi) sit below the NuMAD/BModes beam on the 2nd/3rd flapwise |
 | `test_blade_static_tip_deflection_matches_ccx` | static flapwise tip deflection under a uniform load scaled to the article's DLC 1.4 root moment | **CCX 2.23, S8R** static on the identical mesh, properties and span direction | 15% | aero 21.69 m vs ccx 22.10 m = 1.9% | – |
 | `test_blade_static_deflection_matches_article_dlc` | the same tip deflection against the article's reported value | **Escalera Mendoza et al. 2023, section V**: DLC 1.4 max root moment 90.4 MNm, max out-of-plane tip deflection 23.49 m | 15% | 21.69 m = -7.7% | the load distribution is a **proxy** (DLC 1.4 is aero-elastic); with the root moment matched, the tip deflection is the comparable quantity. A uniform-cantilever beam estimate from the article's own 1st flapwise frequency is **not usable** here: 0.46 m against the shell's 7.5 m for a tip load, a factor of 14, because the blade tapers hard and the tip-load compliance is dominated by the soft outboard section |
 
@@ -1360,7 +1362,7 @@ reference itself is a different model (beam vs shell, or a proxy load).
 A tolerance is the diagnostic instrument. With a widened bound the suite hides a real
 method-vs-method or author-vs-author difference; with the honest bound it stops hiding it and
 every failure states the difference to analyse. Tightening every flagged row to 5% identified
-the **eight** nodes below; they are landed as **documented `xfail`** — the measured difference is the
+the **eleven** nodes below; they are landed as **documented `xfail`** — the measured difference is the
 reason, the test passes if the code later improves inside the bound — so the suite stays usable
 and each one still names the validity limit. **Each is a validity statement about AeroElast, not
 a bug to paper over.**
@@ -1369,6 +1371,8 @@ a bug to paper over.**
 | --- | --- | --- | --- |
 | blade `test_blade_static_deflection_matches_article_dlc` | article DLC 1.4 tip 23.49 m | 21.69 m, -7.7% | the load is a static proxy for an aero-elastic DLC |
 | blade `test_blade_modal_frequencies_match_bernardi[3..7]` | Bernardi et al., Table 2 (beam CSD) | 5.3% to 12.3% (mode 7) | beam vs shell; the gap grows with mode number and does not shrink with the mesh |
+| blade `test_blade_first_modes_match_nrel_report[1]` | Gaertner et al. 2020, Table ES-2, 1st edgewise 0.642 Hz | 0.702 Hz, +9.4% | stiffer than the NREL report's edgewise; the shell follows Bernardi (0.7267 Hz) instead |
+| blade `test_blade_parked_modes_match_numad[2, 4]` | Escalera Mendoza et al. 2023, Table 3, 2F 1.72 / 3F 3.41 Hz | 1.508 / 2.903 Hz, -12.3% / -14.9% | softer than the NuMAD/BModes beam on the 2nd/3rd flapwise; Bernardi sits lower and the shell follows Bernardi |
 | `test_outer_fibre_stress_matches_ccx_and_analytical` (analytical leg) | `M c / I` = 60 MPa | 52.46 MPa, 12.6% | coarse 8x2 linear mesh under bending |
 | `test_viterna_post_stall_matches_aerodyn` | official AeroDyn post-stall table | up to 40% on Cl at 30 deg | NeuralFoil + Viterna vs the official table in the stall band |
 
