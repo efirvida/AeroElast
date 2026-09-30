@@ -907,8 +907,8 @@ red, and a green suite does not remove a flag.
 | file:line | test | assertion |
 | --- | --- | --- |
 | `test_shell_convergence.py` | `test_composite_laminate_gap_mesh_study` | **RESOLVED** — now asserts the AeroElast self-convergence order (`>= 1.5`), a 5% bound on every mesh gap, a 2% bound on the finest-mesh gap, and that refinement does not increase the gap |
-| `test_shell_comprehensive.py:609` | `TestNonlinearStaticCantilever::test_large_displacement_tip_load` | `assert abs(dz_lin) > L` on a linear estimate of 1.121e+02 m |
-| `test_shell_validation_fixed.py:280` | `TestNonlinearStatic::test_geometric_nonlinearity` | `assert dz_lin > L`, same value |
+| `test_shell_comprehensive.py` | `TestNonlinearStaticCantilever::test_large_displacement_tip_load` | **RESOLVED** — now asserts the linear estimate against beam theory, convergence, and geometric stiffening, then compares the nonlinear tip against the Bisshopp-Drucker elastica (5.99% gap -> xfail at the 5% bound) |
+| `test_shell_validation_fixed.py` | `TestNonlinearStatic::test_geometric_nonlinearity` | **RESOLVED** — same real nonlinear check as above: linear vs beam theory, stiffening, and the elastica comparison (5.99% gap -> xfail) |
 | `test_stress_stiffened_solver.py` | `test_stress_field_dict_from_recovery` | **RESOLVED** — now asserts the closed-form plane-stress values (`sigma_xx = E/(1-nu^2) eps`, `sigma_yy = nu sigma_xx`, `sigma_xy = 0`) for every one of the 16 elements |
 | `test_stress_stiffened_solver.py` | `test_update_interval_skips_rebuild` | **RESOLVED** — the displacement now strains (a uniform translation made step 5 return `None`); step 3 must skip and step 5 must return a *new* `PETSc.Mat` |
 | `test_stress_stiffened_solver.py` | `test_keff_with_KG_larger_than_without` | **RESOLVED** — asserts the elementwise `diag(K_G_red) >= 0` (no DOF loses stiffness), a positive total increase, a correction-sized bound, and linearity of the `K_G` trace in the prescribed stress |
@@ -929,7 +929,7 @@ red, and a green suite does not remove a flag.
 | `test_shell_analytical_validation.py` | `TestBeamBending::test_bending_convergence` | three independent single-mesh assertions; no convergence |
 | `test_shell_analytical_validation.py` | `TestCompositeMatrices::test_laminate_solve` | shapes only; no solve |
 | `test_shell_comprehensive.py` | `TestModalAnalysis::test_higher_modes` | monotonicity only; no reference mode values |
-| `test_shell_comprehensive.py` | `TestNonlinearStaticCantilever::test_large_displacement_tip_load` | asserts a divergence exception, not a large-displacement result |
+| `test_shell_comprehensive.py` | `TestNonlinearStaticCantilever::test_large_displacement_tip_load` | **RESOLVED** — now solves the large-displacement case against the Bisshopp-Drucker elastica instead of only asserting a divergence exception |
 | `test_rust_modal.py` | `test_mode_shapes_orthogonal` | M-orthogonality is never computed |
 | `test_rust_modal.py` | `test_composite_stiffer_than_isotropic` | asserts "different", not "stiffer" |
 | `test_rust_modal.py` | `TestModalBenchmark::test_benchmark_mitc4` | a benchmark named as a test; it prints Rust at 0.3x of Python |
