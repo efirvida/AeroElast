@@ -296,13 +296,35 @@ class TestMITC4ModalCantilever:
         )
 
     def test_mode_shapes_orthogonal(self):
-        """Rust mode shapes are M-orthogonal (via element mass)."""
-        rs_freq, rs_modes = _rust_modal_solve(self.assembler, self.free_dofs, self.num_modes)
-        # Mode shapes should be approximately orthogonal
+        """The Rust mode shapes are M-orthogonal: ``Phi^T M Phi`` is diagonal.
+
+        This is a real property of an eigenvector set of the generalised problem
+        ``K phi = lambda M phi``.  Normalisation-independent: the off-diagonal
+        terms of ``Phi^T M Phi`` must vanish against the diagonal.
+        """
+        asm = self.assembler
+        rs_freq, rs_modes = _rust_modal_solve(asm, self.free_dofs, self.num_modes)
         n_modes = rs_modes.shape[1]
+        assert n_modes >= 2, "need at least two modes to test M-orthogonality"
+
+        # _rust_modal_solve expands the modes back to the full DOF space, so the
+        # M-orthogonality product uses the full mass matrix.
+        M = asm.assemble_mass_matrix()
+        n_total = asm.dofs_count
+        idx = np.arange(n_total, dtype=np.int32)
+        m_full = M.getValues(idx, idx)
+        M.destroy()
+
+        gram = rs_modes.T @ m_full @ rs_modes
+        diag = np.sqrt(np.abs(np.diag(gram)))
+        worst = 0.0
         for i in range(n_modes):
-            norm = np.linalg.norm(rs_modes[:, i])
-            assert norm > 1e-10, f"Mode {i} has zero norm"
+            for j in range(i + 1, n_modes):
+                rel = abs(gram[i, j]) / (diag[i] * diag[j])
+                worst = max(worst, rel)
+        print(f"  M-orthogonality worst off-diagonal: {worst:.3e}")
+        assert worst < 1e-8, f"mode shapes not M-orthogonal: worst off-diagonal {worst:.3e}"
+        assert np.all(np.diag(gram) > 0.0), "M-orthogonality diagonal must be positive"
 
 
 # ---------------------------------------------------------------------------
