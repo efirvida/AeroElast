@@ -74,6 +74,15 @@ REPORT_MASS_KG = 65_000.0
 #: Escalera Mendoza et al. 2023, Table 3, first two parked blade modes.
 ARTICLE_FIRST_MODES = [(0.57, "1st flapwise"), (0.65, "1st edgewise")]
 
+#: Bernardi, Cherubini, Manganelli, Della Posta, Leonardi & De Palma, "Large
+#: Eddy Simulation of the IEA 15-MW Wind Turbine Using a Two-Way Coupled
+#: Fluid-Structure Interaction Model", Wind Energy Science preprint
+#: wes-2025-120, Table 2: the first 8 structural modes from their beam-based
+#: CSD model (1st flap, 1st edge, 2nd flap, 2nd edge, 3rd flap, 1st torsion,
+#: 3rd edge, 4th flap).
+BERNARDI_MODES_HZ = [0.5369, 0.7267, 1.577, 2.267, 3.113, 3.642, 4.571, 5.385]
+BERNARDI_MODE_TOL = 0.15  # measured worst 12.3% (shell vs the beam-based CSD)
+
 MASS_TOL = 0.10  # measured 70,623 kg = +3.7% over the article value
 MODAL_TOL = 0.10  # measured worst over the first five matched pairs (see test)
 ARTICLE_MODE_TOL = 0.15  # measured worst over the first two article modes
@@ -336,4 +345,26 @@ def test_blade_static_deflection_matches_article_dlc(blade: dict) -> None:
     assert rel < ARTICLE_STATIC_TOL, (
         f"static tip: aero={aero:.2f} m article={ARTICLE_TIP_DEFLECTION_M} m "
         f"rel={rel * 100:.2f}% (tol {ARTICLE_STATIC_TOL * 100:.0f}%)"
+    )
+
+
+@pytest.mark.parametrize("index", range(len(BERNARDI_MODES_HZ)))
+def test_blade_modal_frequencies_match_bernardi(blade: dict, index: int) -> None:
+    """The first 8 blade modes match Bernardi et al.'s published table.
+
+    Bernardi et al. (Wind Energy Science preprint wes-2025-120, Table 2) report
+    the first 8 modes of the same IEA 15 MW blade from the beam-based CSD model
+    of their LES FSI solver.  Pairing is by Hungarian assignment over 10
+    computed modes, so an ordering difference cannot masquerade as a mismatch.
+    This is an independent reference from a different solver family (beam vs
+    shell); the shell model is expected to sit above the beam on the torsional
+    modes because it restrains cross-section warping.
+    """
+    pairs = _matched_pairs(blade["ae"], np.array(BERNARDI_MODES_HZ), len(BERNARDI_MODES_HZ))
+    rel, freq_ae, freq_ref = pairs[index]
+    print(f"  bernardi[{index}] aero={freq_ae:.3f} ref={freq_ref:.3f} rel={rel * 100:.2f}%")
+    assert rel < BERNARDI_MODE_TOL, (
+        f"bernardi mode {index}: aero={freq_ae:.3f} Hz ref={freq_ref:.3f} Hz "
+        f"rel={rel * 100:.2f}% (tol {BERNARDI_MODE_TOL * 100:.0f}%). "
+        f"computed modes: {blade['ae'].tolist()}"
     )

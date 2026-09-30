@@ -95,6 +95,64 @@ def parse_frd_disp(frd_file: Path, node_ids: list[int]) -> dict[int, np.ndarray]
     return disps
 
 
+def parse_frd_stress(
+    frd_file: Path, node_ids: list[int] | None = None
+) -> dict[int, np.ndarray]:
+    """Parse the last FRD STRESS block into per-node Voigt stress.
+
+    Returns ``{node_id: [SXX, SYY, SZZ, SXY, SYZ, SZX]}`` in CalculiX order.
+    Node numbers are read from columns 4-13 and each component from the
+    following 12-column fields, so a negative value does not break the parse.
+    The block CalculiX writes for ``*EL FILE, OUTPUT=2D`` + ``S`` is the shell
+    stress at the surface nodes; for shells its through-thickness meaning is
+    **not** the outer-fibre stress (see the module's caller for the caveat).
+    """
+    wanted = set(node_ids) if node_ids is not None else None
+    stresses: dict[int, np.ndarray] = {}
+
+    with open(frd_file, "r", encoding="utf-8", errors="replace") as handle:
+        lines = handle.readlines()
+
+    last_stress_start = -1
+    for i, line in enumerate(lines):
+        if "-4" in line and "STRESS" in line.upper():
+            last_stress_start = i
+
+    if last_stress_start == -1:
+        return stresses
+
+    for line in lines[last_stress_start + 1 :]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("-3") or stripped.startswith("*") or "STEP" in stripped.upper():
+            break
+        if not stripped.startswith("-1"):
+            continue
+        try:
+            node_id = int(line[3:13])
+            if wanted is not None and node_id not in wanted:
+                continue
+            stresses[node_id] = np.array(
+                [float(line[13 + 12 * j : 25 + 12 * j]) for j in range(6)],
+                dtype=float,
+            )
+        except ValueError:
+            continue
+
+    return stresses
+
+
+def von_mises_from_voigt(sigma: np.ndarray) -> np.ndarray:
+    """Von Mises equivalent stress from Voigt rows ``[sxx, syy, szz, sxy, syz, szx]``."""
+    s = np.atleast_2d(np.asarray(sigma, dtype=float))
+    sxx, syy, szz, sxy, syz, szx = (s[:, i] for i in range(6))
+    return np.sqrt(
+        0.5 * ((sxx - syy) ** 2 + (syy - szz) ** 2 + (szz - sxx) ** 2)
+        + 3.0 * (sxy**2 + syz**2 + szx**2)
+    )
+
+
 def parse_ccx_frequencies(dat_path: Path, n_modes: int = 5) -> np.ndarray:
     """Parse eigenfrequencies (Hz) from a CalculiX ``.dat`` file."""
     dat_file = dat_path.with_suffix(".dat")
