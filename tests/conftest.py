@@ -83,6 +83,34 @@ _ensure_shared_lib("libstdc++.so.6", _GCC14_LIB_PATH)
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Entity id counters
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _reset_mesh_entity_id_counters():
+    """Start every test with the mesh entity id counters at zero.
+
+    ``Node`` and ``MeshElement`` keep process-global counters and nothing resets
+    them, so entity ids drift with the test order.  Anything that equates an id
+    with an index -- the CCX writer's connectivity, ``_build_angle_bucket_sets``,
+    the FRD parsers, the NSET/ELSET labels -- then silently reads a different
+    entity, and the failures are order-dependent, which makes them expensive to
+    find.  Four such defects were chased one by one in this suite; resetting here
+    removes the family.
+
+    Within a test the counter keeps running, so meshes built by the same test
+    still get distinct ids.
+    """
+    from aeroelast.core.mesh.entities import MeshElement, Node
+
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
+    yield
+
+
+# ---------------------------------------------------------------------------
+# CalculiX reference values
+# ---------------------------------------------------------------------------
 def elastica_cantilever_tip_deflection(P, L, b, h, E) -> float:
     """Geometrically nonlinear tip deflection of an end-loaded cantilever.
 
