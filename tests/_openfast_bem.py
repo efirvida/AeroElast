@@ -27,8 +27,6 @@ import os
 import re
 import shutil
 import subprocess
-import tarfile
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -42,35 +40,12 @@ from aeroelast.models.blade.aerodynamics import (
     PolarData,
 )
 
-#: Vendored IEA 15 MW OpenFAST deck, shipped as a single archive so the
-#: repository carries one file instead of ~100 (Apache-2.0; see the NOTICE).
-VENDORED_DECK_ARCHIVE = Path(__file__).resolve().parent / "reference/iea15mw_openfast.tar.gz"
+#: Vendored IEA 15 MW OpenFAST deck (tracked, Apache-2.0; see its NOTICE).
+VENDORED_DECK = Path(__file__).resolve().parent / "reference/iea15mw_openfast"
 #: Locally fetched copy of the same deck (`.sources` is gitignored).
 FETCHED_DECK = Path(".sources/openfast/iea15mw")
-#: Cache root and the deck directory the archive unpacks to.
-_CACHE_ROOT = Path(tempfile.gettempdir()) / "aeroelast-openfast-deck"
-_CACHED_DECK = _CACHE_ROOT / "iea15mw_openfast"
-
-
-def _ensure_vendored_deck() -> Optional[Path]:
-    """Return the vendored deck directory, unpacking the archive once if needed.
-
-    The archive is unpacked under the temporary directory, never inside the
-    repository, so the working tree stays clean.  Returns ``None`` when the
-    archive is absent so the caller can fall back to the fetched deck.
-    """
-    if _CACHED_DECK.joinpath("NOTICE").is_file():
-        return _CACHED_DECK
-    if not VENDORED_DECK_ARCHIVE.is_file():
-        return None
-    _CACHE_ROOT.mkdir(parents=True, exist_ok=True)
-    with tarfile.open(VENDORED_DECK_ARCHIVE) as archive:
-        archive.extractall(_CACHE_ROOT, filter="data")
-    return _CACHED_DECK
-
-
 #: Deck used by the tests: the vendored one when present, else the fetched one.
-DEFAULT_DECK = _ensure_vendored_deck() or FETCHED_DECK
+DEFAULT_DECK = VENDORED_DECK if VENDORED_DECK.exists() else FETCHED_DECK
 
 #: Official IEA 15 MW rotor geometry, read from the OpenFAST ElastoDyn file
 #: (`HubRad`, `TipRad`, `PreCone`, `ShftTilt`, `OverHang`, `Twr2Shft`,
