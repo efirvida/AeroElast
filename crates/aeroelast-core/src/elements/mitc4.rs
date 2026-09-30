@@ -1642,7 +1642,20 @@ fn geometric_stiffness_contribution(
     g: usize,
     sigma: &Vector3<f64>,
 ) -> Mat24 {
-    let s_m = Matrix2::new(sigma[0], sigma[2], sigma[2], sigma[1]);
+    // sigma is in [Pa] (average membrane stress = N/h).  The geometric
+    // stiffness formula needs the force resultant N [N/m] = sigma * h, exactly
+    // as `compute_k_sigma_local` does for MITC3.  Both families are fed from a
+    // single `assemble_geometric_k(sigma[Pa])` call, so they must share one
+    // convention: without the factor of h the MITC4 part of a mixed mesh (the
+    // IEA 15 MW blade is mostly quads) comes out 1/h too stiff, which is what
+    // inflated the rotating first flap of S-4 from 0.57 Hz to 2.13 Hz.
+    let h = pre.thickness;
+    let s_m = Matrix2::new(
+        sigma[0] * h,
+        sigma[2] * h,
+        sigma[2] * h,
+        sigma[1] * h,
+    );
     let mut s_tilde = SMatrix::<f64, 6, 6>::zeros();
     for i in 0..2 {
         for j in 0..2 {
