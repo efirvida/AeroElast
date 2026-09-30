@@ -21,6 +21,13 @@ from aeroelast.solvers.bem.engine import BEMResult, BEMSolver
 _PROJECT_ROOT = Path(__file__).resolve().parent
 IEA_YAML = str(_PROJECT_ROOT / "IEA-15-240-RWT.yaml")
 
+# Published IEA-15-240-RWT rated aerodynamic power (Gaertner et al. 2020,
+# NREL/TP-5000-75698).  The BEM result is aerodynamic power, so it sits a few
+# percent above the 15 MW electrical rating; the 15% band covers that gap while
+# still failing loudly for a wrong blade model or a bad induction solve.
+IEA15_RATED_POWER_W = 15.0e6
+IEA15_RATED_POWER_TOL = 0.15
+
 
 @pytest.fixture(scope="module")
 def blade_aero():
@@ -100,9 +107,16 @@ class TestBEMSolverRotating:
         """BEM result near rated conditions: V=10.59 m/s, 7.56 RPM."""
         return bem_solver.compute(v_inf=10.59, omega=7.56, pitch=0.0)
 
-    def test_rated_power_positive(self, rated_result):
-        """A rotating blade in wind should produce positive power."""
-        assert rated_result.power > 0
+    def test_rated_power_matches_published(self, rated_result):
+        """Rated aerodynamic power is within 15% of the published 15 MW."""
+        power = rated_result.power
+        print(f"\nIEA-15MW rated power: BEM {power / 1e6:.3f} MW, published 15.000 MW")
+        assert power > 0, "a rotating blade in wind must produce positive power"
+        rel = abs(power - IEA15_RATED_POWER_W) / IEA15_RATED_POWER_W
+        assert rel < IEA15_RATED_POWER_TOL, (
+            f"rated power {power / 1e6:.3f} MW is {rel * 100:.2f}% from the published "
+            f"15 MW (bound {IEA15_RATED_POWER_TOL * 100:.0f}%)"
+        )
 
     def test_rated_thrust_positive(self, rated_result):
         assert rated_result.thrust > 0
@@ -116,8 +130,10 @@ class TestBEMSolverRotating:
         # Some root/tip stations may have extreme values; check bulk
         mask = np.isfinite(a) & (a > -0.5)
         frac_ok = np.mean((a[mask] >= -0.1) & (a[mask] <= 0.6))
-        assert frac_ok > 0.7
+        assert frac_ok > 0.9, f"only {frac_ok * 100:.0f}% of stations have physical induction"
 
-    def test_cl_not_all_zero(self, rated_result):
-        """Lift coefficients should be non-trivial."""
-        assert np.any(np.abs(rated_result.cl) > 0.1)
+    def test_cl_peak_is_physical(self, rated_result):
+        """The lift coefficients must reach a physical attached-flow value."""
+        cl = np.abs(rated_result.cl)
+        assert np.any(cl > 1.0), "lift coefficients never exceed 1.0"
+        assert float(np.max(cl)) < 2.5, f"peak |Cl| {np.max(cl):.3f} is not an attached-flow value"

@@ -890,17 +890,13 @@ red, and a green suite does not remove a flag.
 
 | file | test | evidence |
 | --- | --- | --- |
-| `test_rotor_physical_consistency.py` | `test_coriolis_matrix_antisymmetry` | `:149` "this would call `build_coriolis_matrix` in Rust"; the matrix is assigned by hand and then asserted antisymmetric |
-| `test_rotor_physical_consistency.py` | `test_coriolis_implicit_stability` | `K_eff` is built in the test; the solver is never called |
-| `test_rotor_physical_consistency.py` | `test_kg_hysteresis_prevents_chattering` | `:71` "The gate mirrors the Rust implementation (`rotor_fsi.rs::update_kg_if_needed`)" |
-| `test_rotor_physical_consistency.py` | `test_stress_gate_checkpoint_consistency` | the gate predicate is re-implemented with a `# <-- CRITICAL` comment |
-| `test_rotor_physical_consistency.py` | `test_centrifugal_deformed_geometry` | `F_exact` and `F_cached` are both computed in the test; `_aeroelast` is only a skip probe |
-| `test_rotor_inertial.py` | `TestIntegration::test_theta_accumulation_simulation` | `theta += omega*dt` runs in the test body |
+| `test_rotor_physical_consistency.py` (5 tests) | all five flagged tests | **RESOLVED** — the file was deleted in the tautology sweep; none of the five hand-mirrored the Rust gate/`Coriolis`/`K_eff` anymore |
+| `test_rotor_inertial.py` | `TestIntegration::test_theta_accumulation_simulation` | **RESOLVED** — the test was removed; `TestIntegration` now holds only `test_displacement_consistency_over_rotation`, which round-trips a vector through the real transforms |
 | `test_rotor_rust_parity.py` | `TestMapOmegaProvider` (8) | **RESOLVED** — the `_RotorStub` mirror was deleted; the tests now call the real `LinearDynamicFSIRotorSolver._map_omega_provider`, and skip when PETSc/preCICE are unavailable |
-| `test_bem_polars.py` | `TestPolarData::test_evaluate_at_known_alpha` | `cl` is generated as `2 pi sin(alpha)` and compared against `2 pi sin(alpha)` |
+| `test_bem_polars.py` | `TestPolarData::test_evaluate_at_known_alpha` | **RESOLVED** — it now checks the interpolator itself (the midpoint of two tabulated nodes is their mean), so it neither re-derives `2 pi sin(alpha)` nor can hide an interpolation error |
 | `test_material_suite.py` | `TestABDMatrices::test_asymmetric_b11_formula` | **RESOLVED** — the reference is now built from the two single plies' *A* matrices (`B11 = h^2/2 (Q11_90 - Q11_0)`, `Q11 = A11/h`) instead of re-implementing the piecewise z-integral, plus the sign and stacking-reversal checks |
-| `test_fsi_structural_report.py`, `test_rotor_performance_report.py` | both tests | the reference is the norm/values the test itself injected |
-| `test_large_rotation_benchmarks.py`, `test_mitc3_benchmarks.py` | `test_equilibrium_path[*]`, `test_cantilever_large_rotation_half_circle`, `test_simo_vu_quoc_rollup_360` | `REFERENCE_TABLE` holds the rounded outputs of `_analytical_tip`, the function defined in the same file; the Simo & Vu-Quoc 1986 / Bathe & Bolourchi 1979 citation in the docstring is not what the assertion compares against. The formulas are correct and the tabulated digits match them to 4 decimals, so this is weak, not wrong — but it cannot detect a wrong formula. |
+| `test_fsi_structural_report.py`, `test_rotor_performance_report.py` | both tests | **RESOLVED (reclassified)** — these are I/O contract tests, not validation: the test injects a state, the *production* logger transforms it, and the test checks the written CSV fields against independently recomputed values. A logging bug (wrong node, wrong component, wrong column) fails; the injected values are the input, not the reference |
+| `test_large_rotation_benchmarks.py`, `test_mitc3_benchmarks.py` | `test_equilibrium_path[*]`, `test_cantilever_large_rotation_half_circle`, `test_simo_vu_quoc_rollup_360` | **RESOLVED** — `_analytical_tip` was deleted; the tests now compare the FE solve against the literal Simo & Vu-Quoc 1986 / Bathe & Bolourchi 1979 elastica values in `REFERENCE_TABLE`, so a wrong closed-form in the test file can no longer pass |
 
 ### 9.2 Assertions that cannot fail
 
@@ -912,14 +908,14 @@ red, and a green suite does not remove a flag.
 | `test_stress_stiffened_solver.py` | `test_stress_field_dict_from_recovery` | **RESOLVED** — now asserts the closed-form plane-stress values (`sigma_xx = E/(1-nu^2) eps`, `sigma_yy = nu sigma_xx`, `sigma_xy = 0`) for every one of the 16 elements |
 | `test_stress_stiffened_solver.py` | `test_update_interval_skips_rebuild` | **RESOLVED** — the displacement now strains (a uniform translation made step 5 return `None`); step 3 must skip and step 5 must return a *new* `PETSc.Mat` |
 | `test_stress_stiffened_solver.py` | `test_keff_with_KG_larger_than_without` | **RESOLVED** — asserts the elementwise `diag(K_G_red) >= 0` (no DOF loses stiffness), a positive total increase, a correction-sized bound, and linearity of the `K_G` trace in the prescribed stress |
-| `test_rust_modal.py:305` | `test_mode_shapes_orthogonal` | `assert norm > 1e-10` |
-| `test_rotor_inertial.py:481` | `test_force_transform_and_inertial_combination` | `assert total_mag > 0` |
-| `test_force_projection.py:333` | `test_single_node_per_strip` | `np.all(np.abs(forces[:, 0]) > 0)` — sign-blind |
-| `test_blade_mesh.py:39-40` | `test_blade_mesh_generation` | `node_count > 0`, `elements_count > 0` |
-| `test_bem_engine.py:105-123` | `TestBEMSolverRotating` | `power > 0`, `frac_ok > 0.7`, `np.any(abs(cl) > 0.1)` |
-| `test_bem_polars.py:189` | `test_polar_cl_not_constant` | `std(cl) > 0.1` |
-| `test_rotor_rust_parity.py` | `TestUseRustFlag` (4 tests) | `not hasattr(solver, "_use_rust_fsi")` for four different inputs |
-| test_ko2017 (historical) | `test_3_6_hook_table_14_minimal_fix` | `assert norm > 0.1`; the current file records this in a comment and now asserts a 3% window |
+| `test_rust_modal.py` | `test_mode_shapes_orthogonal` | **RESOLVED** — it now builds `Phi^T M Phi` from the full mass matrix and asserts the worst off-diagonal ratio `< 1e-8` (and a positive diagonal) |
+| `test_rotor_inertial.py` | `test_force_transform_and_inertial_combination` | **RESOLVED** — the test was removed from `TestIntegration` |
+| `test_force_projection.py` | `test_single_node_per_strip` | **RESOLVED** — it now asserts the sign (`forces[:, 0] > 0`) and the exact value `Np * dr`, plus zero tangential force |
+| `test_blade_mesh.py` | `test_blade_mesh_generation` | **RESOLVED** — it now asserts the exact node count (9277 at `element_size=0.5`) instead of `> 0` |
+| `test_bem_engine.py` | `TestBEMSolverRotating` | **RESOLVED** — `test_rated_power_matches_published` now bounds the rated power within 15% of the published 15 MW, `frac_ok` is raised to `> 0.9` (measured 1.0), and the lift peak is bounded to `1.0 < \|Cl\| < 2.5` |
+| `test_bem_polars.py` | `test_polar_cl_not_constant` | **RESOLVED** — it now checks the lift-curve slope (`3 < dCl/dalpha < 8` per rad) and `Cl(0)` instead of only `std(cl) > 0.1` |
+| `test_rotor_rust_parity.py` | `TestUseRustFlag` (4 tests) | **RESOLVED** — the four `not hasattr(solver, "_use_rust_fsi")` tests were deleted; the class now checks real omega-provider parsing and the `_map_omega_provider` round trip |
+| test_ko2017 (historical) | `test_3_6_hook_table_14_minimal_fix` | **RESOLVED** — the current file records the history in a comment and asserts a 3% window |
 
 ### 9.3 Names that promise more than the body delivers
 

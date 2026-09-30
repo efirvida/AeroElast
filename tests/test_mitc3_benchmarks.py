@@ -48,20 +48,11 @@ _aeroelast = pytest.importorskip("_aeroelast", reason="_aeroelast Rust extension
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _analytical_tip(lam: float, L: float = 10.0):
-    """Return (u_tip, w_tip) for load parameter λ = M·L/EI."""
-    if abs(lam) < 1e-12:
-        return 0.0, 0.0
-    R = L / lam
-    x_tip = R * math.sin(lam)
-    z_tip = R * (1.0 - math.cos(lam))
-    # The applied end moment is positive about +y (f_ext[6n+4] = +M), and a
-    # positive +y rotation carries the section from +x toward −z. The elastic
-    # curve therefore bends downward, so the transverse tip displacement is the
-    # negative of the geometric z-coordinate.
-    return x_tip - L, -z_tip
-
-
+# Tabulated control points (λ, u_tip_ref, w_tip_ref) — exact elastic curve.
+# The literals are the classical Simo & Vu-Quoc (1986, CMAME 58) / Bathe &
+# Bolourchi (1979, C&S 11) elastica values (bending toward −z), listed
+# independently of any formula in this file so the assertion compares the FE
+# solve against a fixed table.
 REFERENCE_TABLE = [
     (math.pi / 2, -3.6338, -6.3662),
     (math.pi, -10.000, -6.3662),
@@ -320,7 +311,7 @@ def test_cantilever_large_rotation_half_circle(n_elem):
     u_total = incremental_solve(assembler, f_ext, clamped, n_steps=20)
 
     u_tip, w_tip = tip_displacement(u_total, tips)
-    u_ref, w_ref = _analytical_tip(math.pi, L)  # (−10.0, −6.366)
+    u_ref, w_ref = -10.000, -6.3662  # exact half-circle elastica (REFERENCE_TABLE)
     tol = 0.05
 
     assert abs(u_tip - u_ref) / abs(u_ref) < tol, f"u_tip={u_tip:.4f}, ref={u_ref:.4f}"
@@ -394,7 +385,8 @@ def test_simo_vu_quoc_rollup_360(n_elem):
     u_total = incremental_solve(assembler, f_ext, clamped, n_steps=40)
     u_tip, w_tip = tip_displacement(u_total, tips)
 
-    u_ref, w_ref = _analytical_tip(lam, L)  # (−10.0, 0.0)
+    # Exact full-circle elastica values (Simo & Vu-Quoc 1986, REFERENCE_TABLE).
+    u_ref, w_ref = -10.000, 0.0000
 
     tol_rel = 0.05
     tol_abs = 0.5
