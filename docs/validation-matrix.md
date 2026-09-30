@@ -74,18 +74,18 @@ number.
 
 ## Index
 
-Six groups, 35 files, 413 tests. Every collected test node is accounted for below;
+Six groups, 35 files, 414 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Ko, Lee, Lee & Bathe 2017 benchmarks | [§3](#3-teststest_ko2017_performancepy-ko-lee-lee--bathe-2017) | 1 | 31 | 31 | 0 | 0.01% – 2.73% | 0 |
-| CCX parity | [§4](#4-ccx-parity-group) | 10 | 66 | 66 | 0 | 0.37% – 12.57% | 10 |
+| CCX parity | [§4](#4-ccx-parity-group) | 10 | 67 | 67 | 0 | 0.37% – 12.57% | 7 |
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
 | Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 10 | 151 | 151 | 0 | 0.45% – 1.68% | 1 |
 | Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
 | BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 58 | 58 | 0 | 0.33% – 40.00% | 1 |
-| **Total** | | **35** | **413** | **413** | **0** | | **12** |
+| **Total** | | **35** | **414** | **414** | **0** | | **9** |
 
 **A large margin is not a failure.** `passed = 441, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -105,7 +105,7 @@ By file and subsection:
 - [4. CCX parity group](#4-ccx-parity-group)
   - [4.1 `test_beam_shell_4cases_parity.py` (9)](#41-test_beam_shell_4cases_paritypy-9)
   - [4.2 `test_isotropic_shell_parity.py` (1)](#42-test_isotropic_shell_paritypy-1)
-  - [4.3 `test_composite_beam_parity.py` (5)](#43-test_composite_beam_paritypy-5)
+  - [4.3 `test_composite_beam_parity.py` (6)](#43-test_composite_beam_paritypy-6)
   - [4.4 `test_orthotropic_shell_parity.py` (3)](#44-test_orthotropic_shell_paritypy-3)
   - [4.5 `test_shell_convergence.py` (2)](#45-test_shell_convergencepy-2)
   - [4.6 `test_ccx_shell_element_types_parity.py` (4)](#46-test_ccx_shell_element_types_paritypy-4)
@@ -234,7 +234,7 @@ The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 9
 (16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
 Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
 the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
-the diagnostic failures of §13.2. The collected suite is now **413 tests**. Earlier, for
+the diagnostic failures of §13.2. The collected suite is now **414 tests**. Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
 1025.15s. The Rust side is green too: `cargo test --manifest-path crates/Cargo.toml -p
 aeroelast-core` -> **155 passed, 0 failed, 0 ignored** (the Cargo workspace root is `crates/`,
@@ -303,7 +303,7 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_ko2017_performance.py` | 31 | §3 |
 | `test_beam_shell_4cases_parity.py` | 9 | §4.1 |
 | `test_isotropic_shell_parity.py` | 1 | §4.2 |
-| `test_composite_beam_parity.py` | 5 | §4.3 |
+| `test_composite_beam_parity.py` | 6 | §4.3 |
 | `test_orthotropic_shell_parity.py` | 3 | §4.4 |
 | `test_shell_convergence.py` | 2 | §4.5 |
 | `test_ccx_shell_element_types_parity.py` | 4 | §4.6 |
@@ -335,7 +335,7 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_force_projection.py` | 10 | §8.3 |
 | `test_bem_openfast_parity.py` | 13 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
-| **35 files** | **413** | |
+| **35 files** | **414** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -429,15 +429,16 @@ Structural notes on this module:
 | --- | --- | --- | --- | --- | --- |
 | `test_transverse_tip_displacement` | MITC4 vs CCX out-of-plane tip displacement, 2x10 mesh | **CCX 2.23, S4**; the module also defines an analytical Mindlin tip formula that the test never uses | `tol = 0.05` | AE 0.149886 m, CCX 0.145747 m, ratio 0.972, difference 2.8% | (a) **RESOLVED**: the comment used to say "Allow 10% tolerance" over the enforced 5%; it now records that the comment was what was wrong. (b) The CCX side is `max abs(V)` over *all* FRD nodes (`:326-356`) while the AeroElast side is the loaded centre node, so the comparison is not like-for-like. The unused `analytical_tip_displacement` helper is dead reference code. |
 
-### 4.3 `test_composite_beam_parity.py` (5)
+### 4.3 `test_composite_beam_parity.py` (6)
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
 | `TestCompositeMaterial::test_laminate_abd_matrices` | ABD dict keys, lengths 9/9/9, thickness passthrough | none (schema test) | exact keys/`==` | not applicable | no numerical reference |
+| `TestCompositeMaterial::test_clt_matches_independent_hand_reference` | A/B/D vs a first-principles CLT written inside the test (Reddy/Jones) | hand-coded CLT `_hand_clt_abd`, independent of `laminate.py` and of CCX | A,D `rtol=1e-12`; B `1e-6` absolute | A/D agree to 1e-16 relative; B ~1e-10 | **external judge**: exonerates the material model, so any residual gap can only be the element/mesh |
 | `TestCompositeMaterial::test_mesh_connectivity` | node sets exist and sit at y=0 / y=L | mesh construction invariant | `atol=1e-12` | not printed | – |
-| `test_composite_axial_tension` | [0/90/45/-45]s 8-ply laminate axial, 4x10 mesh | **CCX 2.23, S8R** + `*SHELL SECTION, COMPOSITE` (quadratic=True) | `rel_error < 0.1` | AE 45.87 um, CCX 48.09 um, 4.62% | the 10% window has no stated justification. The AeroElast block (mesh, material, assembly) is duplicated verbatim in the body. |
-| `test_composite_isotropic_equiv` | same mesh with an isotropic equivalent mapped through a single-ply laminate | **CCX 2.23, S8R**, single isotropic ply (so only the element formulation differs) | `rel_error < 0.1` | AE 33.45 um, CCX 34.73 um, 3.67% | same unjustified 10% window |
-| `test_composite_bending` | laminate transverse bending, 100 N at the free centre | **CCX 2.23, S8R** | `rel_error < 0.1` | AE 1671.71 um, CCX 1700.86 um, 1.71% | same unjustified 10% window |
+| `test_composite_axial_tension` | [0/90/45/-45]s 8-ply laminate axial, 4x10 mesh, **distributed free-edge resultant** | **CCX 2.23, S8R** composite + independent CLT bar `delta = a22 (P/B) L` | `CCX_MEMBRANE_TOL = 0.015`, `CLT_ANALYTICAL_TOL = 0.02` | AE 41.67 um, CCX 41.94 um (0.65%); CLT bar 42.19 um (1.25%) | **RESOLVED**: the old 4.62% was a single-node point-load singularity, not a material gap |
+| `test_composite_isotropic_equiv` | same mesh, isotropic equivalent through a single ply | **CCX 2.23, S8R** + CLT bar `P L/(E B t)` | `CCX_MEMBRANE_TOL = 0.015`, `CLT_ANALYTICAL_TOL = 0.02` | AE 30.39 um, CCX 30.57 um (0.61%); CLT 30.77 um (1.23%) | **RESOLVED**: was 3.67% on a point load; the distributed resultant drops it to 0.61% |
+| `test_composite_bending` | laminate in-plane bending, 100 N **distributed over the free edge** | **CCX 2.23, S8R** + independent beam `delta = P L^3/(3 E_y I)` | `CCX_BENDING_TOL = 0.025`, `CLT_ANALYTICAL_TOL = 0.02` | AE 1671.64 um, CCX 1700.30 um (1.69%); beam 1687.75 um (AE -0.95%, CCX +0.74%) | the residual is the 4-node-vs-8-node element difference; both FE values bracket the closed form |
 
 ### 4.4 `test_orthotropic_shell_parity.py` (3)
 
@@ -946,7 +947,7 @@ red, and a green suite does not remove a flag.
 | `test_shell_validation_fixed.py:313` | modal `error < 2.0` | the only unjustified tolerance in a module that justifies all others |
 | `test_shell_analytical_validation.py:379,606` | `tol = 0.05` (multiple) and `0.05 if thickness_ratio < 0.01 else 0.05` | both branches identical |
 | `test_mass_matrix_validation.py:615` | `tol = 0.05 if nx <= 2 else 0.05` | both branches identical |
-| `test_composite_beam_parity.py` (3 tests) | `rel_error < 0.1` for 8-ply composite vs S8R | no justification for 10% |
+| `test_composite_beam_parity.py` (3 tests) | `rel_error < 0.1` for 8-ply composite vs S8R | **RESOLVED** — the 10% windows are gone; the tests now use a distributed free-edge resultant, an independent hand-coded CLT/beam judge, and `CCX_MEMBRANE_TOL = 0.015` / `CCX_BENDING_TOL = 0.025` / `CLT_ANALYTICAL_TOL = 0.02` |
 | `test_shell_analytical_validation.py` (`TestCantileverBeam`, `TestMembraneStretching`) | `rel_error < 0.05` | no justification |
 | `test_quad_elements.py` | `atol=1e-6` on K, `max_eig*1e-10` | absolute tolerances on stiffness-scale matrices, no derivation |
 | `test_force_projection.py` | `< 1.0` and `< 50 N` | the 50 N is justified in a comment; the 1.0 is "relaxed for coarse discretisation" without a bound |
@@ -1314,9 +1315,6 @@ Every other row is at or below 5%.
 
 | § | test | tolerance | measured margin | why above 5% |
 | --- | --- | --- | --- | --- |
-| 4.3 | `test_composite_axial_tension` | `rel_error < 0.1` | AE 45.87 um, CCX 48.09 um, 4.62% | no stated justification (§9.4) |
-| 4.3 | `test_composite_isotropic_equiv` | `rel_error < 0.1` | AE 33.45 um, CCX 34.73 um, 3.67% | no stated justification (§9.4) |
-| 4.3 | `test_composite_bending` | `rel_error < 0.1` | AE 1671.71 um, CCX 1700.86 um, 1.71% | no stated justification (§9.4) |
 | 4.8 | `test_blade_mass_matches_published_models` | 10% vs the article, and above the report but within 20% | **70,623 kg** = +3.7% over the article, +8.7% over the report | mass vs two published models; asserted as a sign (+3.7%) |
 | 4.8 | `test_blade_modal_frequencies_match_ccx[0..4]` | 10% | worst 1.65%; all five: 0.44%, 0.71%, 0.78%, 0.84%, 1.65% | same shell mesh in CCX; measured 1.65% |
 | 4.8 | `test_blade_first_modes_match_article[flapwise, edgewise]` | 15% | 0.526 Hz (-7.6%) and 0.702 Hz (+8.1%) | beam (BModes) vs shell; measured 8.1% |
@@ -1331,7 +1329,7 @@ Two rows were **excluded by inspection**: `test_centrifugal_deformed_geometry[16
 (§7.2, its `abs=1e-10` is an absolute algebra tolerance, not a percentage) and
 `TestBEMSolverParked::test_parked_alpha_close_to_twist` (§8.2, `residual < 15 deg` on `> 80%`
 of stations — the 80% is a station fraction, not a tolerance). Both are flagged in §9 instead.
-So the rule is exceeded by **12 rows**, all in the CCX-parity and BEM-parity families where the
+So the rule is exceeded by **9 rows**, all in the CCX-parity and BEM-parity families where the
 reference itself is a different model (beam vs shell, or a proxy load).
 
 ### 13.2 Diagnostic failures under the real 5% bound
