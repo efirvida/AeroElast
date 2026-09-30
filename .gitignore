@@ -148,3 +148,11 @@ tests/hub.stl
 
 # Local Pi runtime state
 .atl/
+
+# Generated validation artifacts: plots and derived CSV.  The handful of
+# generated CSV that a test or tool reads are already tracked, and a tracked file
+# stays tracked, so these rules only keep *new* generated output from being swept
+# into a commit by a broad `git add -A`.
+docs/figures/
+docs/validation_plots/figures/
+docs/validation_data/generated/
