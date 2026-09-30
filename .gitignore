@@ -118,3 +118,5 @@ tests/hub.stl
 
 # CodeGraph local index
 .codegraph/
+# Local Pi runtime state
+.atl/
