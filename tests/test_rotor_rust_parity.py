@@ -272,28 +272,12 @@ def _make_solver_stub(rotor_cfg_overrides: Optional[dict] = None):
 
 @_skip_rotor
 class TestUseRustFlag:
-    """Verify rotor config parsing (use_rust flag removed — Rust is always used)."""
+    """Rotor config parsing.
 
-    def test_use_rust_default_is_true(self):
-        # The solver always uses the Rust backend; _use_rust_fsi no longer exists.
-        solver = _make_solver_stub()
-        assert not hasattr(solver, "_use_rust_fsi"), (
-            "_use_rust_fsi should not exist; Rust is now the only backend"
-        )
-
-    def test_use_rust_true(self):
-        # use_rust=True in YAML is accepted but has no effect (already Rust).
-        solver = _make_solver_stub({"use_rust": True})
-        assert not hasattr(solver, "_use_rust_fsi")
-
-    def test_use_rust_false_explicit(self):
-        # use_rust=False is also accepted (ignored silently — Rust is always used).
-        solver = _make_solver_stub({"use_rust": False})
-        assert not hasattr(solver, "_use_rust_fsi")
-
-    def test_use_rust_truthy_int(self):
-        solver = _make_solver_stub({"use_rust": 1})
-        assert not hasattr(solver, "_use_rust_fsi")
+    The ``use_rust`` flag was removed (Rust is always the backend); its four
+    ``not hasattr(solver, "_use_rust_fsi")`` tests were deleted because they
+    asserted the absence of a removed attribute and could never fail.
+    """
 
     def test_omega_provider_type_constant(self):
         solver = _make_solver_stub({"omega": 5.0})
