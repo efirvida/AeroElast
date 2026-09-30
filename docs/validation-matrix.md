@@ -1361,3 +1361,29 @@ modal vs CCX (1.65%), blade static vs CCX (1.9%), outer-fibre stress vs CCX `OUT
 that matters: **same-method comparisons must be tight; different-method or different-author
 comparisons are tight on purpose, so the difference is measured, named and analysed** instead
 of being absorbed by a wide tolerance.
+
+
+## 14. Test -> reference map (author-referenced tests)
+
+For every test that validates against a **published author or work**, the bibliography entry it
+stands on. Tests whose reference is a code (CalculiX, OpenFAST) or a closed-form formula are not
+listed here; their reference is named in the section row itself. The full citation, its DOI and
+its held/verified status live in `docs/references.md`.
+
+| test / group | published reference | `docs/references.md` |
+| --- | --- | --- |
+| §3 all 31 cases (`test_3_1`..`test_3_9`) | Ko, Lee, Lee & Bathe 2017, "Performance of the MITC3+ and MITC4+ shell elements in widely-used benchmark problems", *Computers and Structures* 193:187-206 | §1 |
+| §3 method under test | Ko, Lee & Bathe 2017, "A new MITC4+ shell element", *C&S* 182:404-418; Ko, Bathe & Zhang 2025, "MITC4/D and MITC4+/D", *C&S* 308:107622 | §1 |
+| §3 `test_3_6_hook_table_14` | Knight 1997, "Raasch challenge for shell elements", *AIAA Journal* 35(2):375-381 | §3 |
+| §4.8 `test_blade_mass_matches_published_models` | Gaertner et al. 2020, "Definition of the IEA Wind 15-Megawatt Offshore Reference Wind Turbine", NREL/TP-5000-75698 | §5 |
+| §4.8 `test_blade_first_modes_match_article`, static DLC | Escalera Mendoza, Mishra & Griffith 2023, "An Open-Source NuMAD Model for the IEA 15 MW Blade...", AIAA 2023-2093 (model: doi:10.5281/zenodo.7392283) | §5 |
+| §4.8 `test_blade_modal_frequencies_match_bernardi` | Bernardi, Cherubini, Manganelli, Della Posta, Leonardi & De Palma, "Large Eddy Simulation of the IEA 15-MW Wind Turbine Using a Two-Way Coupled FSI Model", *Wind Energy Science* preprint wes-2025-120 | §5 |
+| §5.4 large-rotation elastica (`REFERENCE_TABLE`) | Simo & Vu-Quoc 1986 and Bathe & Bolourchi 1979 (cited in the module docstring; the table itself is a weak reference, see §9.1) | §3 |
+| §6.2 `test_material_suite.py` CLT references (Reddy, Jones) | Reddy 2004, *Mechanics of Laminated Composite Plates and Shells*; Jones 1999, *Mechanics of Composite Materials* | §2 |
+| §8.2/§8.4 BEM theory | Moriarty & Hansen 2005, *AeroDyn Theory Manual*, NREL/TP-500-36881 | §6 |
+| §8.4 CCBlade solution method | Ning 2014, "A simple solution method for the BEM equations with guaranteed convergence", *Wind Energy* 17(9):1327-1345 | §6 |
+| §8.4 `test_viterna_post_stall_matches_aerodyn` | Viterna & Corrigan 1981, post-stall polar extrapolation (attribution incomplete; see §9) | §6 |
+
+Machine-checkable tie: `tests/test_mitc4plusd_traceability.py` scenario 3 asserts that each
+author-year citation used by the element documentation resolves in `docs/references.md`, and
+`docs/references.md` is the single bibliography the paper should cite.
