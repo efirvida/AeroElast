@@ -1365,7 +1365,6 @@ that matters: **same-method comparisons must be tight; different-method or diffe
 comparisons are tight on purpose, so the difference is measured, named and analysed** instead
 of being absorbed by a wide tolerance.
 
-
 ## 14. Test -> reference map (author-referenced tests)
 
 For every test that validates against a **published author or work**, the bibliography entry it
