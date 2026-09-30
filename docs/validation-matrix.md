@@ -1342,8 +1342,11 @@ reference itself is a different model (beam vs shell, or a proxy load).
 
 A tolerance is the diagnostic instrument. With a widened bound the suite hides a real
 method-vs-method or author-vs-author difference; with the honest bound it stops hiding it and
-every failure states the difference to analyse. Tightening every flagged row to 5% turns the
-ten nodes below red. **Each is a validity statement about AeroElast, not a bug to paper over.**
+every failure states the difference to analyse. Tightening every flagged row to 5% identified
+the ten nodes below; they are landed as **documented `xfail`** — the measured difference is the
+reason, the test passes if the code later improves inside the bound — so the suite stays usable
+and each one still names the validity limit. **Each is a validity statement about AeroElast, not
+a bug to paper over.**
 
 | test | reference | measured difference | what it says about AeroElast |
 | --- | --- | --- | --- |
