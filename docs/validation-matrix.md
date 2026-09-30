@@ -130,7 +130,7 @@ By file and subsection:
   - [6.9 Documentation and contract guards](#69-documentation-and-contract-guards)
 - [7. Rotor and FSI group](#7-rotor-and-fsi-group)
   - [7.1 `test_rotor_inertial.py` (32)](#71-test_rotor_inertialpy-32)
-  - [7.2 `test_rotor_physical_consistency.py` (removed)](#72-test_rotor_physical_consistencypy-22)
+  - [7.2 `test_rotor_physical_consistency.py` (removed)](#72-test_rotor_physical_consistencypy-removed)
   - [7.3 `test_rotor_rust_parity.py` (33)](#73-test_rotor_rust_paritypy-33)
   - [7.4 `test_rotor_performance_report.py` (1) and `test_fsi_structural_report.py` (1)](#74-test_rotor_performance_reportpy-1-and-test_fsi_structural_reportpy-1)
 - [8. BEM, aero and mesh group](#8-bem-aero-and-mesh-group)
@@ -1337,7 +1337,6 @@ Two rows were **excluded by inspection**: `test_centrifugal_deformed_geometry[16
 of stations — the 80% is a station fraction, not a tolerance). Both are flagged in §9 instead.
 So the rule is exceeded by **12 rows**, all in the CCX-parity and BEM-parity families where the
 reference itself is a different model (beam vs shell, or a proxy load).
-
 
 ### 13.2 Diagnostic failures under the real 5% bound
 
