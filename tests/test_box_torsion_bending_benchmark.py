@@ -141,7 +141,18 @@ def _find_node(mesh, x, y, z):
 
 @pytest.fixture(scope="module")
 def box_case():
-    mesh = _box_mesh(nx=8, ny=40)
+    # Span resolution chosen from the measured convergence of the curvature
+    # estimate (nx=8 fixed, tip load, EI = M/kappa over z in [0.2L, 0.8L]):
+    #
+    #     ny= 40  EI=4.8194e8  3.27%     (the earlier fixture)
+    #     ny= 80  EI=4.7330e8  1.42%
+    #     ny=160  EI=4.7114e8  0.96%
+    #     nx=16, ny=80        1.25%
+    #
+    # The 2% bound is a physics bound, so the mesh is refined to meet it rather
+    # than the bound widened to meet the mesh. The refined case costs 1.0 s and
+    # 2592 nodes.
+    mesh = _box_mesh(nx=8, ny=80)
     K, m = _assemble(mesh)
     fixed = []
     for n in mesh.nodes:

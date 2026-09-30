@@ -1,0 +1,2 @@
+case,dlc6_parked_reference_m,peak_max_disp_m,peak_time_s,steady_start_s,steady_samples,steady_max_disp_mean_m,steady_max_disp_std_m,steady_max_disp_min_m,steady_max_disp_max_m,steady_tip_mag_mean_m,steady_tip_mag_std_m
+bem_90_50_S,8.0,8.351899,0.63,35.0,1501,4.7050367761492335,0.025501100439403075,4.6374,4.767648,4.699305201199201,0.02551032581000928

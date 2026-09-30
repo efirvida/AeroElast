@@ -15,6 +15,22 @@ first-order UL error O(Δθ) (≈2% for 32 steps of the α=1 case).
 This regression guards the UL incremental implementation of
 ``StaticNonlinearSolver`` (the historical SNES path is not used — see the
 class docstring for the tangent-consistency finding of 2026-09-18).
+
+**Measured 2026-09-30, and the O(Δθ) claim above is wrong for this element.**
+Refining the load stepping does not converge to the elastica; it converges to
+about 4% below it:
+
+    steps= 32   w/L=0.29075  3.63%
+    steps= 64   w/L=0.29018  3.83%
+    steps=128   w/L=0.28989  3.92%
+    steps=256   w/L=0.28974  3.97%
+    steps=512   w/L=0.28967  4.00%
+
+So the alpha=1 gap is neither the O(Delta-theta) stepping error nor a mesh
+effect: the reviewed element's large-deflection response is systematically ~4%
+stiffer than the exact elastica.  The previous element was inside -0.5% here.
+Left red on purpose, with this table as the evidence: it is an accuracy
+question about the element's UL path, not a tolerance to widen.
 """
 
 import numpy as np
