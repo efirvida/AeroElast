@@ -37,13 +37,10 @@ from ...core.material import IsotropicMaterial, OrthotropicMaterial
 from ...core.mesh import (
     BladeMesh,
     BoxSurfaceMesh,
-    BoxVolumeMesh,
     MeshModel,
     MultiFlapMesh,
     RotorMesh,
     SquareShapeMesh,
-    check_mesh_quality,
-    verify_solid_element_orientations,
 )
 from ...elements import ElementFamily as ElemFamily
 
@@ -319,7 +316,7 @@ class FSIRunner:
                             "shear_correction": shear_correction,
                             "drilling_scale": drilling_scale,
                         }
-                        for set_name in self.mesh.element_sets.keys()
+                        for set_name in self.mesh.element_sets
                     }
 
         write_ccx_mesh(
@@ -461,12 +458,6 @@ class FSIRunner:
                 f"      Renumbering mesh (algorithm={self.config.mesh.renumber})..."
             )
             mesh.renumber_mesh(algorithm=self.config.mesh.renumber, verbose=True)
-
-        # Mesh quality checks for solid elements
-        if self.config.elements.family == ElementFamily.SOLID.value:
-            self._console.print("      Running solid element quality checks...")
-            verify_solid_element_orientations(mesh, fix_inplace=True)
-            check_mesh_quality(mesh)
 
         # Create node sets from geometric criteria
         if self.config.mesh.node_sets:
@@ -847,17 +838,6 @@ class FSIRunner:
             mesh = generator.generate(renumber=None)
             self._mesh_generator = generator
 
-        elif gen_type == MeshGeneratorType.BOX_VOLUME.value:
-            mesh = BoxVolumeMesh(
-                center=tuple(params["center"]),
-                dims=tuple(params["dims"]),
-                nx=params["nx"],
-                ny=params["ny"],
-                nz=params["nz"],
-                element_type=params.get("element_type", "hex"),
-                quadratic=params.get("quadratic", False),
-            ).generate()
-
         else:
             raise ValueError(f"Unknown mesh generator type: {gen_type}")
 
@@ -998,7 +978,6 @@ class FSIRunner:
         recommended_max = spacing["max"] * 3
 
         # Check each RBF mapping
-        coupling_mesh = self.config.coupling.coupling_mesh or ""
         warnings = []
         for rbf in self._precice_info.rbf_mappings:
             sr = rbf.support_radius
@@ -1172,7 +1151,6 @@ class FSIRunner:
         family_map = {
             ElementFamily.PLANE.value: ElemFamily.PLANE,
             ElementFamily.SHELL.value: ElemFamily.SHELL,
-            ElementFamily.SOLID.value: ElemFamily.SOLID,
         }
         elem_family = family_map[self.config.elements.family]
 

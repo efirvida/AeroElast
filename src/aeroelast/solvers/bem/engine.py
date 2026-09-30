@@ -302,7 +302,7 @@ class BEMSolver:
         cd = loads["Cd"]
         cn = loads.get("Cn")
         ct = loads.get("Ct")
-        W  = loads.get("W")
+        W = loads.get("W")
         Re = loads.get("Re")
 
         # Integrated coefficients
@@ -319,12 +319,14 @@ class BEMSolver:
             cm = loads["Cm"]
         except (KeyError, TypeError):
             alpha_rad = np.deg2rad(loads["alpha"])
-            cm = np.array([
-                st.airfoil.get_polar(re=1e7).evaluate(
-                    np.atleast_1d(alpha_rad[k]),
-                )[2][0]
-                for k, st in enumerate(self.blade_aero.stations)
-            ])
+            cm = np.array(
+                [
+                    st.airfoil.get_polar(re=1e7).evaluate(
+                        np.atleast_1d(alpha_rad[k]),
+                    )[2][0]
+                    for k, st in enumerate(self.blade_aero.stations)
+                ]
+            )
 
         # Back-calculate dynamic pressure per unit span:
         #   q_c = sqrt(Np² + Tp²) / sqrt(Cl² + Cd²)

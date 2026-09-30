@@ -131,8 +131,6 @@ class AsyncCheckpointWriter:
             except Exception:
                 # Queue.Empty exception - timeout, continuar esperando
                 continue
-            except Exception as e:
-                logger.error(f"Error in async checkpoint writer: {e}", exc_info=True)
 
     def _execute_write_task(self, task: Dict[str, Any]) -> None:
         """
@@ -174,15 +172,17 @@ class AsyncCheckpointWriter:
                 try:
                     self._write_deformed_mesh(mesh_path, u_full)
                 except Exception as e:
-                    logger.error(f"Failed to write deformed mesh: {e}", exc_info=True)
+                    logger.exception("Failed to write deformed mesh: %s", e)
                     print(f"  ❌ ERROR writing deformed mesh: {e}", flush=True)
 
             # Registrar para PVD
             with self._lock:
-                self._written_times.append((
-                    t,
-                    os.path.join(f"{t:.{self.time_precision}g}", "fields.vtu"),
-                ))
+                self._written_times.append(
+                    (
+                        t,
+                        os.path.join(f"{t:.{self.time_precision}g}", "fields.vtu"),
+                    )
+                )
                 # Update PVD incrementally so it's always up-to-date even if simulation is cancelled
                 self._update_pvd_incremental()
 
@@ -194,7 +194,7 @@ class AsyncCheckpointWriter:
             )
 
         except Exception as e:
-            logger.error(f"Failed to write checkpoint: {e}", exc_info=True)
+            logger.exception("Failed to write checkpoint: %s", e)
             # Print to stdout for visibility even without logging configured
             print(f"  ❌ ERROR writing checkpoint: {e}", flush=True)
 
@@ -293,7 +293,7 @@ class AsyncCheckpointWriter:
         try:
             self._queue.join()
         except Exception as e:
-            logger.warning(f"Error waiting for queue completion: {e}")
+            logger.warning("Error waiting for queue completion: %s", e)
 
         # Señalizar al worker que se detenga
         self._stop_event.set()
@@ -325,7 +325,7 @@ class AsyncCheckpointWriter:
                 f.write("  </Collection>\n")
                 f.write("</VTKFile>\n")
         except Exception as e:
-            logger.warning(f"Failed to update PVD file: {e}")
+            logger.warning("Failed to update PVD file: %s", e)
 
     def _write_vtu(
         self,
@@ -394,10 +394,12 @@ class AsyncCheckpointWriter:
                         # keep first 3 translational components as a 3D vector field
                         f_node = data.reshape(n_nodes_vtu, self.dofs_per_node)[:, :3]
                         if f_node.shape[1] < 3:
-                            f_node = np.hstack([
-                                f_node,
-                                np.zeros((n_nodes_vtu, 3 - f_node.shape[1])),
-                            ])
+                            f_node = np.hstack(
+                                [
+                                    f_node,
+                                    np.zeros((n_nodes_vtu, 3 - f_node.shape[1])),
+                                ]
+                            )
                         point_data[name] = f_node
                     else:
                         point_data[name] = data
@@ -915,10 +917,12 @@ class CheckpointManager:
                         # keep first 3 translational components as a 3D vector field
                         f_node = data.reshape(n_nodes_vtu, self.dofs_per_node)[:, :3]
                         if f_node.shape[1] < 3:
-                            f_node = np.hstack([
-                                f_node,
-                                np.zeros((n_nodes_vtu, 3 - f_node.shape[1])),
-                            ])
+                            f_node = np.hstack(
+                                [
+                                    f_node,
+                                    np.zeros((n_nodes_vtu, 3 - f_node.shape[1])),
+                                ]
+                            )
                         point_data[name] = f_node
                     else:
                         point_data[name] = data

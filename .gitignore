@@ -65,42 +65,69 @@ __pypackages__/
 .ruff_cache/
 
 # Rust build artifacts
-crates/target/
+target/
 
-# OpenFOAM ignore
-### Resultados de OpenFOAM (incluyendo sub-subdirectorios) ###
-# Todos los directorios de tiempo en cualquier nivel
-!**/0.orig/          # Versiones modificadas del directorio 0
-**/[0-9]*/           # Ej: case/processor0/0.5/, results/iter1/100/
-**/0.*/              # Versiones modificadas del directorio 0
+# ---------------------------------------------------------------------------
+# OpenFOAM: salidas generadas por las simulaciones.
+#
+# IMPORTANTE: los patrones estan anclados a los arboles de casos
+# (examples/ y simulations/). NO usar patrones globales del estilo
+# **/*.csv, **/*.png, **/*.vtk o **/[0-9]*/: capturan contenido legitimo
+# del repo (docs/, tests/, src/) y git lo ignora en silencio.
+# ---------------------------------------------------------------------------
 
-# Mallas y datos regenerables (en cualquier nivel)
-**/constant/polyMesh/*
+# Directorios de tiempo y variantes del directorio 0
+examples/**/[0-9]*
+examples/**/0.*/
+simulations/**/[0-9]*
+simulations/**/0.*/
 
-# Procesamiento paralelo (anidado)
-**/processor*/
-**/*.host
+# Mallas y datos regenerables
+examples/**/constant/polyMesh/*
+simulations/**/constant/polyMesh/*
 
-# Post-procesamiento y logs (en subdirectorios)
-**/postProcessing/**
-**/postProcess/**
-**/log.*
-**/*.log
-**/*.png
-**/core
-**/core.[0-9]*
+# Procesamiento paralelo
+examples/**/processor*/
+examples/**/*.host
+simulations/**/processor*/
+simulations/**/*.host
 
-# Archivos de salida específicos en cualquier ubicación
-**/*.foam
-**/*.csv
-**/*.dat
-**/*.vtk
-**/*.ensight
+# Post-procesamiento y logs
+examples/**/postProcessing/**
+examples/**/postProcess/**
+examples/**/log.*
+examples/**/*.log
+simulations/**/postProcessing/**
+simulations/**/postProcess/**
+simulations/**/log.*
+simulations/**/*.log
 
+# Salidas de solver, volcados de nucleo y datos post-procesados
+examples/**/*.foam
+examples/**/*.ensight
+examples/**/*.png
+examples/**/*.csv
+examples/**/*.dat
+examples/**/*.vtk
+examples/**/core
+examples/**/core.[0-9]*
+simulations/**/*.foam
+simulations/**/*.ensight
+simulations/**/*.png
+simulations/**/*.csv
+simulations/**/*.dat
+simulations/**/*.vtk
+simulations/**/core
+simulations/**/core.[0-9]*
 
-# Casos con múltiples niveles de nesting
-**/examples/**/[0-9]*
-!**/examples/**/0.orig
+# Excepciones: las plantillas 0.orig/ SI se versionan.
+# Deben ir despues de todos los patrones positivos que las alcancen.
+!examples/**/0.orig/
+!simulations/**/0.orig/
+
+# Logs de build en la raiz del repo.
+# Anclado a la raiz (/*.log) a proposito: no debe afectar docs/ ni tests/.
+/*.log
 
 # HPC job logs, scratch and local artifacts (never repo material)
 *.out
@@ -118,5 +145,6 @@ tests/hub.stl
 
 # CodeGraph local index
 .codegraph/
+
 # Local Pi runtime state
 .atl/

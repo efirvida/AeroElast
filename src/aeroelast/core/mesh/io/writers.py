@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import meshio
 import numpy as np
@@ -23,6 +23,13 @@ if TYPE_CHECKING:
     from aeroelast.core.mesh.model import MeshModel
 
 from aeroelast.core.mesh.entities import ElementType
+
+# Property objects accepted by the CalculiX writers: a Python ``ShellProperty``
+# or ``CompositeShellProperty``, a Rust ``_aeroelast.Laminate``, or the plain
+# isotropic dict form.  The concrete classes are optional at runtime (they are
+# imported lazily), so this alias is deliberately loose instead of a union of
+# types that may not be importable.
+ShellPropertyType = Any
 
 # ============================================================================
 # Property duck-typing helpers — support both Rust-native and Python types
@@ -376,16 +383,6 @@ ELEMENTS_TO_CALCULIX = {
     "quad": "S4",
     "quad8": "S8R",
     "quad9": "S9",
-    # 3D Solid elements
-    "tetra": "C3D4",
-    "tetra10": "C3D10",
-    "hexahedron": "C3D8",
-    "hexahedron20": "C3D20",
-    "hexahedron27": "C3D27",
-    "wedge": "C3D6",
-    "wedge15": "C3D15",
-    "pyramid": "C3D5",
-    "pyramid13": "C3D13",
 }
 
 ELEMENT_TYPE_TO_GMSH = {
@@ -395,16 +392,6 @@ ELEMENT_TYPE_TO_GMSH = {
     ElementType.quad: 3,  # 4-node quadrangle
     ElementType.quad8: 16,  # 8-node second order quadrangle
     ElementType.quad9: 10,  # 9-node second order quadrangle
-    # 3D Volumetric elements
-    ElementType.tetra: 4,  # 4-node tetrahedron
-    ElementType.tetra10: 11,  # 10-node second order tetrahedron
-    ElementType.hexahedron: 5,  # 8-node hexahedron
-    ElementType.hexahedron20: 17,  # 20-node second order hexahedron
-    ElementType.hexahedron27: 12,  # 27-node second order hexahedron
-    ElementType.wedge: 6,  # 6-node prism/wedge
-    ElementType.wedge15: 18,  # 15-node second order prism
-    ElementType.pyramid: 7,  # 5-node pyramid
-    ElementType.pyramid13: 19,  # 13-node second order pyramid
 }
 
 
@@ -483,75 +470,30 @@ def write_meshio(mesh: "MeshModel", filename: str, close_tip: bool = None, **kwa
         close_tip = ext == ".stl"
 
     if ext == ".stl":
-        # Check if mesh has volume elements
-        has_volume = any(
-            el.element_type.name
-            in (
-                "tetra",
-                "tetra10",
-                "hexahedron",
-                "hexahedron20",
-                "hexahedron27",
-                "wedge",
-                "wedge15",
-                "pyramid",
-                "pyramid13",
-            )
-            for el in mesh.elements
-        )
+        # Extract surface triangles or triangulate quads
+        triangles = []
+        for el in mesh.elements:
+            indices = tuple(mesh.node_id_to_index[nid] for nid in el.node_ids)
+            if len(indices) == 3:
+                triangles.append(indices)
+            elif len(indices) == 4:
+                triangles.append([indices[0], indices[1], indices[2]])
+                triangles.append([indices[0], indices[2], indices[3]])
 
-        if has_volume:
-            face_count = defaultdict(int)
-            for element in mesh.elements:
-                faces = mesh._get_element_faces(element)
-                if not faces:
-                    continue
-                for face in faces:
-                    face_key = tuple(sorted(face))
-                    face_count[face_key] += 1
+        # Close every open boundary loop so an exported shell part is
+        # watertight: a single blade has both a root and a tip loop, and the
+        # rotor export test asserts no open loop survives.
+        if close_tip and triangles:
+            loops = _find_boundary_loops(mesh)
+            if loops:
+                id_to_idx = mesh.node_id_to_index
+                for loop in loops:
+                    cap_tris, centroid = _cap_tip_loop(loop, points, id_to_idx)
+                    points = np.vstack([points, centroid.reshape(1, 3)])
+                    triangles.extend(cap_tris)
 
-            boundary_faces = []
-            for element in mesh.elements:
-                faces = mesh._get_element_faces(element)
-                if not faces:
-                    continue
-                for face in faces:
-                    face_key = tuple(sorted(face))
-                    if face_count[face_key] == 1:
-                        # Convert node IDs to indices
-                        indices = [mesh.node_id_to_index[nid] for nid in face]
-                        if len(indices) == 3:
-                            boundary_faces.append(indices)
-                        elif len(indices) == 4:
-                            # Triangulate quad
-                            boundary_faces.append([indices[0], indices[1], indices[2]])
-                            boundary_faces.append([indices[0], indices[2], indices[3]])
-
-            if boundary_faces:
-                cells = [("triangle", np.array(boundary_faces))]
-        else:
-            # Extract surface triangles or triangulate quads
-            triangles = []
-            for el in mesh.elements:
-                indices = tuple(mesh.node_id_to_index[nid] for nid in el.node_ids)
-                if len(indices) == 3:
-                    triangles.append(indices)
-                elif len(indices) == 4:
-                    triangles.append([indices[0], indices[1], indices[2]])
-                    triangles.append([indices[0], indices[2], indices[3]])
-
-            # Close shell boundary loops so exported STL parts are watertight.
-            if close_tip and triangles:
-                loops = _find_boundary_loops(mesh)
-                if loops:
-                    id_to_idx = mesh.node_id_to_index
-                    for loop in loops:
-                        cap_tris, centroid = _cap_tip_loop(loop, points, id_to_idx)
-                        points = np.vstack([points, centroid.reshape(1, 3)])
-                        triangles.extend(cap_tris)
-
-            if triangles:
-                cells = [("triangle", np.array(triangles))]
+        if triangles:
+            cells = [("triangle", np.array(triangles))]
 
     # Default grouping for non-STL or if STL didn't yield bound cells
     if not cells:
@@ -622,6 +564,7 @@ def write_ccx_mesh(
     nl_min_increment: Optional[float] = None,
     nl_max_increment: Optional[float] = None,
     nl_max_increments: Optional[int] = None,
+    shell_element_type: Optional[str] = None,
 ) -> None:
     """
     Write the mesh to CalculiX format following CGX conventions.
@@ -662,7 +605,67 @@ def write_ccx_mesh(
         When ``False`` (default), export as S4/S3 with an orthotropic
         equivalent material derived from the A-matrix inversion — matching
         the first-order MITC4/MITC3 mesh used internally by AeroElast.
+    shell_element_type : str, optional
+        Explicit CalculiX shell element type, overriding the ``quadratic``
+        mapping.  Accepted values are exactly ``None``, ``"S4"``, ``"S8"``
+        and ``"S8R"``; anything else raises :class:`ValueError`.
+
+        * ``None`` (default) — follow ``quadratic`` exactly as before:
+          ``quadratic=False`` gives S4/S3 and ``quadratic=True`` gives
+          S8R/S6.
+        * ``"S4"`` — linear mesh, ``TYPE=S4`` (quads) / ``S3`` (triangles).
+          Only valid with a non-composite ``*SHELL SECTION, MATERIAL=``
+          section.
+        * ``"S8"`` — quadratic mesh, ``TYPE=S8`` (quads) / ``S6``
+          (triangles).  S8 is CalculiX full integration and, like S4, is
+          only valid with a non-composite section.
+        * ``"S8R"`` — quadratic mesh, ``TYPE=S8R`` (quads) / ``S6``
+          (triangles); this is the ``*SHELL SECTION, COMPOSITE`` path that
+          CalculiX requires for laminates.
+
+        Because ``*SHELL SECTION, COMPOSITE`` requires S8R/S6, selecting
+        ``"S4"`` or ``"S8"`` for a composite (laminate) property raises
+        :class:`ValueError` instead of silently downgrading the section.
     """
+
+    # ---- Shell element-type selector ------------------------------------
+    # ``None`` keeps the legacy ``quadratic`` mapping untouched.  An explicit
+    # type is authoritative and also decides whether the quadratic mesh is
+    # built.  CalculiX requires S8R/S6 for ``*SHELL SECTION, COMPOSITE``, so an
+    # explicit S4/S8 combined with a composite property is refused rather than
+    # written as a deck CalculiX rejects.
+    if shell_element_type not in (None, "S4", "S8", "S8R"):
+        raise ValueError(
+            "shell_element_type must be one of None, 'S4', 'S8' or 'S8R'; "
+            f"got {shell_element_type!r}"
+        )
+
+    if shell_element_type is None:
+        use_quadratic_mesh = quadratic
+        quad_ccx_type = "S8R"
+    elif shell_element_type == "S4":
+        if quadratic:
+            raise ValueError(
+                "shell_element_type='S4' selects a linear mesh and is "
+                "incompatible with quadratic=True"
+            )
+        use_quadratic_mesh = False
+        quad_ccx_type = "S8R"  # unused for a linear mesh
+    else:
+        use_quadratic_mesh = True
+        quad_ccx_type = shell_element_type  # "S8" or "S8R"
+
+    if (
+        shell_element_type in ("S4", "S8")
+        and properties is not None
+        and any(_prop_is_composite(p) for p in properties.values())
+    ):
+        raise ValueError(
+            f"shell_element_type={shell_element_type!r} writes a non-composite "
+            "(*SHELL SECTION, MATERIAL=) section, but the model has a composite "
+            "property.  CalculiX requires S8R/S6 for *SHELL SECTION, COMPOSITE; "
+            "use shell_element_type='S8R' (or quadratic=True) for a laminate."
+        )
 
     def split_list(arr, chunk_size: int = 7):
         """Split list into chunks for formatted output."""
@@ -685,13 +688,16 @@ def write_ccx_mesh(
     sur_file = os.path.join(base_path, f"{base_name}.sur") if base_path else f"{base_name}.sur"
     inp_file = filename
 
-    # quadratic=True  → S8R/S6 + *SHELL SECTION, COMPOSITE (per-ply detail)
-    # quadratic=False → S4/S3  + *SHELL SECTION, MATERIAL=  (equivalent ortho)
-    # CalculiX requires S8R/S6 for *SHELL SECTION, COMPOSITE; S4/S3 use the
-    # orthotropic equivalent derived from the full A-matrix inversion.
+    # Effective element mapping after the selector:
+    #   use_quadratic_mesh → build midside nodes; quad_ccx_type is "S8R" by
+    #   default and "S8" for the explicit full-integration selection.
+    #   Linear (S4) keeps *SHELL SECTION, MATERIAL= with the orthotropic
+    #   equivalent derived from the full A-matrix inversion, while the
+    #   quadratic S8R path uses *SHELL SECTION, COMPOSITE (per-ply detail),
+    #   which CalculiX requires S8R/S6 for.
     quadratic_data = None
-    if quadratic:
-        quadratic_data = _build_quadratic_mesh_data(mesh)
+    if use_quadratic_mesh:
+        quadratic_data = _build_quadratic_mesh_data(mesh, quad_ccx_type=quad_ccx_type)
         print(
             f"  Converted to quadratic: {quadratic_data['n_nodes']} nodes "
             f"({quadratic_data['n_midside']} midside nodes added)"
@@ -723,7 +729,7 @@ def write_ccx_mesh(
         load_vector=load_vector,
         dt=dt,
         t_end=t_end,
-        quadratic=quadratic,
+        quadratic=use_quadratic_mesh,
         nl_initial_increment=nl_initial_increment,
         nl_min_increment=nl_min_increment,
         nl_max_increment=nl_max_increment,
@@ -740,12 +746,21 @@ def write_ccx_mesh(
     print(f"  - Main input file: {inp_file}")
 
 
-def _build_quadratic_mesh_data(mesh: "MeshModel") -> Dict:
+def _build_quadratic_mesh_data(mesh: "MeshModel", quad_ccx_type: str = "S8R") -> Dict:
     """Convert linear shell mesh to quadratic by adding midside nodes.
 
     CalculiX requires S8R (quad8) or S6 (triangle6) for composite shell
     sections.  This function computes midside nodes for every edge and
     returns the data needed by the msh/nam writers.
+
+    Parameters
+    ----------
+    mesh : MeshModel
+        Linear (first-order) shell mesh to upgrade.
+    quad_ccx_type : str, optional
+        CalculiX quad element type emitted for every converted ``quad``
+        element.  Defaults to ``"S8R"``; ``"S8"`` selects full integration.
+        Triangles are always emitted as ``S6``.
 
     Returns
     -------
@@ -760,6 +775,11 @@ def _build_quadratic_mesh_data(mesh: "MeshModel") -> Dict:
     """
     nodes = np.array([[n.x, n.y, n.z] for n in mesh.nodes])
     n_original = len(nodes)
+    # Node ids are not guaranteed to be 0-based contiguous: the entity id
+    # counters are process-global.  Index the coordinate array through the
+    # id->index map and emit 1-based *index* labels, so the deck stays
+    # self-consistent for any id scheme.
+    node_index = mesh.node_id_to_index
 
     edge_to_mid: Dict[tuple, int] = {}
     new_nodes: list = []
@@ -770,44 +790,49 @@ def _build_quadratic_mesh_data(mesh: "MeshModel") -> Dict:
         if mid is not None:
             return mid
         mid = n_original + len(new_nodes)
-        new_nodes.append((nodes[n1] + nodes[n2]) / 2.0)
+        new_nodes.append((nodes[node_index[n1]] + nodes[node_index[n2]]) / 2.0)
         edge_to_mid[edge] = mid
         return mid
 
     elements: list = []
     for el in mesh.elements:
-        nids = el.node_ids  # 0-based
+        nids = el.node_ids
         etype = el.element_type.name
+        corners = [node_index[n] + 1 for n in nids]
 
         if etype == "triangle":
             m01 = _get_midside(nids[0], nids[1])
             m12 = _get_midside(nids[1], nids[2])
             m20 = _get_midside(nids[2], nids[0])
-            elements.append((
-                "S6",
-                [nids[0] + 1, nids[1] + 1, nids[2] + 1, m01 + 1, m12 + 1, m20 + 1],
-            ))
+            elements.append(
+                (
+                    "S6",
+                    [corners[0], corners[1], corners[2], m01 + 1, m12 + 1, m20 + 1],
+                )
+            )
         elif etype == "quad":
             m01 = _get_midside(nids[0], nids[1])
             m12 = _get_midside(nids[1], nids[2])
             m23 = _get_midside(nids[2], nids[3])
             m30 = _get_midside(nids[3], nids[0])
-            elements.append((
-                "S8R",
-                [
-                    nids[0] + 1,
-                    nids[1] + 1,
-                    nids[2] + 1,
-                    nids[3] + 1,
-                    m01 + 1,
-                    m12 + 1,
-                    m23 + 1,
-                    m30 + 1,
-                ],
-            ))
+            elements.append(
+                (
+                    quad_ccx_type,
+                    [
+                        corners[0],
+                        corners[1],
+                        corners[2],
+                        corners[3],
+                        m01 + 1,
+                        m12 + 1,
+                        m23 + 1,
+                        m30 + 1,
+                    ],
+                )
+            )
         else:
             ccx_type = ELEMENTS_TO_CALCULIX.get(etype, etype)
-            elements.append((ccx_type, [n + 1 for n in nids]))
+            elements.append((ccx_type, corners))
 
     # Build extra midside nodes for node sets (edge between two set members)
     node_set_extra: Dict[str, list] = {}
@@ -896,7 +921,9 @@ def _write_ccx_msh_file(
             for (elset, ccx_type), elements in grouped_lin.items():
                 f.write(f"*ELEMENT, TYPE={ccx_type}, ELSET={elset}\n")
                 for i, el in elements:
-                    node_ids_str = ", ".join(str(n + 1) for n in el.node_ids)
+                    node_ids_str = ", ".join(
+                        str(mesh.node_id_to_index[n] + 1) for n in el.node_ids
+                    )
                     f.write(f"{i + 1:8d}, {node_ids_str}\n")
 
 
@@ -909,10 +936,18 @@ def _write_ccx_nam_file(
 ) -> None:
     """Write the .nam file containing node sets and element sets."""
     with open(filename, "wt") as f:
+        # Labels in the .msh are 1-based *indices* into mesh.nodes / mesh.elements
+        # (see _write_ccx_msh_file), not the entity ids.  Map through the
+        # id->index tables here so the sets point at the elements that exist.
+        node_index = mesh.node_id_to_index
+        elem_index = mesh.element_id_to_index
+
         # Write element sets
         for name, element_set in mesh.element_sets.items():
             f.write(f"*ELSET, ELSET=E{name.upper()}\n")
-            labels = [el_id + 1 for el_id in element_set.element_ids]
+            # sorted: element_set.element_ids comes from a set, and a deck whose
+            # label order changes between runs is not reproducible.
+            labels = sorted(elem_index[el_id] + 1 for el_id in element_set.element_ids)
             for chunk in split_func(labels):
                 f.write(", ".join(f"{e:8d}" for e in chunk) + "\n")
 
@@ -924,7 +959,7 @@ def _write_ccx_nam_file(
                         continue
                     bucket_elset = _bucket_elset_name(set_name, bucket_tenths)
                     f.write(f"*ELSET, ELSET=E{bucket_elset.upper()}\n")
-                    labels = [el_id + 1 for el_id in elem_ids]
+                    labels = sorted(elem_index[el_id] + 1 for el_id in elem_ids)
                     for chunk in split_func(labels):
                         f.write(", ".join(f"{e:8d}" for e in chunk) + "\n")
 
@@ -932,7 +967,7 @@ def _write_ccx_nam_file(
         ns_extra = quadratic_data["node_set_extra"] if quadratic_data else {}
         for name, node_set in mesh.node_sets.items():
             f.write(f"*NSET, NSET=N{name.upper()}\n")
-            labels = sorted([n_id + 1 for n_id in node_set.node_ids])
+            labels = sorted([node_index[n_id] + 1 for n_id in node_set.node_ids])
             extras = ns_extra.get(name, [])
             if extras:
                 labels = sorted(labels + extras)
@@ -1093,15 +1128,13 @@ def _write_ccx_inp_file(
 def _write_ccx_materials(f, properties: Dict) -> None:
     """Write *MATERIAL blocks for every unique material found in properties."""
     try:
-        from _aeroelast import Laminate as _RL  # noqa: PLC0415
-        from _aeroelast import OrthotropicMaterial as _RMat
+        from _aeroelast import Laminate as _RL, OrthotropicMaterial as _RMat  # noqa: PLC0415, F401
 
         _has_rust = True
     except ImportError:
         _has_rust = False
     try:
-        from aeroelast.core.material import IsotropicMaterial  # noqa: PLC0415
-        from aeroelast.core.material import OrthotropicMaterial as PyOrtho
+        from aeroelast.core.material import IsotropicMaterial, OrthotropicMaterial as PyOrtho  # noqa: PLC0415, F401
         from aeroelast.core.properties import CompositeShellProperty, ShellProperty  # noqa: PLC0415
 
         _has_py = True
@@ -1131,21 +1164,6 @@ def _write_ccx_materials(f, properties: Dict) -> None:
                 continue
             for i, ply in enumerate(plies):
                 m = ply["material"]
-                # Build a stable key from the material constants (rounded to
-                # avoid float noise).  Using 4 significant figures is enough
-                # to distinguish physically different materials.
-                key = (
-                    round(m["e1"], -3),
-                    round(m["e2"], -3),
-                    round(m["e3"], -3),
-                    round(m["g12"], -3),
-                    round(m["g23"], -3),
-                    round(m["g13"], -3),
-                    round(m["nu12"], 4),
-                    round(m["nu23"], 4),
-                    round(m["nu31"], 4),
-                    round(m["rho"], 2),
-                )
                 mat_name = f"MAT_{set_name}_P{i}"
                 # Use deduplication: if same constants already stored under a
                 # different name we still need a mapping from (set_name, ply_i)
@@ -1213,16 +1231,20 @@ def _write_ccx_materials(f, properties: Dict) -> None:
             a = prop.abd_matrix()
             import numpy as np  # noqa: PLC0415
 
-            D = np.array([
-                [float(a[3, 3]), float(a[3, 4]), float(a[3, 5])],
-                [float(a[4, 3]), float(a[4, 4]), float(a[4, 5])],
-                [float(a[5, 3]), float(a[5, 4]), float(a[5, 5])],
-            ])
-            A = np.array([
-                [float(a[0, 0]), float(a[0, 1]), float(a[0, 2])],
-                [float(a[1, 0]), float(a[1, 1]), float(a[1, 2])],
-                [float(a[2, 0]), float(a[2, 1]), float(a[2, 2])],
-            ])
+            D = np.array(
+                [
+                    [float(a[3, 3]), float(a[3, 4]), float(a[3, 5])],
+                    [float(a[4, 3]), float(a[4, 4]), float(a[4, 5])],
+                    [float(a[5, 3]), float(a[5, 4]), float(a[5, 5])],
+                ]
+            )
+            A = np.array(
+                [
+                    [float(a[0, 0]), float(a[0, 1]), float(a[0, 2])],
+                    [float(a[1, 0]), float(a[1, 1]), float(a[1, 2])],
+                    [float(a[2, 0]), float(a[2, 1]), float(a[2, 2])],
+                ]
+            )
             if t > 0 and abs(np.linalg.det(D)) > 1e-30:
                 S_D = np.linalg.inv(D) * (t**3 / 12.0)
                 E1 = 1.0 / S_D[0, 0]
@@ -1344,18 +1366,16 @@ def _write_ccx_orientations(
             if plies is None:
                 continue
             for ply in plies:
-                if span_direction is not None or abs(ply["angle"]) > 1e-10:
-                    angles.add(ply["angle"])
+                angles.add(ply["angle"])
         elif _prop_is_composite(prop):
             if CompositeShellProperty is not None and isinstance(prop, CompositeShellProperty):
                 for ply in prop.laminate.plies:
-                    if span_direction is not None or abs(ply.angle) > 1e-10:
-                        angles.add(ply.angle)
+                    angles.add(ply.angle)
 
     # Include bucket-derived angles (used by Rust laminate per-element orientation)
     if angle_bucket_sets:
         for buckets in angle_bucket_sets.values():
-            for bucket_tenths in buckets.keys():
+            for bucket_tenths in buckets:
                 angles.add(bucket_tenths / 10.0)
 
     if not angles:
@@ -1430,11 +1450,9 @@ def _write_ccx_sections(
     quadratic: bool = False,
     angle_bucket_sets: Optional[Dict[str, Dict[int, list[int]]]] = None,
 ) -> None:
-    """Write *SHELL SECTION or *SOLID SECTION blocks for each element set.
+    """Write *SHELL SECTION blocks for each element set.
 
-    Detects element types in the mesh to determine whether to use:
-    - *SOLID SECTION for 3D solid elements (C3D*)
-    - *SHELL SECTION for 2D shell elements (S3/S4/S6/S8R)
+    Shell elements (S3/S4/S6/S8R) are written as ``*SHELL SECTION``.
 
     When *quadratic* is True, composite laminates use ``*SHELL SECTION,
     COMPOSITE`` with per-ply thickness/material/orientation — requires S8R/S6.
@@ -1455,22 +1473,6 @@ def _write_ccx_sections(
     except ImportError:
         CompositeShellProperty = None
         ShellProperty = None
-
-    # Detect if mesh contains shell or solid elements
-    has_solid_elements = any(
-        el.element_type.name
-        in (
-            "hexahedron",
-            "tetra",
-            "wedge",
-            "pyramid",
-            "hexahedron20",
-            "tetra10",
-            "wedge15",
-            "pyramid13",
-        )
-        for el in mesh.elements
-    )
 
     f.write("**\n")
     f.write("** ===========================================\n")
@@ -1501,21 +1503,17 @@ def _write_ccx_sections(
                     t_ply = t / max(prop.n_plies, 1)
                     for i in range(prop.n_plies):
                         ply_mat_name = f"MAT_{set_name}_P{i}"
-                        if span_direction is not None:
-                            ori_name = _ccx_orientation_name(0.0)
-                            f.write(f"{t_ply:.6E}, , {ply_mat_name}, {ori_name}\n")
-                        else:
-                            f.write(f"{t_ply:.6E}, , {ply_mat_name}\n")
+                        ori_name = _ccx_orientation_name(0.0)
+                        f.write(f"{t_ply:.6E}, , {ply_mat_name}, {ori_name}\n")
                     continue
                 for i, ply in enumerate(plies):
                     ply_mat_name = f"MAT_{set_name}_P{i}"
                     ply_angle = ply["angle"]
                     ply_t = ply["thickness"]
-                    if span_direction is not None or abs(ply_angle) > 1e-10:
-                        ori_name = _ccx_orientation_name(ply_angle)
-                        f.write(f"{ply_t:.6E}, , {ply_mat_name}, {ori_name}\n")
-                    else:
-                        f.write(f"{ply_t:.6E}, , {ply_mat_name}\n")
+                    # CCX inherits the previous ply's orientation when the field is
+                    # omitted, so every ply must name one explicitly — including 0°.
+                    ori_name = _ccx_orientation_name(ply_angle)
+                    f.write(f"{ply_t:.6E}, , {ply_mat_name}, {ori_name}\n")
             else:
                 # S4/S3 — *SHELL SECTION, MATERIAL= with orthotropic equivalent
                 if span_direction is not None and buckets_for_set:
@@ -1550,11 +1548,11 @@ def _write_ccx_sections(
                 # S8R/S6 — *SHELL SECTION, COMPOSITE with per-ply detail
                 f.write(f"*SHELL SECTION, ELSET={elset_name}, COMPOSITE\n")
                 for ply in prop.laminate.plies:
-                    if span_direction is not None or abs(ply.angle) > 1e-10:
-                        ori_name = _ccx_orientation_name(ply.angle)
-                        f.write(f"{ply.thickness:.6E}, , {ply.material.name}, {ori_name}\n")
-                    else:
-                        f.write(f"{ply.thickness:.6E}, , {ply.material.name}\n")
+                    # Always name the orientation: CCX inherits the previous ply's
+                    # orientation when this field is omitted, so a 0° ply placed
+                    # after a rotated ply would silently inherit that rotation.
+                    ori_name = _ccx_orientation_name(ply.angle)
+                    f.write(f"{ply.thickness:.6E}, , {ply.material.name}, {ori_name}\n")
             else:
                 # S4/S3 — *SHELL SECTION, MATERIAL= with orthotropic equivalent
                 if span_direction is not None:
@@ -1567,21 +1565,13 @@ def _write_ccx_sections(
                 f.write(f"{t:.6E}\n")
         elif isinstance(prop, dict) and prop.get("type") == "isotropic":
             mat_name = prop.get("name", f"MAT_{set_name}")
-            if has_solid_elements:
-                # Use *SOLID SECTION for 3D solid elements (C3D*)
-                f.write(f"*SOLID SECTION, ELSET={elset_name}, MATERIAL={mat_name}\n")
-                # No thickness needed for solids - CCX infers from element geometry
-            else:
-                # Use *SHELL SECTION for 2D shell elements (S3/S4/S6/S8R)
-                thickness = prop.get("thickness", 1.0)
-                f.write(f"*SHELL SECTION, ELSET={elset_name}, MATERIAL={mat_name}\n")
-                f.write(f"{thickness:.6E}\n")
+            # Use *SHELL SECTION for 2D shell elements (S3/S4/S6/S8R)
+            thickness = prop.get("thickness", 1.0)
+            f.write(f"*SHELL SECTION, ELSET={elset_name}, MATERIAL={mat_name}\n")
+            f.write(f"{thickness:.6E}\n")
         elif ShellProperty is not None and isinstance(prop, ShellProperty):
-            if has_solid_elements:
-                f.write(f"*SOLID SECTION, ELSET={elset_name}, MATERIAL={prop.material.name}\n")
-            else:
-                f.write(f"*SHELL SECTION, ELSET={elset_name}, MATERIAL={prop.material.name}\n")
-                f.write(f"{prop.thickness:.6E}\n")
+            f.write(f"*SHELL SECTION, ELSET={elset_name}, MATERIAL={prop.material.name}\n")
+            f.write(f"{prop.thickness:.6E}\n")
 
 
 def _write_ccx_modal_step(
@@ -1906,13 +1896,13 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
         physical_tag = 1
 
         elset_tags = {}
-        for name in mesh.element_sets.keys():
+        for name in mesh.element_sets:
             physical_names.append((2, physical_tag, name))
             elset_tags[name] = physical_tag
             physical_tag += 1
 
         nset_tags = {}
-        for name in mesh.node_sets.keys():
+        for name in mesh.node_sets:
             physical_names.append((0, physical_tag, name))
             nset_tags[name] = physical_tag
             physical_tag += 1
@@ -1952,7 +1942,7 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
         max_coords = coords.max(axis=0)
 
         if mesh.element_sets:
-            for name, element_set in mesh.element_sets.items():
+            for name, _element_set in mesh.element_sets.items():
                 f.write(f"{surface_tag} {min_coords[0]} {min_coords[1]} {min_coords[2]} ")
                 f.write(f"{max_coords[0]} {max_coords[1]} {max_coords[2]} ")
                 f.write(f"1 {elset_tags[name]} 0\n")
@@ -1968,7 +1958,7 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
         f.write("$Nodes\n")
         f.write(f"1 {len(mesh.nodes)} 1 {len(mesh.nodes)}\n")
         f.write(f"2 1 0 {len(mesh.nodes)}\n")
-        for i, node in enumerate(mesh.nodes):
+        for i, _node in enumerate(mesh.nodes):
             f.write(f"{i + 1}\n")
         for node in mesh.nodes:
             f.write(f"{node.x} {node.y} {node.z}\n")
@@ -1990,11 +1980,13 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
                 for el_type, elements in elements_by_type.items():
                     gmsh_type = ELEMENT_TYPE_TO_GMSH.get(el_type)
                     if gmsh_type:
-                        element_blocks.append({
-                            "entity_tag": elset_entity_tags[name],
-                            "gmsh_type": gmsh_type,
-                            "elements": elements,
-                        })
+                        element_blocks.append(
+                            {
+                                "entity_tag": elset_entity_tags[name],
+                                "gmsh_type": gmsh_type,
+                                "elements": elements,
+                            }
+                        )
 
             elements_in_sets = set()
             for el_set in mesh.element_sets.values():
@@ -2011,11 +2003,13 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
                 for el_type, elements in elements_by_type.items():
                     gmsh_type = ELEMENT_TYPE_TO_GMSH.get(el_type)
                     if gmsh_type:
-                        element_blocks.append({
-                            "entity_tag": 1,
-                            "gmsh_type": gmsh_type,
-                            "elements": elements,
-                        })
+                        element_blocks.append(
+                            {
+                                "entity_tag": 1,
+                                "gmsh_type": gmsh_type,
+                                "elements": elements,
+                            }
+                        )
         else:
             elements_by_type = {}
             for el in mesh.elements:
@@ -2026,11 +2020,13 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
             for el_type, elements in elements_by_type.items():
                 gmsh_type = ELEMENT_TYPE_TO_GMSH.get(el_type)
                 if gmsh_type:
-                    element_blocks.append({
-                        "entity_tag": 1,
-                        "gmsh_type": gmsh_type,
-                        "elements": elements,
-                    })
+                    element_blocks.append(
+                        {
+                            "entity_tag": 1,
+                            "gmsh_type": gmsh_type,
+                            "elements": elements,
+                        }
+                    )
 
         total_elements = sum(len(block["elements"]) for block in element_blocks)
         f.write(f"{len(element_blocks)} {total_elements} 1 {total_elements}\n")
@@ -2058,11 +2054,11 @@ def write_gmsh_mesh(mesh: "MeshModel", filename: str) -> None:
             f.write(f"{len(mesh.nodes)}\n")
 
             node_values = {}
-            for i, node in enumerate(mesh.nodes):
+            for _i, node in enumerate(mesh.nodes):
                 node_values[node.id] = 0
 
             set_value = 1
-            for name, node_set in mesh.node_sets.items():
+            for _name, node_set in mesh.node_sets.items():
                 for node_id in node_set.node_ids:
                     node_values[node_id] = set_value
                 set_value += 1

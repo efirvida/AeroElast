@@ -22,23 +22,6 @@ pub enum ElemType {
     Quad8,
     /// 9-node Lagrange quadrilateral plane element (9 nodes × 2 DOFs = 18 DOFs)
     Quad9,
-    // ---- 3D Solid (3 DOFs/node) ----
-    /// 8-node hexahedral solid element (8 nodes × 3 DOFs = 24 DOFs)
-    Hexa8,
-    /// 20-node serendipity hexahedral solid element (20 nodes × 3 DOFs = 60 DOFs)
-    Hexa20,
-    /// 4-node tetrahedral solid element (4 nodes × 3 DOFs = 12 DOFs)
-    Tetra4,
-    /// 10-node quadratic tetrahedral solid element (10 nodes × 3 DOFs = 30 DOFs)
-    Tetra10,
-    /// 6-node wedge (triangular prism) solid element (6 nodes × 3 DOFs = 18 DOFs)
-    Wedge6,
-    /// 15-node quadratic wedge solid element (15 nodes × 3 DOFs = 45 DOFs)
-    Wedge15,
-    /// 5-node pyramid solid element (5 nodes × 3 DOFs = 15 DOFs)
-    Pyramid5,
-    /// 13-node quadratic pyramid solid element (13 nodes × 3 DOFs = 39 DOFs)
-    Pyramid13,
 }
 
 impl ElemType {
@@ -47,8 +30,6 @@ impl ElemType {
         match self {
             ElemType::Mitc3 | ElemType::Mitc4 | ElemType::Mitc3Composite | ElemType::Mitc4Composite => 6,
             ElemType::Quad4 | ElemType::Quad8 | ElemType::Quad9 => 2,
-            ElemType::Hexa8 | ElemType::Hexa20 | ElemType::Tetra4 | ElemType::Tetra10
-            | ElemType::Wedge6 | ElemType::Wedge15 | ElemType::Pyramid5 | ElemType::Pyramid13 => 3,
         }
     }
 }

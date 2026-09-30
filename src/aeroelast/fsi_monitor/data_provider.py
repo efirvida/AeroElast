@@ -121,7 +121,9 @@ class FSIDataProvider:
         self._load_status: str = "Reading CSV…"
 
         # Bootstrap is async — TUI starts immediately without blocking
-        self._thread = threading.Thread(target=self._poll_loop, daemon=True, name="fsi-monitor-poll")
+        self._thread = threading.Thread(
+            target=self._poll_loop, daemon=True, name="fsi-monitor-poll"
+        )
         self._thread.start()
 
     # ------------------------------------------------------------------
@@ -201,9 +203,7 @@ class FSIDataProvider:
         """Return values for *column*. If *max_points* > 0, tail-slice."""
         return self._csv_reader.get_column(column, max_points=max_points)
 
-    def get_history_xy(
-        self, y_column: str, max_points: int = 0
-    ) -> tuple[list[Any], list[Any]]:
+    def get_history_xy(self, y_column: str, max_points: int = 0) -> tuple[list[Any], list[Any]]:
         """Return (time, y_values) pair for plotting."""
         return self._csv_reader.get_two_columns("Time [s]", y_column, max_points)
 
@@ -219,6 +219,3 @@ class FSIDataProvider:
         """Stop background polling thread gracefully."""
         self._stop.set()
         self._thread.join(timeout=3)
-
-
-

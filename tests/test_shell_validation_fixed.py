@@ -43,6 +43,47 @@ EXPECTED = {
 EXPECTED_RATIO = EXPECTED["uy"] / EXPECTED["ux"]
 
 
+# Measured relative errors of the 8x4 mesh against the analytical references:
+# FX (axial) 1.15%, FY (in-plane bending) 1.19%, FZ (out-of-plane bending)
+# 1.92%.  The window is 3%: it covers those discretisation errors while still
+# failing loudly for a wrong formulation, which is off by tens of percent.  Mesh
+# convergence is asserted separately by
+# test_axial_load_converges_to_the_analytical_solution.  The previous window was
+# a flat 5% on a percentage, applied to three different physical regimes.
+TOL_STATIC = 3.0  # percent
+
+# Mesh sequence for the axial convergence study.  (2,1) is excluded because it
+# is not on the asymptotic branch (measured 1.35%, below the 2.70% of (4,2)).
+CONVERGENCE_MESHES = [(4, 2), (8, 4), (16, 8), (32, 16)]
+
+
+def _solve_static(nx: int, ny: int, load: tuple, dof: int) -> float:
+    """Solve the cantilever and return |displacement| at the free-edge centre node."""
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
+
+    mesh = _build_cantilever_mesh(nx=nx, ny=ny)
+    prop = ShellProperty(material=STEEL, thickness=h)
+    cfg = {
+        "solver": {},
+        "elements": {
+            "element_family": ElementFamily.SHELL,
+            "properties": {"plate": prop},
+            "span_direction": (1.0, 0.0, 0.0),
+        },
+    }
+
+    solver = StaticLinearSolver(mesh, cfg)
+    dpn = solver.domain.dofs_per_node
+    solver.add_dirichlet_conditions([DirichletCondition(_clamped_dofs(mesh, dpn), 0.0)])
+    solver.add_nodal_loads(_load_as_nodal(mesh, dpn, load))
+
+    u = solver.solve()
+    center = _center_free_edge_node(mesh)
+    idx = mesh.node_id_to_index[center.id]
+    return abs(u[idx * dpn + dof])
+
+
 # =============================================================================
 # EXACT COPY OF WORKING HELPERS FROM CCX PARITY TEST
 # =============================================================================
@@ -123,135 +164,70 @@ class TestLinearStatic:
 
     def test_fx(self):
         """FX in-plane loading."""
-        mesh = _build_cantilever_mesh()
-        prop = ShellProperty(material=STEEL, thickness=h)
-
-        cfg = {
-            "solver": {},
-            "elements": {
-                "element_family": ElementFamily.SHELL,
-                "properties": {"plate": prop},
-                "span_direction": (1.0, 0.0, 0.0),
-            },
-        }
-
-        solver = StaticLinearSolver(mesh, cfg)
-        dpn = solver.domain.dofs_per_node
-
-        solver.add_dirichlet_conditions([DirichletCondition(_clamped_dofs(mesh, dpn), 0.0)])
-        solver.add_nodal_loads(_load_as_nodal(mesh, dpn, (600.0, 0.0, 0.0, 0.0, 0.0, 0.0)))
-
-        u = solver.solve()
-        center = _center_free_edge_node(mesh)
-        idx = mesh.node_id_to_index[center.id]
-        ux = abs(u[idx * dpn + 0])
-
-        print(f"\nFX: {ux * 1000:.3f} mm (ref: {EXPECTED['ux'] * 1000:.3f} mm)")
+        ux = _solve_static(8, 4, (600.0, 0.0, 0.0, 0.0, 0.0, 0.0), 0)
 
         error = abs(ux - EXPECTED["ux"]) / EXPECTED["ux"] * 100
-        assert error < 5.0
+        print(f"\nFX: {ux * 1000:.4f} mm (ref: {EXPECTED['ux'] * 1000:.4f} mm, err {error:.2f}%)")
+
+        assert error < TOL_STATIC, f"FX: error {error:.2f}% > {TOL_STATIC}%"
 
     def test_fy(self):
         """FY in-plane loading."""
-        mesh = _build_cantilever_mesh()
-        prop = ShellProperty(material=STEEL, thickness=h)
-
-        cfg = {
-            "solver": {},
-            "elements": {
-                "element_family": ElementFamily.SHELL,
-                "properties": {"plate": prop},
-                "span_direction": (1.0, 0.0, 0.0),
-            },
-        }
-
-        solver = StaticLinearSolver(mesh, cfg)
-        dpn = solver.domain.dofs_per_node
-
-        solver.add_dirichlet_conditions([DirichletCondition(_clamped_dofs(mesh, dpn), 0.0)])
-        solver.add_nodal_loads(_load_as_nodal(mesh, dpn, (0.0, 600.0, 0.0, 0.0, 0.0, 0.0)))
-
-        u = solver.solve()
-        center = _center_free_edge_node(mesh)
-        idx = mesh.node_id_to_index[center.id]
-        uy = abs(u[idx * dpn + 1])
-
-        print(f"\nFY: {uy * 1000:.3f} mm (ref: {EXPECTED['uy'] * 1000:.3f} mm)")
+        uy = _solve_static(8, 4, (0.0, 600.0, 0.0, 0.0, 0.0, 0.0), 1)
 
         error = abs(uy - EXPECTED["uy"]) / EXPECTED["uy"] * 100
-        assert error < 5.0
+        print(f"\nFY: {uy * 1000:.4f} mm (ref: {EXPECTED['uy'] * 1000:.4f} mm, err {error:.2f}%)")
+
+        assert error < TOL_STATIC, f"FY: error {error:.2f}% > {TOL_STATIC}%"
 
     def test_fz(self):
         """FZ out-of-plane loading."""
-        mesh = _build_cantilever_mesh()
-        prop = ShellProperty(material=STEEL, thickness=h)
-
-        cfg = {
-            "solver": {},
-            "elements": {
-                "element_family": ElementFamily.SHELL,
-                "properties": {"plate": prop},
-                "span_direction": (1.0, 0.0, 0.0),
-            },
-        }
-
-        solver = StaticLinearSolver(mesh, cfg)
-        dpn = solver.domain.dofs_per_node
-
-        solver.add_dirichlet_conditions([DirichletCondition(_clamped_dofs(mesh, dpn), 0.0)])
-        solver.add_nodal_loads(_load_as_nodal(mesh, dpn, (0.0, 0.0, 600.0, 0.0, 0.0, 0.0)))
-
-        u = solver.solve()
-        center = _center_free_edge_node(mesh)
-        idx = mesh.node_id_to_index[center.id]
-        uz = abs(u[idx * dpn + 2])
-
-        print(f"\nFZ: {uz * 1000:.3f} mm (ref: {EXPECTED['uz'] * 1000:.3f} mm)")
+        uz = _solve_static(8, 4, (0.0, 0.0, 600.0, 0.0, 0.0, 0.0), 2)
 
         error = abs(uz - EXPECTED["uz"]) / EXPECTED["uz"] * 100
-        assert error < 5.0
+        print(f"\nFZ: {uz * 1000:.4f} mm (ref: {EXPECTED['uz'] * 1000:.4f} mm, err {error:.2f}%)")
+
+        assert error < TOL_STATIC, f"FZ: error {error:.2f}% > {TOL_STATIC}%"
 
     def test_ratio_physical(self):
-        """UY should dominate UX because the Y load excites strip bending."""
-        prop = ShellProperty(material=STEEL, thickness=h)
+        """UY must dominate UX: the strip is far more flexible in bending.
 
-        cfg = {
-            "solver": {},
-            "elements": {
-                "element_family": ElementFamily.SHELL,
-                "properties": {"plate": prop},
-                "span_direction": (1.0, 0.0, 0.0),
-            },
-        }
-
-        # UX
-        mesh = _build_cantilever_mesh()
-        solver = StaticLinearSolver(mesh, cfg)
-        dpn = solver.domain.dofs_per_node
-        solver.add_dirichlet_conditions([DirichletCondition(_clamped_dofs(mesh, dpn), 0.0)])
-        solver.add_nodal_loads(_load_as_nodal(mesh, dpn, (600.0, 0.0, 0.0, 0.0, 0.0, 0.0)))
-        u = solver.solve()
-        center = _center_free_edge_node(mesh)
-        idx = mesh.node_id_to_index[center.id]
-        ux = abs(u[idx * dpn + 0])
-
-        # UY
-        mesh = _build_cantilever_mesh()
-        solver = StaticLinearSolver(mesh, cfg)
-        solver.add_dirichlet_conditions([DirichletCondition(_clamped_dofs(mesh, dpn), 0.0)])
-        solver.add_nodal_loads(_load_as_nodal(mesh, dpn, (0.0, 600.0, 0.0, 0.0, 0.0, 0.0)))
-        u = solver.solve()
-        idx = mesh.node_id_to_index[center.id]
-        uy = abs(u[idx * dpn + 1])
-
+        Beam theory puts the ratio at 400.0 (UY/Ux = L^2 * A / I).  The previous
+        window was -50%/+20%, which no factor-of-two error could fail; the
+        measured ratio is 399.84, i.e. 0.04% off.
+        """
+        ux = _solve_static(8, 4, (600.0, 0.0, 0.0, 0.0, 0.0, 0.0), 0)
+        uy = _solve_static(8, 4, (0.0, 600.0, 0.0, 0.0, 0.0, 0.0), 1)
         ratio = uy / ux
 
-        print(f"\nPhysical ratio: uY/uX = {ratio:.2f}")
-        print(f"Beam-theory ratio: {EXPECTED_RATIO:.2f}")
+        print(f"\nPhysical ratio: uY/uX = {ratio:.2f} (beam theory {EXPECTED_RATIO:.2f})")
 
-        assert 0.5 * EXPECTED_RATIO <= ratio <= 1.2 * EXPECTED_RATIO, (
-            f"Ratio {ratio:.2f} outside expected bending-dominated range"
+        assert 0.98 * EXPECTED_RATIO <= ratio <= 1.02 * EXPECTED_RATIO, (
+            f"ratio {ratio:.2f} outside 2% of the beam-theory {EXPECTED_RATIO:.2f}"
         )
+
+    def test_axial_load_converges_to_the_analytical_solution(self):
+        """The axial case must converge to P*L/(E*A), not merely land near it.
+
+        A single-mesh comparison can only bound the discretisation error; this
+        one shows that error is discretisation and not a wrong reference.  The
+        measured relative errors are 2.70% (4,2), 1.15% (8,4), 0.75% (16,8) and
+        0.49% (32,16): monotonically decreasing from (4,2) on, with the coarsest
+        mesh excluded because it is not on the asymptotic branch.
+        """
+        errors = []
+        for nx, ny in CONVERGENCE_MESHES:
+            ux = _solve_static(nx, ny, (600.0, 0.0, 0.0, 0.0, 0.0, 0.0), 0)
+            errors.append(abs(ux - EXPECTED["ux"]) / EXPECTED["ux"])
+
+        print("\nAxial convergence (rel err vs P*L/(E*A)):")
+        for (nx, ny), err in zip(CONVERGENCE_MESHES, errors, strict=True):
+            print(f"  ({nx:>2},{ny:>2}): {err * 100:.3f}%")
+
+        assert all(errors[i + 1] < errors[i] for i in range(len(errors) - 1)), (
+            f"axial error must decrease under refinement, got {[f'{e * 100:.3f}%' for e in errors]}"
+        )
+        assert errors[-1] < 0.01, f"finest axial error {errors[-1] * 100:.3f}% must be below 1%"
 
 
 class TestNonlinearStatic:

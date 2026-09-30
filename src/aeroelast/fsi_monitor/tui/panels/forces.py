@@ -84,7 +84,7 @@ class ForcesPanel(Static):
         non_aero = g("Non-Aero Torque [Nm]")
         if non_aero is None:
             tau_total = g("Total Torque [Nm]")
-            tau_aero  = g("Aero Torque [Nm]")
+            tau_aero = g("Aero Torque [Nm]")
             if tau_total is not None and tau_aero is not None:
                 non_aero = tau_total - tau_aero
 
@@ -92,24 +92,27 @@ class ForcesPanel(Static):
 
         lines = [
             "[bold yellow]FORCES & TORQUES[/]",
-            _row("Thrust",       _v(g("Aero Thrust [N]")),          "N"),
-            _torque_row("τ gravity",  g("Gravity Torque [Nm]"),      omega),
-            _torque_row("τ inertial", g("Inertial Torque [Nm]"),     omega),
-            _torque_row("τ non-aero", non_aero,                      omega),
-            _torque_row("τ aero",     g("Aero Torque [Nm]"),         omega),
-            _torque_row("τ total",    g("Total Torque [Nm]"),        omega),
+            _row("Thrust", _v(g("Aero Thrust [N]")), "N"),
+            _torque_row("τ gravity", g("Gravity Torque [Nm]"), omega),
+            _torque_row("τ inertial", g("Inertial Torque [Nm]"), omega),
+            _torque_row("τ non-aero", non_aero, omega),
+            _torque_row("τ aero", g("Aero Torque [Nm]"), omega),
+            _torque_row("τ total", g("Total Torque [Nm]"), omega),
             "",
-            _xyz_row("Aero   xyz",
-                     g("Aero Torque X [Nm]"),
-                     g("Aero Torque Y [Nm]"),
-                     g("Aero Torque Z [Nm]")),
-            _xyz_row("Total  xyz",
-                     g("Total Torque X [Nm]"),
-                     g("Total Torque Y [Nm]"),
-                     g("Total Torque Z [Nm]")),
+            _xyz_row(
+                "Aero   xyz",
+                g("Aero Torque X [Nm]"),
+                g("Aero Torque Y [Nm]"),
+                g("Aero Torque Z [Nm]"),
+            ),
+            _xyz_row(
+                "Total  xyz",
+                g("Total Torque X [Nm]"),
+                g("Total Torque Y [Nm]"),
+                g("Total Torque Z [Nm]"),
+            ),
         ]
         self._content = "\n".join(lines)
 
     def render(self) -> str:
         return self._content or "[dim]FORCES & TORQUES\n  Waiting…[/]"
-

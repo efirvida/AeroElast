@@ -45,7 +45,7 @@ mesh:
   # Option 2: Generate programmatically
   # source: "generator"
   # generator:
-  #   # Available types: "SquareShapeMesh", "BoxSurfaceMesh", "BoxVolumeMesh",
+  #   # Available types: "SquareShapeMesh", "BoxSurfaceMesh",
   #   #                  "MultiFlapMesh", "RotorMesh", "BladeMesh"
   #   type: "SquareShapeMesh"
   #   params:
@@ -90,12 +90,12 @@ mesh:
 material:
   type: "isotropic"  # "isotropic" or "orthotropic"
   name: "Steel"
-  
+
   # Isotropic material properties
   E: 4.0e6       # Young's modulus [Pa]
   nu: 0.3        # Poisson's ratio [-]
   rho: 3000.0    # Density [kg/m³]
-  
+
   # Orthotropic properties (uncomment if type: "orthotropic")
   # E: [E1, E2, E3]        # Young's modulus in 3 directions
   # G: [G12, G23, G31]     # Shear modulus in 3 planes
@@ -105,7 +105,7 @@ material:
 # ELEMENT CONFIGURATION
 #============================================================================
 elements:
-  family: "PLANE"    # "PLANE" for 2D, "SHELL" for 3D shell, "SOLID" for 3D solid
+  family: "PLANE"    # "PLANE" for 2D, "SHELL" for 3D shell
   # thickness: 0.1   # Required only for SHELL elements
 
 #============================================================================
@@ -115,21 +115,21 @@ solver:
   # Solver type: "LinearStatic", "LinearDynamic", "LinearDynamicFSI",
   #              "LinearDynamicFSIRotor", or "Modal"
   type: "LinearDynamicFSI"
-  
+
   # Time parameters
   total_time: 5.0    # Total simulation time [s]
   time_step: 0.001   # Time step size [s]
-  
+
   # Newmark-β integration parameters (optional)
   newmark:
     beta: 0.25   # Newmark beta (0.25 = constant average acceleration)
     gamma: 0.5   # Newmark gamma (0.5 = no numerical damping)
-  
+
   # Rayleigh damping parameters (optional)
   damping:
     eta_m: 1.0e-4  # Mass proportional damping
     eta_k: 1.0e-4  # Stiffness proportional damping
-  
+
   # Advanced options
   use_critical_dt: false  # Auto-calculate critical time step
   safety_factor: 0.8      # Safety factor for critical dt
@@ -184,19 +184,19 @@ coupling:
   participant: "Solid"                    # preCICE participant name
   config_file: "../precice-config.xml"    # Path to preCICE config (relative to this file)
   coupling_mesh: "Solid-Mesh"             # Name of coupling mesh in preCICE config
-  
+
   # Data exchange (can be lists for multiple fields)
   write_data:
     - "Displacement"      # Data to write to preCICE
   read_data:
     - "Force"             # Data to read from preCICE
-  
+
   # Coupling boundaries (from mesh node sets)
   boundaries:
     - "left"
     - "top"
     - "right"
-  
+
   # Force limiting (optional, for stability)
   # force_max_cap: 1.0e6       # Maximum force per node [N]
   # force_ramp_time: 0.01      # Ramp time for force application [s]
@@ -207,19 +207,19 @@ coupling:
 output:
   folder: "results"         # Output folder for checkpoints
   write_interval: 0.1       # Checkpoint interval [s] (0 = disabled)
-  
+
   # Restart configuration (OpenFOAM-style)
   start_from: "startTime"   # "startTime" or "latestTime"
   start_time: 0.0           # Initial time if start_from="startTime"
-  
+
   # Deformed mesh output
   save_deformed_mesh: true  # Save deformed mesh at checkpoints
   deformed_mesh_scale: 1.0  # Scale factor for displacements
-  
+
   # VTK output
   write_vtk: true
   vtk_file: "mesh.vtk"
-  
+
   # Initial state
   write_initial_state: true  # Write t=0 state
 
@@ -229,7 +229,7 @@ output:
 postprocess:
   # preCICE watchpoint file for plotting
   watchpoint_file: "precice-Solid-watchpoint-Flap-Tip.log"
-  
+
   # Automatic plot generation
   plots:
     displacement: "displacement.png"
@@ -294,17 +294,6 @@ GENERATOR_TEMPLATES = {
 # Note: When using BladeMesh, the 'material' section can be omitted.
 # Composite properties are extracted automatically from the blade YAML sections.
 """,
-    "BoxVolumeMesh": """  generator:
-    type: "BoxVolumeMesh"
-    params:
-      center: [0, 5.0, 0]        # Center coordinates [x, y, z]
-      dims: [1.0, 10.0, 1.0]     # Box dimensions [dx, dy, dz]
-      nx: 4                       # Elements in X direction
-      ny: 20                      # Elements in Y direction
-      nz: 4                       # Elements in Z direction
-      element_type: "hex"         # "hex", "tet", "wedge", "mixed"
-      quadratic: false
-""",
 }
 
 
@@ -352,10 +341,6 @@ def list_generators() -> None:
     print("   Node sets: RootNodes, allOuterShellNods")
     print("   Material: auto-extracted composite properties from YAML sections")
 
-    print("\n6. BoxVolumeMesh")
-    print("   3D solid volume mesh with hex/tet/wedge elements")
-    print("   Node sets: left, right, top, bottom, front, back")
-
     print("\nUse --template --generator <name> for example configuration")
 
 
@@ -391,16 +376,12 @@ def validate_config(config_path: str) -> bool:
                     yaml_dt = config.solver.time_step
                     xml_dt = precice_time.time_window_size
                     if abs(yaml_dt - xml_dt) / max(abs(xml_dt), 1e-30) > 1e-6:
-                        mismatches.append(
-                            f"time_step: YAML={yaml_dt:.2e} vs preCICE={xml_dt:.2e}"
-                        )
+                        mismatches.append(f"time_step: YAML={yaml_dt:.2e} vs preCICE={xml_dt:.2e}")
                 if precice_time.max_time and config.solver.total_time:
                     yaml_t = config.solver.total_time
                     xml_t = precice_time.max_time
                     if abs(yaml_t - xml_t) / max(abs(xml_t), 1e-30) > 1e-6:
-                        mismatches.append(
-                            f"total_time: YAML={yaml_t:.2e} vs preCICE={xml_t:.2e}"
-                        )
+                        mismatches.append(f"total_time: YAML={yaml_t:.2e} vs preCICE={xml_t:.2e}")
                 if mismatches:
                     print("\n  ⚠ preCICE time parameter mismatch:")
                     for m in mismatches:
@@ -410,8 +391,10 @@ def validate_config(config_path: str) -> bool:
                     print("\n  ✓ YAML ↔ preCICE time parameters match")
 
                 if precice_info.rbf_mappings:
-                    print(f"\n  ℹ {len(precice_info.rbf_mappings)} RBF mapping(s) found"
-                          " — run with --view or full run for radius validation against mesh")
+                    print(
+                        f"\n  ℹ {len(precice_info.rbf_mappings)} RBF mapping(s) found"
+                        " — run with --view or full run for radius validation against mesh"
+                    )
 
         if not warnings:
             print("\n✓ Configuration is valid")
@@ -536,7 +519,7 @@ Examples:
             runner.visualize()
             return 0
         except Exception as e:
-            logging.error(f"Visualization failed: {e}")
+            logging.error("Visualization failed: %s", e)
             return 1
 
     # Validate only

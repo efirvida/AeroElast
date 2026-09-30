@@ -1,6 +1,6 @@
 # fem-shell — Workspace Instructions
 
-Finite element library for shell, solid and plane elements, with FSI coupling
+Finite element library for shell and plane elements, with FSI coupling
 via preCICE for rotating structures (wind turbine blades, propellers).
 All simulations are configured via YAML and executed through the `fem-shell-fsi` (or `aeroelast`) CLI.
 
@@ -27,7 +27,7 @@ src/aeroelast/
     bc.py        # DirichletCondition, BodyForce
     laminate.py  # Classical Laminate Theory (CLT)
     assembler.py # PETSc sparse assembly from element K/M
-  elements/      # ElementFamily enum; element kernels live in Rust now
+  elements/      # MITC3/4 (shell), QUAD (plane)
   solvers/
     linear.py, modal.py              # Static + modal (PETSc/SLEPc)
     elasticity/                      # Static linear/nonlinear, dynamic Newmark
@@ -102,7 +102,7 @@ fem-shell-fsi simulation.yaml --preview     # print parsed config tree
 fem-shell-fsi simulation.yaml               # run simulation
 fem-shell-fsi simulation.yaml --view        # interactive mesh viewer
 fem-shell-fsi --list-generators             # available mesh generators
-fem-shell-fsi --template -g BoxVolumeMesh   # template with generator example
+fem-shell-fsi --template -g BoxSurfaceMesh  # template with generator example
 ```
 
 Full reference: [docs/cli-reference.md](../docs/cli-reference.md)
@@ -135,12 +135,10 @@ For HPC system-level installs (PETSc, SLEPc, preCICE, OpenFOAM) use `Makefile.fe
 
 ### DOF Ordering
 - Shell (MITC3/4): 6 DOFs/node `[u, v, w, θx, θy, θz]`
-- Solid (HEXA, TETRA, …): 3 DOFs/node `[u, v, w]`
 - Plane (QUAD): 2 DOFs/node `[u, v]`
 - Mixed meshes use the **max stride** (6) to avoid DOF aliasing
 
 ### Voigt Notation
-- Solid: `[σ_xx, σ_yy, σ_zz, τ_xy, τ_yz, τ_zx]` — 6 components
 - Shell: `[σ_xx, σ_yy, τ_xy]` — 3 components (plane stress)
 
 ### Element Families (`ElementFamily` enum)
@@ -148,11 +146,10 @@ For HPC system-level installs (PETSc, SLEPc, preCICE, OpenFOAM) use `Makefile.fe
 |--------|-----------|----------|-----------|
 | `PLANE` | 2 | QUAD4/8 | 2D |
 | `SHELL` | 6 | MITC3, MITC4, MITC3Composite, MITC4Composite | 3D surface |
-| `SOLID` | 3 | HEXA8/20/27, TETRA4/10, WEDGE6/15, PYRAMID5/13 | 3D volume |
 
 ### Naming
-- Element files: UPPERCASE (`MITC3.py`, `SOLID.py`, `QUAD.py`)
-- Element classes: UPPERCASE + node count (`HEXA8`, `TETRA10`, `MITC3`)
+- Element files: UPPERCASE (`MITC3.py`, `QUAD.py`)
+- Element classes: UPPERCASE + node count (`QUAD4`, `QUAD8`, `MITC3`)
 - Core/solver files: lowercase snake_case
 - `@cached_property` for expensive element computations (K, M)
 - `@dataclass` for data-oriented types (materials, plies, configs)
@@ -187,7 +184,6 @@ not configured in `coupling.write_data`.
 |-----------|-------------|-------------------|
 | `SquareShapeMesh` | 2D rectangular | left, right, top, bottom, corners |
 | `BoxSurfaceMesh` | 3D shell box | left, right, top, bottom, front, back |
-| `BoxVolumeMesh` | 3D solid (hex/tet/wedge) | left, right, top, bottom, front, back |
 | `MultiFlapMesh` | Flaps on base strip | bottom, flaps_left, flaps_right, flaps_top |
 | `RotorMesh` | Turbine from blade YAML | RootNodes_blade_N, allOuterShellNods_blade_N |
 | `BladeMesh` | Single blade from YAML | root, tip, surface |
@@ -195,8 +191,6 @@ not configured in `coupling.write_data`.
 | `HyperbolicParaboloidMesh` | Saddle surface | — |
 | `RaaschHookMesh` | Curved hook benchmark | — |
 | `SphericalSurfaceMesh` | Spherical shell | — |
-| `CylinderVolumeMesh` | Cylindrical solid | — |
-| `PyramidTransitionMesh` | Hex-to-tet transition | — |
 
 ## External Dependencies
 

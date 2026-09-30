@@ -37,7 +37,7 @@ try:
     # Import PETSc-backed structural solvers only when the dependency is
     # available, so importing the solvers package does not break CLI preview/view.
     from .elasticity import DynamicNewmarkSolver, StaticLinearSolver, StaticNonlinearSolver
-    from .modal import ModalSolver
+    from .modal import ModalSolver as ModalSolver
 
     # Legacy aliases kept for backward compatibility
     LinearStaticSolver = StaticLinearSolver
@@ -61,18 +61,18 @@ try:
     # FSI classes remain optional because preCICE is not part of the minimal
     # installation used for config inspection and mesh preprocessing.
     from .fsi import (
-        Adapter,
-        ConstantOmega,
-        CoordinateTransforms,
-        ForceClipper,
-        FSIRunner,
-        FunctionOmega,
-        InertialForcesCalculator,
-        LinearDynamicFSIRotorSolver,
-        LinearDynamicFSISolver,
-        OmegaProvider,
-        TableOmega,
-        run_from_yaml,
+        Adapter as Adapter,
+        ConstantOmega as ConstantOmega,
+        CoordinateTransforms as CoordinateTransforms,
+        ForceClipper as ForceClipper,
+        FSIRunner as FSIRunner,
+        FunctionOmega as FunctionOmega,
+        InertialForcesCalculator as InertialForcesCalculator,
+        LinearDynamicFSIRotorSolver as LinearDynamicFSIRotorSolver,
+        LinearDynamicFSISolver as LinearDynamicFSISolver,
+        OmegaProvider as OmegaProvider,
+        TableOmega as TableOmega,
+        run_from_yaml as run_from_yaml,
     )
 except ImportError:
     # preCICE not available

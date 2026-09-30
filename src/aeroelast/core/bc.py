@@ -2,7 +2,7 @@
 Finite Element Method Boundary Condition Manager for 2D/3D Elasticity Problems.
 """
 
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, Optional, Tuple
 
 import numpy as np
 from petsc4py import PETSc

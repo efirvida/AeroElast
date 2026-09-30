@@ -55,13 +55,17 @@ def _analytical_tip(lam: float, L: float = 10.0):
     R = L / lam
     x_tip = R * math.sin(lam)
     z_tip = R * (1.0 - math.cos(lam))
-    return x_tip - L, z_tip
+    # The applied end moment is positive about +y (f_ext[6n+4] = +M), and a
+    # positive +y rotation carries the section from +x toward −z. The elastic
+    # curve therefore bends downward, so the transverse tip displacement is the
+    # negative of the geometric z-coordinate.
+    return x_tip - L, -z_tip
 
 
 REFERENCE_TABLE = [
-    (math.pi / 2, -3.6338, 6.3662),
-    (math.pi, -10.000, 6.3662),
-    (3 * math.pi / 2, -12.122, 2.1221),
+    (math.pi / 2, -3.6338, -6.3662),
+    (math.pi, -10.000, -6.3662),
+    (3 * math.pi / 2, -12.122, -2.1221),
     (2 * math.pi, -10.000, 0.0000),
 ]
 
@@ -266,7 +270,8 @@ def test_linear_tip_deflection_euler_bernoulli():
 
 def test_linear_tip_moment_sign():
     """
-    Sign-convention regression for the MITC3 covariant-shear fix.
+    A positive moment about +y on the free tip rotates the section from +x
+    toward −z, so the transverse tip displacement w is negative.
 
     Physical convention: the out-of-surface displacement is (t/2)(θ × V_in),
     so a positive moment about global +Y sends the tip DOWN (w < 0).  This
@@ -300,10 +305,10 @@ def test_linear_tip_moment_sign():
     u = np.asarray(u)
     w_tip = np.mean([u[6 * n + 2] for n in tip_nodes])
 
-    # Linear theory: w_tip = M·L²/(2EI) = λ·EI/L · L²/(2EI) = λ·L/2
+    # Linear theory: |w_tip| = M·L²/(2EI) = λ·EI/L · L²/(2EI) = λ·L/2
     w_ref = lam * L / 2.0
-    assert w_tip > 0, f"Sign bug: positive M_y produced w_tip={w_tip:.4e} (expected > 0)"
-    rel_err = abs(w_tip - w_ref) / w_ref
+    assert w_tip < 0, f"Sign bug: positive M_y produced w_tip={w_tip:.4e} (expected < 0)"
+    rel_err = abs(abs(w_tip) - w_ref) / w_ref
     assert rel_err < 0.02, (
         f"Moment tip deflection: w_tip={w_tip:.6e}, ref={w_ref:.6e}, rel error={rel_err:.2%}"
     )
@@ -319,7 +324,7 @@ def test_cantilever_large_rotation_half_circle(n_elem):
     """
     Cantilever under end moment: λ = M·L/EI = π  (half-circle).
 
-    Analytical tip:  u_tip = −10.0,  w_tip ≈ 6.366.
+    Analytical tip:  u_tip = −10.0,  w_tip ≈ −6.366.
     """
     node_coords, conn, et, clamped, n_dof, tips = cantilever_mitc3_mesh(n_elem, L, B)
     assembler = make_assembler(node_coords, conn, et, E, NU, RHO, H)
@@ -328,7 +333,7 @@ def test_cantilever_large_rotation_half_circle(n_elem):
     u_total = incremental_solve(assembler, f_ext, clamped, n_steps=20)
 
     u_tip, w_tip = tip_displacement(u_total, tips)
-    u_ref, w_ref = _analytical_tip(math.pi, L)  # (−10.0, 6.366)
+    u_ref, w_ref = _analytical_tip(math.pi, L)  # (−10.0, −6.366)
     tol = 0.05
 
     assert abs(u_tip - u_ref) / abs(u_ref) < tol, f"u_tip={u_tip:.4f}, ref={u_ref:.4f}"

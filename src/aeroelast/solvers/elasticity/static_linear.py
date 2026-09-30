@@ -1,7 +1,7 @@
 """Linear static solver — PETSc KSP CG + GAMG via Rust assembler."""
 
 import logging
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 

@@ -52,7 +52,7 @@ from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.core.mesh.model import MeshModel  # noqa: E402
 from aeroelast.core.properties import CompositeShellProperty  # noqa: E402
 
-from test_beam_4cases_parity import _run_ccx  # noqa: E402
+from _ccx_io import fail_ccx, run_ccx  # noqa: E402
 
 E1, E2, G12, NU12 = 44.6e9, 17.0e9, 3.27e9, 0.262
 THICKNESS = 8.0e-3
@@ -229,7 +229,9 @@ def test_composite_parity_ccx(tmp_path, name, angles, load, expect_twist):
         # single-layer section and the laminate is silently lost.
         quadratic=True,
     )
-    _run_ccx(ccx_bin, case_dir, stem)
+    proc = run_ccx(inp, ccx_bin)
+    if proc.returncode != 0:
+        fail_ccx(proc, inp)
     frd = case_dir / f"{stem}.frd"
     if not frd.exists():
         pytest.xfail(f"CCX produced no FRD for {name}")

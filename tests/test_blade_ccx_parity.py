@@ -45,7 +45,7 @@ from aeroelast.core.mesh.generators import BladeMesh  # noqa: E402
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.models.blade.model import build_rust_properties  # noqa: E402
 
-from test_beam_4cases_parity import _run_ccx  # noqa: E402
+from _ccx_io import fail_ccx, run_ccx  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 BLADE_YAML = REPO / "tests" / "IEA-15-240-RWT.yaml"
@@ -224,7 +224,9 @@ def test_blade_parity_ccx(tmp_path, name):
         span_direction=(0.0, 0.0, 1.0),
         quadratic=True,
     )
-    _run_ccx(ccx_bin, case_dir, stem)
+    proc = run_ccx(inp, ccx_bin)
+    if proc.returncode != 0:
+        fail_ccx(proc, inp)
     frd = case_dir / f"{stem}.frd"
     if not frd.exists():
         pytest.xfail(f"CCX produced no FRD for {name}")

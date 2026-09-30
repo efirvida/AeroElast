@@ -192,6 +192,6 @@ class CSVReader:
                 # Stale partial row left by a previous observation. Skip it
                 # and keep going so later complete rows are not lost.
                 continue
-            rows.append({name: _convert(value) for name, value in zip(columns, raw)})
+            rows.append({name: _convert(value) for name, value in zip(columns, raw, strict=False)})
         self._columns = columns
         self._rows = rows

@@ -459,7 +459,6 @@ impl InertialRotorFsiSolver {
                 MaterialSpec::Isotropic { rho, .. } => *rho,
                 MaterialSpec::Composite { mass_per_area, .. } => *mass_per_area,
                 MaterialSpec::PlaneStress { rho, .. } => *rho,
-                MaterialSpec::Solid3D { rho, .. } => *rho,
             })
             .collect();
 

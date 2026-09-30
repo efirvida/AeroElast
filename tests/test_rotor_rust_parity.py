@@ -232,7 +232,6 @@ def _make_solver_stub(rotor_cfg_overrides: Optional[dict] = None):
     and then call ``_init_rotor_config()`` on it so we test the real parsing
     logic without touching PETSc or preCICE.
     """
-    from aeroelast.core.mesh.model import MeshModel  # noqa: PLC0415
 
     base_model_props = {
         "elements": {},
@@ -309,20 +308,24 @@ class TestUseRustFlag:
         assert_allclose(solver._omega_provider._ramp_time, 3.0)
 
     def test_omega_provider_type_computed(self):
-        solver = _make_solver_stub({
-            "omega": 2.0,
-            "moment_of_inertia": 500.0,
-            "omega_ramp_time": 0.0,
-        })
+        solver = _make_solver_stub(
+            {
+                "omega": 2.0,
+                "moment_of_inertia": 500.0,
+                "omega_ramp_time": 0.0,
+            }
+        )
         assert isinstance(solver._omega_provider, ComputedOmega)
         assert_allclose(solver._omega_provider._I, 500.0)
 
     def test_omega_provider_type_ramped_computed(self):
-        solver = _make_solver_stub({
-            "omega": 5.0,
-            "moment_of_inertia": 300.0,
-            "omega_ramp_time": 2.0,
-        })
+        solver = _make_solver_stub(
+            {
+                "omega": 5.0,
+                "moment_of_inertia": 300.0,
+                "omega_ramp_time": 2.0,
+            }
+        )
         assert isinstance(solver._omega_provider, RampedComputedOmega)
         assert_allclose(solver._omega_provider._target_omega, 5.0)
         assert_allclose(solver._omega_provider._ramp_time, 2.0)
@@ -337,12 +340,14 @@ class TestUseRustFlag:
         assert omega_target is None
 
     def test_map_omega_round_trip_ramped_computed(self):
-        solver = _make_solver_stub({
-            "omega": 10.0,
-            "moment_of_inertia": 250.0,
-            "omega_ramp_time": 4.0,
-            "shaft_torque": -100.0,
-        })
+        solver = _make_solver_stub(
+            {
+                "omega": 10.0,
+                "moment_of_inertia": 250.0,
+                "omega_ramp_time": 4.0,
+                "shaft_torque": -100.0,
+            }
+        )
         mode, omega, omega_target, t_ramp, moi, shaft_tau = solver._map_omega_provider()
         assert mode == "ramped_computed"
         assert_allclose(omega_target, 10.0)

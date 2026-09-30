@@ -11,7 +11,6 @@ from typing import Any, Dict, Optional
 
 import numpy as np
 
-from aeroelast.core.config import BEMConfig
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.models.blade.aerodynamics import BladeAero, load_blade_aero
 from aeroelast.solvers.bem.engine import BEMResult, BEMSolver
@@ -126,7 +125,9 @@ class BEMStandaloneSolver:
             hub_radius=float(self._bem_cfg.get("hub_radius", 0.0)),
             n_blades=int(self._bem_cfg.get("n_blades", 3)),
             viterna_ar=float(self._bem_cfg.get("viterna_ar", 17.0)),
-            viterna_confidence_threshold=float(self._bem_cfg.get("viterna_confidence_threshold", 0.5)),
+            viterna_confidence_threshold=float(
+                self._bem_cfg.get("viterna_confidence_threshold", 0.5)
+            ),
         )
 
     def _export(self, output_folder: str, verification: dict) -> None:
@@ -140,16 +141,18 @@ class BEMStandaloneSolver:
 
         # --- Sectional loads CSV ---
         header = "r[m],Np[N/m],Tp[N/m],alpha[deg],cl,cd,a,ap"
-        data = np.column_stack([
-            result.r,
-            result.Np,
-            result.Tp,
-            result.alpha,
-            result.cl,
-            result.cd,
-            result.a,
-            result.ap,
-        ])
+        data = np.column_stack(
+            [
+                result.r,
+                result.Np,
+                result.Tp,
+                result.alpha,
+                result.cl,
+                result.cd,
+                result.a,
+                result.ap,
+            ]
+        )
         np.savetxt(out / "bem_sectional_loads.csv", data, delimiter=",", header=header, comments="")
 
         # --- Global loads CSV ---

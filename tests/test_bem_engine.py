@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-ccblade = pytest.importorskip("ccblade", reason="ccblade not installed (pip install -e '.[bem]')")
+pytest.importorskip("ccblade", reason="ccblade not installed (pip install -e '.[bem]')")
 
 from aeroelast.models.blade.aerodynamics import load_blade_aero
 from aeroelast.solvers.bem.engine import BEMResult, BEMSolver

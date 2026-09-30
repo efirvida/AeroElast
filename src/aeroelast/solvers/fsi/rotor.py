@@ -8,8 +8,9 @@ via the preCICE library.
 
 Governing Equation (Rotating Reference Frame)
 ----------------------------------------------
-The equation of motion solved at each time step is (cf. ANSYS MAPDL Theory
-Reference, Eq. 14-57, §14.4.1):
+The equation of motion solved at each time step is the standard rotating-frame
+formulation (Géradin & Rixen, *Mechanical Vibrations*, for the rotating frame and
+the gyroscopic terms):
 
     [M]{ü} + ([C] + [G_cor]){u̇} + ([K] + [K_G] + [K_SP]){u} = {F_aero} + {F_cf} + {F_euler} + {F_g}
 
@@ -23,12 +24,17 @@ where:
              Assembled element-by-element: K_G = ∫ B_G^T · S̃ · B_G dA,
              where the in-plane stress S̃ is estimated from the centrifugal
              prestress σ_cf ≈ ρ·ω²·r·L_char.
-    [K_SP] — Spin softening matrix (ANSYS Eq. 3-74 / 14-55):
+    [K_SP] — Spin softening matrix:
              K_SP = -ω² · M · (I - n̂⊗n̂).
              Diagonal for lumped mass. Reduces effective stiffness in the plane
              perpendicular to the rotation axis. This captures the increase in
              centrifugal loading due to elastic displacement without requiring
              explicit force evaluation at deformed coordinates.
+             Verified by derivation: the centrifugal force at a displaced position
+             is −ω²·m·(X₀+u) projected onto the rotation plane, so its
+             displacement-dependent part contributes −ω²·m·(I − n̂⊗n̂)·u to the
+             left-hand side.  The ANSYS equation numbers this used to carry are
+             dropped: that manual is not a verifiable source here.
 
 LHS vs RHS treatment of physical effects:
     - [K_G] on LHS:  Stress stiffening (INCREASES natural frequencies)
@@ -78,15 +84,15 @@ fluid solver follows:
     - Forces:       F_local = R^T(θ) · F_global   (global → rotating)
     - Displacement: u_global = R(θ) · u_local      (rotating → global)
 
-Relationship between K_G and K_SP (ANSYS §3.4–3.5, Eq. 3-88)
+Relationship between K_G and K_SP
 --------------------------------------------------------------
 K_G and K_SP model DIFFERENT physical effects and coexist:
     - K_G captures the geometric nonlinear stiffening from internal membrane
       stress induced by centrifugal loading (analogous to a taut string).
     - K_SP captures the variation of the external centrifugal FORCE with
       displacement (the force increases as the node moves outward).
-    - In ANSYS notation: [K_total] = [K] + [S] + [S̃₂], where [S] is stress
-      stiffening and [S̃₂] is spin softening (both functions of ω²).
+    - Both are functions of ω² and both sit on the left-hand side:
+      [K_total] = [K] + [K_G] + [K_SP].
     - For a rotating blade: K_G stiffens flapwise modes, K_SP softens
       in-plane (lead-lag) modes. Both are essential for correct Campbell diagrams.
 
@@ -227,7 +233,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
     """
     Co-rotational FSI solver for rotating structures (rotors, blades, turbines).
 
-    Solves the rotating-frame equation of motion (ANSYS Eq. 14-57):
+    Solves the rotating-frame equation of motion:
 
         [M]{ü} + [C]{u̇} + ([K] + [K_G] + [K_SP]){u} = {F}
 
@@ -240,7 +246,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
     - **Stress stiffening [K_G]**: Geometric stiffness from centrifugal prestress
       on the LHS (stiffens flapwise/out-of-plane modes).
     - **Spin softening [K_SP]**: Negative stiffness = -ω²·M·(I - n̂⊗n̂) on the
-      LHS (softens in-plane modes in the rotation plane). ANSYS Eq. 3-74.
+      LHS (softens in-plane modes in the rotation plane).
     - **Centrifugal force**: F_cf = m·ω²·r_⊥ evaluated at X₀ on the RHS.
       The displacement-dependent correction is captured implicitly by K_SP·u.
     - **Coriolis (gyroscopic)**: G_cor = 2·M·Ω̃ assembled on the LHS via
@@ -271,7 +277,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
     solver.rotor.include_geometric_stiffness : bool
         Include K_G for stress stiffening. Default: True
     solver.rotor.include_spin_softening : bool
-        Include K_SP for spin softening (ANSYS Eq. 3-74). Default: True.
+        Include K_SP for spin softening. Default: True.
         When True, centrifugal force stays at X₀ (K_SP captures the correction).
         When False, no spin softening correction is applied.
     solver.rotor.include_centrifugal : bool
@@ -2499,11 +2505,10 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
 
         # Detect whether we have shell elements
         has_shell = self.domain.element_family == ElementFamily.SHELL
-        has_solid = self.domain.element_family == ElementFamily.SOLID
 
         out: Dict[str, np.ndarray] = {}
 
-        if has_shell and not has_solid:
+        if has_shell:
             # Pure shell mesh → export all three layers
             out.update(
                 sr.compute_nodal_stresses_all_layers_dict(
@@ -2511,13 +2516,8 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
                 )
             )
             out.update(sr.compute_nodal_strains_all_layers_dict())
-        elif has_solid and not has_shell:
-            # Pure solid mesh → single set of results (no layer prefix)
-            result = sr.compute_nodal_stresses()
-            out.update(result.to_dict())
-            out.update({f"strain_{k}": v for k, v in sr.compute_nodal_strains().to_dict().items()})
         else:
-            # Mixed mesh → export shell layers + solid (with prefix)
+            # Non-shell mesh → export shell layers
             out.update(
                 sr.compute_nodal_stresses_all_layers_dict(
                     stress_type=StressType.TOTAL,

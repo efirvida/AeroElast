@@ -9,7 +9,7 @@ This module contains functions for loading meshes from various file formats:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from aeroelast.core.mesh.model import MeshModel
@@ -23,16 +23,6 @@ MESHIO_TYPE_MAP = {
     "quad": ElementType.quad,
     "quad8": ElementType.quad8,
     "quad9": ElementType.quad9,
-    # 3D volumetric elements
-    "tetra": ElementType.tetra,
-    "tetra10": ElementType.tetra10,
-    "hexahedron": ElementType.hexahedron,
-    "hexahedron20": ElementType.hexahedron20,
-    "hexahedron27": ElementType.hexahedron27,
-    "wedge": ElementType.wedge,
-    "wedge15": ElementType.wedge15,
-    "pyramid": ElementType.pyramid,
-    "pyramid13": ElementType.pyramid13,
 }
 
 
@@ -122,7 +112,7 @@ def load_meshio(filepath: str) -> "MeshModel":
     for coords in mio.points:
         nodes.append(Node(coords))
 
-    node_lookup = {i: n for i, n in enumerate(nodes)}
+    node_lookup = dict(enumerate(nodes))
 
     # Reconstruct elements
     elements = []

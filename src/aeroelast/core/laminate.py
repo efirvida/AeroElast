@@ -16,7 +16,7 @@ References
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 import numpy as np
 
@@ -354,6 +354,33 @@ class Laminate:
             self.A += Qbar * (z_top - z_bot)
             self.B += 0.5 * Qbar * (z_top**2 - z_bot**2)
             self.D += (1 / 3) * Qbar * (z_top**3 - z_bot**3)
+
+    def shear_stiffness_uncorrected(self) -> np.ndarray:
+        """
+        Transverse shear stiffness with **no** correction factor: the plain
+        thickness integral ``a_ij = Σ Cbar_s(k)_ij · t_k``, which for a
+        homogeneous stack of total thickness ``h`` is exactly ``G·h``.
+
+        This is the value the elementary shell element consumes. ``Cs`` must not
+        be fed to it: ``Cs`` carries the section's own correction -- ``k`` on the
+        single-ply branch and the ``5/6`` of the parabolic shear distribution
+        inside the multi-ply energy-equivalence formula -- and Ko, Lee & Bathe
+        (2017), C&S 182:404-418, p. 410 states that the element formulation
+        "does not include any numerical factor".
+
+        Additive: no stored field, and ``Cs`` plus every existing result are
+        unchanged.
+        """
+        # Zeroth-moment components (uncorrected), matching
+        # `_compute_shear_stiffness`'s own first block.
+        A44, A45, A55 = 0.0, 0.0, 0.0
+        for ply in self.plies:
+            Cbar = compute_shear_Cbar(ply.material, ply.angle)
+            t = ply.thickness
+            A55 += Cbar[0, 0] * t
+            A45 += Cbar[0, 1] * t
+            A44 += Cbar[1, 1] * t
+        return np.array([[A55, A45], [A45, A44]])
 
     def _compute_shear_stiffness(self) -> None:
         """

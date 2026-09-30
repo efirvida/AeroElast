@@ -40,7 +40,7 @@ def parse_force_file(force_file: Path) -> np.ndarray:
             logger.warning("Force file has %d columns; expected ≥3 (Fx, Fy, Fz)", forces.shape[1])
         return forces
     except Exception as e:
-        logger.error(f"Failed to parse force file: {e}")
+        logger.error("Failed to parse force file: %s", e)
         sys.exit(1)
 
 
@@ -136,7 +136,7 @@ def update_config_file(config_file: Path, force_max_cap: float, force_ramp_time:
     Update the fsi_config.yaml file with new parameters.
     """
     if not config_file.exists():
-        logger.error(f"Config file not found: {config_file}")
+        logger.error("Config file not found: %s", config_file)
         sys.exit(1)
 
     # Read current config
@@ -144,7 +144,7 @@ def update_config_file(config_file: Path, force_max_cap: float, force_ramp_time:
         config = yaml.safe_load(f)
 
     if config is None:
-        logger.warning(f"Config file is empty or malformed: {config_file}")
+        logger.warning("Config file is empty or malformed: %s", config_file)
         config = {}
 
     # Update solver section
@@ -158,7 +158,7 @@ def update_config_file(config_file: Path, force_max_cap: float, force_ramp_time:
     with open(config_file, "w") as f:
         yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
-    logger.info(f"Updated {config_file}")
+    logger.info("Updated %s", config_file)
 
 
 def main():
@@ -197,13 +197,13 @@ def main():
 
     # Validate input file
     if not args.force_file.exists():
-        logger.error(f"Force file not found: {args.force_file}")
+        logger.error("Force file not found: %s", args.force_file)
         sys.exit(1)
 
-    logger.info(f"Reading force data from: {args.force_file}")
+    logger.info("Reading force data from: %s", args.force_file)
     forces = parse_force_file(args.force_file)
 
-    logger.info(f"Parsed {forces.shape[0]} force samples with {forces.shape[1]} components")
+    logger.info("Parsed %s force samples with %s components", forces.shape[0], forces.shape[1])
 
     # Compute statistics
     logger.info("Computing force statistics...")
@@ -272,7 +272,7 @@ def main():
                 "recommendations": recommendations["force_max_cap_options"],
             }
         }
-        logger.info(f"Writing config to: {args.output_config}")
+        logger.info("Writing config to: %s", args.output_config)
         with open(args.output_config, "w") as f:
             yaml.dump(config, f, default_flow_style=False)
         print(f"\nConfig saved to: {args.output_config}")

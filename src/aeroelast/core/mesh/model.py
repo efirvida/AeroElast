@@ -7,14 +7,13 @@ with nodes, elements, node sets, and element sets.
 
 from __future__ import annotations
 
-from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import numpy as np
 
 from aeroelast.core.mesh import selectors
-from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
+from aeroelast.core.mesh.entities import ElementSet, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.io import load_mesh, write_hdf5, write_mesh, write_pickle
 
 
@@ -237,7 +236,9 @@ class MeshModel:
         n_elements = len(self.elements)
 
         if verbose:
-            print(f"        Building adjacency graph ({n_nodes:,} nodes, {n_elements:,} elements)...")
+            print(
+                f"        Building adjacency graph ({n_nodes:,} nodes, {n_elements:,} elements)..."
+            )
 
         def compute_bandwidth():
             max_diff = 0
@@ -365,96 +366,8 @@ class MeshModel:
 
     def _get_surface_node_ids(self) -> Set[int]:
         """Identify nodes on the surface boundaries of the mesh."""
-        # Check if we have volume elements
-        has_volume = False
-        volume_types = (
-            ElementType.tetra,
-            ElementType.tetra10,
-            ElementType.hexahedron,
-            ElementType.hexahedron20,
-            ElementType.hexahedron27,
-            ElementType.wedge,
-            ElementType.wedge15,
-            ElementType.pyramid,
-            ElementType.pyramid13,
-        )
-
-        for element in self.elements:
-            if element.element_type in volume_types:
-                has_volume = True
-                break
-
-        if not has_volume:
-            # For surface meshes, all nodes are technically on the surface geometry
-            return {n.id for n in self.nodes}
-
-        # For volumetric meshes, count faces
-        face_count = defaultdict(int)
-        for element in self.elements:
-            faces = self._get_element_faces(element)
-            for face in faces:
-                # Sort to ensure unique key for same face
-                face_key = tuple(sorted(face))
-                face_count[face_key] += 1
-
-        surface_nodes = set()
-        for face_key, count in face_count.items():
-            if count == 1:  # Shared by only one element -> Boundary
-                surface_nodes.update(face_key)
-
-        return surface_nodes
-
-    def _get_element_faces(self, element: MeshElement) -> List[Tuple[int, ...]]:
-        """Get faces of an element as tuples of node IDs."""
-        ids = element.node_ids
-        t = element.element_type
-
-        # Tetrahedron
-        if t in (ElementType.tetra, ElementType.tetra10):
-            # 4 nodes for tetra (corners)
-            p = [ids[0], ids[1], ids[2], ids[3]]
-            return [
-                (p[0], p[1], p[2]),
-                (p[0], p[3], p[1]),
-                (p[1], p[3], p[2]),
-                (p[0], p[2], p[3]),
-            ]
-
-        # Hexahedron
-        elif t in (ElementType.hexahedron, ElementType.hexahedron20, ElementType.hexahedron27):
-            p = list(ids[:8])
-            return [
-                (p[0], p[3], p[2], p[1]),  # Bottom
-                (p[4], p[5], p[6], p[7]),  # Top
-                (p[0], p[1], p[5], p[4]),  # Front
-                (p[1], p[2], p[6], p[5]),  # Right
-                (p[2], p[3], p[7], p[6]),  # Back
-                (p[3], p[0], p[4], p[7]),  # Left
-            ]
-
-        # Wedge (Prism)
-        elif t in (ElementType.wedge, ElementType.wedge15):
-            p = list(ids[:6])
-            return [
-                (p[0], p[1], p[2]),  # Bottom Tri
-                (p[3], p[4], p[5]),  # Top Tri
-                (p[0], p[1], p[4], p[3]),  # Side 1
-                (p[1], p[2], p[5], p[4]),  # Side 2
-                (p[2], p[0], p[3], p[5]),  # Side 3
-            ]
-
-        # Pyramid
-        elif t in (ElementType.pyramid, ElementType.pyramid13):
-            p = list(ids[:5])
-            return [
-                (p[0], p[3], p[2], p[1]),  # Base Quad
-                (p[0], p[1], p[4]),  # Side Tri
-                (p[1], p[2], p[4]),
-                (p[2], p[3], p[4]),
-                (p[3], p[0], p[4]),
-            ]
-
-        return []
+        # For surface meshes, all nodes are technically on the surface geometry
+        return {n.id for n in self.nodes}
 
     def create_node_set_by_geometry(
         self, name: str, criteria_type: str, on_surface: bool = False, **kwargs

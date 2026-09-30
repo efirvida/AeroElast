@@ -1,0 +1,549 @@
+diff --git a/crates/aeroelast-core/src/assembly/assembler.rs b/crates/aeroelast-core/src/assembly/assembler.rs
+index 5d5e184..3eafd04 100644
+--- a/crates/aeroelast-core/src/assembly/assembler.rs
++++ b/crates/aeroelast-core/src/assembly/assembler.rs
+@@ -8,7 +8,7 @@ use rayon::prelude::*;
+ 
+ use crate::assembly::topology::{ElemType, MeshTopology};
+ use crate::elements::mitc3::{self, Mitc3Precomputed};
+-use crate::elements::mitc4::{self, Mitc4Precomputed};
++use crate::elements::mitc4_plusd::{self, Mitc4PlusDPrecomputed};
+ use crate::elements::quad::{Quad4Precomputed, Quad8Precomputed, Quad9Precomputed};
+ use crate::materials::{
+     composite::composite_constitutive, isotropic::IsotropicMaterial, Material,
+@@ -56,6 +56,10 @@ pub enum MaterialSpec {
+         mass_per_area: f64,
+         /// Rotational inertia per unit area (kg·m²/m²)
+         rotational_inertia: f64,
++        /// Scalar shear-correction factor the material model applied when it
++        /// built `cs` (ADR-1): `shear_correction_factor` for a single-ply
++        /// laminate, `1.0` for a multi-ply one (or when none was applied).
++        applied_shear_correction: f64,
+     },
+     /// Plane-stress isotropic material (for QUAD4/8/9 elements).
+     PlaneStress {
+@@ -77,7 +81,7 @@ pub enum MaterialSpec {
+ #[derive(Clone)]
+ enum PrecomputedElem {
+     Tri(Mitc3Precomputed),
+-    Quad(Mitc4Precomputed),
++    Quad(Mitc4PlusDPrecomputed),
+     // QUAD plane elements: store 2D coords
+     Plane4([[f64; 2]; 4]),
+     Plane8([[f64; 2]; 8]),
+@@ -128,6 +132,13 @@ impl MeshAssembler {
+         let dofs_count = topology.dofs_count();
+         let n_elems = topology.n_elems;
+ 
++        // Pass 1 — mesh-consistent nodal directors (ADR-4 option A) for the
++        // MITC4/MITC4Composite elements: the area-weighted mean of the
++        // element-local directors `V_n^a` shared by every element at a node.
++        // Measured (apply-progress §WU9e) to close the thick twisted-beam
++        // residual; the element-local director field is the defect.
++        let nodal_director = mitc4_nodal_directors(&topology, &materials);
++
+         // Build per-element precomputed data and DOF connectivity
+         let mut precomputed = Vec::with_capacity(n_elems);
+         let mut dof_connectivity = Vec::with_capacity(n_elems);
+@@ -157,14 +168,22 @@ impl MeshAssembler {
+                     assert_eq!(coords.len(), 12, "MITC4 needs 4 nodes × 3 coords");
+                     let mut c12 = [0.0f64; 12];
+                     c12.copy_from_slice(&coords);
+-                    let (constitutive, thickness, e_mod, drilling_scale) = build_constitutive_mitc4(mat);
+-                    PrecomputedElem::Quad(Mitc4Precomputed::new(
++                    let (constitutive, thickness, applied_shear_correction) =
++                        build_constitutive_mitc4_plusd(mat);
++                    let mut pre = Mitc4PlusDPrecomputed::new(
+                         &c12,
+                         constitutive,
+                         thickness,
+-                        e_mod,
+-                        drilling_scale,
+-                    ))
++                        applied_shear_correction,
++                    );
++                    // Pass 2 — replace the element-local directors with the
++                    // mesh-consistent nodal directors. Measured identical to
++                    // also rebuilding `b_shear_tie`, `v_d`, `j0` and
++                    // `drill_edges` (apply-progress §WU9e), so only `vn` moves.
++                    for (a, &node) in topology.connectivity[e].iter().enumerate() {
++                        pre.vn[a] = nodal_director[node];
++                    }
++                    PrecomputedElem::Quad(pre)
+                 }
+                 ElemType::Quad4 => {
+                     assert_eq!(coords.len(), 12, "QUAD4 needs 4 nodes × 3 coords");
+@@ -229,6 +248,10 @@ impl MeshAssembler {
+             self.topology.node_coords[3 * i + 2] += u_inc[dofs_per_node * i + 2];
+         }
+ 
++        // Pass 1 — mesh-consistent nodal directors (ADR-4 option A) rebuilt
++        // from the advanced reference geometry, exactly as in `new`.
++        let nodal_director = mitc4_nodal_directors(&self.topology, &self.materials);
++
+         // Rebuild precomputed element data from new geometry
+         let n_elems = self.topology.n_elems;
+         for e in 0..n_elems {
+@@ -247,11 +270,19 @@ impl MeshAssembler {
+                 ElemType::Mitc4 | ElemType::Mitc4Composite => {
+                     let mut c12 = [0.0f64; 12];
+                     c12.copy_from_slice(&coords);
+-                    let (constitutive, thickness, e_mod, drilling_scale) =
+-                        build_constitutive_mitc4(mat);
+-                    PrecomputedElem::Quad(Mitc4Precomputed::new(
+-                        &c12, constitutive, thickness, e_mod, drilling_scale,
+-                    ))
++                    let (constitutive, thickness, applied_shear_correction) =
++                        build_constitutive_mitc4_plusd(mat);
++                    let mut pre = Mitc4PlusDPrecomputed::new(
++                        &c12,
++                        constitutive,
++                        thickness,
++                        applied_shear_correction,
++                    );
++                    // Pass 2 — same director overwrite as `new`.
++                    for (a, &node) in self.topology.connectivity[e].iter().enumerate() {
++                        pre.vn[a] = nodal_director[node];
++                    }
++                    PrecomputedElem::Quad(pre)
+                 }
+                 // Non-shell elements: coords stored differently, skip rebuild
+                 _ => continue,
+@@ -303,7 +334,7 @@ impl MeshAssembler {
+                     ke.as_slice().to_vec()
+                 }
+                 PrecomputedElem::Quad(pre) => {
+-                    let ke = mitc4::compute_ke_global(pre);
++                    let ke = mitc4_plusd::compute_ke_global(pre);
+                     ke.as_slice().to_vec()
+                 }
+                 PrecomputedElem::Plane4(c) => {
+@@ -355,10 +386,10 @@ impl MeshAssembler {
+                 PrecomputedElem::Quad(pre) => {
+                     let me = match &self.materials[e] {
+                         MaterialSpec::Isotropic { rho, .. } => {
+-                            mitc4::compute_me_global(pre, *rho)
++                            mitc4_plusd::compute_me_global(pre, *rho)
+                         }
+                         MaterialSpec::Composite { mass_per_area, rotational_inertia, .. } => {
+-                            mitc4::compute_me_composite_global(pre, *mass_per_area, *rotational_inertia)
++                            mitc4_plusd::compute_me_composite_global(pre, *mass_per_area, *rotational_inertia)
+                         }
+                         _ => panic!("MITC4 element requires Isotropic or Composite material"),
+                     };
+@@ -440,11 +471,11 @@ impl MeshAssembler {
+                         rho * thickness * pre.area,
+                     (PrecomputedElem::Tri(pre), MaterialSpec::Composite { mass_per_area, .. }) =>
+                         mass_per_area * pre.area,
+-                    // MITC4 — element area is precomputed
++                    // MITC4 — mid-surface area (sum of the two triangle areas)
+                     (PrecomputedElem::Quad(pre), MaterialSpec::Isotropic { rho, thickness, .. }) =>
+-                        rho * thickness * pre.element_area,
++                        rho * thickness * quad_area_3d(&pre.initial_coords_3d),
+                     (PrecomputedElem::Quad(pre), MaterialSpec::Composite { mass_per_area, .. }) =>
+-                        mass_per_area * pre.element_area,
++                        mass_per_area * quad_area_3d(&pre.initial_coords_3d),
+                     // Plane — use Me x-block sum (partition of unity)
+                     _ => {
+                         let me_flat = self.elem_me_flat(e);
+@@ -482,9 +513,9 @@ impl MeshAssembler {
+             }
+             PrecomputedElem::Quad(pre) => {
+                 let me = match &self.materials[e] {
+-                    MaterialSpec::Isotropic { rho, .. } => mitc4::compute_me_global(pre, *rho),
++                    MaterialSpec::Isotropic { rho, .. } => mitc4_plusd::compute_me_global(pre, *rho),
+                     MaterialSpec::Composite { mass_per_area, rotational_inertia, .. } =>
+-                        mitc4::compute_me_composite_global(pre, *mass_per_area, *rotational_inertia),
++                        mitc4_plusd::compute_me_composite_global(pre, *mass_per_area, *rotational_inertia),
+                     _ => panic!("MITC4 requires Isotropic or Composite material"),
+                 };
+                 me.as_slice().to_vec()
+@@ -527,7 +558,7 @@ impl MeshAssembler {
+                 }
+                 PrecomputedElem::Quad(pre) => {
+                     let rho = material_rho(&self.materials[e]);
+-                    let fvec = mitc4::compute_body_load_global(pre, rho, &g);
++                    let fvec = mitc4_plusd::compute_body_load_global(pre, rho, &g);
+                     fvec.as_slice().to_vec()
+                 }
+                 // For plane elements body load is not implemented yet;
+@@ -578,7 +609,7 @@ impl MeshAssembler {
+                     kg.as_slice().to_vec()
+                 }
+                 PrecomputedElem::Quad(pre) => {
+-                    let kg = mitc4::compute_k_sigma_global(pre, &sv);
++                    let kg = mitc4_plusd::compute_k_sigma_global(pre, &sv);
+                     kg.as_slice().to_vec()
+                 }
+                 // Geometric stiffness not implemented for plane in this assembler
+@@ -619,7 +650,7 @@ impl MeshAssembler {
+                     }
+                     PrecomputedElem::Quad(pre) => {
+                         let ue = extract_elem_disp_24(u, dofs);
+-                        let kt = mitc4::compute_kt_global(pre, &ue);
++                        let kt = mitc4_plusd::compute_kt_global(pre, &ue);
+                         kt.as_slice().to_vec()
+                     }
+                     // For plane elements: K_T = K_e (linear only)
+@@ -689,7 +720,7 @@ impl MeshAssembler {
+                         }
+                         PrecomputedElem::Quad(pre) => {
+                             let ue = extract_elem_disp_24(u, dofs);
+-                            let fvec = mitc4::compute_fint_global(pre, &ue, nonlinear);
++                            let fvec = mitc4_plusd::compute_fint_global(pre, &ue, nonlinear);
+                             fvec.as_slice().to_vec()
+                         }
+                         // For plane: f_int = K · u_e (linear only)
+@@ -937,7 +968,7 @@ impl MeshAssembler {
+                 }
+                 PrecomputedElem::Quad(pre) => {
+                     let ue = extract_elem_disp_24(u, dofs);
+-                    mitc4::compute_element_stress(pre, &ue, z_factor, stress_type)
++                    mitc4_plusd::compute_element_stress(pre, &ue, z_factor, stress_type)
+                 }
+                 // Plane (2-D) elements: recover via K·u is not stress — use B·u directly.
+                 // We delegate to the plane-element centroid stress recovery
+@@ -994,10 +1025,94 @@ fn build_constitutive_mitc3(
+     }
+ }
+ 
+-fn build_constitutive_mitc4(
++/// Constitutive, thickness and the ADR-1 applied shear-correction scalar for a
++/// MITC4+/D element. Isotropic materials report `shear_correction`; composites
++/// report the factor the laminate model applied to `cs` (task 10.2).
++fn build_constitutive_mitc4_plusd(
+     mat: &MaterialSpec,
+-) -> (crate::materials::ShellConstitutive, f64, f64, f64) {
+-    build_constitutive_mitc3(mat) // same signature
++) -> (crate::materials::ShellConstitutive, f64, f64) {
++    match mat {
++        MaterialSpec::Isotropic {
++            e,
++            nu,
++            rho,
++            thickness,
++            shear_correction,
++            ..
++        } => {
++            let iso = IsotropicMaterial::new(*e, *nu, *rho);
++            let constitutive = iso.constitutive(*thickness, *shear_correction);
++            (constitutive, *thickness, *shear_correction)
++        }
++        MaterialSpec::Composite {
++            cm,
++            cb_coupling,
++            cb,
++            cs,
++            thickness,
++            applied_shear_correction,
++            ..
++        } => {
++            let constitutive = composite_constitutive(cm, cb_coupling, cb, cs, *thickness);
++            (constitutive, *thickness, *applied_shear_correction)
++        }
++        _ => panic!("Shell element requires Isotropic or Composite MaterialSpec"),
++    }
++}
++
++/// Sum of the two triangle areas of the quad `(0,1,2)` + `(0,2,3)`, the
++/// element's mid-surface area used to weight the mesh-consistent director
++/// average and the elemental mass.
++fn quad_area_3d(p: &[[f64; 3]; 4]) -> f64 {
++    let v = |i: usize| Vector3::new(p[i][0], p[i][1], p[i][2]);
++    let (p0, p1, p2, p3) = (v(0), v(1), v(2), v(3));
++    let a1 = 0.5 * (p1 - p0).cross(&(p2 - p0)).norm();
++    let a2 = 0.5 * (p2 - p0).cross(&(p3 - p0)).norm();
++    a1 + a2
++}
++
++/// Mesh-consistent nodal directors (ADR-4 option A) for every MITC4 /
++/// MITC4Composite element: the area-weighted mean of the adjacent elements'
++/// element-local `V_n^a`, normalised per global node. Non-shell nodes get the
++/// flat fallback `[0, 0, 1]`.
++fn mitc4_nodal_directors(
++    topology: &MeshTopology,
++    materials: &[MaterialSpec],
++) -> Vec<Vector3<f64>> {
++    let mut acc = vec![Vector3::zeros(); topology.n_nodes];
++    for e in 0..topology.n_elems {
++        if !matches!(
++            topology.elem_types[e],
++            ElemType::Mitc4 | ElemType::Mitc4Composite
++        ) {
++            continue;
++        }
++        let coords = topology.elem_coords(e);
++        let mut c12 = [0.0f64; 12];
++        c12.copy_from_slice(&coords);
++        let (constitutive, thickness, applied_shear_correction) =
++            build_constitutive_mitc4_plusd(&materials[e]);
++        let pre = Mitc4PlusDPrecomputed::new(
++            &c12,
++            constitutive,
++            thickness,
++            applied_shear_correction,
++        );
++        let area = quad_area_3d(&pre.initial_coords_3d);
++        for (a, &node) in topology.connectivity[e].iter().enumerate() {
++            acc[node] += area * pre.vn[a];
++        }
++    }
++    acc.into_iter()
++        .map(|v| {
++            let n = v.norm();
++            if n > 1e-30 {
++                v / n
++            } else {
++                Vector3::new(0.0, 0.0, 1.0)
++            }
++        })
++        .collect()
+ }
+ 
+ fn material_rho(mat: &MaterialSpec) -> f64 {
+@@ -1076,8 +1191,8 @@ fn extract_elem_disp_18(u: &[f64], dofs: &[usize]) -> mitc3::Vec18 {
+ }
+ 
+ /// Extract 24-DOF element displacement from global vector.
+-fn extract_elem_disp_24(u: &[f64], dofs: &[usize]) -> mitc4::Vec24 {
+-    let mut ue = mitc4::Vec24::zeros();
++fn extract_elem_disp_24(u: &[f64], dofs: &[usize]) -> mitc4_plusd::Vec24 {
++    let mut ue = mitc4_plusd::Vec24::zeros();
+     for (local, &global) in dofs.iter().enumerate() {
+         ue[local] = u[global];
+     }
+diff --git a/crates/aeroelast-py/src/assembler.rs b/crates/aeroelast-py/src/assembler.rs
+index 821b9e5..4603d6d 100644
+--- a/crates/aeroelast-py/src/assembler.rs
++++ b/crates/aeroelast-py/src/assembler.rs
+@@ -298,7 +298,17 @@ impl PyMeshAssembler {
+             cs[2] = corrected_lam.cs[(1,0)];
+             cs[3] = corrected_lam.cs[(1,1)];
+ 
+-            Ok(MaterialSpec::Composite { cm, cb_coupling, cb, cs, thickness: h, e_equiv, mass_per_area, rotational_inertia })
++            Ok(MaterialSpec::Composite {
++                cm,
++                cb_coupling,
++                cb,
++                cs,
++                thickness: h,
++                e_equiv,
++                mass_per_area,
++                rotational_inertia,
++                applied_shear_correction: corrected_lam.applied_shear_correction_factor(),
++            })
+         };
+ 
+         // Enum to distinguish composite vs isotropic without PyO3 objects in hot path
+diff --git a/crates/aeroelast-py/src/elements.rs b/crates/aeroelast-py/src/elements.rs
+index 96bec32..4647dbf 100644
+--- a/crates/aeroelast-py/src/elements.rs
++++ b/crates/aeroelast-py/src/elements.rs
+@@ -6,7 +6,7 @@ use pyo3::prelude::*;
+ use rayon::prelude::*;
+ 
+ use aeroelast_core::elements::mitc3::{self, Mitc3Precomputed};
+-use aeroelast_core::elements::mitc4::{self, Mitc4Precomputed};
++use aeroelast_core::elements::mitc4_plusd::{self, Mitc4PlusDPrecomputed};
+ use aeroelast_core::elements::quad::{Quad4Precomputed, Quad8Precomputed, Quad9Precomputed};
+ use aeroelast_core::materials::composite::composite_constitutive;
+ use aeroelast_core::materials::isotropic::IsotropicMaterial;
+@@ -240,8 +240,8 @@ pub(crate) fn batch_ke_mitc4<'py>(
+             for i in 0..12 {
+                 node_coords[i] = coords_arr[[e, i]];
+             }
+-            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, e_mod, 1.0);
+-            let ke = mitc4::compute_ke_global(&pre);
++            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
++            let ke = mitc4_plusd::compute_ke_global(&pre);
+             let mut flat = [0.0f64; 576];
+             for i in 0..24 {
+                 for j in 0..24 {
+@@ -285,8 +285,8 @@ pub(crate) fn batch_me_mitc4<'py>(
+             for i in 0..12 {
+                 node_coords[i] = coords_arr[[e, i]];
+             }
+-            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, e_mod, 1.0);
+-            let me = mitc4::compute_me_global(&pre, rho);
++            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
++            let me = mitc4_plusd::compute_me_global(&pre, rho);
+             let mut flat = [0.0f64; 576];
+             for i in 0..24 {
+                 for j in 0..24 {
+@@ -331,14 +331,14 @@ pub(crate) fn batch_kt_mitc4<'py>(
+             for i in 0..12 {
+                 node_coords[i] = coords_arr[[e, i]];
+             }
+-            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, e_mod, 1.0);
++            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
+ 
+-            let mut u = mitc4::Vec24::zeros();
++            let mut u = mitc4_plusd::Vec24::zeros();
+             for i in 0..24 {
+                 u[i] = disp_arr[[e, i]];
+             }
+ 
+-            let kt = mitc4::compute_kt_global(&pre, &u);
++            let kt = mitc4_plusd::compute_kt_global(&pre, &u);
+             let mut flat = [0.0f64; 576];
+             for i in 0..24 {
+                 for j in 0..24 {
+@@ -384,14 +384,14 @@ pub(crate) fn batch_fint_mitc4<'py>(
+             for i in 0..12 {
+                 node_coords[i] = coords_arr[[e, i]];
+             }
+-            let pre = Mitc4Precomputed::new(&node_coords, constitutive.clone(), thickness, e_mod, 1.0);
++            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive.clone(), thickness, shear_correction);
+ 
+-            let mut u = mitc4::Vec24::zeros();
++            let mut u = mitc4_plusd::Vec24::zeros();
+             for i in 0..24 {
+                 u[i] = disp_arr[[e, i]];
+             }
+ 
+-            let f = mitc4::compute_fint_global(&pre, &u, nonlinear);
++            let f = mitc4_plusd::compute_fint_global(&pre, &u, nonlinear);
+             let mut flat = [0.0f64; 24];
+             for i in 0..24 {
+                 flat[i] = f[i];
+@@ -545,7 +545,7 @@ pub(crate) fn batch_ke_mitc4_composite<'py>(
+     let cb_arr = cb_flat.as_array();
+     let cs_arr = cs_flat.as_array();
+     let h_arr = thickness.as_array();
+-    let e_arr = e_equiv.as_array();
++    let _e_arr = e_equiv.as_array();
+     let n_elem = coords_arr.nrows();
+ 
+     let results: Vec<[f64; 576]> = (0..n_elem)
+@@ -568,11 +568,11 @@ pub(crate) fn batch_ke_mitc4_composite<'py>(
+                 cs[i] = cs_arr[[e, i]];
+             }
+             let h = h_arr[e];
+-            let e_eq = e_arr[e];
+ 
+             let constitutive = composite_constitutive(&a, &b, &d, &cs, h);
+-            let pre = Mitc4Precomputed::new(&node_coords, constitutive, h, e_eq, 1.0);
+-            let ke = mitc4::compute_ke_global(&pre);
++            // `e_equiv` has no MITC4+/D constructor argument (out-of-scope PyO3 change).
++            let pre = Mitc4PlusDPrecomputed::new(&node_coords, constitutive, h, 1.0);
++            let ke = mitc4_plusd::compute_ke_global(&pre);
+             let mut flat = [0.0f64; 576];
+             for i in 0..24 {
+                 for j in 0..24 {
+@@ -622,8 +622,8 @@ pub(crate) fn batch_me_mitc4_composite<'py>(
+                 cs: nalgebra::Matrix2::identity(),
+                 cm_raw: nalgebra::Matrix3::identity(),
+             };
+-            let pre = Mitc4Precomputed::new(&node_coords, dummy, 1.0, 1.0, 1.0);
+-            let me = mitc4::compute_me_composite_global(&pre, m_trans, m_rot);
++            let pre = Mitc4PlusDPrecomputed::new(&node_coords, dummy, 1.0, 1.0);
++            let me = mitc4_plusd::compute_me_composite_global(&pre, m_trans, m_rot);
+             let mut flat = [0.0f64; 576];
+             for i in 0..24 {
+                 for j in 0..24 {
+diff --git a/crates/aeroelast-py/src/materials.rs b/crates/aeroelast-py/src/materials.rs
+index 85730a2..6da830b 100644
+--- a/crates/aeroelast-py/src/materials.rs
++++ b/crates/aeroelast-py/src/materials.rs
+@@ -68,7 +68,8 @@ pub(crate) fn parse_material(py: Python, obj: &Py<PyAny>) -> PyResult<MaterialSp
+             cb.copy_from_slice(&cb_list);
+             cs.copy_from_slice(&cs_list);
+ 
+-            Ok(MaterialSpec::Composite { cm, cb_coupling, cb, cs, thickness, e_equiv, mass_per_area, rotational_inertia })
++            // Raw-dict composite path has no `Laminate`, so no scalar was applied.
++            Ok(MaterialSpec::Composite { cm, cb_coupling, cb, cs, thickness, e_equiv, mass_per_area, rotational_inertia, applied_shear_correction: 1.0 })
+         }
+         "plane_stress" => {
+             let e: f64 = dict.get_item("e")?.extract()?;
+diff --git a/openspec/changes/mitc4plusd-faithful/apply-progress.md b/openspec/changes/mitc4plusd-faithful/apply-progress.md
+index b55393e..ad28864 100644
+--- a/openspec/changes/mitc4plusd-faithful/apply-progress.md
++++ b/openspec/changes/mitc4plusd-faithful/apply-progress.md
+@@ -1103,3 +1103,75 @@ The three thin cells are unmoved to `≤0.01%` because no production line change
+ 4. **What I could not do.** (i) I did not find an admissible fix, so the thick cells remain `~2–3×` too soft as first measured in WU9/WU9b; **WU10 (S4) must not start**. (ii) I did not re-derive the paper's Appendix-A notation for `h_r|_{s=±1}` (p. 20) beyond checking that Eqs. (A.5) reproduces Eq. (19b)'s telescoping structure and pairing; the code follows Eq. (18)/(19b), and the identity test is the oracle. (iii) The `f = 1e9` thin cells could not be measured (the direct solve breaks down); the `1e6` plateau is quoted instead.
+ 
+ **Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.
++
++---
++
++## WU9e — the thick twisted-beam residual: **the cause is the ELEMENT-LOCAL DIRECTOR FIELD (ADR-4 option B), not the drill and not the core — measured, and the cells close to the published MITC4+ column once the director is mesh-consistent**
++
++**Scope.** Diagnosis only. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` (a temporary `wu9e_*` harness was added and removed; the production file is **byte-identical to HEAD**, `git diff --stat` empty), this record and `tasks.md`. `mitc4.rs` read-only and untouched; no tolerance changed; no Tier-1 test touched; no penalty, no numerical factor and no drill scale added. The flip stays reverted, so the live extension is the hybrid.
++
++**Instrument.** The Python probes cannot be used (the extension dispatches the hybrid), so the measurement is a Rust harness: the benchmark's own mesh (`_build_twisted_beam_mesh`: length 12, width 1.1, 90° twist, `nx = 6N`, `ny = N`, element `[n00, n10, n11, n01]`), the root clamped in all six DOF, a tip point load on global dof 2 (in-plane) or 1 (out-of-plane), `MAT_TB` (`E = 29e6`, `nu = 0.22`), `h = 12·t/L`, a dense assembly and a dense Cholesky (2646 DOF at N=8, ~15–30 s in release; the N≥32 rule is respected), and `norm = |u_A| / u_ref` with the paper's published reference solutions. **Validated:** it reproduces the recorded cells exactly — `thick-in N=8 = 1.25132` and `thin-in N=8 = 0.99581` are WU9d's recorded values to five decimals. Reference cells read with vision from Ko, Lee, Lee & Bathe (2017), C&S 193:187-206, Table 12 (in-plane) and Table 13 (out-of-plane).
++
++### (A) WU9d's `f=0 → 144` is a singular-solve artefact — the core is algebraically invariant to the drill direction
++
++Vision read of Ko, Lee & Bathe (2017), C&S 182:404-418, **p. 405, Eq. (3)**: `u(r,s,t) = Σ h_i u_i + (t/2) Σ a_i h_i (−V_2^i α_i + V_1^i β_i)` — the director rotation lives in `span(V_1^i, V_2^i)`. Because `(α V_n) × V_n = 0`, the 2017 core (which forms `θ × V_n^i`) is **exactly invariant** to `γ_i = θ_i·V_n^i`; that component is not a DOF of the paper's element.
++
++Measured on a single unsupported element (eigenvalues below `1e-10·λ_max`):
++
++| geometry | `use_drill = false` | `use_drill = true` |
++| --- | --- | --- |
++| flat rectangle | **10** | 8 |
++| ruled-warped | **10** | 7 |
++| doubly-warped | **10** | 7 |
++
++10 = 6 rigid-body + one `γ` per node. Consistently, the **assembled** core-only system is **SINGULAR** in every benchmark case (Cholesky fails). WU9d's `f=0 → 144` is therefore the solver returning an answer to a singular system, not a near-mechanism and not a demonstration that the drill is the primary stiffness carrier. The `f → ∞` limit that WU9d and WU9c also used is a different, well-posed experiment (it penalizes the drill *strain*) and is unaffected by this.
++
++### (B) The finding: with a mesh-consistent nodal director the published cells are reproduced
++
++The director is the reading of Eq. (1) as "the director vector **at the node**" shared by every element meeting there (the design's ADR-4 **option A**), instead of the element-local sub-triangle construction (`compute_node_directors`, ADR-4 option B) that the design adopted as the default and recorded as a limitation. Materialised for the measurement by overwriting `pre.vn` with the area-weighted mean of the adjacent elements' `V_n^i`.
++
++| case | published MITC4+ cell | production (element-local director) | **mesh-consistent nodal director** | error |
++| --- | --- | --- | --- | --- |
++| thick in-plane, N=4 | `0.9960` | `1.06965` | **`0.99515`** | −0.09% |
++| thick in-plane, N=8 | `0.9968` | **`1.25132`** | **`0.99733`** | +0.05% |
++| thick out-of-plane, N=4 | `0.9936` | `1.01887` | **`0.97592`** | −1.8% |
++| thick out-of-plane, N=8 | `0.9965` | (`≈1.422`, WU9d) | **`0.99365`** | −0.29% |
++| thin in-plane, N=4 | `0.9966` | `0.99167` | `0.99154` | −0.51% |
++| thin in-plane, N=8 | `0.9974` | `0.99581` | `0.99570` | −0.17% |
++| thin out-of-plane, N=4 | `0.9949` | `0.99207` | `0.99186` | −0.31% |
++
++**The two thick cells move from `+25.5%`/`+42%` to `+0.05%`/`−0.29%` while the thin cells move by `≤ 0.51%`**, and the **drill block becomes inert**: with the consistent director, `use_drill = true` and `false` give the same value to five decimals (`0.99733`, `0.99515`). The entire thick discrepancy was the director field, not the drill and not the 2017 core.
++
++### (C) Isolation — the mechanism is the director the bending and shear operators read
++
++| variant | thick-in N=8 | thick-out N=8 | thin-in N=8 |
++| --- | --- | --- | --- |
++| element-local (production) | `1.25132` | (`≈1.422`) | `0.99581` |
++| nodal director, every cached quantity rebuilt | `0.99733` | `0.99365` | `0.99570` |
++| nodal director, **only `pre.vn`** replaced | `0.99733` | `0.99357` | `0.99570` |
++
++Identical. Rebuilding `b_shear_tie`, `v_d`, `j0` and `drill_edges` changes nothing (the third row leaves them element-local), so the mechanism lives in `pre.vn` as read by the bending operator and by `compute_shear_tie`/`b_shear_mitc4`.
++
++### Why every earlier measurement is consistent with this
++
++1. **The tilt is small and the amplification is not.** `max |V_n^i(local) − V_n^i(mesh)| = 0.53°` at N=8 and `1.07°` at N=4 (measured independently in a geometry-only script). The affected block's *weight* in the answer grows as `1/h²` — `1e4` from `h = 0.0032` to `h = 0.32` — so a half-degree field inconsistency is invisible at thin and decisive at thick. This is the same quantisation that WU9c/WU9d measured for the drill block (`h¹` against `h³`).
++2. **Tier 1 is structurally blind to it.** Every flat fixture has `V_n^i = e3`, which is simultaneously the element-local and the mesh-consistent director; the two variants agree exactly there.
++3. **A single element could not see it.** On one thick twisted element the matrices agree to `1.8%` (WU9d). The damage is the **inconsistency between adjacent elements** on a twisted mesh, which only a mesh-level measurement can expose.
++4. **The external oracle found it again.** The benchmark and the paper's published column are external. This is the fifth time in this change that an internal check which shared the assumption failed to see the defect (the frame convention, `ke_ref`'s `W_22`, the vacuous drill oracle, the mis-sourced cell, and now the director field).
++
++### The fix: **none applied — this is a maintainer design decision**
++
++Adopting the consistent director is ADR-4's named **option A**, which the design deliberately rejected as the default because it needs the mesh topology (a `MeshTopology` field or a post-construction director update) and because `update_reference` must keep it consistent; the element-local form was chosen so the single-element path stays self-contained. The measurement says option A is worth `25%` on the thick benchmark and `0` on the paper's own basic tests, and that Eq. (1)'s "director vector at the node" is the nodal reading. **No production line was changed**: this unit is diagnosis, and the choice of input path is a design decision for the maintainer. Recorded, not implemented.
++
++### Rust suite
++
++`cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed** (unchanged baseline; the harness was removed before the run). The harness must not be left in place: it is a dense N=8 Cholesky, which in a debug build does not terminate within `2400 s`.
++
++### Deviations / findings / what could not be done
++
++1. **WU9d's central negative result is corrected.** Its conclusion that "the drill block is a primary stiffness carrier and the answer is enormously sensitive to it" rests on a **singular** core-only solve (A). Its other negative results (no admissible constant factor; the metric/`j0`/edge-coefficient variants are inert or equivalent; the placements are weaker; `W_22` is clean) stand and are unaffected.
++2. **The `γ ≡ 0` reduction of the paper cannot be applied with element-local directors.** Two adjacent elements disagree about `V_n^i`, so the nodal constraint `θ_i·V_n^i = 0` is not a single consistent constraint; imposing it makes the rigid-body rotation unrepresentable and the element locks catastrophically (thin in-plane N=8 collapses to `0.00120`). With mesh-consistent directors the reduction is coherent (`γ = 0`, drill off, gives `0.99733` at thick-in N=8 — the 2017 core as this code implements it). This is an independent confirmation that the element-local director field is a *formulation-level* deviation, not a cosmetic one.
++3. **Not measured here:** whether the consistent director keeps the rest of Tier 2 green (the pinched cylinder at `t/R = 1/100`, Scordelis-Lo, the laminate/composite invariants, the beam/in-plane groups) and what it does to the hybrid parity tables. That needs the flip plus a maturin rebuild and belongs to the implementation unit, not to this diagnosis.
++4. **What I could not settle.** The paper does not print an explicit formula for `V_n^i` on p. 405 (it says "see Fig. 1"); the nodal reading is the design's own ADR-4 option A. Confirming the construction against the paper's Fig. 3 with vision is the first step of the implementation unit.
++
++**Skill resolution.** `paths-injected` (no skill paths were supplied; the SDD apply contract was followed from the prompt). Not committed.
+diff --git a/openspec/changes/mitc4plusd-faithful/tasks.md b/openspec/changes/mitc4plusd-faithful/tasks.md
+index e1cedd5..f86553f 100644
+--- a/openspec/changes/mitc4plusd-faithful/tasks.md
++++ b/openspec/changes/mitc4plusd-faithful/tasks.md
+@@ -204,6 +204,7 @@ produces. It settles open items 2, 3 and 4 of the design's table.
+   - **WU9: RECORDED — the gate is NOT GREEN.** The run is recorded in full in `apply-progress.md` §WU9. Rust is green (Tier 1a 6/0, Tier 1b 6/0, full core 168/0); the maturin rebuild succeeded; the PyO3 surface is frozen; but the Python Tier-2 suite is **334 passed / 13 failed / 2 skipped** (was 345/2/2) and the spec's laminate/composite preserved-invariant command is **53 passed / 2 failed**. The new element's absolute stiffness differs materially from the hybrid's (flat rotation diagonal ≈4×, warped ≈19×), and the twisted-beam benchmark moves from `0.9976/0.9982/0.9986/0.9984/0.9990` to `0.0740/0.0757/0.1919/1.9477/2.9818` against published `0.9959/0.9975/0.9980/0.9972/0.9972`. **This is an element-formulation finding (WU2–WU7), not a dispatch defect:** the element's own `compute_ke_global` (called directly, bypassing the assembler) differs from the hybrid's by 32% in norm / 4× (flat) and 19× (warped) on rotation diagonals. **WU10 (S4) MUST NOT start.** No tolerance was changed and no element file was fixed (out of WU9 scope).
+   - **WU9b (element fix, no task checkbox): the thin twisted-beam collapse is fixed and its cause is NOT the shear metric.** `design.md` §2.2's invented metric is sound: the new `b_shear_mitc4` equals the hybrid's `b_gamma_mitc4` entry-for-entry on the flat rectangle (`rel ≤ 2.8e-16`, shear-block ratio `1.0000`) and on the thick twisted element (`rel = 7.7e-15`). The defect is `W_22 = cm/9` in `resultant_moment_matrix`, which **double-applied the `4/h²` B-scaling** (`16/h⁴` too stiff); it is now the raw 4th moment `cm·h⁴/144` under the paper's 2×2 `t`-rule (Ko, Lee & Bathe (2017), C&S 182:404-418, p. 410). Thin cells restored: `0.9957 / 0.9976 / 0.9986` vs published `0.9959 / 0.9975 / 0.9980`. The two thick cells remain `1.9623 / 2.9933` — a drill/stabilization residual, not the shear metric. `cd crates && cargo test -p aeroelast-core test_t1a_` → 6/0, `test_t1b_` → 6/0, full `cargo test -p aeroelast-core` → **168 passed / 0 failed**. The flip is reverted, so the live extension is still the hybrid. See `apply-progress.md` §WU9b.
+   - **WU9d (diagnosis, no task checkbox, no fix applied): the paper's (15)→(16a) "inconsistency" does not exist and there is no second constant-factor error in the drill path.** Vision re-read of Ko, Bathe & Zhang (2025), C&S 308:107622, pp. 3/4/6/7/8/10/20: Eq. (12d) `θ_n^l = (L_l/8)(θ^D diff)` and Eq. (14c) give `u_θ^l(L_l/2) = θ_n^l = (L_l/8)(θ^D diff)`, whose `L_l/8` cancels `1/‖x_m^l‖ = 8/L_l` exactly — and the paper states the reduction (15)→(16a) *uses* Eq. (12d). So `c_r^l = x_m^l·(−x_r^l × V^D)` with the raw `x_m^l` (Eqs. 13c/19c/18) is the paper's coefficient; the extract's 2026-09-24 note and WU9c's premise are incorrect, and WU9c's "trade" measured a variant the paper never writes. Measured (Rust reproduction of the benchmark, validated against the dense solve and the hybrid column): the drill→∞ limit at N=16 is itself wrong in both directions (thick-in `1.00983`, thick-out `0.90127`, thin-in `0.96841` vs hybrid `0.99838 / 0.99901 / 0.99823`), so **no** drill magnitude reaches the published cells; the required per-cell multiplier is `≈0.5` (thin-in) / `≈30` (thick-out) / `>1e4` (thick-in) — mutually inconsistent; the Eq. (21) centre metric and the `j0/j` ratio are numerically inert, every admissible edge-coefficient rescaling lands on the same `1.01 / 0.90 / 0.97` trade, and the `t¹`/`t²` placements are 3×/9× **weaker** than the membrane slot (they carry `s1`/`s2` against `W_11 = W_02 = cb`), so neither the placement nor `s2`/`W_22` (effective `cm/9` = the paper's own 2×2 `t`-rule; the E2 term is inert on these cells) can supply the missing stiffness. Localised instead: on a thick twisted element `|K_new| = 6.6090e6` vs `|K_hyb| = 6.4937e6` (1.8%), while the new element's drill DOF couples to everything else by only `≈5e-4` of its own stiffness and the hybrid is insensitive to its own drill parameter (`drilling_scale 0.01 → 1.03057`, `1 → 0.99797`) — i.e. the hybrid's stiffness comes from the 2017 core and the new element's thick cells are drill-dominated: the paper's drill is `∝ h¹` against a `∝ h³` rotational stiffness, and the paper's own convergence tests are all thin (`t/L ≤ 1/100`). **No production line changed** (a drill scale is not an admissible fix and the task forbids one), no tolerance changed, no test corrected. Five cells unmoved (thin `0.99581 / 0.99773 / 0.99866`, thick `1.96233 / 2.99329`); `cargo test -p aeroelast-core` → **168 passed / 0 failed**; `git diff --stat crates/aeroelast-core/src/elements/mitc4.rs` empty. See `apply-progress.md` §WU9d.
++  - **WU9e (diagnosis, no task checkbox, no fix applied): the thick twisted-beam softness is the ELEMENT-LOCAL DIRECTOR FIELD (ADR-4 option B), not the drill and not the core.** Instrument: a temporary `wu9e_*` harness in `mitc4_plusd.rs`'s test module (benchmark mesh `N×6N`, all six DOF clamped at the root, dense assembly + Cholesky, `norm = |u_A| / u_ref` with the published references), validated by reproducing the recorded cells exactly (`thick-in N=8 = 1.25132`, `thin-in N=8 = 0.99581`). **(A) WU9d corrected:** Eq. (3) of Ko, Lee & Bathe (2017), C&S 182:404-418, p. 405 (vision read) puts the director rotation in `span(V_1^i, V_2^i)`, so `γ_i = θ_i·V_n^i` is not a DOF and, because `(αV_n)×V_n = 0`, the core is algebraically invariant to it: `compute_ke_local_with_drill(.., false)` has **10 null eigenvalues of 24** (6 rigid-body + 4 γ, one per node) on flat, ruled-warped and doubly-warped, and the assembled core-only system is **SINGULAR**. WU9d's `f=0 → 144` is therefore a singular-solve artefact, not a near-mechanism. **(B) The finding:** with a mesh-consistent nodal director (area-weighted mean of the adjacent elements' `V_n^i`) the element reproduces the published MITC4+ cells — thick-in `0.99515 / 0.99733` at N=4/N=8 vs `0.9960 / 0.9968` (production: `1.06965 / 1.25132`); thick-out `0.97592 / 0.99365` vs `0.9936 / 0.9965` (production `1.01887`); thin-in `0.99154 / 0.99570` vs `0.9966 / 0.9974` (production `0.99167 / 0.99581`); thin-out `0.99186` vs `0.9949`. With the consistent director the **drill block is inert** (drill on/off identical to five decimals), i.e. the whole thick discrepancy was the director field. **(C) Isolation:** replacing **only** `pre.vn` (leaving `b_shear_tie`, `v_d`, `j0`, `drill_edges` element-local) gives identical results (`0.99733/0.99733`, `0.99365/0.99357`, `0.99570/0.99570`), so the mechanism lives in the director the bending and shear operators read. Why everything else fits: the local-vs-nodal tilt is only `0.53°` at N=8 (`1.07°` at N=4) but the affected block's weight grows as `1/h²` (`1e4` from thin to thick); the flat Tier-1 fixtures have `V_n^i = e3` = the nodal director, so they are blind to it; and on a single element the matrices differ by only `1.8%` — the damage is the **inter-element inconsistency** on a twisted mesh. `crates/aeroelast-core/src/elements/mitc4_plusd.rs` is **byte-identical to HEAD** (`git diff --stat` empty) and `cd crates && cargo test -p aeroelast-core` → **168 passed / 0 failed**. Adopting the consistent director (ADR-4's named option A) is a **design decision for the maintainer**: it changes the constructor contract (needs `MeshTopology` or a post-construction director update). See `apply-progress.md` §WU9e.
+ 
+ ## 11. The retirement (S4, WU10)
+ 

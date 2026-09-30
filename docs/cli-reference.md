@@ -1,6 +1,6 @@
 # aeroelast-fsi CLI Reference
 
-Command-line interface for running FEM shell/solid FSI simulations coupled with
+Command-line interface for running FEM shell FSI simulations coupled with
 OpenFOAM via preCICE. All simulation parameters are defined in a single YAML file.
 
 ## Installation
@@ -48,7 +48,7 @@ aeroelast-fsi [config.yaml] [OPTIONS]
 |------|-------|-------------|
 | `config` | | Path to YAML configuration file (positional) |
 | `--template` | `-t` | Print a complete template YAML to stdout |
-| `--generator NAME` | `-g NAME` | Include a mesh generator template (`SquareShapeMesh`, `BoxSurfaceMesh`, `BoxVolumeMesh`, `MultiFlapMesh`, `RotorMesh`) |
+| `--generator NAME` | `-g NAME` | Include a mesh generator template (`SquareShapeMesh`, `BoxSurfaceMesh`, `MultiFlapMesh`, `RotorMesh`) |
 | `--list-generators` | | List available mesh generators with node set names |
 | `--validate` | | Validate config syntax and semantics without running |
 | `--preview` | `-p` | Print the parsed configuration tree and exit |
@@ -59,8 +59,8 @@ aeroelast-fsi [config.yaml] [OPTIONS]
 ### Usage Examples
 
 ```bash
-# Print template with BoxVolumeMesh generator example
-aeroelast-fsi --template --generator BoxVolumeMesh > simulation.yaml
+# Print template with BoxSurfaceMesh generator example
+aeroelast-fsi --template --generator BoxSurfaceMesh > simulation.yaml
 
 # List generators and their default node sets
 aeroelast-fsi --list-generators
@@ -121,14 +121,13 @@ mesh:
 mesh:
   source: "generator"
   generator:
-    type: "BoxVolumeMesh"          # See generators table below
+    type: "BoxSurfaceMesh"          # See generators table below
     params:
       center: [0, 5.0, 0]
       dims: [1.0, 10.0, 1.0]
       nx: 4
       ny: 20
       nz: 4
-      element_type: "hex"          # "hex" | "tet" | "wedge" | "mixed"
       quadratic: false
 ```
 
@@ -163,7 +162,6 @@ mesh:
 |-----------|-------------|-------------------|
 | `SquareShapeMesh` | 2D rectangular mesh | `left`, `right`, `top`, `bottom`, `corners` |
 | `BoxSurfaceMesh` | 3D box surface (shell) | `left`, `right`, `top`, `bottom`, `front`, `back` |
-| `BoxVolumeMesh` | 3D solid volume (hex/tet/wedge) | `left`, `right`, `top`, `bottom`, `front`, `back` |
 | `MultiFlapMesh` | Multiple flaps on a base strip | `bottom`, `flaps_left`, `flaps_right`, `flaps_top` |
 | `RotorMesh` | Wind turbine rotor from blade YAML | `RootNodes_blade_N`, `allOuterShellNods_blade_N` |
 
@@ -195,21 +193,6 @@ params:
   nz: 5
   quadratic: false
   triangular: false
-```
-</details>
-
-<details>
-<summary><b>BoxVolumeMesh</b></summary>
-
-```yaml
-params:
-  center: [0, 5.0, 0]
-  dims: [1.0, 10.0, 1.0]
-  nx: 4
-  ny: 20
-  nz: 4
-  element_type: "hex"        # "hex" | "tet" | "wedge" | "mixed"
-  quadratic: false
 ```
 </details>
 
@@ -287,7 +270,7 @@ material:
 
 ```yaml
 elements:
-  family: "SOLID"          # "PLANE" | "SHELL" | "SOLID"
+  family: "PLANE"          # "PLANE" | "SHELL"
   # thickness: 0.001       # Required only for "SHELL"
 ```
 
@@ -295,7 +278,6 @@ elements:
 |--------|-------------|-----------|
 | `PLANE` | 2D plane stress/strain (quad/tri) | 2D |
 | `SHELL` | 3D shell elements (requires `thickness`) | 3D surface |
-| `SOLID` | 3D solid elements (hex/tet/wedge) | 3D volume |
 
 ---
 
@@ -447,7 +429,7 @@ The `nodeset` name must match either:
 
 The `components` field selects specific DOFs:
 - 2D (PLANE): `[0]` = X, `[1]` = Y
-- 3D (SHELL/SOLID): `[0]` = X, `[1]` = Y, `[2]` = Z
+- 3D (SHELL): `[0]` = X, `[1]` = Y, `[2]` = Z
 
 ---
 
@@ -534,18 +516,17 @@ when interpreting results or extending the pipeline.
 
 All stress/strain arrays use the standard 6-component Voigt notation:
 
-| Index | Shell | Solid |
-|-------|-------|-------|
-| 0 | σ_xx | σ_xx |
-| 1 | σ_yy | σ_yy |
-| 2 | σ_zz = 0 (plane stress) | σ_zz |
-| 3 | τ_xy | τ_xy |
-| 4 | τ_yz = 0 | τ_yz |
-| 5 | τ_zx = 0 | τ_zx |
+| Index | Shell |
+|-------|-------|
+| 0 | σ_xx |
+| 1 | σ_yy |
+| 2 | σ_zz = 0 (plane stress) |
+| 3 | τ_xy |
+| 4 | τ_yz = 0 |
+| 5 | τ_zx = 0 |
 
 Shell elements use a plane-stress constitutive model; components at indices 2,
-4, 5 are identically zero and are included only for layout consistency with
-solid elements.
+4, 5 are identically zero.
 
 ### Through-thickness location (shells)
 
@@ -654,7 +635,7 @@ material:
   rho: 600.0
 
 elements:
-  family: "SOLID"
+  family: "SHELL"
 
 solver:
   type: "LinearDynamicFSIRotor"
@@ -728,7 +709,7 @@ material:
   rho: 600.0
 
 elements:
-  family: "SOLID"
+  family: "SHELL"
 
 solver:
   type: "LinearDynamicFSIRotor"
@@ -803,12 +784,11 @@ The validator performs these checks:
 
 ### Mesh analysis output
 
-When running with SOLID elements, the runner automatically logs:
+When running with FSI coupling, the runner automatically logs:
 
-1. **Element orientation check** — fixes inverted elements in-place
-2. **Mesh quality report** — Jacobian ratios, aspect ratios
-3. **Edge length statistics** — min/max/mean/median/std for volume elements
-4. **RBF support radius guidance** — for each coupling boundary:
+1. **Mesh quality report** — aspect ratios
+2. **Edge length statistics** — min/max/mean/median/std
+3. **RBF support radius guidance** — for each coupling boundary:
    - Nearest-neighbor spacing (min/max/mean)
    - Bounding box
    - Recommended support radius: `4 × mean_spacing` or `3 × max_spacing`
@@ -848,7 +828,6 @@ mapping each section:
 | `mesh.renumber_mesh(algorithm="rcm")` | `mesh.renumber: "rcm"` |
 | `mesh.create_node_set_by_geometry(...)` | `mesh.node_sets: [...]` |
 | `Material(name, E, nu, rho)` | `material: {type: isotropic, ...}` |
-| `ElementFamily.SOLID` | `elements.family: "SOLID"` |
 | `model_config["solver"]["rotor"]` | `solver.rotor: {...}` |
 | `DirichletCondition(dofs, 0.0)` | `boundary_conditions.dirichlet: [{nodeset: "...", value: 0.0}]` |
 | `coupling: {...}` in model_config | `coupling: {...}` top-level section |

@@ -192,7 +192,7 @@ class TestInertialForcesCalculator:
 
         F_cf = calculator.compute_centrifugal_force(coords, masses, omega)
 
-        for i, (r, m) in enumerate(zip([1.0, 2.0, 3.0], masses)):
+        for i, (r, m) in enumerate(zip([1.0, 2.0, 3.0], masses, strict=False)):
             expected_magnitude = m * omega**2 * r
             actual_magnitude = np.linalg.norm(F_cf[i])
             assert_allclose(actual_magnitude, expected_magnitude, rtol=1e-10)
@@ -249,7 +249,7 @@ class TestInertialForcesCalculator:
         # For nodes on X-axis with Z rotation, Euler force should be in -Y
         # alpha × r = [0,0,2] × [r,0,0] = [0, 2r, 0]
         # F_euler = -m * (alpha × r) = -m * [0, 2r, 0] = [0, -2mr, 0]
-        for i, (r, m) in enumerate(zip([1.0, 2.0, 3.0], masses)):
+        for i, (r, m) in enumerate(zip([1.0, 2.0, 3.0], masses, strict=False)):
             expected_y = -m * alpha * r
             assert_allclose(F_euler[i, 0], 0, atol=1e-10)
             assert_allclose(F_euler[i, 1], expected_y, rtol=1e-10)

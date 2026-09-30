@@ -31,7 +31,6 @@ from aeroelast.core.mesh.entities import (
     NodeSet,
 )
 from aeroelast.core.mesh.model import MeshModel
-from aeroelast.core.properties import CompositeShellProperty, ShellProperty
 from aeroelast.elements import ElementFamily
 from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
 
@@ -122,7 +121,6 @@ class TestCantileverBeam:
         L, b, h = 1.0, 0.1, 0.01  # m, m, m
         P = 100.0  # N
         E = material_steel.E
-        nu = material_steel.nu
 
         # Analytical deflection
         I = b * h**3 / 12  # bending moment of inertia
@@ -171,7 +169,6 @@ class TestCantileverBeam:
         # Load: tip load at free end
         free = [n for n in mesh.nodes if np.isclose(n.x, L, atol=1e-12)]
         mesh.add_node_set(NodeSet("tip", set(free)))
-        tip_dofs = solver.get_dofs_by_nodeset_name("tip")
         # For a point load P in Z, we apply P/N_nodes per node
         # Simplified: one load per node in the set
         for node in free:
@@ -285,9 +282,9 @@ class TestSimplySupportedBeam:
         for node in center_nodes:
             node_idx = mesh.nodes.index(node)
             node_dofs = [node_idx * solver.domain.dofs_per_node + d for d in range(6)]
-            solver.add_nodal_loads([
-                NodalLoad(node_dofs, [0.0, 0.0, P / len(center_nodes), 0.0, 0.0, 0.0])
-            ])
+            solver.add_nodal_loads(
+                [NodalLoad(node_dofs, [0.0, 0.0, P / len(center_nodes), 0.0, 0.0, 0.0])]
+            )
 
         u_vec = solver.solve()
         u = u_vec.reshape(-1, solver.domain.dofs_per_node)
@@ -604,9 +601,11 @@ class TestShearLocking:
         # Shear locking causes stiffer response
         ratio = delta_numerical / delta_beam
 
-        # As plate gets thinner, should approach 1.0
-        # Enforce strict max tolerance of 5%
-        tol = 0.05 if thickness_ratio < 0.01 else 0.05
+        # As the plate gets thinner the ratio should approach 1.0, and shear
+        # locking is what pushes it away.  The tolerance was written as
+        # `0.05 if thickness_ratio < 0.01 else 0.05`, whose branches are the same
+        # value, so it never branched; it is now the single 5% it always applied.
+        tol = 0.05
 
         assert ratio > (1 - tol), (
             f"Shear locking: ratio={ratio:.3f} (should → 1.0), h/L={thickness_ratio}"

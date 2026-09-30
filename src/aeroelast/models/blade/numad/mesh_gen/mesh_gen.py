@@ -209,19 +209,29 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
     # inboard face of each section (row _stPt in spline grid).
     _chord = np.zeros(nSections)
     _span_trail = np.zeros((nSections, nSegments))
-    _span_lead  = np.zeros((nSections, nSegments))
+    _span_lead = np.zeros((nSections, nSegments))
     _stPt = 0
     for _i in range(nSections):
         _stSp = 0
         _c = 0.0
         for _j in range(nSegments):
             p0 = np.array([splineXi[_stPt, _stSp], splineYi[_stPt, _stSp], splineZi[_stPt, _stSp]])
-            p1 = np.array([splineXi[_stPt, _stSp + 3], splineYi[_stPt, _stSp + 3], splineZi[_stPt, _stSp + 3]])
-            p2 = np.array([splineXi[_stPt + 3, _stSp + 3], splineYi[_stPt + 3, _stSp + 3], splineZi[_stPt + 3, _stSp + 3]])
-            p3 = np.array([splineXi[_stPt + 3, _stSp], splineYi[_stPt + 3, _stSp], splineZi[_stPt + 3, _stSp]])
+            p1 = np.array(
+                [splineXi[_stPt, _stSp + 3], splineYi[_stPt, _stSp + 3], splineZi[_stPt, _stSp + 3]]
+            )
+            p2 = np.array(
+                [
+                    splineXi[_stPt + 3, _stSp + 3],
+                    splineYi[_stPt + 3, _stSp + 3],
+                    splineZi[_stPt + 3, _stSp + 3],
+                ]
+            )
+            p3 = np.array(
+                [splineXi[_stPt + 3, _stSp], splineYi[_stPt + 3, _stSp], splineZi[_stPt + 3, _stSp]]
+            )
             _c += np.linalg.norm(p1 - p0)
             _span_trail[_i, _j] = np.linalg.norm(p2 - p1)
-            _span_lead[_i, _j]  = np.linalg.norm(p0 - p3)
+            _span_lead[_i, _j] = np.linalg.norm(p0 - p3)
             _stSp += 3
         _chord[_i] = _c
         _stPt += 3
@@ -235,7 +245,7 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
 
     _nEl_span = np.maximum(
         np.ceil(_span_trail / _elSz_span[:, None]).astype(int),
-        np.ceil(_span_lead  / _elSz_span[:, None]).astype(int),
+        np.ceil(_span_lead / _elSz_span[:, None]).astype(int),
     )
     nSpan = np.maximum(_nEl_span.max(axis=1), 1)
 
@@ -338,10 +348,8 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
                 ]
             )
             # Per-edge chordwise + consistent nSpan spanwise
-            nEl1 = max(1, int(np.ceil(
-                np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
-            nEl3 = max(1, int(np.ceil(
-                np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
+            nEl1 = max(1, int(np.ceil(np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
+            nEl3 = max(1, int(np.ceil(np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
             if i == rws - 2:
                 nEl3 = nEl1
             nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
@@ -431,10 +439,8 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
             shellKp[14, :] = 0.6666 * shellKp[7, :] + 0.3333 * shellKp[10, :]
             shellKp[15, :] = 0.3333 * shellKp[7, :] + 0.6666 * shellKp[10, :]
 
-            nEl1 = max(1, int(np.ceil(
-                np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
-            nEl3 = max(1, int(np.ceil(
-                np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
+            nEl1 = max(1, int(np.ceil(np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
+            nEl3 = max(1, int(np.ceil(np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
             nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
 
             bladeSurf.addShellRegion(
@@ -513,10 +519,8 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
             shellKp[14, :] = 0.6666 * shellKp[7, :] + 0.3333 * shellKp[10, :]
             shellKp[15, :] = 0.3333 * shellKp[7, :] + 0.6666 * shellKp[10, :]
 
-            nEl1 = max(1, int(np.ceil(
-                np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
-            nEl3 = max(1, int(np.ceil(
-                np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
+            nEl1 = max(1, int(np.ceil(np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
+            nEl3 = max(1, int(np.ceil(np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
             nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
 
             bladeSurf.addShellRegion(
@@ -643,7 +647,9 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
     return shellData
 
 
-def get_vol_mesh(blade, elementSize, overset_layers, first_thickness, growth_rate, spanGrading="chord"):
+def get_vol_mesh(
+    blade, elementSize, overset_layers, first_thickness, growth_rate, spanGrading="chord"
+):
     """Build a structured hex8 boundary-layer mesh around the blade OML.
 
     The blade outer-surface (OML) quads produced by ``get_shell_mesh`` are
@@ -708,7 +714,9 @@ def get_vol_mesh(blade, elementSize, overset_layers, first_thickness, growth_rat
         valid = oml_elements_local[:, col] >= 0
         oml_elements_local[valid, col] = global_to_local[oml_elements_local[valid, col]]
 
-    return create_offset_layers(oml_nodes, oml_elements_local, overset_layers, first_thickness, growth_rate) | {
+    return create_offset_layers(
+        oml_nodes, oml_elements_local, overset_layers, first_thickness, growth_rate
+    ) | {
         "oml_elements": oml_elements_local,
         "N_oml": len(oml_nodes),
     }

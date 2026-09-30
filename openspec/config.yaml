@@ -1,0 +1,249 @@
+---
+# SDD configuration — AeroElast / fem-shell
+#
+# Written by the sdd-init phase on 2026-09-23. OpenSpec is the DECLARED
+# artifact store, so `gentle-ai sdd-status --contract
+# gentle-ai.sdd-status/v2` resolves changes under openspec/. Project context
+# is mirrored to Engram (topic `sdd-init/fem-shell`) for cross-session
+# recovery only.
+#
+# `sdd.artifact_store` is read by the native gentle-ai dispatcher. Do not
+# change it to `hybrid` without re-verifying change resolution.
+
+sdd:
+  artifact_store: openspec
+
+schema: spec-driven
+
+# Strict TDD is OFF. Decision-gate reason: no single explicit
+# workspace-level test command covers every in-scope project. Rust
+# (`cd crates && cargo test -p aeroelast-core`) and Python
+# (`python -m pytest -m "not slow" -q`) are independent commands, and
+# `aeroelast-solvers` cannot even build in this environment. Per the
+# sdd-init decision gate this fails closed to false; every per-project
+# command is preserved below instead of inventing a workspace runner.
+strict_tdd: false
+strict_tdd_reason: >-
+  No explicit workspace-level test command covers every in-scope project.
+  Rust and Python test commands are independent, and
+  crates/aeroelast-solvers does not build here (the preCICE crate's build
+  script needs the preCICE library).
+
+context: |
+  AeroElast (fem-shell): Rust + Python FEM codebase for wind-turbine blade
+  structural analysis and FSI. A Rust compute core (4 crates under crates/)
+  is driven from Python (src/aeroelast/) through PyO3/maturin. Element
+  kernels live in crates/aeroelast-core/src/elements/ (mitc3, mitc4, quad).
+  IMPORTANT: the Cargo workspace root is crates/, NOT the repo root.
+  Strict TDD is disabled (no workspace-level runner); per-project commands
+  are in `projects:`/`testing:` below. Papers live in .sources/papers/ and
+  MUST be read with vision (pdftoppm -png -r 300), never pdftotext.
+
+# One entry per discovered in-scope project. Commands are project-local and
+# are never concatenated into a synthetic workspace command.
+projects:
+  - path: "."
+    stack: >-
+      Python 3.12+ package (src/aeroelast); PyO3 extension built with
+      maturin
+    test_command: 'python -m pytest -m "not slow" -q'
+    framework: "pytest"
+    layers:
+      unit: true
+      integration: true
+      e2e: false
+    notes: >-
+      Requires the Rust extension to be built first. Baseline at init:
+      345 passed / 2 failed / 2 skipped. `pytest -m slow` includes the
+      heavy benchmarks.
+
+  - path: "crates"
+    stack: >-
+      Cargo workspace root (aeroelast-core, aeroelast-mesh, aeroelast-py,
+      aeroelast-solvers)
+    test_command: "cd crates && cargo test -p aeroelast-core"
+    framework: "cargo test"
+    layers:
+      unit: true
+      integration: false
+      e2e: false
+    notes: >-
+      Workspace root is crates/. `cargo test -p aeroelast-core` must be run
+      from crates/. Baseline at init: 120 passed / 0 failed.
+
+  - path: "crates/aeroelast-core"
+    stack: >-
+      Rust compute core: shell elements, materials, assembly. No PyO3,
+      no PETSc
+    test_command: "cd crates && cargo test -p aeroelast-core"
+    framework: "cargo test"
+    notes: "The only crate fully testable in this environment."
+
+  - path: "crates/aeroelast-mesh"
+    stack: "Rust mesh data types (Node, Element, ElementSet, MeshModel)"
+    test_command: "cd crates && cargo test -p aeroelast-mesh"
+    framework: "cargo test"
+    notes: "Builds; not exercised by the current baseline commands."
+
+  - path: "crates/aeroelast-py"
+    stack: "Rust PyO3 bindings (cdylib _aeroelast); built via maturin"
+    test_command: "cd crates && cargo test -p aeroelast-py"
+    framework: "cargo test"
+    notes: >-
+      Primary coverage comes from the Python pytest suite after the
+      maturin build.
+
+  - path: "crates/aeroelast-solvers"
+    stack: "Rust PETSc/SLEPc assembler + modal solver; preCICE coupling"
+    test_command: >-
+      cd crates && cargo test -p aeroelast-solvers -- --test-threads=1
+    framework: "cargo test"
+    available: false
+    notes: >-
+      CANNOT build in this environment: the preCICE crate's build script
+      needs the preCICE library. Needs `--test-threads=1` when it can run
+      because PETSc/preCICE are not thread-safe. Do not treat its absence
+      as a failure of other crates.
+
+testing:
+  detected: "2026-09-23"
+  runner:
+    # Intentionally empty: no workspace-level runner exists. Use the
+    # per-project commands in `projects:`.
+    command: ""
+    framework: ""
+  layers:
+    unit: "cargo test (Rust), pytest (Python)"
+    integration: "pytest (Python/Rust parity and analytical validation)"
+    e2e: ""
+  commands:
+    unit:
+      - scope: "."
+        command: 'python -m pytest -m "not slow" -q'
+        framework: "pytest"
+      - scope: "crates"
+        command: "cd crates && cargo test -p aeroelast-core"
+        framework: "cargo test"
+    integration:
+      - scope: "."
+        command: 'python -m pytest -m "not slow" -q'
+        framework: "pytest"
+    e2e: []
+  coverage:
+    command: 'python -m pytest -m "not slow" --cov=aeroelast'
+    commands:
+      - scope: "."
+        command: 'python -m pytest -m "not slow" --cov=aeroelast'
+        framework: "pytest-cov"
+      - scope: "crates"
+        command: "cd crates && cargo llvm-cov -p aeroelast-core"
+        framework: "cargo-llvm-cov (not verified installed)"
+  # Extension build required before any Python test that exercises a Rust
+  # element kernel.
+  build_command: >-
+    source ~/miniconda3/etc/profile.d/conda.sh &&
+    conda activate aeroelast-dev &&
+    export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig"
+    HDF5_DIR="$CONDA_PREFIX" &&
+    export PATH="$HOME/miniconda3/envs/aeroelast-dev/bin:$PATH" &&
+    cd /home/efirvida/Desktop/dev/fem-shell &&
+    python -m maturin develop --release
+
+quality:
+  lint: "ruff check ."
+  lint_commands:
+    - scope: "."
+      command: "ruff check ."
+      framework: "ruff"
+    - scope: "crates"
+      command: "cd crates && cargo clippy --all-targets"
+      framework: "clippy"
+  typecheck: ""
+  typecheck_commands: []
+  format: "ruff format ."
+  format_commands:
+    - scope: "."
+      command: "ruff format ."
+      framework: "ruff"
+    - scope: "crates"
+      command: "cd crates && cargo fmt"
+      framework: "rustfmt"
+
+rules:
+  proposal:
+    - >-
+      State which reference (paper/section/equation) defines the intended
+      behavior.
+    - >-
+      Name the affected crate(s) and whether a maturin rebuild is required.
+  specs:
+    - Use Given/When/Then for scenarios.
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY).
+    - >-
+      For element work, cite the paper equation numbers each requirement
+      encodes.
+  design:
+    - Document architecture decisions with rationale and tradeoffs.
+    - >-
+      Record the paper's own basic tests (isotropy, zero-energy modes,
+      patch tests) separately from the repository's cross-reference
+      theoretical tests.
+  tasks:
+    - protect_review_workload: true
+    - Group by phase, use hierarchical numbering.
+    - >-
+      Keep work units inside the authorized edit roots; mark read-only
+      inputs.
+    - >-
+      Session review budget is 700 changed lines with an accepted
+      size:exception.
+  apply:
+    guidelines:
+      - >-
+        Follow existing Rust element patterns in
+        crates/aeroelast-core/src/elements/.
+      - >-
+        Run Rust tests from the workspace root `crates/`, never the repo
+        root.
+      - >-
+        Rebuild the extension with maturin before Python tests that touch
+        Rust kernels.
+      - >-
+        Never run element benchmark probes at N >= 32 (SuperLU fill-in
+        needs tens of GB).
+      - >-
+        Read papers in .sources/papers/ with vision
+        (pdftoppm -png -r 300), never pdftotext.
+    tdd: false
+    test_command: ""
+  verify:
+    test_command: >-
+      cd /home/efirvida/Desktop/dev/fem-shell/crates &&
+      cargo test -p aeroelast-core &&
+      cd /home/efirvida/Desktop/dev/fem-shell &&
+      python -m pytest -q
+    build_command: >-
+      source ~/miniconda3/etc/profile.d/conda.sh &&
+      conda activate aeroelast-dev &&
+      export PKG_CONFIG_PATH="$CONDA_PREFIX/lib/pkgconfig"
+      HDF5_DIR="$CONDA_PREFIX" &&
+      export PATH="$HOME/miniconda3/envs/aeroelast-dev/bin:$PATH" &&
+      cd /home/efirvida/Desktop/dev/fem-shell &&
+      python -m maturin develop --release
+    coverage_threshold: 0
+    notes:
+      - >-
+        aeroelast-solvers cannot be built or verified in this environment
+        (preCICE).
+      - >-
+        As of commit 56bfd95 both suites are CLEAN, so any failure is a new
+        regression: Rust `cd crates && cargo test -p aeroelast-core` is 175
+        passed / 0 failed / 0 ignored, Python `python -m pytest -q` is 382
+        passed / 0 failed / 0 skipped. The 10 ignored instruments and the 2
+        Python failures of the old baseline were resolved and recorded in
+        `openspec/changes/mitc4plusd-faithful/design.md` section 13.
+      - >-
+        `cargo test -p aeroelast-core` costs about 125 s; 107 s of it is the
+        single promoted gate `n_gamma_rigid_body_zero_force_and_consistent_tangent`.
+  archive:
+    - Warn before merging destructive deltas.

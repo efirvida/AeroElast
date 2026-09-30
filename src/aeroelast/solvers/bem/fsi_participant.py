@@ -353,15 +353,15 @@ class BEMFSIParticipant:
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)
 
         # -- BEM solver keyword arguments (constant across iterations) ------
-        self._bem_solver_kwargs: dict = dict(
-            rho=bem_config.get("air_density", 1.225),
-            mu=bem_config.get("dynamic_viscosity", 1.81206e-5),
-            precone=bem_config.get("precone", 0.0),
-            tilt=bem_config.get("tilt", 0.0),
-            yaw=bem_config.get("yaw", 0.0),
-            hub_height=bem_config.get("hub_height", 150.0),
-            shear_exp=bem_config.get("shear_exp", 0.2),
-        )
+        self._bem_solver_kwargs: dict = {
+            "rho": bem_config.get("air_density", 1.225),
+            "mu": bem_config.get("dynamic_viscosity", 1.81206e-5),
+            "precone": bem_config.get("precone", 0.0),
+            "tilt": bem_config.get("tilt", 0.0),
+            "yaw": bem_config.get("yaw", 0.0),
+            "hub_height": bem_config.get("hub_height", 150.0),
+            "shear_exp": bem_config.get("shear_exp", 0.2),
+        }
 
         # -- Reference BEM solver and projector -----------------------------
         self._bem_solver = BEMSolver(blade_aero, **self._bem_solver_kwargs)
@@ -551,6 +551,7 @@ class BEMFSIParticipant:
 
                 # Integrate azimuth: Δθ [deg] = ω [rad/s] × Δt [s] × (180/π)
                 import math as _math  # noqa: PLC0415
+
                 self._azimuth += _math.degrees(self._current_omega * dt)
                 self._azimuth %= 360.0  # keep in [0, 360)
 
@@ -1004,6 +1005,7 @@ class BEMFSIParticipant:
         # maps CCBlade's Tp (driving force) to the correct -X direction in the
         # structural frame.
         import math as _math  # noqa: PLC0415
+
         omega = self._current_omega * 60.0 / (2.0 * _math.pi)
         pitch = float(self._bem_cfg.get("pitch", 0.0))
         # Use live accumulated azimuth (integrated from omega each window).

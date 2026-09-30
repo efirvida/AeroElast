@@ -1,5 +1,9 @@
 //! Gaussian quadrature rules for finite element integration.
 //!
+//! Implements 2- and 3-point 1D Gauss-Legendre rules and their 2x2 and 3x3
+//! tensor-product forms. Citation gap: no literature source is cited for these
+//! tables (the MITC3 Hammer rule lives in `elements/mitc3.rs`).
+//!
 //! All rules return statically sized point/weight arrays to avoid heap
 //! allocation in the hot integration path.
 
@@ -7,7 +11,7 @@
 // Element-specific rules (exported as pub const arrays for use in element files)
 // ============================================================================
 
-// --- HEXA8 / WEDGE6 2-pt 1D components ---
+// --- 1D Gauss rules on [-1,1] ---
 
 /// 1D Gauss points for 2-point rule: ±1/√3.
 pub const GAUSS2_PTS: [f64; 2] = [-GP, GP];
@@ -18,138 +22,6 @@ pub const GAUSS2_W: [f64; 2] = [1.0, 1.0];
 pub const GAUSS3_PTS: [f64; 3] = [-SQRT35, 0.0, SQRT35];
 /// 1D Gauss weights for 3-point rule.
 pub const GAUSS3_W: [f64; 3] = [W5_9, W8_9, W5_9];
-
-// --- TETRA4: 1-point centroid rule ---
-
-/// TETRA4 quadrature point (centroid of unit tetrahedron).
-pub const TETRA4_GP: [f64; 3] = [0.25, 0.25, 0.25];
-/// TETRA4 quadrature weight.
-pub const TETRA4_W: f64 = 1.0 / 6.0;
-
-// --- TETRA10: Keast 4-point degree-2 rule ---
-
-const TETRA10_A: f64 = (5.0 - 2.2360679774997896_f64) / 20.0; // (5 - √5) / 20
-const TETRA10_B: f64 = (5.0 + 3.0 * 2.2360679774997896_f64) / 20.0; // (5 + 3√5) / 20
-
-/// TETRA10 quadrature points (Keast degree-2 rule on unit tetrahedron).
-pub const TETRA10_GP: [[f64; 3]; 4] = [
-    [TETRA10_A, TETRA10_A, TETRA10_A],
-    [TETRA10_B, TETRA10_A, TETRA10_A],
-    [TETRA10_A, TETRA10_B, TETRA10_A],
-    [TETRA10_A, TETRA10_A, TETRA10_B],
-];
-/// TETRA10 quadrature weight (each of 4 points has equal weight 1/24).
-pub const TETRA10_W: f64 = 1.0 / 24.0;
-
-// --- WEDGE6: triangular 3-pt × 1D 2-pt ---
-
-/// WEDGE6 triangular integration points (xi-coords).
-pub const TRI3_XI:  [f64; 3] = [1.0/6.0, 2.0/3.0, 1.0/6.0];
-/// WEDGE6 triangular integration points (eta-coords).
-pub const TRI3_ETA: [f64; 3] = [1.0/6.0, 1.0/6.0, 2.0/3.0];
-/// WEDGE6 triangular integration weight.
-pub const TRI3_W:   f64 = 1.0/6.0;
-/// WEDGE6 linear integration points (zeta).
-pub const LIN2_ZETA: [f64; 2] = [-GP, GP];
-/// WEDGE6 linear integration weight.
-pub const LIN2_W:    f64 = 1.0;
-/// WEDGE6 combined weight: TRI3_W × LIN2_W × 2.
-pub const WEDGE6_W: f64 = TRI3_W * LIN2_W * 2.0;
-
-// --- WEDGE15: Dunavant 7-pt tri × 3-pt Gauss ---
-
-/// WEDGE15 Dunavant degree-5 triangular rule, xi-coords (scaled for unit triangle × 0.5).
-pub const WEDGE15_TRI_XI: [f64; 7] = [
-    1.0/3.0,
-    0.797_426_985_353_087,
-    0.101_286_507_323_456,
-    0.101_286_507_323_456,
-    0.470_142_064_105_115,
-    0.470_142_064_105_115,
-    0.059_715_871_789_770,
-];
-/// WEDGE15 Dunavant degree-5 triangular rule, eta-coords.
-pub const WEDGE15_TRI_ETA: [f64; 7] = [
-    1.0/3.0,
-    0.101_286_507_323_456,
-    0.797_426_985_353_087,
-    0.101_286_507_323_456,
-    0.059_715_871_789_770,
-    0.470_142_064_105_115,
-    0.470_142_064_105_115,
-];
-/// WEDGE15 Dunavant degree-5 triangular rule, weights.
-pub const WEDGE15_TRI_W: [f64; 7] = [
-    0.225 * 0.5,
-    0.125_939_180_544_827 * 0.5,
-    0.125_939_180_544_827 * 0.5,
-    0.125_939_180_544_827 * 0.5,
-    0.132_394_152_788_506 * 0.5,
-    0.132_394_152_788_506 * 0.5,
-    0.132_394_152_788_506 * 0.5,
-];
-/// WEDGE15 linear integration points in zeta.
-pub const WEDGE15_LIN_ZETA: [f64; 3] = [-0.774_596_669_241_483, 0.0, 0.774_596_669_241_483];
-/// WEDGE15 linear integration weights.
-pub const WEDGE15_LIN_W: [f64; 3] = [5.0/9.0, 8.0/9.0, 5.0/9.0];
-
-// --- PYRAMID5: 8-point rule ---
-
-/// PYRAMID5 integration points.
-pub const PYRAMID5_GP: [[f64; 3]; 8] = [
-    [-0.263_184_055_569_713_60, -0.263_184_055_569_713_60, 0.544_151_844_011_225_29],
-    [ 0.263_184_055_569_713_60, -0.263_184_055_569_713_60, 0.544_151_844_011_225_29],
-    [ 0.263_184_055_569_713_60,  0.263_184_055_569_713_60, 0.544_151_844_011_225_29],
-    [-0.263_184_055_569_713_60,  0.263_184_055_569_713_60, 0.544_151_844_011_225_29],
-    [-0.506_616_303_349_787_42, -0.506_616_303_349_787_42, 0.122_514_822_655_441_38],
-    [ 0.506_616_303_349_787_42, -0.506_616_303_349_787_42, 0.122_514_822_655_441_38],
-    [ 0.506_616_303_349_787_42,  0.506_616_303_349_787_42, 0.122_514_822_655_441_38],
-    [-0.506_616_303_349_787_42,  0.506_616_303_349_787_42, 0.122_514_822_655_441_38],
-];
-/// PYRAMID5 integration weights.
-pub const PYRAMID5_W: [f64; 8] = [
-    0.100_785_882_079_825_43,
-    0.100_785_882_079_825_43,
-    0.100_785_882_079_825_43,
-    0.100_785_882_079_825_43,
-    0.232_547_451_253_507_90,
-    0.232_547_451_253_507_90,
-    0.232_547_451_253_507_90,
-    0.232_547_451_253_507_90,
-];
-
-// --- PYRAMID13: Felippa 18-point rule (precision 5) ---
-
-/// PYRAMID13 integration points (Felippa rule).
-pub const PYRAMID13_GP: [[f64; 3]; 18] = [
-    [-0.353_098_463_308_777_04, -0.353_098_463_308_777_04, 0.544_151_844_011_225_29],
-    [ 0.000_000_000_000_000_00, -0.353_098_463_308_777_04, 0.544_151_844_011_225_29],
-    [ 0.353_098_463_308_777_04, -0.353_098_463_308_777_04, 0.544_151_844_011_225_29],
-    [-0.353_098_463_308_777_04,  0.000_000_000_000_000_00, 0.544_151_844_011_225_29],
-    [ 0.000_000_000_000_000_00,  0.000_000_000_000_000_00, 0.544_151_844_011_225_29],
-    [ 0.353_098_463_308_777_04,  0.000_000_000_000_000_00, 0.544_151_844_011_225_29],
-    [-0.353_098_463_308_777_04,  0.353_098_463_308_777_04, 0.544_151_844_011_225_29],
-    [ 0.000_000_000_000_000_00,  0.353_098_463_308_777_04, 0.544_151_844_011_225_29],
-    [ 0.353_098_463_308_777_04,  0.353_098_463_308_777_04, 0.544_151_844_011_225_29],
-    [-0.679_697_095_679_867_46, -0.679_697_095_679_867_46, 0.122_514_822_655_441_38],
-    [ 0.000_000_000_000_000_00, -0.679_697_095_679_867_46, 0.122_514_822_655_441_38],
-    [ 0.679_697_095_679_867_46, -0.679_697_095_679_867_46, 0.122_514_822_655_441_38],
-    [-0.679_697_095_679_867_46,  0.000_000_000_000_000_00, 0.122_514_822_655_441_38],
-    [ 0.000_000_000_000_000_00,  0.000_000_000_000_000_00, 0.122_514_822_655_441_38],
-    [ 0.679_697_095_679_867_46,  0.000_000_000_000_000_00, 0.122_514_822_655_441_38],
-    [-0.679_697_095_679_867_46,  0.679_697_095_679_867_46, 0.122_514_822_655_441_38],
-    [ 0.000_000_000_000_000_00,  0.679_697_095_679_867_46, 0.122_514_822_655_441_38],
-    [ 0.679_697_095_679_867_46,  0.679_697_095_679_867_46, 0.122_514_822_655_441_38],
-];
-/// PYRAMID13 integration weights (Felippa rule).
-pub const PYRAMID13_W: [f64; 18] = [
-    0.023_330_065_296_255_887, 0.037_328_104_474_009_419, 0.023_330_065_296_255_887,
-    0.037_328_104_474_009_419, 0.059_724_967_158_415_070, 0.037_328_104_474_009_419,
-    0.023_330_065_296_255_887, 0.037_328_104_474_009_419, 0.023_330_065_296_255_887,
-    0.053_830_428_530_904_607, 0.086_128_685_649_447_371, 0.053_830_428_530_904_607,
-    0.086_128_685_649_447_371, 0.137_805_897_039_115_794, 0.086_128_685_649_447_371,
-    0.053_830_428_530_904_607, 0.086_128_685_649_447_371, 0.053_830_428_530_904_607,
-];
 
 // ============================================================================
 // Static 2D Gauss point/weight arrays (for ReferenceElement2D trait impls)
@@ -189,147 +61,6 @@ pub static GAUSS3X3_W: [f64; 9] = [
     0.888_888_888_888_888_9 * 0.555_555_555_555_555_6,
     0.555_555_555_555_555_6 * 0.555_555_555_555_555_6,
 ];
-
-// ============================================================================
-// Static 3D Gauss point/weight arrays (for ReferenceElement3D trait impls)
-// ============================================================================
-
-/// 3×3×3 Gauss rule on [−1,1]³: 27 points.
-pub static GAUSS3X3X3_PTS: [[f64; 3]; 27] = {
-    const P: [f64; 3] = [-0.774_596_669_241_483_4, 0.0, 0.774_596_669_241_483_4];
-    let mut pts = [[0.0f64; 3]; 27];
-    let mut idx = 0;
-    let mut ki = 0;
-    while ki < 3 {
-        let mut kj = 0;
-        while kj < 3 {
-            let mut kk = 0;
-            while kk < 3 {
-                pts[idx] = [P[ki], P[kj], P[kk]];
-                idx += 1;
-                kk += 1;
-            }
-            kj += 1;
-        }
-        ki += 1;
-    }
-    pts
-};
-/// 3×3×3 Gauss weights: w_i * w_j * w_k.
-pub static GAUSS3X3X3_W: [f64; 27] = {
-    const W: [f64; 3] = [5.0 / 9.0, 8.0 / 9.0, 5.0 / 9.0];
-    let mut wts = [0.0f64; 27];
-    let mut idx = 0;
-    let mut ki = 0;
-    while ki < 3 {
-        let mut kj = 0;
-        while kj < 3 {
-            let mut kk = 0;
-            while kk < 3 {
-                wts[idx] = W[ki] * W[kj] * W[kk];
-                idx += 1;
-                kk += 1;
-            }
-            kj += 1;
-        }
-        ki += 1;
-    }
-    wts
-};
-
-/// TETRA4 quadrature points as a static slice (1 point: centroid).
-pub static TETRA4_GP_PTS: [[f64; 3]; 1] = [[0.25, 0.25, 0.25]];
-/// TETRA4 quadrature weights as a static slice.
-pub static TETRA4_GP_W: [f64; 1] = [1.0 / 6.0];
-
-/// TETRA10 quadrature points as a static slice (4 points).
-pub static TETRA10_GP_PTS: [[f64; 3]; 4] = TETRA10_GP;
-/// TETRA10 quadrature weights as a static slice (all equal 1/24).
-pub static TETRA10_GP_W: [f64; 4] = [1.0 / 24.0; 4];
-
-/// WEDGE6 combined quadrature points (3 tri × 2 lin = 6 pts).
-pub static WEDGE6_GP_PTS: [[f64; 3]; 6] = {
-    const TRI_XI:  [f64; 3] = [1.0/6.0, 2.0/3.0, 1.0/6.0];
-    const TRI_ETA: [f64; 3] = [1.0/6.0, 1.0/6.0, 2.0/3.0];
-    const LIN:     [f64; 2] = [-0.577_350_269_189_625_8, 0.577_350_269_189_625_8];
-    let mut pts = [[0.0f64; 3]; 6];
-    let mut idx = 0;
-    let mut t = 0;
-    while t < 3 {
-        let mut z = 0;
-        while z < 2 {
-            pts[idx] = [TRI_XI[t], TRI_ETA[t], LIN[z]];
-            idx += 1;
-            z += 1;
-        }
-        t += 1;
-    }
-    pts
-};
-/// WEDGE6 combined quadrature weights: TRI3_W × LIN2_W × 2 = 1/3 each.
-pub static WEDGE6_GP_W: [f64; 6] = [1.0/3.0; 6];
-
-/// WEDGE15 combined quadrature points (7 tri × 3 lin = 21 pts).
-pub static WEDGE15_GP_PTS: [[f64; 3]; 21] = {
-    const TXI: [f64; 7] = [
-        1.0/3.0, 0.797_426_985_353_087, 0.101_286_507_323_456,
-        0.101_286_507_323_456, 0.470_142_064_105_115, 0.470_142_064_105_115, 0.059_715_871_789_770,
-    ];
-    const TETA: [f64; 7] = [
-        1.0/3.0, 0.101_286_507_323_456, 0.797_426_985_353_087,
-        0.101_286_507_323_456, 0.059_715_871_789_770, 0.470_142_064_105_115, 0.470_142_064_105_115,
-    ];
-    const LZETA: [f64; 3] = [-0.774_596_669_241_483, 0.0, 0.774_596_669_241_483];
-    let mut pts = [[0.0f64; 3]; 21];
-    let mut idx = 0;
-    let mut t = 0;
-    while t < 7 {
-        let mut z = 0;
-        while z < 3 {
-            pts[idx] = [TXI[t], TETA[t], LZETA[z]];
-            idx += 1;
-            z += 1;
-        }
-        t += 1;
-    }
-    pts
-};
-/// WEDGE15 combined quadrature weights: tri_w × lin_w × 2 for each of 21 pts.
-pub static WEDGE15_GP_W: [f64; 21] = {
-    const TW: [f64; 7] = [
-        0.225 * 0.5,
-        0.125_939_180_544_827 * 0.5, 0.125_939_180_544_827 * 0.5, 0.125_939_180_544_827 * 0.5,
-        0.132_394_152_788_506 * 0.5, 0.132_394_152_788_506 * 0.5, 0.132_394_152_788_506 * 0.5,
-    ];
-    const LW: [f64; 3] = [5.0/9.0, 8.0/9.0, 5.0/9.0];
-    let mut wts = [0.0f64; 21];
-    let mut idx = 0;
-    let mut t = 0;
-    while t < 7 {
-        let mut z = 0;
-        while z < 3 {
-            wts[idx] = TW[t] * LW[z] * 2.0;
-            idx += 1;
-            z += 1;
-        }
-        t += 1;
-    }
-    wts
-};
-
-/// 2×2×2 Gauss rule on [−1,1]³: 8 points, all weights = 1.
-pub static GAUSS2X2X2_PTS: [[f64; 3]; 8] = [
-    [-0.577_350_269_189_625_8, -0.577_350_269_189_625_8, -0.577_350_269_189_625_8],
-    [ 0.577_350_269_189_625_8, -0.577_350_269_189_625_8, -0.577_350_269_189_625_8],
-    [ 0.577_350_269_189_625_8,  0.577_350_269_189_625_8, -0.577_350_269_189_625_8],
-    [-0.577_350_269_189_625_8,  0.577_350_269_189_625_8, -0.577_350_269_189_625_8],
-    [-0.577_350_269_189_625_8, -0.577_350_269_189_625_8,  0.577_350_269_189_625_8],
-    [ 0.577_350_269_189_625_8, -0.577_350_269_189_625_8,  0.577_350_269_189_625_8],
-    [ 0.577_350_269_189_625_8,  0.577_350_269_189_625_8,  0.577_350_269_189_625_8],
-    [-0.577_350_269_189_625_8,  0.577_350_269_189_625_8,  0.577_350_269_189_625_8],
-];
-/// 2×2×2 Gauss weights (all 1.0).
-pub static GAUSS2X2X2_W: [f64; 8] = [1.0; 8];
 
 // ============================================================================
 // Internal constants

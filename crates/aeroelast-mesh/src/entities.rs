@@ -14,16 +14,6 @@ pub enum ElementType {
     // Shell composite variants
     CompTri3,     // MITC3 composite  — assembler code 33
     CompQuad4,    // MITC4 composite  — assembler code 44
-
-    // Solid 3D
-    Tetra4,       // assembler code 304
-    Tetra10,      // assembler code 310
-    Hexa8,        // assembler code 208
-    Hexa20,       // assembler code 220
-    Wedge6,       // assembler code 306
-    Wedge15,      // assembler code 315
-    Pyramid5,     // assembler code 305
-    Pyramid13,    // assembler code 313
 }
 
 impl ElementType {
@@ -34,14 +24,6 @@ impl ElementType {
             Self::Quad4 | Self::CompQuad4 => 4,
             Self::Quad8 => 8,
             Self::Quad9 => 9,
-            Self::Tetra4 => 4,
-            Self::Tetra10 => 10,
-            Self::Hexa8 => 8,
-            Self::Hexa20 => 20,
-            Self::Wedge6 => 6,
-            Self::Wedge15 => 15,
-            Self::Pyramid5 => 5,
-            Self::Pyramid13 => 13,
         }
     }
 
@@ -55,14 +37,6 @@ impl ElementType {
             Self::Triangle6  => 108, // placeholder — not yet in assembler
             Self::Quad8      => 108,
             Self::Quad9      => 109,
-            Self::Hexa8      => 208,
-            Self::Hexa20     => 220,
-            Self::Tetra4     => 304,
-            Self::Tetra10    => 310,
-            Self::Wedge6     => 306,
-            Self::Wedge15    => 315,
-            Self::Pyramid5   => 305,
-            Self::Pyramid13  => 313,
         }
     }
 

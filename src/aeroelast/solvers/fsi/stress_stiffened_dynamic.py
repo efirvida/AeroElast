@@ -394,11 +394,13 @@ class StressStiffenedFSISolver(LinearDynamicFSISolver):
 
         stress_field: dict = {}
         for i, elem in enumerate(self.domain.elements):
-            sigma = np.array([
-                elem_result.sigma_xx[i],
-                elem_result.sigma_yy[i],
-                elem_result.sigma_xy[i],
-            ])
+            sigma = np.array(
+                [
+                    elem_result.sigma_xx[i],
+                    elem_result.sigma_yy[i],
+                    elem_result.sigma_xy[i],
+                ]
+            )
             if np.max(np.abs(sigma)) > 1e-20:
                 stress_field[elem.id] = sigma
 

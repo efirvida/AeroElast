@@ -83,7 +83,7 @@ class PowerPanel(Static):
         non_aero = g("Non-Aero Torque [Nm]")
         if non_aero is None:
             tau_total = g("Total Torque [Nm]")
-            tau_aero  = g("Aero Torque [Nm]")
+            tau_aero = g("Aero Torque [Nm]")
             if tau_total is not None and tau_aero is not None:
                 non_aero = tau_total - tau_aero
 
@@ -111,13 +111,12 @@ class PowerPanel(Static):
             _row("P total rotor", _v(p_total_rotor, 2), "W"),
             _eff_row(g("Structural Efficiency")),
             "[dim]── aero coefficients ─────────────[/]",
-            _row("Cp",         _v(g("Cp"), 4),              ""),
-            _row("Cq",         _v(g("Cq"), 4),              ""),
-            _row("Ct",         _v(g("Ct"), 4),              ""),
-            _row("TSR",        _v(g("TSR"), 3),             ""),
+            _row("Cp", _v(g("Cp"), 4), ""),
+            _row("Cq", _v(g("Cq"), 4), ""),
+            _row("Ct", _v(g("Ct"), 4), ""),
+            _row("TSR", _v(g("TSR"), 3), ""),
         ]
         self._content = "\n".join(lines)
 
     def render(self) -> str:
         return self._content or "[dim]PERFORMANCE\n  Waiting…[/]"
-

@@ -13,6 +13,8 @@ Validates that the performance optimizations maintain physical accuracy:
 3. Coriolis is treated implicitly for stability at high ω
 """
 
+import importlib.util
+
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
@@ -95,24 +97,30 @@ def test_kg_hysteresis_prevents_chattering():
     """
     K_G rebuild hysteresis prevents chattering when ω oscillates around threshold.
 
+    The gate mirrors the Rust implementation (rotor_fsi.rs::update_kg_if_needed):
+    it compares Δ(ω²)/ω² against the ω² stored at the last rebuild, using a 0.5%
+    bar just after a rebuild and a 0.3% bar once 10 steps have passed.
+
     Without hysteresis: rebuild at 0.5% → skip at 0.49% → rebuild at 0.5% → ...
     With hysteresis: rebuild at 0.5% → skip until 0.3% → smooth operation
     """
-    THRESHOLD_REBUILD = 0.005  # 0.5%
-    THRESHOLD_SKIP = 0.003  # 0.3% (hysteresis)
+    # Relative changes are measured in ω², not in ω (as in the Rust gate).
+    THRESHOLD_REBUILD = 0.005  # 0.5% of ω² - high bar while a rebuild is recent
+    THRESHOLD_SKIP = 0.003  # 0.3% of ω² - low bar once 10 steps passed
 
     omega_base = 100.0  # rad/s
     omega_sq_base = omega_base**2
 
-    # Simulate ω oscillating ±0.4% around base
+    # Simulate ω oscillating ±0.4% around base (a ±0.4% change in ω is ~±0.8%
+    # in ω²); each comment states Δ(ω²) against the last rebuild
     omega_values = [
-        omega_base * (1 + 0.004),  # +0.4% → should rebuild (first time)
-        omega_base * (1 + 0.002),  # +0.2% → skip (within hysteresis)
-        omega_base * (1 - 0.002),  # -0.2% → skip (within hysteresis)
-        omega_base * (1 + 0.004),  # +0.4% → skip (within hysteresis)
-        omega_base * (1 + 0.006),  # +0.6% → rebuild (exceeds threshold)
-        omega_base * (1 + 0.004),  # +0.4% → skip (just rebuilt, use high threshold)
-        omega_base * (1 + 0.002),  # +0.2% → skip
+        omega_base * (1 + 0.004),  # +0.80% vs base → rebuild (first step)
+        omega_base * (1 + 0.002),  # +0.40% vs step 0 → skip
+        omega_base * (1 - 0.002),  # -1.19% vs step 0 → rebuild
+        omega_base * (1 + 0.004),  # +1.21% vs step 2 → rebuild
+        omega_base * (1 + 0.006),  # +0.40% vs step 3 → skip (below 0.5%)
+        omega_base * (1 + 0.004),  # +0.00% vs step 3 → skip
+        omega_base * (1 + 0.002),  # +0.40% vs step 3 → skip
     ]
 
     omega_sq_last = omega_sq_base
@@ -124,7 +132,7 @@ def test_kg_hysteresis_prevents_chattering():
         omega_sq_current = omega_current**2
         rel_change = abs(omega_sq_current - omega_sq_last) / omega_sq_last
 
-        # Hysteresis logic
+        # Hysteresis logic: high bar while a rebuild is recent, low bar later
         steps_since_rebuild = step - last_rebuild_step
         threshold = THRESHOLD_REBUILD if steps_since_rebuild < 10 else THRESHOLD_SKIP
 
@@ -140,6 +148,13 @@ def test_kg_hysteresis_prevents_chattering():
     # so the rebuilds land on steps 0, 2, 3 for this sequence.
     assert 0 in rebuild_steps, "Must rebuild on first step"
     assert 3 in rebuild_steps, "Must rebuild when omega^2 exceeds the threshold"
+    # Step 4 is only ~+0.40% above step 3 in ω², below the 0.5% rebuild bar, so
+    # the hysteresis must skip it.  This is the assertion that distinguishes a
+    # real band from a bare "rebuild whenever it changed" gate.
+    assert 4 not in rebuild_steps, (
+        "Step 4 is only ~+0.40% above step 3 in ω², below the 0.5% rebuild "
+        "threshold: hysteresis must skip it"
+    )
     assert len(rebuild_steps) <= 3, (
         f"Should rebuild ≤3 times, got {len(rebuild_steps)} (steps: {rebuild_steps})"
     )
@@ -161,9 +176,7 @@ def test_coriolis_matrix_antisymmetry():
         G_LHS[v, u] = +2m·ωz  (positive)
     This is G_LHS = +2m·Ω̃, NOT the force matrix G_force = -2m·Ω̃.
     """
-    try:
-        from _aeroelast import PyMeshAssembler
-    except ImportError:
+    if importlib.util.find_spec("_aeroelast") is None:
         pytest.skip("Rust backend not available")
 
     # Simple test with 2 nodes, 6 DOF each (shells)

@@ -103,6 +103,7 @@ MPa_to_Pa = 1_000_000.0
 #  Helpers
 # ---------------------------------------------------------------------------
 
+
 def _num(val):
     """Convert a cell value to float; return NaN for None / empty."""
     if val is None:
@@ -158,6 +159,7 @@ def _col_values(ws, col_idx, start_row, end_row):
 # ---------------------------------------------------------------------------
 #  Main entry point
 # ---------------------------------------------------------------------------
+
 
 def excel_to_blade(blade, filename: str, airfoil_dir: str = None):
     """Populate a :class:`Blade` object from a NuMAD Excel file.
@@ -216,6 +218,7 @@ def excel_to_blade(blade, filename: str, airfoil_dir: str = None):
 #  Geometry sheet
 # ---------------------------------------------------------------------------
 
+
 def _read_geometry(definition, ws, airfoil_dir):
     """Parse the *Geometry* sheet."""
 
@@ -260,13 +263,14 @@ def _read_geometry(definition, ws, airfoil_dir):
         dtype=float,
     )
     definition.chordoffset = np.array(
-        [_num(ws.cell(row=r, column=_GEOM["offset"] + 1).value)
-         for r in range(dr1, last_row + 1)],
+        [_num(ws.cell(row=r, column=_GEOM["offset"] + 1).value) for r in range(dr1, last_row + 1)],
         dtype=float,
     )
     definition.aerocenter = np.array(
-        [_num(ws.cell(row=r, column=_GEOM["aerocenter"] + 1).value)
-         for r in range(dr1, last_row + 1)],
+        [
+            _num(ws.cell(row=r, column=_GEOM["aerocenter"] + 1).value)
+            for r in range(dr1, last_row + 1)
+        ],
         dtype=float,
     )
     definition.sweep = np.zeros(definition.span.shape)
@@ -334,6 +338,7 @@ def _read_geometry(definition, ws, airfoil_dir):
 #  Materials sheet
 # ---------------------------------------------------------------------------
 
+
 def _read_materials(definition, ws):
     """Parse the *Materials* sheet into ``definition.materials``."""
     dr1 = _MTRL["datarow1"]
@@ -384,17 +389,20 @@ def _read_materials(definition, ws):
 #  Components sheet
 # ---------------------------------------------------------------------------
 
+
 def _read_components(definition, ws):
     """Parse the *Components* sheet into ``definition.components``."""
     # --- global sizing parameters (rows 2-5, column C) ---------------------
-    definition.sparcapwidth = _num(ws.cell(row=_CMPT["paramrow1"] + 1,
-                                           column=_CMPT["paramcol"] + 1).value)
-    definition.leband = _num(ws.cell(row=_CMPT["paramrow1"] + 2,
-                                     column=_CMPT["paramcol"] + 1).value)
-    definition.teband = _num(ws.cell(row=_CMPT["paramrow1"] + 3,
-                                     column=_CMPT["paramcol"] + 1).value)
-    sparcapoffset = _num(ws.cell(row=_CMPT["paramrow1"] + 4,
-                                 column=_CMPT["paramcol"] + 1).value)
+    definition.sparcapwidth = _num(
+        ws.cell(row=_CMPT["paramrow1"] + 1, column=_CMPT["paramcol"] + 1).value
+    )
+    definition.leband = _num(
+        ws.cell(row=_CMPT["paramrow1"] + 2, column=_CMPT["paramcol"] + 1).value
+    )
+    definition.teband = _num(
+        ws.cell(row=_CMPT["paramrow1"] + 3, column=_CMPT["paramcol"] + 1).value
+    )
+    sparcapoffset = _num(ws.cell(row=_CMPT["paramrow1"] + 4, column=_CMPT["paramcol"] + 1).value)
     definition.sparcapoffset = 0.0 if np.isnan(sparcapoffset) else sparcapoffset
 
     # --- per-component rows ------------------------------------------------
@@ -421,15 +429,9 @@ def _read_components(definition, ws):
         except (ValueError, TypeError):
             pass  # already a name string
 
-        comp.fabricangle = _read_numlist(
-            ws.cell(row=r, column=_CMPT["angle"] + 1).value
-        )
-        comp.hpextents = _read_strlist(
-            ws.cell(row=r, column=_CMPT["hpext"] + 1).value
-        )
-        comp.lpextents = _read_strlist(
-            ws.cell(row=r, column=_CMPT["lpext"] + 1).value
-        )
+        comp.fabricangle = _read_numlist(ws.cell(row=r, column=_CMPT["angle"] + 1).value)
+        comp.hpextents = _read_strlist(ws.cell(row=r, column=_CMPT["hpext"] + 1).value)
+        comp.lpextents = _read_strlist(ws.cell(row=r, column=_CMPT["lpext"] + 1).value)
 
         cpspan = _read_numlist(ws.cell(row=r, column=_CMPT["cpspan"] + 1).value)
         cpnlay = _read_numlist(ws.cell(row=r, column=_CMPT["cpnlay"] + 1).value)
@@ -440,13 +442,9 @@ def _read_components(definition, ws):
         comp.pinnedends = 0
 
         if not np.any(len(comp.hpextents) == np.array([0, 1, 2])):
-            raise ValueError(
-                f"Component '{comp.name}': length of hpextents must be 0, 1, or 2"
-            )
+            raise ValueError(f"Component '{comp.name}': length of hpextents must be 0, 1, or 2")
         if not np.any(len(comp.lpextents) == np.array([0, 1, 2])):
-            raise ValueError(
-                f"Component '{comp.name}': length of lpextents must be 0, 1, or 2"
-            )
+            raise ValueError(f"Component '{comp.name}': length of lpextents must be 0, 1, or 2")
 
         component_dict[comp.name] = comp
 
@@ -456,6 +454,7 @@ def _read_components(definition, ws):
 # ---------------------------------------------------------------------------
 #  Airfoil resolution
 # ---------------------------------------------------------------------------
+
 
 def _resolve_airfoil(name: str, airfoil_dir: str | None) -> Airfoil:
     """Try to load airfoil coordinates from a file, falling back to a dummy
@@ -520,7 +519,7 @@ def _load_airfoil_txt(path: str) -> np.ndarray:
 
 # Column layout for the legacy Geometry sheet.
 _LEGACY_GEOM = {
-    "datarow1": 4,     # first data row (1-indexed in Excel)
+    "datarow1": 4,  # first data row (1-indexed in Excel)
     "sta_num": 0,
     "span": 1,
     "airfoil": 2,
@@ -559,12 +558,20 @@ _LEGACY_MTRL = {
 # pairs on each side of the airfoil.  Keypoint ordering on the HP side:
 # te(0)–e(1)–d(2)–c(3)–b(4)–a(5)–le(6).  LP is a mirror of HP.
 _REGION_HP_INDICES = {
-    "TE_FLAT":  (0, 1),  "TE_REINF": (1, 2),  "TE_PANEL": (2, 3),
-    "SPAR":     (3, 4),  "LE_PANEL": (4, 5),  "LE":       (5, 6),
+    "TE_FLAT": (0, 1),
+    "TE_REINF": (1, 2),
+    "TE_PANEL": (2, 3),
+    "SPAR": (3, 4),
+    "LE_PANEL": (4, 5),
+    "LE": (5, 6),
 }
 _REGION_LP_INDICES = {
-    "LE":       (0, 1),  "LE_PANEL": (1, 2),  "SPAR":     (2, 3),
-    "TE_PANEL": (3, 4),  "TE_REINF": (4, 5),  "TE_FLAT":  (5, 6),
+    "LE": (0, 1),
+    "LE_PANEL": (1, 2),
+    "SPAR": (2, 3),
+    "TE_PANEL": (3, 4),
+    "TE_REINF": (4, 5),
+    "TE_FLAT": (5, 6),
 }
 _HP_INDEX_TO_LABEL = {0: "te", 1: "e", 2: "d", 3: "c", 4: "b", 5: "a", 6: "le"}
 _LP_INDEX_TO_LABEL = {0: "le", 1: "a", 2: "b", 3: "c", 4: "d", 5: "e", 6: "te"}
@@ -610,6 +617,7 @@ def _extent_from_regions(regions, side: str):
 #  Legacy format orchestration
 # ---------------------------------------------------------------------------
 
+
 def _read_legacy_format(definition, wb, sheet_names_lower, airfoil_dir):
     """Read old NuMAD station-based format into *definition*."""
 
@@ -643,6 +651,7 @@ def _read_legacy_format(definition, wb, sheet_names_lower, airfoil_dir):
 # ---------------------------------------------------------------------------
 #  Legacy Materials sheet
 # ---------------------------------------------------------------------------
+
 
 def _read_legacy_materials(definition, ws):
     """Parse the legacy *Materials* sheet (data starts at row 4, no
@@ -695,6 +704,7 @@ def _read_legacy_materials(definition, ws):
 #  Legacy Geometry sheet
 # ---------------------------------------------------------------------------
 
+
 def _read_legacy_geometry(definition, ws, airfoil_dir):
     """Parse the legacy *Geometry* sheet.
 
@@ -711,8 +721,7 @@ def _read_legacy_geometry(definition, ws, airfoil_dir):
     # --- pre-read all needed rows (limit to 80 columns) -------------------
     MAX_COL = 80
     all_rows = {}  # row_number → tuple of values
-    for idx, row_vals in enumerate(
-            ws.iter_rows(min_row=1, max_col=MAX_COL, values_only=True)):
+    for idx, row_vals in enumerate(ws.iter_rows(min_row=1, max_col=MAX_COL, values_only=True)):
         r = idx + 1  # 1-based row number
         vals = tuple(row_vals)
         if len(vals) < MAX_COL:
@@ -727,15 +736,13 @@ def _read_legacy_geometry(definition, ws, airfoil_dir):
         return vals[col0]
 
     # --- header rows (1-3) -----------------------------------------------
-    n_shear_webs = int(_num(_cv(1, 5)))      # row 1, col F (0-based 5)
-    n_stacks = int(_num(_cv(1, 7)))           # row 1, col H (0-based 7)
+    n_shear_webs = int(_num(_cv(1, 5)))  # row 1, col F (0-based 5)
+    n_stacks = int(_num(_cv(1, 7)))  # row 1, col H (0-based 7)
 
-    n_segments = int(_num(_cv(2, 7)))         # row 2, col H
-    stack_mat_ids = [int(_num(_cv(2, G["stacks_start"] + i)))
-                     for i in range(n_stacks)]
+    n_segments = int(_num(_cv(2, 7)))  # row 2, col H
+    stack_mat_ids = [int(_num(_cv(2, G["stacks_start"] + i))) for i in range(n_stacks)]
 
-    stack_names = [_str(_cv(3, G["stacks_start"] + i))
-                   for i in range(n_stacks)]
+    stack_names = [_str(_cv(3, G["stacks_start"] + i)) for i in range(n_stacks)]
     seg_col0 = G["stacks_start"] + n_stacks + 1
     segment_names = [_str(_cv(3, seg_col0 + i)) for i in range(n_segments)]
 
@@ -756,20 +763,23 @@ def _read_legacy_geometry(definition, ws, airfoil_dir):
     # --- geometry arrays --------------------------------------------------
     definition.span = np.array(span_raw, dtype=float)
     definition.degreestwist = np.array(
-        [_num(_cv(r, G["twist"])) for r in range(dr1, last_row + 1)], dtype=float)
+        [_num(_cv(r, G["twist"])) for r in range(dr1, last_row + 1)], dtype=float
+    )
     definition.chord = np.array(
-        [_num(_cv(r, G["chord"])) for r in range(dr1, last_row + 1)], dtype=float)
+        [_num(_cv(r, G["chord"])) for r in range(dr1, last_row + 1)], dtype=float
+    )
     definition.chordoffset = np.array(
-        [_num(_cv(r, G["xoffset"])) for r in range(dr1, last_row + 1)], dtype=float)
+        [_num(_cv(r, G["xoffset"])) for r in range(dr1, last_row + 1)], dtype=float
+    )
     definition.aerocenter = np.array(
-        [_num(_cv(r, G["aerocenter"])) for r in range(dr1, last_row + 1)], dtype=float)
+        [_num(_cv(r, G["aerocenter"])) for r in range(dr1, last_row + 1)], dtype=float
+    )
 
     definition.percentthick = np.full(n_sta, np.nan)
     definition.sweep = np.zeros(n_sta)
     definition.prebend = np.zeros(n_sta)
 
-    te_types = [_str(_cv(r, G["tetype"])).lower()
-                for r in range(dr1, last_row + 1)]
+    te_types = [_str(_cv(r, G["tetype"])).lower() for r in range(dr1, last_row + 1)]
     definition.te_type = te_types
 
     # --- interpolate NaN geometry -----------------------------------------
@@ -809,8 +819,8 @@ def _read_legacy_geometry(definition, ws, airfoil_dir):
         known = ~np.isnan(pt)
         if np.any(known):
             pt[~known] = interpolator_wrap(
-                definition.span[known], pt[known],
-                definition.span[~known], "pchip")
+                definition.span[known], pt[known], definition.span[~known], "pchip"
+            )
         else:
             pt[:] = np.linspace(100, 21, n_sta)
         definition.percentthick = pt
@@ -879,9 +889,11 @@ def _read_legacy_geometry(definition, ws, airfoil_dir):
         "sw_dp_conn": sw_dp_conn,
     }
 
+
 # ---------------------------------------------------------------------------
 #  Legacy bend & sweep sheet
 # ---------------------------------------------------------------------------
+
 
 def _read_legacy_bend_sweep(definition, ws):
     """Parse the legacy *bend & sweep* sheet for prebend and sweep data."""
@@ -914,18 +926,17 @@ def _read_legacy_bend_sweep(definition, ws):
     if prebend_spans:
         pb_s = np.array(prebend_spans)
         pb_v = np.nan_to_num(np.array(prebend_vals), nan=0.0)
-        definition.prebend = interpolator_wrap(
-            pb_s, pb_v, definition.span, "pchip")
+        definition.prebend = interpolator_wrap(pb_s, pb_v, definition.span, "pchip")
     if sweep_spans:
         sw_s = np.array(sweep_spans)
         sw_v = np.nan_to_num(np.array(sweep_vals), nan=0.0)
-        definition.sweep = interpolator_wrap(
-            sw_s, sw_v, definition.span, "pchip")
+        definition.sweep = interpolator_wrap(sw_s, sw_v, definition.span, "pchip")
 
 
 # ---------------------------------------------------------------------------
 #  Legacy sizing parameters (sparcapwidth, leband, teband)
 # ---------------------------------------------------------------------------
+
 
 def _build_legacy_sizing(definition, legacy, ws_sw):
     """Compute sizing parameters from legacy data and the SW sheet.
@@ -936,8 +947,8 @@ def _build_legacy_sizing(definition, legacy, ws_sw):
     ``definition.span``.
     """
     n_sta = legacy["n_sta"]
-    dp = legacy["dp_positions"]        # [n_sta, n_segments+1]
-    chord = definition.chord            # [n_sta]
+    dp = legacy["dp_positions"]  # [n_sta, n_segments+1]
+    chord = definition.chord  # [n_sta]
     n_seg = legacy["n_segments"]
     seg_names = legacy["segment_names"]
 
@@ -1010,8 +1021,7 @@ def _build_legacy_sizing(definition, legacy, ws_sw):
         arr = getattr(definition, attr)
         nans = np.isnan(arr)
         if np.any(nans) and np.any(~nans):
-            arr[nans] = interpolator_wrap(
-                span[~nans], arr[~nans], span[nans], "pchip")
+            arr[nans] = interpolator_wrap(span[~nans], arr[~nans], span[nans], "pchip")
             setattr(definition, attr, arr)
 
     # Clamp to avoid zero-width bands
@@ -1022,6 +1032,7 @@ def _build_legacy_sizing(definition, legacy, ws_sw):
 # ---------------------------------------------------------------------------
 #  Legacy component builder
 # ---------------------------------------------------------------------------
+
 
 def _build_legacy_components(definition, legacy):
     """Convert station-based stacks/segments to Component objects.
@@ -1084,7 +1095,9 @@ def _build_legacy_components(definition, legacy):
             mat_name = mat_names[0]
 
         # Component name
-        base_name = stack_names[mat_id_idx] if 0 <= mat_id_idx < len(stack_names) else f"Stack{stk_id}"
+        base_name = (
+            stack_names[mat_id_idx] if 0 <= mat_id_idx < len(stack_names) else f"Stack{stk_id}"
+        )
         stack_id_count[stk_id] = stack_id_count.get(stk_id, 0) + 1
         if stack_id_count[stk_id] > 1:
             comp_name = f"{base_name}_inner{stack_id_count[stk_id] - 1}"
@@ -1131,7 +1144,9 @@ def _build_legacy_components(definition, legacy):
             else:
                 mat_name = mat_names[0]
 
-            base_name = stack_names[mat_id_idx] if 0 <= mat_id_idx < len(stack_names) else f"Stack{stk_id}"
+            base_name = (
+                stack_names[mat_id_idx] if 0 <= mat_id_idx < len(stack_names) else f"Stack{stk_id}"
+            )
             stk_count[stk_id] = stk_count.get(stk_id, 0) + 1
             suffix = f"_sw{w + 1}"
             if stk_count[stk_id] > 1:
@@ -1156,8 +1171,9 @@ def _build_legacy_components(definition, legacy):
             component_dict[comp_name] = comp
 
     definition.components = component_dict
-    logger.debug("Legacy format: created %d components (%d blade + %d web)",
-                 len(component_dict),
-                 sum(1 for c in component_dict.values() if c.group == 0),
-                 sum(1 for c in component_dict.values() if c.group > 0))
-
+    logger.debug(
+        "Legacy format: created %d components (%d blade + %d web)",
+        len(component_dict),
+        sum(1 for c in component_dict.values() if c.group == 0),
+        sum(1 for c in component_dict.values() if c.group > 0),
+    )

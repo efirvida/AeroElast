@@ -16,7 +16,6 @@ If they differ, the problem is in MITC vs S4 formulation generally.
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -24,17 +23,17 @@ import pytest
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
+from conftest import ccx_bin_or_skip
+
 pytest.importorskip("petsc4py", reason="PETSc not available")
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
-from _aeroelast import PyMeshAssembler, modal_solve_coo
+from _aeroelast import PyMeshAssembler
 
-from aeroelast.core.bc import DirichletCondition, NodalLoad
 from aeroelast.core.material import IsotropicMaterial
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.io.writers import write_ccx_mesh
 from aeroelast.core.mesh.model import MeshModel
-from aeroelast.core.properties import ShellProperty
 
 
 # ============================================================================
@@ -63,7 +62,6 @@ def build_shell_mesh(*, nz: int = 10, nx: int = 2) -> MeshModel:
 
     # Grid: X from 0 to B, Z from 0 to L, Y=0 (flat plate in XZ plane)
     xs = np.linspace(0, B, nx + 1)
-    ys = np.zeros(nx + 1)  # Y = 0 (flat)
     zs = np.linspace(0, L, nz + 1)
 
     grid: dict[tuple[int, int], Node] = {}
@@ -115,6 +113,7 @@ def analytical_tip_displacement(
     """
     I = b * t**3 / 12  # Moment of inertia
     k = 5 / 6  # Shear correction factor (rectangular cross-section)
+    G = E / (2.0 * (1.0 + nu))  # Shear modulus
 
     # Bending + shear
     delta = F * L**3 / (3 * E * I) + F * L / (k * G * b * t)
@@ -202,10 +201,7 @@ class TestIsotropicShellParity:
 
     def test_transverse_tip_displacement(self, tmp_path: Path):
         """Test: Does MITC4 vs S4 difference appear in isotropic shells?"""
-        ccx_bin = Path("/scratch/leahk/eduardo.donestevez/venv/bin/ccx")
-        print(f"CCX binary exists: {ccx_bin.exists()}")
-        if not ccx_bin.exists():
-            pytest.skip("CalculiX not available")
+        ccx_bin = ccx_bin_or_skip()
 
         print(f"tmp_path: {tmp_path}")
         print(f"tmp_path exists: {tmp_path.exists()}")
@@ -267,7 +263,6 @@ class TestIsotropicShellParity:
         inp = case_dir / "shell.inp"
 
         # Use aeroelast writer (same as test_beam_4cases_parity.py)
-        from aeroelast.core.mesh.io.writers import write_ccx_mesh
 
         write_ccx_mesh(
             mesh,
@@ -286,7 +281,7 @@ class TestIsotropicShellParity:
             load_nodeset="free_center",
             load_vector=(0.0, FORCE, 0.0),  # Fy
         )
-        print(f"Wrote CCX input via aeroelast")
+        print("Wrote CCX input via aeroelast")
 
         # Run CCX
         stem = "shell"
@@ -361,13 +356,14 @@ class TestIsotropicShellParity:
         disp_ccx = max_v
         ratio = disp_ccx / disp_ae
 
-        print(f"\n[Isotropic Shell Parity]")
+        print("\n[Isotropic Shell Parity]")
         print(f"  AeroElast (MITC4): {disp_ae:.6f} m")
         print(f"  CalculiX (S4):    {disp_ccx:.6f} m")
         print(f"  Ratio (CCX/AE):    {ratio:.3f}")
         print(f"  Difference:        {abs(disp_ccx - disp_ae):.6f} m ({abs(ratio - 1) * 100:.1f}%)")
 
-        # Allow 10% tolerance
+        # The comment here used to say "Allow 10%" over an enforced 5%.  The
+        # value is what ran, so the comment is what was wrong.
         tol = 0.05
         if abs(ratio - 1) > tol:
             pytest.fail(

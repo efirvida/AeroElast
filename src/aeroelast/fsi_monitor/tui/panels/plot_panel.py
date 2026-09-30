@@ -93,7 +93,7 @@ class PlotPanel(Widget):
 
         # Apply start-time filter
         if self._start_time is not None and xs:
-            pairs = [(x, y) for x, y in zip(xs, ys) if x >= self._start_time]
+            pairs = [(x, y) for x, y in zip(xs, ys, strict=False) if x >= self._start_time]
             if pairs:
                 xs, ys = [p2[0] for p2 in pairs], [p2[1] for p2 in pairs]
             else:
@@ -110,6 +110,7 @@ class PlotPanel(Widget):
             # how sparse the solver timesteps are relative to terminal columns.
             if len(xs) >= 2:
                 import numpy as _np
+
                 xi = _np.linspace(xs[0], xs[-1], max(len(xs), 400))
                 yi = _np.interp(xi, xs, ys)
                 xs, ys = xi.tolist(), yi.tolist()
@@ -189,4 +190,3 @@ class PlotPanel(Widget):
     @property
     def start_time(self) -> float | None:
         return self._start_time
-

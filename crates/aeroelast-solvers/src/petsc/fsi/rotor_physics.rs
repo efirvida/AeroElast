@@ -612,7 +612,8 @@ pub fn build_coriolis_matrix(
 
 /// Build spin-softening `K_SP` aligned with the reduced K COO sparsity.
 ///
-/// ANSYS Eq. 3-74 / 14-55 for lumped mass:
+/// Spin softening for a lumped mass, verified by derivation (the derivation is
+/// written out in `src/aeroelast/solvers/fsi/rotor.py`):
 /// ```text
 /// K_SP,node = −ω² · m_node · (I − n̂⊗n̂)   on the 3×3 translational block
 /// K_SP,node = 0                            on rotational rows/cols and inter-node couplings

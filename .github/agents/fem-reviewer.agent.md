@@ -10,25 +10,21 @@ review code changes in the `fem-shell` library for **numerical correctness**
 
 ### Element Families and DOF Conventions
 - Shell (MITC3/4): 6 DOFs/node `[u, v, w, θx, θy, θz]`, `ElementFamily.SHELL`
-- Solid (HEXA/TETRA/WEDGE/PYRAMID): 3 DOFs/node `[u, v, w]`, `ElementFamily.SOLID`
 - Plane (QUAD): 2 DOFs/node `[u, v]`, `ElementFamily.PLANE`
 - Mixed meshes use max stride (6) to prevent DOF aliasing
 
 ### Voigt Notation
-- Solid: `[σ_xx, σ_yy, σ_zz, τ_xy, τ_yz, τ_zx]` — 6 components
 - Shell: `[σ_xx, σ_yy, τ_xy]` — 3 components (plane stress)
 - Strain follows the same ordering with engineering shear (γ = 2ε)
 
 ### Constitutive Matrices
 - Shell `Cm()` returns integrated membrane stiffness D = C·h (N/m)  
   **Critical**: divide by h to get actual stress in Pa
-- Solid `C` property returns the 6×6 elasticity matrix directly (Pa)
 - Isotropic: Lamé parameters λ, μ from (E, ν)
 - Orthotropic: 9 independent constants, D matrix via CLT for composites
 
 ### Stress Recovery
 - Shell: evaluate B_m, B_κ at parametric node coords, σ = (C/h)·(ε_m + z·κ)
-- Solid: evaluate B at Gauss points → extrapolate to nodes via E = pinv(N_gp)
 - Von Mises 3D: σ_vm = √(½[(σ_xx−σ_yy)² + (σ_yy−σ_zz)² + (σ_zz−σ_xx)²] + 3[τ²])
 - Principal 3D: closed-form cubic via I₁, I₂, I₃ invariants (Cardano formula)
 
@@ -42,13 +38,13 @@ review code changes in the `fem-shell` library for **numerical correctness**
 For every code change, verify:
 
 1. **B-matrix dimensions**: B must be (n_stress_components × n_element_dofs).
-   Shell B_m, B_κ: (3 × 6·n_nodes). Solid B: (6 × 3·n_nodes).
+   Shell B_m, B_κ: (3 × 6·n_nodes).
 
 2. **Constitutive matrix usage**: Is Cm()/h used for shell stress (not Cm()
    directly)? Is the correct C used for the material type?
 
 3. **DOF gathering**: Are the correct DOFs extracted per element family?
-   Shell: 6 per node. Solid: 3 per node. Check for stride errors in mixed meshes.
+   Shell: 6 per node. Check for stride errors in mixed meshes.
 
 4. **Integration**: Are Gauss points and weights correct for the element topology?
    Check that the quadrature order is sufficient for the polynomial degree.

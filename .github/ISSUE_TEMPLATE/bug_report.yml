@@ -1,0 +1,55 @@
+name: Bug report
+description: Report a defect in the code, the tests or the documentation.
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a defect. The repository asks for measured evidence
+        rather than a description of an expectation, because a wrong benchmark
+        value can survive inside an assertion that cannot fail.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences on what is wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Exact commands, measured numbers, file paths and line references.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What should happen instead, and against which reference.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Impact and scope
+      description: Who or what is affected, and what is explicitly not.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: The steps or code that reproduce it, or "not reproducible yet".
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched the existing issues and found no duplicate.
+          required: true
+        - label: This report states measured evidence, not a guess.
+          required: true

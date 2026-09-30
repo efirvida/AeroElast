@@ -5,13 +5,11 @@
 
 use nalgebra::Vector3;
 use rayon::prelude::*;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::assembly::topology::{ElemType, MeshTopology};
 use crate::elements::mitc3::{self, Mitc3Precomputed};
 use crate::elements::mitc4::{self, Mitc4Precomputed};
 use crate::elements::quad::{Quad4Precomputed, Quad8Precomputed, Quad9Precomputed};
-use crate::elements::solid;
 use crate::materials::{
     composite::composite_constitutive, isotropic::IsotropicMaterial, Material,
 };
@@ -20,7 +18,7 @@ use crate::materials::{
 // MaterialSpec: per-element material descriptor
 // ============================================================================
 
-/// Material specification for a single element (any family).
+/// Material specification for a single element (shell or plane family).
 #[derive(Clone)]
 pub enum MaterialSpec {
     /// Isotropic linear elastic shell material.
@@ -58,6 +56,20 @@ pub enum MaterialSpec {
         mass_per_area: f64,
         /// Rotational inertia per unit area (kg·m²/m²)
         rotational_inertia: f64,
+        /// Scalar shear-correction factor the material model applied when it
+        /// built `cs` (ADR-1): `shear_correction_factor` for a single-ply
+        /// laminate, `1.0` for a multi-ply one (or when none was applied).
+        /// Informational for a composite: the element consumes
+        /// [`Self::cs_uncorrected`], not `cs`.
+        applied_shear_correction: f64,
+        /// Uncorrected section transverse-shear stiffness, row-major, that the
+        /// element's shear block consumes (ADR-1, amended): the laminate's
+        /// plain thickness integral, NOT `cs`. `cs` carries the section's own
+        /// correction -- `k` on the single-ply branch and the `5/6` of the
+        /// parabolic shear distribution inside the multi-ply energy-equivalent
+        /// formula -- and the element (Ko, Lee & Bathe (2017), C&S 182:404-418,
+        /// p. 410: "does not include any numerical factor") must not see it.
+        cs_uncorrected: [f64; 4],
     },
     /// Plane-stress isotropic material (for QUAD4/8/9 elements).
     PlaneStress {
@@ -69,15 +81,6 @@ pub enum MaterialSpec {
         rho: f64,
         /// Element thickness (m) — used for mass scaling
         thickness: f64,
-    },
-    /// 3D solid isotropic material (for HEXA/TETRA/WEDGE/PYRAMID elements).
-    Solid3D {
-        /// Young's modulus (Pa)
-        e: f64,
-        /// Poisson's ratio
-        nu: f64,
-        /// Density (kg/m³)
-        rho: f64,
     },
 }
 
@@ -93,22 +96,13 @@ enum PrecomputedElem {
     Plane4([[f64; 2]; 4]),
     Plane8([[f64; 2]; 8]),
     Plane9([[f64; 2]; 9]),
-    // 3D solid elements: store 3D coords
-    Hexa8([[f64; 3]; 8]),
-    Hexa20([[f64; 3]; 20]),
-    Tetra4([[f64; 3]; 4]),
-    Tetra10([[f64; 3]; 10]),
-    Wedge6([[f64; 3]; 6]),
-    Wedge15([[f64; 3]; 15]),
-    Pyramid5([[f64; 3]; 5]),
-    Pyramid13([[f64; 3]; 13]),
 }
 
 // ============================================================================
 // MeshAssembler
 // ============================================================================
 
-/// Global assembler for mixed-element meshes (shell, plane, solid).
+/// Global assembler for mixed-element meshes (shell, plane).
 ///
 /// Precomputes all element-level data on construction; assembly methods are
 /// pure read-only passes that accumulate COO triplets.
@@ -148,6 +142,13 @@ impl MeshAssembler {
         let dofs_count = topology.dofs_count();
         let n_elems = topology.n_elems;
 
+        // Pass 1 — mesh-consistent nodal directors (ADR-4 option A) for the
+        // MITC4/MITC4Composite elements: the area-weighted mean of the
+        // element-local directors `V_n^a` shared by every element at a node.
+        // Measured (apply-progress §WU9e) to close the thick twisted-beam
+        // residual; the element-local director field is the defect.
+        let nodal_director = mitc4_nodal_directors(&topology, &materials);
+
         // Build per-element precomputed data and DOF connectivity
         let mut precomputed = Vec::with_capacity(n_elems);
         let mut dof_connectivity = Vec::with_capacity(n_elems);
@@ -177,14 +178,26 @@ impl MeshAssembler {
                     assert_eq!(coords.len(), 12, "MITC4 needs 4 nodes × 3 coords");
                     let mut c12 = [0.0f64; 12];
                     c12.copy_from_slice(&coords);
-                    let (constitutive, thickness, e_mod, drilling_scale) = build_constitutive_mitc4(mat);
-                    PrecomputedElem::Quad(Mitc4Precomputed::new(
+                    let (constitutive, thickness, applied_shear_correction) =
+                        build_constitutive_mitc4(mat);
+                    let mut pre = Mitc4Precomputed::new(
                         &c12,
                         constitutive,
                         thickness,
-                        e_mod,
-                        drilling_scale,
-                    ))
+                        applied_shear_correction,
+                    );
+                    // ADR-1 (amended): the material supplies the uncorrected
+                    // section shear the element consumes. For a composite this
+                    // is the plain integral, not `cs`.
+                    pre.cs_uncorrected = mitc4_uncorrected_shear(mat, &pre.constitutive);
+                    // Pass 2 — replace the element-local directors with the
+                    // mesh-consistent nodal directors. Measured identical to
+                    // also rebuilding `b_shear_tie`, `v_d`, `j0` and
+                    // `drill_edges` (apply-progress §WU9e), so only `vn` moves.
+                    for (a, &node) in topology.connectivity[e].iter().enumerate() {
+                        pre.vn[a] = nodal_director[node];
+                    }
+                    PrecomputedElem::Quad(pre)
                 }
                 ElemType::Quad4 => {
                     assert_eq!(coords.len(), 12, "QUAD4 needs 4 nodes × 3 coords");
@@ -200,46 +213,6 @@ impl MeshAssembler {
                     assert_eq!(coords.len(), 27, "QUAD9 needs 9 nodes × 3 coords");
                     let c = nodes3d_to_2d_9(&coords);
                     PrecomputedElem::Plane9(c)
-                }
-                ElemType::Hexa8 => {
-                    assert_eq!(coords.len(), 24, "HEXA8 needs 8 nodes × 3 coords");
-                    let c = coords_to_3d_8(&coords);
-                    PrecomputedElem::Hexa8(c)
-                }
-                ElemType::Hexa20 => {
-                    assert_eq!(coords.len(), 60, "HEXA20 needs 20 nodes × 3 coords");
-                    let c = coords_to_3d_20(&coords);
-                    PrecomputedElem::Hexa20(c)
-                }
-                ElemType::Tetra4 => {
-                    assert_eq!(coords.len(), 12, "TETRA4 needs 4 nodes × 3 coords");
-                    let c = coords_to_3d_4(&coords);
-                    PrecomputedElem::Tetra4(c)
-                }
-                ElemType::Tetra10 => {
-                    assert_eq!(coords.len(), 30, "TETRA10 needs 10 nodes × 3 coords");
-                    let c = coords_to_3d_10(&coords);
-                    PrecomputedElem::Tetra10(c)
-                }
-                ElemType::Wedge6 => {
-                    assert_eq!(coords.len(), 18, "WEDGE6 needs 6 nodes × 3 coords");
-                    let c = coords_to_3d_6(&coords);
-                    PrecomputedElem::Wedge6(c)
-                }
-                ElemType::Wedge15 => {
-                    assert_eq!(coords.len(), 45, "WEDGE15 needs 15 nodes × 3 coords");
-                    let c = coords_to_3d_15(&coords);
-                    PrecomputedElem::Wedge15(c)
-                }
-                ElemType::Pyramid5 => {
-                    assert_eq!(coords.len(), 15, "PYRAMID5 needs 5 nodes × 3 coords");
-                    let c = coords_to_3d_5(&coords);
-                    PrecomputedElem::Pyramid5(c)
-                }
-                ElemType::Pyramid13 => {
-                    assert_eq!(coords.len(), 39, "PYRAMID13 needs 13 nodes × 3 coords");
-                    let c = coords_to_3d_13(&coords);
-                    PrecomputedElem::Pyramid13(c)
                 }
             };
             precomputed.push(pre);
@@ -289,6 +262,39 @@ impl MeshAssembler {
             self.topology.node_coords[3 * i + 2] += u_inc[dofs_per_node * i + 2];
         }
 
+        self.rebuild_precomputed();
+    }
+
+    /// Replace the mesh node coordinates in place and rebuild the element
+    /// reference state from the new geometry.
+    ///
+    /// `update_reference` *advances* the geometry by an increment; this one
+    /// *sets* it.  The rotating-frame checks use it to re-assemble K and M on a
+    /// rigidly rotated blade without rebuilding the assembler.
+    pub fn update_node_coordinates(&mut self, coords: &[f64]) {
+        let n_nodes = self.topology.n_nodes;
+        assert_eq!(
+            coords.len(),
+            3 * n_nodes,
+            "coords length must equal 3 * n_nodes ({} nodes)",
+            n_nodes
+        );
+        self.topology.node_coords[..coords.len()].copy_from_slice(coords);
+        self.rebuild_precomputed();
+    }
+
+    /// Rebuild every per-element precomputed block from the current
+    /// `topology.node_coords`.
+    ///
+    /// Pass 1 rebuilds the mesh-consistent nodal directors (ADR-4 option A) and
+    /// pass 2 overwrites the MITC4 directors and the uncorrected section shear.
+    /// Both passes live here so that advancing (`update_reference`) and setting
+    /// (`update_node_coordinates`) the geometry stay exactly identical.
+    fn rebuild_precomputed(&mut self) {
+        // Pass 1 — mesh-consistent nodal directors (ADR-4 option A) rebuilt
+        // from the advanced reference geometry, exactly as in `new`.
+        let nodal_director = mitc4_nodal_directors(&self.topology, &self.materials);
+
         // Rebuild precomputed element data from new geometry
         let n_elems = self.topology.n_elems;
         for e in 0..n_elems {
@@ -307,71 +313,20 @@ impl MeshAssembler {
                 ElemType::Mitc4 | ElemType::Mitc4Composite => {
                     let mut c12 = [0.0f64; 12];
                     c12.copy_from_slice(&coords);
-                    let (constitutive, thickness, e_mod, drilling_scale) =
+                    let (constitutive, thickness, applied_shear_correction) =
                         build_constitutive_mitc4(mat);
-                    PrecomputedElem::Quad(Mitc4Precomputed::new(
-                        &c12, constitutive, thickness, e_mod, drilling_scale,
-                    ))
-                }
-                // Non-shell elements: coords stored differently, skip rebuild
-                _ => continue,
-            };
-            self.precomputed[e] = pre;
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Coordinate update (rigid rotation, geometry refresh)
-    // -----------------------------------------------------------------------
-
-    /// Replace node coordinates with a new absolute position array.
-    ///
-    /// Unlike `update_reference` (which *adds* an incremental displacement),
-    /// this method *sets* the coordinates directly.  All per-element geometric
-    /// data (Jacobians, normals, areas, constitutive frames) is recomputed
-    /// from the new positions.  Connectivity, DOF mapping, and material
-    /// tensors are preserved — making this 2-4× faster than a full rebuild.
-    ///
-    /// # Arguments
-    /// * `coords` — flat slice `[x0,y0,z0, x1,y1,z1, …]` of length `3*n_nodes`.
-    ///
-    /// # Panics
-    /// Panics if `coords.len() != 3 * n_nodes`.
-    pub fn update_node_coordinates(&mut self, coords: &[f64]) {
-        let n_nodes = self.topology.n_nodes;
-        assert_eq!(
-            coords.len(),
-            3 * n_nodes,
-            "coords length must equal 3 * n_nodes ({} nodes)",
-            n_nodes
-        );
-
-        // Replace node positions in-place
-        self.topology.node_coords[..coords.len()].copy_from_slice(coords);
-
-        // Rebuild per-element precomputed geometry (same logic as update_reference)
-        let n_elems = self.topology.n_elems;
-        for e in 0..n_elems {
-            let elem_coords = self.topology.elem_coords(e);
-            let mat = &self.materials[e];
-            let pre = match self.topology.elem_types[e] {
-                ElemType::Mitc3 | ElemType::Mitc3Composite => {
-                    let mut c9 = [0.0f64; 9];
-                    c9.copy_from_slice(&elem_coords);
-                    let (constitutive, thickness, e_mod, drilling_scale) =
-                        build_constitutive_mitc3(mat);
-                    PrecomputedElem::Tri(Mitc3Precomputed::new(
-                        &c9, constitutive, thickness, e_mod, drilling_scale,
-                    ))
-                }
-                ElemType::Mitc4 | ElemType::Mitc4Composite => {
-                    let mut c12 = [0.0f64; 12];
-                    c12.copy_from_slice(&elem_coords);
-                    let (constitutive, thickness, e_mod, drilling_scale) =
-                        build_constitutive_mitc4(mat);
-                    PrecomputedElem::Quad(Mitc4Precomputed::new(
-                        &c12, constitutive, thickness, e_mod, drilling_scale,
-                    ))
+                    let mut pre = Mitc4Precomputed::new(
+                        &c12,
+                        constitutive,
+                        thickness,
+                        applied_shear_correction,
+                    );
+                    pre.cs_uncorrected = mitc4_uncorrected_shear(mat, &pre.constitutive);
+                    // Pass 2 — same director overwrite as `new`.
+                    for (a, &node) in self.topology.connectivity[e].iter().enumerate() {
+                        pre.vn[a] = nodal_director[node];
+                    }
+                    PrecomputedElem::Quad(pre)
                 }
                 // Non-shell elements: coords stored differently, skip rebuild
                 _ => continue,
@@ -438,38 +393,6 @@ impl MeshAssembler {
                     let (e_mod, nu) = plane_stress_en(&self.materials[e]);
                     Quad9Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
                 }
-                PrecomputedElem::Hexa8(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    solid::hexa8_ke(c, e_mod, nu).as_slice().to_vec()
-                }
-                PrecomputedElem::Hexa20(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    solid::hexa20_ke(c, e_mod, nu).as_slice().to_vec()
-                }
-                PrecomputedElem::Tetra4(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    solid::tetra4_ke(c, e_mod, nu).as_slice().to_vec()
-                }
-                PrecomputedElem::Tetra10(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    solid::tetra10_ke(c, e_mod, nu).as_slice().to_vec()
-                }
-                PrecomputedElem::Wedge6(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    solid::wedge6_ke(c, e_mod, nu).as_slice().to_vec()
-                }
-                PrecomputedElem::Wedge15(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    solid::wedge15_ke(c, e_mod, nu).as_slice().to_vec()
-                }
-                PrecomputedElem::Pyramid5(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    solid::pyramid5_ke(c, e_mod, nu).as_slice().to_vec()
-                }
-                PrecomputedElem::Pyramid13(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    solid::pyramid13_ke(c, e_mod, nu).as_slice().to_vec()
-                }
             };
 
             scatter_elem_matrix(&self.dof_connectivity[e], &ke_flat, &mut rows, &mut cols, &mut vals);
@@ -529,38 +452,6 @@ impl MeshAssembler {
                     let (rho, _thickness) = plane_stress_rho_h(&self.materials[e]);
                     Quad9Precomputed::new(c).compute_me_global(rho).to_vec()
                 }
-                PrecomputedElem::Hexa8(c) => {
-                    let rho = solid3d_rho(&self.materials[e]);
-                    solid::hexa8_me(c, rho).as_slice().to_vec()
-                }
-                PrecomputedElem::Hexa20(c) => {
-                    let rho = solid3d_rho(&self.materials[e]);
-                    solid::hexa20_me(c, rho).as_slice().to_vec()
-                }
-                PrecomputedElem::Tetra4(c) => {
-                    let rho = solid3d_rho(&self.materials[e]);
-                    solid::tetra4_me(c, rho).as_slice().to_vec()
-                }
-                PrecomputedElem::Tetra10(c) => {
-                    let rho = solid3d_rho(&self.materials[e]);
-                    solid::tetra10_me(c, rho).as_slice().to_vec()
-                }
-                PrecomputedElem::Wedge6(c) => {
-                    let rho = solid3d_rho(&self.materials[e]);
-                    solid::wedge6_me(c, rho).as_slice().to_vec()
-                }
-                PrecomputedElem::Wedge15(c) => {
-                    let rho = solid3d_rho(&self.materials[e]);
-                    solid::wedge15_me(c, rho).as_slice().to_vec()
-                }
-                PrecomputedElem::Pyramid5(c) => {
-                    let rho = solid3d_rho(&self.materials[e]);
-                    solid::pyramid5_me(c, rho).as_slice().to_vec()
-                }
-                PrecomputedElem::Pyramid13(c) => {
-                    let rho = solid3d_rho(&self.materials[e]);
-                    solid::pyramid13_me(c, rho).as_slice().to_vec()
-                }
             };
 
             scatter_elem_matrix(&self.dof_connectivity[e], &me_flat, &mut rows, &mut cols, &mut vals);
@@ -609,7 +500,7 @@ impl MeshAssembler {
     ///   - Isotropic:  `ρ · h · A`
     ///   - Composite:  `mass_per_area · A`
     ///
-    /// For plane and solid elements the identity
+    /// For plane elements the identity
     /// `Σ_ij (Me_x)_ij = m_elem` (partition of unity on shape functions)
     /// is used, which is exact for any consistent mass matrix.
     ///
@@ -624,12 +515,12 @@ impl MeshAssembler {
                         rho * thickness * pre.area,
                     (PrecomputedElem::Tri(pre), MaterialSpec::Composite { mass_per_area, .. }) =>
                         mass_per_area * pre.area,
-                    // MITC4 — element area is precomputed
+                    // MITC4 — mid-surface area (sum of the two triangle areas)
                     (PrecomputedElem::Quad(pre), MaterialSpec::Isotropic { rho, thickness, .. }) =>
-                        rho * thickness * pre.element_area,
+                        rho * thickness * quad_area_3d(&pre.initial_coords_3d),
                     (PrecomputedElem::Quad(pre), MaterialSpec::Composite { mass_per_area, .. }) =>
-                        mass_per_area * pre.element_area,
-                    // Plane and solid — use Me x-block sum (partition of unity)
+                        mass_per_area * quad_area_3d(&pre.initial_coords_3d),
+                    // Plane — use Me x-block sum (partition of unity)
                     _ => {
                         let me_flat = self.elem_me_flat(e);
                         let n_dof = (me_flat.len() as f64).sqrt() as usize;
@@ -652,7 +543,7 @@ impl MeshAssembler {
     }
 
     /// Build the element mass matrix as a flat Vec<f64> (row-major, n_dof×n_dof).
-    /// Used as fallback for plane and solid elements in `total_elemental_mass`.
+    /// Used as fallback for plane elements in `total_elemental_mass`.
     fn elem_me_flat(&self, e: usize) -> Vec<f64> {
         match &self.precomputed[e] {
             PrecomputedElem::Tri(pre) => {
@@ -685,38 +576,6 @@ impl MeshAssembler {
                 let (rho, _) = plane_stress_rho_h(&self.materials[e]);
                 Quad9Precomputed::new(c).compute_me_global(rho).to_vec()
             }
-            PrecomputedElem::Hexa8(c) => {
-                let rho = solid3d_rho(&self.materials[e]);
-                solid::hexa8_me(c, rho).as_slice().to_vec()
-            }
-            PrecomputedElem::Hexa20(c) => {
-                let rho = solid3d_rho(&self.materials[e]);
-                solid::hexa20_me(c, rho).as_slice().to_vec()
-            }
-            PrecomputedElem::Tetra4(c) => {
-                let rho = solid3d_rho(&self.materials[e]);
-                solid::tetra4_me(c, rho).as_slice().to_vec()
-            }
-            PrecomputedElem::Tetra10(c) => {
-                let rho = solid3d_rho(&self.materials[e]);
-                solid::tetra10_me(c, rho).as_slice().to_vec()
-            }
-            PrecomputedElem::Wedge6(c) => {
-                let rho = solid3d_rho(&self.materials[e]);
-                solid::wedge6_me(c, rho).as_slice().to_vec()
-            }
-            PrecomputedElem::Wedge15(c) => {
-                let rho = solid3d_rho(&self.materials[e]);
-                solid::wedge15_me(c, rho).as_slice().to_vec()
-            }
-            PrecomputedElem::Pyramid5(c) => {
-                let rho = solid3d_rho(&self.materials[e]);
-                solid::pyramid5_me(c, rho).as_slice().to_vec()
-            }
-            PrecomputedElem::Pyramid13(c) => {
-                let rho = solid3d_rho(&self.materials[e]);
-                solid::pyramid13_me(c, rho).as_slice().to_vec()
-            }
         }
     }
 
@@ -737,28 +596,20 @@ impl MeshAssembler {
         for e in 0..self.topology.n_elems {
             let fe: Vec<f64> = match &self.precomputed[e] {
                 PrecomputedElem::Tri(pre) => {
-                    let rho = material_rho(&self.materials[e], pre.thickness);
+                    let rho = material_rho(&self.materials[e]);
                     let fvec = mitc3::compute_body_load_global(pre, rho, &g);
                     fvec.as_slice().to_vec()
                 }
                 PrecomputedElem::Quad(pre) => {
-                    let rho = material_rho(&self.materials[e], pre.thickness);
+                    let rho = material_rho(&self.materials[e]);
                     let fvec = mitc4::compute_body_load_global(pre, rho, &g);
                     fvec.as_slice().to_vec()
                 }
-                // For plane/solid elements body load is not implemented yet;
+                // For plane elements body load is not implemented yet;
                 // return zeros of appropriate size.
                 PrecomputedElem::Plane4(_) => vec![0.0; 8],
                 PrecomputedElem::Plane8(_) => vec![0.0; 16],
                 PrecomputedElem::Plane9(_) => vec![0.0; 18],
-                PrecomputedElem::Hexa8(_) => vec![0.0; 24],
-                PrecomputedElem::Hexa20(_) => vec![0.0; 60],
-                PrecomputedElem::Tetra4(_) => vec![0.0; 12],
-                PrecomputedElem::Tetra10(_) => vec![0.0; 30],
-                PrecomputedElem::Wedge6(_) => vec![0.0; 18],
-                PrecomputedElem::Wedge15(_) => vec![0.0; 45],
-                PrecomputedElem::Pyramid5(_) => vec![0.0; 15],
-                PrecomputedElem::Pyramid13(_) => vec![0.0; 39],
             };
 
             let dofs = &self.dof_connectivity[e];
@@ -779,19 +630,142 @@ impl MeshAssembler {
     /// # Arguments
     /// * `sigma` - Membrane stress per element: `sigma[e] = [σxx, σyy, σxy]`
     ///   in the element's local coordinate system.
-    ///   For plane/solid elements this is a no-op (returns zero).
+    ///   For plane elements this is a no-op (returns zero).
     ///
     /// Returns `(rows, cols, vals)` COO triplets.
+    /// Nodal centrifugal load vector for the pre-stress static solve.
     ///
-    /// # Stability filter
-    /// Each element's membrane stress is projected onto its tensile (positive-
-    /// eigenvalue) part via `tensile_part_membrane` before contributing to K_σ.
-    /// Compressive principal directions do not stiffen the structure
-    /// physically and, for twisted shells under large rigid rotation, the
-    /// linear B-matrix can produce spurious compressive principal stresses
-    /// that trigger non-physical local buckling modes. Filtering at the
-    /// canonical assembly path ensures every solver inherits the correct
-    /// behaviour automatically.
+    /// Returns a vector of length `dofs_count` with the lumped nodal
+    /// centrifugal forces `rho_A * omega^2 * r` (radial direction), split
+    /// equally over each shell element's nodes.
+    ///
+    /// This is the right-hand side of `K u = f_cf`, the static pre-stress
+    /// problem whose displacement solution feeds
+    /// `assemble_geometric_k_from_disp`.  `assemble_centrifugal_k` alone is not
+    /// enough: on a rotating blade the local approximation
+    /// `sigma = rho*omega^2*r*l_char` is two to three orders of magnitude too
+    /// small, so the rotating modes come out parked.
+    pub fn centrifugal_load(
+        &self,
+        omega: f64,
+        rotation_axis: [f64; 3],
+        rotation_center: [f64; 3],
+        rho_per_elem: &[f64],
+    ) -> Vec<f64> {
+        assert_eq!(
+            rho_per_elem.len(),
+            self.topology.n_elems,
+            "rho_per_elem length must equal n_elems"
+        );
+
+        let axis = {
+            let a = Vector3::new(rotation_axis[0], rotation_axis[1], rotation_axis[2]);
+            let n = a.norm();
+            if n > 1e-30 { a / n } else { Vector3::new(0.0, 0.0, 1.0) }
+        };
+        let center = Vector3::new(rotation_center[0], rotation_center[1], rotation_center[2]);
+        let mut f = vec![0.0; self.dofs_count];
+
+        for e in 0..self.topology.n_elems {
+            let is_shell = matches!(
+                self.precomputed[e],
+                PrecomputedElem::Tri(_) | PrecomputedElem::Quad(_)
+            );
+            if !is_shell {
+                continue;
+            }
+
+            let coords_flat = self.topology.elem_coords(e);
+            let n_nodes = coords_flat.len() / 3;
+
+            let mut cx = 0.0f64;
+            let mut cy = 0.0f64;
+            let mut cz = 0.0f64;
+            for n in 0..n_nodes {
+                cx += coords_flat[3 * n];
+                cy += coords_flat[3 * n + 1];
+                cz += coords_flat[3 * n + 2];
+            }
+            let inv_n = 1.0 / n_nodes as f64;
+            let centroid = Vector3::new(cx * inv_n, cy * inv_n, cz * inv_n);
+
+            let r_vec = centroid - center;
+            let r_parallel = r_vec.dot(&axis) * axis;
+            let r_radial_vec = r_vec - r_parallel;
+            let r_radial = r_radial_vec.norm();
+            if r_radial < 1e-10 {
+                continue;
+            }
+            let radial_dir = r_radial_vec / r_radial;
+
+            let area = if n_nodes >= 4 {
+                let p0 = Vector3::new(coords_flat[0], coords_flat[1], coords_flat[2]);
+                let p2 = Vector3::new(coords_flat[6], coords_flat[7], coords_flat[8]);
+                let p3 = Vector3::new(coords_flat[9], coords_flat[10], coords_flat[11]);
+                let p1 = Vector3::new(coords_flat[3], coords_flat[4], coords_flat[5]);
+                let v1 = p2 - p0;
+                let v2 = p3 - p1;
+                0.5 * v1.cross(&v2).norm()
+            } else {
+                let p0 = Vector3::new(coords_flat[0], coords_flat[1], coords_flat[2]);
+                let p1 = Vector3::new(coords_flat[3], coords_flat[4], coords_flat[5]);
+                let p2 = Vector3::new(coords_flat[6], coords_flat[7], coords_flat[8]);
+                0.5 * (p1 - p0).cross(&(p2 - p0)).norm()
+            };
+
+            let total = rho_per_elem[e] * omega * omega * r_radial * area;
+            let per_node = total / n_nodes as f64;
+            let dofs = &self.dof_connectivity[e];
+            for n in 0..n_nodes {
+                for d in 0..3 {
+                    f[dofs[6 * n + d]] += per_node * radial_dir[d];
+                }
+            }
+        }
+
+        f
+    }
+
+    /// Geometric stiffness K_sigma from a displacement field (membrane stresses).
+    ///
+    /// Recovers the membrane stresses `[sigma_xx, sigma_yy, sigma_xy]` (Pa) at
+    /// each shell element centroid from `u` (full DOF vector) via
+    /// `compute_element_stress(..., stress_type=0)`, then assembles K_sigma with
+    /// `assemble_geometric_k`.  Note that `assemble_geometric_k` interprets its
+    /// input as stress (Pa) and multiplies by the element thickness internally
+    /// to obtain the force resultants.
+    ///
+    /// This is the physically consistent way to obtain the centrifugal
+    /// geometric stiffness: solve `K u = f_cf` (static, root-clamped) and feed
+    /// the resulting membrane state — the accumulated centrifugal tension is
+    /// captured exactly by static equilibrium.
+    pub fn assemble_geometric_k_from_disp(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
+        assert_eq!(u.len(), self.dofs_count, "displacement vector length mismatch");
+
+        let n_elems = self.topology.n_elems;
+        let mut sigma = vec![[0.0f64; 3]; n_elems];
+
+        for e in 0..n_elems {
+            let dofs = &self.dof_connectivity[e];
+            let (sig6, _): ([f64; 6], [f64; 6]) = match &self.precomputed[e] {
+                PrecomputedElem::Tri(pre) => {
+                    let ue = extract_elem_disp_18(u, dofs);
+                    mitc3::compute_element_stress(pre, &ue, 0.0, 0)
+                }
+                PrecomputedElem::Quad(pre) => {
+                    let ue = extract_elem_disp_24(u, dofs);
+                    mitc4::compute_element_stress(pre, &ue, 0.0, 0)
+                }
+                _ => continue,
+            };
+            sigma[e][0] = sig6[0];
+            sigma[e][1] = sig6[1];
+            sigma[e][2] = sig6[3];
+        }
+
+        self.assemble_geometric_k(&sigma)
+    }
+
     pub fn assemble_geometric_k(&self, sigma: &[[f64; 3]]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
         assert_eq!(
             sigma.len(),
@@ -804,8 +778,7 @@ impl MeshAssembler {
         let mut vals = Vec::new();
 
         for e in 0..self.topology.n_elems {
-            let s_filt = tensile_part_membrane(sigma[e]);
-            let sv = Vector3::new(s_filt[0], s_filt[1], s_filt[2]);
+            let sv = Vector3::new(sigma[e][0], sigma[e][1], sigma[e][2]);
 
             let kg_flat: Vec<f64> = match &self.precomputed[e] {
                 PrecomputedElem::Tri(pre) => {
@@ -816,18 +789,10 @@ impl MeshAssembler {
                     let kg = mitc4::compute_k_sigma_global(pre, &sv);
                     kg.as_slice().to_vec()
                 }
-                // Geometric stiffness not implemented for plane/solid in this assembler
+                // Geometric stiffness not implemented for plane in this assembler
                 PrecomputedElem::Plane4(_) => vec![0.0; 64],
                 PrecomputedElem::Plane8(_) => vec![0.0; 256],
                 PrecomputedElem::Plane9(_) => vec![0.0; 324],
-                PrecomputedElem::Hexa8(_) => vec![0.0; 576],
-                PrecomputedElem::Hexa20(_) => vec![0.0; 3600],
-                PrecomputedElem::Tetra4(_) => vec![0.0; 144],
-                PrecomputedElem::Tetra10(_) => vec![0.0; 900],
-                PrecomputedElem::Wedge6(_) => vec![0.0; 324],
-                PrecomputedElem::Wedge15(_) => vec![0.0; 2025],
-                PrecomputedElem::Pyramid5(_) => vec![0.0; 225],
-                PrecomputedElem::Pyramid13(_) => vec![0.0; 1521],
             };
 
             scatter_elem_matrix(&self.dof_connectivity[e], &kg_flat, &mut rows, &mut cols, &mut vals);
@@ -846,10 +811,24 @@ impl MeshAssembler {
     /// * `u` - Global displacement vector of length `dofs_count`
     ///
     /// Returns `(rows, cols, vals)` COO triplets.
-    pub fn assemble_kt(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
+    /// First-order corotational tangent stiffness K_T as COO.
+    ///
+    /// Used by the rotating-frame (corotational) FSI solver to rebuild the
+    /// elastic tangent from the current displacement field.  The MITC3 path
+    /// uses `mitc3::compute_kt_corotational` (`T_def^T K_L T_def`); the MITC4
+    /// path uses the faithful total-Lagrangian tangent `mitc4::compute_kt_global`
+    /// (Ko, Lee & Bathe 2017, Eq. 24a), which is the operator the reviewed
+    /// element exposes and which satisfies `K_T(0) = K_0` bit for bit.
+    ///
+    /// Non-shell elements fall back to their linear tangent and warn once: the
+    /// corotational solver is a shell path, so a plane element in it is a
+    /// modelling error worth surfacing rather than silently approximating.
+    pub fn assemble_kt_corotational(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
         assert_eq!(u.len(), self.dofs_count, "displacement vector length mismatch");
 
-        // Compute per-element (rows, cols, vals) in parallel, then flatten.
+        static WARN_NON_SHELL_FALLBACK: std::sync::atomic::AtomicBool =
+            std::sync::atomic::AtomicBool::new(false);
+
         let per_elem: Vec<(Vec<i64>, Vec<i64>, Vec<f64>)> = (0..self.topology.n_elems)
             .into_par_iter()
             .map(|e| {
@@ -857,7 +836,7 @@ impl MeshAssembler {
                 let kt_flat: Vec<f64> = match &self.precomputed[e] {
                     PrecomputedElem::Tri(pre) => {
                         let ue = extract_elem_disp_18(u, dofs);
-                        let kt = mitc3::compute_kt_global(pre, &ue);
+                        let kt = mitc3::compute_kt_corotational(pre, ue.as_slice());
                         kt.as_slice().to_vec()
                     }
                     PrecomputedElem::Quad(pre) => {
@@ -865,50 +844,20 @@ impl MeshAssembler {
                         let kt = mitc4::compute_kt_global(pre, &ue);
                         kt.as_slice().to_vec()
                     }
-                    // For plane/solid elements: K_T = K_e (linear only)
                     PrecomputedElem::Plane4(c) => {
+                        warn_non_shell_corotational_fallback(&WARN_NON_SHELL_FALLBACK);
                         let (e_mod, nu) = plane_stress_en(&self.materials[e]);
                         Quad4Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
                     }
                     PrecomputedElem::Plane8(c) => {
+                        warn_non_shell_corotational_fallback(&WARN_NON_SHELL_FALLBACK);
                         let (e_mod, nu) = plane_stress_en(&self.materials[e]);
                         Quad8Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
                     }
                     PrecomputedElem::Plane9(c) => {
+                        warn_non_shell_corotational_fallback(&WARN_NON_SHELL_FALLBACK);
                         let (e_mod, nu) = plane_stress_en(&self.materials[e]);
                         Quad9Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
-                    }
-                    PrecomputedElem::Hexa8(c) => {
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::hexa8_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Hexa20(c) => {
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::hexa20_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Tetra4(c) => {
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::tetra4_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Tetra10(c) => {
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::tetra10_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Wedge6(c) => {
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::wedge6_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Wedge15(c) => {
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::wedge15_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Pyramid5(c) => {
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::pyramid5_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Pyramid13(c) => {
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::pyramid13_ke(c, e_mod, nu).as_slice().to_vec()
                     }
                 };
                 let mut r = Vec::new();
@@ -932,30 +881,11 @@ impl MeshAssembler {
         (rows, cols, vals)
     }
 
-    /// Assemble corotational tangent stiffness matrix `K_T^coro`.
-    ///
-    /// What it does:
-    /// - MITC3/MITC4: dispatches to element-level corotational tangents
-    ///   (`compute_kt_corotational`), then scatters into global COO.
-    /// - Non-shell elements: falls back to linear `K_e` (same behavior as
-    ///   [`Self::assemble_kt`]) and logs a one-time warning.
-    ///
-    /// Current limitation:
-    /// - This phase is first-order corotational and does **not** add an explicit
-    ///   geometric stiffness contribution `K_σ` at assembly time.
-    ///   Use [`Self::assemble_geometric_k`] (or solver-level `K_G` updates) when
-    ///   geometric/prestress effects are required.
-    ///
-    /// When to use:
-    /// - Use this method for large rigid-body rotations where frame objectivity
-    ///   of the tangent is important.
-    /// - Use [`Self::assemble_kt`] for the baseline total-Lagrangian tangent or
-    ///   when you explicitly rely on its `K_σ` pathway.
-    pub fn assemble_kt_corotational(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
+    // assemble_kt: nonlinear tangent stiffness as COO
+    pub fn assemble_kt(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
         assert_eq!(u.len(), self.dofs_count, "displacement vector length mismatch");
 
-        static WARN_NON_SHELL_FALLBACK: AtomicBool = AtomicBool::new(false);
-
+        // Compute per-element (rows, cols, vals) in parallel, then flatten.
         let per_elem: Vec<(Vec<i64>, Vec<i64>, Vec<f64>)> = (0..self.topology.n_elems)
             .into_par_iter()
             .map(|e| {
@@ -963,113 +893,26 @@ impl MeshAssembler {
                 let kt_flat: Vec<f64> = match &self.precomputed[e] {
                     PrecomputedElem::Tri(pre) => {
                         let ue = extract_elem_disp_18(u, dofs);
-                        let kt = mitc3::compute_kt_corotational(pre, ue.as_slice());
+                        let kt = mitc3::compute_kt_global(pre, &ue);
                         kt.as_slice().to_vec()
                     }
                     PrecomputedElem::Quad(pre) => {
                         let ue = extract_elem_disp_24(u, dofs);
-                        let kt = pre.compute_kt_corotational(ue.as_slice());
+                        let kt = mitc4::compute_kt_global(pre, &ue);
                         kt.as_slice().to_vec()
                     }
-                    // Fallback for non-shell elements
+                    // For plane elements: K_T = K_e (linear only)
                     PrecomputedElem::Plane4(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
                         let (e_mod, nu) = plane_stress_en(&self.materials[e]);
                         Quad4Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
                     }
                     PrecomputedElem::Plane8(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
                         let (e_mod, nu) = plane_stress_en(&self.materials[e]);
                         Quad8Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
                     }
                     PrecomputedElem::Plane9(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
                         let (e_mod, nu) = plane_stress_en(&self.materials[e]);
                         Quad9Precomputed::new(c).compute_ke_global(e_mod, nu).to_vec()
-                    }
-                    PrecomputedElem::Hexa8(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::hexa8_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Hexa20(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::hexa20_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Tetra4(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::tetra4_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Tetra10(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::tetra10_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Wedge6(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::wedge6_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Wedge15(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::wedge15_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Pyramid5(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::pyramid5_ke(c, e_mod, nu).as_slice().to_vec()
-                    }
-                    PrecomputedElem::Pyramid13(c) => {
-                        if !WARN_NON_SHELL_FALLBACK.swap(true, Ordering::Relaxed) {
-                            eprintln!(
-                                "[aeroelast-core] assemble_kt_corotational: non-shell elements found; falling back to linear element tangent"
-                            );
-                        }
-                        let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                        solid::pyramid13_ke(c, e_mod, nu).as_slice().to_vec()
                     }
                 };
                 let mut r = Vec::new();
@@ -1128,7 +971,7 @@ impl MeshAssembler {
                             let fvec = mitc4::compute_fint_global(pre, &ue, nonlinear);
                             fvec.as_slice().to_vec()
                         }
-                        // For plane/solid: f_int = K · u_e (linear only)
+                        // For plane: f_int = K · u_e (linear only)
                         PrecomputedElem::Plane4(c) => {
                             let (e_mod, nu) = plane_stress_en(&self.materials[e]);
                             let ke = Quad4Precomputed::new(c).compute_ke_global(e_mod, nu);
@@ -1146,54 +989,6 @@ impl MeshAssembler {
                             let ke = Quad9Precomputed::new(c).compute_ke_global(e_mod, nu);
                             let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
                             ke_times_ue(&ke, &ue)
-                        }
-                        PrecomputedElem::Hexa8(c) => {
-                            let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                            let ke = solid::hexa8_ke(c, e_mod, nu);
-                            let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                            ke_times_ue(ke.as_slice(), &ue)
-                        }
-                        PrecomputedElem::Hexa20(c) => {
-                            let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                            let ke = solid::hexa20_ke(c, e_mod, nu);
-                            let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                            ke_times_ue(ke.as_slice(), &ue)
-                        }
-                        PrecomputedElem::Tetra4(c) => {
-                            let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                            let ke = solid::tetra4_ke(c, e_mod, nu);
-                            let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                            ke_times_ue(ke.as_slice(), &ue)
-                        }
-                        PrecomputedElem::Tetra10(c) => {
-                            let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                            let ke = solid::tetra10_ke(c, e_mod, nu);
-                            let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                            ke_times_ue(ke.as_slice(), &ue)
-                        }
-                        PrecomputedElem::Wedge6(c) => {
-                            let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                            let ke = solid::wedge6_ke(c, e_mod, nu);
-                            let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                            ke_times_ue(ke.as_slice(), &ue)
-                        }
-                        PrecomputedElem::Wedge15(c) => {
-                            let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                            let ke = solid::wedge15_ke(c, e_mod, nu);
-                            let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                            ke_times_ue(ke.as_slice(), &ue)
-                        }
-                        PrecomputedElem::Pyramid5(c) => {
-                            let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                            let ke = solid::pyramid5_ke(c, e_mod, nu);
-                            let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                            ke_times_ue(ke.as_slice(), &ue)
-                        }
-                        PrecomputedElem::Pyramid13(c) => {
-                            let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                            let ke = solid::pyramid13_ke(c, e_mod, nu);
-                            let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                            ke_times_ue(ke.as_slice(), &ue)
                         }
                     };
                     for (local_i, &global_i) in dofs.iter().enumerate() {
@@ -1221,7 +1016,7 @@ impl MeshAssembler {
     /// principles (centroid, radial distance, area, local axes), then calls
     /// `assemble_geometric_k` with the resulting per-element σ array.
     ///
-    /// Only MITC3/MITC4 shell elements contribute; plane and solid elements
+    /// Only MITC3/MITC4 shell elements contribute; plane elements
     /// are skipped (σ = 0).
     ///
     /// # Arguments
@@ -1370,138 +1165,6 @@ impl MeshAssembler {
     }
 
     // -----------------------------------------------------------------------
-    // Static-solve centrifugal prestress (physically consistent K_G)
-    // -----------------------------------------------------------------------
-
-    /// Nodal centrifugal load vector for the pre-stress static solve.
-    ///
-    /// The body force per unit area is `rho_A * omega^2 * r` (radial).  For
-    /// each shell element the consistent nodal forces are approximated with
-    /// an equal lumped split of the element total: `rho_A * omega^2 * r_c *
-    /// A_e / n_nodes` per node, projected on the radial direction.  Plane and
-    /// solid elements contribute nothing.
-    pub fn centrifugal_load(
-        &self,
-        omega: f64,
-        rotation_axis: [f64; 3],
-        rotation_center: [f64; 3],
-        rho_per_elem: &[f64],
-    ) -> Vec<f64> {
-        assert_eq!(
-            rho_per_elem.len(),
-            self.topology.n_elems,
-            "rho_per_elem length must equal n_elems"
-        );
-
-        let axis = {
-            let a = Vector3::new(rotation_axis[0], rotation_axis[1], rotation_axis[2]);
-            let n = a.norm();
-            if n > 1e-30 { a / n } else { Vector3::new(0.0, 0.0, 1.0) }
-        };
-        let center = Vector3::new(rotation_center[0], rotation_center[1], rotation_center[2]);
-        let mut f = vec![0.0; self.dofs_count];
-
-        for e in 0..self.topology.n_elems {
-            let is_shell = matches!(
-                self.precomputed[e],
-                PrecomputedElem::Tri(_) | PrecomputedElem::Quad(_)
-            );
-            if !is_shell {
-                continue;
-            }
-
-            let coords_flat = self.topology.elem_coords(e);
-            let n_nodes = coords_flat.len() / 3;
-
-            let mut cx = 0.0f64;
-            let mut cy = 0.0f64;
-            let mut cz = 0.0f64;
-            for n in 0..n_nodes {
-                cx += coords_flat[3 * n];
-                cy += coords_flat[3 * n + 1];
-                cz += coords_flat[3 * n + 2];
-            }
-            let inv_n = 1.0 / n_nodes as f64;
-            let centroid = Vector3::new(cx * inv_n, cy * inv_n, cz * inv_n);
-
-            let r_vec = centroid - center;
-            let r_parallel = r_vec.dot(&axis) * axis;
-            let r_radial_vec = r_vec - r_parallel;
-            let r_radial = r_radial_vec.norm();
-            if r_radial < 1e-10 {
-                continue;
-            }
-            let radial_dir = r_radial_vec / r_radial;
-
-            let area = if n_nodes >= 4 {
-                let p0 = Vector3::new(coords_flat[0], coords_flat[1], coords_flat[2]);
-                let p2 = Vector3::new(coords_flat[6], coords_flat[7], coords_flat[8]);
-                let p3 = Vector3::new(coords_flat[9], coords_flat[10], coords_flat[11]);
-                let p1 = Vector3::new(coords_flat[3], coords_flat[4], coords_flat[5]);
-                let v1 = p2 - p0;
-                let v2 = p3 - p1;
-                0.5 * v1.cross(&v2).norm()
-            } else {
-                let p0 = Vector3::new(coords_flat[0], coords_flat[1], coords_flat[2]);
-                let p1 = Vector3::new(coords_flat[3], coords_flat[4], coords_flat[5]);
-                let p2 = Vector3::new(coords_flat[6], coords_flat[7], coords_flat[8]);
-                0.5 * (p1 - p0).cross(&(p2 - p0)).norm()
-            };
-
-            let total = rho_per_elem[e] * omega * omega * r_radial * area;
-            let per_node = total / n_nodes as f64;
-            let dofs = &self.dof_connectivity[e];
-            for n in 0..n_nodes {
-                for d in 0..3 {
-                    f[dofs[6 * n + d]] += per_node * radial_dir[d];
-                }
-            }
-        }
-
-        f
-    }
-
-    /// Geometric stiffness K_σ from a displacement field (membrane stresses).
-    ///
-    /// Recovers the membrane stresses `[σ_xx, σ_yy, σ_xy]` (Pa) at each
-    /// shell element centroid from `u` (full DOF vector) via
-    /// `compute_element_stress(..., stress_type=0)`, then assembles K_σ with
-    /// `assemble_geometric_k`.  Note that `assemble_geometric_k` interprets
-    /// its input as stress (Pa) and multiplies by the element thickness
-    /// internally to obtain the force resultants.
-    ///
-    /// This is the physically consistent way to obtain the centrifugal
-    /// geometric stiffness: solve `K u = f_cf` (static, root-clamped) and
-    /// feed the resulting membrane state — the accumulated centrifugal
-    /// tension is captured exactly by static equilibrium.
-    pub fn assemble_geometric_k_from_disp(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
-        assert_eq!(u.len(), self.dofs_count, "displacement vector length mismatch");
-
-        let n_elems = self.topology.n_elems;
-        let mut sigma = vec![[0.0f64; 3]; n_elems];
-
-        for e in 0..n_elems {
-            let dofs = &self.dof_connectivity[e];
-            let (sig6, _): ([f64; 6], [f64; 6]) = match &self.precomputed[e] {
-                PrecomputedElem::Tri(pre) => {
-                    let ue = extract_elem_disp_18(u, dofs);
-                    mitc3::compute_element_stress(pre, &ue, 0.0, 0)
-                }
-                PrecomputedElem::Quad(pre) => {
-                    let ue = extract_elem_disp_24(u, dofs);
-                    mitc4::compute_element_stress(pre, &ue, 0.0, 0)
-                }
-                _ => continue,
-            };
-            sigma[e][0] = sig6[0];
-            sigma[e][1] = sig6[1];
-            sigma[e][2] = sig6[3];
-        }
-
-        self.assemble_geometric_k(&sigma)
-    }
-
-    // -----------------------------------------------------------------------
     // compute_stress_field: element-centroid stress and strain recovery
     // -----------------------------------------------------------------------
 
@@ -1510,16 +1173,15 @@ impl MeshAssembler {
     /// This method is the Rust backbone of the post-processing pipeline.  For
     /// each element it evaluates the constitutive relationship C·B·u at the
     /// element centroid (natural coordinates (0,0) for quads / shells,
-    /// (1/3,1/3) for triangles, and the equivalent parametric centroid for
-    /// solid elements) and returns the Voigt 6-component stress and strain
-    /// vectors.
+    /// (1/3,1/3) for triangles) and returns the Voigt 6-component stress and
+    /// strain vectors.
     ///
     /// # Arguments
     /// * `u`           - Global displacement vector of length `dofs_count`.
     /// * `z_factor`    - Non-dimensional through-thickness location for shell
     ///                   elements: `z = z_factor × h`.  Typical values:
     ///                   `−0.5` (bottom), `0.0` (mid-surface), `+0.5` (top).
-    ///                   Ignored for plane and solid elements.
+    ///                   Ignored for plane elements.
     /// * `stress_type` - Shell stress contribution flag (ignored for non-shell
     ///                   elements):
     ///                   `0` = membrane only, `1` = bending only,
@@ -1557,7 +1219,7 @@ impl MeshAssembler {
                     mitc4::compute_element_stress(pre, &ue, z_factor, stress_type)
                 }
                 // Plane (2-D) elements: recover via K·u is not stress — use B·u directly.
-                // We delegate to the solid-style centroid stress for quad plane elements
+                // We delegate to the plane-element centroid stress recovery
                 // by extracting in-plane (x,y) DOFs only.
                 PrecomputedElem::Plane4(c) => {
                     let (e_mod, nu) = plane_stress_en(&self.materials[e]);
@@ -1574,46 +1236,6 @@ impl MeshAssembler {
                     let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
                     Quad9Precomputed::new(c).compute_centroid_stress(e_mod, nu, &ue)
                 }
-                PrecomputedElem::Hexa8(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                    solid::hexa8_centroid_stress(c, e_mod, nu, &ue)
-                }
-                PrecomputedElem::Hexa20(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                    solid::hexa20_centroid_stress(c, e_mod, nu, &ue)
-                }
-                PrecomputedElem::Tetra4(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                    solid::tetra4_centroid_stress(c, e_mod, nu, &ue)
-                }
-                PrecomputedElem::Tetra10(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                    solid::tetra10_centroid_stress(c, e_mod, nu, &ue)
-                }
-                PrecomputedElem::Wedge6(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                    solid::wedge6_centroid_stress(c, e_mod, nu, &ue)
-                }
-                PrecomputedElem::Wedge15(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                    solid::wedge15_centroid_stress(c, e_mod, nu, &ue)
-                }
-                PrecomputedElem::Pyramid5(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                    solid::pyramid5_centroid_stress(c, e_mod, nu, &ue)
-                }
-                PrecomputedElem::Pyramid13(c) => {
-                    let (e_mod, nu) = solid3d_en(&self.materials[e]);
-                    let ue: Vec<f64> = dofs.iter().map(|&d| u[d]).collect();
-                    solid::pyramid13_centroid_stress(c, e_mod, nu, &ue)
-                }
             };
             sigma_out[e] = sig6;
             eps_out[e] = eps6;
@@ -1621,75 +1243,6 @@ impl MeshAssembler {
 
         (sigma_out, eps_out)
     }
-}
-
-// ============================================================================
-// Helper: positive-part (tensile) projection of a 2D membrane stress tensor
-// ============================================================================
-
-/// Project a membrane stress tensor onto its tensile (positive-eigenvalue) part.
-///
-/// Geometric stiffening (K_G) is physically generated only by membrane tension.
-/// Compressive principal stresses produce a negative contribution that softens
-/// K_eff and is non-physical for stress-stiffening. Twisted shell elements
-/// under large rigid-body rotation can also exhibit spurious compressive
-/// principal stresses arising from the linear B-matrix (rigid-rotation artefact);
-/// without filtering, those spurious components trigger local buckling modes
-/// that have no physical reality.
-///
-/// This filter applies the spectral positive-part decomposition:
-/// `σ⁺ = Σ_i max(λ_i, 0) · v_i v_iᵀ` where (λ_i, v_i) are the eigenpairs of
-/// the 2×2 symmetric membrane stress matrix. Compressive principal directions
-/// are dropped, tensile ones are kept. For a fully tensile or fully zero
-/// state, σ⁺ = σ (no-op).
-///
-/// Closed-form for 2×2 symmetric matrices — no iterative eigensolver.
-fn tensile_part_membrane(sigma: [f64; 3]) -> [f64; 3] {
-    let sx = sigma[0];
-    let sy = sigma[1];
-    let sxy = sigma[2];
-
-    let trace_half = 0.5 * (sx + sy);
-    let det = sx * sy - sxy * sxy;
-    // For a real symmetric matrix the discriminant is non-negative analytically;
-    // numerical roundoff can push it slightly below zero. Clamp at 0.
-    let disc = (trace_half * trace_half - det).max(0.0);
-    let sqrt_disc = disc.sqrt();
-    let lam_max = trace_half + sqrt_disc;
-    let lam_min = trace_half - sqrt_disc;
-
-    // Both principals non-negative → no filtering needed.
-    if lam_min >= 0.0 {
-        return sigma;
-    }
-    // Both principals non-positive → zero contribution.
-    if lam_max <= 0.0 {
-        return [0.0, 0.0, 0.0];
-    }
-
-    // Mixed state (lam_max > 0 > lam_min): keep only the tensile projection.
-    // Eigenvector v_max for lam_max from the 2×2 system (A − lam_max·I)·v = 0:
-    //   row 1: (sx − lam_max)·vx + sxy·vy = 0  ⇒  v ∝ (sxy, lam_max − sx)
-    //   row 2: sxy·vx + (sy − lam_max)·vy = 0  ⇒  v ∝ (lam_max − sy, sxy)
-    // Use the row with larger off-diagonal magnitude for numerical stability;
-    // fall back to a canonical basis vector when sxy ≈ 0 (already diagonal).
-    let scale = trace_half.abs().max(1.0);
-    let (vx, vy) = if sxy.abs() > 1e-15 * scale {
-        let ex = sxy;
-        let ey = lam_max - sx;
-        let n = (ex * ex + ey * ey).sqrt();
-        (ex / n, ey / n)
-    } else if sx >= sy {
-        (1.0, 0.0)
-    } else {
-        (0.0, 1.0)
-    };
-
-    [
-        lam_max * vx * vx,
-        lam_max * vy * vy,
-        lam_max * vx * vy,
-    ]
 }
 
 // ============================================================================
@@ -1720,29 +1273,141 @@ fn build_constitutive_mitc3(
     }
 }
 
+/// Constitutive, thickness and the ADR-1 applied shear-correction scalar for a
+/// MITC4+/D element. Isotropic materials report `shear_correction`; composites
+/// report the factor the laminate model applied to `cs` (task 10.2).
 fn build_constitutive_mitc4(
     mat: &MaterialSpec,
-) -> (crate::materials::ShellConstitutive, f64, f64, f64) {
-    build_constitutive_mitc3(mat) // same signature
+) -> (crate::materials::ShellConstitutive, f64, f64) {
+    match mat {
+        MaterialSpec::Isotropic {
+            e,
+            nu,
+            rho,
+            thickness,
+            shear_correction,
+            ..
+        } => {
+            let iso = IsotropicMaterial::new(*e, *nu, *rho);
+            let constitutive = iso.constitutive(*thickness, *shear_correction);
+            (constitutive, *thickness, *shear_correction)
+        }
+        MaterialSpec::Composite {
+            cm,
+            cb_coupling,
+            cb,
+            cs,
+            thickness,
+            applied_shear_correction,
+            ..
+        } => {
+            let constitutive = composite_constitutive(cm, cb_coupling, cb, cs, *thickness);
+            (constitutive, *thickness, *applied_shear_correction)
+        }
+        _ => panic!("Shell element requires Isotropic or Composite MaterialSpec"),
+    }
 }
 
-/// Return volumetric density (kg/m³) for use in body-load assembly.
+/// The uncorrected section transverse-shear stiffness the MITC4+/D shear block
+/// consumes (ADR-1, amended).
 ///
-/// For isotropic and solid materials the density is stored directly.
-/// For composite shell elements the stored value is `mass_per_area` (kg/m²),
-/// which is the physically correct integrated quantity for mass-matrix assembly.
-/// To obtain the volumetric density needed by `compute_body_load_global` —
-/// which internally multiplies by the element thickness — we divide by `h`:
+/// The isotropic path removes the scalar its material model applied
+/// (`k·G·h -> G·h`). The composite path takes the laminate's plain section
+/// integral, because the energy-equivalent `cs` already carries the `5/6` of a
+/// homogeneous section: feeding that to the element made a `[0,0,0,0]` stack of
+/// four `h/4` isotropic plies differ from the single `h` layer it is physically
+/// identical to (measured 3.434% on the assembled K trace).
 ///
-///   rho [kg/m³] = mass_per_area [kg/m²] / h [m]
-///
-/// so that `rho * h = mass_per_area` recovers the correct surface density.
-fn material_rho(mat: &MaterialSpec, h: f64) -> f64 {
+/// The element's own constructor derives the isotropic value; this overwrites it
+/// with what the material reports, so the element has ONE input convention.
+fn mitc4_uncorrected_shear(
+    mat: &MaterialSpec,
+    constitutive: &crate::materials::ShellConstitutive,
+) -> nalgebra::Matrix2<f64> {
+    match mat {
+        MaterialSpec::Isotropic {
+            shear_correction, ..
+        } => constitutive.transverse_shear_uncorrected(*shear_correction),
+        MaterialSpec::Composite { cs_uncorrected, .. } => nalgebra::Matrix2::new(
+            cs_uncorrected[0],
+            cs_uncorrected[1],
+            cs_uncorrected[2],
+            cs_uncorrected[3],
+        ),
+        _ => panic!("MITC4 element requires Isotropic or Composite MaterialSpec"),
+    }
+}
+
+/// Sum of the two triangle areas of the quad `(0,1,2)` + `(0,2,3)`, the
+/// element's mid-surface area used to weight the mesh-consistent director
+/// average and the elemental mass.
+fn quad_area_3d(p: &[[f64; 3]; 4]) -> f64 {
+    let v = |i: usize| Vector3::new(p[i][0], p[i][1], p[i][2]);
+    let (p0, p1, p2, p3) = (v(0), v(1), v(2), v(3));
+    let a1 = 0.5 * (p1 - p0).cross(&(p2 - p0)).norm();
+    let a2 = 0.5 * (p2 - p0).cross(&(p3 - p0)).norm();
+    a1 + a2
+}
+
+/// Mesh-consistent nodal directors (ADR-4 option A) for every MITC4 /
+/// MITC4Composite element: the area-weighted mean of the adjacent elements'
+/// element-local `V_n^a`, normalised per global node. Non-shell nodes get the
+/// flat fallback `[0, 0, 1]`.
+fn mitc4_nodal_directors(
+    topology: &MeshTopology,
+    materials: &[MaterialSpec],
+) -> Vec<Vector3<f64>> {
+    let mut acc = vec![Vector3::zeros(); topology.n_nodes];
+    for e in 0..topology.n_elems {
+        if !matches!(
+            topology.elem_types[e],
+            ElemType::Mitc4 | ElemType::Mitc4Composite
+        ) {
+            continue;
+        }
+        let coords = topology.elem_coords(e);
+        let mut c12 = [0.0f64; 12];
+        c12.copy_from_slice(&coords);
+        let (constitutive, thickness, applied_shear_correction) =
+            build_constitutive_mitc4(&materials[e]);
+        let pre = Mitc4Precomputed::new(
+            &c12,
+            constitutive,
+            thickness,
+            applied_shear_correction,
+        );
+        let area = quad_area_3d(&pre.initial_coords_3d);
+        for (a, &node) in topology.connectivity[e].iter().enumerate() {
+            acc[node] += area * pre.vn[a];
+        }
+    }
+    acc.into_iter()
+        .map(|v| {
+            let n = v.norm();
+            if n > 1e-30 {
+                v / n
+            } else {
+                Vector3::new(0.0, 0.0, 1.0)
+            }
+        })
+        .collect()
+}
+
+fn material_rho(mat: &MaterialSpec) -> f64 {
     match mat {
         MaterialSpec::Isotropic { rho, .. } => *rho,
-        MaterialSpec::Composite { mass_per_area, .. } => mass_per_area / h,
+        MaterialSpec::Composite { mass_per_area, .. } => *mass_per_area,
         MaterialSpec::PlaneStress { rho, .. } => *rho,
-        MaterialSpec::Solid3D { rho, .. } => *rho,
+    }
+}
+
+/// One-shot warning for the non-shell fallback in `assemble_kt_corotational`.
+fn warn_non_shell_corotational_fallback(flag: &std::sync::atomic::AtomicBool) {
+    if !flag.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        eprintln!(
+            "[aeroelast-core] assemble_kt_corotational: non-shell elements found; \
+             falling back to the linear element tangent"
+        );
     }
 }
 
@@ -1759,22 +1424,6 @@ fn plane_stress_rho_h(mat: &MaterialSpec) -> (f64, f64) {
         MaterialSpec::PlaneStress { rho, thickness, .. } => (*rho, *thickness),
         MaterialSpec::Isotropic { rho, thickness, .. } => (*rho, *thickness),
         _ => panic!("QUAD element requires PlaneStress or Isotropic MaterialSpec"),
-    }
-}
-
-fn solid3d_en(mat: &MaterialSpec) -> (f64, f64) {
-    match mat {
-        MaterialSpec::Solid3D { e, nu, .. } => (*e, *nu),
-        MaterialSpec::Isotropic { e, nu, .. } => (*e, *nu),
-        _ => panic!("Solid element requires Solid3D or Isotropic MaterialSpec"),
-    }
-}
-
-fn solid3d_rho(mat: &MaterialSpec) -> f64 {
-    match mat {
-        MaterialSpec::Solid3D { rho, .. } => *rho,
-        MaterialSpec::Isotropic { rho, .. } => *rho,
-        _ => panic!("Solid element requires Solid3D or Isotropic MaterialSpec"),
     }
 }
 
@@ -1795,46 +1444,6 @@ fn nodes3d_to_2d_8(coords: &[f64]) -> [[f64; 2]; 8] {
 fn nodes3d_to_2d_9(coords: &[f64]) -> [[f64; 2]; 9] {
     let mut c = [[0.0f64; 2]; 9];
     for n in 0..9 { c[n][0] = coords[3*n]; c[n][1] = coords[3*n+1]; }
-    c
-}
-fn coords_to_3d_4(coords: &[f64]) -> [[f64; 3]; 4] {
-    let mut c = [[0.0f64; 3]; 4];
-    for n in 0..4 { c[n].copy_from_slice(&coords[3*n..3*n+3]); }
-    c
-}
-fn coords_to_3d_5(coords: &[f64]) -> [[f64; 3]; 5] {
-    let mut c = [[0.0f64; 3]; 5];
-    for n in 0..5 { c[n].copy_from_slice(&coords[3*n..3*n+3]); }
-    c
-}
-fn coords_to_3d_6(coords: &[f64]) -> [[f64; 3]; 6] {
-    let mut c = [[0.0f64; 3]; 6];
-    for n in 0..6 { c[n].copy_from_slice(&coords[3*n..3*n+3]); }
-    c
-}
-fn coords_to_3d_8(coords: &[f64]) -> [[f64; 3]; 8] {
-    let mut c = [[0.0f64; 3]; 8];
-    for n in 0..8 { c[n].copy_from_slice(&coords[3*n..3*n+3]); }
-    c
-}
-fn coords_to_3d_10(coords: &[f64]) -> [[f64; 3]; 10] {
-    let mut c = [[0.0f64; 3]; 10];
-    for n in 0..10 { c[n].copy_from_slice(&coords[3*n..3*n+3]); }
-    c
-}
-fn coords_to_3d_13(coords: &[f64]) -> [[f64; 3]; 13] {
-    let mut c = [[0.0f64; 3]; 13];
-    for n in 0..13 { c[n].copy_from_slice(&coords[3*n..3*n+3]); }
-    c
-}
-fn coords_to_3d_15(coords: &[f64]) -> [[f64; 3]; 15] {
-    let mut c = [[0.0f64; 3]; 15];
-    for n in 0..15 { c[n].copy_from_slice(&coords[3*n..3*n+3]); }
-    c
-}
-fn coords_to_3d_20(coords: &[f64]) -> [[f64; 3]; 20] {
-    let mut c = [[0.0f64; 3]; 20];
-    for n in 0..20 { c[n].copy_from_slice(&coords[3*n..3*n+3]); }
     c
 }
 
@@ -2030,123 +1639,6 @@ mod tests {
         }
     }
 
-    // ── tensile_part_membrane: positive-part spectral filter ─────────────────
-
-    fn approx_eq(a: f64, b: f64, tol: f64) -> bool {
-        (a - b).abs() <= tol
-    }
-
-    #[test]
-    fn test_tensile_filter_zero() {
-        let f = tensile_part_membrane([0.0, 0.0, 0.0]);
-        assert_eq!(f, [0.0, 0.0, 0.0]);
-    }
-
-    #[test]
-    fn test_tensile_filter_pure_tensile_isotropic() {
-        // σ_xx = σ_yy > 0, σ_xy = 0 → both principals positive and equal.
-        // Filter must be a no-op.
-        let s = [5.0e6, 5.0e6, 0.0];
-        let f = tensile_part_membrane(s);
-        for i in 0..3 {
-            assert!(approx_eq(f[i], s[i], 1e-9 * 5e6), "isotropic tensile modified");
-        }
-    }
-
-    #[test]
-    fn test_tensile_filter_pure_tensile_biaxial_with_shear() {
-        // σ_xx = 1e6, σ_yy = 5e5, σ_xy = 2e5 → both principals positive.
-        // trace = 1.5e6, det = 5e11 - 4e10 = 4.6e11, both eigenvalues > 0.
-        let s = [1.0e6, 0.5e6, 0.2e6];
-        let f = tensile_part_membrane(s);
-        for i in 0..3 {
-            assert!(approx_eq(f[i], s[i], 1e-9 * 1e6), "tensile biaxial modified");
-        }
-    }
-
-    #[test]
-    fn test_tensile_filter_pure_compressive() {
-        // Both principals negative → zero contribution.
-        let s = [-1.0e6, -5.0e5, 1.0e5];
-        let f = tensile_part_membrane(s);
-        for i in 0..3 {
-            assert!(f[i].abs() < 1e-9 * 1e6, "compressive case not zeroed: {f:?}");
-        }
-    }
-
-    #[test]
-    fn test_tensile_filter_mixed_diagonal() {
-        // Already-diagonal mixed state σ = diag(10, -2). Tensile principal is 10,
-        // aligned with x-axis → filtered tensor is diag(10, 0).
-        let s = [10.0, -2.0, 0.0];
-        let f = tensile_part_membrane(s);
-        assert!(approx_eq(f[0], 10.0, 1e-12));
-        assert!(approx_eq(f[1], 0.0, 1e-12));
-        assert!(approx_eq(f[2], 0.0, 1e-12));
-    }
-
-    #[test]
-    fn test_tensile_filter_mixed_off_diagonal() {
-        // σ = [[5, 6],[6, 5]] → eigenvalues 11 and -1, eigenvectors at ±45°.
-        // Tensile part: 11 · (1/√2, 1/√2)·(1/√2, 1/√2)ᵀ = [[5.5, 5.5],[5.5, 5.5]]
-        let s = [5.0, 5.0, 6.0];
-        let f = tensile_part_membrane(s);
-        assert!(approx_eq(f[0], 5.5, 1e-10));
-        assert!(approx_eq(f[1], 5.5, 1e-10));
-        assert!(approx_eq(f[2], 5.5, 1e-10));
-    }
-
-    #[test]
-    fn test_tensile_filter_output_is_psd() {
-        // For any input, the filtered tensor must be positive semi-definite:
-        // trace ≥ 0 AND det ≥ 0. Sweep a range of mixed states.
-        let cases = [
-            [10.0, -1.0, 2.0],
-            [-5.0, 8.0, 3.0],
-            [1.0, -4.0, 5.0],
-            [-3.0, -7.0, 1.0],   // pure compressive
-            [2.0, 3.0, 0.5],     // pure tensile
-            [0.0, 0.0, 1.0],     // trace zero, off-diagonal nonzero (eigenvalues ±1)
-        ];
-        for s in cases.iter() {
-            let f = tensile_part_membrane(*s);
-            let tr = f[0] + f[1];
-            let det = f[0] * f[1] - f[2] * f[2];
-            assert!(tr >= -1e-10, "filtered trace negative for {s:?}: {tr}");
-            assert!(det >= -1e-10, "filtered det negative for {s:?}: {det}");
-        }
-    }
-
-    #[test]
-    fn test_tensile_filter_preserves_pure_tensile_trace() {
-        // For an input that is already PSD, trace is preserved exactly.
-        let cases = [
-            [3.0, 5.0, 1.5],
-            [1.0e6, 2.0e6, 5.0e5],
-            [0.0, 7.0, 0.0],
-        ];
-        for s in cases.iter() {
-            let f = tensile_part_membrane(*s);
-            let tr_s = s[0] + s[1];
-            let tr_f = f[0] + f[1];
-            assert!(
-                approx_eq(tr_s, tr_f, 1e-10 * tr_s.abs().max(1.0)),
-                "trace not preserved for tensile input {s:?}: {tr_s} → {tr_f}"
-            );
-        }
-    }
-
-    #[test]
-    fn test_assemble_geometric_k_compressive_input_yields_zero() {
-        // Verify integration: feeding a fully compressive stress field through
-        // assemble_geometric_k produces zero K_G (filtered out).
-        let asm = two_tri_assembler();
-        let sigma = vec![[-1.0e6f64, -5.0e5, 1.0e5]; 2];
-        let (_, _, vals) = asm.assemble_geometric_k(&sigma);
-        let norm: f64 = vals.iter().map(|v| v * v).sum::<f64>().sqrt();
-        assert!(norm < 1e-6, "compressive stress should be filtered out, got ||K_G||={norm:e}");
-    }
-
     #[test]
     fn test_assemble_kt_linear_matches_k_at_zero() {
         let asm = two_tri_assembler();
@@ -2158,97 +1650,6 @@ mod tests {
         assert_eq!(vals_k.len(), vals_kt.len(), "K and KT should have same entries at u=0");
         for (v1, v2) in vals_k.iter().zip(vals_kt.iter()) {
             assert!((v1 - v2).abs() < 1e-6 * v1.abs().max(1.0), "K and KT differ at zero disp");
-        }
-    }
-
-    #[test]
-    fn test_assemble_kt_corotational_matches_kt_for_mitc3_zero_u() {
-        let asm = two_tri_assembler();
-        let u = vec![0.0f64; asm.dofs_count];
-        let (_, _, vals_kt) = asm.assemble_kt(&u);
-        let (_, _, vals_coro) = asm.assemble_kt_corotational(&u);
-        assert_eq!(vals_kt.len(), vals_coro.len());
-        for (a, b) in vals_kt.iter().zip(vals_coro.iter()) {
-            assert!((a - b).abs() < 1e-9 * a.abs().max(1.0));
-        }
-    }
-
-    #[test]
-    fn test_assemble_kt_corotational_matches_kt_for_single_mitc4_zero_u() {
-        let node_coords = vec![
-            0.0, 0.0, 0.0,
-            1.0, 0.0, 0.0,
-            1.0, 1.0, 0.0,
-            0.0, 1.0, 0.0,
-        ];
-        let connectivity = vec![vec![0usize, 1, 2, 3]];
-        let elem_types = vec![ElemType::Mitc4];
-        let topology = MeshTopology::new(node_coords, connectivity, elem_types);
-        let mat = MaterialSpec::Isotropic {
-            e: 2.0e11,
-            nu: 0.3,
-            rho: 7800.0,
-            thickness: 0.01,
-            shear_correction: 5.0 / 6.0,
-            drilling_scale: 1.0,
-        };
-        let asm = MeshAssembler::new(topology, vec![mat]);
-
-        let u = vec![0.0f64; asm.dofs_count];
-        let (_, _, vals_kt) = asm.assemble_kt(&u);
-        let (_, _, vals_coro) = asm.assemble_kt_corotational(&u);
-        assert_eq!(vals_kt.len(), vals_coro.len());
-        for (a, b) in vals_kt.iter().zip(vals_coro.iter()) {
-            assert!((a - b).abs() < 1e-9 * a.abs().max(1.0));
-        }
-    }
-
-    #[test]
-    fn test_assemble_kt_corotational_mixed_mitc3_mitc4_linear_sum_at_zero() {
-        let node_coords = vec![
-            0.0, 0.0, 0.0, // 0
-            1.0, 0.0, 0.0, // 1
-            1.0, 1.0, 0.0, // 2
-            0.0, 1.0, 0.0, // 3
-            2.0, 0.0, 0.0, // 4
-        ];
-        let connectivity = vec![
-            vec![0usize, 1, 2, 3], // MITC4
-            vec![1usize, 4, 2],    // MITC3
-        ];
-        let elem_types = vec![ElemType::Mitc4, ElemType::Mitc3];
-        let topology = MeshTopology::new(node_coords, connectivity, elem_types);
-        let mat = MaterialSpec::Isotropic {
-            e: 2.0e11,
-            nu: 0.3,
-            rho: 7800.0,
-            thickness: 0.01,
-            shear_correction: 5.0 / 6.0,
-            drilling_scale: 1.0,
-        };
-        let asm = MeshAssembler::new(topology, vec![mat.clone(), mat]);
-
-        let u = vec![0.0f64; asm.dofs_count];
-        let (_, _, vals_kt) = asm.assemble_kt(&u);
-        let (_, _, vals_coro) = asm.assemble_kt_corotational(&u);
-        assert_eq!(vals_kt.len(), vals_coro.len());
-        for (a, b) in vals_kt.iter().zip(vals_coro.iter()) {
-            assert!((a - b).abs() < 1e-8 * a.abs().max(1.0));
-        }
-    }
-
-    #[test]
-    fn test_assemble_kt_backward_compatibility_unchanged() {
-        let asm = two_tri_assembler();
-        let mut u = vec![0.0f64; asm.dofs_count];
-        for i in 0..asm.dofs_count {
-            u[i] = ((i as f64) * 1e-6).sin() * 1e-4;
-        }
-        let (_, _, vals_before) = asm.assemble_kt(&u);
-        let (_, _, vals_after) = asm.assemble_kt(&u);
-        assert_eq!(vals_before.len(), vals_after.len());
-        for (a, b) in vals_before.iter().zip(vals_after.iter()) {
-            assert_eq!(a, b);
         }
     }
 

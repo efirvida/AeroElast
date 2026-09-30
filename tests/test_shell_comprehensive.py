@@ -171,11 +171,13 @@ class AnalyticalReferences:
                 * a**4
                 * (4 * a**2 / (np.pi**6 * D))
                 * (
-                    np.sum([
-                        (-1) ** (m + n) / (m * n * (m**2 + n**2 * a**2 / b**2) ** 3)
-                        for m in [1, 3]
-                        for n in [1, 3]
-                    ])
+                    np.sum(
+                        [
+                            (-1) ** (m + n) / (m * n * (m**2 + n**2 * a**2 / b**2) ** 3)
+                            for m in [1, 3]
+                            for n in [1, 3]
+                        ]
+                    )
                 )
             )
 
@@ -395,8 +397,9 @@ class TestLinearStaticCantilever:
 
         print(f"\nLinear FX: FEM={ux:.3e}, Ana={ana:.3e}, Error={error:.1f}%")
 
-        # Should match within 10%
-        assert error < 5.0, f"FY error {error:.1f}% too large"
+        # The comment said "within 10%" over an enforced 5%, and the message
+        # named FY inside the FX test.  `error` is already a percentage.
+        assert error < 5.0, f"FX error {error:.1f}% too large"
 
     def test_fy_in_plane(self):
         """FY: In-plane loading (shear/membrane combination)."""
@@ -661,7 +664,6 @@ class TestModalAnalysis:
     def test_higher_modes(self):
         """Validate higher modes."""
         L, b, h = 1.0, 0.1, 0.001
-        E, nu, rho = 2.1e11, 0.3, 7800.0
 
         mesh = build_cantilever_mesh(L=L, b=b)
         prop = ShellProperty(material=STEEL, thickness=h)
@@ -695,7 +697,6 @@ class TestModalAnalysis:
 
 
 if __name__ == "__main__":
-    import sys
 
     test_classes = [
         TestLinearStaticCantilever,

@@ -34,45 +34,22 @@ __all__ = ["plot_mesh", "plot_results"]
 
 
 # Mapping from node count to VTK cell type
-# Supports both 2D surface elements and 3D volumetric elements
 ELEMENTS_NODES_TO_VTK = {
     # 2D Surface elements
     3: CellType.TRIANGLE,
-    4: CellType.QUAD,  # Default for 4 nodes (use SOLID_ELEMENTS_NODES_TO_VTK for tetra)
+    4: CellType.QUAD,  # Default for 4 nodes
     6: CellType.QUADRATIC_TRIANGLE,
     8: CellType.QUADRATIC_QUAD,
     9: CellType.LAGRANGE_QUADRILATERAL,
-}
-
-# Mapping for 3D volumetric elements (use when element family is SOLID)
-SOLID_ELEMENTS_NODES_TO_VTK = {
-    4: CellType.TETRA,
-    5: CellType.PYRAMID,
-    6: CellType.WEDGE,
-    8: CellType.HEXAHEDRON,
-    10: CellType.QUADRATIC_TETRA,
-    13: CellType.QUADRATIC_PYRAMID,
-    15: CellType.QUADRATIC_WEDGE,
-    20: CellType.QUADRATIC_HEXAHEDRON,
-    27: CellType.TRIQUADRATIC_HEXAHEDRON,
 }
 
 # Conversion from Gmsh node ordering to VTK ordering per element type.
 # For common linear elements, Gmsh and VTK often align. Define explicitly
 # so we can adjust in the future if needed or for quadratic elements.
 GMESH_TO_VTK_ORDER = {
-    ElementType.tetra: [0, 1, 2, 3],
-    ElementType.hexahedron: [0, 1, 2, 3, 4, 5, 6, 7],
-    ElementType.wedge: [0, 1, 2, 3, 4, 5],  # prism
-    ElementType.pyramid: [0, 1, 2, 3, 4],
     ElementType.triangle: [0, 1, 2],
     ElementType.quad: [0, 1, 2, 3],
     # Quadratic elements (placeholders; update if needed)
-    ElementType.tetra10: list(range(10)),
-    ElementType.hexahedron20: list(range(20)),
-    ElementType.hexahedron27: list(range(27)),
-    ElementType.wedge15: list(range(15)),
-    ElementType.pyramid13: list(range(13)),
     ElementType.triangle6: list(range(6)),
     ElementType.quad8: list(range(8)),
     ElementType.quad9: list(range(9)),
@@ -100,7 +77,7 @@ def _to_vtk_order(element) -> list[int]:
     return [node_ids[i] for i in order]
 
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # noqa: E402
 
 
 class BladeGeometryVisualizer:
@@ -213,7 +190,7 @@ class BladeGeometryVisualizer:
         airfoil_ids = [airfoil_id_map[ref] for ref in airfoil_refs]
 
         # Create scatter plot with text annotations
-        scatter = ax.scatter(
+        ax.scatter(
             span_positions, airfoil_ids, c=airfoil_ids, cmap="tab20", s=100, edgecolor="k", zorder=3
         )
 
@@ -889,23 +866,8 @@ class MeshViewer(QWidget):
         for element in visible_elements:
             if element:
                 # Determine VTK cell type using explicit element type
-                et = element.element_type
                 n = len(element.node_ids)
-                # Choose appropriate family mapping
-                if et in (
-                    ElementType.tetra,
-                    ElementType.tetra10,
-                    ElementType.hexahedron,
-                    ElementType.hexahedron20,
-                    ElementType.hexahedron27,
-                    ElementType.wedge,
-                    ElementType.wedge15,
-                    ElementType.pyramid,
-                    ElementType.pyramid13,
-                ):
-                    vtk_type = SOLID_ELEMENTS_NODES_TO_VTK.get(n)
-                else:
-                    vtk_type = ELEMENTS_NODES_TO_VTK.get(n)
+                vtk_type = ELEMENTS_NODES_TO_VTK.get(n)
 
                 if vtk_type is None:
                     # Skip unknown elements gracefully
@@ -950,22 +912,8 @@ class MeshViewer(QWidget):
         node_id_to_index = self.mesh.node_id_to_index
         for element in self.mesh.elements:
             if element and element.id in element_set_map:
-                et = element.element_type
                 n = len(element.node_ids)
-                if et in (
-                    ElementType.tetra,
-                    ElementType.tetra10,
-                    ElementType.hexahedron,
-                    ElementType.hexahedron20,
-                    ElementType.hexahedron27,
-                    ElementType.wedge,
-                    ElementType.wedge15,
-                    ElementType.pyramid,
-                    ElementType.pyramid13,
-                ):
-                    vtk_type = SOLID_ELEMENTS_NODES_TO_VTK.get(n)
-                else:
-                    vtk_type = ELEMENTS_NODES_TO_VTK.get(n)
+                vtk_type = ELEMENTS_NODES_TO_VTK.get(n)
                 if vtk_type is None:
                     continue
                 vtk_node_ids = _to_vtk_order(element)
