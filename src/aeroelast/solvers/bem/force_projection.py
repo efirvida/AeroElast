@@ -108,6 +108,7 @@ class ForceProjector:
 
         coords = mesh.coords_array  # (N, 3)
         n_nodes = coords.shape[0]
+        hub_r = hub_radius if hub_radius is not None else blade_aero.hub_radius
 
         # Span coordinate for every mesh node (distance along the span
         # direction, in the blade-local frame where the root is at 0).

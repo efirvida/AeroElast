@@ -109,7 +109,7 @@ def _run_ccx(inp_path: Path, ccx_bin: str) -> subprocess.CompletedProcess:
     not leak the process working directory into the rest of the suite (a raw
     chdir here used to break every later file-relative test).
     """
-    result = subprocess.run(
+    return subprocess.run(
         [ccx_bin, inp_path.stem],
         cwd=inp_path.parent,
         capture_output=True,

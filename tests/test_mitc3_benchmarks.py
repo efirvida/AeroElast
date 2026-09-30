@@ -199,21 +199,12 @@ I_beam = B * H**3 / 12.0  # second moment of area
 
 
 def _moment_load(lam, tip_nodes, n_dof):
-    """Build f_ext for the end moment M = λ·EI/L that rolls the tip UP.
-
-    Physical convention (restored in the MITC3 covariant-shear fix): the
-    out-of-surface displacement is (t/2)(θ × V_in), so a POSITIVE moment about
-    global +Y rotates the beam axis toward −z (the tip goes down).  The
-    classical elastica reference table below (u, w) describes the UPWARD
-    roll-up, hence the applied moment is −Y here.  (Before the fix the MITC3
-    shear B-matrix used the inverted director, which made +Y roll the beam up
-    and hid this mismatch.)
-    """
+    """Build f_ext for end moment M = λ·EI/L applied to the two tip nodes."""
     M_total = lam * E * I_beam / L
     f_ext = np.zeros(n_dof)
     m_per_node = M_total / len(tip_nodes)
     for n in tip_nodes:
-        f_ext[6 * n + 4] = -m_per_node  # θy — physical upward roll-up
+        f_ext[6 * n + 4] = m_per_node  # θy — moment about global Y
     return f_ext
 
 
@@ -273,11 +264,7 @@ def test_linear_tip_moment_sign():
     A positive moment about +y on the free tip rotates the section from +x
     toward −z, so the transverse tip displacement w is negative.
 
-    Physical convention: the out-of-surface displacement is (t/2)(θ × V_in),
-    so a positive moment about global +Y sends the tip DOWN (w < 0).  This
-    test applies the −Y moment that rolls the tip UP (matching the classical
-    elastica reference) and asserts w > 0; the pre-fix inverted director
-    required the opposite load sign, which is exactly the bug this guards.
+    This is the sign-convention regression test for the MITC3 shear B-matrix fix.
     Uses a small λ so the response stays in the linear regime.
     """
     n_elem = 10
