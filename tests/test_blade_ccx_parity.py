@@ -41,9 +41,16 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from _aeroelast import PyMeshAssembler  # noqa: E402
 
 from aeroelast.core.mesh.entities import NodeSet  # noqa: E402
-from aeroelast.core.mesh.generators import BladeMesh  # noqa: E402
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
-from aeroelast.models.blade.model import build_rust_properties  # noqa: E402
+from aeroelast.models.blade.model import Blade  # noqa: E402
+
+# Upstream's pipeline helpers: the property objects and the span direction the
+# assembler needs are produced once, in test_blade_iea15mw_validation, and
+# reused here so the two blade-vs-CalculiX comparisons cannot drift apart.
+from test_blade_iea15mw_validation import (  # noqa: E402
+    SPAN_DIRECTION,
+    _to_rust_mesh,
+)
 
 from _ccx_io import fail_ccx, run_ccx  # noqa: E402
 
@@ -72,69 +79,38 @@ CASES = {
 
 
 def _blade():
-    gen = BladeMesh(element_size=ELEMENT_SIZE, yaml_file=str(BLADE_YAML))
-    mesh = gen.generate(renumber="rcm", verbose=False)
-    props = build_rust_properties(gen.numad_mesh_data)
+    """Mesh and properties through upstream's pipeline.
 
+    The earlier version built them by hand (`BladeMesh` + `build_rust_properties`
+    + a hand-assembled ABD dict).  That dict was not the problem, but the direct
+    `PyMeshAssembler(...)` constructor has no `span_direction` argument, so the
+    element ply angles were read as element-local instead of span-relative.  Flap
+    is insensitive to that (7.934 m either way) and edge is not: the edgewise
+    stiffness came out 2.7x too high (1.229 m against 3.272 m with the span
+    direction, and 3.450 m for CalculiX).  `Blade` + `get_element_properties()`
+    + `from_model(..., SPAN_DIRECTION, ...)` is the path that carries it.
+    """
+    blade_model = Blade(str(BLADE_YAML), element_size=ELEMENT_SIZE)
+    blade_model.generate_mesh()
+    mesh = blade_model.mesh
+    props = blade_model.get_element_properties()
     coords = np.asarray([[n.x, n.y, n.z] for n in mesh.nodes], dtype=float)
-    tip_nodes = set(np.nonzero(coords[:, 2] > coords[:, 2].max() - 1e-6)[0])
-    # The writer wants a named set; the blade mesh only ships RootNodes and
-    # the two surface sets.
-    mesh.add_node_set(
-        NodeSet("tip", {mesh.nodes[int(i)] for i in tip_nodes})
+    tip = np.setdiff1d(
+        np.nonzero(coords[:, 2] > coords[:, 2].max() - 1e-6)[0],
+        np.array([], dtype=int),
     )
+    mesh.add_node_set(NodeSet("tip", {mesh.nodes[int(i)] for i in tip}))
     return mesh, props, coords
 
 
 def _aero_solve(mesh, props, load, torque=None) -> np.ndarray:
-    coords = np.asarray([[n.x, n.y, n.z] for n in mesh.nodes], dtype=float)
-    conn = [[mesh.node_id_to_index[nid] for nid in el.node_ids] for el in mesh.elements]
-    # The blade mesh is mixed: quads -> MITC4 (type 4), triangles -> MITC3 (3).
-    elem_types = [len(c) for c in conn]
-    # Element -> property mapping.  The blade ships 674 element sets and 672
-    # laminates; without this every element would take the first laminate and
-    # the comparison would be meaningless.
-    elem_key: dict[int, str] = {}
-    for set_name, elset in mesh.element_sets.items():
-        for el in elset.elements:
-            elem_key[id(el)] = set_name
-    default_prop = next(iter(props.values()))
+    """Clamped static solve on the blade, through `PyMeshAssembler.from_model`.
 
-    # Two consumers, two shapes: the CCX writer takes the Rust `Laminate`
-    # objects straight from build_rust_properties, but PyMeshAssembler wants
-    # the flat ABD dict.  Convert once per distinct laminate.
-    flat_cache: dict[int, dict] = {}
-
-    def _val(x):
-        """Rust bindings expose some of these as methods, some as getters."""
-        return x() if callable(x) else x
-
-    def _flat(lam) -> dict:
-        key = id(lam)
-        if key not in flat_cache:
-            # Rust Laminate API: abd_matrix (6x6 [[A,B],[B,D]]), cs_matrix.
-            ABD = np.asarray(_val(lam.abd_matrix), dtype=float)
-            A, Bm, D = ABD[:3, :3], ABD[:3, 3:], ABD[3:, 3:]
-            h = float(_val(lam.total_thickness))
-            cs = np.asarray(_val(lam.cs_matrix), dtype=float).ravel()
-            flat_cache[key] = {
-                "type": "composite",
-                "cm": A.ravel().tolist(),
-                "b_coupling": Bm.ravel().tolist(),
-                "cb": D.ravel().tolist(),
-                "cs": cs.tolist(),
-                "thickness": h,
-                "e_equiv": A[0, 0] / h,
-                "mass_per_area": 0.0,
-                "rotational_inertia": 0.0,
-            }
-        return flat_cache[key]
-
-    mat_list = [_flat(props.get(elem_key.get(id(el)), default_prop)) for el in mesh.elements]
-    asm = PyMeshAssembler(
-        node_coords=coords, connectivity=conn,
-        elem_types=elem_types, materials=mat_list,
-    )
+    `from_model` is what carries the span direction into the element ply angles;
+    the direct constructor cannot.  Everything else is the same clamped solve the
+    earlier version used.
+    """
+    asm = PyMeshAssembler.from_model(_to_rust_mesh(mesh, props), props, list(SPAN_DIRECTION), None)
     rows, cols, vals = asm.assemble_k()
     K = coo_matrix((vals, (rows, cols)), shape=(asm.dofs_count, asm.dofs_count)).tocsr()
 
