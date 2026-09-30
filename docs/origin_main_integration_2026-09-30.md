@@ -208,6 +208,44 @@ The stronger evidence sits in upstream's own suite: on this tree
 all five modal frequencies against CCX S8R (11 passed, 7 xfailed by declared
 limits).  The blade pipeline and the element are verified there.
 
+### D-ter. Blade vs CalculiX: the two formulations do converge to the same value
+
+MITC4 (linear) and S8R (quadratic) are different formulations, so a fixed-mesh gap
+says nothing on its own.  `tools/blade_ccx_convergence.py` refines the mesh and
+feeds both sides the same one:
+
+| element_size | nodes | flap | edge | axial |
+|---|---|---|---|---|
+| 2.0 | 1 460 | 10.56% | 11.60% | 12.43% |
+| 1.0 | 3 043 | 6.22% | 5.15% | 7.43% |
+| 0.5 | 9 277 | **3.68%** | **1.56%** | **4.90%** |
+
+The gap shrinks monotonically for every load case, so the residual is
+discretisation and not a model difference.  Recorded caveat: the metric is the mean
+over the tip nodes and moves with the tip node distribution (flap reads 7.55 / 7.94
+/ 7.12 m across the three meshes), so the trend of the gap is the signal; a
+mesh-independent version compares the work done by the load.
+
+### D-quater. `tip_edge`: our test omitted the span direction (resolved)
+
+`tip_edge` was the last red case at 64%, while flap matched to 6%.  The cause was
+this test's AeroElast side: it built the assembler with the direct
+`PyMeshAssembler(...)` constructor, which has **no `span_direction` argument**, so
+the element ply angles were read as element-local instead of span-relative.  Flap
+is insensitive to that; edge is not:
+
+```
+flap  mine (no span dir) 7.934 m | from_model(span dir) 7.942 m | CCX 8.469 m
+edge  mine (no span dir) 1.229 m | from_model(span dir) 3.272 m | CCX 3.450 m
+```
+
+The edgewise stiffness came out **2.7x too high** without it, which confirms that
+`9de3731` ("supply the span direction so ply angles are span-relative") is
+load-bearing and names the failure mode when it is omitted.  The test now runs both
+sides through upstream's pipeline (`Blade` + `get_element_properties()` +
+`from_model(..., SPAN_DIRECTION, ...)`); all four cases pass: flap 6.22%, edge 5.15%,
+axial tension and compression 7.43%.
+
 ### C. A deliberate semantic change
 
 `assemble_kt_corotational`'s MITC4 path now uses upstream's total-Lagrangian tangent

@@ -20,10 +20,21 @@ All are static, so both solvers see identical inputs.  Rotation itself
 step for that and it is a separate, heavier comparison.
 
 CalculiX only supports *SHELL SECTION, COMPOSITE with quadratic elements, so
-the export uses quadratic=True (S8R).  Our side is linear MITC4, so a few
-percent of discretisation gap is expected -- the deflection tolerance reflects
-that; the twist tolerance is tighter because the coupling is what is under
-test.
+the export uses quadratic=True (S8R).  Our side is linear MITC4, so a gap between
+the two is expected on a fixed mesh and means nothing on its own: it could be
+discretisation or a model difference.  The two formulations are compared across
+refinements instead, with `tools/blade_ccx_convergence.py`, and they do tend to
+the same value -- the gap at a fixed mesh is discretisation:
+
+    element_size  nodes   flap      edge      axial
+    2.0            1460   10.56%    11.60%    12.43%
+    1.0            3043    6.22%     5.15%     7.43%
+    0.5            9277    3.68%     1.56%     4.90%
+
+The 20% band below is therefore a coarse-mesh band; the converged agreement is a
+few percent.  Caveat recorded with the table: the metric here is the mean over
+the tip nodes, which moves with the tip node distribution (flap reads 7.55 /
+7.94 / 7.12 m across the three meshes), so the trend of the gap is the signal.
 """
 
 from __future__ import annotations
