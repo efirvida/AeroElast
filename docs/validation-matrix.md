@@ -452,7 +452,7 @@ Structural notes on this module:
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
 | `test_in_plane_bending_convergence` | observed order of the MITC4 in-plane tip displacement over 4 meshes, by Richardson self-convergence, plus the extrapolated limit | analytical `P L^3/(3 E I)` with `I = t B^3/12`; the Timoshenko-vs-Euler-Bernoulli shear floor is derived in the comment (9.6 um on 1230 um ≈ 0.8%) | `MIN_ORDER = 1.5` and `EXTRAPOLATED_TOL = 0.02`, both justified in the module docstring | orders 1.7314 and 1.7561 (agree, delta = 0.0247); Richardson limit 1238.1367 um vs 1230.7692 um = 0.5986% | the strongest tolerance justification in the suite; the raw pairwise orders (2.865, 0.164, -0.703) are printed and explicitly not asserted |
-| `test_composite_laminate_gap_mesh_study` | whether the AeroElast-vs-CCX laminate gap shrinks (mesh artifact) or plateaus (formulation/ABD) | **CCX 2.23, S8R** across 4 meshes; no gap value asserted | none: the only assertions are `np.all(np.isfinite(...))` and `... > 0` | gaps -4.1765 / -1.7137 / -1.3512 / -1.7290%; verdict printed: `PLATEAUS -> formulation / ABD` | an analysis script, not a test: it cannot fail for any formulation. The docstring says "No gap value is asserted yet", so this is deliberate, but it should be read as a measurement, not as coverage |
+| `test_composite_laminate_gap_mesh_study` | whether the AeroElast-vs-CCX laminate gap shrinks (mesh artifact) or plateaus (formulation/ABD) | **CCX 2.23, S8R** across 4 meshes | `LAMINATE_GAP_TOL = 0.05` (all meshes) and `LAMINATE_FINEST_GAP_TOL = 0.02` (finest mesh), both stated in the module | gaps -4.1765 / -1.7137 / -1.3512 / -1.7290%; AeroElast self-orders 1.573 / 1.555; verdict printed: `PLATEAUS -> formulation / ABD` | **RESOLVED** — the measurement is now asserted: AeroElast order `>= 1.5`, every gap `< 5%`, the finest gap `< 2%`, and refinement must not increase the gap. The plateau verdict stays a print, so a future formulation fix that shrinks the gap cannot fail the test |
 
 ### 4.6 `test_ccx_shell_element_types_parity.py` (4)
 
@@ -906,7 +906,7 @@ red, and a green suite does not remove a flag.
 
 | file:line | test | assertion |
 | --- | --- | --- |
-| `test_shell_convergence.py:392-393` | `test_composite_laminate_gap_mesh_study` | `np.all(np.isfinite(aero)) and np.all(aero > 0)` is the entire assertion; the measured gap trend is printed and discarded |
+| `test_shell_convergence.py` | `test_composite_laminate_gap_mesh_study` | **RESOLVED** — now asserts the AeroElast self-convergence order (`>= 1.5`), a 5% bound on every mesh gap, a 2% bound on the finest-mesh gap, and that refinement does not increase the gap |
 | `test_shell_comprehensive.py:609` | `TestNonlinearStaticCantilever::test_large_displacement_tip_load` | `assert abs(dz_lin) > L` on a linear estimate of 1.121e+02 m |
 | `test_shell_validation_fixed.py:280` | `TestNonlinearStatic::test_geometric_nonlinearity` | `assert dz_lin > L`, same value |
 | `test_stress_stiffened_solver.py:256` | `test_stress_field_dict_from_recovery` | `len(stress_field) > 0` where the field is built from a prescribed `u = 5e-3 x` |

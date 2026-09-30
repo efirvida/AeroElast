@@ -234,6 +234,19 @@ def test_in_plane_bending_convergence():
 LAMINATE_MESHES = [(2, 5), (4, 10), (8, 20), (16, 40)]
 _LAMINATE_LOAD_X = 100.0  # N, +X at the free-edge centre node (same as parity test)
 
+# Project honesty bound (docs/validation-matrix.md): any AeroElast-vs-reference
+# structural comparison must stay within 5%.  The coarsest laminate mesh is the
+# binding case here at 4.18%.
+LAMINATE_GAP_TOL = 0.05
+# Tight diagnostic bound on the mesh-independent (finest) comparison.  A 2%
+# bound turns the printed plateau into a real, falsifiable assertion: it
+# localises the residual MITC4+CLT-vs-S8R difference to a bounded band and
+# would fail if the gap regressed.  Measured: 1.729% (bound 2.0%).
+LAMINATE_FINEST_GAP_TOL = 0.02
+# AeroElast's own MITC4+CLT sequence must still converge; observed self-
+# convergence orders are 1.573 and 1.555.
+LAMINATE_MIN_ORDER = 1.5
+
 
 def _laminate_aero_tip_x(parity, nx: int, ny: int) -> float:
     """AeroElast MITC4 + CLT ABD tip displacement (+X) for the laminate."""
@@ -320,7 +333,15 @@ def test_composite_laminate_gap_mesh_study(tmp_path):
     The gap is measured on the SAME 8-ply [0/90/45/-45]s laminate on both
     sides, across four meshes with h halving.  If the gap shrinks toward zero
     with refinement it is a discretization artifact; if it plateaus it is a
-    formulation / ABD-handling difference.  No gap value is asserted yet.
+    formulation / ABD-handling difference.
+
+    The measurement is now an assertion, not a print: AeroElast's own sequence
+    must keep converging (order >= ``LAMINATE_MIN_ORDER``), every mesh gap must
+    stay inside the 5% project bound, the mesh-independent (finest) gap must
+    stay inside the tight 2% diagnostic bound, and refinement must not make the
+    coarse mismatch worse.  The plateau/shrink verdict is printed as the
+    diagnosis that justifies the bound; it is deliberately not asserted, so a
+    future formulation fix that shrinks the gap cannot fail this test.
     """
     ccx_bin = ccx_bin_or_skip()
     # Imported lazily: the parity module owns the laminate construction, and
@@ -391,3 +412,30 @@ def test_composite_laminate_gap_mesh_study(tmp_path):
 
     assert np.all(np.isfinite(aero)) and np.all(aero > 0), "non-physical AeroElast tip"
     assert np.all(np.isfinite(ccx)) and np.all(ccx > 0), "non-physical CalculiX tip"
+
+    min_aero_order = min(aero_orders)
+    assert min_aero_order >= LAMINATE_MIN_ORDER, (
+        f"AeroElast laminate self-convergence order {min_aero_order:.3f} < "
+        f"{LAMINATE_MIN_ORDER}: estimates={[f'{p:.3f}' for p in aero_orders]}"
+    )
+
+    assert np.all(np.abs(gaps) < LAMINATE_GAP_TOL), (
+        f"AeroElast-vs-CalculiX laminate gap exceeds the "
+        f"{LAMINATE_GAP_TOL * 100:.0f}% project bound: "
+        f"{[f'{g * 100:.4f}%' for g in gaps]}"
+    )
+
+    finest_gap = abs(gaps[-1])
+    assert finest_gap < LAMINATE_FINEST_GAP_TOL, (
+        f"finest-mesh AeroElast-vs-CalculiX gap {gaps[-1] * 100:.4f}% exceeds "
+        f"the {LAMINATE_FINEST_GAP_TOL * 100:.1f}% diagnostic bound"
+    )
+
+    # Refinement must not make the coarse-to-fine mismatch worse.  The 4.18%
+    # coarse gap is largely a mesh artifact; the finest gap is the residual.
+    # (Satisfied both when the residual plateaus and when a future fix shrinks
+    # it toward zero.)
+    assert abs(gaps[-1]) < abs(gaps[0]), (
+        f"refinement increased the laminate gap: coarsest {gaps[0] * 100:.4f}% -> "
+        f"finest {gaps[-1] * 100:.4f}%"
+    )
