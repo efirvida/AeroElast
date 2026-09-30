@@ -69,25 +69,44 @@ added its own CalculiX and AeroDyn parity suites (~150 tests, of which some skip
 
 ## What the merge did not fix, and what it moved
 
-### A. One blade-mesh defect blocks every CalculiX parity test (28 tests)
+### A. One blade-mesh defect blocked every CalculiX parity test (28 tests) — **RESOLVED 2026-09-30**
 
-5 `test_blade_ccx_parity` cases + 1 `test_composite_ccx_parity` case + 22 errors in
-upstream's own `test_blade_iea15mw_validation` and `test_ccx_shell_element_types_parity`
-all fail with:
+**Root cause: our own doing, not the element's.**  Commit `e705820` (2026-05-12,
+"default airfoil_spacing to constant to reduce tip element AR") left two workarounds
+in `BladeMesh`, both aimed at the aspect ratio of the *previous* element:
 
-```
-*INFO in gen3dnor: in some nodes opposite normals are defined
-*ERROR in e_c3d: nonpositive jacobian
-       determinant in element        2790
-```
+- `_refine_high_gradient_sections` skipped a refinement when
+  `gap / 2 < element_size * min_ar_ratio` (4.0), leaving the tip coarser;
+- `airfoil_spacing` defaulted to `"constant"` instead of the library's `"cosine"`.
 
-This is **not** caused by the element line: the same blade deck fails with the winding
-canonicalisation disabled (verified), and it failed before the merge too — but before, the
-corrupt id scheme made CalculiX die earlier, so the deck never reached the integration
-stage. The merge turned an invisible defect into a loud one. Element 2790 of the coarse
-blade mesh is degenerate/inverted for the S8R conversion.
+At `element_size = 0.5 m` that produced **9251 nodes where upstream's own test pins
+9277**, and the missing tip refinement left a sliver element CalculiX cannot
+integrate.  Removing both workarounds restores the reference mesh exactly (9277
+nodes) and CalculiX finishes (`Job finished`, no `e_c3d`).  Fixed in `2561aad`.
+
+Recovered: `test_blade_mesh.py` (2 passed), `test_ccx_shell_element_types_parity.py`
+(4 passed, after its element-block assertion was relaxed from a pinned
+`ELSET=Eall` to the emitted TYPE set — this writer names blocks per region so the
+per-set `SHELL SECTION` cards can reference them), upstream's
+`test_blade_iea15mw_validation.py` (10 passed / 8 xfailed, as upstream reports),
+and our five `test_blade_ccx_parity.py` cases now *execute* instead of dying at the
+deck.
+
+Those five are now a measurement, not a blocker: they report 78-89% displacement
+gaps and a +70 deg CCX twist against -4.9 deg for the shell.  That is far outside
+an element tolerance, so the deck the test builds is the suspect, not the element.
+Unresolved.
+
+### A-bis. The structural anchors did not move with the mesh fix
+
+Re-measured after `2561aad`: the eight structural failures are identical, so they
+are element behaviour and not the tip mesh.
 
 ### B. Our validation anchors moved (element-behaviour deltas, need re-baselining)
+
+`origin/main` is fully merged as of `8f3deca` (`5bfa2b2`).  No band was touched:
+per the user's decision each delta gets investigated against an independent
+reference first.
 
 | Anchor | Before | After | Reading |
 |---|---|---|---|
@@ -132,24 +151,17 @@ around the TL tangent.
 
 ## Next steps (decisions needed)
 
-**Open lead on A (added 2026-09-30, after the new upstream commits landed).** Upstream's
-`5bfa2b2` converts ten measured mismatches into documented `pytest.xfail` calls and reports
-"Blade: 10 passed, 8 xfailed" — that is CalculiX **integrating the blade successfully on
-their side**. Since their fixture builds the same model through the same `Blade` wrapper
-over `BladeMesh`, the element-2790 failure is probably ours, not the element's. One
-isolated run of the merged `generators.py` produces a blade-local mesh (`span = 117.000 m`,
-3 028 nodes, 3 333 elements) whose S8R conversion still trips `e_c3d`; the reverse isolation
-(taking upstream's `generators.py` wholesale) was inconclusive on the first attempt and
-has to be redone. **Do this before blaming the element.**
-
-1. **Blade mesh element 2790**: find the degenerate element and fix the generator or the
-   S8R conversion. This unblocks 28 tests, including all of upstream's CalculiX parity.
+1. ~~**Blade mesh element 2790**~~ — resolved in `2561aad`; see section A above.
+   The remaining CCX item is our own `test_blade_ccx_parity.py` deck (78-89% gaps,
+   +70 deg twist), which has to be checked against a deck built by the S-4/S-5
+   tooling before its numbers mean anything.
 2. **S-4**: restore or justify the tensile-part filter, and check the mode classification
    against the new modal filtering. This is the one anchor whose failure could indicate a
    real regression rather than a re-baselining.
 3. **S-6 NaN**: trace where the one-way dynamic path produces NaN.
-4. **Re-baseline or investigate** the V-02/S-7/box/D-Tube/elastica deltas. If the new
-   element is the reviewed one, either the tolerances or the anchors move — but each needs
-   a reason, not a shrug.
+4. **Investigate each delta against an independent reference** (user decision, no band
+   edits): V-02 2F 1.5539 vs 1.6590 Hz, S-7 1.406, box EI 4.8194e8 vs 4.6667e8,
+   D-Tube 23.359 vs 24.525 m, UL elastica 0.29075 vs 0.30172.
 5. **K_T corotational**: port `Mitc4Precomputed::compute_kt_corotational` or restate the
    frame-objectivity test.
+6. **G4 FSI campaigns**: still to be relaunched on the cluster, cheapest first.
