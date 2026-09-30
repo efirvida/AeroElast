@@ -382,14 +382,17 @@ campaign. They are not yet cited by the code unless an entry says so.
 
 ### 6.1 BEM theory and post-stall extrapolation
 
-- Viterna, Corrigan (1981) — the post-stall polar extrapolation. **Attribution
-  incomplete:** the code gives the author surnames, the year and the equation
-  only — `# Viterna & Corrigan (1981) eq. 8: Cd_max = 1.11 + 0.018·AR` — with no
-  title, venue, volume or pages, and no copy is held, so those are not asserted
-  here. DOI: to verify.
-  *Cited by the code: `src/aeroelast/models/blade/aerodynamics.py:209` (the brief
-  named `src/aeroelast/constitutive/aerodynamics.py:209`; that path does not exist
-  in this tree).*
+- Viterna, L.A., Corrigan, R.D. (1981) — the post-stall flat-plate polar
+  extrapolation. **Attribution partly resolved:** the exact equations the code
+  implements are printed in the AeroDyn Theory Manual (Moriarty & Hansen 2005,
+  NREL/TP-500-36881, eqs. [98]-[102], p. 22), which attributes them to Viterna &
+  Janetzke (1982, NASA TM-82944, *Theoretical and Experimental Power from Large
+  Horizontal-Axis Wind Turbines*). The code now cites that source; the original
+  Viterna-Corrigan title/venue is still not held, so no DOI or pages are
+  asserted here.
+  *Cited by the code: `src/aeroelast/models/blade/aerodynamics.py`
+  (`_viterna_extrapolation`). The equations are verified against the manual by
+  `tests/test_bem_polars.py::test_viterna_matches_aerodyn_theory_manual`.*
 
 - Ning, S.A., "A simple solution method for the blade element momentum equations
   with guaranteed convergence", *Wind Energy*, 17(9):1327–1345, 2014,

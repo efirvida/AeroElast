@@ -258,7 +258,7 @@ reference, the tolerance as the code states it, and the flag for each row.
 | **BEM vs OpenFAST AeroDyn, identical polars** | thrust ≤ **0.45%**, torque ≤ **0.80%**, interior span Δα ≤ 1.36° | §8.4 |
 | BEM vs AeroDyn, yaw / shear | ≤ 0.33% (both), azimuth-averaged | §8.4 |
 | BEM with the repo's own polars | sensitivity ≤ 2.12% (a sensitivity, not a parity) | §8.4 |
-| NeuralFoil + Viterna vs official post-stall | attached Cl ≤ 4%; post-stall Cl ≤ 40% and Cd ≤ 17% (inside a 45% tolerance) | §8.4 |
+| NeuralFoil + Viterna vs official post-stall | attached Cl ≤ 5.9% (Cl0); post-stall Cl ≤ 40.6% and Cd ≤ 15% (decomposed: Viterna + official input = +21.7% at 30 deg) | §8.4 |
 | Large-rotation elastica | 5% relative per component | §5.4 |
 | Shell K/mass invariants | symmetry, PSD, rigid-body and exact mass coefficients to 1e-12 | §6.1-§6.3 |
 
@@ -897,7 +897,7 @@ inconsistency is not in the loop.
 | `test_spanwise_loads_match_aerodyn[0..2]` | interior-span angle of attack and normal coefficient (0.15R < r < 0.985R) | **OpenFAST 4.2.1 AeroDyn** | 2 deg (alpha), 2.5% mean (Cn) | max abs d alpha 0.676 / 0.707 / 1.361 deg; mean abs rel d Cn 0.85% / 0.75% / 1.69% | the exact hub and tip nodes are excluded |
 | `test_yaw_and_shear_match_aerodyn[0..1]` | rotor thrust and torque with `yaw = 10 deg` and with `shear_exp = 0.2`, both azimuth-averaged | **OpenFAST 4.2.1 AeroDyn**, same deck | 1.5% each | yaw: thrust +0.334%, torque -0.274%; shear: thrust +0.186%, torque +0.327% | CCBlade integrates across azimuth, so the AeroDyn side is averaged over the last revolution (dt 0.25 s); A2 of the campaign |
 | `test_bem_with_repo_default_polars_matches_aerodyn[0..2]` | integrated thrust and torque with the repository's own WindIO polars | **OpenFAST 4.2.1 AeroDyn** (official polars) | 3% band | thrust +1.178% / +1.394% / +1.968%; torque -1.364% / +0.089% / +2.117% | a **sensitivity**, not parity: A1 already shows <0.5% with identical polars |
-| `test_viterna_post_stall_matches_aerodyn` | the repo's NeuralFoil + Viterna polar vs the official AeroDyn `FFA-W3-211` table (deck node at 0.9R) | **OpenFAST 4.2.1 AeroDyn** | 10% attached Cl, 45% post-stall | attached Cl within 4% (alpha 10: 1.509 vs 1.513); post-stall worst ~40% Cl at 30 deg, Cd within 17%; both reach cd_max at 90 deg | validates the repository's post-stall model; skipped when `neuralfoil` is absent |
+| `test_viterna_post_stall_matches_aerodyn` | the repo's NeuralFoil + Viterna polar vs the official AeroDyn `FFA-W3-211` table (deck node at 0.9R) | **OpenFAST 4.2.1 AeroDyn** | 10% attached Cl, 45% post-stall | attached Cl within 5.9% (NeuralFoil Cl0 at alpha=0); post-stall worst 40.6% Cl at 30 deg, Cd within 15% | **decomposed**: the Viterna equations are verified against the AeroDyn Theory Manual by `test_bem_polars::test_viterna_matches_aerodyn_theory_manual`; feeding the official attached polar to Viterna gives +21.7% at 30 deg, so the residual is the NeuralFoil attached input and the matching point. Skipped when `neuralfoil` is absent |
 | `test_reference_polars_are_the_official_aerodyn_tables` | the AeroElast side really parses the 50 AirfoilInfo files with 200-point tables | the deck | exact counts | 50 / 200 | non-vacuity guard against a silently empty airfoil list |
 
 The exact hub and tip nodes are excluded from the span comparison: AeroDyn drives the axial
@@ -1348,7 +1348,7 @@ Every other row is at or below 5%.
 | 4.8 | `test_blade_static_deflection_matches_article_dlc` | 15% | 21.69 m = -7.7% | proxy load (DLC 1.4 is aero-elastic); measured 7.7% |
 | 4.10 | `test_outer_fibre_stress_matches_ccx_and_analytical` | 15% / 20% | 52.46 vs 51.64 MPa (1.58%); vs analytical 12.57% | coarse 8x2 linear mesh; measured 12.57% vs analytical |
 | 6.2 | `TestAsymmetricLaminates` (6) | `TOL = 0.10`, justified as shear-correction uncertainty | not printed; the docstring records the measured MITC3Comp `-2.627691e-03` vs CLT `-2.616014e-03` (0.45%) | justified as shear-correction uncertainty (§6.2) |
-| 8.4 | `test_viterna_post_stall_matches_aerodyn` | 10% attached Cl, 45% post-stall | attached Cl within 4% (alpha 10: 1.509 vs 1.513); post-stall worst ~40% Cl at 30 deg, Cd within 17%; both reach cd_max at 90 deg | post-stall model difference; preprint reference |
+| 8.4 | `test_viterna_post_stall_matches_aerodyn` | 10% attached Cl, 45% post-stall | attached Cl within 5.9% (NeuralFoil Cl0 at alpha=0); post-stall worst 40.6% Cl at 30 deg, Cd within 15% | **RESOLVED (decomposed)**: the Viterna equations are verified against the AeroDyn manual by `test_bem_polars::test_viterna_matches_aerodyn_theory_manual`; with the official attached polar as input, Viterna alone is +21.7% at 30 deg, so the rest is the NeuralFoil attached input / matching-point difference |
 
 Two rows were **excluded by inspection**: `test_centrifugal_deformed_geometry[16 combos]`
 (§7.2, its `abs=1e-10` is an absolute algebra tolerance, not a percentage) and
@@ -1374,7 +1374,7 @@ a bug to paper over.**
 | blade `test_blade_first_modes_match_nrel_report[1]` | Gaertner et al. 2020, Table ES-2, 1st edgewise 0.642 Hz | 0.702 Hz, +9.4% | stiffer than the NREL report's edgewise; the shell follows Bernardi (0.7267 Hz) instead |
 | blade `test_blade_parked_modes_match_numad[2, 4]` | Escalera Mendoza et al. 2023, Table 3, 2F 1.72 / 3F 3.41 Hz | 1.508 / 2.903 Hz, -12.3% / -14.9% | softer than the NuMAD/BModes beam on the 2nd/3rd flapwise; Bernardi sits lower and the shell follows Bernardi |
 | `test_outer_fibre_stress_matches_ccx_and_analytical` (analytical leg) | `M c / I` = 60 MPa | 52.46 MPa, 12.6% | coarse 8x2 linear mesh under bending |
-| `test_viterna_post_stall_matches_aerodyn` | official AeroDyn post-stall table | up to 40% on Cl at 30 deg | NeuralFoil + Viterna vs the official table in the stall band |
+| `test_viterna_post_stall_matches_aerodyn` | official AeroDyn post-stall table | up to 40.6% on Cl at 30 deg | NeuralFoil + Viterna vs the official FoilCheck table; the Viterna equations are verified against the manual, the residual is the attached input and the matching point |
 
 The article's first two modes are no longer xfailed: they now assert the shell lies inside the
 **published beam-reference scatter** (the article's BModes vs Bernardi's CSD disagree by 5.8%
@@ -1407,7 +1407,7 @@ its held/verified status live in `docs/references.md`.
 | §6.2 `test_material_suite.py` CLT references (Reddy, Jones) | Reddy 2004, *Mechanics of Laminated Composite Plates and Shells*; Jones 1999, *Mechanics of Composite Materials* | §2 |
 | §8.2/§8.4 BEM theory | Moriarty & Hansen 2005, *AeroDyn Theory Manual*, NREL/TP-500-36881 | §6 |
 | §8.4 CCBlade solution method | Ning 2014, "A simple solution method for the BEM equations with guaranteed convergence", *Wind Energy* 17(9):1327-1345 | §6 |
-| §8.4 `test_viterna_post_stall_matches_aerodyn` | Viterna & Corrigan 1981, post-stall polar extrapolation (attribution incomplete; see §9) | §6 |
+| §8.4 `test_viterna_post_stall_matches_aerodyn` | AeroDyn Theory Manual (NREL/TP-500-36881) eqs. [98]-[102], after Viterna & Janetzke 1982 (NASA TM-82944) / Viterna & Corrigan 1981 | §6 |
 
 Machine-checkable tie: `tests/test_mitc4plusd_traceability.py` scenario 3 asserts that each
 author-year citation used by the element documentation resolves in `docs/references.md`, and
