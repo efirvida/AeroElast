@@ -7,7 +7,7 @@ mesh:
       airfoil_dir: ../../airfoils
       element_size: 0.25
       n_samples: 300
-      airfoil_spacing: constant
+      airfoil_spacing: cosine
       span_grading: chord
   renumber: rcm
   output_file: solid_mesh.vtu

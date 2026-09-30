@@ -108,7 +108,16 @@ class ForceProjector:
 
         coords = mesh.coords_array  # (N, 3)
         n_nodes = coords.shape[0]
-        hub_r = hub_radius if hub_radius is not None else blade_aero.hub_radius
+        # A hub radius of 0.0 is a placeholder, not a value: the campaign case
+        # YAMLs carried it while the aero stations are stored from the rotor
+        # centre, so honouring it shifted every strip by the real hub radius
+        # (3.97 m on the IEA 15 MW rotor) and emptied the root strip.  Fall back
+        # only when the aero actually has a hub, so a wind-tunnel case (root at
+        # the rotation axis, no hub) keeps its explicit 0.0.
+        if hub_radius is None or (hub_radius == 0.0 and blade_aero.hub_radius > 0.0):
+            hub_r = blade_aero.hub_radius
+        else:
+            hub_r = hub_radius
 
         # Span coordinate for every mesh node (distance along the span
         # direction, in the blade-local frame where the root is at 0).
