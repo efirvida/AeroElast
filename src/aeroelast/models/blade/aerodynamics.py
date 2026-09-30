@@ -215,7 +215,13 @@ def _viterna_extrapolation(
     cm_attach: np.ndarray,
     ar: float = 17.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Extend a polar to [-180°, +180°] using the Viterna–Corrigan method.
+    """Extend a polar to [-180°, +180°] using the Viterna method.
+
+    The equations are the ones printed in the AeroDyn Theory Manual
+    (Moriarty & Hansen 2005, NREL/TP-500-36881, eqs. [98]-[102]), which
+    attributes them to Viterna & Janetzke 1982 (NASA TM-82944); the method is
+    the Viterna-Corrigan (1981) flat-plate extrapolation.  ``A2``/``B2`` use
+    the matching point ``s``, the last attached-flow sample on each side.
 
     Parameters
     ----------
@@ -234,7 +240,8 @@ def _viterna_extrapolation(
         Polar tables spanning [-π, +π] at 1° resolution.
     """
     # Viterna empirical limit for maximum drag at 90°
-    # Viterna & Corrigan (1981) eq. 8: Cd_max = 1.11 + 0.018·AR
+    # AeroDyn Theory Manual eq. [98] (Viterna & Janetzke 1982):
+    #   Cd_max = 1.11 + 0.018*AR
     cd_max = max(1.11 + 0.018 * ar, 1.11)
 
     # Reference point: take the stall angle from the last attached-flow point
@@ -334,7 +341,7 @@ def _generate_polars_neuralfoil(
         ``None`` (default) triggers auto-detection via ``analysis_confidence``.
     ar : float
         Effective aspect ratio used in Viterna's cd_max formula
-        (``cd_max = 1.11 + 0.13·AR``).  Set to a small value (e.g. 3–5) for
+        (``cd_max = 1.11 + 0.018·AR``).  Set to a small value (e.g. 3–5) for
         cylindrical root sections where CD90 ≈ 1.0.
     confidence_threshold : float
         Minimum ``analysis_confidence`` to consider a NeuralFoil point

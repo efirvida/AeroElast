@@ -52,6 +52,18 @@ E2 = 10e9  # Transverse modulus
 G12 = 5e9  # Shear modulus
 nu12 = 0.3  # Poisson ratio
 
+# 8-ply symmetric laminate [0/90/45/-45]s used by every composite comparison.
+ANGLES = [0.0, 90.0, 45.0, -45.0, -45.0, 45.0, 90.0, 0.0]
+
+# Independent CLT judge (``_hand_clt_abd``): both FE codes are within ~1.3% of
+# the closed form for the distributed-load membrane cases, so a 2% analytical
+# window is tight.  AeroElast-vs-CCX is within ~0.7% for the membrane cases and
+# ~1.7% for in-plane bending (the residual 4-node-vs-8-node formulation
+# difference), so those windows are 1.5% and 2.5% (measured values in the tests).
+CLT_ANALYTICAL_TOL = 0.02
+CCX_MEMBRANE_TOL = 0.015
+CCX_BENDING_TOL = 0.025
+
 # ============================================================================
 # CCX Helpers
 # ============================================================================
@@ -205,6 +217,7 @@ def _write_composite_ccx_inp(
     mesh: MeshModel,
     load_vector: tuple[float, float, float],
     laminate=None,
+    load_nodeset: str = "free_center",
 ) -> None:
     """Write CCX input for a laminate (S8R + COMPOSITE section).
 
@@ -238,7 +251,7 @@ def _write_composite_ccx_inp(
         mesh,
         str(inp_path),
         properties=props,
-        load_nodeset="free_center",
+        load_nodeset=load_nodeset,
         load_vector=list(load_vector),
         solver_type="LinearStatic",
         quadratic=True,
@@ -304,6 +317,70 @@ def _make_laminate_mat(E1: float, E2: float, G12: float, nu12: float, thickness:
     }
 
 
+def _hand_clt_abd(E1, E2, G12, nu12, angles, ply_thickness):
+    """Independent CLT from first principles (Reddy 2004; Jones 1999).
+
+    Returns ``(A, B, D)`` 3x3 arrays for a laminate of ``angles`` (degrees) and
+    uniform ``ply_thickness``.  This is the external judge for the laminate
+    library: it does not import or call ``aeroelast.core.laminate``, so a shared
+    CLT mistake cannot agree with itself.  Measured agreement is 1e-16 relative
+    on A and D.
+    """
+    nu21 = nu12 * E2 / E1
+    denom = 1.0 - nu12 * nu21
+    q11 = E1 / denom
+    q22 = E2 / denom
+    q12 = nu12 * E2 / denom
+    q66 = G12
+
+    n = len(angles)
+    z = np.linspace(-0.5 * n * ply_thickness, 0.5 * n * ply_thickness, n + 1)
+    A = np.zeros((3, 3))
+    B = np.zeros((3, 3))
+    D = np.zeros((3, 3))
+    for k, theta in enumerate(angles):
+        c = np.cos(np.deg2rad(theta))
+        s = np.sin(np.deg2rad(theta))
+        qb = np.array(
+            [
+                [
+                    q11 * c**4 + 2 * (q12 + 2 * q66) * s * s * c * c + q22 * s**4,
+                    (q11 + q22 - 4 * q66) * s * s * c * c + q12 * (c**4 + s**4),
+                    (q11 - q12 - 2 * q66) * c**3 * s - (q22 - q12 - 2 * q66) * c * s**3,
+                ],
+                [
+                    (q11 + q22 - 4 * q66) * s * s * c * c + q12 * (c**4 + s**4),
+                    q11 * s**4 + 2 * (q12 + 2 * q66) * s * s * c * c + q22 * c**4,
+                    (q11 - q12 - 2 * q66) * c * s**3 - (q22 - q12 - 2 * q66) * c**3 * s,
+                ],
+                [
+                    (q11 - q12 - 2 * q66) * c**3 * s - (q22 - q12 - 2 * q66) * c * s**3,
+                    (q11 - q12 - 2 * q66) * c * s**3 - (q22 - q12 - 2 * q66) * c**3 * s,
+                    (q11 + q22 - 2 * q12 - 2 * q66) * s * s * c * c + q66 * (c**4 + s**4),
+                ],
+            ]
+        )
+        zb, zt = z[k], z[k + 1]
+        A += qb * (zt - zb)
+        B += 0.5 * qb * (zt**2 - zb**2)
+        D += (qb / 3.0) * (zt**3 - zb**3)
+    return A, B, D
+
+
+def _apply_free_edge_load(f: np.ndarray, mesh: MeshModel, dof: int, total: float) -> None:
+    """Share a total resultant over every node of the free edge.
+
+    A single-node point load makes the local free-centre displacement
+    mesh-dependent, so a cross-code comparison there measures the point-load
+    singularity, not the laminate.  The distributed resultant is the
+    Saint-Venant form that both the analytical CLT bar and the layup-parity
+    tests use.
+    """
+    nodes = sorted(mesh.get_node_set("free_face").nodes.values(), key=lambda n: n.id)
+    for node in nodes:
+        f[mesh.node_id_to_index[node.id] * 6 + dof] += total / len(nodes)
+
+
 # ============================================================================
 # Tests
 # ============================================================================
@@ -338,6 +415,30 @@ class TestCompositeMaterial:
         assert len(mat_dict["cm"]) == 9  # A matrix
         assert len(mat_dict["b_coupling"]) == 9  # B matrix
         assert len(mat_dict["cb"]) == 9  # D matrix
+
+    def test_clt_matches_independent_hand_reference(self):
+        """AeroElast CLT must match a first-principles CLT (external judge)."""
+        mat = Material(
+            name="comp", E=(E1, E2, E2), G=(G12, G12, G12), nu=(nu12, nu12, 0.0), rho=0.0
+        )
+        lam = create_laminate_from_angles(mat, thickness / 8, ANGLES)
+        ABD = lam.get_ABD_matrix()
+        A_hand, B_hand, D_hand = _hand_clt_abd(E1, E2, G12, nu12, ANGLES, thickness / 8)
+
+        a_scale = float(np.max(np.abs(A_hand)))
+        d_scale = float(np.max(np.abs(D_hand)))
+        assert np.allclose(ABD[:3, :3], A_hand, rtol=1e-12, atol=1e-9 * a_scale), (
+            "AeroElast A does not match the independent CLT"
+        )
+        assert np.allclose(ABD[3:, 3:], D_hand, rtol=1e-12, atol=1e-9 * d_scale), (
+            "AeroElast D does not match the independent CLT"
+        )
+        # A symmetric laminate has B = 0 analytically; anything above round-off
+        # here is a real coupling bug, on either side of the comparison.
+        assert np.max(np.abs(B_hand)) < 1e-6, "hand CLT produced a spurious B"
+        assert np.max(np.abs(ABD[:3, 3:])) < 1e-6, (
+            f"in-plane/bending coupling B must vanish, got {np.max(np.abs(ABD[:3, 3:])):.3e}"
+        )
 
     def test_mesh_connectivity(self):
         """Verify mesh has correct node sets and connectivity."""
@@ -407,9 +508,9 @@ def test_composite_axial_tension(tmp_path: Path):
 
     # Load vector (MITC4: 6 DOFs/node)
     f = np.zeros(n, dtype=float)
+    _apply_free_edge_load(f, mesh, dof=1, total=load[1])
     center = next(iter(mesh.get_node_set("free_center").nodes.values()))
     i0 = mesh.node_id_to_index[center.id] * 6  # 6 DOFs per node for MITC4
-    f[i0 + 1] = load[1]  # Y direction (along cantilever axis)
 
     # Boundary conditions (MITC4: 6 DOFs/node)
     clamped = {
@@ -433,7 +534,7 @@ def test_composite_axial_tension(tmp_path: Path):
 
     # CCX solution
     inp_path = tmp_path / "composite_axial.inp"
-    _write_composite_ccx_inp(inp_path, mesh, load)
+    _write_composite_ccx_inp(inp_path, mesh, load, load_nodeset="free_face")
 
     # Get node IDs for CCX output
     node_ids = [
@@ -457,10 +558,26 @@ def test_composite_axial_tension(tmp_path: Path):
 
     aero_uy = abs(aero_disp[1])
     rel_error = abs(aero_uy - ccx_uy) / max(ccx_uy, 1e-10)
-    print(f"AeroElast UY: {aero_uy * 1e6:.2f} um, CCX: {ccx_uy * 1e6:.2f} um")
-    print(f"Relative error: {rel_error * 100:.2f}%")
 
-    assert rel_error < 0.05, f"Composite axial: {rel_error * 100:.1f}% error (max 5%)"
+    # Independent CLT bar: delta = a22 * (P/B) * L with a = A^-1 and free
+    # lateral edges.  This is the external judge; neither FE code may use it.
+    A_hand, _, _ = _hand_clt_abd(E1, E2, G12, nu12, ANGLES, thickness / 8)
+    delta_analytical = float(np.linalg.inv(A_hand)[1, 1] * (load[1] / B) * L)
+    rel_analytical = abs(aero_uy - delta_analytical) / delta_analytical
+
+    print(
+        f"AeroElast UY: {aero_uy * 1e6:.2f} um, CCX: {ccx_uy * 1e6:.2f} um, "
+        f"CLT bar: {delta_analytical * 1e6:.2f} um"
+    )
+    print(f"  AeroElast-vs-CCX {rel_error * 100:.2f}% | vs closed form {rel_analytical * 100:.2f}%")
+    assert rel_analytical < CLT_ANALYTICAL_TOL, (
+        f"composite axial vs independent CLT bar: {rel_analytical * 100:.2f}% "
+        f"(tol {CLT_ANALYTICAL_TOL * 100:.0f}%)"
+    )
+    assert rel_error < CCX_MEMBRANE_TOL, (
+        f"Composite axial: AeroElast-vs-CCX {rel_error * 100:.2f}% "
+        f"(tol {CCX_MEMBRANE_TOL * 100:.1f}%)"
+    )
 
 
 # Test de composite shell - isotrópico equivalente
@@ -498,9 +615,9 @@ def test_composite_isotropic_equiv(tmp_path: Path):
 
     # Load vector
     f = np.zeros(n, dtype=float)
+    _apply_free_edge_load(f, mesh, dof=1, total=load[1])
     center = next(iter(mesh.get_node_set("free_center").nodes.values()))
     i0 = mesh.node_id_to_index[center.id] * 6
-    f[i0 + 1] = load[1]
 
     # Boundary conditions
     clamped = {
@@ -535,7 +652,7 @@ def test_composite_isotropic_equiv(tmp_path: Path):
     )
     lam_iso = create_laminate_from_angles(mat_iso, thickness, [0.0])
     inp_path = tmp_path / "composite_iso.inp"
-    _write_composite_ccx_inp(inp_path, mesh, load, laminate=lam_iso)
+    _write_composite_ccx_inp(inp_path, mesh, load, laminate=lam_iso, load_nodeset="free_face")
 
     result = _run_ccx(inp_path, ccx_bin)
     if result.returncode != 0:
@@ -557,10 +674,25 @@ def test_composite_isotropic_equiv(tmp_path: Path):
     # Compare
     aero_uy = abs(aero_iso_disp[1])
     rel_error = abs(aero_uy - ccx_uy) / max(ccx_uy, 1e-10)
-    print(f"Isotropic equiv UY: {aero_uy * 1e6:.2f} um, CCX: {ccx_uy * 1e6:.2f} um")
-    print(f"Relative error: {rel_error * 100:.2f}%")
 
-    assert rel_error < 0.05, f"Isotropic equiv: {rel_error * 100:.1f}% error (max 5%)"
+    # Independent CLT bar for the isotropic ply: delta = P L / (E B t).
+    A_hand, _, _ = _hand_clt_abd(e_equiv, e_equiv, g_iso, nu12, [0.0], thickness)
+    delta_analytical = float(np.linalg.inv(A_hand)[1, 1] * (load[1] / B) * L)
+    rel_analytical = abs(aero_uy - delta_analytical) / delta_analytical
+
+    print(
+        f"Isotropic equiv UY: {aero_uy * 1e6:.2f} um, CCX: {ccx_uy * 1e6:.2f} um, "
+        f"CLT bar: {delta_analytical * 1e6:.2f} um"
+    )
+    print(f"  AeroElast-vs-CCX {rel_error * 100:.2f}% | vs closed form {rel_analytical * 100:.2f}%")
+    assert rel_analytical < CLT_ANALYTICAL_TOL, (
+        f"isotropic equiv vs independent CLT bar: {rel_analytical * 100:.2f}% "
+        f"(tol {CLT_ANALYTICAL_TOL * 100:.0f}%)"
+    )
+    assert rel_error < CCX_MEMBRANE_TOL, (
+        f"Isotropic equiv: AeroElast-vs-CCX {rel_error * 100:.2f}% "
+        f"(tol {CCX_MEMBRANE_TOL * 100:.1f}%)"
+    )
 
 
 # Test de composite shell - bending
@@ -590,9 +722,9 @@ def test_composite_bending(tmp_path: Path):
 
     # Load vector (MITC4: 6 DOFs/node)
     f = np.zeros(n, dtype=float)
+    _apply_free_edge_load(f, mesh, dof=0, total=load[0])
     center = next(iter(mesh.get_node_set("free_center").nodes.values()))
     i0 = mesh.node_id_to_index[center.id] * 6  # 6 DOFs per node for MITC4
-    f[i0] = load[0]  # X direction
 
     # Boundary conditions (MITC4: 6 DOFs/node)
     clamped = {
@@ -616,7 +748,7 @@ def test_composite_bending(tmp_path: Path):
 
     # CCX solution
     inp_path = tmp_path / "composite_bending.inp"
-    _write_composite_ccx_inp(inp_path, mesh, load)
+    _write_composite_ccx_inp(inp_path, mesh, load, load_nodeset="free_face")
 
     node_ids = [
         mesh.node_id_to_index[n.id] + 1 for n in mesh.get_node_set("free_center").nodes.values()
@@ -638,7 +770,26 @@ def test_composite_bending(tmp_path: Path):
 
     # Compare (CCX has 3 DOFs, MITC4 has 6)
     rel_error = abs(aero_disp[0] - ccx_vals[0]) / max(abs(ccx_vals[0]), 1e-10)
-    print(f"AeroElast X: {aero_disp[0] * 1e6:.2f} um, CCX: {ccx_vals[0] * 1e6:.2f} um")
-    print(f"Relative error: {rel_error * 100:.2f}%")
 
-    assert rel_error < 0.05, f"Composite bending: {rel_error * 100:.1f}% error (max 5%)"
+    # Independent CLT in-plane cantilever: delta = P L^3 / (3 E_y I) with
+    # E_y = 1/(a22 t) and I = t B^3/12.  The load is in X, so the axial stress
+    # runs along Y and the bending axis is Z.
+    A_hand, _, _ = _hand_clt_abd(E1, E2, G12, nu12, ANGLES, thickness / 8)
+    e_y = 1.0 / (np.linalg.inv(A_hand)[1, 1] * thickness)
+    inertia = thickness * B**3 / 12.0
+    delta_analytical = float(load[0] * L**3 / (3.0 * e_y * inertia))
+    rel_analytical = abs(aero_disp[0] - delta_analytical) / delta_analytical
+
+    print(
+        f"AeroElast X: {aero_disp[0] * 1e6:.2f} um, CCX: {ccx_vals[0] * 1e6:.2f} um, "
+        f"beam: {delta_analytical * 1e6:.2f} um"
+    )
+    print(f"  AeroElast-vs-CCX {rel_error * 100:.2f}% | vs closed form {rel_analytical * 100:.2f}%")
+    assert rel_analytical < CLT_ANALYTICAL_TOL, (
+        f"in-plane bending vs independent beam: {rel_analytical * 100:.2f}% "
+        f"(tol {CLT_ANALYTICAL_TOL * 100:.0f}%)"
+    )
+    assert rel_error < CCX_BENDING_TOL, (
+        f"Composite bending: AeroElast-vs-CCX {rel_error * 100:.2f}% "
+        f"(tol {CCX_BENDING_TOL * 100:.1f}%)"
+    )

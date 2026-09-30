@@ -293,9 +293,16 @@ def test_viterna_post_stall_matches_aerodyn():
     This is what validates the repository's post-stall model, as opposed to the
     identical-polars BEM parity of A1.
 
-    Measured: attached flow (alpha <= 15 deg) agrees within 4% on Cl; the
-    post-stall Cl differs by up to 40% at 30 deg while Cd stays within 17%, and
-    both reach Cd ~ cd_max at 90 deg.
+    Measured: attached flow (alpha <= 15 deg) agrees within 5.9% on Cl (the
+    NeuralFoil Cl0 at alpha = 0); post-stall the Cl differs by up to 40.6% at
+    30 deg while Cd stays within 15%.  Feeding the *official* attached polar
+    through ``_viterna_extrapolation`` instead of NeuralFoil isolates the two
+    causes: the Viterna equations themselves (verified against the AeroDyn
+    Theory Manual in ``test_bem_polars``) account for +21.7% at 30 deg, and the
+    rest is the attached input.  AeroDyn/FoilCheck starts Viterna at its
+    available-data matching point, while this generator starts at NeuralFoil's
+    confidence stall (~15 deg), so the difference is a model-input difference,
+    not a formula error.
     """
     pytest.importorskip("neuralfoil")
 

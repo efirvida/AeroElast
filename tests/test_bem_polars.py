@@ -247,3 +247,47 @@ def test_ccblade_polar_columns_expand_narrow_alpha_range():
 
     idx_zero = int(np.where(np.isclose(alpha_deg, 0.0))[0][0])
     np.testing.assert_allclose(cl[idx_zero, 0], 0.0, atol=1.0e-12)
+
+def test_viterna_matches_aerodyn_theory_manual():
+    """_viterna_extrapolation implements the AeroDyn manual eqs [98]-[102].
+
+    The AeroDyn Theory Manual (Moriarty & Hansen 2005, NREL/TP-500-36881,
+    p. 22) prints the Viterna equations and attributes them to Viterna &
+    Janetzke (1982, NASA TM-82944).  This hand-codes them independently, so a
+    wrong ``A2``/``B2`` cannot hide behind the model difference of the
+    NeuralFoil-vs-official parity test, and checks the manual's two named
+    limits at 90 deg (CL = 0, CD = Cd_max).
+    """
+    from aeroelast.models.blade.aerodynamics import _viterna_extrapolation
+
+    ar = 17.0
+    cd_max = 1.11 + 0.018 * ar
+    alpha_s = np.deg2rad(15.0)
+    cl_s, cd_s = 1.70, 0.050
+
+    # Monotone attached samples whose last point on each side is the matching
+    # point the extrapolation must use.
+    alpha_attach = np.deg2rad(np.linspace(-15.0, 15.0, 61))
+    cl_attach = cl_s * np.sin(alpha_attach) / np.sin(alpha_s)
+    cd_attach = np.full_like(alpha_attach, cd_s)
+    cm_attach = np.zeros_like(alpha_attach)
+
+    alpha_full, cl_full, cd_full, _ = _viterna_extrapolation(
+        alpha_attach, cl_attach, cd_attach, cm_attach, ar=ar
+    )
+
+    sin_s, cos_s = np.sin(alpha_s), np.cos(alpha_s)
+    a2 = (cl_s - cd_max * sin_s * cos_s) * sin_s / cos_s**2
+    b2 = (cd_s - cd_max * sin_s**2) / cos_s
+    for a_deg in (20.0, 30.0, 45.0, 60.0, 90.0):
+        a = np.deg2rad(a_deg)
+        cl_ref = cd_max / 2.0 * np.sin(2.0 * a) + a2 * np.cos(a) ** 2 / np.sin(a)
+        cd_ref = cd_max * np.sin(a) ** 2 + b2 * np.cos(a)
+        cl = float(np.interp(a, alpha_full, cl_full))
+        cd = float(np.interp(a, alpha_full, cd_full))
+        assert abs(cl - cl_ref) < 1e-10, f"alpha={a_deg}: CL {cl} != manual {cl_ref}"
+        assert abs(cd - cd_ref) < 1e-10, f"alpha={a_deg}: CD {cd} != manual {cd_ref}"
+
+    # The manual's two named limits at 90 deg: CL = 0 and CD = Cd_max.
+    assert abs(float(np.interp(np.pi / 2, alpha_full, cl_full))) < 1e-10
+    assert abs(float(np.interp(np.pi / 2, alpha_full, cd_full)) - cd_max) < 1e-10

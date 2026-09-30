@@ -81,12 +81,20 @@ _skip_rust = pytest.mark.skipif(
     not _HAS_RUST, reason="_aeroelast.run_rotor_fsi_solver not available"
 )
 
+# When the corotational providers cannot be imported, the module aliases
+# ``ConstantOmega``/``RampedOmega``/... to ``None``; without this guard the
+# tests below would crash on ``ConstantOmega(...)`` instead of skipping.
+_skip_coro = pytest.mark.skipif(
+    not _HAS_CORO, reason="corotational providers not importable on this node"
+)
+
 
 # ---------------------------------------------------------------------------
 # Group 1 — _map_omega_provider unit tests (real solver method)
 # ---------------------------------------------------------------------------
 
 
+@_skip_coro
 class TestMapOmegaProvider:
     """Verify that every OmegaProvider subclass maps to the correct Rust params.
 
