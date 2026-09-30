@@ -55,9 +55,15 @@ post-stall table.  These are sensitivities, not parity claims.
 
 * BEM with the repo's YAML polars: thrust +1.18% / +1.39% / +1.97%,
   torque -1.36% / +0.09% / +2.12%
+* like-for-like Viterna: fed the *official* attached polar, the aspect ratio
+  the official table implies (21.7, from its Cd(90 deg)) and the official
+  matching point (45 deg), the extension reproduces the official table to
+  0.23% Cl / 0.13% Cd -- this validates the model, not the generator
 * NeuralFoil + Viterna vs the official FFA-W3-211 polar: attached flow within
-  4% on Cl; post-stall Cl within 40% and Cd within 17%, both reaching ~cd_max
-  at 90 deg
+  5.9% on Cl (the NeuralFoil Cl0); post-stall Cl within 40.6% and Cd within
+  15%.  The NeuralFoil input is the dominant error of the generator here, so
+  A1/A2 use the official polars and this comparison is a documented critique
+  of NeuralFoil, not of the Viterna equation.
 
 The exact hub and tip nodes are excluded: the two codes treat the Prandtl loss
 at the singular end nodes differently (AeroDyn drives alpha to 1 at the tip,
@@ -74,6 +80,7 @@ import pytest
 
 from aeroelast.models.blade.aerodynamics import (
     _generate_polars_neuralfoil,
+    _viterna_extrapolation,
     load_blade_aero,
 )
 from aeroelast.solvers.bem.engine import BEMSolver
@@ -118,8 +125,13 @@ VITERNA_AIRFOIL = "FFA-W3-211"
 VITERNA_RE = 3.0e6  # the deck polar's Reynolds number
 VITERNA_AR = 17.0  # the repo default for IEA-15 outer sections
 VITERNA_ALPHAS_DEG = [0.0, 10.0, 15.0, 20.0, 30.0, 45.0, 60.0, 90.0]
-TOL_VITERNA_ATTACHED = 0.05  # |alpha| <= 15 deg, relative on Cl
-TOL_VITERNA_POSTSTALL = 0.05  # 20..90 deg, relative on Cl and Cd (measured worst 0.40)
+TOL_VITERNA_LIKE_FOR_LIKE = 0.01  # measured worst 0.48% Cl / 0.18% Cd
+#: The official table carries attached data out to ~45 deg; that edge is the
+#: matching point the like-for-like check uses.
+VITERNA_OFFICIAL_MATCHING_DEG = 45.0
+#: NeuralFoil critique: generated polar vs the official one.
+TOL_NEURALFOIL_ATTACHED = 0.05  # measured worst 5.9% (Cl0)
+TOL_NEURALFOIL_POST = 0.05  # measured worst 40.6% (Cl at 30 deg)
 
 
 def _openfast_driver_or_skip() -> Path:
@@ -283,34 +295,86 @@ def test_bem_with_repo_default_polars_matches_aerodyn(
     )
 
 
-def test_viterna_post_stall_matches_aerodyn():
-    """A3: the repo's NeuralFoil + Viterna polar tracks the official AeroDyn one.
+def _official_polar_at_09r():
+    """The official AeroDyn FFA-W3-211 polar at the 0.9R deck node."""
+    deck = ob.build_blade_aero_from_aerodyn(PRIMARY)
+    node = int(round(0.9 * (len(deck.stations) - 1)))
+    polar = deck.stations[node].airfoil.polars[0]
+    alpha = np.asarray(polar.alpha, dtype=float)
+    cl = np.asarray(polar.cl, dtype=float)
+    cd = np.asarray(polar.cd, dtype=float)
+    cm = np.asarray(getattr(polar, "cm", np.zeros_like(cl)), dtype=float)
+    if cm.shape != cl.shape:
+        cm = np.zeros_like(cl)
+    return alpha, cl, cd, cm
 
-    It generates the polar from the WindIO airfoil coordinates with the
-    repository's own generator (NeuralFoil for the attached flow, Viterna-
-    Corrigan for the post-stall extension) and compares it against the official
-    AeroDyn ``AirfoilInfo`` table of the same airfoil at the matching span.
-    This is what validates the repository's post-stall model, as opposed to the
-    identical-polars BEM parity of A1.
 
-    Measured: attached flow (alpha <= 15 deg) agrees within 5.9% on Cl (the
-    NeuralFoil Cl0 at alpha = 0); post-stall the Cl differs by up to 40.6% at
-    30 deg while Cd stays within 15%.  Feeding the *official* attached polar
-    through ``_viterna_extrapolation`` instead of NeuralFoil isolates the two
-    causes: the Viterna equations themselves (verified against the AeroDyn
-    Theory Manual in ``test_bem_polars``) account for +21.7% at 30 deg, and the
-    rest is the attached input.  AeroDyn/FoilCheck starts Viterna at its
-    available-data matching point, while this generator starts at NeuralFoil's
-    confidence stall (~15 deg), so the difference is a model-input difference,
-    not a formula error.
+def test_viterna_extension_matches_official_from_official_data():
+    """A3: fed the *official* attached polar, Viterna reproduces the official extension.
+
+    This is the like-for-like comparison.  The attached input, the aspect ratio
+    and the matching point all come from the official table itself, so a
+    mismatch can only be the Viterna implementation -- not the polar generator
+    and not the AR.  The aspect ratio is the one the official table implies
+    through its Cd(90 deg): ``AR = (Cd(90) - 1.11) / 0.018`` (21.7 here, against
+    the repository default of 17).  Measured worst over 48-88 deg: 0.48% on Cl
+    and 0.18% on Cd.
+    """
+    alpha, cl, cd, cm = _official_polar_at_09r()
+    ar = (float(np.interp(np.pi / 2, alpha, cd)) - 1.11) / 0.018
+    attached = np.abs(np.rad2deg(alpha)) <= VITERNA_OFFICIAL_MATCHING_DEG
+
+    alpha_full, cl_full, cd_full, _ = _viterna_extrapolation(
+        alpha[attached], cl[attached], cd[attached], cm[attached], ar=ar
+    )
+
+    worst_cl = worst_cd = 0.0
+    for a_deg in np.arange(VITERNA_OFFICIAL_MATCHING_DEG + 3.0, 89.0, 3.0):
+        a = np.deg2rad(a_deg)
+        cl_ref = float(np.interp(a, alpha, cl))
+        cd_ref = float(np.interp(a, alpha, cd))
+        cl_v = float(np.interp(a, alpha_full, cl_full))
+        cd_v = float(np.interp(a, alpha_full, cd_full))
+        if abs(cl_ref) > 0.05:
+            worst_cl = max(worst_cl, abs(cl_v - cl_ref) / abs(cl_ref))
+        worst_cd = max(worst_cd, abs(cd_v - cd_ref) / max(abs(cd_ref), 1e-9))
+        print(
+            f"[A3-official] alpha={a_deg:5.1f}: Cl {cl_v:.3f}/{cl_ref:.3f} "
+            f"Cd {cd_v:.3f}/{cd_ref:.3f}"
+        )
+    print(f"[A3-official] like-for-like worst: dCl={worst_cl * 100:.2f}%, dCd={worst_cd * 100:.2f}%")
+    assert worst_cl < TOL_VITERNA_LIKE_FOR_LIKE, (
+        f"Viterna extension differs from the official table by {worst_cl * 100:.2f}% on Cl "
+        f"(tol {TOL_VITERNA_LIKE_FOR_LIKE * 100:.1f}%)"
+    )
+    assert worst_cd < TOL_VITERNA_LIKE_FOR_LIKE, (
+        f"Viterna extension differs from the official table by {worst_cd * 100:.2f}% on Cd "
+        f"(tol {TOL_VITERNA_LIKE_FOR_LIKE * 100:.1f}%)"
+    )
+
+
+def test_neuralfoil_generated_polar_differs_from_official():
+    """A3: the repo's NeuralFoil + Viterna polar differs from the official one.
+
+    This is the **critique of NeuralFoil** for this purpose, kept as a
+    documented xfail.  With the official attached data the Viterna extension
+    matches AeroDyn to <0.5% (test above); generated from NeuralFoil with the
+    repository default AR the same extension is up to 40.6% high on Cl at
+    30 deg.  Both causes are the generator, not the equation:
+
+    * NeuralFoil's attached polar has a different Cl0 (0.353 against the
+      official 0.375, -5.9%) and hands off at its confidence stall (~15 deg)
+      while the official table carries attached data out to ~45 deg;
+    * the repository default AR = 17 gives Cd_max = 1.416, against the 1.500
+      the official table implies (AR ~ 21.7).
+
+    A1/A2 therefore use the official polars, so the BEM parity is not polluted
+    by this generator.
     """
     pytest.importorskip("neuralfoil")
 
     yaml_blade = load_blade_aero(str(YAML_BLADE))
-    airfoil = next(
-        (a for a in yaml_blade.airfoils if a.name == VITERNA_AIRFOIL),
-        None,
-    )
+    airfoil = next((a for a in yaml_blade.airfoils if a.name == VITERNA_AIRFOIL), None)
     assert airfoil is not None, f"{VITERNA_AIRFOIL} not found in {YAML_BLADE}"
 
     generated = _generate_polars_neuralfoil(
@@ -318,22 +382,20 @@ def test_viterna_post_stall_matches_aerodyn():
     )[0]
     gen_alpha = np.rad2deg(generated.alpha)
 
-    deck_blade = ob.build_blade_aero_from_aerodyn(PRIMARY)
-    node = int(round(0.9 * (len(deck_blade.stations) - 1)))
-    official_polar = deck_blade.stations[node].airfoil.polars[0]
-    off_alpha = np.rad2deg(official_polar.alpha)
+    off_alpha, off_cl, off_cd, _ = _official_polar_at_09r()
+    off_alpha_deg = np.rad2deg(off_alpha)
 
     worst_attached = 0.0
     worst_post = 0.0
     for a in VITERNA_ALPHAS_DEG:
         cl_gen = float(np.interp(a, gen_alpha, generated.cl))
         cd_gen = float(np.interp(a, gen_alpha, generated.cd))
-        cl_off = float(np.interp(a, off_alpha, official_polar.cl))
-        cd_off = float(np.interp(a, off_alpha, official_polar.cd))
+        cl_off = float(np.interp(a, off_alpha_deg, off_cl))
+        cd_off = float(np.interp(a, off_alpha_deg, off_cd))
         err_cl = abs(cl_gen - cl_off) / max(abs(cl_off), 1e-6)
         err_cd = abs(cd_gen - cd_off) / max(abs(cd_off), 1e-6)
         print(
-            f"[A3-Viterna] alpha={a:5.1f}: Cl {cl_gen:.3f}/{cl_off:.3f} "
+            f"[A3-neuralfoil] alpha={a:5.1f}: Cl {cl_gen:.3f}/{cl_off:.3f} "
             f"Cd {cd_gen:.3f}/{cd_off:.3f}"
         )
         if a <= 15.0:
@@ -341,23 +403,22 @@ def test_viterna_post_stall_matches_aerodyn():
         else:
             worst_post = max(worst_post, err_cl, err_cd)
 
-    if worst_attached > TOL_VITERNA_ATTACHED:
+    if worst_attached > TOL_NEURALFOIL_ATTACHED:
         pytest.xfail(
-            f"NeuralFoil+Viterna vs the official table, attached flow:"
-            f" {100 * worst_attached:.1f}% (bound {100 * TOL_VITERNA_ATTACHED:.0f}%)"
+            f"NeuralFoil vs the official attached polar: {100 * worst_attached:.1f}% "
+            f"(bound {100 * TOL_NEURALFOIL_ATTACHED:.0f}%) -- NeuralFoil Cl0/shape"
         )
-    assert worst_attached <= TOL_VITERNA_ATTACHED, (
-        f"attached-flow Cl off by {100 * worst_attached:.1f}% "
-        f"(tol {100 * TOL_VITERNA_ATTACHED:.0f}%)"
+    assert worst_attached <= TOL_NEURALFOIL_ATTACHED, (
+        f"attached-flow Cl off by {100 * worst_attached:.1f}%"
     )
-    if worst_post > TOL_VITERNA_POSTSTALL:
+    if worst_post > TOL_NEURALFOIL_POST:
         pytest.xfail(
             f"NeuralFoil+Viterna vs the official post-stall table: {100 * worst_post:.1f}% "
-            f"(bound {100 * TOL_VITERNA_POSTSTALL:.0f}%) -- stall-band model difference"
+            f"(bound {100 * TOL_NEURALFOIL_POST:.0f}%) -- NeuralFoil input, not the Viterna "
+            f"equation (which matches the official extension to <0.5% on official data)"
         )
-    assert worst_post <= TOL_VITERNA_POSTSTALL, (
-        f"post-stall Cl/Cd off by {100 * worst_post:.1f}% "
-        f"(tol {100 * TOL_VITERNA_POSTSTALL:.0f}%)"
+    assert worst_post <= TOL_NEURALFOIL_POST, (
+        f"post-stall Cl/Cd off by {100 * worst_post:.1f}%"
     )
 
 
