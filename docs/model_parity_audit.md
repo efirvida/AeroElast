@@ -312,3 +312,50 @@ Instrument the FSI participant itself (per converged window: delta-twist from
 compare each against the rigid-window values.  That localises the
 de-loading *inside* the coupling with the real load path, instead of
 inferring it from a hand-built static case.
+
+---
+
+## I. ERRATUM — the "frame fix" was a misdiagnosis (2026-09-25)
+
+**What I got wrong.** Section 4 of this document, and the commit `08b634a`,
+claimed the BladeMesh was built in the wrong frame (blade-local) while the aero
+was in the rotor frame, and moved the mesh to the rotor frame as a fix.
+**The design was already coherent.** `force_projection.py:113-124` states it
+explicitly:
+
+```
+# The BladeMesh coordinates are already blade-local (root at 0),
+# so NO hub offset is subtracted here — subtracting it shifted all
+# strips by hub_radius and emptied the root strip (2026-09-09, diverged
+# the yaml-blade FSI campaign whose hub_radius = 3.97 m).
+span_coords = coords @ span_dir        # blade-local [0, blade_length]
+r_stations  = blade_aero.r - hub_r     # rotor -> blade-local
+```
+
+and `_compute_deformed_geometry` adds `hub_radius` back when it builds the
+deformed stations.  Every consumer converts; the mesh stays blade-local.
+Moving the mesh broke that contract and re-introduced the very double counts
+the comments warn about.
+
+**The real defect is one line of config plumbing.** The campaign YAML sets
+`hub_radius: 0.0`; the runner passes it through; `ForceProjector` computes
+`hub_r = hub_radius if hub_radius is not None else blade_aero.hub_radius`, and
+`0.0` is not `None` — so the fallback never fired and the rotor -> blade-local
+conversion silently used 0, shifting every strip by 3.97 m.  That is the
+symptom I attributed to the frame design.  Fixed by treating a falsy config
+value as "not specified".
+
+**Kept from that work**: the `deformed_rtip` double count.  It was a genuine
+bug (Rtip 125 m on a 121 m rotor, tip loss progressively defeated as the blade
+deformed) and it is independent of the mesh frame.
+
+**Reverted**: the BladeMesh translation, the `hub_radius` removal in
+`_compute_deformed_geometry`, the S-5 extraction shift, the reference CSV
+shift, and the span-fraction interpolation in the S-1/beam_reference (all of
+which were compensating for the mesh change).
+
+**Lesson, eighth of the same family.** I read `span_coords = coords @ span_dir`
+and concluded the projector ignored the hub — three lines below, it subtracts
+it.  Reading the function's first half and stopping is the same defect as
+reading a config without reading the code that loads it.  The rule is not
+"read something first"; it is **read the whole path a value travels**.
