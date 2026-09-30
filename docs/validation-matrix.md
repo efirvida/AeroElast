@@ -898,7 +898,7 @@ red, and a green suite does not remove a flag.
 | `test_rotor_inertial.py` | `TestIntegration::test_theta_accumulation_simulation` | `theta += omega*dt` runs in the test body |
 | `test_rotor_rust_parity.py` | `TestMapOmegaProvider` (8) | `_RotorStub._map_omega_provider` is a hand-copied mirror of the production method |
 | `test_bem_polars.py` | `TestPolarData::test_evaluate_at_known_alpha` | `cl` is generated as `2 pi sin(alpha)` and compared against `2 pi sin(alpha)` |
-| `test_material_suite.py` | `TestABDMatrices::test_asymmetric_b11_formula` | `B11_hand` is re-derived from the same ply z-integrals the implementation uses |
+| `test_material_suite.py` | `TestABDMatrices::test_asymmetric_b11_formula` | **RESOLVED** — the reference is now built from the two single plies' *A* matrices (`B11 = h^2/2 (Q11_90 - Q11_0)`, `Q11 = A11/h`) instead of re-implementing the piecewise z-integral, plus the sign and stacking-reversal checks |
 | `test_fsi_structural_report.py`, `test_rotor_performance_report.py` | both tests | the reference is the norm/values the test itself injected |
 | `test_large_rotation_benchmarks.py`, `test_mitc3_benchmarks.py` | `test_equilibrium_path[*]`, `test_cantilever_large_rotation_half_circle`, `test_simo_vu_quoc_rollup_360` | `REFERENCE_TABLE` holds the rounded outputs of `_analytical_tip`, the function defined in the same file; the Simo & Vu-Quoc 1986 / Bathe & Bolourchi 1979 citation in the docstring is not what the assertion compares against. The formulas are correct and the tabulated digits match them to 4 decimals, so this is weak, not wrong — but it cannot detect a wrong formula. |
 
