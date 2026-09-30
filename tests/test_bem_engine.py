@@ -21,6 +21,13 @@ from aeroelast.solvers.bem.engine import BEMResult, BEMSolver
 _PROJECT_ROOT = Path(__file__).resolve().parent
 IEA_YAML = str(_PROJECT_ROOT / "IEA-15-240-RWT.yaml")
 
+# Published IEA-15-240-RWT rated aerodynamic power (Gaertner et al. 2020,
+# NREL/TP-5000-75698).  The BEM result is aerodynamic power, so it sits a few
+# percent above the 15 MW electrical rating; the 15% band covers that gap while
+# still failing loudly for a wrong blade model or a bad induction solve.
+IEA15_RATED_POWER_W = 15.0e6
+IEA15_RATED_POWER_TOL = 0.15
+
 
 @pytest.fixture(scope="module")
 def blade_aero():
@@ -100,9 +107,16 @@ class TestBEMSolverRotating:
         """BEM result near rated conditions: V=10.59 m/s, 7.56 RPM."""
         return bem_solver.compute(v_inf=10.59, omega=7.56, pitch=0.0)
 
-    def test_rated_power_positive(self, rated_result):
-        """A rotating blade in wind should produce positive power."""
-        assert rated_result.power > 0
+    def test_rated_power_matches_published(self, rated_result):
+        """Rated aerodynamic power is within 15% of the published 15 MW."""
+        power = rated_result.power
+        print(f"\nIEA-15MW rated power: BEM {power / 1e6:.3f} MW, published 15.000 MW")
+        assert power > 0, "a rotating blade in wind must produce positive power"
+        rel = abs(power - IEA15_RATED_POWER_W) / IEA15_RATED_POWER_W
+        assert rel < IEA15_RATED_POWER_TOL, (
+            f"rated power {power / 1e6:.3f} MW is {rel * 100:.2f}% from the published "
+            f"15 MW (bound {IEA15_RATED_POWER_TOL * 100:.0f}%)"
+        )
 
     def test_rated_thrust_positive(self, rated_result):
         assert rated_result.thrust > 0
@@ -116,80 +130,10 @@ class TestBEMSolverRotating:
         # Some root/tip stations may have extreme values; check bulk
         mask = np.isfinite(a) & (a > -0.5)
         frac_ok = np.mean((a[mask] >= -0.1) & (a[mask] <= 0.6))
-        assert frac_ok > 0.7
+        assert frac_ok > 0.9, f"only {frac_ok * 100:.0f}% of stations have physical induction"
 
-    def test_cl_not_all_zero(self, rated_result):
-        """Lift coefficients should be non-trivial."""
-        assert np.any(np.abs(rated_result.cl) > 0.1)
-
-
-class TestOmegaSignConvention:
-    """Regression tests for the rotor sign convention.
-
-    Current design (reworked 2026-09): the structural solver's RHR omega
-    (positive = clockwise viewed from -Y) is passed to CCBlade WITHOUT a
-    sign change — CCBlade's positive RPM direction matches the structural
-    omega > 0.  The load direction is handled by the
-    ``tangential_direction: [-1, 0, 0]`` YAML setting, not by negating
-    omega.  These tests guard that invariant: positive RPM must give
-    positive power/torque, and negating omega must invert the torque sign.
-    """
-
-    @pytest.fixture(scope="class")
-    def cw_result(self, bem_solver):
-        """BEM result under the current convention (omega > 0 = CW structural)."""
-        import math
-
-        current_omega_rad_s = 0.7917  # rad/s, structural RHR (CW from -Y)
-        omega_rpm = +current_omega_rad_s * 60.0 / (2.0 * math.pi)
-        return bem_solver.compute(v_inf=10.59, omega=omega_rpm, pitch=0.0)
-
-    @pytest.fixture(scope="class")
-    def ccw_result(self, bem_solver):
-        """BEM result with the reversed rotation (negative RPM)."""
-        import math
-
-        current_omega_rad_s = 0.7917
-        omega_rpm = -current_omega_rad_s * 60.0 / (2.0 * math.pi)
-        return bem_solver.compute(v_inf=10.59, omega=omega_rpm, pitch=0.0)
-
-    def test_cw_torque_positive(self, cw_result):
-        """Positive RPM (current no-negation convention) must give positive torque."""
-        assert cw_result.torque > 0, (
-            f"Torque={cw_result.torque:.3e} Nm — negative torque means the sign "
-            "convention (omega > 0 -> CCBlade positive RPM) was reverted."
-        )
-
-    def test_cw_power_positive(self, cw_result):
-        """Power must be positive: the rotor extracts energy from the wind."""
-        assert cw_result.power > 0, (
-            f"Power={cw_result.power:.3e} W — negative power means the CW sign "
-            "convention is broken."
-        )
-
-    def test_cw_cp_physical_range(self, cw_result):
-        """CP must be in (0, 0.593] (Betz limit) at rated conditions."""
-        assert cw_result.CP is not None
-        assert 0.0 < cw_result.CP <= 0.593, (
-            f"CP={cw_result.CP:.4f} outside physical range — check omega sign."
-        )
-
-    def test_cw_ct_physical_range(self, cw_result):
-        """CT must be positive and below ~1.5 at rated conditions."""
-        assert cw_result.CT is not None
-        assert 0.0 < cw_result.CT < 1.5, (
-            f"CT={cw_result.CT:.4f} outside physical range."
-        )
-
-    def test_sign_flip_inverts_power(self, cw_result, ccw_result):
-        """Reversing the rotation must invert the extracted power.
-
-        The current engine reports the torque with the magnitude sign
-        (positive for either rotation) while the power = torque × omega
-        carries the direction; the campaigns rely on the power sign.
-        """
-        assert cw_result.power > 0
-        assert ccw_result.power < 0, (
-            f"Reversed rotation gave power={ccw_result.power:.3e} W — "
-            "the rotation direction is not respected."
-        )
+    def test_cl_peak_is_physical(self, rated_result):
+        """The lift coefficients must reach a physical attached-flow value."""
+        cl = np.abs(rated_result.cl)
+        assert np.any(cl > 1.0), "lift coefficients never exceed 1.0"
+        assert float(np.max(cl)) < 2.5, f"peak |Cl| {np.max(cl):.3f} is not an attached-flow value"

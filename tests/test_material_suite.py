@@ -783,20 +783,35 @@ class TestABDMatrices:
         assert np.max(np.abs(lam.B)) < 1e-8, f"B not zero: {np.max(np.abs(lam.B)):.3e}"
 
     def test_asymmetric_b11_formula(self):
-        """[0/90] B11 matches hand-computed value from CLT formula."""
+        """[0/90] B11 matches the A-matrix closed form and reverses with the stack.
+
+        The reference is built from the *A* matrices of the two single plies
+        (independently validated in ``test_a_matrix_single_ply``), using the
+        two-ply closed form ``B11 = h^2/2 (Q11_90 - Q11_0)`` with
+        ``Q11_theta = A11_theta / h``.  It does not re-implement the piecewise
+        z-integral, so it can catch an A/B inconsistency, and it pins the sign
+        and the stacking reversal that the coupling matrix must obey.
+        """
         h = 0.002  # 2 mm per ply, total 4 mm
         lam = create_laminate_from_angles(_ORTHO, h, [0, 90])
 
-        nu21 = nu12 * E2 / E1
-        denom = 1.0 - nu12 * nu21
-        Q11_0 = E1 / denom  # [0°] fiber along Z
-        Q11_90 = E2 / denom  # [90°] fiber transverse
+        A11_0 = create_laminate_from_angles(_ORTHO, h, [0]).A[0, 0]
+        A11_90 = create_laminate_from_angles(_ORTHO, h, [90]).A[0, 0]
+        B11_from_A = 0.5 * h * (A11_90 - A11_0)
 
-        # [0°]: z_bot=-h, z_top=0   [90°]: z_bot=0, z_top=h
-        B11_hand = 0.5 * (Q11_0 * (0.0**2 - (-h) ** 2) + Q11_90 * (h**2 - 0.0**2))
         B11_lam = lam.B[0, 0]
-        rel = abs(B11_lam - B11_hand) / max(abs(B11_hand), 1.0)
-        assert rel < 1e-6, f"B11 mismatch: lam={B11_lam:.6e}, hand={B11_hand:.6e}"
+        rel = abs(B11_lam - B11_from_A) / abs(B11_from_A)
+        assert rel < 1e-9, (
+            f"B11 mismatch: lam={B11_lam:.6e}, from single-ply A={B11_from_A:.6e}"
+        )
+        # E1 > E2 with the 0-ply at the bottom -> B11 < 0.
+        assert B11_lam < 0, f"[0/90] must couple with B11 < 0, got {B11_lam:.6e}"
+        # Reversing the stacking sequence flips the coupling.
+        B11_reversed = create_laminate_from_angles(_ORTHO, h, [90, 0]).B[0, 0]
+        assert abs(B11_reversed + B11_lam) < 1e-12 * abs(B11_lam), (
+            f"[90/0] B11 {B11_reversed:.6e} must be the negative of "
+            f"[0/90] {B11_lam:.6e}"
+        )
 
     def test_a_matrix_single_ply(self):
         """Single [0°] ply A11 = Q11 * h."""

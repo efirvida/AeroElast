@@ -79,6 +79,51 @@ _GCC14_LIB_PATH = "/petrobr/app_sequana/gcc/14.2.0/lib64"
 _ensure_shared_lib("libstdc++.so.6", _GCC14_LIB_PATH)
 
 # ---------------------------------------------------------------------------
+# Large-deflection beam reference (shell-vs-beam nonlinear validation)
+# ---------------------------------------------------------------------------
+
+
+def elastica_cantilever_tip_deflection(P, L, b, h, E) -> float:
+    """Geometrically nonlinear tip deflection of an end-loaded cantilever.
+
+    Integrates the exact elastica ODE for a cantilever bent by a vertical tip
+    load ``P``:
+
+        EI * theta''(s) = -P * cos(theta(s)),   theta(0) = 0,  theta'(L) = 0
+
+    where ``s`` is the arc length from the clamp, ``theta`` is the tangent
+    angle from the undeflected axis and ``EI`` is the bending stiffness.  The
+    tip deflection is ``integral_0^L sin(theta) ds``.  This is the Bisshopp &
+    Drucker (1945) large-deflection beam solution, independent of the shell
+    element under test.
+    """
+    import numpy as np
+    from scipy.integrate import solve_bvp
+
+    inertia = b * h**3 / 12.0
+    ei = E * inertia
+
+    def ode(s, y):
+        return np.vstack([y[1], -(P / ei) * np.cos(y[0])])
+
+    def bc(ya, yb):
+        return np.array([ya[0], yb[1]])
+
+    s = np.linspace(0.0, float(L), 4001)
+    y0 = np.zeros((2, s.size))
+    # Linear-beam initial guess: theta(s) = P (2 L s - s^2) / (2 EI).
+    y0[0] = (P / (2.0 * ei)) * (2.0 * L * s - s**2)
+    y0[1] = (P / ei) * (L - s)
+
+    sol = solve_bvp(ode, bc, s, y0, tol=1e-10, max_nodes=20000)
+    if sol.status != 0:
+        raise RuntimeError(f"elastica BVP did not converge: {sol.message}")
+
+    theta = sol.sol(s)[0]
+    return float(np.trapezoid(np.sin(theta), s))
+
+
+# ---------------------------------------------------------------------------
 # GLU library — required by gmsh (equivalent to `module load glu`)
 # ---------------------------------------------------------------------------
 _GLU_LIB_PATH = "/scratch/app/glu/9.0.2_gnu/lib"

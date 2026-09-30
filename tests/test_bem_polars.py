@@ -47,11 +47,18 @@ class TestPolarData:
         assert cd[0] > 0
 
     def test_evaluate_at_known_alpha(self, naca0012_polar):
-        """Cl at 5° should be close to 2π * sin(5°)."""
-        alpha_5 = np.deg2rad(5.0)
-        cl, _, _ = naca0012_polar.evaluate(np.array([alpha_5]))
-        expected = 2 * np.pi * np.sin(alpha_5)
-        np.testing.assert_allclose(cl[0], expected, atol=0.05)
+        """The polar interpolates linearly between tabulated alpha nodes.
+
+        This checks the interpolator itself (the midpoint of two adjacent nodes is
+        their mean), not the formula that generated the table, so a formula error
+        cannot pass and an interpolation error cannot hide.
+        """
+        alpha = naca0012_polar.alpha
+        cl = naca0012_polar.cl
+        i = int(np.argmin(np.abs(np.rad2deg(alpha) - 5.0)))
+        a_mid = 0.5 * (alpha[i] + alpha[i + 1])
+        cl_mid, _, _ = naca0012_polar.evaluate(np.array([a_mid]))
+        np.testing.assert_allclose(cl_mid[0], 0.5 * (cl[i] + cl[i + 1]), atol=1e-12)
 
     def test_evaluate_periodic_wrapping(self, naca0012_polar):
         """Alpha outside [-π, π] should wrap correctly."""

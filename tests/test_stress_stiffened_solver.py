@@ -253,7 +253,30 @@ class TestKGAssemblyPipeline:
             if np.max(np.abs(sigma)) > 1e-20:
                 stress_field[elem.id] = sigma
 
-        assert len(stress_field) > 0, "Expected non-zero stresses for membrane displacement."
+        # ``u = eps * x`` is a uniform membrane strain eps = 5e-3 in x, so the
+        # plane-stress response is known in closed form:
+        #   sigma_xx = E/(1 - nu**2) * eps,  sigma_yy = nu * sigma_xx,  sigma_xy = 0
+        eps = 5e-3
+        sigma_xx_expected = _STEEL.E / (1.0 - _STEEL.nu**2) * eps
+        sigma_yy_expected = _STEEL.nu * sigma_xx_expected
+        n_elem = len(list(domain.elements))
+
+        assert len(stress_field) == n_elem, (
+            f"every element carries the uniform strain; got {len(stress_field)}/{n_elem}"
+        )
+        for elem_id, sigma in stress_field.items():
+            sxx, syy, sxy = sigma
+            assert abs(sxx - sigma_xx_expected) < 1e-6 * sigma_xx_expected, (
+                f"element {elem_id}: sigma_xx {sxx:.6e} != plane-stress "
+                f"{sigma_xx_expected:.6e}"
+            )
+            assert abs(syy - sigma_yy_expected) < 1e-6 * sigma_xx_expected, (
+                f"element {elem_id}: sigma_yy {syy:.6e} != nu*sigma_xx "
+                f"{sigma_yy_expected:.6e}"
+            )
+            assert abs(sxy) < 1e-9 * sigma_xx_expected, (
+                f"element {elem_id}: sigma_xy {sxy:.3e} must vanish for pure axial stretch"
+            )
 
         K_G = domain.assemble_geometric_stiffness(stress_field=stress_field)
         assert isinstance(K_G, PETSc.Mat)
@@ -270,7 +293,8 @@ class TestKGAssemblyPipeline:
         diag_base = K_eff_base.getDiagonal().getArray().copy()
 
         # K_G from a uniform biaxial tensile stress
-        stress_field = {e.id: np.array([1e7, 1e7, 0.0]) for e in domain.elements}
+        sigma = np.array([1e7, 1e7, 0.0])
+        stress_field = {e.id: sigma for e in domain.elements}
         K_G = domain.assemble_geometric_stiffness(stress_field=stress_field)
         K_G_red = bc_mgr.reduce_matrix(K_G)
 
@@ -279,8 +303,35 @@ class TestKGAssemblyPipeline:
         K_eff_new.axpy(coeffs.a0, M_red)
         diag_new = K_eff_new.getDiagonal().getArray().copy()
 
-        assert np.sum(diag_new) > np.sum(diag_base), (
-            "K_eff with K_G must have larger diagonal sum (stress stiffening)."
+        delta = diag_new - diag_base
+        scale = float(np.max(np.abs(diag_base)))
+        # K_G from tensile stress is positive semidefinite, so no DOF may lose
+        # stiffness.  The elementwise check (not just the sum) catches a sign
+        # error in a single element's contribution.
+        n_negative = int((delta < -1e-12 * scale).sum())
+        assert n_negative == 0, (
+            f"stress stiffening removed stiffness from {n_negative} DOF(s): "
+            f"min delta = {delta.min():.3e} (base scale {scale:.3e})"
+        )
+        assert np.sum(delta) > 0, "K_G must add net stiffness under tensile stress."
+        # K_G is a small correction, not a replacement of the elastic stiffness.
+        assert np.sum(delta) < 0.5 * np.sum(np.abs(diag_base)), (
+            f"K_G contributes {np.sum(delta) / np.sum(np.abs(diag_base)) * 100:.2f}% "
+            "of the base diagonal; it must remain a correction"
+        )
+
+        # K_G is linear in the prescribed stress: feeding the exact same field
+        # scaled by 2 must double the trace.
+        K_G_2x = domain.assemble_geometric_stiffness(
+            stress_field={e.id: 2.0 * sigma for e in domain.elements}
+        )
+        trace_1x = float(np.sum(delta))
+        trace_2x = float(
+            np.sum(bc_mgr.reduce_matrix(K_G_2x).getDiagonal().getArray())
+        )
+        assert abs(trace_2x - 2.0 * trace_1x) < 1e-9 * abs(trace_1x), (
+            f"K_G is not linear in stress: 1x trace {trace_1x:.6e}, "
+            f"2x trace {trace_2x:.6e}"
         )
 
 
@@ -367,34 +418,33 @@ class TestStressStiffenedHook:
 
         u_nz = K_red.createVecRight()
         arr = u_nz.getArray()
-        arr[0::6] = 0.01
+        # A *straining* displacement: a uniform translation would have zero
+        # strain and would make the hook return None for the wrong reason.
+        n_free = arr.shape[0] // domain.dofs_per_node
+        for i in range(n_free):
+            arr[i * domain.dofs_per_node + 0] = float(i + 1) * 1e-4
         u_nz.setArray(arr)
 
-        result_3 = solver._post_convergence_hook(
-            u=u_nz,
-            time_step=3,
-            K_eff=K_eff,
-            K_red=K_red,
-            M_red=M_red,
-            C_red=None,
-            coeffs=coeffs,
-            bc_manager=bc_mgr,
-        )
-        assert result_3 is None, "update_interval=5 must skip rebuild at step 3."
+        def _call(step: int):
+            return solver._post_convergence_hook(
+                u=u_nz,
+                time_step=step,
+                K_eff=K_eff,
+                K_red=K_red,
+                M_red=M_red,
+                C_red=None,
+                coeffs=coeffs,
+                bc_manager=bc_mgr,
+            )
 
-        result_5 = solver._post_convergence_hook(
-            u=u_nz,
-            time_step=5,
-            K_eff=K_eff,
-            K_red=K_red,
-            M_red=M_red,
-            C_red=None,
-            coeffs=coeffs,
-            bc_manager=bc_mgr,
+        assert _call(3) is None, "update_interval=5 must skip rebuild at step 3."
+
+        result_5 = _call(5)
+        assert result_5 is not None, (
+            "update_interval=5 must rebuild at step 5 for a straining displacement."
         )
-        assert result_5 is None or isinstance(result_5, PETSc.Mat), (
-            "At step divisible by update_interval hook must return None or Mat."
-        )
+        assert isinstance(result_5, PETSc.Mat)
+        assert result_5 is not K_eff, "rebuild must return a NEW matrix for refactorization."
 
 
 # ---------------------------------------------------------------------------

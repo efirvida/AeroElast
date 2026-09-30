@@ -42,17 +42,10 @@ _aeroelast = pytest.importorskip("_aeroelast", reason="_aeroelast Rust extension
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _analytical_tip(lam: float, L: float = 10.0):
-    """Return (u_tip, w_tip) for load parameter λ = M·L/EI."""
-    if abs(lam) < 1e-12:
-        return 0.0, 0.0
-    R = L / lam
-    x_tip = R * math.sin(lam)
-    z_tip = R * (1.0 - math.cos(lam))
-    return x_tip - L, z_tip
-
-
-# Tabulated control points (λ, u_tip_ref, w_tip_ref) — exact elastic curve
+# Tabulated control points (λ, u_tip_ref, w_tip_ref) — exact elastic curve.
+# The literals are the classical Simo & Vu-Quoc (1986, CMAME 58) / Bathe &
+# Bolourchi (1979, C&S 11) elastica values, listed independently of any formula
+# in this file so the assertion compares the FE solve against a fixed table.
 REFERENCE_TABLE = [
     (math.pi / 2, -3.6338, 6.3662),  # quarter circle
     (math.pi, -10.000, 6.3662),  # half circle
@@ -300,7 +293,7 @@ def test_cantilever_large_rotation_half_circle(n_elem):
 
     u_tip, w_tip = tip_displacement(u_total, tips)
 
-    u_ref, w_ref = _analytical_tip(math.pi, L)  # (−10.0, 6.366)
+    u_ref, w_ref = -10.000, 6.3662  # exact half-circle elastica (REFERENCE_TABLE)
     tol = 0.05  # 5 % relative
 
     assert abs(u_tip - u_ref) / abs(u_ref) < tol, f"u_tip={u_tip:.4f}, ref={u_ref:.4f}"
@@ -377,8 +370,8 @@ def test_simo_vu_quoc_rollup_360(n_elem):
     u_total = incremental_solve(node_coords, conn, et, f_ext, clamped, n_steps=40)
     u_tip, w_tip = tip_displacement(u_total, tips)
 
-    # Exact targets from the elastic-curve formula
-    u_ref, w_ref = _analytical_tip(lam, L)  # (−10.0, 0.0)
+    # Exact full-circle elastica values (Simo & Vu-Quoc 1986, REFERENCE_TABLE).
+    u_ref, w_ref = -10.000, 0.0000
 
     tol_rel = 0.05  # 5 %
     tol_abs = 0.5  # 0.5 m absolute (for w_tip ≈ 0)
