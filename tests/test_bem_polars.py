@@ -182,11 +182,22 @@ class TestBladeAeroYAML:
         assert alpha_range >= np.pi  # at least 180°
 
     def test_polar_cl_not_constant(self, blade_aero):
-        """Cl should vary with alpha for a non-cylindrical airfoil."""
+        """The mid-span airfoil has a physical lift curve, not a flat table."""
         # Skip the root cylinder (airfoils[0]) — pick a mid-span airfoil
         af = blade_aero.airfoils[len(blade_aero.airfoils) // 2]
         polar = af.polars[0]
         assert np.std(polar.cl) > 0.1
+
+        # Lift-curve slope near zero incidence [per radian], and near-zero lift
+        # at zero incidence.  A flat or sign-flipped table fails here.
+        alpha_deg = np.rad2deg(polar.alpha)
+        m = np.abs(alpha_deg) <= 5.0
+        slope = float(np.polyfit(polar.alpha[m], polar.cl[m], 1)[0])
+        cl0 = float(np.interp(0.0, polar.alpha, polar.cl))
+        print(f"  lift-curve slope = {slope:.3f} /rad, Cl(0) = {cl0:.4f}")
+        assert 3.0 < slope < 8.0, f"non-physical lift-curve slope {slope:.3f} /rad"
+        # A cambered section lifts at zero incidence; a symmetric one is ~0.
+        assert -0.5 < cl0 < 1.0, f"Cl at zero incidence is {cl0:.4f}"
 
     def test_r_property_shape(self, blade_aero):
         """r property should match number of stations."""
