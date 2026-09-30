@@ -67,18 +67,18 @@ CASES = (
     # The question this file exists for: does a symmetric-unbalanced laminate
     # produce the same bend-twist in our shell and in an independent FEM?
     # ANSWERED (2026-09-25): AE -0.449997 deg vs CCX -0.451824 deg, 0.4% apart.
-    # The remaining load/layup conditions are marked xfail while the quadratic
-    # node-id mapping in the FRD parser is finished (they crash there, not in
-    # the physics).
+    #
+    # The other four conditions were marked xfail with "FRD node-id mapping for
+    # quadratic elements" while the parser read the FRD labels as `id + 1`.  That
+    # was the bug, not a missing feature: the labels are 1-based *indices*, the
+    # entity ids are process-global, and once the ids drifted the parser read a
+    # different node.  Fixed 2026-09-30 in `_frd_tip_displacements` (map through
+    # `node_id_to_index`), so all five conditions are real assertions now.
     ("unbalanced_45_0s_bend", [45.0, 0.0, 0.0, 45.0], (0.0, 0.0, TIP_FORCE_Z), True),
-    pytest.param("balanced_pm45_bend", [45.0, -45.0, -45.0, 45.0], (0.0, 0.0, TIP_FORCE_Z), True,
-                 marks=pytest.mark.xfail(strict=False, reason="FRD node-id mapping for quadratic elements")),
-    pytest.param("all_zero_bend", [0.0] * 4, (0.0, 0.0, TIP_FORCE_Z), False,
-                 marks=pytest.mark.xfail(strict=False, reason="FRD node-id mapping for quadratic elements")),
-    pytest.param("crossply_0_90_bend", [0.0, 90.0, 90.0, 0.0], (0.0, 0.0, TIP_FORCE_Z), False,
-                 marks=pytest.mark.xfail(strict=False, reason="FRD node-id mapping for quadratic elements")),
-    pytest.param("unbalanced_45_0s_axial", [45.0, 0.0, 0.0, 45.0], (TIP_FORCE_X, 0.0, 0.0), False,
-                 marks=pytest.mark.xfail(strict=False, reason="FRD node-id mapping for quadratic elements")),
+    ("balanced_pm45_bend", [45.0, -45.0, -45.0, 45.0], (0.0, 0.0, TIP_FORCE_Z), True),
+    ("all_zero_bend", [0.0] * 4, (0.0, 0.0, TIP_FORCE_Z), False),
+    ("crossply_0_90_bend", [0.0, 90.0, 90.0, 0.0], (0.0, 0.0, TIP_FORCE_Z), False),
+    ("unbalanced_45_0s_axial", [45.0, 0.0, 0.0, 45.0], (TIP_FORCE_X, 0.0, 0.0), False),
 )
 
 
@@ -175,20 +175,23 @@ def _tip_stats(mesh: MeshModel, disp_nodes: dict) -> tuple[float, float]:
 def _frd_tip_displacements(frd_path, mesh: MeshModel) -> dict:
     """Read CCX translations for every tip node.
 
-    Node ids are matched directly (CCX is 1-based).  The quadratic S8R run
-    appends mid-side nodes AFTER the linear ones, so the original corner ids
-    keep their numbering; this was verified against the coordinate-based
-    lookup in test_orthotropic_shell_parity.py, which gives the same tip
-    values (the coordinate average washes the twist out because it also picks
-    the mid-side nodes of the tip edge).
+    The FRD labels are 1-based *indices* into `mesh.nodes`, which is exactly what
+    `write_ccx_mesh` emits for its corner nodes (`node_index[n] + 1`).  Matching
+    them with `n.id + 1` is only right while the entity ids happen to be 0-based
+    and contiguous, and `Node`/`MeshElement` counters are process-global with
+    nothing resetting them: in a full-suite run the ids have drifted, the parser
+    read the displacement of a different node, and this case reported a
+    3x-wrong bend-twist (-0.1584 instead of -0.4518) while the same case passed
+    when the file ran alone.  Map through `node_id_to_index` instead.
     """
     from _ccx_io import parse_frd_disp  # noqa: PLC0415
 
     tip_nodes = list(mesh.get_node_set("tip").nodes.values())
-    raw = parse_frd_disp(frd_path, [n.id + 1 for n in tip_nodes])
+    label = {n.id: mesh.node_id_to_index[n.id] + 1 for n in tip_nodes}
+    raw = parse_frd_disp(frd_path, sorted(label.values()))
     out = {}
     for n in tip_nodes:
-        v = raw.get(n.id + 1)
+        v = raw.get(label[n.id])
         if v is None:
             continue
         out[mesh.node_id_to_index[n.id]] = np.asarray(v, dtype=float)
