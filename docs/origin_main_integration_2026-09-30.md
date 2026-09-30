@@ -132,6 +132,16 @@ around the TL tangent.
 
 ## Next steps (decisions needed)
 
+**Open lead on A (added 2026-09-30, after the new upstream commits landed).** Upstream's
+`5bfa2b2` converts ten measured mismatches into documented `pytest.xfail` calls and reports
+"Blade: 10 passed, 8 xfailed" — that is CalculiX **integrating the blade successfully on
+their side**. Since their fixture builds the same model through the same `Blade` wrapper
+over `BladeMesh`, the element-2790 failure is probably ours, not the element's. One
+isolated run of the merged `generators.py` produces a blade-local mesh (`span = 117.000 m`,
+3 028 nodes, 3 333 elements) whose S8R conversion still trips `e_c3d`; the reverse isolation
+(taking upstream's `generators.py` wholesale) was inconclusive on the first attempt and
+has to be redone. **Do this before blaming the element.**
+
 1. **Blade mesh element 2790**: find the degenerate element and fix the generator or the
    S8R conversion. This unblocks 28 tests, including all of upstream's CalculiX parity.
 2. **S-4**: restore or justify the tensile-part filter, and check the mode classification
