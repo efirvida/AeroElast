@@ -34,7 +34,18 @@ Logs: `$SCRATCH/tmp/odd-integrate-origin-main/{before-full,after-full3}.log`.
 | **before** (`cce8165`) | 974 | 933 | 6 | 0 | 26 | 9 |
 | after, first merge pass (`28339a4`) | 987 | 905 | 15 | 22 | 38 | 6 |
 | after, all of `main`, CCX unblocked, ignores dropped (`0cfa523`) | 974 | 901 | 18 | 0 | 38 | 17 |
-| **after the K_G unit fix and the `airfoil_spacing` pins** (`4ff9a6c`) | 974 | **906** | **13** | **0** | 38 | 17 |
+| after the K_G unit fix and the `airfoil_spacing` pins (`4ff9a6c`) | 974 | 906 | 13 | 0 | 38 | 17 |
+| after the delta investigation (box, D-Tube, elastica) | 974 | 911 | 7 | 0 | 38 | 17 |
+| **after S-7, V-02, the composite FRD fix and the blade span direction** (`69ec5d2`) | 974 | **917** | **4** | **0** | 38 | 14 |
+
+The four that remain are named, not hidden:
+
+| test | why it is red |
+|---|---|
+| `test_corotational_is_frame_objective_tl_is_not` | deliberate: the MITC4 path of `assemble_kt_corotational` uses upstream's total-Lagrangian tangent, so the property the test asserts no longer differs |
+| `test_static_nonlinear_ul_elastica` | converged ~4% stiffer than the exact elastica (the load-stepping table is in the docstring); an accuracy question about the UL path |
+| `test_dtube_camarena_bending` | converged 1.07% outside the 1% bound, ~10x the transverse-shear estimate (table in the module docstring) |
+| `test_iea15mw_s2[LC1_gravity-utd]` | the UTD blade input, whose layup divergence is already documented; the `official` variant passes |
 
 The last row is the honest one to compare against `before` only with a caveat: the two
 later merges (`8f3deca`, `0cfa523`) brought upstream's rewritten test files, which
