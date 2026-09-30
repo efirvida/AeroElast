@@ -257,6 +257,43 @@ sides through upstream's pipeline (`Blade` + `get_element_properties()` +
 `from_model(..., SPAN_DIRECTION, ...)`); all four cases pass: flap 6.22%, edge 5.15%,
 axial tension and compression 7.43%.
 
+## The blade structural matrix, before and after (0.25 m mesh)
+
+`tools/run_blade_structural_matrix.py --element-size 0.25`, run on `cce8165` (before)
+and on `063af4d`-equivalent HEAD (after).  The before run reproduces the recorded
+baseline exactly -- 32 321 nodes, 33 454 elements, 684 element sets, B1 1.42%,
+B2 9.12%, B3 3.85%, B4/B5 7.49%, B7 1.70% -- which validates the tool and the
+comparison.
+
+| case | before shell [m] | after shell [m] | change | before vs beam | after vs beam |
+|---|---|---|---|---|---|
+| B1 tip flap | 67.441 | 67.395 | −0.07% | 1.42% | 1.61% |
+| B2 tip edge | 35.369 | 35.161 | −0.59% | 9.12% | 8.37% |
+| B3 distributed | 7.271 | 7.256 | −0.21% | 3.85% | 4.43% |
+| B4 traction axial | 0.455169 | 0.455945 | +0.17% | 7.49% | 7.66% |
+| B5 compression axial | −0.455169 | −0.455945 | +0.17% | 7.49% | 7.66% |
+| B7 gravity | −1.935772 | −1.929050 | +0.35% | 1.70% | 3.11% |
+
+The mesh moved with the `e705820` fix (32 321 → 32 336 nodes, 684 → 696 element
+sets), and the beam column is sampled at the shell's span stations, so it moves
+too -- B7's beam value goes from −1.9693 to −1.9910 m (+1.1%), which is most of
+that row's error change.
+
+**Verdict: on the blade's static matrix the reviewed element changes the shell's
+own response by at most 0.6%.**  That is a very different picture from the unit
+cases (box, D-Tube, UL elastica, 3-5% each) and it is the useful headline: the
+blade-level static behaviour is essentially unchanged, while the anchors that
+moved are the small-geometry unit cases.
+
+## What is left, and its cost
+
+| cost | item |
+|---|---|
+| done | blade matrix before/after (above), the counter reset, the merge of `034ba81` |
+| ~30 min | the work-based (global scalar) version of the blade convergence check |
+| hours-days | the G4 FSI campaigns: yaw 0-40°, V-06, parked, B1/B2 h/dt |
+| report upstream | the MITC4 `K_G` unit mismatch; the two over-specified assertions in `test_blade_iea15mw_mesh_convergence.py`; the composite `0.819` known-behaviour back-out |
+
 ### C. A deliberate semantic change
 
 `assemble_kt_corotational`'s MITC4 path now uses upstream's total-Lagrangian tangent
