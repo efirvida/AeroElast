@@ -7,43 +7,43 @@ def mesh_to_yaml(meshData, file_name):
     """
     TODO docstring
     """
-    mDataOut = dict()
-    nodes = list()
+    mDataOut = {}
+    nodes = []
     for nd in meshData["nodes"]:
         ndstr = str(list(nd))
         nodes.append(ndstr)
-    elements = list()
+    elements = []
     for el in meshData["elements"]:
         elstr = str(list(el))
         elements.append(elstr)
-    esList = list()
+    esList = []
     for es in meshData["sets"]["element"]:
-        newSet = dict()
+        newSet = {}
         newSet["name"] = es["name"]
-        labels = list()
+        labels = []
         for el in es["labels"]:
             labels.append(int(el))
         newSet["labels"] = labels
         esList.append(newSet)
-    nsList = list()
+    nsList = []
     try:
         for ns in meshData["sets"]["node"]:
-            newSet = dict()
+            newSet = {}
             newSet["name"] = ns["name"]
-            labels = list()
+            labels = []
             for nd in ns["labels"]:
                 labels.append(int(nd))
             newSet["labels"] = labels
             nsList.append(newSet)
-    except:
+    except Exception:
         pass
-    sections = list()
+    sections = []
     for sec in meshData["sections"]:
-        newSec = dict()
+        newSec = {}
         newSec["type"] = sec["type"]
         newSec["elementSet"] = sec["elementSet"]
         if sec["type"] == "shell":
-            newLayup = list()
+            newLayup = []
             for lay in sec["layup"]:
                 laystr = str(lay)
                 newLayup.append(laystr)
@@ -53,20 +53,20 @@ def mesh_to_yaml(meshData, file_name):
         else:
             newSec["material"] = sec["material"]
         sections.append(newSec)
-    elOri = list()
+    elOri = []
     for ori in meshData["elementOrientations"]:
         elOri.append(str(list(ori)))
 
     mDataOut["nodes"] = nodes
     mDataOut["elements"] = elements
-    mDataOut["sets"] = dict()
+    mDataOut["sets"] = {}
     mDataOut["sets"]["element"] = esList
     mDataOut["sections"] = sections
     mDataOut["elementOrientations"] = elOri
 
     try:
         mDataOut["materials"] = meshData["materials"]
-    except:
+    except Exception:
         pass
 
     fileStr = yaml.dump(mDataOut, sort_keys=False)

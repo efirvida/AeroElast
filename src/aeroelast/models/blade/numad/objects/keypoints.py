@@ -191,7 +191,6 @@ class KeyPoints:
                 z = interpolator_wrap(xyangle[ns : nf + 1], k_arclen, twistnorm)
             else:
                 z = geometry.HParcx0[0, k]
-            z0 = z
             z = z - scoffset_hp
             a = np.amax(((0 - n1), 0.1 * geometry.arclength[ns, k]))  # type: float
             a = np.amin((a, 0.01 * geometry.arclength[ns, k]))
@@ -239,7 +238,6 @@ class KeyPoints:
                 z = interpolator_wrap(xyangle[ns : nf + 1], k_arclen, twistnorm)
             else:
                 z = geometry.LParcx0[0, k]
-            z0 = z  # ble: location where airfoil surface crosses Xglobal=0
             z = z + scoffset_lp  # positive scoffset moves z toward t.e.
             a = np.amin(((0 + n1), 0.1 * geometry.arclength[nf, k]))
             a = np.amax((a, 0.01 * geometry.arclength[nf, k]))
@@ -344,11 +342,11 @@ class KeyPoints:
                     )
                 try:
                     n1 = self.key_labels[0 : le + 1].index(hp["pt1"])
-                except:
+                except Exception:
                     print(f'HP extent label "{hp["pt1"]}" not defined.')
                 try:
                     n2 = self.key_labels[0 : le + 1].index(hp["pt2"])
-                except:
+                except Exception:
                     print(f'HP extent label "{hp["pt2"]}" not defined.')
                 self.web_indices[ksw].append(np.nan)
                 p1 = self.key_arcs[n1, :]
@@ -361,7 +359,7 @@ class KeyPoints:
             elif hp["pt3"]:
                 try:
                     n3 = self.key_labels[0 : le + 1].index(hp["pt3"])
-                except:
+                except Exception:
                     print(f'HP extent label "{hp["pt3"]}" not defined.')
                 self.web_indices[ksw].append(np.nan)
                 p3 = self.key_cpos[n3, :]
@@ -394,7 +392,7 @@ class KeyPoints:
                     self.web_arcs[ksw][1, :] = self.key_arcs[n, :]
                     self.web_cpos[ksw][1, :] = self.key_cpos[n, :]
                     self.web_points[ksw][1, :, :] = self.key_points[n, :, :]
-                except:
+                except Exception:
                     print(f'LP extent label "{lp["pt"]}" not defined.')
 
             elif lp["pt1"]:
@@ -405,11 +403,11 @@ class KeyPoints:
                     )
                 try:
                     n1 = self.key_labels[le:].index(lp["pt1"]) + le
-                except:
+                except Exception:
                     print(f'LP extent label "{lp["pt1"]}" not defined.')
                 try:
                     n2 = self.key_labels[le:].index(lp["pt2"]) + le
-                except:
+                except Exception:
                     print(f'LP extent label "{lp["pt2"]}" not defined.')
                 self.web_indices[ksw].append(np.nan)
                 p1 = self.key_arcs[n1, :]
@@ -422,7 +420,7 @@ class KeyPoints:
             elif lp["pt3"]:
                 try:
                     n3 = self.key_labels[le:].index(lp["pt3"]) + le
-                except:
+                except Exception:
                     print(f'LP extent label "{lp["pt3"]}" not defined.')
                 self.web_indices[ksw].append(np.nan)
                 p3 = self.key_cpos[n3, :]

@@ -42,7 +42,7 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     blade.definition = definition
     try:
         blade.definition.hub_diameter = data["components"]["hub"]["outer_shape_bem"]["diameter"]
-    except:
+    except Exception:
         try:
             blade.definition.hub_diameter = data["components"]["hub"]["diameter"]
         except KeyError as err:
@@ -57,7 +57,7 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     except KeyError:
         try:
             blade.definition.hub_height = blade.definition.rotor_diameter / 2 * 1.3
-        except:
+        except Exception:
             pass
 
     # Obtain blade outer shape bem
@@ -244,7 +244,7 @@ def _add_stations(
 
 
 def _add_materials(definition, material_data):
-    materials_dict = dict()
+    materials_dict = {}
     for i in range(len(material_data)):
         cur_mat = Material()
         cur_mat.name = material_data[i]["name"]
@@ -315,7 +315,7 @@ def _add_materials(definition, material_data):
         cur_mat.density = material_data[i]["rho"]
         # cur_mat.dens = mat_data[i]['rho']
         cur_mat.drydensity = material_data[i]["rho"]
-        if "description" in material_data[i].keys() and "source" in material_data[i].keys():
+        if "description" in material_data[i] and "source" in material_data[i]:
             desc_sourc = [
                 material_data[i]["description"],
                 ", ",
@@ -332,7 +332,7 @@ def _add_materials(definition, material_data):
 
 def _add_components(definition, blade_internal_structure, blade_structure_dict):
     N_layer_comp = len(blade_internal_structure["layers"])
-    component_list = list()
+    component_list = []
     for i in range(N_layer_comp):
         i_component_data = blade_internal_structure["layers"][i]
         cur_comp = Component()
@@ -356,7 +356,7 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
             np.multiply(np.transpose(i_component_data["thickness"]["values"]), 1000.0)
             / definition.materials[cur_comp.materialid].layerthickness
         )
-        I_round_up = np.flatnonzero((temp_n_layer > 0.05) & (temp_n_layer < 0.5))
+        np.flatnonzero((temp_n_layer > 0.05) & (temp_n_layer < 0.5))
         cptemp2 = np.round(
             np.multiply(np.transpose(i_component_data["thickness"]["values"]), 1000.0)
             / definition.materials[cur_comp.materialid].layerthickness
@@ -368,7 +368,7 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
         cur_comp.pinnedends = 0
         component_list.append(cur_comp)
 
-    component_dict = dict()
+    component_dict = {}
 
     def get_layer_by_name(layer_name: str):
         return [

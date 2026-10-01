@@ -198,10 +198,7 @@ class Layer:
         bool
         """
         attrs = [a for a in dir(self) if not a.startswith("__") and not callable(getattr(self, a))]
-        for attr in attrs:
-            if getattr(self, attr) != getattr(other, attr):
-                return False
-        return True
+        return all(getattr(self, attr) == getattr(other, attr) for attr in attrs)
 
 
 class ShearWeb:

@@ -35,7 +35,6 @@ class BillOfMaterials(dict):
         # set conversion constants
         g_to_kg = 0.001
         m_to_mm = 1000.0
-        mm_to_m = 0.001
 
         materials = definition.materials
         components = definition.components

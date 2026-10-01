@@ -146,5 +146,4 @@ class Component:
         # assert(~isempty(sw2),'LP extent label "#s" not defined.',comp['lpextents']{1});
         # swRegion = [sw1 sw2];
         # else
-        swRegion = []
         return hpRegion, lpRegion  # ,swRegion

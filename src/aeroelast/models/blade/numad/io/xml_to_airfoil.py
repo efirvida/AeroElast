@@ -20,6 +20,8 @@ def xml_to_airfoil(airfoil, filecontents=None):
 
     # The following regular expression pattern matches any number of characters
     # found between the opening and closing "reference" tags
+    coords = np.empty((0, 2))
+
     fulltext = "".join(filecontents)
 
     pattern = "<reference>(.*)</reference>"
@@ -37,9 +39,6 @@ def xml_to_airfoil(airfoil, filecontents=None):
             x, y = line.split(" ")
             x = float(x)
             y = float(y)
-            try:
-                coords = np.append(coords, [[x, y]], axis=0)
-            except UnboundLocalError:
-                coords = np.array([[x, y]])
+            coords = np.append(coords, [[x, y]], axis=0)
     airfoil.reference = reference
     airfoil.coordinates = coords

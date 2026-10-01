@@ -7,7 +7,7 @@ Created on Wed Nov 29 11:40:17 2023
 
 
 def get_modal_loss_factors(modal_data):
-    loss_factors = dict()
+    loss_factors = {}
     mat_lf = modal_data["mat_loss_factors"]
     modes = modal_data["modes"]
     for mk in modes:
@@ -23,7 +23,7 @@ def get_modal_loss_factors(modal_data):
             for j in range(0, 6):
                 try:
                     p = s[j] * e[j]
-                except:
+                except Exception:
                     p = float(s[j]) * float(e[j])
                 U_el = U_el + p
                 del_U = del_U + p * mlf[j]

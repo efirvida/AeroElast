@@ -112,5 +112,4 @@ def _parse_data(data):
         parsed_data = float(data)
     else:
         parsed_data = np.array([float(val) for val in data])  # case for list of data points
-    finally:
-        return parsed_data
+    return parsed_data

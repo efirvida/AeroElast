@@ -191,7 +191,7 @@ class Geometry:
             try:
                 ind = np.argwhere(self.ispan[k] < spanlocation)[0][0]
                 # maybe better: ind = np.flatnonzero(self.ispan[k] < spanlocation)[0]
-            except:
+            except Exception:
                 continue
             else:
                 if ind == 1:

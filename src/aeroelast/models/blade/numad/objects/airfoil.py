@@ -307,7 +307,7 @@ def resample_airfoil(coords_in: ndarray, n_samples: int, spacing: str) -> ndarra
             + str(tmpM)
             + "x"
             + str(tmpN)
-            + " array."
+            + " array.", stacklevel=2
         )
         coords_in = np.transpose(coords_in)
 
