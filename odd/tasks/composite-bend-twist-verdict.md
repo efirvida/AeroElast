@@ -340,6 +340,80 @@ ccx -i <hand-authored-deck>.inp
   the load-discretisation artifact is pinned, and the verdict is 3D/shell = 1.0021 at matched
   refinement: **H6 refuted**. Two methodological traps recorded (§13.2, §13.4), both of which
   first produced a wrong answer - the same failure mode as the Ritz load-vector bug in §12.8.
+  Committed as `c2528cf` after RDD review `review-73c6a2cfcf1a75ae` (4/4, approved, no
+  correction).
+- **2026-10-01, pass 4 (WU7, DONE)**: `tests/test_blade_twist_mechanism.py` - the blade twist is
+  measured, its mechanism is identified, and the issue's causal attribution is excluded (§14).
+
+---
+
+## 14. WU7 - the blade-level twist (DONE, with one open lead)
+
+### 14.0 What cannot be reproduced here
+
+The issue's blade numbers (+8.9 deg shell vs the BeamDyn anchor +0.98 deg, and the FSI de-loading)
+come from a campaign whose artifacts are absent from this tree (§3.1), and the BeamDyn anchor is
+not in this tree either. So WU7 does not re-run that comparison. It measures the blade's twist
+mechanism on the IEA-15-240-RWT model that *does* exist here, at the load level the validation
+suite already uses (root moment 90.4 MNm, the article's DLC 1.4 maximum).
+
+### 14.1 Finding 1 - the blade has no laminate bend-twist coupling at all
+
+All **696 sections** are balanced: `max |D16| + |D26| = 0.000e+00` against a `|D|max` scale of
+1.0. The issue's causal story ("the same bend-twist is the mechanism behind the blade's elastic
+over-twist") is therefore **impossible for this model**: there is no coupling to over-predict.
+The coupon work (§12-§13) and the blade mechanism are *not* the same question.
+
+### 14.2 Finding 2 - the twist is a load-path response
+
+One root moment, three lines of action for the resultant, same model, same mesh. The twist is the
+mean nodal rotation about the blade axis at the tip ring:
+
+| line of action | tip flapwise [m] | tip twist [deg] |
+| --- | ---: | ---: |
+| spread over all surface nodes | 21.691 | **-0.570** |
+| leading edge | 20.553 | **-46.920** |
+| mid-chord | 20.567 | **+23.947** |
+
+The deflection barely moves (21.7 -> 20.6 m, 5%) while the twist swings across **70 degrees**.
+That is the right order of magnitude to explain a 9x disagreement between two models that are each
+internally consistent about a *different* load line of action - a shell spreading the aerodynamic
+load over the surface and a beam applying it along the aerodynamic centre are not modelling the
+same load. It also means the blade twist gap is a **convention** question before it is a physics
+question.
+
+### 14.3 Finding 3 (open) - the torsional response is ~400x softer than a closed section
+
+A pure tip torque gives an exactly linear response (**-4989.59 deg/MNm**; the 10 MNm case is
+exactly 10x the 1 MNm case) against a closed thin-walled estimate of order 10 deg/MNm for the same
+section. Something is wrong with the section's torsional path, and the mesh shows it: **44 free
+edges, 8 of them at z ~ 11.94 m and 2 at z ~ 112.22 m** - mid-span, at the shear-web junctions,
+where the webs are not connected across those stations, interrupting the closed cells. The node
+dedup step reports 0% reduction, so it does not merge them.
+
+**Causality is NOT established**, and the two repair attempts are recorded because they are
+informative: merging coincident nodes naively degenerates the thin transition elements (the matrix
+becomes singular), and a careful merge that skips pairs sharing an element finds only *one* pair,
+so the tear is not a simple duplicate-node problem. That is the next thing to chase, and
+`test_mesh_free_edges_document_the_open_finding` pins the current state so a fix cannot land
+unnoticed.
+
+### 14.4 A metric lesson
+
+The first metric tried was the LSQ slope of the flapwise displacement against the chordwise
+coordinate at the tip. With a ~21 m tip deflection that measures the *bending* rotation, not the
+twist: it read **-18.3 deg** on a case whose actual twist is **-0.570 deg**. The twist about the
+blade axis is the mean nodal rotation about z. Same class of trap as the coupon's load and the 3D
+model's traction.
+
+### 14.5 What WU7 settles for the issue
+
+- The element is not the cause (WU4), coupon plate theory is not the cause (WU5), and the blade's
+  laminate coupling does not exist (14.1). Three of the issue's implied causes are excluded.
+- The remaining candidates are the **load line of action** each model assumes (14.2) and the
+  **section's torsional path**, whose measured softness (14.3) is an open defect in the mesh.
+- The +8.9 deg figure is plausible for *some* load line of action and implausible for others; the
+  number alone, without the load's line of action, cannot settle the disagreement.
 
 ---
 
