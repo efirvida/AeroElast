@@ -32,7 +32,7 @@ Creating a CFD blade surface (no shear webs) and turbine components:
 
 >>> surface = BladeMesh("blade_definition.yaml", include_webs=False).generate()
 >>> tower = TowerMesh.from_windio("turbine.yaml").generate()
->>> body = HubNacelleMesh.from_windio("turbine.yaml").generate()
+>>> body = NacelleMesh.from_windio("turbine.yaml").generate()
 
 Loading and saving meshes:
 
@@ -66,10 +66,10 @@ from aeroelast.core.mesh.generators import (
     SquareShapeMesh,
 )
 
-# Axisymmetric turbine components (tower, hub/nacelle body)
+# Axisymmetric turbine components (tower, nacelle body)
 from aeroelast.core.mesh.components import (
     HubDefinition,
-    HubNacelleMesh,
+    NacelleMesh,
     NacelleDefinition,
     TowerDefinition,
     TowerMesh,
@@ -127,7 +127,7 @@ __all__ = [
     "SphericalSurfaceMesh",
     # Axisymmetric components
     "TowerMesh",
-    "HubNacelleMesh",
+    "NacelleMesh",
     "TowerDefinition",
     "HubDefinition",
     "NacelleDefinition",

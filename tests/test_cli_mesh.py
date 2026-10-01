@@ -55,22 +55,33 @@ def test_tower_from_windio(tmp_path):
     assert out.stat().st_size > 0
 
 
-def test_hub_from_windio(tmp_path):
-    out = tmp_path / "hub.stl"
+def test_nacelle_from_windio(tmp_path):
+    out = tmp_path / "nacelle.stl"
     rc = mesh_main(
-        ["hub", _YAML, *_SURFACE, "--n-axial", "4", "--n-tip", "3", "--quiet", "--out", str(out)]
+        [
+            "nacelle",
+            _YAML,
+            *_SURFACE,
+            "--n-axial",
+            "4",
+            "--n-tip",
+            "3",
+            "--quiet",
+            "--out",
+            str(out),
+        ]
     )
     assert rc == 0
     assert out.stat().st_size > 0
 
 
-def test_hub_without_input_or_params_fails(tmp_path):
-    rc = mesh_main(["hub", "--out", str(tmp_path / "hub.stl")])
+def test_nacelle_without_input_or_params_fails(tmp_path):
+    rc = mesh_main(["nacelle", "--out", str(tmp_path / "nacelle.stl")])
     assert rc == 1
 
 
-def test_hub_length_without_radius_fails(tmp_path):
-    rc = mesh_main(["hub", "--length", "10", "--out", str(tmp_path / "hub.stl")])
+def test_nacelle_length_without_radius_fails(tmp_path):
+    rc = mesh_main(["nacelle", "--length", "10", "--out", str(tmp_path / "nacelle.stl")])
     assert rc == 1
 
 
@@ -157,11 +168,11 @@ def test_turbine_writes_every_component(tmp_path):
             "4",
             "--tower-n-circ",
             "8",
-            "--hub-n-circ",
+            "--nacelle-n-circ",
             "8",
-            "--hub-n-axial",
+            "--nacelle-n-axial",
             "4",
-            "--hub-n-tip",
+            "--nacelle-n-tip",
             "3",
             "--quiet",
         ]
@@ -169,7 +180,7 @@ def test_turbine_writes_every_component(tmp_path):
     assert rc == 0
     assert sorted(p.name for p in out_dir.iterdir()) == [
         "blade_1.stl",
-        "hub.stl",
+        "nacelle.stl",
         "tower.stl",
     ]
 

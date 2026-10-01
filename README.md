@@ -70,8 +70,8 @@ turnkey installers, or broad industrial validation.
 
 - built-in mesh generators such as `SquareShapeMesh`, `BoxSurfaceMesh`,
   `MultiFlapMesh`, `BladeMesh`, and `RotorMesh`
-- turbine component meshers (`TowerMesh`, `HubNacelleMesh`) and a
-  full `TurbineMesh` assembly of blades + hub/nacelle + tower
+- turbine component meshers (`TowerMesh`, `NacelleMesh`) and a
+  full `TurbineMesh` assembly of blades + nacelle + tower
 - mesh import/export utilities for common engineering formats
 - geometric node-set creation from coordinate, box, distance, and direction
   criteria
@@ -181,7 +181,7 @@ Generate meshes with the `mesh` subcommand (see
 # Blade CFD surface (no shear webs)
 aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.stl --no-webs
 
-# Tower and hub/nacelle body from the WindIO definition
+# Tower and nacelle body from the WindIO definition
 aeroelast mesh tower IEA-15-240-RWT.yaml --out tower.obj
 
 # Whole turbine, one file per component
@@ -245,7 +245,7 @@ correctness.
 - [docs/cli-reference.md](docs/cli-reference.md) — CLI reference for the
   simulation runner
 - [docs/mesh-cli.md](docs/mesh-cli.md) — mesh generation CLI
-  (`aeroelast mesh blade|rotor|hub|tower|turbine`)
+  (`aeroelast mesh blade|rotor|nacelle|tower|turbine`)
 - [docs/teoria_formulacion_fsi_rotor.md](docs/teoria_formulacion_fsi_rotor.md)
   — FSI rotor formulation theory (Spanish)
 - [docs/s4r_composite_shell_formulation.md](docs/s4r_composite_shell_formulation.md)

@@ -1,4 +1,4 @@
-"""Axisymmetric turbine component meshes: tower and the hub/nacelle body."""
+"""Axisymmetric turbine component meshes: tower and the nacelle body."""
 
 import os
 from collections import Counter
@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from aeroelast.core.mesh import (
-    HubNacelleMesh,
+    NacelleMesh,
     TowerMesh,
     build_revolved_shell,
     read_windio_components,
@@ -103,7 +103,7 @@ def test_from_windio_raises_when_component_missing(tmp_path):
         TowerMesh.from_windio(trimmed)
     # The body needs both the hub diameter and a nacelle length.
     with pytest.raises(ValueError, match="no nacelle length"):
-        HubNacelleMesh.from_windio(trimmed)
+        NacelleMesh.from_windio(trimmed)
 
     definition = read_windio_components(trimmed)
     assert definition.tower is None
@@ -197,11 +197,12 @@ def test_tower_from_params_is_a_linear_frustum():
 # ---------------------------------------------------------------------------
 
 
-def test_body_from_windio_is_a_hemispherical_hub_plus_a_cylinder():
-    body = HubNacelleMesh.from_windio(_YAML, n_circ=8, n_axial=6, n_tip=4)
+def test_body_from_windio_is_two_hemispheres_and_a_cylinder():
+    body = NacelleMesh.from_windio(_YAML, n_circ=8, n_axial=6, n_tip=4, n_tail=4)
     mesh = body.generate()
 
-    # Default axis is +Y: the hub cap spans [-r, 0] and the cylinder [0, L].
+    # Default axis is +Y: the hub cap spans [-r, 0], the cylinder [0, L-r] and
+    # the drag-reducing tail hemisphere [L-r, L].
     coords = mesh.coords_array
     assert coords[:, 1].min() == pytest.approx(-_BODY_RADIUS)
     assert coords[:, 1].max() == pytest.approx(_BODY_LENGTH)
@@ -209,34 +210,43 @@ def test_body_from_windio_is_a_hemispherical_hub_plus_a_cylinder():
     radial = np.hypot(coords[:, 0], coords[:, 2])
     assert radial.max() == pytest.approx(_BODY_RADIUS)
 
-    # Constant radius on the whole cylinder part (the flat tail cap adds an
-    # axis node, which has no radius).
-    cylinder = coords[coords[:, 1] >= -1e-9]
-    cylinder = cylinder[np.hypot(cylinder[:, 0], cylinder[:, 2]) > 1e-9]
+    # Constant radius only on the cylinder, between the two hemispheres.
+    cylinder = coords[
+        (coords[:, 1] >= -1e-9) & (coords[:, 1] <= _BODY_LENGTH - _BODY_RADIUS + 1e-9)
+    ]
     assert cylinder.shape[0] > 0
     assert np.allclose(np.hypot(cylinder[:, 0], cylinder[:, 2]), _BODY_RADIUS)
 
-    # The hub is a single pole on the axis, radius ahead of the origin.
-    nose = coords[np.isclose(coords[:, 1], -_BODY_RADIUS)]
-    assert nose.shape[0] == 1
-    assert np.hypot(nose[0, 0], nose[0, 2]) == pytest.approx(0.0, abs=1e-12)
+    # Both ends close in a single pole on the axis.
+    for y_pole in (-_BODY_RADIUS, _BODY_LENGTH):
+        pole = coords[np.isclose(coords[:, 1], y_pole)]
+        assert pole.shape[0] == 1
+        assert np.hypot(pole[0, 0], pole[0, 2]) == pytest.approx(0.0, abs=1e-12)
 
     assert {"tail", "nose", "all"} <= set(mesh.node_sets)
+    assert "cap_end" not in mesh.element_sets  # rounded tail, no flat cap
+    _assert_closed(mesh)
+    _assert_outward(mesh)
+
+
+def test_body_flat_tail_is_supported():
+    body = NacelleMesh.from_params(length=12.0, radius=2.0, n_circ=8, n_axial=4, rear_tip=False)
+    mesh = body.generate()
     assert "cap_end" in mesh.element_sets
     _assert_closed(mesh)
     _assert_outward(mesh)
 
 
-def test_body_volume_matches_the_analytic_cylinder_plus_hemisphere():
+def test_body_volume_matches_the_analytic_cylinder_plus_two_hemispheres():
     length, radius = 20.0, 3.0
-    body = HubNacelleMesh(length=length, radius=radius, n_circ=48, n_axial=8, n_tip=8)
+    body = NacelleMesh(length=length, radius=radius, n_circ=48, n_axial=8, n_tip=8, n_tail=8)
     mesh = body.generate()
-    exact = np.pi * radius**2 * length + 2.0 / 3.0 * np.pi * radius**3
+    exact = np.pi * radius**2 * (length - radius) + 2.0 * (2.0 / 3.0) * np.pi * radius**3
     assert _closed_volume(mesh) == pytest.approx(exact, rel=1e-2)
 
 
 def test_body_from_params_axis_and_center():
-    body = HubNacelleMesh.from_params(
+    body = NacelleMesh.from_params(
         length=10.0, diameter=2.0, n_circ=8, n_axial=4, n_tip=3, center=(1.0, 2.0, 3.0)
     )
     mesh = body.generate()
@@ -251,11 +261,11 @@ def test_body_from_params_axis_and_center():
 
 def test_body_rejects_bad_parameters():
     with pytest.raises(ValueError, match="either radius or diameter"):
-        HubNacelleMesh(length=10.0)
+        NacelleMesh(length=10.0)
     with pytest.raises(ValueError, match="not both"):
-        HubNacelleMesh(length=10.0, radius=1.0, diameter=2.0)
+        NacelleMesh(length=10.0, radius=1.0, diameter=2.0)
     with pytest.raises(ValueError, match="must be positive"):
-        HubNacelleMesh(length=-1.0, radius=1.0)
+        NacelleMesh(length=-1.0, radius=1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -267,7 +277,9 @@ def test_body_rejects_bad_parameters():
 def test_components_export(tmp_path, suffix):
     meshes = {
         "tower": TowerMesh.from_params(height=50.0, base_diameter=6.0, n_axial=4).generate(),
-        "hub": HubNacelleMesh.from_params(length=8.0, diameter=4.0, n_circ=8, n_axial=4).generate(),
+        "nacelle": NacelleMesh.from_params(
+            length=8.0, diameter=4.0, n_circ=8, n_axial=4
+        ).generate(),
     }
     for name, mesh in meshes.items():
         target = tmp_path / f"{name}{suffix}"

@@ -10,7 +10,7 @@ WindIO input
 ------------
 :func:`read_windio_components` reads ``components.tower``, ``components.hub``
 and ``components.nacelle`` (plus ``assembly``) from a WindIO turbine YAML.
-``TowerMesh.from_windio`` / ``HubNacelleMesh.from_windio`` use that definition;
+``TowerMesh.from_windio`` / ``NacelleMesh.from_windio`` use that definition;
 ``from_params`` is the fallback when the input file does not carry the
 component.
 
@@ -451,17 +451,19 @@ def _resample_tower(
 
 
 # ============================================================================
-# Hub + nacelle (single rotor body)
+# Nacelle (hub cap + cylinder)
 # ============================================================================
 
 
-class HubNacelleMesh:
+class NacelleMesh:
     """Single rotor hub/nacelle body.
 
     A hemispherical cap centred on the body origin (the hub, ``s = -radius ..
-    0``) followed by a **constant-radius cylinder** extending along ``axis``
-    (``s = 0 .. length``), closed by a flat cap at the tail.  The hub and the
-    nacelle are the same body, so a turbine exports exactly one ``hub`` mesh.
+    0``), a **constant-radius cylinder** extending along ``axis``
+    (``s = 0 .. length``) and, by default, a **rear hemisphere** at the tail
+    (``rear_tip``) to keep the body streamlined instead of ending in a flat
+    disc.  The hub and the nacelle are the same body, so a turbine exports
+    exactly one ``hub`` mesh.
     """
 
     def __init__(
@@ -472,9 +474,11 @@ class HubNacelleMesh:
         n_circ: int = DEFAULT_N_CIRC,
         n_axial: int = 12,
         n_tip: int = 6,
+        n_tail: int = 6,
         center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
         axis: np.ndarray | Sequence[float] = (0.0, 1.0, 0.0),
         cap_tail: bool = True,
+        rear_tip: bool = True,
     ) -> None:
         if length <= 0.0:
             raise ValueError("hub/nacelle length must be positive")
@@ -490,6 +494,12 @@ class HubNacelleMesh:
             raise ValueError("hub/nacelle radius must be positive")
         if n_tip < 1:
             raise ValueError("n_tip must be >= 1")
+        if rear_tip and n_tail < 1:
+            raise ValueError("n_tail must be >= 1")
+        if rear_tip and resolved > length:
+            raise ValueError(
+                f"radius ({resolved}) must not exceed length ({length}) so the rear hemisphere fits"
+            )
 
         self.length = float(length)
         self.radius = resolved
@@ -497,9 +507,11 @@ class HubNacelleMesh:
         self.n_circ = int(n_circ)
         self.n_axial = int(n_axial)
         self.n_tip = int(n_tip)
+        self.n_tail = int(n_tail)
         self.center = np.asarray(center, dtype=float).reshape(3)
         self.axis = _unit(axis)
         self.cap_tail = cap_tail
+        self.rear_tip = rear_tip
 
     @classmethod
     def from_windio(
@@ -508,13 +520,15 @@ class HubNacelleMesh:
         n_circ: int = DEFAULT_N_CIRC,
         n_axial: int = 12,
         n_tip: int = 6,
+        n_tail: int = 6,
         length: Optional[float] = None,
         radius: Optional[float] = None,
         diameter: Optional[float] = None,
         center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
         axis: np.ndarray | Sequence[float] = (0.0, 1.0, 0.0),
         cap_tail: bool = True,
-    ) -> "HubNacelleMesh":
+        rear_tip: bool = True,
+    ) -> "NacelleMesh":
         """Build the body from ``components.hub`` / ``components.nacelle``.
 
         The radius defaults to ``components.hub.diameter / 2`` and the length to
@@ -525,14 +539,14 @@ class HubNacelleMesh:
             if definition.hub is None:
                 raise ValueError(
                     f"{path}: no hub definition found (components.hub.diameter); "
-                    "use HubNacelleMesh.from_params instead"
+                    "use NacelleMesh.from_params instead"
                 )
             radius = definition.hub.diameter / 2.0
         if length is None:
             if definition.nacelle is None or not definition.nacelle.length:
                 raise ValueError(
                     f"{path}: no nacelle length found (components.nacelle.drivetrain); "
-                    "use HubNacelleMesh.from_params instead"
+                    "use NacelleMesh.from_params instead"
                 )
             length = definition.nacelle.length
         return cls(
@@ -542,9 +556,11 @@ class HubNacelleMesh:
             n_circ=n_circ,
             n_axial=n_axial,
             n_tip=n_tip,
+            n_tail=n_tail,
             center=center,
             axis=axis,
             cap_tail=cap_tail,
+            rear_tip=rear_tip,
         )
 
     @classmethod
@@ -556,10 +572,12 @@ class HubNacelleMesh:
         n_circ: int = DEFAULT_N_CIRC,
         n_axial: int = 12,
         n_tip: int = 6,
+        n_tail: int = 6,
         center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
         axis: np.ndarray | Sequence[float] = (0.0, 1.0, 0.0),
         cap_tail: bool = True,
-    ) -> "HubNacelleMesh":
+        rear_tip: bool = True,
+    ) -> "NacelleMesh":
         """Build the body from explicit parameters when the YAML has none."""
         return cls(
             length=length,
@@ -568,24 +586,34 @@ class HubNacelleMesh:
             n_circ=n_circ,
             n_axial=n_axial,
             n_tip=n_tip,
+            n_tail=n_tail,
             center=center,
             axis=axis,
             cap_tail=cap_tail,
+            rear_tip=rear_tip,
         )
 
     def generate(self) -> MeshModel:
         radius = self.radius
 
-        # Hemispherical cap centred on the body origin (s in [-radius, 0]), then
-        # a constant-radius cylinder extending along +axis (s in [0, length]).
+        # Hemispherical cap centred on the body origin (s in [-radius, 0]), a
+        # constant-radius cylinder along +axis, and a rear hemisphere at the
+        # tail (or a flat cap when rear_tip is off).
         phi = np.linspace(0.0, np.pi / 2.0, self.n_tip + 1)
         s_cap = -radius * np.cos(phi)
         r_cap = radius * np.sin(phi)
-        s_body = np.linspace(0.0, self.length, self.n_axial + 1)[1:]
+
+        body_end = self.length - (radius if self.rear_tip else 0.0)
+        s_body = np.linspace(0.0, body_end, self.n_axial + 1)[1:]
         r_body = np.full_like(s_body, radius)
 
         s_all = np.concatenate([s_cap, s_body])
         r_all = np.concatenate([r_cap, r_body])
+
+        if self.rear_tip:
+            psi = np.linspace(0.0, np.pi / 2.0, self.n_tail + 1)[1:]
+            s_all = np.concatenate([s_all, body_end + radius * np.sin(psi)])
+            r_all = np.concatenate([r_all, radius * np.cos(psi)])
 
         centers = self.center + np.outer(s_all, self.axis)
         return build_revolved_shell(
@@ -594,7 +622,7 @@ class HubNacelleMesh:
             n_circ=self.n_circ,
             axis=self.axis,
             cap_start=False,
-            cap_end=self.cap_tail,
+            cap_end=(not self.rear_tip) and self.cap_tail,
             start_name="nose",
             end_name="tail",
         )

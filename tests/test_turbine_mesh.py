@@ -11,7 +11,7 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _YAML = os.path.join(_HERE, "IEA-15-240-RWT.yaml")
 
 _TOWER_TOP = np.array([0.0, 12.0313, 0.0])
-_HUB_RADIUS = 7.94 / 2.0
+_NACELLE_RADIUS = 7.94 / 2.0
 _ROTOR_RADIUS = 242.23775645 / 2.0
 
 
@@ -31,12 +31,12 @@ def overridden():
         tower_height=80.0,
         tower_base_diameter=8.0,
         tower_top_diameter=4.0,
-        hub_diameter=10.0,
+        nacelle_diameter=10.0,
     ).generate(verbose=False)
 
 
 def test_component_names(turbine):
-    assert set(turbine.meshes) == {"blade_1", "blade_2", "blade_3", "hub", "tower"}
+    assert set(turbine.meshes) == {"blade_1", "blade_2", "blade_3", "nacelle", "tower"}
     for name, mesh in turbine.meshes.items():
         assert mesh.node_count > 0, name
         assert mesh.elements_count > 0, name
@@ -44,16 +44,19 @@ def test_component_names(turbine):
 
 def test_rotor_is_centred_at_the_origin(turbine):
     np.testing.assert_allclose(turbine.rotor_axis, [0.0, 1.0, 0.0])
-    assert turbine.hub_radius == pytest.approx(_HUB_RADIUS)
+    assert turbine.nacelle_radius == pytest.approx(_NACELLE_RADIUS)
 
-    # One body: hemispherical hub centred on the rotor origin, then a cylinder
-    # extending backwards along +Y.
-    hub = turbine.hub
-    assert hub is not None
-    assert len(hub.element_sets) >= 2  # surface + tail cap
-    coords = hub.coords_array
-    assert coords[:, 1].min() == pytest.approx(-_HUB_RADIUS)
-    assert coords[:, 1].max() == pytest.approx(np.linalg.norm(turbine.tower_top))
+    # One body: hemispherical hub cap centred on the rotor origin, a cylinder
+    # extending backwards along +Y, and a rounded tail.
+    nacelle = turbine.nacelle
+    assert nacelle is not None
+    assert "surface" in nacelle.element_sets
+    coords = nacelle.coords_array
+    assert coords[:, 1].min() == pytest.approx(-_NACELLE_RADIUS)
+    # length = 2 * overhang + radius, so the body is symmetric about the tower.
+    assert coords[:, 1].max() == pytest.approx(
+        2.0 * np.linalg.norm(turbine.tower_top) + _NACELLE_RADIUS
+    )
 
 
 def test_tower_is_behind_the_rotor_plane(turbine):
@@ -73,12 +76,22 @@ def test_tower_is_behind_the_rotor_plane(turbine):
     assert coords[:, 1].min() > 0.0
 
 
+def test_nacelle_is_symmetric_about_the_tower_and_clears_it(turbine):
+    nacelle = turbine.nacelle
+    assert nacelle is not None
+    y = nacelle.coords_array[:, 1]
+    # The tower axis is the nacelle midpoint.
+    assert (y.min() + y.max()) / 2.0 == pytest.approx(turbine.tower_top[1], abs=1e-6)
+    # The tail sticks out behind the tower by more than the tower base diameter.
+    assert y.max() - turbine.tower_top[1] > 10.0  # IEA-15 tower base diameter
+
+
 def test_blades_root_at_the_body_surface_and_reach_the_rotor_radius(turbine):
     for name, blade in turbine.blade_meshes.items():
         assert f"RootNodes_{name}" in blade.node_sets, name
         root_nodes = blade.node_sets[f"RootNodes_{name}"].nodes.values()
         root_center = np.mean([node.coords for node in root_nodes], axis=0)
-        assert np.linalg.norm(root_center) == pytest.approx(turbine.hub_radius, rel=0.02), name
+        assert np.linalg.norm(root_center) == pytest.approx(turbine.nacelle_radius, rel=0.02), name
         assert np.linalg.norm(blade.coords_array, axis=1).max() == pytest.approx(
             _ROTOR_RADIUS, rel=0.02
         ), name
@@ -132,7 +145,7 @@ def test_include_webs_is_forwarded():
 def test_rotor_axis_is_configurable(overridden):
     np.testing.assert_allclose(overridden.rotor_axis, [1.0, 0.0, 0.0])
     np.testing.assert_allclose(overridden.tower_top, [-20.0, 0.0, -30.0], atol=1e-9)
-    assert overridden.hub_radius == pytest.approx(5.0)
+    assert overridden.nacelle_radius == pytest.approx(5.0)
     # The tower follows the requested base height.
     tower = overridden.tower
     assert tower is not None
@@ -150,6 +163,6 @@ def test_tower_offset_is_used_verbatim():
 @pytest.mark.parametrize("suffix", ["stl", "vtk", "obj"])
 def test_write_directory(turbine, tmp_path, suffix):
     written = turbine.write(tmp_path, format=suffix)
-    assert set(written) == {"blade_1", "blade_2", "blade_3", "hub", "tower"}
+    assert set(written) == {"blade_1", "blade_2", "blade_3", "nacelle", "tower"}
     for name, path in written.items():
         assert os.path.getsize(path) > 0, name

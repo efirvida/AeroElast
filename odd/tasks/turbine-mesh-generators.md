@@ -173,3 +173,40 @@ the tower plane lies entirely at negative `y` (behind the rotor), that the body
 radius is constant up to the round tip, and that the body volume matches the
 analytic cylinder+hemisphere. The base blade's **prebend/sweep** (the tip is not
 at `y=0`) is what the first iteration's plane test missed.
+
+---
+
+## Corrections — iteration 3 (user feedback)
+
+Two more changes:
+
+1. **Tower side, again.** The tower now sits at **`+overhang * rotor_axis`**
+   ("behind" is `+rotor_axis`), and the **nacelle is always horizontal** along
+   the rotor axis, so the tower rises to meet it. `distance_tt_hub` became an
+   optional vertical drop (default `0`).
+2. **Hub/nacelle renamed to `nacelle`.** `HubNacelleMesh` → `NacelleMesh`, the
+   turbine component/key is `nacelle`, the CLI subcommand is
+   `aeroelast mesh nacelle`, and the turbine flags are `--nacelle-*`.
+3. **Nacelle length and tail.** The body length defaults to
+   **`2 * overhang + radius`**, so the body (front pole at `-radius`) is
+   **symmetric about the tower axis**; and the tail is closed by a
+   **rear hemisphere** (drag reduction) instead of a flat disc. `--flat-tail`
+   restores the flat cap.
+
+For the IEA-15: body spans `y ∈ [-3.97, 28.03]`, the tower axis `y = 12.03` is
+its exact midpoint, and the tail clears the tower by `16.0 m` against a `10 m`
+tower base diameter.
+
+### Iteration-3 verification
+
+| Suite | Result |
+|---|---|
+| `tests/test_axisymmetric_components.py` + `test_turbine_mesh.py` + `test_cli_mesh.py` + `test_blade_no_webs.py` | 50 passed |
+| `pyright` (changed files, standalone) | 0 errors |
+| `ruff check` | clean |
+
+New assertions: the nacelle midpoint equals the tower axis; the tail clearance
+exceeds the tower base diameter; the body has exactly two axial poles and no
+flat cap unless `rear_tip=False`; and the volume matches two hemispheres plus
+cylinder. The earlier volume expectation was wrong (it assumed the front
+hemisphere sat inside `length`), which the failure exposed.

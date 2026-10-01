@@ -22,10 +22,12 @@ Coordinate convention
   ``distance_tt_hub`` adds an optional vertical drop.  ``tower_offset`` /
   ``overhang`` / ``distance_tt_hub`` / ``tower_base_z`` are all parameters, so a
   file with no nacelle data can still be placed.
-* The **hub and the nacelle are a single body** (:class:`HubNacelleMesh`): a
-  **hemispherical hub centred on the rotor origin** followed by a
-  constant-radius cylinder extending **backwards along the rotor axis** (always
-  horizontal), closed by a flat tail cap.
+* The **hub and the nacelle are a single body** (:class:`NacelleMesh`): a
+  **hemispherical hub centred on the rotor origin**, a constant-radius cylinder
+  extending **backwards along the rotor axis** (always horizontal) past the
+  tower, and a **rear hemisphere** at the tail.  Its length defaults to
+  ``2 * overhang + radius``, so the body is symmetric about the tower axis and
+  the tail clears the tower by more than the tower diameter.
 """
 
 from __future__ import annotations
@@ -37,7 +39,7 @@ from typing import Optional, Sequence
 import numpy as np
 
 from aeroelast.core.mesh.components import (
-    HubNacelleMesh,
+    NacelleMesh,
     TowerMesh,
     read_windio_components,
 )
@@ -146,18 +148,18 @@ class TurbineMeshes:
     """Separate component meshes in one turbine frame (rotor centred at origin)."""
 
     blade_meshes: dict[str, MeshModel] = field(default_factory=dict)
-    hub: Optional[MeshModel] = None
+    nacelle: Optional[MeshModel] = None
     tower: Optional[MeshModel] = None
     rotor_axis: np.ndarray = field(default_factory=lambda: np.array(_DEFAULT_ROTOR_AXIS))
-    hub_radius: float = 0.0
+    nacelle_radius: float = 0.0
     tower_top: np.ndarray = field(default_factory=lambda: np.zeros(3))
 
     @property
     def meshes(self) -> dict[str, MeshModel]:
         """All component meshes: blades first, then the hub/nacelle body, tower."""
         ordered: dict[str, MeshModel] = dict(self.blade_meshes)
-        if self.hub is not None:
-            ordered["hub"] = self.hub
+        if self.nacelle is not None:
+            ordered["nacelle"] = self.nacelle
         if self.tower is not None:
             ordered["tower"] = self.tower
         return ordered
@@ -193,11 +195,13 @@ class TurbineMesh:
         tower_height: Optional[float] = None,
         tower_base_diameter: Optional[float] = None,
         tower_top_diameter: Optional[float] = None,
-        hub_n_circ: int = 32,
-        hub_n_axial: int = 12,
-        hub_n_tip: int = 6,
-        hub_diameter: Optional[float] = None,
-        hub_length: Optional[float] = None,
+        nacelle_n_circ: int = 32,
+        nacelle_n_axial: int = 12,
+        nacelle_n_tip: int = 6,
+        nacelle_n_tail: int = 6,
+        nacelle_rear_tip: bool = True,
+        nacelle_diameter: Optional[float] = None,
+        nacelle_length: Optional[float] = None,
         tower_offset: Optional[Sequence[float]] = None,
         tower_base_z: Optional[float] = None,
         overhang: Optional[float] = None,
@@ -221,11 +225,13 @@ class TurbineMesh:
         self.tower_base_diameter = tower_base_diameter
         self.tower_top_diameter = tower_top_diameter
 
-        self.hub_n_circ = hub_n_circ
-        self.hub_n_axial = hub_n_axial
-        self.hub_n_tip = hub_n_tip
-        self.hub_diameter = hub_diameter
-        self.hub_length = hub_length
+        self.nacelle_n_circ = nacelle_n_circ
+        self.nacelle_n_axial = nacelle_n_axial
+        self.nacelle_n_tip = nacelle_n_tip
+        self.nacelle_n_tail = nacelle_n_tail
+        self.nacelle_rear_tip = nacelle_rear_tip
+        self.nacelle_diameter = nacelle_diameter
+        self.nacelle_length = nacelle_length
 
         self.tower_offset = (
             np.asarray(tower_offset, dtype=float).reshape(3) if tower_offset is not None else None
@@ -290,9 +296,9 @@ class TurbineMesh:
         drop = float(self.distance_tt_hub) if self.distance_tt_hub is not None else 0.0
         return float(overhang) * self.rotor_axis + np.array([0.0, 0.0, -drop])
 
-    def _body_radius(self, definition) -> float:
-        if self.hub_diameter is not None:
-            return float(self.hub_diameter) / 2.0
+    def _nacelle_radius(self, definition) -> float:
+        if self.nacelle_diameter is not None:
+            return float(self.nacelle_diameter) / 2.0
         if self._blade_generator is not None and self._blade_generator.numad_blade is not None:
             hub_diameter = self._blade_generator.numad_blade.definition.hub_diameter
             if hub_diameter:
@@ -301,10 +307,17 @@ class TurbineMesh:
             return float(definition.hub.diameter) / 2.0
         raise ValueError("cannot resolve the hub diameter; pass hub_diameter explicitly")
 
-    def _body_length(self, definition, tower_top: np.ndarray) -> float:
-        if self.hub_length is not None:
-            return float(self.hub_length)
-        return float(np.linalg.norm(tower_top))
+    def _nacelle_length(self, definition, tower_top: np.ndarray, radius: float) -> float:
+        """Axial extent from the hub centre to the rear tip.
+
+        Defaults to ``2 * |tower_top| + radius`` so the body (front pole at
+        ``-radius``) is **symmetric about the tower axis**: the tail sticks out
+        behind the tower by the same distance the hub sticks out in front.
+        ``hub_length`` overrides it.
+        """
+        if self.nacelle_length is not None:
+            return float(self.nacelle_length)
+        return 2.0 * float(np.linalg.norm(tower_top)) + float(radius)
 
     # -- assembly ----------------------------------------------------------
 
@@ -317,7 +330,7 @@ class TurbineMesh:
             raise ValueError(f"n_blades must be >= 1, got {n_blades}")
 
         base_blade = self._build_blade(verbose=verbose)
-        hub_radius = self._body_radius(definition)
+        nacelle_radius = self._nacelle_radius(definition)
 
         # --- tower: the displaced component -------------------------------
         tower_top = self._resolve_tower_top(definition)
@@ -329,17 +342,19 @@ class TurbineMesh:
         tower_mesh = _transform_mesh(tower_builder.generate(), np.eye(3), shift)
 
         # --- hub + nacelle: one horizontal body, hub sphere on the rotor ----
-        body_length = self._body_length(definition, tower_top)
+        body_length = self._nacelle_length(definition, tower_top, nacelle_radius)
         if body_length <= 0.0:
             raise ValueError("hub/nacelle body length must be positive")
-        hub_mesh = HubNacelleMesh(
+        nacelle_mesh = NacelleMesh(
             length=body_length,
-            radius=hub_radius,
-            n_circ=self.hub_n_circ,
-            n_axial=self.hub_n_axial,
-            n_tip=self.hub_n_tip,
+            radius=nacelle_radius,
+            n_circ=self.nacelle_n_circ,
+            n_axial=self.nacelle_n_axial,
+            n_tip=self.nacelle_n_tip,
+            n_tail=self.nacelle_n_tail,
             center=(0.0, 0.0, 0.0),
             axis=self.rotor_axis,
+            rear_tip=self.nacelle_rear_tip,
         ).generate()
 
         # --- blades -------------------------------------------------------
@@ -356,16 +371,16 @@ class TurbineMesh:
         for index in range(n_blades):
             azimuth = _rotation((0.0, 1.0, 0.0), 2.0 * np.pi * index / n_blades)
             matrix = r0 @ azimuth @ cone
-            offset = matrix @ np.array([0.0, 0.0, hub_radius])
+            offset = matrix @ np.array([0.0, 0.0, nacelle_radius])
             name = f"blade_{index + 1}"
             blade_meshes[name] = _transform_mesh(base_blade, matrix, offset, set_suffix=name)
 
         result = TurbineMeshes(
             blade_meshes=blade_meshes,
-            hub=hub_mesh,
+            nacelle=nacelle_mesh,
             tower=tower_mesh,
             rotor_axis=self.rotor_axis,
-            hub_radius=hub_radius,
+            nacelle_radius=nacelle_radius,
             tower_top=tower_top,
         )
         if renumber is not None:
