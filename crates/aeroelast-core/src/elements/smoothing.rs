@@ -86,16 +86,34 @@ pub fn from_covariant(covariant: &Vector3<f64>, j_mat: &Matrix2<f64>) -> Option<
 /// The operator of Eq. (15): the neighbour's covariant strain carried into the
 /// target's convected coordinates.
 ///
-/// Derivation: the contravariant base vectors `g^j` of an element are the rows
-/// of `J^-T`, because `J`'s rows are `g_i` and `g_i · g^j = delta_i^j` gives
-/// `J (J^-T)^T = I`.  So `g_i^(e) · g^l^(k)` is `(J_e J_k^-1)_il`, and Eq. (15)
-/// is `e~ = M e M^T` with `M = J_e J_k^-1`.  Returns `None` for a singular
-/// neighbour Jacobian.
+/// Eq. (15) is `e~_ij = e_ln (g_i^(e)·g^l^(k))(g_j^(e)·g^n^(k))`.  The target's
+/// covariant base vectors and the neighbour's contravariant base vectors live in
+/// different tangent planes, so the dot products need the relative rotation
+/// between the two element frames.  With `R = t3` mapping global coordinates to
+/// an element's local ones, and `J` the 2x2 covariant Jacobian, the operator is
+///
+/// ```text
+/// M = J_target · Q · J_neighbour^-1,   Q = (R_target R_neighbour^T)[0..2, 0..2]
+/// ```
+///
+/// Dropping `Q` made the two transforms cancel and left the smoothing as an
+/// unrotated average of local Cartesian strains, which over-stiffens a curved
+/// shell (issue #2).  Out-of-plane strain components are neglected, as stated
+/// after Eq. (15).  Returns `None` for a singular neighbour Jacobian.
 pub fn convected_operator(
     j_target: &Matrix2<f64>,
+    frame_target: &Matrix3<f64>,
     j_neighbour: &Matrix2<f64>,
+    frame_neighbour: &Matrix3<f64>,
 ) -> Option<Matrix3<f64>> {
-    Some(tensor_operator(&(j_target * j_neighbour.try_inverse()?)))
+    let relative = frame_target * frame_neighbour.transpose();
+    let q = Matrix2::new(
+        relative[(0, 0)],
+        relative[(0, 1)],
+        relative[(1, 0)],
+        relative[(1, 1)],
+    );
+    Some(tensor_operator(&(j_target * q * j_neighbour.try_inverse()?)))
 }
 
 /// Eq. (17): the neighbour's area projected onto the target's mid-surface plane.
@@ -182,6 +200,10 @@ pub struct TriangleFrame {
     pub area: f64,
     /// Unit normal at the element centre, in global coordinates.
     pub normal: Vector3<f64>,
+    /// The element's local-to-global rotation `t3` (rows are the local basis
+    /// vectors in global coordinates).  Eq. (15) needs it to relate the target's
+    /// tangent plane to the neighbour's.
+    pub frame: Matrix3<f64>,
 }
 
 /// The smoothed membrane strain operator of one triangle.
@@ -227,7 +249,12 @@ pub fn smoothed_membrane_strain(
                 continue;
             };
 
-            let Some(convected) = convected_operator(&frame.j_mat, &frames[neighbour].j_mat) else {
+            let Some(convected) = convected_operator(
+                &frame.j_mat,
+                &frame.frame,
+                &frames[neighbour].j_mat,
+                &frames[neighbour].frame,
+            ) else {
                 // Degenerate neighbour: fall back to the element's own strain.
                 pairwise_weights[edge][0] = Matrix3::identity();
                 continue;
@@ -308,6 +335,7 @@ mod tests {
             j_mat: Matrix2::identity(),
             area: 0.5,
             normal: Vector3::new(0.0, 0.0, 1.0),
+            frame: Matrix3::identity(),
         }
     }
 
@@ -334,7 +362,8 @@ mod tests {
     #[test]
     fn convected_operator_is_identity_for_equal_frames() {
         let j = Matrix2::new(0.3, 0.1, -0.2, 0.4);
-        let operator = convected_operator(&j, &j).expect("invertible");
+        let identity = Matrix3::identity();
+        let operator = convected_operator(&j, &identity, &j, &identity).expect("invertible");
         assert!((operator - Matrix3::identity()).norm() < 1e-14);
     }
 
@@ -473,6 +502,8 @@ mod tests {
     fn the_projected_area_switches_the_smoothing_off_at_ninety_degrees() {
         let mut neighbour = unit_triangle();
         neighbour.normal = Vector3::new(1.0, 0.0, 0.0); // perpendicular to the target
+        // A frame whose third row is that normal: rotate 90 degrees about y.
+        neighbour.frame = Matrix3::new(0.0, 0.0, -1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0);
         let frames = vec![unit_triangle(), neighbour];
         let neighbours = vec![[Some(1), None, None], [None, None, None]];
         let operators = smoothed_membrane_strain(&frames, &neighbours);

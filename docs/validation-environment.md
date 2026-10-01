@@ -34,8 +34,8 @@ export CCX_BIN=~/miniconda3/envs/aeroelast-dev/bin/ccx
 python -m pytest -o addopts="" -q -rxX
 ```
 
-That is the run that produces "426 tests: 413 passed, 13 xfailed, 0 failed, 0 errors"
-at commit `2446335`. The 13 `xfail` are the documented validity limits, not failures;
+That is the run that produces "429 tests: 416 passed, 13 xfailed, 0 failed, 0 errors"
+on the current tree. The 13 `xfail` are the documented validity limits, not failures;
 their bounds and drivers are in the **Validity Envelope** section of the matrix.
 
 Rust core:

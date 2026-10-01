@@ -27,6 +27,7 @@ pub fn register_module(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(batch_ke_mitc3, m)?)?;    m.add_function(wrap_pyfunction!(batch_me_mitc3, m)?)?;
     m.add_function(wrap_pyfunction!(batch_kt_mitc3, m)?)?;
     m.add_function(wrap_pyfunction!(batch_fint_mitc3, m)?)?;
+    m.add_function(wrap_pyfunction!(assemble_smoothed_mitc3, m)?)?;
     m.add_function(wrap_pyfunction!(batch_ke_mitc4, m)?)?;
     m.add_function(wrap_pyfunction!(batch_me_mitc4, m)?)?;
     m.add_function(wrap_pyfunction!(batch_kt_mitc4, m)?)?;

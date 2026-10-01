@@ -14,7 +14,7 @@ reference and every margin visible.
 
 **Purpose.** This file is the single source of truth for AeroElast's numerical
 validation evidence. It is written so that an LLM (or a careful human), without
-reading the 36 test files, can (a) know exactly what each test checks, (b) know which
+reading the 37 test files, can (a) know exactly what each test checks, (b) know which
 rows are strong evidence and which are flagged, and (c) regenerate every number a
 validation paper will report. Treat it as the **input contract** for the paper's
 experimental section.
@@ -42,7 +42,7 @@ notes (flags per §9). `not printed` means the test asserts without printing a r
    residual; the *measured margin* column is exactly that output. Run it with `CCX_BIN`
    set, OpenFAST reachable and `neuralfoil` installed (§12), or the relevant rows skip.
 2. `python -m pytest -o addopts="" --collect-only -q` reproduces the file-by-file
-   inventory in §2 (426 tests / 36 files) that proves nothing drifted.
+   inventory in §2 (429 tests / 37 files) that proves nothing drifted.
 3. §2.1 is the headline table; §3-§8 are the per-row evidence behind it; §12 has the
    per-tool commands and the skip conditions.
 4. For a paper table, copy the row's *reference*, *tolerance* and *measured margin*
@@ -90,6 +90,7 @@ evidence lives in §3-§8.
 | BEM (CCBlade) vs OpenFAST AeroDyn, identical polars | §8.4 | 1.5% thrust/torque |
 | Blade modal and static vs CCX S8R on the same mesh | §4.8 | 1.65% / 1.9% |
 | MITC4 in-plane convergence order; laminated mesh gap bounds | §4.5 | order >= 1.5 |
+| Smoothed MITC3+ vs Lee & Lee 2019, Scordelis-Lo roof (N=8/16) | §10.3, `tests/test_mitc3_smoothed.py` | 3.9% / 1.0% (bound 5%) |
 
 ### Trustworthy only inside a declared bound (`xfail` by design)
 
@@ -112,7 +113,6 @@ and quote the bound next to the number.
 | --- | --- |
 | Composite outer-fibre **stress** recovery | `*SHELL SECTION, COMPOSITE` ignores `OUTPUT=3D`; no independent stress judge (issue #3). Only the ABD matrices are validated. |
 | Rotating / centrifugal modal shift | the MITC4 `K_G` thickness bug was fixed (issue #7), but the rotating modes are **not** validated against OpenFAST anywhere in this suite |
-| MITC3+ strain-smoothed kernel | known defect (issue #2): the rotation-block bug is fixed (`union_rotation_rotates_the_full_six_dof_block`), but the smoothed element still over-stiffens a curved shell (Scordelis-Lo 0.0145 vs MITC3+ 0.8561 at N=8). The kernel is unwired; production uses MITC3+ without smoothing. |
 | Experimental (wind-tunnel or field) validation | none; every reference is a code, a closed form or a published model |
 
 ### The rule the suite enforces
@@ -124,7 +124,7 @@ exceed the bound are the `xfail` list above. A green suite never unflags a row.
 
 ## Index
 
-Six groups, 36 files, 426 tests. Every collected test node is accounted for below;
+Six groups, 37 files, 429 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
@@ -132,10 +132,10 @@ Six groups, 36 files, 426 tests. Every collected test node is accounted for belo
 | Ko, Lee, Lee & Bathe 2017 benchmarks | [§3](#3-teststest_ko2017_performancepy-ko-lee-lee--bathe-2017) | 1 | 31 | 31 | 0 | 0.01% – 2.73% | 0 |
 | CCX parity | [§4](#4-ccx-parity-group) | 11 | 76 | 76 | 0 | 0.37% – 12.57% | 7 |
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
-| Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 10 | 152 | 152 | 0 | 0.45% – 1.68% | 1 |
+| Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 11 | 155 | 155 | 0 | 0.45% – 3.86% | 1 |
 | Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
 | BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 60 | 60 | 0 | 0.33% – 40.60% | 0 |
-| **Total** | | **36** | **426** | **426** | **0** | | **8** |
+| **Total** | | **37** | **429** | **429** | **0** | | **8** |
 
 **A large margin is not a failure.** `passed = 413, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -178,6 +178,7 @@ By file and subsection:
   - [6.7 `test_stress_stiffened_solver.py` (13)](#67-test_stress_stiffened_solverpy-13)
   - [6.8 `test_composite_b_coupling.py` (4)](#68-test_composite_b_couplingpy-4)
   - [6.9 Documentation and contract guards](#69-documentation-and-contract-guards)
+  - [6.10 `test_mitc3_smoothed.py` (3)](#610-test_mitc3_smoothedpy-3)
 - [7. Rotor and FSI group](#7-rotor-and-fsi-group)
   - [7.1 `test_rotor_inertial.py` (32)](#71-test_rotor_inertialpy-32)
   - [7.2 `test_rotor_physical_consistency.py` (removed)](#72-test_rotor_physical_consistencypy-removed)
@@ -205,7 +206,7 @@ By file and subsection:
 
 ## 1. How this matrix was produced
 
-**Current tree.** The full suite is **426 tests: 413 passed, 13 xfailed, 0 failed, 0
+**Current tree.** The full suite is **429 tests: 416 passed, 13 xfailed, 0 failed, 0
 errors** (`python -m pytest -o addopts="" -q -rxX`, 22:23) with CalculiX 2.23, OpenFAST
 4.2.1, `ccblade` 1.3.1 and `neuralfoil` present so no row skipped; the 13 `xfail` are the
 documented validity limits of the Validity Envelope section and §13.2, not failures. The
@@ -233,7 +234,7 @@ per-row matrix, so every result the suite produces is visible in one place.
   the value the test itself printed in that run. Rows whose test does not print are marked
   `not printed`, and that is a statement about the test, not about the element.
 - Per-file test counts in the section headings were re-collected at this tree with
-  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 426 total in §2 (the
+  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 429 total in §2 (the
   `e879eba` subset of that collection summed to 386, and the 417-refresh subset to 417).
 - Paper values were read from the recovered PDFs in `.sources/papers/`, not from
   second-hand notes. The Ko et al. 2017 benchmark tables cited below are from
@@ -270,8 +271,8 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-The collected suite is **426 tests / 36 files** (`python -m pytest -o addopts=""
---collect-only -q`), and the file-by-file inventory below sums to the same 426. The
+The collected suite is **429 tests / 37 files** (`python -m pytest -o addopts=""
+--collect-only -q`), and the file-by-file inventory below sums to the same 429. The
 historical path to that number, so a reader can tell real drift from a stale cell:
 
 | step | tests | what it added |
@@ -282,15 +283,16 @@ historical path to that number, so a reader can tell real drift from a stale cel
 | + `test_blade_iea15mw_validation.py` +8 (Bernardi modes) | 438 | the eight Bernardi et al. blade modes (§4.8) |
 | + `test_shell_stress_ccx_parity.py` (3) | 441 | outer-fibre stress recovery vs CalculiX `OUTPUT=3D` (§4.10) |
 | + the honesty sweep and the 2026 validation campaign (issues #3-#8); 28 unfailable tests removed | **426** | CLT judge, NREL/NuMAD refs, CCX mesh convergence, the K_G-scaling test and the nonlinear-default fix |
+| + `test_mitc3_smoothed.py` (3), issue #2 closed | **429** | the strain-smoothed MITC3+ union assembly against Lee & Lee 2019 (§6.10) |
 
 The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 999.82s
 (16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
 Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
 the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
-the diagnostic failures of §13.2. The collected suite is now **426 tests**. Earlier, for
+the diagnostic failures of §13.2. The collected suite is now **429 tests**. Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
 1025.15s. The Rust side is green too: `cargo test --manifest-path crates/Cargo.toml -p
-aeroelast-core` -> **155 passed, 0 failed, 0 ignored** (the Cargo workspace root is `crates/`,
+aeroelast-core` -> **158 passed, 0 failed, 0 ignored** (the Cargo workspace root is `crates/`,
 not the repository root).
 
 ### 2.1 Results at a glance
@@ -347,7 +349,7 @@ et al. modes**, §4.8), `test_ccx_writer_ids.py` (3, the CCX writer's id-scheme 
 campaign, §8.4).
 
 **File-by-file inventory.** The collected set at this tree, file by file, and the section
-that documents it. This table is the index's audit: its column sums to `426`, and it is the
+that documents it. This table is the index's audit: its column sums to `429`, and it is the
 one place to check whether a file has drifted out of the matrix. Reproduce with
 `python -m pytest -o addopts="" --collect-only -q | grep -c '::'`.
 
@@ -389,7 +391,8 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_force_projection.py` | 10 | §8.3 |
 | `test_bem_openfast_parity.py` | 14 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
-| **36 files** | **426** | |
+| `test_mitc3_smoothed.py` | 3 | §6.10 |
+| **37 files** | **429** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -814,6 +817,20 @@ can no longer silently disagree with the code.
 | `...` scenario 3 (1) | each author-year citation resolves in `docs/references.md` and each quoted equation in the extracts | the canonical bibliography and the two extract files | exact match | not printed | – |
 | `test_laminate_invariant_guard.py::test_laminate_public_surface_unchanged` (1) | the Rust `ShellConstitutive` field set, the Rust `Laminate` method set and the Python `Laminate`/`Ply` surfaces keep their exact shape | the three declared frozensets | exact set equality | not printed | a change here is a contract change in the composite path, to be made on purpose |
 
+### 6.10 `test_mitc3_smoothed.py` (3)
+
+End-to-end validation of the strain-smoothed MITC3+ (Lee & Lee 2019, Table 6, Mesh I)
+through `_aeroelast.assemble_smoothed_mitc3`. This closes issue #2, where the union path
+was two orders of magnitude too stiff on a curved shell. The reference is the paper's own
+normalized Scordelis-Lo tip, so this is a code-versus-code comparison of the *same*
+element; the 5% bound in §13.1 applies — do not widen it.
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6[8]` | Scordelis-Lo roof, triangular mesh N=8 | Lee & Lee 2019, Table 6, Mesh I: 1.0323 | 5% relative | **0.9924, 3.86%** | the un-smoothed MITC3+ gives 0.8561 on the same mesh |
+| `test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6[16]` | the same at N=16 | 1.0075 | 5% relative | **0.9974, 1.00%** | the plain MITC3+ gives 0.9545 |
+| `test_smoothing_relieves_scordelis_lo_membrane_locking_at_n8` | smoothing must move the coarse-mesh result toward the reference plateau | the reference solution, normalized 1.0 | relative to the un-smoothed element | smoothed 0.9924 vs plain 0.8561 | non-vacuity guard: `plain < 0.95` |
+
 ## 7. Rotor and FSI group
 
 ### 7.1 `test_rotor_inertial.py` (32)
@@ -1107,10 +1124,11 @@ The same paper's Table 11 (distorted mesh) gives MITC3+ 0.7982 / 0.9223 / 0.9757
 expectation (0.9942) is the Table 11 N=16 MITC4+ cell, so the distorted row is correctly
 sourced while the pinched-cylinder and twisted-beam distorted rows are not.
 
-### 10.3 The target for the strain-smoothed MITC3+
+### 10.3 The strain-smoothed MITC3+
 
-The element is implemented but not enabled (`docs/formulations/shell-elements.md` §4.3;
-`crates/aeroelast-core/src/elements/smoothing.rs`).
+The element is implemented and validated (`docs/formulations/shell-elements.md` §4.3;
+`crates/aeroelast-core/src/elements/smoothing.rs`), and assembled end to end by
+`_aeroelast.assemble_smoothed_mitc3`.
 
 - Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite element", *Computers and
   Structures* 223:106096, 2019 — `lee2019.pdf`. **Table 6** ("Normalized vertical
@@ -1119,19 +1137,17 @@ The element is implemented but not enabled (`docs/formulations/shell-elements.md
   **16x16**. In the same table: MITC3+ 0.7409 / 0.8793 / 0.9618, Enriched MITC3+ 0.9610 /
   0.9931 / 0.9983, MITC4+ (Mesh I) 1.0476 / 1.0053 / 0.9977; reference solution
   `w_ref = 0.3024`.
-- The target for an N=16 implementation is therefore **1.0075**, against the **0.9545**
-  the unsmoothed element reaches (10.1). The gap is ~5.3% of the reference, and it is the
-  quantity the smoothed variant's refinement should be measured against (the variant IS
-  implemented -- `elements/smoothing.rs` plus the union layout in `mitc3.rs`; see
-  `docs/formulations/shell-elements.md` section 4.3 -- so this is a comparison target, not
-  pending work).
+- **Measured** (`tests/test_mitc3_smoothed.py`): **0.9924 at N=8** against 1.0323
+  (3.86%) and **0.9974 at N=16** against 1.0075 (1.00%). Both are inside the 5% bound,
+  and both remove the membrane locking that holds the un-smoothed MITC3+ at 0.8561 /
+  0.9545. This closes issue #2: the remaining gap is code-vs-code, not a defect.
 - Caveat, stated rather than assumed: Lee & Lee measure at "point B" on Mesh I, while 10.1
   and the live test measure Ko's point A on the regular mesh. The two papers agree on the
   problem definition (`L = 25`, `R = 25`, `t/L = 1/100`, self-weight 90 per unit area,
   `E = 4.32e8`, `nu = 0`, `w_ref = 0.3024`), but the measurement point and mesh pattern
   labels differ, and the published MITC3+ columns themselves differ between them
-  (0.9618 Mesh I vs 0.9566 Mesh II vs Ko's 0.9550). Treat 1.0075 as the target for the
-  same variant, not as a value already shown to be directly comparable.
+  (0.9618 Mesh I vs 0.9566 Mesh II vs Ko's 0.9550). The 1.00% residual at N=16 is small
+  enough that the point/mesh labelling is not driving it.
 
 ## 11. Cross-references
 
