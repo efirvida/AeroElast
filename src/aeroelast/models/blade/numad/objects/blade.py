@@ -46,7 +46,7 @@ class Blade:
     blade = Blade("path/to/blade.yaml")
     """
 
-    def __init__(self, filename: str = None):
+    def __init__(self, filename: str | None = None):
         self.name: str | None = None
         self.definition: Definition = Definition()
         self.ispan: ndarray | None = None
@@ -99,7 +99,7 @@ class Blade:
         yaml_to_blade(self, filename)
         return self
 
-    def read_excel(self, filename: str, airfoil_dir: str = None):
+    def read_excel(self, filename: str, airfoil_dir: str | None = None):
         """Populate blade attributes with NuMAD Excel file data.
 
         Parameters
@@ -152,16 +152,18 @@ class Blade:
             integer index where the new span was inserted
         """
         x0 = self.ispan
-
-        if span_location < self.ispan[-1] and span_location > 0:
-            for i_span, spanLocation in enumerate(self.ispan[1:]):
+        if x0 is None or self.definition.ispan is None:
+            raise RuntimeError("Blade.add_interpolated_station() requires an interpolated span")
+        insertIndex = 0
+        if span_location < x0[-1] and span_location > 0:
+            for i_span, spanLocation in enumerate(x0[1:]):
                 if span_location < spanLocation:
                     insertIndex = i_span + 1
                     break
         else:
             raise ValueError(f"A new span location with value {span_location} is not possible.")
 
-        self.ispan = np.insert(self.ispan, insertIndex, np.array([span_location]))
+        self.ispan = np.insert(x0, insertIndex, np.array([span_location]))
         self.definition.ispan = np.insert(
             self.definition.ispan, insertIndex, np.array([span_location])
         )

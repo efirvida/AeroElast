@@ -3,7 +3,7 @@ import re
 import numpy as np
 
 
-def xml_to_airfoil(airfoil, filecontents=None):
+def xml_to_airfoil(airfoil, filecontents: list[str] | None = None):
     """TODO docstring
 
     Parameters
@@ -12,6 +12,8 @@ def xml_to_airfoil(airfoil, filecontents=None):
     Returns
     -------
     """
+    if filecontents is None:
+        raise ValueError("xml_to_airfoil requires the file contents")
     # DEVNOTE: this works for the kinds of af files
     #          found in the BAR reference blades
     #          but not for general xmls
@@ -26,6 +28,8 @@ def xml_to_airfoil(airfoil, filecontents=None):
 
     pattern = "<reference>(.*)</reference>"
     t = re.search(pattern, fulltext)
+    if t is None:
+        raise ValueError("airfoil XML has no <reference> tag")
     reference = t.group(1)
 
     for line in filecontents:

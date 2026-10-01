@@ -69,7 +69,7 @@ def get_direction_cosines(xDir, xyDir):
     return dirCos
 
 
-def get_average_node_spacing(nodes, elements):
+def get_average_node_spacing(nodes, elements) -> float:
     totDist = 0.0
     ct = 0
     for el in elements:
@@ -86,7 +86,9 @@ def get_average_node_spacing(nodes, elements):
     return totDist / ct
 
 
-def get_mesh_spatial_list(nodes, xSpacing=0, ySpacing=0, zSpacing=0):
+def get_mesh_spatial_list(
+    nodes, xSpacing: float = 0, ySpacing: float = 0, zSpacing: float = 0
+):
     totNds = len(nodes)
     spaceDim = len(nodes[0])
 

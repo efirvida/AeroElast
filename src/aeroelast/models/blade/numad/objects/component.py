@@ -14,7 +14,7 @@ class Component:
         Name, such as 'spar'
     materialid : str
         Material id number from blade.materials
-    fabricangle : float
+    fabricangle : float | ndarray
         Fiber angle
     hpextents : list
         Array of keypoints such as ['b','c']
@@ -30,15 +30,15 @@ class Component:
     """
 
     def __init__(self):
-        self.name: str | None = None
+        self.name: str = ""
         self.group: int = 0
-        self.materialid: str | None = None
-        self.fabricangle: float | None = None
+        self.materialid: str = ""
+        self.fabricangle: float | np.ndarray = 0.0
         self.hpextents: list = []
         self.lpextents: list = []
         self.control_points: np.ndarray | None = None
         self.imethod: str = "linear"
-        self.pinnedends: bool | None = None
+        self.pinnedends: bool = False
         self._keylabels = [
             "te",
             "e",

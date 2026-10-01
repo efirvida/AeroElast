@@ -8,7 +8,7 @@ class Segment2D:
         self.keyPts = keyPts
         self.numEls = numEls
 
-    def getNodesEdges(self):
+    def getNodesEdges(self) -> dict:
         nNds = self.numEls + 1
         if self.segType == "line":
             pt1 = np.array(self.keyPts[0])
@@ -44,7 +44,7 @@ class Segment2D:
                 order,
                 axis=0,
                 bounds_error=False,
-                fill_value="extrapolate",
+                fill_value="extrapolate",  # pyright: ignore[reportArgumentType]
             )
             xNds = iFun(pNds)
             iFun = interpolate.interp1d(
@@ -53,7 +53,7 @@ class Segment2D:
                 order,
                 axis=0,
                 bounds_error=False,
-                fill_value="extrapolate",
+                fill_value="extrapolate",  # pyright: ignore[reportArgumentType]
             )
             yNds = iFun(pNds)
             eN1 = np.array(range(0, self.numEls), dtype=int)
@@ -119,3 +119,4 @@ class Segment2D:
             output["nodes"] = nodes
             output["edges"] = np.transpose(np.array([eN1, eN2]))
             return output
+        raise ValueError(f"Unknown segment type {self.segType!r}")

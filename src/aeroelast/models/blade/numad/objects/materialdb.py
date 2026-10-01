@@ -21,6 +21,10 @@ class MaterialDatabase(dict):
         mm_to_m = 0.001
         stacks = stackdb.stacks
         swstacks = stackdb.swstacks
+        if stacks is None or swstacks is None:
+            raise RuntimeError(
+                "MaterialDatabase.generate() requires a generated StackDatabase"
+            )
         n_webs, n_stations = swstacks.shape
 
         # prepare material database ==========================================
@@ -130,40 +134,40 @@ class MaterialDatabaseEntry:
         self.type: str | None = None
         self.name: str | None = None
         self.reference: str | None = None
-        self.dens: list | None = None
-        self.nuxy: list | None = None
-        self.ex: list | None = None
-        self.ey: list | None = None
-        self.ez: list | None = None
-        self.gxy: list | None = None
-        self.gyz: list | None = None
-        self.gxz: list | None = None
-        self.prxy: list | None = None
-        self.pryz: list | None = None
-        self.prxz: list | None = None
-        self.xten: list | None = None
-        self.xcmp: list | None = None
-        self.yten: list | None = None
-        self.ycmp: list | None = None
-        self.zten: list | None = None
-        self.zcmp: list | None = None
-        self.xy: list | None = None
-        self.yz: list | None = None
-        self.xz: list | None = None
-        self.xycp: list | None = None
-        self.yzcp: list | None = None
-        self.xzcp: list | None = None
-        self.xzit: list | None = None
-        self.xzic: list | None = None
-        self.yzit: list | None = None
-        self.yzic: list | None = None
-        self.g1g2: list | None = None
-        self.etal: list | None = None
-        self.etat: list | None = None
-        self.alp0: list | None = None
-        self.thicknessType: list | None = None
-        self.uniqueLayers: list | None = None
-        self.symmetryType: list | None = None
+        self.dens: float | None = None
+        self.nuxy: float | None = None
+        self.ex: float | None = None
+        self.ey: float | None = None
+        self.ez: float | None = None
+        self.gxy: float | None = None
+        self.gyz: float | None = None
+        self.gxz: float | None = None
+        self.prxy: float | None = None
+        self.pryz: float | None = None
+        self.prxz: float | None = None
+        self.xten: float | None = None
+        self.xcmp: float | None = None
+        self.yten: float | None = None
+        self.ycmp: float | None = None
+        self.zten: float | None = None
+        self.zcmp: float | None = None
+        self.xy: float | None = None
+        self.yz: float | None = None
+        self.xz: float | None = None
+        self.xycp: float | None = None
+        self.yzcp: float | None = None
+        self.xzcp: float | None = None
+        self.xzit: float | None = None
+        self.xzic: float | None = None
+        self.yzit: float | None = None
+        self.yzic: float | None = None
+        self.g1g2: float | None = None
+        self.etal: float | None = None
+        self.etat: float | None = None
+        self.alp0: float | None = None
+        self.thicknessType: str | None = None
+        self.uniqueLayers: int | None = None
+        self.symmetryType: str | None = None
         self.layer: list | None = None
 
 

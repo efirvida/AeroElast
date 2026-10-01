@@ -28,7 +28,7 @@ class ShellRegion:
             natSpaceCrd = []
         self.regType = regType
         self.keyPts = np.array(keyPoints)
-        self.edgeEls = numEdgeEls
+        self.edgeEls: list = numEdgeEls
         if len(natSpaceCrd) == 0:
             if regType == "quad1":
                 self.natSpaceCrd = np.array([[-1.0, -1.0], [1.0, -1.0], [1.0, 1.0], [-1.0, 1.0]])
@@ -112,6 +112,7 @@ class ShellRegion:
                     meshNds = mData["nodes"]
                     for ndi in range(0, xNodes):
                         minDist = 2.0
+                        minPt = meshNds[ndi]
                         for sN in segNds:
                             vec = meshNds[ndi] - sN
                             dist = np.linalg.norm(vec)
@@ -128,6 +129,7 @@ class ShellRegion:
                     meshNds = mData["nodes"]
                     for ndi in range((totNds - xNodes), totNds):
                         minDist = 2.0
+                        minPt = meshNds[ndi]
                         for sN in segNds:
                             vec = meshNds[ndi] - sN
                             dist = np.linalg.norm(vec)
@@ -144,6 +146,7 @@ class ShellRegion:
                     meshNds = mData["nodes"]
                     for ndi in range((xNodes - 1), totNds, xNodes):
                         minDist = 2.0
+                        minPt = meshNds[ndi]
                         for sN in segNds:
                             vec = meshNds[ndi] - sN
                             dist = np.linalg.norm(vec)
@@ -160,6 +163,7 @@ class ShellRegion:
                     meshNds = mData["nodes"]
                     for ndi in range(0, totNds, xNodes):
                         minDist = 2.0
+                        minPt = meshNds[ndi]
                         for sN in segNds:
                             vec = meshNds[ndi] - sN
                             dist = np.linalg.norm(vec)
@@ -214,7 +218,7 @@ class ShellRegion:
             mData["nodes"] = XYZ
             return mData
 
-    def initialBoundary(self):
+    def initialBoundary(self) -> dict:
         """Object data modified: none
         Parameters
         ----------
@@ -245,6 +249,7 @@ class ShellRegion:
             bnd.addSegment("arc", [[pi_2, 0.0], [-pi_2, 0.0], [pi_2, 0.0]], self.edgeEls[0])
             bData = bnd.getBoundaryMesh()
             return bData
+        raise ValueError(f"Unknown shell region type {self.regType!r}")
 
     def XYZCoord(self, eta):
         """
@@ -256,6 +261,7 @@ class ShellRegion:
         -------
         XYZ
         """
+        XYZ = np.zeros((len(eta), 3))
         # if('1' in self.regType):
         # xCrd = interpolate.griddata(self.natSpaceCrd,self.keyPts[:,0],eta,method='linear')
         # yCrd = interpolate.griddata(self.natSpaceCrd,self.keyPts[:,1],eta,method='linear')
@@ -499,7 +505,7 @@ class ShellRegion:
                 Nmat[i, 4] = 4 * eta[i, 0] * eta[i, 1]
                 Nmat[i, 5] = -4 * eta[i, 1] * (eta[i, 0] + eta[i, 1] - 1)
             XYZ = np.matmul(Nmat, self.keyPts)
-        elif "tri3" == self.type:
+        elif "tri3" == self.regType:
             r2 = 1 / 3
             r3 = 2 / 3
             coef = np.array([-4.5, 4.5, 4.5, 13.5, -13.5, 13.5, 13.5, -13.5, 13.5, -27])

@@ -13,6 +13,8 @@ class StackDatabase:
         self.swstacks: ndarray | None = None
 
     def __eq__(self, other):
+        if self.stacks is None or self.swstacks is None:
+            raise RuntimeError("StackDatabase.__eq__ requires a generated database")
         assert self.stacks.shape == other.stacks.shape
 
         assert self.swstacks.shape == other.swstacks.shape
@@ -35,6 +37,12 @@ class StackDatabase:
 
     def generate(self, keypoints: KeyPoints, bom: BillOfMaterials):
         # build the material stack for each area
+        if (
+            keypoints.key_areas is None
+            or keypoints.web_points is None
+            or keypoints.web_indices is None
+        ):
+            raise RuntimeError("StackDatabase.generate() requires generated keypoints")
         n_segments = keypoints.key_areas.shape[0]
         n_stations = keypoints.key_areas.shape[1]
         n_webs = len(keypoints.web_points)

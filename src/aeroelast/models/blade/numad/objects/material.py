@@ -1,3 +1,4 @@
+import numpy as np
 from numpy import ndarray
 
 
@@ -73,33 +74,33 @@ class Material:
     def __init__(self):
         self.name: str | None = None
         self.type: str | None = None
-        self.reference: str | None = None
-        self.layerthickness: float | None = None
-        self.ex: float | None = None
-        self.ey: float | None = None
-        self.ez: float | None = None
-        self.gxy: float | None = None
-        self.gyz: float | None = None
-        self.gxz: float | None = None
-        self.prxy: float | None = None
-        self.pryz: float | None = None
-        self.prxz: float | None = None
-        self.density: float | None = None
-        self.drydensity: float | None = None
-        self.uts: float | None = None
-        self.ucs: float | None = None
-        self.uss: float | None = None
-        self.xzit: float | None = None
-        self.xzic: float | None = None
-        self.yzit: float | None = None
-        self.yzic: float | None = None
-        self.g1g2: float | None = None
-        self.alp0: float | None = None
-        self.etat: float | None = None
-        self.etal: float | None = None
-        self.m: list[float] | None = None
-        self.gamma_mf: list[float] | None = None
-        self.gamma_ms: list[float] | None = None
+        self.reference: str | list | None = None
+        self.layerthickness: float = 0.0
+        self.ex: float | np.ndarray = 0.0
+        self.ey: float | np.ndarray = 0.0
+        self.ez: float | np.ndarray = 0.0
+        self.gxy: float | np.ndarray = 0.0
+        self.gyz: float | np.ndarray = 0.0
+        self.gxz: float | np.ndarray = 0.0
+        self.prxy: float | np.ndarray = 0.0
+        self.pryz: float | np.ndarray = 0.0
+        self.prxz: float | np.ndarray = 0.0
+        self.density: float = 0.0
+        self.drydensity: float = 0.0
+        self.uts: float | np.ndarray = 0.0
+        self.ucs: float | np.ndarray = 0.0
+        self.uss: float | np.ndarray = 0.0
+        self.xzit: float = 0.0
+        self.xzic: float = 0.0
+        self.yzit: float = 0.0
+        self.yzic: float = 0.0
+        self.g1g2: float = 0.0
+        self.alp0: float | np.ndarray | None = None
+        self.etat: float | np.ndarray | None = None
+        self.etal: float = 0.0
+        self.m: list[float] = []
+        self.gamma_mf: list[float] = []
+        self.gamma_ms: list[float] = []
 
     def __eq__(self, other):
         attrs = vars(self).keys()

@@ -44,7 +44,7 @@ def _parse_data(data):
     """
     try:
         # detect whether data is list
-        data + []
+        _ = data + []
     except TypeError:  # case for single data point
         parsed_data = float(data)
     else:

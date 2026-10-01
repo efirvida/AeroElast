@@ -9,9 +9,9 @@ class Mesh2D:
     def __init__(self, boundaryNodes, boundaryEdges=None):
         if boundaryEdges is None:
             boundaryEdges = []
-        self.nodeGL = None
-        self.edgeGL = None
-        self.triElGL = None
+        self.nodeGL: spatial_grid_list2d = spatial_grid_list2d(0.0, 0.0, 0.0, 0.0, 1.0, 1.0)
+        self.edgeGL: spatial_grid_list2d = spatial_grid_list2d(0.0, 0.0, 0.0, 0.0, 1.0, 1.0)
+        self.triElGL: spatial_grid_list2d = spatial_grid_list2d(0.0, 0.0, 0.0, 0.0, 1.0, 1.0)
 
         self.minEdgeLen = 0.0
         self.maxEdgeLen = 1.0
@@ -183,7 +183,7 @@ class Mesh2D:
                         "cubic",
                         axis=0,
                         bounds_error=False,
-                        fill_value="extrapolate",
+                        fill_value="extrapolate",  # pyright: ignore[reportArgumentType]
                     )
                     xAll = iFun(pAll)
                     xMat[ndi, :] = xAll
@@ -194,12 +194,12 @@ class Mesh2D:
                         "cubic",
                         axis=0,
                         bounds_error=False,
-                        fill_value="extrapolate",
+                        fill_value="extrapolate",  # pyright: ignore[reportArgumentType]
                     )
                     yAll = iFun(pAll)
                     yMat[ndi, :] = yAll
+                zMat = np.zeros((nbNds, totSweepEls + 1))
                 if dimSpace == 3:
-                    zMat = np.zeros((nbNds, totSweepEls + 1))
                     for ndi in range(0, nbNds):
                         zDest = [self.nodes[ndi, 2]]
                         for dNds in destNodes:
@@ -211,7 +211,7 @@ class Mesh2D:
                             "cubic",
                             axis=0,
                             bounds_error=False,
-                            fill_value="extrapolate",
+                            fill_value="extrapolate",  # pyright: ignore[reportArgumentType]  # pyright: ignore[reportArgumentType]
                         )
                         zAll = iFun(pAll)
                         zMat[ndi, :] = zAll
@@ -657,7 +657,7 @@ class Mesh2D:
         Dmat = np.zeros(dim)
         bDim = 2 * self.numBndNodes
         Dmat[0:bDim] = 100000.0
-        10.0 * np.ones(dim) + Dmat
+        _ = 10.0 * np.ones(dim) + Dmat
         Pinv = np.zeros(dim)
         Pinv[0:bDim] = 9.999e-6
         Pinv[bDim:dim] = 0.1
@@ -717,7 +717,7 @@ class Mesh2D:
             gVec = gVec + alpha * zVec
             wVec = np.multiply(Pinv, gVec)
             rNext = np.dot(gVec, wVec)
-            rNext / res
+            _ = rNext / res
             res = rNext
             hVec = -wVec
             i = i + 1

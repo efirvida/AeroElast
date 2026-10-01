@@ -156,7 +156,7 @@ def _read_strlist(val):
 # ---------------------------------------------------------------------------
 
 
-def excel_to_blade(blade, filename: str, airfoil_dir: str = None):
+def excel_to_blade(blade, filename: str, airfoil_dir: str | None = None):
     """Populate a :class:`Blade` object from a NuMAD Excel file.
 
     Supports both the new pyNuMAD 3-sheet format (Geometry / Components /
@@ -434,7 +434,7 @@ def _read_components(definition, ws):
 
         imethod = _str(ws.cell(row=r, column=_CMPT["imethod"] + 1).value)
         comp.imethod = imethod if imethod else "linear"
-        comp.pinnedends = 0
+        comp.pinnedends = False
 
         if not np.any(len(comp.hpextents) == np.array([0, 1, 2])):
             raise ValueError(f"Component '{comp.name}': length of hpextents must be 0, 1, or 2")
@@ -1107,7 +1107,7 @@ def _build_legacy_components(definition, legacy):
         comp.hpextents = hp_ext
         comp.lpextents = lp_ext
         comp.imethod = "pchip"
-        comp.pinnedends = 0
+        comp.pinnedends = False
 
         # Control points: (normalised span, n_layers) at each station
         stk_col = mat_id_idx  # column in layer_counts
@@ -1156,7 +1156,7 @@ def _build_legacy_components(definition, legacy):
             comp.hpextents = [kp]
             comp.lpextents = [kp]
             comp.imethod = "pchip"
-            comp.pinnedends = 0
+            comp.pinnedends = False
 
             stk_col = mat_id_idx
             n_layers = np.nan_to_num(layer_counts[:, stk_col], nan=0.0)

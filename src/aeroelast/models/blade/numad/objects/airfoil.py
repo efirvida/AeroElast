@@ -38,7 +38,12 @@ class Airfoil:
         Options, 'round', 'sharp', or 'flat'
     """
 
-    def __init__(self, filename: str = None, coords: ndarray = None, reference: str = None):
+    def __init__(
+        self,
+        filename: str | None = None,
+        coords: ndarray | None = None,
+        reference: str | None = None,
+    ):
         """
         Parameters
         ----------
@@ -50,15 +55,16 @@ class Airfoil:
             Name of airfoil reference
         """
 
-        self.name: str | None = None
-        self.reference: str | None = None
+        self.name: str = ""
+        self.reference: str = ""
         self.coordinates: ndarray | None = None
         self.c: ndarray | None = None
         self.camber: ndarray | None = None
-        self.thickness: float | None = None
+        self.thickness: ndarray | None = None
         self.percentthick: float | None = None
         self.maxthick: float | None = None
         self.te_type: str | None = None
+        self._from_file: bool = False
 
         if filename:
             # currently assuming XML format
@@ -113,6 +119,8 @@ class Airfoil:
 
         TODO docstring
         """
+        if self.c is None:
+            raise RuntimeError("Airfoil.x requires the camber line to be computed")
         cc = self.c
         return np.concatenate([[cc[-1]], np.flipud(cc), cc[1:], [cc[-1]]])
 
@@ -125,22 +133,24 @@ class Airfoil:
 
         TODO docstring
         """
+        if self.camber is None or self.thickness is None:
+            raise RuntimeError("Airfoil.y requires the camber and thickness to be computed")
         lp = self.camber + (self.thickness / 2)
         hp = self.camber - (self.thickness / 2)
         return np.concatenate(([0], np.flipud(hp), lp[1:], [0]))
 
-    def read_xml(self, filename: str):
+    def read_xml(self, file_contents: list[str]):
         """Populate airfoil object with data from airfoil xml
 
         Parameters
         ----------
-        filename : str
+        file_contents : list[str]
 
         Returns
         -------
         Self
         """
-        xml_to_airfoil(self, filename)
+        xml_to_airfoil(self, file_contents)
         return self
 
     def manageTE(self):
@@ -153,6 +163,8 @@ class Airfoil:
         -------
         """
         # Modifies self.te_type and self.coordinates
+        if self.coordinates is None:
+            raise RuntimeError("Airfoil.manageTE() requires coordinates")
         unitNormals = get_airfoil_normals(self.coordinates)
         angleChange = get_airfoil_normals_angle_change(unitNormals)
         discontinuities = np.flatnonzero(angleChange > 45)
@@ -191,6 +203,8 @@ class Airfoil:
         af.resample(n_samples,spacing)
         af.resample(200,'half-cosine');
         """
+        if self.coordinates is None:
+            raise RuntimeError("Airfoil.resample() requires coordinates")
         coords_in = self.coordinates
         coords_out = resample_airfoil(coords_in, n_samples, spacing)
         # self(k).percentthick = (max(ycoord) - min(ycoord))*100;
