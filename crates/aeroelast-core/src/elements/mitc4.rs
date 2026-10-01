@@ -1635,27 +1635,18 @@ fn compute_b_geometric(dh: &SMatrix<f64, 2, 4>) -> SMatrix<f64, 6, 24> {
 }
 
 /// Initial-stress (geometric) stiffness contribution at Gauss point `g` for the
-/// membrane resultant state `sigma = [N_xx, N_yy, N_xy]`:
-/// `B_geo^T blockdiag(sigma) B_geo w sqrt_g`.
+/// membrane **stress** state `sigma = [sigma_xx, sigma_yy, sigma_xy]`:
+/// `B_geo^T blockdiag(sigma * h) B_geo w sqrt_g`, with the membrane force
+/// resultant `N = sigma * h` formed here (this matches MITC3's
+/// `compute_k_sigma_local`; without the factor the MITC4 part came out `1/h` too
+/// large, issue #7).
 fn geometric_stiffness_contribution(
     pre: &Mitc4Precomputed,
     g: usize,
     sigma: &Vector3<f64>,
 ) -> Mat24 {
-    // sigma is in [Pa] (average membrane stress = N/h).  The geometric
-    // stiffness formula needs the force resultant N [N/m] = sigma * h, exactly
-    // as `compute_k_sigma_local` does for MITC3.  Both families are fed from a
-    // single `assemble_geometric_k(sigma[Pa])` call, so they must share one
-    // convention: without the factor of h the MITC4 part of a mixed mesh (the
-    // IEA 15 MW blade is mostly quads) comes out 1/h too stiff, which is what
-    // inflated the rotating first flap of S-4 from 0.57 Hz to 2.13 Hz.
     let h = pre.thickness;
-    let s_m = Matrix2::new(
-        sigma[0] * h,
-        sigma[2] * h,
-        sigma[2] * h,
-        sigma[1] * h,
-    );
+    let s_m = Matrix2::new(sigma[0] * h, sigma[2] * h, sigma[2] * h, sigma[1] * h);
     let mut s_tilde = SMatrix::<f64, 6, 6>::zeros();
     for i in 0..2 {
         for j in 0..2 {
@@ -1671,7 +1662,7 @@ fn geometric_stiffness_contribution(
 }
 
 /// Initial-stress stiffness in LOCAL coordinates from a pre-computed membrane
-/// resultant state `sigma = [N_xx, N_yy, N_xy]`.
+/// **stress** state `sigma = [sigma_xx, sigma_yy, sigma_xy]` (Pa).
 fn geometric_stiffness_from_stress(pre: &Mitc4Precomputed, sigma: &Vector3<f64>) -> Mat24 {
     let mut k = Mat24::zeros();
     for g in 0..N_GAUSS {
@@ -3012,8 +3003,9 @@ pub fn compute_k_sigma_global(pre: &Mitc4Precomputed, sigma_membrane: &Vector3<f
     transform_to_global(pre, &k_local)
 }
 
-/// Centrifugal prestress `[N_xx, N_yy, N_xy]` in LOCAL coordinates:
-/// `sigma_cf ~ rho omega^2 r_radial L_char` with `L_char = sqrt(area)`. The
+/// Centrifugal prestress `[sigma_xx, sigma_yy, sigma_xy]` in LOCAL coordinates
+/// (units of stress, Pa): `sigma_cf ~ rho omega^2 r_radial L_char` with
+/// `L_char = sqrt(area)`. The
 /// repository's centrifugal model, not a paper equation.
 #[allow(clippy::too_many_arguments)]
 pub fn compute_centrifugal_prestress(
@@ -8679,6 +8671,34 @@ mod tests {
         assert!(
             diff.norm() < 1e-6,
             "compute_k_sigma_global must equal transform(k_local)"
+        );
+    }
+
+    #[test]
+    fn test_k_sigma_global_scales_with_thickness() {
+        // `compute_k_sigma_global` is handed the membrane *stress*
+        // [sigma_xx, sigma_yy, sigma_xy] (Pa), so the force resultant
+        // N = sigma * h must be formed inside.  Issue #7: MITC4 omitted the
+        // thickness, so its K_sigma was 1/h too large and did not move with h.
+        let sigma = Vector3::new(1.0e6, 0.5e6, 0.2e6);
+        let node_coords: [f64; 12] =
+            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0];
+        let mat = IsotropicMaterial::new(2.0e11, 0.3, 7800.0);
+
+        let norm_at = |h: f64| {
+            let shell = mat.constitutive(h, 5.0 / 6.0);
+            let pre = Mitc4Precomputed::new(&node_coords, shell, h, 5.0 / 6.0);
+            compute_k_sigma_global(&pre, &sigma).norm()
+        };
+
+        let n_thin = norm_at(0.01);
+        let n_thick = norm_at(0.1);
+        assert!(n_thin > 0.0, "K_sigma must be nonzero for nonzero stress");
+        let ratio = n_thick / n_thin;
+        assert!(
+            (ratio - 10.0).abs() < 1e-9 * 10.0,
+            "K_sigma must scale linearly with the thickness: \
+             |K(0.1)|/|K(0.01)| = {ratio} (expected 10)"
         );
     }
 

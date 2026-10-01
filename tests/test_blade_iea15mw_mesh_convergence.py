@@ -1,10 +1,15 @@
 """Blade modal mesh convergence against CalculiX on the IEA 15 MW blade.
 
 ``test_blade_iea15mw_validation.py`` compares AeroElast to CCX at one mesh
-(``element_size = 1.0 m``).  This module shows that the same-method gap is a
-discretisation gap, not a floor: it falls monotonically from a 2.0 m to a 1.0 m
-to a 0.5 m mesh, and on the 0.5 m mesh the first eight matched modes agree
-within 2.5%.
+(``element_size = 1.0 m``).  This module separates two behaviours that the first
+revision of this test conflated:
+
+* **Low modes (1-4)**: the same-method gap is discretisation.  It falls from the
+  2.0 m to the 1.0 m to the 0.5 m mesh and the finest-mesh gap is under 1%.
+* **High modes (5-8)**: the gap plateaus at a few percent on every mesh from
+  1.0 m down.  That residual is the 4-node-vs-8-node **element-order** difference
+  (linear MITC4 against quadratic S8R, worst in the high-curvature modes), not
+  discretisation, so it gets a looser bound and no per-mode improvement claim.
 
 Measured AeroElast-vs-CCX relative gaps for the eight matched modes (Hungarian
 pairing, so the order is by cost, not by mode number):
@@ -40,25 +45,15 @@ import test_blade_iea15mw_validation as blade_val  # noqa: E402
 
 MESHES = (2.0, 1.0, 0.5)
 N_MODES = 8
-
-# The low modes are mesh-limited and do converge; the high modes plateau at an
-# element-order difference that refinement does not remove.  Measured 2026-09-30
-# (CalculiX 2.20 here; the deck-building test names 2.23), matched gaps per mode:
-#
-#   es=2.00  0.95 1.33 2.41 2.44 3.52 4.87 6.04 6.24   worst 6.24%  mean 3.47%
-#   es=1.00  0.05 0.35 0.42 0.56 1.03 1.78 2.31 4.04   worst 4.04%  mean 1.32%
-#   es=0.50  0.11 0.16 0.20 0.41 1.47 1.48 2.31 4.03   worst 4.03%  mean 1.27%
-#   es=0.25  0.04 0.07 0.11 0.28 1.47 2.04 2.82 3.90   worst 3.90%  mean 1.34%
-#
-# 2.0 -> 1.0 improves everything; below 1.0 the low modes keep improving while
-# modes 5-8 plateau between 1.5% and 4% at every mesh.  So a per-mode strict
-# decrease across the board is not a property of a linear-MITC4 vs quadratic-S8R
-# comparison, and a 2.5% bound on the worst mode is not met by that comparison
-# either (mode 8: 3.90-4.04%).  The bounds are stated per group: a mesh claim for
-# the low modes, an element-order bound for the high ones.
+#: Low modes where refinement resolves the gap: finest-mesh bound (measured
+#: 0.08-0.19% at CCX 2.23).
 LOW_MODES = 4
-FINEST_LOW_GAP_TOL = 0.01   # measured 0.04-0.28% on the 0.25 m mesh
-HIGH_MODE_GAP_TOL = 0.05    # measured 3.90-4.04%, flat across all three meshes
+LOW_TOL = 0.01
+#: Modes 5-8: element-order bound, explicitly not a mesh claim (measured
+#: 0.40-2.12% at CCX 2.23, 3.90-4.04% at CCX 2.20).
+HIGH_TOL = 0.05
+#: Below this a gap difference is not resolvable across the comparison.
+NOISE_FLOOR = 0.002
 
 pytestmark = pytest.mark.slow
 
@@ -145,41 +140,36 @@ def convergence(tmp_path_factory: pytest.TempPathFactory) -> dict[float, tuple[n
 
 
 def test_blade_modal_gap_converges_with_mesh(convergence) -> None:
-    """Low modes' AeroElast-vs-CCX gap falls with the mesh; the high ones plateau.
+    """The AeroElast-vs-CCX modal gap is discretisation for the low modes.
 
-    A converged same-method comparison is the evidence that the residual on the
-    low modes is discretisation.  The high modes do not converge -- they carry an
-    element-order difference between linear MITC4 and quadratic S8R -- so they are
-    bounded separately instead of being asserted to improve.  The measured gaps
-    and both bounds are in the constants above.
+    Modes 1-4 fall under refinement, so their finest-mesh gap is bounded by
+    ``LOW_TOL``.  Modes 5-8 plateau at 1.5-4% (mode 8 around 2-4% on every mesh)
+    -- an element-order difference, not discretisation -- so they get the looser
+    ``HIGH_TOL`` and no per-mode improvement claim.  The coarse-to-medium
+    improvement is asserted only where the coarse gap is above ``NOISE_FLOOR``,
+    because below it the difference is inside the comparison's resolution.
     """
     gaps = {es: _matched_gaps(*convergence[es], N_MODES) for es in MESHES}
     for es in MESHES:
         print(f"  es={es:.1f} m gaps: {[f'{g * 100:.2f}%' for g in gaps[es]]}")
 
     coarse, medium, fine = MESHES
-
-    # Low modes: the finest-mesh bound is the real evidence, and the improvement
-    # is asserted only where the coarse gap is above the noise floor of this
-    # comparison -- mode 1 already sits at 0.05% on the 1.0 m mesh, so demanding
-    # that it improve is demanding a change smaller than the measurement's own
-    # resolution.
-    NOISE_FLOOR = 0.002  # 0.2%
-    for mode in range(LOW_MODES):
-        assert gaps[fine][mode] < FINEST_LOW_GAP_TOL, (
-            f"on the 0.5 m mesh matched mode {mode + 1} is "
-            f"{gaps[fine][mode] * 100:.2f}% from CCX (tol {FINEST_LOW_GAP_TOL * 100:.1f}%)"
-        )
+    # Mesh-convergence claim: the first refinement improves every mode whose
+    # coarse gap is above the noise floor.
+    for mode in range(N_MODES):
         if gaps[coarse][mode] > NOISE_FLOOR:
-            assert gaps[fine][mode] < gaps[coarse][mode], (
-                f"matched mode {mode + 1}: 0.5 m gap {gaps[fine][mode] * 100:.2f}% is not "
-                f"below the 2.0 m gap {gaps[coarse][mode] * 100:.2f}% -- the comparison "
-                "is not converging with the mesh"
+            assert gaps[medium][mode] < gaps[coarse][mode], (
+                f"matched mode {mode + 1}: 1.0 m gap {gaps[medium][mode] * 100:.2f}% is not "
+                f"below the 2.0 m gap {gaps[coarse][mode] * 100:.2f}%"
             )
 
-    # High modes: the element-order bound, which is not a mesh claim.
-    for mode in range(LOW_MODES, N_MODES):
-        assert gaps[fine][mode] < HIGH_MODE_GAP_TOL, (
-            f"on the 0.5 m mesh matched mode {mode + 1} is "
-            f"{gaps[fine][mode] * 100:.2f}% from CCX (tol {HIGH_MODE_GAP_TOL * 100:.1f}%)"
-        )
+    low_worst = max(gaps[fine][:LOW_MODES])
+    high_worst = max(gaps[fine][LOW_MODES:])
+    assert low_worst < LOW_TOL, (
+        f"finest-mesh low modes (1-{LOW_MODES}) worst gap {low_worst * 100:.2f}% "
+        f"(tol {LOW_TOL * 100:.1f}%)"
+    )
+    assert high_worst < HIGH_TOL, (
+        f"finest-mesh high modes ({LOW_MODES + 1}-{N_MODES}) worst gap "
+        f"{high_worst * 100:.2f}% (tol {HIGH_TOL * 100:.1f}%) -- element-order bound"
+    )

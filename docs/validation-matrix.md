@@ -74,7 +74,7 @@ number.
 
 ## Index
 
-Six groups, 36 files, 423 tests. Every collected test node is accounted for below;
+Six groups, 36 files, 424 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
@@ -84,8 +84,8 @@ Six groups, 36 files, 423 tests. Every collected test node is accounted for belo
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
 | Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 10 | 151 | 151 | 0 | 0.45% – 1.68% | 1 |
 | Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
-| BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 58 | 58 | 0 | 0.33% – 40.00% | 1 |
-| **Total** | | **36** | **423** | **423** | **0** | | **9** |
+| BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 59 | 59 | 0 | 0.33% – 40.60% | 0 |
+| **Total** | | **36** | **424** | **424** | **0** | | **8** |
 
 **A large margin is not a failure.** `passed = 441, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -234,7 +234,7 @@ The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 9
 (16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
 Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
 the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
-the diagnostic failures of §13.2. The collected suite is now **423 tests**. Earlier, for
+the diagnostic failures of §13.2. The collected suite is now **424 tests**. Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
 1025.15s. The Rust side is green too: `cargo test --manifest-path crates/Cargo.toml -p
 aeroelast-core` -> **155 passed, 0 failed, 0 ignored** (the Cargo workspace root is `crates/`,
@@ -334,9 +334,9 @@ one place to check whether a file has drifted out of the matrix. Reproduce with
 | `test_bem_engine.py` | 14 | §8.2 |
 | `test_blade_mesh.py` | 1 | §8.2 |
 | `test_force_projection.py` | 10 | §8.3 |
-| `test_bem_openfast_parity.py` | 13 | §8.4 |
+| `test_bem_openfast_parity.py` | 14 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
-| **36 files** | **423** | |
+| **36 files** | **424** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -541,7 +541,7 @@ eight modes, and the 0.5 m mesh is bounded:
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `test_blade_modal_gap_converges_with_mesh` | the AeroElast-vs-CCX matched-mode gap falls from 2.0 m to 1.0 m to 0.5 m, and the 0.5 m gap is bounded | **CCX 2.23, S8R** modal at each mesh | `FINEST_GAP_TOL = 0.025` plus strict per-mode monotonicity | finest worst 2.12%; every mode decreases coarse -> medium -> fine | the evidence that the §4.8 1.0 m CCX gap is discretisation, not a shell-vs-CCX floor |
+| `test_blade_modal_gap_converges_with_mesh` | the AeroElast-vs-CCX matched-mode gap: low modes (1-4) fall under refinement; high modes (5-8) plateau | **CCX 2.23, S8R** modal at each mesh | `LOW_TOL = 0.01` (modes 1-4), `HIGH_TOL = 0.05` (modes 5-8, element-order), coarse->medium improvement above `NOISE_FLOOR = 0.002` | finest low worst 0.19%, high worst 2.12% at CCX 2.23; issue #8 measured high worst 4.03% at CCX 2.20 | the low modes are discretisation; the high modes are a linear-vs-quadratic **element-order** bound, explicitly not a mesh claim. Restated per issue #8 |
 
 ### 4.9 `test_ccx_writer_ids.py` (3)
 
@@ -601,7 +601,7 @@ No test in this module prints its residual.
 | `test_fy_in_plane` | in-plane bending, ny=8 | analytical `P L^3/(3 E I_z)`, `I_z = h b^3/12` | `error < 5.0` | FEM 1.134e-02 vs ana 1.143e-02 (raw values only; no error line printed) | 5% unjustified |
 | `test_fz_out_of_plane` | out-of-plane flexure | analytical Timoshenko `P L^3/(3 E I) + P L/(k G A)`, `k=5/6` | `error < 5.0` | FEM 1.120e+02 vs ana(bending only) 1.143e+02 (raw values only) | the printed reference is the bending-only term; 5% unjustified |
 | `test_in_plane_ratio_constraint` | uY/uX ratio | beam theory `4 (L/b)^2 = 400` | `0.5 ratio_ref <= ratio <= 1.2 ratio_ref` | 400.39 vs 400.00 (0.10%) | the window is asymmetric (-50% / +20%) and unjustified; `test_shell_validation_fixed.py` asserts the same ratio at ±2% |
-| `TestNonlinearStaticCantilever::test_large_displacement_tip_load` | "large displacement" response | none: the body asserts the linear estimate exceeds L, then that the solve raises `RuntimeError` | `abs(dz_lin) > L` | linear estimate 1.121e+02 | the name promises a numerical large-displacement validation; the body validates the divergence *error path* only |
+| `TestNonlinearStaticCantilever::test_large_displacement_tip_load` | large-displacement response, dz/L = 0.173 | Bisshopp-Drucker elastica + beam theory | linear vs beam 5%, elastica gap 5.99% -> xfail at the 5% band | dz 0.17282 m vs elastica 0.18383 m | **RESOLVED**: now asserts beam theory, convergence, geometric stiffening and the elastica; runs on the solver defaults, which now converge (`_DEFAULT_MAX_IT = 100`) |
 | `TestModalAnalysis::test_first_mode_frequency` | first cantilever mode | analytical `(1.875104^2 / 2pi) sqrt(E I/(rho A L^4))`, `I = b h^3/12` | `error < 5.0` | 0.848 Hz vs 0.838 Hz -> 1.2% | 5% unjustified |
 | `test_higher_modes` | "higher modes" | **none** | only strict monotonicity `f2 > f1`, `f3 > f2` | [0.848, 5.501, 16.542] Hz | the name promises validation; no reference value is compared. `simply_supported_plate_central_load`, `simply_supported_plate_uniform_pressure`, `nonlinear_large_displacement_cantilever` and `build_simply_supported_mesh` are all dead. |
 
@@ -614,7 +614,7 @@ No test in this module prints its residual.
 | `test_fz` | out-of-plane bending | analytical `600 L^3/(3 E (b h^3/12))` | 3.0% | 1.97% | – |
 | `test_ratio_physical` | uY/uX ratio | beam theory 400 (documented derivation in the docstring) | ±2%, justified against the measured 400.39 | 400.39 (0.10%) | the docstring records that the previous window was -50%/+20% |
 | `test_axial_load_converges_to_the_analytical_solution` | monotone convergence, 4 meshes | analytical `P L/(E A)` | monotone decrease and finest `error < 0.01`; the exclusion of (2,1) is justified | 2.422%, 1.286%, 0.768%, 0.489% | – |
-| `TestNonlinearStatic::test_geometric_nonlinearity` | "geometric nonlinearity" | none: asserts `dz_lin > L`, then `RuntimeError` matching "SNES diverged" | `dz_lin > L` | linear estimate 1.121e+02 | same shape as its `test_shell_comprehensive` twin; no numerical nonlinear reference |
+| `TestNonlinearStatic::test_geometric_nonlinearity` | geometric nonlinearity, dz/L = 0.173 | Bisshopp-Drucker elastica + beam theory | same as its `test_shell_comprehensive` twin | dz 0.17282 m vs elastica 0.18383 m | **RESOLVED**: same real nonlinear check; the solver default (`_DEFAULT_MAX_IT = 100`) must converge or the test errors |
 | `TestModal::test_first_mode` | first cantilever mode | analytical `(1.875104^2 / 2pi) sqrt(E I/(rho A L^4))` | `error < 2.0` (percent) | 0.848 Hz vs 0.838 Hz -> 1.2% | the tolerance is the only one in this module without a justification comment, in a module whose other tolerances all carry one |
 
 ### 5.4 `test_large_rotation_benchmarks.py` (7) and `test_mitc3_benchmarks.py` (8)
@@ -732,7 +732,8 @@ tensile geometric stiffness.
 | `...test_K_G_is_positive_semidefinite` | tensile `K_G` PSD | PSD | `-1e-6 max abs(lambda)` | not printed | – |
 | `...test_stress_recovery_element_stresses_returns_arrays` | recovery returns one value per element | array length | exact | n/a | smoke test |
 | `...test_stress_field_dict_from_recovery` | non-empty `stress_field`, `K_G` builds | `len > 0` | `> 0` | not printed | cannot fail once stresses are non-zero by construction (u = 5e-3 x) |
-| `...test_keff_with_KG_larger_than_without` | `sum(diag(K+KG+a0 M)) > sum(diag(K+a0 M))` | sign of stress stiffening under tension | strict `>` on a matrix-trace sum | not printed | a sign-only check; a 1e-9 relative change passes |
+| `...test_keff_with_KG_larger_than_without` | `K + K_G` diagonal increase under tension | sign and shape of stress stiffening | strict `>`, elementwise `>= 0`, `< 0.5*base`, trace linearity | not printed | a sign/shape check; the K_G **magnitude** is pinned by `test_K_G_magnitude_scales_with_thickness` (issue #7) |
+| `...test_K_G_magnitude_scales_with_thickness` | `K_G` scales linearly with the shell thickness (the API takes stress, so `N = sigma*h`) | `|K(0.1)|/|K(0.01)| = 10` | 1e-9 relative | 10.000 (single element, no CCX) | **regression for issue #7**: MITC4 omitted the thickness and came out `1/h` too large |
 | `TestStressStiffenedHook::test_hook_returns_none_for_zero_displacement` | hook returns `None` at `u=0` | behavioural | `is None` | n/a | – |
 | `...test_hook_returns_new_keff_under_membrane_load` | hook returns a *new* `PETSc.Mat` | behavioural | `is not` + `isinstance` | not printed | has a legitimate `pytest.skip` escape when all stresses fall below threshold |
 | `...test_update_interval_skips_rebuild` | no rebuild when `step % interval != 0` | behavioural | `is None` | not printed | the second assertion is `result_5 is None or isinstance(result_5, PETSc.Mat)` — a tautology over the return type |
@@ -897,7 +898,8 @@ inconsistency is not in the loop.
 | `test_spanwise_loads_match_aerodyn[0..2]` | interior-span angle of attack and normal coefficient (0.15R < r < 0.985R) | **OpenFAST 4.2.1 AeroDyn** | 2 deg (alpha), 2.5% mean (Cn) | max abs d alpha 0.676 / 0.707 / 1.361 deg; mean abs rel d Cn 0.85% / 0.75% / 1.69% | the exact hub and tip nodes are excluded |
 | `test_yaw_and_shear_match_aerodyn[0..1]` | rotor thrust and torque with `yaw = 10 deg` and with `shear_exp = 0.2`, both azimuth-averaged | **OpenFAST 4.2.1 AeroDyn**, same deck | 1.5% each | yaw: thrust +0.334%, torque -0.274%; shear: thrust +0.186%, torque +0.327% | CCBlade integrates across azimuth, so the AeroDyn side is averaged over the last revolution (dt 0.25 s); A2 of the campaign |
 | `test_bem_with_repo_default_polars_matches_aerodyn[0..2]` | integrated thrust and torque with the repository's own WindIO polars | **OpenFAST 4.2.1 AeroDyn** (official polars) | 3% band | thrust +1.178% / +1.394% / +1.968%; torque -1.364% / +0.089% / +2.117% | a **sensitivity**, not parity: A1 already shows <0.5% with identical polars |
-| `test_viterna_post_stall_matches_aerodyn` | the repo's NeuralFoil + Viterna polar vs the official AeroDyn `FFA-W3-211` table (deck node at 0.9R) | **OpenFAST 4.2.1 AeroDyn** | 10% attached Cl, 45% post-stall | attached Cl within 5.9% (NeuralFoil Cl0 at alpha=0); post-stall worst 40.6% Cl at 30 deg, Cd within 15% | **decomposed**: the Viterna equations are verified against the AeroDyn Theory Manual by `test_bem_polars::test_viterna_matches_aerodyn_theory_manual`; feeding the official attached polar to Viterna gives +21.7% at 30 deg, so the residual is the NeuralFoil attached input and the matching point. Skipped when `neuralfoil` is absent |
+| `test_viterna_extension_matches_official_from_official_data` | Viterna fed the *official* attached polar, the AR from the official Cd(90 deg) and the official matching point (45 deg) | **OpenFAST 4.2.1 AeroDyn** `FFA-W3-211` at 0.9R | `TOL_VITERNA_LIKE_FOR_LIKE = 0.01` | worst 0.23% Cl / 0.13% Cd over 48-88 deg | **like-for-like**: same input, same AR, same matching point, so a mismatch could only be the Viterna model |
+| `test_neuralfoil_generated_polar_differs_from_official` | the repo's NeuralFoil + Viterna generator vs the official table | **OpenFAST 4.2.1 AeroDyn** `FFA-W3-211` | 5% attached, 5% post-stall | attached 5.9% (Cl0); post-stall 40.6% Cl at 30 deg | **xfail**: a documented *critique of NeuralFoil*; the Viterna equation matches the official extension to <0.5% on official data. Skipped when `neuralfoil` is absent |
 | `test_reference_polars_are_the_official_aerodyn_tables` | the AeroElast side really parses the 50 AirfoilInfo files with 200-point tables | the deck | exact counts | 50 / 200 | non-vacuity guard against a silently empty airfoil list |
 
 The exact hub and tip nodes are excluded from the span comparison: AeroDyn drives the axial
@@ -932,7 +934,7 @@ red, and a green suite does not remove a flag.
 | `test_shell_validation_fixed.py` | `TestNonlinearStatic::test_geometric_nonlinearity` | **RESOLVED** — same real nonlinear check as above: linear vs beam theory, stiffening, and the elastica comparison (5.99% gap -> xfail) |
 | `test_stress_stiffened_solver.py` | `test_stress_field_dict_from_recovery` | **RESOLVED** — now asserts the closed-form plane-stress values (`sigma_xx = E/(1-nu^2) eps`, `sigma_yy = nu sigma_xx`, `sigma_xy = 0`) for every one of the 16 elements |
 | `test_stress_stiffened_solver.py` | `test_update_interval_skips_rebuild` | **RESOLVED** — the displacement now strains (a uniform translation made step 5 return `None`); step 3 must skip and step 5 must return a *new* `PETSc.Mat` |
-| `test_stress_stiffened_solver.py` | `test_keff_with_KG_larger_than_without` | **RESOLVED** — asserts the elementwise `diag(K_G_red) >= 0` (no DOF loses stiffness), a positive total increase, a correction-sized bound, and linearity of the `K_G` trace in the prescribed stress |
+| `test_stress_stiffened_solver.py` | `test_keff_with_KG_larger_than_without` | **RESOLVED** — asserts the elementwise `diag(K_G_red) >= 0` (no DOF loses stiffness), a positive total increase, a correction-sized bound, and linearity of the `K_G` trace in the prescribed stress. The K_G magnitude is pinned separately by `test_K_G_magnitude_scales_with_thickness` (issue #7) |
 | `test_rust_modal.py` | `test_mode_shapes_orthogonal` | **RESOLVED** — it now builds `Phi^T M Phi` from the full mass matrix and asserts the worst off-diagonal ratio `< 1e-8` (and a positive diagonal) |
 | `test_rotor_inertial.py` | `test_force_transform_and_inertial_combination` | **RESOLVED** — the test was removed from `TestIntegration` |
 | `test_force_projection.py` | `test_single_node_per_strip` | **RESOLVED** — it now asserts the sign (`forces[:, 0] > 0`) and the exact value `Np * dr`, plus zero tangential force |
@@ -1330,7 +1332,8 @@ justified in §13.1. Tightening one is a test change, not a document change.
 | 8.4 | `test_spanwise_loads_match_aerodyn[0..2]` | 2 deg (alpha), 2.5% mean (Cn) | max abs d alpha 0.676 / 0.707 / 1.361 deg; mean abs rel d Cn 0.85% / 0.75% / 1.69% | +0.81% | near |
 | 8.4 | `test_yaw_and_shear_match_aerodyn[0..1]` | 1.5% each | yaw: thrust +0.334%, torque -0.274%; shear: thrust +0.186%, torque +0.327% | +1.17% | - |
 | 8.4 | `test_bem_with_repo_default_polars_matches_aerodyn[0..2]` | 3% band | thrust +1.178% / +1.394% / +1.968%; torque -1.364% / +0.089% / +2.117% | +0.88% | near |
-| 8.4 | `test_viterna_post_stall_matches_aerodyn` | 10% attached Cl, 45% post-stall | attached Cl within 4% (alpha 10: 1.509 vs 1.513); post-stall worst ~40% Cl at 30 deg, Cd within 17%; both reach cd_max at 90 deg | +5.00% | >5% |
+| 8.4 | `test_viterna_extension_matches_official_from_official_data` | `TOL_VITERNA_LIKE_FOR_LIKE = 0.01`, justified in the test docstring | worst 0.23% Cl / 0.13% Cd | +0.77% | - |
+| 8.4 | `test_neuralfoil_generated_polar_differs_from_official` | 5% each band | attached 5.9% (Cl0), post-stall 40.6% | -0.90% | >5%, xfail |
 | 8.4 | `test_reference_polars_are_the_official_aerodyn_tables` | exact counts | 50 / 200 | n/a | - |
 
 ### 13.1 Tolerance audit (> 5%)
@@ -1348,13 +1351,12 @@ Every other row is at or below 5%.
 | 4.8 | `test_blade_static_deflection_matches_article_dlc` | 15% | 21.69 m = -7.7% | proxy load (DLC 1.4 is aero-elastic); measured 7.7% |
 | 4.10 | `test_outer_fibre_stress_matches_ccx_and_analytical` | 15% / 20% | 52.46 vs 51.64 MPa (1.58%); vs analytical 12.57% | coarse 8x2 linear mesh; measured 12.57% vs analytical |
 | 6.2 | `TestAsymmetricLaminates` (6) | `TOL = 0.10`, justified as shear-correction uncertainty | not printed; the docstring records the measured MITC3Comp `-2.627691e-03` vs CLT `-2.616014e-03` (0.45%) | justified as shear-correction uncertainty (§6.2) |
-| 8.4 | `test_viterna_post_stall_matches_aerodyn` | 10% attached Cl, 45% post-stall | attached Cl within 5.9% (NeuralFoil Cl0 at alpha=0); post-stall worst 40.6% Cl at 30 deg, Cd within 15% | **RESOLVED (decomposed)**: the Viterna equations are verified against the AeroDyn manual by `test_bem_polars::test_viterna_matches_aerodyn_theory_manual`; with the official attached polar as input, Viterna alone is +21.7% at 30 deg, so the rest is the NeuralFoil attached input / matching-point difference |
 
 Two rows were **excluded by inspection**: `test_centrifugal_deformed_geometry[16 combos]`
 (§7.2, its `abs=1e-10` is an absolute algebra tolerance, not a percentage) and
 `TestBEMSolverParked::test_parked_alpha_close_to_twist` (§8.2, `residual < 15 deg` on `> 80%`
 of stations — the 80% is a station fraction, not a tolerance). Both are flagged in §9 instead.
-So the rule is exceeded by **9 rows**, all in the CCX-parity and BEM-parity families where the
+So the rule is exceeded by **8 rows**, all in the CCX-parity and blade-reference families where the
 reference itself is a different model (beam vs shell, or a proxy load).
 
 ### 13.2 Diagnostic failures under the real 5% bound
@@ -1374,7 +1376,7 @@ a bug to paper over.**
 | blade `test_blade_first_modes_match_nrel_report[1]` | Gaertner et al. 2020, Table ES-2, 1st edgewise 0.642 Hz | 0.702 Hz, +9.4% | stiffer than the NREL report's edgewise; the shell follows Bernardi (0.7267 Hz) instead |
 | blade `test_blade_parked_modes_match_numad[2, 4]` | Escalera Mendoza et al. 2023, Table 3, 2F 1.72 / 3F 3.41 Hz | 1.508 / 2.903 Hz, -12.3% / -14.9% | softer than the NuMAD/BModes beam on the 2nd/3rd flapwise; Bernardi sits lower and the shell follows Bernardi |
 | `test_outer_fibre_stress_matches_ccx_and_analytical` (analytical leg) | `M c / I` = 60 MPa | 52.46 MPa, 12.6% | coarse 8x2 linear mesh under bending |
-| `test_viterna_post_stall_matches_aerodyn` | official AeroDyn post-stall table | up to 40.6% on Cl at 30 deg | NeuralFoil + Viterna vs the official FoilCheck table; the Viterna equations are verified against the manual, the residual is the attached input and the matching point |
+| `test_neuralfoil_generated_polar_differs_from_official` | official AeroDyn post-stall table | attached 5.9% Cl (Cl0); post-stall 40.6% Cl at 30 deg | the NeuralFoil attached polar (Cl0 and stall entry) and the default AR; the Viterna equation itself matches the official extension to <0.5% when fed the official data |
 
 The article's first two modes are no longer xfailed: they now assert the shell lies inside the
 **published beam-reference scatter** (the article's BModes vs Bernardi's CSD disagree by 5.8%
@@ -1407,7 +1409,7 @@ its held/verified status live in `docs/references.md`.
 | §6.2 `test_material_suite.py` CLT references (Reddy, Jones) | Reddy 2004, *Mechanics of Laminated Composite Plates and Shells*; Jones 1999, *Mechanics of Composite Materials* | §2 |
 | §8.2/§8.4 BEM theory | Moriarty & Hansen 2005, *AeroDyn Theory Manual*, NREL/TP-500-36881 | §6 |
 | §8.4 CCBlade solution method | Ning 2014, "A simple solution method for the BEM equations with guaranteed convergence", *Wind Energy* 17(9):1327-1345 | §6 |
-| §8.4 `test_viterna_post_stall_matches_aerodyn` | AeroDyn Theory Manual (NREL/TP-500-36881) eqs. [98]-[102], after Viterna & Janetzke 1982 (NASA TM-82944) / Viterna & Corrigan 1981 | §6 |
+| §8.4 `test_viterna_extension_matches_official_from_official_data`, `test_neuralfoil_generated_polar_differs_from_official` | AeroDyn Theory Manual (NREL/TP-500-36881) eqs. [98]-[102], after Viterna & Janetzke 1982 (NASA TM-82944) / Viterna & Corrigan 1981 | §6 |
 
 Machine-checkable tie: `tests/test_mitc4plusd_traceability.py` scenario 3 asserts that each
 author-year citation used by the element documentation resolves in `docs/references.md`, and

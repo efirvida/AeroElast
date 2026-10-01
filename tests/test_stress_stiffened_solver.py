@@ -24,6 +24,8 @@ import pytest
 pytest.importorskip("petsc4py", reason="PETSc not available")
 from petsc4py import PETSc
 
+from _aeroelast import PyMeshAssembler
+
 from aeroelast.core.assembler import MeshAssembler
 from aeroelast.core.bc import BoundaryConditionManager, DirichletCondition
 from aeroelast.core.material import IsotropicMaterial
@@ -172,6 +174,49 @@ class TestKGAssemblyPipeline:
         K_G = domain.assemble_geometric_stiffness(stress_field=stress_field)
         assert isinstance(K_G, PETSc.Mat)
         assert K_G.getSize()[0] == domain.dofs_count
+
+    def test_K_G_magnitude_scales_with_thickness(self):
+        """``K_G`` must scale linearly with the shell thickness (issue #7).
+
+        ``assemble_geometric_k`` is handed the membrane *stress*
+        ``[sigma_xx, sigma_yy, sigma_xy]`` in Pa, so the force resultant
+        ``N = sigma * h`` has to be formed inside.  MITC4 omitted the thickness,
+        which made its K_G ``1/h`` too large and independent of ``h``; the
+        existing sign/symmetry/PSD tests could not see it.
+        """
+        node_coords = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]])
+        connectivity = [[0, 1, 2, 3]]
+        sigma = np.array([[1.0e6, 5.0e5, 2.0e5]])
+
+        def kg_norm(thickness: float) -> float:
+            materials = [
+                {
+                    "type": "isotropic",
+                    "e": 2.1e11,
+                    "nu": 0.3,
+                    "rho": 0.0,
+                    "thickness": thickness,
+                    "shear_correction": 5.0 / 6.0,
+                    "drilling_scale": 1.0,
+                }
+            ]
+            asm = PyMeshAssembler(
+                node_coords=node_coords,
+                connectivity=connectivity,
+                elem_types=[4],
+                materials=materials,
+            )
+            _, _, vals = asm.assemble_geometric_k(sigma)
+            return float(np.linalg.norm(vals))
+
+        thin, thick = kg_norm(0.01), kg_norm(0.1)
+        assert thin > 0.0, "K_G must be nonzero for a nonzero stress"
+        ratio = thick / thin
+        assert abs(ratio - 10.0) < 1e-9 * 10.0, (
+            f"K_G must scale with the thickness: |K(0.1)|/|K(0.01)| = {ratio:.6f} "
+            f"(expected 10); a thickness-independent ratio means the sigma*h "
+            f"factor is missing"
+        )
 
     def test_K_G_symmetry(self, plate_setup):
         """K_G assembled from a uniform stress field must be symmetric."""

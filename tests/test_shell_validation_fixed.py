@@ -255,16 +255,12 @@ class TestNonlinearStatic:
             f"({abs(dz_lin - beam) / beam * 100:.2f}%)"
         )
 
-        # The default 50-Newton-iteration budget is too tight for this shell;
-        # 200 iterations plus a fine load continuation reach atol.
+        # Use the solver defaults: ``_DEFAULT_MAX_IT = 100`` converges on this
+        # large-displacement cantilever (the old default of 50 did not).
         mesh = _build_cantilever_mesh(nx=8, ny=4)
         prop = ShellProperty(material=STEEL, thickness=h)
         cfg_nl = {
-            "solver": {
-                "max_it": 200,
-                "continuation_steps": 100,
-                "continuation_max_steps": 2000,
-            },
+            "solver": {},
             "elements": {
                 "element_family": ElementFamily.SHELL,
                 "properties": {"plate": prop},
