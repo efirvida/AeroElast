@@ -15,15 +15,23 @@
 #
 # Cases run in waves of MAX_CONCURRENT: a sequana_cpu node has 48 cores, so 9
 # cases at 5 cores each fit; a 15-case batch runs as 9 then 6 inside one job.
+#
+# -t/--time sets the wall limit.  Slurm's backfill uses the *requested* limit as
+# the worst-case duration, so an oversized request is harder to place for no
+# benefit -- but an undersized one silently truncates the run.  Size it from the
+# measured per-window cost: at ~3.8 s per window a 100 s case needs ~11 h, while
+# the parked stress-stiffened case runs at ~30 s per window and needs ~42 h.
 
 set -euo pipefail
 
 CASE_LIST="${1:?usage: submit_fsi_case_batch.sh <case-list> [-J jobname]}"
 shift || true
 JOB_NAME="fsi_batch"
+TIME_LIMIT="24:00:00"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -J) JOB_NAME="$2"; shift 2 ;;
+        -t) TIME_LIMIT="$2"; shift 2 ;;
         *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -54,7 +62,7 @@ done
 echo "Cases:        ${N_CASES}"
 echo "Concurrency:  ${MAX_CONCURRENT} (waves of ${MAX_CONCURRENT}), ${CORES_PER_CASE} cores/case"
 echo "ntasks:       ${NTASKS}"
-echo "Job name:     ${JOB_NAME}"
+echo "Job name:     ${JOB_NAME}   time limit: ${TIME_LIMIT}"
 
 JOB_SCRIPT="$(mktemp "/tmp/${JOB_NAME}_XXXXXX.sh")"
 {
@@ -62,7 +70,7 @@ JOB_SCRIPT="$(mktemp "/tmp/${JOB_NAME}_XXXXXX.sh")"
     echo "#SBATCH --mail-type=END,FAIL"
     echo "#SBATCH --nodes=1"
     echo "#SBATCH --ntasks=${NTASKS}"
-    echo "#SBATCH --time=24:00:00"
+    echo "#SBATCH --time=${TIME_LIMIT}"
     echo "#SBATCH -e %j.err"
     echo "#SBATCH -J ${JOB_NAME}"
     echo "#SBATCH -o %j.out"
