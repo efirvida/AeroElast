@@ -246,9 +246,9 @@ class Geometry:
 
         ## isweep
         if len(definition.sweep) == 0:
-            definition.sweep = np.zeros((self.ispan.shape, self.ispan.shape))
+            definition.sweep = np.zeros(definition.span.shape)
         if len(definition.prebend) == 0:
-            definition.prebend = np.zeros((self.ispan.shape, self.ispan.shape))
+            definition.prebend = np.zeros(definition.span.shape)
 
         self.isweep = interpolator_wrap(definition.span, definition.sweep, self.ispan, "pchip")
 
