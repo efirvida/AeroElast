@@ -71,35 +71,35 @@ class Material:
     """
 
     def __init__(self):
-        self.name: str = None
-        self.type: str = None
-        self.reference: str = None
-        self.layerthickness: float = None
-        self.ex: float = None
-        self.ey: float = None
-        self.ez: float = None
-        self.gxy: float = None
-        self.gyz: float = None
-        self.gxz: float = None
-        self.prxy: float = None
-        self.pryz: float = None
-        self.prxz: float = None
-        self.density: float = None
-        self.drydensity: float = None
-        self.uts: float = None
-        self.ucs: float = None
-        self.uss: float = None
-        self.xzit: float = None
-        self.xzic: float = None
-        self.yzit: float = None
-        self.yzic: float = None
-        self.g1g2: float = None
-        self.alp0: float = None
-        self.etat: float = None
-        self.etal: float = None
-        self.m: list[float] = None
-        self.gamma_mf: list[float] = None
-        self.gamma_ms: list[float] = None
+        self.name: str | None = None
+        self.type: str | None = None
+        self.reference: str | None = None
+        self.layerthickness: float | None = None
+        self.ex: float | None = None
+        self.ey: float | None = None
+        self.ez: float | None = None
+        self.gxy: float | None = None
+        self.gyz: float | None = None
+        self.gxz: float | None = None
+        self.prxy: float | None = None
+        self.pryz: float | None = None
+        self.prxz: float | None = None
+        self.density: float | None = None
+        self.drydensity: float | None = None
+        self.uts: float | None = None
+        self.ucs: float | None = None
+        self.uss: float | None = None
+        self.xzit: float | None = None
+        self.xzic: float | None = None
+        self.yzit: float | None = None
+        self.yzic: float | None = None
+        self.g1g2: float | None = None
+        self.alp0: float | None = None
+        self.etat: float | None = None
+        self.etal: float | None = None
+        self.m: list[float] | None = None
+        self.gamma_mf: list[float] | None = None
+        self.gamma_ms: list[float] | None = None
 
     def __eq__(self, other):
         attrs = vars(self).keys()

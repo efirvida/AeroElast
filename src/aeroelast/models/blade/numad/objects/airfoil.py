@@ -50,15 +50,15 @@ class Airfoil:
             Name of airfoil reference
         """
 
-        self.name: str = None
-        self.reference: str = None
-        self.coordinates: ndarray = None
-        self.c: ndarray = None
-        self.camber: ndarray = None
-        self.thickness: float = None
-        self.percentthick: float = None
-        self.maxthick: float = None
-        self.te_type: str = None
+        self.name: str | None = None
+        self.reference: str | None = None
+        self.coordinates: ndarray | None = None
+        self.c: ndarray | None = None
+        self.camber: ndarray | None = None
+        self.thickness: float | None = None
+        self.percentthick: float | None = None
+        self.maxthick: float | None = None
+        self.te_type: str | None = None
 
         if filename:
             # currently assuming XML format
@@ -467,47 +467,3 @@ def compute_camber_and_thickness(coords: ndarray):
 
 
 # currently unused
-def _adjust_te(self, tet, tes, onset):
-    """TODO docstring
-
-    Parameters
-    ----------
-    tet :
-        the amount of TE thickness to add
-    tes :
-        the slope of the added thickness profile at TE,
-        defaults to 5/3 * TE_thick
-    onset :
-        the chord fraction where adjustment begins,
-        defaults to location of max thickness
-    Returns
-    -------
-
-    Example
-    -------
-    AirfoilDef.adjustTE
-    af.adjustTE(TE_thick,[TE_slope],[onset])
-    af.adjustTE(0.02)
-    af.adjustTE(0.02,0)
-    af.adjustTE(0.02,[],0.8)
-    """
-
-    if not tes:
-        tes = 5 / 3 * tet  # slope of TE adjustment; 5/3*tet is "natural"
-
-    if not onset:
-        USEMAXTHICK = True
-    else:
-        USEMAXTHICK = False  # use the given 'onset' instead
-    # continuous first & second derivatives at 'onset'
-    # maintain second & third derivative at mc==1 (TE)
-    # adjust slope at mc==1 (TE) by tes
-    A = np.array([[1, 1, 1, 1], [3, 4, 5, 6], [6, 12, 20, 30], [6, 24, 60, 120]])
-    d = np.array([[tet], [tes], [0], [0]])
-    p = np.linalg.solve(A, d)
-    if USEMAXTHICK:
-        onset = self.maxthick
-    mc = np.amax((self.c - onset) / (1 - onset), 0)
-    temod = np.array([mc**3, mc**4, mc**5, mc**6]) * p
-    self.thickness = self.thickness + temod
-    return self

@@ -45,14 +45,6 @@ class Surface:
         else:
             self.regionNames.append(name)
 
-    def addMesh(self, meshData, name=None):
-        self.meshes.append(meshData)
-        if name is None:
-            numMsh = len(self.meshes)
-            meshName = "Sub-Mesh_" + str(numMsh)
-            self.meshNames.append(meshName)
-        else:
-            self.meshNames.append(name)
 
     def getSurfaceMesh(self):
         allNds = []

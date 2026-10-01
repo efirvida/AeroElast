@@ -18,8 +18,8 @@ class Station:
         af : Airfoil, string
             airfoil object or filename to airfoil coords
         """
-        self.airfoil = None
-        self.spanlocation = None
+        self.airfoil: Airfoil = Airfoil()
+        self.spanlocation: float | None = None
 
         if isinstance(af, str):
             self.airfoil = Airfoil(filename=af)

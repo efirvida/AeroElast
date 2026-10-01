@@ -30,15 +30,15 @@ class Component:
     """
 
     def __init__(self):
-        self.name: str = None
-        self.group: int = None
-        self.materialid: str = None
-        self.fabricangle: float = None
-        self.hpextents: list = None
-        self.lpextents: list = None
-        self.control_points: np.ndarray = None
+        self.name: str | None = None
+        self.group: int | None = None
+        self.materialid: str | None = None
+        self.fabricangle: float | None = None
+        self.hpextents: list | None = None
+        self.lpextents: list | None = None
+        self.control_points: np.ndarray | None = None
         self.imethod: str = "linear"
-        self.pinnedends: bool = None
+        self.pinnedends: bool | None = None
         self._keylabels = [
             "te",
             "e",
@@ -69,17 +69,6 @@ class Component:
                     return False
         return True
 
-    def _compare(self, other):
-        """
-        Parameters
-        ----------
-        other : Component
-
-        Returns
-        -------
-        bool
-        """
-        return self == other
 
     def get_control_points(self):
         if self.pinnedends:

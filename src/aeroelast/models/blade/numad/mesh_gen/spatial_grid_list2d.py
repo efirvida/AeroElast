@@ -18,8 +18,6 @@ class spatial_grid_list2d:
                 xList.append([])
             self.fullList.append(xList)
 
-    def getDim(self):
-        return [self.xGSz * self.xRows, self.yGSz * self.yRows]
 
     def addEntry(self, val, coord):
         xRow = int(np.floor((coord[0] - self.xMin) / self.xGSz))

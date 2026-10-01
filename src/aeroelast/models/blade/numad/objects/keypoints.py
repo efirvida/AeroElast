@@ -52,21 +52,21 @@ class KeyPoints:
             "e",
             "te",
         ]
-        self.key_points: ndarray = None
-        self.key_arcs: ndarray = None
-        self.key_cpos: ndarray = None
-        self.key_areas: ndarray = None
+        self.key_points: ndarray | None = None
+        self.key_arcs: ndarray | None = None
+        self.key_cpos: ndarray | None = None
+        self.key_areas: ndarray | None = None
 
-        self.le_bond: ndarray = None
-        self.te_bond: ndarray = None
+        self.le_bond: ndarray | None = None
+        self.te_bond: ndarray | None = None
 
-        self.web_indices: list = None
-        self.web_points: list = None
-        self.web_arcs: list = None
-        self.web_cpos: list = None
-        self.web_areas: list = None
-        self.web_width: list = None
-        self.web_bonds: list = None
+        self.web_indices: list | None = None
+        self.web_points: list | None = None
+        self.web_arcs: list | None = None
+        self.web_cpos: list | None = None
+        self.web_areas: list | None = None
+        self.web_width: list | None = None
+        self.web_bonds: list | None = None
 
     def __eq__(self, other):
         attrs = [a for a in dir(self) if not a.startswith("__") and not callable(getattr(self, a))]
@@ -111,6 +111,22 @@ class KeyPoints:
         # number of areas around airfoil profile; must be even (see calc of web areas)
         num_areas = 12
         self.initialize(num_areas, num_istations)
+        if (
+            self.key_points is None
+            or self.key_arcs is None
+            or self.key_cpos is None
+            or self.key_areas is None
+            or self.le_bond is None
+            or self.te_bond is None
+            or definition.leband is None
+            or definition.teband is None
+            or definition.components is None
+            or geometry.ispan is None
+            or geometry.coordinates is None
+            or geometry.arclength is None
+            or geometry.cpos is None
+        ):
+            raise RuntimeError("KeyPoints.generate() requires initialised geometry and definition")
         # initialize keypoints
 
         # start and finish indices in geometry/arcs

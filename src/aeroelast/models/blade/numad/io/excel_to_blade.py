@@ -151,11 +151,6 @@ def _read_strlist(val):
     return [p.strip() for p in s.split(",")]
 
 
-def _col_values(ws, col_idx, start_row, end_row):
-    """Read a column slice from a worksheet and return as a list of raw values."""
-    return [ws.cell(row=r, column=col_idx + 1).value for r in range(start_row, end_row + 1)]
-
-
 # ---------------------------------------------------------------------------
 #  Main entry point
 # ---------------------------------------------------------------------------

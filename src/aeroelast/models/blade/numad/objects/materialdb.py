@@ -1,4 +1,3 @@
-import logging
 
 from aeroelast.models.blade.numad.objects.stackdb import StackDatabase
 
@@ -128,44 +127,44 @@ class MaterialDatabaseEntry:
     """A simple class to organize the attributes of a material"""
 
     def __init__(self):
-        self.type: str = None
-        self.name: str = None
-        self.reference: str = None
-        self.dens: list = None
-        self.nuxy: list = None
-        self.ex: list = None
-        self.ey: list = None
-        self.ez: list = None
-        self.gxy: list = None
-        self.gyz: list = None
-        self.gxz: list = None
-        self.prxy: list = None
-        self.pryz: list = None
-        self.prxz: list = None
-        self.xten: list = None
-        self.xcmp: list = None
-        self.yten: list = None
-        self.ycmp: list = None
-        self.zten: list = None
-        self.zcmp: list = None
-        self.xy: list = None
-        self.yz: list = None
-        self.xz: list = None
-        self.xycp: list = None
-        self.yzcp: list = None
-        self.xzcp: list = None
-        self.xzit: list = None
-        self.xzic: list = None
-        self.yzit: list = None
-        self.yzic: list = None
-        self.g1g2: list = None
-        self.etal: list = None
-        self.etat: list = None
-        self.alp0: list = None
-        self.thicknessType: list = None
-        self.uniqueLayers: list = None
-        self.symmetryType: list = None
-        self.layer: list = None
+        self.type: str | None = None
+        self.name: str | None = None
+        self.reference: str | None = None
+        self.dens: list | None = None
+        self.nuxy: list | None = None
+        self.ex: list | None = None
+        self.ey: list | None = None
+        self.ez: list | None = None
+        self.gxy: list | None = None
+        self.gyz: list | None = None
+        self.gxz: list | None = None
+        self.prxy: list | None = None
+        self.pryz: list | None = None
+        self.prxz: list | None = None
+        self.xten: list | None = None
+        self.xcmp: list | None = None
+        self.yten: list | None = None
+        self.ycmp: list | None = None
+        self.zten: list | None = None
+        self.zcmp: list | None = None
+        self.xy: list | None = None
+        self.yz: list | None = None
+        self.xz: list | None = None
+        self.xycp: list | None = None
+        self.yzcp: list | None = None
+        self.xzcp: list | None = None
+        self.xzit: list | None = None
+        self.xzic: list | None = None
+        self.yzit: list | None = None
+        self.yzic: list | None = None
+        self.g1g2: list | None = None
+        self.etal: list | None = None
+        self.etat: list | None = None
+        self.alp0: list | None = None
+        self.thicknessType: list | None = None
+        self.uniqueLayers: list | None = None
+        self.symmetryType: list | None = None
+        self.layer: list | None = None
 
 
 class Layer:
@@ -181,57 +180,8 @@ class Layer:
     """
 
     def __init__(self):
-        self.layer_name: str = None
-        self.thicknessA: float = None
-        self.thicknessB: float = None
-        self.quantity: int = None
-        self.theta: float = None
-
-    def _compare(self, other):
-        """
-        Parameters
-        ----------
-        other : Layer
-
-        Returns
-        -------
-        bool
-        """
-        attrs = [a for a in dir(self) if not a.startswith("__") and not callable(getattr(self, a))]
-        return all(getattr(self, attr) == getattr(other, attr) for attr in attrs)
-
-
-class ShearWeb:
-    """A simple class to organize the attributes of a shear web
-
-    Attributes
-    ----------
-    Material : str
-    BeginStation : int
-    EndStation : int
-    Corner : list
-    """
-
-    def __init__(self):
-        self.Material: str = None
-        self.BeginStation: int = None
-        self.EndStation: int = None
-        self.Corner: list = None
-
-    def _compare(self, other):
-        """
-        Parameters
-        ----------
-        other : ShearWeb
-
-        Returns
-        -------
-        bool
-        """
-        attrs = [a for a in dir(self) if not a.startswith("__") and not callable(getattr(self, a))]
-        for attr in attrs:
-            if getattr(self, attr) != getattr(other, attr):
-                msg = f"{getattr(self, attr)} != {getattr(other, attr)}"
-                logging.debug(msg)
-                return False
-        return True
+        self.layer_name: str | None = None
+        self.thicknessA: float | None = None
+        self.thicknessB: float | None = None
+        self.quantity: int | None = None
+        self.theta: float | None = None

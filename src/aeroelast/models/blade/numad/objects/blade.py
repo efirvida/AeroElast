@@ -47,9 +47,9 @@ class Blade:
     """
 
     def __init__(self, filename: str = None):
-        self.name: str = None
+        self.name: str | None = None
         self.definition: Definition = Definition()
-        self.ispan: ndarray = None
+        self.ispan: ndarray | None = None
         self.geometry: Geometry = Geometry()
         self.keypoints: KeyPoints = KeyPoints()
         self.bill_of_materials: BillOfMaterials = BillOfMaterials()

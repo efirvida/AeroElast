@@ -18,7 +18,7 @@ class BillOfMaterials(dict):
     """
 
     def __init__(self):
-        self.indices: dict = None
+        self.indices: dict | None = None
         pass
 
     def generate(self, definition: Definition, keypoints: KeyPoints):
@@ -243,13 +243,13 @@ class BillOfMaterialsEntry:
     """
 
     def __init__(self):
-        self.layernum: int = None
-        self.materialid: int = None
-        self.name: str = None
-        self.beginsta: float = None
-        self.endsta: float = None
-        self.maxwidth: float = None
-        self.avgwidth: float = None
-        self.area: float = None
-        self.thickness: float = None
-        self.weight: float = None
+        self.layernum: int | None = None
+        self.materialid: int | None = None
+        self.name: str | None = None
+        self.beginsta: float | None = None
+        self.endsta: float | None = None
+        self.maxwidth: float | None = None
+        self.avgwidth: float | None = None
+        self.area: float | None = None
+        self.thickness: float | None = None
+        self.weight: float | None = None

@@ -49,25 +49,25 @@ class Geometry:
         interpolated sweep
     """
 
-    def __init__(self, settings=None):
-        self.c: ndarray = None
-        self.camber: ndarray = None
-        self.thickness: ndarray = None
-        self.ic: ndarray = None
-        self.icamber: ndarray = None
-        self.ithickness: ndarray = None
-        self.cpos: ndarray = None
-        self.ichord: ndarray = None
-        self.ichordoffset: ndarray = None
-        self.iaerocenter: ndarray = None
-        self.idegreestwist: ndarray = None
-        self.ipercentthick: ndarray = None
-        self.profiles: ndarray = None
-        self.coordinates: ndarray = None
-        self.xoffset: ndarray = None
-        self.LEindex: ndarray = None
-        self.iprebend: ndarray = None
-        self.isweep: ndarray = None
+    def __init__(self):
+        self.c: ndarray | None = None
+        self.camber: ndarray | None = None
+        self.thickness: ndarray | None = None
+        self.ic: ndarray | None = None
+        self.icamber: ndarray | None = None
+        self.ithickness: ndarray | None = None
+        self.cpos: ndarray | None = None
+        self.ichord: ndarray | None = None
+        self.ichordoffset: ndarray | None = None
+        self.iaerocenter: ndarray | None = None
+        self.idegreestwist: ndarray | None = None
+        self.ipercentthick: ndarray | None = None
+        self.profiles: ndarray | None = None
+        self.coordinates: ndarray | None = None
+        self.xoffset: ndarray | None = None
+        self.LEindex: ndarray | None = None
+        self.iprebend: ndarray | None = None
+        self.isweep: ndarray | None = None
 
         # init properties
         self._natural_offset: int = 1

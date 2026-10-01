@@ -45,7 +45,6 @@ class Mesh2D:
         sweepDistance=1.0,
         point=None,
         axis=None,
-        followNormal=False,
         destNodes=None,
         interpMethod="linear",
     ):
