@@ -1,4 +1,9 @@
 #!/bin/bash
+# DEPRECATED by tests/IEA15MW/submit_fsi_case_batch.sh (see case_lists/README.md):
+# this script opens one Slurm job per case, which saturates the queue and, for the
+# long cases, backfills far worse than one job per batch with the cases in parallel.
+# It is kept for reference only; the case lists under case_lists/ are the
+# reproducible way to launch these campaigns.
 # submit_parked_v50.sh — parked DLC 6.x-analog case (V50, yaw=8°, pitch=90°).
 # Official WindIO blade. Inputs preserved from the old bem_90_50_S case.
 #

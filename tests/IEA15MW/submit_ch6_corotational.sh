@@ -1,4 +1,9 @@
 #!/bin/bash
+# DEPRECATED by tests/IEA15MW/submit_fsi_case_batch.sh (see case_lists/README.md):
+# this script opens one Slurm job per case, which saturates the queue and, for the
+# long cases, backfills far worse than one job per batch with the cases in parallel.
+# It is kept for reference only; the case lists under case_lists/ are the
+# reproducible way to launch these campaigns.
 # submit_ch6_corotational.sh — one SLURM job per ch6 DLC prepared case (corotational only).
 #
 # Cases: dlc_1.1 (NTM rated), dlc_6.1 (EWM V50, parked), dlc_6.3 (EWM V1).

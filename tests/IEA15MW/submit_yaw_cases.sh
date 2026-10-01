@@ -1,4 +1,9 @@
 #!/bin/bash
+# DEPRECATED by tests/IEA15MW/submit_fsi_case_batch.sh (see case_lists/README.md):
+# this script opens one Slurm job per case, which saturates the queue and, for the
+# long cases, backfills far worse than one job per batch with the cases in parallel.
+# It is kept for reference only; the case lists under case_lists/ are the
+# reproducible way to launch these campaigns.
 # submit_yaw_cases.sh — one SLURM job per yaw case (solid + fluid)
 #
 # Each job requests ~8 CPUs (solid uses 4 OMP threads + fluid uses 1).
