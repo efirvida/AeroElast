@@ -80,6 +80,9 @@ from aeroelast.core.mesh.components import (
     read_windio_components,
 )
 
+# Full turbine assembly (blades + hub/nacelle + tower, separate meshes)
+from aeroelast.core.mesh.turbine import TurbineMesh, TurbineMeshes
+
 # I/O functions
 from aeroelast.core.mesh.io import (
     load_hdf5,
@@ -134,6 +137,9 @@ __all__ = [
     "TurbineDefinition",
     "build_revolved_shell",
     "read_windio_components",
+    # Turbine assembly
+    "TurbineMesh",
+    "TurbineMeshes",
     # Writers
     "write_mesh",
     "write_meshio",
