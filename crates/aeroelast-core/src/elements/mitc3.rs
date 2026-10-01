@@ -698,6 +698,14 @@ pub fn compute_ke_local_with_membrane(pre: &Mitc3Precomputed, bm_gp: &[Mat3x18; 
 /// the isotropic case alone cannot see the coupling - and it is what makes this a
 /// strict extension of the MITC3+ of Lee, Lee & Bathe 2014 rather than a
 /// replacement.
+///
+/// **Known defect (issue #2, not localized).** With the rotational block of
+/// [`union_rotation`] fixed, the union path still over-stiffens a curved shell:
+/// Scordelis-Lo on a triangular mesh gives 0.0145 (N=8) against the un-smoothed
+/// MITC3+ 0.8561, where Lee & Lee 2019 (CAS 223:106096, Table 6) reports the
+/// smoothing *improving* the un-smoothed element.  The cause is in the
+/// curved-shell covariant handling or the union assembly, and the kernel stays
+/// unwired (nothing consumes it) until it is found.
 pub fn compute_ke_union_smoothed(pre: &Mitc3Precomputed, bm_union: &[Mat3Union; N_GAUSS]) -> MatUnion {
     const U: usize = SMOOTHED_UNION_DOFS;
     let area = pre.area;
@@ -887,7 +895,12 @@ pub fn union_rotation(frames: &[Matrix3<f64>; SMOOTHED_UNION_NODES]) -> MatUnion
         let base = 6 * slot;
         for a in 0..3 {
             for b in 0..3 {
+                // Both the translational and the rotational 3x3 slots carry the
+                // same frame.  Leaving the rotational block zero (issue #2) made
+                // T singular and annihilated every rotational DOF in
+                // `transform_union_to_global` = T^T K T.
                 t[(base + a, base + b)] = frame[(a, b)];
+                t[(base + 3 + a, base + 3 + b)] = frame[(a, b)];
             }
         }
     }
@@ -1980,6 +1993,45 @@ mod tests {
             area: pre.area,
             normal: Vector3::new(pre.t3[(2, 0)], pre.t3[(2, 1)], pre.t3[(2, 2)]),
         }
+    }
+
+    #[test]
+    fn union_rotation_rotates_the_full_six_dof_block() {
+        // Issue #2: `union_rotation` filled only the translational 3x3 block, so
+        // `transform_union_to_global` = T^T K T annihilated every rotational DOF.
+        // The 6-DOF node block must carry the frame in BOTH the translational and
+        // the rotational slots, which also makes T orthogonal and non-singular.
+        let pre = make_pre();
+        let frames = [pre.t3; SMOOTHED_UNION_NODES];
+        let t = union_rotation(&frames);
+
+        assert!(
+            t.determinant().abs() > 1e-12,
+            "union_rotation must be non-singular; a zero rotational block makes it singular"
+        );
+        for slot in 0..SMOOTHED_UNION_NODES {
+            let base = 6 * slot;
+            for a in 0..3 {
+                for b in 0..3 {
+                    assert!((t[(base + a, base + b)] - pre.t3[(a, b)]).abs() < 1e-12);
+                    assert!(
+                        (t[(base + 3 + a, base + 3 + b)] - pre.t3[(a, b)]).abs() < 1e-12,
+                        "the rotational block must equal the frame (issue #2)"
+                    );
+                }
+            }
+        }
+
+        // An orthogonal transform preserves the Frobenius norm of any stiffness.
+        let mut k = MatUnion::zeros();
+        for i in 0..k.nrows() {
+            k[(i, i)] = 1.0 + i as f64;
+        }
+        let rotated = transform_union_to_global(&k, &frames);
+        assert!(
+            (rotated.norm() - k.norm()).abs() < 1e-10 * k.norm(),
+            "an orthogonal union rotation must preserve the stiffness norm"
+        );
     }
 
     /// The 18 local nodal displacements of the linear field

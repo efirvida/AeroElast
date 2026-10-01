@@ -112,7 +112,7 @@ and quote the bound next to the number.
 | --- | --- |
 | Composite outer-fibre **stress** recovery | `*SHELL SECTION, COMPOSITE` ignores `OUTPUT=3D`; no independent stress judge (issue #3). Only the ABD matrices are validated. |
 | Rotating / centrifugal modal shift | the MITC4 `K_G` thickness bug was fixed (issue #7), but the rotating modes are **not** validated against OpenFAST anywhere in this suite |
-| MITC3+ strain-smoothed rotations | known defect (issue #2): `union_rotation` zeroes all rotations and the curved-shell result is about 55x too stiff |
+| MITC3+ strain-smoothed kernel | known defect (issue #2): the rotation-block bug is fixed (`union_rotation_rotates_the_full_six_dof_block`), but the smoothed element still over-stiffens a curved shell (Scordelis-Lo 0.0145 vs MITC3+ 0.8561 at N=8). The kernel is unwired; production uses MITC3+ without smoothing. |
 | Experimental (wind-tunnel or field) validation | none; every reference is a code, a closed form or a published model |
 
 ### The rule the suite enforces

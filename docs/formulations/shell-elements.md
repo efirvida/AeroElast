@@ -599,6 +599,16 @@ Rust kernel with unit tests rather than an element a user can select. The produc
 shell quadrilateral is the MITC4+/D of §2 and the production triangle is the MITC3+
 of §3.
 
+**Defects (issue #2).** Two defects were found in the union path. (1) `union_rotation`
+filled only the translational 3x3 block of each node, so the rotational block was zero
+and `transform_union_to_global` = `T^T K T` annihilated every rotational DOF. This is
+fixed and pinned by `mitc3.rs::union_rotation_rotates_the_full_six_dof_block`.
+(2) With (1) fixed, the smoothed element still over-stiffens a curved shell: on the
+Scordelis-Lo roof with a triangular mesh it gives 0.0145 at N=8 against the un-smoothed
+MITC3+ 0.8561, while Lee & Lee 2019 (Table 6) reports the smoothing *improving* the
+un-smoothed element (1.0323 against 0.8793). The cause is in the curved-shell covariant
+handling or the union assembly and is not localized, so the kernel stays unwired.
+
 ### 4.4 `quad.rs` has no literature citation
 
 `crates/aeroelast-core/src/elements/quad.rs` carries the comment "elasticity (plane
