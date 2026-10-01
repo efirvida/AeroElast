@@ -12,15 +12,20 @@ attribution impossible for this model:
    of degrees while the tip deflection barely moves. That spread is the right order
    of magnitude to explain a 9x disagreement between two models that are each
    internally consistent about a *different* load line of action.
-3. **Open finding (measured, cause not yet proven).** The blade's torsional response
-   is ~400x softer than a closed thin-walled estimate of the same section, and the
-   mesh has free edges at two mid-span stations, at the shear-web junctions: the
-   webs are not connected across those stations, so the section's closed cells are
-   interrupted there. The naive repair (merge coincident nodes) degenerates the thin
-   transition elements, and a careful merge finds only one pair that shares no
-   element, so the causality is **not** established - it is the next thing to chase.
-   `test_mesh_free_edges_document_the_open_finding` pins the current state so a fix
+3. **The mesh has free edges at two mid-span stations** (the shear-web junctions), a
+   real connectivity defect. Its *effect* is bounded: the shell's section stiffness sits
+   inside the reference scatter by the modal route (1st torsion 4.000 Hz vs the
+   reference 4.290 Hz, i.e. GJ ratio 0.87 against a 15.1% reference scatter; 1st flap
+   0.526 vs 0.570; 1st edge 0.702 vs 0.650), so the tear is not the blade-twist
+   explanation. `test_mesh_free_edges_document_the_open_finding` pins the state so a fix
    cannot land unnoticed.
+   **Retracted**: an earlier version of this module reported the shell's torsion as
+   ~400x too soft. That was an artifact of reading the *mean nodal rotation at the
+   loaded tip ring*, where the local shell deformation dominates; the modal check above
+   is the reliable measure. A per-station section comparison remains open because it
+   needs the section frame (a moment about the global x mixes flap and edge through the
+   structural twist, and the global-z rotation is not the section's torsion), which is
+   why this module asserts nothing per station.
 
 Metric: the section twist about the blade axis is the mean nodal rotation about z
 (dof 5) over the tip ring. An LSQ slope of the flapwise displacement against the
@@ -94,7 +99,8 @@ def solved(blade_model):
         twist = float(np.mean([u[6 * nd + 5] for nd in tip]))
         return flap, twist
 
-    return {"n": n, "solve": solve, "z": z, "x": x, "y": y, "load_idx": load_idx, "tip": tip}
+    return {"n": n, "solve": solve, "z": z, "x": x, "y": y, "load_idx": load_idx,
+            "tip": tip, "Kff": Kff, "free": free}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -180,46 +186,6 @@ def test_blade_twist_is_load_path_dominated(solved):
     assert abs(surface[0] - leading[0]) < 0.10 * abs(surface[0])
     assert abs(twist_leading) > 10 * abs(twist_surface)
     assert abs(twist_mid) > 10 * abs(twist_surface)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 3. The torsional response is linear - and far softer than a closed section
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def test_blade_torsional_response_is_linear(solved):
-    """A pure tip torque gives an exactly linear twist, and an implied rigidity far
-    below a closed thin-walled estimate of the same section.
-
-    The linearity says the solver and the model are well posed. The *magnitude* is
-    the open finding: the measured response is ~400x softer than
-    ``GJ = 4 A^2 / oint(ds / G t)`` for a closed cell of the tip ring, which points
-    at the section's closed cells being interrupted (see the free-edge test).
-    """
-    n, x, y, tip = solved["n"], solved["x"], solved["y"], solved["tip"]
-    centroid_x, centroid_y = float(np.mean(x[tip])), float(np.mean(y[tip]))
-    rx, ry = x[tip] - centroid_x, y[tip] - centroid_y
-    norm = float(np.sum(rx**2 + ry**2))
-
-    twists = {}
-    for torque in (1e6, 10e6):
-        force = np.zeros(n)
-        for i, nd in enumerate(tip):
-            force[6 * nd + 0] = -ry[i] * torque / norm
-            force[6 * nd + 1] = rx[i] * torque / norm
-        twists[torque] = solved["solve"](force)[1]
-
-    ratio = twists[10e6] / twists[1e6]
-    per_mnm = np.rad2deg(twists[1e6]) / 1.0
-    print(f"\npure tip torque: 1 MNm -> {np.rad2deg(twists[1e6]):+.3f} deg, "
-          f"10 MNm -> {np.rad2deg(twists[10e6]):+.3f} deg (ratio {ratio:.6f})")
-    print(f"  measured {per_mnm:+.1f} deg/MNm; a closed-cell estimate of the tip section "
-          f"is of order 10 deg/MNm")
-    assert abs(ratio - 10.0) < 1e-6, "the torsional response must be linear"
-    assert abs(per_mnm) > 100.0, (
-        "the measured torsional rigidity is no longer the documented open finding; "
-        "update this test and the WU7 section of odd/tasks/composite-bend-twist-verdict.md"
-    )
 
 
 def test_mesh_free_edges_document_the_open_finding(blade_model):

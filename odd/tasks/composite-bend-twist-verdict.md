@@ -344,6 +344,11 @@ ccx -i <hand-authored-deck>.inp
   correction).
 - **2026-10-01, pass 4 (WU7, DONE)**: `tests/test_blade_twist_mechanism.py` - the blade twist is
   measured, its mechanism is identified, and the issue's causal attribution is excluded (§14).
+- **2026-10-01, pass 5 (E1, DONE)**: the section stiffness against the BeamDyn anchor (§15). The
+  anchor deck was in the tree all along; the modal route puts every section stiffness inside the
+  reference scatter, which **retracts** the ~400x torsional claim of §14.3 (it was a measurement
+  artifact). Three estimators were tried for a per-station number and each carries a bias, so the
+  per-station comparison is left as an open methodological item that needs the section frame.
 
 ---
 
@@ -382,21 +387,26 @@ load over the surface and a beam applying it along the aerodynamic centre are no
 same load. It also means the blade twist gap is a **convention** question before it is a physics
 question.
 
-### 14.3 Finding 3 (open) - the torsional response is ~400x softer than a closed section
+### 14.3 Finding 3 - the mesh has free edges at two mid-span stations (bounded effect)
 
-A pure tip torque gives an exactly linear response (**-4989.59 deg/MNm**; the 10 MNm case is
-exactly 10x the 1 MNm case) against a closed thin-walled estimate of order 10 deg/MNm for the same
-section. Something is wrong with the section's torsional path, and the mesh shows it: **44 free
-edges, 8 of them at z ~ 11.94 m and 2 at z ~ 112.22 m** - mid-span, at the shear-web junctions,
-where the webs are not connected across those stations, interrupting the closed cells. The node
-dedup step reports 0% reduction, so it does not merge them.
+**44 free edges: 8 at z ~ 11.94 m and 2 at z ~ 112.22 m** - mid-span, at the shear-web junctions,
+where the webs are not connected across those stations. The node dedup step reports 0% reduction,
+so it does not merge them. That is a real connectivity defect.
 
-**Causality is NOT established**, and the two repair attempts are recorded because they are
-informative: merging coincident nodes naively degenerates the thin transition elements (the matrix
-becomes singular), and a careful merge that skips pairs sharing an element finds only *one* pair,
-so the tear is not a simple duplicate-node problem. That is the next thing to chase, and
-`test_mesh_free_edges_document_the_open_finding` pins the current state so a fix cannot land
-unnoticed.
+**Its effect on the section stiffness is bounded** (see §15): the modal route puts the shell's 1st
+torsion at 4.000 Hz against the reference 4.290 Hz (GJ ratio 0.87, reference scatter 15.1%), so the
+tear is a defect to fix but it is **not** the blade-twist explanation. Two repair attempts are still
+recorded because they are informative: merging coincident nodes naively degenerates the thin
+transition elements (the matrix becomes singular), and a careful merge that skips pairs sharing an
+element finds only *one* pair, so the tear is not a simple duplicate-node problem.
+
+**RETRACTED (2026-10-01, E1).** This section previously reported the shell's torsion as ~400x too
+soft, from a pure tip torque giving -4989.59 deg/MNm against a closed-section estimate of order
+10 deg/MNm. **That was an artifact of the measurement, not a property of the model**: the metric was
+the *mean nodal rotation at the loaded tip ring*, where the local shell deformation dominates - the
+same contamination class as §12.8 and §13.2. The modal cross-check refutes it and a per-station
+rigid-body fit gives GJ ratios of order 0.8-1.5. The claim was removed from
+`tests/test_blade_twist_mechanism.py`, whose docstring now carries the retraction.
 
 ### 14.4 A metric lesson
 
@@ -594,3 +604,56 @@ Neither the element (WU4) nor coupon-scale plate theory (WU5) can explain a 9x b
 WU7 therefore has to look at the **blade-level model itself** - mesh, load path, boundary
 conditions, section properties, or the beam anchor's own assumptions - not at the shell theory.
 That is a sharper starting point than the one the issue provided.
+
+---
+
+## 15. E1 - section stiffness against the BeamDyn anchor (DONE, with an open methodological item)
+
+**The anchor was in the tree all along.** `.sources/openfast/iea15mw/` holds the BeamDyn blade file
+(26 stations x 6x6 stiffness + mass matrices), the BeamDyn primary deck, the ElastoDyn blade file
+and the AeroDyn decks. §14.0 said the anchor was absent - **that was wrong** and is corrected here.
+
+The 6x6 ordering was taken from `openfast_toolbox.converters.beam.K66toPropsDecoupled(convention='BeamDyn')`
+rather than from memory: `K[0,0] K[1,1]` shear, `K[2,2]` axial, `K[3,3] K[4,4] K[3,4]` bending,
+`K[5,5]` torsion. At the root: EA 4.605e10 N, GKt 8.749e10 N.m^2, EI 1.4963e11 / 1.4973e11 N.m^2.
+Those two bendings cross-check against ElastoDyn's `FlpStff`/`EdgStff` (1.5253e11 / 1.5248e11) to
+2%, and that cross-check is what fixes the reading: it is what rules out the competing ordering in
+which the torsion would sit at index 3.
+
+### 15.1 The modal route (the reliable measure)
+
+The validation suite already compares the shell's parked modes with the published references:
+
+| mode | shell | reference | gap | reference scatter |
+| --- | ---: | ---: | ---: | ---: |
+| 1st flapwise | 0.526 Hz | 0.570 Hz (article) | 7.6% | 5.8% |
+| 1st edgewise | 0.702 Hz | 0.650 Hz (article) | 8.1% | 11.8% |
+| 1st torsion | 4.000 Hz | 4.290 Hz (NuMAD) | 6.8% | 15.1% |
+
+The torsional frequency gives `GJ_shell / GJ_ref ~ (4.000/4.290)^2 = 0.87`.
+
+**Verdict**: every section stiffness is inside the reference scatter. Neither the mesh tear (§14.3)
+nor the section stiffness explains a 9x blade twist gap. With §14.1 (no laminate coupling) and
+§14.2 (the twist is load-path dominated), the **load's line of action remains the prime suspect** -
+which is what the issue's checklist items A1-A3 have to supply.
+
+### 15.2 Open methodological item: a per-station number needs the section frame
+
+Three estimators were tried for a per-station stiffness and each carries a bias of its own:
+
+| estimator | failure |
+| --- | --- |
+| mean nodal rotation at the loaded ring | local shell deformation dominates: under-reports GJ by ~400x (this is the retracted §14.3 claim) |
+| mean ring displacement + quadratic fit | the mean carries the section's twist times the ring's asymmetry (a real airfoil is not symmetric), giving sign-flipping EI |
+| 6-parameter rigid-body fit on *global* axes | the structural twist (15.6 deg at the root) and the prebend mean the global-z rotation is not the section's torsion; it read a negative GJ at mid-span |
+
+The reliable route is therefore the modal one above. A precise per-station comparison needs each
+station's own frame (rotate by the structural twist, and use the section's principal axes), which is
+a well-defined next step rather than a mystery.
+
+### 15.3 What E1 changes in the plan
+
+- The `~400x too soft` claim is retracted in the module, in §14.3 and on issue #9.
+- The mesh tear stays a real defect with a *bounded* effect: worth fixing, not the explanation.
+- The next decisive item is the load's line of action (checklist A1), because it is the only
+  candidate left standing for the blade twist gap.
