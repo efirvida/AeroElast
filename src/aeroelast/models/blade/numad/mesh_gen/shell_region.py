@@ -1,9 +1,9 @@
 import numpy as np
 
 import aeroelast.models.blade.numad.mesh_gen.mesh_tools as mt
-from aeroelast.models.blade.numad.mesh_gen.boundary2d import *
-from aeroelast.models.blade.numad.mesh_gen.mesh2d import *
-from aeroelast.models.blade.numad.mesh_gen.segment2d import *
+from aeroelast.models.blade.numad.mesh_gen.boundary2d import Boundary2D
+from aeroelast.models.blade.numad.mesh_gen.mesh2d import Mesh2D
+from aeroelast.models.blade.numad.mesh_gen.segment2d import Segment2D
 
 
 class ShellRegion:
@@ -20,10 +20,12 @@ class ShellRegion:
         regType,
         keyPoints,
         numEdgeEls,
-        natSpaceCrd=[],
+        natSpaceCrd=None,
         elType="quad",
         meshMethod="free",
     ):
+        if natSpaceCrd is None:
+            natSpaceCrd = []
         self.regType = regType
         self.keyPts = np.array(keyPoints)
         self.edgeEls = numEdgeEls

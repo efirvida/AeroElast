@@ -1,8 +1,16 @@
 import numpy as np
 
-from aeroelast.models.blade.numad.mesh_gen.element_utils import *
-from aeroelast.models.blade.numad.mesh_gen.spatial_grid_list2d import *
-from aeroelast.models.blade.numad.mesh_gen.spatial_grid_list3d import *
+from aeroelast.models.blade.numad.mesh_gen.element_utils import (
+    check_jacobian,
+    cross_prod,
+    get_el_coord,
+    get_proj_dist,
+    get_solid_surf_proj,
+    get_sorted_face_strings,
+    get_volume,
+)
+from aeroelast.models.blade.numad.mesh_gen.spatial_grid_list2d import spatial_grid_list2d
+from aeroelast.models.blade.numad.mesh_gen.spatial_grid_list3d import spatial_grid_list3d
 
 
 def rotate_vector(vec, axis, angle):
@@ -219,7 +227,7 @@ def mergeDuplicateNodes(meshData, tolerance=None):
     avgSp = get_average_node_spacing(meshData["nodes"], meshData["elements"])
     sp = 2 * avgSp
     nodeGL = get_mesh_spatial_list(allNds, xSpacing=sp, ySpacing=sp, zSpacing=sp)
-    if tolerance == None:
+    if tolerance is None:
         tol = 1.0e-4 * avgSp
     else:
         tol = tolerance
@@ -299,11 +307,11 @@ def merge_meshes(mData1, mData2, tolerance=None):
     mergedData["sets"]["element"] = []
     try:
         mergedData["sets"]["node"].extend(mData1["sets"]["node"])
-    except:
+    except Exception:
         pass
     try:
         mergedData["sets"]["element"].extend(mData1["sets"]["element"])
-    except:
+    except Exception:
         pass
     try:
         for ns in mData2["sets"]["node"]:
@@ -314,7 +322,7 @@ def merge_meshes(mData1, mData2, tolerance=None):
                 labs.append(nd + nLen1)
             newSet["labels"] = labs
             mergedData["sets"]["node"].append(newSet)
-    except:
+    except Exception:
         pass
     try:
         for es in mData2["sets"]["element"]:
@@ -325,7 +333,7 @@ def merge_meshes(mData1, mData2, tolerance=None):
                 labs.append(el + eLen1)
             newSet["labels"] = labs
             mergedData["sets"]["element"].append(newSet)
-    except:
+    except Exception:
         pass
     return mergeDuplicateNodes(mergedData, tolerance)
 
@@ -333,12 +341,12 @@ def merge_meshes(mData1, mData2, tolerance=None):
 def add_node_set(meshData, newSet):
     try:
         meshData["sets"]["node"].append(newSet)
-    except:
+    except Exception:
         nSets = []
         nSets.append(newSet)
         try:
             meshData["sets"]["node"] = nSets
-        except:
+        except Exception:
             sets = {}
             sets["node"] = nSets
             meshData["sets"] = sets
@@ -348,12 +356,12 @@ def add_node_set(meshData, newSet):
 def add_element_set(meshData, newSet):
     try:
         meshData["sets"]["element"].append(newSet)
-    except:
+    except Exception:
         elSets = []
         elSets.append(newSet)
         try:
             meshData["sets"]["element"] = elSets
-        except:
+        except Exception:
             sets = {}
             sets["element"] = elSets
             meshData["sets"] = sets
@@ -376,7 +384,7 @@ def get_matching_node_sets(meshData):
         nodeSets.append(newSet)
     try:
         meshData["sets"]["node"].extend(nodeSets)
-    except:
+    except Exception:
         meshData["sets"]["node"] = nodeSets
 
     return meshData
@@ -400,7 +408,7 @@ def get_extruded_sets(meshData, numLayers):
             newSet["labels"] = labels
             extES.append(newSet)
         extSets["element"] = extES
-    except:
+    except Exception:
         pass
 
     try:
@@ -417,7 +425,7 @@ def get_extruded_sets(meshData, numLayers):
             newSet["labels"] = labels
             extNS.append(newSet)
         extSets["node"] = extNS
-    except:
+    except Exception:
         pass
 
     return extSets
@@ -459,9 +467,9 @@ def get_surface_nodes(meshData, elSet, newSetName, normDir, normTol=5.0):
                 fcStr, globFc = get_sorted_face_strings(els[ei])
                 for fi, fk in enumerate(fcStr):
                     try:
-                        curr = faceDic[fk]
+                        faceDic[fk]
                         faceDic[fk] = None
-                    except:
+                    except Exception:
                         faceDic[fk] = globFc[fi]
     surfSet = set()
     for fk in faceDic:
@@ -593,10 +601,10 @@ def tie_2_sets_constraints(mesh, tiedSetName, tgtSetName, maxDist):
                 tiedSet = ns["labels"]
             if ns["name"] == tgtSetName:
                 tgtNdSet = ns["labels"]
-        fstEl = tgtSet[0]
+        tgtSet[0]
         fstNd = tgtSet[0]
-        fstTgtNd = tgtNdSet[0]
-    except:
+        tgtNdSet[0]
+    except Exception:
         raise Exception(
             "There was a problem accessing the mesh data in tie2SetsConstraints().  Check the set names and make sure nodes, elements and sets exist in the input mesh"
         )

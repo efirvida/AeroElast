@@ -93,7 +93,7 @@ def get_el_basis(elType, sVec):
         nVec[2] = sVec[1]
         dNds[2, 1] = 1.0
 
-    nOut = dict()
+    nOut = {}
     nOut["nVec"] = nVec
     nOut["dNds"] = dNds
 
@@ -128,10 +128,10 @@ def get_sorted_face_strings(elNds):
             faces = get_element_faces("shell3")
         else:
             faces = get_element_faces("shell4")
-    fcStr = list()
-    globFc = list()
+    fcStr = []
+    globFc = []
     for fc in faces:
-        glob = list()
+        glob = []
         for nd in fc:
             glob.append(elNds[nd])
         globFc.append(glob)
@@ -382,7 +382,7 @@ def get_proj_dist(elCrd, elType, ptCrd):
     elif elType == "shell3":
         sVec = sVec + 0.333333333333333
     nOut = get_el_basis(elType, sVec)
-    projOut = dict()
+    projOut = {}
     projOut["distance"] = dist
     projOut["nVec"] = nOut["nVec"]
     return projOut
@@ -401,7 +401,7 @@ def get_solid_surf_proj(elCrd, elType, ptCrd):
         print(pstr)
     minDist = 1.0e100
     minFace = -1
-    minPO = dict()
+    minPO = {}
     fi = 0
     for fc in faces:
         xC = []
@@ -427,7 +427,7 @@ def get_solid_surf_proj(elCrd, elType, ptCrd):
     for ni in faces[minFace]:
         nVec[ni] = shNVec[shni]
         shni = shni + 1
-    projOut = dict()
+    projOut = {}
     projOut["distance"] = minDist
     projOut["nVec"] = nVec
     return projOut

@@ -1,11 +1,10 @@
 import numpy as np
 from scipy import interpolate
 
-from aeroelast.models.blade.numad.mesh_gen.spatial_grid_list3d import *
-
-
 class Mesh3D:
-    def __init__(self, boundaryNodes, boundaryFaces=[]):
+    def __init__(self, boundaryNodes, boundaryFaces=None):
+        if boundaryFaces is None:
+            boundaryFaces = []
         self.nodeGL = None
         self.faceGL = None
         self.tetElGL = None
@@ -43,10 +42,10 @@ class Mesh3D:
         sweepMethod,
         sweepElements,
         sweepDistance=1.0,
-        point=[],
-        axis=[],
+        point=None,
+        axis=None,
         followNormal=False,
-        destNodes=[],
+        destNodes=None,
         interpMethod="linear",
     ):
         ## sweepMethod = inDirection, toPoint, fromPoint, toDestNodes, revolve
@@ -59,13 +58,19 @@ class Mesh3D:
         nodes
         elements
         """
+        if destNodes is None:
+            destNodes = []
+        if axis is None:
+            axis = []
+        if point is None:
+            point = []
         nbNds = self.numBndNodes
         try:
             totSweepEls = sum(sweepElements)
             ndSize = nbNds * (totSweepEls + 1)
             stages = len(sweepElements)
             multiStage = True
-        except:
+        except Exception:
             totSweepEls = sweepElements
             ndSize = nbNds * (sweepElements + 1)
             stages = 1
@@ -91,15 +96,16 @@ class Mesh3D:
 
         methString = "inDirection toPoint fromPoint"
         if sweepMethod in methString:
-            ndDir = list()
+            ndDir = []
             if sweepMethod == "inDirection":
                 mag = np.linalg.norm(axis)
                 unitAxis = (1.0 / mag) * np.array(axis)
-                for i in range(0, self.numNodes):
+                for _ in range(0, self.numNodes):
                     ndDir.append(unitAxis)
             else:
                 pAr = np.array(point)
                 for i in range(0, self.numNodes):
+                    nd = self.nodes[i]
                     if sweepMethod == "toPoint":
                         vec = pAr - nd
                     else:
@@ -160,7 +166,7 @@ class Mesh3D:
                     ndDir = np.zeros((nbNds, 3))
                     for ndi in range(0, nbNds):
                         ndDir[ndi] = (1.0 / sweepElements[stg]) * (dNds[ndi] - prevDest[ndi])
-                    for i in range(0, sweepElements[stg]):
+                    for _ in range(0, sweepElements[stg]):
                         for ndi in range(0, nbNds):
                             self.nodes[nNds] = self.nodes[nNds - nbNds] + ndDir[ndi]
                             nNds = nNds + 1
@@ -300,7 +306,7 @@ class Mesh3D:
                 self.hexElements[eli, 5] = self.hexElements[eli, 7]
                 self.hexElements[eli, 7] = sw
 
-        meshOut = dict()
+        meshOut = {}
         meshOut["nodes"] = self.nodes
         totEls = self.numWedgeEls + self.numHexEls
         allEls = -np.ones((totEls, 8), dtype=int)
@@ -477,7 +483,7 @@ def create_outer_domain_unstructured(
     # ------------------------------------------------------------------ #
     z_group = np.asarray(node_z_ref, dtype=float) if node_z_ref is not None else outer_nodes[:, 2]
 
-    z = outer_nodes[:, 2]  # actual Z (used for cylinder placement)
+    outer_nodes[:, 2]  # actual Z (used for cylinder placement)
     z_span = max(z_group.max() - z_group.min(), 1e-12)
     tol_z = max(1e-6 * z_span, 1e-12)
     z_int = np.round(z_group / tol_z).astype(np.int64)

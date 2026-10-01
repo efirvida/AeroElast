@@ -1,10 +1,8 @@
 import numpy as np
 
 ##from pynumad.mesh_gen.shellClasses import shellRegion, elementSet, NuMesh3D, spatialGridList2D, spatialGridList3D
-from aeroelast.models.blade.numad.mesh_gen.boundary2d import *
-from aeroelast.models.blade.numad.mesh_gen.element_utils import *
-from aeroelast.models.blade.numad.mesh_gen.mesh2d import *
-from aeroelast.models.blade.numad.mesh_gen.mesh_tools import *
+from aeroelast.models.blade.numad.mesh_gen.element_utils import correct_orient
+from aeroelast.models.blade.numad.mesh_gen.mesh_tools import get_direction_cosines
 from aeroelast.models.blade.numad.mesh_gen.surface import Surface
 from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
 
@@ -381,8 +379,8 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
     ## Shear web sections
     swES = set()
     stPt = 0
-    web1Sets = np.array([])
-    web2Sets = np.array([])
+    np.array([])
+    np.array([])
     for i in range(rws - 1):
         if swstacks[0][i].plygroups:
             shellKp = np.zeros((16, 3))
@@ -617,7 +615,7 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
     newSet["labels"] = rootLabs
     try:
         shellData["sets"]["node"].append(newSet)
-    except:
+    except Exception:
         nodeSets = []
         nodeSets.append(newSet)
         shellData["sets"]["node"] = nodeSets

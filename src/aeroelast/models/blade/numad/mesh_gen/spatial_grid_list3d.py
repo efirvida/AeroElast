@@ -26,13 +26,13 @@ class spatial_grid_list3d:
         self.xRows = int(np.ceil(xLen / xGridSize))
         self.yRows = int(np.ceil(yLen / yGridSize))
         self.zRows = int(np.ceil(zLen / zGridSize))
-        self.fullList = list()
-        for i in range(0, self.xRows):
-            xList = list()
-            for j in range(0, self.yRows):
-                yList = list()
-                for k in range(0, self.zRows):
-                    yList.append(list())
+        self.fullList = []
+        for _i in range(0, self.xRows):
+            xList = []
+            for _j in range(0, self.yRows):
+                yList = []
+                for _k in range(0, self.zRows):
+                    yList.append([])
                 xList.append(yList)
             self.fullList.append(xList)
 
@@ -79,7 +79,7 @@ class spatial_grid_list3d:
             if kMin < 0:
                 kMin = 0
 
-        labelList = list()
+        labelList = []
         for i in range(iMin, iMax):
             for j in range(jMin, jMax):
                 for k in range(kMin, kMax):
