@@ -205,8 +205,9 @@ is therefore not evidence while both sides route through the same writer.
 **Status after WU1-WU4**: H1 confirmed (the reference is wrong by `1/(2b)`); H2 refuted (the three
 twist metrics agree to 0.0% on a refined mesh); H3 refuted (the ratio is flat under refinement in
 both directions); H4 converted into a test that asserts the element's ABD equals the reference's;
-H5 refuted (two independent routes reproduce the element to 1-3%); H6 open, and by construction
-not decidable at coupon resolution.
+H5 refuted (two independent routes reproduce the element to 1-3%); H6 **refuted at coupon scale**
+by WU5 (3D layer-wise elasticity reproduces the shell to 0.2% - see §13), which leaves the
+blade-level gap to WU7 as a blade-model question, not a theory-of-the-coupon question.
 
 ## 6. Work units
 
@@ -331,7 +332,14 @@ ccx -i <hand-authored-deck>.inp
   the issue named, which never existed here) with a single-laminate design rule, three twist
   metrics, a mesh-convergence study, a constant-moment constitutive probe, a converged
   Rayleigh-Ritz reference and a hand-authored CCX S8R deck. 11 tests, all green. Verdict in §1b;
-  evidence in §12.
+  evidence in §12. Committed as `939e49a` after RDD review `review-4af7f1c0f12b1d65` (4/4 lenses,
+  approved, authority burned) with one bounded correction for the CRITICAL finding
+  `R4-ccx-timeout` (the CCX subprocess now runs under a timeout and fails typed).
+- **2026-10-01, pass 3 (WU5, DONE)**: `tests/test_laminate_bend_twist_3d.py` - hand-authored
+  C3D20R layer-wise judge with per-layer orientation and a consistent traction. Controls pass,
+  the load-discretisation artifact is pinned, and the verdict is 3D/shell = 1.0021 at matched
+  refinement: **H6 refuted**. Two methodological traps recorded (§13.2, §13.4), both of which
+  first produced a wrong answer - the same failure mode as the Ritz load-vector bug in §12.8.
 
 ---
 
@@ -454,3 +462,61 @@ converged routes (12.5, 12.6) put the element within ~3% of the truth.
   the same errors appear on pre-existing test files, so it is the environment, not this file.
 - **The issue's own artifacts remain absent** from this tree and from its history (§3.1): the
   coupon, its reference and its judge now exist because they were authored here, not recovered.
+
+---
+
+## 13. WU5 — the 3D layer-wise judge (DONE): H6 refuted
+
+`tests/test_laminate_bend_twist_3d.py` (4 tests). Hand-authored CalculiX deck, never
+`write_ccx_mesh`: one **C3D20R** element per ply, each layer carrying its own `*ORIENTATION` ply
+angle, clamped `x = 0` face, loaded free tip, and the **same metric** as the shell (LSQ slope of
+`w` against `y` over the tip edge) read on the mid-plane nodes.
+
+### 13.1 Controls
+
+| control | result |
+| --- | --- |
+| decoupled `[0,0,0,0]` | `-0.000000` deg (exact zero) |
+| `[45,0,0,45]s` vs `[-45,0,0,-45]s` | equal magnitude, opposite sign (this is what validates the per-layer orientation; an all-zero layup would pass under any convention) |
+
+### 13.2 The trap that first looked like a theory verdict
+
+A **uniform force per node over the brick face is not a uniform traction**: it over-weights the
+perimeter nodes and injects a spurious through-thickness moment. The resulting gap is
+thickness- and mesh-independent, which is exactly what a "CLT is wrong by 21%" conclusion looks
+like:
+
+| load discretisation | mesh 10x6 | mesh 16x10 |
+| --- | ---: | ---: |
+| uniform nodal force over the whole face | 0.7876 | 0.7781 |
+| mid-plane line only | 1.0058 | 1.0025 |
+| **consistent traction** (8-node serendipity face integrals) | **1.0050** | **1.0021** |
+
+Ratios are `3D / shell`. `consistent_traction_loads` integrates the face shape functions against a
+constant traction, which is the honest 3D counterpart of a shell's mid-surface line load. The
+difference is pinned by `test_a_uniform_nodal_force_on_the_face_is_not_a_uniform_traction` so it
+cannot come back unnoticed.
+
+### 13.3 Convergence and verdict
+
+In-plane refinement with the consistent load (`3D / shell`): 6x4 = 1.0145, 10x6 = 1.0050,
+16x10 = **1.0021**; the 3D answer settles **toward** the shell as it refines.
+
+**H6 refuted at coupon scale**: real 3D elasticity, with full transverse constants the CLT cannot
+see, reproduces the composite MITC4 shell twist to **0.2%**. The plate theory is not the coupon's
+problem, and neither is the element.
+
+### 13.4 Second trap: orphan nodes in a structured C3D20R grid
+
+Nodes at an odd index in *both* in-plane directions are the would-be centre of a 20-node brick's
+face: no element owns them, CalculiX reports no result for them, and a naive sampler dies on the
+missing key. Sampling element-corner stations only avoids it. Related: the repo helper
+`tests/_ccx_io.py::parse_frd_disp` keeps only the **last** `-4 DISP` block, which is fine for small
+models and silently incomplete for large ones; the 3D module carries its own `parse_all_disp`.
+
+### 13.5 What this does to the blade claim
+
+Neither the element (WU4) nor coupon-scale plate theory (WU5) can explain a 9x blade twist gap.
+WU7 therefore has to look at the **blade-level model itself** - mesh, load path, boundary
+conditions, section properties, or the beam anchor's own assumptions - not at the shell theory.
+That is a sharper starting point than the one the issue provided.
