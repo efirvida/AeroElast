@@ -70,6 +70,8 @@ turnkey installers, or broad industrial validation.
 
 - built-in mesh generators such as `SquareShapeMesh`, `BoxSurfaceMesh`,
   `MultiFlapMesh`, `BladeMesh`, and `RotorMesh`
+- turbine component meshers (`TowerMesh`, `HubMesh`, `NacelleMesh`) and a
+  full `TurbineMesh` assembly of blades + hub/nacelle + tower
 - mesh import/export utilities for common engineering formats
 - geometric node-set creation from coordinate, box, distance, and direction
   criteria
@@ -172,18 +174,33 @@ Reconstruct rotor performance CSV data from checkpoints:
 aeroelast-reconstruct-csv results/
 ```
 
+Generate meshes with the `mesh` subcommand (see
+[docs/mesh-cli.md](docs/mesh-cli.md)):
+
+```bash
+# Blade CFD surface (no shear webs)
+aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.stl --no-webs
+
+# Tower / hub / nacelle from the WindIO definition
+aeroelast mesh tower IEA-15-240-RWT.yaml --out tower.obj
+
+# Whole turbine, one file per component
+aeroelast mesh turbine IEA-15-240-RWT.yaml --out-dir meshes/ --format stl
+```
+
 ## CLI Commands
 
 The package provides these command-line entry points:
 
-- `aeroelast` - main CLI entry point
+- `aeroelast` - main CLI entry point (`aeroelast mesh ...` generates meshes)
 - `aeroelast-fsi` - run or inspect YAML-defined simulations
 - `aeroelast-bem-fsi` - run BEM-coupled FSI simulations
 - `aeroelast-monitor` - monitor rotor/FSI runs from CSV output
 - `aeroelast-reconstruct-csv` - rebuild missing rotor performance histories
 
 Detailed CLI documentation is available in
-[docs/cli-reference.md](docs/cli-reference.md).
+[docs/cli-reference.md](docs/cli-reference.md) for the simulation runner and
+[docs/mesh-cli.md](docs/mesh-cli.md) for mesh generation.
 
 ## Repository Layout
 
@@ -227,6 +244,8 @@ correctness.
 
 - [docs/cli-reference.md](docs/cli-reference.md) — CLI reference for the
   simulation runner
+- [docs/mesh-cli.md](docs/mesh-cli.md) — mesh generation CLI
+  (`aeroelast mesh blade|rotor|hub|nacelle|tower|turbine`)
 - [docs/teoria_formulacion_fsi_rotor.md](docs/teoria_formulacion_fsi_rotor.md)
   — FSI rotor formulation theory (Spanish)
 - [docs/s4r_composite_shell_formulation.md](docs/s4r_composite_shell_formulation.md)

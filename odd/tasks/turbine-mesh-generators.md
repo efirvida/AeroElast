@@ -68,13 +68,63 @@ python -m pytest tests/test_blade_mesh.py tests/test_blade_no_webs.py \
 
 ## Tasks
 
-- [ ] T1 `include_webs` flag (WU1).
-- [ ] T2 Axisymmetric builder + tower/hub/nacelle (WU2).
-- [ ] T3 WindIO component reader (WU2).
-- [ ] T4 `TurbineMesh` assembly (WU3).
-- [ ] T5 `aeroelast mesh` CLI (WU4).
-- [ ] T6 Docs + verification (WU5).
+- [x] T1 `include_webs` flag (WU1).
+- [x] T2 Axisymmetric builder + tower/hub/nacelle (WU2).
+- [x] T3 WindIO component reader (WU2).
+- [x] T4 `TurbineMesh` assembly (WU3).
+- [x] T5 `aeroelast mesh` CLI (WU4).
+- [x] T6 Docs + verification (WU5).
 
 ## Result
 
-Pending.
+Implemented and committed as six work units:
+
+| Commit | Work unit | Files |
+|---|---|---|
+| `5320032` | `include_webs` for blade/rotor | `mesh_gen/mesh_gen.py`, `generators.py`, `model.py`, `tests/test_blade_no_webs.py` |
+| `95a9aea` | tower/hub/nacelle + WindIO reader | `core/mesh/components.py`, `core/mesh/__init__.py`, `tests/test_axisymmetric_components.py` |
+| `97fe652` | nacelle length = overhang + typing | `components.py`, test |
+| `0ebbf62` | `TurbineMesh` assembly | `core/mesh/turbine.py`, `__init__.py`, `tests/test_turbine_mesh.py` |
+| WU4 | `aeroelast mesh` CLI | `cli/mesh.py`, `cli/aeroelast.py`, `tests/test_cli_mesh.py` |
+| WU5 | docs | `docs/mesh-cli.md`, `README.md`, `docs/cli-reference.md` |
+
+### Design notes
+
+1. **No webs** is a flag, not a new mesher: `get_shell_mesh` collapses its
+   shear-web loop range to `range(rws - 1 if include_webs else 0)`, so the
+   outer-shell code path is byte-identical. The web element count is exactly
+   the element-count difference between the two modes (asserted).
+2. **Components are analytic**, not gmsh-meshed: a meridian profile is
+   revolved by `build_revolved_shell`, giving exact, deterministic element
+   counts and correct outward orientation (verified by edge-manifold and
+   signed-volume checks). gmsh remains available for `.msh`; meshio covers
+   STL/VTK/OBJ through the existing `write_mesh` dispatch.
+3. **Nacelle length is `overhang`** (yaw axis -> hub), not
+   `distance_tt_hub` (tower-top -> hub vertical distance); corrected during
+   WU2 before the turbine assembly relied on it.
+4. **Turbine frame**: tower base at `tower_base_z` (default 0) via a rigid
+   translation, hub at `hub_height + base_offset`, rotor axis `+X` tilted by
+   the nacelle uptilt, blades coned by `cone_angle` and azimuthally
+   distributed. The base-blade frame (span +Z, chord +X, thickness +Y) is
+   remapped with `Rz(-90 deg)` to (span +Z, rotor axis +X, chord -Y).
+
+### Verification evidence
+
+| Suite | Result |
+|---|---|
+| `tests/test_blade_no_webs.py` | 6 passed |
+| `tests/test_axisymmetric_components.py` | 15 passed |
+| `tests/test_turbine_mesh.py` | 10 passed |
+| `tests/test_cli_mesh.py` | 13 passed |
+| `ruff check` + `ruff format --check` (changed files) | clean |
+| `pyright` (new/changed files, standalone) | 0 errors, 0 warnings |
+| `tests/test_blade_mesh.py` (existing regression) | 1 passed |
+
+### Known environment issue
+
+The lens LSP reports `reportMissingImports` for the three files created during
+this session (`core/mesh/components.py`, `core/mesh/turbine.py`,
+`cli/mesh.py`) while the standalone `pyright` binary — same engine, same
+`pyrightconfig.json`, same workspace root — reports **0 errors** and the
+imports resolve at runtime. This is a stale language-server workspace index,
+not a code defect.
