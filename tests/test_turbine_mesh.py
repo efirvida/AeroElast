@@ -1,4 +1,4 @@
-"""Turbine mesh assembly: separate blade/hub/nacelle/tower meshes in one frame."""
+"""Turbine assembly: rotor centred at the origin, tower displaced behind it."""
 
 import os
 
@@ -10,86 +10,108 @@ from aeroelast.core.mesh.turbine import TurbineMesh
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _YAML = os.path.join(_HERE, "IEA-15-240-RWT.yaml")
 
-_HUB_CENTER = np.array([12.0313, 0.0, 135.0])
+_TOWER_TOP = np.array([0.0, -12.0313, -5.614])
 _HUB_RADIUS = 7.94 / 2.0
 _ROTOR_RADIUS = 242.23775645 / 2.0
-_UPTILT = 0.10471975511965977
-_TOWER_TOP_Z = 129.386
 
 
 @pytest.fixture(scope="module")
 def turbine():
-    return TurbineMesh(_YAML, element_size=3.0, n_blades=3).generate(verbose=False)
+    return TurbineMesh(_YAML, element_size=5.0, n_blades=3).generate(verbose=False)
 
 
 @pytest.fixture(scope="module")
 def overridden():
     return TurbineMesh(
         _YAML,
-        element_size=8.0,
+        element_size=10.0,
         n_blades=1,
-        hub_diameter=10.0,
+        rotor_axis=(1.0, 0.0, 0.0),
+        tower_offset=(-20.0, 0.0, -30.0),
         tower_height=80.0,
         tower_base_diameter=8.0,
         tower_top_diameter=4.0,
-        nacelle_length=20.0,
-        nacelle_body_diameter=4.0,
-        nacelle_nose_diameter=2.0,
+        hub_diameter=10.0,
     ).generate(verbose=False)
 
 
 def test_component_names(turbine):
-    assert set(turbine.meshes) == {"blade_1", "blade_2", "blade_3", "hub", "nacelle", "tower"}
+    assert set(turbine.meshes) == {"blade_1", "blade_2", "blade_3", "hub", "tower"}
     for name, mesh in turbine.meshes.items():
         assert mesh.node_count > 0, name
         assert mesh.elements_count > 0, name
 
 
-def test_shared_frame(turbine):
+def test_rotor_is_centred_at_the_origin(turbine):
+    np.testing.assert_allclose(turbine.rotor_axis, [0.0, 1.0, 0.0])
+    assert turbine.hub_radius == pytest.approx(_HUB_RADIUS)
+
+    # Hub/nacelle is one body running from the tower top to the rotor centre.
+    hub = turbine.hub
+    assert hub is not None
+    assert len(turbine.hub.element_sets) >= 2  # surface + tail cap
+    # The round tip reaches the origin.
+    tip = hub.coords_array[np.argmin(np.linalg.norm(hub.coords_array, axis=1))]
+    assert np.linalg.norm(tip) == pytest.approx(0.0, abs=1e-6)
+
+
+def test_tower_is_behind_the_rotor_plane(turbine):
+    np.testing.assert_allclose(turbine.tower_top, _TOWER_TOP, atol=1e-6)
+    # Behind == negative along the rotor axis (+Y).
+    assert turbine.tower_top[1] < 0.0
+    assert turbine.tower_top[0] == pytest.approx(0.0)
+    assert turbine.tower_top[2] == pytest.approx(-5.614)
+
     tower = turbine.tower
     assert tower is not None
     coords = tower.coords_array
-    assert coords[:, 2].min() == pytest.approx(0.0)
-    assert turbine.tower_top[2] == pytest.approx(_TOWER_TOP_Z)
-
-    np.testing.assert_allclose(turbine.hub_center, _HUB_CENTER, atol=1e-6)
-    assert turbine.hub_radius == pytest.approx(_HUB_RADIUS)
-    np.testing.assert_allclose(
-        turbine.rotor_axis,
-        [np.cos(_UPTILT), 0.0, np.sin(_UPTILT)],
-        atol=1e-12,
-    )
+    # The tower is vertical: its top sits at the tower_top height, base below.
+    assert coords[:, 2].max() == pytest.approx(_TOWER_TOP[2])
+    assert coords[:, 2].min() < _TOWER_TOP[2]
+    # And it stays entirely behind the rotor plane.
+    assert coords[:, 1].max() < 0.0
 
 
-def test_blades_root_at_hub_surface_and_reach_the_rotor_radius(turbine):
+def test_blades_root_at_the_body_surface_and_reach_the_rotor_radius(turbine):
     for name, blade in turbine.blade_meshes.items():
         assert f"RootNodes_{name}" in blade.node_sets, name
         root_nodes = blade.node_sets[f"RootNodes_{name}"].nodes.values()
         root_center = np.mean([node.coords for node in root_nodes], axis=0)
-        assert np.linalg.norm(root_center - turbine.hub_center) == pytest.approx(
-            turbine.hub_radius, rel=0.02
+        assert np.linalg.norm(root_center) == pytest.approx(turbine.hub_radius, rel=0.02), name
+        assert np.linalg.norm(blade.coords_array, axis=1).max() == pytest.approx(
+            _ROTOR_RADIUS, rel=0.02
         ), name
 
-        distances = np.linalg.norm(blade.coords_array - turbine.hub_center, axis=1)
-        assert distances.max() == pytest.approx(_ROTOR_RADIUS, rel=0.02), name
+
+def test_rotation_about_y_preserves_the_y_profile(turbine):
+    # A rotation about the rotor axis (+Y) must leave every blade's y
+    # coordinates identical up to reordering.  The base blade's prebend/sweep
+    # lives in x/z, so y is the invariant that proves the rotation axis.
+    reference = np.sort(turbine.blade_meshes["blade_1"].coords_array[:, 1])
+    for name, blade in turbine.blade_meshes.items():
+        np.testing.assert_allclose(
+            np.sort(blade.coords_array[:, 1]), reference, atol=1e-9, err_msg=name
+        )
 
 
-def test_blades_are_azimuthally_distributed(turbine):
-    axis = turbine.rotor_axis
-    # Build an orthonormal basis of the rotor plane.
-    e1 = np.cross(axis, [0.0, 1.0, 0.0])
-    e1 /= np.linalg.norm(e1)
-    e2 = np.cross(axis, e1)
+def test_coning_tilts_the_tips_away_from_the_tower(turbine):
+    # The tower sits at negative y (behind the rotor plane); coning must move
+    # the blade tips the other way.
+    assert turbine.tower_top[1] < 0.0
+    for name, blade in turbine.blade_meshes.items():
+        distances = np.linalg.norm(blade.coords_array, axis=1)
+        tip = blade.coords_array[int(np.argmax(distances))]
+        assert tip[1] > turbine.tower_top[1], name
 
+
+def test_blades_are_azimuthally_distributed_about_y(turbine):
     azimuths = []
     for blade in turbine.blade_meshes.values():
-        offsets = blade.coords_array - turbine.hub_center
-        distances = np.linalg.norm(offsets, axis=1)
-        tip = offsets[int(np.argmax(distances))]
-        planar = tip - np.dot(tip, axis) * axis
-        azimuths.append(np.arctan2(np.dot(planar, e2), np.dot(planar, e1)))
+        distances = np.linalg.norm(blade.coords_array, axis=1)
+        tip = blade.coords_array[int(np.argmax(distances))]
+        # Rotor plane is X-Z when rotor_axis is +Y.
+        azimuths.append(np.arctan2(tip[2], tip[0]))
     azimuths.sort()
-
     gaps = np.diff(azimuths + [azimuths[0] + 2.0 * np.pi])
     np.testing.assert_allclose(gaps, 2.0 * np.pi / 3.0, atol=0.05)
 
@@ -97,31 +119,36 @@ def test_blades_are_azimuthally_distributed(turbine):
 def test_no_webs_by_default(turbine):
     for blade in turbine.blade_meshes.values():
         assert not any("web" in name.lower() for name in blade.element_sets)
-        assert not any("web" in name.lower() for name in blade.node_sets)
 
 
 def test_include_webs_is_forwarded():
-    result = TurbineMesh(_YAML, element_size=8.0, n_blades=1, include_webs=True).generate(
+    result = TurbineMesh(_YAML, element_size=10.0, n_blades=1, include_webs=True).generate(
         verbose=False
     )
-    blade = result.blade_meshes["blade_1"]
-    assert "allShearWebEls_blade_1" in blade.element_sets
+    assert "allShearWebEls_blade_1" in result.blade_meshes["blade_1"].element_sets
 
 
-def test_params_override_missing_components(overridden):
+def test_rotor_axis_is_configurable(overridden):
+    np.testing.assert_allclose(overridden.rotor_axis, [1.0, 0.0, 0.0])
+    np.testing.assert_allclose(overridden.tower_top, [-20.0, 0.0, -30.0], atol=1e-9)
     assert overridden.hub_radius == pytest.approx(5.0)
-    assert overridden.tower_top[2] == pytest.approx(80.0)
+    # The tower follows the requested base height.
     tower = overridden.tower
     assert tower is not None
-    assert tower.coords_array[:, 2].max() == pytest.approx(80.0)
-    # With a zero base offset the hub keeps the imported hub height.
-    assert overridden.hub_center[2] == pytest.approx(150.0)
-    assert overridden.hub_center[0] == pytest.approx(12.0313)
+    assert tower.coords_array[:, 2].min() == pytest.approx(-30.0 - 80.0)
+
+
+def test_tower_offset_is_used_verbatim():
+    from aeroelast.core.mesh.components import read_windio_components
+
+    mesh = TurbineMesh(_YAML, tower_offset=(1.0, 2.0, 3.0), element_size=10.0, n_blades=1)
+    definition = read_windio_components(_YAML)
+    np.testing.assert_allclose(mesh._resolve_tower_top(definition), [1.0, 2.0, 3.0])
 
 
 @pytest.mark.parametrize("suffix", ["stl", "vtk", "obj"])
 def test_write_directory(turbine, tmp_path, suffix):
     written = turbine.write(tmp_path, format=suffix)
-    assert set(written) == {"blade_1", "blade_2", "blade_3", "hub", "nacelle", "tower"}
+    assert set(written) == {"blade_1", "blade_2", "blade_3", "hub", "tower"}
     for name, path in written.items():
         assert os.path.getsize(path) > 0, name

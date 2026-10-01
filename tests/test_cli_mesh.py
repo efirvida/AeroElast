@@ -57,33 +57,20 @@ def test_tower_from_windio(tmp_path):
 
 def test_hub_from_windio(tmp_path):
     out = tmp_path / "hub.stl"
-    rc = mesh_main(["hub", _YAML, *_SURFACE, "--n-merid", "6", "--quiet", "--out", str(out)])
-    assert rc == 0
-    assert out.stat().st_size > 0
-
-
-def test_nacelle_from_windio(tmp_path):
-    out = tmp_path / "nacelle.vtk"
     rc = mesh_main(
-        [
-            "nacelle",
-            _YAML,
-            *_SURFACE,
-            "--n-axial",
-            "4",
-            "--n-nose",
-            "3",
-            "--quiet",
-            "--out",
-            str(out),
-        ]
+        ["hub", _YAML, *_SURFACE, "--n-axial", "4", "--n-tip", "3", "--quiet", "--out", str(out)]
     )
     assert rc == 0
     assert out.stat().st_size > 0
 
 
-def test_hub_without_input_or_diameter_fails(tmp_path):
+def test_hub_without_input_or_params_fails(tmp_path):
     rc = mesh_main(["hub", "--out", str(tmp_path / "hub.stl")])
+    assert rc == 1
+
+
+def test_hub_length_without_radius_fails(tmp_path):
+    rc = mesh_main(["hub", "--length", "10", "--out", str(tmp_path / "hub.stl")])
     assert rc == 1
 
 
@@ -172,10 +159,10 @@ def test_turbine_writes_every_component(tmp_path):
             "8",
             "--hub-n-circ",
             "8",
-            "--hub-n-merid",
-            "6",
-            "--nacelle-n-circ",
-            "8",
+            "--hub-n-axial",
+            "4",
+            "--hub-n-tip",
+            "3",
             "--quiet",
         ]
     )
@@ -183,9 +170,31 @@ def test_turbine_writes_every_component(tmp_path):
     assert sorted(p.name for p in out_dir.iterdir()) == [
         "blade_1.stl",
         "hub.stl",
-        "nacelle.stl",
         "tower.stl",
     ]
+
+
+def test_turbine_rotor_axis_is_configurable(tmp_path):
+    out_dir = tmp_path / "meshes"
+    rc = mesh_main(
+        [
+            "turbine",
+            _YAML,
+            "--out-dir",
+            str(out_dir),
+            "--format",
+            "stl",
+            "--n-blades",
+            "1",
+            "--element-size",
+            "20",
+            "--rotor-axis",
+            "1,0,0",
+            "--quiet",
+        ]
+    )
+    assert rc == 0
+    assert (out_dir / "tower.stl").stat().st_size > 0
 
 
 def test_dispatch_through_aeroelast_main(tmp_path):

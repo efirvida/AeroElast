@@ -2,20 +2,20 @@
 """
 aeroelast mesh — mesh generation CLI.
 
-Generates blade, rotor, hub, nacelle and tower meshes from a WindIO turbine
+Generates blade, rotor, tower and hub/nacelle meshes from a WindIO turbine
 YAML (or from explicit parameters) and writes STL / VTK / OBJ / MSH files.
 
 Usage:
     aeroelast mesh blade   <input.yaml> --out blade.stl [--no-webs]
     aeroelast mesh rotor   <input.yaml> --out rotor.vtk --n-blades 3
     aeroelast mesh hub     [input.yaml] --out hub.stl [--diameter 7.94]
-    aeroelast mesh nacelle [input.yaml] --out nacelle.obj [--length 12]
     aeroelast mesh tower   [input.yaml] --out tower.stl [--height 144]
     aeroelast mesh turbine <input.yaml> --out-dir meshes/ --format stl
 
 The single-component commands infer the format from ``--out``; ``--format``
 is the fallback when the path has no extension.  ``turbine`` writes one file
-per component (blade_1..blade_N, hub, nacelle, tower) into ``--out-dir``.
+per component (blade_1..blade_N, hub, tower) into ``--out-dir`` — the hub
+and the nacelle are a single body.
 """
 
 import argparse
@@ -83,43 +83,37 @@ def _cmd_rotor(args) -> None:
 
 
 def _cmd_hub(args) -> None:
-    from aeroelast.core.mesh.components import HubMesh
+    from aeroelast.core.mesh.components import HubNacelleMesh
 
-    if args.diameter is not None:
-        hub = HubMesh.from_params(args.diameter, n_circ=args.n_circ, n_merid=args.n_merid)
-    elif args.input:
-        hub = HubMesh.from_windio(args.input, n_circ=args.n_circ, n_merid=args.n_merid)
-    else:
-        raise MeshCliError("hub needs an INPUT yaml or --diameter")
-    _write_mesh(hub.generate(), _output_path(args), args.quiet)
-
-
-def _cmd_nacelle(args) -> None:
-    from aeroelast.core.mesh.components import NacelleMesh
-
-    if args.length is not None or args.body_diameter is not None:
-        if args.length is None or args.body_diameter is None:
-            raise MeshCliError("--length and --body-diameter must be given together")
-        nacelle = NacelleMesh.from_params(
+    explicit = args.length is not None or args.diameter is not None or args.radius is not None
+    if explicit:
+        if args.length is None:
+            raise MeshCliError("hub needs --length together with --diameter/--radius")
+        hub = HubNacelleMesh.from_params(
             length=args.length,
-            body_diameter=args.body_diameter,
-            nose_diameter=args.nose_diameter,
+            radius=args.radius,
+            diameter=args.diameter,
             n_circ=args.n_circ,
             n_axial=args.n_axial,
-            n_nose=args.n_nose,
+            n_tip=args.n_tip,
+            axis=args.axis,
             cap_tail=not args.no_caps,
         )
     elif args.input:
-        nacelle = NacelleMesh.from_windio(
+        hub = HubNacelleMesh.from_windio(
             args.input,
             n_circ=args.n_circ,
             n_axial=args.n_axial,
-            n_nose=args.n_nose,
+            n_tip=args.n_tip,
+            radius=args.radius,
+            diameter=args.diameter,
+            length=args.length,
+            axis=args.axis,
             cap_tail=not args.no_caps,
         )
     else:
-        raise MeshCliError("nacelle needs an INPUT yaml or --length/--body-diameter")
-    _write_mesh(nacelle.generate(), _output_path(args), args.quiet)
+        raise MeshCliError("hub needs an INPUT yaml, or --length together with --diameter/--radius")
+    _write_mesh(hub.generate(), _output_path(args), args.quiet)
 
 
 def _cmd_tower(args) -> None:
@@ -161,19 +155,35 @@ def _cmd_turbine(args) -> None:
         n_samples=args.n_samples,
         include_webs=args.webs,
         span_grading=args.span_grading,
+        rotor_axis=args.rotor_axis,
         tower_element_size=args.tower_element_size,
         tower_n_axial=args.tower_n_axial,
         tower_n_circ=args.tower_n_circ,
         hub_n_circ=args.hub_n_circ,
-        hub_n_merid=args.hub_n_merid,
-        nacelle_n_circ=args.nacelle_n_circ,
+        hub_n_axial=args.hub_n_axial,
+        hub_n_tip=args.hub_n_tip,
+        hub_diameter=args.hub_diameter,
+        hub_length=args.hub_length,
+        tower_offset=args.tower_offset,
         tower_base_z=args.tower_base_z,
+        overhang=args.overhang,
+        distance_tt_hub=args.distance_tt_hub,
     ).generate(renumber=args.renumber, verbose=not args.quiet)
 
     written = result.write(args.out_dir, format=args.format, prefix=args.prefix)
     if not args.quiet:
         for name, path in written.items():
             print(f"wrote {name}: {path}")
+
+
+def _parse_vector(text: str) -> tuple[float, float, float]:
+    parts = [p for p in text.replace(";", ",").split(",") if p != ""]
+    if len(parts) != 3:
+        raise argparse.ArgumentTypeError(f"expected three comma-separated numbers, got '{text}'")
+    try:
+        return (float(parts[0]), float(parts[1]), float(parts[2]))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"expected three numbers, got '{text}'") from exc
 
 
 def _output_path(args) -> str:
@@ -191,7 +201,7 @@ def _output_path(args) -> str:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="aeroelast mesh",
-        description="Generate blade, rotor, hub, nacelle and tower meshes.",
+        description="Generate blade, rotor, hub/nacelle and tower meshes.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -227,26 +237,25 @@ Examples:
     _add_output(rotor)
     rotor.set_defaults(func=_cmd_rotor)
 
-    hub = sub.add_parser("hub", help="Hub spheroid")
+    hub = sub.add_parser(
+        "hub", help="Hub + nacelle body (constant-radius cylinder + hemispherical tip)"
+    )
     hub.add_argument("input", nargs="?", help="WindIO turbine YAML")
+    hub.add_argument("--radius", type=float, default=None)
     hub.add_argument("--diameter", type=float, default=None)
-    hub.add_argument("--n-merid", type=int, default=16)
+    hub.add_argument("--length", type=float, default=None)
+    hub.add_argument(
+        "--axis",
+        type=_parse_vector,
+        default=(0.0, 1.0, 0.0),
+        help="Body axis x,y,z (default 0,1,0 = rotor axis)",
+    )
+    hub.add_argument("--n-axial", type=int, default=12)
+    hub.add_argument("--n-tip", type=int, default=6)
     hub.add_argument("--quiet", action="store_true")
     _add_surface_options(hub)
     _add_output(hub)
     hub.set_defaults(func=_cmd_hub)
-
-    nacelle = sub.add_parser("nacelle", help="Nacelle capsule")
-    nacelle.add_argument("input", nargs="?", help="WindIO turbine YAML")
-    nacelle.add_argument("--length", type=float, default=None)
-    nacelle.add_argument("--body-diameter", type=float, default=None)
-    nacelle.add_argument("--nose-diameter", type=float, default=None)
-    nacelle.add_argument("--n-axial", type=int, default=12)
-    nacelle.add_argument("--n-nose", type=int, default=6)
-    nacelle.add_argument("--quiet", action="store_true")
-    _add_surface_options(nacelle)
-    _add_output(nacelle)
-    nacelle.set_defaults(func=_cmd_nacelle)
 
     tower = sub.add_parser("tower", help="Tapered tower")
     tower.add_argument("input", nargs="?", help="WindIO turbine YAML")
@@ -260,7 +269,7 @@ Examples:
     _add_output(tower)
     tower.set_defaults(func=_cmd_tower)
 
-    turbine = sub.add_parser("turbine", help="Blades + hub + nacelle + tower, separate files")
+    turbine = sub.add_parser("turbine", help="Blades + hub + tower, separate files")
     turbine.add_argument("input", help="WindIO turbine YAML")
     turbine.add_argument("--out-dir", "-d", required=True, help="Output directory")
     turbine.add_argument("--format", default="stl", help="Output format (default: stl)")
@@ -271,12 +280,33 @@ Examples:
     turbine.add_argument("--n-samples", type=int, default=300)
     turbine.add_argument("--span-grading", choices=["chord", "uniform"], default="chord")
     turbine.add_argument("--webs", action="store_true", help="Include shear webs (default: off)")
-    turbine.add_argument("--tower-base-z", type=float, default=0.0)
+    turbine.add_argument(
+        "--rotor-axis",
+        type=_parse_vector,
+        default=(0.0, 1.0, 0.0),
+        help="Rotor rotation axis x,y,z (default 0,1,0)",
+    )
+    turbine.add_argument(
+        "--tower-offset",
+        type=_parse_vector,
+        default=None,
+        help="Tower-top position relative to the rotor centre x,y,z",
+    )
+    turbine.add_argument(
+        "--tower-base-z",
+        type=float,
+        default=None,
+        help="Absolute tower base height (default: derive from tower_offset)",
+    )
+    turbine.add_argument("--overhang", type=float, default=None)
+    turbine.add_argument("--distance-tt-hub", type=float, default=None)
     turbine.add_argument("--tower-n-axial", type=int, default=20)
     turbine.add_argument("--tower-n-circ", type=int, default=32)
     turbine.add_argument("--hub-n-circ", type=int, default=32)
-    turbine.add_argument("--hub-n-merid", type=int, default=16)
-    turbine.add_argument("--nacelle-n-circ", type=int, default=32)
+    turbine.add_argument("--hub-n-axial", type=int, default=12)
+    turbine.add_argument("--hub-n-tip", type=int, default=6)
+    turbine.add_argument("--hub-diameter", type=float, default=None)
+    turbine.add_argument("--hub-length", type=float, default=None)
     turbine.add_argument("--renumber", choices=["simple", "rcm"], default=None)
     turbine.add_argument("--quiet", action="store_true")
     turbine.set_defaults(func=_cmd_turbine)

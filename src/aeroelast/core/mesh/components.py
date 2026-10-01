@@ -1,5 +1,5 @@
 """
-Axisymmetric turbine component meshes: tower, hub and nacelle.
+Axisymmetric turbine component meshes: tower and hub/nacelle body.
 
 These components are *surface* meshes (2D elements) suitable for CFD walls and
 for STL / VTK / OBJ export.  Every mesh is generated analytically from a
@@ -10,15 +10,16 @@ WindIO input
 ------------
 :func:`read_windio_components` reads ``components.tower``, ``components.hub``
 and ``components.nacelle`` (plus ``assembly``) from a WindIO turbine YAML.
-``TowerMesh.from_windio`` / ``HubMesh.from_windio`` / ``NacelleMesh.from_windio``
-use that definition; ``from_params`` is the fallback when the input file does
-not carry the component.
+``TowerMesh.from_windio`` / ``HubNacelleMesh.from_windio`` use that definition;
+``from_params`` is the fallback when the input file does not carry the
+component.
 
 Coordinate convention for a standalone component
 ------------------------------------------------
 Each generator is built along ``axis`` through ``center`` in its own local
 frame.  :class:`~aeroelast.core.mesh.turbine.TurbineMesh` is responsible for
-placing them in the shared turbine frame (tower ``+Z``, rotor axis ``+X``).
+placing them in the shared turbine frame (tower ``+Z``, configurable rotor
+axis, rotor centred at the origin).
 """
 
 from __future__ import annotations
@@ -450,127 +451,56 @@ def _resample_tower(
 
 
 # ============================================================================
-# Hub
+# Hub + nacelle (single rotor body)
 # ============================================================================
 
 
-class HubMesh:
-    """Spheroidal hub surface from a diameter (and optional axial length)."""
+class HubNacelleMesh:
+    """Single rotor hub/nacelle body.
 
-    def __init__(
-        self,
-        diameter: float,
-        n_circ: int = DEFAULT_N_CIRC,
-        n_merid: int = 16,
-        axial_length: Optional[float] = None,
-        center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
-        axis: np.ndarray | Sequence[float] = (0.0, 0.0, 1.0),
-    ) -> None:
-        if diameter <= 0.0:
-            raise ValueError("hub diameter must be positive")
-        if n_merid < 2:
-            raise ValueError("n_merid must be >= 2")
-        self.diameter = float(diameter)
-        self.axial_length = float(axial_length) if axial_length is not None else float(diameter)
-        if self.axial_length <= 0.0:
-            raise ValueError("hub axial_length must be positive")
-        self.n_circ = int(n_circ)
-        self.n_merid = int(n_merid)
-        self.center = np.asarray(center, dtype=float).reshape(3)
-        self.axis = _unit(axis)
-
-    @classmethod
-    def from_windio(
-        cls,
-        path: str | Path,
-        n_circ: int = DEFAULT_N_CIRC,
-        n_merid: int = 16,
-        axial_length: Optional[float] = None,
-    ) -> "HubMesh":
-        """Build the hub from ``components.hub`` in a WindIO YAML."""
-        definition = read_windio_components(path).hub
-        if definition is None:
-            raise ValueError(
-                f"{path}: no hub definition found (components.hub.diameter); "
-                "use HubMesh.from_params instead"
-            )
-        return cls(
-            definition.diameter,
-            n_circ=n_circ,
-            n_merid=n_merid,
-            axial_length=axial_length,
-        )
-
-    @classmethod
-    def from_params(
-        cls,
-        diameter: float,
-        n_circ: int = DEFAULT_N_CIRC,
-        n_merid: int = 16,
-        axial_length: Optional[float] = None,
-        center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
-        axis: np.ndarray | Sequence[float] = (0.0, 0.0, 1.0),
-    ) -> "HubMesh":
-        """Build the hub from explicit parameters when the input file has none."""
-        return cls(
-            diameter,
-            n_circ=n_circ,
-            n_merid=n_merid,
-            axial_length=axial_length,
-            center=center,
-            axis=axis,
-        )
-
-    def generate(self) -> MeshModel:
-        radius = self.diameter / 2.0
-        half_length = self.axial_length / 2.0
-        t = np.linspace(0.0, np.pi, self.n_merid + 1)
-        profiles = radius * np.sin(t)
-        # t=0 -> -half_length (tail pole), t=pi -> +half_length (nose pole)
-        s = -half_length * np.cos(t)
-        centers = self.center + np.outer(s, self.axis)
-        return build_revolved_shell(
-            centers,
-            profiles,
-            n_circ=self.n_circ,
-            axis=self.axis,
-            start_name="tail",
-            end_name="nose",
-        )
-
-
-# ============================================================================
-# Nacelle
-# ============================================================================
-
-
-class NacelleMesh:
-    """Capsule-like nacelle surface: cylindrical body, tapered nose, flat tail."""
+    A constant-radius cylinder along ``axis``, closed by a flat cap at the tail
+    and a hemispherical tip at the nose.  The hub and the nacelle are the same
+    body, so a turbine exports exactly one ``hub`` mesh (one STL).
+    """
 
     def __init__(
         self,
         length: float,
-        body_diameter: float,
-        nose_diameter: Optional[float] = None,
+        radius: Optional[float] = None,
+        diameter: Optional[float] = None,
         n_circ: int = DEFAULT_N_CIRC,
         n_axial: int = 12,
-        n_nose: int = 6,
+        n_tip: int = 6,
         center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
-        axis: np.ndarray | Sequence[float] = (1.0, 0.0, 0.0),
+        axis: np.ndarray | Sequence[float] = (0.0, 1.0, 0.0),
         cap_tail: bool = True,
     ) -> None:
         if length <= 0.0:
-            raise ValueError("nacelle length must be positive")
-        if body_diameter <= 0.0:
-            raise ValueError("nacelle body_diameter must be positive")
-        if n_nose < 1:
-            raise ValueError("n_nose must be >= 1")
+            raise ValueError("hub/nacelle length must be positive")
+        if radius is not None and diameter is not None:
+            raise ValueError("give radius or diameter, not both")
+        if radius is None:
+            if diameter is None:
+                raise ValueError("hub/nacelle needs either radius or diameter")
+            resolved = float(diameter) / 2.0
+        else:
+            resolved = float(radius)
+        if resolved <= 0.0:
+            raise ValueError("hub/nacelle radius must be positive")
+        if resolved >= length:
+            raise ValueError(
+                f"radius ({resolved}) must be smaller than length ({length}) "
+                "so the hemispherical tip fits"
+            )
+        if n_tip < 1:
+            raise ValueError("n_tip must be >= 1")
+
         self.length = float(length)
-        self.body_diameter = float(body_diameter)
-        self.nose_diameter = float(nose_diameter) if nose_diameter is not None else None
+        self.radius = resolved
+        self.diameter = 2.0 * resolved
         self.n_circ = int(n_circ)
         self.n_axial = int(n_axial)
-        self.n_nose = int(n_nose)
+        self.n_tip = int(n_tip)
         self.center = np.asarray(center, dtype=float).reshape(3)
         self.axis = _unit(axis)
         self.cap_tail = cap_tail
@@ -581,25 +511,42 @@ class NacelleMesh:
         path: str | Path,
         n_circ: int = DEFAULT_N_CIRC,
         n_axial: int = 12,
-        n_nose: int = 6,
+        n_tip: int = 6,
         length: Optional[float] = None,
-        axis: np.ndarray | Sequence[float] = (1.0, 0.0, 0.0),
+        radius: Optional[float] = None,
+        diameter: Optional[float] = None,
+        center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
+        axis: np.ndarray | Sequence[float] = (0.0, 1.0, 0.0),
         cap_tail: bool = True,
-    ) -> "NacelleMesh":
-        """Build the nacelle from ``components.nacelle.drivetrain``."""
-        definition = read_windio_components(path).nacelle
-        if definition is None:
-            raise ValueError(
-                f"{path}: no nacelle definition found (components.nacelle.drivetrain); "
-                "use NacelleMesh.from_params instead"
-            )
+    ) -> "HubNacelleMesh":
+        """Build the body from ``components.hub`` / ``components.nacelle``.
+
+        The radius defaults to ``components.hub.diameter / 2`` and the length to
+        the nacelle overhang (yaw axis -> hub).
+        """
+        definition = read_windio_components(path)
+        if radius is None and diameter is None:
+            if definition.hub is None:
+                raise ValueError(
+                    f"{path}: no hub definition found (components.hub.diameter); "
+                    "use HubNacelleMesh.from_params instead"
+                )
+            radius = definition.hub.diameter / 2.0
+        if length is None:
+            if definition.nacelle is None or not definition.nacelle.length:
+                raise ValueError(
+                    f"{path}: no nacelle length found (components.nacelle.drivetrain); "
+                    "use HubNacelleMesh.from_params instead"
+                )
+            length = definition.nacelle.length
         return cls(
-            length if length is not None else definition.length,
-            body_diameter=definition.body_diameter,
-            nose_diameter=definition.nose_diameter,
+            length=length,
+            radius=radius,
+            diameter=diameter,
             n_circ=n_circ,
             n_axial=n_axial,
-            n_nose=n_nose,
+            n_tip=n_tip,
+            center=center,
             axis=axis,
             cap_tail=cap_tail,
         )
@@ -608,55 +555,43 @@ class NacelleMesh:
     def from_params(
         cls,
         length: float,
-        body_diameter: float,
-        nose_diameter: Optional[float] = None,
+        radius: Optional[float] = None,
+        diameter: Optional[float] = None,
         n_circ: int = DEFAULT_N_CIRC,
         n_axial: int = 12,
-        n_nose: int = 6,
+        n_tip: int = 6,
         center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
-        axis: np.ndarray | Sequence[float] = (1.0, 0.0, 0.0),
+        axis: np.ndarray | Sequence[float] = (0.0, 1.0, 0.0),
         cap_tail: bool = True,
-    ) -> "NacelleMesh":
+    ) -> "HubNacelleMesh":
+        """Build the body from explicit parameters when the YAML has none."""
         return cls(
-            length,
-            body_diameter,
-            nose_diameter=nose_diameter,
+            length=length,
+            radius=radius,
+            diameter=diameter,
             n_circ=n_circ,
             n_axial=n_axial,
-            n_nose=n_nose,
+            n_tip=n_tip,
             center=center,
             axis=axis,
             cap_tail=cap_tail,
         )
 
-    def _profile(self, body_fraction: float = 0.7, taper_fraction: float = 0.8) -> np.ndarray:
-        radius_body = self.body_diameter / 2.0
-        radius_nose = radius_body
-        if self.nose_diameter is not None:
-            radius_nose = min(self.nose_diameter / 2.0, radius_body)
-        length = self.length
-
-        body_end = body_fraction * length
-        taper_end = taper_fraction * length
-
-        s = np.linspace(0.0, body_end, self.n_axial + 1)
-        r = np.full_like(s, radius_body)
-
-        s = np.concatenate([s, [taper_end]])
-        r = np.concatenate([r, [radius_nose]])
-
-        phi = np.linspace(0.0, np.pi / 2.0, self.n_nose + 1)[1:]
-        s = np.concatenate([s, taper_end + (length - taper_end) * np.sin(phi)])
-        r = np.concatenate([r, radius_nose * np.cos(phi)])
-
-        return np.column_stack([s, r])
-
     def generate(self) -> MeshModel:
-        profile = self._profile()
-        centers = self.center + np.outer(profile[:, 0], self.axis)
+        radius = self.radius
+        body_end = self.length - radius
+
+        # Constant-radius cylinder, then a hemispherical tip.
+        s_body = np.linspace(0.0, body_end, self.n_axial + 1)
+        r_body = np.full_like(s_body, radius)
+        phi = np.linspace(0.0, np.pi / 2.0, self.n_tip + 1)[1:]
+        s_all = np.concatenate([s_body, body_end + radius * np.sin(phi)])
+        r_all = np.concatenate([r_body, radius * np.cos(phi)])
+
+        centers = self.center + np.outer(s_all, self.axis)
         return build_revolved_shell(
             centers,
-            profile[:, 1],
+            r_all,
             n_circ=self.n_circ,
             axis=self.axis,
             cap_start=self.cap_tail,

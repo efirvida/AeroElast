@@ -128,3 +128,48 @@ this session (`core/mesh/components.py`, `core/mesh/turbine.py`,
 `pyrightconfig.json`, same workspace root — reports **0 errors** and the
 imports resolve at runtime. This is a stale language-server workspace index,
 not a code defect.
+
+---
+
+## Corrections — iteration 2 (user feedback)
+
+The first implementation was rejected on three points and reworked:
+
+1. **Rotor axis.** The first pass remapped the blade with `Rz(-90 deg)` to spin
+   about **+X**, breaking the `RotorMesh` convention. Now the **rotor axis is
+   configurable** (`rotor_axis`, CLI `--rotor-axis x,y,z`) and defaults to
+   **+Y**, with **no remap** for the default axis (`_rotation_between(+Y, axis)`
+   handles any other axis).
+2. **Tower side.** The rotor is now **centred at the origin** and the **tower is
+   the displaced component**: vertical `+Z`, top at `tower_offset` (default
+   `-overhang * rotor_axis - distance_tt_hub * Z`), so the tower sits **behind**
+   the rotor plane. `tower_offset` / `overhang` / `distance_tt_hub` /
+   `tower_base_z` are all parameters, so a file with no nacelle data can still
+   be placed.
+3. **Hub = nacelle.** `HubMesh` (spheroid) and `NacelleMesh` (tapered capsule)
+   were removed and replaced by a single **`HubNacelleMesh`**: a
+   **constant-radius cylinder + hemispherical tip** (flat tail cap). The
+   turbine now exports **one `hub` mesh / one STL**, and the `nacelle` CLI
+   subcommand is gone. The radius defaults to `components.hub.diameter / 2`
+   and the length to the nacelle overhang.
+
+Also flipped the **coning sign** so the blade tips tilt **away** from the
+tower (an upwind turbine cones away from the tower).
+
+### Iteration-2 verification
+
+| Suite | Result |
+|---|---|
+| `tests/test_axisymmetric_components.py` | 15 passed |
+| `tests/test_turbine_mesh.py` | 13 passed |
+| `tests/test_cli_mesh.py` | 14 passed |
+| `tests/test_blade_no_webs.py` | 6 passed |
+| `pyright` (new/changed files, standalone) | 0 errors, 0 warnings |
+| `ruff check` | clean |
+
+Geometry is asserted, not assumed: the new tests prove the rotation axis is `+Y`
+by checking that a rotation about it preserves every blade's `y` profile, that
+the tower plane lies entirely at negative `y` (behind the rotor), that the body
+radius is constant up to the round tip, and that the body volume matches the
+analytic cylinder+hemisphere. The base blade's **prebend/sweep** (the tip is not
+at `y=0`) is what the first iteration's plane test missed.
