@@ -22,7 +22,7 @@ bem:
   pitch: 0.0
   yaw: 0.0
   omega:
-    initial: 0.5951888898073903
+    initial: 0.5966422804150155
     mesh: GlobalFluidMesh
     data: AngularVelocity
     vertex:

@@ -19,10 +19,10 @@ mesh:
   output_file: fluid_mesh.vtu
 bem:
   wind_speed: 11
-  pitch: 0.7380000000000003
+  pitch: 2.6507933636376597
   yaw: 0.0
   omega:
-    initial: 0.7872360607268416
+    initial: 0.7872363422142566
     mesh: GlobalFluidMesh
     data: AngularVelocity
     vertex:

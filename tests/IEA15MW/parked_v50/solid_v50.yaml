@@ -73,7 +73,7 @@ boundary_conditions:
 # ── preCICE coupling ─────────────────────────────────────────────────────
 coupling:
   participant:  "Solid"
-  config_file:  "../precice-config.xml"
+  config_file:  "precice-config.xml"
   coupling_mesh: "Solid-Mesh"
   write_data:   "Displacement"
   read_data:    "Force"

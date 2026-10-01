@@ -12,7 +12,7 @@
 
 # ── preCICE coupling ────────────────────────────────────────────────────
 participant:  "Fluid"
-config_file:  "../precice-config.xml"
+config_file:  "precice-config.xml"
 coupling_mesh: "Fluid-Mesh"
 velocity_data: null  # Disable velocity coupling (not in precice-config.xml)
 

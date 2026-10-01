@@ -29,7 +29,7 @@ solver:
     mode_j: 2
     num_modes: 10
   rotor:
-    omega: 0.5951888898073903
+    omega: 0.5966422804150155
     omega_ramp_time: 0
     force_ramp_time: 0
     rotation_axis:
