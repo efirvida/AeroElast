@@ -65,7 +65,7 @@ class Geometry:
         self.profiles: ndarray | None = None
         self.coordinates: ndarray | None = None
         self.xoffset: ndarray | None = None
-        self.LEindex: ndarray | None = None
+        self.LEindex: int | None = None
         self.iprebend: ndarray | None = None
         self.isweep: ndarray | None = None
 
@@ -113,7 +113,7 @@ class Geometry:
         self.isweep = np.zeros(isize)
 
     def generate(self, definition):
-        """Populates geometry attributes based on a given blade defintion
+        """Populates geometry attributes based on a given blade definition
 
         Parameters
         ----------
@@ -136,6 +136,22 @@ class Geometry:
         assert stations[0].spanlocation == 0, "first station must be at the blade root"
 
         self.initialize_arrays(num_points, num_stations, num_istations)
+        if (
+            self.c is None
+            or self.camber is None
+            or self.thickness is None
+            or self.ic is None
+            or self.icamber is None
+            or self.ithickness is None
+            or self.idegreestwist is None
+            or self.ichord is None
+            or self.ichordoffset is None
+            or self.iaerocenter is None
+            or self.ipercentthick is None
+            or self.iprebend is None
+            or self.isweep is None
+        ):
+            raise RuntimeError("Geometry.generate() requires initialised arrays")
 
         self._natural_offset = definition.natural_offset
         self._rotorspin = definition.rotorspin
@@ -230,9 +246,9 @@ class Geometry:
 
         ## isweep
         if len(definition.sweep) == 0:
-            definition.sweep = np.zeros((self.span.shape, self.span.shape))
+            definition.sweep = np.zeros((self.ispan.shape, self.ispan.shape))
         if len(definition.prebend) == 0:
-            definition.prebend = np.zeros((self.span.shape, self.span.shape))
+            definition.prebend = np.zeros((self.ispan.shape, self.ispan.shape))
 
         self.isweep = interpolator_wrap(definition.span, definition.sweep, self.ispan, "pchip")
 
@@ -293,6 +309,14 @@ class Geometry:
         _type_
             _description_
         """
+        if (
+            self.ithickness is None
+            or self.ipercentthick is None
+            or self.icamber is None
+            or self.ic is None
+            or self.profiles is None
+        ):
+            raise RuntimeError("Geometry.update_airfoil_profile() requires initialised arrays")
         thickness = self.ithickness[:, k]
         percentthick = self.ipercentthick[k]
         camber = self.icamber[:, k]
@@ -324,6 +348,16 @@ class Geometry:
         -------
         Self
         """
+        if (
+            self.coordinates is None
+            or self.ichord is None
+            or self.profiles is None
+            or self.ithickness is None
+            or self.ipercentthick is None
+            or self.ic is None
+            or self.xoffset is None
+        ):
+            raise RuntimeError("Geometry.expand_blade_geometry_te() requires initialised arrays")
         nStations = self.coordinates.shape[2]
 
         for i_station in range(nStations):
@@ -371,6 +405,18 @@ class Geometry:
 
     def update_oml_geometry(self, k):
         """ """
+        if (
+            self.profiles is None
+            or self.xoffset is None
+            or self.ichordoffset is None
+            or self.ichord is None
+            or self.idegreestwist is None
+            or self.isweep is None
+            or self.iprebend is None
+            or self.ispan is None
+            or self.coordinates is None
+        ):
+            raise RuntimeError("Geometry.update_oml_geometry() requires initialised arrays")
         x = self.profiles[:, 0, k]
         y = self.profiles[:, 1, k]
 
@@ -431,6 +477,8 @@ class Geometry:
         ------
         tetype : str
         """
+        if self.profiles is None:
+            raise RuntimeError("Geometry.get_profile_te_type() requires initialised profiles")
         xy = self.profiles[:, :, k]
         unitNormals = get_airfoil_normals(xy)
         angleChange = get_airfoil_normals_angle_change(unitNormals)
