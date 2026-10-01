@@ -31,11 +31,11 @@ class Component:
 
     def __init__(self):
         self.name: str | None = None
-        self.group: int | None = None
+        self.group: int = 0
         self.materialid: str | None = None
         self.fabricangle: float | None = None
-        self.hpextents: list | None = None
-        self.lpextents: list | None = None
+        self.hpextents: list = []
+        self.lpextents: list = []
         self.control_points: np.ndarray | None = None
         self.imethod: str = "linear"
         self.pinnedends: bool | None = None
@@ -71,6 +71,8 @@ class Component:
 
 
     def get_control_points(self):
+        if self.control_points is None:
+            raise RuntimeError("Component.control_points is not set")
         if self.pinnedends:
             if np.any(self.control_points[:, 0] < 0) or np.any(self.control_points[:, 0] > 1):
                 raise Exception(
@@ -98,12 +100,12 @@ class Component:
             if len(self.hpextents) == 2:
                 try:
                     hp1 = self._keylabels[: le + 1].index(self.hpextents[0])
-                except KeyError:
-                    print(f'HP extent label "{self.hpextents[0]}" not defined.')
+                except KeyError as exc:
+                    raise ValueError(f'HP extent label "{self.hpextents[0]}" not defined.') from exc
                 try:
                     hp2 = self._keylabels[: le + 1].index(self.hpextents[1])
-                except KeyError:
-                    print(f'HP extent label "{self.hpextents[1]}" not defined.')
+                except KeyError as exc:
+                    raise ValueError(f'HP extent label "{self.hpextents[1]}" not defined.') from exc
                 hpRegion = [hp1, hp2]
                 hpRegion.sort()
             else:
@@ -115,12 +117,12 @@ class Component:
             if len(self.lpextents) == 2:
                 try:
                     lp1 = self._keylabels[le:].index(self.lpextents[0]) + le
-                except KeyError:
-                    print(f'HP extent label "{self.hpextents[0]}" not defined.')
+                except KeyError as exc:
+                    raise ValueError(f'LP extent label "{self.lpextents[0]}" not defined.') from exc
                 try:
                     lp2 = self._keylabels[le:].index(self.lpextents[1]) + le
-                except KeyError:
-                    print(f'HP extent label "{self.hpextents[1]}" not defined.')
+                except KeyError as exc:
+                    raise ValueError(f'LP extent label "{self.lpextents[1]}" not defined.') from exc
                 lpRegion = [lp1, lp2]
                 lpRegion.sort()
             else:

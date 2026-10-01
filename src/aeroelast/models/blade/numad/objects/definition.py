@@ -78,6 +78,10 @@ class Definition:
         self.sweep: ndarray | None = None
         self.teband: ndarray | None = None
         self.leband: ndarray | None = None
+        self.sparcapwidth_hp: ndarray | None = None
+        self.sparcapwidth_lp: ndarray | None = None
+        self.sparcapoffset_hp: ndarray | None = None
+        self.sparcapoffset_lp: ndarray | None = None
         self.rotor_diameter: float | None = None
         self.hub_diameter: float | None = None
         self.hub_height: float | None = None
