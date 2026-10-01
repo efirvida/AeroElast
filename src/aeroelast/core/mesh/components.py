@@ -253,8 +253,11 @@ class TurbineDefinition:
 
 def load_windio(path: str | Path) -> dict:
     """Load a WindIO turbine YAML as a plain nested dictionary."""
-    with open(path) as handle:
-        data = yaml.safe_load(handle)
+    try:
+        with open(path) as handle:
+            data = yaml.safe_load(handle)
+    except FileNotFoundError as exc:
+        raise ValueError(f"{path}: WindIO input file not found") from exc
     if not isinstance(data, dict):
         raise ValueError(f"{path}: expected a WindIO mapping at the top level")
     return data
