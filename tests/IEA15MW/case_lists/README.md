@@ -7,7 +7,7 @@ same case set and lands in the same place.
 | list | cases | job | notes |
 |---|---|---|---|
 | `yaw.txt` | 5 | `submit_yaw_batch.sh` | Frontiers 2025 yaw sweep, one job, 25 tasks |
-| `parked.txt` | 1 | `submit_fsi_case_batch.sh` | parked DLC 6.x analog (V50, yaw 8, pitch 90); needs the case's own preCICE config, see b5d369e |
+| `parked.txt` | 1 | `submit_fsi_case_batch.sh -t 96:00:00` | parked DLC 6.x analog (V50, yaw 8, pitch 90); needs the case's own preCICE config (b5d369e) and a long wall limit: it runs at ~30 s per window (17 coupling sub-iterations against 2-6 elsewhere, plus 3.4 s of per-window fixed work), so 50 s of physics needs ~42 h |
 | `convergence_b1_b2.txt` | 4 | `submit_fsi_case_batch.sh` | h (0.5, 0.125) and dt (0.02, 0.005) at 30 s each |
 | `v006_a.txt`, `v006_b.txt` | 8 + 7 | `submit_fsi_case_batch.sh` | V-06 operating points, split in two so each job is one wave (~11 h) instead of two (~22 h) |
 | `ch6.txt` | 3 | `submit_fsi_case_batch.sh` | DLC 1.1 / 6.1 / 6.3 from `ch6_prepared_cases/` |
