@@ -541,7 +541,7 @@ eight modes, and the 0.5 m mesh is bounded:
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
-| `test_blade_modal_gap_converges_with_mesh` | the AeroElast-vs-CCX matched-mode gap falls from 2.0 m to 1.0 m to 0.5 m, and the 0.5 m gap is bounded | **CCX 2.23, S8R** modal at each mesh | `FINEST_GAP_TOL = 0.025` plus strict per-mode monotonicity | finest worst 2.12%; every mode decreases coarse -> medium -> fine | the evidence that the §4.8 1.0 m CCX gap is discretisation, not a shell-vs-CCX floor |
+| `test_blade_modal_gap_converges_with_mesh` | the AeroElast-vs-CCX matched-mode gap: low modes (1-4) fall under refinement; high modes (5-8) plateau | **CCX 2.23, S8R** modal at each mesh | `LOW_TOL = 0.01` (modes 1-4), `HIGH_TOL = 0.05` (modes 5-8, element-order), coarse->medium improvement above `NOISE_FLOOR = 0.002` | finest low worst 0.19%, high worst 2.12% at CCX 2.23; issue #8 measured high worst 4.03% at CCX 2.20 | the low modes are discretisation; the high modes are a linear-vs-quadratic **element-order** bound, explicitly not a mesh claim. Restated per issue #8 |
 
 ### 4.9 `test_ccx_writer_ids.py` (3)
 
@@ -732,7 +732,8 @@ tensile geometric stiffness.
 | `...test_K_G_is_positive_semidefinite` | tensile `K_G` PSD | PSD | `-1e-6 max abs(lambda)` | not printed | – |
 | `...test_stress_recovery_element_stresses_returns_arrays` | recovery returns one value per element | array length | exact | n/a | smoke test |
 | `...test_stress_field_dict_from_recovery` | non-empty `stress_field`, `K_G` builds | `len > 0` | `> 0` | not printed | cannot fail once stresses are non-zero by construction (u = 5e-3 x) |
-| `...test_keff_with_KG_larger_than_without` | `sum(diag(K+KG+a0 M)) > sum(diag(K+a0 M))` | sign of stress stiffening under tension | strict `>` on a matrix-trace sum | not printed | a sign-only check; a 1e-9 relative change passes |
+| `...test_keff_with_KG_larger_than_without` | `K + K_G` diagonal increase under tension | sign and shape of stress stiffening | strict `>`, elementwise `>= 0`, `< 0.5*base`, trace linearity | not printed | a sign/shape check; the K_G **magnitude** is pinned by `test_K_G_magnitude_scales_with_thickness` (issue #7) |
+| `...test_K_G_magnitude_scales_with_thickness` | `K_G` scales linearly with the shell thickness (the API takes stress, so `N = sigma*h`) | `|K(0.1)|/|K(0.01)| = 10` | 1e-9 relative | 10.000 (single element, no CCX) | **regression for issue #7**: MITC4 omitted the thickness and came out `1/h` too large |
 | `TestStressStiffenedHook::test_hook_returns_none_for_zero_displacement` | hook returns `None` at `u=0` | behavioural | `is None` | n/a | – |
 | `...test_hook_returns_new_keff_under_membrane_load` | hook returns a *new* `PETSc.Mat` | behavioural | `is not` + `isinstance` | not printed | has a legitimate `pytest.skip` escape when all stresses fall below threshold |
 | `...test_update_interval_skips_rebuild` | no rebuild when `step % interval != 0` | behavioural | `is None` | not printed | the second assertion is `result_5 is None or isinstance(result_5, PETSc.Mat)` — a tautology over the return type |
@@ -933,7 +934,7 @@ red, and a green suite does not remove a flag.
 | `test_shell_validation_fixed.py` | `TestNonlinearStatic::test_geometric_nonlinearity` | **RESOLVED** — same real nonlinear check as above: linear vs beam theory, stiffening, and the elastica comparison (5.99% gap -> xfail) |
 | `test_stress_stiffened_solver.py` | `test_stress_field_dict_from_recovery` | **RESOLVED** — now asserts the closed-form plane-stress values (`sigma_xx = E/(1-nu^2) eps`, `sigma_yy = nu sigma_xx`, `sigma_xy = 0`) for every one of the 16 elements |
 | `test_stress_stiffened_solver.py` | `test_update_interval_skips_rebuild` | **RESOLVED** — the displacement now strains (a uniform translation made step 5 return `None`); step 3 must skip and step 5 must return a *new* `PETSc.Mat` |
-| `test_stress_stiffened_solver.py` | `test_keff_with_KG_larger_than_without` | **RESOLVED** — asserts the elementwise `diag(K_G_red) >= 0` (no DOF loses stiffness), a positive total increase, a correction-sized bound, and linearity of the `K_G` trace in the prescribed stress |
+| `test_stress_stiffened_solver.py` | `test_keff_with_KG_larger_than_without` | **RESOLVED** — asserts the elementwise `diag(K_G_red) >= 0` (no DOF loses stiffness), a positive total increase, a correction-sized bound, and linearity of the `K_G` trace in the prescribed stress. The K_G magnitude is pinned separately by `test_K_G_magnitude_scales_with_thickness` (issue #7) |
 | `test_rust_modal.py` | `test_mode_shapes_orthogonal` | **RESOLVED** — it now builds `Phi^T M Phi` from the full mass matrix and asserts the worst off-diagonal ratio `< 1e-8` (and a positive diagonal) |
 | `test_rotor_inertial.py` | `test_force_transform_and_inertial_combination` | **RESOLVED** — the test was removed from `TestIntegration` |
 | `test_force_projection.py` | `test_single_node_per_strip` | **RESOLVED** — it now asserts the sign (`forces[:, 0] > 0`) and the exact value `Np * dr`, plus zero tangential force |
