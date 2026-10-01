@@ -26,7 +26,8 @@ _TOWER_DIAMETER_TOP = 6.5
 _HUB_DIAMETER = 7.94
 _NACELLE_BODY_DIAMETER = 3.0
 _NACELLE_NOSE_DIAMETER = 2.2
-_NACELLE_LENGTH = 5.614
+# The nacelle length is the overhang (yaw axis -> hub), not distance_tt_hub.
+_NACELLE_LENGTH = 12.0313
 _UPTILT = 0.10471975511965977
 _OVERHANG = 12.0313
 

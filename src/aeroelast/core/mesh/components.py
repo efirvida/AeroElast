@@ -50,7 +50,7 @@ _POLE_TOL = 1e-9
 # ============================================================================
 
 
-def _unit(vector: Sequence[float]) -> np.ndarray:
+def _unit(vector: np.ndarray | Sequence[float]) -> np.ndarray:
     arr = np.asarray(vector, dtype=float).reshape(3)
     norm = float(np.linalg.norm(arr))
     if norm <= 0.0:
@@ -58,7 +58,7 @@ def _unit(vector: Sequence[float]) -> np.ndarray:
     return arr / norm
 
 
-def _frame(axis: Sequence[float]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _frame(axis: np.ndarray | Sequence[float]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return an orthonormal frame ``(u, v, w)`` with ``w`` along ``axis``.
 
     ``u`` and ``v`` span the plane normal to ``w`` and are chosen so that a
@@ -76,10 +76,10 @@ def _frame(axis: Sequence[float]) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def build_revolved_shell(
-    centers: Sequence[Sequence[float]],
-    radii: Sequence[float],
+    centers: np.ndarray | Sequence[Sequence[float]],
+    radii: np.ndarray | Sequence[float],
     n_circ: int = DEFAULT_N_CIRC,
-    axis: Sequence[float] = (0.0, 0.0, 1.0),
+    axis: np.ndarray | Sequence[float] = (0.0, 0.0, 1.0),
     cap_start: bool = False,
     cap_end: bool = False,
     start_name: str = "start",
@@ -298,13 +298,17 @@ def _read_nacelle(block: dict | None) -> Optional[NacelleDefinition]:
     drivetrain = block.get("drivetrain", block)
     lss = drivetrain.get("lss_diameter", [3.0, 3.0])
     nose = drivetrain.get("nose_diameter", lss)
-    length = drivetrain.get("distance_tt_hub", drivetrain.get("overhang", 5.0))
+    # The nacelle spans from the yaw axis (tower top) forward to the hub, which
+    # is what ``overhang`` measures.  ``distance_tt_hub`` is the vertical
+    # tower-top-to-hub distance, kept separately for the assembly.
+    overhang = float(drivetrain.get("overhang", drivetrain.get("distance_tt_hub", 5.0)))
+    length = float(drivetrain.get("overhang", drivetrain.get("distance_tt_hub", 5.0)))
     return NacelleDefinition(
         body_diameter=float(np.mean(lss)),
         nose_diameter=float(np.mean(nose)),
-        length=float(length),
+        length=length,
         uptilt=float(drivetrain.get("uptilt", 0.0)),
-        overhang=float(drivetrain.get("overhang", 0.0)),
+        overhang=overhang,
         distance_tt_hub=float(drivetrain.get("distance_tt_hub", 0.0)),
     )
 
@@ -342,7 +346,7 @@ class TowerMesh:
 
     def __init__(
         self,
-        stations: Sequence[Sequence[float]],
+        stations: np.ndarray | Sequence[Sequence[float]],
         n_circ: int = DEFAULT_N_CIRC,
         cap_start: bool = True,
         cap_end: bool = True,
@@ -389,7 +393,7 @@ class TowerMesh:
         top_diameter: Optional[float] = None,
         n_axial: int = 20,
         n_circ: int = DEFAULT_N_CIRC,
-        base_center: Sequence[float] = (0.0, 0.0, 0.0),
+        base_center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
         cap_start: bool = True,
         cap_end: bool = True,
     ) -> "TowerMesh":
@@ -456,8 +460,8 @@ class HubMesh:
         n_circ: int = DEFAULT_N_CIRC,
         n_merid: int = 16,
         axial_length: Optional[float] = None,
-        center: Sequence[float] = (0.0, 0.0, 0.0),
-        axis: Sequence[float] = (0.0, 0.0, 1.0),
+        center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
+        axis: np.ndarray | Sequence[float] = (0.0, 0.0, 1.0),
     ) -> None:
         if diameter <= 0.0:
             raise ValueError("hub diameter must be positive")
@@ -501,8 +505,8 @@ class HubMesh:
         n_circ: int = DEFAULT_N_CIRC,
         n_merid: int = 16,
         axial_length: Optional[float] = None,
-        center: Sequence[float] = (0.0, 0.0, 0.0),
-        axis: Sequence[float] = (0.0, 0.0, 1.0),
+        center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
+        axis: np.ndarray | Sequence[float] = (0.0, 0.0, 1.0),
     ) -> "HubMesh":
         """Build the hub from explicit parameters when the input file has none."""
         return cls(
@@ -548,8 +552,8 @@ class NacelleMesh:
         n_circ: int = DEFAULT_N_CIRC,
         n_axial: int = 12,
         n_nose: int = 6,
-        center: Sequence[float] = (0.0, 0.0, 0.0),
-        axis: Sequence[float] = (1.0, 0.0, 0.0),
+        center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
+        axis: np.ndarray | Sequence[float] = (1.0, 0.0, 0.0),
         cap_tail: bool = True,
     ) -> None:
         if length <= 0.0:
@@ -576,7 +580,7 @@ class NacelleMesh:
         n_axial: int = 12,
         n_nose: int = 6,
         length: Optional[float] = None,
-        axis: Sequence[float] = (1.0, 0.0, 0.0),
+        axis: np.ndarray | Sequence[float] = (1.0, 0.0, 0.0),
         cap_tail: bool = True,
     ) -> "NacelleMesh":
         """Build the nacelle from ``components.nacelle.drivetrain``."""
@@ -606,8 +610,8 @@ class NacelleMesh:
         n_circ: int = DEFAULT_N_CIRC,
         n_axial: int = 12,
         n_nose: int = 6,
-        center: Sequence[float] = (0.0, 0.0, 0.0),
-        axis: Sequence[float] = (1.0, 0.0, 0.0),
+        center: np.ndarray | Sequence[float] = (0.0, 0.0, 0.0),
+        axis: np.ndarray | Sequence[float] = (1.0, 0.0, 0.0),
         cap_tail: bool = True,
     ) -> "NacelleMesh":
         return cls(
