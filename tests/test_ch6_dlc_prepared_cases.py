@@ -29,7 +29,7 @@ SOLVERS = ["corotational", "inertial"]
 # The canonical blade input since 2026-09-08 is the official WindIO yaml
 # (tests/IEA-15-240-RWT.yaml); the UTD excel input is retired from new work.
 EXPECTED_BLADE_YAML = "../../IEA-15-240-RWT.yaml"
-EXPECTED_AIRFOIL_DIR = "../blade_definition/airfoils"
+EXPECTED_AIRFOIL_DIR = "../../airfoils"
 EXPECTED_PRECICE_CONFIG = "../precice-config.xml"
 
 # Expected solver types per template
@@ -47,6 +47,20 @@ OMEGA_PARKED = 0.0
 def _yaml(filename: str) -> dict:
     """Load a YAML from CASES_DIR. Pass the filename exactly as it exists on disk."""
     return yaml.safe_load((CASES_DIR / filename).read_text(encoding="utf-8"))
+
+
+def _assert_resolves(filename: str, value: str, what: str) -> None:
+    """The asset path must exist, not merely match the expected string.
+
+    The guard used to compare strings only, which is how
+    ``airfoil_dir: ../blade_definition/airfoils`` survived: it matched the constant
+    and pointed at a directory that does not exist, so the campaign cases could
+    never resolve their polars.  Resolving is the property that matters.
+    """
+    target = (CASES_DIR / filename).parent / value
+    assert target.exists(), (
+        f"{filename}: {what} '{value}' does not resolve (looked for {target.resolve()})"
+    )
 
 
 def _fluid_yaml_name(dlc: str) -> str:
@@ -130,12 +144,15 @@ def test_ch6_fluid_yaml_participant(dlc: str):
 def test_ch6_fluid_yaml_asset_paths(dlc: str):
     cfg = _yaml(_fluid_yaml_name(dlc))
     gen = cfg["mesh"]["generator"]["params"]
+    name = _fluid_yaml_name(dlc)
     assert gen["yaml_file"] == EXPECTED_BLADE_YAML, (
         f"DLC {dlc} fluid: yaml_file should be '{EXPECTED_BLADE_YAML}'"
     )
     assert gen["airfoil_dir"] == EXPECTED_AIRFOIL_DIR, (
         f"DLC {dlc} fluid: airfoil_dir should be '{EXPECTED_AIRFOIL_DIR}'"
     )
+    _assert_resolves(name, gen["yaml_file"], "yaml_file")
+    _assert_resolves(name, gen["airfoil_dir"], "airfoil_dir")
 
 
 @pytest.mark.parametrize("dlc", DLCS)
@@ -182,12 +199,15 @@ def test_ch6_fluid_output_folders_are_unique():
 def test_ch6_solid_yaml_asset_paths(solver: str, dlc: str):
     cfg = _yaml(_solid_yaml_name(solver, dlc))
     gen = cfg["mesh"]["generator"]["params"]
+    name = _solid_yaml_name(solver, dlc)
     assert gen["yaml_file"] == EXPECTED_BLADE_YAML, (
         f"{solver}/DLC {dlc}: yaml_file should be '{EXPECTED_BLADE_YAML}'"
     )
     assert gen["airfoil_dir"] == EXPECTED_AIRFOIL_DIR, (
         f"{solver}/DLC {dlc}: airfoil_dir should be '{EXPECTED_AIRFOIL_DIR}'"
     )
+    _assert_resolves(name, gen["yaml_file"], "yaml_file")
+    _assert_resolves(name, gen["airfoil_dir"], "airfoil_dir")
 
 
 @pytest.mark.parametrize("solver,dlc", [(s, d) for s in SOLVERS for d in DLCS])
