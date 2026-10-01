@@ -197,32 +197,32 @@ def test_tower_from_params_is_a_linear_frustum():
 # ---------------------------------------------------------------------------
 
 
-def test_body_from_windio_is_a_constant_radius_cylinder_with_a_round_tip():
+def test_body_from_windio_is_a_hemispherical_hub_plus_a_cylinder():
     body = HubNacelleMesh.from_windio(_YAML, n_circ=8, n_axial=6, n_tip=4)
     mesh = body.generate()
 
-    # Default axis is +Y: the body runs s in [0, L] from the origin.
+    # Default axis is +Y: the hub cap spans [-r, 0] and the cylinder [0, L].
     coords = mesh.coords_array
-    assert coords[:, 1].min() == pytest.approx(0.0)
+    assert coords[:, 1].min() == pytest.approx(-_BODY_RADIUS)
     assert coords[:, 1].max() == pytest.approx(_BODY_LENGTH)
 
     radial = np.hypot(coords[:, 0], coords[:, 2])
     assert radial.max() == pytest.approx(_BODY_RADIUS)
 
-    # Constant radius on every lateral station up to the round tip (the flat
-    # tail cap adds an axis node, which has no radius).
-    cylinder = coords[coords[:, 1] <= _BODY_LENGTH - _BODY_RADIUS + 1e-9]
+    # Constant radius on the whole cylinder part (the flat tail cap adds an
+    # axis node, which has no radius).
+    cylinder = coords[coords[:, 1] >= -1e-9]
     cylinder = cylinder[np.hypot(cylinder[:, 0], cylinder[:, 2]) > 1e-9]
     assert cylinder.shape[0] > 0
     assert np.allclose(np.hypot(cylinder[:, 0], cylinder[:, 2]), _BODY_RADIUS)
 
-    # The tip is a single pole on the axis.
-    tip = coords[np.isclose(coords[:, 1], _BODY_LENGTH)]
-    assert tip.shape[0] == 1
-    assert np.hypot(tip[0, 0], tip[0, 2]) == pytest.approx(0.0, abs=1e-12)
+    # The hub is a single pole on the axis, radius ahead of the origin.
+    nose = coords[np.isclose(coords[:, 1], -_BODY_RADIUS)]
+    assert nose.shape[0] == 1
+    assert np.hypot(nose[0, 0], nose[0, 2]) == pytest.approx(0.0, abs=1e-12)
 
     assert {"tail", "nose", "all"} <= set(mesh.node_sets)
-    assert "cap_start" in mesh.element_sets
+    assert "cap_end" in mesh.element_sets
     _assert_closed(mesh)
     _assert_outward(mesh)
 
@@ -231,7 +231,7 @@ def test_body_volume_matches_the_analytic_cylinder_plus_hemisphere():
     length, radius = 20.0, 3.0
     body = HubNacelleMesh(length=length, radius=radius, n_circ=48, n_axial=8, n_tip=8)
     mesh = body.generate()
-    exact = np.pi * radius**2 * (length - radius) + 2.0 / 3.0 * np.pi * radius**3
+    exact = np.pi * radius**2 * length + 2.0 / 3.0 * np.pi * radius**3
     assert _closed_volume(mesh) == pytest.approx(exact, rel=1e-2)
 
 
@@ -241,8 +241,9 @@ def test_body_from_params_axis_and_center():
     )
     mesh = body.generate()
     coords = mesh.coords_array
-    # Default axis is +Y, so the body runs along y.
-    assert coords[:, 1].min() == pytest.approx(2.0)
+    # Default axis is +Y, so the body runs along y: hemisphere at 2-1, cylinder
+    # from 2 to 12.
+    assert coords[:, 1].min() == pytest.approx(1.0)
     assert coords[:, 1].max() == pytest.approx(12.0)
     assert np.hypot(coords[:, 0] - 1.0, coords[:, 2] - 3.0).max() == pytest.approx(1.0)
     _assert_closed(mesh)
@@ -253,8 +254,6 @@ def test_body_rejects_bad_parameters():
         HubNacelleMesh(length=10.0)
     with pytest.raises(ValueError, match="not both"):
         HubNacelleMesh(length=10.0, radius=1.0, diameter=2.0)
-    with pytest.raises(ValueError, match="smaller than length"):
-        HubNacelleMesh(length=2.0, radius=2.0)
     with pytest.raises(ValueError, match="must be positive"):
         HubNacelleMesh(length=-1.0, radius=1.0)
 

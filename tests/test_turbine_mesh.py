@@ -10,7 +10,7 @@ from aeroelast.core.mesh.turbine import TurbineMesh
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _YAML = os.path.join(_HERE, "IEA-15-240-RWT.yaml")
 
-_TOWER_TOP = np.array([0.0, -12.0313, -5.614])
+_TOWER_TOP = np.array([0.0, 12.0313, 0.0])
 _HUB_RADIUS = 7.94 / 2.0
 _ROTOR_RADIUS = 242.23775645 / 2.0
 
@@ -46,21 +46,22 @@ def test_rotor_is_centred_at_the_origin(turbine):
     np.testing.assert_allclose(turbine.rotor_axis, [0.0, 1.0, 0.0])
     assert turbine.hub_radius == pytest.approx(_HUB_RADIUS)
 
-    # Hub/nacelle is one body running from the tower top to the rotor centre.
+    # One body: hemispherical hub centred on the rotor origin, then a cylinder
+    # extending backwards along +Y.
     hub = turbine.hub
     assert hub is not None
-    assert len(turbine.hub.element_sets) >= 2  # surface + tail cap
-    # The round tip reaches the origin.
-    tip = hub.coords_array[np.argmin(np.linalg.norm(hub.coords_array, axis=1))]
-    assert np.linalg.norm(tip) == pytest.approx(0.0, abs=1e-6)
+    assert len(hub.element_sets) >= 2  # surface + tail cap
+    coords = hub.coords_array
+    assert coords[:, 1].min() == pytest.approx(-_HUB_RADIUS)
+    assert coords[:, 1].max() == pytest.approx(np.linalg.norm(turbine.tower_top))
 
 
 def test_tower_is_behind_the_rotor_plane(turbine):
     np.testing.assert_allclose(turbine.tower_top, _TOWER_TOP, atol=1e-6)
-    # Behind == negative along the rotor axis (+Y).
-    assert turbine.tower_top[1] < 0.0
+    # Behind == positive along the rotor axis (+Y); it rises to the nacelle.
+    assert turbine.tower_top[1] > 0.0
     assert turbine.tower_top[0] == pytest.approx(0.0)
-    assert turbine.tower_top[2] == pytest.approx(-5.614)
+    assert turbine.tower_top[2] == pytest.approx(0.0)
 
     tower = turbine.tower
     assert tower is not None
@@ -69,7 +70,7 @@ def test_tower_is_behind_the_rotor_plane(turbine):
     assert coords[:, 2].max() == pytest.approx(_TOWER_TOP[2])
     assert coords[:, 2].min() < _TOWER_TOP[2]
     # And it stays entirely behind the rotor plane.
-    assert coords[:, 1].max() < 0.0
+    assert coords[:, 1].min() > 0.0
 
 
 def test_blades_root_at_the_body_surface_and_reach_the_rotor_radius(turbine):
@@ -95,13 +96,13 @@ def test_rotation_about_y_preserves_the_y_profile(turbine):
 
 
 def test_coning_tilts_the_tips_away_from_the_tower(turbine):
-    # The tower sits at negative y (behind the rotor plane); coning must move
+    # The tower sits at positive y (behind the rotor plane); coning must move
     # the blade tips the other way.
-    assert turbine.tower_top[1] < 0.0
+    assert turbine.tower_top[1] > 0.0
     for name, blade in turbine.blade_meshes.items():
         distances = np.linalg.norm(blade.coords_array, axis=1)
         tip = blade.coords_array[int(np.argmax(distances))]
-        assert tip[1] > turbine.tower_top[1], name
+        assert tip[1] < turbine.tower_top[1], name
 
 
 def test_blades_are_azimuthally_distributed_about_y(turbine):

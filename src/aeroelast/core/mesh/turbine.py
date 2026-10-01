@@ -15,14 +15,17 @@ Coordinate convention
 * The blade base mesh already has span **+Z**, chord **+X** and thickness
   **+Y**, so with ``rotor_axis=+Y`` no remap is needed.  For any other axis the
   whole blade is rotated by the minimal rotation taking **+Y** to ``rotor_axis``.
-* The **tower is the displaced component**: it is vertical along ``+Z`` with its
-  top placed at ``tower_offset`` relative to the rotor centre.  When the YAML
-  carries the data, the default offset is ``-overhang * rotor_axis -
-  distance_tt_hub * Z`` (yaw axis behind the rotor plane, tower top below the
-  hub); otherwise ``tower_offset`` and/or ``tower_base_z`` must be given.
+* The **tower is the displaced component**: vertical along ``+Z``, with its
+  top at ``tower_offset`` relative to the rotor centre.  When the YAML carries
+  the data the default offset is ``+overhang * rotor_axis`` (the tower sits
+  **behind** the rotor plane and rises to meet the horizontal nacelle);
+  ``distance_tt_hub`` adds an optional vertical drop.  ``tower_offset`` /
+  ``overhang`` / ``distance_tt_hub`` / ``tower_base_z`` are all parameters, so a
+  file with no nacelle data can still be placed.
 * The **hub and the nacelle are a single body** (:class:`HubNacelleMesh`): a
-  constant-radius cylinder with a hemispherical tip, running from the tower top
-  to the rotor centre.
+  **hemispherical hub centred on the rotor origin** followed by a
+  constant-radius cylinder extending **backwards along the rotor axis** (always
+  horizontal), closed by a flat tail cap.
 """
 
 from __future__ import annotations
@@ -266,29 +269,26 @@ class TurbineMesh:
         return self._blade_generator.generate(verbose=verbose)
 
     def _resolve_tower_top(self, definition) -> np.ndarray:
-        """Tower-top position relative to the rotor centre (origin)."""
+        """Tower-top position relative to the rotor centre (origin).
+
+        The nacelle is always horizontal along the rotor axis, so the tower top
+        sits **behind** the rotor at ``+overhang * rotor_axis`` and rises to meet
+        the nacelle.  ``distance_tt_hub``, when given, adds a vertical drop.
+        """
         if self.tower_offset is not None:
             return self.tower_offset.copy()
 
         overhang = self.overhang
         if overhang is None and definition.nacelle is not None:
             overhang = definition.nacelle.overhang
-        distance_tt_hub = self.distance_tt_hub
-        if distance_tt_hub is None and definition.nacelle is not None:
-            distance_tt_hub = definition.nacelle.distance_tt_hub
-
-        if overhang is None and distance_tt_hub is None:
+        if overhang is None:
             raise ValueError(
-                "cannot place the tower: the input file has no nacelle overhang/"
-                "distance_tt_hub; pass tower_offset (and/or overhang, distance_tt_hub)"
+                "cannot place the tower: the input file has no nacelle overhang; "
+                "pass tower_offset (and/or overhang)"
             )
-        return np.array(
-            [
-                -float(overhang or 0.0) * self.rotor_axis[0],
-                -float(overhang or 0.0) * self.rotor_axis[1],
-                -float(distance_tt_hub or 0.0),
-            ]
-        )
+
+        drop = float(self.distance_tt_hub) if self.distance_tt_hub is not None else 0.0
+        return float(overhang) * self.rotor_axis + np.array([0.0, 0.0, -drop])
 
     def _body_radius(self, definition) -> float:
         if self.hub_diameter is not None:
@@ -328,20 +328,18 @@ class TurbineMesh:
             shift[2] += float(self.tower_base_z) - (tower_builder.stations[0, 2] + shift[2])
         tower_mesh = _transform_mesh(tower_builder.generate(), np.eye(3), shift)
 
-        # --- hub + nacelle: one constant-radius body with a round tip -----
-        body_span = -tower_top  # from the tower top to the rotor centre
-        body_length = self._body_length(definition, body_span)
+        # --- hub + nacelle: one horizontal body, hub sphere on the rotor ----
+        body_length = self._body_length(definition, tower_top)
         if body_length <= 0.0:
             raise ValueError("hub/nacelle body length must be positive")
-        body_axis = _unit(body_span) if np.linalg.norm(body_span) > 0.0 else self.rotor_axis
         hub_mesh = HubNacelleMesh(
             length=body_length,
             radius=hub_radius,
             n_circ=self.hub_n_circ,
             n_axial=self.hub_n_axial,
             n_tip=self.hub_n_tip,
-            center=tower_top,
-            axis=body_axis,
+            center=(0.0, 0.0, 0.0),
+            axis=self.rotor_axis,
         ).generate()
 
         # --- blades -------------------------------------------------------
@@ -349,9 +347,10 @@ class TurbineMesh:
 
         # The base blade already spins about +Y; R0 maps that onto rotor_axis.
         # ``rotor_axis`` is used exactly as given: no hidden tilt is applied.
-        # Coning tilts the blade out of the rotor plane away from the tower.
+        # Coning tilts the blade out of the rotor plane, away from the tower
+        # (the tower sits behind the rotor at +rotor_axis).
         r0 = _rotation_between((0.0, 1.0, 0.0), self.rotor_axis)
-        cone = _rotation((1.0, 0.0, 0.0), -cone_angle)
+        cone = _rotation((1.0, 0.0, 0.0), cone_angle)
 
         blade_meshes: dict[str, MeshModel] = {}
         for index in range(n_blades):

@@ -12,7 +12,7 @@ aeroelast mesh <component> [INPUT] [OPTIONS]
 |-----------|-------------|
 | `blade` | Single blade shell mesh (with or without shear webs) |
 | `rotor` | Multi-blade rotor (blades rotated about the rotor axis) |
-| `hub` | Hub + nacelle **single body**: constant-radius cylinder + hemispherical tip |
+| `hub` | Hub + nacelle **single body**: hemispherical hub at the rotor + cylinder behind |
 | `tower` | Tapered tower lofted from the WindIO outer-shape profile |
 | `turbine` | Blades + hub/nacelle + tower, one file per component |
 
@@ -33,9 +33,10 @@ aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.stl --no-webs
 
 ## Hub + nacelle (one body)
 
-The hub and the nacelle are **the same geometry**: a constant-radius cylinder
-closed by a flat cap at the tail and a hemispherical tip at the nose. The
-turbine therefore exports a single `hub` mesh (one STL).
+The hub and the nacelle are **the same geometry**: a hemispherical hub centred
+on the rotor origin, then a **constant-radius cylinder** extending backwards
+along the rotor axis, closed by a flat tail cap. The turbine therefore exports a
+single `hub` mesh (one STL).
 
 ```bash
 # From the WindIO definition (radius = components.hub.diameter / 2,
@@ -75,10 +76,13 @@ Writes `meshes/blade_1.stl … meshes/blade_N.stl`, `meshes/hub.stl` and
   `X-Z` plane by default, so the blade base mesh needs no remap.
 - The **tower is the displaced component**: vertical along `+Z`, with its top at
   `--tower-offset x,y,z` relative to the rotor centre. When the YAML carries the
-  data the default offset is `-overhang * rotor_axis - distance_tt_hub * Z`, i.e.
-  the tower top sits **behind** the rotor plane and below the hub. Override with
+  data the default offset is `+overhang * rotor_axis` (plus an optional
+  `-distance-tt-hub * Z` drop), i.e. the tower top sits **behind** the rotor
+  plane (`+rotor_axis`) and rises to meet the horizontal nacelle. Override with
   `--tower-offset`, `--overhang`, `--distance-tt-hub` and/or `--tower-base-z`.
-- The hub/nacelle body runs from the tower top to the rotor centre.
+- The **nacelle is always horizontal** along the rotor axis, and the hub/nacelle
+  body is a hemisphere centred on the rotor origin followed by a cylinder
+  extending backwards (`+rotor_axis`).
 - The blades are coned by the hub `cone_angle` (tips away from the tower) and
   distributed azimuthally about the rotor axis.
 

@@ -458,9 +458,10 @@ def _resample_tower(
 class HubNacelleMesh:
     """Single rotor hub/nacelle body.
 
-    A constant-radius cylinder along ``axis``, closed by a flat cap at the tail
-    and a hemispherical tip at the nose.  The hub and the nacelle are the same
-    body, so a turbine exports exactly one ``hub`` mesh (one STL).
+    A hemispherical cap centred on the body origin (the hub, ``s = -radius ..
+    0``) followed by a **constant-radius cylinder** extending along ``axis``
+    (``s = 0 .. length``), closed by a flat cap at the tail.  The hub and the
+    nacelle are the same body, so a turbine exports exactly one ``hub`` mesh.
     """
 
     def __init__(
@@ -487,11 +488,6 @@ class HubNacelleMesh:
             resolved = float(radius)
         if resolved <= 0.0:
             raise ValueError("hub/nacelle radius must be positive")
-        if resolved >= length:
-            raise ValueError(
-                f"radius ({resolved}) must be smaller than length ({length}) "
-                "so the hemispherical tip fits"
-            )
         if n_tip < 1:
             raise ValueError("n_tip must be >= 1")
 
@@ -579,14 +575,17 @@ class HubNacelleMesh:
 
     def generate(self) -> MeshModel:
         radius = self.radius
-        body_end = self.length - radius
 
-        # Constant-radius cylinder, then a hemispherical tip.
-        s_body = np.linspace(0.0, body_end, self.n_axial + 1)
+        # Hemispherical cap centred on the body origin (s in [-radius, 0]), then
+        # a constant-radius cylinder extending along +axis (s in [0, length]).
+        phi = np.linspace(0.0, np.pi / 2.0, self.n_tip + 1)
+        s_cap = -radius * np.cos(phi)
+        r_cap = radius * np.sin(phi)
+        s_body = np.linspace(0.0, self.length, self.n_axial + 1)[1:]
         r_body = np.full_like(s_body, radius)
-        phi = np.linspace(0.0, np.pi / 2.0, self.n_tip + 1)[1:]
-        s_all = np.concatenate([s_body, body_end + radius * np.sin(phi)])
-        r_all = np.concatenate([r_body, radius * np.cos(phi)])
+
+        s_all = np.concatenate([s_cap, s_body])
+        r_all = np.concatenate([r_cap, r_body])
 
         centers = self.center + np.outer(s_all, self.axis)
         return build_revolved_shell(
@@ -594,8 +593,8 @@ class HubNacelleMesh:
             r_all,
             n_circ=self.n_circ,
             axis=self.axis,
-            cap_start=self.cap_tail,
-            cap_end=False,
-            start_name="tail",
-            end_name="nose",
+            cap_start=False,
+            cap_end=self.cap_tail,
+            start_name="nose",
+            end_name="tail",
         )
