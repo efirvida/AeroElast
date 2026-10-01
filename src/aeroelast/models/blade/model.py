@@ -19,6 +19,10 @@ class Blade:
     This class wraps the BladeMesh generator and provides additional
     functionality for blade visualization and geometry inspection.
 
+    include_webs : bool
+        When *False* the shear webs are omitted and only the blade outer shell
+        (outer-mold-line surface) is meshed.  Use this for CFD wall surfaces.
+
     Parameters
     ----------
     blade_yaml : str
@@ -27,12 +31,21 @@ class Blade:
         Target element size for meshing (default: 0.1)
     n_samples : int, optional
         Number of samples for airfoil discretization (default: 300)
+    include_webs : bool, optional
+        Set *False* to mesh only the outer shell (default: True)
     """
 
-    def __init__(self, blade_yaml: str, element_size: float = 0.1, n_samples: int = 300) -> None:
+    def __init__(
+        self,
+        blade_yaml: str,
+        element_size: float = 0.1,
+        n_samples: int = 300,
+        include_webs: bool = True,
+    ) -> None:
         self.yaml_file = blade_yaml
         self.element_size = element_size
         self.n_samples = n_samples
+        self.include_webs = include_webs
 
         self._mesh_generator: Optional[BladeMesh] = None
         self.mesh: Optional[MeshModel] = None
@@ -55,6 +68,7 @@ class Blade:
             yaml_file=self.yaml_file,
             element_size=self.element_size,
             n_samples=self.n_samples,
+            include_webs=self.include_webs,
         )
         self.mesh = self._mesh_generator.generate(renumber=renumber, verbose=True)
         self._numad_mesh = self._mesh_generator.numad_mesh_data
@@ -600,12 +614,14 @@ class Rotor:
         hub_radius: Optional[float] = None,
         element_size: float = 0.1,
         n_samples: int = 300,
+        include_webs: bool = True,
     ) -> None:
         self.blade_yaml = blade_yaml
         self.n_blades = n_blades
         self.hub_radius = hub_radius
         self.element_size = element_size
         self.n_samples = n_samples
+        self.include_webs = include_webs
 
         self._mesh_generator: Optional[RotorMesh] = None
         self.mesh: Optional[MeshModel] = None
@@ -625,6 +641,7 @@ class Rotor:
             hub_radius=self.hub_radius,
             element_size=self.element_size,
             n_samples=self.n_samples,
+            include_webs=self.include_webs,
         )
         self.mesh = self._mesh_generator.generate(renumber=renumber, verbose=True)
 

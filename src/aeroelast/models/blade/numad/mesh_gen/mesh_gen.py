@@ -7,7 +7,7 @@ from aeroelast.models.blade.numad.mesh_gen.surface import Surface
 from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
 
 
-def get_shell_mesh(blade, elementSize, spanGrading="chord"):
+def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
     """
     This method generates a finite element shell mesh for the blade, based on what is
     stored in blade.geometry.coordinates, blade.keypoints.key_points,
@@ -22,6 +22,11 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
         Spanwise element size grading strategy.
         - "uniform": constant elementSize for all sections
         - "chord":   scale by sqrt(chord/chord_max) so tip gets finer elements
+    include_webs: bool
+        When *False* the shear webs are skipped and only the outer shell is
+        meshed.  The result is the blade outer-mold-line surface, which is what
+        a CFD wall boundary needs.  No ``*SW`` element sets, no
+        ``allShearWebEls`` / ``allShearWebNods`` sets are produced.
 
     Returns
     -------
@@ -377,11 +382,14 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
         stPt = stPt + 3
 
     ## Shear web sections
+    # ``include_webs=False`` collapses the loop range so the whole block is
+    # skipped: ``swES``/``secList`` stay outer-shell only and the web node sets
+    # are never created downstream.
     swES = set()
     stPt = 0
     np.array([])
     np.array([])
-    for i in range(rws - 1):
+    for i in range(rws - 1 if include_webs else 0):
         if swstacks[0][i].plygroups:
             shellKp = np.zeros((16, 3))
             shellKp[0, :] = np.array([splineXi[stPt, 12], splineYi[stPt, 12], splineZi[stPt, 12]])
