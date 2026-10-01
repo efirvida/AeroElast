@@ -320,7 +320,7 @@ def _generate_polars_neuralfoil(
         reliable.  Only used when ``alpha_stall_deg`` is ``None``.
     """
     try:
-        import neuralfoil as nf
+        import neuralfoil as nf  # type: ignore[import-not-found]  # optional dep, guarded below
     except ImportError:
         raise ImportError(
             "NeuralFoil is required to generate polars from coordinates. "
