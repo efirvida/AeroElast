@@ -5,6 +5,7 @@ This package provides comprehensive mesh handling capabilities including:
 - Mesh entities (Node, MeshElement, NodeSet, ElementSet)
 - Mesh model (MeshModel)
 - Mesh generators (SquareShapeMesh, BoxSurfaceMesh, MultiFlapMesh, BladeMesh, RotorMesh)
+- Axisymmetric turbine components (TowerMesh, HubMesh, NacelleMesh)
 - I/O functions for various file formats
 
 Usage
@@ -26,6 +27,13 @@ Creating a wind turbine rotor mesh:
 
 >>> rotor_mesh = RotorMesh("blade_definition.yaml", n_blades=3, hub_radius=1.5)
 >>> mesh = rotor_mesh.generate(renumber="rcm")
+
+Creating a CFD blade surface (no shear webs) and turbine components:
+
+>>> surface = BladeMesh("blade_definition.yaml", include_webs=False).generate()
+>>> tower = TowerMesh.from_windio("turbine.yaml").generate()
+>>> hub = HubMesh.from_windio("turbine.yaml").generate()
+>>> nacelle = NacelleMesh.from_windio("turbine.yaml").generate()
 
 Loading and saving meshes:
 
@@ -57,6 +65,19 @@ from aeroelast.core.mesh.generators import (
     RotorMesh,
     SphericalSurfaceMesh,
     SquareShapeMesh,
+)
+
+# Axisymmetric turbine components (tower, hub, nacelle)
+from aeroelast.core.mesh.components import (
+    HubDefinition,
+    HubMesh,
+    NacelleDefinition,
+    NacelleMesh,
+    TowerDefinition,
+    TowerMesh,
+    TurbineDefinition,
+    build_revolved_shell,
+    read_windio_components,
 )
 
 # I/O functions
@@ -103,6 +124,16 @@ __all__ = [
     "HyperbolicParaboloidMesh",
     "RaaschHookMesh",
     "SphericalSurfaceMesh",
+    # Axisymmetric components
+    "TowerMesh",
+    "HubMesh",
+    "NacelleMesh",
+    "TowerDefinition",
+    "HubDefinition",
+    "NacelleDefinition",
+    "TurbineDefinition",
+    "build_revolved_shell",
+    "read_windio_components",
     # Writers
     "write_mesh",
     "write_meshio",
