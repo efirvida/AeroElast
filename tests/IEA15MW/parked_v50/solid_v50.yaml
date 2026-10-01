@@ -19,7 +19,7 @@ mesh:
       # NuMAD Excel file with composite layup; airfoil coords in airfoils/.
       # Paths are relative to this file's directory (solid/).
       yaml_file:  "../../IEA-15-240-RWT.yaml"
-      airfoil_dir: "../blade_definition/airfoils"
+      airfoil_dir: "../../airfoils"
       element_size: 0.25   # m — finer than BEM mesh; RBF bridges gap
       n_samples: 300
       span_grading: "chord"

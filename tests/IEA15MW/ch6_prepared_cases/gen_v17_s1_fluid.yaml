@@ -10,7 +10,7 @@ mesh:
     type: BladeMesh
     params:
       yaml_file: ../../IEA-15-240-RWT.yaml
-      airfoil_dir: ../blade_definition/airfoils
+      airfoil_dir: ../../airfoils
       element_size: 0.25
       n_samples: 300
       airfoil_spacing: constant

@@ -32,7 +32,7 @@ mesh:
     type: "BladeMesh"
     params:
       yaml_file:  "../../IEA-15-240-RWT.yaml"
-      airfoil_dir: "../blade_definition/airfoils"
+      airfoil_dir: "../../airfoils"
       element_size: 0.25     # must match solid/simulation.yaml
       n_samples: 300         # must match solid/simulation.yaml
       span_grading: "chord"  # must match solid/simulation.yaml

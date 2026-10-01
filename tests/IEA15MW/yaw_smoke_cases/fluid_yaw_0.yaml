@@ -1,5 +1,5 @@
 participant: Fluid
-config_file: ../precice-config.xml
+config_file: /scratch/leahk/eduardo.donestevez/fem-shell/tests/IEA15MW/precice-config-smoke.xml
 coupling_mesh: Fluid-Mesh
 displacement_data: Displacement
 velocity_data: Velocity
@@ -18,11 +18,13 @@ mesh:
     coupling_node_set: allOuterShellNods
   output_file: fluid_mesh.vtu
 bem:
-  wind_speed: 11
-  pitch: 0.7380000000000003
+  # Ma et al. 2025 (doi:10.3389/fenrg.2025.1571567)
+  # IEA-15MW rated condition, uniform inflow, yaw=0 deg (aligned)
+  wind_speed: 10.59
+  pitch: 0.0
   yaw: 0.0
   omega:
-    initial: 0.7872360607268416
+    initial: 0.7906341464750989
     mesh: GlobalFluidMesh
     data: AngularVelocity
     vertex:
@@ -32,7 +34,7 @@ bem:
   air_density: 1.225
   dynamic_viscosity: 1.81e-05
   hub_height: 150.0
-  shear_exp: 0.2
+  shear_exp: 0.0
   n_blades: 3
   hub_radius: 0.0
   default_re: 1.0e7
@@ -54,6 +56,6 @@ bem:
   - 0.0
   - 0.0
 output:
-  folder: bem_fsi_results_dlc_1_1
+  folder: fluid
   log_interval: 1
   write_vtu: false
