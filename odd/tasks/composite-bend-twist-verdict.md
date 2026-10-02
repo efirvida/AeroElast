@@ -1829,7 +1829,7 @@ Measured at rated (V = 10.59 m/s, 7.56 rpm, pitch 0) on the real mesh:
 | tip mean `theta_z` | -20.7348 deg | **-3.8558 deg** | Zhou -> **1.071x** |
 | `distortion/abs(omega)` | 0.206 | **9.36** | - |
 | tip flapwise deflection | - | **+16.3865 m** | Zhou coupled +13.86 m -> 1.182x |
-| tip edgewise deflection | - | **+1.7848 m** | Zhou -1.22 m -> **opposite sign, open** |
+| tip edgewise deflection | - | **-1.7848 m** | Zhou -1.22 m -> **1.463x, same sign** (§22.5) |
 
 **What this settles.** The blade over-twist that motivated issue #9 is not a property of the
 element: with the production load path the same structure and the same BEM loads give a tip twist
@@ -1841,9 +1841,11 @@ LL-FVW solution.
 
 **What it does not settle.** Neither ratio is inside the 5% rule, so the promotion guard
 `abs(1 - ratio_to_zhou) > 0.05` is asserted and the magnitude stays a reported residual - promotion
-needs the load-case and aerodynamic-model differences removed, not a wider bound. The edgewise sign
-against Zhou is unexplained (+1.78 m against -1.22 m), and the power-magnitude residual from
-section 22.3.3 is still un-attributed.
+needs the load-case and aerodynamic-model differences removed, not a wider bound. The remaining
+structural disagreements with Zhou's triple are now all of **magnitude**, not sign (flap 1.182x, edge
+1.463x, torsion 1.071x on the module's historical metric); see §22.5 for the axis-convention fix that
+removed the apparent edgewise sign flip. The power-magnitude residual from section 22.3.3 is still
+un-attributed.
 
 **Review R3-001 closed in the same breath.** The reliability lens flagged that the applied-load
 invariant asserted a **magnitude** (`abs(sum(F))` versus `bem.thrust/3`), which a rotated but
@@ -1852,4 +1854,30 @@ norm-preserving load would pass. The test now also asserts the **direction**: at
 half-space (measured 0.9874). The chordwise share is deliberately **not** bounded - over a span
 whose chord turns 24.41 degrees, an aggregate chordwise share is not a statement the geometry
 licenses, and inventing one to make the test look stricter is the failure mode the test rules exist
-to prevent. It is printed (0.1585) and left as a reported number.
+to prevent. It is printed as the TE-positive edgewise share (-0.1585) and left as a reported number.
+
+### 22.5 The edgewise "sign inconsistency" was my test's axis convention
+
+`§22.4` reported the tip edgewise deflection as `+1.7848 m` against Zhou's `-1.22 m` and flagged the
+sign as an open structural disagreement. It was not one. On this mesh the **leading edge sits at
+positive x** (the load-frame test measures the ring's x extent as the chord and places the leading
+edge at `+pitch_axis * chord` from the pitch axis), so the chord axis `_measured_tip_axes` returns
+points toward the **leading** edge, while Zhou states the edgewise deflection **positive toward the
+trailing edge**. Reporting Zhou's triple through the un-flipped axis invented a sign flip.
+
+With the axis expressed in Zhou's convention (`edge_hat = -chord_hat`, documented at the helper and
+at the call site):
+
+| component | Zhou | production path, before | production path, **after the axis fix** |
+| --- | ---: | ---: | ---: |
+| flapwise (positive downstream) | +13.86 m | +16.3865 m (1.182x) | +16.3865 m (1.182x) - unchanged |
+| edgewise (positive toward the TE) | -1.22 m | +1.7848 m ("opposite sign") | **-1.7848 m (1.463x, same sign)** |
+| torsion (nose-down negative) | -3.60 deg | `theta_z` -3.8558 deg (1.071x) | unchanged |
+
+**Consequence:** all three of Zhou's tip components now agree in **sign** with the simulated blade;
+the remaining disagreements are magnitudes only (1.182x, 1.463x, 1.071x), which is what a one-way
+application of rigid-blade loads to the flexible structure should produce - the loads cannot
+de-load themselves, so the deflections come out large. No production code changed in this unit; the
+assertions (`flap_share >= 0.95`, `omega < 0`, the promotion guard) are untouched and still green
+(`7 passed`), and the printed share is relabelled "edgewise(TE-positive) share -0.1585" so the axis
+in the output matches the axis in the claim.

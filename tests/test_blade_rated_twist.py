@@ -853,13 +853,15 @@ def production_rated_loads(blade_shell, rated_bem):
 
 
 def _measured_tip_axes(coords, ring):
-    """The tip ring's own chord and flapwise axes, measured from its outline.
+    """The tip ring's own edgewise(chord) and flapwise axes, measured from its outline.
 
     The in-plane principal axis of the ring is its chord (on this mesh a ring's ``x`` extent is
     the local chord and its ``y`` extent the airfoil thickness - the measurement
     ``tests/test_force_projection_load_frame.py`` makes), and the perpendicular in-plane axis is
-    the flapwise/thickness one. Each axis is oriented toward ``+x`` / ``+y`` so the components
-    can be lined up with Zhou's (flapwise, edgewise) pair.
+    the flapwise/thickness one. ``chord`` is oriented toward ``+x``, which on THIS mesh is toward
+    the LEADING EDGE (the leading edge sits at ``+pitch_axis * chord`` from the pitch axis), and
+    ``flap`` toward ``+y`` = the downwind/fluid direction of the model's declared convention.
+    Callers comparing with Zhou must flip ``chord`` to get Zhou's TE-positive edgewise axis.
     """
     pts = coords[np.asarray(ring)]
     in_plane = pts[:, :2] - pts[:, :2].mean(axis=0)
@@ -916,9 +918,15 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
     d_over_omega = kin["distortion"] / abs(omega) if abs(omega) > 1e-30 else float("inf")
 
     chord_hat, flap_hat = _measured_tip_axes(shell["coords"], tip)
+    # Zhou reports the edgewise deflection POSITIVE TOWARD THE TRAILING EDGE, while on this mesh
+    # the measured chord axis points toward the LEADING EDGE (the tip ring's leading edge sits at
+    # +x - see _measured_tip_axes and the load-frame test). Without this flip the comparison
+    # against Zhou's triple shows a spurious "opposite sign" that belongs to the axis convention,
+    # not to the physics.
+    edge_hat = -chord_hat
     tip_disp = np.column_stack([u[6 * tip], u[6 * tip + 1], u[6 * tip + 2]])
     flap_def = float(np.mean(tip_disp @ flap_hat))
-    edge_def = float(np.mean(tip_disp @ chord_hat))
+    edge_def = float(np.mean(tip_disp @ edge_hat))
     ratio_to_zhou = np.rad2deg(omega) / ZHOU_TIP_TORSION_DEG
 
     print("\nrated structural response under the production load path "
@@ -950,9 +958,9 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
     # (|F.f_hat|/|F| >= 0.95); it is NOT tightened here because the chordwise share of an
     # aggregate over a 24.41 deg twisting span is not a per-statement claim.
     flap_share = float(applied @ flap_hat) / applied_mag
-    chord_share = float(applied @ chord_hat) / applied_mag
+    chord_share = float(applied @ edge_hat) / applied_mag
     print(f"  applied direction   = flapwise share {flap_share:+.4f}  "
-          f"chordwise share {chord_share:+.4f}  (of |sum(F)|)")
+          f"edgewise(TE-positive) share {chord_share:+.4f}  (of |sum(F)|)")
     assert flap_share >= 0.95, (
         f"the production load path applies only {flap_share:.4f} of |sum(F)| along the "
         f"measured flapwise axis (bound 0.95): the thrust must be downwind along that axis, "
