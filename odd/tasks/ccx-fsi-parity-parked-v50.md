@@ -125,3 +125,44 @@ or "both diverge" (aero/config problem); all artifacts reproducible from the rep
   differences acceptable; verdict rests on settle-vs-diverge, not pointwise match.
 - MITC4Composite vs S4R laminate equivalence already validated by existing
   static/modal CCX parity tests (0.4–4 % gaps).
+
+## Cost measurement — job 11606103 (`sequana_cpu_dev`, 20 min)
+
+Xeon Gold 6252, 8 CPUs, `OMP_NUM_THREADS=8`.
+
+| Quantity | Measured |
+| --- | --- |
+| Production deck generation (0.25 m, Rayleigh override) | 156 s |
+| Deck mesh | 32 336 nodes / 33 473 S8R elements |
+| Coupling initialisation | **works**: preCICE logged `TimeWindow 1, Iteration 1` and the Flap-Tip watch-point |
+| Windows completed at 0.25 m in 521 s | **0** |
+| CCX-only progress in 420 s at 0.25 m | first increment still running |
+| CCX-only peak RSS | **11.4 GB** |
+| Local scaling 1.0 m (3 043 nodes) | 13 increments in 600 s (~46 s/increment) |
+| Local scaling 0.5 m (9 277 nodes) | 7 increments in 601 s (~86 s/increment) |
+| CPU inside CCX | ~152 %; "Using 1 cpu for spooles" |
+
+Two problems, cost first:
+
+1. **Cost**: one coupling window is ~9 preCICE iterations, i.e. ~9 CCX increments.
+   At 0.5 m that is already ~13 min per window (~9 h for a 40-window run), and at
+   0.25 m the window never closed. A direct solver cannot carry this.
+2. **The deck diverges under load**: with a representative 100 N per interface node
+   the local runs blow up (largest displacement increment 67 m at 1.0 m, 2.4e4 m at
+   0.5 m), and the 0.25 m log reports a residual force of 5.3e13. The modal gate at
+   2.0 m matched AeroElast, so the *stiffness* is plausible — the suspicion is the
+   composite shell model itself: CalculiX expands `*SHELL SECTION, COMPOSITE` into
+   internal layers (node ids reached 647 462 in a 32 336-node mesh, i.e. ~10–20x
+   expansion), which both inflates the model and can wreck conditioning.
+
+**Decision taken**: abandon the layered-composite `*SHELL SECTION` deck as the
+parity solid. Next candidate is `*SHELL GENERAL SECTION` with the explicit CLT
+A/B/D matrices the solver already computes (`Laminate`), which keeps the layup
+mechanics in a single layer, removes the expansion, and stays cheap. Verify with
+the existing gate (modal vs AeroElast plus a static load at 1.0 m) before spending
+another coupled run.
+
+New risks recorded: (a) the coarse-mesh route needs the *fluid* mesh regenerated at
+the same element size, so the generator must patch `element_size` in the parity
+YAMLs; (b) the divergence must be re-checked on the replacement element, since it
+may be a real modelling defect and not just cost.
