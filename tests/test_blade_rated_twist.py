@@ -879,13 +879,17 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
 
     The four applications of ``_rated_load_cases`` are this module's own reconstruction of the
     load path, so they cannot see a defect in production's. Here the shell is solved with the
-    forces ``ForceProjector.project()`` actually produces (default directions), and two things
+    forces ``ForceProjector.project()`` actually produces (default directions), and three things
     are asserted:
 
     * **The applied-load invariant**, ``|sum(F)|`` within **2 %** of ``bem.thrust / n_blades``.
       That bound is imported verbatim from the P5 guard
       (``tests/test_force_projection_load_frame.py::test_load_sense_is_downwind_and_driving``,
       ``SENSE_THRUST_TOL = 0.02``); this is the same physical claim, now on the structural path.
+    * **The applied-load direction** - the same ``|sum(F)|`` is a norm, so a load rotated off the
+      aero axis would pass it; at least **0.95** of it must ride the flapwise axis measured from
+      the tip ring's outline, in the downwind half-space (the mirror of the P5 guard's per-
+      station ``|F.f_hat|/|F| >= 0.95``).
     * **The physical sense**: the tip section rotation ``omega`` is negative - nose-down at
       rated, the sense of Zhou's -3.60 deg.
 
@@ -938,6 +942,21 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
         f"the production load path applies |sum(F)| = {applied_mag:.4f} N, "
         f"{load_ratio - 1.0:+.3%} off bem.thrust/{n_blades} = {thrust_per_blade:.4f} N "
         f"(the 2 % bound the P5 guard uses)"
+    )
+    # Directional invariant (the review's R3-001): |sum(F)| alone is a norm claim, so a load
+    # rotated off the aero axis but norm-preserving would pass it. The aggregate thrust must
+    # also ride the flapwise axis measured from the tip ring's own outline, in the downwind
+    # half-space. The 0.95 bound is the same mirror the P5 guard puts on a single station
+    # (|F.f_hat|/|F| >= 0.95); it is NOT tightened here because the chordwise share of an
+    # aggregate over a 24.41 deg twisting span is not a per-statement claim.
+    flap_share = float(applied @ flap_hat) / applied_mag
+    chord_share = float(applied @ chord_hat) / applied_mag
+    print(f"  applied direction   = flapwise share {flap_share:+.4f}  "
+          f"chordwise share {chord_share:+.4f}  (of |sum(F)|)")
+    assert flap_share >= 0.95, (
+        f"the production load path applies only {flap_share:.4f} of |sum(F)| along the "
+        f"measured flapwise axis (bound 0.95): the thrust must be downwind along that axis, "
+        f"not merely of the right magnitude"
     )
     # Physical sense: nose-down at rated, the sense of Zhou's -3.60 deg.
     assert omega < 0.0, (

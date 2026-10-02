@@ -1144,7 +1144,19 @@ now *larger* than the `theta_z` spread, and the sign is the only settled claim. 
 requires removing the application spread itself - a load case whose line of action is settled
 against the reference - which is a separate work unit.
 
-### 20.5 What the corrected loads reveal: the twist is largely a sectional deformation
+### 20.5 What the corrected loads reveal: the twist is largely a sectional deformation — **SUPERSEDED, do not quote**
+
+> **This section's conclusion was wrong and is kept only as the record of how it was reached.**
+> It read `distortion / |omega| = 0.359` from the `at_ac` **hand-built** case and concluded that
+> the measured "twist" of this shell blade at rated is substantially a sectional deformation.
+> That `omega` was inflated ~17x by the harness's own chordwise datum slip (defect #6) and, behind
+> it, by the production load-path defects P1/P2/P4/P5. Measured under the **production** load path
+> (§22.4) the tip section rotation is `omega = -1.5112 deg` with `distortion = 2.4695e-1`, i.e.
+> the ratio is **9.36, not 0.359**. The reading was an artefact of applying the aero load at 0.75 c
+> from the leading edge on the wrong axis and in the wrong half-space, not a property of the blade.
+> The premise was also incomplete: the line of action was not a modelling choice to be settled
+> against the anchor, it was a production bug, and it is fixed. The numbers quoted below stay as
+> measured at the time - they are correct for the loads the harness actually built.
 
 With the loads now invariant-checked, the physical application `at_ac` gives a section rotation
 `omega = -26.12 deg` and a section strain `distortion = 9.375e-2`, i.e. `distortion / |omega| =
@@ -1797,3 +1809,47 @@ history, and `docs/validation-matrix.md` §1/§2 now carry the measured 502/13/0
    finding. Candidate causes to test next: the rotor-plane projection of the chord at twisted
    stations, the strip `dr` grid (BEM stations vs the mesh's span buckets), and the minimum-norm
    nodal distribution's effective lever arm.
+
+### 22.4 The structural response measured under the production load path
+
+Commit `87db753` ("test(blade): measure the rated twist under the production load path, not
+hand-built vectors") closes the §22.1 finding for `tests/test_blade_rated_twist.py`: the module now
+also solves the shell with the forces `ForceProjector.project()` actually produces, through a
+`production_rated_loads` fixture built exactly as `standalone.py` builds it (only `span_direction`
+passed, so the configured defaults apply). The four hand-built applications stay in place,
+untouched, as the historical sensitivity record of sections 18 and 20.
+
+Measured at rated (V = 10.59 m/s, 7.56 rpm, pitch 0) on the real mesh:
+
+| quantity | hand-built `at_ac` (§20) | **production path** | reference |
+| --- | ---: | ---: | --- |
+| applied `abs(sum(F))` | - | **852632.0 N** | `bem.thrust/3 = 841688.8 N` -> **+1.300%** (bound 2%, the P5 guard's `SENSE_THRUST_TOL`) |
+| applied direction (share on the measured flapwise axis) | - | **+0.9874** | bound 0.95, mirroring the P5 guard's per-station `abs(F.f_hat)/abs(F) >= 0.95` |
+| tip section rotation `omega` | -26.1215 deg | **-1.5112 deg** | Zhou -3.60 deg -> **0.4198x** |
+| tip mean `theta_z` | -20.7348 deg | **-3.8558 deg** | Zhou -> **1.071x** |
+| `distortion/abs(omega)` | 0.206 | **9.36** | - |
+| tip flapwise deflection | - | **+16.3865 m** | Zhou coupled +13.86 m -> 1.182x |
+| tip edgewise deflection | - | **+1.7848 m** | Zhou -1.22 m -> **opposite sign, open** |
+
+**What this settles.** The blade over-twist that motivated issue #9 is not a property of the
+element: with the production load path the same structure and the same BEM loads give a tip twist
+of the **same order** as the literature (1.071x on the metric this module has always used, 7.1%
+off), where the hand-built vectors gave 5.76x-7.26x. Combined with the coupon verdict and
+`D16 = D26 = 0` across all 696 sections, the element is exonerated twice over and the residual
+that remains is the difference between our steady one-way BEM loads and a coupled aeroelastic
+LL-FVW solution.
+
+**What it does not settle.** Neither ratio is inside the 5% rule, so the promotion guard
+`abs(1 - ratio_to_zhou) > 0.05` is asserted and the magnitude stays a reported residual - promotion
+needs the load-case and aerodynamic-model differences removed, not a wider bound. The edgewise sign
+against Zhou is unexplained (+1.78 m against -1.22 m), and the power-magnitude residual from
+section 22.3.3 is still un-attributed.
+
+**Review R3-001 closed in the same breath.** The reliability lens flagged that the applied-load
+invariant asserted a **magnitude** (`abs(sum(F))` versus `bem.thrust/3`), which a rotated but
+norm-preserving load would pass. The test now also asserts the **direction**: at least 0.95 of
+`abs(sum(F))` must ride the flapwise axis measured from the tip ring's own outline, in the downwind
+half-space (measured 0.9874). The chordwise share is deliberately **not** bounded - over a span
+whose chord turns 24.41 degrees, an aggregate chordwise share is not a statement the geometry
+licenses, and inventing one to make the test look stricter is the failure mode the test rules exist
+to prevent. It is printed (0.1585) and left as a reported number.
