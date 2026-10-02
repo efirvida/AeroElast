@@ -1,3 +1,10 @@
 {
-  "stubPath": "typings"
+  "stubPath": "typings",
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": [
+    "src",
+    "tools",
+    "tests"
+  ]
 }
