@@ -19,6 +19,13 @@ Three things this module settles:
    about z feeds the shell's drilling degree of freedom, not the section's torsion, and
    over-reports the twist by orders of magnitude. It has to be a *couple of forces*. The
    test pins both numbers so the difference cannot come back unnoticed.
+
+The production load path is now what the structural response is measured under: the rated
+response below is solved from ``ForceProjector``'s own nodal forces
+(``test_rated_twist_under_production_loads``), so a repeat of the P5 load-frame defect in
+production fails here. The four hand-built applications of ``_rated_load_cases`` remain only
+as the **historical sensitivity record** of the task document's sections 18/20 - they show how
+much the twist moves with the application, they are not the load path.
 """
 
 from __future__ import annotations
@@ -35,6 +42,7 @@ from _aeroelast import PyMeshAssembler  # noqa: E402
 from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
 from aeroelast.solvers.bem.engine import BEMSolver  # noqa: E402
+from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 from scipy.sparse.linalg import spsolve  # noqa: E402
 
@@ -798,3 +806,149 @@ def test_rated_aero_loads_reproduce_the_bem_resultants(blade_shell, rated_bem):
     print(f"\n  corrected max |u| over all nodes (at_ac, one-way) = {max_u:.3f} m")
     print(f"  Zhou 2025 Table 4 coupled tip flapwise deflection   = {ZHOU_TIP_FLAP_M:.2f} m "
           f"(reported only; a one-way load has no defensible bound against a coupled solution)")
+
+
+@pytest.fixture(scope="module")
+def production_rated_loads(blade_shell, rated_bem):
+    """The rated aero loads through the **production** projector, on this module's mesh.
+
+    Everything above applies its own hand-built load vectors, so this module - the one whose
+    subject *is* the load application - never exercised ``ForceProjector``; a repeat of the P5
+    class of load-frame defect in production would still leave this file green. This fixture
+    builds the projector exactly as production does (``standalone.py``): the same real
+    ``BladeAero`` the rated BEM uses, the same mesh, and the **default**
+    ``normal_direction``/``tangential_direction``, so only ``span_direction`` is passed.
+
+    It then projects the rated point and scatters the ``(n_nodes, 3)`` result into the 6-DOF
+    load vector this module already solves with (``f[6*i + 0..2] = forces[i, 0..2]``). It
+    returns that assembled vector (apply with ``force[blade_shell["free"]]``) and prints the
+    summed nodal force and its comparison with ``bem.thrust / n_blades`` - computed here, so
+    the check is independent of the projector's own ``verify()``.
+    """
+    bem, blade_aero = rated_bem
+    shell = blade_shell
+    projector = ForceProjector(
+        shell["mesh"], blade_aero, span_direction=blade_validation.SPAN_DIRECTION
+    )
+    forces = projector.project(bem)
+    assert forces.shape == (shell["n"] // 6, 3), (
+        f"project() returned {forces.shape}, not ({shell['n'] // 6}, 3)"
+    )
+    force = np.zeros(shell["n"])
+    force[0::6] = forces[:, 0]
+    force[1::6] = forces[:, 1]
+    force[2::6] = forces[:, 2]
+
+    n_blades = int(blade_aero.n_blades)
+    thrust_per_blade = float(bem.thrust) / n_blades
+    total = forces.sum(axis=0)
+    total_mag = float(np.linalg.norm(total))
+    print(f"\nproduction ForceProjector load path at rated "
+          f"(V={V_RATED} m/s, {RPM_RATED} rpm, pitch {PITCH_RATED}, defaults):")
+    print(f"  sum(F) = {np.array2string(total, precision=4, suppress_small=True)} N  "
+          f"|sum(F)| = {total_mag:.4f} N")
+    print(f"  bem.thrust / {n_blades} = {thrust_per_blade:.4f} N -> ratio "
+          f"{total_mag / thrust_per_blade:.6f} (relative {total_mag / thrust_per_blade - 1.0:+.4%})")
+    return force
+
+
+def _measured_tip_axes(coords, ring):
+    """The tip ring's own chord and flapwise axes, measured from its outline.
+
+    The in-plane principal axis of the ring is its chord (on this mesh a ring's ``x`` extent is
+    the local chord and its ``y`` extent the airfoil thickness - the measurement
+    ``tests/test_force_projection_load_frame.py`` makes), and the perpendicular in-plane axis is
+    the flapwise/thickness one. Each axis is oriented toward ``+x`` / ``+y`` so the components
+    can be lined up with Zhou's (flapwise, edgewise) pair.
+    """
+    pts = coords[np.asarray(ring)]
+    in_plane = pts[:, :2] - pts[:, :2].mean(axis=0)
+    _, _, vt = np.linalg.svd(in_plane, full_matrices=False)
+    chord = np.array([vt[0, 0], vt[0, 1], 0.0])
+    chord = chord / np.linalg.norm(chord)
+    if chord[0] < 0.0:
+        chord = -chord
+    flap = np.array([-chord[1], chord[0], 0.0])
+    if flap[1] < 0.0:
+        flap = -flap
+    return chord, flap
+
+
+def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_rated_loads):
+    """The rated structural response measured under the **production** load path.
+
+    The four applications of ``_rated_load_cases`` are this module's own reconstruction of the
+    load path, so they cannot see a defect in production's. Here the shell is solved with the
+    forces ``ForceProjector.project()`` actually produces (default directions), and two things
+    are asserted:
+
+    * **The applied-load invariant**, ``|sum(F)|`` within **2 %** of ``bem.thrust / n_blades``.
+      That bound is imported verbatim from the P5 guard
+      (``tests/test_force_projection_load_frame.py::test_load_sense_is_downwind_and_driving``,
+      ``SENSE_THRUST_TOL = 0.02``); this is the same physical claim, now on the structural path.
+    * **The physical sense**: the tip section rotation ``omega`` is negative - nose-down at
+      rated, the sense of Zhou's -3.60 deg.
+
+    The magnitude against Zhou is **reported, not asserted**: our steady one-way BEM loads are
+    being compared with a coupled aeroelastic solution, so no numeric bound is defensible. The
+    promotion guard fires the moment the ratio enters 5 %.
+    """
+    shell = blade_shell
+    bem, blade_aero = rated_bem
+    force = production_rated_loads
+
+    n_blades = int(blade_aero.n_blades)
+    thrust_per_blade = float(bem.thrust) / n_blades
+    applied = np.array([force[0::6].sum(), force[1::6].sum(), force[2::6].sum()])
+    applied_mag = float(np.linalg.norm(applied))
+    load_ratio = applied_mag / thrust_per_blade
+
+    u = np.zeros(shell["n"])
+    u[shell["free"]] = spsolve(shell["Kff"], force[shell["free"]])
+    tip = np.asarray(shell["phys_tip"])
+    kin = _ring_kinematics(shell["coords"], u, tip)
+    omega = kin["omega"]
+    theta_z = float(np.mean([u[6 * i + 5] for i in tip]))
+    d_over_omega = kin["distortion"] / abs(omega) if abs(omega) > 1e-30 else float("inf")
+
+    chord_hat, flap_hat = _measured_tip_axes(shell["coords"], tip)
+    tip_disp = np.column_stack([u[6 * tip], u[6 * tip + 1], u[6 * tip + 2]])
+    flap_def = float(np.mean(tip_disp @ flap_hat))
+    edge_def = float(np.mean(tip_disp @ chord_hat))
+    ratio_to_zhou = np.rad2deg(omega) / ZHOU_TIP_TORSION_DEG
+
+    print("\nrated structural response under the production load path "
+          "(ForceProjector, default directions):")
+    print(f"  applied |sum(F)|    = {applied_mag:12.4f} N  vs bem.thrust/{n_blades} = "
+          f"{thrust_per_blade:12.4f} N  ratio {load_ratio:.6f} ({load_ratio - 1.0:+.3%})")
+    print(f"  tip section omega   = {np.rad2deg(omega):+9.4f} deg   "
+          f"(Zhou torsion {ZHOU_TIP_TORSION_DEG:+.2f} deg)")
+    print(f"  tip mean theta_z    = {np.rad2deg(theta_z):+9.4f} deg")
+    print(f"  section distortion  = {kin['distortion']:.6e}   "
+          f"distortion/|omega| = {d_over_omega:.4f}")
+    print(f"  tip flapwise defl.  = {flap_def:+9.4f} m   (Zhou {ZHOU_TIP_FLAP_M:+.2f} m -> "
+          f"ratio {flap_def / ZHOU_TIP_FLAP_M:+.4f})")
+    print(f"  tip edgewise defl.  = {edge_def:+9.4f} m   (Zhou {ZHOU_TIP_EDGE_M:+.2f} m -> "
+          f"ratio {edge_def / ZHOU_TIP_EDGE_M:+.4f})")
+    print(f"  omega / Zhou torsion = {ratio_to_zhou:.4f}")
+
+    # Applied-load invariant: the P5 guard's own 2 % bound on |F| vs bem.thrust / n_blades,
+    # applied here to the load the structure is actually solved with.
+    assert abs(load_ratio - 1.0) < 0.02, (
+        f"the production load path applies |sum(F)| = {applied_mag:.4f} N, "
+        f"{load_ratio - 1.0:+.3%} off bem.thrust/{n_blades} = {thrust_per_blade:.4f} N "
+        f"(the 2 % bound the P5 guard uses)"
+    )
+    # Physical sense: nose-down at rated, the sense of Zhou's -3.60 deg.
+    assert omega < 0.0, (
+        f"the production load path gives a non-negative tip section rotation "
+        f"omega = {np.rad2deg(omega):+.4f} deg; the rated twist must be nose-down "
+        f"(the sense of Zhou's {ZHOU_TIP_TORSION_DEG} deg)"
+    )
+    # Promotion guard, in the style of the existing test: the magnitude stays a reported
+    # residual while the comparison against Zhou stays outside 5 %.
+    assert abs(1.0 - ratio_to_zhou) > 0.05, (
+        f"the production-path tip rotation is now inside 5 % of Zhou "
+        f"(ratio_to_zhou = {ratio_to_zhou:.4f}): the row must be promoted to an asserted "
+        f"magnitude and this guard removed"
+    )
