@@ -285,13 +285,101 @@ cases (box, D-Tube, UL elastica, 3-5% each) and it is the useful headline: the
 blade-level static behaviour is essentially unchanged, while the anchors that
 moved are the small-geometry unit cases.
 
+## G4 FSI campaigns: the finished before/after (yaw sweep and h/dt)
+
+The first two G4 campaigns finished, so the recorded snapshot can be diffed:
+
+```bash
+python tools/campaign_metrics.py collect \
+    $SCRATCH/frontiersin_results_corotational_100s \
+    $SCRATCH/convergence_b1_b2_rerun --csv /tmp/after_yaw_hdt.csv
+python tools/campaign_metrics.py compare /tmp/after_yaw_hdt.csv \
+    --alias frontiersin_results_corotational_100s=frontiersin_results_corotational_100s_mitc3fix \
+    --alias convergence_b1_b2_rerun=convergence_b1_b2_results_official
+```
+
+A re-run directory does not carry the recorded campaign's name, so `compare` now
+takes an explicit `--alias NEW=OLD` (and refuses to guess when two recorded states
+exist).  The snapshot holds **two** recorded yaw states: `_mitc3fix` (the immediate
+predecessor, flap 8.02 m) and `_twistfix` (flap 8.23 m).  The primary column below
+is `_mitc3fix`; `_twistfix` is quoted once as the secondary.
+
+### The confound: before and after are not the same configuration
+
+**The G4 delta cannot be attributed to the element.**  The after campaigns started
+2026-09-30 22:55, after `8e6488e` (20:30) fixed two pre-flight defects on 30 solid
+case YAMLs:
+
+- `airfoil_spacing: constant -> cosine` (the old `e705820` workaround), so the yaw
+  case now builds the reference 32 336-node / 33 473-element mesh;
+- `force_projection.py` no longer honours an explicit `hub_radius: 0.0` when the
+  aero has a hub, removing a 3.97 m shift of every strip.
+
+The before campaigns (`_mitc3fix`, 2026-09-23 and earlier) ran the old config.
+
+`Thrust/CT` is the effective dynamic pressure `q·A`; it dropped a **uniform 4.76%
+across all five yaw cases** (effective inflow -2.4%).  A yaw-independent,
+global shift is what a hub-radius or mesh change produces and what an element
+change cannot.  The element's own static effect is already measured at ≤0.6%, and
+the campaign flap moved ~8%, thirteen times that.
+
+### Yaw sweep, after vs `_mitc3fix`
+
+| yaw | flap mean [m] | flap Δ | thrust [MN] | thrust Δ | power [MW] | power Δ | CP |
+|---|---|---|---|---|---|---|---|
+| 0  | 8.022 → 7.341 | -8.48% | 1.726 → 1.639 | -5.02% | 12.964 → 12.342 | -4.80% | 0.3681 → 0.3680 |
+| 10 | 7.957 → 7.285 | -8.44% | 1.699 → 1.614 | -5.02% | 12.485 → 11.889 | -4.77% | 0.3545 → 0.3545 |
+| 20 | 7.757 → 7.112 | -8.32% | 1.620 → 1.539 | -5.01% | 11.111 → 10.589 | -4.69% | 0.3155 → 0.3158 |
+| 30 | 7.425 → 6.825 | -8.09% | 1.490 → 1.416 | -4.97% | 9.008 → 8.604 | -4.48% | 0.2559 → 0.2566 |
+| 40 | 6.957 → 6.422 | -7.70% | 1.312 → 1.249 | -4.86% | 6.407 → 6.156 | -3.92% | 0.1820 → 0.1836 |
+
+Edge mean moves -7.83% to -6.26%.  Against `_twistfix` the same re-run reads flap
+-10.8% to -9.6% and power -6.2% to -4.7% (the old `_twistfix → _mitc3fix` step plus
+this one).  The coefficients are flat because they are normalized by the same
+effective inflow that shifted; the dimensional loads are what moved.  Versus the
+recorded literature bands (power -12% to -34%, flap -42%) the ~5% drop deepens the
+deficit -- an aero-loading consequence of the corrected aero geometry, not a
+measured element effect.
+
+### Convergence, after (read within the re-run)
+
+The `convergence_b1_b2_results_official` column is flap **17.84 m** -- a different
+geometry, so it does not read as a convergence comparison.  The re-run does:
+
+| pair | flap mean [m] | gap | order | thrust [MN] | power [MW] |
+|---|---|---|---|---|---|
+| h 0.5 → 0.25 m | 7.7344 → 7.3805 | 4.58% | -- | 1.659 → 1.641 | 12.500 → 12.355 |
+| h 0.25 → 0.125 m | 7.3805 → 7.3187 | **0.84%** | ~2.4 | 1.641 → 1.639 | 12.355 → 12.332 |
+| dt 0.02 → 0.005 s (0.25 m) | 7.3806 → 7.3804 | **0.003%** | -- | 1.6414 vs 1.6414 | 12.3546 vs 12.3545 |
+
+**Temporal convergence is closed** at the output resolution.  **Spatial converges
+second-order out to 0.25 m**: the observed order is ~2.4, and a Richardson fit puts
+the 0.125 m flap within ~0.2% of the limit (~7.307 m), so 0.125 m is the usable
+reference mesh and 0.5 m is the outlier.  (The earlier "h not converged" reading,
+7.734 vs 7.053, was a truncated `h_fine`; the complete run settles at 7.319.)
+
+### Verdict, item by item
+
+| item | before -> after | read |
+|---|---|---|
+| element, static (blade matrix) | ≤0.6% | **unchanged**; the FSI deltas cannot come from here |
+| yaw loads (flap/thrust/power) | -8.5/-5.0/-4.8% at yaw 0 | **not an element verdict**: the campaigns moved onto the reference mesh and correct hub radius; the uniform `q·A` -4.76% is that config fix |
+| yaw coefficients (CP/CT) | ~flat (<=+0.9%) | consistent with an inflow-normalized shift, not a new aero efficiency |
+| yaw vs literature | deficit ~5 pp deeper | worse vs the band, but a consequence of the corrected geometry; needs a physical reassessment, not a re-baseline |
+| temporal convergence (dt) | 0.003% | **closed** |
+| spatial convergence (h) | 0.84% at 0.25→0.125, order ~2.4 | **healthy**; 0.125 m is the reference |
+
+A clean element A/B still needs one campaign re-run with the *other* config held
+fixed; the recorded before/after is a **config** before/after.
+
 ## What is left, and its cost
 
 | cost | item |
 |---|---|
 | done | blade matrix before/after (above), the counter reset, the merge of `034ba81` |
+| done | G4 yaw sweep and B1/B2 h-dt (verdict above; config-confounded, temporal closed) |
 | ~30 min | the work-based (global scalar) version of the blade convergence check |
-| hours-days | the G4 FSI campaigns: yaw 0-40°, V-06, parked, B1/B2 h/dt |
+| cancelled | every remaining G4 job: the V-06 (`11604992/93`, queued, normal-operation and biased by the twist over-deloop, issue #9), ch6 (`11605077`) and parked (`11605081`) -- analysed, then stopped; the parked run diverges (issue #10) |
 | report upstream | the MITC4 `K_G` unit mismatch; the two over-specified assertions in `test_blade_iea15mw_mesh_convergence.py`; the composite `0.819` known-behaviour back-out |
 
 ### D-quinquies. The work-based convergence scalar, and the issue filed
@@ -357,4 +445,18 @@ around the TL tangent.
    D-Tube 23.359 vs 24.525 m, UL elastica 0.29075 vs 0.30172.
 5. **K_T corotational**: port `Mitc4Precomputed::compute_kt_corotational` or restate the
    frame-objectivity test.
-6. **G4 FSI campaigns**: still to be relaunched on the cluster, cheapest first.
+6. **G4 FSI campaigns**: the yaw sweep and the B1/B2 h-dt re-runs are finished and
+   verdicted (section above).  The rest were cancelled after analysis: the
+   normal-operation cases carry the twist over-deloop, and the parked run diverges
+   (issues #9 and #10).  The one open methodological item is the config confound: a
+   clean element A/B needs a re-run with the case config held fixed.
+7. **`origin/main` moved again** (checked 2026-10-01): `5f189fa -> 31565b3`, 13
+   commits, and a new `validation-2026-09` tag.  Contents: nine `numad` refactor lint/
+   typing commits (the xlsx/legacy blade-import path), two **unwired** MITC3 fixes
+   (`089cd54` `union_rotation` rotational block; `9d394de` the strain-smoothed MITC3+
+   relative frame, closing upstream `#2`, both in the smoothed/union path the MITC4
+   blade does not use), one CI workflow plus an env pin (`bdbc6c0`), and one docs
+   reconciliation (`2446335`).  `git merge-tree --write-tree HEAD origin/main` exits 0
+   with no conflicts.  It is low-risk for the recorded campaigns, but it needs a Rust
+   rebuild and a suite re-run -- so **do not merge/rebuild while the G4 jobs are
+   queued or in flight**, or the G4 set ends up on two different binaries.
