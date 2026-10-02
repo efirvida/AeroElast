@@ -750,3 +750,68 @@ the 3D model's load discretisation, the blade twist metric, and the tip-torque s
 Each was caught by a *second independent route*, never by re-checking the same path. So: before
 comparing two models, fix (a) the metric's physical meaning and (b) the load's line of action; and
 when a number looks dramatic (400x, 9x), look in the scaffolding first.
+
+---
+
+## 18. WU-B second pass - the beam reference with the full load set (OPEN finding)
+
+### 18.1 What was built
+
+A beam-level twist reference from the **anchor's own section data** and **our own loads**, so the
+comparison is a self-consistency check between two of our models rather than a literature quote:
+
+- `GJ(z)` and the **shear centre** `(xS, yS)` per station from the BeamDyn 6x6 via
+  `openfast_toolbox.converters.beam.K66toPropsDecoupled(convention='BeamDyn')` (the library's own
+  convention handling, not a hand-rolled reading of the matrix);
+- the **pitch axis** per station from the ElastoDyn blade file (`BlastFract`, `PitchAxis`);
+- the aerodynamic loads `Np`, `Tp`, `Mp` from our own BEM at the rated point;
+- the effective distributed torque about the shear centre,
+  `m_eff = Mp + (x_AC - xS) * Np - (y_AC - yS) * Tp`, with `x_AC = (0.25 - pitch_axis) * chord`;
+- `theta(z) = int_0^z T_eff(s)/GJ(s) ds` with `T_eff(z) = int_z^L m_eff ds`.
+
+### 18.2 The tip station is degenerate and must not be integrated through
+
+The BeamDyn deck's last station sits at the very tip where the section is a point: `GKt` runs from
+**8.749e10** at the root down to **5.9e4** at the tip, a factor of 1.5e6. Integrating `T/GJ` through
+that last interval alone contributes about **-9.4 deg** and swamps the result (the naive
+tip twist comes out at -10.5 deg). The comparison therefore has to be made **station by station,
+stopping the integral at the station**, which is what the table below does.
+
+### 18.3 The measured discrepancy (same loads, same section data)
+
+| station | beam | shell | shell / beam |
+| --- | ---: | ---: | ---: |
+| 80.1% span | -6.28 deg | -1.25 deg | **0.20** |
+| 89.8% span | -8.60 deg | -6.46 deg | **0.75** |
+| 95.2% span | -9.86 deg | -7.23 deg | **0.73** |
+
+### 18.4 The internal inconsistency that has to be resolved first
+
+The same comparison with the **pitching moment alone** points the other way:
+
+| load set | shell | beam | shell / beam |
+| --- | ---: | ---: | ---: |
+| pitching moment alone | -7.35 deg | -5.07 deg | **1.45** |
+| full load set | -2.72 deg (tip) | -9.86 deg (95%) | **0.73** |
+
+Adding the forces flips the shell from *softer* than the beam to *stiffer* than it. Since E1 (§15)
+independently measures the shell's torsional stiffness as **0.87x** the reference (i.e. softer, so a
+`shell/beam > 1` is expected), the flip is not a property of the structure - it points at **the
+force application in the shell**, which is the part that differs between the two rows: the forces
+are spread over the ring and then moved to the aerodynamic centre with a corrective couple.
+
+So this is an **open finding**, and per `CONTRIBUTING.md` ("Test rules", rule 3) it is recorded as a
+residual rather than asserted: the test asserts what is physical (the sign, and that the line of
+action dominates) and reports the magnitude.
+
+### 18.5 Localisation plan (in this order)
+
+1. **Controlled load-path test.** Apply a *single* known eccentric force (a pure `Np` with a known
+   lever arm about the section's own centroid) and compare the shell's twist against the analytic
+   `theta = int T/GJ` with the *same* lever arm. That isolates the corrective-couple implementation
+   from everything else.
+2. **Frame reconciliation.** The anchor's `xS` is measured from the pitch axis; the mesh's `x_AC` is
+   built from the chord extremes. Verify that both reduce to the same physical point at two or
+   three stations (a geometry check, no solve).
+3. **Only then** re-run the full comparison. If the flip survives, the residual is a genuine
+   beam-vs-shell difference (warping restraint) and belongs in the validity envelope.

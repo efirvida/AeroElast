@@ -36,6 +36,36 @@ By submitting any contribution to this repository, you agree that:
 - public versions of accepted contributions will normally be distributed under
   the repository license unless explicitly agreed otherwise in writing
 
+## Test rules (inviolable)
+
+These govern every test in this repository. They exist because a test that cannot fail is
+worse than no test: it certifies a result nobody measured.
+
+1. **No tolerance above 5%.** A test comparing against a reference asserts inside 5% unless
+   the reference's own scatter justifies more, and then the reason is written next to the
+   tolerance. The suite's tolerance audit lives in `docs/validation-matrix.md` section 13.1.
+2. **A tolerance is never chosen to accommodate the measured result.** It comes from the
+   reference's own scatter or from a stated theoretical error, and it is written *before* the
+   run. If a comparison misses the bound, the deliverable is the **finding** - a flagged
+   residual, a documented limitation, an issue - never a wider window. A window picked so
+   that today's number passes is exactly the failure mode this rule exists to stop.
+3. **A test must be as restrictive as the physics allows.** When a magnitude comparison is not
+   yet inside the bound, assert what the physics *does* pin - the sign, an invariant, a
+   dominance relation, a self-consistency between two of our own models - and report the
+   magnitude as a residual. Carry a **guard** that fails once the residual enters the bound, so
+   the claim gets promoted to an asserted row instead of being left loose:
+   `assert abs(1.0 - ratio) > 0.05, "the residual is now inside 5%: promote it to an asserted row"`.
+4. **A sign or physical-sense assertion needs no tolerance**, and it is the strongest
+   statement available while a magnitude is unsettled: "the twist is nose-down at rated" is a
+   physics claim, and it is either true or false.
+5. **The reference must be independent of the implementation under test**: a different code, a
+   published table extracted from the paper itself, or a closed form. A formula re-implemented
+   inside the test is not a reference.
+6. **Every test row appears in `docs/validation-matrix.md`** with its reference, tolerance,
+   measured margin and flags, and the row counts must reconcile with
+   `pytest -o addopts="" --collect-only`. A row that cannot fail is flagged there, never
+   counted as evidence.
+
 ## Practical guidance
 
 - keep changes focused
