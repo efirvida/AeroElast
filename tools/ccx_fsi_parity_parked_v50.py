@@ -207,6 +207,7 @@ def compute_rayleigh(
     properties: dict,
     span_direction: tuple[float, float, float],
     damping: dict[str, Any],
+    rayleigh_override: tuple[float, float] | None = None,
 ) -> dict[str, Any]:
     """Compute Rayleigh coefficients exactly as the solver does.
 
@@ -219,6 +220,23 @@ def compute_rayleigh(
     the ``rayleigh_damping`` tuple in CCX ``(alpha, beta)`` order and the two
     target natural frequencies in Hz.
     """
+    if rayleigh_override is not None:
+        # CCX order: alpha is the mass-proportional and beta the stiffness-
+        # proportional coefficient.  Timing runs do not need the modal solve,
+        # which is the dominant cost at the production mesh size.
+        alpha, beta = float(rayleigh_override[0]), float(rayleigh_override[1])
+        return {
+            "eta_k": beta,
+            "eta_m": alpha,
+            "source": "override",
+            "rayleigh_damping": (alpha, beta),
+            "mode_i": int(damping["mode_i"]),
+            "mode_j": int(damping["mode_j"]),
+            "freq_i_hz": None,
+            "freq_j_hz": None,
+            "num_modes": 0,
+        }
+
     import numpy as np
     from _aeroelast import PyMeshAssembler, compute_rayleigh_auto, modal_solve_coo
 
@@ -305,8 +323,7 @@ def compute_rayleigh(
         needed = max(mode_i, mode_j)
         if len(omega) < needed:
             raise RuntimeError(
-                f"Rayleigh: modal solve returned {len(omega)} modes but mode "
-                f"{needed} is required."
+                f"Rayleigh: modal solve returned {len(omega)} modes but mode {needed} is required."
             )
         omega_i_f = float(omega[mode_i - 1])
         omega_j_f = float(omega[mode_j - 1])
@@ -431,7 +448,9 @@ def derive_precice_xml(
       node with maximum Z.
 
     The coupling scheme, IQN-ILS acceleration, convergence limits,
-    ``max-iterations``, sockets and ``exchange-directory`` are left untouched.
+    ``max-iterations`` and sockets are left untouched; ``exchange-directory`` is
+    rewritten to ``.`` so the parity run directory is self-contained (both
+    participants are launched from it).
     """
     text = src_path.read_text()
 
@@ -453,6 +472,15 @@ def derive_precice_xml(
     text = re.sub(
         r'(<max-time value=")[^"]*(")',
         lambda match: f"{match.group(1)}{t_end}{match.group(2)}",
+        text,
+        count=1,
+    )
+
+    # Self-contained run directory: both participants are launched from the run
+    # directory, so "." resolves to the same path for both.
+    text = re.sub(
+        r'(<m2n:sockets[^>]*exchange-directory=")[^"]*(")',
+        lambda match: f"{match.group(1)}.{match.group(2)}",
         text,
         count=1,
     )
@@ -479,7 +507,38 @@ def derive_precice_xml(
 # Parity YAML variants
 # ---------------------------------------------------------------------------
 
-_GENERATOR_PARAM_KEYS = ("yaml_file:", "airfoil_dir:", "element_size:", "n_samples:", "span_grading:")
+_GENERATOR_PARAM_KEYS = (
+    "yaml_file:",
+    "airfoil_dir:",
+    "element_size:",
+    "n_samples:",
+    "span_grading:",
+)
+
+#: Geometry paths that a run directory outside the repository must resolve.
+_GEOMETRY_PATH_KEYS = ("yaml_file", "airfoil_dir", "blade_file")
+
+_GEOMETRY_PATH_RE = re.compile(
+    r"(?m)^(\s*)(" + "|".join(_GEOMETRY_PATH_KEYS) + r'):\s*"([^"]+)"'
+)
+
+
+def _absolutise_geometry_paths(text: str, src_path: Path) -> str:
+    """Rewrite the geometry paths to absolute (run dirs live outside the repo)."""
+
+    def replace(match: re.Match[str]) -> str:
+        indent, key, value = match.group(1), match.group(2), match.group(3)
+        return f'{indent}{key}: "{_resolve_case_path(src_path.parent, value)}"'
+
+    return _GEOMETRY_PATH_RE.sub(replace, text)
+
+
+def _assert_geometry_paths_absolute(src_text: str, out_text: str, case_dir: Path) -> None:
+    """Fail loudly if a geometry path did not end up absolute in the output."""
+    for match in _GEOMETRY_PATH_RE.finditer(src_text):
+        resolved = str(_resolve_case_path(case_dir, match.group(3)))
+        if resolved not in out_text:
+            raise AssertionError(f"Geometry path was not rewritten to {resolved!r}")
 
 
 def _assert_generator_params_unchanged(src_text: str, out_text: str) -> None:
@@ -489,8 +548,15 @@ def _assert_generator_params_unchanged(src_text: str, out_text: str) -> None:
             raise AssertionError(f"Mesh generator param line changed: {line!r}")
 
 
-def write_solid_parity_yaml(src_path: Path, out_path: Path, out_dir: Path) -> None:
-    """Write the solid parity YAML: plural data names, no ramp, out-dir output."""
+def write_solid_parity_yaml(
+    src_path: Path, out_path: Path, out_dir: Path, *, abs_paths: bool = False
+) -> None:
+    """Write the solid parity YAML: plural data names, no ramp, out-dir output.
+
+    ``abs_paths`` rewrites the geometry paths to absolute so the YAML works from
+    a run directory outside the repository (``_GENERATOR_PARAM_KEYS``-style
+    byte-identity is then asserted on the resolved values instead).
+    """
     text = src_path.read_text()
     text = re.sub(r'(?m)^(\s*write_data:\s*)"Displacement"', r'\1"Displacements"', text)
     text = re.sub(r'(?m)^(\s*read_data:\s*)"Force"', r'\1"Forces"', text)
@@ -507,11 +573,17 @@ def write_solid_parity_yaml(src_path: Path, out_path: Path, out_dir: Path) -> No
         lambda match: f'{match.group(1)}"{folder}"',
         text,
     )
-    _assert_generator_params_unchanged(src_path.read_text(), text)
+    if abs_paths:
+        text = _absolutise_geometry_paths(text, src_path)
+        _assert_geometry_paths_absolute(src_path.read_text(), text, src_path.parent)
+    else:
+        _assert_generator_params_unchanged(src_path.read_text(), text)
     out_path.write_text(text)
 
 
-def write_fluid_parity_yaml(src_path: Path, out_path: Path, out_dir: Path) -> None:
+def write_fluid_parity_yaml(
+    src_path: Path, out_path: Path, out_dir: Path, *, abs_paths: bool = False
+) -> None:
     """Write the fluid parity YAML: plural data names, no velocity, out-dir output."""
     text = src_path.read_text()
     if "force_data:" not in text:
@@ -530,7 +602,11 @@ def write_fluid_parity_yaml(src_path: Path, out_path: Path, out_dir: Path) -> No
         lambda match: f'{match.group(1)}"{folder}"',
         text,
     )
-    _assert_generator_params_unchanged(src_path.read_text(), text)
+    if abs_paths:
+        text = _absolutise_geometry_paths(text, src_path)
+        _assert_geometry_paths_absolute(src_path.read_text(), text, src_path.parent)
+    else:
+        _assert_generator_params_unchanged(src_path.read_text(), text)
     out_path.write_text(text)
 
 
@@ -546,8 +622,15 @@ def generate_parity_artifacts(
     dt: float = DEFAULT_DT,
     t_end: float = DEFAULT_T_END,
     case_dir: Path | str = CASE_DIR,
+    rayleigh_override: tuple[float, float] | None = None,
+    abs_paths: bool = False,
 ) -> dict[str, Any]:
-    """Generate every parity artifact and return a summary dict."""
+    """Generate every parity artifact and return a summary dict.
+
+    ``rayleigh_override`` is a CCX-order ``(alpha, beta)`` pair that skips the
+    modal solve, and ``abs_paths`` makes the parity YAMLs usable from a run
+    directory outside the repository.
+    """
     out_dir = Path(out_dir).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -559,7 +642,13 @@ def generate_parity_artifacts(
     tip = interface_tip_node(mesh, interface_nodeset)
     tip_coordinate = (float(tip.x), float(tip.y), float(tip.z))
 
-    rayleigh = compute_rayleigh(mesh, properties, config["span_direction"], config["damping"])
+    rayleigh = compute_rayleigh(
+        mesh,
+        properties,
+        config["span_direction"],
+        config["damping"],
+        rayleigh_override,
+    )
 
     solid_inp = out_dir / "solid_ccx.inp"
     write_ccx_deck(
@@ -592,8 +681,12 @@ def generate_parity_artifacts(
 
     solid_parity_yaml = out_dir / "solid_v50_parity.yaml"
     fluid_parity_yaml = out_dir / "fluid_v50_parity.yaml"
-    write_solid_parity_yaml(config["solid_yaml_path"], solid_parity_yaml, out_dir)
-    write_fluid_parity_yaml(config["fluid_yaml_path"], fluid_parity_yaml, out_dir)
+    write_solid_parity_yaml(
+        config["solid_yaml_path"], solid_parity_yaml, out_dir, abs_paths=abs_paths
+    )
+    write_fluid_parity_yaml(
+        config["fluid_yaml_path"], fluid_parity_yaml, out_dir, abs_paths=abs_paths
+    )
 
     return {
         "out_dir": str(out_dir),
@@ -629,9 +722,7 @@ def main(argv: list[str] | None = None) -> int:
     """CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="ccx_fsi_parity_parked_v50",
-        description=(
-            "Generate the CalculiX/preCICE parity artifacts for the parked V50 FSI case."
-        ),
+        description=("Generate the CalculiX/preCICE parity artifacts for the parked V50 FSI case."),
     )
     parser.add_argument("--out-dir", required=True, type=Path, help="Output directory")
     parser.add_argument(
@@ -652,13 +743,36 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_T_END,
         help=f"Simulation end time in seconds (default {DEFAULT_T_END:g})",
     )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=None,
+        help="CCX mass-proportional Rayleigh coefficient; skips the modal solve",
+    )
+    parser.add_argument(
+        "--beta",
+        type=float,
+        default=None,
+        help="CCX stiffness-proportional Rayleigh coefficient; skips the modal solve",
+    )
+    parser.add_argument(
+        "--abs-paths",
+        action="store_true",
+        help="Rewrite the parity YAML geometry paths to absolute (run dirs outside the repo)",
+    )
     args = parser.parse_args(argv)
+
+    if (args.alpha is None) != (args.beta is None):
+        parser.error("--alpha and --beta must be given together")
+    override = None if args.alpha is None else (float(args.alpha), float(args.beta))
 
     summary = generate_parity_artifacts(
         args.out_dir,
         element_size=args.element_size,
         dt=args.dt,
         t_end=args.t_end,
+        rayleigh_override=override,
+        abs_paths=args.abs_paths,
     )
     print(json.dumps(summary, indent=2, default=str))
     return 0
