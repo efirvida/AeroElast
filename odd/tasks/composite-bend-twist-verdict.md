@@ -1352,3 +1352,58 @@ The 10 pre-existing tests in `test_force_projection.py` are unchanged and stay g
 pytest tests/test_force_projection.py -v` -> **10 passed**; the task text said 11, the file collects
 10). `ruff check` is clean on the modified source and the new test. The new file is the regression
 guard for P1 and P4.
+
+## 22. Suite honesty audits (requested by the maintainer before the next work unit)
+
+Two audits were run on this tree, both read-only, because the maintainer's point was that a test
+which only exercises its own harness proves nothing about the framework.
+
+### 22.1 Tests that do not exercise production paths
+
+Full classification in the working notes; the load-bearing results, all verified by me against the
+source:
+
+| finding | evidence | status |
+| --- | --- | --- |
+| **`tests/test_blade_rated_twist.py` never imports `ForceProjector`** - the module's own subject (the load application) is re-implemented in `_rated_load_cases`, so a repeat of the P1 datum bug in production code would still leave this file green | `grep -c ForceProjector tests/test_blade_rated_twist.py` -> **0** | **OPEN**, next unit |
+| My "load resultant invariant" (`test_rated_aero_loads_reproduce_the_bem_resultants`) compares hand-built vectors against trapezoidal integrals of the *same* `bem.Np`/`Tp`/`Mp`, i.e. it validates my own `dz` bookkeeping, not production | `tests/test_blade_rated_twist.py` (the integrals and the vectors both come from `bem`) | **OPEN** - the invariant is worth keeping but must be asserted against `ForceProjector.project()` output |
+| `tests/test_force_projection.py` takes its expected force from `projector.verify()`, whose docstring states it reuses the same `Np[k] * dr` summation as `project()` - production asserted against production | `tests/test_force_projection.py` lines 177, 195, 206, 232, 339 | **OPEN** |
+| `tests/test_blade_twist_mechanism.py` hand-builds its three lines of action (`_station_load`) and asserts only relative spreads | same pattern, lower stakes | **OPEN** |
+| Production physics with **no test that calls it at all** | `src/aeroelast/constitutive/failure.py` (Tsai-Wu / Hashin / max-stress), `solvers/elasticity/dynamic_newmark.py`, the FSI time loops (`solvers/fsi/linear_dynamic.py`, `stress_stiffened_dynamic.py`), `solvers/bem/fsi_participant.py`, `solvers/fsi/force_clipper.py`, and the Rust kernels `newmark_beta_solve_coo` + the FSI drivers | **OPEN**, ranked by risk after 22.2 |
+| Genuinely production-facing and kept | `tests/test_thin_walled_tube_torsion.py` drives `PyMeshAssembler.assemble_k` + `create_laminate_from_angles` against a hand-written Bredt reference; `tests/test_force_projection_ac_datum.py` drives `ForceProjector.project()` against geometry; `test_bem_openfast_parity.py` compares against the real AeroDyn binary | done |
+
+**Consequence for this investigation.** The tube module validated *the element*, and the new datum
+module validates *the production load path* - but the blade twist numbers of section 20 still come
+from hand-built vectors. They must be re-derived through `ForceProjector` before any blade number
+here is quoted, which also retires the section 20 magnitude question rather than answering it.
+
+### 22.2 The 5% rule sweep (CONTRIBUTING.md "Test rules (inviolable)")
+
+Every tolerance above 5% found by sweep, classified. `verify` bounds are quoted because they are
+absolute newtons against a force of known size.
+
+| site | bound | measured | verdict |
+| --- | --- | --- | --- |
+| `tests/test_material_suite.py:561` | `err < 0.20` with the comment "inflat[es] compliance ~16%; **allow 20% tolerance**" | ~16% | **VIOLATION of rule 2** - the tolerance was chosen to accommodate the measurement. The class itself sets `TOL = 0.05` |
+| `tests/test_material_suite.py:572` | `TOL = 0.10` "B-coupling analytical solution has shear correction uncertainty" | - | **VIOLATION** - an uncertain reference must be *stated* as uncertain (or the reference made exact), not widened |
+| `tests/test_blade_iea15mw_validation.py:335` | `0.0 < rel_report < 0.20` | see matrix row | **justified**: a sign claim plus a documented reference-author disagreement (the article's own NuMAD conversion is +4.33% over that report); the *parity* claim in the same test uses `MASS_TOL = 0.05` |
+| `tests/test_bem_engine.py:29` | `IEA15_RATED_POWER_TOL = 0.15` | see matrix | to classify against the reference's own precision |
+| `tests/test_laminate_bend_twist_3d.py:264` | `0.70 < face/shell < 0.85` | - | **legitimate**: a negative control pinning the size of a documented load-discretisation artefact, not a parity claim |
+| `tests/test_mitc3_smoothed.py:145` | `plain < 0.95` | - | **legitimate**: a negative control (expected membrane locking) |
+| `tests/test_blade_twist_mechanism.py:186` | `< 0.10 * abs(surface)` | - | between two of our own models, not a reference comparison - and 10% is loose regardless |
+| `tests/test_force_projection.py:235` | `force_error < 50.0` N (varying `Np`, 20 m blade) | - | total force is ~2e4 N, so ~0.25% - inside 5%, but stated in newtons without the denominator |
+| `tests/test_force_projection.py:340` | `force_error < 1.0` N "relaxed for coarse discretisation" | - | same; the comment is a smell even when the number is fine |
+| `tests/test_shell_comprehensive.py:404,449,494,687`, `test_ko2017_performance.py:1698`, `test_laminate_bend_twist.py:329,427,442,468,469`, `test_laminate_bend_twist_3d.py:287,305`, `test_orthotropic_shell_parity.py:342,404`, `test_shell_analytical_validation.py:195,299,472`, `tests/test_ko2017_performance.py:821,845` and the `*_TOL = 0.05` constants | 5% or tighter | - | compliant |
+
+**Matrix discrepancies found by the sweep** (the matrix is the audit target, so these are the
+pending items it must absorb):
+
+1. `docs/validation-matrix.md` section 2 claims "429 tests: 416 passed, 13 xfailed" while its own
+   index/inventory rows now read 442 inventoried and 510 collected. A measured full run on this
+   tree gave **497 passed, 13 xfailed, 0 failed** (510 collected, 47 files) in 26:06; that run
+   started on the working tree that already contained the `6064aa8` fix. A confirming re-run at the
+   committed tree is in progress and its XFAIL list will be quoted node by node.
+2. Section 13.2 says "the **eleven** nodes below" while the run reports **13** xfailed. The list
+   must be reconciled against the authoritative XFAIL enumeration, not guessed.
+3. The ">5% tolerances" column of the index (8) does not include `test_material_suite.py:561/572`,
+   which are the two real violations in 22.2.

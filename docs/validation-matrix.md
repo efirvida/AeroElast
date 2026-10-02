@@ -114,6 +114,7 @@ and quote the bound next to the number.
 | Composite outer-fibre **stress** recovery | `*SHELL SECTION, COMPOSITE` ignores `OUTPUT=3D`; no independent stress judge (issue #3). Only the ABD matrices are validated. |
 | Rotating / centrifugal modal shift | the MITC4 `K_G` thickness bug was fixed (issue #7), but the rotating modes are **not** validated against OpenFAST anywhere in this suite |
 | Experimental (wind-tunnel or field) validation | none; every reference is a code, a closed form or a published model |
+| **The BEM->mesh load frame (`ForceProjector`), OPEN defect P5** | **measured, unfixed, and it invalidates every blade number produced through this path.** `Np`/`Tp` are section-local (normal/tangential to the chord, from `ccblade` at a given azimuth) but `project()` applies them on fixed global axes (`normal_direction=[1,0,0]`, `tangential_direction=[0,1,0]`). On the real IEA-15MW mesh the chord runs along x (the tip ring's x extent = 0.500 m = the tip chord; y extent = 0.080 m = the thickness), and projecting `Np>0, Tp=0` puts **100% of the normal load on the chord direction** - the aero load is transposed ~90 deg about the blade axis. Nothing catches it: `verify()` and `tests/test_force_projection_ac_datum.py` both build their expected force from the same `normal_dir`/`tangential_dir` the code uses, so they are self-consistent with any convention. Do not cite the campaign's one-way/FSI twist or de-loading numbers until this is fixed (task document section 22.1 and the P5 notes). |
 
 ### The rule the suite enforces
 
@@ -209,12 +210,17 @@ By file and subsection:
 
 ## 1. How this matrix was produced
 
-**Current tree.** The full suite is **429 tests: 416 passed, 13 xfailed, 0 failed, 0
-errors** (`python -m pytest -o addopts="" -q -rxX`, 22:23) with CalculiX 2.23, OpenFAST
-4.2.1, `ccblade` 1.3.1 and `neuralfoil` present so no row skipped; the 13 `xfail` are the
-documented validity limits of the Validity Envelope section and §13.2, not failures. The
-count is `python -m pytest -o addopts="" --collect-only -q`, matching the file-by-file
-inventory in §2. The rows of §3-§7 also carry the margins measured at the `e879eba`
+**Current tree (measured 2026-10-02 at `6064aa8`).** The collected suite is **510 tests /
+47 files** and the full run is **497 passed, 13 xfailed, 0 failed, 0 errors, 0 skipped**
+(`python -m pytest -o addopts="" -q -rxXs --tb=line -p no:cacheprovider tests`, 43:58) with
+CalculiX 2.23, OpenFAST 4.2.1, `ccblade` and `neuralfoil` present, so no row skipped. An
+earlier run of the same tree content - before `6064aa8` was committed, with nothing else
+competing for the CPU - gave the identical result, **497 passed, 13 xfailed, 0 failed**, in
+26:06; the wall-time difference is contention, not a different outcome. The 13 `xfail` are
+the documented validity limits listed node by node in §13.2, not failures, and they are the
+same 13 in both runs. The count is
+`python -m pytest -o addopts="" --collect-only -q | grep -c '::'` = 510, matching the
+file-by-file inventory in §2. The rows of §3-§7 also carry the margins measured at the `e879eba`
 refresh; sections added since — the BEM-vs-OpenFAST parity of §8.4, the blade
 NREL/NuMAD/Bernardi modes of §4.8, the isotropic stress recovery of §4.10 and the
 composite/CLT-judge rows of §4.3 — carry their own measured margins from this tree and
@@ -293,13 +299,19 @@ historical path to the inventoried number, so a reader can tell real drift from 
 | + `test_blade_rated_twist.py` +1 (the aero-resultant invariant), issue #9 WU-B3 | **439** | the applied loads asserted against the BEM's own integrals (§4.11) |
 | + `test_force_projection_ac_datum.py` (3), issue #9 P1 | **442** | the AC datum, the hub-offset strip assignment and the moment the force-only `verify()` cannot see (§8.3b) |
 
-The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 999.82s
-(16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
-Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
-the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
-the diagnostic failures of §13.2. The inventoried suite is now **442 tests / 40 files** and the
-collected suite is **510 tests / 47 files**. The six §4.11 rows and the four §4.12 rows were re-run
-in this pass; five §4.11 rows pass and one (§4.11's section-distortion row) is red on purpose.
+The **authoritative full `-s` run on this tree** (`6064aa8`, 2026-10-02) is **`510 collected:
+497 passed, 13 xfailed, 0 failed, 0 errors, 0 skipped`** in 43:58, with CalculiX 2.23, OpenFAST
+4.2.1, `ccblade` and `neuralfoil` present so no row skipped; an identical-result run of the same
+tree content took 26:06 without other work competing for the CPU. **Nothing is red any more.**
+The history that got here, so a stale cell is not mistaken for a regression: the last run at 441
+tests was `441 passed, 0 failed, 0 skipped` in 999.82s (16:39); the suite was then made honest -
+28 tests that could never fail were removed (§7.2) and the widened tolerances were tightened to
+the real 5% bound, which turned 10 nodes red as the diagnostic failures of §13.2; those are now
+the 13 documented `xfail` nodes of §13.2, not failures. The inventoried suite is **442 tests /
+40 files** and the collected suite is **510 tests / 47 files**. The six §4.11 rows and the four
+§4.12 rows were re-run in this pass and all ten pass: the §4.11 section-distortion row, which was
+red on purpose in the previous refresh, is green because its two falsified predictions were
+replaced by the true restrictive claims with the refutations recorded (§4.11, task document §20).
 Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
 1025.15s. The Rust side is green too: `cargo test --manifest-path crates/Cargo.toml -p
@@ -1579,11 +1591,30 @@ reference itself is a different model (beam vs shell, or a proxy load).
 
 A tolerance is the diagnostic instrument. With a widened bound the suite hides a real
 method-vs-method or author-vs-author difference; with the honest bound it stops hiding it and
-every failure states the difference to analyse. Tightening every flagged row to 5% identified
-the **eleven** nodes below; they are landed as **documented `xfail`** — the measured difference is the
-reason, the test passes if the code later improves inside the bound — so the suite stays usable
-and each one still names the validity limit. **Each is a validity statement about AeroElast, not
-a bug to paper over.**
+every failure states the difference to analyse. They are landed as **documented `xfail`** — the
+measured difference is the reason, the test passes if the code later improves inside the bound —
+so the suite stays usable and each one still names the validity limit. **Each is a validity
+statement about AeroElast, not a bug to paper over.**
+
+**The authoritative enumeration is 13 nodes, not the "eleven" this section previously claimed.**
+Measured at `6064aa8` with `python -m pytest -o addopts="" -q -rxXs tests` (`grep -c '^XFAIL'`
+-> 13), identical in both runs:
+
+| # | xfail node | the reason the run printed |
+| --- | --- | --- |
+| 1 | `test_bem_openfast_parity.py::test_neuralfoil_generated_polar_differs_from_official` | NeuralFoil vs the official attached polar: **5.9%** (bound 5%) — NeuralFoil Cl0/shape |
+| 2 | `test_blade_iea15mw_validation.py::test_blade_static_deflection_matches_article_dlc` | static tip **21.69 m** vs article **23.49 m**, **7.66%** (bound 5%) — proxy static load |
+| 3 | `test_blade_iea15mw_validation.py::test_blade_first_modes_match_nrel_report[1]` | 1st edgewise computed **0.702 Hz** vs NREL **0.642 Hz**, **9.40%** (bound 4.2%) — beam-vs-shell |
+| 4-8 | `test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[3]` … `[7]` | beam CSD vs shell, **5.30% / 5.82% / 6.75% / 9.83% / 12.29%** (bound 5%) — validity limit of the shell vs a beam, growing with mode number |
+| 9 | `test_blade_iea15mw_validation.py::test_blade_parked_modes_match_numad[2]` | 2nd flapwise **1.508 Hz** vs NuMAD **1.720 Hz**, **12.32%** (bound 11.3% = scatter 8.3% + 3%) |
+| 10 | `test_blade_iea15mw_validation.py::test_blade_parked_modes_match_numad[4]` | 3rd flapwise **2.903 Hz** vs NuMAD **3.410 Hz**, **14.87%** (bound 11.7% = scatter 8.7% + 3%) |
+| 11 | `test_shell_comprehensive.py::TestNonlinearStaticCantilever::test_large_displacement_tip_load` | shell nonlinear tip **1.728202e-01 m** vs Bisshopp-Drucker elastica **1.838252e-01 m**, **5.99%** (bound 5%) |
+| 12 | `test_shell_validation_fixed.py::TestNonlinearStatic::test_geometric_nonlinearity` | the same elastica comparison, **5.99%** (bound 5%) |
+| 13 | `test_shell_stress_ccx_parity.py::test_outer_fibre_stress_matches_ccx_and_analytical` | coarse 8x2 linear mesh: outer fibre **12.57%** from `M c / I` (bound 5%) — validity limit of the mesh, not a bug |
+
+The rows below are the same set as they were first documented; where a measured difference is
+now staler than this table, **this table wins** and the row is being refreshed as its section is
+touched.
 
 | test | reference | measured difference | what it says about AeroElast |
 | --- | --- | --- | --- |
