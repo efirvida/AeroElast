@@ -91,8 +91,21 @@ class ForceProjector:
         # measured along the span direction)
         span_coords = coords @ span_dir  # projection
 
-        # BEM station radial positions
-        r_stations = blade_aero.r  # already from hub centre
+        # BEM station radial positions (measured from the hub centre).
+        #
+        # A single-blade shell mesh is referenced to the blade root (span
+        # origin 0) while the BEM stations are hub-referenced; a rotor mesh is
+        # hub-referenced like the stations.  Anchor the station grid on the
+        # mesh's own span origin so both conventions line up: for a
+        # blade-root mesh this is a shift by the hub radius, for a
+        # hub-referenced mesh it is a no-op.  When the caller supplies
+        # ``hub_radius`` explicitly it names that same datum.
+        r_stations = np.asarray(blade_aero.r, dtype=float)
+        mesh_span_min = float(span_coords.min())
+        if hub_radius is None:
+            r_stations = r_stations + (mesh_span_min - r_stations[0])
+        else:
+            r_stations = r_stations - float(hub_radius) + mesh_span_min
 
         # Build strip boundaries at midpoints between stations
         r_mid = 0.5 * (r_stations[:-1] + r_stations[1:])
@@ -147,10 +160,13 @@ class ForceProjector:
         # centre (AC, typically at c/4).  ForceProjector._distribute()
         # balances moments about the strip *centroid*, so the transfer is:
         #
-        #   M_centroid = M_AC + r_{AC→centroid} × F_strip
+        #   M_centroid = M_AC + (r_AC - r_centroid) x F_strip
+        #              = M_AC - cross(ac_offset, F_strip)
         #
-        # The second term — the moment arm contribution — is often larger
-        # than M_AC for typical wind-turbine blades and must not be omitted.
+        # with ``ac_offset = r_centroid - r_AC``.  The moment arm term is
+        # often larger than M_AC for typical wind-turbine blades and must
+        # not be omitted; it is kept as the full 3-D vector so the applied
+        # moment about the origin is reproduced exactly.
         # ------------------------------------------------------------------
         self._strip_chord_dirs: list[np.ndarray] = []
         self._strip_ac_offsets: list[np.ndarray] = []
@@ -193,14 +209,44 @@ class ForceProjector:
                 chord_dir = self._tangential_dir.copy()
             self._strip_chord_dirs.append(chord_dir)
 
-            # LE estimated as the node with minimum chordwise projection
+            # Leading/trailing ends from the section's own geometry: the
+            # blunt end (the larger in-plane spread inside the outer quarter
+            # of the chord) is the leading edge, the sharp end the trailing
+            # edge.  Inferring the LE from ``min(chord_proj)`` would pick
+            # whichever end the unrelated reference axis happened to point
+            # away from; this rule is convention-free and sign-free.
             chord_proj = strip_pts @ chord_dir
-            le_proj = float(np.min(chord_proj))
-            ac_proj = le_proj + station.airfoil.aerodynamic_center * station.chord
-            centroid_proj = float(strip.centroid @ chord_dir)
-            # Vector from AC to strip centroid (along chord direction only;
-            # the span-normal component is negligible for thin shells)
-            self._strip_ac_offsets.append((centroid_proj - ac_proj) * chord_dir)
+            p_lo = float(chord_proj.min())
+            p_hi = float(chord_proj.max())
+            chord = p_hi - p_lo
+            in_plane = np.cross(span_dir, chord_dir)
+            in_plane_norm = float(np.linalg.norm(in_plane))
+            le_at_hi = True
+            if chord > 1e-12 and in_plane_norm > 1e-12:
+                in_plane = in_plane / in_plane_norm
+                slab = 0.25 * chord
+                q_lo = strip_pts[chord_proj <= p_lo + slab] @ in_plane
+                q_hi = strip_pts[chord_proj >= p_hi - slab] @ in_plane
+                t_lo = float(q_lo.max() - q_lo.min()) if q_lo.size else 0.0
+                t_hi = float(q_hi.max() - q_hi.min()) if q_hi.size else 0.0
+                # Within 10 % the blunt/sharp split is ill-conditioned
+                # (e.g. a circular root section); keep the +chord_dir end,
+                # the mesh's own leading-edge convention.  A symmetric
+                # section is where the two candidate AC placements are
+                # least distinguishable, so the ambiguity is smallest.
+                if t_lo > t_hi and (t_lo - t_hi) > 0.10 * max(t_lo, t_hi):
+                    le_at_hi = False
+            i_hi = int(np.argmax(chord_proj))
+            i_lo = int(np.argmin(chord_proj))
+            le_i, te_i = (i_hi, i_lo) if le_at_hi else (i_lo, i_hi)
+            ac_frac = station.airfoil.aerodynamic_center
+            ac_point = strip_pts[le_i] + ac_frac * (strip_pts[te_i] - strip_pts[le_i])
+            # Full 3-D vector from the aerodynamic centre to the strip
+            # centroid.  Keeping the out-of-chord component (the span and
+            # thickness offset) is required to reproduce the applied moment
+            # about the origin; the chordwise part alone leaves a ~1 %
+            # lever-arm error on the real blade.
+            self._strip_ac_offsets.append(strip.centroid - ac_point)
 
     # ------------------------------------------------------------------
     #  Public API
@@ -234,7 +280,8 @@ class ForceProjector:
             F_strip = F_n * self._normal_dir + F_t * self._tangential_dir
 
             # Moment about strip centroid:
-            #   M_centroid = M_AC + r_{AC→centroid} × F_strip
+            #   M_centroid = M_AC + (r_AC - r_centroid) x F_strip
+            #              = M_AC - cross(ac_offset, F_strip)
             # M_AC is the aerodynamic pitching moment from BEM polars (about
             # the aerodynamic centre).  The geometric transfer term accounts
             # for the moment arm between the AC and the centroid of the strip
@@ -244,7 +291,7 @@ class ForceProjector:
                 if bem_result.Mp is not None
                 else np.zeros(3)
             )
-            M_strip = M_ac + np.cross(self._strip_ac_offsets[k], F_strip)
+            M_strip = M_ac - np.cross(self._strip_ac_offsets[k], F_strip)
 
             # Distribute to nodes (constrained minimum-norm)
             f_nodes = self._distribute(strip, F_strip, M_strip)

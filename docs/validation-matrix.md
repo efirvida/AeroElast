@@ -42,7 +42,7 @@ notes (flags per §9). `not printed` means the test asserts without printing a r
    residual; the *measured margin* column is exactly that output. Run it with `CCX_BIN`
    set, OpenFAST reachable and `neuralfoil` installed (§12), or the relevant rows skip.
 2. `python -m pytest -o addopts="" --collect-only -q` reproduces the file-by-file
-   inventory in §2 (439 tests / 39 files) that proves nothing drifted.
+   inventory in §2 (442 tests / 40 files) that proves nothing drifted.
 3. §2.1 is the headline table; §3-§8 are the per-row evidence behind it; §12 has the
    per-tool commands and the skip conditions.
 4. For a paper table, copy the row's *reference*, *tolerance* and *measured margin*
@@ -124,7 +124,7 @@ exceed the bound are the `xfail` list above. A green suite never unflags a row.
 
 ## Index
 
-Six groups, 39 files, 439 tests. Every collected test node is accounted for below;
+Six groups, 40 files, 442 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
@@ -134,8 +134,8 @@ Six groups, 39 files, 439 tests. Every collected test node is accounted for belo
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
 | Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 11 | 155 | 155 | 0 | 0.45% – 3.86% | 1 |
 | Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
-| BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 60 | 60 | 0 | 0.33% – 40.60% | 0 |
-| **Total** | | **39** | **439** | **439** | **0** | | **8** |
+| BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 6 | 63 | 63 | 0 | 0.33% – 40.60% | 0 |
+| **Total** | | **40** | **442** | **442** | **0** | | **8** |
 
 **A large margin is not a failure.** `passed = 413, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -190,6 +190,7 @@ By file and subsection:
   - [8.1 `test_bem_polars.py` (20)](#81-test_bem_polarspy-20)
   - [8.2 `test_bem_engine.py` (14) and `test_blade_mesh.py` (1)](#82-test_bem_enginepy-14-and-test_blade_meshpy-1)
   - [8.3 `test_force_projection.py` (10)](#83-test_force_projectionpy-10)
+  - [8.3b `test_force_projection_ac_datum.py` (3)](#83b-test_force_projection_ac_datumpy-3)
   - [8.4 `test_bem_openfast_parity.py` (13)](#84-test_bem_openfast_paritypy-13)
 - [9. Flag summary](#9-flag-summary)
   - [9.1 Tautological references](#91-tautological-references-the-arithmetic-under-test-re-implemented-in-the-test)
@@ -236,7 +237,7 @@ per-row matrix, so every result the suite produces is visible in one place.
   the value the test itself printed in that run. Rows whose test does not print are marked
   `not printed`, and that is a statement about the test, not about the element.
 - Per-file test counts in the section headings were re-collected at this tree with
-  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 439 total in §2 (the
+  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 442 total in §2 (the
   `e879eba` subset of that collection summed to 386, and the 417-refresh subset to 417).
 - Paper values were read from the recovered PDFs in `.sources/papers/`, not from
   second-hand notes. The Ko et al. 2017 benchmark tables cited below are from
@@ -273,8 +274,8 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-The file-by-file inventory below accounts for **439 tests / 39 files**, and the collected
-suite is **507 tests / 46 files** (`python -m pytest -o addopts="" --collect-only -q`); the
+The file-by-file inventory below accounts for **442 tests / 40 files**, and the collected
+suite is **510 tests / 47 files** (`python -m pytest -o addopts="" --collect-only -q`); the
 difference is the seven files that still have no row, listed in the Known-drift table below. The
 historical path to the inventoried number, so a reader can tell real drift from a stale cell:
 
@@ -290,13 +291,14 @@ historical path to the inventoried number, so a reader can tell real drift from 
 | + `test_blade_rated_twist.py` (5), issue #9 | **434** | our own rated BEM, the settled twist sign, the rated twist vs Zhou, and the section-distortion split (§4.11) |
 | + `test_thin_walled_tube_torsion.py` (4), issue #9 WU-B2 step 2 | **438** | the exact Saint-Venant tube torsion, the metric verdict and the load-application finding (§4.12) |
 | + `test_blade_rated_twist.py` +1 (the aero-resultant invariant), issue #9 WU-B3 | **439** | the applied loads asserted against the BEM's own integrals (§4.11) |
+| + `test_force_projection_ac_datum.py` (3), issue #9 P1 | **442** | the AC datum, the hub-offset strip assignment and the moment the force-only `verify()` cannot see (§8.3b) |
 
 The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 999.82s
 (16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
 Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
 the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
-the diagnostic failures of §13.2. The inventoried suite is now **439 tests / 39 files** and the
-collected suite is **507 tests / 46 files**. The six §4.11 rows and the four §4.12 rows were re-run
+the diagnostic failures of §13.2. The inventoried suite is now **442 tests / 40 files** and the
+collected suite is **510 tests / 47 files**. The six §4.11 rows and the four §4.12 rows were re-run
 in this pass; five §4.11 rows pass and one (§4.11's section-distortion row) is red on purpose.
 Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
@@ -325,6 +327,7 @@ reference, the tolerance as the code states it, and the flag for each row.
 | NeuralFoil + Viterna vs official post-stall | attached Cl ≤ 5.9% (Cl0); post-stall Cl ≤ 40.6% and Cd ≤ 15% (decomposed: Viterna + official input = +21.7% at 30 deg) | §8.4 |
 | Large-rotation elastica | 5% relative per component | §5.4 |
 | Shell K/mass invariants | symmetry, PSD, rigid-body and exact mass coefficients to 1e-12 | §6.1-§6.3 |
+| BEM force-projection AC datum | AC at **0.250 c** from the true LE (worst 0.0000 c, bound 0.02 c); moment relative error **4.7e-16** (bound 1%) | §8.3b |
 
 Two skips that the first version of this matrix recorded as verified are **resolved**, and
 the two tests they hid now run:
@@ -358,12 +361,13 @@ et al. modes**, §4.8), `test_ccx_writer_ids.py` (3, the CCX writer's id-scheme 
 campaign, §8.4).
 
 **File-by-file inventory.** The collected set at this tree, file by file, and the section
-that documents it. This table is the index's audit: its column sums to `439`, and it is the
+that documents it. This table is the index's audit: its column sums to `442`, and it is the
 one place to check whether a file has drifted out of the matrix. Reproduce with
 `python -m pytest -o addopts="" --collect-only -q | grep -c '::'`.
 
-**Known drift (measured 2026-10-02).** The collected suite is **507 tests / 46 files**, while the
-inventory below accounts for **439 / 39** (the 429 of the last full refresh plus §4.11 and §4.12). Seven files
+**Known drift (measured 2026-10-02).** The collected suite is **510 tests / 47 files**, while the
+inventory below accounts for **442 / 40** (the 429 of the last full refresh plus §4.11, §4.12 and
+§8.3b). Seven files
 carry no row yet:
 
 | file | tests |
@@ -380,8 +384,8 @@ carry no row yet:
 Reproduce:
 
 ```bash
-python -m pytest -o addopts="" --collect-only -q | grep -c '::'                                # 507
-python -m pytest -o addopts="" --collect-only -q | grep '::' | cut -d: -f1 | sort -u | wc -l   # 46
+python -m pytest -o addopts="" --collect-only -q | grep -c '::'                                # 510
+python -m pytest -o addopts="" --collect-only -q | grep '::' | cut -d: -f1 | sort -u | wc -l   # 47
 ```
 
 Until those rows exist, read the totals above as *inventoried* rather than *suite* counts, and never
@@ -394,7 +398,8 @@ boundary-layer-free self-equilibrated case and the recast one-wall traction repl
 rows of the previous revision; the measurements that made them red are kept and reported in §4.12
 and in `odd/tasks/composite-bend-twist-verdict.md` §19. The other 80 rows of the CCX-parity group
 carry the previous refresh's result and were **not** re-run here; the collected count is the fresh
-`507` (the §4.11 aero-resultant invariant added by WU-B3 makes the previous 506 into 507).
+`510` (the §4.11 aero-resultant invariant added by WU-B3 and the three §8.3b rows bring the
+previous 506 to 510).
 
 | file | tests | section |
 | --- | --- | --- |
@@ -432,12 +437,13 @@ carry the previous refresh's result and were **not** re-run here; the collected 
 | `test_bem_engine.py` | 14 | §8.2 |
 | `test_blade_mesh.py` | 1 | §8.2 |
 | `test_force_projection.py` | 10 | §8.3 |
+| `test_force_projection_ac_datum.py` | 3 | §8.3b |
 | `test_bem_openfast_parity.py` | 14 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
 | `test_mitc3_smoothed.py` | 3 | §6.10 |
 | `test_blade_rated_twist.py` | 6 | §4.11 |
 | `test_thin_walled_tube_torsion.py` | 4 | §4.12 |
-| **39 files** | **439** | |
+| **40 files** | **442** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -1058,6 +1064,25 @@ No test prints.
 | `...test_zero_load_gives_zero_forces` | zero load -> zero force | linearity | `atol=1e-12` | not printed | – |
 | `...test_forces_only_in_load_direction` | Np produces force only along the normal | direction | `atol=1e-8` on y/z; `sum(fx) > 0` | not printed | the comment records the measured nodal value (+250 N each, sum +6000 N) and that the sign check replaced a sign-blind one |
 | `TestSingleNodeStrip::test_single_node_per_strip` | one chordwise node per strip gets the whole strip force | `F = Np dr` | `force_error < 1.0` ("relaxed for coarse discretisation") | not printed | `np.all(np.abs(forces[:,0]) > 0)` is sign-blind; the documented warning about a dropped strip moment is never asserted |
+
+### 8.3b `test_force_projection_ac_datum.py` (3)
+
+Production-defect guard for issue #9: the BEM -> shell projector must place the aerodynamic
+centre at `airfoil.aerodynamic_center` of the chord from the **geometrically** identified
+leading edge (the blunt end), and the projected nodal forces must reproduce the analytic moment
+about the origin. The mesh and the aero are the **real** IEA-15MW blade
+(`Blade(str(tests/IEA-15-240-RWT.yaml), element_size=1.0)` + `generate_mesh()`) and the real
+AeroDyn `BladeAero` from `tests/reference/iea15mw_openfast/`; the BEM result is the repo's own
+engine at rated (V = 10.59 m/s, 7.56 rpm). The reference is the section geometry itself, not
+another code: the leading end is the one whose in-plane node spread in the outer quarter of the
+chord is larger, and the analytic moment is `sum_k [r_ac_k x F_k + Mp_k dr_k span_dir]` with the
+**3-D** AC point. Recorded in `odd/tasks/composite-bend-twist-verdict.md` §21.
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_every_mesh_node_is_assigned` | every mesh node belongs to a strip; no empty strips | partition of the blade mesh | exact (0 unassigned, 0 empty) | 0 unassigned, 0 empty after the fix (88 root nodes, z in [0.000, 2.388] m, and strips [48, 49] before it) | the hub-offset datum gap of verdict §21.8 |
+| `test_aerodynamic_centre_datum` | applied AC as a fraction of the chord from the true leading edge | the section geometry (blunt/sharp in-plane thickness) | `0.02 c` per strip | 0.0000 c (0.250 c from the true LE) after the fix; 0.750 c from the true LE before it | reads the datum back from the projector's own moment arm |
+| `test_moment_conservation` | total applied moment about the origin vs the analytic moment with the 3-D AC | `sum_k [r_ac_k x F_k + Mp_k dr_k span_dir]` | `abs(dM) / abs(M_expected) <= 0.01` | 4.65e-16 after the fix (2.99e-8 N*m, 6.422547e7 N*m); 1.14e-2 before it | the check `ForceProjector.verify()` cannot make: it balances force only |
 
 ### 8.4 `test_bem_openfast_parity.py` (13)
 
