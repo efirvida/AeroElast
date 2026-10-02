@@ -815,3 +815,47 @@ action dominates) and reports the magnitude.
    three stations (a geometry check, no solve).
 3. **Only then** re-run the full comparison. If the flip survives, the residual is a genuine
    beam-vs-shell difference (warping restraint) and belongs in the validity envelope.
+
+### 18.6 The application-defect chain, and the withdrawal of the magnitude
+
+The controlled eccentric-force test (step 1 of §18.5) did its job: it did not close the gap, it
+**localised the cause**, and it produced a chain of load-application defects in my own harness.
+Each was measured:
+
+| # | defect | evidence | fix |
+| --- | --- | --- | --- |
+| 1 | a section moment applied as a **force pair** at the LE/TE nodes | erratic twist ratios against the analytic `int T/GJ`: 1.94 / 2.04 / 2.59 / 3.39 / 2.30 | apply it as a **shear flow** `q = M/2A` (how a closed thin-walled tube carries torsion); the ratios become consistent: 1.79 / 1.82 / 1.87 / 1.95 / 2.02 |
+| 2 | the analytic reference integrated the torque only up to the measurement station (`m(z-s)`) instead of out to the tip (`m(L-s)`) | it shifted every ratio by 1.1-1.5x | corrected; the shear-flow ratios then settle at 1.8-2.0 |
+| 3 | a distributed force applied as an **equal force per node** | the node spacing around a real airfoil is not uniform, so that is not a uniform traction | apply it as a **consistent traction** (length-weighted per edge) |
+| 4 | the **sign** of the corrective couple | moving a resultant in y from `x_c` to `x_ac` needs `(x_ac - x_c) * F`, not `(x_c - x_ac) * F` | corrected |
+| 5 | the resultant position under a consistent traction | it sits at the **edge-length-weighted centroid**, not at the mean of the node positions | corrected |
+
+**The magnitude is therefore withdrawn as a result.** For the *same* load set:
+
+| application | tip twist |
+| --- | ---: |
+| pitching moment alone (shear flow) | -9.79 deg |
+| Np+Tp equal force per node, no moment (the previous one-way convention) | -14.25 deg |
+| Np+Tp equal force per node + moment | -4.35 deg |
+| Np+Tp consistent traction at the aerodynamic centre + moment | -34.13 deg |
+| **Zhou 2025 Table 4** | **-3.60 deg** |
+
+A factor of **7.8** between the smallest and the largest, from the application alone. The
+`0.755x Zhou` reported in the previous revision of the rated test and in the matrix was computed
+with defects 1-5 and is **withdrawn**.
+
+What survives is what does not depend on the application:
+
+- the **sign**: nose-down at rated, the same physical sense as Zhou's -3.60 deg and Ma's about
+  -3.9 deg, opposite to the +0.98 deg previously attributed to the BeamDyn anchor;
+- the **rigid aero side**: our BEM 2.525 MN / 16.327 MW against Zhou's 2.53 MN / 16.11 MW;
+- the **measured shear centre**: 0.477 of the chord (the twist under a uniform flapwise line
+  load vanishes there), consistent with the deck's pitch axis;
+- the **application rules**: a section moment is a shear flow, not a force pair.
+
+**Next step (bounded, and the only defensible one).** Validate the application on a case whose
+answer is exact *before* touching the blade again: a **rectangular closed thin-walled tube** of
+known dimensions and laminate under a known torque, where `theta = T L / GJ` with
+`GJ = 4 A^2 / oint(ds / (G t))` is exact. The application is validated when the shell reproduces
+that inside the 5% rule; only then can the blade comparison be promoted from a reported residual
+to an asserted row.
