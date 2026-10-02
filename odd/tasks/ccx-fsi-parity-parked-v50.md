@@ -77,10 +77,17 @@ if both diverge alike, it is the aero/coupling configuration.
       (5 passed, ~106 s): artifacts parse, adapter cards present, damping
       mapping, modal CCX-vs-AeroElast on the same mesh, and a real CCX run of
       the generated dynamic deck.
-- [ ] 4. Coupled-run wiring: adapter `config.yml`, parity XML variant, BEM-side
-      data-name handling, `runAll.srm` with the correct `LD_LIBRARY_PATH`,
-      run dir `$SCRATCH/parked_v50_ccx/`.
-- [ ] 5. Short coupled run on SLURM (~15–20 s) + preCICE convergence monitoring.
+- [x] 4. Coupled-run wiring → `tests/IEA15MW/parked_v50/ccx_parity/run_cost_measure.srm`
+      (deadline-aware SLURM script: generates the 0.25 m deck, times the
+      CCX-only increments, then runs the real coupled pair with the solid
+      acceptor first) plus the generator options it needs: `--alpha/--beta`
+      (skip the 290k-DOF modal solve), `--abs-paths` (run dir outside the repo)
+      and a self-contained `exchange-directory="."`.
+- [ ] 5. Short coupled run on SLURM + preCICE monitoring. Cost measurement
+      submitted as job 11606103 on `sequana_cpu_dev` (20 min): production deck
+      at 0.25 m generates in 156 s → 32 336 nodes / 33 473 S8R elements
+      (~194k DOF). Measures CCX-only seconds per increment and then the real
+      coupled seconds per window to project the full campaign.
 - [ ] 6. Comparison + verdict: tip-disp extraction for both runs, metrics
       (peak / settled mean / diverges), pytest that skips when outputs are
       absent, results doc, evidence appended to issue #10.
