@@ -657,3 +657,96 @@ a well-defined next step rather than a mystery.
 - The mesh tear stays a real defect with a *bounded* effect: worth fixing, not the explanation.
 - The next decisive item is the load's line of action (checklist A1), because it is the only
   candidate left standing for the blade twist gap.
+
+---
+
+## 16. Verified references (extracted from the PDFs, not from the issue text)
+
+The maintainer asked for the anchors to be extracted from the papers rather than trusted as
+quoted. What follows is my own extraction, with the discrepancies found.
+
+| source | what I read | status |
+| --- | --- | --- |
+| **Zhou et al. 2025**, *Energy* **336:138488** | Table 4, mean tip deflections at rated: ALM-GEBT flap 14.10 m / edge -1.27 m / **torsion -3.77 deg**; Present (LL-FVW&GEBT) 13.86 / -1.22 / **-3.60**. Table 6: rigid 16.11 MW / 2.53 MN, flexible 14.76 / 2.20, reductions 8.38% / 13.04%. Sign: flap positive downstream, edge positive toward the trailing edge; and "the aerodynamic moments at the blade sections make the airfoil sections **twist towards feather and reduce the angle of attack**" | **matches the issue's numbers exactly**; the issue's article number (136488) is wrong, it is **138488** |
+| **Ma et al. 2025**, *Front. Energy Res.* **13:1571567** (DOI verified in the PDF) | torsion is **nose-down**; the yaw-sweep values are read off Figs. 15-17 - the paper has only Table 1 (parameters) and Table 2 (frequencies) | the issue's sweep numbers are **figure-read**, i.e. lower confidence than a table |
+| **Gaertner et al. 2020**, NREL/TP-5000-75698 | blade mass **65,250 kg** (twice in the report); "worst-case out-of-plane tip deflection is **22.8 m**" | matches the issue |
+| **Escalera Mendoza et al. 2023**, AIAA 2023-2093 | mass **68,077 kg**, "4.33% greater compared to blade model reported in Ref. [1]"; Table 3 modes **0.57 / 0.65 / 1.72 / 2.08 / 3.41 / 4.29** (1F, 1E, 2F, 2E, 3F, **1T**) | matches the issue and the repo's own test constants |
+| **Bernardi et al.** | the published version is *Wind Energ. Sci.* **11:2345-2367 (2026)**, DOI 10.5194/wes-11-2345-2026; `wes-2025-120-*` are the discussion preprints | the issue cites the **preprint** DOI; the flap ~16 m figure is not yet verified from the published text |
+| **Zhou, "stiffness Table 6"** | Zhou's Table 6 is **power/thrust**, not stiffness | the issue's table mapping is wrong |
+
+### 16.1 The finding that reorders the problem: the anchors disagree in sign
+
+Three numbers, two conventions, one physical question:
+
+| source | tip torsion at rated | physical sense (per Zhou's own text) |
+| --- | ---: | --- |
+| Zhou 2025 (LL-FVW + GEBT) | **-3.60 deg** | toward feather / nose-down, reducing the angle of attack |
+| Ma 2025 (LL-FVW + GEBT) | about **-3.9 deg** (figure-read) | nose-down |
+| OpenFAST/BeamDyn anchor (per the issue) | **+0.98 deg** | sign not yet established |
+| our shell, one-way S-8c (per the issue) | **+8.9 deg** | sign not yet established |
+
+Zhou's own physics statement is unambiguous: at rated the aerodynamic pitching moment is nose-down,
+so the *physically expected* sense is Zhou's negative one. That makes the **sign** - not the
+magnitude - the first thing to settle, and it changes the size of the disagreement: if our +8.9 deg
+is the same physical sense as Zhou's -3.60 deg, the gap is **2.5x**, not 9x; and the BeamDyn
+anchor's +0.98 deg would be the outlier, in the opposite sense to both the literature and the
+aerodynamics.
+
+Corroboration by magnitude: our FSI de-loading is -25%/-35% and Zhou's is **-8.38%/-13.04%**
+(verified from Table 6). The ratio of the excess (~2-3x) matches the ratio of the twist (~2.5x),
+which is what a coherent single-cause story looks like - and it is a different story from "9x".
+
+## 17. Plan after these findings
+
+### 17.1 The load cases are not the same load case (from the maintainer's own A1)
+
+The maintainer's A1 answer settles a structural point: the **one-way S-8c path** - the source of the
++8.9 deg - applies the AeroDyn normal and tangential distributed loads to every section node with
+spanwise tributary weights and **does not apply the pitching moment** (`apply_ad_loads` loads only
+the two translational DOFs per node). The **FSI path** does apply the aerodynamic moment about the
+aerodynamic centre (`force_projection` adds `Mp[k]*dr`). And the OpenFAST/BeamDyn anchor runs the
+official coupled deck, which applies the aerodynamic pitching moment too.
+
+So the reported comparison is between a shell that omits the pitching moment and an anchor that
+includes it. That is a concrete, checkable difference, and it is the cheapest thing to close.
+
+### 17.2 Work units
+
+**WU-A - settle the sign (no external input needed).** Map all four numbers into one physical
+criterion: "twist that reduces the angle of attack (toward feather) is positive". For the shell,
+rotate the section rotation into the *section's own frame* (using the station's chord direction from
+the undeformed mesh) instead of the global z, and state the sense. For the BeamDyn channel `RDxr`,
+read what the rotation is measured about and with which sign, and map it the same way. Deliverable: a
+sign table with the four entries and a test that pins it.
+*Acceptance*: the shell, the anchor and Zhou/Ma are expressed in one sense, and the sense is
+justified physically (nose-down at rated), not by convention.
+
+**WU-B - load-case parity.** Re-run the one-way case **with** the AeroDyn pitching moment about the
+aerodynamic centre added, everything else identical, and report the twist before and after.
+*Acceptance*: the twist with the pitching moment is compared against the FSI path's own number
+(+8.8 deg per the issue) and against Zhou, in the settled sense.
+
+**WU-C - anchor reconciliation.** With WU-A and WU-B done, compare shell vs BeamDyn on the *same*
+load case, or state precisely which load-case difference remains. The anchor's own load line of
+action is the aerodynamic centre (official deck), so this is where the two should line up.
+*Acceptance*: either the two agree within the reference scatter, or the residual is attributed to a
+named difference in load or boundary condition - not to "the element".
+
+**WU-D - magnitude against the literature and the FSI claim.** Compare the settled twist against
+Zhou (-3.60 deg, verified) and Ma (about -3.9 deg, figure-read) and the de-loading against
+-8.38%/-13.04% (verified). *Acceptance*: a single table in one sense, one load case, with the
+figure-read source marked as such.
+
+**WU-E - cleanup, in this order.** (1) The mesh tear at z ~ 11.94 / 112.22 m: real, bounded, worth
+fixing (the dedup does not merge the coincident nodes). (2) The per-station section stiffness needs
+the section frame - three estimators failed for three different reasons (§15.2). (3) State the
+`D16 = D26 = 0` fact prominently: the blade has no laminate bend-twist coupling, so the coupon's
+mechanism is not the blade's, and issue #9's original causal story should be corrected there.
+
+### 17.3 Standing rule for this investigation
+
+Four times now the first measurement was an artifact of my own scaffolding: the Ritz load vector,
+the 3D model's load discretisation, the blade twist metric, and the tip-torque stiffness metric.
+Each was caught by a *second independent route*, never by re-checking the same path. So: before
+comparing two models, fix (a) the metric's physical meaning and (b) the load's line of action; and
+when a number looks dramatic (400x, 9x), look in the scaffolding first.
