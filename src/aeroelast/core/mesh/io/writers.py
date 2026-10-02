@@ -570,6 +570,11 @@ def write_ccx_mesh(
     nl_max_increment: Optional[float] = None,
     nl_max_increments: Optional[int] = None,
     shell_element_type: Optional[str] = None,
+    fsi_interface_nodeset: Optional[str] = None,
+    nlgeom: bool = False,
+    direct_increments: bool = False,
+    rayleigh_damping: Optional[tuple[float, float]] = None,
+    output_frequency: Optional[int] = None,
 ) -> None:
     """
     Write the mesh to CalculiX format following CGX conventions.
@@ -631,6 +636,30 @@ def write_ccx_mesh(
         Because ``*SHELL SECTION, COMPOSITE`` requires S8R/S6, selecting
         ``"S4"`` or ``"S8"`` for a composite (laminate) property raises
         :class:`ValueError` instead of silently downgrading the section.
+    fsi_interface_nodeset : str, optional
+        Node-set name of the FSI coupling interface, written *without* the
+        writer's ``N`` prefix (e.g. ``"allOuterShellNods"``); the writer
+        uppercases and prefixes it exactly like ``load_nodeset``.  Required
+        for ``solver_type="DynamicFSI"``: the CalculiX-preCICE adapter reuses
+        CalculiX's point-force data structures, so the deck must carry one
+        zero ``*CLOAD`` per spatial DOF on every interface node.
+    nlgeom : bool, optional
+        Only used by ``solver_type="DynamicFSI"``.  When ``True`` the step
+        card becomes ``*STEP, NLGEOM, INC=<nl_max_increments or 1000000>``.
+        Default ``False`` keeps the linear step card.
+    direct_increments : bool, optional
+        Only used by ``solver_type="DynamicFSI"``.  When ``True`` the
+        integrator card is ``*DYNAMIC, DIRECT`` instead of ``*DYNAMIC``.
+    rayleigh_damping : tuple of 2 floats, optional
+        Only used by ``solver_type="DynamicFSI"``.  ``(alpha, beta)`` Rayleigh
+        coefficients emitted as ``*DAMPING, ALPHA=..., BETA=...`` inside every
+        ``*MATERIAL`` block this deck writes.  Not emitted for any other
+        solver type.
+    output_frequency : int, optional
+        Only used by ``solver_type="DynamicFSI"``.  When given, the output
+        requests become ``*NODE FILE, FREQUENCY=<n>`` / ``*EL FILE,
+        FREQUENCY=<n>``; otherwise the writer's ``FREQUENCY=10`` default is
+        kept (the existing ``LinearDynamic`` behavior).
     """
 
     # ---- Shell element-type selector ------------------------------------
@@ -671,6 +700,31 @@ def write_ccx_mesh(
             "property.  CalculiX requires S8R/S6 for *SHELL SECTION, COMPOSITE; "
             "use shell_element_type='S8R' (or quadratic=True) for a laminate."
         )
+
+    # ---- DynamicFSI (CalculiX-preCICE adapter) arguments --------------
+    # Validated here, before any file is written, so a rejected deck leaves no
+    # partial .msh/.nam/.inp behind.  Both checks default to `None`, so every
+    # pre-existing call site and solver type is untouched.
+    if solver_type == "DynamicFSI" and fsi_interface_nodeset is None:
+        raise ValueError(
+            "solver_type='DynamicFSI' requires fsi_interface_nodeset: the "
+            "CalculiX-preCICE adapter needs the FSI interface node set to write "
+            "one zero *CLOAD per spatial DOF."
+        )
+    if rayleigh_damping is not None:
+        is_valid = (
+            isinstance(rayleigh_damping, tuple)
+            and len(rayleigh_damping) == 2
+            and all(
+                isinstance(value, (int, float)) and not isinstance(value, bool)
+                for value in rayleigh_damping
+            )
+        )
+        if not is_valid:
+            raise ValueError(
+                "rayleigh_damping must be a 2-tuple of floats (alpha, beta); "
+                f"got {rayleigh_damping!r}"
+            )
 
     def split_list(arr, chunk_size: int = 7):
         """Split list into chunks for formatted output."""
@@ -739,6 +793,11 @@ def write_ccx_mesh(
         nl_min_increment=nl_min_increment,
         nl_max_increment=nl_max_increment,
         nl_max_increments=nl_max_increments,
+        fsi_interface_nodeset=fsi_interface_nodeset,
+        nlgeom=nlgeom,
+        direct_increments=direct_increments,
+        rayleigh_damping=rayleigh_damping,
+        output_frequency=output_frequency,
         angle_bucket_sets=angle_bucket_sets,
         quadratic_data=quadratic_data,
     )
@@ -1035,6 +1094,11 @@ def _write_ccx_inp_file(
     nl_min_increment: Optional[float] = None,
     nl_max_increment: Optional[float] = None,
     nl_max_increments: Optional[int] = None,
+    fsi_interface_nodeset: Optional[str] = None,
+    nlgeom: bool = False,
+    direct_increments: bool = False,
+    rayleigh_damping: Optional[tuple[float, float]] = None,
+    output_frequency: Optional[int] = None,
     angle_bucket_sets: Optional[Dict[str, Dict[int, list[int]]]] = None,
     quadratic_data: Optional[Dict] = None,
 ) -> None:
@@ -1066,7 +1130,13 @@ def _write_ccx_inp_file(
 
         # ---- Material & section definitions (when properties provided) ----
         if properties is not None:
-            _write_ccx_materials(f, properties)
+            # Rayleigh damping is a DynamicFSI-only card: do not leak it into
+            # the Modal/Static/Dynamic decks.
+            _write_ccx_materials(
+                f,
+                properties,
+                rayleigh_damping=(rayleigh_damping if solver_type == "DynamicFSI" else None),
+            )
             _write_ccx_orientations(
                 f,
                 properties,
@@ -1123,6 +1193,19 @@ def _write_ccx_inp_file(
                     t_end,
                     n_load_nodes=n_load_nodes,
                 )
+            elif solver_type == "DynamicFSI":
+                _write_ccx_dynamic_fsi_step(
+                    f,
+                    mesh,
+                    boundary_nodeset,
+                    fsi_interface_nodeset,
+                    dt,
+                    t_end,
+                    nlgeom=nlgeom,
+                    direct_increments=direct_increments,
+                    nl_max_increments=nl_max_increments,
+                    output_frequency=output_frequency,
+                )
             else:
                 _write_ccx_modal_step(f, mesh, boundary_nodeset, num_modes)
         else:
@@ -1130,8 +1213,18 @@ def _write_ccx_inp_file(
             _write_ccx_placeholder_comments(f, mesh)
 
 
-def _write_ccx_materials(f, properties: Dict) -> None:
-    """Write *MATERIAL blocks for every unique material found in properties."""
+def _write_ccx_materials(
+    f,
+    properties: Dict,
+    rayleigh_damping: Optional[tuple[float, float]] = None,
+) -> None:
+    """Write *MATERIAL blocks for every unique material found in properties.
+
+    When *rayleigh_damping* is ``(alpha, beta)`` a ``*DAMPING, ALPHA=...,
+    BETA=...`` card is emitted inside **every** material block this call
+    writes.  The default ``None`` (every non-``DynamicFSI`` solver type) adds
+    nothing, so existing decks are unchanged.
+    """
     try:
         from _aeroelast import Laminate as _RL, OrthotropicMaterial as _RMat  # noqa: PLC0415, F401
 
@@ -1330,6 +1423,10 @@ def _write_ccx_materials(f, properties: Dict) -> None:
             f.write(f"{mat.E:.6E}, {mat.nu:.6f}\n")
             f.write("*DENSITY\n")
             f.write(f"{mat.rho:.6E}\n")
+
+        if rayleigh_damping is not None:
+            alpha, beta = float(rayleigh_damping[0]), float(rayleigh_damping[1])
+            f.write(f"*DAMPING, ALPHA={alpha:.6E}, BETA={beta:.6E}\n")
 
 
 def _write_ccx_orientations(
@@ -1815,6 +1912,74 @@ def _write_ccx_dynamic_step(
     f.write("*NODE FILE, FREQUENCY=10\n")
     f.write("U, V\n")
     f.write("*EL FILE, FREQUENCY=10\n")
+    f.write("S\n")
+    f.write("**\n")
+    f.write("*END STEP\n")
+
+
+def _write_ccx_dynamic_fsi_step(
+    f,
+    mesh: "MeshModel",
+    boundary_nodeset: Optional[str],
+    fsi_interface_nodeset: str,
+    dt: float,
+    t_end: float,
+    nlgeom: bool = False,
+    direct_increments: bool = False,
+    nl_max_increments: Optional[int] = None,
+    output_frequency: Optional[int] = None,
+) -> None:
+    """Write the ``DynamicFSI`` step used by the CalculiX-preCICE adapter.
+
+    The adapter reuses CalculiX's point-force data structures for the coupling
+    interface, so the deck must load every interface node in every spatial
+    direction with an explicit zero ("the values of these initial forces can
+    (and should) be chosen to zero", calculix-adapter ``docs/configure.md``).
+    One ``*CLOAD`` line per spatial DOF is written for the whole node set;
+    unlike :func:`_write_ccx_cload` the values are not divided by the node
+    count and zero components are not skipped.
+    """
+    f.write("**\n")
+    f.write("** ===========================================\n")
+    f.write("**          BOUNDARY CONDITIONS\n")
+    f.write("** ===========================================\n")
+    f.write("**\n")
+
+    if boundary_nodeset:
+        nset_name = f"N{boundary_nodeset.upper()}"
+        f.write("*BOUNDARY\n")
+        f.write(f"{nset_name}, 1, 6, 0.0\n")
+    else:
+        for name in mesh.node_sets:
+            f.write("*BOUNDARY\n")
+            f.write(f"N{name.upper()}, 1, 6, 0.0\n")
+            break
+
+    f.write("**\n")
+    f.write("** ===========================================\n")
+    f.write("**          DYNAMIC FSI ANALYSIS\n")
+    f.write("** ===========================================\n")
+    f.write("**\n")
+    if nlgeom:
+        max_increments = nl_max_increments or 1000000
+        f.write(f"*STEP, NLGEOM, INC={max_increments}\n")
+    else:
+        f.write("*STEP\n")
+    f.write("*DYNAMIC, DIRECT\n" if direct_increments else "*DYNAMIC\n")
+    f.write(f"{dt:.6E}, {t_end:.6E}\n")
+    f.write("**\n")
+
+    if fsi_interface_nodeset:
+        interface_set = f"N{fsi_interface_nodeset.upper()}"
+        f.write("*CLOAD\n")
+        for dof in (1, 2, 3):
+            f.write(f"{interface_set}, {dof}, 0.0\n")
+        f.write("**\n")
+
+    frequency = 10 if output_frequency is None else int(output_frequency)
+    f.write(f"*NODE FILE, FREQUENCY={frequency}\n")
+    f.write("U, V\n")
+    f.write(f"*EL FILE, FREQUENCY={frequency}\n")
     f.write("S\n")
     f.write("**\n")
     f.write("*END STEP\n")
