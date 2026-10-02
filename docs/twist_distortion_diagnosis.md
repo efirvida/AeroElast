@@ -292,3 +292,36 @@ Camarena no procede (él usa una tracción uniforme arbitraria, pala de
 100 m del IEA Task 37). La discrepancia del paper — de-loading FSI −31.7%
 vs ancla −15.0% — sigue abierta y solo la resuelve un juez externo:
 solid 3D layer-wise del segmento outboard, o datos experimentales.
+## 13. Estado 2026-10-01: issue upstream #9 y decisión sobre las campañas FSI
+
+**Referencia del cupón puesta en duda (no es bug confirmado del elemento).** El cupón
+`tests/test_laminate_bend_twist.py` da un ratio shell/CLT de **3.4-4.8x** para todo
+laminado desbalanceado (y 0 exacto cuando `D16 = 0`), pero el mismo shell coincide con
+**CalculiX S8R al 0.4%** en el mismo strip (`test_composite_ccx_parity`). La referencia
+CLT del cupón es, además, internamente ambigua (`(D^-1)[2,0]` en el código vs `[2,1]` en
+el docstring; el xfail viejo citaba el valor `[2,1]`). Reportado a upstream como
+**issue #9** (`efirvida/AeroElast`), con el barrido de laminados y el reproductor
+autocontenido. Caveat: el deck de CCX lo escribe nuestro `write_ccx_mesh`, así que
+comparte el writer de geometría/orientación y no es juez independiente del mapeo.
+
+**Decisión sobre las campañas FSI** — el defecto no afecta parejo; depende de la carga
+aeroelástica. Medido en las corridas vivas:
+
+| caso | thrust | CT | régimen | afectado |
+|---|---|---|---|---|
+| ch6 DLC 1.1 | 1.655 MN | 0.502 | operación normal | sí (igual al yaw 0) |
+| ch6 6.1 / 6.3 | 0.05 / -0.16 MN | ~0 | featherado | ~no |
+| parked V50 | 0.273 MN | 0.008 | featherado | ~no |
+| V-06 | — | — | operación normal | sí |
+
+- Los de **operación normal** (yaw, ch6 1.1, V-06) tienen `CT ~ 0.5`: el twist manda y
+  los números no son publicables hasta cerrar el #9.
+- Los **featherados/extremos** (ch6 6.1/6.3, parked) tienen `CT ~ 0`: carga aérea casi
+  nula, el acoplamiento flexo-torsión no se activa -> resultados usables.
+- **Acción**: se cancelaron **todas** las campañas G4 que quedaban. Los V-06
+  (`11604992`/`11604993`) estaban en cola `PD` (sin cómputo gastado); `ch6_rerun`
+  (`11605077`) y `parked_rerun` (`11605081`) se analizaron y después se cancelaron.
+  Del análisis: ch6 1.1 sano pero sesgado (1.655 MN / 12.75 MW, igual al yaw 0);
+  ch6 6.1/6.3 sanos y sin aero. El **parked V50 diverge** (`Tip Disp Y` > 2000 m;
+  `max_disp = 184 m` sobre una pala de 117 m) donde la referencia registrada asienta
+  en 4.705 ± 0.026 m -> **issue #10**. La convergencia h/dt (hecha) no depende del twist.

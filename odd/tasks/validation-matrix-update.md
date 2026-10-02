@@ -56,11 +56,69 @@ the distinction explicitly (`xfail` = "we know and have named the gap").
 
 ## Tasks
 
-- [ ] T1 — Fetch and merge `origin/main` @ `5bfa2b2`; resolve conflicts; rebuild the
+- [x] T1 — Fetch and merge `origin/main` @ `5bfa2b2`; resolve conflicts; rebuild the
       Rust extension; verify the import surface.
-- [ ] T2 — Refresh the AFTER column of the G1/G2 anchors (pytest) and record which
+- [x] T2 — Refresh the AFTER column of the G1/G2 anchors (pytest) and record which
       items became `xfail`.
-- [ ] T3 — Launch the cheapest matrix items in cost order, recording real durations.
-- [ ] T4 — Investigate the G1/G2 deltas against independent references (no band edits).
+- [x] T3 — Launch the cheapest matrix items in cost order, recording real durations.
+- [x] T4 — Investigate the G1/G2 deltas against independent references (no band edits).
 - [ ] T5 — Refresh `docs/origin_main_integration_2026-09-30.md` (or a successor) with
       the per-group verdict and the campaign launch plan.
+
+## Progress
+
+### 2026-10-01 — G4 yaw + h/dt verdict, and its confound
+
+The first two G4 campaigns finished (yaw 0-40, 100 s each; h-coarse/fine and
+dt-coarse/fine, 30 s each) and the snapshot was diffed with
+`tools/campaign_metrics.py`.  To make that possible the tool gained `--alias NEW=OLD`
+because the re-run directories do not carry the recorded campaign names, and its
+delta was switched to be relative to the *before* value; a unit test pins both
+(`tests/test_campaign_metrics.py`, 8 passed).
+
+**Finding (the verdict's key caveat): the before/after is config-confounded.**
+The after campaigns started 2026-09-30 22:55, after `8e6488e` (20:30) changed 30
+solid case YAMLs (`airfoil_spacing: constant -> cosine`) and stopped honouring an
+explicit `hub_radius: 0.0` when the aero has a hub (a 3.97 m strip shift).  The
+recorded `_mitc3fix` campaigns ran the old config.  `Thrust/CT` (= `q·A`) dropped a
+uniform 4.76% across all five yaw cases -- a global, yaw-independent shift, not an
+element effect; the element's static effect is already measured at <=0.6% on the
+blade matrix.  So the yaw delta reads flap -8.5% to -7.7%, thrust ~-5%, power -4.8%
+to -3.9%, CP/CT flat: a *config* before/after, not an element before/after.
+
+Convergence, read within the re-run: dt 0.02 vs 0.005 closes at 0.003%; h converges
+second-order (0.5 -> 0.25 = 4.6%, 0.25 -> 0.125 = 0.84%, observed order ~2.4, 0.125 m
+within ~0.2% of the Richardson limit).  The `convergence_b1_b2_results_official`
+column (flap 17.84 m) is a different geometry and does not read as convergence.
+
+Full write-up: `docs/origin_main_integration_2026-09-30.md`, section "G4 FSI
+campaigns: the finished before/after".  Open follow-up: a clean element A/B needs one
+campaign re-run with the case config held fixed.
+
+Upstream moved again while this ran: `origin/main` `5f189fa -> 31565b3` (13 commits,
+new `validation-2026-09` tag); merge-tree is clean, but do not rebuild until the
+in-flight G4 jobs finish.
+
+### 2026-10-01 (later) — the FSI bias traced to the shell twist; issue #9 and the
+### campaign decision
+
+Chasing why the FSI over-de-loads, the mechanism is the shell's elastic twist feeding
+the BEM's deformed-geometry feedback: rigid BEM 16.51 MW / 2.54 MN (matches Zhou rigid)
+vs FSI 12.96 MW / 1.73 MN, i.e. **-21%/-32% against Zhou's -8%/-13%**. The extraction
+is clean (a controlled field test: pure flap -> 0.3 deg, real torsion -> exact), so the
+twist is a real FEM response: ~8.9 deg vs BeamDyn's 0.98 deg (`docs/twist_distortion_diagnosis.md`,
+open since 2026-09-16).
+
+A controlled flat coupon (`tests/test_laminate_bend_twist.py`, `xfail`) gives shell/CLT
+**3.4-4.8x** (0 when `D16 = 0`), but the same shell matches **CalculiX S8R to 0.4%** on
+the same strip -- so the reference is in dispute, not confirmed as an element bug.
+Filed upstream: **issue #9** (`efirvida/AeroElast`) plus a comment with the exact layup
+sweep reproducer.
+
+**Campaign decision** (the defect scales with aerodynamic load): normal-operation cases
+(yaw, ch6 1.1, V-06) have `CT ~ 0.5` and are biased; the feathered/extreme ones (ch6
+6.1/6.3, parked) have `CT ~ 0` and are usable. Cancelled **every** remaining G4 job:
+the queued V-06 (`11604992/93`, no compute spent) and, after analysing them, `ch6`
+(`11605077`) and `parked` (`11605081`). The parked run diverges (`Tip Disp Y` > 2000 m)
+where the recorded response settles at 4.705 m -- filed as **issue #10**. Convergence
+h/dt is unaffected (discretisation).
