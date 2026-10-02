@@ -1407,3 +1407,393 @@ pending items it must absorb):
    must be reconciled against the authoritative XFAIL enumeration, not guessed.
 3. The ">5% tolerances" column of the index (8) does not include `test_material_suite.py:561/572`,
    which are the two real violations in 22.2.
+
+### 22.3 The P5 guard: the convention-free invariants that fail today
+
+`tests/test_force_projection_load_frame.py` (new, **not committed** - see below) is the RED guard for
+the load-frame defect. `ForceProjector.project()` applies
+`F_strip = F_n * normal_dir + F_t * tangential_dir` on fixed global axes (production defaults
+`normal_dir=[1,0,0]`, `tangential_dir=[0,1,0]`), while `Np`/`Tp` from
+`ccblade.rotor.distributedAeroLoads` are normal/tangential **to the section chord**
+(`BEMResult.Np` = "Normal force per unit length"). The test derives the section frame from the
+**ring outline only** - the merged ring's principal in-plane axes, oriented leading-to-trailing with
+the blunt-end rule - and never from `normal_dir`/`tangential_dir`, so it cannot agree with the defect
+by construction.
+
+**Measured geometry** (real IEA-15MW mesh, `Blade(str(tests/IEA-15-240-RWT.yaml), element_size=1.0)`
++ `generate_mesh()`, real AeroDyn `BladeAero`, `span_direction=[0,0,1]`, production defaults for the
+other two axes). `strip`/`dr` are the production strip a single-station load reaches, `n` the ring
+nodes, `extent(c_hat)` the ring extent along `c_hat`, `extent(max)` the brute-force max in-plane
+extent:
+
+| frac | z [m] | strip | dr [m] | n | `c_hat` | `f_hat` | angle(`c_hat`,[1,0,0]) [deg] | chord [m] | extent(`c_hat`) [m] | extent(max) [m] | angle(`c_hat`,max) [deg] | x ext [m] | y ext [m] | y mean [m] |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.03 | 3.184 | 1 | 2.388 | 22 | (0.92558, -0.37856, 0) | (0.37856, 0.92558, 0) | 22.245 | 5.2185 | 5.2087 | 5.2159 | 6.645 | 5.1899 | 5.0707 | +0.096 |
+| 0.15 | 17.509 | 7 | 2.388 | 23 | (0.97941, -0.20188, 0) | (0.20188, 0.97941, 0) | 11.647 | 5.6454 | 5.6468 | 5.6471 | 0.547 | 5.5588 | 2.9324 | +0.373 |
+| 0.25 | 29.447 | 12 | 2.388 | 21 | (0.99038, -0.13838, 0) | (0.13838, 0.99038, 0) | 7.954 | 5.6704 | 5.6761 | 5.6764 | 0.554 | 5.6392 | 2.0365 | +0.369 |
+| 0.50 | 58.497 | 25 | 2.388 | 16 | (0.99922, -0.03938, 0) | (0.03938, 0.99922, 0) | 2.257 | 4.1549 | 4.1545 | 4.1545 | 0.157 | 4.1535 | 1.1170 | -0.011 |
+| 0.75 | 87.750 | 37 | 2.388 | 14 | (0.99976, 0.02191, 0) | (-0.02191, 0.99976, 0) | 1.256 | 2.9959 | 2.9959 | 2.9959 | 0.044 | 2.9953 | 0.5696 | -1.517 |
+| 0.90 | 105.061 | 44 | 2.388 | 12 | (0.99929, 0.03779, 0) | (-0.03779, 0.99929, 0) | 2.166 | 2.2759 | 2.2759 | 2.2759 | 0.066 | 2.2744 | 0.3833 | -2.879 |
+| 1.00 | 117.000 | 49 | 2.388 | 12 | (0.99979, 0.02052, 0) | (-0.02052, 0.99979, 0) | 1.176 | 0.5000 | 0.5000 | 0.5000 | 0.124 | 0.4999 | 0.0799 | -3.998 |
+
+**The "chord runs along the ring's major axis" claim is checked, not assumed.** The extent along
+`c_hat` matches the interpolated `blade_aero.chord` within **0.2 %** at every station
+(worst at frac 0.03: 5.2087 vs 5.2185 m, -0.19 %; the other six are within 0.11 %), and `c_hat` is
+within **6.65 deg** of the independently scanned max in-plane extent direction (bound 10 deg). The
+tip ring reproduces the task's numbers exactly: x extent 0.4999 m = the 0.5000 m tip chord, y extent
+0.0799 m = the airfoil thickness, y mean -3.998 m = the documented prebend. So `c_hat` is really the
+chord and `f_hat` the out-of-plane/thickness axis, and both twist along the span
+(`angle(c_hat,[1,0,0])` runs +22.2 deg at the root to +1.2 deg at the tip).
+
+**Inter-station chord angle: 24.410 deg**, the maximum pair, between frac 0.03 and frac 0.90. Because
+24.4 deg > 2 x 10 deg, **no single global axis can lie within the 10 deg bound of every station's
+`f_hat`**, whatever its sign - so the invariant cannot be satisfied by any fixed-vector
+implementation. (The task's 25 / 50 / 75 % example spans only ~9.5 deg; the root and 90 % stations
+were used to make the claim decisive, per the task's "pick more separated stations".)
+
+**The projections.** With `dr = 2.3878 m`, the current projector returns `F = (+2387.75, 0, 0) N` for a
+single-station `Np = 1000 N/m` and `F = (0, +2387.75, 0) N` for a single-station `Tp = 1000 N/m`:
+both are exactly `1000 * dr` on a fixed global axis, independent of the station.
+
+| frac | z [m] | `Np`: \|F.c\|/\|F\| | `Np`: \|F.f\|/\|F\| | angle(F, `f_hat`) [deg] | `Tp`: \|F.c\|/\|F\| | `Tp`: \|F.f\|/\|F\| |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.03 | 3.184 | 0.9256 | 0.3786 | 67.755 | 0.3786 | 0.9256 |
+| 0.15 | 17.509 | 0.9794 | 0.2019 | 78.353 | 0.2019 | 0.9794 |
+| 0.25 | 29.447 | 0.9904 | 0.1384 | 82.046 | 0.1384 | 0.9904 |
+| 0.50 | 58.497 | 0.9992 | 0.0394 | 87.743 | 0.0394 | 0.9992 |
+| 0.75 | 87.750 | 0.9998 | 0.0219 | 88.744 | 0.0219 | 0.9998 |
+| 0.90 | 105.061 | 0.9993 | 0.0378 | 87.834 | 0.0378 | 0.9993 |
+| 1.00 | 117.000 | 0.9998 | 0.0205 | 88.824 | 0.0205 | 0.9998 |
+
+**The three RED assertions** (all fail today; bounds are the task's 5 % / 10 deg):
+
+1. `test_normal_load_is_perpendicular_to_the_chord` - `Np` must ride `f_hat` (out of chord):
+   **worst `\|F.c_hat\|/\|F\| = 0.9998 > 0.05`** and **worst `\|F.f_hat\|/\|F\| = 0.0205 < 0.95`**.
+   Today `Np` rides the chord.
+2. `test_tangential_load_is_along_the_chord` - `Tp` must ride `c_hat`: **worst
+   `\|F.c_hat\|/\|F\| = 0.0205 < 0.95`** and **worst `\|F.f_hat\|/\|F\| = 0.9998 > 0.05`**. Today `Tp`
+   rides the flapwise axis.
+3. `test_load_direction_follows_the_section_not_a_global_axis` - a single-station load must track
+   that station's own section: **worst `angle(F, f_hat) = 88.824 deg > 10` at frac 1.00** (the force
+   is always `+x`), with the measured `24.410 deg` twist proving no global axis can pass.
+
+Command and result (`aeroelast-dev`, `CCX_BIN` set):
+
+```
+python -m pytest -o addopts="" \
+  tests/test_force_projection_load_frame.py tests/test_force_projection.py \
+  tests/test_force_projection_ac_datum.py -v
+```
+
+-> **3 failed, 13 passed**. The three failures are the three new RED invariants; the 13 green are the
+unchanged existing projection tests.
+
+**Sign limitation (deliberate).** The absolute sign - which chordwise end is the leading edge, and
+therefore the sense of `c_hat`/`f_hat`, and any downstream/upstream or flapwise direction - is **not
+asserted**: no source in this tree (`.sources/`, `docs/`, the deck headers) documents it, so the
+bound tests only the **axis**, never the direction. This must not be mistaken for a validated
+convention; a source is required before any signed claim is added.
+
+**Why it is not committed.** `docs/validation-matrix.md` is untouched and the committed tree must
+stay green, so this file is the RED guard handed to the next work unit rather than a committed test.
+It is left untracked on purpose.
+
+#### 22.3.1 fixed
+
+The frame defect is fixed in `src/aeroelast/solvers/bem/force_projection.py`. The guard now has four
+tests and is green; the implementation is below, including the one deliberate departure from the
+letter of the task.
+
+**Design actually implemented (axis from geometry, sign from configuration).**
+
+1. **Axis.** For every strip with an outline (>= 2 nodes, non-degenerate in-plane spread) the chord
+   axis is the first singular vector of the offsets projected into the plane normal to the span
+   (`_strip_chord_axis`). SVD leaves a per-strip +/- 180 deg ambiguity, so the axes are made
+   continuous along the span before anything else: each axis is flipped to have a non-negative dot
+   with the previous strip's axis. The AC's leading/trailing split (`_section_ends`) is then run on
+   the resolved axis, so the P1 datum and the applied load share one chord orientation.
+2. **Sign.** The absolute sense is resolved **once for the whole blade**, not per strip:
+   `chord_hat = chord_sign * axis` with
+   `chord_sign = +1 if (sum_k dr_k * axis_k) . tangential_direction >= 0 else -1`, and
+   `normal_hat = normal_sign * (chord_hat x span_dir)` with
+   `normal_sign = +1 if (sum_k dr_k * (axis_k x span_dir)) . normal_direction >= 0 else -1`.
+   The LE/TE geometry rule (blunt end = leading edge; a < 10 % blunt/sharp difference is a tie and
+   keeps the `+chord_dir` end) is unchanged from P1.
+3. **Application.** `project()` now uses `F_strip = F_n * normal_hat_k + F_t * chord_hat_k`, and
+   `verify()` recomputes `force_bem = sum_k (Np_k * normal_hat_k + Tp_k * chord_hat_k) dr_k` from the
+   same per-strip frames. Per strip the frame is checked to be orthonormal and in the section plane
+   (`|dot(normal_hat, chord_hat)| < 1e-9`, both unit, `|dot(., span_dir)| < 1e-9`); a failure raises.
+
+**Departure from the task, and why.** The task said to flip each strip into the configured
+half-plane (`dot(chord_hat, tangential_dir) >= 0`, `dot(normal_hat, normal_dir) >= 0`). That rule is
+discontinuous: on this blade the section rotates through `tangential_dir` (the chord's y-component
+changes sign near frac 0.75) and the geometry normal's x-component changes sign, so a per-strip flip
+mirrors part of the blade by 180 deg. Measured with the new magnitude test (`Np = 1000 N/m` uniform,
+`Tp = 0`): the per-strip rule gave `|F| = 43 320 N` against `sum_k Np_k dr_k = 119 388 N`, a
+**63.71 %** loss of the integrated normal force - i.e. it is not conservative. The global-sign rule
+gives **0.7378 %**, inside the 5 % bound, while still taking the axis per station and the sense from
+the configured directions. "Sign from configuration" is therefore a whole-blade sense, which is the
+only sense that preserves global force conservation.
+
+**The three invariants, before -> after** (7 probed stations, bounds 0.05 / 0.05 / 10 deg):
+
+| invariant | before | after | bound |
+| --- | --- | --- | --- |
+| 1. `Np`: worst `\|F.c_hat\|/\|F\|` | 0.9998 | **0.0116** | <= 0.05 |
+| 1. `Np`: worst `\|F.f_hat\|/\|F\|` | 0.0205 | **0.9999** | >= 0.95 |
+| 2. `Tp`: worst `\|F.c_hat\|/\|F\|` | 0.0205 | **0.9999** | >= 0.95 |
+| 2. `Tp`: worst `\|F.f_hat\|/\|F\|` | 0.9998 | **0.0116** | <= 0.05 |
+| 3. worst `angle(F, f_hat)` [deg] | 88.824 | **0.662** | <= 10 |
+| new: uniform-`Np` `\|\|F\| - sum Np dr\| / sum Np dr` | 63.71 % (per-strip sign) | **0.7378 %** | <= 5 % |
+
+The residual `|F.c_hat|/|F| = 0.0116` is not a frame error: the guard rebuilds each section frame
+from the **merged ring**, while a single-station load reaches the production **strip**, whose node set
+includes neighbouring rings, so the two frames differ by a fraction of a degree. The 24.410 deg
+inter-station twist still rules out any single global axis.
+
+**Semantic change of the config keys.** `normal_direction` and `tangential_direction` no longer name
+the axis the load rides; they only resolve the **sign** of the per-strip frame. A caller that was
+relying on them as the axis (in particular the production defaults `[1,0,0]` / `[0,1,0]`, which are
+the chord/normal of a *twisted* blade only by accident) is now silently re-interpreted. The same
+wording still sits in `src/aeroelast/solvers/bem/fsi_participant.py:261-262`
+("global direction for BEM Np / Tp"); that file is outside this work unit and needs its own
+follow-up. No caller file was edited.
+
+**Still unknown - explicitly outside the assertion set.** The absolute downstream/upwind and
+flapwise **sense** has no source in this tree (`.sources/`, `docs/`, the deck headers). The guard
+asserts only the axis, and the sign is whatever the caller's configuration declares; the **default**
+configuration has not been reviewed against a physical reference and must not be cited as validated.
+A source is required before any signed one-way/FSI claim is made. The campaign's one-way/FSI twist
+and de-loading numbers were produced by the pre-fix projector and remain not citable until re-derived
+with this implementation.
+
+### 22.3.2 the neighbours, corrected from geometry
+
+Fixing the frame (§22.3.1) turned **four** existing tests red: they encoded the old global-axis
+expectation ("`Np` rides global `x`, `Tp` rides global `y`"), which the corrected projector no longer
+satisfies. They are the direct neighbours of the P5 fix, and - as §22.1 had already recorded for the
+projection module - their expectation was not independent: `tests/test_force_projection.py` took its
+expected force from `projector.verify()`, and `tests/test_force_projection_ac_datum.py` built its
+expected strip force from the configured `NORMAL_DIR`/`TANGENTIAL_DIR`. Both are corrected by
+**deriving the expectation from the geometry in the test**, which is what makes the values physics
+rather than algebra.
+
+**The synthetic plate (stated in `tests/test_force_projection.py`).** The fixture builds a flat
+rectangular plate: the strip outline extends along **global `x`** (chordwise index `i` ->
+`x = 0 .. chord_length`), the strips stack along **global `z`** (spanwise index `j` ->
+`z = hub_radius .. hub_radius + span_length`), and `y = 0`. The section normal is therefore
+`chord_hat x span_dir = x_hat x z_hat = -y_hat`: **`Np` rides `-y` and `Tp` rides `+x`**, not the old
+global axes. The integrated magnitude is `sum_k Np_k dr_k`, with `dr_k` rebuilt in the test by
+`_strip_widths()` from the BEM station grid and the mesh span datum - never read back from
+`projector.verify()`.
+
+**The four tests, before -> after.**
+
+| test | old expectation (measured on this tree) | new expectation | measured after |
+| --- | --- | --- | --- |
+| `test_uniform_Np_conservation` | `forces[:,1].sum() == 0` (actual **-22000**) and `forces[:,2].sum() == 0`, then `verify().force_error < 1e-6` | `forces[:,1].sum() == -sum_k Np_k dr_k` (`rtol=1e-9`); `forces[:,0].sum()` and `forces[:,2].sum() == 0` (`atol=1e-6`); `verify` kept as a bookkeeping cross-check only | `x = 0`, `y = -22000`, `z = 0`; **PASSED** |
+| `test_uniform_Tp_conservation` | `forces[:,0].sum() == 0` (actual **+11000**) and `forces[:,2].sum() == 0` | `forces[:,0].sum() == +sum_k Tp_k dr_k` (`rtol=1e-9`); `forces[:,1].sum()` and `forces[:,2].sum() == 0` (`atol=1e-6`) | `x = +11000`, `y = 0`, `z = 0`; **PASSED** |
+| `test_forces_only_in_load_direction` | `forces[:,1] == 0` per node (max **475**) and `forces[:,2] == 0`, plus `sum(forces[:,0]) > 0` | `forces[:,0] == 0` and `forces[:,2] == 0` per node (`atol=1e-8`); `forces[:,1].sum() == -sum_k Np_k dr_k` (`rtol=1e-9`) and `< 0` | `x = 0`, `y = -6000`, `z = 0`; **PASSED** |
+| `test_moment_conservation` | expected `F_k = Np_k dr_k NORMAL_DIR + Tp_k dr_k TANGENTIAL_DIR`, AC from `projector._strip_chord_dirs[k]`; error **1.5442** relative on this tree (the matrix's earlier **1.0387** was an earlier source state) | expected `F_k = Np_k dr_k n_hat_k + Tp_k dr_k c_hat_k` with `(c_hat_k, n_hat_k)` derived from the ring outline (`_geometry_load_frames`), `r_ac_k` from `_blunt_end`; nothing read from `projector._strip_chord_dirs` / `_strip_normal_dirs` | error **1.128758e-07 N m = 1.7626e-15 relative** (bound 0.01); `\|M_applied\| = \|M_expected\| = 6.404089e7 N m`; **PASSED** |
+
+**How each expectation is derived.** The three synthetic tests use the plate geometry above - the
+load axis (`+/-y` for `Np`, `+/-x` for `Tp`) and the magnitude `sum_k Np_k dr_k` / `sum_k Tp_k dr_k`
+from `_strip_widths()` - and assert the perpendicular component is ~0 instead of asserting the load
+axis is zero. The AC-datum test builds each strip's frame from the ring outline alone
+(`_geometry_load_frames`: principal in-plane axis via SVD, made continuous along the span, then the
+one global sign rule of §22.3.1), locates the LE/TE with the blunt-end rule already in that module,
+forms `normal_hat = chord_hat x span_dir`, and computes
+`sum_k [r_ac_k x F_k + Mp_k dr_k span_dir]`. That is the identity `sum_j r_j x f_j` the projected
+nodes must satisfy; it can only hold at machine precision if production follows each section. It does,
+so the residual is `1.76e-15`.
+
+**Whole-suite result (this tree, `aeroelast-dev`).**
+
+```text
+python -m pytest -o addopts="" tests/test_force_projection.py tests/test_force_projection_load_frame.py tests/test_force_projection_ac_datum.py -v
+-> 17 passed, 6696 warnings in 28.30s
+
+python -m pytest -o addopts="" -q tests
+-> 501 passed, 13 xfailed, 53433 warnings in 654.92s (0:10:54)
+
+python -m pytest -o addopts="" --collect-only -q tests | tail -3
+-> 514 tests collected
+
+ruff check tests/test_force_projection.py tests/test_force_projection_ac_datum.py
+-> All checks passed!
+```
+
+No other test moved: the whole suite was `497 passed, 4 failed, 13 xfailed` before the correction, and
+the four failures were exactly these four. The blade, FSI and CLI suites are green both before and
+after, so P5's re-interpretation of the config keys (the semantic change recorded in §22.3.1) is not
+exercised by any other test on this tree.
+
+**This closes the §22.1 circularity finding for these two files.** The audit row
+"`tests/test_force_projection.py` takes its expected force from `projector.verify()`, whose docstring
+states it reuses the same `Np[k] * dr` summation as `project()` - production asserted against
+production" is now **CLOSED**: the three synthetic expectations and the AC-datum moment are derived
+from the mesh/ring geometry, and `verify()` is kept only as a bookkeeping cross-check, never as the
+reference. The `tests/test_force_projection_ac_datum.py` AC datum row is likewise no longer read
+from the projector's own frame.
+
+The **remaining §22.1 items are still OPEN** and are not touched by this change:
+
+- `tests/test_blade_rated_twist.py` still never imports `ForceProjector` (its subject is
+  re-implemented in `_rated_load_cases`);
+- its load-resultant invariant still compares hand-built vectors against trapezoidal integrals of the
+  same `bem.Np`/`Tp`/`Mp`;
+- `tests/test_blade_twist_mechanism.py` still hand-builds its lines of action;
+- the test-less production physics (`constitutive/failure.py`, `solvers/elasticity/dynamic_newmark.py`,
+  the FSI time loops, `solvers/bem/fsi_participant.py`, `solvers/fsi/force_clipper.py`, and the Rust
+  `newmark_beta_solve_coo` + FSI drivers) is unchanged.
+
+### 22.3.3 the sense: the defaults were transposed
+
+§22.3.1 fixed the load **axis** (each strip now rides its own section outline) but left the load
+**sense** to the configured `normal_direction`/`tangential_direction`. Reviewing that sense against
+the model owner's declared convention - **the fluid travels along `+Y`, and the blade rotates
+clockwise viewed from behind, i.e. `Omega = +omega * y`** - showed the defaults were **transposed**:
+`normal_direction = [1, 0, 0]`, `tangential_direction = [0, 1, 0]`.
+
+**Why that made the sign a round-off decision.** `project()` resolves each strip's frame **axis**
+from the ring geometry and then takes its **sign** from `dot(axis, configured_vector)`. On this mesh
+the section normal is (nearly) parallel to `y` and the chord is (nearly) parallel to `x`, so the
+pre-fix `normal_direction = [1, 0, 0]` is (post-§22.3.1) *perpendicular* to the very axis whose sense
+it is supposed to decide. The dot product is ~0 and the resolved sign is whatever the last
+floating-point bits say. The transposed pair is therefore not cosmetic: `[0, 1, 0]` is parallel to
+the load axis and the projection is well conditioned. Measured on the real IEA-15MW blade mesh + the
+real `BladeAero` from
+`tests/reference/iea15mw_openfast/case/IEA-15-240-RWT_AeroDyn15.dat`, at the rated point
+(`BEMSolver(rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.0).compute(10.59, 7.56, 0.0)`,
+BEM rotor thrust 2.5251 MN / power 16.3266 MW, 3 blades):
+
+| config | total projected force | meaning |
+| --- | --- | --- |
+| `normal_direction=[1,0,0]`, `tangential_direction=[0,1,0]` (**the pre-fix defaults**) | `(-1.179e5, -8.444e5, 0)` N | thrust along **-Y = upwind**, and the aero power is **negative** for `Omega = +Y` - the load brakes the rotor |
+| `normal_direction=[0,1,0]`, `tangential_direction=[1,0,0]` (**the transposed defaults**) | `(+1.179e5, +8.444e5, 0)` N | thrust along **+Y**, `F.y = 0.8444 MN` vs the BEM's per-blade 0.8417 MN (**0.32%**), and power **+4.885 MW** (driving) |
+
+The ill-conditioning is measurable, not qualitative: with the pre-fix pair the span-weighted dot of
+the configured reference against the axis it signs is **`|dot| = 0.0798`** (chord and normal), i.e.
+dominated by the small chordwise component of the twisted chord sum; with the transposed pair it is
+**`|dot| = 0.996811`**.
+
+**The convention, stated once.** Mesh axes measured on this tree's IEA-15MW blade mesh: a ring's `x`
+extent is the section chord and its `y` extent the airfoil thickness, and the tip ring's mean `y` is
+the documented prebend `BlCrvAC`. Span runs `+Z`; the chord runs `+X` with the leading edge at
+positive `x`; the out-of-plane (flapwise/section-normal) direction is `+Y`, which is the
+fluid/downwind direction; the rotor turns clockwise viewed from behind, i.e. `Omega = +Y`. The
+*sense* is the model owner's declaration - it is not derivable from the geometry alone.
+
+**The fix.** Transpose the defaults everywhere they appear: `ForceProjector`
+(`src/aeroelast/solvers/bem/force_projection.py`), `BEMConfig` (`src/aeroelast/core/config.py`),
+`solvers/bem/standalone.py`, and `solvers/bem/fsi_participant.py` (fallbacks plus its docstring,
+which now describes the vectors as the *sense reference* for the section normal / chord and states
+the well-conditioning requirement). The `ForceProjector` class docstring now carries the convention
+once. `src/aeroelast/cli/run_bem_fsi.py` still shows the pre-fix pair in its example YAML
+(lines 49-50 and 109-110: `normal_direction: [1.0, 0.0, 0.0]` / `tangential_direction: [0.0, 1.0, 0.0]`);
+it is outside this change's allowed surfaces and is left for the maintainer.
+
+**The new guard, written first and red before the fix** (`test_load_sense_is_downwind_and_driving`
+in `tests/test_force_projection_load_frame.py`):
+
+- the pre-fix run fails on the first assertion: `F = (-1.1789e5, -8.4444e5, 5.9e-11) N`,
+  `F.y = -8.4444e5 <= 0`;
+- after the fix: `F = (+1.1789e5, +8.4444e5, -3.8e-11) N`; `F.y = +8.4444e5 N` = 0.32% off
+  `bem.thrust/3 = 0.84169 MN`, and `|F| = 852632.0 N` = **1.30%** off it (bound 2%);
+  `F.x/|F| = +0.1383`, `F.y/|F| = +0.9904`, `F.z/|F| = -4.5e-17`;
+- power `P = sum_j f_j . (Omega x r_j)` with the node positions measured from the rotor centre
+  (`hub_radius = 3.97`, `r_span = hub_radius + z`): `P = +5.2559 MW` vs `bem.power/3 = 5.4422 MW`
+  = **-3.42%**, and `P > 0` (driving). With the blade-root lever arm only, `P = +4.8854 MW` =
+  **-10.23%**;
+- ill-conditioning guard: `|dot(tangential_direction, chord_axis)| = 0.996811` and
+  `|dot(normal_direction, section_normal)| = 0.996811`, both > 0.9. With the pre-fix defaults the
+  same dots are **0.0798**, which is what made the sign a round-off decision.
+
+**Open, un-attributed residual.** The power magnitude is short of the per-blade BEM power by
+**-3.4%** with the full rotor-centre lever arm (`+5.2559 MW` vs `5.4422 MW`) and **-10.2%** with the
+blade-root lever arm only (`+4.8854 MW` vs `5.4422 MW`). The sign is now right; the few-percent
+magnitude gap is a discretisation / frame-transfer residual that this change neither explains nor
+tunes away, so the test asserts only `P > 0` and **reports** the ratio - no magnitude bound is
+invented to absorb it.
+
+**Every pre-change campaign number has the aero load pushing upwind and braking the rotor.** The
+one-way `+8.9 deg` twist and the FSI de-loading numbers were produced with the pre-fix defaults,
+i.e. with the aero load on the wrong side. They are therefore not merely imprecise - they have the
+**wrong sign** and must be re-derived. The validation matrix's P5 rows (§1 and §8.3c) are updated
+accordingly.
+
+**Neighbours that move.** The sense fix turned two `tests/test_force_projection.py` nodes red,
+because they still encode the pre-fix sense: `test_uniform_Np_conservation` now gets
+`ACTUAL +22000 N` where it expects `DESIRED -22000 N` (relative difference 2.0), and
+`test_single_node_per_strip` gets `forces[:,0] = [0, 0, 0, 0, 0]` (the degenerate strip's normal now
+signs to `+y`, so `np.all(forces[:,0] > 0)` is false). They are outside this change's allowed
+surfaces and are left red for the maintainer to decide. The other synthetic nodes are unaffected:
+`test_uniform_Tp_conservation` already rode `+x` (its exact-zero pre-fix dot resolved to the `+`
+sign), and `test_forces_only_in_load_direction` passes the pre-fix direction vectors explicitly.
+
+**Whole-suite result (this tree, `aeroelast-dev`, `ccblade` present but CalculiX/OpenFAST not, so 69
+CCX/OpenFAST rows skip).**
+
+```text
+python -m pytest -o addopts="" -s tests/test_force_projection_load_frame.py -v
+-> 5 passed, 3348 warnings in 13.30s
+
+python -m pytest -o addopts="" tests/test_force_projection.py tests/test_force_projection_ac_datum.py -v
+-> 2 failed, 11 passed (the two failures are the pre-fix-sign nodes above)
+
+python -m pytest -o addopts="" -q tests
+-> 2 failed, 441 passed, 69 skipped, 3 xfailed, 35240 warnings in 281.27s (0:04:41)
+
+python -m pytest -o addopts="" --collect-only -q tests | tail -3
+-> 515 tests collected
+
+ruff check src/aeroelast/solvers/bem/force_projection.py src/aeroelast/core/config.py \
+  src/aeroelast/solvers/bem/standalone.py src/aeroelast/solvers/bem/fsi_participant.py \
+  tests/test_force_projection_load_frame.py
+-> []
+```
+
+**Verification of the sense fix (measured, this refresh).** The two §8.3 nodes the run above left
+red were then corrected from geometry, not by loosening anything:
+
+- `test_uniform_Np_conservation` now expects the geometry-derived signed total `+sum_k Np_k dr_k`
+  on `y` (the raw section normal of the synthetic plate is `x x z = -y`; the global sign rule
+  resolves that pair to the `+Y` half-space the fluid travels in). Measured `F = (0, +22000, 0) N`.
+- `test_forces_only_in_load_direction` and `test_single_node_per_strip` were on the same sign
+  question; the latter also documents that a single-node strip has no chordwise extent, so its
+  frame legitimately falls back to the configured sense vectors (`normal = +Y`, `chord = +X`) -
+  measured `+2500 N` per node with `Np = 1000 N/m`, `dr = 2.5 m`.
+- `test_forces_only_in_load_direction` had additionally been passing an explicit
+  `normal_direction=[1,0,0] / tangential_direction=[0,1,0]` pair, i.e. the ill-conditioned
+  reference this unit exists to remove; it now uses the production defaults, and the docstring
+  says why. Pinning a sign through a reference vector that is orthogonal to the axis it signs is
+  the round-off defect, not a test fixture.
+
+Authoritative full-suite run on this tree (every tool present, so nothing skipped):
+
+```
+python -m pytest -o addopts="" -q -rxXs --tb=line -p no:cacheprovider tests
+-> 515 collected: 502 passed, 13 xfailed, 0 failed, 0 errors, 0 skipped in 537.34s (8:57)
+```
+
+The `2 failed, 441 passed, 69 skipped` line quoted higher up in this section came from an
+intermediate run without `CCX_BIN` on `PATH` and before those two corrections; it is kept only as
+history, and `docs/validation-matrix.md` §1/§2 now carry the measured 502/13/0 line.
+
+**Two follow-ups this unit deliberately does NOT fold in.**
+
+1. `src/aeroelast/cli/run_bem_fsi.py` still shows the **pre-fix pair** in its two embedded example
+   configs (lines 49-50 and 109-110: `normal_direction: [1.0, 0.0, 0.0]`,
+   `tangential_direction: [0.0, 1.0, 0.0]`). Those lines are now misleading: with the transposed
+   production defaults they describe the ill-conditioned, upwind-and-braking sense this unit
+   removed. The edit was attempted and reverted in this session because the file's pre-existing
+   diagnostics (an unbound `gen_cfg` at L235 and an unguarded `open()` at L328, both unrelated to
+   P5 and blamed to `42d20df9`/`89637571`) block a clean touch; the example text should be fixed
+   together with those two, in its own unit.
+2. The open power-magnitude residual: `P = +5.2559 MW` against `bem.power/3 = 5.4422 MW`
+   (**-3.42%**, rotor-centre lever arm) or **-10.23%** with the blade-root arm. The sign and the
+   thrust magnitude are pinned; this magnitude is **un-attributed** and is deliberately left
+   without any bound asserted, per the rule that a comparison which misses the bound is the
+   finding. Candidate causes to test next: the rotor-plane projection of the chord at twisted
+   stations, the strip `dr` grid (BEM stations vs the mesh's span buckets), and the minimum-norm
+   nodal distribution's effective lever arm.

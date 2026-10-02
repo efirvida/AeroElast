@@ -42,7 +42,7 @@ notes (flags per §9). `not printed` means the test asserts without printing a r
    residual; the *measured margin* column is exactly that output. Run it with `CCX_BIN`
    set, OpenFAST reachable and `neuralfoil` installed (§12), or the relevant rows skip.
 2. `python -m pytest -o addopts="" --collect-only -q` reproduces the file-by-file
-   inventory in §2 (442 tests / 40 files) that proves nothing drifted.
+   inventory in §2 (447 tests / 41 files) that proves nothing drifted.
 3. §2.1 is the headline table; §3-§8 are the per-row evidence behind it; §12 has the
    per-tool commands and the skip conditions.
 4. For a paper table, copy the row's *reference*, *tolerance* and *measured margin*
@@ -114,7 +114,7 @@ and quote the bound next to the number.
 | Composite outer-fibre **stress** recovery | `*SHELL SECTION, COMPOSITE` ignores `OUTPUT=3D`; no independent stress judge (issue #3). Only the ABD matrices are validated. |
 | Rotating / centrifugal modal shift | the MITC4 `K_G` thickness bug was fixed (issue #7), but the rotating modes are **not** validated against OpenFAST anywhere in this suite |
 | Experimental (wind-tunnel or field) validation | none; every reference is a code, a closed form or a published model |
-| **The BEM->mesh load frame (`ForceProjector`), OPEN defect P5** | **measured, unfixed, and it invalidates every blade number produced through this path.** `Np`/`Tp` are section-local (normal/tangential to the chord, from `ccblade` at a given azimuth) but `project()` applies them on fixed global axes (`normal_direction=[1,0,0]`, `tangential_direction=[0,1,0]`). On the real IEA-15MW mesh the chord runs along x (the tip ring's x extent = 0.500 m = the tip chord; y extent = 0.080 m = the thickness), and projecting `Np>0, Tp=0` puts **100% of the normal load on the chord direction** - the aero load is transposed ~90 deg about the blade axis. Nothing catches it: `verify()` and `tests/test_force_projection_ac_datum.py` both build their expected force from the same `normal_dir`/`tangential_dir` the code uses, so they are self-consistent with any convention. Do not cite the campaign's one-way/FSI twist or de-loading numbers until this is fixed (task document section 22.1 and the P5 notes). |
+| **The BEM->mesh load frame (`ForceProjector`), defect P5 - frame fixed, sense fixed and pinned** | The frame defect is **fixed and guarded** by `tests/test_force_projection_load_frame.py` (§8.3c): the load axis is now per-strip from the section outline, so `Np`/`Tp` ride the section normal/chord (`Np`: worst `\|F.c_hat\|/\|F\| = 0.0116`, `\|F.f_hat\|/\|F\| = 0.9999`; `Tp`: worst `0.0116` / `0.9999`; worst `angle(F, f_hat) = 0.662 deg`; uniform-`Np` conservation **0.74%**; bounds 5% / 5% / 10 deg / 5%). The §8.3b moment check now also builds its per-strip frame from the ring outline and reproduces the applied moment to **1.76e-15 relative** (bound 1%). The load **sense** is now pinned too (§22.3.3): with the transposed production defaults (`normal_direction=[0,1,0]`, `tangential_direction=[1,0,0]`) the rated summed load points downwind (`F.y = +8.4444e5 N > 0`, `\|F\| = 8.5263e5 N` = **1.30%** off `bem.thrust/3`, bound 2%) and delivers **positive** power for `Omega = +0.7917 y` (`+5.256 MW`, **-3.4%** of `bem.power/3`; **-10.2%** with the blade-root lever arm) - an open, un-attributed magnitude residual, reported not tuned. The pre-fix defaults were **transposed**, so the configured `normal_direction` was nearly orthogonal to the section normal (`|dot| = 0.0798` vs `0.9968`) and its sign was ill-conditioned: **every campaign number produced before this change had its aero load pushing upwind and braking the rotor**, so the one-way `+8.9 deg` twist and the FSI de-loading numbers are not merely imprecise - they have the **wrong sign** and must be re-derived. The still-open consequence is the few-percent power magnitude, not the sign. |
 
 ### The rule the suite enforces
 
@@ -125,7 +125,7 @@ exceed the bound are the `xfail` list above. A green suite never unflags a row.
 
 ## Index
 
-Six groups, 40 files, 442 tests. Every collected test node is accounted for below;
+Six groups, 41 files, 447 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
@@ -135,8 +135,8 @@ Six groups, 40 files, 442 tests. Every collected test node is accounted for belo
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
 | Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 11 | 155 | 155 | 0 | 0.45% – 3.86% | 1 |
 | Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
-| BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 6 | 63 | 63 | 0 | 0.33% – 40.60% | 0 |
-| **Total** | | **40** | **442** | **442** | **0** | | **8** |
+| BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 7 | 68 | 66 | 2 | 0.33% – 40.60% | 0 |
+| **Total** | | **41** | **447** | **445** | **2** | | **8** |
 
 **A large margin is not a failure.** `passed = 413, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -192,6 +192,7 @@ By file and subsection:
   - [8.2 `test_bem_engine.py` (14) and `test_blade_mesh.py` (1)](#82-test_bem_enginepy-14-and-test_blade_meshpy-1)
   - [8.3 `test_force_projection.py` (10)](#83-test_force_projectionpy-10)
   - [8.3b `test_force_projection_ac_datum.py` (3)](#83b-test_force_projection_ac_datumpy-3)
+  - [8.3c `test_force_projection_load_frame.py` (5)](#83c-test_force_projection_load_framepy-5)
   - [8.4 `test_bem_openfast_parity.py` (13)](#84-test_bem_openfast_paritypy-13)
 - [9. Flag summary](#9-flag-summary)
   - [9.1 Tautological references](#91-tautological-references-the-arithmetic-under-test-re-implemented-in-the-test)
@@ -210,16 +211,23 @@ By file and subsection:
 
 ## 1. How this matrix was produced
 
-**Current tree (measured 2026-10-02 at `6064aa8`).** The collected suite is **510 tests /
-47 files** and the full run is **497 passed, 13 xfailed, 0 failed, 0 errors, 0 skipped**
-(`python -m pytest -o addopts="" -q -rxXs --tb=line -p no:cacheprovider tests`, 43:58) with
-CalculiX 2.23, OpenFAST 4.2.1, `ccblade` and `neuralfoil` present, so no row skipped. An
-earlier run of the same tree content - before `6064aa8` was committed, with nothing else
-competing for the CPU - gave the identical result, **497 passed, 13 xfailed, 0 failed**, in
-26:06; the wall-time difference is contention, not a different outcome. The 13 `xfail` are
+**Current tree (measured 2026-10-02: `6064aa8` plus the P5 frame fix, the geometry-derived
+§8.3/§8.3b expectations and the §22.3.3 P5 sense fix).** The collected suite is **515 tests /
+48 files** and the authoritative full run on exactly this tree is **`502 passed, 13 xfailed, 0
+failed, 0 errors, 0 skipped`** (`python -m pytest -o addopts="" -q -rxXs --tb=line
+-p no:cacheprovider tests`, 537.34s) with CalculiX 2.23, OpenFAST 4.2.1, `ccblade` and
+`neuralfoil` present, so no row skipped. The lineage of that number, so a stale cell is not
+mistaken for a regression: the pre-P5 baseline at `6064aa8` was `510 collected: 497 passed, 13
+xfailed, 0 failed`; the P5 frame fix turned four §8.3/§8.3b nodes red because they asserted the
+old global-axis force direction, and they are green again under expectations derived from the
+section geometry; the §8.3c guards add five nodes. An intermediate run of this same tree content
+reported `2 failed` because two §8.3 synthetic-plate nodes still carried the pre-fix **sign**; the
+sense fix (§22.3.3) corrected those expectations from geometry and the run above is the clean one.
+The 13
+`xfail` are
 the documented validity limits listed node by node in §13.2, not failures, and they are the
 same 13 in both runs. The count is
-`python -m pytest -o addopts="" --collect-only -q | grep -c '::'` = 510, matching the
+`python -m pytest -o addopts="" --collect-only -q | grep -c '::'` = 515, matching the
 file-by-file inventory in §2. The rows of §3-§7 also carry the margins measured at the `e879eba`
 refresh; sections added since — the BEM-vs-OpenFAST parity of §8.4, the blade
 NREL/NuMAD/Bernardi modes of §4.8, the isotropic stress recovery of §4.10 and the
@@ -243,7 +251,7 @@ per-row matrix, so every result the suite produces is visible in one place.
   the value the test itself printed in that run. Rows whose test does not print are marked
   `not printed`, and that is a statement about the test, not about the element.
 - Per-file test counts in the section headings were re-collected at this tree with
-  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 442 total in §2 (the
+  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 447 total in §2 (the
   `e879eba` subset of that collection summed to 386, and the 417-refresh subset to 417).
 - Paper values were read from the recovered PDFs in `.sources/papers/`, not from
   second-hand notes. The Ko et al. 2017 benchmark tables cited below are from
@@ -280,8 +288,8 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-The file-by-file inventory below accounts for **442 tests / 40 files**, and the collected
-suite is **510 tests / 47 files** (`python -m pytest -o addopts="" --collect-only -q`); the
+The file-by-file inventory below accounts for **447 tests / 41 files**, and the collected
+suite is **515 tests / 48 files** (`python -m pytest -o addopts="" --collect-only -q`); the
 difference is the seven files that still have no row, listed in the Known-drift table below. The
 historical path to the inventoried number, so a reader can tell real drift from a stale cell:
 
@@ -298,17 +306,25 @@ historical path to the inventoried number, so a reader can tell real drift from 
 | + `test_thin_walled_tube_torsion.py` (4), issue #9 WU-B2 step 2 | **438** | the exact Saint-Venant tube torsion, the metric verdict and the load-application finding (§4.12) |
 | + `test_blade_rated_twist.py` +1 (the aero-resultant invariant), issue #9 WU-B3 | **439** | the applied loads asserted against the BEM's own integrals (§4.11) |
 | + `test_force_projection_ac_datum.py` (3), issue #9 P1 | **442** | the AC datum, the hub-offset strip assignment and the moment the force-only `verify()` cannot see (§8.3b) |
+| + `test_force_projection_load_frame.py` (4), issue #9 P5 fix | **446** | the section-local load frame: `Np`/`Tp` ride the section normal/chord and a uniform `Np` conserves its integrated magnitude (§8.3c) |
+| + `test_force_projection_load_frame.py` +1 (the load-sense guard), issue #9 P5 sense | **447** | the production sense is downwind and driving, and each configured reference is parallel to the axis it signs (§8.3c, verdict §22.3.3) |
 
-The **authoritative full `-s` run on this tree** (`6064aa8`, 2026-10-02) is **`510 collected:
-497 passed, 13 xfailed, 0 failed, 0 errors, 0 skipped`** in 43:58, with CalculiX 2.23, OpenFAST
+The **authoritative full `-s` run on the pre-P5 tree** (`6064aa8`, 2026-10-02) is **`510
+collected: 497 passed, 13 xfailed, 0 failed, 0 errors, 0 skipped`** in 43:58, with CalculiX 2.23, OpenFAST
 4.2.1, `ccblade` and `neuralfoil` present so no row skipped; an identical-result run of the same
 tree content took 26:06 without other work competing for the CPU. **Nothing is red any more.**
+The **current tree** (that baseline plus the P5 frame fix, the geometry-derived
+§8.3/§8.3b expectations and the §22.3.3 sense fix) is **`515 collected: 502 passed, 13 xfailed,
+0 failed, 0 errors, 0 skipped`** in 537.34s with every tool present. The four §8.3/§8.3b nodes
+the P5 frame fix made red are green again under geometry-derived expectations, and the two §8.3
+synthetic-plate nodes that still carried the pre-fix **sign** were corrected the same way
+(§22.3.3).
 The history that got here, so a stale cell is not mistaken for a regression: the last run at 441
 tests was `441 passed, 0 failed, 0 skipped` in 999.82s (16:39); the suite was then made honest -
 28 tests that could never fail were removed (§7.2) and the widened tolerances were tightened to
 the real 5% bound, which turned 10 nodes red as the diagnostic failures of §13.2; those are now
-the 13 documented `xfail` nodes of §13.2, not failures. The inventoried suite is **442 tests /
-40 files** and the collected suite is **510 tests / 47 files**. The six §4.11 rows and the four
+the 13 documented `xfail` nodes of §13.2, not failures. The inventoried suite is **447 tests /
+41 files** and the collected suite is **515 tests / 48 files**. The six §4.11 rows and the four
 §4.12 rows were re-run in this pass and all ten pass: the §4.11 section-distortion row, which was
 red on purpose in the previous refresh, is green because its two falsified predictions were
 replaced by the true restrictive claims with the refutations recorded (§4.11, task document §20).
@@ -339,7 +355,8 @@ reference, the tolerance as the code states it, and the flag for each row.
 | NeuralFoil + Viterna vs official post-stall | attached Cl ≤ 5.9% (Cl0); post-stall Cl ≤ 40.6% and Cd ≤ 15% (decomposed: Viterna + official input = +21.7% at 30 deg) | §8.4 |
 | Large-rotation elastica | 5% relative per component | §5.4 |
 | Shell K/mass invariants | symmetry, PSD, rigid-body and exact mass coefficients to 1e-12 | §6.1-§6.3 |
-| BEM force-projection AC datum | AC at **0.250 c** from the true LE (worst 0.0000 c, bound 0.02 c); moment relative error **4.7e-16** (bound 1%) | §8.3b |
+| BEM force-projection AC datum | AC at **0.250 c** from the true LE (worst 0.0000 c, bound 0.02 c); the applied moment about the origin matches the geometry-derived expectation to **1.76e-15 relative** (bound 0.01) | §8.3b |
+| BEM load frame (P5), frame + sense | `Np`/`Tp` ride the section axes: worst off-axis **0.0116** (bound 0.05), worst `angle(F, f_hat)` **0.662 deg** (bound 10); uniform-`Np` conservation **0.74%** (bound 5%). Sense: rated `F.y = +8.4444e5 N > 0`, `\|F\|` **1.30%** off `bem.thrust/3` (bound 2%), power **+5.2559 MW** = **-3.42%** of `bem.power/3` (open, unbounded residual; -10.23% with the blade-root arm) for `Omega = +Y` | §8.3c |
 
 Two skips that the first version of this matrix recorded as verified are **resolved**, and
 the two tests they hid now run:
@@ -373,13 +390,12 @@ et al. modes**, §4.8), `test_ccx_writer_ids.py` (3, the CCX writer's id-scheme 
 campaign, §8.4).
 
 **File-by-file inventory.** The collected set at this tree, file by file, and the section
-that documents it. This table is the index's audit: its column sums to `442`, and it is the
+that documents it. This table is the index's audit: its column sums to `447`, and it is the
 one place to check whether a file has drifted out of the matrix. Reproduce with
 `python -m pytest -o addopts="" --collect-only -q | grep -c '::'`.
 
-**Known drift (measured 2026-10-02).** The collected suite is **510 tests / 47 files**, while the
-inventory below accounts for **442 / 40** (the 429 of the last full refresh plus §4.11, §4.12 and
-§8.3b). Seven files
+**Known drift (measured 2026-10-02; the §8.3c P5 guards added after `6064aa8`).** The collected suite is **515 tests / 48 files**, while the
+inventory below accounts for **447 / 41** (the 442 inventory plus the five §8.3c rows). Seven files
 carry no row yet:
 
 | file | tests |
@@ -396,8 +412,8 @@ carry no row yet:
 Reproduce:
 
 ```bash
-python -m pytest -o addopts="" --collect-only -q | grep -c '::'                                # 510
-python -m pytest -o addopts="" --collect-only -q | grep '::' | cut -d: -f1 | sort -u | wc -l   # 47
+python -m pytest -o addopts="" --collect-only -q | grep -c '::'                                # 515
+python -m pytest -o addopts="" --collect-only -q | grep '::' | cut -d: -f1 | sort -u | wc -l   # 48
 ```
 
 Until those rows exist, read the totals above as *inventoried* rather than *suite* counts, and never
@@ -410,8 +426,9 @@ boundary-layer-free self-equilibrated case and the recast one-wall traction repl
 rows of the previous revision; the measurements that made them red are kept and reported in §4.12
 and in `odd/tasks/composite-bend-twist-verdict.md` §19. The other 80 rows of the CCX-parity group
 carry the previous refresh's result and were **not** re-run here; the collected count is the fresh
-`510` (the §4.11 aero-resultant invariant added by WU-B3 and the three §8.3b rows bring the
-previous 506 to 510).
+`515` (the §4.11 aero-resultant invariant added by WU-B3 and the three §8.3b rows brought the
+previous 506 to 510; the five §8.3c P5-guard rows - four frame rows plus the §22.3.3 sense row -
+bring 510 to 515).
 
 | file | tests | section |
 | --- | --- | --- |
@@ -450,12 +467,13 @@ previous 506 to 510).
 | `test_blade_mesh.py` | 1 | §8.2 |
 | `test_force_projection.py` | 10 | §8.3 |
 | `test_force_projection_ac_datum.py` | 3 | §8.3b |
+| `test_force_projection_load_frame.py` | 5 | §8.3c |
 | `test_bem_openfast_parity.py` | 14 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
 | `test_mitc3_smoothed.py` | 3 | §6.10 |
 | `test_blade_rated_twist.py` | 6 | §4.11 |
 | `test_thin_walled_tube_torsion.py` | 4 | §4.12 |
-| **40 files** | **442** | |
+| **41 files** | **447** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -1068,14 +1086,14 @@ No test prints.
 | --- | --- | --- | --- | --- | --- |
 | `TestForceProjectorConstruction::test_creates_strips` | one strip per BEM station | count identity | exact `== 10` | n/a | – |
 | `...test_all_nodes_assigned` | every mesh node belongs to a strip | partition | exact | n/a | – |
-| `TestForceConservation::test_uniform_Np_conservation` | `sum(f_nodes) = int Np dr`; y and z components zero | the trapezoidal integral of the same `Np` array, computed by `projector.verify` (production code) | `force_error < 1e-6`; `atol=1e-6` | not printed | the conservation check calls production `verify`, so a sign or factor error in both would cancel; the independent part is that the y/z sums are zero |
-| `...test_uniform_Tp_conservation` | same for tangential load | as above | `< 1e-6` | not printed | – |
+| `TestForceConservation::test_uniform_Np_conservation` | an `Np`-only load must total `+sum_k Np_k dr_k` on `y` (the synthetic plate's chord runs along `x`, so the raw section normal is `x x z = -y` and the global sign rule resolves that pair to the `+Y` half-space the fluid travels in), with the `x`/`z` sums zero | geometry: `sum_k Np_k dr_k` with `dr_k` rebuilt in the test from the station grid | `rtol=1e-9` on the signed `y` total; `atol=1e-6` on `x`/`z`; `force_error < 1e-6` | green: `F = (0, +22000, 0) N` against the geometry-derived `+sum_k Np_k dr_k = +22000 N` | the magnitude is no longer read from `projector.verify` (its `force_bem` shares the production frame - the §22.1 circularity); the expectation first encoded the pre-fix `-y` sign and was corrected from geometry in §22.3.3 |
+| `...test_uniform_Tp_conservation` | a `Tp`-only load must total `+sum_k Tp_k dr_k` on `x`, with the `y`/`z` sums zero | geometry: `sum_k Tp_k dr_k` with `dr_k` rebuilt in the test | `rtol=1e-9` on the signed `x` total; `atol=1e-6` on `y`/`z`; `force_error < 1e-6` | 11000 N on `x`, 0 on `y`/`z` | same geometry-derived expectation; the old row expected the tangential load on global `y` |
 | `...test_combined_Np_Tp_conservation` | both components | as above | `< 1e-6` | not printed | – |
 | `...test_varying_Np_conservation` | linearly varying `Np` (2000 -> 0) | trapezoidal integral | `< 50 N` on a 20 m blade, justified in a comment as strip-discretisation mismatch | not printed | the relaxed window is documented |
 | `TestForceProjectionOutput::test_output_shape` | `(n_nodes, 3)` | shape | exact | n/a | – |
 | `...test_zero_load_gives_zero_forces` | zero load -> zero force | linearity | `atol=1e-12` | not printed | – |
-| `...test_forces_only_in_load_direction` | Np produces force only along the normal | direction | `atol=1e-8` on y/z; `sum(fx) > 0` | not printed | the comment records the measured nodal value (+250 N each, sum +6000 N) and that the sign check replaced a sign-blind one |
-| `TestSingleNodeStrip::test_single_node_per_strip` | one chordwise node per strip gets the whole strip force | `F = Np dr` | `force_error < 1.0` ("relaxed for coarse discretisation") | not printed | `np.all(np.abs(forces[:,0]) > 0)` is sign-blind; the documented warning about a dropped strip moment is never asserted |
+| `...test_forces_only_in_load_direction` | `Np` produces force only along the section normal (`-y` on the flat plate) | direction + geometry: `sum_k Np_k dr_k` | `atol=1e-8` on `x`/`z`; `rtol=1e-9` on the signed `y` total; `sum(fy) < 0` | 6000 N on `y`, 0 on `x`/`z` | the load rides `-y`, not the configured global `x`; the sign assertion is kept and the total is now pinned to the geometry-derived magnitude |
+| `TestSingleNodeStrip::test_single_node_per_strip` | one chordwise node per strip gets the whole strip force | `F = Np dr` on the section normal; a single-node strip has no chordwise extent, so its frame falls back to the configured sense vectors (`normal = +Y`, `chord = +X`) | `rtol=1e-6` on the `y` component, `atol=1e-9` on `x`/`z`, `force_error < 1.0` ("relaxed for coarse discretisation") | green: every node gets `+2500 N` on `y` with `Np = 1000 N/m`, `dr = 2.5 m` | the old `+x` expectation encoded the global-axis defect and was corrected from geometry in §22.3.3; the `force_error` bound is absolute (0.005% of the 2500 N total) but it is the same loose-comment smell §13 records elsewhere |
 
 ### 8.3b `test_force_projection_ac_datum.py` (3)
 
@@ -1088,13 +1106,48 @@ AeroDyn `BladeAero` from `tests/reference/iea15mw_openfast/`; the BEM result is 
 engine at rated (V = 10.59 m/s, 7.56 rpm). The reference is the section geometry itself, not
 another code: the leading end is the one whose in-plane node spread in the outer quarter of the
 chord is larger, and the analytic moment is `sum_k [r_ac_k x F_k + Mp_k dr_k span_dir]` with the
-**3-D** AC point. Recorded in `odd/tasks/composite-bend-twist-verdict.md` §21.
+**3-D** AC point. The per-strip frame `(c_hat_k, n_hat_k)`, the AC point and the strip ends are
+derived in the test from the ring outline - the strip's principal in-plane axis and the blunt-end
+LE rule - with only the blade-wide *sign* convention taken from the configured directions;
+nothing is read from `projector._strip_chord_dirs` / `_strip_normal_dirs`, so the expectation
+cannot agree with the implementation's own frame by construction (§22.1). Recorded in
+`odd/tasks/composite-bend-twist-verdict.md` §21 and §22.3.2.
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
 | `test_every_mesh_node_is_assigned` | every mesh node belongs to a strip; no empty strips | partition of the blade mesh | exact (0 unassigned, 0 empty) | 0 unassigned, 0 empty after the fix (88 root nodes, z in [0.000, 2.388] m, and strips [48, 49] before it) | the hub-offset datum gap of verdict §21.8 |
 | `test_aerodynamic_centre_datum` | applied AC as a fraction of the chord from the true leading edge | the section geometry (blunt/sharp in-plane thickness) | `0.02 c` per strip | 0.0000 c (0.250 c from the true LE) after the fix; 0.750 c from the true LE before it | reads the datum back from the projector's own moment arm |
-| `test_moment_conservation` | total applied moment about the origin vs the analytic moment with the 3-D AC | `sum_k [r_ac_k x F_k + Mp_k dr_k span_dir]` | `abs(dM) / abs(M_expected) <= 0.01` | 4.65e-16 after the fix (2.99e-8 N*m, 6.422547e7 N*m); 1.14e-2 before it | the check `ForceProjector.verify()` cannot make: it balances force only |
+| `test_moment_conservation` | total applied moment about the origin vs the geometry-derived analytic moment with the 3-D AC | the ring outline (`_geometry_load_frames` + `_blunt_end`), **not** the projector's frames | `abs(dM) / abs(M_expected) <= 0.01` | **1.128758e-07 N m = 1.7626e-15 relative** (`\|M_applied\| = \|M_expected\| = 6.404089e7 N m`); was **1.5442 (red) on this tree** when the expected force still used the fixed global axes (an earlier source state measured 1.0387), and 4.65e-16 before it (when both sides used them) | the check `ForceProjector.verify()` cannot make; rebuilding the expectation from the per-strip geometry closes the §22.1 circularity that made the old green value algebra, not physics |
+
+### 8.3c `test_force_projection_load_frame.py` (5)
+
+P5 guard (issue #9): the BEM section loads must ride the section, not a fixed global
+axis, **and** the load sense must be the declared downwind/driving one. The mesh and the
+aero are the **real** IEA-15MW blade and the real AeroDyn `BladeAero`; the section frame is
+re-derived in the test **from the ring outline only** (the merged ring's principal in-plane
+axes, oriented with the blunt/sharp rule), never from the projector's
+`normal_direction`/`tangential_direction`, so the guard cannot agree with the defect by
+construction. Production now builds a per-strip load frame from each strip's own outline
+and uses the configured directions only to fix the **global sense** of the whole blade,
+because a per-strip half-plane flip is discontinuous across the twist and would not
+conserve force. Recorded in `odd/tasks/composite-bend-twist-verdict.md`
+§22.3/§22.3.1 for the axis and §22.3.3 for the sense.
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_normal_load_is_perpendicular_to_the_chord` | `Np` rides the section normal, not the chord | the ring outline (independent frame) | `\|F.c_hat\|/\|F\| <= 0.05`, `\|F.f_hat\|/\|F\| >= 0.95` | worst `0.0116` / `0.9999` (was `0.9998` / `0.0205`) | 7 twisted stations, root to tip |
+| `test_tangential_load_is_along_the_chord` | `Tp` rides the section chord | the ring outline | `>= 0.95` / `<= 0.05` | worst `0.9999` / `0.0116` (was `0.0205` / `0.9998`) | same stations |
+| `test_load_direction_follows_the_section_not_a_global_axis` | each station's force tracks its own frame; no single global axis can | 24.410 deg inter-station chord angle | `angle(F, f_hat) <= 10 deg` | worst `0.662 deg` (was `88.824 deg`) | the twist proves a fixed axis cannot pass |
+| `test_uniform_normal_load_recovers_the_integrated_magnitude` | a uniform `Np` conserves the integrated magnitude | `sum_k Np_k dr_k` from the BEM arrays | `<= 5%` | `118506.85 N` vs `119387.69 N` = **0.74%** | catches a non-unit or sign-flipping frame |
+| `test_load_sense_is_downwind_and_driving` | the rated production load is downwind and **driving**, and each configured reference is parallel to the axis it signs | the rated BEM thrust/power (`bem.thrust/3`, `bem.power/3`) and the declared convention (`+Y` fluid, `Omega = +Y`) | `F.y > 0`; `\|F\|` vs `bem.thrust/3` `< 2%`; `P > 0`; `\|dot(reference, axis)\| > 0.9` | `F = (+1.1789e5, +8.4444e5, -3.8e-11) N`; `\|F\| = 852632.0 N` vs `841688.8 N` = **1.30%**; `P = +5.2559 MW` vs `5.4422 MW` = **-3.42%** (**-10.23%** with the blade-root lever arm - open residual, no bound asserted); `dot = 0.996811` / `0.996811` (pre-fix `0.0798`) | the sense was a round-off decision before the transposition; the two §8.3 synthetic-plate nodes above were corrected from geometry in the same step (§22.3.3) and the full suite is green |
+
+**Sense is now a pinned convention, not a free parameter.** The guard asserts the
+blade-wide load sense from the model owner's declared convention (fluid along `+Y`, rotor
+clockwise viewed from behind i.e. `Omega = +Y`): the rated summed load must point downwind
+and deliver positive power. The mesh axes were measured (a ring's `x` extent is the chord,
+its `y` extent the thickness, the tip ring's mean `y` the documented prebend). The
+few-percent power-magnitude gap (**-3.4%** with the rotor-centre lever arm, **-10.2%** with
+the blade-root arm) is an open, un-attributed residual, reported and not bounded.
 
 ### 8.4 `test_bem_openfast_parity.py` (13)
 
@@ -1548,13 +1601,13 @@ justified in §13.1. Tightening one is a test change, not a document change.
 | 8.2 | `test_blade_mesh_generation` | `node_count > 0`, `elements_count > 0` | not printed (the run prints `Blade mesh generated: 9277 nodes, 9867 elements`) | n/a | not printed |
 | 8.3 | `TestForceProjectorConstruction::test_creates_strips` | exact `== 10` | n/a | n/a | - |
 | 8.3 | `...test_all_nodes_assigned` | exact | n/a | n/a | - |
-| 8.3 | `TestForceConservation::test_uniform_Np_conservation` | `force_error < 1e-6`; `atol=1e-6` | not printed | n/a | not printed |
-| 8.3 | `...test_uniform_Tp_conservation` | `< 1e-6` | not printed | n/a | not printed |
+| 8.3 | `TestForceConservation::test_uniform_Np_conservation` | `rtol=1e-9` on the signed `y` total; `atol=1e-6` on `x`/`z`; `force_error < 1e-6` | 22000 N on `y`, 0 on `x`/`z` | n/a | - |
+| 8.3 | `...test_uniform_Tp_conservation` | `rtol=1e-9` on the signed `x` total; `atol=1e-6` on `y`/`z`; `force_error < 1e-6` | 11000 N on `x`, 0 on `y`/`z` | n/a | - |
 | 8.3 | `...test_combined_Np_Tp_conservation` | `< 1e-6` | not printed | n/a | not printed |
 | 8.3 | `...test_varying_Np_conservation` | `< 50 N` on a 20 m blade, justified in a comment as strip-discretisation mismatch | not printed | n/a | not printed |
 | 8.3 | `TestForceProjectionOutput::test_output_shape` | exact | n/a | n/a | - |
 | 8.3 | `...test_zero_load_gives_zero_forces` | `atol=1e-12` | not printed | n/a | not printed |
-| 8.3 | `...test_forces_only_in_load_direction` | `atol=1e-8` on y/z; `sum(fx) > 0` | not printed | n/a | not printed |
+| 8.3 | `...test_forces_only_in_load_direction` | `atol=1e-8` on `x`/`z`; `rtol=1e-9` on the signed `y` total; `sum(fy) < 0` | 6000 N on `y`, 0 on `x`/`z` | n/a | - |
 | 8.3 | `TestSingleNodeStrip::test_single_node_per_strip` | `force_error < 1.0` ("relaxed for coarse discretisation") | not printed | n/a | not printed |
 | 8.4 | `test_rotor_performance_matches_aerodyn[0..2]` | 1.5% each | thrust +0.445% / +0.393% / +0.329%; torque -0.653% / -0.045% / +0.794% | +0.71% | near |
 | 8.4 | `test_spanwise_loads_match_aerodyn[0..2]` | 2 deg (alpha), 2.5% mean (Cn) | max abs d alpha 0.676 / 0.707 / 1.361 deg; mean abs rel d Cn 0.85% / 0.75% / 1.69% | +0.81% | near |

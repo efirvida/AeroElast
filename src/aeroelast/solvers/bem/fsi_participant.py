@@ -258,8 +258,11 @@ class BEMFSIParticipant:
         * ``tilt``                 – shaft tilt angle [deg] (default 0)
         * ``yaw``                  – nacelle yaw misalignment angle [deg] (default 0)
         * ``span_direction``       – unit vector along blade span (default Z)
-        * ``normal_direction``     – global direction for BEM Np (default X)
-        * ``tangential_direction`` – global direction for BEM Tp (default Y)
+        * ``normal_direction``     – sense reference for the section normal
+          the BEM *Np* rides (default Y, the fluid/downwind direction); it
+          must be (nearly) parallel to that normal, it is not the axis
+        * ``tangential_direction`` – sense reference for the section chord
+          the BEM *Tp* rides (default X); must be (nearly) parallel to it
     participant : str
         preCICE participant name (must match the XML config).
     config_file : str or Path
@@ -326,13 +329,13 @@ class BEMFSIParticipant:
         self._span_dir /= np.linalg.norm(self._span_dir)
 
         self._normal_dir = np.asarray(
-            bem_config.get("normal_direction", [1.0, 0.0, 0.0]),
+            bem_config.get("normal_direction", [0.0, 1.0, 0.0]),
             dtype=float,
         )
         self._normal_dir /= np.linalg.norm(self._normal_dir)
 
         self._tangential_dir = np.asarray(
-            bem_config.get("tangential_direction", [0.0, 1.0, 0.0]),
+            bem_config.get("tangential_direction", [1.0, 0.0, 0.0]),
             dtype=float,
         )
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)

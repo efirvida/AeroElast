@@ -99,6 +99,64 @@ def _blunt_end(pts: np.ndarray, chord_dir: np.ndarray, span_dir: np.ndarray):
     return int(np.argmax(p)), int(np.argmin(p)), t_lo, t_hi
 
 
+def _section_chord_axis(pts: np.ndarray, span_dir: np.ndarray) -> np.ndarray:
+    """Principal in-plane axis of a strip outline, from the ring geometry alone.
+
+    The section chord *axis* comes from an SVD of the strip's in-plane node
+    offsets - never from ``ForceProjector`` - so a wrong production frame
+    cannot make the expectation below agree with it by construction.  The
+    sense is resolved once for the whole blade in
+    :func:`_geometry_load_frames`.
+    """
+    off = pts - pts.mean(axis=0)
+    off_plane = off - np.outer(off @ span_dir, span_dir)
+    _, _, vt = np.linalg.svd(off_plane, full_matrices=False)
+    axis = vt[0]
+    return axis / np.linalg.norm(axis)
+
+
+def _geometry_load_frames(strips, coords, span_dir, normal_dir, tangential_dir):
+    """Per-strip ``(chord_hat, normal_hat)`` from the ring outlines alone.
+
+    Each axis is the principal in-plane axis of that strip's own nodes
+    (SVD), made continuous along the span, and the two senses are resolved
+    **once for the whole blade** from the configured reference directions
+    with the same rule the production code documents::
+
+        chord_sign  = sign( sum_k dr_k * raw_chord_k  . tangential_dir )
+        normal_sign = sign( sum_k dr_k * (raw_chord_k x span_dir) . normal_dir )
+
+    ``projector._strip_chord_dirs`` / ``_strip_normal_dirs`` are deliberately
+    **not** read: an expectation built from the implementation's own frame
+    validates algebra, not physics (suite audit section 22.1).
+    """
+    raw = []
+    prev = None
+    for strip in strips:
+        axis = _section_chord_axis(coords[strip.node_indices], span_dir)
+        if prev is not None and float(axis @ prev) < 0.0:
+            axis = -axis
+        prev = axis
+        raw.append(axis)
+
+    weight = np.array([float(strip.dr) for strip in strips])
+    chord_sum = sum(weight[k] * raw[k] for k in range(len(raw)))
+    normal_sum = sum(
+        weight[k] * np.cross(raw[k], span_dir) for k in range(len(raw))
+    )
+    chord_sign = 1.0 if float(chord_sum @ tangential_dir) >= 0.0 else -1.0
+    normal_sign = 1.0 if float(normal_sum @ normal_dir) >= 0.0 else -1.0
+
+    frames = []
+    for axis in raw:
+        chord_hat = chord_sign * axis
+        chord_hat = chord_hat / np.linalg.norm(chord_hat)
+        normal_hat = normal_sign * np.cross(chord_hat, span_dir)
+        normal_hat = normal_hat / np.linalg.norm(normal_hat)
+        frames.append((chord_hat, normal_hat))
+    return frames
+
+
 @pytest.fixture(scope="module")
 def blade_case():
     """The repo's real IEA-15MW blade mesh, AeroDyn aero and projector."""
@@ -206,32 +264,47 @@ def test_aerodynamic_centre_datum(blade_case):
 
 
 def test_moment_conservation(blade_case, rated_bem):
-    """The projected forces must reproduce the analytic moment about the origin.
+    """The projected forces must reproduce the geometry-derived applied moment.
 
-    ``ForceProjector.verify`` balances total force only, so a wrong AC (or a
-    wrong AC->centroid arm) is invisible to it.  Here the applied moment
-    ``sum_j r_j x f_j`` of the returned nodal forces is compared with the
-    analytic ``sum_k [ r_ac_k x F_k + Mp_k dr_k span_dir ]``, with the AC
-    point taken from the section geometry.  The error is also reported as a
-    fraction of ``sum_k |Mp_k dr_k|`` so the size of the datum term is clear.
+    ``ForceProjector.verify`` balances total force only, so a wrong section
+    frame, a wrong AC or a wrong AC->centroid arm is invisible to it.  Here
+    the applied moment ``sum_j r_j x f_j`` of the returned nodal forces is
+    compared with
+
+        sum_k [ r_ac_k x F_k + Mp_k dr_k span_dir ],
+        F_k = Np_k dr_k n_hat_k + Tp_k dr_k c_hat_k,
+
+    where **every frame** ``(c_hat_k, n_hat_k)``, the AC point ``r_ac_k`` and
+    the strip ends are derived here from the ring outlines - the principal
+    in-plane axis of each strip's nodes (:func:`_geometry_load_frames`) and
+    the blunt-end LE rule (:func:`_blunt_end`) - with only the blade-wide
+    *sign* convention taken from the configured directions.  Nothing is read
+    from ``projector._strip_chord_dirs`` / ``_strip_normal_dirs``: an expected
+    value built from the implementation's own frame validates algebra, not
+    physics (suite audit section 22.1).  This geometry-derived expectation is
+    what makes the 1 % bound meaningful - it can only hold if production
+    follows each section, not a fixed global axis.
     """
     _, coords, blade_aero, projector = blade_case
     forces = projector.project(rated_bem)
     moment_applied = np.cross(coords, forces).sum(axis=0)
 
+    frames = _geometry_load_frames(
+        projector._strips, coords, SPAN_DIR, NORMAL_DIR, TANGENTIAL_DIR
+    )
     moment_expected = np.zeros(3)
     mp_total = 0.0
     for k, strip in enumerate(projector._strips):
         idx = strip.node_indices
         assert len(idx) > 0, f"strip {k} has no nodes; cannot be loaded"
-        chord_dir = projector._strip_chord_dirs[k]
         pts = coords[idx]
-        le_i, te_i, _, _ = _blunt_end(pts, chord_dir, SPAN_DIR)
+        chord_hat, normal_hat = frames[k]
+        le_i, te_i, _, _ = _blunt_end(pts, chord_hat, SPAN_DIR)
         ac_frac = blade_aero.stations[k].airfoil.aerodynamic_center
         r_ac = pts[le_i] + ac_frac * (pts[te_i] - pts[le_i])
         F = (
-            float(rated_bem.Np[k]) * strip.dr * NORMAL_DIR
-            + float(rated_bem.Tp[k]) * strip.dr * TANGENTIAL_DIR
+            float(rated_bem.Np[k]) * strip.dr * normal_hat
+            + float(rated_bem.Tp[k]) * strip.dr * chord_hat
         )
         M_ac = float(rated_bem.Mp[k]) * strip.dr * SPAN_DIR
         moment_expected += np.cross(r_ac, F) + M_ac

@@ -36,6 +36,25 @@ class ForceProjector:
     Forces are distributed so that every chordwise strip conserves the
     total BEM force vector **and** moment about its centroid.
 
+    Conventions (declared by the model owner, pinned by the downwind
+    thrust-direction and positive-power assertions in
+    ``tests/test_force_projection_load_frame.py``):
+
+    * span runs along ``+Z``;
+    * the section chord runs along ``+X`` on this repo's IEA-15MW mesh,
+      with the leading edge at positive ``x``;
+    * the out-of-plane (flapwise/section-normal) direction is ``+Y``, which
+      is the fluid / downwind direction;
+    * the rotor turns clockwise viewed from behind, i.e.
+      ``Omega = +omega * y``.
+
+    The mesh axes were **measured** on this tree's IEA-15MW blade mesh: a
+    ring's ``x`` extent is the section chord and its ``y`` extent the
+    airfoil thickness, and the tip ring's mean ``y`` is the documented
+    prebend ``BlCrvAC``.  The *sense* (which of the two opposite
+directions along each axis the loads push) is the model owner's convention
+    rather than something derivable from the geometry alone.
+
     Parameters
     ----------
     mesh : MeshModel
@@ -46,11 +65,19 @@ class ForceProjector:
         Unit vector along the blade span in global coordinates
         (default: z-axis ``[0, 0, 1]``).
     normal_direction : array-like
-        Global direction for the BEM normal force *Np*
-        (default: x-axis ``[1, 0, 0]``, i.e. downwind).
+        Sense reference for the BEM normal force *Np* (default: y-axis
+        ``[0, 1, 0]``, the fluid/downwind direction).  The *axis* *Np*
+        rides is taken per strip from the section geometry (normal to the
+        local chord); this vector only selects the sense, i.e. which of the
+        two opposite in-plane directions is ``+normal_hat``.  It must be
+        (nearly) parallel to the section normal - an orthogonal reference
+        makes the sign a round-off decision.
     tangential_direction : array-like
-        Global direction for the BEM tangential force *Tp*
-        (default: y-axis ``[0, 1, 0]``, positive in rotation direction).
+        Sense reference for the BEM tangential force *Tp* (default: x-axis
+        ``[1, 0, 0]``, the chordwise direction).  As with
+        *normal_direction*, it selects the sense of the per-strip chord
+        axis, not the axis itself, and must be (nearly) parallel to that
+        axis.
     hub_radius : float or None
         Override hub radius for span coordinate calculation.
         If *None*, taken from *blade_aero*.
@@ -73,13 +100,13 @@ class ForceProjector:
         self._span_dir = span_dir
 
         self._normal_dir = np.asarray(
-            normal_direction if normal_direction is not None else [1.0, 0.0, 0.0],
+            normal_direction if normal_direction is not None else [0.0, 1.0, 0.0],
             dtype=float,
         )
         self._normal_dir /= np.linalg.norm(self._normal_dir)
 
         self._tangential_dir = np.asarray(
-            tangential_direction if tangential_direction is not None else [0.0, 1.0, 0.0],
+            tangential_direction if tangential_direction is not None else [1.0, 0.0, 0.0],
             dtype=float,
         )
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)
@@ -154,7 +181,21 @@ class ForceProjector:
             )
 
         # ------------------------------------------------------------------
-        # Per-strip chord directions and AC-to-centroid offset vectors.
+        # Per-strip load frames and AC-to-centroid offset vectors.
+        #
+        # The load *axis* is the section's own chord (the principal in-plane
+        # direction of the strip outline).  The absolute *sense* has no
+        # source in this tree, so it is taken from the caller's configured
+        # directions.  That sense is resolved **once for the whole blade**:
+        # flipping each strip independently into a configured half-plane is
+        # discontinuous wherever the twisting section rotates through the
+        # reference direction, and the resulting 180 deg jump destroys
+        # global force conservation - a uniform ``Np`` would no longer
+        # integrate to ``sum_k Np_k dr_k`` (the guard
+        # ``tests/test_force_projection_load_frame.py`` pins that).  A single
+        # global flip merely mirrors the whole load, which changes no
+        # magnitude, and leaves every station's normal parallel to its
+        # neighbours.
         #
         # BEM polars define Cm (and therefore Mp) about the aerodynamic
         # centre (AC, typically at c/4).  ForceProjector._distribute()
@@ -169,76 +210,62 @@ class ForceProjector:
         # moment about the origin is reproduced exactly.
         # ------------------------------------------------------------------
         self._strip_chord_dirs: list[np.ndarray] = []
+        self._strip_normal_dirs: list[np.ndarray] = []
         self._strip_ac_offsets: list[np.ndarray] = []
 
+        # Pass 1: the per-strip chord axes, made continuous along the span
+        # (the SVD leaves a +/- 180 deg ambiguity per strip).
+        raw_chords: list[np.ndarray | None] = []
+        prev_chord: np.ndarray | None = None
+        for strip in self._strips:
+            chord_axis = self._strip_chord_axis(coords, strip, span_dir)
+            if chord_axis is not None and prev_chord is not None:
+                if float(chord_axis @ prev_chord) < 0.0:
+                    chord_axis = -chord_axis
+            if chord_axis is not None:
+                prev_chord = chord_axis
+            raw_chords.append(chord_axis)
+
+        # Resolve the load senses once from the configured directions.
+        weight = np.array([strip.dr for strip in self._strips])
+        chord_sum = np.zeros(3)
+        normal_sum = np.zeros(3)
+        for k, axis in enumerate(raw_chords):
+            if axis is None:
+                continue
+            chord_sum += weight[k] * axis
+            normal_sum += weight[k] * np.cross(axis, span_dir)
+        chord_sign = 1.0 if float(chord_sum @ self._tangential_dir) >= 0.0 else -1.0
+        normal_sign = 1.0 if float(normal_sum @ self._normal_dir) >= 0.0 else -1.0
+
+        # Pass 2: identify the ends on the resolved axis (so the AC datum
+        # shares the frame's orientation), build the frame and keep the arm.
         for k, strip in enumerate(self._strips):
-            idx = strip.node_indices
             station = blade_aero.stations[k]
+            axis = raw_chords[k]
 
-            if len(idx) < 2:
-                # Not enough nodes for PCA — fall back, zero AC offset
-                self._strip_chord_dirs.append(self._tangential_dir.copy())
+            if axis is None:
+                # Not enough nodes for PCA — fall back to the configured
+                # sense, zero AC offset.
+                c_hat, n_hat = self._load_frame(self._tangential_dir)
+                self._strip_chord_dirs.append(c_hat)
+                self._strip_normal_dirs.append(n_hat)
                 self._strip_ac_offsets.append(np.zeros(3))
                 continue
 
-            strip_pts = coords[idx]
-            off = strip_pts - strip_pts.mean(axis=0)
-            # Project offsets onto the plane ⊥ span_dir
-            off_plane = off - np.outer(off @ span_dir, span_dir)
-            if np.linalg.norm(off_plane) < 1e-12:
-                self._strip_chord_dirs.append(self._tangential_dir.copy())
-                self._strip_ac_offsets.append(np.zeros(3))
-                continue
-
-            _, _, Vt = np.linalg.svd(off_plane, full_matrices=False)
-            chord_dir = Vt[0]
-            # Orient using most-aligned reference direction (avoids ±π
-            # sign flips at tip sections where chord ⊥ normal_dir)
-            if abs(np.dot(chord_dir, self._tangential_dir)) >= abs(
-                np.dot(chord_dir, self._normal_dir)
-            ):
-                if np.dot(chord_dir, self._tangential_dir) < 0:
-                    chord_dir = -chord_dir
+            strip_pts = coords[strip.node_indices]
+            chord_hat = chord_sign * axis
+            le_i, te_i = self._section_ends(strip_pts, chord_hat, span_dir)
+            normal_hat = normal_sign * np.cross(chord_hat, span_dir)
+            n_norm = float(np.linalg.norm(normal_hat))
+            if n_norm > 1e-12:
+                normal_hat = normal_hat / n_norm
             else:
-                if np.dot(chord_dir, self._normal_dir) < 0:
-                    chord_dir = -chord_dir
-            c_norm = np.linalg.norm(chord_dir)
-            if c_norm > 1e-12:
-                chord_dir /= c_norm
-            else:
-                chord_dir = self._tangential_dir.copy()
-            self._strip_chord_dirs.append(chord_dir)
+                normal_hat = self._normal_dir.copy()
+            self._check_frame(chord_hat, normal_hat)
+            self._strip_chord_dirs.append(chord_hat)
+            self._strip_normal_dirs.append(normal_hat)
 
-            # Leading/trailing ends from the section's own geometry: the
-            # blunt end (the larger in-plane spread inside the outer quarter
-            # of the chord) is the leading edge, the sharp end the trailing
-            # edge.  Inferring the LE from ``min(chord_proj)`` would pick
-            # whichever end the unrelated reference axis happened to point
-            # away from; this rule is convention-free and sign-free.
-            chord_proj = strip_pts @ chord_dir
-            p_lo = float(chord_proj.min())
-            p_hi = float(chord_proj.max())
-            chord = p_hi - p_lo
-            in_plane = np.cross(span_dir, chord_dir)
-            in_plane_norm = float(np.linalg.norm(in_plane))
-            le_at_hi = True
-            if chord > 1e-12 and in_plane_norm > 1e-12:
-                in_plane = in_plane / in_plane_norm
-                slab = 0.25 * chord
-                q_lo = strip_pts[chord_proj <= p_lo + slab] @ in_plane
-                q_hi = strip_pts[chord_proj >= p_hi - slab] @ in_plane
-                t_lo = float(q_lo.max() - q_lo.min()) if q_lo.size else 0.0
-                t_hi = float(q_hi.max() - q_hi.min()) if q_hi.size else 0.0
-                # Within 10 % the blunt/sharp split is ill-conditioned
-                # (e.g. a circular root section); keep the +chord_dir end,
-                # the mesh's own leading-edge convention.  A symmetric
-                # section is where the two candidate AC placements are
-                # least distinguishable, so the ambiguity is smallest.
-                if t_lo > t_hi and (t_lo - t_hi) > 0.10 * max(t_lo, t_hi):
-                    le_at_hi = False
-            i_hi = int(np.argmax(chord_proj))
-            i_lo = int(np.argmin(chord_proj))
-            le_i, te_i = (i_hi, i_lo) if le_at_hi else (i_lo, i_hi)
             ac_frac = station.airfoil.aerodynamic_center
             ac_point = strip_pts[le_i] + ac_frac * (strip_pts[te_i] - strip_pts[le_i])
             # Full 3-D vector from the aerodynamic centre to the strip
@@ -248,12 +275,115 @@ class ForceProjector:
             # lever-arm error on the real blade.
             self._strip_ac_offsets.append(strip.centroid - ac_point)
 
+    @staticmethod
+    def _strip_chord_axis(
+        coords: np.ndarray,
+        strip: _Strip,
+        span_dir: np.ndarray,
+    ) -> np.ndarray | None:
+        """Unit principal in-plane axis of a strip, or *None* if degenerate."""
+        idx = strip.node_indices
+        if len(idx) < 2:
+            return None
+        strip_pts = coords[idx]
+        off = strip_pts - strip_pts.mean(axis=0)
+        off_plane = off - np.outer(off @ span_dir, span_dir)
+        if np.linalg.norm(off_plane) < 1e-12:
+            return None
+        _, _, Vt = np.linalg.svd(off_plane, full_matrices=False)
+        axis = Vt[0]
+        norm = float(np.linalg.norm(axis))
+        return axis / norm if norm > 1e-12 else None
+
+    @staticmethod
+    def _section_ends(
+        strip_pts: np.ndarray,
+        chord_dir: np.ndarray,
+        span_dir: np.ndarray,
+    ) -> tuple[int, int]:
+        """Leading/trailing node indices from the section's own geometry.
+
+        The blunt end (the larger in-plane spread inside the outer quarter
+        of the chord) is the leading edge, the sharp end the trailing edge.
+        Inferring the LE from ``min(chord_proj)`` would pick whichever end
+        the unrelated reference axis happened to point away from; this rule
+        is convention-free and sign-free.  Within 10 % the blunt/sharp split
+        is ill-conditioned (e.g. a circular root section) and the
+        ``+chord_dir`` end is kept - a symmetric section is where the two
+        candidate AC placements are least distinguishable.
+        """
+        chord_proj = strip_pts @ chord_dir
+        p_lo = float(chord_proj.min())
+        p_hi = float(chord_proj.max())
+        chord = p_hi - p_lo
+        in_plane = np.cross(span_dir, chord_dir)
+        in_plane_norm = float(np.linalg.norm(in_plane))
+        le_at_hi = True
+        if chord > 1e-12 and in_plane_norm > 1e-12:
+            in_plane = in_plane / in_plane_norm
+            slab = 0.25 * chord
+            q_lo = strip_pts[chord_proj <= p_lo + slab] @ in_plane
+            q_hi = strip_pts[chord_proj >= p_hi - slab] @ in_plane
+            t_lo = float(q_lo.max() - q_lo.min()) if q_lo.size else 0.0
+            t_hi = float(q_hi.max() - q_hi.min()) if q_hi.size else 0.0
+            if t_lo > t_hi and (t_lo - t_hi) > 0.10 * max(t_lo, t_hi):
+                le_at_hi = False
+        i_hi = int(np.argmax(chord_proj))
+        i_lo = int(np.argmin(chord_proj))
+        return (i_hi, i_lo) if le_at_hi else (i_lo, i_hi)
+
+    def _check_frame(self, chord_hat: np.ndarray, normal_hat: np.ndarray) -> None:
+        """Validate a per-strip frame is orthonormal and in the section plane."""
+        tol = 1e-9
+        residuals = (
+            ("load frame is not orthogonal", abs(float(normal_hat @ chord_hat))),
+            ("chord_hat is not unit", abs(float(np.linalg.norm(chord_hat)) - 1.0)),
+            ("normal_hat is not unit", abs(float(np.linalg.norm(normal_hat)) - 1.0)),
+            ("chord_hat leaves the section plane", abs(float(chord_hat @ self._span_dir))),
+            ("normal_hat leaves the section plane", abs(float(normal_hat @ self._span_dir))),
+        )
+        for message, residual in residuals:
+            if residual >= tol:
+                raise ValueError(f"{message}: residual {residual:.3e} >= {tol}")
+
+    def _load_frame(self, chord_axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Fallback frame for a strip with no usable outline geometry.
+
+        There is no section to follow, so the configured axis itself is
+        used (projected into the plane normal to the span) and the
+        configured normal direction sets its sense.
+        """
+        c = np.asarray(chord_axis, dtype=float)
+        c = c - float(c @ self._span_dir) * self._span_dir
+        if np.linalg.norm(c) < 1e-12:
+            # Configured tangential axis parallel to the span: any in-plane
+            # axis perpendicular to the configured normal will do.
+            c = np.cross(self._span_dir, self._normal_dir)
+        if np.linalg.norm(c) < 1e-12:
+            helper = np.array([1.0, 0.0, 0.0])
+            if abs(float(helper @ self._span_dir)) > 0.9:
+                helper = np.array([0.0, 1.0, 0.0])
+            c = np.cross(self._span_dir, helper)
+        c = c / np.linalg.norm(c)
+
+        n = np.cross(c, self._span_dir)
+        n = n / np.linalg.norm(n)
+        if float(n @ self._normal_dir) < 0.0:
+            n = -n
+        self._check_frame(c, n)
+        return c, n
+
     # ------------------------------------------------------------------
     #  Public API
     # ------------------------------------------------------------------
 
     def project(self, bem_result: BEMResult) -> np.ndarray:
         """Map BEM loads onto mesh nodes.
+
+        Each strip's load frame is derived from that strip's own section
+        geometry (:meth:`_load_frame`); the configured *normal_direction*
+        and *tangential_direction* only select the sense of the two axes,
+        they are no longer a fixed global direction.
 
         Parameters
         ----------
@@ -276,8 +406,9 @@ class ForceProjector:
             F_n = float(bem_result.Np[k]) * strip.dr  # normal (N)
             F_t = float(bem_result.Tp[k]) * strip.dr  # tangential (N)
 
-            # Global force vector for the strip
-            F_strip = F_n * self._normal_dir + F_t * self._tangential_dir
+            # Strip force on its own section axes (axis from geometry, sense
+            # from the configured normal/tangential directions).
+            F_strip = F_n * self._strip_normal_dirs[k] + F_t * self._strip_chord_dirs[k]
 
             # Moment about strip centroid:
             #   M_centroid = M_AC + (r_AC - r_centroid) x F_strip
@@ -300,11 +431,18 @@ class ForceProjector:
         return forces
 
     def verify(self, bem_result: BEMResult, forces: np.ndarray) -> dict:
-        """Check global force and moment conservation.
+        """Check global force conservation across the discretised strips.
 
-        The expected force is computed using the same discrete strip
-        summation (``Np[k] * dr_k``) that :meth:`project` uses, so
-        the error reflects only the per-strip distribution fidelity.
+        The expected force is recomputed from the BEM loads and the *same*
+        per-strip section frames :meth:`project` uses,
+        ``sum_k (Np_k * normal_hat_k + Tp_k * chord_hat_k) * dr_k``.  The
+        vector sum is therefore no longer parallel to any single configured
+        axis: the direction is per strip.  Because the frame is shared with
+        :meth:`project`, ``force_error`` measures only the fidelity of the
+        per-strip nodal distribution (for example a dropped or clamped
+        strip); it does **not** independently validate the section frame or
+        the load sense - that is what
+        ``tests/test_force_projection_load_frame.py`` does.
 
         Returns
         -------
@@ -313,16 +451,16 @@ class ForceProjector:
             ``force_bem`` – expected total BEM force vector (N).
             ``force_mesh`` – actual summed mesh force vector (N).
         """
-        # Discrete strip sum — same as project()
-        F_total_n = 0.0
-        F_total_t = 0.0
+        # Discrete strip sum with the same per-strip frames as project().
+        F_bem = np.zeros(3)
         for k, strip in enumerate(self._strips):
             if len(strip.node_indices) == 0:
                 continue
-            F_total_n += float(bem_result.Np[k]) * strip.dr
-            F_total_t += float(bem_result.Tp[k]) * strip.dr
+            F_bem += (
+                float(bem_result.Np[k]) * strip.dr * self._strip_normal_dirs[k]
+                + float(bem_result.Tp[k]) * strip.dr * self._strip_chord_dirs[k]
+            )
 
-        F_bem = F_total_n * self._normal_dir + F_total_t * self._tangential_dir
         F_mesh = forces.sum(axis=0)
 
         return {
