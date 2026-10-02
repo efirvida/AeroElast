@@ -842,7 +842,11 @@ Each was measured:
 
 A factor of **7.8** between the smallest and the largest, from the application alone. The
 `0.755x Zhou` reported in the previous revision of the rated test and in the matrix was computed
-with defects 1-5 and is **withdrawn**.
+with defects 1-5 and is **withdrawn**. **The 7.8x spread itself was also computed with a
+load-magnitude defect**: the per-metre aero loads were applied once per mesh station with no
+spanwise tributary weight on a 266-bucket, 117 m, tip-refined mesh, so the applied resultant was
+1.72-2.19x the BEM's own integral. With the corrected loads the spread is **4.29x** by `theta_z`
+and **5.46x** by the section rotation `omega` - see §20.
 
 What survives is what does not depend on the application:
 
@@ -972,3 +976,234 @@ and the next work unit must **measure the blade's distortion** (the section para
 departure from rigid rotation), not just its rotation. Promoting the blade row from a reported
 residual to an asserted one remains the NEXT work unit; nothing here changes a blade number.
 
+
+---
+
+## 20. WU-B3 - the blade's section distortion and the rated twist re-derived
+
+**What was built.** Two tests added to `tests/test_blade_rated_twist.py` (4 -> 6): the
+section-distortion test and the load-resultant invariant. Both use the four application vectors
+`_rated_load_cases` provides (`mp_only`, `uniform`, `uniform_plus_mp`, `at_ac`). The four original
+tests were not touched.
+
+**A load-magnitude defect that invalidated this section's first numbers (measured).**
+`_rated_load_cases` multiplied each station's per-metre load by nothing: the blade mesh has 266
+raw z-buckets over 117 m (tip-refined, non-uniform), so the applied resultant was inflated and
+concentrated. The BEM's own per-blade integrals are `I_Np = 8.4748e+05 N`, `I_Tp = 1.0371e+05 N`,
+`I_Mp = -2.7659e+05 N.m` (trapezoid over the 50 radial stations; `bem.thrust/3 = 8.4169e+05 N`
+agrees with `I_Np`). Measured on the assembled vectors before the fix:
+
+| vector | force / moment | ratio to the BEM integral |
+| --- | ---: | ---: |
+| `at_ac` | `F_y = +1.4896e+06 N` | **1.76x** `I_Np` |
+| `uniform` | `F_y = +1.8536e+06 N` | **2.19x** `I_Np` |
+| `mp_only` | `M_z = -4.7659e+05 N.m` | **1.72x** `I_Mp` |
+
+The per-metre intensities were always correct (at the BEM stations `Np/(q c) = 1.12..1.48`, a sane
+`Cn`, and `Mp/(q c^2) = -0.099..-0.148`, a sane `Cm`), so this was a summation defect. Two
+corrections:
+
+1. **Spanwise tributary weight.** Every per-station contribution is multiplied by its tributary
+   length `dz[k]` (interior stations `(z[k+1] - z[k-1])/2`; the two end stations carry half a cell,
+   so `sum(dz)` is exactly the 117 m blade length - the plan's literal end cells over-counted by
+   0.47%).
+2. **Physical stations.** The blade is **prebent**: a physical ring's nodes span ~1e-3 m in z, so
+   the raw unique-z set split each ring into near-duplicate buckets and the 1e-6 in-plane edge test
+   found no edges at **62 of the 266 buckets**. The edge-based paths (consistent traction, shear
+   flow) therefore applied nothing at 14% of the normal force; the node-based `uniform` path never
+   had the problem. Merging z values closer than `STATION_GAP_TOLERANCE = 0.02 m` recovers 186
+   physical stations whose rings are closed contours.
+
+`test_rated_aero_loads_reproduce_the_bem_resultants` asserts the corrected resultants against the
+BEM's integrals to 0.5%. Measured:
+
+| vector | quantity | applied | ratio | bound |
+| --- | --- | ---: | ---: | ---: |
+| `at_ac` | `sum(f_y)` | +8.481267e+05 N | **1.000767** | 0.5% |
+| `at_ac` | `sum(f_x)` | +1.033349e+05 N | **0.996377** | 0.5% |
+| `uniform` | `sum(f_y)` | +8.469990e+05 N | **0.999436** | 0.5% |
+| `mp_only` | `sum(x F_y - y F_x)` | -2.765723e+05 N.m | **0.999924** | 0.5% |
+
+The corrected `at_ac` maximum nodal displacement (one-way) is **17.156 m** against Zhou's verified
+coupled tip flapwise deflection **13.86 m** (ratio 1.24): the same order, which is the independent
+confirmation that the load magnitude is now right. That comparison is **reported, not asserted** -
+a one-way load against a coupled aeroelastic solution has no defensible numeric bound.
+
+**The first-pass §20.2-§20.4 numbers were computed with the defect and are replaced below.**
+
+### 20.1 The measurement: affine and rigid ring kinematics
+
+A ring is the set of nodes at one constant z (`shell["rings"][zz]`), so it is planar. A helper
+`_ring_kinematics(coords, u, ring)` fits the ring's in-plane field `(u_x, u_y)` at `(x, y)` by least
+squares (`np.linalg.lstsq`) to the six-parameter affine map
+
+    u_x = a11 x + a12 y + tx
+    u_y = a21 x + a22 y + ty
+
+using `(x, y)` as they are (the fitted translations absorb the origin), and reports:
+
+| key | definition | meaning |
+| --- | --- | --- |
+| `omega` | `0.5 (a21 - a12)` | the **section rotation** [rad], the antisymmetric part, invariant to the origin |
+| `shear` | `0.5 (a12 + a21)` | the **parallelogram** distortion (`exy`), the tube's measure |
+| `dilatation` | `a11 + a22` | the relative area change (breathing) |
+| `distortion` | `sqrt(a11^2 + a22^2 + 2 shear^2)` | the symmetric (strain) part magnitude |
+| `residual` | `||u_ip - (A x + t)|| / ||u_ip||` | the non-affine part (0 if exactly affine) |
+| `rigid_rotation` | fitted rotation of the **strain-free** model (2 translations + 1 rotation about the ring node mean) | to compare against the mean DOF-5 `theta_z` |
+| `rigid_residual` | the same non-affine departure for that rigid-only model | how much of the field is not even a rigid motion |
+
+The ring node ordering is **not used** for anything (the blade rings do not follow the contour
+order), so there is no shoelace area and no ordering dependence.
+
+### 20.2 Measured numbers (tip ring)
+
+IEA-15-240-RWT at rated (V = 10.59 m/s, 7.56 rpm, pitch 0); dimensionless except the angles, the
+energy and the displacement. Reproduced with
+`python -m pytest tests/test_blade_rated_twist.py -v -s`.
+
+| application | `theta_z` [deg] | `omega` [deg] | `rigid_rotation` [deg] | `shear` | `dilatation` | `distortion` | `residual` | energy [J] | max in-plane [m] |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `mp_only` (pitching moment, shear flow) | -4.8337 | -4.7851 | -4.7468 | +7.850e-04 | -4.713e-03 | 4.988e-03 | 0.0013 | 3.9006e+03 | 8.561e-02 |
+| `uniform` (Np+Tp equal force per node) | -8.4522 | -10.4193 | -11.6487 | -2.100e-02 | -3.893e-02 | 5.068e-02 | 0.0003 | 2.8267e+06 | 1.699e+01 |
+| `uniform_plus_mp` (per node + Mp) | -5.7845 | -11.2589 | -14.7356 | -6.120e-02 | -2.824e-02 | 9.202e-02 | 0.0007 | 2.8346e+06 | 1.701e+01 |
+| `at_ac` (consistent traction at the AC + Mp) | -20.7348 | -26.1215 | -29.5274 | -5.975e-02 | -3.734e-02 | 9.375e-02 | 0.0007 | 2.9392e+06 | 1.708e+01 |
+
+`omega` along the span [deg] at 50 / 80 / 100 % of the 117 m span (merged physical rings):
+
+| application | 50 % | 80 % | 100 % |
+| --- | ---: | ---: | ---: |
+| `mp_only` | -0.9223 | -3.0287 | -4.7851 |
+| `uniform` | -1.8881 | -7.0825 | -10.4193 |
+| `uniform_plus_mp` | -2.1965 | -7.9352 | -11.2589 |
+| `at_ac` | -5.0706 | -17.6041 | -26.1215 |
+
+(The test prints exactly these three probes, so this table is reproducible from its `-s` output.)
+
+The affine residual is small everywhere (0.0003-0.0013), so the ring field **is** well described by
+the affine map: the split into rotation and strain is meaningful, not a fit failure. The merged
+physical rings (12-26 nodes each) are what the fits run on.
+
+### 20.3 Spreads and the verdict on the hypothesis
+
+| quantity | value |
+| --- | ---: |
+| `spread_omega = max\|omega\| / min\|omega\|` | **5.459** |
+| `spread_theta_z = max\|theta_z\| / min\|theta_z\|` | **4.290** |
+| `ratio_omega = omega_at_ac / Zhou (-3.60 deg)` | **7.2560** |
+| `ratio_theta_z = theta_z_at_ac / Zhou (-3.60 deg)` | **5.7597** |
+| `max(distortion[uniform], distortion[uniform_plus_mp]) / distortion[at_ac]` | **0.982** |
+
+**Status of the four assertions, on the corrected loads.**
+
+| assertion | measured | status |
+| --- | --- | --- |
+| every application gives `omega < 0` (nose-down) | -4.79 / -10.42 / -11.26 / -26.12 deg | **green** |
+| `spread_omega > 2.0` (the spread survives the distortion-free metric) | 5.459 (`spread_theta_z` 4.290) | **green** |
+| `distortion[at_ac] > 5.0 * distortion[mp_only]` (the tube's contrast, stated on the correct pair) | 9.375e-02 vs 5 x 4.988e-03 = 2.494e-02, i.e. **18.8x** | **green** |
+| promotion guard `abs(1 - ratio_omega) > 0.05` | 7.256 | **green** |
+
+**Two predictions were tested and falsified, and each was replaced by the true restrictive claim.**
+A known-false assertion must not stay in the suite as a false claim, so the two refuted predictions
+were rewritten - not softened - into the claims the measurement supports; the refutations themselves
+are recorded here and in the test docstring, with their raw numbers.
+
+1. **"The application spread lives in the section distortion, not in the rotation" - refuted.**
+   The distortion-free section-rotation spread (**5.459**) is *larger* than the mean-`theta_z` spread
+   (**4.290**), so removing the symmetric part does not shrink the spread: the application moves the
+   **section rotation itself**. The section-rotation metric also gives a *worse* residual against Zhou
+   (`ratio_omega = 7.256` against `ratio_theta_z = 5.760`). The asserted claim is therefore
+   `spread_omega > 2.0` - the spread survives the distortion-free metric, so the rated twist magnitude
+   is **not** promotable - with the promotion guard against Zhou beside it.
+2. **The tube's "off-path excites more distortion" contrast - mis-specified, then refuted.** Measured
+   **0.982x**, not `> 1.5x`. The premise was wrong: the tube's contrast was a **localized one-wall
+   traction against a closed shear flow**, while on the blade both compared cases are
+   ring-distributed, and the `at_ac` path (a distributed consistent traction plus the Mp shear flow)
+   excites as much section distortion as the off-path ones. The correct analogue of the tube's
+   contrast is the **validated shear-flow moment application against the force-loaded cases**: an
+   in-plane traction around the ring loads the section's in-plane flexibility, a pure torsion shear
+   flow does not. That holds strongly - `distortion[at_ac] / distortion[mp_only] = 18.8x` - and is
+   what the test now asserts `> 5x`.
+
+The off-path numbers are still printed (the record keeps them); they are no longer asserted.
+
+### 20.4 Residual against Zhou, and the blade row's status
+
+The sign is green (every application gives `omega < 0`, nose-down at rated, the sense of Zhou's
+-3.60 deg). The magnitude residual is **not** inside 5 %: `ratio_omega = 7.2560`, `ratio_theta_z =
+5.7597`. The distortion-free metric makes the `at_ac` residual *worse* against Zhou, not better.
+
+**The load magnitudes are now correct and invariant-checked.** The four resultants reproduce the
+BEM's own integrals inside 0.5 % (`at_ac` `F_y` 1.000767, `at_ac` `F_x` 0.996377, `uniform` `F_y`
+0.999436, `mp_only` `M_z` 0.999924), and the corrected `at_ac` tip displacement (17.156 m) is the
+same order as Zhou's coupled 13.86 m. The application is validated against the aero side; the
+remaining 5.76x residual is a structure/reference difference, not a load-magnitude artefact.
+
+**The blade row stays a reported residual.** It does not become promotable: the promotion guard
+`abs(1 - ratio_omega) > 0.05` holds (7.2560), the section-rotation spread (5.459) survives and is
+now *larger* than the `theta_z` spread, and the sign is the only settled claim. Promotion still
+requires removing the application spread itself - a load case whose line of action is settled
+against the reference - which is a separate work unit.
+
+### 20.5 What the corrected loads reveal: the twist is largely a sectional deformation
+
+With the loads now invariant-checked, the physical application `at_ac` gives a section rotation
+`omega = -26.12 deg` and a section strain `distortion = 9.375e-2`, i.e. `distortion / |omega| =
+0.359`: the section strains are the **same order as the rotation**. The measured "twist" of this
+shell blade at rated is therefore substantially a **sectional deformation**, not a rigid section
+rotation - which is exactly the mechanism the tube test isolated (a thin-walled closed section
+whose in-plane flexibility the load path excites), now quantified on the blade itself.
+
+The dominant contribution is the **load's line of action**, not the pitching moment:
+`mp_only` (the distributed pitching moment as the validated shear flow) gives `omega = -4.79 deg`,
+while `at_ac` (the same aero side with the normal force at the 25 %-chord aerodynamic centre) gives
+`-26.12 deg`. The eccentricity torque of the normal force about the section's own shear centre is
+about `Np * (x_ac - xS)` with the mesh's measured shear centre at **0.477 of the chord** (§15.2) and
+the aerodynamic centre at 0.25 c, so the eccentricity term is several times the pitching moment
+itself. The `mp_only` result is also the one that independently agrees with the beam built from the
+anchor's own 6x6 sections (§18.4: shell/beam = 1.45 with `Mp` alone, consistent with the measured
+GJ ratio 0.87), which is what makes the eccentricity the prime suspect rather than the structure.
+
+**Next unit (WU-C, now with a sharp entry point).** Compare the mesh's per-station shear centre
+against the BeamDyn anchor's `xS` from its 6x6 sections (via
+`openfast_toolbox.converters.beam.K66toPropsDecoupled`, the same route §14.2 used for GJ). If the
+anchor places the shear centre near the pitching axis and the mesh places it at 0.477 c, the
+eccentricity - and therefore the twist - is a **structural/geometry difference to settle at the
+anchor**, not a load-application defect; if the two agree, the residual moves back onto the load
+case and the aero model. That comparison is a geometry/section-data check, needs no large solve, and
+is the cheapest decisive step left.
+
+### 20.6 Third defect, found in review: the ring kinematics must use the merged physical rings
+
+The RDD review of this unit raised a CRITICAL on the new kinematics: the fit ran on
+`shell["rings"][zz]`, the fixture's **raw 1e-6 z buckets**, while the load path had already moved to
+the merged physical stations. On a **prebent** blade a raw bucket is only a *slice* of a physical
+ring, so the affine split could silently run on a partial section. Measured at the three probes:
+
+| probe | nearest raw 1e-6 bucket | merged physical ring |
+| --- | ---: | ---: |
+| 50 % | 14 nodes | **16 nodes** |
+| 80 % | 14 nodes | 14 nodes |
+| tip | 12 nodes | 12 nodes |
+
+At the 50 % ring the raw bucket was two nodes short, and the fitted `omega` moved from `-0.898` to
+`-0.9223` deg when the complete ring was used (a 2.7 % change; the tip and 80 % rings were already
+complete, which is why the tip table and the spreads are unchanged). The fixture now exposes
+`phys_stations` / `phys_rings` / `phys_tip`, the new test's kinematics and tip mean use them, and a
+guard asserts that each merged ring is a **superset** of the nearest raw bucket (the exact defect
+class). The four original tests keep the raw sets they were written against; moving them to the
+merged rings is a separate question for whoever next touches their assertions.
+
+### 20.7 Review state of this unit
+
+The RDD review could not be closed by **transport**, not by findings. The candidate was frozen twice
+(lineages `review-4e1db2062df50a6e` then `review-95f93ea2e95257a0`; tier medium, one consolidated
+`review-reliability` lens) and the lens relay returned an **empty reviewer output** on four attempts
+(`stopReason: length` twice, `stop` twice, ~150 s and ~2 s respectively); the first attempt's payload
+was also cut mid-JSON at byte 283 with "3 objects opened, 1 closed". No slot was ever consumed and no
+acknowledgement was burned in either lineage; both remain open and unconsumed.
+
+That first, partial payload did surface the **CRITICAL recorded in §20.6** (the ring kinematics fitted
+on the raw 1e-6 z buckets), which is fixed and now guarded. Local evidence at this commit:
+`python -m pytest tests/test_blade_rated_twist.py -v` -> **6 passed**; `ruff check` clean; exactly the
+three files changed. The maintainer authorized committing this unit **with the partial review on the
+record**, which is what this section documents.

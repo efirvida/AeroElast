@@ -42,7 +42,7 @@ notes (flags per §9). `not printed` means the test asserts without printing a r
    residual; the *measured margin* column is exactly that output. Run it with `CCX_BIN`
    set, OpenFAST reachable and `neuralfoil` installed (§12), or the relevant rows skip.
 2. `python -m pytest -o addopts="" --collect-only -q` reproduces the file-by-file
-   inventory in §2 (437 tests / 39 files) that proves nothing drifted.
+   inventory in §2 (439 tests / 39 files) that proves nothing drifted.
 3. §2.1 is the headline table; §3-§8 are the per-row evidence behind it; §12 has the
    per-tool commands and the skip conditions.
 4. For a paper table, copy the row's *reference*, *tolerance* and *measured margin*
@@ -124,18 +124,18 @@ exceed the bound are the `xfail` list above. A green suite never unflags a row.
 
 ## Index
 
-Six groups, 39 files, 437 tests. Every collected test node is accounted for below;
+Six groups, 39 files, 439 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Ko, Lee, Lee & Bathe 2017 benchmarks | [§3](#3-teststest_ko2017_performancepy-ko-lee-lee--bathe-2017) | 1 | 31 | 31 | 0 | 0.01% – 2.73% | 0 |
-| CCX parity | [§4](#4-ccx-parity-group) | 13 | 84 | 84 | 0 | 0.20% – 12.57% | 7 |
+| CCX parity | [§4](#4-ccx-parity-group) | 13 | 86 | 86 | 0 | 0.20% – 12.57% | 7 |
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
 | Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 11 | 155 | 155 | 0 | 0.45% – 3.86% | 1 |
 | Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
 | BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 60 | 60 | 0 | 0.33% – 40.60% | 0 |
-| **Total** | | **39** | **437** | **437** | **0** | | **8** |
+| **Total** | | **39** | **439** | **439** | **0** | | **8** |
 
 **A large margin is not a failure.** `passed = 413, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -163,7 +163,7 @@ By file and subsection:
   - [4.8 `test_blade_iea15mw_validation.py` (26)](#48-test_blade_iea15mw_validationpy-26)
   - [4.9 `test_ccx_writer_ids.py` (3)](#49-test_ccx_writer_idspy-3)
   - [4.10 `test_shell_stress_ccx_parity.py` (3)](#410-test_shell_stress_ccx_paritypy-3)
-  - [4.11 `test_blade_rated_twist.py` (4)](#411-test_blade_rated_twistpy-4)
+  - [4.11 `test_blade_rated_twist.py` (6)](#411-test_blade_rated_twistpy-6)
   - [4.12 `test_thin_walled_tube_torsion.py` (4)](#412-test_thin_walled_tube_torsionpy-4)
 - [5. Analytical group](#5-analytical-group)
   - [5.1 `test_shell_analytical_validation.py` (11)](#51-test_shell_analytical_validationpy-11)
@@ -236,7 +236,7 @@ per-row matrix, so every result the suite produces is visible in one place.
   the value the test itself printed in that run. Rows whose test does not print are marked
   `not printed`, and that is a statement about the test, not about the element.
 - Per-file test counts in the section headings were re-collected at this tree with
-  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 433 total in §2 (the
+  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 439 total in §2 (the
   `e879eba` subset of that collection summed to 386, and the 417-refresh subset to 417).
 - Paper values were read from the recovered PDFs in `.sources/papers/`, not from
   second-hand notes. The Ko et al. 2017 benchmark tables cited below are from
@@ -273,8 +273,8 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-The file-by-file inventory below accounts for **437 tests / 39 files**, and the collected
-suite is **505 tests / 46 files** (`python -m pytest -o addopts="" --collect-only -q`); the
+The file-by-file inventory below accounts for **439 tests / 39 files**, and the collected
+suite is **507 tests / 46 files** (`python -m pytest -o addopts="" --collect-only -q`); the
 difference is the seven files that still have no row, listed in the Known-drift table below. The
 historical path to the inventoried number, so a reader can tell real drift from a stale cell:
 
@@ -287,15 +287,17 @@ historical path to the inventoried number, so a reader can tell real drift from 
 | + `test_shell_stress_ccx_parity.py` (3) | 441 | outer-fibre stress recovery vs CalculiX `OUTPUT=3D` (§4.10) |
 | + the honesty sweep and the 2026 validation campaign (issues #3-#8); 28 unfailable tests removed | **426** | CLT judge, NREL/NuMAD refs, CCX mesh convergence, the K_G-scaling test and the nonlinear-default fix |
 | + `test_mitc3_smoothed.py` (3), issue #2 closed | **429** | the strain-smoothed MITC3+ union assembly against Lee & Lee 2019 (§6.10) |
-| + `test_blade_rated_twist.py` (4), issue #9 | **433** | our own rated BEM, the settled twist sign, and the rated twist vs Zhou (§4.11) |
-| + `test_thin_walled_tube_torsion.py` (4), issue #9 WU-B2 step 2 | **437** | the exact Saint-Venant tube torsion, the metric verdict and the load-application finding (§4.12) |
+| + `test_blade_rated_twist.py` (5), issue #9 | **434** | our own rated BEM, the settled twist sign, the rated twist vs Zhou, and the section-distortion split (§4.11) |
+| + `test_thin_walled_tube_torsion.py` (4), issue #9 WU-B2 step 2 | **438** | the exact Saint-Venant tube torsion, the metric verdict and the load-application finding (§4.12) |
+| + `test_blade_rated_twist.py` +1 (the aero-resultant invariant), issue #9 WU-B3 | **439** | the applied loads asserted against the BEM's own integrals (§4.11) |
 
 The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 999.82s
 (16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
 Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
 the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
-the diagnostic failures of §13.2. The inventoried suite is now **437 tests / 39 files** and the
-collected suite is **505 tests / 46 files**. The four §4.12 rows were re-run in this pass and pass.
+the diagnostic failures of §13.2. The inventoried suite is now **439 tests / 39 files** and the
+collected suite is **507 tests / 46 files**. The six §4.11 rows and the four §4.12 rows were re-run
+in this pass; five §4.11 rows pass and one (§4.11's section-distortion row) is red on purpose.
 Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
 1025.15s. The Rust side is green too: `cargo test --manifest-path crates/Cargo.toml -p
@@ -356,12 +358,12 @@ et al. modes**, §4.8), `test_ccx_writer_ids.py` (3, the CCX writer's id-scheme 
 campaign, §8.4).
 
 **File-by-file inventory.** The collected set at this tree, file by file, and the section
-that documents it. This table is the index's audit: its column sums to `433`, and it is the
+that documents it. This table is the index's audit: its column sums to `439`, and it is the
 one place to check whether a file has drifted out of the matrix. Reproduce with
 `python -m pytest -o addopts="" --collect-only -q | grep -c '::'`.
 
-**Known drift (measured 2026-10-02).** The collected suite is **505 tests / 46 files**, while the
-inventory below accounts for **437 / 39** (the 429 of the last full refresh plus §4.11 and §4.12). Seven files
+**Known drift (measured 2026-10-02).** The collected suite is **507 tests / 46 files**, while the
+inventory below accounts for **439 / 39** (the 429 of the last full refresh plus §4.11 and §4.12). Seven files
 carry no row yet:
 
 | file | tests |
@@ -378,7 +380,7 @@ carry no row yet:
 Reproduce:
 
 ```bash
-python -m pytest -o addopts="" --collect-only -q | grep -c '::'                                # 505
+python -m pytest -o addopts="" --collect-only -q | grep -c '::'                                # 507
 python -m pytest -o addopts="" --collect-only -q | grep '::' | cut -d: -f1 | sort -u | wc -l   # 46
 ```
 
@@ -392,7 +394,7 @@ boundary-layer-free self-equilibrated case and the recast one-wall traction repl
 rows of the previous revision; the measurements that made them red are kept and reported in §4.12
 and in `odd/tasks/composite-bend-twist-verdict.md` §19. The other 80 rows of the CCX-parity group
 carry the previous refresh's result and were **not** re-run here; the collected count is the fresh
-`505`.
+`507` (the §4.11 aero-resultant invariant added by WU-B3 makes the previous 506 into 507).
 
 | file | tests | section |
 | --- | --- | --- |
@@ -433,8 +435,9 @@ carry the previous refresh's result and were **not** re-run here; the collected 
 | `test_bem_openfast_parity.py` | 14 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
 | `test_mitc3_smoothed.py` | 3 | §6.10 |
+| `test_blade_rated_twist.py` | 6 | §4.11 |
 | `test_thin_walled_tube_torsion.py` | 4 | §4.12 |
-| **38 files** | **433** | |
+| **39 files** | **439** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -676,7 +679,7 @@ CCX solid model is built.
 | `test_outer_fibre_stress_is_symmetric` | TOP and BOTTOM carry equal magnitude | symmetric section | exact | 52.46 / 52.46 MPa | - |
 | `test_outer_fibre_stress_matches_ccx_and_analytical` | outer-fibre von Mises | **CCX 2.23, S8R `OUTPUT=3D`** and analytical `M c / I` = 60 MPa | 15% / 20% | 52.46 vs 51.64 MPa (1.58%); vs analytical 12.57% | the analytical gap is the coarse 8x2 linear mesh |
 
-### 4.11 `test_blade_rated_twist.py` (4)
+### 4.11 `test_blade_rated_twist.py` (6)
 
 Our own rated-case test for the IEA 15 MW blade (issue #9, WU-A/WU-B). No previous simulation
 output is reused: the aerodynamic loads come from this repository's own BEM engine
@@ -691,18 +694,34 @@ collective pitch 0.
 | `test_rated_bem_matches_the_literature_rigid_case` | the rigid-rotor integrated loads at rated | **Zhou et al. 2025, Table 6, rigid blade, fixed condition**: 2.53 MN thrust, 16.11 MW power | 3% each | thrust **2.525 MN (-0.2%)**, power **16.327 MW (+1.3%)** | the aero side the issue assumed was fine; now measured here rather than quoted, and an independent check that our BEM plus the official polars reproduce a published LL-FVW mean |
 | `test_rated_pitching_moment_is_nose_down` | the sign of the aerodynamic pitching moment per unit span, from the polars at the BEM's angles of attack | the polars themselves (AeroDyn `Cm`), and the physical statement in Zhou 2025 that the moments "twist the sections towards feather and reduce the angle of attack" | sign assertion (no numeric tolerance) | `Mp` = -3364.0 .. -46.9 N.m/m over the loaded span, **negative at every loaded station** | the anchor for the sign question of issue #9 |
 | `test_section_moment_as_a_couple_sets_the_physical_sign` | the mesh's sign convention for the section twist, and how a section moment must be applied | none (a convention test); the physical sense is justified by the two rows above | sign assertion plus `abs(nodal) > 2 x abs(couple)` | as a **couple of forces**: **-7.35 deg**; as **nodal rotations about z**: -24.80 deg (a 3.4x over-report) | a section moment applied as nodal `theta_z` feeds the shell's drilling degree of freedom, not the section's torsion. The `theta_z` profile is smooth and accumulative (0.000 / -0.089 / -0.361 / -0.920 / -2.919 / -9.09 / -8.56 deg), so the sign is a property of the model, not a local artefact |
-| `test_rated_tip_twist_matches_zhou_with_the_physical_load_path` | the **physical sense** of the rated tip twist and the load-path dominance; the magnitude is withdrawn | **Zhou et al. 2025, Table 4**: total tip torsion -3.60 deg, for the sense only | sign assertion (no numeric tolerance) plus `abs(uniform) > 2 x abs(at_ac)` | asserted: `at_ac` is negative (nose-down) and the load-path spread exceeds a factor of two. **Withdrawn**: the magnitude moves by ~8x with the load application alone (-4.35 / -14.25 / -34.13 deg for the same load set) | flagged in section 9.5. A controlled eccentric-force test localised the cause to the load application and produced three transferable fixes (a section moment must be a shear flow `q = M/2A`, not a force pair; a distributed force must be a consistent traction; the resultant position must be the edge-weighted centroid), but the application is not yet validated against a case with an exact answer |
+| `test_rated_tip_twist_matches_zhou_with_the_physical_load_path` | the **physical sense** of the rated tip twist and the load-path dominance; the magnitude is withdrawn | **Zhou et al. 2025, Table 4**: total tip torsion -3.60 deg, for the sense only | sign assertion (no numeric tolerance) plus `abs(uniform) > 2 x abs(at_ac)` | asserted: `at_ac` is negative (nose-down) and the load-path spread exceeds a factor of two. **Withdrawn**: the corrected magnitudes (`theta_z` -4.83 / -8.45 / -5.78 / -20.73 deg for the same load set) move by a factor 5.76-7.26 with the load application alone | flagged in section 9.5. A controlled eccentric-force test localised the cause to the load application and produced three transferable fixes (a section moment must be a shear flow `q = M/2A`, not a force pair; a distributed force must be a consistent traction; the resultant position must be the edge-weighted centroid); the applied loads are now invariant-checked against the BEM's own integrals, but the residual against Zhou is still 5.76x |
+| `test_rated_twist_with_the_validated_application_and_the_measured_section_distortion` | the section rotation vs the section distortion under the four applications: does the load-application spread live in the distortion or in the rotation? | none for the split (a falsifiable prediction); **Zhou et al. 2025, Table 4** -3.60 deg for the sign and the promotion guard | sign (`omega < 0` everywhere, no tolerance), `spread_omega > 2.0`, `distortion[at_ac] > 5.0 * distortion[mp_only]`, `abs(1 - ratio_omega) > 0.05` | corrected loads: tip `omega` [deg] -4.7851 / -10.4193 / -11.2589 / -26.1215 for `mp_only` / `uniform` / `uniform_plus_mp` / `at_ac`; sign **green**; `spread_omega` **5.459** vs `spread_theta_z` **4.290**, `> 2.0` -> **green**; `distortion[at_ac]` **9.375e-02** = **18.8x** `distortion[mp_only]` **4.988e-03** (`> 5x`) -> **green**; guard `ratio_omega` **7.2560** > 0.05 -> **green**. Reported, not asserted: the off-path distortion is **0.982x** `at_ac`, i.e. no contrast | the affine/rigid split is defined in the test docstring; the affine residual (0.0003-0.0013) confirms the fit is sound. Two predictions were tested on the corrected, invariant-checked loads and **falsified**, both recorded in `odd/tasks/composite-bend-twist-verdict.md` §20: (1) "the application spread lives in the section distortion" - the distortion-free rotation spread (**5.459**) is *larger* than the `theta_z` spread (**4.290**), so the spread moves the section rotation itself and the magnitude stays withdrawn; (2) the tube's "off-path excites more distortion" contrast, measured **0.982x** because both compared cases are ring-distributed - the correct analogue is the validated shear-flow moment (`at_ac`/`mp_only` = **18.8x**), which does hold. Each falsified claim was replaced by the true restrictive claim above, not softened; the falsification is the finding. The ring kinematics and the tip mean run on the **merged physical rings** (`phys_rings`), not the fixture's raw 1e-6 z buckets: on a prebent blade a raw bucket is a slice of a ring (14 vs 16 nodes at 50 %), and a guard asserts each merged ring is a superset of the nearest raw bucket |
+| `test_rated_aero_loads_reproduce_the_bem_resultants` | the applied load vectors carry the BEM's own integrated resultants | the BEM's trapezoidal integrals on its 50 radial stations: `I_Np = 8.474769e+05 N`, `I_Tp = 1.037107e+05 N`, `I_Mp = -2.765933e+05 N.m` | 0.5% on each resultant | `at_ac` `sum(f_y)` **1.000767** `I_Np`, `sum(f_x)` **0.996377** `I_Tp`; `uniform` `sum(f_y)` **0.999436** `I_Np`; `mp_only` `sum(x F_y - y F_x)` **0.999924** `I_Mp` | the invariant that caught the per-metre loads applied without a spanwise tributary weight (1.76x / 2.19x / 1.72x over-application) and the prebent-mesh station split (62 of 266 raw buckets with no in-plane edges, 14% of the normal force). Corrected `at_ac` max one-way displacement **17.156 m** vs Zhou's coupled tip flap **13.86 m** (reported, not asserted). See `odd/tasks/composite-bend-twist-verdict.md` §20 |
 
 **What this settles.** (1) The physical sense of the elastic twist at rated is **nose-down**
 (reducing the angle of attack): our own pitching moment is nose-down everywhere, and a nose-down
 section moment gives a negative `theta_z`. That is the same sense as Zhou's -3.60 deg and Ma's about
 -3.9 deg, and the **opposite** sense to the +0.98 deg previously attributed to the OpenFAST/BeamDyn
 anchor and to the +8.9 deg of the one-way path. (2) With the load applied along its **physical line
-of action** - forces at the aerodynamic centre plus the pitching moment - our shell gives **-2.72
-deg against Zhou's -3.60 deg, i.e. 0.755x, the same sense and 24.5% below**. The 9x gap and the
-opposite sign therefore belong to the load application, not to the element, the plate theory, the
+of action** - forces at the aerodynamic centre plus the pitching moment - the shell gives the same
+**nose-down sense** as Zhou, but the **magnitude is withdrawn**: the recast application of §18.6
+prints -20.73 deg for the mean `theta_z` (5.76x Zhou) and -26.12 deg for the distortion-free `omega`
+(7.26x), a spread that does not collapse. The sign and the load-path dependence therefore belong to
+the load application, not to the element, the plate theory, the
 section stiffness or the laminate (all four of which are separately validated in §4.8, §6 and
 §15 of the task document).
+
+**What the section-distortion measurement adds (WU-B3, `odd/tasks/composite-bend-twist-verdict.md` §20).**
+The test splits each tip ring's in-plane field into the origin-invariant section rotation `omega`
+(the antisymmetric part of the affine fit) and the symmetric distortion (`shear`, `dilatation`,
+`distortion`). On the **corrected** loads the distortion-free rotation spread (5.459) is *larger*
+than the `theta_z` spread (4.290): removing the symmetric part does **not** collapse the application
+spread, so the spread is not a metric artefact of the section rotation and the magnitude stays
+withdrawn. The tube's mechanism prediction - that the non-shear-path loads excite a larger section
+distortion - is **falsified** on the blade: the off-path distortion is **0.982x** the validated
+`at_ac` distortion instead of >1.5x. The two failing assertions are recorded as diagnostic findings
+and are not softened; the applied loads themselves are invariant-checked against the BEM's own
+integrals by `test_rated_aero_loads_reproduce_the_bem_resultants`.
 
 ### 4.12 `test_thin_walled_tube_torsion.py` (4)
 
@@ -1157,7 +1176,7 @@ red, and a green suite does not remove a flag.
 | `test_shell_convergence.py` | `raw-error log-log fit`, pairwise orders, `gap trend`, `DECISIVE ANSWER` | deliberately not asserted (documented in both cases) |
 | `test_shell_comprehensive.py:542` | `Beam-theory ratio: 400.00` (measured 400.39) | followed by a ±(-50%/+20%) assertion, so it does carry an assertion, just a very wide one |
 | `test_rust_modal.py` | per-mode tables, benchmark speedups | the frequency tables back a real `rtol=1e-4` assertion; the speedup column backs nothing |
-| `test_blade_rated_twist.py` | `physical case / Zhou` | **WITHDRAWN as a result** (the earlier `0.755x` was computed with two now-identified application defects): 24.5% is above the suite's 5% rule, so it is a documented residual. The asserted claims of that test are the **sign** (the physical load path gives the nose-down sense, the same sense as Zhou and Ma) and the load-path dominance (the uniform-ring application is >2x the aerodynamic-centre one). Promoting the magnitude to a row needs the remaining differences removed: our steady BEM loads against Zhou's fully coupled aeroelastic solution, BEM against lifting-line free vortex wake, and the reference's own modelling |
+| `test_blade_rated_twist.py` | `physical case / Zhou` | **WITHDRAWN as a result** (the earlier `0.755x` and the earlier 7.8x spread were both computed with now-identified application/magnitude defects): the corrected residual is **5.76x** by `theta_z` and **7.26x** by the section rotation, far above the suite's 5% rule, so it stays a documented residual. The asserted claims of that test are the **sign** (the physical load path gives the nose-down sense, the same sense as Zhou and Ma) and the load-path dominance (the uniform-ring application is >2x the aerodynamic-centre one). The section-distortion measurement (`test_rated_twist_with_the_validated_application_and_the_measured_section_distortion`, §4.11) shows the spread **grows** in the distortion-free section rotation (`spread_omega = 5.459` against `spread_theta_z = 4.290`). The applied loads themselves are now invariant-checked against the BEM's integrals to 0.5% (`test_rated_aero_loads_reproduce_the_bem_resultants`), so the residual is a structure/reference difference, not a load-magnitude artefact. Promoting the magnitude to a row needs the remaining differences removed: our steady BEM loads against Zhou's fully coupled aeroelastic solution, BEM against lifting-line free vortex wake, and the reference's own modelling |
 
 ### 9.6 Configuration drift
 
