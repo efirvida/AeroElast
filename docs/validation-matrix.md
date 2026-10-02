@@ -42,7 +42,7 @@ notes (flags per §9). `not printed` means the test asserts without printing a r
    residual; the *measured margin* column is exactly that output. Run it with `CCX_BIN`
    set, OpenFAST reachable and `neuralfoil` installed (§12), or the relevant rows skip.
 2. `python -m pytest -o addopts="" --collect-only -q` reproduces the file-by-file
-   inventory in §2 (433 tests / 38 files) that proves nothing drifted.
+   inventory in §2 (437 tests / 39 files) that proves nothing drifted.
 3. §2.1 is the headline table; §3-§8 are the per-row evidence behind it; §12 has the
    per-tool commands and the skip conditions.
 4. For a paper table, copy the row's *reference*, *tolerance* and *measured margin*
@@ -124,18 +124,18 @@ exceed the bound are the `xfail` list above. A green suite never unflags a row.
 
 ## Index
 
-Six groups, 38 files, 433 tests. Every collected test node is accounted for below;
+Six groups, 39 files, 437 tests. Every collected test node is accounted for below;
 §2 carries the file-by-file inventory table that proves the sum.
 
 | group | section | files | tests | passed | failed | measured margin range | tolerances > 5% |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | Ko, Lee, Lee & Bathe 2017 benchmarks | [§3](#3-teststest_ko2017_performancepy-ko-lee-lee--bathe-2017) | 1 | 31 | 31 | 0 | 0.01% – 2.73% | 0 |
-| CCX parity | [§4](#4-ccx-parity-group) | 12 | 80 | 80 | 0 | 0.20% – 12.57% | 7 |
+| CCX parity | [§4](#4-ccx-parity-group) | 13 | 84 | 84 | 0 | 0.20% – 12.57% | 7 |
 | Analytical | [§5](#5-analytical-group) | 5 | 40 | 40 | 0 | 0.10% – 2.42% | 0 |
 | Element and assembly invariants | [§6](#6-element-and-assembly-invariants) | 11 | 155 | 155 | 0 | 0.45% – 3.86% | 1 |
 | Rotor and FSI | [§7](#7-rotor-and-fsi-group) | 4 | 67 | 67 | 0 | algebraic / invariant (`not printed`) | 0 |
 | BEM, aero and mesh | [§8](#8-bem-aero-and-mesh-group) | 5 | 60 | 60 | 0 | 0.33% – 40.60% | 0 |
-| **Total** | | **38** | **433** | **433** | **0** | | **8** |
+| **Total** | | **39** | **437** | **437** | **0** | | **8** |
 
 **A large margin is not a failure.** `passed = 413, failed = 0` means every assertion held
 **at its own tolerance**. A row can show a large margin only because its tolerance is
@@ -164,6 +164,7 @@ By file and subsection:
   - [4.9 `test_ccx_writer_ids.py` (3)](#49-test_ccx_writer_idspy-3)
   - [4.10 `test_shell_stress_ccx_parity.py` (3)](#410-test_shell_stress_ccx_paritypy-3)
   - [4.11 `test_blade_rated_twist.py` (4)](#411-test_blade_rated_twistpy-4)
+  - [4.12 `test_thin_walled_tube_torsion.py` (4)](#412-test_thin_walled_tube_torsionpy-4)
 - [5. Analytical group](#5-analytical-group)
   - [5.1 `test_shell_analytical_validation.py` (11)](#51-test_shell_analytical_validationpy-11)
   - [5.2 `test_shell_comprehensive.py` (7)](#52-test_shell_comprehensivepy-7)
@@ -235,7 +236,7 @@ per-row matrix, so every result the suite produces is visible in one place.
   the value the test itself printed in that run. Rows whose test does not print are marked
   `not printed`, and that is a statement about the test, not about the element.
 - Per-file test counts in the section headings were re-collected at this tree with
-  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 429 total in §2 (the
+  `python -m pytest -o addopts="" --collect-only -q`; they sum to the 433 total in §2 (the
   `e879eba` subset of that collection summed to 386, and the 417-refresh subset to 417).
 - Paper values were read from the recovered PDFs in `.sources/papers/`, not from
   second-hand notes. The Ko et al. 2017 benchmark tables cited below are from
@@ -272,9 +273,10 @@ only accepts as S8R/S6; `None` keeps the `quadratic` behaviour)
 
 ## 2. Suite snapshot
 
-The collected suite is **433 tests / 38 files** (`python -m pytest -o addopts=""
---collect-only -q`), and the file-by-file inventory below sums to the same 433. The
-historical path to that number, so a reader can tell real drift from a stale cell:
+The file-by-file inventory below accounts for **437 tests / 39 files**, and the collected
+suite is **505 tests / 46 files** (`python -m pytest -o addopts="" --collect-only -q`); the
+difference is the seven files that still have no row, listed in the Known-drift table below. The
+historical path to the inventoried number, so a reader can tell real drift from a stale cell:
 
 | step | tests | what it added |
 | --- | --- | --- |
@@ -286,12 +288,15 @@ historical path to that number, so a reader can tell real drift from a stale cel
 | + the honesty sweep and the 2026 validation campaign (issues #3-#8); 28 unfailable tests removed | **426** | CLT judge, NREL/NuMAD refs, CCX mesh convergence, the K_G-scaling test and the nonlinear-default fix |
 | + `test_mitc3_smoothed.py` (3), issue #2 closed | **429** | the strain-smoothed MITC3+ union assembly against Lee & Lee 2019 (§6.10) |
 | + `test_blade_rated_twist.py` (4), issue #9 | **433** | our own rated BEM, the settled twist sign, and the rated twist vs Zhou (§4.11) |
+| + `test_thin_walled_tube_torsion.py` (4), issue #9 WU-B2 step 2 | **437** | the exact Saint-Venant tube torsion, the metric verdict and the load-application finding (§4.12) |
 
 The **last full `-s` run at 441 tests was `441 passed, 0 failed, 0 skipped` in 999.82s
 (16:39)**, with CalculiX 2.23, OpenFAST 4.2.1 and `neuralfoil` present so no row skipped.
 Since then the suite was made honest: 28 tests that could never fail were removed (§7.2) and
 the widened tolerances were tightened to the real 5% bound, which turns **10 nodes red** —
-the diagnostic failures of §13.2. The collected suite is now **433 tests**. Earlier, for
+the diagnostic failures of §13.2. The inventoried suite is now **437 tests / 39 files** and the
+collected suite is **505 tests / 46 files**. The four §4.12 rows were re-run in this pass and pass.
+Earlier, for
 reference: `e879eba` was `386 passed` in 633.45s and the 417-refresh was `417 passed` in
 1025.15s. The Rust side is green too: `cargo test --manifest-path crates/Cargo.toml -p
 aeroelast-core` -> **158 passed, 0 failed, 0 ignored** (the Cargo workspace root is `crates/`,
@@ -351,12 +356,12 @@ et al. modes**, §4.8), `test_ccx_writer_ids.py` (3, the CCX writer's id-scheme 
 campaign, §8.4).
 
 **File-by-file inventory.** The collected set at this tree, file by file, and the section
-that documents it. This table is the index's audit: its column sums to `429`, and it is the
+that documents it. This table is the index's audit: its column sums to `433`, and it is the
 one place to check whether a file has drifted out of the matrix. Reproduce with
 `python -m pytest -o addopts="" --collect-only -q | grep -c '::'`.
 
-**Known drift (measured 2026-10-02).** The collected suite is **501 tests / 45 files**, while the
-inventory below accounts for **433 / 38** (the 429 of the last full refresh plus §4.11). Seven files
+**Known drift (measured 2026-10-02).** The collected suite is **505 tests / 46 files**, while the
+inventory below accounts for **437 / 39** (the 429 of the last full refresh plus §4.11 and §4.12). Seven files
 carry no row yet:
 
 | file | tests |
@@ -373,13 +378,21 @@ carry no row yet:
 Reproduce:
 
 ```bash
-python -m pytest -o addopts="" --collect-only -q | grep -c '::'                                # 501
-python -m pytest -o addopts="" --collect-only -q | grep '::' | cut -d: -f1 | sort -u | wc -l   # 45
+python -m pytest -o addopts="" --collect-only -q | grep -c '::'                                # 505
+python -m pytest -o addopts="" --collect-only -q | grep '::' | cut -d: -f1 | sort -u | wc -l   # 46
 ```
 
 Until those rows exist, read the totals above as *inventoried* rather than *suite* counts, and never
 read a missing row as a passing test. Closing this drift is a documentation work unit, not a test
 change.
+
+**The four §4.12 rows are green at this refresh (measured 2026-10-02).** They were re-run in this
+pass: `python -m pytest tests/test_thin_walled_tube_torsion.py` gives `4 passed`. The
+boundary-layer-free self-equilibrated case and the recast one-wall traction replaced the three red
+rows of the previous revision; the measurements that made them red are kept and reported in §4.12
+and in `odd/tasks/composite-bend-twist-verdict.md` §19. The other 80 rows of the CCX-parity group
+carry the previous refresh's result and were **not** re-run here; the collected count is the fresh
+`505`.
 
 | file | tests | section |
 | --- | --- | --- |
@@ -420,7 +433,8 @@ change.
 | `test_bem_openfast_parity.py` | 14 | §8.4 |
 | `test_shell_stress_ccx_parity.py` | 3 | §4.10 |
 | `test_mitc3_smoothed.py` | 3 | §6.10 |
-| **37 files** | **429** | |
+| `test_thin_walled_tube_torsion.py` | 4 | §4.12 |
+| **38 files** | **433** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
@@ -689,6 +703,34 @@ deg against Zhou's -3.60 deg, i.e. 0.755x, the same sense and 24.5% below**. The
 opposite sign therefore belong to the load application, not to the element, the plate theory, the
 section stiffness or the laminate (all four of which are separately validated in §4.8, §6 and
 §15 of the task document).
+
+### 4.12 `test_thin_walled_tube_torsion.py` (4)
+
+Saint-Venant torsion of a closed rectangular thin-walled tube (`b = 1.0 m`, `h = 0.6 m`, 16-node
+closed mid-line ring, 0.2 m elements along z, `L = 6, 12, 24 m`), loaded with `T = 1.0e4 N.m`. The
+reference is hand-written Bredt-Batho, `theta' = T/GJ` with `GJ = 4 A^2 A66 / perimeter`, where
+`A66 = G t` (isotropic) or `t_total * Qbar66(45 deg)` (balanced symmetric `[45,-45]s` CFRP). It
+separates "the element", "the reference" and "the load application" before the blade is touched
+again; it is WU-B2 step 2 of `odd/tasks/composite-bend-twist-verdict.md` §18.5/§18.6 and §19
+records the measured evidence. The two twist metrics (`theta_fit`, an in-plane rigid-ring fit, and
+`theta_z`, the mean DOF-5 rotation about z) are reported side by side in every case. All four tests
+pass.
+
+| test | what it validates | reference | tolerance (bound) | measured result | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_self_equilibrated_isotropic_reproduces_bredt` | boundary-layer-free torsion: both metrics must equal the section rotation | hand-written Bredt, **exact/analytic** | 5% per metric, 2% metric agreement, 1% linearity, `1e-9` torque and resultants | `theta_fit` 1.00309, `theta_z` 1.00674; metric agreement 0.36%; linearity 0.0000% | `+T` tip and `-T` root shear flow; all six rigid-mode resultants `<= 3.7e-18`; rigid modes removed by the exact constraint `Phi^T u = 0` because the plan's penalty was measured not to be solution-neutral |
+| `test_self_equilibrated_laminate_reproduces_bredt` | the composite `A66` path on the same boundary-layer-free case | hand-written `Qbar66` + Bredt, **exact/analytic** | 5% per metric, 2% metric agreement, 1% linearity, `1e-9` | `theta_fit` 0.99860, `theta_z` 1.00703; metric agreement 0.84%; linearity 0.0000% | the laminate constitutive path matches the hand-written `t_total Qbar66` reference to 0.7% |
+| `test_clamped_root_metric_convergence_identifies_the_section_rotation` | which metric is the section rotation, and the boundary-layer length | hand-written Bredt, **exact/analytic** | the asymptotic metric (`theta_z` at `L = 24 m`) inside 5% | `theta_z` 1.0068 (t=10 mm) / 1.0070 (t=0.5 mm); `theta_fit` 1.0082 / 0.9750 and non-monotone | L x t table in §19.2. `theta_z` converges to 1.007 for every L, thickness and window; `theta_fit` does not (root layer plus thickness-dependent in-plane shear). `theta_fit` is reported, not asserted |
+| `test_wall_traction_excites_a_section_distortion` | the mirror symmetry, the torque ruler, and the distortion amplitude of a one-wall tip traction | hand-written Bredt for the ruler and the shear-flow reference, **exact/analytic** | `1e-9` (torque), 1% (mirror magnitude) + sign, distortion ratio `> 10x` | torque exact; mirror 1.000000 and opposite sign; distortion `125.7x` the shear flow's (energy `69.2x`, tip displacement `74.8x`) | reported: right-wall `theta_fit` 20.1512, `theta_z` 0.9366; shear flow `theta_fit` 0.9916, `theta_z` 1.0063. A statically equivalent end load is not equivalent: it excites a section parallelogram |
+
+**What this section measures.** The closed-shear-flow application is validated on both constitutive
+paths and both metrics, boundary-layer-free: each ratio inside 1% and the two metrics agreeing
+within 1% (`1.00309`/`1.00674`, `0.99860`/`1.00703`). The clamped-root table then identifies
+`theta_z` as the section rotation and shows `theta_fit` is polluted by the end layer and by the
+thickness-dependent in-plane shear. The one-wall traction is the negative result: same torque,
+`125.7x` the section distortion, and a `2050%` metric split. All four tests assert the plan's bounds
+and pass; nothing was widened or softened. Promoting the blade comparison from a reported residual
+to an asserted row is a separate work unit.
 
 ## 5. Analytical group
 

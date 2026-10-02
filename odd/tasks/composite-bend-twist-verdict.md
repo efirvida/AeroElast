@@ -859,3 +859,116 @@ known dimensions and laminate under a known torque, where `theta = T L / GJ` wit
 `GJ = 4 A^2 / oint(ds / (G t))` is exact. The application is validated when the shell reproduces
 that inside the 5% rule; only then can the blade comparison be promoted from a reported residual
 to an asserted row.
+
+---
+
+## 19. WU-B2 step 2 - the load application and the metric on an exact case
+
+**What was built.** `tests/test_thin_walled_tube_torsion.py` (4 tests). A rectangular **closed**
+thin-walled tube, mid-surface mesh, axis along z, loaded only at the rings. The reference is
+hand-written Bredt-Batho and independent of every path the repository computes. All numbers were
+measured on this tree with the module's own `-s` output; the module reports `4 passed`.
+
+| item | value |
+| --- | --- |
+| mid-line section | `b = 1.0 m` (x) x `h = 0.6 m` (y), corners at ( +-0.5, +-0.3 ), centroid at the origin |
+| mesh | `n_seg = 4` per side (16-node closed ring, corners shared), 0.2 m elements along z; `L = 6, 12, 24 m` |
+| isotropic wall | MITC4 (code 4): `E = 2.1e11`, `nu = 0.3`, `t = 0.01 m` (and 0.5 mm for the thin-wall comparison) |
+| laminate wall | MITC4Composite (code 44): `[45,-45]s` CFRP, `E1 = 120e9`, `E2 = 10e9`, `G12 = 5e9`, `nu12 = 0.3`, ply `0.125e-3 m`, `t_total = 0.5e-3 m` |
+| load | `T = 1.0e4 N.m`; a ring shear flow `q = T/(2A)`, `A = b h = 0.6 m^2`; or a single-wall traction |
+| reference | `theta' = T/GJ`, `GJ = 4 A^2 A66 / perimeter`, `perimeter = 2(b+h) = 3.2 m`; `A66 = G t` (isotropic) or `t_total * Qbar66(45 deg)` (laminate) |
+
+**A correction to the reference as the plan wrote it.** §18.6 wrote the reference as
+`GJ = 4 A^2 / (perimeter / t)`. That expression drops `G`: it has units of `m^4`, not `N.m^2`, and
+would make every ratio meaningless. The dimensionally consistent form - the one the plan's own
+opening line and its laminate row already had - is `GJ = 4 A^2 A66 / perimeter`, i.e.
+`4 A^2 / oint(ds / (G t))`. It is the form used and asserted here; nothing was tuned around it.
+
+The two twist metrics are computed and reported in every case: `theta_fit` (in-plane rigid-ring
+fit) and `theta_z` (mean DOF-5 rotation about z). In the exact Saint-Venant solution the section
+does not distort in plane, so both must equal the section rotation.
+
+### 19.1 Self-equilibrated torsion - the boundary-layer-free primary validation
+
+`+T` at the tip ring and `-T` at the root ring (both as `q = T/(2A)`) is fully self-equilibrated:
+all six rigid-mode resultants vanish (measured `<= 3.7e-18` normalised) and the realised end torques
+are `+-T` to `1e-9`. With no clamped ring there is no boundary layer and the solution is uniform
+torsion. The six rigid modes are removed by the exact constraint `Phi^T u = 0` (see the penalty
+finding below); the removed solution satisfies `|Phi^T u| / |u| < 1e-10`.
+
+| material | `theta_fit` ratio | `theta_z` ratio | metric difference | profile linearity (0.1-0.5L vs 0.5-0.9L) |
+| --- | ---: | ---: | ---: | ---: |
+| isotropic `t = 10 mm` | 1.00309 | 1.00674 | 0.36% | 0.0000% |
+| laminate `[45,-45]s` | 0.99860 | 1.00703 | 0.84% | 0.0000% |
+
+Both metrics reproduce `T/GJ` inside 5%, they agree with **each other** inside 2%, and the profile
+is exactly linear - the two half-windows have the same slope to the printed precision. **This is the
+metric validation:** with no end boundary layer, `theta_fit` and `theta_z` are the same section
+rotation, and the disagreement seen in the clamped case is a boundary-layer artefact, not a property
+of the element.
+
+**The rigid-mode penalty is not exactly solution-neutral (measured).** The plan prescribes a penalty
+`k Phi Phi^T` with `k = 1e-6 * median(diag K)` and an invariance check at `1000k`. Measured: the
+assembled `K` annihilates the analytic rigid modes only to round-off, and the twist rate drifts by
+**1.93e-2** (isotropic, `k = 5.60e2`) and **1.06e-1** (laminate, `k = 1.78e0`) between `k` and
+`1000k`. The physical spectrum floor of `K` was measured at `lambda_min ~ 5.06e3`, so the prescribed
+`k` sits only ~9x below it and `1000k` above it. A penalty at `1e-14 * median(diag K)` reproduces the
+exact constrained solution to `~1e-10`, but the exact saddle-point constraint `Phi^T u = 0` is
+k-free and is what the tests use. No tolerance was widened; the prescribed penalty simply does not
+meet the `1e-9` invariance it was supposed to.
+
+### 19.2 Clamped root - which metric is the section rotation, and how long is the layer
+
+Clamped root ring, tip shear flow, `theta_fit` and `theta_z` over `0.4L-0.9L` and over the fixed
+window `2.4-5.4 m`:
+
+| t | L | 0.4L-0.9L `theta_fit` | 0.4L-0.9L `theta_z` | 2.4-5.4 m `theta_fit` | 2.4-5.4 m `theta_z` |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 10 mm | 6 m | 0.9916 | 1.0063 | 0.9916 | 1.0063 |
+| 10 mm | 12 m | 1.0315 | 1.0067 | 1.0162 | 1.0062 |
+| 10 mm | 24 m | 1.0082 | 1.0068 | 1.0169 | 1.0062 |
+| 0.5 mm | 6 m | 0.8825 | 1.0070 | 0.8825 | 1.0070 |
+| 0.5 mm | 12 m | 0.8933 | 1.0070 | 0.8898 | 1.0070 |
+| 0.5 mm | 24 m | 0.9750 | 1.0070 | 0.9207 | 1.0070 |
+
+Local secant slope of `theta_fit` / `T/GJ` along z (station z in m):
+
+- `t = 10 mm, L = 6 m`: `0.1:0.771 0.7:0.914 1.3:0.941 1.9:0.961 2.5:0.975 3.1:0.985 3.7:0.992`
+  `4.3:0.996 4.9:0.998 5.5:0.999`
+- `t = 0.5 mm, L = 6 m`: `0.1:0.765 0.7:0.879 1.3:0.882 1.9:0.882 2.5:0.882 3.1:0.882 3.7:0.883`
+  `4.3:0.883 4.9:0.883 5.5:0.885`
+
+**Verdict.** `theta_z` converges to `~1.007` of `T/GJ` for every L, both thicknesses and both
+windows - it is the section rotation. `theta_fit` does **not** converge: it is polluted by the
+clamped-root boundary layer (which raises it from `0.77` near the root and can overshoot) and, for
+the thin wall, by a thickness-dependent section in-plane shear that keeps it below `1` even at
+`L = 24 m`. The test asserts only the asymptotic metric (`theta_z` inside 5%) and reports the other.
+
+### 19.3 The one-wall traction - a statically equivalent load that is not equivalent
+
+At the tip, a uniform `+y` traction on the wall at `x = +b/2` has the same `T_eff = 1.0e4 N.m` and
+zero net axial force as the shear flow. It is not equivalent:
+
+| load | `theta_fit` ratio | `theta_z` ratio | `alpha = du_x/dy` | `beta = du_y/dx` | shear `(alpha+beta)/2` | departure from rigid rotation | energy | tip in-plane |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| shear flow (tip) | 0.9916 | 1.0063 | -9.31e-5 | +7.14e-5 | -1.09e-5 | 0.125 | 0.827 J | 7.65e-5 m |
+| wall traction (`x=+b/2`) | 20.1512 | 0.9366 | +1.28e-3 | +1.45e-3 | +1.37e-3 | 0.858 | 57.22 J | 5.72e-3 m |
+
+The distortion amplitudes are at `z = 3.0 m`; the one-wall shear is **125.7x** the shear flow's, its
+elastic energy is **69.2x** and its tip in-plane displacement **74.8x**. The mirrored wall (same `+y`
+traction at `x = -b/2`) is exact: `|slope_left| = |slope_right|` to the last digit, opposite sign.
+The two metrics disagree by `2050%` here because `theta_fit` reads the section parallelogram as
+rotation while `theta_z` does not.
+
+**Verdict.** The closed shear flow is the application that reproduces the exact answer. A localized
+end load on one wall does not: it excites a soft section-distortion mode (a parallelogram field)
+that the exact Saint-Venant traction does not. Saint-Venant's principle is **not** a usable
+justification for redistributing a torque over the ring of this flat-faceted tube.
+
+**What the blade investigation takes from it.** A thin-walled closed section loaded at one end with a
+clamped root can have its measured twist dominated by a section-distortion mode rather than the
+section rotation. The blade's 7.8x application spread (§18.6) is a candidate for the same mechanism,
+and the next work unit must **measure the blade's distortion** (the section parallelogram and the
+departure from rigid rotation), not just its rotation. Promoting the blade row from a reported
+residual to an asserted one remains the NEXT work unit; nothing here changes a blade number.
+
