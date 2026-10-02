@@ -48,18 +48,29 @@ Deformed radial position
 ------------------------
 For each BEM strip *k* with node index set :math:`\mathcal{I}_k`, the
 deformed radial coordinate is the arithmetic mean of the nodal span-wise
-projections on the deformed configuration:
+projections on the deformed configuration, carried onto the **hub datum**:
 
 .. math::
 
     r_k^{\mathrm{def}}
-        = \frac{1}{|\mathcal{I}_k|}
+        = c + \frac{1}{|\mathcal{I}_k|}
           \sum_{i \in \mathcal{I}_k}
-          \bigl(\mathbf{X}_i + \mathbf{u}_i\bigr) \cdot \hat{\mathbf{e}}_s
+          \bigl(\mathbf{X}_i + \mathbf{u}_i\bigr) \cdot \hat{\mathbf{e}}_s,
+    \qquad
+    c = r_0^{\mathrm{ref}} - \min_i \bigl(\mathbf{X}_i \cdot \hat{\mathbf{e}}_s\bigr)
 
 where :math:`\mathbf{X}_i` are the reference nodal coordinates,
 :math:`\mathbf{u}_i` the displacement vector, and
 :math:`\hat{\mathbf{e}}_s` the unit span direction.
+
+**Datum.**  :math:`c` carries the mesh's own span origin - blade-root
+referenced for a single-blade mesh, so :math:`c` is the hub radius - onto the
+hub datum of ``blade_aero.r`` and of the CCBlade annulus
+(``Rhub = blade_aero.hub_radius``); for a hub-referenced rotor mesh it is zero.
+**Every radial quantity of this class is hub-referenced**: ``_ref_r``, the
+``r_def`` returned here, and the radii handed to ``_rebuild_bem_solver``.  The
+CCBlade annulus therefore keeps its hub, while ``ForceProjector`` (which
+anchors its own station grid on the mesh datum) re-anchors them internally.
 
 This captures the radial redistribution of blade stations caused by
 flapwise and edgewise bending.  For a pure flapwise deflection
@@ -75,58 +86,41 @@ The local aerodynamic twist at strip *k* on the deformed blade is:
 
     \theta_k^{\mathrm{def}} = \theta_k^{\mathrm{ref}} + \Delta\theta_k
 
-where the elastic twist increment :math:`\Delta\theta_k` is obtained from
-the rotation of the *chord direction* of the strip nodes between the
-reference and deformed configurations.
-
-**Chord direction estimation (SVD-based PCA).**  For each strip *k*:
-
-1. Collect the strip node positions :math:`\mathbf{x}_i` (reference or
-   deformed) and compute their centroid :math:`\bar{\mathbf{x}}_k`.
-2. Form the offset matrix
-   :math:`\mathbf{D}_k = [\mathbf{x}_i - \bar{\mathbf{x}}_k]_{i \in \mathcal{I}_k}`.
-3. Project onto the plane perpendicular to :math:`\hat{\mathbf{e}}_s`:
-
-   .. math::
-
-       \mathbf{D}_k^{\perp}
-           = \mathbf{D}_k
-             - \bigl(\mathbf{D}_k \, \hat{\mathbf{e}}_s\bigr)
-               \hat{\mathbf{e}}_s^\top
-
-4. Compute the SVD :math:`\mathbf{D}_k^{\perp} = \mathbf{U \Sigma V}^\top`.
-   The first right singular vector :math:`\mathbf{v}_1` is the direction of
-   maximum variance in the cross-section plane — i.e. the **chord direction**
-   :math:`\hat{\mathbf{c}}_k`.
-
-5. Orient consistently: if
-   :math:`\hat{\mathbf{c}}_k \cdot \hat{\mathbf{e}}_n < 0` (where
-   :math:`\hat{\mathbf{e}}_n` is the global normal direction), flip the sign.
-
-This is equivalent to a 2-D Principal Component Analysis (PCA) of the
-cross-section node distribution and is robust to:
-
-* Non-uniform chordwise node spacing (common in FE meshes with refinement
-  near the leading/trailing edge).
-* Moderate out-of-plane warp of the cross-section (the projection onto the
-  :math:`\hat{\mathbf{e}}_s`-perpendicular plane removes the span component).
-* Large rotations — the SVD does not linearise the rotation.
-
-**Signed angle computation.**  Given the reference chord direction
-:math:`\hat{\mathbf{c}}_k^{\mathrm{ref}}` and the deformed chord direction
-:math:`\hat{\mathbf{c}}_k^{\mathrm{def}}`, the elastic twist is the signed
-angle between them measured about the span axis:
+**The section rotation, not the strip cloud's chord direction.**  A BEM strip
+spans several merged mesh stations (``dr ~ 2.4 m`` against ~0.63 m here), so
+the principal in-plane direction of the strip's *whole* node cloud follows the
+deformed arc of a bent blade instead of its chord; the elastic twist is
+measured on **one physical ring** at the strip centre.  The participant
+receives only the three translational DOFs through the coupling, so the
+rotation is recovered from the ring's in-plane displacement field
+:math:`(u_x, u_y)` at :math:`(x, y)` in an orthonormal basis of the plane
+perpendicular to :math:`\hat{\mathbf{e}}_s`, fitted by least squares to the
+affine map
 
 .. math::
 
-    \Delta\theta_k = \arctan2\!\bigl(
-        (\hat{\mathbf{c}}_k^{\mathrm{ref}} \times \hat{\mathbf{c}}_k^{\mathrm{def}})
-            \cdot \hat{\mathbf{e}}_s,\;
-        \hat{\mathbf{c}}_k^{\mathrm{ref}} \cdot \hat{\mathbf{c}}_k^{\mathrm{def}}
-    \bigr)
+    u_x = a_{11} x + a_{12} y + t_x, \qquad
+    u_y = a_{21} x + a_{22} y + t_y.
 
-The sign convention is positive nose-up (trailing edge rotates toward the
-suction side), consistent with the BEM twist definition in CCBlade.
+Its antisymmetric part is the section rotation about the span axis:
+
+.. math::
+
+    \Delta\theta_k = \tfrac{1}{2}\,(a_{21} - a_{12}),
+
+invariant to the in-plane origin and with the same sense as the shell's own
+rotational DOF about the span axis (positive nose-up).  Each strip's ring is
+bound by span position (the node nearest the strip centre, plus every strip
+node within ``RING_BIND_FRACTION`` of the strip width of it - above the mesh's
+prebend skew, below the station spacing).  A ring that cannot define a 2-D
+section keeps the reference twist: no second estimator is used, so nothing can
+silently disagree with this one.
+
+**Sense.**  The BEM twist angle and the mesh's rotation about the span axis are
+opposite-sensed whenever ``normal = span x tangential`` (the default frame:
+CCBlade's ``alpha = phi - theta``, while a positive mesh rotation turns the
+chord toward the downwind axis).  The factor is derived from the configured
+directions in ``_twist_mesh_to_bem``.
 
 Force projection on deformed geometry
 --------------------------------------
@@ -215,6 +209,12 @@ from aeroelast.solvers.bem.engine import BEMResult, BEMSolver
 from aeroelast.solvers.bem.force_projection import ForceProjector
 
 logger = logging.getLogger(__name__)
+
+#: Fraction of a BEM strip's width used to bind mesh nodes to the strip's
+#: centre physical ring.  It must exceed the mesh's spanwise prebend skew (a
+#: physical ring's nodes span ~1e-3 m on the IEA-15 MW blade) and stay well
+#: below the physical station spacing (~0.63 m against a 2.39 m strip here).
+RING_BIND_FRACTION = 0.05
 
 
 # ---------------------------------------------------------------------------
@@ -340,6 +340,22 @@ class BEMFSIParticipant:
         )
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)
 
+        # -- Mesh span rotation -> BEM twist sense --------------------------
+        # A positive rotation of the section about +span turns the chord
+        # (tangential) axis toward the span x tangential direction.  When that
+        # direction is the configured downwind (normal) axis - the default
+        # frame here, span=x cross tangential=y - the chord's leading edge
+        # turns away from the wind and the angle of attack rises.  CCBlade's
+        # alpha = phi - theta therefore requires theta to FALL.  The elastic
+        # section rotation and the BEM twist angle are opposite-sensed, so
+        # mixing them with a plus (as this class used to) feeds the BEM an
+        # inverted twist and turns de-loading into re-loading.
+        self._twist_mesh_to_bem: float = (
+            -1.0
+            if float(np.dot(self._normal_dir, np.cross(self._span_dir, self._tangential_dir))) > 0.0
+            else 1.0
+        )
+
         # -- BEM solver keyword arguments (constant across iterations) ------
         self._bem_solver_kwargs: dict = {
             "rho": bem_config.get("air_density", 1.225),
@@ -365,24 +381,29 @@ class BEMFSIParticipant:
 
         # -- Strip-to-node mapping from the reference projector -------------
         # These index arrays define which mesh nodes belong to each BEM strip.
-        # The mapping is established on the reference geometry and is also
-        # used by the deformed-geometry methods (chord direction estimation,
-        # radial position averaging).  The ForceProjector rebuilt on deformed
-        # coordinates will independently reassign nodes to strips (a node
-        # shifted by large bending may migrate to an adjacent strip).
+        # The mapping is established on the reference geometry and is used by
+        # the deformed-geometry methods (radial position averaging and the
+        # strip's centre-ring selection).  The ForceProjector rebuilt on
+        # deformed coordinates will independently reassign nodes to strips (a
+        # node shifted by large bending may migrate to an adjacent strip).
         self._strip_node_indices: list[np.ndarray] = [
             strip.node_indices.copy() for strip in ref_projector._strips
         ]
 
-        # -- Reference per-strip quantities ---------------------------------
+        # -- Reference per-strip quantities (all radial ones HUB-referenced) --
         self._ref_r: np.ndarray = blade_aero.r.copy()  # (n_strips,)
         self._ref_twist: np.ndarray = blade_aero.twist.copy()  # (n_strips,) rad
-
-        # Reference chord directions (unit vectors in the e_s-perp plane).
-        # Computed via SVD-based PCA of each strip's node distribution.
-        self._ref_chord_dirs: list[np.ndarray] = self._compute_strip_chord_dirs(
-            self._ref_coords,
-        )
+        # Mesh span coordinate, and the signed offset that carries the mesh's
+        # own blade-root datum onto the hub datum of _ref_r / the BEM annulus.
+        self._mesh_span: np.ndarray = self._ref_coords @ self._span_dir
+        self._mesh_datum_offset: float = float(self._ref_r[0] - self._mesh_span.min())
+        # Mesh-datum strip centres and widths, from the reference projector.
+        self._strip_centres: np.ndarray = np.array([s.r_center for s in ref_projector._strips])
+        self._strip_widths: np.ndarray = np.array([s.dr for s in ref_projector._strips])
+        # The physical ring at each strip's centre: the section the elastic
+        # twist is measured on (a strip spans ~4 mesh stations, so its whole
+        # node cloud is not one section).
+        self._strip_ring_indices: list[np.ndarray] = self._find_strip_rings()
 
         # -- Working copy of the mesh for projector reconstruction ----------
         # A single deep copy is made at init time; subsequent iterations
@@ -567,19 +588,12 @@ class BEMFSIParticipant:
 
         **Algorithm summary** (per strip *k*):
 
-        1. Compute deformed coordinates
-           :math:`\mathbf{x}_i = \mathbf{X}_i + \mathbf{u}_i`.
-        2. Radial position:
-           :math:`r_k^{\mathrm{def}} = \mathrm{mean}_{i \in \mathcal{I}_k}
-           (\mathbf{x}_i \cdot \hat{\mathbf{e}}_s)`.
-        3. Chord direction on the deformed config via SVD-based PCA
-           (``_compute_strip_chord_dirs``).
-        4. Signed elastic twist:
-           :math:`\Delta\theta_k = \arctan2(
-           (\hat{\mathbf{c}}^{\mathrm{ref}} \times \hat{\mathbf{c}}^{\mathrm{def}})
-           \cdot \hat{\mathbf{e}}_s,\;
-           \hat{\mathbf{c}}^{\mathrm{ref}} \cdot \hat{\mathbf{c}}^{\mathrm{def}})`.
-        5. Deformed twist:
+        1. Deformed coordinates :math:`\mathbf{x}_i = \mathbf{X}_i + \mathbf{u}_i`.
+        2. Radial position: the mean span projection of the strip nodes, carried onto the
+           hub datum by ``_mesh_datum_offset`` (see the module docstring's "Datum").
+        3. Elastic twist: the in-plane section rotation of the strip's centre physical
+           ring (``_section_rotation``), converted into the BEM's twist sense.
+        4. Deformed twist:
            :math:`\theta_k^{\mathrm{def}} = \theta_k^{\mathrm{ref}} + \Delta\theta_k`.
 
         Parameters
@@ -590,29 +604,16 @@ class BEMFSIParticipant:
         Returns
         -------
         r_def : ndarray, shape (n_strips,)
-            Deformed radial position of each BEM strip projected onto the
-            span axis.
+            Deformed radial position of each BEM strip on the **hub datum** (the same
+            datum as ``_ref_r``).
         twist_def : ndarray, shape (n_strips,)
-            Total aerodynamic twist at each strip [rad], including the
-            reference twist plus the elastic torsion increment.
+            Total aerodynamic twist at each strip [rad], reference plus the elastic
+            torsion increment, in the BEM's twist sense.
         """
         deformed_coords = self._ref_coords + displacements
         n_strips = len(self._strip_node_indices)
         r_def = np.empty(n_strips)
         twist_def = np.empty(n_strips)
-
-        # Chord directions on the deformed configuration.
-        # _compute_strip_chord_dirs resolves the SVD 180° sign ambiguity
-        # against self._normal_dir, but the blade chord is nearly
-        # perpendicular to the normal (flapwise) direction, so
-        # dot(chord_dir, normal_dir) ≈ 0 and the sign is numerical noise.
-        # Re-orient each deformed chord dir to be in the same hemisphere as
-        # its reference counterpart so that delta_twist = arctan2(sin,cos) is
-        # always small (elastic) rather than jumping to ±π.
-        def_chord_dirs = self._compute_strip_chord_dirs(deformed_coords)
-        for k in range(n_strips):
-            if np.dot(def_chord_dirs[k], self._ref_chord_dirs[k]) < 0:
-                def_chord_dirs[k] = -def_chord_dirs[k]
 
         s = self._span_dir
         for k in range(n_strips):
@@ -622,107 +623,77 @@ class BEMFSIParticipant:
                 twist_def[k] = self._ref_twist[k]
                 continue
 
-            # Deformed radial position (mean span-wise projection)
-            strip_span = deformed_coords[idx] @ s
-            r_def[k] = float(np.mean(strip_span))
+            # Deformed radial position: mean span-wise projection on the mesh
+            # datum, converted to this class's hub datum (see the module
+            # docstring's "Datum" paragraph).
+            r_def[k] = float(np.mean(deformed_coords[idx] @ s)) + self._mesh_datum_offset
 
-            # Elastic twist from chord direction rotation
-            c_ref = self._ref_chord_dirs[k]
-            c_def = def_chord_dirs[k]
-            cos_a = float(np.clip(np.dot(c_ref, c_def), -1.0, 1.0))
-            sin_a = float(np.dot(np.cross(c_ref, c_def), s))
-            delta_twist = np.arctan2(sin_a, cos_a)
-
-            twist_def[k] = self._ref_twist[k] + delta_twist
+            # Elastic twist: the rotation of the strip's centre physical ring
+            # about the span axis, taken into the BEM's twist sense (see
+            # _twist_mesh_to_bem).  A degenerate ring has no measurable section
+            # rotation, so that strip keeps its reference twist rather than
+            # falling back to a second, disagreeing estimator.
+            omega = self._section_rotation(displacements, self._strip_ring_indices[k])
+            twist_def[k] = self._ref_twist[k] + self._twist_mesh_to_bem * (
+                0.0 if omega is None else omega
+            )
 
         return r_def, twist_def
 
-    def _compute_strip_chord_dirs(
-        self,
-        coords: np.ndarray,
-    ) -> list[np.ndarray]:
-        r"""Estimate a chord-direction unit vector for each BEM strip via
-        SVD-based PCA of the cross-section node distribution.
+    def _find_strip_rings(self) -> list[np.ndarray]:
+        """Assign every BEM strip the physical mesh ring nearest its centre.
 
-        **Method (per strip k):**
-
-        1. Collect strip node positions and compute centroid
-           :math:`\bar{\mathbf{x}}_k`.
-        2. Form the offset matrix :math:`\mathbf{D}_k` (nodes × 3).
-        3. Project offsets onto the plane perpendicular to
-           :math:`\hat{\mathbf{e}}_s`:
-           :math:`\mathbf{D}_k^{\perp} = \mathbf{D}_k
-           - (\mathbf{D}_k \hat{\mathbf{e}}_s) \hat{\mathbf{e}}_s^\top`.
-        4. SVD: :math:`\mathbf{D}_k^{\perp} = \mathbf{U\Sigma V}^\top`.
-           The first row of :math:`\mathbf{V}^\top` (i.e. :math:`\mathbf{v}_1`)
-           is the principal axis = chord direction.
-        5. Flip sign if :math:`\mathbf{v}_1 \cdot \hat{\mathbf{e}}_n < 0`
-           to ensure a consistent orientation across strips and iterations.
-
-        This is mathematically equivalent to a 2-D PCA in the airfoil
-        cross-section plane.  The chord direction dominates the variance
-        because the chord is typically 5–20× the airfoil thickness, making
-        the leading singular value well-separated from the second.
-
-        **Robustness:**
-
-        * Strips with fewer than 2 nodes fall back to the global normal
-          direction :math:`\hat{\mathbf{e}}_n` (no PCA possible).
-        * Near-zero norm after projection (degenerate planar strip exactly
-          parallel to span) also falls back to :math:`\hat{\mathbf{e}}_n`.
-
-        Parameters
-        ----------
-        coords : ndarray, shape (n_nodes, 3)
-            Nodal coordinates (reference or deformed).
-
-        Returns
-        -------
-        chord_dirs : list of ndarray, each shape (3,)
-            Unit chord-direction vector for each strip.
+        A strip spans several rings (2.39 m against ~0.63 m stations here).  The strip
+        node nearest the strip centre anchors the ring, and every strip node within
+        ``RING_BIND_FRACTION * dr`` of it belongs to it - above the mesh's prebend skew,
+        below the station spacing, so exactly one physical station is bound.
         """
-        chord_dirs: list[np.ndarray] = []
-        s = self._span_dir
-
-        for idx in self._strip_node_indices:
-            if len(idx) < 2:
-                chord_dirs.append(self._normal_dir.copy())
+        rings: list[np.ndarray] = []
+        for k, idx in enumerate(self._strip_node_indices):
+            if len(idx) == 0:
+                rings.append(idx)
                 continue
+            local_span = self._mesh_span[idx]
+            anchor = local_span[np.argmin(np.abs(local_span - self._strip_centres[k]))]
+            tolerance = RING_BIND_FRACTION * self._strip_widths[k]
+            rings.append(idx[np.abs(local_span - anchor) <= tolerance])
+        return rings
 
-            strip_pts = coords[idx]
-            centroid = strip_pts.mean(axis=0)
-            offsets = strip_pts - centroid
+    def _section_rotation(
+        self,
+        displacements: np.ndarray,
+        ring_idx: np.ndarray,
+    ) -> float | None:
+        r"""Rotation of one physical ring about the span axis [rad].
 
-            # Project offsets onto the plane ⊥ span_dir
-            offsets_plane = offsets - np.outer(offsets @ s, s)
+        The ring's in-plane field is fitted by least squares to ``u = A x + t`` in an
+        orthonormal in-plane basis ``(e1, e2)`` with ``e2 = span x e1``; the antisymmetric
+        part ``0.5 (a21 - a12)`` is the section rotation, invariant to the in-plane origin
+        and with the same sense as the shell's rotational DOF about the span axis.  Returns
+        ``None`` when the ring cannot define a 2-D section (fewer than three nodes, or a
+        rank-deficient design); that strip then keeps its reference twist, so no second
+        estimator can silently disagree with this one.
+        """
+        if len(ring_idx) < 3:
+            return None
 
-            _, _, Vt = np.linalg.svd(offsets_plane, full_matrices=False)
-            chord_dir = Vt[0]
+        seed = np.array([1.0, 0.0, 0.0])
+        if abs(seed @ self._span_dir) > 0.9:  # the seed must not be parallel to the span
+            seed = np.array([0.0, 1.0, 0.0])
+        e1 = seed - (seed @ self._span_dir) * self._span_dir
+        e1 = e1 / np.linalg.norm(e1)
+        e2 = np.cross(self._span_dir, e1)
 
-            # Orient consistently using the most-aligned reference direction.
-            # For tip sections the chord is nearly perpendicular to normal_dir
-            # (dot ≈ sin(twist) ≈ 0), so the sign is numerical noise and can
-            # flip ±180°, corrupting delta_twist.  Using whichever of
-            # normal_dir / tangential_dir has the highest absolute projection
-            # guarantees a stable sign across all spanwise stations.
-            if abs(np.dot(chord_dir, self._tangential_dir)) >= abs(
-                np.dot(chord_dir, self._normal_dir)
-            ):
-                if np.dot(chord_dir, self._tangential_dir) < 0:
-                    chord_dir = -chord_dir
-            else:
-                if np.dot(chord_dir, self._normal_dir) < 0:
-                    chord_dir = -chord_dir
-
-            norm = np.linalg.norm(chord_dir)
-            if norm > 1e-12:
-                chord_dir /= norm
-            else:
-                chord_dir = self._normal_dir.copy()
-
-            chord_dirs.append(chord_dir)
-
-        return chord_dirs
+        pts = self._ref_coords[ring_idx]
+        x, y = pts @ e1, pts @ e2
+        disp = displacements[ring_idx]
+        ux, uy = disp @ e1, disp @ e2
+        design = np.column_stack([x, y, np.ones_like(x)])
+        if np.linalg.matrix_rank(design) < 3:
+            return None
+        a12 = float(np.linalg.lstsq(design, ux, rcond=None)[0][1])
+        a21 = float(np.linalg.lstsq(design, uy, rcond=None)[0][0])
+        return 0.5 * (a21 - a12)
 
     # -----------------------------------------------------------------------
     # BEM and projector reconstruction on deformed geometry
@@ -899,10 +870,9 @@ class BEMFSIParticipant:
 
         # _strip_node_indices is intentionally kept as the *reference*
         # assignment and is NOT updated from the deformed projector here.
-        # Updating it would make the next call to _compute_deformed_geometry
-        # compare deformed chord directions (computed on the migrated node
-        # set for strip k) against _ref_chord_dirs[k] (computed on the
-        # original node set), yielding inconsistent delta_twist estimates.
+        # Updating it would move the strip's centre ring between iterations,
+        # so the same physical section would be measured against a different
+        # node set from one implicit iteration to the next.
         # ForceProjector manages its own independent node-to-strip assignment
         # for force application on the deformed geometry.
 

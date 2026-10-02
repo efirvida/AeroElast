@@ -1881,3 +1881,131 @@ de-load themselves, so the deflections come out large. No production code change
 assertions (`flap_share >= 0.95`, `omega < 0`, the promotion guard) are untouched and still green
 (`7 passed`), and the printed share is relabelled "edgewise(TE-positive) share -0.1585" so the axis
 in the output matches the axis in the claim.
+
+### 22.6 Production P6/P7: the deformed-geometry feedback was corrupted and under-measured
+
+The BEM preCICE participant (`src/aeroelast/solvers/bem/fsi_participant.py`, `BEMFSIParticipant`)
+had never been exercised through the production class by the suite, so the whole one-way
+de-loading path was unguarded. `tests/test_bem_fsi_deformed_geometry.py` (new, 4 tests, 14 s) now
+drives it on the real IEA-15MW mesh, the real AeroDyn `BladeAero` and the rated point
+(V = 10.59 m/s, 7.56 rpm, pitch 0) under the participant's own projected loads. Measured: max|u| =
+16.527 m, tip u = (+1.447, +16.429, +1.072) m, rigid path thrust 2.525066 MN / 16.326608 MW.
+
+**P6, the mixed datums.** `_ref_r` is hub-referenced (3.9700 .. 120.9699 m) while
+`_compute_deformed_geometry` averaged the mesh span coordinate, blade-root-referenced for a
+single-blade mesh. Measured offsets `r_def - _ref_r`:
+
+| | r_def [m] | r_def - _ref_r [m] | max abs | r_def.min vs 0.5 Rhub |
+| --- | ---: | ---: | ---: | ---: |
+| before | 0.3979 .. 117.4462 | **-4.2170 .. -3.0368** | 4.2170 m | 0.3979 m vs 1.985 m FAIL |
+| after | 4.3679 .. 121.4162 | **-0.2470 .. +0.9332** | 0.9332 m | 4.3679 m vs 1.985 m |
+
+The before column is minus the hub radius (3.97 m), so the deformed radii entered CCBlade at
+~0 with `Rhub = 3.97`: `UserWarning: error. check input values.` and
+`NaNs at 0/50: 1e-06 0.0 1.5707963267948966` at stations 0 and 1 of every distorted evaluation.
+**No such warning is emitted after the fix** (the target file's warning summary carries only the
+pre-existing mesh-thickness `DeprecationWarning`).
+
+**Datum choice.** One convention, stated in the module docstring: `_ref_r`, the `r_def` of
+`_compute_deformed_geometry` and the radii passed to `_rebuild_bem_solver` are all
+**hub-referenced** (the datum of `blade_aero.r` and of the CCBlade annulus). The mesh's span
+origin is converted once, at init, into `_mesh_datum_offset = _ref_r[0] - min_i(X_i . e_s)` - the
+same anchor `force_projection.py` uses - and the deformed mean adds it, so the BEM annulus keeps
+its hub while `ForceProjector` re-anchors the same values on the mesh datum internally.
+
+**P7, the twist from a node cloud that is not a section.** A strip spans `dr = 2.39 m` against
+~0.63 m mesh stations, so its PCA chord direction follows the deformed arc. Production now takes
+the antisymmetric part of the least-squares in-plane affine fit of `(u_x, u_y)` over `(x, y)` of
+**one physical ring** at the strip centre (`_section_rotation`), the ring being bound by span
+position within `RING_BIND_FRACTION = 0.05` of the strip width (above the premesh prebend skew
+~1e-3 m, below the 0.63 m station spacing). The retired SVD/PCA estimator
+(`_compute_strip_chord_dirs`, `_ref_chord_dirs`) is deleted, not kept as a silent second
+estimator; a ring too small to define a 2-D section keeps the reference twist.
+
+Measured, outer quarter of the span, degrees about +span (production's elastic twist, converted
+back into the mesh's rotation sense; the ring section rotation computed independently by the test;
+the shell's mean rotational DOF 5):
+
+| strip | r_ref [m] | production before | production after | ring section (ref.) | nodal theta_z |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 37 | 92.32 | -0.5744 | -0.7351 | -0.7351 | -0.4029 |
+| 40 | 99.48 | -0.4294 | -0.8744 | -0.8744 | +0.2474 |
+| 43 | 106.64 | -0.8169 | -1.2698 | -1.2698 | -2.8757 |
+| 44 | 109.03 | -0.7475 | -1.1992 | -1.1992 | -3.2725 |
+| 48 | 118.58 | -0.2003 | -0.8692 | -0.8692 | -0.8774 |
+| 49 | 120.97 | **+2.3764** | **-1.5112** | -1.5112 | -3.8558 |
+
+Production now equals the independent ring section rotation exactly (max gap 0.000e+00 deg,
+bound 1e-6). The gap to the nodal drilling rotation is **2.3446 deg** at the tip and is
+**reported, not asserted** - see the refuted premise below.
+
+**A third defect on the same path: the mesh-to-BEM twist sense was inverted.** `blade_aero.twist`
+is a CCBlade angle (`alpha = phi - theta`), while the elastic rotation is a mesh rotation about
++span, and the two are opposite-sensed on this frame. Measured on the mesh's own chord line (the
+extreme-chordwise node pair, oriented +x = leading edge): `psi = -8.954, -6.308, -2.194, -0.312,
++1.513, +2.066, +1.185` deg at z = 10.35, 30.24, 50.14, 69.84, 90.14, 105.06, 117.00 m against
+`-theta = -13.971, -6.765, -2.734, -0.587, +1.548, +2.103, +1.242` deg - same slope, opposite
+sense (within 0.6 deg outboard of 50 m). Adding the mesh rotation with a plus fed the BEM an
+inverted twist and turned de-loading into re-loading. The class now derives the factor from its
+configured directions, `_twist_mesh_to_bem = -sign(n . (s x t))` (-1 for the default span = z,
+normal = y, tangential = x), and applies `theta_def = theta_ref + _twist_mesh_to_bem * omega`.
+
+**De-loading, before and after** (Zhou et al. 2025 Table 6, flexible vs rigid:
+-13.04% thrust, -8.38% power):
+
+| case | thrust | power |
+| --- | ---: | ---: |
+| production path before P6+P7 (corrupted annulus + strip-cloud twist) | -1.84% | -1.20% |
+| production path after (hub datum + ring twist + corrected sense) | **-2.32%** | **+0.42%** |
+| elastic twist alone, reference station radii | **-4.00%** | **-0.81%** |
+| deformed radii alone, reference twist | +1.14% | +0.85% |
+
+Baselines: the production net row is against the exact rigid participant BEM (2.525066 MN /
+16.326608 MW); the two decomposition rows are against the same-construction reference-station
+solver (`_rebuild_bem_solver(_ref_r, _ref_twist)`, 2.541660 MN / 16.389370 MW), which differs from
+the rigid path only by `_rebuild_bem_solver`'s own `Rtip = max(r_def) * 1.001` rule. The before
+row is -1.84%/-1.20% only because the 3-4 m radius deficit (and the NaN-clamped stations) shrank
+the rotor. **The magnitude does not approach Zhou**, and no bound was fitted to it.
+
+**Asserted:** the rigid path equals an independent `BEMSolver` to 1e-9 (measured 0.000e+00);
+`max|r_def - _ref_r| < 2 m` and `r_def.min > 0.5 Rhub`; the production twist equals the centre
+ring's independently computed section rotation to 1e-6 deg; every outer-station section rotation
+is nose-down; the elastic twist alone reduces thrust and power; the production path reduces
+thrust. **Reported:** the magnitude against Zhou, the nodal `theta_z` table, and the production
+net power.
+
+**Two premises of the task were refuted by measurement; both are reported, not fitted.**
+
+1. *The nodal `theta_z` does not equal the in-plane section rotation on this shell.* The tip ring
+   reaches `mean(theta_z) = -3.8558` deg while its in-plane section rotation is -1.5112 deg
+   (2.3446 deg apart); the same gap is already in sections 20 and 22.4. No translation-only
+   estimator reaches -3.86: measured at the tip, the rigid-rotation fit gives +0.325 deg, the ring
+   chord-line rotation +0.381 deg, and a Kabsch rigid-body fit +0.451 deg. The 0.5 deg agreement
+   bound is therefore not written; the section rotation is the reference and the drilling rotation
+   is printed.
+2. *Production power does not fall.* +0.42% as measured above; only thrust falls.
+
+**Not established** (stated, never guessed):
+
+* Which twist magnitude the aerodynamics should see - the section rotation (-1.51 deg at the tip,
+  the geometric quantity, and what production now uses) or the shell's drilling rotation
+  (-3.86 deg, which matches Zhou's -3.60 deg better at 1.071x, section 22.4). The participant only
+  receives the three translational DOFs, so it cannot recover the drilling DOF.
+* Whether the de-loading magnitude can reach Zhou's -13.04% / -8.38% at all with a one-way,
+  radius-and-twist-only feedback: our steady BEM on rigid-blade loads has no changed velocity
+  triangle from the deflected shape, which is a large part of a coupled de-loading.
+* Whether the +1.63% axial stretch of the deformed blade is physical. The reference centroid path
+  is 117.2256 m and the deformed one 119.1356 m, while a clamped cantilever bent 16.4 m downwind
+  must *shorten* its span projection. The projected load vector carries spanwise components up to
+  19.0% of its own peak (`max|fz| = 346.9 N` against `max|fy| = 1826.5 N`) although the net
+  spanwise force is zero (`sum fz = -3.5e-11 N`), so the stretch is most likely injected by the
+  minimum-norm force distribution. That is `force_projection.py`, outside this unit's edit
+  surface, and it is the largest identified contributor to the `r_def` growth (up to +0.93 m)
+  that re-loads the rotor. A follow-up unit.
+* Whether the retired strip-cloud PCA estimator was ever correct for a straight blade (it cannot
+  be separated from P6 with the data collected here).
+
+**Commands.** Target file `4 passed in 14 s`; neighbours (`test_force_projection*.py`,
+`test_blade_rated_twist.py`) `25 passed`; whole suite with `CCX_BIN` `507 passed, 13 xfailed,
+0 failed, 0 skipped` (baseline 503/13/0/0 plus the 4 new guards; without `CCX_BIN` on `PATH`, 69
+rows skip and 0 fail); `ruff check` clean on both touched code files.
