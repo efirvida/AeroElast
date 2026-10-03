@@ -756,9 +756,80 @@ by default inside the pilot, and the pilot's output is what they are judged agai
   was true when they were written, and repointing them at paths that did not exist yet would
   falsify history.
 - Not resolving the §9 flags. Migrating a flag into `flags.yaml` records it; it does not clear it.
-- Not deleting either Markdown file; both remain the paper-facing views.
-- Not migrating the `tests/test_mitc4plusd_traceability.py` gate to `references.yaml`. It can
-  resolve against the new keys later; changing that test is its own work unit, and until then
-  `references.md` is still generated, so the gate keeps passing.
+- ~~Not deleting either Markdown file~~ — **reversed at T7**. Both were deleted once the store
+  could answer everything asked of them: most of their bulk was data, and data belongs in the
+  store. What must be *read* fell from 193 KB to a 5.1 KB policy.
+- ~~Not migrating the `tests/test_mitc4plusd_traceability.py` gate~~ — **done at T7**, and the
+  gate moved to `tests/software/contracts/` at T8b because it validates a contract between
+  documents, not a physical quantity. It reads `docs/validation/references.yaml` directly.
 - Not filling the DOI gaps. `references.yaml` makes them listable; obtaining the DOIs is
   bibliography work.
+
+## 18. T11: the exclusion rule (proposal, awaiting one decision)
+
+### 18.1 What is measured
+
+Run over the 42 validation files that still have no group, against a throwaway copy of the store
+so the real one is untouched:
+
+| | count |
+| --- | --- |
+| collected tests | 432 |
+| rows the extractor derives | 229 |
+| tests with no row | 203 |
+
+Every one of the 203 is `no_comparison`: no comparison site in the test. None is `not_in_ast` (the
+class-based node-id fix closed that) and none is `tolerance_unresolved` (an unreadable comparison
+now costs its comparison, not its row).
+
+They cluster into 54 blocks of file + class, and the reasons repeat across those blocks: matrix
+structural properties (`TestStiffnessMatrix::test_symmetry`), plumbing (`TestCoordinateTransforms`,
+`TestOmegaProviders`, `TestUseRustFlag`), configuration loading (`TestBladeAeroYAML`), sanity
+(`TestCompositeSanity`). A small vocabulary covers all of them.
+
+The split that matters:
+
+| | count |
+| --- | --- |
+| compare against another code (Rust, CCX, OpenFAST) | 50 |
+| the rest | 153 |
+
+### 18.2 The rule is already in the policy
+
+`docs/validation-policy.md` rule 6: a reference must be independent -- a different code, a
+published cell, or a closed form; a formula re-implemented inside the test is not one. Read
+backwards, a test that compares one of our models with itself (`K` against `K.T`) or with nothing
+(YAML loading, an API shape, a flag's plumbing) has no independent reference and no physical
+quantity, so it is not a row. That is not a defect: it is a test doing its job in a suite that is
+not only a validation suite.
+
+It also means the 50 are **not** excludable on the same grounds. A Rust-against-Python parity test
+compares against a different code, which rule 6 admits, so by the rule it *should* be a row -- and
+the extractor cannot read it, because the assertion is `allclose(a, b)` rather than a residual
+against a tolerance.
+
+### 18.3 The mechanism
+
+The declaration belongs in `gaps.yaml`, which already holds claims about absence, and `check`
+enforces closure:
+
+1. For a group whose scope is a test file, every collected node in that file is either claimed by
+   a row or covered by a `not_a_validation` entry naming it.
+2. A node that is neither is an error. A new test with no comparison site therefore cannot join a
+   grouped file silently.
+
+That is the drift bucket inverted: the classification is declared, validated, and impossible to
+leave implicit. An entry needs `tests` (node ids or a class prefix), `status: not_a_validation`,
+and `reason` drawn from the shared vocabulary.
+
+### 18.4 The decision
+
+The 50 comparisons against another code need an answer that rule 6 does not give:
+
+- **Hand-write them** as out-of-band rows, the way group 10 works. Honest, and 50 rows of one-off
+  work.
+- **Teach the extractor to read them**: an `allclose(a, b, ...)` against a second code is a
+  comparison with a known shape, and a residual printed next to it is already handled. More work
+  once, and it covers every future parity test.
+- **Exclude them** as software. Contradicts rule 6, which is the maintainer's own text.
+
