@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aeroelast.local/schemas/reference.schema.json",
+  "$id": "https://aeroelast.local/validation/reference.schema.json",
   "title": "AeroElast validation bibliography entry",
   "description": "One canonical, auditable reference. docs/validation/references.yaml is the rector; docs/references.md is generated from it. Field rules that need cross-file context (citation-key resolution, declared-vs-found citation diffing, .sources/ absence) are enforced by tools/validation_matrix.py 'check', not by this schema.",
   "type": "object",

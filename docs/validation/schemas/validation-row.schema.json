@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aeroelast.local/schemas/validation-row.schema.json",
+  "$id": "https://aeroelast.local/validation/validation-row.schema.json",
   "title": "AeroElast validation matrix row",
   "description": "One row of the validation matrix, at the granularity of the current '(3 cases)' Markdown rows: a coherent group of parametrisations whose exact collected node ids are listed in 'tests'. A row carries ONE own result and ONE OR MORE comparisons, because a single test routinely measures against several independent references at once, each with its own tolerance and margin. docs/validation/rows/<group>.yaml is the store; docs/validation-matrix.md sections 3-8 are generated from it. Cross-file rules (group resolution, node reconciliation, citation resolution, tolerated absence of .sources/) are enforced by tools/validation_matrix.py 'check'.",
   "type": "object",

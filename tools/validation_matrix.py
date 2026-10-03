@@ -42,7 +42,7 @@ pipeline (`extract`, `diff-against-md`, `render`).
 
 Validation is hand-rolled on purpose: `jsonschema` is not importable in the pinned
 environment, and CONTRIBUTING rule 6 makes this tool part of the suite's discipline
-rather than an optional extra. The JSON Schemas under `schemas/` document the same
+rather than an optional extra. The JSON Schemas under `docs/validation/schemas/` document the same
 rules for editors and reviewers; `check` is the enforcement.
 
 Exit codes: 0 clean, 1 findings, 2 usage or I/O error.

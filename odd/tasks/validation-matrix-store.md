@@ -130,29 +130,20 @@ The root cause is one sentence: **the Markdown is simultaneously the store and t
 ```text
 docs/validation/
   references.yaml             # canonical bibliography: structured + auditable
-  groups.yaml                 # group registry: id, §, title, source files, headline
-  flags.yaml                  # declarative flag registry (the §9 content, as data)
+  groups.yaml                 # group registry: id, slug, citation, source files
+  flags.yaml                  # declarative flag registry (the section 9 content)
+  gaps.yaml                   # what the suite does NOT validate (not derivable)
+  residual-patterns.json      # how each group's tests print their residual
+  schemas/
+    validation-row.schema.json
+    reference.schema.json
+  adjudications/
+    3-ko2017.yaml             # the audit trail of a reconciled group
   rows/
-    3-ko2017.yaml             # ~31 rows
-    4-ccx-parity.yaml         # ~87
-    5-analytical.yaml         # ~40
-    6-element-invariants.yaml # ~155
-    7-rotor-fsi.yaml          # ~67
-    8-bem-aero-mesh.yaml      # ~72
-    10-out-of-band.yaml       # §10.1-§10.3, evidence with no live test
-  prose/
-    validation-matrix/
-      guide.md  validity-envelope.md  01-provenance.md  02-suite-snapshot.md
-      09-flag-summary.md  11-cross-references.md  12-reproducing.md
-      13-1-tolerances-above-5.md  14-reference-map.md
-    references/
-      preamble.md             # the recovered-PDF story and the verification convention
-schemas/
-  validation-row.schema.json
-  reference.schema.json
+    3-ko2017.yaml             # the pilot's rows: one per collected node
+    10-out-of-band.yaml       # evidence with no live test
 tools/validation_matrix.py
-docs/validation-matrix.md     # generated, deterministic
-docs/references.md            # generated, deterministic
+docs/validation-policy.md     # the surviving policy; the Markdown views are deleted
 ```
 
 Rationale for one file per group: an LLM updating §4.8 opens `rows/4-ccx-parity.yaml` and still
@@ -620,7 +611,7 @@ consequences:
 
 | # | task | deliverable | acceptance criteria |
 | --- | --- | --- | --- |
-| T1 | Schemas and registries (WU-0) | `schemas/validation-row.schema.json`, `schemas/reference.schema.json`, `docs/validation/groups.yaml` (seeded with §3), `docs/validation/flags.yaml` (the §9.1-§9.5 registry plus the derived `near`/`gt5`) | a 3-row fixture validates; `check` exits 1 on a row with a stored derived flag, an unknown flag id, or `measured.status == measured` without `margin_pct` |
+| T1 | Schemas and registries (WU-0) | `docs/validation/schemas/validation-row.schema.json`, `schemas/reference.schema.json`, `docs/validation/groups.yaml` (seeded with §3), `docs/validation/flags.yaml` (the §9.1-§9.5 registry plus the derived `near`/`gt5`) | a 3-row fixture validates; `check` exits 1 on a row with a stored derived flag, an unknown flag id, or `measured.status == measured` without `margin_pct` |
 | T2 | CLI read side (WU-1) | `validation_matrix.py` with `find`, `get`, `list`, `headline`, `--json`, schema loading | each query over the fixture returns the expected records; unknown fields in `set` are refused |
 | T3a | Bibliography store and verbs | `docs/validation/references.yaml` seeded with the section 1 entries; `references list\|gaps\|get\|check\|bibtex\|where-used`; `code_mentions` in the schema; hand-rolled validation of `doi_status`, held state and citation sites | `references get ko2017_perf` shows `doi: 10.1016/j.compstruc.2017.08.003` with `doi_status: verified`; a declared site that no longer contains a `code_mentions` string is reported and a live one is not; a row citing an unresolvable key fails `check` |
 | T3b | Full bibliography migration and the generator | every entry of the current `docs/references.md` in the store, with its `cited_by_declared` sites and their `code_mentions`; `references render`; `docs/references.md` regenerated | the generated `references.md` diff against the current file is reviewed line by line for content loss; the gate in `tests/test_mitc4plusd_traceability.py` still resolves |
@@ -680,7 +671,7 @@ Consequences for this work:
 
 | WU | deliverable | acceptance evidence |
 | --- | --- | --- |
-| WU-0 | `schemas/validation-row.schema.json`, `schemas/reference.schema.json`, `groups.yaml`, `flags.yaml`, empty `rows/` | `check` passes on an empty store |
+| WU-0 | `docs/validation/schemas/validation-row.schema.json`, `schemas/reference.schema.json`, `groups.yaml`, `flags.yaml`, empty `rows/` | `check` passes on an empty store |
 | WU-1 | `tools/validation_matrix.py` read side (`find`, `get`, `list`, `headline`) over a 3-row fixture | fixture queries return the expected records |
 | WU-2 | `references.yaml` seeded for the references the pilot group uses; `references.md` generator | `references check` findings match a hand audit of `docs/references.md` |
 | WU-P1 | E1-E3 over §3: node set + AST rows + param-id cross-check, no `measured.*` | 31 nodes, 0 unexplained extraction misses |
