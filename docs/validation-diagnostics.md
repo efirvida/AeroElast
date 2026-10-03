@@ -107,6 +107,19 @@ Rust extension or an unactivated environment.
 A zero is a failure, never a clean run: it reads as "zero drift".
 **Paid for:** section 3 collects 31 nodes inside the pinned environment and 0 outside it.
 
+### A capture command reports nothing where output clearly exists
+
+**Symptom:** `validation_matrix regression` says `no node output captured` while the tests
+pass.
+**Likely cause:** the parser was written for the assumed output shape instead of the emitted
+one. pytest prints a verbose node id with **no newline**, so the test's first print lands on
+that same line and the status word comes after on a line of its own: `nodeid PASSED` on one
+line never occurs.
+**Check:** run one node with `-s -v` and read the last lines verbatim *before* writing the
+parser, then pin the shape in a unit test with a synthetic output string
+(`test_parse_prints_reads_the_shape_pytest_actually_emits`).
+**Paid for:** the first regression parser matched zero nodes out of 31.
+
 ### A collected node is not claimed by any row
 
 **Cause, in order:** a new test file with no group and no out-of-scope declaration; a
