@@ -2062,3 +2062,88 @@ is not computable from the stored order without adding a contour-ordering step.
 not physical), explicitly **not** as the fix for the axial stretch, the `r_def` growth or the
 de-loading magnitude - measurement says it changes none of them. Deferred until the twist question
 below is settled, so that it is not mistaken for a physics fix.
+
+### 22.8 The anchor beam arbitrates which shell estimator is the section rotation
+
+`tests/test_blade_twist_anchor_beam.py` (new, 2 tests, 57 s) builds an **independent** 1D beam:
+section stiffness from the official IEA-15-240-RWT BeamDyn blade deck (26 stations), loads from
+the **production** BEM + `ForceProjector` the shell is solved with, and the root-fixed cantilever
+torsion `theta(z) = int_0^z T(s)/GJ(s) ds`, `T(z) = int_z^R m ds`, with
+`m = Mp + (x_AC - xS) Np - (y_AC - yS) Tp`. `xS, yS, GJ` are the **anchor's**, not the shell's -
+the models share *loads, not section properties*.
+
+Parse cross-check (`K66toPropsDecoupled`, never hand-read): `EA = 4.605108e10 N` (0.00 % off
+4.605e10), `GKt = 8.748569e10 N.m^2` (0.005 % off 8.749e10), `K[2,2]` axial, `K[5,5]` raw torsion.
+Bending: `EIxp = 1.495993e11` vs `FlpStff = 1.525339e11` (+1.92 %), `EIyp = 1.497329e11` vs
+`EdgStff = 1.524792e11` (+1.80 %) - inside the 2 % rule; the torsion-at-index-3 reading misses
+`FlpStff` by 42.6 %.
+
+Degenerate tip: `median(GKt)/1e3 = 4.104e5`; `GKt[-2] = 6.501e6` kept, `GKt[-1] = 5.879e4` excluded,
+only interval `[24]`; it would otherwise have added **-0.0257 deg** under this cantilever
+quadrature (not §18.2's -9.4 deg, which belongs to §18's load-defective set). Lever-arm sign: the
+task's `(0.25 - pitch_axis)` is the negative of the production `r_AC . c_hat`; the written sign
+gives a 10x root-torque inconsistency, so the measured sign is used.
+
+Comparison (real mesh, rated point, all 26 stations, degrees about +span):
+
+| r_root | r_shell | n | `phi_beam` | ring rot | mean `theta_z` | ring/beam | meanz/beam |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.00 | 0.00 | 22 | 0.0000 | 0.0000 | 0.0000 | - | - |
+| 1.17 | 0.80 | 22 | -0.0001 | +0.0012 | +0.0016 | -10.35 | -13.74 |
+| 2.34 | 2.39 | 22 | -0.0002 | +0.0032 | +0.0048 | -13.60 | -20.87 |
+| 3.51 | 3.18 | 22 | -0.0004 | +0.0045 | +0.0088 | -12.47 | -24.28 |
+| 4.68 | 4.78 | 22 | -0.0005 | +0.0087 | +0.0224 | -17.07 | -43.87 |
+| 5.85 | 5.57 | 22 | -0.0009 | +0.0111 | +0.0317 | -11.94 | -34.08 |
+| 8.77 | 8.76 | 22 | -0.0015 | +0.0232 | +0.0745 | -15.77 | -50.53 |
+| 11.70 | 11.94 | 26 | -0.0031 | +0.0312 | +0.0995 | -10.12 | -32.30 |
+| 17.55 | 17.51 | 23 | -0.0072 | +0.0099 | -0.0885 | -1.37 | +12.29 |
+| 23.40 | 23.08 | 23 | -0.0196 | -0.0238 | -0.1011 | +1.21 | +5.16 |
+| 29.25 | 29.45 | 21 | -0.0533 | -0.1188 | -0.1753 | +2.23 | +3.29 |
+| 35.10 | 35.02 | 20 | -0.1156 | -0.1085 | -0.1037 | +0.94 | +0.90 |
+| 40.95 | 40.59 | 19 | -0.2013 | -0.1447 | -0.1791 | +0.72 | +0.89 |
+| 46.80 | 46.96 | 18 | -0.3044 | -0.1787 | -0.2011 | +0.59 | +0.66 |
+| 52.65 | 52.53 | 18 | -0.4225 | -0.2044 | -0.1726 | +0.48 | +0.41 |
+| 58.50 | 58.50 | 16 | -0.5561 | -0.2610 | -0.2087 | +0.47 | +0.38 |
+| 64.35 | 64.47 | 14 | -0.7051 | -0.3234 | -0.2467 | +0.46 | +0.35 |
+| 70.20 | 70.44 | 14 | -0.8667 | -0.3955 | -0.2880 | +0.46 | +0.33 |
+| 76.05 | 75.81 | 14 | -1.0374 | -0.4885 | -0.3325 | +0.47 | +0.32 |
+| 81.90 | 81.78 | 14 | -1.2105 | -0.6096 | -0.4140 | +0.50 | +0.34 |
+| 87.75 | 87.75 | 14 | -1.3764 | -0.7312 | -0.4312 | +0.53 | +0.31 |
+| 93.60 | 93.72 | 14 | -1.5247 | -0.8453 | -0.0831 | +0.55 | +0.05 |
+| 99.45 | 99.33 | 12 | -1.6494 | -1.0711 | -0.6979 | +0.65 | +0.42 |
+| 105.30 | 105.06 | 12 | -1.7417 | -1.1992 | -3.2725 | +0.69 | +1.88 |
+| 111.15 | 111.27 | 12 | -1.7776 | -0.9741 | -0.9703 | +0.55 | +0.55 |
+| **117.00** | **117.00** | 12 | **-1.7776** | **-1.5112** | **-3.8558** | **+0.85** | **+2.17** |
+
+Zhou et al. 2025, *Energy* 336:138488, Table 4 - **reported, never asserted**: torsion -3.60 deg,
+flap +13.86 m, edge -1.22 m. Asserts: the twist magnitude is monotone toward the tip, and the
+excluded tip interval is nose-down.
+
+**Verdict: (i).** Tip: beam **-1.78**, ring section rotation **-1.51** (ratio **0.85**),
+`mean(theta_z)` **-3.86** (ratio **2.17**). A beam from the turbine's own `GJ`/shear centre is
+within 15 % of the *section rotation* and 2.2x off the nodal average, so the affine estimator is
+the shell's section rotation and **(iii) is refuted**: the meanz/beam ratio wanders by a factor of
+40 across the span (+12.3, +5.2, +0.9, +0.33, +0.05, +1.9, +2.2 deg per deg) while ring/beam holds
++0.46 .. +0.55 over the outer half, so the nodal average is a wall-bending field, not a rotation.
+**(i) holds for the estimator.** The magnitude, however, is NOT explained by the known `GJ` ratio -
+the parent corrected the direction of that argument, which the first draft of this section had
+inverted:
+
+- `GJ_shell / GJ_ref = (4.000 / 4.290)^2 = 0.87` (§15.1, modal, load-independent) says the shell is
+  the *softer* member, so under the same torque it must twist `1 / 0.87 = 1.149` x *more* than the
+  anchor beam: expected `phi_shell = 1.149 x 1.7776 = 2.043 deg`.
+- Measured `phi_shell = 1.5112 deg`, i.e. observed `beam/shell = 1.176` against an expected
+  `beam/shell = 0.87`. The shell delivers **0.74 x** the rigid twist its own independently measured
+  torsional stiffness calls for - a **1.35 x deficit**, not the "2-3 % agreement" the first draft
+  claimed. (Comparing an observed ratio to the reciprocal of the expected one is the error; the
+  numbers in the table are unaffected.)
+
+So **(ii) is back on the table**: the shell under-twists relative to both an independent beam and
+its own modal stiffness, and two independent measurements already point at the load realisation
+rather than the element - §20.5's `distortion / |omega| = 9.36` under the production path, and
+§D4fec33's negative result that a statically equivalent end load on a thin-walled tube buys 125x
+section distortion and 74.8x tip displacement at the *same* torque. Open and to be measured: the
+26-station quadrature, interpolated loads, the anchor shear centre and `y_AC = 0` leave the residual
+unresolved below their own convention uncertainty, so no bound is asserted on the 1.35x. The
+de-loading gap follows the magnitude: a tip twist of -1.51 deg unloads the rotor far less than
+Zhou's -3.60 deg (reported, not used as a criterion). No shell code changed.
