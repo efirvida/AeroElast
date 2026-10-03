@@ -2147,3 +2147,84 @@ section distortion and 74.8x tip displacement at the *same* torque. Open and to 
 unresolved below their own convention uncertainty, so no bound is asserted on the 1.35x. The
 de-loading gap follows the magnitude: a tip twist of -1.51 deg unloads the rotor far less than
 Zhou's -3.60 deg (reported, not used as a criterion). No shell code changed.
+
+### 22.9 Does the production nodal moment realisation under-deliver rigid torsion?
+
+**REJECTED - measured on the exact Bredt tube, the production minimum-norm realisation of a pure
+section moment does not under-deliver rigid torsion; it over-delivers it by 31.7x
+(self-equilibrated) / 8.9x (clamped tip), so it is not the cause of the blade's 1.35x under-twist.
+The minimum-norm field is nonetheless not a wall shear flow and it does depart from Bredt by a large
+factor - the departure is an over-soft end distortion, the opposite sign to the blade deficit.**
+
+`tests/test_thin_walled_tube_moment_realization.py` (1 test, 5.7 s) reuses the mesh, torque,
+estimators and hand-written reference of `tests/test_thin_walled_tube_torsion.py`
+(`import test_thin_walled_tube_torsion as tube`). One mesh (L = 6 m, 16-node ring, 496 nodes), one
+torque (T = 1e4 N.m), one rigid-mode-removed solve:
+
+* **case A** - the validated shear flow `q = T/(2A)`, `+T` at the tip ring and `-T` at the root ring
+  (`tube._self_equilibrated_load`);
+* **case B** - the **same** net torque through the production code under test,
+  `ForceProjector._distribute(strip, F = 0, M = T z_hat)` at the two end rings
+  (`aeroelast.solvers.bem.force_projection`; the minimum-norm solve is called, not re-implemented).
+
+Case A is the validated reference and is asserted within 5%. Case B's output is not trusted: its
+tip/root torque is re-measured with the independent ruler `sum(x Fy - y Fx)` (ratio 1.0000) and its
+net force (1e-13), and its nodal field is compared to the closed form below.
+
+Measured (rate of `theta_fit` over 0.4L-0.9L against the hand-written Bredt `T/GJ`; distortion =
+`|0.5(alpha+beta)|` of the section parallelogram at 0.75L; deviation = field residual after removing
+the best rigid rotation):
+
+| case | rate/Bredt | tip/Bredt(L/2) | distortion/|rotation| | deviation-from-rigid |
+| --- | ---: | ---: | ---: | ---: |
+| A shear flow | 1.0031 | 1.0033 | 0.008 | 0.007 |
+| B min-norm (P8) | **31.6933** | **33.6664** | **2.042** | **0.876** |
+
+(`theta_z` rate, for completeness: A 1.0067, B 1.0374.) Case A is inside 5%; case B misses the exact
+independent reference by 3069% and on the **over**-soft side, so the P8 hypothesis as stated - a
+smaller rigid rotation caused by the nodal realisation - is refuted.
+
+**Localisation (B misses, so where the nodal system departs from shear flow).** The production field
+is exactly `f_j = omega x d_j` with `omega = T / sum|d|^2` (measured `max |f_j - omega x d_j| =
+2.3e-13`), i.e. each nodal force is **perpendicular to that node's position vector about the strip
+centroid** (circle-tangential), not tangential to the wall edges. On this rectangle the wall-mid nodes
+carry 802 N against the shear flow's uniform 2083 N, the corner-diagonal nodes carry 1559 N against
+1215 N, and the implied perimeter shear flow is strongly non-uniform where Bredt requires the
+constant `q = T/(2A)`; the section absorbs the difference as distortion (deviation-from-rigid 0.876,
+`distortion/|rotation|` 2.042, against case A's 0.008). This is a **long-decaying end effect**, not a
+rate change: extending the tube to L = 24/48 m drives the clamped-tip ratio 8.86 -> 3.20 -> 2.10
+toward Bredt, the extra tip rotation staying fixed at ~1.45e-3 rad (T = 1e4 N.m), so the interior
+returns to Saint-Venant torsion once the added end distortion is negligible. On the blade the strips
+are ~2.4 m apart against a ~10 m decay length, so those end distortions overlap and are locally
+significant - but they soften the section. **A real non-shear-flow load-path defect in
+`force_projection.py`, of the opposite sign to the blade deficit; it is not P8 as hypothesised.**
+
+**Blade-deficit restatement (recorded values, not re-derived here; the modal ratio and the blade
+solve were not re-run).**
+
+| quantity | value | source | status |
+| --- | ---: | --- | --- |
+| anchor `GJ_ref` (BeamDyn `GKt`) | 8.7486e10 N.m^2 | §22.8 | recorded |
+| modal `GJ_shell/GJ_ref` | (4.000/4.290)^2 = 0.870 | §15.1 | recorded |
+| anchor beam tip twist `phi_beam` | -1.7776 deg | §22.8 | recorded |
+| shell tip section rotation `phi_shell` | -1.5112 deg | §22.8 | measured |
+| expected shell (same torque) `phi_beam/0.870` | -2.043 deg | derived | - |
+| observed / expected | 1.5112/2.043 = **0.740 -> 1.35x deficit** | derived | - |
+
+**Bound on that 1.35x (the parent's correction - the ratio is not a sharp number).** The modal
+`0.870` comes from one torsional frequency, 4.000 Hz against NuMAD's 4.290 Hz, and section 15.1
+records that mode's **reference scatter as 15.1%**. Propagating it, the expected shell twist is
+`2.043 x [0.849, 1.151] = [1.735, 2.352] deg`, and the measured `1.5112 deg` sits below the whole
+band. So the deficit is real - the shell under-twists relative to its own modal torsional
+stiffness - but the honest statement is **between 1.15x and 1.35x**, not 1.35x, and closing it
+needs a sharper independent torsional stiffness than one modal ratio with 15% scatter.
+
+For there to be no deficit, one of the three recorded quantities would have to be wrong by ~35%: the
+modal ratio would have to be `1.7776/1.5112 = 1.176` (the shell 18% stiffer than the reference,
+not 13% softer), or the anchor beam would have to give `-1.3148 deg` (its `GJ` ~35% higher), or the
+shell's measured section rotation would have to be `-2.043 deg`. This unit removes the
+load-realisation candidate from that list in the direction the blade needs - the minimum-norm
+realisation softens the section (over-twist), it does not stiffen it - so the 1.35x deficit still
+points at the section-stiffness or anchor inputs, not at the nodal moment realisation.
+
+**Verdict on P8: rejected.** No production code was changed in this unit.
