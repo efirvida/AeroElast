@@ -87,6 +87,16 @@
       "items": {"type": "string", "minLength": 1},
       "description": "Sites the prose claims but the code no longer supports. Kept visible here instead of being dropped or stored as if true; `references check` reports each one as a warning."
     },
+    "cited_by_docs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Documents in this repository that cite the work, as file or file:line. Validated for existence, so deleting or moving a document breaks check instead of leaving a note that rots silently."
+    },
+    "recovered_from": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Where the bibliographic data came from when verification is repository_citation: the sites already in this repository. Validated for existence for the same reason."
+    },
     "code_mentions": {
       "type": "array",
       "items": {"type": "string", "minLength": 1},

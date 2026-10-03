@@ -7,7 +7,6 @@ References:
 - Timoshenko & Woinowsky-Krieger (1959) - Theory of Plates and Shells
 - Jones, R.M. (1999) - Mechanics of Composite Materials
 - Abaqus Theory Guide 2016, Section 3.6.x
-- docs/s4r_composite_shell_formulation.md
 
 Test problems covered:
 1. Cantilever beam (bending) - P-Δ relationship

@@ -246,14 +246,9 @@ correctness.
   simulation runner
 - [docs/mesh-cli.md](docs/mesh-cli.md) — mesh generation CLI
   (`aeroelast mesh blade|rotor|nacelle|tower|turbine`)
-- [docs/teoria_formulacion_fsi_rotor.md](docs/teoria_formulacion_fsi_rotor.md)
-  — FSI rotor formulation theory (Spanish)
-- [docs/s4r_composite_shell_formulation.md](docs/s4r_composite_shell_formulation.md)
-  — composite shell formulation notes
-- [docs/improvement_plan_mitc4_vs_s4r.md](docs/improvement_plan_mitc4_vs_s4r.md)
-  — MITC4 vs S4R improvement plan
-- [docs/FSI_ROTOR_PAPER_DRAFT.md](docs/FSI_ROTOR_PAPER_DRAFT.md) — scientific
-  paper draft on the FSI rotor formulation
+- [docs/formulations/](docs/formulations/) — theory documents: the shell element,
+  the material models, the solvers, the two paper extracts, and the FSI rotor
+  formulation (Spanish)
 
 ## Third-Party Code and References
 
@@ -298,7 +293,7 @@ references, and the third-party software this project builds on, with full
 author lists and a DOI wherever one could be verified.
 
 The formulation implemented in this repository is documented in
-[docs/FSI_ROTOR_PAPER_DRAFT.md](docs/FSI_ROTOR_PAPER_DRAFT.md). The reference
+[docs/formulations/teoria_formulacion_fsi_rotor.md](docs/formulations/teoria_formulacion_fsi_rotor.md). The reference
 PDFs used during development now live in the gitignored `.sources/papers/`
 directory: they had been removed from the working tree but were still in git
 history, and they have been recovered. `docs/validation/references.yaml` maps the

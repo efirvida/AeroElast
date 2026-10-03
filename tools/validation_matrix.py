@@ -129,6 +129,8 @@ BIB_KEYS = {
     "verification_note",
     "cited_by_declared",
     "cited_by_stale",
+    "cited_by_docs",
+    "recovered_from",
     "code_mentions",
     "bibtex_key",
     "notes",
@@ -1364,6 +1366,18 @@ def _validate_bib_entry(store: Store, where: str, entry: Any) -> None:
                         where,
                         f"{site} is both declared and stale; it is one or the other",
                     )
+    # Two relations that rot the same way as a code site, and are checked the same way:
+    # a document that cites the work, and the site the bibliographic data was recovered
+    # from. Kept out of `notes`, where nothing validates them and a deleted document leaves
+    # a sentence pointing nowhere.
+    for name in ("cited_by_docs", "recovered_from"):
+        for site in entry.get(name) or []:
+            if not isinstance(site, str) or not CITATION_SITE_RE.match(site):
+                store.error(where, f"{name}: not a file or file:line site: {site!r}")
+                continue
+            if not (REPO_ROOT / site.split(":", 1)[0]).exists():
+                store.error(where, f"{name}: site does not exist: {site}")
+
     mentions = entry.get("code_mentions")
     if mentions is not None and (
         not isinstance(mentions, list)
@@ -1650,6 +1664,12 @@ def render_reference_paragraphs(entry: dict[str, Any]) -> list[str]:
             f"*Recorded stale: the prose cited {sites}, and the code no longer mentions "
             "this work there.*"
         )
+    if entry.get("cited_by_docs"):
+        sites = ", ".join(f"`{site}`" for site in entry["cited_by_docs"])
+        paragraphs.append(f"*Cited by the documentation: {sites}.*")
+    if entry.get("recovered_from"):
+        sites = ", ".join(f"`{site}`" for site in entry["recovered_from"])
+        paragraphs.append(f"*Recovered from: {sites}.*")
     if entry.get("notes"):
         paragraphs.append(f"*{entry['notes']}*")
     return paragraphs

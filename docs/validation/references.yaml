@@ -20,6 +20,12 @@
 # cites author-year text ("Ko2017 ratio-based mesh distortion") and never the
 # store's key.
 #
+# `cited_by_docs` and `recovered_from` name documents, and `check` verifies that
+# every site exists, so moving or deleting a document breaks the check instead
+# of leaving a note that points nowhere. Four sites in the removed
+# `docs/FSI_ROTOR_PAPER_DRAFT.md` were dropped when that document was deleted in
+# `ee6c345`: those claims are no longer verifiable, so they are not recorded.
+#
 # Seeded with the section 1 entries only: the pilot
 # (odd/tasks/validation-matrix-store.md section 13.1, T3a) needs the store and
 # its verbs working. The full bibliography migration, with the citation sites
@@ -37,41 +43,58 @@ header: |-
 sections:
   - title: 'About the recovered PDFs and the "to verify" markers'
     intro: |-
-      The reference PDFs used during development were committed, later deleted from
-      the working tree, and have been recovered into `.sources/papers/`, which is
-      gitignored (the `.gitignore` entry is `.sources`). They were recovered from git
+      The reference PDFs used during development were committed, later deleted
+      from
+      the working tree, and have been recovered into `.sources/papers/`, which
+      is
+      gitignored (the `.gitignore` entry is `.sources`). They were recovered
+      from git
       history with
-      `git -c core.quotepath=false rev-list --all --objects | grep '\.pdf$'` and are
+      `git -c core.quotepath=false rev-list --all --objects | grep '\.pdf$'` and
+      are
       still reachable there (deletions in `10b860c` and `8baa4af`).
 
-      The README previously stated that "the reference PDFs used during development
-      were removed from the repository". That statement was misleading: the files were
-      removed from the working tree, but they remained recoverable from git history
+      The README previously stated that "the reference PDFs used during
+      development
+      were removed from the repository". That statement was misleading: the
+      files were
+      removed from the working tree, but they remained recoverable from git
+      history
       and have now been recovered. The README no longer makes that claim.
 
       Verification convention used below:
 
-      - `Verified against the recovered PDF` — authors, title, journal, volume, pages
+      - `Verified against the recovered PDF` — authors, title, journal, volume,
+        pages
         and year were read off the first page (and the printed footer or the PDF
         metadata where a DOI is given) of the file named in the entry.
-      - `Source: repository citation` — the entry was carried over from an existing
+      - `Source: repository citation` — the entry was carried over from an
+      existing
         citation in the code, README or `docs/`; it has **not** been re-verified
         against a held copy.
-      - `DOI: to verify` — no DOI could be read from the recovered material or from
-        any source readable in this repository. Nothing was inferred or invented. This
-        marker also covers items that may carry no DOI at all, such as conference
+      - `DOI: to verify` — no DOI could be read from the recovered material or
+      from
+        any source readable in this repository. Nothing was inferred or
+        invented. This
+        marker also covers items that may carry no DOI at all, such as
+        conference
         proceedings and journals that do not register DOIs.
 
-      `.sources/papers/Implementación del MITC4_MITC4+ en MITC4.py vs formulaciones
+      `.sources/papers/Implementación del MITC4_MITC4+ en MITC4.py vs
+      formulaciones
       teóricas.pdf` is a local working note (internal Spanish comparison of the
-      implementation against the formulations), **not** a publication, and therefore
+      implementation against the formulations), **not** a publication, and
+      therefore
       has no entry in this bibliography.
 
-      Each entry below carries a `Cited by the code` line naming the code location
+      Each entry below carries a `Cited by the code` line naming the code
+      location
       that grounds it, a `Source of an implemented feature` line when the code
-      implements the formulation but does not cite it, or a `Planned reference` /
+      implements the formulation but does not cite it, or a `Planned reference`
+      /
       `not yet cited by the code` line when the entry is a held source for the
-      validation campaign that the code does not use yet. Entries that the code neither
+      validation campaign that the code does not use yet. Entries that the code
+      neither
       cites, implements, nor plans to validate against were removed.
 
   - title: "1. Shell element formulations"
@@ -84,73 +107,106 @@ sections:
     intro: >-
       Software is identified by upstream URL and licence; DOIs do not apply.
 
-  - title: "5. Verification benchmarks, reference models and validation literature"
+  - title: >-
+      5. Verification benchmarks, reference models and validation literature
     intro: |-
-      This section mixes two kinds of entry. The **benchmarks and manuals** first
-      (NAFEMS, Abaqus) are not journal articles and carry no DOI; neither manual is
-      held, so their report numbers are repository assertions. The **reference wind
+      This section mixes two kinds of entry. The **benchmarks and manuals**
+      first
+      (NAFEMS, Abaqus) are not journal articles and carry no DOI; neither manual
+      is
+      held, so their report numbers are repository assertions. The **reference
+      wind
       turbine models and validation studies** after them are journal articles,
-      conference papers and reports: DOIs apply where one is printed or verifiable, and
+      conference papers and reports: DOIs apply where one is printed or
+      verifiable, and
       each entry states whether the PDF is held. **Numbers that will be used as
-      validation references** (mode tables, material tables, stress values, equations)
-      must be read from the rendered page with vision before they are quoted, never by
-      `pdftotext`; text extraction silently drops or reorders the mathematics of the
+      validation references** (mode tables, material tables, stress values,
+      equations)
+      must be read from the rendered page with vision before they are quoted,
+      never by
+      `pdftotext`; text extraction silently drops or reorders the mathematics of
+      the
       recovered scans.
 
-      **Reference wind turbine models and validation studies.** These are the held
+      **Reference wind turbine models and validation studies.** These are the
+      held
       sources for the IEA 15 MW blade/blade-structure and aeroelastic validation
       campaign. They are not yet cited by the code unless an entry says so.
 
-  - title: "6. Aerodynamics, actuator-line/vortex modelling and post-stall extrapolation"
+  - title: >-
+      6. Aerodynamics, actuator-line/vortex modelling and post-stall
+      extrapolation
 
   - title: "6.1 BEM theory and post-stall extrapolation"
 
   - title: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
     intro: >-
-      These are the reference methods for the OpenFOAM track, not the BEM track; they
-      are catalogued here because aero validation has to name the method it compares
-      against. All held, and all DOIs cross-checked against Crossref except where a
+      These are the reference methods for the OpenFOAM track, not the BEM track;
+      they
+      are catalogued here because aero validation has to name the method it
+      compares
+      against. All held, and all DOIs cross-checked against Crossref except
+      where a
       venue has no DOI.
 
   - title: "6.3 Rotorcraft and immersed-boundary CFD coupling (OpenFOAM side)"
     intro: >-
-      These are held references for the CFD coupling machinery (immersed boundary,
+      These are held references for the CFD coupling machinery (immersed
+      boundary,
       actuator surface) that the CFD-side workflow uses; they are rotorcraft or
       wind-farm rather than blade-resolved wind turbine references.
 
   - title: "7. Gap list"
     intro: |-
-      Entries here are **not** bibliography entries. They are sources the code cites
-      that must not be added, or citations that must be resolved before an entry can be
+      Entries here are **not** bibliography entries. They are sources the code
+      cites
+      that must not be added, or citations that must be resolved before an entry
+      can be
       written.
 
-      - **ANSYS MAPDL Theory Reference** — cited at `src/aeroelast/solvers/fsi/rotor.py`
-        ("cf. ANSYS MAPDL Theory Reference, Eq. 14-57, §14.4.1"; also lines 24, 77, 84,
+      - **ANSYS MAPDL Theory Reference** — cited at
+        `src/aeroelast/solvers/fsi/rotor.py`
+        ("cf. ANSYS MAPDL Theory Reference, Eq. 14-57, §14.4.1"; also lines 24,
+        77, 84,
         221, 234, 263, 287) and
-        `crates/aeroelast-solvers/src/petsc/fsi/rotor_physics.rs:432` ("ANSYS Eq. 3-74 /
-        14-55"), for the gyroscopic matrix, spin softening and the rotating-frame
-        equation of motion. **Status: to be replaced.** The manual is proprietary and is
-        not a verifiable source, and the user's decision is to replace it with the
-        original source rather than add it here. The likely original for the gyroscopic
-        and rotating-frame terms is Géradin & Rixen (already an entry in §3), with
-        Goldstein, Poole & Safko for the non-inertial frame treatment. **The replacement
-        must be verified against the original before it is made**, and none of the ANSYS
+        `crates/aeroelast-solvers/src/petsc/fsi/rotor_physics.rs:432` ("ANSYS
+        Eq. 3-74 /
+        14-55"), for the gyroscopic matrix, spin softening and the
+        rotating-frame
+        equation of motion. **Status: to be replaced.** The manual is
+        proprietary and is
+        not a verifiable source, and the user's decision is to replace it with
+        the
+        original source rather than add it here. The likely original for the
+        gyroscopic
+        and rotating-frame terms is Géradin & Rixen (already an entry in §3),
+        with
+        Goldstein, Poole & Safko for the non-inertial frame treatment. **The
+        replacement
+        must be verified against the original before it is made**, and none of
+        the ANSYS
         equation numbers may be carried over unverified.
 
   - title: "To obtain for the validation campaign"
     intro: |-
-      The aerodynamic campaign is the active one. **Free and public** unless marked
+      The aerodynamic campaign is the active one. **Free and public** unless
+      marked
       otherwise. The reachability note is from this sandbox: GitHub and Crossref
       resolve, `nrel.gov` and `docs.openfast.org` do not.
 
       | source | status | needed for |
       | --- | --- | --- |
-      | OpenFAST source/release (`OpenFAST/openfast`) | to fetch and pin | the reference solver itself |
-      | OpenFAST `r-test` IEA 15 MW cases (`OpenFAST/r-test`) | to fetch (GitHub reachable) | the code-to-code case files (not a paper) |
-      | OpenFAST user documentation (`openfast.readthedocs.io`) | to fetch (reachable) | setting the OpenFAST cases and the pinned version |
+      | OpenFAST source/release (`OpenFAST/openfast`) | to fetch and pin | the
+      reference solver itself |
+      | OpenFAST `r-test` IEA 15 MW cases (`OpenFAST/r-test`) | to fetch (GitHub
+      reachable) | the code-to-code case files (not a paper) |
+      | OpenFAST user documentation (`openfast.readthedocs.io`) | to fetch
+      (reachable) | setting the OpenFAST cases and the pinned version |
 
-      **Now held, no action:** the **AeroDyn Theory Manual** (`.sources/papers/36881.pdf`)
-      and **Ning 2014** (`.sources/papers/ning2013.pdf`) were downloaded by the user and
+      **Now held, no action:** the **AeroDyn Theory Manual**
+      (`.sources/papers/36881.pdf`)
+      and **Ning 2014** (`.sources/papers/ning2013.pdf`) were downloaded by the
+      user and
       are verified in §6 above.
 
   - title: "Deferred: structural and time-integration sources"
@@ -161,20 +217,31 @@ sections:
 
       | source | needed for |
       | --- | --- |
-      | Newmark 1959, *J. Eng. Mech. Div. ASCE* 85(EM3):67–94 | the time-integration citation the code lacks |
-      | Géradin & Rixen, *Mechanical Vibrations*, 3rd ed. | replacing the unverifiable ANSYS gyroscopic/rotating-frame citation |
-      | Goldstein, Poole & Safko, *Classical Mechanics*, 3rd ed. | the non-inertial frame (centrifugal/Coriolis/Euler) treatment |
-      | Bathe, *Finite Element Procedures*, 2nd ed. | geometric stiffness; the UL question in `solvers.md` §4 |
-      | Hughes & Brezzi 1989, *CMAME* 72(1):105–121 | the drilling degree-of-freedom penalty |
-      | Hughes, Taylor & Kanoknukulchai 1977, *IJNME* 11(10):1529–1543 | the retired selective reduced integration (historical) |
-      | Reddy, *Mechanics of Laminated Composite Plates and Shells*, 2nd ed. | CLT and the B-coupling formula |
-      | Jones, *Mechanics of Composite Materials*, 2nd ed. | the constitutive/CLT citation |
+      | Newmark 1959, *J. Eng. Mech. Div. ASCE* 85(EM3):67–94 | the
+      time-integration citation the code lacks |
+      | Géradin & Rixen, *Mechanical Vibrations*, 3rd ed. | replacing the
+      unverifiable ANSYS gyroscopic/rotating-frame citation |
+      | Goldstein, Poole & Safko, *Classical Mechanics*, 3rd ed. | the
+      non-inertial frame (centrifugal/Coriolis/Euler) treatment |
+      | Bathe, *Finite Element Procedures*, 2nd ed. | geometric stiffness; the
+      UL question in `solvers.md` §4 |
+      | Hughes & Brezzi 1989, *CMAME* 72(1):105–121 | the drilling
+      degree-of-freedom penalty |
+      | Hughes, Taylor & Kanoknukulchai 1977, *IJNME* 11(10):1529–1543 | the
+      retired selective reduced integration (historical) |
+      | Reddy, *Mechanics of Laminated Composite Plates and Shells*, 2nd ed. |
+      CLT and the B-coupling formula |
+      | Jones, *Mechanics of Composite Materials*, 2nd ed. | the
+      constitutive/CLT citation |
       | Tsai & Wu 1971; Hashin 1980 | the failure criteria |
       | Viterna & Corrigan 1981 | the post-stall polar extrapolation |
-      | Hinton & Campbell 1974; Zienkiewicz & Zhu 1992 | the stress-recovery smoothing |
+      | Hinton & Campbell 1974; Zienkiewicz & Zhu 1992 | the stress-recovery
+      smoothing |
 
-      Priority: the aero track (OpenFAST source + docs + `r-test`) is next, with the
-      AeroDyn manual and Ning 2014 already held. The deferred structural books do not
+      Priority: the aero track (OpenFAST source + docs + `r-test`) is next, with
+      the
+      AeroDyn manual and Ning 2014 already held. The deferred structural books
+      do not
       block the IEA 15 MW aerodynamic campaign.
 
 references:
@@ -672,8 +739,11 @@ references:
     held: false
     verification: repository_citation
     verification_note: >-
-      README, `docs/FSI_ROTOR_PAPER_DRAFT.md:647`,
-      `docs/teoria_formulacion_fsi_rotor.md:862`
+      Recovered from citations already in this repository, not verified against
+      a held copy.
+    recovered_from:
+      - README.md
+      - docs/formulations/teoria_formulacion_fsi_rotor.md:862
     cited_by_declared:
       - "src/aeroelast/postprocess/stress_recovery.py:53"
       - "src/aeroelast/solvers/fsi/stress_stiffened_dynamic.py:54"
@@ -697,7 +767,10 @@ references:
     held: false
     verification: repository_citation
     verification_note: >-
-      README, `docs/FSI_ROTOR_PAPER_DRAFT.md:639`
+      Recovered from a citation already in this repository, not verified against
+      a held copy.
+    recovered_from:
+      - README.md
     cited_by_declared: []
     notes: >-
       3rd ed. Used for the gyroscopic matrices of rotating systems. Source of an
@@ -719,8 +792,11 @@ references:
     held: false
     verification: repository_citation
     verification_note: >-
-      README, `docs/FSI_ROTOR_PAPER_DRAFT.md:637`,
-      `docs/teoria_formulacion_fsi_rotor.md:855`
+      Recovered from citations already in this repository, not verified against
+      a held copy.
+    recovered_from:
+      - README.md
+      - docs/formulations/teoria_formulacion_fsi_rotor.md:855
     cited_by_declared: []
     notes: >-
       3rd ed., §4.9–4.10. A classical mechanics text rather than a finite
@@ -1098,10 +1174,11 @@ references:
     notes: >-
       *Abaqus Theory Guide* 2016, §3.6.x (S4R composite shell), and the *ABAQUS
       Verification Manual*. Proprietary; DOIs do not apply, and neither manual
-      is held. The prose also cites
+      is held. The prose also cited
       `docs/s4r_composite_shell_formulation.md:3` (Theory Guide 2016 §3.6.1,
-      §3.6.5, §3.6.8), which lies outside the scanned source suffixes and is
-      reported instead of declared. The live code sites are
+      §3.6.5, §3.6.8); that document was removed from the repository in
+      `ee6c345`, so the site is gone rather than declared. The live code sites
+      are
       `tests/test_shell_comprehensive.py:86` and, for the S4R note,
       `src/aeroelast/postprocess/stress_recovery.py`; the prose sites
       `tests/test_shell_comprehensive.py:84` and
@@ -1437,9 +1514,10 @@ references:
       January 2005, 47 pp. DOI: to verify (NREL technical report; no DOI
       printed). It is the theory source for the BEM aerodynamic model and its
       tip/root losses, and the planned reference for the BEM-vs-OpenFAST
-      comparison. Its equations must be read with vision before use. Cited by
-      the docs: `docs/teoria_formulacion_fsi_rotor.md:867`,
-      `docs/FSI_ROTOR_PAPER_DRAFT.md:655`.
+      comparison. Its equations must be read with vision before use; the
+      documents that cite it are in `cited_by_docs`.
+    cited_by_docs:
+      - docs/formulations/teoria_formulacion_fsi_rotor.md:867
     orphan_ok: true
 
   - key: shen2005

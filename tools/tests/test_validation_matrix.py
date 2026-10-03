@@ -926,6 +926,9 @@ def test_rows_citing_an_unknown_key_are_reported(tmp_path: Path) -> None:
         ("bad_doi_format", "doi must be a bare DOI"),
         ("bad_doi_status", "doi_status must be one of"),
         ("declared_site_missing", "declared citation site does not exist"),
+        ("docs_site_missing", "cited_by_docs: site does not exist"),
+        ("docs_site_malformed", "cited_by_docs: not a file or file:line site"),
+        ("recovered_site_missing", "recovered_from: site does not exist"),
         ("bad_year", "year must be an integer"),
         ("no_authors", "is not declared in bibliographic_gaps"),
         ("duplicate_key", "duplicate key"),
@@ -950,6 +953,12 @@ def test_reference_entry_validation(tmp_path: Path, mutation: str, expected: str
         entry["doi_status"] = "maybe"
     elif mutation == "declared_site_missing":
         entry["cited_by_declared"] = ["src/aeroelast/nope.py:1"]
+    elif mutation == "docs_site_missing":
+        entry["cited_by_docs"] = ["docs/nope.md:1"]
+    elif mutation == "docs_site_malformed":
+        entry["cited_by_docs"] = ["a site with spaces:1"]
+    elif mutation == "recovered_site_missing":
+        entry["recovered_from"] = ["docs/gone.md"]
     elif mutation == "bad_year":
         entry["year"] = "2017"
     elif mutation == "no_authors":
@@ -1325,6 +1334,22 @@ def test_a_malformed_gap_is_reported(
     completed = run_check(store)
     assert completed.returncode == 1, completed.stdout + completed.stderr
     assert expected in completed.stdout
+
+
+def test_a_document_that_cites_the_work_is_declared_and_validated(tmp_path: Path) -> None:
+    """Deleting or moving the document must break check, not leave a note that rots."""
+    references = copy.deepcopy(REFERENCES)
+    entry = references["references"][0]
+    entry["cited_by_docs"] = ["docs/validation-policy.md"]
+    entry["recovered_from"] = ["README.md", "docs/reading-sources.md"]
+    store = write_store(tmp_path, [], references=references)
+    assert run_check(store).returncode == 0
+
+    entry["cited_by_docs"] = ["docs/deleted.md"]
+    store = write_store(tmp_path / "moved", [], references=references)
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert "cited_by_docs: site does not exist: docs/deleted.md" in completed.stdout
 
 
 def test_a_gap_may_point_at_the_rows_that_evidence_it(tmp_path: Path) -> None:
