@@ -133,7 +133,7 @@ groups:
         reason: "the laminate thickness equals the constant it was built from"
     non_validation_tests:
       - tests:
-          - tests/validation/parity/test_thin_walled_tube_torsion.py::test_wall_traction_excites_a_section_distortion
+          - test_wall_traction_excites_a_section_distortion
         reason: >-
           Every assertion in it is machinery -- the torque ruler twice, and the
           two walls of our own model agreeing -- so excluding them leaves no
@@ -146,6 +146,38 @@ groups:
       Bredt, the difference is recorded in `gaps.yaml` as
       `moment_realization_over_delivers` rather than here: a row records what
       agrees.
+
+  - id: "7"
+    title: >-
+      `tests/validation/parity/test_shell_stress_ccx_parity.py`
+      (outer-fibre stress against CCX and against the closed form)
+    slug: shell_stress_ccx
+    # No reference_kind: the two comparisons that remain are against different
+    # things -- CalculiX's 3D result and the beam-theory value -- so each one
+    # declares its own. Policy rule 7.
+    source_files:
+      - tests/validation/parity/test_shell_stress_ccx_parity.py
+    non_validation_tests:
+      - tests:
+          - test_outer_fibre_stress_is_symmetric
+        reason: >-
+          Its only assertion is that the two outer fibres of our own stress
+          field carry the same magnitude. That is a property of our own model
+          against itself, not a comparison against an independent reference, so
+          policy rule 6 leaves it no row.
+      - tests:
+          - test_bending_has_no_membrane_stress
+        reason: >-
+          The mid-surface stress is asserted to be negligible against the outer
+          fibre: again our own field against our own field, a property of the
+          solution rather than a comparison against anything independent. The
+          extractor finds no site in it because the bound is
+          `0.02 * plate_stress["upper"]` and not a literal.
+    provenance_note: >-
+      The row compares the outer-fibre von Mises stress against two references
+      at once: the CalculiX 2.23 result, read from the binary, and the
+      beam-theory value. The file asserts the two legs separately, which is why
+      the two comparisons carry different kinds.
 
   - id: "10"
     title: >-
