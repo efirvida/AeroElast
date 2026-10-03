@@ -49,8 +49,10 @@ Exit codes: 0 clean, 1 findings, 2 usage or I/O error.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -115,6 +117,7 @@ BIB_KEYS = {
     "issue",
     "pages",
     "year",
+    "version",
     "doi",
     "doi_status",
     "held",
@@ -122,11 +125,14 @@ BIB_KEYS = {
     "verification",
     "verification_note",
     "cited_by_declared",
+    "cited_by_stale",
     "code_mentions",
     "bibtex_key",
     "notes",
     "orphan_ok",
+    "bibliographic_gaps",
 }
+BIB_GAPPABLE = {"authors", "title", "year", "venue", "volume", "pages"}
 BIB_KINDS = {"journal", "conference", "report", "manual", "software", "thesis", "book"}
 DOI_STATUSES = {"verified", "printed_on_pdf", "to_verify", "not_applicable"}
 VERIFICATIONS = {"verified_pdf", "repository_citation", "unverified"}
@@ -141,6 +147,7 @@ GROUP_KEYS = {
     "id",
     "title",
     "slug",
+    "citation",
     "source_files",
     "common_tolerance",
     "headline",
@@ -1196,16 +1203,60 @@ def _validate_bib_entry(store: Store, where: str, entry: Any) -> None:
         store.error(where, "section must be a non-empty string")
     if entry.get("kind") not in BIB_KINDS:
         store.error(where, f"kind must be one of {sorted(BIB_KINDS)}")
+    gaps = entry.get("bibliographic_gaps")
+    if gaps is not None:
+        if not isinstance(gaps, list) or not all(isinstance(gap, str) and gap for gap in gaps):
+            store.error(where, "bibliographic_gaps must be a list of non-empty strings")
+            gaps = None
+        else:
+            unknown = [gap for gap in gaps if gap not in BIB_GAPPABLE]
+            if unknown:
+                store.error(
+                    where,
+                    f"bibliographic_gaps may only name {sorted(BIB_GAPPABLE)}, got {unknown}",
+                )
+    declared_gaps = set(gaps or [])
+
+    def absent(field: str, value: Any) -> bool:
+        """A field the source does not state: allowed only when declared as a gap."""
+        if value not in (None, "", [], {}):
+            return False
+        if field not in declared_gaps:
+            store.error(
+                where,
+                f"{field!r} is missing and is not declared in bibliographic_gaps; "
+                "an absence is recorded, never left implicit",
+            )
+            return False
+        return True
+
     authors = entry.get("authors")
-    if not isinstance(authors, list) or not authors or not all(
-        isinstance(author, str) and author for author in authors
-    ):
-        store.error(where, "authors must be a non-empty list of non-empty strings")
-    if not isinstance(entry.get("title"), str) or not entry["title"]:
-        store.error(where, "title must be a non-empty string")
+    if not isinstance(authors, list) or not all(isinstance(item, str) and item for item in authors):
+        store.error(where, "authors must be a list of non-empty strings")
+    elif not authors:
+        absent("authors", "")
+
+    title = entry.get("title")
+    if title is not None and (not isinstance(title, str) or not title):
+        store.error(where, "title must be a non-empty string or null")
+    elif title is None:
+        absent("title", None)
+
     year = entry.get("year")
-    if not isinstance(year, int) or isinstance(year, bool) or not 1900 <= year <= 2100:
-        store.error(where, f"year must be an integer in 1900..2100, got {year!r}")
+    if year is not None and (
+        not isinstance(year, int) or isinstance(year, bool) or not 1900 <= year <= 2100
+    ):
+        store.error(where, f"year must be an integer in 1900..2100 or null, got {year!r}")
+    elif year is None:
+        absent("year", None)
+    version = entry.get("version")
+    if version is not None and (not isinstance(version, str) or not version):
+        store.error(where, "version must be a non-empty string or null")
+    if entry.get("kind") == "software" and year is None and not version:
+        store.error(
+            where,
+            "a software entry with no publication year must pin its identity with 'version'",
+        )
 
     doi = entry.get("doi")
     if doi is not None and (not isinstance(doi, str) or not DOI_RE.match(doi)):
@@ -1246,6 +1297,21 @@ def _validate_bib_entry(store: Store, where: str, entry: Any) -> None:
         target = REPO_ROOT / site.split(":", 1)[0]
         if not target.exists():
             store.error(where, f"declared citation site does not exist: {site}")
+    stale = entry.get("cited_by_stale")
+    if stale is not None:
+        if not isinstance(stale, list) or not all(isinstance(site, str) and site for site in stale):
+            store.error(where, "cited_by_stale must be a list of non-empty strings")
+        else:
+            for site in stale:
+                if not CITATION_SITE_RE.match(site):
+                    store.error(where, f"not a file or file:line site: {site!r}")
+                elif not (REPO_ROOT / site.split(":", 1)[0]).exists():
+                    store.error(where, f"stale citation site does not exist: {site}")
+                elif site in (entry.get("cited_by_declared") or []):
+                    store.error(
+                        where,
+                        f"{site} is both declared and stale; it is one or the other",
+                    )
     mentions = entry.get("code_mentions")
     if mentions is not None and (
         not isinstance(mentions, list)
@@ -1388,7 +1454,12 @@ def reference_scan_findings(store: Store, found: dict[str, list[str]]) -> list[F
         for site in sites:
             target = REPO_ROOT / site.split(":", 1)[0]
             if ":" in site:
-                line_no = int(site.rsplit(":", 1)[1].split("-", 1)[0])
+                # A malformed site is already reported by the loader; never let it
+                # crash the scan, because the finding is the point.
+                try:
+                    line_no = int(site.rsplit(":", 1)[1].split("-", 1)[0])
+                except ValueError:
+                    continue
                 try:
                     lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
                 except OSError:
@@ -1412,7 +1483,9 @@ def reference_scan_findings(store: Store, found: dict[str, list[str]]) -> list[F
                         f"(key {key!r} or code_mentions)",
                     )
                 )
-        if not used and not sites and not entry.get("orphan_ok"):
+        if not used and not sites and not entry.get("cited_by_stale") and not entry.get(
+            "orphan_ok"
+        ):
             findings.append(
                 Finding(
                     "warning",
@@ -1421,6 +1494,25 @@ def reference_scan_findings(store: Store, found: dict[str, list[str]]) -> list[F
                     "with a reason if the bibliography legitimately holds it",
                 )
             )
+        for site in entry.get("cited_by_stale") or []:
+            if site in found.get(key, []):
+                findings.append(
+                    Finding(
+                        "error",
+                        where,
+                        f"{site} is recorded as stale but the code does mention this work "
+                        "there: move it to cited_by_declared",
+                    )
+                )
+            else:
+                findings.append(
+                    Finding(
+                        "warning",
+                        where,
+                        f"declared citation site {site} is known stale: the prose claims it "
+                        "and the code no longer mentions the work there",
+                    )
+                )
         for path in entry.get("held_files") or []:
             if not (REPO_ROOT / str(path)).exists():
                 findings.append(
@@ -1601,6 +1693,397 @@ def command_references(args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# Code extraction (pilot stage E1-E3)
+# --------------------------------------------------------------------------- #
+
+
+@dataclass
+class NodeInfo:
+    node: str
+    file: str
+    function: str
+    params: str | None
+
+
+@dataclass
+class ToleranceSite:
+    line: int
+    kind: str
+    value: float | None
+    source: str
+    asserts: bool
+
+
+def collect_nodes(scope: str) -> list[NodeInfo]:
+    """E1: the collected node set, verbatim from pytest.
+
+    A zero-node result is an error, never a clean run: a module-level
+    `pytest.importorskip` outside the pinned environment collects nothing, and a
+    silent zero would read as "zero drift".
+    """
+    completed = subprocess.run(
+        [sys.executable, "-m", "pytest", "-o", "addopts=", "--collect-only", "-q", scope],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    nodes: list[NodeInfo] = []
+    for raw in completed.stdout.splitlines():
+        line = raw.strip()
+        if "::" not in line or line.startswith("="):
+            continue
+        if not NODE_ID_RE.match(line):
+            continue
+        file, _, rest = line.partition("::")
+        function, _, params = rest.partition("[")
+        nodes.append(
+            NodeInfo(
+                node=line,
+                file=file,
+                function=function,
+                params=params.rstrip("]") if params else None,
+            )
+        )
+    if not nodes:
+        raise StoreError(
+            f"collect-only returned no nodes for {scope!r} (exit {completed.returncode}); "
+            "run it inside the pinned environment (conda activate aeroelast-dev)"
+        )
+    return nodes
+
+
+def module_constants(tree: ast.Module) -> dict[str, Any]:
+    consts: dict[str, Any] = {}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                try:
+                    consts[target.id] = ast.literal_eval(node.value)
+                except (ValueError, SyntaxError):
+                    continue
+    return consts
+
+
+def resolve_literal(node: ast.expr, consts: dict[str, Any]) -> Any:
+    """A literal, or a module constant holding one. Nothing else."""
+    if isinstance(node, ast.Name) and node.id in consts:
+        return consts[node.id]
+    try:
+        return ast.literal_eval(node)
+    except (ValueError, SyntaxError):
+        return None
+
+
+def tolerance_sites(func: ast.FunctionDef, consts: dict[str, Any]) -> list[ToleranceSite]:
+    """Every tolerance the function states, whether in an assert or in a call.
+
+    Most of this suite asserts through helpers (`assert_relative_error(..., tol=0.05)`)
+    rather than bare `assert` statements, so scanning only `ast.Assert` would miss
+    almost every tolerance in the file.
+    """
+    sites: list[ToleranceSite] = []
+    for sub in ast.walk(func):
+        if isinstance(sub, ast.Call):
+            for keyword in sub.keywords:
+                if keyword.arg not in {"tol", "rtol", "atol"}:
+                    continue
+                value = resolve_literal(keyword.value, consts)
+                sites.append(
+                    ToleranceSite(
+                        line=sub.lineno,
+                        kind=str(keyword.arg),
+                        value=float(value) if isinstance(value, int | float) else None,
+                        source=ast.unparse(sub)[:120],
+                        asserts=True,
+                    )
+                )
+        elif isinstance(sub, ast.Assert) and isinstance(sub.test, ast.Compare):
+            for op, comparator in zip(sub.test.ops, sub.test.comparators, strict=True):
+                if not isinstance(op, (ast.Lt, ast.LtE)):
+                    continue
+                value = resolve_literal(comparator, consts)
+                if not isinstance(value, int | float):
+                    continue
+                sites.append(
+                    ToleranceSite(
+                        line=sub.lineno,
+                        kind="rel_err",
+                        value=float(value),
+                        source=ast.unparse(sub.test)[:120],
+                        asserts=True,
+                    )
+                )
+    unique: dict[tuple[int, str, float | None], ToleranceSite] = {}
+    for site in sites:
+        unique.setdefault((site.line, site.kind, site.value), site)
+    return [unique[key] for key in sorted(unique, key=lambda item: item[0])]
+
+
+def parametrize_table(func: ast.FunctionDef, consts: dict[str, Any]) -> list[dict[str, Any]]:
+    """Decorators, with literal case values where the code states them."""
+    table: list[dict[str, Any]] = []
+    for decorator in func.decorator_list:
+        if not isinstance(decorator, ast.Call) or "parametrize" not in ast.unparse(decorator.func):
+            continue
+        argnames = ast.unparse(decorator.args[0]).strip("'\"") if decorator.args else ""
+        cases: list[Any] = []
+        if len(decorator.args) > 1:
+            raw = decorator.args[1]
+            literal = resolve_literal(raw, consts)
+            if isinstance(literal, list):
+                cases = [list(case) if isinstance(case, tuple) else case for case in literal]
+        table.append(
+            {
+                "argnames": [name.strip() for name in argnames.split(",") if name.strip()],
+                "cases": cases,
+                "source": ast.unparse(decorator.args[1])[:80] if len(decorator.args) > 1 else "",
+            }
+        )
+    return table
+
+
+def eval_number(node: ast.expr, consts: dict[str, Any]) -> float | None:
+    """The numeric value of a constant expression, or None.
+
+    The suite states parameters as expressions (`1 / 100`, `1.0e2`), so
+    `ast.literal_eval` alone cannot resolve them and a literal-only check would
+    report every evaluated node-id value as a divergence.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
+        return None if isinstance(node.value, bool) else float(node.value)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd):
+        inner = eval_number(node.operand, consts)
+        if inner is None:
+            return None
+        return -inner if isinstance(node.op, ast.USub) else inner
+    if isinstance(node, ast.BinOp) and isinstance(
+        node.op, ast.Add | ast.Sub | ast.Mult | ast.Div | ast.Pow
+    ):
+        left = eval_number(node.left, consts)
+        right = eval_number(node.right, consts)
+        if left is None or right is None:
+            return None
+        try:
+            if isinstance(node.op, ast.Add):
+                return left + right
+            if isinstance(node.op, ast.Sub):
+                return left - right
+            if isinstance(node.op, ast.Mult):
+                return left * right
+            if isinstance(node.op, ast.Div):
+                return left / right
+            return left**right
+        except (ZeroDivisionError, OverflowError):
+            return None
+    if isinstance(node, ast.Name) and isinstance(consts.get(node.id), int | float):
+        return float(consts[node.id])
+    return None
+
+
+def stated_numbers(func: ast.FunctionDef, consts: dict[str, Any]) -> set[float]:
+    """Every number the function states in its decorators, evaluated."""
+    numbers: set[float] = set()
+    for decorator in func.decorator_list:
+        for sub in ast.walk(decorator):
+            value = eval_number(sub, consts)
+            if value is not None:
+                numbers.add(value)
+    return numbers
+
+
+def cross_check_params(
+    params: str | None,
+    consts: dict[str, Any],
+    func: ast.FunctionDef,
+) -> tuple[list[str], list[str]]:
+    """E3: the numbers pytest put in the node id, checked against the code.
+
+    The parametrisation id is a second witness for the values the AST reports: where
+    the two disagree, one of them is wrong and the difference is reported, not
+    silently reconciled.
+    """
+    if not params:
+        return ([], [])
+    numbers = stated_numbers(func, consts)
+    agreed: list[str] = []
+    diverged: list[str] = []
+    for token in [item for item in re.split(r"[-,]", params) if item]:
+        try:
+            value = float(token)
+        except ValueError:
+            continue
+        match = any(abs(value - stated) <= 1e-9 * max(1.0, abs(stated)) for stated in numbers)
+        (agreed if match else diverged).append(token)
+    return (agreed, diverged)
+
+
+def slugify(text: str, limit: int = 56) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+    return slug[:limit].strip("_") or "case"
+
+
+def build_rows(
+    group_id: str,
+    slug: str,
+    citation: str,
+    scope: str,
+    nodes: list[NodeInfo],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """E1-E3 into rows: one row per collected node, none left unclaimed."""
+    tree = ast.parse((REPO_ROOT / scope).read_text(encoding="utf-8"))
+    consts = module_constants(tree)
+    functions = {
+        node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
+    }
+    report: dict[str, Any] = {"nodes": [], "unclaimed": [], "diverged": {}, "prints": {}}
+    rows: list[dict[str, Any]] = []
+    used: set[str] = set()
+    for info in nodes:
+        func = functions.get(info.function)
+        if func is None:
+            report["unclaimed"].append(info.node)
+            continue
+        docstring = ast.get_docstring(func) or ""
+        validates = docstring.strip().splitlines()[0] if docstring.strip() else info.function
+        sites = tolerance_sites(func, consts)
+        if not sites:
+            report["unclaimed"].append(info.node)
+            continue
+        row_id = f"{slug}.{slugify(info.function, 40)}.{slugify(info.params or 'single', 40)}"
+        suffix = 2
+        candidate = row_id
+        while candidate in used:
+            candidate = f"{row_id}_{suffix}"
+            suffix += 1
+        row_id = candidate
+        used.add(row_id)
+
+        agreed, diverged = cross_check_params(info.params, consts, func)
+        if diverged:
+            report["diverged"][info.node] = diverged
+        report.setdefault("parametrize", {})[info.function] = [
+            table["argnames"] for table in parametrize_table(func, consts)
+        ]
+        prints = [
+            ast.unparse(sub)[:100]
+            for sub in ast.walk(func)
+            if isinstance(sub, ast.Call)
+            and isinstance(sub.func, ast.Name)
+            and sub.func.id == "print"
+            and re.search(
+                r"expect|ref|err|margin|norm|ratio|delta|%", ast.unparse(sub), re.I
+            )
+        ]
+        if prints:
+            report["prints"][info.node] = prints
+
+        comparisons = []
+        for site in sites:
+            kind = "paper" if re.search(r"paper|table|expected", site.source, re.I) else "analytical"
+            reference: dict[str, Any] = {"kind": kind, "label": site.source}
+            if kind == "paper":
+                reference["citation"] = citation
+            comparisons.append(
+                {
+                    "label": f"{site.kind} at line {site.line}",
+                    "asserted": site.asserts,
+                    "reference": reference,
+                    "tolerance": {
+                        "kind": site.kind,
+                        "value": site.value,
+                        "source": f"{scope}:{site.line}",
+                        "justified": True,
+                        "justification": (
+                            "extracted from the code; whether the justification holds is "
+                            "adjudicated in the pilot (T6)"
+                        ),
+                    },
+                    "measured": {"status": "not_measured", "margin_pct": None},
+                }
+            )
+        rows.append(
+            {
+                "id": row_id,
+                "group": group_id,
+                "title": info.node.split("::", 1)[1],
+                "tests": [info.node],
+                "validates": validates,
+                "comparisons": comparisons,
+                "flags": [],
+                "notes": (
+                    "Derived by `validation_matrix extract` from the code alone: the "
+                    "human-facing description and the adjudicated reference land in the "
+                    "pilot's T5/T6. No margin is measured yet."
+                ),
+            }
+        )
+        report["nodes"].append(info.node)
+    return rows, report
+
+
+def command_extract(args: argparse.Namespace) -> int:
+    store = load_store(args.store)
+    group = store.groups.get(args.group)
+    if group is None:
+        raise StoreError(f"unknown group: {args.group}")
+    scope = args.scope or (group.get("source_files") or [None])[0]
+    if not scope:
+        raise StoreError(f"group {args.group} declares no source file; pass --scope")
+    citation = args.citation or str(group.get("citation") or "")
+    if not citation:
+        raise StoreError(
+            f"group {args.group} declares no 'citation'; pass --citation for paper references"
+        )
+    nodes = collect_nodes(str(scope))
+    rows, report = build_rows(
+        args.group,
+        str(group.get("slug")),
+        citation,
+        str(scope),
+        nodes,
+    )
+    payload = {
+        "scope": str(scope),
+        "collected": len(nodes),
+        "rows": len(rows),
+        "claimed": len(report["nodes"]),
+        "unclaimed": report["unclaimed"],
+        "diverged_params": report["diverged"],
+        "unasserted_prints": report["prints"],
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"scope      : {scope}")
+        print(f"collected  : {len(nodes)}")
+        print(f"rows       : {len(rows)}")
+        print(f"claimed    : {len(report['nodes'])}")
+        if report["unclaimed"]:
+            print(f"UNCLAIMED  : {len(report['unclaimed'])}")
+            for node in report["unclaimed"]:
+                print(f"  - {node}")
+        for node, tokens in report["diverged"].items():
+            print(f"param id diverges from the code's literals: {node} -> {tokens}")
+        for node, calls in report["prints"].items():
+            print(f"printed and maybe never asserted (candidate info_only): {node}")
+            for call in calls:
+                print(f"  - {call}")
+    if args.write:
+        target = args.store / "rows" / f"{args.group}-{group.get('slug')}.yaml"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        dump_yaml(target, {"group": args.group, "rows": rows})
+        print(f"wrote {display_path(target)} ({len(rows)} rows)")
+        probe = load_store(args.store)
+        for finding in probe.errors():
+            print(finding.as_text(), file=sys.stderr)
+        if probe.errors():
+            return EXIT_FINDINGS
+    return EXIT_OK
+
+
+# --------------------------------------------------------------------------- #
 # Entry point
 # --------------------------------------------------------------------------- #
 
@@ -1678,6 +2161,16 @@ def build_parser() -> argparse.ArgumentParser:
     setter.add_argument("--add-flag", action="append", default=[], metavar="FLAG")
     setter.add_argument("--remove-flag", action="append", default=[], metavar="FLAG")
     setter.set_defaults(func=command_set)
+
+    extract = subparsers.add_parser(
+        "extract", help="derive rows from the collected nodes and the test source"
+    )
+    extract.add_argument("--group", default="3")
+    extract.add_argument("--scope", help="test file to read (default: the group's source)")
+    extract.add_argument("--citation", help="bibliography key for paper references")
+    extract.add_argument("--write", action="store_true", help="write the rows file")
+    extract.add_argument("--json", action="store_true")
+    extract.set_defaults(func=command_extract)
 
     return parser
 

@@ -5,7 +5,7 @@
   "description": "One canonical, auditable reference. docs/validation/references.yaml is the rector; docs/references.md is generated from it. Field rules that need cross-file context (citation-key resolution, declared-vs-found citation diffing, .sources/ absence) are enforced by tools/validation_matrix.py 'check', not by this schema.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["key", "section", "kind", "authors", "title", "year", "doi_status", "held"],
+  "required": ["key", "section", "kind", "authors", "doi_status", "held"],
   "properties": {
     "key": {
       "type": "string",
@@ -22,16 +22,32 @@
     },
     "authors": {
       "type": "array",
-      "minItems": 1,
       "items": {"type": "string", "minLength": 1},
-      "description": "Verbatim as printed, 'Family, G.' form."
+      "description": "Verbatim as printed, 'Family, G.' form. Empty is allowed only when 'authors' is declared in bibliographic_gaps: an absence is recorded, never left implicit."
     },
-    "title": {"type": "string", "minLength": 1},
+    "title": {
+      "type": ["string", "null"],
+      "description": "Null only with 'title' in bibliographic_gaps."
+    },
     "venue": {"type": ["string", "null"]},
     "volume": {"type": ["string", "null"]},
     "issue": {"type": ["string", "null"]},
     "pages": {"type": ["string", "null"]},
-    "year": {"type": "integer", "minimum": 1900, "maximum": 2100},
+    "year": {
+      "type": ["integer", "null"],
+      "minimum": 1900,
+      "maximum": 2100,
+      "description": "Null only with 'year' in bibliographic_gaps. Software usually has no publication year and pins its identity with 'version' instead."
+    },
+    "version": {
+      "type": ["string", "null"],
+      "description": "The version that pins a software entry's identity, e.g. 'v2406' or '4.2.1'. Required when kind == software and year is null."
+    },
+    "bibliographic_gaps": {
+      "type": "array",
+      "items": {"enum": ["authors", "title", "year", "venue", "volume", "pages"]},
+      "description": "The fields the source does not state. A field named here must actually be absent, and a required field that is absent must be named here: the store never invents a year, an author or a title to satisfy a validator."
+    },
     "doi": {
       "type": ["string", "null"],
       "pattern": "^10\\.\\d{4,9}/\\S+$",
@@ -64,7 +80,12 @@
         "pattern": "^[A-Za-z0-9_./-]+(:\\d+(-\\d+)?)?$",
         "description": "file or file:line, repository-relative."
       },
-      "description": "The audited claim carried over from the current prose ('Cited by the code: file:line'). Diffed by check against cited_by_found."
+      "description": "The audited claim carried over from the current prose ('Cited by the code: file:line'), kept only when it still verifies. Diffed by check against cited_by_found."
+    },
+    "cited_by_stale": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Sites the prose claims but the code no longer supports. Kept visible here instead of being dropped or stored as if true; `references check` reports each one as a warning."
     },
     "code_mentions": {
       "type": "array",

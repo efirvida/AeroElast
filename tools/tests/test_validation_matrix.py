@@ -688,6 +688,66 @@ def test_references_render_emits_numeral_subsection_headings(tmp_path: Path) -> 
     assert "### 6.1 BEM theory" in target.read_text(encoding="utf-8")
 
 
+def test_reference_gaps_make_an_absence_explicit(tmp_path: Path) -> None:
+    """A missing year is allowed only when declared, and software pins a version instead."""
+    references = copy.deepcopy(REFERENCES)
+    software = {
+        "key": "openfoam",
+        "section": "4. Software and vendored code",
+        "kind": "software",
+        "authors": [],
+        "title": "OpenFOAM",
+        "year": None,
+        "version": "v2406",
+        "doi": None,
+        "doi_status": "not_applicable",
+        "held": False,
+        "bibliographic_gaps": ["authors", "year"],
+        "notes": "the repository pins v2406; the source states no publication year",
+    }
+    references["references"].append(copy.deepcopy(software))
+    store = write_store(tmp_path, [], references=references)
+    completed = run_check(store)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+    # Same entry, without pinning a version: a software entry needs one identity.
+    unpinned = copy.deepcopy(software)
+    unpinned["version"] = None
+    references2 = copy.deepcopy(REFERENCES)
+    references2["references"].append(unpinned)
+    store = write_store(tmp_path / "unpinned", [], references=references2)
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert "must pin its identity with 'version'" in completed.stdout
+
+    # Same entry, with the year absent but not declared: the absence must be stated.
+    undeclared = copy.deepcopy(software)
+    undeclared["bibliographic_gaps"] = ["authors"]
+    references3 = copy.deepcopy(REFERENCES)
+    references3["references"].append(undeclared)
+    store = write_store(tmp_path / "undeclared", [], references=references3)
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert "'year' is missing and is not declared" in completed.stdout
+
+
+def test_cited_by_stale_is_visible_and_never_silently_true(tmp_path: Path) -> None:
+    """A stale prose claim is recorded as a warning, and a live one as an error."""
+    references = copy.deepcopy(REFERENCES)
+    references["references"][0]["cited_by_stale"] = ["src/aeroelast/core/mesh/generators.py:1"]
+    store = write_store(tmp_path, [], references=references)
+    stale = run(store, "references", "check")
+    assert stale.returncode == 0, stale.stdout + stale.stderr
+    assert "is known stale" in stale.stdout
+
+    # generators.py:65 does mention "Ko2017", so recording it as stale is wrong.
+    references["references"][0]["cited_by_stale"] = ["src/aeroelast/core/mesh/generators.py:65"]
+    store = write_store(tmp_path / "alive", [], references=references)
+    alive = run(store, "references", "check")
+    assert alive.returncode == 1
+    assert "move it to cited_by_declared" in alive.stdout
+
+
 def test_references_get_shows_the_doi(tmp_path: Path) -> None:
     store = _mixed_store(tmp_path)
     completed = run(store, "references", "get", "ko2017_perf")
@@ -796,7 +856,7 @@ def test_rows_citing_an_unknown_key_are_reported(tmp_path: Path) -> None:
         ("bad_doi_status", "doi_status must be one of"),
         ("declared_site_missing", "declared citation site does not exist"),
         ("bad_year", "year must be an integer"),
-        ("no_authors", "authors must be a non-empty list"),
+        ("no_authors", "is not declared in bibliographic_gaps"),
         ("duplicate_key", "duplicate key"),
         ("unknown_bib_key", "unknown keys"),
     ],
