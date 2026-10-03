@@ -69,6 +69,12 @@ FLAGS = {
 
 REFERENCES = {
     "version": 1,
+    "header": "This file is the canonical bibliography for AeroElast.",
+    "sections": [
+        {"title": "About the recovered PDFs", "intro": "Verification convention used below."},
+        {"title": "1. Shell element formulations"},
+        {"title": "5. Verification benchmarks, reference models and validation literature"},
+    ],
     "references": [
         {
             "key": "ko2017_perf",
@@ -633,6 +639,53 @@ def test_set_schema_matches_the_validation_key_sets() -> None:
 # --------------------------------------------------------------------------- #
 # T3a: the bibliography store
 # --------------------------------------------------------------------------- #
+
+
+def test_references_render_is_deterministic_and_checkable(tmp_path: Path) -> None:
+    store = _mixed_store(tmp_path)
+    target = tmp_path / "references.md"
+    first = run(store, "references", "render", "--out", str(target))
+    assert first.returncode == 0, first.stdout + first.stderr
+    rendered = target.read_text(encoding="utf-8")
+
+    assert rendered.startswith("# Canonical bibliography\n")
+    assert "Do not edit by hand" in rendered
+    assert "This file is the canonical bibliography for AeroElast." in rendered
+    assert "## About the recovered PDFs" in rendered
+    assert "Verification convention used below." in rendered
+    assert "### " not in rendered
+    assert "DOI: 10.1016/j.compstruc.2017.08.003." in rendered
+    assert "DOI: to verify." in rendered
+    assert "*Verified against `" in rendered
+
+    unchanged = run(store, "references", "render", "--out", str(target), "--check")
+    assert unchanged.returncode == 0, unchanged.stdout + unchanged.stderr
+
+    target.write_text(rendered + "\ntampered\n", encoding="utf-8")
+    stale = run(store, "references", "render", "--out", str(target), "--check")
+    assert stale.returncode == 1
+    assert "differs from a fresh render" in stale.stderr
+
+
+def test_references_render_declares_undeclared_sections(tmp_path: Path) -> None:
+    references = copy.deepcopy(REFERENCES)
+    references["references"][0]["section"] = "9. A section with no intro"
+    store = write_store(tmp_path, [], references=references)
+    warned = run(store, "references", "check")
+    assert "which `sections` does not declare" in warned.stdout
+    rendered = run(store, "references", "render", "--out", str(tmp_path / "out.md"))
+    assert rendered.returncode == 0
+    assert "## 9. A section with no intro" in (tmp_path / "out.md").read_text(encoding="utf-8")
+
+
+def test_references_render_emits_numeral_subsection_headings(tmp_path: Path) -> None:
+    references = copy.deepcopy(REFERENCES)
+    references["sections"].append({"title": "6.1 BEM theory"})
+    references["references"][0]["section"] = "6.1 BEM theory"
+    store = write_store(tmp_path, [], references=references)
+    target = tmp_path / "references.md"
+    assert run(store, "references", "render", "--out", str(target)).returncode == 0
+    assert "### 6.1 BEM theory" in target.read_text(encoding="utf-8")
 
 
 def test_references_get_shows_the_doi(tmp_path: Path) -> None:

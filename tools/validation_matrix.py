@@ -261,6 +261,8 @@ class Store:
     flag_entries: dict[str, dict[str, Any]] = field(default_factory=dict)
     derived_flags: set[str] = field(default_factory=set)
     references: dict[str, dict[str, Any]] = field(default_factory=dict)
+    reference_header: str | None = None
+    reference_sections: dict[str, dict[str, Any]] = field(default_factory=dict)
     rows: list[RowRef] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
 
@@ -1259,10 +1261,45 @@ def load_references(store: Store) -> None:
     if not isinstance(data, dict) or not isinstance(data.get("references"), list):
         store.error("references.yaml", "expected a mapping with a 'references' list")
         return
+    header = data.get("header")
+    if header is not None and (not isinstance(header, str) or not header.strip()):
+        store.error("references.yaml", "'header' must be a non-empty string or absent")
+    store.reference_header = header if isinstance(header, str) else None
+
+    for index, section in enumerate(data.get("sections") or []):
+        where = f"references.yaml:sections[{index}]"
+        if not isinstance(section, dict):
+            store.error(where, "expected a mapping")
+            continue
+        unknown = _unknown_keys(section, {"title", "intro"})
+        if unknown:
+            store.error(where, f"unknown keys: {', '.join(unknown)}")
+        title = section.get("title")
+        if not isinstance(title, str) or not title:
+            store.error(where, "title must be a non-empty string")
+            continue
+        if title in store.reference_sections:
+            store.error(f"references.yaml:sections[{title}]", "duplicate section title")
+        intro = section.get("intro")
+        if intro is not None and (not isinstance(intro, str) or not intro.strip()):
+            store.error(f"references.yaml:sections[{title}]", "intro must be non-empty or absent")
+        store.reference_sections[title] = section
+
     for index, entry in enumerate(data["references"]):
         _validate_bib_entry(store, f"references.yaml[{index}]", entry)
         if isinstance(entry, dict) and isinstance(entry.get("key"), str):
             store.references[entry["key"]] = entry
+
+    declared = [
+        str(entry.get("section")) for entry in store.references.values() if entry.get("section")
+    ]
+    for title in sorted(set(declared)):
+        if title not in store.reference_sections:
+            store.warn(
+                "references.yaml",
+                f"entries use section {title!r}, which `sections` does not declare: its "
+                "intro cannot be rendered",
+            )
 
 
 def iter_code_files() -> Iterable[Path]:
@@ -1392,6 +1429,85 @@ def reference_scan_findings(store: Store, found: dict[str, list[str]]) -> list[F
     return findings
 
 
+def reference_heading(title: str) -> str:
+    """Subsections of a numbered section (6.1, 6.2) render one level deeper."""
+    return "###" if re.match(r"^\d+\.\d+\s", title) else "##"
+
+
+def render_citation_line(entry: dict[str, Any]) -> str:
+    parts = [", ".join(entry.get("authors") or []), f'"{entry.get("title")}"']
+    if entry.get("venue"):
+        parts.append(f"*{entry['venue']}*")
+    volume = entry.get("volume")
+    if volume:
+        issue = entry.get("issue")
+        parts.append(f"{volume}({issue})" if issue else str(volume))
+    if entry.get("pages"):
+        parts.append(str(entry["pages"]))
+    line = ", ".join(part for part in parts if part)
+    tail = f", {entry.get('year')}."
+    if entry.get("doi"):
+        tail += f" DOI: {entry['doi']}."
+    elif entry.get("doi_status") == "to_verify":
+        tail += " DOI: to verify."
+    return line + tail
+
+
+def render_reference_paragraphs(entry: dict[str, Any]) -> list[str]:
+    paragraphs: list[str] = []
+    note = entry.get("verification_note")
+    held = (entry.get("held_files") or [None])[0]
+    if entry.get("verification") == "verified_pdf" and held:
+        detail = f" ({note})" if note else ""
+        paragraphs.append(f"*Verified against `{held}`{detail}.*")
+    elif entry.get("verification") == "repository_citation":
+        detail = f": {note}" if note else "."
+        paragraphs.append(f"*Source: repository citation{detail}*")
+    elif entry.get("verification") == "unverified":
+        paragraphs.append("*Not verified against a held copy.*")
+    if entry.get("cited_by_declared"):
+        sites = ", ".join(f"`{site}`" for site in entry["cited_by_declared"])
+        paragraphs.append(f"*Cited by the code: {sites}.*")
+    if entry.get("notes"):
+        paragraphs.append(f"*{entry['notes']}*")
+    return paragraphs
+
+
+def render_references(store: Store) -> str:
+    """`docs/references.md` is generated: the store is the only input."""
+    lines = [
+        "# Canonical bibliography",
+        "",
+        "Generated from `docs/validation/references.yaml` by",
+        "`python tools/validation_matrix.py references render`. Do not edit by hand.",
+        "",
+    ]
+    if store.reference_header:
+        lines += [store.reference_header.strip(), ""]
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for entry in store.references.values():
+        grouped.setdefault(str(entry.get("section")), []).append(entry)
+
+    def emit_section(title: str, intro: str | None) -> None:
+        lines.append(f"{reference_heading(title)} {title}")
+        lines.append("")
+        if intro:
+            lines.extend([intro.strip(), ""])
+        for entry in grouped.get(title, []):
+            lines.append(f"- {render_citation_line(entry)}")
+            for paragraph in render_reference_paragraphs(entry):
+                lines.append(f"  {paragraph}")
+            lines.append("")
+
+    for title, section in store.reference_sections.items():
+        emit_section(title, section.get("intro"))
+    for title in grouped:
+        if title not in store.reference_sections:
+            emit_section(title, None)
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def command_references(args: argparse.Namespace) -> int:
     store = load_store(args.store)
     action = args.action
@@ -1468,6 +1584,19 @@ def command_references(args: argparse.Namespace) -> int:
                 f"{len(errors)} error(s), {len(findings) - len(errors)} warning(s)"
             )
         return EXIT_FINDINGS if errors else EXIT_OK
+    if action == "render":
+        rendered = render_references(store)
+        target = args.out or (REPO_ROOT / "docs" / "references.md")
+        if args.check:
+            current = target.read_text(encoding="utf-8") if target.exists() else ""
+            if current != rendered:
+                print(f"stale: {display_path(target)} differs from a fresh render", file=sys.stderr)
+                return EXIT_FINDINGS
+            print(f"render --check: {display_path(target)} is up to date")
+            return EXIT_OK
+        target.write_text(rendered, encoding="utf-8")
+        print(f"wrote {display_path(target)}")
+        return EXIT_OK
     raise StoreError(f"unknown references action: {action}")
 
 
@@ -1527,14 +1656,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     bibliography = subparsers.add_parser("references", help="query the bibliography store")
     bibliography.add_argument(
-        "action", choices=["list", "gaps", "get", "check", "bibtex", "where-used"]
+        "action",
+        choices=["list", "gaps", "get", "check", "bibtex", "where-used", "render"],
     )
     bibliography.add_argument("key", nargs="?", help="reference key for get and where-used")
     bibliography.add_argument("--doi-status", choices=sorted(DOI_STATUSES))
     bibliography.add_argument("--kind", choices=sorted(BIB_KINDS))
     bibliography.add_argument("--held", action="store_true", help="only entries whose PDF is held")
     bibliography.add_argument("--not-held", action="store_true")
-    bibliography.add_argument("--out", type=Path, help="write bibtex to a file")
+    bibliography.add_argument("--out", type=Path, help="write bibtex or the rendered file here")
+    bibliography.add_argument(
+        "--check", action="store_true", help="with render: fail instead of writing"
+    )
     bibliography.add_argument("--json", action="store_true")
     bibliography.set_defaults(func=command_references)
 
