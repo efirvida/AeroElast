@@ -1062,6 +1062,41 @@ def _printed(error: str, value: str = "1.0000", expected: str = "1.0000") -> dic
     return {"value": value, "expected": expected, "error": error}
 
 
+def test_an_unclaimed_node_needs_a_declaration_to_stay_silent() -> None:
+    """The closure rule: a grouped file cannot gain a test that is neither row nor declaration."""
+    module = _load_tool_module()
+    group = {
+        "id": "4",
+        "non_validation_tests": [
+            {
+                "tests": [
+                    "tests/validation/element/test_quad.py::TestStiffnessMatrix",
+                    "tests/validation/element/test_quad.py::test_api_shape",
+                ],
+                "reason": "structural properties and API shape, not validation",
+            }
+        ],
+    }
+    nodes = [
+        "tests/validation/element/test_quad.py::TestStiffnessMatrix::test_symmetry[Quad4]",
+        "tests/validation/element/test_quad.py::test_api_shape",
+        "tests/validation/element/test_quad.py::test_something_new",
+    ]
+    declared, undeclared, stale = module.classify_unclaimed(group, nodes)
+    assert len(declared) == 2  # the class prefix and the exact id
+    assert undeclared == ["tests/validation/element/test_quad.py::test_something_new"]
+    assert stale == []
+
+    # A declaration that matches nothing reads like coverage and is not.
+    _, _, stale = module.classify_unclaimed(group, nodes[:2])
+    assert stale == []  # both patterns were used
+    _, _, stale = module.classify_unclaimed(group, [])
+    assert len(stale) == 2
+
+    # A prefix matches at a `::` boundary only: `test_api` must not shadow `test_api_shape2`.
+    assert module.match_non_validation(group, "tests/x.py::TestStiffnessMatrix2::t") is None
+
+
 def test_a_class_based_node_id_is_understood() -> None:
     """pytest prints `file::Class::test[param]` for a method.
 

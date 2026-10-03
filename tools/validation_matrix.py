@@ -172,7 +172,57 @@ GROUP_KEYS = {
     # thing. A mixed group declares none and each comparison is decided by hand: the extractor
     # reports a declared kind and never infers one, because a keyword guess is not evidence.
     "reference_kind",
+    # Tests in this group's scope that are not validation rows, each with its reason. It lives
+    # here, next to the scope it excludes from, and not in `gaps.yaml`: a gap is a claim about
+    # evidence the suite does not have, while this is a classification of tests.
+    "non_validation_tests",
 }
+
+
+def match_non_validation(group: dict[str, Any], node: str) -> tuple[str, str] | None:
+    """The (pattern, reason) declaring `node` not a validation row, or None.
+
+    A declaration matches a node id exactly or by a `::`-boundary prefix, so a whole class can be
+    declared once instead of twenty times.
+    """
+    for entry in group.get("non_validation_tests") or []:
+        if not isinstance(entry, dict):
+            continue
+        for pattern in entry.get("tests") or []:
+            if isinstance(pattern, str) and (
+                node == pattern or node.startswith(pattern.rstrip(":") + "::")
+            ):
+                return pattern, str(entry.get("reason") or "")
+    return None
+
+
+def classify_unclaimed(
+    group: dict[str, Any], nodes: list[str]
+) -> tuple[list[str], list[str], list[str]]:
+    """Split unclaimed nodes into declared and undeclared, and name the stale declarations.
+
+    A declaration that matches nothing is reported as well. It reads like coverage and is not,
+    and a test that was renamed or deleted would otherwise leave a reason behind that nobody
+    ever rechecks.
+    """
+    declared: list[str] = []
+    undeclared: list[str] = []
+    used: set[str] = set()
+    for node in nodes:
+        match = match_non_validation(group, node)
+        if match is None:
+            undeclared.append(node)
+        else:
+            declared.append(node)
+            used.add(match[0])
+    all_patterns = {
+        pattern
+        for entry in group.get("non_validation_tests") or []
+        if isinstance(entry, dict)
+        for pattern in entry.get("tests") or []
+        if isinstance(pattern, str)
+    }
+    return declared, undeclared, sorted(all_patterns - used)
 # A group declares how its tests print their residuals, because the suite prints prose, not
 # a format. `asserted` matches the line behind a real assertion, `unasserted` the line the
 # test prints and never asserts.
@@ -429,6 +479,27 @@ def load_groups(store: Store) -> None:
                 f"reference_kind must be one of {sorted(REFERENCE_KINDS)}, "
                 f"got {reference_kind!r}",
             )
+        exclusions = entry.get("non_validation_tests")
+        if exclusions is not None and not isinstance(exclusions, list):
+            store.error(where, "non_validation_tests must be a list")
+        for index, item in enumerate(exclusions if isinstance(exclusions, list) else []):
+            at = f"{where}.non_validation_tests[{index}]"
+            if not isinstance(item, dict):
+                store.error(at, "must be a mapping")
+                continue
+            unknown = _unknown_keys(item, {"tests", "reason"})
+            if unknown:
+                store.error(at, f"unknown keys: {', '.join(unknown)}")
+            patterns = item.get("tests")
+            if (
+                not isinstance(patterns, list)
+                or not patterns
+                or not all(isinstance(p, str) and p for p in patterns)
+            ):
+                store.error(at, "'tests' must be a non-empty list of node ids or prefixes")
+            reason = item.get("reason")
+            if not isinstance(reason, str) or not reason.strip():
+                store.error(at, "'reason' must say why these tests are not validation rows")
         group_id = entry.get("id")
         if not isinstance(group_id, str) or not group_id:
             store.error(where, f"invalid group id: {group_id!r}")
@@ -2539,6 +2610,7 @@ def command_extract(args: argparse.Namespace) -> int:
         nodes,
         reference_kind=group.get("reference_kind"),
     )
+    declared_nodes, undeclared, stale = classify_unclaimed(group, report["unclaimed"])
     payload = {
         "scope": str(scope),
         "collected": len(nodes),
@@ -2546,6 +2618,9 @@ def command_extract(args: argparse.Namespace) -> int:
         "claimed": len(report["nodes"]),
         "unclaimed": report["unclaimed"],
         "unclaimed_reasons": report["unclaimed_reasons"],
+        "declared_non_validation": declared_nodes,
+        "undeclared": undeclared,
+        "stale_declarations": stale,
         "diverged_params": report["diverged"],
         "unasserted_prints": report["prints"],
     }
@@ -2569,15 +2644,23 @@ def command_extract(args: argparse.Namespace) -> int:
             print(f"UNREADABLE comparison (left out of the row): {node}")
             for source in sources:
                 print(f"  - {source}")
-        if report["unclaimed"]:
+        if declared_nodes:
+            print(f"not validation rows (declared): {len(declared_nodes)}")
+            for node in declared_nodes:
+                print(f"  - {node}")
+        if undeclared:
             counts = Counter(
-                report["unclaimed_reasons"].get(node, "unknown")
-                for node in report["unclaimed"]
+                report["unclaimed_reasons"].get(node, "unknown") for node in undeclared
             )
             breakdown = ", ".join(f"{r}: {n}" for r, n in counts.most_common())
-            print(f"UNCLAIMED  : {len(report['unclaimed'])} ({breakdown})")
-            for node in report["unclaimed"]:
+            print(f"UNCLAIMED AND UNDECLARED: {len(undeclared)} ({breakdown})")
+            for node in undeclared:
                 print(f"  - {node}")
+        for pattern in stale:
+            print(
+                "DECLARED BUT MATCHING NOTHING: "
+                f"{pattern} -- the test was renamed or deleted, or the prefix is wrong"
+            )
         for node, tokens in report["diverged"].items():
             print(f"param id diverges from the code's literals: {node} -> {tokens}")
         for node, calls in report["prints"].items():
@@ -2598,6 +2681,11 @@ def command_extract(args: argparse.Namespace) -> int:
             print(finding.as_text(), file=sys.stderr)
         if probe.errors():
             return EXIT_FINDINGS
+    # A captured node that is neither claimed nor declared is the drift this store exists to
+    # prevent, and a declaration that matches nothing is coverage that is not there. Neither is
+    # reported by `check`: both need the collected set, and collecting means running pytest.
+    if undeclared or stale:
+        return EXIT_FINDINGS
     return EXIT_OK
 
 
