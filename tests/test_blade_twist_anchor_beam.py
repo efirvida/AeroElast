@@ -169,7 +169,9 @@ def _anchor_beam(anchor: dict, production: dict) -> dict:
         torque[i] = torque[i + 1] + (0.5 * (m[i] + m[i + 1]) * dr[i] if interval_ok[i] else 0.0)
     twist = np.zeros_like(m)               # theta(z) = int_0^z T/GJ ds
     for i in range(1, len(m)):
-        step = (0.5 * (torque[i - 1] / GKt[i - 1] + torque[i] / GKt[i]) * dr[i]
+        # Interval [i-1, i]: its length is dr[i-1] and its guard is interval_ok[i-1].  Using
+        # dr[i] here measures a different interval than the one being admitted.
+        step = (0.5 * (torque[i - 1] / GKt[i - 1] + torque[i] / GKt[i]) * dr[i - 1]
                 if interval_ok[i - 1] else 0.0)
         twist[i] = twist[i - 1] + step
     i = len(m) - 2

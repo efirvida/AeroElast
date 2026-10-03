@@ -2088,39 +2088,51 @@ Comparison (real mesh, rated point, all 26 stations, degrees about +span):
 
 | r_root | r_shell | n | `phi_beam` | ring rot | mean `theta_z` | ring/beam | meanz/beam |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 0.00 | 0.00 | 22 | 0.0000 | 0.0000 | 0.0000 | - | - |
+| 0.00 | 0.00 | 22 | 0.0000 | +0.0000 | +0.0000 | - | - |
 | 1.17 | 0.80 | 22 | -0.0001 | +0.0012 | +0.0016 | -10.35 | -13.74 |
 | 2.34 | 2.39 | 22 | -0.0002 | +0.0032 | +0.0048 | -13.60 | -20.87 |
 | 3.51 | 3.18 | 22 | -0.0004 | +0.0045 | +0.0088 | -12.47 | -24.28 |
 | 4.68 | 4.78 | 22 | -0.0005 | +0.0087 | +0.0224 | -17.07 | -43.87 |
-| 5.85 | 5.57 | 22 | -0.0009 | +0.0111 | +0.0317 | -11.94 | -34.08 |
-| 8.77 | 8.76 | 22 | -0.0015 | +0.0232 | +0.0745 | -15.77 | -50.53 |
-| 11.70 | 11.94 | 26 | -0.0031 | +0.0312 | +0.0995 | -10.12 | -32.30 |
-| 17.55 | 17.51 | 23 | -0.0072 | +0.0099 | -0.0885 | -1.37 | +12.29 |
-| 23.40 | 23.08 | 23 | -0.0196 | -0.0238 | -0.1011 | +1.21 | +5.16 |
-| 29.25 | 29.45 | 21 | -0.0533 | -0.1188 | -0.1753 | +2.23 | +3.29 |
-| 35.10 | 35.02 | 20 | -0.1156 | -0.1085 | -0.1037 | +0.94 | +0.90 |
-| 40.95 | 40.59 | 19 | -0.2013 | -0.1447 | -0.1791 | +0.72 | +0.89 |
-| 46.80 | 46.96 | 18 | -0.3044 | -0.1787 | -0.2011 | +0.59 | +0.66 |
-| 52.65 | 52.53 | 18 | -0.4225 | -0.2044 | -0.1726 | +0.48 | +0.41 |
-| 58.50 | 58.50 | 16 | -0.5561 | -0.2610 | -0.2087 | +0.47 | +0.38 |
-| 64.35 | 64.47 | 14 | -0.7051 | -0.3234 | -0.2467 | +0.46 | +0.35 |
-| 70.20 | 70.44 | 14 | -0.8667 | -0.3955 | -0.2880 | +0.46 | +0.33 |
-| 76.05 | 75.81 | 14 | -1.0374 | -0.4885 | -0.3325 | +0.47 | +0.32 |
-| 81.90 | 81.78 | 14 | -1.2105 | -0.6096 | -0.4140 | +0.50 | +0.34 |
-| 87.75 | 87.75 | 14 | -1.3764 | -0.7312 | -0.4312 | +0.53 | +0.31 |
-| 93.60 | 93.72 | 14 | -1.5247 | -0.8453 | -0.0831 | +0.55 | +0.05 |
-| 99.45 | 99.33 | 12 | -1.6494 | -1.0711 | -0.6979 | +0.65 | +0.42 |
-| 105.30 | 105.06 | 12 | -1.7417 | -1.1992 | -3.2725 | +0.69 | +1.88 |
-| 111.15 | 111.27 | 12 | -1.7776 | -0.9741 | -0.9703 | +0.55 | +0.55 |
-| **117.00** | **117.00** | 12 | **-1.7776** | **-1.5112** | **-3.8558** | **+0.85** | **+2.17** |
+| 5.85 | 5.57 | 22 | -0.0007 | +0.0111 | +0.0317 | -16.38 | -46.76 |
+| 8.77 | 8.76 | 22 | -0.0012 | +0.0232 | +0.0745 | -19.04 | -61.00 |
+| 11.70 | 11.94 | 26 | -0.0020 | +0.0312 | +0.0995 | -15.40 | -49.16 |
+| 17.55 | 17.51 | 23 | -0.0061 | +0.0099 | -0.0885 | -1.61 | +14.40 |
+| 23.40 | 23.08 | 23 | -0.0185 | -0.0238 | -0.1011 | +1.28 | +5.45 |
+| 29.25 | 29.45 | 21 | -0.0522 | -0.1188 | -0.1753 | +2.28 | +3.36 |
+| 35.10 | 35.02 | 20 | -0.1145 | -0.1085 | -0.1037 | +0.95 | +0.91 |
+| 40.95 | 40.59 | 19 | -0.2002 | -0.1447 | -0.1791 | +0.72 | +0.89 |
+| 46.80 | 46.96 | 18 | -0.3033 | -0.1787 | -0.2011 | +0.59 | +0.66 |
+| 52.65 | 52.53 | 18 | -0.4214 | -0.2044 | -0.1726 | +0.48 | +0.41 |
+| 58.50 | 58.50 | 16 | -0.5550 | -0.2610 | -0.2087 | +0.47 | +0.38 |
+| 64.35 | 64.47 | 14 | -0.7040 | -0.3234 | -0.2467 | +0.46 | +0.35 |
+| 70.20 | 70.44 | 14 | -0.8657 | -0.3955 | -0.2880 | +0.46 | +0.33 |
+| 76.05 | 75.81 | 14 | -1.0364 | -0.4885 | -0.3325 | +0.47 | +0.32 |
+| 81.90 | 81.78 | 14 | -1.2094 | -0.6096 | -0.4140 | +0.50 | +0.34 |
+| 87.75 | 87.75 | 14 | -1.3753 | -0.7312 | -0.4312 | +0.53 | +0.31 |
+| 93.60 | 93.72 | 14 | -1.5237 | -0.8453 | -0.0831 | +0.55 | +0.05 |
+| 99.45 | 99.33 | 12 | -1.6483 | -1.0711 | -0.6979 | +0.65 | +0.42 |
+| 105.30 | 105.06 | 12 | -1.7406 | -1.1992 | -3.2725 | +0.69 | +1.88 |
+| 111.15 | 111.27 | 12 | -1.7765 | -0.9741 | -0.9703 | +0.55 | +0.55 |
+| **117.00** | **117.00** | **12** | **-1.7765** | **-1.5112** | **-3.8558** | **+0.85** | **+2.17** |
 
 Zhou et al. 2025, *Energy* 336:138488, Table 4 - **reported, never asserted**: torsion -3.60 deg,
 flap +13.86 m, edge -1.22 m. Asserts: the twist magnitude is monotone toward the tip, and the
 excluded tip interval is nose-down.
 
-**Verdict: (i).** Tip: beam **-1.78**, ring section rotation **-1.51** (ratio **0.85**),
-`mean(theta_z)` **-3.86** (ratio **2.17**). A beam from the turbine's own `GJ`/shear centre is
+**Corrected after RDD review `review-0d3ea0d5b17e0dfe` (finding R3-001, CRITICAL, deterministic).**
+The quadrature multiplied station `i`'s step by `dr[i]` - the *next* interval's length - while
+admitting that step under `interval_ok[i-1]`, so guard and spacing referred to different intervals.
+The deck's station spacing is not uniform (span fractions step by 0.01, 0.025 and 0.05), so every
+station below the tip was integrated over a mismatched interval, and the final step would have
+indexed `dr` out of bounds had the tip guard not short-circuited it. Measured impact of the fix:
+tip `-1.7776 -> -1.7765 deg` (0.06 %), ratios `0.8501 -> 0.8506` and `2.1691 -> 2.1704`, and the
+outer-half `ring/beam` band stays `+0.46 .. +0.55`. The arbitration and the deficit bounds are
+unchanged at the precision quoted here - but the beam column in the first draft of this section was
+not the documented root-fixed quadrature, and this section's own monotonicity assertion did not
+catch it: a monotone-but-wrong integral passes a monotonicity guard.
+
+**Verdict: (i).** Tip: beam **-1.777**, ring section rotation **-1.511** (ratio **0.851**),
+`mean(theta_z)` **-3.856** (ratio **2.170**). A beam from the turbine's own `GJ`/shear centre is
 within 15 % of the *section rotation* and 2.2x off the nodal average, so the affine estimator is
 the shell's section rotation and **(iii) is refuted**: the meanz/beam ratio wanders by a factor of
 40 across the span (+12.3, +5.2, +0.9, +0.33, +0.05, +1.9, +2.2 deg per deg) while ring/beam holds
@@ -2206,22 +2218,22 @@ solve were not re-run).**
 | --- | ---: | --- | --- |
 | anchor `GJ_ref` (BeamDyn `GKt`) | 8.7486e10 N.m^2 | §22.8 | recorded |
 | modal `GJ_shell/GJ_ref` | (4.000/4.290)^2 = 0.870 | §15.1 | recorded |
-| anchor beam tip twist `phi_beam` | -1.7776 deg | §22.8 | recorded |
+| anchor beam tip twist `phi_beam` | -1.7765 deg | §22.8 | recorded |
 | shell tip section rotation `phi_shell` | -1.5112 deg | §22.8 | measured |
-| expected shell (same torque) `phi_beam/0.870` | -2.043 deg | derived | - |
-| observed / expected | 1.5112/2.043 = **0.740 -> 1.35x deficit** | derived | - |
+| expected shell (same torque) `phi_beam/0.870` | -2.042 deg | derived | - |
+| observed / expected | 1.5112/2.042 = **0.740 -> 1.35x deficit** | derived | - |
 
 **Bound on that 1.35x (the parent's correction - the ratio is not a sharp number).** The modal
 `0.870` comes from one torsional frequency, 4.000 Hz against NuMAD's 4.290 Hz, and section 15.1
 records that mode's **reference scatter as 15.1%**. Propagating it, the expected shell twist is
-`2.043 x [0.849, 1.151] = [1.735, 2.352] deg`, and the measured `1.5112 deg` sits below the whole
+`2.042 x [0.849, 1.151] = [1.734, 2.351] deg`, and the measured `1.5112 deg` sits below the whole
 band. So the deficit is real - the shell under-twists relative to its own modal torsional
 stiffness - but the honest statement is **between 1.15x and 1.35x**, not 1.35x, and closing it
 needs a sharper independent torsional stiffness than one modal ratio with 15% scatter.
 
 For there to be no deficit, one of the three recorded quantities would have to be wrong by ~35%: the
-modal ratio would have to be `1.7776/1.5112 = 1.176` (the shell 18% stiffer than the reference,
-not 13% softer), or the anchor beam would have to give `-1.3148 deg` (its `GJ` ~35% higher), or the
+modal ratio would have to be `1.7765/1.5112 = 1.176` (the shell 18% stiffer than the reference,
+not 13% softer), or the anchor beam would have to give `-1.3147 deg` (its `GJ` ~35% higher), or the
 shell's measured section rotation would have to be `-2.043 deg`. This unit removes the
 load-realisation candidate from that list in the direction the blade needs - the minimum-norm
 realisation softens the section (over-twist), it does not stiffen it - so the 1.35x deficit still
