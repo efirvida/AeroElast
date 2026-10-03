@@ -1825,6 +1825,9 @@ class ToleranceSite:
     value: float | None
     source: str
     asserts: bool
+    # The reference side of the comparison: `case.expected_normalized`, or the literal bound of
+    # a bare assert. It names the reference, where the whole call only names the assertion.
+    reference_expr: str | None = None
 
 
 def collect_nodes(scope: str) -> list[NodeInfo]:
@@ -2113,6 +2116,9 @@ def tolerance_sites(
                     value=numeric,
                     source=source,
                     asserts=True,
+                    reference_expr=(
+                        ast.unparse(call.args[1])[:80] if len(call.args) > 1 else None
+                    ),
                 )
             )
     for sub in ast.walk(func):
@@ -2130,6 +2136,9 @@ def tolerance_sites(
                         value=float(value),
                         source=ast.unparse(sub.test)[:120],
                         asserts=True,
+                        # A relational assert has no reference side: the bound is the bound, and
+                        # labelling the reference with it would say the bound is the reference.
+                        reference_expr=None,
                     )
                 )
     unique: dict[tuple[int, str, float | None], ToleranceSite] = {}
@@ -2233,6 +2242,17 @@ def cross_check_params(
     return (agreed, diverged, True)
 
 
+def name_without_prefix(name: str) -> str:
+    """The test's own name, minus pytest's prefix, verbatim.
+
+    Verbatim on purpose. A name is not a description, and composing one would mean the extractor
+    inventing a summary instead of recording what the code states. Replacing the underscores with
+    spaces read well for `test_axial_extension_matches_ccx` and destroyed the numbering for
+    `test_3_1_square_plate_tables_2_to_5`, which became "3 1 square plate tables 2 to 5".
+    """
+    return name[len("test_") :] if name.startswith("test_") else name
+
+
 def slugify(text: str, limit: int = 56) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
     return slug[:limit].strip("_") or "case"
@@ -2260,7 +2280,11 @@ def build_rows(
             report["unclaimed"].append(info.node)
             continue
         docstring = ast.get_docstring(func) or ""
-        validates = docstring.strip().splitlines()[0] if docstring.strip() else info.function
+        validates = (
+            docstring.strip().splitlines()[0]
+            if docstring.strip()
+            else name_without_prefix(info.function)
+        )
         sites, ignored = tolerance_sites(func, consts, info.params)
         if ignored:
             report.setdefault("ignored_bounds", {})[info.node] = ignored
@@ -2307,7 +2331,10 @@ def build_rows(
         comparisons = []
         for site in sites:
             kind = "paper" if re.search(r"paper|table|expected", site.source, re.I) else "analytical"
-            reference: dict[str, Any] = {"kind": kind, "label": site.source}
+            reference: dict[str, Any] = {
+                "kind": kind,
+                "label": site.reference_expr or site.source,
+            }
             if kind == "paper":
                 reference["citation"] = citation
             comparisons.append(
@@ -2346,6 +2373,49 @@ def build_rows(
         )
         report["nodes"].append(info.node)
     return rows, report
+
+
+def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
+    """Carry each row's measured evidence across a re-extraction.
+
+    Re-extracting is how a row gains a better description or a new comparison, and it must not
+    quietly discard the baselines: the digests *are* the regression record, and losing them
+    would turn every comparison into a `new_baseline` on the next run, which reads like nothing
+    was ever measured.
+
+    Rows are matched by their `tests` set, which is stable as long as the test does not move.
+    """
+    if not target.exists():
+        return 0
+    document = load_yaml(target)
+    existing = document.get("rows") if isinstance(document, dict) else None
+    if not isinstance(existing, list):
+        return 0
+    by_tests = {
+        tuple(row.get("tests") or []): row for row in existing if isinstance(row, dict)
+    }
+    carried = 0
+    for row in rows:
+        previous = by_tests.get(tuple(row.get("tests") or []))
+        if previous is None:
+            continue
+        # Everything that is decided or measured rather than derived from the code: a human
+        # flag, the history, the recorded expectation. A re-extraction improves the derived
+        # fields, and must not drop these.
+        if previous.get("history"):
+            row["history"] = previous["history"]
+        if previous.get("flags"):
+            row["flags"] = previous["flags"]
+        old_comparisons = previous.get("comparisons") or []
+        for index, comparison in enumerate(row.get("comparisons") or []):
+            if index >= len(old_comparisons) or not isinstance(old_comparisons[index], dict):
+                continue
+            for name in ("measured", "expected"):
+                value = old_comparisons[index].get(name)
+                if value is not None:
+                    comparison[name] = value
+                    carried += 1
+    return carried
 
 
 def command_extract(args: argparse.Namespace) -> int:
@@ -2409,8 +2479,12 @@ def command_extract(args: argparse.Namespace) -> int:
     if args.write:
         target = args.store / "rows" / f"{args.group}-{group.get('slug')}.yaml"
         target.parent.mkdir(parents=True, exist_ok=True)
+        carried = preserve_measurements(target, rows)
         dump_yaml(target, {"group": args.group, "rows": rows})
-        print(f"wrote {display_path(target)} ({len(rows)} rows)")
+        print(
+            f"wrote {display_path(target)} ({len(rows)} rows, {carried} measured "
+            "comparison(s) carried over)"
+        )
         probe = load_store(args.store)
         for finding in probe.errors():
             print(finding.as_text(), file=sys.stderr)
@@ -2811,6 +2885,22 @@ def write_source_digest(store: Store, group_id: str, digest: str) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def scalar(text: Any) -> Any:
+    """A printed value as a number when it is one, and as text when it is not.
+
+    Every residual pattern captures with `\\S+`, so what it produces is always a string. Storing
+    a numeric expectation as text made `expected` asymmetric with `measured.raw`, which is a
+    number, and made any numeric query on it compare strings. A reference side that is not one
+    number -- a mode table, a cell list -- cannot become one, so it stays text.
+    """
+    if text is None:
+        return None
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return text
+
+
 def _float(value: Any) -> float | None:
     try:
         return float(value)
@@ -2925,7 +3015,7 @@ def write_measurement(store: Store, ref: RowRef, index: int, result: dict[str, A
         "digest": result["digest"],  # computed once, by the code that compares it
     }
     if comparison.get("expected") is None and result.get("expected") is not None:
-        comparison["expected"] = result["expected"]
+        comparison["expected"] = scalar(result["expected"])
     dump_yaml(path, document)
 
 

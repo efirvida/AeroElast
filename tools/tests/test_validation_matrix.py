@@ -1056,6 +1056,82 @@ def _printed(error: str, value: str = "1.0000", expected: str = "1.0000") -> dic
     return {"value": value, "expected": expected, "error": error}
 
 
+def test_a_printed_expectation_is_stored_as_a_number() -> None:
+    r"""Every residual pattern captures with `\S+`, so the print always yields a string."""
+    module = _load_tool_module()
+    assert module.scalar("0.9978") == 0.9978
+    assert isinstance(module.scalar("0.9978"), float)
+    # A reference side that is not one number stays text, rather than becoming a wrong float.
+    assert module.scalar("1.1017/1.0323/1.0075") == "1.1017/1.0323/1.0075"
+    assert module.scalar(None) is None
+
+
+def test_re_extraction_keeps_what_was_measured_and_flagged(tmp_path: Path) -> None:
+    """A better label must not cost the baselines, the digests or a human flag."""
+    module = _load_tool_module()
+    target = tmp_path / "rows.yaml"
+    previous_row = {
+        "id": "ko2017.toy.case",
+        "group": "3",
+        "title": "old",
+        "tests": ["tests/a.py::b"],
+        "validates": "old",
+        "flags": ["out_of_band"],
+        "history": [{"rev": "abc1234", "note": "earlier"}],
+        "comparisons": [
+            {
+                "label": "rtol",
+                "asserted": True,
+                "reference": {"kind": "analytical", "label": "old"},
+                "tolerance": {
+                    "kind": "rtol",
+                    "value": 0.05,
+                    "source": "s",
+                    "justified": True,
+                },
+                "measured": {"status": "measured", "margin_pct": 0.1, "digest": "abc"},
+                "expected": 0.9978,
+            }
+        ],
+    }
+    target.write_text(
+        yaml.safe_dump({"group": "3", "rows": [previous_row]}), encoding="utf-8"
+    )
+    new_rows = [
+        {
+            "id": "ko2017.toy.case",
+            "group": "3",
+            "title": "new",
+            "tests": ["tests/a.py::b"],
+            "validates": "better",
+            "flags": [],
+            "comparisons": [
+                {
+                    "label": "rtol",
+                    "asserted": True,
+                    "reference": {"kind": "analytical", "label": "better"},
+                    "tolerance": {
+                        "kind": "rtol",
+                        "value": 0.05,
+                        "source": "s",
+                        "justified": True,
+                    },
+                    "measured": {"status": "not_measured", "margin_pct": None},
+                }
+            ],
+        }
+    ]
+    carried = module.preserve_measurements(target, new_rows)
+    assert carried == 2  # the measurement and the expectation
+    assert new_rows[0]["flags"] == ["out_of_band"]
+    assert new_rows[0]["history"][0]["rev"] == "abc1234"
+    assert new_rows[0]["comparisons"][0]["measured"]["digest"] == "abc"
+    assert new_rows[0]["comparisons"][0]["expected"] == 0.9978
+    # Derived fields are refreshed, which is the whole point of re-extracting.
+    assert new_rows[0]["validates"] == "better"
+    assert new_rows[0]["comparisons"][0]["reference"]["label"] == "better"
+
+
 def test_a_movement_too_small_for_a_tolerance_is_still_detected() -> None:
     """The digest is exact, so the detector needs no tolerance and hides nothing.
 

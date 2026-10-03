@@ -95,7 +95,7 @@
         "measured": {"$ref": "#/$defs/measured"},
         "expected": {
           "type": ["string", "number", "null"],
-          "description": "Reference-side value as printed, when the comparison has a single one; a mode table or a whole abaqus output has none."
+          "description": "Reference-side value, when the comparison has a single one. A number when the reference side is one number, text when it is not (a cell list, a mode table), null when it does not have one. The stored value is normalised, so a numeric expectation is queryable as a number and stays symmetric with measured.raw."
         },
         "notes": {"type": ["string", "null"]}
       }
