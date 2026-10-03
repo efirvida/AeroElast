@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import ast
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -686,6 +688,75 @@ def test_references_render_emits_numeral_subsection_headings(tmp_path: Path) -> 
     target = tmp_path / "references.md"
     assert run(store, "references", "render", "--out", str(target)).returncode == 0
     assert "### 6.1 BEM theory" in target.read_text(encoding="utf-8")
+
+
+def test_param_tokens_survive_the_ids_pytest_actually_builds() -> None:
+    """Ids join parameters with `-`, exponents carry one, and `In-plane` ends in `e`."""
+    module = _load_tool_module()
+    thick = "0.02667-In-plane-1.0-0.005424-0.001754-0.9971-0.01"
+    assert module.param_tokens(thick, 7) == [
+        "0.02667",
+        "In-plane",
+        "1.0",
+        "0.005424",
+        "0.001754",
+        "0.9971",
+        "0.01",
+    ]
+    assert module.param_numbers(thick, 7) == {0.02667, 1.0, 0.005424, 0.001754, 0.9971, 0.01}
+
+    thin = "0.0002667-Out-of-plane-1e-06-0.005256-0.001294-0.9982-0.01"
+    assert module.param_tokens(thin, 7) == [
+        "0.0002667",
+        "Out-of-plane",
+        "1e-06",
+        "0.005256",
+        "0.001294",
+        "0.9982",
+        "0.01",
+    ]
+    assert module.param_numbers(thin, 7) == {0.0002667, 1e-06, 0.005256, 0.001294, 0.9982, 0.01}
+
+    # The separator is not a sign, and a parameter *name* is not a number.
+    table = "expected_table2_30-expected_table4_50-False-0.01-100.0"
+    assert module.param_numbers(table, 5) == {0.01, 100.0}
+    assert module.param_numbers("0.004-2.0-expected_mitc40-True", 4) == {0.004, 2.0}
+
+
+def test_assertion_calls_exclude_geometric_tolerances() -> None:
+    """`tol=` on a node-search helper is not an acceptance bound."""
+    module = _load_tool_module()
+    tree = ast.parse((REPO_ROOT / "tests/test_ko2017_performance.py").read_text(encoding="utf-8"))
+    consts = module.module_constants(tree)
+    func = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "test_3_1_square_plate_tables_2_to_5"
+    )
+    texts = [ast.unparse(call) for call in module.assertion_calls(func)]
+    assert any("isclose" in text for text in texts)
+    assert not any("_find_node_by_xyz" in text for text in texts)
+    assert not any("_clamped_edge_fixed_dofs" in text for text in texts)
+
+    sites, ignored = module.tolerance_sites(func, consts, "0.01-100.0-False-expected_table2_30")
+    assert {site.kind for site in sites} == {"rtol"}
+    assert all(site.value == 0.05 for site in sites)
+    # `atol=0.0` bounds nothing, so it is reported rather than stored.
+    assert len(ignored) == 2
+    assert all("atol=0" in entry for entry in ignored)
+
+
+def test_extract_claims_every_collected_node() -> None:
+    """T4 acceptance: the section 3 scope extracts to one row per collected node."""
+    completed = run(REAL_STORE, "extract", "--json")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["collected"] == 31
+    assert payload["rows"] == 31
+    assert payload["claimed"] == 31
+    assert payload["unclaimed"] == []
+    assert payload["diverged_params"] == {}
 
 
 def test_reference_gaps_make_an_absence_explicit(tmp_path: Path) -> None:

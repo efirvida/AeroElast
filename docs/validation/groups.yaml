@@ -13,6 +13,7 @@ groups:
   - id: "3"
     title: '`tests/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)'
     slug: ko2017
+    citation: ko2017_perf
     source_files:
       - tests/test_ko2017_performance.py
     common_tolerance:

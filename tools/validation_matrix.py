@@ -1776,35 +1776,239 @@ def resolve_literal(node: ast.expr, consts: dict[str, Any]) -> Any:
         return None
 
 
-def tolerance_sites(func: ast.FunctionDef, consts: dict[str, Any]) -> list[ToleranceSite]:
-    """Every tolerance the function states, whether in an assert or in a call.
+def _is_number(text: str) -> bool:
+    try:
+        float(text)
+    except ValueError:
+        return False
+    return True
 
-    Most of this suite asserts through helpers (`assert_relative_error(..., tol=0.05)`)
-    rather than bare `assert` statements, so scanning only `ast.Assert` would miss
-    almost every tolerance in the file.
+
+def param_tokens(params: str | None, expected: int | None = None) -> list[str]:
+    """Split a parametrisation id into parameter tokens.
+
+    Ambiguous by construction: pytest joins parameters with `-`, an exponent carries
+    its own minus (`1e-06`), and a value may too (`In-plane`). Knowing how many
+    parameters the function declares resolves it: merge pieces until the count
+    matches, merging either an exponent fragment or two adjacent non-numbers.
+    """
+    pieces = [piece for piece in (params or "").split("-") if piece]
+    if expected is None:
+        return pieces
+    # Pass 1: rejoin an exponent fragment, because `1e-06` is one number and not two
+    # tokens. Done first so that a value ending in `e` (`In-plane`) cannot claim the
+    # exponent's minus as its own separator.
+    rejoined: list[str] = []
+    index = 0
+    while index < len(pieces):
+        joined = f"{pieces[index]}-{pieces[index + 1]}" if index + 1 < len(pieces) else ""
+        if joined and not _is_number(pieces[index]) and _is_number(joined):
+            rejoined.append(joined)
+            index += 2
+            continue
+        rejoined.append(pieces[index])
+        index += 1
+    # Pass 2: rejoin the pieces of a value that itself contains the separator, in place
+    # and only as long as the count still exceeds the number of declared parameters.
+    tokens: list[str] = []
+    index = 0
+    while index < len(rejoined):
+        piece = rejoined[index]
+        needed = expected - len(tokens)
+        if (
+            index + 1 < len(rejoined)
+            and len(rejoined) - index > needed
+            and not _is_number(piece)
+            and not _is_number(rejoined[index + 1])
+        ):
+            rejoined[index + 1] = f"{piece}-{rejoined[index + 1]}"
+            index += 1
+            continue
+        tokens.append(piece)
+        index += 1
+    return tokens
+
+
+def param_numbers(params: str | None, expected: int | None = None) -> set[float]:
+    return {
+        float(token) for token in param_tokens(params, expected) if _is_number(token)
+    }
+
+
+def _numbers_in(
+    node: ast.AST,
+    consts: dict[str, Any],
+    functions: dict[str, ast.FunctionDef] | None,
+    depth: int = 1,
+) -> set[float]:
+    numbers: set[float] = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Name) and isinstance(consts.get(sub.id), list):
+            for row in consts[sub.id]:
+                for item in row if isinstance(row, tuple) else [row]:
+                    value = eval_number(ast.Constant(item), consts)
+                    if value is not None:
+                        numbers.add(value)
+        if depth and isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name):
+            # `_twisted_beam_params()` builds the case list, so the numbers live in
+            # the helper, not in the test's own decorator.
+            helper = (functions or {}).get(sub.func.id)
+            if helper is not None:
+                numbers |= _numbers_in(helper, consts, functions, depth - 1)
+        value = eval_number(sub, consts)
+        if value is not None:
+            numbers.add(value)
+    return numbers
+
+
+def stated_numbers(
+    func: ast.FunctionDef,
+    consts: dict[str, Any],
+    functions: dict[str, ast.FunctionDef] | None = None,
+) -> set[float]:
+    """Every number the function's parameters state, one helper call deep."""
+    numbers: set[float] = set()
+    for decorator in func.decorator_list:
+        numbers |= _numbers_in(decorator, consts, functions)
+    return numbers
+
+
+def assertion_calls(func: ast.FunctionDef) -> list[ast.Call]:
+    """Calls that assert, which is where a *validation* tolerance lives.
+
+    `tol=` also appears on geometric helpers (`_find_node_by_xyz(..., tol=1e-4)`,
+    `_twisted_beam_fixed(..., tol=1e-6)`), so scanning every keyword would import
+    node-search tolerances into the matrix as if they were acceptance bounds.
+    """
+    asserted: set[int] = set()
+    for sub in ast.walk(func):
+        if isinstance(sub, ast.Assert):
+            for inner in ast.walk(sub.test):
+                asserted.add(id(inner))
+    calls: list[ast.Call] = []
+    for sub in ast.walk(func):
+        if not isinstance(sub, ast.Call):
+            continue
+        if id(sub) in asserted:
+            calls.append(sub)
+            continue
+        name = ast.unparse(sub.func).rsplit(".", 1)[-1].lower()
+        if name.startswith(("assert", "verify", "check")):
+            calls.append(sub)
+    return calls
+
+
+def parametrized_argnames(func: ast.FunctionDef) -> list[str]:
+    """The parameter names in the order pytest writes them into the node id.
+
+    Stacked decorators reach the id bottom-up (the decorator closest to the function
+    first), which is the reverse of their source order, so the names are collected
+    that way to line up positionally with the id's tokens.
+    """
+    names: list[str] = []
+    for decorator in reversed(func.decorator_list):
+        if isinstance(decorator, ast.Call) and "parametrize" in ast.unparse(decorator.func):
+            if not decorator.args:
+                continue
+            raw = ast.unparse(decorator.args[0]).strip("'\"")
+            names.extend(name.strip() for name in raw.split(",") if name.strip())
+    return names
+
+
+def param_value_by_name(
+    func: ast.FunctionDef,
+    consts: dict[str, Any],
+    name: str,
+    params: str | None,
+) -> Any:
+    """What a name holds for this node: a parametrise parameter or a loop variable.
+
+    Case 3.5 asserts with `tol=tol` where `tol` is a parametrise parameter, so the
+    value is only recoverable from the node's own id; the loop-over-a-constant case is
+    kept as a fallback for parameters built inline.
+    """
+    argnames = parametrized_argnames(func)
+    if name in argnames:
+        tokens = param_tokens(params, len(argnames))
+        index = argnames.index(name)
+        if index < len(tokens):
+            token = tokens[index]
+            try:
+                return float(token)
+            except ValueError:
+                return token
+    wanted = param_numbers(params, len(argnames))
+    for sub in ast.walk(func):
+        if not isinstance(sub, ast.For):
+            continue
+        if isinstance(sub.target, ast.Tuple):
+            targets = [item.id for item in sub.target.elts if isinstance(item, ast.Name)]
+        elif isinstance(sub.target, ast.Name):
+            targets = [sub.target.id]
+        else:
+            continue
+        if name not in targets:
+            continue
+        rows = consts.get(sub.iter.id) if isinstance(sub.iter, ast.Name) else None
+        if not isinstance(rows, list):
+            continue
+        position = targets.index(name)
+        for row in rows:
+            if not isinstance(row, tuple) or position >= len(row):
+                continue
+            numbers = set()
+            for item in row:
+                value = eval_number(ast.Constant(item), consts)
+                if value is not None:
+                    numbers.add(value)
+            if wanted and wanted <= numbers:
+                return row[position]
+    return None
+
+
+def tolerance_sites(
+    func: ast.FunctionDef,
+    consts: dict[str, Any],
+    params: str | None,
+) -> tuple[list[ToleranceSite], list[str]]:
+    """The tolerances the function asserts on, plus the bounds it ignores.
+
+    A zero bound (`atol=0.0`) asserts nothing, so it is reported as ignored rather
+    than stored as if it bounded the comparison.
     """
     sites: list[ToleranceSite] = []
-    for sub in ast.walk(func):
-        if isinstance(sub, ast.Call):
-            for keyword in sub.keywords:
-                if keyword.arg not in {"tol", "rtol", "atol"}:
-                    continue
-                value = resolve_literal(keyword.value, consts)
-                sites.append(
-                    ToleranceSite(
-                        line=sub.lineno,
-                        kind=str(keyword.arg),
-                        value=float(value) if isinstance(value, int | float) else None,
-                        source=ast.unparse(sub)[:120],
-                        asserts=True,
-                    )
+    ignored: list[str] = []
+    calls = assertion_calls(func)
+    for call in calls:
+        for keyword in call.keywords:
+            if keyword.arg not in {"tol", "rtol", "atol"}:
+                continue
+            value = resolve_literal(keyword.value, consts)
+            if value is None and isinstance(keyword.value, ast.Name):
+                value = param_value_by_name(func, consts, keyword.value.id, params)
+            numeric = float(value) if isinstance(value, int | float) else None
+            source = ast.unparse(call)[:120]
+            if numeric == 0.0:
+                ignored.append(f"{keyword.arg}=0 at line {call.lineno} ({source})")
+                continue
+            sites.append(
+                ToleranceSite(
+                    line=call.lineno,
+                    # `tol` on this suite's helpers is the relative bound
+                    # (`assert_relative_error` divides by the reference).
+                    kind="rtol" if keyword.arg == "tol" else str(keyword.arg),
+                    value=numeric,
+                    source=source,
+                    asserts=True,
                 )
-        elif isinstance(sub, ast.Assert) and isinstance(sub.test, ast.Compare):
+            )
+    for sub in ast.walk(func):
+        if isinstance(sub, ast.Assert) and isinstance(sub.test, ast.Compare):
             for op, comparator in zip(sub.test.ops, sub.test.comparators, strict=True):
-                if not isinstance(op, (ast.Lt, ast.LtE)):
+                if not isinstance(op, ast.Lt | ast.LtE):
                     continue
                 value = resolve_literal(comparator, consts)
-                if not isinstance(value, int | float):
+                if not isinstance(value, int | float) or value == 0:
                     continue
                 sites.append(
                     ToleranceSite(
@@ -1818,7 +2022,7 @@ def tolerance_sites(func: ast.FunctionDef, consts: dict[str, Any]) -> list[Toler
     unique: dict[tuple[int, str, float | None], ToleranceSite] = {}
     for site in sites:
         unique.setdefault((site.line, site.kind, site.value), site)
-    return [unique[key] for key in sorted(unique, key=lambda item: item[0])]
+    return [unique[key] for key in sorted(unique, key=lambda item: item[0])], ignored
 
 
 def parametrize_table(func: ast.FunctionDef, consts: dict[str, Any]) -> list[dict[str, Any]]:
@@ -1844,79 +2048,76 @@ def parametrize_table(func: ast.FunctionDef, consts: dict[str, Any]) -> list[dic
     return table
 
 
-def eval_number(node: ast.expr, consts: dict[str, Any]) -> float | None:
+def eval_number(node: ast.AST, consts: dict[str, Any]) -> float | None:
     """The numeric value of a constant expression, or None.
 
     The suite states parameters as expressions (`1 / 100`, `1.0e2`), so
     `ast.literal_eval` alone cannot resolve them and a literal-only check would
     report every evaluated node-id value as a divergence.
     """
-    if isinstance(node, ast.Constant) and isinstance(node.value, int | float):
-        return None if isinstance(node.value, bool) else float(node.value)
-    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub | ast.UAdd):
+    if isinstance(node, ast.Constant):
+        value = node.value
+        if isinstance(value, int | float) and not isinstance(value, bool):
+            return float(value)
+        return None
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.USub, ast.UAdd)):
         inner = eval_number(node.operand, consts)
         if inner is None:
             return None
         return -inner if isinstance(node.op, ast.USub) else inner
     if isinstance(node, ast.BinOp) and isinstance(
-        node.op, ast.Add | ast.Sub | ast.Mult | ast.Div | ast.Pow
+        node.op, (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow)
     ):
         left = eval_number(node.left, consts)
         right = eval_number(node.right, consts)
         if left is None or right is None:
             return None
-        try:
-            if isinstance(node.op, ast.Add):
-                return left + right
-            if isinstance(node.op, ast.Sub):
-                return left - right
-            if isinstance(node.op, ast.Mult):
-                return left * right
-            if isinstance(node.op, ast.Div):
+        if isinstance(node.op, ast.Add):
+            return left + right
+        if isinstance(node.op, ast.Sub):
+            return left - right
+        if isinstance(node.op, ast.Mult):
+            return left * right
+        if isinstance(node.op, ast.Div):
+            try:
                 return left / right
+            except ZeroDivisionError:
+                return None
+        try:
             return left**right
-        except (ZeroDivisionError, OverflowError):
+        except OverflowError:
             return None
     if isinstance(node, ast.Name) and isinstance(consts.get(node.id), int | float):
         return float(consts[node.id])
     return None
 
 
-def stated_numbers(func: ast.FunctionDef, consts: dict[str, Any]) -> set[float]:
-    """Every number the function states in its decorators, evaluated."""
-    numbers: set[float] = set()
-    for decorator in func.decorator_list:
-        for sub in ast.walk(decorator):
-            value = eval_number(sub, consts)
-            if value is not None:
-                numbers.add(value)
-    return numbers
-
-
 def cross_check_params(
     params: str | None,
     consts: dict[str, Any],
     func: ast.FunctionDef,
-) -> tuple[list[str], list[str]]:
+    functions: dict[str, ast.FunctionDef] | None = None,
+) -> tuple[list[str], list[str], bool]:
     """E3: the numbers pytest put in the node id, checked against the code.
 
-    The parametrisation id is a second witness for the values the AST reports: where
+    The parametrisation id is a second witness for the values the code states: where
     the two disagree, one of them is wrong and the difference is reported, not
-    silently reconciled.
+    silently reconciled. When the function states no readable numbers at all the
+    check is reported as unavailable rather than as a divergence, because a
+    divergence nobody can substantiate is a false finding.
     """
     if not params:
-        return ([], [])
-    numbers = stated_numbers(func, consts)
+        return ([], [], True)
+    numbers = stated_numbers(func, consts, functions)
+    wanted = param_numbers(params, len(parametrized_argnames(func)))
+    if not numbers:
+        return (sorted(f"{value:g}" for value in wanted), [], False)
     agreed: list[str] = []
     diverged: list[str] = []
-    for token in [item for item in re.split(r"[-,]", params) if item]:
-        try:
-            value = float(token)
-        except ValueError:
-            continue
+    for value in sorted(param_numbers(params, len(parametrized_argnames(func)))):
         match = any(abs(value - stated) <= 1e-9 * max(1.0, abs(stated)) for stated in numbers)
-        (agreed if match else diverged).append(token)
-    return (agreed, diverged)
+        (agreed if match else diverged).append(f"{value:g}")
+    return (agreed, diverged, True)
 
 
 def slugify(text: str, limit: int = 56) -> str:
@@ -1947,8 +2148,17 @@ def build_rows(
             continue
         docstring = ast.get_docstring(func) or ""
         validates = docstring.strip().splitlines()[0] if docstring.strip() else info.function
-        sites = tolerance_sites(func, consts)
+        sites, ignored = tolerance_sites(func, consts, info.params)
+        if ignored:
+            report.setdefault("ignored_bounds", {})[info.node] = ignored
         if not sites:
+            report["unclaimed"].append(info.node)
+            continue
+        unresolved = [site.source for site in sites if site.value is None]
+        if unresolved:
+            # Never write a row whose tolerance cannot be read: an invalid row is
+            # worse than a reported gap, because it looks like evidence.
+            report.setdefault("unresolved", {})[info.node] = unresolved
             report["unclaimed"].append(info.node)
             continue
         row_id = f"{slug}.{slugify(info.function, 40)}.{slugify(info.params or 'single', 40)}"
@@ -1960,8 +2170,10 @@ def build_rows(
         row_id = candidate
         used.add(row_id)
 
-        agreed, diverged = cross_check_params(info.params, consts, func)
-        if diverged:
+        agreed, diverged, checked = cross_check_params(info.params, consts, func, functions)
+        if not checked:
+            report.setdefault("cross_check_unavailable", []).append(info.node)
+        elif diverged:
             report["diverged"][info.node] = diverged
         report.setdefault("parametrize", {})[info.function] = [
             table["argnames"] for table in parametrize_table(func, consts)
@@ -2060,6 +2272,17 @@ def command_extract(args: argparse.Namespace) -> int:
         print(f"collected  : {len(nodes)}")
         print(f"rows       : {len(rows)}")
         print(f"claimed    : {len(report['nodes'])}")
+        if report.get("ignored_bounds"):
+            print(f"ignored bounds (assert nothing): {len(report['ignored_bounds'])} node(s)")
+        if report.get("cross_check_unavailable"):
+            print(
+                "cross-check unavailable (no readable numbers in the code): "
+                f"{len(report['cross_check_unavailable'])} node(s)"
+            )
+        for node, sources in (report.get("unresolved") or {}).items():
+            print(f"UNRESOLVED tolerance (row not written): {node}")
+            for source in sources:
+                print(f"  - {source}")
         if report["unclaimed"]:
             print(f"UNCLAIMED  : {len(report['unclaimed'])}")
             for node in report["unclaimed"]:
