@@ -320,6 +320,18 @@ def dump_yaml(path: Path, data: Any) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def is_iso_date(value: Any) -> bool:
+    """A date as the store writes it, or as YAML hands it back.
+
+    `yaml.safe_dump` quotes a date string so it round-trips as a string, but a date written
+    by hand in a YAML file is unquoted and resolves to a `datetime.date`. Rejecting that
+    would make the store's own files invalid depending on who wrote them.
+    """
+    if isinstance(value, date):
+        return True
+    return isinstance(value, str) and bool(DATE_RE.match(value))
+
+
 def _unknown_keys(data: dict[str, Any], allowed: set[str]) -> list[str]:
     return sorted(set(data) - allowed)
 
@@ -506,9 +518,9 @@ def _validate_measured(store: Store, where: str, measured: Any) -> None:
             store.error(where, "measured.status == 'measured' requires a numeric margin_pct")
     elif margin is not None:
         store.error(where, f"measured.margin_pct must be null when status == {status!r}")
-    date = measured.get("date")
-    if date is not None and not (isinstance(date, str) and DATE_RE.match(date)):
-        store.error(where, f"measured.date must be YYYY-MM-DD, got {date!r}")
+    date_value = measured.get("date")
+    if date_value is not None and not is_iso_date(date_value):
+        store.error(where, f"measured.date must be YYYY-MM-DD, got {date_value!r}")
     raw = measured.get("raw")
     if raw is not None and (not isinstance(raw, (int, float)) or isinstance(raw, bool)):
         store.error(where, "measured.raw must be a number or null")
@@ -715,6 +727,7 @@ def load_store(root: Path, only_group: str | None = None) -> Store:
     if only_group is not None and only_group not in store.groups:
         raise StoreError(f"unknown group: {only_group}")
     load_rows(store, only_group=only_group)
+    load_adjudications(store)
     return store
 
 
@@ -2386,6 +2399,86 @@ def command_extract(args: argparse.Namespace) -> int:
         if probe.errors():
             return EXIT_FINDINGS
     return EXIT_OK
+
+
+# --------------------------------------------------------------------------- #
+# Adjudications: the audit trail of a reconciled group
+# --------------------------------------------------------------------------- #
+#
+# The log is data, not a document: `check` validates it, so an entry that references a row
+# that no longer exists, or that states no verdict, is an error rather than a stale note.
+
+ADJUDICATION_KEYS = {
+    "id",
+    "row",
+    "field",
+    "candidate_code",
+    "candidate_md",
+    "verdict",
+    "resolution",
+    "decided_by",
+    "date",
+    "status",
+}
+ADJUDICATION_STATUSES = {"open", "resolved", "normalized"}
+ADJUDICATION_FILE_KEYS = {"group", "scope", "run", "date", "reconciliation", "adjudications"}
+ADJUDICATION_ID_RE = re.compile(r"^ADJ-\d{4}$")
+
+
+def load_adjudications(store: Store) -> None:
+    directory = store.root / "adjudications"
+    if not directory.exists():
+        return
+    known_rows = set(store.by_id())
+    seen: set[str] = set()
+    for path in sorted(directory.glob("*.yaml")):
+        rel = display_path(path)
+        data = load_yaml(path)
+        if not isinstance(data, dict):
+            store.error(rel, "expected a mapping")
+            continue
+        unknown = _unknown_keys(data, ADJUDICATION_FILE_KEYS)
+        if unknown:
+            store.error(rel, f"unknown keys: {', '.join(unknown)}")
+        group_id = data.get("group")
+        if not isinstance(group_id, str) or group_id not in store.groups:
+            store.error(rel, f"unknown group: {group_id!r}")
+        entries = data.get("adjudications")
+        if entries is None:
+            entries = []
+        if not isinstance(entries, list):
+            store.error(rel, "'adjudications' must be a list")
+            continue
+        for index, entry in enumerate(entries):
+            where = f"{rel}[{index}]"
+            if not isinstance(entry, dict):
+                store.error(where, "expected a mapping")
+                continue
+            unknown = _unknown_keys(entry, ADJUDICATION_KEYS)
+            if unknown:
+                store.error(where, f"unknown keys: {', '.join(unknown)}")
+            entry_id = entry.get("id")
+            if not isinstance(entry_id, str) or not ADJUDICATION_ID_RE.match(entry_id):
+                store.error(where, f"invalid id: {entry_id!r} (expected ADJ-NNNN)")
+            elif entry_id in seen:
+                store.error(where, f"duplicate adjudication id: {entry_id}")
+            else:
+                seen.add(entry_id)
+                where = f"{rel}[{entry_id}]"
+            row_id = entry.get("row")
+            if row_id is not None and row_id not in known_rows:
+                store.error(where, f"references a row that does not exist: {row_id!r}")
+            for name in ("field", "verdict", "resolution", "decided_by"):
+                if not isinstance(entry.get(name), str) or not entry[name]:
+                    store.error(where, f"{name!r} must be a non-empty string")
+            status = entry.get("status", "resolved")
+            if status not in ADJUDICATION_STATUSES:
+                store.error(
+                    where, f"status must be one of {sorted(ADJUDICATION_STATUSES)}, got {status!r}"
+                )
+            date_value = entry.get("date")
+            if date_value is not None and not is_iso_date(date_value):
+                store.error(where, f"date must be YYYY-MM-DD, got {date_value!r}")
 
 
 # --------------------------------------------------------------------------- #

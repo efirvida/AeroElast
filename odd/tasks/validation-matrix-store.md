@@ -501,6 +501,17 @@ is exactly the class of defect §3 currently hides (§12).
 
 ## 11. Adjudication record
 
+The log is validated data, not a document: `check` reads
+`docs/validation/adjudications/<group>.yaml` and fails on an entry that names a row that no
+longer exists, states no verdict, resolves no conflict, or carries a malformed date. An audit
+trail nobody reads is exactly what this migration exists to remove, so the file that records
+the adjudications is held to the same standard as the store it describes.
+
+A group with no conflict still gets a file: it records the reconciliation and the findings the
+probe produced. Section 3's is `docs/validation/adjudications/3-ko2017.yaml`, and it carries the
+slot identity (`23 Markdown rows covering 37 case slots` against `31 nodes and 37 comparisons`),
+the two phrasings the document uses for a row's case count, and the `tol=` to `rtol` mapping.
+
 Every `value_conflict`, `only_in_code` and `only_in_md` produces one entry, stored next to the
 group it belongs to and referenced from the affected row's `history`:
 
@@ -616,7 +627,7 @@ consequences:
 | T3b | pending | - | - |
 | T4 | pending | - | - |
 | T5 | done | - | `diff-against-md --group 3` -> `23 Markdown row(s) covering 37 case slot(s) against 31 collected node(s); 0 function(s) need adjudication`, exit 0; 80 tool tests |
-| T6 | pending | - | - |
+| T6 | done | - | `check` validates `docs/validation/adjudications/3-ko2017.yaml`; no conflict needed adjudication; 90 tool tests |
 | T7 | pending | - | - |
 
 Branch: `feat/validation-matrix-store`.

@@ -1134,6 +1134,76 @@ def test_md_margins_reads_every_percentage_in_the_cell() -> None:
     assert module.md_margins("not printed") == set()
 
 
+def write_adjudications(store: Path, entries: list[dict[str, Any]], group: str = "3") -> None:
+    directory = store / "adjudications"
+    directory.mkdir(exist_ok=True)
+    (directory / "3-ko2017.yaml").write_text(
+        yaml.safe_dump({"group": group, "adjudications": entries}), encoding="utf-8"
+    )
+
+
+def adjudication(**overrides: Any) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "id": "ADJ-0001",
+        "row": "ko2017.square_plate.reg_clamped",
+        "field": "tolerance.kind",
+        "verdict": "the same bound under two names",
+        "resolution": "the extractor maps tol to rtol",
+        "decided_by": "maintainer",
+        "date": "2026-10-03",
+    }
+    entry.update(overrides)
+    return entry
+
+
+def test_an_adjudication_record_is_validated_not_trusted(tmp_path: Path) -> None:
+    """The audit trail is data: an entry naming a dead row is an error, not a note."""
+    store = write_store(tmp_path, [make_row()])
+    write_adjudications(store, [adjudication()])
+    assert run_check(store).returncode == 0
+
+    write_adjudications(store, [adjudication(row="ko2017.gone.away")])
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert "references a row that does not exist" in completed.stdout
+
+
+def test_the_real_adjudication_record_passes() -> None:
+    """The shipped audit trail must satisfy its own validator."""
+    assert (REAL_STORE / "adjudications" / "3-ko2017.yaml").exists()
+    assert run_check(REAL_STORE).returncode == 0
+
+
+@pytest.mark.parametrize(
+    ("entry", "expected"),
+    [
+        (adjudication(id="ADJ-1"), "invalid id"),
+        (adjudication(status="maybe"), "status must be one of"),
+        (adjudication(verdict=""), "'verdict' must be a non-empty string"),
+        (adjudication(resolution=""), "'resolution' must be a non-empty string"),
+        (adjudication(decided_by=""), "'decided_by' must be a non-empty string"),
+        (adjudication(date="03/10/2026"), "date must be YYYY-MM-DD"),
+        (adjudication(surprise=True), "unknown keys"),
+    ],
+)
+def test_a_malformed_adjudication_is_reported(
+    tmp_path: Path, entry: dict[str, Any], expected: str
+) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_adjudications(store, [entry])
+    completed = run_check(store)
+    assert completed.returncode == 1, completed.stdout + completed.stderr
+    assert expected in completed.stdout
+
+
+def test_duplicate_adjudication_ids_are_reported(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_adjudications(store, [adjudication(), adjudication()])
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert "duplicate adjudication id" in completed.stdout
+
+
 def test_the_markdown_and_the_store_reconcile_on_the_real_group() -> None:
     """T5 acceptance: no conflict, and the case slots equal the store's comparisons."""
     completed = run(REAL_STORE, "diff-against-md", "--group", "3")
