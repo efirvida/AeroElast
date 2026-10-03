@@ -410,6 +410,25 @@ references:
       the transverse shear field and the rotation convention untouched. This is
       the formulation being implemented in this repository; see
       `odd/tasks/formulation-documentation.md` units S1-S4.
+      Table 6 ("Normalized vertical displacements (w/wref) at point B in the
+      Scordelis-Lo roof shell problem when t/L = 1/100", Mesh I) gives Smoothed
+      MITC3+ 1.1017 / 1.0323 / 1.0075 at 4x4 / 8x8 / 16x16. In the same table:
+      MITC3+ 0.7409 / 0.8793 / 0.9618, Enriched MITC3+ 0.9610 / 0.9931 / 0.9983,
+      MITC4+ Mesh I 1.0476 / 1.0053 / 0.9977, reference solution
+      `w_ref = 0.3024`. These are the target values for the rows of
+      `tests/test_mitc3_smoothed.py`, which are not migrated to the store yet;
+      they are recorded here because only the deleted matrix recorded them.
+      The comparison that matrix recorded: measured 0.9924 at N=8 against
+      1.0323, 3.86%, and 0.9974 at N=16 against 1.0075, 1.00%, both inside the
+      5% bound, which removes the membrane locking that holds the un-smoothed
+      MITC3+ at 0.8561 / 0.9545.
+      Caveat, stated rather than assumed: Lee & Lee measure at point B on
+      Mesh I, while the Ko benchmark measures point A on the regular mesh. Both
+      papers agree on the problem definition (`L = 25`, `R = 25`, `t/L = 1/100`,
+      self-weight 90 per unit area, `E = 4.32e8`, `nu = 0`, `w_ref = 0.3024`),
+      but the measurement point and the mesh-pattern labels differ, and the
+      published MITC3+ columns differ between them too: 0.9618 here, 0.9566 on
+      Mesh II, and Ko's 0.9550.
 
   - key: ko2025
     section: "1. Shell element formulations"

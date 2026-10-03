@@ -1,0 +1,117 @@
+# Evidence that exists outside `tests/`.
+#
+# These rows were driven by hand, through the module's own machinery, for a
+# path no live test exercises: the live test of the same benchmark covers only
+# the quad path. Nothing re-measures them, so `measured` carries what was
+# recorded and the row says so.
+group: "10"
+rows:
+  - id: outofband.scordelis_lo.triangular_versus_published
+    group: "10"
+    title: >-
+      Scordelis-Lo roof, triangular MITC3+ and quad MITC4+ against the paper's
+      own Table 10 column
+    tests: []
+    evidence: out_of_band
+    validates: >-
+      the triangular MITC3+ path and the quad MITC4+ path against the published
+      element column of the same benchmark, the same normalization and the same
+      reference solution
+    flags: [out_of_band, info_only]
+    notes: >-
+      Reproduced by driving the module's machinery with the triangular mesh
+      enabled, which the node-count-derived element code allows. The live test
+      `test_3_4_scordelis_lo_tables_10_to_11` exercises only the quad path, so
+      nothing in the suite covers the triangular rows below, and no revision was
+      recorded when they were measured.
+      Published Table 10, regular mesh, `w_ref = 3.0240e-1`, at N = 4 / 8 / 16 /
+      32 / 64: MITC3+ 0.6695 / 0.8577 / 0.9550 / 0.9851 / 0.9932, and MITC4+
+      1.048 / 1.005 / 0.9973 / 0.9958 / 0.9960. Table 11, distorted: MITC3+
+      0.7982 / 0.9223 / 0.9757 / 0.9909 / 0.9948, and MITC4+ 1.040 / 0.9973 /
+      0.9942 / 0.9948 / 0.9957. The live test's distorted expectation, 0.9942,
+      is
+      the Table 11 N=16 MITC4+ cell, which is why that row is correctly sourced
+      while the pinched-cylinder and twisted-beam distorted rows were not.
+    history:
+      - rev: 4b24efb
+        note: >-
+          migrated from section 10 of docs/validation-matrix.md before its
+          deletion; the values are the ones that document recorded
+    comparisons:
+      - label: "MITC4+ N=16, quads"
+        asserted: false
+        reference:
+          kind: paper
+          label: "Table 10, MITC4+ N=16: 0.9973"
+          citation: ko2017_perf
+        tolerance:
+          kind: rel_err
+          value: 0.05
+          source: >-
+            the suite rule of CONTRIBUTING rule 1. Nothing enforces this row: no
+            test runs it, so the bound is the yardstick it is read against
+          justified: true
+        expected: "0.9973"
+        measured:
+          status: measured
+          raw: 0.9988
+          margin_pct: 0.15
+          text: "0.9988 against 0.9973, +0.15%"
+
+      - label: "MITC3+ N=16, triangles"
+        asserted: false
+        reference:
+          kind: paper
+          label: "Table 10, MITC3+ N=16: 0.9550"
+          citation: ko2017_perf
+        tolerance:
+          kind: rel_err
+          value: 0.05
+          source: "the suite rule; no test enforces this row"
+          justified: true
+        expected: "0.9550"
+        measured:
+          status: measured
+          raw: 0.9545
+          margin_pct: 0.05
+          text: "0.9545 against 0.9550, -0.05%"
+
+      - label: "MITC3+ N=8, triangles"
+        asserted: false
+        reference:
+          kind: paper
+          label: "Table 10, MITC3+ N=8: 0.8577"
+          citation: ko2017_perf
+        tolerance:
+          kind: rel_err
+          value: 0.05
+          source: "the suite rule; no test enforces this row"
+          justified: true
+        expected: "0.8577"
+        measured:
+          status: measured
+          raw: 0.8561
+          margin_pct: 0.19
+          text: "0.8561 against 0.8577, -0.19%"
+
+      - label: "MITC3+ N=32, triangles"
+        asserted: false
+        reference:
+          kind: paper
+          label: "Table 10, MITC3+ N=32: 0.9851"
+          citation: ko2017_perf
+        tolerance:
+          kind: rel_err
+          value: 0.05
+          source: "the suite rule; no test enforces this row"
+          justified: true
+        expected: "0.9851"
+        measured:
+          status: measured
+          raw: 0.9851
+          margin_pct: 0.0
+          text: "0.9851 against 0.9851, 0.00%"
+        notes: >-
+          The strongest single numerical result in the repository for the MITC3+
+          implementation: same benchmark, same normalization, same reference,
+          reproducing the published digit exactly.

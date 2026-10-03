@@ -44,6 +44,22 @@ groups:
     prose_after_table: >-
       docs/validation/prose/validation-matrix/03-ko2017-notes.md
 
+  - id: "10"
+    title: >-
+      Evidence that exists outside `tests/`, and is not covered by a live test
+    slug: outofband
+    citation: ko2017_perf
+    source_files: []
+    headline: >-
+      The triangular MITC3+ path, which no live test exercises: N=32 reproduces
+      the published Table 10 cell digit for digit
+    provenance_note: >-
+      These rows are driven by hand, through the module's own machinery, because
+      the live test of the same benchmark only exercises the quad path. They are
+      not covered by the suite, so `regression` cannot re-measure them; their
+      `measured` values are the ones recorded when the matrix existed, and the
+      reproduction command is in the row's notes.
+
 # Files that pytest collects but that carry no row yet. `check` uses this list
 # to tell documented drift from silently unaccounted nodes. Retired by WU-7.
 #
