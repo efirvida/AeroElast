@@ -1214,3 +1214,75 @@ def test_the_markdown_and_the_store_reconcile_on_the_real_group() -> None:
     assert "23 Markdown row(s) covering 37 case slot(s)" in completed.stdout
     assert "31 collected node(s)" in completed.stdout
     assert "do not equal the store's" not in completed.stdout
+
+
+# --------------------------------------------------------------------------- #
+# Gaps: what the suite does not validate
+# --------------------------------------------------------------------------- #
+
+
+def write_gaps(store: Path, entries: list[dict[str, Any]]) -> None:
+    (store / "gaps.yaml").write_text(
+        yaml.safe_dump({"version": 1, "gaps": entries}), encoding="utf-8"
+    )
+
+
+def gap(**overrides: Any) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "id": "composite_stress_recovery",
+        "scope": "composite outer-fibre stress recovery",
+        "status": "not_validated",
+        "reason": "CCX ignores OUTPUT=3D for composite sections",
+        "evidence": "issue #3",
+        "consequence": "only the ABD matrices may be cited",
+        "citations_forbidden": True,
+        "rows": [],
+    }
+    entry.update(overrides)
+    return entry
+
+
+def test_the_shipped_gap_list_is_present_and_valid() -> None:
+    """The not-citable list must survive the Markdown it came from."""
+    completed = run(REAL_STORE, "gaps")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "gaps: 5" in completed.stdout
+    assert completed.stdout.count("NOT CITABLE") == 5
+    assert "force_projection_axial_extension" in completed.stdout
+
+
+@pytest.mark.parametrize(
+    ("entry", "expected"),
+    [
+        (gap(id="hyphen-not-allowed"), "invalid id"),
+        (gap(status="maybe"), "status must be one of"),
+        (gap(scope=""), "'scope' must be a non-empty string"),
+        (gap(reason=""), "'reason' must be a non-empty string"),
+        (gap(evidence=""), "'evidence' must be a non-empty string"),
+        (gap(citations_forbidden="yes"), "citations_forbidden must be a boolean"),
+        (gap(rows=["ko2017.gone.away"]), "references a row that does not exist"),
+        (gap(surprise=True), "unknown keys"),
+    ],
+)
+def test_a_malformed_gap_is_reported(
+    tmp_path: Path, entry: dict[str, Any], expected: str
+) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_gaps(store, [entry])
+    completed = run_check(store)
+    assert completed.returncode == 1, completed.stdout + completed.stderr
+    assert expected in completed.stdout
+
+
+def test_a_gap_may_point_at_the_rows_that_evidence_it(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_gaps(store, [gap(rows=["ko2017.square_plate.reg_clamped"])])
+    assert run_check(store).returncode == 0
+
+
+def test_duplicate_gap_ids_are_reported(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_gaps(store, [gap(), gap()])
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert "duplicate gap id" in completed.stdout

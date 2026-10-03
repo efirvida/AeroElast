@@ -1,0 +1,112 @@
+# What the suite does NOT validate.
+#
+# A gap is a claim about absence, so it cannot be derived from the rows:
+# a row that does not exist cannot be queried. This file is therefore
+# data, and `check` validates it, because it is the one part of the
+# validation scheme whose loss would be silent — the numbers stay green
+# and the caveat disappears.
+#
+# `citations_forbidden: true` means: do not cite a result here as
+# validation evidence. A `not_validated` entry has no result to cite; an
+# `open_defect` entry has one that must not be cited, and its
+# `consequence` says what that invalidates.
+version: 1
+
+gaps:
+  - id: composite_stress_recovery
+    scope: "composite outer-fibre stress recovery"
+    status: not_validated
+    reason: >-
+      `*SHELL SECTION, COMPOSITE` ignores `OUTPUT=3D`, so CalculiX cannot
+      act as the independent stress judge it is for isotropic shells.
+    evidence: >-
+      Issue #3. The composite stiffness path is validated through the ABD
+      matrices against an independent CLT, which is a different claim.
+    consequence: >-
+      A composite stress number has no independent reference in this
+      suite. Only the ABD matrices may be cited, and only as a
+      material-model verification.
+    citations_forbidden: true
+    rows: []
+
+  - id: rotating_modal_shift
+    scope: "rotating and centrifugal modal shift"
+    status: not_validated
+    reason: >-
+      The MITC4 `K_G` thickness bug was fixed (issue #7), but the rotating
+      modes are compared against no independent rotor source anywhere in
+      this suite.
+    evidence: >-
+      Issue #7 for the fix; no row asserts a rotating frequency against an
+      independent source.
+    consequence: >-
+      A centrifugal-stiffening claim rests on the geometric stiffness
+      implementation, not on a validation.
+    citations_forbidden: true
+    rows: []
+
+  - id: experimental_validation
+    scope: "experimental validation, wind tunnel or field"
+    status: not_validated
+    reason: >-
+      Every reference in this suite is a code, a closed form or a published
+      model; none is a measurement.
+    evidence: >-
+      The reference kinds in the store are paper, code, analytical and
+      self.
+    consequence: >-
+      The paper may claim code-to-code and code-to-publication
+      verification. It may not claim agreement with experiment, because
+      none was used.
+    citations_forbidden: true
+    rows: []
+
+  - id: force_projection_sense_p5
+    scope: "BEM to mesh load frame and sense (ForceProjector, defect P5)"
+    status: open_defect
+    reason: >-
+      The frame and the sense are now fixed and pinned, but every campaign
+      number produced BEFORE the fix had its aerodynamic load pushing
+      upwind and braking the rotor.
+    evidence: >-
+      Frame: the load axis is per-strip from the section outline, guarded
+      by `tests/test_force_projection_load_frame.py`: worst
+      `|F.c_hat|/|F| = 0.0116` and `|F.f_hat|/|F| = 0.9999` for `Np`, the
+      same for `Tp`, worst `angle(F, f_hat) = 0.662` deg, uniform-`Np`
+      conservation `0.74%`, bounds 5% / 5% / 10 deg / 5%. The moment check
+      builds its per-strip frame from the ring outline and reproduces the
+      applied moment to `1.76e-15` relative, bound 1%.
+    consequence: >-
+      Sense: with the production defaults the rated summed load points
+      downwind (`F.y = +8.4444e5 N`, `|F| = 8.5263e5 N`), which is `1.30%`
+      off `bem.thrust/3` against a 2% bound, and delivers `+5.256 MW` for
+      `Omega = +0.7917 y`, i.e. `-3.4%` of `bem.power/3` (`-10.2%` with the
+      blade-root lever arm). The one-way `+8.9 deg` twist and the FSI
+      de-loading numbers of the campaign therefore have the WRONG SIGN and
+      must be re-derived; they are not merely imprecise. The still-open
+      residual is the few-percent power magnitude, reported and not tuned.
+    citations_forbidden: true
+    rows: []
+
+  - id: force_projection_axial_extension
+    scope: "the nodal distribution in `force_projection.py`"
+    status: open_defect
+    reason: >-
+      The projected load has zero net spanwise force, but its local
+      spanwise magnitude is large enough to extend the blade, which
+      re-loads the rotor.
+    evidence: >-
+      The deformed centroid path measures `119.1356 m` against a
+      `117.2256 m` reference, `+1.629%`, with `sum fz = -3.5e-11 N` while
+      the local `|fz|` reaches `19.0%` of the peak `|fy|` (`346.9 N`
+      against `1826.5 N`). Inextensional beam theory predicts about
+      `-1.15 m` for a 16.4 m flap deflection over 117 m, so the sign of the
+      measured axial change is itself suspect.
+    consequence: >-
+      The mechanism re-loads the rotor by `+1.14%` thrust and `+0.85%`
+      power, so the de-loading numbers of the campaign remain not citable
+      for this second measured reason, on top of the pre-fix wrong-sign
+      load. The defect is open and unfixed, and it lives in the nodal
+      distribution, not in the load projection itself.
+    citations_forbidden: true
+    rows: []

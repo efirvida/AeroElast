@@ -281,6 +281,7 @@ class Store:
     references: dict[str, dict[str, Any]] = field(default_factory=dict)
     reference_header: str | None = None
     reference_sections: dict[str, dict[str, Any]] = field(default_factory=dict)
+    gaps: dict[str, dict[str, Any]] = field(default_factory=dict)
     rows: list[RowRef] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
     def error(self, where: str, message: str) -> None:
@@ -728,6 +729,7 @@ def load_store(root: Path, only_group: str | None = None) -> Store:
         raise StoreError(f"unknown group: {only_group}")
     load_rows(store, only_group=only_group)
     load_adjudications(store)
+    load_gaps(store)
     return store
 
 
@@ -2482,6 +2484,83 @@ def load_adjudications(store: Store) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Gaps: what the suite does NOT validate
+# --------------------------------------------------------------------------- #
+#
+# A gap is a claim about absence, so it cannot be derived from rows: a row that does not
+# exist cannot be queried. The not-citable list is therefore data, and `check` validates it.
+
+GAP_STATUSES = {"not_validated", "bounded", "open_defect"}
+GAP_KEYS = {
+    "id",
+    "scope",
+    "status",
+    "reason",
+    "evidence",
+    "consequence",
+    "citations_forbidden",
+    "rows",
+    "notes",
+}
+GAP_FILE_KEYS = {"version", "gaps"}
+
+
+def load_gaps(store: Store) -> None:
+    path = store.root / "gaps.yaml"
+    if not path.exists():
+        return
+    rel = display_path(path)
+    data = load_yaml(path)
+    if not isinstance(data, dict) or not isinstance(data.get("gaps"), list):
+        store.error(rel, "expected a mapping with a 'gaps' list")
+        return
+    unknown = _unknown_keys(data, GAP_FILE_KEYS)
+    if unknown:
+        store.error(rel, f"unknown keys: {', '.join(unknown)}")
+    known_rows = set(store.by_id())
+    for index, entry in enumerate(data["gaps"]):
+        where = f"{rel}[{index}]"
+        if not isinstance(entry, dict):
+            store.error(where, "expected a mapping")
+            continue
+        unknown = _unknown_keys(entry, GAP_KEYS)
+        if unknown:
+            store.error(where, f"unknown keys: {', '.join(unknown)}")
+        gap_id = entry.get("id")
+        if not isinstance(gap_id, str) or not SLUG_RE.match(gap_id):
+            store.error(where, f"invalid id: {gap_id!r}")
+        else:
+            where = f"{rel}[{gap_id}]"
+            if gap_id in store.gaps:
+                store.error(where, "duplicate gap id")
+            else:
+                store.gaps[gap_id] = entry
+        if entry.get("status") not in GAP_STATUSES:
+            store.error(where, f"status must be one of {sorted(GAP_STATUSES)}")
+        for name in ("scope", "reason", "evidence"):
+            if not isinstance(entry.get(name), str) or not entry[name]:
+                store.error(where, f"{name!r} must be a non-empty string")
+        if not isinstance(entry.get("citations_forbidden"), bool):
+            store.error(where, "citations_forbidden must be a boolean")
+        for row_id in entry.get("rows") or []:
+            if row_id not in known_rows:
+                store.error(where, f"references a row that does not exist: {row_id!r}")
+
+
+def command_gaps(args: argparse.Namespace) -> int:
+    store = load_store(args.store)
+    entries = list(store.gaps.values())
+    if args.json:
+        print(json.dumps(entries, indent=2))
+    else:
+        for entry in entries:
+            forbidden = "NOT CITABLE" if entry.get("citations_forbidden") else "citable"
+            print(f"{entry['id']:34s} {entry['status']:14s} {forbidden:11s} {entry['scope']}")
+        print(f"gaps: {len(entries)}")
+    return EXIT_OK
+
+
+# --------------------------------------------------------------------------- #
 # Regression: the store is the baseline
 # --------------------------------------------------------------------------- #
 
@@ -3026,6 +3105,10 @@ def build_parser() -> argparse.ArgumentParser:
     cross_check.add_argument("--group", default="3")
     cross_check.add_argument("--json", action="store_true")
     cross_check.set_defaults(func=command_diff_against_md)
+
+    gaps = subparsers.add_parser("gaps", help="what the suite does not validate")
+    gaps.add_argument("--json", action="store_true")
+    gaps.set_defaults(func=command_gaps)
 
     return parser
 

@@ -68,6 +68,17 @@ Success is measured in three ways:
      which belongs in the store where it cannot go stale. `docs/validation-policy.md`, written
      at T7, holds the citation policy and the validity envelope and points at the diagnostic
      index. The test for any sentence in these files: does it change what the reader *does*?
+  10. **`tests/` is organized by role, then domain.** `tests/validation/<domain>/` holds a test
+     that validates a physical quantity against an independent reference;
+     `tests/software/<domain>/` holds everything else; `tests/support/` holds `conftest.py` and
+     the shared helpers, so that imports across directories resolve (today several test modules
+     import each other by bare name, which works only while every file sits in one directory).
+     The location **is** the classification, which is why the hand-written `un_inventoried`
+     bucket is deleted when the move lands rather than refined now: a classification written
+     today would be replaced by structure tomorrow. Measured cost: 56 files moved and 142
+     `tests/…` path references outside `tests/`. The move happens **after** T7 deletes the
+     Markdown, because `diff-against-md` finds its table by the heading that names the source
+     file and would break on a rename.
 
 ## 2. Why the current files are not maintainable
 
@@ -445,7 +456,9 @@ Write rules:
 3. Every collected node is either claimed by exactly one row, or belongs to a file declared
    `software_only: true` in `groups.yaml` with a reason. Nothing is silently unaccounted: the
    old `un_inventoried` debt bucket becomes an explicit classification, because the scheme
-   covers physics tests only.
+   covers physics tests only. **Until T8 lands the declaration is still hand-written**; after it,
+   the path is the classification (`tests/software/**` never needs a row) and the bucket is
+   deleted rather than maintained.
 4. Every entry of `tests[]` exists in the collected node set.
 5. **A collect-only run that returns 0 nodes is a failure, not a clean result.** This is not
    hypothetical: `python -m pytest -o addopts="" --collect-only -q tests/test_ko2017_performance.py`
@@ -629,6 +642,15 @@ consequences:
 | T5 | done | - | `diff-against-md --group 3` -> `23 Markdown row(s) covering 37 case slot(s) against 31 collected node(s); 0 function(s) need adjudication`, exit 0; 80 tool tests |
 | T6 | done | - | `check` validates `docs/validation/adjudications/3-ko2017.yaml`; no conflict needed adjudication; 90 tool tests |
 | T7 | pending | - | - |
+| T8 | pending | - | - |
+
+| T7 detail | deliverable | acceptance criteria |
+| --- | --- | --- |
+| Eliminate the generated views | (1) migrate the not-citable list into `docs/validation/gaps.yaml` — **done at T7a**, because it is the one part of the document that is not derivable: a gap is a claim about absence, and a row that does not exist cannot be queried; (2) write `docs/validation-policy.md` with the citation policy, the validity envelope's criteria, and pointers to `gaps`, `check` and the diagnostic index; (3) repoint the live references (`docs/formulations/{mitc4plus-2017-extract,shell-elements,materials,solvers}.md`, `docs/validation-environment.md`, `tests/test_shell_convergence.py`, `openspec/specs/mitc4plusd-element/spec.md`) and rewrite CONTRIBUTING rule 6; (4) repoint `tests/test_mitc4plusd_traceability.py:36` at the store; (5) delete `docs/validation-matrix.md` and `docs/references.md`; (6) a Make target running `check` and `regression` | no live document points at a deleted path; archived `openspec/changes/archive/**` untouched; `check`, `regression` and `gaps` pass; `diff-against-md` reports a clear error once its input is gone instead of crashing — and it is a migration-time command, not a CI one, because CI cannot diff against a deleted file |
+
+| T8 detail | deliverable | acceptance criteria |
+| --- | --- | --- |
+| Reorganize `tests/` by role then domain | `git mv` the 56 test files into `tests/validation/<domain>/` and `tests/software/<domain>/`; promote `conftest.py`, `_ccx_io.py` and `_openfast_bem.py` into an importable `tests/support/`; rewrite the store's node ids and `source_files` by path prefix so the 37 baselines survive without a re-measure; update the 142 `tests/…` references outside `tests/`; rewrite the authoring rules (`CONTRIBUTING.md` test rules and `docs/adding-validation-tests.md`) with where a new test goes and what its location commits it to; delete the `un_inventoried` bucket | `pytest --collect-only` reports the same node count as before the move; `check`, `regression` and `diff-against-md` pass; a cross-directory import still resolves; no hand-written classification remains in `groups.yaml` |
 
 Branch: `feat/validation-matrix-store`.
 
