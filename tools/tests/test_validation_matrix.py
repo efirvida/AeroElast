@@ -589,8 +589,45 @@ def test_set_refuses_to_write_an_invalid_row(tmp_path: Path) -> None:
         store, "set", "ko2017.square_plate.reg_clamped", "comparisons[0].measured.margin_pct=null"
     )
     assert completed.returncode == 2
-    assert "refusing to write: the edited row is invalid" in completed.stderr
+    assert "the edit would leave an error the row did not have" in completed.stderr
+    # The introduced error is named, so the operator does not have to hunt for what broke.
+    assert "numeric margin_pct" in completed.stderr
     assert run(store, "get", "ko2017.square_plate.reg_clamped", "--json").stdout == before
+
+
+def test_set_may_repair_a_row_that_is_already_imperfect(tmp_path: Path) -> None:
+    """A write is refused for making a row worse, not for the row being imperfect.
+
+    A row with two undeclared reference kinds cannot be repaired one kind at a time otherwise: fixing
+    the first leaves the second undeclared, and refusing every write made `set` useless exactly where
+    it is needed. The store-level `check` still reports what is left.
+    """
+    store = _mixed_store(tmp_path)
+    broken = run(
+        store, "set", "ko2017.square_plate.reg_clamped", "comparisons[0].measured.margin_pct=null"
+    )
+    assert broken.returncode == 2, broken.stdout + broken.stderr
+    # The row is imperfect: `status: measured` with a null margin. One edit that leaves it invalid
+    # for a reason the row did not have is refused, and the repair that resolves the reason it does
+    # have is allowed -- both fields in one call, because either alone would introduce a new error.
+    assert (
+        run(
+            store,
+            "set",
+            "ko2017.square_plate.reg_clamped",
+            "comparisons[0].measured.status=not_measured",
+        ).returncode
+        == 2
+    )
+    fixed = run(
+        store,
+        "set",
+        "ko2017.square_plate.reg_clamped",
+        "comparisons[0].measured.status=not_measured",
+        "--unset",
+        "comparisons[0].measured.margin_pct",
+    )
+    assert fixed.returncode == 0, fixed.stdout + fixed.stderr
 
 
 def test_set_flag_add_and_remove(tmp_path: Path) -> None:
@@ -1482,8 +1519,8 @@ def test_the_shipped_gap_list_is_present_and_valid() -> None:
     assert f"gaps: {len(entries)}" in completed.stdout
     for entry in entries:
         assert entry["id"] in completed.stdout
-    # The marker tracks the entrys own field, so the invariant is the relation between them and
-    # not a number that someone has to remember to bump.
+    # The marker tracks each entry's own field, so the invariant is the relation between them
+    # and not a number that someone has to remember to bump.
     not_citable = [entry for entry in entries if entry.get("citations_forbidden")]
     assert not_citable, "no entry is marked not citable"
     assert completed.stdout.count("NOT CITABLE") == len(not_citable)
