@@ -2953,6 +2953,63 @@ def command_status(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def command_kinds(args: argparse.Namespace) -> int:
+    """Every comparison whose reference kind is undeclared, with the code that decides it.
+
+    Policy rule 7 reads the kind from the comparison, never from the file, so this verb prints the
+    comparison and the line of code behind it. The operator decides; the decision is written with
+    `set`. It exists because a mixed file needs one decision per comparison -- and every parity
+    module examined so far is mixed -- which makes reading them out of the tests by hand the whole
+    cost of extending the store. This is the review sheet for that cost.
+    """
+    # No error guard here on purpose. This verb is read-only, and the state it exists to review is
+    # an error state: an undeclared reference kind IS a `check` error. Refusing to run whenever the
+    # store has errors would make the review sheet unavailable exactly when it is needed -- the same
+    # trap that made `set` unable to repair a null kind.
+    store = load_store(args.store)
+    pending: list[dict[str, Any]] = []
+    for ref in store.rows:
+        if args.group and str(ref.data.get("group")) != args.group:
+            continue
+        for comparison in ref.data.get("comparisons") or []:
+            if not isinstance(comparison, dict):
+                continue
+            reference = comparison.get("reference")
+            if not isinstance(reference, dict) or reference.get("kind") is not None:
+                continue
+            tolerance = comparison.get("tolerance") or {}
+            source = str(tolerance.get("source") or "")
+            path, _, line = source.rpartition(":")
+            code = ""
+            if path and line.isdigit():
+                target = REPO_ROOT / path
+                if target.exists():
+                    body = target.read_text(encoding="utf-8").splitlines()
+                    number = int(line)
+                    if 0 < number <= len(body):
+                        code = body[number - 1].strip()
+            pending.append(
+                {
+                    "row": ref.data.get("id"),
+                    "comparison": comparison.get("label"),
+                    "reference_label": reference.get("label"),
+                    "source": source,
+                    "code": code,
+                }
+            )
+    if args.json:
+        print(json.dumps(pending, indent=2))
+    elif not pending:
+        print("every comparison declares its reference kind")
+    for item in pending:
+        print(f"{item['row']}")
+        print(f"  comparison : {item['comparison']}")
+        print(f"  reference  : {item['reference_label']}")
+        print(f"  code       : {str(item['code'])[:92]}")
+        print(f"  at         : {item['source']}")
+    return EXIT_OK
+
+
 def command_gaps(args: argparse.Namespace) -> int:
     store = load_store(args.store)
     entries = list(store.gaps.values())
@@ -3434,6 +3491,14 @@ def build_parser() -> argparse.ArgumentParser:
     gaps = subparsers.add_parser("gaps", help="what the suite does not validate")
     gaps.add_argument("--json", action="store_true")
     gaps.set_defaults(func=command_gaps)
+
+    kinds = subparsers.add_parser(
+        "kinds",
+        help="undeclared reference kinds, with the code that decides each one",
+    )
+    kinds.add_argument("--group", help="only rows of this group")
+    kinds.add_argument("--json", action="store_true")
+    kinds.set_defaults(func=command_kinds)
 
     status = subparsers.add_parser(
         "status", help="what the store covers, and which validation files it does not"
