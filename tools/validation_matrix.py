@@ -52,6 +52,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import hashlib
 import json
 import re
 import subprocess
@@ -149,7 +150,7 @@ CODE_ROOTS = ("src", "tests", "crates", "tools")
 # every entry trivially.
 CODE_SUFFIXES = {".py", ".rs", ".toml"}
 TOLERANCE_KEYS = {"kind", "value", "source", "justified", "justification"}
-MEASURED_KEYS = {"status", "run", "date", "raw", "margin_pct", "text"}
+MEASURED_KEYS = {"status", "run", "date", "raw", "margin_pct", "text", "digest"}
 HISTORY_KEYS = {"rev", "note", "evidence"}
 GROUP_KEYS = {
     "id",
@@ -171,6 +172,9 @@ GROUP_KEYS = {
 # test prints and never asserts.
 RESIDUAL_KEYS = {"asserted", "unasserted"}
 RESIDUAL_FILE = "residual-patterns.json"
+# Digests of each group's source files, in JSON for the same reason: machine data, and the
+# registries carry comments a YAML round-trip would drop.
+SOURCES_FILE = "sources.json"
 NODE_START_RE = re.compile(r"^(?P<node>tests/[^\s:]+\.py::\S+)(?:\s+(?P<rest>.*))?$")
 NODE_STATUS_RE = re.compile(r"^(PASSED|FAILED|XFAIL|XPASS|SKIPPED|ERROR)\b")
 FLAG_KEYS = {"id", "derived", "label", "user_facing", "section", "legend"}
@@ -219,6 +223,7 @@ SET_SCHEMA: dict[str, Any] = {
                 "raw": LEAF,
                 "margin_pct": LEAF,
                 "text": LEAF,
+                "digest": LEAF,
             },
         }
     ],
@@ -289,6 +294,7 @@ class Store:
     reference_header: str | None = None
     reference_sections: dict[str, dict[str, Any]] = field(default_factory=dict)
     residual_patterns: dict[str, dict[str, str]] = field(default_factory=dict)
+    source_digests: dict[str, str] = field(default_factory=dict)
     gaps: dict[str, dict[str, Any]] = field(default_factory=dict)
     rows: list[RowRef] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
@@ -718,6 +724,7 @@ def load_store(root: Path, only_group: str | None = None) -> Store:
     if only_group is not None and only_group not in store.groups:
         raise StoreError(f"unknown group: {only_group}")
     load_residual_patterns(store)
+    load_source_digests(store)
     load_rows(store, only_group=only_group)
     load_adjudications(store)
     load_gaps(store)
@@ -2672,6 +2679,78 @@ def extract_residuals(
     return asserted, unasserted
 
 
+def evidence_digest(printed: dict[str, Any]) -> str:
+    """A digest of one comparison's printed evidence.
+
+    The digest is the *detector*: any change in the printed digits changes it, so the check is
+    exact and needs no tolerance. A tolerance in the detector would swallow exactly the small
+    movements a regression check exists to catch; the tolerance belongs in the test's
+    assertion, and the numeric delta beside the digest is what *measures* the change once the
+    digest has said which comparison moved.
+
+    It hashes the **printed strings**, not the parsed numbers, and it is computed once and
+    stored by the same code that compares it. Hashing parsed values from one side and formatted
+    strings from the other made every comparison report as changed with a delta of zero — the
+    detector catching its own inconsistency, which is the whole point of having one.
+    """
+    payload = json.dumps([printed.get(key) for key in ("value", "error", "expected")])
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+
+
+
+def sources_digest(group: dict[str, Any]) -> str:
+    """A digest of a group's source files: the test's own contract.
+
+    Kept beside the rows it separates the two kinds of change a regression report has to tell
+    apart: the numbers moved while the test stood still, or the test itself changed and the
+    numbers are expected to move.
+    """
+    digest = hashlib.sha256()
+    for source in sorted(str(item) for item in group.get("source_files") or []):
+        digest.update(source.encode("utf-8"))
+        path = REPO_ROOT / source
+        if path.exists():
+            digest.update(path.read_bytes())
+    return digest.hexdigest()[:16]
+
+
+def load_source_digests(store: Store) -> None:
+    """The stored source digests, keyed by group id."""
+    path = store.root / SOURCES_FILE
+    if not path.exists():
+        return
+    rel = display_path(path)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        store.error(rel, f"could not be read: {exc}")
+        return
+    digests = data.get("digests") if isinstance(data, dict) else None
+    if not isinstance(digests, dict):
+        store.error(rel, "expected a mapping with a 'digests' object")
+        return
+    for group_id, digest in digests.items():
+        if group_id not in store.groups:
+            store.error(f"{rel}[{group_id}]", f"unknown group: {group_id!r}")
+        if not isinstance(digest, str) or not digest:
+            store.error(f"{rel}[{group_id}]", f"invalid digest: {digest!r}")
+        store.source_digests[str(group_id)] = str(digest)
+
+
+def write_source_digest(store: Store, group_id: str, digest: str) -> None:
+    path = store.root / SOURCES_FILE
+    data: dict[str, Any] = {"version": 1, "digests": {}}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict) and isinstance(loaded.get("digests"), dict):
+                data = loaded
+        except json.JSONDecodeError:
+            pass
+    data["digests"][group_id] = digest
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def _float(value: Any) -> float | None:
     try:
         return float(value)
@@ -2708,13 +2787,19 @@ def compare_row(
     results: list[dict[str, Any]] = []
     for index, (comparison, printed) in enumerate(zip(checked, asserted, strict=True)):
         current = _float(printed.get("error"))
-        baseline = _float((comparison.get("measured") or {}).get("margin_pct"))
-        if baseline is None:
+        measured = comparison.get("measured") or {}
+        baseline = _float(measured.get("margin_pct"))
+        digest = evidence_digest(printed)
+        stored = measured.get("digest")
+        if baseline is None or not stored:
             verdict = "new_baseline"
-        elif current is not None and abs(current - baseline) > 0.005:
-            verdict = "drifted"
-        else:
+        elif stored == digest:
             verdict = "same"
+        else:
+            verdict = "changed"
+        delta = None
+        if current is not None and baseline is not None:
+            delta = round(current - baseline, 6)
         results.append(
             {
                 "row": ref.id,
@@ -2723,6 +2808,9 @@ def compare_row(
                 "verdict": verdict,
                 "baseline": baseline,
                 "current": current,
+                "delta": delta,
+                "digest": digest,
+                "stored_digest": stored,
                 "value": _float(printed.get("value")),
                 "expected": printed.get("expected"),
                 "text": f"{printed.get('value')} ({printed.get('error')}%)",
@@ -2774,6 +2862,7 @@ def write_measurement(store: Store, ref: RowRef, index: int, result: dict[str, A
         "raw": result["value"],
         "margin_pct": result["current"],
         "text": result["text"],
+        "digest": result["digest"],  # computed once, by the code that compares it
     }
     if comparison.get("expected") is None and result.get("expected") is not None:
         comparison["expected"] = result["expected"]
@@ -2809,17 +2898,32 @@ def command_regression(args: argparse.Namespace) -> int:
     for node in sorted(set(prints) - claimed):
         results.append({"row": None, "verdict": "unclaimed", "detail": node})
 
+    sources_now = sources_digest(group)
+    sources_stored = store.source_digests.get(str(args.group))
+    sources_changed = bool(sources_stored) and sources_stored != sources_now
+
     if args.write:
         for result in results:
             index = result.get("comparison")
-            if result["verdict"] not in {"same", "drifted", "new_baseline"}:
+            if result["verdict"] not in {"same", "changed", "new_baseline"}:
                 continue
             if not isinstance(index, int):
                 continue
             write_measurement(store, store.by_id()[result["row"]], index, result)
-        print(f"wrote {len(results)} measurement(s)")
+        write_source_digest(store, str(args.group), sources_now)
+        print(f"wrote {len(results)} measurement(s) and the source digest")
 
-    drifted = [item for item in results if item["verdict"] in {"drifted", "unmapped", "unclaimed"}]
+    failing = [
+        item for item in results if item["verdict"] in {"changed", "unmapped", "unclaimed"}
+    ]
+    if sources_changed:
+        failing.append(
+            {
+                "verdict": "test_changed",
+                "row": None,
+                "detail": ", ".join(str(item) for item in group.get("source_files") or []),
+            }
+        )
     if args.json:
         print(json.dumps(results, indent=2))
     else:
@@ -2827,10 +2931,17 @@ def command_regression(args: argparse.Namespace) -> int:
             if item["verdict"] == "same":
                 continue
             where = item.get("row") or item.get("detail")
-            if item["verdict"] == "drifted":
+            if item["verdict"] == "changed":
+                delta = item.get("delta")
+                moved = f"{delta:+g}" if isinstance(delta, (int, float)) else "n/a"
                 print(
-                    f"DRIFTED  {where} [{item['label']}]: was {item['baseline']}%, "
-                    f"now {item['current']}%"
+                    f"CHANGED  {where} [{item['label']}]: {item['baseline']}% -> "
+                    f"{item['current']}% (delta {moved})"
+                )
+            elif item["verdict"] == "test_changed":
+                print(
+                    f"TEST MOVED  {where}: the source digest changed, so its numbers are "
+                    "expected to move too"
                 )
             elif item["verdict"] == "new_baseline":
                 print(f"NEW      {where} [{item['label']}]: {item['current']}% ({item['text']})")
@@ -2843,7 +2954,13 @@ def command_regression(args: argparse.Namespace) -> int:
             counts[item["verdict"]] = counts.get(item["verdict"], 0) + 1
         summary = ", ".join(f"{count} {name}" for name, count in sorted(counts.items()))
         print(f"regression: {summary}")
-    return EXIT_FINDINGS if drifted else EXIT_OK
+        print(
+            "source digest: "
+            + ("moved, the test itself changed" if sources_changed else "unchanged")
+            if sources_stored
+            else "source digest: none stored yet; --write records it"
+        )
+    return EXIT_FINDINGS if failing else EXIT_OK
 
 
 # --------------------------------------------------------------------------- #

@@ -1056,17 +1056,39 @@ def _printed(error: str, value: str = "1.0000", expected: str = "1.0000") -> dic
     return {"value": value, "expected": expected, "error": error}
 
 
+def test_a_movement_too_small_for_a_tolerance_is_still_detected() -> None:
+    """The digest is exact, so the detector needs no tolerance and hides nothing.
+
+    A tolerance in the detector would swallow precisely the small movements a regression check
+    exists to catch; the tolerance belongs in the test's own assertion.
+    """
+    module = _load_tool_module()
+    ref = _row_ref([_asserted(0.1000)])
+    baseline = module.compare_row(ref, [_printed("0.1000")], [])[0]
+    comparison = ref.data["comparisons"][0]
+    comparison["measured"]["digest"] = module.evidence_digest(_printed("0.1000"))
+
+    moved = module.compare_row(ref, [_printed("0.1004")], [])[0]
+    assert moved["verdict"] == "changed", "a 0.004 point movement must not go unnoticed"
+    assert abs(moved["delta"]) < 0.005  # and it is smaller than the tolerance I used before
+    assert baseline["digest"] != moved["digest"]
+
+
 def test_compare_row_classifies_every_outcome() -> None:
     module = _load_tool_module()
     ref = _row_ref([_asserted(0.10), _asserted(None)])
+    # A stored digest is what makes a comparison comparable at all: without one the verdict is
+    # new_baseline, which is what the first --write records.
+    ref.data["comparisons"][0]["measured"]["digest"] = module.evidence_digest(_printed("0.10"))
 
     same = module.compare_row(ref, [_printed("0.10"), _printed("0.20")], [])
     assert [item["verdict"] for item in same] == ["same", "new_baseline"]
 
     drifted = module.compare_row(ref, [_printed("0.90"), _printed("0.20")], [])
-    assert drifted[0]["verdict"] == "drifted"
+    assert drifted[0]["verdict"] == "changed"
     assert drifted[0]["baseline"] == 0.10
     assert drifted[0]["current"] == 0.90
+    assert drifted[0]["delta"] == 0.8
 
     # A count mismatch is reported, never guessed: attaching a margin to the wrong
     # comparison would manufacture a baseline.

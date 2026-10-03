@@ -173,6 +173,10 @@
         "text": {
           "type": ["string", "null"],
           "description": "Verbatim residual for the paper table, e.g. '0.9972 (0.06%)'."
+        },
+        "digest": {
+          "type": ["string", "null"],
+          "description": "Digest of this comparison's printed evidence. The detector: any change in the printed digits changes it, so `regression` needs no tolerance to notice a movement. The numeric fields beside it are what measure the change once the digest has said which comparison moved."
         }
       }
     }
