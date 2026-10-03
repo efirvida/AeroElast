@@ -26,8 +26,7 @@ reference**: a displacement, a stress, a natural frequency, a mass, a buckling o
 stability limit, a constitutive response, a load. If the test asserts that a mesh loads,
 that the CLI writes a deck, that a schema rejects a bad input, or that a logger records a
 field, it is a **software test**: it belongs to the suite, it must pass, and it does not
-belong here. Declare its file out of scope in `docs/validation/groups.yaml` with a reason,
-rather than giving it a row.
+belong here. Put it under `tests/software/`, rather than giving it a row or a declaration.
 
 The one-sentence test: name the physical quantity and its independent reference. If you
 cannot, it is a software test.
@@ -48,6 +47,40 @@ only because they were counted as evidence first.
 A declared-software file needs no row, but the declaration is required: `check` must be
 able to tell *out of scope* from *forgotten*, and a collected file that is in neither a
 group nor the out-of-scope list is an error, not a gap.
+
+## The shape the store can read
+
+A validation test stays an ordinary pytest test: it runs, it asserts, it fails when the physics is
+wrong. What is specified here is the *form* of one assertion, so that the store reads the comparison
+instead of inferring it.
+
+**A comparison goes through the suite's assertion helper, and the helper is told what the reference
+is.**
+
+```python
+assert_relative_error(tip_disp, REF_TABLE_6, tol=TOL_REFERENCE, reference="Ko et al. 2017 Table 6")
+```
+
+The reference argument is not decoration: it is the only thing that says whether the two quantities
+in the comparison are our result and an independent reference, or two of our own numbers. No
+structural rule can tell those apart, which is why the store grew a list of per-test declarations
+instead of reading the tests. With the reference named, it does not need any:
+
+- **the extractor reads the helper calls.** A test that makes one is a comparison and becomes a
+  comparison in a row. A test that makes none is not a row, and that is a fact about its shape, not
+  something a maintainer has to declare.
+- **every other assertion in a validation test is a physics property or machinery.** A symmetry, an
+  invariant, a dominance relation, a torque ruler, a setup constant: all of them stay in the test
+  and keep asserting exactly what they assert today. None of them is a comparison against an
+  independent reference, so none of them is a row.
+- **assertions in a local helper are invisible.** Put the comparison where the test is; a helper may
+  build, solve and print, but the assertion that becomes a row is written in the test body.
+- **one statement per reference.** Two references are two helper calls, never one cell with a slash
+  in it.
+
+The store's per-test declarations -- `non_reference_asserts`, `validation_helpers`,
+`non_validation_tests` -- exist because the tests did not say which of these they were. They are
+scaffolding for the files written before this contract, and they go away as those files conform.
 
 ## Steps
 
@@ -92,9 +125,9 @@ group nor the out-of-scope list is an error, not a gap.
    failure, not a clean run: it usually means the module skipped for a missing
    dependency.
 10. **Do not hand-edit the generated views.** `docs/validation/references.yaml` is generated from the
-    store (`references render --check` in CI). The matrix view becomes generated at T7;
-    until then its Markdown is still hand-maintained, and the store is the rector for
-    section 3.
+    store (`references render --check` in CI). Both Markdown views were deleted at T7, so there is no
+    longer a hand-maintained copy of anything: the store is the rector, and the only file that still
+    renders is the bibliography.
 
 ## What `check` will refuse
 
