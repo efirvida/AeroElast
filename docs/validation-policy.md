@@ -61,6 +61,13 @@ it is read from the store, never restated here where it would go stale.
 | what is not validated | `validation_matrix gaps` |
 | the headline per group | `validation_matrix headline` |
 | did anything move | `validation_matrix regression` |
+
+`regression` answers in two layers, because they answer different questions: a **digest** of
+each comparison's printed evidence tells you *which* one moved, exactly and without a tolerance,
+and the numeric delta printed beside it tells you *how far*. A digest also covers the group's
+source files, so a changed test is distinguishable from a changed number — if the test moved,
+its numbers are expected to move too. `--write` records the digests, which is how a deliberate
+change is accepted instead of reported forever.
 | the bibliography and its DOI audit | `validation_matrix references check` |
 
 Do not hand-maintain a table of any of these. Two copies of the same number is how a
