@@ -2412,6 +2412,7 @@ def build_rows(
     scope: str,
     nodes: list[NodeInfo],
     reference_kind: str | None = None,
+    skip: dict[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """E1-E3 into rows: one row per collected node, none left unclaimed."""
     tree = ast.parse((REPO_ROOT / scope).read_text(encoding="utf-8"))
@@ -2444,6 +2445,15 @@ def build_rows(
         report["unclaimed_reasons"][node] = reason
     used: set[str] = set()
     for info in nodes:
+        # A declared test is not a row, and it may not be claimed either. The declaration has to
+        # work in both directions: it used to be consulted only for nodes the extractor could not
+        # claim, so a declaration could not suppress a row whose assertions are machinery. The
+        # tube torsion file is the case that forced it -- four torque-ruler and symmetry asserts
+        # sit in rows of their own, beside a row holding the Bredt limit, and only the last is a
+        # comparison against an independent reference.
+        if skip and info.node in skip:
+            report.setdefault("declared_not_rows", {})[info.node] = skip[info.node]
+            continue
         func = functions.get(info.qualname)
         if func is None:
             unclaim(info.node, "not_in_ast")
@@ -2624,6 +2634,11 @@ def command_extract(args: argparse.Namespace) -> int:
             "has to resolve in references.yaml"
         )
     nodes = collect_nodes(str(scope))
+    skip = {
+        info.node: match[1]
+        for info in nodes
+        if (match := match_non_validation(group, info.node)) is not None
+    }
     rows, report = build_rows(
         args.group,
         str(group.get("slug")),
@@ -2631,8 +2646,14 @@ def command_extract(args: argparse.Namespace) -> int:
         str(scope),
         nodes,
         reference_kind=group.get("reference_kind"),
+        skip=skip,
     )
-    declared_nodes, undeclared, stale = classify_unclaimed(group, report["unclaimed"])
+    suppressed = report.get("declared_not_rows") or {}
+    # The declared nodes that were suppressed count as used patterns just like the unclaimed ones,
+    # or a declaration that did its job would be reported as stale.
+    declared_nodes, undeclared, stale = classify_unclaimed(
+        group, list(report["unclaimed"]) + list(suppressed)
+    )
     payload = {
         "scope": str(scope),
         "collected": len(nodes),
@@ -2641,6 +2662,7 @@ def command_extract(args: argparse.Namespace) -> int:
         "unclaimed": report["unclaimed"],
         "unclaimed_reasons": report["unclaimed_reasons"],
         "declared_non_validation": declared_nodes,
+        "declared_not_rows": suppressed,
         "undeclared": undeclared,
         "stale_declarations": stale,
         "diverged_params": report["diverged"],
@@ -2666,6 +2688,9 @@ def command_extract(args: argparse.Namespace) -> int:
             print(f"UNREADABLE comparison (left out of the row): {node}")
             for source in sources:
                 print(f"  - {source}")
+        for node, reason in suppressed.items():
+            print(f"declared not a row, no row written: {node}")
+            print(f"  because: {reason}")
         if declared_nodes:
             print(f"not validation rows (declared): {len(declared_nodes)}")
             for node in declared_nodes:
