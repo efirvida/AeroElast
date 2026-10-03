@@ -501,8 +501,8 @@ This section used to describe the drill-membrane operator as an uncommitted
 working-tree experiment that was "being measured". That is no longer true and is
 kept here only as history: the operator is committed, it is the source of the
 element's sixth DOF, and the element it belongs to is the only shell quadrilateral
-in production. Its formulation is §2.5 and its validation is
-`docs/validation-matrix.md`.
+in production. Its formulation is §2.5 and its validation is the store, whose rows
+and their margins live in `docs/validation/`.
 
 ### 4.3 The strain-smoothed MITC3+
 

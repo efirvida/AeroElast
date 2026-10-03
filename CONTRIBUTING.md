@@ -61,10 +61,11 @@ worse than no test: it certifies a result nobody measured.
 5. **The reference must be independent of the implementation under test**: a different code, a
    published table extracted from the paper itself, or a closed form. A formula re-implemented
    inside the test is not a reference.
-6. **Every test row appears in `docs/validation-matrix.md`** with its reference, tolerance,
-   measured margin and flags, and the row counts must reconcile with
+6. **Every physics test row appears in the validation store** (`docs/validation/`) with its
+   reference, tolerance, measured margin and flags, and the row counts must reconcile with
    `pytest -o addopts="" --collect-only`. A row that cannot fail is flagged there, never
-   counted as evidence.
+   counted as evidence. The store is the rector: `docs/validation-policy.md` says what may be
+   cited and `docs/adding-validation-tests.md` says how a row is added.
 7. **A quoted source value is read, not extracted.** Every number, equation, table cell
    or figure value used as a reference is read from the rendered page with vision and
    recorded with its source key, printed page and locator. `pdftotext` is never the

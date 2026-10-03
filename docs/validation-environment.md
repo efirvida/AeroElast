@@ -1,6 +1,7 @@
 # Validation environment
 
-The exact environment in which the rows of `docs/validation-matrix.md` were measured.
+The exact environment in which the rows of the validation store (`docs/validation/`)
+were measured.
 Reproduce it before quoting a number, because several references are version-sensitive
 (CalculiX element output, OpenFAST AeroDyn tables, the ccblade BEM solution).
 

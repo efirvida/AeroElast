@@ -99,7 +99,8 @@ function doc also prints a predictor/corrector form (`u*`, `v*` and the
 above is the equivalent standard effective-load form. `C = eta_k K + eta_m M`
 is Rayleigh damping.
 
-**Gap.** Neither implementation cites Newmark, N.M. (1959). `docs/references.md`
+**Gap.** Neither implementation cites Newmark, N.M. (1959).
+`docs/validation/references.yaml`
 lists "A method of computation for structural dynamics", *Journal of the
 Engineering Mechanics Division, ASCE*, 85(EM3):67–94, 1959, with DOI **"to
 verify"**, notes that there is **no PDF in `.sources/papers/`**, and records the

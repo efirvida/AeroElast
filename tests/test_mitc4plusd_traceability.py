@@ -13,8 +13,8 @@ Three scenarios, all of them reading files only -- no Rust build, no PETSc:
    selective reduced integration of the in-plane shear, the rotation bubble, the
    classical ``5/6`` shear correction and hourglass scaffolding.
 3. Every citation in the table resolves: author-year against the canonical
-   bibliography ``docs/references.md``, and the quoted equations against the paper
-   extracts.
+   bibliography ``docs/validation/references.yaml``, and the quoted equations against
+   the paper extracts.
 
 Each scenario carries a non-vacuity control, because a gate that scans nothing
 passes for the wrong reason. The strongest one is in the forbidden-ingredient test:
@@ -28,12 +28,15 @@ import re
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO = Path(__file__).resolve().parents[1]
 DOC = REPO / "docs" / "formulations" / "shell-elements.md"
 MODULE = REPO / "crates" / "aeroelast-core" / "src" / "elements" / "mitc4.rs"
 MITC3 = REPO / "crates" / "aeroelast-core" / "src" / "elements" / "mitc3.rs"
-BIBLIOGRAPHY = REPO / "docs" / "references.md"
+# The canonical bibliography is the validation store. `docs/validation/references.yaml`
+# is the rector; `docs/references.md` was a generated view of it and is gone.
+BIBLIOGRAPHY = REPO / "docs" / "validation" / "references.yaml"
 EXTRACTS = (
     REPO / "docs" / "formulations" / "mitc4plus-2017-extract.md",
     REPO / "docs" / "formulations" / "mitc4plusd-2025-extract.md",
@@ -143,7 +146,7 @@ def test_traceability_no_forbidden_ingredient_claimed_or_present():
 
 
 def test_traceability_equation_citations_resolve_to_extract_or_paper():
-    bibliography = BIBLIOGRAPHY.read_text()
+    entries = yaml.safe_load(BIBLIOGRAPHY.read_text(encoding="utf-8"))["references"]
     extracts = "".join(path.read_text() for path in EXTRACTS)
 
     rows = _table_rows()
@@ -152,8 +155,18 @@ def test_traceability_equation_citations_resolve_to_extract_or_paper():
         citations = _CITATION.findall(paper)
         assert citations, f"row {code!r} carries no author-year citation"
         for surname, year in citations:
-            assert year in bibliography, f"{surname} ({year}) is not in {BIBLIOGRAPHY.name}"
-            assert surname in bibliography, f"{surname} ({year}) has no entry in {BIBLIOGRAPHY.name}"
+            resolves = [
+                entry
+                for entry in entries
+                if str(entry.get("year")) == str(year)
+                and any(surname in author for author in entry.get("authors") or [])
+            ]
+            # Resolved against the store's entries rather than by grepping text: a year
+            # appearing anywhere in the file is not a citation that resolves.
+            assert resolves, (
+                f"{surname} ({year}) does not resolve to an entry of "
+                f"{BIBLIOGRAPHY.relative_to(REPO)}"
+            )
             resolved += 1
         for equation in _EQUATION.findall(paper):
             assert f"({equation})" in extracts or f"({equation}" in extracts, (

@@ -234,7 +234,7 @@ def test_in_plane_bending_convergence():
 LAMINATE_MESHES = [(2, 5), (4, 10), (8, 20), (16, 40)]
 _LAMINATE_LOAD_X = 100.0  # N, +X at the free-edge centre node (same as parity test)
 
-# Project honesty bound (docs/validation-matrix.md): any AeroElast-vs-reference
+# Project honesty bound (docs/validation-policy.md): any AeroElast-vs-reference
 # structural comparison must stay within 5%.  The coarsest laminate mesh is the
 # binding case here at 4.18%.
 LAMINATE_GAP_TOL = 0.05
