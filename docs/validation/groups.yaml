@@ -1,0 +1,69 @@
+# Group registry for the validation matrix.
+#
+# One entry per Markdown section that carries rows (sections 3-8, plus 10 for
+# out-of-band evidence). `docs/validation/rows/<id>.yaml` holds the rows of a
+# group. `docs/validation-matrix.md` is generated from these files.
+#
+# Seeded with group 3 only: it is the pilot, see the task document
+# odd/tasks/validation-matrix-store.md section 12. The remaining groups are
+# added by work units WU-3..WU-5, which reuse the same pipeline.
+version: 1
+
+groups:
+  - id: "3"
+    title: '`tests/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)'
+    slug: ko2017
+    source_files:
+      - tests/test_ko2017_performance.py
+    common_tolerance:
+      kind: rtol
+      value: 0.05
+      source: >-
+        `rtol=0.05` through `assert_relative_error` (3.1-3.4, 3.6-3.9). Case
+        3.5 uses `tol=0.01` per case and 3.6 a literal `rel_err < 0.03`, both
+        stated per row.
+      justified: true
+      justification: >-
+        The 5% bound is the suite rule (CONTRIBUTING test rule 1); the
+        per-case values in 3.5 and 3.6 are tighter and stated in the code.
+    headline: >-
+      31 benchmark cases; worst 2.73% (Scordelis-Lo regular), tolerance 5%;
+      most under 1%
+    provenance_note: >-
+      Every case prints `Norm vs Kirchhoff: <value> (expected: <cell>,
+      error: <x>%)`. The measured margin is the value printed at `e879eba`
+      and reproduced digit for digit at `34e2328`. Hardcoded
+      `expected_normalized` values are the paper's MITC4/MITC4+ N=16 cells;
+      the cells taken from the wrong table were corrected at `2fd847d`. A stale
+      row here manufactures a false defect: the first version recorded an 8.5%
+      deviation on the thin twisted beam that no longer exists.
+    prose_after_table: >-
+      docs/validation/prose/validation-matrix/03-ko2017-notes.md
+
+# Files that pytest collects but that carry no row yet. `check` uses this list
+# to tell documented drift from silently unaccounted nodes. Retired by WU-7.
+#
+# Measured 2026-10-02: the collected suite is 520 tests / 48 files while the
+# inventory accounts for 452 / 42.
+un_inventoried:
+  - file: tests/test_axisymmetric_components.py
+    tests: 15
+    reason: "no row yet; documented drift for WU-7"
+  - file: tests/test_blade_no_webs.py
+    tests: 6
+    reason: "no row yet; documented drift for WU-7"
+  - file: tests/test_cli_mesh.py
+    tests: 14
+    reason: "no row yet; documented drift for WU-7"
+  - file: tests/test_turbine_mesh.py
+    tests: 15
+    reason: "no row yet; documented drift for WU-7"
+  - file: tests/test_laminate_bend_twist.py
+    tests: 11
+    reason: "no row yet; documented drift for WU-7"
+  - file: tests/test_laminate_bend_twist_3d.py
+    tests: 4
+    reason: "no row yet; documented drift for WU-7"
+  - file: tests/test_blade_twist_mechanism.py
+    tests: 3
+    reason: "no row yet; documented drift for WU-7"

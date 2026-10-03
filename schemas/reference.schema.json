@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aeroelast.local/schemas/reference.schema.json",
+  "title": "AeroElast validation bibliography entry",
+  "description": "One canonical, auditable reference. docs/validation/references.yaml is the rector; docs/references.md is generated from it. Field rules that need cross-file context (citation-key resolution, declared-vs-found citation diffing, .sources/ absence) are enforced by tools/validation_matrix.py 'check', not by this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["key", "section", "kind", "authors", "title", "year", "doi_status", "held"],
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Stable join key. Matrix rows cite it via reference.citation; docs/references.md groups by it."
+    },
+    "section": {
+      "type": "string",
+      "description": "Bibliography section title, e.g. '1. Shell element formulations'. Replaces the old section-number pointer, which renumbering silently broke."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["journal", "conference", "report", "manual", "software", "thesis", "book"]
+    },
+    "authors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1},
+      "description": "Verbatim as printed, 'Family, G.' form."
+    },
+    "title": {"type": "string", "minLength": 1},
+    "venue": {"type": ["string", "null"]},
+    "volume": {"type": ["string", "null"]},
+    "issue": {"type": ["string", "null"]},
+    "pages": {"type": ["string", "null"]},
+    "year": {"type": "integer", "minimum": 1900, "maximum": 2100},
+    "doi": {
+      "type": ["string", "null"],
+      "pattern": "^10\\.\\d{4,9}/\\S+$",
+      "description": "Bare DOI, no URL prefix."
+    },
+    "doi_status": {
+      "type": "string",
+      "enum": ["verified", "printed_on_pdf", "to_verify", "not_applicable"],
+      "description": "verified and printed_on_pdf require a conforming doi, held: true and a non-empty verification_note. not_applicable covers report numbers, proprietary manuals and journals registering no DOI, and requires notes."
+    },
+    "held": {"type": "boolean"},
+    "held_files": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Paths under .sources/, which is gitignored: absence in a fresh clone is a warning, never a failure."
+    },
+    "verification": {
+      "type": ["string", "null"],
+      "enum": ["verified_pdf", "repository_citation", "unverified", null],
+      "description": "The convention docs/references.md states in prose today."
+    },
+    "verification_note": {
+      "type": ["string", "null"],
+      "description": "What exactly was read off the held copy: authors, title, journal, volume, year, printed DOI, page count."
+    },
+    "cited_by_declared": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_./-]+(:\\d+(-\\d+)?)?$",
+        "description": "file or file:line, repository-relative."
+      },
+      "description": "The audited claim carried over from the current prose ('Cited by the code: file:line'). Diffed by check against cited_by_found."
+    },
+    "bibtex_key": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]},
+    "orphan_ok": {
+      "type": "boolean",
+      "default": false,
+      "description": "A reference neither cited by a matrix row nor present in cited_by_declared must set this with a reason in notes."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"doi_status": {"enum": ["verified", "printed_on_pdf"]}}, "required": ["doi_status"]},
+      "then": {
+        "required": ["doi", "held", "held_files", "verification_note", "verification"],
+        "properties": {
+          "doi": {"type": "string"},
+          "held": {"const": true},
+          "held_files": {"minItems": 1},
+          "verification_note": {"type": "string", "minLength": 1},
+          "verification": {"enum": ["verified_pdf", "repository_citation"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"doi_status": {"const": "to_verify"}}, "required": ["doi_status"]},
+      "then": {"properties": {"doi": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"doi_status": {"const": "not_applicable"}}, "required": ["doi_status"]},
+      "then": {"required": ["notes"], "properties": {"doi": {"type": "null"}, "notes": {"type": "string", "minLength": 1}}}
+    }
+  ]
+}

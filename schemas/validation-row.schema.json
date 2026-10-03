@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aeroelast.local/schemas/validation-row.schema.json",
+  "title": "AeroElast validation matrix row",
+  "description": "One row of the validation matrix, at the granularity of the current '(3 cases)' Markdown rows: a coherent group of parametrisations whose exact collected node ids are listed in 'tests'. A row carries ONE own result and ONE OR MORE comparisons, because a single test routinely measures against several independent references at once, each with its own tolerance and margin. docs/validation/rows/<group>.yaml is the store; docs/validation-matrix.md sections 3-8 are generated from it. Cross-file rules (group resolution, node reconciliation, citation resolution, tolerated absence of .sources/) are enforced by tools/validation_matrix.py 'check'.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "group", "title", "tests", "validates", "comparisons", "flags"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9_]+)+$",
+      "description": "Immutable once published. Scheme <group-slug>.<file-slug>.<case-slug>."
+    },
+    "group": {
+      "type": "string",
+      "description": "Key into docs/validation/groups.yaml."
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-facing row label, as the Markdown prints it today, including the '...[dist SS]' continuations."
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^tests/[A-Za-z0-9_./-]+\\.py::[A-Za-z0-9_]+(\\[[^\\]]*\\])?$",
+        "description": "Exact collected node id, verbatim from pytest --collect-only."
+      },
+      "description": "Empty only for out-of-band evidence (evidence: out_of_band)."
+    },
+    "evidence": {
+      "type": ["string", "null"],
+      "enum": ["out_of_band", null],
+      "description": "out_of_band marks a row with a published reference and no live test, e.g. section 10.1."
+    },
+    "validates": {"type": "string", "minLength": 1},
+    "result": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["text"],
+      "properties": {
+        "text": {"type": "string", "minLength": 1, "description": "Verbatim as printed, e.g. 'AE 41.67 um'."},
+        "raw": {"type": ["number", "null"]},
+        "unit": {"type": ["string", "null"]},
+        "node": {"type": ["string", "null"], "description": "Which node, mode or station the value belongs to."}
+      },
+      "description": "Our own measured value, optional: only meaningful when the test produces one. Each comparison says what this same result was compared against."
+    },
+    "comparisons": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/comparison"},
+      "description": "'My result versus several references', one entry per independent reference."
+    },
+    "flags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+      "description": "Test-level human judgements only, ids from docs/validation/flags.yaml. Derived flags (near, gt5) are computed per comparison and rejected by check."
+    },
+    "notes": {"type": ["string", "null"]},
+    "history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rev", "note"],
+        "properties": {
+          "rev": {"type": "string", "minLength": 4},
+          "note": {"type": "string", "minLength": 1},
+          "evidence": {"type": ["string", "null"], "description": "e.g. adjudication log entry id"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "asserted", "reference", "tolerance", "measured"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Which part of the test this comparison covers: 'modes 1-5', 'the CCX leg', 'the analytical leg', 'N=16 cell'. It is what tells two references of one test apart."
+        },
+        "asserted": {
+          "type": "boolean",
+          "description": "Whether an assertion consumes this comparison. Orthogonal to measured.status: asserted with status not_printed is the 'asserts without printing a residual' case; not asserted with status n/a is the 'printed, never asserted' case that requires the info_only flag."
+        },
+        "reference": {"$ref": "#/$defs/reference"},
+        "tolerance": {"$ref": "#/$defs/tolerance"},
+        "measured": {"$ref": "#/$defs/measured"},
+        "expected": {
+          "type": ["string", "number", "null"],
+          "description": "Reference-side value as printed, when the comparison has a single one; a mode table or a whole abaqus output has none."
+        },
+        "notes": {"type": ["string", "null"]}
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "label"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["paper", "code", "analytical", "self", "schema"],
+          "description": "self means the comparison is against another of our own models; schema means a structural test with no numerical reference."
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Verbatim cell, formula or code id, e.g. 'Table 12, MITC4+ N=16: 0.9978' or 'CCX 2.23, S4'."
+        },
+        "citation": {
+          "type": ["string", "null"],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Required when kind == paper: key into docs/validation/references.yaml."
+        },
+        "also_asserts": {
+          "type": ["string", "null"],
+          "description": "A further reference the same comparison reaches indirectly without asserting it, e.g. the PAPER_REFS 3D value printed for information only."
+        }
+      }
+    },
+    "tolerance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value", "source"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["rtol", "atol", "rel_err", "sign", "exact", "subset"]
+        },
+        "value": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Null for sign, exact and subset."
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Where the code states it, e.g. 'tol=0.01 per case in the _TWISTED_BEAM_CASES loop'."
+        },
+        "justified": {"type": "boolean"},
+        "justification": {
+          "type": ["string", "null"],
+          "description": "Required when the tolerance exceeds the 5% suite rule (CONTRIBUTING test rule 1); enforced for rtol and rel_err."
+        }
+      }
+    },
+    "measured": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["measured", "not_printed", "not_measured", "sign_only", "n/a"],
+          "description": "measured means a usable residual was obtained; not_printed means the test asserts without printing one; n/a means the comparison is not a validation result."
+        },
+        "run": {"type": ["string", "null"], "description": "Revision the numbers were measured at."},
+        "date": {"type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "raw": {"type": ["number", "null"]},
+        "margin_pct": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "description": "Percent. The number section 13 sorts and flags on. Required iff status == measured."
+        },
+        "text": {
+          "type": ["string", "null"],
+          "description": "Verbatim residual for the paper table, e.g. '0.9972 (0.06%)'."
+        }
+      }
+    }
+  }
+}
