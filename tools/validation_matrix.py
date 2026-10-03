@@ -2597,9 +2597,15 @@ def command_extract(args: argparse.Namespace) -> int:
     if not scope:
         raise StoreError(f"group {args.group} declares no source file; pass --scope")
     citation = args.citation or str(group.get("citation") or "")
-    if not citation:
+    # A citation names a bibliography entry, and the store resolves one only for a paper
+    # reference: `_validate_reference` refuses `citation` on any other kind. Requiring it of every
+    # group would mean inventing a paper for CCX or OpenFAST -- the false reference this store
+    # exists to prevent -- and it blocked every cross-code group, whose rows name their reference
+    # through `reference.label` and carry the version in the group's `provenance_note`.
+    if group.get("reference_kind") == "paper" and not citation:
         raise StoreError(
-            f"group {args.group} declares no 'citation'; pass --citation for paper references"
+            f"group {args.group} is a paper group and declares no 'citation'; a paper reference "
+            "has to resolve in references.yaml"
         )
     nodes = collect_nodes(str(scope))
     rows, report = build_rows(
