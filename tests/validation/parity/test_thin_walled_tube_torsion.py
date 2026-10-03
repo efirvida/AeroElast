@@ -44,7 +44,9 @@ from _aeroelast import PyMeshAssembler  # noqa: E402
 from aeroelast.core.laminate import create_laminate_from_angles  # noqa: E402
 from aeroelast.core.material import OrthotropicMaterial  # noqa: E402
 from scipy.sparse import block_diag, bmat, coo_matrix, csr_matrix  # noqa: E402
-from scipy.sparse.linalg import splu, spsolve  # noqa: E402
+from scipy.sparse.linalg import splu, spsolve
+
+from tests.support.assertions import assert_relative_error  # noqa: E402  # noqa: E402
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The exact case (fixed spec)
@@ -158,6 +160,12 @@ def _laminate_and_prop():
     )
     angles = [45.0, -45.0, -45.0, 45.0]  # half [45, -45] plus its reversed symmetric expansion
     lam = create_laminate_from_angles(material, PLY_T, angles)
+    # A property of the fixture, checked where the fixture is built: four plies of PLY_T must give
+    # LAM_TOTAL_THICKNESS. It used to sit in the test body, where the extractor counted it as a
+    # comparison of the test against a reference, which is what the contract says it is not.
+    assert abs(lam.total_thickness - LAM_TOTAL_THICKNESS) < 1e-15, (
+        f"laminate thickness {lam.total_thickness} is not the {LAM_TOTAL_THICKNESS} of four plies"
+    )
     h = lam.total_thickness
     mpa = sum(p.material.rho * p.thickness for p in lam.plies)
     ri = sum(p.material.rho * (p.z_top**3 - p.z_bottom**3) / 3.0 for p in lam.plies)
@@ -423,8 +431,19 @@ def _rate_report(label: str, coords: np.ndarray, u: np.ndarray, rings: list[list
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def _self_equilibrated_validation(label: str, elem_type: int, prop: dict, ref_rate: float) -> None:
-    """Shared body of the two self-equilibrated tests (isotropic and laminate)."""
+def _self_equilibrated_validation(
+    label: str, elem_type: int, prop: dict, ref_rate: float
+) -> dict[str, float]:
+    """Solve and report the two self-equilibrated cases, and return their metrics.
+
+    The machinery and the properties stay here and keep asserting exactly what they asserted before:
+    the load rulers, the self-equilibrium of the load, the removal of the rigid modes, the agreement
+    of the two metrics and the linearity of the profile. None of them is a comparison against an
+    independent reference, so none of them is a store row, and the store reads none of them.
+
+    The comparison against the Bredt rate is *not* here: it is written in the two tests, where the
+    store can read it. See `docs/adding-validation-tests.md`.
+    """
     coords, conn, rings, n_ring = _tube_mesh()
     asm, K = _assemble(coords, conn, elem_type, prop)
 
@@ -470,12 +489,6 @@ def _self_equilibrated_validation(label: str, elem_type: int, prop: dict, ref_ra
     for k in range(0, len(z), max(1, len(z) // 8)):
         print(f"    z={z[k]:.2f}  theta_fit={theta_fit[k]: .6e}  theta_z={theta_z[k]: .6e}")
 
-    assert abs(m["ratio_fit"] - 1.0) < TOL, (
-        f"{label} self-equilibrated: theta_fit rate is {m['ratio_fit']:.5f}x the Bredt reference"
-    )
-    assert abs(m["ratio_z"] - 1.0) < TOL, (
-        f"{label} self-equilibrated: theta_z rate is {m['ratio_z']:.5f}x the Bredt reference"
-    )
     assert m["metric_diff"] < METRIC_AGREEMENT, (
         f"{label} self-equilibrated: theta_fit and theta_z differ by {m['metric_diff']:.4%}; in the "
         f"exact Saint-Venant solution they must be the same section rotation"
@@ -483,6 +496,7 @@ def _self_equilibrated_validation(label: str, elem_type: int, prop: dict, ref_ra
     assert linearity < SELF_CONSISTENCY, (
         f"{label} self-equilibrated: the 0.1-0.5L and 0.5-0.9L slopes differ by {linearity:.4%}"
     )
+    return m
 
 
 def test_self_equilibrated_isotropic_reproduces_bredt():
@@ -494,15 +508,42 @@ def test_self_equilibrated_isotropic_reproduces_bredt():
     in plane, so ``theta_fit`` and ``theta_z`` must agree and both must equal the section rotation.
     """
     _, ref = _bredt_isotropic()
-    _self_equilibrated_validation("iso / self-equilibrated", 4, _iso_prop(), ref)
+    m = _self_equilibrated_validation("iso / self-equilibrated", 4, _iso_prop(), ref)
+    assert_relative_error(
+        m["ratio_fit"],
+        1.0,
+        tol=TOL,
+        reference_name="Bredt T L / GJ, the closed form for a closed thin-walled tube",
+        what="isotropic theta_fit rate on the Bredt rate",
+    )
+    assert_relative_error(
+        m["ratio_z"],
+        1.0,
+        tol=TOL,
+        reference_name="Bredt T L / GJ, the closed form for a closed thin-walled tube",
+        what="isotropic theta_z rate on the Bredt rate",
+    )
 
 
 def test_self_equilibrated_laminate_reproduces_bredt():
     """Boundary-layer-free torsion, MITC4Composite ``[45,-45]s``: both metrics equal ``T/GJ``."""
-    lam, prop = _laminate_and_prop()
-    assert abs(lam.total_thickness - LAM_TOTAL_THICKNESS) < 1e-15
+    _, prop = _laminate_and_prop()
     _, _, _, ref = _bredt_laminate()
-    _self_equilibrated_validation("laminate / self-equilibrated", 44, prop, ref)
+    m = _self_equilibrated_validation("laminate / self-equilibrated", 44, prop, ref)
+    assert_relative_error(
+        m["ratio_fit"],
+        1.0,
+        tol=TOL,
+        reference_name="Bredt T L / GJ, the closed form for a closed thin-walled tube",
+        what="laminate theta_fit rate on the Bredt rate",
+    )
+    assert_relative_error(
+        m["ratio_z"],
+        1.0,
+        tol=TOL,
+        reference_name="Bredt T L / GJ, the closed form for a closed thin-walled tube",
+        what="laminate theta_z rate on the Bredt rate",
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -546,9 +587,15 @@ def test_clamped_root_metric_convergence_identifies_the_section_rotation():
                   + " ".join(f"{((k + 0.5) * length / n_z):.1f}:{(local[k]):.3f}" for k in stations))
             if length == 24.0:
                 asymptotic_z = z_prop
-        assert abs(asymptotic_z - 1.0) < TOL, (
-            f"t={thickness * 1e3:.1f} mm: the asymptotic metric theta_z is {asymptotic_z:.4f}x "
-            f"T/GJ at L=24 m; it should converge to the section rotation"
+        assert_relative_error(
+            asymptotic_z,
+            1.0,
+            tol=TOL,
+            reference_name=(
+                "the idealised limit: at L=24 m the section rotation rate is T/GJ, so the "
+                "theta_z rate on it must reach 1"
+            ),
+            what=f"t={thickness * 1e3:.1f} mm asymptotic theta_z rate at L=24 m",
         )
     print("=================================================================================")
 

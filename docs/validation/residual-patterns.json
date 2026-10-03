@@ -5,6 +5,10 @@
     "3": {
       "asserted": "Norm\\svs\\sKirchhoff:\\s(?P<value>\\S+)\\s\\(expected:\\s(?P<expected>\\S+),\\serror:\\s(?P<error>\\S+)%\\)",
       "unasserted": "Norm\\svs\\sPaper\\s3D:\\s(?P<value>\\S+)\\s\\(expected:\\s(?P<expected>\\S+),\\serror:\\s(?P<error>\\S+)%\\)"
+    },
+    "6": {
+      "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%\\)$",
+      "unasserted": "(?!)"
     }
   }
 }

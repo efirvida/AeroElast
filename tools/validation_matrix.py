@@ -2863,11 +2863,19 @@ def command_extract(args: argparse.Namespace) -> int:
             for node in declared_nodes:
                 print(f"  - {node}")
         if undeclared:
+            # Not an error any more. A test that makes no canonical comparison against a named
+            # reference is a physics property or a machinery check, which is a legitimate thing for
+            # it to be, and the contract says so by shape instead of asking a maintainer to declare
+            # it. It stays in the report because a comparison written the old way -- a bare assert
+            # against a literal -- lands here, and that is what a reviewer has to see.
             counts = Counter(
                 report["unclaimed_reasons"].get(node, "unknown") for node in undeclared
             )
             breakdown = ", ".join(f"{r}: {n}" for r, n in counts.most_common())
-            print(f"UNCLAIMED AND UNDECLARED: {len(undeclared)} ({breakdown})")
+            print(
+                f"not a comparison against an independent reference: {len(undeclared)} "
+                f"({breakdown})"
+            )
             for node in undeclared:
                 print(f"  - {node}")
         for pattern in stale:
@@ -2908,7 +2916,7 @@ def command_extract(args: argparse.Namespace) -> int:
     # A captured node that is neither claimed nor declared is the drift this store exists to
     # prevent, and a declaration that matches nothing is coverage that is not there. Neither is
     # reported by `check`: both need the collected set, and collecting means running pytest.
-    if undeclared or stale or report["declared_helpers_stale"] or report["dropped_declared_stale"]:
+    if stale or report["declared_helpers_stale"] or report["dropped_declared_stale"]:
         return EXIT_FINDINGS
     return EXIT_OK
 

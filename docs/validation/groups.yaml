@@ -107,38 +107,25 @@ groups:
     reference_kind: analytical
     source_files:
       - tests/validation/parity/test_thin_walled_tube_torsion.py
-    # The test bodies hold only machinery; the comparisons live in this helper.
-    validation_helpers:
-      - _self_equilibrated_validation
-    # Seven assertions that are not comparisons against an independent
-    # reference, each named by its own source. Policy rules 1 and 6 leave them
-    # no place in a row: a row is evidence, and a reference must be
-    # independent. Excluding them leaves the metrics that must reach 1.0.
-    non_reference_asserts:
-      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:434"
-        reason: >-
-          the torque ruler: our own machinery against the torque it was asked
-          to apply
-      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:435"
-        reason: "the torque ruler, mirror side"
-      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:441"
-        reason: "the generalised resultants of our own model must vanish"
-      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:444"
-        reason: "the modal projection of our own model"
-      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:479"
-        reason: "two of our own metrics agreeing with each other"
-      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:483"
-        reason: "the linearity of our own response"
-      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:503"
-        reason: "the laminate thickness equals the constant it was built from"
+    # Nothing is declared here about what is not a comparison inside the solver
+    # helper: that helper is no longer followed, and the comparison against
+    # Bredt is written in each test body through the suite's assertion helper
+    # with the reference named, which is what the extractor reads. See
+    # docs/adding-validation-tests.md.
+    #
+    # The one declaration left is transitional and it is the last thing the
+    # criterion has not caught up with: the extractor still counts a bare
+    # assertion in a *test body* as a comparison, so the wall-traction test --
+    # three load rulers and a symmetry, no reference -- would get a row and,
+    # with the group's kind, a false one. It goes away when the criterion reads
+    # the assertion helper instead of a literal bound.
     non_validation_tests:
       - tests:
           - test_wall_traction_excites_a_section_distortion
         reason: >-
-          Every assertion in it is machinery -- the torque ruler twice, and the
-          two walls of our own model agreeing -- so excluding them leaves no
-          comparison against an independent reference, and a row with no
-          comparisons is not a smaller row but no row.
+          Every assertion in it is machinery: the torque ruler twice and the two
+          walls of our own model agreeing. Waiting for the criterion switch, not
+          a claim that it compares nothing.
     provenance_note: >-
       The reference is Bredt's closed form for a closed thin-walled tube, which
       this module had already validated before the production load path was
