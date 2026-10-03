@@ -41,9 +41,10 @@ def _load_tool_module() -> Any:
     return module
 
 
-GROUP_SOURCE = "tests/test_ko2017_performance.py"
+GROUP_SOURCE = "tests/validation/benchmarks/test_ko2017_performance.py"
 NODE_ID = (
-    "tests/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5"
+    "tests/validation/benchmarks/test_ko2017_performance.py::"
+    "test_3_1_square_plate_tables_2_to_5"
     "[expected_table2_30-expected_table4_50-False-0.01-100.0]"
 )
 
@@ -52,7 +53,7 @@ GROUPS = {
     "groups": [
         {
             "id": "3",
-            "title": "`tests/test_ko2017_performance.py`",
+            "title": "`tests/validation/benchmarks/test_ko2017_performance.py`",
             "slug": "ko2017",
             "source_files": [GROUP_SOURCE],
         }
@@ -485,7 +486,7 @@ def test_headline_reports_worst_margin_and_above_rule_count(tmp_path: Path) -> N
         "groups": [
             {
                 "id": "3",
-                "title": "`tests/test_ko2017_performance.py`",
+                "title": "`tests/validation/benchmarks/test_ko2017_performance.py`",
                 "slug": "ko2017",
                 "source_files": [GROUP_SOURCE],
                 "headline": "31 benchmark cases; worst 2.73%",
@@ -726,7 +727,11 @@ def test_param_tokens_survive_the_ids_pytest_actually_builds() -> None:
 def test_assertion_calls_exclude_geometric_tolerances() -> None:
     """`tol=` on a node-search helper is not an acceptance bound."""
     module = _load_tool_module()
-    tree = ast.parse((REPO_ROOT / "tests/test_ko2017_performance.py").read_text(encoding="utf-8"))
+    tree = ast.parse(
+        (REPO_ROOT / "tests/validation/benchmarks/test_ko2017_performance.py").read_text(
+            encoding="utf-8"
+        )
+    )
     consts = module.module_constants(tree)
     func = next(
         node
@@ -980,7 +985,7 @@ def test_reference_entry_validation(tmp_path: Path, mutation: str, expected: str
 SYNTHETIC_PYTEST = """\
 collecting ... collected 1 item
 
-tests/test_ko2017_performance.py::test_3_6_hook_table_14_minimal_fix[0.9782] DEBUG: Running hook_MITC4
+tests/validation/benchmarks/test_ko2017_performance.py::test_3_6_hook_table_14_minimal_fix[0.9782] DEBUG: Running hook_MITC4
   Nodes: 441, Elements: 384
   Norm vs Kirchhoff: 0.9814 (expected: 0.9782, error: 0.33%)
 Hook MITC4: normalized = 0.9814 (expected 0.9782)
@@ -989,7 +994,8 @@ PASSED
 ============================== 1 passed in 5.32s ===============================
 """
 HOOK_NODE = (
-    "tests/test_ko2017_performance.py::test_3_6_hook_table_14_minimal_fix[0.9782]"
+    "tests/validation/benchmarks/test_ko2017_performance.py::"
+    "test_3_6_hook_table_14_minimal_fix[0.9782]"
 )
 
 
@@ -1106,7 +1112,7 @@ def test_regression_needs_a_declared_pattern(tmp_path: Path) -> None:
 # --------------------------------------------------------------------------- #
 
 MD_SAMPLE = """\
-## 3. `tests/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)
+## 3. `tests/validation/benchmarks/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)
 
 | test | what it validates | reference (paper cell) | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |
@@ -1123,7 +1129,9 @@ MD_SAMPLE = """\
 
 def test_find_md_table_stops_at_the_next_section_and_inherits_the_function() -> None:
     module = _load_tool_module()
-    rows = module.find_md_table(MD_SAMPLE, "tests/test_ko2017_performance.py")
+    rows = module.find_md_table(
+        MD_SAMPLE, "tests/validation/benchmarks/test_ko2017_performance.py"
+    )
     assert len(rows) == 4  # the table of section 4 is not included
     assert [row["function"] for row in rows] == [
         "test_3_1_square_plate_tables_2_to_5",
@@ -1229,7 +1237,7 @@ def test_duplicate_adjudication_ids_are_reported(tmp_path: Path) -> None:
 
 
 FIXTURE_MD = """\
-## 3. `tests/test_ko2017_performance.py` (fixture)
+## 3. `tests/validation/benchmarks/test_ko2017_performance.py` (fixture)
 
 | test | what it validates | reference | tolerance | measured margin | notes |
 | --- | --- | --- | --- | --- | --- |

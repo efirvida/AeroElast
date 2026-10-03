@@ -16,7 +16,7 @@ Usage:
 The store lives in `docs/validation/`:
 
     references.yaml             canonical bibliography (rector)
-    groups.yaml                 group registry + un_inventoried allowlist
+    groups.yaml                 group registry (the directory is the classification)
     flags.yaml                  flag registry (judgement flags + derived flags)
     rows/<group-slug>.yaml      the rows of one group
 
@@ -283,7 +283,6 @@ class Store:
 
     root: Path
     groups: dict[str, dict[str, Any]] = field(default_factory=dict)
-    un_inventoried: dict[str, dict[str, Any]] = field(default_factory=dict)
     flag_entries: dict[str, dict[str, Any]] = field(default_factory=dict)
     derived_flags: set[str] = field(default_factory=set)
     references: dict[str, dict[str, Any]] = field(default_factory=dict)
@@ -426,16 +425,6 @@ def load_groups(store: Store) -> None:
             store.warn(where, f"prose file not written yet: {str(prose).strip()}")
         store.groups[group_id] = entry
 
-    for index, entry in enumerate(data.get("un_inventoried") or []):
-        where = f"groups.yaml:un_inventoried[{index}]"
-        if not isinstance(entry, dict) or not isinstance(entry.get("file"), str):
-            store.error(where, "expected a mapping with a 'file'")
-            continue
-        if not (REPO_ROOT / entry["file"]).exists():
-            store.error(where, f"file does not exist: {entry['file']}")
-        if not isinstance(entry.get("reason"), str) or not entry["reason"]:
-            store.error(where, "a documented drift entry needs a 'reason'")
-        store.un_inventoried[entry["file"]] = entry
 
 
 def _validate_reference(store: Store, where: str, ref: Any) -> None:
@@ -623,6 +612,13 @@ def validate_row(store: Store, where: str, row: Any) -> None:
                 store.error(where, f"not a collected node id: {node!r}")
             elif not (REPO_ROOT / node.split("::")[0]).exists():
                 store.error(where, f"node id names a missing file: {node!r}")
+            elif not node.startswith("tests/validation/"):
+                store.error(
+                    where,
+                    f"a row may only claim a test under tests/validation/, and {node!r} is "
+                    "not: a test that validates no physical quantity belongs in "
+                    "tests/software/ and needs no row",
+                )
         if not tests and evidence != "out_of_band":
             store.error(where, "an empty 'tests' list requires evidence: out_of_band")
 
@@ -1198,7 +1194,7 @@ def command_set(args: argparse.Namespace) -> int:
         if flag in flags:
             flags.remove(flag)
 
-    probe = Store(root=store.root, groups=store.groups, un_inventoried=store.un_inventoried)
+    probe = Store(root=store.root, groups=store.groups)
     probe.flag_entries = store.flag_entries
     probe.derived_flags = store.derived_flags
     validate_row(probe, str(ref.path), row)
@@ -2458,6 +2454,9 @@ def load_adjudications(store: Store) -> None:
         group_id = data.get("group")
         if not isinstance(group_id, str) or group_id not in store.groups:
             store.error(rel, f"unknown group: {group_id!r}")
+        scope = data.get("scope")
+        if isinstance(scope, str) and "/" in scope and not (REPO_ROOT / scope).exists():
+            store.error(rel, f"scope points at a path that does not exist: {scope!r}")
         entries = data.get("adjudications")
         if entries is None:
             entries = []

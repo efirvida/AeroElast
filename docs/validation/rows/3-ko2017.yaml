@@ -4,7 +4,7 @@ rows:
   group: '3'
   title: test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-False-0.01-100.0]
   tests:
-  - tests/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-False-0.01-100.0]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-False-0.01-100.0]
   validates: test_3_1_square_plate_tables_2_to_5
   comparisons:
   - label: rtol at line 821
@@ -16,7 +16,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:821
+      source: tests/validation/benchmarks/test_ko2017_performance.py:821
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -36,7 +36,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:845
+      source: tests/validation/benchmarks/test_ko2017_performance.py:845
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -53,7 +53,7 @@ rows:
   group: '3'
   title: test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-False-0.001-100000.0]
   tests:
-  - tests/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-False-0.001-100000.0]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-False-0.001-100000.0]
   validates: test_3_1_square_plate_tables_2_to_5
   comparisons:
   - label: rtol at line 821
@@ -65,7 +65,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:821
+      source: tests/validation/benchmarks/test_ko2017_performance.py:821
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -85,7 +85,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:845
+      source: tests/validation/benchmarks/test_ko2017_performance.py:845
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -102,7 +102,7 @@ rows:
   group: '3'
   title: test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-False-0.0001-100000000.0]
   tests:
-  - tests/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-False-0.0001-100000000.0]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-False-0.0001-100000000.0]
   validates: test_3_1_square_plate_tables_2_to_5
   comparisons:
   - label: rtol at line 821
@@ -114,7 +114,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:821
+      source: tests/validation/benchmarks/test_ko2017_performance.py:821
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -134,7 +134,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:845
+      source: tests/validation/benchmarks/test_ko2017_performance.py:845
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -151,7 +151,7 @@ rows:
   group: '3'
   title: test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-True-0.01-100.0]
   tests:
-  - tests/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-True-0.01-100.0]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-True-0.01-100.0]
   validates: test_3_1_square_plate_tables_2_to_5
   comparisons:
   - label: rtol at line 821
@@ -163,7 +163,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:821
+      source: tests/validation/benchmarks/test_ko2017_performance.py:821
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -183,7 +183,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:845
+      source: tests/validation/benchmarks/test_ko2017_performance.py:845
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -200,7 +200,7 @@ rows:
   group: '3'
   title: test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-True-0.001-100000.0]
   tests:
-  - tests/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-True-0.001-100000.0]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-True-0.001-100000.0]
   validates: test_3_1_square_plate_tables_2_to_5
   comparisons:
   - label: rtol at line 821
@@ -212,7 +212,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:821
+      source: tests/validation/benchmarks/test_ko2017_performance.py:821
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -232,7 +232,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:845
+      source: tests/validation/benchmarks/test_ko2017_performance.py:845
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -249,7 +249,7 @@ rows:
   group: '3'
   title: test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-True-0.0001-100000000.0]
   tests:
-  - tests/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-True-0.0001-100000000.0]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_1_square_plate_tables_2_to_5[expected_table2_30-expected_table4_50-True-0.0001-100000000.0]
   validates: test_3_1_square_plate_tables_2_to_5
   comparisons:
   - label: rtol at line 821
@@ -261,7 +261,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:821
+      source: tests/validation/benchmarks/test_ko2017_performance.py:821
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -281,7 +281,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:845
+      source: tests/validation/benchmarks/test_ko2017_performance.py:845
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -298,7 +298,7 @@ rows:
   group: '3'
   title: test_3_2_circular_plate_tables_6_to_7[True-0.01-100.0-0.015625-0.06370192307692307-1.001-0.9991]
   tests:
-  - tests/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[True-0.01-100.0-0.015625-0.06370192307692307-1.001-0.9991]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[True-0.01-100.0-0.015625-0.06370192307692307-1.001-0.9991]
   validates: test_3_2_circular_plate_tables_6_to_7
   comparisons:
   - label: rtol at line 937
@@ -310,7 +310,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:937
+      source: tests/validation/benchmarks/test_ko2017_performance.py:937
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -327,7 +327,7 @@ rows:
   group: '3'
   title: test_3_2_circular_plate_tables_6_to_7[True-0.001-100000.0-0.015625-0.06370192307692307-0.9997-0.9988]
   tests:
-  - tests/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[True-0.001-100000.0-0.015625-0.06370192307692307-0.9997-0.9988]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[True-0.001-100000.0-0.015625-0.06370192307692307-0.9997-0.9988]
   validates: test_3_2_circular_plate_tables_6_to_7
   comparisons:
   - label: rtol at line 937
@@ -339,7 +339,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:937
+      source: tests/validation/benchmarks/test_ko2017_performance.py:937
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -356,7 +356,7 @@ rows:
   group: '3'
   title: test_3_2_circular_plate_tables_6_to_7[True-0.0001-100000000.0-0.015625-0.06370192307692307-0.9997-0.9988]
   tests:
-  - tests/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[True-0.0001-100000000.0-0.015625-0.06370192307692307-0.9997-0.9988]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[True-0.0001-100000000.0-0.015625-0.06370192307692307-0.9997-0.9988]
   validates: test_3_2_circular_plate_tables_6_to_7
   comparisons:
   - label: rtol at line 937
@@ -368,7 +368,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:937
+      source: tests/validation/benchmarks/test_ko2017_performance.py:937
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -385,7 +385,7 @@ rows:
   group: '3'
   title: test_3_2_circular_plate_tables_6_to_7[False-0.01-100.0-0.015625-0.06370192307692307-1.001-0.9991]
   tests:
-  - tests/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[False-0.01-100.0-0.015625-0.06370192307692307-1.001-0.9991]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[False-0.01-100.0-0.015625-0.06370192307692307-1.001-0.9991]
   validates: test_3_2_circular_plate_tables_6_to_7
   comparisons:
   - label: rtol at line 937
@@ -397,7 +397,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:937
+      source: tests/validation/benchmarks/test_ko2017_performance.py:937
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -414,7 +414,7 @@ rows:
   group: '3'
   title: test_3_2_circular_plate_tables_6_to_7[False-0.001-100000.0-0.015625-0.06370192307692307-0.9997-0.9988]
   tests:
-  - tests/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[False-0.001-100000.0-0.015625-0.06370192307692307-0.9997-0.9988]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[False-0.001-100000.0-0.015625-0.06370192307692307-0.9997-0.9988]
   validates: test_3_2_circular_plate_tables_6_to_7
   comparisons:
   - label: rtol at line 937
@@ -426,7 +426,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:937
+      source: tests/validation/benchmarks/test_ko2017_performance.py:937
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -443,7 +443,7 @@ rows:
   group: '3'
   title: test_3_2_circular_plate_tables_6_to_7[False-0.0001-100000000.0-0.015625-0.06370192307692307-0.9997-0.9988]
   tests:
-  - tests/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[False-0.0001-100000000.0-0.015625-0.06370192307692307-0.9997-0.9988]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_2_circular_plate_tables_6_to_7[False-0.0001-100000000.0-0.015625-0.06370192307692307-0.9997-0.9988]
   validates: test_3_2_circular_plate_tables_6_to_7
   comparisons:
   - label: rtol at line 937
@@ -455,7 +455,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:937
+      source: tests/validation/benchmarks/test_ko2017_performance.py:937
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -472,7 +472,7 @@ rows:
   group: '3'
   title: test_3_3_pinched_cylinder_tables_8_to_9[expected0-False]
   tests:
-  - tests/test_ko2017_performance.py::test_3_3_pinched_cylinder_tables_8_to_9[expected0-False]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_3_pinched_cylinder_tables_8_to_9[expected0-False]
   validates: test_3_3_pinched_cylinder_tables_8_to_9
   comparisons:
   - label: rtol at line 1126
@@ -484,7 +484,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:1126
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1126
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -501,7 +501,7 @@ rows:
   group: '3'
   title: test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]
   tests:
-  - tests/test_ko2017_performance.py::test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_3_pinched_cylinder_tables_8_to_9[expected0-True]
   validates: test_3_3_pinched_cylinder_tables_8_to_9
   comparisons:
   - label: rtol at line 1126
@@ -513,7 +513,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:1126
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1126
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -530,7 +530,7 @@ rows:
   group: '3'
   title: test_3_4_scordelis_lo_tables_10_to_11[expected0-False]
   tests:
-  - tests/test_ko2017_performance.py::test_3_4_scordelis_lo_tables_10_to_11[expected0-False]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_4_scordelis_lo_tables_10_to_11[expected0-False]
   validates: Scordelis-Lo roof benchmark (Ko et al. 2017, Tables 10-11).
   comparisons:
   - label: rtol at line 1284
@@ -542,7 +542,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:1284
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1284
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -559,7 +559,7 @@ rows:
   group: '3'
   title: test_3_4_scordelis_lo_tables_10_to_11[expected0-True]
   tests:
-  - tests/test_ko2017_performance.py::test_3_4_scordelis_lo_tables_10_to_11[expected0-True]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_4_scordelis_lo_tables_10_to_11[expected0-True]
   validates: Scordelis-Lo roof benchmark (Ko et al. 2017, Tables 10-11).
   comparisons:
   - label: rtol at line 1284
@@ -571,7 +571,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:1284
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1284
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -588,7 +588,7 @@ rows:
   group: '3'
   title: test_3_5_twisted_beam_tables_12_to_13[0.02667-In-plane-1.0-0.005424-0.001754-0.9971-0.01]
   tests:
-  - tests/test_ko2017_performance.py::test_3_5_twisted_beam_tables_12_to_13[0.02667-In-plane-1.0-0.005424-0.001754-0.9971-0.01]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_5_twisted_beam_tables_12_to_13[0.02667-In-plane-1.0-0.005424-0.001754-0.9971-0.01]
   validates: MacNeal-Harder twisted beam benchmark.
   comparisons:
   - label: rtol at line 1485
@@ -600,7 +600,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/test_ko2017_performance.py:1485
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1485
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -617,7 +617,7 @@ rows:
   group: '3'
   title: test_3_5_twisted_beam_tables_12_to_13[0.02667-Out-of-plane-1.0-0.005424-0.001754-0.9973-0.01]
   tests:
-  - tests/test_ko2017_performance.py::test_3_5_twisted_beam_tables_12_to_13[0.02667-Out-of-plane-1.0-0.005424-0.001754-0.9973-0.01]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_5_twisted_beam_tables_12_to_13[0.02667-Out-of-plane-1.0-0.005424-0.001754-0.9973-0.01]
   validates: MacNeal-Harder twisted beam benchmark.
   comparisons:
   - label: rtol at line 1485
@@ -629,7 +629,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/test_ko2017_performance.py:1485
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1485
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -646,7 +646,7 @@ rows:
   group: '3'
   title: test_3_5_twisted_beam_tables_12_to_13[0.0002667-In-plane-1e-06-0.005256-0.001294-0.9978-0.01]
   tests:
-  - tests/test_ko2017_performance.py::test_3_5_twisted_beam_tables_12_to_13[0.0002667-In-plane-1e-06-0.005256-0.001294-0.9978-0.01]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_5_twisted_beam_tables_12_to_13[0.0002667-In-plane-1e-06-0.005256-0.001294-0.9978-0.01]
   validates: MacNeal-Harder twisted beam benchmark.
   comparisons:
   - label: rtol at line 1485
@@ -658,7 +658,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/test_ko2017_performance.py:1485
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1485
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -675,7 +675,7 @@ rows:
   group: '3'
   title: test_3_5_twisted_beam_tables_12_to_13[0.0002667-Out-of-plane-1e-06-0.005256-0.001294-0.9982-0.01]
   tests:
-  - tests/test_ko2017_performance.py::test_3_5_twisted_beam_tables_12_to_13[0.0002667-Out-of-plane-1e-06-0.005256-0.001294-0.9982-0.01]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_5_twisted_beam_tables_12_to_13[0.0002667-Out-of-plane-1e-06-0.005256-0.001294-0.9982-0.01]
   validates: MacNeal-Harder twisted beam benchmark.
   comparisons:
   - label: rtol at line 1485
@@ -687,7 +687,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/test_ko2017_performance.py:1485
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1485
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -704,7 +704,7 @@ rows:
   group: '3'
   title: test_3_6_hook_table_14_minimal_fix[0.9782]
   tests:
-  - tests/test_ko2017_performance.py::test_3_6_hook_table_14_minimal_fix[0.9782]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_6_hook_table_14_minimal_fix[0.9782]
   validates: Hook test using RaaschHookMesh generator (Table 14 from Ko et al. 2017).
   comparisons:
   - label: rel_err at line 1698
@@ -715,7 +715,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.03
-      source: tests/test_ko2017_performance.py:1698
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1698
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -732,7 +732,7 @@ rows:
   group: '3'
   title: test_3_7_hemisphere_cutout_tables_15_to_16[0.004-2.0-expected_mitc40-False]
   tests:
-  - tests/test_ko2017_performance.py::test_3_7_hemisphere_cutout_tables_15_to_16[0.004-2.0-expected_mitc40-False]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_7_hemisphere_cutout_tables_15_to_16[0.004-2.0-expected_mitc40-False]
   validates: Hemisphere with cutout benchmark.
   comparisons:
   - label: rtol at line 1917
@@ -744,7 +744,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:1917
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1917
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -761,7 +761,7 @@ rows:
   group: '3'
   title: test_3_7_hemisphere_cutout_tables_15_to_16[0.004-2.0-expected_mitc40-True]
   tests:
-  - tests/test_ko2017_performance.py::test_3_7_hemisphere_cutout_tables_15_to_16[0.004-2.0-expected_mitc40-True]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_7_hemisphere_cutout_tables_15_to_16[0.004-2.0-expected_mitc40-True]
   validates: Hemisphere with cutout benchmark.
   comparisons:
   - label: rtol at line 1917
@@ -773,7 +773,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:1917
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1917
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -790,7 +790,7 @@ rows:
   group: '3'
   title: test_3_7_hemisphere_cutout_tables_15_to_16[0.0004-0.002-expected_mitc41-False]
   tests:
-  - tests/test_ko2017_performance.py::test_3_7_hemisphere_cutout_tables_15_to_16[0.0004-0.002-expected_mitc41-False]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_7_hemisphere_cutout_tables_15_to_16[0.0004-0.002-expected_mitc41-False]
   validates: Hemisphere with cutout benchmark.
   comparisons:
   - label: rtol at line 1917
@@ -802,7 +802,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:1917
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1917
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -819,7 +819,7 @@ rows:
   group: '3'
   title: test_3_7_hemisphere_cutout_tables_15_to_16[0.0004-0.002-expected_mitc41-True]
   tests:
-  - tests/test_ko2017_performance.py::test_3_7_hemisphere_cutout_tables_15_to_16[0.0004-0.002-expected_mitc41-True]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_7_hemisphere_cutout_tables_15_to_16[0.0004-0.002-expected_mitc41-True]
   validates: Hemisphere with cutout benchmark.
   comparisons:
   - label: rtol at line 1917
@@ -831,7 +831,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:1917
+      source: tests/validation/benchmarks/test_ko2017_performance.py:1917
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -848,7 +848,7 @@ rows:
   group: '3'
   title: test_3_8_full_hemisphere_table_17[0.004-2.0-0.996]
   tests:
-  - tests/test_ko2017_performance.py::test_3_8_full_hemisphere_table_17[0.004-2.0-0.996]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_8_full_hemisphere_table_17[0.004-2.0-0.996]
   validates: Full hemisphere benchmark.
   comparisons:
   - label: rtol at line 2020
@@ -860,7 +860,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:2020
+      source: tests/validation/benchmarks/test_ko2017_performance.py:2020
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -877,7 +877,7 @@ rows:
   group: '3'
   title: test_3_8_full_hemisphere_table_17[0.0004-0.002-0.9798]
   tests:
-  - tests/test_ko2017_performance.py::test_3_8_full_hemisphere_table_17[0.0004-0.002-0.9798]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_8_full_hemisphere_table_17[0.0004-0.002-0.9798]
   validates: Full hemisphere benchmark.
   comparisons:
   - label: rtol at line 2020
@@ -889,7 +889,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:2020
+      source: tests/validation/benchmarks/test_ko2017_performance.py:2020
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -906,7 +906,7 @@ rows:
   group: '3'
   title: test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.001-360.0-expected_mitc40-0.0002878-False]
   tests:
-  - tests/test_ko2017_performance.py::test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.001-360.0-expected_mitc40-0.0002878-False]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.001-360.0-expected_mitc40-0.0002878-False]
   validates: Hyperbolic paraboloid benchmark (Ko et al. 2017, Tables 18-19).
   comparisons:
   - label: rtol at line 2127
@@ -918,7 +918,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:2127
+      source: tests/validation/benchmarks/test_ko2017_performance.py:2127
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -935,7 +935,7 @@ rows:
   group: '3'
   title: test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.001-360.0-expected_mitc40-0.0002878-True]
   tests:
-  - tests/test_ko2017_performance.py::test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.001-360.0-expected_mitc40-0.0002878-True]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.001-360.0-expected_mitc40-0.0002878-True]
   validates: Hyperbolic paraboloid benchmark (Ko et al. 2017, Tables 18-19).
   comparisons:
   - label: rtol at line 2127
@@ -947,7 +947,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:2127
+      source: tests/validation/benchmarks/test_ko2017_performance.py:2127
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -964,7 +964,7 @@ rows:
   group: '3'
   title: test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.0001-3.6-expected_mitc41-0.00023856-False]
   tests:
-  - tests/test_ko2017_performance.py::test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.0001-3.6-expected_mitc41-0.00023856-False]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.0001-3.6-expected_mitc41-0.00023856-False]
   validates: Hyperbolic paraboloid benchmark (Ko et al. 2017, Tables 18-19).
   comparisons:
   - label: rtol at line 2127
@@ -976,7 +976,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:2127
+      source: tests/validation/benchmarks/test_ko2017_performance.py:2127
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -993,7 +993,7 @@ rows:
   group: '3'
   title: test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.0001-3.6-expected_mitc41-0.00023856-True]
   tests:
-  - tests/test_ko2017_performance.py::test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.0001-3.6-expected_mitc41-0.00023856-True]
+  - tests/validation/benchmarks/test_ko2017_performance.py::test_3_9_hyperbolic_paraboloid_tables_18_to_19[0.0001-3.6-expected_mitc41-0.00023856-True]
   validates: Hyperbolic paraboloid benchmark (Ko et al. 2017, Tables 18-19).
   comparisons:
   - label: rtol at line 2127
@@ -1005,7 +1005,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/test_ko2017_performance.py:2127
+      source: tests/validation/benchmarks/test_ko2017_performance.py:2127
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

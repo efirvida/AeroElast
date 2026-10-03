@@ -271,10 +271,10 @@ references:
       0264-4401/84/010077-12, footer "Eng. Comput., 1984, Vol. 1, March"). The
       issue number is not printed on the copy.
     cited_by_declared:
-      - "tests/test_shell_comprehensive.py:13"
+      - "tests/validation/benchmarks/test_shell_comprehensive.py:13"
       - "crates/aeroelast-core/src/elements/mitc4.rs"
     cited_by_stale:
-      - "tests/test_ko2017_performance.py:1360"
+      - "tests/validation/benchmarks/test_ko2017_performance.py:1360"
     code_mentions:
       - "Dvorkin"
     notes: >-
@@ -435,7 +435,7 @@ references:
     cited_by_declared:
       - "src/aeroelast/core/mesh/generators.py:65"
     cited_by_stale:
-      - "tests/test_ko2017_performance.py:4-7"
+      - "tests/validation/benchmarks/test_ko2017_performance.py:4-7"
     code_mentions:
       - "Ko2017"
     notes: >-
@@ -483,7 +483,7 @@ references:
       MITC3+ 0.7409 / 0.8793 / 0.9618, Enriched MITC3+ 0.9610 / 0.9931 / 0.9983,
       MITC4+ Mesh I 1.0476 / 1.0053 / 0.9977, reference solution
       `w_ref = 0.3024`. These are the target values for the rows of
-      `tests/test_mitc3_smoothed.py`, which are not migrated to the store yet;
+      `tests/validation/benchmarks/test_mitc3_smoothed.py`, which are not migrated to the store yet;
       they are recorded here because only the deleted matrix recorded them.
       The comparison that matrix recorded: measured 0.9924 at N=8 against
       1.0323, 3.86%, and 0.9974 at N=16 against 1.0075, 1.00%, both inside the
@@ -719,7 +719,7 @@ references:
       integration of the in-plane shear term that the superseded hybrid MITC4+
       carried. The faithful MITC4+/D that replaced it contains no selective
       reduced integration (`docs/formulations/shell-elements.md` §2.6, guarded
-      by `tests/test_mitc4plusd_traceability.py`), and no line of the code
+      by `tests/software/contracts/test_mitc4plusd_traceability.py`), and no line of the code
       cites this work any more, so it is kept as the origin of an ingredient
       whose retirement is documented rather than as a reference the code uses.
       The `Hughes, T.J.R., Brezzi, F.` entry below is a different work and is
@@ -824,9 +824,9 @@ references:
       `src/aeroelast/postprocess/stress_recovery.py:53-55` gives the author
       list, the title and the edition; the publisher is not given and the
       work is not held. Also cited as "Cook et al. 'Concepts and Applications
-      of Finite Element Analysis'" at `tests/test_shell_comprehensive.py:15`.
+      of Finite Element Analysis'" at `tests/validation/benchmarks/test_shell_comprehensive.py:15`.
     cited_by_declared:
-      - "tests/test_shell_comprehensive.py:15"
+      - "tests/validation/benchmarks/test_shell_comprehensive.py:15"
     cited_by_stale:
       - "src/aeroelast/postprocess/stress_recovery.py:53"
     code_mentions:
@@ -906,17 +906,17 @@ references:
     cited_by_declared: []
     cited_by_stale:
       - "src/aeroelast/core/mesh/generators.py:2010"
-      - "tests/test_ko2017_performance.py:1455"
+      - "tests/validation/benchmarks/test_ko2017_performance.py:1455"
     notes: >-
       Read from the reference list of two held copies,
       `.sources/papers/1-s2.0-S0045794917309550-main.pdf` item [30] and
       `.sources/papers/mitc4+_no_lineal.pdf.pdf` item [36]; the paper itself is
       not held, so the DOI could not be read. The code cites it as "Knight
       (1997)" alone (`src/aeroelast/core/mesh/generators.py:2010,2023`,
-      `tests/test_ko2017_performance.py:1455`), for the Raasch hook geometry
+      `tests/validation/benchmarks/test_ko2017_performance.py:1455`), for the Raasch hook geometry
       and its benchmark parameters. The live sites are
       `src/aeroelast/core/mesh/generators.py:2030` and
-      `tests/test_ko2017_performance.py:1514`; the prose lines no longer name
+      `tests/validation/benchmarks/test_ko2017_performance.py:1514`; the prose lines no longer name
       the work and are recorded as stale.
 
   - key: pynumad
@@ -1136,9 +1136,9 @@ references:
     held: false
     verification: unverified
     cited_by_declared:
-      - "tests/test_shell_comprehensive.py:11"
+      - "tests/validation/benchmarks/test_shell_comprehensive.py:11"
     cited_by_stale:
-      - "tests/test_shell_comprehensive.py:82-83"
+      - "tests/validation/benchmarks/test_shell_comprehensive.py:82-83"
     code_mentions:
       - "NAFEMS"
     notes: >-
@@ -1147,7 +1147,7 @@ references:
       that publishes the benchmark reports. The code gives no report titles and
       none is held, so no report title is asserted here, and the source states
       no publication year or author. The live report citations are at
-      `tests/test_shell_comprehensive.py:84-86`; the prose range no longer names
+      `tests/validation/benchmarks/test_shell_comprehensive.py:84-86`; the prose range no longer names
       them and is recorded as stale.
 
   - key: abaqus
@@ -1163,10 +1163,10 @@ references:
     held: false
     verification: unverified
     cited_by_declared:
-      - "tests/test_shell_comprehensive.py:12"
-      - "tests/test_shell_analytical_validation.py:9"
+      - "tests/validation/benchmarks/test_shell_comprehensive.py:12"
+      - "tests/validation/benchmarks/test_shell_analytical_validation.py:9"
     cited_by_stale:
-      - "tests/test_shell_comprehensive.py:84"
+      - "tests/validation/benchmarks/test_shell_comprehensive.py:84"
       - "crates/aeroelast-core/src/elements/mitc4.rs:95"
     code_mentions:
       - "Abaqus"
@@ -1179,9 +1179,9 @@ references:
       §3.6.5, §3.6.8); that document was removed from the repository in
       `ee6c345`, so the site is gone rather than declared. The live code sites
       are
-      `tests/test_shell_comprehensive.py:86` and, for the S4R note,
+      `tests/validation/benchmarks/test_shell_comprehensive.py:86` and, for the S4R note,
       `src/aeroelast/postprocess/stress_recovery.py`; the prose sites
-      `tests/test_shell_comprehensive.py:84` and
+      `tests/validation/benchmarks/test_shell_comprehensive.py:84` and
       `crates/aeroelast-core/src/elements/mitc4.rs:95` no longer name Abaqus and
       are recorded as stale.
 
@@ -1223,14 +1223,14 @@ references:
       "IEA Wind TCP Task 37: Definition of the IEA 15-Megawatt Offshore
       Reference Wind Turbine"
     cited_by_declared:
-      - "tests/test_blade_iea15mw_validation.py"
+      - "tests/validation/blade/test_blade_iea15mw_validation.py"
     code_mentions:
       - "Gaertner"
     notes: >-
       March 2020. This is the NREL reference definition of the turbine; the
       repository ships its WindIO rendering as `tests/IEA-15-240-RWT.yaml`. The
       report states a blade mass about 65 t, which the test suite compares
-      against. Cited by the code at `tests/test_blade_iea15mw_validation.py`
+      against. Cited by the code at `tests/validation/blade/test_blade_iea15mw_validation.py`
       (mass vs the report's ~65 t).
 
   - key: escalera2023
@@ -1256,14 +1256,14 @@ references:
       title, authors and DOI printed on the first page
     cited_by_declared: []
     cited_by_stale:
-      - "tests/test_blade_iea15mw_validation.py:70-81"
+      - "tests/validation/blade/test_blade_iea15mw_validation.py:70-81"
     notes: >-
       AIAA 2023-2093. The model itself is distributed as **UTD-IEA15MWBlade**
       v1.0.0 (Apache-2.0), archived at doi:10.5281/zenodo.7392283, upstream
       <https://github.com/UTDGriffithLab/UTD-IEA15MWBlade>; the held copy ships
       the NuMAD `.nmd`/`.xlsx`, the ElastoDyn blade file and the BModes mode
       output. The code names it throughout
-      `tests/test_blade_iea15mw_validation.py` (68,077 kg mass; Table 3 first
+      `tests/validation/blade/test_blade_iea15mw_validation.py` (68,077 kg mass; Table 3 first
       two modes; section V DLC 1.4 root moment and tip deflection); the prose
       range no longer names it and is recorded as stale.
 
@@ -1458,7 +1458,7 @@ references:
       Horizontal-Axis Wind Turbines*). The code now cites that source; the
       original Viterna-Corrigan title/venue is still not held, so no DOI or
       pages are asserted here. The equations are verified against the manual by
-      `tests/test_bem_polars.py::test_viterna_matches_aerodyn_theory_manual`.
+      `tests/validation/bem/test_bem_polars.py::test_viterna_matches_aerodyn_theory_manual`.
 
   - key: ning2014
     section: "6.1 BEM theory and post-stall extrapolation"

@@ -73,8 +73,17 @@ worse than no test: it certifies a result nobody measured.
    device for a value you will quote, and a citation without provenance is not evidence.
    The protocol is `docs/reading-sources.md`.
 
+8. **A test's directory says whether it belongs to the validation scheme.**
+   `tests/validation/<domain>/` holds a test that validates a physical quantity against an
+   independent reference; `tests/software/<domain>/` holds everything else; `tests/support/`
+   holds the shared helpers. A validation test needs a group and a row, a software test needs
+   neither, and `check` refuses a row that claims a test from `tests/software/`. Write the
+   test where it belongs instead of declaring it in a list, and let the directory answer the
+   question.
+
 Rules 1-6 are the contract a test must satisfy; `docs/adding-validation-tests.md` is the
-procedure that satisfies it, and `docs/reading-sources.md` is how a source value is read.
+procedure that satisfies it, rule 8 is where the test goes, and `docs/reading-sources.md` is
+how a source value is read.
 
 ## Practical guidance
 

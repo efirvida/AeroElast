@@ -32,6 +32,13 @@ rather than giving it a row.
 The one-sentence test: name the physical quantity and its independent reference. If you
 cannot, it is a software test.
 
+**The directory is that answer, and it is enforced.** Write a validation test under
+`tests/validation/<domain>/` and a software test under `tests/software/<domain>/`; shared
+helpers go in `tests/support/`, which is a package so any test can import them by name. A row
+may only claim a test under `tests/validation/`, so `check` fails on a row for a software
+test, and the two cannot drift apart. There is no list of excluded files to maintain: the path
+is the classification.
+
 Why this boundary is strict: a row that cannot be wrong about physics dilutes the rows
 that can. The matrix's own history is the argument — rows comparing a value against a
 schema, or asserting nothing that could fail, had to be flagged one by one and finally
@@ -60,11 +67,11 @@ group nor the out-of-scope list is an error, not a gap.
    the strongest claim available (rule 4).
 4. **Print the residual.** The measured margin is transcribed from the test's own
    output. An assertion that cannot print one yields `not_printed`, and the row says so.
-5. **Declare the group, or declare the file out of scope.** A new test file needs an entry
-   in `docs/validation/groups.yaml` with its `id`, `slug`, `source_files` and the
-   `citation` key its paper references use — or, if it is a software test, an out-of-scope
-   entry with the reason. A collected file in neither list is reported as drift by
-   `check`.
+5. **Put the file in the right directory, and declare its group if it is validation.**
+   `tests/validation/<domain>/` needs an entry in `docs/validation/groups.yaml` with its `id`,
+   `slug`, `source_files` and the `citation` key its paper references use. A test under
+   `tests/software/<domain>/` needs none of that: the directory already says it is not
+   evidence.
 6. **Seed the rows from the code:**
    `python tools/validation_matrix.py extract --group <id> --write`. It claims every
    collected node exactly once and fills what the code states — the tolerances, their

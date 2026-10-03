@@ -70,7 +70,7 @@ gaps:
       upwind and braking the rotor.
     evidence: >-
       Frame: the load axis is per-strip from the section outline, guarded
-      by `tests/test_force_projection_load_frame.py`: worst
+      by `tests/validation/bem/test_force_projection_load_frame.py`: worst
       `|F.c_hat|/|F| = 0.0116` and `|F.f_hat|/|F| = 0.9999` for `Np`, the
       same for `Tp`, worst `angle(F, f_hat) = 0.662` deg, uniform-`Np`
       conservation `0.74%`, bounds 5% / 5% / 10 deg / 5%. The moment check

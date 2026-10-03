@@ -12,11 +12,11 @@ version: 1
 
 groups:
   - id: "3"
-    title: '`tests/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)'
+    title: '`tests/validation/benchmarks/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)'
     slug: ko2017
     citation: ko2017_perf
     source_files:
-      - tests/test_ko2017_performance.py
+      - tests/validation/benchmarks/test_ko2017_performance.py
     common_tolerance:
       kind: rtol
       value: 0.05
@@ -56,30 +56,8 @@ groups:
       `measured` values are the ones recorded when the matrix existed, and the
       reproduction command is in the row's notes.
 
-# Files that pytest collects but that carry no row yet. `check` uses this list
-# to tell documented drift from silently unaccounted nodes. Retired by WU-7.
-#
-# Measured 2026-10-02: the collected suite is 520 tests / 48 files while the
-# inventory accounts for 452 / 42.
-un_inventoried:
-  - file: tests/test_axisymmetric_components.py
-    tests: 15
-    reason: "no row yet; documented drift for WU-7"
-  - file: tests/test_blade_no_webs.py
-    tests: 6
-    reason: "no row yet; documented drift for WU-7"
-  - file: tests/test_cli_mesh.py
-    tests: 14
-    reason: "no row yet; documented drift for WU-7"
-  - file: tests/test_turbine_mesh.py
-    tests: 15
-    reason: "no row yet; documented drift for WU-7"
-  - file: tests/test_laminate_bend_twist.py
-    tests: 11
-    reason: "no row yet; documented drift for WU-7"
-  - file: tests/test_laminate_bend_twist_3d.py
-    tests: 4
-    reason: "no row yet; documented drift for WU-7"
-  - file: tests/test_blade_twist_mechanism.py
-    tests: 3
-    reason: "no row yet; documented drift for WU-7"
+# There is no drift bucket any more. The directory is the classification: a test under
+# `tests/validation/` validates a physical quantity against an independent reference and
+# needs a group and a row; a test under `tests/software/` validates the software and needs
+# neither. `check` refuses a row that claims a test from `tests/software/`, so the two
+# cannot drift apart inside the store.

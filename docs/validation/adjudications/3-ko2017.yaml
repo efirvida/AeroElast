@@ -8,7 +8,7 @@
 # reconciliation is real, plus the two findings the probe produced.
 
 group: "3"
-scope: tests/test_ko2017_performance.py
+scope: tests/validation/benchmarks/test_ko2017_performance.py
 run: 9c35532
 date: 2026-10-03
 

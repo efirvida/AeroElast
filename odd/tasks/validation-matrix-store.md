@@ -633,7 +633,7 @@ consequences:
 | T5 | done | - | `diff-against-md --group 3` -> `23 Markdown row(s) covering 37 case slot(s) against 31 collected node(s); 0 function(s) need adjudication`, exit 0; 80 tool tests |
 | T6 | done | - | `check` validates `docs/validation/adjudications/3-ko2017.yaml`; no conflict needed adjudication; 90 tool tests |
 | T7 | pending | - | - |
-| T8 | pending | - | - |
+| T8 | done | `93c7384` (T8a), below (T8b) | T8a: `tests/` is a package, helpers in `tests/support/`, 40 import sites rewritten, 527 nodes collected with zero import errors. T8b: 44 validation files in six domains and 9 software files in three, the drift bucket deleted, and the path made the classification |
 
 | T7 detail | deliverable | acceptance criteria |
 | --- | --- | --- |
