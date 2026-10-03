@@ -2536,3 +2536,102 @@ modal ratio `0.870` is the suspect input; with it replaced, the section 22.8 bea
 from 26% to 9%, and the remaining 9% is inside the anchor beam's own conventions - no load-frame
 defect is required, so section 22.7's moment identity is not contradicted. No production code, no
 existing test and no other document was changed, and the modal analysis was not re-run.
+
+### 22.11 Does Zhou's -3.60 deg / -13.04% transfer to this model?
+
+WU-D settles comparability and reports one de-loading table in one sign convention. The reference
+is read from the local PDF (`.sources/papers/Unsteady aeroelastic performance of the 15 MW floating
+offshore wind turbine under surge condition.pdf`; Zhou, Shen, Ma, Ouyang & Du 2025, *Energy*
+336:138488); no paywalled fetch.
+
+**Part 1, the paper's own words** (italic = quoted; "not stated" = it does not say).
+
+1. **Radius.** Table 4 is titled *"Comparison of the mean tip deflections of the IEA-15 MW blade
+   under rated condition"* - the torsion is at the **tip**; no station or span fraction beyond "tip".
+2. **Elastic or total.** *"the torsional deflection is defined as the rotation of the airfoil section
+   about the reference axis in Fig. 19, and the positive torsional deflection means the airfoil
+   section rotates toward stall."* It is a deflection, so the **elastic twist relative to the
+   undeformed/built-in configuration** - not total geometric+elastic twist, not a twist-distribution
+   value; "relative to built-in twist" is not stated verbatim. Its sign is the opposite of our label:
+   *"the aerodynamic moments at the blade sections make the airfoil sections twist towards feather
+   and reduce the angle of attack"*, so their -3.60 deg = toward feather = our negative (nose-down) sense.
+3. **Structural model.** Their own GEBT beam - *"The GEBT method used in the present study is
+   established based on the Hamilton principle"*, with *"C* the sectional stiffness matrix resolved in
+   the frame Bi"* - discretized as *"the IEA-15 MW blade is discretized into 50 stations as suggested
+   by Gaertner et al. [56] in technical manual of the IEA-15MW RWT"*. The stiffness source (NuMAD /
+   PreComp / a published deck / their own code) is **not stated**, and a **torsional stiffness value
+   is not stated**; the only stiffness datum is Table 3's 1st torsion frequency **4.072 Hz** (refs
+   4.314 / 4.475 / 4.295 / 3.911; the repo's own reference is NuMAD's 4.290 Hz, section 15.1).
+4. **Aero method and coupling.** LL-FVW with Beddoes-Leishman dynamic stall, coupled to GEBT *"through
+   the two-way loose coupling approach ... at each time step, the GEBT module accepts the aerodynamic
+   loads calculated by the LL-FVW module, and then the blade profile is updated and the additional
+   velocities due the blade deflections are calculated and fed back to the LL-FVW module for the
+   aerodynamic prediction of the next time step."* The circulation is converged at each step (*"In
+   each time step, the circulation of the bound vortex is solved through iteration of Eq. (4)"*,
+   relaxation 0.1, tolerance 1e-3): a time-accurate **loose, two-way** coupling, not a fixed point
+   and not one iteration. Azimuth step 6 deg, GEBT dt 0.002 s, 600 s. The tip values are the time
+   mean; **the blade/azimuth is not stated**.
+5. **Operating point.** *"the wind turbine is assumed to operate at the rated state, that is, the
+   inflow wind velocity is 10.59 m/s and the rotational speed of the rotor is 7.55 rpm"*, cone and
+   shaft tilt *"set to zero"*. Ours is 10.59 m/s, 7.56 rpm (-0.13%) and pitch 0; **their pitch is not
+   stated**. Loads match: our per-blade 8.4169e5 N x 3 = **2.525 MN** vs their rigid fixed **2.53 MN**
+   (Table 6, -0.2%).
+
+
+**Parent's correction to the inference above - their own Table 3 refutes "2x softer", and the
+transferability verdict has to be restated on the right axis.** The worker wrote the gap off to their
+structure being ~2x softer than the public deck, but the paper's own Table 3 gives their model's
+**1st torsion frequency as 4.072 Hz**, against our shell's **4.000 Hz** (section 15.1) and NuMAD's
+4.290 Hz. Forming the same stiffness ratio the section 15.1 modal route uses: `(4.072/4.000)^2 =
+1.036`, i.e. **their torsional stiffness is within ~4 % of ours** - and `(4.072/4.290)^2 = 0.900`,
+within 3 % of our shell's `0.870`. Two models whose first torsional frequencies differ by 1.8 %
+cannot be 2.4x apart in torsional stiffness. So the twist gap is **not** a stiffness difference.
+With the stiffness difference excluded and the thrust level matched (their rigid 2.53 MN against our
+rigid baseline 2.5417 MN, 0.46 %; their rigid 16.11 MW against our 16.389 MW, 1.73 % - an
+independent load cross-check neither of us was built for), a linear twist-torque relation leaves
+**their delivered aerodynamic torque around 2.4x ours** as the open variable, which is an
+aerodynamic-model question (their two-way LL-FVW with Beddoes-Leishman dynamic stall and a converged
+wake, at an unstated pitch angle, against our steady one-way BEM at pitch 0), not a structural one.
+Their own decomposition supports looking there: they split the angle-of-attack change into a
+*"structural twist component (the yellow line) and the aerodynamic component (the blue line)"*, and
+Table 4's torsion is only the structural one - so their load path is where the extra twist must come
+from. Restated verdict: **comparable in kind, and the residual is a load/aero-model difference, not a
+stiffness difference** - which is a sharper claim than "not transferable" and keeps the prohibition on
+retargeting our model to their -3.60 deg. What stays unproven: their sectional stiffness source and
+their pitch angle are not stated, so the torque explanation is inferred from their frequency plus
+their thrust, not read off their paper.
+**Part 2.** One table, one sign convention: thrust and power as `(flexible - rigid) / rigid`,
+negative = the rotor unloads; twist in degrees about +span under fluid +Y / rotor clockwise viewed
+from behind. `tests/test_blade_deloading_vs_reference.py` (3 tests) drives the production participant
+on the real mesh, solves the shell **once**, and re-runs only the BEM on the three feedbacks against
+one reference baseline (2.541662 MN / 16.389372 MW):
+
+| feedback fed to the BEM | what it isolates | thrust | power | tip dr [m] | tip dtwist [deg] |
+| --- | --- | ---: | ---: | ---: | ---: |
+| twist only, reference radii | the pure bend-twist unloading | -4.00% | -0.81% | +0.0000 | -1.5112 |
+| deformed radii only, reference twist | the geometric re-loading (axial-stretch artefact) | +1.13% | +0.85% | +0.4462 | +0.0000 |
+| twist + radii (production path) | what production does today | -2.96% | +0.03% | +0.4462 | -1.5112 |
+
+Zhou Table 6 (flexible vs rigid): -13.04% / -8.38%. The exact production path crosses its own rigid
+baseline at -2.32% / +0.42% (section 22.6); the table shares the reference-station baseline so only
+the feedback changes. **Power sign:** radii-only **+0.85%** (positive) vs production **+0.03%**
+(positive) - the **same sign** - while twist alone is -0.81%: "power up" is the **radius
+(axial-stretch) artefact**, not bend-twist re-loading. Tip nodal displacement: axial (span)
++1.0636 m, radial (in-plane) +16.4868 m.
+
+**Verdict: not transferable.** The reference is *partially comparable in kind* (same machine, rated
+point, thrust level, and its quoted quantity is the elastic tip torsion we measure) but *not
+transferable to this model*. (a) A beam built from the IEA-15MW's **own published `GJ`** gives
+-1.78 deg at the tip under demonstrably comparable loads, and our shell's static torsion matches the
+published deck to `GJ_static/GJ_deck = 1.068` (section 22.10); their -3.60 deg is ~2.0x that beam
+and 2.4x our shell section rotation (-1.51 deg). ~~Their structure is therefore ~2x softer in torsion
+than the public deck (or their "torsion" is a different measurement); with the stiffness source
+unstated this cannot be resolved from the paper. (b) Their aero is a fully coupled LL-FVW; ours is a
+one-way steady BEM with only radius and twist feedback. The de-loading gap follows the same ratio
+(one-way twist-only -4.00% / -0.81% vs -13.04% / -8.38%); even the one-way lower bound (a converged
+fixed point would deepen the twist) is ~3.3x short. So the gap is **not a defect** (sign and
+mechanism are right, stiffness is not the problem) and **not** only one-way-vs-converged - it is a
+**model/reference difference**, and the suite's rules forbid retargeting the model to hit their
+number. The de-loading gap is now attributed: "power up" = the axial-stretch artefact (the
+de-loading magnitude stays a reported residual); the thrust shortfall = a reference that does not
+transfer.

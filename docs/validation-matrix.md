@@ -486,7 +486,9 @@ rows bring 516 to 520).
 | `test_mitc3_smoothed.py` | 3 | §6.10 |
 | `test_blade_rated_twist.py` | 7 | §4.11 |
 | `test_thin_walled_tube_torsion.py` | 4 | §4.12 |
-| **42 files** | **452** | |
+| `test_blade_deloading_vs_reference.py` | 3 | §22.11 (reported table: no bound vs Zhou; asserts: rigid-path invariance `1e-9`, twist sign, applied-load `sum F` < 2%) |
+| `test_blade_section_torsion_stiffness.py` | 1 | §22.10 (asserts: torque-ruler identity and self-equilibration `< 1e-9`, monotone positive twist; no bound vs the deck, the modal ratio or Zhou) |
+| **44 files** | **456** | |
 
 **Row-level inventory corrections made with this refresh.** Four headings carried a group
 count that did not sum to the file's collected total; the rows below were the cause and are
