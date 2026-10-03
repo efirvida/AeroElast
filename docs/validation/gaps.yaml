@@ -45,6 +45,35 @@ gaps:
     citations_forbidden: true
     rows: []
 
+  - id: moment_realization_over_delivers
+    scope: "the torsional nodal distribution in force_projection.py"
+    status: open_defect
+    reason: >-
+      The minimum-norm realisation of a pure section moment is exactly
+      `f_j = omega x d_j`, circle-tangential about the section centroid, and
+      not the wall shear flow `q = T/(2A)` that a closed section carries. It
+      over-delivers rigid torsion at the ends instead of under-delivering it:
+      case B measures 31.7x the Bredt rate, while the validated shear flow on
+      the same mesh, torque and solver reproduces Bredt within 5%. The
+      under-delivery hypothesis (P8) is rejected, and the departure is
+      localised to the load path, not to the element.
+    evidence: >-
+      tests/validation/parity/test_thin_walled_tube_moment_realization.py
+      (verdict section 22.9). Related measurements pointing at the same place:
+      the production load path's `distortion/|omega| = 9.36` (section 20.5);
+      the shell delivering `0.74x` of the rigid twist its own measured
+      `GJ_shell/GJ_ref = 0.87` calls for, a `1.35x` deficit (1df95fe,
+      section 22.8); and the statically-equivalent end load that bought `125x`
+      the section distortion at the same torque (d4fec33).
+    consequence: >-
+      This adds the torsional mechanism to the same uncitability the two
+      force_projection defects above already impose on the campaign numbers. It
+      does not make a new class of number uncitable, and it is recorded because
+      the mechanism is now localised -- the realised field is `omega x d_j`,
+      not `q = T/(2A)` -- which is what a fix has to act on.
+    citations_forbidden: true
+    rows: []
+
   - id: experimental_validation
     scope: "experimental validation, wind tunnel or field"
     status: not_validated
