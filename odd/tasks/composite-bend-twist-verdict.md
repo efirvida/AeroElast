@@ -2149,6 +2149,17 @@ inverted:
   torsional stiffness calls for - a **1.35 x deficit**, not the "2-3 % agreement" the first draft
   claimed. (Comparing an observed ratio to the reciprocal of the expected one is the error; the
   numbers in the table are unaffected.)
+- **SUPERSEDED by section 22.10, and it was my own reference mix-up.** The `0.87` above is *not* a
+  shell-versus-deck ratio: section 15.1 forms it from our shell's 4.000 Hz against **NuMAD's**
+  4.290 Hz, so its denominator is another team's discretisation (the same section rates that
+  comparison's scatter at 15.1 %). Scaling a **deck-`GJ`** beam by it, as this bullet does, mixes
+  references. The deck-referenced static measurement (section 22.10) gives `GJ_shell/GJ_deck = 1.068`
+  over `r = 20-100 m`, with a tight `1.03-1.09` plateau over `r = 35-80 m`, so the expected twist is
+  `1.7765/1.068 = 1.663 deg` against the measured `1.5112 deg`: a **9 % residual**, not a 26-35 %
+  deficit, and it sits inside the anchor beam's own convention uncertainty (26-station quadrature,
+  interpolated loads, anchor shear centre, `y_AC = 0`). Estimator verdict (i) is untouched; what
+  dies here is the "under-twist" framing, and with it the premise that a structural explanation is
+  owed.
 
 So **(ii) is back on the table**: the shell under-twists relative to both an independent beam and
 its own modal stiffness, and two independent measurements already point at the load realisation
@@ -2223,7 +2234,8 @@ solve were not re-run).**
 | expected shell (same torque) `phi_beam/0.870` | -2.042 deg | derived | - |
 | observed / expected | 1.5112/2.042 = **0.740 -> 1.35x deficit** | derived | - |
 
-**Bound on that 1.35x (the parent's correction - the ratio is not a sharp number).** The modal
+**Bound on that 1.35x (the parent's correction - the ratio is not a sharp number), and superseded
+by section 22.10 (the ratio is not even a shell-versus-deck number).** The modal
 `0.870` comes from one torsional frequency, 4.000 Hz against NuMAD's 4.290 Hz, and section 15.1
 records that mode's **reference scatter as 15.1%**. Propagating it, the expected shell twist is
 `2.042 x [0.849, 1.151] = [1.734, 2.351] deg`, and the measured `1.5112 deg` sits below the whole
@@ -2240,3 +2252,287 @@ realisation softens the section (over-twist), it does not stiffen it - so the 1.
 points at the section-stiffness or anchor inputs, not at the nodal moment realisation.
 
 **Verdict on P8: rejected.** No production code was changed in this unit.
+
+### 22.10 Three independent routes to the blade's torsional stiffness
+
+**Route (c), the new static measurement.** `tests/test_blade_section_torsion_stiffness.py` (1 test,
+44 s, one blade solve). The realisation is the Bredt wall flow `q = T/(2A)` validated on the exact
+tube (`d4fec33`), applied as `+T` on the tip ring and `-T` on the root ring of the real shell blade
+(`q = 2.1017e8` N/m at the tip, `2.3959e5` N/m at the root), with the six rigid modes removed by the
+exact saddle-point constraint (`test_thin_walled_tube_torsion._solve_rigid_removed`, reused). The
+enclosed area `A` is the hand-written shoelace of the **ordered** contour (root 20.8688 m^2 on a
+22-node contour, tip 2.3790e-2 m^2 on a closed 12-node single cell), never the force vector's own
+bookkeeping. One solve gives the whole span; `phi(z)` is the antisymmetric part of each physical
+ring's affine fit (section 22.8 - never `mean(theta_z)`), and `GJ_static = T / (dphi/dz)` is the
+secant between consecutive physical stations (`_physical_stations`, the section 14.3 prebend merge).
+Assertions are only the physics-pinned invariants (ruler, self-equilibration, the accumulating sign);
+no bound is asserted against the deck, the modal ratio or Zhou.
+
+**Torque ruler and self-equilibration.** Read back from the applied nodal system, not from the
+intent: tip `sum(x Fy - y Fx) = +1.0000000000e7` N.m and root `-1.0000000000e7` N.m, and the tip
+system's torque about its **own centroid** is the same `+1.0000000000e7` N.m - centre-free because
+the couple carries no net force. Net force `8.382e-9` N against a max nodal force of `4.167e7` N
+(**2.01e-16** relative); the six rigid-mode resultants are `1.1e-20 ... 1.0e-17`. The rigid-mode
+*gauge* residual `|Phi^T u|/|u| = 6.75e-9` is a saddle-point solver tolerance, not a physics
+quantity (a residual rigid rotation about z adds one constant to every ring and cannot change a
+rate; about x/y it is invisible to the z-section fit). Sign: a positive torque about +span gives a
+positive, monotonically accumulating twist (asserted).
+
+**The per-station table** (`n` = ring nodes, `distort` = the ring's residual after the best rigid
+rotation from `test_thin_walled_tube_torsion._parallelogram`):
+
+```text
+     r[m]   n GJ_static[N.m^2]  GJ_ref[N.m^2]   ratio  distort
+     0.40  22     3.833730e+11   8.605660e+10   4.455    0.072
+     1.19  22     9.569476e+10   8.319859e+10   1.150    0.079
+     1.99  22     6.714091e+10   8.034611e+10   0.836    0.086
+     2.79  22     2.792526e+10   7.560758e+10   0.369    0.093
+     3.58  22     1.693623e+10   6.942973e+10   0.244    0.101
+     4.38  22     1.581898e+10   6.368208e+10   0.248    0.111
+     5.17  22     1.633405e+10   5.837496e+10   0.280    0.121
+     5.97  22     1.550064e+10   5.345207e+10   0.290    0.131
+     6.77  22     1.476690e+10   4.917649e+10   0.300    0.140
+     7.56  22     1.360149e+10   4.490091e+10   0.303    0.149
+     8.36  22     1.282648e+10   4.062533e+10   0.316    0.158
+     9.15  22     1.108651e+10   3.670327e+10   0.302    0.167
+     9.95  21     1.080599e+10   3.317193e+10   0.326    0.204
+    10.74  21     1.003451e+10   2.964060e+10   0.339    0.212
+    11.54  21     6.261892e+09   2.611100e+10   0.240    0.221
+    12.34  26     8.449674e+09   2.351771e+10   0.359    0.245
+    13.13  26     6.970639e+09   2.115826e+10   0.329    0.252
+    13.93  26     5.991144e+09   1.879882e+10   0.319    0.260
+    14.72  25     5.132582e+09   1.643937e+10   0.312    0.257
+    15.52  25     4.328407e+09   1.407992e+10   0.307    0.266
+    16.32  25     4.939174e+09   1.172009e+10   0.421    0.275
+    17.11  23     4.469966e+09   9.360234e+09   0.478    0.293
+    17.91  23     4.647186e+09   7.736253e+09   0.601    0.302
+    18.70  23     4.770708e+09   7.015233e+09   0.680    0.310
+    19.50  23     4.337516e+09   6.294214e+09   0.689    0.318
+    20.29  24     3.949315e+09   5.573195e+09   0.709    0.338
+    21.09  24     3.209607e+09   4.852175e+09   0.661    0.344
+    21.89  23     2.890461e+09   4.131156e+09   0.700    0.379
+    22.68  23     2.654954e+09   3.410136e+09   0.779    0.385
+    23.48  23     2.432588e+09   2.736809e+09   0.889    0.391
+    24.27  23     1.892925e+09   2.499824e+09   0.757    0.396
+    25.07  23     1.705255e+09   2.262839e+09   0.754    0.400
+    25.87  23     1.617550e+09   2.025854e+09   0.798    0.404
+    26.66  23     1.382937e+09   1.788870e+09   0.773    0.407
+    27.46  23     1.267260e+09   1.551885e+09   0.817    0.411
+    28.25  23     1.243641e+09   1.314989e+09   0.946    0.415
+    29.05  21     1.100580e+09   1.078095e+09   1.021    0.400
+    29.84  21     1.058131e+09   9.780164e+08   1.082    0.402
+    30.64  21     1.062654e+09   9.241918e+08   1.150    0.405
+    31.44  20     8.101309e+08   8.703667e+08   0.931    0.425
+    32.23  20     7.764253e+08   8.165566e+08   0.951    0.427
+    33.03  20     7.391860e+08   7.627464e+08   0.969    0.428
+    33.82  20     7.024820e+08   7.089363e+08   0.991    0.430
+    34.62  20     6.689649e+08   6.551261e+08   1.021    0.431
+    35.42  20     6.403896e+08   6.138195e+08   1.043    0.433
+    36.21  20     6.135005e+08   5.914632e+08   1.037    0.434
+    37.01  20     5.868931e+08   5.691069e+08   1.031    0.435
+    37.80  20     5.638044e+08   5.467507e+08   1.031    0.437
+    38.60  20     5.417295e+08   5.243944e+08   1.033    0.438
+    39.40  20     5.252691e+08   5.020381e+08   1.046    0.439
+    40.19  20     4.991355e+08   4.796818e+08   1.041    0.440
+    40.99  19     4.966015e+08   4.577633e+08   1.085    0.483
+    41.78  19     4.790716e+08   4.447007e+08   1.077    0.485
+    42.58  19     4.632796e+08   4.316380e+08   1.073    0.486
+    43.38  19     4.466938e+08   4.185754e+08   1.067    0.487
+    44.17  19     4.299072e+08   4.055127e+08   1.060    0.487
+    44.97  19     3.943369e+08   3.924500e+08   1.005    0.486
+    45.76  18     4.041139e+08   3.793874e+08   1.065    0.523
+    46.56  18     3.919743e+08   3.663247e+08   1.070    0.524
+    47.35  18     3.805417e+08   3.549490e+08   1.072    0.524
+    48.15  18     3.703447e+08   3.443078e+08   1.076    0.524
+    48.95  18     3.597531e+08   3.336666e+08   1.078    0.523
+    49.74  18     3.479338e+08   3.230254e+08   1.077    0.523
+    50.54  18     3.364965e+08   3.123842e+08   1.077    0.523
+    51.33  18     3.261664e+08   3.017430e+08   1.081    0.522
+    52.13  18     3.153396e+08   2.911018e+08   1.083    0.521
+    52.83  18     3.044357e+08   2.821905e+08   1.079    0.521
+    53.42  18     2.960454e+08   2.755647e+08   1.074    0.520
+    54.02  18     2.873819e+08   2.689389e+08   1.069    0.520
+    54.62  18     2.837108e+08   2.623131e+08   1.082    0.521
+    55.21  17     2.697720e+08   2.556873e+08   1.055    0.499
+    55.81  17     2.633908e+08   2.490614e+08   1.058    0.499
+    56.41  17     2.585756e+08   2.424356e+08   1.067    0.500
+    57.00  17     2.472276e+08   2.358098e+08   1.048    0.500
+    57.60  16     2.500705e+08   2.291840e+08   1.091    0.478
+    58.20  16     2.427105e+08   2.225582e+08   1.091    0.478
+    58.80  16     2.369172e+08   2.165731e+08   1.094    0.479
+    59.39  16     2.310791e+08   2.112431e+08   1.094    0.480
+    59.99  16     2.240871e+08   2.059131e+08   1.088    0.481
+    60.59  16     2.184248e+08   2.005830e+08   1.089    0.482
+    61.18  16     2.119067e+08   1.952530e+08   1.085    0.484
+    61.78  16     2.045398e+08   1.899229e+08   1.077    0.485
+    62.38  15     1.994308e+08   1.845929e+08   1.080    0.521
+    62.97  15     1.938999e+08   1.792629e+08   1.082    0.523
+    63.57  15     1.877839e+08   1.739328e+08   1.080    0.525
+    64.17  15     1.832437e+08   1.685866e+08   1.087    0.527
+    64.77  14     1.761519e+08   1.641130e+08   1.073    0.530
+    65.36  14     1.707507e+08   1.600296e+08   1.067    0.533
+    65.96  14     1.656110e+08   1.559461e+08   1.062    0.537
+    66.56  14     1.605977e+08   1.518626e+08   1.058    0.540
+    67.16  14     1.545411e+08   1.477792e+08   1.046    0.545
+    67.75  14     1.499753e+08   1.436957e+08   1.044    0.549
+    68.35  14     1.457082e+08   1.396122e+08   1.044    0.554
+    68.95  14     1.416315e+08   1.355287e+08   1.045    0.559
+    69.54  14     1.372477e+08   1.314453e+08   1.044    0.564
+    70.14  14     1.334656e+08   1.273618e+08   1.048    0.570
+    70.74  14     1.298193e+08   1.238947e+08   1.048    0.577
+    71.33  14     1.262752e+08   1.204962e+08   1.048    0.583
+    71.93  14     1.223818e+08   1.170976e+08   1.045    0.591
+    72.53  14     1.189394e+08   1.136990e+08   1.046    0.598
+    73.12  14     1.155033e+08   1.103004e+08   1.047    0.607
+    73.72  14     1.121053e+08   1.069019e+08   1.049    0.615
+    74.32  14     1.076970e+08   1.035033e+08   1.041    0.624
+    74.92  14     1.045835e+08   1.001047e+08   1.045    0.632
+    75.51  14     1.018963e+08   9.670614e+07   1.054    0.641
+    76.11  14     9.963563e+07   9.340031e+07   1.067    0.651
+    76.71  14     9.738046e+07   9.092914e+07   1.071    0.660
+    77.30  14     9.522084e+07   8.845798e+07   1.076    0.669
+    77.90  14     9.262755e+07   8.598681e+07   1.077    0.679
+    78.50  14     8.962716e+07   8.351565e+07   1.073    0.689
+    79.09  14     8.544711e+07   8.104448e+07   1.054    0.698
+    79.69  14     8.261774e+07   7.857332e+07   1.051    0.708
+    80.29  14     8.018130e+07   7.610216e+07   1.054    0.717
+    80.89  14     7.817771e+07   7.363099e+07   1.062    0.727
+    81.48  14     7.550545e+07   7.115983e+07   1.061    0.737
+    82.08  14     7.363942e+07   6.884995e+07   1.070    0.750
+    82.68  14     7.176590e+07   6.691640e+07   1.072    0.782
+    83.27  14     6.991265e+07   6.498285e+07   1.076    0.845
+    83.87  14     6.732790e+07   6.304930e+07   1.068    0.780
+    84.47  14     6.561442e+07   6.111575e+07   1.074    0.784
+    85.06  14     6.390508e+07   5.918220e+07   1.080    0.791
+    85.66  14     6.235870e+07   5.724865e+07   1.089    0.799
+    86.26  14     6.001686e+07   5.531511e+07   1.085    0.807
+    86.85  14     5.886042e+07   5.338156e+07   1.103    0.815
+    87.45  14     5.744616e+07   5.144801e+07   1.117    0.823
+    88.05  14     5.550455e+07   4.975597e+07   1.116    0.831
+    88.65  14     5.094032e+07   4.830544e+07   1.055    0.838
+    89.24  14     4.915089e+07   4.685491e+07   1.049    0.845
+    89.84  14     4.815119e+07   4.540438e+07   1.060    0.852
+    90.44  14     4.741846e+07   4.395385e+07   1.079    0.859
+    91.03  14     4.477830e+07   4.250332e+07   1.054    0.866
+    91.63  14     4.416806e+07   4.105279e+07   1.076    0.872
+    92.23  14     4.327550e+07   3.960226e+07   1.093    0.878
+    92.82  14     4.288221e+07   3.815173e+07   1.124    0.884
+    93.42  14     4.062887e+07   3.670120e+07   1.107    0.889
+    94.02  14     4.041012e+07   3.527939e+07   1.145    0.894
+    94.61  14     3.892871e+07   3.386988e+07   1.149    0.899
+    95.21  14     3.771737e+07   3.246038e+07   1.162    0.904
+    95.75  13     3.452559e+07   3.119183e+07   1.107    0.902
+    96.23  13     3.398331e+07   3.006422e+07   1.130    0.906
+    96.70  13     3.289215e+07   2.893662e+07   1.137    0.909
+    97.18  13     3.352540e+07   2.780902e+07   1.206    0.913
+    97.66  13     3.106819e+07   2.668141e+07   1.164    0.916
+    98.14  12     3.108457e+07   2.555381e+07   1.216    0.914
+    98.61  12     3.037850e+07   2.442621e+07   1.244    0.917
+    99.09  12     3.021276e+07   2.329861e+07   1.297    0.920
+    99.57  12     2.901496e+07   2.226001e+07   1.303    0.923
+   100.05  12     2.825263e+07   2.148842e+07   1.315    0.926
+   100.52  12     2.071252e+07   2.071683e+07   1.000    0.928
+   101.00  12     1.997960e+07   1.994524e+07   1.002    0.931
+   101.48  12     1.884594e+07   1.917365e+07   0.983    0.933
+   101.96  12     1.857905e+07   1.840206e+07   1.010    0.935
+   102.43  12     1.780634e+07   1.763047e+07   1.010    0.938
+   102.91  12     1.638658e+07   1.685888e+07   0.972    0.940
+   103.39  12     1.582680e+07   1.608729e+07   0.984    0.942
+   103.87  12     1.572787e+07   1.531570e+07   1.027    0.944
+   104.34  12     1.514993e+07   1.454411e+07   1.042    0.946
+   104.82  12     1.504068e+07   1.377252e+07   1.092    0.948
+   105.30  12     1.289537e+07   1.300093e+07   0.992    0.950
+   105.78  12     1.270926e+07   1.247031e+07   1.019    0.952
+   106.26  12     1.217034e+07   1.193969e+07   1.019    0.954
+   106.73  12     1.191010e+07   1.140907e+07   1.044    0.956
+   107.21  12     1.143182e+07   1.087845e+07   1.051    0.958
+   107.69  12     1.117887e+07   1.034782e+07   1.080    0.959
+   108.17  12     1.073411e+07   9.817204e+06   1.093    0.961
+   108.64  12     1.038292e+07   9.286583e+06   1.118    0.963
+   109.12  12     9.939860e+06   8.755962e+06   1.135    0.964
+   109.60  12     9.641661e+06   8.225341e+06   1.172    0.966
+   110.08  12     7.833629e+06   7.694720e+06   1.018    0.967
+   110.55  12     7.560047e+06   7.164099e+06   1.055    0.969
+   111.03  12     7.346735e+06   6.633478e+06   1.108    0.970
+   111.51  12     6.869794e+06   6.106413e+06   1.125    0.971
+   111.99  12     5.943034e+06   5.580532e+06   1.065    0.973
+   112.46  12     5.163833e+06   5.054652e+06   1.022    0.974
+   112.94  12     5.044463e+06   4.528771e+06   1.114    0.975
+   113.42  12     4.081120e+06   4.002891e+06   1.020    0.977
+   113.90  12     3.807176e+06   3.477010e+06   1.095    0.979
+   114.37  12     2.904910e+06   2.951130e+06   0.984    0.981
+   114.81  12     1.572481e+06   2.469073e+06   0.637    0.984
+   115.21  12     1.014619e+06   2.030839e+06   0.500    0.989
+   115.61  12     5.869040e+05   1.592606e+06   0.369    0.994
+   115.96  12     2.808089e+05   1.209151e+06   0.232    0.998
+   116.25  12     1.507721e+05   8.804758e+05   0.171    1.000
+   116.55  12     7.315922e+04   5.518005e+05   0.133    1.000
+   116.85  12     2.629636e+04   2.231252e+05   0.118    1.000
+```
+
+**The three routes side by side.**
+
+| route | quantity | value | source | status |
+| --- | --- | ---: | --- | --- |
+| (a) anchor deck | `GKt` at the root | **8.748569e10 N.m^2** | section 22.8 (`K66toPropsDecoupled`) | recorded, not re-derived |
+| (b) modal | `GJ_shell/GJ_ref` | **0.870**; 1-sigma band `[0.739, 1.001]` from the 15.1% reference scatter | section 15.1 (4.000 Hz vs 4.290 Hz) | recorded, **not re-run** |
+| (c) static, this unit | `GJ_static/GJ_ref`, r = 20-100 m | **median 1.068** (range 0.661-1.303) | this section | measured |
+| (c) static, tight plateau | `GJ_static/GJ_ref`, r ~ 35-80 m | **1.03-1.09, median ~1.07** | this section | measured |
+
+**Which branch, and what it falsifies.** The test's own decision rule lands on **branch 1** (the
+window median `1.068` is within the modal ratio's 15.1% scatter of `GJ_ref`), but the number is
+`1.07`, not `1.00`, and that 7% excess is the content of the finding:
+
+* **Routes (b) and (c) do not disagree - they have different denominators.** Read literally, the
+  modal ratio says the shell is 13% **softer** than the deck (`0.870`) while the static route says it
+  is 7% **stiffer** (`1.068`), i.e. `1.068/0.870 = 1.228`, a **22.8%** gap that the modal route's own
+  1-sigma band (`0.870 x 1.151 = 1.001`) cannot carry. But (b) never measured the deck: section 15.1
+  forms it from our shell's 4.000 Hz against **NuMAD's** 4.290 Hz, i.e. its denominator is another
+  team's discretisation of the turbine, and the same section records that comparison's scatter as
+  15.1% - which is most of the 22.8%. Only (c) is referenced to the **deck** (a). So the correct
+  conclusion is not that the modal ratio is false, it is that **using `0.870` as a shell-versus-deck
+  ratio was a reference mix-up**, and it was *my* mix-up: section 22.8 built its expected twist by
+  scaling a deck-`GJ` beam with a NuMAD-referenced number. The parent corrected the wording here and
+  the arithmetic there.
+  NuMAD - and the sharper static measurement replaces it. The deck (a) and the static route (c) agree
+  to 7%, just outside the suite's 5% rule, so the shell's section torsional stiffness is essentially
+  the deck's.
+* **It also removes most of the section 22.8 deficit.** The deficit was computed against the modal
+  ratio: expected shell twist `1.7765/0.870 = 2.042 deg` against measured `1.5112 deg` -> `0.740`, a
+  26% shortfall. Against the **static** ratio: expected `1.7765/1.068 = 1.6634 deg` against the same
+  measured `1.5112 deg` -> **`0.909`, a 9% residual**, i.e. the deficit falls from 26% to 9% with no
+  load-frame change. The remaining 9% is inside the anchor beam's own convention uncertainty
+  (section 22.8's 26-station quadrature, interpolated loads, shear centre, `y_AC = 0`). The outer-span
+  ratios rise to `1.15-1.31` at r ~ 92-100 m, where the deck's `GKt` plunges (its last valid station
+  is r = 111.15 m), so the shell is comparatively stiffer where the twist accumulates most - the
+  direction needed to explain the beam/shell gap.
+* **Branch 1's literal reading is NOT triggered.** Branch 1 predicts that a shell stiffness equal to
+  the deck's leaves the whole deficit in the delivered torque, contradicting section 22.7's moment
+  identity. That is not what happened: the static ratio is `1.07`, not `1.00`, so ~7 of the 15
+  percentage points of the section 22.8 gap are stiffness, not torque, and the residual is 9%, not
+  15%. No load-frame contradiction is needed and none is inferred.
+
+**Where `GJ_static` stops being trustworthy.**
+
+| region | why | measured signature |
+| --- | --- | --- |
+| r < ~28 m | the root couple is a uniform flow on the 22-node outer contour only; the root section is multi-cell (`allShearWebNods` = 831 nodes), so the applied system is self-equilibrated but **not** the multi-cell Saint-Venant flow, and its boundary layer runs to ~28 m | ratio 0.24-0.95, dist 0.09-0.38 |
+| ~28-92 m | interior, constant internal torque, deck reference valid | ratio 0.93-1.15; tight plateau 1.03-1.09 over 35-80 m |
+| ~92-111 m | interior, but the deck's `GKt` plunges and its last valid station is r = 111.15 m | ratio rises to 1.31 |
+| r > ~111 m | the section 14.3 free-edge tear at z ~ 112.22 m, 12-node single cells of area 0.024 m^2, and the degenerate deck tip (`GKt[-1] = 5.879e4`, excluded by the median/1e3 floor) | ratio collapses to 0.12 at r = 116.85 |
+
+The `distort` column is the systematic caveat on the absolute value: the ring's non-affine residual
+grows from 0.34 at r = 20 m to 0.93 at r = 100 m to 1.00 at the tip, so the affine `phi(z)` is a
+fitted average of a section that is deforming in plane, not an exact rigid rotation. The plateau's
+tightness (1.03-1.09 over 45 m) shows the bias is smooth and largely cancels in the **ratio**; it is
+why the honest claim is `GJ_static/GJ_ref`, not an absolute `GJ`.
+
+**Verdict.** The static route (c) is the sharpest of the three (`1.07`, local spread ~3% over
+r = 35-80 m, against the modal route's 15.1% reference scatter), it agrees with the independent deck
+(a) to 7%, and it **replaces the modal ratio (b) as the shell-versus-deck number**: the shell is not
+  13% softer than the deck, it is
+7% stiffer, and increasingly stiffer toward the tip where the deck's `GKt` plunges. The section 15.1
+modal ratio `0.870` is the suspect input; with it replaced, the section 22.8 beam/shell deficit falls
+from 26% to 9%, and the remaining 9% is inside the anchor beam's own conventions - no load-frame
+defect is required, so section 22.7's moment identity is not contradicted. No production code, no
+existing test and no other document was changed, and the modal analysis was not re-run.
