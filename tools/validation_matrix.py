@@ -54,7 +54,7 @@ import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import yaml
 
@@ -101,6 +101,39 @@ COMPARISON_KEYS = {
 }
 RESULT_KEYS = {"text", "raw", "unit", "node"}
 REFERENCE_KEYS = {"kind", "label", "citation", "also_asserts"}
+# Bibliography entries (`docs/validation/references.yaml`). This is a different shape
+# from the nested `reference` of a comparison: one entry per work, with the auditing
+# fields that make the DOI and the citation sites checkable.
+BIB_KEYS = {
+    "key",
+    "section",
+    "kind",
+    "authors",
+    "title",
+    "venue",
+    "volume",
+    "issue",
+    "pages",
+    "year",
+    "doi",
+    "doi_status",
+    "held",
+    "held_files",
+    "verification",
+    "verification_note",
+    "cited_by_declared",
+    "code_mentions",
+    "bibtex_key",
+    "notes",
+    "orphan_ok",
+}
+BIB_KINDS = {"journal", "conference", "report", "manual", "software", "thesis", "book"}
+DOI_STATUSES = {"verified", "printed_on_pdf", "to_verify", "not_applicable"}
+VERIFICATIONS = {"verified_pdf", "repository_citation", "unverified"}
+DOI_RE = re.compile(r"^10\.\d{4,9}/\S+$")
+CITATION_SITE_RE = re.compile(r"^[A-Za-z0-9_./-]+(:\d+(-\d+)?)?$")
+CODE_ROOTS = ("src", "tests", "crates", "tools")
+CODE_SUFFIXES = {".py", ".rs"}
 TOLERANCE_KEYS = {"kind", "value", "source", "justified", "justification"}
 MEASURED_KEYS = {"status", "run", "date", "raw", "margin_pct", "text"}
 HISTORY_KEYS = {"rev", "note", "evidence"}
@@ -227,6 +260,7 @@ class Store:
     un_inventoried: dict[str, dict[str, Any]] = field(default_factory=dict)
     flag_entries: dict[str, dict[str, Any]] = field(default_factory=dict)
     derived_flags: set[str] = field(default_factory=set)
+    references: dict[str, dict[str, Any]] = field(default_factory=dict)
     rows: list[RowRef] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
 
@@ -379,6 +413,11 @@ def _validate_reference(store: Store, where: str, ref: Any) -> None:
     if kind == "paper":
         if not isinstance(citation, str) or not SLUG_RE.match(citation):
             store.error(where, "reference.kind == 'paper' needs a 'citation' key")
+        elif store.references and citation not in store.references:
+            store.error(
+                where,
+                f"reference.citation {citation!r} does not resolve in references.yaml",
+            )
     elif citation is not None:
         store.error(where, "reference.citation is only meaningful when kind == 'paper'")
 
@@ -637,6 +676,7 @@ def load_store(root: Path, only_group: str | None = None) -> Store:
     if not root.exists():
         raise StoreError(f"store directory does not exist: {root}")
     load_flags(store)
+    load_references(store)
     load_groups(store)
     if only_group is not None and only_group not in store.groups:
         raise StoreError(f"unknown group: {only_group}")
@@ -1130,6 +1170,308 @@ def command_set(args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# Bibliography (`docs/validation/references.yaml`)
+# --------------------------------------------------------------------------- #
+
+
+def _validate_bib_entry(store: Store, where: str, entry: Any) -> None:
+    if not isinstance(entry, dict):
+        store.error(where, "expected a mapping")
+        return
+    unknown = _unknown_keys(entry, BIB_KEYS)
+    if unknown:
+        store.error(where, f"unknown keys: {', '.join(unknown)}")
+
+    key = entry.get("key")
+    if not isinstance(key, str) or not SLUG_RE.match(key):
+        store.error(where, f"invalid key: {key!r}")
+    else:
+        where = f"references.yaml[{key}]"
+        if key in store.references:
+            store.error(where, "duplicate key")
+
+    if not isinstance(entry.get("section"), str) or not entry["section"]:
+        store.error(where, "section must be a non-empty string")
+    if entry.get("kind") not in BIB_KINDS:
+        store.error(where, f"kind must be one of {sorted(BIB_KINDS)}")
+    authors = entry.get("authors")
+    if not isinstance(authors, list) or not authors or not all(
+        isinstance(author, str) and author for author in authors
+    ):
+        store.error(where, "authors must be a non-empty list of non-empty strings")
+    if not isinstance(entry.get("title"), str) or not entry["title"]:
+        store.error(where, "title must be a non-empty string")
+    year = entry.get("year")
+    if not isinstance(year, int) or isinstance(year, bool) or not 1900 <= year <= 2100:
+        store.error(where, f"year must be an integer in 1900..2100, got {year!r}")
+
+    doi = entry.get("doi")
+    if doi is not None and (not isinstance(doi, str) or not DOI_RE.match(doi)):
+        store.error(where, f"doi must be a bare DOI, got {doi!r}")
+    status = entry.get("doi_status")
+    if status not in DOI_STATUSES:
+        store.error(where, f"doi_status must be one of {sorted(DOI_STATUSES)}")
+        return
+    held = entry.get("held")
+    if not isinstance(held, bool):
+        store.error(where, "held must be a boolean")
+    held_files = entry.get("held_files")
+    if held_files is not None and not isinstance(held_files, list):
+        store.error(where, "held_files must be a list")
+
+    if status in {"verified", "printed_on_pdf"}:
+        if status == "verified" and not (isinstance(held, bool) and held):
+            store.error(where, "doi_status: verified requires held: true")
+        if held_files is not None and not held_files:
+            store.error(where, f"doi_status: {status} requires a non-empty held_files")
+        if entry.get("verification") not in {"verified_pdf", "repository_citation"}:
+            store.error(where, f"doi_status: {status} requires a 'verification' method")
+        if not isinstance(entry.get("verification_note"), str) or not entry["verification_note"]:
+            store.error(where, f"doi_status: {status} requires a 'verification_note'")
+    elif status == "to_verify":
+        if doi is not None:
+            store.error(where, "doi_status: to_verify requires doi: null")
+    elif status == "not_applicable":
+        if doi is not None:
+            store.error(where, "doi_status: not_applicable requires doi: null")
+        if not isinstance(entry.get("notes"), str) or not entry["notes"]:
+            store.error(where, "doi_status: not_applicable requires 'notes' explaining why")
+
+    for site in entry.get("cited_by_declared") or []:
+        if not isinstance(site, str) or not CITATION_SITE_RE.match(site):
+            store.error(where, f"not a file or file:line site: {site!r}")
+            continue
+        target = REPO_ROOT / site.split(":", 1)[0]
+        if not target.exists():
+            store.error(where, f"declared citation site does not exist: {site}")
+    mentions = entry.get("code_mentions")
+    if mentions is not None and (
+        not isinstance(mentions, list)
+        or not all(isinstance(item, str) and item for item in mentions)
+    ):
+        store.error(where, "code_mentions must be a list of non-empty strings")
+    if entry.get("orphan_ok") is not None and not isinstance(entry.get("orphan_ok"), bool):
+        store.error(where, "orphan_ok must be a boolean")
+
+
+def load_references(store: Store) -> None:
+    data = load_yaml(store.root / "references.yaml")
+    if not isinstance(data, dict) or not isinstance(data.get("references"), list):
+        store.error("references.yaml", "expected a mapping with a 'references' list")
+        return
+    for index, entry in enumerate(data["references"]):
+        _validate_bib_entry(store, f"references.yaml[{index}]", entry)
+        if isinstance(entry, dict) and isinstance(entry.get("key"), str):
+            store.references[entry["key"]] = entry
+
+
+def iter_code_files() -> Iterable[Path]:
+    for root in CODE_ROOTS:
+        base = REPO_ROOT / root
+        if not base.exists():
+            continue
+        for path in sorted(base.rglob("*")):
+            if path.is_file() and path.suffix in CODE_SUFFIXES:
+                yield path
+
+
+def find_code_mentions(store: Store) -> dict[str, list[str]]:
+    """Sites that mention a work, by its key or by a declared `code_mentions` string.
+
+    The key alone is useless as a needle: the code cites author-year text
+    ("Ko2017 ratio-based mesh distortion"), never the store's key. `code_mentions`
+    is therefore the auditable list of literal strings the code actually uses.
+    """
+    needles = {
+        key: [key, *[str(item) for item in entry.get("code_mentions") or []]]
+        for key, entry in store.references.items()
+    }
+    found: dict[str, list[str]] = {key: [] for key in store.references}
+    for path in iter_code_files():
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        rel = display_path(path)
+        for number, line in enumerate(lines, start=1):
+            for key, phrases in needles.items():
+                if any(phrase and phrase in line for phrase in phrases):
+                    found[key].append(f"{rel}:{number}")
+    return found
+
+
+def rows_citing(store: Store, key: str) -> list[str]:
+    """(row id, comparison label) pairs that cite a key."""
+    users: list[str] = []
+    for ref in store.rows:
+        for view in comparison_views(ref):
+            comparison = (ref.data.get("comparisons") or [])[view["index"]]
+            citation = (comparison.get("reference") or {}).get("citation")
+            if citation == key:
+                users.append(f"{ref.id} [{view['label']}]")
+    return users
+
+
+def bibtex_entry(store: Store, key: str) -> str:
+    entry = store.references[key]
+    kind = entry.get("kind")
+    template = {
+        "journal": "article",
+        "conference": "inproceedings",
+        "report": "techreport",
+        "book": "book",
+    }.get(str(kind), "misc")
+    fields: list[tuple[str, str]] = [
+        ("author", " and ".join(entry.get("authors") or [])),
+        ("title", str(entry.get("title"))),
+    ]
+    if entry.get("venue"):
+        fields.append(("journal" if template == "article" else "booktitle", str(entry["venue"])))
+    for name in ("volume", "issue", "pages", "year"):
+        if entry.get(name) is not None:
+            fields.append((name, str(entry[name])))
+    if entry.get("doi"):
+        fields.append(("doi", str(entry["doi"])))
+    body = ".\n".join(f"  {name} = {{{value}}}" for name, value in fields)
+    return f"@{template}{{{entry.get('bibtex_key') or key},\n{body}\n}}"
+
+
+def reference_scan_findings(store: Store, found: dict[str, list[str]]) -> list[Finding]:
+    findings: list[Finding] = []
+    used = set()
+    for ref in store.rows:
+        for view in comparison_views(ref):
+            comparison = (ref.data.get("comparisons") or [])[view["index"]]
+            citation = (comparison.get("reference") or {}).get("citation")
+            if isinstance(citation, str):
+                used.add(citation)
+    for key, entry in sorted(store.references.items()):
+        where = f"references.yaml[{key}]"
+        sites = [str(site) for site in entry.get("cited_by_declared") or []]
+        for site in sites:
+            target = REPO_ROOT / site.split(":", 1)[0]
+            if ":" in site:
+                line_no = int(site.rsplit(":", 1)[1].split("-", 1)[0])
+                try:
+                    lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+                except OSError:
+                    lines = []
+                if line_no > len(lines):
+                    findings.append(
+                        Finding("error", where, f"declared site {site} is past end of file")
+                    )
+                    continue
+            file_part, _, line_part = site.partition(":")
+            if line_part:
+                ok = site in found.get(key, [])
+            else:
+                ok = any(mention.split(":", 1)[0] == file_part for mention in found.get(key, []))
+            if not ok:
+                findings.append(
+                    Finding(
+                        "error",
+                        where,
+                        f"declared citation site {site} no longer mentions this work "
+                        f"(key {key!r} or code_mentions)",
+                    )
+                )
+        if not used and not sites and not entry.get("orphan_ok"):
+            findings.append(
+                Finding(
+                    "warning",
+                    where,
+                    "orphan: no comparison cites it and no site is declared; set orphan_ok "
+                    "with a reason if the bibliography legitimately holds it",
+                )
+            )
+        for path in entry.get("held_files") or []:
+            if not (REPO_ROOT / str(path)).exists():
+                findings.append(
+                    Finding("warning", where, f"held file absent (.sources is gitignored): {path}")
+                )
+    return findings
+
+
+def command_references(args: argparse.Namespace) -> int:
+    store = load_store(args.store)
+    action = args.action
+    keys = sorted(store.references)
+    if action == "get":
+        if not args.key:
+            raise StoreError("references get needs a key")
+        entry = store.references.get(args.key)
+        if entry is None:
+            raise StoreError(f"unknown reference key: {args.key}")
+        if args.json:
+            print(json.dumps(entry, indent=2))
+        else:
+            print(yaml.safe_dump(entry, allow_unicode=True, sort_keys=False, width=1000).rstrip())
+        return EXIT_OK
+    if action == "list" or action == "gaps":
+        selected = []
+        for key in keys:
+            entry = store.references[key]
+            if action == "gaps" and entry.get("doi_status") not in {"to_verify", "not_applicable"}:
+                continue
+            if args.doi_status and entry.get("doi_status") != args.doi_status:
+                continue
+            if args.kind and entry.get("kind") != args.kind:
+                continue
+            if args.held and not entry.get("held"):
+                continue
+            if args.not_held and entry.get("held"):
+                continue
+            selected.append(entry)
+        if args.json:
+            print(json.dumps(selected, indent=2))
+        else:
+            for entry in selected:
+                print(
+                    f"{entry['key']} | {entry.get('year')} | {entry.get('kind')} | "
+                    f"{entry.get('doi') or entry.get('doi_status')} | {entry.get('title')}"
+                )
+            print(f"references {action}: {len(selected)} entr(ies)")
+        return EXIT_OK
+    if action == "bibtex":
+        text = "\n\n".join(bibtex_entry(store, key) for key in keys) + "\n"
+        if args.out:
+            args.out.write_text(text, encoding="utf-8")
+            print(f"wrote {display_path(args.out)}")
+        else:
+            print(text, end="")
+        return EXIT_OK
+    if action == "where-used":
+        if not args.key:
+            raise StoreError("references where-used needs a key")
+        if args.key not in store.references:
+            raise StoreError(f"unknown reference key: {args.key}")
+        found = find_code_mentions(store)[args.key]
+        payload = {"key": args.key, "rows": rows_citing(store, args.key), "code": found}
+        if args.json:
+            print(json.dumps(payload, indent=2))
+        else:
+            for user in payload["rows"]:
+                print(f"row  | {user}")
+            for site in payload["code"]:
+                print(f"code | {site}")
+        return EXIT_OK
+    if action == "check":
+        findings = store.findings + reference_scan_findings(store, find_code_mentions(store))
+        errors = [finding for finding in findings if finding.level == "error"]
+        if args.json:
+            print(json.dumps([finding.as_dict() for finding in findings], indent=2))
+        else:
+            for finding in findings:
+                print(finding.as_text())
+            print(
+                f"references check: {len(store.references)} entr(ies), "
+                f"{len(errors)} error(s), {len(findings) - len(errors)} warning(s)"
+            )
+        return EXIT_FINDINGS if errors else EXIT_OK
+    raise StoreError(f"unknown references action: {action}")
+
+
+# --------------------------------------------------------------------------- #
 # Entry point
 # --------------------------------------------------------------------------- #
 
@@ -1182,6 +1524,19 @@ def build_parser() -> argparse.ArgumentParser:
     headline = subparsers.add_parser("headline", help="derived section 2.1 summary table")
     headline.add_argument("--json", action="store_true")
     headline.set_defaults(func=command_headline)
+
+    bibliography = subparsers.add_parser("references", help="query the bibliography store")
+    bibliography.add_argument(
+        "action", choices=["list", "gaps", "get", "check", "bibtex", "where-used"]
+    )
+    bibliography.add_argument("key", nargs="?", help="reference key for get and where-used")
+    bibliography.add_argument("--doi-status", choices=sorted(DOI_STATUSES))
+    bibliography.add_argument("--kind", choices=sorted(BIB_KINDS))
+    bibliography.add_argument("--held", action="store_true", help="only entries whose PDF is held")
+    bibliography.add_argument("--not-held", action="store_true")
+    bibliography.add_argument("--out", type=Path, help="write bibtex to a file")
+    bibliography.add_argument("--json", action="store_true")
+    bibliography.set_defaults(func=command_references)
 
     setter = subparsers.add_parser("set", help="edit one row in place")
     setter.add_argument("id")

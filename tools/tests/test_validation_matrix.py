@@ -67,6 +67,43 @@ FLAGS = {
     ],
 }
 
+REFERENCES = {
+    "version": 1,
+    "references": [
+        {
+            "key": "ko2017_perf",
+            "section": "1. Shell element formulations",
+            "kind": "journal",
+            "authors": ["Ko, Y.", "Lee, Y.", "Lee, P.-S.", "Bathe, K.-J."],
+            "title": "Performance of the MITC3+ and MITC4+ shell elements",
+            "venue": "Computers and Structures",
+            "volume": "193",
+            "pages": "187-206",
+            "year": 2017,
+            "doi": "10.1016/j.compstruc.2017.08.003",
+            "doi_status": "verified",
+            "held": True,
+            "held_files": [GROUP_SOURCE],
+            "verification": "verified_pdf",
+            "verification_note": "read off the held copy",
+            "cited_by_declared": [],
+            "code_mentions": ["Ko2017"],
+        },
+        {
+            "key": "escalera2023",
+            "section": "5. Verification benchmarks",
+            "kind": "conference",
+            "authors": ["Escalera Mendoza, A."],
+            "title": "An open-source NuMAD model for the IEA 15 MW blade",
+            "year": 2023,
+            "doi": None,
+            "doi_status": "to_verify",
+            "held": False,
+            "cited_by_declared": [],
+        },
+    ],
+}
+
 
 def make_row(**overrides: Any) -> dict[str, Any]:
     """A valid row: one own result compared against two references."""
@@ -122,11 +159,15 @@ def write_store(
     rows: list[dict[str, Any]],
     groups: dict[str, Any] | None = None,
     flags: dict[str, Any] | None = None,
+    references: dict[str, Any] | None = None,
 ) -> Path:
     store = tmp_path / "validation"
     (store / "rows").mkdir(parents=True, exist_ok=True)
     (store / "groups.yaml").write_text(yaml.safe_dump(groups or GROUPS), encoding="utf-8")
     (store / "flags.yaml").write_text(yaml.safe_dump(flags or FLAGS), encoding="utf-8")
+    (store / "references.yaml").write_text(
+        yaml.safe_dump(references or REFERENCES), encoding="utf-8"
+    )
     if rows:
         (store / "rows" / "3-ko2017.yaml").write_text(
             yaml.safe_dump({"group": "3", "rows": rows}), encoding="utf-8"
@@ -587,3 +628,153 @@ def test_set_schema_matches_the_validation_key_sets() -> None:
     assert set(schema["comparisons"][0]["tolerance"]) == module.TOLERANCE_KEYS
     assert set(schema["comparisons"][0]["measured"]) == module.MEASURED_KEYS
     assert set(schema["history"][0]) == module.HISTORY_KEYS
+
+
+# --------------------------------------------------------------------------- #
+# T3a: the bibliography store
+# --------------------------------------------------------------------------- #
+
+
+def test_references_get_shows_the_doi(tmp_path: Path) -> None:
+    store = _mixed_store(tmp_path)
+    completed = run(store, "references", "get", "ko2017_perf")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    entry = yaml.safe_load(completed.stdout)
+    assert entry["doi"] == "10.1016/j.compstruc.2017.08.003"
+    assert entry["doi_status"] == "verified"
+
+    missing = run(store, "references", "get", "nope")
+    assert missing.returncode == 2
+    assert "unknown reference key" in missing.stderr
+
+
+def test_references_list_gaps_and_filters(tmp_path: Path) -> None:
+    store = _mixed_store(tmp_path)
+    every = run(store, "references", "list")
+    assert every.returncode == 0
+    assert "2 entr(ies)" in every.stdout
+
+    gaps = run(store, "references", "gaps")
+    assert "escalera2023" in gaps.stdout
+    assert "ko2017_perf" not in gaps.stdout
+
+    unheld = run(store, "references", "list", "--not-held")
+    assert "escalera2023" in unheld.stdout
+    assert "ko2017_perf" not in unheld.stdout
+
+
+def test_real_store_serves_the_section_3_key() -> None:
+    """T3 acceptance: the shipped store answers with the printed DOI."""
+    completed = run(REAL_STORE, "references", "get", "ko2017_perf")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    entry = yaml.safe_load(completed.stdout)
+    assert entry["doi"] == "10.1016/j.compstruc.2017.08.003"
+    assert entry["doi_status"] == "verified"
+    assert entry["held"] is True
+
+
+def test_references_check_reports_a_stale_declared_site(tmp_path: Path) -> None:
+    """A declared site that no longer mentions the work is a finding; a live one is not."""
+    references = copy.deepcopy(REFERENCES)
+    references["references"][0]["cited_by_declared"] = [
+        "src/aeroelast/core/mesh/generators.py:65",
+    ]
+    store = write_store(tmp_path, [], references=references)
+    clean = run(store, "references", "check")
+    assert clean.returncode == 0, clean.stdout + clean.stderr
+    assert "no longer mentions" not in clean.stdout
+
+    references["references"][0]["cited_by_declared"] = ["src/aeroelast/core/mesh/generators.py:1"]
+    store = write_store(tmp_path / "stale", [], references=references)
+    stale = run(store, "references", "check")
+    assert stale.returncode == 1
+    assert "no longer mentions this work" in stale.stdout
+    assert "generators.py:1" in stale.stdout
+
+
+def test_references_check_flags_past_end_of_file(tmp_path: Path) -> None:
+    references = copy.deepcopy(REFERENCES)
+    references["references"][0]["cited_by_declared"] = [
+        "src/aeroelast/core/mesh/generators.py:999999"
+    ]
+    store = write_store(tmp_path, [], references=references)
+    completed = run(store, "references", "check")
+    assert completed.returncode == 1
+    assert "past end of file" in completed.stdout
+
+
+def test_references_where_used_lists_rows_and_code(tmp_path: Path) -> None:
+    store = _mixed_store(tmp_path)
+    citing = run(store, "references", "where-used", "escalera2023")
+    assert citing.returncode == 0
+    assert "ko2017.square_plate.reg_clamped [wide]" in citing.stdout
+
+    by_code = run(store, "references", "where-used", "ko2017_perf")
+    assert by_code.returncode == 0
+    assert "code | src/aeroelast/core/mesh/generators.py:65" in by_code.stdout
+
+
+def test_references_bibtex_exports_the_doi(tmp_path: Path) -> None:
+    store = _mixed_store(tmp_path)
+    completed = run(store, "references", "bibtex")
+    assert completed.returncode == 0
+    assert "@article{ko2017_perf," in completed.stdout
+    assert "doi = {10.1016/j.compstruc.2017.08.003}" in completed.stdout
+    assert "@inproceedings{escalera2023," in completed.stdout
+
+
+def test_rows_citing_an_unknown_key_are_reported(tmp_path: Path) -> None:
+    references = copy.deepcopy(REFERENCES)
+    references["references"] = [references["references"][1]]  # drop ko2017_perf
+    store = write_store(tmp_path, [make_row()], references=references)
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert "does not resolve in references.yaml" in completed.stdout
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected"),
+    [
+        ("verified_without_held", "verified requires held: true"),
+        ("verified_without_note", "requires a 'verification_note'"),
+        ("to_verify_with_doi", "to_verify requires doi: null"),
+        ("not_applicable_without_notes", "not_applicable requires 'notes'"),
+        ("bad_doi_format", "doi must be a bare DOI"),
+        ("bad_doi_status", "doi_status must be one of"),
+        ("declared_site_missing", "declared citation site does not exist"),
+        ("bad_year", "year must be an integer"),
+        ("no_authors", "authors must be a non-empty list"),
+        ("duplicate_key", "duplicate key"),
+        ("unknown_bib_key", "unknown keys"),
+    ],
+)
+def test_reference_entry_validation(tmp_path: Path, mutation: str, expected: str) -> None:
+    references = copy.deepcopy(REFERENCES)
+    entry = references["references"][0]
+    if mutation == "verified_without_held":
+        entry["held"] = False
+    elif mutation == "verified_without_note":
+        entry.pop("verification_note")
+    elif mutation == "to_verify_with_doi":
+        entry["doi_status"] = "to_verify"
+    elif mutation == "not_applicable_without_notes":
+        entry["doi_status"] = "not_applicable"
+        entry["doi"] = None
+    elif mutation == "bad_doi_format":
+        entry["doi"] = "https://doi.org/10.1016/j.compstruc.2017.08.003"
+    elif mutation == "bad_doi_status":
+        entry["doi_status"] = "maybe"
+    elif mutation == "declared_site_missing":
+        entry["cited_by_declared"] = ["src/aeroelast/nope.py:1"]
+    elif mutation == "bad_year":
+        entry["year"] = "2017"
+    elif mutation == "no_authors":
+        entry["authors"] = []
+    elif mutation == "duplicate_key":
+        references["references"].append(copy.deepcopy(entry))
+    elif mutation == "unknown_bib_key":
+        entry["surprise"] = True
+    store = write_store(tmp_path, [], references=references)
+    completed = run_check(store)
+    assert completed.returncode == 1, completed.stdout + completed.stderr
+    assert expected in completed.stdout

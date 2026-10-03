@@ -147,6 +147,8 @@ generated from it, grouped by `section`, with the verification preamble kept as 
   cited_by_declared:                   # the AUDITED claim, carried over from the prose today
     - "tests/test_ko2017_performance.py:4-7"
     - "src/aeroelast/core/mesh/generators.py:65"
+  code_mentions:                       # literal strings the code uses to cite this work
+    - "Ko2017"
   notes: "the README entry omitted Bathe"
 ```
 
@@ -154,6 +156,12 @@ Field rules:
 
 - `key` is the join key: a matrix row's `reference.citation` holds it, and the §14 map is
   generated from it. `check` fails if any row cites an unresolvable key.
+- `code_mentions` lists the **literal strings the code uses** when citing the work. It is not
+  decoration: the code cites author-year text (`Apply Ko2017 ratio-based mesh distortion` at
+  `src/aeroelast/core/mesh/generators.py:65`) and never the store's key, so a key-only scan would
+  report every declared site as a false mismatch. With `code_mentions` the scan is exact, and a
+  declared site that contains none of them is a genuine finding: the code stopped citing the work
+  at that line.
 - `doi_status` replaces the prose marker `DOI: to verify`. `verified` and `printed_on_pdf`
   require a conforming DOI (`^10\.\d{4,9}/\S+$`) **and** `held: true` **and** a non-empty
   `verification_note`. `not_applicable` covers NAFEMS-style report numbers, proprietary
@@ -552,7 +560,8 @@ consequences:
 | --- | --- | --- | --- |
 | T1 | Schemas and registries (WU-0) | `schemas/validation-row.schema.json`, `schemas/reference.schema.json`, `docs/validation/groups.yaml` (seeded with §3), `docs/validation/flags.yaml` (the §9.1-§9.5 registry plus the derived `near`/`gt5`) | a 3-row fixture validates; `check` exits 1 on a row with a stored derived flag, an unknown flag id, or `measured.status == measured` without `margin_pct` |
 | T2 | CLI read side (WU-1) | `validation_matrix.py` with `find`, `get`, `list`, `headline`, `--json`, schema loading | each query over the fixture returns the expected records; unknown fields in `set` are refused |
-| T3 | References store and generator (WU-2) | `docs/validation/references.yaml` seeded with the keys §3 uses; `references list\|gaps\|get\|check\|bibtex\|where-used`; `docs/references.md` generated | `references get ko2017_perf` shows `doi: 10.1016/j.compstruc.2017.08.003`; `references check` reports the declared-vs-found mismatch at `src/aeroelast/core/mesh/generators.py:65`; the generated `references.md` diff against the current file is reviewed for content loss |
+| T3a | Bibliography store and verbs | `docs/validation/references.yaml` seeded with the section 1 entries; `references list\|gaps\|get\|check\|bibtex\|where-used`; `code_mentions` in the schema; hand-rolled validation of `doi_status`, held state and citation sites | `references get ko2017_perf` shows `doi: 10.1016/j.compstruc.2017.08.003` with `doi_status: verified`; a declared site that no longer contains a `code_mentions` string is reported and a live one is not; a row citing an unresolvable key fails `check` |
+| T3b | Full bibliography migration and the generator | every entry of the current `docs/references.md` in the store, with its `cited_by_declared` sites and their `code_mentions`; `references render`; `docs/references.md` regenerated | the generated `references.md` diff against the current file is reviewed line by line for content loss; the gate in `tests/test_mitc4plusd_traceability.py` still resolves |
 | T4 | Code extractor (WU-P1) | `validation_matrix extract --scope tests/test_ko2017_performance.py`: collect-only node set + AST rows + param-id cross-check, no `measured.*` | 31 nodes, every one claimed, 0 unexplained extraction misses; byte-identical output across two runs |
 | T5 | Matrix normalizer and diff (WU-P2) | `validation_matrix diff-against-md --group 3`: §3 tables projected into the same key space, compared field by field | every conflict classified as `match`, `only_in_code`, `only_in_md` or `value_conflict`; the 23-vs-31 gap explained per row |
 | T6 | Adjudication and freeze (WU-P3) | re-run each conflicting node (`-s`, `-rA`), `docs/validation/adjudications/3-ko2017.yaml`, complete `rows/3-ko2017.yaml` with `measured.*` | the six acceptance criteria in §12; no conflict resolved without a recorded command and its output |
@@ -565,13 +574,38 @@ consequences:
 | design | done | `7a011f3` | this document |
 | T1 | done | `d947535`, `7b2bcee` | `python -m pytest tools/tests` -> 22 passed; `check` -> 0 errors; ruff clean. Reviewed as `review-4ecd3ccb79863462` (tier low, no lenses, `non_executable_only`) |
 | T2 | done | - | `python -m pytest tools/tests` -> 43 passed (21 new); `ruff check` 0.16.0 clean; `check` -> 0 errors; `headline` renders the group 3 row |
-| T3 | pending | - | - |
+| T3a | done | - | `python -m pytest tools/tests` -> 62 passed (19 new); `ruff check tools/` clean; matrix `check` 0 errors; `references check` -> 6 entr(ies), 0 errors, 1 warning |
+| T3b | pending | - | - |
 | T4 | pending | - | - |
 | T5 | pending | - | - |
 | T6 | pending | - | - |
 | T7 | pending | - | - |
 
 Branch: `feat/validation-matrix-store`.
+
+### 13.3 Review candidates must fit the provider budget
+
+The review provider refused the accumulated candidate at preflight with
+`lens_context_budget_exceeded` (13 paths / 4436 lines, base `ac69c8d4`): "the candidate's complete
+reviewer evidence exceeds the native context budget... immutable candidate evidence is never
+truncated and retrying this exact candidate cannot succeed". `mutation_outcome: not_started`, so no
+authority or lineage was created and nothing needs repairing. The maintainer chose to leave the
+candidate unreviewed and continue, so no further transaction is started for it.
+
+Consequences for this work:
+
+- **A review candidate is one work unit, not the branch.** The pilot's own commits are already
+  separable: `7a011f3` (design), `d947535` (T1), `100b5a8` (T2). Reviewing them as a chain needs a
+  distinct base ref per candidate.
+- **The provider's base ref may include work that is not ours.** `ac69c8d4` predates four
+  unrelated maintainer commits, so its window swept in the blade tests. A base ref that isolates
+  this branch is `d322f73` (the merge-base with `main`).
+- **A docs-only candidate is comfortably admitted**: the first review closed immediately as tier
+  `low`, no lenses, `non_executable_only`. A design document of ~650 lines is not the problem;
+  the tool plus its tests plus the accumulated commits are.
+- **The facade START contract**, learned by three attempts: `mode` is mandatory, a committed range
+  needs `baseRef` paired with `committedOnly: true` in the same JSON string, and the workspace
+  projection sees nothing once everything is committed (`empty_candidate_base_ref_required`).
 
 | WU | deliverable | acceptance evidence |
 | --- | --- | --- |

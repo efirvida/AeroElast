@@ -66,6 +66,11 @@
       },
       "description": "The audited claim carried over from the current prose ('Cited by the code: file:line'). Diffed by check against cited_by_found."
     },
+    "code_mentions": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "The literal strings the code uses when citing this work, e.g. 'Ko2017'. cited_by_found is derived from these, because the code cites author-year text and never the store's key; without them every declared site would read as a false mismatch."
+    },
     "bibtex_key": {"type": ["string", "null"]},
     "notes": {"type": ["string", "null"]},
     "orphan_ok": {
