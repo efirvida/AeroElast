@@ -1059,6 +1059,40 @@ def _printed(error: str, value: str = "1.0000", expected: str = "1.0000") -> dic
     return {"value": value, "expected": expected, "error": error}
 
 
+def test_a_class_based_node_id_is_understood() -> None:
+    """pytest prints `file::Class::test[param]` for a method.
+
+    Reading only the first segment after the file silently dropped every class-based test and
+    made the extractor report "no nodes" for the file; 15 of the 42 validation files are written
+    that way, so the store could not see a third of the suite.
+    """
+    module = _load_tool_module()
+    info = module.parse_node_id(
+        "tests/validation/element/test_quad_elements.py::TestStiffnessMatrix::test_symmetry[Quad4]"
+    )
+    assert info is not None
+    assert info.file == "tests/validation/element/test_quad_elements.py"
+    assert info.owner == "TestStiffnessMatrix"
+    assert info.function == "test_symmetry"
+    assert info.qualname == "TestStiffnessMatrix::test_symmetry"
+    assert info.params == "Quad4"
+    assert info.node.endswith("TestStiffnessMatrix::test_symmetry[Quad4]")
+
+
+def test_a_module_level_node_id_is_understood() -> None:
+    module = _load_tool_module()
+    info = module.parse_node_id("tests/validation/parity/test_a.py::test_case[3]")
+    assert info is not None
+    assert info.owner is None
+    assert info.function == "test_case"
+    assert info.qualname == "test_case"
+    assert info.params == "3"
+    assert module.parse_node_id("not-a-node-id") is None
+    # No test name to take. Which `tests/` subtree a row may claim is `check`'s rule, not the
+    # shape of a node id.
+    assert module.parse_node_id("tests/other/test_a.py::") is None
+
+
 def test_a_printed_expectation_is_stored_as_a_number() -> None:
     r"""Every residual pattern captures with `\S+`, so the print always yields a string."""
     module = _load_tool_module()

@@ -72,7 +72,13 @@ EXIT_ERROR = 2
 
 ID_RE = re.compile(r"^[a-z0-9]+(\.[a-z0-9_]+)+$")
 SLUG_RE = re.compile(r"^[a-z][a-z0-9_]*$")
-NODE_ID_RE = re.compile(r"^tests/[A-Za-z0-9_./-]+\.py::[A-Za-z0-9_]+(\[[^\]]*\])?$")
+# A node id is `file::test[param]` for a module function and `file::Class::test[param]` for
+# a method, so the class chain is part of the shape. Accepting only one segment after the file
+# made every class-based test invisible to the extractor, which then reported "no nodes" for the
+# file: 15 of the 42 validation files are written that way.
+NODE_ID_RE = re.compile(
+    r"^tests/[A-Za-z0-9_./-]+\.py::(?:[A-Za-z0-9_]+::)*[A-Za-z0-9_]+(?:\[[^\]]*\])?$"
+)
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PATH_SEGMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\])?$")
 
@@ -1831,6 +1837,14 @@ class NodeInfo:
     file: str
     function: str
     params: str | None
+    # The class chain pytest prints between the file and the test, for a method; None for a
+    # module-level function.
+    owner: str | None = None
+
+    @property
+    def qualname(self) -> str:
+        """The test as pytest names it, with its class chain: `Class::test`."""
+        return f"{self.owner}::{self.function}" if self.owner else self.function
 
 
 @dataclass
@@ -1843,6 +1857,28 @@ class ToleranceSite:
     # The reference side of the comparison: `case.expected_normalized`, or the literal bound of
     # a bare assert. It names the reference, where the whole call only names the assertion.
     reference_expr: str | None = None
+
+
+def parse_node_id(line: str) -> NodeInfo | None:
+    """One collected node id as its parts, or None when the line is not a node id.
+
+    The test is the last `::` segment and everything before it is the class chain, because that
+    is the order pytest prints. Reading only the first segment after the file dropped every
+    class-based test on the floor, and the extractor blamed the environment for it.
+    """
+    line = line.strip()
+    if "::" not in line or not NODE_ID_RE.match(line):
+        return None
+    file, _, rest = line.partition("::")
+    path, _, params = rest.partition("[")
+    *owners, function = path.split("::")
+    return NodeInfo(
+        node=line,
+        file=file,
+        function=function,
+        params=params.rstrip("]") if params else None,
+        owner="::".join(owners) or None,
+    )
 
 
 def collect_nodes(scope: str) -> list[NodeInfo]:
@@ -1864,18 +1900,9 @@ def collect_nodes(scope: str) -> list[NodeInfo]:
         line = raw.strip()
         if "::" not in line or line.startswith("="):
             continue
-        if not NODE_ID_RE.match(line):
-            continue
-        file, _, rest = line.partition("::")
-        function, _, params = rest.partition("[")
-        nodes.append(
-            NodeInfo(
-                node=line,
-                file=file,
-                function=function,
-                params=params.rstrip("]") if params else None,
-            )
-        )
+        info = parse_node_id(line)
+        if info is not None:
+            nodes.append(info)
     if not nodes:
         raise StoreError(
             f"collect-only returned no nodes for {scope!r} (exit {completed.returncode}); "
@@ -2286,11 +2313,18 @@ def build_rows(
     functions = {
         node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
     }
+    # A method lives inside its class, not in the module body, so key it by the qualified name
+    # pytest prints. Without this the node resolves to nothing and is reported as unclaimed.
+    for parent in tree.body:
+        if isinstance(parent, ast.ClassDef):
+            for node in parent.body:
+                if isinstance(node, ast.FunctionDef):
+                    functions.setdefault(f"{parent.name}::{node.name}", node)
     report: dict[str, Any] = {"nodes": [], "unclaimed": [], "diverged": {}, "prints": {}}
     rows: list[dict[str, Any]] = []
     used: set[str] = set()
     for info in nodes:
-        func = functions.get(info.function)
+        func = functions.get(info.qualname)
         if func is None:
             report["unclaimed"].append(info.node)
             continue
@@ -2313,7 +2347,11 @@ def build_rows(
             report.setdefault("unresolved", {})[info.node] = unresolved
             report["unclaimed"].append(info.node)
             continue
-        row_id = f"{slug}.{slugify(info.function, 40)}.{slugify(info.params or 'single', 40)}"
+        # The owner is part of the id: two classes can hold same-named methods.
+        row_id = (
+            f"{slug}.{slugify(info.qualname, 40)}."
+            f"{slugify(info.params or 'single', 40)}"
+        )
         suffix = 2
         candidate = row_id
         while candidate in used:
