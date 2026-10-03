@@ -35,7 +35,7 @@ from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
 from aeroelast.solvers.elasticity.static_nonlinear import StaticNonlinearSolver
 from aeroelast.solvers.modal import ModalSolver
 
-from conftest import elastica_cantilever_tip_deflection
+from tests.conftest import elastica_cantilever_tip_deflection
 
 
 # =============================================================================

@@ -56,7 +56,7 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
 from _aeroelast import PyMeshAssembler
 
-from conftest import ccx_bin_or_skip
+from tests.conftest import ccx_bin_or_skip
 
 # ---------------------------------------------------------------------------
 # Geometry and material

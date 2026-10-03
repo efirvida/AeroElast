@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from conftest import ccx_bin_or_skip
+from tests.conftest import ccx_bin_or_skip
 
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
@@ -32,7 +32,7 @@ from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, N
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.core.mesh.model import MeshModel  # noqa: E402
 
-from _ccx_io import parse_frd_disp, run_ccx  # noqa: E402
+from tests.support.ccx_io import parse_frd_disp, run_ccx  # noqa: E402
 
 OFFSET = 1000  # arbitrary: ids must not be assumed 0-based
 

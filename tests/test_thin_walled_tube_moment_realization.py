@@ -42,7 +42,7 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
 from aeroelast.solvers.bem.force_projection import ForceProjector, _Strip  # noqa: E402
 
-import test_thin_walled_tube_torsion as tube  # noqa: E402
+import tests.test_thin_walled_tube_torsion as tube  # noqa: E402
 
 TOL = tube.TOL  # the suite's 5% rule against the exact, independent Bredt reference
 WINDOW = (0.4 * tube.L, 0.9 * tube.L)  # the validated interior window of case A

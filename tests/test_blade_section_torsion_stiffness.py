@@ -39,9 +39,9 @@ from scipy.sparse import coo_matrix  # noqa: E402
 from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
 
-import test_blade_iea15mw_validation as blade_validation  # noqa: E402
-import test_thin_walled_tube_torsion as tube  # noqa: E402
-from test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
+import tests.test_blade_iea15mw_validation as blade_validation  # noqa: E402
+import tests.test_thin_walled_tube_torsion as tube  # noqa: E402
+from tests.test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
 
 _OPENFAST_TOOLBOX = Path.home() / "openfast_toolbox"
 if _OPENFAST_TOOLBOX.is_dir() and str(_OPENFAST_TOOLBOX) not in sys.path:

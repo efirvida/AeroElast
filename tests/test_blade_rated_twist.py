@@ -46,8 +46,8 @@ from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 from scipy.sparse.linalg import spsolve  # noqa: E402
 
-import test_blade_iea15mw_validation as blade_validation  # noqa: E402
-from _openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
+import tests.test_blade_iea15mw_validation as blade_validation  # noqa: E402
+from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 
 YAML = Path(__file__).resolve().parent / "IEA-15-240-RWT.yaml"
 AD_PRIMARY = (Path(__file__).resolve().parent / "reference" / "iea15mw_openfast" /

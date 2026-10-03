@@ -59,7 +59,7 @@ from scipy.optimize import linear_sum_assignment
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
-from conftest import ccx_bin_or_skip
+from tests.conftest import ccx_bin_or_skip
 
 pytest.importorskip("petsc4py", reason="PETSc not available")
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
@@ -68,7 +68,7 @@ from _aeroelast import Laminate as RustLaminate  # noqa: E402
 from _aeroelast import MeshModel as RustMeshModel  # noqa: E402
 from _aeroelast import PyMeshAssembler, modal_solve_coo  # noqa: E402
 
-from _ccx_io import fail_ccx, parse_ccx_frequencies, parse_frd_disp, run_ccx  # noqa: E402
+from tests.support.ccx_io import fail_ccx, parse_ccx_frequencies, parse_frd_disp, run_ccx  # noqa: E402
 from aeroelast.core.mesh.entities import MeshElement, Node, NodeSet  # noqa: E402
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402

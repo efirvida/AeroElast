@@ -52,8 +52,8 @@ from aeroelast.postprocess.stress_recovery import (
     StressType,
 )
 
-from _ccx_io import parse_frd_stress, von_mises_from_voigt
-from conftest import ccx_bin_or_skip
+from tests.support.ccx_io import parse_frd_stress, von_mises_from_voigt
+from tests.conftest import ccx_bin_or_skip
 
 # Cantilever plate, out-of-plane tip load.
 L, B, H = 1.0, 0.1, 0.01  # length, width, thickness [m]

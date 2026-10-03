@@ -60,7 +60,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from conftest import ccx_bin_or_skip
+from tests.conftest import ccx_bin_or_skip
 
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.io.writers import write_ccx_mesh

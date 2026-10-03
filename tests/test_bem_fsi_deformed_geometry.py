@@ -39,9 +39,9 @@ from aeroelast.models.blade.model import Blade  # noqa: E402
 from aeroelast.solvers.bem.engine import BEMSolver  # noqa: E402
 from aeroelast.solvers.bem.fsi_participant import BEMFSIParticipant  # noqa: E402
 
-import test_blade_iea15mw_validation as blade_validation  # noqa: E402
-from _openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
-from test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
+import tests.test_blade_iea15mw_validation as blade_validation  # noqa: E402
+from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
+from tests.test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
 
 YAML = Path(__file__).resolve().parent / "IEA-15-240-RWT.yaml"
 AD_PRIMARY = (

@@ -759,7 +759,7 @@ def ccx_tip_twist(half, ply_t=PLY_T, nx=4, ny=24, workdir=None):
     import subprocess
     from pathlib import Path
 
-    from conftest import ccx_bin_or_skip
+    from tests.conftest import ccx_bin_or_skip
     from _ccx_io import parse_frd_disp
 
     ccx = ccx_bin_or_skip()

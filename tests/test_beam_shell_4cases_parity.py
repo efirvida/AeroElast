@@ -28,7 +28,7 @@ from scipy.optimize import linear_sum_assignment
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
-from conftest import ccx_bin_or_skip
+from tests.conftest import ccx_bin_or_skip
 
 pytest.importorskip("petsc4py", reason="PETSc not available")
 pytest.importorskip("_aeroelast", reason="Rust backend not available")

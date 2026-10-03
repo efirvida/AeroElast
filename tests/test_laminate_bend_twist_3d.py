@@ -38,8 +38,8 @@ import pytest
 
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
-import test_laminate_bend_twist as coupon
-from conftest import ccx_bin_or_skip
+import tests.test_laminate_bend_twist as coupon
+from tests.conftest import ccx_bin_or_skip
 
 #: Wall-clock bound for one CalculiX run [s]; a hung solver must fail fast.
 _CCX_TIMEOUT_S = 900

@@ -21,7 +21,7 @@ from scipy.sparse import coo_matrix
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from _aeroelast import PyMeshAssembler, assemble_smoothed_mitc3
 
-from test_ko2017_performance import (
+from tests.test_ko2017_performance import (
     DOF,
     MAT_SC,
     _build_cylindrical_patch,

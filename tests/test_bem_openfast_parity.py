@@ -85,7 +85,7 @@ from aeroelast.models.blade.aerodynamics import (
 )
 from aeroelast.solvers.bem.engine import BEMSolver
 
-import _openfast_bem as ob
+from tests.support import openfast_bem as ob
 
 #: Official IEA 15 MW reference deck (vendored; see its NOTICE).
 DECK = ob.DEFAULT_DECK

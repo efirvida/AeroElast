@@ -52,7 +52,7 @@ from aeroelast.models.blade.model import Blade  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 from scipy.sparse.linalg import spsolve  # noqa: E402
 
-import test_blade_iea15mw_validation as blade_validation  # noqa: E402
+import tests.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 
 YAML = Path(__file__).resolve().parent / "IEA-15-240-RWT.yaml"
 ELEMENT_SIZE = 1.0
