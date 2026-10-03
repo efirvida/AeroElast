@@ -1109,6 +1109,13 @@ def test_an_unclaimed_node_needs_a_declaration_to_stay_silent() -> None:
     # A prefix matches at a `::` boundary only: `test_api` must not shadow `test_api_shape2`.
     assert module.match_non_validation(group, "tests/x.py::TestStiffnessMatrix2::t") is None
 
+    # A bare test name is enough, so a declaration does not have to spell a node id too long to
+    # wrap. It matches the name after the last `::` and nothing else.
+    named = {"non_validation_tests": [{"tests": ["test_api_shape"], "reason": "r"}]}
+    assert module.match_non_validation(named, "tests/x.py::test_api_shape") is not None
+    assert module.match_non_validation(named, "tests/x.py::TestA::test_api_shape[1]") is not None
+    assert module.match_non_validation(named, "tests/x.py::test_api_shape2") is None
+
 
 def test_a_class_based_node_id_is_understood() -> None:
     """pytest prints `file::Class::test[param]` for a method.

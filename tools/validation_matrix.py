@@ -230,15 +230,31 @@ def followed_helpers(
 def match_non_validation(group: dict[str, Any], node: str) -> tuple[str, str] | None:
     """The (pattern, reason) declaring `node` not a validation row, or None.
 
-    A declaration matches a node id exactly or by a `::`-boundary prefix, so a whole class can be
-    declared once instead of twenty times.
+    A declaration matches three ways, and the third exists so that a declaration does not have to
+    spell a node id that runs past the line budget with no way to wrap it:
+
+      - the node id exactly;
+      - a `::`-boundary prefix, so a whole class is declared once instead of twenty times;
+      - a bare test name, matched after the last `::` of the node, so one test is named in twenty
+        characters instead of a hundred.
+
+    The last one can match more than intended only if two tests in the same group share a name and
+    the declaration is not specific; the report prints the node each declaration matched, beside the
+    reason, so a match that reached further than the author meant is visible rather than silent.
     """
     for entry in group.get("non_validation_tests") or []:
         if not isinstance(entry, dict):
             continue
         for pattern in entry.get("tests") or []:
-            if isinstance(pattern, str) and (
-                node == pattern or node.startswith(pattern.rstrip(":") + "::")
+            if not isinstance(pattern, str):
+                continue
+            # `test_x` and `test_x[Quad4]` are the same test, so the parametrised id is compared
+            # by its name alone.
+            bare = pattern.rsplit("::", 1)[-1].split("[", 1)[0]
+            if (
+                node == pattern
+                or node.startswith(pattern.rstrip(":") + "::")
+                or node.rsplit("::", 1)[-1].split("[", 1)[0] == bare
             ):
                 return pattern, str(entry.get("reason") or "")
     return None
@@ -1341,6 +1357,20 @@ def parse_value(raw: str) -> Any:
             return raw
 
 
+def row_errors(store: Store, path: Path, row: Any) -> set[str]:
+    """What one row fails on by itself, so a write can refuse only to make it worse.
+
+    `set` used to refuse any row that had an error, which made a row with two undeclared reference
+    kinds unrepairable: fixing the first left the second undeclared, and every write was refused.
+    The store-level `check` still reports whatever is left; this verb only declines to add to it.
+    """
+    scratch = Store(root=store.root, groups=store.groups)
+    scratch.flag_entries = store.flag_entries
+    scratch.derived_flags = store.derived_flags
+    validate_row(scratch, str(path), row)
+    return {finding.as_text() for finding in scratch.errors()}
+
+
 def command_set(args: argparse.Namespace) -> int:
     store = load_store(args.store)
     ref = store.by_id().get(args.id)
@@ -1371,6 +1401,9 @@ def command_set(args: argparse.Namespace) -> int:
     if not isinstance(rows, list) or ref.index >= len(rows):
         raise StoreError(f"{ref.path} is not a row file this tool can write back")
     row = rows[ref.index]
+    # What the row already failed on, taken before the edit is touched. The returned set is text,
+    # so later mutations of `row` cannot reach it.
+    before_errors = row_errors(store, ref.path, row)
     if not isinstance(row, dict):
         raise StoreError(f"{ref.path}[{ref.index}] is not a mapping")
 
@@ -1394,14 +1427,17 @@ def command_set(args: argparse.Namespace) -> int:
         if flag in flags:
             flags.remove(flag)
 
-    probe = Store(root=store.root, groups=store.groups)
-    probe.flag_entries = store.flag_entries
-    probe.derived_flags = store.derived_flags
-    validate_row(probe, str(ref.path), row)
-    if probe.errors():
-        for finding in probe.errors():
-            print(finding.as_text(), file=sys.stderr)
-        raise StoreError("refusing to write: the edited row is invalid")
+    # The guard asks whether this write makes the row worse, not whether the row is already
+    # imperfect. A row with two undeclared reference kinds cannot be repaired one kind at a time
+    # otherwise: fixing the first leaves the second undeclared and every write is refused, which is
+    # the same trap that stopped `set` from repairing a null kind at all.
+    introduced = row_errors(store, ref.path, row) - before_errors
+    if introduced:
+        for finding in sorted(introduced):
+            print(finding, file=sys.stderr)
+        raise StoreError(
+            "refusing to write: the edit would leave an error the row did not have"
+        )
 
     dump_yaml(ref.path, document)
     print(f"set {args.id}: wrote {display_path(ref.path)}")
