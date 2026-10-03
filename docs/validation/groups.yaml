@@ -78,6 +78,26 @@ groups:
       the 2.20-to-2.23 shift took a high-mode gap from 4.03% to 2.12%
       (issue #8).
 
+  - id: "5"
+    title: >-
+      `tests/validation/parity/test_blade_iea15mw_mesh_convergence.py`
+      (IEA-15MW blade modal gap against CCX)
+    slug: blade_mesh_convergence
+    # Both comparisons are the same kind, and the file says so itself: the
+    # docstring calls them "the AeroElast-vs-CCX modal gap" and the fixture
+    # solves the blade through CalculiX. The convergence assert inside the
+    # loop is not a comparison site: it compares our medium mesh with our
+    # coarse one.
+    reference_kind: code
+    source_files:
+      - tests/validation/parity/test_blade_iea15mw_mesh_convergence.py
+    provenance_note: >-
+      The reference is CalculiX 2.23, read from the binary. This is the test
+      `docs/validation-environment.md` singles out as version-sensitive:
+      under CCX 2.23 the high-mode worst gap is 2.12%, and issue #8 measured
+      4.03% under CCX 2.20. That is why the version is part of the reference
+      and is recorded here beside the numbers.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test
