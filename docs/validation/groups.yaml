@@ -98,6 +98,55 @@ groups:
       4.03% under CCX 2.20. That is why the version is part of the reference
       and is recorded here beside the numbers.
 
+  - id: "6"
+    title: >-
+      `tests/validation/parity/test_thin_walled_tube_torsion.py`
+      (thin-walled tube torsion against Bredt)
+    slug: tube_torsion
+    # Every comparison is against the same closed form, Bredt's T L / GJ.
+    reference_kind: analytical
+    source_files:
+      - tests/validation/parity/test_thin_walled_tube_torsion.py
+    # The test bodies hold only machinery; the comparisons live in this helper.
+    validation_helpers:
+      - _self_equilibrated_validation
+    # Seven assertions that are not comparisons against an independent
+    # reference, each named by its own source. Policy rules 1 and 6 leave them
+    # no place in a row: a row is evidence, and a reference must be
+    # independent. Excluding them leaves the metrics that must reach 1.0.
+    non_reference_asserts:
+      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:434"
+        reason: >-
+          the torque ruler: our own machinery against the torque it was asked
+          to apply
+      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:435"
+        reason: "the torque ruler, mirror side"
+      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:441"
+        reason: "the generalised resultants of our own model must vanish"
+      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:444"
+        reason: "the modal projection of our own model"
+      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:479"
+        reason: "two of our own metrics agreeing with each other"
+      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:483"
+        reason: "the linearity of our own response"
+      - at: "tests/validation/parity/test_thin_walled_tube_torsion.py:503"
+        reason: "the laminate thickness equals the constant it was built from"
+    non_validation_tests:
+      - tests:
+          - tests/validation/parity/test_thin_walled_tube_torsion.py::test_wall_traction_excites_a_section_distortion
+        reason: >-
+          Every assertion in it is machinery -- the torque ruler twice, and the
+          two walls of our own model agreeing -- so excluding them leaves no
+          comparison against an independent reference, and a row with no
+          comparisons is not a smaller row but no row.
+    provenance_note: >-
+      The reference is Bredt's closed form for a closed thin-walled tube, which
+      this module had already validated before the production load path was
+      exercised against it. Where the production realisation differs from
+      Bredt, the difference is recorded in `gaps.yaml` as
+      `moment_realization_over_delivers` rather than here: a row records what
+      agrees.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

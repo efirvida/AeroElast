@@ -1,0 +1,99 @@
+group: '6'
+rows:
+- id: tube_torsion.test_self_equilibrated_isotropic_reprodu.single
+  group: '6'
+  title: test_self_equilibrated_isotropic_reproduces_bredt
+  tests:
+  - tests/validation/parity/test_thin_walled_tube_torsion.py::test_self_equilibrated_isotropic_reproduces_bredt
+  validates: 'Boundary-layer-free torsion, isotropic MITC4: both metrics equal ``T/GJ``.'
+  comparisons:
+  - label: rel_err at line 473
+    asserted: true
+    reference:
+      kind: analytical
+      label: abs(m['ratio_fit'] - 1.0) < TOL
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:473
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rel_err at line 476
+    asserted: true
+    reference:
+      kind: analytical
+      label: abs(m['ratio_z'] - 1.0) < TOL
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:476
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: tube_torsion.test_self_equilibrated_laminate_reproduc.single
+  group: '6'
+  title: test_self_equilibrated_laminate_reproduces_bredt
+  tests:
+  - tests/validation/parity/test_thin_walled_tube_torsion.py::test_self_equilibrated_laminate_reproduces_bredt
+  validates: 'Boundary-layer-free torsion, MITC4Composite ``[45,-45]s``: both metrics equal ``T/GJ``.'
+  comparisons:
+  - label: rel_err at line 473
+    asserted: true
+    reference:
+      kind: analytical
+      label: abs(m['ratio_fit'] - 1.0) < TOL
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:473
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rel_err at line 476
+    asserted: true
+    reference:
+      kind: analytical
+      label: abs(m['ratio_z'] - 1.0) < TOL
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:476
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: tube_torsion.test_clamped_root_metric_convergence_ide.single
+  group: '6'
+  title: test_clamped_root_metric_convergence_identifies_the_section_rotation
+  tests:
+  - tests/validation/parity/test_thin_walled_tube_torsion.py::test_clamped_root_metric_convergence_identifies_the_section_rotation
+  validates: 'Clamped root + tip shear flow: which metric is the section rotation, and how long is the layer.'
+  comparisons:
+  - label: rel_err at line 549
+    asserted: true
+    reference:
+      kind: analytical
+      label: abs(asymptotic_z - 1.0) < TOL
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:549
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
