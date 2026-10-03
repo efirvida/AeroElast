@@ -18,7 +18,10 @@ reconciliation:
   collected_nodes: 31
   store_comparisons: 37
   verdict: reconciled
-  check: "python tools/validation_matrix.py diff-against-md --group 3"
+  check: >-
+    python tools/validation_matrix.py diff-against-md --group 3
+    (the command was retired, with its tests and its CLI entry, once both
+    Markdown views were deleted and it had no input left)
   result: >-
     23 Markdown row(s) covering 37 case slot(s) against 31 collected
     node(s); 0 function(s) need adjudication
@@ -43,7 +46,8 @@ adjudications:
     verdict: both correct, different units
     resolution: >-
       `diff-against-md` compares case slots rather than rows and fails
-      when the slot count stops equalling the store's comparison count.
+      when the slot count stops equalling the store's comparison count. It
+      was retired with the views; the identity it checked is recorded here.
       No row was renamed or merged, and a per-row mapping was not
       attempted: section 3's four test_3_1 rows split on `distorted`,
       which lives in the parametrisation and never appears in the assert,

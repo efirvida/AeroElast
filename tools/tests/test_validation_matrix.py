@@ -139,7 +139,7 @@ def make_row(**overrides: Any) -> dict[str, Any]:
                     "source": "assert_relative_error",
                     "justified": True,
                 },
-                "expected": "0.9984",
+                "expected": 0.9984,
                 "measured": {
                     "status": "measured",
                     "run": "34e2328",
@@ -269,6 +269,7 @@ def test_multi_reference_row_keeps_two_tolerances(tmp_path: Path) -> None:
         ("missing_label", "label must be a non-empty string"),
         ("unknown_row_key", "unknown keys"),
         ("bad_date", "must be YYYY-MM-DD"),
+        ("expected_as_string", "expected is the numeric string"),
         ("citation_on_non_paper", "only meaningful when kind == 'paper'"),
     ],
 )
@@ -306,6 +307,8 @@ def test_check_reports_one_error(tmp_path: Path, mutation: str, expected: str) -
         row["surprise"] = True
     elif mutation == "bad_date":
         row["comparisons"][0]["measured"]["date"] = "02/10/2026"
+    elif mutation == "expected_as_string":
+        row["comparisons"][0]["expected"] = "0.9984"
     elif mutation == "citation_on_non_paper":
         row["comparisons"][1]["reference"]["citation"] = "ko2017_perf"
 
@@ -1209,61 +1212,6 @@ def test_regression_needs_a_declared_pattern(tmp_path: Path) -> None:
 # T5: cross-validating the Markdown view
 # --------------------------------------------------------------------------- #
 
-MD_SAMPLE = """\
-## 3. `tests/validation/benchmarks/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)
-
-| test | what it validates | reference (paper cell) | tolerance | measured margin | notes |
-| --- | --- | --- | --- | --- | --- |
-| `test_3_1_square_plate_tables_2_to_5[reg clamped, t/L=1/100..1/10000]` (3 cases) | clamped | **Table 2** | `rtol=0.05` | 0.9996 (0.12%), 0.9980 (0.00%) | cell match |
-| `...[dist clamped]` (3 cases) | distorted | **Table 3** | `rtol=0.05` | 0.9991 (0.29%) | cell match |
-| `test_3_2_circular_plate_tables_6_to_7[clamped, 3 t/L]` | circular | **Table 6** | `rtol=0.05` | 0.9967 (0.30%) | cell match |
-| `test_3_6_hook_table_14_minimal_fix[0.9782]` | hook | **Table 14** | `rel_err < 0.03`, justified | 0.9814 (0.33%) | cell match |
-
-## 4. Another group
-
-| `test_9_9_other` | x | y | 1 | 2 | 3 |
-"""
-
-
-def test_find_md_table_stops_at_the_next_section_and_inherits_the_function() -> None:
-    module = _load_tool_module()
-    rows = module.find_md_table(
-        MD_SAMPLE, "tests/validation/benchmarks/test_ko2017_performance.py"
-    )
-    assert len(rows) == 4  # the table of section 4 is not included
-    assert [row["function"] for row in rows] == [
-        "test_3_1_square_plate_tables_2_to_5",
-        "test_3_1_square_plate_tables_2_to_5",
-        "test_3_2_circular_plate_tables_6_to_7",
-        "test_3_6_hook_table_14_minimal_fix",
-    ]
-    # A continuation row names no function of its own.
-    assert module.md_function("...[dist clamped]` (3 cases)") == "..."
-
-
-def test_md_case_count_reads_both_phrasings() -> None:
-    module = _load_tool_module()
-    assert module.md_case_count("`x` (3 cases)") == 3
-    assert module.md_case_count("`test_3_2_x[clamped, 3 t/L]`") == 3
-    assert module.md_case_count("`x`") == 1
-
-
-def test_md_tolerances_uses_the_store_vocabulary() -> None:
-    module = _load_tool_module()
-    # `tol=` on these helpers is relative, so it must read as rtol or every row conflicts.
-    assert module.md_tolerances("`rtol=0.05`") == {("rtol", 0.05)}
-    assert module.md_tolerances("`tol=0.01`") == {("rtol", 0.01)}
-    assert module.md_tolerances("`rel_err < 0.03`, justified in the comment") == {
-        ("rel_err", 0.03)
-    }
-
-
-def test_md_margins_reads_every_percentage_in_the_cell() -> None:
-    module = _load_tool_module()
-    assert module.md_margins("0.9996 (0.12%), 0.9980 (0.00%)") == {0.12, 0.0}
-    assert module.md_margins("not printed") == set()
-
-
 def write_adjudications(store: Path, entries: list[dict[str, Any]], group: str = "3") -> None:
     directory = store / "adjudications"
     directory.mkdir(exist_ok=True)
@@ -1332,56 +1280,6 @@ def test_duplicate_adjudication_ids_are_reported(tmp_path: Path) -> None:
     completed = run_check(store)
     assert completed.returncode == 1
     assert "duplicate adjudication id" in completed.stdout
-
-
-FIXTURE_MD = """\
-## 3. `tests/validation/benchmarks/test_ko2017_performance.py` (fixture)
-
-| test | what it validates | reference | tolerance | measured margin | notes |
-| --- | --- | --- | --- | --- | --- |
-| `test_3_1_square_plate_tables_2_to_5[reg clamped]` (2 cases) | deflection | **Table 2** | `rtol=0.05` | 0.9996 (0.12%), 1.0000 (0.00%) | cell match |
-"""
-
-
-def _fixture_view(tmp_path: Path, text: str) -> Path:
-    path = tmp_path / "view.md"
-    path.write_text(text, encoding="utf-8")
-    return path
-
-
-def test_diff_against_md_reconciles_a_matching_view(tmp_path: Path) -> None:
-    """The migration-time cross-check: the slot count bridges the two row counts."""
-    store = write_store(tmp_path, [make_row()])
-    md = _fixture_view(tmp_path, FIXTURE_MD)
-    completed = run(store, "diff-against-md", "--group", "3", "--md", str(md))
-    assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "0 function(s) need adjudication" in completed.stdout
-    # One Markdown row covering two case slots, against two comparisons in the store.
-    assert "covering 2 case slot(s)" in completed.stdout
-    assert "do not equal the store's" not in completed.stdout
-
-
-def test_diff_against_md_reports_a_tolerance_conflict(tmp_path: Path) -> None:
-    store = write_store(tmp_path, [make_row()])
-    md = _fixture_view(tmp_path, FIXTURE_MD.replace("`rtol=0.05`", "`rtol=0.02`"))
-    completed = run(store, "diff-against-md", "--group", "3", "--md", str(md))
-    assert completed.returncode == 1
-    assert "tolerance: md" in completed.stdout
-
-
-def test_diff_against_md_reports_a_margin_the_store_does_not_have(tmp_path: Path) -> None:
-    store = write_store(tmp_path, [make_row()])
-    md = _fixture_view(tmp_path, FIXTURE_MD.replace("(0.00%)", "(9.99%)"))
-    completed = run(store, "diff-against-md", "--group", "3", "--md", str(md))
-    assert completed.returncode == 1
-    assert "margins in the Markdown and not in the store" in completed.stdout
-
-
-def test_diff_against_md_says_so_when_the_view_is_gone() -> None:
-    """The command is a migration tool: with the view deleted it reports that, not a crash."""
-    completed = run(REAL_STORE, "diff-against-md", "--group", "3")
-    assert completed.returncode == 2
-    assert "is gone" in completed.stderr
 
 
 # --------------------------------------------------------------------------- #

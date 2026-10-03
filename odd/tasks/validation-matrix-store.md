@@ -390,9 +390,10 @@ validation_matrix headline [--json]
 validation_matrix set    ID PATH=VALUE... [--unset PATH]... [--add-flag F]... [--remove-flag F]...
 validation_matrix regression [--group ID] [--scope S] [--write] [--json]
 
-# still to come
-validation_matrix diff-against-md --group ID                          # T5
-validation_matrix render [--out FILE] [--check]                       # T7
+validation_matrix extract [--group ID] [--scope S] [--citation KEY] [--write] [--json]
+validation_matrix references (list|gaps|get|check|bibtex|where-used|render)
+validation_matrix gaps   [--json]
+validation_matrix status [--json]
 ```
 
 `regression` is the answer to "the values must serve as a regression, without re-reading the
@@ -630,14 +631,14 @@ consequences:
 | T3a | done | - | `python -m pytest tools/tests` -> 62 passed (19 new); `ruff check tools/` clean; matrix `check` 0 errors; `references check` -> 6 entr(ies), 0 errors, 1 warning |
 | T3b | pending | - | - |
 | T4 | pending | - | - |
-| T5 | done | - | `diff-against-md --group 3` -> `23 Markdown row(s) covering 37 case slot(s) against 31 collected node(s); 0 function(s) need adjudication`, exit 0; 80 tool tests |
+| T5 | done | - | `diff-against-md --group 3` -> `23 Markdown row(s) covering 37 case slot(s) against 31 collected node(s); 0 function(s) need adjudication`, exit 0; 80 tool tests. **The command was retired** once both views were deleted (see T7): its only input is gone, so its tests, its helpers and its CLI entry went with it |
 | T6 | done | - | `check` validates `docs/validation/adjudications/3-ko2017.yaml`; no conflict needed adjudication; 90 tool tests |
 | T7 | pending | - | - |
 | T8 | done | `93c7384` (T8a), below (T8b) | T8a: `tests/` is a package, helpers in `tests/support/`, 40 import sites rewritten, 527 nodes collected with zero import errors. T8b: 44 validation files in six domains and 9 software files in three, the drift bucket deleted, and the path made the classification |
 
 | T7 detail | deliverable | acceptance criteria |
 | --- | --- | --- |
-| Eliminate the generated views | (1) migrate the not-citable list into `docs/validation/gaps.yaml` — **done at T7a**, because it is the one part of the document that is not derivable: a gap is a claim about absence, and a row that does not exist cannot be queried; (2) write `docs/validation-policy.md` with the citation policy, the validity envelope's criteria, and pointers to `gaps`, `check` and the diagnostic index; (3) repoint the live references (`docs/formulations/{mitc4plus-2017-extract,shell-elements,materials,solvers}.md`, `docs/validation-environment.md`, `tests/test_shell_convergence.py`, `openspec/specs/mitc4plusd-element/spec.md`) and rewrite CONTRIBUTING rule 6; (4) repoint `tests/test_mitc4plusd_traceability.py:36` at the store; (5) delete `docs/validation-matrix.md` and `docs/references.md`; (6) a Make target running `check` and `regression` | no live document points at a deleted path; archived `openspec/changes/archive/**` untouched; `check`, `regression` and `gaps` pass; `diff-against-md` reports a clear error once its input is gone instead of crashing — and it is a migration-time command, not a CI one, because CI cannot diff against a deleted file |
+| Eliminate the generated views | (1) migrate the not-citable list into `docs/validation/gaps.yaml` — **done at T7a**, because it is the one part of the document that is not derivable: a gap is a claim about absence, and a row that does not exist cannot be queried; (2) write `docs/validation-policy.md` with the citation policy, the validity envelope's criteria, and pointers to `gaps`, `check` and the diagnostic index; (3) repoint the live references (`docs/formulations/{mitc4plus-2017-extract,shell-elements,materials,solvers}.md`, `docs/validation-environment.md`, `tests/test_shell_convergence.py`, `openspec/specs/mitc4plusd-element/spec.md`) and rewrite CONTRIBUTING rule 6; (4) repoint `tests/test_mitc4plusd_traceability.py:36` at the store; (5) delete `docs/validation-matrix.md` and `docs/references.md`; (6) a Make target running `check` and `regression` | no live document points at a deleted path; archived `openspec/changes/archive/**` untouched; `check`, `regression` and `gaps` pass; `diff-against-md` reports a clear error once its input is gone instead of crashing — and it is a migration-time command, not a CI one, because CI cannot diff against a deleted file. **As built, T7 went further and removed it**: a command whose only input no longer exists has no reason to stay in the CLI, where its presence invites a rerun that can only fail. Its history is in git, and what it proved is recorded in `docs/validation/adjudications/3-ko2017.yaml` |
 
 | T8 detail | deliverable | acceptance criteria |
 | --- | --- | --- |

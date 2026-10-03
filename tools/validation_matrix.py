@@ -22,8 +22,7 @@ The store lives in `docs/validation/`:
 
 `docs/validation-matrix.md` and `docs/references.md` were the store's generated views, and
 they are gone: the store is the only artifact. `references render` survives as an export
-command, and `diff-against-md` as a migration-time cross-check, which is the one thing here
-that still needs the old file.
+command.
 
 Model. A row is one test group: it owns an optional single `result` (our own
 measured value) and one or more `comparisons`. A comparison pairs that result with
@@ -38,7 +37,7 @@ stored: `list --unit comparison` shows them, and `set` refuses them.
 
 Still to come, per the pilot work units in `odd/tasks/validation-matrix-store.md`
 section 13.1: the `references` subgroup with its generator, and the migration
-pipeline (`extract`, `diff-against-md`, `render`).
+pipeline (`extract`, `render`).
 
 Validation is hand-rolled on purpose: `jsonschema` is not importable in the pinned
 environment, and CONTRIBUTING rule 6 makes this tool part of the suite's discipline
@@ -547,6 +546,22 @@ def _validate_comparison(store: Store, where: str, comparison: Any) -> bool:
     asserted = comparison.get("asserted")
     if not isinstance(asserted, bool):
         store.error(where, "'asserted' must be a boolean")
+    # The class of the bug a reader found by eye: a reference side that is one number is stored
+    # as a number, so that numeric queries on it work and it stays symmetric with measured.raw.
+    # A string that parses as a number is exactly that mistake, and nothing else looks like it:
+    # a cell list or a mode table does not parse.
+    expected = comparison.get("expected")
+    if isinstance(expected, str):
+        try:
+            float(expected)
+        except ValueError:
+            pass
+        else:
+            store.error(
+                where,
+                f"expected is the numeric string {expected!r}, but a reference side that is one "
+                "number is stored as a number",
+            )
     _validate_reference(store, where, comparison.get("reference"))
     _validate_tolerance(store, where, comparison.get("tolerance"))
     _validate_measured(store, where, comparison.get("measured"))
@@ -3114,206 +3129,6 @@ def command_regression(args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- #
-# Cross-validating the Markdown view against the store
-# --------------------------------------------------------------------------- #
-
-MD_TABLE_MIN_CELLS = 5
-
-
-def md_function(cell: str) -> str:
-    """The test function a Markdown row names, or '...' for a continuation row."""
-    return cell.strip().strip("`").split("[", 1)[0].strip()
-
-
-def find_md_table(md_text: str, source_file: str) -> list[dict[str, Any]]:
-    """The Markdown table of the section that documents this source file.
-
-    The section is found by its own heading, so no path or anchor is hardcoded: the
-    group names its source file and the heading names the same file.
-    """
-    lines = md_text.splitlines()
-    start = next(
-        (index for index, line in enumerate(lines) if line.startswith("## ") and source_file in line),
-        None,
-    )
-    if start is None:
-        raise StoreError(f"no Markdown section documents {source_file}")
-    end = next(
-        (index for index in range(start + 1, len(lines)) if lines[index].startswith("## ")),
-        len(lines),
-    )
-    rows: list[dict[str, Any]] = []
-    function = ""
-    for line in lines[start:end]:
-        if not line.startswith("|"):
-            continue
-        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-        if len(cells) < MD_TABLE_MIN_CELLS or cells[0] == "test" or set(cells[0]) <= {"-", " "}:
-            continue
-        named = md_function(cells[0])
-        if named and not named.startswith("..."):
-            function = named
-        rows.append(
-            {
-                "test": cells[0],
-                "function": function,
-                "cases": md_case_count(cells[0]),
-                "validates": cells[1],
-                "reference": cells[2],
-                "tolerance": cells[3],
-                "margin": cells[4],
-                "notes": cells[5] if len(cells) > 5 else "",
-            }
-        )
-    return rows
-
-
-def md_case_count(cell: str) -> int:
-    """How many cases a Markdown row covers, in either phrasing the document uses.
-
-    Most rows say `(3 cases)`; the circular-plate rows encode it inside the test cell as
-    `[clamped, 3 t/L]`. This is the number that reconciles the two counts: a Markdown row
-    covers a *comparison*, while a collected node covers a *test*, and a test asserting two
-    tables is one node and two comparison slots.
-    """
-    for pattern in (r"\((\d+)\s+cases?\)", r"\b(\d+)\s+t/L\b"):
-        match = re.search(pattern, cell)
-        if match:
-            return int(match.group(1))
-    return 1
-
-
-def md_tolerances(text: str) -> set[tuple[str, float]]:
-    """The tolerance a Markdown cell states, in the store's own vocabulary.
-
-    `tol=` on this suite's helpers is a relative bound, so it maps to `rtol` exactly as the
-    extractor maps it; without that, every row would look like a conflict.
-    """
-    found: set[tuple[str, float]] = set()
-    for match in re.finditer(r"(rtol|tol|atol|rel_err)\s*(?:<|=)\s*([0-9.]+)", text):
-        kind = "rtol" if match.group(1) == "tol" else match.group(1)
-        found.add((kind, float(match.group(2))))
-    return found
-
-
-def md_margins(text: str) -> set[float]:
-    return {float(value) for value in re.findall(r"\(([0-9.]+)%\)", text)}
-
-
-def store_function_expectations(refs: list[RowRef]) -> tuple[set[tuple[str, float]], set[float]]:
-    tolerances: set[tuple[str, float]] = set()
-    margins: set[float] = set()
-    for ref in refs:
-        for comparison in ref.data.get("comparisons") or []:
-            if not isinstance(comparison, dict):
-                continue
-            tolerance = comparison.get("tolerance") or {}
-            value = _number(tolerance.get("value"))
-            if value is not None and tolerance.get("kind"):
-                tolerances.add((str(tolerance["kind"]), value))
-            margin = _number((comparison.get("measured") or {}).get("margin_pct"))
-            if margin is not None:
-                margins.add(round(margin, 2))
-    return tolerances, margins
-
-
-def command_diff_against_md(args: argparse.Namespace) -> int:
-    store = load_store(args.store)
-    group = store.groups.get(args.group)
-    if group is None:
-        raise StoreError(f"unknown group: {args.group}")
-    source = str((group.get("source_files") or [""])[0])
-    md_path = args.md or (REPO_ROOT / "docs" / "validation-matrix.md")
-    if not md_path.exists():
-        raise StoreError(f"{display_path(md_path)} is gone; there is no view to diff against")
-    md_rows = find_md_table(md_path.read_text(encoding="utf-8"), source)
-
-    md_by_function: dict[str, list[dict[str, Any]]] = {}
-    for row in md_rows:
-        md_by_function.setdefault(row["function"], []).append(row)
-    store_by_function: dict[str, list[RowRef]] = {}
-    for ref in store.rows:
-        if ref.data.get("group") != args.group:
-            continue
-        store_by_function.setdefault(md_function(str(ref.data.get("title"))), []).append(ref)
-
-    report: list[dict[str, Any]] = []
-    for function in sorted(set(md_by_function) | set(store_by_function)):
-        md_group = md_by_function.get(function, [])
-        refs = store_by_function.get(function, [])
-        if not refs:
-            report.append({"function": function, "verdict": "only_in_md", "md_rows": len(md_group)})
-            continue
-        if not md_group:
-            report.append(
-                {"function": function, "verdict": "only_in_code", "nodes": len(refs)}
-            )
-            continue
-        md_tol: set[tuple[str, float]] = set()
-        for row in md_group:
-            md_tol |= md_tolerances(row["tolerance"])
-        md_margin: set[float] = set()
-        for row in md_group:
-            md_margin |= md_margins(row["margin"])
-        store_tol, store_margin = store_function_expectations(refs)
-        verdict = "match"
-        detail: list[str] = []
-        if md_tol != store_tol:
-            verdict = "value_conflict"
-            detail.append(
-                f"tolerance: md {sorted(md_tol)} vs store {sorted(store_tol)}"
-            )
-        missing = {value for value in md_margin if value not in store_margin}
-        if missing:
-            verdict = "value_conflict"
-            detail.append(
-                f"margins in the Markdown and not in the store: {sorted(missing)} "
-                f"(store: {sorted(store_margin)})"
-            )
-        report.append(
-            {
-                "function": function,
-                "verdict": verdict,
-                "md_rows": len(md_group),
-                "nodes": len(refs),
-                "detail": detail,
-            }
-        )
-
-    conflicts = [item for item in report if item["verdict"] != "match"]
-    if args.json:
-        print(json.dumps(report, indent=2))
-    else:
-        print(f"{'function':52s} {'md':>3s} {'nodes':>5s}  verdict")
-        for item in report:
-            print(
-                f"{item['function'][:52]:52s} {item.get('md_rows', 0):3d} "
-                f"{item.get('nodes', 0):5d}  {item['verdict']}"
-            )
-            for line in item.get("detail") or []:
-                print(f"      {line}")
-        md_total = len(md_rows)
-        md_slots = sum(row["cases"] for row in md_rows)
-        nodes_total = sum(len(refs) for refs in store_by_function.values())
-        comparisons = sum(
-            len([item for item in (ref.data.get("comparisons") or []) if isinstance(item, dict)])
-            for refs in store_by_function.values()
-            for ref in refs
-        )
-        print(
-            f"\ndiff: {md_total} Markdown row(s) covering {md_slots} case slot(s) against "
-            f"{nodes_total} collected node(s); {len(conflicts)} function(s) need adjudication"
-        )
-        if md_slots != comparisons:
-            print(
-                f"NOTE: the Markdown's case slots ({md_slots}) do not equal the store's "
-                f"comparison count ({comparisons}); a row and a comparison are the same unit, "
-                "so this is a real discrepancy"
-            )
-    return EXIT_FINDINGS if conflicts else EXIT_OK
-
-
-# --------------------------------------------------------------------------- #
 # Entry point
 # --------------------------------------------------------------------------- #
 
@@ -3412,16 +3227,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     regression.add_argument("--json", action="store_true")
     regression.set_defaults(func=command_regression)
-
-    cross_check = subparsers.add_parser(
-        "diff-against-md", help="cross-validate the Markdown view against the store"
-    )
-    cross_check.add_argument("--group", default="3")
-    cross_check.add_argument(
-        "--md", type=Path, help="the deleted Markdown view to diff against"
-    )
-    cross_check.add_argument("--json", action="store_true")
-    cross_check.set_defaults(func=command_diff_against_md)
 
     gaps = subparsers.add_parser("gaps", help="what the suite does not validate")
     gaps.add_argument("--json", action="store_true")
