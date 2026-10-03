@@ -106,9 +106,9 @@
       "required": ["kind", "label"],
       "properties": {
         "kind": {
-          "type": "string",
-          "enum": ["paper", "code", "analytical", "self"],
-          "description": "self means the comparison is against another of our own models, which CONTRIBUTING rule 3 allows as a restrictive assertion. There is deliberately no 'schema' kind: a row with no independent reference is a software test and belongs out of scope, not in this store."
+          "type": ["string", "null"],
+          "enum": ["paper", "code", "analytical", "self", null],
+          "description": "self means the comparison is against another of our own models, which CONTRIBUTING rule 3 allows as a restrictive assertion. There is deliberately no 'schema' kind: a row with no independent reference is a software test and belongs out of scope, not in this store. null means the group declared no reference_kind and the extractor declines to guess one from the test's prose, which is a keyword match and not evidence: check fails until a human declares it."
         },
         "label": {
           "type": "string",

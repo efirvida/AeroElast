@@ -270,6 +270,7 @@ def test_multi_reference_row_keeps_two_tolerances(tmp_path: Path) -> None:
         ("unknown_row_key", "unknown keys"),
         ("bad_date", "must be YYYY-MM-DD"),
         ("expected_as_string", "expected is the numeric string"),
+        ("no_reference_kind", "reference.kind is not declared"),
         ("citation_on_non_paper", "only meaningful when kind == 'paper'"),
     ],
 )
@@ -309,6 +310,8 @@ def test_check_reports_one_error(tmp_path: Path, mutation: str, expected: str) -
         row["comparisons"][0]["measured"]["date"] = "02/10/2026"
     elif mutation == "expected_as_string":
         row["comparisons"][0]["expected"] = "0.9984"
+    elif mutation == "no_reference_kind":
+        row["comparisons"][0]["reference"]["kind"] = None
     elif mutation == "citation_on_non_paper":
         row["comparisons"][1]["reference"]["citation"] = "ko2017_perf"
 

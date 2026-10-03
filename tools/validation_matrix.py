@@ -167,6 +167,10 @@ GROUP_KEYS = {
     "headline",
     "provenance_note",
     "prose_after_table",
+    # What the group's comparisons are against, when every one of them is against the same
+    # thing. A mixed group declares none and each comparison is decided by hand: the extractor
+    # reports a declared kind and never infers one, because a keyword guess is not evidence.
+    "reference_kind",
 }
 # A group declares how its tests print their residuals, because the suite prints prose, not
 # a format. `asserted` matches the line behind a real assertion, `unasserted` the line the
@@ -417,6 +421,13 @@ def load_groups(store: Store) -> None:
         unknown = _unknown_keys(entry, GROUP_KEYS)
         if unknown:
             store.error(where, f"unknown keys: {', '.join(unknown)}")
+        reference_kind = entry.get("reference_kind")
+        if reference_kind is not None and reference_kind not in REFERENCE_KINDS:
+            store.error(
+                where,
+                f"reference_kind must be one of {sorted(REFERENCE_KINDS)}, "
+                f"got {reference_kind!r}",
+            )
         group_id = entry.get("id")
         if not isinstance(group_id, str) or not group_id:
             store.error(where, f"invalid group id: {group_id!r}")
@@ -446,7 +457,13 @@ def _validate_reference(store: Store, where: str, ref: Any) -> None:
     if unknown:
         store.error(where, f"reference: unknown keys: {', '.join(unknown)}")
     kind = ref.get("kind")
-    if kind not in REFERENCE_KINDS:
+    if kind is None:
+        store.error(
+            where,
+            "reference.kind is not declared: the group declares what its comparisons are "
+            "against, and the extractor never guesses one from the test's prose",
+        )
+    elif kind not in REFERENCE_KINDS:
         store.error(where, f"reference.kind must be one of {sorted(REFERENCE_KINDS)}")
     if not isinstance(ref.get("label"), str) or not ref["label"]:
         store.error(where, "reference.label must be a non-empty string")
@@ -2306,6 +2323,7 @@ def build_rows(
     citation: str,
     scope: str,
     nodes: list[NodeInfo],
+    reference_kind: str | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """E1-E3 into rows: one row per collected node, none left unclaimed."""
     tree = ast.parse((REPO_ROOT / scope).read_text(encoding="utf-8"))
@@ -2383,7 +2401,12 @@ def build_rows(
 
         comparisons = []
         for site in sites:
-            kind = "paper" if re.search(r"paper|table|expected", site.source, re.I) else "analytical"
+            # The group declares it. Guessing from the prose -- "paper" when the source text
+            # happens to say paper, table or expected, "analytical" otherwise -- mislabelled the
+            # hook test that compares against the paper's Table 14, because the assert reads
+            # `rel_err < 0.03` and names none of those words, and it would have stamped
+            # "analytical" on every symmetry and consistency check in the suite.
+            kind = reference_kind
             reference: dict[str, Any] = {
                 "kind": kind,
                 "label": site.reference_expr or site.source,
@@ -2491,6 +2514,7 @@ def command_extract(args: argparse.Namespace) -> int:
         citation,
         str(scope),
         nodes,
+        reference_kind=group.get("reference_kind"),
     )
     payload = {
         "scope": str(scope),

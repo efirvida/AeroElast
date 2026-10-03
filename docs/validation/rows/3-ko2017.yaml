@@ -736,8 +736,9 @@ rows:
   - label: rel_err at line 1699
     asserted: true
     reference:
-      kind: analytical
+      kind: paper
       label: rel_err < 0.03
+      citation: ko2017_perf
     tolerance:
       kind: rel_err
       value: 0.03

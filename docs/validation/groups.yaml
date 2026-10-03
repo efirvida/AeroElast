@@ -15,6 +15,13 @@ groups:
     title: '`tests/validation/benchmarks/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)'
     slug: ko2017
     citation: ko2017_perf
+    # What every comparison in this group is against. The extractor reads this
+    # and never infers a kind from the test's prose: the old keyword guess
+    # called `rel_err < 0.03` analytical, and the row it labelled is the hook
+    # test against the paper's Table 14. A group declares this only when all
+    # its comparisons share the kind; a mixed group declares none, and then
+    # `check` fails until each comparison is decided by hand.
+    reference_kind: paper
     source_files:
       - tests/validation/benchmarks/test_ko2017_performance.py
     common_tolerance:
@@ -45,6 +52,7 @@ groups:
       Evidence that exists outside `tests/`, and is not covered by a live test
     slug: outofband
     citation: ko2017_perf
+    reference_kind: paper
     source_files: []
     headline: >-
       The triangular MITC3+ path, which no live test exercises: N=32 reproduces
@@ -56,8 +64,9 @@ groups:
       `measured` values are the ones recorded when the matrix existed, and the
       reproduction command is in the row's notes.
 
-# There is no drift bucket any more. The directory is the classification: a test under
-# `tests/validation/` validates a physical quantity against an independent reference and
-# needs a group and a row; a test under `tests/software/` validates the software and needs
-# neither. `check` refuses a row that claims a test from `tests/software/`, so the two
-# cannot drift apart inside the store.
+# There is no drift bucket any more. The directory is the classification: a
+# test under `tests/validation/` validates a physical quantity against an
+# independent reference and needs a group and a row; a test under
+# `tests/software/` validates the software and needs neither. `check`
+# refuses a row that claims a test from `tests/software/`, so the two cannot
+# drift apart inside the store.
