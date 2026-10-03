@@ -615,7 +615,7 @@ consequences:
 | T3a | done | - | `python -m pytest tools/tests` -> 62 passed (19 new); `ruff check tools/` clean; matrix `check` 0 errors; `references check` -> 6 entr(ies), 0 errors, 1 warning |
 | T3b | pending | - | - |
 | T4 | pending | - | - |
-| T5 | pending | - | - |
+| T5 | done | - | `diff-against-md --group 3` -> `23 Markdown row(s) covering 37 case slot(s) against 31 collected node(s); 0 function(s) need adjudication`, exit 0; 80 tool tests |
 | T6 | pending | - | - |
 | T7 | pending | - | - |
 
@@ -699,11 +699,17 @@ that the schema in §5 does not have to be redesigned later. The same channel wo
 Decision 6 is settled: the references migration ships with the pilot. Decisions 1-5 are settled
 by default inside the pilot, and the pilot's output is what they are judged against:
 
-1. **Row granularity** — default: one row per function-and-case-class, with `tests[]` listing
-   every node the row claims and `comparisons[]` listing every independent reference it measures
-   against. The Markdown's 23 rows for 31 §3 nodes implies the row rule; the slash-concatenated
-   tolerance cells (§4.3, §4.10) imply the comparison rule. Revisit at T5 if the 23-vs-31
-   mapping is not expressible as a stable rule.
+1. **Row granularity** — **settled at T5, and it is not the question it looked like.** The store's
+   row is the *collected test*, and the Markdown's row is a *comparison slot*: §3 has 23 Markdown
+   rows covering **37 case slots**, and the store has 31 nodes with **37 comparisons**. The two
+   counts differ because a test that asserts two benchmark tables is one node and two slots
+   (`test_3_1` is 4 Markdown rows over 6 nodes; `test_3_2` is 2 over 6; `test_3_9` is 2 over 4;
+   the other six functions are 1 node per slot). `diff-against-md` computes that identity and
+   fails when it does not hold, so the reconciliation is checked, not asserted.
+   Mapping Markdown row to node *per row* is deliberately not attempted: the distinguishing
+   parameter is not always in the assertion (`test_3_1`'s four rows split on `distorted`, which
+   appears in the parametrisation and not in the assert), so a per-row mapping would be a guess.
+   Function-level comparison is what the evidence supports, and it is what the command reports.
 2. **Generated output** — **settled: eliminated.** Both Markdown views are deleted once the
    store covers them, so the anchor-redirect question disappears with them. `references render`
    survives as an export/debug command writing to a throwaway path, never as a committed

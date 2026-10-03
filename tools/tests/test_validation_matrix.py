@@ -1075,3 +1075,72 @@ def test_regression_needs_a_declared_pattern(tmp_path: Path) -> None:
     completed = run(store, "regression", "--group", "3")
     assert completed.returncode == 2
     assert "declares no 'residual' patterns" in completed.stderr
+
+
+# --------------------------------------------------------------------------- #
+# T5: cross-validating the Markdown view
+# --------------------------------------------------------------------------- #
+
+MD_SAMPLE = """\
+## 3. `tests/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)
+
+| test | what it validates | reference (paper cell) | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_3_1_square_plate_tables_2_to_5[reg clamped, t/L=1/100..1/10000]` (3 cases) | clamped | **Table 2** | `rtol=0.05` | 0.9996 (0.12%), 0.9980 (0.00%) | cell match |
+| `...[dist clamped]` (3 cases) | distorted | **Table 3** | `rtol=0.05` | 0.9991 (0.29%) | cell match |
+| `test_3_2_circular_plate_tables_6_to_7[clamped, 3 t/L]` | circular | **Table 6** | `rtol=0.05` | 0.9967 (0.30%) | cell match |
+| `test_3_6_hook_table_14_minimal_fix[0.9782]` | hook | **Table 14** | `rel_err < 0.03`, justified | 0.9814 (0.33%) | cell match |
+
+## 4. Another group
+
+| `test_9_9_other` | x | y | 1 | 2 | 3 |
+"""
+
+
+def test_find_md_table_stops_at_the_next_section_and_inherits_the_function() -> None:
+    module = _load_tool_module()
+    rows = module.find_md_table(MD_SAMPLE, "tests/test_ko2017_performance.py")
+    assert len(rows) == 4  # the table of section 4 is not included
+    assert [row["function"] for row in rows] == [
+        "test_3_1_square_plate_tables_2_to_5",
+        "test_3_1_square_plate_tables_2_to_5",
+        "test_3_2_circular_plate_tables_6_to_7",
+        "test_3_6_hook_table_14_minimal_fix",
+    ]
+    # A continuation row names no function of its own.
+    assert module.md_function("...[dist clamped]` (3 cases)") == "..."
+
+
+def test_md_case_count_reads_both_phrasings() -> None:
+    module = _load_tool_module()
+    assert module.md_case_count("`x` (3 cases)") == 3
+    assert module.md_case_count("`test_3_2_x[clamped, 3 t/L]`") == 3
+    assert module.md_case_count("`x`") == 1
+
+
+def test_md_tolerances_uses_the_store_vocabulary() -> None:
+    module = _load_tool_module()
+    # `tol=` on these helpers is relative, so it must read as rtol or every row conflicts.
+    assert module.md_tolerances("`rtol=0.05`") == {("rtol", 0.05)}
+    assert module.md_tolerances("`tol=0.01`") == {("rtol", 0.01)}
+    assert module.md_tolerances("`rel_err < 0.03`, justified in the comment") == {
+        ("rel_err", 0.03)
+    }
+
+
+def test_md_margins_reads_every_percentage_in_the_cell() -> None:
+    module = _load_tool_module()
+    assert module.md_margins("0.9996 (0.12%), 0.9980 (0.00%)") == {0.12, 0.0}
+    assert module.md_margins("not printed") == set()
+
+
+def test_the_markdown_and_the_store_reconcile_on_the_real_group() -> None:
+    """T5 acceptance: no conflict, and the case slots equal the store's comparisons."""
+    completed = run(REAL_STORE, "diff-against-md", "--group", "3")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "0 function(s) need adjudication" in completed.stdout
+    # A Markdown row covers a comparison; a node covers a test. The two counts differ and
+    # the slot count is the bridge: 23 rows covering 37 slots, 31 nodes, 37 comparisons.
+    assert "23 Markdown row(s) covering 37 case slot(s)" in completed.stdout
+    assert "31 collected node(s)" in completed.stdout
+    assert "do not equal the store's" not in completed.stdout
