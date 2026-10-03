@@ -540,6 +540,21 @@ consequences:
 | T6 | Adjudication and freeze (WU-P3) | re-run each conflicting node (`-s`, `-rA`), `docs/validation/adjudications/3-ko2017.yaml`, complete `rows/3-ko2017.yaml` with `measured.*` | the six acceptance criteria in §12; no conflict resolved without a recorded command and its output |
 | T7 | Render, check and CI wiring (WU-8 for the pilot) | `render --check` for the pilot group, `check --group 3`, a Make target | exits 0 on the tree; exits 1 on a synthetic drift (a removed node, a tampered generated file), and exits 1 on a 0-node collect-only |
 
+### 13.2 Progress
+
+| task | status | commit | evidence |
+| --- | --- | --- | --- |
+| design | done | `7a011f3` | this document |
+| T1 | done | `d947535` | `python -m pytest tools/tests` -> 22 passed; `python tools/validation_matrix.py check` -> `0 row(s), 0 comparison(s), 0 error(s), 1 warning(s)` (the warning is the section 3 prose file, written at T7); `ruff check` 0.16.0 clean |
+| T2 | pending | - | - |
+| T3 | pending | - | - |
+| T4 | pending | - | - |
+| T5 | pending | - | - |
+| T6 | pending | - | - |
+| T7 | pending | - | - |
+
+Branch: `feat/validation-matrix-store`.
+
 | WU | deliverable | acceptance evidence |
 | --- | --- | --- |
 | WU-0 | `schemas/validation-row.schema.json`, `schemas/reference.schema.json`, `groups.yaml`, `flags.yaml`, empty `rows/` | `check` passes on an empty store |
