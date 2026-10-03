@@ -858,3 +858,42 @@ comparison; the same `rel_error` against a value the test prints as "Analytical"
 `||K_comp - K_iso|| / ||K_iso||` compares our own two models and is `self`. Approving the criterion
 is what unblocks the domain, because the criterion is what makes 47 declarations written once.
 
+### 18.6 The real cause: the site criterion counts non-reference asserts
+
+Every "mixed file" this sweep hit has the same cause, and it is not mixed references. The extractor
+counts an assertion as a comparison whenever a residual is compared with a bound, and in the parity
+domain that includes assertions with no independent reference at all. Eight sites, read from the
+review sheet:
+
+| file | line | the assertion | against |
+| --- | --- | --- | --- |
+| test_thin_walled_tube_torsion.py | 503 | `abs(lam.total_thickness - LAM_TOTAL_THICKNESS) < 1e-15` | the constant the object was built from |
+| test_thin_walled_tube_torsion.py | 583, 584 | `abs(t_right - intended) / abs(intended) < 1e-9` | our own torque ruler |
+| test_thin_walled_tube_torsion.py | 602 | `abs(abs(slope_left) - abs(slope_right)) / ... < 0.01` | the other wall of the same model |
+| test_thin_walled_tube_torsion.py | 549 | `abs(asymptotic_z - 1.0) < TOL` | an idealised limit |
+| test_shell_stress_ccx_parity.py | 221 | `rel < 1e-6` | the same model's other fibre |
+| test_ccx_shell_element_types_parity.py | 323 | `spread < TOL_AGREEMENT` | three elements of CalculiX |
+| test_shell_convergence.py | 223 | `extrap_error < EXTRAPOLATED_TOL` | our own Richardson extrapolation |
+| test_blade_iea15mw_mesh_convergence.py | loop | `gaps[medium][mode] < gaps[coarse][mode]` | our own coarser mesh |
+
+The last one the extractor already rejects, and the others it accepts. Structure cannot separate them:
+`rel < 1e-6` against an analytical value looks like `rel < 1e-6` against the other fibre.
+
+Two branches, and this is a decision about what counts as evidence, so it is the maintainer's:
+
+- **A. `self` covers comparisons internal to our own models.** Symmetries and idealised limits
+  become rows of kind `self`, which the schema already describes as a restrictive assertion,
+  and the table's first five become rows too. The taxonomy gap of section 18.5 closes without a new
+  kind, because "CCX against its own element families" is the same situation one step out: the
+  reference checked against itself.
+- **B. They are not rows.** Then the extractor's site criterion needs a per-comparison exclusion,
+  not a per-test one: the tube torsion file holds both a real limit comparison and four machinery
+  checks in the same row, so `non_validation_tests` — which only touches unclaimed nodes — cannot
+  express it. That is a second mechanism, and the "reference qualified against itself" case still
+  needs an answer.
+
+Recommendation: **A for the physics properties** (a symmetry, an idealised limit) and **B for the
+machinery** (a torque ruler, a thickness against the constant it was built from). The first says
+something about the model; the second says the test's own arithmetic works, which is not evidence
+about anything physical.
+
