@@ -107,8 +107,8 @@
       "properties": {
         "kind": {
           "type": "string",
-          "enum": ["paper", "code", "analytical", "self", "schema"],
-          "description": "self means the comparison is against another of our own models; schema means a structural test with no numerical reference."
+          "enum": ["paper", "code", "analytical", "self"],
+          "description": "self means the comparison is against another of our own models, which CONTRIBUTING rule 3 allows as a restrictive assertion. There is deliberately no 'schema' kind: a row with no independent reference is a software test and belongs out of scope, not in this store."
         },
         "label": {
           "type": "string",

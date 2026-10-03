@@ -26,6 +26,157 @@
 # and their `code_mentions`, is T3b.
 version: 1
 
+header: |-
+  This file is the canonical bibliography for AeroElast. It replaces the two
+  reference lists that used to be duplicated in the README ("Scientific
+  references" and "Element formulation references"), and the README now points
+  here. Entries are grouped by subject and carry the full author list, title,
+  journal or publisher, volume, pages and year, plus a DOI **where one could be
+  verified**.
+
+sections:
+  - title: 'About the recovered PDFs and the "to verify" markers'
+    intro: |-
+      The reference PDFs used during development were committed, later deleted from
+      the working tree, and have been recovered into `.sources/papers/`, which is
+      gitignored (the `.gitignore` entry is `.sources`). They were recovered from git
+      history with
+      `git -c core.quotepath=false rev-list --all --objects | grep '\.pdf$'` and are
+      still reachable there (deletions in `10b860c` and `8baa4af`).
+
+      The README previously stated that "the reference PDFs used during development
+      were removed from the repository". That statement was misleading: the files were
+      removed from the working tree, but they remained recoverable from git history
+      and have now been recovered. The README no longer makes that claim.
+
+      Verification convention used below:
+
+      - `Verified against the recovered PDF` — authors, title, journal, volume, pages
+        and year were read off the first page (and the printed footer or the PDF
+        metadata where a DOI is given) of the file named in the entry.
+      - `Source: repository citation` — the entry was carried over from an existing
+        citation in the code, README or `docs/`; it has **not** been re-verified
+        against a held copy.
+      - `DOI: to verify` — no DOI could be read from the recovered material or from
+        any source readable in this repository. Nothing was inferred or invented. This
+        marker also covers items that may carry no DOI at all, such as conference
+        proceedings and journals that do not register DOIs.
+
+      `.sources/papers/Implementación del MITC4_MITC4+ en MITC4.py vs formulaciones
+      teóricas.pdf` is a local working note (internal Spanish comparison of the
+      implementation against the formulations), **not** a publication, and therefore
+      has no entry in this bibliography.
+
+      Each entry below carries a `Cited by the code` line naming the code location
+      that grounds it, a `Source of an implemented feature` line when the code
+      implements the formulation but does not cite it, or a `Planned reference` /
+      `not yet cited by the code` line when the entry is a held source for the
+      validation campaign that the code does not use yet. Entries that the code neither
+      cites, implements, nor plans to validate against were removed.
+
+  - title: "1. Shell element formulations"
+
+  - title: "2. Constitutive and failure models"
+
+  - title: "3. Time integration and the finite element method"
+
+  - title: "4. Software and vendored code"
+    intro: >-
+      Software is identified by upstream URL and licence; DOIs do not apply.
+
+  - title: "5. Verification benchmarks, reference models and validation literature"
+    intro: |-
+      This section mixes two kinds of entry. The **benchmarks and manuals** first
+      (NAFEMS, Abaqus) are not journal articles and carry no DOI; neither manual is
+      held, so their report numbers are repository assertions. The **reference wind
+      turbine models and validation studies** after them are journal articles,
+      conference papers and reports: DOIs apply where one is printed or verifiable, and
+      each entry states whether the PDF is held. **Numbers that will be used as
+      validation references** (mode tables, material tables, stress values, equations)
+      must be read from the rendered page with vision before they are quoted, never by
+      `pdftotext`; text extraction silently drops or reorders the mathematics of the
+      recovered scans.
+
+      **Reference wind turbine models and validation studies.** These are the held
+      sources for the IEA 15 MW blade/blade-structure and aeroelastic validation
+      campaign. They are not yet cited by the code unless an entry says so.
+
+  - title: "6. Aerodynamics, actuator-line/vortex modelling and post-stall extrapolation"
+
+  - title: "6.1 BEM theory and post-stall extrapolation"
+
+  - title: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    intro: >-
+      These are the reference methods for the OpenFOAM track, not the BEM track; they
+      are catalogued here because aero validation has to name the method it compares
+      against. All held, and all DOIs cross-checked against Crossref except where a
+      venue has no DOI.
+
+  - title: "6.3 Rotorcraft and immersed-boundary CFD coupling (OpenFOAM side)"
+    intro: >-
+      These are held references for the CFD coupling machinery (immersed boundary,
+      actuator surface) that the CFD-side workflow uses; they are rotorcraft or
+      wind-farm rather than blade-resolved wind turbine references.
+
+  - title: "7. Gap list"
+    intro: |-
+      Entries here are **not** bibliography entries. They are sources the code cites
+      that must not be added, or citations that must be resolved before an entry can be
+      written.
+
+      - **ANSYS MAPDL Theory Reference** — cited at `src/aeroelast/solvers/fsi/rotor.py`
+        ("cf. ANSYS MAPDL Theory Reference, Eq. 14-57, §14.4.1"; also lines 24, 77, 84,
+        221, 234, 263, 287) and
+        `crates/aeroelast-solvers/src/petsc/fsi/rotor_physics.rs:432` ("ANSYS Eq. 3-74 /
+        14-55"), for the gyroscopic matrix, spin softening and the rotating-frame
+        equation of motion. **Status: to be replaced.** The manual is proprietary and is
+        not a verifiable source, and the user's decision is to replace it with the
+        original source rather than add it here. The likely original for the gyroscopic
+        and rotating-frame terms is Géradin & Rixen (already an entry in §3), with
+        Goldstein, Poole & Safko for the non-inertial frame treatment. **The replacement
+        must be verified against the original before it is made**, and none of the ANSYS
+        equation numbers may be carried over unverified.
+
+  - title: "To obtain for the validation campaign"
+    intro: |-
+      The aerodynamic campaign is the active one. **Free and public** unless marked
+      otherwise. The reachability note is from this sandbox: GitHub and Crossref
+      resolve, `nrel.gov` and `docs.openfast.org` do not.
+
+      | source | status | needed for |
+      | --- | --- | --- |
+      | OpenFAST source/release (`OpenFAST/openfast`) | to fetch and pin | the reference solver itself |
+      | OpenFAST `r-test` IEA 15 MW cases (`OpenFAST/r-test`) | to fetch (GitHub reachable) | the code-to-code case files (not a paper) |
+      | OpenFAST user documentation (`openfast.readthedocs.io`) | to fetch (reachable) | setting the OpenFAST cases and the pinned version |
+
+      **Now held, no action:** the **AeroDyn Theory Manual** (`.sources/papers/36881.pdf`)
+      and **Ning 2014** (`.sources/papers/ning2013.pdf`) were downloaded by the user and
+      are verified in §6 above.
+
+  - title: "Deferred: structural and time-integration sources"
+    intro: |-
+      Decision (user, 2026-09-30): postpone these books and paywalled structural
+      references until they are strictly necessary. None blocks the aerodynamic
+      campaign; they close the citation gaps listed in §1–§3.
+
+      | source | needed for |
+      | --- | --- |
+      | Newmark 1959, *J. Eng. Mech. Div. ASCE* 85(EM3):67–94 | the time-integration citation the code lacks |
+      | Géradin & Rixen, *Mechanical Vibrations*, 3rd ed. | replacing the unverifiable ANSYS gyroscopic/rotating-frame citation |
+      | Goldstein, Poole & Safko, *Classical Mechanics*, 3rd ed. | the non-inertial frame (centrifugal/Coriolis/Euler) treatment |
+      | Bathe, *Finite Element Procedures*, 2nd ed. | geometric stiffness; the UL question in `solvers.md` §4 |
+      | Hughes & Brezzi 1989, *CMAME* 72(1):105–121 | the drilling degree-of-freedom penalty |
+      | Hughes, Taylor & Kanoknukulchai 1977, *IJNME* 11(10):1529–1543 | the retired selective reduced integration (historical) |
+      | Reddy, *Mechanics of Laminated Composite Plates and Shells*, 2nd ed. | CLT and the B-coupling formula |
+      | Jones, *Mechanics of Composite Materials*, 2nd ed. | the constitutive/CLT citation |
+      | Tsai & Wu 1971; Hashin 1980 | the failure criteria |
+      | Viterna & Corrigan 1981 | the post-stall polar extrapolation |
+      | Hinton & Campbell 1974; Zienkiewicz & Zhu 1992 | the stress-recovery smoothing |
+
+      Priority: the aero track (OpenFAST source + docs + `r-test`) is next, with the
+      AeroDyn manual and Ning 2014 already held. The deferred structural books do not
+      block the IEA 15 MW aerodynamic campaign.
+
 references:
   - key: dvorkin1984
     section: "1. Shell element formulations"
@@ -45,16 +196,20 @@ references:
     doi_status: to_verify
     held: true
     held_files:
-      - >-
-        .sources/papers/A_Continuum_Mechanics_Based_Four-Node_Shell_Element_for_General_Nonlinear_Analysis.pdf
+      - .sources/papers/A_Continuum_Mechanics_Based_Four-Node_Shell_Element_for_General_Nonlinear_Analysis.pdf
     verification: verified_pdf
     verification_note: >-
       authors, title, journal, volume, year, first page and length read off the
       held copy (12 pages, (c) 1984 Pineridge Press Ltd, printed code
       0264-4401/84/010077-12, footer "Eng. Comput., 1984, Vol. 1, March"). The
       issue number is not printed on the copy.
-    cited_by_declared: []
-    code_mentions: []
+    cited_by_declared:
+      - "tests/test_shell_comprehensive.py:13"
+      - "crates/aeroelast-core/src/elements/mitc4.rs"
+    cited_by_stale:
+      - "tests/test_ko2017_performance.py:1360"
+    code_mentions:
+      - "Dvorkin"
     notes: >-
       The original MITC4 element, and the source of the implemented MITC4
       assumed transverse shear. Citation sites move here in T3b, with their
@@ -82,8 +237,10 @@ references:
     verification_note: >-
       authors, title, journal, volume, pages and year read off the held copy;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2014.02.005
-    cited_by_declared: []
-    code_mentions: []
+    cited_by_declared:
+      - "crates/aeroelast-core/src/elements/mitc3.rs:4"
+    code_mentions:
+      - "Lee, Lee & Bathe, 2014"
     notes: >-
       Missing from the old README reference list until the bibliography audit.
       Citation sites move here in T3b.
@@ -140,8 +297,12 @@ references:
     verification_note: >-
       authors, title, journal, volume, pages and year read off both held copies;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2016.11.004
-    cited_by_declared: []
-    code_mentions: []
+    cited_by_declared:
+      - "crates/aeroelast-core/src/elements/mitc4.rs:4"
+    cited_by_stale:
+      - "crates/aeroelast-core/src/elements/mitc4.rs:954"
+    code_mentions:
+      - "182:404"
     notes: >-
       The 2017 MITC4+ analysed in
       docs/formulations/mitc4plus-2017-extract.md. The old README entry omitted
@@ -165,14 +326,16 @@ references:
     held: true
     held_files:
       - .sources/papers/mitc4+_no_lineal.pdf.pdf
-      - >-
-        .sources/papers/The_MITC4+_shell_element_in_geometric_nonlinear_analysis.pdf
+      - .sources/papers/The_MITC4+_shell_element_in_geometric_nonlinear_analysis.pdf
     verification: verified_pdf
     verification_note: >-
       authors, title, journal, volume, pages and year read off both held copies;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2017.01.015
-    cited_by_declared: []
-    code_mentions: []
+    cited_by_declared:
+      - "src/aeroelast/core/assembler.py:681"
+      - "src/aeroelast/solvers/fsi/stress_stiffened_dynamic.py:52"
+    code_mentions:
+      - "Ko, Y."
     notes: >-
       The old README entry omitted Bathe. Citation sites move here in T3b.
     orphan_ok: true
@@ -197,13 +360,15 @@ references:
     held: true
     held_files:
       - .sources/papers/1-s2.0-S0045794917309550-main.pdf
-      - >-
-        .sources/papers/Performance_of_the_MITC3+_and_MITC4+_shell_elements_in_widely_used_benchmark_problems.pdf
+      - .sources/papers/Performance_of_the_MITC3+_and_MITC4+_shell_elements_in_widely_used_benchmark_problems.pdf
     verification: verified_pdf
     verification_note: >-
       authors, title, journal, volume, pages and year read off both held copies;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2017.08.003
-    cited_by_declared: []
+    cited_by_declared:
+      - "src/aeroelast/core/mesh/generators.py:65"
+    cited_by_stale:
+      - "tests/test_ko2017_performance.py:4-7"
     code_mentions:
       - "Ko2017"
     notes: >-
@@ -211,4 +376,1597 @@ references:
       and the mesh-distortion ratio the generators cite as "Ko2017 ratio-based
       mesh distortion". Citation sites and the declared-vs-found diff move here
       in T3b.
+    orphan_ok: true
+
+  - key: lee2019
+    section: "1. Shell element formulations"
+    kind: journal
+    authors:
+      - "Lee, C."
+      - "Lee, P.-S."
+    title: "The strain-smoothed MITC3+ shell finite element"
+    venue: "Computers and Structures"
+    volume: "223"
+    pages: "106096"
+    year: 2019
+    doi: "10.1016/j.compstruc.2019.07.005"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/lee2019.pdf
+    verification: verified_pdf
+    verification_note: >-
+      authors: Chaemin Lee, Phill-Seung Lee — note the first author is **not**
+      Youngyu Lee of the 2014 and 2015 papers; DOI printed on the first page
+    cited_by_declared:
+      - "crates/aeroelast-core/src/elements/smoothing.rs:3"
+      - "crates/aeroelast-core/src/elements/smoothing.rs:4"
+    code_mentions:
+      - "Lee, C."
+      - "223:106096"
+    notes: >-
+      It smooths the membrane strain with the target element and its three edge
+      neighbours, at the same DOF count as MITC3+, and leaves the bending field,
+      the transverse shear field and the rotation convention untouched. This is
+      the formulation being implemented in this repository; see
+      `odd/tasks/formulation-documentation.md` units S1-S4.
+
+  - key: ko2025
+    section: "1. Shell element formulations"
+    kind: journal
+    authors:
+      - "Ko, Y."
+      - "Bathe, K.-J."
+      - "Zhang, X."
+    title: >-
+      Continuum mechanics-based shell elements with six degrees of freedom at
+      each node — the MITC4/D and MITC4+/D elements
+    venue: "Computers and Structures"
+    volume: "308"
+    pages: "107622"
+    year: 2025
+    doi: "10.1016/j.compstruc.2024.107622"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/1-s2.0-S0045794924003511-main.pdf
+    verification: verified_pdf
+    verification_note: >-
+      authors: Yeongbin Ko, Klaus-Jürgen Bathe, Xinwei Zhang; DOI printed as
+      https://doi.org/10.1016/j.compstruc.2024.107622
+    cited_by_declared: []
+    cited_by_stale:
+      - "crates/aeroelast-core/src/elements/mitc3.rs:393"
+    notes: >-
+      .sources/papers/MITC_D_elements_published.pdf is a scanned copy of the
+      same paper with no text layer, so nothing can be read from it; it is a
+      duplicate of the file above. The README entry carried a title only. The
+      code names this work at `crates/aeroelast-core/src/elements/mitc3.rs:394`
+      and `crates/aeroelast-core/src/elements/mitc4.rs:5`; the prose site was
+      off by one line and is recorded as stale.
+
+  - key: hughes1989
+    section: "1. Shell element formulations"
+    kind: journal
+    authors:
+      - "Hughes, T.J.R."
+      - "Brezzi, F."
+    title: "On drilling degrees of freedom"
+    venue: "Computer Methods in Applied Mechanics and Engineering"
+    volume: "72"
+    issue: "1"
+    pages: "105-121"
+    year: 1989
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: unverified
+    cited_by_declared: []
+    cited_by_stale:
+      - "crates/aeroelast-core/src/elements/mitc4.rs:1085"
+      - "crates/aeroelast-core/src/elements/mitc4.rs:3335"
+    notes: >-
+      Identified from the reference list of the held copy of Ko, Bathe & Zhang
+      2025 (`.sources/papers/1-s2.0-S0045794924003511-main.pdf`, item [13]),
+      which cites it for the drilling degrees of freedom. The Hughes–Brezzi
+      paper itself is **not** held, so this identification is second-hand and
+      the DOI could not be read. The code names the pair with no work at all:
+      `/// Drilling B-vector (Hughes & Brezzi, 1×24)` (`mitc4.rs:1085`) and
+      `// Priority 3: Enhanced Drill Rotation (Hughes-Brezzi with variable
+      penalty)` (`mitc4.rs:3335`). The `0.15` penalty factor used with that
+      operator is attributed to nothing, in either element. The only mention
+      left in the tree is `crates/aeroelast-core/src/elements/mitc3.rs:558`,
+      which calls the attribution unverified.
+
+  - key: reddy2004
+    section: "2. Constitutive and failure models"
+    kind: book
+    authors:
+      - "Reddy, J.N."
+    title: >-
+      Mechanics of Laminated Composite Plates and Shells: Theory and Analysis
+    venue: "CRC Press"
+    year: 2004
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      the classical lamination theory implementation cites this work at
+      `crates/aeroelast-core/src/materials/laminate.rs:35` and
+      `src/aeroelast/core/laminate.py:15`
+    cited_by_declared:
+      - "crates/aeroelast-core/src/materials/laminate.rs:35"
+      - "src/aeroelast/core/laminate.py:15"
+    code_mentions:
+      - "Reddy"
+    notes: >-
+      2nd ed.
+
+  - key: jones1999
+    section: "2. Constitutive and failure models"
+    kind: book
+    authors:
+      - "Jones, R.M."
+    title: "Mechanics of Composite Materials"
+    venue: "Taylor & Francis"
+    year: 1999
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      cited alongside Reddy in the same CLT code paths
+      (`crates/aeroelast-core/src/materials/laminate.rs:34`,
+      `src/aeroelast/core/laminate.py:14`)
+    cited_by_declared:
+      - "crates/aeroelast-core/src/materials/laminate.rs:34"
+      - "src/aeroelast/core/laminate.py:14"
+      - "crates/aeroelast-core/src/materials/orthotropic.rs:69"
+    code_mentions:
+      - "Jones"
+    notes: >-
+      2nd ed.
+
+  - key: tsai1971
+    section: "2. Constitutive and failure models"
+    kind: journal
+    authors:
+      - "Tsai, S.W."
+      - "Wu, E.M."
+    title: "A general theory of strength for anisotropic materials"
+    venue: "Journal of Composite Materials"
+    volume: "5"
+    issue: "1"
+    pages: "58-80"
+    year: 1971
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      `crates/aeroelast-core/src/materials/failure.rs:10` gives authors,
+      journal, volume and pages; the article title comes from the published
+      record and is not re-verified against a held copy
+    cited_by_declared:
+      - "crates/aeroelast-core/src/materials/failure.rs:9"
+      - "src/aeroelast/constitutive/failure.py:12"
+    code_mentions:
+      - "Tsai"
+
+  - key: hashin1980
+    section: "2. Constitutive and failure models"
+    kind: journal
+    authors:
+      - "Hashin, Z."
+    title: "Failure criteria for unidirectional fiber composites"
+    venue: "Journal of Applied Mechanics"
+    volume: "47"
+    issue: "2"
+    pages: "329-334"
+    year: 1980
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      `crates/aeroelast-core/src/materials/failure.rs:11` gives authors,
+      journal, volume and pages; the article title comes from the published
+      record and is not re-verified against a held copy
+    cited_by_declared:
+      - "crates/aeroelast-core/src/materials/failure.rs:10"
+      - "src/aeroelast/constitutive/failure.py:14"
+    code_mentions:
+      - "Hashin"
+
+  - key: newmark1959
+    section: "3. Time integration and the finite element method"
+    kind: journal
+    authors:
+      - "Newmark, N.M."
+    title: "A method of computation for structural dynamics"
+    venue: "Journal of the Engineering Mechanics Division, ASCE"
+    volume: "85"
+    issue: "EM3"
+    pages: "67-94"
+    year: 1959
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: unverified
+    cited_by_declared: []
+    notes: >-
+      Source: published record; there is no PDF in `.sources/papers/` and the
+      code cites nothing. The Newmark-β time integration is implemented in
+      `src/aeroelast/solvers/elasticity/dynamic_newmark.py` and
+      `crates/aeroelast-solvers/src/petsc/elasticity/dynamic_newmark.rs`.
+      Source of an implemented feature; the code does not cite it (see the
+      audit).
+    orphan_ok: true
+
+  - key: hughes1977
+    section: "3. Time integration and the finite element method"
+    kind: journal
+    authors:
+      - "Hughes, T.J.R."
+      - "Taylor, R.L."
+      - "Kanoknukulchai, W."
+    title: "A simple and efficient finite element for plate bending"
+    venue: "International Journal for Numerical Methods in Engineering"
+    volume: "11"
+    issue: "10"
+    pages: "1529-1543"
+    year: 1977
+    doi: "10.1002/nme.1620111005"
+    doi_status: verified_externally
+    held: false
+    verification: external_record
+    verification_note: >-
+      DOI verified against the Wiley record
+      (`onlinelibrary.wiley.com/doi/10.1002/nme.1620111005`) and the MaRDI
+      portal entry, both of which give volume 11, issue 10, pages 1529–1543;
+      no PDF is held. The previous entry said "DOI: to verify" and named
+      `mitc4.rs:953` as the citing location, which is no longer true.
+    cited_by_declared: []
+    notes: >-
+      Historical source of a RETIRED ingredient. It is the selective reduced
+      integration of the in-plane shear term that the superseded hybrid MITC4+
+      carried. The faithful MITC4+/D that replaced it contains no selective
+      reduced integration (`docs/formulations/shell-elements.md` §2.6, guarded
+      by `tests/test_mitc4plusd_traceability.py`), and no line of the code
+      cites this work any more, so it is kept as the origin of an ingredient
+      whose retirement is documented rather than as a reference the code uses.
+      The `Hughes, T.J.R., Brezzi, F.` entry below is a different work and is
+      still the attributed origin of the retired drilling penalty.
+    orphan_ok: true
+
+  - key: bathe2014
+    section: "3. Time integration and the finite element method"
+    kind: book
+    authors:
+      - "Bathe, K.J."
+    title: "Finite Element Procedures"
+    venue: "Prentice Hall"
+    year: 2014
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      README, `docs/FSI_ROTOR_PAPER_DRAFT.md:647`,
+      `docs/teoria_formulacion_fsi_rotor.md:862`
+    cited_by_declared:
+      - "src/aeroelast/postprocess/stress_recovery.py:53"
+      - "src/aeroelast/solvers/fsi/stress_stiffened_dynamic.py:54"
+    code_mentions:
+      - "Bathe"
+    notes: >-
+      2nd ed. The second cited site is the 1996 ed., §6.3 Updated Lagrangian.
+
+  - key: geradin2015
+    section: "3. Time integration and the finite element method"
+    kind: book
+    authors:
+      - "Géradin, M."
+      - "Rixen, D."
+    title: >-
+      Mechanical Vibrations: Theory and Application to Structural Dynamics
+    venue: "Wiley"
+    year: 2015
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      README, `docs/FSI_ROTOR_PAPER_DRAFT.md:639`
+    cited_by_declared: []
+    notes: >-
+      3rd ed. Used for the gyroscopic matrices of rotating systems. Source of an
+      implemented feature; the code does not cite it (see the audit).
+    orphan_ok: true
+
+  - key: goldstein2002
+    section: "3. Time integration and the finite element method"
+    kind: book
+    authors:
+      - "Goldstein, H."
+      - "Poole, C."
+      - "Safko, J."
+    title: "Classical Mechanics"
+    venue: "Addison Wesley"
+    year: 2002
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      README, `docs/FSI_ROTOR_PAPER_DRAFT.md:637`,
+      `docs/teoria_formulacion_fsi_rotor.md:855`
+    cited_by_declared: []
+    notes: >-
+      3rd ed., §4.9–4.10. A classical mechanics text rather than a finite
+      element reference; it is listed here because it is the reference for the
+      non-inertial (rotating) frame treatment used in the rotor FSI
+      formulation, and it fits no other group. Source of an implemented
+      feature; the code does not cite it (see the audit).
+    orphan_ok: true
+
+  - key: cook2002
+    section: "3. Time integration and the finite element method"
+    kind: book
+    authors:
+      - "Cook, R.D."
+      - "Malkus, D.S."
+      - "Plesha, M.E."
+      - "Witt, R.J."
+    title: "Concepts and Applications of Finite Element Analysis"
+    year: 2002
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      `src/aeroelast/postprocess/stress_recovery.py:53-55` gives the author
+      list, the title and the edition; the publisher is not given and the
+      work is not held. Also cited as "Cook et al. 'Concepts and Applications
+      of Finite Element Analysis'" at `tests/test_shell_comprehensive.py:15`.
+    cited_by_declared:
+      - "tests/test_shell_comprehensive.py:15"
+    cited_by_stale:
+      - "src/aeroelast/postprocess/stress_recovery.py:53"
+    code_mentions:
+      - "Cook"
+    notes: >-
+      4th ed. The code names it at
+      `src/aeroelast/postprocess/stress_recovery.py:55`; the prose site was
+      off by two lines and is recorded as stale.
+
+  - key: hinton1974
+    section: "3. Time integration and the finite element method"
+    kind: journal
+    authors:
+      - "Hinton, E."
+      - "Campbell, J.S."
+    title: >-
+      Local and Global Smoothing of Discontinuous Finite Element Functions
+      Using a Least Squares Method
+    venue: "International Journal for Numerical Methods in Engineering"
+    volume: "8"
+    pages: "461-480"
+    year: 1974
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      `src/aeroelast/postprocess/stress_recovery.py:57-59` gives authors,
+      title, journal, volume and pages (no issue number); it is not
+      re-verified against a held copy. It grounds the Gauss-to-node
+      extrapolation in the stress recovery.
+    cited_by_declared:
+      - "src/aeroelast/postprocess/stress_recovery.py:57"
+    code_mentions:
+      - "Hinton"
+
+  - key: zienkiewicz1992
+    section: "3. Time integration and the finite element method"
+    kind: journal
+    authors:
+      - "Zienkiewicz, O.C."
+      - "Zhu, J.Z."
+    title: "The Superconvergent Patch Recovery and a posteriori error estimates"
+    venue: "International Journal for Numerical Methods in Engineering"
+    volume: "33"
+    pages: "1331-1364"
+    year: 1992
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: repository_citation
+    verification_note: >-
+      `src/aeroelast/postprocess/stress_recovery.py:60-63` gives authors,
+      title, journal, volume and pages; it is not re-verified against a held
+      copy. It is named as the theoretical basis for the nodal stress
+      smoothing.
+    cited_by_declared:
+      - "src/aeroelast/postprocess/stress_recovery.py:60"
+    code_mentions:
+      - "Zienkiewicz"
+
+  - key: knight1997
+    section: "3. Time integration and the finite element method"
+    kind: journal
+    authors:
+      - "Knight, N.F."
+    title: "Raasch challenge for shell elements"
+    venue: "AIAA Journal"
+    volume: "35"
+    issue: "2"
+    pages: "375-381"
+    year: 1997
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: unverified
+    cited_by_declared: []
+    cited_by_stale:
+      - "src/aeroelast/core/mesh/generators.py:2010"
+      - "tests/test_ko2017_performance.py:1455"
+    notes: >-
+      Read from the reference list of two held copies,
+      `.sources/papers/1-s2.0-S0045794917309550-main.pdf` item [30] and
+      `.sources/papers/mitc4+_no_lineal.pdf.pdf` item [36]; the paper itself is
+      not held, so the DOI could not be read. The code cites it as "Knight
+      (1997)" alone (`src/aeroelast/core/mesh/generators.py:2010,2023`,
+      `tests/test_ko2017_performance.py:1455`), for the Raasch hook geometry
+      and its benchmark parameters. The live sites are
+      `src/aeroelast/core/mesh/generators.py:2030` and
+      `tests/test_ko2017_performance.py:1514`; the prose lines no longer name
+      the work and are recorded as stale.
+
+  - key: pynumad
+    section: "4. Software and vendored code"
+    kind: software
+    authors:
+      - "Sandia National Laboratories"
+    title: "pyNuMAD"
+    year: null
+    version: "1.0.0"
+    bibliographic_gaps:
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared: []
+    cited_by_stale:
+      - "src/aeroelast/models/blade/aerodynamics.py:394"
+    notes: >-
+      BSD-3-Clause. A modified copy is vendored under
+      `src/aeroelast/models/blade/numad/` for blade meshing; see the `LICENSE`
+      and `NOTICE` files shipped with it. Upstream:
+      <https://github.com/sandialabs/pyNuMAD>. The source states no publication
+      year; the repository pins version 1.0.0 (the vendored
+      `src/aeroelast/models/blade/numad/__init__.py`). The code names it at
+      `src/aeroelast/models/blade/aerodynamics.py:396`; the prose site was off
+      by two lines and is recorded as stale.
+
+  - key: precice
+    section: "4. Software and vendored code"
+    kind: software
+    authors: []
+    title: "preCICE"
+    year: null
+    version: "3.4.0"
+    bibliographic_gaps:
+      - authors
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared:
+      - "src/aeroelast/solvers/fsi/base.py:17"
+    code_mentions:
+      - "precice"
+    notes: >-
+      LGPL-3.0 — partitioned FSI coupling. Upstream: <https://precice.org>.
+      The source states no publication year; the repository pins version 3.4.0
+      (`docs/validation-environment.md`). The prose also names
+      `crates/aeroelast-solvers/Cargo.toml:19`, which lies outside the scanned
+      source suffixes and is reported instead of declared.
+
+  - key: openfoam
+    section: "4. Software and vendored code"
+    kind: software
+    authors: []
+    title: "OpenFOAM"
+    year: null
+    version: "v2406"
+    bibliographic_gaps:
+      - authors
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared:
+      - "src/aeroelast/solvers/checkpoint.py:5"
+    code_mentions:
+      - "OpenFOAM"
+    notes: >-
+      GPL-3.0 — CFD-side coupled simulations. Upstream: <https://openfoam.org>.
+      The source states no publication year; the repository pins version v2406.
+
+  - key: openfast
+    section: "4. Software and vendored code"
+    kind: software
+    authors:
+      - "NREL"
+    title: "OpenFAST"
+    year: null
+    version: "4.2.1"
+    bibliographic_gaps:
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared: []
+    notes: >-
+      Apache-2.0 — reference wind-turbine aeroelastic solver (AeroDyn BEM
+      aerodynamics + ElastoDyn structural dynamics), planned as the code-to-code
+      reference for the IEA 15 MW aerodynamic and aeroelastic cases. Upstream:
+      <https://github.com/OpenFAST/openfast>. Installed for the validation
+      campaign: conda-forge `openfast=4.2.1` in a dedicated `openfast`
+      environment (`~/miniconda3/envs/openfast/bin/openfast`), which also ships
+      the standalone drivers (`aerodyn_driver`, `inflowwind_driver`, …). The
+      version is pinned to match the official IEA 15 MW model, whose CI requires
+      `openfast<5.0` (its `tests/environment.yml`) because the reference deck
+      uses AeroDyn input version 15.03 (`Wake_Mod`, `UA_Mod`); OpenFAST 3.5.4
+      expects the older 15.00 naming (`WakeMod`) and rejects it. The tests will
+      skip when the binary is absent, following `conftest.ccx_bin_or_skip`. Not
+      yet used by the code. The source states no publication year; the
+      repository pins version 4.2.1 (`docs/validation-environment.md`).
+    orphan_ok: true
+
+  - key: petsc
+    section: "4. Software and vendored code"
+    kind: software
+    authors: []
+    title: "PETSc"
+    year: null
+    version: "3.25.5"
+    bibliographic_gaps:
+      - authors
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared:
+      - "crates/aeroelast-solvers/src/petsc/elasticity/dynamic_newmark.rs:1"
+      - "src/aeroelast/solvers/elasticity/dynamic_newmark.py:9"
+    code_mentions:
+      - "PETSc"
+    notes: >-
+      BSD-2-Clause — sparse linear algebra and KSP solvers. Upstream:
+      <https://petsc.org>. The source states no publication year; the
+      repository pins version 3.25.5 (`docs/validation-environment.md`).
+
+  - key: slepc
+    section: "4. Software and vendored code"
+    kind: software
+    authors: []
+    title: "SLEPc"
+    year: null
+    version: "3.25.1"
+    bibliographic_gaps:
+      - authors
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared:
+      - "src/aeroelast/solvers/elasticity/dynamic_newmark.py:11"
+    code_mentions:
+      - "SLEPc"
+    notes: >-
+      BSD-2-Clause — eigenvalue problems for modal analysis. Upstream:
+      <https://slepc.upv.es>. The source states no publication year; the
+      repository pins version 3.25.1 (`docs/validation-environment.md`).
+
+  - key: ccblade
+    section: "4. Software and vendored code"
+    kind: software
+    authors: []
+    title: "CCBlade"
+    year: null
+    version: "1.3.1"
+    bibliographic_gaps:
+      - authors
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared:
+      - "src/aeroelast/solvers/bem/engine.py:143"
+    code_mentions:
+      - "CCBlade"
+    notes: >-
+      Apache-2.0 — blade element momentum (BEM) aerodynamics. Upstream:
+      <https://github.com/WISDEM/CCBlade>. The source states no publication
+      year; the repository pins version 1.3.1
+      (`docs/validation-environment.md`).
+
+  - key: neuralfoil
+    section: "4. Software and vendored code"
+    kind: software
+    authors: []
+    title: "NeuralFoil"
+    year: null
+    version: "0.3.3"
+    bibliographic_gaps:
+      - authors
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared: []
+    cited_by_stale:
+      - "src/aeroelast/models/blade/aerodynamics.py:316"
+    notes: >-
+      Apache-2.0 — neural-network airfoil aerodynamics. Upstream:
+      <https://github.com/peterdsharples/NeuralFoil>. The source states no
+      publication year; the repository pins version 0.3.3
+      (`docs/validation-environment.md`). The code names it at
+      `src/aeroelast/models/blade/aerodynamics.py:319`; the prose site was off
+      by three lines and is recorded as stale.
+
+  - key: nafems
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: report
+    authors: []
+    title: "NAFEMS benchmark reports"
+    year: null
+    bibliographic_gaps:
+      - authors
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared:
+      - "tests/test_shell_comprehensive.py:11"
+    cited_by_stale:
+      - "tests/test_shell_comprehensive.py:82-83"
+    code_mentions:
+      - "NAFEMS"
+    notes: >-
+      Cited by report number only: "NAFEMS R7191, R7301 (linear benchmarks)"
+      and "NAFEMS R0024 (nonlinear benchmarks)". NAFEMS is the organisation
+      that publishes the benchmark reports. The code gives no report titles and
+      none is held, so no report title is asserted here, and the source states
+      no publication year or author. The live report citations are at
+      `tests/test_shell_comprehensive.py:84-86`; the prose range no longer names
+      them and is recorded as stale.
+
+  - key: abaqus
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: manual
+    authors:
+      - "Dassault Systèmes Simulia"
+    title: "Abaqus Theory Guide"
+    year: 2016
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared:
+      - "tests/test_shell_comprehensive.py:12"
+      - "tests/test_shell_analytical_validation.py:9"
+    cited_by_stale:
+      - "tests/test_shell_comprehensive.py:84"
+      - "crates/aeroelast-core/src/elements/mitc4.rs:95"
+    code_mentions:
+      - "Abaqus"
+      - "ABAQUS"
+    notes: >-
+      *Abaqus Theory Guide* 2016, §3.6.x (S4R composite shell), and the *ABAQUS
+      Verification Manual*. Proprietary; DOIs do not apply, and neither manual
+      is held. The prose also cites
+      `docs/s4r_composite_shell_formulation.md:3` (Theory Guide 2016 §3.6.1,
+      §3.6.5, §3.6.8), which lies outside the scanned source suffixes and is
+      reported instead of declared. The live code sites are
+      `tests/test_shell_comprehensive.py:86` and, for the S4R note,
+      `src/aeroelast/postprocess/stress_recovery.py`; the prose sites
+      `tests/test_shell_comprehensive.py:84` and
+      `crates/aeroelast-core/src/elements/mitc4.rs:95` no longer name Abaqus and
+      are recorded as stale.
+
+  - key: gaertner2020
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: report
+    authors:
+      - "Gaertner, E."
+      - "Rinker, J."
+      - "Sethuraman, L."
+      - "Zahle, F."
+      - "Anderson, B."
+      - "Barter, G."
+      - "Abbas, N."
+      - "Meng, F."
+      - "Bortolotti, P."
+      - "Skrzypinski, W."
+      - "Scott, G."
+      - "Feil, R."
+      - "Bredmose, H."
+      - "Dykes, K."
+      - "Shields, M."
+      - "Allen, C."
+      - "Viselli, A."
+    title: >-
+      Definition of the IEA Wind 15-Megawatt Offshore Reference Wind Turbine
+    venue: "IEA Wind TCP Task 37 / NREL/TP-5000-75698"
+    year: 2020
+    doi: "10.2172/1603478"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/75698.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, full author list and date read from the first page; the DOI was
+      confirmed against the Crossref record, which carries the alternate title
+      "IEA Wind TCP Task 37: Definition of the IEA 15-Megawatt Offshore
+      Reference Wind Turbine"
+    cited_by_declared:
+      - "tests/test_blade_iea15mw_validation.py"
+    code_mentions:
+      - "Gaertner"
+    notes: >-
+      March 2020. This is the NREL reference definition of the turbine; the
+      repository ships its WindIO rendering as `tests/IEA-15-240-RWT.yaml`. The
+      report states a blade mass about 65 t, which the test suite compares
+      against. Cited by the code at `tests/test_blade_iea15mw_validation.py`
+      (mass vs the report's ~65 t).
+
+  - key: escalera2023
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: conference
+    authors:
+      - "Escalera Mendoza, A.S."
+      - "Mishra, I."
+      - "Griffith, D.T."
+    title: >-
+      An Open-Source NuMAD Model for the IEA 15 MW Blade with Baseline
+      Structural Analysis
+    venue: "AIAA SciTech 2023 Forum"
+    year: 2023
+    doi: "10.2514/6.2023-2093"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/AIAA2023Paper_EscaleraMendoza.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, authors and DOI printed on the first page
+    cited_by_declared: []
+    cited_by_stale:
+      - "tests/test_blade_iea15mw_validation.py:70-81"
+    notes: >-
+      AIAA 2023-2093. The model itself is distributed as **UTD-IEA15MWBlade**
+      v1.0.0 (Apache-2.0), archived at doi:10.5281/zenodo.7392283, upstream
+      <https://github.com/UTDGriffithLab/UTD-IEA15MWBlade>; the held copy ships
+      the NuMAD `.nmd`/`.xlsx`, the ElastoDyn blade file and the BModes mode
+      output. The code names it throughout
+      `tests/test_blade_iea15mw_validation.py` (68,077 kg mass; Table 3 first
+      two modes; section V DLC 1.4 root moment and tip deflection); the prose
+      range no longer names it and is recorded as stale.
+
+  - key: luo2026
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: conference
+    authors:
+      - "Luo, Y."
+      - "Gao, Y."
+    title: "Modeling and FEM Analysis of the IEA15MW Wind Turbine Blade"
+    venue: "Advanced and Emerging Marine Engineering Technologies"
+    pages: "933-941"
+    year: 2026
+    doi: "10.1007/978-981-95-1487-8"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/978-981-95-1487-8.pdf
+    verification: verified_pdf
+    verification_note: >-
+      chapter at PDF pages 947–955; authors, title and printed page range read
+      there; book DOI and ISBNs read from the front matter
+    cited_by_declared: []
+    notes: >-
+      In Wan, D., Ning, D., Tian, H. (eds.), Lecture Notes in Civil
+      Engineering, Springer (Singapore). This is the book DOI; the chapter's own
+      DOI was not printed in the held copy. **Its tables and equations are a
+      lead, not evidence**: read them with vision before use. Planned structural
+      validation source (stress distribution and the most loaded regions under
+      different load directions). Not yet cited by the code. The citation line
+      states no year; the held front matter states © 2026, which is used here.
+    orphan_ok: true
+
+  - key: toledo2025
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: journal
+    authors:
+      - "Toledo de Almeida, I."
+      - "Lapa, G.V.P."
+      - "Gay Neto, A."
+      - "Müller de Almeida, S.F."
+    title: >-
+      Design and extreme structural analysis of wind turbine blades: Beam and
+      shell model comparison and discussion for a 10-MW reference turbine
+    venue: "Engineering Structures"
+    volume: "334"
+    pages: "120155"
+    year: 2025
+    doi: "10.1016/j.engstruct.2025.120155"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/1-s2.0-S0141029625005462-main.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, authors, journal, volume, article number and DOI printed on the
+      first page
+    cited_by_declared: []
+    notes: >-
+      Planned methodology reference for the beam-vs-shell comparison; not yet
+      cited by the code. It is a 10 MW turbine, not the IEA 15 MW.
+    orphan_ok: true
+
+  - key: honing2026
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: journal
+    authors:
+      - "Höning, L."
+      - "Herráez, I."
+      - "Stoevesandt, B."
+      - "Peinke, J."
+    title: >-
+      Aeroelastic instabilities of the IEA 15 MW rotor during extreme yaw
+      maneuvers
+    venue: "Wind Energy Science"
+    volume: "11"
+    pages: "1531-1552"
+    year: 2026
+    doi: "10.5194/wes-11-1531-2026"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/wes-11-1531-2026.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, authors, journal, volume, pages, year and DOI printed on the first
+      page
+    cited_by_declared: []
+    notes: >-
+      Planned aeroelastic-stability validation reference; not yet cited by the
+      code.
+    orphan_ok: true
+
+  - key: bernardi2025
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: journal
+    authors:
+      - "Bernardi, C."
+      - "Cherubini, S."
+      - "Manganelli, F."
+      - "Della Posta, G."
+      - "Leonardi, S."
+      - "De Palma, P."
+    title: >-
+      Large Eddy Simulation of the IEA 15-MW Wind Turbine Using a Two-Way
+      Coupled Fluid-Structure Interaction Model
+    venue: "Wind Energy Science"
+    year: null
+    bibliographic_gaps:
+      - year
+    doi: "10.5194/wes-2025-120"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/we_fsi_nrel15mw.pdf
+      - .sources/papers/wes-2025-120-AR2.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, full author list and affiliations; the DOI was confirmed against
+      the Crossref record; the held copy is the discussion preprint, so the
+      final journal DOI, volume and pages are not yet assigned
+    cited_by_declared: []
+    notes: >-
+      Discussion preprint, `wes-2025-120`; the author reply
+      `.sources/papers/wes-2025-120-AR2.pdf` gives paper number `wes-2025-120`.
+      The study itself compares its LES FSI against **OpenFAST**, which is what
+      makes it the high-fidelity reference for this campaign. Planned FSI
+      validation reference; not yet cited by the code. The source states no
+      publication year.
+    orphan_ok: true
+
+  - key: ramos2021
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: journal
+    authors:
+      - "Ramos-García, N."
+      - "Kontos, S."
+      - "Pegalajar-Jurado, A."
+      - "González Horcas, S."
+      - "Bredmose, H."
+    title: >-
+      Investigation of the floating IEA Wind 15 MW RWT using vortex methods
+      Part I: Flow regimes and wake recovery
+    venue: "Wind Energy"
+    year: 2021
+    doi: "10.1002/we.2682"
+    doi_status: verified
+    held: true
+    held_files:
+      - >-
+        .sources/papers/Wind Energy - 2021 - Ramos‐García - Investigation of
+        the floating IEA Wind 15 MW RWT using vortex methods Part I  Flow.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, authors and DOI printed on the first page
+    cited_by_declared: []
+    notes: >-
+      Planned aerodynamic validation reference (free-vortex method); not yet
+      cited by the code.
+    orphan_ok: true
+
+  - key: viterna1981
+    section: "6.1 BEM theory and post-stall extrapolation"
+    kind: conference
+    authors:
+      - "Viterna, L.A."
+      - "Corrigan, R.D."
+    title: null
+    year: 1981
+    bibliographic_gaps:
+      - title
+    doi: null
+    doi_status: to_verify
+    held: false
+    verification: unverified
+    cited_by_declared:
+      - "src/aeroelast/models/blade/aerodynamics.py"
+    code_mentions:
+      - "Viterna"
+      - "_viterna_extrapolation"
+    notes: >-
+      The post-stall flat-plate polar extrapolation. **Attribution partly
+      resolved:** the exact equations the code implements are printed in the
+      AeroDyn Theory Manual (Moriarty & Hansen 2005, NREL/TP-500-36881, eqs.
+      [98]-[102], p. 22), which attributes them to Viterna & Janetzke (1982,
+      NASA TM-82944, *Theoretical and Experimental Power from Large
+      Horizontal-Axis Wind Turbines*). The code now cites that source; the
+      original Viterna-Corrigan title/venue is still not held, so no DOI or
+      pages are asserted here. The equations are verified against the manual by
+      `tests/test_bem_polars.py::test_viterna_matches_aerodyn_theory_manual`.
+
+  - key: ning2014
+    section: "6.1 BEM theory and post-stall extrapolation"
+    kind: journal
+    authors:
+      - "Ning, S.A."
+    title: >-
+      A simple solution method for the blade element momentum equations with
+      guaranteed convergence
+    venue: "Wind Energy"
+    volume: "17"
+    issue: "9"
+    pages: "1327-1345"
+    year: 2014
+    doi: "10.1002/we.1636"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/ning2013.pdf
+    verification: verified_pdf
+    verification_note: >-
+      author S. Andrew Ning, NREL; title, journal and DOI `10.1002/we.1636`
+      printed on the first page
+    cited_by_declared:
+      - "src/aeroelast/solvers/bem/engine.py"
+    code_mentions:
+      - "CCBlade"
+    notes: >-
+      This is the BEM solution method implemented by CCBlade, the solver the
+      repository wraps, so it is the theory behind the aero side. Used by the
+      code at `src/aeroelast/solvers/bem/engine.py` (through CCBlade).
+
+  - key: moriarty2005
+    section: "6.1 BEM theory and post-stall extrapolation"
+    kind: report
+    authors:
+      - "Moriarty, P.J."
+      - "Hansen, A.C."
+    title: "AeroDyn Theory Manual"
+    venue: "NREL/TP-500-36881"
+    year: 2005
+    doi: null
+    doi_status: to_verify
+    held: true
+    held_files:
+      - .sources/papers/36881.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, authors, report number, month/year and page count read off the
+      first page and PDF metadata
+    cited_by_declared: []
+    notes: >-
+      January 2005, 47 pp. DOI: to verify (NREL technical report; no DOI
+      printed). It is the theory source for the BEM aerodynamic model and its
+      tip/root losses, and the planned reference for the BEM-vs-OpenFAST
+      comparison. Its equations must be read with vision before use. Cited by
+      the docs: `docs/teoria_formulacion_fsi_rotor.md:867`,
+      `docs/FSI_ROTOR_PAPER_DRAFT.md:655`.
+    orphan_ok: true
+
+  - key: shen2005
+    section: "6.1 BEM theory and post-stall extrapolation"
+    kind: journal
+    authors:
+      - "Shen, W.Z."
+      - "Mikkelsen, R."
+      - "Sørensen, J.N."
+    title: "Tip loss corrections for wind turbine computations"
+    venue: "Wind Energy"
+    volume: "8"
+    issue: "4"
+    pages: "457-475"
+    year: 2005
+    doi: "10.1002/we.153"
+    doi_status: verified
+    held: true
+    held_files:
+      - >-
+        .sources/papers/Wind Energy - 2005 - Shen - Tip loss corrections for
+        wind turbine computations.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DOI, volume and pages confirmed against Crossref. Held
+    cited_by_declared: []
+    notes: >-
+      Reference for the BEM tip-loss correction in the BEM-vs-OpenFAST
+      comparison. Not yet cited by the code.
+    orphan_ok: true
+
+  - key: dag2020
+    section: "6.1 BEM theory and post-stall extrapolation"
+    kind: journal
+    authors:
+      - "Dağ, K.O."
+      - "Sørensen, J.N."
+    title: "A new tip correction for actuator line computations"
+    venue: "Wind Energy"
+    volume: "23"
+    issue: "2"
+    pages: "148-160"
+    year: 2020
+    doi: "10.1002/we.2419"
+    doi_status: verified
+    held: true
+    held_files:
+      - >-
+        .sources/papers/Wind Energy - 2019 - Dağ - A new tip correction for
+        actuator line computations.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DOI, volume and pages confirmed against Crossref. Held
+    cited_by_declared: []
+    notes: >-
+      Not yet cited by the code.
+    orphan_ok: true
+
+  - key: martinez2017
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Martínez-Tossas, L.A."
+      - "Churchfield, M.J."
+      - "Meneveau, C."
+    title: >-
+      Optimal smoothing length scale for actuator line models of wind turbine
+      blades based on Gaussian body force distribution
+    venue: "Wind Energy"
+    volume: "20"
+    issue: "6"
+    pages: "1083-1096"
+    year: 2017
+    doi: "10.1002/we.2081"
+    doi_status: verified
+    held: true
+    held_files:
+      - >-
+        .sources/papers/Wind Energy - 2017 - Martínez‐Tossas - Optimal smoothing
+        length scale for actuator line models of wind turbine blades based.pdf
+    verification: verified_pdf
+    verification_note: >-
+      Held
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: jost2018
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Jost, E."
+      - "Klein, L."
+      - "Leipprand, H."
+      - "Lutz, T."
+      - "Krämer, E."
+    title: "Extracting the angle of attack on rotor blades from CFD simulations"
+    venue: "Wind Energy"
+    volume: "21"
+    issue: "10"
+    pages: "807-822"
+    year: 2018
+    doi: "10.1002/we.2196"
+    doi_status: verified
+    held: true
+    held_files:
+      - >-
+        .sources/papers/Wind Energy - 2018 - Jost - Extracting the angle of
+        attack on rotor blades from CFD simulations.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DOI and pages confirmed against Crossref
+    cited_by_declared: []
+    notes: >-
+      It is the reference for extracting the section angle of attack from CFD,
+      which is what the A3 comparison needs. The prose names the held copy
+      without a file path; the held file is the one above.
+    orphan_ok: true
+
+  - key: zormpa2025
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Zormpa, M."
+      - "Zilic de Arcos, F."
+      - "Chen, X."
+    title: >-
+      The Effect of Flow Sampling on the Robustness of the Actuator Line Method
+    venue: "Wind Energy"
+    volume: "28"
+    pages: "e2965"
+    year: 2025
+    doi: "10.1002/we.2965"
+    doi_status: verified
+    held: true
+    held_files:
+      - >-
+        .sources/papers/Wind Energy - 2024 - Zormpa - The Effect of
+        Flow Sampling on the Robustness of the Actuator Line Method.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DOI confirmed against Crossref. Held
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: churchfield2017
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: conference
+    authors:
+      - "Churchfield, M."
+      - "Schreck, S."
+      - "Martínez-Tossas, L.A."
+      - "Meneveau, C."
+    title: >-
+      An Advanced Actuator Line Method for Wind Energy Applications and Beyond:
+      Preprint
+    venue: "AIAA SciTech 2017"
+    year: 2017
+    doi: null
+    doi_status: to_verify
+    held: true
+    held_files:
+      - .sources/papers/67611.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, authors, report number and venue read off the first page
+    cited_by_declared: []
+    notes: >-
+      NREL/CP-5000-67611. DOI: to verify (conference preprint).
+    orphan_ok: true
+
+  - key: jha2014
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Jha, P.K."
+      - "Churchfield, M.J."
+      - "Moriarty, P.J."
+      - "Schmitz, S."
+    title: >-
+      Guidelines for Volume Force Distributions Within Actuator Line Modeling
+      of Wind Turbines on Large-Eddy Simulation-Type Grids
+    venue: "Journal of Solar Energy Engineering"
+    volume: "136"
+    issue: "3"
+    pages: "031003"
+    year: 2014
+    doi: "10.1115/1.4026252"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/sol_136_03_031003.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DOI, journal, volume and article number confirmed against Crossref. Held
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: meyerforsting2020
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Meyer Forsting, A.R."
+      - "Pirrung, G.R."
+      - "Ramos-García, N."
+    title: >-
+      Brief communication: A fast vortex-based smearing correction for the
+      actuator line
+    venue: "Wind Energy Science"
+    volume: "5"
+    issue: "1"
+    pages: "349-353"
+    year: 2020
+    doi: "10.5194/wes-5-349-2020"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/MeyerForsting2020_fast-vortex-smearing-correction.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, authors, journal, volume, pages and DOI printed on the first page
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: mohammadi2024
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Mohammadi, M.M."
+      - "Olivares-Espinosa, H."
+      - "Navarro Diaz, G.P."
+      - "Ivanell, S."
+    title: >-
+      An actuator sector model for wind power applications: a parametric study
+    venue: "Wind Energy Science"
+    volume: "9"
+    issue: "6"
+    pages: "1305-1321"
+    year: 2024
+    doi: "10.5194/wes-9-1305-2024"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/Mohammadi2024_actuator-sector-model-parametric.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, authors, journal, volume, pages and DOI printed on the first page
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: kim2015
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Kim, T."
+      - "Oh, S."
+      - "Yee, K."
+    title: "Improved actuator surface method for wind turbine application"
+    venue: "Renewable Energy"
+    volume: "76"
+    pages: "16-26"
+    year: 2015
+    doi: "10.1016/j.renene.2014.11.002"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/1-s2.0-S0960148114007162-main.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DOI, journal, volume and pages confirmed against Crossref
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: shen2007
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: conference
+    authors:
+      - "Shen, W.Z."
+      - "Sørensen, J.N."
+      - "Zhang, J."
+    title: "Actuator surface model for wind turbine flow computations"
+    venue: >-
+      Proceedings of the European Wind Energy Conference (EWEC) 2007
+    year: 2007
+    doi: null
+    doi_status: to_verify
+    held: true
+    held_files:
+      - .sources/papers/proceeding_shen.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DTU Orbit record: title, authors, venue, year
+    cited_by_declared: []
+    notes: >-
+      DOI: to verify (conference proceedings).
+    orphan_ok: true
+
+  - key: yang2018
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Yang, X."
+      - "Sotiropoulos, F."
+    title: "A new class of actuator surface models for wind turbines"
+    venue: "Wind Energy"
+    volume: "21"
+    issue: "5"
+    pages: "285-302"
+    year: 2018
+    doi: "10.1002/we.2162"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/1702.02108v4.pdf
+    verification: verified_pdf
+    verification_note: >-
+      arXiv:1702.02108; DOI, journal, volume and pages confirmed against
+      Crossref
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: santoni2024
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Santoni, C."
+      - "Sotiropoulos, F."
+      - "Khosronejad, A."
+    title: >-
+      A Comparative Analysis of Actuator-Based Turbine Structure
+      Parametrizations for High-Fidelity Modeling of Utility-Scale Wind Turbines
+      under Neutral Atmospheric Conditions
+    venue: "Energies"
+    volume: "17"
+    issue: "3"
+    pages: "753"
+    year: 2024
+    doi: "10.3390/en17030753"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/energies-17-00753.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DOI, journal, volume and article number confirmed against Crossref
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: martinez2024
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: journal
+    authors:
+      - "Martínez-Tossas, L.A."
+      - "Sakievich, P."
+      - "Churchfield, M.J."
+      - "Meneveau, C."
+    title: >-
+      Generalized filtered lifting line theory for arbitrary chord lengths and
+      application to wind turbine blades
+    venue: "Wind Energy"
+    volume: "27"
+    issue: "1"
+    pages: "101-106"
+    year: 2024
+    doi: "10.1002/we.2872"
+    doi_status: verified
+    held: true
+    held_files:
+      - >-
+        .sources/papers/Wind Energy - 2023 - Martínez‐Tossas - Generalized
+        filtered lifting line theory for arbitrary chord lengths and
+        application.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DOI, volume and pages confirmed against Crossref. Held
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: troldborg2009
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: thesis
+    authors:
+      - "Troldborg, N."
+    title: "Actuator Line Modeling of Wind Turbine Wakes"
+    venue: "Technical University of Denmark (DTU Wind Energy / Risø)"
+    year: 2009
+    doi: null
+    doi_status: not_applicable
+    held: true
+    held_files:
+      - .sources/papers/niels_troldborg.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DTU Orbit record: author, title, year
+    cited_by_declared: []
+    notes: >-
+      PhD thesis. DOI does not apply: the source states that a DOI does not
+      apply to this thesis.
+    orphan_ok: true
+
+  - key: frontera2022
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: thesis
+    authors:
+      - "Frontera Pericàs, P."
+    title: >-
+      An FSI approach based on the actuator line and relaxation zone methods
+    year: 2022
+    doi: null
+    doi_status: not_applicable
+    held: true
+    held_files:
+      - .sources/papers/Memòria.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title and author from the report cover, 126 pages
+    cited_by_declared: []
+    notes: >-
+      Master thesis, 126 pp. The awarding institution is not printed on the
+      held first page; to verify. DOI does not apply. The citation line states
+      no year; the held cover states "Examination Session: Autumn 2022", which
+      is used here.
+    orphan_ok: true
+
+  - key: phasevi
+    section: "6.2 Actuator-line, actuator-surface and vortex methods (CFD side)"
+    kind: conference
+    authors: []
+    title: >-
+      Aerodynamic Performance Simulation of the NREL Phase VI Wind Turbine
+    year: null
+    bibliographic_gaps:
+      - authors
+      - year
+    doi: null
+    doi_status: to_verify
+    held: true
+    held_files:
+      - >-
+        .sources/papers/Aerodynamic Performance Simulation of the NREL Phase VI
+        Wind Turbine.pptx
+    verification: unverified
+    cited_by_declared: []
+    notes: >-
+      No author, year or venue is printed on the first slide, so this is a
+      **lead for the Phase VI reference, not a citation**. The Phase VI
+      experimental data itself (Hand et al., NREL/TP-500-29955) would be the
+      proper reference and is **not** held.
+    orphan_ok: true
+
+  - key: linton2017
+    section: "6.3 Rotorcraft and immersed-boundary CFD coupling (OpenFOAM side)"
+    kind: conference
+    authors:
+      - "Linton, D."
+      - "Barakos, G."
+      - "Widjaja, R."
+      - "Thornber, B."
+    title: >-
+      A New Actuator Surface Model with Improved Wake Model for CFD Simulations
+      of Rotorcraft
+    venue: >-
+      Proceedings of the Vertical Flight Society 73rd Annual Forum and
+      Technology Display
+    pages: "1-10"
+    year: 2017
+    doi: "10.4050/f-0073-2017-12010"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/138994.pdf
+    verification: verified_pdf
+    verification_note: >-
+      DOI and venue confirmed against Crossref
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: linton2018
+    section: "6.3 Rotorcraft and immersed-boundary CFD coupling (OpenFOAM side)"
+    kind: journal
+    authors:
+      - "Linton, D."
+      - "Barakos, G."
+      - "Widjaja, R."
+      - "Thornber, B."
+    title: >-
+      Coupling of an Unsteady Aerodynamics Model with a Computational Fluid
+      Dynamics Solver
+    venue: "AIAA Journal"
+    volume: "56"
+    issue: "8"
+    pages: "3153-3166"
+    year: 2018
+    doi: "10.2514/1.J056784"
+    doi_status: verified
+    held: true
+    held_files:
+      - .sources/papers/161926.pdf
+    verification: verified_pdf
+    verification_note: >-
+      title, authors, journal, volume, pages and DOI printed on the cover sheet
+    cited_by_declared: []
+    orphan_ok: true
+
+  - key: park2020
+    section: "6.3 Rotorcraft and immersed-boundary CFD coupling (OpenFOAM side)"
+    kind: conference
+    authors:
+      - "Park, H.S."
+      - "Linton, D."
+      - "Thornber, B."
+    title: >-
+      Towards DES of Flow Around a Rotorcraft Fuselage Using an Immersed
+      Boundary Method
+    venue: "AIAA SciTech 2020"
+    year: 2020
+    doi: null
+    doi_status: to_verify
+    held: true
+    held_files:
+      - .sources/papers/SciTech2020_Manuscript_HSPark_DLinton_BThornberf.pdf
+    verification: verified_pdf
+    cited_by_declared: []
+    notes: >-
+      DOI: to verify.
+    orphan_ok: true
+
+  - key: park2024
+    section: "6.3 Rotorcraft and immersed-boundary CFD coupling (OpenFOAM side)"
+    kind: conference
+    authors:
+      - "Park, J."
+      - "Linton, D."
+      - "Thornber, B."
+    title: >-
+      Wind Farm Detached-Eddy Simulations Using an Immersed Boundary Method
+      Actuator Surface Model Solver
+    venue: "DLR Institute of Software Methods for Product Virtualization"
+    year: 2024
+    doi: null
+    doi_status: not_applicable
+    held: true
+    held_files:
+      - .sources/papers/JackPark_04Jun24_elib.pdf
+    verification: verified_pdf
+    cited_by_declared: []
+    notes: >-
+      Presentation, 04.06.2024. DOI does not apply: the source states that a
+      DOI does not apply to this presentation.
     orphan_ok: true

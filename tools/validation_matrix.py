@@ -73,7 +73,7 @@ NODE_ID_RE = re.compile(r"^tests/[A-Za-z0-9_./-]+\.py::[A-Za-z0-9_]+(\[[^\]]*\])
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 PATH_SEGMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\])?$")
 
-REFERENCE_KINDS = {"paper", "code", "analytical", "self", "schema"}
+REFERENCE_KINDS = {"paper", "code", "analytical", "self"}
 TOLERANCE_KINDS = {"rtol", "atol", "rel_err", "sign", "exact", "subset"}
 RATIO_TOLERANCE_KINDS = {"rtol", "rel_err"}
 MEASURED_STATUSES = {"measured", "not_printed", "not_measured", "sign_only", "n/a"}
@@ -134,12 +134,15 @@ BIB_KEYS = {
 }
 BIB_GAPPABLE = {"authors", "title", "year", "venue", "volume", "pages"}
 BIB_KINDS = {"journal", "conference", "report", "manual", "software", "thesis", "book"}
-DOI_STATUSES = {"verified", "printed_on_pdf", "to_verify", "not_applicable"}
-VERIFICATIONS = {"verified_pdf", "repository_citation", "unverified"}
+DOI_STATUSES = {"verified", "printed_on_pdf", "verified_externally", "to_verify", "not_applicable"}
+VERIFICATIONS = {"verified_pdf", "repository_citation", "external_record", "unverified"}
 DOI_RE = re.compile(r"^10\.\d{4,9}/\S+$")
 CITATION_SITE_RE = re.compile(r"^[A-Za-z0-9_./-]+(:\d+(-\d+)?)?$")
 CODE_ROOTS = ("src", "tests", "crates", "tools")
-CODE_SUFFIXES = {".py", ".rs"}
+# Manifests count as a citation site: Cargo.toml names the crates that carry a work.
+# Markdown does not, because the bibliography itself names every work and would match
+# every entry trivially.
+CODE_SUFFIXES = {".py", ".rs", ".toml"}
 TOLERANCE_KEYS = {"kind", "value", "source", "justified", "justification"}
 MEASURED_KEYS = {"status", "run", "date", "raw", "margin_pct", "text"}
 HISTORY_KEYS = {"rev", "note", "evidence"}
@@ -1275,12 +1278,32 @@ def _validate_bib_entry(store: Store, where: str, entry: Any) -> None:
     if status in {"verified", "printed_on_pdf"}:
         if status == "verified" and not (isinstance(held, bool) and held):
             store.error(where, "doi_status: verified requires held: true")
+        if status == "printed_on_pdf" and not (isinstance(held, bool) and held):
+            store.error(
+                where,
+                "doi_status: printed_on_pdf claims a DOI on a held copy, so it requires "
+                "held: true; use verified_externally when no copy is held",
+            )
         if held_files is not None and not held_files:
             store.error(where, f"doi_status: {status} requires a non-empty held_files")
         if entry.get("verification") not in {"verified_pdf", "repository_citation"}:
             store.error(where, f"doi_status: {status} requires a 'verification' method")
         if not isinstance(entry.get("verification_note"), str) or not entry["verification_note"]:
             store.error(where, f"doi_status: {status} requires a 'verification_note'")
+    elif status == "verified_externally":
+        if doi is None:
+            store.error(where, "doi_status: verified_externally requires the doi it verified")
+        if entry.get("verification") != "external_record":
+            store.error(
+                where,
+                "doi_status: verified_externally requires verification: external_record",
+            )
+        if not isinstance(entry.get("verification_note"), str) or not entry["verification_note"]:
+            store.error(
+                where,
+                "doi_status: verified_externally requires a 'verification_note' naming "
+                "the record it was read from",
+            )
     elif status == "to_verify":
         if doi is not None:
             store.error(where, "doi_status: to_verify requires doi: null")
@@ -1451,29 +1474,50 @@ def reference_scan_findings(store: Store, found: dict[str, list[str]]) -> list[F
     for key, entry in sorted(store.references.items()):
         where = f"references.yaml[{key}]"
         sites = [str(site) for site in entry.get("cited_by_declared") or []]
+        mentions_available = bool(found.get(key)) or bool(entry.get("code_mentions"))
+        if sites and not mentions_available:
+            # Without needles the scan can only look for the key string, which the code
+            # never uses, so every declared site would read as stale. Report the inability
+            # to check instead of manufacturing a verdict.
+            findings.append(
+                Finding(
+                    "warning",
+                    where,
+                    "unverifiable: the entry declares citation sites but no "
+                    "`code_mentions`, so nothing the scan can search for would appear in "
+                    "the code. Declare the literal strings the code cites.",
+                )
+            )
         for site in sites:
+            if not mentions_available:
+                continue
             target = REPO_ROOT / site.split(":", 1)[0]
-            if ":" in site:
-                # A malformed site is already reported by the loader; never let it
-                # crash the scan, because the finding is the point.
-                try:
-                    line_no = int(site.rsplit(":", 1)[1].split("-", 1)[0])
-                except ValueError:
-                    continue
-                try:
-                    lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
-                except OSError:
-                    lines = []
-                if line_no > len(lines):
-                    findings.append(
-                        Finding("error", where, f"declared site {site} is past end of file")
-                    )
-                    continue
             file_part, _, line_part = site.partition(":")
+            start, _, end = line_part.partition("-")
+            if line_part and not start.isdigit():
+                continue  # malformed; the loader already reported it
+            try:
+                lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+            except OSError:
+                lines = []
+            if line_part and int(start) > len(lines):
+                findings.append(
+                    Finding("error", where, f"declared site {site} is past end of file")
+                )
+                continue
+            mentioned = {
+                mention.rsplit(":", 1)[-1]
+                for mention in found.get(key, [])
+                if mention.split(":", 1)[0] == file_part
+            }
             if line_part:
-                ok = site in found.get(key, [])
+                # A range is satisfied by a mention on ANY of its lines: reading only the
+                # first line turned every range whose mention sits further down into a
+                # false stale verdict.
+                last = int(end) if end.isdigit() else int(start)
+                ok = any(str(number) in mentioned for number in range(int(start), last + 1))
             else:
-                ok = any(mention.split(":", 1)[0] == file_part for mention in found.get(key, []))
+                ok = bool(mentioned)
             if not ok:
                 findings.append(
                     Finding(
@@ -1527,17 +1571,22 @@ def reference_heading(title: str) -> str:
 
 
 def render_citation_line(entry: dict[str, Any]) -> str:
-    parts = [", ".join(entry.get("authors") or []), f'"{entry.get("title")}"']
+    authors = ", ".join(entry.get("authors") or [])
+    title = entry.get("title")
+    parts = [part for part in (authors, f'"{title}"' if title else None) if part]
     if entry.get("venue"):
         parts.append(f"*{entry['venue']}*")
+    if entry.get("version"):
+        parts.append(str(entry["version"]))
     volume = entry.get("volume")
     if volume:
         issue = entry.get("issue")
         parts.append(f"{volume}({issue})" if issue else str(volume))
     if entry.get("pages"):
         parts.append(str(entry["pages"]))
-    line = ", ".join(part for part in parts if part)
-    tail = f", {entry.get('year')}."
+    line = ", ".join(parts)
+    # A source that states no year prints none: never the string "None".
+    tail = f", {entry['year']}." if entry.get("year") else "."
     if entry.get("doi"):
         tail += f" DOI: {entry['doi']}."
     elif entry.get("doi_status") == "to_verify":
@@ -1552,6 +1601,11 @@ def render_reference_paragraphs(entry: dict[str, Any]) -> list[str]:
     if entry.get("verification") == "verified_pdf" and held:
         detail = f" ({note})" if note else ""
         paragraphs.append(f"*Verified against `{held}`{detail}.*")
+    elif entry.get("verification") == "external_record":
+        # The note is already a full sentence describing what was read and where.
+        paragraphs.append(
+            f"*{note}*" if note else "*DOI verified against an external record; no copy held.*"
+        )
     elif entry.get("verification") == "repository_citation":
         detail = f": {note}" if note else "."
         paragraphs.append(f"*Source: repository citation{detail}*")
@@ -1560,6 +1614,12 @@ def render_reference_paragraphs(entry: dict[str, Any]) -> list[str]:
     if entry.get("cited_by_declared"):
         sites = ", ".join(f"`{site}`" for site in entry["cited_by_declared"])
         paragraphs.append(f"*Cited by the code: {sites}.*")
+    if entry.get("cited_by_stale"):
+        sites = ", ".join(f"`{site}`" for site in entry["cited_by_stale"])
+        paragraphs.append(
+            f"*Recorded stale: the prose cited {sites}, and the code no longer mentions "
+            "this work there.*"
+        )
     if entry.get("notes"):
         paragraphs.append(f"*{entry['notes']}*")
     return paragraphs
