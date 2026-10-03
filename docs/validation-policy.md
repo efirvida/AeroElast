@@ -33,6 +33,14 @@ stay.
 6. **A reference must be independent.** A different code, a published cell, or a closed
    form. A formula re-implemented inside the test is not a reference
    (`CONTRIBUTING.md` rule 5).
+7. **The kind is read from the comparison, never from the file.** `paper` is a published
+   cell, `code` another program's output, `analytical` a closed form, `self` another of our
+   own models. A module titled "AeroElast vs CalculiX" also holds comparisons against an
+   Euler-Bernoulli value and against our own isotropic stiffness, and each row says which is
+   which: the reference the comparison names is the evidence for its kind, and the label the
+   extractor derived is that evidence. A group declares one kind only where every comparison
+   in it shares that kind; where they do not, the group declares none and each comparison is
+   decided. A kind nobody can point at evidence for is a guess, and a guess is not a row.
 
 ## How tight a comparison has to be
 

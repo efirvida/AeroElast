@@ -47,6 +47,37 @@ groups:
       row here manufactures a false defect: the first version recorded an 8.5%
       deviation on the thin twisted beam that no longer exists.
 
+  - id: "4"
+    title: >-
+      `tests/validation/parity/test_orthotropic_shell_parity.py` (orthotropic
+      cantilever against CCX)
+    slug: orthotropic_shell_parity
+    # No reference_kind: the three comparisons in this file are against three
+    # different things, so they are declared one by one. Policy rule 7.
+    source_files:
+      - tests/validation/parity/test_orthotropic_shell_parity.py
+    common_tolerance:
+      kind: rtol
+      value: 0.05
+      source: >-
+        `assert rel_error < 0.05` in each test. The module states that in-plane
+        lateral bending exposes a known MITC4 bilinear membrane limitation
+        (~25-30% under-estimation of lateral flexibility against quadratic S8R),
+        so its 5% bound is that suite rule and not a tightened one.
+      justified: true
+      justification: >-
+        The 5% bound is the suite rule (CONTRIBUTING test rule 1). The module's
+        own note is what makes it defensible rather than convenient: a wider gap
+        is expected in the bending case and is documented here, not hidden in a
+        loosened tolerance.
+    provenance_note: >-
+      The reference is CalculiX 2.23, read from the binary (`ccx -v` prints
+      "This is Version 2.23") and not from memory: CCX's linear S4 does not
+      support `*SHELL SECTION, COMPOSITE`, so the comparison runs on quadratic
+      S8R. The version is part of the reference because it moves the numbers --
+      the 2.20-to-2.23 shift took a high-mode gap from 4.03% to 2.12%
+      (issue #8).
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

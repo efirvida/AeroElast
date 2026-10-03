@@ -1,0 +1,71 @@
+group: '4'
+rows:
+- id: orthotropic_shell_parity.test_orthotropic_axial.single
+  group: '4'
+  title: test_orthotropic_axial
+  tests:
+  - tests/validation/parity/test_orthotropic_shell_parity.py::test_orthotropic_axial
+  validates: Test orthotropic composite shell under transverse (out-of-plane) load.
+  comparisons:
+  - label: rel_err at line 342
+    asserted: true
+    reference:
+      kind: code
+      label: rel_error < 0.05
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:342
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: orthotropic_shell_parity.test_orthotropic_bending.single
+  group: '4'
+  title: test_orthotropic_bending
+  tests:
+  - tests/validation/parity/test_orthotropic_shell_parity.py::test_orthotropic_bending
+  validates: '[0/90/90/0] in-plane lateral bending (Fx) vs Euler-Bernoulli analytical.'
+  comparisons:
+  - label: rel_err at line 404
+    asserted: true
+    reference:
+      kind: analytical
+      label: rel_error < 0.05
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:404
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: orthotropic_shell_parity.test_multi_layer_iso_equivalence.single
+  group: '4'
+  title: test_multi_layer_iso_equivalence
+  tests:
+  - tests/validation/parity/test_orthotropic_shell_parity.py::test_multi_layer_iso_equivalence
+  validates: N identical isotropic plies must give same K as a single layer of total thickness.
+  comparisons:
+  - label: rel_err at line 485
+    asserted: true
+    reference:
+      kind: self
+      label: rel_diff < 0.0001
+    tolerance:
+      kind: rel_err
+      value: 0.0001
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:485
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
