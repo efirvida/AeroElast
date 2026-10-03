@@ -16,6 +16,9 @@ groups:
     citation: ko2017_perf
     source_files:
       - tests/test_ko2017_performance.py
+    residual:
+      asserted: 'Norm\svs\sKirchhoff:\s(?P<value>\S+)\s\(expected:\s(?P<expected>\S+),\serror:\s(?P<error>\S+)%\)'
+      unasserted: 'Norm\svs\sPaper\s3D:\s(?P<value>\S+)\s\(expected:\s(?P<expected>\S+),\serror:\s(?P<error>\S+)%\)'
     common_tolerance:
       kind: rtol
       value: 0.05

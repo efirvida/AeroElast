@@ -962,3 +962,116 @@ def test_reference_entry_validation(tmp_path: Path, mutation: str, expected: str
     completed = run_check(store)
     assert completed.returncode == 1, completed.stdout + completed.stderr
     assert expected in completed.stdout
+
+
+# --------------------------------------------------------------------------- #
+# Regression: the store is the baseline
+# --------------------------------------------------------------------------- #
+
+SYNTHETIC_PYTEST = """\
+collecting ... collected 1 item
+
+tests/test_ko2017_performance.py::test_3_6_hook_table_14_minimal_fix[0.9782] DEBUG: Running hook_MITC4
+  Nodes: 441, Elements: 384
+  Norm vs Kirchhoff: 0.9814 (expected: 0.9782, error: 0.33%)
+Hook MITC4: normalized = 0.9814 (expected 0.9782)
+PASSED
+
+============================== 1 passed in 5.32s ===============================
+"""
+HOOK_NODE = (
+    "tests/test_ko2017_performance.py::test_3_6_hook_table_14_minimal_fix[0.9782]"
+)
+
+
+def test_parse_prints_reads_the_shape_pytest_actually_emits() -> None:
+    """pytest puts the node id and the test's first print on the same line."""
+    module = _load_tool_module()
+    prints = module.parse_prints(SYNTHETIC_PYTEST)
+    assert list(prints) == [HOOK_NODE]
+    assert "Norm vs Kirchhoff: 0.9814 (expected: 0.9782, error: 0.33%)" in prints[HOOK_NODE]
+    # The status word and the summary belong to the run, not to the node's output.
+    assert "PASSED" not in prints[HOOK_NODE]
+    assert not any("1 passed" in line for line in prints[HOOK_NODE])
+
+
+def test_extract_residuals_uses_the_declared_group_patterns() -> None:
+    module = _load_tool_module()
+    groups = yaml.safe_load((REAL_STORE / "groups.yaml").read_text(encoding="utf-8"))
+    residual = groups["groups"][0]["residual"]
+    asserted, unasserted = module.extract_residuals(
+        [
+            "Norm vs Kirchhoff: 0.9814 (expected: 0.9782, error: 0.33%)",
+            "[x] Norm vs Paper 3D: 6249.0122 (expected: 0.0, error: 622932.13%)",
+            "Nodes: 441, Elements: 384",
+        ],
+        residual,
+    )
+    assert asserted == [{"value": "0.9814", "expected": "0.9782", "error": "0.33"}]
+    assert unasserted == [{"value": "6249.0122", "expected": "0.0", "error": "622932.13"}]
+
+
+def _row_ref(comparisons: list[dict[str, Any]]) -> Any:
+    module = _load_tool_module()
+    return module.RowRef(
+        id="ko2017.toy.case",
+        where="toy",
+        path=None,
+        index=0,
+        data={"id": "ko2017.toy.case", "tests": [], "comparisons": comparisons},
+    )
+
+
+def _asserted(baseline: float | None) -> dict[str, Any]:
+    measured: dict[str, Any] = {"status": "not_measured", "margin_pct": None}
+    if baseline is not None:
+        measured = {"status": "measured", "margin_pct": baseline}
+    return {
+        "label": "rtol",
+        "asserted": True,
+        "reference": {"kind": "analytical", "label": "x"},
+        "tolerance": {"kind": "rtol", "value": 0.05, "source": "s", "justified": True},
+        "measured": measured,
+    }
+
+
+def _printed(error: str, value: str = "1.0000", expected: str = "1.0000") -> dict[str, str]:
+    return {"value": value, "expected": expected, "error": error}
+
+
+def test_compare_row_classifies_every_outcome() -> None:
+    module = _load_tool_module()
+    ref = _row_ref([_asserted(0.10), _asserted(None)])
+
+    same = module.compare_row(ref, [_printed("0.10"), _printed("0.20")], [])
+    assert [item["verdict"] for item in same] == ["same", "new_baseline"]
+
+    drifted = module.compare_row(ref, [_printed("0.90"), _printed("0.20")], [])
+    assert drifted[0]["verdict"] == "drifted"
+    assert drifted[0]["baseline"] == 0.10
+    assert drifted[0]["current"] == 0.90
+
+    # A count mismatch is reported, never guessed: attaching a margin to the wrong
+    # comparison would manufacture a baseline.
+    unmapped = module.compare_row(ref, [_printed("0.10")], [])
+    assert len(unmapped) == 1
+    assert unmapped[0]["verdict"] == "unmapped"
+
+    informational = module.compare_row(ref, [_printed("0.10"), _printed("0.20")], [_printed("622932.13")])
+    assert informational[-1]["verdict"] == "informational"
+
+
+def test_residual_patterns_must_be_valid_regexes(tmp_path: Path) -> None:
+    groups = copy.deepcopy(GROUPS)
+    groups["groups"][0]["residual"] = {"asserted": "([unclosed"}
+    store = write_store(tmp_path, [], groups=groups)
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert "not a valid regex" in completed.stdout
+
+
+def test_regression_needs_a_declared_pattern(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    completed = run(store, "regression", "--group", "3")
+    assert completed.returncode == 2
+    assert "declares no 'residual' patterns" in completed.stderr

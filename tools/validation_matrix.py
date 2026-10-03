@@ -54,6 +54,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import date
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
@@ -153,10 +154,17 @@ GROUP_KEYS = {
     "citation",
     "source_files",
     "common_tolerance",
+    "residual",
     "headline",
     "provenance_note",
     "prose_after_table",
 }
+# A group declares how its tests print their residuals, because the suite prints prose, not
+# a format. `asserted` matches the line behind a real assertion, `unasserted` the line the
+# test prints and never asserts.
+RESIDUAL_KEYS = {"asserted", "unasserted"}
+NODE_START_RE = re.compile(r"^(?P<node>tests/[^\s:]+\.py::\S+)(?:\s+(?P<rest>.*))?$")
+NODE_STATUS_RE = re.compile(r"^(PASSED|FAILED|XFAIL|XPASS|SKIPPED|ERROR)\b")
 FLAG_KEYS = {"id", "derived", "label", "user_facing", "section", "legend"}
 
 # The dotted paths `set` may write. Anything absent is refused, which is what keeps
@@ -275,7 +283,6 @@ class Store:
     reference_sections: dict[str, dict[str, Any]] = field(default_factory=dict)
     rows: list[RowRef] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
-
     def error(self, where: str, message: str) -> None:
         self.findings.append(Finding("error", where, message))
 
@@ -392,6 +399,21 @@ def load_groups(store: Store) -> None:
         for source in entry.get("source_files") or []:
             if not isinstance(source, str) or not (REPO_ROOT / source).exists():
                 store.error(where, f"source file does not exist: {source!r}")
+        residual = entry.get("residual")
+        if residual is not None:
+            if not isinstance(residual, dict):
+                store.error(where, "'residual' must be a mapping")
+            else:
+                unknown = _unknown_keys(residual, RESIDUAL_KEYS)
+                if unknown:
+                    store.error(where, f"residual: unknown keys: {', '.join(unknown)}")
+                if not isinstance(residual.get("asserted"), str):
+                    store.error(where, "residual needs an 'asserted' pattern")
+                for name, pattern in residual.items():
+                    try:
+                        re.compile(str(pattern))
+                    except re.error as exc:
+                        store.error(where, f"residual.{name} is not a valid regex: {exc}")
         prose = entry.get("prose_after_table")
         if prose is not None and not (REPO_ROOT / str(prose).strip()).exists():
             store.warn(where, f"prose file not written yet: {str(prose).strip()}")
@@ -1500,22 +1522,23 @@ def reference_scan_findings(store: Store, found: dict[str, list[str]]) -> list[F
                 lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
             except OSError:
                 lines = []
-            if line_part and int(start) > len(lines):
-                findings.append(
-                    Finding("error", where, f"declared site {site} is past end of file")
-                )
-                continue
             mentioned = {
                 mention.rsplit(":", 1)[-1]
                 for mention in found.get(key, [])
                 if mention.split(":", 1)[0] == file_part
             }
             if line_part:
+                first = int(start)
+                if first > len(lines):
+                    findings.append(
+                        Finding("error", where, f"declared site {site} is past end of file")
+                    )
+                    continue
                 # A range is satisfied by a mention on ANY of its lines: reading only the
                 # first line turned every range whose mention sits further down into a
                 # false stale verdict.
-                last = int(end) if end.isdigit() else int(start)
-                ok = any(str(number) in mentioned for number in range(int(start), last + 1))
+                last = int(end) if end.isdigit() else first
+                ok = any(str(number) in mentioned for number in range(first, last + 1))
             else:
                 ok = bool(mentioned)
             if not ok:
@@ -2367,6 +2390,245 @@ def command_extract(args: argparse.Namespace) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# Regression: the store is the baseline
+# --------------------------------------------------------------------------- #
+
+
+def parse_prints(output: str) -> dict[str, list[str]]:
+    """Map each collected node to the lines it printed.
+
+    pytest prints a verbose node id with **no newline**, so the test's first print lands
+    on that same line; the rest follow, and the status word comes on its own line after
+    them. Parsing for `nodeid PASSED` on one line therefore matches nothing.
+    """
+    prints: dict[str, list[str]] = {}
+    current: str | None = None
+    for raw in output.splitlines():
+        line = raw.rstrip()
+        start = NODE_START_RE.match(line)
+        if start:
+            node = start.group("node")
+            if not node:
+                continue
+            current = node
+            prints.setdefault(node, [])
+            rest = (start.group("rest") or "").strip()
+            if rest:
+                prints[node].append(rest)
+            continue
+        if NODE_STATUS_RE.match(line.strip()):
+            current = None
+            continue
+        if current is not None and line.strip():
+            prints[current].append(line.strip())
+    return prints
+
+
+def capture_prints(scope: str) -> dict[str, list[str]]:
+    """Run the scope and read the prints out of its output."""
+    completed = subprocess.run(
+        [sys.executable, "-m", "pytest", "-o", "addopts=", "-s", "-v", scope],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return parse_prints(completed.stdout)
+
+
+def extract_residuals(
+    lines: list[str], residual: dict[str, Any]
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    asserted: list[dict[str, str]] = []
+    unasserted: list[dict[str, str]] = []
+    for line in lines:
+        match = re.search(str(residual["asserted"]), line)
+        if match:
+            asserted.append(match.groupdict())
+            continue
+        pattern = residual.get("unasserted")
+        if pattern:
+            match = re.search(str(pattern), line)
+            if match:
+                unasserted.append(match.groupdict())
+    return asserted, unasserted
+
+
+def _float(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def compare_row(
+    ref: RowRef,
+    asserted: list[dict[str, str]],
+    unasserted: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    """Pair each printed residual with the comparison it belongs to.
+
+    The prints and the asserted comparisons are both in source order, so the Nth print
+    is the Nth assertion. A count mismatch is reported as `unmapped` instead of guessed:
+    attaching a margin to the wrong comparison would manufacture a baseline.
+    """
+    comparisons = [item for item in (ref.data.get("comparisons") or []) if isinstance(item, dict)]
+    checked = [
+        item for item in comparisons if isinstance(item.get("asserted"), bool) and item["asserted"]
+    ]
+    if len(checked) != len(asserted):
+        return [
+            {
+                "row": ref.id,
+                "verdict": "unmapped",
+                "detail": (
+                    f"{len(asserted)} printed residual(s) for {len(checked)} asserted "
+                    "comparison(s)"
+                ),
+            }
+        ]
+    results: list[dict[str, Any]] = []
+    for index, (comparison, printed) in enumerate(zip(checked, asserted, strict=True)):
+        current = _float(printed.get("error"))
+        baseline = _float((comparison.get("measured") or {}).get("margin_pct"))
+        if baseline is None:
+            verdict = "new_baseline"
+        elif current is not None and abs(current - baseline) > 0.005:
+            verdict = "drifted"
+        else:
+            verdict = "same"
+        results.append(
+            {
+                "row": ref.id,
+                "comparison": index,
+                "label": comparison.get("label"),
+                "verdict": verdict,
+                "baseline": baseline,
+                "current": current,
+                "value": _float(printed.get("value")),
+                "expected": printed.get("expected"),
+                "text": f"{printed.get('value')} ({printed.get('error')}%)",
+            }
+        )
+    for printed in unasserted:
+        results.append(
+            {
+                "row": ref.id,
+                "comparison": None,
+                "label": "printed and never asserted",
+                "verdict": "informational",
+                "baseline": None,
+                "current": _float(printed.get("error")),
+                "value": _float(printed.get("value")),
+                "expected": printed.get("expected"),
+                "text": f"{printed.get('value')} ({printed.get('error')}%)",
+            }
+        )
+    return results
+
+
+def head_revision() -> str:
+    completed = subprocess.run(
+        ["git", "rev-parse", "--short", "HEAD"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return completed.stdout.strip() or "unknown"
+
+
+def write_measurement(store: Store, ref: RowRef, index: int, result: dict[str, Any]) -> None:
+    """Record one printed residual as the comparison's baseline."""
+    path = ref.path
+    if path is None:
+        raise StoreError(f"row {ref.id} has no backing file to write")
+    document = load_yaml(path)
+    rows = document.get("rows") if isinstance(document, dict) else document
+    if not isinstance(rows, list):
+        raise StoreError(f"{ref.path} is not a row file this tool can write back")
+    row = rows[ref.index]
+    comparison = row["comparisons"][index]
+    comparison["measured"] = {
+        "status": "measured",
+        "run": head_revision(),
+        "date": date.today().isoformat(),
+        "raw": result["value"],
+        "margin_pct": result["current"],
+        "text": result["text"],
+    }
+    if comparison.get("expected") is None and result.get("expected") is not None:
+        comparison["expected"] = result["expected"]
+    dump_yaml(path, document)
+
+
+def command_regression(args: argparse.Namespace) -> int:
+    store = load_store(args.store)
+    group = store.groups.get(args.group)
+    if group is None:
+        raise StoreError(f"unknown group: {args.group}")
+    residual = group.get("residual")
+    if not residual:
+        raise StoreError(
+            f"group {args.group} declares no 'residual' patterns, so its prints cannot be "
+            "read; declare them in groups.yaml"
+        )
+    scope = args.scope or " ".join(str(item) for item in group.get("source_files") or [])
+    prints = capture_prints(scope)
+    if not prints:
+        raise StoreError(f"no node output captured for {scope!r}; is the environment active?")
+
+    results: list[dict[str, Any]] = []
+    claimed: set[str] = set()
+    for ref in store.rows:
+        nodes = [node for node in (ref.data.get("tests") or []) if node in prints]
+        if not nodes:
+            continue
+        claimed.update(nodes)
+        lines = [line for node in nodes for line in prints[node]]
+        asserted, unasserted = extract_residuals(lines, residual)
+        results.extend(compare_row(ref, asserted, unasserted))
+    for node in sorted(set(prints) - claimed):
+        results.append({"row": None, "verdict": "unclaimed", "detail": node})
+
+    if args.write:
+        for result in results:
+            index = result.get("comparison")
+            if result["verdict"] not in {"same", "drifted", "new_baseline"}:
+                continue
+            if not isinstance(index, int):
+                continue
+            write_measurement(store, store.by_id()[result["row"]], index, result)
+        print(f"wrote {len(results)} measurement(s)")
+
+    drifted = [item for item in results if item["verdict"] in {"drifted", "unmapped", "unclaimed"}]
+    if args.json:
+        print(json.dumps(results, indent=2))
+    else:
+        for item in results:
+            if item["verdict"] == "same":
+                continue
+            where = item.get("row") or item.get("detail")
+            if item["verdict"] == "drifted":
+                print(
+                    f"DRIFTED  {where} [{item['label']}]: was {item['baseline']}%, "
+                    f"now {item['current']}%"
+                )
+            elif item["verdict"] == "new_baseline":
+                print(f"NEW      {where} [{item['label']}]: {item['current']}% ({item['text']})")
+            elif item["verdict"] == "informational":
+                print(f"INFO     {where}: {item['text']} (never asserted)")
+            else:
+                print(f"{item['verdict'].upper():8s} {where} {item.get('detail') or ''}")
+        counts: dict[str, int] = {}
+        for item in results:
+            counts[item["verdict"]] = counts.get(item["verdict"], 0) + 1
+        summary = ", ".join(f"{count} {name}" for name, count in sorted(counts.items()))
+        print(f"regression: {summary}")
+    return EXIT_FINDINGS if drifted else EXIT_OK
+
+
+# --------------------------------------------------------------------------- #
 # Entry point
 # --------------------------------------------------------------------------- #
 
@@ -2454,6 +2716,17 @@ def build_parser() -> argparse.ArgumentParser:
     extract.add_argument("--write", action="store_true", help="write the rows file")
     extract.add_argument("--json", action="store_true")
     extract.set_defaults(func=command_extract)
+
+    regression = subparsers.add_parser(
+        "regression", help="re-run the scope and diff its printed residuals against the store"
+    )
+    regression.add_argument("--group", default="3")
+    regression.add_argument("--scope", help="what to run (default: the group's source files)")
+    regression.add_argument(
+        "--write", action="store_true", help="record the printed residuals as the baseline"
+    )
+    regression.add_argument("--json", action="store_true")
+    regression.set_defaults(func=command_regression)
 
     return parser
 

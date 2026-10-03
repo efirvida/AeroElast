@@ -386,13 +386,21 @@ validation_matrix list   [--group ID] [--file F] [--id ID] [--flag FLAG] [--near
 validation_matrix get    ID [--comparisons] [--json]
 validation_matrix headline [--json]
 validation_matrix set    ID PATH=VALUE... [--unset PATH]... [--add-flag F]... [--remove-flag F]...
+validation_matrix regression [--group ID] [--scope S] [--write] [--json]
 
-# later work units
-validation_matrix references <list|gaps|get|check|bibtex|where-used>   # T3
-validation_matrix extract --scope FILE                                # T4
+# still to come
 validation_matrix diff-against-md --group ID                          # T5
 validation_matrix render [--out FILE] [--check]                       # T7
 ```
+
+`regression` is the answer to "the values must serve as a regression, without re-reading the
+document": it re-runs the group's scope, reads each node's printed residual with the pattern
+the group declares in `groups.yaml`, pairs the Nth print with the Nth asserted comparison, and
+diffs it against the stored `measured`. It prints only what is not `same` and exits 1 on drift,
+so it is a gate. `--write` records the baseline (`status`, `raw`, `margin_pct`, `text`, `run`,
+`date`), and is how a new group's rows gain their first measurements. A count mismatch between
+prints and asserted comparisons is reported `unmapped`, never guessed: attaching a margin to the
+wrong comparison would manufacture a baseline.
 
 Read verbs, and what makes them worth preferring to the Markdown:
 
@@ -595,7 +603,7 @@ consequences:
 | T4 | Code extractor (WU-P1) | `validation_matrix extract --scope tests/test_ko2017_performance.py`: collect-only node set + AST rows + param-id cross-check, no `measured.*` | 31 nodes, every one claimed, 0 unexplained extraction misses; byte-identical output across two runs |
 | T5 | Matrix normalizer and diff (WU-P2) | `validation_matrix diff-against-md --group 3`: §3 tables projected into the same key space, compared field by field | every conflict classified as `match`, `only_in_code`, `only_in_md` or `value_conflict`; the 23-vs-31 gap explained per row |
 | T6 | Adjudication and freeze (WU-P3) | re-run each conflicting node (`-s`, `-rA`), `docs/validation/adjudications/3-ko2017.yaml`, complete `rows/3-ko2017.yaml` with `measured.*` | the six acceptance criteria in §12; no conflict resolved without a recorded command and its output |
-| T7 | Elimination, classification and CI | repoint every live reference at the store (`docs/formulations/{mitc4plus-2017-extract,shell-elements,materials,solvers}.md`, `docs/validation-environment.md`, `tests/test_shell_convergence.py`, `openspec/specs/mitc4plusd-element/spec.md`, `tests/test_mitc4plusd_traceability.py`), delete `docs/validation-matrix.md` and `docs/references.md`, rewrite CONTRIBUTING rule 6, write `docs/validation-policy.md` with the surviving prose, and move the physics-only classification into `groups.yaml` | no live document points at a deleted path; archived `openspec/changes/archive/**` left untouched as history; `check` exits 0; a synthetic unclassified node exits 1 |
+| T7 | Elimination, classification and CI | repoint every live reference at the store (`docs/formulations/{mitc4plus-2017-extract,shell-elements,materials,solvers}.md`, `docs/validation-environment.md`, `tests/test_shell_convergence.py`, `openspec/specs/mitc4plusd-element/spec.md`, `tests/test_mitc4plusd_traceability.py`), delete `docs/validation-matrix.md` and `docs/references.md`, rewrite CONTRIBUTING rule 6, write `docs/validation-policy.md` with the surviving prose, and move the physics-only classification into `groups.yaml` | no live document points at a deleted path; archived `openspec/changes/archive/**` left untouched as history; `check` and `regression` exit 0 in CI; a synthetic unclassified node exits 1 |
 
 ### 13.2 Progress
 
