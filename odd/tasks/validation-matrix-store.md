@@ -629,12 +629,20 @@ consequences:
 | T1 | done | `d947535`, `7b2bcee` | `python -m pytest tools/tests` -> 22 passed; `check` -> 0 errors; ruff clean. Reviewed as `review-4ecd3ccb79863462` (tier low, no lenses, `non_executable_only`) |
 | T2 | done | - | `python -m pytest tools/tests` -> 43 passed (21 new); `ruff check` 0.16.0 clean; `check` -> 0 errors; `headline` renders the group 3 row |
 | T3a | done | - | `python -m pytest tools/tests` -> 62 passed (19 new); `ruff check tools/` clean; matrix `check` 0 errors; `references check` -> 6 entr(ies), 0 errors, 1 warning |
-| T3b | pending | - | - |
-| T4 | pending | - | - |
-| T5 | done | - | `diff-against-md --group 3` -> `23 Markdown row(s) covering 37 case slot(s) against 31 collected node(s); 0 function(s) need adjudication`, exit 0; 80 tool tests. **The command was retired** once both views were deleted (see T7): its only input is gone, so its tests, its helpers and its CLI entry went with it |
-| T6 | done | - | `check` validates `docs/validation/adjudications/3-ko2017.yaml`; no conflict needed adjudication; 90 tool tests |
-| T7 | pending | - | - |
-| T8 | done | `93c7384` (T8a), below (T8b) | T8a: `tests/` is a package, helpers in `tests/support/`, 40 import sites rewritten, 527 nodes collected with zero import errors. T8b: 44 validation files in six domains and 9 software files in three, the drift bucket deleted, and the path made the classification |
+| T3b | done | `b9d24da`, `6fedaef` | 63 entries in 13 sections migrated; 30 DOIs all sourced; 15 stale citation sites recorded in `cited_by_stale`; 0 entries lost |
+| T4 | done | `6d2b5b8` | `extract` over the pilot: 31 collected nodes -> 31 rows, all claimed, 37 comparisons, byte-identical across two runs |
+| T5 | done | `ab46e71` | `diff-against-md --group 3` -> 23 Markdown rows / 37 case slots / 31 collected nodes / 0 functions needing adjudication, exit 0. **The command was retired** once both views were deleted (see T7): its only input is gone, so its tests, its helpers and its CLI entry went with it |
+| T6 | done | `609ff5e` | `check` validates `docs/validation/adjudications/3-ko2017.yaml`; no conflict needed adjudication |
+| T7 | done | `dd0060a`, `43084b1`, `5926a56`, `7a31535` | the not-citable list migrated into `gaps.yaml` before anything else, because a claim about absence is not derivable; `validation-policy.md` written; both Markdown views deleted; CI job `validation-store.yml`; what must be *read* fell from 193 KB to a 5.1 KB policy |
+| T8 | done | `93c7384`, `9d284b3` | `tests/` is a package, helpers in `tests/support/`, 40 import sites rewritten; 44 validation files in six domains and 9 software files in three; the path is the classification; 527 nodes collected with zero import errors |
+| T9 | done | `ca286bb` | the two duplicate shell modules merged into one with the tighter asserts; 527 -> 520 nodes exactly, and the total still reads 520 after every change since |
+| T10 | done | `c4a2f6b`, `dac8db9` | movement detection by digest with the delta printed beside it; a source digest separates a changed test from a changed number; 37 `same` across two runs on the pilot |
+| T11 | in progress | four groups and nine extractor fixes, below | the store grew from 32 rows to 40: groups 4 (orthotropic shell), 5 (blade modal gap vs CCX), 6 (tube torsion vs Bredt) and 7 (shell stress vs CCX) added to 3 and 10 |
+
+| T11 detail | deliverable | acceptance criteria |
+| --- | --- | --- |
+| Extend the store to the other validation domains | one group per validation file, with its `reference_kind` declared where every comparison shares one, per-comparison kinds where they do not, `non_reference_asserts` naming what is not a comparison against an independent reference, `validation_helpers` naming the same-module helpers that hold the comparisons, and `non_validation_tests` for the tests that produce no row at all | `check` green after every group; `extract --group N` closes with nothing undeclared; 520 nodes still collected; the parity sweep is 4 of 12 files done |
+| T11 fixes | the nine defects the sweep found in the tool, each with its own test | class-based node ids were invisible (15 of 42 files); `reference.kind` was guessed from prose instead of declared; an unreadable comparison cost its whole row; `unclaimed` never said why; `SLUG_RE` accepted a slug whose `ID_RE` rejected the id built from it; `set` could not repair a row it had not broken; `non_validation_tests` only worked in one direction; comparisons were carried by position instead of by source; a declaration had to spell a node id too long to wrap |
 
 | T7 detail | deliverable | acceptance criteria |
 | --- | --- | --- |
