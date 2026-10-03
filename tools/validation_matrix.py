@@ -2639,7 +2639,13 @@ def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
     would turn every comparison into a `new_baseline` on the next run, which reads like nothing
     was ever measured.
 
-    Rows are matched by their `tests` set, which is stable as long as the test does not move.
+    Rows are matched by their `tests` set, which is stable as long as the test does not move, and
+    comparisons are matched by their `tolerance.source` -- `<file>:<line>` -- and not by position.
+    Position was the wrong key and dangerously so: dropping or reordering one comparison would have
+    slid every later measurement one slot over, attaching a margin to a reference it was never
+    measured against. A comparison whose source is not found keeps no measurement, and the count of
+    those is reported rather than passed over, because a moved line means someone should decide
+    whether the number still applies.
     """
     if not target.exists():
         return 0
@@ -2651,6 +2657,7 @@ def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
         tuple(row.get("tests") or []): row for row in existing if isinstance(row, dict)
     }
     carried = 0
+    unmatched: list[str] = []
     for row in rows:
         previous = by_tests.get(tuple(row.get("tests") or []))
         if previous is None:
@@ -2662,15 +2669,34 @@ def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
             row["history"] = previous["history"]
         if previous.get("flags"):
             row["flags"] = previous["flags"]
-        old_comparisons = previous.get("comparisons") or []
-        for index, comparison in enumerate(row.get("comparisons") or []):
-            if index >= len(old_comparisons) or not isinstance(old_comparisons[index], dict):
+        old_by_source: dict[str, dict[str, Any]] = {}
+        for old in previous.get("comparisons") or []:
+            if not isinstance(old, dict):
+                continue
+            source = str((old.get("tolerance") or {}).get("source") or "")
+            if source:
+                old_by_source[source] = old
+        for comparison in row.get("comparisons") or []:
+            if not isinstance(comparison, dict):
+                continue
+            source = str((comparison.get("tolerance") or {}).get("source") or "")
+            old = old_by_source.get(source)
+            if old is None:
+                if comparison.get("tolerance"):
+                    unmatched.append(source or "<no source>")
                 continue
             for name in ("measured", "expected"):
-                value = old_comparisons[index].get(name)
+                value = old.get(name)
                 if value is not None:
                     comparison[name] = value
                     carried += 1
+    if unmatched:
+        print(
+            f"no stored measurement matches {len(unmatched)} comparison(s) by source; a "
+            "re-measure is due: "
+            + ", ".join(sorted(unmatched)[:5]),
+            file=sys.stderr,
+        )
     return carried
 
 

@@ -1220,6 +1220,73 @@ def test_re_extraction_keeps_what_was_measured_and_flagged(tmp_path: Path) -> No
     assert new_rows[0]["comparisons"][0]["reference"]["label"] == "better"
 
 
+def test_a_reordered_comparison_keeps_its_own_measurement(tmp_path: Path) -> None:
+    """Comparisons are matched by their source, not by their position.
+
+    Position was the key, and it was dangerous: dropping or reordering one comparison slid every
+    later measurement one slot over, attaching a margin to a reference it was never measured
+    against, silently. Here the two comparisons swap places between the stored row and the
+    re-extracted one, so each measurement has to follow its own `tolerance.source`.
+    """
+    module = _load_tool_module()
+
+    def comparison(source: str, margin: float | None) -> dict:
+        return {
+            "label": f"rel_err at {source}",
+            "asserted": True,
+            "reference": {"kind": "paper", "label": "x", "citation": "k"},
+            "tolerance": {
+                "kind": "rel_err",
+                "value": 0.05,
+                "source": source,
+                "justified": True,
+                "justification": "j",
+            },
+            "measured": {"status": "measured", "margin_pct": margin, "digest": None},
+        }
+
+    stored = comparison("tests/a.py:10", 1.0)
+    stored["measured"] = {"status": "measured", "margin_pct": 1.0, "digest": "ten"}
+    other = comparison("tests/a.py:20", 2.0)
+    other["measured"] = {"status": "measured", "margin_pct": 2.0, "digest": "twenty"}
+    target = tmp_path / "rows.yaml"
+    target.write_text(
+        yaml.safe_dump(
+            {
+                "rows": [
+                    {
+                        "id": "g.t.s",
+                        "group": "g",
+                        "title": "t",
+                        "tests": ["tests/a.py::b"],
+                        "validates": "v",
+                        "comparisons": [stored, other],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    swapped = comparison("tests/a.py:20", None)
+    swapped["measured"] = {"status": "not_measured", "margin_pct": None}
+    moved = comparison("tests/a.py:10", None)
+    moved["measured"] = {"status": "not_measured", "margin_pct": None}
+    new_rows = [
+        {
+            "id": "g.t.s",
+            "group": "g",
+            "title": "t",
+            "tests": ["tests/a.py::b"],
+            "validates": "v",
+            "comparisons": [swapped, moved],
+        }
+    ]
+    module.preserve_measurements(target, new_rows)
+    first, second = new_rows[0]["comparisons"]
+    assert first["measured"]["digest"] == "twenty"  # :20 keeps its own
+    assert second["measured"]["digest"] == "ten"  # :10 keeps its own
+
+
 def test_a_movement_too_small_for_a_tolerance_is_still_detected() -> None:
     """The digest is exact, so the detector needs no tolerance and hides nothing.
 
