@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "_why": "A residual pattern is machine data: it is a regex, not prose, and in YAML the prose linter enforces a line budget a long pattern cannot satisfy. Keep it here, keyed by group id. Every pattern is validated as a regex when the store loads.",
+  "patterns": {
+    "3": {
+      "asserted": "Norm\\svs\\sKirchhoff:\\s(?P<value>\\S+)\\s\\(expected:\\s(?P<expected>\\S+),\\serror:\\s(?P<error>\\S+)%\\)",
+      "unasserted": "Norm\\svs\\sPaper\\s3D:\\s(?P<value>\\S+)\\s\\(expected:\\s(?P<expected>\\S+),\\serror:\\s(?P<error>\\S+)%\\)"
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Canonical bibliography for AeroElast.
 #
-# This file is the rector: `docs/references.md` is generated from it, and every
+# This file is the bibliography rector, and every
 # `reference.citation` in a matrix row resolves to a `key` here.
 #
 # `doi_status` replaces the prose marker "DOI: to verify":

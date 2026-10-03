@@ -6,7 +6,7 @@ these rules elsewhere: restating them is how they drift apart, which is what thi
 replaced.
 
 Where sources live: `.sources/papers/` (gitignored, recoverable from git history — see
-`docs/references.md`). The bibliography that keys them is
+`docs/validation/references.yaml`). The bibliography that keys them is
 `docs/validation/references.yaml`.
 
 ## Why this exists

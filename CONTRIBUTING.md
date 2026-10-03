@@ -43,7 +43,8 @@ worse than no test: it certifies a result nobody measured.
 
 1. **No tolerance above 5%.** A test comparing against a reference asserts inside 5% unless
    the reference's own scatter justifies more, and then the reason is written next to the
-   tolerance. The suite's tolerance audit lives in `docs/validation-matrix.md` section 13.1.
+   tolerance. The tolerance audit is a query: `validation_matrix list --gt5` names every
+   comparison above the rule, and each carries the written reason it is allowed to be.
 2. **A tolerance is never chosen to accommodate the measured result.** It comes from the
    reference's own scatter or from a stated theoretical error, and it is written *before* the
    run. If a comparison misses the bound, the deliverable is the **finding** - a flagged

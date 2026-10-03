@@ -84,7 +84,7 @@ group nor the out-of-scope list is an error, not a gap.
    `pytest -o addopts="" --collect-only -q <file>` (rule 6). A zero-node collection is a
    failure, not a clean run: it usually means the module skipped for a missing
    dependency.
-10. **Do not hand-edit the generated views.** `docs/references.md` is generated from the
+10. **Do not hand-edit the generated views.** `docs/validation/references.yaml` is generated from the
     store (`references render --check` in CI). The matrix view becomes generated at T7;
     until then its Markdown is still hand-maintained, and the store is the rector for
     section 3.

@@ -20,8 +20,10 @@ The store lives in `docs/validation/`:
     flags.yaml                  flag registry (judgement flags + derived flags)
     rows/<group-slug>.yaml      the rows of one group
 
-`docs/validation-matrix.md` and `docs/references.md` are generated from the store;
-they are the paper-facing views, never the input.
+`docs/validation-matrix.md` and `docs/references.md` were the store's generated views, and
+they are gone: the store is the only artifact. `references render` survives as an export
+command, and `diff-against-md` as a migration-time cross-check, which is the one thing here
+that still needs the old file.
 
 Model. A row is one test group: it owns an optional single `result` (our own
 measured value) and one or more `comparisons`. A comparison pairs that result with
@@ -154,7 +156,6 @@ GROUP_KEYS = {
     "citation",
     "source_files",
     "common_tolerance",
-    "residual",
     "headline",
     "provenance_note",
     "prose_after_table",
@@ -162,7 +163,12 @@ GROUP_KEYS = {
 # A group declares how its tests print their residuals, because the suite prints prose, not
 # a format. `asserted` matches the line behind a real assertion, `unasserted` the line the
 # test prints and never asserts.
+# The patterns themselves live in `residual-patterns.json`, keyed by group id: a regex
+# is machine data, and the YAML prose linter enforces a line budget a long pattern cannot
+# satisfy. `asserted` matches the line behind a real assertion, `unasserted` the line the
+# test prints and never asserts.
 RESIDUAL_KEYS = {"asserted", "unasserted"}
+RESIDUAL_FILE = "residual-patterns.json"
 NODE_START_RE = re.compile(r"^(?P<node>tests/[^\s:]+\.py::\S+)(?:\s+(?P<rest>.*))?$")
 NODE_STATUS_RE = re.compile(r"^(PASSED|FAILED|XFAIL|XPASS|SKIPPED|ERROR)\b")
 FLAG_KEYS = {"id", "derived", "label", "user_facing", "section", "legend"}
@@ -281,6 +287,7 @@ class Store:
     references: dict[str, dict[str, Any]] = field(default_factory=dict)
     reference_header: str | None = None
     reference_sections: dict[str, dict[str, Any]] = field(default_factory=dict)
+    residual_patterns: dict[str, dict[str, str]] = field(default_factory=dict)
     gaps: dict[str, dict[str, Any]] = field(default_factory=dict)
     rows: list[RowRef] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
@@ -412,21 +419,6 @@ def load_groups(store: Store) -> None:
         for source in entry.get("source_files") or []:
             if not isinstance(source, str) or not (REPO_ROOT / source).exists():
                 store.error(where, f"source file does not exist: {source!r}")
-        residual = entry.get("residual")
-        if residual is not None:
-            if not isinstance(residual, dict):
-                store.error(where, "'residual' must be a mapping")
-            else:
-                unknown = _unknown_keys(residual, RESIDUAL_KEYS)
-                if unknown:
-                    store.error(where, f"residual: unknown keys: {', '.join(unknown)}")
-                if not isinstance(residual.get("asserted"), str):
-                    store.error(where, "residual needs an 'asserted' pattern")
-                for name, pattern in residual.items():
-                    try:
-                        re.compile(str(pattern))
-                    except re.error as exc:
-                        store.error(where, f"residual.{name} is not a valid regex: {exc}")
         prose = entry.get("prose_after_table")
         if prose is not None and not (REPO_ROOT / str(prose).strip()).exists():
             store.warn(where, f"prose file not written yet: {str(prose).strip()}")
@@ -727,6 +719,7 @@ def load_store(root: Path, only_group: str | None = None) -> Store:
     load_groups(store)
     if only_group is not None and only_group not in store.groups:
         raise StoreError(f"unknown group: {only_group}")
+    load_residual_patterns(store)
     load_rows(store, only_group=only_group)
     load_adjudications(store)
     load_gaps(store)
@@ -1663,7 +1656,7 @@ def render_reference_paragraphs(entry: dict[str, Any]) -> list[str]:
 
 
 def render_references(store: Store) -> str:
-    """`docs/references.md` is generated: the store is the only input."""
+    """Render the bibliography: an export, not a committed artifact."""
     lines = [
         "# Canonical bibliography",
         "",
@@ -2505,6 +2498,41 @@ GAP_KEYS = {
 GAP_FILE_KEYS = {"version", "gaps"}
 
 
+def load_residual_patterns(store: Store) -> None:
+    """How each group's tests print their residuals, keyed by group id."""
+    path = store.root / RESIDUAL_FILE
+    if not path.exists():
+        return
+    rel = display_path(path)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        store.error(rel, f"could not be read: {exc}")
+        return
+    patterns = data.get("patterns") if isinstance(data, dict) else None
+    if not isinstance(patterns, dict):
+        store.error(rel, "expected a mapping with a 'patterns' object")
+        return
+    for group_id, entry in patterns.items():
+        where = f"{rel}[{group_id}]"
+        if group_id not in store.groups:
+            store.error(where, f"unknown group: {group_id!r}")
+        if not isinstance(entry, dict):
+            store.error(where, "expected a mapping")
+            continue
+        unknown = _unknown_keys(entry, RESIDUAL_KEYS)
+        if unknown:
+            store.error(where, f"unknown keys: {', '.join(unknown)}")
+        if not isinstance(entry.get("asserted"), str):
+            store.error(where, "an 'asserted' pattern is required")
+        for name, pattern in entry.items():
+            try:
+                re.compile(str(pattern))
+            except re.error as exc:
+                store.error(where, f"{name} is not a valid regex: {exc}")
+        store.residual_patterns[str(group_id)] = {key: str(value) for key, value in entry.items()}
+
+
 def load_gaps(store: Store) -> None:
     path = store.root / "gaps.yaml"
     if not path.exists():
@@ -2738,11 +2766,11 @@ def command_regression(args: argparse.Namespace) -> int:
     group = store.groups.get(args.group)
     if group is None:
         raise StoreError(f"unknown group: {args.group}")
-    residual = group.get("residual")
+    residual = store.residual_patterns.get(str(args.group))
     if not residual:
         raise StoreError(
-            f"group {args.group} declares no 'residual' patterns, so its prints cannot be "
-            "read; declare them in groups.yaml"
+            f"group {args.group} declares no residual patterns, so its prints cannot be "
+            f"read; declare them in docs/validation/{RESIDUAL_FILE}"
         )
     scope = args.scope or " ".join(str(item) for item in group.get("source_files") or [])
     prints = capture_prints(scope)
@@ -2909,7 +2937,7 @@ def command_diff_against_md(args: argparse.Namespace) -> int:
     if group is None:
         raise StoreError(f"unknown group: {args.group}")
     source = str((group.get("source_files") or [""])[0])
-    md_path = REPO_ROOT / "docs" / "validation-matrix.md"
+    md_path = args.md or (REPO_ROOT / "docs" / "validation-matrix.md")
     if not md_path.exists():
         raise StoreError(f"{display_path(md_path)} is gone; there is no view to diff against")
     md_rows = find_md_table(md_path.read_text(encoding="utf-8"), source)
@@ -3103,6 +3131,9 @@ def build_parser() -> argparse.ArgumentParser:
         "diff-against-md", help="cross-validate the Markdown view against the store"
     )
     cross_check.add_argument("--group", default="3")
+    cross_check.add_argument(
+        "--md", type=Path, help="the deleted Markdown view to diff against"
+    )
     cross_check.add_argument("--json", action="store_true")
     cross_check.set_defaults(func=command_diff_against_md)
 

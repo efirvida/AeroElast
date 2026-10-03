@@ -997,8 +997,10 @@ def test_parse_prints_reads_the_shape_pytest_actually_emits() -> None:
 
 def test_extract_residuals_uses_the_declared_group_patterns() -> None:
     module = _load_tool_module()
-    groups = yaml.safe_load((REAL_STORE / "groups.yaml").read_text(encoding="utf-8"))
-    residual = groups["groups"][0]["residual"]
+    patterns = json.loads(
+        (REAL_STORE / module.RESIDUAL_FILE).read_text(encoding="utf-8")
+    )
+    residual = patterns["patterns"]["3"]
     asserted, unasserted = module.extract_residuals(
         [
             "Norm vs Kirchhoff: 0.9814 (expected: 0.9782, error: 0.33%)",
@@ -1061,20 +1063,33 @@ def test_compare_row_classifies_every_outcome() -> None:
     assert informational[-1]["verdict"] == "informational"
 
 
+def write_residual_patterns(store: Path, patterns: dict[str, Any]) -> None:
+    (store / "residual-patterns.json").write_text(
+        json.dumps({"version": 1, "patterns": patterns}), encoding="utf-8"
+    )
+
+
 def test_residual_patterns_must_be_valid_regexes(tmp_path: Path) -> None:
-    groups = copy.deepcopy(GROUPS)
-    groups["groups"][0]["residual"] = {"asserted": "([unclosed"}
-    store = write_store(tmp_path, [], groups=groups)
+    store = write_store(tmp_path, [make_row()])
+    write_residual_patterns(store, {"3": {"asserted": "([unclosed"}})
     completed = run_check(store)
     assert completed.returncode == 1
     assert "not a valid regex" in completed.stdout
+
+
+def test_a_pattern_for_an_unknown_group_is_reported(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_residual_patterns(store, {"99": {"asserted": "x"}})
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert "unknown group" in completed.stdout
 
 
 def test_regression_needs_a_declared_pattern(tmp_path: Path) -> None:
     store = write_store(tmp_path, [make_row()])
     completed = run(store, "regression", "--group", "3")
     assert completed.returncode == 2
-    assert "declares no 'residual' patterns" in completed.stderr
+    assert "declares no residual patterns" in completed.stderr
 
 
 # --------------------------------------------------------------------------- #
@@ -1204,16 +1219,54 @@ def test_duplicate_adjudication_ids_are_reported(tmp_path: Path) -> None:
     assert "duplicate adjudication id" in completed.stdout
 
 
-def test_the_markdown_and_the_store_reconcile_on_the_real_group() -> None:
-    """T5 acceptance: no conflict, and the case slots equal the store's comparisons."""
-    completed = run(REAL_STORE, "diff-against-md", "--group", "3")
+FIXTURE_MD = """\
+## 3. `tests/test_ko2017_performance.py` (fixture)
+
+| test | what it validates | reference | tolerance | measured margin | notes |
+| --- | --- | --- | --- | --- | --- |
+| `test_3_1_square_plate_tables_2_to_5[reg clamped]` (2 cases) | deflection | **Table 2** | `rtol=0.05` | 0.9996 (0.12%), 1.0000 (0.00%) | cell match |
+"""
+
+
+def _fixture_view(tmp_path: Path, text: str) -> Path:
+    path = tmp_path / "view.md"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_diff_against_md_reconciles_a_matching_view(tmp_path: Path) -> None:
+    """The migration-time cross-check: the slot count bridges the two row counts."""
+    store = write_store(tmp_path, [make_row()])
+    md = _fixture_view(tmp_path, FIXTURE_MD)
+    completed = run(store, "diff-against-md", "--group", "3", "--md", str(md))
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert "0 function(s) need adjudication" in completed.stdout
-    # A Markdown row covers a comparison; a node covers a test. The two counts differ and
-    # the slot count is the bridge: 23 rows covering 37 slots, 31 nodes, 37 comparisons.
-    assert "23 Markdown row(s) covering 37 case slot(s)" in completed.stdout
-    assert "31 collected node(s)" in completed.stdout
+    # One Markdown row covering two case slots, against two comparisons in the store.
+    assert "covering 2 case slot(s)" in completed.stdout
     assert "do not equal the store's" not in completed.stdout
+
+
+def test_diff_against_md_reports_a_tolerance_conflict(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    md = _fixture_view(tmp_path, FIXTURE_MD.replace("`rtol=0.05`", "`rtol=0.02`"))
+    completed = run(store, "diff-against-md", "--group", "3", "--md", str(md))
+    assert completed.returncode == 1
+    assert "tolerance: md" in completed.stdout
+
+
+def test_diff_against_md_reports_a_margin_the_store_does_not_have(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    md = _fixture_view(tmp_path, FIXTURE_MD.replace("(0.00%)", "(9.99%)"))
+    completed = run(store, "diff-against-md", "--group", "3", "--md", str(md))
+    assert completed.returncode == 1
+    assert "margins in the Markdown and not in the store" in completed.stdout
+
+
+def test_diff_against_md_says_so_when_the_view_is_gone() -> None:
+    """The command is a migration tool: with the view deleted it reports that, not a crash."""
+    completed = run(REAL_STORE, "diff-against-md", "--group", "3")
+    assert completed.returncode == 2
+    assert "is gone" in completed.stderr
 
 
 # --------------------------------------------------------------------------- #

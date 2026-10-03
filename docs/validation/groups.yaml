@@ -1,8 +1,9 @@
 # Group registry for the validation matrix.
 #
-# One entry per Markdown section that carries rows (sections 3-8, plus 10 for
-# out-of-band evidence). `docs/validation/rows/<id>.yaml` holds the rows of a
-# group. `docs/validation-matrix.md` is generated from these files.
+# One entry per group of rows (the pytest files of sections 3-8, plus
+# group 10 for out-of-band evidence). `docs/validation/rows/<id>.yaml`
+# holds the rows of a group. The store is the rector: the Markdown views
+# it used to generate are gone.
 #
 # Seeded with group 3 only: it is the pilot, see the task document
 # odd/tasks/validation-matrix-store.md section 12. The remaining groups are
@@ -16,9 +17,6 @@ groups:
     citation: ko2017_perf
     source_files:
       - tests/test_ko2017_performance.py
-    residual:
-      asserted: 'Norm\svs\sKirchhoff:\s(?P<value>\S+)\s\(expected:\s(?P<expected>\S+),\serror:\s(?P<error>\S+)%\)'
-      unasserted: 'Norm\svs\sPaper\s3D:\s(?P<value>\S+)\s\(expected:\s(?P<expected>\S+),\serror:\s(?P<error>\S+)%\)'
     common_tolerance:
       kind: rtol
       value: 0.05
@@ -41,8 +39,6 @@ groups:
       the cells taken from the wrong table were corrected at `2fd847d`. A stale
       row here manufactures a false defect: the first version recorded an 8.5%
       deviation on the thin twisted beam that no longer exists.
-    prose_after_table: >-
-      docs/validation/prose/validation-matrix/03-ko2017-notes.md
 
   - id: "10"
     title: >-

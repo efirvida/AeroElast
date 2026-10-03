@@ -20,9 +20,12 @@ stay.
 3. **A number nobody printed is not a number.** `measured.status` says `not_printed` or
    `not_measured`; only `measured` carries a margin, and it carries the revision it was
    measured at.
-4. **A comparison printed and never asserted is not a result.** It may be cited as a
-   limitation, with its value, and `validation_matrix list --unit comparison` shows which
-   ones those are.
+4. **A comparison printed and never asserted is not a result.** Section 3 prints one
+   against the 3D-exact reference values and asserts nothing; `validation_matrix regression`
+   reports those as `informational`, with values that run to `622932%` and `6.2e8%`. It may
+   be cited as a limitation, never as a result, and it is deliberately not stored: an
+   unasserted comparison bounds nothing, so it has no tolerance to record and no slack to
+   report.
 5. **A gap is not citable.** Run `validation_matrix gaps` before citing anything that smells
    unverified. Every entry there is a claim the suite does not support, or a defect whose
    numbers must not be cited. The list is data and it is validated, because it is the part

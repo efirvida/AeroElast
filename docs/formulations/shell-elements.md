@@ -5,7 +5,7 @@ This is the production reference for the shell and plane elements in
 element it is, and which equation of which paper each part comes from. Equations
 were read from the PDFs held in `.sources/papers/`; where an equation could not be
 read, this document says so instead of reconstructing it. The full bibliography,
-including DOIs and the provenance of every held copy, is `docs/references.md`.
+including DOIs and the provenance of every held copy, is `docs/validation/references.yaml`.
 
 ## 1. Scope and conventions
 
@@ -258,7 +258,7 @@ stiffness coefficient, no scale factor and no user-tunable drilling parameter** 
 the element. A reader arriving from the older documentation — this file used to
 describe a `k_drill = 0.15 · E · h² · drilling_scale` penalty attributed to "Hughes
 & Brezzi" — will not find any of it, because the element no longer contains it. The
-Hughes & Brezzi reference itself does exist, as `docs/references.md` §1 records; it
+Hughes & Brezzi reference itself does exist, as `docs/validation/references.yaml` §1 records; it
 is simply no longer the source of this element's drilling stiffness.
 
 ### 2.6 What this element does not contain
@@ -726,10 +726,10 @@ the right-handed triad the code uses, which is the standard one for a shell elem
    `.sources/papers/lee2019.pdf` (authors: Chaemin Lee, Phill-Seung Lee; the first
    author is **not** Youngyu Lee of item 5). **Implemented** — §4.3 describes it
    equation by equation; verified against the held copy; entry present in
-   `docs/references.md`.
+   `docs/validation/references.yaml`.
 
-`docs/references.md` is the canonical bibliography for the repository. Where this
-document and `docs/references.md` disagree, `docs/references.md` should be
+`docs/validation/references.yaml` is the canonical bibliography for the repository. Where this
+document and `docs/validation/references.yaml` disagree, `docs/validation/references.yaml` should be
 corrected — this document deliberately does not duplicate its per-entry verification
 annotations. The Hughes–Brezzi drilling attribution that §2.6 used to depend on is
 recorded there in §1, together with the note that it is not the source of the

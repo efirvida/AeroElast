@@ -291,7 +291,7 @@ in the corresponding package metadata.
 ### Scientific references
 
 The canonical bibliography for this repository is
-[docs/references.md](docs/references.md). It lists the shell element
+[docs/validation/references.yaml](docs/validation/references.yaml). It lists the shell element
 formulations, the constitutive and failure models, the time-integration and
 finite element references, the partitioned FSI coupling and BEM aerodynamics
 references, and the third-party software this project builds on, with full
@@ -301,7 +301,7 @@ The formulation implemented in this repository is documented in
 [docs/FSI_ROTOR_PAPER_DRAFT.md](docs/FSI_ROTOR_PAPER_DRAFT.md). The reference
 PDFs used during development now live in the gitignored `.sources/papers/`
 directory: they had been removed from the working tree but were still in git
-history, and they have been recovered. `docs/references.md` maps the
+history, and they have been recovered. `docs/validation/references.yaml` maps the
 publications it lists to those recovered files and marks every field that still
 needs verification.
 
