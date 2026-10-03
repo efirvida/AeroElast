@@ -183,6 +183,12 @@ GROUP_KEYS = {
     # Same-module helpers whose assertions ARE the comparison the test makes. Declared, because
     # structure cannot tell them from the machinery helpers beside them. See `followed_helpers`.
     "validation_helpers",
+    # Assertions that are not comparisons against an independent reference: our own torque ruler, a
+    # symmetry of our own model, a test's setup constant. Policy rules 1 and 6 leave them no place
+    # in a row -- a row is evidence, and a reference must be independent -- so they are named here
+    # by their `tolerance.source` and left out. Matched exactly, with stale reporting, like every
+    # other declaration in this store: a line that moves makes the declaration visible, not silent.
+    "non_reference_asserts",
 }
 
 
@@ -521,6 +527,22 @@ def load_groups(store: Store) -> None:
                 f"reference_kind must be one of {sorted(REFERENCE_KINDS)}, "
                 f"got {reference_kind!r}",
             )
+        assertions = entry.get("non_reference_asserts")
+        if assertions is not None and not isinstance(assertions, list):
+            store.error(where, "non_reference_asserts must be a list")
+        for index, item in enumerate(assertions if isinstance(assertions, list) else []):
+            at = f"{where}.non_reference_asserts[{index}]"
+            if not isinstance(item, dict):
+                store.error(at, "must be a mapping")
+                continue
+            unknown = _unknown_keys(item, {"at", "reason"})
+            if unknown:
+                store.error(at, f"unknown keys: {', '.join(unknown)}")
+            source = item.get("at")
+            if not isinstance(source, str) or not CITATION_SITE_RE.match(source):
+                store.error(at, "'at' must be a <path>:<line> source, as the extractor writes it")
+            if not isinstance(item.get("reason"), str) or not item["reason"].strip():
+                store.error(at, "'reason' must say why this assertion is not a reference")
         helpers = entry.get("validation_helpers")
         if helpers is not None and (
             not isinstance(helpers, list)
@@ -2463,6 +2485,7 @@ def build_rows(
     reference_kind: str | None = None,
     skip: dict[str, str] | None = None,
     validation_helpers: set[str] | None = None,
+    drop: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """E1-E3 into rows: one row per collected node, none left unclaimed."""
     tree = ast.parse((REPO_ROOT / scope).read_text(encoding="utf-8"))
@@ -2490,6 +2513,7 @@ def build_rows(
     }
     rows: list[dict[str, Any]] = []
     reached: set[str] = set()
+    matched_drops: set[str] = set()
 
     def unclaim(node: str, reason: str) -> None:
         report["unclaimed"].append(node)
@@ -2524,6 +2548,20 @@ def build_rows(
             report.setdefault("ignored_bounds", {})[info.node] = ignored
         if not sites:
             unclaim(info.node, "no_comparison")
+            continue
+        # Left out before anything else looks at them, so a dropped assertion cannot be counted,
+        # paired with a print, or keep a row alive on its own.
+        dropped = [site for site in sites if f"{scope}:{site.line}" in (drop or set())]
+        if dropped:
+            matched_drops.update(f"{scope}:{site.line}" for site in dropped)
+            report.setdefault("dropped_asserts", {})[info.node] = [
+                f"{scope}:{site.line}" for site in dropped
+            ]
+            sites = [site for site in sites if site not in dropped]
+        if not sites:
+            # Every assertion this test makes is machinery, so there is no comparison to record. A
+            # row with no comparisons is not a smaller row; it is not a row.
+            unclaim(info.node, "no_reference_comparison" if dropped else "no_comparison")
             continue
         resolved = [site for site in sites if site.value is not None]
         if not resolved:
@@ -2628,6 +2666,7 @@ def build_rows(
     # and is not: the helper was renamed, or the test that used it went away.
     report["declared_helpers_used"] = sorted(reached)
     report["declared_helpers_stale"] = sorted((validation_helpers or set()) - reached)
+    report["dropped_declared_stale"] = sorted((drop or set()) - matched_drops)
     return rows, report
 
 
@@ -2734,6 +2773,7 @@ def command_extract(args: argparse.Namespace) -> int:
         reference_kind=group.get("reference_kind"),
         skip=skip,
         validation_helpers=set(group.get("validation_helpers") or []),
+        drop={str(item.get("at")) for item in (group.get("non_reference_asserts") or []) if isinstance(item, dict)},
     )
     suppressed = report.get("declared_not_rows") or {}
     # The declared nodes that were suppressed count as used patterns just like the unclaimed ones,
@@ -2752,6 +2792,8 @@ def command_extract(args: argparse.Namespace) -> int:
             "declared_not_rows": suppressed,
         "declared_helpers_used": report["declared_helpers_used"],
         "declared_helpers_stale": report["declared_helpers_stale"],
+        "dropped_asserts": report.get("dropped_asserts") or {},
+        "dropped_declared_stale": report["dropped_declared_stale"],
         "undeclared": undeclared,
         "stale_declarations": stale,
         "diverged_params": report["diverged"],
@@ -2797,6 +2839,11 @@ def command_extract(args: argparse.Namespace) -> int:
                 "DECLARED BUT MATCHING NOTHING: "
                 f"{pattern} -- the test was renamed or deleted, or the prefix is wrong"
             )
+        for source in report["dropped_declared_stale"]:
+            print(
+                f"DECLARED NON-REFERENCE ASSERTION NOT FOUND: {source} -- the line moved, or the "
+                "assertion changed"
+            )
         for name in report["declared_helpers_stale"]:
             print(
                 f"DECLARED HELPER REACHED BY NO TEST: {name} -- renamed, or the tests that "
@@ -2825,7 +2872,7 @@ def command_extract(args: argparse.Namespace) -> int:
     # A captured node that is neither claimed nor declared is the drift this store exists to
     # prevent, and a declaration that matches nothing is coverage that is not there. Neither is
     # reported by `check`: both need the collected set, and collecting means running pytest.
-    if undeclared or stale or report["declared_helpers_stale"]:
+    if undeclared or stale or report["declared_helpers_stale"] or report["dropped_declared_stale"]:
         return EXIT_FINDINGS
     return EXIT_OK
 
