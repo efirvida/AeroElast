@@ -833,3 +833,28 @@ The 50 comparisons against another code need an answer that rule 6 does not give
   once, and it covers every future parity test.
 - **Exclude them** as software. Contradicts rule 6, which is the maintainer's own text.
 
+
+### 18.5 A parity file mixes kinds, so the kind is decided per comparison
+
+Reading the comparison sites of one clean parity file -- `tests/validation/parity/test_orthotropic_shell_parity.py`,
+three tests, one assertion each, nothing unclaimed -- gives three different references:
+
+| line | the comparison | honest kind |
+| --- | --- | --- |
+| 342 | the AeroElast displacement against `ccx_disp` | `code` |
+| 404 | the AeroElast displacement against the Euler-Bernoulli value the test prints | `analytical` |
+| 485 | the composite stiffness matrix against the isotropic one | `self` |
+
+The module titles itself "AeroElast vs CalculiX", and declaring that would have been false for two of
+its three comparisons. `reference_kind` is a group default and is right only where every comparison
+shares one kind -- group 3, where all of them are cells of the paper. For a mixed file the group
+declares none, `check` fails on the null kinds, and each comparison is decided. The workflow is
+extract, declare, check, commit, and never the intermediate state.
+
+So T11 cannot be filled mechanically, and the decision is not 226 rows one at a time either. It is
+one criterion applied per comparison: **the reference the comparison names decides the kind**, and
+the label the extractor derived is already the evidence for it. `rel_error` against `ccx_uy` is a code
+comparison; the same `rel_error` against a value the test prints as "Analytical" is a closed form;
+`||K_comp - K_iso|| / ||K_iso||` compares our own two models and is `self`. Approving the criterion
+is what unblocks the domain, because the criterion is what makes 47 declarations written once.
+
