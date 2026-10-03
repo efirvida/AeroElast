@@ -1994,14 +1994,11 @@ net power.
 * Whether the de-loading magnitude can reach Zhou's -13.04% / -8.38% at all with a one-way,
   radius-and-twist-only feedback: our steady BEM on rigid-blade loads has no changed velocity
   triangle from the deflected shape, which is a large part of a coupled de-loading.
-* Whether the +1.63% axial stretch of the deformed blade is physical. The reference centroid path
-  is 117.2256 m and the deformed one 119.1356 m, while a clamped cantilever bent 16.4 m downwind
-  must *shorten* its span projection. The projected load vector carries spanwise components up to
-  19.0% of its own peak (`max|fz| = 346.9 N` against `max|fy| = 1826.5 N`) although the net
-  spanwise force is zero (`sum fz = -3.5e-11 N`), so the stretch is most likely injected by the
-  minimum-norm force distribution. That is `force_projection.py`, outside this unit's edit
-  surface, and it is the largest identified contributor to the `r_def` growth (up to +0.93 m)
-  that re-loads the rotor. A follow-up unit.
+* ~~Whether the +1.63% axial stretch of the deformed blade is caused by the minimum-norm force
+  distribution.~~ **REFUTED by measurement (section 22.7): the spanwise forces are not the cause.**
+  The stretch is real and its cause is structural: a linear solve on a curved (prebent) blade axis
+  under an in-plane flapwise load. The `r_def` growth (up to +0.93 m) that re-loads the rotor stays
+  un-attributed to any load-frame defect, and no load-frame change removes it.
 * Whether the retired strip-cloud PCA estimator was ever correct for a straight blade (it cannot
   be separated from P6 with the data collected here).
 
@@ -2009,3 +2006,59 @@ net power.
 `test_blade_rated_twist.py`) `25 passed`; whole suite with `CCX_BIN` `507 passed, 13 xfailed,
 0 failed, 0 skipped` (baseline 503/13/0/0 plus the 4 new guards; without `CCX_BIN` on `PATH`, 69
 rows skip and 0 fail); `ruff check` clean on both touched code files.
+
+### 22.7 The spanwise-force hypothesis, refuted before it was implemented
+
+The follow-up named at the end of section 22.6 - "the `+1.63%` axial stretch is most likely
+injected by `_distribute`'s minimum-norm spanwise force components" - was tested **before** being
+implemented, and it is wrong. No repository file was changed by this unit; the numbers below come
+from an in-process experiment on the unmodified tree (`HEAD = ac69c8d`), whose harness reproduces
+the recorded values exactly (`sum|fz| = 276,080.3 N`, `sum|fy| = 1,104,872 N`, ring-mean axial
+displacements +0.033 / +0.297 / +1.063 m).
+
+**Where the spanwise force actually comes from.** Decomposing each strip moment into its span
+component (torsion) and the rest (`M_bend = M_strip - M_tors`):
+
+| part of the load system | `sum|fz|` it produces | share |
+| --- | ---: | ---: |
+| net force alone (`F_strip`, `M = 0`) | **0.0 N** | 0% |
+| torsion alone (`M_tors`, the pitching moment on the span axis) | 6,389.9 N | 2.31% |
+| the rest (`M_bend`) | 273,763.9 N | **99.16%** |
+| whole system | 276,080.3 N | 100% |
+
+and `M_bend` is an identity, not an interpretation: `M_bend = -dz_ac * (span x F_strip)` with
+`max ||M_bend + dz_ac x ...|| = 0.0` and `sum |dz_ac| |F| = 749,261 N.m = sum |M_bend|`, where
+`dz_ac = (centroid - AC) . span` reaches +1.10 m. So the spanwise force is the price of collapsing a
+strip's distributed in-plane load onto one centroid point while the aerodynamic centre sits up to
+1.10 m away along the span - not of the shear-flow/torsion realisation. The proposed shear-flow fix
+would therefore have removed **2.3%** of it.
+
+**It is also structurally inert.** Constraining the whole solve to the section plane (in-plane
+unknowns only, same six constraints, feasible to `1.9e-10` worst-case residual over all 50 strips
+because a strip spans ~4 rings and carries its own lever arm) zeroes `sum|fz|` **exactly** and
+changes the structural response by `max ||delta u|| = 2.6e-3 m` - 0.016% of the 16.53 m response.
+Axial tip displacement: **+1.0630 m before, +1.0631 m after**. Load split: the 276 kN spanwise
+system alone gives **-0.0032 m**, the flapwise `y` component alone gives **+1.0641 m**. The
+lengthening is the in-plane load acting on a **curved blade axis** (ring-centroid `y` runs from
++0.36 m at z = 24 m to -4.00 m at the tip), against a `-1.149 m` second-order inextensional estimate
+that a single linear `spsolve` on a linear `K` cannot produce at all - so the proposed guard "assert
+the axial tip displacement is negative" is not writable against this model, fixed or unfixed.
+
+**De-loading and the twist estimators, re-measured under the constraint (reported, not fitted):**
+twist-only thrust -4.00% -> -3.90%, power -0.81% -> -0.78%; production-path thrust -2.32% -> -2.22%,
+power +0.42% -> +0.45%; `r_def - r_ref` unchanged at -0.2470 .. +0.9332 m. Tip gap between the ring
+section rotation and `mean(theta_z)`: **2.3446 deg before, 2.5233 deg after** - the divergence is
+**not** a symptom of the load frame, it is a property of comparing a shell wall-bending field with a
+section rigid rotation (section 22.6 finding 1 stands, my "symptom" reading in that section's
+discussion does not).
+
+**Also measured, and it blocks the fix as originally written:** the ring node order in this mesh is
+not a contour order - the shoelace area differs by up to 29% between stored and angular ordering for
+**133 of 186** raw single-z rings and **171 of 186** merged physical rings - so `q = M / (2 A_ring)`
+is not computable from the stored order without adding a contour-ordering step.
+
+**Decision taken.** The in-plane constraint is kept as a candidate **correctness/hygiene** change
+(the aero load has no spanwise component, so injecting 276 kN of self-equilibrated spanwise force is
+not physical), explicitly **not** as the fix for the axial stretch, the `r_def` growth or the
+de-loading magnitude - measurement says it changes none of them. Deferred until the twist question
+below is settled, so that it is not mistaken for a physics fix.
