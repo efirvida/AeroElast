@@ -180,7 +180,45 @@ GROUP_KEYS = {
     # here, next to the scope it excludes from, and not in `gaps.yaml`: a gap is a claim about
     # evidence the suite does not have, while this is a classification of tests.
     "non_validation_tests",
+    # Same-module helpers whose assertions ARE the comparison the test makes. Declared, because
+    # structure cannot tell them from the machinery helpers beside them. See `followed_helpers`.
+    "validation_helpers",
 }
+
+
+def followed_helpers(
+    func: ast.FunctionDef,
+    functions: dict[str, ast.FunctionDef],
+    declared: set[str],
+) -> list[ast.FunctionDef]:
+    """The declared same-module helpers the test reaches, and only those.
+
+    A validation whose assertions live in a local helper is otherwise invisible: the tube torsion
+    file has one, beside a sibling test whose own assert is machinery. Following every same-module
+    helper is not the answer either -- group 3's tests reach `_assemble_global` and
+    `_pinched_cylinder_load`, whose asserts check the load that was just applied, so the rows would
+    fill with comparisons against nothing. Structure cannot tell the two apart, so the group declares
+    which helpers hold reference comparisons, and this follows the declaration, transitively but only
+    through declared names.
+    """
+    found: list[ast.FunctionDef] = []
+    seen: set[str] = set()
+    queue = [func]
+    while queue:
+        current = queue.pop(0)
+        for node in ast.walk(current):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name):
+                continue
+            name = node.func.id
+            if name in seen or name not in declared:
+                continue
+            target = functions.get(name)
+            if target is None or target is func:
+                continue
+            seen.add(name)
+            found.append(target)
+            queue.append(target)
+    return found
 
 
 def match_non_validation(group: dict[str, Any], node: str) -> tuple[str, str] | None:
@@ -483,6 +521,13 @@ def load_groups(store: Store) -> None:
                 f"reference_kind must be one of {sorted(REFERENCE_KINDS)}, "
                 f"got {reference_kind!r}",
             )
+        helpers = entry.get("validation_helpers")
+        if helpers is not None and (
+            not isinstance(helpers, list)
+            or not helpers
+            or not all(isinstance(name, str) and name for name in helpers)
+        ):
+            store.error(where, "validation_helpers must be a non-empty list of function names")
         exclusions = entry.get("non_validation_tests")
         if exclusions is not None and not isinstance(exclusions, list):
             store.error(where, "non_validation_tests must be a list")
@@ -2233,6 +2278,7 @@ def tolerance_sites(
     func: ast.FunctionDef,
     consts: dict[str, Any],
     params: str | None,
+    extra: list[ast.FunctionDef] | None = None,
 ) -> tuple[list[ToleranceSite], list[str]]:
     """The tolerances the function asserts on, plus the bounds it ignores.
 
@@ -2241,7 +2287,10 @@ def tolerance_sites(
     """
     sites: list[ToleranceSite] = []
     ignored: list[str] = []
-    calls = assertion_calls(func)
+    # The test first, then the declared helpers it reaches, in that order: appending after the
+    # test's own sites keeps every existing row byte-identical when a group declares no helper.
+    scopes = [func, *(extra or [])]
+    calls = [call for scope in scopes for call in assertion_calls(scope)]
     for call in calls:
         for keyword in call.keywords:
             if keyword.arg not in {"tol", "rtol", "atol"}:
@@ -2268,7 +2317,7 @@ def tolerance_sites(
                     ),
                 )
             )
-    for sub in ast.walk(func):
+    for sub in [node for scope in scopes for node in ast.walk(scope)]:
         if isinstance(sub, ast.Assert) and isinstance(sub.test, ast.Compare):
             for op, comparator in zip(sub.test.ops, sub.test.comparators, strict=True):
                 if not isinstance(op, ast.Lt | ast.LtE):
@@ -2413,6 +2462,7 @@ def build_rows(
     nodes: list[NodeInfo],
     reference_kind: str | None = None,
     skip: dict[str, str] | None = None,
+    validation_helpers: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """E1-E3 into rows: one row per collected node, none left unclaimed."""
     tree = ast.parse((REPO_ROOT / scope).read_text(encoding="utf-8"))
@@ -2439,6 +2489,7 @@ def build_rows(
         "prints": {},
     }
     rows: list[dict[str, Any]] = []
+    reached: set[str] = set()
 
     def unclaim(node: str, reason: str) -> None:
         report["unclaimed"].append(node)
@@ -2464,7 +2515,11 @@ def build_rows(
             if docstring.strip()
             else name_without_prefix(info.function)
         )
-        sites, ignored = tolerance_sites(func, consts, info.params)
+        # The test plus the declared helpers it reaches: a validation whose assertions live in a
+        # local helper is otherwise invisible, and structure cannot say which helpers those are.
+        extra = followed_helpers(func, functions, validation_helpers or set())
+        reached.update(scope.name for scope in extra)
+        sites, ignored = tolerance_sites(func, consts, info.params, extra)
         if ignored:
             report.setdefault("ignored_bounds", {})[info.node] = ignored
         if not sites:
@@ -2508,7 +2563,8 @@ def build_rows(
         ]
         prints = [
             ast.unparse(sub)[:100]
-            for sub in ast.walk(func)
+            for scope in [func, *extra]
+            for sub in ast.walk(scope)
             if isinstance(sub, ast.Call)
             and isinstance(sub.func, ast.Name)
             and sub.func.id == "print"
@@ -2568,6 +2624,10 @@ def build_rows(
             }
         )
         report["nodes"].append(info.node)
+    # A declared helper that no test in the scope reaches is a declaration that reads like coverage
+    # and is not: the helper was renamed, or the test that used it went away.
+    report["declared_helpers_used"] = sorted(reached)
+    report["declared_helpers_stale"] = sorted((validation_helpers or set()) - reached)
     return rows, report
 
 
@@ -2647,6 +2707,7 @@ def command_extract(args: argparse.Namespace) -> int:
         nodes,
         reference_kind=group.get("reference_kind"),
         skip=skip,
+        validation_helpers=set(group.get("validation_helpers") or []),
     )
     suppressed = report.get("declared_not_rows") or {}
     # The declared nodes that were suppressed count as used patterns just like the unclaimed ones,
@@ -2662,7 +2723,9 @@ def command_extract(args: argparse.Namespace) -> int:
         "unclaimed": report["unclaimed"],
         "unclaimed_reasons": report["unclaimed_reasons"],
         "declared_non_validation": declared_nodes,
-        "declared_not_rows": suppressed,
+            "declared_not_rows": suppressed,
+        "declared_helpers_used": report["declared_helpers_used"],
+        "declared_helpers_stale": report["declared_helpers_stale"],
         "undeclared": undeclared,
         "stale_declarations": stale,
         "diverged_params": report["diverged"],
@@ -2708,6 +2771,11 @@ def command_extract(args: argparse.Namespace) -> int:
                 "DECLARED BUT MATCHING NOTHING: "
                 f"{pattern} -- the test was renamed or deleted, or the prefix is wrong"
             )
+        for name in report["declared_helpers_stale"]:
+            print(
+                f"DECLARED HELPER REACHED BY NO TEST: {name} -- renamed, or the tests that "
+                "used it are gone"
+            )
         for node, tokens in report["diverged"].items():
             print(f"param id diverges from the code's literals: {node} -> {tokens}")
         for node, calls in report["prints"].items():
@@ -2731,7 +2799,7 @@ def command_extract(args: argparse.Namespace) -> int:
     # A captured node that is neither claimed nor declared is the drift this store exists to
     # prevent, and a declaration that matches nothing is coverage that is not there. Neither is
     # reported by `check`: both need the collected set, and collecting means running pytest.
-    if undeclared or stale:
+    if undeclared or stale or report["declared_helpers_stale"]:
         return EXIT_FINDINGS
     return EXIT_OK
 
