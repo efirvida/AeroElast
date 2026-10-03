@@ -1394,12 +1394,25 @@ def gap(**overrides: Any) -> dict[str, Any]:
 
 
 def test_the_shipped_gap_list_is_present_and_valid() -> None:
-    """The not-citable list must survive the Markdown it came from."""
+    """The not-citable list must survive the Markdown it came from.
+
+    The count is read out of the store rather than pinned here: a number written into this test
+    churns on every gap the maintainer adds, and the pinned one went stale the moment a defect was
+    recorded. What is worth asserting is that every entry the store holds reaches the output, and
+    that the list is not empty.
+    """
     completed = run(REAL_STORE, "gaps")
     assert completed.returncode == 0, completed.stdout + completed.stderr
-    assert "gaps: 5" in completed.stdout
-    assert completed.stdout.count("NOT CITABLE") == 5
-    assert "force_projection_axial_extension" in completed.stdout
+    entries = yaml.safe_load((REAL_STORE / "gaps.yaml").read_text(encoding="utf-8"))["gaps"]
+    assert entries, "the not-citable list is empty"
+    assert f"gaps: {len(entries)}" in completed.stdout
+    for entry in entries:
+        assert entry["id"] in completed.stdout
+    # The marker tracks the entrys own field, so the invariant is the relation between them and
+    # not a number that someone has to remember to bump.
+    not_citable = [entry for entry in entries if entry.get("citations_forbidden")]
+    assert not_citable, "no entry is marked not citable"
+    assert completed.stdout.count("NOT CITABLE") == len(not_citable)
 
 
 @pytest.mark.parametrize(
