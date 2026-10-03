@@ -1388,6 +1388,27 @@ def test_a_gap_may_point_at_the_rows_that_evidence_it(tmp_path: Path) -> None:
     assert run_check(store).returncode == 0
 
 
+def test_status_reports_coverage_and_pending_migration(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    completed = run(store, "status", "--json")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["groups"][0]["group"] == "3"
+    assert payload["groups"][0]["rows"] == 1
+    assert isinstance(payload["ungrouped_validation_files"], list)
+
+
+def test_the_real_store_status_names_the_pending_migration() -> None:
+    """`check` cannot see a validation file with no rows; this is what makes it visible."""
+    completed = run(REAL_STORE, "status", "--json")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    payload = json.loads(completed.stdout)
+    groups = {row["group"]: row for row in payload["groups"]}
+    assert groups["3"]["rows"] == 31
+    assert groups["10"]["rows"] == 1
+    assert len(payload["ungrouped_validation_files"]) > 0
+
+
 def test_duplicate_gap_ids_are_reported(tmp_path: Path) -> None:
     store = write_store(tmp_path, [make_row()])
     write_gaps(store, [gap(), gap()])

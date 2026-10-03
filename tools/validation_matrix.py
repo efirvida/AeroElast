@@ -2601,6 +2601,66 @@ def load_gaps(store: Store) -> None:
                 store.error(where, f"references a row that does not exist: {row_id!r}")
 
 
+def command_status(args: argparse.Namespace) -> int:
+    """What the store covers, and what it does not yet.
+
+    `check` cannot notice a validation file with no rows at all: enumerating collected nodes
+    needs a pytest run and the built environment, which is why the row-to-node reconciliation is
+    a separate step. The filesystem answers the coarser and more useful question on its own —
+    which validation files have a group — so the state of the migration is a report instead of a
+    guess.
+    """
+    store = load_store(args.store)
+    grouped = {
+        str(source)
+        for group in store.groups.values()
+        for source in group.get("source_files") or []
+    }
+    root = REPO_ROOT / "tests" / "validation"
+    ungrouped = sorted(
+        str(path.relative_to(REPO_ROOT))
+        for path in root.rglob("test_*.py")
+        if str(path.relative_to(REPO_ROOT)) not in grouped
+    )
+    rows = []
+    for group_id, group in store.groups.items():
+        refs = [ref for ref in store.rows if ref.data.get("group") == group_id]
+        views = [view for ref in refs for view in comparison_views(ref)]
+        measured = [view for view in views if view["margin_pct"] is not None]
+        rows.append(
+            {
+                "group": group_id,
+                "files": len(group.get("source_files") or []),
+                "rows": len(refs),
+                "comparisons": len(views),
+                "measured": len(measured),
+                "near": sum(1 for view in views if "near" in view["flags"]),
+                "gt5": sum(1 for view in views if "gt5" in view["flags"]),
+            }
+        )
+    payload = {
+        "groups": rows,
+        "ungrouped_validation_files": ungrouped,
+        "gaps": len(store.gaps),
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2))
+    else:
+        print(f"{'group':8s} {'files':>5s} {'rows':>5s} {'cmp':>5s} {'measured':>8s} {'near':>4s} {'gt5':>4s}")
+        for row in rows:
+            print(
+                f"{row['group']:8s} {row['files']:5d} {row['rows']:5d} {row['comparisons']:5d} "
+                f"{row['measured']:8d} {row['near']:4d} {row['gt5']:4d}"
+            )
+        print(f"\ngaps declared: {len(store.gaps)}")
+        print(f"validation files with no group: {len(ungrouped)}")
+        for path in ungrouped[:8]:
+            print(f"  - {path}")
+        if len(ungrouped) > 8:
+            print(f"  ... and {len(ungrouped) - 8} more")
+    return EXIT_OK
+
+
 def command_gaps(args: argparse.Namespace) -> int:
     store = load_store(args.store)
     entries = list(store.gaps.values())
@@ -3276,6 +3336,12 @@ def build_parser() -> argparse.ArgumentParser:
     gaps = subparsers.add_parser("gaps", help="what the suite does not validate")
     gaps.add_argument("--json", action="store_true")
     gaps.set_defaults(func=command_gaps)
+
+    status = subparsers.add_parser(
+        "status", help="what the store covers, and which validation files it does not"
+    )
+    status.add_argument("--json", action="store_true")
+    status.set_defaults(func=command_status)
 
     return parser
 
