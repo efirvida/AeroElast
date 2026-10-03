@@ -343,33 +343,51 @@ its comparisons is, and §13 lists the comparison that triggered it.
 Read paths are the token-saving surface; write paths must be surgical and validated.
 
 ```bash
-validation_matrix find <substring> [--group G] [--file F]     # ids + one-line summary
-validation_matrix get <id> [--json|--yaml|--md]               # one record
-validation_matrix list [--group G] [--file F] [--flagged|--flag X] \
-                       [--near] [--gt5] [--sort slack] [--fields a,b,c]
-validation_matrix headline                                    # derived §2.1 table
-validation_matrix check [--collect-only-out FILE]             # schema + reconciliation, exit 1 on drift
-validation_matrix render [--out docs/validation-matrix.md] [--check]
-validation_matrix references <list|gaps|get|check|bibtex|where-used>
+validation_matrix check  [--group ID] [--json]
+validation_matrix find   SUBSTRING [--group ID] [--file F] [--limit N] [--json]
+validation_matrix list   [--group ID] [--file F] [--id ID] [--flag FLAG] [--near] [--gt5] \
+                         [--unit row|comparison] [--sort id|slack] [--fields A,B] [--json]
+validation_matrix get    ID [--comparisons] [--json]
+validation_matrix headline [--json]
+validation_matrix set    ID PATH=VALUE... [--unset PATH]... [--add-flag F]... [--remove-flag F]...
+
+# later work units
+validation_matrix references <list|gaps|get|check|bibtex|where-used>   # T3
+validation_matrix extract --scope FILE                                # T4
+validation_matrix diff-against-md --group ID                          # T5
+validation_matrix render [--out FILE] [--check]                       # T7
 ```
 
-```bash
-# surgical writes: exactly one record, validated before and after
-validation_matrix set <id> measured.margin_pct=0.06 measured.run=HEAD
-validation_matrix set <id> tolerance.value=0.02 tolerance.justification="CCX scatter"
-validation_matrix set <id> --add-flag unjustified_tolerance
-validation_matrix add-row --test <node-id>                    # seed a row from the code, see §10
-validation_matrix rm <id>
-```
+Read verbs, and what makes them worth preferring to the Markdown:
+
+- `find` searches id, title, validates, group and node ids, and prints one line per row: id,
+  section, title, and the test/comparison counts. It never dumps the document.
+- `list --unit row` prints the derived summary: comparison count, **worst margin**, **tightest
+  slack**, and the union of stored and derived flags. `--unit comparison` prints one line per
+  comparison (label, tolerance, margin, slack, asserted, flags), which is what makes "my result
+  against several references" queryable. `--near` (slack < 1 pp), `--gt5`, `--flag` and
+  `--sort slack` narrow it; with `--unit comparison` they filter comparisons, not rows.
+- `get ID` prints the stored record verbatim as YAML, so it can be edited and pasted back;
+  `--json` is the machine form and `--comparisons` prints the derived table for that row.
+- `headline` renders the derived §2.1 table: each group's headline, its row and comparison
+  counts, the worst margin it measures, and how many comparisons sit above the 5% rule.
 
 Write rules:
 
-- `set` accepts dotted paths, refuses unknown fields, refuses derived fields (`flags.near`,
-  `slack`), and re-validates the whole row against the schema before writing.
-- Writes are per-file (one YAML file), so concurrent group edits do not conflict.
-- `render --check` asserts each committed Markdown file is byte-identical to a fresh render;
-  CI runs it.
-- Output defaults to compact text (one line per row); `--json` is for machine consumption.
+- `set` accepts dotted paths over an explicit schema (`SET_SCHEMA`), refuses unknown fields,
+  refuses derived names (`near`, `gt5`, `slack_pp`), refuses `id`, and requires an index for a
+  list (`comparisons[0].measured.margin_pct`, never `comparisons.measured...`).
+- Values parse as bool, null, int, float, JSON (`[...]`/`{...}`) or a string; a value wrapped in
+  matching quotes is taken literally.
+- `set` is atomic and validated: it re-validates the edited row and **refuses to write** when the
+  result would break an invariant, leaving the file untouched. It also refuses to write when the
+  store already has errors, so one bad row cannot be extended.
+- Writes are per-file (one YAML file), so concurrent group edits do not conflict. Note that YAML
+  comments in a row file are not preserved across a `set`; keep comments in `groups.yaml`,
+  `flags.yaml` and `prose/`.
+- `render --check` asserts each committed Markdown file is byte-identical to a fresh render; CI
+  runs it (T7).
+- Output defaults to compact text (one line per unit); `--json` is for machine consumption.
 
 ## 9. `check` invariants (CONTRIBUTING rule 6, made executable)
 
@@ -545,8 +563,8 @@ consequences:
 | task | status | commit | evidence |
 | --- | --- | --- | --- |
 | design | done | `7a011f3` | this document |
-| T1 | done | `d947535` | `python -m pytest tools/tests` -> 22 passed; `python tools/validation_matrix.py check` -> `0 row(s), 0 comparison(s), 0 error(s), 1 warning(s)` (the warning is the section 3 prose file, written at T7); `ruff check` 0.16.0 clean |
-| T2 | pending | - | - |
+| T1 | done | `d947535`, `7b2bcee` | `python -m pytest tools/tests` -> 22 passed; `check` -> 0 errors; ruff clean. Reviewed as `review-4ecd3ccb79863462` (tier low, no lenses, `non_executable_only`) |
+| T2 | done | - | `python -m pytest tools/tests` -> 43 passed (21 new); `ruff check` 0.16.0 clean; `check` -> 0 errors; `headline` renders the group 3 row |
 | T3 | pending | - | - |
 | T4 | pending | - | - |
 | T5 | pending | - | - |

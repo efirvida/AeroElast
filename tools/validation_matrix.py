@@ -2,7 +2,16 @@
 """Query and maintain the AeroElast validation matrix store.
 
 Usage:
-    python tools/validation_matrix.py check [--store DIR] [--group ID] [--json]
+    python tools/validation_matrix.py check  [--group ID] [--json]
+    python tools/validation_matrix.py find   SUBSTRING [--group ID] [--file F] [--json]
+    python tools/validation_matrix.py list   [--group ID] [--file F] [--id ID]
+                                             [--flag FLAG] [--near] [--gt5]
+                                             [--unit row|comparison]
+                                             [--sort id|slack] [--fields A,B] [--json]
+    python tools/validation_matrix.py get    ID [--comparisons] [--json]
+    python tools/validation_matrix.py headline [--json]
+    python tools/validation_matrix.py set    ID PATH=VALUE... [--unset PATH]...
+                                             [--add-flag FLAG]... [--remove-flag FLAG]...
 
 The store lives in `docs/validation/`:
 
@@ -22,10 +31,12 @@ the paper's N=16 cell and the Kirchhoff closed form, several papers in a modal
 table. `asserted` says whether an assertion consumes the comparison; it is
 orthogonal to `measured.status`, which says whether a usable residual was printed.
 
-This module currently implements the store model and `check`. The read verbs
-(`find`, `get`, `list`, `headline`), the generators (`references`, `render`) and the
-migration pipeline (`extract`, `diff-against-md`) are added by the pilot work units
-in `odd/tasks/validation-matrix-store.md` section 13.1.
+Derived values (`slack_pp`, `near`, `gt5`) are computed per comparison and are never
+stored: `list --unit comparison` shows them, and `set` refuses them.
+
+Still to come, per the pilot work units in `odd/tasks/validation-matrix-store.md`
+section 13.1: the `references` subgroup with its generator, and the migration
+pipeline (`extract`, `diff-against-md`, `render`).
 
 Validation is hand-rolled on purpose: `jsonschema` is not importable in the pinned
 environment, and CONTRIBUTING rule 6 makes this tool part of the suite's discipline
@@ -58,6 +69,7 @@ ID_RE = re.compile(r"^[a-z0-9]+(\.[a-z0-9_]+)+$")
 SLUG_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 NODE_ID_RE = re.compile(r"^tests/[A-Za-z0-9_./-]+\.py::[A-Za-z0-9_]+(\[[^\]]*\])?$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+PATH_SEGMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)(?:\[(\d+)\])?$")
 
 REFERENCE_KINDS = {"paper", "code", "analytical", "self", "schema"}
 TOLERANCE_KINDS = {"rtol", "atol", "rel_err", "sign", "exact", "subset"}
@@ -104,9 +116,82 @@ GROUP_KEYS = {
 }
 FLAG_KEYS = {"id", "derived", "label", "user_facing", "section", "legend"}
 
+# The dotted paths `set` may write. Anything absent is refused, which is what keeps
+# a typo from adding a field nothing reads. A list spec means "an element of this
+# list", and must be addressed with an index.
+LEAF = "leaf"
+SET_SCHEMA: dict[str, Any] = {
+    "group": LEAF,
+    "title": LEAF,
+    "tests": LEAF,
+    "evidence": LEAF,
+    "validates": LEAF,
+    "notes": LEAF,
+    "flags": LEAF,
+    "result": {
+        "text": LEAF,
+        "raw": LEAF,
+        "unit": LEAF,
+        "node": LEAF,
+    },
+    "comparisons": [
+        {
+            "label": LEAF,
+            "asserted": LEAF,
+            "expected": LEAF,
+            "notes": LEAF,
+            "reference": {
+                "kind": LEAF,
+                "label": LEAF,
+                "citation": LEAF,
+                "also_asserts": LEAF,
+            },
+            "tolerance": {
+                "kind": LEAF,
+                "value": LEAF,
+                "source": LEAF,
+                "justified": LEAF,
+                "justification": LEAF,
+            },
+            "measured": {
+                "status": LEAF,
+                "run": LEAF,
+                "date": LEAF,
+                "raw": LEAF,
+                "margin_pct": LEAF,
+                "text": LEAF,
+            },
+        }
+    ],
+    "history": [{"rev": LEAF, "note": LEAF, "evidence": LEAF}],
+}
+DERIVED_FIELD_NAMES = {"near", "gt5", "slack", "slack_pp"}
+
+ROW_FIELDS = [
+    "id",
+    "group",
+    "title",
+    "tests",
+    "comparisons",
+    "worst_margin_pct",
+    "worst_slack_pp",
+    "flags",
+]
+COMPARISON_FIELDS = [
+    "row_id",
+    "group",
+    "label",
+    "kind",
+    "tolerance_pct",
+    "margin_pct",
+    "slack_pp",
+    "asserted",
+    "flags",
+]
+
 
 class StoreError(Exception):
-    """The store could not be read at all."""
+    """The store could not be read, or an argument cannot be honoured."""
 
 
 @dataclass
@@ -123,6 +208,17 @@ class Finding:
 
 
 @dataclass
+class RowRef:
+    """One row, with enough provenance to write it back."""
+
+    id: str
+    where: str
+    path: Path | None
+    index: int
+    data: dict[str, Any]
+
+
+@dataclass
 class Store:
     """The loaded store, plus the findings produced while loading it."""
 
@@ -131,7 +227,7 @@ class Store:
     un_inventoried: dict[str, dict[str, Any]] = field(default_factory=dict)
     flag_entries: dict[str, dict[str, Any]] = field(default_factory=dict)
     derived_flags: set[str] = field(default_factory=set)
-    rows: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
+    rows: list[RowRef] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
 
     def error(self, where: str, message: str) -> None:
@@ -139,6 +235,15 @@ class Store:
 
     def warn(self, where: str, message: str) -> None:
         self.findings.append(Finding("warning", where, message))
+
+    def by_id(self) -> dict[str, RowRef]:
+        return {ref.id: ref for ref in self.rows}
+
+    def errors(self) -> list[Finding]:
+        return [finding for finding in self.findings if finding.level == "error"]
+
+    def warnings(self) -> list[Finding]:
+        return [finding for finding in self.findings if finding.level == "warning"]
 
 
 def load_yaml(path: Path) -> Any:
@@ -151,13 +256,31 @@ def load_yaml(path: Path) -> Any:
         raise StoreError(f"invalid YAML in {path}: {exc}") from exc
 
 
+def dump_yaml(path: Path, data: Any) -> None:
+    text = yaml.safe_dump(
+        data,
+        allow_unicode=True,
+        default_flow_style=False,
+        sort_keys=False,
+        width=1000,
+    )
+    path.write_text(text, encoding="utf-8")
+
+
 def _unknown_keys(data: dict[str, Any], allowed: set[str]) -> list[str]:
     return sorted(set(data) - allowed)
 
 
+def display_path(path: Path) -> str:
+    """Repository-relative when possible; absolute otherwise (a fixture store)."""
+    try:
+        return str(path.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
 def load_flags(store: Store) -> None:
-    path = store.root / "flags.yaml"
-    data = load_yaml(path)
+    data = load_yaml(store.root / "flags.yaml")
     if not isinstance(data, dict) or not isinstance(data.get("flags"), list):
         store.error("flags.yaml", "expected a mapping with a 'flags' list")
         return
@@ -197,8 +320,7 @@ def load_flags(store: Store) -> None:
 
 
 def load_groups(store: Store) -> None:
-    path = store.root / "groups.yaml"
-    data = load_yaml(path)
+    data = load_yaml(store.root / "groups.yaml")
     if not isinstance(data, dict) or not isinstance(data.get("groups"), list):
         store.error("groups.yaml", "expected a mapping with a 'groups' list")
         return
@@ -468,7 +590,7 @@ def load_rows(store: Store, only_group: str | None = None) -> None:
         return
     for path in sorted(rows_dir.glob("*.yaml")):
         data = load_yaml(path)
-        rel = path.relative_to(REPO_ROOT) if path.is_relative_to(REPO_ROOT) else path
+        rel = display_path(path)
         if isinstance(data, dict) and "rows" in data:
             file_group = data.get("group")
             unknown = _unknown_keys(data, {"group", "rows"})
@@ -496,18 +618,18 @@ def load_rows(store: Store, only_group: str | None = None) -> None:
                     f"{file_group!r}",
                 )
             validate_row(store, where, row)
-            if isinstance(row, dict):
-                store.rows.append((where, row))
+            if not isinstance(row, dict) or not isinstance(row.get("id"), str):
+                continue
+            store.rows.append(
+                RowRef(id=row["id"], where=where, path=path, index=index, data=row)
+            )
 
     seen: dict[str, str] = {}
-    for where, row in store.rows:
-        row_id = row.get("id")
-        if not isinstance(row_id, str):
-            continue
-        if row_id in seen:
-            store.error(where, f"duplicate row id, first seen at {seen[row_id]}")
+    for ref in store.rows:
+        if ref.id in seen:
+            store.error(ref.where, f"duplicate row id, first seen at {seen[ref.id]}")
         else:
-            seen[row_id] = where
+            seen[ref.id] = ref.where
 
 
 def load_store(root: Path, only_group: str | None = None) -> Store:
@@ -522,25 +644,148 @@ def load_store(root: Path, only_group: str | None = None) -> Store:
     return store
 
 
-def count_comparisons(store: Store) -> int:
-    total = 0
-    for _, row in store.rows:
-        comparisons = row.get("comparisons")
-        if isinstance(comparisons, list):
-            total += len(comparisons)
-    return total
+# --------------------------------------------------------------------------- #
+# Derived values
+# --------------------------------------------------------------------------- #
+
+
+def _number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def comparison_views(ref: RowRef) -> list[dict[str, Any]]:
+    """One derived view per comparison: tolerance, margin, slack, derived flags."""
+    views: list[dict[str, Any]] = []
+    comparisons = ref.data.get("comparisons")
+    if not isinstance(comparisons, list):
+        return views
+    for index, comparison in enumerate(comparisons):
+        if not isinstance(comparison, dict):
+            continue
+        tolerance = comparison.get("tolerance") or {}
+        measured = comparison.get("measured") or {}
+        kind = tolerance.get("kind")
+        value = _number(tolerance.get("value"))
+        margin = _number(measured.get("margin_pct"))
+        tolerance_pct = 100.0 * value if kind in RATIO_TOLERANCE_KINDS and value else None
+        slack_pp = None
+        if tolerance_pct is not None and margin is not None:
+            slack_pp = tolerance_pct - margin
+        derived: list[str] = []
+        if slack_pp is not None and slack_pp < 1.0:
+            derived.append("near")
+        if tolerance_pct is not None and tolerance_pct > 100.0 * SUITE_TOLERANCE_RULE:
+            derived.append("gt5")
+        views.append(
+            {
+                "index": index,
+                "row_id": ref.id,
+                "group": ref.data.get("group"),
+                "label": comparison.get("label"),
+                "kind": kind,
+                "asserted": comparison.get("asserted"),
+                "status": measured.get("status"),
+                "tolerance_pct": tolerance_pct,
+                "margin_pct": margin,
+                "slack_pp": slack_pp,
+                "flags": derived,
+                "text": measured.get("text"),
+            }
+        )
+    return views
+
+
+def row_view(ref: RowRef) -> dict[str, Any]:
+    """One derived view per row: counts, worst margin, tightest slack, flags."""
+    views = comparison_views(ref)
+    margins = [view["margin_pct"] for view in views if view["margin_pct"] is not None]
+    slacks = [view["slack_pp"] for view in views if view["slack_pp"] is not None]
+    derived = sorted({flag for view in views for flag in view["flags"]})
+    stored = ref.data.get("flags") or []
+    return {
+        "id": ref.id,
+        "group": ref.data.get("group"),
+        "title": ref.data.get("title"),
+        "tests": len(ref.data.get("tests") or []),
+        "comparisons": len(views),
+        "worst_margin_pct": max(margins) if margins else None,
+        "worst_slack_pp": min(slacks) if slacks else None,
+        "flags": sorted(set(stored) | set(derived)),
+        "derived_flags": derived,
+    }
+
+
+def all_comparison_views(store: Store) -> list[dict[str, Any]]:
+    return [view for ref in store.rows for view in comparison_views(ref)]
+
+
+# --------------------------------------------------------------------------- #
+# Formatting
+# --------------------------------------------------------------------------- #
+
+
+def fmt_number(value: Any) -> str:
+    if value is None:
+        return "-"
+    return f"{value:g}"
+
+
+def fmt_pct(value: Any, signed: bool = False) -> str:
+    if value is None:
+        return "-"
+    return f"{value:+g}%" if signed else f"{value:g}%"
+
+
+def _field_value(unit: str, view: dict[str, Any], name: str) -> Any:
+    if name == "kind" and unit == "comparison":
+        return view.get("kind")
+    return view.get(name)
+
+
+def render_views(
+    unit: str,
+    views: list[dict[str, Any]],
+    fields: list[str] | None,
+) -> list[str]:
+    names = fields or (ROW_FIELDS if unit == "row" else COMPARISON_FIELDS)
+    lines = []
+    for view in views:
+        cells = []
+        for name in names:
+            value = _field_value(unit, view, name)
+            if value is None:
+                cells.append("-")
+            elif name.endswith("_pct"):
+                cells.append(fmt_pct(value, signed=name == "slack_pp"))
+            elif name.endswith("_pp"):
+                cells.append(fmt_pct(value, signed=True))
+            elif isinstance(value, list):
+                cells.append(",".join(str(item) for item in value) or "-")
+            elif isinstance(value, bool):
+                cells.append("yes" if value else "no")
+            else:
+                cells.append(str(value))
+        lines.append(" | ".join(cells))
+    return lines
+
+
+# --------------------------------------------------------------------------- #
+# Commands
+# --------------------------------------------------------------------------- #
 
 
 def command_check(args: argparse.Namespace) -> int:
     store = load_store(args.store, only_group=args.group)
-    errors = [finding for finding in store.findings if finding.level == "error"]
-    warnings = [finding for finding in store.findings if finding.level == "warning"]
+    errors = store.errors()
+    warnings = store.warnings()
     if args.json:
         payload = {
             "store": str(store.root),
             "group": args.group,
             "rows": len(store.rows),
-            "comparisons": count_comparisons(store),
+            "comparisons": len(all_comparison_views(store)),
             "errors": len(errors),
             "warnings": len(warnings),
             "findings": [finding.as_dict() for finding in store.findings],
@@ -552,10 +797,341 @@ def command_check(args: argparse.Namespace) -> int:
         scope = f" (group {args.group})" if args.group else ""
         print(
             f"check{scope}: {len(store.rows)} row(s), "
-            f"{count_comparisons(store)} comparison(s), "
+            f"{len(all_comparison_views(store))} comparison(s), "
             f"{len(errors)} error(s), {len(warnings)} warning(s)"
         )
     return EXIT_FINDINGS if errors else EXIT_OK
+
+
+def _matches_file(store: Store, ref: RowRef, needle: str) -> bool:
+    group = store.groups.get(str(ref.data.get("group"))) or {}
+    if needle in [str(item) for item in group.get("source_files") or []]:
+        return True
+    return any(needle in node.split("::")[0] for node in ref.data.get("tests") or [])
+
+
+def select_rows(
+    store: Store,
+    *,
+    group: str | None = None,
+    file: str | None = None,
+    row_id: str | None = None,
+    flag: str | None = None,
+    near: bool = False,
+    gt5: bool = False,
+) -> list[RowRef]:
+    refs = list(store.rows)
+    if group:
+        refs = [ref for ref in refs if ref.data.get("group") == group]
+    if file:
+        refs = [ref for ref in refs if _matches_file(store, ref, file)]
+    if row_id:
+        refs = [ref for ref in refs if ref.id == row_id]
+    if flag:
+        refs = [
+            ref
+            for ref in refs
+            if flag in (ref.data.get("flags") or [])
+            or any(flag in view["flags"] for view in comparison_views(ref))
+        ]
+    if near:
+        refs = [ref for ref in refs if "near" in row_view(ref)["derived_flags"]]
+    if gt5:
+        refs = [ref for ref in refs if "gt5" in row_view(ref)["derived_flags"]]
+    return refs
+
+
+def command_find(args: argparse.Namespace) -> int:
+    store = load_store(args.store)
+    needle = args.substring.lower()
+    hits: list[RowRef] = []
+    for ref in select_rows(store, group=args.group, file=args.file):
+        haystack = " ".join(
+            [
+                ref.id,
+                str(ref.data.get("group")),
+                str(ref.data.get("title")),
+                str(ref.data.get("validates")),
+                " ".join(ref.data.get("tests") or []),
+            ]
+        ).lower()
+        if needle in haystack:
+            hits.append(ref)
+    if args.limit:
+        hits = hits[: args.limit]
+    if args.json:
+        print(json.dumps([row_view(ref) for ref in hits], indent=2))
+    else:
+        for ref in hits:
+            view = row_view(ref)
+            print(
+                f"{view['id']} | §{view['group']} | {view['title']} | "
+                f"{view['tests']} test(s), {view['comparisons']} comparison(s)"
+            )
+        print(f"find: {len(hits)} match(es)")
+    return EXIT_OK
+
+
+def command_list(args: argparse.Namespace) -> int:
+    store = load_store(args.store)
+    refs = select_rows(
+        store,
+        group=args.group,
+        file=args.file,
+        row_id=args.id,
+        flag=args.flag,
+        near=args.near,
+        gt5=args.gt5,
+    )
+    unit = args.unit
+    if unit == "comparison":
+        views = [view for ref in refs for view in comparison_views(ref)]
+        # The row-level filter is a coarse prefilter; narrowing to the comparisons that
+        # actually carry the property is what makes `--near` answer "which comparison is
+        # close to failing", not "which row contains one".
+        if args.near:
+            views = [view for view in views if "near" in view["flags"]]
+        if args.gt5:
+            views = [view for view in views if "gt5" in view["flags"]]
+        if args.flag:
+            views = [view for view in views if args.flag in view["flags"]]
+    else:
+        views = [row_view(ref) for ref in refs]
+    if args.sort == "slack":
+        key = "slack_pp" if unit == "comparison" else "worst_slack_pp"
+        views.sort(key=lambda view: (view.get(key) is None, view.get(key)))
+    elif args.sort == "id":
+        key = "id" if unit == "row" else "row_id"
+        views.sort(key=lambda view: str(view.get(key)))
+    fields = [name.strip() for name in args.fields.split(",")] if args.fields else None
+    if fields:
+        known = set(ROW_FIELDS if unit == "row" else COMPARISON_FIELDS)
+        unknown = [name for name in fields if name not in known]
+        if unknown:
+            raise StoreError(f"unknown field(s): {', '.join(unknown)}")
+    if args.json:
+        payload = [{name: view.get(name) for name in (fields or view)} for view in views]
+        print(json.dumps(payload, indent=2))
+    else:
+        for line in render_views(unit, views, fields):
+            print(line)
+        print(f"list: {len(views)} {unit}(s)")
+    return EXIT_OK
+
+
+def command_get(args: argparse.Namespace) -> int:
+    store = load_store(args.store)
+    ref = store.by_id().get(args.id)
+    if ref is None:
+        raise StoreError(f"unknown row id: {args.id}")
+    if args.comparisons:
+        views = comparison_views(ref)
+        if args.json:
+            print(json.dumps(views, indent=2))
+        else:
+            for line in render_views("comparison", views, None):
+                print(line)
+        return EXIT_OK
+    if args.json:
+        print(json.dumps(ref.data, indent=2))
+    else:
+        print(yaml.safe_dump(ref.data, allow_unicode=True, sort_keys=False, width=1000).rstrip())
+    return EXIT_OK
+
+
+def command_headline(args: argparse.Namespace) -> int:
+    store = load_store(args.store)
+    rows: list[dict[str, Any]] = []
+    for group_id, group in store.groups.items():
+        group_refs = [ref for ref in store.rows if ref.data.get("group") == group_id]
+        margins = [
+            view["margin_pct"]
+            for ref in group_refs
+            for view in comparison_views(ref)
+            if view["margin_pct"] is not None
+        ]
+        flagged = sum(
+            1
+            for ref in group_refs
+            for view in comparison_views(ref)
+            if "gt5" in view["flags"]
+        )
+        rows.append(
+            {
+                "group": group_id,
+                "headline": " ".join(str(group.get("headline") or "").split()) or "-",
+                "rows": len(group_refs),
+                "comparisons": sum(len(comparison_views(ref)) for ref in group_refs),
+                "worst_margin_pct": max(margins) if margins else None,
+                "comparisons_above_5pct": flagged,
+            }
+        )
+    if args.json:
+        print(json.dumps(rows, indent=2))
+    else:
+        print("| § | headline | rows | cmp | worst margin | >5% |")
+        print("| --- | --- | --- | --- | --- | --- |")
+        for row in rows:
+            print(
+                f"| {row['group']} | {row['headline']} | {row['rows']} | "
+                f"{row['comparisons']} | {fmt_pct(row['worst_margin_pct'])} | "
+                f"{row['comparisons_above_5pct']} |"
+            )
+    return EXIT_OK
+
+
+def resolve_path(path: str) -> list[tuple[str, int | None]]:
+    """Walk a dotted path against SET_SCHEMA, refusing anything undeclared."""
+    segments: list[tuple[str, int | None]] = []
+    for raw in path.split("."):
+        match = PATH_SEGMENT_RE.match(raw)
+        if match is None:
+            raise StoreError(f"invalid path segment: {raw!r}")
+        index = int(match.group(2)) if match.group(2) is not None else None
+        segments.append((match.group(1), index))
+    node: Any = SET_SCHEMA
+    for name, index in segments:
+        if not isinstance(node, dict):
+            raise StoreError(f"cannot descend past {name!r}: it is a scalar")
+        if name not in node:
+            raise StoreError(
+                f"unknown field {name!r} in {path!r}: allowed here: "
+                f"{', '.join(sorted(node))}"
+            )
+        child = node[name]
+        if isinstance(child, list):
+            if index is None:
+                raise StoreError(f"{name!r} is a list: address an element, e.g. {name}[0]")
+            node = child[0]
+        else:
+            if index is not None:
+                raise StoreError(f"{name!r} is not a list")
+            node = child
+    return segments
+
+
+def apply_path(row: dict[str, Any], path: str, value: Any, *, unset: bool = False) -> None:
+    first = path.split(".", 1)[0].split("[", 1)[0]
+    if first in DERIVED_FIELD_NAMES:
+        raise StoreError(f"{first!r} is derived and must not be written")
+    if first == "id":
+        raise StoreError("'id' is immutable: rename with a history entry and a redirect")
+    segments = resolve_path(path)
+    cursor: Any = row
+    for name, index in segments[:-1]:
+        if not isinstance(cursor, dict):
+            raise StoreError(f"cannot descend past {path!r}")
+        if index is None:
+            if name not in cursor:
+                cursor[name] = {}
+            cursor = cursor[name]
+            continue
+        container = cursor.get(name)
+        if not isinstance(container, list):
+            raise StoreError(f"no such list: {name}")
+        if index >= len(container):
+            raise StoreError(f"index out of range: {name}[{index}]")
+        cursor = container[index]
+    name, index = segments[-1]
+    if not isinstance(cursor, dict):
+        raise StoreError(f"cannot set {path!r}")
+    if index is None:
+        if unset:
+            cursor.pop(name, None)
+        else:
+            cursor[name] = value
+        return
+    container = cursor.get(name)
+    if not isinstance(container, list):
+        raise StoreError(f"no such list: {name}")
+    if index >= len(container):
+        raise StoreError(f"index out of range: {name}[{index}]")
+    if unset:
+        raise StoreError("cannot unset a list element; unset a field inside it instead")
+    container[index] = value
+
+
+def parse_value(raw: str) -> Any:
+    if len(raw) >= 2 and raw[0] == raw[-1] and raw[0] in {'"', "'"}:
+        return raw[1:-1]
+    lowered = raw.lower()
+    if lowered in {"true", "false"}:
+        return lowered == "true"
+    if lowered in {"null", "none"}:
+        return None
+    if raw[:1] in {"[", "{"}:
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise StoreError(f"invalid JSON value {raw!r}: {exc}") from exc
+    try:
+        return int(raw)
+    except ValueError:
+        pass
+    try:
+        return float(raw)
+    except ValueError:
+        return raw
+
+
+def command_set(args: argparse.Namespace) -> int:
+    store = load_store(args.store)
+    ref = store.by_id().get(args.id)
+    if ref is None:
+        raise StoreError(f"unknown row id: {args.id}")
+    if ref.path is None:
+        raise StoreError(f"row {args.id} has no backing file to write")
+
+    if store.errors():
+        for finding in store.errors():
+            print(finding.as_text(), file=sys.stderr)
+        raise StoreError("refusing to write: the store already has errors")
+
+    document = load_yaml(ref.path)
+    rows = document.get("rows") if isinstance(document, dict) else document
+    if not isinstance(rows, list) or ref.index >= len(rows):
+        raise StoreError(f"{ref.path} is not a row file this tool can write back")
+    row = rows[ref.index]
+    if not isinstance(row, dict):
+        raise StoreError(f"{ref.path}[{ref.index}] is not a mapping")
+
+    for assignment in args.assign:
+        if "=" not in assignment:
+            raise StoreError(f"expected PATH=VALUE, got {assignment!r}")
+        path, raw = assignment.split("=", 1)
+        apply_path(row, path, parse_value(raw))
+    for path in args.unset:
+        apply_path(row, path, None, unset=True)
+    for flag in args.add_flag:
+        if flag in store.derived_flags:
+            raise StoreError(f"{flag!r} is a derived flag and must not be stored")
+        if flag not in store.flag_entries:
+            raise StoreError(f"unknown flag id: {flag!r}")
+        flags = row.setdefault("flags", [])
+        if flag not in flags:
+            flags.append(flag)
+    for flag in args.remove_flag:
+        flags = row.get("flags") or []
+        if flag in flags:
+            flags.remove(flag)
+
+    probe = Store(root=store.root, groups=store.groups, un_inventoried=store.un_inventoried)
+    probe.flag_entries = store.flag_entries
+    probe.derived_flags = store.derived_flags
+    validate_row(probe, str(ref.path), row)
+    if probe.errors():
+        for finding in probe.errors():
+            print(finding.as_text(), file=sys.stderr)
+        raise StoreError("refusing to write: the edited row is invalid")
+
+    dump_yaml(ref.path, document)
+    print(f"set {args.id}: wrote {display_path(ref.path)}")
+    return EXIT_OK
+
+
+# --------------------------------------------------------------------------- #
+# Entry point
+# --------------------------------------------------------------------------- #
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -575,6 +1151,45 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument("--group", help="limit row validation to one group id")
     check.add_argument("--json", action="store_true", help="machine-readable output")
     check.set_defaults(func=command_check)
+
+    find = subparsers.add_parser("find", help="search rows by id, title, group or node id")
+    find.add_argument("substring")
+    find.add_argument("--group")
+    find.add_argument("--file")
+    find.add_argument("--limit", type=int, default=0)
+    find.add_argument("--json", action="store_true")
+    find.set_defaults(func=command_find)
+
+    listing = subparsers.add_parser("list", help="one line per row, or per comparison")
+    listing.add_argument("--group")
+    listing.add_argument("--file")
+    listing.add_argument("--id")
+    listing.add_argument("--flag")
+    listing.add_argument("--near", action="store_true", help="only comparisons with slack < 1pp")
+    listing.add_argument("--gt5", action="store_true", help="only comparisons above the 5% rule")
+    listing.add_argument("--unit", choices=["row", "comparison"], default="row")
+    listing.add_argument("--sort", choices=["id", "slack"], default="id")
+    listing.add_argument("--fields", help="comma-separated field names")
+    listing.add_argument("--json", action="store_true")
+    listing.set_defaults(func=command_list)
+
+    get = subparsers.add_parser("get", help="print one row verbatim")
+    get.add_argument("id")
+    get.add_argument("--comparisons", action="store_true", help="derived comparison table")
+    get.add_argument("--json", action="store_true")
+    get.set_defaults(func=command_get)
+
+    headline = subparsers.add_parser("headline", help="derived section 2.1 summary table")
+    headline.add_argument("--json", action="store_true")
+    headline.set_defaults(func=command_headline)
+
+    setter = subparsers.add_parser("set", help="edit one row in place")
+    setter.add_argument("id")
+    setter.add_argument("assign", nargs="*", metavar="PATH=VALUE")
+    setter.add_argument("--unset", action="append", default=[], metavar="PATH")
+    setter.add_argument("--add-flag", action="append", default=[], metavar="FLAG")
+    setter.add_argument("--remove-flag", action="append", default=[], metavar="FLAG")
+    setter.set_defaults(func=command_set)
 
     return parser
 
