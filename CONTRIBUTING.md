@@ -65,6 +65,14 @@ worse than no test: it certifies a result nobody measured.
    measured margin and flags, and the row counts must reconcile with
    `pytest -o addopts="" --collect-only`. A row that cannot fail is flagged there, never
    counted as evidence.
+7. **A quoted source value is read, not extracted.** Every number, equation, table cell
+   or figure value used as a reference is read from the rendered page with vision and
+   recorded with its source key, printed page and locator. `pdftotext` is never the
+   device for a value you will quote, and a citation without provenance is not evidence.
+   The protocol is `docs/reading-sources.md`.
+
+Rules 1-6 are the contract a test must satisfy; `docs/adding-validation-tests.md` is the
+procedure that satisfies it, and `docs/reading-sources.md` is how a source value is read.
 
 ## Practical guidance
 

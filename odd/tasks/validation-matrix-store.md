@@ -40,6 +40,34 @@ Success is measured in three ways:
      `references.yaml`, `rows/3-ko2017.yaml` and the adjudication log are the artifacts WU-3,
      WU-4 and WU-5 will reuse unchanged. The pilot's job is to prove the pipeline end to end on
      one group and leave the remaining groups as mechanical repetition of it.
+  7. **Eliminate the data-shaped Markdown.** The end state has no generated `.md` at all:
+     `docs/validation-matrix.md` and `docs/references.md` are deleted, and the store plus its
+     query verbs replace them. Only *theoretical* documents (`docs/formulations/*`) and
+     *general* documentation (README, CONTRIBUTING, `docs/reading-sources.md`,
+     `docs/adding-validation-tests.md`, `docs/validation-environment.md`) survive. The policy
+     prose the matrix carries — what may be cited as evidence, and the validity envelope —
+     becomes a hand-written `docs/validation-policy.md`; everything else it contains is either
+     already data in the store or derived by the tool. `references render` survives as an
+     export/debug command only.
+     **Neither file is edited once deletion is decided.** A pointer added to a document that is
+     about to be deleted is churn: it lands in the review candidate, costs a diff, and then
+     disappears with the file. The matrix is *read* (for T5's diff) and deleted; consolidation
+     edits target only documents that survive. In particular the reading rules that the matrix
+     restated already live in `docs/reading-sources.md`, so removing the restatement loses
+     nothing — including the record of the `pdftotext -layout` failure, which survives there.
+  8. **The scheme covers physics only.** A row exists for a test that validates a physical
+     quantity against an independent reference. General software tests — CLI, mesh I/O,
+     logging, schema and contract tests — are declared *out of scope* with a reason, not given
+     rows. `reference.kind: schema` therefore leaves the model, and the `un_inventoried` list
+     stops being a debt bucket and becomes a classification.
+  9. **The surviving documents are prescriptive, and they carry their errors.** The point of
+     `docs/reading-sources.md`, `docs/adding-validation-tests.md` and
+     `docs/validation-diagnostics.md` is to stop an agent hallucinating and to stop it paying
+     for the same mistake twice. Each one states the forbidden move, the runnable check that
+     catches it, and the symptom that reveals it — not a description of the current state,
+     which belongs in the store where it cannot go stale. `docs/validation-policy.md`, written
+     at T7, holds the citation policy and the validity envelope and points at the diagnostic
+     index. The test for any sentence in these files: does it change what the reader *does*?
 
 ## 2. Why the current files are not maintainable
 
@@ -235,7 +263,7 @@ slash-concatenated string, which is unqueryable and uncheckable. Hence `comparis
     - label: "paper cell, N=16"           # which part of the test this comparison covers
       asserted: true
       reference:
-        kind: paper                       # paper | code | analytical | self | schema
+        kind: paper                       # paper | code | analytical | self
         label: "Table 12, MITC4+ N=16: 0.9978"
         citation: ko2017_perf             # key into references.yaml when kind == paper
       tolerance:
@@ -401,13 +429,15 @@ Write rules:
 
 **Matrix invariants.**
 
-1. Schema-valid rows; unique `id`.
+1. Schema-valid rows; unique `id`; no comparison with `reference.kind: schema`, because a row
+   with no independent reference is a software test and belongs out of scope.
 2. Every row has at least one comparison, and every comparison has a `label`, a `reference` and
    a `tolerance`. This is the invariant that keeps "my result against several references"
    expressible without a concatenated string.
-3. Every collected node is claimed by exactly one row, or its file is listed in an explicit
-   `un_inventoried:` allowlist in `groups.yaml` with a reason. This retires the hand-written
-   known-drift table.
+3. Every collected node is either claimed by exactly one row, or belongs to a file declared
+   `software_only: true` in `groups.yaml` with a reason. Nothing is silently unaccounted: the
+   old `un_inventoried` debt bucket becomes an explicit classification, because the scheme
+   covers physics tests only.
 4. Every entry of `tests[]` exists in the collected node set.
 5. **A collect-only run that returns 0 nodes is a failure, not a clean result.** This is not
    hypothetical: `python -m pytest -o addopts="" --collect-only -q tests/test_ko2017_performance.py`
@@ -565,7 +595,7 @@ consequences:
 | T4 | Code extractor (WU-P1) | `validation_matrix extract --scope tests/test_ko2017_performance.py`: collect-only node set + AST rows + param-id cross-check, no `measured.*` | 31 nodes, every one claimed, 0 unexplained extraction misses; byte-identical output across two runs |
 | T5 | Matrix normalizer and diff (WU-P2) | `validation_matrix diff-against-md --group 3`: §3 tables projected into the same key space, compared field by field | every conflict classified as `match`, `only_in_code`, `only_in_md` or `value_conflict`; the 23-vs-31 gap explained per row |
 | T6 | Adjudication and freeze (WU-P3) | re-run each conflicting node (`-s`, `-rA`), `docs/validation/adjudications/3-ko2017.yaml`, complete `rows/3-ko2017.yaml` with `measured.*` | the six acceptance criteria in §12; no conflict resolved without a recorded command and its output |
-| T7 | Render, check and CI wiring (WU-8 for the pilot) | `render --check` for the pilot group, `check --group 3`, a Make target | exits 0 on the tree; exits 1 on a synthetic drift (a removed node, a tampered generated file), and exits 1 on a 0-node collect-only |
+| T7 | Elimination, classification and CI | repoint every live reference at the store (`docs/formulations/{mitc4plus-2017-extract,shell-elements,materials,solvers}.md`, `docs/validation-environment.md`, `tests/test_shell_convergence.py`, `openspec/specs/mitc4plusd-element/spec.md`, `tests/test_mitc4plusd_traceability.py`), delete `docs/validation-matrix.md` and `docs/references.md`, rewrite CONTRIBUTING rule 6, write `docs/validation-policy.md` with the surviving prose, and move the physics-only classification into `groups.yaml` | no live document points at a deleted path; archived `openspec/changes/archive/**` left untouched as history; `check` exits 0; a synthetic unclassified node exits 1 |
 
 ### 13.2 Progress
 
@@ -666,9 +696,10 @@ by default inside the pilot, and the pilot's output is what they are judged agai
    against. The Markdown's 23 rows for 31 §3 nodes implies the row rule; the slash-concatenated
    tolerance cells (§4.3, §4.10) imply the comparison rule. Revisit at T5 if the 23-vs-31
    mapping is not expressible as a stable rule.
-2. **Generated output** — default: keep single `docs/validation-matrix.md` and
-   `docs/references.md`, because that preserves every existing anchor without a redirect map.
-   Splitting is a later change if the single-file render diff becomes unreviewable.
+2. **Generated output** — **settled: eliminated.** Both Markdown views are deleted once the
+   store covers them, so the anchor-redirect question disappears with them. `references render`
+   survives as an export/debug command writing to a throwaway path, never as a committed
+   artifact, and CI runs `check` rather than `render --check`.
 3. **Prose ownership** — default: `prose/*.md` is maintainer-edited directly and only tables are
    generated.
 4. **`jsonschema` dependency** — default: use it if it is already importable in the pinned
@@ -682,6 +713,9 @@ by default inside the pilot, and the pilot's output is what they are judged agai
 
 - Not changing any test, tolerance, reference or measured number. This change moves data and
   adjudicates conflicts; it does not judge the physics.
+- Not rewriting archived `openspec/changes/archive/**`: those documents are the record of what
+  was true when they were written, and repointing them at paths that did not exist yet would
+  falsify history.
 - Not resolving the §9 flags. Migrating a flag into `flags.yaml` records it; it does not clear it.
 - Not deleting either Markdown file; both remain the paper-facing views.
 - Not migrating the `tests/test_mitc4plusd_traceability.py` gate to `references.yaml`. It can
