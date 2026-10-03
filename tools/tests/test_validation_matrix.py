@@ -1062,6 +1062,19 @@ def _printed(error: str, value: str = "1.0000", expected: str = "1.0000") -> dic
     return {"value": value, "expected": expected, "error": error}
 
 
+def test_a_group_slug_always_produces_a_valid_row_id() -> None:
+    """The two grammars have to agree: a row id starts with its group's slug.
+
+    They did not agree. `SLUG_RE` accepts an underscore and `ID_RE` did not accept one in the id's
+    first segment, so a group called `orthotropic_shell_parity` produced three row ids that no
+    `set` could repair -- every write was refused for editing an invalid row.
+    """
+    module = _load_tool_module()
+    for slug in ("ko2017", "outofband", "orthotropic_shell_parity", "a1_b2"):
+        assert module.SLUG_RE.match(slug), slug
+        assert module.ID_RE.match(f"{slug}.test_something.single"), slug
+
+
 def test_an_unclaimed_node_needs_a_declaration_to_stay_silent() -> None:
     """The closure rule: a grouped file cannot gain a test that is neither row nor declaration."""
     module = _load_tool_module()

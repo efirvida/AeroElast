@@ -71,7 +71,11 @@ EXIT_OK = 0
 EXIT_FINDINGS = 1
 EXIT_ERROR = 2
 
-ID_RE = re.compile(r"^[a-z0-9]+(\.[a-z0-9_]+)+$")
+# `ID_RE` and `SLUG_RE` have to agree, because a row id IS `<slug>.<test>.<params>`: whatever
+# a group may call itself, the id grammar has to accept as the id's first segment. They did not
+# agree, and a group called `orthotropic_shell_parity` produced three ids that no `set` could
+# repair -- every write was refused for editing an invalid row.
+ID_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$")
 SLUG_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 # A node id is `file::test[param]` for a module function and `file::Class::test[param]` for
 # a method, so the class chain is part of the shape. Accepting only one segment after the file
@@ -1279,9 +1283,21 @@ def command_set(args: argparse.Namespace) -> int:
         raise StoreError(f"row {args.id} has no backing file to write")
 
     if store.errors():
-        for finding in store.errors():
-            print(finding.as_text(), file=sys.stderr)
-        raise StoreError("refusing to write: the store already has errors")
+        # A store that is broken is not one to pile edits onto, but a null `reference.kind` is
+        # exactly the error `set` exists to repair: the extractor writes a row whose kind its group
+        # did not declare, and declaring it is this verb's job. So the question is not whether the
+        # store has errors but whether they are inside the reach of this verb. An error in a row is
+        # repairable here; one in `groups.yaml` or `references.yaml` is not, and writing anyway
+        # would be editing on top of a registry that does not hold.
+        rows_root = display_path(args.store / "rows") + "/"
+        foreign = [f for f in store.errors() if not f.where.startswith(rows_root)]
+        if foreign:
+            for finding in foreign:
+                print(finding.as_text(), file=sys.stderr)
+            raise StoreError(
+                "refusing to write: the store has errors outside the row files, which this "
+                "verb cannot repair"
+            )
 
     document = load_yaml(ref.path)
     rows = document.get("rows") if isinstance(document, dict) else document
