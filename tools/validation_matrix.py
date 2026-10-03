@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+from collections import Counter
 import json
 import re
 import subprocess
@@ -2338,13 +2339,27 @@ def build_rows(
             for node in parent.body:
                 if isinstance(node, ast.FunctionDef):
                     functions.setdefault(f"{parent.name}::{node.name}", node)
-    report: dict[str, Any] = {"nodes": [], "unclaimed": [], "diverged": {}, "prints": {}}
+    report: dict[str, Any] = {
+        "nodes": [],
+        "unclaimed": [],
+        # Why a node is not a row. The three reasons exist in the code already, and lumping
+        # them together hid the difference between "this test compares nothing" and "the
+        # tolerance could not be read": the first is a property of the test, the second is a
+        # defect of the extractor, and the exclusion rule has to be written against the first.
+        "unclaimed_reasons": {},
+        "diverged": {},
+        "prints": {},
+    }
     rows: list[dict[str, Any]] = []
+
+    def unclaim(node: str, reason: str) -> None:
+        report["unclaimed"].append(node)
+        report["unclaimed_reasons"][node] = reason
     used: set[str] = set()
     for info in nodes:
         func = functions.get(info.qualname)
         if func is None:
-            report["unclaimed"].append(info.node)
+            unclaim(info.node, "not_in_ast")
             continue
         docstring = ast.get_docstring(func) or ""
         validates = (
@@ -2356,15 +2371,23 @@ def build_rows(
         if ignored:
             report.setdefault("ignored_bounds", {})[info.node] = ignored
         if not sites:
-            report["unclaimed"].append(info.node)
+            unclaim(info.node, "no_comparison")
             continue
-        unresolved = [site.source for site in sites if site.value is None]
-        if unresolved:
-            # Never write a row whose tolerance cannot be read: an invalid row is
+        resolved = [site for site in sites if site.value is not None]
+        if not resolved:
+            # Never write a comparison whose tolerance cannot be read: an invalid comparison is
             # worse than a reported gap, because it looks like evidence.
-            report.setdefault("unresolved", {})[info.node] = unresolved
-            report["unclaimed"].append(info.node)
+            report.setdefault("unresolved", {})[info.node] = [s.source for s in sites]
+            unclaim(info.node, "tolerance_unresolved")
             continue
+        # The unit of refusal is the comparison, not the test. An unreadable site is left out of
+        # the row and reported, because it is often not a reference comparison at all: both
+        # Scordelis-Lo smoothed tests were dropped whole by a symmetry assert carrying a computed
+        # `atol`, while the comparison they exist for -- `rel < 0.05` against Lee & Lee Table 6 --
+        # reads perfectly well.
+        unreadable = [site.source for site in sites if site.value is None]
+        if unreadable:
+            report.setdefault("unresolved", {})[info.node] = unreadable
         # The owner is part of the id: two classes can hold same-named methods.
         row_id = (
             f"{slug}.{slugify(info.qualname, 40)}."
@@ -2400,7 +2423,7 @@ def build_rows(
             report["prints"][info.node] = prints
 
         comparisons = []
-        for site in sites:
+        for site in resolved:
             # The group declares it. Guessing from the prose -- "paper" when the source text
             # happens to say paper, table or expected, "analytical" otherwise -- mislabelled the
             # hook test that compares against the paper's Table 14, because the assert reads
@@ -2522,6 +2545,7 @@ def command_extract(args: argparse.Namespace) -> int:
         "rows": len(rows),
         "claimed": len(report["nodes"]),
         "unclaimed": report["unclaimed"],
+        "unclaimed_reasons": report["unclaimed_reasons"],
         "diverged_params": report["diverged"],
         "unasserted_prints": report["prints"],
     }
@@ -2540,11 +2564,18 @@ def command_extract(args: argparse.Namespace) -> int:
                 f"{len(report['cross_check_unavailable'])} node(s)"
             )
         for node, sources in (report.get("unresolved") or {}).items():
-            print(f"UNRESOLVED tolerance (row not written): {node}")
+            # The row is written without it: say so, because a message that claims otherwise
+            # sends the reader looking for a missing row that is not missing.
+            print(f"UNREADABLE comparison (left out of the row): {node}")
             for source in sources:
                 print(f"  - {source}")
         if report["unclaimed"]:
-            print(f"UNCLAIMED  : {len(report['unclaimed'])}")
+            counts = Counter(
+                report["unclaimed_reasons"].get(node, "unknown")
+                for node in report["unclaimed"]
+            )
+            breakdown = ", ".join(f"{r}: {n}" for r, n in counts.most_common())
+            print(f"UNCLAIMED  : {len(report['unclaimed'])} ({breakdown})")
             for node in report["unclaimed"]:
                 print(f"  - {node}")
         for node, tokens in report["diverged"].items():
