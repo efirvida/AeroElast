@@ -271,7 +271,7 @@ references:
       0264-4401/84/010077-12, footer "Eng. Comput., 1984, Vol. 1, March"). The
       issue number is not printed on the copy.
     cited_by_declared:
-      - "tests/validation/benchmarks/test_shell_comprehensive.py:13"
+      - "tests/validation/benchmarks/test_shell_static_and_modal.py:20"
       - "crates/aeroelast-core/src/elements/mitc4.rs"
     cited_by_stale:
       - "tests/validation/benchmarks/test_ko2017_performance.py:1360"
@@ -824,9 +824,9 @@ references:
       `src/aeroelast/postprocess/stress_recovery.py:53-55` gives the author
       list, the title and the edition; the publisher is not given and the
       work is not held. Also cited as "Cook et al. 'Concepts and Applications
-      of Finite Element Analysis'" at `tests/validation/benchmarks/test_shell_comprehensive.py:15`.
+      of Finite Element Analysis'" at `tests/validation/benchmarks/test_shell_static_and_modal.py:22`.
     cited_by_declared:
-      - "tests/validation/benchmarks/test_shell_comprehensive.py:15"
+      - "tests/validation/benchmarks/test_shell_static_and_modal.py:22"
     cited_by_stale:
       - "src/aeroelast/postprocess/stress_recovery.py:53"
     code_mentions:
@@ -1136,9 +1136,9 @@ references:
     held: false
     verification: unverified
     cited_by_declared:
-      - "tests/validation/benchmarks/test_shell_comprehensive.py:11"
+      - "tests/validation/benchmarks/test_shell_static_and_modal.py:18"
+      - "tests/validation/benchmarks/test_shell_static_and_modal.py:26"
     cited_by_stale:
-      - "tests/validation/benchmarks/test_shell_comprehensive.py:82-83"
     code_mentions:
       - "NAFEMS"
     notes: >-
@@ -1147,7 +1147,7 @@ references:
       that publishes the benchmark reports. The code gives no report titles and
       none is held, so no report title is asserted here, and the source states
       no publication year or author. The live report citations are at
-      `tests/validation/benchmarks/test_shell_comprehensive.py:84-86`; the prose range no longer names
+      `tests/validation/benchmarks/test_shell_static_and_modal.py:28-86`; the prose range no longer names
       them and is recorded as stale.
 
   - key: abaqus
@@ -1163,10 +1163,10 @@ references:
     held: false
     verification: unverified
     cited_by_declared:
-      - "tests/validation/benchmarks/test_shell_comprehensive.py:12"
+      - "tests/validation/benchmarks/test_shell_static_and_modal.py:19"
+      - "tests/validation/benchmarks/test_shell_static_and_modal.py:28"
       - "tests/validation/benchmarks/test_shell_analytical_validation.py:9"
     cited_by_stale:
-      - "tests/validation/benchmarks/test_shell_comprehensive.py:84"
       - "crates/aeroelast-core/src/elements/mitc4.rs:95"
     code_mentions:
       - "Abaqus"
@@ -1179,9 +1179,9 @@ references:
       §3.6.5, §3.6.8); that document was removed from the repository in
       `ee6c345`, so the site is gone rather than declared. The live code sites
       are
-      `tests/validation/benchmarks/test_shell_comprehensive.py:86` and, for the S4R note,
+      `tests/validation/benchmarks/test_shell_static_and_modal.py:28` and, for the S4R note,
       `src/aeroelast/postprocess/stress_recovery.py`; the prose sites
-      `tests/validation/benchmarks/test_shell_comprehensive.py:84` and
+      `tests/validation/benchmarks/test_shell_static_and_modal.py:28` and
       `crates/aeroelast-core/src/elements/mitc4.rs:95` no longer name Abaqus and
       are recorded as stale.
 

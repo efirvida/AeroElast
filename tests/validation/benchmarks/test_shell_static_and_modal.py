@@ -1,6 +1,39 @@
-"""Comprehensive Shell Element Validation Tests - Fixed Version.
+"""Static and modal validation of the shell element against closed-form references.
 
-Uses exact same approach as working CCX parity tests.
+One cantilever plate in every case: `L = 1.0 m`, `b = 0.1 m`, `h = 1.0 mm`, steel
+(`E = 2.1e11`, `nu = 0.3`, `rho = 7800`), and one 600 N load at a time. Each test asserts a
+physical quantity against an analytical formula -- never against another of our own results --
+and the tolerance is the measured discretisation error with the reason written beside it.
+
+Cases:
+
+1. Linear static: axial, in-plane bending, out-of-plane bending, and the ratio invariant
+   between the two bending directions.
+2. Mesh convergence of the axial case, which is what licenses the 3% window.
+3. Geometric nonlinearity, against the elastica tip deflection from `tests.conftest`.
+4. The first mode, against the clamped-free beam formula.
+
+References:
+
+- NAFEMS benchmarks (linear and nonlinear), whose report numbers are listed below.
+- ABAQUS verification manual, also listed below.
+- Bathe & Dvorkin "A Four-Node Plate Bending Element"
+- Zienkiewicz "The Finite Element Method"
+- Cook et al. "Concepts and Applications of Finite Element Analysis"
+
+Analytical and empirical reference solutions, carried over from the module this replaces:
+
+- NAFEMS R7191, R7301 (linear benchmarks)
+- NAFEMS R0024 (nonlinear benchmarks)
+- ABAQUS Verification Manual
+- Roark's Formulas for Stress and Strain
+- Timoshenko "Theory of Plates and Shells"
+
+This module replaces `test_shell_comprehensive.py`, which asserted the same seven cases with
+looser bounds: a flat 5% on three different physical regimes, and an in-plane ratio band of
+0.5x to 1.2x that a wrong element passes. Its one unique assertion was that the first three
+modes increase with mode number, which is nearly automatic and is deliberately not carried
+over: an assertion that cannot fail is worse than none.
 """
 
 from __future__ import annotations
