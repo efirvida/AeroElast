@@ -25,6 +25,42 @@ out_of_scope:
       defect is recorded where defects go: gaps.yaml,
       moment_realization_over_delivers.
 
+  - files:
+      - tests/validation/bem/test_bem_engine.py
+    reason: >-
+      It tests the BEM engine wrapper: construction from BladeAero, the
+      shapes of its outputs, and that a parked blade's angle of attack
+      equals the twist plus the pitch. Every one of those is a property of
+      our own implementation, not a comparison against an independent
+      reference.
+  - files:
+      - tests/validation/bem/test_bem_polars.py
+    reason: >-
+      It tests the aerodynamic data layer: polar interpolation, periodic
+      wrapping, Reynolds-number selection, and loading the IEA 15 MW
+      BladeAero from WindIO. That is the software that reads and serves
+      the data, not a physical result measured against a reference.
+  - files:
+      - tests/validation/bem/test_force_projection.py
+      - tests/validation/bem/test_force_projection_load_frame.py
+    reason: >-
+      The conservative force projection and its load-frame guard: force
+      conservation, node assignment, and that the loads ride the section
+      rather than a fixed global axis. They assert properties of our own
+      load path, and the defects they document live in gaps.yaml, where
+      force_projection_sense_p5 cites the second of these as its
+      evidence.
+
+  - files:
+      - tests/validation/bem/test_force_projection_ac_datum.py
+    reason: >-
+      The production-datum guard for the force projection, and the third
+      guard from issue #9 in this domain: the aerodynamic centre of every
+      strip must sit at the station's own fraction of the chord, measured
+      from the true leading edge, and the moment must be conserved. It
+      asserts where our own load path places the datum, and its defect is
+      recorded in gaps.yaml.
+
 groups:
   - id: "3"
     title: >-
