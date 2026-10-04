@@ -22,6 +22,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from tests.support.assertions import assert_residual_below
+
 import numpy as np
 import pytest
 from scipy.optimize import linear_sum_assignment
@@ -352,21 +354,20 @@ def _clamped_dofs(mesh: MeshModel) -> list[int]:
 
 
 def _compare_modal_frequencies(
-    freqs_ae: np.ndarray, freqs_ccx: np.ndarray, tol: float = 0.05
-) -> None:
+    freqs_ae: np.ndarray, freqs_ccx: np.ndarray
+) -> np.ndarray:
+    """Print the modal comparison and return the per-mode relative errors.
+
+    The assertion is not here: it is written in the test that calls this, where the store reads it, and the
+    worst of the returned errors is what it asserts. See docs/adding-validation-tests.md.
+    """
     print("\n[Modal Comparison]")
     print(f"  AeroElast frequencies (Hz): {freqs_ae}")
     print(f"  CCX       frequencies (Hz): {freqs_ccx}")
 
     rel = np.abs(freqs_ccx - freqs_ae) / np.maximum(np.abs(freqs_ccx), 1e-14)
     print(f"  Relative errors: {rel}")
-
-    if np.any(rel > tol):
-        pytest.fail(
-            f"Modal parity exceeded tolerance: "
-            f"ae={freqs_ae.tolist()} ccx={freqs_ccx.tolist()} "
-            f"rel={rel.tolist()} tol={tol}"
-        )
+    return rel
 
 
 # ============================================================================
@@ -513,9 +514,12 @@ class TestBeamShell4CasesParity:
             f"ae_face_mean={ae_mean:.6E} rel_err={rel_err * 100:.3f}%"
         )
 
-        assert rel_err <= TOL_ANALYTICAL, (
-            f"{case.name}: ae_face_mean={ae_mean:.6E} analytical={anal_disp:.6E} "
-            f"rel_err={rel_err * 100:.3f}% tol={TOL_ANALYTICAL * 100:.2f}%"
+        assert_residual_below(
+            rel_err,
+            tol=TOL_ANALYTICAL,
+            kind="analytical",
+            reference_name="the closed form for the case's load and geometry",
+            what=f"{case.name} face-mean displacement",
         )
 
     @pytest.mark.parametrize("case", STATIC_CASE_PARAMS)
@@ -523,8 +527,12 @@ class TestBeamShell4CasesParity:
         """Compare AeroElast against CalculiX S4; skips when ccx is not installed."""
         ae_disp, ccx_disp, _anal_disp, rel_err = self._run_static_case(case, tmp_path)
 
-        assert rel_err <= 0.05, (
-            f"{case.name}: ae={ae_disp:.6E} ccx={ccx_disp:.6E} rel_err={rel_err * 100:.2f}%"
+        assert_residual_below(
+            rel_err,
+            tol=0.05,
+            kind="code",
+            reference_name="CalculiX 2.23 S4, the same four static cases",
+            what=f"{case.name} face-mean displacement against CCX",
         )
 
     def test_modal_first_five_modes(self, tmp_path: Path):
@@ -623,4 +631,11 @@ class TestBeamShell4CasesParity:
         print(f"\n  AE  all ({N_SEARCH} modes): {freqs_ae_all}")
         print(f"  CCX all ({N_SEARCH} modes): {freqs_ccx_all}")
 
-        _compare_modal_frequencies(freqs_ae, freqs_ccx, tol=0.05)
+        rel = _compare_modal_frequencies(freqs_ae, freqs_ccx)
+        assert_residual_below(
+            max(rel),
+            tol=0.05,
+            kind="code",
+            reference_name="CalculiX 2.23, the first five matched modes of the same beam",
+            what="worst matched mode frequency gap",
+        )

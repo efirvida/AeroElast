@@ -463,6 +463,27 @@ groups:
       extractor takes keywords only from calls whose name marks them as
       assertions.
 
+  - id: "17"
+    title: >-
+      `tests/validation/parity/test_beam_shell_4cases_parity.py`
+      (MITC4 against CalculiX S4, and against the closed form)
+    slug: beam_shell_4cases
+    source_files:
+      - tests/validation/parity/test_beam_shell_4cases_parity.py
+    # One test asserts nothing and is not a row: its subject is the CCX parity
+    # of the four static cases, which it prints, and the print is the record. It
+    # is reported as a test with no comparison, which is what it is.
+    provenance_note: >-
+      The four static cases are compared against an analytical solution and
+      checked against CCX in two different tests; only the first asserts, so
+      only it is a row. The modal test's comparison used to live inside a helper
+      that called pytest.fail, where the store could not read it: the helper
+      returns the per-mode errors now and the test asserts the worst of them.
+      The analytical reference is a textbook closed form evaluated in the file,
+      which is still a closed form: rule 5 targets a formula re-implemented from
+      the paper it is being checked against, not an elementary one that stands
+      on its own.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test
