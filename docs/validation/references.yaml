@@ -1150,6 +1150,52 @@ references:
       `tests/validation/benchmarks/test_shell_static_and_modal.py:28-86`; the prose range no longer names
       them and is recorded as stale.
 
+  - key: simo1986
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: journal
+    authors: ['Simo, J.C.', 'Vu-Quoc, L.']
+    venue: Computer Methods in Applied Mechanics and Engineering
+    volume: 58
+    pages: 79-116
+    year: 1986
+    doi: null
+    doi_status: to_verify
+    held: False
+    verification: unverified
+    bibliographic_gaps: ['title']
+    code_mentions: ['Simo & Vu-Quoc (1986', 'CMAME 58']
+    notes: >-
+      Added for the large-rotation benchmarks, whose reference values the test
+      file describes as "the classical Simo & Vu-Quoc (1986, CMAME 58) / Bathe &
+      Bolourchi (1979, C&S 11) elastica values". Authors, volume, pages and year
+      are transcribed from that citation; the title and the DOI are not stated
+      there and are declared as gaps rather than filled. The venue spells out
+      the file's CMAME, which is this store's editor's expansion and not a
+      reading.
+    orphan_ok: True
+
+  - key: bathe1979
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: journal
+    authors: ['Bathe, K.-J.', 'Bolourchi, F.']
+    venue: Computers and Structures
+    volume: 11
+    year: 1979
+    doi: null
+    doi_status: to_verify
+    held: False
+    verification: unverified
+    bibliographic_gaps: ['pages', 'title']
+    code_mentions: ['Bathe & Bolourchi (1979', 'C&S 11']
+    notes: >-
+      The companion citation for the same benchmark values. Authors, volume and
+      year are transcribed from the test file's citation; the title, the pages
+      and the DOI are not stated there and are declared as gaps. The venue is
+      the store's own spelling for C&S, as the Lee entries use it.
+    orphan_ok: True
+
   - key: abaqus
     section: >-
       5. Verification benchmarks, reference models and validation literature
@@ -1179,8 +1225,8 @@ references:
       §3.6.5, §3.6.8); that document was removed from the repository in
       `ee6c345`, so the site is gone rather than declared. The live code sites
       are
-      `tests/validation/benchmarks/test_shell_static_and_modal.py:28` and, for the S4R note,
-      `src/aeroelast/postprocess/stress_recovery.py`; the prose sites
+      `tests/validation/benchmarks/test_shell_static_and_modal.py:28` and, for the
+      S4R note, `src/aeroelast/postprocess/stress_recovery.py`; the prose sites
       `tests/validation/benchmarks/test_shell_static_and_modal.py:28` and
       `crates/aeroelast-core/src/elements/mitc4.rs:95` no longer name Abaqus and
       are recorded as stale.
@@ -1230,8 +1276,9 @@ references:
       March 2020. This is the NREL reference definition of the turbine; the
       repository ships its WindIO rendering as `tests/IEA-15-240-RWT.yaml`. The
       report states a blade mass about 65 t, which the test suite compares
-      against. Cited by the code at `tests/validation/blade/test_blade_iea15mw_validation.py`
-      (mass vs the report's ~65 t).
+      against. Cited by the code at
+      `tests/validation/blade/test_blade_iea15mw_validation.py` (mass vs the
+      report's ~65 t).
 
   - key: escalera2023
     section: >-
@@ -1263,9 +1310,9 @@ references:
       <https://github.com/UTDGriffithLab/UTD-IEA15MWBlade>; the held copy ships
       the NuMAD `.nmd`/`.xlsx`, the ElastoDyn blade file and the BModes mode
       output. The code names it throughout
-      `tests/validation/blade/test_blade_iea15mw_validation.py` (68,077 kg mass; Table 3 first
-      two modes; section V DLC 1.4 root moment and tip deflection); the prose
-      range no longer names it and is recorded as stale.
+      `tests/validation/blade/test_blade_iea15mw_validation.py` (68,077 kg mass;
+      Table 3 first two modes; section V DLC 1.4 root moment and tip
+      deflection); the prose range no longer names it and is recorded as stale.
 
   - key: luo2026
     section: >-
