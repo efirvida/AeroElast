@@ -708,6 +708,32 @@ groups:
       apply entry by entry. One symmetry check is a property and is excluded by
       line.
 
+  - id: "26"
+    title: >-
+      `tests/validation/blade/test_laminate_bend_twist.py`
+      (the bend-twist coupon against CLT, Ritz and the CCX deck)
+    slug: laminate_bend_twist
+    source_files:
+      - tests/validation/blade/test_laminate_bend_twist.py
+    # Two assertions are controls, not comparisons. The lines are the ones the
+    # extractor reported.
+    non_reference_asserts:
+      - at: "tests/validation/blade/test_laminate_bend_twist.py:306"
+        reason: >-
+          Every metric of a decoupled control layup must be zero: that nothing
+          happens is the point of the control, not a measurement.
+      - at: "tests/validation/blade/test_laminate_bend_twist.py:822"
+        reason: >-
+          The same for the CCX deck's own decoupled control, which qualifies the
+          deck rather than measuring our result against a reference.
+    provenance_note: >-
+      Issue #9's coupon, rebuilt to pin down the definitions the original
+      report left implicit. Four comparisons are against the free-edge CLT
+      state for the same layup, one is the element against our own Ritz
+      solution for the same coupon, and one is the element against a
+      separately authored CCX deck. Two decoupled controls are excluded by
+      line, because they assert that nothing happens.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

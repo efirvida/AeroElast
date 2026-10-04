@@ -326,9 +326,12 @@ def test_unbalanced_layup_matches_the_free_edge_reference():
     print(f"  measured twist            = {measured:+.6e} rad")
     print(f"  issue formula (no 1/b,2x) = {naive:+.6e} rad   ratio = {measured / naive:+.3f}")
     print(f"  free-edge reference       = {expected:+.6e} rad   ratio = {ratio:+.4f}")
-    assert abs(ratio - 1.0) < 0.05, (
-        f"measured {measured:.6e} rad vs free-edge reference {expected:.6e} rad "
-        f"(ratio {ratio:.4f})"
+    assert_residual_below(
+        abs(ratio - 1.0),
+        tol=0.05,
+        kind="analytical",
+        reference_name="the free-edge CLT state for the same layup",
+        what="unbalanced coupon twist against the free-edge reference",
     )
 
 
@@ -424,9 +427,12 @@ def test_constant_moment_interior_state_is_the_free_edge_state():
 
     # The element must reproduce the free-edge state: this is the guard that makes
     # the 3.4-4.8x claim falsifiable.
-    assert abs(ratio - 1.0) < 0.05, (
-        f"interior twist rate {rate:.4e} rad/m is {ratio:.3f}x the free-edge CLT "
-        f"value {predicted_rate:.4e} rad/m"
+    assert_residual_below(
+        abs(ratio - 1.0),
+        tol=0.05,
+        kind="analytical",
+        reference_name="the free-edge CLT state for the same layup",
+        what="interior twist rate against the free-edge CLT",
     )
 
 
@@ -439,7 +445,13 @@ def test_constant_moment_tip_twist_matches_the_free_edge_state():
     ratio = measured / expected
     print(f"\nconstant tip moment {M_TIP} N.m: measured tip twist = {measured:+.6e} rad, "
           f"free-edge CLT = {expected:+.6e} rad, ratio = {ratio:+.4f}")
-    assert abs(ratio - 1.0) < 0.05, f"tip twist ratio {ratio:.3f} is not 1"
+    assert_residual_below(
+        abs(ratio - 1.0),
+        tol=0.05,
+        kind="analytical",
+        reference_name="the free-edge CLT state for the same layup",
+        what="constant-moment tip twist against the free-edge CLT",
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -665,15 +677,25 @@ def test_ritz_reference_converges_and_matches_the_element():
     ritz_moment = ritz_tip_twist(lam0, load="moment", magnitude=M_TIP, q_ord=20)
     print(f"\nconstant moment control: ritz = {ritz_moment:+.6e} rad, "
           f"free-edge = {expected_moment:+.6e} rad, ratio = {ritz_moment / expected_moment:+.4f}")
-    assert abs(ritz_moment / expected_moment - 1.0) < 0.05, ritz_moment
+    assert_residual_below(
+        abs(ritz_moment / expected_moment - 1.0),
+        tol=0.05,
+        kind="analytical",
+        reference_name="the free-edge CLT state for the same layup",
+        what="Ritz constant-moment twist against the free-edge CLT",
+    )
 
     # The element must land on the Ritz reference for the issue's coupon.
     lam = _laminate(LAYUPS["[45,0,0,45]s"])
     coords, u, tips = _run_coupon(lam, nx=8, ny=48)
     shell = twist_lsq(coords, u, tips)
     ritz = ritz_tip_twist(lam, q_ord=20)
-    assert abs(shell / ritz - 1.0) < 0.05, (
-        f"element {shell:.6e} rad vs Ritz {ritz:.6e} rad (ratio {shell / ritz:.4f})"
+    assert_residual_below(
+        abs(shell / ritz - 1.0),
+        tol=0.05,
+        kind="self",
+        reference_name="the Ritz solution for the same coupon",
+        what="element tip twist against the Ritz reference",
     )
 
 
@@ -690,6 +712,8 @@ def test_ritz_reference_converges_and_matches_the_element():
 _CCX_E1, _CCX_E2 = 120e9, 10e9
 _CCX_NU12, _CCX_G12, _CCX_G23 = 0.3, 5e9, 3e9
 #: Wall-clock bound for one CalculiX run [s]; a hung solver must fail fast (R4-ccx-timeout).
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 _CCX_TIMEOUT_S = 300
 
 
@@ -760,7 +784,7 @@ def ccx_tip_twist(half, ply_t=PLY_T, nx=4, ny=24, workdir=None):
     from pathlib import Path
 
     from tests.conftest import ccx_bin_or_skip
-    from _ccx_io import parse_frd_disp
+    from tests.support.ccx_io import parse_frd_disp
 
     ccx = ccx_bin_or_skip()
     work = Path(workdir) if workdir else Path("/tmp") / "ccx_bend_twist"
@@ -811,7 +835,13 @@ def test_independent_ccx_deck_confirms_the_coupon(tmp_path):
         ratio = elem / ccx
         print(f"  {name:>18}: ccx={np.rad2deg(ccx):+.6f} deg  element={np.rad2deg(elem):+.6f} deg  "
               f"element/ccx = {ratio:.4f}")
-        assert abs(ratio - 1.0) < 0.03, (name, ratio)
+        assert_residual_below(
+            abs(ratio - 1.0),
+            tol=0.03,
+            kind="code",
+            reference_name="the independent CCX deck for the same coupon",
+            what=f"{name} element twist against the CCX deck",
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
