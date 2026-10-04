@@ -1,4 +1,4 @@
-"""Fase 6 — Parity tests for LinearDynamicFSIRotorSolver Rust fast-path.
+"""Phase 6 — parity tests for the LinearDynamicFSIRotorSolver Rust fast-path.
 
 Three test groups:
 
