@@ -60,6 +60,8 @@ ANGLES = [0.0, 90.0, 45.0, -45.0, -45.0, 45.0, 90.0, 0.0]
 # window is tight.  AeroElast-vs-CCX is within ~0.7% for the membrane cases and
 # ~1.7% for in-plane bending (the residual 4-node-vs-8-node formulation
 # difference), so those windows are 1.5% and 2.5% (measured values in the tests).
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 CLT_ANALYTICAL_TOL = 0.02
 CCX_MEMBRANE_TOL = 0.015
 CCX_BENDING_TOL = 0.025
@@ -426,17 +428,48 @@ class TestCompositeMaterial:
 
         a_scale = float(np.max(np.abs(A_hand)))
         d_scale = float(np.max(np.abs(D_hand)))
-        assert np.allclose(ABD[:3, :3], A_hand, rtol=1e-12, atol=1e-9 * a_scale), (
-            "AeroElast A does not match the independent CLT"
+        # allclose applies an absolute and a relative bound at once, so the faithful single residual is
+        # each element's deviation as a fraction of its own allowance: below one means the whole matrix
+        # is inside the pair of bounds the comparison used to apply elementwise.
+        a_dev = float(
+            np.max(np.abs(ABD[:3, :3] - A_hand) / (1e-9 * a_scale + 1e-12 * np.abs(A_hand)))
         )
-        assert np.allclose(ABD[3:, 3:], D_hand, rtol=1e-12, atol=1e-9 * d_scale), (
-            "AeroElast D does not match the independent CLT"
+        d_dev = float(
+            np.max(np.abs(ABD[3:, 3:] - D_hand) / (1e-9 * d_scale + 1e-12 * np.abs(D_hand)))
+        )
+        assert_residual_below(
+            a_dev,
+            tol=1.0,
+            kind="analytical",
+            reference_name="the independent hand CLT for the same laminate",
+            what="A matrix, worst element as a fraction of its allowance",
+        )
+        assert_residual_below(
+            d_dev,
+            tol=1.0,
+            kind="analytical",
+            reference_name="the independent hand CLT for the same laminate",
+            what="D matrix, worst element as a fraction of its allowance",
         )
         # A symmetric laminate has B = 0 analytically; anything above round-off
         # here is a real coupling bug, on either side of the comparison.
-        assert np.max(np.abs(B_hand)) < 1e-6, "hand CLT produced a spurious B"
-        assert np.max(np.abs(ABD[:3, 3:])) < 1e-6, (
-            f"in-plane/bending coupling B must vanish, got {np.max(np.abs(ABD[:3, 3:])):.3e}"
+        # The reference here is the analytical zero: a symmetric laminate has no B coupling, so the
+        # bound is absolute rather than a fraction of anything.
+        assert_residual_below(
+            float(np.max(np.abs(B_hand))),
+            atol=1e-6,
+            unit="",
+            kind="analytical",
+            reference_name="the analytical B = 0 of a symmetric laminate",
+            what="hand CLT coupling B",
+        )
+        assert_residual_below(
+            float(np.max(np.abs(ABD[:3, 3:]))),
+            atol=1e-6,
+            unit="",
+            kind="analytical",
+            reference_name="the analytical B = 0 of a symmetric laminate",
+            what="AeroElast coupling B",
         )
 
     def test_mesh_connectivity(self):
@@ -569,13 +602,19 @@ def test_composite_axial_tension(tmp_path: Path):
         f"CLT bar: {delta_analytical * 1e6:.2f} um"
     )
     print(f"  AeroElast-vs-CCX {rel_error * 100:.2f}% | vs closed form {rel_analytical * 100:.2f}%")
-    assert rel_analytical < CLT_ANALYTICAL_TOL, (
-        f"composite axial vs independent CLT bar: {rel_analytical * 100:.2f}% "
-        f"(tol {CLT_ANALYTICAL_TOL * 100:.0f}%)"
+    assert_residual_below(
+        rel_analytical,
+        tol=CLT_ANALYTICAL_TOL,
+        kind="analytical",
+        reference_name="the independent hand CLT for the same laminate",
+        what="composite axial extension against the closed form",
     )
-    assert rel_error < CCX_MEMBRANE_TOL, (
-        f"Composite axial: AeroElast-vs-CCX {rel_error * 100:.2f}% "
-        f"(tol {CCX_MEMBRANE_TOL * 100:.1f}%)"
+    assert_residual_below(
+        rel_error,
+        tol=CCX_MEMBRANE_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23, the same mesh, layup and load",
+        what="composite axial extension against CCX",
     )
 
 
@@ -684,13 +723,19 @@ def test_composite_isotropic_equiv(tmp_path: Path):
         f"CLT bar: {delta_analytical * 1e6:.2f} um"
     )
     print(f"  AeroElast-vs-CCX {rel_error * 100:.2f}% | vs closed form {rel_analytical * 100:.2f}%")
-    assert rel_analytical < CLT_ANALYTICAL_TOL, (
-        f"isotropic equiv vs independent CLT bar: {rel_analytical * 100:.2f}% "
-        f"(tol {CLT_ANALYTICAL_TOL * 100:.0f}%)"
+    assert_residual_below(
+        rel_analytical,
+        tol=CLT_ANALYTICAL_TOL,
+        kind="analytical",
+        reference_name="the independent hand CLT for the same laminate",
+        what="isotropic-equivalent case against the closed form",
     )
-    assert rel_error < CCX_MEMBRANE_TOL, (
-        f"Isotropic equiv: AeroElast-vs-CCX {rel_error * 100:.2f}% "
-        f"(tol {CCX_MEMBRANE_TOL * 100:.1f}%)"
+    assert_residual_below(
+        rel_error,
+        tol=CCX_MEMBRANE_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23, the same mesh, layup and load",
+        what="isotropic-equivalent case against CCX",
     )
 
 
@@ -784,11 +829,17 @@ def test_composite_bending(tmp_path: Path):
         f"beam: {delta_analytical * 1e6:.2f} um"
     )
     print(f"  AeroElast-vs-CCX {rel_error * 100:.2f}% | vs closed form {rel_analytical * 100:.2f}%")
-    assert rel_analytical < CLT_ANALYTICAL_TOL, (
-        f"in-plane bending vs independent beam: {rel_analytical * 100:.2f}% "
-        f"(tol {CLT_ANALYTICAL_TOL * 100:.0f}%)"
+    assert_residual_below(
+        rel_analytical,
+        tol=CLT_ANALYTICAL_TOL,
+        kind="analytical",
+        reference_name="the independent beam closed form for the in-plane bending case",
+        what="in-plane bending against the closed form",
     )
-    assert rel_error < CCX_BENDING_TOL, (
-        f"Composite bending: AeroElast-vs-CCX {rel_error * 100:.2f}% "
-        f"(tol {CCX_BENDING_TOL * 100:.1f}%)"
+    assert_residual_below(
+        rel_error,
+        tol=CCX_BENDING_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23, the same mesh, layup and load",
+        what="in-plane bending against CCX",
     )

@@ -655,6 +655,35 @@ groups:
       reference scatter at runtime, so the extractor reports those three
       comparisons as unreadable rather than storing a bound it cannot read.
 
+  - id: "24"
+    title: >-
+      `tests/validation/parity/test_composite_beam_parity.py`
+      (the composite shell cantilever against CLT and against CCX)
+    slug: composite_beam_parity
+    source_files:
+      - tests/validation/parity/test_composite_beam_parity.py
+    # Two assertions are mesh-connectivity checks, not comparisons. The
+    # lines are the ones the extractor reported.
+    non_reference_asserts:
+      - at: "tests/validation/parity/test_composite_beam_parity.py:487"
+        reason: >-
+          The generated mesh's clamped nodes have y = 0, checked with np.isclose
+          inside an assert: a property of our own mesh generator.
+      - at: "tests/validation/parity/test_composite_beam_parity.py:492"
+        reason: >-
+          The same for the free face at y = L. Both are read as comparisons only
+          because of the atol keyword they carry.
+    provenance_note: >-
+      Two references per case, and the file says why: an independent hand CLT
+      for the closed-form leg and CalculiX on the same mesh, layup and load for
+      the code leg, so a real difference is a formulation gap and not a model
+      difference. The symmetry check is against the analytical B = 0 rather
+      than against a bound, so it is a comparison too and carries an absolute
+      tolerance. The two matrix comparisons are recorded as the worst element's
+      deviation as a fraction of its own allowance, which is what allclose
+      applies elementwise: below one means the whole matrix is inside the pair
+      of bounds it used to apply element by element.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test
