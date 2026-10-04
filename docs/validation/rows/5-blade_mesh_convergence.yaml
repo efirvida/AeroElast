@@ -7,7 +7,7 @@ rows:
   - tests/validation/parity/test_blade_iea15mw_mesh_convergence.py::test_blade_modal_gap_converges_with_mesh
   validates: The AeroElast-vs-CCX modal gap is discretisation for the low modes.
   comparisons:
-  - label: rtol at line 169
+  - label: rtol at line 172
     asserted: true
     reference:
       kind: code
@@ -15,13 +15,13 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:169
+      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:172
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: rtol at line 176
+  - label: rtol at line 179
     asserted: true
     reference:
       kind: code
@@ -29,7 +29,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:176
+      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:179
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

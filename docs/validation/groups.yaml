@@ -229,7 +229,6 @@ groups:
     # solves the blade through CalculiX. The convergence assert inside the
     # loop is not a comparison site: it compares our medium mesh with our
     # coarse one.
-    reference_kind: code
     source_files:
       - tests/validation/parity/test_blade_iea15mw_mesh_convergence.py
     provenance_note: >-
@@ -245,7 +244,6 @@ groups:
       (thin-walled tube torsion against Bredt)
     slug: tube_torsion
     # Every comparison is against the same closed form, Bredt's T L / GJ.
-    reference_kind: analytical
     source_files:
       - tests/validation/parity/test_thin_walled_tube_torsion.py
     # Nothing is declared here about what is not a comparison inside the solver
