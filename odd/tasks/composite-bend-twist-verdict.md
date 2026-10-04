@@ -1264,6 +1264,21 @@ blunt one, so `min(x)` is the **trailing** edge. Independent check with the geom
 the code (in-plane node spread in the outer quarter of the chord): on the pre-fix grid the blunt end
 is the `+chord_dir` end at every non-empty strip.
 
+**Corrected by section 22.12 - the kink numbers above do not reproduce, the spread rule does.** The
+`9.35 deg` is not obtainable from either object it could have meant: measured on the mesh ring the
+`min(x)` node reads **102.19 deg** and the smallest interior angle anywhere in the mesh is **76.7 deg**
+(section 22.12), and measured on the source geometry - the `airfoils[].coordinates` of
+`tests/IEA-15-240-RWT.yaml` - the trailing-edge end reads **99.2 to 116.6 deg** and the nose end
+**152.6 to 177.5 deg** over the eight profiles in the file. These airfoils have no sharp trailing
+corner, so "sharp means trailing" was a premise this mesh cannot support and the number quoted for it
+is not reproducible; it is reported rather than deleted so the correction is auditable. What survives,
+and what the identification actually rests on, is the second half: the outer-quarter in-plane spread
+(0.17 m at `min(x)` against 0.86 m at `max(x)`, i.e. the wide rounded end is `+x`), the pitch-axis
+split (`x_max = pitch_axis * c` to 0.005 % median over all 186 rings) and `pitch_axis` agreeing
+between the yaml and the ElastoDyn deck to `1.1e-16`. The conclusion - leading edge at `+x`, so
+`x = (pitch_axis - f) * c` - is therefore unchanged and now pinned by guards that do not use a kink
+angle.
+
 ### 21.4 The measurement
 
 On a 266-strip real-class measurement (task brief) the AC landed at **0.75-0.94 c from the true
@@ -2635,3 +2650,110 @@ mechanism are right, stiffness is not the problem) and **not** only one-way-vs-c
 number. The de-loading gap is now attributed: "power up" = the axial-stretch artefact (the
 de-loading magnitude stays a reported residual); the thrust shortfall = a reference that does not
 transfer.
+
+### 22.12 The blade's bend-twist coupling, the section frame, and where the mesh limits the per-station numbers
+
+**Part 1 - the z~112.22 m tear is not what limits the outer band.**
+`tests/validation/blade/test_blade_section_frame_tear.py` (3 tests, one shell solve - the section
+22.10 pure-torque realisation - 79.8 s) reads the real mesh's station grid and free edges, then
+applies the tear discriminator.
+
+*The grid (mesh geometry, no solve).* 186 merged physical stations from 266 raw z buckets; spacing
+0.2985 / 0.5969 / 0.7963 m (min/median/max); ring node counts 12 (43 stations) to 26. 44 free edges:
+22 on the open root ring (z = 0), 12 on the open tip ring (z = 117), and the two interior tears:
+
+| tear | z [m] | gap to previous [m] | ring n | raw z buckets | free edges |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| inner | 11.9380 | 0.7951 (neighbours 0.7959) | 26 (neighbours 21) | 1 | 8 |
+| outer | 112.2245 | 0.4776 (neighbours 0.4776) | 12 (neighbours 12) | 1 | 2 |
+
+Neither is a gap or a doubled station: `_physical_stations` merges the prebend-split sub-buckets
+(1 bucket per tear ring) and the node dedup still reports 0 % reduction. The inner tear sits where
+the ring jumps 21 -> 26 nodes; the outer tear has no station-grid signature at all.
+
+*The discriminator at z = 112.2245.* Every geometric section quantity from the raw ring nodes lies
+**inside the interval spanned by its two immediate neighbours**, and the fitted section rotation's
+non-affine residual `distort` is smooth (0.973 -> 0.974 -> 0.975):
+
+| quantity | z = 111.7469 (prev) | z = 112.2245 (tear) | z = 112.7020 (next) |
+| --- | ---: | ---: | ---: |
+| chordwise extent [m] | 1.96096 | 1.93775 | 1.91782 |
+| xmin [m] | -1.27200 | -1.25427 | -1.23895 |
+| xmax [m] | 0.68897 | 0.68349 | 0.67886 |
+| hull area [m^2] | 0.43175 | 0.42402 | 0.42128 |
+| shoelace area [m^2] | 0.43023 | 0.42256 | 0.41986 |
+| declared chord [m] | 1.96073 | 1.93775 | 1.91414 |
+| fitted `distort` | 0.973 | 0.974 | 0.975 |
+
+The tear moves neither the geometry nor the affine fit. **Verdict: the z = 112.22 m tear is not a
+limit on the per-station numbers** - a connectivity defect with no measurable geometric or estimator
+footprint. What ended section 22.10's trustworthy band is the **section frame at the tip**: from
+r ~ 114.6 m the ring's chordwise extent leaves the declared chord while the pitch-axis split does not.
+Measured (declared-chord error / pitch-axis split error / `distort`):
+
+| z [m] | declared-chord extent | pitch-axis split | `distort` |
+| ---: | ---: | ---: | ---: |
+| 114.6122 | 0.00 % | 0.00 % | 0.984 |
+| 115.0102 | -3.54 % | 0.03 % | 0.989 |
+| 115.4082 | -10.87 % | 0.00 % | 0.994 |
+| 115.8061 | -19.75 % | 0.01 % | 0.998 |
+| 116.1046 | -25.72 % | 0.00 % | 1.000 |
+| 116.4031 | -34.60 % | 0.01 % | 1.000 |
+| 116.7015 | -25.64 % | 0.00 % | 1.000 |
+| 117.0000 | 0.00 % | 0.00 % | 1.000 |
+
+So the mesh's tip refinement (the yaml's taped-chord end), the `distort` saturation to 1.000, and the
+deck `GKt` having no valid station beyond r = 111.15 m (22.10) are what limit the outer band. No
+mesh was changed; the tear is recorded here as a mesh-generation defect with its station index, ring
+size and free-edge count.
+
+**Part 2 - the section frame, pinned.** Guard file:
+`tests/validation/blade/test_blade_section_frame_tear.py`; the P5 axis guard is
+`tests/validation/bem/test_force_projection_load_frame.py`.
+
+- `pitch_axis` is a chord fraction measured **from the leading edge**: the yaml pitch_axis (line 24)
+  and column 2 (`PitchAxis`) of the official ElastoDyn blade deck agree to `max |diff| = 1.1e-16`
+  over all 50 stations.
+- `x = (pitch_axis - f) c`, so `x = 0` is the pitch axis, the LE at `+pitch_axis c` and the TE at
+  `-(1 - pitch_axis) c`. On every one of the 186 physical rings - chord axis measured from the ring
+  outline only (SVD principal in-plane axis, blunt-end oriented), origin the declared reference-axis
+  point `(0, prebend(z), z)` - `xmax/(xmax - xmin) = pitch_axis` and
+  `-xmin/(xmax - xmin) = 1 - pitch_axis` to median **0.005 %** / max **0.987 %** (the max at the
+  circular root, z = 0); `x = 0` is strictly inside every ring. The bound is the suite's 5 % rule.
+- The **blunt** end (larger in-plane spread in the outer chord quarter - the production
+  `ForceProjector` rule) is the LE and lies at `+x` on **all 186** stations. The ring's own chord
+  axis agrees with the declared twist direction to median 0.36 deg / max 6.72 deg over the 182
+  stations with a defined chord axis (bound 10 deg; the 4 near-circular root rings
+  z in {0.0, 0.796, 1.592, 2.388} have no defined axis).
+- **Corner check at z = 68.05 m** (section 21.3's station): the `+x` (LE) node's interior angle is
+  **97.32 deg**, reproducing 21.3's 97.3 deg; the `-x` (TE) node reads **102.19 deg**, **not**
+  9.35 deg. The mesh's trailing edge is blunt (outer-quarter spread 0.17 m at the TE against 0.86 m
+  at the LE), so 9.35 deg is not an in-plane ring angle anywhere on the mesh (its whole-mesh minimum
+  in-plane ring angle is 76.7 deg). The frame fact the quote supported - min(x) is the TE, max(x)
+  the LE - is confirmed by the thickness rule, not by the quoted angle. **This is a finding.**
+- **LE/TE sense** vs the declared convention (fluid `+Y`, rotor clockwise viewed from behind,
+  `Omega = +omega y`): the tip chord axis is `c_hat = (0.99979, +0.02052, 0)`;
+  `c_hat . X = +0.99979 > 0` (mesh `+x` is the LE direction) and `(span x c_hat) . Y = +0.99979 > 0`
+  (the section normal is `+Y`, the fluid/downwind direction). Both are asserted.
+- **No single global axis is legitimate**: the maximum inter-station chord-direction angle is
+  **24.410 deg** (z = 3.184 to z = 105.061 m), > 2 x 10 deg, so no fixed vector satisfies the P5
+  per-section bound (P5, fixed in `9a3923e`).
+
+**Part 3 - the coupling statement the issue needs.** This blade has **`D16 = D26 = 0` in all 696
+sections** (recorded in `c6eb8bf`; pinned by
+`tests/validation/blade/test_blade_twist_mechanism.py::test_blade_laminates_have_no_bend_twist_coupling`,
+which asserts `max |D16| + |D26| <= 1e-9 |D|max` over every section). The bend-twist coupling
+mechanism the issue hypothesises therefore **cannot occur in this model** - there is no coupling to
+over-predict - and the element is **exonerated**: MITC4 against a converged Rayleigh-Ritz (12.5), a
+hand-authored CalculiX S8R composite deck (12.6) and the free-edge CLT (12.7) all agree within 1-3 %
+(quoted from the record, not re-run here). The blade-level twist residual against the literature is
+an aero/torque difference, not stiffness and not the load frame (22.7 moment identity, 22.9
+minimum-norm realisation over-delivers and softens, 22.10 `GJ_static/GJ_deck = 1.03-1.09` over
+r = 35-80 m, 22.11 their 4.072 Hz is within ~4 % of ours so the gap is their delivered torque).
+
+What the **new guards pin**: the section frame of Part 2 (pitch-axis split, blunt/LE sign, `-twist`
+chord axis, LE/TE sense, 24.410 deg spread) on the real mesh, so a reader cannot mis-sign `x`, the
+pitch axis or the LE/TE sense. What stays **quoted from the record**: the 696 balanced sections
+(re-pinned by the existing `test_blade_twist_mechanism.py`, not re-derived here), the element
+exoneration of 12.5-12.7, and the twist attributions of 22.7-22.11. The tear verdict of Part 1 is
+this unit's own measurement. No production code, no existing test and no store file was changed.
