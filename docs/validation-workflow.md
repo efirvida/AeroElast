@@ -111,8 +111,10 @@ is therefore **pilot-era**: the sweep that gave 28 groups their rows mined rows 
 the complementary question, so most domains have no gap recorded. Signals worth mining by hand:
 
 - an `xfail` marker (the suite admits a defect): 12 exist today, none in `gaps.yaml`;
-- a test that prints a verdict it never asserts (group 3 prints `[x] Norm vs Paper 3D: ...`
-  under a comment saying "informational only");
+- a test that prints a verdict it never asserts. One lived in group 3 and is gone: a
+  diagnostic compared a deflection against the paper's already-normalized table using an
+  absolute reference, so it printed a cross for every case while the comparison that was
+  asserted passed. When a passing test prints a failure, suspect the diagnostic first;
 - a comparison the store reads whose bound is loose (`list --gt5`).
 
 Use `gaps` to read them; edit `gaps.yaml` to add one; no command derives them.
@@ -233,6 +235,12 @@ answer where a list of line exclusions would be, and it says more.
 6. **Declarations and data belong to different commits.** `git add tools docs` sweeps row files
    into a code commit. Use exact paths and read `git show --stat`.
 7. **The extractor resolves constants, not `self`.** A bound on a class attribute is not read.
+8. **Check whether a reference is normalized or absolute before comparing against it.** A
+   paper's benchmark table is usually `w_FEM / w_3D`, and mixing it with a dimensional
+   reference scaled by the load alone gives a constant factor -- 6.25x in the clamped square
+   plate -- that reads like a physics failure. The paper's problem figure states the pairs
+   (L, t, p, E, nu) each table entry belongs to; a table with no thickness column is
+   normalized over one that is already fixed.
 
 ## 9. Pending work, recorded
 
