@@ -1694,6 +1694,13 @@ def test_measurement_text_never_says_none() -> None:
     assert module.measurement_text({"value": "0.9996", "error": "0.08"}) == "0.9996 0.08%"
     assert "None" not in module.measurement_text({"error": "0.0023"})
     assert module.measurement_text({}) == "the pattern captured no number"
+    # The suffix comes from the comparison: a percent for a relative residual, the declared
+    # unit for an absolute one, and nothing when the comparison does not say.
+    assert module.residual_suffix({"tolerance": {"kind": "rtol", "value": 0.05}}) == "%"
+    assert module.residual_suffix({"tolerance": {"kind": "atol", "unit": "%"}}) == "%"
+    assert module.residual_suffix({"tolerance": {"kind": "atol", "unit": "m"}}) == "m"
+    assert module.residual_suffix({"tolerance": {"kind": "atol", "unit": None}}) == ""
+    assert module.measurement_text({"error": "1e-10"}, "") == "1e-10"
 
 
 def test_a_measurement_that_is_not_numeric_is_refused(tmp_path: Path) -> None:

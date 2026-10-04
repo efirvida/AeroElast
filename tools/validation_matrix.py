@@ -3676,22 +3676,40 @@ def _float(value: Any) -> float | None:
         return None
 
 
-def measurement_text(printed: dict[str, Any]) -> str:
+def measurement_text(printed: dict[str, Any], suffix: str = "%") -> str:
     """What the print said, built from the parts its pattern captured.
 
     A canonical print carries an error and a bound and no separate value, so rendering the
     missing part produced texts like "None (0.0000%)", which then went into the store as the
     human-readable half of a measurement. Every part is optional here and nothing is invented:
     a pattern that captured nothing numbers nothing.
+
+    ``suffix`` comes from the comparison, never from here: a relative residual is a percentage
+    and an absolute one is whatever unit it declares, so writing a percent sign onto an absolute
+    deviation is the same mistake in miniature. An empty suffix says the unit is not known.
     """
     parts: list[str] = []
     if printed.get("value") is not None:
         parts.append(str(printed["value"]))
     if printed.get("error") is not None:
-        parts.append(f"{printed['error']}%")
+        parts.append(f"{printed['error']}{suffix}")
     if printed.get("bound") is not None:
-        parts.append(f"bound {printed['bound']}%")
+        parts.append(f"bound {printed['bound']}{suffix}")
     return " ".join(parts) or "the pattern captured no number"
+
+
+def residual_suffix(comparison: dict[str, Any]) -> str:
+    """The suffix a residual is rendered with, taken from the comparison and never guessed.
+
+    A relative residual is a percentage and an absolute one carries whatever unit the
+    comparison declares, so the percent sign belongs to the first and only the first. An empty
+    string says the unit is not known, which is what a print with no comparison behind it has.
+    """
+    tolerance = comparison.get("tolerance") or {}
+    if tolerance.get("kind") in RATIO_TOLERANCE_KINDS:
+        return "%"
+    unit = tolerance.get("unit")
+    return str(unit) if unit else ""
 
 
 def compare_row(
@@ -3749,7 +3767,7 @@ def compare_row(
                 "stored_digest": stored,
                 "value": _float(printed.get("value")),
                 "expected": printed.get("expected"),
-                "text": measurement_text(printed),
+                "text": measurement_text(printed, residual_suffix(comparison)),
             }
         )
     for printed in unasserted:
@@ -3763,7 +3781,8 @@ def compare_row(
                 "current": _float(printed.get("error")),
                 "value": _float(printed.get("value")),
                 "expected": printed.get("expected"),
-                "text": measurement_text(printed),
+                # An unasserted print has no comparison behind it, so no unit is known.
+                "text": measurement_text(printed, ""),
             }
         )
     return results

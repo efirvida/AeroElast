@@ -38,9 +38,13 @@ that failed.
 
 **`status` renders one row per group.** `src` is how many source files the group declares, and it
 reads `hand` where it declares none, because those rows were driven by hand and nothing can
-re-derive them. `rows` and `cmp` are what the store holds for that group; `measured`, `near` and
-`gt5` are about recorded margins and stay at zero until `regression --write` records them, which is
-a run of the suite and not of `status`.
+re-derive them. `rows` and `cmp` are what the store holds for that group. `measured` counts the comparisons
+carrying a margin, and it stays at zero until `regression --write` records them, which is a run of
+the suite and not of `status`. The other two are different kinds of flag and read differently:
+`near` is about the margin, counting comparisons whose margin is within one point of their bound,
+while `gt5` is about the tolerance, counting comparisons whose bound is looser than five times
+the suite rule -- a normalised residual legitimately carries a bound of one, because the number
+is already a fraction of the allowance, so a `gt5` there is the shape and not a loose window.
 
 ## Reading the source
 
