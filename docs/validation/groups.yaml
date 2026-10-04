@@ -182,6 +182,35 @@ groups:
       kept beside the comparison: a comment there used to say "Allow 10%" over
       an enforced 5%, and the enforced value is the one that ran.
 
+  - id: "9"
+    title: >-
+      `tests/validation/parity/test_ccx_shell_element_types_parity.py`
+      (CalculiX element types against the closed form)
+    slug: ccx_element_types
+    # No reference_kind: every comparison states its own. See
+    # docs/adding-validation-tests.md.
+    source_files:
+      - tests/validation/parity/test_ccx_shell_element_types_parity.py
+    # Transitional, and the last mile of the criterion: the extractor still
+    # counts a bare assertion against a literal as a comparison, and this test
+    # asserts that three CalculiX element families agree with each other. That
+    # is a property of the reference, not a comparison against an independent
+    # one, so rule 6 leaves it no row. It goes away when the criterion reads
+    # the assertion helper.
+    non_validation_tests:
+      - tests:
+          - test_ccx_element_types_agree_with_each_other
+        reason: >-
+          It compares three CalculiX element families with each other. The
+          reference is qualified against itself, which is a property of the
+          reference rather than a comparison against an independent one.
+    provenance_note: >-
+      The reference is the Euler-Bernoulli closed form for the in-plane
+      bending strip, so the three parametrised comparisons are each against a
+      formula and not against another code. The module prints each element's
+      error against that formula in the agreement test and never asserts it
+      there: the store records those as unasserted, which is what they are.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

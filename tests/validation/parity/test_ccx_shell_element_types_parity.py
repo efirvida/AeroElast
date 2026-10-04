@@ -66,6 +66,8 @@ from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, N
 from aeroelast.core.mesh.io.writers import write_ccx_mesh
 from aeroelast.core.mesh.model import MeshModel
 
+from tests.support.assertions import assert_relative_error  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Case constants (mirror tests/test_shell_validation_fixed.py)
 # ---------------------------------------------------------------------------
@@ -337,7 +339,11 @@ def test_ccx_element_type_matches_analytical(
         f"\n  CCX 2.23 {element_type}: uy = {value:.8E} m vs analytical "
         f"{ANALYTICAL_UY:.8E} m -> {err * 100:.4f}% (tol {TOL_ANALYTICAL * 100:.1f}%)"
     )
-    assert err < TOL_ANALYTICAL, (
-        f"CCX {element_type} uy={value:.8E} m deviates {err * 100:.4f}% from the "
-        f"analytical {ANALYTICAL_UY:.8E} m (> {TOL_ANALYTICAL * 100:.1f}%)"
+    assert_relative_error(
+        value,
+        ANALYTICAL_UY,
+        tol=TOL_ANALYTICAL,
+        kind="analytical",
+        reference_name="Euler-Bernoulli cantilever tip deflection, the closed form",
+        what=f"CCX 2.23 {element_type} tip deflection",
     )
