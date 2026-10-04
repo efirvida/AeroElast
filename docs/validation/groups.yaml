@@ -128,6 +128,16 @@ out_of_scope:
       implementations, and one of them is a timing. No independent reference
       anywhere, so rule 6 leaves none of it a row.
 
+  - files:
+      - tests/validation/rotor/test_bem_fsi_deformed_geometry.py
+    reason: >-
+      Its docstring calls it what it is: production guards for two confirmed
+      defects in the BEM-FSI participant, on the one-way de-loading path. The
+      rigid path against the standalone BEM is a regression guard that fixing
+      the deformed path did not break the undeformed one; the datum, the hub
+      protection and the twist agreement are invariants of the fix. None of
+      them is a physical quantity measured against an independent reference.
+
 groups:
   - id: "3"
     title: >-
