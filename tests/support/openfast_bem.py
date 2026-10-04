@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from tests.support.paths import DATA_DIR, SOURCES_DIR
+
 import numpy as np
 
 from aeroelast.models.blade.aerodynamics import (
@@ -41,9 +43,9 @@ from aeroelast.models.blade.aerodynamics import (
 )
 
 #: Vendored IEA 15 MW OpenFAST deck (tracked, Apache-2.0; see its NOTICE).
-VENDORED_DECK = Path(__file__).resolve().parent / "reference/iea15mw_openfast"
+VENDORED_DECK = DATA_DIR / "reference" / "iea15mw_openfast"
 #: Locally fetched copy of the same deck (`.sources` is gitignored).
-FETCHED_DECK = Path(".sources/openfast/iea15mw")
+FETCHED_DECK = SOURCES_DIR / "openfast" / "iea15mw"
 #: Deck used by the tests: the vendored one when present, else the fetched one.
 DEFAULT_DECK = VENDORED_DECK if VENDORED_DECK.exists() else FETCHED_DECK
 

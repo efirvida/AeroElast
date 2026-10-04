@@ -22,7 +22,6 @@ nodal drilling rotation (measured, it is not the section rotation on this shell)
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -46,11 +45,7 @@ from tests.validation.blade.test_blade_rated_twist import STATION_GAP_TOLERANCE,
 from tests.support.paths import DATA_DIR  # noqa: E402
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
 AD_PRIMARY = (
-    Path(__file__).resolve().parent
-    / "reference"
-    / "iea15mw_openfast"
-    / "case"
-    / "IEA-15-240-RWT_AeroDyn15.dat"
+    DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 )
 
 #: Rated point.  ``bem_config["omega"]`` is rad/s and ``_compute_forces`` converts back to

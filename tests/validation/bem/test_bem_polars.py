@@ -7,7 +7,6 @@ Covers:
 - BladeAero property accessors (r, chord, twist)
 """
 
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -18,8 +17,9 @@ from aeroelast.models.blade.aerodynamics import (
     load_blade_aero,
 )
 
-_PROJECT_ROOT = Path(__file__).resolve().parent
-IEA_YAML = str(_PROJECT_ROOT / "IEA-15-240-RWT.yaml")
+from tests.support.paths import DATA_DIR  # noqa: E402
+
+IEA_YAML = str(DATA_DIR / "IEA-15-240-RWT.yaml")
 
 
 # =====================================================================

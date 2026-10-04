@@ -36,7 +36,6 @@ task's bounds; they are not fitted to the measurement.
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -54,11 +53,7 @@ from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E4
 from tests.support.paths import DATA_DIR  # noqa: E402
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
 AD_PRIMARY = (
-    Path(__file__).resolve().parent
-    / "reference"
-    / "iea15mw_openfast"
-    / "case"
-    / "IEA-15-240-RWT_AeroDyn15.dat"
+    DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 )
 
 #: Production defaults of the standalone / FSI projectors.
