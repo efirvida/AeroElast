@@ -3676,6 +3676,24 @@ def _float(value: Any) -> float | None:
         return None
 
 
+def measurement_text(printed: dict[str, Any]) -> str:
+    """What the print said, built from the parts its pattern captured.
+
+    A canonical print carries an error and a bound and no separate value, so rendering the
+    missing part produced texts like "None (0.0000%)", which then went into the store as the
+    human-readable half of a measurement. Every part is optional here and nothing is invented:
+    a pattern that captured nothing numbers nothing.
+    """
+    parts: list[str] = []
+    if printed.get("value") is not None:
+        parts.append(str(printed["value"]))
+    if printed.get("error") is not None:
+        parts.append(f"{printed['error']}%")
+    if printed.get("bound") is not None:
+        parts.append(f"bound {printed['bound']}%")
+    return " ".join(parts) or "the pattern captured no number"
+
+
 def compare_row(
     ref: RowRef,
     asserted: list[dict[str, str]],
@@ -3731,7 +3749,7 @@ def compare_row(
                 "stored_digest": stored,
                 "value": _float(printed.get("value")),
                 "expected": printed.get("expected"),
-                "text": f"{printed.get('value')} ({printed.get('error')}%)",
+                "text": measurement_text(printed),
             }
         )
     for printed in unasserted:
@@ -3745,7 +3763,7 @@ def compare_row(
                 "current": _float(printed.get("error")),
                 "value": _float(printed.get("value")),
                 "expected": printed.get("expected"),
-                "text": f"{printed.get('value')} ({printed.get('error')}%)",
+                "text": measurement_text(printed),
             }
         )
     return results

@@ -1680,6 +1680,22 @@ def test_status_reports_coverage_and_pending_migration(tmp_path: Path) -> None:
     assert isinstance(payload["ungrouped_validation_files"], list)
 
 
+def test_measurement_text_never_says_none() -> None:
+    """The stored text is built from what the pattern captured, not from what it did not.
+
+    A canonical print carries an error and a bound and no separate value, and rendering the
+    missing part wrote "None (0.0000%)" into the store as the readable half of a measurement.
+    """
+    module = _load_tool_module()
+
+    assert module.measurement_text({"error": "0.0023", "bound": "1.0000"}) == (
+        "0.0023% bound 1.0000%"
+    )
+    assert module.measurement_text({"value": "0.9996", "error": "0.08"}) == "0.9996 0.08%"
+    assert "None" not in module.measurement_text({"error": "0.0023"})
+    assert module.measurement_text({}) == "the pattern captured no number"
+
+
 def test_a_measurement_that_is_not_numeric_is_refused(tmp_path: Path) -> None:
     """A margin that is not a number is not a measurement, and the writer says so.
 
