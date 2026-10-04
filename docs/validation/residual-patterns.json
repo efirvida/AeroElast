@@ -10,7 +10,11 @@
       "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
       "unasserted": "(?!)"
     },
-    "26": {
+    "27": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "26": {
    "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
    "unasserted": "(?!)"
   },

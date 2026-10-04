@@ -1196,6 +1196,29 @@ references:
       the store's own spelling for C&S, as the Lee entries use it.
     orphan_ok: True
 
+  - key: zhou2025
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: journal
+    authors: ['Zhou et al.']
+    venue: Energy
+    volume: 336
+    pages: 138488
+    year: 2025
+    doi: null
+    doi_status: to_verify
+    held: False
+    verification: unverified
+    bibliographic_gaps: ['title']
+    code_mentions: ['Zhou et al. 2025', 'Energy 336:138488']
+    notes: >-
+      Added for the rated-case validation, whose docstring cites "Zhou et al.
+      2025, Energy 336:138488, Table 6" and whose reference values are that
+      table. The authors are transcribed exactly as the file writes them, "et
+      al." and all, rather than expanded into names the file does not give; the
+      title and the DOI are not stated there and are declared as gaps.
+    orphan_ok: True
+
   - key: abaqus
     section: >-
       5. Verification benchmarks, reference models and validation literature
@@ -1225,8 +1248,9 @@ references:
       §3.6.5, §3.6.8); that document was removed from the repository in
       `ee6c345`, so the site is gone rather than declared. The live code sites
       are
-      `tests/validation/benchmarks/test_shell_static_and_modal.py:28` and, for the
-      S4R note, `src/aeroelast/postprocess/stress_recovery.py`; the prose sites
+      `tests/validation/benchmarks/test_shell_static_and_modal.py:28` and, for
+      the S4R note, `src/aeroelast/postprocess/stress_recovery.py`; the prose
+      sites
       `tests/validation/benchmarks/test_shell_static_and_modal.py:28` and
       `crates/aeroelast-core/src/elements/mitc4.rs:95` no longer name Abaqus and
       are recorded as stale.

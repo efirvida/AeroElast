@@ -734,6 +734,23 @@ groups:
       separately authored CCX deck. Two decoupled controls are excluded by
       line, because they assert that nothing happens.
 
+  - id: "27"
+    title: >-
+      `tests/validation/blade/test_blade_rated_twist.py`
+      (the IEA-15MW rated case: BEM resultants and the Zhou table)
+    slug: blade_rated_twist
+    citation: zhou2025
+    source_files:
+      - tests/validation/blade/test_blade_rated_twist.py
+    provenance_note: >-
+      The rated case at 10.59 m/s, with the aerodynamics from the repo's own BEM
+      engine over the official AeroDyn polars and the structure from the repo's
+      own shell blade. Two comparisons are against Zhou et al. 2025 Table 6 and
+      five are our applied loads against our own BEM resultants. The rest of the
+      file's assertions are directions and inequalities — a nose-down sense, a
+      spread, a deflection larger than another — which the site criterion does
+      not read, so they are neither rows nor exclusions.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

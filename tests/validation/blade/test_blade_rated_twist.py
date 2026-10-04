@@ -30,7 +30,6 @@ much the twist moves with the application, they are not the load path.
 
 from __future__ import annotations
 
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -74,6 +73,8 @@ ZHOU_TIP_TORSION_DEG = -3.60
 #: splits each ring into near-duplicate buckets. This merges them (and detects an element edge
 #: as in-plane when its endpoints are within it). It must stay well above the prebend skew and
 #: well below the spanwise element length (~0.3 m).
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 STATION_GAP_TOLERANCE = 0.02  # [m]
 
 
@@ -98,8 +99,20 @@ def test_rated_bem_matches_the_literature_rigid_case(rated_bem):
     power_mw = bem.power / 1e6
     print(f"\nrated BEM: thrust {thrust_mn:.3f} MN (Zhou rigid {ZHOU_RIGID_THRUST_MN}), "
           f"power {power_mw:.3f} MW (Zhou rigid {ZHOU_RIGID_POWER_MW})")
-    assert abs(thrust_mn - ZHOU_RIGID_THRUST_MN) / ZHOU_RIGID_THRUST_MN < 0.03
-    assert abs(power_mw - ZHOU_RIGID_POWER_MW) / ZHOU_RIGID_POWER_MW < 0.03
+    assert_residual_below(
+        abs(thrust_mn - ZHOU_RIGID_THRUST_MN) / ZHOU_RIGID_THRUST_MN,
+        tol=0.03,
+        kind="paper",
+        reference_name="Zhou et al. 2025, Energy 336:138488, Table 6, rigid case thrust",
+        what="rated BEM thrust",
+    )
+    assert_residual_below(
+        abs(power_mw - ZHOU_RIGID_POWER_MW) / ZHOU_RIGID_POWER_MW,
+        tol=0.03,
+        kind="paper",
+        reference_name="Zhou et al. 2025, Energy 336:138488, Table 6, rigid case power",
+        what="rated BEM power",
+    )
 
 
 def test_rated_pitching_moment_is_nose_down(rated_bem):
@@ -784,21 +797,33 @@ def test_rated_aero_loads_reproduce_the_bem_resultants(blade_shell, rated_bem):
     print(f"  mp_only sum(x F_y - y F_x) = {mz_mp:+.6e} N.m  ratio {mz_mp / i_mp:.6f}   "
           f"(net force {fy_mp:+.3e} N, a pure couple)")
 
-    assert abs(fy_ac - i_np) / i_np < 0.005, (
-        f"at_ac normal resultant {fy_ac:.6e} N is {fy_ac / i_np:.4f}x the BEM integral "
-        f"{i_np:.6e} N"
+    assert_residual_below(
+        abs(fy_ac - i_np) / i_np,
+        tol=0.005,
+        kind="self",
+        reference_name="our own BEM integral for the same load path",
+        what="at_ac normal resultant",
     )
-    assert abs(fx_ac - i_tp) / i_tp < 0.005, (
-        f"at_ac tangential resultant {fx_ac:.6e} N is {fx_ac / i_tp:.4f}x the BEM integral "
-        f"{i_tp:.6e} N"
+    assert_residual_below(
+        abs(fx_ac - i_tp) / i_tp,
+        tol=0.005,
+        kind="self",
+        reference_name="our own BEM integral for the same load path",
+        what="at_ac tangential resultant",
     )
-    assert abs(fy_un - i_np) / i_np < 0.005, (
-        f"uniform normal resultant {fy_un:.6e} N is {fy_un / i_np:.4f}x the BEM integral "
-        f"{i_np:.6e} N (the same resultant, a different distribution)"
+    assert_residual_below(
+        abs(fy_un - i_np) / i_np,
+        tol=0.005,
+        kind="self",
+        reference_name="our own BEM integral for the same load path",
+        what="uniform normal resultant, same resultant a different distribution",
     )
-    assert abs(mz_mp - i_mp) / abs(i_mp) < 0.005, (
-        f"mp_only resultant moment {mz_mp:.6e} N.m is {mz_mp / i_mp:.4f}x the BEM integral "
-        f"{i_mp:.6e} N.m"
+    assert_residual_below(
+        abs(mz_mp - i_mp) / abs(i_mp),
+        tol=0.005,
+        kind="self",
+        reference_name="our own BEM integral for the same load path",
+        what="mp_only resultant moment",
     )
 
     u = np.zeros(shell["n"])
@@ -947,10 +972,12 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
 
     # Applied-load invariant: the P5 guard's own 2 % bound on |F| vs bem.thrust / n_blades,
     # applied here to the load the structure is actually solved with.
-    assert abs(load_ratio - 1.0) < 0.02, (
-        f"the production load path applies |sum(F)| = {applied_mag:.4f} N, "
-        f"{load_ratio - 1.0:+.3%} off bem.thrust/{n_blades} = {thrust_per_blade:.4f} N "
-        f"(the 2 % bound the P5 guard uses)"
+    assert_residual_below(
+        abs(load_ratio - 1.0),
+        tol=0.02,
+        kind="self",
+        reference_name="the BEM thrust the structure is solved against",
+        what="applied-load invariant, the P5 guard bound",
     )
     # Directional invariant (the review's R3-001): |sum(F)| alone is a norm claim, so a load
     # rotated off the aero axis but norm-preserving would pass it. The aggregate thrust must
