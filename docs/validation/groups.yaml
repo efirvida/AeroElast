@@ -532,6 +532,20 @@ groups:
     source_files:
       - tests/validation/blade/test_blade_twist_anchor_beam.py
 
+    non_validation_tests:
+      - tests:
+          - tests/validation/blade/test_blade_twist_anchor_beam.py::test_anchor_beam_arbitrates_the_shell_section_rotation
+        reason: >-
+          The arbitration test asserts one invariant - a root-fixed beam's twist
+          magnitude accumulates monotonically - and every comparison it makes is
+          printed and never bounded: the beam against the shell's section
+          rotation, against mean(theta_z), and against Zhou et al. 2025 Table 4.
+          Choosing which estimator the aerodynamics see is a kinematic argument
+          (verdict 22.8), not a tolerance, and binding any of those numbers would
+          have meant calibrating a measurement to an outcome. The four bounds this
+          group does carry belong to the section-parsing test, which is where the
+          independent references are.
+
     provenance_note: >-
       The independent 1D beam takes its GJ and shear centre from the official
       IEA-15-240-RWT BeamDyn deck and its loads from the production BEM, so

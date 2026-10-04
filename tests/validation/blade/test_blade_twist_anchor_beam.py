@@ -217,7 +217,26 @@ def test_anchor_sections_cross_check_and_degenerate_tip(anchor):
     )
     assert abs(anchor["K"][i, 2, 2] - EA) / EA < 1e-12
     assert abs(anchor["K"][i, 5, 5] - GKt) / anchor["K"][i, 5, 5] < 0.01  # decoupled vs raw
-    assert err_x < EI_BENDING_TOL and err_y < EI_BENDING_TOL and bad > EI_BENDING_TOL
+    # The comparison that actually pins the reading is against a DIFFERENT deck: ElastoDyn's
+    # FlpStff/EdgStff were authored independently of the BeamDyn 6x6, so agreeing with them says
+    # the 6x6 was read the right way round. Written as comparisons because that is what they are;
+    # the `bad` term below stays bare because it is a discriminator between two of our own
+    # readings, not a bound against a reference.
+    assert_residual_below(
+        err_x,
+        tol=EI_BENDING_TOL,
+        kind="code",
+        reference_name="the official IEA-15-240-RWT ElastoDyn blade deck, FlpStff",
+        what="anchor flapwise bending stiffness",
+    )
+    assert_residual_below(
+        err_y,
+        tol=EI_BENDING_TOL,
+        kind="code",
+        reference_name="the official IEA-15-240-RWT ElastoDyn blade deck, EdgStff",
+        what="anchor edgewise bending stiffness",
+    )
+    assert bad > EI_BENDING_TOL, "the torsion-at-index-3 reading was not rejected"
 
     GKt = anchor["GKt"]
     floor = float(np.median(GKt)) / GKT_MEDIAN_FACTOR

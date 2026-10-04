@@ -20,11 +20,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c16842d
+      run: e1b7da7
       date: '2026-10-04'
       raw: null
       margin_pct: 0.0023
-      text: 0.0023% bound 1.0000%
+      text: 'anchor axial stiffness vs the official IEA-15-240-RWT BeamDyn deck, EA: 0.0023% (bound: 1.0000%)'
       digest: 4ec740a8369633c1
   - label: rtol at line 211
     asserted: true
@@ -39,11 +39,49 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c16842d
+      run: e1b7da7
       date: '2026-10-04'
       raw: null
       margin_pct: 0.0049
-      text: 0.0049% bound 1.0000%
+      text: 'anchor torsional stiffness vs the official IEA-15-240-RWT BeamDyn deck, GKt: 0.0049% (bound: 1.0000%)'
       digest: cae435f6ec341e9a
+  - label: rtol at line 225
+    asserted: true
+    reference:
+      kind: code
+      label: the official IEA-15-240-RWT ElastoDyn blade deck, FlpStff
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/blade/test_blade_twist_anchor_beam.py:225
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e1b7da7
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 1.9239
+      text: 'anchor flapwise bending stiffness vs the official IEA-15-240-RWT ElastoDyn blade deck, FlpStff: 1.9239% (bound: 2.0000%)'
+      digest: 7b67c3d8ed3c4085
+  - label: rtol at line 232
+    asserted: true
+    reference:
+      kind: code
+      label: the official IEA-15-240-RWT ElastoDyn blade deck, EdgStff
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/blade/test_blade_twist_anchor_beam.py:232
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e1b7da7
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 1.8011
+      text: 'anchor edgewise bending stiffness vs the official IEA-15-240-RWT ElastoDyn blade deck, EdgStff: 1.8011% (bound: 2.0000%)'
+      digest: 30fddc0f491a75d1
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
