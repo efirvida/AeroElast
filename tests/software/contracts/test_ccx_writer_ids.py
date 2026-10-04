@@ -26,6 +26,9 @@ import pytest
 
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
+import numpy as np  # noqa: E402
+from tests.conftest import ccx_bin_or_skip  # noqa: E402
+from tests.support.ccx_io import parse_frd_disp, run_ccx  # noqa: E402
 from tests.support.ccx_plate import OFFSET, build_mesh, write_deck  # noqa: E402
 
 
@@ -116,4 +119,29 @@ def test_deck_labels_are_internally_consistent(tmp_path: Path) -> None:
     plate = next(labels for name, labels in named_sets.items() if name.upper() == "EPLATE")
     assert plate == element_labels, (
         f"EPLATE={sorted(plate)} != all elements {sorted(element_labels)}"
+    )
+
+
+def test_offset_ids_give_the_same_ccx_result(tmp_path: Path) -> None:
+    """Same model, two id schemes: CCX must return the same displacement."""
+    ccx_bin = ccx_bin_or_skip()
+    results = {}
+    for name, offset in (("base", 0), ("shifted", OFFSET)):
+        workdir = tmp_path / name
+        workdir.mkdir()
+        mesh = build_mesh(offset)
+        inp = write_deck(workdir, mesh, "m")
+        completed = run_ccx(inp, ccx_bin)
+        if completed.returncode != 0:
+            pytest.fail(f"CCX failed for {name}:\n{completed.stdout[-2000:]}")
+        free_ids = sorted(
+            mesh.node_id_to_index[n.id] + 1 for n in mesh.get_node_set("free_face").nodes.values()
+        )
+        disp = parse_frd_disp(inp.with_suffix(".frd"), free_ids)
+        results[name] = np.mean([disp[nid][2] for nid in free_ids])
+
+    assert results["base"] != 0.0
+    rel = abs(results["base"] - results["shifted"]) / abs(results["base"])
+    assert rel < 1e-9, (
+        f"id scheme changed the result: base={results['base']}, shifted={results['shifted']}"
     )
