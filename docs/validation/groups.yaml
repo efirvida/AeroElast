@@ -560,6 +560,36 @@ groups:
       against and never asserts it, which is why that is reported and not
       stored.
 
+  - id: "21"
+    title: >-
+      `tests/validation/blade/test_laminate_bend_twist_3d.py`
+      (the 3D layer-wise solid judge for the bend-twist strip)
+    slug: laminate_bend_twist_3d
+    source_files:
+      - tests/validation/blade/test_laminate_bend_twist_3d.py
+    # Three assertions are not comparisons against a reference. The lines are
+    # the ones the extractor reports now, after the fix above moved them.
+    non_reference_asserts:
+      - at: "tests/validation/blade/test_laminate_bend_twist_3d.py:243"
+        reason: >-
+          The decoupled 3D control must not twist at all, which is a property
+          of how the deck was built rather than a measurement.
+      - at: "tests/validation/blade/test_laminate_bend_twist_3d.py:275"
+        reason: >-
+          The documented face-load artifact asserted as a band, 0.70 to 0.85.
+          The extractor reads the upper half of that chain as a comparison of
+          its own, which is why this needs excluding rather than converting.
+      - at: "tests/validation/blade/test_laminate_bend_twist_3d.py:276"
+        reason: >-
+          The consistent traction against the shell answer, which checks the
+          load path rather than measuring our result against a reference.
+    provenance_note: >-
+      A hand-authored CalculiX deck, one C3D20R per ply, used as an independent
+      judge of the shell for the strip's bend-twist behaviour. Its answer is a
+      comparison between two of our own models -- the 3D solid against the
+      shell, which rule 3 allows as a restrictive assertion -- and the rest of
+      the file is controls and convergence properties.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

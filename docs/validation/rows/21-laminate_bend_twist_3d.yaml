@@ -1,0 +1,48 @@
+group: '21'
+rows:
+- id: laminate_bend_twist_3d.test_3d_matches_the_shell_within_2_perce.single
+  group: '21'
+  title: test_3d_matches_the_shell_within_2_percent
+  tests:
+  - tests/validation/blade/test_laminate_bend_twist_3d.py::test_3d_matches_the_shell_within_2_percent
+  validates: 'H6 refuted: 3D layer-wise elasticity reproduces the shell/CLT twist.'
+  comparisons:
+  - label: rtol at line 298
+    asserted: true
+    reference:
+      kind: self
+      label: the AeroElast shell answer for the same strip
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/blade/test_laminate_bend_twist_3d.py:298
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: laminate_bend_twist_3d.test_3d_mesh_convergence.single
+  group: '21'
+  title: test_3d_mesh_convergence
+  tests:
+  - tests/validation/blade/test_laminate_bend_twist_3d.py::test_3d_mesh_convergence
+  validates: The 3D answer must settle under in-plane refinement, toward the shell.
+  comparisons:
+  - label: rtol at line 322
+    asserted: true
+    reference:
+      kind: self
+      label: the AeroElast shell answer for the same strip
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/blade/test_laminate_bend_twist_3d.py:322
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

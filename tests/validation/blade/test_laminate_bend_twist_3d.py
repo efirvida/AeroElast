@@ -42,12 +42,23 @@ import tests.validation.blade.test_laminate_bend_twist as coupon
 from tests.conftest import ccx_bin_or_skip
 
 #: Wall-clock bound for one CalculiX run [s]; a hung solver must fail fast.
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 _CCX_TIMEOUT_S = 900
 
 # The same orthotropic ply as the coupon suite, now with the full 3D constants the
 # shell's CLT cannot see (E3, nu13, nu23, G13, G23).
-_PLY_3D = dict(E1=120e9, E2=10e9, E3=10e9, NU12=0.3, NU13=0.3, NU23=0.3,
-               G12=5e9, G13=5e9, G23=3e9)
+_PLY_3D = {
+    "E1": 120e9,
+    "E2": 10e9,
+    "E3": 10e9,
+    "NU12": 0.3,
+    "NU13": 0.3,
+    "NU23": 0.3,
+    "G12": 5e9,
+    "G13": 5e9,
+    "G23": 3e9,
+}
 
 
 def serendipity8(xi: float, eta: float) -> list[float]:
@@ -284,7 +295,13 @@ def test_3d_matches_the_shell_within_2_percent(tmp_path):
     ratio = three_d / shell
     print(f"\n3D layer-wise = {np.rad2deg(three_d):+.6f} deg, shell = "
           f"{np.rad2deg(shell):+.6f} deg, ratio = {ratio:.4f}")
-    assert abs(ratio - 1.0) < 0.02, f"3D/shell = {ratio:.4f}"
+    assert_residual_below(
+        abs(ratio - 1.0),
+        tol=0.02,
+        kind="self",
+        reference_name="the AeroElast shell answer for the same strip",
+        what="3D solid twist over the shell twist",
+    )
 
 
 def test_3d_mesh_convergence(tmp_path):
@@ -302,4 +319,10 @@ def test_3d_mesh_convergence(tmp_path):
     coarse_gap = abs(values[1] - values[0])
     fine_gap = abs(values[2] - values[1])
     assert fine_gap < coarse_gap, (values, "3D twist is not converging with refinement")
-    assert abs(values[2] / shell - 1.0) < 0.02
+    assert_residual_below(
+        abs(values[2] / shell - 1.0),
+        tol=0.02,
+        kind="self",
+        reference_name="the AeroElast shell answer for the same strip",
+        what="refined 3D twist over the shell twist",
+    )
