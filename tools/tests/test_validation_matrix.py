@@ -1113,8 +1113,22 @@ def test_extract_residuals_uses_the_declared_group_patterns() -> None:
         ],
         residual,
     )
-    assert asserted == [{"value": "0.9814", "expected": "0.9782", "error": "0.33"}]
-    assert unasserted == [{"value": "6249.0122", "expected": "0.0", "error": "622932.13"}]
+    assert asserted == [
+        {
+            "value": "0.9814",
+            "expected": "0.9782",
+            "error": "0.33",
+            "line": "Norm vs Kirchhoff: 0.9814 (expected: 0.9782, error: 0.33%)",
+        }
+    ]
+    assert unasserted == [
+        {
+            "value": "6249.0122",
+            "expected": "0.0",
+            "error": "622932.13",
+            "line": "[x] Norm vs Paper 3D: 6249.0122 (expected: 0.0, error: 622932.13%)",
+        }
+    ]
 
 
 def _row_ref(comparisons: list[dict[str, Any]]) -> Any:
