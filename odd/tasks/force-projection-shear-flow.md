@@ -91,14 +91,19 @@ change it (`omega` stays `+0.1194 deg`), and the blade fixture assembles through
 (`core/mesh/generators.py::BladeMesh`, `_deduplicate_and_create_mesh`) and in
 `core/mesh/model.py`, not in the element kernels (`mitc4.rs`'s body is identical to main's).
 
-### Next work unit (not started)
+### Mesh/BEM alignment (done)
 
-Align the mesh-building path to main and re-add only this line's additive extras (the
-`--export-mesh` / `RotorHubMesh` CLI surface, `airfoil_spacing`, the CCX FSI deck in `writers.py`),
-then re-run: `test_blade_rated_twist.py`, `test_force_projection*.py`, the tube pair,
-`test_ccx_*`. The forcing invariant is main's printed numbers above, not a tolerance: the tree must
-reproduce `omega = -1.5112 deg` and `distortion/|omega| = 9.3633` before #11 T3 and #12 mean
-anything.
+It did not need `generators.py`'s additive surface re-added: `BladeMesh.generate` was already
+identical to main's except for the canonicalisation call, so the alignment was three targeted
+changes - drop the winding canonicalisation, take main's BEM polar path, keep the `rotorspin`
+removal - and the additive CLI surface (`--export-mesh`, `RotorHubMesh`, `airfoil_spacing`, the CCX
+deck) was never at risk. Acceptance met exactly: `omega = -1.5112 deg`, `distortion/|omega| =
+9.3633`, 7 passed.
+
+Still divergent from main, measured and recorded, not needed by #11/#12 and not covered by its
+guards: `crates/aeroelast-core/src/elements/mitc3.rs`, `solvers/elasticity/*`, `solvers/fsi/*`,
+`core/config.py`, `core/assembler.py`, `models/blade/aerodynamics.py` (this line's prebend/sweep)
+and the numad extras.
 
 ## Tasks
 
@@ -113,15 +118,31 @@ anything.
       closed / simple / area -> `usable` + `reason` + `witness`). Tests:
       `tests/test_section_contour.py`, 9 exact-property tests (no store rows: these are
       properties of our own data, not references). Outcome: 9 passed; tube regression 5 passed.
-- [ ] T2 — Torsional realisation: realise the section moment's span component as a wall shear
-      flow in the production path (`_distribute` or a new function the projector calls), on top
-      of the existing case-A guard. Pin it on the tube where Bredt is exact: rate/Bredt within
-      5% for the production path. Assert the invariances without tolerance (ruler read back from
-      the applied forces, self-equilibration, sign) and never widen a bound.
-- [ ] T3 — Blade re-measurement: re-measure with the change and report without fitting — tip
-      section rotation, spanwise `sum|fz|` (in-plane part expected ~0), `distortion/|omega|`
-      (was 9.36 under production, 0.206 in the older hand-built case), and the de-loading table.
-      A result outside the bound is the finding.
+- [x] T2prev — Mesh/BEM core aligned to `origin/main`, the blocking prerequisite found by
+      measurement: the winding canonicalisation (`core/mesh/winding.py`, absent from main)
+      removed, main's BEM polar path taken, the `rotorspin` override dropped earlier. Acceptance
+      met exactly: `tests/validation/blade/test_blade_rated_twist.py` prints tip section rotation
+      -1.5112 deg and distortion/|omega| 9.3633 (main's own numbers), 7 passed. Commits `680cf81`,
+      `22d3ccc`, `5520d77`.
+- [x] T2a — Torsional realisation as a wall shear flow, pinned on the tube: rate/Bredt 1.0031
+      (0.3091%) for the production entry point `realise_section_load`, on top of the case-A guard,
+      with the tolerance-free invariances (net force, independent torque ruler, sign). Corrected
+      after measurement: the ring-gap tolerance must ride the mesh's span extent (a prebent ring
+      was being sheared into partial arcs), and the realisation is gated to an
+      exactly-one-usable-ring strip because the multi-ring equal-share flow inverts the blade's tip
+      rotation (+0.1273 deg against the minimum-norm -1.4843 deg). Commits `f9d4144`, `7c82e9c`.
+- [x] T2b — Store refreshed for group 31: both comparisons are real Bredt rows at 0.3091%, the
+      adjudication points at the new row id, the two diagnostic prints are declared unasserted, and
+      `gaps.yaml`'s open defect now describes the remaining multi-ring case. `check` 0 errors,
+      `coherence` 29/29, `regression --group 31 --write` recorded 2 baselines. Commit `bb19fc4`.
+- [x] Verification — main's whole validation suite is green on this tree: `tests/validation`
+      434 passed, 18 skipped, 12 xfailed, 0 failed (parity+element 199 passed / 1 xfailed;
+      bem+benchmarks+blade+rotor 235 passed / 18 skipped / 11 xfailed).
+- [ ] T3 — Blade re-measurement: the change does **not** reach the blade (gated), so the blade sits
+      at main's numbers. T3 owes the recorded finding plus what the issue asked for: tip section
+      rotation, spanwise `sum|fz|`, `distortion/|omega|` (9.3633 under production), the de-loading
+      table, and the multi-ring realisation as its own work unit with its own reference. A result
+      outside the bound is the finding.
 
 ## Constraints
 
