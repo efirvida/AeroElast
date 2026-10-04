@@ -73,20 +73,37 @@ def assert_relative_error(
 def assert_residual_below(
     residual: float,
     *,
-    tol: float,
+    tol: float | None = None,
+    atol: float | None = None,
+    unit: str = "%",
     reference_name: str,
     kind: str,
     what: str,
 ) -> None:
-    """Assert a residual the test already holds is below ``tol``, taken against a named reference.
+    """Assert a residual the test already holds is below its bound, against a named reference.
 
     This is the suite's most common claim: a relative error against a published cell, a modal gap
-    against another code, a distance from a closed form. The residual is the difference divided by
-    the reference, so it is a fraction and the bound is the fraction the physics allows; the
-    reference it was measured against is named for the same reason as above.
+    against another code, a distance from a closed form.
+
+    ``tol`` is a fraction -- the residual is the difference divided by the reference -- and ``atol``
+    is a quantity in ``unit``, for a residual that is not a fraction at all: an angle in degrees, a
+    length, a force. Exactly one of the two is given, and the store takes the tolerance kind from
+    which one it was, so an absolute bound is recorded as an absolute bound instead of being called
+    a relative error.
     """
-    print(f"{what} vs {reference_name}: residual {residual:.4%} (bound: {tol:.4%})")
-    assert residual < tol, (
-        f"{what}: {residual:.4%} against {reference_name}, above the {tol:.4%} bound "
+    if (tol is None) == (atol is None):
+        raise ValueError("give exactly one of tol (a fraction) or atol (a quantity in unit)")
+    limit = tol if tol is not None else atol
+    if limit is None:  # the pair check above already refused this
+        raise ValueError("give exactly one of tol (a fraction) or atol (a quantity in unit)")
+    if tol is not None:
+        shown = f"{residual:.4%}"
+        bound = f"{tol:.4%}"
+    else:
+        shown = f"{residual:.6g} {unit}".strip()
+        bound = f"{limit:.6g} {unit}".strip()
+    print(f"{what} vs {reference_name}: {shown} (bound: {bound})")
+    assert residual < limit, (
+        f"{what}: {shown} against {reference_name}, above the {bound} bound "
         f"(kind {_check_kind(kind)})"
     )

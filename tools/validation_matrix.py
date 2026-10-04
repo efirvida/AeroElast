@@ -671,6 +671,13 @@ def _validate_reference(store: Store, where: str, ref: Any) -> None:
         store.error(where, "reference.citation is only meaningful when kind == 'paper'")
 
 
+# A ratio tolerance is a fraction. Nothing said so, so a percentage written where a fraction
+# belongs - `5` for five percent - passed every check and then made `slack` and the `near` and
+# `gt5` flags wrong by a factor of a hundred, silently, in the direction that looks like "far from
+# the bound". The stored data is a fraction everywhere today, and now it has to stay one.
+RATIO_TOLERANCE_MAX = 1.0
+
+
 def _validate_tolerance(store: Store, where: str, tol: Any) -> None:
     if not isinstance(tol, dict):
         store.error(where, "'tolerance' must be a mapping")
@@ -681,6 +688,15 @@ def _validate_tolerance(store: Store, where: str, tol: Any) -> None:
     kind = tol.get("kind")
     if kind not in TOLERANCE_KINDS:
         store.error(where, f"tolerance.kind must be one of {sorted(TOLERANCE_KINDS)}")
+    value = tol.get("value") if isinstance(tol, dict) else None
+    if kind in RATIO_TOLERANCE_KINDS and isinstance(value, int | float):
+        if value > RATIO_TOLERANCE_MAX:
+            store.error(
+                where,
+                f"tolerance.value is {value} for a {kind} tolerance, but a ratio tolerance is a "
+                "fraction: five percent is 0.05, not 5. A percentage here would make slack and the "
+                "near and gt5 flags wrong by a factor of a hundred",
+            )
     value = tol.get("value")
     if kind in {"sign", "exact", "subset"}:
         if value is not None:
