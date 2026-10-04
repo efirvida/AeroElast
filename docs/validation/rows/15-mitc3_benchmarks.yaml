@@ -1,0 +1,48 @@
+group: '15'
+rows:
+- id: mitc3_benchmarks.test_linear_tip_deflection_euler_bernoul.single
+  group: '15'
+  title: test_linear_tip_deflection_euler_bernoulli
+  tests:
+  - tests/validation/benchmarks/test_mitc3_benchmarks.py::test_linear_tip_deflection_euler_bernoulli
+  validates: 'Cantilever under small transverse tip force: δ = PL³/(3EI).'
+  comparisons:
+  - label: rtol at line 245
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli closed form P L^3 / (3 E I)
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:245
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mitc3_benchmarks.test_linear_tip_moment_sign.single
+  group: '15'
+  title: test_linear_tip_moment_sign
+  tests:
+  - tests/validation/benchmarks/test_mitc3_benchmarks.py::test_linear_tip_moment_sign
+  validates: A positive moment about +y on the free tip rotates the section from +x
+  comparisons:
+  - label: rtol at line 296
+    asserted: true
+    reference:
+      kind: analytical
+      label: the linear-theory tip deflection lambda L / 2
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:296
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

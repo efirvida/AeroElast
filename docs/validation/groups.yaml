@@ -413,6 +413,27 @@ groups:
       The rest of the file is the numerical machinery -- convergence orders,
       finiteness, a monotone trend -- which is why those are not rows.
 
+  - id: "15"
+    title: >-
+      `tests/validation/benchmarks/test_mitc3_benchmarks.py`
+      (MITC3+ large rotation, against the closed forms and the elastica)
+    slug: mitc3_benchmarks
+    # The kind is stated per comparison: the linear cases are against closed
+    # forms and the large-rotation ones against the elastica table. The citation
+    # is the first of the two works that table comes from, because a paper
+    # reference needs one that resolves; the comparison's own label names both.
+    citation: simo1986
+    source_files:
+      - tests/validation/benchmarks/test_mitc3_benchmarks.py
+    provenance_note: >-
+      Two kinds of reference in one file: the linear tip deflections against
+      Euler-Bernoulli and the linear-theory formula, which are closed forms, and
+      the half-circle and roll-up cases against the elastica reference table
+      published by Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979). The
+      equilibrium-path checks compare against the same table through a nested
+      helper whose bounds are local variables, so the extractor reports them as
+      unreadable rather than storing a bound it cannot read.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test
