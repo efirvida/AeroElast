@@ -189,6 +189,19 @@ python tools/validation_matrix.py regression --group N --write
   not read is left unmeasured and reported; it never stores a null (`check` would reject it).
 - `measured` therefore means *this machine, this date, this revision*.
 
+The report's vocabulary, and which of them is a defect:
+
+| verdict | means | how to read it |
+| --- | --- | --- |
+| `same` | digest and margin both match | nothing to do |
+| `changed` | the number moved under an unchanged source digest | a real movement: quote it |
+| `new_baseline` | the comparison had no margin recorded | this is what `--write` records |
+| `informational` | a print the pattern matched that no comparison claims | the test's own diagnostic, never asserted |
+| `unclaimed` | a node that printed and no row claims | usually expected: a declared `non_validation_tests`, or a test whose comparisons are bare asserts. It still makes the exit code 1 |
+| `unmapped` | a row whose printed-residual count differs from its asserted comparisons | a defect: the pattern reads the wrong number of residuals, or the row changed shape |
+| `not_measured` | the pattern did not read that print | the comparison stays unmeasured; no null is stored |
+| `test_changed` | the group's source digest moved | the numbers are expected to move too |
+
 ### E. Verify
 
 ```bash
