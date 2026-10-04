@@ -20,8 +20,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9996
+      margin_pct: 0.12
+      text: 0.9996 (0.12%)
+      digest: a13202cddedde57f
+    expected: 0.9984
   - label: rtol at line 840
     asserted: true
     reference:
@@ -35,8 +41,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.0026
+      margin_pct: 0.26
+      text: 1.0026 (0.26%)
+      digest: 1bd5847c2ff0ac2b
+    expected: 1.0
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa_2
@@ -59,8 +71,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.998
+      margin_pct: 0.0
+      text: 0.9980 (0.00%)
+      digest: 0e1c76238bd05705
+    expected: 0.998
   - label: rtol at line 840
     asserted: true
     reference:
@@ -74,8 +92,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9998
+      margin_pct: 0.0
+      text: 0.9998 (0.00%)
+      digest: ba6261c8a4939b64
+    expected: 0.9998
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa_3
@@ -98,8 +122,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9979
+      margin_pct: 0.0
+      text: 0.9979 (0.00%)
+      digest: be499cbbd4eba6df
+    expected: 0.9979
   - label: rtol at line 840
     asserted: true
     reference:
@@ -113,8 +143,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9998
+      margin_pct: 0.0
+      text: 0.9998 (0.00%)
+      digest: ba6261c8a4939b64
+    expected: 0.9998
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr
@@ -137,8 +173,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9991
+      margin_pct: 0.29
+      text: 0.9991 (0.29%)
+      digest: bb1d36c0c66e6adc
+    expected: 1.002
   - label: rtol at line 840
     asserted: true
     reference:
@@ -152,8 +194,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.0074
+      margin_pct: 0.44
+      text: 1.0074 (0.44%)
+      digest: 52c15582b27f6bec
+    expected: 1.003
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr_2
@@ -176,8 +224,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9975
+      margin_pct: 0.35
+      text: 0.9975 (0.35%)
+      digest: 0a852d157520211b
+    expected: 1.001
   - label: rtol at line 840
     asserted: true
     reference:
@@ -191,8 +245,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9998
+      margin_pct: 0.32
+      text: 0.9998 (0.32%)
+      digest: bbf6772660f6cfa7
+    expected: 1.003
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr_3
@@ -215,8 +275,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9974
+      margin_pct: 0.35
+      text: 0.9974 (0.35%)
+      digest: f31f787ac83e29d5
+    expected: 1.001
   - label: rtol at line 840
     asserted: true
     reference:
@@ -230,8 +296,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9996
+      margin_pct: 0.34
+      text: 0.9996 (0.34%)
+      digest: a2ed657537d2a65d
+    expected: 1.003
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_01_100_0_0_015625_0_0637019230769
@@ -254,8 +326,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9971
+      margin_pct: 0.39
+      text: 0.9971 (0.39%)
+      digest: 7f34bf07a63923bb
+    expected: 1.001
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_001_100000_0_0_015625_0_063701923
@@ -278,8 +356,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9967
+      margin_pct: 0.3
+      text: 0.9967 (0.30%)
+      digest: 6bf693b9d5c5fd6f
+    expected: 0.9997
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_0001_100000000_0_0_015625_0_06370
@@ -302,8 +386,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9967
+      margin_pct: 0.3
+      text: 0.9967 (0.30%)
+      digest: 6bf693b9d5c5fd6f
+    expected: 0.9997
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_01_100_0_0_015625_0_063701923076
@@ -326,8 +416,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9975
+      margin_pct: 0.16
+      text: 0.9975 (0.16%)
+      digest: 23d5cececb7a9398
+    expected: 0.9991
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_001_100000_0_0_015625_0_06370192
@@ -350,8 +446,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9974
+      margin_pct: 0.14
+      text: 0.9974 (0.14%)
+      digest: 2fdddc76befc9a0b
+    expected: 0.9988
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_0001_100000000_0_0_015625_0_0637
@@ -374,8 +476,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9974
+      margin_pct: 0.14
+      text: 0.9974 (0.14%)
+      digest: 2fdddc76befc9a0b
+    expected: 0.9988
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_3_pinched_cylinder_tables_8_to_9.expected0_false
@@ -398,8 +506,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9182
+      margin_pct: 1.41
+      text: 0.9182 (1.41%)
+      digest: d384dcf2ce73fd3e
+    expected: 0.9313
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_3_pinched_cylinder_tables_8_to_9.expected0_true
@@ -422,8 +536,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9317
+      margin_pct: 0.04
+      text: 0.9317 (0.04%)
+      digest: f86de278b07c1b00
+    expected: 0.9321
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_4_scordelis_lo_tables_10_to_11.expected0_false
@@ -446,8 +566,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9701
+      margin_pct: 2.73
+      text: 0.9701 (2.73%)
+      digest: 85983b1368decce2
+    expected: 0.9973
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_4_scordelis_lo_tables_10_to_11.expected0_true
@@ -470,8 +596,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9809
+      margin_pct: 1.34
+      text: 0.9809 (1.34%)
+      digest: 895b14518ea225ad
+    expected: 0.9942
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_02667_in_plane_1_0_0_005424_0_001754_0
@@ -494,8 +626,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9981
+      margin_pct: 0.1
+      text: 0.9981 (0.10%)
+      digest: fbdcc2e9ac41e322
+    expected: 0.9971
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_02667_out_of_plane_1_0_0_005424_0_0017
@@ -518,8 +656,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9998
+      margin_pct: 0.25
+      text: 0.9998 (0.25%)
+      digest: e95c3a66b64e5503
+    expected: 0.9973
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_0002667_in_plane_1e_06_0_005256_0_0012
@@ -542,8 +686,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9972
+      margin_pct: 0.06
+      text: 0.9972 (0.06%)
+      digest: ebb8ce013e7e751a
+    expected: 0.9978
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_0002667_out_of_plane_1e_06_0_005256_0
@@ -566,8 +716,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9981
+      margin_pct: 0.01
+      text: 0.9981 (0.01%)
+      digest: 04c428efebd34c5a
+    expected: 0.9982
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_6_hook_table_14_minimal_fix.0_9782
@@ -590,8 +746,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9814
+      margin_pct: 0.33
+      text: 0.9814 (0.33%)
+      digest: 73e94e3afb7cfadf
+    expected: 0.9782
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_004_2_0_expected_mitc40_false
@@ -614,8 +776,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9963
+      margin_pct: 0.67
+      text: 0.9963 (0.67%)
+      digest: eeb1888a55254413
+    expected: 1.003
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_004_2_0_expected_mitc40_true
@@ -638,8 +806,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.0011
+      margin_pct: 0.53
+      text: 1.0011 (0.53%)
+      digest: 8699ebd458d6e86c
+    expected: 0.9958
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_0004_0_002_expected_mitc41_false
@@ -662,8 +836,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9816
+      margin_pct: 0.18
+      text: 0.9816 (0.18%)
+      digest: 8d4c1fbd1de46192
+    expected: 0.9834
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_0004_0_002_expected_mitc41_true
@@ -686,8 +866,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9871
+      margin_pct: 1.39
+      text: 0.9871 (1.39%)
+      digest: 81a27e9cd739d26f
+    expected: 0.9736
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_8_full_hemisphere_table_17.0_004_2_0_0_996
@@ -710,8 +896,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9912
+      margin_pct: 0.49
+      text: 0.9912 (0.49%)
+      digest: 5c2bbae7dd48efee
+    expected: 0.996
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_8_full_hemisphere_table_17.0_0004_0_002_0_9798
@@ -734,8 +926,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9772
+      margin_pct: 0.26
+      text: 0.9772 (0.26%)
+      digest: df639265c847cb6b
+    expected: 0.9798
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_fa
@@ -758,8 +956,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9681
+      margin_pct: 0.83
+      text: 0.9681 (0.83%)
+      digest: 13f98853e00dfbc3
+    expected: 0.9762
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_tr
@@ -782,8 +986,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9955
+      margin_pct: 0.52
+      text: 0.9955 (0.52%)
+      digest: e7a035eace260dcd
+    expected: 0.9904
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_fa
@@ -806,8 +1016,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.9681
+      margin_pct: 0.99
+      text: 0.9681 (0.99%)
+      digest: 5b933d5a3829a702
+    expected: 0.9777
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_tr
@@ -830,7 +1046,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.0138
+      margin_pct: 2.03
+      text: 1.0138 (2.03%)
+      digest: 5f0fef7fa21a4300
+    expected: 0.9936
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

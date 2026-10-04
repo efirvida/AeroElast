@@ -19,7 +19,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.149886
+      margin_pct: 2.8396
+      text: 0.149886 (2.8396%)
+      digest: 1de8d309ac740e7a
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.0113584
+      margin_pct: 0.614
+      text: 0.0113584 (0.6140%)
+      digest: 8a8204fadd34eba1
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ccx_element_types.test_ccx_element_type_matches_analytical.s8
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.0114543
+      margin_pct: 0.2251
+      text: 0.0114543 (0.2251%)
+      digest: 46df6615db34588a
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ccx_element_types.test_ccx_element_type_matches_analytical.s8r
@@ -65,7 +75,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.0114849
+      margin_pct: 0.4929
+      text: 0.0114849 (0.4929%)
+      digest: c51f8d045e865390
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

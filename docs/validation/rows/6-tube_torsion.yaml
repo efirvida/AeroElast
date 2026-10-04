@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.00309
+      margin_pct: 0.3091
+      text: 1.00309 (0.3091%)
+      digest: c4e78b2a044cacd1
   - label: rtol at line 520
     asserted: true
     reference:
@@ -33,8 +38,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.00674
+      margin_pct: 0.6745
+      text: 1.00674 (0.6745%)
+      digest: 22d7f40b901e3133
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: tube_torsion.test_self_equilibrated_laminate_reproduc.single
@@ -56,8 +66,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.998598
+      margin_pct: 0.1402
+      text: 0.998598 (0.1402%)
+      digest: 2647692f9a76a55c
   - label: rtol at line 543
     asserted: true
     reference:
@@ -70,8 +85,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.00703
+      margin_pct: 0.7033
+      text: 1.00703 (0.7033%)
+      digest: 321f683a5dabefe8
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: tube_torsion.test_clamped_root_metric_convergence_ide.single
