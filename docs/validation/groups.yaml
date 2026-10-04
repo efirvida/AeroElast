@@ -751,6 +751,63 @@ groups:
       spread, a deflection larger than another — which the site criterion does
       not read, so they are neither rows nor exclusions.
 
+  - id: "28"
+    title: >-
+      `tests/validation/element/test_material_suite.py`
+      (isotropic, orthotropic and laminated shells against the classical
+      closed forms)
+    slug: material_suite
+    source_files:
+      - tests/validation/element/test_material_suite.py
+    # Eight assertions are properties of our own matrices or a sign the theory
+    # predicts, not values measured against a reference. The lines are the ones
+    # the extractor reported; the last one is parametrised over three cases and
+    # reports the same line three times.
+    non_reference_asserts:
+      - at: "tests/validation/element/test_material_suite.py:515"
+        reason: >-
+          A symmetric laminate's coupling matrix must be numerically zero: a
+          property of our own matrix, with an absolute bound whose unit the file
+          does not state.
+      - at: "tests/validation/element/test_material_suite.py:522"
+        reason: >-
+          The same numerical-zero requirement for the quasi-isotropic layup.
+      - at: "tests/validation/element/test_material_suite.py:753"
+        reason: >-
+          The reciprocal coupling must produce an axial displacement with the
+          sign the CLT derivation predicts; the bound is a numerical zero, not a
+          physical tolerance.
+      - at: "tests/validation/element/test_material_suite.py:769"
+        reason: >-
+          A symmetric laminate must not couple: spurious axial displacement
+          under a transverse load is a numerical-zero property of our own
+          result.
+      - at: "tests/validation/element/test_material_suite.py:890"
+        reason: >-
+          The same numerical-zero requirement, here for the exact ABD
+          matrices.
+      - at: "tests/validation/element/test_material_suite.py:964"
+        reason: >-
+          The rotated stiffness at 45 degrees must satisfy its own rotational
+          symmetry: both sides of the comparison come from the same call.
+      - at: "tests/validation/element/test_material_suite.py:968"
+        reason: >-
+          The second half of that rotational symmetry, for the shear coupling
+          entries.
+      - at: "tests/validation/element/test_material_suite.py:1077"
+        reason: >-
+          Our own stiffness matrix against its own transpose, over three
+          element and layup combinations.
+    provenance_note: >-
+      The material suite: a cantilever deflection or displacement against the
+      Euler-Bernoulli or bar closed form for isotropic single plies, single
+      orthotropic plies, symmetric and asymmetric laminates; the ABD matrices
+      against hand calculations; and the multi-ply equivalence of N plies with a
+      single layer of the same thickness. Three bounds were class attributes and
+      are module constants now, each with its own reason kept beside it, because
+      the extractor resolves a bound named at module scope and not one a class
+      carries.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

@@ -52,6 +52,8 @@ from aeroelast.core.material import IsotropicMaterial, OrthotropicMaterial
 # Constants
 # =============================================================================
 
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 L = 1.0  # cantilever length [m]
 B = 0.1  # width [m]
 F = 100.0  # tip load [N]
@@ -218,11 +220,26 @@ def _clt_b_coupling_tip_deflection(lam):
 # =============================================================================
 
 
+# The closed-form comparison tolerance: a cantilever deflection or displacement against
+# the Euler-Bernoulli or bar closed form, for both element families. Named at module level
+# because the extractor resolves a bound declared there and not one a class carries.
+TOL_CLOSED_FORM = 0.05
+
+# Quasi-isotropic layups carry a small but nonzero D16/D26 that inflates the compliance
+# roughly sixteen per cent above the Euler-Bernoulli value, so that comparison gets a
+# bound of its own instead of sharing the closed-form one.
+TOL_QUASI_ISO_D16_COUPLING = 0.20
+
+# The CLT B-coupling deflection carries a shear correction the classical theory does not
+# model, which is why the asymmetric laminates got a wider bound than the symmetric ones.
+TOL_B_COUPLING = 0.10
+
+
 class TestIsotropicAnalytical:
     """Isotropic shell against Euler-Bernoulli analytical solution."""
 
     THK = 0.01  # 10 mm shell
-    TOL = 0.05  # 5% tolerance
+    TOL = TOL_CLOSED_FORM  # 5% tolerance
 
     @pytest.fixture(autouse=True)
     def _setup(self):
@@ -243,8 +260,12 @@ class TestIsotropicAnalytical:
         uy = _tip_disp(u, tips, 1)
         ref = _euler_bernoulli_tip(F, L, self.EI_out)
         err = abs(uy - ref) / ref
-        assert err < self.TOL, (
-            f"MITC4 iso out-of-plane: {err * 100:.1f}% > {self.TOL * 100:.0f}% (FEM={uy * 1e6:.1f} um, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=TOL_CLOSED_FORM,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever",
+            what="MITC4 isotropic out-of-plane tip deflection",
         )
 
     def test_mitc3_out_of_plane(self):
@@ -258,8 +279,12 @@ class TestIsotropicAnalytical:
         uy = _tip_disp(u, tips, 1)
         ref = _euler_bernoulli_tip(F, L, self.EI_out)
         err = abs(uy - ref) / ref
-        assert err < self.TOL, (
-            f"MITC3 iso out-of-plane: {err * 100:.1f}% > {self.TOL * 100:.0f}% (FEM={uy * 1e6:.1f} um, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=TOL_CLOSED_FORM,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever",
+            what="MITC3 isotropic out-of-plane tip deflection",
         )
 
     def test_mitc4_in_plane_lateral(self):
@@ -273,8 +298,12 @@ class TestIsotropicAnalytical:
         ux = _tip_disp(u, tips, 0)
         ref = _euler_bernoulli_tip(F, L, self.EI_in)
         err = abs(ux - ref) / ref
-        assert err < self.TOL, (
-            f"MITC4 iso in-plane: {err * 100:.1f}% > {self.TOL * 100:.0f}% (FEM={ux * 1e6:.1f} um, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=TOL_CLOSED_FORM,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever, bending about the in-plane axis",
+            what="MITC4 isotropic in-plane tip deflection",
         )
 
     def test_mitc4_axial_stiffness(self):
@@ -289,7 +318,13 @@ class TestIsotropicAnalytical:
         A_cross = B * self.THK
         ref = F * L / (E_ISO * A_cross)
         err = abs(uz - ref) / ref
-        assert err < self.TOL, f"MITC4 axial: {err * 100:.1f}% > {self.TOL * 100:.0f}%"
+        assert_residual_below(
+            err,
+            tol=TOL_CLOSED_FORM,
+            kind="analytical",
+            reference_name="the axial bar closed form F L / (E A)",
+            what="MITC4 isotropic axial tip displacement",
+        )
 
 
 # =============================================================================
@@ -330,8 +365,12 @@ class TestOrthotropicSinglePly:
         ref = _euler_bernoulli_tip(F, L, EI)
         uy = self._run_out_of_plane(lam, 44)
         err = abs(uy - ref) / ref
-        assert err < self.TOL, (
-            f"[0°] MITC4Comp out-of-plane: {err * 100:.1f}% (FEM={uy * 1e6:.1f}, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs",
+            what="[0 deg] single ply MITC4Composite out-of-plane tip deflection",
         )
 
     def test_mitc4comp_ply90_out_of_plane(self):
@@ -346,8 +385,12 @@ class TestOrthotropicSinglePly:
         ref = _euler_bernoulli_tip(F, L, EI)
         uy = self._run_out_of_plane(lam, 44)
         err = abs(uy - ref) / ref
-        assert err < self.TOL, (
-            f"[90°] MITC4Comp out-of-plane: {err * 100:.1f}% (FEM={uy * 1e6:.1f}, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs",
+            what="[90 deg] single ply MITC4Composite out-of-plane tip deflection",
         )
 
     def test_mitc3comp_ply0_out_of_plane(self):
@@ -358,8 +401,12 @@ class TestOrthotropicSinglePly:
         ref = _euler_bernoulli_tip(F, L, EI)
         uy = self._run_out_of_plane(lam, 33)
         err = abs(uy - ref) / ref
-        assert err < self.TOL, (
-            f"[0°] MITC3Comp out-of-plane: {err * 100:.1f}% (FEM={uy * 1e6:.1f}, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs",
+            what="[0 deg] single ply MITC3Composite out-of-plane tip deflection",
         )
 
     def test_mitc4comp_ply0_axial(self):
@@ -380,8 +427,12 @@ class TestOrthotropicSinglePly:
         u = _solve(asm, f, clamped)
         uz = _tip_disp(u, tips, 2)
         err = abs(uz - ref) / ref
-        assert err < self.TOL, (
-            f"[0°] axial: {err * 100:.1f}% (FEM={uz * 1e6:.1f}, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the axial bar closed form F L / (A22 B) for the [0 deg] ply",
+            what="[0 deg] single ply axial tip displacement",
         )
 
     def test_mitc4comp_ply90_axial(self):
@@ -403,8 +454,12 @@ class TestOrthotropicSinglePly:
         u = _solve(asm, f, clamped)
         uz = _tip_disp(u, tips, 2)
         err = abs(uz - ref) / ref
-        assert err < self.TOL, (
-            f"[90°] axial: {err * 100:.1f}% (FEM={uz * 1e6:.1f}, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the axial bar closed form F L / (A11 B) for the [90 deg] ply",
+            what="[90 deg] single ply axial tip displacement",
         )
 
     def test_mitc4comp_ply45_out_of_plane(self):
@@ -442,7 +497,7 @@ class TestOrthotropicSinglePly:
 class TestSymmetricLaminates:
     """Symmetric laminates: B=0, only A and D matter."""
 
-    TOL = 0.05
+    TOL = TOL_CLOSED_FORM
 
     def _lam_0_90_s(self, total_h=0.008):
         """[0/90/90/0] symmetric 4-ply, equal thickness."""
@@ -455,6 +510,8 @@ class TestSymmetricLaminates:
     def test_symmetric_b_is_zero(self):
         """[0/90/90/0]: B matrix must be numerically zero."""
         lam = self._lam_0_90_s()
+        # The coupling matrix of a symmetric laminate must be numerically zero: a property
+        # of our own matrix under a named layup, not a value measured against a reference.
         assert np.max(np.abs(lam.B)) < 1e-6, (
             f"B not zero for symmetric laminate: max={np.max(np.abs(lam.B)):.3e}"
         )
@@ -481,8 +538,12 @@ class TestSymmetricLaminates:
         u = _solve(asm, f, clamped)
         uy = _tip_disp(u, tips, 1)
         err = abs(uy - ref) / ref
-        assert err < self.TOL, (
-            f"[0/90/90/0] out-of-plane: {err * 100:.1f}% (FEM={uy * 1e6:.1f}, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=TOL_CLOSED_FORM,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs",
+            what="[0/90/90/0] MITC4Composite out-of-plane tip deflection",
         )
 
     def test_symmetric_out_of_plane_mitc3comp(self):
@@ -500,7 +561,13 @@ class TestSymmetricLaminates:
         u = _solve(asm, f, clamped)
         uy = _tip_disp(u, tips, 1)
         err = abs(uy - ref) / ref
-        assert err < self.TOL, f"[0/90/90/0] MITC3Comp out-of-plane: {err * 100:.1f}%"
+        assert_residual_below(
+            err,
+            tol=TOL_CLOSED_FORM,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs",
+            what="[0/90/90/0] MITC3Composite out-of-plane tip deflection",
+        )
 
     def test_symmetric_in_plane_lateral_mitc4comp(self):
         """[0/90/90/0] — MITC4Comp in-plane Fx vs A11-based analytical.
@@ -519,8 +586,12 @@ class TestSymmetricLaminates:
         u = _solve(asm, f, clamped)
         ux = _tip_disp(u, tips, 0)
         err = abs(ux - ref) / ref
-        assert err < self.TOL, (
-            f"[0/90/90/0] in-plane: {err * 100:.1f}% (FEM={ux * 1e6:.1f}, ref={ref * 1e6:.1f} um)"
+        assert_residual_below(
+            err,
+            tol=TOL_CLOSED_FORM,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever, with the in-plane stiffness A11 the laminates give",
+            what="[0/90/90/0] MITC4Composite in-plane tip deflection",
         )
 
     def test_symmetric_axial_stiffness(self):
@@ -537,7 +608,13 @@ class TestSymmetricLaminates:
         u = _solve(asm, f, clamped)
         uz = _tip_disp(u, tips, 2)
         err = abs(uz - ref) / ref
-        assert err < self.TOL, f"[0/90/90/0] axial: {err * 100:.1f}%"
+        assert_residual_below(
+            err,
+            tol=TOL_CLOSED_FORM,
+            kind="analytical",
+            reference_name="the axial bar closed form F L / (A11 B) for the laminate",
+            what="[0/90/90/0] axial tip displacement",
+        )
 
     def test_quasi_iso_out_of_plane(self):
         """[0/45/-45/90]s — MITC4Comp out-of-plane Fy.
@@ -558,7 +635,13 @@ class TestSymmetricLaminates:
         err = abs(uy - ref) / ref
         # Quasi-iso has small but nonzero D16/D26 that inflates compliance ~16%;
         # allow 20% tolerance.
-        assert err < 0.20, f"Quasi-iso out-of-plane: {err * 100:.1f}%"
+        assert_residual_below(
+            err,
+            tol=TOL_QUASI_ISO_D16_COUPLING,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever, which the quasi-isotropic D16/D26 coupling inflates",
+            what="[0/45/-45/90]s quasi-isotropic out-of-plane tip deflection",
+        )
 
 
 # =============================================================================
@@ -569,7 +652,7 @@ class TestSymmetricLaminates:
 class TestAsymmetricLaminates:
     """Asymmetric laminates: B-coupling must be active and have correct sign."""
 
-    TOL = 0.10  # 10% — B-coupling analytical solution has shear correction uncertainty
+    TOL = TOL_B_COUPLING  # 10% — B-coupling analytical solution has shear correction uncertainty
 
     def _lam_asym(self, total_h=0.004):
         """[0/90] asymmetric 2-ply."""
@@ -608,9 +691,12 @@ class TestAsymmetricLaminates:
         u = _solve(asm, f, clamped)
         uy = _tip_disp(u, tips, 1)
         err = abs(uy - ref) / abs(ref)
-        assert err < self.TOL, (
-            f"[0/90] MITC3Comp B-coupling tip Uy: {err * 100:.1f}% error "
-            f"(FEM={uy * 1e6:.3f} um, ref={ref * 1e6:.3f} um)"
+        assert_residual_below(
+            err,
+            tol=TOL_B_COUPLING,
+            kind="analytical",
+            reference_name="the CLT B-coupling tip deflection for the same strip",
+            what="[0/90] MITC3Composite B-coupling tip deflection",
         )
 
     def test_b_coupling_analytical_mitc4comp(self):
@@ -636,9 +722,12 @@ class TestAsymmetricLaminates:
 
         if abs(ref) > 1e-12:
             err = abs(uy - ref) / abs(ref)
-            assert err < self.TOL, (
-                f"[0/90] B-coupling tip Uy: {err * 100:.1f}% error "
-                f"(FEM={uy * 1e6:.3f} um, ref={ref * 1e6:.3f} um)"
+            assert_residual_below(
+                err,
+                tol=TOL_B_COUPLING,
+                kind="analytical",
+                reference_name="the Reddy CLT B-coupling tip deflection, w = B11 P L^2 / (2 A11 D11_eff b)",
+                what="[0/90] MITC4Composite B-coupling tip deflection",
             )
         else:
             pytest.skip("Reference deflection too small to compare")
@@ -719,7 +808,13 @@ class TestIsoEquivalence:
         ts = _stiff_trace(asm_s)
         tm = _stiff_trace(asm_m)
         rel = abs(ts - tm) / max(abs(ts), abs(tm), 1e-12)
-        assert rel < 0.01, f"Multi-iso vs single K-trace: {rel * 100:.3f}% difference"
+        assert_residual_below(
+            rel,
+            tol=0.01,
+            kind="self",
+            reference_name="the single isotropic layer of the same total thickness",
+            what="stiffness trace of four isotropic plies",
+        )
 
     def test_n_iso_plies_same_displacement(self):
         """4 iso plies give same tip displacement as single layer under Fy."""
@@ -749,7 +844,13 @@ class TestIsoEquivalence:
         uy_s = _tip_disp(us, tips, 1)
         uy_m = _tip_disp(um, tips, 1)
         rel = abs(uy_s - uy_m) / max(abs(uy_s), 1e-12)
-        assert rel < 0.01, f"Multi-iso vs single Uy: {rel * 100:.3f}% difference"
+        assert_residual_below(
+            rel,
+            tol=0.01,
+            kind="self",
+            reference_name="the single isotropic layer of the same total thickness",
+            what="tip deflection of four isotropic plies",
+        )
 
 
 # =============================================================================
@@ -775,7 +876,13 @@ class TestABDMatrices:
         A11 = lam.A[0, 0]
         D11 = lam.D[0, 0]
         ratio = D11 / (A11 * h**2 / 12.0)
-        assert abs(ratio - 1.0) < 1e-6, f"D11/A11 ratio: {ratio:.6f} (expected 1.0)"
+        assert_residual_below(
+            abs(ratio - 1.0),
+            tol=1e-6,
+            kind="analytical",
+            reference_name="the classical lamination result D11 = A11 h^2 / 12",
+            what="isotropic ply D11 over A11 h^2 / 12",
+        )
 
     def test_symmetric_b_zero_exact(self):
         """[0/90/90/0] B must be exactly zero (floating point)."""
@@ -801,8 +908,12 @@ class TestABDMatrices:
 
         B11_lam = lam.B[0, 0]
         rel = abs(B11_lam - B11_from_A) / abs(B11_from_A)
-        assert rel < 1e-9, (
-            f"B11 mismatch: lam={B11_lam:.6e}, from single-ply A={B11_from_A:.6e}"
+        assert_residual_below(
+            rel,
+            tol=1e-9,
+            kind="analytical",
+            reference_name="the two-ply closed form B11 = h^2/2 (Q11_90 - Q11_0) built from the A matrices",
+            what="[0/90] coupling B11",
         )
         # E1 > E2 with the 0-ply at the bottom -> B11 < 0.
         assert B11_lam < 0, f"[0/90] must couple with B11 < 0, got {B11_lam:.6e}"
@@ -821,7 +932,13 @@ class TestABDMatrices:
         Q11 = E1 / (1.0 - nu12 * nu21)
         A11_hand = Q11 * h
         rel = abs(lam.A[0, 0] - A11_hand) / A11_hand
-        assert rel < 1e-10, f"A11 mismatch: {rel:.3e}"
+        assert_residual_below(
+            rel,
+            tol=1e-10,
+            kind="analytical",
+            reference_name="the hand calculation A11 = Q11 h",
+            what="single ply A11",
+        )
 
     def test_d_matrix_single_ply(self):
         """Single [0°] ply D11 = Q11 * h³/12."""
@@ -831,7 +948,13 @@ class TestABDMatrices:
         Q11 = E1 / (1.0 - nu12 * nu21)
         D11_hand = Q11 * h**3 / 12.0
         rel = abs(lam.D[0, 0] - D11_hand) / D11_hand
-        assert rel < 1e-10, f"D11 mismatch: {rel:.3e}"
+        assert_residual_below(
+            rel,
+            tol=1e-10,
+            kind="analytical",
+            reference_name="the hand calculation D11 = Q11 h^3 / 12",
+            what="single ply D11",
+        )
 
     def test_qbar_45_symmetry(self):
         """Qbar at 45°: Q11_bar = Q22_bar (symmetry) and Q16_bar = Q26_bar (both positive at +45°)."""
@@ -852,7 +975,16 @@ class TestABDMatrices:
 
         Q = compute_Q(_ORTHO)
         Qb = compute_Qbar(_ORTHO, 0.0)
-        assert np.allclose(Q, Qb, rtol=1e-10), "Qbar(0°) ≠ Q"
+        # allclose compares every entry against its own magnitude, and the rotated stiffness
+        # has entries that are exactly zero, so the faithful single residual is the largest
+        # entry deviation taken against the norm of the matrix rather than against each entry.
+        assert_residual_below(
+            float(np.max(np.abs(Q - Qb)) / (np.max(np.abs(Q)) + 1e-30)),
+            tol=1e-10,
+            kind="self",
+            reference_name="our own unrotated stiffness Q",
+            what="Qbar at zero rotation, worst entry against the matrix norm",
+        )
 
     def test_qbar_90_swaps_e1_e2(self):
         """Qbar at 90°: Q11_bar = Q22 (0°) and Q22_bar = Q11 (0°)."""
@@ -860,8 +992,20 @@ class TestABDMatrices:
 
         Q = compute_Q(_ORTHO)
         Qb90 = compute_Qbar(_ORTHO, 90.0)
-        assert abs(Qb90[0, 0] - Q[1, 1]) / Q[1, 1] < 1e-10, "Qbar90[0,0] ≠ Q[1,1]"
-        assert abs(Qb90[1, 1] - Q[0, 0]) / Q[0, 0] < 1e-10, "Qbar90[1,1] ≠ Q[0,0]"
+        assert_residual_below(
+            abs(Qb90[0, 0] - Q[1, 1]) / Q[1, 1],
+            tol=1e-10,
+            kind="self",
+            reference_name="our own unrotated stiffness Q, entry [1,1]",
+            what="Qbar at 90 degrees, entry [0,0]",
+        )
+        assert_residual_below(
+            abs(Qb90[1, 1] - Q[0, 0]) / Q[0, 0],
+            tol=1e-10,
+            kind="self",
+            reference_name="our own unrotated stiffness Q, entry [0,0]",
+            what="Qbar at 90 degrees, entry [1,1]",
+        )
 
     def test_cs_positive_definite(self):
         """Cs (transverse shear) matrix must be positive definite for all layups."""
