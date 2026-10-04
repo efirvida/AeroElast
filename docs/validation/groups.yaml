@@ -118,6 +118,16 @@ out_of_scope:
       same -- with bounds derived from those quantities. None of them is a
       comparison against an independent reference.
 
+  - files:
+      - tests/validation/element/test_rust_modal.py
+    reason: >-
+      Its docstring names its three subjects: the Rust modal solver against the
+      Python/SLEPc path on the same K and M, a composite blade modal analysis
+      comparing the same two, and a performance benchmark of one pipeline
+      against the other. Every comparison is between two of our own
+      implementations, and one of them is a timing. No independent reference
+      anywhere, so rule 6 leaves none of it a row.
+
 groups:
   - id: "3"
     title: >-
