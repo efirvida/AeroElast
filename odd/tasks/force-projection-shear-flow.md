@@ -164,3 +164,36 @@ and the numad extras.
   `_self_equilibrated_load`, `_realised_torque`, `_bredt_isotropic`, `_theta_fit`, `_theta_z`).
 - `odd/tasks/composite-bend-twist-verdict.md` sections 22.7, 22.9, 19.3; commits `40bf36a`,
   `d4fec33`, `e1b747a`; store: `gaps.yaml` id `moment_realization_over_delivers`.
+
+## T2c — the section is multi-cell, and the AC was on the wrong datum
+
+- **T2c-0 (measured).** The blade's section is not a tube: **159 of 186 physical rings form 3
+  cells** (outer skin plus two webs); only the 27 circular root rings are single-cell. `q = T/(2A)`
+  is the single-cell flow, so on most of the span it is the wrong field.
+- **T2c-1 (`0082b75`).** `section_cells` + `cell_adjacency` in `section_contour.py`: the bounded
+  faces of the wall graph and which cells each edge bounds. 8 property tests (ring, two-cell box,
+  three-cell box = the blade's own topology, dangling stub, non-z span, input order, degenerate
+  inputs, immutability).
+- **T2c-2a (`d9e8f70`).** The section frame and the acoustic centre now come from each strip's
+  **station ring**, not from the whole BEM band. Measured: **12 of 50 strips chose their LE and TE
+  on different physical rings** (24%), so the band's "chord" was not any section's; against the
+  AeroDyn chord the band datum errs 1.517%/5.538% (median/p90) where the ring datum errs
+  0.648%/1.736%. The two guards move to the same datum **without mirroring the implementation**
+  (the ring is selected from the deck's own radius), and their bounds are unchanged. Measured
+  consequence: the rated tip rotation moves **-1.5112 -> -0.8696 deg** and the twist-only
+  de-loading deepens **-4.00% -> -5.13%** of thrust toward Zhou's -13.04%, while the magnitude
+  against Zhou's -3.60 deg moves away (the one-way-versus-coupled comparison the module already
+  documents). 42 + 10 passed; no bound widened.
+- **T2c-2b (pending).** The multi-cell Bredt-Batho realisation. Why the single-cell flow inverts
+  the twist is measured: the ring's ordered contour **includes the web nodes**, so `A` is not the
+  enclosed area, and with `include_webs=False` (a genuine single cell) the same flow gives a
+  **physical** twist (-12.5 deg against the min-norm's -14.4 deg). Pin it on an **asymmetric**
+  two-cell box: `test_box_multicell_torsion.py` already documents that a symmetric one cannot
+  detect the error because its web carries zero net flow.
+- **T2c-2c (pending).** CCX arbitration of the blade's load path. Two limits measured first:
+  `write_ccx_mesh` spreads a load **uniformly** over the nodeset (`_write_ccx_cload` divides by the
+  node count), so it cannot represent a per-node wall flow; and sending the torque as a moment on
+  the 6th DOF blows up through the drilling DOF (418 m), documented in
+  `tests/test_blade_ccx_parity.py` - which is this line's own file, not main's, and has stale
+  imports after the `tests/` reorganisation. CCX arbitrates the **structure**; the AC datum is
+  arbitrated by the deck's geometry plus the 12/50 count above.
