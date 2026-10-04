@@ -1,0 +1,48 @@
+group: '14'
+rows:
+- id: shell_convergence.test_in_plane_bending_convergence.single
+  group: '14'
+  title: test_in_plane_bending_convergence
+  tests:
+  - tests/validation/parity/test_shell_convergence.py::test_in_plane_bending_convergence
+  validates: The in-plane tip displacement converges with observed order >= 1.5.
+  comparisons:
+  - label: rtol at line 225
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection of the same cantilever
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_shell_convergence.py:225
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_convergence.test_composite_laminate_gap_mesh_study.single
+  group: '14'
+  title: test_composite_laminate_gap_mesh_study
+  tests:
+  - tests/validation/parity/test_shell_convergence.py::test_composite_laminate_gap_mesh_study
+  validates: Is the AeroElast-vs-CalculiX laminate gap a mesh artifact or a
+  comparisons:
+  - label: rtol at line 433
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23, the same laminate on the same meshes
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_shell_convergence.py:433
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

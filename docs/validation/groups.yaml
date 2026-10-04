@@ -399,6 +399,20 @@ groups:
       cells are compared the same way, which is what keeps the improvement claim
       from being vacuous.
 
+  - id: "14"
+    title: >-
+      `tests/validation/parity/test_shell_convergence.py`
+      (shell convergence, against the closed form and against CCX)
+    slug: shell_convergence
+    source_files:
+      - tests/validation/parity/test_shell_convergence.py
+    provenance_note: >-
+      Two references in one file: the in-plane bending case extrapolates its own
+      convergence and compares the limit against the Euler-Bernoulli value, and
+      the laminate study compares AeroElast against CalculiX on the same meshes.
+      The rest of the file is the numerical machinery -- convergence orders,
+      finiteness, a monotone trend -- which is why those are not rows.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

@@ -58,6 +58,8 @@ from _aeroelast import PyMeshAssembler
 
 from tests.conftest import ccx_bin_or_skip
 
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Geometry and material
 # ---------------------------------------------------------------------------
@@ -220,10 +222,12 @@ def test_in_plane_bending_convergence():
         f"self-convergence order {min_order:.3f} < {MIN_ORDER}: "
         f"estimates={[f'{p:.3f}' for p in orders]}"
     )
-    assert extrap_error < EXTRAPOLATED_TOL, (
-        f"Richardson-extrapolated limit {u_extrap * 1e6:.4f} um is "
-        f"{extrap_error * 100:.4f}% from the Euler-Bernoulli value "
-        f"{DELTA * 1e6:.4f} um (max {EXTRAPOLATED_TOL * 100:.2f}%)"
+    assert_residual_below(
+        extrap_error,
+        tol=EXTRAPOLATED_TOL,
+        kind="analytical",
+        reference_name="the Euler-Bernoulli tip deflection of the same cantilever",
+        what="Richardson-extrapolated tip deflection",
     )
 
 
@@ -426,9 +430,12 @@ def test_composite_laminate_gap_mesh_study(tmp_path):
     )
 
     finest_gap = abs(gaps[-1])
-    assert finest_gap < LAMINATE_FINEST_GAP_TOL, (
-        f"finest-mesh AeroElast-vs-CalculiX gap {gaps[-1] * 100:.4f}% exceeds "
-        f"the {LAMINATE_FINEST_GAP_TOL * 100:.1f}% diagnostic bound"
+    assert_residual_below(
+        finest_gap,
+        tol=LAMINATE_FINEST_GAP_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23, the same laminate on the same meshes",
+        what="finest-mesh laminate gap",
     )
 
     # Refinement must not make the coarse-to-fine mismatch worse.  The 4.18%
