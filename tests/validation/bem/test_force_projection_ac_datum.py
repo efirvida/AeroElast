@@ -15,12 +15,22 @@ projector's own AC arithmetic:
 
 1. every mesh node belongs to a strip (the strip grid must not be offset
    from the mesh datum by the hub radius);
-2. the AC lands at the station's chord fraction from the geometrically
+2. the AC lands at the station ring's chord fraction from the geometrically
    identified leading edge (the **blunt** end of the section);
 3. the projected nodal forces reproduce the analytic moment about the
    origin, ``sum_k [ r_ac_k x F_k + M_AC_k ]`` with a **3-D** geometric AC -
    the check ``ForceProjector.verify`` cannot make, because it balances
    force only and never inspects ``M_strip``.
+
+The AC is defined on a *station's section*, and one BEM band holds three
+physical rings of a tapered, twisted, prebent blade, so the datum is read
+from the strip's **station ring** - the physical ring nearest the station's
+radius - not from the whole band.  That ring is selected here from the aero
+deck's own station radius (``blade_aero.r[k] - blade_aero.hub_radius``) by a
+test-local clustering of the mesh span coordinates (``_station_ring_points``);
+none of ``ForceProjector``'s ring groups is read.  The radius comes from the
+deck, the clustering from the mesh, so the ring the expectation uses is chosen
+independently of the projector's internals.
 
 Assertion 2 identifies the leading edge convention-free: within the outer
 quarter of the chord, the blunt end has the larger in-plane thickness (the
@@ -51,10 +61,9 @@ from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 
 from tests.support.paths import DATA_DIR  # noqa: E402
+
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
-AD_PRIMARY = (
-    DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
-)
+AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: Production defaults of the standalone / FSI projectors.
 SPAN_DIR = np.array([0.0, 0.0, 1.0])
@@ -65,6 +74,14 @@ DATUM_TOL = 0.02  # AC placement, as a fraction of the local chord
 MOMENT_TOL = 0.01  # relative error on |M_expected|
 END_SLAB = 0.25  # outer quarter of the chord, per end
 THICKNESS_TIE_REL = 0.10  # <=10 % thickness difference is a tie
+
+#: Test-local ring-merging tolerance, as a fraction of the **mesh's** span
+#: extent.  It is a different number from ``ForceProjector.RING_GAP_FRACTION``
+#: (1e-4) on purpose: this clustering is the test's own, so a change to the
+#: production tolerance cannot move the expectation.  1e-3 of the 117 m blade is
+#: 0.117 m: far above the 0.0072 m spread inside one physical ring and far below
+#: the 0.30 m closest spacing between the mesh's own rings.
+MESH_RING_GAP_FRACTION = 1e-3
 
 
 def _blunt_end(pts: np.ndarray, chord_dir: np.ndarray, span_dir: np.ndarray):
@@ -95,10 +112,54 @@ def _blunt_end(pts: np.ndarray, chord_dir: np.ndarray, span_dir: np.ndarray):
     return int(np.argmax(p)), int(np.argmin(p)), t_lo, t_hi
 
 
-def _section_chord_axis(pts: np.ndarray, span_dir: np.ndarray) -> np.ndarray:
-    """Principal in-plane axis of a strip outline, from the ring geometry alone.
+def _cluster_by_span(span_values, tolerance):
+    """Group span coordinates into physical rings by single linkage.
 
-    The section chord *axis* comes from an SVD of the strip's in-plane node
+    Test-local and pure: consecutive sorted values are one group while the gap
+    between them stays below *tolerance*.  No projector code is used.
+    """
+    order = np.argsort(span_values, kind="stable")
+    groups = []
+    start = 0
+    for i in range(1, len(order) + 1):
+        if i == len(order) or span_values[order[i]] - span_values[order[i - 1]] > tolerance:
+            groups.append(order[start:i])
+            start = i
+    return groups
+
+
+def _station_ring_points(coords, strip, blade_aero, k, span_dir, tolerance):
+    """The mesh physical ring nearest the aero deck's own station radius.
+
+    The target radius is ``blade_aero.r[k] - blade_aero.hub_radius`` - the
+    blade-local station radius read from the deck, not ``strip.r_center`` or any
+    projector ring group - and the ring is found by clustering **this strip's**
+    mesh span coordinates here.  The station ring is therefore determined by
+    inputs the projector does not supply.  A group of fewer than three nodes
+    cannot bound a section and is skipped.
+    """
+    target = float(blade_aero.r[k] - blade_aero.hub_radius)
+    pts = coords[strip.node_indices]
+    span = pts @ span_dir
+    best = None
+    best_distance = np.inf
+    for group in _cluster_by_span(span, tolerance):
+        if len(group) < 3:
+            continue
+        distance = abs(float(span[group].mean()) - target)
+        if distance < best_distance:
+            best_distance = distance
+            best = group
+    assert best is not None, (
+        f"strip {k}: no physical ring with >=3 nodes near station radius {target:.4f} m"
+    )
+    return pts[best]
+
+
+def _section_chord_axis(pts: np.ndarray, span_dir: np.ndarray) -> np.ndarray:
+    """Principal in-plane axis of a station-ring outline, from the ring geometry alone.
+
+    The section chord *axis* comes from an SVD of the ring's in-plane node
     offsets - never from ``ForceProjector`` - so a wrong production frame
     cannot make the expectation below agree with it by construction.  The
     sense is resolved once for the whole blade in
@@ -111,13 +172,13 @@ def _section_chord_axis(pts: np.ndarray, span_dir: np.ndarray) -> np.ndarray:
     return axis / np.linalg.norm(axis)
 
 
-def _geometry_load_frames(strips, coords, span_dir, normal_dir, tangential_dir):
-    """Per-strip ``(chord_hat, normal_hat)`` from the ring outlines alone.
+def _geometry_load_frames(ring_points, strip_widths, span_dir, normal_dir, tangential_dir):
+    """Per-strip ``(chord_hat, normal_hat)`` from the station-ring outlines alone.
 
-    Each axis is the principal in-plane axis of that strip's own nodes
-    (SVD), made continuous along the span, and the two senses are resolved
-    **once for the whole blade** from the configured reference directions
-    with the same rule the production code documents::
+    Each axis is the principal in-plane axis of that strip's **station-ring**
+    points (SVD), made continuous along the span, and the two senses are
+    resolved **once for the whole blade** from the configured reference
+    directions with the same rule the production code documents::
 
         chord_sign  = sign( sum_k dr_k * raw_chord_k  . tangential_dir )
         normal_sign = sign( sum_k dr_k * (raw_chord_k x span_dir) . normal_dir )
@@ -128,18 +189,16 @@ def _geometry_load_frames(strips, coords, span_dir, normal_dir, tangential_dir):
     """
     raw = []
     prev = None
-    for strip in strips:
-        axis = _section_chord_axis(coords[strip.node_indices], span_dir)
+    for pts in ring_points:
+        axis = _section_chord_axis(pts, span_dir)
         if prev is not None and float(axis @ prev) < 0.0:
             axis = -axis
         prev = axis
         raw.append(axis)
 
-    weight = np.array([float(strip.dr) for strip in strips])
+    weight = np.asarray(strip_widths, dtype=float)
     chord_sum = sum(weight[k] * raw[k] for k in range(len(raw)))
-    normal_sum = sum(
-        weight[k] * np.cross(raw[k], span_dir) for k in range(len(raw))
-    )
+    normal_sum = sum(weight[k] * np.cross(raw[k], span_dir) for k in range(len(raw)))
     chord_sign = 1.0 if float(chord_sum @ tangential_dir) >= 0.0 else -1.0
     normal_sign = 1.0 if float(normal_sum @ normal_dir) >= 0.0 else -1.0
 
@@ -180,10 +239,26 @@ def blade_case():
 def rated_bem(blade_case):
     """Bottom-up rated BEM result: Np, Tp and a physical (nose-down) Mp."""
     _, _, blade_aero, _ = blade_case
-    solver = BEMSolver(
-        blade_aero, rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.0
-    )
+    solver = BEMSolver(blade_aero, rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.0)
     return solver.compute(10.59, 7.56, 0.0)
+
+
+@pytest.fixture(scope="module")
+def station_rings(blade_case):
+    """Per-strip station-ring points, selected without the projector's groups.
+
+    The target radius comes from the aero deck (``blade_aero.r[k] -
+    blade_aero.hub_radius``) and the ring is found by clustering the strip's own
+    mesh span coordinates here, so ``projector._strip_ring_groups`` is never
+    read.  See :func:`_station_ring_points`.
+    """
+    _, coords, blade_aero, projector = blade_case
+    span = coords @ SPAN_DIR
+    tolerance = MESH_RING_GAP_FRACTION * float(span.max() - span.min())
+    return [
+        _station_ring_points(coords, strip, blade_aero, k, SPAN_DIR, tolerance)
+        for k, strip in enumerate(projector._strips)
+    ]
 
 
 def test_every_mesh_node_is_assigned(blade_case):
@@ -217,18 +292,25 @@ def test_every_mesh_node_is_assigned(blade_case):
     assert not empty_strips, f"strips without nodes: {empty_strips}"
 
 
-def test_aerodynamic_centre_datum(blade_case):
-    """The applied AC must sit at ``ac_frac`` of the chord from the true LE."""
-    _, coords, blade_aero, projector = blade_case
+def test_aerodynamic_centre_datum(blade_case, station_rings):
+    """The applied AC must sit at ``ac_frac`` of the **station-ring** chord."""
+    _, _, blade_aero, projector = blade_case
+    frames = _geometry_load_frames(
+        station_rings,
+        [float(strip.dr) for strip in projector._strips],
+        SPAN_DIR,
+        NORMAL_DIR,
+        TANGENTIAL_DIR,
+    )
     worst = 0.0
-    print(f"\n{'k':>3} {'chord':>7} {'thk_lo':>8} {'thk_hi':>8} "
-          f"{'frac_from_LE':>12} {'expected':>8}")
+    print(
+        f"\n{'k':>3} {'chord':>7} {'thk_lo':>8} {'thk_hi':>8} {'frac_from_LE':>12} {'expected':>8}"
+    )
     for k, strip in enumerate(projector._strips):
         if len(strip.node_indices) < 2:
             continue
-        idx = strip.node_indices
-        chord_dir = projector._strip_chord_dirs[k]
-        pts = coords[idx]
+        pts = station_rings[k]
+        chord_dir = frames[k][0]
         le_i, te_i, t_lo, t_hi = _blunt_end(pts, chord_dir, SPAN_DIR)
         p = pts @ chord_dir
         le_proj = float(p[le_i])
@@ -239,9 +321,7 @@ def test_aerodynamic_centre_datum(blade_case):
 
         # Read the datum the projection actually uses from its own arm.
         centroid_proj = float(strip.centroid @ chord_dir)
-        ac_proj_actual = centroid_proj - float(
-            projector._strip_ac_offsets[k] @ chord_dir
-        )
+        ac_proj_actual = centroid_proj - float(projector._strip_ac_offsets[k] @ chord_dir)
         # Fraction of the chord from the true leading edge toward the true
         # trailing edge: 0.25 is the physical value, ~0.75 the defect.
         frac_from_le = (le_proj - ac_proj_actual) / (le_proj - te_proj)
@@ -259,7 +339,7 @@ def test_aerodynamic_centre_datum(blade_case):
     print(f"worst datum error: {worst:.4f} c")
 
 
-def test_moment_conservation(blade_case, rated_bem):
+def test_moment_conservation(blade_case, rated_bem, station_rings):
     """The projected forces must reproduce the geometry-derived applied moment.
 
     ``ForceProjector.verify`` balances total force only, so a wrong section
@@ -271,29 +351,34 @@ def test_moment_conservation(blade_case, rated_bem):
         F_k = Np_k dr_k n_hat_k + Tp_k dr_k c_hat_k,
 
     where **every frame** ``(c_hat_k, n_hat_k)``, the AC point ``r_ac_k`` and
-    the strip ends are derived here from the ring outlines - the principal
-    in-plane axis of each strip's nodes (:func:`_geometry_load_frames`) and
-    the blunt-end LE rule (:func:`_blunt_end`) - with only the blade-wide
-    *sign* convention taken from the configured directions.  Nothing is read
-    from ``projector._strip_chord_dirs`` / ``_strip_normal_dirs``: an expected
-    value built from the implementation's own frame validates algebra, not
-    physics (suite audit section 22.1).  This geometry-derived expectation is
-    what makes the 1 % bound meaningful - it can only hold if production
-    follows each section, not a fixed global axis.
+    the strip ends are derived here from the **station-ring** outlines - the
+    principal in-plane axis of each strip's station ring
+    (:func:`_geometry_load_frames`) and the blunt-end LE rule
+    (:func:`_blunt_end`) - with only the blade-wide *sign* convention taken from
+    the configured directions.  Nothing is read from
+    ``projector._strip_chord_dirs`` / ``_strip_normal_dirs`` / ``_strip_ring_groups``:
+    an expected value built from the implementation's own frame validates
+    algebra, not physics (suite audit section 22.1).  This geometry-derived
+    expectation is what makes the 1 % bound meaningful - it can only hold if
+    production follows each station's own section, not the band's, and not a
+    fixed global axis.
     """
     _, coords, blade_aero, projector = blade_case
     forces = projector.project(rated_bem)
     moment_applied = np.cross(coords, forces).sum(axis=0)
 
     frames = _geometry_load_frames(
-        projector._strips, coords, SPAN_DIR, NORMAL_DIR, TANGENTIAL_DIR
+        station_rings,
+        [float(strip.dr) for strip in projector._strips],
+        SPAN_DIR,
+        NORMAL_DIR,
+        TANGENTIAL_DIR,
     )
     moment_expected = np.zeros(3)
     mp_total = 0.0
     for k, strip in enumerate(projector._strips):
-        idx = strip.node_indices
-        assert len(idx) > 0, f"strip {k} has no nodes; cannot be loaded"
-        pts = coords[idx]
+        assert len(strip.node_indices) > 0, f"strip {k} has no nodes; cannot be loaded"
+        pts = station_rings[k]
         chord_hat, normal_hat = frames[k]
         le_i, te_i, _, _ = _blunt_end(pts, chord_hat, SPAN_DIR)
         ac_frac = blade_aero.stations[k].airfoil.aerodynamic_center
@@ -315,6 +400,5 @@ def test_moment_conservation(blade_case, rated_bem):
         f"sum_k |Mp*dr| = {mp_total:.6e} N*m; error = {err / mp_total:.2f} x Mp"
     )
     assert rel <= MOMENT_TOL, (
-        f"moment error {err:.6e} N*m is {rel:.4f} of |M_expected| "
-        f"(bound {MOMENT_TOL})"
+        f"moment error {err:.6e} N*m is {rel:.4f} of |M_expected| (bound {MOMENT_TOL})"
     )
