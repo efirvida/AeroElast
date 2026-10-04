@@ -12,6 +12,36 @@ Rules of use:
 - **Never fix a symptom by widening a bound.** The deliverable is the finding
   (`CONTRIBUTING.md` rule 2).
 
+## Before believing a clean run: what each command answers
+
+`check` validates the store's **data** -- schemas, references, citations, literals, and the links
+between rows and groups. It never runs a test and never reads the code, so it can be green while the
+suite is red, and both are telling the truth: they answer different questions. The suite is the
+authority on the physics; `check` is the authority on the store.
+
+| the question | the command | what a clean answer means |
+| --- | --- | --- |
+| Is the store's data consistent? | `validation_matrix.py check` | the rows, the bibliography and the registries agree with each other |
+| Does the physics pass? | `pytest`, on `tests/` | the comparisons held on this machine, in this run |
+| Which row does this failure belong to? | `validation_matrix.py triage --scope <file>` | nothing: it names the failing test, the row it feeds, and how far past the bound it went |
+| Did a stored number move? | `validation_matrix.py regression` | the recorded margins still match a fresh run |
+| Do the row files still describe the code? | `validation_matrix.py coherence` | every group re-derives to the bytes on disk |
+| What does the store cover, and what not yet? | `validation_matrix.py status` | every validation file is grouped, declared out of scope, or was deleted as software |
+
+**A skip is not a pass, and not every error is a physics failure.** The suite skips when a
+dependency or a reference deck is absent, and the message names which. When a skip claims a file is
+missing, confirm it is not looking in the wrong place: thirteen tests skipped with "AeroDyn
+reference not present" while the deck sat in `tests/reference/iea15mw_openfast`, because their
+guard resolved the path from the test file's own depth and the file had moved. For the same reason
+an `ERROR` is usually setup -- a file that is not where it is looked for -- and not a comparison
+that failed.
+
+**`status` renders one row per group.** `src` is how many source files the group declares, and it
+reads `hand` where it declares none, because those rows were driven by hand and nothing can
+re-derive them. `rows` and `cmp` are what the store holds for that group; `measured`, `near` and
+`gt5` are about recorded margins and stay at zero until `regression --write` records them, which is
+a run of the suite and not of `status`.
+
 ## Reading the source
 
 ### The residual is large, or a cell moved from the value the prose records
