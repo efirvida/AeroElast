@@ -419,11 +419,6 @@ groups:
         reason: >-
           The assembled stiffness matrix against its own transpose: a
           symmetry of our own matrix, not an independent reference.
-      - at: "tests/validation/benchmarks/test_mitc3_smoothed.py:153"
-        reason: >-
-          A threshold that keeps the comparison beside it from being
-          vacuous -- the plain element must show the locking at all --
-          rather than a measurement of ours against the paper.
     provenance_note: >-
       The reference is Table 6 Mesh I of the paper, the normalized vertical
       displacement at point B of the Scordelis-Lo roof. The file re-reads the
@@ -513,19 +508,7 @@ groups:
     slug: composite_layup
     source_files:
       - tests/validation/parity/test_composite_layup_parity.py
-    # Two assertions are properties rather than comparisons, and declaring the
-    # whole test would lose nothing only if there were nothing to lose. The
-    # lines are the ones the extractor reported, not ones written from memory.
-    non_reference_asserts:
-      - at: "tests/validation/parity/test_composite_layup_parity.py:395"
-        reason: >-
-          The AeroElast out-of-plane deflection of a symmetric laminate
-          against the bound that says it is negligible: the B = 0
-          signature of our own model, not a comparison against a reference.
-      - at: "tests/validation/parity/test_composite_layup_parity.py:396"
-        reason: >-
-          The same check on the CalculiX side, which qualifies the reference
-          rather than measuring our result against it.
+
     provenance_note: >-
       Four layups through the same geometry and the same mesh in both codes, so
       the comparison isolates the composite material behaviour rather than the
@@ -562,18 +545,7 @@ groups:
     slug: blade_anchor_beam
     source_files:
       - tests/validation/blade/test_blade_twist_anchor_beam.py
-    # Two assertions are console-consistency checks, not comparisons: the same
-    # number read twice. The lines are the ones the extractor reported.
-    non_reference_asserts:
-      - at: "tests/validation/blade/test_blade_twist_anchor_beam.py:218"
-        reason: >-
-          The anchor's own K entry against the EA it was decoupled from: the
-          same number read twice rather than a measurement against a
-          reference.
-      - at: "tests/validation/blade/test_blade_twist_anchor_beam.py:219"
-        reason: >-
-          The same for GKt, which the file's own comment already calls
-          decoupled vs raw.
+
     provenance_note: >-
       The independent 1D beam takes its GJ and shear centre from the official
       IEA-15-240-RWT BeamDyn deck and its loads from the production BEM, so
@@ -589,22 +561,7 @@ groups:
     slug: laminate_bend_twist_3d
     source_files:
       - tests/validation/blade/test_laminate_bend_twist_3d.py
-    # Three assertions are not comparisons against a reference. The lines are
-    # the ones the extractor reports now, after the fix above moved them.
-    non_reference_asserts:
-      - at: "tests/validation/blade/test_laminate_bend_twist_3d.py:243"
-        reason: >-
-          The decoupled 3D control must not twist at all, which is a property
-          of how the deck was built rather than a measurement.
-      - at: "tests/validation/blade/test_laminate_bend_twist_3d.py:275"
-        reason: >-
-          The documented face-load artifact asserted as a band, 0.70 to 0.85.
-          The extractor reads the upper half of that chain as a comparison of
-          its own, which is why this needs excluding rather than converting.
-      - at: "tests/validation/blade/test_laminate_bend_twist_3d.py:276"
-        reason: >-
-          The consistent traction against the shell answer, which checks the
-          load path rather than measuring our result against a reference.
+
     provenance_note: >-
       A hand-authored CalculiX deck, one C3D20R per ply, used as an independent
       judge of the shell for the strip's bend-twist behaviour. Its answer is a
@@ -636,16 +593,7 @@ groups:
     citation: bernardi2025
     source_files:
       - tests/validation/blade/test_blade_iea15mw_validation.py
-    # One assertion is not a comparison and is excluded by line. It is the
-    # second time a chained comparison has produced a site from its upper
-    # bound alone.
-    non_reference_asserts:
-      - at: "tests/validation/blade/test_blade_iea15mw_validation.py:339"
-        reason: >-
-          The blade mass against the definition report, asserted as a band:
-          above it, and within 20%. The extractor reads the upper half of that
-          chain as a comparison of its own, and the lower half is a sign rather
-          than a bound.
+
     provenance_note: >-
       Four references on purpose: the tight comparison is AeroElast against
       CalculiX S8R on the same mesh and the same composite properties, and the
@@ -691,13 +639,7 @@ groups:
     slug: mass_matrix_validation
     source_files:
       - tests/validation/element/test_mass_matrix_validation.py
-    # One assertion is a symmetry of our own matrix rather than a measurement.
-    # The line is the one the extractor reported.
-    non_reference_asserts:
-      - at: "tests/validation/element/test_mass_matrix_validation.py:799"
-        reason: >-
-          The assembled mass matrix against its own transpose: a property of our
-          own matrix, not a comparison against a reference.
+
     provenance_note: >-
       The translational, lumped, consistent and rotary masses of every element
       against their closed forms, plus the single-element frequency. Five of the
@@ -715,17 +657,7 @@ groups:
     slug: laminate_bend_twist
     source_files:
       - tests/validation/blade/test_laminate_bend_twist.py
-    # Two assertions are controls, not comparisons. The lines are the ones the
-    # extractor reported.
-    non_reference_asserts:
-      - at: "tests/validation/blade/test_laminate_bend_twist.py:306"
-        reason: >-
-          Every metric of a decoupled control layup must be zero: that nothing
-          happens is the point of the control, not a measurement.
-      - at: "tests/validation/blade/test_laminate_bend_twist.py:822"
-        reason: >-
-          The same for the CCX deck's own decoupled control, which qualifies the
-          deck rather than measuring our result against a reference.
+
     provenance_note: >-
       Issue #9's coupon, rebuilt to pin down the definitions the original
       report left implicit. Four comparisons are against the free-edge CLT
@@ -759,45 +691,7 @@ groups:
     slug: material_suite
     source_files:
       - tests/validation/element/test_material_suite.py
-    # Eight assertions are properties of our own matrices or a sign the theory
-    # predicts, not values measured against a reference. The lines are the ones
-    # the extractor reported; the last one is parametrised over three cases and
-    # reports the same line three times.
-    non_reference_asserts:
-      - at: "tests/validation/element/test_material_suite.py:515"
-        reason: >-
-          A symmetric laminate's coupling matrix must be numerically zero: a
-          property of our own matrix, with an absolute bound whose unit the file
-          does not state.
-      - at: "tests/validation/element/test_material_suite.py:522"
-        reason: >-
-          The same numerical-zero requirement for the quasi-isotropic layup.
-      - at: "tests/validation/element/test_material_suite.py:753"
-        reason: >-
-          The reciprocal coupling must produce an axial displacement with the
-          sign the CLT derivation predicts; the bound is a numerical zero, not a
-          physical tolerance.
-      - at: "tests/validation/element/test_material_suite.py:769"
-        reason: >-
-          A symmetric laminate must not couple: spurious axial displacement
-          under a transverse load is a numerical-zero property of our own
-          result.
-      - at: "tests/validation/element/test_material_suite.py:890"
-        reason: >-
-          The same numerical-zero requirement, here for the exact ABD
-          matrices.
-      - at: "tests/validation/element/test_material_suite.py:964"
-        reason: >-
-          The rotated stiffness at 45 degrees must satisfy its own rotational
-          symmetry: both sides of the comparison come from the same call.
-      - at: "tests/validation/element/test_material_suite.py:968"
-        reason: >-
-          The second half of that rotational symmetry, for the shear coupling
-          entries.
-      - at: "tests/validation/element/test_material_suite.py:1077"
-        reason: >-
-          Our own stiffness matrix against its own transpose, over three
-          element and layup combinations.
+
     provenance_note: >-
       The material suite: a cantilever deflection or displacement against the
       Euler-Bernoulli or bar closed form for isotropic single plies, single

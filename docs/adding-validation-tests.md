@@ -81,6 +81,11 @@ instead of reading the tests. With the reference named, it does not need any:
 The store's per-test declarations -- `non_reference_asserts`, `validation_helpers`,
 `non_validation_tests` -- exist because the tests did not say which of these they were. They are
 scaffolding for the files written before this contract, and they go away as those files conform.
+Twenty `non_reference_asserts` entries went away on their own when the criterion stopped reading
+bare relational asserts: `assert err < 0.05` names no reference, so it is not a site and needs no
+declaration. The declaration is still the right one for a single case, a comparison written as a
+call that carries a bound while both sides are our own -- `assert_allclose` of a quantity against a
+literal -- which the store does read and has to be told not to attribute.
 
 ## Steps
 
