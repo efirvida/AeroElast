@@ -7,7 +7,7 @@ rows:
   - tests/validation/parity/test_composite_beam_parity.py::TestCompositeMaterial::test_clt_matches_independent_hand_reference
   validates: AeroElast CLT must match a first-principles CLT (external judge).
   comparisons:
-  - label: rtol at line 440
+  - label: rtol at line 441
     asserted: true
     reference:
       kind: analytical
@@ -15,13 +15,13 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0
-      source: tests/validation/parity/test_composite_beam_parity.py:440
+      source: tests/validation/parity/test_composite_beam_parity.py:441
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: rtol at line 447
+  - label: rtol at line 448
     asserted: true
     reference:
       kind: analytical
@@ -29,13 +29,13 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0
-      source: tests/validation/parity/test_composite_beam_parity.py:447
+      source: tests/validation/parity/test_composite_beam_parity.py:448
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: atol at line 458
+  - label: atol at line 459
     asserted: true
     reference:
       kind: analytical
@@ -43,18 +43,13 @@ rows:
     tolerance:
       kind: atol
       value: 1.0e-06
-      source: tests/validation/parity/test_composite_beam_parity.py:458
+      source: tests/validation/parity/test_composite_beam_parity.py:459
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: measured
-      run: 25dd0bc
-      date: '2026-10-04'
-      raw: null
-      margin_pct: 1.09139e-10
-      text: 1.09139e-10 bound 1e-06
-      digest: e7d700a33097215c
-  - label: atol at line 466
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 467
     asserted: true
     reference:
       kind: analytical
@@ -62,17 +57,12 @@ rows:
     tolerance:
       kind: atol
       value: 1.0e-06
-      source: tests/validation/parity/test_composite_beam_parity.py:466
+      source: tests/validation/parity/test_composite_beam_parity.py:467
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: measured
-      run: 25dd0bc
-      date: '2026-10-04'
-      raw: null
-      margin_pct: 8.73115e-11
-      text: 8.73115e-11 bound 1e-06
-      digest: 5c81db5f7f3cd1b8
+      status: not_measured
+      margin_pct: null
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_beam_parity.test_composite_axial_tension.single
@@ -82,7 +72,7 @@ rows:
   - tests/validation/parity/test_composite_beam_parity.py::test_composite_axial_tension
   validates: Test composite shell under axial tension using full ABD matrices.
   comparisons:
-  - label: rtol at line 609
+  - label: rtol at line 610
     asserted: true
     reference:
       kind: analytical
@@ -90,13 +80,13 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/parity/test_composite_beam_parity.py:609
+      source: tests/validation/parity/test_composite_beam_parity.py:610
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: rtol at line 616
+  - label: rtol at line 617
     asserted: true
     reference:
       kind: code
@@ -104,7 +94,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/parity/test_composite_beam_parity.py:616
+      source: tests/validation/parity/test_composite_beam_parity.py:617
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -119,7 +109,7 @@ rows:
   - tests/validation/parity/test_composite_beam_parity.py::test_composite_isotropic_equiv
   validates: Test composite shell using isotropic equivalent (E_avg) for comparison.
   comparisons:
-  - label: rtol at line 730
+  - label: rtol at line 731
     asserted: true
     reference:
       kind: analytical
@@ -127,13 +117,13 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/parity/test_composite_beam_parity.py:730
+      source: tests/validation/parity/test_composite_beam_parity.py:731
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: rtol at line 737
+  - label: rtol at line 738
     asserted: true
     reference:
       kind: code
@@ -141,7 +131,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/parity/test_composite_beam_parity.py:737
+      source: tests/validation/parity/test_composite_beam_parity.py:738
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -156,7 +146,7 @@ rows:
   - tests/validation/parity/test_composite_beam_parity.py::test_composite_bending
   validates: Test composite shell under transverse bending.
   comparisons:
-  - label: rtol at line 836
+  - label: rtol at line 837
     asserted: true
     reference:
       kind: analytical
@@ -164,13 +154,13 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/parity/test_composite_beam_parity.py:836
+      source: tests/validation/parity/test_composite_beam_parity.py:837
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: rtol at line 843
+  - label: rtol at line 844
     asserted: true
     reference:
       kind: code
@@ -178,7 +168,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/parity/test_composite_beam_parity.py:843
+      source: tests/validation/parity/test_composite_beam_parity.py:844
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

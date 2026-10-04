@@ -49,35 +49,45 @@ gaps:
     scope: the torsional nodal distribution in force_projection.py
     status: open_defect
     reason: >-
-      The minimum-norm realisation of a pure section moment is exactly
+      The minimum-norm realisation of a pure section moment was exactly
       `f_j = omega x d_j`, circle-tangential about the section centroid, and not
-      the wall shear flow `q = T/(2A)` a closed section carries. It
-      over-delivers rigid torsion instead of under-delivering it: case B measures
-      31.69x the Bredt rate where the validated shear flow on the same mesh,
-      torque and solver reproduces Bredt within 5% (0.3091%).
+      the wall shear flow `q = T/(2A)` a closed section carries - it
+      over-delivers rigid torsion instead of under-delivering it. The tube case
+      is fixed: a strip that is one usable ring now realises its span moment as
+      Bredt's flow and reproduces the exact rate (0.3091%, inside the 5% rule).
+      What stays open is the multi-ring case, and it is the blade's own case: a
+      BEM band there holds three physical rings, and the equal-share per-ring
+      flow is measured to invert the tip rotation (+0.1273 deg against the
+      minimum-norm -1.4843 deg and Zhou's nose-down -3.60 deg), so it is gated
+      off and the multi-ring realisation remains unvalidated.
     evidence: >-
       tests/validation/parity/test_thin_walled_tube_moment_realization.py
-      (verdict 22.9), measured on the exact tube: rate/Bredt 1.0031 for the
-      shear flow and 31.6933 for the production field, with
-      `distortion/|rotation|` 2.042 against 0.008. The departure is an end
-      effect and decays with length: the clamped-tip ratio runs 8.86 (L = 6) ->
-      3.20 (L = 24) -> 2.10 (L = 48) toward Bredt with a fixed `~1.45e-3 rad` of
-      extra tip rotation, so the 31.69x is NOT a blade-scale statement. Related
-      measurements pointing at the same place: `distortion/|omega| = 9.36` under
-      the production path (verdict 20.5) and the statically equivalent end load
-      that bought 125x the section distortion at the same torque (verdict
-      section 19.3, commit d4fec33).
+      (group 31): the independent hand-written shear flow and the production
+      path both land at rate/Bredt 1.0031 with `distortion/|rotation|` 0.008,
+      against
+      31.6933 and 2.042 for the minimum-norm field they replaced (verdict 22.9).
+      The pre-fix departure was an end effect and decayed with length: the
+      clamped-tip ratio ran 8.86 (L = 6) -> 3.20 (L = 24) -> 2.10 (L = 48)
+      toward Bredt with a fixed `~1.45e-3 rad` of extra tip rotation, so the
+      31.69x was
+      never a blade-scale statement. The multi-ring measurement is on
+      tests/validation/blade/test_blade_rated_twist.py: tip section rotation
+      +0.1273 deg with the per-ring flow against -1.4843 deg with the
+      minimum-norm path (origin/main prints -1.5112 deg).
     consequence: >-
-      This adds the torsional mechanism to the uncitability the two
-      force_projection defects already impose, and it is recorded because the
-      mechanism is now localised - the realised field is `omega x d_j`, not
-      `q = T/(2A)` - which is what a fix has to act on. Two claims the first
-      version of this entry leaned on are withdrawn: the `0.74x` / `1.35x`
-      torsional deficit of 1df95fe was a reference mix-up and became a 9%
-      residual once `GJ_static/GJ_deck = 1.068` was measured (verdict 22.10), and
-      the deficit's remaining 2.4x against Zhou's tip torsion is an
-      aero/torque difference, not a stiffness or load-frame one (verdict 22.11:
-      their 4.072 Hz first torsion matches our 4.000 Hz to 1.8%).
+      The blade's torsional load path is still the minimum-norm one; the fix is
+      pinned only where an independent reference exists, a single-cell tube. The
+      multi-ring realisation needs its own reference before it can be enabled:
+      a multi-cell section carries a different shear flow, and a partial arc
+      or a mixed-ring contour still passes `contour_report.usable`, so the gate
+      alone cannot certify it. Two claims the first version of this entry
+      leaned on are withdrawn: the `0.74x` / `1.35x` torsional deficit of
+      1df95fe was a
+      reference mix-up and became a 9% residual once `GJ_static/GJ_deck = 1.068`
+      was measured (verdict 22.10), and the deficit's remaining 2.4x against
+      Zhou's tip torsion is an aero/torque difference, not a stiffness or
+      load-frame one (verdict 22.11: their 4.072 Hz first torsion matches our
+      4.000 Hz to 1.8%).
     citations_forbidden: true
     rows: []
   - id: experimental_validation
@@ -126,7 +136,9 @@ gaps:
     citations_forbidden: true
     rows: []
   - id: force_projection_axial_extension
-    scope: the linear structural solve on the prebent blade axis, not the load frame
+    scope: >-
+      the linear structural solve on the prebent blade axis, not the load
+      frame
     status: open_defect
     reason: >-
       The deformed blade measures LONGER along the span than the reference
@@ -152,7 +164,8 @@ gaps:
       the tip, with about `0.9 m` of x curvature; the prebend/precurve split is
       not established.
     consequence: >-
-      The radii feedback alone re-loads the rotor by `+1.13%` thrust and `+0.85%`
+      The radii feedback alone re-loads the rotor by `+1.13%` thrust and
+      `+0.85%`
       power, and that sign matches the production row, so the de-loading
       shortfall measured in WU-D (twist only `-4.00% / -0.81%`, radii only
       `+1.13% / +0.85%`, production `-2.96% / +0.03%`) is partly this artefact

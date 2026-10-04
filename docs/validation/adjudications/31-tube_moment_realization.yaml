@@ -6,27 +6,27 @@
 
 group: "31"
 scope: tests/validation/parity/test_thin_walled_tube_moment_realization.py
-run: 6290cac
+run: 5520d77
 date: 2026-10-04
 
 adjudications:
   - id: ADJ-1001
-    row: tube_moment_realization.test_production_minimum_norm_moment_real.single
-    field: comparisons[0].tolerance.justification
+    row: tube_moment_realization.test_production_shear_flow_moment_realis.single
+    field: comparisons[*].tolerance.justification
     candidate_code: "tol=TOL, a module literal of 0.05"
     verdict: the bound is the suite rule, not a fitted margin
     resolution: >-
-      The bound is the 5% rule of CONTRIBUTING, applied against Bredt's T/GJ
+      Both comparisons are the 5% rule of CONTRIBUTING against Bredt's T/GJ
       twist rate, which is exact for this closed tube and independent of the
       code under test: GJ comes from the isotropic shear modulus and the
       enclosed area, and group 6 already validates the same closed form on the
-      same mesh. The measured error is 0.31%, a factor of sixteen inside the
-      bound, so nothing was accommodated. The case that misses - the production
-      minimum-norm realisation, at 31.69x Bredt - is deliberately not a row: it
-      asserts that a comparison FAILS, so no bound is claimed against an
-      independent reference, and the departure is recorded as the open defect
+      same mesh. Case A is the independent hand-written shear flow; case B is
+      the production path (issue #11), which now realises the span moment as the
+      same wall flow on a single usable ring. Both measure 0.3091%, a factor of
+      sixteen inside the bound, so nothing was accommodated. The multi-ring
+      realisation is not enabled and is recorded as the open defect
       `moment_realization_over_delivers` in gaps.yaml.
-    decided_by: session 01a0fa52 (issue #9 work), on the maintainer's standing instruction
+    decided_by: session (issue #9/#11 work), on the maintainer's standing instruction
     date: 2026-10-04
     status: resolved
 

@@ -7,7 +7,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestElementMassVsTotalMass::test_mass_consistency[tri3]
   validates: Verify assembled mass equals direct element mass sum.
   comparisons:
-  - label: rtol at line 396
+  - label: rtol at line 397
     asserted: true
     reference:
       kind: analytical
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-12
-      source: tests/validation/element/test_mass_matrix_validation.py:396
+      source: tests/validation/element/test_mass_matrix_validation.py:397
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -30,7 +30,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestElementMassVsTotalMass::test_mass_consistency[quad4]
   validates: Verify assembled mass equals direct element mass sum.
   comparisons:
-  - label: rtol at line 396
+  - label: rtol at line 397
     asserted: true
     reference:
       kind: analytical
@@ -38,7 +38,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-12
-      source: tests/validation/element/test_mass_matrix_validation.py:396
+      source: tests/validation/element/test_mass_matrix_validation.py:397
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -53,7 +53,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestLumpedMassMatrix::test_lumped_vs_analytical
   validates: Lumped mass should match analytical.
   comparisons:
-  - label: rtol at line 543
+  - label: rtol at line 544
     asserted: true
     reference:
       kind: analytical
@@ -61,7 +61,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-10
-      source: tests/validation/element/test_mass_matrix_validation.py:543
+      source: tests/validation/element/test_mass_matrix_validation.py:544
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -76,7 +76,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestModalMassConvergence::test_first_mode_mass[mesh_density0]
   validates: First mode effective mass should converge.
   comparisons:
-  - label: atol at line 634
+  - label: atol at line 635
     asserted: true
     reference:
       kind: analytical
@@ -84,7 +84,7 @@ rows:
     tolerance:
       kind: atol
       value: 0.05
-      source: tests/validation/element/test_mass_matrix_validation.py:634
+      source: tests/validation/element/test_mass_matrix_validation.py:635
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -99,7 +99,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestModalMassConvergence::test_first_mode_mass[mesh_density1]
   validates: First mode effective mass should converge.
   comparisons:
-  - label: atol at line 634
+  - label: atol at line 635
     asserted: true
     reference:
       kind: analytical
@@ -107,7 +107,7 @@ rows:
     tolerance:
       kind: atol
       value: 0.05
-      source: tests/validation/element/test_mass_matrix_validation.py:634
+      source: tests/validation/element/test_mass_matrix_validation.py:635
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -122,7 +122,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestModalMassConvergence::test_first_mode_mass[mesh_density2]
   validates: First mode effective mass should converge.
   comparisons:
-  - label: atol at line 634
+  - label: atol at line 635
     asserted: true
     reference:
       kind: analytical
@@ -130,7 +130,7 @@ rows:
     tolerance:
       kind: atol
       value: 0.05
-      source: tests/validation/element/test_mass_matrix_validation.py:634
+      source: tests/validation/element/test_mass_matrix_validation.py:635
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -145,7 +145,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestConsistentMassTotal::test_consistent_mass_total_equals_analytical
   validates: The translational block must sum to the analytical mass.
   comparisons:
-  - label: rtol at line 724
+  - label: rtol at line 725
     asserted: true
     reference:
       kind: analytical
@@ -153,7 +153,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-12
-      source: tests/validation/element/test_mass_matrix_validation.py:724
+      source: tests/validation/element/test_mass_matrix_validation.py:725
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -168,7 +168,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_translational_block[tri3-5-coords0-0.5]
   validates: M_ij must equal the exact integral of rho*h*N_i*N_j.
   comparisons:
-  - label: rtol at line 848
+  - label: rtol at line 849
     asserted: true
     reference:
       kind: analytical
@@ -176,7 +176,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0
-      source: tests/validation/element/test_mass_matrix_validation.py:848
+      source: tests/validation/element/test_mass_matrix_validation.py:849
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -191,7 +191,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_translational_block[quad4-9-coords1-1.0]
   validates: M_ij must equal the exact integral of rho*h*N_i*N_j.
   comparisons:
-  - label: rtol at line 848
+  - label: rtol at line 849
     asserted: true
     reference:
       kind: analytical
@@ -199,7 +199,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0
-      source: tests/validation/element/test_mass_matrix_validation.py:848
+      source: tests/validation/element/test_mass_matrix_validation.py:849
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -214,7 +214,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_rotary_inertia_block[tri3-5-coords0-0.5]
   validates: Each rotational direction must carry rho*h**3/12*A of rotary inertia.
   comparisons:
-  - label: rtol at line 866
+  - label: rtol at line 867
     asserted: true
     reference:
       kind: analytical
@@ -222,7 +222,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-12
-      source: tests/validation/element/test_mass_matrix_validation.py:866
+      source: tests/validation/element/test_mass_matrix_validation.py:867
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -237,7 +237,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_rotary_inertia_block[quad4-9-coords1-1.0]
   validates: Each rotational direction must carry rho*h**3/12*A of rotary inertia.
   comparisons:
-  - label: rtol at line 866
+  - label: rtol at line 867
     asserted: true
     reference:
       kind: analytical
@@ -245,7 +245,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-12
-      source: tests/validation/element/test_mass_matrix_validation.py:866
+      source: tests/validation/element/test_mass_matrix_validation.py:867
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

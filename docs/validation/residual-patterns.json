@@ -4,7 +4,7 @@
   "patterns": {
     "31": {
       "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
-      "unasserted": "(?!)"
+      "unasserted": "^(?:Bredt reference:.*|\\[[AB] / .*)$"
     },
     "4": {
       "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
