@@ -18,6 +18,18 @@
       "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
       "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
     },
+    "5": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
+    "11": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
+    "14": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
     "3": {
       "asserted": "Norm\\svs\\sKirchhoff:\\s(?P<value>\\S+)\\s\\(expected:\\s(?P<expected>\\S+),\\serror:\\s(?P<error>\\S+)%\\)",
       "unasserted": "Norm\\svs\\sPaper\\s3D:\\s(?P<value>\\S+)\\s\\(expected:\\s(?P<expected>\\S+),\\serror:\\s(?P<error>\\S+)%\\)"
