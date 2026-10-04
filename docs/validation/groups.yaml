@@ -138,6 +138,18 @@ out_of_scope:
       protection and the twist agreement are invariants of the fix. None of
       them is a physical quantity measured against an independent reference.
 
+  - files:
+      - tests/validation/blade/test_blade_deloading_vs_reference.py
+    reason: >-
+      Issue #9's WU-D, and its own docstring says what that means: it drives the
+      production participant on the real mesh and the real AeroDyn BladeAero to
+      produce one de-loading table in one sign convention. What it asserts is
+      the rigid baseline against the standalone BEM, a regression guard that the
+      deformed path did not change the undeformed one; the twist sign under the
+      declared convention; and the applied-load invariant its own comment ties
+      to verdict section 22.4 and the P5 guard. No physical quantity is measured
+      against an independent reference.
+
 groups:
   - id: "3"
     title: >-
