@@ -99,6 +99,7 @@ PAPER_REFS = {
 
 
 # Output directory for debug VTK files
+from tests.support.assertions import assert_residual_below  # noqa: E402
 from tests.support.paths import OUTPUT_DIR as OUTPUT_DIR_DEFAULT  # noqa: E402
 OUTPUT_DIR = OUTPUT_DIR_DEFAULT
 
@@ -1696,9 +1697,12 @@ def test_3_6_hook_table_14_minimal_fix(expected_norm):
     # percent).  The previous assertion was `assert norm > 0.1`, which could not
     # fail for any formulation.
     rel_err = abs(norm - expected_norm) / expected_norm
-    assert rel_err < 0.03, (
-        f"Hook tip deflection: normalized = {norm:.5f}, paper Table 14 N=8 = "
-        f"{expected_norm}, rel err = {rel_err:.2%} (measured 1.48%)"
+    assert_residual_below(
+        rel_err,
+        tol=0.03,
+        kind="paper",
+        reference_name="Ko et al. 2017 Table 14, the N=8 hook value",
+        what="hook tip deflection, normalised by the reference",
     )
 
 

@@ -2394,8 +2394,13 @@ def tolerance_sites(
 ) -> tuple[list[ToleranceSite], list[str]]:
     """The tolerances the function asserts on, plus the bounds it ignores.
 
-    A zero bound (`atol=0.0`) asserts nothing, so it is reported as ignored rather
-    than stored as if it bounded the comparison.
+    Only a canonical call is a site: one that names its reference and its kind and
+    carries the bound in `tol`, `rtol` or `atol`. A bare relational assert
+    (`assert err < 0.05`) says a value came in below a bound and never says what it
+    was measured against, so it is not a comparison the store can attribute; such a
+    comparison is converted to the canonical call, not read. A zero bound
+    (`atol=0.0`, or `x > 0.0`) still asserts nothing, so it is reported as ignored
+    rather than stored as if it bounded anything.
     """
     sites: list[ToleranceSite] = []
     ignored: list[str] = []
@@ -2438,26 +2443,6 @@ def tolerance_sites(
                     reference_kind=stated_kind,
                 )
             )
-    for sub in [node for scope in scopes for node in ast.walk(scope)]:
-        if isinstance(sub, ast.Assert) and isinstance(sub.test, ast.Compare):
-            for op, comparator in zip(sub.test.ops, sub.test.comparators, strict=True):
-                if not isinstance(op, ast.Lt | ast.LtE):
-                    continue
-                value = resolve_literal(comparator, consts)
-                if not isinstance(value, int | float) or value == 0:
-                    continue
-                sites.append(
-                    ToleranceSite(
-                        line=sub.lineno,
-                        kind="rel_err",
-                        value=float(value),
-                        source=ast.unparse(sub.test)[:120],
-                        asserts=True,
-                        # A relational assert has no reference side: the bound is the bound, and
-                        # labelling the reference with it would say the bound is the reference.
-                        reference_expr=None,
-                    )
-                )
     unique: dict[tuple[int, str, float | None], ToleranceSite] = {}
     for site in sites:
         unique.setdefault((site.line, site.kind, site.value), site)

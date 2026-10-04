@@ -795,6 +795,33 @@ def test_assertion_calls_exclude_geometric_tolerances() -> None:
     assert all("atol=0" in entry for entry in ignored)
 
 
+def test_the_site_criterion_reads_canonical_calls_only() -> None:
+    """A bare relational assert is not a site: it carries a bound and no reference.
+
+    A relational assert says a value came in below a bound; it does not say what
+    the value was measured against, so the store has nothing to attribute. The
+    comparison becomes visible when it is written through the helper that names
+    its reference and its kind, and not before.
+    """
+    module = _load_tool_module()
+    source = "\n".join(
+        [
+            "def test_x():",
+            "    err = compute()",
+            "    assert err < 0.05",
+            "    assert_relative_error(",
+            "        err, ref, tol=0.05,",
+            '        reference_name="r", kind="analytical", what="w",',
+            "    )",
+        ]
+    )
+    tree = ast.parse(source)
+    func = next(node for node in tree.body if isinstance(node, ast.FunctionDef))
+    sites, ignored = module.tolerance_sites(func, module.module_constants(tree), None)
+    assert [site.kind for site in sites] == ["rtol"]
+    assert not ignored
+
+
 def test_extract_claims_every_collected_node() -> None:
     """T4 acceptance: the section 3 scope extracts to one row per collected node."""
     completed = run(REAL_STORE, "extract", "--json")
@@ -1634,15 +1661,21 @@ def test_status_reports_coverage_and_pending_migration(tmp_path: Path) -> None:
     assert isinstance(payload["ungrouped_validation_files"], list)
 
 
-def test_the_real_store_status_names_the_pending_migration() -> None:
-    """`check` cannot see a validation file with no rows; this is what makes it visible."""
+def test_the_real_store_status_reports_no_pending_migration() -> None:
+    """`check` cannot see a validation file with no rows; this is what makes it visible.
+
+    The sweep is complete: every file under the validation tree is grouped, declared
+    out of scope, or was deleted as software. The list is empty now and has to stay
+    that way, so the test asserts the empty list rather than its non-emptiness, and
+    its name changed with the fact.
+    """
     completed = run(REAL_STORE, "status", "--json")
     assert completed.returncode == 0, completed.stdout + completed.stderr
     payload = json.loads(completed.stdout)
     groups = {row["group"]: row for row in payload["groups"]}
     assert groups["3"]["rows"] == 31
     assert groups["10"]["rows"] == 1
-    assert len(payload["ungrouped_validation_files"]) > 0
+    assert payload["ungrouped_validation_files"] == []
 
 
 def test_duplicate_gap_ids_are_reported(tmp_path: Path) -> None:

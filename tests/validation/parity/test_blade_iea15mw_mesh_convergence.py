@@ -36,6 +36,7 @@ pytest.importorskip("petsc4py", reason="PETSc not available")
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
 from _aeroelast import PyMeshAssembler, modal_solve_coo  # noqa: E402
+from tests.support.assertions import assert_residual_below  # noqa: E402
 from tests.support.ccx_io import fail_ccx, parse_ccx_frequencies, run_ccx  # noqa: E402
 from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
@@ -165,11 +166,17 @@ def test_blade_modal_gap_converges_with_mesh(convergence) -> None:
 
     low_worst = max(gaps[fine][:LOW_MODES])
     high_worst = max(gaps[fine][LOW_MODES:])
-    assert low_worst < LOW_TOL, (
-        f"finest-mesh low modes (1-{LOW_MODES}) worst gap {low_worst * 100:.2f}% "
-        f"(tol {LOW_TOL * 100:.1f}%)"
+    assert_residual_below(
+        low_worst,
+        tol=LOW_TOL,
+        kind="code",
+        reference_name="the CalculiX frequencies for the same blade and mesh",
+        what="worst low-mode gap on the finest mesh",
     )
-    assert high_worst < HIGH_TOL, (
-        f"finest-mesh high modes ({LOW_MODES + 1}-{N_MODES}) worst gap "
-        f"{high_worst * 100:.2f}% (tol {HIGH_TOL * 100:.1f}%) -- element-order bound"
+    assert_residual_below(
+        high_worst,
+        tol=HIGH_TOL,
+        kind="code",
+        reference_name="the CalculiX frequencies for the same blade and mesh",
+        what="worst high-mode gap, an element-order difference not discretisation",
     )
