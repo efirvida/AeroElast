@@ -78,6 +78,15 @@ out_of_scope:
       property of our own implementation rather than a measurement
       against a reference.
 
+  - files:
+      - tests/validation/element/test_composite_b_coupling.py
+    reason: >-
+      Its assertions are signs and thresholds: that B is not zero for an
+      asymmetric laminate, that the tip deflects with the sign B11 predicts,
+      and that a symmetric laminate stays flat. Rule 4 calls a sign the
+      strongest claim available, and none of these is a comparison against an
+      independent reference, so rule 6 leaves them no row.
+
 groups:
   - id: "3"
     title: >-
