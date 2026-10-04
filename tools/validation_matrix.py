@@ -2065,6 +2065,12 @@ class ToleranceSite:
     # The reference side of the comparison: `case.expected_normalized`, or the literal bound of
     # a bare assert. It names the reference, where the whole call only names the assertion.
     reference_expr: str | None = None
+    # A canonical call (tests/support/assertions.py) states both of these, and then the store takes
+    # them from the call instead of from the group: the comparison says what it is against, which is
+    # the whole point of the contract, and a group-level default is only a fallback for the files
+    # written before it.
+    reference_name: str | None = None
+    reference_kind: str | None = None
 
 
 def parse_node_id(line: str) -> NodeInfo | None:
@@ -2350,6 +2356,13 @@ def tolerance_sites(
     scopes = [func, *(extra or [])]
     calls = [call for scope in scopes for call in assertion_calls(scope)]
     for call in calls:
+        stated_name: str | None = None
+        stated_kind: str | None = None
+        for keyword in call.keywords:
+            if keyword.arg == "reference_name" and isinstance(keyword.value, ast.Constant):
+                stated_name = str(keyword.value.value)
+            elif keyword.arg == "kind" and isinstance(keyword.value, ast.Constant):
+                stated_kind = str(keyword.value.value)
         for keyword in call.keywords:
             if keyword.arg not in {"tol", "rtol", "atol"}:
                 continue
@@ -2373,6 +2386,8 @@ def tolerance_sites(
                     reference_expr=(
                         ast.unparse(call.args[1])[:80] if len(call.args) > 1 else None
                     ),
+                    reference_name=stated_name,
+                    reference_kind=stated_kind,
                 )
             )
     for sub in [node for scope in scopes for node in ast.walk(scope)]:
@@ -2656,10 +2671,10 @@ def build_rows(
             # hook test that compares against the paper's Table 14, because the assert reads
             # `rel_err < 0.03` and names none of those words, and it would have stamped
             # "analytical" on every symmetry and consistency check in the suite.
-            kind = reference_kind
+            kind = site.reference_kind or reference_kind
             reference: dict[str, Any] = {
                 "kind": kind,
-                "label": site.reference_expr or site.source,
+                "label": site.reference_name or site.reference_expr or site.source,
             }
             if kind == "paper":
                 reference["citation"] = citation
@@ -3161,6 +3176,164 @@ def command_status(args: argparse.Namespace) -> int:
         if len(ungrouped) > 8:
             print(f"  ... and {len(ungrouped) - 8} more")
     return EXIT_OK
+
+
+OUTCOME_RE = re.compile(
+    r"^(?P<node>\S+::\S+)\s+(?P<status>PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b"
+)
+FAILURE_HEADER_RE = re.compile(r"^_{3,}\s*(?P<name>.+?)\s*_{3,}$")
+# The suite's canonical assertions (tests/support/assertions.py) print where they landed and what
+# bound they missed, so a failure says how far past the bound it went without anyone opening a file.
+CANONICAL_MISS_RE = re.compile(
+    r"(?P<measured>[\d.]+)% against .*?, above the (?P<bound>[\d.]+)% bound"
+)
+
+
+def triage_report(stdout: str) -> dict[str, Any]:
+    """What a pytest run says, reduced to what a caller has to act on.
+
+    Pure, so it is tested on captured output. The numbers it reports for a failure come from the
+    canonical assertion's own message (tests/support/assertions.py), and that message format is part
+    of the contract: a change to it should fail a test here rather than quietly stop reporting how
+    far past a bound a failure went.
+    """
+    counts: Counter[str] = Counter()
+    failed: list[dict[str, Any]] = []
+    skipped: list[dict[str, str]] = []
+    # pytest's own last summary line, which is authoritative. Per-test parsing is a convenience for
+    # naming the failures, not a way to count them: `-v` wraps a long node id onto a second line and
+    # a wrapped line matches no outcome, so counting with it under-reported a 114-test run as 62.
+    summary_line = ""
+    for raw in stdout.splitlines():
+        stripped = raw.strip().strip("=").strip()
+        if re.match(r"^\d+ (passed|failed|error|skipped|xfailed|xpassed)", stripped):
+            summary_line = stripped
+    for raw in stdout.splitlines():
+        # pytest writes `<STATUS> [<n>] <file>:<line>: <reason>`: the path may carry its own colon
+        # and a line range, so the path is matched lazily and the line suffix is optional, which
+        # leaves the last colon as the separator before the reason.
+        short = re.match(
+            r"^(?P<status>SKIPPED|XFAIL|XPASS)\s+\[\d+\]\s+"
+            r"(?P<where>[^\s:]+(?::\d+(?:-\d+)?)?):\s*(?P<reason>.*)$",
+            raw.strip(),
+        )
+        if short is not None:
+            skipped.append(
+                {
+                    "status": short.group("status"),
+                    "where": short.group("where"),
+                    "reason": short.group("reason").strip(),
+                }
+            )
+        match = OUTCOME_RE.match(raw.strip())
+        if match is not None:
+            status = match.group("status")
+            counts[status.lower()] += 1
+            if status in {"FAILED", "ERROR"}:
+                failed.append({"node": match.group("node"), "status": status})
+    # The assertion message lives under the FAILURES header, and pytest wraps it across as many
+    # `E ` lines as it needs -- a long canonical message is exactly the case that wraps, so taking
+    # only the first line loses the "above the bound" half and the report goes quiet about the
+    # distance. All of them are joined.
+    messages: dict[str, list[str]] = {}
+    current: str | None = None
+    for raw in stdout.splitlines():
+        header = FAILURE_HEADER_RE.match(raw.strip())
+        if header is not None:
+            current = header.group("name").strip()
+            continue
+        if current and raw.strip().startswith("E "):
+            messages.setdefault(current, []).append(raw.strip()[2:].strip())
+    for item in failed:
+        name = item["node"].split("::")[-1]
+        parts = messages.get(name) or messages.get(item["node"]) or []
+        message = " ".join(parts).strip()
+        item["message"] = message
+        miss = CANONICAL_MISS_RE.search(message)
+        if miss is not None:
+            measured = float(miss.group("measured"))
+            bound = float(miss.group("bound"))
+            item["measured_pct"] = measured
+            item["bound_pct"] = bound
+            item["over_pp"] = round(measured - bound, 4)
+            item["times_bound"] = round(measured / bound, 3) if bound else None
+    return {
+        "summary": summary_line,
+        "counts": dict(counts),
+        "failed": failed,
+        "skipped": skipped,
+    }
+
+
+def command_triage(args: argparse.Namespace) -> int:
+    """Run a scope and report what failed and by how much, in one place.
+
+    `regression` also runs a scope, but it asks whether the stored numbers moved rather than whether
+    the tests passed: it ignores pytest's exit status on purpose, because a failed test still prints
+    its residual, which is all it needs. This verb is the other half, for the caller who has to act
+    on a red suite. It names the test, what it compared and against what reference, how far past the
+    bound it went, and which store row the comparison belongs to -- so nobody has to open the file to
+    find out, which is the whole cost of a red run.
+    """
+    scope = args.scope or (
+        " ".join(
+            str(item)
+            for item in (load_store(args.store).groups.get(str(args.group), {}) or {}).get(
+                "source_files"
+            )
+            or []
+        )
+        if args.group
+        else "tests"
+    )
+    if not scope:
+        raise StoreError(f"group {args.group} declares no source_files; pass --scope")
+    # `-ra` prints the short summary for everything that did not pass, which is where a skipped
+    # module says why it skipped -- and in this suite a missing external tool makes a row skip rather
+    # than fail, so the reason is the answer, not a footnote.
+    # `--first` stops at the first failure. A scope can be minutes long -- the blade mesh study
+    # solves CCX on every mesh in it -- and the first failure is usually the one to act on, so the
+    # caller who wants a verdict rather than a full census should not have to wait for the rest.
+    flags = ["-o", "addopts=", "-s", "-v", "-ra", *(["-x"] if args.first else [])]
+    completed = subprocess.run(
+        [sys.executable, "-m", "pytest", *flags, *scope.split()],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    report = triage_report(completed.stdout)
+    failed = report["failed"]
+    skipped = report["skipped"]
+    for ref in load_store(args.store).rows:
+        for item in failed:
+            if item["node"] in (ref.data.get("tests") or []):
+                item["row"] = ref.data.get("id")
+    if args.json:
+        print(json.dumps({"scope": scope, **report}, indent=2))
+    else:
+        # pytest's line first: it counts what actually ran, and the per-test parse is only used to
+        # name failures. A scope that printed nothing still says its exit status rather than nothing.
+        summary = report["summary"] or f"no report (pytest exit {completed.returncode})"
+        print(f"{scope}: {summary}")
+        for item in skipped:
+            print(f"  {item['status']} {item['where']} -- {item['reason'] or 'no reason given'}")
+        if not summary and not skipped and not failed:
+            for line in completed.stdout.splitlines()[-4:]:
+                print(f"  {line}")
+        for item in failed:
+            print(f"\n{item['status']}  {item['node']}")
+            if item.get("row"):
+                print(f"  store row : {item['row']}")
+            if item.get("measured_pct") is not None:
+                print(
+                    f"  measured  : {item['measured_pct']}% against a "
+                    f"{item['bound_pct']}% bound -> over by {item['over_pp']}pp "
+                    f"({item['times_bound']}x the bound)"
+                )
+            if item["message"]:
+                print(f"  assertion : {item['message'][:160]}")
+    return EXIT_FINDINGS if failed else EXIT_OK
 
 
 def command_kinds(args: argparse.Namespace) -> int:
@@ -3701,6 +3874,18 @@ def build_parser() -> argparse.ArgumentParser:
     gaps = subparsers.add_parser("gaps", help="what the suite does not validate")
     gaps.add_argument("--json", action="store_true")
     gaps.set_defaults(func=command_gaps)
+
+    triage = subparsers.add_parser(
+        "triage",
+        help="run a scope and say which tests failed and by how much",
+    )
+    triage.add_argument("--group", help="run this group's source_files")
+    triage.add_argument("--scope", help="what to run (default: tests)")
+    triage.add_argument(
+        "--first", action="store_true", help="stop at the first failure instead of running the rest"
+    )
+    triage.add_argument("--json", action="store_true")
+    triage.set_defaults(func=command_triage)
 
     kinds = subparsers.add_parser(
         "kinds",

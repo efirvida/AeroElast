@@ -1264,6 +1264,59 @@ def test_re_extraction_keeps_what_was_measured_and_flagged(tmp_path: Path) -> No
     assert new_rows[0]["comparisons"][0]["reference"]["label"] == "better"
 
 
+PYTEST_FAILURE = """\
+============================= test session starts =============================
+collected 2 items
+
+tests/validation/parity/test_x.py::test_isotropic PASSED                [ 50%]
+tests/validation/parity/test_x.py::test_laminate FAILED                 [100%]
+
+=================================== FAILURES ===================================
+_____________________________ test_laminate __________________________________
+
+    def test_laminate():
+>       assert_residual_below(
+E       AssertionError: laminate theta_z rate on the Bredt rate: 3.1200% against Bredt T L / GJ
+E       is 3.1200%, above the 2.0000% bound (kind analytical)
+
+tests/validation/parity/test_x.py:12: AssertionError
+=========================== short test summary info ============================
+FAILED tests/validation/parity/test_x.py::test_laminate - AssertionError: lami
+SKIPPED [1] tests/validation/parity/test_y.py:36: PETSc not available
+========================= 1 failed, 1 passed, 1 skipped in 3.10s ===============
+"""
+
+
+def test_triage_says_which_test_failed_and_by_how_much() -> None:
+    """The report a caller acts on: the test, its reference, and the distance past the bound.
+
+    These numbers come from the canonical assertion's message, and that message is part of the
+    contract. Pinning the parse here means a change to the message fails this test instead of quietly
+    turning the report into "something failed, somewhere".
+    """
+    module = _load_tool_module()
+    report = module.triage_report(PYTEST_FAILURE)
+    assert report["counts"] == {"passed": 1, "failed": 1}
+    assert len(report["failed"]) == 1
+    item = report["failed"][0]
+    assert item["node"] == "tests/validation/parity/test_x.py::test_laminate"
+    assert item["status"] == "FAILED"
+    assert item["measured_pct"] == 3.12
+    assert item["bound_pct"] == 2.0
+    assert item["over_pp"] == 1.12
+    assert item["times_bound"] == 1.56
+    assert "Bredt" in item["message"]
+    # A skipped module says why: in this suite a missing external tool skips a row rather than
+    # failing it, so the reason is the answer.
+    assert report["skipped"] == [
+        {
+            "status": "SKIPPED",
+            "where": "tests/validation/parity/test_y.py:36",
+            "reason": "PETSc not available",
+        }
+    ]
+
+
 def test_a_reordered_comparison_keeps_its_own_measurement(tmp_path: Path) -> None:
     """Comparisons are matched by their source, not by their position.
 

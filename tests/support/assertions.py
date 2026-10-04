@@ -1,21 +1,42 @@
-"""The suite's one comparison form, and the shape the validation store reads.
+"""The suite's canonical comparison forms, and the shape the validation store reads.
 
 A validation test is an ordinary pytest test: it runs, it asserts, and it fails when the physics is
-wrong. What this module fixes is the *form* of one assertion, because the store has to read what a
+wrong. What this module fixes is the *form* of one comparison, because the store has to read what a
 test compares and against what.
 
-A comparison is a call to :func:`assert_relative_error`, and it names its reference. That name is not
-decoration: it is the only thing that distinguishes our result against an independent reference from
-two of our own numbers, and no structural rule can tell those apart -- which is why the store used to
-be given a per-test list of what to ignore instead of reading the tests. Everything else a test
-asserts -- a symmetry, an invariant, a dominance relation, a load ruler, a setup constant -- stays in
-the test exactly as it was and is simply not a comparison.
+Both forms name their reference. That name is not decoration: it is the only thing that distinguishes
+our result against an independent reference from two of our own numbers, and no structural rule can
+tell those apart -- which is why the store used to be given a per-test list of what to ignore instead
+of reading the tests. Everything else a test asserts -- a symmetry, an invariant, a dominance
+relation, a load ruler, a setup constant -- stays in the test exactly as it was and is simply not a
+comparison.
 
-The function prints the residual it asserts, in the form the group's residual pattern reads, because
-the measured margin is transcribed from the test's own output and ``regression`` re-reads it there.
+Two forms, because the suite makes two kinds of claim, and the difference is real -- but both report
+in one shape, so the store carries one residual pattern and a failure report needs one parse:
+
+- :func:`assert_relative_error` -- our value against a reference *value*, compared by relative error.
+- :func:`assert_residual_below` -- a residual the test already computed and printed against the bound
+  the physics justifies. A residual is a relative difference already, so an absolute bound against a
+  distance from a reference is what is being asserted, and the reference is what the residual was
+  taken against.
+
+Both print the residual they assert, in the form the group's residual pattern reads, because the
+measured margin is transcribed from the test's own output and ``regression`` re-reads it there.
 """
 
 from __future__ import annotations
+
+# The four things a comparison may be against, as docs/validation-policy.md rule 6 defines them.
+REFERENCE_KINDS = ("paper", "code", "analytical", "self")
+
+
+def _check_kind(kind: str) -> str:
+    if kind not in REFERENCE_KINDS:
+        raise ValueError(
+            f"reference kind {kind!r} is not one of {REFERENCE_KINDS}; rule 6 names what a "
+            "reference may be"
+        )
+    return kind
 
 
 def assert_relative_error(
@@ -24,6 +45,7 @@ def assert_relative_error(
     *,
     tol: float,
     reference_name: str,
+    kind: str,
     what: str,
 ) -> None:
     """Assert ``value`` is within ``tol`` of an independent ``reference``, by relative error.
@@ -38,11 +60,33 @@ def assert_relative_error(
     if reference == 0:
         raise ValueError(
             "assert_relative_error needs a non-zero reference; a bound against zero is an absolute "
-            "tolerance and belongs in an explicit assertion of its own"
+            "tolerance and belongs in assert_residual_below"
         )
     rel = abs(value - reference) / abs(reference)
-    print(f"{what} vs {reference_name}: {value:.6g} vs {reference:.6g} (error: {rel:.4%})")
+    print(f"{what} vs {reference_name}: {value:.6g} vs {reference:.6g} (error: {rel:.4%}, bound: {tol:.4%})")
     assert rel < tol, (
-        f"{what}: {value:.6e} against {reference_name} {reference:.6e} is {rel:.4%}, "
-        f"above the {tol:.4%} bound"
+        f"{what}: {rel:.4%} against {reference_name} {reference:.6e}, "
+        f"above the {tol:.4%} bound (kind {_check_kind(kind)})"
+    )
+
+
+def assert_residual_below(
+    residual: float,
+    *,
+    tol: float,
+    reference_name: str,
+    kind: str,
+    what: str,
+) -> None:
+    """Assert a residual the test already holds is below ``tol``, taken against a named reference.
+
+    This is the suite's most common claim: a relative error against a published cell, a modal gap
+    against another code, a distance from a closed form. The residual is the difference divided by
+    the reference, so it is a fraction and the bound is the fraction the physics allows; the
+    reference it was measured against is named for the same reason as above.
+    """
+    print(f"{what} vs {reference_name}: residual {residual:.4%} (bound: {tol:.4%})")
+    assert residual < tol, (
+        f"{what}: {residual:.4%} against {reference_name}, above the {tol:.4%} bound "
+        f"(kind {_check_kind(kind)})"
     )

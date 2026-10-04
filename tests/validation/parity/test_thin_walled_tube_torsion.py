@@ -513,6 +513,7 @@ def test_self_equilibrated_isotropic_reproduces_bredt():
         m["ratio_fit"],
         1.0,
         tol=TOL,
+        kind="analytical",
         reference_name="Bredt T L / GJ, the closed form for a closed thin-walled tube",
         what="isotropic theta_fit rate on the Bredt rate",
     )
@@ -520,6 +521,7 @@ def test_self_equilibrated_isotropic_reproduces_bredt():
         m["ratio_z"],
         1.0,
         tol=TOL,
+        kind="analytical",
         reference_name="Bredt T L / GJ, the closed form for a closed thin-walled tube",
         what="isotropic theta_z rate on the Bredt rate",
     )
@@ -534,6 +536,7 @@ def test_self_equilibrated_laminate_reproduces_bredt():
         m["ratio_fit"],
         1.0,
         tol=TOL,
+        kind="analytical",
         reference_name="Bredt T L / GJ, the closed form for a closed thin-walled tube",
         what="laminate theta_fit rate on the Bredt rate",
     )
@@ -541,6 +544,7 @@ def test_self_equilibrated_laminate_reproduces_bredt():
         m["ratio_z"],
         1.0,
         tol=TOL,
+        kind="analytical",
         reference_name="Bredt T L / GJ, the closed form for a closed thin-walled tube",
         what="laminate theta_z rate on the Bredt rate",
     )
@@ -591,6 +595,7 @@ def test_clamped_root_metric_convergence_identifies_the_section_rotation():
             asymptotic_z,
             1.0,
             tol=TOL,
+        kind="analytical",
             reference_name=(
                 "the idealised limit: at L=24 m the section rotation rate is T/GJ, so the "
                 "theta_z rate on it must reach 1"
