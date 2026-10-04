@@ -484,6 +484,34 @@ groups:
       the paper it is being checked against, not an elementary one that stands
       on its own.
 
+  - id: "18"
+    title: >-
+      `tests/validation/parity/test_composite_layup_parity.py`
+      (composite layup parity against CalculiX S8R)
+    slug: composite_layup
+    source_files:
+      - tests/validation/parity/test_composite_layup_parity.py
+    # Two assertions are properties rather than comparisons, and declaring the
+    # whole test would lose nothing only if there were nothing to lose. The
+    # lines are the ones the extractor reported, not ones written from memory.
+    non_reference_asserts:
+      - at: "tests/validation/parity/test_composite_layup_parity.py:395"
+        reason: >-
+          The AeroElast out-of-plane deflection of a symmetric laminate
+          against the bound that says it is negligible: the B = 0
+          signature of our own model, not a comparison against a reference.
+      - at: "tests/validation/parity/test_composite_layup_parity.py:396"
+        reason: >-
+          The same check on the CalculiX side, which qualifies the reference
+          rather than measuring our result against it.
+    provenance_note: >-
+      Four layups through the same geometry and the same mesh in both codes, so
+      the comparison isolates the composite material behaviour rather than the
+      input data: axial extension, transverse bending, the asymmetric
+      membrane-bending coupling, and the first five matched modal frequencies.
+      Each comparison states its own kind and reference, so the group declares
+      neither.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

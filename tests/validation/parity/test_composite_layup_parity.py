@@ -79,6 +79,8 @@ CASES: dict[str, tuple[int, float, int]] = {
 }
 
 # Tolerances from the measured margins printed by this module (see the docstring).
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 AXIAL_TOL = 0.025  # measured max 1.83% (uni_90, 4x10)
 BENDING_TOL = 0.01  # measured max 0.51% (uni_0, 4x10)
 B_COUPLING_TOL = 0.02  # measured 0.37% (asym_0_90, 4x10)
@@ -345,9 +347,12 @@ def test_axial_extension_matches_ccx(parity: dict, layup: str) -> None:
     """Mean axial extension under an edge resultant matches CCX S8R."""
     aero, ccx = parity["static"][(layup, "axial")]
     rel = abs(aero - ccx) / max(abs(ccx), 1e-30)
-    assert rel < AXIAL_TOL, (
-        f"{layup}: axial extension aero={aero:.6e} ccx={ccx:.6e} rel_err={rel * 100:.2f}% "
-        f"(tol {AXIAL_TOL * 100:.1f}%)"
+    assert_residual_below(
+        rel,
+        tol=AXIAL_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23 S8R, the same layup on the same mesh",
+        what=f"{layup} mean axial extension",
     )
 
 
@@ -356,9 +361,12 @@ def test_transverse_bending_matches_ccx(parity: dict, layup: str) -> None:
     """Mean out-of-plane bending deflection matches CCX S8R."""
     aero, ccx = parity["static"][(layup, "bending")]
     rel = abs(aero - ccx) / max(abs(ccx), 1e-30)
-    assert rel < BENDING_TOL, (
-        f"{layup}: bending aero={aero:.6e} ccx={ccx:.6e} rel_err={rel * 100:.2f}% "
-        f"(tol {BENDING_TOL * 100:.1f}%)"
+    assert_residual_below(
+        rel,
+        tol=BENDING_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23 S8R, the same layup on the same mesh",
+        what=f"{layup} mean out-of-plane bending deflection",
     )
 
 
@@ -371,9 +379,12 @@ def test_asymmetric_b_coupling_matches_ccx(parity: dict) -> None:
     aero, ccx = parity["static"][("asym_0_90", "b_coupling")]
     assert abs(ccx) > 1e-3, f"CCX reference is not macroscopic: {ccx:.3e}"
     rel = abs(aero - ccx) / abs(ccx)
-    assert rel < B_COUPLING_TOL, (
-        f"asym_0_90: B-coupling aero={aero:.6e} ccx={ccx:.6e} rel_err={rel * 100:.2f}% "
-        f"(tol {B_COUPLING_TOL * 100:.1f}%)"
+    assert_residual_below(
+        rel,
+        tol=B_COUPLING_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23 S8R, the same layup on the same mesh",
+        what="asym_0_90 membrane-bending coupling deflection",
     )
 
 
@@ -391,7 +402,10 @@ def test_modal_frequencies_match_ccx(parity: dict, layup: str) -> None:
     freqs_ae, freqs_ccx = parity["modal"][layup]
     rel = np.abs(freqs_ccx - freqs_ae) / np.maximum(np.abs(freqs_ccx), 1e-14)
     worst = float(rel.max())
-    assert worst < MODAL_TOL, (
-        f"{layup}: modal aero={freqs_ae.tolist()} ccx={freqs_ccx.tolist()} "
-        f"worst rel={worst * 100:.2f}% (tol {MODAL_TOL * 100:.0f}%)"
+    assert_residual_below(
+        worst,
+        tol=MODAL_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes",
+        what=f"{layup} worst matched modal frequency",
     )
