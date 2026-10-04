@@ -15,6 +15,7 @@ from scipy.linalg import lstsq
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.models.blade.aerodynamics import BladeAero
 from aeroelast.solvers.bem.engine import BEMResult
+from aeroelast.solvers.bem.section_contour import contour_report, rings_in_band
 
 logger = logging.getLogger(__name__)
 
@@ -33,54 +34,54 @@ class _Strip:
 class ForceProjector:
     """Project BEM distributed loads onto shell mesh nodes.
 
-    Forces are distributed so that every chordwise strip conserves the
-    total BEM force vector **and** moment about its centroid.
+        Forces are distributed so that every chordwise strip conserves the
+        total BEM force vector **and** moment about its centroid.
 
-    Conventions (declared by the model owner, pinned by the downwind
-    thrust-direction and positive-power assertions in
-    ``tests/test_force_projection_load_frame.py``):
+        Conventions (declared by the model owner, pinned by the downwind
+        thrust-direction and positive-power assertions in
+        ``tests/test_force_projection_load_frame.py``):
 
-    * span runs along ``+Z``;
-    * the section chord runs along ``+X`` on this repo's IEA-15MW mesh,
-      with the leading edge at positive ``x``;
-    * the out-of-plane (flapwise/section-normal) direction is ``+Y``, which
-      is the fluid / downwind direction;
-    * the rotor turns clockwise viewed from behind, i.e.
-      ``Omega = +omega * y``.
+        * span runs along ``+Z``;
+        * the section chord runs along ``+X`` on this repo's IEA-15MW mesh,
+          with the leading edge at positive ``x``;
+        * the out-of-plane (flapwise/section-normal) direction is ``+Y``, which
+          is the fluid / downwind direction;
+        * the rotor turns clockwise viewed from behind, i.e.
+          ``Omega = +omega * y``.
 
-    The mesh axes were **measured** on this tree's IEA-15MW blade mesh: a
-    ring's ``x`` extent is the section chord and its ``y`` extent the
-    airfoil thickness, and the tip ring's mean ``y`` is the documented
-    prebend ``BlCrvAC``.  The *sense* (which of the two opposite
-directions along each axis the loads push) is the model owner's convention
-    rather than something derivable from the geometry alone.
+        The mesh axes were **measured** on this tree's IEA-15MW blade mesh: a
+        ring's ``x`` extent is the section chord and its ``y`` extent the
+        airfoil thickness, and the tip ring's mean ``y`` is the documented
+        prebend ``BlCrvAC``.  The *sense* (which of the two opposite
+    directions along each axis the loads push) is the model owner's convention
+        rather than something derivable from the geometry alone.
 
-    Parameters
-    ----------
-    mesh : MeshModel
-        The shell finite-element mesh (all nodes considered).
-    blade_aero : BladeAero
-        Aerodynamic blade definition (provides radial station positions).
-    span_direction : array-like
-        Unit vector along the blade span in global coordinates
-        (default: z-axis ``[0, 0, 1]``).
-    normal_direction : array-like
-        Sense reference for the BEM normal force *Np* (default: y-axis
-        ``[0, 1, 0]``, the fluid/downwind direction).  The *axis* *Np*
-        rides is taken per strip from the section geometry (normal to the
-        local chord); this vector only selects the sense, i.e. which of the
-        two opposite in-plane directions is ``+normal_hat``.  It must be
-        (nearly) parallel to the section normal - an orthogonal reference
-        makes the sign a round-off decision.
-    tangential_direction : array-like
-        Sense reference for the BEM tangential force *Tp* (default: x-axis
-        ``[1, 0, 0]``, the chordwise direction).  As with
-        *normal_direction*, it selects the sense of the per-strip chord
-        axis, not the axis itself, and must be (nearly) parallel to that
-        axis.
-    hub_radius : float or None
-        Override hub radius for span coordinate calculation.
-        If *None*, taken from *blade_aero*.
+        Parameters
+        ----------
+        mesh : MeshModel
+            The shell finite-element mesh (all nodes considered).
+        blade_aero : BladeAero
+            Aerodynamic blade definition (provides radial station positions).
+        span_direction : array-like
+            Unit vector along the blade span in global coordinates
+            (default: z-axis ``[0, 0, 1]``).
+        normal_direction : array-like
+            Sense reference for the BEM normal force *Np* (default: y-axis
+            ``[0, 1, 0]``, the fluid/downwind direction).  The *axis* *Np*
+            rides is taken per strip from the section geometry (normal to the
+            local chord); this vector only selects the sense, i.e. which of the
+            two opposite in-plane directions is ``+normal_hat``.  It must be
+            (nearly) parallel to the section normal - an orthogonal reference
+            makes the sign a round-off decision.
+        tangential_direction : array-like
+            Sense reference for the BEM tangential force *Tp* (default: x-axis
+            ``[1, 0, 0]``, the chordwise direction).  As with
+            *normal_direction*, it selects the sense of the per-strip chord
+            axis, not the axis itself, and must be (nearly) parallel to that
+            axis.
+        hub_radius : float or None
+            Override hub radius for span coordinate calculation.
+            If *None*, taken from *blade_aero*.
     """
 
     def __init__(
@@ -424,8 +425,9 @@ directions along each axis the loads push) is the model owner's convention
             )
             M_strip = M_ac - np.cross(self._strip_ac_offsets[k], F_strip)
 
-            # Distribute to nodes (constrained minimum-norm)
-            f_nodes = self._distribute(strip, F_strip, M_strip)
+            # Distribute to nodes: span moment as a Bredt wall shear flow, residual
+            # through the unchanged minimum-norm solve.
+            f_nodes = realise_section_load(strip, F_strip, M_strip, self._span_dir)
             forces[strip.node_indices] = f_nodes
 
         return forces
@@ -538,3 +540,130 @@ directions along each axis the loads push) is the model owner's convention
         f_flat = A.T @ lam
 
         return f_flat.reshape(n, 3)
+
+
+def realise_section_load(
+    strip: _Strip,
+    F_strip: np.ndarray,
+    M_strip: np.ndarray,
+    span_dir,
+    ring_groups: list[np.ndarray] | None = None,
+) -> np.ndarray:
+    """Realise a strip load with its span moment carried by Bredt's wall shear flow.
+
+    A closed thin-walled section under a torque ``M`` about its span axis carries the
+    constant wall shear flow ``q = M / (2A)`` along its wall mid-line.  The constrained
+    minimum-norm solve :meth:`ForceProjector._distribute` instead spreads a pure span moment
+    as the circle-tangential field ``f_j = omega x d_j``, which is not a Saint-Venant wall
+    traction.  This function realises the span component of ``M_strip`` as the wall flow and
+    hands whatever is left to :meth:`ForceProjector._distribute`.
+
+    Steps, in order:
+
+    1. **Split the moment.**  ``span_hat = span_dir / ||span_dir||``;
+       ``torsion = M_strip . span_hat`` is the part the wall flow can carry, and
+       ``transverse = M_strip - torsion * span_hat`` is left to the fallback.
+    2. **Group the nodes.**  ``ring_groups`` (int index arrays into the strip's own
+       ``offsets``) when given; otherwise the strip's points are grouped by
+       :func:`rings_in_band` on their span coordinate with the scale-relative
+       ``gap_tolerance = 1e-4 * (span_max - span_min)``.  A strip can hold several physical
+       rings because the mesh's BEM band is wider than one ring; on a prebent blade one ring
+       spreads over ~1e-3 m of span while stations are ~0.44 m apart, so ``1e-4`` of the
+       blade's span separates them.
+    3. **Gate on usability.**  Each non-empty group is ordered and validated with
+       :func:`contour_report`.  The shear flow is used only when **every** non-empty group is
+       ``usable``; a multi-cell, concave or degenerate section falls back to the unchanged
+       :meth:`ForceProjector._distribute`, so a section the ordering cannot explain keeps
+       today's behaviour.
+    4. **Bredt per group.**  With ``G`` non-empty groups the span torque is split as the
+       equal share ``torsion / G``.  This is the zero-order quadrature of a distributed span
+       torque over the small band the strip represents: the strip's ``dr`` is the BEM
+       station width and the band is thin compared with the span, so a uniform share is the
+       natural (and only datum-free) choice; a single-ring strip is the exact ``G = 1``
+       case.  Each group's flow is ``q_g = torsion_g / (2 * report_g.area)``, and for every
+       ordered edge ``(i, j)`` the load ``0.5 * q_g * ell * tangent_hat`` is added to both
+       endpoint nodes (``ell`` the 3-D edge length, ``tangent_hat`` the unit edge vector).
+       :func:`order_ring` orients the ring CCW as seen from ``+span``, so a positive
+       ``torsion_g`` produces a moment along ``+span``.
+    5. **Residual.**  The realised nodal moment ``M_shear = sum_j cross(offset_j, f_j)`` is
+       read back about the strip centroid and the leftover force/moment
+       ``F_strip - sum_j f_j`` and ``M_strip - M_shear`` are routed through
+       :meth:`ForceProjector._distribute`.  The shear flow already delivers the span moment,
+       so this keeps force and moment conservation exact (to the pseudoinverse) regardless
+       of round-off in the shear-flow algebra.
+
+    Before adding the residual, the delivered span moment is checked against the requested one
+    (when ``torsion != 0``).  The check is the **signed** difference
+    ``abs(span_hat @ M_shear - torsion)``: a difference of magnitudes would accept an
+    orientation bug that flips the delivered moment, and on the tube the signed difference is
+    pure round-off because the flow's moment ``2 q A`` and the area ``A`` come from the same
+    ordered polygon.  ``1e-9`` relative is therefore generous for the tube and hard for a sign
+    or orientation error, which fails loudly instead of being absorbed by the residual.
+
+    Pure over ``strip``: the ``_Strip`` and its arrays are read-only here.
+
+    Raises
+    ------
+    ValueError
+        If ``span_dir`` is zero-length, or the wall flow's realised span moment disagrees with
+        the requested one by more than 1e-9 relative.
+    """
+    span_hat = np.asarray(span_dir, dtype=float).reshape(3)
+    span_norm = float(np.linalg.norm(span_hat))
+    if span_norm == 0.0:
+        raise ValueError("span_dir must be non-zero")
+    span_hat = span_hat / span_norm
+
+    M_strip = np.asarray(M_strip, dtype=float)
+    F_strip = np.asarray(F_strip, dtype=float)
+    torsion = float(M_strip @ span_hat)
+
+    if ring_groups is None:
+        points = strip.centroid + strip.offsets
+        span_coords = points @ span_hat
+        if span_coords.size:
+            span_extent = float(span_coords.max() - span_coords.min())
+        else:
+            span_extent = 0.0
+        ring_groups = rings_in_band(span_coords, 1e-4 * span_extent)
+
+    groups = [np.asarray(g, dtype=np.intp).ravel() for g in ring_groups if len(g) > 0]
+    if not groups:
+        return ForceProjector._distribute(strip, F_strip, M_strip)
+
+    reports = [contour_report(strip.centroid + strip.offsets[group], span_hat) for group in groups]
+    if not all(report.usable for report in reports):
+        return ForceProjector._distribute(strip, F_strip, M_strip)
+
+    n = len(strip.node_indices)
+    f_shear = np.zeros((n, 3))
+    share = torsion / len(groups)
+    for group, report in zip(groups, reports, strict=True):
+        ordered = strip.centroid + strip.offsets[group][report.order]
+        local = group[report.order]
+        q = share / (2.0 * report.area)
+        m = len(local)
+        for k in range(m):
+            i = int(local[k])
+            j = int(local[(k + 1) % m])
+            edge = ordered[(k + 1) % m] - ordered[k]
+            ell = float(np.linalg.norm(edge))
+            if ell == 0.0:  # unusable rings are already excluded; keep the guard local
+                continue
+            half = 0.5 * (q * ell) * (edge / ell)
+            f_shear[i] = f_shear[i] + half
+            f_shear[j] = f_shear[j] + half
+
+    M_shear = np.cross(strip.offsets, f_shear).sum(axis=0)
+    if torsion != 0.0:
+        delivered = float(M_shear @ span_hat)
+        if abs(delivered - torsion) > 1e-9 * abs(torsion):
+            raise ValueError(
+                "wall shear flow realised a span moment of "
+                f"{delivered:.6e} N.m but {torsion:.6e} N.m was requested: the ring order or "
+                "the span axis is wrong (this is not round-off)"
+            )
+
+    residual_force = F_strip - f_shear.sum(axis=0)
+    residual_moment = M_strip - M_shear
+    return f_shear + ForceProjector._distribute(strip, residual_force, residual_moment)

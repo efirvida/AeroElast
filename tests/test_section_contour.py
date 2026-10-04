@@ -57,9 +57,7 @@ def test_clockwise_input_is_normalised_but_raw_sequence_keeps_sign():
 
 def test_self_intersecting_and_self_overlapping_rings_are_not_usable():
     # A raw bow-tie order: edges (0,1) and (2,3) cross.
-    bowtie = np.array(
-        [[0.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]]
-    )
+    bowtie = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]])
     simple, witness = sc.is_simple(bowtie, SPAN_Z)
     assert simple is False
     assert witness is not None
@@ -84,9 +82,7 @@ def test_self_intersecting_and_self_overlapping_rings_are_not_usable():
 
 
 def test_repeated_consecutive_point_is_not_closed():
-    points = np.array(
-        [[0.0, 0, 0], [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]
-    )
+    points = np.array([[0.0, 0, 0], [0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]])
     report = sc.contour_report(points, SPAN_Z)
     assert report.closed is False
     assert report.usable is False
@@ -97,9 +93,7 @@ def test_degenerate_inputs_are_not_usable():
     fewer_than_three = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
     assert sc.contour_report(fewer_than_three, SPAN_Z).usable is False
 
-    collinear = np.array(
-        [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0]]
-    )
+    collinear = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0]])
     report = sc.contour_report(collinear, SPAN_Z)
     assert report.usable is False
     assert report.area == 0.0
@@ -144,3 +138,51 @@ def test_in_plane_translation_preserves_area_and_perimeter():
 def test_zero_span_is_rejected():
     with pytest.raises(ValueError):
         sc.section_plane_axes(np.zeros(3))
+
+
+# ---------------------------------------------------------------------------
+# Span-station grouping (merge_span_stations / rings_in_band)
+#
+# The projector's strips contain several *physical* rings: prebend splits one
+# ring's nodes over ~1e-3 m of span while neighbouring BEM stations are ~0.44 m
+# apart. Plain properties, not store comparisons.
+# ---------------------------------------------------------------------------
+
+
+def test_merge_span_stations_merges_close_values_as_means():
+    # Two physical rings, each split by a prebend of ~1e-3 m, 0.44 m apart.
+    values = np.array([0.0, 0.0004, 0.0009, 0.44, 0.4403, 0.4408])
+    merged = sc.merge_span_stations(values, 0.01)
+    assert merged == pytest.approx([0.0013 / 3.0, (0.44 + 0.4403 + 0.4408) / 3.0])
+
+
+def test_merge_span_stations_is_increasing_and_keeps_exact_duplicates():
+    # Zero tolerance is the planar section: all nodes share one span, they must
+    # still come back as one station (exact duplicates always merge).
+    assert sc.merge_span_stations(np.array([2.0, 2.0, 5.0]), 0.0) == [2.0, 5.0]
+    merged = sc.merge_span_stations(np.array([3.0, 1.0, 2.0, 1.0]), 0.01)
+    assert merged == [1.0, 2.0, 3.0]
+
+
+def test_rings_in_band_covers_every_index_once_in_span_order():
+    spans = np.array([10.0, 0.0, 0.0005, 20.0, 0.0, 20.0004])
+    groups = sc.rings_in_band(spans, 0.01)
+    assert len(groups) == 3
+    flat = np.concatenate(groups)
+    assert sorted(flat.tolist()) == [0, 1, 2, 3, 4, 5]
+    means = [float(spans[g].mean()) for g in groups]
+    assert means == sorted(means)
+
+
+def test_rings_in_band_merges_a_split_prebent_ring():
+    # One physical ring: same chordwise station, prebend spreads it by ~1e-3 m.
+    spans = np.array([5.0, 5.0004, 4.9996, 5.0002])
+    groups = sc.rings_in_band(spans, 0.01)
+    assert len(groups) == 1
+    assert sorted(groups[0].tolist()) == [0, 1, 2, 3]
+
+
+def test_rings_in_band_keeps_well_separated_rings_separate():
+    spans = np.array([0.0, 0.44, 0.88, 0.4401, 0.0002])
+    groups = sc.rings_in_band(spans, 0.01)
+    assert [sorted(g.tolist()) for g in groups] == [[0, 4], [1, 3], [2]]

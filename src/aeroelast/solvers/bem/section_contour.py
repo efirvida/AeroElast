@@ -44,6 +44,8 @@ __all__ = [
     "signed_area",
     "is_simple",
     "contour_report",
+    "merge_span_stations",
+    "rings_in_band",
 ]
 
 
@@ -192,6 +194,73 @@ def is_simple(points: np.ndarray, span_dir: np.ndarray) -> tuple[bool, tuple[int
             if _segments_intersect(plane[i], plane[(i + 1) % n], plane[j], plane[(j + 1) % n]):
                 return False, (i, j)
     return True, None
+
+
+def _clustered_spans(sorted_values: np.ndarray, gap_tolerance: float) -> list[list[float]]:
+    """Single-linkage clusters of sorted, adjacent span values.
+
+    A new cluster starts when the gap to the previous value is at least
+    ``gap_tolerance``, so a chain of values each within ``gap_tolerance`` of its
+    neighbour merges into one physical station.  Exact duplicates always merge,
+    even at ``gap_tolerance == 0`` (a planar section, where every ring node has
+    the same span coordinate).
+    """
+    if sorted_values.size == 0:
+        return []
+    clusters: list[list[float]] = [[float(sorted_values[0])]]
+    for value in sorted_values[1:]:
+        gap = float(value) - clusters[-1][-1]
+        if gap < gap_tolerance or gap == 0.0:
+            clusters[-1].append(float(value))
+        else:
+            clusters.append([float(value)])
+    return clusters
+
+
+def merge_span_stations(span_coords: np.ndarray, gap_tolerance: float) -> list[float]:
+    """Merge adjacent span coordinates into physical section stations, as means.
+
+    ``span_coords`` is a flat set of scalar span positions (one per section
+    node).  They are sorted and clustered by single linkage: consecutive values
+    closer than ``gap_tolerance`` belong to the same physical station, and each
+    station is reported as the mean of its members.  The result is in increasing
+    span order.  On this repo's prebent IEA-15MW blade one physical ring spreads
+    over ~1e-3 m of span while neighbouring BEM stations sit ~0.44 m apart, so a
+    scale-relative ``gap_tolerance`` separates rings without splitting one.
+
+    Deterministic and pure: the input is never mutated.
+    """
+    values = np.asarray(span_coords, dtype=float).ravel()
+    if values.size == 0:
+        return []
+    clusters = _clustered_spans(np.sort(values), gap_tolerance)
+    return [float(np.mean(cluster)) for cluster in clusters]
+
+
+def rings_in_band(span_coords: np.ndarray, gap_tolerance: float) -> list[np.ndarray]:
+    """Group section-node indices into physical rings by their span coordinate.
+
+    Uses the same single-linkage rule as :func:`merge_span_stations`.  Returns
+    one int index array per merged station, in increasing span order, and every
+    input index appears in exactly one group.  The indices index into
+    ``span_coords`` itself (for a projector strip, into ``strip.offsets``); no
+    mesh connectivity is used or needed.
+
+    Deterministic and pure: the input is never mutated.
+    """
+    values = np.asarray(span_coords, dtype=float).ravel()
+    if values.size == 0:
+        return []
+    order = np.argsort(values, kind="stable")
+    sorted_values = values[order]
+    clusters = _clustered_spans(sorted_values, gap_tolerance)
+
+    groups: list[np.ndarray] = []
+    start = 0
+    for cluster in clusters:
+        groups.append(order[start : start + len(cluster)].astype(np.intp))
+        start += len(cluster)
+    return groups
 
 
 @dataclass(frozen=True)
