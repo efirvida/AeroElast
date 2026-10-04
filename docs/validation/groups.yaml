@@ -533,6 +533,33 @@ groups:
       array shapes -- so they are reported as tests with no comparison rather
       than given rows.
 
+  - id: "20"
+    title: >-
+      `tests/validation/blade/test_blade_twist_anchor_beam.py`
+      (the 1D anchor beam against the official deck)
+    slug: blade_anchor_beam
+    source_files:
+      - tests/validation/blade/test_blade_twist_anchor_beam.py
+    # Two assertions are console-consistency checks, not comparisons: the same
+    # number read twice. The lines are the ones the extractor reported.
+    non_reference_asserts:
+      - at: "tests/validation/blade/test_blade_twist_anchor_beam.py:218"
+        reason: >-
+          The anchor's own K entry against the EA it was decoupled from: the
+          same number read twice rather than a measurement against a
+          reference.
+      - at: "tests/validation/blade/test_blade_twist_anchor_beam.py:219"
+        reason: >-
+          The same for GKt, which the file's own comment already calls
+          decoupled vs raw.
+    provenance_note: >-
+      The independent 1D beam takes its GJ and shear centre from the official
+      IEA-15-240-RWT BeamDyn deck and its loads from the production BEM, so
+      the two models share loads and not section properties. The file also
+      prints Zhou et al. 2025 Table 4 tip torsion as the number it is checked
+      against and never asserts it, which is why that is reported and not
+      stored.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

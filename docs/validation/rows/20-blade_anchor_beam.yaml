@@ -1,0 +1,39 @@
+group: '20'
+rows:
+- id: blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single
+  group: '20'
+  title: test_anchor_sections_cross_check_and_degenerate_tip
+  tests:
+  - tests/validation/blade/test_blade_twist_anchor_beam.py::test_anchor_sections_cross_check_and_degenerate_tip
+  validates: Pin the 6x6 reading against ElastoDyn and guard the point-like tip interval.
+  comparisons:
+  - label: rtol at line 204
+    asserted: true
+    reference:
+      kind: code
+      label: the official IEA-15-240-RWT BeamDyn deck, EA
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/blade/test_blade_twist_anchor_beam.py:204
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 211
+    asserted: true
+    reference:
+      kind: code
+      label: the official IEA-15-240-RWT BeamDyn deck, GKt
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/blade/test_blade_twist_anchor_beam.py:211
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

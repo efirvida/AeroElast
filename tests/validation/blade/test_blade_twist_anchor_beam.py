@@ -58,6 +58,8 @@ BEM_CONFIG = {
     "azimuth": 0.0, "air_density": 1.225, "dynamic_viscosity": 1.81206e-5,
     "hub_height": 150.0, "shear_exp": 0.0,
 }
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 EI_BENDING_TOL = 0.02          # the ElastoDyn cross-check that fixes the 6x6 reading
 GKT_MEDIAN_FACTOR = 1.0e3      # a GKt this far below the span median is degenerate
 ZHOU_TIP_TORSION_DEG = -3.60    # Zhou et al. 2025 Table 4 - reported, never asserted
@@ -199,8 +201,20 @@ def test_anchor_sections_cross_check_and_degenerate_tip(anchor):
     print(f"\nanchor root: EA {EA:.6e} N, GKt {GKt:.6e} N.m^2; "
           f"EIxp vs FlpStff {err_x:+.2%}; EIyp vs EdgStff {err_y:+.2%}; "
           f"torsion-at-index-3 reading misses FlpStff by {bad:.1%}")
-    assert abs(EA - 4.605e10) / 4.605e10 < 0.01
-    assert abs(GKt - 8.749e10) / 8.749e10 < 0.01
+    assert_residual_below(
+        abs(EA - 4.605e10) / 4.605e10,
+        tol=0.01,
+        kind="code",
+        reference_name="the official IEA-15-240-RWT BeamDyn deck, EA",
+        what="anchor axial stiffness",
+    )
+    assert_residual_below(
+        abs(GKt - 8.749e10) / 8.749e10,
+        tol=0.01,
+        kind="code",
+        reference_name="the official IEA-15-240-RWT BeamDyn deck, GKt",
+        what="anchor torsional stiffness",
+    )
     assert abs(anchor["K"][i, 2, 2] - EA) / EA < 1e-12
     assert abs(anchor["K"][i, 5, 5] - GKt) / anchor["K"][i, 5, 5] < 0.01  # decoupled vs raw
     assert err_x < EI_BENDING_TOL and err_y < EI_BENDING_TOL and bad > EI_BENDING_TOL
