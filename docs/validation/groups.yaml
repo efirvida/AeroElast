@@ -281,6 +281,38 @@ groups:
       error against that formula in the agreement test and never asserts it
       there: the store records those as unasserted, which is what they are.
 
+  - id: "11"
+    title: >-
+      `tests/validation/bem/test_bem_openfast_parity.py`
+      (AeroElast BEM against OpenFAST AeroDyn)
+    slug: openfast_parity
+    source_files:
+      - tests/validation/bem/test_bem_openfast_parity.py
+    # One test characterises a difference rather than validating an agreement:
+    # the NeuralFoil-generated polar is asserted to differ from the official
+    # table, which documents a known divergence and claims nothing. Another
+    # checks the shape of the reference data -- 50 stations, 50 airfoils, 200
+    # angles -- which is a property of the deck, not a comparison.
+    non_validation_tests:
+      - tests:
+          - test_neuralfoil_generated_polar_differs_from_official
+        reason: >-
+          It asserts that a generated polar differs from the official
+          table. That documents a divergence; it is not a measurement of ours
+          against a reference, and the store records no row for it.
+      - tests:
+          - test_reference_polars_are_the_official_aerodyn_tables
+        reason: >-
+          It checks the shape of the reference data itself: 50 span stations, 50
+          airfoils and 200 angles of attack. That is a property of the deck we
+          loaded, not a comparison against an independent reference.
+    provenance_note: >-
+      Both codes get the same blade geometry and the same airfoil polar tables,
+      so the comparison isolates the BEM implementation rather than the input
+      data. OpenFAST is not installed in the development environment, so these
+      tests skip here rather than fail; their rows are derived from the code
+      and carry no measurement.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

@@ -86,6 +86,7 @@ from aeroelast.models.blade.aerodynamics import (
 from aeroelast.solvers.bem.engine import BEMSolver
 
 from tests.support import openfast_bem as ob
+from tests.support.assertions import assert_residual_below  # noqa: E402
 
 #: Official IEA 15 MW reference deck (vendored; see its NOTICE).
 DECK = ob.DEFAULT_DECK
@@ -242,8 +243,20 @@ def test_yaw_and_shear_match_aerodyn(bem_yaw_shear, case_index):
         f"torque {computed.torque:.0f}/{ref.torque:.0f} N.m ({100 * err_torque:+.3f}%)"
     )
 
-    assert abs(err_thrust) <= TOL_A2_THRUST, f"thrust off by {100 * err_thrust:.3f}%"
-    assert abs(err_torque) <= TOL_A2_TORQUE, f"torque off by {100 * err_torque:.3f}%"
+    assert_residual_below(
+        abs(err_thrust),
+        tol=TOL_A2_THRUST,
+        kind="code",
+        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        what="thrust, yaw and shear case",
+    )
+    assert_residual_below(
+        abs(err_torque),
+        tol=TOL_A2_TORQUE,
+        kind="code",
+        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        what="torque, yaw and shear case",
+    )
 
 
 @pytest.fixture(scope="module")
@@ -288,11 +301,19 @@ def test_bem_with_repo_default_polars_matches_aerodyn(
         f"(vs official AeroDyn polars)"
     )
 
-    assert abs(err_thrust) <= TOL_POLAR_SET, (
-        f"repo-YAML polars move thrust by {100 * err_thrust:.3f}% (band {100 * TOL_POLAR_SET:.0f}%)"
+    assert_residual_below(
+        abs(err_thrust),
+        tol=TOL_POLAR_SET,
+        kind="code",
+        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        what="thrust with the repository's own polars",
     )
-    assert abs(err_torque) <= TOL_POLAR_SET, (
-        f"repo-YAML polars move torque by {100 * err_torque:.3f}% (band {100 * TOL_POLAR_SET:.0f}%)"
+    assert_residual_below(
+        abs(err_torque),
+        tol=TOL_POLAR_SET,
+        kind="code",
+        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        what="torque with the repository's own polars",
     )
 
 
@@ -344,13 +365,19 @@ def test_viterna_extension_matches_official_from_official_data():
             f"Cd {cd_v:.3f}/{cd_ref:.3f}"
         )
     print(f"[A3-official] like-for-like worst: dCl={worst_cl * 100:.2f}%, dCd={worst_cd * 100:.2f}%")
-    assert worst_cl < TOL_VITERNA_LIKE_FOR_LIKE, (
-        f"Viterna extension differs from the official table by {worst_cl * 100:.2f}% on Cl "
-        f"(tol {TOL_VITERNA_LIKE_FOR_LIKE * 100:.1f}%)"
+    assert_residual_below(
+        worst_cl,
+        tol=TOL_VITERNA_LIKE_FOR_LIKE,
+        kind="code",
+        reference_name="the official AeroDyn polar tables, Viterna extension like-for-like",
+        what="Cl, Viterna extension against the official table",
     )
-    assert worst_cd < TOL_VITERNA_LIKE_FOR_LIKE, (
-        f"Viterna extension differs from the official table by {worst_cd * 100:.2f}% on Cd "
-        f"(tol {TOL_VITERNA_LIKE_FOR_LIKE * 100:.1f}%)"
+    assert_residual_below(
+        worst_cd,
+        tol=TOL_VITERNA_LIKE_FOR_LIKE,
+        kind="code",
+        reference_name="the official AeroDyn polar tables, Viterna extension like-for-like",
+        what="Cd, Viterna extension against the official table",
     )
 
 
@@ -438,8 +465,20 @@ def test_rotor_performance_matches_aerodyn(bem_parity, case_index):
         f"torque {computed.torque:.0f}/{ref.torque:.0f} N.m ({100 * err_torque:+.3f}%)"
     )
 
-    assert abs(err_thrust) <= TOL_THRUST, f"thrust off by {100 * err_thrust:.3f}%"
-    assert abs(err_torque) <= TOL_TORQUE, f"torque off by {100 * err_torque:.3f}%"
+    assert_residual_below(
+        abs(err_thrust),
+        tol=TOL_THRUST,
+        kind="code",
+        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        what="rotor thrust",
+    )
+    assert_residual_below(
+        abs(err_torque),
+        tol=TOL_TORQUE,
+        kind="code",
+        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        what="rotor torque",
+    )
 
 
 @pytest.mark.parametrize("case_index", range(len(CASES)))
@@ -462,8 +501,24 @@ def test_spanwise_loads_match_aerodyn(bem_parity, case_index):
         f"max|d alpha|={max_alpha:.3f} deg, mean|d Cn|={100 * mean_cn:.2f}%"
     )
 
-    assert max_alpha <= TOL_ALPHA_DEG, f"interior alpha off by {max_alpha:.3f} deg"
-    assert mean_cn <= TOL_CN_MEAN, f"interior mean Cn off by {100 * mean_cn:.2f}%"
+    # This bound is in degrees, not a fraction, so it is an absolute tolerance and the store
+    # records it as one: TOL_ALPHA_DEG is a quantity in degrees, and the value here has been
+    # a ratio in every other comparison of this file.
+    assert_residual_below(
+        max_alpha,
+        atol=TOL_ALPHA_DEG,
+        unit="deg",
+        kind="code",
+        reference_name="the official AeroDyn polar tables, interior stations",
+        what="interior angle of attack",
+    )
+    assert_residual_below(
+        mean_cn,
+        tol=TOL_CN_MEAN,
+        kind="code",
+        reference_name="the official AeroDyn polar tables, interior stations",
+        what="interior mean normal force coefficient",
+    )
 
 
 def test_reference_polars_are_the_official_aerodyn_tables(bem_parity):
