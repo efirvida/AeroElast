@@ -349,6 +349,36 @@ groups:
       semi-definiteness, the update interval -- which is why they are not
       rows.
 
+  - id: "13"
+    title: >-
+      `tests/validation/benchmarks/test_mitc3_smoothed.py`
+      (strain-smoothed MITC3+ against Lee & Lee 2019, Table 6)
+    slug: mitc3_smoothed
+    # The comparisons state their own kind; the citation is the group's, because
+    # a paper reference has to resolve in the bibliography.
+    citation: lee2019
+    source_files:
+      - tests/validation/benchmarks/test_mitc3_smoothed.py
+    # Two assertions are not comparisons against the paper, and declaring the
+    # whole test would lose the two that are. The lines are the ones the
+    # extractor reported, not ones written from memory.
+    non_reference_asserts:
+      - at: "tests/validation/benchmarks/test_mitc3_smoothed.py:119"
+        reason: >-
+          The assembled stiffness matrix against its own transpose: a
+          symmetry of our own matrix, not an independent reference.
+      - at: "tests/validation/benchmarks/test_mitc3_smoothed.py:153"
+        reason: >-
+          A threshold that keeps the comparison beside it from being
+          vacuous -- the plain element must show the locking at all --
+          rather than a measurement of ours against the paper.
+    provenance_note: >-
+      The reference is Table 6 Mesh I of the paper, the normalized vertical
+      displacement at point B of the Scordelis-Lo roof. The file re-reads the
+      plain MITC3+ column of the same table so that the smoothed and the plain
+      cells are compared the same way, which is what keeps the improvement claim
+      from being vacuous.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

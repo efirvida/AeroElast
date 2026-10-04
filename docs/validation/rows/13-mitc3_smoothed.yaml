@@ -1,0 +1,74 @@
+group: '13'
+rows:
+- id: mitc3_smoothed.test_scordelis_lo_smoothed_mitc3_matches.8_1_0323
+  group: '13'
+  title: test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6[8-1.0323]
+  tests:
+  - tests/validation/benchmarks/test_mitc3_smoothed.py::test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6[8-1.0323]
+  validates: The smoothed element must reproduce the paper's own Mesh-I cells.
+  comparisons:
+  - label: rtol at line 125
+    asserted: true
+    reference:
+      kind: paper
+      label: Lee & Lee 2019, Table 6 Mesh I, normalized vertical displacement at B
+      citation: lee2019
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_mitc3_smoothed.py:125
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mitc3_smoothed.test_scordelis_lo_smoothed_mitc3_matches.16_1_0075
+  group: '13'
+  title: test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6[16-1.0075]
+  tests:
+  - tests/validation/benchmarks/test_mitc3_smoothed.py::test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6[16-1.0075]
+  validates: The smoothed element must reproduce the paper's own Mesh-I cells.
+  comparisons:
+  - label: rtol at line 125
+    asserted: true
+    reference:
+      kind: paper
+      label: Lee & Lee 2019, Table 6 Mesh I, normalized vertical displacement at B
+      citation: lee2019
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_mitc3_smoothed.py:125
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mitc3_smoothed.test_smoothing_relieves_scordelis_lo_mem.single
+  group: '13'
+  title: test_smoothing_relieves_scordelis_lo_membrane_locking_at_n8
+  tests:
+  - tests/validation/benchmarks/test_mitc3_smoothed.py::test_smoothing_relieves_scordelis_lo_membrane_locking_at_n8
+  validates: Smoothing must move the coarse-mesh result toward the reference plateau.
+  comparisons:
+  - label: rtol at line 155
+    asserted: true
+    reference:
+      kind: paper
+      label: Lee & Lee 2019, Table 6 Mesh I, the plain MITC3+ column
+      citation: lee2019
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_mitc3_smoothed.py:155
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

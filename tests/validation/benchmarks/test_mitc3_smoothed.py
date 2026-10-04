@@ -31,6 +31,8 @@ from tests.validation.benchmarks.test_ko2017_performance import (
     _solve,
 )
 
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 R = 25.0
 LENGTH = 25.0
 ANGLE_DEG = 40.0
@@ -120,7 +122,13 @@ def test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6(n, expected):
 
     norm = _normalized_tip(mesh, index, K)
     rel = abs(norm - expected) / expected
-    assert rel < 0.05, f"N={n}: {norm:.4f} vs Lee & Lee {expected:.4f} ({rel:.2%})"
+    assert_residual_below(
+        rel,
+        tol=0.05,
+        kind="paper",
+        reference_name="Lee & Lee 2019, Table 6 Mesh I, normalized vertical displacement at B",
+        what=f"N={n} Scordelis-Lo normalized displacement",
+    )
 
 
 def test_smoothing_relieves_scordelis_lo_membrane_locking_at_n8():
@@ -144,8 +152,12 @@ def test_smoothing_relieves_scordelis_lo_membrane_locking_at_n8():
     # the same way.
     assert plain < 0.95, f"expected membrane locking in the plain MITC3+, got {plain:.4f}"
     rel_plain = abs(plain - MITC3_TABLE_6[8]) / MITC3_TABLE_6[8]
-    assert rel_plain < 0.05, (
-        f"plain MITC3+ {plain:.4f} vs Table 6 {MITC3_TABLE_6[8]:.4f} ({rel_plain:.2%})"
+    assert_residual_below(
+        rel_plain,
+        tol=0.05,
+        kind="paper",
+        reference_name="Lee & Lee 2019, Table 6 Mesh I, the plain MITC3+ column",
+        what="N=8 plain MITC3+ normalized displacement",
     )
     assert abs(smoothed - 1.0) < abs(plain - 1.0), (
         f"smoothed {smoothed:.4f} must improve on MITC3+ {plain:.4f} toward 1.0"
