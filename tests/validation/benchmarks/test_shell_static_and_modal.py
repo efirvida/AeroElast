@@ -85,6 +85,11 @@ EXPECTED_RATIO = EXPECTED["uy"] / EXPECTED["ux"]
 # convergence is asserted separately by
 # test_axial_load_converges_to_the_analytical_solution.  The previous window was
 # a flat 5% on a percentage, applied to three different physical regimes.
+from tests.support.assertions import (  # noqa: E402
+    assert_relative_error,
+    assert_residual_below,
+)
+
 TOL_STATIC = 3.0  # percent
 
 # Mesh sequence for the axial convergence study.  (2,1) is excluded because it
@@ -204,7 +209,14 @@ class TestLinearStatic:
         error = abs(ux - EXPECTED["ux"]) / EXPECTED["ux"] * 100
         print(f"\nFX: {ux * 1000:.4f} mm (ref: {EXPECTED['ux'] * 1000:.4f} mm, err {error:.2f}%)")
 
-        assert error < TOL_STATIC, f"FX: error {error:.2f}% > {TOL_STATIC}%"
+        assert_residual_below(
+            error,
+            atol=TOL_STATIC,
+            unit="%",
+            kind="analytical",
+            reference_name="the analytical cantilever formula in this file's EXPECTED table",
+            what="FX static error",
+        )
 
     def test_fy(self):
         """FY in-plane loading."""
@@ -213,7 +225,14 @@ class TestLinearStatic:
         error = abs(uy - EXPECTED["uy"]) / EXPECTED["uy"] * 100
         print(f"\nFY: {uy * 1000:.4f} mm (ref: {EXPECTED['uy'] * 1000:.4f} mm, err {error:.2f}%)")
 
-        assert error < TOL_STATIC, f"FY: error {error:.2f}% > {TOL_STATIC}%"
+        assert_residual_below(
+            error,
+            atol=TOL_STATIC,
+            unit="%",
+            kind="analytical",
+            reference_name="the analytical cantilever formula in this file's EXPECTED table",
+            what="FY static error",
+        )
 
     def test_fz(self):
         """FZ out-of-plane loading."""
@@ -222,7 +241,14 @@ class TestLinearStatic:
         error = abs(uz - EXPECTED["uz"]) / EXPECTED["uz"] * 100
         print(f"\nFZ: {uz * 1000:.4f} mm (ref: {EXPECTED['uz'] * 1000:.4f} mm, err {error:.2f}%)")
 
-        assert error < TOL_STATIC, f"FZ: error {error:.2f}% > {TOL_STATIC}%"
+        assert_residual_below(
+            error,
+            atol=TOL_STATIC,
+            unit="%",
+            kind="analytical",
+            reference_name="the analytical cantilever formula in this file's EXPECTED table",
+            what="FZ static error",
+        )
 
     def test_ratio_physical(self):
         """UY must dominate UX: the strip is far more flexible in bending.
@@ -262,7 +288,13 @@ class TestLinearStatic:
         assert all(errors[i + 1] < errors[i] for i in range(len(errors) - 1)), (
             f"axial error must decrease under refinement, got {[f'{e * 100:.3f}%' for e in errors]}"
         )
-        assert errors[-1] < 0.01, f"finest axial error {errors[-1] * 100:.3f}% must be below 1%"
+        assert_residual_below(
+            errors[-1],
+            tol=0.01,
+            kind="analytical",
+            reference_name="the analytical cantilever formula in this file's EXPECTED table",
+            what="finest-mesh axial error",
+        )
 
 
 class TestNonlinearStatic:
@@ -283,9 +315,13 @@ class TestNonlinearStatic:
         beam = P * L**3 / (3.0 * E * inertia)
 
         dz_lin = _solve_static(8, 4, (0.0, 0.0, P, 0.0, 0.0, 0.0), 2)
-        assert abs(dz_lin - beam) < 0.05 * beam, (
-            f"linear tip {dz_lin:.6e} m vs beam theory {beam:.6e} m "
-            f"({abs(dz_lin - beam) / beam * 100:.2f}%)"
+        assert_relative_error(
+            dz_lin,
+            beam,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the Euler-Bernoulli cantilever tip P L^3 / (3 E I)",
+            what="linear tip deflection",
         )
 
         # Use the solver defaults: ``_DEFAULT_MAX_IT = 100`` converges on this
@@ -329,7 +365,13 @@ class TestNonlinearStatic:
                 f"shell nonlinear tip {dz_nl:.6e} m vs elastica "
                 f"{dz_elastica:.6e} m: {rel * 100:.2f}% (bound 5%)"
             )
-        assert rel <= 0.05
+        assert_residual_below(
+            rel,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the elastica (Bisshopp-Drucker) tip deflection",
+            what="nonlinear tip against the elastica",
+        )
 
 
 class TestModal:
@@ -359,7 +401,14 @@ class TestModal:
         print(f"\nModal mode 1: {f1:.3f} Hz (ref: {EXPECTED['modal_1']:.3f} Hz)")
 
         error = abs(f1 - EXPECTED["modal_1"]) / EXPECTED["modal_1"] * 100
-        assert error < 2.0
+        assert_residual_below(
+            error,
+            atol=2.0,
+            unit="%",
+            kind="analytical",
+            reference_name="the file's EXPECTED first modal frequency",
+            what="mode 1 frequency error",
+        )
 
 
 if __name__ == "__main__":

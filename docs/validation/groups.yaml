@@ -590,6 +590,22 @@ groups:
       shell, which rule 3 allows as a restrictive assertion -- and the rest of
       the file is controls and convergence properties.
 
+  - id: "22"
+    title: >-
+      `tests/validation/benchmarks/test_shell_static_and_modal.py`
+      (static and modal against closed forms)
+    slug: shell_static_modal
+    source_files:
+      - tests/validation/benchmarks/test_shell_static_and_modal.py
+    provenance_note: >-
+      One cantilever plate in every case and one 600 N load at a time, each
+      test asserting a physical quantity against an analytical formula and
+      never against another of our own results, as its own docstring says. Two
+      of the bounds are percentages rather than fractions, so they are
+      recorded as absolute tolerances carrying a unit: the store has had that
+      form since the degrees case, and this is what it is for. The nonlinear
+      case lands as the file's own xfail and not as a failure.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test
