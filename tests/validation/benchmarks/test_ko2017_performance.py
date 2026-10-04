@@ -52,6 +52,11 @@ DOF = 6  # library convention: u,v,w,rx,ry,rz
 # We normalize: w_FEM / w_Kirchhoff (analytical plate theory)
 # The ratio between them is the "Kirchhoff factor" ~1.0016 for clamped plate
 
+# Absolute 3D reference deflections transcribed from the paper, kept as a record of the source.
+# NOT COMPARABLE ACROSS THICKNESSES and not used by any assertion: the paper publishes its
+# tables already normalized (w_FEM / w_3D), and those numbers are the `expected_table*` dicts
+# below, which are what the tests assert. Comparing one absolute value against a normalized
+# table is the mistake this comment exists to prevent.
 PAPER_REFS = {
     # Table 1 & 2: Clamped Square Plate (w at center, pressure load)
     # w_ref_3D = -2.2137e-1, E=1, nu=0.3, L=1
@@ -629,9 +634,6 @@ class _Case:
     expected_normalized: float
     wref: float
     element_kwargs: dict[str, Any] = field(default_factory=dict)
-    # Paper 3D reference for information only (not used in assertions)
-    wref_paper: float | None = None
-    expected_paper: float | None = None
 
 
 def _run_case(case: _Case) -> float:
@@ -656,14 +658,13 @@ def _run_case(case: _Case) -> float:
         f"  Norm vs Kirchhoff: {norm:.4f} (expected: {case.expected_normalized:.4f}, error: {abs(norm - case.expected_normalized) / case.expected_normalized * 100:.2f}%)"
     )
 
-    # Paper 3D reference comparison (informational only)
-    if case.wref_paper is not None and case.expected_paper is not None:
-        norm_paper = abs(float(disp)) / float(case.wref_paper)
-        error_paper = abs(norm_paper - case.expected_paper) / case.expected_paper * 100
-        status = "✓" if error_paper < 5.0 else "✗"
-        print(
-            f"  [{status}] Norm vs Paper 3D: {norm_paper:.4f} (expected: {case.expected_paper:.4f}, error: {error_paper:.2f}%)"
-        )
+    # There was a second print here comparing disp / wref_paper against the paper's table value,
+    # and it was wrong twice over. The paper's tables are already normalized (w_FEM / w_3D), so
+    # the comparison belongs against the number above, which is asserted; and PAPER_REFS holds
+    # one absolute deflection per benchmark, not one per thickness, so scaling it by the pressure
+    # alone mixed two different normalizations and printed a cross for every case. Measured on
+    # the sheet: it read 6.2475 against an expected 0.9984 while the asserted comparison passed at
+    # 0.9984 versus the paper's own MITC4+ N=16 cell (Table 2, t/L = 1/100).
 
     return norm
 
@@ -770,11 +771,6 @@ def test_3_1_square_plate_tables_2_to_5(
         p=pressure, L=L_PLATE, t=thickness, E=MAT_PLATE.E, nu=MAT_PLATE.nu
     )
 
-    # Paper 3D reference is for p=1. Scale to our load conditions.
-    # The paper normalizes w_FEM / w_3D. Our test normalizes w_FEM / w_Kirchhoff.
-    # To compare with paper, we scale w_ref_3D by (pressure / 1).
-    wref_paper_clamped = abs(PAPER_REFS["clamped_square_plate"]) * pressure
-    wref_paper_ss = abs(PAPER_REFS["ss_square_plate"]) * pressure
 
     # MITC4 uses quad mesh
     use_triangular = False
@@ -803,8 +799,6 @@ def test_3_1_square_plate_tables_2_to_5(
         measure=_measure_w_at_xy(L_PLATE_HALF, L_PLATE_HALF),
         expected_normalized=expected_table2_3[distorted][t_over_L],
         wref=wref_clamped,
-        wref_paper=wref_paper_clamped,
-        expected_paper=expected_table2_3[distorted][t_over_L],  # MITC4+ value from paper
     )
     norm = _run_case(case_clamped)
     assert_residual_below(
@@ -833,8 +827,6 @@ def test_3_1_square_plate_tables_2_to_5(
         measure=_measure_w_at_xy(L_PLATE_HALF, L_PLATE_HALF),
         expected_normalized=expected_table4_5[distorted][t_over_L],
         wref=wref_ss,
-        wref_paper=wref_paper_ss,
-        expected_paper=expected_table4_5[distorted][t_over_L],  # MITC4+ value from paper
     )
     norm = _run_case(case_ss)
     assert_residual_below(
