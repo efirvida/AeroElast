@@ -434,6 +434,25 @@ groups:
       helper whose bounds are local variables, so the extractor reports them as
       unreadable rather than storing a bound it cannot read.
 
+  - id: "16"
+    title: >-
+      `tests/validation/benchmarks/test_large_rotation_benchmarks.py`
+      (MITC4+ large rotation, against the closed form and the elastica)
+    slug: large_rotation
+    # The kind is stated per comparison; the citation is the first of the two
+    # works the elastica table comes from, because a paper reference needs one
+    # that resolves and the comparison's own label names both.
+    citation: simo1986
+    source_files:
+      - tests/validation/benchmarks/test_large_rotation_benchmarks.py
+    provenance_note: >-
+      The MITC4+ sibling of the MITC3+ large-rotation file: the linear tip
+      deflection against Euler-Bernoulli, and the half-circle, equilibrium-path
+      and roll-up cases against the same elastica table. The solver calls here
+      carry atol and rtol keywords of their own and are not read, because the
+      extractor takes keywords only from calls whose name marks them as
+      assertions.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

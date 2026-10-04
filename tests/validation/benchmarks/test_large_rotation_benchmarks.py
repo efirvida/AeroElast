@@ -36,6 +36,14 @@ import pytest
 
 _aeroelast = pytest.importorskip("_aeroelast", reason="_aeroelast Rust extension not built")
 
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
+# The bounds the large-rotation benchmarks hold themselves to, named once here rather than inside each
+# test: the extractor resolves a bound it finds as a module constant and cannot resolve a local.
+tol = 0.05
+tol_rel = 0.05
+tol_abs = 0.5
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Analytical references
@@ -268,8 +276,12 @@ def test_linear_tip_deflection_euler_bernoulli():
     w_ref = P * L**3 / (3.0 * E * I_beam)
 
     rel_err = abs(w_tip - w_ref) / w_ref
-    assert rel_err < 0.02, (
-        f"EB tip deflection: w_tip={w_tip:.6e}, reference={w_ref:.6e}, rel error={rel_err:.2%}"
+    assert_residual_below(
+        rel_err,
+        tol=0.02,
+        kind="analytical",
+        reference_name="the Euler-Bernoulli closed form P L^3 / (3 E I)",
+        what="EB tip deflection",
     )
 
 
@@ -294,10 +306,21 @@ def test_cantilever_large_rotation_half_circle(n_elem):
     u_tip, w_tip = tip_displacement(u_total, tips)
 
     u_ref, w_ref = -10.000, 6.3662  # exact half-circle elastica (REFERENCE_TABLE)
-    tol = 0.05  # 5 % relative
 
-    assert abs(u_tip - u_ref) / abs(u_ref) < tol, f"u_tip={u_tip:.4f}, ref={u_ref:.4f}"
-    assert abs(w_tip - w_ref) / abs(w_ref) < tol, f"w_tip={w_tip:.4f}, ref={w_ref:.4f}"
+    assert_residual_below(
+        abs(u_tip - u_ref) / abs(u_ref),
+        tol=tol,
+        kind="paper",
+        reference_name="the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)",
+        what="half-circle u_tip",
+    )
+    assert_residual_below(
+        abs(w_tip - w_ref) / abs(w_ref),
+        tol=tol,
+        kind="paper",
+        reference_name="the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)",
+        what="half-circle w_tip",
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -324,21 +347,26 @@ def test_equilibrium_path(lam, u_ref, w_ref):
 
     u_tip, w_tip = tip_displacement(u_total, tips)
 
-    tol_rel = 0.05
-    tol_abs = 0.5  # [m] — used when |ref| < 1
-
     def _check(val, ref, label):
+        # The branch is the same distinction the canonical forms make: a reference of order one or
+        # more is compared as a fraction of itself, and one near zero as a distance in metres.
+        what = f"λ={lam / math.pi:.2f}π {label}"
         if abs(ref) >= 1.0:
-            err = abs(val - ref) / abs(ref)
-            assert err < tol_rel, (
-                f"λ={lam / math.pi:.2f}π  {label}: computed={val:.4f}, "
-                f"ref={ref:.4f}, rel err={err:.2%}"
+            assert_residual_below(
+                abs(val - ref) / abs(ref),
+                tol=tol_rel,
+                kind="paper",
+                reference_name="the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)",
+                what=what,
             )
         else:
-            err = abs(val - ref)
-            assert err < tol_abs, (
-                f"λ={lam / math.pi:.2f}π  {label}: computed={val:.4f}, "
-                f"ref={ref:.4f}, abs err={err:.4f}"
+            assert_residual_below(
+                abs(val - ref),
+                atol=tol_abs,
+                unit="m",
+                kind="paper",
+                reference_name="the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)",
+                what=what,
             )
 
     _check(u_tip, u_ref, "u_tip")
@@ -373,12 +401,19 @@ def test_simo_vu_quoc_rollup_360(n_elem):
     # Exact full-circle elastica values (Simo & Vu-Quoc 1986, REFERENCE_TABLE).
     u_ref, w_ref = -10.000, 0.0000
 
-    tol_rel = 0.05  # 5 %
-    tol_abs = 0.5  # 0.5 m absolute (for w_tip ≈ 0)
-
-    assert abs(u_tip - u_ref) / abs(u_ref) < tol_rel, (
-        f"Full circle u_tip={u_tip:.4f}, expected {u_ref:.4f} (= −L)"
+    assert_residual_below(
+        abs(u_tip - u_ref) / abs(u_ref),
+        tol=tol_rel,
+        kind="paper",
+        reference_name="the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)",
+        what="full-circle u_tip",
     )
-    assert abs(w_tip - w_ref) < tol_abs, (
-        f"Full circle w_tip={w_tip:.4f}, expected {w_ref:.4f} (≈ 0)"
+    # The tabulated w_ref is zero, so this one is a distance in metres against an absolute bound.
+    assert_residual_below(
+        abs(w_tip - w_ref),
+        atol=tol_abs,
+        unit="m",
+        kind="paper",
+        reference_name="the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)",
+        what="full-circle w_tip deviation",
     )
