@@ -2164,7 +2164,7 @@ inverted:
 So **(ii) is back on the table**: the shell under-twists relative to both an independent beam and
 its own modal stiffness, and two independent measurements already point at the load realisation
 rather than the element - §20.5's `distortion / |omega| = 9.36` under the production path, and
-§D4fec33's negative result that a statically equivalent end load on a thin-walled tube buys 125x
+§19.3's negative result (commit d4fec33) that a statically equivalent end load on a thin-walled tube buys 125x
 section distortion and 74.8x tip displacement at the *same* torque. Open and to be measured: the
 26-station quadrature, interpolated loads, the anchor shear centre and `y_AC = 0` leave the residual
 unresolved below their own convention uncertainty, so no bound is asserted on the 1.35x. The

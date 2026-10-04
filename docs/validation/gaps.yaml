@@ -66,7 +66,7 @@ gaps:
       measurements pointing at the same place: `distortion/|omega| = 9.36` under
       the production path (verdict 20.5) and the statically equivalent end load
       that bought 125x the section distortion at the same torque (verdict
-      section D4fec33).
+      section 19.3, commit d4fec33).
     consequence: >-
       This adds the torsional mechanism to the uncitability the two
       force_projection defects already impose, and it is recorded because the
