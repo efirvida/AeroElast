@@ -87,6 +87,17 @@ out_of_scope:
       strongest claim available, and none of these is a comparison against an
       independent reference, so rule 6 leaves them no row.
 
+  - files:
+      - tests/validation/element/test_rust_assembler.py
+    reason: >-
+      Its two comparisons are between two of our own implementations of the
+      same model -- the Rust COO fast path and the PETSc setValuesLocal loop
+      -- through np.testing.assert_allclose, which takes an atol and an rtol
+      at once and prints no residual. The self kind exists for our own model
+      against another of ours, but a row still needs one bound and one
+      printable margin, and this file has neither. What it verifies is that
+      the fast path agrees with the slow one, which is a software claim.
+
 groups:
   - id: "3"
     title: >-
