@@ -39,11 +39,14 @@ import numpy as np
 
 __all__ = [
     "ContourReport",
+    "SectionCell",
     "section_plane_axes",
     "order_ring",
     "signed_area",
     "is_simple",
     "contour_report",
+    "section_cells",
+    "cell_adjacency",
     "merge_span_stations",
     "rings_in_band",
 ]
@@ -354,3 +357,189 @@ def contour_report(points: np.ndarray, span_dir: np.ndarray) -> ContourReport:
             witness,
         )
     return ContourReport(order, area, orientation, perimeter, closed, simple, True, "ok", witness)
+
+
+@dataclass(frozen=True)
+class SectionCell:
+    """One bounded face (cell) of a thin-walled section's planar wall graph.
+
+    A thin-walled section bounded by an outer skin plus internal webs splits
+    into several closed cells; each one carries its own Bredt shear flow in the
+    multi-cell torsional problem.  ``boundary`` is the cell's node indices in
+    traversal order, a closed loop whose first index is **not** repeated at the
+    end and is the smallest index in the loop, so the dataclass is stable and
+    independent of the input edge order.  ``area`` is the positive shoelace area
+    of that loop in the section frame (see :func:`section_plane_axes`): every
+    bounded face is stored counter-clockwise as seen from ``+span``.
+    ``edges`` lists the loop's boundary edges as ordered ``(a, b)`` pairs in the
+    same traversal direction (``b = (a + 1)`` around the cell).
+    """
+
+    boundary: np.ndarray
+    area: float
+    edges: tuple[tuple[int, int], ...]
+
+
+def _wall_edges(edges, n_points: int) -> set[tuple[int, int]]:
+    """Normalise the wall graph to a set of undirected ``(min, max)`` pairs.
+
+    Self-loops are dropped (a wall always joins two distinct nodes) and repeated
+    edges are collapsed.  Out-of-range indices raise ``ValueError``.
+    """
+    normalised: set[tuple[int, int]] = set()
+    for pair in edges:
+        a, b = pair
+        a = int(a)
+        b = int(b)
+        if a == b:
+            continue
+        if not (0 <= a < n_points) or not (0 <= b < n_points):
+            raise ValueError(f"edge ({a}, {b}) is out of range for {n_points} points")
+        normalised.add((a, b) if a < b else (b, a))
+    return normalised
+
+
+def _clockwise_successor(
+    plane: np.ndarray, wall_edges: set[tuple[int, int]], n_points: int
+) -> dict[tuple[int, int], int]:
+    """Map each directed wall edge ``u -> v`` to the next edge ``v -> w``.
+
+    Around every node the incident neighbours are sorted by increasing polar
+    angle in the section plane; neighbours on the same ray (not angularly
+    distinguishable) are ordered farthest-first, then by node index.  That
+    deterministic tie-break treats a collinear wall as perturbed slightly
+    clockwise, which keeps a dangling stub on the same ray as an existing wall
+    in the outer face instead of cutting into a cell.  The successor of
+    ``u -> v`` is the neighbour immediately *clockwise* from ``u`` about ``v`` --
+    the previous element of the counter-clockwise angular order.  This keeps the
+    cell interior on the left of each directed edge, so every bounded face is
+    traversed counter-clockwise and has positive shoelace area.  A node whose
+    incident edges are collinear is not an error: the tie-break above just picks
+    one of the possible planar embeddings of the degenerate drawing.
+    """
+    neighbours: list[list[int]] = [[] for _ in range(n_points)]
+    for a, b in wall_edges:
+        neighbours[a].append(b)
+        neighbours[b].append(a)
+
+    successor: dict[tuple[int, int], int] = {}
+    for node, incident in enumerate(neighbours):
+        if not incident:
+            continue
+        rel = plane[incident] - plane[node]
+        angle = np.arctan2(rel[:, 1], rel[:, 0])
+        radius = np.hypot(rel[:, 0], rel[:, 1])
+        # Primary key: angle.  Ties (same ray): farthest first (``-radius``),
+        # then the node index, so the embedding is deterministic and collinear
+        # stubs stay in the outer face.
+        order = np.lexsort((np.asarray(incident, dtype=np.intp), -radius, angle))
+        ring = [incident[i] for i in order]
+        for i, incoming in enumerate(ring):
+            successor[(incoming, node)] = ring[i - 1]
+    return successor
+
+
+def _face_loops(
+    wall_edges: set[tuple[int, int]], successor: dict[tuple[int, int], int]
+) -> list[list[int]]:
+    """Traverse the planar embedding, returning one node loop per face.
+
+    Every directed edge belongs to exactly one face walk.  The order in which
+    walks are started is made deterministic (sorted undirected edges, each with
+    both directions); the final cell order does not depend on it.
+    """
+    directed: list[tuple[int, int]] = []
+    for a, b in sorted(wall_edges):
+        directed.append((a, b))
+        directed.append((b, a))
+
+    visited: set[tuple[int, int]] = set()
+    loops: list[list[int]] = []
+    for start in directed:
+        if start in visited:
+            continue
+        loop: list[int] = []
+        current = start
+        while current not in visited:
+            visited.add(current)
+            loop.append(current[0])
+            current = (current[1], successor[current])
+        loops.append(loop)
+    return loops
+
+
+def section_cells(points: np.ndarray, edges, span_dir: np.ndarray) -> list[SectionCell]:
+    """Extract the bounded faces (cells) of a section's planar wall graph.
+
+    ``points`` is an ``(n, 3)`` node array and ``edges`` a sequence of undirected
+    index pairs: the in-plane wall graph of the section, made of skin segments
+    and web segments.  ``span_dir`` is the span axis; the section frame comes
+    from :func:`section_plane_axes`, so ``+span`` counter-clockwise is positive.
+
+    The graph is embedded in that frame and its faces are traversed with the
+    successor rule of :func:`_clockwise_successor`: from ``u -> v`` the next edge
+    is ``v -> w`` with ``w`` the neighbour immediately clockwise from ``u`` about
+    ``v``.  That keeps the interior on the left, so **bounded faces are
+    counter-clockwise (positive shoelace) and only they are returned**; the
+    single unbounded outer face of a connected graph is clockwise and is dropped
+    by the ``area > 0`` filter (a graph with no closed loop yields only
+    non-positive faces and returns ``[]``).
+
+    Every returned cell's ``boundary`` starts at its lowest node index and runs
+    counter-clockwise, and cells are ordered by that index, so the result is
+    deterministic and independent of the input edge order.  Dangling walls (a
+    stub that leads nowhere) are traversed into and back out of as part of the
+    dropped outer face and never appear in a returned cell.
+
+    The graph is assumed planar and drawn without crossing walls; a crossing
+    graph is **not** detected here (no full geometric validation is performed).
+    Degenerate input (no edges, fewer than three nodes, no closed loop) returns
+    ``[]``.  Pure: ``points`` and ``edges`` are never mutated.
+    """
+    pts = _as_points(points)
+    n_points = pts.shape[0]
+    wall_edges = _wall_edges(edges, n_points)
+    if n_points < 3 or not wall_edges:
+        return []
+
+    plane = _in_plane(pts, span_dir)
+    successor = _clockwise_successor(plane, wall_edges, n_points)
+
+    cells: list[SectionCell] = []
+    for loop in _face_loops(wall_edges, successor):
+        boundary = np.asarray(loop, dtype=np.intp)
+        cell_plane = plane[boundary]
+        x = cell_plane[:, 0]
+        y = cell_plane[:, 1]
+        area = 0.5 * float(np.sum(x * np.roll(y, -1) - np.roll(x, -1) * y))
+        if not area > 0.0:
+            continue
+        # Normalise the loop to start at its lowest node index.  All kept cells
+        # are already counter-clockwise, so the direction needs no reversal.
+        boundary = np.roll(boundary, -int(np.argmin(boundary)))
+        boundary_edges = tuple(
+            (int(boundary[i]), int(boundary[(i + 1) % boundary.shape[0]]))
+            for i in range(boundary.shape[0])
+        )
+        cells.append(SectionCell(boundary, area, boundary_edges))
+
+    cells.sort(key=lambda cell: int(cell.boundary[0]))
+    return cells
+
+
+def cell_adjacency(cells: list[SectionCell]) -> dict[tuple[int, int], list[int]]:
+    """Map each bounded wall edge to the cell indices that use it.
+
+    The key is the undirected edge ``(min, max)`` and the value lists the indices
+    of the cells whose boundary contains that edge, in :func:`section_cells`
+    output order.  A skin edge bounds one cell, a web shared by two cells appears
+    with two owners; this is exactly the incidence the multi-cell Bredt shear
+    flow system needs.  Edges that bound no cell (dangling stubs) are absent.
+    Deterministic and pure.
+    """
+    adjacency: dict[tuple[int, int], list[int]] = {}
+    for cell_index, cell in enumerate(cells):
+        for a, b in cell.edges:
+            key = (a, b) if a < b else (b, a)
+            adjacency.setdefault(key, []).append(cell_index)
+    return adjacency

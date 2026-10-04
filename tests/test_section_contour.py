@@ -186,3 +186,206 @@ def test_rings_in_band_keeps_well_separated_rings_separate():
     spans = np.array([0.0, 0.44, 0.88, 0.4401, 0.0002])
     groups = sc.rings_in_band(spans, 0.01)
     assert [sorted(g.tolist()) for g in groups] == [[0, 4], [1, 3], [2]]
+
+
+# ---------------------------------------------------------------------------
+# Cells of a planar wall graph (SectionCell / section_cells / cell_adjacency)
+#
+# A thin-walled blade section is measurably multi-cell: the outer skin plus
+# internal webs bound several closed cells, so the single-cell q = T/(2A) is the
+# wrong shear-flow field there.  These tests pin the bounded-face extraction on
+# synthetic planar wall graphs whose cell areas are known exactly.  Plain exact
+# properties of our own data, not store comparisons.
+# ---------------------------------------------------------------------------
+
+
+def _cell_signature(cells):
+    """Ordered ``(boundary, area)`` view with the boundary compared as a set."""
+    return [(sorted(c.boundary.tolist()), c.area) for c in cells]
+
+
+def test_square_ring_is_one_cell():
+    points = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]])
+    edges = [(0, 1), (1, 2), (2, 3), (3, 0)]
+
+    cells = sc.section_cells(points, edges, SPAN_Z)
+    assert len(cells) == 1
+    cell = cells[0]
+    assert cell.area == 1.0
+    # The bounded face is normalised CCW starting at its lowest node index.
+    assert cell.boundary.tolist() == [0, 1, 2, 3]
+    assert set(cell.edges) == {(0, 1), (1, 2), (2, 3), (3, 0)}
+    assert len(cell.edges) == 4
+
+
+def test_two_cell_rectangle_reports_the_shared_web():
+    points = np.array(
+        [
+            [0.0, 0.0, 0.0],  # 0 bottom-left
+            [2.0, 0.0, 0.0],  # 1 bottom-right
+            [2.0, 1.0, 0.0],  # 2 top-right
+            [0.0, 1.0, 0.0],  # 3 top-left
+            [1.0, 0.0, 0.0],  # 4 bottom-middle
+            [1.0, 1.0, 0.0],  # 5 top-middle
+        ]
+    )
+    edges = [(0, 4), (4, 1), (1, 2), (2, 5), (5, 3), (3, 0), (4, 5)]
+
+    cells = sc.section_cells(points, edges, SPAN_Z)
+    assert len(cells) == 2
+    assert sorted(c.area for c in cells) == [1.0, 1.0]
+
+    adjacency = sc.cell_adjacency(cells)
+    assert sorted(adjacency[(4, 5)]) == [0, 1]  # the web bounds both cells
+    skin = [key for key in adjacency if key != (4, 5)]
+    assert len(skin) == 6
+    assert all(len(adjacency[key]) == 1 for key in skin)
+
+
+def test_three_cell_rectangle_pins_blade_topology():
+    # This is the blade's own topology: outer skin plus two parallel webs.
+    points = np.array(
+        [
+            [0.0, 0.0, 0.0],  # 0 bottom-left
+            [3.0, 0.0, 0.0],  # 1 bottom-right
+            [3.0, 1.0, 0.0],  # 2 top-right
+            [0.0, 1.0, 0.0],  # 3 top-left
+            [1.0, 0.0, 0.0],  # 4 bottom of web 1
+            [2.0, 0.0, 0.0],  # 5 bottom of web 2
+            [1.0, 1.0, 0.0],  # 6 top of web 1
+            [2.0, 1.0, 0.0],  # 7 top of web 2
+        ]
+    )
+    edges = [
+        (0, 4),
+        (4, 5),
+        (5, 1),
+        (1, 2),
+        (2, 7),
+        (7, 6),
+        (6, 3),
+        (3, 0),
+        (4, 6),  # web 1
+        (5, 7),  # web 2
+    ]
+
+    cells = sc.section_cells(points, edges, SPAN_Z)
+    assert len(cells) == 3
+    assert sorted(c.area for c in cells) == [1.0, 1.0, 1.0]
+
+    adjacency = sc.cell_adjacency(cells)
+    assert set(adjacency) == {(min(a, b), max(a, b)) for a, b in edges}
+    assert len(adjacency[(4, 6)]) == 2
+    assert len(adjacency[(5, 7)]) == 2
+    histogram: dict[int, int] = {}
+    for owners in adjacency.values():
+        histogram[len(owners)] = histogram.get(len(owners), 0) + 1
+    assert histogram == {1: 8, 2: 2}
+
+
+def test_dangling_stub_does_not_create_or_corrupt_a_cell():
+    points = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.5, -0.5, 0.0],  # 4: free end of the stub, off any wall ray
+        ]
+    )
+    edges = [(0, 1), (1, 2), (2, 3), (3, 0), (0, 4)]
+
+    cells = sc.section_cells(points, edges, SPAN_Z)
+    assert len(cells) == 1
+    assert cells[0].area == 1.0
+    assert 4 not in cells[0].boundary.tolist()
+    assert set(cells[0].boundary.tolist()) == {0, 1, 2, 3}
+
+    adjacency = sc.cell_adjacency(cells)
+    assert (0, 4) not in adjacency
+    assert (4, 0) not in adjacency
+
+
+def test_non_z_span_axis_yields_the_same_cells():
+    # Same physical square expressed in two planes; the cells and their areas
+    # must not depend on which span axis the section frame is built from.
+    square_z = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]])
+    square_y = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 0.0, 1.0], [0.0, 0.0, 1.0]])
+    edges = [(0, 1), (1, 2), (2, 3), (3, 0)]
+
+    cells_z = sc.section_cells(square_z, edges, SPAN_Z)
+    cells_y = sc.section_cells(square_y, edges, SPAN_Y)
+    assert _cell_signature(cells_y) == _cell_signature(cells_z)
+    assert len(cells_y) == 1
+    assert cells_y[0].area == 1.0
+
+
+def test_cells_are_independent_of_edge_order_and_endpoint_order():
+    points = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [3.0, 0.0, 0.0],
+            [3.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+            [2.0, 1.0, 0.0],
+        ]
+    )
+    edges = np.array(
+        [
+            [0, 4],
+            [4, 5],
+            [5, 1],
+            [1, 2],
+            [2, 7],
+            [7, 6],
+            [6, 3],
+            [3, 0],
+            [4, 6],
+            [5, 7],
+        ],
+        dtype=np.intp,
+    )
+    base = sc.section_cells(points, edges, SPAN_Z)
+    base_signature = [(c.boundary.tolist(), c.area) for c in base]
+    assert len(base) == 3
+
+    rng = np.random.default_rng(20240517)
+    for _ in range(5):
+        shuffled = edges[rng.permutation(edges.shape[0])]
+        flip = rng.random(shuffled.shape[0]) < 0.5
+        shuffled[flip] = shuffled[flip][:, ::-1]
+        cells = sc.section_cells(points, shuffled, SPAN_Z)
+        assert [(c.boundary.tolist(), c.area) for c in cells] == base_signature
+
+
+def test_graphs_without_a_closed_loop_have_no_cells():
+    chain = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0]])
+
+    assert sc.section_cells(np.zeros((0, 3)), [], SPAN_Z) == []
+    assert sc.section_cells(chain[:3], [], SPAN_Z) == []
+    assert sc.section_cells(chain[:2], [(0, 1)], SPAN_Z) == []
+    assert sc.section_cells(chain, [(0, 1), (1, 2), (2, 3)], SPAN_Z) == []
+
+
+def test_section_cells_does_not_mutate_its_inputs():
+    points = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [2.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [1.0, 1.0, 0.0],
+        ]
+    )
+    edges = np.array([[0, 4], [4, 1], [1, 2], [2, 5], [5, 3], [3, 0], [4, 5]], dtype=np.intp)
+    points_before = points.copy()
+    edges_before = edges.copy()
+
+    cells = sc.section_cells(points, edges, SPAN_Z)
+    assert len(cells) == 2
+    assert np.array_equal(points, points_before)
+    assert np.array_equal(edges, edges_before)
