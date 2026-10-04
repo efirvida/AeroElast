@@ -351,7 +351,8 @@ def test_composite_laminate_gap_mesh_study(tmp_path):
     # Imported lazily: the parity module owns the laminate construction, and
     # its petsc4py guard must not skip this module's CalculiX-free test.
     parity = pytest.importorskip(
-        "test_composite_beam_parity", reason="composite parity helpers unavailable"
+        "tests.validation.parity.test_composite_beam_parity",
+        reason="composite parity helpers unavailable",
     )
 
     h = np.array([L / ny for _, ny in LAMINATE_MESHES], dtype=float)
