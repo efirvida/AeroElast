@@ -119,16 +119,13 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     ### COMPONENTS
     _add_components(definition, blade_internal_structure, blade_structure_dict)
 
-    # WindIO sign convention: twist positive = nose-up (pitch to feather),
-    # matching the OpenFAST/BeamDyn inputs (+15.59 deg at the root of the
-    # IEA-15-240-RWT).  The NuMAD geometry builder applies the twist as
-    # `-rotorspin * twist_deg` (rotorspin=+1 assumed for the Excel CW
-    # convention), which would mirror the blade twist.  Set -1 so the mesh
-    # twist keeps the WindIO sign — otherwise the shell bend-twist coupling
-    # inverts (elastic twist nose-down under flap load instead of the
-    # physical nose-up; verified against the BeamDyn anchor, Engram
-    # 'BeamDyn anchor: elastic twist is NOSE-UP...').
-    definition.rotorspin = -1
+    # ``rotorspin`` keeps NuMAD's default here.  An override of -1 used to sit at this point
+    # to force the WindIO twist sign; measured on the IEA-15MW blade it mirrors the mesh in
+    # x (sum(x) +1986.78 m against -1986.78 m) and flips the section normal's sense, which
+    # turns the load upwind: ForceProjector's load frame then reads the section normal the
+    # opposite way (tests/validation/bem/test_force_projection_load_frame.py) and the elastic
+    # twist changes sign, away from the 1D beam built from the published deck (-1.7765 deg).
+    # The Excel path still sets it from the ``CW``/``CCW`` flag (see excel_to_blade.py).
 
     blade.update_blade()
 
