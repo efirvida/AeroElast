@@ -3569,15 +3569,17 @@ def extract_residuals(
     asserted: list[dict[str, str]] = []
     unasserted: list[dict[str, str]] = []
     for line in lines:
+        # The line itself is kept beside the named groups: it is what the print said, and a
+        # text rebuilt from the groups cannot know the units the print wrote.
         match = re.search(str(residual["asserted"]), line)
         if match:
-            asserted.append(match.groupdict())
+            asserted.append({**match.groupdict(), "line": line.strip()})
             continue
         pattern = residual.get("unasserted")
         if pattern:
             match = re.search(str(pattern), line)
             if match:
-                unasserted.append(match.groupdict())
+                unasserted.append({**match.groupdict(), "line": line.strip()})
     return asserted, unasserted
 
 
@@ -3767,7 +3769,7 @@ def compare_row(
                 "stored_digest": stored,
                 "value": _float(printed.get("value")),
                 "expected": printed.get("expected"),
-                "text": measurement_text(printed, residual_suffix(comparison)),
+                "text": str(printed.get("line") or measurement_text(printed, residual_suffix(comparison))),
             }
         )
     for printed in unasserted:
@@ -3781,8 +3783,9 @@ def compare_row(
                 "current": _float(printed.get("error")),
                 "value": _float(printed.get("value")),
                 "expected": printed.get("expected"),
-                # An unasserted print has no comparison behind it, so no unit is known.
-                "text": measurement_text(printed, ""),
+                # An unasserted print has no comparison behind it, so its own line is the only
+                # honest text: it is exactly what the test printed, units included.
+                "text": str(printed.get("line") or measurement_text(printed, "")),
             }
         )
     return results

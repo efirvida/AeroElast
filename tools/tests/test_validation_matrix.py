@@ -1703,6 +1703,28 @@ def test_measurement_text_never_says_none() -> None:
     assert module.measurement_text({"error": "1e-10"}, "") == "1e-10"
 
 
+def test_the_stored_text_is_the_line_the_test_printed() -> None:
+    """The reader keeps the printed line, so a text never guesses a unit.
+
+    Rebuilding the text from the parsed groups lost what the print wrote -- a percent sign on
+    group 3s unasserted diagnostics, which the reader dropped while the print carried it. A
+    raw line cannot drift from itself, and the digest is computed from the three named groups
+    rather than from this key, so keeping it changes no stored digest.
+    """
+    module = _load_tool_module()
+    lines = ["[x] Norm vs Paper 3D: 6.2475 (expected: 0.9984, error: 525.75%)"]
+    residual = {
+        "asserted": "(?P<nothing>zzz)",
+        "unasserted": r"Norm\svs\sPaper\s3D:\s(?P<value>\S+)\s\(expected:\s(?P<expected>\S+),\serror:\s(?P<error>\S+)%\)",
+    }
+    _, unasserted = module.extract_residuals(lines, residual)
+
+    assert unasserted[0]["line"] == lines[0]
+    assert module.evidence_digest(unasserted[0]) == module.evidence_digest(
+        {"value": "6.2475", "expected": "0.9984", "error": "525.75"}
+    )
+
+
 def test_a_measurement_that_is_not_numeric_is_refused(tmp_path: Path) -> None:
     """A margin that is not a number is not a measurement, and the writer says so.
 
