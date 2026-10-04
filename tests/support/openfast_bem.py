@@ -27,6 +27,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
@@ -312,16 +313,27 @@ def build_blade_aero_from_aerodyn(
 
 
 def find_openfast_bin() -> Optional[Path]:
-    """Resolve the ``openfast`` binary following ``OPENFAST_BIN`` → PATH → env."""
+    """Resolve ``openfast``: ``OPENFAST_BIN``, then the pinned env, then PATH.
+
+    The pinned environment is the one the tables in ``docs/validation-environment.md`` were
+    measured with, and PATH resolves to whichever environment is active. Inside the
+    development environment that is a newer OpenFAST, which refuses the 4.x driver input these
+    tests write, so the tests fail in setup while the pinned binary sits in its own env --
+    which is checked before PATH for that reason, and PATH stays as the fallback for a machine
+    that has a single install.
+    """
     env = os.environ.get("OPENFAST_BIN")
     if env and Path(env).exists():
         return Path(env)
+    siblings = [Path(sys.prefix).parent]
+    siblings.append(Path.home() / "miniconda3" / "envs")
+    for root in siblings:
+        pinned = root / "openfast" / "bin" / "openfast"
+        if pinned.exists():
+            return pinned
     found = shutil.which("openfast")
     if found:
         return Path(found)
-    candidate = Path.home() / "miniconda3/envs/openfast/bin/openfast"
-    if candidate.exists():
-        return candidate
     return None
 
 

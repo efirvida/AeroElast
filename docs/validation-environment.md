@@ -12,7 +12,7 @@ Reproduce it before quoting a number, because several references are version-sen
 | Python | 3.12.14 | conda env `aeroelast-dev` |
 | Ruff | 0.16.0 | lint, also in CI |
 | CalculiX (ccx) | 2.23 | `~/miniconda3/envs/aeroelast-dev/bin/ccx` |
-| OpenFAST | 4.2.1 | conda env `openfast`; resolved by the tests via `OPENFAST_BIN`/`PATH` |
+| OpenFAST | 4.2.1 | conda env `openfast`; resolved by the tests via `OPENFAST_BIN`, then that env, then `PATH` |
 | ccblade | 1.3.1 | editable install; see the fragility note below |
 | neuralfoil | 0.3.3 | polar generation |
 | preCICE | 3.4.0 | `libprecice.pc` in the conda env |
@@ -27,18 +27,20 @@ high-mode worst gap of 2.12% under CCX **2.23**, while issue #8 measured 4.03% u
 CCX **2.20**. A missing external tool makes the affected rows **skip**, not fail; a tool that is present and
 refuses its input is a different case and shows up as an error, which is the signal it should be.
 
-**OpenFAST has drifted from the table above.** It says 4.2.1 and the binary that answers here
-reports OpenFAST-v5.0.0 (GCC 15.3.0, single precision, built 2026-09-19). That matters because
-write_aerodyn_dvr in tests/support/openfast_bem.py writes an **OpenFAST 4.x** driver input, and v5
-makes mandatory fields that 4.x defaulted: it refuses the deck at AbortLevel first, and at
-ModCoupling once AbortLevel is supplied, both with FATAL ERROR and no simulation run. Every test in
-tests/validation/bem/test_bem_openfast_parity.py that runs the driver therefore **errors in setup**
--- twelve of the fourteen -- while the two that do not run it pass.
+**OpenFAST needs its own environment, and PATH does not find it.** The version above lives in the
+conda env `openfast`; the development env also carries an OpenFAST, and that one reports v5.0.0.
+It mattered because the tests resolved the binary through PATH, which inside the development env
+means v5.0.0, and v5 makes mandatory fields that the 4.x driver input these tests write leaves out:
+it refuses the deck at `AbortLevel` first, and at `ModCoupling` once `AbortLevel` is supplied, both
+with FATAL ERROR and no simulation run. Twelve tests in
+tests/validation/bem/test_bem_openfast_parity.py errored in setup that way, while the pinned binary
+sat unused in its own environment.
 
-They are not skipped, and they should not be. A skip says the dependency is absent; here it is
-present and refusing the input, so the honest signal is an error until the writer is ported to v5.
-That is a porting task, not a missing file, and the rows of group 11 carry no measurement because
-of it.
+`find_openfast_bin` resolves `OPENFAST_BIN` first, then the pinned env, then PATH, and measured
+after that change the same twelve pass with no environment variable set. One or two new mandatory
+fields per release are enough to break this again, so compare the version before believing a
+number, and prefer both: a missing binary skips, and a binary that refuses its input has to stay
+visible as an error.
 
 ## Run the suite
 
