@@ -808,6 +808,66 @@ groups:
       the extractor resolves a bound named at module scope and not one a class
       carries.
 
+  - id: "29"
+    title: >-
+      `tests/validation/rotor/test_rotor_inertial.py`
+      (the inertial force laws against their closed forms)
+    slug: rotor_inertial
+    source_files:
+      - tests/validation/rotor/test_rotor_inertial.py
+    # Eleven assertions are comparisons with a bound but no reference: they
+    # are all np.testing.assert_allclose calls whose two sides come from our
+    # own code. The lines are the ones the extractor reported.
+    non_reference_asserts:
+      - at: "tests/validation/rotor/test_rotor_inertial.py:74"
+        reason: >-
+          The determinant of our own rotation matrix must be one.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:127"
+        reason: >-
+          A force transformation must preserve its magnitude: a property of the
+          transform itself.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:142"
+        reason: >-
+          The same norm preservation for a displacement transformation.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:189"
+        reason: >-
+          The y component of a radial force on a principal-axis node must be
+          zero.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:190"
+        reason: >-
+          The z component of the same radial force must be zero.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:250"
+        reason: >-
+          The Coriolis force must be perpendicular to the velocity it is
+          computed from: our own vector against our own velocity.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:272"
+        reason: >-
+          The x component of the Euler force on a principal-axis node must be
+          zero.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:280"
+        reason: >-
+          The z component of the same Euler force must be zero.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:442"
+        reason: >-
+          The OmegaProvider's own arithmetic: a tabulated alpha against the
+          constant it was built from.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:475"
+        reason: >-
+          The same provider arithmetic for a numerically differentiated omega.
+      - at: "tests/validation/rotor/test_rotor_inertial.py:507"
+        reason: >-
+          A rotated displacement must keep its norm: a property of our own
+          rotation.
+    provenance_note: >-
+      Unit tests for the co-rotational rotor utilities. The physics is the three
+      inertial force laws: the centrifugal magnitude against m omega^2 r, twice;
+      the Coriolis vector against the hand-derived -2 m (omega x v); and the
+      Euler component against -m alpha r. The combined force against the sum of
+      the components is our own decomposition and is recorded as such. The rest
+      is software: the transform properties, the zero components of a principal
+      axis node, and the OmegaProvider arithmetic against its own constants,
+      which the site criterion does not read.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

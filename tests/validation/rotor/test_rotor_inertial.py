@@ -7,11 +7,12 @@ and the OmegaProvider classes without requiring a full FSI setup.
 
 import importlib.util
 import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose, assert_array_almost_equal
+
+from tests.support.assertions import assert_residual_below
 from tests.support.paths import REPO_ROOT  # noqa: E402
 
 # Import the module directly to avoid triggering __init__.py which has PETSc deps
@@ -19,6 +20,8 @@ _module_path = (
     REPO_ROOT / "src" / "aeroelast" / "solvers" / "fsi" / "corotational.py"
 )
 _spec = importlib.util.spec_from_file_location("fsi_rotor_corotational", _module_path)
+if _spec is None or _spec.loader is None:  # pragma: no cover - the file is in the tree
+    raise RuntimeError(f"could not load {_module_path}")
 _module = importlib.util.module_from_spec(_spec)
 sys.modules["fsi_rotor_corotational"] = _module
 _spec.loader.exec_module(_module)
@@ -196,7 +199,13 @@ class TestInertialForcesCalculator:
         for i, (r, m) in enumerate(zip([1.0, 2.0, 3.0], masses, strict=False)):
             expected_magnitude = m * omega**2 * r
             actual_magnitude = np.linalg.norm(F_cf[i])
-            assert_allclose(actual_magnitude, expected_magnitude, rtol=1e-10)
+            assert_residual_below(
+                abs(actual_magnitude - expected_magnitude) / expected_magnitude,
+                tol=1e-10,
+                kind="analytical",
+                reference_name="the centrifugal closed form m omega^2 r",
+                what=f"centrifugal force magnitude at radius {r} m",
+            )
 
     def test_centrifugal_force_zero_omega(self, calculator, simple_rotor_setup):
         """Centrifugal force should be zero when omega=0."""
@@ -217,7 +226,15 @@ class TestInertialForcesCalculator:
         # omega × v = [0,0,5] × [10,0,0] = [0, 50, 0]
         # F_cor = -2 * m * (omega × v) = -2 * 1 * [0, 50, 0] = [0, -100, 0]
         expected = np.array([[0, -100, 0]])
-        assert_array_almost_equal(F_cor, expected, decimal=10)
+        # assert_array_almost_equal allows 1.5e-10 per entry and this reference has zero
+        # entries, so the faithful single residual is taken against the vector norm.
+        assert_residual_below(
+            float(np.max(np.abs(F_cor - expected)) / np.max(np.abs(expected))),
+            tol=1.5e-10,
+            kind="analytical",
+            reference_name="the Coriolis closed form -2 m (omega x v), hand derived in the comment",
+            what="Coriolis force vector, worst entry against the reference norm",
+        )
 
     def test_coriolis_force_perpendicular(self, calculator):
         """Coriolis force should be perpendicular to velocity."""
@@ -253,7 +270,13 @@ class TestInertialForcesCalculator:
         for i, (r, m) in enumerate(zip([1.0, 2.0, 3.0], masses, strict=False)):
             expected_y = -m * alpha * r
             assert_allclose(F_euler[i, 0], 0, atol=1e-10)
-            assert_allclose(F_euler[i, 1], expected_y, rtol=1e-10)
+            assert_residual_below(
+                abs(F_euler[i, 1] - expected_y) / abs(expected_y),
+                tol=1e-10,
+                kind="analytical",
+                reference_name="the Euler closed form -m alpha r",
+                what=f"Euler force y component at radius {r} m",
+            )
             assert_allclose(F_euler[i, 2], 0, atol=1e-10)
 
     def test_euler_force_zero_alpha(self, calculator, simple_rotor_setup):
@@ -284,7 +307,13 @@ class TestInertialForcesCalculator:
         F_euler = calculator.compute_euler_force(coords, masses, alpha)
 
         expected_total = F_cf + F_cor + F_euler
-        assert_array_almost_equal(F_total, expected_total, decimal=10)
+        assert_residual_below(
+            float(np.max(np.abs(F_total - expected_total)) / np.max(np.abs(expected_total))),
+            tol=1.5e-10,
+            kind="self",
+            reference_name="the sum of the three components this same calculator returns",
+            what="combined inertial force, worst entry against the component sum",
+        )
 
         # Check diagnostics
         assert "centrifugal" in diagnostics
@@ -325,12 +354,25 @@ class TestInertialForcesCalculator:
         r_perp = np.sqrt(2)
         expected_mag = masses[0] * omega**2 * r_perp
         actual_mag = np.linalg.norm(F_cf[0])
-        assert_allclose(actual_mag, expected_mag, rtol=1e-10)
+        assert_residual_below(
+            abs(actual_mag - expected_mag) / expected_mag,
+            tol=1e-10,
+            kind="analytical",
+            reference_name="the centrifugal closed form m omega^2 r_perp",
+            what="centrifugal force magnitude at a node off both principal axes",
+        )
 
         # Direction should be radially outward in XY plane
         expected_direction = np.array([1, 1, 0]) / np.sqrt(2)
         actual_direction = F_cf[0] / actual_mag
-        assert_array_almost_equal(actual_direction, expected_direction, decimal=10)
+        assert_residual_below(
+            float(np.max(np.abs(actual_direction - expected_direction))),
+            atol=1.5e-10,
+            unit="dimensionless",
+            kind="analytical",
+            reference_name="the radial unit vector [1, 1, 0] / sqrt(2)",
+            what="centrifugal force direction off the principal axes",
+        )
 
 
 class TestOmegaProviders:
