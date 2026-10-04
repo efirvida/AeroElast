@@ -33,6 +33,73 @@ node order (the stored ring's shoelace area differs from the angle-sorted one by
   wall-bending field (verdict 22.8).
 - The earlier 0.74x/1.35x torsional deficit was a reference mix-up and is retracted (22.10).
 
+## Merge reconciliation findings (the base is not neutral)
+
+Merging `origin/main` into this branch produced a hybrid where main's guards and this line's
+numerical-core variants disagree. Two are measured, and fixing one exposes the other:
+
+- **Mesh frame (fixed, `680cf81`).** This line forced NuMAD `rotorspin = -1` in
+  `models/blade/numad/io/yaml_to_blade.py`. Measured on the IEA-15MW blade it mirrors the mesh in
+  x (`sum(x)` +1986.78 m against -1986.78 m) and flips the section normal's sense, so
+  `ForceProjector` reads it the wrong way: main's guard
+  `test_force_projection_load_frame.py::test_load_sense_is_downwind_and_driving` fails with
+  `F.y = -8.48e5` N (upwind) where main gives `+8.44e5` N. Removing the override restores main's
+  frame; the force-projection / tube / ordering set goes 37 passed.
+- **Mesh winding (open).** This line canonicalises element windings
+  (`core/mesh/winding.py`, called from `BladeMesh.generate`); main has neither the module nor the
+  call. `test_blade_rated_twist.py::test_rated_aero_loads_reproduce_the_bem_resultants` fails with
+  the in-plane edge construction (`16.8070%` against a `0.5%` bound). Disabling the
+  canonicalisation in-process makes that test pass but breaks
+  `test_rated_twist_under_production_loads`, and on pure `origin/main` both pass (7/7). So the two
+  lines disagree about the mesh's own connectivity, not about one call site: this is a core
+  divergence, not a one-line defect.
+- **BEM polars (open).** This line resamples every polar onto a shared `[-180, 180]` degree grid
+  (`solvers/bem/engine.py::_build_ccblade_polar_columns`, imported by
+  `tests/validation/bem/test_bem_polars.py`); main passes the polar columns through. `bem.Np`
+  differs by ~0.4% at rated. Adopting main's engine alone does not fix the winding failure.
+
+Consequence: continuing on this merge means, for every core file both lines rewrote, choosing one
+line. main's guards only pass with main's core; this line's core variants (winding canonicalisation,
+rotorspin, polar resampling) were built against this line's mesher and BEM. That decision is the
+user's, and it is the true prerequisite for #11 T2b/T3 and for #12.
+
+### The structural numbers, measured (user decision: main wins in the core)
+
+`test_blade_rated_twist.py` prints the two quantities #11 and #12 quote. Measured with `-s`:
+
+| tree | tip section `omega` | `distortion/|omega|` | `tip mean theta_z` |
+| --- | ---: | ---: | ---: |
+| pure `origin/main` | **-1.5112 deg** | **9.3633** | -3.8558 deg |
+| this branch (canonicalisation on) | -0.3895 deg | 4.8062 | +1.4813 deg |
+| this branch (canonicalisation off) | **+0.1194 deg** | 15.4966 | +2.0090 deg |
+
+main's numbers are the ones the issue text quotes, so main's structural core is the reference and
+this branch's is not.
+
+The two main guards that matter here trade off against each other on this tree:
+
+- canonicalisation **on**: `test_rated_twist_under_production_loads` passes (`omega < 0`) and
+  `test_rated_aero_loads_reproduce_the_bem_resultants` fails (16.8070% against 0.5%);
+- canonicalisation **off**: the loads test passes and the twist test fails on
+  `omega < 0` (`+0.1194 deg`), the same assertion main satisfies with `-1.5112 deg`.
+
+So this line's mesh needs the winding canonicalisation for the composite ply-angle mapping to give
+the nose-down twist, while main's mesh needs none: the two meshers do not produce the same
+connectivity. Swapping main's `models/blade/numad/*` files and main's `core/assembler.py` does not
+change it (`omega` stays `+0.1194 deg`), and the blade fixture assembles through the Rust
+`PyMeshAssembler` directly, so the divergence is in the mesh-building path this line rewrote
+(`core/mesh/generators.py::BladeMesh`, `_deduplicate_and_create_mesh`) and in
+`core/mesh/model.py`, not in the element kernels (`mitc4.rs`'s body is identical to main's).
+
+### Next work unit (not started)
+
+Align the mesh-building path to main and re-add only this line's additive extras (the
+`--export-mesh` / `RotorHubMesh` CLI surface, `airfoil_spacing`, the CCX FSI deck in `writers.py`),
+then re-run: `test_blade_rated_twist.py`, `test_force_projection*.py`, the tube pair,
+`test_ccx_*`. The forcing invariant is main's printed numbers above, not a tolerance: the tree must
+reproduce `omega = -1.5112 deg` and `distortion/|omega| = 9.3633` before #11 T3 and #12 mean
+anything.
+
 ## Tasks
 
 - [x] T0 — Environment: rebuilt the Rust extension after the merge (`maturin develop
