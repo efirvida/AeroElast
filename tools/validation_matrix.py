@@ -51,7 +51,9 @@ from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import hashlib
+import io
 from collections import Counter
 import json
 import re
@@ -2969,6 +2971,53 @@ def command_extract(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def command_coherence(args: argparse.Namespace) -> int:
+    """Re-derive every group and report the row files that no longer match the code.
+
+    A row file cites the line each comparison sits on. Editing a test moves those lines,
+    and nothing else sees it: `check` cannot read the code, and comparing how many rows a
+    group extracts compares a count rather than the bytes of the file, which is how a
+    stale citation hid until `git status` showed it. This writes what the code says and
+    compares in memory -- the same thing as `extract --write` followed by `git diff`,
+    without needing git and with the groups named. A stale file is left refreshed, because
+    the diff it prints is the fix.
+    """
+    store = load_store(args.store)
+    groups = [args.group] if args.group else sorted(store.groups, key=int)
+    stale: list[str] = []
+    for group_id in groups:
+        group = store.groups.get(group_id)
+        if group is None:
+            raise StoreError(f"unknown group: {group_id}")
+        scope = (group.get("source_files") or [None])[0]
+        target = args.store / "rows" / f"{group_id}-{group.get('slug')}.yaml"
+        if not scope:
+            # Group 10's rows are written by hand; there is nothing to derive them from.
+            print(f"{target.name}: no source file to derive from, left alone")
+            continue
+        before = target.read_text(encoding="utf-8") if target.exists() else None
+        quiet = argparse.Namespace(
+            store=args.store, group=group_id, scope=scope, citation=None, json=False, write=True
+        )
+        with contextlib.redirect_stdout(io.StringIO()):
+            code = command_extract(quiet)
+        if code != EXIT_OK:
+            print(f"{target.name}: the extraction itself did not finish cleanly")
+            return code
+        after = target.read_text(encoding="utf-8") if target.exists() else None
+        if before != after:
+            stale.append(target.name)
+            print(f"{target.name}: the rows on disk were not what the code says, and are refreshed now")
+    if stale:
+        print(
+            f"{len(stale)} of {len(groups)} row file(s) were stale. Read the change, and commit it "
+            "if it is right."
+        )
+        return EXIT_FINDINGS
+    print(f"coherent: {len(groups)} group(s) re-derive to the rows on disk")
+    return EXIT_OK
+
+
 # --------------------------------------------------------------------------- #
 # Adjudications: the audit trail of a reconciled group
 # --------------------------------------------------------------------------- #
@@ -3178,7 +3227,9 @@ def command_status(args: argparse.Namespace) -> int:
         and str(path.relative_to(REPO_ROOT)) not in declared_out
     )
     rows = []
-    for group_id, group in store.groups.items():
+    # By the number the group carries, not by where it sits in groups.yaml: the file's order is an
+    # accident of editing, and someone looking for group 10 should find it between 9 and 11.
+    for group_id, group in sorted(store.groups.items(), key=lambda item: int(item[0])):
         refs = [ref for ref in store.rows if ref.data.get("group") == group_id]
         views = [view for ref in refs for view in comparison_views(ref)]
         measured = [view for view in views if view["margin_pct"] is not None]
@@ -3202,11 +3253,26 @@ def command_status(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
-        print(f"{'group':8s} {'files':>5s} {'rows':>5s} {'cmp':>5s} {'measured':>8s} {'near':>4s} {'gt5':>4s}")
+        print(f"{'group':8s} {'src':>5s} {'rows':>5s} {'cmp':>5s} {'measured':>8s} {'near':>4s} {'gt5':>4s}")
         for row in rows:
+            # A group with no source file is not a broken group: its rows are driven by hand, and
+            # no re-derivation can refresh them. Showing "hand" keeps a zero from reading as a gap.
+            source = str(row["files"]) if row["files"] else "hand"
             print(
-                f"{row['group']:8s} {row['files']:5d} {row['rows']:5d} {row['comparisons']:5d} "
+                f"{row['group']:8s} {source:>5s} {row['rows']:5d} {row['comparisons']:5d} "
                 f"{row['measured']:8d} {row['near']:4d} {row['gt5']:4d}"
+            )
+        hand = [row["group"] for row in rows if not row["files"]]
+        if hand:
+            print(
+                f"\ngroups with no source file: {', '.join(hand)}. Their rows are driven by hand, "
+                "so src reads hand\n  and re-deriving cannot refresh them."
+            )
+        if not any(row["measured"] for row in rows if row["files"]):
+            print(
+                "\nthe only measured comparisons are the hand-driven ones of group 10. The rest of "
+                "the store gets\n  its margins when regression --write records them, which is a "
+                "run of the suite and not of this command."
             )
         print(f"\ngaps declared: {len(store.gaps)}")
         print(f"validation files declared out of scope: {len(declared_out)}")
@@ -3910,6 +3976,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     regression.add_argument("--json", action="store_true")
     regression.set_defaults(func=command_regression)
+
+    coherence = subparsers.add_parser(
+        "coherence",
+        help="re-derive every group and report the row files that no longer match the code",
+    )
+    coherence.add_argument("--group", help="one group instead of all of them")
+    coherence.set_defaults(func=command_coherence)
 
     gaps = subparsers.add_parser("gaps", help="what the suite does not validate")
     gaps.add_argument("--json", action="store_true")

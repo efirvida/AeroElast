@@ -17,6 +17,7 @@ import copy
 import importlib.util
 import ast
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -783,16 +784,34 @@ def test_assertion_calls_exclude_geometric_tolerances() -> None:
         and node.name == "test_3_1_square_plate_tables_2_to_5"
     )
     texts = [ast.unparse(call) for call in module.assertion_calls(func)]
-    assert any("isclose" in text for text in texts)
+    # The file's comparisons go through the suite's own helper, which is what the criterion reads.
+    assert any("assert_residual_below" in text for text in texts)
     assert not any("_find_node_by_xyz" in text for text in texts)
     assert not any("_clamped_edge_fixed_dofs" in text for text in texts)
 
     sites, ignored = module.tolerance_sites(func, consts, "0.01-100.0-False-expected_table2_30")
     assert {site.kind for site in sites} == {"rtol"}
     assert all(site.value == 0.05 for site in sites)
-    # `atol=0.0` bounds nothing, so it is reported rather than stored.
-    assert len(ignored) == 2
-    assert all("atol=0" in entry for entry in ignored)
+    assert not ignored
+
+
+def test_a_zero_bound_bounds_nothing() -> None:
+    """An absolute bound of zero is reported as ignored, not stored as if it bounded anything.
+
+    It used to be covered through a file that happened to pass atol=0.0 to a numpy helper.
+    That file was converted, so the behaviour is pinned here on a source of its own rather
+    than on the shape of a file that has already changed once.
+    """
+    module = _load_tool_module()
+    tree = ast.parse(
+        "def test_x():\n"
+        "    assert_allclose(value, reference, rtol=1e-6, atol=0.0)\n"
+    )
+    func = next(node for node in tree.body if isinstance(node, ast.FunctionDef))
+    sites, ignored = module.tolerance_sites(func, module.module_constants(tree), None)
+    assert [site.kind for site in sites] == ["rtol"]
+    assert len(ignored) == 1
+    assert "atol=0" in ignored[0]
 
 
 def test_the_site_criterion_reads_canonical_calls_only() -> None:
@@ -1659,6 +1678,35 @@ def test_status_reports_coverage_and_pending_migration(tmp_path: Path) -> None:
     assert payload["groups"][0]["group"] == "3"
     assert payload["groups"][0]["rows"] == 1
     assert isinstance(payload["ungrouped_validation_files"], list)
+
+
+def test_coherence_names_a_row_file_whose_citations_moved(tmp_path: Path) -> None:
+    """A row file cites the line each comparison sits on, and editing a test moves it.
+
+    Nothing else sees that. `check` cannot read the code, and comparing how many rows a
+    group extracts compares a count rather than the bytes of the file, which is the way a
+    stale citation hid until git status showed it. This re-derives the group and names it.
+    """
+    store = tmp_path / "store"
+    shutil.copytree(REAL_STORE, store)
+    row = next((store / "rows").glob("4-*.yaml"))
+    data = yaml.safe_load(row.read_text(encoding="utf-8"))
+    data["rows"][0]["comparisons"][0]["tolerance"]["source"] = "tests/nowhere.py:1"
+    row.write_text(yaml.safe_dump(data), encoding="utf-8")
+
+    completed = run(store, "coherence", "--group", "4")
+
+    assert completed.returncode == 1, completed.stdout + completed.stderr
+    assert row.name in completed.stdout, completed.stdout
+    assert "coherent" not in completed.stdout
+
+
+def test_the_real_store_is_coherent() -> None:
+    """The guard the maintainer asked for: the rows on disk are what the code says."""
+    completed = run(REAL_STORE, "coherence", "--group", "4")
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "coherent" in completed.stdout
 
 
 def test_the_real_store_status_reports_no_pending_migration() -> None:
