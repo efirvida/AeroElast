@@ -1680,6 +1680,31 @@ def test_status_reports_coverage_and_pending_migration(tmp_path: Path) -> None:
     assert isinstance(payload["ungrouped_validation_files"], list)
 
 
+def test_a_measurement_that_is_not_numeric_is_refused(tmp_path: Path) -> None:
+    """A margin that is not a number is not a measurement, and the writer says so.
+
+    Recording it would store a null and leave check to reject the file afterwards, which is
+    how a run that could not read a print ends up looking like a run that measured something.
+    The group residual pattern not reading the print is the finding, and it should surface as
+    one instead of as a broken row file.
+    """
+    module = _load_tool_module()
+    store = module.load_store(write_store(tmp_path, [make_row()]))
+    ref = next(item for item in store.rows if item.data.get("group") == "3")
+    result = {
+        "verdict": "new_baseline",
+        "row": ref.id,
+        "comparison": 0,
+        "current": None,
+        "value": None,
+        "text": "None (0.0824%%)",
+        "digest": "d",
+    }
+
+    with pytest.raises(module.StoreError, match="not a number"):
+        module.write_measurement(store, ref, 0, result)
+
+
 def test_a_comparison_with_no_counterpart_says_that(tmp_path: Path, capsys) -> None:
     """A moved line leaves a fresh comparison with no counterpart, and the message says so.
 

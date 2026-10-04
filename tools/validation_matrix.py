@@ -3763,7 +3763,19 @@ def head_revision() -> str:
 
 
 def write_measurement(store: Store, ref: RowRef, index: int, result: dict[str, Any]) -> None:
-    """Record one printed residual as the comparison's baseline."""
+    """Record one printed residual as the comparison's baseline.
+
+    A margin that is not a number is refused rather than stored. `check` rejects that shape, so
+    accepting it here writes a row file that fails validation and hides the real finding, which
+    is that the group's residual pattern did not read this print.
+    """
+    margin = result.get("current")
+    if not isinstance(margin, int | float):
+        raise StoreError(
+            f"the residual for {ref.id} comparison {index} is not a number "
+            f"({result.get('text')!r}), so it cannot be recorded as a measurement; the group's "
+            "residual pattern is not reading this print"
+        )
     path = ref.path
     if path is None:
         raise StoreError(f"row {ref.id} has no backing file to write")
@@ -3778,7 +3790,7 @@ def write_measurement(store: Store, ref: RowRef, index: int, result: dict[str, A
         "run": head_revision(),
         "date": date.today().isoformat(),
         "raw": result["value"],
-        "margin_pct": result["current"],
+        "margin_pct": margin,
         "text": result["text"],
         "digest": result["digest"],  # computed once, by the code that compares it
     }
@@ -3820,20 +3832,34 @@ def command_regression(args: argparse.Namespace) -> int:
     sources_stored = store.source_digests.get(str(args.group))
     sources_changed = bool(sources_stored) and sources_stored != sources_now
 
+    # Collected inside the write block and reported with the other failures below, because
+    # the list they belong to is built after it.
+    unreadable: list[str] = []
     if args.write:
+        written = 0
         for result in results:
             index = result.get("comparison")
             if result["verdict"] not in {"same", "changed", "new_baseline"}:
                 continue
             if not isinstance(index, int):
                 continue
-            write_measurement(store, store.by_id()[result["row"]], index, result)
+            # An unreadable print costs its own comparison and not the group, the same rule the
+            # extract follows: the rest of the measurements are still worth recording, and the
+            # one that could not be read is reported rather than stored as a null.
+            try:
+                write_measurement(store, store.by_id()[result["row"]], index, result)
+            except StoreError as exc:
+                unreadable.append(str(exc))
+                continue
+            written += 1
         write_source_digest(store, str(args.group), sources_now)
-        print(f"wrote {len(results)} measurement(s) and the source digest")
+        print(f"wrote {written} measurement(s) and the source digest")
 
     failing = [
         item for item in results if item["verdict"] in {"changed", "unmapped", "unclaimed"}
     ]
+    for message in unreadable:
+        failing.append({"verdict": "not_measured", "row": None, "detail": message})
     if sources_changed:
         failing.append(
             {
