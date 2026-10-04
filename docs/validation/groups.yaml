@@ -378,9 +378,12 @@ groups:
     provenance_note: >-
       Both codes get the same blade geometry and the same airfoil polar tables,
       so the comparison isolates the BEM implementation rather than the input
-      data. OpenFAST is not installed in the development environment, so these
-      tests skip here rather than fail; their rows are derived from the code
-      and carry no measurement.
+      data. The OpenFAST binary here reports v5.0.0 while the driver input these
+      tests write is 4.x format, and v5 makes mandatory fields that 4.x
+      defaulted, so every test in the file that runs the driver errors in setup
+      rather than skipping. That is a pending port, not a missing dependency:
+      the binary is present and refusing the input. Their rows are derived from
+      the code and carry no measurement.
 
   - id: "12"
     title: >-

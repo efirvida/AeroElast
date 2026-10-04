@@ -24,7 +24,21 @@ Reproduce it before quoting a number, because several references are version-sen
 
 The CalculiX version matters: the modal mesh-convergence test of §4.8b measured a
 high-mode worst gap of 2.12% under CCX **2.23**, while issue #8 measured 4.03% under
-CCX **2.20**. A missing external tool makes the affected rows `skip`, not fail.
+CCX **2.20**. A missing external tool makes the affected rows **skip**, not fail; a tool that is present and
+refuses its input is a different case and shows up as an error, which is the signal it should be.
+
+**OpenFAST has drifted from the table above.** It says 4.2.1 and the binary that answers here
+reports OpenFAST-v5.0.0 (GCC 15.3.0, single precision, built 2026-09-19). That matters because
+write_aerodyn_dvr in tests/support/openfast_bem.py writes an **OpenFAST 4.x** driver input, and v5
+makes mandatory fields that 4.x defaulted: it refuses the deck at AbortLevel first, and at
+ModCoupling once AbortLevel is supplied, both with FATAL ERROR and no simulation run. Every test in
+tests/validation/bem/test_bem_openfast_parity.py that runs the driver therefore **errors in setup**
+-- twelve of the fourteen -- while the two that do not run it pass.
+
+They are not skipped, and they should not be. A skip says the dependency is absent; here it is
+present and refusing the input, so the honest signal is an error until the writer is ported to v5.
+That is a porting task, not a missing file, and the rows of group 11 carry no measurement because
+of it.
 
 ## Run the suite
 
