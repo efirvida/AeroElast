@@ -1680,6 +1680,55 @@ def test_status_reports_coverage_and_pending_migration(tmp_path: Path) -> None:
     assert isinstance(payload["ungrouped_validation_files"], list)
 
 
+def test_a_comparison_with_no_counterpart_says_that(tmp_path: Path, capsys) -> None:
+    """A moved line leaves a fresh comparison with no counterpart, and the message says so.
+
+    The message used to claim that no stored measurement matched, which is a different
+    claim: the condition is a source with no counterpart on disk, so it fired whether or not
+    a measurement existed, and a row that had never been measured still told the reader a
+    re-measure was due.
+    """
+    module = _load_tool_module()
+    target = tmp_path / "rows" / "1-x.yaml"
+    target.parent.mkdir(parents=True)
+    module.dump_yaml(
+        target,
+        {
+            "group": "1",
+            "rows": [
+                {
+                    "id": "x",
+                    "comparisons": [
+                        {
+                            "label": "rtol at line 10",
+                            "tolerance": {"kind": "rtol", "value": 0.05, "source": "f.py:10"},
+                            "measured": {"status": "measured", "margin_pct": 3.0},
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+    fresh = [
+        {
+            "id": "x",
+            "comparisons": [
+                {
+                    "label": "rtol at line 13",
+                    "tolerance": {"kind": "rtol", "value": 0.05, "source": "f.py:13"},
+                }
+            ],
+        }
+    ]
+
+    carried = module.preserve_measurements(target, fresh)
+
+    err = capsys.readouterr().err
+    assert carried == 0
+    assert "no counterpart" in err
+    assert "re-measure is due" not in err
+
+
 def test_coherence_names_a_row_file_whose_citations_moved(tmp_path: Path) -> None:
     """A row file cites the line each comparison sits on, and editing a test moves it.
 

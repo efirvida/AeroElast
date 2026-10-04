@@ -2816,10 +2816,14 @@ def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
                     comparison[name] = value
                     carried += 1
     if unmatched:
+        # What this sees is a fresh comparison whose source has no counterpart on disk, which is
+        # what a moved line or a newly added comparison looks like. Saying that no measurement
+        # matched claimed more than the check knows, and it fired on rows never measured at all.
         print(
-            f"no stored measurement matches {len(unmatched)} comparison(s) by source; a "
-            "re-measure is due: "
-            + ", ".join(sorted(unmatched)[:5]),
+            f"{len(unmatched)} comparison(s) have no counterpart in the row file by source, which "
+            "is what a moved line or a newly added comparison looks like. Any margin recorded for "
+            "them was not carried, so re-measure those that had one:\n  "
+            + "\n  ".join(sorted(unmatched)[:5]),
             file=sys.stderr,
         )
     return carried

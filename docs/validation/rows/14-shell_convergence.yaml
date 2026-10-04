@@ -30,7 +30,7 @@ rows:
   - tests/validation/parity/test_shell_convergence.py::test_composite_laminate_gap_mesh_study
   validates: Is the AeroElast-vs-CalculiX laminate gap a mesh artifact or a
   comparisons:
-  - label: rtol at line 433
+  - label: rtol at line 434
     asserted: true
     reference:
       kind: code
@@ -38,7 +38,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/parity/test_shell_convergence.py:433
+      source: tests/validation/parity/test_shell_convergence.py:434
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
