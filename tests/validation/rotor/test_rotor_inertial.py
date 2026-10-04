@@ -71,7 +71,9 @@ class TestCoordinateTransforms:
         """Rotation matrix should have determinant = 1."""
         for theta in [0, np.pi / 4, np.pi / 2, np.pi, 3 * np.pi / 2]:
             R = z_axis_transform.rotation_matrix(theta)
-            assert_allclose(np.linalg.det(R), 1.0, atol=1e-12)
+            assert abs(float(np.linalg.det(R)) - 1.0) < 1e-12, (
+                f"rotation determinant must be 1, got {np.linalg.det(R):.16f}"
+            )
 
     def test_z_axis_90_degree_rotation(self, z_axis_transform):
         """90° rotation about Z should swap X and Y."""
@@ -124,7 +126,9 @@ class TestCoordinateTransforms:
             for i in range(3):
                 mag_original = np.linalg.norm(force_global[i])
                 mag_transformed = np.linalg.norm(force_local_2d[i])
-                assert_allclose(mag_transformed, mag_original, atol=1e-10)
+                assert abs(mag_transformed - mag_original) < 1e-10, (
+                    f"force magnitude not preserved: {mag_transformed:.12e} vs {mag_original:.12e}"
+                )
 
     def test_displacement_transformation(self, z_axis_transform):
         """Displacement transformation should preserve magnitude."""
@@ -139,7 +143,9 @@ class TestCoordinateTransforms:
             for i in range(2):
                 mag_original = np.linalg.norm(disp_local[i])
                 mag_transformed = np.linalg.norm(disp_global_2d[i])
-                assert_allclose(mag_transformed, mag_original, atol=1e-10)
+                assert abs(mag_transformed - mag_original) < 1e-10, (
+                    f"displacement magnitude not preserved: {mag_transformed:.12e} vs {mag_original:.12e}"
+                )
 
     def test_axis_normalization(self):
         """Non-unit rotation axis should be normalized."""
@@ -186,8 +192,8 @@ class TestInertialForcesCalculator:
         for i in range(3):
             # Force should be in X direction (radially outward)
             assert F_cf[i, 0] > 0, "Centrifugal should be positive X"
-            assert_allclose(F_cf[i, 1], 0, atol=1e-10)
-            assert_allclose(F_cf[i, 2], 0, atol=1e-10)
+            assert abs(F_cf[i, 1]) < 1e-10, f"radial force has a y component: {F_cf[i, 1]:.3e}"
+            assert abs(F_cf[i, 2]) < 1e-10, f"radial force has a z component: {F_cf[i, 2]:.3e}"
 
     def test_centrifugal_force_magnitude(self, calculator, simple_rotor_setup):
         """Centrifugal force should equal m * omega^2 * r."""
@@ -247,7 +253,9 @@ class TestInertialForcesCalculator:
         # Check perpendicularity: F · v = 0
         for i in range(2):
             dot_product = np.dot(F_cor[i], velocities[i])
-            assert_allclose(dot_product, 0, atol=1e-10)
+            assert abs(dot_product) < 1e-10, (
+                f"Coriolis force not perpendicular to the velocity: F.v = {dot_product:.3e}"
+            )
 
     def test_coriolis_force_zero_omega(self, calculator):
         """Coriolis force should be zero when omega=0."""
@@ -269,7 +277,7 @@ class TestInertialForcesCalculator:
         # F_euler = -m * (alpha × r) = -m * [0, 2r, 0] = [0, -2mr, 0]
         for i, (r, m) in enumerate(zip([1.0, 2.0, 3.0], masses, strict=False)):
             expected_y = -m * alpha * r
-            assert_allclose(F_euler[i, 0], 0, atol=1e-10)
+            assert abs(F_euler[i, 0]) < 1e-10, f"Euler force has an x component: {F_euler[i, 0]:.3e}"
             assert_residual_below(
                 abs(F_euler[i, 1] - expected_y) / abs(expected_y),
                 tol=1e-10,
@@ -277,7 +285,7 @@ class TestInertialForcesCalculator:
                 reference_name="the Euler closed form -m alpha r",
                 what=f"Euler force y component at radius {r} m",
             )
-            assert_allclose(F_euler[i, 2], 0, atol=1e-10)
+            assert abs(F_euler[i, 2]) < 1e-10, f"Euler force has a z component: {F_euler[i, 2]:.3e}"
 
     def test_euler_force_zero_alpha(self, calculator, simple_rotor_setup):
         """Euler force should be zero when alpha=0."""
@@ -439,7 +447,7 @@ class TestOmegaProviders:
         provider = TableOmega(times, omegas)
 
         omega, alpha = provider.get_omega(0.5)
-        assert_allclose(alpha, 10.0, rtol=0.01)
+        assert abs(alpha - 10.0) < 0.01 * 10.0, f"tabulated alpha = {alpha:.6f}, expected 10.0"
 
     def test_table_omega_validation(self):
         """TableOmega should validate inputs."""
@@ -472,7 +480,7 @@ class TestOmegaProviders:
         omega, alpha = provider.get_omega(3.0)
         assert_allclose(omega, 9.0)
         # Numerical derivative should be close to 2*3 = 6
-        assert_allclose(alpha, 6.0, rtol=0.01)
+        assert abs(alpha - 6.0) < 0.01 * 6.0, f"numerical alpha = {alpha:.6f}, expected 6.0"
 
     def test_function_omega_initial_omega(self):
         """FunctionOmega should correctly report initial omega."""
@@ -504,7 +512,10 @@ class TestIntegration:
             u_back = transforms.to_rotating(u_global, theta)
 
             # Magnitude preserved
-            assert_allclose(np.linalg.norm(u_global), np.linalg.norm(u_local), atol=1e-12)
+            assert abs(np.linalg.norm(u_global) - np.linalg.norm(u_local)) < 1e-12, (
+                f"rotation changed the displacement norm: {np.linalg.norm(u_global):.12e} vs "
+                f"{np.linalg.norm(u_local):.12e}"
+            )
 
             # Round-trip is exact
             assert_array_almost_equal(u_back, u_local, decimal=12)
