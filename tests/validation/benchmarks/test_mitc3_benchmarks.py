@@ -50,6 +50,13 @@ from tests.support.assertions import assert_residual_below  # noqa: E402
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+# The bounds the large-rotation benchmarks hold themselves to, named once here
+# rather than twice inside the tests. The extractor resolves a bound it finds as a
+# module constant and cannot resolve a local, so two locals of the same value left
+# four comparisons unreadable -- reported, not stored.
+tol_rel = 0.05
+tol_abs = 0.5
+
 # Tabulated control points (λ, u_tip_ref, w_tip_ref) — exact elastic curve.
 # The literals are the classical Simo & Vu-Quoc (1986, CMAME 58) / Bathe &
 # Bolourchi (1979, C&S 11) elastica values (bending toward −z), listed
@@ -362,21 +369,26 @@ def test_equilibrium_path(lam, u_ref, w_ref):
 
     u_tip, w_tip = tip_displacement(u_total, tips)
 
-    tol_rel = 0.05
-    tol_abs = 0.5
-
     def _check(val, ref, label):
+        # The branch is the same distinction the canonical forms make: a reference of order one or
+        # more is compared as a fraction of itself, and a reference near zero as a distance in metres.
+        what = f"λ={lam / math.pi:.2f}π {label}"
         if abs(ref) >= 1.0:
-            err = abs(val - ref) / abs(ref)
-            assert err < tol_rel, (
-                f"λ={lam / math.pi:.2f}π  {label}: computed={val:.4f}, "
-                f"ref={ref:.4f}, rel err={err:.2%}"
+            assert_residual_below(
+                abs(val - ref) / abs(ref),
+                tol=tol_rel,
+                kind="paper",
+                reference_name="the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)",
+                what=what,
             )
         else:
-            err = abs(val - ref)
-            assert err < tol_abs, (
-                f"λ={lam / math.pi:.2f}π  {label}: computed={val:.4f}, "
-                f"ref={ref:.4f}, abs err={err:.4f}"
+            assert_residual_below(
+                abs(val - ref),
+                atol=tol_abs,
+                unit="m",
+                kind="paper",
+                reference_name="the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)",
+                what=what,
             )
 
     _check(u_tip, u_ref, "u_tip")
@@ -409,9 +421,6 @@ def test_simo_vu_quoc_rollup_360(n_elem):
 
     # Exact full-circle elastica values (Simo & Vu-Quoc 1986, REFERENCE_TABLE).
     u_ref, w_ref = -10.000, 0.0000
-
-    tol_rel = 0.05
-    tol_abs = 0.5
 
     assert_residual_below(
         abs(u_tip - u_ref) / abs(u_ref),
