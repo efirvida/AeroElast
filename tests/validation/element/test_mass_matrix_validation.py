@@ -25,6 +25,12 @@ from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
 from aeroelast.solvers.modal import ModalSolver
 from aeroelast.elements import ElementFamily
 
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
+# The frequency bound, named once at module level: the extractor resolves a bound it finds as a module
+# constant and cannot resolve a local.
+TOL = 0.05
+
 logger = logging.getLogger(__name__)
 
 
@@ -387,7 +393,13 @@ class TestElementMassVsTotalMass:
             # Exact identity: the translational block of a consistent mass matrix
             # sums to rho*h*A in every direction, for every element type.  No
             # element-specific correction factor is involved.
-            np.testing.assert_allclose(per_direction, analytical_mass, rtol=1e-12)
+            assert_residual_below(
+                float(np.max(np.abs(per_direction - analytical_mass) / np.abs(analytical_mass))),
+                tol=1e-12,
+                kind="analytical",
+                reference_name="the closed form rho h A per direction",
+                what="translational mass per direction",
+            )
 
         except ImportError:
             pytest.skip("scipy not available")
@@ -528,7 +540,13 @@ class TestLumpedMassMatrix:
             m_expected,
         )
 
-        np.testing.assert_allclose(per_direction, m_expected, rtol=1e-10)
+        assert_residual_below(
+            float(np.max(np.abs(per_direction - m_expected) / np.abs(m_expected))),
+            tol=1e-10,
+            kind="analytical",
+            reference_name="the row-sum lumped mass rho h A_tributary",
+            what="lumped mass per direction",
+        )
 
 
 # =============================================================================
@@ -613,8 +631,14 @@ class TestModalMassConvergence:
 
             # Both branches of the original `0.05 if nx <= 2 else 0.05` were the
             # same value, so it never branched; this is the 5% it always applied.
-            tol = 0.05
-            assert error < tol, f"Frequency error: {error * 100:.1f}% (tol {tol * 100:.0f}%)"
+            assert_residual_below(
+                error,
+                atol=TOL,
+                unit="%",
+                kind="analytical",
+                reference_name="the closed form frequency of the single element",
+                what="frequency error",
+            )
 
         except AssertionError:
             raise  # Re-raise assert errors, don't skip
@@ -697,7 +721,13 @@ class TestConsistentMassTotal:
 
         logger.info("Consistent mass per direction: %s, analytical: %.6f", per_direction, m_total)
 
-        np.testing.assert_allclose(per_direction, m_total, rtol=1e-12)
+        assert_residual_below(
+            float(np.max(np.abs(per_direction - m_total) / np.abs(m_total))),
+            tol=1e-12,
+            kind="analytical",
+            reference_name="the total translational mass of the mesh",
+            what="consistent mass per direction",
+        )
 
 
 # =============================================================================
@@ -807,7 +837,21 @@ class TestExactConsistentMassCoefficients:
 
         for direction in range(3):
             dofs = [index * dofs_per_node + direction for index in indices]
-            np.testing.assert_allclose(M[np.ix_(dofs, dofs)], expected, rtol=1e-12, atol=1e-18)
+            # allclose applies an absolute and a relative bound at once, so the faithful single
+            # residual is each entry's deviation as a fraction of its own allowance.
+            dev = float(
+                np.max(
+                    np.abs(M[np.ix_(dofs, dofs)] - expected)
+                    / (1e-18 + 1e-12 * np.abs(expected))
+                )
+            )
+            assert_residual_below(
+                dev,
+                tol=1.0,
+                kind="analytical",
+                reference_name="the closed form element mass block",
+                what="element mass block, worst entry as a fraction of its allowance",
+            )
 
     @pytest.mark.parametrize(("name", "element_type", "coords", "area"), _REFERENCE_ELEMENTS)
     def test_rotary_inertia_block(self, material_steel, name, element_type, coords, area):
@@ -819,8 +863,17 @@ class TestExactConsistentMassCoefficients:
         M, dofs_per_node = mass_matrix_from_solver(solver, mesh)
 
         expected = material_steel.rho * thickness**3 / 12.0 * area
-        np.testing.assert_allclose(
-            rotational_mass_per_direction(M, dofs_per_node), expected, rtol=1e-12
+        assert_residual_below(
+            float(
+                np.max(
+                    np.abs(rotational_mass_per_direction(M, dofs_per_node) - expected)
+                    / np.abs(expected)
+                )
+            ),
+            tol=1e-12,
+            kind="analytical",
+            reference_name="the closed form rho h^3 / 12 A rotary inertia",
+            what="rotary inertia per rotational direction",
         )
 
 

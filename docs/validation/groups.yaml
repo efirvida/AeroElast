@@ -684,6 +684,30 @@ groups:
       applies elementwise: below one means the whole matrix is inside the pair
       of bounds it used to apply element by element.
 
+  - id: "25"
+    title: >-
+      `tests/validation/element/test_mass_matrix_validation.py`
+      (assembled masses against the closed forms)
+    slug: mass_matrix_validation
+    source_files:
+      - tests/validation/element/test_mass_matrix_validation.py
+    # One assertion is a symmetry of our own matrix rather than a measurement.
+    # The line is the one the extractor reported.
+    non_reference_asserts:
+      - at: "tests/validation/element/test_mass_matrix_validation.py:799"
+        reason: >-
+          The assembled mass matrix against its own transpose: a property of our
+          own matrix, not a comparison against a reference.
+    provenance_note: >-
+      The translational, lumped, consistent and rotary masses of every element
+      against their closed forms, plus the single-element frequency. Five of the
+      comparisons used np.testing.assert_allclose, which applies an absolute and
+      a relative bound at once and elementwise; they are recorded as the worst
+      entry's deviation as a fraction of its own allowance, so a value below one
+      means the whole array is inside the pair of bounds the comparison used to
+      apply entry by entry. One symmetry check is a property and is excluded by
+      line.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test
