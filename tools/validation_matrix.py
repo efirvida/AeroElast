@@ -411,6 +411,8 @@ class Store:
     """The loaded store, plus the findings produced while loading it."""
 
     root: Path
+    # Files under tests/validation/ that are not validation files, each with its reason.
+    out_of_scope: list[dict[str, Any]] = field(default_factory=list)
     groups: dict[str, dict[str, Any]] = field(default_factory=dict)
     flag_entries: dict[str, dict[str, Any]] = field(default_factory=dict)
     derived_flags: set[str] = field(default_factory=set)
@@ -528,6 +530,36 @@ def load_groups(store: Store) -> None:
     if not isinstance(data, dict) or not isinstance(data.get("groups"), list):
         store.error("groups.yaml", "expected a mapping with a 'groups' list")
         return
+    # A validation file with no canonical comparison is not a row: rule 6 leaves a test that
+    # compares nothing against an independent reference nowhere to sit. Declaring the file here is
+    # what separates "out of scope" from "forgotten", and `status` counts only the undeclared ones
+    # -- which the contract's own page promised before the tool could do it.
+    out_of_scope = data.get("out_of_scope")
+    if out_of_scope is not None and not isinstance(out_of_scope, list):
+        store.error("groups.yaml", "expected 'out_of_scope' to be a list")
+    for index, entry in enumerate(out_of_scope if isinstance(out_of_scope, list) else []):
+        where = f"groups.yaml.out_of_scope[{index}]"
+        if not isinstance(entry, dict):
+            store.error(where, "expected a mapping")
+            continue
+        unknown = _unknown_keys(entry, {"files", "reason"})
+        if unknown:
+            store.error(where, f"unknown keys: {', '.join(unknown)}")
+        files = entry.get("files")
+        if (
+            not isinstance(files, list)
+            or not files
+            or not all(isinstance(item, str) and item for item in files)
+        ):
+            store.error(where, "'files' must be a non-empty list of test paths")
+            continue
+        for item in files:
+            if not (REPO_ROOT / item).exists():
+                store.error(where, f"file does not exist: {item}")
+        if not isinstance(entry.get("reason"), str) or not entry["reason"].strip():
+            store.error(where, "'reason' must say why these are not validation files")
+        store.out_of_scope.append(entry)
+
     for index, entry in enumerate(data["groups"]):
         where = f"groups.yaml[{index}]"
         if not isinstance(entry, dict):
@@ -3134,10 +3166,15 @@ def command_status(args: argparse.Namespace) -> int:
         for source in group.get("source_files") or []
     }
     root = REPO_ROOT / "tests" / "validation"
+    # Declared out of scope is not the same as forgotten, and only the second is a to-do.
+    declared_out = {
+        str(item) for entry in store.out_of_scope for item in entry.get("files") or []
+    }
     ungrouped = sorted(
         str(path.relative_to(REPO_ROOT))
         for path in root.rglob("test_*.py")
         if str(path.relative_to(REPO_ROOT)) not in grouped
+        and str(path.relative_to(REPO_ROOT)) not in declared_out
     )
     rows = []
     for group_id, group in store.groups.items():
@@ -3158,6 +3195,7 @@ def command_status(args: argparse.Namespace) -> int:
     payload = {
         "groups": rows,
         "ungrouped_validation_files": ungrouped,
+        "out_of_scope_files": sorted(declared_out),
         "gaps": len(store.gaps),
     }
     if args.json:
@@ -3170,7 +3208,8 @@ def command_status(args: argparse.Namespace) -> int:
                 f"{row['measured']:8d} {row['near']:4d} {row['gt5']:4d}"
             )
         print(f"\ngaps declared: {len(store.gaps)}")
-        print(f"validation files with no group: {len(ungrouped)}")
+        print(f"validation files declared out of scope: {len(declared_out)}")
+        print(f"validation files neither grouped nor declared: {len(ungrouped)}")
         for path in ungrouped[:8]:
             print(f"  - {path}")
         if len(ungrouped) > 8:

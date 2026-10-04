@@ -10,9 +10,26 @@
 # added by work units WU-3..WU-5, which reuse the same pipeline.
 version: 1
 
+# Validation files that are not validation files, each with its reason. A test
+# that compares nothing against an independent reference is not a row (rule 6),
+# and a property, a machinery check or an investigation is a legitimate thing
+# for a test under this tree to be. Declaring the file here is what separates
+# "out of scope" from "forgotten", and `status` counts only the undeclared ones.
+out_of_scope:
+  - files:
+      - tests/validation/parity/test_thin_walled_tube_moment_realization.py
+    reason: >-
+      It asserts that our own load machinery is consistent -- the torque ruler
+      twice and the two walls of our own model agreeing -- and compares nothing
+      against an independent reference. It exists to document a defect, and the
+      defect is recorded where defects go: gaps.yaml,
+      moment_realization_over_delivers.
+
 groups:
   - id: "3"
-    title: '`tests/validation/benchmarks/test_ko2017_performance.py` (Ko, Lee, Lee & Bathe 2017)'
+    title: >-
+      `tests/validation/benchmarks/test_ko2017_performance.py`
+      (Ko, Lee, Lee & Bathe 2017)
     slug: ko2017
     citation: ko2017_perf
     # What every comparison in this group is against. The extractor reads this
