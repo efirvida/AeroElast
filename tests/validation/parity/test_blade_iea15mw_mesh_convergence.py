@@ -79,6 +79,7 @@ def _modal_couple(element_size: float, workdir, ccx_bin: str) -> tuple[np.ndarra
     blade_model = Blade(str(blade_val.YAML), element_size=element_size)
     blade_model.generate_mesh()
     mesh = blade_model.mesh
+    assert mesh is not None, "generate_mesh must leave the blade with a mesh"
     props = blade_model.get_element_properties()
 
     assembler = PyMeshAssembler.from_model(
@@ -140,7 +141,9 @@ def convergence(tmp_path_factory: pytest.TempPathFactory) -> dict[float, tuple[n
     return {es: _modal_couple(es, workdir, ccx_bin) for es in MESHES}
 
 
-def test_blade_modal_gap_converges_with_mesh(convergence) -> None:
+def test_blade_modal_gap_converges_with_mesh(
+    convergence: dict[float, tuple[np.ndarray, np.ndarray]],
+) -> None:
     """The AeroElast-vs-CCX modal gap is discretisation for the low modes.
 
     Modes 1-4 fall under refinement, so their finest-mesh gap is bounded by
