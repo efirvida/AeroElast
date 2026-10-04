@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import importlib
 import math
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, Any, List, Tuple
 
 import numpy as np
 
@@ -1053,8 +1053,11 @@ class BladeMesh:
         self.span_grading = span_grading
         self.airfoil_spacing = airfoil_spacing
         self.include_webs = include_webs
-        self._numad_blade = None
-        self._numad_mesh = None
+        # The numad objects come from the untyped ported mesher (``nuMAD``): their
+        # attributes are optional in the stubs but populated here, so ``Any`` is the honest
+        # annotation and keeps the Optional out of every downstream subscript.
+        self._numad_blade: Any = None
+        self._numad_mesh: Any = None
 
     def generate(self, renumber: str | None = None, verbose: bool = True) -> "MeshModel":
         """
@@ -1145,17 +1148,6 @@ class BladeMesh:
             if verbose:
                 print(f"      Renumbering mesh using {renumber} algorithm...")
             mesh_model.renumber_mesh(algorithm=renumber)
-
-        # Canonicalise the element windings AFTER any renumbering: every normal
-        # must point away from the section centreline, otherwise the
-        # per-element ply-angle offset (signed about the winding-dependent
-        # normal) flips the material orientation of mixed-winding elements.
-        # See aeroelast/core/mesh/winding.py.
-        from aeroelast.core.mesh.winding import canonicalize_windings
-
-        n_flipped = canonicalize_windings(mesh_model, span_axis=2)
-        if verbose and n_flipped:
-            print(f"      Canonicalised {n_flipped} element winding(s)")
 
         if verbose:
             print(
