@@ -868,6 +868,68 @@ groups:
       axis node, and the OmegaProvider arithmetic against its own constants,
       which the site criterion does not read.
 
+  - id: "30"
+    title: >-
+      `tests/validation/rotor/test_rotor_rust_parity.py`
+      (the Rust fast path against the Python path, and four rotor quantities)
+    slug: rotor_rust_parity
+    source_files:
+      - tests/validation/rotor/test_rotor_rust_parity.py
+    # Twenty-eight of the thirty-three tests are machinery for the parity.
+    # They are declared by test rather than by line, which is what the three
+    # entries below are for.
+    non_validation_tests:
+      - tests:
+          - test_constant_omega
+          - test_constant_omega_zero
+          - test_ramped_omega
+          - test_computed_omega_defaults
+          - test_computed_omega_with_initial_and_torque
+          - test_ramped_computed_omega
+          - test_ramped_computed_default_shaft_torque
+          - test_table_omega_fallback
+          - test_omega_provider_type_constant
+          - test_omega_provider_type_ramped
+          - test_omega_provider_type_computed
+          - test_omega_provider_type_ramped_computed
+          - test_map_omega_round_trip_constant
+          - test_map_omega_round_trip_ramped_computed
+        reason: >-
+          Provider mapping: each Python OmegaProvider against the parameter
+          tuple the Rust entry point takes, and back. The expectations are the
+          values the caller passed in, echoed.
+      - tests:
+          - test_solve_auto_inertia_uses_python_helper
+          - test_resolve_restart_omega_state_uses_checkpoint_state_for_ramped_computed
+          - test_resolve_restart_omega_state_uses_start_time_for_ramped_provider
+          - test_solve_restart_uses_checkpoint_omega_for_matrix_assembly
+          - test_solve_via_rust_passes_restart_state_by_keyword
+          - test_solve_auto_radius_uses_python_helper
+        reason: >-
+          Restart plumbing and helper dispatch: that a checkpoint state is
+          threaded through to the solver and which helper gets called. The
+          expectations are the captured arguments.
+      - tests:
+          - test_symbol_exists
+          - test_call_without_precice_raises_runtime_or_os_error
+          - test_call_ramped_omega_marshalling
+          - test_call_computed_omega_marshalling
+          - test_call_ramped_computed_marshalling
+          - test_call_with_callback_marshalling
+          - test_wrong_omega_mode_raises
+          - test_mismatched_dofs_raises
+        reason: >-
+          The Rust binding itself: argument marshalling, and the errors it
+          raises for a missing preCICE, a wrong mode and mismatched degrees of
+          freedom.
+    provenance_note: >-
+      Parity tests for the Rust fast path of the rotor solver. The physics is
+      four quantities of the rotor: the estimated inertia against the
+      point-mass sum, the radius against the largest perpendicular distance of
+      the nodes given (twice, once from deformed coordinates), and the axis
+      torque against the load applied at the axis. Everything else in the file
+      is machinery for the parity, declared as non-validation tests above.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

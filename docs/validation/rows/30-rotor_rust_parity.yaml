@@ -1,0 +1,108 @@
+group: '30'
+rows:
+- id: rotor_rust_parity.testrotorautoinertia_test_compute_estima.single
+  group: '30'
+  title: TestRotorAutoInertia::test_compute_estimated_inertia_matches_point_mass_sum
+  tests:
+  - tests/validation/rotor/test_rotor_rust_parity.py::TestRotorAutoInertia::test_compute_estimated_inertia_matches_point_mass_sum
+  validates: compute_estimated_inertia_matches_point_mass_sum
+  comparisons:
+  - label: rtol at line 356
+    asserted: true
+    reference:
+      kind: analytical
+      label: the point-mass sum m1 r1^2 + m2 r2^2, 2*1^2 + 3*2^2 = 14
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_rust_parity.py:356
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_rust_parity.testrotorautoinertia_test_compute_rotor.single
+  group: '30'
+  title: TestRotorAutoInertia::test_compute_rotor_radius_matches_max_perpendicular_distance
+  tests:
+  - tests/validation/rotor/test_rotor_rust_parity.py::TestRotorAutoInertia::test_compute_rotor_radius_matches_max_perpendicular_distance
+  validates: compute_rotor_radius_matches_max_perpendicular_distance
+  comparisons:
+  - label: rtol at line 624
+    asserted: true
+    reference:
+      kind: analytical
+      label: the largest perpendicular distance of the given nodes, 2 m
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_rust_parity.py:624
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_rust_parity.testrotorautoinertia_test_compute_rotor.single_2
+  group: '30'
+  title: TestRotorAutoInertia::test_compute_rotor_radius_uses_deformed_coordinates
+  tests:
+  - tests/validation/rotor/test_rotor_rust_parity.py::TestRotorAutoInertia::test_compute_rotor_radius_uses_deformed_coordinates
+  validates: compute_rotor_radius_uses_deformed_coordinates
+  comparisons:
+  - label: rtol at line 644
+    asserted: true
+    reference:
+      kind: analytical
+      label: the largest perpendicular distance of the deformed nodes, sqrt(1^2 + 2^2)
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_rust_parity.py:644
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_rust_parity.testrotorautoinertia_test_compute_axis_t.single
+  group: '30'
+  title: TestRotorAutoInertia::test_compute_axis_torque_uses_deformed_positions
+  tests:
+  - tests/validation/rotor/test_rotor_rust_parity.py::TestRotorAutoInertia::test_compute_axis_torque_uses_deformed_positions
+  validates: compute_axis_torque_uses_deformed_positions
+  comparisons:
+  - label: rtol at line 667
+    asserted: true
+    reference:
+      kind: analytical
+      label: the axis torque the applied load gives, F = -10 N at the axis
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_rust_parity.py:667
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 674
+    asserted: true
+    reference:
+      kind: analytical
+      label: the same applied load, F = -10 N at the axis
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/rotor/test_rotor_rust_parity.py:674
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

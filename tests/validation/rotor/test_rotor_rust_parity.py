@@ -32,6 +32,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
+from tests.support.assertions import assert_residual_below
+
 # ---------------------------------------------------------------------------
 # Import omega providers — must come from the installed package so that
 # ``isinstance`` checks in the rotor tests work (same class objects as rotor.py).
@@ -351,7 +353,13 @@ class TestRotorAutoInertia:
 
         inertia = solver._compute_estimated_inertia()
 
-        assert_allclose(inertia, 14.0)
+        assert_residual_below(
+            abs(inertia - 14.0) / 14.0,
+            tol=1e-12,
+            kind="analytical",
+            reference_name="the point-mass sum m1 r1^2 + m2 r2^2, 2*1^2 + 3*2^2 = 14",
+            what="estimated rotor inertia",
+        )
 
     def test_solve_auto_inertia_uses_python_helper(self, monkeypatch):
         solver = object.__new__(LinearDynamicFSIRotorSolver)
@@ -613,7 +621,13 @@ class TestRotorAutoInertia:
 
         radius = solver._compute_rotor_radius(coords)
 
-        assert_allclose(radius, 2.0)
+        assert_residual_below(
+            abs(radius - 2.0) / 2.0,
+            tol=1e-12,
+            kind="analytical",
+            reference_name="the largest perpendicular distance of the given nodes, 2 m",
+            what="rotor radius",
+        )
 
     def test_compute_rotor_radius_uses_deformed_coordinates(self):
         solver = object.__new__(LinearDynamicFSIRotorSolver)
@@ -627,7 +641,13 @@ class TestRotorAutoInertia:
 
         radius = solver._compute_rotor_radius(coords, disps)
 
-        assert_allclose(radius, np.sqrt(5.0))
+        assert_residual_below(
+            abs(radius - np.sqrt(5.0)) / np.sqrt(5.0),
+            tol=1e-12,
+            kind="analytical",
+            reference_name="the largest perpendicular distance of the deformed nodes, sqrt(1^2 + 2^2)",
+            what="rotor radius from deformed coordinates",
+        )
 
     def test_compute_axis_torque_uses_deformed_positions(self):
         solver = object.__new__(LinearDynamicFSIRotorSolver)
@@ -644,8 +664,20 @@ class TestRotorAutoInertia:
             theta=0.0,
         )
 
-        assert_allclose(torque_vec, np.array([0.0, 0.0, -10.0]))
-        assert_allclose(torque_scalar, -10.0)
+        assert_residual_below(
+            float(np.max(np.abs(torque_vec - np.array([0.0, 0.0, -10.0]))) / 10.0),
+            tol=1e-12,
+            kind="analytical",
+            reference_name="the axis torque the applied load gives, F = -10 N at the axis",
+            what="axis torque vector, worst component",
+        )
+        assert_residual_below(
+            abs(torque_scalar + 10.0) / 10.0,
+            tol=1e-12,
+            kind="analytical",
+            reference_name="the same applied load, F = -10 N at the axis",
+            what="axis torque scalar",
+        )
 
     def test_compute_performance_coefficients_uses_given_radius(self):
         solver = object.__new__(LinearDynamicFSIRotorSolver)
