@@ -46,34 +46,40 @@ gaps:
     rows: []
 
   - id: moment_realization_over_delivers
-    scope: "the torsional nodal distribution in force_projection.py"
+    scope: the torsional nodal distribution in force_projection.py
     status: open_defect
     reason: >-
       The minimum-norm realisation of a pure section moment is exactly
-      `f_j = omega x d_j`, circle-tangential about the section centroid, and
-      not the wall shear flow `q = T/(2A)` that a closed section carries. It
-      over-delivers rigid torsion at the ends instead of under-delivering it:
-      case B measures 31.7x the Bredt rate, while the validated shear flow on
-      the same mesh, torque and solver reproduces Bredt within 5%. The
-      under-delivery hypothesis (P8) is rejected, and the departure is
-      localised to the load path, not to the element.
+      `f_j = omega x d_j`, circle-tangential about the section centroid, and not
+      the wall shear flow `q = T/(2A)` a closed section carries. It
+      over-delivers rigid torsion instead of under-delivering it: case B measures
+      31.69x the Bredt rate where the validated shear flow on the same mesh,
+      torque and solver reproduces Bredt within 5% (0.3091%).
     evidence: >-
       tests/validation/parity/test_thin_walled_tube_moment_realization.py
-      (verdict section 22.9). Related measurements pointing at the same place:
-      the production load path's `distortion/|omega| = 9.36` (section 20.5);
-      the shell delivering `0.74x` of the rigid twist its own measured
-      `GJ_shell/GJ_ref = 0.87` calls for, a `1.35x` deficit (1df95fe,
-      section 22.8); and the statically-equivalent end load that bought `125x`
-      the section distortion at the same torque (d4fec33).
+      (verdict 22.9), measured on the exact tube: rate/Bredt 1.0031 for the
+      shear flow and 31.6933 for the production field, with
+      `distortion/|rotation|` 2.042 against 0.008. The departure is an end
+      effect and decays with length: the clamped-tip ratio runs 8.86 (L = 6) ->
+      3.20 (L = 24) -> 2.10 (L = 48) toward Bredt with a fixed `~1.45e-3 rad` of
+      extra tip rotation, so the 31.69x is NOT a blade-scale statement. Related
+      measurements pointing at the same place: `distortion/|omega| = 9.36` under
+      the production path (verdict 20.5) and the statically equivalent end load
+      that bought 125x the section distortion at the same torque (verdict
+      section D4fec33).
     consequence: >-
-      This adds the torsional mechanism to the same uncitability the two
-      force_projection defects above already impose on the campaign numbers. It
-      does not make a new class of number uncitable, and it is recorded because
-      the mechanism is now localised -- the realised field is `omega x d_j`,
-      not `q = T/(2A)` -- which is what a fix has to act on.
+      This adds the torsional mechanism to the uncitability the two
+      force_projection defects already impose, and it is recorded because the
+      mechanism is now localised - the realised field is `omega x d_j`, not
+      `q = T/(2A)` - which is what a fix has to act on. Two claims the first
+      version of this entry leaned on are withdrawn: the `0.74x` / `1.35x`
+      torsional deficit of 1df95fe was a reference mix-up and became a 9%
+      residual once `GJ_static/GJ_deck = 1.068` was measured (verdict 22.10), and
+      the deficit's remaining 2.4x against Zhou's tip torsion is an
+      aero/torque difference, not a stiffness or load-frame one (verdict 22.11:
+      their 4.072 Hz first torsion matches our 4.000 Hz to 1.8%).
     citations_forbidden: true
     rows: []
-
   - id: experimental_validation
     scope: "experimental validation, wind tunnel or field"
     status: not_validated
@@ -91,51 +97,68 @@ gaps:
     rows: []
 
   - id: force_projection_sense_p5
-    scope: "BEM to mesh load frame and sense (ForceProjector, defect P5)"
+    scope: BEM to mesh load frame and sense (ForceProjector, defect P5)
     status: open_defect
     reason: >-
-      The frame and the sense are now fixed and pinned, but every campaign
-      number produced BEFORE the fix had its aerodynamic load pushing
-      upwind and braking the rotor.
+      The frame and the sense are fixed and pinned, but every campaign number
+      produced BEFORE the fix had its aerodynamic load pushing upwind and
+      braking the rotor, so those numbers carry the wrong sign and cannot be
+      reused.
     evidence: >-
-      Frame: the load axis is per-strip from the section outline, guarded
-      by `tests/validation/bem/test_force_projection_load_frame.py`: worst
-      `|F.c_hat|/|F| = 0.0116` and `|F.f_hat|/|F| = 0.9999` for `Np`, the
-      same for `Tp`, worst `angle(F, f_hat) = 0.662` deg, uniform-`Np`
-      conservation `0.74%`, bounds 5% / 5% / 10 deg / 5%. The moment check
-      builds its per-strip frame from the ring outline and reproduces the
-      applied moment to `1.76e-15` relative, bound 1%.
+      Frame: the load axis comes per strip from the section outline, guarded by
+      `tests/validation/bem/test_force_projection_load_frame.py`: worst
+      `|F.c_hat|/|F| = 0.0116` and `|F.f_hat|/|F| = 0.9999` for `Np` (the same
+      pair for `Tp`), worst `angle(F, f_hat) = 0.662 deg`, uniform-`Np`
+      conservation `0.74%`, against bounds 5% / 5% / 10 deg / 5%. The moment
+      check builds its per-strip frame from the ring outline and reproduces the
+      applied moment to `1.76e-15` relative, bound 1%. Sense: with the
+      production defaults the rated summed load points downwind
+      (`F.y = +8.4444e5 N`, `|F| = 8.5263e5 N`), `1.30%` off `bem.thrust/3`
+      against a 2% bound, and delivers `+5.256 MW` for `Omega = +0.7917 y`.
     consequence: >-
-      Sense: with the production defaults the rated summed load points
-      downwind (`F.y = +8.4444e5 N`, `|F| = 8.5263e5 N`), which is `1.30%`
-      off `bem.thrust/3` against a 2% bound, and delivers `+5.256 MW` for
-      `Omega = +0.7917 y`, i.e. `-3.4%` of `bem.power/3` (`-10.2%` with the
-      blade-root lever arm). The one-way `+8.9 deg` twist and the FSI
-      de-loading numbers of the campaign therefore have the WRONG SIGN and
-      must be re-derived; they are not merely imprecise. The still-open
-      residual is the few-percent power magnitude, reported and not tuned.
+      The re-derivation this gap asked for has been done and is stored: the
+      de-loading is measured in one sign convention by
+      `tests/validation/blade/test_blade_deloading_vs_reference.py` (group 32),
+      and the elastic twist is now `-1.5112 deg` nose-down at the tip, not the
+      pre-fix `+8.9 deg`. What remains is the prohibition, not the work: numbers
+      quoted from the pre-fix path are uncitable, and the few-percent power
+      residual against the published rating is reported rather than tuned.
     citations_forbidden: true
     rows: []
-
   - id: force_projection_axial_extension
-    scope: "the nodal distribution in `force_projection.py`"
+    scope: the linear structural solve on the prebent blade axis, not the load frame
     status: open_defect
     reason: >-
-      The projected load has zero net spanwise force, but its local
-      spanwise magnitude is large enough to extend the blade, which
-      re-loads the rotor.
+      The deformed blade measures LONGER along the span than the reference
+      centroid path, and that growth re-loads the rotor. The cause first
+      recorded here - the local spanwise force the nodal distribution injects -
+      was measured and REFUTED (verdict 22.7): constraining the whole solve to
+      the section plane makes `sum|fz| = 0` exactly and moves the displacement
+      field by `max||du|| = 2.6e-3 m`, 0.016% of the 16.53 m response, with the
+      axial tip displacement going `+1.0630 -> +1.0631 m`. The lengthening comes
+      from the in-plane flapwise load acting on a curved (prebent) blade axis
+      inside a single linear `spsolve` on a linear `K`, which cannot produce the
+      second-order inextensional shortening the geometry implies.
     evidence: >-
-      The deformed centroid path measures `119.1356 m` against a
-      `117.2256 m` reference, `+1.629%`, with `sum fz = -3.5e-11 N` while
-      the local `|fz|` reaches `19.0%` of the peak `|fy|` (`346.9 N`
-      against `1826.5 N`). Inextensional beam theory predicts about
-      `-1.15 m` for a 16.4 m flap deflection over 117 m, so the sign of the
-      measured axial change is itself suspect.
+      The deformed centroid path measures `119.1356 m` against a `117.2256 m`
+      reference, `+1.629%`, with `sum fz = -3.5e-11 N` and `sum|fz| = 276,080 N`
+      (24.99% of `sum|fy| = 1,104,872 N`), 99.16% of which is the AC lever-arm
+      identity `M_bend = -dz_ac x (span x F)`, not torsion. Load split: the
+      spanwise system alone gives `-0.0032 m` at the tip, the flapwise component
+      alone `+1.0641 m`. Inextensional theory predicts about `-1.149 m` for a
+      16.42 m flap over 117 m, and a linear solve cannot reach it, so the guard
+      "assert the axial tip displacement is negative" is not writable against
+      this model. Ring-centroid `y` runs `+0.36 m` at z = 24 m to `-4.00 m` at
+      the tip, with about `0.9 m` of x curvature; the prebend/precurve split is
+      not established.
     consequence: >-
-      The mechanism re-loads the rotor by `+1.14%` thrust and `+0.85%`
-      power, so the de-loading numbers of the campaign remain not citable
-      for this second measured reason, on top of the pre-fix wrong-sign
-      load. The defect is open and unfixed, and it lives in the nodal
-      distribution, not in the load projection itself.
+      The radii feedback alone re-loads the rotor by `+1.13%` thrust and `+0.85%`
+      power, and that sign matches the production row, so the de-loading
+      shortfall measured in WU-D (twist only `-4.00% / -0.81%`, radii only
+      `+1.13% / +0.85%`, production `-2.96% / +0.03%`) is partly this artefact
+      and not bend-twist. Numbers from the production path before the load-frame
+      fixes stay non-citable. What is NOT owed any more is a load-frame fix:
+      removing the spanwise force changes nothing measurable, so this gap is now
+      a structural-model question about linear analysis on a curved axis.
     citations_forbidden: true
     rows: []
