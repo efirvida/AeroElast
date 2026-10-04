@@ -1,0 +1,87 @@
+# The audit trail of the section 3 pilot.
+#
+# `check` validates this file, so it cannot go stale quietly: an entry
+# naming a row that no longer exists, or stating no verdict, is an error
+# rather than a note nobody reads.
+#
+# No conflict needed adjudication. What follows is the evidence that the
+# reconciliation is real, plus the two findings the probe produced.
+
+group: "3"
+scope: tests/validation/benchmarks/test_ko2017_performance.py
+run: 9c35532
+date: 2026-10-03
+
+reconciliation:
+  markdown_rows: 23
+  markdown_case_slots: 37
+  collected_nodes: 31
+  store_comparisons: 37
+  verdict: reconciled
+  check: >-
+    python tools/validation_matrix.py diff-against-md --group 3
+    (the command was retired, with its tests and its CLI entry, once both
+    Markdown views were deleted and it had no input left)
+  result: >-
+    23 Markdown row(s) covering 37 case slot(s) against 31 collected
+    node(s); 0 function(s) need adjudication
+  why: >-
+    A Markdown row covers a comparison slot and a collected node covers a
+    test. A test that asserts two benchmark tables is one node and two
+    slots, which is why the three functions whose tests do that account
+    for the whole difference: test_3_1 is 4 rows over 6 nodes, test_3_2
+    is 2 over 6, test_3_9 is 2 over 4.
+  measured_margins: >-
+    All 37 baselines were recorded from a live run at 9c35532, and every
+    margin the document records appears in them. The document's tolerance
+    column equals the tolerance the code enforces, across all three
+    mechanisms it uses.
+
+adjudications:
+  - id: ADJ-0001
+    row: null
+    field: granularity
+    candidate_code: "31 collected nodes, one row each"
+    candidate_md: "23 Markdown rows, each covering one or more cases"
+    verdict: both correct, different units
+    resolution: >-
+      `diff-against-md` compares case slots rather than rows and fails
+      when the slot count stops equalling the store's comparison count. It
+      was retired with the views; the identity it checked is recorded here.
+      No row was renamed or merged, and a per-row mapping was not
+      attempted: section 3's four test_3_1 rows split on `distorted`,
+      which lives in the parametrisation and never appears in the assert,
+      so mapping row to node would be a guess.
+    decided_by: maintainer
+    date: 2026-10-03
+    status: normalized
+
+  - id: ADJ-0002
+    row: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_01_100_0_0_015625_0_0637019230769
+    field: cases
+    candidate_code: "3 nodes for that row's three t/L values"
+    candidate_md: 'the same coverage, written as `[clamped, 3 t/L]` in the test cell'
+    verdict: the document states the same thing in two phrasings
+    resolution: >-
+      `md_case_count` now accepts both `(N cases)` and `[.., N t/L]`.
+      Reading only the suffix undercounted the slots to 33 and made a
+      correct store look wrong, which is how the inconsistency surfaced.
+      Every other row in the document uses `(N cases)`.
+    decided_by: maintainer
+    date: 2026-10-03
+    status: normalized
+
+  - id: ADJ-0003
+    row: null
+    field: tolerance.kind
+    candidate_code: "`assert_relative_error(..., tol=0.05)` in the test bodies"
+    candidate_md: "`tol=0.01` per case, and `rel_err < 0.03` in the cells"
+    verdict: the same bound under three names, one of them relative
+    resolution: >-
+      `tol=` on this suite's helpers is a relative bound, because the
+      helper divides by the reference. Both the extractor and the diff
+      therefore map it to `rtol`. Read literally, every section 3 row
+      would have been reported as a tolerance conflict.
+    decided_by: maintainer
+    date: 2026-10-03
+    status: normalized

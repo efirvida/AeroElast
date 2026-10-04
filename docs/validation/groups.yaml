@@ -1,0 +1,817 @@
+# Group registry for the validation matrix.
+#
+# One entry per group of rows (the pytest files of sections 3-8, plus
+# group 10 for out-of-band evidence). `docs/validation/rows/<id>.yaml`
+# holds the rows of a group. The store is the rector: the Markdown views
+# it used to generate are gone.
+#
+# Seeded with group 3 only: it is the pilot, see the task document
+# odd/tasks/validation-matrix-store.md section 12. The remaining groups are
+# added by work units WU-3..WU-5, which reuse the same pipeline.
+version: 1
+
+# Validation files that are not validation files, each with its reason. A test
+# that compares nothing against an independent reference is not a row (rule 6),
+# and a property, a machinery check or an investigation is a legitimate thing
+# for a test under this tree to be. Declaring the file here is what separates
+# "out of scope" from "forgotten", and `status` counts only the undeclared ones.
+out_of_scope:
+  - files:
+      - tests/validation/bem/test_bem_engine.py
+    reason: >-
+      It tests the BEM engine wrapper: construction from BladeAero, the
+      shapes of its outputs, and that a parked blade's angle of attack
+      equals the twist plus the pitch. Every one of those is a property of
+      our own implementation, not a comparison against an independent
+      reference.
+  - files:
+      - tests/validation/bem/test_bem_polars.py
+    reason: >-
+      It tests the aerodynamic data layer: polar interpolation, periodic
+      wrapping, Reynolds-number selection, and loading the IEA 15 MW
+      BladeAero from WindIO. That is the software that reads and serves
+      the data, not a physical result measured against a reference.
+  - files:
+      - tests/validation/bem/test_force_projection.py
+      - tests/validation/bem/test_force_projection_load_frame.py
+    reason: >-
+      The conservative force projection and its load-frame guard: force
+      conservation, node assignment, and that the loads ride the section
+      rather than a fixed global axis. They assert properties of our own
+      load path, and the defects they document live in gaps.yaml, where
+      force_projection_sense_p5 cites the second of these as its
+      evidence.
+
+  - files:
+      - tests/validation/bem/test_force_projection_ac_datum.py
+    reason: >-
+      The production-datum guard for the force projection, and the third
+      guard from issue #9 in this domain: the aerodynamic centre of every
+      strip must sit at the station's own fraction of the chord, measured
+      from the true leading edge, and the moment must be conserved. It
+      asserts where our own load path places the datum, and its defect is
+      recorded in gaps.yaml.
+
+  - files:
+      - tests/validation/element/test_quad_elements.py
+    reason: >-
+      Matrix properties and rigid-body modes for QUAD4, QUAD8 and QUAD9:
+      shape, symmetry, positive semi-definiteness, and the rigid modes. The
+      file says it itself -- the Rust assembler is the sole source of truth
+      -- and none of those properties is a comparison against an independent
+      reference.
+  - files:
+      - tests/validation/element/test_rust_composite.py
+    reason: >-
+      Composite shell element integration through the Rust batch
+      functions and PyMeshAssembler. Its docstring is explicit that every
+      test uses physical sanity checks only, and a sanity check is a
+      property of our own implementation rather than a measurement
+      against a reference.
+
+  - files:
+      - tests/validation/element/test_composite_b_coupling.py
+    reason: >-
+      Its assertions are signs and thresholds: that B is not zero for an
+      asymmetric laminate, that the tip deflects with the sign B11 predicts,
+      and that a symmetric laminate stays flat. Rule 4 calls a sign the
+      strongest claim available, and none of these is a comparison against an
+      independent reference, so rule 6 leaves them no row.
+
+  - files:
+      - tests/validation/element/test_rust_assembler.py
+    reason: >-
+      Its two comparisons are between two of our own implementations of the
+      same model -- the Rust COO fast path and the PETSc setValuesLocal loop
+      -- through np.testing.assert_allclose, which takes an atol and an rtol
+      at once and prints no residual. The self kind exists for our own model
+      against another of ours, but a row still needs one bound and one
+      printable margin, and this file has neither. What it verifies is that
+      the fast path agrees with the slow one, which is a software claim.
+
+  - files:
+      - tests/validation/blade/test_blade_section_torsion_stiffness.py
+    reason: >-
+      It states its own answer: the assertions are only the physics-pinned
+      invariants -- the torque ruler, self-equilibration, the removed rigid
+      modes and the sign of the accumulating twist -- and no bound is asserted
+      against the deck, the modal ratio or Zhou, all of which are quoted and
+      never re-run. A number quoted beside a comparison, but not compared, is
+      not a comparison.
+
+  - files:
+      - tests/validation/blade/test_blade_twist_mechanism.py
+    reason: >-
+      An investigation rather than a validation: it measures what actually
+      drives the blade's elastic twist and refutes the attribution in issue #9.
+      Its assertions are dominance relations between two of our own quantities
+      -- the leading edge against the surface, the mid-span twist against the
+      same -- with bounds derived from those quantities. None of them is a
+      comparison against an independent reference.
+
+  - files:
+      - tests/validation/element/test_rust_modal.py
+    reason: >-
+      Its docstring names its three subjects: the Rust modal solver against the
+      Python/SLEPc path on the same K and M, a composite blade modal analysis
+      comparing the same two, and a performance benchmark of one pipeline
+      against the other. Every comparison is between two of our own
+      implementations, and one of them is a timing. No independent reference
+      anywhere, so rule 6 leaves none of it a row.
+
+  - files:
+      - tests/validation/rotor/test_bem_fsi_deformed_geometry.py
+    reason: >-
+      Its docstring calls it what it is: production guards for two confirmed
+      defects in the BEM-FSI participant, on the one-way de-loading path. The
+      rigid path against the standalone BEM is a regression guard that fixing
+      the deformed path did not break the undeformed one; the datum, the hub
+      protection and the twist agreement are invariants of the fix. None of
+      them is a physical quantity measured against an independent reference.
+
+  - files:
+      - tests/validation/blade/test_blade_deloading_vs_reference.py
+    reason: >-
+      Issue #9's WU-D, and its own docstring says what that means: it drives the
+      production participant on the real mesh and the real AeroDyn BladeAero to
+      produce one de-loading table in one sign convention. What it asserts is
+      the rigid baseline against the standalone BEM, a regression guard that the
+      deformed path did not change the undeformed one; the twist sign under the
+      declared convention; and the applied-load invariant its own comment ties
+      to verdict section 22.4 and the P5 guard. No physical quantity is measured
+      against an independent reference.
+
+groups:
+  - id: "3"
+    title: >-
+      `tests/validation/benchmarks/test_ko2017_performance.py`
+      (Ko, Lee, Lee & Bathe 2017)
+    slug: ko2017
+    citation: ko2017_perf
+    # What every comparison in this group is against. The extractor reads this
+    # and never infers a kind from the test's prose: the old keyword guess
+    # called `rel_err < 0.03` analytical, and the row it labelled is the hook
+    # test against the paper's Table 14. A group declares this only when all
+    # its comparisons share the kind; a mixed group declares none, and then
+    # `check` fails until each comparison is decided by hand.
+    source_files:
+      - tests/validation/benchmarks/test_ko2017_performance.py
+    common_tolerance:
+      kind: rtol
+      value: 0.05
+      source: >-
+        `rtol=0.05` through `assert_relative_error` (3.1-3.4, 3.6-3.9). Case
+        3.5 uses `tol=0.01` per case and 3.6 a literal `rel_err < 0.03`, both
+        stated per row.
+      justified: true
+      justification: >-
+        The 5% bound is the suite rule (CONTRIBUTING test rule 1); the
+        per-case values in 3.5 and 3.6 are tighter and stated in the code.
+    headline: >-
+      31 benchmark cases; worst 2.73% (Scordelis-Lo regular), tolerance 5%;
+      most under 1%
+    provenance_note: >-
+      Every case prints `Norm vs Kirchhoff: <value> (expected: <cell>,
+      error: <x>%)`. The measured margin is the value printed at `e879eba`
+      and reproduced digit for digit at `34e2328`. Hardcoded
+      `expected_normalized` values are the paper's MITC4/MITC4+ N=16 cells;
+      the cells taken from the wrong table were corrected at `2fd847d`. A stale
+      row here manufactures a false defect: the first version recorded an 8.5%
+      deviation on the thin twisted beam that no longer exists.
+
+  - id: "4"
+    title: >-
+      `tests/validation/parity/test_orthotropic_shell_parity.py` (orthotropic
+      cantilever against CCX)
+    slug: orthotropic_shell_parity
+    # No reference_kind: the three comparisons in this file are against three
+    # different things, so they are declared one by one. Policy rule 7.
+    source_files:
+      - tests/validation/parity/test_orthotropic_shell_parity.py
+    common_tolerance:
+      kind: rtol
+      value: 0.05
+      source: >-
+        `assert rel_error < 0.05` in each test. The module states that in-plane
+        lateral bending exposes a known MITC4 bilinear membrane limitation
+        (~25-30% under-estimation of lateral flexibility against quadratic S8R),
+        so its 5% bound is that suite rule and not a tightened one.
+      justified: true
+      justification: >-
+        The 5% bound is the suite rule (CONTRIBUTING test rule 1). The module's
+        own note is what makes it defensible rather than convenient: a wider gap
+        is expected in the bending case and is documented here, not hidden in a
+        loosened tolerance.
+    provenance_note: >-
+      The reference is CalculiX 2.23, read from the binary (`ccx -v` prints
+      "This is Version 2.23") and not from memory: CCX's linear S4 does not
+      support `*SHELL SECTION, COMPOSITE`, so the comparison runs on quadratic
+      S8R. The version is part of the reference because it moves the numbers --
+      the 2.20-to-2.23 shift took a high-mode gap from 4.03% to 2.12%
+      (issue #8).
+
+  - id: "5"
+    title: >-
+      `tests/validation/parity/test_blade_iea15mw_mesh_convergence.py`
+      (IEA-15MW blade modal gap against CCX)
+    slug: blade_mesh_convergence
+    # Both comparisons are the same kind, and the file says so itself: the
+    # docstring calls them "the AeroElast-vs-CCX modal gap" and the fixture
+    # solves the blade through CalculiX. The convergence assert inside the
+    # loop is not a comparison site: it compares our medium mesh with our
+    # coarse one.
+    source_files:
+      - tests/validation/parity/test_blade_iea15mw_mesh_convergence.py
+    provenance_note: >-
+      The reference is CalculiX 2.23, read from the binary. This is the test
+      `docs/validation-environment.md` singles out as version-sensitive:
+      under CCX 2.23 the high-mode worst gap is 2.12%, and issue #8 measured
+      4.03% under CCX 2.20. That is why the version is part of the reference
+      and is recorded here beside the numbers.
+
+  - id: "6"
+    title: >-
+      `tests/validation/parity/test_thin_walled_tube_torsion.py`
+      (thin-walled tube torsion against Bredt)
+    slug: tube_torsion
+    # Every comparison is against the same closed form, Bredt's T L / GJ.
+    source_files:
+      - tests/validation/parity/test_thin_walled_tube_torsion.py
+    # Nothing is declared here about what is not a comparison inside the solver
+    # helper: that helper is no longer followed, and the comparison against
+    # Bredt is written in each test body through the suite's assertion helper
+    # with the reference named, which is what the extractor reads. See
+    # docs/adding-validation-tests.md.
+    #
+    # The one declaration left is transitional and it is the last thing the
+    # criterion has not caught up with: the extractor still counts a bare
+    # assertion in a *test body* as a comparison, so the wall-traction test --
+    # three load rulers and a symmetry, no reference -- would get a row and,
+    # with the group's kind, a false one. It goes away when the criterion reads
+    # the assertion helper instead of a literal bound.
+    non_validation_tests:
+      - tests:
+          - test_wall_traction_excites_a_section_distortion
+        reason: >-
+          Every assertion in it is machinery: the torque ruler twice and the two
+          walls of our own model agreeing. Waiting for the criterion switch, not
+          a claim that it compares nothing.
+    provenance_note: >-
+      The reference is Bredt's closed form for a closed thin-walled tube, which
+      this module had already validated before the production load path was
+      exercised against it. Where the production realisation differs from
+      Bredt, the difference is recorded in `gaps.yaml` as
+      `moment_realization_over_delivers` rather than here: a row records what
+      agrees.
+
+  - id: "7"
+    title: >-
+      `tests/validation/parity/test_shell_stress_ccx_parity.py`
+      (outer-fibre stress against CCX and against the closed form)
+    slug: shell_stress_ccx
+    # No reference_kind: the two comparisons that remain are against different
+    # things -- CalculiX's 3D result and the beam-theory value -- so each one
+    # declares its own. Policy rule 7.
+    source_files:
+      - tests/validation/parity/test_shell_stress_ccx_parity.py
+    non_validation_tests:
+      - tests:
+          - test_outer_fibre_stress_is_symmetric
+        reason: >-
+          Its only assertion is that the two outer fibres of our own stress
+          field carry the same magnitude. That is a property of our own model
+          against itself, not a comparison against an independent reference, so
+          policy rule 6 leaves it no row.
+      - tests:
+          - test_bending_has_no_membrane_stress
+        reason: >-
+          The mid-surface stress is asserted to be negligible against the outer
+          fibre: again our own field against our own field, a property of the
+          solution rather than a comparison against anything independent. The
+          extractor finds no site in it because the bound is
+          `0.02 * plate_stress["upper"]` and not a literal.
+    provenance_note: >-
+      The row compares the outer-fibre von Mises stress against two references
+      at once: the CalculiX 2.23 result, read from the binary, and the
+      beam-theory value. The file asserts the two legs separately, which is why
+      the two comparisons carry different kinds.
+
+  - id: "8"
+    title: >-
+      `tests/validation/parity/test_isotropic_shell_parity.py`
+      (isotropic shell cantilever against CCX S4)
+    slug: isotropic_shell
+    # No reference_kind: the comparison states its own kind and its
+    # reference, so the group declares neither.
+    # See docs/adding-validation-tests.md.
+    source_files:
+      - tests/validation/parity/test_isotropic_shell_parity.py
+    provenance_note: >-
+      The reference is CalculiX 2.23, read from the binary, run as S4 on the
+      same cantilever the AeroElast MITC4 model uses. The file's own note is
+      kept beside the comparison: a comment there used to say "Allow 10%" over
+      an enforced 5%, and the enforced value is the one that ran.
+
+  - id: "9"
+    title: >-
+      `tests/validation/parity/test_ccx_shell_element_types_parity.py`
+      (CalculiX element types against the closed form)
+    slug: ccx_element_types
+    # No reference_kind: every comparison states its own. See
+    # docs/adding-validation-tests.md.
+    source_files:
+      - tests/validation/parity/test_ccx_shell_element_types_parity.py
+    # Transitional, and the last mile of the criterion: the extractor still
+    # counts a bare assertion against a literal as a comparison, and this test
+    # asserts that three CalculiX element families agree with each other. That
+    # is a property of the reference, not a comparison against an independent
+    # one, so rule 6 leaves it no row. It goes away when the criterion reads
+    # the assertion helper.
+    non_validation_tests:
+      - tests:
+          - test_ccx_element_types_agree_with_each_other
+        reason: >-
+          It compares three CalculiX element families with each other. The
+          reference is qualified against itself, which is a property of the
+          reference rather than a comparison against an independent one.
+    provenance_note: >-
+      The reference is the Euler-Bernoulli closed form for the in-plane
+      bending strip, so the three parametrised comparisons are each against a
+      formula and not against another code. The module prints each element's
+      error against that formula in the agreement test and never asserts it
+      there: the store records those as unasserted, which is what they are.
+
+  - id: "11"
+    title: >-
+      `tests/validation/bem/test_bem_openfast_parity.py`
+      (AeroElast BEM against OpenFAST AeroDyn)
+    slug: openfast_parity
+    source_files:
+      - tests/validation/bem/test_bem_openfast_parity.py
+    # One test characterises a difference rather than validating an agreement:
+    # the NeuralFoil-generated polar is asserted to differ from the official
+    # table, which documents a known divergence and claims nothing. Another
+    # checks the shape of the reference data -- 50 stations, 50 airfoils, 200
+    # angles -- which is a property of the deck, not a comparison.
+    non_validation_tests:
+      - tests:
+          - test_neuralfoil_generated_polar_differs_from_official
+        reason: >-
+          It asserts that a generated polar differs from the official
+          table. That documents a divergence; it is not a measurement of ours
+          against a reference, and the store records no row for it.
+      - tests:
+          - test_reference_polars_are_the_official_aerodyn_tables
+        reason: >-
+          It checks the shape of the reference data itself: 50 span stations, 50
+          airfoils and 200 angles of attack. That is a property of the deck we
+          loaded, not a comparison against an independent reference.
+    provenance_note: >-
+      Both codes get the same blade geometry and the same airfoil polar tables,
+      so the comparison isolates the BEM implementation rather than the input
+      data. The OpenFAST binary here reports v5.0.0 while the driver input these
+      tests write is 4.x format, and v5 makes mandatory fields that 4.x
+      defaulted, so every test in the file that runs the driver errors in setup
+      rather than skipping. That is a pending port, not a missing dependency:
+      the binary is present and refusing the input. Their rows are derived from
+      the code and carry no measurement.
+
+  - id: "12"
+    title: >-
+      `tests/validation/element/test_stress_stiffened_solver.py`
+      (the recovered stress against the plane-stress closed form)
+    slug: stress_stiffened
+    source_files:
+      - tests/validation/element/test_stress_stiffened_solver.py
+    provenance_note: >-
+      One test in this file compares against an independent reference: the
+      recovered element stresses against the plane-stress closed form,
+      sigma_xx = E/(1-nu^2)*eps and sigma_yy = nu*sigma_xx, with the shear
+      that must vanish. The rest verify the components of the
+      geometric-stiffness pipeline -- assembly, symmetry, positive
+      semi-definiteness, the update interval -- which is why they are not
+      rows.
+
+  - id: "13"
+    title: >-
+      `tests/validation/benchmarks/test_mitc3_smoothed.py`
+      (strain-smoothed MITC3+ against Lee & Lee 2019, Table 6)
+    slug: mitc3_smoothed
+    # The comparisons state their own kind; the citation is the group's, because
+    # a paper reference has to resolve in the bibliography.
+    citation: lee2019
+    source_files:
+      - tests/validation/benchmarks/test_mitc3_smoothed.py
+    # Two assertions are not comparisons against the paper, and declaring the
+    # whole test would lose the two that are. The lines are the ones the
+    # extractor reported, not ones written from memory.
+    provenance_note: >-
+      The reference is Table 6 Mesh I of the paper, the normalized vertical
+      displacement at point B of the Scordelis-Lo roof. The file re-reads the
+      plain MITC3+ column of the same table so that the smoothed and the plain
+      cells are compared the same way, which is what keeps the improvement claim
+      from being vacuous.
+
+  - id: "14"
+    title: >-
+      `tests/validation/parity/test_shell_convergence.py`
+      (shell convergence, against the closed form and against CCX)
+    slug: shell_convergence
+    source_files:
+      - tests/validation/parity/test_shell_convergence.py
+    provenance_note: >-
+      Two references in one file: the in-plane bending case extrapolates its own
+      convergence and compares the limit against the Euler-Bernoulli value, and
+      the laminate study compares AeroElast against CalculiX on the same meshes.
+      The rest of the file is the numerical machinery -- convergence orders,
+      finiteness, a monotone trend -- which is why those are not rows.
+
+  - id: "15"
+    title: >-
+      `tests/validation/benchmarks/test_mitc3_benchmarks.py`
+      (MITC3+ large rotation, against the closed forms and the elastica)
+    slug: mitc3_benchmarks
+    # The kind is stated per comparison: the linear cases are against closed
+    # forms and the large-rotation ones against the elastica table. The citation
+    # is the first of the two works that table comes from, because a paper
+    # reference needs one that resolves; the comparison's own label names both.
+    citation: simo1986
+    source_files:
+      - tests/validation/benchmarks/test_mitc3_benchmarks.py
+    provenance_note: >-
+      Two kinds of reference in one file: the linear tip deflections against
+      Euler-Bernoulli and the linear-theory formula, which are closed forms, and
+      the half-circle and roll-up cases against the elastica reference table
+      published by Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979). The
+      equilibrium-path checks compare against the same table through a nested
+      helper whose bounds are local variables, so the extractor reports them as
+      unreadable rather than storing a bound it cannot read.
+
+  - id: "16"
+    title: >-
+      `tests/validation/benchmarks/test_large_rotation_benchmarks.py`
+      (MITC4+ large rotation, against the closed form and the elastica)
+    slug: large_rotation
+    # The kind is stated per comparison; the citation is the first of the two
+    # works the elastica table comes from, because a paper reference needs one
+    # that resolves and the comparison's own label names both.
+    citation: simo1986
+    source_files:
+      - tests/validation/benchmarks/test_large_rotation_benchmarks.py
+    provenance_note: >-
+      The MITC4+ sibling of the MITC3+ large-rotation file: the linear tip
+      deflection against Euler-Bernoulli, and the half-circle, equilibrium-path
+      and roll-up cases against the same elastica table. The solver calls here
+      carry atol and rtol keywords of their own and are not read, because the
+      extractor takes keywords only from calls whose name marks them as
+      assertions.
+
+  - id: "17"
+    title: >-
+      `tests/validation/parity/test_beam_shell_4cases_parity.py`
+      (MITC4 against CalculiX S4, and against the closed form)
+    slug: beam_shell_4cases
+    source_files:
+      - tests/validation/parity/test_beam_shell_4cases_parity.py
+    # One test asserts nothing and is not a row: its subject is the CCX parity
+    # of the four static cases, which it prints, and the print is the record. It
+    # is reported as a test with no comparison, which is what it is.
+    provenance_note: >-
+      The four static cases are compared against an analytical solution and
+      checked against CCX in two different tests; only the first asserts, so
+      only it is a row. The modal test's comparison used to live inside a helper
+      that called pytest.fail, where the store could not read it: the helper
+      returns the per-mode errors now and the test asserts the worst of them.
+      The analytical reference is a textbook closed form evaluated in the file,
+      which is still a closed form: rule 5 targets a formula re-implemented from
+      the paper it is being checked against, not an elementary one that stands
+      on its own.
+
+  - id: "18"
+    title: >-
+      `tests/validation/parity/test_composite_layup_parity.py`
+      (composite layup parity against CalculiX S8R)
+    slug: composite_layup
+    source_files:
+      - tests/validation/parity/test_composite_layup_parity.py
+
+    provenance_note: >-
+      Four layups through the same geometry and the same mesh in both codes, so
+      the comparison isolates the composite material behaviour rather than the
+      input data: axial extension, transverse bending, the asymmetric
+      membrane-bending coupling, and the first five matched modal frequencies.
+      Each comparison states its own kind and reference, so the group declares
+      neither.
+
+  - id: "19"
+    title: >-
+      `tests/validation/benchmarks/test_shell_analytical_validation.py`
+      (beam and plate closed forms)
+    slug: shell_analytical
+    source_files:
+      - tests/validation/benchmarks/test_shell_analytical_validation.py
+    # Every comparison is against a textbook closed form, computed in the
+    # file itself and stated by each call. The shear-locking test asserts
+    # its ratio is above a lower bound, which the extractor does not read,
+    # and the composite matrix test asserts shapes and lengths, which it
+    # does not read either.
+    provenance_note: >-
+      Four cases against closed forms evaluated in the file: the cantilever tip
+      deflection P L^3/(3 E I), the simply-supported centre deflection
+      P L^3 (1-nu^2)/(192 E I), the bending convergence case against the same
+      cantilever form, and the axial extension epsilon L. Two of the five tests
+      assert no comparison the extractor reads -- a ratio bound and a set of
+      array shapes -- so they are reported as tests with no comparison rather
+      than given rows.
+
+  - id: "20"
+    title: >-
+      `tests/validation/blade/test_blade_twist_anchor_beam.py`
+      (the 1D anchor beam against the official deck)
+    slug: blade_anchor_beam
+    source_files:
+      - tests/validation/blade/test_blade_twist_anchor_beam.py
+
+    non_validation_tests:
+      - tests:
+          - tests/validation/blade/test_blade_twist_anchor_beam.py::test_anchor_beam_arbitrates_the_shell_section_rotation
+        reason: >-
+          The arbitration test asserts one invariant - a root-fixed beam's twist
+          magnitude accumulates monotonically - and every comparison it makes is
+          printed and never bounded: the beam against the shell's section
+          rotation, against mean(theta_z), and against Zhou et al. 2025 Table 4.
+          Choosing which estimator the aerodynamics see is a kinematic argument
+          (verdict 22.8), not a tolerance, and binding any of those numbers would
+          have meant calibrating a measurement to an outcome. The four bounds this
+          group does carry belong to the section-parsing test, which is where the
+          independent references are.
+
+    provenance_note: >-
+      The independent 1D beam takes its GJ and shear centre from the official
+      IEA-15-240-RWT BeamDyn deck and its loads from the production BEM, so
+      the two models share loads and not section properties. The file also
+      prints Zhou et al. 2025 Table 4 tip torsion as the number it is checked
+      against and never asserts it, which is why that is reported and not
+      stored.
+
+  - id: "21"
+    title: >-
+      `tests/validation/blade/test_laminate_bend_twist_3d.py`
+      (the 3D layer-wise solid judge for the bend-twist strip)
+    slug: laminate_bend_twist_3d
+    source_files:
+      - tests/validation/blade/test_laminate_bend_twist_3d.py
+
+    provenance_note: >-
+      A hand-authored CalculiX deck, one C3D20R per ply, used as an independent
+      judge of the shell for the strip's bend-twist behaviour. Its answer is a
+      comparison between two of our own models -- the 3D solid against the
+      shell, which rule 3 allows as a restrictive assertion -- and the rest of
+      the file is controls and convergence properties.
+
+  - id: "22"
+    title: >-
+      `tests/validation/benchmarks/test_shell_static_and_modal.py`
+      (static and modal against closed forms)
+    slug: shell_static_modal
+    source_files:
+      - tests/validation/benchmarks/test_shell_static_and_modal.py
+    provenance_note: >-
+      One cantilever plate in every case and one 600 N load at a time, each
+      test asserting a physical quantity against an analytical formula and
+      never against another of our own results, as its own docstring says. Two
+      of the bounds are percentages rather than fractions, so they are
+      recorded as absolute tolerances carrying a unit: the store has had that
+      form since the degrees case, and this is what it is for. The nonlinear
+      case lands as the file's own xfail and not as a failure.
+
+  - id: "23"
+    title: >-
+      `tests/validation/blade/test_blade_iea15mw_validation.py`
+      (the IEA 15 MW blade against CCX and the published values)
+    slug: blade_iea15mw
+    citation: bernardi2025
+    source_files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+
+    provenance_note: >-
+      Four references on purpose: the tight comparison is AeroElast against
+      CalculiX S8R on the same mesh and the same composite properties, and the
+      rest are the published values -- the article's blade mass and static tip,
+      its beam-CSD modes, and the definition report whose mass the model is
+      expected to sit above. The per-mode article bounds are computed from the
+      reference scatter at runtime, so the extractor reports those three
+      comparisons as unreadable rather than storing a bound it cannot read.
+
+  - id: "24"
+    title: >-
+      `tests/validation/parity/test_composite_beam_parity.py`
+      (the composite shell cantilever against CLT and against CCX)
+    slug: composite_beam_parity
+    source_files:
+      - tests/validation/parity/test_composite_beam_parity.py
+    # Two assertions are mesh-connectivity checks, not comparisons. The
+    # lines are the ones the extractor reported.
+    provenance_note: >-
+      Two references per case, and the file says why: an independent hand CLT
+      for the closed-form leg and CalculiX on the same mesh, layup and load for
+      the code leg, so a real difference is a formulation gap and not a model
+      difference. The symmetry check is against the analytical B = 0 rather
+      than against a bound, so it is a comparison too and carries an absolute
+      tolerance. The two matrix comparisons are recorded as the worst element's
+      deviation as a fraction of its own allowance, which is what allclose
+      applies elementwise: below one means the whole matrix is inside the pair
+      of bounds it used to apply element by element.
+
+  - id: "25"
+    title: >-
+      `tests/validation/element/test_mass_matrix_validation.py`
+      (assembled masses against the closed forms)
+    slug: mass_matrix_validation
+    source_files:
+      - tests/validation/element/test_mass_matrix_validation.py
+
+    provenance_note: >-
+      The translational, lumped, consistent and rotary masses of every element
+      against their closed forms, plus the single-element frequency. Five of the
+      comparisons used np.testing.assert_allclose, which applies an absolute and
+      a relative bound at once and elementwise; they are recorded as the worst
+      entry's deviation as a fraction of its own allowance, so a value below one
+      means the whole array is inside the pair of bounds the comparison used to
+      apply entry by entry. One symmetry check is a property and is excluded by
+      line.
+
+  - id: "26"
+    title: >-
+      `tests/validation/blade/test_laminate_bend_twist.py`
+      (the bend-twist coupon against CLT, Ritz and the CCX deck)
+    slug: laminate_bend_twist
+    source_files:
+      - tests/validation/blade/test_laminate_bend_twist.py
+
+    provenance_note: >-
+      Issue #9's coupon, rebuilt to pin down the definitions the original
+      report left implicit. Four comparisons are against the free-edge CLT
+      state for the same layup, one is the element against our own Ritz
+      solution for the same coupon, and one is the element against a
+      separately authored CCX deck. Two decoupled controls are excluded by
+      line, because they assert that nothing happens.
+
+  - id: "27"
+    title: >-
+      `tests/validation/blade/test_blade_rated_twist.py`
+      (the IEA-15MW rated case: BEM resultants and the Zhou table)
+    slug: blade_rated_twist
+    citation: zhou2025
+    source_files:
+      - tests/validation/blade/test_blade_rated_twist.py
+    provenance_note: >-
+      The rated case at 10.59 m/s, with the aerodynamics from the repo's own BEM
+      engine over the official AeroDyn polars and the structure from the repo's
+      own shell blade. Two comparisons are against Zhou et al. 2025 Table 6 and
+      five are our applied loads against our own BEM resultants. The rest of the
+      file's assertions are directions and inequalities — a nose-down sense, a
+      spread, a deflection larger than another — which the site criterion does
+      not read, so they are neither rows nor exclusions.
+
+  - id: "28"
+    title: >-
+      `tests/validation/element/test_material_suite.py`
+      (isotropic, orthotropic and laminated shells against the classical
+      closed forms)
+    slug: material_suite
+    source_files:
+      - tests/validation/element/test_material_suite.py
+
+    provenance_note: >-
+      The material suite: a cantilever deflection or displacement against the
+      Euler-Bernoulli or bar closed form for isotropic single plies, single
+      orthotropic plies, symmetric and asymmetric laminates; the ABD matrices
+      against hand calculations; and the multi-ply equivalence of N plies with a
+      single layer of the same thickness. Three bounds were class attributes and
+      are module constants now, each with its own reason kept beside it, because
+      the extractor resolves a bound named at module scope and not one a class
+      carries.
+
+  - id: "29"
+    title: >-
+      `tests/validation/rotor/test_rotor_inertial.py`
+      (the inertial force laws against their closed forms)
+    slug: rotor_inertial
+    source_files:
+      - tests/validation/rotor/test_rotor_inertial.py
+    provenance_note: >-
+      Unit tests for the co-rotational rotor utilities. The physics is the three
+      inertial force laws: the centrifugal magnitude against m omega^2 r, twice;
+      the Coriolis vector against the hand-derived -2 m (omega x v); and the
+      Euler component against -m alpha r. The combined force against the sum of
+      the components is our own decomposition and is recorded as such. The rest
+      is software: the transform properties, the zero components of a principal
+      axis node, and the OmegaProvider arithmetic against its own constants,
+      which the site criterion does not read.
+
+  - id: "30"
+    title: >-
+      `tests/validation/rotor/test_rotor_rust_parity.py`
+      (the Rust fast path against the Python path, and four rotor quantities)
+    slug: rotor_rust_parity
+    source_files:
+      - tests/validation/rotor/test_rotor_rust_parity.py
+    # Twenty-eight of the thirty-three tests are machinery for the parity.
+    # They are declared by test rather than by line, which is what the three
+    # entries below are for.
+    non_validation_tests:
+      - tests:
+          - test_constant_omega
+          - test_constant_omega_zero
+          - test_ramped_omega
+          - test_computed_omega_defaults
+          - test_computed_omega_with_initial_and_torque
+          - test_ramped_computed_omega
+          - test_ramped_computed_default_shaft_torque
+          - test_table_omega_fallback
+          - test_omega_provider_type_constant
+          - test_omega_provider_type_ramped
+          - test_omega_provider_type_computed
+          - test_omega_provider_type_ramped_computed
+          - test_map_omega_round_trip_constant
+          - test_map_omega_round_trip_ramped_computed
+        reason: >-
+          Provider mapping: each Python OmegaProvider against the parameter
+          tuple the Rust entry point takes, and back. The expectations are the
+          values the caller passed in, echoed.
+      - tests:
+          - test_solve_auto_inertia_uses_python_helper
+          - test_resolve_restart_omega_state_uses_checkpoint_state_for_ramped_computed
+          - test_resolve_restart_omega_state_uses_start_time_for_ramped_provider
+          - test_solve_restart_uses_checkpoint_omega_for_matrix_assembly
+          - test_solve_via_rust_passes_restart_state_by_keyword
+          - test_solve_auto_radius_uses_python_helper
+        reason: >-
+          Restart plumbing and helper dispatch: that a checkpoint state is
+          threaded through to the solver and which helper gets called. The
+          expectations are the captured arguments.
+      - tests:
+          - test_symbol_exists
+          - test_call_without_precice_raises_runtime_or_os_error
+          - test_call_ramped_omega_marshalling
+          - test_call_computed_omega_marshalling
+          - test_call_ramped_computed_marshalling
+          - test_call_with_callback_marshalling
+          - test_wrong_omega_mode_raises
+          - test_mismatched_dofs_raises
+        reason: >-
+          The Rust binding itself: argument marshalling, and the errors it
+          raises for a missing preCICE, a wrong mode and mismatched degrees of
+          freedom.
+    provenance_note: >-
+      Parity tests for the Rust fast path of the rotor solver. The physics is
+      four quantities of the rotor: the estimated inertia against the
+      point-mass sum, the radius against the largest perpendicular distance of
+      the nodes given (twice, once from deformed coordinates), and the axis
+      torque against the load applied at the axis. Everything else in the file
+      is machinery for the parity, declared as non-validation tests above.
+
+  - id: "10"
+    title: >-
+      Evidence that exists outside `tests/`, and is not covered by a live test
+    slug: outofband
+    citation: ko2017_perf
+    reference_kind: paper
+    source_files: []
+    headline: >-
+      The triangular MITC3+ path, which no live test exercises: N=32 reproduces
+      the published Table 10 cell digit for digit
+    provenance_note: >-
+      These rows are driven by hand, through the module's own machinery, because
+      the live test of the same benchmark only exercises the quad path. They are
+      not covered by the suite, so `regression` cannot re-measure them; their
+      `measured` values are the ones recorded when the matrix existed, and the
+      reproduction command is in the row's notes.
+
+  - id: "31"
+    title: >-
+      `tests/validation/parity/test_thin_walled_tube_moment_realization.py`
+      (the production nodal moment realisation against Bredt's rate)
+    slug: tube_moment_realization
+    source_files:
+      - tests/validation/parity/test_thin_walled_tube_moment_realization.py
+
+    provenance_note: >-
+      The reference is Bredt's T/GJ twist rate of the same closed tube, the
+      closed form group 6 validates. This file is its own group because
+      `extract --write` derives one group from one scope: declaring it as a
+      second source of group 6 would regenerate that group's row file from a
+      single scope and drop the three rows already measured there. Only the
+      shear-flow case compares against the reference. The production
+      minimum-norm case asserts that it MISSES Bredt, which documents an open
+      defect instead of validating a bound, so that assertion stays bare and
+      the defect is recorded in gaps.yaml,
+      moment_realization_over_delivers.
+
+# There is no drift bucket any more. The directory is the classification: a
+# test under `tests/validation/` validates a physical quantity against an
+# independent reference and needs a group and a row; a test under
+# `tests/software/` validates the software and needs neither. `check`
+# refuses a row that claims a test from `tests/software/`, so the two cannot
+# drift apart inside the store.

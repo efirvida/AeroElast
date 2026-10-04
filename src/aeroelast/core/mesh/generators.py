@@ -1018,12 +1018,18 @@ class BladeMesh:
         Target element size for meshing
     n_samples : int
         Number of samples for airfoil discretization
+    include_webs : bool
+        When *False* the shear webs are omitted and only the blade outer shell
+        (outer-mold-line surface) is meshed.  Use this for CFD wall surfaces.
 
     Examples
     --------
     >>> blade_mesh = BladeMesh("blade_definition.yaml", element_size=0.05)
     >>> mesh = blade_mesh.generate(renumber="rcm")
     >>> mesh.write_mesh("blade.vtk")
+
+    >>> cfd = BladeMesh("blade_definition.yaml", include_webs=False)
+    >>> cfd.generate().write_mesh("blade_surface.stl")
     """
 
     def __init__(
@@ -1036,6 +1042,7 @@ class BladeMesh:
         refine_tip: bool = True,
         span_grading: str = "chord",
         airfoil_spacing: str = "cosine",
+        include_webs: bool = True,
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
@@ -1045,6 +1052,7 @@ class BladeMesh:
         self.refine_tip = refine_tip
         self.span_grading = span_grading
         self.airfoil_spacing = airfoil_spacing
+        self.include_webs = include_webs
         self._numad_blade = None
         self._numad_mesh = None
 
@@ -1118,7 +1126,10 @@ class BladeMesh:
         if verbose:
             print("      Generating shell mesh...")
         self._numad_mesh = get_shell_mesh(
-            self._numad_blade, self.element_size, spanGrading=self.span_grading
+            self._numad_blade,
+            self.element_size,
+            spanGrading=self.span_grading,
+            include_webs=self.include_webs,
         )
 
         num_raw_nodes = len(self._numad_mesh["nodes"])
@@ -1353,6 +1364,7 @@ class BladeMesh:
         element_size: float = 0.1,
         n_samples: int = 300,
         renumber: str = None,
+        include_webs: bool = True,
     ) -> "MeshModel":
         """
         Convenience method to create blade mesh directly from YAML file.
@@ -1367,6 +1379,8 @@ class BladeMesh:
             Number of samples for airfoil discretization (default: 300)
         renumber : str, optional
             Renumbering algorithm ("simple", "rcm", or None)
+        include_webs : bool, optional
+            Set *False* to mesh only the outer shell (CFD surface)
 
         Returns
         -------
@@ -1377,6 +1391,7 @@ class BladeMesh:
             yaml_file=yaml_file,
             element_size=element_size,
             n_samples=n_samples,
+            include_webs=include_webs,
         ).generate(renumber=renumber)
 
 
@@ -1426,6 +1441,7 @@ class RotorMesh:
         excel_file: str | None = None,
         airfoil_dir: str | None = None,
         airfoil_spacing: str = "cosine",
+        include_webs: bool = True,
     ):
         self.yaml_file = yaml_file
         self.excel_file = excel_file
@@ -1437,6 +1453,7 @@ class RotorMesh:
         self.element_size = element_size
         self.n_samples = n_samples
         self.airfoil_spacing = airfoil_spacing
+        self.include_webs = include_webs
         self._blade_generator: BladeMesh = None
 
     def generate(self, renumber: str | None = None, verbose: bool = True) -> "MeshModel":
@@ -1472,6 +1489,7 @@ class RotorMesh:
             element_size=self.element_size,
             n_samples=self.n_samples,
             airfoil_spacing=self.airfoil_spacing,
+            include_webs=self.include_webs,
         )
         base_mesh = self._blade_generator.generate(renumber=None, verbose=verbose)
 
@@ -1659,6 +1677,7 @@ class RotorMesh:
         element_size: float = 0.1,
         n_samples: int = 300,
         renumber: str = None,
+        include_webs: bool = True,
     ) -> "MeshModel":
         """
         Convenience method to create rotor mesh directly from YAML file.
@@ -1689,6 +1708,7 @@ class RotorMesh:
             hub_radius=hub_radius,
             element_size=element_size,
             n_samples=n_samples,
+            include_webs=include_webs,
         ).generate(renumber=renumber)
 
 

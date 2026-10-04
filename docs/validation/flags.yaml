@@ -1,0 +1,88 @@
+# Flag registry.
+#
+# `flags[]` on a row may only use ids declared here. Two classes exist:
+#
+#   * human judgements - declared below with their section and legend. They are
+#                        recorded, never derived: migrating a flag records what
+#                        the audit found, it does not clear it.
+#   * derived flags    - computed by the renderer from tolerance and margin.
+#                        Storing one in a row is a `check` failure, because it
+#                        would let the file disagree with the numbers.
+#
+# The legends are the exclusion rule from the matrix guide: a row that carries
+# any of the judgement flags may be cited as a limitation or a negative
+# finding, never as a validation result.
+version: 1
+
+flags:
+  - id: near
+    derived: "slack_pp < 1.0"
+    label: "Close to the bound"
+    user_facing: true
+    legend: >-
+      Derived, never stored. Marks a row whose slack to fail is under one
+      percentage point, so the tolerance it asserts is nearly exhausted.
+
+  - id: gt5
+    derived: "tolerance.value > 0.05 for a ratio tolerance"
+    label: "Tolerance above the 5% suite rule"
+    user_facing: true
+    legend: >-
+      Derived, never stored. Requires `tolerance.justified: true` and a
+      written `tolerance.justification` (CONTRIBUTING test rule 1), and the
+      row is listed in the tolerance audit section.
+
+  - id: tautology
+    section: "9.1"
+    label: >-
+      Tautological references (the arithmetic under test re-implemented in
+      the test)
+    legend: >-
+      The reference is the same formula re-implemented in the test, so it is
+      not a reference. Citable as a limitation, never as a validation result.
+
+  - id: unfailable
+    section: "9.2"
+    label: "Assertions that cannot fail"
+    legend: >-
+      The assertion holds regardless of the computed value. Citable as a
+      limitation, never as a validation result.
+
+  - id: overpromise
+    section: "9.3"
+    label: "Names that promise more than the body delivers"
+    legend: >-
+      The test name claims a comparison the body does not make. Citable as a
+      limitation, never as a validation result.
+
+  - id: unjustified_tolerance
+    section: "9.4"
+    label: >-
+      Tolerances with no stated justification (tolerance/comment mismatches,
+      dead conditionals)
+    legend: >-
+      The tolerance is wider than the reference's own scatter supports, or
+      the comment and the enforced value disagree. Citable as a limitation,
+      never as a validation result.
+
+  - id: info_only
+    section: "9.5"
+    label: >-
+      Informational-only comparisons that are printed and never asserted
+    legend: >-
+      The value is printed and never asserted: do not quote it as a result.
+
+  - id: config_drift
+    section: "9.6"
+    label: "Configuration drift"
+    legend: >-
+      The row documents a test whose configuration no longer matches what the
+      reference was measured under.
+
+  - id: out_of_band
+    section: "10"
+    label: "Evidence that lives outside tests/"
+    legend: >-
+      Published evidence with no live test covering it, e.g. the
+      element-versus-published-columns comparison. Cite it explicitly as
+      out-of-band evidence, not as a suite result.

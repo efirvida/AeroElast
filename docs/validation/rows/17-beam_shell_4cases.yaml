@@ -1,0 +1,209 @@
+group: '17'
+rows:
+- id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial
+  group: '17'
+  title: TestBeamShell4CasesParity::test_linear_static_with_analytical[tension_axial]
+  tests:
+  - tests/validation/parity/test_beam_shell_4cases_parity.py::TestBeamShell4CasesParity::test_linear_static_with_analytical[tension_axial]
+  validates: The free-face mean must match the beam-theory solution.
+  comparisons:
+  - label: rtol at line 517
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form for the case's load and geometry
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_beam_shell_4cases_parity.py:517
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial
+  group: '17'
+  title: TestBeamShell4CasesParity::test_linear_static_with_analytical[compression_axial]
+  tests:
+  - tests/validation/parity/test_beam_shell_4cases_parity.py::TestBeamShell4CasesParity::test_linear_static_with_analytical[compression_axial]
+  validates: The free-face mean must match the beam-theory solution.
+  comparisons:
+  - label: rtol at line 517
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form for the case's load and geometry
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_beam_shell_4cases_parity.py:517
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx
+  group: '17'
+  title: TestBeamShell4CasesParity::test_linear_static_with_analytical[bending_fx]
+  tests:
+  - tests/validation/parity/test_beam_shell_4cases_parity.py::TestBeamShell4CasesParity::test_linear_static_with_analytical[bending_fx]
+  validates: The free-face mean must match the beam-theory solution.
+  comparisons:
+  - label: rtol at line 517
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form for the case's load and geometry
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_beam_shell_4cases_parity.py:517
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy
+  group: '17'
+  title: TestBeamShell4CasesParity::test_linear_static_with_analytical[transverse_fy]
+  tests:
+  - tests/validation/parity/test_beam_shell_4cases_parity.py::TestBeamShell4CasesParity::test_linear_static_with_analytical[transverse_fy]
+  validates: The free-face mean must match the beam-theory solution.
+  comparisons:
+  - label: rtol at line 517
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form for the case's load and geometry
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_beam_shell_4cases_parity.py:517
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial_2
+  group: '17'
+  title: TestBeamShell4CasesParity::test_linear_static_vs_ccx[tension_axial]
+  tests:
+  - tests/validation/parity/test_beam_shell_4cases_parity.py::TestBeamShell4CasesParity::test_linear_static_vs_ccx[tension_axial]
+  validates: Compare AeroElast against CalculiX S4; skips when ccx is not installed.
+  comparisons:
+  - label: rtol at line 530
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S4, the same four static cases
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_beam_shell_4cases_parity.py:530
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial_2
+  group: '17'
+  title: TestBeamShell4CasesParity::test_linear_static_vs_ccx[compression_axial]
+  tests:
+  - tests/validation/parity/test_beam_shell_4cases_parity.py::TestBeamShell4CasesParity::test_linear_static_vs_ccx[compression_axial]
+  validates: Compare AeroElast against CalculiX S4; skips when ccx is not installed.
+  comparisons:
+  - label: rtol at line 530
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S4, the same four static cases
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_beam_shell_4cases_parity.py:530
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx_2
+  group: '17'
+  title: TestBeamShell4CasesParity::test_linear_static_vs_ccx[bending_fx]
+  tests:
+  - tests/validation/parity/test_beam_shell_4cases_parity.py::TestBeamShell4CasesParity::test_linear_static_vs_ccx[bending_fx]
+  validates: Compare AeroElast against CalculiX S4; skips when ccx is not installed.
+  comparisons:
+  - label: rtol at line 530
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S4, the same four static cases
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_beam_shell_4cases_parity.py:530
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy_2
+  group: '17'
+  title: TestBeamShell4CasesParity::test_linear_static_vs_ccx[transverse_fy]
+  tests:
+  - tests/validation/parity/test_beam_shell_4cases_parity.py::TestBeamShell4CasesParity::test_linear_static_vs_ccx[transverse_fy]
+  validates: Compare AeroElast against CalculiX S4; skips when ccx is not installed.
+  comparisons:
+  - label: rtol at line 530
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S4, the same four static cases
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_beam_shell_4cases_parity.py:530
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: beam_shell_4cases.testbeamshell4casesparity_test_modal_fir.single
+  group: '17'
+  title: TestBeamShell4CasesParity::test_modal_first_five_modes
+  tests:
+  - tests/validation/parity/test_beam_shell_4cases_parity.py::TestBeamShell4CasesParity::test_modal_first_five_modes
+  validates: 'Compare first five matched modal frequencies: AeroElast (MITC4) vs CCX (S4).'
+  comparisons:
+  - label: rtol at line 635
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23, the first five matched modes of the same beam
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_beam_shell_4cases_parity.py:635
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

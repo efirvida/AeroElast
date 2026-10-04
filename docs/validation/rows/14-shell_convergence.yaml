@@ -1,0 +1,58 @@
+group: '14'
+rows:
+- id: shell_convergence.test_in_plane_bending_convergence.single
+  group: '14'
+  title: test_in_plane_bending_convergence
+  tests:
+  - tests/validation/parity/test_shell_convergence.py::test_in_plane_bending_convergence
+  validates: The in-plane tip displacement converges with observed order >= 1.5.
+  comparisons:
+  - label: rtol at line 225
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection of the same cantilever
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_shell_convergence.py:225
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 1d9a665
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 0.5986
+      text: 0.5986% bound 2.0000%
+      digest: 34aa631a2dd6ae84
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_convergence.test_composite_laminate_gap_mesh_study.single
+  group: '14'
+  title: test_composite_laminate_gap_mesh_study
+  tests:
+  - tests/validation/parity/test_shell_convergence.py::test_composite_laminate_gap_mesh_study
+  validates: Is the AeroElast-vs-CalculiX laminate gap a mesh artifact or a
+  comparisons:
+  - label: rtol at line 434
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23, the same laminate on the same meshes
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_shell_convergence.py:434
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 1d9a665
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 1.729
+      text: 1.7290% bound 2.0000%
+      digest: d025c1ef5fcbd548
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

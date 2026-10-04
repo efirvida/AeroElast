@@ -11,6 +11,7 @@ Usage:
     aeroelast model_config.yaml --workdir /path/to/case
     aeroelast model_config.yaml --preview
     aeroelast --template > config.yaml
+    aeroelast mesh <blade|rotor|hub|nacelle|tower|turbine> ...
 
 Supported solver types (solver.type in YAML):
     Modal           — natural frequencies and mode shapes (SLEPc)
@@ -148,6 +149,18 @@ def _export_mesh_from_cli(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Run the structural CLI, or dispatch to ``aeroelast mesh``.
+
+    ``aeroelast mesh ...`` is handled by :mod:`aeroelast.cli.mesh`; every other
+    invocation is a structural solver run.
+    """
+    if argv is None:
+        argv = sys.argv[1:]
+    if argv and argv[0] == "mesh":
+        from aeroelast.cli.mesh import main as mesh_main
+
+        return mesh_main(argv[1:])
+
     parser = argparse.ArgumentParser(
         prog="aeroelast",
         description="Structural FEM solver (Rust-accelerated assembly).",
@@ -159,10 +172,11 @@ Examples:
   aeroelast modal.yaml --preview        Preview config without running
   aeroelast modal.yaml --validate       Validate config and exit
   aeroelast --template > config.yaml    Generate template config
-  aeroelast --export-mesh blade.vtk --mesh-generator BladeMesh --blade-yaml IEA.yaml
-    aeroelast --export-mesh rotor.stl --mesh-generator RotorMesh --blade-yaml IEA.yaml --n-blades 3
-        aeroelast --export-mesh hub.stl --mesh-generator RotorHubMesh --blade-yaml IEA.yaml --n-blades 3
-    aeroelast --export-parts-dir blades --mesh-generator RotorMesh --excel-file blade.xlsx --airfoil-dir airfoils --rotor-diameter 242.23775645 --n-blades 3
+  aeroelast --export-parts-dir blades --mesh-generator RotorMesh --excel-file blade.xlsx --airfoil-dir airfoils --rotor-diameter 242.23775645 --n-blades 3
+
+Mesh generation (see `aeroelast mesh --help`):
+  aeroelast mesh blade turbine.yaml --out blade.stl --no-webs
+  aeroelast mesh turbine turbine.yaml --out-dir meshes/ --format stl
         """,
     )
 

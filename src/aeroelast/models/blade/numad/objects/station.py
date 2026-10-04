@@ -18,8 +18,8 @@ class Station:
         af : Airfoil, string
             airfoil object or filename to airfoil coords
         """
-        self.airfoil = None
-        self.spanlocation = None
+        self.airfoil: Airfoil = Airfoil()
+        self.spanlocation: float | None = None
 
         if isinstance(af, str):
             self.airfoil = Airfoil(filename=af)
@@ -30,10 +30,7 @@ class Station:
 
     def __eq__(self, other):
         attrs = vars(self).keys()
-        for attr in attrs:
-            if getattr(self, attr) != getattr(other, attr):
-                return False
-        return True
+        return all(getattr(self, attr) == getattr(other, attr) for attr in attrs)
 
 
 # unsure if these are needed in pynumad -kb

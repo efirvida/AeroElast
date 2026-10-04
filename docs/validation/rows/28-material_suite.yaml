@@ -1,0 +1,568 @@
+group: '28'
+rows:
+- id: material_suite.testisotropicanalytical_test_mitc4_out_o.single
+  group: '28'
+  title: TestIsotropicAnalytical::test_mitc4_out_of_plane
+  tests:
+  - tests/validation/element/test_material_suite.py::TestIsotropicAnalytical::test_mitc4_out_of_plane
+  validates: MITC4 isotropic cantilever — transverse Fy load vs Euler-Bernoulli.
+  comparisons:
+  - label: rtol at line 263
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:263
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testisotropicanalytical_test_mitc3_out_o.single
+  group: '28'
+  title: TestIsotropicAnalytical::test_mitc3_out_of_plane
+  tests:
+  - tests/validation/element/test_material_suite.py::TestIsotropicAnalytical::test_mitc3_out_of_plane
+  validates: MITC3 isotropic cantilever — transverse Fy load vs Euler-Bernoulli.
+  comparisons:
+  - label: rtol at line 282
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:282
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testisotropicanalytical_test_mitc4_in_pl.single
+  group: '28'
+  title: TestIsotropicAnalytical::test_mitc4_in_plane_lateral
+  tests:
+  - tests/validation/element/test_material_suite.py::TestIsotropicAnalytical::test_mitc4_in_plane_lateral
+  validates: MITC4 isotropic — in-plane lateral Fx load vs Euler-Bernoulli.
+  comparisons:
+  - label: rtol at line 301
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever, bending about the in-plane axis
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:301
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testisotropicanalytical_test_mitc4_axial.single
+  group: '28'
+  title: TestIsotropicAnalytical::test_mitc4_axial_stiffness
+  tests:
+  - tests/validation/element/test_material_suite.py::TestIsotropicAnalytical::test_mitc4_axial_stiffness
+  validates: 'MITC4 isotropic — axial Fz load: ux = F*L/(E*A).'
+  comparisons:
+  - label: rtol at line 321
+    asserted: true
+    reference:
+      kind: analytical
+      label: the axial bar closed form F L / (E A)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:321
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testorthotropicsingleply_test_mitc4comp.single
+  group: '28'
+  title: TestOrthotropicSinglePly::test_mitc4comp_ply0_out_of_plane
+  tests:
+  - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc4comp_ply0_out_of_plane
+  validates: '[0°] single ply — out-of-plane Fy.'
+  comparisons:
+  - label: rtol at line 368
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:368
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testorthotropicsingleply_test_mitc4comp.single_2
+  group: '28'
+  title: TestOrthotropicSinglePly::test_mitc4comp_ply90_out_of_plane
+  tests:
+  - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc4comp_ply90_out_of_plane
+  validates: '[90°] single ply — out-of-plane Fy.'
+  comparisons:
+  - label: rtol at line 388
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:388
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testorthotropicsingleply_test_mitc3comp.single
+  group: '28'
+  title: TestOrthotropicSinglePly::test_mitc3comp_ply0_out_of_plane
+  tests:
+  - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc3comp_ply0_out_of_plane
+  validates: '[0°] single ply — MITC3Composite out-of-plane Fy (curvature κ_z → D22).'
+  comparisons:
+  - label: rtol at line 404
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:404
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testorthotropicsingleply_test_mitc4comp.single_3
+  group: '28'
+  title: TestOrthotropicSinglePly::test_mitc4comp_ply0_axial
+  tests:
+  - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc4comp_ply0_axial
+  validates: '[0°] single ply — axial Fz: tests A22.'
+  comparisons:
+  - label: rtol at line 430
+    asserted: true
+    reference:
+      kind: analytical
+      label: the axial bar closed form F L / (A22 B) for the [0 deg] ply
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:430
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testorthotropicsingleply_test_mitc4comp.single_4
+  group: '28'
+  title: TestOrthotropicSinglePly::test_mitc4comp_ply90_axial
+  tests:
+  - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc4comp_ply90_axial
+  validates: '[90°] single ply — axial Fz: tests A11.'
+  comparisons:
+  - label: rtol at line 457
+    asserted: true
+    reference:
+      kind: analytical
+      label: the axial bar closed form F L / (A11 B) for the [90 deg] ply
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:457
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testsymmetriclaminates_test_symmetric_ou.single
+  group: '28'
+  title: TestSymmetricLaminates::test_symmetric_out_of_plane_mitc4comp
+  tests:
+  - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_symmetric_out_of_plane_mitc4comp
+  validates: '[0/90/90/0] — MITC4Comp out-of-plane Fy vs D22-based analytical (κ_z).'
+  comparisons:
+  - label: rtol at line 541
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:541
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testsymmetriclaminates_test_symmetric_ou.single_2
+  group: '28'
+  title: TestSymmetricLaminates::test_symmetric_out_of_plane_mitc3comp
+  tests:
+  - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_symmetric_out_of_plane_mitc3comp
+  validates: '[0/90/90/0] — MITC3Comp out-of-plane Fy (κ_z → D22).'
+  comparisons:
+  - label: rtol at line 564
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:564
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testsymmetriclaminates_test_symmetric_in.single
+  group: '28'
+  title: TestSymmetricLaminates::test_symmetric_in_plane_lateral_mitc4comp
+  tests:
+  - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_symmetric_in_plane_lateral_mitc4comp
+  validates: '[0/90/90/0] — MITC4Comp in-plane Fx vs A11-based analytical.'
+  comparisons:
+  - label: rtol at line 589
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever, with the in-plane stiffness A11 the laminates give
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:589
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testsymmetriclaminates_test_symmetric_ax.single
+  group: '28'
+  title: TestSymmetricLaminates::test_symmetric_axial_stiffness
+  tests:
+  - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_symmetric_axial_stiffness
+  validates: '[0/90/90/0] — axial Fz: tests mean membrane stiffness A11.'
+  comparisons:
+  - label: rtol at line 611
+    asserted: true
+    reference:
+      kind: analytical
+      label: the axial bar closed form F L / (A11 B) for the laminate
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:611
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testsymmetriclaminates_test_quasi_iso_ou.single
+  group: '28'
+  title: TestSymmetricLaminates::test_quasi_iso_out_of_plane
+  tests:
+  - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_quasi_iso_out_of_plane
+  validates: '[0/45/-45/90]s — MITC4Comp out-of-plane Fy.'
+  comparisons:
+  - label: rtol at line 638
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli tip deflection for the same cantilever, which the quasi-isotropic D16/D26 coupling inflates
+    tolerance:
+      kind: rtol
+      value: 0.2
+      source: tests/validation/element/test_material_suite.py:638
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testasymmetriclaminates_test_axial_produ.single
+  group: '28'
+  title: TestAsymmetricLaminates::test_axial_produces_bending_mitc3comp
+  tests:
+  - tests/validation/element/test_material_suite.py::TestAsymmetricLaminates::test_axial_produces_bending_mitc3comp
+  validates: '[0/90] MITC3Comp under axial Fz: B-coupling must match the CLT sign.'
+  comparisons:
+  - label: rtol at line 694
+    asserted: true
+    reference:
+      kind: analytical
+      label: the CLT B-coupling tip deflection for the same strip
+    tolerance:
+      kind: rtol
+      value: 0.1
+      source: tests/validation/element/test_material_suite.py:694
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testasymmetriclaminates_test_b_coupling.single
+  group: '28'
+  title: TestAsymmetricLaminates::test_b_coupling_analytical_mitc4comp
+  tests:
+  - tests/validation/element/test_material_suite.py::TestAsymmetricLaminates::test_b_coupling_analytical_mitc4comp
+  validates: '[0/90] MITC4Comp: axial Fz tip deflection in Uy matches CLT analytical.'
+  comparisons:
+  - label: rtol at line 725
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Reddy CLT B-coupling tip deflection, w = B11 P L^2 / (2 A11 D11_eff b)
+    tolerance:
+      kind: rtol
+      value: 0.1
+      source: tests/validation/element/test_material_suite.py:725
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testisoequivalence_test_n_iso_plies_equa.single
+  group: '28'
+  title: TestIsoEquivalence::test_n_iso_plies_equal_single_layer_mitc4
+  tests:
+  - tests/validation/element/test_material_suite.py::TestIsoEquivalence::test_n_iso_plies_equal_single_layer_mitc4
+  validates: 4 isotropic plies of h/4 each = 1 ply of h for MITC4Composite.
+  comparisons:
+  - label: rtol at line 811
+    asserted: true
+    reference:
+      kind: self
+      label: the single isotropic layer of the same total thickness
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/element/test_material_suite.py:811
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testisoequivalence_test_n_iso_plies_same.single
+  group: '28'
+  title: TestIsoEquivalence::test_n_iso_plies_same_displacement
+  tests:
+  - tests/validation/element/test_material_suite.py::TestIsoEquivalence::test_n_iso_plies_same_displacement
+  validates: 4 iso plies give same tip displacement as single layer under Fy.
+  comparisons:
+  - label: rtol at line 847
+    asserted: true
+    reference:
+      kind: self
+      label: the single isotropic layer of the same total thickness
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/element/test_material_suite.py:847
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testabdmatrices_test_isotropic_ab_d_rati.single
+  group: '28'
+  title: TestABDMatrices::test_isotropic_ab_d_ratios
+  tests:
+  - tests/validation/element/test_material_suite.py::TestABDMatrices::test_isotropic_ab_d_ratios
+  validates: 'Isotropic single ply: D11 = A11 * h²/12.'
+  comparisons:
+  - label: rtol at line 879
+    asserted: true
+    reference:
+      kind: analytical
+      label: the classical lamination result D11 = A11 h^2 / 12
+    tolerance:
+      kind: rtol
+      value: 1.0e-06
+      source: tests/validation/element/test_material_suite.py:879
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testabdmatrices_test_asymmetric_b11_form.single
+  group: '28'
+  title: TestABDMatrices::test_asymmetric_b11_formula
+  tests:
+  - tests/validation/element/test_material_suite.py::TestABDMatrices::test_asymmetric_b11_formula
+  validates: '[0/90] B11 matches the A-matrix closed form and reverses with the stack.'
+  comparisons:
+  - label: rtol at line 911
+    asserted: true
+    reference:
+      kind: analytical
+      label: the two-ply closed form B11 = h^2/2 (Q11_90 - Q11_0) built from the A matrices
+    tolerance:
+      kind: rtol
+      value: 1.0e-09
+      source: tests/validation/element/test_material_suite.py:911
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testabdmatrices_test_a_matrix_single_ply.single
+  group: '28'
+  title: TestABDMatrices::test_a_matrix_single_ply
+  tests:
+  - tests/validation/element/test_material_suite.py::TestABDMatrices::test_a_matrix_single_ply
+  validates: Single [0°] ply A11 = Q11 * h.
+  comparisons:
+  - label: rtol at line 935
+    asserted: true
+    reference:
+      kind: analytical
+      label: the hand calculation A11 = Q11 h
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/element/test_material_suite.py:935
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testabdmatrices_test_d_matrix_single_ply.single
+  group: '28'
+  title: TestABDMatrices::test_d_matrix_single_ply
+  tests:
+  - tests/validation/element/test_material_suite.py::TestABDMatrices::test_d_matrix_single_ply
+  validates: Single [0°] ply D11 = Q11 * h³/12.
+  comparisons:
+  - label: rtol at line 951
+    asserted: true
+    reference:
+      kind: analytical
+      label: the hand calculation D11 = Q11 h^3 / 12
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/element/test_material_suite.py:951
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testabdmatrices_test_qbar_0_equals_q.single
+  group: '28'
+  title: TestABDMatrices::test_qbar_0_equals_q
+  tests:
+  - tests/validation/element/test_material_suite.py::TestABDMatrices::test_qbar_0_equals_q
+  validates: Qbar at 0° must equal Q (no rotation).
+  comparisons:
+  - label: rtol at line 981
+    asserted: true
+    reference:
+      kind: self
+      label: our own unrotated stiffness Q
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/element/test_material_suite.py:981
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.testabdmatrices_test_qbar_90_swaps_e1_e2.single
+  group: '28'
+  title: TestABDMatrices::test_qbar_90_swaps_e1_e2
+  tests:
+  - tests/validation/element/test_material_suite.py::TestABDMatrices::test_qbar_90_swaps_e1_e2
+  validates: 'Qbar at 90°: Q11_bar = Q22 (0°) and Q22_bar = Q11 (0°).'
+  comparisons:
+  - label: rtol at line 995
+    asserted: true
+    reference:
+      kind: self
+      label: our own unrotated stiffness Q, entry [1,1]
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/element/test_material_suite.py:995
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 1002
+    asserted: true
+    reference:
+      kind: self
+      label: our own unrotated stiffness Q, entry [0,0]
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/element/test_material_suite.py:1002
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

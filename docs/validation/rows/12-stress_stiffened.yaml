@@ -1,0 +1,25 @@
+group: '12'
+rows:
+- id: stress_stiffened.testkgassemblypipeline_test_stress_field.single
+  group: '12'
+  title: TestKGAssemblyPipeline::test_stress_field_dict_from_recovery
+  tests:
+  - tests/validation/element/test_stress_stiffened_solver.py::TestKGAssemblyPipeline::test_stress_field_dict_from_recovery
+  validates: Build stress_field dict from StressRecovery and assemble K_G.
+  comparisons:
+  - label: rtol at line 318
+    asserted: true
+    reference:
+      kind: analytical
+      label: the plane-stress closed form E/(1-nu^2) * eps
+    tolerance:
+      kind: rtol
+      value: 1.0e-06
+      source: tests/validation/element/test_stress_stiffened_solver.py:318
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

@@ -1,15 +1,13 @@
 import numpy as np
 
 ##from pynumad.mesh_gen.shellClasses import shellRegion, elementSet, NuMesh3D, spatialGridList2D, spatialGridList3D
-from aeroelast.models.blade.numad.mesh_gen.boundary2d import *
-from aeroelast.models.blade.numad.mesh_gen.element_utils import *
-from aeroelast.models.blade.numad.mesh_gen.mesh2d import *
-from aeroelast.models.blade.numad.mesh_gen.mesh_tools import *
+from aeroelast.models.blade.numad.mesh_gen.element_utils import correct_orient
+from aeroelast.models.blade.numad.mesh_gen.mesh_tools import get_direction_cosines
 from aeroelast.models.blade.numad.mesh_gen.surface import Surface
 from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
 
 
-def get_shell_mesh(blade, elementSize, spanGrading="chord"):
+def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
     """
     This method generates a finite element shell mesh for the blade, based on what is
     stored in blade.geometry.coordinates, blade.keypoints.key_points,
@@ -24,6 +22,11 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
         Spanwise element size grading strategy.
         - "uniform": constant elementSize for all sections
         - "chord":   scale by sqrt(chord/chord_max) so tip gets finer elements
+    include_webs: bool
+        When *False* the shear webs are skipped and only the outer shell is
+        meshed.  The result is the blade outer-mold-line surface, which is what
+        a CFD wall boundary needs.  No ``*SW`` element sets, no
+        ``allShearWebEls`` / ``allShearWebNods`` sets are produced.
 
     Returns
     -------
@@ -379,11 +382,14 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
         stPt = stPt + 3
 
     ## Shear web sections
+    # ``include_webs=False`` collapses the loop range so the whole block is
+    # skipped: ``swES``/``secList`` stay outer-shell only and the web node sets
+    # are never created downstream.
     swES = set()
     stPt = 0
-    web1Sets = np.array([])
-    web2Sets = np.array([])
-    for i in range(rws - 1):
+    np.array([])
+    np.array([])
+    for i in range(rws - 1 if include_webs else 0):
         if swstacks[0][i].plygroups:
             shellKp = np.zeros((16, 3))
             shellKp[0, :] = np.array([splineXi[stPt, 12], splineYi[stPt, 12], splineZi[stPt, 12]])
@@ -617,7 +623,7 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
     newSet["labels"] = rootLabs
     try:
         shellData["sets"]["node"].append(newSet)
-    except:
+    except Exception:
         nodeSets = []
         nodeSets.append(newSet)
         shellData["sets"]["node"] = nodeSets
@@ -645,78 +651,3 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord"):
     shellData["splineZi"] = splineZi
 
     return shellData
-
-
-def get_vol_mesh(
-    blade, elementSize, overset_layers, first_thickness, growth_rate, spanGrading="chord"
-):
-    """Build a structured hex8 boundary-layer mesh around the blade OML.
-
-    The blade outer-surface (OML) quads produced by ``get_shell_mesh`` are
-    extruded outward in *overset_layers* hex layers using geometric growth.
-    Shear webs and root/tip caps are intentionally excluded — the spanwise
-    ends of the volume mesh remain open.
-
-    Parameters
-    ----------
-    blade : numadBlade
-        Blade definition object.
-    elementSize : float
-        Target surface element size passed to ``get_shell_mesh``.
-    overset_layers : int
-        Number of boundary-layer hex layers to extrude.
-    first_thickness : float
-        Wall-normal thickness of the first (innermost) layer.
-    growth_rate : float
-        Geometric growth factor between consecutive layers (>= 1.0).
-    spanGrading : str, optional
-        Spanwise grading strategy: ``"chord"`` (default) or ``"uniform"``.
-
-    Returns
-    -------
-    dict with keys:
-        ``nodes``    — ndarray shape (N*(overset_layers+1), 3)
-        ``elements`` — ndarray shape (M_oml * overset_layers, 8), hex8
-        ``sets``     — node sets ``bladeWallNodes`` and ``outerBoundaryNodes``
-    """
-    from aeroelast.models.blade.numad.mesh_gen.mesh3d import create_offset_layers
-
-    shellData = get_shell_mesh(blade, elementSize, spanGrading)
-
-    # Identify OML element labels from the allOuterShellEls set
-    oml_el_labels = None
-    for es in shellData["sets"]["element"]:
-        if es["name"] == "allOuterShellEls":
-            oml_el_labels = np.array(es["labels"], dtype=int)
-            break
-
-    if oml_el_labels is None or len(oml_el_labels) == 0:
-        raise ValueError("get_vol_mesh: 'allOuterShellEls' set not found in shell mesh")
-
-    all_nodes = shellData["nodes"]
-    all_elements = shellData["elements"]
-
-    # Extract OML elements and re-index to local node numbering
-    oml_elements_global = all_elements[oml_el_labels]  # (M, 4)
-
-    # Collect unique node indices used by OML elements (quads only, ignore tri/-1)
-    quad_mask = oml_elements_global[:, 3] != -1
-    used_global = np.unique(oml_elements_global[quad_mask])
-    used_global = used_global[used_global >= 0]
-
-    global_to_local = np.full(len(all_nodes), -1, dtype=int)
-    global_to_local[used_global] = np.arange(len(used_global))
-
-    oml_nodes = all_nodes[used_global]
-
-    oml_elements_local = oml_elements_global.copy()
-    for col in range(4):
-        valid = oml_elements_local[:, col] >= 0
-        oml_elements_local[valid, col] = global_to_local[oml_elements_local[valid, col]]
-
-    return create_offset_layers(
-        oml_nodes, oml_elements_local, overset_layers, first_thickness, growth_rate
-    ) | {
-        "oml_elements": oml_elements_local,
-        "N_oml": len(oml_nodes),
-    }

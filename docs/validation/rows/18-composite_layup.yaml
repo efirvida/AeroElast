@@ -1,0 +1,370 @@
+group: '18'
+rows:
+- id: composite_layup.test_axial_extension_matches_ccx.uni_0
+  group: '18'
+  title: test_axial_extension_matches_ccx[uni_0]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[uni_0]
+  validates: Mean axial extension under an edge resultant matches CCX S8R.
+  comparisons:
+  - label: rtol at line 350
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.025
+      source: tests/validation/parity/test_composite_layup_parity.py:350
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_axial_extension_matches_ccx.uni_90
+  group: '18'
+  title: test_axial_extension_matches_ccx[uni_90]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[uni_90]
+  validates: Mean axial extension under an edge resultant matches CCX S8R.
+  comparisons:
+  - label: rtol at line 350
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.025
+      source: tests/validation/parity/test_composite_layup_parity.py:350
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_axial_extension_matches_ccx.sym_0_90s
+  group: '18'
+  title: test_axial_extension_matches_ccx[sym_0_90s]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[sym_0_90s]
+  validates: Mean axial extension under an edge resultant matches CCX S8R.
+  comparisons:
+  - label: rtol at line 350
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.025
+      source: tests/validation/parity/test_composite_layup_parity.py:350
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_axial_extension_matches_ccx.asym_0_90
+  group: '18'
+  title: test_axial_extension_matches_ccx[asym_0_90]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[asym_0_90]
+  validates: Mean axial extension under an edge resultant matches CCX S8R.
+  comparisons:
+  - label: rtol at line 350
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.025
+      source: tests/validation/parity/test_composite_layup_parity.py:350
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_axial_extension_matches_ccx.quasi_iso
+  group: '18'
+  title: test_axial_extension_matches_ccx[quasi_iso]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[quasi_iso]
+  validates: Mean axial extension under an edge resultant matches CCX S8R.
+  comparisons:
+  - label: rtol at line 350
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.025
+      source: tests/validation/parity/test_composite_layup_parity.py:350
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_transverse_bending_matches_ccx.uni_0
+  group: '18'
+  title: test_transverse_bending_matches_ccx[uni_0]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[uni_0]
+  validates: Mean out-of-plane bending deflection matches CCX S8R.
+  comparisons:
+  - label: rtol at line 364
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/parity/test_composite_layup_parity.py:364
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_transverse_bending_matches_ccx.uni_90
+  group: '18'
+  title: test_transverse_bending_matches_ccx[uni_90]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[uni_90]
+  validates: Mean out-of-plane bending deflection matches CCX S8R.
+  comparisons:
+  - label: rtol at line 364
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/parity/test_composite_layup_parity.py:364
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_transverse_bending_matches_ccx.sym_0_90s
+  group: '18'
+  title: test_transverse_bending_matches_ccx[sym_0_90s]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[sym_0_90s]
+  validates: Mean out-of-plane bending deflection matches CCX S8R.
+  comparisons:
+  - label: rtol at line 364
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/parity/test_composite_layup_parity.py:364
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_transverse_bending_matches_ccx.asym_0_90
+  group: '18'
+  title: test_transverse_bending_matches_ccx[asym_0_90]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[asym_0_90]
+  validates: Mean out-of-plane bending deflection matches CCX S8R.
+  comparisons:
+  - label: rtol at line 364
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/parity/test_composite_layup_parity.py:364
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_transverse_bending_matches_ccx.quasi_iso
+  group: '18'
+  title: test_transverse_bending_matches_ccx[quasi_iso]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[quasi_iso]
+  validates: Mean out-of-plane bending deflection matches CCX S8R.
+  comparisons:
+  - label: rtol at line 364
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/parity/test_composite_layup_parity.py:364
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_asymmetric_b_coupling_matches_ccx.single
+  group: '18'
+  title: test_asymmetric_b_coupling_matches_ccx
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_asymmetric_b_coupling_matches_ccx
+  validates: The asymmetric [0/90] strip bends out of plane under axial load, as in CCX.
+  comparisons:
+  - label: rtol at line 382
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_composite_layup_parity.py:382
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_modal_frequencies_match_ccx.uni_0
+  group: '18'
+  title: test_modal_frequencies_match_ccx[uni_0]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[uni_0]
+  validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 405
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/parity/test_composite_layup_parity.py:405
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_modal_frequencies_match_ccx.uni_90
+  group: '18'
+  title: test_modal_frequencies_match_ccx[uni_90]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[uni_90]
+  validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 405
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/parity/test_composite_layup_parity.py:405
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_modal_frequencies_match_ccx.sym_0_90s
+  group: '18'
+  title: test_modal_frequencies_match_ccx[sym_0_90s]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[sym_0_90s]
+  validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 405
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/parity/test_composite_layup_parity.py:405
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_modal_frequencies_match_ccx.asym_0_90
+  group: '18'
+  title: test_modal_frequencies_match_ccx[asym_0_90]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[asym_0_90]
+  validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 405
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/parity/test_composite_layup_parity.py:405
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_modal_frequencies_match_ccx.quasi_iso
+  group: '18'
+  title: test_modal_frequencies_match_ccx[quasi_iso]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[quasi_iso]
+  validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 405
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/parity/test_composite_layup_parity.py:405
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

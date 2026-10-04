@@ -8,14 +8,14 @@ class Segment2D:
         self.keyPts = keyPts
         self.numEls = numEls
 
-    def getNodesEdges(self):
+    def getNodesEdges(self) -> dict:
         nNds = self.numEls + 1
         if self.segType == "line":
             pt1 = np.array(self.keyPts[0])
             pt2 = np.array(self.keyPts[1])
             proj = pt2 - pt1
             steps = (1.0 / self.numEls) * np.array(range(0, nNds))
-            nds = list()
+            nds = []
             for st in steps:
                 nd = pt1 + st * proj
                 nds.append(nd)
@@ -23,7 +23,7 @@ class Segment2D:
             eN1 = np.array(range(0, self.numEls), dtype=int)
             eN2 = np.array(range(1, nNds), dtype=int)
             edges = np.transpose(np.array([eN1, eN2]))
-            output = dict()
+            output = {}
             output["nodes"] = nodes
             output["edges"] = edges
             return output
@@ -44,7 +44,7 @@ class Segment2D:
                 order,
                 axis=0,
                 bounds_error=False,
-                fill_value="extrapolate",
+                fill_value="extrapolate",  # pyright: ignore[reportArgumentType]
             )
             xNds = iFun(pNds)
             iFun = interpolate.interp1d(
@@ -53,12 +53,12 @@ class Segment2D:
                 order,
                 axis=0,
                 bounds_error=False,
-                fill_value="extrapolate",
+                fill_value="extrapolate",  # pyright: ignore[reportArgumentType]
             )
             yNds = iFun(pNds)
             eN1 = np.array(range(0, self.numEls), dtype=int)
             eN2 = np.array(range(1, nNds), dtype=int)
-            output = dict()
+            output = {}
             output["nodes"] = np.transpose(np.array([xNds, yNds]))
             output["edges"] = np.transpose(np.array([eN1, eN2]))
             return output
@@ -115,7 +115,8 @@ class Segment2D:
                 nodes[thi, 1] = rad * np.sin(thetaNds[thi]) + center[1]
             eN1 = np.array(range(0, self.numEls), dtype=int)
             eN2 = np.array(range(1, nNds), dtype=int)
-            output = dict()
+            output = {}
             output["nodes"] = nodes
             output["edges"] = np.transpose(np.array([eN1, eN2]))
             return output
+        raise ValueError(f"Unknown segment type {self.segType!r}")

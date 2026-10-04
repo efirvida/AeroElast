@@ -156,3 +156,9 @@ tests/hub.stl
 docs/figures/
 docs/validation_plots/figures/
 docs/validation_data/generated/
+
+# Test and build artefacts, neither of them source: `output/` is written by the benchmark
+# tests' debug dumps, `build.log` by the installers. They sat at the repository root untracked
+# and unignored, which is how a root stops being readable.
+output/
+build.log

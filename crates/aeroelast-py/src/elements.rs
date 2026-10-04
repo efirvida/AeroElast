@@ -7,6 +7,7 @@ use rayon::prelude::*;
 
 use aeroelast_core::elements::mitc3::{self, Mitc3Precomputed};
 use aeroelast_core::elements::mitc4::{self, Mitc4Precomputed};
+use aeroelast_core::elements::smoothing::{self, TriangleFrame};
 use aeroelast_core::elements::quad::{Quad4Precomputed, Quad8Precomputed, Quad9Precomputed};
 use aeroelast_core::materials::composite::composite_constitutive;
 use aeroelast_core::materials::isotropic::IsotropicMaterial;
@@ -210,6 +211,153 @@ pub(crate) fn batch_fint_mitc3<'py>(
     }
 
     Array1::from(output).into_pyarray(py)
+}
+
+// ============================================================================
+// Strain-smoothed MITC3+ (Lee & Lee 2019)
+// ============================================================================
+
+/// Assemble the global stiffness of a triangular mesh of strain-smoothed MITC3+
+/// shell elements (Lee & Lee 2019, *Computers and Structures* 223:106096).
+///
+/// Each element's membrane strain is smoothed with its three edge neighbours
+/// (Eqs. 15-18), so the element stiffness lives over the six-node union layout of
+/// [`mitc3::compute_ke_union_smoothed`] and is rotated to global coordinates with
+/// each owning element's own frame.  Bending, transverse shear and drilling stay
+/// on the element's own three nodes, exactly as the paper prescribes.
+///
+/// Parameters
+/// ----------
+/// node_coords : np.ndarray (n_nodes, 3)
+/// connectivity : list[list[int]]
+///     One 3-node triangle per element, 0-based, consistently oriented.
+/// e_mod, nu, thickness : float
+/// shear_correction : float, default 5/6
+///
+/// Returns (rows, cols, vals) as numpy int64/int64/float64 COO triplets.
+#[pyfunction]
+#[pyo3(signature = (node_coords, connectivity, e_mod, nu, thickness, shear_correction=5.0/6.0))]
+pub(crate) fn assemble_smoothed_mitc3<'py>(
+    py: Python<'py>,
+    node_coords: PyReadonlyArray2<'py, f64>,
+    connectivity: Vec<Vec<usize>>,
+    e_mod: f64,
+    nu: f64,
+    thickness: f64,
+    shear_correction: f64,
+) -> PyResult<(
+    Bound<'py, PyArray1<i64>>,
+    Bound<'py, PyArray1<i64>>,
+    Bound<'py, PyArray1<f64>>,
+)> {
+    let coords = node_coords.as_array();
+    let n_elem = connectivity.len();
+
+    let material = IsotropicMaterial::new(e_mod, nu, 0.0);
+    let constitutive = material.constitutive(thickness, shear_correction);
+
+    // Precompute every triangle, then its smoothing frame.
+    let mut elements = Vec::with_capacity(n_elem);
+    let mut frames = Vec::with_capacity(n_elem);
+    for nodes in &connectivity {
+        if nodes.len() != 3 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "strain-smoothed MITC3 needs 3-node triangle connectivity",
+            ));
+        }
+        let mut c = [0.0f64; 9];
+        for (local, &node) in nodes.iter().enumerate() {
+            for axis in 0..3 {
+                c[3 * local + axis] = coords[[node, axis]];
+            }
+        }
+        let pre = Mitc3Precomputed::new(&c, constitutive.clone(), thickness, e_mod, 1.0);
+        frames.push(TriangleFrame {
+            j_mat: pre.j_mat,
+            area: pre.area,
+            normal: nalgebra::Vector3::new(pre.t3[(2, 0)], pre.t3[(2, 1)], pre.t3[(2, 2)]),
+            frame: pre.t3,
+        });
+        elements.push(pre);
+    }
+
+    let neighbours = smoothing::edge_neighbours(&connectivity);
+    let operators = smoothing::smoothed_membrane_strain(&frames, &neighbours);
+
+    let mut rows: Vec<i64> = Vec::new();
+    let mut cols: Vec<i64> = Vec::new();
+    let mut vals: Vec<f64> = Vec::new();
+
+    for element in 0..n_elem {
+        let own = &elements[element];
+
+        // Union slots: the target's three nodes, then each neighbour's unique node.
+        let mut slots = [[0usize, 1, 2]; 4];
+        let mut union_node_ids = [
+            connectivity[element][0],
+            connectivity[element][1],
+            connectivity[element][2],
+            0,
+            0,
+            0,
+        ];
+        let mut entries: [Option<&Mitc3Precomputed>; 4] = [Some(own), None, None, None];
+        let mut slot_frames = [own.t3; mitc3::SMOOTHED_UNION_NODES];
+
+        for edge in 0..3 {
+            let Some(neighbour) = neighbours[element][edge] else {
+                continue;
+            };
+            entries[1 + edge] = Some(&elements[neighbour]);
+            slot_frames[3 + edge] = elements[neighbour].t3;
+
+            // Shared nodes map to the target's local position; the neighbour's
+            // remaining node becomes the union's unique node for this edge.
+            let a = connectivity[element][edge];
+            let b = connectivity[element][(edge + 1) % 3];
+            let mut unique = None;
+            let mut mapping = [0usize; 3];
+            for (local, &node) in connectivity[neighbour].iter().enumerate() {
+                if node == a {
+                    mapping[local] = edge;
+                } else if node == b {
+                    mapping[local] = (edge + 1) % 3;
+                } else {
+                    mapping[local] = 3 + edge;
+                    unique = Some(local);
+                }
+            }
+            slots[1 + edge] = mapping;
+            if let Some(unique) = unique {
+                union_node_ids[3 + edge] = connectivity[neighbour][unique];
+            }
+        }
+
+        let bm_union =
+            mitc3::smoothed_membrane_b(own, &entries, &slots, &operators[element].weights);
+        let k_local = mitc3::compute_ke_union_smoothed(own, &bm_union);
+        let k_global = mitc3::transform_union_to_global(&k_local, &slot_frames);
+
+        for row in 0..mitc3::SMOOTHED_UNION_DOFS {
+            let global_row = 6 * union_node_ids[row / 6] + (row % 6);
+            for col in 0..mitc3::SMOOTHED_UNION_DOFS {
+                let value = k_global[(row, col)];
+                if value == 0.0 {
+                    continue;
+                }
+                let global_col = 6 * union_node_ids[col / 6] + (col % 6);
+                rows.push(global_row as i64);
+                cols.push(global_col as i64);
+                vals.push(value);
+            }
+        }
+    }
+
+    Ok((
+        Array1::from(rows).into_pyarray(py),
+        Array1::from(cols).into_pyarray(py),
+        Array1::from(vals).into_pyarray(py),
+    ))
 }
 
 // ============================================================================

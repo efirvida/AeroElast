@@ -1,0 +1,119 @@
+group: '6'
+rows:
+- id: tube_torsion.test_self_equilibrated_isotropic_reprodu.single
+  group: '6'
+  title: test_self_equilibrated_isotropic_reproduces_bredt
+  tests:
+  - tests/validation/parity/test_thin_walled_tube_torsion.py::test_self_equilibrated_isotropic_reproduces_bredt
+  validates: 'Boundary-layer-free torsion, isotropic MITC4: both metrics equal ``T/GJ``.'
+  comparisons:
+  - label: rtol at line 512
+    asserted: true
+    reference:
+      kind: analytical
+      label: Bredt T L / GJ, the closed form for a closed thin-walled tube
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:512
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.00309
+      margin_pct: 0.3091
+      text: 1.00309 (0.3091%)
+      digest: c4e78b2a044cacd1
+  - label: rtol at line 520
+    asserted: true
+    reference:
+      kind: analytical
+      label: Bredt T L / GJ, the closed form for a closed thin-walled tube
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:520
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.00674
+      margin_pct: 0.6745
+      text: 1.00674 (0.6745%)
+      digest: 22d7f40b901e3133
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: tube_torsion.test_self_equilibrated_laminate_reproduc.single
+  group: '6'
+  title: test_self_equilibrated_laminate_reproduces_bredt
+  tests:
+  - tests/validation/parity/test_thin_walled_tube_torsion.py::test_self_equilibrated_laminate_reproduces_bredt
+  validates: 'Boundary-layer-free torsion, MITC4Composite ``[45,-45]s``: both metrics equal ``T/GJ``.'
+  comparisons:
+  - label: rtol at line 535
+    asserted: true
+    reference:
+      kind: analytical
+      label: Bredt T L / GJ, the closed form for a closed thin-walled tube
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:535
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.998598
+      margin_pct: 0.1402
+      text: 0.998598 (0.1402%)
+      digest: 2647692f9a76a55c
+  - label: rtol at line 543
+    asserted: true
+    reference:
+      kind: analytical
+      label: Bredt T L / GJ, the closed form for a closed thin-walled tube
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:543
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 1.00703
+      margin_pct: 0.7033
+      text: 1.00703 (0.7033%)
+      digest: 321f683a5dabefe8
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: tube_torsion.test_clamped_root_metric_convergence_ide.single
+  group: '6'
+  title: test_clamped_root_metric_convergence_identifies_the_section_rotation
+  tests:
+  - tests/validation/parity/test_thin_walled_tube_torsion.py::test_clamped_root_metric_convergence_identifies_the_section_rotation
+  validates: 'Clamped root + tip shear flow: which metric is the section rotation, and how long is the layer.'
+  comparisons:
+  - label: rtol at line 594
+    asserted: true
+    reference:
+      kind: analytical
+      label: 'the idealised limit: at L=24 m the section rotation rate is T/GJ, so the theta_z rate on it must reach 1'
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:594
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

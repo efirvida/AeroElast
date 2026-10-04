@@ -151,17 +151,12 @@ def _read_strlist(val):
     return [p.strip() for p in s.split(",")]
 
 
-def _col_values(ws, col_idx, start_row, end_row):
-    """Read a column slice from a worksheet and return as a list of raw values."""
-    return [ws.cell(row=r, column=col_idx + 1).value for r in range(start_row, end_row + 1)]
-
-
 # ---------------------------------------------------------------------------
 #  Main entry point
 # ---------------------------------------------------------------------------
 
 
-def excel_to_blade(blade, filename: str, airfoil_dir: str = None):
+def excel_to_blade(blade, filename: str, airfoil_dir: str | None = None):
     """Populate a :class:`Blade` object from a NuMAD Excel file.
 
     Supports both the new pyNuMAD 3-sheet format (Geometry / Components /
@@ -313,7 +308,7 @@ def _read_geometry(definition, ws, airfoil_dir):
         afname_raw.append(_str(ws.cell(row=r, column=_GEOM["afname"] + 1).value))
 
     definition.stations = []
-    for k, (af_span, af_name) in enumerate(zip(afspan_raw, afname_raw)):
+    for k, (af_span, af_name) in enumerate(zip(afspan_raw, afname_raw, strict=False)):
         if af_span < np.amin(definition.span) or af_span > np.amax(definition.span):
             raise ValueError(
                 f"Airfoil #{k} location ({af_span}) is outside the span range "
@@ -439,7 +434,7 @@ def _read_components(definition, ws):
 
         imethod = _str(ws.cell(row=r, column=_CMPT["imethod"] + 1).value)
         comp.imethod = imethod if imethod else "linear"
-        comp.pinnedends = 0
+        comp.pinnedends = False
 
         if not np.any(len(comp.hpextents) == np.array([0, 1, 2])):
             raise ValueError(f"Component '{comp.name}': length of hpextents must be 0, 1, or 2")
@@ -949,7 +944,7 @@ def _build_legacy_sizing(definition, legacy, ws_sw):
     n_sta = legacy["n_sta"]
     dp = legacy["dp_positions"]  # [n_sta, n_segments+1]
     chord = definition.chord  # [n_sta]
-    n_seg = legacy["n_segments"]
+    legacy["n_segments"]
     seg_names = legacy["segment_names"]
 
     # ---- spar-cap width (use SW sheet if available) ----------------------
@@ -1041,8 +1036,8 @@ def _build_legacy_components(definition, legacy):
     sequences becomes one blade-surface component.  Shear webs become
     additional components with ``group > 0``.
     """
-    n_sta = legacy["n_sta"]
-    n_stacks = legacy["n_stacks"]
+    legacy["n_sta"]
+    legacy["n_stacks"]
     stack_names = legacy["stack_names"]
     stack_mat_ids = legacy["stack_mat_ids"]
     segment_names = legacy["segment_names"]
@@ -1069,7 +1064,7 @@ def _build_legacy_components(definition, legacy):
 
     # Determine a canonical ordering: group entries by their first position
     # in the stacking sequence so that outer layers come first.
-    max_seq_len = max(len(s) for s in incl_stacks) if incl_stacks else 0
+    max(len(s) for s in incl_stacks) if incl_stacks else 0
     ordered_entries = sorted(entry_regions.keys(), key=lambda k: (k[0], k[1]))
 
     # Track how many times each stack_id has been used (for naming)
@@ -1112,7 +1107,7 @@ def _build_legacy_components(definition, legacy):
         comp.hpextents = hp_ext
         comp.lpextents = lp_ext
         comp.imethod = "pchip"
-        comp.pinnedends = 0
+        comp.pinnedends = False
 
         # Control points: (normalised span, n_layers) at each station
         stk_col = mat_id_idx  # column in layer_counts
@@ -1136,7 +1131,7 @@ def _build_legacy_components(definition, legacy):
         kp = web_keypoints[w] if w < len(web_keypoints) else "b"
 
         stk_count = {}
-        for pos, stk_id in enumerate(sw_seq):
+        for _, stk_id in enumerate(sw_seq):
             mat_id_idx = stk_id - 1
             if 0 <= mat_id_idx < len(stack_mat_ids):
                 mat_ref = stack_mat_ids[mat_id_idx] - 1
@@ -1161,7 +1156,7 @@ def _build_legacy_components(definition, legacy):
             comp.hpextents = [kp]
             comp.lpextents = [kp]
             comp.imethod = "pchip"
-            comp.pinnedends = 0
+            comp.pinnedends = False
 
             stk_col = mat_id_idx
             n_layers = np.nan_to_num(layer_counts[:, stk_col], nan=0.0)

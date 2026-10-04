@@ -1,20 +1,22 @@
 import numpy as np
 
 import aeroelast.models.blade.numad.mesh_gen.mesh_tools as mt
-from aeroelast.models.blade.numad.mesh_gen.segment2d import *
+from aeroelast.models.blade.numad.mesh_gen.segment2d import Segment2D
 
 
 class Boundary2D:
-    def __init__(self, segList=[]):
-        self.segList = list()
+    def __init__(self, segList=None):
+        if segList is None:
+            segList = []
+        self.segList = []
         self.segList.extend(segList)
 
     def addSegment(self, segType, keyPts, numEls):
         self.segList.append(Segment2D(segType, keyPts, numEls))
 
     def getBoundaryMesh(self):
-        allNds = list()
-        allEds = list()
+        allNds = []
+        allEds = []
         totNds = 0
         for seg in self.segList:
             segMesh = seg.getNodesEdges()
@@ -24,7 +26,7 @@ class Boundary2D:
         allNds = np.array(allNds)
         allEds = np.array(allEds)
 
-        meshData = dict()
+        meshData = {}
         meshData["nodes"] = allNds
         meshData["elements"] = allEds
 

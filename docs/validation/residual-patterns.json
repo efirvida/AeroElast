@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "_why": "A residual pattern is machine data: it is a regex, not prose, and in YAML the prose linter enforces a line budget a long pattern cannot satisfy. Keep it here, keyed by group id. Every pattern is validated as a regex when the store loads.",
+  "patterns": {
+    "31": {
+      "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
+      "unasserted": "(?!)"
+    },
+    "4": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
+    "13": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
+    "20": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
+    "21": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
+    "5": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
+    "11": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
+    "14": {
+      "asserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)",
+      "unasserted": "(?P<what>.+?) vs (?P<reference_name>.+?): (?P<error>\\S+)% \\(bound: (?P<bound>\\S+)%\\)"
+    },
+    "3": {
+      "asserted": "Norm\\svs\\sKirchhoff:\\s(?P<value>\\S+)\\s\\(expected:\\s(?P<expected>\\S+),\\serror:\\s(?P<error>\\S+)%\\)",
+      "unasserted": "Norm\\svs\\sPaper\\s3D:\\s(?P<value>\\S+)\\s\\(expected:\\s(?P<expected>\\S+),\\serror:\\s(?P<error>\\S+)%\\)"
+    },
+    "6": {
+      "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
+      "unasserted": "(?!)"
+    },
+    "30": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "29": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "28": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "27": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "26": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "25": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "24": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "23": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "22": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "19": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "18": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "17": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "16": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "15": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "12": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "9": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
+   "unasserted": "CCX 2\\.23\\s+\\S+:\\s+uy = \\S+ m\\s+\\(analytical \\S+ m, err (?P<error>\\S+)%\\)"
+  },
+  "8": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
+   "unasserted": "(?!)"
+  },
+  "7": {
+      "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
+      "unasserted": "(?!)"
+    }
+  }
+}

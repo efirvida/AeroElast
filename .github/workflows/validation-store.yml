@@ -1,0 +1,45 @@
+name: Validation store
+
+# The store is the rector for the repository's validation evidence, so it
+# is checked on every change, not only when someone remembers to. This job is
+# cheap on purpose: it needs PyYAML and nothing else, because it validates
+# data and never runs the suite.
+#
+# `regression` is NOT here. Re-measuring the baselines needs the built
+# environment (the Rust extension, CalculiX, OpenFAST, the polars), which the
+# Makefile CI builds but this job does not. Run it locally inside the pinned
+# environment, as `docs/validation-environment.md` describes. The rule it
+# enforces is in `docs/validation-policy.md`.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  store:
+    runs-on: ubuntu-latest
+    # This job only reads the repository, so it asks for nothing else.
+    permissions:
+      contents: read
+    steps:
+      # Pinned by commit: actions/checkout v4, actions/setup-python v5.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: python -m pip install --upgrade pip pyyaml
+
+      - name: Validate the store
+        run: |
+          python tools/validation_matrix.py check
+          python tools/validation_matrix.py gaps
+
+      - name: The bibliography resolves
+        run: python tools/validation_matrix.py references check

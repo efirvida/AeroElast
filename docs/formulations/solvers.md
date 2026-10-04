@@ -99,7 +99,8 @@ function doc also prints a predictor/corrector form (`u*`, `v*` and the
 above is the equivalent standard effective-load form. `C = eta_k K + eta_m M`
 is Rayleigh damping.
 
-**Gap.** Neither implementation cites Newmark, N.M. (1959). `docs/references.md`
+**Gap.** Neither implementation cites Newmark, N.M. (1959).
+`docs/validation/references.yaml`
 lists "A method of computation for structural dynamics", *Journal of the
 Engineering Mechanics Division, ASCE*, 85(EM3):67–94, 1959, with DOI **"to
 verify"**, notes that there is **no PDF in `.sources/papers/`**, and records the
@@ -226,12 +227,12 @@ user has asked for it to be replaced by the original source.
 **Likely original sources** (to be verified before any replacement is made):
 
 - **Géradin, M., Rixen, D.**, *Mechanical Vibrations: Theory and Application to
-  Structural Dynamics*, 3rd ed., Wiley, 2015 — listed in `docs/references.md` §3
+  Structural Dynamics*, 3rd ed., Wiley, 2015 — listed in `docs/validation/references.yaml` §3
   and used there for "the gyroscopic matrices of rotating systems". This is the
   best candidate for the gyroscopic/Coriolis term `G_cor` and the rotating-frame
   terms.
 - **Goldstein, H., Poole, C., Safko, J.**, *Classical Mechanics*, 3rd ed., Addison
-  Wesley, 2002, §4.9–4.10 — listed in `docs/references.md` for "the non-inertial
+  Wesley, 2002, §4.9–4.10 — listed in `docs/validation/references.yaml` for "the non-inertial
   (rotating) frame treatment". This is the candidate for the centrifugal,
   Coriolis and Euler accelerations of §3.1.
 - **Bathe, K.J.**, *Finite Element Procedures* — the candidate for the geometric
@@ -240,7 +241,7 @@ user has asked for it to be replaced by the original source.
 **This replacement is not made in this revision.** Each equation must be read in
 the original work first; the ANSYS numbers are not evidence of the original
 equation numbering, and no equation number here should be transferred to Géradin
-& Rixen without reading it. `docs/references.md` marks both Géradin/Rixen and
+& Rixen without reading it. `docs/validation/references.yaml` marks both Géradin/Rixen and
 Goldstein with DOI "to verify" and records them as "source of an implemented
 feature; the code does not cite it".
 
@@ -319,7 +320,7 @@ does not describe the implementation.
 
 **Verification status:** Bathe (1996) is not held, so §6.3 cannot be read here.
 What is verifiable is the mismatch between the citation and the code's own
-described method. `docs/references.md` lists Bathe, *Finite Element Procedures*,
+described method. `docs/validation/references.yaml` lists Bathe, *Finite Element Procedures*,
 **2nd ed., 2014** at `stress_recovery.py:53`, while this file cites the **1996**
 edition; the edition discrepancy is another item to resolve. The likely original
 source for the geometric stiffness itself is Ko, Lee & Bathe (2017) — a held PDF
@@ -373,7 +374,7 @@ and commit `929db32` repeats `Ref: Hughes, Taylor & Kanoknukulchai (1977)`.
 **No copy of that paper is held in `.sources/papers/`.** The claim that this paper
 prescribes exactly a 2×2 rule for the normal membrane components and a one-point
 rule for the in-plane shear **cannot be verified here**, and must be treated as a
-**repository assertion**, not as evidence. `docs/references.md` also marks its
+**repository assertion**, not as evidence. `docs/validation/references.yaml` also marks its
 DOI "to verify" and states that the journal, volume and pages come from the
 published record and are not re-verified against a held copy.
 
@@ -445,7 +446,7 @@ should be folded back into `shell-elements.md` §2.4.
 
 1. **Newmark-β is implemented with no citation** in
    `dynamic_newmark.py` and `dynamic_newmark.rs`. Newmark (1959) is the source;
-   `docs/references.md` lists it with DOI "to verify" and no held copy. **Fix
+   `docs/validation/references.yaml` lists it with DOI "to verify" and no held copy. **Fix
    needed in the code.**
 2. **The Python Newmark RHS omits the damping term** while the Rust RHS includes
    it. With the default `eta_k = eta_m = 1e-4` this is an active inconsistency.
@@ -462,7 +463,7 @@ should be folded back into `shell-elements.md` §2.4.
    but implements a frozen-tangent incremental scheme on a total-Lagrangian
    geometric stiffness** (`compute_kt_global` says "Total Lagrangian"). The
    citation and the code disagree; Bathe is not held, so §6.3 itself is
-   unverifiable. The edition also disagrees with `docs/references.md` (2014 vs
+   unverifiable. The edition also disagrees with `docs/validation/references.yaml` (2014 vs
    1996).
 6. **The SRI attribution is a repository assertion.** Hughes, Taylor &
    Kanoknukulchai (1977) is named in the code and in commit `929db32`, but no
@@ -483,8 +484,8 @@ No other solver-side formula was found to be implemented without attribution.
 
 ## References
 
-`docs/references.md` is the canonical bibliography. Where this document and that
-file disagree, `docs/references.md` should be corrected; this document does not
+`docs/validation/references.yaml` is the canonical bibliography. Where this document and that
+file disagree, `docs/validation/references.yaml` should be corrected; this document does not
 duplicate its per-entry verification annotations.
 
 1. Newmark, N.M., "A method of computation for structural dynamics", *Journal of

@@ -51,37 +51,41 @@ class Definition:
         List of station objects
     sweep : ndarray
         Blade sweep, reference axis location along x1 [m]
-    teband : float
+    teband : ndarray
         Location of keypoint e
-    leband : float
+    leband : ndarray
         Location of keypoint a
     te_type : list
     """
 
     def __init__(self):
-        self.components: dict[str, Component] = None
-        self.shearweb: list = None
-        self.materials: dict[str, Material] = None
-        self.stations: list[Station] = None
-        self.te_type: list[str] = None
-        self.stacks: ndarray = None
-        self.swstacks: ndarray = None
-        self.ispan: ndarray = None
-        self.aerocenter: ndarray = None
-        self.chord: ndarray = None
-        self.chordoffset: ndarray = None
-        self.degreestwist: ndarray = None
-        self.percentthick: ndarray = None
-        self.prebend: ndarray = None
-        self.span: ndarray = None
-        self.sparcapoffset: ndarray = None
-        self.sparcapwidth: ndarray = None
-        self.sweep: ndarray = None
-        self.teband: float = None
-        self.leband: float = None
-        self.rotor_diameter: float = None
-        self.hub_diameter: float = None
-        self.hub_height: float = None
+        self.components: dict[str, Component] = {}
+        self.shearweb: list = []
+        self.materials: dict[str, Material] = {}
+        self.stations: list[Station] = []
+        self.te_type: list[str] = []
+        self.stacks: ndarray | None = None
+        self.swstacks: ndarray | None = None
+        self.ispan: ndarray | None = None
+        self.aerocenter: ndarray | None = None
+        self.chord: ndarray | None = None
+        self.chordoffset: ndarray | None = None
+        self.degreestwist: ndarray | None = None
+        self.percentthick: ndarray | None = None
+        self.prebend: ndarray | None = None
+        self.span: ndarray | None = None
+        self.sparcapoffset: ndarray | None = None
+        self.sparcapwidth: ndarray | None = None
+        self.sweep: ndarray | None = None
+        self.teband: ndarray | None = None
+        self.leband: ndarray | None = None
+        self.sparcapwidth_hp: ndarray | None = None
+        self.sparcapwidth_lp: ndarray | None = None
+        self.sparcapoffset_hp: ndarray | None = None
+        self.sparcapoffset_lp: ndarray | None = None
+        self.rotor_diameter: float | None = None
+        self.hub_diameter: float | None = None
+        self.hub_height: float | None = None
 
         # init properties
         self._natural_offset: int = 1

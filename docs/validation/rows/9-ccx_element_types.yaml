@@ -1,0 +1,86 @@
+group: '9'
+rows:
+- id: ccx_element_types.test_ccx_element_type_matches_analytical.s4
+  group: '9'
+  title: test_ccx_element_type_matches_analytical[S4]
+  tests:
+  - tests/validation/parity/test_ccx_shell_element_types_parity.py::test_ccx_element_type_matches_analytical[S4]
+  validates: Each CCX element type must match the Euler-Bernoulli reference.
+  comparisons:
+  - label: rtol at line 342
+    asserted: true
+    reference:
+      kind: analytical
+      label: Euler-Bernoulli cantilever tip deflection, the closed form
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_ccx_shell_element_types_parity.py:342
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.0113584
+      margin_pct: 0.614
+      text: 0.0113584 (0.6140%)
+      digest: 8a8204fadd34eba1
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: ccx_element_types.test_ccx_element_type_matches_analytical.s8
+  group: '9'
+  title: test_ccx_element_type_matches_analytical[S8]
+  tests:
+  - tests/validation/parity/test_ccx_shell_element_types_parity.py::test_ccx_element_type_matches_analytical[S8]
+  validates: Each CCX element type must match the Euler-Bernoulli reference.
+  comparisons:
+  - label: rtol at line 342
+    asserted: true
+    reference:
+      kind: analytical
+      label: Euler-Bernoulli cantilever tip deflection, the closed form
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_ccx_shell_element_types_parity.py:342
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.0114543
+      margin_pct: 0.2251
+      text: 0.0114543 (0.2251%)
+      digest: 46df6615db34588a
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: ccx_element_types.test_ccx_element_type_matches_analytical.s8r
+  group: '9'
+  title: test_ccx_element_type_matches_analytical[S8R]
+  tests:
+  - tests/validation/parity/test_ccx_shell_element_types_parity.py::test_ccx_element_type_matches_analytical[S8R]
+  validates: Each CCX element type must match the Euler-Bernoulli reference.
+  comparisons:
+  - label: rtol at line 342
+    asserted: true
+    reference:
+      kind: analytical
+      label: Euler-Bernoulli cantilever tip deflection, the closed form
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_ccx_shell_element_types_parity.py:342
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 29b6d2d
+      date: '2026-10-04'
+      raw: 0.0114849
+      margin_pct: 0.4929
+      text: 0.0114849 (0.4929%)
+      digest: c51f8d045e865390
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

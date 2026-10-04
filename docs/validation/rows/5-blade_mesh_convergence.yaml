@@ -1,0 +1,49 @@
+group: '5'
+rows:
+- id: blade_mesh_convergence.test_blade_modal_gap_converges_with_mesh.single
+  group: '5'
+  title: test_blade_modal_gap_converges_with_mesh
+  tests:
+  - tests/validation/parity/test_blade_iea15mw_mesh_convergence.py::test_blade_modal_gap_converges_with_mesh
+  validates: The AeroElast-vs-CCX modal gap is discretisation for the low modes.
+  comparisons:
+  - label: rtol at line 172
+    asserted: true
+    reference:
+      kind: code
+      label: the CalculiX frequencies for the same blade and mesh
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:172
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 1d9a665
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 0.1948
+      text: 0.1948% bound 1.0000%
+      digest: 80a7c7a60508611e
+  - label: rtol at line 179
+    asserted: true
+    reference:
+      kind: code
+      label: the CalculiX frequencies for the same blade and mesh
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:179
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 1d9a665
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 2.1197
+      text: 2.1197% bound 5.0000%
+      digest: 04340b1d07f6552e
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

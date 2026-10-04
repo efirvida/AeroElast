@@ -1,0 +1,243 @@
+group: '15'
+rows:
+- id: mitc3_benchmarks.test_linear_tip_deflection_euler_bernoul.single
+  group: '15'
+  title: test_linear_tip_deflection_euler_bernoulli
+  tests:
+  - tests/validation/benchmarks/test_mitc3_benchmarks.py::test_linear_tip_deflection_euler_bernoulli
+  validates: 'Cantilever under small transverse tip force: δ = PL³/(3EI).'
+  comparisons:
+  - label: rtol at line 252
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli closed form P L^3 / (3 E I)
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:252
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mitc3_benchmarks.test_linear_tip_moment_sign.single
+  group: '15'
+  title: test_linear_tip_moment_sign
+  tests:
+  - tests/validation/benchmarks/test_mitc3_benchmarks.py::test_linear_tip_moment_sign
+  validates: A positive moment about +y on the free tip rotates the section from +x
+  comparisons:
+  - label: rtol at line 303
+    asserted: true
+    reference:
+      kind: analytical
+      label: the linear-theory tip deflection lambda L / 2
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:303
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mitc3_benchmarks.test_equilibrium_path.1_5707963267948966_3_6338_6_3662
+  group: '15'
+  title: test_equilibrium_path[1.5707963267948966--3.6338--6.3662]
+  tests:
+  - tests/validation/benchmarks/test_mitc3_benchmarks.py::test_equilibrium_path[1.5707963267948966--3.6338--6.3662]
+  validates: Verify the UL incremental solve tracks the exact elastic curve at
+  comparisons:
+  - label: rtol at line 377
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:377
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 385
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: atol
+      value: 0.5
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:385
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mitc3_benchmarks.test_equilibrium_path.3_141592653589793_10_0_6_3662
+  group: '15'
+  title: test_equilibrium_path[3.141592653589793--10.0--6.3662]
+  tests:
+  - tests/validation/benchmarks/test_mitc3_benchmarks.py::test_equilibrium_path[3.141592653589793--10.0--6.3662]
+  validates: Verify the UL incremental solve tracks the exact elastic curve at
+  comparisons:
+  - label: rtol at line 377
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:377
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 385
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: atol
+      value: 0.5
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:385
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mitc3_benchmarks.test_equilibrium_path.4_71238898038469_12_122_2_1221
+  group: '15'
+  title: test_equilibrium_path[4.71238898038469--12.122--2.1221]
+  tests:
+  - tests/validation/benchmarks/test_mitc3_benchmarks.py::test_equilibrium_path[4.71238898038469--12.122--2.1221]
+  validates: Verify the UL incremental solve tracks the exact elastic curve at
+  comparisons:
+  - label: rtol at line 377
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:377
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 385
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: atol
+      value: 0.5
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:385
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mitc3_benchmarks.test_equilibrium_path.6_283185307179586_10_0_0_0
+  group: '15'
+  title: test_equilibrium_path[6.283185307179586--10.0-0.0]
+  tests:
+  - tests/validation/benchmarks/test_mitc3_benchmarks.py::test_equilibrium_path[6.283185307179586--10.0-0.0]
+  validates: Verify the UL incremental solve tracks the exact elastic curve at
+  comparisons:
+  - label: rtol at line 377
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:377
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 385
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: atol
+      value: 0.5
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:385
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mitc3_benchmarks.test_simo_vu_quoc_rollup_360.10
+  group: '15'
+  title: test_simo_vu_quoc_rollup_360[10]
+  tests:
+  - tests/validation/benchmarks/test_mitc3_benchmarks.py::test_simo_vu_quoc_rollup_360[10]
+  validates: 'Full 360° rollup: λ = 2π.'
+  comparisons:
+  - label: rtol at line 425
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:425
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 434
+    asserted: true
+    reference:
+      kind: paper
+      label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
+      citation: simo1986
+    tolerance:
+      kind: atol
+      value: 0.5
+      source: tests/validation/benchmarks/test_mitc3_benchmarks.py:434
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

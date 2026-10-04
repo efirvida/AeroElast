@@ -1,0 +1,154 @@
+group: '22'
+rows:
+- id: shell_static_modal.testlinearstatic_test_fx.single
+  group: '22'
+  title: TestLinearStatic::test_fx
+  tests:
+  - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_fx
+  validates: FX in-plane loading.
+  comparisons:
+  - label: atol at line 212
+    asserted: true
+    reference:
+      kind: analytical
+      label: the analytical cantilever formula in this file's EXPECTED table
+    tolerance:
+      kind: atol
+      value: 3.0
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:212
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_static_modal.testlinearstatic_test_fy.single
+  group: '22'
+  title: TestLinearStatic::test_fy
+  tests:
+  - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_fy
+  validates: FY in-plane loading.
+  comparisons:
+  - label: atol at line 228
+    asserted: true
+    reference:
+      kind: analytical
+      label: the analytical cantilever formula in this file's EXPECTED table
+    tolerance:
+      kind: atol
+      value: 3.0
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:228
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_static_modal.testlinearstatic_test_fz.single
+  group: '22'
+  title: TestLinearStatic::test_fz
+  tests:
+  - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_fz
+  validates: FZ out-of-plane loading.
+  comparisons:
+  - label: atol at line 244
+    asserted: true
+    reference:
+      kind: analytical
+      label: the analytical cantilever formula in this file's EXPECTED table
+    tolerance:
+      kind: atol
+      value: 3.0
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:244
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_static_modal.testlinearstatic_test_axial_load_converg.single
+  group: '22'
+  title: TestLinearStatic::test_axial_load_converges_to_the_analytical_solution
+  tests:
+  - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_axial_load_converges_to_the_analytical_solution
+  validates: The axial case must converge to P*L/(E*A), not merely land near it.
+  comparisons:
+  - label: rtol at line 291
+    asserted: true
+    reference:
+      kind: analytical
+      label: the analytical cantilever formula in this file's EXPECTED table
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:291
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_static_modal.testnonlinearstatic_test_geometric_nonli.single
+  group: '22'
+  title: TestNonlinearStatic::test_geometric_nonlinearity
+  tests:
+  - tests/validation/benchmarks/test_shell_static_and_modal.py::TestNonlinearStatic::test_geometric_nonlinearity
+  validates: 'Geometric nonlinearity: stiffening and the beam-elastica limit.'
+  comparisons:
+  - label: rtol at line 318
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler-Bernoulli cantilever tip P L^3 / (3 E I)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:318
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 368
+    asserted: true
+    reference:
+      kind: analytical
+      label: the elastica (Bisshopp-Drucker) tip deflection
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:368
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_static_modal.testmodal_test_first_mode.single
+  group: '22'
+  title: TestModal::test_first_mode
+  tests:
+  - tests/validation/benchmarks/test_shell_static_and_modal.py::TestModal::test_first_mode
+  validates: First modal frequency.
+  comparisons:
+  - label: atol at line 404
+    asserted: true
+    reference:
+      kind: analytical
+      label: the file's EXPECTED first modal frequency
+    tolerance:
+      kind: atol
+      value: 2.0
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:404
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

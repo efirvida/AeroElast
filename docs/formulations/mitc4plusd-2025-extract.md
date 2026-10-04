@@ -5,7 +5,7 @@
 > gate outcomes, commit ids and open questions from the development process. It exists so
 > that a later reader can check a specific equation against the PDF. For the element as it
 > is in production, read `docs/formulations/shell-elements.md`; for the bibliography,
-> `docs/references.md`. Nothing here should be cited as a specification.
+> `docs/validation/references.yaml`. Nothing here should be cited as a specification.
 
 A persistent transcription of the equations, figures and tests this repository's
 MITC4+/D implementation is checked against, so that verifying the code does not

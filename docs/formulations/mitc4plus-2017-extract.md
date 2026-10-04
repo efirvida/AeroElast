@@ -5,7 +5,7 @@
 > gate outcomes, commit ids and open questions from the development process. It exists so
 > that a later reader can check a specific equation against the PDF. For the element as it
 > is in production, read `docs/formulations/shell-elements.md`; for the bibliography,
-> `docs/references.md`. Nothing here should be cited as a specification.
+> `docs/validation/references.yaml`. Nothing here should be cited as a specification.
 
 A persistent transcription of the equations and figures this repository's MITC4+
 implementation is checked against, so that verifying the code does not require
@@ -460,8 +460,9 @@ Not yet transcribed, and deliberately not guessed:
   text search.
 - **Eqs. (21)–(27)** — transcribed above (the new MITC4+ assumed field with its
   five coefficients).
-- **Tables 1–2 and the benchmark sections** — these live in paper **B**, and
-  `docs/validation-matrix.md` already records the values the tests use.
+- **Tables 1–2 and the benchmark sections** — these live in paper **B**, and the
+  validation store already records the values the tests use
+  (`docs/validation/rows/3-ko2017.yaml`).
 
 Note on the two reads that failed: `pdftotext` reported Eq. (16) on PDF page 6
 and Eqs. (17)–(19) on page 5. The first was wrong — page 6 is Fig. 9 and the

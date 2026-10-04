@@ -1,0 +1,76 @@
+group: '4'
+rows:
+- id: orthotropic_shell_parity.test_orthotropic_axial.single
+  group: '4'
+  title: test_orthotropic_axial
+  tests:
+  - tests/validation/parity/test_orthotropic_shell_parity.py::test_orthotropic_axial
+  validates: Test orthotropic composite shell under transverse (out-of-plane) load.
+  comparisons:
+  - label: rtol at line 345
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, orthotropic cantilever
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:345
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: orthotropic_shell_parity.test_orthotropic_bending.single
+  group: '4'
+  title: test_orthotropic_bending
+  tests:
+  - tests/validation/parity/test_orthotropic_shell_parity.py::test_orthotropic_bending
+  validates: '[0/90/90/0] in-plane lateral bending (Fx) vs Euler-Bernoulli analytical.'
+  comparisons:
+  - label: rtol at line 407
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form for in-plane bending of the orthotropic cantilever
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:407
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: orthotropic_shell_parity.test_multi_layer_iso_equivalence.single
+  group: '4'
+  title: test_multi_layer_iso_equivalence
+  tests:
+  - tests/validation/parity/test_orthotropic_shell_parity.py::test_multi_layer_iso_equivalence
+  validates: N identical isotropic plies must give same K as a single layer of total thickness.
+  comparisons:
+  - label: rtol at line 496
+    asserted: true
+    reference:
+      kind: self
+      label: the same laminate built as one isotropic layer
+    tolerance:
+      kind: rtol
+      value: 0.0001
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:496
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: c16842d
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 0.0
+      text: 0.0000% bound 0.0100%
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

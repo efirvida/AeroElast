@@ -42,7 +42,7 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     blade.definition = definition
     try:
         blade.definition.hub_diameter = data["components"]["hub"]["outer_shape_bem"]["diameter"]
-    except:
+    except Exception:
         try:
             blade.definition.hub_diameter = data["components"]["hub"]["diameter"]
         except KeyError as err:
@@ -56,8 +56,11 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
         blade.definition.hub_height = data["assembly"]["hub_height"]
     except KeyError:
         try:
-            blade.definition.hub_height = blade.definition.rotor_diameter / 2 * 1.3
-        except:
+            rotor_diameter = blade.definition.rotor_diameter
+            if rotor_diameter is None:
+                raise ValueError("rotor diameter is not defined")
+            blade.definition.hub_height = rotor_diameter / 2 * 1.3
+        except Exception:
             pass
 
     # Obtain blade outer shape bem
@@ -130,7 +133,9 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     blade.update_blade()
 
     if not blade.definition.hub_height:
-        blade.definition.rotor_diameter = blade.definition.span[-1] * 2
+        if blade.definition.span is None:
+            raise ValueError("blade span is not defined")
+        blade.definition.rotor_diameter = float(blade.definition.span[-1]) * 2
         blade.definition.hub_height = blade.definition.rotor_diameter / 2 * 1.3
 
     # save(blade_name)
@@ -180,7 +185,7 @@ def _add_stations(
         _, _, iaf_temp = np.intersect1d(
             blade_outer_shape_bem["airfoil_position"]["labels"][i],
             af_dir_names,
-            "stable",
+            assume_unique=True,
             return_indices=True,
         )
         IAF = iaf_temp[0]  # Expect only one index of intersection
@@ -255,7 +260,7 @@ def _add_stations(
 
 
 def _add_materials(definition, material_data):
-    materials_dict = dict()
+    materials_dict = {}
     for i in range(len(material_data)):
         cur_mat = Material()
         cur_mat.name = material_data[i]["name"]
@@ -297,7 +302,7 @@ def _add_materials(definition, material_data):
             cur_mat.etat = None
         try:
             # test if property is a list
-            material_data[i]["E"] + []
+            _ = material_data[i]["E"] + []
         except TypeError:
             cur_mat.ex = _parse_data(material_data[i]["E"])
             cur_mat.ey = _parse_data(material_data[i]["E"])
@@ -326,7 +331,7 @@ def _add_materials(definition, material_data):
         cur_mat.density = material_data[i]["rho"]
         # cur_mat.dens = mat_data[i]['rho']
         cur_mat.drydensity = material_data[i]["rho"]
-        if "description" in material_data[i].keys() and "source" in material_data[i].keys():
+        if "description" in material_data[i] and "source" in material_data[i]:
             desc_sourc = [
                 material_data[i]["description"],
                 ", ",
@@ -343,7 +348,7 @@ def _add_materials(definition, material_data):
 
 def _add_components(definition, blade_internal_structure, blade_structure_dict):
     N_layer_comp = len(blade_internal_structure["layers"])
-    component_list = list()
+    component_list = []
     for i in range(N_layer_comp):
         i_component_data = blade_internal_structure["layers"][i]
         cur_comp = Component()
@@ -367,7 +372,7 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
             np.multiply(np.transpose(i_component_data["thickness"]["values"]), 1000.0)
             / definition.materials[cur_comp.materialid].layerthickness
         )
-        I_round_up = np.flatnonzero((temp_n_layer > 0.05) & (temp_n_layer < 0.5))
+        np.flatnonzero((temp_n_layer > 0.05) & (temp_n_layer < 0.5))
         cptemp2 = np.round(
             np.multiply(np.transpose(i_component_data["thickness"]["values"]), 1000.0)
             / definition.materials[cur_comp.materialid].layerthickness
@@ -376,10 +381,10 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
         # if I_round_up.size > 0:
         #     cur_comp.control_points[I_round_up,1] = 1 # increase n_layers from 0 to 1 for 0.05<n_layers<0.5
         #     comp['cp'](:,2) = cell2mat(blade_internal_structure['layers']{i}['thickness']['values'])'.*1000;  # use when each material ply is 1 mm
-        cur_comp.pinnedends = 0
+        cur_comp.pinnedends = False
         component_list.append(cur_comp)
 
-    component_dict = dict()
+    component_dict = {}
 
     def get_layer_by_name(layer_name: str):
         return [
@@ -584,11 +589,15 @@ def _add_spar_caps(definition, blade_structure_dict):
     if len(sparCapKeys) != 2:
         raise ValueError("Incorrect number of spar cap components")
 
+    lpSideIndex = None
+    hpSideIndex = None
     for iSparCap in range(2):
         if "suc" in blade_structure_dict[sparCapKeys[iSparCap]]["side"].lower():
             lpSideIndex = iSparCap
         if "pres" in blade_structure_dict[sparCapKeys[iSparCap]]["side"].lower():
             hpSideIndex = iSparCap
+    if lpSideIndex is None or hpSideIndex is None:
+        raise ValueError("spar cap sides (suction/pressure) were not found")
 
     definition.sparcapwidth_lp = (
         blade_structure_dict[sparCapKeys[lpSideIndex]]["width"]["values"] * 1000

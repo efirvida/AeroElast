@@ -1,0 +1,131 @@
+group: '26'
+rows:
+- id: laminate_bend_twist.test_unbalanced_layup_matches_the_free_e.single
+  group: '26'
+  title: test_unbalanced_layup_matches_the_free_edge_reference
+  tests:
+  - tests/validation/blade/test_laminate_bend_twist.py::test_unbalanced_layup_matches_the_free_edge_reference
+  validates: The tip-force coupon must match the free-edge reference, 1:1.
+  comparisons:
+  - label: rtol at line 329
+    asserted: true
+    reference:
+      kind: analytical
+      label: the free-edge CLT state for the same layup
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_laminate_bend_twist.py:329
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: laminate_bend_twist.test_constant_moment_interior_state_is_t.single
+  group: '26'
+  title: test_constant_moment_interior_state_is_the_free_edge_state
+  tests:
+  - tests/validation/blade/test_laminate_bend_twist.py::test_constant_moment_interior_state_is_the_free_edge_state
+  validates: The interior of a constant-moment strip must satisfy ``M = D kappa``.
+  comparisons:
+  - label: rtol at line 430
+    asserted: true
+    reference:
+      kind: analytical
+      label: the free-edge CLT state for the same layup
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_laminate_bend_twist.py:430
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: laminate_bend_twist.test_constant_moment_tip_twist_matches_t.single
+  group: '26'
+  title: test_constant_moment_tip_twist_matches_the_free_edge_state
+  tests:
+  - tests/validation/blade/test_laminate_bend_twist.py::test_constant_moment_tip_twist_matches_the_free_edge_state
+  validates: Tip twist under a constant moment equals the free-edge state, 1:1.
+  comparisons:
+  - label: rtol at line 448
+    asserted: true
+    reference:
+      kind: analytical
+      label: the free-edge CLT state for the same layup
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_laminate_bend_twist.py:448
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: laminate_bend_twist.test_ritz_reference_converges_and_matche.single
+  group: '26'
+  title: test_ritz_reference_converges_and_matches_the_element
+  tests:
+  - tests/validation/blade/test_laminate_bend_twist.py::test_ritz_reference_converges_and_matches_the_element
+  validates: The independent Ritz reference vs the element, per layup.
+  comparisons:
+  - label: rtol at line 680
+    asserted: true
+    reference:
+      kind: analytical
+      label: the free-edge CLT state for the same layup
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_laminate_bend_twist.py:680
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 693
+    asserted: true
+    reference:
+      kind: self
+      label: the Ritz solution for the same coupon
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_laminate_bend_twist.py:693
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: laminate_bend_twist.test_independent_ccx_deck_confirms_the_c.single
+  group: '26'
+  title: test_independent_ccx_deck_confirms_the_coupon
+  tests:
+  - tests/validation/blade/test_laminate_bend_twist.py::test_independent_ccx_deck_confirms_the_coupon
+  validates: The element against an independently authored CalculiX S8R model.
+  comparisons:
+  - label: rtol at line 838
+    asserted: true
+    reference:
+      kind: code
+      label: the independent CCX deck for the same coupon
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/blade/test_laminate_bend_twist.py:838
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

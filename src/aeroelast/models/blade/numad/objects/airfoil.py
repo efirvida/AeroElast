@@ -38,7 +38,12 @@ class Airfoil:
         Options, 'round', 'sharp', or 'flat'
     """
 
-    def __init__(self, filename: str = None, coords: ndarray = None, reference: str = None):
+    def __init__(
+        self,
+        filename: str | None = None,
+        coords: ndarray | None = None,
+        reference: str | None = None,
+    ):
         """
         Parameters
         ----------
@@ -50,15 +55,16 @@ class Airfoil:
             Name of airfoil reference
         """
 
-        self.name: str = None
-        self.reference: str = None
-        self.coordinates: ndarray = None
-        self.c: ndarray = None
-        self.camber: ndarray = None
-        self.thickness: float = None
-        self.percentthick: float = None
-        self.maxthick: float = None
-        self.te_type: str = None
+        self.name: str = ""
+        self.reference: str = ""
+        self.coordinates: ndarray | None = None
+        self.c: ndarray | None = None
+        self.camber: ndarray | None = None
+        self.thickness: ndarray | None = None
+        self.percentthick: float | None = None
+        self.maxthick: float | None = None
+        self.te_type: str | None = None
+        self._from_file: bool = False
 
         if filename:
             # currently assuming XML format
@@ -113,6 +119,8 @@ class Airfoil:
 
         TODO docstring
         """
+        if self.c is None:
+            raise RuntimeError("Airfoil.x requires the camber line to be computed")
         cc = self.c
         return np.concatenate([[cc[-1]], np.flipud(cc), cc[1:], [cc[-1]]])
 
@@ -125,22 +133,24 @@ class Airfoil:
 
         TODO docstring
         """
+        if self.camber is None or self.thickness is None:
+            raise RuntimeError("Airfoil.y requires the camber and thickness to be computed")
         lp = self.camber + (self.thickness / 2)
         hp = self.camber - (self.thickness / 2)
         return np.concatenate(([0], np.flipud(hp), lp[1:], [0]))
 
-    def read_xml(self, filename: str):
+    def read_xml(self, file_contents: list[str]):
         """Populate airfoil object with data from airfoil xml
 
         Parameters
         ----------
-        filename : str
+        file_contents : list[str]
 
         Returns
         -------
         Self
         """
-        xml_to_airfoil(self, filename)
+        xml_to_airfoil(self, file_contents)
         return self
 
     def manageTE(self):
@@ -153,6 +163,8 @@ class Airfoil:
         -------
         """
         # Modifies self.te_type and self.coordinates
+        if self.coordinates is None:
+            raise RuntimeError("Airfoil.manageTE() requires coordinates")
         unitNormals = get_airfoil_normals(self.coordinates)
         angleChange = get_airfoil_normals_angle_change(unitNormals)
         discontinuities = np.flatnonzero(angleChange > 45)
@@ -191,6 +203,8 @@ class Airfoil:
         af.resample(n_samples,spacing)
         af.resample(200,'half-cosine');
         """
+        if self.coordinates is None:
+            raise RuntimeError("Airfoil.resample() requires coordinates")
         coords_in = self.coordinates
         coords_out = resample_airfoil(coords_in, n_samples, spacing)
         # self(k).percentthick = (max(ycoord) - min(ycoord))*100;
@@ -307,7 +321,7 @@ def resample_airfoil(coords_in: ndarray, n_samples: int, spacing: str) -> ndarra
             + str(tmpM)
             + "x"
             + str(tmpN)
-            + " array."
+            + " array.", stacklevel=2
         )
         coords_in = np.transpose(coords_in)
 
@@ -467,47 +481,3 @@ def compute_camber_and_thickness(coords: ndarray):
 
 
 # currently unused
-def _adjust_te(self, tet, tes, onset):
-    """TODO docstring
-
-    Parameters
-    ----------
-    tet :
-        the amount of TE thickness to add
-    tes :
-        the slope of the added thickness profile at TE,
-        defaults to 5/3 * TE_thick
-    onset :
-        the chord fraction where adjustment begins,
-        defaults to location of max thickness
-    Returns
-    -------
-
-    Example
-    -------
-    AirfoilDef.adjustTE
-    af.adjustTE(TE_thick,[TE_slope],[onset])
-    af.adjustTE(0.02)
-    af.adjustTE(0.02,0)
-    af.adjustTE(0.02,[],0.8)
-    """
-
-    if not tes:
-        tes = 5 / 3 * tet  # slope of TE adjustment; 5/3*tet is "natural"
-
-    if not onset:
-        USEMAXTHICK = True
-    else:
-        USEMAXTHICK = False  # use the given 'onset' instead
-    # continuous first & second derivatives at 'onset'
-    # maintain second & third derivative at mc==1 (TE)
-    # adjust slope at mc==1 (TE) by tes
-    A = np.array([[1, 1, 1, 1], [3, 4, 5, 6], [6, 12, 20, 30], [6, 24, 60, 120]])
-    d = np.array([[tet], [tes], [0], [0]])
-    p = np.linalg.solve(A, d)
-    if USEMAXTHICK:
-        onset = self.maxthick
-    mc = np.amax((self.c - onset) / (1 - onset), 0)
-    temod = np.array([mc**3, mc**4, mc**5, mc**6]) * p
-    self.thickness = self.thickness + temod
-    return self

@@ -52,21 +52,21 @@ class KeyPoints:
             "e",
             "te",
         ]
-        self.key_points: ndarray = None
-        self.key_arcs: ndarray = None
-        self.key_cpos: ndarray = None
-        self.key_areas: ndarray = None
+        self.key_points: ndarray | None = None
+        self.key_arcs: ndarray | None = None
+        self.key_cpos: ndarray | None = None
+        self.key_areas: ndarray | None = None
 
-        self.le_bond: ndarray = None
-        self.te_bond: ndarray = None
+        self.le_bond: ndarray | None = None
+        self.te_bond: ndarray | None = None
 
-        self.web_indices: list = None
-        self.web_points: list = None
-        self.web_arcs: list = None
-        self.web_cpos: list = None
-        self.web_areas: list = None
-        self.web_width: list = None
-        self.web_bonds: list = None
+        self.web_indices: list | None = None
+        self.web_points: list | None = None
+        self.web_arcs: list | None = None
+        self.web_cpos: list | None = None
+        self.web_areas: list | None = None
+        self.web_width: list | None = None
+        self.web_bonds: list | None = None
 
     def __eq__(self, other):
         attrs = [a for a in dir(self) if not a.startswith("__") and not callable(getattr(self, a))]
@@ -111,6 +111,28 @@ class KeyPoints:
         # number of areas around airfoil profile; must be even (see calc of web areas)
         num_areas = 12
         self.initialize(num_areas, num_istations)
+        if (
+            self.key_points is None
+            or self.key_arcs is None
+            or self.key_cpos is None
+            or self.key_areas is None
+            or self.le_bond is None
+            or self.te_bond is None
+            or definition.leband is None
+            or definition.teband is None
+            or definition.sparcapwidth_hp is None
+            or definition.sparcapwidth_lp is None
+            or definition.sparcapoffset_hp is None
+            or definition.sparcapoffset_lp is None
+            or geometry.ispan is None
+            or geometry.coordinates is None
+            or geometry.arclength is None
+            or geometry.cpos is None
+            or geometry.LEindex is None
+            or geometry.idegreestwist is None
+            or geometry.ichord is None
+        ):
+            raise RuntimeError("KeyPoints.generate() requires initialised geometry and definition")
         # initialize keypoints
 
         # start and finish indices in geometry/arcs
@@ -118,6 +140,10 @@ class KeyPoints:
         nf = geometry.coordinates.shape[0] - 2
 
         # keypoints, keyarcs, keycpos
+        k_arclen = np.array([])
+        k_cpos = np.array([])
+        k_geom = np.array([])
+        xyangle = np.zeros(geometry.coordinates.shape[0])
         te_types = []  # reset te_type
         i_leband_start = np.min(np.nonzero(definition.leband))
         i_teband_start = np.min(np.nonzero(definition.teband))
@@ -177,7 +203,7 @@ class KeyPoints:
                     xyangle[j] = np.arctan2(definition.rotorspin * xy[1], xy[0])
                 # unwrap and center around 0
                 xyangle = np.unwrap(xyangle)
-                xyangle = xyangle - np.pi * np.round(xyangle[self.LEindex] / np.pi)
+                xyangle = xyangle - np.pi * np.round(xyangle[geometry.LEindex] / np.pi)
 
             k_arclen = geometry.arclength[ns : nf + 1, k]
             k_geom = geometry.coordinates[ns : nf + 1, :, k]
@@ -187,11 +213,10 @@ class KeyPoints:
             if definition.swtwisted:
                 # find arclength where xyangle equals normal to chord
                 # angle normal to chord line
-                twistnorm = np.pi / 180 * (-self.idegreestwist[k] - 90)
+                twistnorm = np.pi / 180 * (-geometry.idegreestwist[k] - 90)
                 z = interpolator_wrap(xyangle[ns : nf + 1], k_arclen, twistnorm)
             else:
                 z = geometry.HParcx0[0, k]
-            z0 = z
             z = z - scoffset_hp
             a = np.amax(((0 - n1), 0.1 * geometry.arclength[ns, k]))  # type: float
             a = np.amin((a, 0.01 * geometry.arclength[ns, k]))
@@ -235,11 +260,10 @@ class KeyPoints:
             # ==================== LP surface ====================
             if definition.swtwisted:
                 # angle normal to chord line
-                twistnorm = np.pi / 180 * (-self.idegreestwist[k] + 90)
+                twistnorm = np.pi / 180 * (-geometry.idegreestwist[k] + 90)
                 z = interpolator_wrap(xyangle[ns : nf + 1], k_arclen, twistnorm)
             else:
                 z = geometry.LParcx0[0, k]
-            z0 = z  # ble: location where airfoil surface crosses Xglobal=0
             z = z + scoffset_lp  # positive scoffset moves z toward t.e.
             a = np.amin(((0 + n1), 0.1 * geometry.arclength[nf, k]))
             a = np.amax((a, 0.01 * geometry.arclength[nf, k]))
@@ -319,18 +343,22 @@ class KeyPoints:
             # pat = '(?<fraction>\d*[\.]?\d*)(?<pt1>[a-zA-Z]+)-(?<pt2>[a-zA-Z]+)|(?<pt3>[a-zA-Z]+)(?<mm_offset>[+-]\d+)|(?<pt>[a-zA-Z])'
             pat = r"(?P<fraction>\d*[\.]?\d*)(?P<pt1>[a-zA-Z]+)-(?P<pt2>[a-zA-Z]+)|(?P<pt3>[a-zA-Z]+)(?P<mm_offset>[+-]\d+)|(?P<pt>[a-zA-Z])"
 
-            hp = re.search(pat, hpextents[0]).groupdict()
-            lp = re.search(pat, lpextents[0]).groupdict()
+            hp_match = re.search(pat, hpextents[0])
+            lp_match = re.search(pat, lpextents[0])
+            if hp_match is None or lp_match is None:
+                raise ValueError("Shear web extents do not match the expected pattern")
+            hp = hp_match.groupdict()
+            lp = lp_match.groupdict()
             try:
                 le = self.key_labels.index("le")
-            except ValueError:
-                print(f'HP extent label "{hp["pt"]}" not defined.')
+            except ValueError as exc:
+                raise ValueError(f'HP extent label "{hp["pt"]}" not defined.') from exc
             # get shear web placement on HP side
             if hp["pt"]:
                 try:
                     n = self.key_labels[0 : le + 1].index(hp["pt"])  ## EMA
-                except ValueError:
-                    print(f'HP extent label "{hp["pt"]}" not defined.')
+                except ValueError as exc:
+                    raise ValueError(f'HP extent label "{hp["pt"]}" not defined.') from exc
                 self.web_indices[ksw].append(n)
                 self.web_arcs[ksw][0, :] = self.key_arcs[n, :]
                 self.web_cpos[ksw][0, :] = self.key_cpos[n, :]
@@ -344,12 +372,12 @@ class KeyPoints:
                     )
                 try:
                     n1 = self.key_labels[0 : le + 1].index(hp["pt1"])
-                except:
-                    print(f'HP extent label "{hp["pt1"]}" not defined.')
+                except Exception as exc:
+                    raise ValueError(f'HP extent label "{hp["pt1"]}" not defined.') from exc
                 try:
                     n2 = self.key_labels[0 : le + 1].index(hp["pt2"])
-                except:
-                    print(f'HP extent label "{hp["pt2"]}" not defined.')
+                except Exception as exc:
+                    raise ValueError(f'HP extent label "{hp["pt2"]}" not defined.') from exc
                 self.web_indices[ksw].append(np.nan)
                 p1 = self.key_arcs[n1, :]
                 p2 = self.key_arcs[n2, :]
@@ -361,23 +389,23 @@ class KeyPoints:
             elif hp["pt3"]:
                 try:
                     n3 = self.key_labels[0 : le + 1].index(hp["pt3"])
-                except:
-                    print(f'HP extent label "{hp["pt3"]}" not defined.')
+                except Exception as exc:
+                    raise ValueError(f'HP extent label "{hp["pt3"]}" not defined.') from exc
                 self.web_indices[ksw].append(np.nan)
                 p3 = self.key_cpos[n3, :]
                 p = p3 - float(hp["mm_offset"]) / 1000
-                iMax = self.key_labels[0, le + 1].index("d")
+                iMax = self.key_labels[0 : le + 1].index("d")
                 # NOTE potential for error here - array shapes TBD -kb
-                pMax = np.multiply(self.key_cpos[iMax, :], np.transpose(self.ichord))
+                pMax = np.multiply(self.key_cpos[iMax, :], np.transpose(geometry.ichord))
                 p[np.abs(p) > np.abs(pMax)] = pMax[np.abs(p) > np.abs(pMax)]
                 iMin = self.key_labels[0 : le + 1].index("a")
                 # NOTE same issue here -kb
-                pMin = np.multiply(self.key_cpos[iMin, :], np.transpose(self.ichord))
+                pMin = np.multiply(self.key_cpos[iMin, :], np.transpose(geometry.ichord))
                 p[np.abs(p) < np.abs(pMin)] = pMin[np.abs(p) < np.abs(pMin)]
                 self.web_cpos[ksw][0, :] = p
                 for k in range(num_istations):
                     self.web_arcs[ksw][0, k] = interpolator_wrap(
-                        self.cpos[ns : nf + 1, :, k],
+                        geometry.cpos[ns : nf + 1, :, k],
                         geometry.arclength[ns : nf + 1, :, k],
                         p[k],
                     )
@@ -394,8 +422,8 @@ class KeyPoints:
                     self.web_arcs[ksw][1, :] = self.key_arcs[n, :]
                     self.web_cpos[ksw][1, :] = self.key_cpos[n, :]
                     self.web_points[ksw][1, :, :] = self.key_points[n, :, :]
-                except:
-                    print(f'LP extent label "{lp["pt"]}" not defined.')
+                except Exception as exc:
+                    raise ValueError(f'LP extent label "{lp["pt"]}" not defined.') from exc
 
             elif lp["pt1"]:
                 f = float(lp["fraction"])
@@ -405,12 +433,12 @@ class KeyPoints:
                     )
                 try:
                     n1 = self.key_labels[le:].index(lp["pt1"]) + le
-                except:
-                    print(f'LP extent label "{lp["pt1"]}" not defined.')
+                except Exception as exc:
+                    raise ValueError(f'LP extent label "{lp["pt1"]}" not defined.') from exc
                 try:
                     n2 = self.key_labels[le:].index(lp["pt2"]) + le
-                except:
-                    print(f'LP extent label "{lp["pt2"]}" not defined.')
+                except Exception as exc:
+                    raise ValueError(f'LP extent label "{lp["pt2"]}" not defined.') from exc
                 self.web_indices[ksw].append(np.nan)
                 p1 = self.key_arcs[n1, :]
                 p2 = self.key_arcs[n2, :]
@@ -422,16 +450,16 @@ class KeyPoints:
             elif lp["pt3"]:
                 try:
                     n3 = self.key_labels[le:].index(lp["pt3"]) + le
-                except:
-                    print(f'LP extent label "{lp["pt3"]}" not defined.')
+                except Exception as exc:
+                    raise ValueError(f'LP extent label "{lp["pt3"]}" not defined.') from exc
                 self.web_indices[ksw].append(np.nan)
                 p3 = self.key_cpos[n3, :]
                 p = p3 + float(lp["mm_offset"]) / 1000
                 iMax = self.key_labels[le:].index("d") + le
-                pMax = np.multiply(self.key_cpos[iMax, :], np.transpose(self.ichord))
+                pMax = np.multiply(self.key_cpos[iMax, :], np.transpose(geometry.ichord))
                 p[np.abs(p) > np.abs(pMax)] = pMax[np.abs(p) > np.abs(pMax)]
                 iMin = self.key_labels[le:].index("a") + le
-                pMin = np.multiply(self.key_cpos[iMin, :], np.transpose(self.ichord))
+                pMin = np.multiply(self.key_cpos[iMin, :], np.transpose(geometry.ichord))
                 p[np.abs(p) < np.abs(pMin)] = pMin[np.abs(p) < np.abs(pMin)]
                 self.web_cpos[ksw][1, :] = p
                 for k in range(num_istations):
@@ -500,6 +528,7 @@ class KeyPoints:
         # do not take into account the thickness of the shell or
         # sparcap layup.
         for ksw in range(len(self.web_points)):
+            base2 = 0.0
             for kc in range(num_istations - 1):
                 ib = self.web_points[ksw][:, :, kc]
                 ob = self.web_points[ksw][:, :, kc + 1]

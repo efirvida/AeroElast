@@ -3,6 +3,9 @@
 Command-line interface for running FEM shell FSI simulations coupled with
 OpenFOAM via preCICE. All simulation parameters are defined in a single YAML file.
 
+For mesh generation (`aeroelast mesh blade|rotor|hub|nacelle|tower|turbine`)
+see [mesh-cli.md](mesh-cli.md).
+
 ## Installation
 
 ```bash

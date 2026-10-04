@@ -1,0 +1,53 @@
+# Adjudication record for group 31, written by the session that built the test.
+#
+# `extract --write` regenerates a row's `justification` and `notes` from the
+# code alone - only `measured` survives a re-extraction, by design - so the
+# human verdict on a bound lives here, where `check` validates it, not in the row.
+
+group: "31"
+scope: tests/validation/parity/test_thin_walled_tube_moment_realization.py
+run: 6290cac
+date: 2026-10-04
+
+adjudications:
+  - id: ADJ-1001
+    row: tube_moment_realization.test_production_minimum_norm_moment_real.single
+    field: comparisons[0].tolerance.justification
+    candidate_code: "tol=TOL, a module literal of 0.05"
+    verdict: the bound is the suite rule, not a fitted margin
+    resolution: >-
+      The bound is the 5% rule of CONTRIBUTING, applied against Bredt's T/GJ
+      twist rate, which is exact for this closed tube and independent of the
+      code under test: GJ comes from the isotropic shear modulus and the
+      enclosed area, and group 6 already validates the same closed form on the
+      same mesh. The measured error is 0.31%, a factor of sixteen inside the
+      bound, so nothing was accommodated. The case that misses - the production
+      minimum-norm realisation, at 31.69x Bredt - is deliberately not a row: it
+      asserts that a comparison FAILS, so no bound is claimed against an
+      independent reference, and the departure is recorded as the open defect
+      `moment_realization_over_delivers` in gaps.yaml.
+    decided_by: session 01a0fa52 (issue #9 work), on the maintainer's standing instruction
+    date: 2026-10-04
+    status: resolved
+
+  - id: ADJ-1002
+    row: null
+    field: group.granularity
+    candidate_code: one source file per group
+    verdict: a second source file in group 6 would have destroyed three measured rows
+    resolution: >-
+      The file was first declared as a second `source_files` entry of group 6,
+      which shares its Bredt reference and looked like the natural home. It is
+      its own group instead. `extract --write` derives a group's rows from one
+      scope (`source_files[0]`, or `--scope`) and writes the whole row file, so
+      re-extracting group 6 with a second file declared would have dropped the
+      three rows already there and the margins `preserve_measurements` carries.
+      `coherence` reads the same single scope, so a multi-file group would keep
+      reporting itself coherent while ignoring the rest of its files. Every
+      group in the store has exactly one source file, so this keeps the existing
+      convention instead of inventing one. What the tool should do is either
+      iterate all declared sources or refuse a group with more than one, and
+      that is a change to the tool: flagged for the maintainer, not made here.
+    decided_by: session 01a0fa52 (issue #9 work), on the maintainer's standing instruction
+    date: 2026-10-04
+    status: resolved

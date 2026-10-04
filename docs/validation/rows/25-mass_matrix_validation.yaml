@@ -1,0 +1,255 @@
+group: '25'
+rows:
+- id: mass_matrix_validation.testelementmassvstotalmass_test_mass_con.tri3
+  group: '25'
+  title: TestElementMassVsTotalMass::test_mass_consistency[tri3]
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestElementMassVsTotalMass::test_mass_consistency[tri3]
+  validates: Verify assembled mass equals direct element mass sum.
+  comparisons:
+  - label: rtol at line 396
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form rho h A per direction
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/element/test_mass_matrix_validation.py:396
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testelementmassvstotalmass_test_mass_con.quad4
+  group: '25'
+  title: TestElementMassVsTotalMass::test_mass_consistency[quad4]
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestElementMassVsTotalMass::test_mass_consistency[quad4]
+  validates: Verify assembled mass equals direct element mass sum.
+  comparisons:
+  - label: rtol at line 396
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form rho h A per direction
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/element/test_mass_matrix_validation.py:396
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testlumpedmassmatrix_test_lumped_vs_anal.single
+  group: '25'
+  title: TestLumpedMassMatrix::test_lumped_vs_analytical
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestLumpedMassMatrix::test_lumped_vs_analytical
+  validates: Lumped mass should match analytical.
+  comparisons:
+  - label: rtol at line 543
+    asserted: true
+    reference:
+      kind: analytical
+      label: the row-sum lumped mass rho h A_tributary
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/element/test_mass_matrix_validation.py:543
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density0
+  group: '25'
+  title: TestModalMassConvergence::test_first_mode_mass[mesh_density0]
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestModalMassConvergence::test_first_mode_mass[mesh_density0]
+  validates: First mode effective mass should converge.
+  comparisons:
+  - label: atol at line 634
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form frequency of the single element
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/validation/element/test_mass_matrix_validation.py:634
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density1
+  group: '25'
+  title: TestModalMassConvergence::test_first_mode_mass[mesh_density1]
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestModalMassConvergence::test_first_mode_mass[mesh_density1]
+  validates: First mode effective mass should converge.
+  comparisons:
+  - label: atol at line 634
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form frequency of the single element
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/validation/element/test_mass_matrix_validation.py:634
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density2
+  group: '25'
+  title: TestModalMassConvergence::test_first_mode_mass[mesh_density2]
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestModalMassConvergence::test_first_mode_mass[mesh_density2]
+  validates: First mode effective mass should converge.
+  comparisons:
+  - label: atol at line 634
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form frequency of the single element
+    tolerance:
+      kind: atol
+      value: 0.05
+      source: tests/validation/element/test_mass_matrix_validation.py:634
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testconsistentmasstotal_test_consistent.single
+  group: '25'
+  title: TestConsistentMassTotal::test_consistent_mass_total_equals_analytical
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestConsistentMassTotal::test_consistent_mass_total_equals_analytical
+  validates: The translational block must sum to the analytical mass.
+  comparisons:
+  - label: rtol at line 724
+    asserted: true
+    reference:
+      kind: analytical
+      label: the total translational mass of the mesh
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/element/test_mass_matrix_validation.py:724
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testexactconsistentmasscoefficients_test.tri3_5_coords0_0_5
+  group: '25'
+  title: TestExactConsistentMassCoefficients::test_translational_block[tri3-5-coords0-0.5]
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_translational_block[tri3-5-coords0-0.5]
+  validates: M_ij must equal the exact integral of rho*h*N_i*N_j.
+  comparisons:
+  - label: rtol at line 848
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form element mass block
+    tolerance:
+      kind: rtol
+      value: 1.0
+      source: tests/validation/element/test_mass_matrix_validation.py:848
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testexactconsistentmasscoefficients_test.quad4_9_coords1_1_0
+  group: '25'
+  title: TestExactConsistentMassCoefficients::test_translational_block[quad4-9-coords1-1.0]
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_translational_block[quad4-9-coords1-1.0]
+  validates: M_ij must equal the exact integral of rho*h*N_i*N_j.
+  comparisons:
+  - label: rtol at line 848
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form element mass block
+    tolerance:
+      kind: rtol
+      value: 1.0
+      source: tests/validation/element/test_mass_matrix_validation.py:848
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testexactconsistentmasscoefficients_test.tri3_5_coords0_0_5_2
+  group: '25'
+  title: TestExactConsistentMassCoefficients::test_rotary_inertia_block[tri3-5-coords0-0.5]
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_rotary_inertia_block[tri3-5-coords0-0.5]
+  validates: Each rotational direction must carry rho*h**3/12*A of rotary inertia.
+  comparisons:
+  - label: rtol at line 866
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form rho h^3 / 12 A rotary inertia
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/element/test_mass_matrix_validation.py:866
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: mass_matrix_validation.testexactconsistentmasscoefficients_test.quad4_9_coords1_1_0_2
+  group: '25'
+  title: TestExactConsistentMassCoefficients::test_rotary_inertia_block[quad4-9-coords1-1.0]
+  tests:
+  - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_rotary_inertia_block[quad4-9-coords1-1.0]
+  validates: Each rotational direction must carry rho*h**3/12*A of rotary inertia.
+  comparisons:
+  - label: rtol at line 866
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form rho h^3 / 12 A rotary inertia
+    tolerance:
+      kind: rtol
+      value: 1.0e-12
+      source: tests/validation/element/test_mass_matrix_validation.py:866
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

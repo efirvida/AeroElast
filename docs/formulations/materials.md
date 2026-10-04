@@ -74,7 +74,7 @@ Rust assembler.
 `laminate.rs:34`, and **Reddy, J.N. (2004)**, *Mechanics of Laminated Composite
 Plates and Shells*, at `laminate.rs:35`. The Python class docstring names the same
 two works at `laminate.py:14-15`. Neither work is held in `.sources/papers/`;
-`docs/references.md` records both as `Source: repository citation`.
+`docs/validation/references.yaml` records both as `Source: repository citation`.
 
 ### 2.2 Layer positions
 
@@ -207,7 +207,7 @@ Qbar66 = (Q11 + Q22 - 2 Q12 - 2 Q66) s^2 c^2 + Q66 (s^4 + c^4)          (code)
 ```
 
 The only attribution is the inline comment `etc. (Jones, 1999 — eq. 2.78)` at
-`orthotropic.rs:69`. `docs/references.md` lists Jones as a repository citation
+`orthotropic.rs:69`. `docs/validation/references.yaml` lists Jones as a repository citation
 and **no held copy exists**, so the equation number `2.78` is a repository
 assertion and could not be checked. The formulas themselves were read from the
 code and are identical in Rust and Python.
@@ -315,7 +315,7 @@ formulation.
 
 Both `failure.rs` and `failure.py` carry a `# References` / `References` block
 naming **Tsai & Wu (1971)** and **Hashin (1980)**. The entries in
-`docs/references.md` mark both as repository citations — the authors, journal,
+`docs/validation/references.yaml` mark both as repository citations — the authors, journal,
 volume and pages come from the published record, **no copy is held**, and the
 article titles are not re-verified. The criteria below were read from the code;
 their attribution is therefore self-attested, not independently verified.
@@ -459,7 +459,7 @@ This is the list the revision deliberately records rather than fills in.
 5. **The stress/strain transformations and the `S23 = S12/2` default (§5.4) are
    uncited.**
 6. **Tsai-Wu and Hashin are repository citations.** Both are self-attested in the
-   code, neither paper is held, and `docs/references.md` marks both DOIs "to
+   code, neither paper is held, and `docs/validation/references.yaml` marks both DOIs "to
    verify". The criteria as implemented are therefore verified only against the
    code, not against the sources the code names.
 7. **Hashin fibre compression is quadratic in the code, linear in the docstring.**
@@ -480,8 +480,8 @@ above are the material-side gaps.
 
 ## References
 
-`docs/references.md` is the canonical bibliography. Where this document and that
-file disagree, `docs/references.md` should be corrected; this document does not
+`docs/validation/references.yaml` is the canonical bibliography. Where this document and
+that store disagree, the store should be corrected; this document does not
 duplicate its per-entry verification annotations.
 
 1. Jones, R.M., *Mechanics of Composite Materials*, 2nd ed., Taylor & Francis,

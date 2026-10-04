@@ -70,6 +70,8 @@ turnkey installers, or broad industrial validation.
 
 - built-in mesh generators such as `SquareShapeMesh`, `BoxSurfaceMesh`,
   `MultiFlapMesh`, `BladeMesh`, and `RotorMesh`
+- turbine component meshers (`TowerMesh`, `NacelleMesh`) and a
+  full `TurbineMesh` assembly of blades + nacelle + tower
 - mesh import/export utilities for common engineering formats
 - geometric node-set creation from coordinate, box, distance, and direction
   criteria
@@ -184,11 +186,25 @@ Reconstruct rotor performance CSV data from checkpoints:
 aeroelast-reconstruct-csv results/
 ```
 
+Generate meshes with the `mesh` subcommand (see
+[docs/mesh-cli.md](docs/mesh-cli.md)):
+
+```bash
+# Blade CFD surface (no shear webs)
+aeroelast mesh blade IEA-15-240-RWT.yaml --out blade.stl --no-webs
+
+# Tower and nacelle body from the WindIO definition
+aeroelast mesh tower IEA-15-240-RWT.yaml --out tower.obj
+
+# Whole turbine, one file per component
+aeroelast mesh turbine IEA-15-240-RWT.yaml --out-dir meshes/ --format stl
+```
+
 ## CLI Commands
 
 The package provides these command-line entry points:
 
-- `aeroelast` - main CLI entry point
+- `aeroelast` - main CLI entry point (`aeroelast mesh ...` generates meshes)
 - `aeroelast-fsi` - run or inspect YAML-defined simulations
 - `aeroelast-bem-fsi` - run BEM-coupled FSI simulations
 - `aeroelast-monitor` - monitor rotor/FSI runs from CSV output
@@ -196,7 +212,8 @@ The package provides these command-line entry points:
 - `fem-shell-*` - legacy aliases, kept for backwards compatibility
 
 Detailed CLI documentation is available in
-[docs/cli-reference.md](docs/cli-reference.md).
+[docs/cli-reference.md](docs/cli-reference.md) for the simulation runner and
+[docs/mesh-cli.md](docs/mesh-cli.md) for mesh generation.
 
 Generic Aero-FSI report consumers should also read
 [docs/aero-fsi-report-schema.md](docs/aero-fsi-report-schema.md), which explains
@@ -247,14 +264,11 @@ correctness.
 
 - [docs/cli-reference.md](docs/cli-reference.md) — CLI reference for the
   simulation runner
-- [docs/teoria_formulacion_fsi_rotor.md](docs/teoria_formulacion_fsi_rotor.md)
-  — FSI rotor formulation theory (Spanish)
-- [docs/s4r_composite_shell_formulation.md](docs/s4r_composite_shell_formulation.md)
-  — composite shell formulation notes
-- [docs/improvement_plan_mitc4_vs_s4r.md](docs/improvement_plan_mitc4_vs_s4r.md)
-  — MITC4 vs S4R improvement plan
-- [docs/FSI_ROTOR_PAPER_DRAFT.md](docs/FSI_ROTOR_PAPER_DRAFT.md) — scientific
-  paper draft on the FSI rotor formulation
+- [docs/mesh-cli.md](docs/mesh-cli.md) — mesh generation CLI
+  (`aeroelast mesh blade|rotor|nacelle|tower|turbine`)
+- [docs/formulations/](docs/formulations/) — theory documents: the shell element,
+  the material models, the solvers, the two paper extracts, and the FSI rotor
+  formulation (Spanish)
 
 Generic Aero-FSI runs now emit an `aero_report_schema.json` manifest alongside
 their CSV outputs. It records the report files, schema versions, and stable
@@ -305,17 +319,17 @@ in the corresponding package metadata.
 ### Scientific references
 
 The canonical bibliography for this repository is
-[docs/references.md](docs/references.md). It lists the shell element
+[docs/validation/references.yaml](docs/validation/references.yaml). It lists the shell element
 formulations, the constitutive and failure models, the time-integration and
 finite element references, the partitioned FSI coupling and BEM aerodynamics
 references, and the third-party software this project builds on, with full
 author lists and a DOI wherever one could be verified.
 
 The formulation implemented in this repository is documented in
-[docs/FSI_ROTOR_PAPER_DRAFT.md](docs/FSI_ROTOR_PAPER_DRAFT.md). The reference
+[docs/formulations/teoria_formulacion_fsi_rotor.md](docs/formulations/teoria_formulacion_fsi_rotor.md). The reference
 PDFs used during development now live in the gitignored `.sources/papers/`
 directory: they had been removed from the working tree but were still in git
-history, and they have been recovered. `docs/references.md` maps the
+history, and they have been recovered. `docs/validation/references.yaml` maps the
 publications it lists to those recovered files and marks every field that still
 needs verification.
 

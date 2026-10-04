@@ -1,0 +1,131 @@
+group: '29'
+rows:
+- id: rotor_inertial.testinertialforcescalculator_test_centri.single
+  group: '29'
+  title: TestInertialForcesCalculator::test_centrifugal_force_magnitude
+  tests:
+  - tests/validation/rotor/test_rotor_inertial.py::TestInertialForcesCalculator::test_centrifugal_force_magnitude
+  validates: Centrifugal force should equal m * omega^2 * r.
+  comparisons:
+  - label: rtol at line 208
+    asserted: true
+    reference:
+      kind: analytical
+      label: the centrifugal closed form m omega^2 r
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/rotor/test_rotor_inertial.py:208
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_inertial.testinertialforcescalculator_test_coriol.single
+  group: '29'
+  title: TestInertialForcesCalculator::test_coriolis_force_direction
+  tests:
+  - tests/validation/rotor/test_rotor_inertial.py::TestInertialForcesCalculator::test_coriolis_force_direction
+  validates: Coriolis force should be perpendicular to both omega and velocity.
+  comparisons:
+  - label: rtol at line 237
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Coriolis closed form -2 m (omega x v), hand derived in the comment
+    tolerance:
+      kind: rtol
+      value: 1.5e-10
+      source: tests/validation/rotor/test_rotor_inertial.py:237
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_inertial.testinertialforcescalculator_test_euler.single
+  group: '29'
+  title: TestInertialForcesCalculator::test_euler_force_direction
+  tests:
+  - tests/validation/rotor/test_rotor_inertial.py::TestInertialForcesCalculator::test_euler_force_direction
+  validates: Euler force should be tangential (perpendicular to radius).
+  comparisons:
+  - label: rtol at line 281
+    asserted: true
+    reference:
+      kind: analytical
+      label: the Euler closed form -m alpha r
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/rotor/test_rotor_inertial.py:281
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_inertial.testinertialforcescalculator_test_comput.single
+  group: '29'
+  title: TestInertialForcesCalculator::test_compute_all_inertial_forces
+  tests:
+  - tests/validation/rotor/test_rotor_inertial.py::TestInertialForcesCalculator::test_compute_all_inertial_forces
+  validates: Combined inertial forces should equal sum of components.
+  comparisons:
+  - label: rtol at line 318
+    asserted: true
+    reference:
+      kind: self
+      label: the sum of the three components this same calculator returns
+    tolerance:
+      kind: rtol
+      value: 1.5e-10
+      source: tests/validation/rotor/test_rotor_inertial.py:318
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: rotor_inertial.testinertialforcescalculator_test_off_ax.single
+  group: '29'
+  title: TestInertialForcesCalculator::test_off_axis_node
+  tests:
+  - tests/validation/rotor/test_rotor_inertial.py::TestInertialForcesCalculator::test_off_axis_node
+  validates: Test centrifugal for node not on a principal axis.
+  comparisons:
+  - label: rtol at line 365
+    asserted: true
+    reference:
+      kind: analytical
+      label: the centrifugal closed form m omega^2 r_perp
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/rotor/test_rotor_inertial.py:365
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 376
+    asserted: true
+    reference:
+      kind: analytical
+      label: the radial unit vector [1, 1, 0] / sqrt(2)
+    tolerance:
+      kind: atol
+      value: 1.5e-10
+      source: tests/validation/rotor/test_rotor_inertial.py:376
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

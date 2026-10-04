@@ -699,6 +699,15 @@ pub fn compute_ke_local_with_membrane(pre: &Mitc3Precomputed, bm_gp: &[Mat3x18; 
 /// the isotropic case alone cannot see the coupling - and it is what makes this a
 /// strict extension of the MITC3+ of Lee, Lee & Bathe 2014 rather than a
 /// replacement.
+///
+/// **Validation (issue #2, resolved).** With the relative-frame convective
+/// transform of Eq. (15), the union rotation and the shared-node displacement
+/// rotation in place, the smoothed element reproduces Lee & Lee 2019
+/// (CAS 223:106096, Table 6, Mesh I) on the Scordelis-Lo roof: 0.9924 at N=8
+/// against 1.0323 and 0.9974 at N=16 against 1.0075, both inside 5%, and it
+/// removes the membrane locking that holds the un-smoothed MITC3+ at
+/// 0.8561 / 0.9545.  `_aeroelast.assemble_smoothed_mitc3` assembles it end to
+/// end and `tests/test_mitc3_smoothed.py` pins the two cells.
 pub fn compute_ke_union_smoothed(pre: &Mitc3Precomputed, bm_union: &[Mat3Union; N_GAUSS]) -> MatUnion {
     const U: usize = SMOOTHED_UNION_DOFS;
     let area = pre.area;
@@ -888,7 +897,12 @@ pub fn union_rotation(frames: &[Matrix3<f64>; SMOOTHED_UNION_NODES]) -> MatUnion
         let base = 6 * slot;
         for a in 0..3 {
             for b in 0..3 {
+                // Both the translational and the rotational 3x3 slots carry the
+                // same frame.  Leaving the rotational block zero (issue #2) made
+                // T singular and annihilated every rotational DOF in
+                // `transform_union_to_global` = T^T K T.
                 t[(base + a, base + b)] = frame[(a, b)];
+                t[(base + 3 + a, base + 3 + b)] = frame[(a, b)];
             }
         }
     }
@@ -950,26 +964,45 @@ pub fn smoothed_membrane_b(
     slots: &[[usize; 3]; 4],
     weights: &[[Matrix3<f64>; 4]; N_GAUSS],
 ) -> [Mat3Union; N_GAUSS] {
-    // Each entry's membrane operator, converted to the target's convected
-    // coordinates.  The target's own operator needs no convected transform.
+    // The union's local DOFs use the target's frame for its own three slots and
+    // each neighbour's own frame for its unique node (see [`union_rotation`]).
+    // A shared node therefore carries target-local components when a neighbour's
+    // membrane operator reads it, so the operator must rotate it into the
+    // neighbour's frame first: `Q = t3_entry · t3_owner(slot)^T`.  Applying the
+    // neighbour's covariant transform twice, or skipping this displacement
+    // rotation, is what made the curved-shell result wrong (issue #2).
+    let mut slot_frame = [target.t3; SMOOTHED_UNION_NODES];
+    for edge in 0..3 {
+        if let Some(pre) = entries[1 + edge] {
+            slot_frame[3 + edge] = pre.t3;
+        }
+    }
+
+    // Each entry's covariant membrane operator `J_e · b_e` in its own local
+    // DOFs, with the translational columns rotated from the union's owner-local
+    // components into that entry's frame.  The `weights` already carry Eq. (15),
+    // so no covariant transform is applied here.
     let mut covariant: [Option<SMatrix<f64, 3, 18>>; 4] = [None, None, None, None];
     for entry in 0..4 {
         let Some(pre) = entries[entry] else {
             continue;
         };
-        // Everything here stays in the union's LOCAL DOFs: the target's own
-        // components for its nodes and each neighbour's own components for its
-        // unique node.  Mixing frames inside the operator is what made the
-        // coupling wrong - `bm_union` would act on global components while `bk`,
-        // `bg` and the drilling operator act on the target's local ones.  The
-        // caller rotates the finished stiffness with `transform_union_to_global`.
-        let own = crate::elements::smoothing::tensor_operator(&pre.j_mat) * b_membrane(&pre.dh);
-        covariant[entry] = Some(if entry == 0 {
-            own
-        } else {
-            crate::elements::smoothing::convected_operator(&target.j_mat, &pre.j_mat)
-                .map_or(own.clone(), |transform| transform * own)
-        });
+        let raw = crate::elements::smoothing::tensor_operator(&pre.j_mat) * b_membrane(&pre.dh);
+        let mut effective = SMatrix::<f64, 3, 18>::zeros();
+        for local_node in 0..3 {
+            let q = pre.t3 * slot_frame[slots[entry][local_node]].transpose();
+            let column = 6 * local_node;
+            for dof in 0..3 {
+                for row in 0..3 {
+                    let mut acc = 0.0;
+                    for k in 0..3 {
+                        acc += raw[(row, column + k)] * q[(k, dof)];
+                    }
+                    effective[(row, column + dof)] = acc;
+                }
+            }
+        }
+        covariant[entry] = Some(effective);
     }
 
     // Back to the target's local Cartesian frame.  A singular target Jacobian is
@@ -2174,7 +2207,47 @@ mod tests {
             j_mat: pre.j_mat,
             area: pre.area,
             normal: Vector3::new(pre.t3[(2, 0)], pre.t3[(2, 1)], pre.t3[(2, 2)]),
+            frame: pre.t3,
         }
+    }
+
+    #[test]
+    fn union_rotation_rotates_the_full_six_dof_block() {
+        // Issue #2: `union_rotation` filled only the translational 3x3 block, so
+        // `transform_union_to_global` = T^T K T annihilated every rotational DOF.
+        // The 6-DOF node block must carry the frame in BOTH the translational and
+        // the rotational slots, which also makes T orthogonal and non-singular.
+        let pre = make_pre();
+        let frames = [pre.t3; SMOOTHED_UNION_NODES];
+        let t = union_rotation(&frames);
+
+        assert!(
+            t.determinant().abs() > 1e-12,
+            "union_rotation must be non-singular; a zero rotational block makes it singular"
+        );
+        for slot in 0..SMOOTHED_UNION_NODES {
+            let base = 6 * slot;
+            for a in 0..3 {
+                for b in 0..3 {
+                    assert!((t[(base + a, base + b)] - pre.t3[(a, b)]).abs() < 1e-12);
+                    assert!(
+                        (t[(base + 3 + a, base + 3 + b)] - pre.t3[(a, b)]).abs() < 1e-12,
+                        "the rotational block must equal the frame (issue #2)"
+                    );
+                }
+            }
+        }
+
+        // An orthogonal transform preserves the Frobenius norm of any stiffness.
+        let mut k = MatUnion::zeros();
+        for i in 0..k.nrows() {
+            k[(i, i)] = 1.0 + i as f64;
+        }
+        let rotated = transform_union_to_global(&k, &frames);
+        assert!(
+            (rotated.norm() - k.norm()).abs() < 1e-10 * k.norm(),
+            "an orthogonal union rotation must preserve the stiffness norm"
+        );
     }
 
     /// The 18 local nodal displacements of the linear field
@@ -2355,6 +2428,76 @@ mod tests {
             let error = (strain - expected).norm() / expected.norm();
             assert!(
                 error < 1e-12,
+                "Gauss point {gp}: smoothed strain {strain:?} != {expected:?} (rel {error:.3e})"
+            );
+        }
+    }
+
+    /// Build a flat triangle from three global points, with the `make_pre` material.
+    fn pre_from_points(points: [[f64; 3]; 3]) -> Mitc3Precomputed {
+        let thickness = 0.01_f64;
+        let mat = IsotropicMaterial::new(2.0e11, 0.3, 7800.0);
+        let shell = mat.constitutive(thickness, 5.0 / 6.0);
+        let mut coords = [0.0f64; 9];
+        for (i, p) in points.iter().enumerate() {
+            coords[3 * i] = p[0];
+            coords[3 * i + 1] = p[1];
+            coords[3 * i + 2] = p[2];
+        }
+        Mitc3Precomputed::new(&coords, shell, thickness, 2.0e11, 1.0)
+    }
+
+    #[test]
+    fn the_smoothed_patch_test_holds_across_rotated_in_plane_frames() {
+        // Issue #2: Eq. (15) must carry the relative frame between the target and
+        // its neighbour, not just the two Jacobians.  The target is the unit right
+        // triangle in the XY plane; the neighbour shares the target's edge 2 (C-A)
+        // and is rotated 90 degrees in-plane, so its local axes are (0,-1,0),
+        // (1,0,0), (0,0,1).  A constant global displacement gradient is the
+        // independent reference: every Gauss point of the smoothed operator must
+        // return the target's own constant strain, whichever neighbour it averages
+        // in.  Before the fix the two transforms cancelled and this failed.
+        let target = pre_from_points([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]);
+        // Neighbour across the target's local edge 2 (C -> A): nodes C, A, D.
+        let neighbour = pre_from_points([[0.0, 1.0, 0.0], [0.0, 0.0, 0.0], [0.5, 0.5, 0.0]]);
+
+        let frames = [triangle_frame(&target), triangle_frame(&neighbour)];
+        let neighbours = [[None, None, Some(1)], [None, None, None]];
+        let operator = crate::elements::smoothing::smoothed_membrane_strain(&frames, &neighbours);
+
+        // Neighbour local node 0 = C -> target local 2, node 1 = A -> target local
+        // 0, node 2 = D (unique) -> union slot 5.
+        let entries = [Some(&target), None, None, Some(&neighbour)];
+        let slots = [[0usize, 1, 2], [3, 4, 5], [3, 4, 5], [2, 0, 5]];
+        let smoothed = smoothed_membrane_b(&target, &entries, &slots, &operator[0].weights);
+
+        // Constant global displacement gradient H = sym + skew; the membrane strain
+        // is its symmetric part.
+        let h = Matrix3::new(1.0e-3, 4.0e-4, 0.0, -2.0e-4, -3.0e-4, 0.0, 0.0, 0.0, 0.0);
+        let expected = Vector3::new(1.0e-3, -3.0e-4, 4.0e-4 - 2.0e-4);
+
+        // Target frame is the identity, so its local displacement is global.  The
+        // neighbour's unique node carries neighbour-local components.
+        let target_nodes = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]];
+        let unique_node = Vector3::new(0.5, 0.5, 0.0);
+
+        let mut u_union = SMatrix::<f64, { 6 * SMOOTHED_UNION_NODES }, 1>::zeros();
+        for (i, node) in target_nodes.iter().enumerate() {
+            let u = h * Vector3::new(node[0], node[1], node[2]);
+            for d in 0..3 {
+                u_union[6 * i + d] = u[d];
+            }
+        }
+        let u_local = neighbour.t3 * (h * unique_node);
+        for d in 0..3 {
+            u_union[6 * 5 + d] = u_local[d];
+        }
+
+        for gp in 0..N_GAUSS {
+            let strain = smoothed[gp] * u_union;
+            let error = (strain - expected).norm() / expected.norm();
+            assert!(
+                error < 1e-9,
                 "Gauss point {gp}: smoothed strain {strain:?} != {expected:?} (rel {error:.3e})"
             );
         }

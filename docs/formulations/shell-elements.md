@@ -5,7 +5,7 @@ This is the production reference for the shell and plane elements in
 element it is, and which equation of which paper each part comes from. Equations
 were read from the PDFs held in `.sources/papers/`; where an equation could not be
 read, this document says so instead of reconstructing it. The full bibliography,
-including DOIs and the provenance of every held copy, is `docs/references.md`.
+including DOIs and the provenance of every held copy, is `docs/validation/references.yaml`.
 
 ## 1. Scope and conventions
 
@@ -258,7 +258,7 @@ stiffness coefficient, no scale factor and no user-tunable drilling parameter** 
 the element. A reader arriving from the older documentation — this file used to
 describe a `k_drill = 0.15 · E · h² · drilling_scale` penalty attributed to "Hughes
 & Brezzi" — will not find any of it, because the element no longer contains it. The
-Hughes & Brezzi reference itself does exist, as `docs/references.md` §1 records; it
+Hughes & Brezzi reference itself does exist, as `docs/validation/references.yaml` §1 records; it
 is simply no longer the source of this element's drilling stiffness.
 
 ### 2.6 What this element does not contain
@@ -501,8 +501,8 @@ This section used to describe the drill-membrane operator as an uncommitted
 working-tree experiment that was "being measured". That is no longer true and is
 kept here only as history: the operator is committed, it is the source of the
 element's sixth DOF, and the element it belongs to is the only shell quadrilateral
-in production. Its formulation is §2.5 and its validation is
-`docs/validation-matrix.md`.
+in production. Its formulation is §2.5 and its validation is the store, whose rows
+and their margins live in `docs/validation/`.
 
 ### 4.3 The strain-smoothed MITC3+
 
@@ -532,9 +532,15 @@ e_ij^(k) = e_ln^(k) (g_i^(e) . g^l^(k)) (g_j^(e) . g^n^(k)),    i, j = 1, 2
 ```
 
 Because a contravariant base vector is a row of `J^-T` (from `g_i . g^j =
-delta_i^j`), `g_i^(e) . g^l^(k) = (J_e J_k^-1)_il`, so the whole transform is
-`e~ = M e M^T` with `M = J_e J_k^-1`. `smoothing.rs::convected_operator` is exactly
-that, and returns `None` for a singular neighbour Jacobian.
+delta_i^j`), `g_i^(e) . g^l^(k) = (J_e J_k^-1)_il` *within one tangent plane*. The
+target's covariant base vectors and the neighbour's contravariant base vectors live in
+different tangent planes, so the dot product also carries the relative rotation between
+the two element frames: with `R = t3` mapping global coordinates to an element's local
+ones, the whole transform is `e~ = M e M^T` with `M = J_e Q J_k^-1` and `Q =
+(R_e R_k^T)[0..2, 0..2]`. Dropping `Q` makes the two transforms cancel and leaves an
+unrotated average of local Cartesian strains, which over-stiffens a curved shell
+(issue #2). `smoothing.rs::convected_operator` is exactly that, and returns `None` for a
+singular neighbour Jacobian.
 
 **Eq. (17) — the neighbour's area projected on the target's mid-surface.**
 
@@ -576,7 +582,7 @@ the code uses Eq. (18) as well.
 | Code | Paper | Verified |
 | --- | --- | --- |
 | `smoothing.rs::tensor_operator` | the `M e M^T` form of Eq. (15) on the engineering strain vector | yes, algebraically |
-| `smoothing.rs::convected_operator` | Eq. (15), with `M = J_e J_k^-1` | yes, from the `g_i . g^j = delta_i^j` identity |
+| `smoothing.rs::convected_operator` | Eq. (15), with `M = J_e Q J_k^-1` and the relative frame `Q` | yes, from the `g_i . g^j = delta_i^j` identity plus the two element frames |
 | `smoothing.rs::projected_area` | Eq. (17) | yes |
 | `smoothing.rs::pairwise_smoothed` | Eq. (16) | yes |
 | `smoothing.rs::smoothed_membrane_strain` boundary branch | the boundary rule after Eq. (17) | yes |
@@ -588,16 +594,33 @@ the code uses Eq. (18) as well.
 covariant tensor operator of Eq. (15), the edge-neighbour connectivity, the projected
 area of Eq. (17), the pairwise average of Eq. (16), the boundary rule and the
 assignment of Eq. (18), each with its own unit test. `elements/mitc3.rs` carries the
-union layout and `compute_ke_local_with_membrane`, which takes the membrane operator
-per Gauss point: passing the element's own `b_membrane` reproduces MITC3+ exactly,
-which is what keeps the 2014 element available, and passing the smoothed operators
-gives the smoothed element.
+union layout, `smoothed_membrane_b` (which also rotates each shared node's displacement
+from its union owner frame into the entry's own frame) and
+`compute_ke_local_with_membrane`, which takes the membrane operator per Gauss point:
+passing the element's own `b_membrane` reproduces MITC3+ exactly, which is what keeps
+the 2014 element available, and passing the smoothed operators gives the smoothed
+element.
 
-**It is not wired into the production path.** Nothing under `crates/aeroelast-py` or
-`crates/aeroelast-core/src/assembly` references the smoothed entry points, so it is a
-Rust kernel with unit tests rather than an element a user can select. The production
-shell quadrilateral is the MITC4+/D of §2 and the production triangle is the MITC3+
-of §3.
+**Consumer.** `crates/aeroelast-py::assemble_smoothed_mitc3` assembles a triangular
+mesh of smoothed elements end to end: it builds the frames, the edge-neighbour table,
+the per-Gauss-point smoothed operators, the six-node union stiffness and the global
+scatter, and returns COO triplets. The production `PyMeshAssembler` still selects the
+un-smoothed MITC3+ for triangles, so the smoothed element is an opt-in entry point
+rather than the default; the production shell quadrilateral remains the MITC4+/D of §2.
+
+**Defects (issue #2), fixed and pinned.** Three defects lived in the union path.
+(1) `union_rotation` filled only the translational 3x3 block of each node, so the
+rotational block was zero and `transform_union_to_global` = `T^T K T` annihilated every
+rotational DOF; pinned by `mitc3.rs::union_rotation_rotates_the_full_six_dof_block`.
+(2) `convected_operator` omitted the relative frame rotation `Q`, so the two covariant
+transforms cancelled; pinned by
+`mitc3.rs::the_smoothed_patch_test_holds_across_rotated_in_plane_frames`, which fails
+at 29.5% when `Q` is dropped. (3) `smoothed_membrane_b` applied the neighbour's
+covariant transform a second time and never rotated the shared nodes' displacements out
+of the target frame with `Q^T`. With all three fixed the Scordelis-Lo roof gives 0.9924
+at N=8 and 0.9974 at N=16 against Lee & Lee 2019 Table 6's 1.0323 and 1.0075 (both
+inside 5%), where the un-smoothed MITC3+ gives 0.8561 and 0.9545. The end-to-end test is
+`tests/test_mitc3_smoothed.py`.
 
 ### 4.4 `quad.rs` has no literature citation
 
@@ -703,10 +726,10 @@ the right-handed triad the code uses, which is the standard one for a shell elem
    `.sources/papers/lee2019.pdf` (authors: Chaemin Lee, Phill-Seung Lee; the first
    author is **not** Youngyu Lee of item 5). **Implemented** — §4.3 describes it
    equation by equation; verified against the held copy; entry present in
-   `docs/references.md`.
+   `docs/validation/references.yaml`.
 
-`docs/references.md` is the canonical bibliography for the repository. Where this
-document and `docs/references.md` disagree, `docs/references.md` should be
+`docs/validation/references.yaml` is the canonical bibliography for the repository. Where this
+document and `docs/validation/references.yaml` disagree, `docs/validation/references.yaml` should be
 corrected — this document deliberately does not duplicate its per-entry verification
 annotations. The Hughes–Brezzi drilling attribution that §2.6 used to depend on is
 recorded there in §1, together with the note that it is not the source of the

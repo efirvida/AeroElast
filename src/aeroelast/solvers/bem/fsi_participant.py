@@ -48,18 +48,29 @@ Deformed radial position
 ------------------------
 For each BEM strip *k* with node index set :math:`\mathcal{I}_k`, the
 deformed radial coordinate is the arithmetic mean of the nodal span-wise
-projections on the deformed configuration:
+projections on the deformed configuration, carried onto the **hub datum**:
 
 .. math::
 
     r_k^{\mathrm{def}}
-        = \frac{1}{|\mathcal{I}_k|}
+        = c + \frac{1}{|\mathcal{I}_k|}
           \sum_{i \in \mathcal{I}_k}
-          \bigl(\mathbf{X}_i + \mathbf{u}_i\bigr) \cdot \hat{\mathbf{e}}_s
+          \bigl(\mathbf{X}_i + \mathbf{u}_i\bigr) \cdot \hat{\mathbf{e}}_s,
+    \qquad
+    c = r_0^{\mathrm{ref}} - \min_i \bigl(\mathbf{X}_i \cdot \hat{\mathbf{e}}_s\bigr)
 
 where :math:`\mathbf{X}_i` are the reference nodal coordinates,
 :math:`\mathbf{u}_i` the displacement vector, and
 :math:`\hat{\mathbf{e}}_s` the unit span direction.
+
+**Datum.**  :math:`c` carries the mesh's own span origin - blade-root
+referenced for a single-blade mesh, so :math:`c` is the hub radius - onto the
+hub datum of ``blade_aero.r`` and of the CCBlade annulus
+(``Rhub = blade_aero.hub_radius``); for a hub-referenced rotor mesh it is zero.
+**Every radial quantity of this class is hub-referenced**: ``_ref_r``, the
+``r_def`` returned here, and the radii handed to ``_rebuild_bem_solver``.  The
+CCBlade annulus therefore keeps its hub, while ``ForceProjector`` (which
+anchors its own station grid on the mesh datum) re-anchors them internally.
 
 This captures the radial redistribution of blade stations caused by
 flapwise and edgewise bending.  For a pure flapwise deflection
@@ -75,58 +86,41 @@ The local aerodynamic twist at strip *k* on the deformed blade is:
 
     \theta_k^{\mathrm{def}} = \theta_k^{\mathrm{ref}} + \Delta\theta_k
 
-where the elastic twist increment :math:`\Delta\theta_k` is obtained from
-the rotation of the *chord direction* of the strip nodes between the
-reference and deformed configurations.
-
-**Chord direction estimation (SVD-based PCA).**  For each strip *k*:
-
-1. Collect the strip node positions :math:`\mathbf{x}_i` (reference or
-   deformed) and compute their centroid :math:`\bar{\mathbf{x}}_k`.
-2. Form the offset matrix
-   :math:`\mathbf{D}_k = [\mathbf{x}_i - \bar{\mathbf{x}}_k]_{i \in \mathcal{I}_k}`.
-3. Project onto the plane perpendicular to :math:`\hat{\mathbf{e}}_s`:
-
-   .. math::
-
-       \mathbf{D}_k^{\perp}
-           = \mathbf{D}_k
-             - \bigl(\mathbf{D}_k \, \hat{\mathbf{e}}_s\bigr)
-               \hat{\mathbf{e}}_s^\top
-
-4. Compute the SVD :math:`\mathbf{D}_k^{\perp} = \mathbf{U \Sigma V}^\top`.
-   The first right singular vector :math:`\mathbf{v}_1` is the direction of
-   maximum variance in the cross-section plane — i.e. the **chord direction**
-   :math:`\hat{\mathbf{c}}_k`.
-
-5. Orient consistently: if
-   :math:`\hat{\mathbf{c}}_k \cdot \hat{\mathbf{e}}_n < 0` (where
-   :math:`\hat{\mathbf{e}}_n` is the global normal direction), flip the sign.
-
-This is equivalent to a 2-D Principal Component Analysis (PCA) of the
-cross-section node distribution and is robust to:
-
-* Non-uniform chordwise node spacing (common in FE meshes with refinement
-  near the leading/trailing edge).
-* Moderate out-of-plane warp of the cross-section (the projection onto the
-  :math:`\hat{\mathbf{e}}_s`-perpendicular plane removes the span component).
-* Large rotations — the SVD does not linearise the rotation.
-
-**Signed angle computation.**  Given the reference chord direction
-:math:`\hat{\mathbf{c}}_k^{\mathrm{ref}}` and the deformed chord direction
-:math:`\hat{\mathbf{c}}_k^{\mathrm{def}}`, the elastic twist is the signed
-angle between them measured about the span axis:
+**The section rotation, not the strip cloud's chord direction.**  A BEM strip
+spans several merged mesh stations (``dr ~ 2.4 m`` against ~0.63 m here), so
+the principal in-plane direction of the strip's *whole* node cloud follows the
+deformed arc of a bent blade instead of its chord; the elastic twist is
+measured on **one physical ring** at the strip centre.  The participant
+receives only the three translational DOFs through the coupling, so the
+rotation is recovered from the ring's in-plane displacement field
+:math:`(u_x, u_y)` at :math:`(x, y)` in an orthonormal basis of the plane
+perpendicular to :math:`\hat{\mathbf{e}}_s`, fitted by least squares to the
+affine map
 
 .. math::
 
-    \Delta\theta_k = \arctan2\!\bigl(
-        (\hat{\mathbf{c}}_k^{\mathrm{ref}} \times \hat{\mathbf{c}}_k^{\mathrm{def}})
-            \cdot \hat{\mathbf{e}}_s,\;
-        \hat{\mathbf{c}}_k^{\mathrm{ref}} \cdot \hat{\mathbf{c}}_k^{\mathrm{def}}
-    \bigr)
+    u_x = a_{11} x + a_{12} y + t_x, \qquad
+    u_y = a_{21} x + a_{22} y + t_y.
 
-The sign convention is positive nose-up (trailing edge rotates toward the
-suction side), consistent with the BEM twist definition in CCBlade.
+Its antisymmetric part is the section rotation about the span axis:
+
+.. math::
+
+    \Delta\theta_k = \tfrac{1}{2}\,(a_{21} - a_{12}),
+
+invariant to the in-plane origin and with the same sense as the shell's own
+rotational DOF about the span axis (positive nose-up).  Each strip's ring is
+bound by span position (the node nearest the strip centre, plus every strip
+node within ``RING_BIND_FRACTION`` of the strip width of it - above the mesh's
+prebend skew, below the station spacing).  A ring that cannot define a 2-D
+section keeps the reference twist: no second estimator is used, so nothing can
+silently disagree with this one.
+
+**Sense.**  The BEM twist angle and the mesh's rotation about the span axis are
+opposite-sensed whenever ``normal = span x tangential`` (the default frame:
+CCBlade's ``alpha = phi - theta``, while a positive mesh rotation turns the
+chord toward the downwind axis).  The factor is derived from the configured
+directions in ``_twist_mesh_to_bem``.
 
 Force projection on deformed geometry
 --------------------------------------
@@ -216,6 +210,12 @@ from aeroelast.solvers.bem.force_projection import ForceProjector
 
 logger = logging.getLogger(__name__)
 
+#: Fraction of a BEM strip's width used to bind mesh nodes to the strip's
+#: centre physical ring.  It must exceed the mesh's spanwise prebend skew (a
+#: physical ring's nodes span ~1e-3 m on the IEA-15 MW blade) and stay well
+#: below the physical station spacing (~0.63 m against a 2.39 m strip here).
+RING_BIND_FRACTION = 0.05
+
 
 # ---------------------------------------------------------------------------
 # Main participant class
@@ -258,8 +258,11 @@ class BEMFSIParticipant:
         * ``tilt``                 – shaft tilt angle [deg] (default 0)
         * ``yaw``                  – nacelle yaw misalignment angle [deg] (default 0)
         * ``span_direction``       – unit vector along blade span (default Z)
-        * ``normal_direction``     – global direction for BEM Np (default X)
-        * ``tangential_direction`` – global direction for BEM Tp (default Y)
+        * ``normal_direction``     – sense reference for the section normal
+          the BEM *Np* rides (default Y, the fluid/downwind direction); it
+          must be (nearly) parallel to that normal, it is not the axis
+        * ``tangential_direction`` – sense reference for the section chord
+          the BEM *Tp* rides (default X); must be (nearly) parallel to it
     participant : str
         preCICE participant name (must match the XML config).
     config_file : str or Path
@@ -288,15 +291,10 @@ class BEMFSIParticipant:
         force_data: str = "Force",
         output_folder: str | Path = "bem_fsi_results",
         log_interval: int = 10,
-        write_vtu: bool = True,
         viz_mesh: MeshModel | None = None,
         omega_mesh: str | None = None,
         omega_data: str = "AngularVelocity",
         omega_vertex: list[float] | None = None,
-        velocity_data: str | None = "Velocity",
-        deformed_twist: bool = True,
-        deformed_radius: bool = True,
-        include_pitching_moment: bool = True,
     ) -> None:
         self._mesh = mesh
         self._blade_aero = blade_aero
@@ -308,7 +306,6 @@ class BEMFSIParticipant:
         self._force_data = force_data
         self._output_folder = Path(output_folder)
         self._log_interval = log_interval
-        self._write_vtu = write_vtu
 
         # omega preCICE read config (optional)
         self._omega_mesh: str | None = omega_mesh
@@ -316,15 +313,6 @@ class BEMFSIParticipant:
         self._omega_vertex: np.ndarray = (
             np.asarray(omega_vertex, dtype=float) if omega_vertex is not None else np.zeros(3)
         )
-        # Structural velocity preCICE read config (optional).
-        # When set, the BEM reads nodal velocities from the solid participant
-        # and corrects the effective axial inflow per strip (aerodynamic damping).
-        self._velocity_data: str | None = velocity_data
-        # Feedback isolation toggles (diagnostic experiments): each disables
-        # one geometric feedback term of the deformed BEM rebuild.
-        self._deformed_twist: bool = deformed_twist
-        self._deformed_radius: bool = deformed_radius
-        self._include_pitching_moment: bool = include_pitching_moment
         # Live omega [rad/s] — updated each time window from preCICE read or YAML fallback.
         # Converted to RPM inside _compute_forces before passing to CCBlade.
         self._current_omega: float = float(bem_config.get("omega", 0.0))
@@ -341,16 +329,32 @@ class BEMFSIParticipant:
         self._span_dir /= np.linalg.norm(self._span_dir)
 
         self._normal_dir = np.asarray(
-            bem_config.get("normal_direction", [1.0, 0.0, 0.0]),
+            bem_config.get("normal_direction", [0.0, 1.0, 0.0]),
             dtype=float,
         )
         self._normal_dir /= np.linalg.norm(self._normal_dir)
 
         self._tangential_dir = np.asarray(
-            bem_config.get("tangential_direction", [0.0, 1.0, 0.0]),
+            bem_config.get("tangential_direction", [1.0, 0.0, 0.0]),
             dtype=float,
         )
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)
+
+        # -- Mesh span rotation -> BEM twist sense --------------------------
+        # A positive rotation of the section about +span turns the chord
+        # (tangential) axis toward the span x tangential direction.  When that
+        # direction is the configured downwind (normal) axis - the default
+        # frame here, span=x cross tangential=y - the chord's leading edge
+        # turns away from the wind and the angle of attack rises.  CCBlade's
+        # alpha = phi - theta therefore requires theta to FALL.  The elastic
+        # section rotation and the BEM twist angle are opposite-sensed, so
+        # mixing them with a plus (as this class used to) feeds the BEM an
+        # inverted twist and turns de-loading into re-loading.
+        self._twist_mesh_to_bem: float = (
+            -1.0
+            if float(np.dot(self._normal_dir, np.cross(self._span_dir, self._tangential_dir))) > 0.0
+            else 1.0
+        )
 
         # -- BEM solver keyword arguments (constant across iterations) ------
         self._bem_solver_kwargs: dict = {
@@ -372,30 +376,34 @@ class BEMFSIParticipant:
             span_direction=self._span_dir,
             normal_direction=self._normal_dir,
             tangential_direction=self._tangential_dir,
-            include_pitching_moment=self._include_pitching_moment,
         )
         self._projector = ref_projector
 
         # -- Strip-to-node mapping from the reference projector -------------
         # These index arrays define which mesh nodes belong to each BEM strip.
-        # The mapping is established on the reference geometry and is also
-        # used by the deformed-geometry methods (chord direction estimation,
-        # radial position averaging).  The ForceProjector rebuilt on deformed
-        # coordinates will independently reassign nodes to strips (a node
-        # shifted by large bending may migrate to an adjacent strip).
+        # The mapping is established on the reference geometry and is used by
+        # the deformed-geometry methods (radial position averaging and the
+        # strip's centre-ring selection).  The ForceProjector rebuilt on
+        # deformed coordinates will independently reassign nodes to strips (a
+        # node shifted by large bending may migrate to an adjacent strip).
         self._strip_node_indices: list[np.ndarray] = [
             strip.node_indices.copy() for strip in ref_projector._strips
         ]
 
-        # -- Reference per-strip quantities ---------------------------------
+        # -- Reference per-strip quantities (all radial ones HUB-referenced) --
         self._ref_r: np.ndarray = blade_aero.r.copy()  # (n_strips,)
         self._ref_twist: np.ndarray = blade_aero.twist.copy()  # (n_strips,) rad
-
-        # Reference chord directions (unit vectors in the e_s-perp plane).
-        # Computed via SVD-based PCA of each strip's node distribution.
-        self._ref_chord_dirs: list[np.ndarray] = self._compute_strip_chord_dirs(
-            self._ref_coords,
-        )
+        # Mesh span coordinate, and the signed offset that carries the mesh's
+        # own blade-root datum onto the hub datum of _ref_r / the BEM annulus.
+        self._mesh_span: np.ndarray = self._ref_coords @ self._span_dir
+        self._mesh_datum_offset: float = float(self._ref_r[0] - self._mesh_span.min())
+        # Mesh-datum strip centres and widths, from the reference projector.
+        self._strip_centres: np.ndarray = np.array([s.r_center for s in ref_projector._strips])
+        self._strip_widths: np.ndarray = np.array([s.dr for s in ref_projector._strips])
+        # The physical ring at each strip's centre: the section the elastic
+        # twist is measured on (a strip spans ~4 mesh stations, so its whole
+        # node cloud is not one section).
+        self._strip_ring_indices: list[np.ndarray] = self._find_strip_rings()
 
         # -- Working copy of the mesh for projector reconstruction ----------
         # A single deep copy is made at init time; subsequent iterations
@@ -487,13 +495,6 @@ class BEMFSIParticipant:
             else:
                 disp_max = float(np.max(np.linalg.norm(displacements, axis=1)))
 
-            # Read structural velocities for aerodynamic damping correction
-            velocities: np.ndarray | None = None
-            if self._velocity_data is not None:
-                vel_raw = adapter.read_data(self._coupling_mesh, self._velocity_data)
-                if vel_raw is not None and np.asarray(vel_raw).size > 0:
-                    velocities = np.asarray(vel_raw, dtype=float)
-
             # Update omega from preCICE if configured (live rotor speed from Solid)
             if self._omega_mesh is not None:
                 omega_arr = adapter.read_data(self._omega_mesh, self._omega_data)
@@ -520,7 +521,7 @@ class BEMFSIParticipant:
                     self._current_omega = new_omega
 
             # BEM on (possibly deformed) geometry
-            forces, bem_result = self._compute_forces(displacements, velocities=velocities)
+            forces, bem_result = self._compute_forces(displacements)
             force_norm = float(np.linalg.norm(forces))
             if self._previous_iteration_forces is None:
                 force_delta = 0.0
@@ -587,19 +588,12 @@ class BEMFSIParticipant:
 
         **Algorithm summary** (per strip *k*):
 
-        1. Compute deformed coordinates
-           :math:`\mathbf{x}_i = \mathbf{X}_i + \mathbf{u}_i`.
-        2. Radial position:
-           :math:`r_k^{\mathrm{def}} = \mathrm{mean}_{i \in \mathcal{I}_k}
-           (\mathbf{x}_i \cdot \hat{\mathbf{e}}_s)`.
-        3. Chord direction on the deformed config via SVD-based PCA
-           (``_compute_strip_chord_dirs``).
-        4. Signed elastic twist:
-           :math:`\Delta\theta_k = \arctan2(
-           (\hat{\mathbf{c}}^{\mathrm{ref}} \times \hat{\mathbf{c}}^{\mathrm{def}})
-           \cdot \hat{\mathbf{e}}_s,\;
-           \hat{\mathbf{c}}^{\mathrm{ref}} \cdot \hat{\mathbf{c}}^{\mathrm{def}})`.
-        5. Deformed twist:
+        1. Deformed coordinates :math:`\mathbf{x}_i = \mathbf{X}_i + \mathbf{u}_i`.
+        2. Radial position: the mean span projection of the strip nodes, carried onto the
+           hub datum by ``_mesh_datum_offset`` (see the module docstring's "Datum").
+        3. Elastic twist: the in-plane section rotation of the strip's centre physical
+           ring (``_section_rotation``), converted into the BEM's twist sense.
+        4. Deformed twist:
            :math:`\theta_k^{\mathrm{def}} = \theta_k^{\mathrm{ref}} + \Delta\theta_k`.
 
         Parameters
@@ -610,68 +604,18 @@ class BEMFSIParticipant:
         Returns
         -------
         r_def : ndarray, shape (n_strips,)
-            Deformed radial position of each BEM strip projected onto the
-            span axis.
+            Deformed radial position of each BEM strip on the **hub datum** (the same
+            datum as ``_ref_r``).
         twist_def : ndarray, shape (n_strips,)
-            Total aerodynamic twist at each strip [rad], including the
-            reference twist plus the elastic torsion increment.
+            Total aerodynamic twist at each strip [rad], reference plus the elastic
+            torsion increment, in the BEM's twist sense.
         """
         deformed_coords = self._ref_coords + displacements
         n_strips = len(self._strip_node_indices)
         r_def = np.empty(n_strips)
         twist_def = np.empty(n_strips)
 
-        # Local deformed span axis per strip: the tangent of the deformed
-        # centroid line, smoothed over a +/-2 m window (the Camarena &
-        # Almeida frame measurement).  Projecting the section on this axis
-        # (instead of the fixed global span) excludes the elastic-line slope
-        # from the chord direction and the twist.  With large flap
-        # deflections the global-z projection leaks dy/dz (up to ~18 deg at
-        # the tip) into the extracted twist and inflates the aeroelastic
-        # de-loading (the "twist excess" of the 2026-09-16 diagnosis).
-        # The tangent is the difference of the deformed centroids of the
-        # dense bands [zc-2.0, zc-0.7] and [zc+0.7, zc+2.0] (all mesh nodes
-        # in the window, not just the BEM strips, which are 3-5 m apart):
-        # a tangent taken between adjacent strips is too short, picks up the
-        # local elastic-line curvature and the asymmetric section
-        # distortion, and over-reads the twist (8.8 vs 4.2 deg at the tip).
-        zz = self._ref_coords[:, 2]
-        z_min = float(zz.min())
-        z_max = float(zz.max())
-        t_locals = np.zeros((n_strips, 3))
-        for k, idx in enumerate(self._strip_node_indices):
-            if len(idx) == 0:
-                t_locals[k] = self._span_dir
-                continue
-            zc = self._ref_coords[idx, 2].mean()
-            lo = np.nonzero((zz >= zc - 2.0) & (zz <= zc - 0.7))[0]
-            hi = np.nonzero((zz >= zc + 0.7) & (zz <= zc + 2.0))[0]
-            if hi.size == 0:
-                # tip strip: no nodes above — slide the window down so both
-                # bands lie below the section and the tangent still points
-                # toward the tip (hi above lo)
-                hi = np.nonzero((zz >= zc - 0.9) & (zz <= zc - 0.2))[0]
-                lo = np.nonzero((zz >= zc - 2.9) & (zz <= zc - 2.2))[0]
-            if lo.size == 0:
-                # root strip: no nodes below — slide the window up
-                hi = np.nonzero((zz >= zc + 2.2) & (zz <= zc + 2.9))[0]
-                lo = np.nonzero((zz >= zc + 0.2) & (zz <= zc + 0.9))[0]
-            if lo.size == 0 or hi.size == 0:
-                t_locals[k] = self._span_dir
-                continue
-            t = deformed_coords[hi].mean(axis=0) - deformed_coords[lo].mean(axis=0)
-            nrm = np.linalg.norm(t)
-            t_locals[k] = t / nrm if nrm > 1e-12 else self._span_dir
-
-        # Frame twist: rotation of the LE->TE chord vector about the local
-        # deformed span axis.  The SVD of the full section contour is NOT
-        # used for the deformed configuration: its principal axis is
-        # dominated by the trailing-edge panel distortion, which over-reads
-        # the elastic twist by 2-3x (9.7 vs 4.2 deg under the S-8c loads,
-        # 2026-09-16 diagnosis).  The LE-TE vector is the aerodynamic chord;
-        # its rotation about the local tangent is the frame twist measured
-        # by Camarena & Anderson 2025 and Almeida et al. 2025, and it is the
-        # quantity that closes the FSI de-loading against the BeamDyn anchor.
+        s = self._span_dir
         for k in range(n_strips):
             idx = self._strip_node_indices[k]
             if len(idx) == 0:
@@ -679,145 +623,77 @@ class BEMFSIParticipant:
                 twist_def[k] = self._ref_twist[k]
                 continue
 
-            s_k = t_locals[k]
+            # Deformed radial position: mean span-wise projection on the mesh
+            # datum, converted to this class's hub datum (see the module
+            # docstring's "Datum" paragraph).
+            r_def[k] = float(np.mean(deformed_coords[idx] @ s)) + self._mesh_datum_offset
 
-            # Deformed radial position (mean span-wise projection).  The
-            # blade_aero stations are ROTOR radii (hub_radius + span), so the
-            # mesh span coordinate must be offset by the hub radius to stay
-            # consistent with the BEM rotor definition (Rhub).  Without the
-            # offset, root strips land inside the hub and the induction
-            # degenerates (2026-09-09: diverged the yaml-blade FSI campaign).
-            strip_span = deformed_coords[idx] @ s_k
-
-            # Elastic twist from the chord vector rotation
-            xyz_ref = self._ref_coords[idx]
-            xyz_def = deformed_coords[idx]
-            le_r = self._ref_coords[idx[np.argmin(xyz_ref[:, 0])]]
-            te_r = self._ref_coords[idx[np.argmax(xyz_ref[:, 0])]]
-            le_d = xyz_def[np.argmin(xyz_ref[:, 0])]
-            te_d = xyz_def[np.argmax(xyz_ref[:, 0])]
-            v_ref = te_r - le_r
-            v_def = te_d - le_d
-            v_ref_p = v_ref - np.dot(v_ref, s_k) * s_k
-            v_def_p = v_def - np.dot(v_def, s_k) * s_k
-            n_ref = float(np.linalg.norm(v_ref_p))
-            n_def = float(np.linalg.norm(v_def_p))
-            if n_ref < 1e-12 or n_def < 1e-12:
-                delta_twist = 0.0
-            else:
-                cos_a = float(np.clip(np.dot(v_ref_p, v_def_p) / (n_ref * n_def), -1.0, 1.0))
-                sin_a = float(np.dot(np.cross(v_ref_p, v_def_p), s_k) / (n_ref * n_def))
-                delta_twist = np.arctan2(sin_a, cos_a)
-
-            if self._deformed_radius:
-                r_def[k] = float(np.mean(strip_span)) + self._blade_aero.hub_radius
-            else:
-                r_def[k] = self._ref_r[k]
-
-            if self._deformed_twist:
-                twist_def[k] = self._ref_twist[k] + delta_twist
-            else:
-                twist_def[k] = self._ref_twist[k]
+            # Elastic twist: the rotation of the strip's centre physical ring
+            # about the span axis, taken into the BEM's twist sense (see
+            # _twist_mesh_to_bem).  A degenerate ring has no measurable section
+            # rotation, so that strip keeps its reference twist rather than
+            # falling back to a second, disagreeing estimator.
+            omega = self._section_rotation(displacements, self._strip_ring_indices[k])
+            twist_def[k] = self._ref_twist[k] + self._twist_mesh_to_bem * (
+                0.0 if omega is None else omega
+            )
 
         return r_def, twist_def
 
-    def _compute_strip_chord_dirs(
-        self,
-        coords: np.ndarray,
-        span_axis: np.ndarray | None = None,
-    ) -> list[np.ndarray]:
-        r"""Estimate a chord-direction unit vector for each BEM strip via
-        SVD-based PCA of the cross-section node distribution.
+    def _find_strip_rings(self) -> list[np.ndarray]:
+        """Assign every BEM strip the physical mesh ring nearest its centre.
 
-        ``span_axis`` optionally provides a per-strip local axis (the tangent
-        of the deformed centroid line); the offsets are projected on the
-        plane perpendicular to it.  With ``None`` the global ``_span_dir`` is
-        used (reference configuration).
-
-        **Method (per strip k):**
-
-        1. Collect strip node positions and compute centroid
-           :math:`\bar{\mathbf{x}}_k`.
-        2. Form the offset matrix :math:`\mathbf{D}_k` (nodes × 3).
-        3. Project offsets onto the plane perpendicular to
-           :math:`\hat{\mathbf{e}}_s`:
-           :math:`\mathbf{D}_k^{\perp} = \mathbf{D}_k
-           - (\mathbf{D}_k \hat{\mathbf{e}}_s) \hat{\mathbf{e}}_s^\top`.
-        4. SVD: :math:`\mathbf{D}_k^{\perp} = \mathbf{U\Sigma V}^\top`.
-           The first row of :math:`\mathbf{V}^\top` (i.e. :math:`\mathbf{v}_1`)
-           is the principal axis = chord direction.
-        5. Flip sign if :math:`\mathbf{v}_1 \cdot \hat{\mathbf{e}}_n < 0`
-           to ensure a consistent orientation across strips and iterations.
-
-        This is mathematically equivalent to a 2-D PCA in the airfoil
-        cross-section plane.  The chord direction dominates the variance
-        because the chord is typically 5–20× the airfoil thickness, making
-        the leading singular value well-separated from the second.
-
-        **Robustness:**
-
-        * Strips with fewer than 2 nodes fall back to the global normal
-          direction :math:`\hat{\mathbf{e}}_n` (no PCA possible).
-        * Near-zero norm after projection (degenerate planar strip exactly
-          parallel to span) also falls back to :math:`\hat{\mathbf{e}}_n`.
-
-        Parameters
-        ----------
-        coords : ndarray, shape (n_nodes, 3)
-            Nodal coordinates (reference or deformed).
-        span_axis : ndarray, shape (n_strips, 3), optional
-            Per-strip local axis (deformed centroid-line tangent).  When
-            given, the SVD projection uses it instead of the global span.
-
-        Returns
-        -------
-        chord_dirs : list of ndarray, each shape (3,)
-            Unit chord-direction vector for each strip.
+        A strip spans several rings (2.39 m against ~0.63 m stations here).  The strip
+        node nearest the strip centre anchors the ring, and every strip node within
+        ``RING_BIND_FRACTION * dr`` of it belongs to it - above the mesh's prebend skew,
+        below the station spacing, so exactly one physical station is bound.
         """
-        chord_dirs: list[np.ndarray] = []
-        s = self._span_dir
-
+        rings: list[np.ndarray] = []
         for k, idx in enumerate(self._strip_node_indices):
-            if len(idx) < 2:
-                chord_dirs.append(self._normal_dir.copy())
+            if len(idx) == 0:
+                rings.append(idx)
                 continue
+            local_span = self._mesh_span[idx]
+            anchor = local_span[np.argmin(np.abs(local_span - self._strip_centres[k]))]
+            tolerance = RING_BIND_FRACTION * self._strip_widths[k]
+            rings.append(idx[np.abs(local_span - anchor) <= tolerance])
+        return rings
 
-            s_k = self._span_dir if span_axis is None else span_axis[k]
+    def _section_rotation(
+        self,
+        displacements: np.ndarray,
+        ring_idx: np.ndarray,
+    ) -> float | None:
+        r"""Rotation of one physical ring about the span axis [rad].
 
-            strip_pts = coords[idx]
-            centroid = strip_pts.mean(axis=0)
-            offsets = strip_pts - centroid
+        The ring's in-plane field is fitted by least squares to ``u = A x + t`` in an
+        orthonormal in-plane basis ``(e1, e2)`` with ``e2 = span x e1``; the antisymmetric
+        part ``0.5 (a21 - a12)`` is the section rotation, invariant to the in-plane origin
+        and with the same sense as the shell's rotational DOF about the span axis.  Returns
+        ``None`` when the ring cannot define a 2-D section (fewer than three nodes, or a
+        rank-deficient design); that strip then keeps its reference twist, so no second
+        estimator can silently disagree with this one.
+        """
+        if len(ring_idx) < 3:
+            return None
 
-            # Project offsets onto the plane ⊥ the (local) span axis
-            offsets_plane = offsets - np.outer(offsets @ s_k, s_k)
+        seed = np.array([1.0, 0.0, 0.0])
+        if abs(seed @ self._span_dir) > 0.9:  # the seed must not be parallel to the span
+            seed = np.array([0.0, 1.0, 0.0])
+        e1 = seed - (seed @ self._span_dir) * self._span_dir
+        e1 = e1 / np.linalg.norm(e1)
+        e2 = np.cross(self._span_dir, e1)
 
-            _, _, Vt = np.linalg.svd(offsets_plane, full_matrices=False)
-            chord_dir = Vt[0]
-
-            # Orient consistently using the most-aligned reference direction.
-            # For tip sections the chord is nearly perpendicular to normal_dir
-            # (dot ≈ sin(twist) ≈ 0), so the sign is numerical noise and can
-            # flip ±180°, corrupting delta_twist.  Using whichever of
-            # normal_dir / tangential_dir has the highest absolute projection
-            # guarantees a stable sign across all spanwise stations.
-            if abs(np.dot(chord_dir, self._tangential_dir)) >= abs(
-                np.dot(chord_dir, self._normal_dir)
-            ):
-                if np.dot(chord_dir, self._tangential_dir) < 0:
-                    chord_dir = -chord_dir
-            else:
-                if np.dot(chord_dir, self._normal_dir) < 0:
-                    chord_dir = -chord_dir
-
-            norm = np.linalg.norm(chord_dir)
-            if norm > 1e-12:
-                chord_dir /= norm
-            else:
-                chord_dir = self._normal_dir.copy()
-
-            chord_dirs.append(chord_dir)
-
-        return chord_dirs
+        pts = self._ref_coords[ring_idx]
+        x, y = pts @ e1, pts @ e2
+        disp = displacements[ring_idx]
+        ux, uy = disp @ e1, disp @ e2
+        design = np.column_stack([x, y, np.ones_like(x)])
+        if np.linalg.matrix_rank(design) < 3:
+            return None
+        a12 = float(np.linalg.lstsq(design, ux, rcond=None)[0][1])
+        a21 = float(np.linalg.lstsq(design, uy, rcond=None)[0][0])
+        return 0.5 * (a21 - a12)
 
     # -----------------------------------------------------------------------
     # BEM and projector reconstruction on deformed geometry
@@ -874,12 +750,6 @@ class BEMFSIParticipant:
         # The blade elongates spanwise under large flapwise deformations, so
         # strip centroids can exceed the reference rotor_radius.  A fixed
         # Rtip_ref causes Prandtl factortip < 0 → exp(+) > 1 → acos(NaN).
-        #
-        # ``r_def`` comes from the r_def assembly above, which already adds
-        # ``hub_radius`` (the BEM stations are rotor radii), so it is in the
-        # same frame as ``ba.rotor_radius``.  Adding hub_radius here double
-        # counted it and pushed Rtip to ~125 m on a 121 m rotor, progressively
-        # defeating the Prandtl tip loss as the blade deformed.
         deformed_rtip = float(np.max(r_def)) * 1.001
         rotor_radius = max(deformed_rtip, ba.rotor_radius)
 
@@ -931,38 +801,15 @@ class BEMFSIParticipant:
             span_direction=self._span_dir,
             normal_direction=self._normal_dir,
             tangential_direction=self._tangential_dir,
-            include_pitching_moment=self._include_pitching_moment,
         )
 
     # -----------------------------------------------------------------------
     # Force computation (bidirectional)
     # -----------------------------------------------------------------------
 
-    def _compute_strip_flapwise_velocities(self, velocities: np.ndarray) -> np.ndarray:
-        """Return the mean flapwise (normal_dir) velocity component for each strip.
-
-        Parameters
-        ----------
-        velocities : ndarray, shape (n_nodes, 3)
-            Structural nodal velocities read from the preCICE Velocity field.
-
-        Returns
-        -------
-        vy_strip : ndarray, shape (n_strips,)
-            Mean flapwise velocity [m/s] per strip.  Positive means the blade
-            is moving in the +normal_dir direction (flapwise deflection).
-        """
-        vy_strip = np.zeros(len(self._strip_node_indices), dtype=float)
-        for k, idx in enumerate(self._strip_node_indices):
-            if len(idx) == 0:
-                continue
-            vy_strip[k] = float(np.mean(velocities[idx] @ self._normal_dir))
-        return vy_strip
-
     def _compute_forces(
         self,
         displacements: np.ndarray,
-        velocities: np.ndarray | None = None,
     ) -> tuple[np.ndarray, BEMResult]:
         r"""Evaluate BEM on the (possibly deformed) blade and project forces.
 
@@ -998,12 +845,7 @@ class BEMFSIParticipant:
         """
         v_inf = float(self._bem_cfg.get("wind_speed", 45.0))
         # _current_omega is in rad/s (received from Solid via preCICE or YAML).
-        # CCBlade expects RPM. The structural solver uses RHR convention around
-        # +Y (omega > 0 = clockwise viewed from -Y). CCBlade also assumes the
-        # blade rotates in the positive RPM direction, which matches our omega > 0.
-        # No sign change needed: tangential_direction=[-1,0,0] in the YAML already
-        # maps CCBlade's Tp (driving force) to the correct -X direction in the
-        # structural frame.
+        # CCBlade expects RPM.
         import math as _math  # noqa: PLC0415
 
         omega = self._current_omega * 60.0 / (2.0 * _math.pi)
@@ -1011,68 +853,30 @@ class BEMFSIParticipant:
         # Use live accumulated azimuth (integrated from omega each window).
         azimuth = self._azimuth
 
-        # ── Aerodynamic damping: per-strip effective inflow correction ─────────
-        # When structural nodal velocities are available, the effective axial
-        # inflow speed at strip k is V_eff[k] = V_wind - mean(ẏ[strip_k] · n̂)
-        # where n̂ is the flapwise (normal) direction.  This is the dominant
-        # aerodynamic damping term: a flap-up motion reduces lift, opposing the
-        # motion (positive damping).
-        # When all corrections are negligible (< 1e-6 m/s) we keep the scalar
-        # v_inf for back-compatibility with the zero-velocity case at t=0.
-        vy_strip: np.ndarray | None = None
-        if velocities is not None and velocities.shape == (self._n_nodes, 3):
-            vy_strip = self._compute_strip_flapwise_velocities(velocities)
-
         disp_max = float(np.max(np.linalg.norm(displacements, axis=1)))
 
-        if disp_max < 1e-12 and vy_strip is None:
-            # Zero displacement and no velocity — use pre-built reference solver
+        if disp_max < 1e-12:
+            # Zero displacement — use pre-built reference solver and projector
             bem_result = self._bem_solver.compute(v_inf, omega, pitch, azimuth=azimuth)
             forces = self._projector.project(bem_result)
             return forces, bem_result
 
-        if disp_max < 1e-12:
-            # No displacement but velocity correction requested (e.g. first
-            # iteration after startup) — run on reference geometry with correction.
-            bem_solver = self._bem_solver
-            projector = self._projector
-            r_def = self._ref_r.copy()
-        else:
-            # -- Deformed geometry pipeline --------------------------------
-            r_def, twist_def = self._compute_deformed_geometry(displacements)
-            bem_solver, deformed_aero = self._rebuild_bem_solver(r_def, twist_def)
-            deformed_coords = self._ref_coords + displacements
-            projector = self._rebuild_projector(deformed_coords, deformed_aero)
+        # -- Deformed geometry pipeline ------------------------------------
+        r_def, twist_def = self._compute_deformed_geometry(displacements)
+        bem_solver, deformed_aero = self._rebuild_bem_solver(r_def, twist_def)
+
+        deformed_coords = self._ref_coords + displacements
+        projector = self._rebuild_projector(deformed_coords, deformed_aero)
 
         # _strip_node_indices is intentionally kept as the *reference*
         # assignment and is NOT updated from the deformed projector here.
-        # Updating it would make the next call to _compute_deformed_geometry
-        # compare deformed chord directions (computed on the migrated node
-        # set for strip k) against _ref_chord_dirs[k] (computed on the
-        # original node set), yielding inconsistent delta_twist estimates.
+        # Updating it would move the strip's centre ring between iterations,
+        # so the same physical section would be measured against a different
+        # node set from one implicit iteration to the next.
         # ForceProjector manages its own independent node-to-strip assignment
         # for force application on the deformed geometry.
 
-        if vy_strip is not None and np.any(np.abs(vy_strip) > 1e-6):
-            # Per-strip effective wind speed: CCBlade accepts a scalar Uinf;
-            # we mimic per-strip correction by computing a mean correction and
-            # passing the span-mean effective Uinf.  A per-strip approach would
-            # require looping over individual BEM calls which is expensive.
-            # Mean correction is a first-order approximation — adequate for
-            # aerodynamic damping estimation in the linear regime.
-            v_eff = v_inf - float(np.mean(vy_strip))
-            logger.debug(
-                "[BEM-FSI] Aero-damping correction: v_inf=%.3f  mean_vy=%.4f  v_eff=%.3f  "
-                "max_vy=%.4f",
-                v_inf,
-                float(np.mean(vy_strip)),
-                v_eff,
-                float(np.max(np.abs(vy_strip))),
-            )
-        else:
-            v_eff = v_inf
-
-        bem_result = bem_solver.compute(v_eff, omega, pitch, azimuth=azimuth)
+        bem_result = bem_solver.compute(v_inf, omega, pitch, azimuth=azimuth)
         forces = projector.project(bem_result)
         return forces, bem_result
 
@@ -1104,9 +908,8 @@ class BEMFSIParticipant:
         ts_dir = self._output_folder / time_str
         ts_dir.mkdir(parents=True, exist_ok=True)
 
-        if self._write_vtu:
-            self._write_fields_vtu(forces, displacements, ts_dir, time_str, time)
-            self._write_sections_vtu(bem_result, ts_dir)
+        self._write_fields_vtu(forces, displacements, ts_dir, time_str, time)
+        self._write_sections_vtu(bem_result, ts_dir)
         self._write_sectional_csv(bem_result, ts_dir)
         self._append_global_csv(bem_result, forces, displacements, step, time, time_str)
 
@@ -1449,15 +1252,7 @@ def build_from_config(
         blade_file,
         default_re=float(bem_cfg.get("default_re", 1e7)),
         neuralfoil_model=bem_cfg.get("neuralfoil_model", "large"),
-        # NOTE: 0.0 from a campaign YAML must NOT shadow the blade's own hub
-        # radius.  The loader computes hub_radius = hub_diameter/2 from the
-        # WindIO definition (3.97 m for the IEA 15 MW), but consumers such as
-        # ForceProjector use it to convert BEM rotor radii to the blade-local
-        # mesh frame.  Passing 0.0 disabled that conversion and shifted every
-        # strip by hub_radius, emptying the root strip.
-        hub_radius=(
-            float(bem_cfg["hub_radius"]) if bem_cfg.get("hub_radius") else None
-        ),
+        hub_radius=float(bem_cfg.get("hub_radius", 0.0)),
         n_blades=int(bem_cfg.get("n_blades", 3)),
         viterna_ar=float(bem_cfg.get("viterna_ar", 17.0)),
         viterna_confidence_threshold=float(bem_cfg.get("viterna_confidence_threshold", 0.5)),
@@ -1474,13 +1269,8 @@ def build_from_config(
         force_data=cfg.get("force_data", "Force"),
         output_folder=output_cfg.get("folder", "bem_fsi_results"),
         log_interval=int(output_cfg.get("log_interval", 10)),
-        write_vtu=bool(output_cfg.get("write_vtu", True)),
         viz_mesh=viz_mesh,
         omega_mesh=omega_mesh,
         omega_data=omega_data,
         omega_vertex=omega_vertex,
-        velocity_data=cfg.get("velocity_data", "Velocity"),
-        deformed_twist=bool(cfg.get("deformed_twist", True)),
-        deformed_radius=bool(cfg.get("deformed_radius", True)),
-        include_pitching_moment=bool(cfg.get("include_pitching_moment", True)),
     )

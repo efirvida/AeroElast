@@ -348,7 +348,7 @@ def _generate_polars_neuralfoil(
         reliable.  Only used when ``alpha_stall_deg`` is ``None``.
     """
     try:
-        import neuralfoil as nf
+        import neuralfoil as nf  # type: ignore[import-not-found]  # optional dep, guarded below
     except ImportError:
         raise ImportError(
             "NeuralFoil is required to generate polars from coordinates. "
@@ -479,6 +479,8 @@ def _load_from_excel(
     else:
         blade.read_excel(str(excel_path))
     defn = blade.definition
+    if defn.span is None or defn.chord is None or defn.degreestwist is None:
+        raise ValueError("blade definition has no span/chord/twist distribution")
 
     blade_length = float(defn.span[-1])
     rotor_radius = hub_radius + blade_length

@@ -11,15 +11,13 @@ class spatial_grid_list2d:
         yLen = maximumY - minimumY
         self.xRows = int(np.ceil(xLen / xGridSize))
         self.yRows = int(np.ceil(yLen / yGridSize))
-        self.fullList = list()
-        for i in range(0, self.xRows):
-            xList = list()
-            for j in range(0, self.yRows):
-                xList.append(list())
+        self.fullList = []
+        for _i in range(0, self.xRows):
+            xList = []
+            for _j in range(0, self.yRows):
+                xList.append([])
             self.fullList.append(xList)
 
-    def getDim(self):
-        return [self.xGSz * self.xRows, self.yGSz * self.yRows]
 
     def addEntry(self, val, coord):
         xRow = int(np.floor((coord[0] - self.xMin) / self.xGSz))
@@ -51,7 +49,7 @@ class spatial_grid_list2d:
             if jMin < 0:
                 jMin = 0
 
-        labelList = list()
+        labelList = []
         for i in range(iMin, iMax):
             for j in range(jMin, jMax):
                 labelList.extend(self.fullList[i][j])

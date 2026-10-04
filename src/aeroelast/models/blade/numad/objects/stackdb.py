@@ -9,10 +9,12 @@ from aeroelast.models.blade.numad.objects.keypoints import KeyPoints
 
 class StackDatabase:
     def __init__(self):
-        self.stacks: ndarray = None
-        self.swstacks: ndarray = None
+        self.stacks: ndarray | None = None
+        self.swstacks: ndarray | None = None
 
     def __eq__(self, other):
+        if self.stacks is None or self.swstacks is None:
+            raise RuntimeError("StackDatabase.__eq__ requires a generated database")
         assert self.stacks.shape == other.stacks.shape
 
         assert self.swstacks.shape == other.swstacks.shape
@@ -35,6 +37,12 @@ class StackDatabase:
 
     def generate(self, keypoints: KeyPoints, bom: BillOfMaterials):
         # build the material stack for each area
+        if (
+            keypoints.key_areas is None
+            or keypoints.web_points is None
+            or keypoints.web_indices is None
+        ):
+            raise RuntimeError("StackDatabase.generate() requires generated keypoints")
         n_segments = keypoints.key_areas.shape[0]
         n_stations = keypoints.key_areas.shape[1]
         n_webs = len(keypoints.web_points)
@@ -128,87 +136,6 @@ class StackDatabase:
                 for k_stat in range(ind[0], ind[1]):
                     self.swstacks[k_web, k_stat].addply(deepcopy(cur_ply))
 
-    def edit_stacks_for_solid_mesh(self):
-        """
-
-        Returns
-        -------
-        Self
-        """
-        numSec, numStat = self.stacks.shape
-        for i in range(numSec):
-            for j in range(numStat):
-                pg = self.stacks[i, j].plygroups
-                if len(pg) == 4:
-                    ply1 = deepcopy(pg[1])
-                    ply2 = deepcopy(pg[2])
-                    ply3 = deepcopy(pg[3])
-                    newPg = np.array([ply1, ply2, ply3])
-                else:
-                    if len(pg) == 3:
-                        # newPg = np.array([pg[1],pg[1],pg[2]])
-                        ply1 = deepcopy(pg[1])
-                        ply2 = deepcopy(pg[1])
-                        ply3 = deepcopy(pg[2])
-                        t2 = ply1.thickness
-                        t3 = ply3.thickness
-                        ply2.thickness = 0.3333333 * (t2 + t3)
-                        ply1.thickness = 0.6666666 * t2
-                        ply3.thickness = 0.6666666 * t3
-                        newPg = np.array([ply1, ply2, ply3])
-                    else:
-                        if len(pg) == 2:
-                            ply1 = deepcopy(pg[1])
-                            ply2 = deepcopy(pg[1])
-                            ply3 = deepcopy(pg[1])
-                            # newPg = np.array([pg[0],pg[0],pg[1]])
-                            t1 = ply1.thickness
-                            t2 = ply3.thickness
-                            ply2.thickness = 0.3333333 * (t1 + t2)
-                            ply1.thickness = 0.6666666 * t1
-                            ply3.thickness = 0.6666666 * t2
-                            newPg = np.array([ply1, ply2, ply3])
-                        else:
-                            ply1 = deepcopy(pg[0])
-                            ply2 = deepcopy(pg[0])
-                            ply3 = deepcopy(pg[0])
-                            # newPg = np.array([pg[0],pg[0],pg[0]])
-                            t1 = ply1.thickness
-                            ply2.thickness = 0.3333333 * t1
-                            ply1.thickness = 0.3333333 * t1
-                            ply3.thickness = 0.3333333 * t1
-                            newPg = np.array([ply1, ply2, ply3])
-                self.stacks[i, j].plygroups = newPg
-
-        for i in range(2):
-            stackLst = self.swstacks[i]
-            for j in range(len(stackLst)):
-                pg = stackLst[j].plygroups
-                if len(pg) == 2:
-                    ply1 = deepcopy(pg[0])
-                    ply2 = deepcopy(pg[0])
-                    ply3 = deepcopy(pg[1])
-                    # newPg = np.array([pg[0],pg[0],pg[1]])
-                    t1 = ply1.thickness
-                    t2 = ply3.thickness
-                    ply2.thickness = 0.3333333 * (t1 + t2)
-                    ply1.thickness = 0.6666666 * t1
-                    ply3.thickness = 0.6666666 * t2
-                    newPg = np.array([ply1, ply2, ply3])
-                    self.swstacks[i][j].plygroups = newPg
-                elif len(pg) == 1:
-                    ply1 = deepcopy(pg[0])
-                    ply2 = deepcopy(pg[0])
-                    ply3 = deepcopy(pg[0])
-                    # newPg = np.array([pg[0],pg[0],pg[0]])
-                    t1 = ply1.thickness
-                    ply2.thickness = 0.3333333 * t1
-                    ply1.thickness = 0.3333333 * t1
-                    ply3.thickness = 0.3333333 * t1
-                    newPg = np.array([ply1, ply2, ply3])
-                    self.swstacks[i][j].plygroups = newPg
-        return self
-
 
 class Stack:
     """A class definition for a stack of composite layers.
@@ -271,19 +198,6 @@ class Stack:
 
         return self
 
-    def layer_thicknesses(self) -> ndarray:
-        """Computes the thickness of each layer
-
-        Returns:
-            ndarray:
-        """
-        nLayers = len(self.plygroups)
-        thicknesses = [
-            self.plygroups[iLayer].nPlies * self.plygroups[iLayer].thickness
-            for iLayer in range(nLayers)
-        ]
-        return np.array(thicknesses)
-
 
 class Ply:
     """A simple class to organize the attributes of a ply
@@ -304,11 +218,11 @@ class Ply:
     """
 
     def __init__(self):
-        self.component: str = None
-        self.materialid: str = None
-        self.thickness: float = None
-        self.angle: float = None
-        self.nPlies: int = None
+        self.component: str | None = None
+        self.materialid: str | None = None
+        self.thickness: float | None = None
+        self.angle: float | None = None
+        self.nPlies: int | None = None
 
     def __eq__(self, other):
         attrs = vars(self).keys()

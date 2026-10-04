@@ -1,13 +1,17 @@
 import numpy as np
 
-from aeroelast.models.blade.numad.mesh_gen.spatial_grid_list2d import *
+from scipy import interpolate
+
+from aeroelast.models.blade.numad.mesh_gen.spatial_grid_list2d import spatial_grid_list2d
 
 
 class Mesh2D:
-    def __init__(self, boundaryNodes, boundaryEdges=[]):
-        self.nodeGL = None
-        self.edgeGL = None
-        self.triElGL = None
+    def __init__(self, boundaryNodes, boundaryEdges=None):
+        if boundaryEdges is None:
+            boundaryEdges = []
+        self.nodeGL: spatial_grid_list2d = spatial_grid_list2d(0.0, 0.0, 0.0, 0.0, 1.0, 1.0)
+        self.edgeGL: spatial_grid_list2d = spatial_grid_list2d(0.0, 0.0, 0.0, 0.0, 1.0, 1.0)
+        self.triElGL: spatial_grid_list2d = spatial_grid_list2d(0.0, 0.0, 0.0, 0.0, 1.0, 1.0)
 
         self.minEdgeLen = 0.0
         self.maxEdgeLen = 1.0
@@ -39,10 +43,9 @@ class Mesh2D:
         sweepMethod,
         sweepElements,
         sweepDistance=1.0,
-        point=[],
-        axis=[],
-        followNormal=False,
-        destNodes=[],
+        point=None,
+        axis=None,
+        destNodes=None,
         interpMethod="linear",
     ):
         ## sweepMethod = inDirection, toPoint, fromPoint, toDestNodes, revolve
@@ -55,6 +58,12 @@ class Mesh2D:
         nodes
         elements
         """
+        if destNodes is None:
+            destNodes = []
+        if axis is None:
+            axis = []
+        if point is None:
+            point = []
         nbNds = self.numBndNodes
         nbEds = self.numBndEdges
         try:
@@ -62,7 +71,7 @@ class Mesh2D:
             ndSize = nbNds * (totSweepEls + 1)
             stages = len(sweepElements)
             multiStage = True
-        except:
+        except Exception:
             totSweepEls = sweepElements
             ndSize = nbNds * (sweepElements + 1)
             stages = 1
@@ -93,11 +102,11 @@ class Mesh2D:
 
         methString = "inDirection toPoint fromPoint"
         if sweepMethod in methString:
-            ndDir = list()
+            ndDir = []
             if sweepMethod == "inDirection":
                 mag = np.linalg.norm(axis)
                 unitAxis = (1.0 / mag) * np.array(axis)
-                for i in range(0, self.numNodes):
+                for _ in range(0, self.numNodes):
                     ndDir.append(unitAxis)
             else:
                 pAr = np.array(point)
@@ -131,7 +140,6 @@ class Mesh2D:
         elif sweepMethod == "toDestNodes":
             nNds = self.numNodes
             nbNds = self.numBndNodes
-            nEds = self.numEdges
             nQuad = self.numQuadEls
             if not multiStage:
                 sweepElements = [sweepElements]
@@ -140,7 +148,7 @@ class Mesh2D:
                 prevDest = self.nodes.copy()
                 for stg in range(0, stages):
                     dNds = np.array(destNodes[stg])
-                    ndDir = list()
+                    ndDir = []
                     for ndi in range(0, nbNds):
                         vec = (1.0 / sweepElements[stg]) * (dNds[ndi] - prevDest[ndi])
                         ndDir.append(vec)
@@ -175,7 +183,7 @@ class Mesh2D:
                         "cubic",
                         axis=0,
                         bounds_error=False,
-                        fill_value="extrapolate",
+                        fill_value="extrapolate",  # pyright: ignore[reportArgumentType]
                     )
                     xAll = iFun(pAll)
                     xMat[ndi, :] = xAll
@@ -186,12 +194,12 @@ class Mesh2D:
                         "cubic",
                         axis=0,
                         bounds_error=False,
-                        fill_value="extrapolate",
+                        fill_value="extrapolate",  # pyright: ignore[reportArgumentType]
                     )
                     yAll = iFun(pAll)
                     yMat[ndi, :] = yAll
+                zMat = np.zeros((nbNds, totSweepEls + 1))
                 if dimSpace == 3:
-                    zMat = np.zeros((nbNds, totSweepEls + 1))
                     for ndi in range(0, nbNds):
                         zDest = [self.nodes[ndi, 2]]
                         for dNds in destNodes:
@@ -203,11 +211,11 @@ class Mesh2D:
                             "cubic",
                             axis=0,
                             bounds_error=False,
-                            fill_value="extrapolate",
+                            fill_value="extrapolate",  # pyright: ignore[reportArgumentType]  # pyright: ignore[reportArgumentType]
                         )
                         zAll = iFun(pAll)
                         zMat[ndi, :] = zAll
-                for i in range(0, totSweepElements):
+                for i in range(0, totSweepEls):
                     for ndi in range(0, nbNds):
                         if dimSpace == 2:
                             self.nodes[nNds] = np.array([xMat[ndi, i + 1], yMat[ndi, i + 1]])
@@ -226,7 +234,7 @@ class Mesh2D:
             self.numNodes = nNds
             self.numQuadEls = nQuad
 
-        meshOut = dict()
+        meshOut = {}
         meshOut["nodes"] = self.nodes
         meshOut["elements"] = self.quadElements
         return meshOut
@@ -252,7 +260,7 @@ class Mesh2D:
             xCrd = xMin + i * stepLen
             p1 = np.array([xCrd, yMin])
             v1 = np.array([0.0, 1.0])
-            Xns = list()
+            Xns = []
             nearEdges = self.edgeGL.findInXYMargin(p1, xMarg, -1)
             for edi in nearEdges:
                 n1 = self.edgeNodes[edi, 0]
@@ -267,7 +275,7 @@ class Mesh2D:
                     if soln[1] > 0.0 and soln[1] < 1.0:
                         Xns.append([edi, soln[0]])
             iLen = len(Xns)
-            for i in range(0, iLen - 1):
+            for _ in range(0, iLen - 1):
                 for j in range(0, iLen - 1):
                     x1 = Xns[j]
                     x2 = Xns[j + 1]
@@ -291,7 +299,7 @@ class Mesh2D:
             yCrd = yMin + i * stepLen
             p1 = np.array([xMin, yCrd])
             v1 = np.array([1.0, 0.0])
-            Xns = list()
+            Xns = []
             nearEdges = self.edgeGL.findInXYMargin(p1, -1, yMarg)
             for edi in nearEdges:
                 n1 = self.edgeNodes[edi, 0]
@@ -306,7 +314,7 @@ class Mesh2D:
                     if soln[1] > 0.0 and soln[1] < 1.0:
                         Xns.append([edi, soln[0]])
             iLen = len(Xns)
-            for i in range(0, iLen - 1):
+            for _ in range(0, iLen - 1):
                 for j in range(0, iLen - 1):
                     x1 = Xns[j]
                     x2 = Xns[j + 1]
@@ -649,7 +657,7 @@ class Mesh2D:
         Dmat = np.zeros(dim)
         bDim = 2 * self.numBndNodes
         Dmat[0:bDim] = 100000.0
-        Pmat = 10.0 * np.ones(dim) + Dmat
+        _ = 10.0 * np.ones(dim) + Dmat
         Pinv = np.zeros(dim)
         Pinv[0:bDim] = 9.999e-6
         Pinv[bDim:dim] = 0.1
@@ -709,7 +717,7 @@ class Mesh2D:
             gVec = gVec + alpha * zVec
             wVec = np.multiply(Pinv, gVec)
             rNext = np.dot(gVec, wVec)
-            beta = rNext / res
+            _ = rNext / res
             res = rNext
             hVec = -wVec
             i = i + 1
@@ -775,11 +783,11 @@ class Mesh2D:
                     if elElim[el] == 1:
                         abrt = True
                 if not abrt:
-                    newElNds = list()
+                    newElNds = []
                     for el in ndElems[ndi, 1:4]:
                         newElNds.extend(self.triElements[el])
                     srtedNds = np.sort(newElNds)
-                    finalNds = list()
+                    finalNds = []
                     for i in range(0, 8):
                         j = srtedNds[i]
                         if j != ndi and srtedNds[i + 1] == j:
@@ -796,16 +804,16 @@ class Mesh2D:
                     if elElim[el] == 1:
                         abrt = True
                 if not abrt:
-                    newElNds = list()
+                    newElNds = []
                     for el in ndElems[ndi, 1:4]:
                         newElNds.extend(self.triElements[el])
                     srtedNds = np.sort(newElNds)
-                    nds12 = list()
+                    nds12 = []
                     for i in range(0, 8):
                         j = srtedNds[i]
                         if j != ndi and j == srtedNds[i + 1]:
                             nds12.append(j)
-                    nds34 = list()
+                    nds34 = []
                     for i in range(0, 8):
                         j = srtedNds[i]
                         if j != ndi and j not in nds12:
@@ -867,7 +875,7 @@ class Mesh2D:
             elElim = self.mergePairsAbove(0.75, elElim, elLongEdge)
             nQuad = self.numQuadEls
 
-        finalNodes = list()
+        finalNodes = []
         ndNewInd = -np.ones(nNds, dtype=int)
         ndi = 0
         for ni in range(0, nNds):
@@ -890,7 +898,7 @@ class Mesh2D:
                 nd = self.quadElements[eli, j]
                 self.quadElements[eli, j] = ndNewInd[nd]
 
-        newTEind = list()
+        newTEind = []
         for i in range(0, nEls):
             if elElim[i] == 0:
                 newTEind.append(i)
@@ -976,7 +984,7 @@ class Mesh2D:
 
         self.unstructuredPost(elType)
 
-        meshOut = dict()
+        meshOut = {}
         meshOut["nodes"] = self.nodes
         totalEls = self.numTriEls + self.numQuadEls
         allEls = -np.ones((totalEls, 4), dtype=int)

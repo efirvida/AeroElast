@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aeroelast.local/validation/reference.schema.json",
+  "title": "AeroElast validation bibliography entry",
+  "description": "One canonical, auditable reference. docs/validation/references.yaml is the rector; docs/references.md is generated from it. Field rules that need cross-file context (citation-key resolution, declared-vs-found citation diffing, .sources/ absence) are enforced by tools/validation_matrix.py 'check', not by this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["key", "section", "kind", "authors", "doi_status", "held"],
+  "properties": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Stable join key. Matrix rows cite it via reference.citation; docs/references.md groups by it."
+    },
+    "section": {
+      "type": "string",
+      "description": "Bibliography section title, e.g. '1. Shell element formulations'. Replaces the old section-number pointer, which renumbering silently broke."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["journal", "conference", "report", "manual", "software", "thesis", "book"]
+    },
+    "authors": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Verbatim as printed, 'Family, G.' form. Empty is allowed only when 'authors' is declared in bibliographic_gaps: an absence is recorded, never left implicit."
+    },
+    "title": {
+      "type": ["string", "null"],
+      "description": "Null only with 'title' in bibliographic_gaps."
+    },
+    "venue": {"type": ["string", "null"]},
+    "volume": {"type": ["string", "null"]},
+    "issue": {"type": ["string", "null"]},
+    "pages": {"type": ["string", "null"]},
+    "year": {
+      "type": ["integer", "null"],
+      "minimum": 1900,
+      "maximum": 2100,
+      "description": "Null only with 'year' in bibliographic_gaps. Software usually has no publication year and pins its identity with 'version' instead."
+    },
+    "version": {
+      "type": ["string", "null"],
+      "description": "The version that pins a software entry's identity, e.g. 'v2406' or '4.2.1'. Required when kind == software and year is null."
+    },
+    "bibliographic_gaps": {
+      "type": "array",
+      "items": {"enum": ["authors", "title", "year", "venue", "volume", "pages"]},
+      "description": "The fields the source does not state. A field named here must actually be absent, and a required field that is absent must be named here: the store never invents a year, an author or a title to satisfy a validator."
+    },
+    "doi": {
+      "type": ["string", "null"],
+      "pattern": "^10\\.\\d{4,9}/\\S+$",
+      "description": "Bare DOI, no URL prefix."
+    },
+    "doi_status": {
+      "type": "string",
+      "enum": ["verified", "printed_on_pdf", "verified_externally", "to_verify", "not_applicable"],
+      "description": "verified and printed_on_pdf both require a held copy, because both are claims about one: held: true, held_files and a verification_note. verified_externally is for a DOI read from a record outside the repository (publisher page, registry) with no copy held, and requires verification: external_record. not_applicable covers report numbers, proprietary manuals and journals registering no DOI, and requires notes."
+    },
+    "held": {"type": "boolean"},
+    "held_files": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Paths under .sources/, which is gitignored: absence in a fresh clone is a warning, never a failure."
+    },
+    "verification": {
+      "type": ["string", "null"],
+      "enum": ["verified_pdf", "repository_citation", "external_record", "unverified", null],
+      "description": "The convention docs/references.md states in prose today. external_record is a citation read from a publisher page or registry rather than from a held file."
+    },
+    "verification_note": {
+      "type": ["string", "null"],
+      "description": "What exactly was read off the held copy: authors, title, journal, volume, year, printed DOI, page count."
+    },
+    "cited_by_declared": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_./-]+(:\\d+(-\\d+)?)?$",
+        "description": "file or file:line, repository-relative."
+      },
+      "description": "The audited claim carried over from the current prose ('Cited by the code: file:line'), kept only when it still verifies. Diffed by check against cited_by_found."
+    },
+    "cited_by_stale": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Sites the prose claims but the code no longer supports. Kept visible here instead of being dropped or stored as if true; `references check` reports each one as a warning."
+    },
+    "cited_by_docs": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Documents in this repository that cite the work, as file or file:line. Validated for existence, so deleting or moving a document breaks check instead of leaving a note that rots silently."
+    },
+    "recovered_from": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "Where the bibliographic data came from when verification is repository_citation: the sites already in this repository. Validated for existence for the same reason."
+    },
+    "code_mentions": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "description": "The literal strings the code uses when citing this work, e.g. 'Ko2017'. cited_by_found is derived from these, because the code cites author-year text and never the store's key; without them every declared site would read as a false mismatch."
+    },
+    "bibtex_key": {"type": ["string", "null"]},
+    "notes": {"type": ["string", "null"]},
+    "orphan_ok": {
+      "type": "boolean",
+      "default": false,
+      "description": "A reference neither cited by a matrix row nor present in cited_by_declared must set this with a reason in notes."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"doi_status": {"enum": ["verified", "printed_on_pdf"]}}, "required": ["doi_status"]},
+      "then": {
+        "required": ["doi", "held", "held_files", "verification_note", "verification"],
+        "properties": {
+          "doi": {"type": "string"},
+          "held": {"const": true},
+          "held_files": {"minItems": 1},
+          "verification_note": {"type": "string", "minLength": 1},
+          "verification": {"enum": ["verified_pdf", "repository_citation"]}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"doi_status": {"const": "verified_externally"}}, "required": ["doi_status"]},
+      "then": {
+        "required": ["doi", "verification", "verification_note"],
+        "properties": {
+          "doi": {"type": "string"},
+          "verification": {"const": "external_record"},
+          "verification_note": {"type": "string", "minLength": 1},
+          "held": {"const": false}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"doi_status": {"const": "to_verify"}}, "required": ["doi_status"]},
+      "then": {"properties": {"doi": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"doi_status": {"const": "not_applicable"}}, "required": ["doi_status"]},
+      "then": {"required": ["notes"], "properties": {"doi": {"type": "null"}, "notes": {"type": "string", "minLength": 1}}}
+    }
+  ]
+}

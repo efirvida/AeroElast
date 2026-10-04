@@ -18,8 +18,7 @@ class BillOfMaterials(dict):
     """
 
     def __init__(self):
-        self.indices: dict = None
-        pass
+        self.indices: dict = {}
 
     def generate(self, definition: Definition, keypoints: KeyPoints):
         """This method generates the Bill-of-Materials
@@ -35,11 +34,23 @@ class BillOfMaterials(dict):
         # set conversion constants
         g_to_kg = 0.001
         m_to_mm = 1000.0
-        mm_to_m = 0.001
 
         materials = definition.materials
         components = definition.components
         ispan = definition.ispan
+        if (
+            ispan is None
+            or keypoints.key_areas is None
+            or keypoints.key_arcs is None
+            or keypoints.web_areas is None
+            or keypoints.web_width is None
+            or keypoints.le_bond is None
+            or keypoints.te_bond is None
+            or keypoints.web_bonds is None
+        ):
+            raise RuntimeError(
+                "BillOfMaterials.generate() requires a populated definition and keypoints"
+            )
 
         self["hp"] = []
         self["lp"] = []
@@ -86,8 +97,8 @@ class BillOfMaterials(dict):
                         cur_bom.layernum = hprow
                         cur_bom.materialid = comp.materialid
                         cur_bom.name = comp.name
-                        cur_bom.beginsta = ispan[begin_station[ks]]
-                        cur_bom.endsta = ispan[end_station[ks]]
+                        cur_bom.beginsta = float(ispan[begin_station[ks]])
+                        cur_bom.endsta = float(ispan[end_station[ks]])
                         cur_bom.maxwidth = np.amax(arcs)
                         cur_bom.avgwidth = np.mean(arcs)
                         cur_bom.area = regionarea
@@ -113,8 +124,8 @@ class BillOfMaterials(dict):
                         cur_bom.layernum = lprow
                         cur_bom.materialid = comp.materialid
                         cur_bom.name = comp.name
-                        cur_bom.beginsta = ispan[begin_station[ks]]
-                        cur_bom.endsta = ispan[end_station[ks]]
+                        cur_bom.beginsta = float(ispan[begin_station[ks]])
+                        cur_bom.endsta = float(ispan[end_station[ks]])
                         cur_bom.maxwidth = np.amax(arcs)
                         cur_bom.avgwidth = np.mean(arcs)
                         cur_bom.area = regionarea
@@ -125,7 +136,7 @@ class BillOfMaterials(dict):
                         lprow = lprow + 1
 
         # shearwebs
-        swnum = None
+        swnum = -1
         swrow = 0
         sw_begin_station = []
         sw_end_station = []
@@ -163,8 +174,8 @@ class BillOfMaterials(dict):
                     cur_bom.layernum = swrow
                     cur_bom.materialid = comp.materialid
                     cur_bom.name = comp.name
-                    cur_bom.beginsta = ispan[begin_station[ks]]
-                    cur_bom.endsta = ispan[end_station[ks]]
+                    cur_bom.beginsta = float(ispan[begin_station[ks]])
+                    cur_bom.endsta = float(ispan[end_station[ks]])
                     cur_bom.maxwidth = np.amax(keypoints.web_width[swnum])
                     cur_bom.avgwidth = np.mean(keypoints.web_width[swnum])
                     cur_bom.area = regionarea
@@ -244,13 +255,13 @@ class BillOfMaterialsEntry:
     """
 
     def __init__(self):
-        self.layernum: int = None
-        self.materialid: int = None
-        self.name: str = None
-        self.beginsta: float = None
-        self.endsta: float = None
-        self.maxwidth: float = None
-        self.avgwidth: float = None
-        self.area: float = None
-        self.thickness: float = None
-        self.weight: float = None
+        self.layernum: int | None = None
+        self.materialid: str | None = None
+        self.name: str | None = None
+        self.beginsta: float | None = None
+        self.endsta: float | None = None
+        self.maxwidth: float | None = None
+        self.avgwidth: float | None = None
+        self.area: float | None = None
+        self.thickness: float | None = None
+        self.weight: float | None = None

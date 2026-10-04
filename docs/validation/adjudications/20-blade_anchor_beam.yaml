@@ -1,0 +1,46 @@
+# Adjudication record for group 20, written by the session that built the test.
+
+group: "20"
+scope: tests/validation/blade/test_blade_twist_anchor_beam.py
+run: e1b7da7
+date: 2026-10-04
+
+adjudications:
+  - id: ADJ-1003
+    row: blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single
+    field: comparisons[2].tolerance.value
+    candidate_code: "tol=EI_BENDING_TOL, a module literal of 0.02"
+    verdict: the 2% bound is the two official decks disagreeing, not our implementation
+    resolution: >-
+      The reference is the ElastoDyn blade deck, authored independently of the
+      BeamDyn 6x6 this test reads, so the comparison is between two published
+      descriptions of the same turbine. Measured margins are 1.9239% against
+      FlpStff and 1.8011% against EdgStff - inside 2%, and the tightest in the
+      store. The bound is not accommodating our error: the same ~1.9% shows up
+      as reference scatter in verdict 15.1 and is the reason the earlier
+      "1.35x torsional deficit" was withdrawn (verdict 22.10) - it had been
+      computed by scaling a deck-referenced beam with a NuMAD-referenced ratio.
+      Tightening this bound below ~1.9% would assert an agreement the published
+      decks do not have with each other; it is therefore adjudicated at 2%,
+      with the margin reported as `near` rather than hidden.
+    decided_by: session 01a0fa52 (issue #9 work), on the maintainer's standing instruction
+    date: 2026-10-04
+    status: resolved
+
+  - id: ADJ-1004
+    row: blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single
+    field: comparisons[0].tolerance.value
+    candidate_code: "tol=0.01 against literals 4.605e10 and 8.749e10"
+    verdict: these two pin the reading, not physics
+    resolution: >-
+      EA and GKt are compared against rounded literals of the same BeamDyn deck
+      the 6x6 is parsed from, so the 1% bound is a guard against a parsing or
+      rounding regression (a changed station order, a different decoupling
+      convention), not evidence about the turbine. The independent content of the
+      test is ADJ-1003: the bending stiffnesses against a DIFFERENT deck, which is
+      also what rejects the torsion-at-index-3 reading by 42.6%. The literal
+      comparison stays because the extractor can only read a bound that resolves
+      in the module, and an alias into another module was reported UNREADABLE.
+    decided_by: session 01a0fa52 (issue #9 work), on the maintainer's standing instruction
+    date: 2026-10-04
+    status: resolved

@@ -1,0 +1,188 @@
+group: '24'
+rows:
+- id: composite_beam_parity.testcompositematerial_test_clt_matches_i.single
+  group: '24'
+  title: TestCompositeMaterial::test_clt_matches_independent_hand_reference
+  tests:
+  - tests/validation/parity/test_composite_beam_parity.py::TestCompositeMaterial::test_clt_matches_independent_hand_reference
+  validates: AeroElast CLT must match a first-principles CLT (external judge).
+  comparisons:
+  - label: rtol at line 440
+    asserted: true
+    reference:
+      kind: analytical
+      label: the independent hand CLT for the same laminate
+    tolerance:
+      kind: rtol
+      value: 1.0
+      source: tests/validation/parity/test_composite_beam_parity.py:440
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 447
+    asserted: true
+    reference:
+      kind: analytical
+      label: the independent hand CLT for the same laminate
+    tolerance:
+      kind: rtol
+      value: 1.0
+      source: tests/validation/parity/test_composite_beam_parity.py:447
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: atol at line 458
+    asserted: true
+    reference:
+      kind: analytical
+      label: the analytical B = 0 of a symmetric laminate
+    tolerance:
+      kind: atol
+      value: 1.0e-06
+      source: tests/validation/parity/test_composite_beam_parity.py:458
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 25dd0bc
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 1.09139e-10
+      text: 1.09139e-10 bound 1e-06
+      digest: e7d700a33097215c
+  - label: atol at line 466
+    asserted: true
+    reference:
+      kind: analytical
+      label: the analytical B = 0 of a symmetric laminate
+    tolerance:
+      kind: atol
+      value: 1.0e-06
+      source: tests/validation/parity/test_composite_beam_parity.py:466
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 25dd0bc
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 8.73115e-11
+      text: 8.73115e-11 bound 1e-06
+      digest: 5c81db5f7f3cd1b8
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_beam_parity.test_composite_axial_tension.single
+  group: '24'
+  title: test_composite_axial_tension
+  tests:
+  - tests/validation/parity/test_composite_beam_parity.py::test_composite_axial_tension
+  validates: Test composite shell under axial tension using full ABD matrices.
+  comparisons:
+  - label: rtol at line 609
+    asserted: true
+    reference:
+      kind: analytical
+      label: the independent hand CLT for the same laminate
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_composite_beam_parity.py:609
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 616
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23, the same mesh, layup and load
+    tolerance:
+      kind: rtol
+      value: 0.015
+      source: tests/validation/parity/test_composite_beam_parity.py:616
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_beam_parity.test_composite_isotropic_equiv.single
+  group: '24'
+  title: test_composite_isotropic_equiv
+  tests:
+  - tests/validation/parity/test_composite_beam_parity.py::test_composite_isotropic_equiv
+  validates: Test composite shell using isotropic equivalent (E_avg) for comparison.
+  comparisons:
+  - label: rtol at line 730
+    asserted: true
+    reference:
+      kind: analytical
+      label: the independent hand CLT for the same laminate
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_composite_beam_parity.py:730
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 737
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23, the same mesh, layup and load
+    tolerance:
+      kind: rtol
+      value: 0.015
+      source: tests/validation/parity/test_composite_beam_parity.py:737
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_beam_parity.test_composite_bending.single
+  group: '24'
+  title: test_composite_bending
+  tests:
+  - tests/validation/parity/test_composite_beam_parity.py::test_composite_bending
+  validates: Test composite shell under transverse bending.
+  comparisons:
+  - label: rtol at line 836
+    asserted: true
+    reference:
+      kind: analytical
+      label: the independent beam closed form for the in-plane bending case
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/parity/test_composite_beam_parity.py:836
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 843
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23, the same mesh, layup and load
+    tolerance:
+      kind: rtol
+      value: 0.025
+      source: tests/validation/parity/test_composite_beam_parity.py:843
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
