@@ -51,8 +51,6 @@ keeps the CCX run bounded while the CCX parity stays within ``MODAL_TOL``.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import numpy as np
 import pytest
 from scipy.optimize import linear_sum_assignment
@@ -110,6 +108,8 @@ NUMAD_PARKED_MODES = [
 ]
 
 #: Margin on top of the disagreement between two published references.
+from tests.support.assertions import assert_residual_below  # noqa: E402
+
 REFERENCE_MARGIN = 0.03
 
 #: Bernardi, Cherubini, Manganelli, Della Posta, Leonardi & De Palma, "Large
@@ -325,9 +325,12 @@ def test_blade_mass_matches_published_models(blade: dict) -> None:
     """The meshed blade mass is within ``MASS_TOL`` of the published models."""
     mass = blade["mass"]
     rel_article = abs(mass - ARTICLE_MASS_KG) / ARTICLE_MASS_KG
-    assert rel_article < MASS_TOL, (
-        f"blade mass {mass:,.0f} kg is {rel_article * 100:.2f}% from the article's "
-        f"{ARTICLE_MASS_KG:,.0f} kg (tol {MASS_TOL * 100:.0f}%)"
+    assert_residual_below(
+        rel_article,
+        tol=MASS_TOL,
+        kind="paper",
+        reference_name="Bernardi et al. 2025, the published article, blade mass",
+        what="blade mass",
     )
     # The definition report gives the blade itself as about 65 t; the model being
     # above it is expected (the article's own NuMAD conversion is +4.33% over it),
@@ -349,9 +352,12 @@ def test_blade_modal_frequencies_match_ccx(blade: dict, index: int) -> None:
     pairs = _matched_pairs(blade["ae"], blade["ccx"], N_COMPARE)
     rel, freq_ae, freq_ccx = pairs[index]
     print(f"  matched[{index}] aero={freq_ae:.3f} ccx={freq_ccx:.3f} rel={rel * 100:.2f}%")
-    assert rel < MODAL_TOL, (
-        f"blade mode {index}: aero={freq_ae:.3f} Hz ccx={freq_ccx:.3f} Hz "
-        f"rel={rel * 100:.2f}% (tol {MODAL_TOL * 100:.0f}%)"
+    assert_residual_below(
+        rel,
+        tol=MODAL_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23 S8R, the same mesh and composite properties",
+        what=f"matched blade mode {index}",
     )
 
 
@@ -455,9 +461,12 @@ def test_blade_static_tip_deflection_matches_ccx(blade: dict) -> None:
     aero = blade["static_ae"]
     ccx = blade["static_ccx"]
     rel = abs(aero - ccx) / abs(ccx)
-    assert rel < STATIC_TOL, (
-        f"static tip: aero={aero:.3f} m ccx={ccx:.3f} m rel={rel * 100:.2f}% "
-        f"(tol {STATIC_TOL * 100:.0f}%)"
+    assert_residual_below(
+        rel,
+        tol=STATIC_TOL,
+        kind="code",
+        reference_name="CalculiX 2.23 S8R, the same mesh and composite properties",
+        what="static tip deflection",
     )
 
 
@@ -475,9 +484,12 @@ def test_blade_static_deflection_matches_article_dlc(blade: dict) -> None:
             f"static tip: aero={aero:.2f} m article={ARTICLE_TIP_DEFLECTION_M} m "
             f"rel={rel * 100:.2f}% (bound {ARTICLE_STATIC_TOL * 100:.0f}%) -- proxy static load"
         )
-    assert rel < ARTICLE_STATIC_TOL, (
-        f"static tip: aero={aero:.2f} m article={ARTICLE_TIP_DEFLECTION_M} m "
-        f"rel={rel * 100:.2f}% (tol {ARTICLE_STATIC_TOL * 100:.0f}%)"
+    assert_residual_below(
+        rel,
+        tol=ARTICLE_STATIC_TOL,
+        kind="paper",
+        reference_name="Bernardi et al. 2025, the published article, static tip deflection",
+        what="static tip deflection",
     )
 
 
@@ -501,8 +513,10 @@ def test_blade_modal_frequencies_match_bernardi(blade: dict, index: int) -> None
             f"beam CSD vs shell: mode {index} differs by {rel * 100:.2f}% "
             f"(bound {BERNARDI_MODE_TOL * 100:.0f}%) -- validity limit of the shell vs a beam"
         )
-    assert rel < BERNARDI_MODE_TOL, (
-        f"bernardi mode {index}: aero={freq_ae:.3f} Hz ref={freq_ref:.3f} Hz "
-        f"rel={rel * 100:.2f}% (tol {BERNARDI_MODE_TOL * 100:.0f}%). "
-        f"computed modes: {blade['ae'].tolist()}"
+    assert_residual_below(
+        rel,
+        tol=BERNARDI_MODE_TOL,
+        kind="paper",
+        reference_name="Bernardi et al. 2025, the published article, the published beam-CSD modes",
+        what=f"mode {index} against the beam CSD",
     )

@@ -1,0 +1,380 @@
+group: '23'
+rows:
+- id: blade_iea15mw.test_blade_mass_matches_published_models.single
+  group: '23'
+  title: test_blade_mass_matches_published_models
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_mass_matches_published_models
+  validates: The meshed blade mass is within ``MASS_TOL`` of the published models.
+  comparisons:
+  - label: rtol at line 328
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, blade mass
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:328
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.0
+  group: '23'
+  title: test_blade_modal_frequencies_match_ccx[0]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[0]
+  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 355
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same mesh and composite properties
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:355
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.1
+  group: '23'
+  title: test_blade_modal_frequencies_match_ccx[1]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[1]
+  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 355
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same mesh and composite properties
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:355
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.2
+  group: '23'
+  title: test_blade_modal_frequencies_match_ccx[2]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[2]
+  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 355
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same mesh and composite properties
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:355
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.3
+  group: '23'
+  title: test_blade_modal_frequencies_match_ccx[3]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[3]
+  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 355
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same mesh and composite properties
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:355
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.4
+  group: '23'
+  title: test_blade_modal_frequencies_match_ccx[4]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_ccx[4]
+  validates: The first matched blade modes agree with CalculiX S8R within ``MODAL_TOL``.
+  comparisons:
+  - label: rtol at line 355
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same mesh and composite properties
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:355
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_static_tip_deflection_matches.single
+  group: '23'
+  title: test_blade_static_tip_deflection_matches_ccx
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_static_tip_deflection_matches_ccx
+  validates: Static flapwise tip deflection agrees with CCX S8R on the same load.
+  comparisons:
+  - label: rtol at line 464
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S8R, the same mesh and composite properties
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:464
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_static_deflection_matches_art.single
+  group: '23'
+  title: test_blade_static_deflection_matches_article_dlc
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_static_deflection_matches_article_dlc
+  validates: Tip deflection under the article's root moment matches its DLC 1.4 value.
+  comparisons:
+  - label: rtol at line 487
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, static tip deflection
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:487
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.0
+  group: '23'
+  title: test_blade_modal_frequencies_match_bernardi[0]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[0]
+  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  comparisons:
+  - label: rtol at line 516
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:516
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.1
+  group: '23'
+  title: test_blade_modal_frequencies_match_bernardi[1]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[1]
+  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  comparisons:
+  - label: rtol at line 516
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:516
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.2
+  group: '23'
+  title: test_blade_modal_frequencies_match_bernardi[2]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[2]
+  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  comparisons:
+  - label: rtol at line 516
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:516
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.3
+  group: '23'
+  title: test_blade_modal_frequencies_match_bernardi[3]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[3]
+  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  comparisons:
+  - label: rtol at line 516
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:516
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.4
+  group: '23'
+  title: test_blade_modal_frequencies_match_bernardi[4]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[4]
+  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  comparisons:
+  - label: rtol at line 516
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:516
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.5
+  group: '23'
+  title: test_blade_modal_frequencies_match_bernardi[5]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[5]
+  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  comparisons:
+  - label: rtol at line 516
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:516
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.6
+  group: '23'
+  title: test_blade_modal_frequencies_match_bernardi[6]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[6]
+  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  comparisons:
+  - label: rtol at line 516
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:516
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: blade_iea15mw.test_blade_modal_frequencies_match_berna.7
+  group: '23'
+  title: test_blade_modal_frequencies_match_bernardi[7]
+  tests:
+  - tests/validation/blade/test_blade_iea15mw_validation.py::test_blade_modal_frequencies_match_bernardi[7]
+  validates: The first 8 blade modes match Bernardi et al.'s published table.
+  comparisons:
+  - label: rtol at line 516
+    asserted: true
+    reference:
+      kind: paper
+      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      citation: bernardi2025
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_blade_iea15mw_validation.py:516
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

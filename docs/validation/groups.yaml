@@ -628,6 +628,33 @@ groups:
       form since the degrees case, and this is what it is for. The nonlinear
       case lands as the file's own xfail and not as a failure.
 
+  - id: "23"
+    title: >-
+      `tests/validation/blade/test_blade_iea15mw_validation.py`
+      (the IEA 15 MW blade against CCX and the published values)
+    slug: blade_iea15mw
+    citation: bernardi2025
+    source_files:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
+    # One assertion is not a comparison and is excluded by line. It is the
+    # second time a chained comparison has produced a site from its upper
+    # bound alone.
+    non_reference_asserts:
+      - at: "tests/validation/blade/test_blade_iea15mw_validation.py:339"
+        reason: >-
+          The blade mass against the definition report, asserted as a band:
+          above it, and within 20%. The extractor reads the upper half of that
+          chain as a comparison of its own, and the lower half is a sign rather
+          than a bound.
+    provenance_note: >-
+      Four references on purpose: the tight comparison is AeroElast against
+      CalculiX S8R on the same mesh and the same composite properties, and the
+      rest are the published values -- the article's blade mass and static tip,
+      its beam-CSD modes, and the definition report whose mass the model is
+      expected to sit above. The per-mode article bounds are computed from the
+      reference scatter at runtime, so the extractor reports those three
+      comparisons as unreadable rather than storing a bound it cannot read.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test
