@@ -14,7 +14,7 @@ from aeroelast.core.mesh.entities import ElementType, MeshElement, Node
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.models.blade.aerodynamics import AeroStation, AirfoilAero, BladeAero, PolarData
 from aeroelast.solvers.bem.engine import BEMResult
-from aeroelast.solvers.bem.force_projection import ForceProjector
+from aeroelast.solvers.bem.force_projection import RING_GAP_FRACTION, ForceProjector
 
 # =====================================================================
 # Synthetic-plate geometry (every expectation below is derived from this,
@@ -93,9 +93,7 @@ def _strip_widths(blade_aero: BladeAero, mesh: MeshModel, span_dir) -> np.ndarra
     span_coords = mesh.coords_array @ span_dir
     r = r + (span_coords.min() - r[0])
     r_mid = 0.5 * (r[:-1] + r[1:])
-    edges = np.concatenate(
-        [[2.0 * r[0] - r_mid[0]], r_mid, [2.0 * r[-1] - r_mid[-1]]]
-    )
+    edges = np.concatenate([[2.0 * r[0] - r_mid[0]], r_mid, [2.0 * r[-1] - r_mid[-1]]])
     return np.diff(edges)
 
 
@@ -407,3 +405,84 @@ class TestSingleNodeStrip:
         # Total force conservation
         verification = projector.verify(bem_result, forces)
         assert verification["force_error"] < 1.0  # relaxed for coarse discretisation
+
+
+# =====================================================================
+# Physical-ring grouping (issue #11, ODD task T2a)
+#
+# A BEM band is wider than one physical mesh ring, and a **prebent** ring's
+# nodes do not share a span coordinate: they come in two clusters a few
+# 1e-3 m apart.  A partial arc of such a ring is still flagged ``usable`` by
+# ``contour_report`` (an angular order about the centroid is always a simple
+# polygon), so the ring gap cannot be judged against the strip's own extent:
+# a strip is one BEM band (~0.44 m here) whose tolerance would fall below the
+# ring's prebend spread and shear each physical ring into partial arcs that
+# then receive a bogus Bredt wall flow.  The tolerance must ride the MESH's
+# span extent, the same scale the physical stations live on.
+# =====================================================================
+
+RING_STATIONS = (0.0, 0.44, 0.88)  # three physical rings inside one BEM band [m]
+RING_PREBEND = 1.0e-3  # a ring's two span levels, ~1e-3 m apart [m]
+FAR_STATION = 45.0  # a fourth ring far down the span, to lift the mesh extent [m]
+BEM_SPAN = 60.0  # two BEM stations -> the first band owns the three close rings
+
+
+def _make_prebent_ring_mesh(n_ring: int = 6):
+    """A round section repeated along the span, every ring split into two span levels.
+
+    Three rings sit at ``RING_STATIONS`` (one BEM band) and a fourth at ``FAR_STATION``
+    gives the mesh a span extent far larger than any single strip's.  Each ring is
+    bimodal: even-index nodes on the nominal station, odd-index nodes ``RING_PREBEND``
+    further along - the ~1e-3 m spread a prebent ring's two walls show on the blade.
+    """
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
+    stations = (*RING_STATIONS, FAR_STATION)
+    nodes = []
+    for z_nominal in stations:
+        for i in range(n_ring):
+            angle = 2.0 * np.pi * i / n_ring
+            z = z_nominal + (RING_PREBEND if i % 2 else 0.0)
+            nodes.append(Node([0.5 * np.cos(angle), 0.5 * np.sin(angle), z]))
+    elements = []
+    for r in range(len(stations) - 1):
+        for i in range(n_ring):
+            j = (i + 1) % n_ring
+            elements.append(
+                MeshElement(
+                    [
+                        nodes[r * n_ring + i],
+                        nodes[r * n_ring + j],
+                        nodes[(r + 1) * n_ring + j],
+                        nodes[(r + 1) * n_ring + i],
+                    ],
+                    ElementType.quad,
+                )
+            )
+    return MeshModel(nodes=nodes, elements=elements)
+
+
+class TestPrebentRingGrouping:
+    """A strip's physical rings must be grouped at the mesh's span scale."""
+
+    def test_prebent_rings_stay_whole_and_cover_the_strip(self):
+        mesh = _make_prebent_ring_mesh()
+        blade_aero = _make_simple_blade_aero(n_stations=2, hub_radius=3.0, span_length=BEM_SPAN)
+        projector = ForceProjector(mesh, blade_aero, span_direction=[0, 0, 1])
+
+        span = mesh.coords_array @ np.array([0.0, 0.0, 1.0])
+        global_extent = float(span.max() - span.min())
+        assert projector._ring_gap_tolerance == pytest.approx(RING_GAP_FRACTION * global_extent)
+
+        # The first BEM band owns all three close rings; the far ring is in the
+        # second band.  With the mesh-scaled tolerance each physical ring stays
+        # whole, so the band holds exactly three groups (the strip-scaled
+        # tolerance splits every ring in two and reports six).
+        k = 0
+        strip = projector._strips[k]
+        groups = projector._strip_ring_groups[k]
+        assert len(groups) == 3
+
+        covered = np.concatenate(groups)
+        assert len(covered) == len(strip.node_indices)
+        assert sorted(covered.tolist()) == list(range(len(strip.node_indices)))

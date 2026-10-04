@@ -19,6 +19,18 @@ from aeroelast.solvers.bem.section_contour import contour_report, rings_in_band
 
 logger = logging.getLogger(__name__)
 
+#: Fraction of the **mesh's** span extent used as the ring-merging gap tolerance.
+#: A strip is one BEM band (a few metres) and holds several physical mesh rings, each
+#: of which is prebent: its nodes spread over ~1e-3 m of span instead of lying in one
+#: plane.  Judging the ring gap against the strip's own extent puts the tolerance below
+#: that spread and shears each physical ring into partial arcs - and an arc is still a
+#: properly ordered, ``contour_report.usable`` polygon, so the gate below cannot catch
+#: it and Bredt's flow is applied to a bogus, small-area "ring".  The tolerance must
+#: therefore come from the mesh, whose extent it shares with the physical stations: on
+#: the 117 m blade this is 0.0117 m, above the ~1e-3 m prebend spread and well below the
+#: ~0.44 m station spacing.
+RING_GAP_FRACTION = 1e-4
+
 
 @dataclass
 class _Strip:
@@ -119,6 +131,11 @@ class ForceProjector:
         # measured along the span direction)
         span_coords = coords @ span_dir  # projection
 
+        # Ring-merging tolerance from the mesh's global span extent, never a
+        # strip's (see RING_GAP_FRACTION).  The same value separates every strip's
+        # physical rings.
+        self._ring_gap_tolerance = RING_GAP_FRACTION * float(span_coords.max() - span_coords.min())
+
         # BEM station radial positions (measured from the hub centre).
         #
         # A single-blade shell mesh is referenced to the blade root (span
@@ -180,6 +197,18 @@ class ForceProjector:
                     offsets=strip_coords - centroid,
                 )
             )
+
+        # Group every strip's nodes into physical rings **once**, with the
+        # mesh-scaled tolerance.  ``project()`` hands these groups to
+        # :func:`realise_section_load` so the strip's own (band-wide) extent can
+        # never set a tolerance below its rings' prebend spread.
+        self._strip_ring_groups: list[list[np.ndarray]] = []
+        for strip in self._strips:
+            if len(strip.node_indices) == 0:
+                self._strip_ring_groups.append([])
+                continue
+            strip_span = (strip.centroid + strip.offsets) @ span_dir
+            self._strip_ring_groups.append(rings_in_band(strip_span, self._ring_gap_tolerance))
 
         # ------------------------------------------------------------------
         # Per-strip load frames and AC-to-centroid offset vectors.
@@ -426,8 +455,15 @@ class ForceProjector:
             M_strip = M_ac - np.cross(self._strip_ac_offsets[k], F_strip)
 
             # Distribute to nodes: span moment as a Bredt wall shear flow, residual
-            # through the unchanged minimum-norm solve.
-            f_nodes = realise_section_load(strip, F_strip, M_strip, self._span_dir)
+            # through the unchanged minimum-norm solve.  The ring groups are the
+            # mesh-scaled ones precomputed in __init__, not the strip's own extent.
+            f_nodes = realise_section_load(
+                strip,
+                F_strip,
+                M_strip,
+                self._span_dir,
+                ring_groups=self._strip_ring_groups[k],
+            )
             forces[strip.node_indices] = f_nodes
 
         return forces
@@ -536,7 +572,12 @@ class ForceProjector:
 
         # Minimum-norm solution: f = Aᵀ (A Aᵀ)⁻¹ b
         AAT = A @ A.T
-        lam, _, _, _ = lstsq(AAT, b)
+        # scipy's stubs type the return as optional although it never is for valid input;
+        # narrow it explicitly instead of unpacking a possibly-None tuple.
+        solution = lstsq(AAT, b)
+        if solution is None:  # pragma: no cover - the stub's optional, not a real branch
+            raise RuntimeError("scipy.linalg.lstsq returned no solution")
+        lam = solution[0]
         f_flat = A.T @ lam
 
         return f_flat.reshape(n, 3)
@@ -564,27 +605,36 @@ def realise_section_load(
        ``torsion = M_strip . span_hat`` is the part the wall flow can carry, and
        ``transverse = M_strip - torsion * span_hat`` is left to the fallback.
     2. **Group the nodes.**  ``ring_groups`` (int index arrays into the strip's own
-       ``offsets``) when given; otherwise the strip's points are grouped by
-       :func:`rings_in_band` on their span coordinate with the scale-relative
-       ``gap_tolerance = 1e-4 * (span_max - span_min)``.  A strip can hold several physical
-       rings because the mesh's BEM band is wider than one ring; on a prebent blade one ring
-       spreads over ~1e-3 m of span while stations are ~0.44 m apart, so ``1e-4`` of the
-       blade's span separates them.
-    3. **Gate on usability.**  Each non-empty group is ordered and validated with
-       :func:`contour_report`.  The shear flow is used only when **every** non-empty group is
-       ``usable``; a multi-cell, concave or degenerate section falls back to the unchanged
-       :meth:`ForceProjector._distribute`, so a section the ordering cannot explain keeps
-       today's behaviour.
-    4. **Bredt per group.**  With ``G`` non-empty groups the span torque is split as the
-       equal share ``torsion / G``.  This is the zero-order quadrature of a distributed span
-       torque over the small band the strip represents: the strip's ``dr`` is the BEM
-       station width and the band is thin compared with the span, so a uniform share is the
-       natural (and only datum-free) choice; a single-ring strip is the exact ``G = 1``
-       case.  Each group's flow is ``q_g = torsion_g / (2 * report_g.area)``, and for every
-       ordered edge ``(i, j)`` the load ``0.5 * q_g * ell * tangent_hat`` is added to both
-       endpoint nodes (``ell`` the 3-D edge length, ``tangent_hat`` the unit edge vector).
+       ``offsets``) when given.  :meth:`ForceProjector.project` always passes the groups it
+       precomputed with the **mesh-scaled** tolerance
+       ``RING_GAP_FRACTION * (mesh span extent)``; a strip is one BEM band wider than one
+       physical ring, so the strip's own extent is the wrong scale.  When ``ring_groups`` is
+       ``None`` (direct callers, e.g. the thin-walled-tube test) the fallback groups the
+       strip's points by :func:`rings_in_band` with ``1e-4 * (strip span extent)`` -
+       which **assumes the strip is a single ring**, as it is for a tube cross-section.
+       A strip can hold several physical rings because the mesh's BEM band is wider than
+       one ring; on a prebent blade one ring spreads over ~1e-3 m of span while stations
+       are ~0.44 m apart, and a strip's own extent sets a tolerance below that spread,
+       shearing the ring into arcs.  Only the mesh-scaled groups are safe there.
+    3. **Gate on a single usable ring.**  The group is ordered and validated with
+       :func:`contour_report`, and the wall flow is used only for a strip that is
+       **exactly one usable ring**.  Anything else - several physical rings, a multi-cell
+       section, a concave or degenerate outline - falls back to the unchanged
+       :meth:`ForceProjector._distribute`, so it keeps today's behaviour.  The single-ring
+       restriction is measured, not cautious: on the repo's IEA-15MW blade a BEM band holds
+       three physical rings, and applying the equal-share flow to whole rings there moves the
+       tip section rotation from the min-norm ``-1.4843 deg`` to ``+0.1273 deg`` against
+       Zhou's nose-down ``-3.60 deg`` - a sign inversion, not a refinement.  A single-cell
+       tube is the case Bredt's ``q = M/(2A)`` describes exactly and the only one with an
+       independent reference, so it is the only case enabled; the multi-ring realisation
+       needs its own evidence first (its own work unit).  Note that a *partial arc* of a
+       split ring is still ``usable`` - an angular order about its own centroid is a simple
+       polygon - which is why the grouping tolerance comes from the mesh, not the strip.
+    4. **Bredt flow.**  ``q = torsion / (2 * report.area)``, and for every ordered edge
+       ``(i, j)`` the load ``0.5 * q * ell * tangent_hat`` is added to both endpoint nodes
+       (``ell`` the 3-D edge length, ``tangent_hat`` the unit edge vector).
        :func:`order_ring` orients the ring CCW as seen from ``+span``, so a positive
-       ``torsion_g`` produces a moment along ``+span``.
+       ``torsion`` produces a moment along ``+span``.
     5. **Residual.**  The realised nodal moment ``M_shear = sum_j cross(offset_j, f_j)`` is
        read back about the strip centroid and the leftover force/moment
        ``F_strip - sum_j f_j`` and ``M_strip - M_shear`` are routed through
@@ -619,40 +669,45 @@ def realise_section_load(
     torsion = float(M_strip @ span_hat)
 
     if ring_groups is None:
+        # Fallback for direct callers: the strip's own extent.  This assumes the strip is
+        # one physical ring (true for a tube cross-section).  ``project()`` never takes this
+        # path - it always passes the mesh-scaled groups precomputed in __init__.
         points = strip.centroid + strip.offsets
         span_coords = points @ span_hat
         if span_coords.size:
             span_extent = float(span_coords.max() - span_coords.min())
         else:
             span_extent = 0.0
-        ring_groups = rings_in_band(span_coords, 1e-4 * span_extent)
+        ring_groups = rings_in_band(span_coords, RING_GAP_FRACTION * span_extent)
 
     groups = [np.asarray(g, dtype=np.intp).ravel() for g in ring_groups if len(g) > 0]
-    if not groups:
+    if len(groups) != 1:
+        # Several physical rings in one BEM band.  The equal-share per-ring flow is not pinned
+        # by any reference and is measured to invert the blade's tip rotation (see step 3), so
+        # this path falls back rather than shipping an unvalidated realisation.
         return ForceProjector._distribute(strip, F_strip, M_strip)
 
-    reports = [contour_report(strip.centroid + strip.offsets[group], span_hat) for group in groups]
-    if not all(report.usable for report in reports):
+    group = groups[0]
+    report = contour_report(strip.centroid + strip.offsets[group], span_hat)
+    if not report.usable:
         return ForceProjector._distribute(strip, F_strip, M_strip)
 
     n = len(strip.node_indices)
     f_shear = np.zeros((n, 3))
-    share = torsion / len(groups)
-    for group, report in zip(groups, reports, strict=True):
-        ordered = strip.centroid + strip.offsets[group][report.order]
-        local = group[report.order]
-        q = share / (2.0 * report.area)
-        m = len(local)
-        for k in range(m):
-            i = int(local[k])
-            j = int(local[(k + 1) % m])
-            edge = ordered[(k + 1) % m] - ordered[k]
-            ell = float(np.linalg.norm(edge))
-            if ell == 0.0:  # unusable rings are already excluded; keep the guard local
-                continue
-            half = 0.5 * (q * ell) * (edge / ell)
-            f_shear[i] = f_shear[i] + half
-            f_shear[j] = f_shear[j] + half
+    ordered = strip.centroid + strip.offsets[group][report.order]
+    local = group[report.order]
+    q = torsion / (2.0 * report.area)
+    m = len(local)
+    for k in range(m):
+        i = int(local[k])
+        j = int(local[(k + 1) % m])
+        edge = ordered[(k + 1) % m] - ordered[k]
+        ell = float(np.linalg.norm(edge))
+        if ell == 0.0:  # unusable rings are already excluded; keep the guard local
+            continue
+        half = 0.5 * (q * ell) * (edge / ell)
+        f_shear[i] = f_shear[i] + half
+        f_shear[j] = f_shear[j] + half
 
     M_shear = np.cross(strip.offsets, f_shear).sum(axis=0)
     if torsion != 0.0:
