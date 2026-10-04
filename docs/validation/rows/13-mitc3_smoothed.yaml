@@ -20,8 +20,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c16842d
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 3.8623
+      text: 3.8623% bound 5.0000%
+      digest: fe4dcb4a578a0bc4
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mitc3_smoothed.test_scordelis_lo_smoothed_mitc3_matches.16_1_0075
@@ -44,8 +49,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c16842d
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 1.0006
+      text: 1.0006% bound 5.0000%
+      digest: 76569abdbae0582d
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mitc3_smoothed.test_smoothing_relieves_scordelis_lo_mem.single
@@ -68,7 +78,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c16842d
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 2.6331
+      text: 2.6331% bound 5.0000%
+      digest: 4ce99f56fae7c984
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

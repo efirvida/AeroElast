@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c16842d
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 0.2143
+      text: 0.2143% bound 2.0000%
+      digest: 9ed38752fc5c8dcb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist_3d.test_3d_mesh_convergence.single
@@ -42,7 +47,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c16842d
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 0.2143
+      text: 0.2143% bound 2.0000%
+      digest: 9ed38752fc5c8dcb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

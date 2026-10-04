@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c16842d
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 0.0023
+      text: 0.0023% bound 1.0000%
+      digest: 4ec740a8369633c1
   - label: rtol at line 211
     asserted: true
     reference:
@@ -33,7 +38,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c16842d
+      date: '2026-10-04'
+      raw: null
+      margin_pct: 0.0049
+      text: 0.0049% bound 1.0000%
+      digest: cae435f6ec341e9a
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
