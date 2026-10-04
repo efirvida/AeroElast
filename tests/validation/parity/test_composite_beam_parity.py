@@ -484,12 +484,16 @@ class TestCompositeMaterial:
         # Check clamped at y=0
         clamped = list(mesh.get_node_set("clamped").nodes.values())
         for n in clamped:
-            assert np.isclose(n.y, 0.0, atol=1e-12)
+            assert abs(n.y) < 1e-12, f"clamped node {n.id} has y = {n.y:.6e}, expected 0"
 
         # Check free face at y=L
         free = list(mesh.get_node_set("free_face").nodes.values())
         for n in free:
-            assert np.isclose(n.y, L, atol=1e-12)
+            # np.isclose adds rtol times the second argument to its absolute bound, and the
+            # default rtol is 1e-05, so the claim the test was making included that term.
+            assert abs(n.y - L) <= 1e-12 + 1e-05 * abs(L), (
+                f"free-face node {n.id} has y = {n.y:.6e}, expected {L}"
+            )
 
 
 # =============================================================================

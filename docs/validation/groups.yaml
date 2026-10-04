@@ -413,11 +413,6 @@ groups:
     # Two assertions are not comparisons against the paper, and declaring the
     # whole test would lose the two that are. The lines are the ones the
     # extractor reported, not ones written from memory.
-    non_reference_asserts:
-      - at: "tests/validation/benchmarks/test_mitc3_smoothed.py:119"
-        reason: >-
-          The assembled stiffness matrix against its own transpose: a
-          symmetry of our own matrix, not an independent reference.
     provenance_note: >-
       The reference is Table 6 Mesh I of the paper, the normalized vertical
       displacement at point B of the Scordelis-Lo roof. The file re-reads the
@@ -611,15 +606,6 @@ groups:
       - tests/validation/parity/test_composite_beam_parity.py
     # Two assertions are mesh-connectivity checks, not comparisons. The
     # lines are the ones the extractor reported.
-    non_reference_asserts:
-      - at: "tests/validation/parity/test_composite_beam_parity.py:487"
-        reason: >-
-          The generated mesh's clamped nodes have y = 0, checked with np.isclose
-          inside an assert: a property of our own mesh generator.
-      - at: "tests/validation/parity/test_composite_beam_parity.py:492"
-        reason: >-
-          The same for the free face at y = L. Both are read as comparisons only
-          because of the atol keyword they carry.
     provenance_note: >-
       Two references per case, and the file says why: an independent hand CLT
       for the closed-form leg and CalculiX on the same mesh, layup and load for

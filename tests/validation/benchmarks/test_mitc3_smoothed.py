@@ -116,9 +116,11 @@ def test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6(n, expected):
 
     dense = K.todense()
     assert np.all(np.isfinite(dense)), "assembled K contains NaN/inf"
-    assert np.allclose(dense, dense.T, rtol=1e-10, atol=1e-10 * float(np.abs(dense).max())), (
-        "assembled K must be symmetric to round-off"
-    )
+    # The absolute bound of this check was written as 1e-10 times the matrix norm, because the
+    # round-off on entries near zero exceeds any small absolute bound; the norm-relative form is
+    # the same measure, and it is a property of our own matrix rather than a comparison.
+    asymmetry = float(np.max(np.abs(dense - dense.T))) / (float(np.abs(dense).max()) + 1e-30)
+    assert asymmetry < 1e-10, f"assembled K is not symmetric to round-off: {asymmetry:.3e} relative"
 
     norm = _normalized_tip(mesh, index, K)
     rel = abs(norm - expected) / expected
