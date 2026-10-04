@@ -1,0 +1,25 @@
+group: '8'
+rows:
+- id: isotropic_shell.testisotropicshellparity_test_transverse.single
+  group: '8'
+  title: TestIsotropicShellParity::test_transverse_tip_displacement
+  tests:
+  - tests/validation/parity/test_isotropic_shell_parity.py::TestIsotropicShellParity::test_transverse_tip_displacement
+  validates: 'Test: Does MITC4 vs S4 difference appear in isotropic shells?'
+  comparisons:
+  - label: rtol at line 371
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.23 S4, isotropic shell cantilever
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_isotropic_shell_parity.py:371
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

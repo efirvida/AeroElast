@@ -33,6 +33,8 @@ from _aeroelast import PyMeshAssembler
 from aeroelast.core.material import IsotropicMaterial
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.io.writers import write_ccx_mesh
+
+from tests.support.assertions import assert_relative_error  # noqa: E402
 from aeroelast.core.mesh.model import MeshModel
 
 
@@ -362,11 +364,15 @@ class TestIsotropicShellParity:
         print(f"  Ratio (CCX/AE):    {ratio:.3f}")
         print(f"  Difference:        {abs(disp_ccx - disp_ae):.6f} m ({abs(ratio - 1) * 100:.1f}%)")
 
-        # The comment here used to say "Allow 10%" over an enforced 5%.  The
-        # value is what ran, so the comment is what was wrong.
-        tol = 0.05
-        if abs(ratio - 1) > tol:
-            pytest.fail(
-                f"Isotropic shell mismatch: AE={disp_ae:.4f}, CCX={disp_ccx:.4f}, "
-                f"ratio={ratio:.3f}, tol={tol}"
-            )
+        # The comment here used to say "Allow 10%" over an enforced 5%, and the enforced value is
+        # the one that ran: the comment was what was wrong. The bound is the same 5% here; what
+        # changes is that the residual is now taken against the reference rather than against our
+        # own value, which is the suite's convention (the reference is the denominator).
+        assert_relative_error(
+            disp_ae,
+            disp_ccx,
+            tol=0.05,
+            kind="code",
+            reference_name="CalculiX 2.23 S4, isotropic shell cantilever",
+            what="free-end transverse displacement",
+        )

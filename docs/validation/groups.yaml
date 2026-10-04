@@ -166,6 +166,22 @@ groups:
       beam-theory value. The file asserts the two legs separately, which is why
       the two comparisons carry different kinds.
 
+  - id: "8"
+    title: >-
+      `tests/validation/parity/test_isotropic_shell_parity.py`
+      (isotropic shell cantilever against CCX S4)
+    slug: isotropic_shell
+    # No reference_kind: the comparison states its own kind and its
+    # reference, so the group declares neither.
+    # See docs/adding-validation-tests.md.
+    source_files:
+      - tests/validation/parity/test_isotropic_shell_parity.py
+    provenance_note: >-
+      The reference is CalculiX 2.23, read from the binary, run as S4 on the
+      same cantilever the AeroElast MITC4 model uses. The file's own note is
+      kept beside the comparison: a comment there used to say "Allow 10%" over
+      an enforced 5%, and the enforced value is the one that ran.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test
