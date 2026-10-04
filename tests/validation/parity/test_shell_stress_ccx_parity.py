@@ -36,6 +36,8 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
 from aeroelast.core.assembler import MeshAssembler
+
+from tests.support.assertions import assert_relative_error  # noqa: E402
 from aeroelast.core.mesh.entities import (
     ElementSet,
     ElementType,
@@ -228,15 +230,31 @@ def test_outer_fibre_stress_matches_ccx_and_analytical(plate_stress: dict) -> No
     """AeroElast outer-fibre von Mises matches CalculiX 3D and beam theory."""
     aero = plate_stress["upper"]
     ccx = plate_stress["ccx"]
-    rel_ccx = abs(aero - ccx) / ccx
     rel_ana = abs(aero - ANALYTICAL_STRESS) / ANALYTICAL_STRESS
-    print(f"  aero vs ccx {rel_ccx * 100:.2f}%, aero vs analytical {rel_ana * 100:.2f}%")
-    assert rel_ccx < TOL_CCX, f"aero {aero / 1e6:.2f} MPa vs ccx {ccx / 1e6:.2f} MPa = {rel_ccx * 100:.2f}%"
+    print(
+        f"  aero vs ccx {abs(aero - ccx) / ccx * 100:.2f}%, "
+        f"aero vs analytical {rel_ana * 100:.2f}%"
+    )
+    # Two references, two statements, two comparisons: the test says which is which and the store
+    # reads it, instead of the kinds being declared beside the row. See docs/adding-validation-tests.md.
+    assert_relative_error(
+        aero,
+        ccx,
+        tol=TOL_CCX,
+        kind="code",
+        reference_name="CalculiX 2.23 3D solid, outer-fibre von Mises",
+        what="outer-fibre von Mises stress",
+    )
     if rel_ana > TOL_ANALYTICAL:
         pytest.xfail(
             f"coarse 8x2 linear mesh: outer fibre {rel_ana * 100:.2f}% from M c / I "
             f"(bound {TOL_ANALYTICAL * 100:.0f}%) -- validity limit of the mesh, not a bug"
         )
-    assert rel_ana < TOL_ANALYTICAL, (
-        f"aero {aero / 1e6:.2f} MPa vs analytical {ANALYTICAL_STRESS / 1e6:.2f} MPa = {rel_ana * 100:.2f}%"
+    assert_relative_error(
+        aero,
+        ANALYTICAL_STRESS,
+        tol=TOL_ANALYTICAL,
+        kind="analytical",
+        reference_name="beam theory M c / I, outer-fibre stress",
+        what="outer-fibre von Mises stress",
     )

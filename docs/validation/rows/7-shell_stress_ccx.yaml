@@ -7,29 +7,29 @@ rows:
   - tests/validation/parity/test_shell_stress_ccx_parity.py::test_outer_fibre_stress_matches_ccx_and_analytical
   validates: AeroElast outer-fibre von Mises matches CalculiX 3D and beam theory.
   comparisons:
-  - label: rel_err at line 234
+  - label: rtol at line 240
     asserted: true
     reference:
       kind: code
-      label: rel_ccx < TOL_CCX
+      label: CalculiX 2.23 3D solid, outer-fibre von Mises
     tolerance:
-      kind: rel_err
+      kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_shell_stress_ccx_parity.py:234
+      source: tests/validation/parity/test_shell_stress_ccx_parity.py:240
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: rel_err at line 240
+  - label: rtol at line 253
     asserted: true
     reference:
       kind: analytical
-      label: rel_ana < TOL_ANALYTICAL
+      label: beam theory M c / I, outer-fibre stress
     tolerance:
-      kind: rel_err
+      kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_shell_stress_ccx_parity.py:240
+      source: tests/validation/parity/test_shell_stress_ccx_parity.py:253
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
