@@ -7,15 +7,15 @@ rows:
   - tests/validation/parity/test_orthotropic_shell_parity.py::test_orthotropic_axial
   validates: Test orthotropic composite shell under transverse (out-of-plane) load.
   comparisons:
-  - label: rel_err at line 342
+  - label: rtol at line 345
     asserted: true
     reference:
       kind: code
-      label: rel_error < 0.05
+      label: CalculiX 2.23 S8R, orthotropic cantilever
     tolerance:
-      kind: rel_err
+      kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_orthotropic_shell_parity.py:342
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:345
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -30,15 +30,15 @@ rows:
   - tests/validation/parity/test_orthotropic_shell_parity.py::test_orthotropic_bending
   validates: '[0/90/90/0] in-plane lateral bending (Fx) vs Euler-Bernoulli analytical.'
   comparisons:
-  - label: rel_err at line 404
+  - label: rtol at line 407
     asserted: true
     reference:
       kind: analytical
-      label: rel_error < 0.05
+      label: the closed form for in-plane bending of the orthotropic cantilever
     tolerance:
-      kind: rel_err
+      kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_orthotropic_shell_parity.py:404
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:407
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -53,15 +53,15 @@ rows:
   - tests/validation/parity/test_orthotropic_shell_parity.py::test_multi_layer_iso_equivalence
   validates: N identical isotropic plies must give same K as a single layer of total thickness.
   comparisons:
-  - label: rel_err at line 485
+  - label: rtol at line 496
     asserted: true
     reference:
       kind: self
-      label: rel_diff < 0.0001
+      label: the same laminate built as one isotropic layer
     tolerance:
-      kind: rel_err
+      kind: rtol
       value: 0.0001
-      source: tests/validation/parity/test_orthotropic_shell_parity.py:485
+      source: tests/validation/parity/test_orthotropic_shell_parity.py:496
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

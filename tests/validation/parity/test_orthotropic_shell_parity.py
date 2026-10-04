@@ -29,6 +29,11 @@ from aeroelast.core.laminate import Laminate, create_laminate_from_angles
 from aeroelast.core.material import OrthotropicMaterial
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
 from aeroelast.core.mesh.model import MeshModel
+
+from tests.support.assertions import (  # noqa: E402
+    assert_relative_error,
+    assert_residual_below,
+)
 from aeroelast.core.properties import CompositeShellProperty
 
 
@@ -334,12 +339,17 @@ def test_orthotropic_axial(tmp_path: Path):
 
     ccx_disp = _frd_disp_at_point(frd, np.array([center.x, center.y, center.z], dtype=float))
     ccx_uy = ccx_disp[1]
-    print(f"CCX Uy: {ccx_uy * 1e6:.2f} um")
 
-    rel_error = abs(aero_disp[i0 + 1] - ccx_uy) / max(abs(ccx_uy), 1e-12)
-    print(f"Error: {rel_error * 100:.2f}%")
-
-    assert rel_error < 0.05, f"Ortho transverse: {rel_error * 100:.1f}% > 5%"
+    # The residual is taken against the reference on both sides, exactly as it was: the original
+    # divided by the reference magnitude and the canonical form divides by the reference.
+    assert_relative_error(
+        aero_disp[i0 + 1],
+        ccx_uy,
+        tol=0.05,
+        kind="code",
+        reference_name="CalculiX 2.23 S8R, orthotropic cantilever",
+        what="ortho transverse tip displacement",
+    )
 
 
 def test_orthotropic_bending():
@@ -394,14 +404,14 @@ def test_orthotropic_bending():
     # Average Ux over all tip nodes (consistent with E-B beam tip displacement)
     ux_fem = float(np.mean([aero_disp[idx * DOFS_PER_NODE] for idx in tip_indices]))
 
-    rel_error = abs(ux_fem - ref) / ref
-    print(
-        f"AeroElast Ux: {ux_fem * 1e6:.2f} um  |  "
-        f"Analytical: {ref * 1e6:.2f} um  |  "
-        f"Error: {rel_error * 100:.1f}%"
+    assert_relative_error(
+        ux_fem,
+        ref,
+        tol=0.05,
+        kind="analytical",
+        reference_name="the closed form for in-plane bending of the orthotropic cantilever",
+        what="ortho bending tip displacement",
     )
-
-    assert rel_error < 0.05, f"Ortho bending vs analytical: {rel_error * 100:.1f}% > 5%"
 
 
 def test_multi_layer_iso_equivalence():
@@ -481,7 +491,12 @@ def test_multi_layer_iso_equivalence():
     # Both stiffness matrices must match to high precision
     K_ref_norm = np.linalg.norm(K_iso)
     rel_diff = np.linalg.norm(K_comp - K_iso) / K_ref_norm
-    print(f"Relative K difference (multi-layer vs single): {rel_diff:.3e}")
-    assert rel_diff < 1e-4, (
-        f"Multi-layer isotropic K differs from single-layer by {rel_diff:.2e} > 1e-4"
+    # Our own model against our own model, which rule 3 allows as a restrictive assertion and the
+    # store records as `self`. The bound is the file's own 1e-4.
+    assert_residual_below(
+        rel_diff,
+        tol=1e-4,
+        kind="self",
+        reference_name="the same laminate built as one isotropic layer",
+        what="multi-layer isotropic stiffness matrix",
     )
