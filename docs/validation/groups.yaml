@@ -98,6 +98,16 @@ out_of_scope:
       printable margin, and this file has neither. What it verifies is that
       the fast path agrees with the slow one, which is a software claim.
 
+  - files:
+      - tests/validation/blade/test_blade_section_torsion_stiffness.py
+    reason: >-
+      It states its own answer: the assertions are only the physics-pinned
+      invariants -- the torque ruler, self-equilibration, the removed rigid
+      modes and the sign of the accumulating twist -- and no bound is asserted
+      against the deck, the modal ratio or Zhou, all of which are quoted and
+      never re-run. A number quoted beside a comparison, but not compared, is
+      not a comparison.
+
 groups:
   - id: "3"
     title: >-
