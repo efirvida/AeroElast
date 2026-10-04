@@ -36,6 +36,8 @@ from aeroelast.elements import ElementFamily
 from aeroelast.postprocess.stress_recovery import StressLocation, StressRecovery, StressType
 from aeroelast.solvers.fsi.time_integration import NewmarkCoefficients
 
+from tests.support.assertions import assert_residual_below
+
 # ---------------------------------------------------------------------------
 # Optional FSI solver import (needs preCICE at runtime)
 # ---------------------------------------------------------------------------
@@ -309,19 +311,36 @@ class TestKGAssemblyPipeline:
         assert len(stress_field) == n_elem, (
             f"every element carries the uniform strain; got {len(stress_field)}/{n_elem}"
         )
-        for elem_id, sigma in stress_field.items():
-            sxx, syy, sxy = sigma
-            assert abs(sxx - sigma_xx_expected) < 1e-6 * sigma_xx_expected, (
-                f"element {elem_id}: sigma_xx {sxx:.6e} != plane-stress "
-                f"{sigma_xx_expected:.6e}"
-            )
-            assert abs(syy - sigma_yy_expected) < 1e-6 * sigma_xx_expected, (
-                f"element {elem_id}: sigma_yy {syy:.6e} != nu*sigma_xx "
-                f"{sigma_yy_expected:.6e}"
-            )
-            assert abs(sxy) < 1e-9 * sigma_xx_expected, (
-                f"element {elem_id}: sigma_xy {sxy:.3e} must vanish for pure axial stretch"
-            )
+        # Every element must carry the uniform plane-stress response, and the worst element is what
+        # says so: asserting the maximum is the same claim as asserting each one, stated once, so the
+        # comparison has one residual the store can record instead of one per element.
+        values = list(stress_field.values())
+        assert_residual_below(
+            max(abs(sigma[0] - sigma_xx_expected) / abs(sigma_xx_expected) for sigma in values),
+            tol=1e-6,
+            kind="analytical",
+            reference_name="the plane-stress closed form E/(1-nu^2) * eps",
+            what="worst element sigma_xx",
+        )
+        # The two below keep the bounds the loop had, and they are absolute: the file compares
+        # sigma_yy against 1e-6*sigma_xx and the vanishing shear against 1e-9*sigma_xx, which are
+        # quantities in Pa rather than fractions of the reference each one is measured against.
+        assert_residual_below(
+            max(abs(sigma[1] - sigma_yy_expected) for sigma in values),
+            atol=1e-6 * sigma_xx_expected,
+            unit="Pa",
+            kind="analytical",
+            reference_name="nu * sigma_xx of the same closed form",
+            what="worst element sigma_yy deviation",
+        )
+        assert_residual_below(
+            max(abs(sigma[2]) for sigma in values),
+            atol=1e-9 * sigma_xx_expected,
+            unit="Pa",
+            kind="analytical",
+            reference_name="zero shear in the plane-stress closed form",
+            what="worst element sigma_xy",
+        )
 
         K_G = domain.assemble_geometric_stiffness(stress_field=stress_field)
         assert isinstance(K_G, PETSc.Mat)

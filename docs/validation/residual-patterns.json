@@ -10,7 +10,11 @@
       "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
       "unasserted": "(?!)"
     },
-    "9": {
+    "12": {
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "unasserted": "(?!)"
+  },
+  "9": {
    "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
    "unasserted": "CCX 2\\.23\\s+\\S+:\\s+uy = \\S+ m\\s+\\(analytical \\S+ m, err (?P<error>\\S+)%\\)"
   },
