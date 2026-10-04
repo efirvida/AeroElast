@@ -108,6 +108,16 @@ out_of_scope:
       never re-run. A number quoted beside a comparison, but not compared, is
       not a comparison.
 
+  - files:
+      - tests/validation/blade/test_blade_twist_mechanism.py
+    reason: >-
+      An investigation rather than a validation: it measures what actually
+      drives the blade's elastic twist and refutes the attribution in issue #9.
+      Its assertions are dominance relations between two of our own quantities
+      -- the leading edge against the surface, the mid-span twist against the
+      same -- with bounds derived from those quantities. None of them is a
+      comparison against an independent reference.
+
 groups:
   - id: "3"
     title: >-
