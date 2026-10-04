@@ -82,7 +82,7 @@ class BEMResult:
 
 def _build_ccairfoil(airfoil: AirfoilAero):
     """Convert an ``AirfoilAero`` to a CCBlade ``CCAirfoil``."""
-    from ccblade.ccblade import CCAirfoil
+    from ccblade.ccblade import CCAirfoil  # pyright: ignore[reportMissingImports]
 
     polars_sorted = sorted(airfoil.polars, key=lambda p: p.re)
     re_list = [p.re for p in polars_sorted]
@@ -140,7 +140,7 @@ class BEMSolver:
         hub_height: float = 150.0,
         shear_exp: float = 0.2,
     ):
-        from ccblade.ccblade import CCBlade
+        from ccblade.ccblade import CCBlade  # pyright: ignore[reportMissingImports]
 
         self.blade_aero = blade_aero
 
