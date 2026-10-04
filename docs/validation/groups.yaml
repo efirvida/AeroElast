@@ -17,15 +17,6 @@ version: 1
 # "out of scope" from "forgotten", and `status` counts only the undeclared ones.
 out_of_scope:
   - files:
-      - tests/validation/parity/test_thin_walled_tube_moment_realization.py
-    reason: >-
-      It asserts that our own load machinery is consistent -- the torque ruler
-      twice and the two walls of our own model agreeing -- and compares nothing
-      against an independent reference. It exists to document a defect, and the
-      defect is recorded where defects go: gaps.yaml,
-      moment_realization_over_delivers.
-
-  - files:
       - tests/validation/bem/test_bem_engine.py
     reason: >-
       It tests the BEM engine wrapper: construction from BladeAero, the
@@ -783,6 +774,26 @@ groups:
       not covered by the suite, so `regression` cannot re-measure them; their
       `measured` values are the ones recorded when the matrix existed, and the
       reproduction command is in the row's notes.
+
+  - id: "31"
+    title: >-
+      `tests/validation/parity/test_thin_walled_tube_moment_realization.py`
+      (the production nodal moment realisation against Bredt's rate)
+    slug: tube_moment_realization
+    source_files:
+      - tests/validation/parity/test_thin_walled_tube_moment_realization.py
+
+    provenance_note: >-
+      The reference is Bredt's T/GJ twist rate of the same closed tube, the
+      closed form group 6 validates. This file is its own group because
+      `extract --write` derives one group from one scope: declaring it as a
+      second source of group 6 would regenerate that group's row file from a
+      single scope and drop the three rows already measured there. Only the
+      shear-flow case compares against the reference. The production
+      minimum-norm case asserts that it MISSES Bredt, which documents an open
+      defect instead of validating a bound, so that assertion stays bare and
+      the defect is recorded in gaps.yaml,
+      moment_realization_over_delivers.
 
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an

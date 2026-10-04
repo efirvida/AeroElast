@@ -43,8 +43,13 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from aeroelast.solvers.bem.force_projection import ForceProjector, _Strip  # noqa: E402
 
 import tests.validation.parity.test_thin_walled_tube_torsion as tube  # noqa: E402
+from tests.support.assertions import assert_relative_error  # noqa: E402
 
-TOL = tube.TOL  # the suite's 5% rule against the exact, independent Bredt reference
+# The suite's 5% rule (CONTRIBUTING), written as a module-level literal because the store's
+# extractor resolves a bound declared in this module and not an alias imported from another one:
+# `TOL = tube.TOL` left the comparison below unreadable. Same value as
+# tests/validation/parity/test_thin_walled_tube_torsion.py::TOL.
+TOL = 0.05
 WINDOW = (0.4 * tube.L, 0.9 * tube.L)  # the validated interior window of case A
 
 
@@ -149,9 +154,16 @@ def test_production_minimum_norm_moment_realisation_vs_bredt():
           f"wall shear flow |f|: min {np.linalg.norm(f_a_nodes, axis=1).min():.1f} "
           f"max {np.linalg.norm(f_a_nodes, axis=1).max():.1f}")
 
-    # Case A is the validated exact reference and must stay inside 5%.
-    assert abs(m_a["slope_fit"] / ref_rate - 1.0) < TOL, (
-        f"case A (validated shear flow) is {m_a['slope_fit'] / ref_rate:.4f}x Bredt"
+    # Case A is a comparison against an independent, exact reference, so it is written as one:
+    # Bredt's T/GJ rate is derived from the tube's geometry and isotropic GJ, not from the code
+    # under test.  A miss outside 5% is the finding and is never accommodated.
+    assert_relative_error(
+        m_a["slope_fit"],
+        ref_rate,
+        tol=TOL,
+        kind="analytical",
+        reference_name="Bredt's T/GJ twist rate for the closed tube",
+        what="shear-flow moment realisation interior twist rate",
     )
     # Case B misses the exact Bredt reference by a large factor.  This is the decisive finding:
     # the hypothesis is about *under*-delivery, and the measured departure is on the over side.
