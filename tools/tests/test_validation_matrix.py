@@ -1702,11 +1702,28 @@ def test_coherence_names_a_row_file_whose_citations_moved(tmp_path: Path) -> Non
 
 
 def test_the_real_store_is_coherent() -> None:
-    """The guard the maintainer asked for: the rows on disk are what the code says."""
+    """A cheap spot check: one group re-derives to the rows on disk."""
     completed = run(REAL_STORE, "coherence", "--group", "4")
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert "coherent" in completed.stdout
+
+
+@pytest.mark.slow
+def test_every_group_re_derives_to_the_rows_on_disk() -> None:
+    """The guard: no row file in the store cites a line the code does not have.
+
+    This is the whole sweep, and it is slow because it collects every validation file. It
+    belongs with the tool's own tests rather than with the physics suite: a row file goes
+    stale when a test is edited, so the person it protects is the one working on the store.
+    Deselect it with -m "not slow".
+    """
+    completed = run(REAL_STORE, "coherence")
+
+    # A stale file is refreshed as it is found, so the failure leaves the fix in the tree.
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "were stale" not in completed.stdout
+    assert "re-derive to the rows on disk" in completed.stdout
 
 
 def test_the_real_store_status_reports_no_pending_migration() -> None:
