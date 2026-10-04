@@ -31,6 +31,8 @@ from aeroelast.core.mesh.entities import (
 )
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.elements import ElementFamily
+
+from tests.support.assertions import assert_residual_below  # noqa: E402
 from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
 
 # Remove unknown mark - tests work without it
@@ -105,6 +107,12 @@ def fem_properties() -> dict:
 # =============================================================================
 # TEST 1: CANTILEVER BEAM BENDING
 # =============================================================================
+
+
+# The bound the convergence test holds itself to, named once at module level: the extractor resolves a
+# bound it finds as a module constant and cannot resolve a local, and a comparison whose bound it cannot
+# read is reported rather than stored.
+TOL = 0.05
 
 
 class TestCantileverBeam:
@@ -191,9 +199,12 @@ class TestCantileverBeam:
         # Error
         rel_error = abs(delta_numerical - delta_analytical) / delta_analytical
 
-        assert rel_error < 0.05, (
-            f"Cantilever beam: numerical={delta_numerical:.6e}, "
-            f"analytical={delta_analytical:.6e}, error={rel_error * 100:.1f}%"
+        assert_residual_below(
+            rel_error,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the cantilever beam closed form P L^3 / (3 E I)",
+            what="cantilever tip deflection",
         )
 
 
@@ -295,9 +306,12 @@ class TestSimplySupportedBeam:
 
         rel_error = abs(delta_numerical - delta_analytical) / delta_analytical
 
-        assert rel_error < 0.05, (
-            f"SS beam: numerical={delta_numerical:.6e}, "
-            f"analytical={delta_analytical:.6e}, error={rel_error * 100:.1f}%"
+        assert_residual_below(
+            rel_error,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the simply-supported closed form P L^3 (1 - nu^2) / (192 E I)",
+            what="centre deflection",
         )
 
 
@@ -375,10 +389,12 @@ class TestBeamBending:
         rel_error = abs(delta_numerical - delta_analytical) / delta_analytical
 
         # Finer mesh = smaller error
-        tol = 0.05
-        assert rel_error < tol, (
-            f"Bending: numerical={delta_numerical:.6e}, "
-            f"analytical={delta_analytical:.6e}, error={rel_error * 100:.1f}%"
+        assert_residual_below(
+            rel_error,
+            tol=TOL,
+            kind="analytical",
+            reference_name="the cantilever beam closed form P L^3 / (3 E I)",
+            what="bending tip deflection",
         )
 
 
@@ -468,9 +484,12 @@ class TestMembraneStretching:
 
         rel_error = abs(delta_numerical - delta_analytical) / delta_analytical
 
-        assert rel_error < 0.05, (
-            f"Membrane: numerical={delta_numerical:.6e}, "
-            f"analytical={delta_analytical:.6e}, error={rel_error * 100:.1f}%"
+        assert_residual_below(
+            rel_error,
+            tol=0.05,
+            kind="analytical",
+            reference_name="the axial extension closed form, epsilon L",
+            what="membrane extension",
         )
 
 

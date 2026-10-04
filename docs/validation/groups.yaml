@@ -512,6 +512,27 @@ groups:
       Each comparison states its own kind and reference, so the group declares
       neither.
 
+  - id: "19"
+    title: >-
+      `tests/validation/benchmarks/test_shell_analytical_validation.py`
+      (beam and plate closed forms)
+    slug: shell_analytical
+    source_files:
+      - tests/validation/benchmarks/test_shell_analytical_validation.py
+    # Every comparison is against a textbook closed form, computed in the
+    # file itself and stated by each call. The shear-locking test asserts
+    # its ratio is above a lower bound, which the extractor does not read,
+    # and the composite matrix test asserts shapes and lengths, which it
+    # does not read either.
+    provenance_note: >-
+      Four cases against closed forms evaluated in the file: the cantilever tip
+      deflection P L^3/(3 E I), the simply-supported centre deflection
+      P L^3 (1-nu^2)/(192 E I), the bending convergence case against the same
+      cantilever form, and the axial extension epsilon L. Two of the five tests
+      assert no comparison the extractor reads -- a ratio bound and a set of
+      array shapes -- so they are reported as tests with no comparison rather
+      than given rows.
+
   - id: "10"
     title: >-
       Evidence that exists outside `tests/`, and is not covered by a live test

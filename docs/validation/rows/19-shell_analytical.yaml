@@ -1,0 +1,186 @@
+group: '19'
+rows:
+- id: shell_analytical.testcantileverbeam_test_tip_deflection.4_2
+  group: '19'
+  title: TestCantileverBeam::test_tip_deflection[4-2]
+  tests:
+  - tests/validation/benchmarks/test_shell_analytical_validation.py::TestCantileverBeam::test_tip_deflection[4-2]
+  validates: Verify tip displacement matches beam theory.
+  comparisons:
+  - label: rtol at line 202
+    asserted: true
+    reference:
+      kind: analytical
+      label: the cantilever beam closed form P L^3 / (3 E I)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_analytical_validation.py:202
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_analytical.testcantileverbeam_test_tip_deflection.8_4
+  group: '19'
+  title: TestCantileverBeam::test_tip_deflection[8-4]
+  tests:
+  - tests/validation/benchmarks/test_shell_analytical_validation.py::TestCantileverBeam::test_tip_deflection[8-4]
+  validates: Verify tip displacement matches beam theory.
+  comparisons:
+  - label: rtol at line 202
+    asserted: true
+    reference:
+      kind: analytical
+      label: the cantilever beam closed form P L^3 / (3 E I)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_analytical_validation.py:202
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_analytical.testcantileverbeam_test_tip_deflection.16_8
+  group: '19'
+  title: TestCantileverBeam::test_tip_deflection[16-8]
+  tests:
+  - tests/validation/benchmarks/test_shell_analytical_validation.py::TestCantileverBeam::test_tip_deflection[16-8]
+  validates: Verify tip displacement matches beam theory.
+  comparisons:
+  - label: rtol at line 202
+    asserted: true
+    reference:
+      kind: analytical
+      label: the cantilever beam closed form P L^3 / (3 E I)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_analytical_validation.py:202
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_analytical.testsimplysupportedbeam_test_center_defl.single
+  group: '19'
+  title: TestSimplySupportedBeam::test_center_deflection
+  tests:
+  - tests/validation/benchmarks/test_shell_analytical_validation.py::TestSimplySupportedBeam::test_center_deflection
+  validates: Verify center deflection matches beam theory.
+  comparisons:
+  - label: rtol at line 309
+    asserted: true
+    reference:
+      kind: analytical
+      label: the simply-supported closed form P L^3 (1 - nu^2) / (192 E I)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_analytical_validation.py:309
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_analytical.testbeambending_test_bending_convergence.4_2
+  group: '19'
+  title: TestBeamBending::test_bending_convergence[4-2]
+  tests:
+  - tests/validation/benchmarks/test_shell_analytical_validation.py::TestBeamBending::test_bending_convergence[4-2]
+  validates: Verify deflection converges to analytical beam solution.
+  comparisons:
+  - label: rtol at line 392
+    asserted: true
+    reference:
+      kind: analytical
+      label: the cantilever beam closed form P L^3 / (3 E I)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_analytical_validation.py:392
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_analytical.testbeambending_test_bending_convergence.8_4
+  group: '19'
+  title: TestBeamBending::test_bending_convergence[8-4]
+  tests:
+  - tests/validation/benchmarks/test_shell_analytical_validation.py::TestBeamBending::test_bending_convergence[8-4]
+  validates: Verify deflection converges to analytical beam solution.
+  comparisons:
+  - label: rtol at line 392
+    asserted: true
+    reference:
+      kind: analytical
+      label: the cantilever beam closed form P L^3 / (3 E I)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_analytical_validation.py:392
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_analytical.testbeambending_test_bending_convergence.16_8
+  group: '19'
+  title: TestBeamBending::test_bending_convergence[16-8]
+  tests:
+  - tests/validation/benchmarks/test_shell_analytical_validation.py::TestBeamBending::test_bending_convergence[16-8]
+  validates: Verify deflection converges to analytical beam solution.
+  comparisons:
+  - label: rtol at line 392
+    asserted: true
+    reference:
+      kind: analytical
+      label: the cantilever beam closed form P L^3 / (3 E I)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_analytical_validation.py:392
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: shell_analytical.testmembranestretching_test_axial_extens.single
+  group: '19'
+  title: TestMembraneStretching::test_axial_extension
+  tests:
+  - tests/validation/benchmarks/test_shell_analytical_validation.py::TestMembraneStretching::test_axial_extension
+  validates: Verify axial extension under tension.
+  comparisons:
+  - label: rtol at line 487
+    asserted: true
+    reference:
+      kind: analytical
+      label: the axial extension closed form, epsilon L
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_shell_analytical_validation.py:487
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
