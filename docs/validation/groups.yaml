@@ -61,6 +61,23 @@ out_of_scope:
       asserts where our own load path places the datum, and its defect is
       recorded in gaps.yaml.
 
+  - files:
+      - tests/validation/element/test_quad_elements.py
+    reason: >-
+      Matrix properties and rigid-body modes for QUAD4, QUAD8 and QUAD9:
+      shape, symmetry, positive semi-definiteness, and the rigid modes. The
+      file says it itself -- the Rust assembler is the sole source of truth
+      -- and none of those properties is a comparison against an independent
+      reference.
+  - files:
+      - tests/validation/element/test_rust_composite.py
+    reason: >-
+      Composite shell element integration through the Rust batch
+      functions and PyMeshAssembler. Its docstring is explicit that every
+      test uses physical sanity checks only, and a sanity check is a
+      property of our own implementation rather than a measurement
+      against a reference.
+
 groups:
   - id: "3"
     title: >-
