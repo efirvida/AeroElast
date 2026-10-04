@@ -637,11 +637,11 @@ consequences:
 | T8 | done | `93c7384`, `9d284b3` | `tests/` is a package, helpers in `tests/support/`, 40 import sites rewritten; 44 validation files in six domains and 9 software files in three; the path is the classification; 527 nodes collected with zero import errors |
 | T9 | done | `ca286bb` | the two duplicate shell modules merged into one with the tighter asserts; 527 -> 520 nodes exactly, and the total still reads 520 after every change since |
 | T10 | done | `c4a2f6b`, `dac8db9` | movement detection by digest with the delta printed beside it; a source digest separates a changed test from a changed number; 37 `same` across two runs on the pilot |
-| T11 | in progress | four groups and nine extractor fixes, below | the store grew from 32 rows to 40: groups 4 (orthotropic shell), 5 (blade modal gap vs CCX), 6 (tube torsion vs Bredt) and 7 (shell stress vs CCX) added to 3 and 10 |
+| T11 | done | `1f67e43`, `9ea3622`, `943ef2a` | every validation file has a destination: 28 groups, 15 declared out of scope, 0 neither. The store went from 32 rows to 190, carrying 242 comparisons. The criterion reads canonical calls only now, which retired twenty declarations and the pilot's own duplicate helper; the pilot conforms, its `reference_kind` proven redundant by extracting the same rows with and without it. The sweep also found four latent defects in files that nothing had run, linted or type-checked since the `tests/` reorganisation, and four more that the type checker had never seen. Section 18 is what this task looked like before it was resolved |
 
 | T11 detail | deliverable | acceptance criteria |
 | --- | --- | --- |
-| Extend the store to the other validation domains | one group per validation file, with its `reference_kind` declared where every comparison shares one, per-comparison kinds where they do not, `non_reference_asserts` naming what is not a comparison against an independent reference, `validation_helpers` naming the same-module helpers that hold the comparisons, and `non_validation_tests` for the tests that produce no row at all | `check` green after every group; `extract --group N` closes with nothing undeclared; 520 nodes still collected; the parity sweep is 4 of 12 files done |
+| Extend the store to the other validation domains | one group per validation file, with per-comparison kinds declared, `non_reference_asserts` naming what is not a comparison against an independent reference, and `non_validation_tests` for the tests that produce no row at all | `check` green after every group; `extract --group N` closes with nothing undeclared; 520 nodes still collected; **the sweep is complete**: 42 files with no destination at the start of T11, 0 at the end, and the per-file conversions are recorded in the groups themselves. `validation_helpers` is at 0, `reference_kind` where every comparison shares one kind, and the declarations that remain are alive — the instrument that names a dead one reports none |
 | T11 fixes | the nine defects the sweep found in the tool, each with its own test | class-based node ids were invisible (15 of 42 files); `reference.kind` was guessed from prose instead of declared; an unreadable comparison cost its whole row; `unclaimed` never said why; `SLUG_RE` accepted a slug whose `ID_RE` rejected the id built from it; `set` could not repair a row it had not broken; `non_validation_tests` only worked in one direction; comparisons were carried by position instead of by source; a declaration had to spell a node id too long to wrap |
 
 | T7 detail | deliverable | acceptance criteria |
@@ -773,7 +773,15 @@ by default inside the pilot, and the pilot's output is what they are judged agai
 - Not filling the DOI gaps. `references.yaml` makes them listable; obtaining the DOIs is
   bibliography work.
 
-## 18. T11: the exclusion rule (proposal, awaiting one decision)
+## 18. T11: the exclusion rule (resolved: the criterion stopped counting them)
+
+**Resolved at `1f67e43`.** Everything below is the decision as it stood when it looked like a
+decision: whether a bare relational assert counts as evidence. The criterion stopped counting it. A
+comparison becomes a site when it names its reference and its kind through the helper, so the eight
+sites of 18.6 are properties and machinery again, and the dichotomy below dissolved instead of being
+picked. A property that deserves to be evidence says what it is and becomes a row of kind `self`;
+one that does not stays a bare assert and is not a site at all. The twenty declarations written to
+exclude them were retired at `9ea3622`, and no row count moved, because an exclusion is not a row.
 
 ### 18.1 What is measured
 
@@ -904,4 +912,10 @@ Recommendation: **A for the physics properties** (a symmetry, an idealised limit
 machinery** (a torque ruler, a thickness against the constant it was built from). The first says
 something about the model; the second says the test's own arithmetic works, which is not evidence
 about anything physical.
+
+**How it ended.** Neither branch was taken as written, because the criterion changed instead, which
+is the third possibility neither branch allowed for. The audit that proves nothing was lost: every
+group re-extracts to the number of rows already on disk, 190 in all, so none of these eight sites
+was a row the change removed. Groups 6, 7, 9 and 14 hold the comparisons that were converted and
+report the rest as nodes with no comparison, which is what they always were.
 
