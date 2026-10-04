@@ -18,12 +18,11 @@ Design goals
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Callable, Iterable
 
 import numpy as np
 import pytest
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, csr_array
 from scipy.sparse.linalg import spsolve
 
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
@@ -99,24 +98,12 @@ PAPER_REFS = {
 
 
 # Output directory for debug VTK files
-from tests.support.assertions import assert_residual_below  # noqa: E402
+from tests.support.assertions import (  # noqa: E402
+    assert_relative_error,
+    assert_residual_below,
+)
 from tests.support.paths import OUTPUT_DIR as OUTPUT_DIR_DEFAULT  # noqa: E402
 OUTPUT_DIR = OUTPUT_DIR_DEFAULT
-
-
-def assert_relative_error(value, reference, tol, name=""):
-    """Assert the relative error is within ``tol``; ``tol`` is authoritative.
-
-    This function used to carry a hard-coded 5% ``pytest.fail`` ceiling on top of
-    ``tol``, which made every call site's tolerance decorative: all of them pass
-    0.05, so the ceiling and the argument were the same number and the argument
-    could never be tightened without also moving the ceiling.
-    """
-    rel = abs(value - reference) / abs(reference)
-    assert rel < tol, (
-        f"{name}: rel error = {rel:.3%} > tol = {tol:.3%} "
-        f"(value={value:.6e}, reference={reference:.6e})"
-    )
 
 
 def estimate_convergence_order(h, e):
@@ -445,7 +432,7 @@ def _material_dict(material: IsotropicMaterial, thickness: float) -> dict[str, f
 
 def _assemble_global(
     mesh: MeshModel, material: IsotropicMaterial, thickness: float
-) -> tuple[coo_matrix, dict[int, int]]:
+) -> tuple[csr_array, dict[int, int]]:
     nodes_sorted = sorted(mesh.nodes, key=lambda n: n.id)
     node_id_to_idx = {n.id: i for i, n in enumerate(nodes_sorted)}
     ndof = len(nodes_sorted) * DOF
@@ -493,7 +480,7 @@ def _solve(K, F: np.ndarray, fixed: Iterable[int]) -> np.ndarray:
     fixed = np.array(sorted(set(fixed)), dtype=int)
     free = np.setdiff1d(np.arange(ndof), fixed)
     u = np.zeros(ndof)
-    u_free = spsolve(K[free, :][:, free], F[free])
+    u_free = np.asarray(spsolve(K[free, :][:, free], F[free]))
     u[free] = u_free
     return u
 
@@ -820,7 +807,13 @@ def test_3_1_square_plate_tables_2_to_5(
         expected_paper=expected_table2_3[distorted][t_over_L],  # MITC4+ value from paper
     )
     norm = _run_case(case_clamped)
-    assert np.isclose(norm, case_clamped.expected_normalized, rtol=0.05, atol=0.0)
+    assert_residual_below(
+        abs(norm - case_clamped.expected_normalized) / case_clamped.expected_normalized,
+        tol=0.05,
+        kind="paper",
+        reference_name="the Ko et al. 2017 table value the clamped case carries",
+        what="clamped case normalised displacement",
+    )
 
     # Simply supported (Tables 4–5)
     case_ss = _Case(
@@ -844,7 +837,13 @@ def test_3_1_square_plate_tables_2_to_5(
         expected_paper=expected_table4_5[distorted][t_over_L],  # MITC4+ value from paper
     )
     norm = _run_case(case_ss)
-    assert np.isclose(norm, case_ss.expected_normalized, rtol=0.05, atol=0.0)
+    assert_residual_below(
+        abs(norm - case_ss.expected_normalized) / case_ss.expected_normalized,
+        tol=0.05,
+        kind="paper",
+        reference_name="the Ko et al. 2017 table value the simply supported case carries",
+        what="simply supported case normalised displacement",
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -940,7 +939,9 @@ def test_3_2_circular_plate_tables_6_to_7(
         norm,
         case.expected_normalized,
         tol=0.05,
-        name=case.name,
+        kind="paper",
+        reference_name="the Ko et al. 2017 table value the case carries",
+        what=case.name,
     )
 
 
@@ -1129,7 +1130,9 @@ def test_3_3_pinched_cylinder_tables_8_to_9(distorted, expected):
         norm,
         case.expected_normalized,
         tol=0.05,
-        name=case.name,
+        kind="paper",
+        reference_name="the Ko et al. 2017 table value the case carries",
+        what=case.name,
     )
 
 
@@ -1287,7 +1290,9 @@ def test_3_4_scordelis_lo_tables_10_to_11(distorted, expected):
         norm,
         case.expected_normalized,
         tol=0.05,
-        name=case.name,
+        kind="paper",
+        reference_name="the Ko et al. 2017 table value the case carries",
+        what=case.name,
     )
 
 
@@ -1488,7 +1493,9 @@ def test_3_5_twisted_beam_tables_12_to_13(
         norm,
         case.expected_normalized,
         tol=tol,
-        name=case.name,
+        kind="paper",
+        reference_name="the Ko et al. 2017 table value the case carries",
+        what=case.name,
     )
 
 
@@ -1923,7 +1930,9 @@ def test_3_7_hemisphere_cutout_tables_15_to_16(distorted, t_over_R, P, expected_
         norm,
         case.expected_normalized,
         tol=0.05,
-        name=case.name,
+        kind="paper",
+        reference_name="the Ko et al. 2017 table value the case carries",
+        what=case.name,
     )
 
 
@@ -2026,7 +2035,9 @@ def test_3_8_full_hemisphere_table_17(t_over_R, P, expected_mitc4):
         norm,
         case.expected_normalized,
         tol=0.05,
-        name=case.name,
+        kind="paper",
+        reference_name="the Ko et al. 2017 table value the case carries",
+        what=case.name,
     )
 
 
@@ -2133,5 +2144,7 @@ def test_3_9_hyperbolic_paraboloid_tables_18_to_19(distorted, t_over_L, rho, exp
         norm,
         case.expected_normalized,
         tol=0.05,
-        name=case.name,
+        kind="paper",
+        reference_name="the Ko et al. 2017 table value the case carries",
+        what=case.name,
     )

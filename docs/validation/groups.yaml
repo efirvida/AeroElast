@@ -163,7 +163,6 @@ groups:
     # test against the paper's Table 14. A group declares this only when all
     # its comparisons share the kind; a mixed group declares none, and then
     # `check` fails until each comparison is decided by hand.
-    reference_kind: paper
     source_files:
       - tests/validation/benchmarks/test_ko2017_performance.py
     common_tolerance:
