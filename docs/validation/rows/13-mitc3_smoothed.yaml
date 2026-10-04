@@ -7,7 +7,7 @@ rows:
   - tests/validation/benchmarks/test_mitc3_smoothed.py::test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6[8-1.0323]
   validates: The smoothed element must reproduce the paper's own Mesh-I cells.
   comparisons:
-  - label: rtol at line 125
+  - label: rtol at line 127
     asserted: true
     reference:
       kind: paper
@@ -16,7 +16,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/benchmarks/test_mitc3_smoothed.py:125
+      source: tests/validation/benchmarks/test_mitc3_smoothed.py:127
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -31,7 +31,7 @@ rows:
   - tests/validation/benchmarks/test_mitc3_smoothed.py::test_scordelis_lo_smoothed_mitc3_matches_lee_lee_table_6[16-1.0075]
   validates: The smoothed element must reproduce the paper's own Mesh-I cells.
   comparisons:
-  - label: rtol at line 125
+  - label: rtol at line 127
     asserted: true
     reference:
       kind: paper
@@ -40,7 +40,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/benchmarks/test_mitc3_smoothed.py:125
+      source: tests/validation/benchmarks/test_mitc3_smoothed.py:127
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -55,7 +55,7 @@ rows:
   - tests/validation/benchmarks/test_mitc3_smoothed.py::test_smoothing_relieves_scordelis_lo_membrane_locking_at_n8
   validates: Smoothing must move the coarse-mesh result toward the reference plateau.
   comparisons:
-  - label: rtol at line 155
+  - label: rtol at line 157
     asserted: true
     reference:
       kind: paper
@@ -64,7 +64,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/benchmarks/test_mitc3_smoothed.py:155
+      source: tests/validation/benchmarks/test_mitc3_smoothed.py:157
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
