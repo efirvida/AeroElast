@@ -24,7 +24,7 @@ from scipy.linalg import lstsq
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.models.blade.aerodynamics import BladeAero
 from aeroelast.solvers.bem.engine import BEMResult
-from aeroelast.solvers.bem.section_contour import contour_report, rings_in_band
+from aeroelast.solvers.bem.section_contour import SectionCell, contour_report, rings_in_band
 
 logger = logging.getLogger(__name__)
 
@@ -792,3 +792,118 @@ def realise_section_load(
     residual_force = F_strip - f_shear.sum(axis=0)
     residual_moment = M_strip - M_shear
     return f_shear + ForceProjector._distribute(strip, residual_force, residual_moment)
+
+
+def multi_cell_shear_flow(
+    cells: list[SectionCell],
+    adjacency: dict[tuple[int, int], tuple[int, ...]],
+    edge_length: dict[tuple[int, int], float],
+    edge_thickness: dict[tuple[int, int], float],
+    torsion: float,
+) -> tuple[list[float], float]:
+    """Bredt-Batho shear flows of a multi-cell thin-walled section under torque ``T``.
+
+    A singly closed section carries the one wall flow ``q = T / (2 A)``.  A
+    section split by internal webs into several cells carries one flow per cell,
+    coupled through the shared webs.  For every cell the solver enforces
+
+        sum over the walls of cell i of  q_wall * ell_wall / t_wall = 2 * A_i * phi
+
+    where the wall flow is ``q_i`` on a wall that bounds only cell i and
+    ``q_i - q_j`` on a wall shared by cells i and j.  Together with the torque
+    equilibrium ``sum_i 2 * A_i * q_i = T`` this is the ``(n + 1)`` linear system
+
+        [ D       -2 a ] [ q   ]   [ 0 ]
+        [ 2 a^T    0   ] [ phi ] = [ T ]
+
+    with ``D[i, i] = sum ell / t`` over cell i's walls, ``D[i, j] = -ell_ij / t_ij``
+    on a wall shared by cells i and j (subtracted once per owner), ``a_i = A_i``
+    and ``phi`` the last unknown.  It is solved in one call to
+    :func:`numpy.linalg.solve` - no iteration, no tolerance, no regularisation.
+
+    Units.  ``ell / t`` is dimensionless, so the compatibility equation puts
+    ``q`` and ``2 A phi`` on the same footing: ``q`` comes out in N/m and
+    ``phi = G theta'`` in N/m^3 (stress per unit length).  ``G`` does not appear
+    in the system because every compatibility equation is homogeneous in it and
+    the flows are linear in ``phi``; the caller keeps ``G`` and recovers the
+    twist rate ``theta' = phi / G``.
+
+    Parameters
+    ----------
+    cells : list[SectionCell]
+        Bounded faces of the section's planar wall graph, as returned by
+        :func:`section_contour.section_cells`.  ``cell.edges`` are the walls and
+        ``cell.area`` the enclosed area in m^2.
+    adjacency : dict[tuple[int, int], tuple[int, ...]]
+        Wall-to-owner map from :func:`section_contour.cell_adjacency`: each
+        undirected wall key maps to the one cell it bounds or to the two cells
+        that share it.
+    edge_length, edge_thickness : dict[tuple[int, int], float]
+        Per-wall length and thickness in m, keyed by the undirected edge
+        ``(min(a, b), max(a, b))``.
+    torsion : float
+        Torque about the section's span axis in N.m.
+
+    Returns
+    -------
+    (flows, phi)
+        ``flows[i]`` is the shear flow of cell ``i`` in N/m, in ``cells`` order;
+        ``phi`` is the common ``G * theta'`` in N/m^3.
+
+    Raises
+    ------
+    ValueError
+        For fewer than one cell, a non-positive cell area, a non-positive wall
+        thickness, a wall missing from ``edge_length``/``edge_thickness``, a wall
+        owned by more than two cells, or a singular system.
+
+    Pure: ``cells``, ``adjacency`` and both dicts are read, never written.
+    """
+    n_cells = len(cells)
+    if n_cells < 1:
+        raise ValueError(f"multi_cell_shear_flow needs at least one cell, got {n_cells}")
+
+    matrix = np.zeros((n_cells + 1, n_cells + 1), dtype=float)
+    rhs = np.zeros(n_cells + 1, dtype=float)
+
+    for i, cell in enumerate(cells):
+        area = float(cell.area)
+        if not area > 0.0:
+            raise ValueError(f"cell {i} has non-positive area {area!r}")
+        for a, b in cell.edges:
+            key = (a, b) if a < b else (b, a)
+            if key not in edge_length:
+                raise ValueError(f"cell {i} wall {key} is missing from edge_length")
+            if key not in edge_thickness:
+                raise ValueError(f"cell {i} wall {key} is missing from edge_thickness")
+            thickness = float(edge_thickness[key])
+            if not thickness > 0.0:
+                raise ValueError(f"cell {i} wall {key} has non-positive thickness {thickness!r}")
+            ratio = float(edge_length[key]) / thickness
+            matrix[i, i] += ratio
+            owners = adjacency.get(key, (i,))
+            if len(owners) > 2:
+                raise ValueError(
+                    f"cell {i} wall {key} is owned by {len(owners)} cells; a thin-walled "
+                    "section wall is shared by at most two"
+                )
+            others = [int(owner) for owner in owners if int(owner) != i]
+            if len(others) == 1:
+                matrix[i, others[0]] -= ratio
+        # Compatibility row i: sum_j D[i, j] q_j - 2 A_i phi = 0, so the
+        # `-2 A_i` coefficient lives in phi's (last) column.
+        matrix[i, n_cells] = -2.0 * area
+        matrix[n_cells, i] = 2.0 * area
+
+    # Equilibrium row: sum_i 2 A_i q_i = T.
+    rhs[n_cells] = float(torsion)
+
+    try:
+        solution = np.linalg.solve(matrix, rhs)
+    except np.linalg.LinAlgError as exc:
+        raise ValueError(
+            "multi-cell shear-flow system is singular: the cell/wall graph is degenerate"
+        ) from exc
+
+    flows = [float(solution[i]) for i in range(n_cells)]
+    return flows, float(solution[n_cells])
