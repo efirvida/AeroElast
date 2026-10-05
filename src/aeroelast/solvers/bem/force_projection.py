@@ -21,10 +21,17 @@ from typing import List
 import numpy as np
 from scipy.linalg import lstsq
 
+from aeroelast.core.mesh.entities import ElementType
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.models.blade.aerodynamics import BladeAero
 from aeroelast.solvers.bem.engine import BEMResult
-from aeroelast.solvers.bem.section_contour import SectionCell, contour_report, rings_in_band
+from aeroelast.solvers.bem.section_contour import (
+    SectionCell,
+    cell_adjacency,
+    contour_report,
+    rings_in_band,
+    section_cells,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -794,11 +801,191 @@ def realise_section_load(
     return f_shear + ForceProjector._distribute(strip, residual_force, residual_moment)
 
 
+def _membrane_shear_stiffness(property_object) -> float | None:
+    """Integrated membrane shear stiffness ``A66`` [N/m] of a shell property.
+
+    The shell Voigt layout is ``[sigma_xx, sigma_yy, tau_xy]``, so index ``(2, 2)``
+    of the merged membrane stiffness ``Cm = C * h`` is the wall's in-plane shear
+    stiffness ``A66`` in N/m.  The property objects this tree produces are the
+    Rust ``_aeroelast.Laminate`` (which exposes the classical-lamination A matrix
+    as ``a_matrix()``) and the isotropic / composite dicts the assembler accepts
+    (``{"type": "isotropic", ...}`` or a flat ``"cm"`` A matrix); a Python
+    property exposing ``Cm()`` -- the historical element API the stress-recovery
+    docstring names -- is accepted as well.  Returns ``None`` when the property is
+    absent or unrecognised, so the caller can fall back to a uniform stiffness.
+    """
+    if property_object is None:
+        return None
+    cm = None
+    cm_method = getattr(property_object, "Cm", None)
+    if callable(cm_method):
+        cm = np.asarray(cm_method(), dtype=float)
+    elif hasattr(property_object, "a_matrix"):
+        cm = np.asarray(property_object.a_matrix(), dtype=float)
+    elif isinstance(property_object, dict):
+        if "cm" in property_object:
+            cm = np.asarray(property_object["cm"], dtype=float).reshape(3, 3)
+        elif property_object.get("type") == "isotropic":
+            # Plane-stress shear modulus G = E / (2 (1 + nu)); A66 = G * t.  The
+            # shear correction factor is for transverse shear, not the membrane A66.
+            e = float(property_object["e"])
+            nu = float(property_object["nu"])
+            thickness = float(property_object["thickness"])
+            return e / (2.0 * (1.0 + nu)) * thickness
+    if cm is None or cm.shape != (3, 3):
+        return None
+    return float(cm[2, 2])
+
+
+def _element_property_by_id(mesh: MeshModel, element_properties: dict | None) -> dict[int, object]:
+    """Map element id to its property, mirroring ``_to_rust_mesh``'s set convention.
+
+    ``element_properties`` is the ``{element_set_name: property}`` mapping returned
+    by ``Blade.get_element_properties()`` (a Rust ``Laminate`` or an isotropic /
+    composite dict).  An element's property is reached through the very membership
+    the assembler uses -- ``mesh.element_sets[set_name].elements`` -- rather than a
+    second, element-id-keyed convention.  When two sets claim the same element the
+    first set in ``element_properties`` order wins, deterministically.
+    """
+    mapping: dict[int, object] = {}
+    if not element_properties:
+        return mapping
+    for set_name, prop in element_properties.items():
+        element_set = mesh.element_sets.get(set_name)
+        if element_set is None:
+            continue
+        for element in element_set.elements:
+            mapping.setdefault(int(element.id), prop)
+    return mapping
+
+
+def ring_section(
+    mesh: MeshModel,
+    ring_nodes,
+    span_dir,
+    element_properties: dict | None = None,
+) -> tuple[list[SectionCell], dict, dict, dict]:
+    """Cells, adjacency, edge lengths and edge shear stiffness of one physical ring.
+
+    A closed thin-walled section's torsional flow depends on the wall graph of the
+    section -- its outer skin plus any internal webs -- and on each wall's membrane
+    shear stiffness.  This function recovers both from the finite-element mesh for
+    **one physical ring** (a strip's ring group, or any constant-span node set).
+
+    Parameters
+    ----------
+    mesh : MeshModel
+        The shell mesh.
+    ring_nodes : array-like of int
+        Global node indices of one physical ring: positional indices into
+        ``mesh.nodes`` / ``mesh.coords_array`` (the same indices
+        ``MeshModel.node_id_to_index`` yields), not node ids.
+    span_dir : array-like
+        Unit span axis; the section plane is normal to it.
+    element_properties : dict or None
+        ``{element_set_name: property}`` as returned by
+        ``Blade.get_element_properties()``.  The property is read through the
+        ``mesh.element_sets[set_name].elements`` membership the assembler itself
+        uses (see :func:`_element_property_by_id`).  When it is ``None``, or an
+        element's set has no entry, every wall falls back to a **uniform
+        ``S = 1.0`` N/m** and the returned split is **geometric only**; the caller
+        can therefore tell the two cases apart by inspecting the stiffness values.
+
+    The wall graph
+    --------------
+    For every mesh element the in-plane edges are the pairs of its nodes that
+    **both** belong to ``ring_nodes``.  A shell element spans two rings, so exactly
+    its chordwise edges lie in one ring (a quad ``[A_a, A_b, B_b, B_a]`` has the
+    chordwise edges ``(A_a, A_b)`` and ``(B_b, B_a)``); its spanwise edges and
+    diagonals do not.  Edges are enumerated along the element's node cycle, never
+    across it, so a quad's ``(n0, n2)`` / ``(n1, n3)`` diagonals cannot arise, and
+    only the corner cycle of the triangle / quad families is used so a quadratic
+    element's mid-side nodes cannot manufacture a spurious pair.
+
+    Per-edge shear stiffness
+    ------------------------
+    ``S = G * t`` (N/m) is read from the owning element's property via index
+    ``(2, 2)`` of the merged membrane stiffness ``Cm = C * h`` (``a_matrix()[2, 2]``
+    for the Rust laminate, the ``"cm"`` entry or ``G * t`` for the assembler dicts).
+    A chordwise edge is shared by the element above and the element below the ring;
+    adjacent elements across a ring normally share the same laminate, and the first
+    element encountered in ``mesh.elements`` order is taken as the owner.
+
+    Returns
+    -------
+    (cells, adjacency, edge_length, edge_shear_stiffness)
+        ``cells`` and ``adjacency`` come from
+        :func:`section_contour.section_cells` / :func:`section_contour.cell_adjacency`.
+        ``edge_length`` (m) and ``edge_shear_stiffness`` (N/m) are keyed by the
+        **undirected local ring edge** ``(min(a, b), max(a, b))`` with ``a, b`` local
+        indices into ``ring_nodes`` -- the same indexing the cells use.
+
+    Raises
+    ------
+    ValueError
+        When the ring has fewer than three nodes, when no element joins two ring
+        nodes, or when the wall graph bounds no cell.
+
+    Pure: the mesh and ``element_properties`` are read, never written.
+    """
+    ring = np.asarray(ring_nodes, dtype=np.intp).ravel()
+    if ring.size < 3:
+        raise ValueError(f"ring_section needs at least 3 ring nodes, got {ring.size}")
+
+    coords = mesh.coords_array
+    ring_points = coords[ring]
+    local_of_global = {int(global_index): local for local, global_index in enumerate(ring)}
+    element_property = _element_property_by_id(mesh, element_properties)
+
+    edge_owner: dict[tuple[int, int], int] = {}
+    for element in mesh.elements:
+        if element.element_type in (ElementType.triangle, ElementType.triangle6):
+            corner_count = 3
+        elif element.element_type in (
+            ElementType.quad,
+            ElementType.quad8,
+            ElementType.quad9,
+        ):
+            corner_count = 4
+        else:
+            continue
+        element_indices = [mesh.node_id_to_index[node_id] for node_id in element.node_ids]
+        corners = element_indices[:corner_count]
+        for a, b in zip(corners, corners[1:] + corners[:1], strict=True):
+            if a not in local_of_global or b not in local_of_global or a == b:
+                continue
+            la, lb = local_of_global[a], local_of_global[b]
+            key = (la, lb) if la < lb else (lb, la)
+            edge_owner.setdefault(key, int(element.id))
+
+    if not edge_owner:
+        raise ValueError(
+            "ring_section found no in-plane edge: no element chordwise edge joins two ring nodes"
+        )
+
+    cells = section_cells(ring_points, list(edge_owner), span_dir)
+    if not cells:
+        raise ValueError(
+            "ring_section found no closed cell: the ring's in-plane edges bound no face"
+        )
+
+    adjacency = {key: tuple(owners) for key, owners in cell_adjacency(cells).items()}
+    edge_length: dict[tuple[int, int], float] = {}
+    edge_shear_stiffness: dict[tuple[int, int], float] = {}
+    for key in edge_owner:
+        a, b = key
+        edge_length[key] = float(np.linalg.norm(ring_points[a] - ring_points[b]))
+        stiffness = _membrane_shear_stiffness(element_property.get(edge_owner[key]))
+        edge_shear_stiffness[key] = 1.0 if stiffness is None else float(stiffness)
+
+    return cells, adjacency, edge_length, edge_shear_stiffness
+
+
 def multi_cell_shear_flow(
     cells: list[SectionCell],
     adjacency: dict[tuple[int, int], tuple[int, ...]],
     edge_length: dict[tuple[int, int], float],
-    edge_thickness: dict[tuple[int, int], float],
+    edge_shear_stiffness: dict[tuple[int, int], float],
     torsion: float,
 ) -> tuple[list[float], float]:
     """Bredt-Batho shear flows of a multi-cell thin-walled section under torque ``T``.
@@ -807,26 +994,28 @@ def multi_cell_shear_flow(
     section split by internal webs into several cells carries one flow per cell,
     coupled through the shared webs.  For every cell the solver enforces
 
-        sum over the walls of cell i of  q_wall * ell_wall / t_wall = 2 * A_i * phi
+        sum over the walls of cell i of  q_wall * ell_wall / S_wall = 2 * A_i * theta'
 
     where the wall flow is ``q_i`` on a wall that bounds only cell i and
-    ``q_i - q_j`` on a wall shared by cells i and j.  Together with the torque
+    ``q_i - q_j`` on a wall shared by cells i and j, and ``S = G * t`` is the
+    wall's **membrane shear stiffness** in N/m.  Together with the torque
     equilibrium ``sum_i 2 * A_i * q_i = T`` this is the ``(n + 1)`` linear system
 
         [ D       -2 a ] [ q   ]   [ 0 ]
-        [ 2 a^T    0   ] [ phi ] = [ T ]
+        [ 2 a^T    0   ] [ theta'] = [ T ]
 
-    with ``D[i, i] = sum ell / t`` over cell i's walls, ``D[i, j] = -ell_ij / t_ij``
+    with ``D[i, i] = sum ell / S`` over cell i's walls, ``D[i, j] = -ell_ij / S_ij``
     on a wall shared by cells i and j (subtracted once per owner), ``a_i = A_i``
-    and ``phi`` the last unknown.  It is solved in one call to
-    :func:`numpy.linalg.solve` - no iteration, no tolerance, no regularisation.
+    and ``theta'`` the last unknown.  It is solved in one call to
+    :func:`numpy.linalg.solve` -- no iteration, no tolerance, no regularisation.
 
-    Units.  ``ell / t`` is dimensionless, so the compatibility equation puts
-    ``q`` and ``2 A phi`` on the same footing: ``q`` comes out in N/m and
-    ``phi = G theta'`` in N/m^3 (stress per unit length).  ``G`` does not appear
-    in the system because every compatibility equation is homogeneous in it and
-    the flows are linear in ``phi``; the caller keeps ``G`` and recovers the
-    twist rate ``theta' = phi / G``.
+    Units.  ``q * ell / S`` is dimensionless (it is ``gamma`` integrated along the
+    wall), so the compatibility equation puts ``q`` and ``2 A theta'`` on the same
+    footing: ``q`` comes out in N/m and ``theta'`` in rad/m.  Using one ``S`` per
+    wall -- rather than one ``G`` and one ``t`` -- is what lets the spar caps, the
+    skin and the webs carry their own laminates and split the flow accordingly; the
+    torsion constant ``J`` is then the caller's business, recovered as
+    ``J = T / theta'`` for the section's effective ``G``.
 
     Parameters
     ----------
@@ -838,24 +1027,24 @@ def multi_cell_shear_flow(
         Wall-to-owner map from :func:`section_contour.cell_adjacency`: each
         undirected wall key maps to the one cell it bounds or to the two cells
         that share it.
-    edge_length, edge_thickness : dict[tuple[int, int], float]
-        Per-wall length and thickness in m, keyed by the undirected edge
-        ``(min(a, b), max(a, b))``.
+    edge_length, edge_shear_stiffness : dict[tuple[int, int], float]
+        Per-wall length (m) and membrane shear stiffness ``S = G * t`` (N/m),
+        keyed by the undirected edge ``(min(a, b), max(a, b))``.
     torsion : float
         Torque about the section's span axis in N.m.
 
     Returns
     -------
-    (flows, phi)
+    (flows, theta_rate)
         ``flows[i]`` is the shear flow of cell ``i`` in N/m, in ``cells`` order;
-        ``phi`` is the common ``G * theta'`` in N/m^3.
+        ``theta_rate`` is the twist rate in rad/m (``= T / (G_eff * J)``).
 
     Raises
     ------
     ValueError
         For fewer than one cell, a non-positive cell area, a non-positive wall
-        thickness, a wall missing from ``edge_length``/``edge_thickness``, a wall
-        owned by more than two cells, or a singular system.
+        stiffness, a wall missing from ``edge_length``/``edge_shear_stiffness``, a
+        wall owned by more than two cells, or a singular system.
 
     Pure: ``cells``, ``adjacency`` and both dicts are read, never written.
     """
@@ -874,12 +1063,14 @@ def multi_cell_shear_flow(
             key = (a, b) if a < b else (b, a)
             if key not in edge_length:
                 raise ValueError(f"cell {i} wall {key} is missing from edge_length")
-            if key not in edge_thickness:
-                raise ValueError(f"cell {i} wall {key} is missing from edge_thickness")
-            thickness = float(edge_thickness[key])
-            if not thickness > 0.0:
-                raise ValueError(f"cell {i} wall {key} has non-positive thickness {thickness!r}")
-            ratio = float(edge_length[key]) / thickness
+            if key not in edge_shear_stiffness:
+                raise ValueError(f"cell {i} wall {key} is missing from edge_shear_stiffness")
+            stiffness = float(edge_shear_stiffness[key])
+            if not stiffness > 0.0:
+                raise ValueError(
+                    f"cell {i} wall {key} has non-positive shear stiffness {stiffness!r}"
+                )
+            ratio = float(edge_length[key]) / stiffness
             matrix[i, i] += ratio
             owners = adjacency.get(key, (i,))
             if len(owners) > 2:
@@ -890,8 +1081,8 @@ def multi_cell_shear_flow(
             others = [int(owner) for owner in owners if int(owner) != i]
             if len(others) == 1:
                 matrix[i, others[0]] -= ratio
-        # Compatibility row i: sum_j D[i, j] q_j - 2 A_i phi = 0, so the
-        # `-2 A_i` coefficient lives in phi's (last) column.
+        # Compatibility row i: sum_j D[i, j] q_j - 2 A_i theta' = 0, so the
+        # `-2 A_i` coefficient lives in theta''s (last) column.
         matrix[i, n_cells] = -2.0 * area
         matrix[n_cells, i] = 2.0 * area
 
