@@ -84,12 +84,19 @@ class BEMStandaloneSolver:
         normal_dir = self._bem_cfg.get("normal_direction", [0.0, 1.0, 0.0])
         tangential_dir = self._bem_cfg.get("tangential_direction", [1.0, 0.0, 0.0])
 
+        # Per-element-set shell properties, the same dict the structural assembler
+        # consumes (``runner._build_model_config`` puts it at ``elements.properties``).
+        # They give each wall's multi-cell shear flow its own ``S = G*t``; without them
+        # ``ring_section`` leaves the uniform ``S = 1.0`` geometric-only fallback in force.
+        element_properties = self._cfg.get("elements", {}).get("properties")
+
         projector = ForceProjector(
             self.mesh,
             self.blade_aero,
             span_direction=span_dir,
             normal_direction=normal_dir,
             tangential_direction=tangential_dir,
+            element_properties=element_properties,
         )
         self.nodal_forces = projector.project(self.bem_result)
         verification = projector.verify(self.bem_result, self.nodal_forces)

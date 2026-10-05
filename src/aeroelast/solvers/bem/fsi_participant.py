@@ -370,6 +370,12 @@ class BEMFSIParticipant:
         # -- Reference BEM solver and projector -----------------------------
         self._bem_solver = BEMSolver(blade_aero, **self._bem_solver_kwargs)
 
+        # No ``element_properties`` is passed: this participant is the fluid side
+        # and never builds the laminate map the structural assembler uses, so its
+        # ``ForceProjector`` runs the uniform-``S = 1.0`` multi-cell fallback (the
+        # flows are geometric-only, not split by wall laminate).  A caller that does
+        # hold the ``Blade.get_element_properties()`` dict must hand it over if a
+        # stiffness-resolved cell split is wanted.
         ref_projector = ForceProjector(
             mesh,
             blade_aero,
@@ -795,6 +801,9 @@ class BEMFSIParticipant:
             Projector on the deformed geometry.
         """
         self._working_mesh.coords_array = deformed_coords
+        # As at the reference construction, no ``element_properties`` is available on
+        # the fluid participant, so the deformed projector also takes the uniform
+        # ``S = 1.0`` multi-cell fallback.
         return ForceProjector(
             self._working_mesh,
             deformed_aero,

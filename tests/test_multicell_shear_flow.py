@@ -33,7 +33,9 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from aeroelast.solvers.bem.engine import BEMResult
 from aeroelast.solvers.bem.force_projection import (
+    ForceProjector,
     multi_cell_shear_flow,
     ring_section,
 )
@@ -631,3 +633,217 @@ def test_ring_section_on_iea15mw_midspan_ring():
         f"(spread {shear_values.max() / shear_values.min():.3f}x)"
     )
     assert len(edge_length) == len(edge_shear) >= 3
+
+
+# -----------------------------------------------------------------------------
+# Part D: the production project() path realises the multi-cell flow
+# (issue #11, ODD T2c-2b-iii)
+# -----------------------------------------------------------------------------
+
+#: Round-off guard for the tolerance-free invariances below.  The net force and the
+#: realised span moment are exact in real arithmetic; the per-cell walk, the solver's
+#: equilibrium and the independent reference agree to floating-point round-off.
+ROUNDOFF = 1e-9
+
+
+def _asymmetric_two_cell_ring_mesh():
+    """One ring of an **asymmetric** two-cell box, built as quad shell elements.
+
+    Same construction as :func:`_box_ring_mesh` (a ring A at z = 0 and a ring B at
+    z = 1 sharing six in-plane nodes, one quad per wall edge), but the web sits at
+    x = 1 in a width-3 rectangle instead of at the centre of a width-2 one.  The
+    symmetry matters: a symmetric box's shared web carries zero net flow, so the
+    single-cell outer-boundary flow reproduces the multi-cell one exactly and the
+    test would be blind (the ODD T2c-2b note says so).  The two cells here have
+    areas 2 and 4 m^2 and different flows.
+
+    Returns ``(mesh, wall_edges)`` with ``wall_edges`` the ring's local wall graph.
+    """
+    from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node
+    from aeroelast.core.mesh.model import MeshModel
+
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
+    outline = [
+        (0.0, 0.0),
+        (3.0, 0.0),
+        (3.0, 2.0),
+        (0.0, 2.0),
+        (1.0, 0.0),
+        (1.0, 2.0),
+    ]
+    mesh = MeshModel()
+    ring_a = [Node([x, y, 0.0]) for x, y in outline]
+    ring_b = [Node([x, y, 1.0]) for x, y in outline]
+    for node in ring_a + ring_b:
+        mesh.add_node(node)
+
+    wall_edges = [(0, 4), (4, 1), (1, 2), (2, 5), (5, 3), (3, 0), (4, 5)]
+    element_set = ElementSet("box")
+    for a, b in wall_edges:
+        element = MeshElement([ring_a[a], ring_a[b], ring_b[b], ring_b[a]], ElementType.quad)
+        mesh.add_element(element)
+        element_set.add_element(element)
+    mesh.add_element_set(element_set)
+    return mesh, wall_edges
+
+
+def _independent_multicell_flows(cells, adjacency, edge_length, stiffness, torsion):
+    """The ``(n + 1)`` Bredt-Batho system assembled by hand and solved with numpy.
+
+    This is the independent reference: the ``numpy.linalg.solve`` of the matrix the
+    solver's own docstring writes down, built here from the wall geometry alone.
+    It never calls :func:`multi_cell_shear_flow`.
+    """
+    n = len(cells)
+    matrix = np.zeros((n + 1, n + 1))
+    rhs = np.zeros(n + 1)
+    for i, cell in enumerate(cells):
+        for a, b in cell.edges:
+            key = (a, b) if a < b else (b, a)
+            ratio = edge_length[key] / stiffness[key]
+            matrix[i, i] += ratio
+            for owner in adjacency[key]:
+                if owner != i:
+                    matrix[i, owner] -= ratio
+        matrix[i, n] = -2.0 * cell.area
+        matrix[n, i] = 2.0 * cell.area
+    rhs[n] = torsion
+    solution = np.linalg.solve(matrix, rhs)
+    return list(solution[:n])
+
+
+def _per_cell_wall_field(cells, flows, offsets):
+    """The nodal field of a set of cell flows, by walking each cell's own boundary.
+
+    A shared wall is traversed by the two cells in opposite directions, so it
+    collects ``q_i - q_j`` with no special case.  This is the expectation the
+    production realisation must reproduce.
+    """
+    field = np.zeros_like(offsets)
+    for cell, flow in zip(cells, flows, strict=True):
+        for a, b in cell.edges:
+            edge = offsets[b] - offsets[a]
+            ell = float(np.linalg.norm(edge))
+            if ell == 0.0:
+                continue
+            half = 0.5 * (flow * ell) * (edge / ell)
+            field[a] = field[a] + half
+            field[b] = field[b] + half
+    return field
+
+
+def _minimum_norm_span_field(offsets, span_hat, moment_span):
+    """The constrained minimum-norm nodal field for a pure span moment.
+
+    ``_distribute`` spreads a pure span moment as the circle-tangential field
+    ``f_j = omega x d_j`` (the tube test documents the residual is 2.3e-13), with
+    ``omega`` set by ``sum_j d_j x f_j = M``; for a planar ring
+    ``omega = M / sum_j |d_perp,j|^2``.  Derived here from the geometry, never from
+    the projector.
+    """
+    offsets = np.asarray(offsets, dtype=float)
+    in_plane = offsets - np.outer(offsets @ span_hat, span_hat)
+    inertia = float(np.sum(in_plane**2))
+    omega = moment_span / inertia
+    return omega * np.cross(span_hat, offsets)
+
+
+def test_production_projector_realises_multicell_flow_on_a_two_cell_ring():
+    """``project()`` carries a pure span moment as the multi-cell wall flow.
+
+    The mesh is the asymmetric two-cell box ring above; a two-station ``BladeAero``
+    makes each span ring its own BEM strip, so the strip's one physical ring is the
+    two-cell section and its requested span moment is ``Mp * dr``.  The assertions
+    are the tolerance-free invariances of the realisation (net force, realised
+    moment) plus the decisive one: the nodal field equals the multi-cell wall flow
+    built independently from :func:`section_cells` and a hand-assembled Bredt-Batho
+    system, and is **not** the minimum-norm circle-tangential field.  That last pair
+    is what fails if the projection falls back to the old single-cell/min-norm path.
+    """
+    from tests.validation.bem.test_force_projection import (
+        _make_simple_blade_aero,
+        _strip_widths,
+    )
+
+    mesh, wall_edges = _asymmetric_two_cell_ring_mesh()
+    blade_aero = _make_simple_blade_aero(n_stations=2, hub_radius=3.0, span_length=1.0)
+    span_hat = SPAN_Z
+    moment_per_length = 7.0
+    bem = BEMResult(
+        r=blade_aero.r,
+        Np=np.zeros(2),
+        Tp=np.zeros(2),
+        alpha=np.zeros(2),
+        cl=np.zeros(2),
+        cd=np.zeros(2),
+        a=np.zeros(2),
+        ap=np.zeros(2),
+        thrust=0.0,
+        torque=0.0,
+        power=0.0,
+        Mp=np.full(2, moment_per_length),
+    )
+    props = {
+        "box": {
+            "type": "isotropic",
+            "e": 70.0e9,
+            "nu": 0.33,
+            "rho": 2700.0,
+            "thickness": 0.02,
+            "shear_correction": 5.0 / 6.0,
+        }
+    }
+
+    projector = ForceProjector(mesh, blade_aero, element_properties=props)
+    forces = projector.project(bem)
+    coords = mesh.coords_array
+
+    widths = _strip_widths(blade_aero, mesh, span_hat)
+    assert widths.shape == (2,)
+
+    # Each ring is its own strip: ring A is nodes 0..5 (z = 0), ring B nodes 6..11
+    # (z = 1).  The requested span moment of a strip is Mp * dr, derived from the
+    # station grid, never from the projector.
+    for k, strip_nodes in enumerate((np.arange(6, dtype=np.intp), np.arange(6, 12, dtype=np.intp))):
+        requested_span_moment = float(moment_per_length * widths[k])
+        ring_points = coords[strip_nodes]
+        centroid = ring_points.mean(axis=0)
+        offsets = ring_points - centroid
+        strip_forces = forces[strip_nodes]
+
+        # 1. Self-equilibrated: the wall flow has no net force.
+        assert np.abs(strip_forces.sum(axis=0)).max() <= ROUNDOFF, (
+            f"net force of the realised multi-cell field is not zero: {strip_forces.sum(axis=0)}"
+        )
+
+        # 2. The realised moment about the strip centroid is the requested span
+        #    moment, with no transverse component.
+        realised_moment = np.cross(offsets, strip_forces).sum(axis=0)
+        assert abs(float(realised_moment @ span_hat) - requested_span_moment) <= (
+            ROUNDOFF * abs(requested_span_moment)
+        ), (
+            f"realised span moment {float(realised_moment @ span_hat):.6e} != "
+            f"requested {requested_span_moment:.6e}"
+        )
+        assert np.abs(realised_moment - (realised_moment @ span_hat) * span_hat).max() <= (
+            ROUNDOFF * abs(requested_span_moment)
+        )
+
+        # 3. The decisive expectation, built without the projector: the multi-cell
+        #    wall flow from the hand-assembled system and the per-cell walk.
+        cells, adjacency, edge_length, stiffness = _wall_graph(ring_points, wall_edges, 1.0)
+        assert len(cells) == 2
+        flows = _independent_multicell_flows(
+            cells, adjacency, edge_length, stiffness, requested_span_moment
+        )
+        expected_field = _per_cell_wall_field(cells, flows, offsets)
+        scale = float(np.abs(expected_field).max())
+        np.testing.assert_allclose(strip_forces, expected_field, rtol=0.0, atol=ROUNDOFF * scale)
+
+        # 4. ... and it is not the minimum-norm field, i.e. the multi-cell path ran.
+        minimum_norm = _minimum_norm_span_field(offsets, span_hat, requested_span_moment)
+        assert np.abs(strip_forces - minimum_norm).max() > 1e-3 * scale, (
+            "the projected field matches the minimum-norm circle-tangential field; "
+            "the multi-cell realisation did not run"
+        )

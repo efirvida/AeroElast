@@ -59,6 +59,54 @@ class _Strip:
     offsets: np.ndarray  # (n, 3) node positions relative to centroid
 
 
+@dataclass
+class _RingSection:
+    """One physical ring's wall graph, bound to the owning strip's local node space.
+
+    ``cells`` / ``adjacency`` / ``edge_length`` / ``edge_shear_stiffness`` are the
+    :func:`ring_section` output, whose node indices are **local to the ring**
+    (``0 .. len(local_nodes) - 1``).  ``local_nodes`` maps each of those ring-local
+    indices to the owning strip's own ``offsets`` index (a position in
+    ``strip.node_indices``), so the multi-cell realisation can add a wall-flow half to
+    ``f_shear[local_nodes[a]]``.  The two index spaces differ - a ring group is a
+    permutation/subset of the strip's nodes - so the mapping is carried explicitly
+    rather than assumed to be the identity.
+    """
+
+    cells: List[SectionCell]
+    adjacency: dict
+    edge_length: dict
+    edge_shear_stiffness: dict
+    local_nodes: np.ndarray
+
+
+def _cells_have_usable_area(
+    cells: List[SectionCell], offsets: np.ndarray, span_dir: np.ndarray
+) -> bool:
+    """Are all of a ring's extracted cells large enough to solve on?
+
+    :func:`section_cells` keeps every bounded face with a strictly positive shoelace
+    area, but a projected drawing of a **deformed** wall graph can trace a
+    self-overlapping loop whose area is a round-off residual (~1e-16 m^2).  Such a
+    face carries a near-singular compliance and the multi-cell solve returns
+    meaningless flows, so the ring is unusable.  The floor is a fraction of the
+    ring's own in-plane size (``1e-12 * radius^2``, *radius* the largest in-plane
+    distance from the ring's own mean), which is scale-free between meshes and far
+    below any real wall cell.  A ring rejected here is recorded as a failed ring and
+    its strip falls back to the minimum-norm realisation.
+    """
+    if not cells:
+        return False
+    pts = np.asarray(offsets, dtype=float)
+    if pts.size == 0:
+        return False
+    rel = pts - pts.mean(axis=0)
+    in_plane = rel - np.outer(rel @ span_dir, span_dir)
+    radius = float(np.sqrt(np.max(np.sum(in_plane**2, axis=1))))
+    floor = 1e-12 * radius**2
+    return all(float(cell.area) > floor for cell in cells)
+
+
 class ForceProjector:
     """Project BEM distributed loads onto shell mesh nodes.
 
@@ -120,6 +168,7 @@ class ForceProjector:
         normal_direction=None,
         tangential_direction=None,
         hub_radius: float | None = None,
+        element_properties: dict | None = None,
     ):
         span_dir = np.asarray(
             span_direction if span_direction is not None else [0.0, 0.0, 1.0],
@@ -127,6 +176,14 @@ class ForceProjector:
         )
         span_dir /= np.linalg.norm(span_dir)
         self._span_dir = span_dir
+
+        self._mesh = mesh
+        #: ``{element_set_name: property}`` (the assembler's own map).  Fed to
+        #: :func:`ring_section` so each wall's multi-cell flow sees its laminate's
+        #: membrane shear stiffness ``S = G*t``.  ``None`` leaves the uniform
+        #: ``S = 1.0`` geometric-only fallback in force; the multi-cell path still
+        #: runs, but the cell-to-cell flow split is geometric.
+        self._element_properties = element_properties
 
         self._normal_dir = np.asarray(
             normal_direction if normal_direction is not None else [0.0, 1.0, 0.0],
@@ -225,6 +282,48 @@ class ForceProjector:
                 continue
             strip_span = (strip.centroid + strip.offsets) @ span_dir
             self._strip_ring_groups.append(rings_in_band(strip_span, self._ring_gap_tolerance))
+
+        # Precompute each physical ring's multi-cell wall graph once, from the
+        # mesh, so ``project()`` realises a strip's span moment through
+        # :func:`multi_cell_shear_flow` instead of the minimum-norm field.  The
+        # ring group holds **strip-local** offsets indices; :func:`ring_section`
+        # wants **global** ``mesh.nodes`` indices, and its own cells index the ring
+        # locally.  ``_RingSection.local_nodes`` keeps that local-vs-global mapping
+        # explicit.  A ring that has fewer than three nodes, that bounds no closed
+        # cell on this mesh (a degenerate/collinear outline, or a coupling mesh
+        # stripped of its elements), or whose cells carry only a round-off-sized
+        # area (see :func:`_cells_have_usable_area`) is recorded as ``None`` rather
+        # than raising: :func:`realise_section_load` then falls back to
+        # :meth:`_distribute` for the whole strip, exactly as before.
+        self._strip_ring_sections: list[list[_RingSection | None]] = []
+        for k, strip in enumerate(self._strips):
+            if len(strip.node_indices) == 0:
+                self._strip_ring_sections.append([])
+                continue
+            sections: list[_RingSection | None] = []
+            for group in self._strip_ring_groups[k]:
+                if len(group) < 3:
+                    sections.append(None)
+                    continue
+                local = np.asarray(group, dtype=np.intp)
+                try:
+                    cells, adjacency, edge_length, edge_shear_stiffness = ring_section(
+                        mesh, strip.node_indices[local], span_dir, element_properties
+                    )
+                except ValueError:
+                    sections.append(None)
+                    continue
+                if not _cells_have_usable_area(cells, strip.offsets[local], span_dir):
+                    # A face with a round-off-sized area (a self-overlapping loop
+                    # the projected, deformed wall graph can trace) makes the
+                    # multi-cell solve ill-conditioned and its flows meaningless.  Such
+                    # a ring is a failure to extract a usable section, not a section.
+                    sections.append(None)
+                    continue
+                sections.append(
+                    _RingSection(cells, adjacency, edge_length, edge_shear_stiffness, local)
+                )
+            self._strip_ring_sections.append(sections)
 
         # ------------------------------------------------------------------
         # Per-strip load frames and AC-to-centroid offset vectors.
@@ -531,15 +630,18 @@ class ForceProjector:
             )
             M_strip = M_ac - np.cross(self._strip_ac_offsets[k], F_strip)
 
-            # Distribute to nodes: span moment as a Bredt wall shear flow, residual
-            # through the unchanged minimum-norm solve.  The ring groups are the
-            # mesh-scaled ones precomputed in __init__, not the strip's own extent.
+            # Distribute to nodes.  The precomputed per-ring wall graphs carry the
+            # span moment as Bredt-Batho multi-cell wall flows (one equal-share flow
+            # system per physical ring); whatever force/transverse moment is left goes
+            # through the unchanged minimum-norm solve.  Passing ``ring_sections``
+            # (not ``ring_groups``) routes the realisation through the multi-cell path;
+            # a strip whose rings could not be extracted falls back to ``_distribute``.
             f_nodes = realise_section_load(
                 strip,
                 F_strip,
                 M_strip,
                 self._span_dir,
-                ring_groups=self._strip_ring_groups[k],
+                ring_sections=self._strip_ring_sections[k],
             )
             forces[strip.node_indices] = f_nodes
 
@@ -666,58 +768,75 @@ def realise_section_load(
     M_strip: np.ndarray,
     span_dir,
     ring_groups: list[np.ndarray] | None = None,
+    ring_sections: list[_RingSection | None] | None = None,
 ) -> np.ndarray:
-    """Realise a strip load with its span moment carried by Bredt's wall shear flow.
+    """Realise a strip load with its span moment carried by a wall shear flow.
 
     A closed thin-walled section under a torque ``M`` about its span axis carries the
-    constant wall shear flow ``q = M / (2A)`` along its wall mid-line.  The constrained
+    Bredt wall shear flow ``q = M / (2A)`` along its wall mid-line.  The constrained
     minimum-norm solve :meth:`ForceProjector._distribute` instead spreads a pure span moment
     as the circle-tangential field ``f_j = omega x d_j``, which is not a Saint-Venant wall
-    traction.  This function realises the span component of ``M_strip`` as the wall flow and
+    traction.  This function realises the span component of ``M_strip`` as wall flows and
     hands whatever is left to :meth:`ForceProjector._distribute`.
+
+    There are two wall-flow modes, selected by ``ring_sections``:
+
+    * **Multi-cell (production):** when ``ring_sections`` is given, every physical ring of
+      the strip is realised with the Bredt-Batho **multi-cell** flow of its own wall graph
+      (:func:`multi_cell_shear_flow`), so an internal web shared by two cells carries
+      ``q_i - q_j``.  This is what :meth:`ForceProjector.project` passes.
+    * **Single-cell (direct callers):** when ``ring_sections`` is ``None``, the pre-existing
+      single-ring :func:`contour_report` / Bredt ``q = torsion / (2 * area)`` route below is
+      used unchanged - byte-for-byte.  This is what the thin-walled-tube test
+      (``tests/validation/parity/test_thin_walled_tube_moment_realization.py``) calls
+      directly, and it is all a caller without a mesh can get.
 
     Steps, in order:
 
     1. **Split the moment.**  ``span_hat = span_dir / ||span_dir||``;
        ``torsion = M_strip . span_hat`` is the part the wall flow can carry, and
        ``transverse = M_strip - torsion * span_hat`` is left to the fallback.
-    2. **Group the nodes.**  ``ring_groups`` (int index arrays into the strip's own
-       ``offsets``) when given.  :meth:`ForceProjector.project` always passes the groups it
-       precomputed with the **mesh-scaled** tolerance
-       ``RING_GAP_FRACTION * (mesh span extent)``; a strip is one BEM band wider than one
-       physical ring, so the strip's own extent is the wrong scale.  When ``ring_groups`` is
-       ``None`` (direct callers, e.g. the thin-walled-tube test) the fallback groups the
-       strip's points by :func:`rings_in_band` with ``1e-4 * (strip span extent)`` -
-       which **assumes the strip is a single ring**, as it is for a tube cross-section.
-       A strip can hold several physical rings because the mesh's BEM band is wider than
-       one ring; on a prebent blade one ring spreads over ~1e-3 m of span while stations
-       are ~0.44 m apart, and a strip's own extent sets a tolerance below that spread,
-       shearing the ring into arcs.  Only the mesh-scaled groups are safe there.
-    3. **Gate on a single usable ring.**  The group is ordered and validated with
-       :func:`contour_report`, and the wall flow is used only for a strip that is
-       **exactly one usable ring**.  Anything else - several physical rings, a multi-cell
-       section, a concave or degenerate outline - falls back to the unchanged
-       :meth:`ForceProjector._distribute`, so it keeps today's behaviour.  The single-ring
-       restriction is measured, not cautious: on the repo's IEA-15MW blade a BEM band holds
-       three physical rings, and applying the equal-share flow to whole rings there moves the
-       tip section rotation from the min-norm ``-1.4843 deg`` to ``+0.1273 deg`` against
-       Zhou's nose-down ``-3.60 deg`` - a sign inversion, not a refinement.  A single-cell
-       tube is the case Bredt's ``q = M/(2A)`` describes exactly and the only one with an
-       independent reference, so it is the only case enabled; the multi-ring realisation
-       needs its own evidence first (its own work unit).  Note that a *partial arc* of a
-       split ring is still ``usable`` - an angular order about its own centroid is a simple
-       polygon - which is why the grouping tolerance comes from the mesh, not the strip.
-    4. **Bredt flow.**  ``q = torsion / (2 * report.area)``, and for every ordered edge
-       ``(i, j)`` the load ``0.5 * q * ell * tangent_hat`` is added to both endpoint nodes
-       (``ell`` the 3-D edge length, ``tangent_hat`` the unit edge vector).
-       :func:`order_ring` orients the ring CCW as seen from ``+span``, so a positive
-       ``torsion`` produces a moment along ``+span``.
+    2. **Fail fast on an unextractable ring.**  In the multi-cell mode, ``ring_sections``
+       holds one entry per non-empty physical-ring group of the strip, in the strip's own
+       ring order.  An entry is ``None`` when the ring has fewer than three nodes, when
+       :func:`ring_section` found no closed cell for it (a collinear/degenerate outline, or
+       a coupling mesh stripped of its elements), or when a cell's shoelace area is a
+       round-off residual rather than a wall cell (a projected deformed graph can trace a
+       self-overlapping loop; see :func:`_cells_have_usable_area`).  If **any** entry is
+       ``None`` the whole strip falls back to :meth:`ForceProjector._distribute`, exactly as
+       the previous several-rings path did; a half-realised strip is never returned.
+    3. **Equal-share per-ring flow.**  Otherwise the torsion is shared equally over the
+       rings, ``share = torsion / n_rings`` - the same zero-order quadrature the band already
+       documents (a strip is one BEM band wider than one physical ring, so a per-ring twist
+       rate is unavailable) - and each ring is solved with
+       :func:`multi_cell_shear_flow` on its own cells, adjacency, edge lengths and per-wall
+       shear stiffness ``S = G*t``.
+    4. **Per-cell walk.**  For every cell and every wall ``(a, b)`` of its boundary, in the
+       cell's own (already ``+span``-CCW-normalised) traversal order, the load
+       ``0.5 * q_cell * ell * tangent_hat`` is added to **both** endpoints.  A wall shared by
+       cells ``i`` and ``j`` is traversed in opposite directions by the two cells, so it
+       automatically receives ``q_i - q_j`` - this is exactly the wall flow the multi-cell
+       system imposes, and it is why the per-cell walk is the right realisation and no
+       shared-wall special case is needed.  Summing the cell moments, the realised span
+       moment is ``sum_i 2 A_i q_i = torsion`` by the solver's own torque equilibrium.
     5. **Residual.**  The realised nodal moment ``M_shear = sum_j cross(offset_j, f_j)`` is
        read back about the strip centroid and the leftover force/moment
        ``F_strip - sum_j f_j`` and ``M_strip - M_shear`` are routed through
        :meth:`ForceProjector._distribute`.  The shear flow already delivers the span moment,
        so this keeps force and moment conservation exact (to the pseudoinverse) regardless
-       of round-off in the shear-flow algebra.
+       of round-off in the shear-flow algebra.  The residual step and the signed span-moment
+       guard below apply to the multi-cell mode as well: the realised span moment must still
+       match the requested ``torsion`` or the call raises.
+
+    In the single-cell mode the nodes are grouped as before: ``ring_groups`` (int index
+    arrays into the strip's own ``offsets``) when given, otherwise :func:`rings_in_band`
+    with ``1e-4 * (strip span extent)`` - which **assumes the strip is a single ring**, as it
+    is for a tube cross-section.  A strip can hold several physical rings because the mesh's
+    BEM band is wider than one ring; on a prebent blade one ring spreads over ~1e-3 m of span
+    while stations are ~0.44 m apart, and a strip's own extent sets a tolerance below that
+    spread, shearing the ring into arcs.  The single-cell mode is gated to **exactly one
+    usable** group (the group is ordered and validated with :func:`contour_report`); anything
+    else falls back to :meth:`ForceProjector._distribute`.
 
     Before adding the residual, the delivered span moment is checked against the requested one
     (when ``torsion != 0``).  The check is the **signed** difference
@@ -744,6 +863,11 @@ def realise_section_load(
     M_strip = np.asarray(M_strip, dtype=float)
     F_strip = np.asarray(F_strip, dtype=float)
     torsion = float(M_strip @ span_hat)
+
+    if ring_sections is not None:
+        return _realise_multi_cell_section_load(
+            strip, F_strip, M_strip, span_hat, torsion, list(ring_sections)
+        )
 
     if ring_groups is None:
         # Fallback for direct callers: the strip's own extent.  This assumes the strip is
@@ -794,6 +918,73 @@ def realise_section_load(
                 "wall shear flow realised a span moment of "
                 f"{delivered:.6e} N.m but {torsion:.6e} N.m was requested: the ring order or "
                 "the span axis is wrong (this is not round-off)"
+            )
+
+    residual_force = F_strip - f_shear.sum(axis=0)
+    residual_moment = M_strip - M_shear
+    return f_shear + ForceProjector._distribute(strip, residual_force, residual_moment)
+
+
+def _realise_multi_cell_section_load(
+    strip: _Strip,
+    F_strip: np.ndarray,
+    M_strip: np.ndarray,
+    span_hat: np.ndarray,
+    torsion: float,
+    ring_sections: list[_RingSection | None],
+) -> np.ndarray:
+    """Multi-cell branch of :func:`realise_section_load`; see its docstring for the design.
+
+    ``ring_sections`` is one entry per non-empty physical-ring group of the strip.
+    A ``None`` entry is a ring whose wall graph could not be extracted (fewer than
+    three nodes, or no closed cell).  If any entry is ``None`` - or the list is
+    empty - the whole strip falls back to the unchanged
+    :meth:`ForceProjector._distribute`, so a partially-realised strip is never
+    returned.  Otherwise every ring gets the equal share ``torsion / n_rings``,
+    ``multi_cell_shear_flow`` solves its cells, and the per-cell wall walk below
+    (no shared-wall special case: the two cells traverse a shared wall in opposite
+    directions, so it collects ``q_i - q_j`` by construction) realises the field.
+    """
+    if not ring_sections:
+        return ForceProjector._distribute(strip, F_strip, M_strip)
+    sections: list[_RingSection] = []
+    for section in ring_sections:
+        if section is None:
+            return ForceProjector._distribute(strip, F_strip, M_strip)
+        sections.append(section)
+
+    n = len(strip.node_indices)
+    f_shear = np.zeros((n, 3))
+    share = torsion / len(sections)
+    for section in sections:
+        flows, _theta_rate = multi_cell_shear_flow(
+            section.cells,
+            section.adjacency,
+            section.edge_length,
+            section.edge_shear_stiffness,
+            share,
+        )
+        local_nodes = section.local_nodes
+        for cell, flow in zip(section.cells, flows, strict=True):
+            for a, b in cell.edges:
+                ia = int(local_nodes[int(a)])
+                ib = int(local_nodes[int(b)])
+                edge = strip.offsets[ib] - strip.offsets[ia]
+                ell = float(np.linalg.norm(edge))
+                if ell == 0.0:
+                    continue
+                half = 0.5 * (flow * ell) * (edge / ell)
+                f_shear[ia] = f_shear[ia] + half
+                f_shear[ib] = f_shear[ib] + half
+
+    M_shear = np.cross(strip.offsets, f_shear).sum(axis=0)
+    if torsion != 0.0:
+        delivered = float(M_shear @ span_hat)
+        if abs(delivered - torsion) > 1e-9 * abs(torsion):
+            raise ValueError(
+                "multi-cell wall shear flows realised a span moment of "
+                f"{delivered:.6e} N.m but {torsion:.6e} N.m was requested: the cell "
+                "order or the span axis is wrong (this is not round-off)"
             )
 
     residual_force = F_strip - f_shear.sum(axis=0)
