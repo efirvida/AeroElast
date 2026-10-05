@@ -49,7 +49,7 @@ n = len(pts)
 f = np.zeros((n, 3))
 edge_force: dict[tuple[int, int], np.ndarray] = {}
 for i, cell in enumerate(cells):
-    for (a, b) in cell.edges:
+    for a, b in cell.edges:
         pa, pb = pts[a], pts[b]
         e = pb - pa
         ell = float(np.linalg.norm(e))

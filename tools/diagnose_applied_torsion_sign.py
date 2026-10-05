@@ -57,7 +57,9 @@ r = np.asarray(aero.r)
 i_mp = float(np.sum(0.5 * (Mp[:-1] + Mp[1:]) * np.diff(r)))
 
 print(f"rated: V={t.V_RATED} m/s, {t.RPM_RATED} rpm")
-print(f"BEM pitching moment  int(Mp dr)      = {i_mp:+.6e} N.m   (per blade; nose-down if negative)")
+print(
+    f"BEM pitching moment  int(Mp dr)      = {i_mp:+.6e} N.m   (per blade; nose-down if negative)"
+)
 print(f"Mp  * dr, summed over strips         = {m_mp.sum():+.6e} N.m")
 print(f"transfer -cross(ac_offset,F).span    = {m_transfer.sum():+.6e} N.m")
 print(f"TOTAL applied section torque         = {total.sum():+.6e} N.m")
@@ -83,9 +85,7 @@ for k in range(0, len(proj._strips), max(1, len(proj._strips) // 8)):
     x_mean = float((strip.centroid - le) @ ch) / chord
     ac_frac = float(aero.stations[k].airfoil.aerodynamic_center)
     t_sign = "NOSE-UP" if m_transfer[k] > 0 else "nose-down"
-    print(
-        f"  {k:3d} {chord:7.3f} {x_mean:9.3f} {ac_frac:7.3f} {t_sign:>14}"
-    )
+    print(f"  {k:3d} {chord:7.3f} {x_mean:9.3f} {ac_frac:7.3f} {t_sign:>14}")
 print()
 print("per-strip breakdown (r, Mp*dr, transfer, total):")
 for k in range(0, len(total), max(1, len(total) // 8)):
