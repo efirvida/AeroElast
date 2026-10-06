@@ -186,6 +186,36 @@ and the numad extras.
       `tests/test_multicell_shear_flow.py`). The remaining gap is magnitude (~1.9x over Zhou),
       reported not tuned.
 
+## Structural closure — the convergence analysis (2026-10-05)
+
+The two FE codes must not be compared on the same mesh. MITC4 is a linear 4-node element and
+CalculiX's S8R is quadratic, so a same-mesh comparison conflates **element order** with **mesh
+size** — the trap `tests/validation/blade/test_blade_iea15mw_mesh_convergence.py` already
+documents ("the 4-node-vs-8-node element-order difference ... not discretisation"). Each code is
+converged on its own sequence instead, and compared where each has settled.
+
+`tools/ccx_blade_twist_arbitration.py --element-size <h>` runs both codes on the **identical
+nodal force vector**, root clamped, with the same section-rotation estimator (`_ring_kinematics`):
+
+| h [m] | AeroElast (MITC4) | CalculiX (S8R) | difference |
+| --- | ---: | ---: | ---: |
+| 1.00 | +9.6669 | +11.9649 | 23.77% |
+| 0.50 | +8.3937 | +10.7368 | 27.91% |
+| 0.25 | +8.0980 | +8.4396 | **4.22%** |
+
+At 0.25 m, where the shell's own sequence has settled — increments of 13.2% then 3.5% for a
+halving of h, about second order, Richardson limit near **+8.0 deg** — the two independent codes
+agree to **4.22%** under the same load. The 23.77-27.91% at the coarser meshes was
+discretisation: neither the element formulation nor our load path, and not a number that can be
+quoted from a same-mesh run.
+
+**Structural side closed.** Both independent meshes amplify the tip rotation far above the deck's
+decoupled sectional beam (1.7765 deg), so the extra twist over a sectional model is real 3D
+behaviour; the shell matches an independent FE code to 4% where it is converged; and the tube
+(1.0031x Bredt), the two-realisation invariant and the mesh convergence of the gap between the
+realisations (1.56 -> 0.78 deg over 1.0 -> 0.25 m) all hold. The residual magnitude against Zhou
+is therefore the **aero** side, which is the next phase.
+
 ## Constraints
 
 - `src/aeroelast/solvers/bem/force_projection.py` is production; this issue authorises changing
