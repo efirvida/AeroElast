@@ -8,8 +8,16 @@ The beam's ``GJ`` and shear centre come from the official IEA-15-240-RWT BeamDyn
 shell's: the two models share *loads, not section properties*.
 
 The 6x6 reading is pinned by the ElastoDyn cross-check (both bending stiffnesses within 2 % of
-``FlpStff``/``EdgStff``).  ``x_AC`` uses the measured sign ``(pitch_axis - 0.25) * chord`` of the
-production AC's chordwise projection (the task's written sign inverts it, a 10x torque error).
+``FlpStff``/``EdgStff``).  ``x_AC`` uses the sign of the **standard aeroelastic transfer**, not a
+fitted one: Dowell et al., *A Modern Course in Aeroelasticity*, eq. 2.1.2, writes the moment
+about the elastic axis as ``M_y = M_AC + L e`` with both moments positive nose-up, ``L`` positive
+up and ``e`` the aerodynamic-centre-to-elastic-axis distance **positive aft**.  Here the
+aerodynamic centre is at 0.25 c and the pitch axis (the shear centre's datum) aft of it, so
+``e > 0``, ``L = Np > 0`` and the coupling term is ``+ (x_AC - xS) Np`` with
+``x_AC = (pitch_axis - 0.25) chord``.  The opposite sign was tried here first and rejected on the
+measurement (a ~10x torque error); the textbook is what says which of the two is physical.  Do
+not flip it again without a citation that inverts Dowell's convention - it has been flipped once
+by convention-chasing and reverted.
 The point-like tip interval is excluded by a ``GKt < median/1e3`` guard.  Zhou et al. 2025
 Table 4 is printed beside the columns, never asserted.
 """
@@ -120,6 +128,8 @@ def production():
     model = Blade(str(YAML), element_size=1.0)
     model.generate_mesh()
     mesh = model.mesh
+    if mesh is None:
+        raise RuntimeError("Blade.generate_mesh() produced no mesh")
     props = model.get_element_properties()
     assembler = PyMeshAssembler.from_model(
         blade_validation._to_rust_mesh(mesh, props), props,
