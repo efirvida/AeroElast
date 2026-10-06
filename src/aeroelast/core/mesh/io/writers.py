@@ -562,6 +562,7 @@ def write_ccx_mesh(
     solver_type: str = "Modal",
     load_nodeset: Optional[str] = None,
     load_vector: Optional[list] = None,
+    load_field: Optional[Dict[int, list]] = None,
     dt: float = 0.01,
     t_end: float = 1.0,
     quadratic: bool = False,
@@ -598,6 +599,25 @@ def write_ccx_mesh(
     boundary_nodeset : str, optional
         Name of the node set to clamp (all 6 DOFs fixed). Required when
         properties are provided.
+    load_nodeset : str, optional
+        Node-set name (without the writer's ``N`` prefix) that carries a
+        **resultant** force.  Used together with ``load_vector``: the
+        resultant is divided evenly over every node of the set.
+    load_vector : list, optional
+        Total resultant force (per DOF, at most 6 components) applied to
+        ``load_nodeset`` and divided by the node count.
+    load_field : dict, optional
+        Explicit **per-node** force field: a mapping from the mesh's node id
+        (the same ids the deck is written from) to a sequence of up to three
+        force components ``[fx, fy, fz]``.  One ``*CLOAD`` line is emitted per
+        non-zero component on that node's own 1-based deck label.  This is the
+        path for a load that is already per-node (for example a projected
+        aerodynamic load), as opposed to ``load_vector``, which is a single
+        resultant spread uniformly over a node set.  Per-node moments are
+        deliberately not supported: a moment on the sixth (drilling) DOF is the
+        documented trap.  Default ``None`` writes no per-node loads and leaves
+        every existing deck byte-identical.  A node id absent from the mesh
+        raises :class:`ValueError`.
     num_modes : int, optional
         Number of eigenvalues for the *FREQUENCY step. Default 10.
     span_direction : tuple of 3 floats, optional
@@ -726,6 +746,29 @@ def write_ccx_mesh(
                 f"got {rayleigh_damping!r}"
             )
 
+    # ---- Explicit per-node load field --------------------------------
+    # Validated here, before any file is written, so a rejected deck leaves no
+    # partial .msh/.nam/.inp behind.  The keys are the mesh's node ids; the
+    # writer maps them to the 1-based deck labels.  ``None`` (the default)
+    # leaves every pre-existing call site byte-identical.
+    if load_field is not None:
+        known_ids = mesh.node_id_to_index
+        unknown = sorted(
+            (node_id for node_id in load_field if node_id not in known_ids),
+            key=repr,
+        )
+        if unknown:
+            raise ValueError(
+                "load_field references node id(s) not in the mesh: "
+                f"{unknown}; the mesh has {len(known_ids)} nodes"
+            )
+        for node_id, components in load_field.items():
+            if len(components) > 3:
+                raise ValueError(
+                    f"load_field[{node_id!r}] has {len(components)} components; "
+                    "a per-node field carries forces only (at most [fx, fy, fz])"
+                )
+
     def split_list(arr, chunk_size: int = 7):
         """Split list into chunks for formatted output."""
         arr = list(arr)
@@ -786,6 +829,7 @@ def write_ccx_mesh(
         solver_type=solver_type,
         load_nodeset=load_nodeset,
         load_vector=load_vector,
+        load_field=load_field,
         dt=dt,
         t_end=t_end,
         quadratic=use_quadratic_mesh,
@@ -1087,6 +1131,7 @@ def _write_ccx_inp_file(
     solver_type: str = "Modal",
     load_nodeset: Optional[str] = None,
     load_vector: Optional[list] = None,
+    load_field: Optional[Dict[int, list]] = None,
     dt: float = 0.01,
     t_end: float = 1.0,
     quadratic: bool = False,
@@ -1167,6 +1212,7 @@ def _write_ccx_inp_file(
                     boundary_nodeset,
                     load_nodeset,
                     load_vector,
+                    load_field=load_field,
                     n_load_nodes=n_load_nodes,
                 )
             elif solver_type == "NonlinearStatic":
@@ -1176,6 +1222,7 @@ def _write_ccx_inp_file(
                     boundary_nodeset,
                     load_nodeset,
                     load_vector,
+                    load_field=load_field,
                     n_load_nodes=n_load_nodes,
                     initial_increment=nl_initial_increment,
                     min_increment=nl_min_increment,
@@ -1191,6 +1238,7 @@ def _write_ccx_inp_file(
                     load_vector,
                     dt,
                     t_end,
+                    load_field=load_field,
                     n_load_nodes=n_load_nodes,
                 )
             elif solver_type == "DynamicFSI":
@@ -1719,24 +1767,52 @@ def _write_ccx_cload(
     load_nodeset: Optional[str],
     load_vector: Optional[list],
     n_nodes: int = 1,
+    load_field: Optional[Dict[int, list]] = None,
+    node_id_to_index: Optional[Dict[int, int]] = None,
 ) -> None:
-    """Write *CLOAD lines from a force vector.
+    """Write *CLOAD lines from a resultant and/or an explicit per-node field.
 
-    CCX format: one line per non-zero component — ``nset, dof_1based, magnitude``.
-    DOF indices in CCX are 1-based (1=X, 2=Y, 3=Z, 4=RX, 5=RY, 6=RZ).
+    CCX format: one line per non-zero component — ``label, dof_1based,
+    magnitude``.  DOF indices in CCX are 1-based (1=X, 2=Y, 3=Z, 4=RX, 5=RY,
+    6=RZ).
 
     ``load_vector`` is the **total** resultant force [N].  CCX applies *CLOAD
     to every node in the set individually, so we divide by ``n_nodes`` so that
-    the sum across all nodes equals the intended resultant.
+    the sum across all nodes equals the intended resultant.  Its first field is
+    the node-set name (``N``-prefixed).
+
+    ``load_field`` is an explicit per-node force field mapping a mesh node id
+    to a sequence of up to three components ``[fx, fy, fz]``.  Each non-zero
+    component is written on the node's own 1-based deck label
+    (``node_id_to_index[node_id] + 1``).  Both sources may be present; the
+    field lines follow the resultant lines under the same ``*CLOAD`` card.
     """
-    if not load_nodeset or not load_vector:
+    if load_field is None and (not load_nodeset or not load_vector):
         return
-    n = max(n_nodes, 1)
-    load_nset = f"N{load_nodeset.upper()}"
     f.write("*CLOAD\n")
-    for dof_0based, magnitude in enumerate(load_vector):
-        if magnitude != 0.0:
-            f.write(f"{load_nset}, {dof_0based + 1}, {magnitude / n:.6E}\n")
+    if load_nodeset and load_vector:
+        n = max(n_nodes, 1)
+        load_nset = f"N{load_nodeset.upper()}"
+        for dof_0based, magnitude in enumerate(load_vector):
+            if magnitude != 0.0:
+                f.write(f"{load_nset}, {dof_0based + 1}, {magnitude / n:.6E}\n")
+    if load_field:
+        index = node_id_to_index or {}
+        # Sorted by (label, dof) so the deck is reproducible regardless of the
+        # insertion order of the caller's mapping, and so an offset id scheme
+        # still emits the same 1-based labels.
+        rows = []
+        for node_id, components in load_field.items():
+            if node_id not in index:
+                raise ValueError(
+                    f"load_field node id {node_id!r} is not in the mesh"
+                )
+            label = index[node_id] + 1
+            for dof_0based, magnitude in enumerate(list(components)[:3]):
+                if magnitude != 0.0:
+                    rows.append((label, dof_0based + 1, magnitude))
+        for label, dof, magnitude in sorted(rows):
+            f.write(f"{label}, {dof}, {magnitude:.6E}\n")
     f.write("**\n")
 
 
@@ -1747,6 +1823,7 @@ def _write_ccx_static_step(
     load_nodeset: Optional[str],
     load_vector: Optional[list],
     n_load_nodes: int = 1,
+    load_field: Optional[Dict[int, list]] = None,
 ) -> None:
     """Write boundary conditions and *STATIC step with cload."""
     f.write("**\n")
@@ -1774,7 +1851,14 @@ def _write_ccx_static_step(
     f.write("*STATIC\n")
     f.write("**\n")
 
-    _write_ccx_cload(f, load_nodeset, load_vector, n_nodes=n_load_nodes)
+    _write_ccx_cload(
+        f,
+        load_nodeset,
+        load_vector,
+        n_nodes=n_load_nodes,
+        load_field=load_field,
+        node_id_to_index=mesh.node_id_to_index,
+    )
 
     f.write("*NODE FILE, OUTPUT=2D\n")
     f.write("U, RF\n")
@@ -1795,6 +1879,7 @@ def _write_ccx_nonlinear_static_step(
     min_increment: Optional[float] = None,
     max_increment: Optional[float] = None,
     max_increments: Optional[int] = None,
+    load_field: Optional[Dict[int, list]] = None,
 ) -> None:
     """Write boundary conditions and *STATIC, NLGEOM step with cload."""
 
@@ -1860,7 +1945,14 @@ def _write_ccx_nonlinear_static_step(
     f.write(f"{init_inc:.6E}, 1.000000E+00, {min_inc:.6E}, {max_inc:.6E}\n")
     f.write("**\n")
 
-    _write_ccx_cload(f, load_nodeset, load_vector, n_nodes=n_load_nodes)
+    _write_ccx_cload(
+        f,
+        load_nodeset,
+        load_vector,
+        n_nodes=n_load_nodes,
+        load_field=load_field,
+        node_id_to_index=mesh.node_id_to_index,
+    )
 
     f.write("*NODE FILE, OUTPUT=2D\n")
     f.write("U, RF\n")
@@ -1879,6 +1971,7 @@ def _write_ccx_dynamic_step(
     dt: float,
     t_end: float,
     n_load_nodes: int = 1,
+    load_field: Optional[Dict[int, list]] = None,
 ) -> None:
     """Write boundary conditions and *DYNAMIC step with cload."""
     f.write("**\n")
@@ -1907,7 +2000,14 @@ def _write_ccx_dynamic_step(
     f.write(f"{dt:.6E}, {t_end:.6E}\n")
     f.write("**\n")
 
-    _write_ccx_cload(f, load_nodeset, load_vector, n_nodes=n_load_nodes)
+    _write_ccx_cload(
+        f,
+        load_nodeset,
+        load_vector,
+        n_nodes=n_load_nodes,
+        load_field=load_field,
+        node_id_to_index=mesh.node_id_to_index,
+    )
 
     f.write("*NODE FILE, FREQUENCY=10\n")
     f.write("U, V\n")

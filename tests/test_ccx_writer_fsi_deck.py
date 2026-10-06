@@ -31,7 +31,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from conftest import ccx_bin_or_skip
+from tests.conftest import ccx_bin_or_skip
 
 from aeroelast.core.material import IsotropicMaterial
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node, NodeSet
@@ -39,7 +39,7 @@ from aeroelast.core.mesh.io.writers import write_ccx_mesh
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.core.properties import ShellProperty
 
-from _ccx_io import parse_frd_disp, run_ccx
+from tests.support.ccx_io import parse_frd_disp, run_ccx
 
 STEEL = IsotropicMaterial(name="STEEL", E=2.1e11, nu=0.3, rho=7800.0)
 ALUMINIUM = IsotropicMaterial(name="ALUMINIUM", E=7.0e10, nu=0.33, rho=2700.0)
@@ -332,7 +332,7 @@ def test_bad_rayleigh_damping_raises(tmp_path: Path, bad: object) -> None:
             boundary_nodeset="clamped",
             solver_type="DynamicFSI",
             fsi_interface_nodeset=INTERFACE,
-            rayleigh_damping=bad,
+            rayleigh_damping=bad,  # pyright: ignore[reportArgumentType] - deliberately invalid
         )
 
 
