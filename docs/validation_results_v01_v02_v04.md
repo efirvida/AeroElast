@@ -813,7 +813,7 @@ La lectura metodológica del sesgo AoA debe separarse por causa probable. La fra
 | Archivo | Figura fuente | Variable | Incertidumbre heurística* | Uso permitido |
 |---|---|---|---|---|
 | `docs/validation_data/zhou_2025_fig10_aoa.csv` | Zhou et al. 2025, Fig. 10 | AoA spanwise (yaw=0°) | ±0.5° | Comparación de forma y nivel de AoA; no validación punto a punto de valores absolutos. |
-| `docs/validation_data/zhou_2025_fig11_loads.csv` | Zhou et al. 2025, Fig. 11 | $N_p$, $T_p$, $M_p$ spanwise | ±0.05 a ±0.10 kN/m (aprox. ±3–5% según nivel) | Contraste de forma/escala de cargas distribuidas; no cierre absoluto por estación radial. |
+| `docs/validation_data/zhou_2025_fig11_loads.csv` | Zhou et al. 2025, Fig. 11 | $N_p$, $T_p$ spanwise **solamente** (el momento de pitch no está en la figura ni publicado) | ±0.05 a ±0.10 kN/m (aprox. ±3–5% según nivel) | Contraste de forma/escala de fuerzas distribuidas; no cierre absoluto por estación radial, y **no** sirve para arbitrar el par torsional: falta $M_p$. |
 | `docs/validation_data/ma_2025_fig17_aoa_flap_velocity.csv` | Ma et al. 2025, Fig. 17 | AoA y velocidad de flapping | ±0.5° en AoA y ±3–5% en magnitudes normalizadas | Comparación de tendencia con yaw y orden relativo; no inferencia de tolerancias de diseño. |
 
 \*Incertidumbres heurísticas de digitalización por lectura de figura y resolución de grilla. No son tolerancias de validación ni reemplazan datos tabulares originales.

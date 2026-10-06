@@ -931,7 +931,7 @@ El resultado final deseado no es una tabla mas grande, sino un mapa de regimenes
 | Archivo | Figura fuente | Variable | Incertidumbre heuristica | Uso permitido |
 |---|---|---|---|---|
 | `docs/validation_data/zhou_2025_fig10_aoa.csv` | Zhou et al. 2025, Fig. 10 | AoA spanwise (yaw=$0^\circ$) | $\pm 0.5$ deg | Comparacion de forma y nivel de AoA; no validacion absoluta punto a punto. |
-| `docs/validation_data/zhou_2025_fig11_loads.csv` | Zhou et al. 2025, Fig. 11 | $N_p$, $T_p$, $M_p$ spanwise | $\pm 0.05$ a $\pm 0.10$ kN/m | Contraste de forma/escala de cargas distribuidas; no cierre absoluto por estacion radial. |
+| `docs/validation_data/zhou_2025_fig11_loads.csv` | Zhou et al. 2025, Fig. 11 | $N_p$, $T_p$ spanwise **solamente** (el momento de pitch no esta en la figura ni publicado) | $\pm 0.05$ a $\pm 0.10$ kN/m | Contraste de forma/escala de fuerzas distribuidas; no cierre absoluto por estacion radial, y **no** sirve para arbitrar el par torsional: falta $M_p$. |
 | `docs/validation_data/ma_2025_fig15_yaw_metrics.csv` | Ma et al. 2025, Fig. 15 | Potencia y thrust vs. yaw | ~3-5 % por lectura de figura | Comparacion de tendencia bajo yaw. |
 | `docs/validation_data/ma_2025_fig16_spanwise_deflections.csv` | Ma et al. 2025, Fig. 16 | Deflexion flapwise y edgewise | ~3-5 % en magnitudes tip digitalizadas | Comparacion de escala estructural bajo yaw; no punto a punto. |
 | `docs/validation_data/ma_2025_fig17_aoa_flap_velocity.csv` | Ma et al. 2025, Fig. 17 | AoA y velocidad de flapping | $\pm 0.5$ deg en AoA y ~3-5 % en magnitudes normalizadas | Comparacion de tendencia con yaw y orden relativo. |
