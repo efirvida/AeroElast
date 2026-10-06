@@ -7,7 +7,7 @@ rows:
   - tests/validation/blade/test_blade_rated_twist.py::test_rated_bem_matches_the_literature_rigid_case
   validates: Our BEM's rigid rotor at rated vs Zhou's rigid means (verified from Table 6).
   comparisons:
-  - label: rtol at line 102
+  - label: rtol at line 104
     asserted: true
     reference:
       kind: paper
@@ -16,13 +16,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/blade/test_blade_rated_twist.py:102
+      source: tests/validation/blade/test_blade_rated_twist.py:104
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
-  - label: rtol at line 109
+      status: measured
+      run: '1146265'
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.195
+      text: 'rated BEM thrust vs Zhou et al. 2025, Energy 336:138488, Table 6, rigid case thrust: 0.1950% (bound: 3.0000%)'
+      digest: 9a6d1a6a3cc1df44
+  - label: rtol at line 111
     asserted: true
     reference:
       kind: paper
@@ -31,12 +36,17 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/blade/test_blade_rated_twist.py:109
+      source: tests/validation/blade/test_blade_rated_twist.py:111
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: '1146265'
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.3446
+      text: 'rated BEM power vs Zhou et al. 2025, Energy 336:138488, Table 6, rigid case power: 1.3446% (bound: 3.0000%)'
+      digest: 31c58d92d3bf8442
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_rated_twist.test_rated_aero_loads_reproduce_the_bem.single
@@ -46,7 +56,7 @@ rows:
   - tests/validation/blade/test_blade_rated_twist.py::test_rated_aero_loads_reproduce_the_bem_resultants
   validates: The applied load vectors must carry the BEM's own integrated resultants.
   comparisons:
-  - label: rtol at line 800
+  - label: rtol at line 871
     asserted: true
     reference:
       kind: self
@@ -54,13 +64,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.005
-      source: tests/validation/blade/test_blade_rated_twist.py:800
+      source: tests/validation/blade/test_blade_rated_twist.py:871
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
-  - label: rtol at line 807
+      status: measured
+      run: '1146265'
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0767
+      text: 'at_ac normal resultant vs our own BEM integral for the same load path: 0.0767% (bound: 0.5000%)'
+      digest: bc8bd908b7b795f7
+  - label: rtol at line 878
     asserted: true
     reference:
       kind: self
@@ -68,13 +83,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.005
-      source: tests/validation/blade/test_blade_rated_twist.py:807
+      source: tests/validation/blade/test_blade_rated_twist.py:878
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
-  - label: rtol at line 814
+      status: measured
+      run: '1146265'
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.3623
+      text: 'at_ac tangential resultant vs our own BEM integral for the same load path: 0.3623% (bound: 0.5000%)'
+      digest: da272fac1dfbaea7
+  - label: rtol at line 885
     asserted: true
     reference:
       kind: self
@@ -82,13 +102,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.005
-      source: tests/validation/blade/test_blade_rated_twist.py:814
+      source: tests/validation/blade/test_blade_rated_twist.py:885
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
-  - label: rtol at line 821
+      status: measured
+      run: '1146265'
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0564
+      text: 'uniform normal resultant, same resultant a different distribution vs our own BEM integral for the same load path: 0.0564% (bound: 0.5000%)'
+      digest: 37b4c7092206b363
+  - label: rtol at line 892
     asserted: true
     reference:
       kind: self
@@ -96,12 +121,17 @@ rows:
     tolerance:
       kind: rtol
       value: 0.005
-      source: tests/validation/blade/test_blade_rated_twist.py:821
+      source: tests/validation/blade/test_blade_rated_twist.py:892
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: '1146265'
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0076
+      text: 'mp_only resultant moment vs our own BEM integral for the same load path: 0.0076% (bound: 0.5000%)'
+      digest: 387caa96ee3f263e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_rated_twist.test_rated_twist_under_production_loads.single
@@ -111,7 +141,7 @@ rows:
   - tests/validation/blade/test_blade_rated_twist.py::test_rated_twist_under_production_loads
   validates: The rated structural response measured under the **production** load path.
   comparisons:
-  - label: rtol at line 975
+  - label: rtol at line 1138
     asserted: true
     reference:
       kind: self
@@ -119,11 +149,16 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/blade/test_blade_rated_twist.py:975
+      source: tests/validation/blade/test_blade_rated_twist.py:1138
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: '1146265'
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.2919
+      text: 'applied-load invariant, the P5 guard bound vs the BEM thrust the structure is solved against: 1.2919% (bound: 2.0000%)'
+      digest: 4ded18e30c2a50d1
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

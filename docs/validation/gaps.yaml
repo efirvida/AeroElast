@@ -46,48 +46,52 @@ gaps:
     rows: []
 
   - id: moment_realization_over_delivers
-    scope: the torsional nodal distribution in force_projection.py
-    status: open_defect
+    scope: "activating the multi-cell wall-flow realisation in production"
+    status: not_validated
     reason: >-
-      The minimum-norm realisation of a pure section moment was exactly
-      `f_j = omega x d_j`, circle-tangential about the section centroid, and not
-      the wall shear flow `q = T/(2A)` a closed section carries - it
-      over-delivers rigid torsion instead of under-delivering it. The tube case
-      is fixed: a strip that is one usable ring now realises its span moment as
-      Bredt's flow and reproduces the exact rate (0.3091%, inside the 5% rule).
-      What stays open is the multi-ring case, and it is the blade's own case: a
-      BEM band there holds three physical rings, and the equal-share per-ring
-      flow is measured to invert the tip rotation (+0.1273 deg against the
-      minimum-norm -1.4843 deg and Zhou's nose-down -3.60 deg), so it is gated
-      off and the multi-ring realisation remains unvalidated.
+      The realisation defect this entry used to describe is closed. The
+      minimum-norm field `f_j = omega x d_j` over-delivered rigid torsion where
+      a closed section carries the wall shear flow, and commit `1146265`,
+      arbitrated against the deck's own aerofoil geometry by
+      `tools/diagnose_sign_chain.py`, fixed the linked sign errors and the
+      multi-cell realisation now carries the physical field: the skin carries
+      `q_i`, a shared web carries `q_i - q_j`, the total moment is exact and the
+      net force is zero. It is pinned for the single-cell tube (0.3091% against
+      Bredt) and for the multi-cell cells against an independent hand-assembled
+      Bredt-Batho system. What is NOT validated is its activation in production:
+      `BEMFSIParticipant` builds its projectors without `element_properties` on
+      the fluid side, so the blade's strips still route through `_distribute`
+      (the sign-correct but single-cell minimum-norm field), and the multi-cell
+      reference is our own hand assembly, not an external code or a published
+      value.
     evidence: >-
+      tests/test_multicell_shear_flow.py: an asymmetric two-cell box reproduces
+      the independently hand-assembled `(n+1)` Bredt-Batho system, the shared
+      web reads back `q_i - q_j`, the realised moment is exact and the net force
+      is zero, and the minimum-norm and with-properties realisations of the same
+      rated moment agree in sign (both nose-down, `+8.1048` against `+9.6669`
+      deg; the pre-fix `-0.8696` / `+0.0773` deg inverted because the pitching
+      moment rode the raw span axis - issue #11). The single-cell tube is
       tests/validation/parity/test_thin_walled_tube_moment_realization.py
       (group 31): the independent hand-written shear flow and the production
       path both land at rate/Bredt 1.0031 with `distortion/|rotation|` 0.008,
-      against
-      31.6933 and 2.042 for the minimum-norm field they replaced (verdict 22.9).
-      The pre-fix departure was an end effect and decayed with length: the
-      clamped-tip ratio ran 8.86 (L = 6) -> 3.20 (L = 24) -> 2.10 (L = 48)
-      toward Bredt with a fixed `~1.45e-3 rad` of extra tip rotation, so the
-      31.69x was
-      never a blade-scale statement. The multi-ring measurement is on
-      tests/validation/blade/test_blade_rated_twist.py: tip section rotation
-      +0.1273 deg with the per-ring flow against -1.4843 deg with the
-      minimum-norm path (origin/main prints -1.5112 deg).
-    consequence: >-
-      The blade's torsional load path is still the minimum-norm one; the fix is
-      pinned only where an independent reference exists, a single-cell tube. The
-      multi-ring realisation needs its own reference before it can be enabled:
-      a multi-cell section carries a different shear flow, and a partial arc
-      or a mixed-ring contour still passes `contour_report.usable`, so the gate
-      alone cannot certify it. Two claims the first version of this entry
-      leaned on are withdrawn: the `0.74x` / `1.35x` torsional deficit of
-      1df95fe was a
+      against 31.6933 and 2.042 for the old minimum-norm field (verdict 22.9).
+      The pre-fix departure was an end effect and decayed with length, so the
+      31.69x was never a blade-scale statement. Two earlier claims stay
+      withdrawn: the `0.74x` / `1.35x` torsional deficit of 1df95fe was a
       reference mix-up and became a 9% residual once `GJ_static/GJ_deck = 1.068`
       was measured (verdict 22.10), and the deficit's remaining 2.4x against
       Zhou's tip torsion is an aero/torque difference, not a stiffness or
       load-frame one (verdict 22.11: their 4.072 Hz first torsion matches our
       4.000 Hz to 1.8%).
+    consequence: >-
+      A production blade torsional-load number still rides the minimum-norm
+      field, which is sign-correct but not the multi-cell wall flow, so it may
+      not be cited as the multi-cell realisation. Enabling the realisation needs
+      the laminate map on the fluid side, and the multi-cell flow needs an
+      external reference before it can be called independently validated.
+      Pre-fix numbers remain uncitable: before `1146265` the requested section
+      torque was nose-up (`+4.839888e5 N.m`).
     citations_forbidden: true
     rows: []
   - id: experimental_validation
@@ -110,10 +114,21 @@ gaps:
     scope: BEM to mesh load frame and sense (ForceProjector, defect P5)
     status: open_defect
     reason: >-
-      The frame and the sense are fixed and pinned, but every campaign number
-      produced BEFORE the fix had its aerodynamic load pushing upwind and
-      braking the rotor, so those numbers carry the wrong sign and cannot be
-      reused.
+      The frame and the sense are fixed and pinned; what remains open is the
+      prohibition, not the work: every campaign number produced BEFORE these
+      fixes had its aerodynamic load pushing upwind and braking the rotor, so
+      those numbers carry the wrong sign and cannot be reused. The convention is
+      arbitrated once, against the deck itself, by
+      `tools/diagnose_sign_chain.py` (every real station ring matched to its
+      WindIO aerofoil, residual 0.5-3.6% of chord): the deck puts the leading
+      edge at positive x and the load-frame downwind (thrust) direction at
+      positive y, so a rigid +z rotation moves the leading edge downwind and
+      NOSE-DOWN is `omega > 0`. `ForceProjector` records the per-strip
+      `_strip_moment_axis_sign` and applies the aerodynamic pitching moment on
+      it, because the deck's leading-to-trailing direction runs against
+      `_strip_chord_dirs` at every real station (`LE . c_hat = -1.0`); the old
+      guards asserted the inverted `omega < 0` and let the wrong-axis moment
+      pass.
     evidence: >-
       Frame: the load axis comes per strip from the section outline, guarded by
       `tests/validation/bem/test_force_projection_load_frame.py`: worst
@@ -128,11 +143,15 @@ gaps:
     consequence: >-
       The re-derivation this gap asked for has been done and is stored: the
       de-loading is measured in one sign convention by
-      `tests/validation/blade/test_blade_deloading_vs_reference.py` (group 32),
-      and the elastic twist is now `-1.5112 deg` nose-down at the tip, not the
-      pre-fix `+8.9 deg`. What remains is the prohibition, not the work: numbers
-      quoted from the pre-fix path are uncitable, and the few-percent power
-      residual against the published rating is reported rather than tuned.
+      `tests/validation/blade/test_blade_deloading_vs_reference.py`, and the
+      elastic tip twist is now `+8.1048 deg` nose-down at the tip (minimum-norm;
+      `+9.6669 deg` with the with-properties multi-cell path), not the pre-fix
+      `-1.5112 deg`. Corrected de-loading (thrust/power): twist only
+      `-26.01% / -15.61%`, radii only `+1.24% / +0.95%`, production path
+      `-25.31% / -14.77%`, against Zhou Table 6's `-13.04% / -8.38%`. What
+      remains is the prohibition, not the work: numbers quoted from the pre-fix
+      path are uncitable, and the few-percent power residual against the
+      published rating is reported rather than tuned.
     citations_forbidden: true
     rows: []
   - id: force_projection_axial_extension
@@ -164,14 +183,15 @@ gaps:
       the tip, with about `0.9 m` of x curvature; the prebend/precurve split is
       not established.
     consequence: >-
-      The radii feedback alone re-loads the rotor by `+1.13%` thrust and
-      `+0.85%`
-      power, and that sign matches the production row, so the de-loading
-      shortfall measured in WU-D (twist only `-4.00% / -0.81%`, radii only
-      `+1.13% / +0.85%`, production `-2.96% / +0.03%`) is partly this artefact
-      and not bend-twist. Numbers from the production path before the load-frame
-      fixes stay non-citable. What is NOT owed any more is a load-frame fix:
-      removing the spanwise force changes nothing measurable, so this gap is now
-      a structural-model question about linear analysis on a curved axis.
+      The radii feedback alone re-loads the rotor by `+1.24%` thrust and
+      `+0.95%` power, so it offsets part of the twist-only de-loading
+      (`-26.01% / -15.61%`), leaving the production path (twist + radii) at
+      `-25.31% / -14.77%`. That offset is partly this artefact and not
+      bend-twist. Numbers from the production path before the load-frame fixes
+      stay non-citable. What is NOT owed any more is a load-frame fix: removing
+      the spanwise force changes nothing measurable, so this gap is now a
+      structural-model question about linear analysis on a curved axis. The
+      twist/de-loading figures here are the corrected ones; the convention is
+      arbitrated in `force_projection_sense_p5`.
     citations_forbidden: true
     rows: []

@@ -8,6 +8,24 @@
 - **Environment**: conda `aeroelast-dev` (`~/miniconda3/envs/aeroelast-dev/bin/python`),
   `ccx` on `PATH`, Rust extension `_aeroelast` built. Rust workspace root is `crates/`.
 
+> **ADDENDUM (2026-10-05) — the twist/de-loading sign conclusions below are superseded.**
+> This document records what was measured on 2026-10-01; the numbers in it stand as
+> that record. Commit `1146265` later fixed three linked sign errors in the blade's
+> torsional load chain, arbitrated against the deck's own aerofoil geometry by
+> `tools/diagnose_sign_chain.py` (every ring matched to its WindIO aerofoil, residual
+> 0.5-3.6% of chord). The convention it settles, stated once: the deck puts the leading
+> edge at **+x** and the load-frame downwind (thrust) direction at **+y**, so a rigid
+> **+z** rotation is **nose-down: nose-down is `omega > 0`**. A reader must NOT carry
+> forward the sign of the twist, the sign of the de-loading, or the reading that
+> `omega < 0` is nose-down, from any of the affected sections below. The corrected tip
+> section rotation is **`+8.1048` deg** (minimum-norm) and **`+9.6669` deg**
+> (with-properties multi-cell); the corrected twisted-path de-loading is
+> **-26.01% / -15.61%** twist only, **+1.24% / +0.95%** radii only and
+> **-25.31% / -14.77%** production (thrust / power), against Zhou Table 6's
+> `-13.04% / -8.38%`. The magnitude gap is now ~1.9x over (a one-way-versus-coupled /
+> load-level question), not the 3.3x short the sign error produced. The unaffected
+> results (the coupon verdict in §1b, the element's D16/D26 coupling) stand.
+
 ---
 
 ## 1. Objective

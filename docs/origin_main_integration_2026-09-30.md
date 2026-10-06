@@ -6,6 +6,25 @@
 merge `e2bc081` @ `7a2196f`)
 **Feature log**: `odd/tasks/integrate-origin-main.md`
 
+> **Correction pointer (2026-10-05) — do not carry forward the coupled-FSI columns.**
+> Commit `1146265` later fixed three linked sign errors in the blade's torsional load
+> chain, arbitrated against the deck's own aerofoil geometry by
+> `tools/diagnose_sign_chain.py`. The convention it settles: the deck puts the leading
+> edge at **+x** and the load-frame downwind (thrust) direction at **+y**, so a rigid
+> **+z** section rotation is **nose-down** and nose-down is **`omega > 0`**. Every number
+> in this document was measured before that fix. In particular, a reader must NOT carry
+> forward the **`flap mean`**, **`thrust`**, **`power`** and **`CP`** columns of the
+> "Yaw sweep, after vs `_mitc3fix`" table, the `yaw loads (flap/thrust/power)` row of
+> the "Verdict, item by item" table, or the absolute `flap`/`thrust`/`power` levels of
+> the `h`/`dt` convergence tables: those are coupled-FSI campaigns whose elastic twist
+> and load feedback ride the pre-fix sign chain. The corrected production-path
+> de-loading (`-25.31% / -14.77%` thrust/power, against Zhou Table 6's
+> `-13.04% / -8.38%`) supersedes the yaw-sweep de-loading reading. The static blade
+> matrix, the CCX convergence tables, the element deltas and the rigid-BEM results do
+> not depend on that sign chain and stand as recorded. The already-recorded config
+> confound (mesh + hub radius) is a second, separate reason the coupled columns are not
+> an element A/B.
+
 ## Why
 
 `origin/main` carries the reviewed MITC4+/D element, the span-relative ply-angle fix

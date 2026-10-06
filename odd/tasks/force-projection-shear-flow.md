@@ -3,6 +3,35 @@
 Base: `integrate/origin-main-2026-09-30` after merging `origin/main` (`26ffe6e`).
 Issue: https://github.com/efirvida/AeroElast/issues/11 (bug).
 
+## State update (2026-10-05) — the sign chain is fixed
+
+Commit `1146265` fixed the three linked sign errors this plan tracked and arbitrated the
+convention against the deck's own aerofoil geometry (`tools/diagnose_sign_chain.py`: every
+real station ring matched to its WindIO aerofoil, residual 0.5-3.6% of chord). The
+convention, stated once: the deck puts the leading edge at **+x** and the load-frame
+downwind (thrust) direction at **+y**, so a rigid **+z** rotation moves the leading edge
+downwind and **nose-down is `omega > 0`**. Consequences: `ForceProjector` records
+`_strip_moment_axis_sign` and applies `Mp` on it; `fsi_participant._twist_mesh_to_bem` is
+**+1**; the multi-cell realisation (skin `q_i`, shared webs `q_i - q_j`, total moment
+exact, net force zero) is validated against an independent hand-assembled Bredt-Batho
+system, and the two realisations of the same rated moment agree in sign.
+
+Corrected rated numbers (same point throughout):
+
+| quantity | pre-fix | corrected |
+| --- | ---: | ---: |
+| tip section rotation, minimum-norm | -0.8696 deg | **+8.1048 deg** |
+| tip section rotation, with-properties multi-cell | +0.0773 deg | **+9.6669 deg** |
+| de-loading, twist only (thrust/power) | -4.00% / -0.81% | **-26.01% / -15.61%** |
+| de-loading, radii only | +1.13% / +0.85% | +1.24% / +0.95% |
+| de-loading, production path | -2.96% / +0.03% | **-25.31% / -14.77%** |
+| Zhou Table 6 reference | -13.04% / -8.38% | (unchanged) |
+
+The pre-fix numbers that follow in the merge-reconciliation and T2c sections are that
+record, not the current state. T2c-2b and T3 are closed by `1146265`; the tube's Bredt
+validation is untouched at `1.0031x` (0.3091%), and the sign is now pinned by
+`tests/test_multicell_shear_flow.py::test_min_norm_and_with_properties_realisations_of_the_rated_moment_agree_in_sign`.
+
 ## Problem
 
 `ForceProjector._distribute` (`src/aeroelast/solvers/bem/force_projection.py`) realises a
@@ -73,6 +102,10 @@ user's, and it is the true prerequisite for #11 T2b/T3 and for #12.
 | this branch (canonicalisation on) | -0.3895 deg | 4.8062 | +1.4813 deg |
 | this branch (canonicalisation off) | **+0.1194 deg** | 15.4966 | +2.0090 deg |
 
+These are **pre-fix** (before `1146265`) and measured under the old convention. After the
+sign fix the properties-less production path measures `omega = +8.1048 deg` (nose-down) and
+the with-properties multi-cell path `+9.6669 deg`, both reported in the state update above.
+
 main's numbers are the ones the issue text quotes, so main's structural core is the reference and
 this branch's is not.
 
@@ -82,6 +115,9 @@ The two main guards that matter here trade off against each other on this tree:
   `test_rated_aero_loads_reproduce_the_bem_resultants` fails (16.8070% against 0.5%);
 - canonicalisation **off**: the loads test passes and the twist test fails on
   `omega < 0` (`+0.1194 deg`), the same assertion main satisfies with `-1.5112 deg`.
+
+The `omega < 0` assertions above were the inverted convention and are now `omega > 0`
+(issue #11, `1146265`).
 
 So this line's mesh needs the winding canonicalisation for the composite ply-angle mapping to give
 the nose-down twist, while main's mesh needs none: the two meshers do not produce the same
@@ -98,7 +134,8 @@ identical to main's except for the canonicalisation call, so the alignment was t
 changes - drop the winding canonicalisation, take main's BEM polar path, keep the `rotorspin`
 removal - and the additive CLI surface (`--export-mesh`, `RotorHubMesh`, `airfoil_spacing`, the CCX
 deck) was never at risk. Acceptance met exactly: `omega = -1.5112 deg`, `distortion/|omega| =
-9.3633`, 7 passed.
+9.3633`, 7 passed. (Pre-fix values under the pre-fix convention; the corrected numbers are in the
+state update above.)
 
 Still divergent from main, measured and recorded, not needed by #11/#12 and not covered by its
 guards: `crates/aeroelast-core/src/elements/mitc3.rs`, `solvers/elasticity/*`, `solvers/fsi/*`,
@@ -130,7 +167,8 @@ and the numad extras.
       after measurement: the ring-gap tolerance must ride the mesh's span extent (a prebent ring
       was being sheared into partial arcs), and the realisation is gated to an
       exactly-one-usable-ring strip because the multi-ring equal-share flow inverts the blade's tip
-      rotation (+0.1273 deg against the minimum-norm -1.4843 deg). Commits `f9d4144`, `7c82e9c`.
+      rotation (+0.1273 deg against the minimum-norm -1.4843 deg; pre-fix, before `1146265`).
+      Commits `f9d4144`, `7c82e9c`.
 - [x] T2b — Store refreshed for group 31: both comparisons are real Bredt rows at 0.3091%, the
       adjudication points at the new row id, the two diagnostic prints are declared unasserted, and
       `gaps.yaml`'s open defect now describes the remaining multi-ring case. `check` 0 errors,
@@ -138,11 +176,15 @@ and the numad extras.
 - [x] Verification — main's whole validation suite is green on this tree: `tests/validation`
       434 passed, 18 skipped, 12 xfailed, 0 failed (parity+element 199 passed / 1 xfailed;
       bem+benchmarks+blade+rotor 235 passed / 18 skipped / 11 xfailed).
-- [ ] T3 — Blade re-measurement: the change does **not** reach the blade (gated), so the blade sits
-      at main's numbers. T3 owes the recorded finding plus what the issue asked for: tip section
-      rotation, spanwise `sum|fz|`, `distortion/|omega|` (9.3633 under production), the de-loading
-      table, and the multi-ring realisation as its own work unit with its own reference. A result
-      outside the bound is the finding.
+- [x] T3 — Blade re-measurement: closed by `1146265`. The blade no longer sits at main's
+      pre-fix numbers: the properties-less production projector measures tip section rotation
+      **`+8.1048 deg`** (nose-down, `omega > 0`) and the with-properties multi-cell path
+      **`+9.6669 deg`**; the de-loading table is twist only **`-26.01% / -15.61%`**, radii only
+      **`+1.24% / +0.95%`**, production path **`-25.31% / -14.77%`** (thrust/power) against Zhou
+      Table 6's `-13.04% / -8.38%`. The multi-ring realisation is its own work unit now, with its
+      own independent reference (the hand-assembled Bredt-Batho system in
+      `tests/test_multicell_shear_flow.py`). The remaining gap is magnitude (~1.9x over Zhou),
+      reported not tuned.
 
 ## Constraints
 
@@ -180,20 +222,28 @@ and the numad extras.
   AeroDyn chord the band datum errs 1.517%/5.538% (median/p90) where the ring datum errs
   0.648%/1.736%. The two guards move to the same datum **without mirroring the implementation**
   (the ring is selected from the deck's own radius), and their bounds are unchanged. Measured
-  consequence: the rated tip rotation moves **-1.5112 -> -0.8696 deg** and the twist-only
-  de-loading deepens **-4.00% -> -5.13%** of thrust toward Zhou's -13.04%, while the magnitude
-  against Zhou's -3.60 deg moves away (the one-way-versus-coupled comparison the module already
-  documents). 42 + 10 passed; no bound widened.
-- **T2c-2b (pending).** The multi-cell Bredt-Batho realisation. Why the single-cell flow inverts
-  the twist is measured: the ring's ordered contour **includes the web nodes**, so `A` is not the
-  enclosed area, and with `include_webs=False` (a genuine single cell) the same flow gives a
-  **physical** twist (-12.5 deg against the min-norm's -14.4 deg). Pin it on an **asymmetric**
-  two-cell box: `test_box_multicell_torsion.py` already documents that a symmetric one cannot
-  detect the error because its web carries zero net flow.
-- **T2c-2c (pending).** CCX arbitration of the blade's load path. Two limits measured first:
+  consequence: the rated tip rotation moved **-1.5112 -> -0.8696 deg** (pre-fix convention) and
+  the twist-only de-loading deepened **-4.00% -> -5.13%** of thrust toward Zhou's -13.04%, while
+  the magnitude against Zhou's -3.60 deg moved away (the one-way-versus-coupled comparison the
+  module already documents). After `1146265` the corrected picture is a nose-down `+8.1048 deg`
+  and a twist-only de-loading of **`-26.01% / -15.61%`**, i.e. now over Zhou. 42 + 10 passed;
+  no bound widened.
+- **T2c-2b (done, `1146265`).** The multi-cell Bredt-Batho realisation: the skin carries
+  `q_i`, a shared web carries `q_i - q_j`, the total moment is exact and the net force is zero.
+  Validated on an **asymmetric** two-cell box against an independently hand-assembled `(n+1)`
+  Bredt-Batho system solved with `numpy.linalg.solve`, with the three-cell blade topology as a
+  second case and the production `project()` path reading the shared web back as `q_i - q_j`
+  (`tests/test_multicell_shear_flow.py`). `test_box_multicell_torsion.py` already documents that a
+  symmetric box cannot detect the error because its web carries zero net flow, which is why the
+  pin is asymmetric. The old "single-cell flow inverts the twist" observation was the sign chain,
+  not the flow: with the moment applied on `_strip_moment_axis_sign` both realisations are
+  nose-down (`+8.1048` vs `+9.6669` deg).
+- **T2c-2c (closed, reframed).** CCX arbitration of the blade's load path is replaced by the
+  arbitrated sign chain: `tools/diagnose_sign_chain.py` matches every real station ring to its
+  WindIO aerofoil (residual 0.5-3.6% of chord) and settles the leading edge, the `_strip_chord_dirs`
+  sense and the rotation convention. The two CCX limits measured earlier still hold:
   `write_ccx_mesh` spreads a load **uniformly** over the nodeset (`_write_ccx_cload` divides by the
   node count), so it cannot represent a per-node wall flow; and sending the torque as a moment on
   the 6th DOF blows up through the drilling DOF (418 m), documented in
-  `tests/test_blade_ccx_parity.py` - which is this line's own file, not main's, and has stale
-  imports after the `tests/` reorganisation. CCX arbitrates the **structure**; the AC datum is
-  arbitrated by the deck's geometry plus the 12/50 count above.
+  `tests/test_blade_ccx_parity.py` - which is this line's own file, not main's. CCX remains the
+  **structural** arbiter; the load-path sign is arbitrated by the deck's geometry.

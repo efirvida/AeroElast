@@ -5,7 +5,7 @@ Registro de los ítems de validación **cerrados**, con su evidencia y el
 cierre). Este archivo es la fuente para el capítulo de validación del
 artículo y evita re-auditar lo ya cerrado.
 
-Última actualización: 2026-09-30.
+Última actualización: 2026-10-05.
 
 > **2026-09-30 — la línea de elementos cambió.** Se integró `origin/main` (el elemento
 > MITC4+/D revisado, el fix de ángulos de ply span-relative, el fix de corte no corregido,
@@ -15,6 +15,22 @@ artículo y evita re-auditar lo ya cerrado.
 > `docs/origin_main_integration_2026-09-30.md`.  Resumen: 933→905 passed, 6→15 failed,
 > 0→22 errors; 28 tests de CalculiX bloqueados por un elemento degenerado de la malla de
 > pala; V-02 2F, S-4 rotante, S-7, S-6 (NaN), box EI, D-Tube y elástica se movieron.
+
+> **2026-10-05 — la cadena de signo del momento torsor de la pala cambió.** El commit
+> `1146265` corrige tres errores de signo enlazados en la carga torsional de la pala,
+> arbitrados contra la geometría de aerofoil del propio deck por
+> `tools/diagnose_sign_chain.py` (cada anillo de estación real emparejado con su aerofoil
+> WindIO, residuo 0.5–3.6 % de cuerda). La convención queda enunciada una sola vez aquí: el
+> deck pone el borde de ataque en **+x** y el empuje del marco de carga (downwind) en
+> **+y**, así que una rotación rígida **+z** mueve el borde de ataque aguas abajo y
+> **nose-down es `omega > 0`**. Consecuencia medida en el punto rated: giro de sección en la
+> punta **`+8.1048°`** (mínima norma) y **`+9.6669°`** (multi-celda con propiedades);
+> de-loading (flexible−rígido)/rígido: **twist solo `−26.01 % / −15.61 %`**, **radios solo
+> `+1.24 % / +0.95 %`**, **producción `−25.31 % / −14.77 %`** (thrust/potencia), contra Zhou
+> Table 6 **`−13.04 % / −8.38 %`**. Las cifras de twist y de de-loading **pre-fix** de las
+> secciones de abajo (barrido yaw `−30.9 %`/`−32.1 %`, over-twist ×3–12, S-8c `+5…+9.5°`)
+> son registro histórico: no se arrastran como estado actual. Detalle en "Fix de la cadena
+> de signo (2026-10-05)" al final.
 
 ## Cómo correr la suite de validación
 
@@ -130,8 +146,9 @@ fuerzas, o los polares/airfoils.
 - 5/5 completadas y estacionarias; números en la tabla del análisis
   (`$SCRATCH/tmp/opencode/analyze_twistfix.py`).
 - Con la geometría correcta: yaw 0 → P 13.161 MW, thrust 1.757 MN,
-  flap 8.230 m; de-loading de thrust **−30.9 %** vs Zhou −13.0 %/ancla −15 %.
-  El driver es el over-twist del shell (S-8c: +5…+9.5° vs BeamDyn +0.98°) →
+flap 8.230 m; de-loading de thrust **−30.9 %** vs Zhou −13.0 %/ancla −15 %. *(pre-fix del
+signo, ver fix de la cadena de signo 2026-10-05.)*
+El driver es el over-twist del shell (S-8c: +5…+9.5° vs BeamDyn +0.98°) →
   ver el ítem abierto del juez externo. Los números V-04 previos (flap
   ~12.8 m, P −0.34 % vs Zhou) son de la campaña espejada y quedan inválidos.
 - Acción inmediata: extraer el twist de punta 4-path de la campaña nueva
@@ -552,7 +569,10 @@ distorsionado) ya es ×3.
 
 **Cadena causal**: la estructura sobre-tuerce (×3–12) → el acoplamiento
 sobre-de-loadea (×2–2.7) → la potencia y el flap caen. El aero es lo que
-menos falla. Siguiente escalón natural: comparar nuestras propiedades de
+menos falla. *(Los números de de-loading de esta cadena son pre-fix del signo; ver el
+fix de la cadena de signo, 2026-10-05. La estructura sobre-tuerce sigue siendo el hallazgo,
+pero el de-loading corregido es `−25.31 % / −14.77 %`, sobre Zhou en vez de corto.)*
+Siguiente escalón natural: comparar nuestras propiedades de
 sección (GJ, EI, posición del centro de torsión/EA) contra la hoja "Blade
 Structural Properties" del xlsx del IEA — el S-8b (semichord) ya apuntaba
 al eje de pitch como parámetro sensible.
@@ -593,3 +613,31 @@ blade-local como en la consistente rotor, y coincide con el valor
 
 **Consecuencia**: todas las campañas acopladas (barrido yaw y matriz V-06)
 corrieron **con el bug de frame activo** → hay que re-correrlas con el fix.
+
+### Fix de la cadena de signo del momento torsor (2026-10-05)
+
+Tres errores de signo enlazados escondían el signo del twist y del de-loading FSI, y el
+tercero compensaba al primero. Convención arbitrada una sola vez: borde de ataque en **+x**,
+downwind del marco de carga en **+y**, rotación rígida **+z** = **nose-down**, o sea
+**`omega > 0`**. La fija `tools/diagnose_sign_chain.py` contra la geometría del deck
+(residuo 0.5–3.6 % de cuerda en cada estación real).
+
+1. El momento de cabeceo aerodinámico se aplicaba sobre el eje equivocado: la dirección
+   leading-to-trailing del deck corre **contra** `_strip_chord_dirs` en toda estación real
+   (`LE . c_hat = -1.0`). `ForceProjector` guarda `_strip_moment_axis_sign` por strip y
+   aplica `Mp` sobre él.
+2. Los dos guards afirmaban `omega < 0` (nose-up); ahora afirman `omega > 0`.
+3. `fsi_participant._twist_mesh_to_bem` era `-1` y convertía la rotación nose-up pre-fix en
+   un descenso aparente de `-4.00 %`; ahora es **+1**.
+
+Evidencia, mismo punto rated: `-0.8696 -> +8.1048 deg` (mínima norma),
+`+0.0773 -> +9.6669 deg` (multi-celda con propiedades); de-loading twist solo
+`-4.00 %/-0.81 % -> -26.01 %/-15.61 %`; radios solo `+1.13 %/+0.85 % -> +1.24 %/+0.95 %`;
+producción `-2.96 %/+0.03 % -> -25.31 %/-14.77 %`; Zhou Table 6 `-13.04 %/-8.38 %`
+(sin cambio). La validación Bredt del tubo queda intacta en `1.0031x` (0.3091 %). El guard que
+habría atrapado todo esto es la invariancia sin convención de
+`tests/test_multicell_shear_flow.py`: las dos realizaciones fieles del mismo momento rated
+deben rotar la sección en el mismo sentido. Lo que queda es una cuestión de **magnitud**
+(~1.9× por encima de Zhou), no de signo (acoplamiento one-way vs convergido, o nivel de
+carga), más la prohibición de citar números pre-fix. Ver `docs/validation/gaps.yaml`
+(`moment_realization_over_delivers`, `force_projection_sense_p5`).
