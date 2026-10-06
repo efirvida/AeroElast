@@ -7,7 +7,7 @@ rows:
   - tests/validation/blade/test_blade_twist_anchor_beam.py::test_anchor_sections_cross_check_and_degenerate_tip
   validates: Pin the 6x6 reading against ElastoDyn and guard the point-like tip interval.
   comparisons:
-  - label: rtol at line 204
+  - label: rtol at line 214
     asserted: true
     reference:
       kind: code
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/blade/test_blade_twist_anchor_beam.py:204
+      source: tests/validation/blade/test_blade_twist_anchor_beam.py:214
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -26,7 +26,7 @@ rows:
       margin_pct: 0.0023
       text: 'anchor axial stiffness vs the official IEA-15-240-RWT BeamDyn deck, EA: 0.0023% (bound: 1.0000%)'
       digest: 4ec740a8369633c1
-  - label: rtol at line 211
+  - label: rtol at line 221
     asserted: true
     reference:
       kind: code
@@ -34,7 +34,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/blade/test_blade_twist_anchor_beam.py:211
+      source: tests/validation/blade/test_blade_twist_anchor_beam.py:221
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -45,7 +45,7 @@ rows:
       margin_pct: 0.0049
       text: 'anchor torsional stiffness vs the official IEA-15-240-RWT BeamDyn deck, GKt: 0.0049% (bound: 1.0000%)'
       digest: cae435f6ec341e9a
-  - label: rtol at line 225
+  - label: rtol at line 235
     asserted: true
     reference:
       kind: code
@@ -53,7 +53,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/blade/test_blade_twist_anchor_beam.py:225
+      source: tests/validation/blade/test_blade_twist_anchor_beam.py:235
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -64,7 +64,7 @@ rows:
       margin_pct: 1.9239
       text: 'anchor flapwise bending stiffness vs the official IEA-15-240-RWT ElastoDyn blade deck, FlpStff: 1.9239% (bound: 2.0000%)'
       digest: 7b67c3d8ed3c4085
-  - label: rtol at line 232
+  - label: rtol at line 242
     asserted: true
     reference:
       kind: code
@@ -72,7 +72,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/blade/test_blade_twist_anchor_beam.py:232
+      source: tests/validation/blade/test_blade_twist_anchor_beam.py:242
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
