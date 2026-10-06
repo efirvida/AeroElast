@@ -65,6 +65,18 @@ def nodal_loads(node_indices: Sequence[int], value: float, dof: int, dofs_per_no
     return NodalLoad(dofs, [per_node] * len(dofs))
 
 
+def nodal_loads_from_vector(force: np.ndarray, dofs_per_node: int = 6):
+    """A single ``NodalLoad`` carrying every non-zero entry of a full force vector.
+
+    Lets an arbiter test reuse the force vector its replica already builds instead of rebuilding
+    the same load through a different API, which would be a second chance to get it wrong.
+    """
+    from aeroelast.core.bc import NodalLoad
+
+    dofs = [i for i in range(force.size) if force[i] != 0.0]
+    return NodalLoad(dofs, [float(force[i]) for i in dofs])
+
+
 def solve_static(
     mesh,
     model_cfg: dict,

@@ -37,7 +37,6 @@ twist is -0.57 deg).
 from __future__ import annotations
 
 from collections import Counter
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -48,11 +47,13 @@ from _aeroelast import PyMeshAssembler  # noqa: E402
 from aeroelast.core.laminate import Laminate, Ply  # noqa: E402
 from aeroelast.core.material import OrthotropicMaterial  # noqa: E402
 from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
+from aeroelast.elements import ElementFamily  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 from scipy.sparse.linalg import spsolve  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
+from tests import _production_arbiter as arbiter  # noqa: E402
 
 from tests.support.paths import DATA_DIR  # noqa: E402
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
@@ -95,7 +96,7 @@ def solved(blade_model):
 
     def solve(force):
         u = np.zeros(n)
-        u[free] = spsolve(Kff, force[free])
+        u[free] = np.asarray(spsolve(Kff, force[free])).ravel()
         flap = float(np.mean([u[6 * nd + blade_validation.FLAPWISE_DOF] for nd in tip]))
         twist = float(np.mean([u[6 * nd + 5] for nd in tip]))
         return flap, twist
@@ -164,6 +165,52 @@ def _station_load(solved, selector):
         for nd in sel:
             force[6 * nd + blade_validation.FLAPWISE_DOF] = per_node
     return force
+
+
+def test_production_solver_matches_the_scipy_replica(solved, blade_model):
+    """The production static solver reproduces this replica on the blade's own stiffness.
+
+    The replica above is validated against BeamDyn and the mesh checks; nothing drove the
+    production solve path. Measured before wiring: the test's
+    ``PyMeshAssembler.from_model(...)`` and the production ``MeshAssembler(mesh, cfg)`` assemble a
+    bit-identical ``K`` (max|dK| = 0.0 over 18258 DOF), so the two solvers are directly comparable.
+    """
+    mesh, props, _ = blade_model
+    force = _station_load(solved, lambda nds: nds)
+
+    u_replica = np.zeros(solved["n"])
+    u_replica[solved["free"]] = np.asarray(spsolve(solved["Kff"], force[solved["free"]])).ravel()
+
+    cfg = {
+        "elements": {
+            "element_family": ElementFamily.SHELL,
+            "properties": props,
+            "span_direction": list(blade_validation.SPAN_DIRECTION),
+        },
+        "solver": {},
+    }
+    u_prod = arbiter.solve_static(
+        mesh,
+        cfg,
+        fixed_dofs=arbiter.fixed_dofs_from_node_set(mesh, "RootNodes"),
+        nodal_loads_list=[arbiter.nodal_loads_from_vector(force)],
+    )
+
+    arbiter.require_gap(
+        arbiter.displacement_gap(u_prod, u_replica),
+        rtol=arbiter.DEFAULT_RTOL,
+        label="IEA-15-240-RWT blade, element_size 1.0",
+    )
+
+    tip = solved["tip"]
+    flap_dof = blade_validation.FLAPWISE_DOF
+    flap_prod = float(np.mean([u_prod[6 * nd + flap_dof] for nd in tip]))
+    flap_replica = float(np.mean([u_replica[6 * nd + flap_dof] for nd in tip]))
+    rel = abs(flap_prod - flap_replica) / abs(flap_replica)
+    assert rel < arbiter.DEFAULT_RTOL, (
+        f"tip flapwise displacement: production {flap_prod:.6e} against replica {flap_replica:.6e} "
+        f"({rel:.3e} relative, bound {arbiter.DEFAULT_RTOL:.1e})"
+    )
 
 
 def test_blade_twist_is_load_path_dominated(solved):
