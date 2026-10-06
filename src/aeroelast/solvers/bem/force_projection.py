@@ -71,6 +71,11 @@ class _RingSection:
     ``f_shear[local_nodes[a]]``.  The two index spaces differ - a ring group is a
     permutation/subset of the strip's nodes - so the mapping is carried explicitly
     rather than assumed to be the identity.
+
+    ``from_element_properties`` records whether the ring's wall stiffnesses came from
+    the projector's ``element_properties`` map.  Without it :func:`ring_section`
+    returns the uniform, geometric-only ``S = 1.0``; the multi-cell gate must refuse
+    that case explicitly rather than infer it from a uniform stiffness.
     """
 
     cells: List[SectionCell]
@@ -78,6 +83,7 @@ class _RingSection:
     edge_length: dict
     edge_shear_stiffness: dict
     local_nodes: np.ndarray
+    from_element_properties: bool
 
 
 def _cells_have_usable_area(
@@ -180,9 +186,11 @@ class ForceProjector:
         self._mesh = mesh
         #: ``{element_set_name: property}`` (the assembler's own map).  Fed to
         #: :func:`ring_section` so each wall's multi-cell flow sees its laminate's
-        #: membrane shear stiffness ``S = G*t``.  ``None`` leaves the uniform
-        #: ``S = 1.0`` geometric-only fallback in force; the multi-cell path still
-        #: runs, but the cell-to-cell flow split is geometric.
+        #: membrane shear stiffness ``S = G*t``.  When it is ``None``, or a ring's
+        #: element set has no entry, every wall falls back to the uniform ``S = 1.0``
+        #: and the cell-to-cell split is geometric-only; such a ring is marked
+        #: non-physical and ``project()`` routes it to :meth:`_distribute` instead of
+        #: claiming a physical split.
         self._element_properties = element_properties
 
         self._normal_dir = np.asarray(
@@ -321,7 +329,14 @@ class ForceProjector:
                     sections.append(None)
                     continue
                 sections.append(
-                    _RingSection(cells, adjacency, edge_length, edge_shear_stiffness, local)
+                    _RingSection(
+                        cells,
+                        adjacency,
+                        edge_length,
+                        edge_shear_stiffness,
+                        local,
+                        from_element_properties=element_properties is not None,
+                    )
                 )
             self._strip_ring_sections.append(sections)
 
@@ -631,16 +646,20 @@ class ForceProjector:
             M_strip = M_ac - np.cross(self._strip_ac_offsets[k], F_strip)
 
             # Distribute to nodes.  The precomputed per-ring wall graphs carry the
-            # span moment as Bredt-Batho multi-cell wall flows (one equal-share flow
-            # system per physical ring); whatever force/transverse moment is left goes
-            # through the unchanged minimum-norm solve.  Passing ``ring_sections``
-            # (not ``ring_groups``) routes the realisation through the multi-cell path;
-            # a strip whose rings could not be extracted falls back to ``_distribute``.
+            # span moment as Bredt-Batho multi-cell wall flows, one tributary share of
+            # the strip's torsion per physical ring; whatever force/transverse moment
+            # is left goes through the unchanged minimum-norm solve.  ``ring_groups``
+            # and ``ring_sections`` are the strip's own precomputed physical rings, so
+            # the multi-cell branch never regroups with a strip-scaled tolerance.  A
+            # strip whose rings could not be extracted - or that was built without
+            # ``element_properties``, so its walls are only the uniform ``S = 1.0`` -
+            # falls back to ``_distribute`` inside ``realise_section_load``.
             f_nodes = realise_section_load(
                 strip,
                 F_strip,
                 M_strip,
                 self._span_dir,
+                ring_groups=self._strip_ring_groups[k],
                 ring_sections=self._strip_ring_sections[k],
             )
             forces[strip.node_indices] = f_nodes
@@ -796,19 +815,29 @@ def realise_section_load(
     1. **Split the moment.**  ``span_hat = span_dir / ||span_dir||``;
        ``torsion = M_strip . span_hat`` is the part the wall flow can carry, and
        ``transverse = M_strip - torsion * span_hat`` is left to the fallback.
-    2. **Fail fast on an unextractable ring.**  In the multi-cell mode, ``ring_sections``
-       holds one entry per non-empty physical-ring group of the strip, in the strip's own
-       ring order.  An entry is ``None`` when the ring has fewer than three nodes, when
-       :func:`ring_section` found no closed cell for it (a collinear/degenerate outline, or
-       a coupling mesh stripped of its elements), or when a cell's shoelace area is a
-       round-off residual rather than a wall cell (a projected deformed graph can trace a
-       self-overlapping loop; see :func:`_cells_have_usable_area`).  If **any** entry is
-       ``None`` the whole strip falls back to :meth:`ForceProjector._distribute`, exactly as
-       the previous several-rings path did; a half-realised strip is never returned.
-    3. **Equal-share per-ring flow.**  Otherwise the torsion is shared equally over the
-       rings, ``share = torsion / n_rings`` - the same zero-order quadrature the band already
-       documents (a strip is one BEM band wider than one physical ring, so a per-ring twist
-       rate is unavailable) - and each ring is solved with
+    2. **Fail fast on an unextractable or non-physical ring.**  In the multi-cell mode,
+       ``ring_sections`` holds one entry per non-empty physical-ring group of the strip, in
+       the strip's own ring order.  A ring is only realisable when it carries **real** wall
+       stiffnesses (``_RingSection.from_element_properties``), bounds **at least one**
+       closed cell, and every wall's ``edge_shear_stiffness`` is strictly positive.  If
+       **any** entry fails any of those - an entry is ``None`` because the ring has fewer
+       than three nodes, because :func:`ring_section` found no closed cell for it (a
+       collinear/degenerate outline, or a coupling mesh stripped of its elements), or
+       because a cell's shoelace area is a round-off residual rather than a wall cell
+       (:func:`_cells_have_usable_area`); or the whole projector was built without
+       ``element_properties``, so every wall fell back to the uniform, geometric-only
+       ``S = 1.0`` - the strip falls back to :meth:`ForceProjector._distribute`; a
+       half-realised or geometric-only strip is never returned.
+    3. **Tributary per-ring flow.**  Otherwise the strip's torsion is split over its rings
+       by their **tributary span weight**: sort the rings by their own mean span position
+       ``t_0 < ... < t_{n-1}`` inside the strip and give ring ``i`` the trapezoidal
+       length ``w_0 = (t_1 - t_0)/2``, ``w_i = (t_{i+1} - t_{i-1})/2``,
+       ``w_{n-1} = (t_{n-1} - t_{n-2})/2``, normalised by ``sum w`` (a single ring takes
+       all of ``torsion``; see :func:`_ring_tributary_weights`).  The trapezoid is the
+       right quadrature here because the BEM ``Mp`` is a **per-unit-span** moment: a strip
+       is one BEM band wider than one physical ring, so the band's moment per metre has to
+       be integrated over each ring's own share of the span - an equal share would put the
+       same moment on a short root ring and a long tip ring.  Each ring is then solved with
        :func:`multi_cell_shear_flow` on its own cells, adjacency, edge lengths and per-wall
        shear stiffness ``S = G*t``.
     4. **Per-cell walk.**  For every cell and every wall ``(a, b)`` of its boundary, in the
@@ -883,9 +912,10 @@ def realise_section_load(
 
     groups = [np.asarray(g, dtype=np.intp).ravel() for g in ring_groups if len(g) > 0]
     if len(groups) != 1:
-        # Several physical rings in one BEM band.  The equal-share per-ring flow is not pinned
-        # by any reference and is measured to invert the blade's tip rotation (see step 3), so
-        # this path falls back rather than shipping an unvalidated realisation.
+        # Several physical rings in one BEM band.  The multi-cell realisation needs each
+        # ring's own wall graph, and only ``ring_sections`` carries it; without it there is
+        # no per-ring system to solve, so fall back rather than ship an unvalidated
+        # single-cell flow on one arbitrary ring.
         return ForceProjector._distribute(strip, F_strip, M_strip)
 
     group = groups[0]
@@ -925,6 +955,58 @@ def realise_section_load(
     return f_shear + ForceProjector._distribute(strip, residual_force, residual_moment)
 
 
+def _ring_section_is_realisable(section: _RingSection) -> bool:
+    """Can this ring's multi-cell system be solved on **real** wall stiffnesses?
+
+    Three conditions, all required: the ring was built from ``element_properties``
+    (:func:`ring_section` returns a uniform, geometric-only ``S = 1.0`` without them, so
+    a no-properties projector must not claim a physical split), it bounds at least one
+    closed cell, and every wall's ``S = G*t`` is strictly positive (a zero-stiffness wall
+    makes the compliance singular).  Any failure routes the whole strip to
+    :meth:`ForceProjector._distribute`; a half-realised or geometric-only strip is never
+    returned.
+    """
+    if not section.from_element_properties:
+        return False
+    if not section.cells:
+        return False
+    return all(float(value) > 0.0 for value in section.edge_shear_stiffness.values())
+
+
+def _ring_tributary_weights(positions: np.ndarray) -> np.ndarray:
+    """Normalised trapezoidal tributary weights of rings at span ``positions``.
+
+    A strip is one BEM band wider than one physical ring and the BEM ``Mp`` is a
+    **per-unit-span** moment, so each ring carries the moment integrated over its own
+    share of the span.  The shares are the composite trapezoid lengths of the rings' own
+    span positions - ``w_0 = (t_1 - t_0)/2``, ``w_i = (t_{i+1} - t_{i-1})/2``,
+    ``w_{n-1} = (t_{n-1} - t_{n-2})/2`` - normalised so they sum to one.  A single ring
+    takes all of the torsion.  If the positions are coincident (a degenerate grouping)
+    the weights fall back to an equal share so the row stays solvable rather than
+    dividing by zero.
+    """
+    values = np.asarray(positions, dtype=float).ravel()
+    count = values.size
+    if count == 0:
+        return np.zeros(0)
+    if count == 1:
+        return np.ones(1)
+    order = np.argsort(values, kind="stable")
+    sorted_values = values[order]
+    sorted_weights = np.empty(count, dtype=float)
+    sorted_weights[0] = 0.5 * (sorted_values[1] - sorted_values[0])
+    sorted_weights[-1] = 0.5 * (sorted_values[-1] - sorted_values[-2])
+    sorted_weights[1:-1] = 0.5 * (sorted_values[2:] - sorted_values[:-2])
+    total = float(sorted_weights.sum())
+    if total > 0.0:
+        sorted_weights = sorted_weights / total
+    else:
+        sorted_weights = np.full(count, 1.0 / count)
+    weights = np.empty(count, dtype=float)
+    weights[order] = sorted_weights
+    return weights
+
+
 def _realise_multi_cell_section_load(
     strip: _Strip,
     F_strip: np.ndarray,
@@ -935,34 +1017,44 @@ def _realise_multi_cell_section_load(
 ) -> np.ndarray:
     """Multi-cell branch of :func:`realise_section_load`; see its docstring for the design.
 
-    ``ring_sections`` is one entry per non-empty physical-ring group of the strip.
-    A ``None`` entry is a ring whose wall graph could not be extracted (fewer than
-    three nodes, or no closed cell).  If any entry is ``None`` - or the list is
-    empty - the whole strip falls back to the unchanged
-    :meth:`ForceProjector._distribute`, so a partially-realised strip is never
-    returned.  Otherwise every ring gets the equal share ``torsion / n_rings``,
-    ``multi_cell_shear_flow`` solves its cells, and the per-cell wall walk below
-    (no shared-wall special case: the two cells traverse a shared wall in opposite
-    directions, so it collects ``q_i - q_j`` by construction) realises the field.
+    ``ring_sections`` is one entry per non-empty physical-ring group of the strip.  A
+    ring is only realisable when it was built from ``element_properties`` (real wall
+    stiffnesses), bounds at least one cell, and every wall stiffness is positive; any
+    ``None`` entry, empty list, no-cell ring or non-positive wall fails the gate
+    (:func:`_ring_section_is_realisable`) and the whole strip falls back to the unchanged
+    :meth:`ForceProjector._distribute`, so a partially-realised or geometric-only strip
+    is never returned.  Otherwise the torsion is split over the rings by their tributary
+    span weight (:func:`_ring_tributary_weights`), ``multi_cell_shear_flow`` solves each
+    ring's cells, and the per-cell wall walk below (no shared-wall special case: the two
+    cells traverse a shared wall in opposite directions, so it collects ``q_i - q_j`` by
+    construction) realises the field.
     """
     if not ring_sections:
         return ForceProjector._distribute(strip, F_strip, M_strip)
     sections: list[_RingSection] = []
     for section in ring_sections:
-        if section is None:
+        if section is None or not _ring_section_is_realisable(section):
             return ForceProjector._distribute(strip, F_strip, M_strip)
         sections.append(section)
 
     n = len(strip.node_indices)
     f_shear = np.zeros((n, 3))
-    share = torsion / len(sections)
-    for section in sections:
+    # Tributary weight from each ring's own mean span position inside the strip.
+    positions = np.array(
+        [
+            float((strip.centroid + strip.offsets[section.local_nodes]).mean(axis=0) @ span_hat)
+            for section in sections
+        ]
+    )
+    weights = _ring_tributary_weights(positions)
+    for section, weight in zip(sections, weights, strict=True):
+        ring_torsion = torsion * float(weight)
         flows, _theta_rate = multi_cell_shear_flow(
             section.cells,
             section.adjacency,
             section.edge_length,
             section.edge_shear_stiffness,
-            share,
+            ring_torsion,
         )
         local_nodes = section.local_nodes
         for cell, flow in zip(section.cells, flows, strict=True):

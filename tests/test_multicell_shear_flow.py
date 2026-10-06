@@ -841,9 +841,215 @@ def test_production_projector_realises_multicell_flow_on_a_two_cell_ring():
         scale = float(np.abs(expected_field).max())
         np.testing.assert_allclose(strip_forces, expected_field, rtol=0.0, atol=ROUNDOFF * scale)
 
+        # 3b. The multi-cell split is readable on the shared web: its net flow is
+        #     ``q_i - q_j``.  The realisation pushes each wall's ``0.5*q*ell*t`` onto
+        #     BOTH endpoints, so summing the two web nodes' forces and projecting on
+        #     the web tangent recovers the net flow.  The two skin walls meeting the
+        #     web at its nodes run perpendicular to it on this rectangular box, so
+        #     they drop out of that projection.
+        shared_key = next(key for key, owners in adjacency.items() if len(owners) == 2)
+        wa, wb = shared_key
+        owner_i, owner_j = adjacency[shared_key]
+        mc_flows, _ = multi_cell_shear_flow(
+            cells, adjacency, edge_length, stiffness, requested_span_moment
+        )
+        traverses_ab = any((int(u), int(v)) == (wa, wb) for u, v in cells[owner_i].edges)
+        orientation = 1.0 if traverses_ab else -1.0
+        expected_net_flow = orientation * (mc_flows[owner_i] - mc_flows[owner_j])
+        web_edge = offsets[wb] - offsets[wa]
+        web_length = float(np.linalg.norm(web_edge))
+        web_tangent = web_edge / web_length
+        read_back_flow = float((strip_forces[wa] + strip_forces[wb]) @ web_tangent) / web_length
+        assert read_back_flow == pytest.approx(expected_net_flow, rel=ROUNDOFF), (
+            f"shared-web net flow read back as {read_back_flow:.6e} N/m != q_i - q_j = "
+            f"{expected_net_flow:.6e} N/m from multi_cell_shear_flow"
+        )
+
         # 4. ... and it is not the minimum-norm field, i.e. the multi-cell path ran.
         minimum_norm = _minimum_norm_span_field(offsets, span_hat, requested_span_moment)
         assert np.abs(strip_forces - minimum_norm).max() > 1e-3 * scale, (
             "the projected field matches the minimum-norm circle-tangential field; "
             "the multi-cell realisation did not run"
+        )
+
+
+def _three_ring_single_cell_mesh():
+    """Three single-cell square rings at z = 0, 0.4, 1.0, joined by quads.
+
+    The non-uniform span positions are the point: ``0.5*(z1-z0)``,
+    ``0.5*(z2-z0)`` and ``0.5*(z2-z1)`` are the trapezoidal tributary lengths and
+    they are all different, so an equal share cannot be mistaken for the correct
+    split.  Every ring bounds exactly one cell.
+    """
+    from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node
+    from aeroelast.core.mesh.model import MeshModel
+
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
+    square = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)]
+    spans = [0.0, 0.4, 1.0]
+    mesh = MeshModel()
+    rings = []
+    for z in spans:
+        ring = [Node([x, y, z]) for x, y in square]
+        for node in ring:
+            mesh.add_node(node)
+        rings.append(ring)
+
+    element_set = ElementSet("tube")
+    walls = [(0, 1), (1, 2), (2, 3), (3, 0)]
+    for lower, upper in zip(rings[:-1], rings[1:], strict=True):
+        for a, b in walls:
+            element = MeshElement([lower[a], lower[b], upper[b], upper[a]], ElementType.quad)
+            mesh.add_element(element)
+            element_set.add_element(element)
+    mesh.add_element_set(element_set)
+    return mesh, rings
+
+
+def test_projector_splits_one_strip_over_three_single_cell_rings_by_tributary_weight():
+    """A BEM strip wider than one physical ring shares its torsion by tributary span.
+
+    The three single-cell square rings sit at z = 0, 0.4, 1.0 inside ONE strip, so
+    the old single-ring gate would fall back and an equal share would hand each ring
+    ``torsion / 3``.  The trapezoidal tributary rule gives the shares
+    ``(0.2, 0.5, 0.3)`` from the rings' own span positions; each ring's realised span
+    moment read back from the production nodal field must equal its share.
+    """
+    from tests.validation.bem.test_force_projection import (
+        _make_simple_blade_aero,
+        _strip_widths,
+    )
+
+    mesh, _ = _three_ring_single_cell_mesh()
+    blade_aero = _make_simple_blade_aero(n_stations=2, hub_radius=3.0, span_length=4.0)
+    moment_per_length = 7.0
+    bem = BEMResult(
+        r=blade_aero.r,
+        Np=np.zeros(2),
+        Tp=np.zeros(2),
+        alpha=np.zeros(2),
+        cl=np.zeros(2),
+        cd=np.zeros(2),
+        a=np.zeros(2),
+        ap=np.zeros(2),
+        thrust=0.0,
+        torque=0.0,
+        power=0.0,
+        Mp=np.full(2, moment_per_length),
+    )
+    props = {
+        "tube": {
+            "type": "isotropic",
+            "e": 70.0e9,
+            "nu": 0.33,
+            "rho": 2700.0,
+            "thickness": 0.02,
+            "shear_correction": 5.0 / 6.0,
+        }
+    }
+    projector = ForceProjector(mesh, blade_aero, element_properties=props)
+
+    # One physical strip holds all three rings; each ring is a usable single cell.
+    assert len(projector._strips[0].node_indices) == 12
+    assert len(projector._strip_ring_groups[0]) == 3
+    raw_sections = projector._strip_ring_sections[0]
+    assert len(raw_sections) == 3
+    assert all(section is not None and len(section.cells) == 1 for section in raw_sections)
+    sections = [section for section in raw_sections if section is not None]
+    assert len(sections) == 3
+
+    forces = projector.project(bem)
+    widths = _strip_widths(blade_aero, mesh, SPAN_Z)
+    torsion = float(moment_per_length * widths[0])
+
+    strip = projector._strips[0]
+    positions = np.array(
+        [
+            float((strip.centroid + strip.offsets[section.local_nodes]).mean(axis=0) @ SPAN_Z)
+            for section in sections
+        ]
+    )
+    np.testing.assert_allclose(positions, [0.0, 0.4, 1.0])
+    # Trapezoidal tributary lengths, half a cell at each end, normalised to one.
+    shares = np.array(
+        [
+            0.5 * (positions[1] - positions[0]),
+            0.5 * (positions[2] - positions[0]),
+            0.5 * (positions[2] - positions[1]),
+        ]
+    )
+    shares = shares / shares.sum()
+    np.testing.assert_allclose(shares, [0.2, 0.5, 0.3])
+
+    for section, share in zip(sections, shares, strict=True):
+        local = section.local_nodes
+        ring_forces = forces[strip.node_indices[local]]
+        ring_offsets = strip.offsets[local]
+        realised = float(np.cross(ring_offsets, ring_forces).sum(axis=0) @ SPAN_Z)
+        assert realised == pytest.approx(torsion * share, rel=ROUNDOFF), (
+            f"ring near z={float((strip.centroid + ring_offsets.mean(axis=0)) @ SPAN_Z):.3f} "
+            f"realised {realised:.6e} N.m, not its tributary share {torsion * share:.6e} N.m"
+        )
+
+
+def test_projector_without_element_properties_falls_back_to_minimum_norm():
+    """The multi-cell path is gated on real element properties, explicitly.
+
+    ``ring_section`` returns a uniform ``S = 1.0`` when no properties are supplied,
+    so a geometric-only split would look plausible but is not a physical split (the
+    blade's per-wall ``G*t`` spans 18.8x).  The gate is therefore the *presence* of
+    the property map, not an inference from the uniform stiffness: a projector built
+    without ``element_properties`` routes the whole strip through ``_distribute``,
+    and the realised field is the minimum-norm circle-tangential one, not the
+    geometric multi-cell one.
+    """
+    from tests.validation.bem.test_force_projection import (
+        _make_simple_blade_aero,
+        _strip_widths,
+    )
+
+    mesh, wall_edges = _asymmetric_two_cell_ring_mesh()
+    blade_aero = _make_simple_blade_aero(n_stations=2, hub_radius=3.0, span_length=1.0)
+    moment_per_length = 7.0
+    bem = BEMResult(
+        r=blade_aero.r,
+        Np=np.zeros(2),
+        Tp=np.zeros(2),
+        alpha=np.zeros(2),
+        cl=np.zeros(2),
+        cd=np.zeros(2),
+        a=np.zeros(2),
+        ap=np.zeros(2),
+        thrust=0.0,
+        torque=0.0,
+        power=0.0,
+        Mp=np.full(2, moment_per_length),
+    )
+    projector = ForceProjector(mesh, blade_aero)  # deliberately NO element_properties
+    assert all(
+        section is None or not getattr(section, "from_element_properties", False)
+        for sections in projector._strip_ring_sections
+        for section in sections
+    ), "no-properties rings must be marked non-physical so the gate reroutes them"
+
+    forces = projector.project(bem)
+    coords = mesh.coords_array
+    widths = _strip_widths(blade_aero, mesh, SPAN_Z)
+    for k, strip_nodes in enumerate((np.arange(6, dtype=np.intp), np.arange(6, 12, dtype=np.intp))):
+        requested = float(moment_per_length * widths[k])
+        ring_points = coords[strip_nodes]
+        offsets = ring_points - ring_points.mean(axis=0)
+        minimum_norm = _minimum_norm_span_field(offsets, SPAN_Z, requested)
+        scale = float(np.abs(minimum_norm).max())
+        np.testing.assert_allclose(
+            forces[strip_nodes], minimum_norm, rtol=0.0, atol=ROUNDOFF * scale
+        )
+
+        cells, adjacency, edge_length, stiffness = _wall_graph(ring_points, wall_edges, 1.0)
+        flows, _ = multi_cell_shear_flow(cells, adjacency, edge_length, stiffness, requested)
+        multicell = _per_cell_wall_field(cells, flows, offsets)
+        assert np.abs(forces[strip_nodes] - multicell).max() > 1e-3 * np.abs(multicell).max(), (
+            "the no-properties field still matches the geometric multi-cell field; "
+            "the missing-properties gate did not reroute it to _distribute"
         )

@@ -31,25 +31,33 @@ from scipy.sparse.linalg import spsolve  # noqa: E402
 from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
 from aeroelast.solvers.bem.engine import BEMSolver  # noqa: E402
+from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
 from aeroelast.solvers.bem.fsi_participant import BEMFSIParticipant  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 
 from tests.support.paths import DATA_DIR  # noqa: E402
+
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
-AD_PRIMARY = (DATA_DIR / "reference" / "iea15mw_openfast"
-              / "case" / "IEA-15-240-RWT_AeroDyn15.dat")
+AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 V_RATED, RPM_RATED, PITCH_RATED = 10.59, 7.56, 0.0
 BEM_CONFIG = {
-    "wind_speed": V_RATED, "omega": RPM_RATED * 2.0 * np.pi / 60.0, "pitch": PITCH_RATED,
-    "azimuth": 0.0, "air_density": 1.225, "dynamic_viscosity": 1.81206e-5,
-    "hub_height": 150.0, "shear_exp": 0.0,
+    "wind_speed": V_RATED,
+    "omega": RPM_RATED * 2.0 * np.pi / 60.0,
+    "pitch": PITCH_RATED,
+    "azimuth": 0.0,
+    "air_density": 1.225,
+    "dynamic_viscosity": 1.81206e-5,
+    "hub_height": 150.0,
+    "shear_exp": 0.0,
 }
 #: Declared sign convention, stated once and used by the header and the sign assertion.
-CONVENTION = ("fluid +Y / rotor clockwise viewed from behind; twist is the section rotation "
-              "in degrees about +span, negative = nose-down toward feather (reduces the AoA)")
+CONVENTION = (
+    "fluid +Y / rotor clockwise viewed from behind; twist is the section rotation "
+    "in degrees about +span, negative = nose-down toward feather (reduces the AoA)"
+)
 SENSE_THRUST_TOL = 0.02  # the applied-load invariant of verdict section 22.4 / the P5 guard
 ZHOU_FLEX_THRUST_DELTA, ZHOU_FLEX_POWER_DELTA = -0.1304, -0.0838  # Zhou 2025 Table 6
 
@@ -72,16 +80,19 @@ def deloading():
     assert mesh is not None, "the blade mesh failed to generate"
     props = model.get_element_properties()
     assembler = PyMeshAssembler.from_model(
-        blade_validation._to_rust_mesh(mesh, props), props,
-        list(blade_validation.SPAN_DIRECTION), None,
+        blade_validation._to_rust_mesh(mesh, props),
+        props,
+        list(blade_validation.SPAN_DIRECTION),
+        None,
     )
     n = assembler.dofs_count
     rows, cols, vals = assembler.assemble_k()
-    K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))),
-                   shape=(n, n)).tocsr()
+    K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))), shape=(n, n)).tocsr()
     root = {mesh.node_id_to_index[nid] for nid in mesh.get_node_set("RootNodes").node_ids}
-    free = np.array([i for i in range(n) if i not in {6 * r + d for r in root for d in range(6)}],
-                    dtype=np.int64)
+    free = np.array(
+        [i for i in range(n) if i not in {6 * r + d for r in root for d in range(6)}],
+        dtype=np.int64,
+    )
     coords = np.array([[nd.x, nd.y, nd.z] for nd in mesh.nodes], dtype=float)
 
     blade_aero = build_blade_aero_from_aerodyn(AD_PRIMARY)
@@ -104,14 +115,29 @@ def deloading():
     omega = participant._twist_mesh_to_bem * (twist_def - ref_twist)
     span = np.asarray(blade_validation.SPAN_DIRECTION, dtype=float)
     return {
-        "participant": participant, "blade_aero": blade_aero, "coords": coords,
-        "displacements": displacements, "r_def": r_def, "twist_def": twist_def,
-        "ref_r": ref_r, "ref_twist": ref_twist, "omega": omega,
-        "tip_k": int(np.argmax(ref_r)), "span": span,
+        "participant": participant,
+        "blade_aero": blade_aero,
+        "coords": coords,
+        "mesh": mesh,
+        "props": props,
+        "free": free,
+        "Kff": K[np.ix_(free, free)],
+        "n": n,
+        "displacements": displacements,
+        "r_def": r_def,
+        "twist_def": twist_def,
+        "ref_r": ref_r,
+        "ref_twist": ref_twist,
+        "omega": omega,
+        "tip_k": int(np.argmax(ref_r)),
+        "span": span,
         "tip_disp": displacements[int(np.argmax(coords @ span))],
-        "forces_rigid": forces_rigid, "bem_rigid": bem_rigid,
-        "base": bem(ref_r, ref_twist), "twist": bem(ref_r, twist_def),
-        "radii": bem(r_def, ref_twist), "both": bem(r_def, twist_def),
+        "forces_rigid": forces_rigid,
+        "bem_rigid": bem_rigid,
+        "base": bem(ref_r, ref_twist),
+        "twist": bem(ref_r, twist_def),
+        "radii": bem(r_def, ref_twist),
+        "both": bem(r_def, twist_def),
     }
 
 
@@ -122,42 +148,99 @@ def test_rigid_baseline_reproduces_the_standalone_bem(deloading):
     rotor, not a physical tolerance.
     """
     _, bem = deloading["participant"]._compute_forces(np.zeros_like(deloading["displacements"]))
-    reference = BEMSolver(deloading["blade_aero"], rho=1.225, mu=1.81206e-5,
-                          hub_height=150.0, shear_exp=0.0).compute(V_RATED, RPM_RATED, PITCH_RATED)
+    reference = BEMSolver(
+        deloading["blade_aero"], rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.0
+    ).compute(V_RATED, RPM_RATED, PITCH_RATED)
     thrust_rel = abs(bem.thrust - reference.thrust) / abs(reference.thrust)
     power_rel = abs(bem.power - reference.power) / abs(reference.power)
-    print(f"\nrigid participant vs standalone BEM: thrust {bem.thrust / 1e6:.6f} MN "
-          f"(rel {thrust_rel:.3e}), power {bem.power / 1e6:.6f} MW (rel {power_rel:.3e})")
+    print(
+        f"\nrigid participant vs standalone BEM: thrust {bem.thrust / 1e6:.6f} MN "
+        f"(rel {thrust_rel:.3e}), power {bem.power / 1e6:.6f} MW (rel {power_rel:.3e})"
+    )
     assert thrust_rel < 1e-9
     assert power_rel < 1e-9
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "coarse-mesh discretisation artefact of the wired multi-cell realisation: at "
-        "element_size=1.0 the production path measures omega = +0.1729 deg (nose-up) with a "
-        "distorted section (distortion/|omega| = 42.4), while the same wiring at "
-        "element_size=0.5 gives the physical nose-down sign (omega = -0.5270 deg, "
-        "distortion/|omega| = 37.7). The sign flip is the mesh, not the formulation. "
-        "strict=True, so a fix that restores nose-down turns this marker into an XPASS."
-    ),
-)
 def test_twist_sign_matches_the_declared_convention(deloading):
     """The tip section rotation is nose-down about +span; the BEM twist is opposite-sensed.
 
     A sign is an invariance, so nothing is bound: negative = toward feather under
     ``CONVENTION``, and the BEM twist increment is positive because CCBlade alpha = phi - theta.
+    It was declared ``xfail(strict=True)`` while the wired multi-cell realisation was
+    mesh-dependent; the property gate now routes the properties-less production participant
+    to the minimum-norm fallback, so the measured rotation is nose-down again
+    (``-0.8696 deg``) and the marker is gone.
     """
     tip_k = deloading["tip_k"]
     omega_tip = float(deloading["omega"][tip_k])
     theta_bem_tip = float(deloading["twist_def"][tip_k] - deloading["ref_twist"][tip_k])
     print(f"\ndeclared convention: {CONVENTION}")
-    print(f"tip strip r_ref {float(deloading['ref_r'][tip_k]):.4f} m: mesh section rotation "
-          f"{np.rad2deg(omega_tip):+.4f} deg (nose-down), BEM twist increment "
-          f"{np.rad2deg(theta_bem_tip):+.4f} deg (reduces the AoA)")
-    assert omega_tip < 0.0, "the tip section rotation is not nose-down under the declared convention"
+    print(
+        f"tip strip r_ref {float(deloading['ref_r'][tip_k]):.4f} m: mesh section rotation "
+        f"{np.rad2deg(omega_tip):+.4f} deg (nose-down), BEM twist increment "
+        f"{np.rad2deg(theta_bem_tip):+.4f} deg (reduces the AoA)"
+    )
+    assert omega_tip < 0.0, (
+        f"the tip section rotation is {np.rad2deg(omega_tip):+.4f} deg, not nose-down under "
+        f"the declared convention; the properties-less production path must measure "
+        f"-0.8696 deg"
+    )
     assert theta_bem_tip > 0.0, "the BEM twist does not carry the opposite (reducing) sense"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "the wall-flow realisation is verified correct (skin walls carry q_i, shared webs "
+        "q_i - q_j, the total moment is exact and the net force is zero), yet the section "
+        "rotates nose-up when the ring wall stiffnesses come from "
+        "Blade.get_element_properties(): omega = +0.0773 deg against the properties-less "
+        "fallback's nose-down -0.8696 deg. The requested section torque itself measures "
+        "NOSE-UP (+4.840e5 N.m) because the lever-arm transfer (+7.607e5 N.m) dominates and "
+        "opposes the polars' pitching moment (-2.766e5 N.m). The sign question is open and "
+        "tracked by tools/diagnose_applied_torsion_sign.py; strict=True, so a fix that "
+        "restores the physical nose-down sense turns this marker into an XPASS."
+    ),
+)
+def test_multi_cell_twist_sign_matches_the_declared_convention(deloading):
+    """The multi-cell path's measured sense, pinned until the sign question closes.
+
+    The realisation itself is verified in ``tests/test_multicell_shear_flow.py``; the sign
+    of the realised section torque is not settled.  This rebuilds the strip loads with the
+    laminate map the fixture derives from the ``Blade`` model (``get_element_properties``)
+    and asserts the declared sense, so a fix flips the marker to XPASS and forces this row
+    to be updated.
+    """
+    participant = deloading["participant"]
+    projector = ForceProjector(
+        deloading["mesh"],
+        deloading["blade_aero"],
+        span_direction=participant._span_dir,
+        element_properties=deloading["props"],
+    )
+    forces = projector.project(deloading["bem_rigid"])
+    load = np.zeros(deloading["n"])
+    for dof in range(3):
+        load[dof::6] = forces[:, dof]
+    u = np.zeros(deloading["n"])
+    u[deloading["free"]] = np.asarray(spsolve(deloading["Kff"], load[deloading["free"]]))
+    displacements = np.column_stack([u[0::6], u[1::6], u[2::6]])
+    _, twist_def = participant._compute_deformed_geometry(displacements)
+    omega = participant._twist_mesh_to_bem * (twist_def - deloading["ref_twist"])
+    tip_k = deloading["tip_k"]
+    omega_tip = float(omega[tip_k])
+    theta_bem_tip = float(twist_def[tip_k] - deloading["ref_twist"][tip_k])
+    print(
+        f"\nmulti-cell tip strip r_ref {float(deloading['ref_r'][tip_k]):.4f} m: mesh "
+        f"section rotation {np.rad2deg(omega_tip):+.4f} deg (nose-up, measured +0.0773 "
+        f"deg), BEM twist increment {np.rad2deg(theta_bem_tip):+.4f} deg"
+    )
+    assert omega_tip < 0.0, (
+        f"the multi-cell path gives a nose-up tip section rotation "
+        f"{np.rad2deg(omega_tip):+.4f} deg; the measured multi-cell sense is +0.0773 deg, "
+        f"the sign question is open (tools/diagnose_applied_torsion_sign.py), and the "
+        f"declared sense requires negative = nose-down toward feather"
+    )
 
 
 def test_de_loading_table_and_load_conservation(deloading):
@@ -182,48 +265,76 @@ def test_de_loading_table_and_load_conservation(deloading):
 
     cases = (
         ("twist", "twist only, reference radii", "the pure bend-twist unloading", 0.0, dtheta_tip),
-        ("radii", "deformed radii only, reference twist",
-         "the geometric re-loading (axial-stretch artefact)", dr_tip, 0.0),
-        ("both", "twist + radii (production path)", "what production does today", dr_tip, dtheta_tip),
+        (
+            "radii",
+            "deformed radii only, reference twist",
+            "the geometric re-loading (axial-stretch artefact)",
+            dr_tip,
+            0.0,
+        ),
+        (
+            "both",
+            "twist + radii (production path)",
+            "what production does today",
+            dr_tip,
+            dtheta_tip,
+        ),
     )
     print(f"\nDe-loading, one table, one sign convention: {CONVENTION}")
-    print("thrust/power = (flexible - rigid) / rigid, negative = the rotor unloads; twist [deg] "
-          f"about +span; Zhou et al. 2025 Table 6: {ZHOU_FLEX_THRUST_DELTA:+.2%} thrust / "
-          f"{ZHOU_FLEX_POWER_DELTA:+.2%} power")
-    print(f"rigid baseline (reference radii + reference twist): {base.thrust / 1e6:.6f} MN / "
-          f"{base.power / 1e6:.6f} MW")
-    print(f"  {'feedback fed to the BEM':40} {'isolates':48} {'d thrust':>9} {'d power':>9} "
-          f"{'tip dr [m]':>10} {'tip dtwist [deg]':>16}")
+    print(
+        "thrust/power = (flexible - rigid) / rigid, negative = the rotor unloads; twist [deg] "
+        f"about +span; Zhou et al. 2025 Table 6: {ZHOU_FLEX_THRUST_DELTA:+.2%} thrust / "
+        f"{ZHOU_FLEX_POWER_DELTA:+.2%} power"
+    )
+    print(
+        f"rigid baseline (reference radii + reference twist): {base.thrust / 1e6:.6f} MN / "
+        f"{base.power / 1e6:.6f} MW"
+    )
+    print(
+        f"  {'feedback fed to the BEM':40} {'isolates':48} {'d thrust':>9} {'d power':>9} "
+        f"{'tip dr [m]':>10} {'tip dtwist [deg]':>16}"
+    )
     deltas = {}
     for key, feedback, isolates, dr, dtheta in cases:
         bem = deloading[key]
         dt = float(bem.thrust) / float(base.thrust) - 1.0
         dp = float(bem.power) / float(base.power) - 1.0
         deltas[key] = (dt, dp)
-        print(f"  {feedback:40} {isolates:48} {dt:>+9.2%} {dp:>+9.2%} {dr:>+10.4f} "
-              f"{dtheta:>+16.4f}")
+        print(
+            f"  {feedback:40} {isolates:48} {dt:>+9.2%} {dp:>+9.2%} {dr:>+10.4f} {dtheta:>+16.4f}"
+        )
 
     radii_power, both_power = deltas["radii"][1], deltas["both"][1]
-    print(f"\npower sign, deformed radii only: {radii_power:+.2%} (positive = re-loads); "
-          f"production path: {both_power:+.2%} (positive = re-loads); twist alone: "
-          f"{deltas['twist'][1]:+.2%} -> "
-          f"{'same sign' if np.sign(radii_power) == np.sign(both_power) else 'opposite signs'}: "
-          f"the production power sign is set by the radius artefact, not the bend-twist unloading")
-    print(f"tip nodal displacement: axial (span) {axial:+.4f} m, radial (in-plane) {radial:+.4f} m "
-          f"(u_tip = {np.array2string(tip_disp, precision=4)}); axially stretched tip strip: "
-          f"dr = {dr_tip:+.4f} m of {float(deloading['ref_r'][tip_k]):.4f} m")
+    print(
+        f"\npower sign, deformed radii only: {radii_power:+.2%} (positive = re-loads); "
+        f"production path: {both_power:+.2%} (positive = re-loads); twist alone: "
+        f"{deltas['twist'][1]:+.2%} -> "
+        f"{'same sign' if np.sign(radii_power) == np.sign(both_power) else 'opposite signs'}: "
+        f"the production power sign is set by the radius artefact, not the bend-twist unloading"
+    )
+    print(
+        f"tip nodal displacement: axial (span) {axial:+.4f} m, radial (in-plane) {radial:+.4f} m "
+        f"(u_tip = {np.array2string(tip_disp, precision=4)}); axially stretched tip strip: "
+        f"dr = {dr_tip:+.4f} m of {float(deloading['ref_r'][tip_k]):.4f} m"
+    )
     _, bem_prod = deloading["participant"]._compute_forces(deloading["displacements"])
-    print(f"cross-check, exact production path (deformed projector, own Rtip rule) vs the rigid "
-          f"participant BEM: thrust {float(bem_prod.thrust) / float(deloading['bem_rigid'].thrust) - 1.0:+.2%}, "
-          f"power {float(bem_prod.power) / float(deloading['bem_rigid'].power) - 1.0:+.2%}")
-    print("bound (reported, not asserted): the one-way family is bracketed by the twist-only "
-          "(most de-loaded) and the radii-only (most re-loaded) rows; a converged fixed point "
-          "would deepen the twist, so the twist-only row is a lower bound on the converged thrust "
-          "de-loading magnitude, and nothing here bounds it above.  It would still have to grow "
-          "past 3x to reach Zhou's 13.04%, so one-way-vs-converged alone does not explain the gap.")
-    print(f"\napplied-load invariant: |sum(F)| = {np.linalg.norm(applied):.4f} N vs bem.thrust/"
-          f"{n_blades} = {thrust_per_blade:.4f} N -> ratio {load_ratio:.6f} "
-          f"({load_ratio - 1.0:+.3%}, bound {SENSE_THRUST_TOL:.0%})")
+    print(
+        f"cross-check, exact production path (deformed projector, own Rtip rule) vs the rigid "
+        f"participant BEM: thrust {float(bem_prod.thrust) / float(deloading['bem_rigid'].thrust) - 1.0:+.2%}, "
+        f"power {float(bem_prod.power) / float(deloading['bem_rigid'].power) - 1.0:+.2%}"
+    )
+    print(
+        "bound (reported, not asserted): the one-way family is bracketed by the twist-only "
+        "(most de-loaded) and the radii-only (most re-loaded) rows; a converged fixed point "
+        "would deepen the twist, so the twist-only row is a lower bound on the converged thrust "
+        "de-loading magnitude, and nothing here bounds it above.  It would still have to grow "
+        "past 3x to reach Zhou's 13.04%, so one-way-vs-converged alone does not explain the gap."
+    )
+    print(
+        f"\napplied-load invariant: |sum(F)| = {np.linalg.norm(applied):.4f} N vs bem.thrust/"
+        f"{n_blades} = {thrust_per_blade:.4f} N -> ratio {load_ratio:.6f} "
+        f"({load_ratio - 1.0:+.3%}, bound {SENSE_THRUST_TOL:.0%})"
+    )
     assert abs(load_ratio - 1.0) < SENSE_THRUST_TOL, (
         f"the projected load |sum(F)| = {np.linalg.norm(applied):.4f} N is {load_ratio - 1.0:+.3%} "
         f"off bem.thrust/{n_blades} = {thrust_per_blade:.4f} N (the P5 guard's bound)"

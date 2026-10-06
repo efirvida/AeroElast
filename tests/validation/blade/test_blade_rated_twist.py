@@ -49,9 +49,9 @@ import tests.validation.blade.test_blade_iea15mw_validation as blade_validation 
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 
 from tests.support.paths import DATA_DIR  # noqa: E402
+
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
-AD_PRIMARY = (DATA_DIR / "reference" / "iea15mw_openfast" /
-              "case" / "IEA-15-240-RWT_AeroDyn15.dat")
+AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: Rated operating point, from the case's own definition.
 V_RATED = 10.59
@@ -97,8 +97,10 @@ def test_rated_bem_matches_the_literature_rigid_case(rated_bem):
     bem, _ = rated_bem
     thrust_mn = bem.thrust / 1e6
     power_mw = bem.power / 1e6
-    print(f"\nrated BEM: thrust {thrust_mn:.3f} MN (Zhou rigid {ZHOU_RIGID_THRUST_MN}), "
-          f"power {power_mw:.3f} MW (Zhou rigid {ZHOU_RIGID_POWER_MW})")
+    print(
+        f"\nrated BEM: thrust {thrust_mn:.3f} MN (Zhou rigid {ZHOU_RIGID_THRUST_MN}), "
+        f"power {power_mw:.3f} MW (Zhou rigid {ZHOU_RIGID_POWER_MW})"
+    )
     assert_residual_below(
         abs(thrust_mn - ZHOU_RIGID_THRUST_MN) / ZHOU_RIGID_THRUST_MN,
         tol=0.03,
@@ -124,7 +126,9 @@ def test_rated_pitching_moment_is_nose_down(rated_bem):
     """
     bem, blade_aero = rated_bem
     loaded = bem.Np > 0.01 * bem.Np.max()
-    print(f"\nMp over the loaded span: {bem.Mp[loaded].min():.1f} .. {bem.Mp[loaded].max():.1f} N.m/m")
+    print(
+        f"\nMp over the loaded span: {bem.Mp[loaded].min():.1f} .. {bem.Mp[loaded].max():.1f} N.m/m"
+    )
     assert np.all(bem.Mp[loaded] <= 0.0), "a station carries a nose-up pitching moment at rated"
     assert np.any(bem.Mp[loaded] < 0.0)
 
@@ -138,13 +142,14 @@ def blade_shell():
     model.generate_mesh()
     mesh, props = model.mesh, model.get_element_properties()
     assembler = PyMeshAssembler.from_model(
-        blade_validation._to_rust_mesh(mesh, props), props,
-        list(blade_validation.SPAN_DIRECTION), None,
+        blade_validation._to_rust_mesh(mesh, props),
+        props,
+        list(blade_validation.SPAN_DIRECTION),
+        None,
     )
     n = assembler.dofs_count
     rows, cols, vals = assembler.assemble_k()
-    K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))),
-                   shape=(n, n)).tocsr()
+    K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))), shape=(n, n)).tocsr()
     root = {mesh.node_id_to_index[nid] for nid in mesh.get_node_set("RootNodes").node_ids}
     fixed = {6 * i + d for i in root for d in range(6)}
     free = np.array([i for i in range(n) if i not in fixed], dtype=np.int64)
@@ -156,12 +161,23 @@ def blade_shell():
     # merged physical stations (see _physical_stations); the raw sets stay for the tests that
     # were already measuring on them.
     phys_stations = _physical_stations(coords)
-    phys_rings = {zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0]
-                  for zz in phys_stations}
-    return {"n": n, "Kff": K[np.ix_(free, free)], "free": free, "coords": coords,
-            "stations": stations, "rings": rings, "tip": rings[stations[-1]],
-            "phys_stations": phys_stations, "phys_rings": phys_rings,
-            "phys_tip": phys_rings[phys_stations[-1]], "mesh": mesh}
+    phys_rings = {
+        zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0] for zz in phys_stations
+    }
+    return {
+        "n": n,
+        "Kff": K[np.ix_(free, free)],
+        "free": free,
+        "coords": coords,
+        "stations": stations,
+        "rings": rings,
+        "tip": rings[stations[-1]],
+        "phys_stations": phys_stations,
+        "phys_rings": phys_rings,
+        "phys_tip": phys_rings[phys_stations[-1]],
+        "mesh": mesh,
+        "props": props,
+    }
 
 
 def _section_couples(shell, moment_by_station):
@@ -206,8 +222,9 @@ def test_section_moment_as_a_couple_sets_the_physical_sign(blade_shell, rated_be
 
     # as a couple (the honest application)
     u = np.zeros(blade_shell["n"])
-    u[blade_shell["free"]] = spsolve(blade_shell["Kff"],
-                                     _section_couples(blade_shell, moments)[blade_shell["free"]])
+    u[blade_shell["free"]] = spsolve(
+        blade_shell["Kff"], _section_couples(blade_shell, moments)[blade_shell["free"]]
+    )
     tip = blade_shell["tip"]
     couple_twist = float(np.mean([u[6 * i + 5] for i in tip]))
 
@@ -223,13 +240,16 @@ def test_section_moment_as_a_couple_sets_the_physical_sign(blade_shell, rated_be
 
     print("\nnose-down section moment applied two ways:")
     print(f"  as a couple of forces : {np.rad2deg(couple_twist):+10.4f} deg")
-    print(f"  as nodal z-rotations  : {np.rad2deg(nodal_twist):+10.4f} deg "
-          f"(drilling DOF, not section torsion)")
-    profile = [float(np.mean([u[6 * i + 5] for i in blade_shell["rings"][zz]]))
-               for zz in blade_shell["stations"]]
+    print(
+        f"  as nodal z-rotations  : {np.rad2deg(nodal_twist):+10.4f} deg "
+        f"(drilling DOF, not section torsion)"
+    )
+    profile = [
+        float(np.mean([u[6 * i + 5] for i in blade_shell["rings"][zz]]))
+        for zz in blade_shell["stations"]
+    ]
     step = max(1, len(profile) // 6)
-    print("  theta_z along the span [deg]:",
-          [f"{np.rad2deg(v):+.3f}" for v in profile[::step]])
+    print("  theta_z along the span [deg]:", [f"{np.rad2deg(v):+.3f}" for v in profile[::step]])
     print(f"  Zhou Table 4 tip torsion: {ZHOU_TIP_TORSION_DEG} deg (same physical sense)")
 
     assert couple_twist < 0.0, "a nose-down couple must give a negative theta_z"
@@ -328,8 +348,7 @@ def _rated_load_cases(shell, bem, blade_aero, mesh):
     # raw unique-z set splits it (see _physical_stations). Without this the edge-based paths
     # skip the split stations and the applied resultant is 14% short of the BEM's integral.
     stations = _physical_stations(coords)
-    rings = {zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0]
-             for zz in stations}
+    rings = {zz: np.where(np.abs(coords[:, 2] - zz) < STATION_GAP_TOLERANCE)[0] for zz in stations}
     edges = _in_plane_edges(mesh, coords, stations)
     flows = {zz: _unit_shear_flow(mesh, coords, edges[zz]) for zz in stations}
     span = blade_aero.r - blade_aero.hub_radius
@@ -357,19 +376,30 @@ def _rated_load_cases(shell, bem, blade_aero, mesh):
         ring = rings[zz]
         xs = coords[ring, 0]
         edge_list = edges[zz]
-        total = sum(float(np.hypot(coords[mesh.node_id_to_index[b]][0] - coords[mesh.node_id_to_index[a]][0],
-                                   coords[mesh.node_id_to_index[b]][1] - coords[mesh.node_id_to_index[a]][1]))
-                    for a, b in edge_list.values())
+        total = sum(
+            float(
+                np.hypot(
+                    coords[mesh.node_id_to_index[b]][0] - coords[mesh.node_id_to_index[a]][0],
+                    coords[mesh.node_id_to_index[b]][1] - coords[mesh.node_id_to_index[a]][1],
+                )
+            )
+            for a, b in edge_list.values()
+        )
         if total > 1e-12:
             for a, b in edge_list.values():
                 ia, ib = mesh.node_id_to_index[a], mesh.node_id_to_index[b]
-                share = float(np.hypot(coords[ib][0] - coords[ia][0], coords[ib][1] - coords[ia][1])) / total
+                share = (
+                    float(np.hypot(coords[ib][0] - coords[ia][0], coords[ib][1] - coords[ia][1]))
+                    / total
+                )
                 for name in ("at_ac", "uniform_plus_mp"):
-                    vectors[name][6 * ia + 1] += 0.5 * share * Np[k] * dz[k]   # normal -> flapwise
-                    vectors[name][6 * ia + 0] += 0.5 * share * Tp[k] * dz[k]   # tangential -> chordwise
+                    vectors[name][6 * ia + 1] += 0.5 * share * Np[k] * dz[k]  # normal -> flapwise
+                    vectors[name][6 * ia + 0] += (
+                        0.5 * share * Tp[k] * dz[k]
+                    )  # tangential -> chordwise
                     vectors[name][6 * ib + 1] += 0.5 * share * Np[k] * dz[k]
                     vectors[name][6 * ib + 0] += 0.5 * share * Tp[k] * dz[k]
-        for i in ring:   # the previous one-way convention, kept as the sensitivity reference
+        for i in ring:  # the previous one-way convention, kept as the sensitivity reference
             vectors["uniform"][6 * i + 1] += Np[k] * dz[k] / len(ring)
             vectors["uniform"][6 * i + 0] += Tp[k] * dz[k] / len(ring)
         flow, moment = flows[zz]
@@ -379,13 +409,17 @@ def _rated_load_cases(shell, bem, blade_aero, mesh):
             weighted = 0.0
             for a, b in edge_list.values():
                 ia, ib = mesh.node_id_to_index[a], mesh.node_id_to_index[b]
-                length = float(np.hypot(coords[ib][0] - coords[ia][0], coords[ib][1] - coords[ia][1]))
+                length = float(
+                    np.hypot(coords[ib][0] - coords[ia][0], coords[ib][1] - coords[ia][1])
+                )
                 weighted += 0.5 * (coords[ia][0] + coords[ib][0]) * length
             x_c = weighted / total if total > 1e-12 else float(xs.mean())
             x_ac = float(xs.min()) + 0.25 * (float(xs.max()) - float(xs.min()))
             for name in ("mp_only", "at_ac", "uniform_plus_mp"):
                 vectors[name] += flow * (Mp[k] * dz[k] / moment)
-            vectors["at_ac"] += flow * (Np[k] * dz[k] * (x_ac - x_c) / moment)   # move the resultant TO x_ac
+            vectors["at_ac"] += flow * (
+                Np[k] * dz[k] * (x_ac - x_c) / moment
+            )  # move the resultant TO x_ac
     return vectors
 
 
@@ -417,10 +451,12 @@ def test_rated_tip_twist_matches_zhou_with_the_physical_load_path(blade_shell, r
         twists[name] = float(np.mean([u[6 * i + 5] for i in tip]))
 
     print("\nrated tip twist (rotation about the blade axis), IEA 15 MW at V=10.59, 7.56 rpm:")
-    for name, label in (("mp_only", "pitching moment alone (couple)"),
-                        ("uniform", "Np+Tp uniform over the ring (one-way path)"),
-                        ("uniform_plus_mp", "Np+Tp uniform + pitching moment"),
-                        ("at_ac", "Np+Tp at the aerodynamic centre + pitching moment")):
+    for name, label in (
+        ("mp_only", "pitching moment alone (couple)"),
+        ("uniform", "Np+Tp uniform over the ring (one-way path)"),
+        ("uniform_plus_mp", "Np+Tp uniform + pitching moment"),
+        ("at_ac", "Np+Tp at the aerodynamic centre + pitching moment"),
+    ):
         print(f"  {label:52} {np.rad2deg(twists[name]):+9.4f} deg")
     print(f"  {'Zhou 2025 Table 4 (total tip torsion)':52} {ZHOU_TIP_TORSION_DEG:+9.4f} deg")
 
@@ -429,10 +465,12 @@ def test_rated_tip_twist_matches_zhou_with_the_physical_load_path(blade_shell, r
     smallest = min(magnitudes)
     # a twist of exactly zero would divide by zero; the spread is then unbounded
     spread = max(magnitudes) / smallest if smallest > 1e-12 else float("inf")
-    print(f"  physical case / Zhou = {ratio:.3f}  <- WITHDRAWN as a result: the magnitude moves "
-          f"by {spread:.1f}x with the load application alone (see the four cases above), so it is "
-          f"not a measurement of the model until the application is validated on a case with an "
-          f"exact answer (task document section 18.6)")
+    print(
+        f"  physical case / Zhou = {ratio:.3f}  <- WITHDRAWN as a result: the magnitude moves "
+        f"by {spread:.1f}x with the load application alone (see the four cases above), so it is "
+        f"not a measurement of the model until the application is validated on a case with an "
+        f"exact answer (task document section 18.6)"
+    )
 
     # ASSERTED: the physics (the sense of the twist) and the load-path dominance. A sign
     # test is a valid test - it proves the physics is right - and it needs no tolerance.
@@ -528,7 +566,8 @@ def _ring_kinematics(coords, u, ring):
 
 
 def test_rated_twist_with_the_validated_application_and_the_measured_section_distortion(
-        blade_shell, rated_bem):
+    blade_shell, rated_bem
+):
     """Re-derive the rated twist with the validated load path and measure the distortion.
 
     The exact thin-walled-tube case (``tests/test_thin_walled_tube_torsion.py``, task
@@ -611,8 +650,10 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
 
     raw_counts = {key: len(shell["rings"][nearest_raw(zz)]) for key, zz in probe.items()}
     ring_counts = {key: len(rings[zz]) for key, zz in probe.items()}
-    print(f"\nring node counts at the probes - nearest raw 1e-6 bucket {raw_counts}, "
-          f"merged physical rings {ring_counts}")
+    print(
+        f"\nring node counts at the probes - nearest raw 1e-6 bucket {raw_counts}, "
+        f"merged physical rings {ring_counts}"
+    )
     for key, zz in probe.items():
         assert len(rings[zz]) >= max(10, raw_counts[key]), (
             f"the {key} ring ({zz:.3f} m) has {len(rings[zz])} nodes after the merge while the "
@@ -635,26 +676,33 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
         u = np.zeros(shell["n"])
         u[shell["free"]] = spsolve(shell["Kff"], force[shell["free"]])
         disp[name] = u
-        kin[name] = {key: _ring_kinematics(shell["coords"], u, rings[zz])
-                     for key, zz in probe.items()}
+        kin[name] = {
+            key: _ring_kinematics(shell["coords"], u, rings[zz]) for key, zz in probe.items()
+        }
         twist[name] = float(np.mean([u[6 * i + 5] for i in tip]))
         energy[name] = float(0.5 * force @ u)
         ux = u[6 * np.asarray(tip)]
         uy = u[6 * np.asarray(tip) + 1]
         tip_ip[name] = float(max(np.max(np.abs(ux)), np.max(np.abs(uy))))
 
-    print("\nblade section kinematics, IEA 15 MW at V=10.59, 7.56 rpm "
-          "(omega/shear/dilatation/distortion/residual are dimensionless except omega)")
-    print(f"  {'application':44} {'theta_z':>9} {'omega':>9} {'rigid':>9} {'shear':>11} "
-          f"{'dilat':>10} {'distort':>10} {'d/|w|':>8} {'resid':>8} {'energy[J]':>11} "
-          f"{'max_ip[m]':>10}")
+    print(
+        "\nblade section kinematics, IEA 15 MW at V=10.59, 7.56 rpm "
+        "(omega/shear/dilatation/distortion/residual are dimensionless except omega)"
+    )
+    print(
+        f"  {'application':44} {'theta_z':>9} {'omega':>9} {'rigid':>9} {'shear':>11} "
+        f"{'dilat':>10} {'distort':>10} {'d/|w|':>8} {'resid':>8} {'energy[J]':>11} "
+        f"{'max_ip[m]':>10}"
+    )
     for name in order:
         k = kin[name]["tip"]
-        print(f"  {labels[name]:44} {np.rad2deg(twist[name]):+9.4f} "
-              f"{np.rad2deg(k['omega']):+9.4f} {np.rad2deg(k['rigid_rotation']):+9.4f} "
-              f"{k['shear']:+11.3e} {k['dilatation']:+10.3e} {k['distortion']:10.3e} "
-              f"{k['distortion'] / abs(k['omega']):8.3f} "
-              f"{k['residual']:8.4f} {energy[name]:11.4e} {tip_ip[name]:10.3e}")
+        print(
+            f"  {labels[name]:44} {np.rad2deg(twist[name]):+9.4f} "
+            f"{np.rad2deg(k['omega']):+9.4f} {np.rad2deg(k['rigid_rotation']):+9.4f} "
+            f"{k['shear']:+11.3e} {k['dilatation']:+10.3e} {k['distortion']:10.3e} "
+            f"{k['distortion'] / abs(k['omega']):8.3f} "
+            f"{k['residual']:8.4f} {energy[name]:11.4e} {tip_ip[name]:10.3e}"
+        )
 
     print("\n  omega along the span [deg] (50%, 80%, tip):")
     for name in order:
@@ -680,27 +728,44 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
     ratio_omega = omega_at_ac_deg / ZHOU_TIP_TORSION_DEG
     ratio_theta_z = theta_z_at_ac_deg / ZHOU_TIP_TORSION_DEG
     distortion_at_ac = kin["at_ac"]["tip"]["distortion"]
-    distortion_off_path = max(kin["uniform"]["tip"]["distortion"],
-                              kin["uniform_plus_mp"]["tip"]["distortion"])
-    distortion_ratio = distortion_off_path / distortion_at_ac if distortion_at_ac > 0.0 else float("inf")
+    distortion_off_path = max(
+        kin["uniform"]["tip"]["distortion"], kin["uniform_plus_mp"]["tip"]["distortion"]
+    )
+    distortion_ratio = (
+        distortion_off_path / distortion_at_ac if distortion_at_ac > 0.0 else float("inf")
+    )
 
     print(f"\n  spread_omega   = {spread_omega:.3f}  (max|omega| / min|omega| over the four cases)")
-    print(f"  spread_theta_z = {spread_theta_z:.3f}  (max|theta_z| / min|theta_z| over the four cases)")
+    print(
+        f"  spread_theta_z = {spread_theta_z:.3f}  (max|theta_z| / min|theta_z| over the four cases)"
+    )
     print(f"  ratio_omega    = {ratio_omega:.4f}  (omega_at_ac / Zhou {ZHOU_TIP_TORSION_DEG} deg)")
-    print(f"  ratio_theta_z  = {ratio_theta_z:.4f}  (theta_z_at_ac / Zhou {ZHOU_TIP_TORSION_DEG} deg)")
-    print(f"  distortion ratio = {distortion_ratio:.3f}  "
-          f"(max(distortion[uniform], distortion[uniform_plus_mp]) / distortion[at_ac])")
+    print(
+        f"  ratio_theta_z  = {ratio_theta_z:.4f}  (theta_z_at_ac / Zhou {ZHOU_TIP_TORSION_DEG} deg)"
+    )
+    print(
+        f"  distortion ratio = {distortion_ratio:.3f}  "
+        f"(max(distortion[uniform], distortion[uniform_plus_mp]) / distortion[at_ac])"
+    )
     distortion_mp_only = kin["mp_only"]["tip"]["distortion"]
-    distortion_at_ac_over_mp = (distortion_at_ac / distortion_mp_only
-                                if distortion_mp_only > 0.0 else float("inf"))
-    max_u_ac = float(np.max(np.sqrt(disp["at_ac"][0::6] ** 2 + disp["at_ac"][1::6] ** 2
-                                     + disp["at_ac"][2::6] ** 2)))
-    print(f"  distortion[at_ac] / distortion[mp_only] = {distortion_at_ac_over_mp:.3f}  "
-          f"(the corrected transfer test: ring in-plane traction vs pure torsion shear flow)")
-    print(f"  corrected max |u| (at_ac, one-way) = {max_u_ac:.3f} m = "
-          f"{max_u_ac / ZHOU_TIP_FLAP_M:.3f}x Zhou's coupled tip flap {ZHOU_TIP_FLAP_M:.2f} m "
-          f"(reported; a one-way application of the rigid-blade loads on the flexible structure "
-          f"must exceed the coupled deflection without being an order of magnitude away)")
+    distortion_at_ac_over_mp = (
+        distortion_at_ac / distortion_mp_only if distortion_mp_only > 0.0 else float("inf")
+    )
+    max_u_ac = float(
+        np.max(
+            np.sqrt(disp["at_ac"][0::6] ** 2 + disp["at_ac"][1::6] ** 2 + disp["at_ac"][2::6] ** 2)
+        )
+    )
+    print(
+        f"  distortion[at_ac] / distortion[mp_only] = {distortion_at_ac_over_mp:.3f}  "
+        f"(the corrected transfer test: ring in-plane traction vs pure torsion shear flow)"
+    )
+    print(
+        f"  corrected max |u| (at_ac, one-way) = {max_u_ac:.3f} m = "
+        f"{max_u_ac / ZHOU_TIP_FLAP_M:.3f}x Zhou's coupled tip flap {ZHOU_TIP_FLAP_M:.2f} m "
+        f"(reported; a one-way application of the rigid-blade loads on the flexible structure "
+        f"must exceed the coupled deflection without being an order of magnitude away)"
+    )
 
     # 1. Sign (physics, no tolerance): the rated twist is nose-down for every application.
     for name in order:
@@ -788,14 +853,20 @@ def test_rated_aero_loads_reproduce_the_bem_resultants(blade_shell, rated_bem):
     print("\nrated aero resultants: applied vs the BEM's own integrals")
     print(f"  BEM integrals (trapezoid over {len(r)} radial stations):")
     print(f"    I_Np = {i_np:+.6e} N   I_Tp = {i_tp:+.6e} N   I_Mp = {i_mp:+.6e} N.m")
-    print(f"  at_ac   sum(f_y) = {fy_ac:+.6e} N  ratio {fy_ac / i_np:.6f}   "
-          f"sum(f_x) = {fx_ac:+.6e} N  ratio {fx_ac / i_tp:.6f}   "
-          f"sum(M_z) = {mz_ac:+.6e} N.m")
-    print(f"  uniform sum(f_y) = {fy_un:+.6e} N  ratio {fy_un / i_np:.6f}   "
-          f"sum(f_x) = {fx_un:+.6e} N  ratio {fx_un / i_tp:.6f}   "
-          f"sum(M_z) = {mz_un:+.6e} N.m")
-    print(f"  mp_only sum(x F_y - y F_x) = {mz_mp:+.6e} N.m  ratio {mz_mp / i_mp:.6f}   "
-          f"(net force {fy_mp:+.3e} N, a pure couple)")
+    print(
+        f"  at_ac   sum(f_y) = {fy_ac:+.6e} N  ratio {fy_ac / i_np:.6f}   "
+        f"sum(f_x) = {fx_ac:+.6e} N  ratio {fx_ac / i_tp:.6f}   "
+        f"sum(M_z) = {mz_ac:+.6e} N.m"
+    )
+    print(
+        f"  uniform sum(f_y) = {fy_un:+.6e} N  ratio {fy_un / i_np:.6f}   "
+        f"sum(f_x) = {fx_un:+.6e} N  ratio {fx_un / i_tp:.6f}   "
+        f"sum(M_z) = {mz_un:+.6e} N.m"
+    )
+    print(
+        f"  mp_only sum(x F_y - y F_x) = {mz_mp:+.6e} N.m  ratio {mz_mp / i_mp:.6f}   "
+        f"(net force {fy_mp:+.3e} N, a pure couple)"
+    )
 
     assert_residual_below(
         abs(fy_ac - i_np) / i_np,
@@ -830,8 +901,10 @@ def test_rated_aero_loads_reproduce_the_bem_resultants(blade_shell, rated_bem):
     u[shell["free"]] = spsolve(shell["Kff"], vectors["at_ac"][shell["free"]])
     max_u = float(np.max(np.sqrt(u[0::6] ** 2 + u[1::6] ** 2 + u[2::6] ** 2)))
     print(f"\n  corrected max |u| over all nodes (at_ac, one-way) = {max_u:.3f} m")
-    print(f"  Zhou 2025 Table 4 coupled tip flapwise deflection   = {ZHOU_TIP_FLAP_M:.2f} m "
-          f"(reported only; a one-way load has no defensible bound against a coupled solution)")
+    print(
+        f"  Zhou 2025 Table 4 coupled tip flapwise deflection   = {ZHOU_TIP_FLAP_M:.2f} m "
+        f"(reported only; a one-way load has no defensible bound against a coupled solution)"
+    )
 
 
 @pytest.fixture(scope="module")
@@ -869,12 +942,18 @@ def production_rated_loads(blade_shell, rated_bem):
     thrust_per_blade = float(bem.thrust) / n_blades
     total = forces.sum(axis=0)
     total_mag = float(np.linalg.norm(total))
-    print(f"\nproduction ForceProjector load path at rated "
-          f"(V={V_RATED} m/s, {RPM_RATED} rpm, pitch {PITCH_RATED}, defaults):")
-    print(f"  sum(F) = {np.array2string(total, precision=4, suppress_small=True)} N  "
-          f"|sum(F)| = {total_mag:.4f} N")
-    print(f"  bem.thrust / {n_blades} = {thrust_per_blade:.4f} N -> ratio "
-          f"{total_mag / thrust_per_blade:.6f} (relative {total_mag / thrust_per_blade - 1.0:+.4%})")
+    print(
+        f"\nproduction ForceProjector load path at rated "
+        f"(V={V_RATED} m/s, {RPM_RATED} rpm, pitch {PITCH_RATED}, defaults):"
+    )
+    print(
+        f"  sum(F) = {np.array2string(total, precision=4, suppress_small=True)} N  "
+        f"|sum(F)| = {total_mag:.4f} N"
+    )
+    print(
+        f"  bem.thrust / {n_blades} = {thrust_per_blade:.4f} N -> ratio "
+        f"{total_mag / thrust_per_blade:.6f} (relative {total_mag / thrust_per_blade - 1.0:+.4%})"
+    )
     return force
 
 
@@ -902,17 +981,6 @@ def _measured_tip_axes(coords, ring):
     return chord, flap
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "coarse-mesh discretisation artefact of the wired multi-cell realisation: at "
-        "element_size=1.0 the production path measures omega = +0.1729 deg (nose-up) with a "
-        "distorted section (distortion/|omega| = 42.4), while the same wiring at "
-        "element_size=0.5 gives the physical nose-down sign (omega = -0.5270 deg, "
-        "distortion/|omega| = 37.7). The sign flip is the mesh, not the formulation. "
-        "strict=True, so a fix that restores nose-down turns this marker into an XPASS."
-    ),
-)
 def test_rated_twist_under_production_loads_is_nose_down(
     blade_shell, rated_bem, production_rated_loads
 ):
@@ -920,8 +988,10 @@ def test_rated_twist_under_production_loads_is_nose_down(
 
     Split out of ``test_rated_twist_under_production_loads`` so that the applied-load
     invariant, the applied direction and the promotion guard there stay live while this
-    one records the measured defect.  The marker's reason carries the two meshes it was
-    measured on, so the number cannot rot silently.
+    one asserts the physical sign on its own.  It was declared ``xfail(strict=True)``
+    while the wired multi-cell realisation was mesh-dependent; the property gate now
+    routes the properties-less production projector to the minimum-norm fallback, so the
+    measured rotation is nose-down again (``omega = -0.8696 deg``) and the marker is gone.
     """
     shell = blade_shell
     force = production_rated_loads
@@ -931,8 +1001,62 @@ def test_rated_twist_under_production_loads_is_nose_down(
     omega = _ring_kinematics(shell["coords"], u, tip)["omega"]
     assert omega < 0.0, (
         f"the production load path gives a non-negative tip section rotation "
-        f"omega = {np.rad2deg(omega):+.4f} deg; the rated twist must be nose-down "
-        f"(the sense of Zhou's {ZHOU_TIP_TORSION_DEG} deg)"
+        f"omega = {np.rad2deg(omega):+.4f} deg; the properties-less production projector "
+        f"must route through the minimum-norm fallback and measure nose-down "
+        f"-0.8696 deg (the sense of Zhou's {ZHOU_TIP_TORSION_DEG} deg)"
+    )
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "the wall-flow realisation is verified correct (skin walls carry q_i, shared webs "
+        "q_i - q_j, the total moment is exact and the net force is zero), yet the section "
+        "rotates nose-up when the ring wall stiffnesses come from "
+        "Blade.get_element_properties(): omega = +0.0773 deg against the properties-less "
+        "fallback's nose-down -0.8696 deg. The requested section torque itself measures "
+        "NOSE-UP (+4.840e5 N.m) because the lever-arm transfer (+7.607e5 N.m) dominates and "
+        "opposes the polars' pitching moment (-2.766e5 N.m). The sign question is open and "
+        "tracked by tools/diagnose_applied_torsion_sign.py; strict=True, so a fix that "
+        "restores the physical nose-down sense turns this marker into an XPASS."
+    ),
+)
+def test_rated_twist_under_multi_cell_production_loads_is_nose_down(blade_shell, rated_bem):
+    """The multi-cell wall-flow path's measured sense, pinned until the sign question closes.
+
+    The realisation itself is verified in ``tests/test_multicell_shear_flow.py``; the sign
+    of the realised section torque is not settled.  This builds the projector exactly as
+    production would if it held the laminate map (``element_properties`` from the ``Blade``
+    model, as the ``blade_shell`` fixture does) and asserts the physical sense, so a fix
+    flips the marker to XPASS and forces this row to be updated.
+    """
+    shell = blade_shell
+    bem, blade_aero = rated_bem
+    projector = ForceProjector(
+        shell["mesh"],
+        blade_aero,
+        span_direction=blade_validation.SPAN_DIRECTION,
+        element_properties=shell["props"],
+    )
+    forces = projector.project(bem)
+    force = np.zeros(shell["n"])
+    force[0::6] = forces[:, 0]
+    force[1::6] = forces[:, 1]
+    force[2::6] = forces[:, 2]
+    u = np.zeros(shell["n"])
+    u[shell["free"]] = spsolve(shell["Kff"], force[shell["free"]])
+    tip = np.asarray(shell["phys_tip"])
+    omega = _ring_kinematics(shell["coords"], u, tip)["omega"]
+    print(
+        f"\nmulti-cell load path: tip section omega = {np.rad2deg(omega):+9.4f} deg "
+        f"(nose-up, measured +0.0773 deg; Zhou torsion {ZHOU_TIP_TORSION_DEG:+.2f} deg)"
+    )
+    assert omega < 0.0, (
+        f"the multi-cell load path gives a nose-up tip section rotation "
+        f"omega = {np.rad2deg(omega):+.4f} deg; the measured multi-cell sense is "
+        f"+0.0773 deg, the sign question is open "
+        f"(tools/diagnose_applied_torsion_sign.py), and the physical sense required here "
+        f"is Zhou's {ZHOU_TIP_TORSION_DEG} deg"
     )
 
 
@@ -989,19 +1113,30 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
     edge_def = float(np.mean(tip_disp @ edge_hat))
     ratio_to_zhou = np.rad2deg(omega) / ZHOU_TIP_TORSION_DEG
 
-    print("\nrated structural response under the production load path "
-          "(ForceProjector, default directions):")
-    print(f"  applied |sum(F)|    = {applied_mag:12.4f} N  vs bem.thrust/{n_blades} = "
-          f"{thrust_per_blade:12.4f} N  ratio {load_ratio:.6f} ({load_ratio - 1.0:+.3%})")
-    print(f"  tip section omega   = {np.rad2deg(omega):+9.4f} deg   "
-          f"(Zhou torsion {ZHOU_TIP_TORSION_DEG:+.2f} deg)")
+    print(
+        "\nrated structural response under the production load path "
+        "(ForceProjector, default directions):"
+    )
+    print(
+        f"  applied |sum(F)|    = {applied_mag:12.4f} N  vs bem.thrust/{n_blades} = "
+        f"{thrust_per_blade:12.4f} N  ratio {load_ratio:.6f} ({load_ratio - 1.0:+.3%})"
+    )
+    print(
+        f"  tip section omega   = {np.rad2deg(omega):+9.4f} deg   "
+        f"(Zhou torsion {ZHOU_TIP_TORSION_DEG:+.2f} deg)"
+    )
     print(f"  tip mean theta_z    = {np.rad2deg(theta_z):+9.4f} deg")
-    print(f"  section distortion  = {kin['distortion']:.6e}   "
-          f"distortion/|omega| = {d_over_omega:.4f}")
-    print(f"  tip flapwise defl.  = {flap_def:+9.4f} m   (Zhou {ZHOU_TIP_FLAP_M:+.2f} m -> "
-          f"ratio {flap_def / ZHOU_TIP_FLAP_M:+.4f})")
-    print(f"  tip edgewise defl.  = {edge_def:+9.4f} m   (Zhou {ZHOU_TIP_EDGE_M:+.2f} m -> "
-          f"ratio {edge_def / ZHOU_TIP_EDGE_M:+.4f})")
+    print(
+        f"  section distortion  = {kin['distortion']:.6e}   distortion/|omega| = {d_over_omega:.4f}"
+    )
+    print(
+        f"  tip flapwise defl.  = {flap_def:+9.4f} m   (Zhou {ZHOU_TIP_FLAP_M:+.2f} m -> "
+        f"ratio {flap_def / ZHOU_TIP_FLAP_M:+.4f})"
+    )
+    print(
+        f"  tip edgewise defl.  = {edge_def:+9.4f} m   (Zhou {ZHOU_TIP_EDGE_M:+.2f} m -> "
+        f"ratio {edge_def / ZHOU_TIP_EDGE_M:+.4f})"
+    )
     print(f"  omega / Zhou torsion = {ratio_to_zhou:.4f}")
 
     # Applied-load invariant: the P5 guard's own 2 % bound on |F| vs bem.thrust / n_blades,
@@ -1021,8 +1156,10 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
     # aggregate over a 24.41 deg twisting span is not a per-statement claim.
     flap_share = float(applied @ flap_hat) / applied_mag
     chord_share = float(applied @ edge_hat) / applied_mag
-    print(f"  applied direction   = flapwise share {flap_share:+.4f}  "
-          f"edgewise(TE-positive) share {chord_share:+.4f}  (of |sum(F)|)")
+    print(
+        f"  applied direction   = flapwise share {flap_share:+.4f}  "
+        f"edgewise(TE-positive) share {chord_share:+.4f}  (of |sum(F)|)"
+    )
     assert flap_share >= 0.95, (
         f"the production load path applies only {flap_share:.4f} of |sum(F)| along the "
         f"measured flapwise axis (bound 0.95): the thrust must be downwind along that axis, "

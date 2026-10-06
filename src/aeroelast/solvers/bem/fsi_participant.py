@@ -371,9 +371,11 @@ class BEMFSIParticipant:
         self._bem_solver = BEMSolver(blade_aero, **self._bem_solver_kwargs)
 
         # No ``element_properties`` is passed: this participant is the fluid side
-        # and never builds the laminate map the structural assembler uses, so its
-        # ``ForceProjector`` runs the uniform-``S = 1.0`` multi-cell fallback (the
-        # flows are geometric-only, not split by wall laminate).  A caller that does
+        # and never builds the laminate map the structural assembler uses, so every
+        # precomputed ring section is left marked ``from_element_properties = False``.
+        # The multi-cell gate refuses such a ring (``ring_section`` would give it the
+        # uniform, geometric-only ``S = 1.0``), so the strip takes the minimum-norm
+        # ``_distribute`` fallback instead of a wall-flow split.  A caller that does
         # hold the ``Blade.get_element_properties()`` dict must hand it over if a
         # stiffness-resolved cell split is wanted.
         ref_projector = ForceProjector(
@@ -802,8 +804,9 @@ class BEMFSIParticipant:
         """
         self._working_mesh.coords_array = deformed_coords
         # As at the reference construction, no ``element_properties`` is available on
-        # the fluid participant, so the deformed projector also takes the uniform
-        # ``S = 1.0`` multi-cell fallback.
+        # the fluid participant, so the deformed projector's ring sections are also
+        # marked non-physical and its strips take the minimum-norm ``_distribute``
+        # fallback rather than a geometric-only wall-flow split.
         return ForceProjector(
             self._working_mesh,
             deformed_aero,
