@@ -84,16 +84,24 @@ for i in range(1, len(m)):
     twist[i] = twist[i - 1] + step
 
 print(f"anchor stations: {n_st}   blade length {r[-1] - r[0]:.3f} m")
-print(f"physical arm x_ac - xS range          = {(x_ac - x_shear).min():+.4f} .. {(x_ac - x_shear).max():+.4f} m")
-print(f"  as a chord fraction                 = {((x_ac - x_shear) / chord).min():+.4f} .. {((x_ac - x_shear) / chord).max():+.4f} c")
+print(
+    f"physical arm x_ac - xS range          = {(x_ac - x_shear).min():+.4f} .. {(x_ac - x_shear).max():+.4f} m"
+)
+print(
+    f"  as a chord fraction                 = {((x_ac - x_shear) / chord).min():+.4f} .. {((x_ac - x_shear) / chord).max():+.4f} c"
+)
 print()
 print(f"integral of m(z) over the span        = {np.sum(0.5 * (m[:-1] + m[1:]) * dr):+.6e} N.m")
 print(f"  of which the polars' Mp             = {np.sum(0.5 * (Mp[:-1] + Mp[1:]) * dr):+.6e} N.m")
 print(f"  of which the shear-centre arm       = {np.sum(0.5 * (arm[:-1] + arm[1:]) * dr):+.6e} N.m")
 print()
-print(f"beam tip twist with this m(z)         = {np.rad2deg(twist[-1]):+.4f} deg   (anchor test: -1.7765)")
+print(
+    f"beam tip twist with this m(z)         = {np.rad2deg(twist[-1]):+.4f} deg   (anchor test: -1.7765)"
+)
 print(f"Zhou's tip torsion                    = {ZHOU_TIP_TORSION_DEG:+.2f} deg")
-print(f"scale our m(z) would need             = {ZHOU_TIP_TORSION_DEG / np.rad2deg(twist[-1]):+.3f}x")
+print(
+    f"scale our m(z) would need             = {ZHOU_TIP_TORSION_DEG / np.rad2deg(twist[-1]):+.3f}x"
+)
 print()
 print(f"{'r[m]':>8} {'m[N.m/m]':>12} {'Mp':>12} {'arm':>12} {'x_ac-xS[m]':>11} {'GKt[N.m2]':>12}")
 for i in range(0, n_st, max(1, n_st // 10)):

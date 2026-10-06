@@ -32,7 +32,9 @@ props = blade.get_element_properties()
 aero = build_blade_aero_from_aerodyn(t.AD_PRIMARY)
 proj = ForceProjector(mesh, aero, span_direction=SPAN, element_properties=props)
 
-print(f"{'k':>3} {'c[m]':>7} {'max thk/c':>10} {'at x/c':>7} {'LE side':>9} {'_section_ends LE':>17} {'agree':>6}")
+print(
+    f"{'k':>3} {'c[m]':>7} {'max thk/c':>10} {'at x/c':>7} {'LE side':>9} {'_section_ends LE':>17} {'agree':>6}"
+)
 for k in range(0, len(proj._strips), max(1, len(proj._strips) // 8)):
     strip = proj._strips[k]
     ring = next((g for g in proj._strip_ring_groups[k] if len(g) >= 3), None)

@@ -518,9 +518,7 @@ _GENERATOR_PARAM_KEYS = (
 #: Geometry paths that a run directory outside the repository must resolve.
 _GEOMETRY_PATH_KEYS = ("yaml_file", "airfoil_dir", "blade_file")
 
-_GEOMETRY_PATH_RE = re.compile(
-    r"(?m)^(\s*)(" + "|".join(_GEOMETRY_PATH_KEYS) + r'):\s*"([^"]+)"'
-)
+_GEOMETRY_PATH_RE = re.compile(r"(?m)^(\s*)(" + "|".join(_GEOMETRY_PATH_KEYS) + r'):\s*"([^"]+)"')
 
 
 def _absolutise_geometry_paths(text: str, src_path: Path) -> str:

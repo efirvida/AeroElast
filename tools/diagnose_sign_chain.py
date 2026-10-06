@@ -36,8 +36,10 @@ SPAN = np.array([0.0, 0.0, 1.0])
 YAML = t.YAML
 
 deck = yaml.safe_load(YAML.read_text())
-airfoils = {a["name"]: (np.asarray(a["coordinates"]["x"], float), np.asarray(a["coordinates"]["y"], float))
-            for a in deck["airfoils"]}
+airfoils = {
+    a["name"]: (np.asarray(a["coordinates"]["x"], float), np.asarray(a["coordinates"]["y"], float))
+    for a in deck["airfoils"]
+}
 position = deck["components"]["blade"]["outer_shape_bem"]["airfoil_position"]
 labels = position["labels"]
 grid = np.asarray(position["grid"], float)
@@ -61,7 +63,9 @@ def deck_airfoil(fraction: float) -> str:
     return labels[i]
 
 
-print(f"{'k':>3} {'af':>16} {'resid/c':>8} {'LE . c^':>9} {'Mp factor':>10} {'LE at x':>8} {'_section_ends':>14} {'agree':>6}")
+print(
+    f"{'k':>3} {'af':>16} {'resid/c':>8} {'LE . c^':>9} {'Mp factor':>10} {'LE at x':>8} {'_section_ends':>14} {'agree':>6}"
+)
 for k in range(2, len(proj._strips), max(1, len(proj._strips) // 8)):
     strip = proj._strips[k]
     ring = next((g for g in proj._strip_ring_groups[k] if len(g) >= 3), None)
@@ -85,7 +89,7 @@ for k in range(2, len(proj._strips), max(1, len(proj._strips) // 8)):
     for flip_x in (1.0, -1.0):
         for flip_y in (1.0, -1.0):
             qx = x_proj.min() + chord * (1.0 - ax if flip_x < 0 else ax)
-            qy = (y_proj.mean() + chord * flip_y * ay)
+            qy = y_proj.mean() + chord * flip_y * ay
             resid = []
             for xi, yi in zip(x_proj, y_proj, strict=True):
                 d = np.hypot(qx - xi, qy - yi)
