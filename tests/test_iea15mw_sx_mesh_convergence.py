@@ -27,7 +27,7 @@ DEFAULT_CSV = REPO_ROOT / "docs" / "validation_data" / "generated" / "sx_mesh_co
 TARGETS = {
     "f1f_park_Hz": (0.544, 0.04),
     "f1f_rot_Hz": (0.5666, 0.04),
-    "f1e_park_Hz": (0.739, 0.08),   # the S-4's own recorded edge = -5.6%
+    "f1e_park_Hz": (0.739, 0.08),  # the S-4's own recorded edge = -5.6%
     "oop_static_m": (16.1033, 0.10),
 }
 
@@ -57,11 +57,11 @@ class TestSxMeshConvergence:
     def test_artifact_has_refinement_series(self, rows):
         sizes = rows["size"]
         if len(sizes) < 3:
-            pytest.skip("partial artifact (smoke run): the full 3-size study "
-                        "is produced by the HPC convergence job")
-        assert sizes[-1] < 0.4, (
-            f"expected the finest size below 0.4 m; got {sizes.tolist()}"
-        )
+            pytest.skip(
+                "partial artifact (smoke run): the full 3-size study "
+                "is produced by the HPC convergence job"
+            )
+        assert sizes[-1] < 0.4, f"expected the finest size below 0.4 m; got {sizes.tolist()}"
 
     def test_oop_static_converges_monotonically(self, rows):
         """The S-5 OoP deflection must change less and less with refinement."""
@@ -85,12 +85,22 @@ class TestSxMeshConvergence:
             )
 
     @pytest.mark.xfail(
-        strict=False,
-        reason="artifact docs/validation_data/generated/sx_mesh_convergence.csv "
-        "predates the MITC3 shear-convention fix (2026-09-19): its 0.125 m row "
-        "shows a spurious f1e jump (0.6977 -> 0.7028 Hz).  Regenerate with "
+        strict=True,
+        reason="artifact docs/validation_data/generated/sx_mesh_convergence.csv IS "
+        "the regenerated one (SLURM 11599739, COMPLETED 2026-09-23, 2h27m; log "
+        "$SCRATCH/tmp/opencode/sxc_11599739.out ends with 'wrote "
+        "docs/validation_data/generated/sx_mesh_convergence.csv' after the 0.125 m "
+        "mesh, 120352 nodes, 122587 elements, 1E parked 0.7019), so the "
+        "'pre-MITC3-fix artifact' diagnosis is falsified: the f1e jump survives "
+        "the fix (0.69698 -> 0.70194 Hz, +0.71% vs the previous +0.05%).  The "
+        "artifact is nonetheless stale for different reasons: it was produced "
+        "with the element-winding canonicalisation still in place (the job log "
+        "says 'Canonicalised 121305 element winding(s)', and core/mesh/winding.py "
+        "has since been removed so the mesh matches origin/main) and BEFORE the "
+        "origin/main element integration.  Regenerate with "
         "`python tools/run_sx_convergence.py --sizes 1.0 0.5 0.25 0.125` on HPC "
-        "and this becomes a strict check.",
+        "against the current element line; the non-monotonic f1e increment at "
+        "0.125 m remains an open finding.",
     )
     def test_f1e_frequency_converges(self, rows):
         """First edgewise parked frequency must tighten with refinement."""

@@ -233,8 +233,18 @@ corregidos en los tests.
 
 - Re-ejecutar campañas FSI (yaw twist-fix + V-06) **con el fix de MITC3**.
 - V-06 sobre-rated con el pitch schedule de referencia/ROSCO (8 casos).
-- Regenerar `sx_mesh_convergence.csv` a 0.125 con el código corregido.
-- Punto 0.125 de torsión/twist (convergencia fina).
+- ~~Regenerar `sx_mesh_convergence.csv` a 0.125 con el código corregido.~~
+  **ENTREGADO (2026-09-23)**: job **11599739** COMPLETED en 2h27m; el CSV
+  regenerado está en `docs/validation_data/generated/sx_mesh_convergence.csv`
+  (4 tamaños: 1.0 / 0.5 / 0.25 / 0.125 m; log
+  `$SCRATCH/tmp/opencode/sxc_11599739.out`, que termina con
+  `wrote docs/validation_data/generated/sx_mesh_convergence.csv`). El artefacto
+  queda, sin embargo, **obsoleto por otra causa** (ver la corrección del batch,
+  abajo): **no** es un artefacto pre-fix de MITC3.
+- ~~Punto 0.125 de torsión/twist (convergencia fina).~~ **ENTREGADO (2026-09-23)**:
+  job **11599740** COMPLETED en 9m34s; salida
+  `$SCRATCH/tmp/opencode/ccx_robust_0125.csv`. **Parcial**: solo MITC4-vs-viga
+  (`kappa_ccx = nan`, `ad_ccx_089 = nan`), sin valor de CCX en ese refinamiento.
 - Postproceso y re-derivación de números/figuras (V-04/V-06) + cierre del capítulo.
 
 ### Batch HPC lanzado (2026-09-23)
@@ -243,14 +253,50 @@ corregidos en los tests.
 |---|---|---|
 | 11599732–11599736 | Barrido yaw 0–40° **con el fix de MITC3** (5 casos) | `$SCRATCH/frontiersin_results_corotational_100s_mitc3fix/` |
 | 11599738, 11599741–11599754 | Matriz V-06 (15 casos, SEEDS=1) **con el pitch schedule de referencia** (no 1.8°/m/s) | `$SCRATCH/v006_matrix_results_mitc3fix/` |
-| 11599739 | Regeneración de `sx_mesh_convergence.csv` a 0.125 (convergencia modal) | `docs/validation_data/generated/sx_mesh_convergence.csv` |
-| 11599740 | Punto 0.125 de torsión/twist (MITC4, sin CCX) | `$SCRATCH/tmp/opencode/ccx_robust_0125.csv` |
+| 11599739 | Regeneración de `sx_mesh_convergence.csv` a 0.125 (convergencia modal) — **COMPLETED 2026-09-23, 2h27m** | `docs/validation_data/generated/sx_mesh_convergence.csv` (log `$SCRATCH/tmp/opencode/sxc_11599739.out`) |
+| 11599740 | Punto 0.125 de torsión/twist (MITC4, sin CCX) — **COMPLETED 2026-09-23, 9m34s** | `$SCRATCH/tmp/opencode/ccx_robust_0125.csv` (parcial: `kappa_ccx = nan`) |
 
 Notas: los V-06 quedan parcialmente retenidos por `AssocMaxJobsLimit` y se liberan
 a medida que terminan los demás. El schedule de referencia (V-06) se implementó
 en `submit_ch6_matrix.py` interpolando la tabla IEA: pitch 0 hasta 10.659 m/s,
 6.761° a 12.259, 12.185° a 15.471 y extrapolación con esa pendiente arriba.
 Al terminar: postprocesar, re-derivar V-04/V-06 y actualizar figuras + capítulo.
+
+#### Entrega y corrección de los dos ítems 0.125 (actualizado 2026-10-05)
+
+Los dos ítems de la tabla ligados a la malla fina **ya se entregaron**: jobs
+**11599739** (convergencia modal) y **11599740** (torsión/twist), ambos
+**COMPLETED** el 2026-09-23. Lo que sigue **corrige el diagnóstico** con el que
+quedaron registrados; no borra la entrada previa.
+
+- **`sx_mesh_convergence.csv` — el diagnóstico "predata el fix de MITC3" queda
+  falsado.** El artefacto **sí** es el regenerado: el job 11599739 corrió la
+  malla de 0.125 m (`120352 nodes, 122587 elements`, `1E parked 0.7019`) y
+  escribió el CSV al final. Sus filas de f1e park son
+  **0.69569824** (1.0 m) / **0.69661868** (0.5) / **0.69698433** (0.25) /
+  **0.70194314** (0.125), con incrementos consecutivos 0.13 % / 0.05 % /
+  **0.71 %**: el salto **persiste después del fix de MITC3** (~14× el incremento
+  anterior), así que no era ese artefacto. El resumen del propio job **no**
+  imprimía f1e (solo `1F parked`, `1F rotating`, `OoP static`:
+  `1.86 % | 0.40 % | 0.11 %`, `1.28 % | 0.28 % | 0.08 %`,
+  `8.59 % | 1.82 % | 0.46 %`), y por eso el salto pasó desapercibido.
+- **Causa correcta de obsolescencia del artefacto**: se generó con la
+  canonicalización de winding todavía en su lugar (el log dice
+  `Canonicalised 121305 element winding(s)`, y `core/mesh/winding.py` ya se
+  eliminó para alinear con `origin/main`) y **antes** de la integración del
+  elemento de `origin/main`. La instrucción de regenerar sigue en pie, con esa
+  causa.
+- **Punto 0.125 de torsión/twist — parcial**: `ccx_robust_0125.csv` trae
+  `ES 0.125`, `kappa_mitc4 0.4551740622`, `kappa_beam 0.4371100257`,
+  `gj_ratio_mitc4 0.960314`, `ad_mitc4_089 5.5587`; el lado CCX **no** produjo
+  valor en ese refinamiento (`kappa_ccx = nan`, `ad_ccx_089 = nan`) → el punto es
+  MITC4-vs-viga únicamente, sin referencia CCX a 0.125.
+- **Hallazgo abierto**: el incremento de f1e a 0.125 m es **no monótono**
+  (0.71 % contra 0.05 % previo) y **sobrevive al fix de MITC3**; el artefacto
+  regenerado es ahora obsoleto por la remoción de la canonicalización de winding
+  y la integración del elemento de `origin/main`. El test
+  `TestSxMeshConvergence::test_f1e_frequency_converges` sigue en
+  `xfail(strict=True)` hasta regenerar contra la línea de elemento actual.
 
 #### Postproceso parcial del batch (2026-09-23)
 
@@ -286,6 +332,12 @@ Evidencia del impacto: nuestro BEM con el schedule viejo daba 0.364 MW a
 el salto de f1e a 0.125 **persiste** (0.6970→0.7019) → no era el bug de MITC3;
 el test sigue xfail (a investigar: identificación del modo o detalle punta/raíz
 en esa malla).
+
+> **Actualizado (2026-10-05)**: ver "Entrega y corrección de los dos ítems 0.125"
+> más arriba. El "a investigar" queda acotado: el artefacto regenerado por el job
+> 11599739 es obsoleto por la remoción de la canonicalización de winding
+> (`core/mesh/winding.py`) y por la integración del elemento de `origin/main` —
+> no por el fix de MITC3, que el salto de f1e sobrevive.
 
 #### Barrido yaw completo (5 casos, campaña mitc3fix)
 
