@@ -229,6 +229,29 @@ _DEFAULT_FLOW_VELOCITY = 1.0  # m/s
 _logger = logging.getLogger(__name__)
 
 
+def _per_node_translational_masses(
+    rows: "np.ndarray",
+    vals: "np.ndarray",
+    dofs_per_node: int,
+    n_nodes: int,
+    n_full_dofs: int,
+) -> "np.ndarray":
+    """Per-node scalar mass from the first translational row of each node.
+
+    Vectorized replacement for the previous per-node full scan of the COO row
+    array (O(n_nodes * nnz)). The DOF layout is a plain stride (node ``i`` owns
+    rows ``i*dofs .. i*dofs+dofs-1``), so its first translational row is exactly
+    ``i*dofs``. ``np.bincount`` accumulates the COO values per row in a single
+    O(nnz) pass; a node with no entries keeps the value 0.0.
+    """
+    row_sums = np.bincount(
+        rows,
+        weights=vals,
+        minlength=max(int(n_full_dofs), n_nodes * dofs_per_node),
+    )
+    return row_sums[::dofs_per_node][:n_nodes].astype(np.float64, copy=False)
+
+
 class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
     """
     Co-rotational FSI solver for rotating structures (rotors, blades, turbines).
@@ -1907,12 +1930,8 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         mv = np.asarray(mv)
         dofs = self.domain.dofs_per_node
         n_nodes = len(self.domain.nodes)
-        all_node_masses = np.array(
-            [
-                float(mv[mr == i * dofs].sum()) if (mr == i * dofs).any() else 0.0
-                for i in range(n_nodes)
-            ],
-            dtype=np.float64,
+        all_node_masses = _per_node_translational_masses(
+            mr, mv, dofs, n_nodes, n_full_dofs
         )
 
         # ── OmegaProvider mapping ───────────────────────────────────────────
