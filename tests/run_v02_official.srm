@@ -18,5 +18,5 @@ GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
 export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
 
 cd /scratch/leahk/eduardo.donestevez/fem-shell
-python3 -m pytest tests/test_iea15mw_v02_natural_frequencies.py -q --tb=short 2>&1 | tail -15
+python3 -m pytest tests/validation/blade/test_iea15mw_v02_natural_frequencies.py -q --tb=short 2>&1 | tail -15
 echo "V-02 DONE"

@@ -121,7 +121,7 @@ Se migró el stack de validación a la definición oficial WindIO:
 
 - `tests/test_iea15mw_s2_static_prescribed.py` — corre ambos modelos: oficial
   como referencia de cierre y UTD como registro de sensibilidad de input.
-- `tests/test_iea15mw_v02_natural_frequencies.py` → blade oficial. Valores
+- `tests/validation/blade/test_iea15mw_v02_natural_frequencies.py` → blade oficial. Valores
   medidos (element_size 0.25): 1F 0.5377 Hz (−3.7%), 1E 0.6977 Hz (+8.9%,
   dentro de la dispersión inter-método ±14% [Zhou 2025]; tolerancia del test
   ampliada a ±10% con justificación), 2F 1.5881 Hz (−4.3%), 2E 2.1101 Hz

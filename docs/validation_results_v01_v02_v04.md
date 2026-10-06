@@ -128,7 +128,7 @@ Desviaciones máximas: |ΔC_P|_max = 0.0121, |ΔC_T|_max = 0.0150. Ambos muy por
 ## V-02 — Frecuencias naturales de pala estática
 
 **Malla**: `tests/NuMAD_utd_iea15mw.xlsx`, element_size = 0.25 m → 31 693 nodos, 32 861 elementos shell.  
-**Test**: `module load gcc && pytest tests/test_iea15mw_v02_natural_frequencies.py` → **3/3 PASSED**
+**Test**: `module load gcc && pytest tests/validation/blade/test_iea15mw_v02_natural_frequencies.py` → **3/3 PASSED**
 
 ### 10 primeros autovalores calculados (orden ascendente)
 

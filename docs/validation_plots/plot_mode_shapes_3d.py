@@ -4,7 +4,7 @@
 This script is a TEMPLATE. To produce the actual figure, first run the modal
 solver with VTU export enabled so the eigenvectors are written as point data:
 
-    pytest tests/test_iea15mw_v02_natural_frequencies.py
+    pytest tests/validation/blade/test_iea15mw_v02_natural_frequencies.py
     # then add to the test or solver call:
     #     modal_solver.export_modes_vtu("modal_modes.vtu", n_modes=10)
 

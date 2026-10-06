@@ -17,6 +17,17 @@ version: 1
 # "out of scope" from "forgotten", and `status` counts only the undeclared ones.
 out_of_scope:
   - files:
+      - tests/validation/blade/test_blade_section_frame_tear.py
+    reason: >-
+      An investigation, and it says so itself: it decides whether the free edges
+      at the z ~ 112 m tear move the section's chordwise extents, enclosed area
+      and declared chord off the trend their two immediate neighbours span. The
+      discriminator is tolerance-free by construction -- a connectivity tear
+      would break the local trend -- and the fitted section rotation's
+      non-affine residual is printed beside it as the estimator side. Nothing
+      here is a physical quantity measured against an independent reference, so
+      rule 6 leaves it no row.
+  - files:
       - tests/validation/bem/test_bem_engine.py
     reason: >-
       It tests the BEM engine wrapper: construction from BladeAero, the
@@ -541,9 +552,10 @@ groups:
           printed and never bounded: the beam against the shell's section
           rotation, against mean(theta_z), and against Zhou et al. 2025 Table 4.
           Choosing which estimator the aerodynamics see is a kinematic argument
-          (verdict 22.8), not a tolerance, and binding any of those numbers would
-          have meant calibrating a measurement to an outcome. The four bounds this
-          group does carry belong to the section-parsing test, which is where the
+          (verdict 22.8), not a tolerance, and binding any of those numbers
+          would have meant calibrating a measurement to an outcome. The four
+          bounds this group does carry belong to the section-parsing test, which
+          is where the
           independent references are.
 
     provenance_note: >-
@@ -808,6 +820,35 @@ groups:
       defect instead of validating a bound, so that assertion stays bare and
       the defect is recorded in gaps.yaml,
       moment_realization_over_delivers.
+
+  - id: "32"
+    title: >-
+      `tests/validation/blade/test_iea15mw_v02_natural_frequencies.py`
+      (the IEA 15 MW blade's natural frequencies against the definition report)
+    slug: blade_v02_natural_frequencies
+    # [R1] is NREL/TP-5000-75698, which resolves in the bibliography as
+    # gaertner2020. The ElastoDyn blade deck [R4] carries the same frequencies,
+    # but one comparison states one reference: the report is the one it names.
+    citation: gaertner2020
+    source_files:
+      - tests/validation/blade/test_iea15mw_v02_natural_frequencies.py
+    # The two tolerances differ -- 5% for the flap modes and 10% for the 1st
+    # edgewise -- so the group declares no common one and each comparison
+    # carries its own.
+    provenance_note: >-
+      The blade alone, clamped at the root, no rotation and no aerodynamics,
+      through the Rust assembler and the SLEPc modal solver over the official
+      WindIO blade. Two comparisons become rows: the 1st flapwise against
+      Table 5-2 of NREL/TP-5000-75698 within the suite's 5%, and the 1st
+      edgewise within 10%, which the test justifies from the published
+      inter-method dispersion of that same mode (+-14% across the eight
+      methods compiled in Zhou et al. 2025 Table 3) rather than from what the
+      shell happens to produce. The 2nd flapwise is NOT a row: at converged
+      resolution the shell lands about 6% below the beam value (1.4866 /
+      1.5452 / 1.5539 Hz at element_size 1.00 / 0.50 / 0.25 against 1.659 Hz)
+      and the increments collapse, so the test carries a shell-versus-beam
+      validity limit as its own xfail instead of asserting a bound it cannot
+      meet.
 
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an

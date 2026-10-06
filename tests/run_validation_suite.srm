@@ -36,7 +36,7 @@ python3 -m pytest \
   tests/test_iea15mw_sx_campbell.py \
   tests/test_iea15mw_sx_campbell_cross.py \
   tests/test_iea15mw_v01_rotor_performance.py \
-  tests/test_iea15mw_v02_natural_frequencies.py \
+  tests/validation/blade/test_iea15mw_v02_natural_frequencies.py \
   tests/test_iea15mw_v03_static_gravity.py \
   tests/test_iea15mw_v05_structural_properties.py \
   tests/test_mass_matrix_validation.py \

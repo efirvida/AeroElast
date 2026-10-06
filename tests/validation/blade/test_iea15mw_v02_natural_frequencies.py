@@ -26,6 +26,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from tests.support.assertions import assert_relative_error
+
 petsc4py = pytest.importorskip("petsc4py", reason="PETSc not available")
 slepc4py = pytest.importorskip("slepc4py", reason="SLEPc not available")
 
@@ -118,12 +120,22 @@ class TestBladeNaturalFrequencies:
     # ------------------------------------------------------------------
 
     def test_1st_flapwise_frequency(self, frequencies_hz):
-        """1st flapwise freq must be within ±5 % of 0.5585 Hz [R1][R4]."""
+        """1st flapwise freq must be within ±5 % of 0.5585 Hz [R1][R4].
+
+        The reference is NREL/TP-5000-75698 Table 5-2; the ElastoDyn blade deck
+        of the official repository carries the same value, which is why the
+        tolerance is the suite's 5 % and not a wider one. The comparison is
+        routed through the suite helper so the store reads it and records the
+        printed residual.
+        """
         f = self._closest(frequencies_hz, _REF_F1_FLAP)
-        err = _rel_err(f, _REF_F1_FLAP)
-        assert err < _FREQ_TOL, (
-            f"1st flap: {f:.4f} Hz vs ref {_REF_F1_FLAP:.4f} Hz "
-            f"(err={err:.1%}, tol={_FREQ_TOL:.0%})"
+        assert_relative_error(
+            f,
+            _REF_F1_FLAP,
+            tol=_FREQ_TOL,
+            kind="paper",
+            reference_name="NREL/TP-5000-75698 Table 5-2, 1st flapwise [R1]",
+            what="1st flapwise natural frequency [Hz]",
         )
 
     def test_1st_edgewise_frequency(self, frequencies_hz):
@@ -140,10 +152,13 @@ class TestBladeNaturalFrequencies:
         docs/blade_input_divergence_utd_vs_official.md.)
         """
         f = self._closest(frequencies_hz, _REF_F1_EDGE)
-        err = _rel_err(f, _REF_F1_EDGE)
-        assert err < _FREQ_TOL_EDGE, (
-            f"1st edge: {f:.4f} Hz vs ref {_REF_F1_EDGE:.4f} Hz "
-            f"(err={err:.1%}, tol={_FREQ_TOL_EDGE:.0%})"
+        assert_relative_error(
+            f,
+            _REF_F1_EDGE,
+            tol=_FREQ_TOL_EDGE,
+            kind="paper",
+            reference_name="NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1]",
+            what="1st edgewise natural frequency [Hz]",
         )
 
     def test_2nd_flapwise_frequency(self, frequencies_hz):
