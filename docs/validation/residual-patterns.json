@@ -43,15 +43,15 @@
       "unasserted": "(?!)"
     },
     "30": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "29": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "28": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "27": {
@@ -59,47 +59,47 @@
    "unasserted": "(?!)"
   },
   "26": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "25": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "24": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "23": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "22": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "19": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "18": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "17": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "16": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "15": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "12": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>.+?) \\(bound: (?P<bound>.+?)\\)$",
+   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
    "unasserted": "(?!)"
   },
   "9": {
