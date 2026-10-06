@@ -341,19 +341,28 @@ class BEMFSIParticipant:
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)
 
         # -- Mesh span rotation -> BEM twist sense --------------------------
-        # A positive rotation of the section about +span turns the chord
-        # (tangential) axis toward the span x tangential direction.  When that
-        # direction is the configured downwind (normal) axis - the default
-        # frame here, span=x cross tangential=y - the chord's leading edge
-        # turns away from the wind and the angle of attack rises.  CCBlade's
-        # alpha = phi - theta therefore requires theta to FALL.  The elastic
-        # section rotation and the BEM twist angle are opposite-sensed, so
-        # mixing them with a plus (as this class used to) feeds the BEM an
-        # inverted twist and turns de-loading into re-loading.
+        # A positive rotation of the section about +span turns the tangential
+        # (chord) axis toward ``span x tangential``.  When that direction is the
+        # configured downwind (normal) axis - the default frame, span x
+        # tangential = +y - the leading edge, which sits at positive x on this
+        # mesh, moves toward +y: the section pitches NOSE-DOWN and the angle of
+        # attack FALLS.  CCBlade's alpha = phi - theta then requires theta to RISE,
+        # so the mesh rotation and the BEM twist angle share their sense and the
+        # factor is +1.
+        #
+        # The factor used to be -1, which compensated an inverted aerodynamic
+        # moment in ForceProjector: measured before that fix, the applied section
+        # torque was nose-up (+4.839888e5 N.m against the polars' -2.766e5), and
+        # the -1 turned the resulting nose-up rotation into an apparent unloading
+        # of -4.00%.  With the moment axis corrected
+        # (tools/diagnose_sign_chain.py: the deck's leading-to-trailing direction
+        # runs against _strip_chord_dirs at every real station) the two errors no
+        # longer cancel: leaving -1 here turns the corrected nose-down rotation
+        # into a +21.88% re-loading.
         self._twist_mesh_to_bem: float = (
-            -1.0
+            1.0
             if float(np.dot(self._normal_dir, np.cross(self._span_dir, self._tangential_dir))) > 0.0
-            else 1.0
+            else -1.0
         )
 
         # -- BEM solver keyword arguments (constant across iterations) ------

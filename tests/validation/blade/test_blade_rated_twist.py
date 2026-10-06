@@ -988,10 +988,13 @@ def test_rated_twist_under_production_loads_is_nose_down(
 
     Split out of ``test_rated_twist_under_production_loads`` so that the applied-load
     invariant, the applied direction and the promotion guard there stay live while this
-    one asserts the physical sign on its own.  It was declared ``xfail(strict=True)``
-    while the wired multi-cell realisation was mesh-dependent; the property gate now
-    routes the properties-less production projector to the minimum-norm fallback, so the
-    measured rotation is nose-down again (``omega = -0.8696 deg``) and the marker is gone.
+    one asserts the physical sign on its own.  The sign convention is settled by
+    ``tools/diagnose_sign_chain.py``: the deck's leading edge sits at +x, the load-frame
+    downwind (thrust) direction is +y, and a rigid +z rotation of the tip ring moves the
+    leading edge downwind, so a NOSE-DOWN section rotation reads ``omega > 0``.  With the
+    pitching moment applied on the axis ``_section_ends`` selects
+    (``ForceProjector._strip_moment_axis_sign``), the properties-less production projector
+    measures ``omega = +8.1048 deg``, nose-down.
     """
     shell = blade_shell
     force = production_rated_loads
@@ -999,36 +1002,27 @@ def test_rated_twist_under_production_loads_is_nose_down(
     u[shell["free"]] = spsolve(shell["Kff"], force[shell["free"]])
     tip = np.asarray(shell["phys_tip"])
     omega = _ring_kinematics(shell["coords"], u, tip)["omega"]
-    assert omega < 0.0, (
-        f"the production load path gives a non-negative tip section rotation "
-        f"omega = {np.rad2deg(omega):+.4f} deg; the properties-less production projector "
-        f"must route through the minimum-norm fallback and measure nose-down "
-        f"-0.8696 deg (the sense of Zhou's {ZHOU_TIP_TORSION_DEG} deg)"
+    assert omega > 0.0, (
+        f"the production load path gives a non-positive tip section rotation "
+        f"omega = {np.rad2deg(omega):+.4f} deg; on this frame nose-down is omega > 0 "
+        f"(deck leading edge at +x, load-frame downwind at +y, and a +z rotation moves "
+        f"the leading edge downwind - tools/diagnose_sign_chain.py).  The corrected "
+        f"pitching-moment axis gives +8.1048 deg, the sense of Zhou's "
+        f"{ZHOU_TIP_TORSION_DEG} deg"
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "the wall-flow realisation is verified correct (skin walls carry q_i, shared webs "
-        "q_i - q_j, the total moment is exact and the net force is zero), yet the section "
-        "rotates nose-up when the ring wall stiffnesses come from "
-        "Blade.get_element_properties(): omega = +0.0773 deg against the properties-less "
-        "fallback's nose-down -0.8696 deg. The requested section torque itself measures "
-        "NOSE-UP (+4.840e5 N.m) because the lever-arm transfer (+7.607e5 N.m) dominates and "
-        "opposes the polars' pitching moment (-2.766e5 N.m). The sign question is open and "
-        "tracked by tools/diagnose_applied_torsion_sign.py; strict=True, so a fix that "
-        "restores the physical nose-down sense turns this marker into an XPASS."
-    ),
-)
 def test_rated_twist_under_multi_cell_production_loads_is_nose_down(blade_shell, rated_bem):
-    """The multi-cell wall-flow path's measured sense, pinned until the sign question closes.
+    """The multi-cell wall-flow path's measured sense: nose-down, like the fallback.
 
-    The realisation itself is verified in ``tests/test_multicell_shear_flow.py``; the sign
-    of the realised section torque is not settled.  This builds the projector exactly as
-    production would if it held the laminate map (``element_properties`` from the ``Blade``
-    model, as the ``blade_shell`` fixture does) and asserts the physical sense, so a fix
-    flips the marker to XPASS and forces this row to be updated.
+    The realisation itself is verified in ``tests/test_multicell_shear_flow.py``; this
+    builds the projector exactly as production would if it held the laminate map
+    (``element_properties`` from the ``Blade`` model, as the ``blade_shell`` fixture does)
+    and asserts the physical sense on the frame ``tools/diagnose_sign_chain.py`` settles
+    (nose-down is ``omega > 0``).  It was pinned ``xfail(strict=True)`` while the applied
+    pitching moment rode the raw span axis; once ``_strip_moment_axis_sign`` carries the
+    polars' sense onto this frame, the multi-cell path measures ``omega = +9.6669 deg`` -
+    nose-down - so the marker is removed and the assertion kept.
     """
     shell = blade_shell
     bem, blade_aero = rated_bem
@@ -1049,14 +1043,13 @@ def test_rated_twist_under_multi_cell_production_loads_is_nose_down(blade_shell,
     omega = _ring_kinematics(shell["coords"], u, tip)["omega"]
     print(
         f"\nmulti-cell load path: tip section omega = {np.rad2deg(omega):+9.4f} deg "
-        f"(nose-up, measured +0.0773 deg; Zhou torsion {ZHOU_TIP_TORSION_DEG:+.2f} deg)"
+        f"(nose-down, measured +9.6669 deg; Zhou torsion {ZHOU_TIP_TORSION_DEG:+.2f} deg)"
     )
-    assert omega < 0.0, (
-        f"the multi-cell load path gives a nose-up tip section rotation "
-        f"omega = {np.rad2deg(omega):+.4f} deg; the measured multi-cell sense is "
-        f"+0.0773 deg, the sign question is open "
-        f"(tools/diagnose_applied_torsion_sign.py), and the physical sense required here "
-        f"is Zhou's {ZHOU_TIP_TORSION_DEG} deg"
+    assert omega > 0.0, (
+        f"the multi-cell load path gives a non-positive tip section rotation "
+        f"omega = {np.rad2deg(omega):+.4f} deg; on this frame nose-down is omega > 0 "
+        f"(tools/diagnose_sign_chain.py) and the corrected pitching-moment axis measures "
+        f"+9.6669 deg, the sense of Zhou's {ZHOU_TIP_TORSION_DEG} deg"
     )
 
 
@@ -1076,8 +1069,9 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
       aero axis would pass it; at least **0.95** of it must ride the flapwise axis measured from
       the tip ring's outline, in the downwind half-space (the mirror of the P5 guard's per-
       station ``|F.f_hat|/|F| >= 0.95``).
-    * **The physical sense**: the tip section rotation ``omega`` is negative - nose-down at
-      rated, the sense of Zhou's -3.60 deg.
+    * **The physical sense**: the tip section rotation ``omega`` is positive - nose-down at
+      rated (deck leading edge at +x, load-frame downwind at +y, a +z rotation moves the
+      leading edge downwind; tools/diagnose_sign_chain.py), the sense of Zhou's -3.60 deg.
 
     The magnitude against Zhou is **reported, not asserted**: our steady one-way BEM loads are
     being compared with a coupled aeroelastic solution, so no numeric bound is defensible. The
@@ -1165,9 +1159,9 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
         f"measured flapwise axis (bound 0.95): the thrust must be downwind along that axis, "
         f"not merely of the right magnitude"
     )
-    # Physical sense (nose-down) is asserted by its own test below, declared xfail while
-    # the wired multi-cell realisation is still mesh-dependent.  Everything above stays
-    # live: the load invariant, the direction and the promotion guard.
+    # Physical sense (nose-down, omega > 0 on this frame) is asserted by its own test
+    # below.  Everything above stays live: the load invariant, the direction and the
+    # promotion guard.
     # Promotion guard, in the style of the existing test: the magnitude stays a reported
     # residual while the comparison against Zhou stays outside 5 %.
     assert abs(1.0 - ratio_to_zhou) > 0.05, (

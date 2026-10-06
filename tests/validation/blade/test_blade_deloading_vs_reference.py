@@ -54,9 +54,12 @@ BEM_CONFIG = {
     "shear_exp": 0.0,
 }
 #: Declared sign convention, stated once and used by the header and the sign assertion.
+#: ``tools/diagnose_sign_chain.py`` settles the sense: the deck's leading edge sits at +x,
+#: the load-frame downwind (thrust) direction is +y, and a rigid +z rotation of the tip
+#: ring moves the leading edge downwind, so a NOSE-DOWN section rotation is ``omega > 0``.
 CONVENTION = (
     "fluid +Y / rotor clockwise viewed from behind; twist is the section rotation "
-    "in degrees about +span, negative = nose-down toward feather (reduces the AoA)"
+    "in degrees about +span, positive = nose-down toward feather (reduces the AoA)"
 )
 SENSE_THRUST_TOL = 0.02  # the applied-load invariant of verdict section 22.4 / the P5 guard
 ZHOU_FLEX_THRUST_DELTA, ZHOU_FLEX_POWER_DELTA = -0.1304, -0.0838  # Zhou 2025 Table 6
@@ -162,14 +165,19 @@ def test_rigid_baseline_reproduces_the_standalone_bem(deloading):
 
 
 def test_twist_sign_matches_the_declared_convention(deloading):
-    """The tip section rotation is nose-down about +span; the BEM twist is opposite-sensed.
+    """The tip section rotation is nose-down about +span; the BEM twist increment must rise.
 
-    A sign is an invariance, so nothing is bound: negative = toward feather under
-    ``CONVENTION``, and the BEM twist increment is positive because CCBlade alpha = phi - theta.
-    It was declared ``xfail(strict=True)`` while the wired multi-cell realisation was
-    mesh-dependent; the property gate now routes the properties-less production participant
-    to the minimum-norm fallback, so the measured rotation is nose-down again
-    (``-0.8696 deg``) and the marker is gone.
+    A sign is an invariance, so nothing is bound.  ``tools/diagnose_sign_chain.py``
+    settles the sense: the deck's leading edge sits at +x, the load-frame downwind
+    (thrust) direction is +y, and a rigid +z rotation of the tip ring moves the leading
+    edge downwind, so a NOSE-DOWN section rotation is ``omega > 0``.  With the pitching
+    moment applied on the axis ``_section_ends`` selects
+    (``ForceProjector._strip_moment_axis_sign``), the properties-less production path
+    measures ``omega = +8.1048 deg``.  A nose-down twist reduces the angle of attack, and
+    CCBlade's ``alpha = phi - theta`` needs ``theta`` to RISE for that, so the BEM twist
+    increment must be positive - the SAME sense as the corrected section rotation.  It was
+    pinned ``xfail(strict=True)`` while the applied pitching moment rode the raw span
+    axis; that inversion is fixed and the marker is gone.
     """
     tip_k = deloading["tip_k"]
     omega_tip = float(deloading["omega"][tip_k])
@@ -178,38 +186,40 @@ def test_twist_sign_matches_the_declared_convention(deloading):
     print(
         f"tip strip r_ref {float(deloading['ref_r'][tip_k]):.4f} m: mesh section rotation "
         f"{np.rad2deg(omega_tip):+.4f} deg (nose-down), BEM twist increment "
-        f"{np.rad2deg(theta_bem_tip):+.4f} deg (reduces the AoA)"
+        f"{np.rad2deg(theta_bem_tip):+.4f} deg (must be positive to reduce the AoA)"
     )
-    assert omega_tip < 0.0, (
-        f"the tip section rotation is {np.rad2deg(omega_tip):+.4f} deg, not nose-down under "
-        f"the declared convention; the properties-less production path must measure "
-        f"-0.8696 deg"
+    assert omega_tip > 0.0, (
+        f"the tip section rotation is {np.rad2deg(omega_tip):+.4f} deg, not nose-down "
+        f"under the declared convention; on this frame nose-down is omega > 0 (deck "
+        f"leading edge at +x, load-frame downwind at +y, a +z rotation moves the leading "
+        f"edge downwind - tools/diagnose_sign_chain.py).  The corrected pitching-moment "
+        f"axis gives +8.1048 deg"
     )
-    assert theta_bem_tip > 0.0, "the BEM twist does not carry the opposite (reducing) sense"
+    # NOT flipped with the omega assertion: this is the physical claim that the BEM twist
+    # rises (``alpha = phi - theta``) so the nose-down section unloads.  After (A) it is
+    # the exposed finding - the participant maps the mesh twist to the BEM twist through
+    # ``_twist_mesh_to_bem = -1`` (fsi_participant.py, outside this change's surfaces),
+    # which gives -8.1048 deg and makes the de-loading table's twist-only row RE-LOAD
+    # (+21.88% thrust) instead of unloading.  Left as-is to report it, not accommodated.
+    assert theta_bem_tip > 0.0, (
+        f"the BEM twist increment is {np.rad2deg(theta_bem_tip):+.4f} deg; a nose-down "
+        f"section rotation (+{np.rad2deg(omega_tip):.4f} deg) must RISE the BEM twist "
+        f"(alpha = phi - theta) so it unloads, so the increment must be positive.  The "
+        f"participant's _twist_mesh_to_bem = -1 gives the opposite sense here"
+    )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "the wall-flow realisation is verified correct (skin walls carry q_i, shared webs "
-        "q_i - q_j, the total moment is exact and the net force is zero), yet the section "
-        "rotates nose-up when the ring wall stiffnesses come from "
-        "Blade.get_element_properties(): omega = +0.0773 deg against the properties-less "
-        "fallback's nose-down -0.8696 deg. The requested section torque itself measures "
-        "NOSE-UP (+4.840e5 N.m) because the lever-arm transfer (+7.607e5 N.m) dominates and "
-        "opposes the polars' pitching moment (-2.766e5 N.m). The sign question is open and "
-        "tracked by tools/diagnose_applied_torsion_sign.py; strict=True, so a fix that "
-        "restores the physical nose-down sense turns this marker into an XPASS."
-    ),
-)
 def test_multi_cell_twist_sign_matches_the_declared_convention(deloading):
-    """The multi-cell path's measured sense, pinned until the sign question closes.
+    """The with-properties multi-cell path's measured sense: nose-down, like the fallback.
 
-    The realisation itself is verified in ``tests/test_multicell_shear_flow.py``; the sign
-    of the realised section torque is not settled.  This rebuilds the strip loads with the
-    laminate map the fixture derives from the ``Blade`` model (``get_element_properties``)
-    and asserts the declared sense, so a fix flips the marker to XPASS and forces this row
-    to be updated.
+    The realisation itself is verified in ``tests/test_multicell_shear_flow.py``; this
+    rebuilds the strip loads with the laminate map the fixture derives from the ``Blade``
+    model (``get_element_properties``) and asserts the declared sense (nose-down is
+    ``omega > 0``; tools/diagnose_sign_chain.py).  It was pinned ``xfail(strict=True)``
+    while the applied pitching moment rode the raw span axis; once
+    ``_strip_moment_axis_sign`` carries the polars' sense onto this frame the multi-cell
+    path measures ``omega = +9.6669 deg`` - nose-down - so the marker is removed and the
+    assertion kept.
     """
     participant = deloading["participant"]
     projector = ForceProjector(
@@ -232,14 +242,14 @@ def test_multi_cell_twist_sign_matches_the_declared_convention(deloading):
     theta_bem_tip = float(twist_def[tip_k] - deloading["ref_twist"][tip_k])
     print(
         f"\nmulti-cell tip strip r_ref {float(deloading['ref_r'][tip_k]):.4f} m: mesh "
-        f"section rotation {np.rad2deg(omega_tip):+.4f} deg (nose-up, measured +0.0773 "
+        f"section rotation {np.rad2deg(omega_tip):+.4f} deg (nose-down, measured +9.6669 "
         f"deg), BEM twist increment {np.rad2deg(theta_bem_tip):+.4f} deg"
     )
-    assert omega_tip < 0.0, (
-        f"the multi-cell path gives a nose-up tip section rotation "
-        f"{np.rad2deg(omega_tip):+.4f} deg; the measured multi-cell sense is +0.0773 deg, "
-        f"the sign question is open (tools/diagnose_applied_torsion_sign.py), and the "
-        f"declared sense requires negative = nose-down toward feather"
+    assert omega_tip > 0.0, (
+        f"the multi-cell path gives a non-positive tip section rotation "
+        f"{np.rad2deg(omega_tip):+.4f} deg; on this frame nose-down is omega > 0 "
+        f"(tools/diagnose_sign_chain.py) and the corrected pitching-moment axis measures "
+        f"+9.6669 deg, the declared sense"
     )
 
 

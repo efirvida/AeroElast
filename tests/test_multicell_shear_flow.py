@@ -26,6 +26,13 @@ Cells always come from the production extractor
 (:func:`section_contour.section_cells` / :func:`section_contour.cell_adjacency`)
 so the solver is fed real ``SectionCell`` objects, never hand-rolled ones
 (except the deliberate degenerate cases in the last tests).
+
+The file also carries the sign-chain guard for the applied pitching moment (issue #11): a
+cheap synthetic-section test that ``_strip_moment_axis_sign`` follows ``_section_ends`` and
+flips with the chord axis, and one slow test that the minimum-norm projector and the
+with-properties multi-cell projector - two faithful realisations of the SAME rated BEM
+moment - rotate the real IEA-15MW blade tip the same way.  The slow test needs the real
+blade mesh, the AeroDyn polars and **two** shell solves, so it is marked ``slow``.
 """
 
 from __future__ import annotations
@@ -806,7 +813,13 @@ def test_production_projector_realises_multicell_flow_on_a_two_cell_ring():
     # (z = 1).  The requested span moment of a strip is Mp * dr, derived from the
     # station grid, never from the projector.
     for k, strip_nodes in enumerate((np.arange(6, dtype=np.intp), np.arange(6, 12, dtype=np.intp))):
-        requested_span_moment = float(moment_per_length * widths[k])
+        # The box's section is symmetric, so ``_section_ends`` keeps the leading edge at
+        # the HIGH end and ``_strip_moment_axis_sign`` is -1: the polars' nose-up Cm rides
+        # ``-span_hat`` here (issue #11).  The requested span moment carries that sign; the
+        # realisation mechanics below are unchanged.
+        requested_span_moment = float(
+            moment_per_length * widths[k] * projector._strip_moment_axis_sign[k]
+        )
         ring_points = coords[strip_nodes]
         centroid = ring_points.mean(axis=0)
         offsets = ring_points - centroid
@@ -961,7 +974,10 @@ def test_projector_splits_one_strip_over_three_single_cell_rings_by_tributary_we
 
     forces = projector.project(bem)
     widths = _strip_widths(blade_aero, mesh, SPAN_Z)
-    torsion = float(moment_per_length * widths[0])
+    # Symmetric square section -> ``_section_ends`` keeps the leading edge at the HIGH
+    # end, so ``_strip_moment_axis_sign`` is -1 and the requested torsion carries that
+    # sign (issue #11); the tributary split below is unchanged.
+    torsion = float(moment_per_length * widths[0] * projector._strip_moment_axis_sign[0])
 
     strip = projector._strips[0]
     positions = np.array(
@@ -1037,7 +1053,9 @@ def test_projector_without_element_properties_falls_back_to_minimum_norm():
     coords = mesh.coords_array
     widths = _strip_widths(blade_aero, mesh, SPAN_Z)
     for k, strip_nodes in enumerate((np.arange(6, dtype=np.intp), np.arange(6, 12, dtype=np.intp))):
-        requested = float(moment_per_length * widths[k])
+        # The same signed requested moment as the properties-bearing test above (issue
+        # #11): the fallback realisation must reproduce whatever sign the projector applies.
+        requested = float(moment_per_length * widths[k] * projector._strip_moment_axis_sign[k])
         ring_points = coords[strip_nodes]
         offsets = ring_points - ring_points.mean(axis=0)
         minimum_norm = _minimum_norm_span_field(offsets, SPAN_Z, requested)
@@ -1053,3 +1071,219 @@ def test_projector_without_element_properties_falls_back_to_minimum_norm():
             "the no-properties field still matches the geometric multi-cell field; "
             "the missing-properties gate did not reroute it to _distribute"
         )
+
+
+# -----------------------------------------------------------------------------
+# Part E: the applied pitching-moment axis (issue #11, the sign chain)
+#
+# The BEM polars define Cm (and hence Mp) about the aerofoil chord **leading to
+# trailing edge**, positive nose-up, so the aerodynamic moment axis is
+# ``chord_le_to_te x n_hat``.  ``ForceProjector`` resolves ``_strip_chord_dirs`` from the
+# tangential-force sense, which need not run leading-to-trailing, so it records the
+# per-strip conversion ``_strip_moment_axis_sign``.  ``tools/diagnose_sign_chain.py``
+# measures the IEA-15MW deck's real stations (every one has LE . c_hat = -1); the cheap
+# test below pins the wiring on a synthetic asymmetric section, and the slow one pins
+# the convention-free invariant on the real blade.
+# -----------------------------------------------------------------------------
+
+
+def _asymmetric_ring_mesh():
+    """A closed section blunt at x=0 and sharp at x=1, repeated at z=0 and z=1.
+
+    ``_section_ends`` reads the leading edge from the blunt end - the larger in-plane
+    spread inside the outer quarter of the chord.  This polygon spreads +/-0.20 at x=0
+    and only +/-0.02 at x=1, so with the chord resolved along +x the leading edge is the
+    LOW end and the aerodynamic moment axis is ``+span``; reversing the chord axis through
+    ``tangential_direction`` moves the blunt end to the HIGH end and flips the sign.
+    """
+    from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node
+    from aeroelast.core.mesh.model import MeshModel
+
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
+    outline = [
+        (0.0, 0.20),
+        (0.5, 0.05),
+        (1.0, 0.02),
+        (1.0, -0.02),
+        (0.5, -0.05),
+        (0.0, -0.20),
+    ]
+    mesh = MeshModel()
+    rings = []
+    for z in (0.0, 1.0):
+        ring = [Node([x, y, z]) for x, y in outline]
+        for node in ring:
+            mesh.add_node(node)
+        rings.append(ring)
+    element_set = ElementSet("skin")
+    for a in range(len(outline)):
+        b = (a + 1) % len(outline)
+        element = MeshElement(
+            [rings[0][a], rings[0][b], rings[1][b], rings[1][a]], ElementType.quad
+        )
+        mesh.add_element(element)
+        element_set.add_element(element)
+    mesh.add_element_set(element_set)
+    return mesh
+
+
+def test_strip_moment_axis_sign_follows_section_ends_and_reverses_with_the_chord():
+    """The stored moment-axis sign is ``_section_ends``, and the applied ``Mp`` term flips.
+
+    No finite-element solve: the sign lives entirely in ``ForceProjector.__init__``.  Two
+    checks, both convention-free:
+
+    1. for every strip, ``_strip_moment_axis_sign[k]`` is exactly the sign implied by
+       ``_section_ends`` (``-1`` when the leading edge is at the HIGH end of the chord
+       projection, ``+1`` when it is at the low end);
+    2. the applied pitching-moment term flips with the chord axis: with ``Np = Tp = 0``
+       the only applied moment is ``M_ac = Mp * dr * sign * span_hat`` and the realisation
+       preserves it, so the moment read back about each strip's own centroid must reverse.
+    """
+    from tests.validation.bem.test_force_projection import _make_simple_blade_aero
+
+    mesh = _asymmetric_ring_mesh()
+    blade_aero = _make_simple_blade_aero(n_stations=2, hub_radius=0.0, span_length=1.0)
+    forward = ForceProjector(mesh, blade_aero, span_direction=SPAN_Z)
+    reversed_chord = ForceProjector(
+        mesh, blade_aero, span_direction=SPAN_Z, tangential_direction=[-1.0, 0.0, 0.0]
+    )
+
+    for projector in (forward, reversed_chord):
+        for k, strip in enumerate(projector._strips):
+            ring_pts = projector._station_ring_points(k, strip, SPAN_Z)
+            chord_hat = projector._strip_chord_dirs[k]
+            le_i, _te_i = projector._section_ends(ring_pts, chord_hat, SPAN_Z)
+            le_at_hi = le_i == int(np.argmax(ring_pts @ chord_hat))
+            expected = -1.0 if le_at_hi else 1.0
+            assert projector._strip_moment_axis_sign[k] == expected, (
+                f"strip {k}: stored sign {projector._strip_moment_axis_sign[k]} but "
+                f"_section_ends puts the leading edge at the "
+                f"{'high' if le_at_hi else 'low'} end (expected {expected})"
+            )
+
+    # The blunt (leading) end is the low end of the +x chord, so the aerodynamic axis is
+    # +span; reversing the chord moves it to the high end and flips the sign.
+    assert forward._strip_moment_axis_sign == [1.0, 1.0]
+    assert reversed_chord._strip_moment_axis_sign == [-1.0, -1.0]
+
+    moment_per_length = 7.0
+    bem = BEMResult(
+        r=blade_aero.r,
+        Np=np.zeros(2),
+        Tp=np.zeros(2),
+        alpha=np.zeros(2),
+        cl=np.zeros(2),
+        cd=np.zeros(2),
+        a=np.zeros(2),
+        ap=np.zeros(2),
+        thrust=0.0,
+        torque=0.0,
+        power=0.0,
+        Mp=np.full(2, moment_per_length),
+    )
+
+    def realised_span_moments(projector):
+        forces = projector.project(bem)
+        return [
+            float(np.cross(strip.offsets, forces[strip.node_indices]).sum(axis=0) @ SPAN_Z)
+            for strip in projector._strips
+        ]
+
+    forward_moments = realised_span_moments(forward)
+    reversed_moments = realised_span_moments(reversed_chord)
+    for forward_moment, reversed_moment in zip(forward_moments, reversed_moments, strict=True):
+        assert forward_moment > 0.0 and reversed_moment < 0.0, (
+            f"the Mp term did not flip with the chord axis: forward {forward_moment:.6e} "
+            f"N.m, reversed {reversed_moment:.6e} N.m"
+        )
+        assert forward_moment == pytest.approx(-reversed_moment, rel=ROUNDOFF)
+
+
+@pytest.mark.slow
+def test_min_norm_and_with_properties_realisations_of_the_rated_moment_agree_in_sign():
+    """Two faithful realisations of the SAME rated moment must rotate the tip the same way.
+
+    The minimum-norm projector (no ``element_properties``) and the with-properties
+    multi-cell projector are two different realisations of the same requested section
+    moment.  A rotation is linear in the applied load, so two faithful realisations of one
+    moment cannot give tip rotations of opposite sign; before the pitching-moment axis fix
+    they did (``-0.8696`` vs ``+0.0773`` deg, ``tools/diagnose_pitching_moment_sense.py``),
+    which is exactly the whole defect.  With ``_strip_moment_axis_sign`` both read
+    ``+8.1048`` vs ``+9.6669`` deg.
+
+    Cost: the real IEA-15MW blade mesh, the AeroDyn polars and **two** shell solves, so it
+    is marked ``slow`` and keeps its own blade/mesh construction (no heavy import at
+    module scope, so the cheap tests above run without ccblade).
+    """
+    pytest.importorskip("ccblade", reason="ccblade not installed (pip install -e '.[bem]')")
+    pytest.importorskip("_aeroelast", reason="Rust backend not available")
+
+    from _aeroelast import PyMeshAssembler
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.linalg import spsolve
+
+    from aeroelast.models.blade.model import Blade
+    from aeroelast.solvers.bem.engine import BEMSolver
+    import tests.validation.blade.test_blade_iea15mw_validation as blade_validation
+    import tests.validation.blade.test_blade_rated_twist as rated
+    from tests.support.openfast_bem import build_blade_aero_from_aerodyn
+
+    from aeroelast.core.mesh.entities import MeshElement, Node
+
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
+    model = Blade(str(rated.YAML), element_size=1.0)
+    model.generate_mesh()
+    mesh = model.mesh
+    assert mesh is not None
+    props = model.get_element_properties()
+    assembler = PyMeshAssembler.from_model(
+        blade_validation._to_rust_mesh(mesh, props),
+        props,
+        list(blade_validation.SPAN_DIRECTION),
+        None,
+    )
+    n = assembler.dofs_count
+    rows, cols, vals = assembler.assemble_k()
+    K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))), shape=(n, n)).tocsr()
+    root = {mesh.node_id_to_index[nid] for nid in mesh.get_node_set("RootNodes").node_ids}
+    free = np.array(
+        [i for i in range(n) if i not in {6 * r + d for r in root for d in range(6)}],
+        dtype=np.int64,
+    )
+    coords = mesh.coords_array
+    phys = rated._physical_stations(coords)
+    tip = np.where(np.abs(coords[:, 2] - phys[-1]) < rated.STATION_GAP_TOLERANCE)[0]
+
+    aero = build_blade_aero_from_aerodyn(rated.AD_PRIMARY)
+    bem = BEMSolver(aero, rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.0).compute(
+        rated.V_RATED, rated.RPM_RATED, rated.PITCH_RATED
+    )
+    assert bem.Mp is not None
+
+    plain = ForceProjector(mesh, aero, span_direction=SPAN_Z)
+    with_props = ForceProjector(mesh, aero, span_direction=SPAN_Z, element_properties=props)
+
+    def tip_rotation(projector):
+        forces = projector.project(bem)
+        force = np.zeros(n)
+        force[0::6] = forces[:, 0]
+        force[1::6] = forces[:, 1]
+        force[2::6] = forces[:, 2]
+        u = np.zeros(n)
+        u[free] = np.asarray(spsolve(K[np.ix_(free, free)], force[free])).ravel()
+        return float(np.rad2deg(rated._ring_kinematics(coords, u, tip)["omega"]))
+
+    minimum_norm = tip_rotation(plain)
+    multi_cell = tip_rotation(with_props)
+    print(
+        f"\nrated pitching-moment realisations, same BEM result: minimum-norm "
+        f"{minimum_norm:+.4f} deg, with-properties multi-cell {multi_cell:+.4f} deg"
+    )
+    assert minimum_norm * multi_cell > 0.0, (
+        f"two faithful realisations of the same requested section moment rotate the tip "
+        f"the opposite way ({minimum_norm:+.4f} deg vs {multi_cell:+.4f} deg): the applied "
+        f"moment's sign chain is broken"
+    )
