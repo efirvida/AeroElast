@@ -433,7 +433,7 @@ references:
       authors, title, journal, volume, pages and year read off both held copies;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2017.08.003
     cited_by_declared:
-      - "src/aeroelast/core/mesh/generators.py:65"
+      - "src/aeroelast/core/mesh/generators.py:66"
     cited_by_stale:
       - "tests/validation/benchmarks/test_ko2017_performance.py:4-7"
     code_mentions:
@@ -483,7 +483,8 @@ references:
       MITC3+ 0.7409 / 0.8793 / 0.9618, Enriched MITC3+ 0.9610 / 0.9931 / 0.9983,
       MITC4+ Mesh I 1.0476 / 1.0053 / 0.9977, reference solution
       `w_ref = 0.3024`. These are the target values for the rows of
-      `tests/validation/benchmarks/test_mitc3_smoothed.py`, which are not migrated to the store yet;
+      `tests/validation/benchmarks/test_mitc3_smoothed.py`, which are not
+      migrated to the store yet;
       they are recorded here because only the deleted matrix recorded them.
       The comparison that matrix recorded: measured 0.9924 at N=8 against
       1.0323, 3.86%, and 0.9974 at N=16 against 1.0075, 1.00%, both inside the
@@ -719,7 +720,9 @@ references:
       integration of the in-plane shear term that the superseded hybrid MITC4+
       carried. The faithful MITC4+/D that replaced it contains no selective
       reduced integration (`docs/formulations/shell-elements.md` §2.6, guarded
-      by `tests/software/contracts/test_mitc4plusd_traceability.py`), and no line of the code
+      by `tests/software/contracts/test_mitc4plusd_traceability.py`), and
+      no line
+      of the code
       cites this work any more, so it is kept as the origin of an ingredient
       whose retirement is documented rather than as a reference the code uses.
       The `Hughes, T.J.R., Brezzi, F.` entry below is a different work and is
@@ -824,7 +827,8 @@ references:
       `src/aeroelast/postprocess/stress_recovery.py:53-55` gives the author
       list, the title and the edition; the publisher is not given and the
       work is not held. Also cited as "Cook et al. 'Concepts and Applications
-      of Finite Element Analysis'" at `tests/validation/benchmarks/test_shell_static_and_modal.py:22`.
+      of Finite Element Analysis'" at
+      `tests/validation/benchmarks/test_shell_static_and_modal.py:22`.
     cited_by_declared:
       - "tests/validation/benchmarks/test_shell_static_and_modal.py:22"
     cited_by_stale:
@@ -913,10 +917,12 @@ references:
       `.sources/papers/mitc4+_no_lineal.pdf.pdf` item [36]; the paper itself is
       not held, so the DOI could not be read. The code cites it as "Knight
       (1997)" alone (`src/aeroelast/core/mesh/generators.py:2010,2023`,
-      `tests/validation/benchmarks/test_ko2017_performance.py:1455`), for the Raasch hook geometry
+      `tests/validation/benchmarks/test_ko2017_performance.py:1455`), for the
+      Raasch hook geometry
       and its benchmark parameters. The live sites are
       `src/aeroelast/core/mesh/generators.py:2030` and
-      `tests/validation/benchmarks/test_ko2017_performance.py:1514`; the prose lines no longer name
+      `tests/validation/benchmarks/test_ko2017_performance.py:1514`; the prose
+      lines no longer name
       the work and are recorded as stale.
 
   - key: pynumad
@@ -1147,7 +1153,9 @@ references:
       that publishes the benchmark reports. The code gives no report titles and
       none is held, so no report title is asserted here, and the source states
       no publication year or author. The live report citations are at
-      `tests/validation/benchmarks/test_shell_static_and_modal.py:28-86`; the prose range no longer names
+      `tests/validation/benchmarks/test_shell_static_and_modal.py:28-86`;
+      the prose
+      range no longer names
       them and is recorded as stale.
 
   - key: simo1986
