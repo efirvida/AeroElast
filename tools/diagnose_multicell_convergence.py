@@ -155,31 +155,6 @@ def _build_blade(element_size: float):
     }
 
 
-def _minimum_norm_forces(projector: ForceProjector, bem) -> np.ndarray:
-    """The pre-wiring realisation: ``_distribute`` for every strip.
-
-    Mirrors :meth:`ForceProjector.project`'s per-strip load construction (same
-    frames, same AC-to-centroid arm, same ``Mp``) and routes each strip through the
-    minimum-norm solve directly.  On this blade every strip holds 2-5 physical
-    rings, so the old ``realise_section_load(..., ring_groups=...)`` call fell back
-    to ``_distribute`` for every strip; this is that load, with no wall flow.
-    """
-    forces = np.zeros((projector._n_nodes, 3))
-    for k, strip in enumerate(projector._strips):
-        if len(strip.node_indices) == 0:
-            continue
-        f_strip = (
-            float(bem.Np[k]) * strip.dr * projector._strip_normal_dirs[k]
-            + float(bem.Tp[k]) * strip.dr * projector._strip_chord_dirs[k]
-        )
-        m_ac = (
-            float(bem.Mp[k]) * strip.dr * projector._span_dir if bem.Mp is not None else np.zeros(3)
-        )
-        m_strip = m_ac - np.cross(projector._strip_ac_offsets[k], f_strip)
-        forces[strip.node_indices] = ForceProjector._distribute(strip, f_strip, m_strip)
-    return forces
-
-
 def _solve_and_measure(blade, force, label: str):
     """Solve ``K u = f`` (root clamped) and measure the tip section kinematics.
 
@@ -311,7 +286,18 @@ def main() -> None:
                 element_properties=None if args.uniform_stiffness else blade["properties"],
             )
             multi_cell = projector.project(bem)
-            minimum_norm = _minimum_norm_forces(projector, bem)
+            # The production path: the same mesh and aero with a projector built WITHOUT
+            # element_properties, so the multi-cell gate refuses every strip and the moment
+            # is realised through _distribute.  Built here rather than mirrored in a helper:
+            # the previous local copy re-derived Mp * dr * span_hat by hand, so after 1146265
+            # corrected the aerodynamic moment axis this row kept reporting the pre-fix
+            # field while its label said production.
+            production = ForceProjector(
+                blade["mesh"],
+                blade_aero,
+                span_direction=blade_validation.SPAN_DIRECTION,
+            )
+            minimum_norm = production.project(bem)
             omega_min, ratio_min, sec_min = _solve_and_measure(blade, minimum_norm, "min-norm")
             omega_multi, ratio_multi, sec_multi = _solve_and_measure(
                 blade, multi_cell, "multi-cell"
