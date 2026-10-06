@@ -96,9 +96,9 @@ class TestBladeNaturalFrequencies:
         dpn = solver.domain.dofs_per_node
         root_node_ids = sorted(mesh.get_node_set("RootNodes").nodes.keys())
         node_id_to_idx = mesh.node_id_to_index
-        root_dofs = sorted([
-            node_id_to_idx[nid] * dpn + d for nid in root_node_ids for d in range(dpn)
-        ])
+        root_dofs = sorted(
+            [node_id_to_idx[nid] * dpn + d for nid in root_node_ids for d in range(dpn)]
+        )
         solver.add_dirichlet_conditions([DirichletCondition(root_dofs, 0.0)])
 
         # solve() returns (frequencies_hz, mode_shapes) — already in Hz, already sorted

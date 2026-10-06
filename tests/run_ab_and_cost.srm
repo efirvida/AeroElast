@@ -1,0 +1,106 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=02:00:00
+#SBATCH -J ab_and_cost
+#SBATCH -o ab_and_cost_%j.out
+#SBATCH -e ab_and_cost_%j.err
+#SBATCH -p sequana_cpu
+
+# Three sequential runs on the same node.
+#
+# A) prefix   -- the smoke's short case against 638965f, the commit just BEFORE the three
+#                linked sign fixes. Attribution: does the pre-fix code converge where the
+#                current code needs 27.5 sub-iterations per window?
+# B) postmerge -- the campaign's short case against f9d4144, right AFTER the origin/main
+#                merge and BEFORE the later python fixes. If this also saturates, the
+#                culprit is the merge's core rather than our later work.
+# C) wu2_cost -- convergence_b1_b2 h_coarse (solid 0.5 m, fluid pinned at 0.25 m) cut to
+#                5 windows. WU-2: the real cost of the cheapest bidirectional case, which
+#                decides whether the coupling test (WU-3c) can be a pytest test or must be
+#                a scripted runner plus a fast artifact test.
+
+set -uo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+REPO=/scratch/leahk/eduardo.donestevez/fem-shell
+S=${REPO}/tests/IEA15MW/_short_yaw0
+D=${REPO}/tests/smoke_fix/short_diag
+HC=${REPO}/tests/IEA15MW/_short_hcoarse
+PREFIX_SHADOW=/scratch/leahk/eduardo.donestevez/fem-shell-prefix-shadow
+POST_SHADOW=/scratch/leahk/eduardo.donestevez/fem-shell-postmerge-shadow
+
+run_pair () {  # label fluid_yaml solid_yaml pythonpath case_dir
+    local label=$1 fy=$2 sy=$3 pp=$4 case_dir=$5
+    local R=${case_dir}/run_${label}
+    rm -rf "${R}"
+    mkdir -p "${R}/logs"
+
+    export PYTHONPATH="${pp}"
+    python3 -c "
+import aeroelast, _aeroelast
+print('[${label}] aeroelast  ->', aeroelast.__file__)
+print('[${label}] _aeroelast ->', _aeroelast.__file__)" 2>&1 | tail -2
+
+    local t0
+    t0=$(date +%s)
+    timeout 2400 bash -c "
+        cd ${R}
+        ${REPO}/tests/IEA15MW/_run_solid.sh ${sy} > ${R}/logs/solid.log 2>&1 &
+        SP=\$!
+        sleep 2
+        ${REPO}/tests/IEA15MW/_run_fluid.sh ${fy} ${R} > ${R}/logs/fluid.log 2>&1 &
+        FP=\$!
+        wait \$SP; echo \"[${label}] solid exit=\$?\"
+        wait \$FP; echo \"[${label}] fluid exit=\$?\""
+    echo "[${label}] runner exit=$? wall=$(( $(date +%s) - t0 ))s"
+}
+
+run_pair prefix    "${D}/fluid_short.yaml"  "${D}/solid_short.yaml"     "${PREFIX_SHADOW}" "${S}"
+run_pair postmerge "${S}/fluid_yaw_0.yaml"  "${S}/solid_corotational_yaw_0.yaml" "${POST_SHADOW}" "${S}"
+run_pair wu2_cost  "${HC}/fluid_h_coarse.yaml" "${HC}/solid_h_coarse.yaml" "${REPO}" "${HC}"
+
+echo
+echo "=================== RESULTADOS ==================="
+report () {
+    local label=$1 case_dir=$2
+    echo "--- ${label} ---"
+    python3 - "${case_dir}/run_${label}/logs/solid.log" "${case_dir}/run_${label}/logs/fluid.log" <<'PY'
+import re, sys
+
+solid = open(sys.argv[1], errors="replace").read() if len(sys.argv) > 1 else ""
+fluid = open(sys.argv[2], errors="replace").read() if len(sys.argv) > 2 else ""
+
+mx = {}
+for m in re.finditer(r"it (\d+) \(min: \d+, max: \d+\), time-window (\d+)", solid):
+    mx[int(m.group(2))] = max(mx.get(int(m.group(2)), 0), int(m.group(1)))
+per = [mx[w] for w in sorted(mx)]
+if per:
+    print(f"  ventanas: {len(per)}  sub-iteraciones por ventana: {per}")
+    print(f"  max {max(per)}  media {sum(per) / len(per):.2f}")
+else:
+    print("  SIN lineas de iteracion (no entro al lazo)")
+
+conv = re.findall(r"conv = (\w+)", solid)
+if conv:
+    print(f"  conv=true en {conv.count('true')} de {len(conv)} medidas")
+
+walls = [float(x) for x in re.findall(r"wall=([0-9.]+)ms", solid)]
+if walls:
+    s = sorted(walls)
+    print(f"  wall por ventana (ms): min {s[0]:.0f}  mediana {s[len(s)//2]:.0f}  max {s[-1]:.0f}")
+
+print(f"  fluid finalized: {'Finalized' in fluid}")
+PY
+}
+report prefix "${S}"
+report postmerge "${S}"
+report wu2_cost "${HC}"
+echo
+echo "AB_AND_COST DONE"

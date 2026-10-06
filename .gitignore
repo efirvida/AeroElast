@@ -162,3 +162,11 @@ docs/validation_data/generated/
 # and unignored, which is how a root stops being readable.
 output/
 build.log
+
+# Diagnostic case outputs: the case configs and their SLURM runners are tracked,
+# the per-run logs, VTUs and CSVs are regenerable and 20-50 MB each.
+tests/IEA15MW/_short_hcoarse/run_*/
+tests/IEA15MW/_short_hcoarse_dt5e3/run_*/
+tests/IEA15MW/_short_yaw0/run_*/
+tests/IEA15MW/_short_yaw0_dt5e3/run_*/
+tests/smoke_fix/short_diag/run_*/

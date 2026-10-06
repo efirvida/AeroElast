@@ -1,0 +1,86 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=01:00:00
+#SBATCH -J wu2_cost
+#SBATCH -o wu2_cost_%j.out
+#SBATCH -e wu2_cost_%j.err
+#SBATCH -p sequana_cpu
+
+# WU-2 alone, because the combined ab_and_cost job will die before reaching it:
+# the pre-fix code it runs first still carries the performance bug Fix A removed,
+# so its windows cost minutes instead of seconds.
+#
+# Measures the real cost of the cheapest bidirectional case on the current code:
+# convergence_b1_b2 h_coarse, solid at element_size 0.5 (the fluid mesh stays
+# pinned at 0.25, so the fluid side is NOT cheaper -- the measurement says how
+# much the solid-only saving is worth), cut to 5 windows.
+#
+# Decides the shape of the coupling test (WU-3c): a marked-slow pytest test, or a
+# scripted runner plus a fast artifact test.
+
+set -uo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+REPO=/scratch/leahk/eduardo.donestevez/fem-shell
+HC=${REPO}/tests/IEA15MW/_short_hcoarse
+R=${HC}/run_wu2_cost
+rm -rf "${R}"
+mkdir -p "${R}/logs"
+
+export PYTHONPATH="${REPO}"
+python3 -c "
+import aeroelast, _aeroelast
+print('[wu2] aeroelast  ->', aeroelast.__file__)
+print('[wu2] _aeroelast ->', _aeroelast.__file__)" 2>&1 | tail -2
+
+T0=$(date +%s)
+timeout 2400 bash -c "
+    cd ${R}
+    ${REPO}/tests/IEA15MW/_run_solid.sh ${HC}/solid_h_coarse.yaml > ${R}/logs/solid.log 2>&1 &
+    SP=\$!
+    sleep 2
+    ${REPO}/tests/IEA15MW/_run_fluid.sh ${HC}/fluid_h_coarse.yaml ${R} > ${R}/logs/fluid.log 2>&1 &
+    FP=\$!
+    wait \$SP; echo \"[wu2] solid exit=\$?\"
+    wait \$FP; echo \"[wu2] fluid exit=\$?\""
+echo "[wu2] runner exit=$? wall=$(( $(date +%s) - T0 ))s"
+
+echo
+echo "=================== WU-2: COSTO ==================="
+python3 - "${R}/logs/solid.log" "${R}/logs/fluid.log" <<'PY'
+import re, sys
+
+solid = open(sys.argv[1], errors="replace").read() if len(sys.argv) > 1 else ""
+fluid = open(sys.argv[2], errors="replace").read() if len(sys.argv) > 2 else ""
+
+mx = {}
+for m in re.finditer(r"it (\d+) \(min: \d+, max: \d+\), time-window (\d+)", solid):
+    mx[int(m.group(2))] = max(mx.get(int(m.group(2)), 0), int(m.group(1)))
+per = [mx[w] for w in sorted(mx)]
+print(f"  ventanas alcanzadas : {len(per)}")
+if per:
+    print(f"  sub-iteraciones     : {per}")
+conv = re.findall(r"conv = (\w+)", solid)
+if conv:
+    print(f"  conv=true           : {conv.count('true')} de {len(conv)} medidas")
+
+walls = [float(x) for x in re.findall(r"wall=([0-9.]+)ms", solid)]
+if walls:
+    s = sorted(walls)
+    print(f"  wall/ventana (ms)   : min {s[0]:.0f}  mediana {s[len(s)//2]:.0f}  max {s[-1]:.0f}")
+
+# start-up: from the first timestamp to the first [precice] line
+ts = re.findall(r"^(\d\d:\d\d:\d\d)", solid, re.M)
+first_pc = solid.find("---[precice]")
+print(f"  (arranque: de {ts[0] if ts else '?'} a la 1a linea precice)")
+print(f"  fluid finalized     : {'Finalized' in fluid}")
+PY
+echo
+echo "WU2_COST DONE"

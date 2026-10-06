@@ -1,0 +1,104 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=00:20:00
+#SBATCH -J wu2_cost_dev
+#SBATCH -o wu2_cost_dev_%j.out
+#SBATCH -e wu2_cost_dev_%j.err
+#SBATCH -p sequana_cpu_dev
+
+# WU-2 in the 20-minute dev partition, which sidesteps the association job limit
+# that kept the sequana_cpu submission queued behind a two-hour job.
+#
+# Runs the CURRENT code (Fix A included), so it is the cheap side of the A/B:
+# short start-up and ~0.5 s per coupling iteration.
+#
+# Case: convergence_b1_b2 h_coarse -- solid at element_size 0.5, the fluid mesh
+# pinned at 0.25 m by design, so only the structural side is cheaper. Cut to
+# THREE windows (max-time 0.03): what WU-2 measures is the START-UP, and the
+# per-window cost is visible from the second window.
+#
+# Decides the shape of the coupling test (WU-3c): a marked-slow pytest test, or a
+# scripted runner plus a fast artifact test.
+#
+# The inner timeout fires at 14 min, before the 20-minute wall, so the report is
+# emitted even if the run does not finish.
+
+set -uo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+REPO=/scratch/leahk/eduardo.donestevez/fem-shell
+HC=${REPO}/tests/IEA15MW/_short_hcoarse
+R=${HC}/run_wu2_dev
+rm -rf "${R}"
+mkdir -p "${R}/logs"
+
+export PYTHONPATH="${REPO}"
+python3 -c "
+import aeroelast, _aeroelast
+print('[wu2] aeroelast  ->', aeroelast.__file__)
+print('[wu2] _aeroelast ->', _aeroelast.__file__)" 2>&1 | tail -2
+
+T0=$(date +%s)
+timeout 840 bash -c "
+    cd ${R}
+    ${REPO}/tests/IEA15MW/_run_solid.sh ${HC}/solid_h_coarse.yaml > ${R}/logs/solid.log 2>&1 &
+    SP=\$!
+    sleep 2
+    ${REPO}/tests/IEA15MW/_run_fluid.sh ${HC}/fluid_h_coarse.yaml ${R} > ${R}/logs/fluid.log 2>&1 &
+    FP=\$!
+    wait \$SP; echo \"[wu2] solid exit=\$?\"
+    wait \$FP; echo \"[wu2] fluid exit=\$?\""
+RC=$?
+echo "[wu2] runner exit=${RC} (124 = inner timeout) wall=$(( $(date +%s) - T0 ))s"
+
+echo
+echo "=================== WU-2: COSTO DEL CASO BARATO ==================="
+python3 - "${R}/logs/solid.log" "${R}/logs/fluid.log" "${R}/logs" <<'PY'
+import re, sys
+from pathlib import Path
+
+solid = Path(sys.argv[1]).read_text(errors="replace") if len(sys.argv) > 1 else ""
+fluid = Path(sys.argv[2]).read_text(errors="replace") if len(sys.argv) > 2 else ""
+logs = Path(sys.argv[3]) if len(sys.argv) > 3 else Path(".")
+
+mx = {}
+for m in re.finditer(r"it (\d+) \(min: \d+, max: \d+\), time-window (\d+)", solid):
+    mx[int(m.group(2))] = max(mx.get(int(m.group(2)), 0), int(m.group(1)))
+per = [mx[w] for w in sorted(mx)]
+print(f"  ventanas alcanzadas  : {len(per)}")
+if per:
+    print(f"  sub-iteraciones      : {per}")
+
+conv = re.findall(r"conv = (\w+)", solid)
+if conv:
+    print(f"  conv=true            : {conv.count('true')} de {len(conv)} medidas")
+
+walls = [float(x) for x in re.findall(r"wall=([0-9.]+)ms", solid)]
+if walls:
+    s = sorted(walls)
+    print(f"  wall por ventana (ms): min {s[0]:.0f}  mediana {s[len(s)//2]:.0f}  max {s[-1]:.0f}")
+
+# start-up = first fluid timestamp -> first preCICE line on the solid side
+t_solid = re.findall(r"^(\d\d):(\d\d):(\d\d)", solid, re.M)
+t_fluid = re.findall(r"^(\d\d):(\d\d):(\d\d)", fluid, re.M)
+def secs(t):
+    return int(t[0]) * 3600 + int(t[1]) * 60 + int(t[2])
+if t_solid and t_fluid:
+    start = min(secs(t_solid[0]), secs(t_fluid[0]))
+    pc = solid.find("---[precice]")
+    if pc > 0:
+        after = re.search(r"^(\d\d):(\d\d):(\d\d)", solid[pc:], re.M)
+        if after:
+            print(f"  arranque hasta preCICE: {secs(after.groups()) - start} s")
+print(f"  fluid finalized      : {'Finalized' in fluid}")
+print(f"  fluid mesh lines     : {len([l for l in fluid.splitlines() if 'Mesh ready' in l or 'nodes' in l][:1])}")
+PY
+echo
+echo "WU2_COST_DEV DONE"

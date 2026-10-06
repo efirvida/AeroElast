@@ -1,0 +1,78 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=01:00:00
+#SBATCH -J postmerge_ab
+#SBATCH -o postmerge_ab_%j.out
+#SBATCH -e postmerge_ab_%j.err
+#SBATCH -p sequana_cpu
+
+# Attribution control: the campaign's own short case (yaw=0, 10 windows)
+# run against the state right AFTER the origin/main merge and BEFORE the
+# later python-side physics fixes (f9d4144 = post-merge, pre-frame-fix,
+# pre-sign-fixes). Shares the current Rust extension, so it is runnable.
+#
+# If this converges in ~10 sub-iterations, the regression came from one of
+# the later python changes; if it also saturates at 30, the merge's core is
+# implicated.
+
+set -uo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+REPO=/scratch/leahk/eduardo.donestevez/fem-shell
+S=${REPO}/tests/IEA15MW/_short_yaw0
+SHADOW=/scratch/leahk/eduardo.donestevez/fem-shell-postmerge-shadow
+R=${S}/run_postmerge
+rm -rf "${R}"; mkdir -p "${R}/logs"
+
+export PYTHONPATH="${SHADOW}"
+python3 -c "
+import aeroelast, _aeroelast
+print('[postmerge] aeroelast ->', aeroelast.__file__)
+print('[postmerge] _aeroelast ->', _aeroelast.__file__)" 2>&1 | tail -3
+
+timeout 2400 bash -c "
+    cd ${R}
+    ${REPO}/tests/IEA15MW/_run_solid.sh ${S}/solid_corotational_yaw_0.yaml > ${R}/logs/solid.log 2>&1 &
+    SP=\$!
+    sleep 2
+    ${REPO}/tests/IEA15MW/_run_fluid.sh ${S}/fluid_yaw_0.yaml ${R} > ${R}/logs/fluid.log 2>&1 &
+    FP=\$!
+    wait \$SP; echo \"[postmerge] solid exit=\$?\"
+    wait \$FP; echo \"[postmerge] fluid exit=\$?\""
+echo "[postmerge] runner exit=$? (124 = timeout)"
+
+echo
+echo "=================== RESULTADO ==================="
+python3 - "${R}/logs/solid.log" "${R}/logs/fluid.log" <<'PY'
+import re, sys
+solid = open(sys.argv[1], errors="replace").read() if len(sys.argv) > 1 else ""
+fluid = open(sys.argv[2], errors="replace").read() if len(sys.argv) > 2 else ""
+mx = {}
+for m in re.finditer(r"it (\d+) \(min: \d+, max: \d+\), time-window (\d+)", solid):
+    mx[int(m.group(2))] = max(mx.get(int(m.group(2)), 0), int(m.group(1)))
+if mx:
+    per = [mx[w] for w in sorted(mx)]
+    print(f"  ventanas: {len(per)}")
+    print(f"  sub-iteraciones por ventana: {per}")
+    print(f"  max: {max(per)}  media: {sum(per)/len(per):.2f}")
+else:
+    print("  SIN lineas de iteracion (no entro al lazo)")
+conv = re.findall(
+    r'relative convergence measure: relative two-norm diff of data "(\w+)" = '
+    r'([0-9.eE+-]+), limit = ([0-9.eE+-]+), normalization = [0-9.eE+-]+, conv = (\w+)', solid)
+for name, val, lim, c in conv[-2:]:
+    print(f"  ultima medida {name}: {val} (limite {lim}, conv={c})")
+print(f"  fluid finalized: {'Finalized' in fluid}")
+for l in solid.splitlines()[-60:]:
+    if "wall=" in l:
+        print("  ", l.split("] ", 1)[-1][:150])
+PY
+echo
+echo "POSTMERGE_AB DONE"

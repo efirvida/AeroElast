@@ -1,0 +1,87 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=01:30:00
+#SBATCH -J short_campaign_ab
+#SBATCH -o short_campaign_ab_%j.out
+#SBATCH -e short_campaign_ab_%j.err
+#SBATCH -p sequana_cpu
+
+# Two 10-window (max-time 0.1 s) questions, same node:
+#   campaign : the CAMPAIGN's own case (frontiersin_2025_yaw yaw=0,
+#              airfoil_spacing: cosine) with the CURRENT code. The stalling
+#              smoke used airfoil_spacing: constant and was built for the
+#              rotorspin fix. If this converges in ~10 sub-iterations, the
+#              stall was a property of the smoke case, not of the code.
+#   prefix   : the smoke's short case against the PRE-FIX code (638965f).
+#              The shadow dir symlinks only `aeroelast`, so `_aeroelast`
+#              still resolves from site-packages.
+
+set -uo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+REPO=/scratch/leahk/eduardo.donestevez/fem-shell
+S=${REPO}/tests/IEA15MW/_short_yaw0
+D=${REPO}/tests/smoke_fix/short_diag
+SHADOW=/scratch/leahk/eduardo.donestevez/fem-shell-prefix-shadow
+
+run_pair () {   # label fluid_yaml solid_yaml pythonpath
+    local label=$1 fy=$2 sy=$3 pp=${4:-${REPO}}
+    local R=${S}/run_${label}
+    rm -rf "${R}"; mkdir -p "${R}/logs"
+    export PYTHONPATH="${pp}"
+    python3 -c "
+import aeroelast, _aeroelast
+print('[${label}] aeroelast ->', aeroelast.__file__)
+print('[${label}] _aeroelast ->', _aeroelast.__file__)" 2>&1 | tail -3
+    timeout 2400 bash -c "
+        cd ${R}
+        ${REPO}/tests/IEA15MW/_run_solid.sh ${sy} > ${R}/logs/solid.log 2>&1 &
+        SP=\$!
+        sleep 2
+        ${REPO}/tests/IEA15MW/_run_fluid.sh ${fy} ${R} > ${R}/logs/fluid.log 2>&1 &
+        FP=\$!
+        wait \$SP; echo \"[${label}] solid exit=\$?\"
+        wait \$FP; echo \"[${label}] fluid exit=\$?\""
+    echo "[${label}] runner exit=$? (124 = per-run timeout)"
+}
+
+run_pair campaign "${S}/fluid_yaw_0.yaml" "${S}/solid_corotational_yaw_0.yaml" "${REPO}"
+run_pair prefix   "${D}/fluid_short.yaml" "${D}/solid_short.yaml"       "${SHADOW}"
+
+echo
+echo "=================== RESULTADOS ==================="
+for label in campaign prefix; do
+    echo "--- ${label} ---"
+    python3 - "${S}/run_${label}/logs/solid.log" "${S}/run_${label}/logs/fluid.log" <<'PY'
+import re, sys
+solid = open(sys.argv[1], errors="replace").read() if len(sys.argv) > 1 else ""
+fluid = open(sys.argv[2], errors="replace").read() if len(sys.argv) > 2 else ""
+mx = {}
+for m in re.finditer(r"it (\d+) \(min: \d+, max: \d+\), time-window (\d+)", solid):
+    it, w = int(m.group(1)), int(m.group(2))
+    mx[w] = max(mx.get(w, 0), it)
+if mx:
+    per = [mx[w] for w in sorted(mx)]
+    print(f"  ventanas: {len(per)}")
+    print(f"  sub-iteraciones por ventana: {per}")
+    print(f"  max: {max(per)}  media: {sum(per)/len(per):.2f}")
+else:
+    print("  SIN lineas de iteracion (no entro al lazo)")
+conv = re.findall(
+    r'relative convergence measure: relative two-norm diff of data "(\w+)" = '
+    r'([0-9.eE+-]+), limit = ([0-9.eE+-]+), normalization = [0-9.eE+-]+, conv = (\w+)',
+    solid)
+for name, val, lim, c in conv[-2:]:
+    print(f"  ultima medida {name}: {val} (limite {lim}, conv={c})")
+print(f"  fluid finalized: {'Finalized' in fluid}")
+PY
+done
+echo
+echo "SHORT_CAMPAIGN_AB DONE"

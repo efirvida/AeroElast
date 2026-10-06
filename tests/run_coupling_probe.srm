@@ -1,0 +1,112 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=00:20:00
+#SBATCH -J coupling_probe
+#SBATCH -o coupling_probe_%j.out
+#SBATCH -e coupling_probe_%j.err
+#SBATCH -p sequana_cpu_dev
+
+# Coupling attribution probe, parameterised so one file serves every rung of the ladder.
+# Submit with:  sbatch --export=ALL,LABEL=<name>,SHADOW=<shadow dir> tests/run_coupling_probe.srm
+#
+# Runs on the CHEAP case (tests/IEA15MW/_short_hcoarse: solid 0.5 m, fluid pinned at
+# 0.25 m, start-up to preCICE measured at 205 s) cut to THREE windows. Three is the
+# minimum that answers the question: in the prefix run windows 1-2 gave 15 and 12 and
+# only window 3 saturated.
+#
+# The shadow dir symlinks only `aeroelast`, so `_aeroelast` still comes from the venv:
+# the old python runs against the current Rust extension (our fixes are python-side).
+#
+# Ladder and what each rung decides:
+#   f9d4144  right after the merge, before the middle batch
+#  5520d77  after the frame fix, winding, wall-flow gating and polar path
+#  638965f  pre-sign-fix  -- ALREADY MEASURED: 15 12 30 30 30 30, does not converge
+#
+#   f9d4144 converges            -> the culprit is in the middle batch
+#   both saturate                -> the culprit is the merge core itself
+#
+# Inner timeout at 15 min, before the 20-minute wall, so the report is always emitted.
+
+set -uo pipefail
+
+: "${LABEL:?submit with --export=ALL,LABEL=<name>,SHADOW=<dir>}"
+: "${SHADOW:?submit with --export=ALL,LABEL=<name>,SHADOW=<dir>}"
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+REPO=/scratch/leahk/eduardo.donestevez/fem-shell
+RUN_DIR=${RUN_DIR:?submit with --export=ALL,LABEL=<name>,SHADOW=<dir>,RUN_DIR=<dir>,FLUID_YAML=<path>,SOLID_YAML=<path>}
+FLUID_YAML=${FLUID_YAML:?see RUN_DIR above}
+SOLID_YAML=${SOLID_YAML:?see RUN_DIR above}
+R=${RUN_DIR}
+rm -rf "${R}"
+mkdir -p "${R}/logs"
+
+export PYTHONPATH="${SHADOW}"
+python3 -c "
+import aeroelast, _aeroelast
+print('[${LABEL}] aeroelast  ->', aeroelast.__file__)
+print('[${LABEL}] _aeroelast ->', _aeroelast.__file__)" 2>&1 | tail -2
+
+T0=$(date +%s)
+# Inner timeout BEFORE the wall, so the report is always emitted. At element_size 0.25 the
+# start-up alone runs 10-20 min, so this MUST be lifted for the campaign case: a 900 s budget
+# killed a probe before its first window (twice now). Pass INNER_TIMEOUT via --export.
+timeout ${INNER_TIMEOUT:-900} bash -c "
+    cd ${R}
+    ${REPO}/tests/IEA15MW/_run_solid.sh ${SOLID_YAML} > ${R}/logs/solid.log 2>&1 &
+    SP=\$!
+    sleep 2
+    ${REPO}/tests/IEA15MW/_run_fluid.sh ${FLUID_YAML} ${R} > ${R}/logs/fluid.log 2>&1 &
+    FP=\$!
+    wait \$SP; echo \"[${LABEL}] solid exit=\$?\"
+    wait \$FP; echo \"[${LABEL}] fluid exit=\$?\""
+echo "[${LABEL}] runner exit=$? (124 = inner timeout) wall=$(( $(date +%s) - T0 ))s"
+
+echo
+echo "=================== ${LABEL}: CONVERGENCIA DEL ACOPLE ==================="
+python3 - "${R}/logs/solid.log" "${R}/logs/fluid.log" "${LABEL}" <<'PY'
+import re, sys
+from pathlib import Path
+
+solid = Path(sys.argv[1]).read_text(errors="replace") if len(sys.argv) > 1 else ""
+fluid = Path(sys.argv[2]).read_text(errors="replace") if len(sys.argv) > 2 else ""
+label = sys.argv[3] if len(sys.argv) > 3 else "?"
+
+mx = {}
+converged_windows = set()
+current_window = 0
+for line in solid.splitlines():
+    m = re.match(r".*it (\d+) \(min: \d+, max: \d+\), time-window (\d+)", line)
+    if m:
+        current_window = int(m.group(2))
+        mx[current_window] = max(mx.get(current_window, 0), int(m.group(1)))
+    if "conv = true" in line:
+        converged_windows.add(current_window)
+per = [mx[w] for w in sorted(mx)]
+print(f"  ventanas alcanzadas : {len(per)}")
+print(f"  sub-iteraciones     : {per}")
+
+conv = re.findall(r"conv = (\w+)", solid)
+if conv:
+    print(f"  medidas conv=true   : {conv.count('true')} de {len(conv)}")
+
+cap = sum(1 for x in per if x >= 30)
+print(f"  ventanas en el techo: {cap} de {len(per)}")
+print(f"  ventanas CONVERGIDAS: {len(converged_windows)} de {len(per)}")
+if per:
+    # The sound signal is how many windows REACHED convergence, not the last window's count:
+    # the previous version of this script called a 30/21/13 run "converges" on that mistake.
+    if len(converged_windows) == len(per):
+        print("  VEREDICTO: CONVERGE (todas las ventanas alcanzaron conv=true)")
+    else:
+        print("  VEREDICTO: NO converge (no todas las ventanas alcanzaron conv=true)")
+PY
+echo
+echo "PROBE ${LABEL} DONE"

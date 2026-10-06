@@ -1,0 +1,101 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=01:00:00
+#SBATCH -J ab_coupling
+#SBATCH -o ab_coupling_%j.out
+#SBATCH -e ab_coupling_%j.err
+#SBATCH -p sequana_cpu
+
+# A/B on the implicit-coupling contraction, same node, same load:
+#   current : the sign fixes (1146265) applied
+#   prefix  : their immediate parent 1146265~1, run from a git worktree
+#             shadowed through PYTHONPATH (the package installs via a plain
+#             path .pth, so PYTHONPATH wins; _aeroelast is Rust and untouched)
+#
+# 10 time windows at dt=1e-2 on the base_fix yaw=0 blade. Records how many
+# sub-iterations each window needs and whether the convergence measures drop.
+
+set -uo pipefail
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+REPO=/scratch/leahk/eduardo.donestevez/fem-shell
+D=${REPO}/tests/smoke_fix/short_diag
+PREFIX=/scratch/leahk/eduardo.donestevez/fem-shell-prefix
+
+run_one () {
+    local label=$1 extra_pp=${2:-}
+    local R=${D}/run_${label}
+    rm -rf "${R}"
+    mkdir -p "${R}/logs"
+
+    export PYTHONPATH="${extra_pp:-${REPO}}"
+    echo "[${label}] PYTHONPATH=${PYTHONPATH}"
+    python3 -c "import aeroelast, sys; print('[${label}] resolves to', aeroelast.__file__)" 2>&1 | tail -2
+
+    timeout 1500 bash -c "
+        cd ${R}
+        ${REPO}/tests/IEA15MW/_run_solid.sh ${D}/solid_short.yaml > ${R}/logs/solid.log 2>&1 &
+        S=\$!
+        sleep 2
+        ${REPO}/tests/IEA15MW/_run_fluid.sh ${D}/fluid_short.yaml ${R} > ${R}/logs/fluid.log 2>&1 &
+        F=\$!
+        wait \$S; echo \"[${label}] solid exit=\$?\"
+        wait \$F; echo \"[${label}] fluid exit=\$?\"
+    "
+    echo "[${label}] runner exit=$? (124 = per-run timeout)"
+}
+
+run_one current "${REPO}"
+run_one prefix  "${PREFIX}/src"
+
+echo
+echo "=================== RESULTADOS ==================="
+for label in current prefix; do
+    R=${D}/run_${label}
+    echo "--- ${label} ---"
+    python3 - "${R}/logs/solid.log" "${R}/logs/fluid.log" <<'PY'
+import re, sys
+
+solid = open(sys.argv[1], errors="replace").read() if len(sys.argv) > 1 else ""
+fluid = open(sys.argv[2], errors="replace").read() if len(sys.argv) > 2 else ""
+
+mx = {}
+for m in re.finditer(r"it (\d+) \(min: \d+, max: \d+\), time-window (\d+)", solid):
+    it, w = int(m.group(1)), int(m.group(2))
+    mx[w] = max(mx.get(w, 0), it)
+if mx:
+    ws = sorted(mx)
+    per = [mx[w] for w in ws]
+    print(f"  ventanas alcanzadas: {len(ws)}")
+    print(f"  sub-iteraciones por ventana: {per}")
+    print(f"  max: {max(per)}  media: {sum(per)/len(per):.2f}")
+else:
+    print("  SIN lineas de iteracion (no entro al lazo)")
+
+conv = re.findall(
+    r'relative convergence measure: relative two-norm diff of data "(\w+)" = '
+    r'([0-9.eE+-]+), limit = ([0-9.eE+-]+), normalization = [0-9.eE+-]+, conv = (\w+)',
+    solid,
+)
+if conv:
+    for name, val, lim, c in conv[-2:]:
+        print(f"  ultima medida {name}: {val} (limite {lim}, conv={c})")
+
+df = re.findall(r"ΔF_iter=([0-9.eE+-]+) N", fluid)
+if df:
+    print(f"  ΔF_iter fluid (ultimos 3): {df[-3:]}")
+
+print(f"  fluid llego a finalized: {'Finalized' in fluid}")
+PY
+done
+
+echo
+echo "================================================="
+echo "AB_COUPLING DONE"

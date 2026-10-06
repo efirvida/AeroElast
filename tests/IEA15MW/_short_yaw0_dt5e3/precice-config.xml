@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  preCICE configuration for BEM-FEM FSI coupling — Frontiersin 2025 yaw study
+  =============================================================================
+  Reference:
+    Ma L, Li Y, Zhou L, Yang D, Shen X, Du Z (2025)
+    "Study on the aeroelastic performance of 15 MW wind turbine under yaw condition"
+    Front. Energy Res. 13:1571567. doi: 10.3389/fenrg.2025.1571567
+
+  Turbine:     IEA-15 MW (rotor diameter 240 m, hub height 150 m)
+  Conditions:  v_wind = 10.59 m/s (rated), Omega = 7.55 RPM = 0.7906 rad/s, pitch = 0 deg
+  Yaw sweep:   0 / 10 / 20 / 30 / 40 deg (one run per case)
+
+  Fluid:  BEM participant (fem-shell-bem-fsi)  — provides Fluid-Mesh
+  Solid:  FEM shell solver (fem-shell-fsi)     — provides Solid-Mesh
+
+  Data exchange:
+    Force:           Fluid writes on Fluid-Mesh  → nearest-neighbor conserv.  → Solid reads on Solid-Mesh
+    Displacement:    Solid writes on Solid-Mesh  → nearest-neighbor consist.  → Fluid reads on Fluid-Mesh
+    Velocity:        Solid writes on Solid-Mesh  → nearest-neighbor consist.  → Fluid reads on Fluid-Mesh
+    AngularVelocity: Solid writes on GlobalSolidMesh → nearest-neighbor → Fluid reads on GlobalFluidMesh
+
+  Coupling scheme:
+    Parallel-implicit with IQN-ILS quasi-Newton acceleration.
+    time-window-size drives the Newmark structural integrator; BEM is quasi-static
+    within each window so no internal BEM time stepping is needed.
+
+  Directory layout (each yaw case runs from its own working directory):
+    yaw_N/
+      fluid/      ← BEM participant working directory
+      solid/      ← FEM participant working directory (corotational or inertial)
+    exchange-directory ".." resolves to yaw_N/ where the socket files are placed.
+-->
+
+<precice-configuration>
+
+  <profiling mode="off" />
+
+  <log>
+    <sink
+      filter="%Severity% > debug and %Rank% = 0"
+      format="---[precice] %ColorizedSeverity% %Message%"
+      enabled="true" />
+  </log>
+
+  <!-- ─── Data fields ─────────────────────────────────────────────────────── -->
+  <data:vector name="Force" />
+  <data:vector name="Displacement" />
+
+  <!--  Velocity: nodal structural velocity [m/s] — Solid writes each coupling
+        iteration so that BEM can correct effective inflow (V_eff = V_wind - v_y)
+        and provide aerodynamic damping of flapwise oscillations. -->
+  <data:vector name="Velocity" />
+
+  <!--  AngularVelocity: scalar [rad/s] — Solid writes omega each window so BEM
+        uses the live rotor speed. Initialized at t=0 so BEM receives ω before
+        the first time window. -->
+  <data:scalar name="AngularVelocity" />
+
+  <!-- ─── Meshes ──────────────────────────────────────────────────────────── -->
+  <!--  Fluid-Mesh and Solid-Mesh are generated from the same BladeMesh
+        generator with identical parameters (element_size=0.25, n_samples=300).
+        Outer-shell node coordinates are identical; nearest-neighbor mapping
+        is therefore exact (zero interpolation error). -->
+  <mesh name="Fluid-Mesh" dimensions="3">
+    <use-data name="Force" />
+    <use-data name="Displacement" />
+    <use-data name="Velocity" />
+  </mesh>
+
+  <!--  Solid-Mesh: FEM shell solver registers allOuterShellNods (subset of
+        the full shell mesh; excludes internal shear-web nodes). -->
+  <mesh name="Solid-Mesh" dimensions="3">
+    <use-data name="Force" />
+    <use-data name="Displacement" />
+    <use-data name="Velocity" />
+  </mesh>
+
+  <!--  GlobalFluidMesh / GlobalSolidMesh: single-vertex meshes at the hub
+        (rotation center = [0, 0, 0]).  Used exclusively for the AngularVelocity
+        exchange. Nearest-neighbor mapping is trivially exact for single-vertex meshes. -->
+  <mesh name="GlobalFluidMesh" dimensions="3">
+    <use-data name="AngularVelocity" />
+  </mesh>
+
+  <mesh name="GlobalSolidMesh" dimensions="3">
+    <use-data name="AngularVelocity" />
+  </mesh>
+
+  <!-- ─── Participants ─────────────────────────────────────────────────────── -->
+  <participant name="Fluid">
+    <provide-mesh name="Fluid-Mesh" />
+    <receive-mesh name="Solid-Mesh" from="Solid" />
+
+    <write-data name="Force"        mesh="Fluid-Mesh" />
+    <read-data  name="Displacement" mesh="Fluid-Mesh" />
+    <read-data  name="Velocity"     mesh="Fluid-Mesh" />
+
+    <!-- Force: conservative (Fluid-Mesh → Solid-Mesh) -->
+    <mapping:nearest-neighbor direction="write"
+                               from="Fluid-Mesh" to="Solid-Mesh"
+                               constraint="conservative" />
+
+    <!-- Displacement + Velocity: consistent (Solid-Mesh → Fluid-Mesh) -->
+    <mapping:nearest-neighbor direction="read"
+                               from="Solid-Mesh" to="Fluid-Mesh"
+                               constraint="consistent" />
+
+    <!-- AngularVelocity: BEM registers a single vertex at the hub and reads ω -->
+    <provide-mesh name="GlobalFluidMesh" />
+    <receive-mesh name="GlobalSolidMesh" from="Solid" />
+
+    <read-data name="AngularVelocity" mesh="GlobalFluidMesh" />
+
+    <mapping:nearest-neighbor direction="read"
+                               from="GlobalSolidMesh" to="GlobalFluidMesh"
+                               constraint="consistent" />
+  </participant>
+
+  <participant name="Solid">
+    <provide-mesh name="Solid-Mesh" />
+
+    <write-data name="Displacement" mesh="Solid-Mesh" />
+    <write-data name="Velocity"     mesh="Solid-Mesh" />
+    <read-data  name="Force"        mesh="Solid-Mesh" />
+
+    <!-- AngularVelocity: Solid registers a single vertex at the rotation center
+         and writes omega every window. -->
+    <provide-mesh name="GlobalSolidMesh" />
+
+    <write-data name="AngularVelocity" mesh="GlobalSolidMesh" />
+  </participant>
+
+  <!-- ─── Communication ───────────────────────────────────────────────────── -->
+  <!--  Solid is acceptor (starts first and waits), Fluid is connector.
+        exchange-directory ".." resolves to yaw_N/ when both solvers run from
+        their respective yaw_N/solid/ and yaw_N/fluid/ subdirectories. -->
+  <!--  exchange-directory=".": socket files land in the CWD of each participant.
+        Both solid and fluid run from the same per-case yaw_N/ directory, so
+        they share the same exchange directory automatically. Running 5 cases
+        concurrently is safe because each case has its own yaw_N/ CWD. -->
+  <m2n:sockets acceptor="Solid" connector="Fluid" exchange-directory="." />
+
+  <!-- ─── Coupling scheme ──────────────────────────────────────────────────── -->
+  <coupling-scheme:parallel-implicit>
+    <!--  Structural time step = coupling dt.
+          5e-3 s ≈ 0.0022 rev per step at 7.55 RPM (≈ 0.8 deg/step).
+          Adjust max-time per case if a longer physical transient is needed. -->
+    <time-window-size value="5e-3" />
+    <max-time value="0.05" />
+
+    <participants first="Fluid" second="Solid" />
+
+    <exchange data="Force"           mesh="Solid-Mesh"       from="Fluid" to="Solid" />
+    <exchange data="Displacement"    mesh="Solid-Mesh"       from="Solid" to="Fluid" />
+    <exchange data="Velocity"        mesh="Solid-Mesh"       from="Solid" to="Fluid" />
+    <!--  initialize="true": Solid writes ω at t=0 so BEM has a valid speed
+          before computing the first time window. -->
+    <exchange data="AngularVelocity" mesh="GlobalSolidMesh"  from="Solid" to="Fluid" initialize="true" />
+
+    <max-iterations value="30" />
+
+    <relative-convergence-measure limit="1e-4" data="Displacement" mesh="Solid-Mesh" />
+    <relative-convergence-measure limit="1e-4" data="Force"        mesh="Solid-Mesh" />
+
+    <!--  IQN-ILS quasi-Newton acceleration.
+          time-windows-reused=0: each window builds its quasi-Newton basis from
+          scratch. This prevents a non-converged window (max-iterations hit)
+          from poisoning the IQN matrix of subsequent windows — the primary
+          cause of the cascading divergence observed at yaw_30/yaw_40.
+          max-used-iterations=20: more columns to compensate for no history
+          reuse; the IQN still converges in 2–6 iterations for well-conditioned
+          windows.
+          filter QR2 limit=1e-2: more aggressive linear-dependence filtering
+          prevents NaN in the quasi-Newton update (preCICE recommendation). -->
+    <acceleration:IQN-ILS>
+      <data name="Displacement" mesh="Solid-Mesh" />
+      <preconditioner type="residual-sum" />
+      <filter type="QR2" limit="1e-2" />
+      <initial-relaxation value="0.5" />
+      <max-used-iterations value="20" />
+      <time-windows-reused value="0" />
+    </acceleration:IQN-ILS>
+  </coupling-scheme:parallel-implicit>
+
+</precice-configuration>
