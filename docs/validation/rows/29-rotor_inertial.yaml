@@ -42,8 +42,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'Coriolis force vector, worst entry against the reference norm vs the Coriolis closed form -2 m (omega x v), hand derived in the comment: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: rotor_inertial.testinertialforcescalculator_test_euler.single
@@ -88,8 +93,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'combined inertial force, worst entry against the component sum vs the sum of the three components this same calculator returns: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: rotor_inertial.testinertialforcescalculator_test_off_ax.single

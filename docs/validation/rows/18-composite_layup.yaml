@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0686
+      text: 'uni_0 mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.0686% (bound: 2.5000%)'
+      digest: 9d823e6091ce3c7c
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_axial_extension_matches_ccx.uni_90
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.5016
+      text: 'uni_90 mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 1.5016% (bound: 2.5000%)'
+      digest: 94e43110ded53d08
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_axial_extension_matches_ccx.sym_0_90s
@@ -65,8 +75,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.3941
+      text: 'sym_0_90s mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.3941% (bound: 2.5000%)'
+      digest: a0634941901e074e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_axial_extension_matches_ccx.asym_0_90
@@ -88,8 +103,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0866
+      text: 'asym_0_90 mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.0866% (bound: 2.5000%)'
+      digest: bfcd785a29421d69
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_axial_extension_matches_ccx.quasi_iso
@@ -111,8 +131,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.2453
+      text: 'quasi_iso mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.2453% (bound: 2.5000%)'
+      digest: 4b087e5360035bff
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_transverse_bending_matches_ccx.uni_0
@@ -134,8 +159,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.5068
+      text: 'uni_0 mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.5068% (bound: 1.0000%)'
+      digest: d69513a8796854f6
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_transverse_bending_matches_ccx.uni_90
@@ -157,8 +187,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.2596
+      text: 'uni_90 mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.2596% (bound: 1.0000%)'
+      digest: 69f9f25d9fb2a4f6
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_transverse_bending_matches_ccx.sym_0_90s
@@ -180,8 +215,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.2656
+      text: 'sym_0_90s mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.2656% (bound: 1.0000%)'
+      digest: 39a6aeb3443952fd
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_transverse_bending_matches_ccx.asym_0_90
@@ -203,8 +243,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.1059
+      text: 'asym_0_90 mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.1059% (bound: 1.0000%)'
+      digest: dd3560cd71cb9d80
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_transverse_bending_matches_ccx.quasi_iso
@@ -226,8 +271,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.2056
+      text: 'quasi_iso mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.2056% (bound: 1.0000%)'
+      digest: 4e5084bbe0d703bb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_asymmetric_b_coupling_matches_ccx.single
@@ -249,8 +299,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.3698
+      text: 'asym_0_90 membrane-bending coupling deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.3698% (bound: 2.0000%)'
+      digest: 2009389edb37305d
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_modal_frequencies_match_ccx.uni_0
@@ -272,8 +327,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.2587
+      text: 'uni_0 worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.2587% (bound: 3.0000%)'
+      digest: 5a88ca3dffdcce21
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_modal_frequencies_match_ccx.uni_90
@@ -295,8 +355,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.2401
+      text: 'uni_90 worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.2401% (bound: 3.0000%)'
+      digest: 13572ac2823a84f0
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_modal_frequencies_match_ccx.sym_0_90s
@@ -318,8 +383,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.2555
+      text: 'sym_0_90s worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.2555% (bound: 3.0000%)'
+      digest: 9a5884b6d95e3599
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_modal_frequencies_match_ccx.asym_0_90
@@ -341,8 +411,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.2576
+      text: 'asym_0_90 worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.2576% (bound: 3.0000%)'
+      digest: 6e3ca395081e92e8
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_modal_frequencies_match_ccx.quasi_iso
@@ -364,7 +439,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.4241
+      text: 'quasi_iso worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.4241% (bound: 3.0000%)'
+      digest: 97f22457ca61a2e1
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

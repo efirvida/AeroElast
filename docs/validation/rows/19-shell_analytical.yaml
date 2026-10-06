@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 3.6958
+      text: 'cantilever tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 3.6958% (bound: 5.0000%)'
+      digest: 5be6cac0cbe70a7b
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_analytical.testcantileverbeam_test_tip_deflection.8_4
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.8569
+      text: 'cantilever tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 1.8569% (bound: 5.0000%)'
+      digest: f9b5e1b8b46ffd26
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_analytical.testcantileverbeam_test_tip_deflection.16_8
@@ -65,8 +75,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.2238
+      text: 'cantilever tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 1.2238% (bound: 5.0000%)'
+      digest: 87b20864e571eeaa
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_analytical.testsimplysupportedbeam_test_center_defl.single
@@ -88,8 +103,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.4847
+      text: 'centre deflection vs the simply-supported closed form P L^3 (1 - nu^2) / (192 E I): 0.4847% (bound: 5.0000%)'
+      digest: 47412e2067ce1026
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_analytical.testbeambending_test_bending_convergence.4_2
@@ -111,8 +131,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 3.6958
+      text: 'bending tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 3.6958% (bound: 5.0000%)'
+      digest: 5be6cac0cbe70a7b
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_analytical.testbeambending_test_bending_convergence.8_4
@@ -134,8 +159,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.8569
+      text: 'bending tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 1.8569% (bound: 5.0000%)'
+      digest: f9b5e1b8b46ffd26
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_analytical.testbeambending_test_bending_convergence.16_8
@@ -157,8 +187,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.2238
+      text: 'bending tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 1.2238% (bound: 5.0000%)'
+      digest: 87b20864e571eeaa
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_analytical.testmembranestretching_test_axial_extens.single
@@ -180,7 +215,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.858
+      text: 'membrane extension vs the axial extension closed form, epsilon L: 1.8580% (bound: 5.0000%)'
+      digest: c0a456dde0ae08cb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

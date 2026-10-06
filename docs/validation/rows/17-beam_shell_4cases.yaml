@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.6124
+      text: 'tension_axial face-mean displacement vs the closed form for the case''s load and geometry: 0.6124% (bound: 2.0000%)'
+      digest: 7e718f483a15ebc7
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.6124
+      text: 'compression_axial face-mean displacement vs the closed form for the case''s load and geometry: 0.6124% (bound: 2.0000%)'
+      digest: 7e718f483a15ebc7
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx
@@ -65,8 +75,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.873
+      text: 'bending_fx face-mean displacement vs the closed form for the case''s load and geometry: 0.8730% (bound: 2.0000%)'
+      digest: c2c0fa9c8266a8a5
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy
@@ -88,8 +103,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.7488
+      text: 'transverse_fy face-mean displacement vs the closed form for the case''s load and geometry: 0.7488% (bound: 2.0000%)'
+      digest: 337453787f4dbe2a
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial_2
@@ -111,8 +131,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.6953
+      text: 'tension_axial face-mean displacement against CCX vs CalculiX 2.23 S4, the same four static cases: 0.6953% (bound: 5.0000%)'
+      digest: ca6061dfbe3f1339
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial_2
@@ -134,8 +159,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.6953
+      text: 'compression_axial face-mean displacement against CCX vs CalculiX 2.23 S4, the same four static cases: 0.6953% (bound: 5.0000%)'
+      digest: ca6061dfbe3f1339
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx_2
@@ -157,8 +187,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.6159
+      text: 'bending_fx face-mean displacement against CCX vs CalculiX 2.23 S4, the same four static cases: 0.6159% (bound: 5.0000%)'
+      digest: 6789cfeace48cb5f
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy_2
@@ -180,8 +215,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.2824
+      text: 'transverse_fy face-mean displacement against CCX vs CalculiX 2.23 S4, the same four static cases: 0.2824% (bound: 5.0000%)'
+      digest: 13b2a37e892096e7
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: beam_shell_4cases.testbeamshell4casesparity_test_modal_fir.single
@@ -203,7 +243,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.7265
+      text: 'worst matched mode frequency gap vs CalculiX 2.23, the first five matched modes of the same beam: 0.7265% (bound: 5.0000%)'
+      digest: 65cbe4cc7e5c4836
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

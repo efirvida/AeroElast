@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.245
+      text: 'EB tip deflection vs the Euler-Bernoulli closed form P L^3 / (3 E I): 0.2450% (bound: 2.0000%)'
+      digest: 378fc68f73f1feff
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: large_rotation.test_cantilever_large_rotation_half_circ.16
@@ -43,8 +48,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.3206
+      text: 'half-circle u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.3206% (bound: 5.0000%)'
+      digest: 7ca4719709ebec4c
   - label: rtol at line 317
     asserted: true
     reference:
@@ -58,8 +68,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.1897
+      text: 'half-circle w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.1897% (bound: 5.0000%)'
+      digest: 959c662b4a71f0eb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: large_rotation.test_equilibrium_path.1_5707963267948966_3_6338_6_3662
@@ -82,8 +97,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0592
+      text: 'λ=0.50π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.0592% (bound: 5.0000%)'
+      digest: f27a936b98620c5b
   - label: atol at line 363
     asserted: true
     reference:
@@ -97,8 +117,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0775
+      text: 'λ=0.50π w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.0775% (bound: 5.0000%)'
+      digest: db3d8db060dfe3bc
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: large_rotation.test_equilibrium_path.3_141592653589793_10_0_6_3662
@@ -121,8 +146,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.3206
+      text: 'λ=1.00π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.3206% (bound: 5.0000%)'
+      digest: 7ca4719709ebec4c
   - label: atol at line 363
     asserted: true
     reference:
@@ -136,8 +166,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.1897
+      text: 'λ=1.00π w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.1897% (bound: 5.0000%)'
+      digest: 959c662b4a71f0eb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: large_rotation.test_equilibrium_path.4_71238898038469_12_122_2_1221
@@ -160,8 +195,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.1019
+      text: 'λ=1.50π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.1019% (bound: 5.0000%)'
+      digest: c09122285ec9ddda
   - label: atol at line 363
     asserted: true
     reference:
@@ -175,8 +215,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 3.905
+      text: 'λ=1.50π w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 3.9050% (bound: 5.0000%)'
+      digest: 0318c5b2e4e96105
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: large_rotation.test_equilibrium_path.6_283185307179586_10_0_0_0

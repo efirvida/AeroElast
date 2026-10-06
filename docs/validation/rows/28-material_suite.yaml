@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.5754
+      text: 'MITC4 isotropic out-of-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever: 1.5754% (bound: 5.0000%)'
+      digest: 7030e5b7f1f4de2e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testisotropicanalytical_test_mitc3_out_o.single
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.2005
+      text: 'MITC3 isotropic out-of-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever: 1.2005% (bound: 5.0000%)'
+      digest: 2a687729d8f3d9ca
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testisotropicanalytical_test_mitc4_in_pl.single
@@ -65,8 +75,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.3496
+      text: 'MITC4 isotropic in-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever, bending about the in-plane axis: 0.3496% (bound: 5.0000%)'
+      digest: 6e71d2f7de22cd45
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testisotropicanalytical_test_mitc4_axial.single
@@ -88,8 +103,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.4719
+      text: 'MITC4 isotropic axial tip displacement vs the axial bar closed form F L / (E A): 0.4719% (bound: 5.0000%)'
+      digest: d41128a08dcf37e1
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testorthotropicsingleply_test_mitc4comp.single
@@ -111,8 +131,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.6447
+      text: '[0 deg] single ply MITC4Composite out-of-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs: 0.6447% (bound: 5.0000%)'
+      digest: 9648a8ed031db352
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testorthotropicsingleply_test_mitc4comp.single_2
@@ -134,8 +159,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.5788
+      text: '[90 deg] single ply MITC4Composite out-of-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs: 0.5788% (bound: 5.0000%)'
+      digest: b9511a19b0126533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testorthotropicsingleply_test_mitc3comp.single
@@ -157,8 +187,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.6667
+      text: '[0 deg] single ply MITC3Composite out-of-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs: 0.6667% (bound: 5.0000%)'
+      digest: f46b70df64e8ff65
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testorthotropicsingleply_test_mitc4comp.single_3
@@ -180,8 +215,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.4254
+      text: '[0 deg] single ply axial tip displacement vs the axial bar closed form F L / (A22 B) for the [0 deg] ply: 1.4254% (bound: 5.0000%)'
+      digest: 177afa86e037b58b
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testorthotropicsingleply_test_mitc4comp.single_4
@@ -203,8 +243,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 3.4453
+      text: '[90 deg] single ply axial tip displacement vs the axial bar closed form F L / (A11 B) for the [90 deg] ply: 3.4453% (bound: 5.0000%)'
+      digest: b89142814831a87f
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testsymmetriclaminates_test_symmetric_ou.single
@@ -226,8 +271,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.2807
+      text: '[0/90/90/0] MITC4Composite out-of-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs: 0.2807% (bound: 5.0000%)'
+      digest: ed3acc768fb75fa1
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testsymmetriclaminates_test_symmetric_ou.single_2
@@ -249,8 +299,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.324
+      text: '[0/90/90/0] MITC3Composite out-of-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs: 0.3240% (bound: 5.0000%)'
+      digest: 9d0f3fd068f41e4f
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testsymmetriclaminates_test_symmetric_in.single
@@ -272,8 +327,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 3.8464
+      text: '[0/90/90/0] MITC4Composite in-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever, with the in-plane stiffness A11 the laminates give: 3.8464% (bound: 5.0000%)'
+      digest: 95470825dea94114
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testsymmetriclaminates_test_symmetric_ax.single
@@ -295,8 +355,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.9985
+      text: '[0/90/90/0] axial tip displacement vs the axial bar closed form F L / (A11 B) for the laminate: 1.9985% (bound: 5.0000%)'
+      digest: 1ee2523fa9b42de3
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testsymmetriclaminates_test_quasi_iso_ou.single
@@ -318,8 +383,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 15.5263
+      text: '[0/45/-45/90]s quasi-isotropic out-of-plane tip deflection vs the Euler-Bernoulli tip deflection for the same cantilever, which the quasi-isotropic D16/D26 coupling inflates: 15.5263% (bound: 20.0000%)'
+      digest: 835efaac73afb54e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testasymmetriclaminates_test_axial_produ.single
@@ -341,8 +411,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.4464
+      text: '[0/90] MITC3Composite B-coupling tip deflection vs the CLT B-coupling tip deflection for the same strip: 0.4464% (bound: 10.0000%)'
+      digest: 000b0a3c9af575ac
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testasymmetriclaminates_test_b_coupling.single
@@ -364,8 +439,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.4549
+      text: '[0/90] MITC4Composite B-coupling tip deflection vs the Reddy CLT B-coupling tip deflection, w = B11 P L^2 / (2 A11 D11_eff b): 0.4549% (bound: 10.0000%)'
+      digest: 8723a1abdd256897
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testisoequivalence_test_n_iso_plies_equa.single
@@ -387,8 +467,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'stiffness trace of four isotropic plies vs the single isotropic layer of the same total thickness: 0.0000% (bound: 1.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testisoequivalence_test_n_iso_plies_same.single
@@ -410,8 +495,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'tip deflection of four isotropic plies vs the single isotropic layer of the same total thickness: 0.0000% (bound: 1.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testabdmatrices_test_isotropic_ab_d_rati.single
@@ -433,8 +523,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'isotropic ply D11 over A11 h^2 / 12 vs the classical lamination result D11 = A11 h^2 / 12: 0.0000% (bound: 0.0001%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testabdmatrices_test_asymmetric_b11_form.single
@@ -456,8 +551,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: '[0/90] coupling B11 vs the two-ply closed form B11 = h^2/2 (Q11_90 - Q11_0) built from the A matrices: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testabdmatrices_test_a_matrix_single_ply.single
@@ -479,8 +579,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'single ply A11 vs the hand calculation A11 = Q11 h: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testabdmatrices_test_d_matrix_single_ply.single
@@ -502,8 +607,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'single ply D11 vs the hand calculation D11 = Q11 h^3 / 12: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testabdmatrices_test_qbar_0_equals_q.single
@@ -525,8 +635,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'Qbar at zero rotation, worst entry against the matrix norm vs our own unrotated stiffness Q: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.testabdmatrices_test_qbar_90_swaps_e1_e2.single
@@ -548,8 +663,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'Qbar at 90 degrees, entry [0,0] vs our own unrotated stiffness Q, entry [1,1]: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   - label: rtol at line 1002
     asserted: true
     reference:
@@ -562,7 +682,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'Qbar at 90 degrees, entry [1,1] vs our own unrotated stiffness Q, entry [0,0]: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'translational mass per direction vs the closed form rho h A per direction: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testelementmassvstotalmass_test_mass_con.quad4
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'translational mass per direction vs the closed form rho h A per direction: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testlumpedmassmatrix_test_lumped_vs_anal.single
@@ -65,8 +75,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'lumped mass per direction vs the row-sum lumped mass rho h A_tributary: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density0
@@ -157,8 +172,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'consistent mass per direction vs the total translational mass of the mesh: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testexactconsistentmasscoefficients_test.tri3_5_coords0_0_5
@@ -226,8 +246,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'rotary inertia per rotational direction vs the closed form rho h^3 / 12 A rotary inertia: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testexactconsistentmasscoefficients_test.quad4_9_coords1_1_0_2
@@ -249,7 +274,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'rotary inertia per rotational direction vs the closed form rho h^3 / 12 A rotary inertia: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

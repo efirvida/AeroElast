@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'estimated rotor inertia vs the point-mass sum m1 r1^2 + m2 r2^2, 2*1^2 + 3*2^2 = 14: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: rotor_rust_parity.testrotorautoinertia_test_compute_rotor.single
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'rotor radius vs the largest perpendicular distance of the given nodes, 2 m: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: rotor_rust_parity.testrotorautoinertia_test_compute_rotor.single_2
@@ -65,8 +75,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'rotor radius from deformed coordinates vs the largest perpendicular distance of the deformed nodes, sqrt(1^2 + 2^2): 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: rotor_rust_parity.testrotorautoinertia_test_compute_axis_t.single
@@ -88,8 +103,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'axis torque vector, worst component vs the axis torque the applied load gives, F = -10 N at the axis: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   - label: rtol at line 691
     asserted: true
     reference:
@@ -102,7 +122,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'axis torque scalar vs the same applied load, F = -10 N at the axis: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

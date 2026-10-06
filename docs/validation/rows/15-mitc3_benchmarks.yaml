@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0824
+      text: 'EB tip deflection vs the Euler-Bernoulli closed form P L^3 / (3 E I): 0.0824% (bound: 2.0000%)'
+      digest: 26f83f0d3fd0e983
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mitc3_benchmarks.test_linear_tip_moment_sign.single
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0
+      text: 'moment tip deflection vs the linear-theory tip deflection lambda L / 2: 0.0000% (bound: 2.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mitc3_benchmarks.test_equilibrium_path.1_5707963267948966_3_6338_6_3662
@@ -66,8 +76,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0782
+      text: 'λ=0.50π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.0782% (bound: 5.0000%)'
+      digest: 9cf5fb96dcb8299f
   - label: atol at line 385
     asserted: true
     reference:
@@ -81,8 +96,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.1218
+      text: 'λ=0.50π w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.1218% (bound: 5.0000%)'
+      digest: 7e09f7255db602f2
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mitc3_benchmarks.test_equilibrium_path.3_141592653589793_10_0_6_3662
@@ -105,8 +125,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.1628
+      text: 'λ=1.00π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.1628% (bound: 5.0000%)'
+      digest: 89414de93caf5780
   - label: atol at line 385
     asserted: true
     reference:
@@ -120,8 +145,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.0443
+      text: 'λ=1.00π w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.0443% (bound: 5.0000%)'
+      digest: 8979d39c4ec65966
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mitc3_benchmarks.test_equilibrium_path.4_71238898038469_12_122_2_1221
@@ -144,8 +174,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.034
+      text: 'λ=1.50π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.0340% (bound: 5.0000%)'
+      digest: 3220c5f9ba429cf8
   - label: atol at line 385
     asserted: true
     reference:
@@ -159,8 +194,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.3908
+      text: 'λ=1.50π w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.3908% (bound: 5.0000%)'
+      digest: 29ed7f5a4dfe39ba
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mitc3_benchmarks.test_equilibrium_path.6_283185307179586_10_0_0_0

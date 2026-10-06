@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 2.471
+      text: 'unbalanced coupon twist against the free-edge reference vs the free-edge CLT state for the same layup: 2.4710% (bound: 5.0000%)'
+      digest: fca334fed6951df1
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist.test_constant_moment_interior_state_is_t.single
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.4384
+      text: 'interior twist rate against the free-edge CLT vs the free-edge CLT state for the same layup: 0.4384% (bound: 5.0000%)'
+      digest: 4832bc72d225dffb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist.test_constant_moment_tip_twist_matches_t.single
@@ -65,8 +75,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 1.2116
+      text: 'constant-moment tip twist against the free-edge CLT vs the free-edge CLT state for the same layup: 1.2116% (bound: 5.0000%)'
+      digest: 3ac97ca19f13b21d
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist.test_ritz_reference_converges_and_matche.single
@@ -88,8 +103,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.4613
+      text: 'Ritz constant-moment twist against the free-edge CLT vs the free-edge CLT state for the same layup: 0.4613% (bound: 5.0000%)'
+      digest: 9d7a8d40dfc9c9f4
   - label: rtol at line 693
     asserted: true
     reference:
@@ -102,8 +122,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 2.9083
+      text: 'element tip twist against the Ritz reference vs the Ritz solution for the same coupon: 2.9083% (bound: 5.0000%)'
+      digest: e89e7358ae4bab68
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist.test_independent_ccx_deck_confirms_the_c.single

@@ -88,8 +88,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 73743de
+      date: '2026-10-05'
+      raw: null
+      margin_pct: 0.4888
+      text: 'finest-mesh axial error vs the analytical cantilever formula in this file''s EXPECTED table: 0.4888% (bound: 1.0000%)'
+      digest: a2ad107aac9aba73
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_static_modal.testnonlinearstatic_test_geometric_nonli.single
