@@ -16,6 +16,7 @@ The per-node field travels through `write_ccx_mesh(load_field=...)`, which emits
 numbers are the mesh index plus one, because that is how the writer labels `*NODE`.
 """
 
+import argparse
 import shutil
 import tempfile
 from pathlib import Path
@@ -37,9 +38,18 @@ from tests.support.openfast_bem import build_blade_aero_from_aerodyn
 
 SPAN = np.array([0.0, 0.0, 1.0])
 
+_parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
+_parser.add_argument(
+    "--element-size",
+    type=float,
+    default=1.0,
+    help="blade mesh size in metres (default 1.0; the arbitration gets sharper at 0.5)",
+)
+_args = _parser.parse_args()
+
 Node._id_counter = 0
 MeshElement._id_counter = 0
-model = Blade(str(t.YAML), element_size=1.0)
+model = Blade(str(t.YAML), element_size=_args.element_size)
 model.generate_mesh()
 mesh = model.mesh
 if mesh is None:
