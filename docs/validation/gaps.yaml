@@ -168,8 +168,12 @@ gaps:
       field by `max||du|| = 2.6e-3 m`, 0.016% of the 16.53 m response, with the
       axial tip displacement going `+1.0630 -> +1.0631 m`. The lengthening comes
       from the in-plane flapwise load acting on a curved (prebent) blade axis
-      inside a single linear `spsolve` on a linear `K`, which cannot produce the
-      second-order inextensional shortening the geometry implies.
+      inside a single linear solve on a linear `K`, which cannot produce the
+      second-order inextensional shortening the geometry implies. The solver
+      named in the measurement is a static scipy replica in the diagnostic; the
+      production rotor path is Rust/PETSc (`run_rotor_fsi_solver`), one linear
+      KSP step per Newmark step. The mechanism is solver-independent, the
+      magnitude below is not a production measurement.
     evidence: >-
       The deformed centroid path measures `119.1356 m` against a `117.2256 m`
       reference, `+1.629%`, with `sum fz = -3.5e-11 N` and `sum|fz| = 276,080 N`

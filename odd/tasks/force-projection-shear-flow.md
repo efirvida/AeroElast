@@ -228,10 +228,17 @@ that would move the campaign numbers:
    sign corrections landed on top of it without an FSI run since. Gate: `tests/run_step1b_smoke.srm`,
    a 30 s BEM <-> FEM case whose criterion is the de-loading signature itself — the flexible thrust
    must land **below** the rigid anchor (2.541 MN). Job `11609164`.
-2. **The structural solve is linear.** A `spsolve` on a linear `K` cannot produce the second-order
-   shortening: the deformed centroid path measures 119.1356 m against 117.2256 m, and that
-   artefact re-loads the rotor by +1.13% thrust. A modelling decision before the campaigns: accept
-   and document it, or move the one-way path to a geometric solve.
+2. **The structural solve is linear.** The production rotor path is Rust/PETSc
+   (`_aeroelast.run_rotor_fsi_solver`, `petsc4py` KSP), and it advances with a linear Newmark step
+   on a linear `K` plus the geometric stiffness, so it cannot produce the second-order
+   inextensional shortening the geometry implies. The *magnitude* is a static scipy replica in a
+   diagnostic, not the production solve: the centroid path measures 119.1356 m against 117.2256 m
+   there (`+1.629%`). The store attributes the radii feedback alone at `+1.24%` thrust / `+0.95%`
+   power and records that the offset is *partly* this artefact and not bend-twist
+   (`docs/validation/gaps.yaml`), so the `+1.13%` quoted earlier was an over-attribution. A
+   modelling decision before the campaigns: accept and document it as a static-proxy estimate, or
+   move the one-way path to a geometric solve -- and quantify it on the production outputs
+   (`bem_report.csv` carries `Tip Disp X/Y/Z`) before choosing.
 3. **Issue #10.** The parked V50 case diverges (2168 m against a ~8 m reference) — that case cannot
    be relaunched until the coupling instability is understood.
 
