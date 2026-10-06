@@ -101,8 +101,7 @@ def test_every_case_declares_the_production_solver():
 
     assert not off_path, (
         "these rotor cases declare a solver outside production "
-        f"({sorted(PRODUCTION_NAMES)}) without naming it in the filename: "
-        + "; ".join(off_path)
+        f"({sorted(PRODUCTION_NAMES)}) without naming it in the filename: " + "; ".join(off_path)
     )
     # The guard is only meaningful if it actually saw the corpus.
     assert len(declarations) >= 60, (

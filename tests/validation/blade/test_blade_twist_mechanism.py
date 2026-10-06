@@ -56,6 +56,7 @@ import tests.validation.blade.test_blade_iea15mw_validation as blade_validation 
 from tests import _production_arbiter as arbiter  # noqa: E402
 
 from tests.support.paths import DATA_DIR  # noqa: E402
+
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
 ELEMENT_SIZE = 1.0
 #: Article DLC 1.4 maximum root moment, the load level the validation suite uses.
@@ -77,13 +78,14 @@ def solved(blade_model):
     """Assemble the blade and return a solver plus geometry for the load cases."""
     mesh, props, _ = blade_model
     assembler = PyMeshAssembler.from_model(
-        blade_validation._to_rust_mesh(mesh, props), props,
-        list(blade_validation.SPAN_DIRECTION), None,
+        blade_validation._to_rust_mesh(mesh, props),
+        props,
+        list(blade_validation.SPAN_DIRECTION),
+        None,
     )
     n = assembler.dofs_count
     rows, cols, vals = assembler.assemble_k()
-    K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))),
-                   shape=(n, n)).tocsr()
+    K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))), shape=(n, n)).tocsr()
     root = {mesh.node_id_to_index[nid] for nid in mesh.get_node_set("RootNodes").node_ids}
     fixed = {6 * i + d for i in root for d in range(6)}
     free = np.array([i for i in range(n) if i not in fixed], dtype=np.int64)
@@ -101,8 +103,17 @@ def solved(blade_model):
         twist = float(np.mean([u[6 * nd + 5] for nd in tip]))
         return flap, twist
 
-    return {"n": n, "solve": solve, "z": z, "x": x, "y": y, "load_idx": load_idx,
-            "tip": tip, "Kff": Kff, "free": free}
+    return {
+        "n": n,
+        "solve": solve,
+        "z": z,
+        "x": x,
+        "y": y,
+        "load_idx": load_idx,
+        "tip": tip,
+        "Kff": Kff,
+        "free": free,
+    }
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -128,7 +139,8 @@ def test_blade_laminates_have_no_bend_twist_coupling(blade_model):
         for name, thickness, angle in section["layup"]:
             e = materials[name]["elastic"]
             mat = OrthotropicMaterial(
-                name, E=(e["E"][0], e["E"][1], e["E"][2]),
+                name,
+                E=(e["E"][0], e["E"][1], e["E"][2]),
                 G=(e["G"][0], e["G"][1], e["G"][2]),
                 nu=(e["nu"][0], e["nu"][1], e["nu"][2]),
                 rho=float(materials[name]["density"]),
@@ -137,9 +149,15 @@ def test_blade_laminates_have_no_bend_twist_coupling(blade_model):
         D = Laminate(plies).D
         offdiag = abs(D[0, 2]) + abs(D[1, 2])
         if offdiag > worst_offdiag:
-            worst_offdiag, worst_scale, worst_section = offdiag, float(np.abs(D).max()), section["elementSet"]
-    print(f"\n{len(numad['sections'])} secciones; max |D16|+|D26| = {worst_offdiag:.3e} "
-          f"(escala |D|max = {worst_scale:.3e}) en {worst_section}")
+            worst_offdiag, worst_scale, worst_section = (
+                offdiag,
+                float(np.abs(D).max()),
+                section["elementSet"],
+            )
+    print(
+        f"\n{len(numad['sections'])} secciones; max |D16|+|D26| = {worst_offdiag:.3e} "
+        f"(escala |D|max = {worst_scale:.3e}) en {worst_section}"
+    )
     assert worst_offdiag <= 1e-9 * worst_scale, (
         f"a section carries bend-twist coupling: |D16|+|D26| = {worst_offdiag:.3e} "
         f"vs scale {worst_scale:.3e} in {worst_section}"
@@ -221,15 +239,24 @@ def test_blade_twist_is_load_path_dominated(solved):
     the twist - unlike the deflection - is first-order sensitive to that choice.
     """
     surface = solved["solve"](_station_load(solved, lambda nds: nds))
-    leading = solved["solve"](_station_load(solved, lambda nds: nds[np.argmin(solved["x"][nds])][None]))
-    midchord = solved["solve"](_station_load(solved, lambda nds: nds[np.argmin(np.abs(solved["x"][nds]))][None]))
+    leading = solved["solve"](
+        _station_load(solved, lambda nds: nds[np.argmin(solved["x"][nds])][None])
+    )
+    midchord = solved["solve"](
+        _station_load(solved, lambda nds: nds[np.argmin(np.abs(solved["x"][nds]))][None])
+    )
 
-    print(f"\nroot moment {ROOT_MOMENT_NM/1e6:.1f} MNm, twist = mean rotation about z at the tip")
-    for label, (flap, twist) in (("surface nodes", surface), ("leading edge", leading),
-                                 ("mid-chord", midchord)):
+    print(f"\nroot moment {ROOT_MOMENT_NM / 1e6:.1f} MNm, twist = mean rotation about z at the tip")
+    for label, (flap, twist) in (
+        ("surface nodes", surface),
+        ("leading edge", leading),
+        ("mid-chord", midchord),
+    ):
         print(f"  {label:16} tip flap {flap:7.3f} m   twist {np.rad2deg(twist):+9.3f} deg")
 
-    twist_surface, twist_leading, twist_mid = (np.rad2deg(v[1]) for v in (surface, leading, midchord))
+    twist_surface, twist_leading, twist_mid = (
+        np.rad2deg(v[1]) for v in (surface, leading, midchord)
+    )
     # The deflection is insensitive to the line of action; the twist is not.
     assert abs(surface[0] - leading[0]) < 0.10 * abs(surface[0])
     assert abs(twist_leading) > 10 * abs(twist_surface)
@@ -257,8 +284,10 @@ def test_mesh_free_edges_document_the_open_finding(blade_model):
     free_edges = [edge for edge, uses in edge_uses.items() if uses == 1]
     z_free = sorted({round(z_of[a], 3) for a, _ in free_edges})
     mid_span = [zz for zz in z_free if 5.0 < zz < 112.0]
-    print(f"\n{len(mesh.elements)} elements, {len(edge_uses)} edges, "
-          f"{len(free_edges)} free edges at z = {[round(zz, 2) for zz in z_free]}")
+    print(
+        f"\n{len(mesh.elements)} elements, {len(edge_uses)} edges, "
+        f"{len(free_edges)} free edges at z = {[round(zz, 2) for zz in z_free]}"
+    )
     print(f"  free edges at mid-span stations: {[round(zz, 2) for zz in mid_span]}")
     assert mid_span, (
         "no mid-span free edges: the mesh tear appears fixed, so update this test "

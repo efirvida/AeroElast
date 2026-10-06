@@ -103,7 +103,9 @@ def _build_plate() -> MeshModel:
                 )
             )
 
-    mesh.add_node_set(NodeSet("clamped", {n for n in mesh.nodes if np.isclose(n.x, 0.0, atol=1e-12)}))
+    mesh.add_node_set(
+        NodeSet("clamped", {n for n in mesh.nodes if np.isclose(n.x, 0.0, atol=1e-12)})
+    )
     mesh.add_element_set(ElementSet("plate", set(mesh.elements)))
     return mesh
 
@@ -174,9 +176,7 @@ def _run_ccx_outer_fibre(tmp_path: Path, mesh: MeshModel) -> float:
                 out.append(f"{nd.id:8d}, 3, {-per_node:.6E}")
     inp.write_text("\n".join(out) + "\n")
 
-    proc = subprocess.run(
-        [str(ccx_bin), "plate"], cwd=tmp_path, capture_output=True, text=True
-    )
+    proc = subprocess.run([str(ccx_bin), "plate"], cwd=tmp_path, capture_output=True, text=True)
     if proc.returncode != 0:
         pytest.fail(f"CalculiX failed (rc={proc.returncode}):\n{proc.stdout[-1500:]}")
 
@@ -193,9 +193,7 @@ def plate_stress(tmp_path_factory: pytest.TempPathFactory) -> dict:
     recovery = StressRecovery(domain, u)
 
     def max_von_mises(location: StressLocation) -> float:
-        result = recovery.compute_element_stresses(
-            location=location, stress_type=StressType.TOTAL
-        )
+        result = recovery.compute_element_stresses(location=location, stress_type=StressType.TOTAL)
         return float(np.asarray(result.von_mises).max())
 
     upper = max_von_mises(StressLocation.TOP)
@@ -235,8 +233,7 @@ def test_outer_fibre_stress_matches_ccx_and_analytical(plate_stress: dict) -> No
     ccx = plate_stress["ccx"]
     rel_ana = abs(aero - ANALYTICAL_STRESS) / ANALYTICAL_STRESS
     print(
-        f"  aero vs ccx {abs(aero - ccx) / ccx * 100:.2f}%, "
-        f"aero vs analytical {rel_ana * 100:.2f}%"
+        f"  aero vs ccx {abs(aero - ccx) / ccx * 100:.2f}%, aero vs analytical {rel_ana * 100:.2f}%"
     )
     # Two references, two statements, two comparisons: the test says which is which and the store
     # reads it, instead of the kinds being declared beside the row. See docs/adding-validation-tests.md.
