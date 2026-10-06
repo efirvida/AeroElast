@@ -336,7 +336,11 @@ class ForceProjector:
                 local = np.asarray(group, dtype=np.intp)
                 try:
                     cells, adjacency, edge_length, edge_shear_stiffness = ring_section(
-                        mesh, strip.node_indices[local], span_dir, element_properties
+                        mesh,
+                        strip.node_indices[local],
+                        span_dir,
+                        element_properties,
+                        coords=coords,
                     )
                 except ValueError:
                     sections.append(None)
@@ -1191,6 +1195,7 @@ def ring_section(
     ring_nodes,
     span_dir,
     element_properties: dict | None = None,
+    coords: np.ndarray | None = None,
 ) -> tuple[list[SectionCell], dict, dict, dict]:
     """Cells, adjacency, edge lengths and edge shear stiffness of one physical ring.
 
@@ -1217,6 +1222,13 @@ def ring_section(
         element's set has no entry, every wall falls back to a **uniform
         ``S = 1.0`` N/m** and the returned split is **geometric only**; the caller
         can therefore tell the two cases apart by inspecting the stiffness values.
+    coords : ndarray or None
+        Optional pre-materialized ``(N, 3)`` coordinate array for ``mesh``.  When
+        ``None`` the mesh's ``coords_array`` property is read here, which rebuilds
+        an ``(N, 3)`` array from the per-node objects on **every** access.  A caller
+        that invokes this function once per ring (e.g. ``ForceProjector.__init__``)
+        should read ``mesh.coords_array`` once and pass it in: the property cost is
+        then bounded by a constant per build instead of one access per ring.
 
     The wall graph
     --------------
@@ -1259,7 +1271,8 @@ def ring_section(
     if ring.size < 3:
         raise ValueError(f"ring_section needs at least 3 ring nodes, got {ring.size}")
 
-    coords = mesh.coords_array
+    if coords is None:
+        coords = mesh.coords_array
     ring_points = coords[ring]
     local_of_global = {int(global_index): local for local, global_index in enumerate(ring)}
     element_property = _element_property_by_id(mesh, element_properties)

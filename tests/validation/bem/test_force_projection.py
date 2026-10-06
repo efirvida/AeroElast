@@ -7,6 +7,8 @@ a simple rectangular mesh to verify:
   is emitted but force equilibrium is still preserved)
 """
 
+from typing import TypeVar
+
 import numpy as np
 import pytest
 
@@ -42,14 +44,47 @@ from aeroelast.solvers.bem.force_projection import RING_GAP_FRACTION, ForceProje
 # =====================================================================
 
 
-def _make_rectangular_mesh(n_span: int, n_chord: int, span_length: float, chord_length: float):
+class _CountingCoordsMesh(MeshModel):
+    """``MeshModel`` spy counting how many times ``coords_array`` is materialized.
+
+    ``MeshModel.coords_array`` is a property that rebuilds an ``(N, 3)`` array
+    from the per-node objects on **every** access (~8.6 ms on the 27609-node
+    fluid coupling mesh).  Counting the property hits is deterministic, unlike
+    a wall-clock assertion.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.coords_array_accesses = 0
+
+    @property
+    def coords_array(self):
+        self.coords_array_accesses += 1
+        return super().coords_array
+
+    @coords_array.setter
+    def coords_array(self, value):
+        super(_CountingCoordsMesh, self).coords_array = value
+
+
+_MeshT = TypeVar("_MeshT", bound=MeshModel)
+
+
+def _make_rectangular_mesh(
+    n_span: int,
+    n_chord: int,
+    span_length: float,
+    chord_length: float,
+    mesh_cls: type[_MeshT] | None = None,
+) -> tuple[_MeshT, float]:
     """Create a flat rectangular quad mesh in the XZ plane.
 
     Span direction: Z (from hub_radius to hub_radius + span_length).
     Chord direction: X.
     Y = 0 (flat plate).
 
-    Returns (mesh, hub_radius).
+    Returns (mesh, hub_radius).  ``mesh_cls`` lets the count-budget test supply
+    a spy subclass without duplicating the geometry.
     """
     hub_radius = 3.0  # arbitrary (the BEM stations' rotor-centre origin)
     Node._id_counter = 0
@@ -74,7 +109,8 @@ def _make_rectangular_mesh(n_span: int, n_chord: int, span_length: float, chord_
             elem_nodes = [nodes[n0], nodes[n1], nodes[n2], nodes[n3]]
             elements.append(MeshElement(elem_nodes, ElementType.quad))
 
-    mesh = MeshModel(nodes=nodes, elements=elements)
+    cls: type[_MeshT] = MeshModel if mesh_cls is None else mesh_cls  # type: ignore[assignment]
+    mesh = cls(nodes=nodes, elements=elements)
     return mesh, hub_radius
 
 
@@ -187,6 +223,43 @@ class TestForceProjectorConstruction:
         for strip in projector._strips:
             assigned.update(strip.node_indices.tolist())
         assert len(assigned) == len(mesh.nodes)
+
+
+class TestCoordsArrayAccessBudget:
+    """A projector build must materialize ``mesh.coords_array`` O(1) times.
+
+    The pre-strip precompute loop calls ``ring_section`` once per physical ring,
+    and ``ring_section`` used to read ``mesh.coords_array`` itself: 668 reads
+    (~5.7 s) per projector build on the smoke coupling mesh, once per preCICE
+    sub-iteration.  The coordinate array must be materialized a bounded, small
+    constant number of times per build, independent of the strip count.  This is
+    counted on a spy mesh rather than measured with wall-clock time.
+    """
+
+    #: One hoisted read, plus a small constant of headroom for any future
+    #: bounded use; the contract is that it never scales with the strip count.
+    MAX_PER_BUILD = 2
+
+    def test_access_count_is_a_small_constant(self):
+        counts = []
+        for n_span in (5, 11, 21):
+            mesh, hub_r = _make_rectangular_mesh(
+                n_span=n_span,
+                n_chord=4,
+                span_length=20.0,
+                chord_length=1.0,
+                mesh_cls=_CountingCoordsMesh,
+            )
+            blade_aero = _make_simple_blade_aero(
+                n_stations=n_span, hub_radius=hub_r, span_length=20.0
+            )
+            ForceProjector(mesh, blade_aero)
+            counts.append(mesh.coords_array_accesses)
+
+        assert all(c <= self.MAX_PER_BUILD for c in counts), (
+            f"coords_array materializations per build scaled with strip count: {counts}"
+        )
+        assert len(set(counts)) == 1, f"coords_array access count depends on strip count: {counts}"
 
 
 class TestForceConservation:
