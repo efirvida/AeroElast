@@ -989,7 +989,7 @@ class BEMFSIParticipant:
 
         m = meshio.Mesh(
             points=coords,
-            cells=meshio_cells,
+            cells=meshio_cells,  # pyright: ignore[reportArgumentType]
             point_data={"Force": forces_viz, "Displacement": disp_viz},
         )
         vtu_path = ts_dir / "fields.vtu"
@@ -1050,7 +1050,11 @@ class BEMFSIParticipant:
             point_data["twist_deg"] = bem_result.twist_deg.astype(float)
 
         cells = [("vertex", np.arange(n_strips).reshape(-1, 1))]
-        m = meshio.Mesh(points=centroids, cells=cells, point_data=point_data)
+        m = meshio.Mesh(
+            points=centroids,
+            cells=cells,
+            point_data=point_data,
+        )  # pyright: ignore[reportArgumentType] - meshio's stubs want ArrayLike, ndarray is one
         m.write(str(ts_dir / "bem_sections.vtu"))
 
     def _write_sectional_csv(self, bem_result: BEMResult, ts_dir: "Path") -> None:

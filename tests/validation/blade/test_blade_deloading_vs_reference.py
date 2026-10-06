@@ -195,17 +195,15 @@ def test_twist_sign_matches_the_declared_convention(deloading):
         f"edge downwind - tools/diagnose_sign_chain.py).  The corrected pitching-moment "
         f"axis gives +8.1048 deg"
     )
-    # NOT flipped with the omega assertion: this is the physical claim that the BEM twist
-    # rises (``alpha = phi - theta``) so the nose-down section unloads.  After (A) it is
-    # the exposed finding - the participant maps the mesh twist to the BEM twist through
-    # ``_twist_mesh_to_bem = -1`` (fsi_participant.py, outside this change's surfaces),
-    # which gives -8.1048 deg and makes the de-loading table's twist-only row RE-LOAD
-    # (+21.88% thrust) instead of unloading.  Left as-is to report it, not accommodated.
+    # The physical claim: the BEM twist rises (``alpha = phi - theta``) so a nose-down
+    # section rotation unloads the rotor.  The participant shares that sense
+    # (``_twist_mesh_to_bem = +1``, fsi_participant.py); when it was -1 it compensated the
+    # inverted pitching-moment axis fixed in 1146265 and turned the de-loading table's
+    # twist-only row into a +21.88% RE-LOADING, which is what exposed the chain.
     assert theta_bem_tip > 0.0, (
         f"the BEM twist increment is {np.rad2deg(theta_bem_tip):+.4f} deg; a nose-down "
         f"section rotation (+{np.rad2deg(omega_tip):.4f} deg) must RISE the BEM twist "
-        f"(alpha = phi - theta) so it unloads, so the increment must be positive.  The "
-        f"participant's _twist_mesh_to_bem = -1 gives the opposite sense here"
+        f"(alpha = phi - theta) so it unloads, so the increment must be positive"
     )
 
 
