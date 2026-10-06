@@ -31,7 +31,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "tests"))
 
-from _ccx_io import fail_ccx, parse_ccx_frequencies, run_ccx  # noqa: E402
+from tests.support.ccx_io import fail_ccx, parse_ccx_frequencies, run_ccx  # noqa: E402
 from conftest import ccx_bin_or_skip  # noqa: E402
 
 

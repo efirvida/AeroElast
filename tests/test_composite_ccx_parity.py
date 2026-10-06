@@ -52,7 +52,7 @@ from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.core.mesh.model import MeshModel  # noqa: E402
 from aeroelast.core.properties import CompositeShellProperty  # noqa: E402
 
-from _ccx_io import fail_ccx, run_ccx  # noqa: E402
+from tests.support.ccx_io import fail_ccx, run_ccx  # noqa: E402
 
 E1, E2, G12, NU12 = 44.6e9, 17.0e9, 3.27e9, 0.262
 THICKNESS = 8.0e-3
@@ -184,7 +184,7 @@ def _frd_tip_displacements(frd_path, mesh: MeshModel) -> dict:
     3x-wrong bend-twist (-0.1584 instead of -0.4518) while the same case passed
     when the file ran alone.  Map through `node_id_to_index` instead.
     """
-    from _ccx_io import parse_frd_disp  # noqa: PLC0415
+    from tests.support.ccx_io import parse_frd_disp  # noqa: PLC0415
 
     tip_nodes = list(mesh.get_node_set("tip").nodes.values())
     label = {n.id: mesh.node_id_to_index[n.id] + 1 for n in tip_nodes}

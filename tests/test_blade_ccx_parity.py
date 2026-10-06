@@ -58,12 +58,12 @@ from aeroelast.models.blade.model import Blade  # noqa: E402
 # Upstream's pipeline helpers: the property objects and the span direction the
 # assembler needs are produced once, in test_blade_iea15mw_validation, and
 # reused here so the two blade-vs-CalculiX comparisons cannot drift apart.
-from test_blade_iea15mw_validation import (  # noqa: E402
+from tests.validation.blade.test_blade_iea15mw_validation import (  # noqa: E402
     SPAN_DIRECTION,
     _to_rust_mesh,
 )
 
-from _ccx_io import fail_ccx, run_ccx  # noqa: E402
+from tests.support.ccx_io import fail_ccx, run_ccx  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 BLADE_YAML = REPO / "tests" / "IEA-15-240-RWT.yaml"
@@ -177,7 +177,10 @@ def _tip_metrics(
 
 def _ccx_tip_displacements(frd_path, mesh, coords) -> dict:
     """FRD translations, matched by COORDINATES (S8R renumbers the ids)."""
-    from test_orthotropic_shell_parity import _parse_ccx_frd, _parse_ccx_frd_coords
+    from tests.validation.parity.test_orthotropic_shell_parity import (
+        _parse_ccx_frd,
+        _parse_ccx_frd_coords,
+    )
 
     ccx_coords = _parse_ccx_frd_coords(frd_path)
     ccx_disp = _parse_ccx_frd(frd_path, list(ccx_coords))
@@ -210,13 +213,18 @@ def _ccx_bin_or_skip() -> str:
 def test_blade_parity_ccx(tmp_path, name):
     """Same blade, same layup, same load through AeroElast and CCX.
 
-    ``tip_flap`` and the two axial cases agree once the tip node set is named on
-    both sides (6.3% and 17.0%).  ``tip_edge`` does not: AeroElast gives 1.229 m
-    where CalculiX gives 3.450 m, a 64% gap, and since the flap case matches to
-    6% the disagreement is in the section's edgewise stiffness (the flap/edge
-    ratio is 6.5 for AeroElast and 2.5 for CalculiX).  That is left red on
-    purpose, with the measured numbers in the message: it is a real question
-    about the laminate mapping, not a tolerance to widen.
+    Measured 2026-10-06, every case inside the 20% bound: ``tip_flap`` 6.32%
+    (7.921 m vs 8.455 m), ``tip_edge`` 3.86% (3.317 m vs 3.450 m),
+    ``tip_axial_tension`` 7.57% (6.232 m vs 6.743 m) and
+    ``tip_axial_compression`` likewise.
+
+    The edgewise disagreement this docstring used to record as a 64% gap
+    (1.229 m vs 3.450 m, "left red on purpose") was closed by the section work
+    that landed after 2026-09-30; the numbers above are what the suite measures
+    now.  Superseded text kept for the record: *"``tip_edge`` does not:
+    AeroElast gives 1.229 m where CalculiX gives 3.450 m, a 64% gap ... That is
+    left red on purpose, with the measured numbers in the message: it is a real
+    question about the laminate mapping, not a tolerance to widen."*
     """
     ccx_bin = _ccx_bin_or_skip()
     load, expect_twist = CASES[name]
