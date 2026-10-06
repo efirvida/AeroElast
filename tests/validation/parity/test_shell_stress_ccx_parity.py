@@ -38,6 +38,7 @@ from scipy.sparse.linalg import spsolve
 from aeroelast.core.assembler import MeshAssembler
 
 from tests.support.assertions import assert_relative_error  # noqa: E402
+from tests import _production_arbiter as arbiter  # noqa: E402
 from aeroelast.core.mesh.entities import (
     ElementSet,
     ElementType,
@@ -116,6 +117,8 @@ def _model_cfg() -> dict:
 
 def _solve_aeroelast(mesh: MeshModel) -> tuple[MeshAssembler, np.ndarray]:
     domain = MeshAssembler(mesh=mesh, model=_model_cfg())
+    if domain._rust is None:
+        raise RuntimeError("the Rust assembler is required to build this comparison's K")
     rows, cols, vals = domain._rust.assemble_k()
     n = domain.dofs_count
     k = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))), shape=(n, n)).tocsr()
@@ -134,7 +137,7 @@ def _solve_aeroelast(mesh: MeshModel) -> tuple[MeshAssembler, np.ndarray]:
         force[6 * node_index[nd.id] + 2] = -per_node
 
     u = np.zeros(n)
-    u[free] = spsolve(k[np.ix_(free, free)], force[free])
+    u[free] = np.asarray(spsolve(k[np.ix_(free, free)], force[free])).ravel()
     return domain, u
 
 
@@ -257,4 +260,41 @@ def test_outer_fibre_stress_matches_ccx_and_analytical(plate_stress: dict) -> No
         kind="analytical",
         reference_name="beam theory M c / I, outer-fibre stress",
         what="outer-fibre von Mises stress",
+    )
+
+
+#: Bound for the production-vs-replica comparison. Measured on this case: 1.85e-10 relative
+#: (WU-3a), so this leaves ~5000x of margin while staying five orders tighter than TOL_CCX.
+ARBITER_RTOL = 1e-6
+
+
+def test_production_solver_matches_the_scipy_replica() -> None:
+    """The production static solver reproduces the replica on the same mesh, loads and BCs.
+
+    The replica above (production Rust ``K`` plus a scipy direct solve) is validated against
+    CalculiX and beam theory, which proves the *model*. This closes the other half: nothing else in
+    the suite drives the production solve path, so PETSc KSP and scipy could disagree and the suite
+    would stay green. Deliberately CalculiX-free so it runs wherever the suite runs.
+    """
+    mesh = _build_plate()
+    _, u_replica = _solve_aeroelast(mesh)
+
+    edge = arbiter.nodes_at_coordinate(mesh, L, axis=0)
+    u_prod = arbiter.solve_static(
+        mesh,
+        _model_cfg(),
+        fixed_dofs=arbiter.fixed_dofs_from_node_set(mesh, "clamped"),
+        nodal_loads_list=[arbiter.nodal_loads(edge, -FORCE, dof=2)],
+    )
+
+    arbiter.require_gap(
+        arbiter.displacement_gap(u_prod, u_replica), rtol=ARBITER_RTOL, label="plate 8x2"
+    )
+
+    mid_dof = 6 * edge[len(edge) // 2] + 2
+    w_prod, w_replica = float(u_prod[mid_dof]), float(u_replica[mid_dof])
+    rel = abs(w_prod - w_replica) / abs(w_replica)
+    assert rel < ARBITER_RTOL, (
+        f"out-of-plane tip displacement: production {w_prod:.6e} against replica "
+        f"{w_replica:.6e} ({rel:.3e} relative, bound {ARBITER_RTOL:.1e})"
     )
