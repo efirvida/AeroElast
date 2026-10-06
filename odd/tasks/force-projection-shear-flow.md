@@ -216,6 +216,36 @@ behaviour; the shell matches an independent FE code to 4% where it is converged;
 realisations (1.56 -> 0.78 deg over 1.0 -> 0.25 m) all hold. The residual magnitude against Zhou
 is therefore the **aero** side, which is the next phase.
 
+## Campaign re-run — the gates, and what is not a gate (2026-10-05)
+
+Every FSI campaign on disk predates `1146265`, so its numbers are invalid: they were produced
+with the inverted pitching-moment axis and the inverted twist feedback. Relaunching them is the
+*closure* of that fix. It is not blocked by the validation gaps — it is blocked by three things
+that would move the campaign numbers:
+
+1. **The merged FSI path has never been re-validated.** The campaigns run
+   `LinearDynamicFSIRotorCorotationalSolver` over the merge's hybrid FSI/Rust stack, and the three
+   sign corrections landed on top of it without an FSI run since. Gate: `tests/run_step1b_smoke.srm`,
+   a 30 s BEM <-> FEM case whose criterion is the de-loading signature itself — the flexible thrust
+   must land **below** the rigid anchor (2.541 MN). Job `11609164`.
+2. **The structural solve is linear.** A `spsolve` on a linear `K` cannot produce the second-order
+   shortening: the deformed centroid path measures 119.1356 m against 117.2256 m, and that
+   artefact re-loads the rotor by +1.13% thrust. A modelling decision before the campaigns: accept
+   and document it, or move the one-way path to a geometric solve.
+3. **Issue #10.** The parked V50 case diverges (2168 m against a ~8 m reference) — that case cannot
+   be relaunched until the coupling instability is understood.
+
+Not gates, but to be framed in the write-up: the twist magnitude against Zhou (1.61x with their
+loads, 2.25x with ours, and their reference is **not transferable** — unpublished pitch,
+unpublished section-stiffness source, and a torsional quantity that is definitionally different);
+our `Tp` running +31% of theirs while `Np` and `Mp` match to 1%; and the multi-cell realisation not
+being active in production (4% at the converged mesh, a refinement).
+
+**Order once the gates clear:** the smoke; then `convergence_b1_b2` (cheapest, and the numerical
+closure); then the yaw sweep (5 cases); then the ch6 matrix; the parked case excluded pending #10.
+Each re-run writes a new output directory and is compared against the stored snapshot with
+`tools/campaign_metrics.py collect` + `compare --alias`.
+
 ## Constraints
 
 - `src/aeroelast/solvers/bem/force_projection.py` is production; this issue authorises changing
