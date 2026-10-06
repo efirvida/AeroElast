@@ -33,15 +33,28 @@ gaps:
     scope: "rotating and centrifugal modal shift"
     status: not_validated
     reason: >-
-      The MITC4 `K_G` thickness bug was fixed (issue #7), but the rotating
-      modes are compared against no independent rotor source anywhere in
-      this suite.
+      CLOSED AS A VALIDATION, OPEN AS A ROW (re-checked 2026-10-06): the
+      rotating and centrifugal shift IS compared against an independent rotor
+      source. `tests/test_iea15mw_s4_rotating_modal.py` asserts 1st flap, 1st
+      edge and 2nd flap against the OpenFAST v5 MBC3 targets (assert rel <
+      REL_TOL) at parked and at 7.56 rpm, plus that centrifugal stiffening
+      raises the 1st flap from parked to rated; all three tests pass (re-run
+      2026-10-06, green in 168 s). The file's own measured agreement of
+      2026-09-09: rotating 1F +0.6%, 1E -4.5%, 2F -1.5%. What is missing is
+      not the work but its record: the store has no row for it, so the numbers
+      are still not citable. (Superseded text, kept for the record: "the
+      rotating modes are compared against no independent rotor source
+      anywhere in this suite".)
     evidence: >-
-      Issue #7 for the fix; no row asserts a rotating frequency against an
-      independent source.
+      tests/test_iea15mw_s4_rotating_modal.py, 3 passed on 2026-10-06 (parked
+      vs OpenFAST, 7.56 rpm vs OpenFAST, centrifugal stiffening). Issue #7
+      fixed the MITC4 K_G thickness bug that had made the claim rest on the
+      implementation. No row in the store asserts a rotating frequency yet:
+      registering the test as a group and extracting its rows is the remaining
+      step.
     consequence: >-
-      A centrifugal-stiffening claim rests on the geometric stiffness
-      implementation, not on a validation.
+      A centrifugal-stiffening claim is now validated against OpenFAST MBC3
+      for the IEA 15 MW blade, but it cannot be cited until the row exists.
     citations_forbidden: true
     rows: []
 
