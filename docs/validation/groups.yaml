@@ -841,9 +841,11 @@ groups:
       WindIO blade. Two comparisons become rows: the 1st flapwise against
       Table 5-2 of NREL/TP-5000-75698 within the suite's 5%, and the 1st
       edgewise within 10%, which the test justifies from the published
-      inter-method dispersion of that same mode (+-14% across the eight
-      methods compiled in Zhou et al. 2025 Table 3) rather than from what the
-      shell happens to produce. The 2nd flapwise is NOT a row: at converged
+      inter-method dispersion of that same mode: six independent models in
+      Zhou et al. 2025 (Energy 336:138488, Table 3) span 0.547-0.692 Hz for the
+      mode against the 0.6406 Hz reference, i.e. -14.6% to +8.0%, rather than
+      from what the shell happens to produce. Adjudicated in
+      adjudications/32-blade_v02_natural_frequencies.yaml. The 2nd flapwise is NOT a row: at converged
       resolution the shell lands about 6% below the beam value (1.4866 /
       1.5452 / 1.5539 Hz at element_size 1.00 / 0.50 / 0.25 against 1.659 Hz)
       and the increments collapse, so the test carries a shell-versus-beam

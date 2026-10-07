@@ -1,0 +1,58 @@
+# Adjudication record for group 32, written by the session that documented the
+# comparison.
+#
+# `extract --write` regenerates a row's `justification` and `notes` from the code
+# alone - only `measured` survives a re-extraction, by design - so the human
+# verdict on a bound lives here, where `check` validates it, not in the row.
+
+group: "32"
+scope: tests/validation/blade/test_iea15mw_v02_natural_frequencies.py
+run: 11f62c3
+date: 2026-10-06
+
+adjudications:
+  - id: ADJ-1032
+    row: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
+    field: comparisons[*].tolerance.justification
+    candidate_code: "_FREQ_TOL_EDGE = 0.10, a module literal of 0.10"
+    verdict: the 10% is the published dispersion of this mode, not a fitted margin
+    resolution: >-
+      The comparison is valid and citable as it stands. The bound is the
+      dispersion of the reference literature itself for this mode, not room
+      granted to our solver. Zhou et al. 2025 (Energy 336:138488, doi
+      10.1016/j.energy.2025.138488), Table 3 "Comparison of natural frequencies
+      of the IEA-15 MW blade", gives the 1st edgewise frequency of six
+      independent models: 0.665 (their GEBT), 0.692, 0.619, 0.547, 0.642 and
+      0.642 Hz. Against the single value this row measures against (0.6406 Hz,
+      NREL/TP-5000-75698 Table 5-2) that band is -14.6% to +8.0%, so the +/-14%
+      the code cites is the table's own spread and not an estimate. The suite
+      measured 0.698595 Hz, +9.05% against the reference and within 1% of the
+      band's upper edge (0.692 Hz): inside the published dispersion of the mode.
+      A 5% bound would therefore test our solver against the scatter of the
+      reference. The 5% rule of CONTRIBUTING applies to a reference that carries
+      that precision, and this one does not, so the bound stays at 10% with the
+      evidence recorded here, on the maintainer's instruction of 2026-10-06
+      ("esa comparacion con otras fuentes bien referenciadas es valida para el
+      articulo"). Recorded separately: the code and the group note in
+      groups.yaml said "eight methods" for a table with six, corrected on the
+      same evidence.
+    decided_by: session (validation store work), on the maintainer's standing instruction
+    date: 2026-10-06
+    status: resolved
+
+  - id: ADJ-1033
+    row: null
+    field: group.provenance_note
+    candidate_code: "not applicable: a group note, not a comparison"
+    verdict: the group note misquoted the table it justifies the bound from
+    resolution: >-
+      The note said the 1st edgewise tolerance rests on "the eight methods
+      compiled in Zhou et al. 2025 Table 3". Table 3 has six model columns
+      (the present GEBT plus Refs. [74], [26], [55], [75] and [56]); eight is
+      not what the table shows. The note now carries the band and its two
+      endpoints so the two figures can be checked against the paper without
+      re-deriving them, and the same correction is in the test docstring that
+      the tolerance's `justification` is regenerated from.
+    decided_by: session (validation store work)
+    date: 2026-10-06
+    status: resolved

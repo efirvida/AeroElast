@@ -145,9 +145,14 @@ class TestBladeNaturalFrequencies:
         shell measures 0.6977 Hz (+8.9 %): the official layup's double triax
         skin inboard makes the shell stiffer than the ElastoDyn reference in
         the edgewise direction.  This is inside the published inter-method
-        dispersion for the 1st edgewise mode of the IEA 15 MW (±14 % across
-        the eight methods compiled in Zhou et al. 2025, Table 3), so the
-        tolerance reflects the reference uncertainty, not a solver error.
+        dispersion for the 1st edgewise mode of the IEA 15 MW: Zhou et al. 2025
+        (Energy 336:138488, doi 10.1016/j.energy.2025.138488), Table 3, gives
+        0.665 / 0.692 / 0.619 / 0.547 / 0.642 / 0.642 Hz across six independent
+        models, i.e. -14.6 % to +8.0 % against this row's 0.6406 Hz reference,
+        and our 0.6986 Hz sits just inside that band.  The tolerance therefore
+        reflects the reference uncertainty, not a solver error: the 5 % suite
+        rule cannot apply to a reference whose own spread is 14 %.
+        Adjudicated in docs/validation/adjudications/32-blade_v02_natural_frequencies.yaml.
         (The UTD NuMAD blade measured 0.629 Hz (−1.8 %) — see
         docs/blade_input_divergence_utd_vs_official.md.)
         """

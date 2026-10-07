@@ -1208,23 +1208,38 @@ references:
     section: >-
       5. Verification benchmarks, reference models and validation literature
     kind: journal
-    authors: ['Zhou et al.']
+    authors: ['Le Zhou', 'Xin Shen', 'Lu Ma', 'Hua Ouyang', 'Zhaohui Du']
+    title: >-
+      Unsteady aeroelastic performance of the 15 MW floating offshore wind
+      turbine under surge condition
     venue: Energy
     volume: 336
     pages: 138488
     year: 2025
-    doi: null
-    doi_status: to_verify
-    held: False
-    verification: unverified
-    bibliographic_gaps: ['title']
+    doi: 10.1016/j.energy.2025.138488
+    doi_status: verified
+    held: true
+    held_files:
+    - ".sources/papers/Unsteady aeroelastic performance of the 15 MW floating offshore wind turbine under surge condition.pdf"
+    verification: verified_pdf
+    verification_note: >-
+      Read from the held PDF: the title, the five author names and the DOI
+      string 10.1016/j.energy.2025.138488 are the article's own header. The DOI
+      also resolves externally to the same title in Energy v336 (2025), article
+      S0360544225041301, so this record does not rest on the held copy alone.
+    bibliographic_gaps: []
     code_mentions: ['Zhou et al. 2025', 'Energy 336:138488']
     notes: >-
-      Added for the rated-case validation, whose docstring cites "Zhou et al.
+      Cited for the rated-case validation, whose docstring cites "Zhou et al.
       2025, Energy 336:138488, Table 6" and whose reference values are that
-      table. The authors are transcribed exactly as the file writes them, "et
-      al." and all, rather than expanded into names the file does not give; the
-      title and the DOI are not stated there and are declared as gaps.
+      table, and for group 32's 1st edgewise bound, which rests on the
+      inter-method dispersion of Table 3: six independent models give
+      0.665 / 0.692 / 0.619 / 0.547 / 0.642 / 0.642 Hz for that mode, i.e.
+      -14.6% to +8.0% against the 0.6406 Hz of NREL/TP-5000-75698 Table 5-2
+      (adjudication ADJ-1032 in
+      adjudications/32-blade_v02_natural_frequencies.yaml). The Table 3 figures
+      were read from the adjacent text at tmp/opencode/zhou2025.txt; the title
+      and the DOI were the two gaps this entry used to declare.
     orphan_ok: True
 
   - key: abaqus
