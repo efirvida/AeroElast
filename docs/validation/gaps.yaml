@@ -235,3 +235,58 @@ gaps:
       arbitrated in `force_projection_sense_p5`.
     citations_forbidden: true
     rows: []
+
+  - id: rotor_coupling_noncontraction
+    scope: >-
+      the implicit preCICE coupling (IQN-ILS) of the corotational rotor FSI
+      path, whose contraction is what makes a coupled number mean anything
+    status: open_defect
+    reason: >-
+      The implicit coupling of the corotational rotor path stopped contracting
+      between the campaign of 2026-09-30 and HEAD. The campaign that produced
+      the stored snapshots converged every one of its first 500 windows (mean
+      4.1 sub-iterations, max 18); the same case at HEAD spends its first 20
+      windows on the 30-iteration ceiling and converges 51 of 500 (10%). Both
+      the pre-fix and the post-fix sign chain fail it, so the sign fixes are not
+      the cause (`coupling-nonconvergence-sign-fixes-exonerated`); the regression
+      dates from the 2026-10-04 merge of origin/main or from the #11 batch that
+      follows it. The reading that this was the start-up transient was measured
+      and is refuted: every A/B that supported it ran 10 windows (0.1 s), and the
+      process that breaks needs ~1.9 s. One defect used to be mixed into this
+      one and is now closed on its own: the mesh-rotation -> BEM-twist sense was
+      derived from `tangential_direction` (the sense of the tangential FORCE),
+      which every production case YAML sets to `-x`, so production ran a factor
+      of `-1` that the static fixtures never saw. A rigid +2 deg nose-down
+      section rotation measured +10.63% of thrust on that frame against -13.05%
+      on the fixtures' frame, and it is what ran the coupled rotor away to
+      1e14 m at t ~ 1.9 s. Fixed 2026-10-07 (the sense is measured from the
+      leading edge now, guard P8). The runaway is gone; the non-contraction is
+      not, and it is the second, independent defect this entry records.
+    evidence: >-
+      `$SCRATCH/frontiersin_results_corotational_100s/yaw_0` (2026-09-30,
+      pre-merge, completed 100 s): 500 of its first 500 windows converged, mean
+      4.1 sub-iterations, max 18, first 20 = 15 11 11 13 13 12 11 10 11 10 11 10
+      11 9 9 8 6 8 7 6. `$SCRATCH/smoke_fix_results/twistfix_5s` (2026-10-07,
+      HEAD with the twist sense fixed, `max-time 5.0`): 500 windows, 51
+      converged (10%), mean 28.5, max 30, first 20 all at 30. The transient is
+      still violent at HEAD: the tip displacement peaks at 2783 m at t = 3.0 s
+      and thrust swings from -0.12 MN to +3.47 MN, against the campaign's
+      settled 7.2-7.4 m. `$SCRATCH/smoke_fix_results/base_fix` (2026-10-07, HEAD
+      before the twist fix) reads 328 of 500 "converged", which is an artefact of
+      its own runaway: once the structure is at 1e14 m `||F|| = 0` and each
+      window closes in 2 iterations. The two cases differ by one line of case
+      configuration on the SOLID mesh (`airfoil_spacing: cosine` for the
+      campaign, `constant` for the gate smoke); job 11610151 runs the campaign's
+      own case at HEAD to separate that from the code.
+    consequence: >-
+      Every number that comes out of the coupled path is uncitable while this
+      holds: the campaign relaunch (gate 1 of the 2026-10-05 gate list) cannot
+      start, the stored snapshots cannot be re-anchored against a fresh
+      baseline, and roadmap item 1 of issue #18 (#13, the axial artefact) cannot
+      be closed the way its own issue says it must - by measuring it on the
+      production outputs rather than on the static replica. The static one-way
+      table stands: `-26.01% / -15.61%` twist-only, `+1.24% / +0.95%`
+      radii-only, `-25.31% / -14.77%` production, and the fix of 2026-10-07 is
+      what makes its "production path" label true for the first time.
+    citations_forbidden: true
+    rows: []

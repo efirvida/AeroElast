@@ -133,12 +133,15 @@ out_of_scope:
   - files:
       - tests/validation/rotor/test_bem_fsi_deformed_geometry.py
     reason: >-
-      Its docstring calls it what it is: production guards for two confirmed
-      defects in the BEM-FSI participant, on the one-way de-loading path. The
-      rigid path against the standalone BEM is a regression guard that fixing
-      the deformed path did not break the undeformed one; the datum, the hub
-      protection and the twist agreement are invariants of the fix. None of
-      them is a physical quantity measured against an independent reference.
+      Its docstring calls it what it is: production guards for defects in the
+      BEM-FSI participant, on the one-way de-loading path. The rigid path
+      against the standalone BEM is a regression guard that fixing the deformed
+      path did not break the undeformed one; the datum, the hub protection and
+      the twist agreement are invariants of the fix; and the twist sense's
+      independence from `tangential_direction` (P8, added 2026-10-07) is an
+      invariance of the derivation plus an inequality on the sign of the thrust
+      change. None of them is a physical quantity measured against an
+      independent reference.
 
   - files:
       - tests/validation/blade/test_blade_deloading_vs_reference.py
