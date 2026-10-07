@@ -1,18 +1,25 @@
-"""One de-loading table, one sign convention, three BEM feedbacks (issue #9, WU-D).
+"""One de-loading table, one sign convention, six BEM feedbacks (issue #9, WU-D).
 
 The production one-way path feeds the BEM two entangled feedbacks - the deformed strip radii
 and the elastic section twist.  This module drives ``BEMFSIParticipant`` on the real IEA-15MW
 blade mesh, the real AeroDyn ``BladeAero`` and the rated point (V = 10.59 m/s, 7.56 rpm, pitch
 0), solves the shell **once** under the participant's own loads, and re-runs only the (cheap)
-BEM on the three feedback combinations - one table in one sign convention:
+BEM on the feedback combinations - one table in one sign convention:
 
     thrust and power as (flexible - rigid) / rigid, negative = the rotor unloads; twist in
     degrees about +span under the declared convention fluid +Y / rotor clockwise from behind.
 
-Rows: twist only (pure bend-twist unloading), deformed radii only (the axial-stretch
-re-loading artefact of verdict section 22.6), and twist + radii (production).  The table is
-**reported**; the only asserts are structural (rigid path invariance, twist sign, ``sum F``
-conservation).  No magnitude is asserted against Zhou et al. 2025 Table 6
+Rows: twist only (pure bend-twist unloading), the radii family as four rows - the radius
+definition bias alone (no deformation), the deformation increment with the projection metric,
+the same increment with a path metric of the deformed centroid line, and the two combined as
+production feeds them - plus twist + radii (production).  The path metric is measured beside
+the feedback and never fed to the BEM.
+
+The finding: the participant's radius is the mean span projection of the deformed strip nodes,
+so its response to deformation is the strip's own spanwise displacement to first order, while a
+path measure of the same configuration carries the second-order transverse term as well.  The
+table is **reported**; the only asserts are structural (rigid path invariance, twist sign,
+``sum F`` conservation).  No magnitude is asserted against Zhou et al. 2025 Table 6
 (-13.04% thrust / -8.38% power, flexible vs rigid).
 """
 
@@ -63,6 +70,10 @@ CONVENTION = (
 )
 SENSE_THRUST_TOL = 0.02  # the applied-load invariant of verdict section 22.4 / the P5 guard
 ZHOU_FLEX_THRUST_DELTA, ZHOU_FLEX_POWER_DELTA = -0.1304, -0.0838  # Zhou 2025 Table 6
+#: Float64 accumulation bound for the span-projection identity (issue #13).  The participant
+#: stores ``float(np.mean(deformed_coords[idx] @ s))``, so recomputing the increment in numpy
+#: must agree to rounding only; this is not a physical tolerance.
+SPAN_PROJECTION_TOL = 1e-9
 
 
 @pytest.fixture(scope="module")
@@ -108,6 +119,25 @@ def deloading():
     u[free] = np.asarray(spsolve(K[np.ix_(free, free)], load[free]))
     displacements = np.column_stack([u[0::6], u[1::6], u[2::6]])
     r_def, twist_def = participant._compute_deformed_geometry(displacements)
+    # The same call at zero displacement: the participant's own radius definition on the
+    # reference configuration.  Its offset from ``_ref_r`` is the mesh-vs-deck definition
+    # bias (issue #13); ``dr_proj`` is the deformation increment production actually feeds.
+    r_def_rigid, _ = participant._compute_deformed_geometry(np.zeros_like(displacements))
+    dr_proj = r_def - r_def_rigid
+    # Strip centroids from the participant's own strip node sets, for the path metric.
+    c_ref = np.stack(
+        [participant._ref_coords[idx].mean(axis=0) for idx in participant._strip_node_indices]
+    )
+    c_def = np.stack(
+        [
+            (participant._ref_coords[idx] + displacements[idx]).mean(axis=0)
+            for idx in participant._strip_node_indices
+        ]
+    )
+    r_path_ref = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(c_ref, axis=0), axis=1))])
+    r_path_def = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(c_def, axis=0), axis=1))])
+    dr_path = r_path_def - r_path_ref
+    L_ref, L_def = float(r_path_ref[-1]), float(r_path_def[-1])
 
     def bem(r: np.ndarray, twist: np.ndarray):
         solver, _ = participant._rebuild_bem_solver(r, twist)
@@ -141,6 +171,18 @@ def deloading():
         "twist": bem(ref_r, twist_def),
         "radii": bem(r_def, ref_twist),
         "both": bem(r_def, twist_def),
+        "r_def_rigid": r_def_rigid,
+        "dr_proj": dr_proj,
+        "dr_path": dr_path,
+        "c_ref": c_ref,
+        "c_def": c_def,
+        "r_path_ref": r_path_ref,
+        "r_path_def": r_path_def,
+        "L_ref": L_ref,
+        "L_def": L_def,
+        "radii_dr_proj": bem(ref_r + dr_proj, ref_twist),
+        "radii_dr_path": bem(ref_r + dr_path, ref_twist),
+        "radii_bias": bem(r_def_rigid, ref_twist),
     }
 
 
@@ -276,7 +318,7 @@ def test_de_loading_table_and_load_conservation(deloading):
         (
             "radii",
             "deformed radii only, reference twist",
-            "the geometric re-loading (axial-stretch artefact)",
+            "the radii feedback as production feeds it (bias + increment)",
             dr_tip,
             0.0,
         ),
@@ -286,6 +328,27 @@ def test_de_loading_table_and_load_conservation(deloading):
             "what production does today",
             dr_tip,
             dtheta_tip,
+        ),
+        (
+            "radii_dr_proj",
+            "radii, deformation increment only (projection metric)",
+            "the deformation increment production feeds, bias removed",
+            float(deloading["dr_proj"][tip_k]),
+            0.0,
+        ),
+        (
+            "radii_dr_path",
+            "radii, deformation increment only (path metric)",
+            "what a path measure would add instead",
+            float(deloading["dr_path"][tip_k]),
+            0.0,
+        ),
+        (
+            "radii_bias",
+            "radii, definition bias only (zero displacement)",
+            "the mesh-vs-deck radius definition bias, no deformation",
+            float(deloading["r_def_rigid"][tip_k] - deloading["ref_r"][tip_k]),
+            0.0,
         ),
     )
     print(f"\nDe-loading, one table, one sign convention: {CONVENTION}")
@@ -299,7 +362,7 @@ def test_de_loading_table_and_load_conservation(deloading):
         f"{base.power / 1e6:.6f} MW"
     )
     print(
-        f"  {'feedback fed to the BEM':40} {'isolates':48} {'d thrust':>9} {'d power':>9} "
+        f"  {'feedback fed to the BEM':62} {'isolates':58} {'d thrust':>9} {'d power':>9} "
         f"{'tip dr [m]':>10} {'tip dtwist [deg]':>16}"
     )
     deltas = {}
@@ -309,8 +372,22 @@ def test_de_loading_table_and_load_conservation(deloading):
         dp = float(bem.power) / float(base.power) - 1.0
         deltas[key] = (dt, dp)
         print(
-            f"  {feedback:40} {isolates:48} {dt:>+9.2%} {dp:>+9.2%} {dr:>+10.4f} {dtheta:>+16.4f}"
+            f"  {feedback:62} {isolates:58} {dt:>+9.2%} {dp:>+9.2%} {dr:>+10.4f} {dtheta:>+16.4f}"
         )
+
+    r_def_rigid = deloading["r_def_rigid"]
+    print(
+        "\nmetric block, the deformed-radius definition and the two increment metrics:\n"
+        f"  definition bias r_def_rigid - _ref_r: strip 0 "
+        f"{float(r_def_rigid[0] - deloading['ref_r'][0]):+.6f} m, tip "
+        f"{float(r_def_rigid[tip_k] - deloading['ref_r'][tip_k]):+.6f} m\n"
+        f"  tip increment: dr_proj {float(deloading['dr_proj'][tip_k]):+.6f} m, dr_path "
+        f"{float(deloading['dr_path'][tip_k]):+.6f} m\n"
+        f"  deformed centroid path length: L_ref {deloading['L_ref']:.6f} m, L_def "
+        f"{deloading['L_def']:.6f} m, L_def/L_ref - 1 "
+        f"{deloading['L_def'] / deloading['L_ref'] - 1.0:+.6f} "
+        f"({deloading['L_def'] / deloading['L_ref'] - 1.0:+.4%})"
+    )
 
     radii_power, both_power = deltas["radii"][1], deltas["both"][1]
     print(
@@ -318,7 +395,8 @@ def test_de_loading_table_and_load_conservation(deloading):
         f"production path: {both_power:+.2%} (positive = re-loads); twist alone: "
         f"{deltas['twist'][1]:+.2%} -> "
         f"{'same sign' if np.sign(radii_power) == np.sign(both_power) else 'opposite signs'}: "
-        f"the production power sign is set by the radius artefact, not the bend-twist unloading"
+        f"the production power sign is set by the radii feedback (deformation-driven radial "
+        f"redistribution), not the bend-twist unloading"
     )
     print(
         f"tip nodal displacement: axial (span) {axial:+.4f} m, radial (in-plane) {radial:+.4f} m "
@@ -333,7 +411,9 @@ def test_de_loading_table_and_load_conservation(deloading):
     )
     print(
         "bound (reported, not asserted): the one-way family is bracketed by the twist-only "
-        "(most de-loaded) and the radii-only (most re-loaded) rows; a converged fixed point "
+        "(most de-loaded) and the radii-only (the most re-loaded of the rows production can "
+        "feed; the path-metric row printed above is a counterfactual that is never fed to the "
+        "BEM) rows; a converged fixed point "
         "would deepen the twist, so the twist-only row is a lower bound on the converged thrust "
         "de-loading magnitude, and nothing here bounds it above.  It would still have to grow "
         "past 3x to reach Zhou's 13.04%, so one-way-vs-converged alone does not explain the gap."
@@ -346,4 +426,42 @@ def test_de_loading_table_and_load_conservation(deloading):
     assert abs(load_ratio - 1.0) < SENSE_THRUST_TOL, (
         f"the projected load |sum(F)| = {np.linalg.norm(applied):.4f} N is {load_ratio - 1.0:+.3%} "
         f"off bem.thrust/{n_blades} = {thrust_per_blade:.4f} N (the P5 guard's bound)"
+    )
+
+
+def test_deformed_radii_are_the_span_projection_not_a_path_length(deloading):
+    """The feedback's measuring stick is a span projection, not a path length (issue #13).
+
+    The claim in issue #13's terms: the feedback's measuring stick is the **mean span
+    projection of the deformed strip nodes onto the fixed span direction**
+    (``_compute_deformed_geometry``: ``r_def[k] = mean((X + u)[strip nodes] . s) + offset``),
+    so its displacement response is the strip's own spanwise displacement to first order -
+    exactly what this test asserts.  A path measure of the deformed centroid line would carry
+    the **second-order transverse term** instead (a laterally deflected strip line is longer
+    than its span projection), and that quantity is printed beside it in the de-loading table
+    and **never fed to the BEM**.
+
+    **Reported:** the tip values of ``dr_proj`` (production's increment), ``dr_path`` (the
+    path measure) and ``L_def/L_ref - 1``.  **Asserted:** one identity to float precision.
+    """
+    participant = deloading["participant"]
+    displacements = deloading["displacements"]
+    span_dir = participant._span_dir
+    proj_exact = np.array(
+        [float(np.mean(displacements[idx] @ span_dir)) for idx in participant._strip_node_indices]
+    )
+    dr_proj = deloading["dr_proj"]
+    tip_k = deloading["tip_k"]
+    ratio_minus_one = deloading["L_def"] / deloading["L_ref"] - 1.0
+    print(
+        f"\ntip increment: dr_proj {float(dr_proj[tip_k]):+.6f} m (span projection, fed to "
+        f"the BEM), dr_path {float(deloading['dr_path'][tip_k]):+.6f} m (path measure, not "
+        f"fed), L_def/L_ref - 1 {ratio_minus_one:+.6f} ({ratio_minus_one:+.4%})"
+    )
+    deviation = float(np.max(np.abs(dr_proj - proj_exact)))
+    assert deviation < SPAN_PROJECTION_TOL, (
+        f"the deformed-radius increment is {deviation:.3e} off mean(u_strip . s) (bound "
+        f"{SPAN_PROJECTION_TOL:.0e}); r_def is the mean span projection of the deformed strip "
+        f"nodes, so dr_proj[k] must equal mean(displacements[strip k] @ span_dir) exactly "
+        f"(issue #13)"
     )
