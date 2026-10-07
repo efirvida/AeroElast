@@ -178,7 +178,7 @@ def main() -> None:
             # resultant over the corner nodes AND the mid-side nodes the quadratic
             # conversion adds, so dividing by that count but summing only the
             # corners would count half the force and halve the work.
-            from _ccx_io import parse_frd_disp  # noqa: PLC0415
+            from tests.support.ccx_io import parse_frd_disp  # noqa: PLC0415
 
             full = parse_frd_disp(frd, loaded)
             per_node = np.asarray(load, dtype=float) / max(len(loaded), 1)
