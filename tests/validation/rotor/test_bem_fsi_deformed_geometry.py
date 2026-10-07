@@ -43,10 +43,9 @@ from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E4
 from tests.validation.blade.test_blade_rated_twist import STATION_GAP_TOLERANCE, _physical_stations  # noqa: E402
 
 from tests.support.paths import DATA_DIR  # noqa: E402
+
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
-AD_PRIMARY = (
-    DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
-)
+AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: Rated point.  ``bem_config["omega"]`` is rad/s and ``_compute_forces`` converts back to
 #: RPM, so the exact conversion is used: the rounded 0.79168 rad/s is 7.5599871 rpm
@@ -76,6 +75,15 @@ HUB_PROTECTION_FRACTION = 0.5
 TWIST_AGREEMENT_DEG = 1e-6
 OUTER_SPAN_FRACTION = 0.75
 
+#: The frame **every production case YAML carries** (62 files under ``tests/``,
+#: ``bem.tangential_direction = [-1, 0, 0]``).  It is the sense the tangential force
+#: ``Tp`` rides, and it makes ``span x tangential = -normal``.  Nothing about where the
+#: leading edge is follows from it, which is why it must not decide the twist sense.
+PRODUCTION_FRAME = {"tangential_direction": [-1.0, 0.0, 0.0]}
+
+#: A rigid nose-down section rotation, applied to the section as a whole.
+RIGID_ROTATION_DEG = 2.0
+
 
 @pytest.fixture(scope="module")
 def fsi():
@@ -104,9 +112,7 @@ def fsi():
     )
     n = assembler.dofs_count
     rows, cols, vals = assembler.assemble_k()
-    K = coo_matrix(
-        (np.asarray(vals), (np.asarray(rows), np.asarray(cols))), shape=(n, n)
-    ).tocsr()
+    K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))), shape=(n, n)).tocsr()
     root = {mesh.node_id_to_index[nid] for nid in mesh.get_node_set("RootNodes").node_ids}
     free = np.array(
         [i for i in range(n) if i not in {6 * r + d for r in root for d in range(6)}],
@@ -116,6 +122,7 @@ def fsi():
 
     blade_aero = build_blade_aero_from_aerodyn(AD_PRIMARY)
     participant = BEMFSIParticipant(mesh, blade_aero, BEM_CONFIG)
+    participant_prod = BEMFSIParticipant(mesh, blade_aero, {**BEM_CONFIG, **PRODUCTION_FRAME})
     forces_rigid, bem_rigid = participant._compute_forces(np.zeros((len(coords), 3)))
 
     load = np.zeros(n)
@@ -127,6 +134,7 @@ def fsi():
     phys_stations = _physical_stations(coords)
     return {
         "participant": participant,
+        "participant_prod": participant_prod,
         "blade_aero": blade_aero,
         "coords": coords,
         "u": u,
@@ -144,6 +152,19 @@ def _nearest_station(stations: list[float], target: float) -> float:
     """The merged physical station closest to ``target`` (both on the mesh datum)."""
     arr = np.asarray(stations, dtype=float)
     return float(arr[int(np.argmin(np.abs(arr - target)))])
+
+
+def _rigid_section_rotation(coords: np.ndarray, span: np.ndarray, angle_rad: float) -> np.ndarray:
+    """Displacement field of a rigid rotation of the whole blade about ``+span``.
+
+    The span axis is invariant under the rotation and every ring's in-plane field is
+    exactly a section rotation, so ``_section_rotation`` must return ``+angle_rad`` and
+    the deformed radii must be unchanged.  Applying it by hand is what makes the twist
+    sense an *input* to the test instead of an output of the solve.
+    """
+    axis = np.asarray(span, dtype=float)
+    axis = axis / np.linalg.norm(axis)
+    return angle_rad * np.cross(np.broadcast_to(axis, coords.shape), coords)
 
 
 def _ring_section_rotation(coords: np.ndarray, disp: np.ndarray, ring: np.ndarray) -> float:
@@ -170,8 +191,10 @@ def test_rigid_path_matches_the_standalone_bem(fsi):
 
     thrust_rel = abs(bem.thrust - reference.thrust) / abs(reference.thrust)
     power_rel = abs(bem.power - reference.power) / abs(reference.power)
-    print(f"\nrigid participant vs standalone BEM: thrust {bem.thrust / 1e6:.6f} MN "
-          f"(rel {thrust_rel:.3e}), power {bem.power / 1e6:.6f} MW (rel {power_rel:.3e})")
+    print(
+        f"\nrigid participant vs standalone BEM: thrust {bem.thrust / 1e6:.6f} MN "
+        f"(rel {thrust_rel:.3e}), power {bem.power / 1e6:.6f} MW (rel {power_rel:.3e})"
+    )
     assert thrust_rel < 1e-9
     assert power_rel < 1e-9
 
@@ -191,10 +214,12 @@ def test_deformed_radii_stay_on_the_reference_datum(fsi):
     r_def, _ = participant._compute_deformed_geometry(fsi["displacements"])
     shift = r_def - participant._ref_r
 
-    print(f"\nP6 datum: r_ref {participant._ref_r.min():.4f} .. {participant._ref_r.max():.4f} m"
-          f" | r_def {r_def.min():.4f} .. {r_def.max():.4f} m"
-          f" | r_def - r_ref {shift.min():+.4f} .. {shift.max():+.4f} m"
-          f" | max|shift| {np.max(np.abs(shift)):.4f} m (bound {DATUM_SHIFT_MAX_M})")
+    print(
+        f"\nP6 datum: r_ref {participant._ref_r.min():.4f} .. {participant._ref_r.max():.4f} m"
+        f" | r_def {r_def.min():.4f} .. {r_def.max():.4f} m"
+        f" | r_def - r_ref {shift.min():+.4f} .. {shift.max():+.4f} m"
+        f" | max|shift| {np.max(np.abs(shift)):.4f} m (bound {DATUM_SHIFT_MAX_M})"
+    )
     assert float(np.max(np.abs(shift))) < DATUM_SHIFT_MAX_M, (
         f"the deformed radii are a rigid {shift.mean():+.4f} m off the reference datum "
         f"(max |r_def - r_ref| = {np.max(np.abs(shift)):.4f} m, bound {DATUM_SHIFT_MAX_M} m)"
@@ -215,9 +240,14 @@ def test_elastic_twist_matches_the_nodal_section_rotation(fsi):
     physical tolerance, so it fails the moment the twist is taken from another node cloud
     (measured before the fix: +2.3764 deg at the tip against this reference's -1.5112).
 
-    Also asserted from physics: the outer-span section rotation is nose-down (negative
-    about +span), the response to the nose-down pitching moment of every loaded station at
-    rated (section 19).
+    Also asserted from physics: the outer-span section rotation is nose-down.  Nose-down is a
+    **positive** rotation about +span on this frame, fixed by the deck's own geometry - the
+    leading edge sits at +x, the load frame puts downwind (thrust) at +y, so a +z rotation
+    carries the leading edge downwind and reduces the angle of attack (the same statement
+    ``tests/validation/blade/test_blade_deloading_vs_reference.py`` declares).  This
+    assertion read ``< 0`` until 2026-10-07, which contradicted the sign every neighbouring
+    test and the corrected tip rotation (+8.1048 deg) it sits next to; it was a stale
+    expectation left over from ``_twist_mesh_to_bem = -1``, not a second convention.
 
     **Reported, not asserted:** the shell's mean nodal drilling rotation ``theta_z`` -
     measured, it is not the section rotation here (the tip ring reaches -3.8558 deg while
@@ -242,33 +272,99 @@ def test_elastic_twist_matches_the_nodal_section_rotation(fsi):
     rows = []
     for k in outer:
         ring = fsi["phys_rings"][_nearest_station(fsi["phys_stations"], mesh_station[k])]
-        rows.append((
-            k,
-            participant._ref_r[k],
-            len(ring),
-            float(np.rad2deg(section[k])),
-            float(np.rad2deg(
-                _ring_section_rotation(fsi["coords"], fsi["displacements"], ring))),
-            float(np.rad2deg(np.mean(u[6 * ring + 5]))),
-        ))
+        rows.append(
+            (
+                k,
+                participant._ref_r[k],
+                len(ring),
+                float(np.rad2deg(section[k])),
+                float(
+                    np.rad2deg(_ring_section_rotation(fsi["coords"], fsi["displacements"], ring))
+                ),
+                float(np.rad2deg(np.mean(u[6 * ring + 5]))),
+            )
+        )
 
     print("\nP7 twist, outer quarter of the span (degrees about +span):")
-    print(f"  {'strip':>5} {'r_ref[m]':>9} {'nodes':>6} {'production':>11} "
-          f"{'ring section':>13} {'nodal theta_z':>14}")
+    print(
+        f"  {'strip':>5} {'r_ref[m]':>9} {'nodes':>6} {'production':>11} "
+        f"{'ring section':>13} {'nodal theta_z':>14}"
+    )
     for k, r_ref, count, prod, reference, nodal in rows:
-        print(f"  {k:>5} {r_ref:>9.2f} {count:>6} {prod:>11.4f} {reference:>13.4f} "
-              f"{nodal:>14.4f}")
+        print(f"  {k:>5} {r_ref:>9.2f} {count:>6} {prod:>11.4f} {reference:>13.4f} {nodal:>14.4f}")
     gap = np.array([abs(row[3] - row[4]) for row in rows])
     nodal_gap = np.array([abs(row[3] - row[5]) for row in rows])
-    print(f"  production vs the ring's own section rotation: max {gap.max():.3e} deg; "
-          f"vs the nodal drilling rotation: max {nodal_gap.max():.4f} deg (reported)")
+    print(
+        f"  production vs the ring's own section rotation: max {gap.max():.3e} deg; "
+        f"vs the nodal drilling rotation: max {nodal_gap.max():.4f} deg (reported)"
+    )
 
     assert float(gap.max()) < TWIST_AGREEMENT_DEG, (
         f"the production elastic twist misses the centre ring's own section rotation by "
         f"{gap.max():.3e} deg: it is not the section's rotation"
     )
-    assert all(row[3] < 0.0 for row in rows), (
+    assert all(row[3] > 0.0 for row in rows), (
         "an outer-span section rotates nose-up under the rated nose-down pitching moment"
+    )
+
+
+def test_twist_sense_does_not_follow_the_tangential_force_reference(fsi):
+    """The twist sense must come from the leading edge, not from ``Tp``'s sense (P8).
+
+    ``tangential_direction`` configures which way the tangential **force** ``Tp`` points;
+    the participant also used it to decide which way a section rotation reaches CCBlade's
+    ``theta``, and the production YAMLs set it to ``-x``, so ``span x tangential = -normal``
+    and the derived factor flipped.  The static fixtures never pass the key, which is what
+    kept the two frames apart: group 27's table (twist-only -26.01% thrust) is measured in
+    the default frame, while every coupled run maps Solid->Fluid through the production one.
+
+    Arbitrated by the deck, not by preference: the leading edge sits at ``+x`` and the load
+    frame puts downwind at ``+y``, so a **positive** rotation about ``+span`` moves the
+    leading edge downwind - nose-down - and ``alpha = phi - theta`` requires ``theta`` to
+    RISE.  The factor is therefore ``+1`` in both frames, and a rigid nose-down rotation
+    must de-load in both.  Measured before the fix: factor ``-1`` in the production frame
+    and the same +2 deg rotation **re-loaded** the rotor at ``+10.63%`` against ``-13.05%``.
+
+    This is the coupling-side face of the defect that diverged the coupled rotor at
+    ``t ~ 1.9 s`` (``odd/tasks/coupled-divergence.md``).
+    """
+    span = fsi["participant"]._span_dir
+    coords = fsi["coords"]
+    rigid = _rigid_section_rotation(coords, span, np.deg2rad(RIGID_ROTATION_DEG))
+
+    print(f"\nP8 twist sense, a rigid +{RIGID_ROTATION_DEG} deg nose-down section rotation:")
+    print(f"  {'frame':>10} {'factor':>7} {'dtwist [deg]':>13} {'d thrust':>10}")
+    deltas = []
+    for label, participant in (
+        ("default", fsi["participant"]),
+        ("production", fsi["participant_prod"]),
+    ):
+        r_def, twist_def = participant._compute_deformed_geometry(rigid)
+        base, _ = participant._rebuild_bem_solver(participant._ref_r, participant._ref_twist)
+        deformed, _ = participant._rebuild_bem_solver(r_def, twist_def)
+        bem_base = base.compute(V_RATED, RPM_RATED, PITCH_RATED)
+        bem_deformed = deformed.compute(V_RATED, RPM_RATED, PITCH_RATED)
+        d_thrust = bem_deformed.thrust / bem_base.thrust - 1.0
+        deltas.append(d_thrust)
+        print(
+            f"  {label:>10} {participant._twist_mesh_to_bem:>+7.0f} "
+            f"{np.rad2deg(twist_def.max() - participant._ref_twist.max()):>13.4f} "
+            f"{d_thrust:>+9.2%}"
+        )
+        assert participant._twist_mesh_to_bem == pytest.approx(1.0), (
+            f"the {label} frame derives twist_mesh_to_bem = "
+            f"{participant._twist_mesh_to_bem:+.0f}: a positive rotation about +span is "
+            f"nose-down on this mesh (leading edge at +x, downwind at +y) and CCBlade's "
+            f"theta must RISE"
+        )
+        assert d_thrust < 0.0, (
+            f"the {label} frame does not de-load a rigid nose-down rotation "
+            f"({d_thrust:+.2%}): the twist feedback is inverted"
+        )
+
+    assert deltas[0] == pytest.approx(deltas[1], rel=1e-12), (
+        "the twist sense depends on tangential_direction, which configures the "
+        "tangential force and not the section frame"
     )
 
 
@@ -290,9 +386,7 @@ def test_one_way_de_loading_reduces_thrust_and_power(fsi):
     _, bem_def = participant._compute_forces(fsi["displacements"])
     _, twist_def = participant._compute_deformed_geometry(fsi["displacements"])
 
-    base_solver, _ = participant._rebuild_bem_solver(
-        participant._ref_r, participant._ref_twist
-    )
+    base_solver, _ = participant._rebuild_bem_solver(participant._ref_r, participant._ref_twist)
     twist_solver, _ = participant._rebuild_bem_solver(participant._ref_r, twist_def)
     bem_base = base_solver.compute(V_RATED, RPM_RATED, PITCH_RATED)
     bem_twist = twist_solver.compute(V_RATED, RPM_RATED, PITCH_RATED)
@@ -301,16 +395,21 @@ def test_one_way_de_loading_reduces_thrust_and_power(fsi):
     net_power = bem_def.power / bem_rigid.power - 1.0
     twist_thrust = bem_twist.thrust / bem_base.thrust - 1.0
     twist_power = bem_twist.power / bem_base.power - 1.0
-    print(f"\none-way de-loading (Zhou et al. Table 6 flexible vs rigid: "
-          f"{ZHOU_FLEX_THRUST_DELTA:+.2%} thrust, {ZHOU_FLEX_POWER_DELTA:+.2%} power)")
-    print(f"  elastic twist alone (reference radii): thrust {twist_thrust:+.2%}, "
-          f"power {twist_power:+.2%}")
-    print(f"  full production path (deformed radii): thrust {net_thrust:+.2%}, "
-          f"power {net_power:+.2%} (reported: the radius growth re-loads)")
+    print(
+        f"\none-way de-loading (Zhou et al. Table 6 flexible vs rigid: "
+        f"{ZHOU_FLEX_THRUST_DELTA:+.2%} thrust, {ZHOU_FLEX_POWER_DELTA:+.2%} power)"
+    )
+    print(
+        f"  elastic twist alone (reference radii): thrust {twist_thrust:+.2%}, "
+        f"power {twist_power:+.2%}"
+    )
+    print(
+        f"  full production path (deformed radii): thrust {net_thrust:+.2%}, "
+        f"power {net_power:+.2%} (reported: the radius growth re-loads)"
+    )
 
     assert twist_thrust < 0.0, "the elastic twist must reduce thrust"
     assert twist_power < 0.0, "the elastic twist must reduce power"
     assert net_thrust < 0.0, (
-        f"the deformed blade does not de-load in thrust on the production path "
-        f"({net_thrust:+.2%})"
+        f"the deformed blade does not de-load in thrust on the production path ({net_thrust:+.2%})"
     )

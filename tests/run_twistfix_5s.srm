@@ -1,0 +1,119 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=8
+#SBATCH --time=03:00:00
+#SBATCH -e twistfix5s_%j.err
+#SBATCH -J twistfix_5s
+#SBATCH -o twistfix5s_%j.out
+#SBATCH -p sequana_cpu
+
+# Does the corrected twist sense stop the coupled rotor from running away?
+#
+# The gate smoke (`run_step1b_smoke.srm`, 30 s) diverged at t ~ 1.9 s on
+# 2026-10-07 with `_twist_mesh_to_bem = -1` in the production frame (issue:
+# odd/tasks/coupled-divergence.md).  A rigid nose-down section rotation measured
+# +10.63% of thrust on that frame against -13.05% on the frame the static
+# fixtures derive.  This is the same case at `max-time 5.0` - past the 1.9 s
+# breakdown, cheap enough to answer before burning the full 3.7 h smoke.
+#
+# Criterion (the de-loading signature, measured, not asserted):
+#   * both participants exit 0 and ~500 windows complete,
+#   * the flexible thrust settles BELOW the rigid anchor 2.541 MN,
+#   * the outboard elastic twist is NOSE-DOWN and positive about +span,
+#   * the implicit coupling contracts: iterations per window fall like the
+#     campaign's (100% of its first 500 windows converged, mean 4.1).
+#
+# Usage: sbatch tests/run_twistfix_5s.srm [case-dir-name]
+#   twistfix_5s        (default) the smoke case, `airfoil_spacing: constant` on
+#                      both meshes -- what the gate job ran
+#   twistfix_cosine_5s the 2026-09-30 campaign's own case: cosine on the SOLID
+#                      mesh, constant on the fluid one -- the only case
+#                      difference between the healthy campaign and the smoke
+set -euo pipefail
+
+CASE="${1:-twistfix_5s}"
+
+module purge
+module load glu gcc/14.2.0_sequana
+export VENV_DIR=$SCRATCH/venv
+export PATH=${VENV_DIR}/bin/:$PATH
+GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
+export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
+
+SUBMIT_DIR=/scratch/leahk/eduardo.donestevez/fem-shell/tests
+CASES_DIR=${SUBMIT_DIR}/smoke_fix/${CASE}
+RESULTS_BASE=${SCRATCH}/smoke_fix_results
+CASE_DIR=${RESULTS_BASE}/${CASE}
+rm -rf ${CASE_DIR}
+mkdir -p ${CASE_DIR}/logs
+echo "case: ${CASE}  ->  ${CASE_DIR}"
+
+( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_solid.sh ${CASES_DIR}/solid_corotational_yaw_0.yaml ) \
+    >> ${CASE_DIR}/logs/solid.log 2>&1 &
+SOLID_PID=$!
+sleep 2
+( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_fluid.sh ${CASES_DIR}/fluid_yaw_0.yaml ${CASE_DIR} ) \
+    >> ${CASE_DIR}/logs/fluid.log 2>&1 &
+FLUID_PID=$!
+
+FAILED=0
+wait ${SOLID_PID} || { echo "[FAIL] solid exit=$?"; FAILED=1; }
+wait ${FLUID_PID} || { echo "[FAIL] fluid exit=$?"; FAILED=1; }
+[[ ${FAILED} -eq 0 ]] && echo "TWISTFIX 5s RUN COMPLETE" || echo "TWISTFIX 5s RUN FAILED"
+
+python3 - "${CASE}" <<'PY'
+import csv, os, sys
+base = os.path.join(os.environ["SCRATCH"], "smoke_fix_results", sys.argv[1])
+rep = os.path.join(base, "fluid", "bem_report.csv")
+if not os.path.exists(rep):
+    print("no bem_report.csv - the run did not reach a window")
+    raise SystemExit(0)
+rows = list(csv.DictReader(open(rep)))
+t = [float(r["Time [s]"]) for r in rows]
+th = [float(r["Thrust [N]"]) for r in rows]
+d = [float(r["Max Disp [m]"]) for r in rows]
+print(f"windows: {len(rows)}  t_end: {t[-1]:.2f} s")
+print(f"thrust: first {th[0]/1e6:.3f} MN  min {min(th)/1e6:.3f}  max {max(th)/1e6:.3f}  last {th[-1]/1e6:.3f} MN (rigid 2.541)")
+print(f"max disp: max {max(d):.3f} m  last {d[-1]:.3f} m")
+tail = [r for r in rows if float(r["Time [s]"]) >= max(0.0, t[-1] - 1.0)]
+if tail:
+    print(f"last second: thrust {sum(float(r['Thrust [N]']) for r in tail)/len(tail)/1e6:.3f} MN, "
+          f"power {sum(float(r['Power [W]']) for r in tail)/len(tail)/1e6:.3f} MW, "
+          f"max disp {max(float(r['Max Disp [m]']) for r in tail):.3f} m")
+bounded = max(d) < 100.0
+print(f"BOUNDED: {bounded}  (divergence threshold: any 100 m tip)")
+fluiddir = os.path.join(base, "fluid")
+last = max(
+    (d for d in os.listdir(fluiddir) if os.path.isdir(os.path.join(fluiddir, d))), key=float
+)
+sec = os.path.join(base, "fluid", last, "bem_sectional.csv")
+if os.path.exists(sec):
+    with open(sec) as f:
+        hdr = f.readline().strip().split(",")
+        data = [l.split(",") for l in f if l.strip()]
+    ir, it = hdr.index("r[m]"), hdr.index("twist[deg]")
+    print(f"t={last}: r_tip {float(data[-1][ir]):.3f} m, twist_tip {float(data[-1][it]):+.3f} deg "
+          f"(reference tip twist -1.242 deg => elastic "
+          f"{float(data[-1][it]) + 1.242:+.3f} deg; positive about +span is nose-down)")
+PY
+
+python3 - "${CASE_DIR}/precice-Solid-iterations.log" <<'PY'
+import sys
+path = sys.argv[1]
+rows = []
+with open(path) as f:
+    f.readline()
+    for line in f:
+        p = line.split()
+        if len(p) >= 4:
+            rows.append((int(p[2]), int(p[3])))
+conv = sum(1 for _, c in rows if c)
+its = [i for i, _ in rows]
+print(f"coupling: windows {len(rows)}, converged {conv} ({100 * conv / max(1, len(rows)):.0f}%), "
+      f"iters mean {sum(its) / max(1, len(its)):.1f}, max {max(its, default=0)}")
+print(f"  first 20: {its[:20]}")
+print(f"  last 20:  {its[-20:]}")
+print("campaign reference (2026-09-30, first 500 windows): 100% converged, mean 4.1, max 18")
+PY
+
+echo "TWISTFIX 5s DONE"

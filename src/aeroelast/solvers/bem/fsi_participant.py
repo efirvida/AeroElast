@@ -340,31 +340,6 @@ class BEMFSIParticipant:
         )
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)
 
-        # -- Mesh span rotation -> BEM twist sense --------------------------
-        # A positive rotation of the section about +span turns the tangential
-        # (chord) axis toward ``span x tangential``.  When that direction is the
-        # configured downwind (normal) axis - the default frame, span x
-        # tangential = +y - the leading edge, which sits at positive x on this
-        # mesh, moves toward +y: the section pitches NOSE-DOWN and the angle of
-        # attack FALLS.  CCBlade's alpha = phi - theta then requires theta to RISE,
-        # so the mesh rotation and the BEM twist angle share their sense and the
-        # factor is +1.
-        #
-        # The factor used to be -1, which compensated an inverted aerodynamic
-        # moment in ForceProjector: measured before that fix, the applied section
-        # torque was nose-up (+4.839888e5 N.m against the polars' -2.766e5), and
-        # the -1 turned the resulting nose-up rotation into an apparent unloading
-        # of -4.00%.  With the moment axis corrected
-        # (tools/diagnose_sign_chain.py: the deck's leading-to-trailing direction
-        # runs against _strip_chord_dirs at every real station) the two errors no
-        # longer cancel: leaving -1 here turns the corrected nose-down rotation
-        # into a +21.88% re-loading.
-        self._twist_mesh_to_bem: float = (
-            1.0
-            if float(np.dot(self._normal_dir, np.cross(self._span_dir, self._tangential_dir))) > 0.0
-            else -1.0
-        )
-
         # -- BEM solver keyword arguments (constant across iterations) ------
         self._bem_solver_kwargs: dict = {
             "rho": bem_config.get("air_density", 1.225),
@@ -395,6 +370,17 @@ class BEMFSIParticipant:
             tangential_direction=self._tangential_dir,
         )
         self._projector = ref_projector
+
+        # -- Mesh span rotation -> BEM twist sense --------------------------
+        # A positive rotation of the section about +span carries its LEADING EDGE
+        # toward ``+span x leading_edge``.  The deck puts the leading edge at +x and
+        # the load frame puts the downwind (normal) axis at +y, so that motion is
+        # downwind: the section pitches NOSE-DOWN, the angle of attack falls, and
+        # CCBlade's ``alpha = phi - theta`` therefore requires ``theta`` to RISE.
+        # The mesh rotation and the BEM twist angle share their sense and the factor
+        # is +1.  ``_resolve_twist_sense`` reads the leading edge off the projector,
+        # which measures it per strip against the deck's own aerofoil tables.
+        self._twist_mesh_to_bem: float = self._resolve_twist_sense()
 
         # -- Strip-to-node mapping from the reference projector -------------
         # These index arrays define which mesh nodes belong to each BEM strip.
@@ -656,6 +642,53 @@ class BEMFSIParticipant:
             )
 
         return r_def, twist_def
+
+    def _resolve_twist_sense(self) -> float:
+        r"""``+1`` when a positive section rotation about :math:`+\hat{e}_s` is nose-down.
+
+        The sense is a property of the **section frame** - where the leading edge is
+        relative to the downwind axis - and not of the aerodynamic load senses.  It used
+        to be read from ``normal . (span x tangential)``, which conflates the two:
+        ``tangential_direction`` configures the sense of the tangential force
+        :math:`T_p` (``F = N_p \hat{n} + T_p \hat{c}``), and every production case YAML
+        sets it to ``-x`` so that :math:`T_p` drives the rotor at positive torque.  That
+        makes ``span x tangential = -normal``, so the old expression returned ``-1`` in
+        production while the static fixtures - which never pass ``tangential_direction`` -
+        returned ``+1``.  A rigid +2 deg nose-down rotation measured ``+10.63%`` of
+        thrust on the production frame against ``-13.05%`` on the fixtures' frame, and
+        the inverted feedback is what ran the coupled rotor away at ``t ~ 1.9 s``
+        (``odd/tasks/coupled-divergence.md``).
+
+        :class:`~aeroelast.solvers.bem.force_projection.ForceProjector` already measures
+        the missing piece: ``_section_ends`` identifies the leading edge on each strip's
+        station ring and ``_strip_moment_axis_sign`` records whether the strip's chord
+        axis runs leading-to-trailing (``+1``) or trailing-to-leading (``-1``), arbitrated
+        against the deck's own WindIO aerofoils.  The leading-edge direction is therefore
+        ``-_strip_moment_axis_sign * _strip_chord_dirs``, and a positive rotation about
+        ``+span`` is nose-down when that direction has a positive component along
+        ``normal x span``.  The strips are weighted by their width, as the projector
+        weights its own frame resolution.
+
+        Falls back to the configured frame's expression when there is no measurable
+        section outline (no chord axis): a mesh without sections has no leading edge, and
+        the caller that holds one must say which way ``T_p`` points.
+        """
+        chords = self._projector._strip_chord_dirs
+        signs = self._projector._strip_moment_axis_sign
+        weights = np.array([strip.dr for strip in self._projector._strips], dtype=float)
+        n = min(len(chords), len(signs), len(weights))
+        leading_edge = np.zeros(3)
+        for k in range(n):
+            leading_edge += weights[k] * -float(signs[k]) * np.asarray(chords[k], dtype=float)
+        if n == 0 or float(np.linalg.norm(leading_edge)) <= 1e-12:
+            return (
+                1.0
+                if float(np.dot(self._normal_dir, np.cross(self._span_dir, self._tangential_dir)))
+                > 0.0
+                else -1.0
+            )
+        sense = float(leading_edge @ np.cross(self._normal_dir, self._span_dir))
+        return 1.0 if sense > 0.0 else -1.0
 
     def _find_strip_rings(self) -> list[np.ndarray]:
         """Assign every BEM strip the physical mesh ring nearest its centre.
