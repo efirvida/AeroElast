@@ -231,11 +231,6 @@ def _clt_b_coupling_tip_deflection(lam):
 # because the extractor resolves a bound declared there and not one a class carries.
 TOL_CLOSED_FORM = 0.05
 
-# Quasi-isotropic layups carry a small but nonzero D16/D26 that inflates the compliance
-# roughly sixteen per cent above the Euler-Bernoulli value, so that comparison gets a
-# bound of its own instead of sharing the closed-form one.
-TOL_QUASI_ISO_D16_COUPLING = 0.20
-
 # The asymmetric laminates shared a 10% bound on the argument that the CLT B-coupling
 # deflection carries a shear correction the classical theory does not model. The measured
 # margins are 0.4464% and 0.4549%: a factor of eleven inside 5%, so the wider bound was
@@ -627,12 +622,27 @@ class TestSymmetricLaminates:
         )
 
     def test_quasi_iso_out_of_plane(self):
-        """[0/45/-45/90]s — MITC4Comp out-of-plane Fy.
-        Quasi-isotropic D matrix: D11 ≈ D22, small off-diagonal coupling.
+        """[0/45/-45/90]s — MITC4Comp out-of-plane Fy against the strip closed form.
+
+        The beam formula with the raw ``D22`` is not the right reference for a
+        free-edged strip, and the 20% bound this test carried was fitted to that
+        mistake. Measured on 2026-10-06 by zeroing the D16/D26 blocks of the section
+        stiffness the element consumes, the 15.5263% gap decomposes into 9.1694% of
+        reference error and 6.36 points of coupling:
+
+          - the free-edged strip stiffness is ``1/(D^-1)[1,1]``, not ``D22``. The
+            anticlastic term alone, ``D12^2/(D11 D22)``, is 9.1963% against the
+            measured 9.1694%, and the inversion carries the coupling as well;
+          - with that reference the same solve measures ~1.2%, so the suite rule
+            holds with the real laminate and the coupling included.
+
+        The comment this replaces claimed the coupling inflates the compliance
+        "roughly sixteen per cent": it is 6.36 points, and the rest was the formula.
         """
         lam = self._lam_quasi_iso()
-        D22 = lam.D[1, 1]  # κ_z; quasi-iso: D11 ≈ D22 so same result
-        EI = D22 * B
+        # A free-edged strip: bending with the lateral edges free, which is what the
+        # two-element-wide mesh does. The inverse carries D12 and D16/D26.
+        EI = (1.0 / np.linalg.inv(np.asarray(lam.D, dtype=float))[1, 1]) * B
         ref = _euler_bernoulli_tip(F, L, EI)
         prop = _lam_prop(lam)
         coords, conn, clamped, tips = _cantilever_quad_mesh(2, 20)
@@ -643,13 +653,11 @@ class TestSymmetricLaminates:
         u = _solve(asm, f, clamped)
         uy = _tip_disp(u, tips, 1)
         err = abs(uy - ref) / ref
-        # Quasi-iso has small but nonzero D16/D26 that inflates compliance ~16%;
-        # allow 20% tolerance.
         assert_residual_below(
             err,
-            tol=TOL_QUASI_ISO_D16_COUPLING,
+            tol=TOL_CLOSED_FORM,
             kind="analytical",
-            reference_name="the Euler-Bernoulli tip deflection for the same cantilever, which the quasi-isotropic D16/D26 coupling inflates",
+            reference_name="the Euler-Bernoulli tip deflection for the same cantilever with the free-edged strip stiffness 1/(D^-1)[1,1]",
             what="[0/45/-45/90]s quasi-isotropic out-of-plane tip deflection",
         )
 
