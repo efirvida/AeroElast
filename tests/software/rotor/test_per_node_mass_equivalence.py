@@ -53,6 +53,31 @@ def _reference_per_node_masses(
     )
 
 
+def test_the_result_is_contiguous_for_the_rust_binding() -> None:
+    """The gather must hand Rust a contiguous array.
+
+    The production path passes ``all_node_masses`` straight into
+    ``_aeroelast.run_rotor_fsi_solver``, and that binding rejects a strided view with
+    "The given array is not contiguous or is misaligned". The first version of the
+    bincount replacement kept the stride from ``row_sums[::dofs]``, because
+    ``astype(np.float64, copy=False)`` does not copy when the dtype already matches,
+    so every value-equivalence test stayed green while the coupled solver raised at
+    run time. This asserts the property those tests missed - and unlike them it has a
+    real RED: the shape it guards is strided before the fix.
+    """
+    rows = np.repeat(np.arange(0, 40 * DOFS, DOFS), 3).astype(np.int64)
+    vals = np.arange(rows.size, dtype=np.float64) + 1.0
+    strided = np.bincount(rows, weights=vals, minlength=40 * DOFS)[::DOFS][:40]
+    assert not strided.flags["C_CONTIGUOUS"], (
+        "this test has no teeth: the strided shape it guards came out contiguous"
+    )
+    masses = _per_node_translational_masses(rows, vals, DOFS, 40, 40 * DOFS)
+    assert masses.flags["C_CONTIGUOUS"], (
+        "the gather returned a strided view; the Rust binding rejects it"
+    )
+    assert np.allclose(masses, strided, rtol=0.0, atol=0.0)
+
+
 def test_pins_equivalence_on_synthetic_coo_with_empty_node() -> None:
     """Exact equality with the per-node reference, including an empty node.
 

@@ -249,7 +249,11 @@ def _per_node_translational_masses(
         weights=vals,
         minlength=max(int(n_full_dofs), n_nodes * dofs_per_node),
     )
-    return row_sums[::dofs_per_node][:n_nodes].astype(np.float64, copy=False)
+    # Contiguous on purpose: this array is handed to the Rust binding, which rejects a
+    # strided view ("The given array is not contiguous or is misaligned"). The earlier
+    # `astype(np.float64, copy=False)` kept the stride from `[::dofs_per_node]` and broke
+    # the production FSI path while every value-equivalence test stayed green.
+    return np.ascontiguousarray(row_sums[::dofs_per_node][:n_nodes], dtype=np.float64)
 
 
 class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
