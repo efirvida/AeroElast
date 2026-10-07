@@ -33,7 +33,7 @@ python3 -m pytest \
   tests/test_iea15mw_s3_newmark_transient.py \
   tests/test_iea15mw_s5_oneway.py \
   tests/test_iea15mw_s6_oneway_dynamic.py \
-  tests/test_iea15mw_s7_torsion.py \
+  tests/validation/blade/test_iea15mw_s7_torsion.py \
   tests/test_iea15mw_sx_campbell.py \
   tests/test_iea15mw_sx_campbell_cross.py \
   tests/test_iea15mw_v01_rotor_performance.py \
