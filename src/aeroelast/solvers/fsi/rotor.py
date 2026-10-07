@@ -1934,9 +1934,7 @@ class LinearDynamicFSIRotorCorotationalSolver(LinearDynamicFSISolver):
         mv = np.asarray(mv)
         dofs = self.domain.dofs_per_node
         n_nodes = len(self.domain.nodes)
-        all_node_masses = _per_node_translational_masses(
-            mr, mv, dofs, n_nodes, n_full_dofs
-        )
+        all_node_masses = _per_node_translational_masses(mr, mv, dofs, n_nodes, n_full_dofs)
 
         # ── OmegaProvider mapping ───────────────────────────────────────────
         omega_mode, omega_val, omega_target, t_ramp, moi, shaft_tau = self._map_omega_provider()
