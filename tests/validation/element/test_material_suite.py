@@ -930,8 +930,7 @@ class TestABDMatrices:
         # Reversing the stacking sequence flips the coupling.
         B11_reversed = create_laminate_from_angles(_ORTHO, h, [90, 0]).B[0, 0]
         assert abs(B11_reversed + B11_lam) < 1e-12 * abs(B11_lam), (
-            f"[90/0] B11 {B11_reversed:.6e} must be the negative of "
-            f"[0/90] {B11_lam:.6e}"
+            f"[90/0] B11 {B11_reversed:.6e} must be the negative of [0/90] {B11_lam:.6e}"
         )
 
     def test_a_matrix_single_ply(self):
@@ -971,13 +970,9 @@ class TestABDMatrices:
         from aeroelast.core.laminate import compute_Qbar
 
         Qb = compute_Qbar(_ORTHO, 45.0)
-        assert abs(Qb[0, 0] - Qb[1, 1]) / max(abs(Qb[0, 0]), 1.0) < 1e-8, (
-            "Q11_bar ≠ Q22_bar at 45°"
-        )
+        assert abs(Qb[0, 0] - Qb[1, 1]) / max(abs(Qb[0, 0]), 1.0) < 1e-8, "Q11_bar ≠ Q22_bar at 45°"
         # At +45°: Q16_bar = Q26_bar (same sign, both positive)
-        assert abs(Qb[0, 2] - Qb[1, 2]) / max(abs(Qb[0, 2]), 1.0) < 1e-8, (
-            "Q16_bar ≠ Q26_bar at 45°"
-        )
+        assert abs(Qb[0, 2] - Qb[1, 2]) / max(abs(Qb[0, 2]), 1.0) < 1e-8, "Q16_bar ≠ Q26_bar at 45°"
 
     def test_qbar_0_equals_q(self):
         """Qbar at 0° must equal Q (no rotation)."""
@@ -1019,7 +1014,14 @@ class TestABDMatrices:
 
     def test_cs_positive_definite(self):
         """Cs (transverse shear) matrix must be positive definite for all layups."""
-        layups = [[0.0], [90.0], [45.0], [0.0, 90.0], [0.0, 90.0, 90.0, 0.0], [0.0, 45.0, -45.0, 90.0, 90.0, -45.0, 45.0, 0.0]]
+        layups = [
+            [0.0],
+            [90.0],
+            [45.0],
+            [0.0, 90.0],
+            [0.0, 90.0, 90.0, 0.0],
+            [0.0, 45.0, -45.0, 90.0, 90.0, -45.0, 45.0, 0.0],
+        ]
         for angles in layups:
             lam = create_laminate_from_angles(_ORTHO, 0.005 / len(angles), angles)
             eigvals = np.linalg.eigvalsh(lam.Cs)
