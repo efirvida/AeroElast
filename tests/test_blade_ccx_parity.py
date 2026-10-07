@@ -78,10 +78,10 @@ BLADE_YAML = REPO / "tests" / "IEA-15-240-RWT.yaml"
 # 0.25 m the cases read 1.74/0.53/3.29% and the 5% suite rule is what holds. That is
 # why the test is slow: the quadratic export makes the CCX model ~98k nodes.
 ELEMENT_SIZE = 0.25
-TORQUE_MAGNITUDE = 5.0e6      # N.m about the span
-AXIAL_MAGNITUDE = 1.0e6       # N along the span (centrifugal scale)
-FLAP_MAGNITUDE = 1.0e5        # N, rotor-plane normal
-EDGE_MAGNITUDE = 1.0e5        # N, in-plane
+TORQUE_MAGNITUDE = 5.0e6  # N.m about the span
+AXIAL_MAGNITUDE = 1.0e6  # N along the span (centrifugal scale)
+FLAP_MAGNITUDE = 1.0e5  # N, rotor-plane normal
+EDGE_MAGNITUDE = 1.0e5  # N, in-plane
 
 # name -> (load vector in the blade frame, expect a measurable twist)
 #
@@ -142,11 +142,12 @@ def _aero_solve(mesh, props, load, torque=None) -> np.ndarray:
         for d in range(3):
             f[base + d] = load[d] / len(tip)
         if torque is not None:
-            f[base + 5] = torque / len(tip)      # rotation about the span (z)
+            f[base + 5] = torque / len(tip)  # rotation about the span (z)
 
     clamped = {
         mesh.node_id_to_index[n.id] * 6 + d
-        for n in mesh.get_node_set("RootNodes").nodes.values() for d in range(6)
+        for n in mesh.get_node_set("RootNodes").nodes.values()
+        for d in range(6)
     }
     mask = np.ones(asm.dofs_count, dtype=bool)
     mask[list(clamped)] = False
@@ -156,9 +157,7 @@ def _aero_solve(mesh, props, load, torque=None) -> np.ndarray:
     return u
 
 
-def _tip_metrics(
-    mesh, disp_nodes: dict, coords: np.ndarray, idx: list[int]
-) -> tuple[float, float]:
+def _tip_metrics(mesh, disp_nodes: dict, coords: np.ndarray, idx: list[int]) -> tuple[float, float]:
     """(mean displacement magnitude, section twist about the span) over ``idx``.
 
     ``idx`` is explicit on purpose.  The first version inferred it as
@@ -245,7 +244,7 @@ def test_blade_parity_ccx(tmp_path, name):
     mesh, props, coords = _blade()
     tip_idx = sorted(mesh.node_id_to_index[n.id] for n in mesh.get_node_set("tip").nodes.values())
     u = _aero_solve(mesh, props, load, torque=torque)
-    ae_disp = {i: u[i * 6:i * 6 + 3] for i in range(len(mesh.nodes))}
+    ae_disp = {i: u[i * 6 : i * 6 + 3] for i in range(len(mesh.nodes))}
     ae_mag, ae_twist = _tip_metrics(mesh, ae_disp, coords, tip_idx)
 
     # The writer only knows the load vector, so a couple has to travel in it: a
@@ -262,7 +261,8 @@ def test_blade_parity_ccx(tmp_path, name):
     stem = f"blade_{name}"
     inp = case_dir / f"{stem}.inp"
     write_ccx_mesh(
-        mesh, str(inp),
+        mesh,
+        str(inp),
         properties=props,
         boundary_nodeset="RootNodes",
         solver_type="LinearStatic",
@@ -285,11 +285,11 @@ def test_blade_parity_ccx(tmp_path, name):
 
     d_mag = abs(ae_mag - ccx_mag) / max(abs(ccx_mag), 1e-30)
     print(
-        f"{name:>24}: tip disp AE={ae_mag*1e6:10.3f} um CCX={ccx_mag*1e6:10.3f} um "
-        f"({d_mag*100:5.2f}%)  |  twist AE={ae_twist:+.6f} CCX={ccx_twist:+.6f} deg"
+        f"{name:>24}: tip disp AE={ae_mag * 1e6:10.3f} um CCX={ccx_mag * 1e6:10.3f} um "
+        f"({d_mag * 100:5.2f}%)  |  twist AE={ae_twist:+.6f} CCX={ccx_twist:+.6f} deg"
     )
 
-    assert d_mag < 0.05, f"{name}: tip displacement {d_mag*100:.1f}% off CCX (max 5%)"
+    assert d_mag < 0.05, f"{name}: tip displacement {d_mag * 100:.1f}% off CCX (max 5%)"
     if expect_twist:
         # The tip ring is too thin for a least-squares rotation: the CalculiX
         # side of the flap case alone returns +70 deg, which no 1e5 N flap load
