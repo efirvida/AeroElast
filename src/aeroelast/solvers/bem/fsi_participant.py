@@ -1083,11 +1083,14 @@ class BEMFSIParticipant:
             point_data["twist_deg"] = bem_result.twist_deg.astype(float)
 
         cells = [("vertex", np.arange(n_strips).reshape(-1, 1))]
+        # meshio's stubs want ArrayLike and ndarray is one, but they are invariant, so
+        # pyright reports the arguments.  The suppression has to sit on the reported
+        # lines; on the closing paren it does nothing (measured at HEAD).
         m = meshio.Mesh(
             points=centroids,
-            cells=cells,
-            point_data=point_data,
-        )  # pyright: ignore[reportArgumentType] - meshio's stubs want ArrayLike, ndarray is one
+            cells=cells,  # pyright: ignore[reportArgumentType]
+            point_data=point_data,  # pyright: ignore[reportArgumentType]
+        )
         m.write(str(ts_dir / "bem_sections.vtu"))
 
     def _write_sectional_csv(self, bem_result: BEMResult, ts_dir: "Path") -> None:
