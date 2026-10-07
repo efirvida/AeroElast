@@ -5,7 +5,7 @@ Registro de los ítems de validación **cerrados**, con su evidencia y el
 cierre). Este archivo es la fuente para el capítulo de validación del
 artículo y evita re-auditar lo ya cerrado.
 
-Última actualización: 2026-10-05.
+Última actualización: 2026-10-07.
 
 > **2026-09-30 — la línea de elementos cambió.** Se integró `origin/main` (el elemento
 > MITC4+/D revisado, el fix de ángulos de ply span-relative, el fix de corte no corregido,
@@ -641,3 +641,71 @@ deben rotar la sección en el mismo sentido. Lo que queda es una cuestión de **
 (~1.9× por encima de Zhou), no de signo (acoplamiento one-way vs convergido, o nivel de
 carga), más la prohibición de citar números pre-fix. Ver `docs/validation/gaps.yaml`
 (`moment_realization_over_delivers`, `force_projection_sense_p5`).
+
+### El artefacto axial de la realimentación de radios: REFUTADO (2026-10-07)
+
+Cierra la premisa de issue #13 registrada en el gap `force_projection_axial_extension`: que
+parte del `+1.24 %` de thrust de la fila de radios fuera un artefacto de medir un *path length*
+sobre el eje curvado de la pala, y no una extensión axial física. La premisa se mide y se
+refuta. Es la segunda y última causa registrada para ese gap: la primera, la fuerza spanwise
+que inyecta la distribución nodal, ya se había medido y refutado (sección 22.7 del veredicto,
+`odd/tasks/composite-bend-twist-verdict.md`), así que el gap se cierra como **refutado**, no
+como pendiente.
+
+Tres hechos de código, en `src/aeroelast/solvers/bem/fsi_participant.py`:
+
+1. La definición deformada es una **proyección de span**
+   (`r_def[k] = mean((X + u)[nodos del strip] . s) + offset`, `:632`), con `s` un vector
+   unitario fijo. No existe ninguna cantidad de longitud de camino en producción: un `grep` de
+   `arclen|path_len|path length|curve length|cumsum` sobre `src/aeroelast/solvers/` y
+   `crates/aeroelast-solvers/src/` no devuelve nada, y el bucle rotor en Rust no recibe ningún
+   campo de radios.
+2. El camino rígido hace **cortocircuito** antes de medir geometría deformada alguna
+   (`:910-912`, `disp_max < 1e-12` → solver y proyector de referencia preconstruidos), así que
+   el guard del camino rígido compara el cortocircuito consigo mismo.
+3. El datum de la malla se ancla en un solo punto (`:402`,
+   `_mesh_datum_offset = _ref_r[0] - _mesh_span.min()`).
+
+Medición (fixture `tests/validation/blade/test_blade_deloading_vs_reference.py`, HEAD
+2026-10-07: `BEMFSIParticipant` de producción, malla IEA-15MW real y
+`BladeAero` real de AeroDyn en el punto rated, un solo solve de cáscara bajo las cargas
+proyectadas del participante: **5 passed**). Todas las filas contra la misma baseline de construcción
+`_rebuild_bem_solver(_ref_r, _ref_twist)` = 2.541662 MN / 16.389372 MW:
+
+| fila alimentada al BEM | d thrust | d power | tip dr [m] |
+| --- | ---: | ---: | ---: |
+| radios, solo sesgo de definición (desplazamiento cero) | **-0.38 %** | **-0.17 %** | **-0.5969** |
+| radios, solo incremento por deformación (métrica de proyección) | **+1.89 %** | **+1.86 %** | **+1.1062** |
+| radios, solo incremento por deformación (métrica de camino) | **+3.63 %** | **+3.56 %** | **+2.1121** |
+| radios como producción los alimenta (sesgo + incremento) | **+1.24 %** | **+0.95 %** | **+0.5093** |
+
+Los deltas de las tres filas de radios son tres evaluaciones BEM separadas y **no son
+aditivos** (`-0.38 % + 1.89 % != +1.24 %`).
+
+**Conclusión**: el artefacto aporta **cero** al `+1.24 %` real. Si producción midiera un path,
+la fila daría `+3.63 % / +3.56 %`; el incremento por deformación medido con la métrica de
+producción es `+1.89 % / +1.86 %`, con `dr_proj` = `+1.106156 m` contra `dr_path` =
+`+2.112061 m` (`1.909x`, término transversal de segundo orden `47.6 %` del incremento de
+camino; longitudes `L_ref` = 116.181290 m, `L_def` = 118.293351 m, `+1.8179 %`).
+
+**Identidad pineada** (assert a `1e-9`): `dr_proj[k] == mean(displacements[strip k] .
+span_dir)`. La respuesta de `r_def` a la deformación es el desplazamiento axial del propio
+strip, a primer orden: una respuesta axial de un solve lineal, no un artefacto de camino.
+
+**Defecto nuevo que la reemplaza**: `radii_datum_definition_bias` (entra en
+`docs/validation/gaps.yaml`, y `force_projection_axial_extension` sale de ese archivo). El
+camino rígido usa los radios de estación del deck; el deformado reconstruye las estaciones con
+la proyección de span de la malla (`:632`) y su datum anclado en un solo punto (`:402`). A
+desplazamiento cero las dos definiciones difieren `+0.397959 m` en el strip 0 y `-0.596870 m`
+en el strip de punta, de modo que la primera iteración deformada mueve cada radio de estación
+hasta 0.6 m por sí sola y la fila de radios es la **suma neta** de un sesgo de definición
+`-0.38 % / -0.17 %` y un incremento por deformación `+1.89 % / +1.86 %`. Ningún guard lo ve:
+el guard del camino rígido compara el cortocircuito consigo mismo. Citar una cifra de la
+familia de radios como "la recarga geométrica" sobreestima la parte de la deformación; el
+resto de los números de la tabla conservan su significado, y los números acoplados pre-fix
+siguen sin ser citables.
+
+**Disparador de re-ejecución:** invalida este cierre cualquier cambio en
+`_compute_deformed_geometry`, en `_mesh_datum_offset`, en el cortocircuito rígido
+(`fsi_participant.py:910-912`), en la asignación de nodos por strip, o en el fixture
+`tests/validation/blade/test_blade_deloading_vs_reference.py`.

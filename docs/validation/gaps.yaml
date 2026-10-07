@@ -167,72 +167,53 @@ gaps:
       published rating is reported rather than tuned.
     citations_forbidden: true
     rows: []
-  - id: force_projection_axial_extension
+  - id: radii_datum_definition_bias
     scope: >-
-      the linear structural solve on the prebent blade axis, not the load
-      frame
+      the BEM annulus the deformed path feeds, against the deck's own station
+      radii the rigid path uses
     status: open_defect
     reason: >-
-      The deformed blade measures LONGER along the span than the reference
-      centroid path, and that growth re-loads the rotor. The cause first
-      recorded here - the local spanwise force the nodal distribution injects -
-      was measured and REFUTED (verdict 22.7): constraining the whole solve to
-      the section plane makes `sum|fz| = 0` exactly and moves the displacement
-      field by `max||du|| = 2.6e-3 m`, 0.016% of the 16.53 m response, with the
-      axial tip displacement going `+1.0630 -> +1.0631 m`. The lengthening comes
-      from the in-plane flapwise load acting on a curved (prebent) blade axis.
-      Re-derived on 2026-10-06 through the production load path, the mechanism is
-      sharper than "a linear solve cannot shorten": the axial shortening IS
-      returned (`-1.209 m` at the tip against the `-1.149 m` inextensional theory
-      predicts) and what grows is the *path measure*, by the second-order
-      transverse term, 98.8% of it from the flapwise deflection gradient. The
-      evidence block carries the decomposition. The solver
-      named in the measurement is a static scipy replica in the diagnostic; the
-      production rotor path is Rust/PETSc (`run_rotor_fsi_solver`), one linear
-      KSP step per Newmark step. The mechanism is solver-independent, the
-      magnitude below is not a production measurement.
+      The two annuli are not the same annulus. The rigid path short-circuits
+      before any deformed geometry is measured (`fsi_participant.py:910-912`),
+      while the deformed path rebuilds the stations from the mesh's mean span
+      projection (`:632`) with its datum anchored at a single point (`:402`,
+      `_mesh_datum_offset = _ref_r[0] - _mesh_span.min()`). At zero displacement
+      the two definitions differ by `+0.397959 m` (strip 0) and `-0.596870 m`
+      (tip strip), so the first deformed iteration moves every station radius by
+      up to 0.6 m on its own. No guard sees it: the rigid-path guard compares
+      the short-circuit path against itself.
     evidence: >-
-      The deformed centroid path measures `119.1356 m` against a `117.2256 m`
-      reference, `+1.629%`, with `sum fz = -3.5e-11 N` and `sum|fz| = 276,080 N`
-      (24.99% of `sum|fy| = 1,104,872 N`), 99.16% of which is the AC lever-arm
-      identity `M_bend = -dz_ac x (span x F)`, not torsion. Load split: the
-      spanwise system alone gives `-0.0032 m` at the tip, the flapwise component
-      alone `+1.0641 m`. Inextensional theory predicts about `-1.149 m` for a
-      16.42 m flap over 117 m. The rebuild below reaches `-1.209 m`, so the linear
-      solve does return the axial shortening; what the guard cannot assert is the
-      *sign of the path measure*, which grows by the transverse term instead.
-      Ring-centroid `y` runs `+0.36 m` at z = 24 m to `-4.00 m` at the tip, with
-      about `0.9 m` of x curvature. The prebend/precurve split IS established
-      (2026-10-06, re-derived because the diagnostic that produced these numbers
-      is no longer in the tree: `grep -rn 119.1356` finds nothing). Per segment,
-      with `dr` the reference chord and `du` the displacement difference,
-      `|dr+du| - |dr| = (dr.du)/|dr| + (|du|^2 - proj^2)/(2|dr|) + O^3`: the axial
-      projection term sums to `-0.0063 m`, its two parts cancelling (the prebend
-      slope contributes `+1.2189 m`, the axial response `-1.2087 m`), and the
-      transverse quadratic term to `+2.5547 m`, which is the whole artefact.
-      Within that term the flapwise direction carries `+2.5221 m` (98.8%) against
-      `+0.0164 m` for x and `+0.0162 m` for z. Counterfactuals on the measure:
-      zeroing the x curvature leaves `+2.5665 m` (103.7%); zeroing the y curvature
-      halves it to `+1.3171 m` (53.2%). The prebend carries the effect and the
-      precurve carries essentially none. Reproducibility: the rebuild gets
-      `L_ref = 117.2256 m` exactly and `L_def = 119.7010 m`, `+2.112%`, against the
-      `+1.629%` above. The deleted replica read the flapwise sense inverted
-      (`sum|fz| = 276,080 N` against `47,971 N`; flap-only tip axial `+1.0641 m`
-      against `-1.2103 m`), which is what the load-frame fixes changed, and the
-      decomposition is invariant under that flip (mirror case `+2.19%`). The
-      `+1.629%` magnitude therefore belongs to the pre-fix path and is not
-      citable.
+      Measured by
+      `tests/validation/blade/test_blade_deloading_vs_reference.py` at HEAD
+      2026-10-07: 5 passed, production `BEMFSIParticipant`, real
+      IEA-15MW mesh and real AeroDyn `BladeAero` at the rated point, one shell
+      solve under the participant's own projected loads. Every row is against
+      the same construction baseline `_rebuild_bem_solver(_ref_r, _ref_twist)`
+      = 2.541662 MN / 16.389372 MW. The four radii-family rows, thrust and power
+      as `(flexible - rigid) / rigid` and the tip `dr` in metres: definition
+      bias only (zero displacement) `-0.38% / -0.17%`, tip `dr -0.5969 m`;
+      deformation increment only (projection metric) `+1.89% / +1.86%`, tip
+      `dr +1.1062 m`; deformation increment only (path metric) `+3.63% /
+      +3.56%`, tip `dr +2.1121 m`; radii feedback as production feeds it (bias +
+      increment) `+1.24% / +0.95%`, tip `dr +0.5093 m`. The definition bias at
+      zero displacement is `+0.397959 m` at strip 0 and `-0.596870 m` at the
+      tip strip. `dr_proj` (production's deformation increment) tip =
+      `+1.106156 m`; `dr_path` (the same increment under the path metric) tip =
+      `+2.112061 m`, ratio `1.909x`, and the second-order transverse term is
+      `47.6%` of the path increment. Path lengths of the deformed strip-centroid
+      polyline: `L_ref = 116.181290 m`, `L_def = 118.293351 m`, `L_def/L_ref - 1
+      = +1.8179%`. The three radii deltas are three separate BEM evaluations and
+      are NOT additive (`-0.38% + 1.89% != +1.24%`). The identity pinned to
+      `1e-9`: `dr_proj[k] == mean(displacements[strip k] . span_dir)`, i.e.
+      `dr_proj` is the span projection of the strip's own spanwise
+      displacement, a linear-solve axial response, not a path artefact.
     consequence: >-
-      The radii feedback alone re-loads the rotor by `+1.24%` thrust and
-      `+0.95%` power, so it offsets part of the twist-only de-loading
-      (`-26.01% / -15.61%`), leaving the production path (twist + radii) at
-      `-25.31% / -14.77%`. That offset is partly this artefact and not
-      bend-twist. Numbers from the production path before the load-frame fixes
-      stay non-citable. What is NOT owed any more is a load-frame fix: removing
-      the spanwise force changes nothing measurable, so this gap is now a
-      structural-model question about linear analysis on a curved axis. The
-      twist/de-loading figures here are the corrected ones; the convention is
-      arbitrated in `force_projection_sense_p5`.
+      A radii-family figure from this table quoted as "the geometric
+      re-loading" overstates the deformation's share: the `+1.24% / +0.95%` row
+      is the net of a `-0.38% / -0.17%` definition bias and a `+1.89% / +1.86%`
+      deformation increment, so it cannot be read as the deformation's
+      contribution on its own. The table's other numbers keep their meaning. The
+      standing prohibition holds: pre-fix coupled numbers stay uncitable.
     citations_forbidden: true
     rows: []
 
@@ -247,13 +228,14 @@ gaps:
       the stored snapshots converged every one of its first 500 windows (mean
       4.1 sub-iterations, max 18); the same case at HEAD spends its first 20
       windows on the 30-iteration ceiling and converges 51 of 500 (10%). Both
-      the pre-fix and the post-fix sign chain fail it, so the sign fixes are not
-      the cause (`coupling-nonconvergence-sign-fixes-exonerated`); the regression
-      dates from the 2026-10-04 merge of origin/main or from the #11 batch that
-      follows it. The reading that this was the start-up transient was measured
-      and is refuted: every A/B that supported it ran 10 windows (0.1 s), and the
-      process that breaks needs ~1.9 s. One defect used to be mixed into this
-      one and is now closed on its own: the mesh-rotation -> BEM-twist sense was
+      the pre-fix and the post-fix sign chain fail it, so the sign fixes are
+      not the cause (`coupling-nonconvergence-sign-fixes-exonerated`); the
+      regression dates from the 2026-10-04 merge of origin/main or from the #11
+      batch that follows it. The reading that this was the start-up transient
+      was measured and is refuted: every A/B that supported it ran 10 windows
+      (0.1 s), and the process that breaks needs ~1.9 s. One defect used to be
+      mixed into this one and is now closed on its own: the mesh-rotation ->
+      BEM-twist sense was
       derived from `tangential_direction` (the sense of the tangential FORCE),
       which every production case YAML sets to `-x`, so production ran a factor
       of `-1` that the static fixtures never saw. A rigid +2 deg nose-down
@@ -271,11 +253,11 @@ gaps:
       converged (10%), mean 28.5, max 30, first 20 all at 30. The transient is
       still violent at HEAD: the tip displacement peaks at 2783 m at t = 3.0 s
       and thrust swings from -0.12 MN to +3.47 MN, against the campaign's
-      settled 7.2-7.4 m. `$SCRATCH/smoke_fix_results/base_fix` (2026-10-07, HEAD
-      before the twist fix) reads 328 of 500 "converged", which is an artefact of
-      its own runaway: once the structure is at 1e14 m `||F|| = 0` and each
-      window closes in 2 iterations. The two cases differ by one line of case
-      configuration on the SOLID mesh (`airfoil_spacing: cosine` for the
+      settled 7.2-7.4 m. `$SCRATCH/smoke_fix_results/base_fix` (2026-10-07,
+      HEAD before the twist fix) reads 328 of 500 "converged", which is an
+      artefact of its own runaway: once the structure is at 1e14 m `||F|| = 0`
+      and each window closes in 2 iterations. The two cases differ by one line
+      of case configuration on the SOLID mesh (`airfoil_spacing: cosine` for the
       campaign, `constant` for the gate smoke); job 11610151 runs the campaign's
       own case at HEAD to separate that from the code.
     consequence: >-

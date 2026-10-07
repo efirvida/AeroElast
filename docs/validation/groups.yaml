@@ -148,12 +148,17 @@ out_of_scope:
     reason: >-
       Issue #9's WU-D, and its own docstring says what that means: it drives the
       production participant on the real mesh and the real AeroDyn BladeAero to
-      produce one de-loading table in one sign convention. What it asserts is
-      the rigid baseline against the standalone BEM, a regression guard that the
-      deformed path did not change the undeformed one; the twist sign under the
-      declared convention; and the applied-load invariant its own comment ties
-      to verdict section 22.4 and the P5 guard. No physical quantity is measured
-      against an independent reference.
+      produce one de-loading table in one sign convention. The table now carries
+      the radii family as four rows -- the radius definition bias alone, the
+      deformation increment with the projection metric, the same increment with
+      a path metric of the deformed centroid line, and the two combined as
+      production feeds them -- plus the span-projection identity, which is a
+      property of the implementation and not a physical comparison. What it
+      asserts is the rigid baseline against the standalone BEM, a regression
+      guard that the deformed path did not change the undeformed one; the twist
+      sign under the declared convention; the applied-load invariant its own
+      comment ties to verdict section 22.4 and the P5 guard; and that identity.
+      No physical quantity is measured against an independent reference.
 
 groups:
   - id: "3"
