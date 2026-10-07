@@ -27,14 +27,20 @@ refinements instead, with `tools/blade_ccx_convergence.py`, and they do tend to
 the same value -- the gap at a fixed mesh is discretisation:
 
     element_size  nodes   flap      edge      axial
-    2.0            1460   10.56%    11.60%    12.43%
-    1.0            3043    6.22%     5.15%     7.43%
-    0.5            9277    3.68%     1.56%     4.90%
+    2.0            1460   10.60%    10.13%    12.57%
+    1.0            3043    6.32%     3.86%     7.57%
+    0.5            9277    3.68%     1.51%     4.88%
+    0.25          32336    1.74%     0.53%     3.29%
 
-The 20% band below is therefore a coarse-mesh band; the converged agreement is a
-few percent.  Caveat recorded with the table: the metric here is the mean over
-the tip nodes, which moves with the tip node distribution (flap reads 7.55 /
-7.94 / 7.12 m across the three meshes), so the trend of the gap is the signal.
+The test therefore runs on the converged mesh and asserts the suite's 5% rule
+rather than a mesh allowance.  Caveat recorded with the table: the metric here is
+the mean over the tip nodes, which moves with the tip node distribution (flap
+reads 7.55 / 7.94 / 7.12 / 7.11 m across the four meshes), so the trend of the
+gap is the signal.  At 0.25 m the worst case sits 1.7 points inside the bound.
+The energy metric is reported beside each row and is more sensitive on the axial
+cases (6.65% at 0.25 m against a 3.29% displacement gap): that is the curved-axis
+linearity the store records as `force_projection_axial_extension`, not a
+tolerance to widen.
 """
 
 from __future__ import annotations
@@ -67,7 +73,11 @@ from tests.support.ccx_io import fail_ccx, run_ccx  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[1]
 BLADE_YAML = REPO / "tests" / "IEA-15-240-RWT.yaml"
-ELEMENT_SIZE = 1.0            # coarse on purpose: CCX runs S8R (x4 elements)
+# The converged mesh. 1.0 m and 0.5 m are both unconverged, so a comparison there
+# measures two unfinished discretisations (6.32/3.86/7.57% and 3.68/1.51/4.88%); at
+# 0.25 m the cases read 1.74/0.53/3.29% and the 5% suite rule is what holds. That is
+# why the test is slow: the quadratic export makes the CCX model ~98k nodes.
+ELEMENT_SIZE = 0.25
 TORQUE_MAGNITUDE = 5.0e6      # N.m about the span
 AXIAL_MAGNITUDE = 1.0e6       # N along the span (centrifugal scale)
 FLAP_MAGNITUDE = 1.0e5        # N, rotor-plane normal
@@ -210,13 +220,15 @@ def _ccx_bin_or_skip() -> str:
 
 @pytest.mark.slow
 @pytest.mark.parametrize("name", list(CASES))
+@pytest.mark.slow
 def test_blade_parity_ccx(tmp_path, name):
     """Same blade, same layup, same load through AeroElast and CCX.
 
-    Measured 2026-10-06, every case inside the 20% bound: ``tip_flap`` 6.32%
-    (7.921 m vs 8.455 m), ``tip_edge`` 3.86% (3.317 m vs 3.450 m),
-    ``tip_axial_tension`` 7.57% (6.232 m vs 6.743 m) and
-    ``tip_axial_compression`` likewise.
+    Measured 2026-10-06 on the converged mesh (0.25 m), every case inside the 5%
+    rule: ``tip_flap`` 1.74% (7.105 m vs 7.231 m), ``tip_edge`` 0.53% (3.456 m vs
+    3.475 m), ``tip_axial_tension`` 3.29% (5.691 m vs 5.884 m) and
+    ``tip_axial_compression`` likewise. On the coarse meshes the same suite reads
+    6.32/3.86/7.57% at 1.0 m, which is what the 20% band it used to carry bought.
 
     The edgewise disagreement this docstring used to record as a 64% gap
     (1.229 m vs 3.450 m, "left red on purpose") was closed by the section work
@@ -277,7 +289,7 @@ def test_blade_parity_ccx(tmp_path, name):
         f"({d_mag*100:5.2f}%)  |  twist AE={ae_twist:+.6f} CCX={ccx_twist:+.6f} deg"
     )
 
-    assert d_mag < 0.20, f"{name}: tip displacement {d_mag*100:.1f}% off CCX (max 20%)"
+    assert d_mag < 0.05, f"{name}: tip displacement {d_mag*100:.1f}% off CCX (max 5%)"
     if expect_twist:
         # The tip ring is too thin for a least-squares rotation: the CalculiX
         # side of the flap case alone returns +70 deg, which no 1e5 N flap load
