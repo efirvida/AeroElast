@@ -211,7 +211,7 @@ If preCICE is missing, the package still imports — FSI solvers are simply disa
 ## Known test-suite quirks
 
 - `tests/test_blade_mesh.py` and `tests/test_rotor_inertial.py` have stale imports — exclude them by default (see test command above).
-- `tests/test_vol_mesh.py` no longer exists: the 2026-09-30 merge accepted upstream's removal of 3D solid support (Rust `7b295f3`, Python `9230ea2`), which also deleted `tests/test_solid_elements.py` and `tests/test_beam_4cases_parity.py`. The `--ignore=tests/test_vol_mesh.py` in the test command is now a harmless no-op. The surviving CalculiX checks read `tests/_ccx_io.py`.
+- `tests/test_vol_mesh.py` no longer exists: the 2026-09-30 merge accepted upstream's removal of 3D solid support (Rust `7b295f3`, Python `9230ea2`), which also deleted `tests/test_solid_elements.py` and `tests/test_beam_4cases_parity.py`. The `--ignore=tests/test_vol_mesh.py` in the test command is now a harmless no-op. The surviving CalculiX checks read `tests/support/ccx_io.py` (it was `tests/_ccx_io.py` before the suite became a package and the helpers moved into `tests/support/`).
 - `tests/test_ko2017_performance.py` has 8 pre-existing failures with tight tolerances on coarse distributed meshes — these are NOT regressions.
 - Some benchmarks under `tests/` are intentionally heavy and unsuitable for quick smoke tests.
 
