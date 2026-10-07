@@ -58,6 +58,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tests"))
 
 from _aeroelast import PyMeshAssembler  # noqa: E402
@@ -67,7 +68,10 @@ from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
 
 import test_blade_ccx_parity as blade_parity  # noqa: E402
-from test_blade_iea15mw_validation import SPAN_DIRECTION, _to_rust_mesh  # noqa: E402
+from tests.validation.blade.test_blade_iea15mw_validation import (  # noqa: E402
+    SPAN_DIRECTION,
+    _to_rust_mesh,
+)
 
 BLADE_YAML = REPO / "tests" / "IEA-15-240-RWT.yaml"
 CASES = {
