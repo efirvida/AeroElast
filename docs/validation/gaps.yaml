@@ -180,9 +180,13 @@ gaps:
       the section plane makes `sum|fz| = 0` exactly and moves the displacement
       field by `max||du|| = 2.6e-3 m`, 0.016% of the 16.53 m response, with the
       axial tip displacement going `+1.0630 -> +1.0631 m`. The lengthening comes
-      from the in-plane flapwise load acting on a curved (prebent) blade axis
-      inside a single linear solve on a linear `K`, which cannot produce the
-      second-order inextensional shortening the geometry implies. The solver
+      from the in-plane flapwise load acting on a curved (prebent) blade axis.
+      Re-derived on 2026-10-06 through the production load path, the mechanism is
+      sharper than "a linear solve cannot shorten": the axial shortening IS
+      returned (`-1.209 m` at the tip against the `-1.149 m` inextensional theory
+      predicts) and what grows is the *path measure*, by the second-order
+      transverse term, 98.8% of it from the flapwise deflection gradient. The
+      evidence block carries the decomposition. The solver
       named in the measurement is a static scipy replica in the diagnostic; the
       production rotor path is Rust/PETSc (`run_rotor_fsi_solver`), one linear
       KSP step per Newmark step. The mechanism is solver-independent, the
@@ -194,11 +198,30 @@ gaps:
       identity `M_bend = -dz_ac x (span x F)`, not torsion. Load split: the
       spanwise system alone gives `-0.0032 m` at the tip, the flapwise component
       alone `+1.0641 m`. Inextensional theory predicts about `-1.149 m` for a
-      16.42 m flap over 117 m, and a linear solve cannot reach it, so the guard
-      "assert the axial tip displacement is negative" is not writable against
-      this model. Ring-centroid `y` runs `+0.36 m` at z = 24 m to `-4.00 m` at
-      the tip, with about `0.9 m` of x curvature; the prebend/precurve split is
-      not established.
+      16.42 m flap over 117 m. The rebuild below reaches `-1.209 m`, so the linear
+      solve does return the axial shortening; what the guard cannot assert is the
+      *sign of the path measure*, which grows by the transverse term instead.
+      Ring-centroid `y` runs `+0.36 m` at z = 24 m to `-4.00 m` at the tip, with
+      about `0.9 m` of x curvature. The prebend/precurve split IS established
+      (2026-10-06, re-derived because the diagnostic that produced these numbers
+      is no longer in the tree: `grep -rn 119.1356` finds nothing). Per segment,
+      with `dr` the reference chord and `du` the displacement difference,
+      `|dr+du| - |dr| = (dr.du)/|dr| + (|du|^2 - proj^2)/(2|dr|) + O^3`: the axial
+      projection term sums to `-0.0063 m`, its two parts cancelling (the prebend
+      slope contributes `+1.2189 m`, the axial response `-1.2087 m`), and the
+      transverse quadratic term to `+2.5547 m`, which is the whole artefact.
+      Within that term the flapwise direction carries `+2.5221 m` (98.8%) against
+      `+0.0164 m` for x and `+0.0162 m` for z. Counterfactuals on the measure:
+      zeroing the x curvature leaves `+2.5665 m` (103.7%); zeroing the y curvature
+      halves it to `+1.3171 m` (53.2%). The prebend carries the effect and the
+      precurve carries essentially none. Reproducibility: the rebuild gets
+      `L_ref = 117.2256 m` exactly and `L_def = 119.7010 m`, `+2.112%`, against the
+      `+1.629%` above. The deleted replica read the flapwise sense inverted
+      (`sum|fz| = 276,080 N` against `47,971 N`; flap-only tip axial `+1.0641 m`
+      against `-1.2103 m`), which is what the load-frame fixes changed, and the
+      decomposition is invariant under that flip (mirror case `+2.19%`). The
+      `+1.629%` magnitude therefore belongs to the pre-fix path and is not
+      citable.
     consequence: >-
       The radii feedback alone re-loads the rotor by `+1.24%` thrust and
       `+0.95%` power, so it offsets part of the twist-only de-loading
