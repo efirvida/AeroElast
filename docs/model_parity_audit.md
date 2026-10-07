@@ -121,9 +121,11 @@ section rotation: shell distortion does not enter the fitted rotation.
 not a metric artifact.
 
 **S4 — CLOSED, and it rules torsion OUT as the cause.** `test_iea15mw_s7_torsion.py`
-documents: our shell GJ is **+17–19 % stiffer** than the BeamDyn tables
-(twist ratio ≈ 0.84 under a pure moment).  So under equal torsion we twist
-*less*, not more.  The over-twist under aerodynamic loads cannot come from
+documents the direction: under a pure tip moment the shell twists *less* than the deck,
+so under equal torsion we twist *less*, not more.  The **+17–19 %** is S-1's
+*sectional* `GJ` difference, whose twist ratio would be ≈ 0.84; the *global* ratio this
+test measures is **0.9396** at HEAD (shell `GJ` +6.4 %, converging to 0.9336) — a milder
+magnitude, the same direction.  The over-twist under aerodynamic loads cannot come from
 the torsional stiffness.
 
 **S/load-point — the prime suspect, now located.** `apply_ad_loads`
@@ -292,9 +294,11 @@ drawn.
 
 - **FSI over-de-loading ×2.0–2.7** (País 3): measured on actual coupled runs
   against the literature — no missing term involved.
-- **GJ +17–19 % stiffer than BeamDyn** (S-7 test): a direct torsion
-  benchmark.  Note the direction — a *stiffer* blade twists *less*, so a soft
-  structure cannot be the cause of the over-de-loading either.
+- **GJ stiffer than BeamDyn** (S-7 test): a direct torsion
+  benchmark.  The sectional difference is +17–24 % (S-1) and the global tip twist
+  ratio measures 0.9396 (shell `GJ` +6.4 %).  Note the direction — a *stiffer*
+  blade twists *less*, so a soft structure cannot be the cause of the
+  over-de-loading either.
 - Every aero parity item listed in sections A/F/G.
 
 ### Meta-lesson (three for three)

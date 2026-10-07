@@ -153,7 +153,7 @@ reference first.
 |---|---|---|---|
 | V-02 2nd flap | 1.6946 Hz (+2.15%) | 1.5545 Hz (−6.3%, tol 5%) | new element ~8% softer in 2F |
 | S-4 rotating 1F vs OpenFAST MBC3 | 0.5698 Hz (+0.6%) | 2.1375 Hz (+277%) | mode identification or K_G scale — see below |
-| S-7 shell/beam torsion ratio | 1.080 | 1.406 (band ≤1.3) | softer in torsion, the expected direction of `8cbfc0b` |
+| S-7 shell/beam torsion ratio | twist 0.926 (`GJ` 1.080) | twist 1.406 (band ≤1.3) | **superseded 2026-10-07**: the two columns compared a `GJ` ratio against a twist ratio, which are reciprocals, and 1.406 does not reproduce at HEAD at any mesh size (0.9396 measured, 0.9336 converged, i.e. *stiffer*). See `odd/tasks/s7-torsion-ratio.md`, issue #20, and the § S-7 closure |
 | S-6 one-way dynamic OoP mean/std | in band | `nan` | a NaN enters the S-6 path |
 | Box EI vs analytic | <2% | 3.27% | |
 | D-Tube tip vs beam | +0.2% | 4.75% | |
@@ -460,7 +460,8 @@ around the TL tangent.
    real regression rather than a re-baselining.
 3. **S-6 NaN**: trace where the one-way dynamic path produces NaN.
 4. **Investigate each delta against an independent reference** (user decision, no band
-   edits): V-02 2F 1.5539 vs 1.6590 Hz, S-7 1.406, box EI 4.8194e8 vs 4.6667e8,
+   edits): V-02 2F 1.5539 vs 1.6590 Hz, S-7 1.406 (superseded 2026-10-07:
+   HEAD measures 0.9396 and converges to 0.9336), box EI 4.8194e8 vs 4.6667e8,
    D-Tube 23.359 vs 24.525 m, UL elastica 0.29075 vs 0.30172.
 5. **K_T corotational**: port `Mitc4Precomputed::compute_kt_corotational` or restate the
    frame-objectivity test.

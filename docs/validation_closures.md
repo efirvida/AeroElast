@@ -81,7 +81,7 @@ ensamble (`assembler.rs`), o el solver UL (`static_nonlinear.rs`/`.py`).
 | V-05 propiedades | masa total +4.1 % = banda documentada +4–8 % (layup vs 6×6) | `test_iea15mw_v05_structural_properties.py` |
 | S-1 seccional | EI_edge ~10 %, EI_flap 20-25 % (sesgo de extracción documentado), **GJ 23.9 %** post-fix local-tangente | `test_iea15mw_s1_sectional.py`; doc `shell_vs_beam_sectional_validation.md` §6 |
 | S-4 modal rotante vs OpenFAST MBC3 | 1F +0.6 %, 1E −4.5 %, 2F −1.5 % | `test_iea15mw_s4_rotating_modal.py` |
-| S-7 torsión (twist global vs viga) | shell/viga GJ = 1.080 convergido | `test_iea15mw_s7_torsion.py`, job s7conv |
+| S-7 torsión (twist global vs viga) | twist **0.9336** convergido ⇒ shell/viga `GJ` **1.071** (re-medido 2026-10-07; el `1.080` del job `s7conv` es pre-merge y quedó invalidado por el merge del 30-09) | `tests/validation/blade/test_iea15mw_s7_torsion.py`; § S-7 (2026-10-07) |
 | S-8c signo de twist | coincide con BeamDyn (+0.545/+0.981°) | `test_iea15mw_s8c_twist_sign` (job s8c) |
 | Campbell / K_G | 5/5 | `test_iea15mw_sx_campbell.py` |
 
@@ -709,3 +709,58 @@ siguen sin ser citables.
 `_compute_deformed_geometry`, en `_mesh_datum_offset`, en el cortocircuito rígido
 (`fsi_participant.py:910-912`), en la asignación de nodos por strip, o en el fixture
 `tests/validation/blade/test_blade_deloading_vs_reference.py`.
+
+---
+
+### S-7: la tabla de convergencia contradecía a la medición, y el lado "más blanda" es el artefacto (2026-10-07)
+
+Cierra el issue #20 (ítem 8 del roadmap de #18). S-7
+(`tests/validation/blade/test_iea15mw_s7_torsion.py`) sostenía las dos direcciones a la vez: la
+aserción medía la cáscara **más rígida** que el deck BeamDyn y la tabla de convergencia
+commiteada en el mismo archivo decía **más blanda**. El roadmap lo puso antes de los ítems 2
+(#14) y 3 (#15) porque la dirección de la rigidez torsional decide la cota estructural del
+`1.61x` contra Zhou.
+
+**La definición no era el problema.** El test y `tools/run_s7_torsion.py` calculan lo mismo:
+banda `0.3·117 … 0.9·117`, `theta_s[mid]/theta_beam[mid]`,
+`section_twists_deg(n_slices=40)` y `beam_twist_profile_deg`. La expresión del ratio no cambió
+desde que el módulo se creó (`5234b48`, 2026-09-23).
+
+**La tabla no se reproduce en HEAD, con ninguna convención de winding.** Registro medido el
+2026-10-07 (misma malla, mismo `MOMENT_NM = 1000 N·m`):
+
+| es | nodos | HEAD | HEAD + winding canonicalizado | tabla commiteada |
+| ---: | ---: | ---: | ---: | ---: |
+| 2.000 | 1460 | 1.0237 | 1.1530 | 1.386 |
+| 1.000 | 3040 | 1.0219 | 1.1640 | 1.406 |
+| 0.500 | 9271 | 0.9790 | 1.0763 | 1.303 |
+| 0.250 | 32325 | **0.939603** | 1.014223 | 1.286 |
+| 0.125 | 120352 | **0.933641** | — | 1.273 |
+
+La columna "canonicalizado" restaura el `canonicalize_windings(mesh_model, span_axis=2)` que
+`22d3ccc` (2026-10-04) quitó de `BladeMesh.generate`: voltea **1732 de 33462** elementos y mueve
+el ratio `0.939603 → 1.014223`, factor **1.079** — la misma dirección que la tabla, pero solo un
+cuarto del camino a `1.286`. ⇒ La tabla es un registro irrecuperable de la ventana
+**2026-09-30 → 2026-10-04** (merge de `origin/main`, `22d3ccc`, y los cambios de geometría nuMAD
+`680cf81`/`6b2cbd6`). El residuo no está bisecado.
+
+**El fixture sí converge, y la dirección es una sola.** `0.250` queda a **0.6 %** de `0.125`, así
+que `ELEMENT_SIZE = 0.25` se sostiene (el costo de `0.125` es 42 s de malla + 230 s de solve y
+**12 GB de RSS pico**). La dirección "más rígida" la sostienen cuatro fuentes independientes
+(este test, `1/0.939603 = 1.064`; el `GJ` seccional de S-1, `+23.9 %`;
+`docs/model_parity_audit.md`, `0.84`; y el `GJ = 1.080` pre-merge, `1/1.080 = 0.926`) y solo la
+tabla disiente.
+
+**Qué se quemó:** la tabla de convergencia del módulo (reemplazada por las filas medidas
+arriba), el "expected 0.84" del docstring, y la fila de
+`docs/origin_main_integration_2026-09-30.md:156`, que además comparaba un ratio de `GJ` contra un
+ratio de twist (recíprocos). La cota `_RATIO_TOL = 0.30` **no** se tocó: no es el defecto y el
+`6.04 %` medido la pasa por 24 puntos. La aserción del par aplicado sigue sin referente
+independiente y va declarada como tal en el store.
+
+**Disparador de re-ejecución:** invalida este cierre cualquier cambio en
+`crates/aeroelast-core/src/elements/`, en el generador de malla de la pala
+(`BladeMesh.generate`, sus opciones de spacing y su convención de winding), en
+`tools/beam_reference.py::load_beamdyn_blade`, en el deck
+`tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat`, o en
+`tools/run_s7_torsion.py::section_twists_deg` (la construcción del twist de sección).

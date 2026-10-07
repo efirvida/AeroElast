@@ -19,7 +19,9 @@ worsened.  Launch order is by computational cost, cheapest first.
    (already merged) and `5bfa2b2` are still missing.
 2. **Then**: start launching the cheapest items first.
 3. **On the G1/G2 deltas** (box 3.27%, D-Tube 4.75%, UL elastica 3.63%, V-02 2F
-   −6.3%, S-7 1.406): **investigate each delta against an independent reference
+   −6.3%, S-7 1.406 — superseded 2026-10-07: HEAD measures 0.9396 and converges to
+   0.9336, i.e. the shell is stiffer, not softer): **investigate each delta against an
+   independent reference
    before touching any band.**  No re-baselining by tolerance widening.
 
 ## Known cost ladder (to be refined with real numbers)
