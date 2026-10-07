@@ -853,12 +853,12 @@ groups:
       Zhou et al. 2025 (Energy 336:138488, Table 3) span 0.547-0.692 Hz for the
       mode against the 0.6406 Hz reference, i.e. -14.6% to +8.0%, rather than
       from what the shell happens to produce. Adjudicated in
-      adjudications/32-blade_v02_natural_frequencies.yaml. The 2nd flapwise is NOT a row: at converged
-      resolution the shell lands about 6% below the beam value (1.4866 /
-      1.5452 / 1.5539 Hz at element_size 1.00 / 0.50 / 0.25 against 1.659 Hz)
-      and the increments collapse, so the test carries a shell-versus-beam
-      validity limit as its own xfail instead of asserting a bound it cannot
-      meet.
+      adjudications/32-blade_v02_natural_frequencies.yaml. The 2nd flapwise is
+      NOT a row: at converged resolution the shell lands about 6% below the beam
+      value (1.4866 / 1.5452 / 1.5539 Hz at element_size 1.00 / 0.50 / 0.25
+      against 1.659 Hz) and the increments collapse, so the test carries a
+      shell-versus-beam validity limit as its own xfail instead of asserting a
+      bound it cannot meet.
 
   - id: "33"
     title: >-
@@ -869,18 +869,67 @@ groups:
     source_files:
       - tests/validation/element/test_static_nonlinear_ul_elastica.py
     provenance_note: >-
-      A cantilever shell strip (L = 1 m, b = 0.1 m, h = 1e-3, steel) under a dead
-      tip load, through StaticNonlinearSolver's updated-Lagrangian path, against
-      the exact large-deflection elastica: Bisshopp & Drucker 1945, tabulated via
-      Bathe & Bolourchi 1979. Two load levels, `alpha = P L^2 / EI` of 1.0 and
-      2.0. The `alpha = 1` comparison lands as an xfail carrying its measured
-      number: refining the load stepping does not converge to the elastica, it
-      converges about 4% below it (3.63 / 3.83 / 3.92 / 3.97 / 4.00% at 32 / 64 /
-      128 / 256 / 512 steps), which is an element accuracy question about the UL
-      path and not a stepping error, so the bound is not widened. Ported on
-      2026-10-07 off the deleted `test_shell_comprehensive` helpers, which is why
-      the file moved into the validation tree from the repository root; the
-      recorded steps=32 reading, `w/L = 0.29075`, reproduces exactly.
+      A cantilever shell strip (L = 1 m, b = 0.1 m, h = 1e-3, steel) under a
+      dead tip load, through StaticNonlinearSolver's updated-Lagrangian path,
+      against the exact large-deflection elastica: Bisshopp & Drucker 1945,
+      tabulated via Bathe & Bolourchi 1979. Two load levels,
+      `alpha = P L^2 / EI` of 1.0 and 2.0. The `alpha = 1` comparison lands as
+      an xfail carrying its measured number: refining the load stepping does
+      not converge to the elastica, it converges about 4% below it (3.63 / 3.83
+      / 3.92 / 3.97 / 4.00% at 32 / 64 / 128 / 256 / 512 steps), which is an
+      element accuracy question about the UL path and not a stepping error, so
+      the bound is not widened. Ported on 2026-10-07 off the deleted
+      `test_shell_comprehensive` helpers, which is why the file moved into the
+      validation tree from the repository root; the recorded steps=32 reading,
+      `w/L = 0.29075`, reproduces exactly.
+
+  - id: "34"
+    title: >-
+      `tests/validation/blade/test_iea15mw_s7_torsion.py`
+      (the shell's global torsional response against the BeamDyn blade deck)
+    slug: blade_s7_torsion
+    # One comparison, one reference: the BeamDyn blade deck of the official IEA
+    # 15 MW model. It is a code's tables, not a closed form and not a paper, so
+    # the kind is declared here instead of left to a keyword guess.
+    reference_kind: code
+    source_files:
+      - tests/validation/blade/test_iea15mw_s7_torsion.py
+    non_validation_tests:
+      - tests:
+          - test_s7_applied_moment_matches_request
+        reason: >-
+          The applied tip couple is compared against the torque the test itself
+          asked for, which is its own setup constant and not an independent
+          reference. The test documents that the force-couple construction
+          transmits the requested moment, so it is machinery and carries no row;
+          the extractor already reads it as `no_comparison`. The torsional
+          response is the other test in the file, and that one compares against
+          the BeamDyn deck.
+    provenance_note: >-
+      The shell blade, clamped at the root, under a tip torsional moment of
+      1000 N.m applied as transverse force couples, against the BeamDyn blade
+      deck's `K[5,5]` per station integrated as a Timoshenko torsion beam
+      (`theta(z) = M * integral dz/GJ(z)`). The section rotation is recovered
+      from the displacement field as a best-fit rigid rotation, the same
+      construction as S-1. The comparison is the station-by-station twist ratio
+      over the 0.3-0.9 span band, and the bound is a +-30% window around exact
+      agreement: the documented S-1 model difference with room for the
+      coarse-mesh envelope, not a fit to what the run produces. The measured
+      6.04% clears it by 24 points. `ELEMENT_SIZE = 0.25` is the fixture and it
+      is justified by measurement (0.933641 at 0.125, 0.6% away, at 12 GB peak
+      RSS), not by the table the file used to carry.
+
+      That table is why this group is new on 2026-10-07. Between 2026-09-30 and
+      2026-10-04 the module committed a convergence record reading 1.386 / 1.406
+      / 1.303 / 1.286 / 1.273, i.e. the shell *softer* than the deck, while its
+      own assertion measured it stiffer. The table does not reproduce at HEAD at
+      any mesh size, with or without the element-winding canonicalisation that
+      `22d3ccc` removed, and the four independent sources that agree on the
+      direction (this test, S-1's sectional `GJ`, `docs/model_parity_audit.md`,
+      and the pre-merge closure's `GJ = 1.080`) all put the shell on the stiffer
+      side. The table was replaced with rows measured at HEAD and the direction
+      is now stated once. Evidence: issue #20, `odd/tasks/s7-torsion-ratio.md`,
+      and `docs/validation_closures.md` section S-7 (2026-10-07).
 
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an

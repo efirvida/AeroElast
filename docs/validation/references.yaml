@@ -1327,6 +1327,41 @@ references:
       `tests/validation/blade/test_blade_iea15mw_validation.py` (mass vs the
       report's ~65 t).
 
+  - key: iea15mw_deck
+    section: >-
+      5. Verification benchmarks, reference models and validation literature
+    kind: software
+    authors: []
+    title: >-
+      IEA 15 MW reference turbine model, v1.1: BeamDyn blade deck
+    year: null
+    version: "v1.1"
+    bibliographic_gaps:
+      - authors
+      - year
+    doi: null
+    doi_status: not_applicable
+    held: false
+    verification: unverified
+    cited_by_declared:
+      - "tests/validation/blade/test_iea15mw_s7_torsion.py:95"
+      - "tools/run_s7_torsion.py:43"
+    code_mentions:
+      - "IEA-15-240-RWT_BeamDyn_blade.dat"
+    notes: >-
+      Apache-2.0. The public file distribution of the turbine that
+      `gaertner2020` defines, vendored under
+      `tests/IEA15MW/validation papers/github-IEA-15-240-RWT/`, whose README
+      states v1.1. The deck this store reads,
+      `tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat`, is
+      byte-identical to the one in that vendored tree (md5
+      `74507ef96fafa21609bac9df90a09805`), so the version is the release and not
+      a revision guess. Its `K[5,5]` per station is the torsional stiffness the
+      S-7 group integrates as a Timoshenko torsion beam. The deck states no year
+      and no authors, so both are recorded as gaps rather than inferred from the
+      report. Upstream:
+      <https://github.com/IEAWindTask37/IEA-15-240-RWT>.
+
   - key: escalera2023
     section: >-
       5. Verification benchmarks, reference models and validation literature
