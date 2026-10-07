@@ -852,6 +852,28 @@ groups:
       validity limit as its own xfail instead of asserting a bound it cannot
       meet.
 
+  - id: "33"
+    title: >-
+      `tests/validation/element/test_static_nonlinear_ul_elastica.py`
+      (the updated-Lagrangian shell against the exact elastica)
+    slug: ul_elastica
+    citation: bathe1979
+    source_files:
+      - tests/validation/element/test_static_nonlinear_ul_elastica.py
+    provenance_note: >-
+      A cantilever shell strip (L = 1 m, b = 0.1 m, h = 1e-3, steel) under a dead
+      tip load, through StaticNonlinearSolver's updated-Lagrangian path, against
+      the exact large-deflection elastica: Bisshopp & Drucker 1945, tabulated via
+      Bathe & Bolourchi 1979. Two load levels, `alpha = P L^2 / EI` of 1.0 and
+      2.0. The `alpha = 1` comparison lands as an xfail carrying its measured
+      number: refining the load stepping does not converge to the elastica, it
+      converges about 4% below it (3.63 / 3.83 / 3.92 / 3.97 / 4.00% at 32 / 64 /
+      128 / 256 / 512 steps), which is an element accuracy question about the UL
+      path and not a stepping error, so the bound is not widened. Ported on
+      2026-10-07 off the deleted `test_shell_comprehensive` helpers, which is why
+      the file moved into the validation tree from the repository root; the
+      recorded steps=32 reading, `w/L = 0.29075`, reproduces exactly.
+
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
 # independent reference and needs a group and a row; a test under
