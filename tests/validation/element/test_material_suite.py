@@ -116,7 +116,7 @@ def _cantilever_tri_mesh(nx: int = 2, nz: int = 10):
 
 def _solve(asm: PyMeshAssembler, f: np.ndarray, clamped: list[int]) -> np.ndarray:
     """Sparse direct solve with Dirichlet BC."""
-    from scipy.sparse import coo_matrix
+    from scipy.sparse import coo_matrix, issparse
     from scipy.sparse.linalg import spsolve
 
     rows, cols, vals = asm.assemble_k()
@@ -128,7 +128,13 @@ def _solve(asm: PyMeshAssembler, f: np.ndarray, clamped: list[int]) -> np.ndarra
     free = np.where(free_mask)[0]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        u_free = spsolve(K[np.ix_(free, free)], f[free])
+        sol = spsolve(K[np.ix_(free, free)], f[free])
+    # scipy annotates spsolve as a sparse-or-dense union; for this sparse input it returns
+    # a dense array. Convert it explicitly so the write below is a plain ndarray assignment,
+    # and treat a sparse return as the failure it would be rather than writing garbage.
+    if issparse(sol):  # pragma: no cover - spsolve returns dense for a sparse input
+        sol = sol.toarray()
+    u_free = np.asarray(sol, dtype=float).ravel()
     u = np.zeros(n)
     u[free] = u_free
     return u
@@ -230,9 +236,13 @@ TOL_CLOSED_FORM = 0.05
 # bound of its own instead of sharing the closed-form one.
 TOL_QUASI_ISO_D16_COUPLING = 0.20
 
-# The CLT B-coupling deflection carries a shear correction the classical theory does not
-# model, which is why the asymmetric laminates got a wider bound than the symmetric ones.
-TOL_B_COUPLING = 0.10
+# The asymmetric laminates shared a 10% bound on the argument that the CLT B-coupling
+# deflection carries a shear correction the classical theory does not model. The measured
+# margins are 0.4464% and 0.4549%: a factor of eleven inside 5%, so the wider bound was
+# never used by anything. It is now the suite rule. What the shear correction actually
+# costs this comparison is not established, and a bound is not the place to hold an
+# unestablished cost.
+TOL_B_COUPLING = 0.05
 
 
 class TestIsotropicAnalytical:
@@ -652,7 +662,7 @@ class TestSymmetricLaminates:
 class TestAsymmetricLaminates:
     """Asymmetric laminates: B-coupling must be active and have correct sign."""
 
-    TOL = TOL_B_COUPLING  # 10% — B-coupling analytical solution has shear correction uncertainty
+    TOL = TOL_B_COUPLING  # 5% — the suite rule; the 10% this class used was never reached
 
     def _lam_asym(self, total_h=0.004):
         """[0/90] asymmetric 2-ply."""
