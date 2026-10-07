@@ -1,6 +1,6 @@
 # Feature: the radii feedback's measuring stick (#13)
 
-Status: in progress
+Status: delivered 2026-10-07 (T1-T4 done; #13 closed)
 Owner: this session (2026-10-07)
 Related: issue #13 (roadmap item 1 of #18), store gap `force_projection_axial_extension`,
 `odd/tasks/composite-bend-twist-verdict.md` §22.6/§22.7, issue #19 (item 0).
@@ -153,11 +153,31 @@ an artefact but the new definition bias.
   three files instead of kept; `validation_matrix.py check` 0 errors / 0 warnings; `ruff check`
   and `ruff format --check` clean; the code facts of E1 re-confirmed at `:397`, `:402`, `:632`,
   `:910-912`; the removed gap id is absent from `gaps.yaml`; both YAML files parse.
-- [ ] T4 Close #13 with the measured evidence and annotate #19 with the corrected sign table.
-  The #19 note also closes its T4: job `11610151` (`twistfix_cosine_5s`, the campaign's own
-  case at HEAD) converged 34 of its 493 windows (6.9%) with the rest on the 30-iteration
-  ceiling, thrust ≈ −0.7 MN and not settling — the case is ruled out and the non-contraction
-  is a code regression, as the roadmap comment predicted.
+- [x] T4 Close #13 with the measured evidence and annotate #19 with the corrected sign table.
+  **Done 2026-10-07.** #13 is closed with the evidence comment
+  (`efirvida/AeroElast#13`, comment 6048247928); #19 carries the corrected sign table and the
+  verdict of job `11610151` (`twistfix_cosine_5s`: 34 of its 493 windows converged, 6.9%, the
+  rest on the 30-iteration ceiling, thrust `~-0.7 MN` at `t = 4.93 s`), which closes that
+  issue's T4: the case is ruled out and the non-contraction is a code regression.
+
+## Delivered, with the evidence
+
+| commit | what |
+| --- | --- |
+| `9d14dba` | the measurement: the de-loading fixture splits the radii feedback into definition bias, deformation increment (projection) and increment (path), plus the pinned span-projection identity |
+| `7bd497e` | the store rewrite: `radii_datum_definition_bias` replaces `force_projection_axial_extension`; closure section and re-run trigger in `docs/validation_closures.md` |
+| `4e1f3a3` | the CCX parity test's optional mesh narrowed, and its pointer to the removed store id repointed at the closure section |
+
+Gate results: `tests/validation/blade/test_blade_deloading_vs_reference.py` 5 passed;
+`tools/validation_matrix.py check` 0 errors / 0 warnings; `ruff check` and `ruff format --check`
+clean on both Python files; both YAML files parse. An independent read-only verifier matched 16
+of 17 numeric claims in the two store texts against the live output; the one mismatch was a
+cited wall time (24.67 s against the 27.6 s of the prose), removed from all three files rather
+than kept.
+
+Not done, and deliberately: the production-output quantification on `bem_report.csv` that the
+issue's own first step asks for. It needs a healthy coupled run (issue #19), and the metric
+question is settled without it.
 
 ## Follow-ups, out of scope here
 
