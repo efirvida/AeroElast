@@ -7,7 +7,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestIsotropicAnalytical::test_mitc4_out_of_plane
   validates: MITC4 isotropic cantilever — transverse Fy load vs Euler-Bernoulli.
   comparisons:
-  - label: rtol at line 263
+  - label: rtol at line 275
     asserted: true
     reference:
       kind: analytical
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:263
+      source: tests/validation/element/test_material_suite.py:275
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -35,7 +35,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestIsotropicAnalytical::test_mitc3_out_of_plane
   validates: MITC3 isotropic cantilever — transverse Fy load vs Euler-Bernoulli.
   comparisons:
-  - label: rtol at line 282
+  - label: rtol at line 294
     asserted: true
     reference:
       kind: analytical
@@ -43,7 +43,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:282
+      source: tests/validation/element/test_material_suite.py:294
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -63,7 +63,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestIsotropicAnalytical::test_mitc4_in_plane_lateral
   validates: MITC4 isotropic — in-plane lateral Fx load vs Euler-Bernoulli.
   comparisons:
-  - label: rtol at line 301
+  - label: rtol at line 313
     asserted: true
     reference:
       kind: analytical
@@ -71,7 +71,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:301
+      source: tests/validation/element/test_material_suite.py:313
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -91,7 +91,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestIsotropicAnalytical::test_mitc4_axial_stiffness
   validates: 'MITC4 isotropic — axial Fz load: ux = F*L/(E*A).'
   comparisons:
-  - label: rtol at line 321
+  - label: rtol at line 333
     asserted: true
     reference:
       kind: analytical
@@ -99,7 +99,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:321
+      source: tests/validation/element/test_material_suite.py:333
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -119,7 +119,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc4comp_ply0_out_of_plane
   validates: '[0°] single ply — out-of-plane Fy.'
   comparisons:
-  - label: rtol at line 368
+  - label: rtol at line 380
     asserted: true
     reference:
       kind: analytical
@@ -127,7 +127,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:368
+      source: tests/validation/element/test_material_suite.py:380
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -147,7 +147,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc4comp_ply90_out_of_plane
   validates: '[90°] single ply — out-of-plane Fy.'
   comparisons:
-  - label: rtol at line 388
+  - label: rtol at line 400
     asserted: true
     reference:
       kind: analytical
@@ -155,7 +155,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:388
+      source: tests/validation/element/test_material_suite.py:400
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -175,7 +175,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc3comp_ply0_out_of_plane
   validates: '[0°] single ply — MITC3Composite out-of-plane Fy (curvature κ_z → D22).'
   comparisons:
-  - label: rtol at line 404
+  - label: rtol at line 416
     asserted: true
     reference:
       kind: analytical
@@ -183,7 +183,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:404
+      source: tests/validation/element/test_material_suite.py:416
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -203,7 +203,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc4comp_ply0_axial
   validates: '[0°] single ply — axial Fz: tests A22.'
   comparisons:
-  - label: rtol at line 430
+  - label: rtol at line 442
     asserted: true
     reference:
       kind: analytical
@@ -211,7 +211,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:430
+      source: tests/validation/element/test_material_suite.py:442
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -231,7 +231,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestOrthotropicSinglePly::test_mitc4comp_ply90_axial
   validates: '[90°] single ply — axial Fz: tests A11.'
   comparisons:
-  - label: rtol at line 457
+  - label: rtol at line 469
     asserted: true
     reference:
       kind: analytical
@@ -239,7 +239,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:457
+      source: tests/validation/element/test_material_suite.py:469
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -259,7 +259,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_symmetric_out_of_plane_mitc4comp
   validates: '[0/90/90/0] — MITC4Comp out-of-plane Fy vs D22-based analytical (κ_z).'
   comparisons:
-  - label: rtol at line 541
+  - label: rtol at line 553
     asserted: true
     reference:
       kind: analytical
@@ -267,7 +267,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:541
+      source: tests/validation/element/test_material_suite.py:553
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -287,7 +287,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_symmetric_out_of_plane_mitc3comp
   validates: '[0/90/90/0] — MITC3Comp out-of-plane Fy (κ_z → D22).'
   comparisons:
-  - label: rtol at line 564
+  - label: rtol at line 576
     asserted: true
     reference:
       kind: analytical
@@ -295,7 +295,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:564
+      source: tests/validation/element/test_material_suite.py:576
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -315,7 +315,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_symmetric_in_plane_lateral_mitc4comp
   validates: '[0/90/90/0] — MITC4Comp in-plane Fx vs A11-based analytical.'
   comparisons:
-  - label: rtol at line 589
+  - label: rtol at line 601
     asserted: true
     reference:
       kind: analytical
@@ -323,7 +323,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:589
+      source: tests/validation/element/test_material_suite.py:601
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -343,7 +343,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_symmetric_axial_stiffness
   validates: '[0/90/90/0] — axial Fz: tests mean membrane stiffness A11.'
   comparisons:
-  - label: rtol at line 611
+  - label: rtol at line 623
     asserted: true
     reference:
       kind: analytical
@@ -351,7 +351,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/element/test_material_suite.py:611
+      source: tests/validation/element/test_material_suite.py:623
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -371,7 +371,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestSymmetricLaminates::test_quasi_iso_out_of_plane
   validates: '[0/45/-45/90]s — MITC4Comp out-of-plane Fy.'
   comparisons:
-  - label: rtol at line 638
+  - label: rtol at line 650
     asserted: true
     reference:
       kind: analytical
@@ -379,7 +379,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.2
-      source: tests/validation/element/test_material_suite.py:638
+      source: tests/validation/element/test_material_suite.py:650
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -399,15 +399,15 @@ rows:
   - tests/validation/element/test_material_suite.py::TestAsymmetricLaminates::test_axial_produces_bending_mitc3comp
   validates: '[0/90] MITC3Comp under axial Fz: B-coupling must match the CLT sign.'
   comparisons:
-  - label: rtol at line 694
+  - label: rtol at line 706
     asserted: true
     reference:
       kind: analytical
       label: the CLT B-coupling tip deflection for the same strip
     tolerance:
       kind: rtol
-      value: 0.1
-      source: tests/validation/element/test_material_suite.py:694
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:706
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -427,15 +427,15 @@ rows:
   - tests/validation/element/test_material_suite.py::TestAsymmetricLaminates::test_b_coupling_analytical_mitc4comp
   validates: '[0/90] MITC4Comp: axial Fz tip deflection in Uy matches CLT analytical.'
   comparisons:
-  - label: rtol at line 725
+  - label: rtol at line 737
     asserted: true
     reference:
       kind: analytical
       label: the Reddy CLT B-coupling tip deflection, w = B11 P L^2 / (2 A11 D11_eff b)
     tolerance:
       kind: rtol
-      value: 0.1
-      source: tests/validation/element/test_material_suite.py:725
+      value: 0.05
+      source: tests/validation/element/test_material_suite.py:737
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -455,7 +455,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestIsoEquivalence::test_n_iso_plies_equal_single_layer_mitc4
   validates: 4 isotropic plies of h/4 each = 1 ply of h for MITC4Composite.
   comparisons:
-  - label: rtol at line 811
+  - label: rtol at line 823
     asserted: true
     reference:
       kind: self
@@ -463,7 +463,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/element/test_material_suite.py:811
+      source: tests/validation/element/test_material_suite.py:823
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -483,7 +483,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestIsoEquivalence::test_n_iso_plies_same_displacement
   validates: 4 iso plies give same tip displacement as single layer under Fy.
   comparisons:
-  - label: rtol at line 847
+  - label: rtol at line 859
     asserted: true
     reference:
       kind: self
@@ -491,7 +491,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/element/test_material_suite.py:847
+      source: tests/validation/element/test_material_suite.py:859
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -511,7 +511,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestABDMatrices::test_isotropic_ab_d_ratios
   validates: 'Isotropic single ply: D11 = A11 * h²/12.'
   comparisons:
-  - label: rtol at line 879
+  - label: rtol at line 891
     asserted: true
     reference:
       kind: analytical
@@ -519,7 +519,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-06
-      source: tests/validation/element/test_material_suite.py:879
+      source: tests/validation/element/test_material_suite.py:891
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -539,7 +539,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestABDMatrices::test_asymmetric_b11_formula
   validates: '[0/90] B11 matches the A-matrix closed form and reverses with the stack.'
   comparisons:
-  - label: rtol at line 911
+  - label: rtol at line 923
     asserted: true
     reference:
       kind: analytical
@@ -547,7 +547,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-09
-      source: tests/validation/element/test_material_suite.py:911
+      source: tests/validation/element/test_material_suite.py:923
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -567,7 +567,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestABDMatrices::test_a_matrix_single_ply
   validates: Single [0°] ply A11 = Q11 * h.
   comparisons:
-  - label: rtol at line 935
+  - label: rtol at line 947
     asserted: true
     reference:
       kind: analytical
@@ -575,7 +575,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-10
-      source: tests/validation/element/test_material_suite.py:935
+      source: tests/validation/element/test_material_suite.py:947
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -595,7 +595,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestABDMatrices::test_d_matrix_single_ply
   validates: Single [0°] ply D11 = Q11 * h³/12.
   comparisons:
-  - label: rtol at line 951
+  - label: rtol at line 963
     asserted: true
     reference:
       kind: analytical
@@ -603,7 +603,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-10
-      source: tests/validation/element/test_material_suite.py:951
+      source: tests/validation/element/test_material_suite.py:963
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -623,7 +623,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestABDMatrices::test_qbar_0_equals_q
   validates: Qbar at 0° must equal Q (no rotation).
   comparisons:
-  - label: rtol at line 981
+  - label: rtol at line 993
     asserted: true
     reference:
       kind: self
@@ -631,7 +631,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-10
-      source: tests/validation/element/test_material_suite.py:981
+      source: tests/validation/element/test_material_suite.py:993
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -651,7 +651,7 @@ rows:
   - tests/validation/element/test_material_suite.py::TestABDMatrices::test_qbar_90_swaps_e1_e2
   validates: 'Qbar at 90°: Q11_bar = Q22 (0°) and Q22_bar = Q11 (0°).'
   comparisons:
-  - label: rtol at line 995
+  - label: rtol at line 1007
     asserted: true
     reference:
       kind: self
@@ -659,7 +659,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-10
-      source: tests/validation/element/test_material_suite.py:995
+      source: tests/validation/element/test_material_suite.py:1007
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -670,7 +670,7 @@ rows:
       margin_pct: 0.0
       text: 'Qbar at 90 degrees, entry [0,0] vs our own unrotated stiffness Q, entry [1,1]: 0.0000% (bound: 0.0000%)'
       digest: 8911219cf0551533
-  - label: rtol at line 1002
+  - label: rtol at line 1014
     asserted: true
     reference:
       kind: self
@@ -678,7 +678,7 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-10
-      source: tests/validation/element/test_material_suite.py:1002
+      source: tests/validation/element/test_material_suite.py:1014
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

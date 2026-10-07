@@ -35,7 +35,7 @@ rows:
   - tests/validation/blade/test_iea15mw_v02_natural_frequencies.py::TestBladeNaturalFrequencies::test_1st_edgewise_frequency
   validates: 1st edgewise freq must be within ±10 % of 0.6406 Hz [R1][R4].
   comparisons:
-  - label: rtol at line 155
+  - label: rtol at line 163
     asserted: true
     reference:
       kind: paper
@@ -44,7 +44,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.1
-      source: tests/validation/blade/test_iea15mw_v02_natural_frequencies.py:155
+      source: tests/validation/blade/test_iea15mw_v02_natural_frequencies.py:163
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
