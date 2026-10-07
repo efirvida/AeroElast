@@ -54,7 +54,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, issparse
 from scipy.sparse.linalg import spsolve
 
 REPO = Path(__file__).resolve().parents[1]
@@ -95,8 +95,14 @@ def _ae_solve(K, n_dofs, mesh, tip_idx, load):
     mask = np.ones(n_dofs, dtype=bool)
     mask[list(clamped)] = False
     free = np.where(mask)[0]
+    sol = spsolve(K[np.ix_(free, free)], f[free])
+    # scipy annotates spsolve as a sparse-or-dense union; for this sparse input it returns
+    # a dense array. Convert explicitly, and treat a sparse return as the failure it would
+    # be rather than writing an object array into u.
+    if issparse(sol):  # pragma: no cover - spsolve returns dense for a sparse input
+        sol = sol.toarray()
     u = np.zeros(n_dofs)
-    u[free] = spsolve(K[np.ix_(free, free)], f[free])
+    u[free] = np.asarray(sol, dtype=float).ravel()
     mean = float(np.mean(np.linalg.norm(u.reshape(-1, 6)[tip_idx, :3], axis=1)))
     return mean, 0.5 * float(np.dot(f, u))
 
@@ -119,7 +125,7 @@ def _load_nset(nam_path: Path, name: str) -> list[int]:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     ap.add_argument("--element-sizes", default="2.0,1.0,0.5")
     ap.add_argument("--ccx", default=shutil.which("ccx") or "ccx")
     ap.add_argument("--work-dir", type=Path, default=Path("blade_ccx_convergence"))
@@ -135,6 +141,8 @@ def main() -> None:
         model = Blade(str(BLADE_YAML), element_size=es)
         model.generate_mesh()
         mesh, props = model.mesh, model.get_element_properties()
+        if mesh is None or props is None:  # narrows the optionals for the type checker
+            raise SystemExit(f"element_size {es}: generate_mesh() left no mesh/properties")
         coords = np.asarray([[nd.x, nd.y, nd.z] for nd in mesh.nodes])
         tip_idx = sorted(np.nonzero(coords[:, 2] > coords[:, 2].max() - 1e-6)[0])
         mesh.add_node_set(NodeSet("tip", {mesh.nodes[int(i)] for i in tip_idx}))
