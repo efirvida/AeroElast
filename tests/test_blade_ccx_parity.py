@@ -39,8 +39,8 @@ reads 7.55 / 7.94 / 7.12 / 7.11 m across the four meshes), so the trend of the
 gap is the signal.  At 0.25 m the worst case sits 1.7 points inside the bound.
 The energy metric is reported beside each row and is more sensitive on the axial
 cases (6.65% at 0.25 m against a 3.29% displacement gap): that is the curved-axis
-linearity the store records as `force_projection_axial_extension`, not a
-tolerance to widen.
+second-orderness of a linear solve on the prebent axis, recorded in
+`docs/validation_closures.md` (2026-10-07) - not a tolerance to widen.
 """
 
 from __future__ import annotations
@@ -114,6 +114,7 @@ def _blade():
     blade_model = Blade(str(BLADE_YAML), element_size=ELEMENT_SIZE)
     blade_model.generate_mesh()
     mesh = blade_model.mesh
+    assert mesh is not None, "the blade mesh failed to generate"
     props = blade_model.get_element_properties()
     coords = np.asarray([[n.x, n.y, n.z] for n in mesh.nodes], dtype=float)
     tip = np.setdiff1d(
@@ -153,7 +154,7 @@ def _aero_solve(mesh, props, load, torque=None) -> np.ndarray:
     mask[list(clamped)] = False
     free = np.where(mask)[0]
     u = np.zeros(asm.dofs_count)
-    u[free] = spsolve(K[np.ix_(free, free)], f[free])
+    u[free] = np.asarray(spsolve(K[np.ix_(free, free)], f[free]))
     return u
 
 

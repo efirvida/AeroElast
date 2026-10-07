@@ -185,10 +185,13 @@ The campaign that ran 100 s at 100% convergence predates the 2026-10-04 merge an
       `factor = -1, +10.63%` before the change and passes with `+1, -13.05%` after.
 - [x] T3 Live 5 s (job `11610007`): runaway gone, twist sense correct, coupling still
       does not contract.
-- [ ] T4 Separate case from code for the non-contraction: job `11610151` runs the
+- [x] T4 Separate case from code for the non-contraction: job `11610151` runs the
       campaign's own case (`airfoil_spacing: cosine` on the solid mesh, `max-time 5.0`).
-      Converges -> the case; does not -> a code regression, and the next rung is a
-      worktree at `552566d` (last pre-merge state) on the same case.
+      **Done 2026-10-07: it does not converge.** 34 of its 493 windows closed under the
+      30-iteration ceiling (6.9%) against the gate smoke's 51 of 500 (10%), the rest sat on the
+      ceiling, `thrust ~= -0.7 MN` and not settling at `t = 4.93 s`. The case is ruled out, so
+      the non-contraction is a code regression, and the next rung is a worktree at `552566d`
+      (last pre-merge state) on the same case.
 - [ ] T5 Re-run the 30 s gate (`tests/run_step1b_smoke.srm`) once T4 is clean, and
       re-anchor the campaign baseline.
 
