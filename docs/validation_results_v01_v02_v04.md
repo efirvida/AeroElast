@@ -792,14 +792,20 @@ nuestro par al frame de sección (`Np_sec = Np_rot cos(theta) + Tp_rot sin(theta
 
 **Qué explica el `+31%` de `Tp`.** El número no es un integral y no es un defecto de polar. Medido en
 el **mismo frame y con el mismo `qc`**, alimentando el ángulo de ataque de nuestro BEM en la fórmula
-de carga de ellos (polar oficial, `qc` de su propio `|F|`), el cociente `Tp` resultante es **1.12–1.67**
-sobre `r/R` 0.26–0.80 y el de `Np` es **1.06–1.34**: nuestro ángulo de ataque es mayor que el suyo
+de carga de ellos (polar oficial **re-evaluado en cada `alpha`**, `qc` de su propio `|F|`): los
+cocientes por componente van de **1.19 a 2.24** en `Tp` y de **1.06 a 1.34** en `Np` sobre
+`r/R` 0.26–0.80, o sea que el cociente de dirección `Tp/Np` va de **1.12 a 1.67**. La misma
+diferencia de ángulo mueve `Tp` entre 3 y 7 veces más en términos relativos que `Np` (×1.19 vs ×1.06
+en `r/R = 0.26`; ×2.24 vs ×1.34 en 0.80), porque `Tp` es la **diferencia de dos términos grandes**.
+Nuestro ángulo de ataque es mayor que el suyo
 en `+0.9°` en `r/R = 0.26`, `+1.2°` a 0.5 y `+4.8°` a la punta (el sesgo BEM-vs-LL-FVW que §5.11 ya
-reporta). `Tp` es la **diferencia de dos términos grandes**, así que 1–5° de ángulo de flujo aparecen
-como decenas de por ciento en `Tp` y ~1% en `Np`: ésa es exactamente la firma que el issue reporta.
+reporta). El "`Np` coincide al 1%" del issue viene de la comparación del `Mp` reconstruido, no de
+esta: lo que esta mide es el efecto aislado del ángulo de flujo.
 La definición del eje tangencial es real pero **no domina la magnitud**: rotar nuestro `Tp` del plano
-del rotor al frame de sección mueve el cociente medio pointwise `1.82 → 1.69` (−7%), porque el signo
-del twist cambia a lo largo del span y los dos efectos casi se cancelan.
+del rotor al frame de sección mueve el cociente medio pointwise `1.82 → 1.69` (−7%) sobre todo el
+span digitalizado (`r/R` 0.20–0.98), y `1.79 → 1.51` (−15%) sobre el núcleo `r/R` 0.26–0.80, o sea
+que ese −7% está dominado por la punta digitalizada; el signo del twist cambia a lo largo del span y
+los dos efectos se cancelan en parte.
 
 **Banda del comparador.** La Fig. 11 digitalizada es el caso **flexible**, no el rígido: su `∫Np·3`
 da `2.20 MN`, que es el thrust flexible de la Tabla 6 (`14.76 MW / 2.20 MN`) y no el rígido

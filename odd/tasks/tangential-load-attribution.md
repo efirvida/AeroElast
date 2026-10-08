@@ -1,6 +1,6 @@
 # Feature: the +31% tangential load (roadmap item 3, issue #15)
 
-Status: T1-T3 closed 2026-10-08; T4 in progress, T5 open
+Status: T1-T4 closed 2026-10-08; T5 in progress (verification done, the close is pending)
 Owner: this session
 Related: issue #15 (roadmap item 3 of #18); issue #14 (item 2, closed as documented
 non-transferability and building on the same Zhou publication); `docs/validation_results_v01_v02_v04.md`
@@ -35,8 +35,9 @@ Zhou digitised   : intNp 732.2 kN   intTp  70.0 kN   int(Tp r) 4.923 MNm
 
 1. **The `+31%` is a pointwise statistic, not an integral.** In the §5.9 write-up the number is the
    spanwise `Tp` comparison (peak `1.05` against `0.80 kN/m` = `1.31`, and the mean pointwise ratio over
-   the digitized stations is `1.300`). The *integral* ratios differ by how you pick them: `1.24`
-   (the only surviving local campaign, `40-100 s`), `1.49` (§5.9's own numbers), `1.83` (the rigid
+   the digitized stations is `1.300`, measured on the only surviving local campaign, which is
+   low-load). The *integral* ratios differ by how you pick them: `1.24`
+   (that campaign, `40-100 s`), `1.49` (§5.9's stored, non-reproducible numbers), `1.83` (the rigid
    production BEM). The issue's title overstates a pointwise deviation as an integral.
 2. **Zhou's Fig. 11 is the section (chord) frame, not the rotor plane.** Taking their published pair
    (`Fig. 11` `Np`, `Tp`) and the official polar at their published `alpha` (`Fig. 10`), the identity
@@ -72,20 +73,31 @@ Zhou digitised   : intNp 732.2 kN   intTp  70.0 kN   int(Tp r) 4.923 MNm
   2026-10-08**: the frame is declared in `docs/validation_plots/plot_spanwise_loads.py` and the
   rotor-plane pair is rotated into the section frame before the overlay; §5.9 and the `V-09` entry
   carry the attribution and keep the old numbers as non-reproducible record. The residual is our
-  inflow-angle bias (the issue's second term), measured in one frame and one `qc`:
-  feeding our `alpha` into their load formula multiplies `Tp` by `1.12-1.67` and `Np` by
-  `1.06-1.34` over `r/R 0.26-0.80`. `Tp` is the small difference of two large terms, so 1-5 deg of
-  inflow appear as tens of percent on `Tp` and ~1% on `Np` - the reported signature, and the
-  0.9-to-4.8 deg bias §5.11 already documents.
-- [ ] **T4 - Land the attribution: write-up, store, closures.**
-  `docs/validation_results_v01_v02_v04.md` §5.9/§5.11, `docs/iea15mw_validation_reference.md` `V-09`,
-  the article draft if it carries the number; and the store (`docs/validation/gaps.yaml` if a residual
-  survives, else a recorded note) plus the `docs/validation_closures.md` re-run trigger. Never widen a
-  bound or delete a comparison: a number that moves IS the finding.
+  inflow-angle bias (the issue's second term), measured in one frame and one `qc` with the polar
+  re-evaluated at each angle: feeding our `alpha` into their load formula multiplies `Tp` by
+  `1.19-2.24` and `Np` by `1.06-1.34` over `r/R 0.26-0.80` (direction ratio `Tp/Np` `1.12-1.67`).
+  `Tp` is the small difference of two large terms, so a 1-5 deg inflow shift moves it 3-7x more in
+  relative terms than `Np`; the absolute bias is the 0.9-to-4.8 deg that §5.11 already documents.
+- [x] **T4 - Land the attribution: write-up, store, closures.** **Done 2026-10-08** (`5bfad2a`):
+  §5.9 and the `V-09` entry rewritten with the frame declared, `docs/validation_plots/plot_spanwise_loads.py`
+  rotates before overlaying, `gaps.yaml` gains `zhou_spanwise_load_frame` (`not_validated`,
+  `citations_forbidden: true`), and `docs/validation_closures.md` carries the #15 section and the
+  re-run trigger. The report's old numbers stay as non-reproducible record. `check` 198 / 259 / 0.
 - [ ] **T5 - Independent read-only verification, then close.**
   A separate verifier re-derives the frame identity and the quadrature band from the raw CSVs and the
   deck.constants, checks every printed number against the live script, and checks the store. Then
   comment on #15 with the attribution and close it, and update the #18 map.
+  **Verification done 2026-10-08** (independent read-only, `gentle-ai-verify`): frames PASS
+  (`0.366 deg` core section reading vs `6.826 deg` rotor, re-derived from the CSVs and the deck; the
+  `1.421e-14 deg` identity re-checked against ccblade's `:734-739`), quadrature PASS (`2.197 MN`,
+  `11.676 MW`, and the conclusion is not `Rtip`-mapping-sensitive over 117-122.5 m), gates PASS
+  (`check` 0 errors, `status` 0 undeclared, 2 tests pass). Two corrections it forced and this unit
+  applied: the `Tp`/`Np` pair mixed two polar variants (now one variant: `Tp` `1.19-2.24`, `Np`
+  `1.06-1.34`, direction `1.12-1.67`), and the frame effect's `-7%` is range-dependent (full span
+  `0.20-0.98`; `-15%` over the core `0.26-0.80`, so the reported `-7%` is tip-dominated) - both
+  ranges are now stated in the closure. The verifier also noted that the issue's own "Np matches to
+  1%" comes from the reconstructed-`Mp` comparison, not from the inflow experiment, which the prose
+  now says explicitly.
 
 ## Follow-ups this unit opened
 

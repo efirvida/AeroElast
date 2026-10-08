@@ -877,10 +877,10 @@ resultado es que no es un defecto de polar: es el frame de la referencia más el
 ataque que el propio reporte ya lleva en §5.11.
 
 **Qué es el `+31%`, y qué no es.** No es un integral: es un estadístico pointwise de `Tp` (el pico
-`1.05` contra `0.80 kN/m`, y la media pointwise `1.300`). Los cocientes *integrales* dependen de qué
-se elija: `1.24` (la única campaña local que sobrevive, `t ∈ [40, 100] s`), `1.49` (los números de
-§5.9), `1.83` (el BEM rígido de producción). El título del issue presenta una desviación pointwise
-como un integral.
+`1.05` contra `0.80 kN/m`, y la media pointwise `1.300` en la única campaña que sobrevive, que es de
+baja carga). Los cocientes *integrales* dependen de qué se elija: `1.24` (la misma campaña, `t ∈
+[40, 100] s`), `1.49` (derivado de los números de §5.9, no reproducibles), `1.83` (el BEM rígido de
+producción). El título del issue presenta una desviación pointwise como un integral.
 
 **Término 1 — la proyección polar: descartada.** El polar es el mismo (el deck oficial) en las dos
 lecturas; entra en ambas idénticamente y no puede por sí solo producir una diferencia con forma de
@@ -897,14 +897,19 @@ frame:
   `atan2(Tp, Np) + atan2(Cd, Cl) − twist == alpha` a **1.4e-14°**.
 
 La rotación entre los dos es el twist local. Su efecto neto sobre el cociente medio pointwise es
-chico (`1.82 → 1.69`, −7%) porque el twist cambia de signo a lo largo del span, así que el frame es
-**fundamental para la definición** pero no domina la magnitud. Medido por `tools/diagnose_zhou_tp_frame.py`
+chico (`1.82 → 1.69`, −7%) sobre todo el span digitalizado (`r/R` 0.20–0.98) y `1.79 → 1.51` (−15%)
+sobre el núcleo `r/R` 0.26–0.80, o sea que el −7% está dominado por la punta digitalizada; el twist
+cambia de signo a lo largo del span, así que el frame es **fundamental para la definición** pero no
+domina la magnitud. Medido por `tools/diagnose_zhou_tp_frame.py`
 y guardado por `tests/validation/bem/test_bem_load_frame.py`.
 
 **Término 2 — la inducción tangencial: es el término que queda, y ya estaba reportado.** Medido en el
 **mismo frame y con el mismo `qc`**, alimentando el ángulo de ataque de nuestro BEM en la fórmula de
-carga de ellos (polar oficial, `qc` de su propio `|F|`): el cociente `Tp` resultante es **1.12–1.67**
-sobre `r/R` 0.26–0.80 y el de `Np` es **1.06–1.34**. Nuestro ángulo de ataque es mayor que el suyo en
+carga de ellos (polar oficial **re-evaluado en cada `alpha`**, `qc` de su propio `|F|`): los cocientes
+por componente van de **1.19 a 2.24** en `Tp` y de **1.06 a 1.34** en `Np` sobre `r/R` 0.26–0.80, o
+sea que el cociente de dirección `Tp/Np` va de **1.12 a 1.67**. La misma diferencia de ángulo mueve
+`Tp` entre 3 y 7 veces más en términos relativos que `Np` (×1.19 vs ×1.06 en 0.26; ×2.24 vs ×1.34 en
+0.80). Nuestro ángulo de ataque es mayor que el suyo en
 `+0.9°` en `r/R = 0.26`, `+1.2°` a 0.5 y `+4.8°` a la punta. `Tp = qc(CL sin(phi) − CD cos(phi))` es
 la **diferencia de dos términos grandes**, así que 1–5° de ángulo de flujo aparecen como decenas de
 por ciento en `Tp` y ~1% en `Np`. Ésa es la firma reportada, y es el sesgo BEM-vs-LL-FVW que §5.11 ya
