@@ -1,8 +1,8 @@
 # Feature: the coupled rotor path diverges at t ≈ 1.9 s
 
 Status: projector load-frame fix **committed as `7a84da1`** and unit-verified
-2026-10-08; it is NOT the #19 cause (refuted by job 11610819); bisect rungs in
-flight
+2026-10-08; it is NOT the #19 cause; the anchor holds (`campaign` 500/500) and
+the origin/main-side ladder is unblocked (jobs 11610978-11610980)
 Owner: this session (2026-10-07, resumed 2026-10-08)
 Blocks: every roadmap item of issue #18 that needs a production FSI run — the
 campaign relaunch, the #13 production measurement, and the smoke gate recorded in
@@ -356,18 +356,27 @@ magnitudes agree, and this is the measured pair.
       rung; not attempted. The four jobs were cancelled (`11610844`, `11610845`,
       `11610863`, `11610864`) because the Python shadow cannot drive the newer
       Rust.
-- [ ] T6b Bisect by **diagnostic mutation at HEAD** instead, which runs. Three
-      patched worktrees at `7a84da1`, each with its `$SCRATCH/shadow-<name>`:
-      `nofeed` (both feedbacks frozen, job `11610901`, in queue), `noradii`
-      (radii frozen, twist live), `notwist` (twist frozen, radii live). Each
-      patch is a one-line return of the reference value inside
-      `_compute_deformed_geometry`, labelled `DIAGNOSTIC`; validated by the RED
-      of `tests/validation/rotor/test_bem_fsi_deformed_geometry.py` under the
-      `shadow-nofeed`. Reading: `nofeed` contracts ⇒ the deformation feedback is
-      what breaks the coupling, and `noradii`/`notwist` attribute which half;
-      `nofeed` still saturates ⇒ the defect is upstream of the feedback and the
-      candidate set narrows to the merge's other imports (frame, polars, wall
-      flows, AC datum).
+- [x] T6b **The deformation feedback is not the cause either.** `nofeed` (job
+      `11610901`), HEAD with both feedbacks frozen, reads **144 of 500 windows
+      (28.8%)**, first 12 = `12 30 30 30 30 30 30 30 30 30 30 30`: window 1 is
+      close to the campaign's 15, then the ceiling. Freezing the feedback buys
+      `28.8%` against HEAD's `7.8%` and `headfix`'s `8.8%`, so it *contributes*
+      but three quarters of the windows still saturate. The defect is upstream
+      of the geometry feedback. (The `noradii`/`notwist` attribution rungs are
+      therefore not worth a slot yet.)
+- [ ] T6d **The origin/main ladder runs again, with a shim.** The venv
+      `_aeroelast` (2026-10-04) requires the five K_G-deformed / omega-rebuild
+      arguments (`omega_rebuild_rel_high/low`, `kg_use_deformed_coords`,
+      `kg_deflection_rebuild_rel_high/low`) and the origin/main side of the merge
+      predates them, so it died with `missing 5 required positional arguments`.
+      Every rung worktree now passes them with HEAD's own defaults (`rotor.py`
+      474-483: `0.005 / 0.003 / False / 0.01 / 0.005`), which are also the
+      campaign revision's - the feature is OFF, so the rung behaves as it did
+      without it. The insertion is labelled `DIAGNOSTIC SHIM` in each
+      worktree's `rotor.py` and is not for commit. First three rungs on the
+      consensus case: `origmain` = `5f22f51` (job `11610978`, the merge's
+      **second parent** - if it converges, the merge resolution itself is the
+      defect), `ac2e9e8` (`11610979`) and `fee690` = `4fee690` (`11610980`).
 - [ ] T6c **The `exp_feedback_off` yamls do not work at HEAD** (checked
       2026-10-08): `deformed_twist`/`deformed_radius` were declared in
       `BEMConfig` by `d571917` on the *local* line, and the merge kept the
