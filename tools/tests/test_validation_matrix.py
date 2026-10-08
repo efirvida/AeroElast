@@ -1214,6 +1214,41 @@ def test_an_unclaimed_node_needs_a_declaration_to_stay_silent() -> None:
     assert module.match_non_validation(named, "tests/x.py::test_api_shape2") is None
 
 
+def test_regression_does_not_count_a_declared_non_validation_test_as_unclaimed() -> None:
+    """`regression` must split its leftovers the way `extract` does.
+
+    The command built its leftover list by comparing the collected nodes against the store's rows
+    and never consulted `non_validation_tests`, so a group whose declarations are correct was
+    reported as `unclaimed` - and `unclaimed` is in the failing set, so `regression` exited
+    non-zero on exactly the groups that had done the declaring. Measured on the shipped store:
+    `--group 30` reported its 29 non-validation tests and `--group 34` its one.
+    """
+    module = _load_tool_module()
+    group = {
+        "id": "30",
+        "non_validation_tests": [
+            {"tests": ["test_omega_provider"], "reason": "a property, not a comparison"}
+        ],
+    }
+    nodes = [
+        "tests/x.py::test_omega_provider",
+        "tests/x.py::test_something_undeclared",
+    ]
+    verdicts = module.regression_leftover_verdicts(group, nodes)
+    by_node = {item["detail"]: item["verdict"] for item in verdicts}
+    assert by_node["tests/x.py::test_omega_provider"] == "declared_non_validation"
+    assert by_node["tests/x.py::test_something_undeclared"] == "unclaimed"
+
+    # The declared test is the group saying so on purpose, so it is not a regression finding.
+    assert "declared_non_validation" not in module.REGRESSION_FAILING_VERDICTS
+    assert "stale_declaration" not in module.REGRESSION_FAILING_VERDICTS
+
+    # A declaration that matched nothing is surfaced, not left to read like coverage.
+    stale = module.regression_leftover_verdicts(group, [])
+    assert [item["verdict"] for item in stale] == ["stale_declaration"]
+    assert "test_omega_provider" in stale[0]["detail"]
+
+
 def test_a_class_based_node_id_is_understood() -> None:
     """pytest prints `file::Class::test[param]` for a method.
 

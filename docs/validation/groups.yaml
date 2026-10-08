@@ -784,6 +784,16 @@ groups:
           The Rust binding itself: argument marshalling, and the errors it
           raises for a missing preCICE, a wrong mode and mismatched degrees of
           freedom.
+      - tests:
+          - test_compute_performance_coefficients_uses_given_radius
+        reason: >-
+          A property of the performance-coefficient helper: the radius it is
+          given enters the swept area, so a larger rotor lowers |Cp| and |Cq|
+          and raises the tip-speed ratio. The expectation is the inequality,
+          not a reference. It was surfaced on 2026-10-08 by the fix to the
+          `regression` leftover split - before it, this node was counted among
+          the group's declared tests as one more `unclaimed`, so the missing
+          declaration could not be seen.
     provenance_note: >-
       Parity tests for the Rust fast path of the rotor solver. The physics is
       four quantities of the rotor: the estimated inertia against the

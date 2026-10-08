@@ -289,6 +289,37 @@ def classify_unclaimed(
         if isinstance(pattern, str)
     }
     return declared, undeclared, sorted(all_patterns - used)
+
+
+#: The regression verdicts that make the command exit non-zero. A test the group declares through
+#: `non_validation_tests` is not one of them: the declaration is the group saying the node is not
+#: a comparison, and `unclaimed` is reserved for the nodes nobody accounted for. A declaration that
+#: matched nothing is surfaced as `stale_declaration` rather than gated, because it names no node
+#: the run produced.
+REGRESSION_FAILING_VERDICTS = frozenset({"changed", "unmapped", "unclaimed"})
+
+
+def regression_leftover_verdicts(group: dict[str, Any], nodes: list[str]) -> list[dict[str, Any]]:
+    """The verdicts for the collected nodes no row claims, split the way `extract` splits them.
+
+    `regression` used to build this list by comparing the collected nodes against the store's rows
+    alone, so a group that had declared its non-validation tests correctly was still reported as
+    `unclaimed` - and `unclaimed` is in the failing set, so the command exited non-zero on
+    precisely the groups that had done the declaring. The same `classify_unclaimed` `extract`
+    uses settles it here too, so the two commands cannot disagree about what a declaration means.
+    """
+    declared, undeclared, stale = classify_unclaimed(group, list(nodes))
+    return (
+        [{"row": None, "verdict": "unclaimed", "detail": node} for node in undeclared]
+        + [
+            {"row": None, "verdict": "declared_non_validation", "detail": node}
+            for node in declared
+        ]
+        + [
+            {"row": None, "verdict": "stale_declaration", "detail": pattern}
+            for pattern in stale
+        ]
+    )
 # A group declares how its tests print their residuals, because the suite prints prose, not
 # a format. `asserted` matches the line behind a real assertion, `unasserted` the line the
 # test prints and never asserts.
@@ -3865,8 +3896,7 @@ def command_regression(args: argparse.Namespace) -> int:
         lines = [line for node in nodes for line in prints[node]]
         asserted, unasserted = extract_residuals(lines, residual)
         results.extend(compare_row(ref, asserted, unasserted))
-    for node in sorted(set(prints) - claimed):
-        results.append({"row": None, "verdict": "unclaimed", "detail": node})
+    results.extend(regression_leftover_verdicts(group, sorted(set(prints) - claimed)))
 
     sources_now = sources_digest(group)
     sources_stored = store.source_digests.get(str(args.group))
@@ -3895,9 +3925,7 @@ def command_regression(args: argparse.Namespace) -> int:
         write_source_digest(store, str(args.group), sources_now)
         print(f"wrote {written} measurement(s) and the source digest")
 
-    failing = [
-        item for item in results if item["verdict"] in {"changed", "unmapped", "unclaimed"}
-    ]
+    failing = [item for item in results if item["verdict"] in REGRESSION_FAILING_VERDICTS]
     for message in unreadable:
         failing.append({"verdict": "not_measured", "row": None, "detail": message})
     if sources_changed:
@@ -3931,6 +3959,13 @@ def command_regression(args: argparse.Namespace) -> int:
                 print(f"NEW      {where} [{item['label']}]: {item['current']}% ({item['text']})")
             elif item["verdict"] == "informational":
                 print(f"INFO     {where}: {item['text']} (never asserted)")
+            elif item["verdict"] == "declared_non_validation":
+                print(f"DECLARED {where}: not a comparison (declared in the group)")
+            elif item["verdict"] == "stale_declaration":
+                print(
+                    f"STALE    {where}: declared in non_validation_tests but no collected "
+                    "test matches it"
+                )
             else:
                 print(f"{item['verdict'].upper():8s} {where} {item.get('detail') or ''}")
         counts: dict[str, int] = {}
