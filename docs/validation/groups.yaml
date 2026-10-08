@@ -64,6 +64,20 @@ out_of_scope:
       recorded in gaps.yaml.
 
   - files:
+      - tests/validation/bem/test_bem_load_frame.py
+    reason: >-
+      An investigation of a frame, and it says so itself: it pins that the
+      production BEM emits the rotor-plane pair (ccblade's `cn = cl cos(phi)
+      + cd sin(phi)`), and that Zhou et al. 2025's published Fig. 11 pair is
+      instead a section-frame pair, by reading their own Fig. 10 angle of
+      attack through the official polar. The subject is which frame the two
+      curves are drawn in, not a physical quantity measured against an
+      independent reference, so rule 6 leaves it no row. The defect it
+      documents - the `+31%` tangential comparison was frame-mixed - is
+      recorded in gaps.yaml under `zhou_spanwise_load_frame`, with its closure
+      in docs/validation_closures.md (issue #15).
+
+  - files:
       - tests/validation/element/test_quad_elements.py
     reason: >-
       Matrix properties and rigid-body modes for QUAD4, QUAD8 and QUAD9:
