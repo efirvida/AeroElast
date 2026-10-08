@@ -1,6 +1,6 @@
 # Feature: S-7's torsion ratio says both directions at once (#20)
 
-Status: delivered 2026-10-07 (T1-T5 done; T6 pending the maintainer)
+Status: delivered 2026-10-07 (T1-T6 done)
 Owner: this session (2026-10-07)
 Related: issue #20 (roadmap item 8 of #18), roadmap item 2 (#14) which this gates,
 roadmap item 1 (#13, closed) whose twist-only row this magnitude sets, issue #19
@@ -186,9 +186,12 @@ expression created once in `5234b48` and never changed, the deck md5), and that 
 - [x] T5 Verify. **Done 2026-10-07**: the module green (`2 passed`), `check` 0 errors,
   `status` 0 files neither grouped nor declared, `references check` at its one pre-existing
   error, `ruff` clean, and the independent read-only verifier of E6.
-- [ ] T6 Close #20 with the measured evidence and update the roadmap comment on #18
-  (item 8 done, and item 2 unblocked with the bound it now has). Publishing and closing
-  are the maintainer's decision.
+- [x] T6 Close #20 with the measured evidence and update the roadmap comment on #18.
+  **Done 2026-10-07** with the maintainer's authorization: #20 is closed as completed with
+  the measurement (comment 6049335952) and the map in #18 carries the updated order
+  (comment 6049338529). Three follow-ups were opened from it: #21 (the `regression`
+  declaration gap), #22 (the unattributed residual) and #23 (the pre-existing
+  `references check` error).
 
 ## Delivered, with the evidence
 
@@ -217,16 +220,17 @@ expression created once in `5234b48` and never changed, the deck md5), and that 
 - The residual between the canonicalised reconstruction (`1.014`) and the table
   (`1.286`) is not attributed. Bisecting the 2026-09-30 -> 2026-10-04 window
   (`680cf81`, `6b2cbd6`, the merge's element line) would close it, but it does not change
-  what #20 decides and it is not needed to burn the table.
+  what #20 decides and it is not needed to burn the table. **Now #22.**
 - **`regression` does not honour `non_validation_tests`.** It reports a declared test as
   `unclaimed` and counts that in its failing set, while `extract` honours the same
   declaration. Pre-existing and store-wide: `regression --group 30` reports 29 the same
   way. The fix is the one `extract` already applies - route the leftover nodes through
   `classify_unclaimed` instead of comparing against `store.rows` directly. It costs a few
-  lines but it is store-tooling work, not #20's, so it is not done here.
+  lines but it is store-tooling work, not #20's, so it is not done here. **Now #21.**
 - **`references check` carries one pre-existing error**, `ko2017_nonlinear` at
   `src/aeroelast/core/assembler.py:681` (the declared citation site no longer mentions the
   work). Unrelated to this feature; recorded so the next session does not read it as new.
+  **Now #23.**
 - The row files under `docs/validation/rows/` are written by the store with one long line
   per scalar, so the prose linter flags all 31 of them; the fields are machine-owned and a
   re-write re-collapses any attempt to reflow them.
