@@ -1,7 +1,8 @@
 # Feature: the coupled rotor path diverges at t ≈ 1.9 s
 
-Status: projector load-frame fix landed and unit-verified 2026-10-08, but it is
-NOT the #19 cause (refuted by job 11610819); bisect rungs in flight
+Status: projector load-frame fix **committed as `7a84da1`** and unit-verified
+2026-10-08; it is NOT the #19 cause (refuted by job 11610819); bisect rungs in
+flight
 Owner: this session (2026-10-07, resumed 2026-10-08)
 Blocks: every roadmap item of issue #18 that needs a production FSI run — the
 campaign relaunch, the #13 production measurement, and the smoke gate recorded in
@@ -335,25 +336,53 @@ magnitudes agree, and this is the measured pair.
       so the Rust side is constant across rungs (the window's only Rust changes
       are MITC3-only - `crates/aeroelast-core/src/elements/mitc3.rs` and
       `smoothing.rs`, and the blade is MITC4).
-- [ ] T6 A/B on the campaign's own case at `max-time 5.0`. All rungs run the
-      consensus case `tests/smoke_fix/frame_ab/` (the campaign's own yaml with
-      the 4 rotor keys whose values equal HEAD's defaults removed, so every
-      revision in the window parses it; `config_file` and the mesh paths are the
-      case's own). Rungs: `campaign` = `b5d369e` (job `11610862`, the anchor),
-      `pre4fee` = `e9a0938` (`11610863`), `fee690` = `4fee690` (`11610864`),
-      `ac2e9e8` (`11610844`), `9a3923e` (`11610845`), `headfix` (`11610819`,
-      ran the unmodified HEAD yaml - semantically identical, those 4 keys hold
-      their defaults). Shadow dirs carry only an `aeroelast` symlink, so
-      `_aeroelast` is the venv build in every rung (constant Rust).
-- [ ] T6b Read the rungs together: the campaign's own feedback implementation
-      (a LE->TE chord-vector twist and a hub-offset radius) versus the
-      `origin/main` one the merge kept (per-section-ring twist with the
-      `_twist_mesh_to_bem` factor, `_mesh_datum_offset` radii). `4fee690` is the
-      strongest other candidate: it is the commit that measured P6 (the deformed
-      radii were a rigid `-4.2 m` off the datum, ccblade clamped at r ~ 1e-6) and
-      P7 (the twist under-read up to 5x and sign-flipped outboard) on this path.
-      `tests/exp_feedback_off/{radius_off,twist_off,both_off}/` are the ready
-      instrument for the follow-up if the rungs are inconclusive.
+- [x] T6 The anchor holds. `campaign` (`b5d369e`, job `11610862`) on the
+      consensus case `tests/smoke_fix/frame_ab/` at `max-time 5.0`: **423 of 423
+      windows converged**, first 12 = `15 11 11 13 13 12 11 10 11 10 11 10` -
+      the campaign's own sequence. So the 5 s instrument reproduces the healthy
+      baseline and the regression is in the code between the campaign and HEAD.
+      Case construction: the campaign's own yaml with the 4 rotor keys whose
+      values equal HEAD's defaults removed, so every revision in the window
+      parses it; `config_file` and the mesh paths are the case's own.
+- [ ] T6a **The `origin/main`-side rungs cannot run against the venv Rust.**
+      `ac2e9e8`, `9a3923e`, `pre4fee` and `fee690` all die at start-up with
+      `run_rotor_fsi_solver() missing 5 required positional arguments:
+      omega_rebuild_rel_high, omega_rebuild_rel_low, kg_use_deformed_coords,
+      kg_deflection_rebuild_rel_high, kg_deflection_rebuild_rel_low`. Those five
+      are the K_G-deformed / omega-rebuild plumbing: the **local** line has it
+      (`b5d369e` passes 9 kwargs, HEAD passes 9) and `origin/main` at 10-02 does
+      not (0 kwargs matched). The venv `_aeroelast` is the 2026-10-04 build, so
+      it wants the newer call. Bisecting that line needs one Rust rebuild per
+      rung; not attempted. The four jobs were cancelled (`11610844`, `11610845`,
+      `11610863`, `11610864`) because the Python shadow cannot drive the newer
+      Rust.
+- [ ] T6b Bisect by **diagnostic mutation at HEAD** instead, which runs. Three
+      patched worktrees at `7a84da1`, each with its `$SCRATCH/shadow-<name>`:
+      `nofeed` (both feedbacks frozen, job `11610901`, in queue), `noradii`
+      (radii frozen, twist live), `notwist` (twist frozen, radii live). Each
+      patch is a one-line return of the reference value inside
+      `_compute_deformed_geometry`, labelled `DIAGNOSTIC`; validated by the RED
+      of `tests/validation/rotor/test_bem_fsi_deformed_geometry.py` under the
+      `shadow-nofeed`. Reading: `nofeed` contracts ⇒ the deformation feedback is
+      what breaks the coupling, and `noradii`/`notwist` attribute which half;
+      `nofeed` still saturates ⇒ the defect is upstream of the feedback and the
+      candidate set narrows to the merge's other imports (frame, polars, wall
+      flows, AC datum).
+- [ ] T6c **The `exp_feedback_off` yamls do not work at HEAD** (checked
+      2026-10-08): `deformed_twist`/`deformed_radius` were declared in
+      `BEMConfig` by `d571917` on the *local* line, and the merge kept the
+      `origin/main` `_compute_deformed_geometry`, which applies both feedbacks
+      **unconditionally** - nothing under `src/` reads either key, so the yaml
+      values are inert. The working substitute is the diagnostic worktree
+      `~/fem-shell-nofeed` (at `7a84da1`) plus `~/shadow-nofeed`: it returns
+      `(_ref_r, _ref_twist)` from `_compute_deformed_geometry`. Validated - under
+      that shadow `tests/validation/rotor/test_bem_fsi_deformed_geometry.py` goes
+      RED (the loads stop moving with the deformation), which is exactly the
+      mutation. Run it with
+      `sbatch -p sequana_cpu --time=03:30:00 -J frame_ab --export=ALL,LABEL=nofeed,SHADOW=$SCRATCH/shadow-nofeed,RUN_DIR=$SCRATCH/frame_ab/nofeed,FLUID_YAML=<repo>/tests/smoke_fix/frame_ab/fluid_yaw_0.yaml,SOLID_YAML=<repo>/tests/smoke_fix/frame_ab/solid_corotational_yaw_0.yaml,INNER_TIMEOUT=10800 tests/run_coupling_probe.srm`.
+      If `nofeed` contracts, the non-contraction is the *strength* of the
+      deformation feedback interacting with the coupling, not a geometry bug;
+      if it still saturates, the defect is upstream of the feedback.
 - [ ] T7 Re-run the 30 s gate (`tests/run_step1b_smoke.srm`) and re-anchor the
       campaign baseline once T6 is clean.
 - [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
