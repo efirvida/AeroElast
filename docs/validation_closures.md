@@ -866,3 +866,79 @@ modelo.
 `src/aeroelast/solvers/bem/force_projection.py` (el frame de carga, `_strip_moment_axis_sign`, la
 realización multi-celda), en `tools/ccx_blade_twist_arbitration.py` o en el escritor de decks CCX, en
 el generador de malla de la pala, o la publicación de los tres inputs por parte de Zhou.
+
+### #15: el `+31%` de carga tangencial es frame y sesgo de ángulo, no un defecto de polar (2026-10-08)
+
+Cierra el issue #15 (ítem 3 del roadmap de #18). El issue pedía reproducir el integral tangencial
+desde el ángulo de ataque publicado y los polares oficiales —igual que se había hecho con el momento—
+y comparar término por término: proyección polar `Cd`/`Cl`, factor de inducción tangencial, y la
+convención de signo/dirección del eje tangencial. **Se cierra con los tres términos medidos**, y el
+resultado es que no es un defecto de polar: es el frame de la referencia más el sesgo de ángulo de
+ataque que el propio reporte ya lleva en §5.11.
+
+**Qué es el `+31%`, y qué no es.** No es un integral: es un estadístico pointwise de `Tp` (el pico
+`1.05` contra `0.80 kN/m`, y la media pointwise `1.300`). Los cocientes *integrales* dependen de qué
+se elija: `1.24` (la única campaña local que sobrevive, `t ∈ [40, 100] s`), `1.49` (los números de
+§5.9), `1.83` (el BEM rígido de producción). El título del issue presenta una desviación pointwise
+como un integral.
+
+**Término 1 — la proyección polar: descartada.** El polar es el mismo (el deck oficial) en las dos
+lecturas; entra en ambas idénticamente y no puede por sí solo producir una diferencia con forma de
+frame.
+
+**Término 3 — la convención del eje tangencial: real y medida.** Las dos curvas no están en el mismo
+frame:
+
+- Zhou Fig. 11 es un par del **frame de sección (cuerda)**: leído con
+  `alpha = atan2(Tp, Np) + atan2(Cd, Cl)` reproduce su propia Fig. 10 a **0.37°** en `r/R` 0.26–0.80
+  (rms `1.31°` en todo el span digitalizado, peor en la punta digitalizada); en el plano del rotor
+  falla por **6.83°** en el núcleo.
+- `BEMSolver` emite el par del **plano del rotor** por construcción:
+  `atan2(Tp, Np) + atan2(Cd, Cl) − twist == alpha` a **1.4e-14°**.
+
+La rotación entre los dos es el twist local. Su efecto neto sobre el cociente medio pointwise es
+chico (`1.82 → 1.69`, −7%) porque el twist cambia de signo a lo largo del span, así que el frame es
+**fundamental para la definición** pero no domina la magnitud. Medido por `tools/diagnose_zhou_tp_frame.py`
+y guardado por `tests/validation/bem/test_bem_load_frame.py`.
+
+**Término 2 — la inducción tangencial: es el término que queda, y ya estaba reportado.** Medido en el
+**mismo frame y con el mismo `qc`**, alimentando el ángulo de ataque de nuestro BEM en la fórmula de
+carga de ellos (polar oficial, `qc` de su propio `|F|`): el cociente `Tp` resultante es **1.12–1.67**
+sobre `r/R` 0.26–0.80 y el de `Np` es **1.06–1.34**. Nuestro ángulo de ataque es mayor que el suyo en
+`+0.9°` en `r/R = 0.26`, `+1.2°` a 0.5 y `+4.8°` a la punta. `Tp = qc(CL sin(phi) − CD cos(phi))` es
+la **diferencia de dos términos grandes**, así que 1–5° de ángulo de flujo aparecen como decenas de
+por ciento en `Tp` y ~1% en `Np`. Ésa es la firma reportada, y es el sesgo BEM-vs-LL-FVW que §5.11 ya
+documentaba (`+3.09°` medio).
+
+**Banda del comparador, dicha antes de usarla.** La Fig. 11 digitalizada es el caso **flexible**:
+`∫Np·3 = 2.20 MN` = el thrust flexible de la Tabla 6 (`14.76 MW / 2.20 MN`), no el rígido
+(`16.11 MW / 2.53 MN`). Y su trapecio **no lleva el torque del propio paper**: `∫(Tp·r)·3·Omega` da
+`11.68 MW` contra los `14.76 MW` reportados (−21%). Con eso, ningún claim *integral* se toma a través
+de la digitalización; la comparación utilizable es la de dirección (`Tp/Np`) punto a punto. La banda
+pointwise de la digitalización es `±0.05 kN/m` (±3–5%) y la de la Fig. 10 `±0.5°`.
+
+**Números del camino de producción** (BEM en el punto rated de Zhou: `V = 10.59 m/s`, `Omega = 7.55 rpm`,
+pitch 0, deck AeroDyn oficial): `thrust 2.478 MN`, `power 15.724 MW`, `torque 19.888 MN·m`;
+`∫Np dr = 922.2 kN`, `∫Tp dr = 127.8 kN` en el plano del rotor. Contra la curva flexible de ellos la
+diferencia de nivel es de caso (rígido-vs-flexible) más el sesgo de ángulo, y por eso no se cita como
+magnitud.
+
+**Números anteriores, conservados y no reproducibles.** §5.9 reportaba `∫Np dr = 669.1 kN`,
+`∫Tp dr = 101.7 kN`, `∫(Tp·r) = 6.21 MN·m`, pico `Np` 10.65 vs 9.95 y pico `Tp` 1.05 vs 0.80 kN/m.
+La campaña que los produjo (`frontiersin_results_corotational`) **ya no existe en disco**; la única
+superviviente (`..._100s`) es otra corrida de baja carga (`thrust` 1.64 MN, `power` 12.34 MW, tip
+7.4 m contra los 14.71 MW / 12.73–12.79 m del artículo). Quedan como registro, no como evidencia.
+
+**Store.** `docs/validation/gaps.yaml` id `zhou_spanwise_load_frame` (`not_validated`,
+`citations_forbidden: true`): la referencia no puede arbitrar una magnitud de `Tp`. V-09 sigue en
+Capa B, como comparación contextual. El guard del frame es
+`tests/validation/bem/test_bem_load_frame.py`, declarado `out_of_scope` en `groups.yaml` (su sujeto
+es en qué frame están dibujadas las dos curvas, no una magnitud física contra una referencia).
+
+**Disparador de re-ejecución:** invalida este cierre cualquier cambio en
+`src/aeroelast/solvers/bem/engine.py` (el frame de `Np`/`Tp` que emite `BEMSolver`), en
+`tools/diagnose_zhou_tp_frame.py`, en `docs/validation_data/zhou_2025_fig11_loads.csv` o
+`..._fig10_aoa.csv` (una re-digitalización), en `tests/support/openfast_bem.py`, o que Zhou publique
+la curva tabular, el pitch, la fuente de rigidez o la definición torsional. Reabre además la pregunta
+de si `ForceProjector` aplica `Np`/`Tp` en el frame correcto (ver el follow-up anotado en
+`odd/tasks/tangential-load-attribution.md`).

@@ -1,6 +1,6 @@
 # Feature: the +31% tangential load (roadmap item 3, issue #15)
 
-Status: started 2026-10-08 (T1-T5)
+Status: T1-T3 closed 2026-10-08; T4 in progress, T5 open
 Owner: this session
 Related: issue #15 (roadmap item 3 of #18); issue #14 (item 2, closed as documented
 non-transferability and building on the same Zhou publication); `docs/validation_results_v01_v02_v04.md`
@@ -57,22 +57,26 @@ Zhou digitised   : intNp 732.2 kN   intTp  70.0 kN   int(Tp r) 4.923 MNm
 
 ## Tasks
 
-- [ ] **T1 - The frame of Zhou's Fig. 11, established by measurement, and the polar term.**
-  Turn the read-only probe into a repo artifact (`tools/diagnose_zhou_tp_frame.py` or an extension of
-  `tools/diagnose_zhou_loads_reverse.py`) that prints the term-by-term table for both frame
-  hypotheses; pin the section-frame verdict and the polar `gamma`; state what remains unmeasured (their
-  `a'`, their twist/pitch) rather than inferring it. RED first: a check that the probe's own identity
-  holds on our BEM output before it is trusted on theirs.
-- [ ] **T2 - The digitization quadrature band, and which case Fig. 11 is.**
-  Compute each digitized curve's implied rotor thrust and torque against the paper's own `Table 6`
-  (`rigid 16.11 MW / 2.53 MN`, `flexible 14.76 MW / 2.20 MN`); pin that Fig. 11 is the flexible case
-  and carry the resulting `~10-30%` band explicitly into every integral claim.
-- [ ] **T3 - Re-do the §5.9 comparison in one declared frame, on the production path.**
-  `plot_spanwise_loads.py` (and the prose it feeds) declares the frame of each curve and converts to a
-  common one (or reports both). Decide the honest, reproducible statistic: the rigid BEM at the rated
-  point is not the comparable case for a flexible `Fig. 11`, so either use a one-way deformed geometry
-  or state the comparison as rigid-vs-flexible and bound it. The stale §5.9 numbers are replaced or
-  withdrawn, not widened.
+- [x] **T1 - The frame of Zhou's Fig. 11, established by measurement, and the polar term.**
+  **Done 2026-10-08** (`51f9718`): `tools/diagnose_zhou_tp_frame.py`; the production BEM's
+  rotor-plane identity holds to `1.4e-14 deg`, the section reading of their published pair
+  reproduces `Fig. 10`'s `alpha` to `0.37 deg` over the blade core (`r/R 0.26-0.80`, 10 stations)
+  where the rotor-plane reading is off by `6.83 deg`; guard
+  `tests/validation/bem/test_bem_load_frame.py`, declared `out_of_scope` in `groups.yaml`. The
+  polar enters both readings identically, so it is not the cause.
+- [x] **T2 - The digitization quadrature band, and which case Fig. 11 is.** **Done 2026-10-08**:
+  the digitized `intNp dr x 3 = 2.20 MN` equals `Table 6`'s **flexible** thrust (not the rigid
+  `2.53 MN`), and its tangential trapezoid carries `11.68 MW` of the paper's own `14.76 MW`
+  (`-21%`). Pointwise digitization band `+/-0.05 kN/m` (`+/-3-5%`), `Fig. 10` band `+/-0.5 deg`.
+- [x] **T3 - Re-do the §5.9 comparison in one declared frame, on the production path.** **Done
+  2026-10-08**: the frame is declared in `docs/validation_plots/plot_spanwise_loads.py` and the
+  rotor-plane pair is rotated into the section frame before the overlay; §5.9 and the `V-09` entry
+  carry the attribution and keep the old numbers as non-reproducible record. The residual is our
+  inflow-angle bias (the issue's second term), measured in one frame and one `qc`:
+  feeding our `alpha` into their load formula multiplies `Tp` by `1.12-1.67` and `Np` by
+  `1.06-1.34` over `r/R 0.26-0.80`. `Tp` is the small difference of two large terms, so 1-5 deg of
+  inflow appear as tens of percent on `Tp` and ~1% on `Np` - the reported signature, and the
+  0.9-to-4.8 deg bias §5.11 already documents.
 - [ ] **T4 - Land the attribution: write-up, store, closures.**
   `docs/validation_results_v01_v02_v04.md` §5.9/§5.11, `docs/iea15mw_validation_reference.md` `V-09`,
   the article draft if it carries the number; and the store (`docs/validation/gaps.yaml` if a residual
@@ -82,6 +86,19 @@ Zhou digitised   : intNp 732.2 kN   intTp  70.0 kN   int(Tp r) 4.923 MNm
   A separate verifier re-derives the frame identity and the quadrature band from the raw CSVs and the
   deck.constants, checks every printed number against the live script, and checks the store. Then
   comment on #15 with the attribution and close it, and update the #18 map.
+
+## Follow-ups this unit opened
+
+- **The `ForceProjector` load frame, on our side.** The plan documents `ccblade`'s `Np`/`Tp` as
+  "normal and tangential to the section chord"; the engine emits the *rotor-plane* pair
+  (`cn = cl cos(phi) + cd sin(phi)`), so `ForceProjector.project` puts rotor-plane components on the
+  section's own chord-normal / chord axes, a rotation by the local twist (up to 15.6 deg inboard).
+  The net effect on the integrated force is small and of both signs along the span, but it is the
+  same class of implicit-convention defect as the P5 sense chain, and it should be arbitrated with a
+  case whose answer is known before attributing anything to it. Not this unit's scope: the reported
+  numbers compared `bem_sectional.csv`, which is upstream of the projector.
+- **Their `Tf`/`Np` digitization is the flexible case.** Any future integral comparison must match
+  case and quadrature, or be stated as a bound.
 
 ## Constraints
 

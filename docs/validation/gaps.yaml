@@ -272,3 +272,38 @@ gaps:
       what makes its "production path" label true for the first time.
     citations_forbidden: true
     rows: []
+
+  - id: zhou_spanwise_load_frame
+    scope: "the spanwise Np/Tp comparison against Zhou et al. 2025 Fig. 11"
+    status: not_validated
+    reason: >-
+      The reference cannot arbitrate a tangential magnitude, and the comparison
+      the report used to take from it mixed two frames. Measured 2026-10-08
+      (issue #15): Zhou's published pair is a **section (chord) frame** pair -
+      read with `alpha = atan2(Tp, Np) + atan2(Cd, Cl)` it reproduces their own
+      Fig. 10 angle of attack to 0.37 deg over the blade core, where the
+      rotor-plane reading is off by 6.83 deg - while `BEMSolver` emits the
+      **rotor-plane** pair by construction. Their Fig. 11 is also the flexible
+      case (its digitized thrust x3 is 2.20 MN, Table 6's flexible value, not
+      the rigid 2.53 MN) and its trapezoid carries only 11.68 MW of the 14.76
+      MW the paper itself reports, so no integral claim travels through the
+      digitization. What is left after fixing the frame is our inflow-angle
+      bias against their LL-FVW (0.9 deg at r/R 0.26 to 4.8 deg at the tip),
+      which is already reported in section 5.11 and which `Tp` magnifies because
+      it is the difference of two large terms.
+    evidence: >-
+      `tools/diagnose_zhou_tp_frame.py` (production BEM at Zhou's own rated
+      point, V=10.59 m/s, 7.55 rpm, pitch 0, official AeroDyn deck) and its
+      guard `tests/validation/bem/test_bem_load_frame.py`. The report's numbers
+      (`int Np dr = 669.1 kN`, `int Tp dr = 101.7 kN`, `int (Tp r) dr` = 6.21
+      MN.m, peak Tp 1.05 vs 0.80 kN/m) came from
+      `frontiersin_results_corotational`, a campaign that no longer exists on
+      disk; they are kept in section 5.9 as a record and are not reproducible.
+    consequence: >-
+      `Tp` cannot be cited as a magnitude against Zhou, and the `+31%` the
+      report carried is not a polar or model defect but the frame plus the
+      known angle-of-attack bias. Only the pointwise direction comparison
+      (`Tp/Np`) and the shape/scale reading are defensible. V-09 stays class B,
+      as a contextual comparison and not a formal closure.
+    citations_forbidden: true
+    rows: []

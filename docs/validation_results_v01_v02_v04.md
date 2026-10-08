@@ -771,21 +771,61 @@ La concordancia de escala entre `bem_90_50_S` (**8.35 m**) y las deflexiones par
 **Fuente de datos**: `bem_report.csv` por paso de tiempo y, dentro de cada directorio `fluid/<t>/`, `bem_sectional.csv` con 53 estaciones radiales (r, dr, chord, twist, $N_p$, $T_p$, $M_p$, AoA, $C_l$, $C_d$, $a$, $a'$, W, Re, $C_m$).
 **Script**: `docs/validation_plots/plot_spanwise_loads.py`. Promedio temporal sobre la ventana de régimen permanente $t \in [20, 60]$ s, una muestra cada 0.5 s ($n = 81$ muestras). La comparación externa usa una digitalización aproximada de Zhou Fig. 11 guardada en `docs/validation_data/zhou_2025_fig11_loads.csv`.
 
-Zhou et al. 2025 publica explícitamente la **Figure 11** ("Comparison of spanwise distributions of the loads along the IEA-15 MW blade under rated condition") como validación cruzada entre métodos. La distribución spanwise de cargas BEM de AeroElast se superpone ahora con una curva digitalizada de esa figura; por ser una extracción gráfica manual, la comparación debe leerse como validación de forma y escala, no como una comparación exacta punto a punto.
+Zhou et al. 2025 publica explícitamente la **Figure 11** ("Comparison of spanwise distributions of the loads along the IEA-15 MW blade under rated condition") como validación cruzada entre métodos.
 
-![Distribución spanwise de cargas BEM](figures/fig_5_4_6_spanwise_loads.png)
-*Figura: distribución spanwise media de $N_p(r)$, $T_p(r)$ y $M_p(r)$ del participante BEM CCBlade en condición rated, yaw=0°. Promedio temporal $t \in [20, 60]$ s. La curva azul corresponde a una digitalización aproximada de Zhou et al. 2025 Fig. 11. La fuerza normal $N_p$ reproduce la forma y escala de Zhou: crecimiento desde la raíz, máximo outboard y caída rápida hacia la punta; el error absoluto medio aproximado en $0.14 \le r/R \le 0.98$ es 1.04 kN/m, con pico AeroElast 10.65 kN/m frente a 9.95 kN/m en Zhou. La fuerza tangencial $T_p$ presenta la misma escala pero AeroElast resulta sistemáticamente mayor (MAE ≈ 0.29 kN/m; pico 1.05 vs. 0.80 kN/m), consistente con el sesgo positivo de torque ya observado en V-01. El momento $M_p$ es negativo en el outboard (pitching down).*
+**Los dos frames, declarados antes de comparar (issue #15).** Las dos curvas no están en el mismo
+sistema de ejes, y esta sección las superponía como si lo estuvieran:
 
-**Chequeos de consistencia integral** (verificación interna):
+- `BEMSolver` y `bem_sectional.csv` emiten el par del **plano del rotor**: `ccblade` calcula
+  `cn = cl cos(phi) + cd sin(phi)` con `phi` el ángulo de flujo medido desde el plano del rotor, de
+  modo que `atan2(Tp, Np) + atan2(Cd, Cl) - twist == alpha`, medido a **1.4e-14°** sobre las 50
+  estaciones.
+- La Fig. 11 de Zhou et al. es un par del **frame de sección (cuerda)**: su `(Np, Tp)` publicado,
+  leído con `alpha = atan2(Tp, Np) + atan2(Cd, Cl)`, reproduce su propio ángulo de ataque de la
+  Fig. 10 a **0.37°** en el núcleo de la pala (`r/R` 0.26–0.80); leído en el plano del rotor falla
+  por **6.83°** en el mismo tramo.
 
-| Integral | Valor calculado | Comparación |
-|---|---:|---|
-| $\int N_p(r)\,dr$ por pala | 669.1 kN | $\times 3$ palas = 2007 kN $\approx$ thrust BEM medio (2010 kN, V-01) ✓ |
-| $\int (N_p \cdot r)\,dr$ por pala | 50.85 MN·m | Define el momento flector raíz derivado de la misma carga distribuida |
-| $\int T_p(r)\,dr$ por pala | 101.7 kN | Cortante tangencial raíz |
-| $\int (T_p \cdot r)\,dr$ por pala | 6.21 MN·m | Momento edgewise raíz |
+`tools/diagnose_zhou_tp_frame.py` mide las dos lecturas y la identidad sobre nuestro propio BEM; el
+guard permanente es `tests/validation/bem/test_bem_load_frame.py`. El script de figura rota ahora
+nuestro par al frame de sección (`Np_sec = Np_rot cos(theta) + Tp_rot sin(theta)`,
+`Tp_sec = Tp_rot cos(theta) - Np_rot sin(theta)`, `theta` = twist local) antes de dibujar el overlay.
 
-**Limitación de trazabilidad**: mientras los autores no publiquen la curva tabular original o material suplementario equivalente, esta comparación queda limitada a forma y escala. No debe usarse como validación punto a punto de $N_p$, $T_p$ o $M_p$.
+**Qué explica el `+31%` de `Tp`.** El número no es un integral y no es un defecto de polar. Medido en
+el **mismo frame y con el mismo `qc`**, alimentando el ángulo de ataque de nuestro BEM en la fórmula
+de carga de ellos (polar oficial, `qc` de su propio `|F|`), el cociente `Tp` resultante es **1.12–1.67**
+sobre `r/R` 0.26–0.80 y el de `Np` es **1.06–1.34**: nuestro ángulo de ataque es mayor que el suyo
+en `+0.9°` en `r/R = 0.26`, `+1.2°` a 0.5 y `+4.8°` a la punta (el sesgo BEM-vs-LL-FVW que §5.11 ya
+reporta). `Tp` es la **diferencia de dos términos grandes**, así que 1–5° de ángulo de flujo aparecen
+como decenas de por ciento en `Tp` y ~1% en `Np`: ésa es exactamente la firma que el issue reporta.
+La definición del eje tangencial es real pero **no domina la magnitud**: rotar nuestro `Tp` del plano
+del rotor al frame de sección mueve el cociente medio pointwise `1.82 → 1.69` (−7%), porque el signo
+del twist cambia a lo largo del span y los dos efectos casi se cancelan.
+
+**Banda del comparador.** La Fig. 11 digitalizada es el caso **flexible**, no el rígido: su `∫Np·3`
+da `2.20 MN`, que es el thrust flexible de la Tabla 6 (`14.76 MW / 2.20 MN`) y no el rígido
+(`16.11 MW / 2.53 MN`). Y su trapecio **no lleva el torque del propio paper**: `∫(Tp·r)·3·Omega` da
+`11.68 MW` contra los `14.76 MW` reportados (−21%). La banda pointwise de la digitalización es
+`± 0.05 kN/m` (±3–5%), y la de la Fig. 10 `± 0.5°`. Con eso, ningún claim *integral* se toma a través
+de la digitalización; la comparación utilizable es la de dirección (`Tp/Np`) punto a punto.
+
+**Números del camino de producción** (`BEMSolver` en el punto rated de Zhou, `V = 10.59 m/s`,
+`Omega = 7.55 rpm`, pitch 0, deck AeroDyn oficial; `tools/diagnose_zhou_tp_frame.py`): `thrust`
+`2.478 MN`, `power` `15.724 MW`, `torque` `19.888 MN·m`; `∫Np dr = 922.2 kN`, `∫Tp dr = 127.8 kN`
+en el plano del rotor. Contra la curva flexible de ellos, la diferencia de nivel es de caso
+(rígido-vs-flexible) además del sesgo de ángulo, y por eso no se cita como magnitud.
+
+**Números anteriores, conservados (no reproducibles).** Esta sección reportaba `∫Np dr = 669.1 kN` y
+`∫Tp dr = 101.7 kN` por pala, `∫(Np·r) = 50.85 MN·m`, `∫(Tp·r) = 6.21 MN·m`, y en el texto el pico
+`Np` 10.65 vs 9.95 kN/m y el pico `Tp` 1.05 vs 0.80 kN/m (`+31%`). La campaña que los produjo
+(`frontiersin_results_corotational`) **ya no existe en disco**: la única superviviente,
+`frontiersin_results_corotational_100s`, es otra corrida de baja carga (`thrust` 1.64 MN, `power`
+12.34 MW, tip 7.4 m contra los 14.71 MW / 12.73–12.79 m del artículo), así que la figura commiteada y
+sus paréntesis son **stale** y quedan como registro, no como evidencia.
+
+**Limitación de trazabilidad**: mientras los autores no publiquen la curva tabular original o material
+suplementario equivalente, y mientras no se publiquen pitch, fuente de rigidez y definición torsional,
+esta comparación queda limitada a forma y escala y a la lectura de **dirección**. No debe usarse como
+validación punto a punto de `N_p`, `T_p` o `M_p`.
 
 ---
 
@@ -813,7 +853,7 @@ La lectura metodológica del sesgo AoA debe separarse por causa probable. La fra
 | Archivo | Figura fuente | Variable | Incertidumbre heurística* | Uso permitido |
 |---|---|---|---|---|
 | `docs/validation_data/zhou_2025_fig10_aoa.csv` | Zhou et al. 2025, Fig. 10 | AoA spanwise (yaw=0°) | ±0.5° | Comparación de forma y nivel de AoA; no validación punto a punto de valores absolutos. |
-| `docs/validation_data/zhou_2025_fig11_loads.csv` | Zhou et al. 2025, Fig. 11 | $N_p$, $T_p$ spanwise **solamente** (el momento de pitch no está en la figura ni publicado) | ±0.05 a ±0.10 kN/m (aprox. ±3–5% según nivel) | Contraste de forma/escala de fuerzas distribuidas; no cierre absoluto por estación radial, y **no** sirve para arbitrar el par torsional: falta $M_p$. |
+| `docs/validation_data/zhou_2025_fig11_loads.csv` | Zhou et al. 2025, Fig. 11 | $N_p$, $T_p$ spanwise **solamente** (el momento de pitch no está en la figura ni publicado) | ±0.05 a ±0.10 kN/m (aprox. ±3–5% según nivel) | Contraste de forma/escala de fuerzas distribuidas; no cierre absoluto por estación radial, y **no** sirve para arbitrar el par torsional: falta $M_p$. **Frame**: la pareja es del frame de sección (cuerda), no del plano del rotor — `alpha = atan2(Tp, Np) + atan2(Cd, Cl)` reproduce la Fig. 10 a 0.37° en el núcleo (`tools/diagnose_zhou_tp_frame.py`, issue #15); hay que rotar nuestro par antes de comparar. **Caso**: es el **flexible** (su `∫Np·3 = 2.20 MN` = Tabla 6 flexible) y su trapecio lleva `11.68 MW` de los `14.76 MW` reportados, así que no se toman claims integrales a través de la digitalización. |
 | `docs/validation_data/ma_2025_fig17_aoa_flap_velocity.csv` | Ma et al. 2025, Fig. 17 | AoA y velocidad de flapping | ±0.5° en AoA y ±3–5% en magnitudes normalizadas | Comparación de tendencia con yaw y orden relativo; no inferencia de tolerancias de diseño. |
 
 \*Incertidumbres heurísticas de digitalización por lectura de figura y resolución de grilla. No son tolerancias de validación ni reemplazan datos tabulares originales.

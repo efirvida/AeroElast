@@ -355,15 +355,23 @@ La regla de esta version es simple:
 
 **Objetivo preservado.** Mantener la comparacion de cargas integradas y la lectura del perfil de cargas a lo largo del span.
 
+**Frame y caso, declarados (issue #15).** La pareja de la Fig. 11 de Zhou es del **frame de seccion (cuerda)**, no del plano del rotor: leida con `alpha = atan2(Tp, Np) + atan2(Cd, Cl)` reproduce su propia Fig. 10 a **0.37°** en el nucleo de la pala, donde la lectura en el plano del rotor falla por **6.83°**; `BEMSolver` emite el plano del rotor por construccion. La curva es ademas el caso **flexible**, y su trapecio lleva `11.68 MW` de los `14.76 MW` que el propio paper reporta. La comparacion utilizable es la de **direccion** (`Tp/Np`) punto a punto, no un integral a traves de la digitalizacion.
+
 | Magnitud | Valor propio preservado | Comparador contextual | Error |
 |----------|--------------------------|-----------------------|-------|
 | `int Np dr` por pala | 669 kN/blade | 733 kN/blade | -8.7 % |
+
+> **Numeros no reproducibles.** El `669 kN` y el comparador vienen de la campana
+> `frontiersin_results_corotational`, que ya no existe en disco; la unica superviviente es otra
+> corrida de baja carga. Se conservan como registro, no como evidencia. La medicion reproducible es
+> la de `tools/diagnose_zhou_tp_frame.py` (BEM de produccion en el punto rated de Zhou).
 
 | Observacion de la campana previa | Lectura |
 |----------------------------------|---------|
 | Pico principal de carga cerca de `r/R ~ 0.87` | consistente con un rotor grande de alta eficiencia |
 | Reduccion de carga con yaw creciente | tendencia fisica razonable |
 | Comparacion condicionada por diferencias de pitch/cierre de caso | motivo por el que no sube a Capa A |
+| Diferencia de `Tp` que el reporte citaba como `+31%` | el sesgo de angulo de ataque de nuestro BEM (0.9 a 4.8 grados), amplificado porque `Tp` es la diferencia de dos terminos grandes; mas el frame y la digitalizacion. No es un defecto de polar |
 
 **Lectura.** V-09 sigue siendo informacion util para la historia de validacion. Lo correcto es conservarlo como comparacion contextual y no como cierre formal.
 
