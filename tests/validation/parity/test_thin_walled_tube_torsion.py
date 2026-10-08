@@ -316,8 +316,9 @@ def _self_equilibrated_load(coords: np.ndarray, rings: list[list[int]]) -> np.nd
     return _ring_shear_flow(coords, rings[-1], TORQUE) + _ring_shear_flow(coords, rings[0], -TORQUE)
 
 
-def _wall_traction(coords: np.ndarray, rings: list[list[int]], n_ring: int,
-                   x_wall: float, traction: float) -> np.ndarray:
+def _wall_traction(
+    coords: np.ndarray, rings: list[list[int]], n_ring: int, x_wall: float, traction: float
+) -> np.ndarray:
     """Uniform traction ``traction`` [N/m] in +y along the tip edges of the wall at ``x = x_wall``."""
     f = np.zeros(6 * len(coords))
     tip = rings[-1]
@@ -357,7 +358,9 @@ def _theta_z(u: np.ndarray, ring: list[int]) -> float:
     return float(np.mean([u[6 * nd + 5] for nd in ring]))
 
 
-def _parallelogram(coords: np.ndarray, u: np.ndarray, ring: list[int]) -> tuple[float, float, float]:
+def _parallelogram(
+    coords: np.ndarray, u: np.ndarray, ring: list[int]
+) -> tuple[float, float, float]:
     """Section-distortion amplitude of one ring: ``(alpha, beta, deviation)``.
 
     ``alpha = du_x/dy`` and ``beta = du_y/dx`` are least-squares fits of the mean-removed ring field
@@ -406,8 +409,14 @@ def _bredt_laminate() -> tuple[float, float, float, float]:
     return gj, a66, qbar66, TORQUE / gj
 
 
-def _rate_report(label: str, coords: np.ndarray, u: np.ndarray, rings: list[list[int]],
-                 ref_rate: float, window: tuple[float, float]) -> dict[str, float]:
+def _rate_report(
+    label: str,
+    coords: np.ndarray,
+    u: np.ndarray,
+    rings: list[list[int]],
+    ref_rate: float,
+    window: tuple[float, float],
+) -> dict[str, float]:
     """Print both rate metrics over ``window`` and return them."""
     z = np.asarray([coords[r[0], 2] for r in rings])
     theta_fit = np.asarray([_theta_fit(coords, u, r) for r in rings])
@@ -455,8 +464,10 @@ def _self_equilibrated_validation(
 
     modes = _rigid_modes(coords)
     resultants = _generalised_resultants(modes, f)
-    print(f"\n[{label}] self-equilibrated: generalised resultants (normalised) = "
-          f"{' '.join(f'{r:.2e}' for r in resultants)}")
+    print(
+        f"\n[{label}] self-equilibrated: generalised resultants (normalised) = "
+        f"{' '.join(f'{r:.2e}' for r in resultants)}"
+    )
     assert resultants.max() < 1e-9, f"load is not self-equilibrated: {resultants}"
 
     u = _solve_rigid_removed(K, f, modes)
@@ -477,13 +488,17 @@ def _self_equilibrated_validation(
     k_bad = _PENALTY_PRESCRIBED * np.median(K.diagonal())
     u_k = _solve_penalty(K, f, modes, k_bad)
     u_1000k = _solve_penalty(K, f, modes, 1000.0 * k_bad)
-    rate_k = _lsq_slope(z, np.asarray([_theta_fit(coords, u_k, r) for r in rings]), 0.4 * L, 0.9 * L)
+    rate_k = _lsq_slope(
+        z, np.asarray([_theta_fit(coords, u_k, r) for r in rings]), 0.4 * L, 0.9 * L
+    )
     rate_1000k = _lsq_slope(
         z, np.asarray([_theta_fit(coords, u_1000k, r) for r in rings]), 0.4 * L, 0.9 * L
     )
-    print(f"  prescribed penalty k=1e-6*median(diagK)={k_bad:.3e}: rate drifts "
-          f"{abs(rate_k - rate_1000k) / abs(rate_k):.2e} relative to 1000k "
-          f"(the exact constraint is used instead)")
+    print(
+        f"  prescribed penalty k=1e-6*median(diagK)={k_bad:.3e}: rate drifts "
+        f"{abs(rate_k - rate_1000k) / abs(rate_k):.2e} relative to 1000k "
+        f"(the exact constraint is used instead)"
+    )
 
     print("  theta_fit(z) profile:")
     for k in range(0, len(z), max(1, len(z) // 8)):
@@ -582,20 +597,25 @@ def test_clamped_root_metric_convergence_identifies_the_section_rotation():
             z_prop = _lsq_slope(z, theta_z, 0.4 * length, 0.9 * length) / ref_rate
             fit_abs = _lsq_slope(z, theta_fit, 2.4, 5.4) / ref_rate
             z_abs = _lsq_slope(z, theta_z, 2.4, 5.4) / ref_rate
-            print(f"  L={length:4.0f} m: 0.4L-0.9L fit={fit_prop:.4f} z={z_prop:.4f}   "
-                  f"| 2.4-5.4 m fit={fit_abs:.4f} z={z_abs:.4f}")
-            local = np.asarray([(theta_fit[k + 1] - theta_fit[k]) / (length / n_z) / ref_rate
-                                for k in range(n_z)])
+            print(
+                f"  L={length:4.0f} m: 0.4L-0.9L fit={fit_prop:.4f} z={z_prop:.4f}   "
+                f"| 2.4-5.4 m fit={fit_abs:.4f} z={z_abs:.4f}"
+            )
+            local = np.asarray(
+                [(theta_fit[k + 1] - theta_fit[k]) / (length / n_z) / ref_rate for k in range(n_z)]
+            )
             stations = np.arange(0, n_z, max(1, n_z // 8))
-            print("        local theta_fit secant slope/ref: "
-                  + " ".join(f"{((k + 0.5) * length / n_z):.1f}:{(local[k]):.3f}" for k in stations))
+            print(
+                "        local theta_fit secant slope/ref: "
+                + " ".join(f"{((k + 0.5) * length / n_z):.1f}:{(local[k]):.3f}" for k in stations)
+            )
             if length == 24.0:
                 asymptotic_z = z_prop
         assert_relative_error(
             asymptotic_z,
             1.0,
             tol=TOL,
-        kind="analytical",
+            kind="analytical",
             reference_name=(
                 "the idealised limit: at L=24 m the section rotation rate is T/GJ, so the "
                 "theta_z rate on it must reach 1"
@@ -641,12 +661,15 @@ def test_wall_traction_excites_a_section_distortion():
     u_flow = _solve_clamped(K, _ring_shear_flow(coords, rings[-1], TORQUE), clamped)
 
     z = np.asarray([coords[r[0], 2] for r in rings])
-    m_right = _rate_report("wall traction / right wall", coords, u_right, rings, t_right / gj,
-                           (0.4 * L, 0.9 * L))
-    m_left = _rate_report("wall traction / left wall (mirror)", coords, u_left, rings, t_left / gj,
-                          (0.4 * L, 0.9 * L))
-    m_flow = _rate_report("shear flow reference (tip only)", coords, u_flow, rings, TORQUE / gj,
-                          (0.4 * L, 0.9 * L))
+    m_right = _rate_report(
+        "wall traction / right wall", coords, u_right, rings, t_right / gj, (0.4 * L, 0.9 * L)
+    )
+    m_left = _rate_report(
+        "wall traction / left wall (mirror)", coords, u_left, rings, t_left / gj, (0.4 * L, 0.9 * L)
+    )
+    m_flow = _rate_report(
+        "shear flow reference (tip only)", coords, u_flow, rings, TORQUE / gj, (0.4 * L, 0.9 * L)
+    )
 
     # Mirror: a physics claim, so it is checked before any magnitude one.
     slope_fit_right = m_right["slope_fit"]
@@ -663,23 +686,188 @@ def test_wall_traction_excites_a_section_distortion():
     shear_w = 0.5 * (alpha_w + beta_w)
     shear_f = 0.5 * (alpha_f + beta_f)
     distortion_ratio = abs(shear_w) / abs(shear_f)
-    print(f"\n[wall traction] at z={z[station]:.2f}: alpha={alpha_w:+.4e} beta={beta_w:+.4e} "
-          f"shear={shear_w:+.4e} deviation-from-rigid={dev_w:.3f}")
-    print(f"[shear flow]   at z={z[station]:.2f}: alpha={alpha_f:+.4e} beta={beta_f:+.4e} "
-          f"shear={shear_f:+.4e} deviation-from-rigid={dev_f:.3f}")
+    print(
+        f"\n[wall traction] at z={z[station]:.2f}: alpha={alpha_w:+.4e} beta={beta_w:+.4e} "
+        f"shear={shear_w:+.4e} deviation-from-rigid={dev_w:.3f}"
+    )
+    print(
+        f"[shear flow]   at z={z[station]:.2f}: alpha={alpha_f:+.4e} beta={beta_f:+.4e} "
+        f"shear={shear_f:+.4e} deviation-from-rigid={dev_f:.3f}"
+    )
     print(f"  distortion amplitude ratio (wall / shear-flow) = {distortion_ratio:.1f}x")
 
-    energy_ratio = float(f_right @ u_right) / float(_ring_shear_flow(coords, rings[-1], TORQUE)
-                                                     @ u_flow)
+    energy_ratio = float(f_right @ u_right) / float(
+        _ring_shear_flow(coords, rings[-1], TORQUE) @ u_flow
+    )
     tip_right = float(np.abs(u_right[1::6]).max())
     tip_flow = float(np.abs(u_flow[1::6]).max())
-    print(f"  elastic-energy ratio = {energy_ratio:.2f}x   tip in-plane displacement ratio = "
-          f"{tip_right / tip_flow:.2f}x")
-    print(f"  reported twist-rate ratios: right wall fit={m_right['ratio_fit']:.4f} "
-          f"z={m_right['ratio_z']:.4f}; shear flow fit={m_flow['ratio_fit']:.4f} "
-          f"z={m_flow['ratio_z']:.4f}")
+    print(
+        f"  elastic-energy ratio = {energy_ratio:.2f}x   tip in-plane displacement ratio = "
+        f"{tip_right / tip_flow:.2f}x"
+    )
+    print(
+        f"  reported twist-rate ratios: right wall fit={m_right['ratio_fit']:.4f} "
+        f"z={m_right['ratio_z']:.4f}; shear flow fit={m_flow['ratio_fit']:.4f} "
+        f"z={m_flow['ratio_z']:.4f}"
+    )
 
     assert distortion_ratio > 10.0, (
         f"the one-wall traction should excite a section distortion at least an order of magnitude "
         f"larger than the shear flow; measured {distortion_ratio:.1f}x"
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. The distributed force plus its transfer moment - the rated case's own pattern
+# ─────────────────────────────────────────────────────────────────────────────
+
+#: The rated case's pattern, on a geometry with an exact answer. The blade's `at_ac` places the
+#: normal force as a consistent traction around each ring and then applies the moment of moving the
+#: resultant to the aerodynamic centre. On a closed rectangular tube the same pattern has a closed
+#: form and a **known shear centre - the section's geometric centre** - so a uniform transverse
+#: load `f` per unit length whose resultant goes through that centre must produce no torsion at all,
+#: and the same load with a transfer moment `e * f` per unit length must produce exactly
+#:
+#:     T(z) = e f (L - z),      theta(L) = e f L^2 / (2 GJ)
+#:
+#: with `GJ` the Bredt value the rest of this module already pins. That is the criterion this test
+#: fixes *before* it runs: a bound fitted to whatever comes out would be the defect it is meant to
+#: catch.
+FORCE_PER_LENGTH = 1.0e5  # [N/m] uniform transverse load along the span
+TRANSFER_OFFSETS = (0.2, 0.4)  # [m] where the load's line of action sits, from the shear centre
+THIN_WALL = 0.0005  # [m] the thin wall, where a load path is most likely to distort
+
+
+def _perimeter(coords: np.ndarray, ring: list[int]) -> float:
+    n = len(ring)
+    return float(
+        sum(
+            np.hypot(
+                coords[ring[(i + 1) % n], 0] - coords[ring[i], 0],
+                coords[ring[(i + 1) % n], 1] - coords[ring[i], 1],
+            )
+            for i in range(n)
+        )
+    )
+
+
+def _ring_traction(coords: np.ndarray, ring: list[int], total_force: float) -> np.ndarray:
+    """A uniform in-plane traction around one ring in **+y**, resultant ``total_force``.
+
+    Edge-length weighted, so the resultant acts at the perimeter's centroid - for this symmetric
+    rectangle the section's geometric centre, which is also its shear centre. That is what makes the
+    control meaningful: this load alone must twist the tube by nothing.
+    """
+    f = np.zeros(6 * len(coords))
+    n = len(ring)
+    per = _perimeter(coords, ring)
+    for i in range(n):
+        a, b = ring[i], ring[(i + 1) % n]
+        ell = float(np.hypot(coords[b, 0] - coords[a, 0], coords[b, 1] - coords[a, 1]))
+        for nd in (a, b):
+            f[6 * nd + 1] += 0.5 * ell * (total_force / per)
+    return f
+
+
+def _distributed_pattern_load(
+    coords: np.ndarray, rings: list[list[int]], force_per_length: float, offset: float
+) -> np.ndarray:
+    """The rated pattern along the span: a uniform traction plus its transfer moment.
+
+    Per station, the tributary length carries `force_per_length * dz` of force through the section
+    centre and the torque `offset * force_per_length * dz` that moving it to the line of action
+    adds. The blade's `at_ac` does the same two things with `(x_ac - x_c) * Np` and `Mp`.
+    """
+    z = np.asarray([coords[r[0], 2] for r in rings])
+    dz = np.empty_like(z)
+    dz[0] = 0.5 * (z[1] - z[0])
+    dz[-1] = 0.5 * (z[-1] - z[-2])
+    dz[1:-1] = 0.5 * (z[2:] - z[:-2])
+    f = np.zeros(6 * len(coords))
+    for k, ring in enumerate(rings):
+        f += _ring_traction(coords, ring, force_per_length * dz[k])
+        f += _ring_shear_flow(coords, ring, offset * force_per_length * dz[k])
+    return f
+
+
+def test_distributed_force_plus_transfer_moment_reproduces_the_exact_twist():
+    """The rated case's load pattern on a geometry whose twist is known exactly.
+
+    The blade's magnitude is withdrawn until the *application* is validated on a case with an exact
+    answer; this is that case. A uniform transverse load on a closed rectangular tube, carried
+    through the section's shear centre by a perimeter traction, twists nothing - the traction's
+    resultant acts at the centroid, which is where a symmetric tube's shear centre is. The same load
+    with the transfer moment `e * f` per unit length gives a linearly varying internal torque and
+
+        theta(L) = e f L^2 / (2 GJ)
+
+    with `GJ` from Bredt, which this module already pins to 5% elsewhere. Two offsets and two wall
+    thicknesses are run, the thin wall being the interesting one, and the tip rotation is compared by
+    **both metrics the module carries** (`theta_z`, the converged one, and `theta_fit`). The
+    closed-form value is computed before the run and the bound is the suite's 5% rule, not a fit.
+    """
+    print("\n========== distributed force + transfer moment vs the closed form ==========")
+    for thickness in (THICKNESS, THIN_WALL):
+        gj, _ = _bredt_isotropic(thickness)
+        prop = _iso_prop(thickness)
+        for offset in TRANSFER_OFFSETS:
+            coords, conn, rings, _ = _tube_mesh()
+            _, K = _assemble(coords, conn, 4, prop)
+            clamped = _clamped_dofs(rings)
+            length = float(coords[:, 2].max())
+
+            f_control = np.zeros(6 * len(coords))
+            zc = np.asarray([coords[r[0], 2] for r in rings])
+            dzc = np.empty_like(zc)
+            dzc[0], dzc[-1] = 0.5 * (zc[1] - zc[0]), 0.5 * (zc[-1] - zc[-2])
+            dzc[1:-1] = 0.5 * (zc[2:] - zc[:-2])
+            for k, ring in enumerate(rings):
+                f_control += _ring_traction(coords, ring, FORCE_PER_LENGTH * dzc[k])
+
+            t_control = _realised_torque(coords, f_control)
+            f = _distributed_pattern_load(coords, rings, FORCE_PER_LENGTH, offset)
+            t_total = _realised_torque(coords, f)
+            expected_torque = offset * FORCE_PER_LENGTH * length
+            assert abs(t_control) / abs(expected_torque) < 1e-9, (
+                f"the traction alone is not torsion-free about the section centre: {t_control:.6e}"
+            )
+            assert abs(t_total - expected_torque) / abs(expected_torque) < 1e-9, (
+                f"the torque ruler: {t_total:.6e} against {expected_torque:.6e}"
+            )
+
+            u = _solve_clamped(K, f, clamped)
+            u_control = _solve_clamped(K, f_control, clamped)
+            theta_closed = offset * FORCE_PER_LENGTH * length**2 / (2.0 * gj)
+            tip_z = _theta_z(u, rings[-1])
+            tip_fit = _theta_fit(coords, u, rings[-1])
+            ctrl_z = _theta_z(u_control, rings[-1])
+            print(
+                f"  t={thickness * 1e3:5.1f} mm  e={offset:.2f} m  L={length:.1f} m  "
+                f"T_tip={expected_torque:.3e} N.m"
+            )
+            print(f"    closed form theta(L) = e f L^2/(2 GJ) = {theta_closed:.6e} rad")
+            print(f"    theta_z    {tip_z:.6e} rad   ratio {tip_z / theta_closed:.4f}")
+            print(f"    theta_fit  {tip_fit:.6e} rad   ratio {tip_fit / theta_closed:.4f}")
+            print(
+                f"    control (traction alone, through the shear centre): theta_z {ctrl_z:.3e} rad "
+                f"= {abs(ctrl_z) / abs(theta_closed):.2e} of the closed form"
+            )
+
+            assert_relative_error(
+                tip_z,
+                theta_closed,
+                tol=TOL,
+                kind="analytical",
+                reference_name=(
+                    "the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on "
+                    "a clamped-free closed tube, GJ from Bredt"
+                ),
+                what=f"tip theta_z, wall {thickness * 1e3:.1f} mm, offset {offset:.2f} m",
+            )
+            # The control is a physics claim, not a bound: a load whose resultant passes through the
+            # section's shear centre must not twist the section at all.
+            assert abs(ctrl_z) < 0.02 * abs(theta_closed), (
+                f"a load through the shear centre twisted the section by {ctrl_z:.3e} rad against "
+                f"{theta_closed:.3e}: the traction is not going through the centre"
+            )
+    print("==============================================================================")
