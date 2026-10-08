@@ -1,6 +1,6 @@
 # Feature: the +31% tangential load (roadmap item 3, issue #15)
 
-Status: T1-T4 closed 2026-10-08; T5 in progress (verification done, the close is pending)
+Status: DELIVERED 2026-10-08 (T1-T5 closed; issue #15 closed, #18 map updated)
 Owner: this session
 Related: issue #15 (roadmap item 3 of #18); issue #14 (item 2, closed as documented
 non-transferability and building on the same Zhou publication); `docs/validation_results_v01_v02_v04.md`
@@ -83,7 +83,7 @@ Zhou digitised   : intNp 732.2 kN   intTp  70.0 kN   int(Tp r) 4.923 MNm
   rotates before overlaying, `gaps.yaml` gains `zhou_spanwise_load_frame` (`not_validated`,
   `citations_forbidden: true`), and `docs/validation_closures.md` carries the #15 section and the
   re-run trigger. The report's old numbers stay as non-reproducible record. `check` 198 / 259 / 0.
-- [ ] **T5 - Independent read-only verification, then close.**
+- [x] **T5 - Independent read-only verification, then close.**
   A separate verifier re-derives the frame identity and the quadrature band from the raw CSVs and the
   deck.constants, checks every printed number against the live script, and checks the store. Then
   comment on #15 with the attribution and close it, and update the #18 map.
@@ -98,6 +98,10 @@ Zhou digitised   : intNp 732.2 kN   intTp  70.0 kN   int(Tp r) 4.923 MNm
   ranges are now stated in the closure. The verifier also noted that the issue's own "Np matches to
   1%" comes from the reconstructed-`Mp` comparison, not from the inflow experiment, which the prose
   now says explicitly.
+  **Closed 2026-10-08**: pushed `4dfe533..ec37f1b` (3 commits) to
+  `origin/integrate/origin-main-2026-09-30`; **#15 commented (6062440275) and closed**; the **#18 map
+  updated (6062444688)** with item 3 closed and the not-transferable fork noted as settled for items 2
+  and 3. Open follow-up, not this unit: the `ForceProjector` frame question below.
 
 ## Follow-ups this unit opened
 
