@@ -807,6 +807,7 @@ def test_distributed_force_plus_transfer_moment_reproduces_the_exact_twist():
     closed-form value is computed before the run and the bound is the suite's 5% rule, not a fit.
     """
     print("\n========== distributed force + transfer moment vs the closed form ==========")
+    results: dict[tuple[float, float], tuple[float, float]] = {}
     for thickness in (THICKNESS, THIN_WALL):
         gj, _ = _bredt_isotropic(thickness)
         prop = _iso_prop(thickness)
@@ -841,6 +842,7 @@ def test_distributed_force_plus_transfer_moment_reproduces_the_exact_twist():
             tip_z = _theta_z(u, rings[-1])
             tip_fit = _theta_fit(coords, u, rings[-1])
             ctrl_z = _theta_z(u_control, rings[-1])
+            results[(thickness, offset)] = (tip_z, theta_closed)
             print(
                 f"  t={thickness * 1e3:5.1f} mm  e={offset:.2f} m  L={length:.1f} m  "
                 f"T_tip={expected_torque:.3e} N.m"
@@ -853,17 +855,6 @@ def test_distributed_force_plus_transfer_moment_reproduces_the_exact_twist():
                 f"= {abs(ctrl_z) / abs(theta_closed):.2e} of the closed form"
             )
 
-            assert_relative_error(
-                tip_z,
-                theta_closed,
-                tol=TOL,
-                kind="analytical",
-                reference_name=(
-                    "the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on "
-                    "a clamped-free closed tube, GJ from Bredt"
-                ),
-                what=f"tip theta_z, wall {thickness * 1e3:.1f} mm, offset {offset:.2f} m",
-            )
             # The control is a physics claim, not a bound: a load whose resultant passes through the
             # section's shear centre must not twist the section at all.
             assert abs(ctrl_z) < 0.02 * abs(theta_closed), (
@@ -871,3 +862,47 @@ def test_distributed_force_plus_transfer_moment_reproduces_the_exact_twist():
                 f"{theta_closed:.3e}: the traction is not going through the centre"
             )
     print("==============================================================================")
+
+    # Four asserted comparisons, one per case, each at its own call site in this test's body.
+    #
+    # Written out rather than left inside the loop on purpose: the extractor reads call sites, so an
+    # assertion inside a loop over four cases is one comparison to the store while the run prints four
+    # residuals, and the row cannot map (measured: "4 printed residual(s) for 1 asserted
+    # comparison(s)"). A helper would not help either - the extractor only follows same-module helpers
+    # the group declares. Four call sites keep the store and the run in step.
+    closed_form = (
+        "the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a "
+        "clamped-free closed tube, GJ from Bredt"
+    )
+    assert_relative_error(
+        results[(THICKNESS, 0.20)][0],
+        results[(THICKNESS, 0.20)][1],
+        tol=TOL,
+        kind="analytical",
+        reference_name=closed_form,
+        what="tip theta_z, 10 mm wall, offset 0.20 m",
+    )
+    assert_relative_error(
+        results[(THICKNESS, 0.40)][0],
+        results[(THICKNESS, 0.40)][1],
+        tol=TOL,
+        kind="analytical",
+        reference_name=closed_form,
+        what="tip theta_z, 10 mm wall, offset 0.40 m",
+    )
+    assert_relative_error(
+        results[(THIN_WALL, 0.20)][0],
+        results[(THIN_WALL, 0.20)][1],
+        tol=TOL,
+        kind="analytical",
+        reference_name=closed_form,
+        what="tip theta_z, 0.5 mm wall, offset 0.20 m",
+    )
+    assert_relative_error(
+        results[(THIN_WALL, 0.40)][0],
+        results[(THIN_WALL, 0.40)][1],
+        tol=TOL,
+        kind="analytical",
+        reference_name=closed_form,
+        what="tip theta_z, 0.5 mm wall, offset 0.40 m",
+    )

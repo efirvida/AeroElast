@@ -20,11 +20,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 29b6d2d
-      date: '2026-10-04'
+      run: b9cb561
+      date: '2026-10-08'
       raw: 1.00309
       margin_pct: 0.3091
-      text: 1.00309 (0.3091%)
+      text: 'isotropic theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 1.00309 vs 1 (error: 0.3091%, bound: 5.0000%)'
       digest: c4e78b2a044cacd1
   - label: rtol at line 520
     asserted: true
@@ -39,11 +39,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 29b6d2d
-      date: '2026-10-04'
+      run: b9cb561
+      date: '2026-10-08'
       raw: 1.00674
       margin_pct: 0.6745
-      text: 1.00674 (0.6745%)
+      text: 'isotropic theta_z rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 1.00674 vs 1 (error: 0.6745%, bound: 5.0000%)'
       digest: 22d7f40b901e3133
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
@@ -67,11 +67,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 29b6d2d
-      date: '2026-10-04'
+      run: b9cb561
+      date: '2026-10-08'
       raw: 0.998598
       margin_pct: 0.1402
-      text: 0.998598 (0.1402%)
+      text: 'laminate theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.998598 vs 1 (error: 0.1402%, bound: 5.0000%)'
       digest: 2647692f9a76a55c
   - label: rtol at line 543
     asserted: true
@@ -86,11 +86,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 29b6d2d
-      date: '2026-10-04'
+      run: b9cb561
+      date: '2026-10-08'
       raw: 1.00703
       margin_pct: 0.7033
-      text: 1.00703 (0.7033%)
+      text: 'laminate theta_z rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 1.00703 vs 1 (error: 0.7033%, bound: 5.0000%)'
       digest: 321f683a5dabefe8
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
@@ -115,5 +115,90 @@ rows:
     measured:
       status: not_measured
       margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: tube_torsion.test_distributed_force_plus_transfer_mom.single
+  group: '6'
+  title: test_distributed_force_plus_transfer_moment_reproduces_the_exact_twist
+  tests:
+  - tests/validation/parity/test_thin_walled_tube_torsion.py::test_distributed_force_plus_transfer_moment_reproduces_the_exact_twist
+  validates: The rated case's load pattern on a geometry whose twist is known exactly.
+  comparisons:
+  - label: rtol at line 877
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:877
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: b9cb561
+      date: '2026-10-08'
+      raw: 0.000988158
+      margin_pct: 0.2341
+      text: 'tip theta_z, 10 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.000988158 vs 0.000990476 (error: 0.2341%, bound: 5.0000%)'
+      digest: 7ace025b8ddfd0d5
+  - label: rtol at line 885
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:885
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: b9cb561
+      date: '2026-10-08'
+      raw: 0.00197632
+      margin_pct: 0.2341
+      text: 'tip theta_z, 10 mm wall, offset 0.40 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.00197632 vs 0.00198095 (error: 0.2341%, bound: 5.0000%)'
+      digest: 8efcc4d3ab82edba
+  - label: rtol at line 893
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:893
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: b9cb561
+      date: '2026-10-08'
+      raw: 0.0197884
+      margin_pct: 0.1068
+      text: 'tip theta_z, 0.5 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.0197884 vs 0.0198095 (error: 0.1068%, bound: 5.0000%)'
+      digest: ca0df92cc4bc0299
+  - label: rtol at line 901
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_torsion.py:901
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: b9cb561
+      date: '2026-10-08'
+      raw: 0.0395767
+      margin_pct: 0.1068
+      text: 'tip theta_z, 0.5 mm wall, offset 0.40 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.0395767 vs 0.039619 (error: 0.1068%, bound: 5.0000%)'
+      digest: 65e6ef4acda8fa06
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

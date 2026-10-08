@@ -158,12 +158,22 @@ cases distribute the same force differently. The validated case is `at_ac`.
   analytical comparisons need their rows (`extract --group <id> --write`, then
   `regression --group <id> --write` to record the measured values); until that runs, `regression` for
   that group reports the new printed residuals as unmapped, which is why it is listed here rather
-  than left implicit. **Note the verifier's finding**: the group already carries three stalenesses
-  (the new test unclaimed, `test_wall_traction` unclaimed, the clamped-root row unmapped and
-  `not_measured`), and the re-extract resets eleven hand-written prose fields — so this needs a
-  prose-preserving flow or a hand merge, not a blind `--write`.
-- [ ] T4 Independent read-only verification of the tube case and the arithmetic, then comment on #14
-  with the outcome.
+  than left implicit. **Done 2026-10-07, without `extract`**: the row was written by hand (the
+  extractor's id is the test name truncated to 40 characters, its label is `rtol at line N`) because a
+  re-extract resets that group's eleven hand-written prose fields. One structural finding came out of
+  it: **an assertion inside a loop over four cases is one comparison to the store and four printed
+  residuals to the run**, so the row could not map (`4 printed residual(s) for 1 asserted
+  comparison(s)`) - the four assertions are now written out at their own call sites, and a helper does
+  not substitute because the extractor only follows same-module helpers the group declares. Result:
+  `regression --group 6 --write` -> `4 new_baseline, 4 same, 1 unclaimed, 1 unmapped`, `check` 197
+  rows / 255 comparisons / 0 errors, module `5 passed`. **Two stalenesses remain and both are
+  pre-existing, not this unit's**: the clamped-root row is unmapped for the same loop-assertion reason
+  (2 printed for 1 asserted) and `test_wall_traction_excites_a_section_distortion` is unclaimed (the
+  `regression` command not honouring `non_validation_tests`, issue #21's class). Both deserve their
+  own unit rather than a fix folded into a validation feature.
+- [x] T4 (store half) Row and measurement done; verification done (the three findings above). The
+  remaining `unmapped`/`unclaimed` entries in group 6 are pre-existing stalenesses with their own
+  follow-ups.
 
 ## Risks, stated up front
 
