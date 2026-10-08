@@ -55,6 +55,35 @@ from six separately constrained slices. That is a design decision for WU-C's nex
 `odd/tasks/shear-centre-arbitration.md`; this diagnostic stays as the evidence that the naive route
 is closed, and as the guard that the diagonals are right before anyone blames the couplings.
 
+The deck profile decides WU-C without the 6x6 (2026-10-07)
+----------------------------------------------------------
+
+`--deck-only` prints the deck's own shear centre against the point the rated load is applied at,
+both in the deck's datum (the pitch axis, the frame the anchor beam's `(x_ac - xS) * Np` term
+already uses and whose sign was arbitrated on a measurement). Measured, ten stations:
+
+| frac | chord [m] | pitch_axis | `xS` [m] | `xS/c` | `x_AC/c` | arm `/c` |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.000 | 5.200 | 0.505 | 0.006 | **0.0011** | 0.2545 | 0.2534 |
+| 0.150 | 5.647 | 0.376 | 0.040 | **0.0071** | 0.1258 | 0.1186 |
+| 0.300 | 5.367 | 0.312 | 0.077 | **0.0142** | 0.0624 | 0.0482 |
+| 0.550 | 3.904 | 0.288 | 0.040 | **0.0102** | 0.0379 | 0.0276 |
+| 0.850 | 2.525 | 0.323 | 0.044 | **0.0175** | 0.0731 | 0.0555 |
+| 1.000 | 0.500 | 0.368 | 0.006 | **0.0115** | 0.1182 | 0.1067 |
+
+`|xS/c|` never exceeds 0.018, so the deck's shear centre sits essentially **on its own reference
+axis**, and the eccentricity the rated twist rides is the **application point** (`x_AC`, up to
+0.2545 c at the root), not the shear centre. A mesh-side shear centre could differ from the deck's
+by a percent or two of chord at most, which cannot move a twist that differs by a factor 2.8. So the
+shear-centre hypothesis is eliminated from the deck side alone and **the 6x6 is not needed to decide
+WU-C** -- it would only quantify a term that is already known to be second order.
+
+This also reads against the docstring claim that "the mesh's measured shear centre sits at 0.477 of
+the chord" (`tests/validation/blade/test_blade_rated_twist.py`): the deck puts the pitch axis between
+0.288 and 0.505 of the chord and the shear centre within 0.018 c of it, and the shell's sectional
+stiffness tracks the deck (S-1), so a mesh shear centre at 0.477 c is far from anything measured here
+and remains unbacked until someone measures it.
+
 Frame and datum (stated once, as the two defects this builds on demand)
 ----------------------------------------------------------------------
 `SectionalExtractor._section_axes` measures the frame from the mesh by PCA and forces
@@ -90,7 +119,14 @@ from aeroelast.postprocess.sectional import (  # noqa: E402
     SectionalExtractor,
     _dofs_of_nodes,
 )
+from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 from tests.support.paths import DATA_DIR  # noqa: E402
+from tests.validation.blade.test_blade_twist_anchor_beam import (  # noqa: E402
+    BEAMDYN_BLADE,
+    ELASTODYN_BLADE,
+    _numeric_rows,
+)
+from tests.validation.blade.test_blade_rated_twist import AD_PRIMARY  # noqa: E402
 
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
 
@@ -220,11 +256,83 @@ def _section_6x6(ext: SectionalExtractor, st: int, membership) -> dict:
     }
 
 
+def _deck_profile(n_show: int) -> None:
+    """The deck's own shear centre against the point the rated load is applied at.
+
+    Everything here is expressed in the deck's datum, the **pitch axis**, which is the frame the
+    anchor beam's `m = Mp + (x_ac - xS) * Np - ...` already uses and whose sign was arbitrated on a
+    measurement (the opposite one gave a ~10x torque error). Comparing `xS` against the aerodynamic
+    centre in that same frame needs no new convention decision:
+
+        x_AC = (pitch_axis - 0.25) * chord          the AC's offset from the pitch axis
+        xS                                          the shear centre's offset from the pitch axis
+        x_AC - xS                                   the eccentricity arm the beam integrates
+
+    If `xS` is a small fraction of the chord, the eccentricity that dominates the rated twist is the
+    force acting at 0.25 c from the leading edge (a definition/application matter). If `xS` is a
+    large fraction, the section's shear centre genuinely sits far from the aerodynamic centre
+    (a geometry matter). That is WU-C's question, answered from the deck alone -- no mesh 6x6 needed.
+    """
+    if not BEAMDYN_BLADE.exists() or not ELASTODYN_BLADE.exists():
+        print("deck not present under tests/IEA15MW/reference; deck profile skipped")
+        return
+    from openfast_toolbox.converters.beam import K66toPropsDecoupled
+
+    aero = build_blade_aero_from_aerodyn(AD_PRIMARY)
+    r_hub = np.asarray(aero.r, dtype=float)
+    chord = np.asarray(aero.chord, dtype=float)
+    hub = float(aero.hub_radius)
+    blade_len = float(aero.blade_length)
+
+    rows = _numeric_rows(BEAMDYN_BLADE, "DISTRIBUTED PROPERTIES")
+    n_deck = len(rows) // 13
+    frac = np.array([rows[i * 13][0] for i in range(n_deck)])
+    K66 = np.array([np.asarray(rows[i * 13 + 1 : i * 13 + 7]) for i in range(n_deck)])
+    deck = [K66toPropsDecoupled(K66[i], convention="BeamDyn") for i in range(n_deck)]
+    x_shear = np.array([p[8] for p in deck])  # metres, offset from the pitch axis
+    x_cent = np.array([p[6] for p in deck])
+
+    ed = np.asarray(_numeric_rows(ELASTODYN_BLADE, "DISTRIBUTED BLADE PROPERTIES"))
+    pitch_axis = np.interp(frac, ed[:, 0], ed[:, 1])  # chord fraction from the leading edge
+    chord_d = np.interp(hub + frac * blade_len, r_hub, chord)
+    x_ac = (pitch_axis - 0.25) * chord_d  # the anchor beam's own arbitrated expression
+
+    print()
+    print("deck shear centre vs the aerodynamic centre, both in the deck's datum (the pitch axis):")
+    print("  (metres; x_AC is the anchor beam's own (pitch_axis - 0.25) * chord, whose sign was")
+    print("   arbitrated on a measurement, so the two are directly comparable)")
+    print(
+        f"  {'frac':>6} {'chord[m]':>9} {'pitch_axis':>10} {'xS[m]':>9} {'xS/c':>7} "
+        f"{'xC[m]':>8} {'x_AC[m]':>9} {'x_AC/c':>7} {'x_AC-xS[m]':>11} {'arm/c':>7}"
+    )
+    idx = np.linspace(0, n_deck - 1, n_show).astype(int)
+    for i in idx:
+        c = chord_d[i]
+        print(
+            f"  {frac[i]:6.3f} {c:9.3f} {pitch_axis[i]:10.3f} {x_shear[i]:9.4f} "
+            f"{x_shear[i] / c:7.4f} {x_cent[i]:8.4f} {x_ac[i]:9.4f} {x_ac[i] / c:7.4f} "
+            f"{x_ac[i] - x_shear[i]:11.4f} {(x_ac[i] - x_shear[i]) / c:7.4f}"
+        )
+    print()
+    print("  reading: |xS/c| small means the eccentricity is the 0.25 c application point at work,")
+    print("  not the section's shear centre; |xS/c| of order 0.2 means the deck puts the shear")
+    print("  centre a fifth of a chord from its own reference axis, which is a geometry fact.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--element-size", type=float, default=1.0)
     ap.add_argument("--stations", type=int, default=6)
+    ap.add_argument(
+        "--deck-only",
+        action="store_true",
+        help="print only the deck profile (no mesh 6x6, which needs a second run)",
+    )
     args = ap.parse_args()
+
+    _deck_profile(args.stations)
+    if args.deck_only:
+        return 0
 
     mesh, props = _build_shell(args.element_size)
     ext = SectionalExtractor(mesh, props)
