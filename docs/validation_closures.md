@@ -744,10 +744,10 @@ cuarto del camino a `1.286`. ⇒ La tabla es un registro irrecuperable de la ven
 **2026-09-30 → 2026-10-04** (merge de `origin/main`, `22d3ccc`, y los cambios de geometría nuMAD
 `680cf81`/`6b2cbd6`). El residuo no está bisecado.
 
-**El fixture sí converge, y la dirección es una sola.** `0.250` queda a **0.6 %** de `0.125`, así
-que `ELEMENT_SIZE = 0.25` se sostiene (el costo de `0.125` es 42 s de malla + 230 s de solve y
-**12 GB de RSS pico**). La dirección "más rígida" la sostienen cuatro fuentes independientes
-(este test, `1/0.939603 = 1.064`; el `GJ` seccional de S-1, `+23.9 %`;
+**El fixture sí converge, y la dirección es una sola.** `0.250` queda **0.64 %** por encima de
+`0.125`, así que `ELEMENT_SIZE = 0.25` se sostiene (el costo de `0.125` es 42 s de malla +
+230 s de solve y **12 GB de RSS pico**). La dirección "más rígida" la sostienen cuatro fuentes
+independientes (este test, `1/0.939603 = 1.064`; el `GJ` seccional de S-1, `+23.9 %`;
 `docs/model_parity_audit.md`, `0.84`; y el `GJ = 1.080` pre-merge, `1/1.080 = 0.926`) y solo la
 tabla disiente.
 

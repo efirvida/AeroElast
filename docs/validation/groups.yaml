@@ -916,8 +916,8 @@ groups:
       agreement: the documented S-1 model difference with room for the
       coarse-mesh envelope, not a fit to what the run produces. The measured
       6.04% clears it by 24 points. `ELEMENT_SIZE = 0.25` is the fixture and it
-      is justified by measurement (0.933641 at 0.125, 0.6% away, at 12 GB peak
-      RSS), not by the table the file used to carry.
+      is justified by measurement (0.933641 at 0.125, 0.64% above it, at 12 GB
+      peak RSS), not by the table the file used to carry.
 
       That table is why this group is new on 2026-10-07. Between 2026-09-30 and
       2026-10-04 the module committed a convergence record reading 1.386 / 1.406

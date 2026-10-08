@@ -45,7 +45,7 @@ MOMENT_NM = 1000.0
 #   es=0.125 120352 nodes  ratio=0.933641   <- converged (230 s, 12 GB peak RSS)
 #
 # The two coarsest meshes sit about 10% above the converged value and 0.500 about
-# 5%; 0.250 is within 0.6% of 0.125, which is what justifies it as a regression
+# 5%; 0.250 sits 0.64% above 0.125, which is what justifies it as a regression
 # guard.  This is a slow test (about 1 min of PETSc per run), which is why it is
 # marked slow.
 #

@@ -1,6 +1,6 @@
 # Feature: S-7's torsion ratio says both directions at once (#20)
 
-Status: in progress (T1-T5 open, measurement done 2026-10-07)
+Status: delivered 2026-10-07 (T1-T5 done; T6 pending the maintainer)
 Owner: this session (2026-10-07)
 Related: issue #20 (roadmap item 8 of #18), roadmap item 2 (#14) which this gates,
 roadmap item 1 (#13, closed) whose twist-only row this magnitude sets, issue #19
@@ -110,8 +110,9 @@ live `1/0.939603 = 1.064` - and the `origin_main_integration` row compares that 
 `GJ` ratio against a `1.406` twist ratio, which are reciprocals.
 
 => The side to burn is the table's. The live `0.939603` stands, and it also shows that
-the *sectional*-versus-*global* tension the closure table already carried (`+23.9 %`
-against `+8.0 %`) is real and not a direction question.
+the *sectional*-versus-*global* tension the closure table carries (S-1's `+23.9 %`
+sectional against `+6.4 %` global here, `+7.1 %` at the converged mesh) is real and not a
+direction question.
 
 ### E5 - a second, new finding: the convergence record is replaced by measured rows
 
@@ -125,51 +126,79 @@ settle it:
 | 1.000 | 3040 | 1.0219 | -0.2 % | |
 | 0.500 | 9271 | 0.9790 | -4.2 % | |
 | 0.250 | 32325 | 0.939603 | -4.0 % | 74 s for both tests |
-| 0.125 | 120352 | **0.933641** | **-0.6 %** | 42 s mesh + 230 s solve, **12 GB peak RSS** |
+| 0.125 | 120352 | **0.933641** | **-0.63 %** | 42 s mesh + 230 s solve, **12 GB peak RSS** |
 
-=> The fixture **is** converged: `0.250` is within **0.6 %** of `0.125`, so
-`ELEMENT_SIZE = 0.25` stands and its justification is now reproducible. The 4 % steps
-belong to the two coarsest meshes, not to the fixture. What the old table got wrong is
-the **value and the direction** (1.286 against 0.934), not the existence of a plateau.
-The `12 GB` peak RSS is recorded so the next person does not run `0.125` casually.
+The `step` column is each value against the coarser mesh above it; the last step's two
+directions are `0.635 %` below and `0.6385 %` above, so `0.250` sits **0.64 %** above
+`0.125`.
+
+=> The fixture **is** converged, so `ELEMENT_SIZE = 0.25` stands and its justification is
+now reproducible. The 4 % steps belong to the two coarsest meshes, not to the fixture.
+What the old table got wrong is the **value and the direction** (1.286 against 0.934), not
+the existence of a plateau. The `12 GB` peak RSS is recorded so the next person does not
+run `0.125` casually.
+
+### E6 - the independent verification, and the one claim it corrected
+
+A read-only verifier re-checked every numeric claim against live output and against git at
+`73a0736`. All of them hold except one: "within 0.6 %" is false unrounded - `0.939603`
+against `0.933641` is `0.6385 %` above the converged value (`0.635 %` in the other
+direction) - so the four sites that said `0.6 %` now say `0.64 %`. It independently
+confirmed the store state (`check` 0 errors; the S-7 module moving from the only "neither
+grouped nor declared" file to none; the reference error count unchanged at 1, and that
+error pre-existing), the code facts (`22d3ccc` removes the canonicalisation call, the ratio
+expression created once in `5234b48` and never changed, the deck md5), and that no site in
+`docs/` or `tests/` still asserts the softer direction.
 
 ## Tasks
 
 - [x] T1 Measure `es = 0.125` (120352 nodes) at HEAD and rewrite the convergence record
   with HEAD-measured rows, so `ELEMENT_SIZE = 0.25` is justified by a record that
-  reproduces. **Done 2026-10-07**: `0.933641`, `0.6 %` from the `0.250` fixture, and the
+  reproduces. **Done 2026-10-07**: `0.933641`, `0.64 %` above the `0.250` fixture, and the
   decision is to keep `0.25`; numbers and cost in E5.
 - [x] T2 Burn the stale side in the test and land the WIP that was in the working tree.
   **Done 2026-10-07**, commit `4258ba4`: the convergence comment carries the HEAD rows and
   names the window the old one came from, the module docstring states the measured
   direction instead of a derived `0.84`, the comparison uses the suite's
   `assert_relative_error` with `kind="code"`, and `tests/run_step1_revalidate.srm` points
-  at the module's current path. Bound untouched. `2 passed` in 74 s; `ruff check` and
+  at the module's current path. Bound untouched. `2 passed`; `ruff check` and
   `ruff format --check` clean.
-- [ ] T3 Correct the documents that read the stale side:
-  `docs/origin_main_integration_2026-09-30.md:156` (stale value **and** a `GJ` ratio
-  compared against a twist ratio) and any other site quoting the table. Sites that quote
-  the *stiffer* side (`docs/model_parity_audit.md:125,295`,
-  `docs/validation_closures.md:84`, `docs/shell_vs_beam_sectional_validation.md:167`) are
-  re-checked, not rewritten.
-- [ ] T4 Give S-7 its store home, which it does not have today (`status` reports the
-  module as the only "neither grouped nor declared" file):
-  a group entry in `docs/validation/groups.yaml` with `source_files`, the rows file
-  generated by `extract --group <id> --write`, the `ratio` comparison measured against
-  the BeamDyn deck with `rtol 0.30`, the applied-moment assertion declared through the
-  group's `non_reference_asserts` (the mechanism exists: `groups.yaml` validates the key
-  and group 31 declares a bare assertion the same way), and the BeamDyn citation resolved
-  in `docs/validation/references.yaml` (`gaertner2020` is the definition report;
-  the `K[5,5]` tables come from the OpenFAST `r-test` deck, so the reference may need its
-  own key).
-- [ ] T5 Verify: the S-7 module green at the chosen `ELEMENT_SIZE`;
-  `tools/validation_matrix.py check` with 0 errors; `status` reporting 0 files "neither
-  grouped nor declared"; `ruff check` and `ruff format --check` on every touched Python
-  file; both YAML files parse. An independent read-only verifier re-checks every numeric
-  claim in the store text and the rewritten comments against the live output.
+- [x] T3 Correct the documents that read the stale side. **Done 2026-10-07**, commit
+  `9a09772`: the anchor row of `docs/origin_main_integration_2026-09-30.md` and its
+  next-steps list are marked superseded (the row had also compared a `GJ` ratio against a
+  twist ratio, which are reciprocals); `docs/model_parity_audit.md` no longer attributes
+  S-1's sectional `+17-19 %` to S-7 nor quotes the derived `0.84` as the measurement;
+  `docs/validation_closures.md` carries the measured record, the converged fixture and the
+  re-run trigger, and its G2 S-7 row moves to the re-measured `GJ = 1.071`. The sites that
+  already named the stiffer side were re-checked and left as they were.
+- [x] T4 Give S-7 its store home. **Done 2026-10-07**, commit `73a0736`: group 34 in
+  `docs/validation/groups.yaml` with its `source_files` and provenance note, the rows file
+  from `extract --group 34 --write`, the comparison measured against the BeamDyn deck with
+  `rtol 0.30` and a written justification (the store demands one above 5 %, and this is the
+  widest bound in it), the residual pattern for the group in
+  `docs/validation/residual-patterns.json`, and `iea15mw_deck` in `references.yaml`.
+  Correction to the issue's own wording: the applied-moment test has **no comparison at
+  all** (the extractor reads it as `no_comparison`), so it is declared through the group's
+  `non_validation_tests`, not through `non_reference_asserts` - the latter is for a bare
+  assertion inside a row that otherwise has one. The citation is `iea15mw_deck` (v1.1,
+  Apache-2.0, byte-identical to the deck the test reads) rather than an OpenFAST `r-test`
+  key: the deck is vendored here, so its provenance is recorded from the vendored tree.
+- [x] T5 Verify. **Done 2026-10-07**: the module green (`2 passed`), `check` 0 errors,
+  `status` 0 files neither grouped nor declared, `references check` at its one pre-existing
+  error, `ruff` clean, and the independent read-only verifier of E6.
 - [ ] T6 Close #20 with the measured evidence and update the roadmap comment on #18
   (item 8 done, and item 2 unblocked with the bound it now has). Publishing and closing
   are the maintainer's decision.
+
+## Delivered, with the evidence
+
+| commit | what |
+| --- | --- |
+| `4258ba4` | the test: the convergence record re-measured at HEAD, the direction stated once, `kind="code"`, the WIP landed |
+| `216dbc2` | this feature note, opened with the measurement |
+| `9a09772` | the documents that read the stale side, and the closure log's measured record with its re-run trigger |
+| `73a0736` | the store home: group 34, the rows file, the residual pattern, the `iea15mw_deck` citation |
+| (this note) | the verifier's corrections, the `0.6 %` -> `0.64 %` fix and the refreshed group digest |
 
 ## Measurements kept outside the repo
 
@@ -177,8 +206,11 @@ The `12 GB` peak RSS is recorded so the next person does not run `0.125` casuall
 
 - `winding_old.py` - `src/aeroelast/core/mesh/winding.py` as of `22d3ccc^`.
 - `diag_winding_ratio.py` - control against treatment at `es = 0.250`.
+- `winding_ratio.log` - the raw output of the second, re-run on 2026-10-07 so the
+  canonicalised column and the `1732` flip count have a retained source.
 - `diag_convergence.py` - the four mesh sizes, both conventions.
 - `convergence.log` - the raw output of the second.
+- `diag_es0125.py` and `es0125.log` - the `es = 0.125` run, with its wall time and RSS.
 
 ## Follow-ups, out of scope here
 
@@ -186,8 +218,19 @@ The `12 GB` peak RSS is recorded so the next person does not run `0.125` casuall
   (`1.286`) is not attributed. Bisecting the 2026-09-30 -> 2026-10-04 window
   (`680cf81`, `6b2cbd6`, the merge's element line) would close it, but it does not change
   what #20 decides and it is not needed to burn the table.
-- `docs/validation_closures.md:84` (`GJ = 1.080`) sits inside the G1/G2 block the
-  2026-09-30 merge invalidated; T2 decides whether it is re-anchored or left as a
-  historical record.
-- The S-1-versus-S-7 tension (`+23.9 %` sectional against `+8.0 %` global) is already in
+- **`regression` does not honour `non_validation_tests`.** It reports a declared test as
+  `unclaimed` and counts that in its failing set, while `extract` honours the same
+  declaration. Pre-existing and store-wide: `regression --group 30` reports 29 the same
+  way. The fix is the one `extract` already applies - route the leftover nodes through
+  `classify_unclaimed` instead of comparing against `store.rows` directly. It costs a few
+  lines but it is store-tooling work, not #20's, so it is not done here.
+- **`references check` carries one pre-existing error**, `ko2017_nonlinear` at
+  `src/aeroelast/core/assembler.py:681` (the declared citation site no longer mentions the
+  work). Unrelated to this feature; recorded so the next session does not read it as new.
+- The row files under `docs/validation/rows/` are written by the store with one long line
+  per scalar, so the prose linter flags all 31 of them; the fields are machine-owned and a
+  re-write re-collapses any attempt to reflow them.
+- `docs/validation_closures.md:84` (`GJ = 1.080`) is now marked as the invalidated
+  pre-merge reading and the G2 row carries the re-measured `1.071`; nothing further owed.
+- The S-1-versus-S-7 tension (`+23.9 %` sectional against `+6.4 %` global) is already in
   the closure table and is not opened here.
