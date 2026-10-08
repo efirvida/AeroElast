@@ -15,13 +15,21 @@ production projector, and the standard beam through the deck's own shear centre 
 `GKt` - and the tip twists are compared against their -3.60 deg.
 
 Sign mapping: their torsional deflection is positive toward stall; our `omega` is
-positive nose-down, i.e. away from stall. So their negative answer is our positive, and
-the magnitudes compare directly.
+positive nose-down, i.e. away from stall. The deck puts the leading edge at `+x` and the
+load frame's downwind thrust at `+y`, so a `+z` rotation moves the leading edge downwind and
+**nose-down is positive** on our frame. The BEM's `Mp` carries the opposite sign (a nose-down
+pitch moment is negative), which is why the shell path takes it through the production
+projector while the beam's `m` is the textbook's nose-up-positive form (Dowell et al., eq.
+2.1.2). Everything printed below is converted once, at the print, to the one
+nose-down-positive convention, so the shell, the beam and Zhou are directly comparable.
 
 Caveat, stated rather than hidden: the polars are ours (both models use the same official
 airfoils), and the reconstruction extrapolates nothing - it is restricted to 0.15 <= r/R
 where their angle-of-attack figure starts.
 """
+
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -30,15 +38,25 @@ from openfast_toolbox.converters.beam import K66toPropsDecoupled
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
-import tests.validation.blade.test_blade_iea15mw_validation as bv
-import tests.validation.blade.test_blade_rated_twist as t
-from aeroelast.core.mesh.entities import MeshElement, Node
-from aeroelast.models.blade.model import Blade
-from aeroelast.solvers.bem.engine import BEMResult
-from aeroelast.solvers.bem.force_projection import ForceProjector
-from tests.support.openfast_bem import build_blade_aero_from_aerodyn
-from tests.support.paths import REPO_ROOT
-from tests.validation.blade.test_blade_twist_anchor_beam import (
+# A script puts its own directory on sys.path, not the repository root, so `import tests.*`
+# below fails when this is run the way the issue documents it
+# (`python tools/diagnose_zhou_loads_reverse.py`) with
+# `ModuleNotFoundError: No module named 'tests.validation'`. Insert the root before the first
+# `tests` import. `tests.support.paths` computes the same anchor by walking up to
+# `pyproject.toml`.
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+import tests.validation.blade.test_blade_iea15mw_validation as bv  # noqa: E402
+import tests.validation.blade.test_blade_rated_twist as t  # noqa: E402
+from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
+from aeroelast.models.blade.model import Blade  # noqa: E402
+from aeroelast.solvers.bem.engine import BEMResult  # noqa: E402
+from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
+from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
+from tests.support.paths import REPO_ROOT  # noqa: E402
+from tests.validation.blade.test_blade_twist_anchor_beam import (  # noqa: E402
     BEAMDYN_BLADE,
     ELASTODYN_BLADE,
     GKT_MEDIAN_FACTOR,
@@ -58,8 +76,9 @@ aoa = pd.read_csv(ZHOU_AOA)
 r_R_load = loads["r_R"].to_numpy(dtype=float)
 Np_zhou = loads["normal_force_kN_m"].to_numpy(dtype=float) * 1.0e3
 Tp_zhou = loads["tangential_force_kN_m"].to_numpy(dtype=float) * 1.0e3
-aoa_zhou = np.interp(r_R_load, aoa["r_R"].to_numpy(dtype=float),
-                     aoa["angle_of_attack_deg"].to_numpy(dtype=float))
+aoa_zhou = np.interp(
+    r_R_load, aoa["r_R"].to_numpy(dtype=float), aoa["angle_of_attack_deg"].to_numpy(dtype=float)
+)
 
 # ---- the shared input: the official blade, chord and polars -------------------
 aero = build_blade_aero_from_aerodyn(t.AD_PRIMARY)
@@ -104,9 +123,7 @@ pitch = np.interp(frac, ed[:, 0], ed[:, 1])
 Mp_zhou = np.zeros_like(Np_zhou)
 alpha_used = np.zeros_like(Np_zhou)
 cl_used = np.zeros_like(Np_zhou)
-for i, (rr, aa, np_i, tp_i) in enumerate(
-    zip(r_R_load, aoa_zhou, Np_zhou, Tp_zhou, strict=True)
-):
+for i, (rr, aa, np_i, tp_i) in enumerate(zip(r_R_load, aoa_zhou, Np_zhou, Tp_zhou, strict=True)):
     if rr < R_MIN:
         continue
     r_abs = rr * rotor_radius
@@ -127,7 +144,9 @@ for i, (rr, aa, np_i, tp_i) in enumerate(
     cl_used[i] = cl
 
 print("their published angle of attack and the reconstructed pitching moment")
-print(f"{'r/R':>6} {'aoA[deg]':>9} {'CL':>7} {'Np[kN/m]':>10} {'Tp[kN/m]':>10} {'Mp rec[N.m/m]':>15}")
+print(
+    f"{'r/R':>6} {'aoA[deg]':>9} {'CL':>7} {'Np[kN/m]':>10} {'Tp[kN/m]':>10} {'Mp rec[N.m/m]':>15}"
+)
 for i in range(0, len(r_R_load), max(1, len(r_R_load) // 8)):
     print(
         f"{r_R_load[i]:6.2f} {alpha_used[i]:9.2f} {cl_used[i]:7.3f} "
@@ -187,12 +206,23 @@ phi = float(np.rad2deg(theta[-1]))
 
 print()
 print("their complete load (forces published, moment reconstructed) in OUR two models:")
+print("one convention throughout, nose-down positive (leading edge +x, load downwind +y):")
 print(f"  shell (MITC4, 0.5 m)   tip section rotation {omega:+9.4f} deg")
-print(f"  standard beam          tip twist            {phi:+9.4f} deg")
-print(f"  Zhou, their own LL-FVW+GEBT                  {ZHOU_TIP_TORSION_DEG:+9.4f} deg  (their sign: toward stall positive)")
+print(f"  standard beam          tip twist            {-phi:+9.4f} deg")
+print(
+    f"  Zhou, their own LL-FVW+GEBT                  {-ZHOU_TIP_TORSION_DEG:+9.4f} deg  (their paper: toward stall positive)"
+)
 print()
 print(
-    "  reading: their negative is our positive, so the comparable magnitude is "
-    f"|{omega:.3f}| against |{ZHOU_TIP_TORSION_DEG}| -> {abs(omega) / abs(ZHOU_TIP_TORSION_DEG):.2f}x"
+    "  reading: with nose-down positive, their -3.60 deg is +3.60 deg, so the comparable "
+    f"magnitudes are shell |{omega:.3f}| -> {abs(omega) / abs(ZHOU_TIP_TORSION_DEG):.2f}x "
+    f"and beam |{-phi:.3f}| -> {abs(phi) / abs(ZHOU_TIP_TORSION_DEG):.2f}x"
 )
-print(f"  reconstructed pitching moment, integral over the span: {np.sum(Mp_our * np.gradient(r_hub)):+.6e} N.m")
+print(
+    "  both our models now twist the same way under this load; the beam's printed value is"
+    " its own number negated, once, because its `m` is the textbook's nose-up-positive form"
+)
+print("  (see odd/tasks/rated-twist-sign-convention.md for why the sign is not a free choice)")
+print(
+    f"  reconstructed pitching moment, integral over the span: {np.sum(Mp_our * np.gradient(r_hub)):+.6e} N.m"
+)
