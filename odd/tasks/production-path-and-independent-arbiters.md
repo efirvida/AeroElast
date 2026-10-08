@@ -84,21 +84,26 @@ measurements.
 Two of the three route-(c) references the issue names are available in this repository and unused for
 this question.
 
-- [ ] P2a **CalculiX S8R shell of the same blade under the same loads.** The writer, the decks and the
-  S8R parity machinery exist (`tests/validation/parity/`, `docs/validation/rows/17-beam_shell_4cases.yaml`,
-  `tools/ccx_blade_twist_arbitration.py`). This is the issue's own third route: a reference whose
-  model *is* published, on the same geometry and loads, so the rated twist gets a structural arbiter
-  that does not depend on our shell implementation at all.
+- [x] P2a **CalculiX S8R shell of the same blade under the same loads.** **Already measured
+  2026-10-06; recorded here 2026-10-08.** `tools/ccx_blade_twist_arbitration.py` feeds an
+  independent FE code **the exact same nodal force vector** the production `ForceProjector`
+  produces, clamped the same way, and converges each code on its own mesh sequence (same-mesh
+  MITC4-vs-S8R is invalid): at 0.25 m, AeroElast `+8.0980` vs CalculiX `+8.4396` = **4.22%**; the
+  23.77% / 27.91% at 1.00 / 0.50 m was discretisation. Evidence:
+  `odd/tasks/force-projection-shear-flow.md:202-204`, `tools/ccx_blade_twist_arbitration.py`
+  (header + `--element-size`). So the structural arbiter **exists**; what P2a still owes is its
+  registration as *the* arbiter for the rated twist in the assignment below.
 - [ ] P2b **OpenFAST's flexible rated response.** The deck already arbitrates the *stiffness* (S-7 /
   #20). Running the rated case flexibly gives the *coupled* response — the quantity the paper reports
   and the one our one-way application approximates — so the `1.61x` gets a second arbiter on the
   aerodynamic-plus-structural side. Note the standing constraint from S-7: no coupled number is
   citable while item 0 (#19) is broken; an OpenFAST comparison is a third-party code's own coupled
   solution, so it is not blocked by our coupling, but our side's numbers would still be.
-- [ ] P2c **Say which arbiter decides what.** Three different references answer three different
-  questions (stiffness, structural response, coupled response). The write-up needs the assignment
-  stated, or a reader will compare incomparable numbers — which is exactly what the S-7 table (#20)
-  and the `origin_main` row did.
+- [x] P2c **Say which arbiter decides what.** DONE 2026-10-08: the assignment is stated in the
+  section at the end of this document, every row carrying its live evidence and, as importantly,
+  what the arbiter does **not** decide. It is stated here first because it gates every quotation;
+  propagating it to the write-up (the article draft / the validation docs) is a separate,
+  maintainer-owned edit.
 
 ## What changes in the record
 
@@ -237,3 +242,32 @@ correctly scoped to the Fig.-11 tool run, not the production rated number.
 **Not a row.** The magnitude stays withdrawn from the store: it is compared with a beam number under
 unknown stiffness source and pitch, so no defensible bound exists. Group 27 keeps the two Table-6
 paper comparisons, the four self-resultant invariants and the applied-load invariant.
+
+## P2c — which arbiter decides what (2026-10-08)
+
+Settled **before** any magnitude is quoted, because three of the references answer three different
+questions and reading one as another is exactly what the S-7 table (#20) and the
+`origin_main_integration` row did. Each row carries its live evidence and, as importantly, what that
+arbiter does **not** decide.
+
+| question | arbiter | what it decides | live evidence | what it does **not** decide |
+| --- | --- | --- | --- | --- |
+| Is the load **application pattern** right? | Bredt closed form on the closed tube, driven through the production `ForceProjector.project()` | the pattern (transverse force + its transfer moment): `0.22%` / `0.09%` of the exact discrete response, `0.03` quadrature on the continuum comparand | store **group 35**, `tests/validation/parity/test_thin_walled_tube_projection.py`, commit `6780835` | the blade's geometry, any magnitude against a paper |
+| Is our **sectional stiffness** right? | OpenFAST MBC3 / BeamDyn deck, rotating modal (S-7) | `GJ` and the sectional stiffness: shell `+6.4%` global, `+23.9%` sectional | group 34, issue #20, `docs/validation_closures.md` S-7 | the twist magnitude, the load application |
+| Is our **structural response** right for a given load? | CalculiX S8R, same blade, **the same nodal load** | the shell's response to that load: MITC4 `+8.0980` vs S8R `+8.4396` = **4.22%** at the converged 0.25 m mesh (each code converged on its own sequence) | `tools/ccx_blade_twist_arbitration.py`, `odd/tasks/force-projection-shear-flow.md:202-204` | the load itself (it is fed our nodal vector) and the coupled response |
+| Is our **coupled** response right? | OpenFAST flexible rated (**P2b, not yet run**) | the aeroelastic response - the quantity Zhou approximates | pending | the sectional stiffness (that is S-7's), and the paper's definition of "torsion" |
+| Is our magnitude **comparable with the paper**? | Zhou et al. 2025 Table 4 | **nothing about our model**: it is a GEBT beam number and our shell carries the section distortion a beam cannot (`distortion/\|omega\| = 1.6728`) | `docs/validation_closures.md:244` | any shell magnitude; the arbitrable pair is **beam-vs-beam** (our `-2.0790` vs their `-3.60`) |
+
+Rules that follow, and that the write-up must keep:
+
+1. **Every quoted number names its arbiter.** A magnitude without one is a number without a question.
+2. **The shell rated magnitude is cited against CalculiX** (same load) and **never against Zhou
+   directly.** The production number is `omega = +8.1048 deg` on the coupled path the campaigns use
+   (fallback realization; `+9.6669 deg` multi-cell), and the arbiter that makes it a *measurement* is
+   the 4.22% agreement with S8R under the identical load - not the paper.
+3. **Zhou is cited for the beam-vs-beam comparison only**: under their own Fig. 11 loads our beam gives
+   `-2.0790 deg` against their `-3.60 deg`, a `0.58x` twist (`tools/diagnose_zhou_loads_reverse.py`).
+   The `1.61x` is that tool's *shell* figure (`+5.7822 deg`) and is not the production rated number.
+4. **A missing arbiter is stated as missing.** P2b has not run, so no coupled number of *ours* is
+   citable; OpenFAST's own coupled solution is a third-party result and stands on its own, but it
+   arbitrates our side only once the coupled gates (#19 item 0) clear.
