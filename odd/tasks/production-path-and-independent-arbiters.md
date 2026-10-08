@@ -151,8 +151,11 @@ Control: with `Mp = 0` (force through the section centre) the production load tw
   the artificial inputs. `test_thin_walled_tube_torsion.py` was deliberately **not** edited: its
   pattern test's docstring claims nothing false, and editing it would move group 6's call-site line
   numbers for no claim correction.
-- [ ] WU-P1a-4 **Verify and commit.** Independent read-only verifier over the new test and the rows,
-  then one work-unit commit on `integrate/origin-main-2026-09-30`.
+- [x] WU-P1a-4 **Verify and commit.** DONE: independent read-only verifier confirmed all nine
+  claims (production path, bound, the four numbers, the quadrature attribution re-derived from the
+  code, reference independence, declared artificial inputs, sign pinning, store integrity, scope);
+  work-unit commit `6780835` on `integrate/origin-main-2026-09-30`. The only caveat it raised - the
+  row file's stale `notes` boilerplate - was fixed before the commit.
 
 Environment: `export LD_LIBRARY_PATH=/petrobr/app_sequana/gcc/14.2.0/lib64:$LD_LIBRARY_PATH`
 (without it `_aeroelast` fails to import; `module load` is not required for the import, only the
