@@ -40,12 +40,14 @@ measurements.
 
 ## P1 — measure on the production path
 
-- [ ] P1a **The tube case through `ForceProjector`.** The projector takes `(mesh, BladeAero, span
+- [x] P1a **The tube case through `ForceProjector`.** The projector takes `(mesh, BladeAero, span
   direction, element properties)`, so a tube-like `BladeAero` (stations with chord and a polar per
   station) makes the rectangular tube projectable. Then the same closed-form comparison runs through
   **the production entry point**, and the `0.23%` / `0.11%` claim attaches to production rather than
   to a test-local pattern. Reuse the module's existing tube mesh, properties, Bredt reference and
-  metrics; write only the adapter.
+  metrics; write only the adapter. **Probed 2026-10-08** (`$SCRATCH/p1a_diag/probe.py`, non-committed
+  diagnostic); the adapter works and the measurement is in the Work units section below. **Done**:
+  `tests/validation/parity/test_thin_walled_tube_projection.py`, store group 35.
 - [ ] P1b **The rated twist through the production path, as the headline number.** State the rated
   tip twist that `ForceProjector` produces and what it is against Zhou's `-3.60 deg`. That is the
   quantity the write-up would quote, and it is one number rather than four.
@@ -81,7 +83,11 @@ this question.
 
 - Anything that presented a test-local construction's number as "the application" gets re-stated with
   the path it came from. The sign defects do not change (production was the arbiter there).
-- The tube validation's claim narrows to what P1a makes true, or stays explicitly pattern-scoped.
+- The tube validation's claim is now **production-scoped**: group 35 runs the same closed-form
+  comparison through `ForceProjector.project()`, so the pattern claim no longer rests on a
+  construction written in the test. The pattern test's own docstring stays accurate for itself (it is
+  the test-local comparator) and was left untouched; the production companion is the new module and
+  group 35.
 - The 6.17x becomes "spread across test-local applications", which is what it is.
 - Comments already posted on #14 that overstated the scope get a correction; the repository's own
   practice in this session has been to correct such statements rather than leave them.
@@ -99,3 +105,55 @@ this question.
   definitionally different (issue #14's own finding), so an OpenFAST comparison arbitrates *our*
   response, not the paper's number. That is still the useful part: it separates "our model is wrong"
   from "the quantities are not the same".
+
+## Work units — P1a (status 2026-10-08)
+
+Measured on `$SCRATCH/p1a_diag/probe.py` before the first source write, so the bound is fixed and
+the adapter is known to work. The probe builds a `MeshModel` from `_tube_mesh`, a tube `BladeAero`
+(chord `B`, `aerodynamic_center=0.5`, flat fake polar - the artificial inputs are declared), a
+`BEMResult` with `Np = FORCE_PER_LENGTH`, `Tp = 0`, `Mp = e * FORCE_PER_LENGTH`, and passes them
+through `ForceProjector(mesh, blade_aero, hub_radius=0.0, element_properties={"shell":_iso_prop(t)})`,
+then `.project()`. Clamped-free, `f = 1e5 N/m`, `e = 0.2 m`:
+
+| wall | `theta_z` | vs `e f L^2/(2 GJ)` | vs the discrete Saint-Venant response | torque ruler |
+| ---: | ---: | ---: | ---: | ---: |
+| 10 mm | `-1.021242e-3` | `1.0311` (3.11% high) | **`0.997801`** (0.220% low) | `-1.24e5` |
+| 0.5 mm | `-2.045078e-2` | `1.0324` (3.24% high) | **`0.999069`** (0.093% low) | `-1.24e5` |
+
+Two findings, both measured:
+
+1. **The production pattern is as accurate as the test-local one.** Against the analytic response to
+   the projector's *own* discrete station load - couples `e f dr_k` at `z_k`, `theta(L) = (e f/GJ)
+   sum_k dr_k (L - z_k)` - the production path lands at 0.220% / 0.093%, the same numbers the
+   test-local pattern gave (0.23% / 0.11%). The application is validated through the production entry
+   point, not through a test-local copy.
+2. **The 3.1-3.2% continuum excess is the projector's band quadrature, not the pattern.**
+   `ForceProjector.__init__` extends the outer strip bands half a spacing past the first and last
+   station (`force_projection.py:259-263`), so `sum_k dr_k = L + DZ = 6.2` here, and the projected
+   load's own torque ruler reads exactly `e f (L + DZ) = 1.24e5`, not `e f L = 1.2e5`. The remainder of
+   the 3.11 vs 3.33 difference is the clamped-end boundary layer.
+
+Control: with `Mp = 0` (force through the section centre) the production load twists the tube by
+`1.97e-15` rad (10 mm) / `-8.34e-12` rad (0.5 mm) - round-off - and `verify().force_error = 2.3e-10 N`.
+
+- [x] WU-P1a-1 **The adapter and the production test.** DONE:
+  `tests/validation/parity/test_thin_walled_tube_projection.py` (new file, its own group so
+  `extract --write` cannot regenerate group 6's rows, the same reason group 31 exists). Four
+  `assert_relative_error` call sites, `TOL = 0.05` fixed before the run: signed `theta_z` against
+  both the continuum closed form and the discrete Saint-Venant response, per wall. `1 passed`,
+  `ruff` clean.
+- [x] WU-P1a-2 **Store rows.** DONE: group 35 registered in `docs/validation/groups.yaml`, its
+  residual pattern declared in `docs/validation/residual-patterns.json`, `extract --group 35
+  --write` + `regression --group 35 --write` (4 measured), `check` 198 rows / 259 comparisons / 0
+  errors, `status` 0 files neither grouped nor declared.
+- [x] WU-P1a-3 **Re-scope the record.** DONE: this document's "What changes in the record" now
+  states the tube claim is production-scoped; the new module's docstring carries the two findings and
+  the artificial inputs. `test_thin_walled_tube_torsion.py` was deliberately **not** edited: its
+  pattern test's docstring claims nothing false, and editing it would move group 6's call-site line
+  numbers for no claim correction.
+- [ ] WU-P1a-4 **Verify and commit.** Independent read-only verifier over the new test and the rows,
+  then one work-unit commit on `integrate/origin-main-2026-09-30`.
+
+Environment: `export LD_LIBRARY_PATH=/petrobr/app_sequana/gcc/14.2.0/lib64:$LD_LIBRARY_PATH`
+(without it `_aeroelast` fails to import; `module load` is not required for the import, only the
+libstdc++ with `CXXABI_1.3.15`).

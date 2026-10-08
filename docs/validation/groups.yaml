@@ -931,6 +931,35 @@ groups:
       is now stated once. Evidence: issue #20, `odd/tasks/s7-torsion-ratio.md`,
       and `docs/validation_closures.md` section S-7 (2026-10-07).
 
+  - id: "35"
+    title: >-
+      `tests/validation/parity/test_thin_walled_tube_projection.py`
+      (the tube's rated load pattern through the production `ForceProjector`)
+    slug: tube_projection
+    source_files:
+      - tests/validation/parity/test_thin_walled_tube_projection.py
+
+    provenance_note: >-
+      This file is its own group for the same reason as group 31: `extract
+      --write` derives one group from one scope, so adding it as a second
+      source of group 6 would regenerate that group's row file and drop its
+      measured rows. It drives the **production** load path -
+      `ForceProjector.project()` on a `MeshModel` built from the same closed
+      rectangular tube, with the same Bredt `GJ`, mesh, solvers and `theta_z`
+      metric the tube module already pins - where group 6's pattern test wrote
+      its own traction in the test and group 31 drives `realise_section_load`
+      directly. Two comparators are asserted per wall: the continuum closed
+      form `e f L^2 / (2 GJ)` group 6 uses, which the production path clears by
+      ~3.1% only because `ForceProjector` extends the outer strip bands half a
+      spacing past the stations (`sum_k dr_k = L + DZ`, so the projected load's
+      own torque ruler reads `e f (L + DZ)`), and the exact discrete
+      Saint-Venant response to that same station load, which isolates the
+      pattern and measures 0.22% / 0.09%. The force-conservation, torque-ruler,
+      twist-sign and through-the-centre control assertions are load identities
+      and physics properties, not comparisons against a reference, so they are
+      no rows. Evidence: `odd/tasks/production-path-and-independent-arbiters.md`
+      (Work units - P1a).
+
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
 # independent reference and needs a group and a row; a test under

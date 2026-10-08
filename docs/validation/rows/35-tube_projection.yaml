@@ -1,0 +1,99 @@
+group: '35'
+rows:
+- id: tube_projection.test_production_projector_reproduces_the.single
+  group: '35'
+  title: test_production_projector_reproduces_the_exact_twist
+  tests:
+  - tests/validation/parity/test_thin_walled_tube_projection.py::test_production_projector_reproduces_the_exact_twist
+  validates: >-
+    The clamped-free closed rectangular tube's tip rotation (theta_z) under the rated load pattern -
+    normal force plus transfer moment - realised by the production `ForceProjector.project()`, against
+    the continuum Bredt closed form `e f L^2 / (2 GJ)` and against the exact discrete Saint-Venant
+    response to the projector's own station load.
+  comparisons:
+  - label: rtol at line 225
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_projection.py:225
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: dc585aa
+      date: '2026-10-08'
+      raw: -0.00102124
+      margin_pct: 3.1061
+      text: 'production tip theta_z, 10 mm wall, against the continuum closed form vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: -0.00102124 vs -0.000990476 (error: 3.1061%, bound: 5.0000%)'
+      digest: c2c6f88a62aa1abc
+  - label: rtol at line 236
+    asserted: true
+    reference:
+      kind: analytical
+      label: the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_projection.py:236
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: dc585aa
+      date: '2026-10-08'
+      raw: -0.0204508
+      margin_pct: 3.2371
+      text: 'production tip theta_z, 0.5 mm wall, against the continuum closed form vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: -0.0204508 vs -0.0198095 (error: 3.2371%, bound: 5.0000%)'
+      digest: 5cd4489e489d5e0f
+  - label: rtol at line 247
+    asserted: true
+    reference:
+      kind: analytical
+      label: the discrete Saint-Venant response (e f / GJ) sum_k dr_k (L - z_k) to the projector's station load, dr_k the band width
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_projection.py:247
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: dc585aa
+      date: '2026-10-08'
+      raw: -0.00102124
+      margin_pct: 0.2199
+      text: 'production tip theta_z, 10 mm wall, against the discrete Saint-Venant response vs the discrete Saint-Venant response (e f / GJ) sum_k dr_k (L - z_k) to the projector''s station load, dr_k the band width: -0.00102124 vs -0.00102349 (error: 0.2199%, bound: 5.0000%)'
+      digest: 740bc4f1c930a628
+  - label: rtol at line 258
+    asserted: true
+    reference:
+      kind: analytical
+      label: the discrete Saint-Venant response (e f / GJ) sum_k dr_k (L - z_k) to the projector's station load, dr_k the band width
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_thin_walled_tube_projection.py:258
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: dc585aa
+      date: '2026-10-08'
+      raw: -0.0204508
+      margin_pct: 0.0931
+      text: 'production tip theta_z, 0.5 mm wall, against the discrete Saint-Venant response vs the discrete Saint-Venant response (e f / GJ) sum_k dr_k (L - z_k) to the projector''s station load, dr_k the band width: -0.0204508 vs -0.0204698 (error: 0.0931%, bound: 5.0000%)'
+      digest: cd3af5fe85ad8578
+  flags: []
+  notes: >-
+    Measured at dc585aa. Against the continuum closed form the production path is 3.11% high (10 mm
+    wall) / 3.24% high (0.5 mm), and the excess is entirely the projector's outer-band quadrature:
+    `ForceProjector` extends the first and last strip bands half a spacing past the stations, so
+    `sum_k dr_k = L + DZ = 6.2 m` and the projected load's own torque ruler reads `e f (L + DZ)`.
+    Against the discrete Saint-Venant response to that same station load the path is 0.22% / 0.09%.
+    The force-conservation, torque-ruler, twist-sign and through-the-centre control assertions are
+    load identities and physics properties, not comparisons against a reference, so they are no
+    rows. Evidence: odd/tasks/production-path-and-independent-arbiters.md (Work units - P1a).
