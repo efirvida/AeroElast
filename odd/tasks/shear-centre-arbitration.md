@@ -75,26 +75,36 @@ It is a docstring number nobody measures — the same defect class as the S-7 ta
 
 ## Tasks
 
-- [ ] T1 Prototype the ring 6x6 in `$SCRATCH` before touching `src/`: reuse the Lagrange-multiplier
-  approach `section_stiffness` uses, assemble the full symmetric 6x6 for one ring, and get
-  `(x_S, y_S)` out of `ComputeStiffnessProps().ComputeShearCenter`. Cross-check the prototype's
-  `EA`/`GJ`/`EI_*` against the existing `section_stiffness` on the same ring, which is a free
-  correctness check the prototype must pass before anyone believes its couplings.
-- [ ] T2 If T1 holds, add the 6x6 extraction where it belongs (a new `SectionalExtractor` method,
-  `src/aeroelast/postprocess/sectional.py`), with the coupling terms named and the frame stated
-  once. Production code, so it carries its own test: the diagram terms against the scalars T1
-  cross-checked, and a rotation-invariance or a known-section case if one is cheap.
-- [ ] T3 State and pin the **PCA chord/frame to BeamDyn `x`** mapping, then compare `xS/c` per
-  station on both sides in chord fractions (the deck's is in metres against the section origin, the
-  extractor's against the slice centroid, so the normalisation is part of the unit). Report the
-  per-station difference and the chord-fraction figure that replaces the unbacked `0.477`.
-- [ ] T4 Decide: is the eccentricity geometry or application? Then either assert the mesh-side
-  shear centre in the store as its own reference (making the `at_ac` placement defensible), or
-  record the gap if the two sides genuinely disagree and the deck's `xS` is the one to trust.
-- [ ] T5 Verify with an independent read-only verifier (the two sign defects this builds on were
-  caught by prose and by a cross-path check, so assume nothing), and comment on #14 with the
-  verdict, which is what finally decides between closing it as documented non-transferability and
-  promoting the magnitude.
+**T1 is done and it is a negative result, which is why it was a prototype.** `tools/diagnose_shear_centre.py`
+assembles the 6x6 by prescribing six unit generalized strains on the upper face of a clamped slice,
+and validates it two ways. Measured (element_size 1.0, z = 5.97 / 44.16 / 77.60 / 115.21 m):
+
+| check | result |
+| --- | --- |
+| `EA`, `GJ`, `EI_flap`, `EI_edge` against `section_stiffness` | **rel.diff 0.00e+00 .. 2.19e-16** — machine precision, all four, all four stations |
+| `max\|K - K^T\| / max\|K\|` (Maxwell-Betti) | **0.50 / 0.92 / 0.99 / 0.78** — fails |
+
+So the frame, the datum, the DOF mapping and the scaling are right, and the **couplings are not**: a
+fully clamped lower face absorbs work outside the section's generalized coordinates, so the mutual
+terms are not the duals of the diagonal ones. **This scheme cannot produce the 6x6**, and no shear
+centre is computed from it. The cross-check earned its keep twice on the way: it caught a double `dz`
+scaling on the rotation states (the diagonals were off by exactly `dz`), and it is what lets the
+negative result be stated precisely instead of "nothing matched".
+
+- [x] T1 Prototype in the repo as a diagnostic, with the cross-check as the acceptance gate.
+  **Done 2026-10-07**: `tools/diagnose_shear_centre.py`, diagonals at machine precision, couplings
+  rejected by reciprocity, full matrix printed so it can be re-mapped without re-running.
+- [ ] T2 Pick a formulation whose mutual terms are reciprocal **by construction** and rebuild the
+  6x6 with it: a proper influence-coefficient / Saint-Venant treatment, or the energy route, or the
+  BECAS-style approach `openfast_toolbox` was built around. Then promote it into
+  `SectionalExtractor` with a test that keeps the two checks T1 established (diagonals against
+  `section_stiffness`, and symmetry) as the gate.
+- [ ] T3 State and pin the **PCA chord/frame to BeamDyn `x`** mapping, and the ordering
+  `ComputeShearCenter` assumes (it documents neither), then compare `xS/c` per station on both sides
+  in chord fractions. Report the figure that replaces the unbacked `0.477`.
+- [ ] T4 Decide: geometry or application? Then assert the mesh-side shear centre as its own
+  reference, or record the gap if the two sides genuinely disagree.
+- [ ] T5 Verify independently and comment on #14 with the verdict.
 
 ## Risks, stated up front
 
@@ -111,4 +121,6 @@ It is a docstring number nobody measures — the same defect class as the S-7 ta
 
 ## Measurements kept outside the repo
 
-`$SCRATCH/s7_diag/` already holds the sign work's logs; T1's prototype and its log go there too.
+`$SCRATCH/s7_diag/` holds the sign work's logs; T1's are `shear_centre_proto.log` (the first
+revision, whose diagonals showed the exact `dz` factor) and `shear_centre_proto2.log` (after the
+fix: diagonals at machine precision, symmetry failing).
