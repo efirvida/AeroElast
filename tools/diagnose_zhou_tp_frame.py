@@ -122,15 +122,23 @@ def main() -> int:
     identity_section = psi_ours + gamma_ours - bem.alpha
 
     print("our production BEM at Zhou's rated point (V=10.59 m/s, 7.55 rpm, pitch 0)")
-    print(f"  thrust {bem.thrust / 1e6:.3f} MN   power {bem.power / 1e6:.3f} MW"
-          f"   torque {bem.torque / 1e6:.3f} MN.m")
-    print(f"  int Np dr = {np.trapezoid(bem.Np, r_hub) / 1e3:.1f} kN"
-          f"   int Tp dr = {np.trapezoid(bem.Tp, r_hub) / 1e3:.1f} kN")
+    print(
+        f"  thrust {bem.thrust / 1e6:.3f} MN   power {bem.power / 1e6:.3f} MW"
+        f"   torque {bem.torque / 1e6:.3f} MN.m"
+    )
+    print(
+        f"  int Np dr = {np.trapezoid(bem.Np, r_hub) / 1e3:.1f} kN"
+        f"   int Tp dr = {np.trapezoid(bem.Tp, r_hub) / 1e3:.1f} kN"
+    )
     print("  frame identity, residual over the 50 stations [deg]:")
-    print(f"    rotor-plane reading (psi + gamma - theta - alpha): max "
-          f"{np.max(np.abs(identity_rotor)):.3e}")
-    print(f"    section reading     (psi + gamma - alpha)        : max "
-          f"{np.max(np.abs(identity_section)):.3e}")
+    print(
+        f"    rotor-plane reading (psi + gamma - theta - alpha): max "
+        f"{np.max(np.abs(identity_rotor)):.3e}"
+    )
+    print(
+        f"    section reading     (psi + gamma - alpha)        : max "
+        f"{np.max(np.abs(identity_section)):.3e}"
+    )
     print("    => ccblade/cl.BEMSolver emit the ROTOR-PLANE pair (it is qc(CL cos(phi), ...))")
 
     # -------------------------------------------------------------- their side
@@ -167,23 +175,31 @@ def main() -> int:
         d_section.append(a_section - alpha_zhou[i])
         d_rotor.append(a_rotor - alpha_zhou[i])
         r_R_used.append(rr)
-        print(f"{rr:5.2f} {alpha_zhou[i]:9.2f} {cl:6.3f} {cd:7.4f} {gamma:6.2f} {psi:6.2f} "
-              f"{a_section:10.2f} {a_section - alpha_zhou[i]:+7.2f} "
-              f"{a_rotor:8.2f} {a_rotor - alpha_zhou[i]:+7.2f}")
+        print(
+            f"{rr:5.2f} {alpha_zhou[i]:9.2f} {cl:6.3f} {cd:7.4f} {gamma:6.2f} {psi:6.2f} "
+            f"{a_section:10.2f} {a_section - alpha_zhou[i]:+7.2f} "
+            f"{a_rotor:8.2f} {a_rotor - alpha_zhou[i]:+7.2f}"
+        )
 
     d_section_a = np.asarray(d_section)
     d_rotor_a = np.asarray(d_rotor)
     r_R_used_a = np.asarray(r_R_used)
     core = (r_R_used_a >= CORE_LO) & (r_R_used_a <= CORE_HI)
     print()
-    print(f"  section reading residual: max |d| {np.max(np.abs(d_section_a)):.2f} deg, "
-          f"rms {np.sqrt(np.mean(d_section_a**2)):.2f} deg")
-    print(f"  rotor   reading residual: max |d| {np.max(np.abs(d_rotor_a)):.2f} deg, "
-          f"rms {np.sqrt(np.mean(d_rotor_a**2)):.2f} deg")
-    print(f"  blade core r/R [{CORE_LO}, {CORE_HI}] ({int(core.sum())} stations): "
-          f"section max {np.max(np.abs(d_section_a[core])):.2f} deg, "
-          f"rotor max {np.max(np.abs(d_rotor_a[core])):.2f} deg "
-          f"(Fig. 10 band +/-{FIG10_AOA_BAND_DEG} deg)")
+    print(
+        f"  section reading residual: max |d| {np.max(np.abs(d_section_a)):.2f} deg, "
+        f"rms {np.sqrt(np.mean(d_section_a**2)):.2f} deg"
+    )
+    print(
+        f"  rotor   reading residual: max |d| {np.max(np.abs(d_rotor_a)):.2f} deg, "
+        f"rms {np.sqrt(np.mean(d_rotor_a**2)):.2f} deg"
+    )
+    print(
+        f"  blade core r/R [{CORE_LO}, {CORE_HI}] ({int(core.sum())} stations): "
+        f"section max {np.max(np.abs(d_section_a[core])):.2f} deg, "
+        f"rotor max {np.max(np.abs(d_rotor_a[core])):.2f} deg "
+        f"(Fig. 10 band +/-{FIG10_AOA_BAND_DEG} deg)"
+    )
     print("  reading: over the blade core the section reading is within a few tenths of a")
     print("  degree of their own published alpha, and the rotor-plane reading is not; the")
     print("  section reading's worst points are the digitized tip, where Fig. 10 falls")
@@ -197,10 +213,14 @@ def main() -> int:
     power_mw = blade_torque_mnm * omega_rad
     print()
     print("the digitized curve against the paper's own Table 6 (fixed condition):")
-    print(f"  their curve gives thrust {blade_thrust_mn:.2f} MN  (Table 6: rigid "
-          f"{TABLE6_RIGID[1]:.2f}, flexible {TABLE6_FLEXIBLE[1]:.2f})")
-    print(f"  their curve gives power  {power_mw:.2f} MW  (Table 6: rigid "
-          f"{TABLE6_RIGID[0]:.2f}, flexible {TABLE6_FLEXIBLE[0]:.2f})")
+    print(
+        f"  their curve gives thrust {blade_thrust_mn:.2f} MN  (Table 6: rigid "
+        f"{TABLE6_RIGID[1]:.2f}, flexible {TABLE6_FLEXIBLE[1]:.2f})"
+    )
+    print(
+        f"  their curve gives power  {power_mw:.2f} MW  (Table 6: rigid "
+        f"{TABLE6_RIGID[0]:.2f}, flexible {TABLE6_FLEXIBLE[0]:.2f})"
+    )
     print("  => Fig. 11 is the flexible case, and its trapezoid does not carry the")
     print("     paper's own torque; integral comparisons through it carry that band.")
     print(f"  the pointwise Tp digitization band alone is +/-{FIG11_TP_BAND_KN_M:.2f} kN/m")

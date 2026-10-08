@@ -105,14 +105,16 @@ Zhou digitised   : intNp 732.2 kN   intTp  70.0 kN   int(Tp r) 4.923 MNm
 
 ## Follow-ups this unit opened
 
-- **The `ForceProjector` load frame, on our side.** The plan documents `ccblade`'s `Np`/`Tp` as
-  "normal and tangential to the section chord"; the engine emits the *rotor-plane* pair
-  (`cn = cl cos(phi) + cd sin(phi)`), so `ForceProjector.project` puts rotor-plane components on the
-  section's own chord-normal / chord axes, a rotation by the local twist (up to 15.6 deg inboard).
-  The net effect on the integrated force is small and of both signs along the span, but it is the
-  same class of implicit-convention defect as the P5 sense chain, and it should be arbitrated with a
-  case whose answer is known before attributing anything to it. Not this unit's scope: the reported
-  numbers compared `bem_sectional.csv`, which is upstream of the projector.
+- **The `ForceProjector` load frame, on our side — filed as #26, roadmap item 8 of #18.** The plan
+  documents `ccblade`'s `Np`/`Tp` as "normal and tangential to the section chord"; the engine emits
+  the *rotor-plane* pair (`cn = cl cos(phi) + cd sin(phi)`), so `ForceProjector.project` puts
+  rotor-plane components on the section's own chord-normal / chord axes, a rotation by the local
+  twist. Estimated consequence on the rated point: `+0.34%` on the rotor-axis force, `-8.2%` on the
+  in-plane force and `+5.3%` on the edgewise root moment (locally up to `47%` of `Tp`). None of the
+  existing guards can see it (the tube cases have no twist; the load-frame invariants test the axis,
+  not the input frame; the thrust/power anchors come from ccblade's own integrals). It is not this
+  unit's scope because the reported numbers compared `bem_sectional.csv`, upstream of the projector,
+  but it is ordered ahead of the campaign relaunch, since it changes the applied loads.
 - **Their `Tf`/`Np` digitization is the flexible case.** Any future integral comparison must match
   case and quadrature, or be stated as a bound.
 

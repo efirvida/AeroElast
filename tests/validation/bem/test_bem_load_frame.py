@@ -110,9 +110,9 @@ def _zhou_frame_residuals(aero) -> tuple[np.ndarray, np.ndarray]:
 
 def test_the_production_bem_emits_the_rotor_plane_pair(blade_aero):
     """``atan2(Tp, Np) + atan2(Cd, Cl) - theta == alpha`` on the production output."""
-    bem = BEMSolver(
-        blade_aero, rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.2
-    ).compute(V_RATED, RPM_ZHOU, PITCH_RATED)
+    bem = BEMSolver(blade_aero, rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.2).compute(
+        V_RATED, RPM_ZHOU, PITCH_RATED
+    )
     twist_deg = np.degrees([st.twist for st in blade_aero.stations])
     psi = np.degrees(np.arctan2(bem.Tp, bem.Np))
     gamma = np.degrees(np.arctan2(bem.cd, bem.cl))
