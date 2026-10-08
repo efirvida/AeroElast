@@ -785,7 +785,9 @@ Lo corroboran el signo del de-loading (`-25.31 % / -14.77 %`) y las dos realizac
 
 Consecuencia medida tras el arreglo: `mp_only` `+4.8337` (era `-4.8337`), `at_ac` `+15.4921`
 (era `-20.7348`), `ratio_omega` `2.7327` y `ratio_theta_z` `4.3034` contra Zhou (positivos y en
-la convención del frame), `spread_omega` `6.170`, `distortion[at_ac]/distortion[mp_only]`
+la convención del frame), `spread_omega` `6.170` (el spread de las cuatro aplicaciones
+**test-local** de `_rated_load_cases`, no una propiedad del camino de producción: a este lo acota
+el grupo 35), `distortion[at_ac]/distortion[mp_only]`
 `18.367`. La tabla del anchor beam pasa de ratios negativos a `ring/beam 4.5622`. Los dos
 invariantes de resultantes de `at_ac` se re-midieron (0.0767 %→0.1676 % y 0.3623 %→0.1933 %,
 cota 0.5 %). Dos asertos que afirmaban "toda aplicación es nariz-abajo" se acotaron: las

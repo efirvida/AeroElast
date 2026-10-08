@@ -27,7 +27,7 @@ response below is solved from ``ForceProjector``'s own nodal forces
 (``test_rated_twist_under_production_loads``), so a repeat of the P5 load-frame defect in
 production fails here. The four hand-built applications of ``_rated_load_cases`` remain only
 as the **historical sensitivity record** of the task document's sections 18/20 - they show how
-much the twist moves with the application, they are not the load path.
+much the twist moves with the **test-local** application, they are not the load path.
 """
 
 from __future__ import annotations
@@ -548,10 +548,13 @@ def test_rated_tip_twist_matches_zhou_with_the_physical_load_path(blade_shell, r
 
     The **magnitude is withdrawn as a result**. A controlled eccentric-force test (task
     document section 18) showed that the same load set gives -4.35, -14.25 or -34.13 deg
-    depending only on how the forces and moments are distributed over the shell, so the
-    number measures the application, not the model. It is printed for the record and the
-    matrix row is flagged accordingly; promoting it needs the application validated on a
-    case with an exact answer (a rectangular closed tube with a known GJ and a known torque).
+    depending only on how the forces and moments are distributed over the shell. Those four
+    vectors are **constructions written in this module** (``_rated_load_cases``), not the
+    production load path, so the number measures this test's own choice of distribution - a
+    sensitivity study, not a model error. It is printed for the record and the matrix row is
+    flagged accordingly; the production path's pattern is bounded separately, by the
+    exact-case validation measured through the production ``ForceProjector``
+    (``tests/validation/parity/test_thin_walled_tube_projection.py``, store group 35).
     """
     bem, blade_aero = rated_bem
     vectors = _rated_load_cases(blade_shell, bem, blade_aero, blade_shell["mesh"])
@@ -579,9 +582,9 @@ def test_rated_tip_twist_matches_zhou_with_the_physical_load_path(blade_shell, r
     spread = max(magnitudes) / smallest if smallest > 1e-12 else float("inf")
     print(
         f"  physical case / Zhou = {ratio:.3f}  <- WITHDRAWN as a result: the magnitude moves "
-        f"by {spread:.1f}x with the load application alone (see the four cases above), so it is "
-        f"not a measurement of the model until the application is validated on a case with an "
-        f"exact answer (task document section 18.6)"
+        f"by {spread:.1f}x across the four test-local applications above, so it measures this "
+        f"module's own choice of distribution, not the production load path (whose pattern is "
+        f"bounded by the tube case, store group 35)"
     )
 
     # ASSERTED: the physics (the sense of the twist) and the load-path dominance. A sign
@@ -682,14 +685,17 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
 ):
     """Re-derive the rated twist with the validated load path and measure the distortion.
 
-    The exact thin-walled-tube case (``tests/test_thin_walled_tube_torsion.py``, task
-    document section 19) showed that a closed section loaded at one end with a clamped root
-    can have its measured twist dominated by a **section-distortion mode**: the same
-    resultant torque applied on one wall instead of as a shear flow gave 125.7x the section
-    shear, 69.2x the energy, 74.8x the tip in-plane displacement, and the two twist metrics
-    disagreed by 2050%. The blade's rated magnitude is withdrawn because the same load set
-    moves the tip twist by a factor 4.0 (``theta_z``) or 6.2 (``omega``) depending only on the
-    application (section 20; the earlier 7.8 was computed with a load-magnitude defect).
+    The exact thin-walled-tube case (``tests/validation/parity/test_thin_walled_tube_torsion.py``,
+    task document section 19; its **production** companion is
+    ``tests/validation/parity/test_thin_walled_tube_projection.py``, store group 35, which runs
+    the same comparison through ``ForceProjector.project()``) showed that a closed section
+    loaded at one end with a clamped root can have its measured twist dominated by a
+    **section-distortion mode**: the same resultant torque applied on one wall instead of as a
+    shear flow gave 125.7x the section shear, 69.2x the energy, 74.8x the tip in-plane
+    displacement, and the two twist metrics disagreed by 2050%. The blade's rated magnitude is
+    withdrawn because the same load set moves the tip twist by a factor 4.0 (``theta_z``) or 6.2
+    (``omega``) depending only on the **test-local application** (section 20; the earlier 7.8 was
+    computed with a load-magnitude defect).
 
     This test splits each ring's in-plane field into an origin-invariant rotation ``omega`` (the
     antisymmetric part of the affine fit) and the strain measures (parallelogram ``shear``,
@@ -707,11 +713,13 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
       ``spread_omega < spread_theta_z`` - "the distortion-free metric collapses the application
       spread". Measured on the corrected loads it is the opposite: ``spread_omega = 6.170``
       against ``spread_theta_z = 3.990``. The hypothesis that the spread *lives in the
-      distortion* is therefore **refuted on the blade**: the application moves the section
-      rotation itself, so the rated twist magnitude is not promotable and stays a reported
-      residual. The asserted claim is the true one, ``spread_omega > 2.0``; promoting the
-      magnitude requires this spread to collapse, at which point this assertion is removed with
-      the promotion.
+      distortion* is therefore **refuted on the blade**: the test-local application moves the
+      section rotation itself, so this is a sensitivity study of the four hand-built vectors and
+      not a property of the production load path - the production pattern is bounded by the tube
+      case through ``ForceProjector`` (store group 35). The asserted claim is the true one,
+      ``spread_omega > 2.0``; promoting the blade magnitude still requires this spread to
+      collapse to a settled rotation, at which point this assertion is removed with the
+      promotion.
     * **The tube's transfer test was mis-specified (replaced).** The original prediction was
       ``max(distortion[uniform], distortion[uniform_plus_mp]) > 1.5 * distortion[at_ac]``.
       Measured: **0.997x**, i.e. the off-path cases excite *no more* distortion than ``at_ac``.
@@ -899,14 +907,15 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
         )
 
     # 2. The true claim, after the refutation of the original "the spread lives in the
-    #    distortion": the application spread SURVIVES the distortion-free section-rotation
-    #    metric (measured spread_omega = 6.170 > spread_theta_z = 3.990, not the predicted
-    #    collapse), so the rated twist magnitude is not promotable and stays a reported
-    #    residual. Promoting it requires this spread to collapse to a settled rotation; this
-    #    assertion is then removed with the promotion.
+    #    distortion": the TEST-LOCAL application spread SURVIVES the distortion-free
+    #    section-rotation metric (measured spread_omega = 6.170 > spread_theta_z = 3.990, not
+    #    the predicted collapse), so this module's own spread is not promotable and stays a
+    #    reported residual. The production path is bounded separately by the tube case through
+    #    ForceProjector (store group 35). Promoting this spread requires it to collapse to a
+    #    settled rotation; this assertion is then removed with the promotion.
     assert spread_omega > 2.0, (
         f"the section-rotation spread has collapsed to {spread_omega:.3f} <= 2.0 "
-        f"(spread_theta_z = {spread_theta_z:.3f}): the application spread no longer survives "
+        f"(spread_theta_z = {spread_theta_z:.3f}): the test-local spread no longer survives "
         f"the distortion-free metric, so the rated twist magnitude is now promotable - "
         f"promote it to an asserted row in the matrix and remove this assertion"
     )

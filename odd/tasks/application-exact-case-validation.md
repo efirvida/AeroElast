@@ -143,6 +143,13 @@ contamination the module already documents and why it asserts only `theta_z`. No
 shows that the consistent traction plus its transfer moment is exact, and the blade's three other
 cases distribute the same force differently. The validated case is `at_ac`.
 
+*Re-framed 2026-10-08 (P1c).* Those four vectors are **test-local constructions written inside
+`test_blade_rated_twist.py`**, so the 6.17x is a sensitivity study of what an inconsistent
+distribution costs, not a property of the production load path - quoting it as "the application's
+spread" overstates what was measured. The production path's pattern is bounded separately, by the
+tube case run through the production `ForceProjector.project()`
+(`tests/validation/parity/test_thin_walled_tube_projection.py`, store group 35).
+
 - [x] T1 The tube-side pattern helper. **Done**: `_ring_traction` (edge-length weighted, resultant at
   the perimeter centroid) and `_distributed_pattern_load` (tributary weights, traction plus transfer
   moment), reusing `_ring_shear_flow`, `_theta_z`, `_theta_fit`, `_solve_clamped`, `_bredt_isotropic`.

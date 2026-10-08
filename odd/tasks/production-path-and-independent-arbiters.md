@@ -59,9 +59,17 @@ measurements.
   a shell magnitude against their beam number is not transferable; the arbitrable counterpart is
   beam-vs-beam. This unit also corrected two record defects: the "one number" premise above and the
   `production_rated_loads` fixture citing `standalone.py` while configuring the participant.
-- [ ] P1c **Re-frame the sensitivity honestly.** Keep the four applications, but say what they are: a
-  spread across test-local constructions, measured to show what an *inconsistent* distribution would
-  cost. The exact-case validation is what bounds the production path's pattern, not the spread.
+- [x] P1c **Re-frame the sensitivity honestly.** DONE 2026-10-08: the four applications stay, now
+  named as **test-local constructions written in `test_blade_rated_twist.py`**, i.e. a sensitivity
+  study of what an *inconsistent* distribution costs. Every live place that read as a property of
+  the load path was re-framed (the module docstring, both four-application test docstrings, the
+  withdrawn-magnitude print label and the `spread_omega > 2.0` comment), each pointing at store
+  group 35 as what bounds the production pattern; the historical note carries a dated re-frame and
+  the closure log the same qualifier. **No assertion, tolerance or numeric value changed** -
+  `ruff` clean, the two affected tests `2 passed`, `regression --group 27 --write` `7 same` with
+  only the call-site lines and the source digest moved, `check` 198 rows / 259 comparisons / 0
+  errors. The stale mesh shear-centre `0.477` paragraph in the same docstring was **left alone**:
+  it is the separately tracked follow-up, not this unit.
 - [ ] P1d Re-check the sign work's claims under the same lens: the cross-path test did use the
   projector (as the arbiter, and the test-local side was the defective one), so those results stand —
   but say so explicitly rather than leaving it implied.
@@ -96,7 +104,12 @@ this question.
   construction written in the test. The pattern test's own docstring stays accurate for itself (it is
   the test-local comparator) and was left untouched; the production companion is the new module and
   group 35.
-- The 6.17x becomes "spread across test-local applications", which is what it is.
+- The 6.17x becomes "spread across test-local applications", which is what it is. **Done
+  2026-10-08**: the live texts say it in
+  `tests/validation/blade/test_blade_rated_twist.py` (module docstring, both four-application test
+  docstrings, the withdrawn-magnitude print and the `spread_omega > 2.0` comment), in
+  `docs/validation_closures.md` and in `odd/tasks/application-exact-case-validation.md`, each
+  pointing at store group 35 as what bounds the production pattern.
 - Comments already posted on #14 that overstated the scope get a correction; the repository's own
   practice in this session has been to correct such statements rather than leave them.
 
