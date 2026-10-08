@@ -271,3 +271,44 @@ Rules that follow, and that the write-up must keep:
 4. **A missing arbiter is stated as missing.** P2b has not run, so no coupled number of *ours* is
    citable; OpenFAST's own coupled solution is a third-party result and stands on its own, but it
    arbitrates our side only once the coupled gates (#19 item 0) clear.
+
+## Found while closing #21 (2026-10-08): `coherence` is destructive
+
+Closing #21 required running the tool's own suite, and
+`tools/tests/test_validation_matrix.py::test_every_group_re_derives_to_the_rows_on_disk` runs
+`coherence` **with write**, by design ("A stale file is refreshed as it is found, so the failure
+leaves the fix in the tree"). That run rewrote four row files:
+
+| file | what the refresh destroyed |
+| --- | --- |
+| `docs/validation/rows/34-blade_s7_torsion.yaml` | the hand-written `validates`, `tolerance.justification` and `notes` of S-7 (replaced by the extractor's placeholders) |
+| `docs/validation/rows/6-tube_torsion.yaml` | the measured blocks (`status: measured`, `run`, `date`, `raw`, `margin_pct`) |
+| `docs/validation/rows/20-blade_anchor_beam.yaml` | the same, plus its call-site lines |
+| `docs/validation/rows/35-tube_projection.yaml` | the hand-written `validates` and `notes` from P1a |
+
+`coherence`'s own docstring says its job is "re-derive every group and report the row files that no
+longer match the code" and the test's guard says "no row file in the store cites a line the code does
+not have" - so a group whose **citations** are correct but whose prose is hand-written is reported
+stale, and the refresh rewrites the whole file instead of the citation fields. `regression --write`
+preserves prose; `coherence` does not.
+
+Consequences, all measured:
+
+1. The guard test is **red at HEAD** (groups `6`, `20`, `34`, `35` stale) and **destructive**: the
+   first run fails *and* wipes curated prose, so a second run passes. It must be deselected
+   (`-m "not slow"`) until this is fixed, which is why the #21 verification used that marker.
+2. Group 34's S-7 prose and group 6's and 20's measurements were restored with `git checkout --`
+   and **nothing was committed** from that run; a diff of what was destroyed is in
+   `$SCRATCH/p1a_diag/tools_after21.log` (the failure output) - the prose itself is recoverable from
+   the reflog and the commits `3fe209e` (group 34) and `b9cb561` (group 6).
+3. This is the same defect class as the one already recorded for `extract --write`
+   (`odd/tasks/application-exact-case-validation.md`: "the extractor writes its own placeholder
+   text"), but for `coherence` it is worse: `extract` is an explicit maintenance command, while
+   `coherence` runs as part of the test suite.
+
+**Suggested fix, not done here:** `coherence` should refresh only the mechanical citation fields
+(`label`, `source`) and preserve `validates`, `tolerance.justification`, `notes` and the `measured`
+blocks, the way `regression --write` preserves prose; "stale" should then mean a citation mismatch,
+not a whole-file mismatch. Until it is fixed, `coherence` and that test are unsafe to run on a store
+with hand-written prose - which is the intended style (`docs/adding-validation-tests.md` steps 6-7:
+"complete the comparisons by hand where the code cannot state them").
