@@ -76,6 +76,40 @@ the defect this project keeps finding. Three outcomes, and all three are results
 3. It does not, and the discrepancy appears only for a thin wall and a single-wall load path ⇒ that
    is the shear-lag/distortion mode the module already documents at 125.7x section shear.
 
+## Verification, and what it narrowed (2026-10-07)
+
+An independent read-only verifier re-checked everything at `7bfe577`: the module's five tests pass,
+the printed table matches every claimed number, and the closed form was **re-derived independently**
+from the module's own constants (`G = 2.1e11 / 2.6 = 8.0769231e10`, `GJ = 0.45 G t`, `theta = e f L^2 /
+(2 GJ)` reproducing `9.904762e-4 / 1.980952e-3` and `1.980952e-2 / 3.961905e-2`), `check` 0 errors,
+`status` 0 undeclared, `ruff` clean, and every number in this note's task section matching live output.
+
+Three things it narrowed, all of which change how the result should be stated:
+
+1. **The test validates the pattern, not the production path.** `_ring_traction` and
+   `_distributed_pattern_load` are constructed *in the test*; the blade's `at_ac` case and the
+   production `ForceProjector` are **not executed here**. Group 31 covers the production *moment*
+   realisation; the production *distributed force* side is not exercised by this test. So "the
+   application is validated" means "this pattern, on a geometry with an exact answer": carrying it to
+   the blade's code path is an inference, and the promotion step (T3) is where the production path
+   would get its own evidence.
+2. **The control's gate is 2%, not round-off.** The *measurement* is round-off (`1.76e-15`,
+   `2.67e-12` rad) but the *assertion* tolerates 2% of the closed form, which for `e = 0.2 m` is a
+   resultant up to ~4 mm off-centre. The static torque ruler (1e-9 of `e f L`) is the sharp part: for a
+   +y-only load it pins the resultant's chordwise position exactly, so the physics claim rests on the
+   ruler rather than on the 2% rotation gate.
+3. **Group 6's rows understate the file in three ways, not one**: the new test is reported unclaimed,
+   `test_wall_traction_excites_a_section_distortion` is *also* unclaimed (pre-existing), and the
+   clamped-root row is unmapped with `measured.status: not_measured`. `regression --group 6` reports
+   `4 same, 2 unclaimed, 1 unmapped; source digest: moved`. The re-extract that would fix it resets the
+   group's eleven hand-written prose fields (the extractor writes its own placeholder text), so it
+   needs a prose-preserving flow or a hand merge; not done blind.
+
+Also confirmed: the linearity check would catch a *fixed* misplacement (ratios `(e + delta) / e` at the
+further offset), while a *proportional* one is caught by the magnitude check — the pair covers both.
+And `theta_fit`'s 2.1% / 12.5% deviation matches the clamped-root table's own `0.9916` / `0.8825`
+pattern, i.e. the documented contamination.
+
 ## Tasks
 
 **T1 and T2 are done, and the answer is that the application is validated.**
@@ -124,7 +158,10 @@ cases distribute the same force differently. The validated case is `at_ac`.
   analytical comparisons need their rows (`extract --group <id> --write`, then
   `regression --group <id> --write` to record the measured values); until that runs, `regression` for
   that group reports the new printed residuals as unmapped, which is why it is listed here rather
-  than left implicit.
+  than left implicit. **Note the verifier's finding**: the group already carries three stalenesses
+  (the new test unclaimed, `test_wall_traction` unclaimed, the clamped-root row unmapped and
+  `not_measured`), and the re-extract resets eleven hand-written prose fields — so this needs a
+  prose-preserving flow or a hand merge, not a blind `--write`.
 - [ ] T4 Independent read-only verification of the tube case and the arithmetic, then comment on #14
   with the outcome.
 
