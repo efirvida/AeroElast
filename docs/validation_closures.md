@@ -5,7 +5,15 @@ Registro de los ítems de validación **cerrados**, con su evidencia y el
 cierre). Este archivo es la fuente para el capítulo de validación del
 artículo y evita re-auditar lo ya cerrado.
 
-Última actualización: 2026-10-07.
+Última actualización: 2026-10-08.
+
+> **El orden de trabajo lo rige el roadmap: issue #18** ("roadmap: what is still unvalidated or
+> unexplained (order of record)"). Es la única fuente del orden. Cada ítem abierto de #18 trae su
+> *Entry* (qué leer primero) y su *closes when*; cada ítem cerrado apunta a su sección de este
+> archivo. Un ítem se ataca **por separado, en una sesión limpia sin contexto**, y la sesión que lo
+> cierra deja en el mismo push: su sección acá, el cambio en el store y el comentario en el issue.
+> Este log es el espejo local de los **cierres**; `docs/validation/gaps.yaml` es el espejo de lo que
+> queda **sin validar** (con `citations_forbidden: true` donde no se puede citar).
 
 > **2026-09-30 — la línea de elementos cambió.** Se integró `origin/main` (el elemento
 > MITC4+/D revisado, el fix de ángulos de ply span-relative, el fix de corte no corregido,
@@ -947,3 +955,35 @@ es en qué frame están dibujadas las dos curvas, no una magnitud física contra
 la curva tabular, el pitch, la fuente de rigidez o la definición torsional. Reabre además la pregunta
 de si `ForceProjector` aplica `Np`/`Tp` en el frame correcto (ver el follow-up anotado en
 `odd/tasks/tangential-load-attribution.md`).
+
+### Cierres de tooling del store (2026-10-08)
+
+No son ítems de validación, pero el roadmap los sigue porque un gate roto o destructivo esconde
+defectos de datos. Se registran acá para que el contrato de cierre valga también para ellos.
+
+**#21 — `regression` no honraba `non_validation_tests` (cerrado 2026-10-08).** El comando armaba su
+lista de sobrantes comparando los nodos colectados contra `store.rows` y **nunca** consultaba las
+declaraciones del grupo (`tools/validation_matrix.py`), así que un grupo con las declaraciones
+correctas se reportaba `unclaimed` — y `unclaimed` está en el set que falla, o sea salía non-zero
+justamente en los grupos que habían declarado bien. Arreglado en `2c309ed`: el split pasa por el
+mismo `classify_unclaimed` que usa `extract` (`validation_matrix.py:2902`), así que los dos comandos
+no pueden discrepar. Verdicts: `declared_non_validation` (se imprime, no falla), `unclaimed` (sigue
+fallando), `stale_declaration` (se muestra); `REGRESSION_FAILING_VERDICTS` hace el contrato
+testeable, y el test unitario se escribió test-first (falló con `AttributeError` antes de existir el
+helper). Aceptación medida sin `--write`: `--group 34` pasa de `1 same, 1 unclaimed` (exit != 0) a
+**exit 0** con `1 declared_non_validation, 1 same`; `--group 30` pasa de `5 same, 29 unclaimed` a
+**exit 0** con `29 declared_non_validation, 5 same`; la suite de tools da `121 passed` con
+`-m "not slow"` y `ruff` limpio.
+
+**El defecto que el arreglo reveló**: `test_compute_performance_coefficients_uses_given_radius`
+(grupo 30) estaba contado entre esos 29 falsos `unclaimed`, así que su falta de declaración era
+invisible. Es una propiedad (desigualdades, sin referencia independiente) ⇒ se declara, no se le da
+fila; ahora está en `docs/validation/groups.yaml`. Un defecto de herramienta puede **enmascarar** un
+defecto de datos, y arreglar la herramienta es lo que lo expone.
+
+**Abierto con registro: #24 — `coherence` es destructivo.** `test_every_group_re_derives_to_the_rows_on_disk`
+corre `coherence` **con write** por diseño y esa corrida reescribe los archivos de fila enteros,
+borrando la prosa escrita a mano y los bloques `measured` (grupos 6, 20, 34 y 35 el 2026-10-08).
+Mientras siga abierto: **correr `tools/tests` con `-m "not slow"` y verificar `git status --short`
+después de cualquier corrida de tools.** El detalle está en
+`odd/tasks/production-path-and-independent-arbiters.md`.
