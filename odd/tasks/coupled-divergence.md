@@ -1,7 +1,8 @@
 # Feature: the coupled rotor path diverges at t ≈ 1.9 s
 
-Status: open
-Owner: this session (2026-10-07)
+Status: projector load-frame fix landed and unit-verified 2026-10-08, but it is
+NOT the #19 cause (refuted by job 11610819); bisect rungs in flight
+Owner: this session (2026-10-07, resumed 2026-10-08)
 Blocks: every roadmap item of issue #18 that needs a production FSI run — the
 campaign relaunch, the #13 production measurement, and the smoke gate recorded in
 `odd/tasks/force-projection-shear-flow.md` ("Campaign re-run — the gates", gate 1).
@@ -173,7 +174,7 @@ settled ones carry the correct nose-down sign.
 
 So: one defect down, one to go, and the second one is a **regression** by construction.
 The campaign that ran 100 s at 100% convergence predates the 2026-10-04 merge and the
-#11 batch, and its own case file differs from the smoke by exactly one line
+`#11` batch, and its own case file differs from the smoke by exactly one line
 (`airfoil_spacing` on the SOLID mesh: `cosine` vs `constant`).
 
 ## Tasks
@@ -208,4 +209,166 @@ The campaign that ran 100 s at 100% convergence predates the 2026-10-04 merge an
 - The `# pyright: ignore` on `meshio.Mesh(...)` in `_write_sections_vtu` sat on the
   closing paren while pyright reports the two argument lines (identical at HEAD, 1055/1056);
   moved onto the reported lines, which clears the file.
+
+---
+
+## The regression is the projector's load frame (2026-10-08)
+
+**The issue's ladder could never have found it.** All three named rungs
+(`f9d4144` 2026-10-04, `5520d77` 2026-10-04, `638965f` 2026-10-05) *postdate* the
+suspect; only rung 1 (`552566d`) brackets it, and by three days.
+
+**The campaign revision is `b5d369e`, not `552566d`.** Job `11604984` (the
+`yaw_batch_corotational` batch that produced
+`$SCRATCH/frontiersin_results_corotational_100s`) started 2026-09-30 23:37.
+The reflog puts HEAD at `b5d369e` (23:16) then: `552566d` is its ancestor two
+commits back, and both intervening commits are campaigns tooling. The 100 s
+campaign therefore ran on `b5d369e`'s Python, and it converged 500/500.
+
+**The two earliest post-campaign commits on the BEM/FSI path are `6064aa8`
+(10-02 09:40, AC datum and moment arm) and `9a3923e` (10-02 15:31).**
+`git log --reverse b5d369e..HEAD -- src/aeroelast/solvers/bem/` lists them
+before every rung the issue names.
+
+### `9a3923e` is the defect, and it is #26
+
+> **Status 2026-10-08, afternoon: partially refuted.** The fix below landed and is
+> unit-verified, and it is the correct physics for #26 - but it does **not**
+> restore the contraction. Job `11610819` (`headfix`, the repo's fixed
+> `ForceProjector` on the campaign's own case at `max-time 5.0`) reads window 1
+> = 15 iterations converged, window 2 onward pinned at the 30-iteration ceiling
+> (43 windows in, all saturated), against HEAD's `34/493` (job `11610151`) and
+> the campaign's `15 11 11 13 13 ...`. So `9a3923e`'s load frame was **not** the
+> coupling regression; the load frame is still wrong (see the measurements
+> below) and is fixed, but #19 has another cause. The rungs that localise it are
+> in flight (see T6).
+>
+> The topology also corrects the framing: `b5d369e` (the campaign) is **not** an
+> ancestor of `ac2e9e8`/`9a3923e`. They are the two sides of the 2026-10-04 merge
+> `26ffe6e` - the campaign is the `integrate/...` side (with
+> `552566d`), the BEM batch is the `origin/main` side (`5f189fa`...). So the
+> regression is *what the merge imported*, exactly as the issue said, and both
+> sides carried their own implementation of the same BEM deformation feedback.
+
+Its own message asserts the premise that #26 later refuted:
+
+> `Np`/`Tp` come from ccblade's `distributedAeroLoads` and are normal/tangential
+> to the section chord at that azimuth (`engine.py:210`)
+
+and on that premise it moved the applied pair from the configured fixed frame
+
+    F_strip = F_n * _normal_dir + F_t * _tangential_dir      # b5d369e
+
+to each strip's own section frame
+
+    F_strip = F_n * _strip_normal_dirs[k] + F_t * _strip_chord_dirs[k]   # 9a3923e
+
+Those two frames differ by the local section twist. The section frame is the
+rotor frame rotated by `theta` about the span, so from `9a3923e` on, every
+applied blade load was **the physical force vector rotated by the local twist**
+- a load direction that tracks the deformation the coupled loop iterates on.
+That is positive feedback in the partitioned fixed point: it changes the
+interface Jacobian the IQN-ILS scheme factorises, which is exactly what a
+contraction regression looks like from the outside, while every static fixture
+(the untwisted tube of group 35, the band-wide frames of group 27) is blind to
+it.
+
+Issue #26 had already settled the reading, from ccblade's source and from our own
+output: `cn = cl*cos(phi) + cd*sin(phi)` with `phi` measured **from the rotor
+plane**, and the identity
+`atan2(Tp, Np) + atan2(cd, cl) - twist = alpha` holds to `max |residual| =
+1.4e-14 deg` over the 50 stations (`tools/diagnose_zhou_tp_frame.py`). The
+section reading is off by up to `15.6 deg` - the root twist.
+
+### The fix
+
+`ForceProjector` builds the rotor-plane frame once from the configured pair and
+applies the BEM pair on it:
+
+    self._rotor_tangential_dir, self._rotor_normal_dir = self._load_frame(self._tangential_dir)
+    F_strip = F_n * self._rotor_normal_dir + F_t * self._rotor_tangential_dir
+
+and `verify()` recomputes with the same frame. The per-strip section frame stays
+what it always was physically: the datum for the aerodynamic centre and the
+pitching-moment axis. `_load_frame` already orthonormalised the configured pair
+against the span and kept the blade-wide sense, so no new geometry rule was
+invented.
+
+### RED, measured on the real mesh (element_size 1.0, rated point)
+
+`tests/validation/bem/test_force_projection_load_frame.py` rewritten to the
+rotor-plane reading (it used to assert the section one). With the fix reverted
+the new guards fail; the printed witness is the section normal against the rotor
+normal, per station:
+
+| frac | angle(f_hat, z_rotor) | pre-fix `|F.t_rotor|/|F|`, `Np` only | post-fix |
+| ---: | ---: | ---: | ---: |
+| 0.03 | 22.245 deg | 0.3918 | 0.0000 |
+| 0.15 | 11.647 deg | 0.2096 | 0.0000 |
+| 0.25 | 7.954 deg | 0.1425 | 0.0000 |
+| 0.50 | 2.257 deg | 0.0367 | 0.0000 |
+| 0.75 | 1.256 deg | 0.0234 | 0.0000 |
+| 0.90 | 2.166 deg | 0.0378 | 0.0000 |
+| 1.00 | 1.176 deg | 0.0205 | 0.0000 |
+
+Inter-station section-normal spread `24.410 deg` (frac 0.03 vs 0.90): the mesh
+discriminates the two readings. Uniform `Np` conservation: `0.7547%` pre-fix
+(the section normals fan out), `0.0000%` post-fix. `Tp` mirrors it exactly.
+
+### The consequence at rated (same mesh and deck, issue #26 step 3)
+
+| application | rotor-axis force | in-plane force | edgewise root moment |
+| --- | ---: | ---: | ---: |
+| rotor plane (HEAD + fix) | 851 437.8 N | 103 983.5 N | 6.9503 MN.m |
+| section frame (pre-fix) | 844 453.9 N | 117 306.3 N | 6.6847 MN.m |
+| delta | **+0.83%** | **-11.36%** | **+3.97%** |
+
+Measured with both applications decomposed on the *same* rotor frame and the
+`blade_aero.r` lever arm, so the comparison is physical. The signs of the
+deltas disagree with #26's estimate (which set the sign convention aside); the
+magnitudes agree, and this is the measured pair.
+
+### Tasks
+
+- [ ] T5 Establish the instrument: worktrees at `ac2e9e8` (`9a3923e^`) and
+      `9a3923e`, plus `shadow-headfix`; all three on the venv `_aeroelast` build
+      so the Rust side is constant across rungs (the window's only Rust changes
+      are MITC3-only - `crates/aeroelast-core/src/elements/mitc3.rs` and
+      `smoothing.rs`, and the blade is MITC4).
+- [ ] T6 A/B on the campaign's own case at `max-time 5.0`. All rungs run the
+      consensus case `tests/smoke_fix/frame_ab/` (the campaign's own yaml with
+      the 4 rotor keys whose values equal HEAD's defaults removed, so every
+      revision in the window parses it; `config_file` and the mesh paths are the
+      case's own). Rungs: `campaign` = `b5d369e` (job `11610862`, the anchor),
+      `pre4fee` = `e9a0938` (`11610863`), `fee690` = `4fee690` (`11610864`),
+      `ac2e9e8` (`11610844`), `9a3923e` (`11610845`), `headfix` (`11610819`,
+      ran the unmodified HEAD yaml - semantically identical, those 4 keys hold
+      their defaults). Shadow dirs carry only an `aeroelast` symlink, so
+      `_aeroelast` is the venv build in every rung (constant Rust).
+- [ ] T6b Read the rungs together: the campaign's own feedback implementation
+      (a LE->TE chord-vector twist and a hub-offset radius) versus the
+      `origin/main` one the merge kept (per-section-ring twist with the
+      `_twist_mesh_to_bem` factor, `_mesh_datum_offset` radii). `4fee690` is the
+      strongest other candidate: it is the commit that measured P6 (the deformed
+      radii were a rigid `-4.2 m` off the datum, ccblade clamped at r ~ 1e-6) and
+      P7 (the twist under-read up to 5x and sign-flipped outboard) on this path.
+      `tests/exp_feedback_off/{radius_off,twist_off,both_off}/` are the ready
+      instrument for the follow-up if the rungs are inconclusive.
+- [ ] T7 Re-run the 30 s gate (`tests/run_step1b_smoke.srm`) and re-anchor the
+      campaign baseline once T6 is clean.
+- [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
+      `force_projection_sense_p5`), the group 27/35 rows and
+      `docs/validation_closures.md`; the consequence numbers above are the
+      record.
+- [ ] T9 Comment and close #19, and fold #26's remaining closure criteria into
+      it.
+
+### Corrections to the issue's own text
+
+- The window is not "the 2026-10-04 merge plus the #11 batch": `9a3923e` is
+  2026-10-02, before the merge. The merge merely carries it forward.
+- "Rung 1 is `552566d` (the last pre-merge state)" understates it: the campaign
+  ran at `b5d369e`, two tooling commits later.
+- "The campaign, pre-merge" is true of the 2026-10-04 merge, not of `552566d`.
+
 

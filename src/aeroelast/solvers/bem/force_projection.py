@@ -4,7 +4,21 @@ Maps per-span-station aerodynamic loads (Np, Tp) from a BEM computation
 onto the finite-element mesh nodes, preserving the total integrated force
 and moment on each chordwise strip.
 
-The section frame and the aerodynamic-centre datum are taken from each strip's
+Load frame and section datum
+----------------------------
+``Np``/``Tp`` come from ``ccblade.rotor.distributedAeroLoads``, which
+resolves the section force **in the rotor plane**: ``cn = cl*cos(phi) +
+cd*sin(phi)`` and ``ct = cl*sin(phi) - cd*cos(phi)`` with ``phi`` the inflow
+angle measured from that plane.  ``Np`` therefore rides the rotor-axis normal
+and ``Tp`` the in-plane tangential, one frame for the whole blade.  Measured on
+this tree's own ``BEMSolver`` output the identity ``atan2(Tp, Np) +
+atan2(cd, cl) - twist = alpha`` holds to ``max |residual| = 1.4e-14 deg`` over
+the 50 stations, while the section reading is off by the local twist - up to
+``15.6 deg`` at the root (``tools/diagnose_zhou_tp_frame.py``).  The load is
+applied on ``_rotor_normal_dir``/``_rotor_tangential_dir``, built once from the
+configured pair.
+
+The **section** frame and the aerodynamic-centre datum are taken from each strip's
 **station ring** - the physical-ring group nearest ``strip.r_center`` - not from
 the whole BEM band.  A band is ~2.4 m wide on the IEA-15MW blade and holds three
 physical rings of a tapered, twisted, prebent blade, so a band-wide chord is not
@@ -224,6 +238,17 @@ class ForceProjector:
             dtype=float,
         )
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)
+
+        # The frame ccblade's ``Np``/``Tp`` are *defined* in: the rotor plane.
+        # ``distributedAeroLoads`` decomposes the section force as
+        # ``cn = cl*cos(phi) + cd*sin(phi)`` with ``phi`` measured **from the rotor
+        # plane**, so ``Np`` rides the rotor-axis normal and ``Tp`` the in-plane
+        # tangential - one frame for the whole blade, not the twisting section's.
+        # ``_load_frame`` orthonormalises the configured pair against the span and
+        # keeps the blade-wide sense.  The per-strip section frames built below stay
+        # the datum for the aerodynamic centre and the pitching-moment axis, which
+        # are genuine section quantities (issue #26).
+        self._rotor_tangential_dir, self._rotor_normal_dir = self._load_frame(self._tangential_dir)
 
         coords = mesh.coords_array  # (N, 3)
         n_nodes = coords.shape[0]
@@ -642,11 +667,11 @@ class ForceProjector:
     def project(self, bem_result: BEMResult) -> np.ndarray:
         """Map BEM loads onto mesh nodes.
 
-        Each strip's load frame is derived from its own station ring
-        (:meth:`_station_ring_points` and the section axes built on it); the
-        configured *normal_direction* and *tangential_direction* only select
-        the sense of the two axes, they are no longer a fixed global
-        direction.
+        ``Np``/``Tp`` are applied on the **rotor-plane** frame
+        (``_rotor_normal_dir``/``_rotor_tangential_dir``), the frame ccblade
+        defines them in; the per-strip section frames are used for the
+        aerodynamic-centre arm and the pitching-moment axis, never as the load
+        axis (issue #26).
 
         Parameters
         ----------
@@ -669,9 +694,12 @@ class ForceProjector:
             F_n = float(bem_result.Np[k]) * strip.dr  # normal (N)
             F_t = float(bem_result.Tp[k]) * strip.dr  # tangential (N)
 
-            # Strip force on its own section axes (axis from geometry, sense
-            # from the configured normal/tangential directions).
-            F_strip = F_n * self._strip_normal_dirs[k] + F_t * self._strip_chord_dirs[k]
+            # Strip force on the rotor-plane frame the BEM pair is defined in:
+            # ``Np`` along the rotor-axis normal, ``Tp`` along the in-plane
+            # tangential.  Mounting the pair on the section's own axes - which are
+            # this frame rotated by the local twist - would apply the physical
+            # vector rotated by that twist (issue #26).
+            F_strip = F_n * self._rotor_normal_dir + F_t * self._rotor_tangential_dir
 
             # Moment about strip centroid:
             #   M_centroid = M_AC + (r_AC - r_centroid) x F_strip
@@ -718,15 +746,14 @@ class ForceProjector:
         """Check global force conservation across the discretised strips.
 
         The expected force is recomputed from the BEM loads and the *same*
-        per-strip section frames :meth:`project` uses,
-        ``sum_k (Np_k * normal_hat_k + Tp_k * chord_hat_k) * dr_k``.  The
-        vector sum is therefore no longer parallel to any single configured
-        axis: the direction is per strip.  Because the frame is shared with
-        :meth:`project`, ``force_error`` measures only the fidelity of the
-        per-strip nodal distribution (for example a dropped or clamped
-        strip); it does **not** independently validate the section frame or
-        the load sense - that is what
-        ``tests/test_force_projection_load_frame.py`` does.
+        rotor-plane frame :meth:`project` uses,
+        ``sum_k (Np_k * rotor_normal + Tp_k * rotor_tangential) * dr_k``.  The
+        vector sum is therefore parallel to one frame for the whole blade.
+        Because the frame is shared with :meth:`project`, ``force_error``
+        measures only the fidelity of the per-strip nodal distribution (for
+        example a dropped or clamped strip); it does **not** independently
+        validate the load frame or the load sense - that is what
+        ``tests/validation/bem/test_force_projection_load_frame.py`` does.
 
         Returns
         -------
@@ -741,8 +768,8 @@ class ForceProjector:
             if len(strip.node_indices) == 0:
                 continue
             F_bem += (
-                float(bem_result.Np[k]) * strip.dr * self._strip_normal_dirs[k]
-                + float(bem_result.Tp[k]) * strip.dr * self._strip_chord_dirs[k]
+                float(bem_result.Np[k]) * strip.dr * self._rotor_normal_dir
+                + float(bem_result.Tp[k]) * strip.dr * self._rotor_tangential_dir
             )
 
         F_mesh = forces.sum(axis=0)

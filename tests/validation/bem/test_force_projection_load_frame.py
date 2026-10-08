@@ -1,42 +1,50 @@
-"""Guard: the BEM loads must ride the section, not a fixed global axis (issue #9).
+"""Guard: the BEM loads must ride the **rotor plane**, not the section (issue #26).
 
-``ForceProjector`` used to apply the BEM section loads on fixed global
-directions::
+``Np``/``Tp`` come from ``ccblade.rotor.distributedAeroLoads``, which decomposes
+the section force in the rotor plane::
 
-    F_strip = F_n * normal_dir + F_t * tangential_dir
+    cn = cl * cos(phi) + cd * sin(phi)
+    ct = cl * sin(phi) - cd * cos(phi)
 
-with ``normal_dir = [1, 0, 0]`` and ``tangential_dir = [0, 1, 0]`` by default.
-But ``Np``/``Tp`` from ``ccblade.rotor.distributedAeroLoads`` are normal and
-tangential **to the section chord** (``BEMResult.Np`` is documented as
-"Normal force per unit length"), and the section chord twists along this
-repo's own IEA-15MW mesh.  On that mesh the ring's chord runs along ``x``
-(the tip ring's x extent is 0.500 m = the tip chord, its y extent 0.080 m =
-the airfoil thickness) and ``y`` is the out-of-plane/flapwise axis (the tip
-ring's mean ``y`` ~ -4 m is the documented prebend ``BlCrvAC``).
+with ``phi`` the inflow angle measured **from the rotor plane**.  So ``Np`` rides
+the rotor-axis normal and ``Tp`` the in-plane tangential, one frame for the whole
+blade - *not* the local section's axes.  Measured on this tree's own
+``BEMSolver`` output the rotor-plane identity holds to ``max |residual| =
+1.4e-14 deg`` over the 50 stations, while the section reading is off by the local
+twist, up to ``15.6 deg`` at the root
+(``tools/diagnose_zhou_tp_frame.py``).
 
-The fix builds each strip's load frame from that strip's own outline (the
-principal in-plane axis of the strip nodes) and uses the configured
-``normal_dir``/``tangential_dir`` only to fix the **global sense** of the whole
-blade, so the projected force at a station is carried by that station's **own**
-section axes, never by a single global vector.  The section frame is re-derived
-here from the ring outline only (principal in-plane axes of the merged ring,
-oriented leading-to-trailing with the blunt-end rule) and never from the
-projector's ``normal_dir``/``tangential_dir``, so the check cannot agree with
-the defect by construction.
+Before the fix ``ForceProjector`` mounted the pair on each strip's **own**
+section axes (``_strip_normal_dirs``/``_strip_chord_dirs``, the principal
+in-plane axis of the station ring, made continuous spanwise).  That is the rotor
+frame **rotated by the local twist**, so every applied blade load was the
+physical vector rotated by ``theta`` - the defect this module pins.  On this
+mesh the ring's chord runs along ``x`` (the tip ring's x extent is 0.500 m =
+the tip chord, its y extent 0.080 m = the airfoil thickness) and ``y`` is the
+out-of-plane/flapwise axis (the tip ring's mean ``y`` ~ -4 m is the documented
+prebend ``BlCrvAC``); the rotor normal is ``+y``.
+
+The section frame is still re-derived here from the ring outline only
+(principal in-plane axes of the merged ring, oriented leading-to-trailing with
+the blunt-end rule) and never from the projector's ``normal_dir`` /
+``tangential_dir``, but now it is used the other way around: it is the witness
+that the **applied** direction does *not* follow it.  The projector's own
+section frames remain the datum for the aerodynamic centre and the
+pitching-moment axis, which are genuine section quantities.
 
 The absolute *end* identity (which chordwise end is the leading edge, and
 therefore which way around ``c_hat``/``f_hat`` point) is deliberately **not**
-asserted by the three axis invariants: no source in this tree (papers,
-``docs/``, the deck headers) fixes it, so they use ``|dot|`` and only test the
-axis.  The blade-wide *load* sense - which of the two opposite section-normal /
-chord directions ``Np`` / ``Tp`` push along - is a separate question and **is**
-pinned, on the same real mesh and AeroDyn ``BladeAero``, by
+asserted by the axis invariants: no source in this tree (papers, ``docs/``, the
+deck headers) fixes it, so they use ``|dot|`` and only test the axis.  The
+blade-wide *load* sense - which of the two opposite rotor-plane directions
+``Np`` / ``Tp`` push along - is a separate question and **is** pinned, on the
+same real mesh and AeroDyn ``BladeAero``, by
 ``test_load_sense_is_downwind_and_driving``: with the production defaults the
 summed rated load must point downwind (``F.y > 0``), match the per-blade BEM
 thrust, and deliver positive mechanical power for the declared rotation sense
 ``Omega = +omega * y``.
 
-The 5 % axis bound, the 10 deg outline-angle bound and the 5 % chord-extent
+The 1 % rotor-axis bound, the 10 deg outline-angle bound and the 5 % chord-extent
 bound are the task's bounds; they are not fitted to the measurement.
 """
 
@@ -57,10 +65,9 @@ from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
 
 from tests.support.paths import DATA_DIR  # noqa: E402
+
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
-AD_PRIMARY = (
-    DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
-)
+AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: Production defaults of the standalone / FSI projectors, after the P5
 #: sense fix.  They are *sense references* for the per-strip axes, not the
@@ -87,6 +94,17 @@ END_SLAB = 0.25  # outer quarter of the chord, per end
 THICKNESS_TIE_REL = 0.10  # <=10 % thickness difference is a tie
 Np_TEST = 1000.0  # N/m, uniform per-station magnitude
 Tp_TEST = 1000.0  # N/m
+
+#: The rotor-plane frame the BEM pair is defined in, taken from the configured
+#: pair (the projector builds it with ``_load_frame``): ``Np`` rides ``+y`` and
+#: ``Tp`` ``+x`` on this deck.
+ROTOR_NORMAL = NORMAL_DIR
+ROTOR_TANGENTIAL = TANGENTIAL_DIR
+
+#: Applied direction must ride the rotor frame: after the fix the share on the
+#: rotor axes is exact, so 1 % is loose and still catches the section frame
+#: (whose transverse share is ``sin(twist)``, ~26 % at the root).
+ROTOR_AXIS_TOL = 0.01
 
 #: Rated operating point (matches the P5 measurement and the campaign runs).
 RATED_V = 10.59  # m/s
@@ -281,8 +299,9 @@ def blade_case():
         ring = np.where(np.abs(coords[:, 2] - z) < Z_MERGE_TOL)[0]
         # The strip that owns most of this ring's nodes: that is the strip a
         # single-station load reaches.
-        overlap = [int(len(np.intersect1d(ring, strip.node_indices)))
-                   for strip in projector._strips]
+        overlap = [
+            int(len(np.intersect1d(ring, strip.node_indices))) for strip in projector._strips
+        ]
         k = int(np.argmax(overlap))
         frame = _section_frame(coords[ring], z, blade_aero, s_span)
         frame.update(
@@ -322,102 +341,129 @@ def _print_frame(frame):
     )
 
 
-def test_normal_load_is_perpendicular_to_the_chord(blade_case):
-    """``Np`` must be carried by the section's out-of-chord axis ``f_hat``.
+def test_normal_load_rides_the_rotor_plane_normal(blade_case):
+    """``Np`` must be carried by the rotor-plane normal, not the section normal.
 
-    ``Np`` is normal **to the section chord**; on a fixed-global-axis
-    implementation it rides ``x``, which on this mesh *is* the chord.
+    ``ccblade`` resolves ``Np`` against the rotor plane, so the applied
+    direction is ``z_rotor`` for every station regardless of its twist.  A
+    section-frame implementation mounts it on ``f_hat``, which is ``z_rotor``
+    rotated by the local twist - ``sin(15.6 deg) = 26 %`` of ``|F|`` onto the
+    tangential at the root.  The station twist is printed as the witness that
+    this mesh can discriminate the two readings.
     """
     _, _, aero, projector, rows = blade_case
-    print("\n[norma load: |F.c_hat|/|F| must be <= 5 %, |F.f_hat|/|F| >= 95 %]")
-    worst_along, worst_across = -1.0, 2.0
+    print("\n[normal load: |F.z_rotor|/|F| >= 99 %, |F.t_rotor|/|F| <= 1 %]")
+    worst_along, worst_across, worst_twist = 2.0, -1.0, -1.0
     for frame in rows:
         _assert_chord_runs_along_major_axis(frame)
         _print_frame(frame)
-        _, along, across = _frame_and_projection(aero, projector, frame, Np=Np_TEST)
-        worst_along = max(worst_along, along)
-        worst_across = min(worst_across, across)
-        print(f"    Np={Np_TEST:.0f}: |F.c_hat|/|F|={along:.4f}  |F.f_hat|/|F|={across:.4f}")
-    assert worst_along <= AXIS_TOL, (
-        f"the normal load rides the chord: worst |F.c_hat|/|F| = {worst_along:.4f} "
-        f"(bound {AXIS_TOL})"
+        F, _, _ = _frame_and_projection(aero, projector, frame, Np=Np_TEST)
+        norm = float(np.linalg.norm(F))
+        along = abs(float(F @ ROTOR_NORMAL)) / norm
+        across = abs(float(F @ ROTOR_TANGENTIAL)) / norm
+        twist = _angle_deg(frame["f_hat"], ROTOR_NORMAL)
+        worst_along = min(worst_along, along)
+        worst_across = max(worst_across, across)
+        worst_twist = max(worst_twist, twist)
+        print(
+            f"    Np={Np_TEST:.0f}: |F.z_rotor|/|F|={along:.4f}  "
+            f"|F.t_rotor|/|F|={across:.4f}  angle(f_hat, z_rotor)={twist:6.3f} deg"
+        )
+    assert worst_twist >= MIN_TWIST_DEG, (
+        f"no station twists enough to discriminate the two readings: worst "
+        f"angle(f_hat, z_rotor) = {worst_twist:.3f} deg (need >= {MIN_TWIST_DEG})"
     )
-    assert worst_across >= 1.0 - AXIS_TOL, (
-        f"the normal load is not carried by the flapwise axis: worst |F.f_hat|/|F| = "
-        f"{worst_across:.4f} (bound {1.0 - AXIS_TOL})"
+    assert worst_across <= ROTOR_AXIS_TOL, (
+        f"the normal load does not ride the rotor plane: worst |F.t_rotor|/|F| = "
+        f"{worst_across:.4f} (bound {ROTOR_AXIS_TOL}); a section-frame mount puts "
+        f"sin(twist) here"
+    )
+    assert worst_along >= 1.0 - ROTOR_AXIS_TOL, (
+        f"the normal load is not carried by the rotor normal: worst "
+        f"|F.z_rotor|/|F| = {worst_along:.4f} (bound {1.0 - ROTOR_AXIS_TOL})"
     )
 
 
-def test_tangential_load_is_along_the_chord(blade_case):
-    """``Tp`` must be carried by the section's chord axis ``c_hat``.
+def test_tangential_load_rides_the_rotor_plane_tangential(blade_case):
+    """``Tp`` must be carried by the rotor-plane tangential, not the chord.
 
-    ``Tp`` is tangential **to the section chord**; on a fixed-global-axis
-    implementation it rides ``y``, the flapwise/thickness axis.
+    Symmetric to the normal case: the section-frame mount puts ``sin(twist)``
+    onto the rotor normal, which at the root is ~26 % of ``|F|``.
     """
     _, _, aero, projector, rows = blade_case
-    print("\n[tangential load: |F.c_hat|/|F| must be >= 95 %, |F.f_hat|/|F| <= 5 %]")
+    print("\n[tangential load: |F.t_rotor|/|F| >= 99 %, |F.z_rotor|/|F| <= 1 %]")
     worst_along, worst_across = 2.0, -1.0
     for frame in rows:
         _assert_chord_runs_along_major_axis(frame)
         _print_frame(frame)
-        _, along, across = _frame_and_projection(aero, projector, frame, Tp=Tp_TEST)
+        F, _, _ = _frame_and_projection(aero, projector, frame, Tp=Tp_TEST)
+        norm = float(np.linalg.norm(F))
+        along = abs(float(F @ ROTOR_TANGENTIAL)) / norm
+        across = abs(float(F @ ROTOR_NORMAL)) / norm
         worst_along = min(worst_along, along)
         worst_across = max(worst_across, across)
-        print(f"    Tp={Tp_TEST:.0f}: |F.c_hat|/|F|={along:.4f}  |F.f_hat|/|F|={across:.4f}")
-    assert worst_along >= 1.0 - AXIS_TOL, (
-        f"the tangential load is not along the chord: worst |F.c_hat|/|F| = "
-        f"{worst_along:.4f} (bound {1.0 - AXIS_TOL})"
+        print(f"    Tp={Tp_TEST:.0f}: |F.t_rotor|/|F|={along:.4f}  |F.z_rotor|/|F|={across:.4f}")
+    assert worst_across <= ROTOR_AXIS_TOL, (
+        f"the tangential load does not ride the rotor plane: worst "
+        f"|F.z_rotor|/|F| = {worst_across:.4f} (bound {ROTOR_AXIS_TOL}); a "
+        f"section-frame mount puts sin(twist) here"
     )
-    assert worst_across <= AXIS_TOL, (
-        f"the tangential load rides the flapwise axis: worst |F.f_hat|/|F| = "
-        f"{worst_across:.4f} (bound {AXIS_TOL})"
+    assert worst_along >= 1.0 - ROTOR_AXIS_TOL, (
+        f"the tangential load is not carried by the rotor tangential: worst "
+        f"|F.t_rotor|/|F| = {worst_along:.4f} (bound {1.0 - ROTOR_AXIS_TOL})"
     )
 
 
-def test_load_direction_follows_the_section_not_a_global_axis(blade_case):
-    """A single-station load must follow *that* station's own section axes.
+def test_load_direction_does_not_follow_the_section_twist(blade_case):
+    """The applied direction must be one frame, not the stations' own sections.
 
-    The stations are chosen so their chord directions differ by more than
-    2 x 10 deg; no single global axis can then be within 10 deg of every
-    station's ``f_hat``, whatever its sign.
+    The stations are chosen so their section frames differ by more than
+    ``MIN_TWIST_DEG``, so a load that follows the section cannot also be a
+    single frame.  Both readings are measured: the applied direction must be
+    within ``TWIST_ANGLE_TOL`` of the rotor normal at **every** station, and
+    the section-frame spread really has to be large enough that no single frame
+    can pass.  The pre-fix code fails the first assertion by the local twist.
     """
     _, _, aero, projector, rows = blade_case
-    print("\n[per-section load: angle(F, that station's f_hat) must be <= 10 deg]")
+    print("\n[applied direction: one rotor frame at every station]")
     worst = -1.0
     worst_frac = None
     for frame in rows:
         _assert_chord_runs_along_major_axis(frame)
         _print_frame(frame)
         F, _, _ = _frame_and_projection(aero, projector, frame, Np=Np_TEST)
-        angle = _angle_deg(F, frame["f_hat"])
+        angle = _angle_deg(F, ROTOR_NORMAL)
         if angle > worst:
             worst, worst_frac = angle, frame["frac"]
         print(
             f"    Np={Np_TEST:.0f}: F={np.array2string(F, precision=4, suppress_small=True)} "
-            f"angle(F, f_hat)={angle:6.3f} deg"
+            f"angle(F, z_rotor)={angle:6.3f} deg, "
+            f"angle(F, f_hat)={_angle_deg(F, frame['f_hat']):6.3f} deg"
         )
 
-    # (0.0, 0.0) is a sentinel: it is only reported if no pair was ever better than
-    # zero angle, and in that case the assertion below fails with the measured angle.
+    # The section-frame spread between the chosen stations: the discrimination
+    # witness.  (0.0, 0.0) is a sentinel - the assertion below fails with the
+    # measured angle if no pair ever separated.
     best_angle, best_pair = 0.0, (0.0, 0.0)
     for i in range(len(rows)):
         for j in range(i + 1, len(rows)):
-            angle = _angle_deg(rows[i]["c_hat"], rows[j]["c_hat"])
+            angle = _angle_deg(rows[i]["f_hat"], rows[j]["f_hat"])
             if angle > best_angle:
                 best_angle = angle
                 best_pair = (float(rows[i]["frac"]), float(rows[j]["frac"]))
     print(
-        f"\n    inter-station chord angle: {best_angle:.3f} deg "
-        f"between frac {best_pair[0]:.2f} and frac {best_pair[1]:.2f} "
-        f"(need > {2 * TWIST_ANGLE_TOL:.0f} deg to rule out any single global axis)"
+        f"\n    inter-station section-normal angle: {best_angle:.3f} deg "
+        f"between frac {best_pair[0]:.2f} and {best_pair[1]:.2f} "
+        f"(need >= {MIN_TWIST_DEG} deg to discriminate)"
     )
     assert best_angle >= MIN_TWIST_DEG, (
-        f"the chosen stations' chords differ by only {best_angle:.3f} deg; "
+        f"the chosen stations' sections differ by only {best_angle:.3f} deg; "
         f"pick more separated stations (need >= {MIN_TWIST_DEG})"
     )
     assert worst <= TWIST_ANGLE_TOL, (
-        f"the projected force does not follow the section: worst angle(F, f_hat) = "
-        f"{worst:.3f} deg at frac {worst_frac:.2f} (bound {TWIST_ANGLE_TOL})"
+        f"the projected force follows the section instead of the rotor frame: worst "
+        f"angle(F, z_rotor) = {worst:.3f} deg at frac {worst_frac:.2f} "
+        f"(bound {TWIST_ANGLE_TOL})"
     )
 
 
@@ -427,9 +473,10 @@ def test_uniform_normal_load_recovers_the_integrated_magnitude(blade_case):
     The expectation is independent of the projector's frame: each strip
     carries ``F_k = Np_k * dr_k * normal_hat_k`` with ``normal_hat_k`` a unit
     vector, so ``|F| = |sum_k Np_k dr_k normal_hat_k| <= sum_k Np_k dr_k``
-    (triangle inequality).  The blade twists by ~24 deg, so the shortfall is a
-    few percent; 5 % accommodates the twist while still catching a frame that
-    is not unit-norm, a dropped strip, or a duplicated one.
+    (triangle inequality).  Riding the rotor plane makes every ``normal_hat_k``
+    the *same* unit vector, so the equality is now exact and the 5 % bound only
+    absorbs float noise and the strip-discretisation; it still catches a frame
+    that is not unit-norm, a dropped strip, or a duplicated one.
     """
     _, _, aero, projector, _ = blade_case
     n = len(aero.stations)
@@ -476,9 +523,7 @@ def rated_bem(blade_case):
     measurement and the one-way / FSI campaign runs use.
     """
     _, _, blade_aero, _, _ = blade_case
-    solver = BEMSolver(
-        blade_aero, rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.0
-    )
+    solver = BEMSolver(blade_aero, rho=1.225, mu=1.81206e-5, hub_height=150.0, shear_exp=0.0)
     return solver.compute(RATED_V, RATED_OMEGA_RPM, 0.0)
 
 
@@ -535,16 +580,13 @@ def test_load_sense_is_downwind_and_driving(blade_case, rated_bem):
         f"   F.x/|F| = {F[0] / n_f:+.4f}  F.y/|F| = {F[1] / n_f:+.4f}  "
         f"F.z/|F| = {F[2] / n_f:+.2e}]"
     )
-    assert F[1] > 0.0, (
-        f"the thrust is upwind: F.y = {F[1]:.4e} N <= 0 (fluid travels +Y)"
-    )
+    assert F[1] > 0.0, f"the thrust is upwind: F.y = {F[1]:.4e} N <= 0 (fluid travels +Y)"
     assert abs(F[0]) <= SENSE_CHORD_SHARE_MAX * n_f, (
         f"the chordwise share |F.x|/|F| = {abs(F[0]) / n_f:.4f} exceeds "
         f"{SENSE_CHORD_SHARE_MAX} (dominance guard)"
     )
     assert abs(F[2]) <= SENSE_SPAN_SHARE_MAX * n_f, (
-        f"the spanwise share |F.z|/|F| = {abs(F[2]) / n_f:.2e} exceeds "
-        f"{SENSE_SPAN_SHARE_MAX}"
+        f"the spanwise share |F.z|/|F| = {abs(F[2]) / n_f:.2e} exceeds {SENSE_SPAN_SHARE_MAX}"
     )
     assert thrust_rel < SENSE_THRUST_TOL, (
         f"|F| = {n_f:.4f} N is {thrust_rel:.4%} off the per-blade BEM thrust "
@@ -570,32 +612,24 @@ def test_load_sense_is_downwind_and_driving(blade_case, rated_bem):
         f"({power_root / power_per_blade - 1.0:+.2%})"
     )
     assert power > 0.0, (
-        f"the projected loads brake the rotor: P = {power:.4e} W <= 0 for "
-        f"Omega = +{omega:.4f} * y"
+        f"the projected loads brake the rotor: P = {power:.4e} W <= 0 for Omega = +{omega:.4f} * y"
     )
 
-    # Ill-conditioning guard: each configured reference must be (nearly)
-    # parallel to the axis whose sense it decides.  An orthogonal reference
-    # makes the sign a round-off decision - the defect just fixed.
-    weight = np.array([strip.dr for strip in projector._strips])
-    chord_sum = sum(
-        weight[k] * projector._strip_chord_dirs[k] for k in range(len(weight))
-    )
-    normal_sum = sum(
-        weight[k] * projector._strip_normal_dirs[k] for k in range(len(weight))
-    )
-    dot_t = abs(float(TANGENTIAL_DIR @ (chord_sum / np.linalg.norm(chord_sum))))
-    dot_n = abs(float(NORMAL_DIR @ (normal_sum / np.linalg.norm(normal_sum))))
+    # The applied frame is the rotor-plane frame built from the configured
+    # pair, and the section axes no longer carry the load (issue #26).  An
+    # implementation that mounts the pair on the station ring would move the
+    # applied direction with the twist, so this is the load-frame guard, not a
+    # round-off guard on the sense.
+    angle_t = _angle_deg(projector._rotor_tangential_dir, TANGENTIAL_DIR)
+    angle_n = _angle_deg(projector._rotor_normal_dir, NORMAL_DIR)
     print(
-        f"   |dot(tangential_direction, chord_axis)| = {dot_t:.6f}\n"
-        f"   |dot(normal_direction, section_normal)| = {dot_n:.6f} "
-        f"(both must exceed {SENSE_DOT_MIN})"
+        f"   angle(rotor_tangential, tangential_direction) = {angle_t:.6f} deg\n"
+        f"   angle(rotor_normal, normal_direction)         = {angle_n:.6f} deg "
+        f"(both must stay under {SENSE_DOT_MIN * 0 + 10.0:.0f} deg)"
     )
-    assert dot_t > SENSE_DOT_MIN, (
-        f"tangential_direction is not parallel to the chord axis: |dot| = "
-        f"{dot_t:.6f} <= {SENSE_DOT_MIN}; the chord sense would be round-off"
+    assert angle_t <= 10.0, (
+        f"the applied tangential is not the configured rotor-plane one: angle = {angle_t:.6f} deg"
     )
-    assert dot_n > SENSE_DOT_MIN, (
-        f"normal_direction is not parallel to the section normal: |dot| = "
-        f"{dot_n:.6f} <= {SENSE_DOT_MIN}; the normal sense would be round-off"
+    assert angle_n <= 10.0, (
+        f"the applied normal is not the configured rotor-axis one: angle = {angle_n:.6f} deg"
     )

@@ -342,26 +342,23 @@ def test_aerodynamic_centre_datum(blade_case, station_rings):
 def test_moment_conservation(blade_case, rated_bem, station_rings):
     """The projected forces must reproduce the geometry-derived applied moment.
 
-    ``ForceProjector.verify`` balances total force only, so a wrong section
-    frame, a wrong AC or a wrong AC->centroid arm is invisible to it.  Here
-    the applied moment ``sum_j r_j x f_j`` of the returned nodal forces is
-    compared with
+    ``ForceProjector.verify`` balances total force only, so a wrong load frame,
+    a wrong AC or a wrong AC->centroid arm is invisible to it.  Here the applied
+    moment ``sum_j r_j x f_j`` of the returned nodal forces is compared with
 
         sum_k [ r_ac_k x F_k + Mp_k dr_k span_dir ],
-        F_k = Np_k dr_k n_hat_k + Tp_k dr_k c_hat_k,
+        F_k = Np_k dr_k z_rotor + Tp_k dr_k t_rotor,
 
-    where **every frame** ``(c_hat_k, n_hat_k)``, the AC point ``r_ac_k`` and
-    the strip ends are derived here from the **station-ring** outlines - the
+    ``z_rotor``/``t_rotor`` are the rotor-plane frame the BEM pair is defined
+    in, built here from the configured reference pair (issue #26); the force is
+    *not* carried by the station's own section pair.  The AC point ``r_ac_k``
+    and the strip ends are derived here from the **station-ring** outlines - the
     principal in-plane axis of each strip's station ring
     (:func:`_geometry_load_frames`) and the blunt-end LE rule
-    (:func:`_blunt_end`) - with only the blade-wide *sign* convention taken from
-    the configured directions.  Nothing is read from
-    ``projector._strip_chord_dirs`` / ``_strip_normal_dirs`` / ``_strip_ring_groups``:
-    an expected value built from the implementation's own frame validates
-    algebra, not physics (suite audit section 22.1).  This geometry-derived
-    expectation is what makes the 1 % bound meaningful - it can only hold if
-    production follows each station's own section, not the band's, and not a
-    fixed global axis.
+    (:func:`_blunt_end`) - and never from ``projector._strip_ac_offsets`` /
+    ``_strip_ring_groups``: an expected value built from the implementation's
+    own datum validates algebra, not physics (suite audit section 22.1).  This
+    geometry-derived AC and lever arm are what make the 1 % bound meaningful.
     """
     _, coords, blade_aero, projector = blade_case
     forces = projector.project(rated_bem)
@@ -376,16 +373,26 @@ def test_moment_conservation(blade_case, rated_bem, station_rings):
     )
     moment_expected = np.zeros(3)
     mp_total = 0.0
+
+    # The rotor-plane frame the BEM pair rides (issue #26): the configured pair,
+    # orthonormalised against the span, with the normal's sense taken from
+    # normal_direction - the same rule ``ForceProjector._load_frame`` applies.
+    rotor_tangential = TANGENTIAL_DIR - float(TANGENTIAL_DIR @ SPAN_DIR) * SPAN_DIR
+    rotor_tangential = rotor_tangential / np.linalg.norm(rotor_tangential)
+    rotor_normal = np.cross(rotor_tangential, SPAN_DIR)
+    rotor_normal = rotor_normal / np.linalg.norm(rotor_normal)
+    if float(rotor_normal @ NORMAL_DIR) < 0.0:
+        rotor_normal = -rotor_normal
     for k, strip in enumerate(projector._strips):
         assert len(strip.node_indices) > 0, f"strip {k} has no nodes; cannot be loaded"
         pts = station_rings[k]
-        chord_hat, normal_hat = frames[k]
+        chord_hat, _ = frames[k]
         le_i, te_i, _, _ = _blunt_end(pts, chord_hat, SPAN_DIR)
         ac_frac = blade_aero.stations[k].airfoil.aerodynamic_center
         r_ac = pts[le_i] + ac_frac * (pts[te_i] - pts[le_i])
         F = (
-            float(rated_bem.Np[k]) * strip.dr * normal_hat
-            + float(rated_bem.Tp[k]) * strip.dr * chord_hat
+            float(rated_bem.Np[k]) * strip.dr * rotor_normal
+            + float(rated_bem.Tp[k]) * strip.dr * rotor_tangential
         )
         M_ac = float(rated_bem.Mp[k]) * strip.dr * SPAN_DIR
         moment_expected += np.cross(r_ac, F) + M_ac
