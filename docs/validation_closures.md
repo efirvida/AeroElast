@@ -806,3 +806,63 @@ diferencia de línea de acción que el caso `at_ac` existe para medir.
 `_section_couples`, en `_rated_load_cases` (su `Mp`, su `x_ac`, sus pesos tributarios), en
 `_ring_kinematics`, en `ForceProjector.project`, en el generador de malla de la pala (la
 posición del borde de ataque) o en `tools/diagnose_leading_edge.py`.
+
+---
+
+### #14: el twist contra Zhou 2025 no es transferible, y el árbitro que lo sustituye (2026-10-08)
+
+Cierra el issue #14 (ítem 2 del roadmap de #18). El issue pedía una de tres cosas: (a) obtener los
+tres inputs que Zhou no publica (pitch, fuente de rigidez, definición exacta de su torsión) y
+rehacer la comparación; (b) cerrarlo como **no-transferibilidad documentada** y sacar el claim de
+magnitud del paper; (c) comparar contra una referencia **cuyo modelo sí esté publicado**, p. ej. un
+shell CalculiX S8R de la misma pala con las mismas cargas. **Se cierra por (b), con (c) ya
+satisfecho.**
+
+**(a) no es posible.** El texto de Zhou no declara pitch en ninguna parte ni la fuente de su rigidez
+seccional; su cantidad torsional es "rotation of the airfoil section about the reference axis ...
+positive toward stall", que plausiblemente no es nuestra rotación de sección.
+
+**(c) está medido y registrado.** `tools/ccx_blade_twist_arbitration.py` alimenta CalculiX S8R con
+**el mismo vector nodal** que produce el `ForceProjector` de producción, con el mismo empotramiento,
+y converge cada código en su propia secuencia de malla (comparar MITC4 contra S8R en la *misma*
+malla es inválido: conflaciona orden de elemento con tamaño):
+
+| h [m] | AeroElast (MITC4) | CalculiX (S8R) | diferencia |
+| ---: | ---: | ---: | ---: |
+| 1.00 | +9.6669 | +11.9649 | 23.77 % |
+| 0.50 | +8.3937 | +10.7368 | 27.91 % |
+| **0.25** | **+8.0980** | **+8.4396** | **4.22 %** |
+
+⇒ La respuesta estructural de nuestro shell, bajo una carga dada, la confirma un código
+independiente al **4.22 %**. Ese es el árbitro que sustituye a la comparación con el paper.
+
+**Por qué la comparación con Zhou no es transferible.** Zhou es una **viga** (LL-FVW + GEBT); lo
+nuestro es un **shell**, y el rated de producción lleva una distorsión de sección que la viga no
+puede representar (`distortion / |omega| = 1.6728`). El par arbitrable es **viga-viga**: bajo las
+cargas de su Fig. 11 nuestra viga da `-2.0790°` contra su `-3.6000°`, un **`0.58x`** (déficit de
+torsión, no exceso), medido en `tools/diagnose_zhou_loads_reverse.py`. El `1.61x` que el issue cita
+es la figura del *shell* de ese mismo tool con cargas ajenas, **no** el rated de producción, y no
+debe citarse como tal.
+
+**Números vivos del camino de producción** (2026-10-08, los tres tests de producción del módulo
+rated): el camino que usan las campañas acopladas (`BEMFSIParticipant`, sin `element_properties` ⇒
+realización de mínima norma) da `omega = +8.1048°`; `standalone.py` con `elements.properties` (flujo
+multi-celda) da `+9.6669°`. Contra Zhou eso es `2.2513x` / `2.6853x` **de una magnitud no
+transferible**. El patrón de la aplicación está acotado aparte: el tubo cerrado por el
+`ForceProjector` de producción reproduce la respuesta discreta exacta al `0.22 % / 0.09 %` (store
+grupo **35**, `tests/validation/parity/test_thin_walled_tube_projection.py`).
+
+**El paper no lleva el claim.** `docs/article_draft_wind_energy.md` compara contra Zhou flapwise
+(12.78 vs 13.86 m), potencia (14.71 vs 14.76 MW, `-0.34 %`), thrust y frecuencias (Tabla 3); **no**
+hay ningún claim de magnitud torsional contra él.
+
+**Asignación de árbitros** (lo que hace citable cada número): `odd/tasks/production-path-and-independent-arbiters.md`,
+sección "P2c" — patrón de aplicación → Bredt en el tubo (grupo 35); rigidez seccional → OpenFAST MBC3
+/ BeamDyn (S-7, grupo 34); respuesta estructural → CalculiX S8R (4.22 %); respuesta acoplada →
+OpenFAST flexible (pendiente, P2b); comparabilidad con el paper → Zhou no decide nada de nuestro
+modelo.
+
+**Disparador de re-ejecución:** invalida este cierre cualquier cambio en
+`src/aeroelast/solvers/bem/force_projection.py` (el frame de carga, `_strip_moment_axis_sign`, la
+realización multi-celda), en `tools/ccx_blade_twist_arbitration.py` o en el escritor de decks CCX, en
+el generador de malla de la pala, o la publicación de los tres inputs por parte de Zhou.
