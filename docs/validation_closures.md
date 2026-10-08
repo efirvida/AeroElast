@@ -783,6 +783,14 @@ Lo corroboran el signo del de-loading (`-25.31 % / -14.77 %`) y las dos realizac
 | `Mp` se aplicaba con el signo del BEM, no del frame | `_section_couples` y el término `Mp` de `_rated_load_cases` | la misma `Mp` nariz-abajo (integral `-1.0029e6 N.m`): `+29.0724` por el proyector de producción contra `-38.6420` por `_section_couples` | `M_z = -Mp`, con un check permanente entre caminos |
 | el centro aerodinámico estaba a 0.25 c del **borde de fuga** | `_rated_load_cases`, `x_ac = xs.min() + 0.25 c` | el par de transferencia salía `-1.302 … -0.130` donde debe ser `+1.288 … +0.120` | `x_ac = xs.max() - 0.25 c` |
 
+**El árbitro del signo fue el proyector de producción, y el lado defectuoso era el test-local.**
+La cadena del proyector la fija geometría medida fuera del módulo (LE en `+x`, empuje aguas abajo
+en `+y`, `+z` mueve el borde de ataque aguas abajo: `tools/diagnose_leading_edge.py`), así que el
+signo que carga `_strip_moment_axis_sign` es el arbitrado; `_section_couples` y el término `Mp` de
+`_rated_load_cases` —las construcciones **test-local**— se corrigieron para coincidir con él. El
+test cruzado `test_the_two_moment_applications_agree_in_sign` lo dice ahora explícito en su
+docstring.
+
 Consecuencia medida tras el arreglo: `mp_only` `+4.8337` (era `-4.8337`), `at_ac` `+15.4921`
 (era `-20.7348`), `ratio_omega` `2.7327` y `ratio_theta_z` `4.3034` contra Zhou (positivos y en
 la convención del frame), `spread_omega` `6.170` (el spread de las cuatro aplicaciones

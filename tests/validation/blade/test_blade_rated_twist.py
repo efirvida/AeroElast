@@ -292,6 +292,15 @@ def test_the_two_moment_applications_agree_in_sign(blade_shell, rated_bem):
     magnitudes differ legitimately — a two-node force pair and a perimeter shear flow load the
     section's in-plane flexibility differently — so only the sign is asserted and the two
     numbers are printed for whoever needs the magnitude.
+
+    **The production projector is the arbiter, and the test-local application was the defective
+    side.** The projector's chain is fixed outside this module by measured geometry: the deck's
+    leading edge sits at +x (``tools/diagnose_leading_edge.py``, 8 of 9 stations with two
+    agreeing methods), the load frame's downwind direction is +y, and a +z rotation moves the
+    leading edge downwind - so the sign its ``_strip_moment_axis_sign`` carries is the
+    arbitrated one, and ``_section_couples`` was corrected to it. The assertion below is the
+    agreement between the two applications; the projector's own positive sign is anchored to
+    that geometry, not to this cross-check.
     """
     shell = blade_shell
     _, blade_aero = rated_bem

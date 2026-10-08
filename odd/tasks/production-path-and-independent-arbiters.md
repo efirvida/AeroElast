@@ -70,9 +70,14 @@ measurements.
   only the call-site lines and the source digest moved, `check` 198 rows / 259 comparisons / 0
   errors. The stale mesh shear-centre `0.477` paragraph in the same docstring was **left alone**:
   it is the separately tracked follow-up, not this unit.
-- [ ] P1d Re-check the sign work's claims under the same lens: the cross-path test did use the
-  projector (as the arbiter, and the test-local side was the defective one), so those results stand —
-  but say so explicitly rather than leaving it implied.
+- [x] P1d Re-check the sign work's claims under the same lens. **Done 2026-10-08**: the results
+  stand - the cross-path test `test_the_two_moment_applications_agree_in_sign` did exercise the
+  production projector, and the defective side was the test-local one - and both the test docstring
+  and the sign section of `docs/validation_closures.md` now say so explicitly, naming the projector
+  **the arbiter** and its chain as anchored to measured geometry
+  (`tools/diagnose_leading_edge.py`: leading edge at `+x`, downwind at `+y`, `+z` moves the leading
+  edge downwind) rather than to the cross-check it participates in. Prose only; `regression --group
+  27 --write` re-measured the same seven margins.
 
 ## P2 — independent arbiters against the paper
 

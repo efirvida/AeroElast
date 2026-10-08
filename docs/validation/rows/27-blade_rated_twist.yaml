@@ -21,7 +21,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 92f64c0
+      run: ee50e3a
       date: '2026-10-08'
       raw: null
       margin_pct: 0.195
@@ -41,7 +41,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 92f64c0
+      run: ee50e3a
       date: '2026-10-08'
       raw: null
       margin_pct: 1.3446
@@ -56,7 +56,7 @@ rows:
   - tests/validation/blade/test_blade_rated_twist.py::test_rated_aero_loads_reproduce_the_bem_resultants
   validates: The applied load vectors must carry the BEM's own integrated resultants.
   comparisons:
-  - label: rtol at line 1011
+  - label: rtol at line 1020
     asserted: true
     reference:
       kind: self
@@ -64,18 +64,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.005
-      source: tests/validation/blade/test_blade_rated_twist.py:1011
+      source: tests/validation/blade/test_blade_rated_twist.py:1020
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 92f64c0
+      run: ee50e3a
       date: '2026-10-08'
       raw: null
       margin_pct: 0.1676
       text: 'at_ac normal resultant vs our own BEM integral for the same load path: 0.1676% (bound: 0.5000%)'
       digest: 3afd912d466d90e4
-  - label: rtol at line 1018
+  - label: rtol at line 1027
     asserted: true
     reference:
       kind: self
@@ -83,18 +83,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.005
-      source: tests/validation/blade/test_blade_rated_twist.py:1018
+      source: tests/validation/blade/test_blade_rated_twist.py:1027
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 92f64c0
+      run: ee50e3a
       date: '2026-10-08'
       raw: null
       margin_pct: 0.1933
       text: 'at_ac tangential resultant vs our own BEM integral for the same load path: 0.1933% (bound: 0.5000%)'
       digest: 14528c350edc3c8b
-  - label: rtol at line 1025
+  - label: rtol at line 1034
     asserted: true
     reference:
       kind: self
@@ -102,18 +102,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.005
-      source: tests/validation/blade/test_blade_rated_twist.py:1025
+      source: tests/validation/blade/test_blade_rated_twist.py:1034
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 92f64c0
+      run: ee50e3a
       date: '2026-10-08'
       raw: null
       margin_pct: 0.0564
       text: 'uniform normal resultant, same resultant a different distribution vs our own BEM integral for the same load path: 0.0564% (bound: 0.5000%)'
       digest: 37b4c7092206b363
-  - label: rtol at line 1032
+  - label: rtol at line 1041
     asserted: true
     reference:
       kind: self
@@ -121,12 +121,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.005
-      source: tests/validation/blade/test_blade_rated_twist.py:1032
+      source: tests/validation/blade/test_blade_rated_twist.py:1041
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 92f64c0
+      run: ee50e3a
       date: '2026-10-08'
       raw: null
       margin_pct: 0.0076
@@ -141,7 +141,7 @@ rows:
   - tests/validation/blade/test_blade_rated_twist.py::test_rated_twist_under_production_loads
   validates: The rated structural response measured under the **production** load path.
   comparisons:
-  - label: rtol at line 1278
+  - label: rtol at line 1287
     asserted: true
     reference:
       kind: self
@@ -149,12 +149,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/blade/test_blade_rated_twist.py:1278
+      source: tests/validation/blade/test_blade_rated_twist.py:1287
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 92f64c0
+      run: ee50e3a
       date: '2026-10-08'
       raw: null
       margin_pct: 1.2919
