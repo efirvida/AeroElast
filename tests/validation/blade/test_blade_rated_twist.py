@@ -1045,7 +1045,7 @@ def production_rated_loads(blade_shell, rated_bem):
     Everything above applies its own hand-built load vectors, so this module - the one whose
     subject *is* the load application - never exercised ``ForceProjector``; a repeat of the P5
     class of load-frame defect in production would still leave this file green. This fixture
-    builds the projector exactly as production does (``standalone.py``): the same real
+    builds the projector exactly as the coupled path does (``fsi_participant.py``): the same real
     ``BladeAero`` the rated BEM uses, the same mesh, and the **default**
     ``normal_direction``/``tangential_direction``, so only ``span_direction`` is passed.
 

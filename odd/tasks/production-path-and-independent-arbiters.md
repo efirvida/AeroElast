@@ -22,8 +22,12 @@ term has been measured. But the magnitudes that carried those measurements were 
 **And the production path has exactly one application rule.** So:
 
 - the **quotable** rated twist is the one `ForceProjector` produces, and it is a *single* number, not
-  a spread: `test_rated_twist_under_production_loads` already asserts its sense, and the production
-  participant is the path the campaigns use;
+  a spread. **Corrected 2026-10-08: it is one number per realization, two in total.** The coupled
+  campaigns run through `BEMFSIParticipant`, which passes no `element_properties`, so a strip takes
+  the minimum-norm `_distribute` fallback and measures `+8.1048 deg`; `standalone.py` passes the
+  config's `elements.properties`, takes the multi-cell wall flow and measures `+9.6669 deg`. Both are
+  production; which one applies is a property of the caller, not of the projector. See the Work
+  units section;
 - the 6.17x is a spread across **test-local alternatives**, i.e. a sensitivity study, and quoting it
   as "the application's spread" overstates what was measured;
 - the tube case validates **the pattern this repository's test wrote**, not the projector that the
@@ -48,9 +52,13 @@ measurements.
   metrics; write only the adapter. **Probed 2026-10-08** (`$SCRATCH/p1a_diag/probe.py`, non-committed
   diagnostic); the adapter works and the measurement is in the Work units section below. **Done**:
   `tests/validation/parity/test_thin_walled_tube_projection.py`, store group 35.
-- [ ] P1b **The rated twist through the production path, as the headline number.** State the rated
-  tip twist that `ForceProjector` produces and what it is against Zhou's `-3.60 deg`. That is the
-  quantity the write-up would quote, and it is one number rather than four.
+- [x] P1b **The rated twist through the production path, as the headline number.** DONE: the number
+  is stated in the Work units section below - `+8.1048 deg` for the coupled path the campaigns use
+  (2.25x Zhou's `-3.60 deg` in magnitude, opposite sign by frame convention), `+9.6669 deg` for the
+  standalone multi-cell caller. The comparison carries the assignment Zhou is a **beam** (GEBT), so
+  a shell magnitude against their beam number is not transferable; the arbitrable counterpart is
+  beam-vs-beam. This unit also corrected two record defects: the "one number" premise above and the
+  `production_rated_loads` fixture citing `standalone.py` while configuring the participant.
 - [ ] P1c **Re-frame the sensitivity honestly.** Keep the four applications, but say what they are: a
   spread across test-local constructions, measured to show what an *inconsistent* distribution would
   cost. The exact-case validation is what bounds the production path's pattern, not the spread.
@@ -160,3 +168,54 @@ Control: with `Mp = 0` (force through the section centre) the production load tw
 Environment: `export LD_LIBRARY_PATH=/petrobr/app_sequana/gcc/14.2.0/lib64:$LD_LIBRARY_PATH`
 (without it `_aeroelast` fails to import; `module load` is not required for the import, only the
 libstdc++ with `CXXABI_1.3.15`).
+
+## Work units — P1b (status 2026-10-08)
+
+Measured read-only at HEAD `5e2832c` with the three production tests of
+`tests/validation/blade/test_blade_rated_twist.py` (`3 passed in 33.75 s`, `-k production`). The
+rated tip twist the **production** load path produces, and what it is against Zhou et al. 2025
+Table 4 (`-3.60 deg`, a GEBT **beam** model):
+
+| production call site | realization | `omega` (tip section) | vs Zhou | `theta_z` | distortion/`\|omega\|` |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `BEMFSIParticipant` (the coupled campaigns) | minimum-norm `_distribute` fallback | **`+8.1048 deg`** | **2.2513x** | `+10.6994 deg` | 1.6728 |
+| `standalone.py` with `elements.properties` | multi-cell wall flow | `+9.6669 deg` | 2.6853x | - | - |
+
+Other measured quantities on the coupled path: applied `|sum(F)|` = `852562.70 N` against
+`bem.thrust/3 = 841688.79 N` (`+1.292%`); flapwise tip deflection `+17.2256 m` (1.2428x Zhou's
+`13.86 m`); edgewise `-1.9926 m` (1.6333x Zhou's `-1.22 m`). All three tests pass and the
+promotion guard (`abs(1.0 - ratio_to_zhou) > 0.05`) is live and far from firing.
+
+**Premise corrected.** This plan said the production twist is "a *single* number, not a spread". It
+is **one number per realization, two in total**: a strip only takes the multi-cell wall flow when
+the caller hands `ForceProjector` an `element_properties` map. `standalone.py:91-100` does;
+`fsi_participant.py:357-371` and its `_rebuild_projector` at `:848-858` explicitly do not, because
+the fluid side never builds the laminate map - so the coupled campaigns, the path this issue is
+about, are the fallback and the headline is `+8.1048 deg`.
+
+**The assignment, so the number is not read as a model error.** Zhou's quantity is a **beam's**
+rotation about its reference axis; ours is a **shell's** tip section rotation, which carries the
+section distortion the beam cannot represent (`distortion/|omega| = 1.6728`). A shell magnitude
+against their `-3.60 deg` is therefore **not transferable**, and the live repo statement of that is
+`docs/validation_closures.md:244` ("Twist del shell ~5x la viga: fisica del modelo ... Las
+referencias beam-based (Zhou/Ma/BeamDyn) son cota inferior"). The arbitrable counterpart is
+beam-vs-beam: under Zhou's own Fig. 11 loads the shell gives `+5.7822 deg` (1.61x) and **our beam
+`-2.0790 deg` against their `-3.60 deg`**, a `0.58x` twist (`tools/diagnose_zhou_loads_reverse.py`);
+the `1.61x` is that tool's shell figure and must never be quoted as the production rated number. The
+"~2.03x torque deficit" that an earlier session note carries is **not in the tree** and is not cited
+here.
+
+**Record defect fixed.** The `production_rated_loads` fixture docstring cited `standalone.py` as the
+production construction it mirrors, while configuring the projector the way the participant does
+(default directions, no `element_properties`). Corrected to cite `fsi_participant.py`, the coupled
+path, at `tests/validation/blade/test_blade_rated_twist.py:1048` - one line, no line-number shift, so
+group 27's call-site rows did not move.
+
+**Prose audit.** Every quoted production figure (`+8.1048`, `+9.6669`) in the test docstrings
+(`:234`, `:1128`, `:1141`, `:1155`, `:1177`, `:1183`), `odd/tasks/rated-twist-sign-convention.md:41`
+and `docs/validation_closures.md:27` matches the live run; nothing was stale. The `1.61x` figures are
+correctly scoped to the Fig.-11 tool run, not the production rated number.
+
+**Not a row.** The magnitude stays withdrawn from the store: it is compared with a beam number under
+unknown stiffness source and pitch, so no defensible bound exists. Group 27 keeps the two Table-6
+paper comparisons, the four self-resultant invariants and the applied-load invariant.
