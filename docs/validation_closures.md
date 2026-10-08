@@ -764,3 +764,34 @@ independiente y va declarada como tal en el store.
 `tools/beam_reference.py::load_beamdyn_blade`, en el deck
 `tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat`, o en
 `tools/run_s7_torsion.py::section_twists_deg` (la construcción del twist de sección).
+
+---
+
+### Los dos defectos de signo de la carga torsional rated (2026-10-07)
+
+Arbitrados al abrir #14 (roadmap item 2): el tool que compara contra Zhou imprimía nuestra
+cáscara y nuestra viga con signos opuestos bajo la misma carga. La convención queda fijada
+**midiendo** dónde está el borde de ataque, no eligiendo: `tools/diagnose_leading_edge.py` lo da
+en el extremo de **x alto** en 9 de 9 estaciones (dos métodos independientes coinciden), así que
+con el LE en `+x` y el empuje del marco de carga (downwind) en `+y`, **nariz-abajo es `omega > 0`**.
+Lo corroboran el signo del de-loading (`-25.31 % / -14.77 %`) y las dos realizaciones rated
+(`+8.1048` mínima norma, `+9.6669` multi-celda con propiedades).
+
+| defecto | dónde | medición | arreglo |
+| --- | --- | --- | --- |
+| `Mp` se aplicaba con el signo del BEM, no del frame | `_section_couples` y el término `Mp` de `_rated_load_cases` | la misma `Mp` nariz-abajo (integral `-1.0029e6 N.m`): `+29.0724` por el proyector de producción contra `-38.6420` por `_section_couples` | `M_z = -Mp`, con un check permanente entre caminos |
+| el centro aerodinámico estaba a 0.25 c del **borde de fuga** | `_rated_load_cases`, `x_ac = xs.min() + 0.25 c` | el par de transferencia salía `-1.302 … -0.130` donde debe ser `+1.288 … +0.120` | `x_ac = xs.max() - 0.25 c` |
+
+Consecuencia medida tras el arreglo: `mp_only` `+4.8337` (era `-4.8337`), `at_ac` `+15.4921`
+(era `-20.7348`), `ratio_omega` `2.7327` y `ratio_theta_z` `4.3034` contra Zhou (positivos y en
+la convención del frame), `spread_omega` `6.170`, `distortion[at_ac]/distortion[mp_only]`
+`18.367`. La tabla del anchor beam pasa de ratios negativos a `ring/beam 4.5622`. Los dos
+invariantes de resultantes de `at_ac` se re-midieron (0.0767 %→0.1676 % y 0.3623 %→0.1933 %,
+cota 0.5 %). Dos asertos que afirmaban "toda aplicación es nariz-abajo" se acotaron: las
+aplicaciones que ponen la fuerza en el centroide del perímetro dan el sentido opuesto, que es la
+diferencia de línea de acción que el caso `at_ac` existe para medir.
+
+**Disparador de re-ejecución:** invalida este cierre cualquier cambio en
+`_section_couples`, en `_rated_load_cases` (su `Mp`, su `x_ac`, sus pesos tributarios), en
+`_ring_kinematics`, en `ForceProjector.project`, en el generador de malla de la pala (la
+posición del borde de ataque) o en `tools/diagnose_leading_edge.py`.

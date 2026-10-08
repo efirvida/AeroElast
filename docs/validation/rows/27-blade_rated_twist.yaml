@@ -21,8 +21,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: '1146265'
-      date: '2026-10-05'
+      run: 36ce340
+      date: '2026-10-07'
       raw: null
       margin_pct: 0.195
       text: 'rated BEM thrust vs Zhou et al. 2025, Energy 336:138488, Table 6, rigid case thrust: 0.1950% (bound: 3.0000%)'
@@ -41,8 +41,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: '1146265'
-      date: '2026-10-05'
+      run: 36ce340
+      date: '2026-10-07'
       raw: null
       margin_pct: 1.3446
       text: 'rated BEM power vs Zhou et al. 2025, Energy 336:138488, Table 6, rigid case power: 1.3446% (bound: 3.0000%)'
@@ -69,12 +69,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: '1146265'
-      date: '2026-10-05'
+      run: 36ce340
+      date: '2026-10-07'
       raw: null
-      margin_pct: 0.0767
-      text: 'at_ac normal resultant vs our own BEM integral for the same load path: 0.0767% (bound: 0.5000%)'
-      digest: bc8bd908b7b795f7
+      margin_pct: 0.1676
+      text: 'at_ac normal resultant vs our own BEM integral for the same load path: 0.1676% (bound: 0.5000%)'
+      digest: 3afd912d466d90e4
   - label: rtol at line 878
     asserted: true
     reference:
@@ -88,12 +88,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: '1146265'
-      date: '2026-10-05'
+      run: 36ce340
+      date: '2026-10-07'
       raw: null
-      margin_pct: 0.3623
-      text: 'at_ac tangential resultant vs our own BEM integral for the same load path: 0.3623% (bound: 0.5000%)'
-      digest: da272fac1dfbaea7
+      margin_pct: 0.1933
+      text: 'at_ac tangential resultant vs our own BEM integral for the same load path: 0.1933% (bound: 0.5000%)'
+      digest: 14528c350edc3c8b
   - label: rtol at line 885
     asserted: true
     reference:
@@ -107,8 +107,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: '1146265'
-      date: '2026-10-05'
+      run: 36ce340
+      date: '2026-10-07'
       raw: null
       margin_pct: 0.0564
       text: 'uniform normal resultant, same resultant a different distribution vs our own BEM integral for the same load path: 0.0564% (bound: 0.5000%)'
@@ -126,8 +126,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: '1146265'
-      date: '2026-10-05'
+      run: 36ce340
+      date: '2026-10-07'
       raw: null
       margin_pct: 0.0076
       text: 'mp_only resultant moment vs our own BEM integral for the same load path: 0.0076% (bound: 0.5000%)'
@@ -154,8 +154,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: '1146265'
-      date: '2026-10-05'
+      run: 36ce340
+      date: '2026-10-07'
       raw: null
       margin_pct: 1.2919
       text: 'applied-load invariant, the P5 guard bound vs the BEM thrust the structure is solved against: 1.2919% (bound: 2.0000%)'
