@@ -93,7 +93,8 @@ had before T2, so the expectation travels with the application.
 ### E6 - the second defect: the aerodynamic centre is on the wrong chord side
 
 `tools/diagnose_leading_edge.py` measures the leading edge at the **high-x end** of every ring
-(nine stations, two independent methods agreeing; only the degenerate root ring differs), which
+(eight of the nine sampled stations, two independent methods agreeing; the degenerate root ring
+is the one that differs), which
 is the closure log's convention: leading edge at `+x`, load frame's downwind thrust at `+y`, so
 nose-down is `omega > 0`.
 
@@ -199,13 +200,9 @@ the polars' `Cm` convention really is) deserves its own measurement rather than 
 
 ## Measurements kept outside the repo
 
-`$SCRATCH/s7_diag/`: `rated_sign_live.log` (E3), `twist_zhou_live.log` (the four applications),
-`zhou_reverse_live.log` (the tool at 0.5 m), `zhou_reverse_es10.log` (the same at 1.0 m), and
-the T1 cross-path log once it exists.
-
-## Follow-ups, out of scope here
-
-- The load-application spread (4.3x on the tip twist, 5.5x on the section rotation) is a
-  separate finding of #14 and is not resolved by fixing the sign.
-- Whether the withdrawn magnitude can be promoted needs the application validated on a case
-  with an exact answer; the file names that as its own unit and this feature does not do it.
+`$SCRATCH/s7_diag/`: `diag_mp_two_paths.py` and `mp_two_paths.log` (T1's decisive experiment,
+which is also the pre-fix RED state), `diag_ac_side.py` (E6's transfer table), `leading_edge.log`
+(the arbiter), `sign_fix{,_2,_3}_live.log` (the module at each step of the fix),
+`twist_zhou_live.log` (the four applications pre-fix), `zhou_reverse_live.log` and
+`zhou_reverse_es10.log` (the tool at 0.5 m and 1.0 m), and `zhou_reverse_fixed.log` (the tool in
+one convention after the fix).

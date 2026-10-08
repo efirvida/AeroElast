@@ -11,10 +11,12 @@ Three things this module settles:
    against Zhou's rigid-blade means: 2.53 MN thrust and 16.11 MW power.
 2. **The physical sign of the twist.** The aerodynamic pitching moment from the polars is
    nose-down at every station, and a *nose-down torsional couple* applied to the section
-   produces a **negative** mean rotation about z at the tip. So in this mesh a negative
-   theta_z is "toward feather / reducing the angle of attack" - the same physical sense as
-   Zhou's -3.60 deg and Ma's about -3.9 deg, and the opposite sense to the +0.98 deg
-   previously attributed to the BeamDyn anchor.
+   produces a **positive** rotation at the tip. The deck puts the leading edge at +x and the
+   load frame's downwind thrust at +y, so a +z rotation moves the leading edge downwind and
+   nose-down is positive on this frame - the same physical sense as Zhou's -3.60 deg and Ma's
+   about -3.9 deg, whose convention is positive toward stall. The BEM's ``Mp`` carries the
+   opposite sign, so the applied section moment is ``M_z = -Mp``; the arbitration and the two
+defects it found are in `odd/tasks/rated-twist-sign-convention.md`.
 3. **How the section moment must be applied.** A section moment applied as nodal rotations
    about z feeds the shell's drilling degree of freedom, not the section's torsion, and
    over-reports the twist by orders of magnitude. It has to be a *couple of forces*. The
@@ -686,8 +688,8 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
     resultant torque applied on one wall instead of as a shear flow gave 125.7x the section
     shear, 69.2x the energy, 74.8x the tip in-plane displacement, and the two twist metrics
     disagreed by 2050%. The blade's rated magnitude is withdrawn because the same load set
-    moves the tip twist by a factor 4.3-5.5 depending only on the application (section 20;
-    the earlier 7.8 was computed with a load-magnitude defect).
+    moves the tip twist by a factor 4.0 (``theta_z``) or 6.2 (``omega``) depending only on the
+    application (section 20; the earlier 7.8 was computed with a load-magnitude defect).
 
     This test splits each ring's in-plane field into an origin-invariant rotation ``omega`` (the
     antisymmetric part of the affine fit) and the strain measures (parallelogram ``shear``,
@@ -703,8 +705,8 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
       aerodynamic centre's - which is the difference this test exists to measure, not a defect.
     * **The spread is the finding (was mis-specified).** The original prediction was
       ``spread_omega < spread_theta_z`` - "the distortion-free metric collapses the application
-      spread". Measured on the corrected loads it is the opposite: ``spread_omega = 5.459``
-      against ``spread_theta_z = 4.290``. The hypothesis that the spread *lives in the
+      spread". Measured on the corrected loads it is the opposite: ``spread_omega = 6.170``
+      against ``spread_theta_z = 3.990``. The hypothesis that the spread *lives in the
       distortion* is therefore **refuted on the blade**: the application moves the section
       rotation itself, so the rated twist magnitude is not promotable and stays a reported
       residual. The asserted claim is the true one, ``spread_omega > 2.0``; promoting the
@@ -712,27 +714,27 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
       the promotion.
     * **The tube's transfer test was mis-specified (replaced).** The original prediction was
       ``max(distortion[uniform], distortion[uniform_plus_mp]) > 1.5 * distortion[at_ac]``.
-      Measured: **0.982x**, i.e. the off-path cases excite *no more* distortion than ``at_ac``.
+      Measured: **0.997x**, i.e. the off-path cases excite *no more* distortion than ``at_ac``.
       The premise was wrong: the tube's contrast is a **localized one-wall traction against a
       closed shear flow**, while on the blade *both* compared cases are ring-distributed. The
       correct analogue is the **validated shear-flow moment application (``mp_only``) against
       the force-loaded cases**: an in-plane traction around the ring loads the section's
       in-plane flexibility, a pure torsion shear flow does not. It holds strongly -
-      ``distortion[at_ac] / distortion[mp_only] = 18.8x`` - and the assertion is
+      ``distortion[at_ac] / distortion[mp_only] = 18.367`` - and the assertion is
       ``distortion[at_ac] > 5.0 * distortion[mp_only]``. The off-path numbers are still printed
       so the refuted comparison stays on the record.
     * **Promotion guard (holds).** The validated path's residual against Zhou stays above the
       suite's 5% rule, so the magnitude remains a reported residual rather than an asserted row.
 
     **What the corrected loads say physically.** For the physical application ``at_ac`` the
-    section rotation is ``omega = -26.12 deg`` and the section strain is
-    ``distortion = 9.375e-2``, i.e. ``distortion / |omega| = 0.359`` at that ring: the section
+    section rotation is ``omega = +9.8376 deg`` and the section strain is
+    ``distortion = 9.161e-2``, i.e. ``distortion / |omega| = 0.534`` at that ring: the section
     strains are the same order as the rotation, so the measured "twist" of this shell blade at
     rated is substantially a **sectional deformation**, not a rigid section rotation. That is a
     property of the model plus the load path: the aerodynamic normal force acts at the 25 %-chord
     aerodynamic centre while the mesh's measured shear centre sits at 0.477 of the chord, so the
-    eccentricity torque dominates the pitching moment (``mp_only`` gives -4.79 deg, ``at_ac``
-    gives -26.12 deg). Settling whether the anchor's shear centre agrees is the next unit
+    eccentricity torque dominates the pitching moment (``mp_only`` gives +4.79 deg, ``at_ac``
+    gives +9.84 deg). Settling whether the anchor's shear centre agrees is the next unit
     (**WU-C**, the BeamDyn 6x6 ``xS`` against the mesh's per-station shear centre); if the anchor
     puts the shear centre near the pitch axis, the eccentricity - and the twist - is a
     structural/geometry difference, not a load-application defect.
@@ -898,7 +900,7 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
 
     # 2. The true claim, after the refutation of the original "the spread lives in the
     #    distortion": the application spread SURVIVES the distortion-free section-rotation
-    #    metric (measured spread_omega = 5.459 > spread_theta_z = 4.290, not the predicted
+    #    metric (measured spread_omega = 6.170 > spread_theta_z = 3.990, not the predicted
     #    collapse), so the rated twist magnitude is not promotable and stays a reported
     #    residual. Promoting it requires this spread to collapse to a settled rotation; this
     #    assertion is then removed with the promotion.
@@ -911,10 +913,10 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
 
     # 3. The corrected transfer test. The original prediction (off-path > 1.5 * at_ac) was
     #    mis-specified: it compared two ring-distributed cases, while the tube's contrast is a
-    #    localized one-wall traction against a closed shear flow. Measured, it is 0.982x, i.e.
+    #    localized one-wall traction against a closed shear flow. Measured, it is 0.997x, i.e.
     #    refuted. The correct analogue is the validated shear-flow moment application
     #    (mp_only) against the force-loaded cases: a ring in-plane traction loads the section's
-    #    in-plane flexibility, a pure torsion shear flow does not. Measured 18.8x.
+    #    in-plane flexibility, a pure torsion shear flow does not. Measured 18.367.
     assert distortion_at_ac > 5.0 * distortion_mp_only, (
         f"the force-loaded sections do not excite the predicted distortion over the shear-flow "
         f"moment application: distortion[at_ac] {distortion_at_ac:.6e} vs 5.0 * "

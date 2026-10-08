@@ -772,7 +772,8 @@ independiente y va declarada como tal en el store.
 Arbitrados al abrir #14 (roadmap item 2): el tool que compara contra Zhou imprimía nuestra
 cáscara y nuestra viga con signos opuestos bajo la misma carga. La convención queda fijada
 **midiendo** dónde está el borde de ataque, no eligiendo: `tools/diagnose_leading_edge.py` lo da
-en el extremo de **x alto** en 9 de 9 estaciones (dos métodos independientes coinciden), así que
+en el extremo de **x alto** en 8 de las 9 estaciones muestreadas (dos métodos independientes
+coinciden; la que difiere es el anillo degenerado de raíz), así que
 con el LE en `+x` y el empuje del marco de carga (downwind) en `+y`, **nariz-abajo es `omega > 0`**.
 Lo corroboran el signo del de-loading (`-25.31 % / -14.77 %`) y las dos realizaciones rated
 (`+8.1048` mínima norma, `+9.6669` multi-celda con propiedades).
