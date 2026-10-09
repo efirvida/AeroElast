@@ -17,15 +17,30 @@ gaps:
     scope: "composite outer-fibre stress recovery"
     status: not_validated
     reason: >-
-      `*SHELL SECTION, COMPOSITE` ignores `OUTPUT=3D`, so CalculiX cannot
-      act as the independent stress judge it is for isotropic shells.
+      MOSTLY CLOSED, TWO LIMITS REMAIN (re-checked 2026-10-09): the
+      ply-resolved recovery landed in T1-T4 of #27, and the membrane
+      outer-fibre ply stress is now compared against CalculiX 2.20 S8R with
+      `*SHELL SECTION, COMPOSITE` and an in-file CLT closed form (group 36,
+      `composite_ply_stress`). The old premise was wrong in both directions:
+      CalculiX does report the outer fibre on that card -- its FRD value is
+      the expanded outer-fibre node, the midsurface node is exactly 0 -- so
+      `OUTPUT=3D` being inert for composites is not a bar. What remains:
+      (a) a section with no ply stack, i.e. a raw homogenised ABD dict,
+      still returns the thickness-mean equivalent and only warns; and
+      (b) the bending laminate `[0/90/90/0]` is measured (ours 616.10 MPa
+      against CalculiX 595.59 MPa) but has no row, so it cannot be cited.
     evidence: >-
-      Issue #3. The composite stiffness path is validated through the ABD
-      matrices against an independent CLT, which is a different claim.
+      Issue #27 and `odd/tasks/composite-ply-stress-recovery.md` (T1-T4:
+      `95bfbab`, `208f220`, `bd4cc05`, `62d806a`), with the group 36 rows.
+      Superseded text kept for the record: "`*SHELL SECTION, COMPOSITE`
+      ignores `OUTPUT=3D`, so CalculiX cannot act as the independent stress
+      judge it is for isotropic shells" and "A composite stress number has
+      no independent reference in this suite".
     consequence: >-
-      A composite stress number has no independent reference in this
-      suite. Only the ABD matrices may be cited, and only as a
-      material-model verification.
+      The membrane outer-fibre ply stress may be cited from group 36. The
+      thickness-mean value a raw ABD section returns may not be cited as a
+      ply stress, and the `[0/90/90/0]` bending number may not be cited
+      until it has a row.
     citations_forbidden: true
     rows: []
 

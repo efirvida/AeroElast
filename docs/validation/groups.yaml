@@ -985,6 +985,97 @@ groups:
       no rows. Evidence: `odd/tasks/production-path-and-independent-arbiters.md`
       (Work units - P1a).
 
+  - id: "36"
+    title: >-
+      `tests/validation/parity/test_composite_ply_stress_parity.py` and
+      `tests/validation/parity/test_composite_stress_ccx_parity.py`
+      (outer-fibre ply stress against CLT and against CalculiX S8R)
+    slug: composite_ply_stress
+    # No reference_kind: the comparisons are against two different things --
+    # the CLT closed form and CalculiX's S8R outer-fibre value -- so each one
+    # declares its own. Policy rule 7.
+    source_files:
+      - tests/validation/parity/test_composite_ply_stress_parity.py
+      - tests/validation/parity/test_composite_stress_ccx_parity.py
+    non_validation_tests:
+      - tests:
+          - test_reference_reproduces_published_clt_targets
+        reason: >-
+          Machinery, not a row: it pins the in-file CLT reference to the
+          published 3.696 / 0.304 MPa targets and to the equilibrium mean
+          `N_x / h`, so a transcription error in the reference cannot
+          masquerade as a solver result. Our reference against itself, with
+          no independent side.
+      - tests:
+          - test_top_is_not_the_thickness_mean
+        reason: >-
+          It asserts a property of our own field against our own field: the
+          recovered TOP stress must not equal the thickness mean `N_x / h`
+          the pre-T2 recovery returned. The form is that guard for both
+          files, and `dev > 0.10` reads no independent reference.
+      - tests:
+          - test_production_and_test_section_forms_agree
+        reason: >-
+          A cross-check between two of our own section forms -- the
+          `CompositeShellProperty` construction and the production Rust
+          `Laminate` from `build_rust_properties` -- so both sides are ours.
+          Policy rule 6 leaves it no row; it is the guard that the ply
+          resolution is not a second implementation.
+      - tests:
+          - test_raw_abd_section_is_smeared_and_warns
+        reason: >-
+          A characterisation of a known limitation, not a validation: it pins
+          that a raw homogenised ABD dict (no ply stack) keeps returning the
+          thickness mean and emits one warning. The comparison is our smeared
+          value against the equilibrium mean of the load we applied, i.e. our
+          own field against itself. What the limitation costs is recorded in
+          `gaps.yaml` id `composite_stress_recovery`.
+      - tests:
+          - test_bending_moment_is_station_independent
+        reason: >-
+          Pure-moment station independence: the centre and the 3/4-span
+          stations of our own field are compared with each other. Our own
+          result against our own result, so rule 6 leaves it no row.
+      - tests:
+          - test_bending_outer_fibres_are_opposite_and_per_ply
+        reason: >-
+          Sign, mid-surface negligibility and ply-index assertions: every one
+          is a property of our own field or of the documented interface
+          convention, with no independent reference on either side.
+      - tests:
+          - test_middle_tie_break_rule_is_pinned
+        reason: >-
+          It pins the half-open `[z_bottom, z_top)` interface rule by the
+          resolved ply index, which is the one thing a value check cannot
+          catch because both neighbouring plies are 90 deg. The interface
+          convention is ours, so the test is machinery rather than a
+          comparison against an independent reference, even though one of its
+          assertions reads a CLT value.
+      - tests:
+          - test_free_field_is_mesh_stable_but_the_global_max_is_not
+        reason: >-
+          A mesh-stability guard: both codes' free-field values are asserted
+          not to move under refinement and the CalculiX global maximum to
+          grow. Properties of our own and CalculiX's fields under refinement,
+          not a comparison against an independent reference value.
+    provenance_note: >-
+      This group covers the two files that close issue #27. The first is the
+      CLT reference: symmetric `[0/90]s` and `[90/0]s` strips in membrane
+      tension, pure bending of `[0/90]s`, and a balanced `[+45/-45]s` case
+      that discriminates the per-ply `Qbar(theta)` through `sigma_xy`. The
+      second is the converged-vs-converged comparison against CalculiX 2.20
+      S8R with `*SHELL SECTION, COMPOSITE`, read at the free-field centre and
+      not at the global maximum, with the CLT value as the second reference.
+      `TOL_CCX = 0.05` is a bound and not a convergence claim: at 16x4 ours is
+      3.6959 / 0.3041 MPa against CalculiX 3.6853 / 0.3148 MPa, i.e. 0.29% /
+      3.41%; the `[90/0]s` gap barely moves with refinement (3.48% -> 3.41%)
+      and the whole of it sits on the CalculiX side. The CalculiX composite
+      FRD value is the expanded outer-fibre node (its midsurface node is
+      exactly 0), and the global maximum is a load-introduction singularity
+      at the loaded free edge (5.8838 -> 6.5803 MPa with refinement), which
+      the row deliberately does not read. Evidence:
+      `odd/tasks/composite-ply-stress-recovery.md` (T1-T4) and issue #27.
+
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
 # independent reference and needs a group and a row; a test under

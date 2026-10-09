@@ -1,0 +1,431 @@
+group: '36'
+rows:
+- id: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_0_90s
+  group: '36'
+  title: test_top_fibre_ply_stress_matches_clt[sym_0_90s]
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_top_fibre_ply_stress_matches_clt[sym_0_90s]
+  validates: TOP stress of a composite shell is the topmost ply's stress, not the smeared mean.
+  comparisons:
+  - label: rtol at line 394
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:394
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 3695980.0
+      margin_pct: 0.0017
+      text: 'sym_0_90s TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 3.69598e+06 vs 3.69592e+06 (error: 0.0017%, bound: 5.0000%)'
+      digest: ab26efb9e5c86612
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_90_0s
+  group: '36'
+  title: test_top_fibre_ply_stress_matches_clt[sym_90_0s]
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_top_fibre_ply_stress_matches_clt[sym_90_0s]
+  validates: TOP stress of a composite shell is the topmost ply's stress, not the smeared mean.
+  comparisons:
+  - label: rtol at line 394
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:394
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 304016.0
+      margin_pct: 0.021
+      text: 'sym_90_0s TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 304016 vs 304080 (error: 0.0210%, bound: 5.0000%)'
+      digest: 641a2f2f8c728d9d
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_0_90s
+  group: '36'
+  title: test_bottom_fibre_ply_stress_matches_clt[sym_0_90s]
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_bottom_fibre_ply_stress_matches_clt[sym_0_90s]
+  validates: BOTTOM stress is the bottommost ply's stress — the symmetric-twin claim of the TOP one.
+  comparisons:
+  - label: rtol at line 413
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:413
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 3695980.0
+      margin_pct: 0.0017
+      text: 'sym_0_90s BOTTOM outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 3.69598e+06 vs 3.69592e+06 (error: 0.0017%, bound: 5.0000%)'
+      digest: ab26efb9e5c86612
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_90_0s
+  group: '36'
+  title: test_bottom_fibre_ply_stress_matches_clt[sym_90_0s]
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_bottom_fibre_ply_stress_matches_clt[sym_90_0s]
+  validates: BOTTOM stress is the bottommost ply's stress — the symmetric-twin claim of the TOP one.
+  comparisons:
+  - label: rtol at line 413
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:413
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 304016.0
+      margin_pct: 0.021
+      text: 'sym_90_0s BOTTOM outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 304016 vs 304080 (error: 0.0210%, bound: 5.0000%)'
+      digest: 641a2f2f8c728d9d
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_0_90s
+  group: '36'
+  title: test_production_rust_laminate_top_fibre_matches_clt[sym_0_90s]
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_production_rust_laminate_top_fibre_matches_clt[sym_0_90s]
+  validates: The production section form (Rust ``Laminate``) resolves the same outer ply.
+  comparisons:
+  - label: rtol at line 547
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:547
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 3695980.0
+      margin_pct: 0.0017
+      text: 'sym_0_90s TOP outer-fibre ply sigma_xx (production Rust Laminate) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section: 3.69598e+06 vs 3.69592e+06 (error: 0.0017%, bound: 5.0000%)'
+      digest: ab26efb9e5c86612
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_90_0s
+  group: '36'
+  title: test_production_rust_laminate_top_fibre_matches_clt[sym_90_0s]
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_production_rust_laminate_top_fibre_matches_clt[sym_90_0s]
+  validates: The production section form (Rust ``Laminate``) resolves the same outer ply.
+  comparisons:
+  - label: rtol at line 547
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:547
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 304016.0
+      margin_pct: 0.021
+      text: 'sym_90_0s TOP outer-fibre ply sigma_xx (production Rust Laminate) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section: 304016 vs 304080 (error: 0.0210%, bound: 5.0000%)'
+      digest: 641a2f2f8c728d9d
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_0_90s
+  group: '36'
+  title: test_production_rust_laminate_bottom_fibre_matches_clt[sym_0_90s]
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_production_rust_laminate_bottom_fibre_matches_clt[sym_0_90s]
+  validates: BOTTOM of the production form is the bottommost ply's stress (same claim, other edge).
+  comparisons:
+  - label: rtol at line 564
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:564
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 3695980.0
+      margin_pct: 0.0017
+      text: 'sym_0_90s BOTTOM outer-fibre ply sigma_xx (production Rust Laminate) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section: 3.69598e+06 vs 3.69592e+06 (error: 0.0017%, bound: 5.0000%)'
+      digest: ab26efb9e5c86612
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_90_0s
+  group: '36'
+  title: test_production_rust_laminate_bottom_fibre_matches_clt[sym_90_0s]
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_production_rust_laminate_bottom_fibre_matches_clt[sym_90_0s]
+  validates: BOTTOM of the production form is the bottommost ply's stress (same claim, other edge).
+  comparisons:
+  - label: rtol at line 564
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:564
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 304016.0
+      margin_pct: 0.021
+      text: 'sym_90_0s BOTTOM outer-fibre ply sigma_xx (production Rust Laminate) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section: 304016 vs 304080 (error: 0.0210%, bound: 5.0000%)'
+      digest: 641a2f2f8c728d9d
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_ply_stress.test_bending_top_and_bottom_match_clt_at.single
+  group: '36'
+  title: test_bending_top_and_bottom_match_clt_at_two_stations
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_bending_top_and_bottom_match_clt_at_two_stations
+  validates: 'Pure bending: the CLT through-thickness profile holds at centre and 3/4 span.'
+  comparisons:
+  - label: rtol at line 873
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:873
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 884
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:884
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'No margin is attached: the canonical assertion sits inside a loop body, so the extractor dedups the call sites to 2 comparisons while the run prints one residual per iteration (4 against 2). regression reports unmapped rather than guess the pairing.'
+- id: composite_ply_stress.test_bending_kappa_matches_d_inverse_m.single
+  group: '36'
+  title: test_bending_kappa_matches_D_inverse_M
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_bending_kappa_matches_D_inverse_M
+  validates: The recovered curvature is ``kappa = D^-1 M`` from the closed-form ``D`` and applied ``M``.
+  comparisons:
+  - label: rtol at line 1013
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:1013
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'No margin is attached: the canonical assertion sits inside a nested loop body, so the extractor dedups the call site to 1 comparison while the run prints one residual per iteration (4 against 1). regression reports unmapped rather than guess the pairing.'
+- id: composite_ply_stress.test_angle_ply_rotates_qbar_per_ply.single
+  group: '36'
+  title: test_angle_ply_rotates_Qbar_per_ply
+  tests:
+  - tests/validation/parity/test_composite_ply_stress_parity.py::test_angle_ply_rotates_Qbar_per_ply
+  validates: The +45 outer ply and its -45 neighbour carry opposite per-ply shear.
+  comparisons:
+  - label: rtol at line 1150
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), per-ply Qbar(theta) . eps0, sigma_xy of the +45 outer ply
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:1150
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 1161
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), per-ply Qbar(theta) . eps0, sigma_xy of the -45 neighbour ply
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:1161
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 1191
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), per-ply Qbar(theta) . eps0, sigma_xx
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_ply_stress_parity.py:1191
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'No margin is attached: two of the canonical assertions sit inside a loop body, so the extractor dedups the call sites to 3 comparisons while the run prints one residual per iteration (4 against 3). regression reports unmapped rather than guess the pairing.'
+- id: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_0_90s
+  group: '36'
+  title: test_outer_fibre_stress_matches_ccx_and_analytical[sym_0_90s]
+  tests:
+  - tests/validation/parity/test_composite_stress_ccx_parity.py::test_outer_fibre_stress_matches_ccx_and_analytical[sym_0_90s]
+  validates: Converged free-field outer-fibre ply stress against CalculiX S8R and CLT.
+  comparisons:
+  - label: rtol at line 485
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.20 S8R, *SHELL SECTION, COMPOSITE, outer-fibre ply stress
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_stress_ccx_parity.py:485
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 3695900.0
+      margin_pct: 0.2881
+      text: 'sym_0_90s TOP outer-fibre ply sigma_xx vs CalculiX 2.20 S8R, *SHELL SECTION, COMPOSITE, outer-fibre ply stress: 3.6959e+06 vs 3.68528e+06 (error: 0.2881%, bound: 5.0000%)'
+      digest: 1c0fffe0eedab8f5
+  - label: rtol at line 495
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_stress_ccx_parity.py:495
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 3695900.0
+      margin_pct: 0.0006
+      text: 'sym_0_90s TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 3.6959e+06 vs 3.69592e+06 (error: 0.0006%, bound: 5.0000%)'
+      digest: d4b6b686074242d8
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_90_0s
+  group: '36'
+  title: test_outer_fibre_stress_matches_ccx_and_analytical[sym_90_0s]
+  tests:
+  - tests/validation/parity/test_composite_stress_ccx_parity.py::test_outer_fibre_stress_matches_ccx_and_analytical[sym_90_0s]
+  validates: Converged free-field outer-fibre ply stress against CalculiX S8R and CLT.
+  comparisons:
+  - label: rtol at line 485
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.20 S8R, *SHELL SECTION, COMPOSITE, outer-fibre ply stress
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_stress_ccx_parity.py:485
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 304079.0
+      margin_pct: 3.4067
+      text: 'sym_90_0s TOP outer-fibre ply sigma_xx vs CalculiX 2.20 S8R, *SHELL SECTION, COMPOSITE, outer-fibre ply stress: 304079 vs 314803 (error: 3.4067%, bound: 5.0000%)'
+      digest: f7ada00195e3339f
+  - label: rtol at line 495
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/parity/test_composite_stress_ccx_parity.py:495
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5abc95c
+      date: '2026-10-09'
+      raw: 304079.0
+      margin_pct: 0.0004
+      text: 'sym_90_0s TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 304079 vs 304080 (error: 0.0004%, bound: 5.0000%)'
+      digest: 02613e5f6185a069
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
