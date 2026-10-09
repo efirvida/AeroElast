@@ -128,11 +128,19 @@ GREEN. **Done** (`subset_to_nodes` in the filter, `gen_cfg` init for the pre-exi
 plus a second test pinning the filter's node list, ids and element-set membership.
 
 **T4 - `element_properties` reaches the projector.** `fsi_participant.py` (`__init__` kwarg,
-the factory, the comment block) with the default keeping today's behaviour. Closes when: the
-factory-built participant on the production mesh realises rings; **`sum F` and `sum M` of the
-applied per-strip load are identical between the min-norm and the wall-flow path** (the
-invariance guard - the activation must not move the resultant); and a projector without the map
-still falls back.
+the factory, the comment block) with the default keeping today's behaviour, plus
+`_element_properties_for` in the CLI (map restricted to the mesh's element sets, withheld
+unless the kept sets cover **every** coupling element) and the 3-tuple return of `_build_mesh`.
+Closes when: the factory-built participant on the production mesh realises rings; **`sum F` and
+`sum M` of the applied per-strip load are identical between the min-norm and the wall-flow
+path**; and a projector without the map still falls back.
+
+**Done 2026-10-09** (coarse production mesh, `element_size: 1.0`, 2828 nodes): 5 tests green in
+36.8 s. The invariance guard measured `|dF| = 1.203545e-10 N` (relative **1.403e-16**) and
+`|dM| = 3.895602e-08 N.m` (relative **5.984e-16**) - machine precision, seven orders inside the
+`1e-9` bound. The *distribution* is what moves: relative L2 **92.22 %**, max `|df| = 5063.7 N`,
+and **2828 of 2828** nodes changed. The property-less element-bearing projector is bit-equal
+(`np.array_equal`) to the pre-#16 node-only projector, so the fallback is preserved exactly.
 
 **T5 - the measurement.** Run the coupled gate case (`tests/smoke_fix/base_fix/`,
 `tests/run_step1b_smoke.srm`) twice: minimum-norm (map withheld) and wall-flow. Report tip twist,

@@ -295,6 +295,7 @@ class BEMFSIParticipant:
         omega_mesh: str | None = None,
         omega_data: str = "AngularVelocity",
         omega_vertex: list[float] | None = None,
+        element_properties: dict | None = None,
     ) -> None:
         self._mesh = mesh
         self._blade_aero = blade_aero
@@ -354,20 +355,19 @@ class BEMFSIParticipant:
         # -- Reference BEM solver and projector -----------------------------
         self._bem_solver = BEMSolver(blade_aero, **self._bem_solver_kwargs)
 
-        # No ``element_properties`` is passed: this participant is the fluid side
-        # and never builds the laminate map the structural assembler uses, so every
-        # precomputed ring section is left marked ``from_element_properties = False``.
-        # The multi-cell gate refuses such a ring (``ring_section`` would give it the
-        # uniform, geometric-only ``S = 1.0``), so the strip takes the minimum-norm
-        # ``_distribute`` fallback instead of a wall-flow split.  A caller that does
-        # hold the ``Blade.get_element_properties()`` dict must hand it over if a
-        # stiffness-resolved cell split is wanted.
+        # ``element_properties`` carries the deck's section-property map to the
+        # wall-flow moment realisation.  The CLI builds it from the same generator
+        # that produced the element-bearing coupling mesh, so every wall's shear
+        # stiffness ``S = G*t`` resolves and ``_ring_section_is_realisable`` accepts
+        # the precomputed ring.  ``None`` (a direct caller, or a property-less mesh)
+        # keeps the minimum-norm ``_distribute`` fallback.
         ref_projector = ForceProjector(
             mesh,
             blade_aero,
             span_direction=self._span_dir,
             normal_direction=self._normal_dir,
             tangential_direction=self._tangential_dir,
+            element_properties=element_properties,
         )
         self._projector = ref_projector
 
@@ -1224,6 +1224,7 @@ def build_from_config(
     cfg: dict,
     config_file: str | Path = "precice-config.xml",
     viz_mesh: MeshModel | None = None,
+    element_properties: dict | None = None,
 ) -> "BEMFSIParticipant":
     """Construct a :class:`BEMFSIParticipant` from a YAML config dict.
 
@@ -1239,6 +1240,12 @@ def build_from_config(
     config_file : str or Path
         Override for the preCICE XML path (takes precedence over
         ``cfg["config_file"]`` when explicitly provided).
+    viz_mesh : MeshModel or None
+        Full mesh kept for surface VTU output (optional).
+    element_properties : dict or None
+        The deck's section-property map for the coupling mesh, forwarded to the
+        participant's ``ForceProjector``; ``None`` keeps the minimum-norm
+        ``_distribute`` fallback.
     """
     bem_cfg = cfg.get("bem", {})
     output_cfg = cfg.get("output", {})
@@ -1293,4 +1300,5 @@ def build_from_config(
         omega_mesh=omega_mesh,
         omega_data=omega_data,
         omega_vertex=omega_vertex,
+        element_properties=element_properties,
     )

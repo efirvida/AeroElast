@@ -67,8 +67,12 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
+
+if TYPE_CHECKING:
+    from aeroelast.core.mesh import MeshModel
 
 _TEMPLATE = """\
 # BEM-FSI fluid participant configuration
@@ -120,8 +124,82 @@ output:
 """
 
 
+def _element_properties_for(mesh: "MeshModel", generator: object) -> dict | None:
+    """Build the deck's section-property map for the coupling mesh, or ``None``.
+
+    The wall-flow moment realisation resolves each coupling element through
+    ``mesh.element_sets[set_name]``, so only the keys the projection mesh
+    actually carries are useful here.  A key the mesh does not have is dead
+    weight, and ``_RingSection.from_element_properties`` is set from
+    ``element_properties is not None`` rather than from whether a wall resolved
+    a property: a partially matching map would claim a physical split while
+    some walls silently keep the geometric ``S = 1.0``.
+
+    The map is therefore restricted to ``mesh.element_sets`` and returned only
+    when the kept sets cover every coupling element.  When the generator has no
+    deck data (a mesh loaded from file, or a generator without NuMAD data),
+    when nothing matches, or when coverage is partial, the helper returns
+    ``None`` so the caller keeps the minimum-norm ``_distribute`` fallback - the
+    honest result beats a half-resolved split.
+
+    Parameters
+    ----------
+    mesh : MeshModel
+        The final (already filtered) coupling mesh.
+    generator : object
+        The generator instance that produced the mesh.
+
+    Returns
+    -------
+    dict or None
+        ``{element_set_name: property}`` restricted to the mesh's element sets,
+        or ``None``.
+    """
+    numad_data = getattr(generator, "numad_mesh_data", None)
+    if not numad_data:
+        return None
+
+    from aeroelast.models.blade.model import build_rust_properties  # noqa: PLC0415
+
+    props = build_rust_properties(numad_data)
+    props = {name: prop for name, prop in props.items() if name in mesh.element_sets}
+    if not props:
+        logging.warning(
+            "[BEM-FSI] The deck has no section property matching the coupling mesh's "
+            "element sets; withholding the map so strips use the minimum-norm distribution"
+        )
+        return None
+
+    covered: set = set()
+    for name in props:
+        covered.update(mesh.element_sets[name].element_ids)
+    if len(covered) != len(mesh.elements):
+        logging.warning(
+            "[BEM-FSI] %d of %d coupling elements have no section property; "
+            "withholding the map so strips use the minimum-norm distribution",
+            len(mesh.elements) - len(covered),
+            len(mesh.elements),
+        )
+        return None
+    return props
+
+
 def _build_mesh(cfg: dict, config_path: Path):
-    """Build or load the coupling mesh from the YAML ``mesh`` section."""
+    """Build or load the coupling mesh from the YAML ``mesh`` section.
+
+    Returns
+    -------
+    mesh : MeshModel
+        The coupling mesh (node-set filtered when ``coupling_node_set`` is set).
+    viz_mesh : MeshModel or None
+        The full, unfiltered mesh kept for surface VTU output; ``None`` when no
+        filter was applied.
+    element_properties : dict or None
+        The deck's section-property map restricted to the coupling mesh's
+        element sets, when the generator carries deck data and the sets cover
+        every coupling element; ``None`` otherwise (see
+        :func:`_element_properties_for`).
+    """
     from aeroelast.core.config import MeshGeneratorType, MeshSource
     from aeroelast.core.mesh import (
         BladeMesh,
@@ -136,7 +214,10 @@ def _build_mesh(cfg: dict, config_path: Path):
     source = mesh_cfg.get("source", "generator")
     # Only the generator branch reads it; the node-set filter below asks for
     # ``coupling_node_set`` only when the source is not a file.
+    # ``generator`` is bound only by the BladeMesh/RotorMesh generators; the
+    # deck-data lookup below is skipped for every generator without one.
     gen_cfg: dict = {}
+    generator = None
 
     def _resolve(path_str: str) -> str:
         p = Path(path_str)
@@ -301,12 +382,20 @@ def _build_mesh(cfg: dict, config_path: Path):
             len(mesh.elements),
         )
 
+    # The deck's section-property map is built from the very generator that
+    # produced the mesh, after the node-set filter, so coverage is measured on
+    # the filtered mesh and the keys match its element sets.  A file-sourced
+    # mesh has no generator and keeps the minimum-norm distribution.
+    element_properties = None
+    if generator is not None:
+        element_properties = _element_properties_for(mesh, generator)
+
     logging.info(
         "[BEM-FSI] Mesh ready: %d nodes, %d elements",
         len(mesh.nodes),
         len(mesh.elements),
     )
-    return mesh, viz_mesh
+    return mesh, viz_mesh, element_properties
 
 
 def main(argv=None) -> int:
@@ -400,7 +489,7 @@ def main(argv=None) -> int:
 
     # Build the mesh (user's responsibility to configure)
     try:
-        mesh, viz_mesh = _build_mesh(cfg, config_path)
+        mesh, viz_mesh, element_properties = _build_mesh(cfg, config_path)
     except Exception as exc:
         logging.error("Failed to build mesh: %s", exc)
         return 1
@@ -409,7 +498,9 @@ def main(argv=None) -> int:
     from aeroelast.solvers.bem.fsi_participant import build_from_config
 
     try:
-        participant = build_from_config(mesh, cfg, viz_mesh=viz_mesh)
+        participant = build_from_config(
+            mesh, cfg, viz_mesh=viz_mesh, element_properties=element_properties
+        )
         participant.run()
     except Exception as exc:
         logging.exception("BEM-FSI participant failed: %s", exc)

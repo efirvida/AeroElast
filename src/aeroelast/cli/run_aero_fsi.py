@@ -286,7 +286,7 @@ def main(argv=None, *, default_backend: str | None = None) -> int:
 
     try:
         logger.info("[AERO-FSI] Building coupling mesh...")
-        mesh, viz_mesh = _build_mesh(cfg, config_path)
+        mesh, viz_mesh, _ = _build_mesh(cfg, config_path)
         logger.info(
             "[AERO-FSI] Mesh build completed: nodes=%d elements=%d",
             len(mesh.nodes),
