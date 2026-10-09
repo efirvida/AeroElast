@@ -455,5 +455,3 @@ magnitudes agree, and this is the measured pair.
 - "Rung 1 is `552566d` (the last pre-merge state)" understates it: the campaign
   ran at `b5d369e`, two tooling commits later.
 - "The campaign, pre-merge" is true of the 2026-10-04 merge, not of `552566d`.
-
-
