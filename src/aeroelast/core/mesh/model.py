@@ -505,7 +505,90 @@ class MeshModel:
             element_map[element.id] = new_element
 
         for name, node_set in self.node_sets.items():
-            subset_nodes = {node_map[node_id] for node_id in node_set.node_ids if node_id in node_map}
+            subset_nodes = {
+                node_map[node_id] for node_id in node_set.node_ids if node_id in node_map
+            }
+            if subset_nodes:
+                submesh.add_node_set(NodeSet(name, subset_nodes))
+
+        for name, element_set in self.element_sets.items():
+            subset_elements = {
+                element_map[element.id]
+                for element in element_set.elements
+                if element.id in element_map
+            }
+            if subset_elements:
+                submesh.add_element_set(ElementSet(name, subset_elements))
+
+        return submesh
+
+    def subset_to_nodes(self, node_ids: Iterable[int]) -> "MeshModel":
+        """Create a new mesh containing only the requested nodes, keeping elements.
+
+        This method selects by *node set*, whereas :meth:`extract_submesh`
+        selects by *element set*. It exists so a coupling mesh can keep the
+        skin elements on an unchanged node list (issue #16).
+
+        The returned mesh has exactly the requested nodes, in the order given
+        (the caller's list is the coupling vertex order), plus every source
+        element all of whose node IDs are in that set, in source element order.
+        **Node IDs are preserved**, because the selection is id-based and the
+        previous node-set filtering kept them; a repeated id in ``node_ids`` is
+        dropped after its first appearance. Element IDs are reassigned by the
+        new elements' own counter, as in :meth:`extract_submesh`. Like
+        :meth:`extract_submesh` too, the deprecated per-element ``thickness`` is
+        **not** propagated: the property map is the supported channel for shell
+        thickness, and the setter would emit one ``DeprecationWarning`` per
+        surviving element.
+
+        Parameters
+        ----------
+        node_ids : Iterable[int]
+            IDs of the nodes to keep, in the desired order. Every ID must
+            exist in this mesh.
+
+        Returns
+        -------
+        MeshModel
+            A new mesh. If no source element has all of its nodes in
+            ``node_ids``, the result is a nodes-only mesh (no exception).
+
+        Raises
+        ------
+        ValueError
+            If any requested node ID is absent from this mesh. Up to three of
+            the missing IDs are named in the message.
+        """
+        requested_ids = list(dict.fromkeys(node_ids))
+
+        missing = [nid for nid in requested_ids if nid not in self.node_map]
+        if missing:
+            raise ValueError(f"Requested {len(missing)} node(s) not present in mesh: {missing[:3]}")
+
+        requested_set = set(requested_ids)
+        submesh = MeshModel()
+        node_map: Dict[int, Node] = {}
+
+        for nid in requested_ids:
+            node = self.node_map[nid]
+            new_node = Node(node.coords.copy(), geometric_node=node.geometric_node)
+            # Keep the source id: the id is the selection key, the counter value
+            # stays above every preserved id, so later nodes cannot collide.
+            new_node.id = node.id
+            submesh.add_node(new_node)
+            node_map[nid] = new_node
+
+        element_map: Dict[int, MeshElement] = {}
+        for element in self.elements:
+            if not all(nid in requested_set for nid in element.node_ids):
+                continue
+            new_nodes = [node_map[nid] for nid in element.node_ids]
+            new_element = MeshElement(new_nodes, element.element_type)
+            submesh.add_element(new_element)
+            element_map[element.id] = new_element
+
+        for name, node_set in self.node_sets.items():
+            subset_nodes = {node_map[nid] for nid in node_set.node_ids if nid in node_map}
             if subset_nodes:
                 submesh.add_node_set(NodeSet(name, subset_nodes))
 
