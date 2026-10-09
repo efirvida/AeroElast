@@ -2,7 +2,7 @@
 
 Status: projector load-frame fix **committed as `7a84da1`** and unit-verified
 2026-10-08; it is NOT the #19 cause; the anchor holds (`campaign` 500/500) and
-the origin/main-side ladder is unblocked (jobs 11610978-11610980)
+the origin/main-side ladder runs (jobs 11611050-11611052)
 Owner: this session (2026-10-07, resumed 2026-10-08)
 Blocks: every roadmap item of issue #18 that needs a production FSI run — the
 campaign relaunch, the #13 production measurement, and the smoke gate recorded in
@@ -374,9 +374,25 @@ magnitudes agree, and this is the measured pair.
       campaign revision's - the feature is OFF, so the rung behaves as it did
       without it. The insertion is labelled `DIAGNOSTIC SHIM` in each
       worktree's `rotor.py` and is not for commit. First three rungs on the
-      consensus case: `origmain` = `5f22f51` (job `11610978`, the merge's
+      consensus case: `origmain` = `5f22f51` (the merge's
       **second parent** - if it converges, the merge resolution itself is the
-      defect), `ac2e9e8` (`11610979`) and `fee690` = `4fee690` (`11610980`).
+      defect), `ac2e9e8` and `fee690` = `4fee690`.
+- [ ] T6e Those three (`11610978`-`11610980`) returned **zero windows in 3 h**,
+      and it was not the coupling: the **fluid** participant died with
+      `RuntimeError: XML parser was unable to open configuration file
+      "<RUN_DIR>/precice-config.xml"` and the solid sat in preCICE's
+      "Setting up primary communication" handshake until the timeout. The
+      cause is a path-resolution difference on the origin/main side:
+      `run_bem_fsi.py:331-333` resolves `config_file` against the **workdir**
+      (`cfg["config_file"] = str(workdir / cfg["config_file"])`), while HEAD
+      resolves it against the **yaml's directory** (`_resolve`).
+      `tests/smoke_fix/frame_ab_abs/` is the same case with `config_file`
+      spelled absolutely - verified that only that line differs from
+      `frame_ab/` - and the three rungs were resubmitted with it
+      (`11611050` `origmain`, `11611051` `ac2e9e8`, `11611052` `fee690`). The
+      healthy rungs already recorded (`campaign`, `nofeed`, `headfix`) ran with
+      the relative spelling; the XML file they loaded is the same one, so
+      nothing but the path spelling changes.
 - [ ] T6c **The `exp_feedback_off` yamls do not work at HEAD** (checked
       2026-10-08): `deformed_twist`/`deformed_radius` were declared in
       `BEMConfig` by `d571917` on the *local* line, and the merge kept the
