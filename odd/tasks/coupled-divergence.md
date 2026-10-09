@@ -1,8 +1,46 @@
 # Feature: the coupled rotor path diverges at t ≈ 1.9 s
 
-Status: projector load-frame fix **committed as `7a84da1`** and unit-verified
-2026-10-08; it is NOT the #19 cause; the anchor holds (`campaign` 500/500) and
-the origin/main-side ladder runs (jobs 11611050-11611052)
+> **Handoff 2026-10-08 — #19 and #26 are CLOSED and pushed.** Read this block first;
+> the rest of the file is the ladder and stays as the record.
+>
+> **Closed.** #19 (the coupling did not contract) and #26 (the BEM pair rode the
+> section, not the rotor plane). Fixes: `6765633` (the projection keeps the
+> reference geometry; the BEM loads still follow the deformation) and `7a84da1`
+> (the load frame); guards `e3278ba` and the rewritten
+> `tests/validation/bem/test_force_projection_load_frame.py`. Verified on the
+> campaign's own case at `max-time 5.0`: **500/500 windows, mean 2.60 sub-iterations**
+> against the 2026-09-30 campaign's 4.08. Ladders, the consequence table and the
+> known trade-off are in `docs/validation_closures.md`, section "#19 y #26"; the
+> store and the roadmap (#18) are reconciled.
+>
+> **In flight when this handoff was written.** The 30 s gate,
+> `tests/run_step1b_smoke.srm`, job `11611263`, writing to
+> `$SCRATCH/smoke_fix_results/base_fix/` (`fluid/bem_report.csv` carries thrust and
+> tip disp; `precice-Solid-iterations.log` carries the windows). At 277 windows it
+> read 277 converged (100%), mean 3.23. When it lands: record the steady thrust
+> against the rigid anchor 2.541 MN and the window statistics, then close T7.
+>
+> **Left open on purpose.** (a) The campaign re-anchor — unblocked, but it is a long
+> cluster run (5 cases x 100 s) and the user's decision; the new baseline carries
+> two declared moves (load frame, projection geometry) versus the stored snapshots.
+> (b) `reference_projection_geometry_approximation`, the residual gap the fix
+> introduces: the within-strip distribution and the AC arm are read from the
+> reference geometry. The fidelity follow-up is to make the `#11` derivation
+> deformation-robust (hysteresis-free ring selection, LE/TE tie-break, chord-axis
+> continuity) instead of frozen — the campaign's own projector followed the
+> deformation and contracted, so a smooth derivation exists.
+>
+> **Instrument notes that cost time, so they are not rediscovered.** The rung case
+> lives in `tests/smoke_fix/frame_ab{,_abs}/` (the second one spells `config_file`
+> absolutely because the `origin/main` side resolves it against the workdir while
+> HEAD resolves it against the yaml's directory). Shadowing an old Python against
+> the venv `_aeroelast` (2026-10-04) needs two shims: the five K_G-deformed /
+> omega-rebuild kwargs (`rotor.py`) and a `len(rotor_perf_tuple) >= 6` fallback. The
+> worktrees' shims are labelled `DIAGNOSTIC` and are not for commit. Startup varies
+> 5-45 min with node contention: budget 3.5 h and cut a run yourself as soon as
+> about 20 windows show the pattern (broken = 30 from window 2; healthy = 3-15).
+
+Status: #19 and #26 closed 2026-10-08; the 30 s gate was in flight
 Owner: this session (2026-10-07, resumed 2026-10-08)
 Blocks: every roadmap item of issue #18 that needs a production FSI run — the
 campaign relaunch, the #13 production measurement, and the smoke gate recorded in
