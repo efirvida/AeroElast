@@ -412,18 +412,29 @@ magnitudes agree, and this is the measured pair.
       converges 500/500. What breaks is *this* projector's constructor reacting
       to the deformation - the `#11` rewrite of `force_projection.py`
       (+151/-285 against the campaign's).
-- [ ] T6i Attribution among the constructor's deformation-dependent outputs
-      (jobs `11611101` `frzsign`, `11611102` `frzac`, `11611103` `frzgrid`), each
-      one keeping HEAD's rebuild and pinning a single attribute to the reference
-      projector afterwards: `_strip_moment_axis_sign` (a discrete +/-1 from the
-      LE/TE blunt rule - the one candidate that can *jump*), `_strip_ac_offsets`
-      (the AC->centroid moment arm) and `_strips` (node-to-strip assignment plus
-      the strip widths and offsets). A pin that restores contraction names the
-      physical quantity the fix has to keep deformation-independent; note the
-      code already states the intent for its own neighbour - `_strip_node_indices
-      is intentionally kept as the *reference* assignment and is NOT updated from
-      the deformed projector here` - and the projector reassigns internally
-      anyway.
+- [x] T6i Attribution done - **no single geometric output is the lever; the
+      sum is.** All rungs are HEAD at `7a84da1` with the rebuild kept and one
+      attribute pinned to the reference projector afterwards:
+
+      | pin | windows | converged | first 12 |
+      | --- | ---: | ---: | --- |
+      | none (HEAD) | 500 | 39 (7.8%) | 23 30 30 30 30 30 30 30 |
+      | `_strip_moment_axis_sign` (`11611101`) | 6 | 1 (17%) | 15 30 30 30 30 30 |
+      | `_strip_ac_offsets` (`11611102`) | 18 | 8 (44%) | 20 20 30 30 30 30 24 17 18 12 30 30 |
+      | `_strips` (`11611103`) | 18 | 2 (11%) | 18 12 30 30 30 30 30 30 |
+      | `_strip_ring_groups` + `_strip_ring_sections` (`11611116`) | 24 | 1 (4%) | 15 30 30 30 30 30 |
+      | **all of them** (`11611119`) | 39 | **39 (100%)** | 11 7 8 11 10 8 7 9 9 8 7 8 |
+
+      So the coupling has no margin to spare: each deformation-dependent piece
+      of the projected geometry contributes a small gain, none of them alone
+      crosses the threshold, and their sum does. `frzall` (100%) is exactly
+      `projfrozen` (100%) in effect, which also says the rebuild's *other* side
+      effects are irrelevant - only the geometry values matter.
+      Note the two main pieces are the *distribution* geometry: the strip grid
+      and the ring groups/sections (`realise_section_load`'s inputs), which is
+      why pinning either one alone leaves the other free. Job `11611231`
+      (`frzdist`) tests exactly that pair, leaving the AC arm and the moment
+      sign free, to fix the minimal shape of the fix.
 - [ ] T6e Those three (`11610978`-`11610980`) returned **zero windows in 3 h**,
       and it was not the coupling: the **fluid** participant died with
       `RuntimeError: XML parser was unable to open configuration file
