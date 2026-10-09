@@ -397,17 +397,33 @@ magnitudes agree, and this is the measured pair.
       campaign: `solvers/bem/fsi_participant.py` (+389/-179) and
       `solvers/bem/force_projection.py` (+151/-285), plus `standalone.py`
       (2 lines).
-- [ ] T6h Two experiments running (jobs `11611084`, `11611085`, 1 h budget)
-      that split those two files' effects: `projfrozen` = HEAD with the
-      **reference projector kept** instead of rebuilding it on the deformed mesh
-      (`projector = self._projector` in `_compute_forces`), which removes the
-      applied load's deformation-dependent geometry (strip membership, chord
-      axis, AC arm) - the one feedback `nofeed` did not freeze; and `bemhead` =
-      the `origmain` tree carrying **HEAD's** `fsi_participant.py`,
-      `force_projection.py` and `standalone.py`, which puts the whole fluid side
-      of HEAD on a tree whose solid side is the healthy origin/main one. If
-      `projfrozen` contracts, the defect is the projector's per-sub-iteration
-      rebuild; if `bemhead` fails, the whole fluid side is implicated.
+- [x] T6h **Found it: the lever is the projector rebuilt on the deformed mesh.**
+      Job `11611087` (`projfrozen`, HEAD but keeping the **reference** projector
+      instead of rebuilding it per sub-iteration) reads **94 of 94 windows
+      (100%)**, first 12 = `11 7 8 11 10 8 7 9 9 8 7 8` - as healthy as the
+      campaign. Job `11611088` (`bemhead`, the healthy `origmain` tree carrying
+      HEAD's `fsi_participant.py` + `force_projection.py` + `standalone.py`)
+      reads **2 of 24 (8.3%)**, i.e. it fails exactly like HEAD. So the defect
+      lives in HEAD's fluid files, and the mechanism is the applied load's
+      geometry following the deformation.
+      But the rebuild itself is not the bug: the **campaign rebuilds the
+      projector on the deformed mesh too**
+      (`b5d369e:fsi_participant.py:1045`, same call, same arguments) and it
+      converges 500/500. What breaks is *this* projector's constructor reacting
+      to the deformation - the `#11` rewrite of `force_projection.py`
+      (+151/-285 against the campaign's).
+- [ ] T6i Attribution among the constructor's deformation-dependent outputs
+      (jobs `11611101` `frzsign`, `11611102` `frzac`, `11611103` `frzgrid`), each
+      one keeping HEAD's rebuild and pinning a single attribute to the reference
+      projector afterwards: `_strip_moment_axis_sign` (a discrete +/-1 from the
+      LE/TE blunt rule - the one candidate that can *jump*), `_strip_ac_offsets`
+      (the AC->centroid moment arm) and `_strips` (node-to-strip assignment plus
+      the strip widths and offsets). A pin that restores contraction names the
+      physical quantity the fix has to keep deformation-independent; note the
+      code already states the intent for its own neighbour - `_strip_node_indices
+      is intentionally kept as the *reference* assignment and is NOT updated from
+      the deformed projector here` - and the projector reassigns internally
+      anyway.
 - [ ] T6e Those three (`11610978`-`11610980`) returned **zero windows in 3 h**,
       and it was not the coupling: the **fluid** participant died with
       `RuntimeError: XML parser was unable to open configuration file
