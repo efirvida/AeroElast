@@ -1,0 +1,4 @@
+# The #19 bisect case the 2026-10-08 ladder ran (see odd/tasks/coupled-divergence.md).
+# Nothing here is a run artifact; the k-th rung wrote its outputs to
+# $SCRATCH/frame_ab/<label>/.
+*.vtu

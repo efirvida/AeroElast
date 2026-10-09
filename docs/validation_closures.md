@@ -987,3 +987,77 @@ borrando la prosa escrita a mano y los bloques `measured` (grupos 6, 20, 34 y 35
 Mientras siga abierto: **correr `tools/tests` con `-m "not slow"` y verificar `git status --short`
 después de cualquier corrida de tools.** El detalle está en
 `odd/tasks/production-path-and-independent-arbiters.md`.
+
+
+### #19 y #26: la proyección conserva la geometría de referencia, y el par del BEM rueda en el plano del rotor (2026-10-08)
+
+Los dos ítems P0 del roadmap se cierran juntos porque comparten archivo, aunque son independientes:
+el #26 es un error de *frame* con la lectura arbitrada desde el fuente de `ccblade`, y el #19 era la
+no-contracción del acople implícito.
+
+**#26 — `Np`/`Tp` ruedan en el plano del rotor, no sobre los ejes de la sección.** `ccblade`
+descompone la fuerza de sección **en el plano del rotor** (`cn = cl·cos(phi) + cd·sin(phi)` con
+`phi` medido desde ese plano), así que `Np` va por el normal del eje del rotor y `Tp` por la
+tangencial en el plano — un solo frame para la pala entera. `9a3923e` montaba el par sobre los ejes
+de cada sección, que son ese frame **rotado por el twist local**, así que cada carga aplicada era el
+vector físico rotado por `theta`. Medido en la malla real y el deck real a rated, con las dos
+aplicaciones descompuestas en el mismo frame y el brazo `blade_aero.r`: in-plane `+11.36%`, eje del
+rotor `-0.83%`, momento edgewise de raíz `-3.97%` contra la aplicación correcta. Por estación el
+normal de sección está a `22.245°` del normal del rotor en `frac 0.03` (39.18% de `|F|` sobre la
+tangencial) y baja a `1.176°` en la punta; la dispersión entre estaciones es `24.410°`. La identidad
+sobre nuestra propia salida, `atan2(Tp,Np) + atan2(cd,cl) - twist = alpha`, cierra a
+`max |residuo| = 1.4e-14°` sobre las 50 estaciones (`tools/diagnose_zhou_tp_frame.py`).
+**Arreglado en `7a84da1`**: la carga se aplica sobre `_rotor_normal_dir`/`_rotor_tangential_dir`,
+construidos una vez desde el par configurado con `_load_frame`; el frame de sección queda como datum
+del centro aerodinámico y del eje del pitching. El guard es
+`tests/validation/bem/test_force_projection_load_frame.py`, reescrito al reading del rotor (**4 de
+sus 5 guards fallan antes del cambio**) y con la malla twisted como caso de respuesta conocida: el
+tubo sin twist del grupo 35 no puede discriminar los dos frames. 122 tests verdes en el conjunto
+afectado (bem 58; projector + ac datum + load frame 22; blade + parity + rotor + multicell 42).
+**Re-ejecutar si cambia**: `solvers/bem/force_projection.py`, los pares de dirección configurados, o
+el deck.
+
+**#19 — la no-contración era la geometría de la proyección siguiendo la deformación.** El
+participante BEM reconstruía el `ForceProjector` sobre la malla deformada en **cada sub-iteración**,
+así que la grilla nodo→franja, el brazo al AC y el eje del momento de cabeceo se movían con la
+deformación mientras las cargas también. Esa ganancia extra lleva al acople particionado (IQN-ILS)
+por encima de su umbral de contracción. La escalera, sobre el caso propio de la campaña a
+`max-time 5.0`, con el Rust constante y el caso consenso `tests/smoke_fix/frame_ab_abs/`:
+
+| árbol / experimento | ventanas | convergidas |
+| --- | ---: | ---: |
+| `campaign` = `b5d369e` (lado local del merge) | 500 | 500 (100%) |
+| `origmain` = `5f22f51` (2º padre del merge) | 206 | 185 (89.8%) |
+| `ac2e9e8` / `fee690` = `4fee690` (lado origin/main) | 243 / 217 | 232 (95.5%) / 192 (88.5%) |
+| **HEAD** (`7a84da1`, con el fix del #26) | 500 | 39 (7.8%) |
+| `headfix` / `nofeed` (radios+twist congelados) | 159 / 500 | 14 (8.8%) / 144 (28.8%) |
+| `projfrozen` (projector de referencia) | 94 | **94 (100%)** |
+| `bemhead` (árbol `origmain` + fluido de HEAD) | 24 | 2 (8.3%) |
+| `frzsign` / `frzac` / `frzgrid` / `frzrings` / `frzdist` | — | 17% / 44% / 11% / 4% / 9.5% |
+| `frzall` (signo + brazo + grilla + anillos) | 39 | **39 (100%)** |
+| **`fixfull` (el fix en el árbol)** | 500 | **500 (100%)**, media 2.60, máx 11 |
+
+Dos lecturas valen más que el número final: **los dos lados del merge son sanos por separado**
+(`b5d369e` 100% y `5f22f51` 89.8%), así que la regresión es la **combinación** que armó `26ffe6e`,
+no un commit de ninguno de los dos; y **ninguna salida geométrica sola es la palanca** — fijar el
+signo del momento, el brazo al AC, la grilla de franjas o los grupos/anillos deja la contracción
+rota, mientras fijarlos todos la restaura. El camino de anillos ni siquiera está activo en el fluido
+(no hay `element_properties`, los anillos quedan no-físicos y se cae a `_distribute`), lo que
+confirma que el efecto es la suma y no una pieza discreta. De paso, el fix deja el acople mejor que
+el baseline sano: **media 2.60 sub-iteraciones por ventana contra 4.08 de la campaña**.
+**Arreglado en `6765633`**: `_compute_forces` usa el projector de referencia; la geometría del BEM
+sigue la deformación intacta (`_compute_deformed_geometry` y `_rebuild_bem_solver` sin tocar) y
+`_rebuild_projector` queda sin llamadores, así que se elimina. Guard `e3278ba`
+(`test_force_projection_geometry_stays_on_the_reference`): para el mismo resultado BEM **deformado** —
+que se assertea distinto del rígido, para que se vea que el feedback corre — las fuerzas nodales
+tienen que ser las del projector de referencia. **RED contra `7a84da1`: 9129/9129 elementos
+difieren, diferencia absoluta máxima 1372.75 N**; verde con el fix. 38 tests verdes (participante +
+multicell 23; de-loading + rated-twist 15).
+**Contra conocida, para el revisor**: la distribución *dentro* de la franja ya no ve los offsets
+deformados — escala de cuerda contra una deformación de escala de pala. El projector de la propia
+campaña *sí* seguía la deformación y contraía, así que el camino fino queda abierto: hacer la
+derivación del lote #11 robusta a la deformación (selección de anillo sin switch, tie-break LE/TE y
+continuidad del eje de cuerda sin histéresis) en vez de congelarla. Es fidelidad, no este cierre.
+**Re-ejecutar si cambia**: `solvers/bem/fsi_participant.py` (`_compute_forces`), el projector, o el
+esquema de acople en `precice-config.xml`. La verificación larga es el gate de 30 s
+(`tests/run_step1b_smoke.srm`, job `11611263`) y, después, el re-anclaje de la campaña.

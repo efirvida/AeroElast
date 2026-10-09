@@ -49,9 +49,10 @@ out_of_scope:
       The conservative force projection and its load-frame guard: force
       conservation, node assignment, and that the loads ride the section
       rather than a fixed global axis. They assert properties of our own
-      load path, and the defects they document live in gaps.yaml, where
-      force_projection_sense_p5 cites the second of these as its
-      evidence.
+      load path, and the defects they document live in gaps.yaml while they
+      are open; the closure record (docs/validation_closures.md, "#19 y #26",
+      2026-10-08) names the second of these as its evidence.
+
 
   - files:
       - tests/validation/bem/test_force_projection_ac_datum.py
