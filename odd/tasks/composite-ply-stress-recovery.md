@@ -1,6 +1,7 @@
 # Feature: composite outer-fibre stress recovery is not delivered yet (#27, item 4 of #18)
 
-Status: T1 and T2 done 2026-10-09 (RED `95bfbab`, GREEN `208f220`); T3 open
+Status: T1, T2/T2b and T3 done 2026-10-09 (`95bfbab`, `208f220`, `06f8be0`, `bd4cc05`);
+T4 next, T5-T7 open
 Owner: this session (2026-10-09)
 Related: issue #27 (roadmap item 4, `P1`, successor of #3), issue #18 (roadmap and
 order of record), `docs/validation/gaps.yaml` id `composite_stress_recovery`,
@@ -9,6 +10,41 @@ stiffness half, closed), `odd/tasks/composite-bend-twist-verdict.md` (the #3 rec
 New issue required by the roadmap rule: the smeared recovery found here is an unknown
 found mid-item, so it gets its own issue and its own row in #18 instead of being
 absorbed into #27.
+
+> **Handoff 2026-10-09 - read this block first.**
+>
+> **Done and committed** on `integrate/origin-main-2026-09-30` (local, nothing pushed):
+> `95bfbab` T1 RED (6 failed, 1 passed: the smeared 2.0000 MPa against the closed form
+> 3.6959 / 0.3041, i.e. -45.9 % / +557.7 %); `208f220` T2 + T2b GREEN (14 passed;
+> isotropic bit-identical, 0 of 108 captured arrays differ; the Rust `_aeroelast.Laminate`
+> production form resolves the same stack as `CompositeShellProperty` with max |diff|
+> 0.000e+00 Pa; a raw ABD dict keeps the thickness mean and warns once per element set);
+> `06f8be0` this note; `bd4cc05` T3 coverage (20 passed in 2.95 s: pure bending
+> `kappa = D^-1 M` within 0.0026 % / 0.72 % and station-independent to 9.9e-06, the +/-45
+> discrimination lives in `sigma_xy` because a balanced laminate has `A16 = A26 = 0`, and
+> the `MIDDLE` tie-break is pinned by ply index).
+>
+> **Half done, next step: T4, the CalculiX row test.** Its writer failed on 2026-10-09
+> ("assistant reported an error") and **created no file** -
+> `tests/validation/parity/test_composite_stress_ccx_parity.py` does not exist. Relaunch
+> with the same specification: the membrane plate of the committed ply-stress test,
+> `[0/90]s` and `[90/0]s`, each code on its own mesh sequence, read at the free-field centre
+> (E4), `TOL_CCX = 0.05`, two references (CalculiX `kind="code"`, closed form
+> `kind="analytical"`), and the E2/E3 characterisation in the docstring. Expected green:
+> the measured ours-vs-CCX gap is about 0.07 % for `[0/90]s` and 1.6 % for `[90/0]s`.
+>
+> **Environment:** every command needs
+> `bash -lc 'module load glu gcc/14.2.0_sequana; export LD_LIBRARY_PATH=/scratch/app_sequana/gcc/14.2.0/lib64:$LD_LIBRARY_PATH; ...'`
+> or the import dies on `CXXABI_1.3.15`.
+>
+> **The working tree is not ours right now:** a staged `CLAUDE.md -> AGENTS.md` rename plus
+> modified `docs/blade_input_divergence_utd_vs_official.md`,
+> `tests/test_iea15mw_v05_structural_properties.py`, `odd/tasks/token-efficiency.md` and
+> `scripts/---` appeared during this session and belong to another session. Never
+> `git add -A` here.
+>
+> **Review workload:** `assess` flagged `reviewDue: slice_budget_reached` - `208f220` is 611
+> insertions against a ~400-line soft budget. T5 is the place to split.
 
 ## Why this exists
 
@@ -156,7 +192,17 @@ must be corrected in the same push as the closure.
   `compute_nodal_stresses_all_layers_dict` (`src/aeroelast/solvers/fsi/rotor.py:2535`), so a
   ply-wise field is a new capability with no consumer yet; it gets its own issue if it is
   ever wanted, and it would double this item's review workload for no claim.
-* **T4 - CalculiX row.** Converged-vs-converged outer-fibre comparison against S8R with
+* **T3 done 2026-10-09: `bd4cc05`.** 20 passed in 2.95 s in
+  `tests/validation/parity/test_composite_ply_stress_parity.py`. Two premises of this plan
+  did not survive measurement and the test records why: the outer plies of a symmetric
+  `[0/90]s` stack share the same angle, so `BOTTOM` is exactly `-TOP` at the outer fibres
+  (the non-mirror pair is the internal `z = +/-h/4` pair, +0.1356 MPa at 0 deg against
+  -0.0109 MPa at 90 deg), and under uniaxial load the `+/-45` plies share the same global
+  `sigma_xx`, so the angle-ply discriminator is `sigma_xy` (+8.1619e+05 against -8.0127e+05
+  against a thickness mean of 0), on a 16x4 mesh where the 8x2 clamped-edge boundary layer
+  had faked a 2.4 % `sigma_xx` split that refinement removes.
+* **T4 - CalculiX row. BLOCKED 2026-10-09: the writer agent failed and left no file.**
+  Converged-vs-converged outer-fibre comparison against S8R with
   `*SHELL SECTION, COMPOSITE` on each code's own mesh sequence, read in the free field
   (E4), bound in the style of the isotropic sibling (`TOL_CCX = 0.05`). The row's notes
   carry the measured E2/E3 characterisation of what that CalculiX value is.
