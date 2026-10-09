@@ -1,7 +1,7 @@
 # Feature: composite outer-fibre stress recovery is not delivered yet (#27, item 4 of #18)
 
-Status: T1-T4 done 2026-10-09 (`95bfbab`, `208f220`, `06f8be0`, `bd4cc05`, `62d806a`);
-T5 next, T6-T7 open
+Status: T1-T5 done 2026-10-09 (`95bfbab`, `208f220`, `06f8be0`, `bd4cc05`, `62d806a`);
+T6-T7 open
 Owner: this session (2026-10-09)
 Related: issue #27 (roadmap item 4, `P1`, successor of #3), issue #18 (roadmap and
 order of record), `docs/validation/gaps.yaml` id `composite_stress_recovery`,
@@ -238,11 +238,36 @@ must be corrected in the same push as the closure.
   verification (loaded-edge singularity; an expanded FRD whose midsurface node carries
   zero). Review workload: 578 insertions, the same order as `208f220` (611), so T5 carries
   the store row and T6 the prose and issue payload instead of folding more into this file.
-* **T5 - store.** Row under group 18 (or a new group with its own `groups.yaml` entry),
-  `gaps.yaml` `composite_stress_recovery` removed or sharpened to whatever remains
-  unvalidated, gates re-run with `tools/validation_matrix.py` (`check`, `regression`).
+* **T5 - store. Done 2026-10-09.** New group `36` (`composite_ply_stress`, `groups.yaml`)
+  covering both test files, chosen by the user over "one group per file" and over extending
+  group 18; the store before this change did not cover either file (`status`: two validation
+  files neither grouped nor declared). `rows/36-composite_ply_stress.yaml` holds 13 rows /
+  18 comparisons, 12 measured; `non_validation_tests` declares the 8 own-field tests with a
+  reason each; no group-level `reference_kind` (each comparison declares its own, policy rule
+  7). `gaps.yaml` `composite_stress_recovery` **sharpened, not removed**: the false premise
+  ("CalculiX cannot judge composites") is gone and only two genuinely uncitable residuals
+  remain (a raw homogenised ABD dict keeps the thickness mean and only warns; the
+  `[0/90/90/0]` bending measurement 616.10 vs CalculiX 595.59 MPa has no row).
+  `residual-patterns.json` gained the group-36 pattern (without it `regression` cannot read
+  the group's prints). Gates: `check` `211 row(s), 277 comparison(s), 0 error(s), 0 warning(s)`;
+  `status` `neither grouped nor declared: 0`; both modules unchanged at 27 passed.
   Do not run the `coherence` write path: it rewrites the whole row file and wipes the
   hand-written prose and `measured` blocks (issue #24, still open).
+  **Two tool limits found here, both real and both outside this unit (in the T6 payload):**
+  (a) `regression` cannot run a multi-file group in one call - `capture_prints`
+  (`tools/validation_matrix.py:3589-3592`) passes the space-joined `source_files` as one
+  pytest argv element while `triage` (`:3436`) splats it, so `regression --group 36` fails
+  with "no node output captured"; the per-file `--scope` form is the working equivalent and
+  is what T5 used; (b) `regression --scope <file>` without `--group` silently falls back to
+  the parser default `--group 3` (`:4076`) and prints misleading `source digest: moved`
+  lines - always pass `--group` explicitly. A third limit, inside the extractor: a canonical
+  assertion inside a loop body is deduped to one comparison per site while the run prints
+  one residual per iteration, so 3 rows / 6 comparisons stay `not_measured` with a `notes`
+  reason instead of a guessed baseline.
+  **The `regression` exit code is not green for this group (3 `unmapped`) and is also not
+  green for the committed group 7 (1 `unclaimed`, 1 `unmapped`)**: a non-zero `regression`
+  exit is pre-existing store practice, not introduced here, and "regression passes" cannot
+  be claimed for either group today.
 * **T6 - closure and publication.** New issue for the smeared-recovery defect with the
   E1 table, comment on #27, the #18 body rows, the `docs/validation_closures.md`
   section. Push, issue and comment need the user's explicit go-ahead.
@@ -266,6 +291,11 @@ must be corrected in the same push as the closure.
   nodes duplicated per ply) and the through-thickness location of the reported value *is*
   readable off the file. The first version of this note said otherwise; the T4 row's ability
   to name the outer-fibre node depends on the correction.
+* The validation store's `regression` gate takes `--group` explicitly, always: without it the
+  parser default is `--group 3` (`tools/validation_matrix.py:4076`) and the output looks like
+  a source-digest move. And a group whose `source_files` has more than one entry cannot be
+  run in one call at all (`capture_prints` joins the paths with a space, `:3589-3592`); run it
+  once per file with `--scope`.
 * Unrelated discrepancy noticed on 2026-10-09 while running the isotropic sibling: its
   docstring records "CalculiX OUTPUT=3D 57.41 MPa" while the local ccx 2.20 reports
   `51.64` (the live assertion is the 5 % comparison, so the test passes at 52.46 against
