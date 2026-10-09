@@ -466,8 +466,28 @@ magnitudes agree, and this is the measured pair.
       If `nofeed` contracts, the non-contraction is the *strength* of the
       deformation feedback interacting with the coupling, not a geometry bug;
       if it still saturates, the defect is upstream of the feedback.
+- [x] T6j **Fixed and verified.** Commit `6765633` keeps the reference projector in
+      `_compute_forces` (the BEM geometry still follows the deformation) and removes
+      the now-unused `_rebuild_projector`. Job `11611246` (`fixfull`, the repo tree
+      at that commit, campaign's own case, `max-time 5.0`) reads **90 of 90 windows
+      (100%)**, first 12 = `11 7 8 11 10 8 7 9 9 8 7 8` - the campaign's own healthy
+      sequence. Guard: `tests/validation/rotor/test_bem_fsi_deformed_geometry.py::
+      test_force_projection_geometry_stays_on_the_reference` (commit `e3278ba`) -
+      for the same deformed BEM result the nodal forces must be the reference
+      projector's. RED against `7a84da1`: all 9129 elements differ, max absolute
+      difference 1372.75 N; green after. Suite: the participant + multicell guards
+      23 passed, the de-loading table and the rated-twist fixture 15 passed, ruff
+      clean.
+- [ ] T6k **Known trade-off, for the reviewer.** The within-strip load distribution
+      no longer sees the deformed offsets. It is small (the offsets are chord-scale
+      while the deformation is blade-scale) but it is a fidelity loss, and the
+      campaign's *own* projector followed the deformation and contracted - so the
+      smoother alternative stays open: make the `#11` geometry derivation
+      deformation-robust (hysteresis-free ring selection, LE/TE tie-break and
+      chord-axis continuity) instead of frozen. That is the fidelity follow-up, not
+      part of this closure.
 - [ ] T7 Re-run the 30 s gate (`tests/run_step1b_smoke.srm`) and re-anchor the
-      campaign baseline once T6 is clean.
+      campaign baseline now that the coupled path contracts.
 - [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
       `force_projection_sense_p5`), the group 27/35 rows and
       `docs/validation_closures.md`; the consequence numbers above are the
