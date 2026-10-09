@@ -778,9 +778,9 @@ class BEMFSIParticipant:
         solver : BEMSolver
             Fresh solver instance on the deformed geometry.
         deformed_aero : BladeAero
-            The deformed blade definition.  Returned so that
-            ``_rebuild_projector`` can use the same deformed station radii
-            for strip-width computation (consistent :math:`\Delta r_k`).
+            The deformed blade definition, for callers that need the deformed
+            station radii.  The force projection itself deliberately stays on the
+            reference geometry (see ``_compute_forces``).
         """
         ba = self._blade_aero
 
@@ -814,53 +814,6 @@ class BEMFSIParticipant:
 
         return BEMSolver(deformed_aero, **self._bem_solver_kwargs), deformed_aero
 
-    def _rebuild_projector(
-        self,
-        deformed_coords: np.ndarray,
-        deformed_aero: BladeAero,
-    ) -> ForceProjector:
-        r"""Construct a ``ForceProjector`` on the deformed mesh.
-
-        The working mesh (a deep copy created once at init) has its nodal
-        coordinates updated in-place to :math:`\mathbf{X} + \mathbf{u}`,
-        then a fresh projector is built.  This ensures node-to-strip
-        assignment and the moment-preserving force distribution both operate
-        on the actual deformed surface.
-
-        The *deformed_aero* argument supplies the deformed station radii so
-        that strip widths :math:`\Delta r_k` are consistent with the BEM
-        evaluation.
-
-        Parameters
-        ----------
-        deformed_coords : ndarray, shape (n_nodes, 3)
-            Deformed nodal coordinates.
-        deformed_aero : BladeAero
-            Blade definition with deformed radii and twist (same as used
-            by ``_rebuild_bem_solver``).
-
-        Returns
-        -------
-        ForceProjector
-            Projector on the deformed geometry.
-        """
-        self._working_mesh.coords_array = deformed_coords
-        # As at the reference construction, no ``element_properties`` is available on
-        # the fluid participant, so the deformed projector's ring sections are also
-        # marked non-physical and its strips take the minimum-norm ``_distribute``
-        # fallback rather than a geometric-only wall-flow split.
-        return ForceProjector(
-            self._working_mesh,
-            deformed_aero,
-            span_direction=self._span_dir,
-            normal_direction=self._normal_dir,
-            tangential_direction=self._tangential_dir,
-        )
-
-    # -----------------------------------------------------------------------
-    # Force computation (bidirectional)
-    # -----------------------------------------------------------------------
-
     def _compute_forces(
         self,
         displacements: np.ndarray,
@@ -880,10 +833,9 @@ class BEMFSIParticipant:
               \theta^{\mathrm{def}})`.
            b. ``_rebuild_bem_solver`` → new ``BEMSolver`` with deformed
               geometry.
-           c. ``_rebuild_projector`` → new ``ForceProjector`` on deformed
-              coordinates.
-           d. ``BEMSolver.compute`` → distributed loads :math:`N_p, T_p`.
-           e. ``ForceProjector.project`` → nodal force array.
+           c. ``BEMSolver.compute`` → distributed loads :math:`N_p, T_p`.
+           d. ``ForceProjector.project`` → nodal force array, on the
+              **reference** projector (see the note in the body).
 
         Parameters
         ----------
@@ -893,7 +845,8 @@ class BEMFSIParticipant:
         Returns
         -------
         forces : ndarray, shape (n_nodes, 3)
-            Aerodynamic nodal forces on the (deformed) blade surface.
+            Aerodynamic nodal forces for the current deformed BEM state, laid out
+            with the reference projection geometry.
         bem_result : BEMResult
             Full BEM output (Np, Tp, alpha, Cl, Cd, integrated loads).
         """
@@ -916,22 +869,28 @@ class BEMFSIParticipant:
             return forces, bem_result
 
         # -- Deformed geometry pipeline ------------------------------------
+        # The BEM geometry follows the deformation; the *projection* geometry does
+        # not.  Np/Tp are evaluated on the deformed annulus and twist, but the strip
+        # grid, the aerodynamic-centre arm and the pitching-moment axis stay on the
+        # reference mesh.  They are properties of the blade's reference geometry,
+        # and re-deriving them from the deformed surface on every sub-iteration adds
+        # a deformation-dependent gain to the interface that the implicit coupling
+        # cannot absorb: with the rebuild HEAD converges 39 of 500 windows, and
+        # keeping the reference projector converges 500 of 500.  Pinning its
+        # geometry outputs one at a time does not restore contraction - no single
+        # output is the lever, their sum is (odd/tasks/coupled-divergence.md, #19).
         r_def, twist_def = self._compute_deformed_geometry(displacements)
-        bem_solver, deformed_aero = self._rebuild_bem_solver(r_def, twist_def)
+        bem_solver, _ = self._rebuild_bem_solver(r_def, twist_def)
 
-        deformed_coords = self._ref_coords + displacements
-        projector = self._rebuild_projector(deformed_coords, deformed_aero)
-
-        # _strip_node_indices is intentionally kept as the *reference*
-        # assignment and is NOT updated from the deformed projector here.
-        # Updating it would move the strip's centre ring between iterations,
-        # so the same physical section would be measured against a different
-        # node set from one implicit iteration to the next.
-        # ForceProjector manages its own independent node-to-strip assignment
-        # for force application on the deformed geometry.
+        # _strip_node_indices is intentionally kept as the *reference* assignment and
+        # is NOT updated from the deformed geometry.  Updating it would move the
+        # strip's centre ring between iterations, so the same physical section would
+        # be measured against a different node set from one implicit iteration to the
+        # next.  The force application now follows the same rule, which is why it
+        # uses the reference projector as well.
 
         bem_result = bem_solver.compute(v_inf, omega, pitch, azimuth=azimuth)
-        forces = projector.project(bem_result)
+        forces = self._projector.project(bem_result)
         return forces, bem_result
 
     # -----------------------------------------------------------------------
