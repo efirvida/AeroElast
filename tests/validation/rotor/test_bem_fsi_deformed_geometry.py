@@ -13,6 +13,13 @@ CCBlade started at ~0, so the deformed BEM ran on a corrupted annulus.
 ``dr ~ 2.39 m`` against ~0.63 m mesh stations, so a strip contains ~4 rings; on a blade
 bent 16 m the PCA chord direction of the whole cloud follows the deformed arc.
 
+A third defect on the same path is the *projection* geometry (issue #19): the participant
+rebuilt the ``ForceProjector`` on the deformed mesh every implicit sub-iteration, so the
+node-to-strip grid, the aerodynamic-centre arm and the pitching-moment axis moved with the
+deformation while the loads did.  That deformation-dependent gain takes the partitioned
+coupling above its contraction threshold; the projection now stays on the reference mesh
+while the BEM loads still follow the deformation.
+
 The tests drive the production class on the real IEA-15MW blade mesh, the real AeroDyn
 ``BladeAero`` and the rated point (V = 10.59 m/s, 7.56 rpm, pitch 0), with the structural
 response solved by the repo's own shell under the participant's own projected loads.
@@ -413,3 +420,36 @@ def test_one_way_de_loading_reduces_thrust_and_power(fsi):
     assert net_thrust < 0.0, (
         f"the deformed blade does not de-load in thrust on the production path ({net_thrust:+.2%})"
     )
+
+
+def test_force_projection_geometry_stays_on_the_reference(fsi):
+    """The applied distribution must not follow the deformation (issue #19).
+
+    The participant rebuilds the *BEM* on the deformed annulus and twist, so the loads do
+    follow the deformation; the surface they are laid out on must not.  Rebuilding the
+    ``ForceProjector`` on the deformed mesh every implicit sub-iteration re-derives the
+    strip grid, the aerodynamic-centre arm and the pitching-moment axis from the current
+    displacement, which adds a deformation-dependent gain to the coupled interface: on the
+    campaign's own case at ``max-time 5.0`` HEAD converged 39 of 500 windows with that
+    rebuild and 500 of 500 without it (``odd/tasks/coupled-divergence.md``).  No single
+    re-derived output is the lever on its own - pinning the moment-axis sign, the AC arm,
+    the strip grid or the ring sections one at a time leaves the contraction broken - so
+    the guard is on the whole distribution: for the *same* BEM result, the nodal forces
+    must be the reference projector's.
+    """
+    participant = fsi["participant"]
+    displacements = fsi["displacements"]
+    assert float(np.max(np.linalg.norm(displacements, axis=1))) > 1e-2, (
+        "this guard needs a real deformation to mean anything"
+    )
+
+    forces, bem = participant._compute_forces(displacements)
+
+    # The loads do follow the deformation: the deformed BEM is not the rigid one.
+    assert not np.allclose(bem.Np, fsi["bem_rigid"].Np, rtol=1e-6), (
+        "the deformed BEM returned the rigid loads, so the feedback this guard "
+        "complements is not running"
+    )
+    # ... but the distribution is the reference projector's, for those loads.
+    expected = participant._projector.project(bem)
+    np.testing.assert_allclose(forces, expected, rtol=1e-12, atol=1e-9)
