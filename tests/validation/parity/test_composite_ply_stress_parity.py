@@ -45,6 +45,8 @@ refinement, so the comparison reads the **centre element** (nearest centroid to
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pytest
 
@@ -222,14 +224,30 @@ def _material() -> OrthotropicMaterial:
 
 
 def _laminate(angles: list[float]):
-    return create_laminate_from_angles(_material(), PLY_THICKNESS, angles)
+    # shear_correction_factor=5/6 matches the value ``build_rust_properties``
+    # hardcodes, so the CompositeShellProperty form and the production Rust
+    # ``Laminate`` form define the *identical* section (same A, B, D and Cs) —
+    # required by the two-forms-agree cross-check below.
+    return create_laminate_from_angles(
+        _material(), PLY_THICKNESS, angles, shear_correction_factor=5.0 / 6.0
+    )
 
 
 def _model_cfg(laminate) -> dict:
+    return _model_cfg_from_property(CompositeShellProperty(laminate=laminate))
+
+
+def _model_cfg_from_property(prop) -> dict:
+    """Model config carrying an arbitrary section-property form under ``'plate'``.
+
+    Used with ``CompositeShellProperty`` (test form), the production Rust
+    ``_aeroelast.Laminate`` from ``build_rust_properties`` and the legacy raw
+    ABD dict — the assembler accepts all three in ``properties``.
+    """
     return {
         "elements": {
             "element_family": ElementFamily.SHELL,
-            "properties": {"plate": CompositeShellProperty(laminate=laminate)},
+            "properties": {"plate": prop},
         },
         "solver": {"time_step": 0.01, "total_time": 1.0, "beta": 0.25, "gamma": 0.5},
     }
@@ -327,6 +345,7 @@ def cases() -> dict:
 
         idx = _centre_element_index(domain)
         sxx = {}
+        sxx_arr = {}
         for key, loc in (
             ("top", StressLocation.TOP),
             ("middle", StressLocation.MIDDLE),
@@ -337,6 +356,7 @@ def cases() -> dict:
                 "compute_element_stresses must return one row per assembled element"
             )
             sxx[key] = float(res.sigma_xx[idx])
+            sxx_arr[key] = res.sigma_xx.copy()
 
         edge = arbiter.nodes_at_coordinate(mesh, L, axis=0)
         tip_ux = float(np.mean([u[6 * i + 0] for i in edge]))
@@ -346,6 +366,7 @@ def cases() -> dict:
             "angles": angles,
             "tip_ux": tip_ux,
             "sxx": sxx,
+            "sxx_arr": sxx_arr,
             "sigma_xx_ref": sigma_xx_ref,  # per ply, bottom to top
             "mean_ref": mean_ref,
             "centre_index": idx,
@@ -420,4 +441,234 @@ def test_top_is_not_the_thickness_mean(cases: dict, name: str) -> None:
     assert dev > 0.10, (
         f"{name}: TOP sigma_xx {case['sxx']['top']:.6e} equals the thickness-mean equivalent "
         f"{case['mean_ref']:.6e} (deviation {dev:.4%}) — the recovery is smeared, not ply-resolved"
+    )
+
+
+# ============================================================================
+# T2b — the PRODUCTION section form (Rust Laminate from build_rust_properties)
+# ============================================================================
+
+
+def _numad_data(angles: list[float]) -> dict:
+    """Minimal NuMAD payload built the way production builds sections.
+
+    The layup ``[[mat_name, thickness, angle], ...]`` reproduces the same
+    ``[0/90]s`` / ``[90/0]s`` stacks (bottom to top) as the ``CompositeShellProperty``
+    cases, with the same material constants — so the two section forms must give
+    the same numbers everywhere.
+    """
+    return {
+        "materials": [
+            {
+                "name": "cfrp",
+                "density": RHO,
+                "elastic": {
+                    "E": [E1, E2, E2],
+                    "G": [G12, G23, G23],
+                    "nu": [NU12, NU12, 0.0],
+                },
+            }
+        ],
+        "sections": [
+            {
+                "elementSet": "plate",
+                "layup": [["cfrp", PLY_THICKNESS, a] for a in angles],
+            }
+        ],
+    }
+
+
+@pytest.fixture(scope="module")
+def rust_cases(cases: dict) -> dict:
+    """Solve each layup through the PRODUCTION section form (Rust ``Laminate``).
+
+    ``build_rust_properties`` is the map builder ``runner._extract_blade_properties``
+    delegates to — its values are ``_aeroelast.Laminate`` (or isotropic dicts), never
+    a Python ``Laminate``/``CompositeShellProperty``.  This fixture is the guard that
+    the ply resolution reaches that production form.
+    """
+    import _aeroelast
+
+    from aeroelast.models.blade.model import build_rust_properties
+
+    out: dict[str, dict] = {}
+    for name, angles in LAYUPS.items():
+        props = build_rust_properties(_numad_data(angles))
+        prop = props["plate"]
+        # Proof the production-shaped map really contains the Rust type:
+        assert type(prop) is _aeroelast.Laminate, (
+            f"build_rust_properties returned {type(prop)!r}, expected _aeroelast.Laminate"
+        )
+        print(f"{name}: properties['plate'] type = {type(prop)}")
+
+        mesh = _build_mesh()
+        model_cfg = _model_cfg_from_property(prop)
+        u = _solve_production(mesh, model_cfg)
+        domain = MeshAssembler(mesh=mesh, model=model_cfg)
+        recovery = StressRecovery(domain, u)
+
+        idx = _centre_element_index(domain)
+        sxx = {}
+        for key, loc in (
+            ("top", StressLocation.TOP),
+            ("middle", StressLocation.MIDDLE),
+            ("bottom", StressLocation.BOTTOM),
+        ):
+            res = recovery.compute_element_stresses(location=loc, stress_type=StressType.TOTAL)
+            sxx[key] = res.sigma_xx.copy()
+
+        sigma_xx_ref, mean_ref = _hand_clt_ply_stresses(E1, E2, G12, NU12, angles, N_X)
+        out[name] = {
+            "sxx": sxx,
+            "sigma_xx_ref": sigma_xx_ref,
+            "mean_ref": mean_ref,
+            "centre_index": idx,
+            "tip_ux": float(
+                np.mean([u[6 * i + 0] for i in arbiter.nodes_at_coordinate(mesh, L, axis=0)])
+            ),
+            "prop": prop,
+        }
+        print(
+            f"{name} [Rust Laminate]: tip u_x = {out[name]['tip_ux']:.6e} m; centre element "
+            f"#{idx} sigma_xx TOP/MID/BOT = {sxx['top'][idx] / 1e6:.4f} / "
+            f"{sxx['middle'][idx] / 1e6:.4f} / {sxx['bottom'][idx] / 1e6:.4f} MPa"
+        )
+    return out
+
+
+@pytest.mark.parametrize("name", sorted(LAYUPS))
+def test_production_rust_laminate_top_fibre_matches_clt(rust_cases: dict, name: str) -> None:
+    """The production section form (Rust ``Laminate``) resolves the same outer ply.
+
+    Same closed-form targets as the ``CompositeShellProperty`` cases: the ply
+    resolution must reach the production path, not only the test construction.
+    """
+    case = rust_cases[name]
+    assert_relative_error(
+        float(case["sxx"]["top"][case["centre_index"]]),
+        case["sigma_xx_ref"][-1],
+        tol=TOL_CLT,
+        kind="analytical",
+        reference_name=(
+            "CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), "
+            "outer-fibre ply sigma_xx, production Rust-Laminate section"
+        ),
+        what=f"{name} TOP outer-fibre ply sigma_xx (production Rust Laminate)",
+    )
+
+
+@pytest.mark.parametrize("name", sorted(LAYUPS))
+def test_production_rust_laminate_bottom_fibre_matches_clt(rust_cases: dict, name: str) -> None:
+    """BOTTOM of the production form is the bottommost ply's stress (same claim, other edge)."""
+    case = rust_cases[name]
+    assert_relative_error(
+        float(case["sxx"]["bottom"][case["centre_index"]]),
+        case["sigma_xx_ref"][0],
+        tol=TOL_CLT,
+        kind="analytical",
+        reference_name=(
+            "CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), "
+            "outer-fibre ply sigma_xx, production Rust-Laminate section"
+        ),
+        what=f"{name} BOTTOM outer-fibre ply sigma_xx (production Rust Laminate)",
+    )
+
+
+@pytest.mark.parametrize("name", sorted(LAYUPS))
+def test_production_and_test_section_forms_agree(cases: dict, rust_cases: dict, name: str) -> None:
+    """Cross-check: ``CompositeShellProperty`` and Rust ``Laminate`` give equal numbers.
+
+    The two forms are normalised into ONE ply-resolution path; this is the guard
+    that the production route is not a second implementation.  Both solves run the
+    identical system (same material constants, same stack, same mesh), so the full
+    per-element ``sigma_xx`` vectors must agree to solver round-off.
+    """
+    case, rcase = cases[name], rust_cases[name]
+    assert rcase["tip_ux"] == pytest.approx(case["tip_ux"], rel=1e-12), (
+        "the two section forms must assemble the identical stiffness (same tip displacement)"
+    )
+    for key in ("top", "middle", "bottom"):
+        np.testing.assert_allclose(
+            rcase["sxx"][key],
+            case["sxx_arr"][key],
+            rtol=1e-10,
+            atol=0.0,
+            err_msg=(
+                f"{name} {key}: production Rust-Laminate form diverges from the "
+                "CompositeShellProperty form — the ply resolution split into a second path"
+            ),
+        )
+        print(
+            f"{name} {key}: centre element {case['sxx_arr'][key][case['centre_index']]:.6e} Pa "
+            f"(both forms, max |diff| over elements "
+            f"{np.max(np.abs(rcase['sxx'][key] - case['sxx_arr'][key])):.3e} Pa)"
+        )
+
+
+# ============================================================================
+# T2b — raw composite ABD dicts: pinned smeared limitation + one-time warning
+# ============================================================================
+
+
+def _raw_abd_property(angles: list[float]) -> dict:
+    """Legacy raw composite ABD dict form (no ply stack), built from the same laminate.
+
+    Mirrors the dict shape ``assembler._orthotropic_shell_to_composite_dict`` emits
+    and the Rust ``parse_material`` composite branch consumes.
+    """
+    from aeroelast.core.laminate import create_laminate_from_angles as _clf
+
+    lam = _clf(_material(), PLY_THICKNESS, angles)
+    t = float(lam.total_thickness)
+    return {
+        "type": "composite",
+        "cm": lam.A.ravel().tolist(),
+        "b_coupling": lam.B.ravel().tolist(),
+        "cb": lam.D.ravel().tolist(),
+        "cs": lam.Cs.ravel().tolist(),
+        "thickness": t,
+        "e_equiv": float(np.trace(lam.A) / (3.0 * t)),
+        "mass_per_area": float(sum(p.material.rho * p.thickness for p in lam.plies)),
+        "rotational_inertia": float(
+            sum(p.material.rho * (p.z_top**3 - p.z_bottom**3) / 3.0 for p in lam.plies)
+        ),
+    }
+
+
+def test_raw_abd_section_is_smeared_and_warns(caplog) -> None:
+    """Raw ABD dicts carry no ply stack: the smeared thickness mean is pinned, not silent.
+
+    Characterization of the documented limitation: for a raw composite ABD dict the
+    recovery cannot resolve plies, keeps the homogenised value (``N_x / h`` at every
+    through-thickness location) and emits a one-time warning naming the element set —
+    the caller is never left to mistake the thickness mean for a ply stress.
+    """
+    mesh = _build_mesh()
+    model_cfg = _model_cfg_from_property(_raw_abd_property(LAYUPS["sym_0_90s"]))
+    u = _solve_production(mesh, model_cfg)
+    domain = MeshAssembler(mesh=mesh, model=model_cfg)
+    recovery = StressRecovery(domain, u)
+
+    with caplog.at_level(logging.WARNING, logger="aeroelast.postprocess.stress_recovery"):
+        res = recovery.compute_element_stresses(
+            location=StressLocation.TOP, stress_type=StressType.TOTAL
+        )
+
+    idx = _centre_element_index(domain)
+    top = float(res.sigma_xx[idx])
+    mean = N_X / H
+    print(f"raw ABD [0/90]s: TOP sigma_xx = {top:.6e} Pa, thickness mean = {mean:.6e} Pa")
+    # The smeared value IS the thickness mean (the pre-T2 behaviour for every form).
+    assert_relative_error(
+        top,
+        mean,
+        tol=0.01,
+        kind="analytical",
+        reference_name="N_x / h thickness-mean equivalent (raw ABD dict, no ply stack)",
+        what="[0/90]s TOP sigma_xx (raw composite ABD dict)",
+    )
+    # And the warning names the element set and the limitation.
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("plate" in m and "thickness-mean" in m and "no ply stack" in m for m in messages), (
+        f"expected a one-time raw-ABD warning naming 'plate'; got {messages}"
     )

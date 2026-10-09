@@ -12,6 +12,51 @@ are recovered: σ_xx, σ_yy, σ_xy.  The through-thickness variation is
 captured by evaluating at TOP (+h/2), MIDDLE (0) and BOTTOM (−h/2)
 surfaces.
 
+Composite Sections (ply-resolved recovery)
+------------------------------------------
+For elements whose property is a ``CompositeShellProperty`` or a Rust
+``_aeroelast.Laminate`` (the production blade form) the recovery is
+**ply-resolved**: the ply containing the requested through-thickness
+coordinate *z* is located in the laminate's ply stack (the ``z = ±h/2``
+outer edges always belong to the outermost plies), and the stress in that
+ply is evaluated in its own material axes::
+
+    σ_ply = Qbar(θ_ply) · ε(z)
+
+where ε(z) is the strain recovery of the shell theory below (engineering
+shear on both sides, Voigt index 3).  Within a ply the membrane strain is
+constant, but it differs between plies with different fibre angles, so the
+stress at TOP is the *outermost* ply's stress — not a thickness average.
+This replaces the smeared equivalent ``σ = (A/h) · ε`` that the composite
+element's homogenised stiffness would otherwise produce (the ``Cm()``
+integrated-stiffness trap below).  For ``StressType`` the meaning is
+preserved: MEMBRANE evaluates ``Qbar · ε_m``, BENDING ``Qbar · ε_b(z)``
+and TOTAL ``Qbar · (ε_m + ε_b(z))``, matching how the Rust kernel combines
+stress and strain per type.
+
+Elements with an isotropic (or plain ``ShellProperty``) section keep the
+smeared path below unchanged — mixed meshes decide per element.
+
+Section forms accepted by the ply resolution
+--------------------------------------------
+The ply stack is read from the model's ``properties`` map (keyed by
+element-set name), which occurs in three shapes in the tree:
+
+* ``CompositeShellProperty`` (Python ``Laminate``) — ply-resolved (test and
+  helper form).
+* Rust ``_aeroelast.Laminate`` — the **production** form returned by
+  ``aeroelast.models.blade.model.build_rust_properties``; its ``plies``
+  getter exposes the stack, and the ply containing the requested *z* is
+  resolved exactly as for ``CompositeShellProperty`` (one normalisation, no
+  second code path).
+* Raw composite ABD dicts (``{"type": "composite", "cm"/"cb"/"cs", ...}``,
+  the legacy hand-built form) — these carry **no ply stack**, so the ply
+  resolution cannot apply.  They keep the smeared homogenised value
+  (``N/h`` at every location) and emit a one-time ``logger.warning`` naming
+  the element set; the limitation is deliberate, not a silent answer.
+* Isotropic dicts / ``ShellProperty`` — the smeared constitutive path,
+  bit-identical to the pre-composite behaviour.
+
 Shell Theory
 ------------
 For Reissner–Mindlin shells, the in-plane stress at through-thickness
@@ -26,6 +71,10 @@ where:
   plane-stress constitutive matrix (E, ν).  Note that the element's
   ``Cm()`` method returns the *integrated* membrane stiffness D = C · h;
   we divide by h to recover the actual material stress–strain matrix.
+  For a **composite** section ``Cm()`` is the laminate's integrated ``A``,
+  so this smeared formula alone would deliver the thickness-averaged
+  equivalent stress ``N/h`` — which is why composite elements take the
+  ply-resolved path above instead.
 * κ_b = B_κ · u_e — **curvature** from the bending strain–displacement
   matrix.  The bending stress contribution is (C / h) · z · κ_b, varying
   linearly through the thickness.
@@ -64,12 +113,17 @@ References
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
+
+import logging
 
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
     from aeroelast.core.assembler import MeshAssembler
+    from aeroelast.core.material import OrthotropicMaterial
 
 
 class StressLocation(Enum):
@@ -106,6 +160,56 @@ class StressType(Enum):
     MEMBRANE = "membrane"
     BENDING = "bending"
     TOTAL = "total"
+
+
+#: ``StressLocation`` → non-dimensional through-thickness coordinate
+#: (``z = z_factor · h``, the convention the Rust kernel applies).
+_Z_FACTOR = {
+    StressLocation.BOTTOM: -0.5,
+    StressLocation.MIDDLE: 0.0,
+    StressLocation.TOP: +0.5,
+}
+
+#: ``StressType`` → Rust kernel flag (0 membrane, 1 bending, 2 total).
+_STRESS_TYPE_INT = {
+    StressType.MEMBRANE: 0,
+    StressType.BENDING: 1,
+    StressType.TOTAL: 2,
+}
+
+#: Voigt columns of the in-plane stress/strain components
+#: ``[σ_xx, σ_yy, γ_xy]`` (engineering shear at index 3).
+_INPLANE_COLS = (0, 1, 3)
+
+
+@dataclass
+class _PlySpec:
+    """Normalised ply record — the single form every section shape resolves to.
+
+    Both the Python ``CompositeShellProperty.laminate`` stack (``Ply`` objects)
+    and the production Rust ``_aeroelast.Laminate`` stack (the ``plies`` getter,
+    a list of dicts with ``angle`` in degrees and a ``material`` sub-dict) are
+    normalised into this record so ply resolution and ``Qbar`` evaluation run
+    through one code path.
+    """
+
+    material: "OrthotropicMaterial"
+    angle_deg: float
+    z_bottom: float
+    z_top: float
+
+
+@dataclass
+class _PlySection:
+    """Normalised ply stack of one element set (bottom → top)."""
+
+    plies: List[_PlySpec]
+
+    @property
+    def total_thickness(self) -> float:
+        # Plies are laid out symmetric about z = 0, so the thickness is the
+        # span bottom→top (plies[-1].z_top alone would be only h/2).
+        return self.plies[-1].z_top - self.plies[0].z_bottom
 
 
 @dataclass
@@ -257,6 +361,213 @@ class StressRecovery:
             raise RuntimeError("StressRecovery requires a live Rust assembler (domain._rust).")
         self.n_elements = _rust.n_elems
         self._node_id_to_index = domain.node_id_to_index
+        # Ply-resolution caches (composite sections): element index → normalised
+        # ply section, and per-z_factor groups of (element indices, Qbar) built lazily.
+        self._ply_section_by_elem: Optional[List[Optional[_PlySection]]] = None
+        self._ply_groups_cache: Dict[float, list] = {}
+
+    # ------------------------------------------------------------------
+    # Composite ply resolution (shared by the element and nodal paths)
+    # ------------------------------------------------------------------
+    def _build_ply_section_map(self) -> List[Optional[_PlySection]]:
+        """Map element index → normalised ``_PlySection`` for composite elements.
+
+        The Rust element only stores the homogenised ABD matrices, so the ply
+        stack must come from the model's ``properties`` map (keyed by element-set
+        name).  Three section shapes occur in the tree, and all are handled by
+        one normalisation (``_normalise_ply_section``):
+
+        * ``CompositeShellProperty`` — Python ``Laminate`` stack (test/helper form).
+        * Rust ``_aeroelast.Laminate`` — the **production** form returned by
+          ``aeroelast.models.blade.model.build_rust_properties`` (its ``plies``
+          getter exposes the stack as dicts: ``angle`` in degrees, ``z_bottom``/
+          ``z_top``, and a ``material`` sub-dict of engineering constants).
+        * Raw composite ABD dicts (``{"type": "composite", "cm"/"cb"/"cs", ...}``,
+          the legacy hand-built form) — **no ply stack exists**.  These keep the
+          smeared homogenised path and trigger a one-time warning; they are NOT
+          silently treated as ply-resolved.
+
+        Isotropic dicts (and anything else) map to ``None`` and keep the smeared
+        path unchanged.
+        """
+        sections: List[Optional[_PlySection]] = [None] * self.n_elements
+        model = getattr(self.domain, "model", None)
+        properties_map = model.get("properties") if isinstance(model, dict) else None
+        if not properties_map:
+            return sections
+        mesh = getattr(self.domain, "mesh", None)
+        if mesh is None:
+            return sections
+        raw_abd_sets: List[str] = []
+        section_by_elem_id: Dict[int, _PlySection] = {}
+        for set_name, prop in properties_map.items():
+            if set_name not in mesh.element_sets:
+                continue
+            section = self._normalise_ply_section(prop, set_name, raw_abd_sets)
+            if section is not None:
+                for elem in mesh.element_sets[set_name].elements:
+                    section_by_elem_id[elem.id] = section
+        if raw_abd_sets:
+            # Do not answer silently: the value a caller gets for these elements
+            # is the homogenised thickness mean, not a ply stress.
+            logger.warning(
+                "Composite element set(s) %s use raw homogenised ABD section dicts "
+                '("type": "composite" with cm/cb/cs) which carry no ply stack; '
+                "TOP/MIDDLE/BOTTOM stresses for their elements are the homogenised "
+                "thickness-mean equivalent (A/h · ε), not a ply stress.",
+                ", ".join(sorted(set(raw_abd_sets))),
+            )
+        if not section_by_elem_id:
+            return sections
+        for i, elem in enumerate(self.domain.elements):
+            sections[i] = section_by_elem_id.get(elem.id)
+        return sections
+
+    @staticmethod
+    def _normalise_ply_section(
+        prop, set_name: str, raw_abd_sets: List[str]
+    ) -> Optional[_PlySection]:
+        """Normalise one properties-map value to a ``_PlySection`` (or ``None``).
+
+        ``raw_abd_sets`` collects element-set names whose value is a raw
+        composite ABD dict (no ply stack) so the caller can warn once.
+        """
+        if isinstance(prop, dict):
+            # Isotropic dicts and raw composite ABD dicts both keep the smeared
+            # path; only the composite form represents a (smeared) laminate.
+            if prop.get("type") == "composite":
+                raw_abd_sets.append(set_name)
+            return None
+        try:
+            from aeroelast.core.properties import CompositeShellProperty
+        except ImportError:  # pragma: no cover - properties ships with the package
+            CompositeShellProperty = None
+        if CompositeShellProperty is not None and isinstance(prop, CompositeShellProperty):
+            return _PlySection(
+                [
+                    _PlySpec(
+                        material=ply.material,
+                        angle_deg=float(ply.angle),
+                        z_bottom=float(ply.z_bottom),
+                        z_top=float(ply.z_top),
+                    )
+                    for ply in prop.laminate.plies
+                ]
+            )
+        # Production form: Rust ``_aeroelast.Laminate`` (duck-typed on the
+        # ``plies``/``total_thickness`` getters to avoid a hard dependency).
+        rust_plies = getattr(prop, "plies", None)
+        if rust_plies is None or getattr(prop, "total_thickness", None) is None:
+            return None
+        from aeroelast.core.material import OrthotropicMaterial
+
+        plies: List[_PlySpec] = []
+        for k, p in enumerate(rust_plies):
+            m = p["material"]
+            plies.append(
+                _PlySpec(
+                    material=OrthotropicMaterial(
+                        name=f"{set_name}_ply{k}",
+                        E=(float(m["e1"]), float(m["e2"]), float(m["e3"])),
+                        G=(float(m["g12"]), float(m["g23"]), float(m["g13"])),
+                        nu=(float(m["nu12"]), float(m["nu23"]), float(m["nu31"])),
+                        rho=float(m["rho"]),
+                    ),
+                    angle_deg=float(p["angle"]),
+                    z_bottom=float(p["z_bottom"]),
+                    z_top=float(p["z_top"]),
+                )
+            )
+        return _PlySection(plies)
+
+    @property
+    def _ply_section_map(self) -> List[Optional[_PlySection]]:
+        """Lazily built element index → ply-section map (cached for the instance)."""
+        if self._ply_section_by_elem is None:
+            self._ply_section_by_elem = self._build_ply_section_map()
+        return self._ply_section_by_elem
+
+    @staticmethod
+    def _resolve_ply_index(section: _PlySection, z_factor: float) -> int:
+        """Index of the ply that contains ``z = z_factor · h``.
+
+        Plies are scanned bottom to top with a half-open ply ``[z_bottom,
+        z_top)``; the request ``z = ±h/2`` therefore belongs to the bottom
+        (respectively outermost/top) ply — the inclusive outer edge never
+        falls between plies.  A ``z`` at or above the top surface (only the
+        ``TOP`` edge can land exactly on it after floating-point rounding)
+        resolves to the outermost ply.
+        """
+        z = z_factor * section.total_thickness
+        for k, ply in enumerate(section.plies):
+            if ply.z_bottom <= z < ply.z_top:
+                return k
+        return len(section.plies) - 1
+
+    def _composite_ply_groups(self, z_factor: float) -> list:
+        """Groups of composite elements sharing one ``Qbar`` at this ``z_factor``.
+
+        Returns a cached list of ``(element_index_array, Qbar_3x3)`` pairs,
+        grouped by (ply material, fibre angle) so the ``Qbar`` transform is
+        computed once per distinct ply and the per-element stress evaluation
+        is a single vectorised product per group.  Empty for models without
+        ply-resolvable composite sections.
+        """
+        cached = self._ply_groups_cache.get(z_factor)
+        if cached is not None:
+            return cached
+        from aeroelast.core.laminate import compute_Qbar
+
+        grouped: Dict[Tuple[int, float], Tuple[List[int], _PlySpec]] = {}
+        for i, section in enumerate(self._ply_section_map):
+            if section is None:
+                continue
+            ply = section.plies[self._resolve_ply_index(section, z_factor)]
+            key = (id(ply.material), ply.angle_deg)
+            entry = grouped.get(key)
+            if entry is None:
+                entry = ([], ply)
+                grouped[key] = entry
+            entry[0].append(i)
+        groups = [
+            (np.asarray(indices, dtype=np.intp), compute_Qbar(ply.material, ply.angle_deg))
+            for indices, ply in grouped.values()
+        ]
+        self._ply_groups_cache[z_factor] = groups
+        return groups
+
+    def _element_stress_field(
+        self,
+        location: StressLocation,
+        stress_type: StressType,
+    ) -> np.ndarray:
+        """Per-element Voigt stress array ``(n_elements, 6)`` at *location*.
+
+        One Rust ``compute_stress_field`` sweep provides both the smeared
+        stress (kept for isotropic / non-composite elements, bit-identical to
+        the previous behaviour) and the strains.  Composite elements are then
+        overwritten in-place with the ply-resolved
+        ``σ_ply = Qbar(θ_ply) · ε(stype)`` — the kernel applies the same
+        stress-type combination (MEMBRANE / BENDING / TOTAL) to its stress
+        and strain outputs, so substituting ``Qbar`` for the homogenised
+        ``A/h`` preserves the ``stress_type`` meaning exactly.  Out-of-plane
+        Voigt components stay zero (plane stress).
+        """
+        _rust = getattr(self.domain, "_rust", None)
+        if _rust is None:
+            raise RuntimeError("StressRecovery requires a live Rust assembler (domain._rust).")
+        z_factor = _Z_FACTOR.get(location, 0.0)
+        stype_int = _STRESS_TYPE_INT.get(stress_type, 2)
+        sigma_all, eps_all = _rust.compute_stress_field(self.u, z_factor, stype_int)
+        sigma = np.asarray(sigma_all, dtype=np.float64)
+        groups = self._composite_ply_groups(z_factor)
+        if not groups:
+            return sigma
+        eps = np.asarray(eps_all, dtype=np.float64)
+        cols = list(_INPLANE_COLS)
+        for elem_idx, qbar in groups:
+            sigma[np.ix_(elem_idx, cols)] = eps[np.ix_(elem_idx, cols)] @ qbar.T
+        return sigma
 
     # ------------------------------------------------------------------
     # Element-level stress  (centroid / single point)
@@ -269,28 +580,39 @@ class StressRecovery:
     ) -> StressResult:
         """Compute a single representative stress per element (centroid value).
 
-        This method provides one stress state per element, suitable for
-        contour plots at element centres ("element results" in commercial
-        codes).
+            This method provides one stress state per element, suitable for
+            contour plots at element centres ("element results" in commercial
+            codes).
 
-        Stress is evaluated at the parametric point *gauss_point*
-        (default: element centre) and through-thickness location *z*
-        (from *location*).
+            Stress is evaluated at the parametric point *gauss_point*
+            (default: element centre) and through-thickness location *z*
+            (from *location*).
 
-        Parameters
-        ----------
-        location : StressLocation, default MIDDLE
-            Through-thickness position (shells only).
-        stress_type : StressType, default TOTAL
-            Which shell stress contribution to include.
-        gauss_point : tuple of float, default (0.0, 0.0)
-            Parametric coordinates at which to evaluate shell stress.
+        For elements with a ply-resolvable composite section
+            (``CompositeShellProperty`` or the production Rust ``Laminate`` form)
+            the returned stress is **ply-resolved**: the ply containing the
+            requested *z* is located in the laminate stack and
+            ``σ_ply = Qbar(θ_ply) · ε(stress_type)`` is evaluated in that ply's
+            material axes, so TOP/BOTTOM carry the outermost plies' stresses
+            rather than the smeared thickness average ``N/h``.  Isotropic
+            elements keep the smeared constitutive path unchanged (mixed meshes
+            decide per element).  The ``stress_type`` meaning (MEMBRANE /
+            BENDING / TOTAL) is preserved for both paths.
 
-        Returns
-        -------
-        StressResult
-            One stress state per element.  Only the in-plane components
-            (σ_xx, σ_yy, τ_xy) are populated.
+            Parameters
+            ----------
+            location : StressLocation, default MIDDLE
+                Through-thickness position (shells only).
+            stress_type : StressType, default TOTAL
+                Which shell stress contribution to include.
+            gauss_point : tuple of float, default (0.0, 0.0)
+                Parametric coordinates at which to evaluate shell stress.
+
+            Returns
+            -------
+            StressResult
+                One stress state per element.  Only the in-plane components
+                (σ_xx, σ_yy, τ_xy) are populated.
         """
         r0, s0 = gauss_point
 
@@ -301,19 +623,7 @@ class StressRecovery:
         # default gauss_point.  Non-default gauss_point values fall through
         _rust = getattr(self.domain, "_rust", None)
         if _rust is not None and r0 == 0.0 and s0 == 0.0:
-            _Z_FACTOR = {
-                StressLocation.BOTTOM: -0.5,
-                StressLocation.MIDDLE: 0.0,
-                StressLocation.TOP: +0.5,
-            }
-            _STRESS_TYPE = {
-                StressType.MEMBRANE: 0,
-                StressType.BENDING: 1,
-                StressType.TOTAL: 2,
-            }
-            z_factor = _Z_FACTOR.get(location, 0.0)
-            stype_int = _STRESS_TYPE.get(stress_type, 2)
-            sigma_all, _ = _rust.compute_stress_field(self.u, z_factor, stype_int)
+            sigma_all = self._element_stress_field(location, stress_type)
             return self._build_stress_result(sigma_all)
 
         raise NotImplementedError(
@@ -350,6 +660,9 @@ class StressRecovery:
         ----------
         location : StressLocation, default MIDDLE
             Through-thickness position for shell stress evaluation.
+            For composite sections the stress is ply-resolved at that
+            location (see ``compute_element_stresses``); isotropic sections
+            use the smeared constitutive path.
         stress_type : StressType, default TOTAL
             Membrane, bending or total (shells only).
         smoothing : str, default ``"average"``
@@ -372,27 +685,16 @@ class StressRecovery:
         # ------------------------------------------------------------------
         _rust = getattr(self.domain, "_rust", None)
         if _rust is not None:
-            _Z_FACTOR_NS = {
-                StressLocation.BOTTOM: -0.5,
-                StressLocation.MIDDLE: 0.0,
-                StressLocation.TOP: +0.5,
-            }
-            _STRESS_TYPE_NS = {
-                StressType.MEMBRANE: 0,
-                StressType.BENDING: 1,
-                StressType.TOTAL: 2,
-            }
-            z_factor = _Z_FACTOR_NS.get(location, 0.0)
-            stype_int = _STRESS_TYPE_NS.get(stress_type, 2)
-            sigma_elem, _ = _rust.compute_stress_field(self.u, z_factor, stype_int)
-            # sigma_elem: (n_elems, 6) — one stress state per element
-
             if smoothing == "area_weighted":
                 raise NotImplementedError(
                     "compute_nodal_stresses: area_weighted smoothing requires "
                     "Python element objects which have been removed. "
                     "Use smoothing='average' instead."
                 )
+            # Same shared field as the element path (one Rust sweep; composite
+            # elements ply-resolved), so both entry points cannot disagree.
+            sigma_elem = self._element_stress_field(location, stress_type)
+            # sigma_elem: (n_elems, 6) — one stress state per element
 
             sigma_sum = np.zeros((n_nodes, 6))
             weight_sum = np.zeros(n_nodes)
@@ -424,10 +726,13 @@ class StressRecovery:
     ) -> Dict[str, StressResult]:
         """Compute nodal stresses at TOP, MIDDLE and BOTTOM shell surfaces.
 
-        For structures with shell elements, stress varies linearly
-        through the thickness.  This convenience method evaluates
+        For structures with shell elements, stress varies through the
+        thickness.  This convenience method evaluates
         ``compute_nodal_stresses`` three times — once at each
         through-thickness location — and returns the results in a dict.
+        For composite sections each layer carries the stress of the ply
+        containing that layer's *z* (ply-resolved); for isotropic sections
+        the layers are the classical TOP / mid / BOTTOM fibres.
 
         The three layers correspond to:
 
