@@ -1,7 +1,7 @@
 # Feature: composite outer-fibre stress recovery is not delivered yet (#27, item 4 of #18)
 
-Status: T1, T2/T2b and T3 done 2026-10-09 (`95bfbab`, `208f220`, `06f8be0`, `bd4cc05`);
-T4 next, T5-T7 open
+Status: T1-T4 done 2026-10-09 (`95bfbab`, `208f220`, `06f8be0`, `bd4cc05`, `62d806a`);
+T5 next, T6-T7 open
 Owner: this session (2026-10-09)
 Related: issue #27 (roadmap item 4, `P1`, successor of #3), issue #18 (roadmap and
 order of record), `docs/validation/gaps.yaml` id `composite_stress_recovery`,
@@ -24,14 +24,20 @@ absorbed into #27.
 > discrimination lives in `sigma_xy` because a balanced laminate has `A16 = A26 = 0`, and
 > the `MIDDLE` tie-break is pinned by ply index).
 >
-> **Half done, next step: T4, the CalculiX row test.** Its writer failed on 2026-10-09
-> ("assistant reported an error") and **created no file** -
-> `tests/validation/parity/test_composite_stress_ccx_parity.py` does not exist. Relaunch
-> with the same specification: the membrane plate of the committed ply-stress test,
-> `[0/90]s` and `[90/0]s`, each code on its own mesh sequence, read at the free-field centre
-> (E4), `TOL_CCX = 0.05`, two references (CalculiX `kind="code"`, closed form
-> `kind="analytical"`), and the E2/E3 characterisation in the docstring. Expected green:
-> the measured ours-vs-CCX gap is about 0.07 % for `[0/90]s` and 1.6 % for `[90/0]s`.
+> **Done in the resumed session: T4, the CalculiX row test, `62d806a`** (the first writer
+> attempt failed on 2026-10-09 and created no file; the relaunch with the same specification
+> produced 578 lines, 7 passed in 2.9 s). `TOL_CCX = 0.05` as specified, two inline
+> references (CalculiX `kind="code"`, closed form `kind="analytical"`), each code on its own
+> 8x2/16x4 sequence, read at the free-field centre.
+>
+> **Its anchors moved and that is the finding.** At 16x4 ours is 3.6959 / 0.3041 MPa (the
+> closed form the same to <= 0.0006 %) while CalculiX gives 3.6853 / 0.3148 MPa, i.e. 0.29 %
+> and 3.41 % - not the 0.07 % / 1.6 % the E2 probe had quoted. The cause is a deck/route
+> difference that could not be recovered (E2 correction below), and the `[90/0]s` gap does
+> not close with refinement, so `TOL_CCX` is recorded as a bound and not as a convergence
+> claim. Two further corrections came out of the verification (E4 attribution, expanded FRD).
+>
+> **Next step: T5, the store row.**
 >
 > **Environment:** every command needs
 > `bash -lc 'module load glu gcc/14.2.0_sequana; export LD_LIBRARY_PATH=/scratch/app_sequana/gcc/14.2.0/lib64:$LD_LIBRARY_PATH; ...'`
@@ -108,6 +114,19 @@ mid-length:
 The value follows the closure ply, so it is the outer fibre and not a thickness mean
 (which would be 2.000 MPa for both stacks).
 
+**E2 mechanism confirmed by the T4 row, exact splits not, and the reason is now known.**
+The composite card **expands the section in the FRD**: the file carries a midsurface node
+(exactly 0.00000 MPa) plus nodes at ply boundaries and ply midpoints - nine z-levels in
+all, ±0.0025, ±0.001875, ±0.00125, ±0.000625 and 0 - with interface nodes duplicated per
+ply. The T4 row reads the topmost surface node (`z = +H/2`), which is the outer fibre and
+carries the closure ply's stress: 3.6820 / 3.6853 MPa for `[0/90]s` and 0.3150 / 0.3148 MPa
+for `[90/0]s` at 8x2 / 16x4. No node choice on the T4 deck can produce the probe's
+3.6984 / 0.2991 MPa (the centre field holds only 0.0000, 0.3150 and 3.6820 MPa), so the
+probe ran a different deck; what differed (load weighting, mesh aspect, section offset) is
+unrecoverable because `/tmp/ccx_composite_probe/` no longer exists. Recorded rather than
+smoothed over: the table above is the probe's measurement, the row's own numbers are
+0.2-1.8 percentage points away from it, and the row states both.
+
 ### E3 - `OUTPUT=3D` is inert for composite sections
 
 Bending-dominated `[0/90/90/0]` cantilever, same deck, `OUTPUT=2D` against `OUTPUT=3D`:
@@ -115,13 +134,20 @@ max `|SZZ|` 595.588 MPa both, max von Mises 574.521 MPa both, **relative differe
 0.000e+00**. This confirms and sharpens the note already committed in
 `tests/validation/parity/test_shell_stress_ccx_parity.py` (899.67 MPa unchanged);
 that note was measured on a membrane-dominated case, this one on pure bending.
+Re-confirmed by the 2026-10-09 T4 verifier on the T4 deck: `OUTPUT=3D` reproduces the centre
+(3.68528 MPa) and the maximum (6.5803 MPa) value-for-value on `[0/90]s`; only the 233
+zero-stress midsurface reference nodes disappear from the file (2437 -> 2204 stress nodes).
 
-### E4 - the clamped edge is a restraint singularity, not the answer
+### E4 - the loaded free edge is a load-introduction singularity, not the answer
 
-On the membrane case the maximum interior `SXX` **grows with refinement** (4.4413 MPa
-at 8x2, 5.0905 MPa at 16x4) while the free field stays at 3.700. The row must read the
-centre of the patch, never the global maximum, or it will validate a mesh-dependent
-singularity.
+On the membrane case the maximum interior `SXX` **grows with refinement** (4.4413 MPa at
+8x2, 5.0905 MPa at 16x4 on the original probe; 5.8838 -> 6.5803 MPa for `[0/90]s` on the T4
+deck, whose maximum sits on the node at `(1.0, 0.0, -H/2)`) while the free field stays at
+3.700 MPa. **Correction to this section as first written:** the singularity is at the
+**loaded free edge** (`x = L`), not at the clamped restraint - measured by the T4 verifier on
+2026-10-09, the clamped-edge value is not singular (3.69 -> 3.71 MPa). The conclusion is
+unchanged, and it is what the row asserts: read the centre of the patch, never the global
+maximum, or the row validates a mesh-dependent effect.
 
 ## Contract note for #27
 
@@ -201,11 +227,17 @@ must be corrected in the same push as the closure.
   `sigma_xx`, so the angle-ply discriminator is `sigma_xy` (+8.1619e+05 against -8.0127e+05
   against a thickness mean of 0), on a 16x4 mesh where the 8x2 clamped-edge boundary layer
   had faked a 2.4 % `sigma_xx` split that refinement removes.
-* **T4 - CalculiX row. BLOCKED 2026-10-09: the writer agent failed and left no file.**
-  Converged-vs-converged outer-fibre comparison against S8R with
-  `*SHELL SECTION, COMPOSITE` on each code's own mesh sequence, read in the free field
-  (E4), bound in the style of the isotropic sibling (`TOL_CCX = 0.05`). The row's notes
-  carry the measured E2/E3 characterisation of what that CalculiX value is.
+* **T4 - CalculiX row. Done 2026-10-09: `62d806a`** (the writer attempt of the earlier
+  session failed and left no file; the relaunch of the same specification produced
+  `tests/validation/parity/test_composite_stress_ccx_parity.py`, 578 lines). Converged-vs-
+  converged outer-fibre comparison against S8R with `*SHELL SECTION, COMPOSITE` on each
+  code's own 8x2/16x4 sequence, read in the free field (E4), two inline references
+  (CalculiX `kind="code"`, closed form `kind="analytical"`), `TOL_CCX = 0.05`. 7 passed in
+  2.9 s; the isotropic sibling unchanged (3 passed, 1 xfailed); ruff clean. The row's notes
+  carry the measured E2/E3/E4 characterisation, including the two corrections found by
+  verification (loaded-edge singularity; an expanded FRD whose midsurface node carries
+  zero). Review workload: 578 insertions, the same order as `208f220` (611), so T5 carries
+  the store row and T6 the prose and issue payload instead of folding more into this file.
 * **T5 - store.** Row under group 18 (or a new group with its own `groups.yaml` entry),
   `gaps.yaml` `composite_stress_recovery` removed or sharpened to whatever remains
   unvalidated, gates re-run with `tools/validation_matrix.py` (`check`, `regression`).
@@ -228,9 +260,12 @@ must be corrected in the same push as the closure.
   `COMPOSITE`.
 * `tests/support/ccx_io.py` gives `parse_frd_stress`, `von_mises_from_voigt`;
   `ccx_bin_or_skip` lives in `tests/conftest.py` (`CCX_BIN` env var, then `PATH`).
-* The FRD coordinates of a shell deck are midsurface nodes; the through-thickness
-  location of the reported value is not in the file, so E2 had to be pinned against the
-  closed form rather than read off.
+* The FRD coordinates of an **isotropic** shell deck are midsurface nodes. That is not true
+  for a composite section: the card expands the section, so the file carries nine z-levels
+  (a midsurface node at exactly zero stress plus ply boundaries and ply midpoints, interface
+  nodes duplicated per ply) and the through-thickness location of the reported value *is*
+  readable off the file. The first version of this note said otherwise; the T4 row's ability
+  to name the outer-fibre node depends on the correction.
 * Unrelated discrepancy noticed on 2026-10-09 while running the isotropic sibling: its
   docstring records "CalculiX OUTPUT=3D 57.41 MPa" while the local ccx 2.20 reports
   `51.64` (the live assertion is the 5 % comparison, so the test passes at 52.46 against
