@@ -135,12 +135,29 @@ Closes when: the factory-built participant on the production mesh realises rings
 `sum M` of the applied per-strip load are identical between the min-norm and the wall-flow
 path**; and a projector without the map still falls back.
 
-**Done 2026-10-09** (coarse production mesh, `element_size: 1.0`, 2828 nodes): 5 tests green in
-36.8 s. The invariance guard measured `|dF| = 1.203545e-10 N` (relative **1.403e-16**) and
+**Done 2026-10-09** (coarse production mesh, `element_size: 1.0`, 2828 nodes): 6 tests green in
+44.9 s. The invariance guard measured `|dF| = 1.203545e-10 N` (relative **1.403e-16**) and
 `|dM| = 3.895602e-08 N.m` (relative **5.984e-16**) - machine precision, seven orders inside the
 `1e-9` bound. The *distribution* is what moves: relative L2 **92.22 %**, max `|df| = 5063.7 N`,
 and **2828 of 2828** nodes changed. The property-less element-bearing projector is bit-equal
 (`np.array_equal`) to the pre-#16 node-only projector, so the fallback is preserved exactly.
+
+### T4b - the campaign path is a second hop, and the coupled A/B found it
+
+The first coupled A/B (below) came out **identical to 10 digits**, and the reason was a miss in T4:
+the smoke and campaign runs do **not** call `aeroelast-bem-fsi`. `src/aeroelast/cli/aeroelast.py`
+dispatches any config with a `bem:` section to `run_aero_fsi.main`, which builds the *legacy*
+`BEMFSIParticipant` through `build_aero_participant_from_config` (backend `auto` -> `bem`) instead
+of `build_from_config`. The coupling mesh in run B did carry its elements (the new filter line is in
+its log: `27609 nodes, 27598 elements`), but the property map never reached the participant, so its
+projector was geometric-only and every strip fell back exactly as in A. The evidence is the sent
+force field at the first window: relative L2 difference `2.9e-15` between the two runs.
+
+Fixed in the same task: `build_aero_participant_from_config` gained `element_properties` and
+forwards it in its BEM branch, `run_aero_fsi` passes the third value of `_build_mesh`, and the new
+test `test_aero_dispatcher_activates_the_realisation_on_the_campaign_path` pins the campaign
+entry point (it fails if the hop is dropped). Note this is exactly what the A/B was for: a
+measurement that cannot tell two configurations apart is telling you they are the same.
 
 **T5 - the measurement.** Run the coupled gate case (`tests/smoke_fix/base_fix/`,
 `tests/run_step1b_smoke.srm`) twice: minimum-norm (map withheld) and wall-flow. Report tip twist,

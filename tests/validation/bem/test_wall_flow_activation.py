@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+import yaml
 
 pytest.importorskip("ccblade", reason="ccblade not installed (pip install -e '.[bem]')")
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
@@ -36,6 +37,7 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from aeroelast.cli.run_bem_fsi import _build_mesh  # noqa: E402
 from aeroelast.core.mesh.model import MeshModel  # noqa: E402
 from aeroelast.models.blade.model import Blade  # noqa: E402
+from aeroelast.solvers.aero import build_aero_participant_from_config  # noqa: E402
 from aeroelast.solvers.bem.force_projection import ForceProjector  # noqa: E402
 
 from tests.support.openfast_bem import build_blade_aero_from_aerodyn  # noqa: E402
@@ -43,6 +45,7 @@ from tests.support.paths import DATA_DIR  # noqa: E402
 
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
 AIRFOILS = DATA_DIR / "airfoils"
+CASE_YAML = DATA_DIR / "smoke_fix" / "base_fix" / "fluid_yaw_0.yaml"
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
 #: Deliberately coarse: the point is the element count, not the campaign mesh.
@@ -136,6 +139,12 @@ def test_coupling_node_set_filter_keeps_the_node_list_and_the_skin_elements(prod
             element.id for element in mesh.elements
         }, f"element set '{name}' claims an element the filter dropped"
 
+    print(
+        f"[wall-flow] filter: {len(mesh.nodes)} of {len(viz_mesh.nodes)} nodes kept, "
+        f"{len(mesh.elements)} of {len(viz_mesh.elements)} elements kept, "
+        f"{len(mesh.element_sets)} element sets"
+    )
+
 
 def test_production_coupling_mesh_realises_a_ring_section(production):
     """The production coupling mesh must keep its skin elements so a ring is realisable.
@@ -160,6 +169,10 @@ def test_production_coupling_mesh_realises_a_ring_section(production):
     usable = sum(1 for s in sections if s is not None)
     total = len(sections)
     counts = f"{usable} of {total} ring sections usable"
+    print(
+        f"[wall-flow] production coupling mesh: {len(mesh.nodes)} nodes, "
+        f"{len(mesh.elements)} elements; {counts}"
+    )
 
     assert len(mesh.elements) > 0, (
         "the production coupling mesh dropped every element: "
@@ -227,6 +240,60 @@ def test_factory_participant_realises_every_precomputed_ring(production):
         f"{len(without_properties)} of {total} ring sections fell back to the geometric "
         f"S = 1.0 split instead of the deck's laminates: indices {without_properties[:5]}"
     )
+    print(
+        f"[wall-flow] factory participant: {total} of {total} ring sections realisable, "
+        f"{len(sections)} built from the deck's properties"
+    )
+
+
+def test_aero_dispatcher_activates_the_realisation_on_the_campaign_path(production):
+    """The `aeroelast` entry point must activate the realisation too.
+
+    The smoke and campaign runs do not call `aeroelast-bem-fsi`: the `aeroelast`
+    dispatcher routes a `bem:` config to `run_aero_fsi`, whose backend dispatch
+    builds the *legacy* `BEMFSIParticipant`.  Measured on 2026-10-09, the
+    coupled A/B was identical until this hop was added: the dedicated CLI was
+    activated while the campaign path still fell back to the minimum-norm field.
+    """
+    from aeroelast.cli.run_aero_fsi import _resolve_config_paths  # noqa: PLC0415
+
+    cfg = yaml.safe_load(CASE_YAML.read_text())
+    _resolve_config_paths(cfg, CASE_YAML)
+    participant = build_aero_participant_from_config(
+        production["mesh"],
+        cfg,
+        viz_mesh=production["viz_mesh"],
+        element_properties=production["props"],
+    )
+    assert type(participant).__name__ == "BEMFSIParticipant", (
+        f"the dispatcher built {type(participant).__name__} instead of the legacy "
+        "BEM participant"
+    )
+
+    # The dispatcher's return type is the union of the backends, so the projector
+    # is reached dynamically; only the BEM backend has one.
+    projector = getattr(participant, "_projector", None)
+    assert projector is not None, (
+        f"the dispatcher built {type(participant).__name__} without a ForceProjector"
+    )
+    sections = [s for per_strip in projector._strip_ring_sections for s in per_strip]
+    total = len(sections)
+    assert total > 0, "the dispatcher-built projector precomputed no ring section at all"
+    unrealisable = [i for i, section in enumerate(sections) if section is None]
+    geometric_only = [
+        i
+        for i, section in enumerate(sections)
+        if section is not None and not section.from_element_properties
+    ]
+    assert not unrealisable and not geometric_only, (
+        "the campaign path dropped the activation: "
+        f"{len(unrealisable)} of {total} ring sections unrealisable, "
+        f"{len(geometric_only)} geometric-only"
+    )
+    print(
+        f"[wall-flow] aero dispatcher: {total} of {total} ring sections realisable, "
+        f"participant {type(participant).__name__}"
+    )
 
 
 def test_wall_flow_leaves_the_applied_resultant_unchanged(production):
@@ -285,6 +352,19 @@ def test_wall_flow_leaves_the_applied_resultant_unchanged(production):
         f"(|dM| = {delta_moment:.6e} N.m, |M| = {scale_moment:.6e} N.m)"
     )
 
+    difference = forces_wall - forces_fallback
+    moved = int(np.sum(np.any(np.abs(difference) > 1e-9, axis=1)))
+    print(
+        f"[wall-flow] resultant: relative |dF| = {relative_force:.3e}, "
+        f"relative |dM| = {relative_moment:.3e}"
+    )
+    print(
+        f"[wall-flow] distribution: relative L2 = "
+        f"{float(np.linalg.norm(difference) / np.linalg.norm(forces_wall)):.6%}, "
+        f"max |df| = {float(np.abs(difference).max()):.6f} N, "
+        f"nodes moved = {moved} of {len(forces_wall)}"
+    )
+
 
 def test_without_the_property_map_every_strip_falls_back(production):
     """A property-less projector must keep the pre-#16 minimum-norm fallback.
@@ -334,4 +414,8 @@ def test_without_the_property_map_every_strip_falls_back(production):
     assert np.array_equal(forces, forces_pre_16), (
         "the property-less element-bearing projector left the minimum-norm fallback: "
         f"max |dF| = {np.max(np.abs(forces - forces_pre_16)):.6e} N"
+    )
+    print(
+        f"[wall-flow] fallback: max |dF| against the node-only path = "
+        f"{np.max(np.abs(forces - forces_pre_16)):.6e} N over {len(forces)} nodes"
     )

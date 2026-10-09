@@ -286,7 +286,7 @@ def main(argv=None, *, default_backend: str | None = None) -> int:
 
     try:
         logger.info("[AERO-FSI] Building coupling mesh...")
-        mesh, viz_mesh, _ = _build_mesh(cfg, config_path)
+        mesh, viz_mesh, element_properties = _build_mesh(cfg, config_path)
         logger.info(
             "[AERO-FSI] Mesh build completed: nodes=%d elements=%d",
             len(mesh.nodes),
@@ -303,6 +303,7 @@ def main(argv=None, *, default_backend: str | None = None) -> int:
             cfg,
             viz_mesh=viz_mesh,
             default_backend=default_backend,
+            element_properties=element_properties,
         )
         runtime_context = getattr(participant, "runtime_context", None)
         if runtime_context is None:
@@ -322,7 +323,7 @@ def main(argv=None, *, default_backend: str | None = None) -> int:
         participant.run()
         logger.info("[AERO-FSI] Coupling loop finished cleanly.")
     except Exception as exc:
-        logging.error("AERO-FSI participant failed: %s", exc, exc_info=True)
+        logging.exception("AERO-FSI participant failed: %s", exc)
         return 1
 
     return 0

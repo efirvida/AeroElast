@@ -279,6 +279,12 @@ class BEMFSIParticipant:
         How many time windows between diagnostic log lines.
     """
 
+    #: Set by the aerodynamic dispatcher (``build_aero_participant_from_config``)
+    #: when this participant is built through the generic ``aeroelast`` entry point;
+    #: the dedicated ``aeroelast-bem-fsi`` CLI leaves it unset. Declared for the
+    #: type checker - it is deliberately not created here.
+    aero_runtime_context: object | None
+
     def __init__(
         self,
         mesh: MeshModel,

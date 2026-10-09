@@ -174,11 +174,17 @@ def build_aero_participant_from_config(
     config_file: str = "precice-config.xml",
     viz_mesh: MeshModel | None = None,
     default_backend: str | None = None,
+    element_properties: dict | None = None,
 ):
     """Build the configured aerodynamic participant.
 
     The new generic config is normalized to the legacy backend-specific input
     expected by the current implementation.
+
+    ``element_properties`` is the deck's element-set property map for the
+    coupling mesh. It is consumed by the ``bem`` backend only, where it enables
+    the wall-flow moment realisation of the legacy ``BEMFSIParticipant``; the
+    ``vlm`` and ``sharpy`` backends ignore it (issue #16).
     """
     runtime_context = build_aero_runtime_context(
         mesh,
@@ -210,8 +216,11 @@ def build_aero_participant_from_config(
             normalized_cfg,
             config_file=config_file,
             viz_mesh=viz_mesh,
+            element_properties=element_properties,
         )
-        participant.aero_runtime_context = runtime_context
+        # Attached dynamically: the legacy BEM participant declares the attribute
+        # (``aero_runtime_context``) for the checker, but only the dispatcher sets it.
+        participant.aero_runtime_context = runtime_context  # type: ignore[attr-defined]
         return participant
 
     if backend == "vlm":
