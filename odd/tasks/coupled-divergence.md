@@ -364,19 +364,50 @@ magnitudes agree, and this is the measured pair.
       but three quarters of the windows still saturate. The defect is upstream
       of the geometry feedback. (The `noradii`/`notwist` attribution rungs are
       therefore not worth a slot yet.)
-- [ ] T6d **The origin/main ladder runs again, with a shim.** The venv
-      `_aeroelast` (2026-10-04) requires the five K_G-deformed / omega-rebuild
-      arguments (`omega_rebuild_rel_high/low`, `kg_use_deformed_coords`,
-      `kg_deflection_rebuild_rel_high/low`) and the origin/main side of the merge
-      predates them, so it died with `missing 5 required positional arguments`.
-      Every rung worktree now passes them with HEAD's own defaults (`rotor.py`
-      474-483: `0.005 / 0.003 / False / 0.01 / 0.005`), which are also the
-      campaign revision's - the feature is OFF, so the rung behaves as it did
-      without it. The insertion is labelled `DIAGNOSTIC SHIM` in each
-      worktree's `rotor.py` and is not for commit. First three rungs on the
-      consensus case: `origmain` = `5f22f51` (the merge's
-      **second parent** - if it converges, the merge resolution itself is the
-      defect), `ac2e9e8` and `fee690` = `4fee690`.
+- [x] T6f **Both sides of the merge are healthy on their own.** The same
+      instrument, the same (absolute-path) case, 1 h budget:
+
+      | tree | windows | converged | first 8 |
+      | --- | ---: | ---: | --- |
+      | `campaign` = `b5d369e` (local side) | 500 | **500 (100%)** | (job 11610862), run to 5 s |
+      | `origmain` = `5f22f51` (merge's 2nd parent) | 206 | 185 (89.8%) | 30 8 4 4 5 4 5 5 |
+      | `ac2e9e8` (origin/main @ 10-02) | 243 | 232 (95.5%) | 30 9 10 8 6 4 3 3 |
+      | `fee690` = `4fee690` | 217 | 192 (88.5%) | 30 9 7 7 7 5 5 8 |
+      | HEAD (`7a84da1`) | 500 | 39 (7.8%) | 23 30 30 30 30 30 30 30 |
+      | `headfix` (was `7a84da1`) | 159 | 14 (8.8%) | 15 30 30 30 30 30 30 30 |
+      | `nofeed` (feedback frozen) | 500 | 144 (28.8%) | 12 30 30 30 30 30 30 30 |
+
+      So **the regression is the merge's own combination**, not a single commit
+      on either side: each parent contracts, HEAD does not. The origin/main side
+      does saturate its *first* window (30) and then settles to 3-12, while the
+      campaign opens at 15 and never saturates.
+- [x] T6g Where the search is now, from file-level ancestry at the merge. The
+      merge's **own** resolutions in the coupled path are only
+      `core/config.py`, `core/mesh/__init__.py`, `core/mesh/generators.py` and
+      two MITC3 Rust files. `config.py`'s only substantive resolution is the
+      `normal_direction`/`tangential_direction` **default** pair (origin/main's
+      transposed one, `[0,1,0]`/`[1,0,0]`) - and the case sets both explicitly,
+      so it is inert here. The mesh is **identical** across every rung by count
+      (32336 nodes / 33473 elements solid, 32325 / 33462 fluid), so the
+      merge-own `generators.py`/`__init__.py` differences are formatting and
+      dead code, not geometry. And `solvers/fsi/rotor.py`, `corotational.py`,
+      `bem/engine.py`, `mesh/model.py`, `mesh/winding.py` are **byte-identical
+      to the campaign's** in the merge, so they are out. What is left is exactly
+      two files, both taken from origin/main and both rewritten relative to the
+      campaign: `solvers/bem/fsi_participant.py` (+389/-179) and
+      `solvers/bem/force_projection.py` (+151/-285), plus `standalone.py`
+      (2 lines).
+- [ ] T6h Two experiments running (jobs `11611084`, `11611085`, 1 h budget)
+      that split those two files' effects: `projfrozen` = HEAD with the
+      **reference projector kept** instead of rebuilding it on the deformed mesh
+      (`projector = self._projector` in `_compute_forces`), which removes the
+      applied load's deformation-dependent geometry (strip membership, chord
+      axis, AC arm) - the one feedback `nofeed` did not freeze; and `bemhead` =
+      the `origmain` tree carrying **HEAD's** `fsi_participant.py`,
+      `force_projection.py` and `standalone.py`, which puts the whole fluid side
+      of HEAD on a tree whose solid side is the healthy origin/main one. If
+      `projfrozen` contracts, the defect is the projector's per-sub-iteration
+      rebuild; if `bemhead` fails, the whole fluid side is implicated.
 - [ ] T6e Those three (`11610978`-`11610980`) returned **zero windows in 3 h**,
       and it was not the coupling: the **fluid** participant died with
       `RuntimeError: XML parser was unable to open configuration file
