@@ -672,3 +672,599 @@ def test_raw_abd_section_is_smeared_and_warns(caplog) -> None:
     assert any("plate" in m and "thickness-mean" in m and "no ply stack" in m for m in messages), (
         f"expected a one-time raw-ABD warning naming 'plate'; got {messages}"
     )
+
+
+# ============================================================================
+# T3 — pure bending, the angle-ply per-ply rotation, and the MIDDLE tie-break
+# ============================================================================
+#
+# The membrane cases above discriminate the *ply* from the section mean.  The
+# three cases below discriminate the remaining pieces of the contract:
+#
+#   * **pure bending** — the through-thickness variation is the closed form's
+#     ``sigma(z) = Qbar(theta_ply) . (eps0 + z kappa)`` with ``kappa = D^-1 M``
+#     and ``eps0 = 0`` for a symmetric laminate, and the bending moment is
+#     station-independent along the strip (the applied couple carries no net
+#     force, so the internal moment is constant);
+#   * **angle ply** — ``Qbar(theta)`` is applied *per ply*, so the outer +45
+#     ply and its -45 neighbour carry different global-axis ``sigma_xx``;
+#   * **MIDDLE** — the half-open ply rule at a ``z`` that lands on a ply
+#     interface, pinned explicitly instead of assumed.
+
+#: The implemented interface rule, read from ``StressRecovery._resolve_ply_index``
+#: (``src/aeroelast/postprocess/stress_recovery.py``): plies are ``[z_bottom,
+#: z_top)`` scanned bottom to top and the first ply whose ``z_bottom <= z`` owns
+#: the coordinate; a ``z`` at or above the top surface falls back to the
+#: outermost ply.  Named here so a convention change has to change this string
+#: and the integer assertion below.
+MIDDLE_TIE_BREAK_RULE = (
+    "half-open ply [z_bottom, z_top) scanned bottom to top; the ply whose interval "
+    "contains z owns it, so at an interface the upper ply (z == its z_bottom) does"
+)
+
+#: The pure moment is realised as a couple of equal and opposite out-of-plane
+#: (z) nodal forces: ``-F_z`` on the free-edge row and ``+F_z`` on the row one
+#: element behind it.  The lever arm is along x, so the couple is a moment
+#: **about the y axis** (the in-plane width axis) and the net force is zero.
+#: With no net force the internal bending moment is constant along the strip —
+#: the "pure" in pure bending.  ``BEND_M_X`` is the moment per unit width about
+#: y that the couple represents, so ``M_total = M_x * B`` and
+#: ``BEND_F_TOTAL = M_total / BEND_ARM``.
+BEND_ARM = L / NX  # one element behind the free edge [m]
+BEND_M_X = 1.0  # applied bending moment per unit width about y [N] (N*m/m = N)
+BEND_F_TOTAL = BEND_M_X * B / BEND_ARM  # total z force per row [N]
+
+
+# ============================================================================
+# Independent CLT reference for the bending profile
+# ============================================================================
+
+
+def _hand_clt_bending(
+    E1: float, E2: float, G12: float, nu12: float, angles: list[float], m_x: float
+) -> tuple[list[np.ndarray], np.ndarray, np.ndarray, np.ndarray]:
+    """CLT pure bending: ``Qbar`` per ply, ``z`` edges, ``D`` and ``kappa = D^-1 M``.
+
+    A symmetric laminate (``B = 0``) under the moment resultant ``M = [m_x, 0,
+    0]`` about the y axis has ``eps0 = 0`` and ``kappa = D^-1 M``.  The stress
+    at through-thickness coordinate ``z`` is ``sigma(z) = Qbar(theta_ply) .
+    (z kappa)`` — piecewise linear, with a kink at every ply interface.
+    Re-implemented from first principles; nothing comes from
+    ``aeroelast.core.laminate``.
+    """
+    q = _hand_q(E1, E2, G12, nu12)
+    n = len(angles)
+    z = np.linspace(-0.5 * n * PLY_THICKNESS, 0.5 * n * PLY_THICKNESS, n + 1)
+    qbars = [_hand_qbar(q, theta) for theta in angles]
+    D = np.zeros((3, 3))
+    for k, qb in enumerate(qbars):
+        D += qb * (z[k + 1] ** 3 - z[k] ** 3) / 3.0
+    kappa = np.linalg.solve(D, np.array([m_x, 0.0, 0.0]))
+    return qbars, z, D, kappa
+
+
+def _hand_clt_sigma_at_z(
+    qbars: list[np.ndarray], z: np.ndarray, kappa: np.ndarray, z_query: float
+) -> tuple[int, np.ndarray]:
+    """``(ply_index, sigma)`` at ``z_query`` using the same half-open rule as the code.
+
+    The reference resolves the ply with the identical ``[z_bottom, z_top)`` scan
+    the implementation documents (:data:`MIDDLE_TIE_BREAK_RULE`), so an
+    interface coordinate is evaluated in the same ply by both sides.
+    """
+    ply_index = len(z) - 2  # default: outermost (top) ply, the ``z >= z_top`` fallback
+    for k in range(len(z) - 1):
+        if z[k] <= z_query < z[k + 1]:
+            ply_index = k
+            break
+    eps = z_query * kappa  # eps0 = 0 for a symmetric laminate
+    return ply_index, qbars[ply_index] @ eps
+
+
+def _nearest_element_index(domain: MeshAssembler, x: float, y: float) -> int:
+    """Index (into ``domain.elements``) of the centroid nearest ``(x, y, 0)``.
+
+    The same element ordering assumption as ``_centre_element_index`` (the rows
+    of ``compute_element_stresses`` follow ``domain.elements``), generalised to
+    the arbitrary stations the bending case reads.
+    """
+    node_pos = {n.id: (n.x, n.y, n.z) for n in domain.nodes}
+    target = np.array([x, y, 0.0])
+    best_i, best_d = -1, np.inf
+    for i, elem in enumerate(domain.elements):
+        centroid = np.mean([node_pos[nid] for nid in elem.node_ids], axis=0)
+        d = float(np.linalg.norm(centroid - target))
+        if d < best_d:
+            best_i, best_d = i, d
+    assert best_i >= 0, "no elements in the assembled domain"
+    return best_i
+
+
+# ============================================================================
+# T3.1 — pure bending of a symmetric laminate about the y axis
+# ============================================================================
+
+
+@pytest.fixture(scope="module")
+def bending_case() -> dict:
+    """Pure bending of the symmetric ``[0/90]s`` strip about the in-plane y axis.
+
+    The couple is ``+F_z`` on the row one element behind the free edge and
+    ``-F_z`` on the free-edge row (``BEND_F_TOTAL`` each, spread over the
+    width), giving ``M_x = 1 N`` per unit width about y with **no net force**.
+    The internal bending moment is therefore constant along the strip, so the
+    centre and 3/4-span stations must see the same through-thickness profile.
+    The reference is the CLT profile ``Qbar(theta_ply) . (z kappa)`` with
+    ``kappa = D^-1 M`` and ``eps0 = 0``.
+    """
+    angles = LAYUPS["sym_0_90s"]  # [0, 90, 90, 0]: symmetric, B = 0
+    mesh = _build_mesh()
+    model_cfg = _model_cfg(_laminate(angles))
+
+    free_edge = arbiter.nodes_at_coordinate(mesh, L, axis=0)
+    behind_edge = arbiter.nodes_at_coordinate(mesh, L - BEND_ARM, axis=0)
+    u = arbiter.solve_static(
+        mesh,
+        model_cfg,
+        fixed_dofs=arbiter.fixed_dofs_from_node_set(mesh, "clamped"),
+        nodal_loads_list=[
+            arbiter.nodal_loads(behind_edge, +BEND_F_TOTAL, dof=2),
+            arbiter.nodal_loads(free_edge, -BEND_F_TOTAL, dof=2),
+        ],
+    )
+    domain = MeshAssembler(mesh=mesh, model=model_cfg)
+    recovery = StressRecovery(domain, u)
+
+    qbars, z, D, kappa = _hand_clt_bending(E1, E2, G12, NU12, angles, BEND_M_X)
+    stations = {
+        "centre": _nearest_element_index(domain, 0.5 * L, 0.5 * B),
+        "three_quarter": _nearest_element_index(domain, 0.75 * L, 0.5 * B),
+    }
+    out: dict = {
+        "angles": angles,
+        "stations": stations,
+        "qbars": qbars,
+        "z": z,
+        "D": D,
+        "kappa_ref": kappa,
+        "m_x": BEND_M_X,
+    }
+    for name, idx in stations.items():
+        sxx = {}
+        for key, loc in (
+            ("top", StressLocation.TOP),
+            ("middle", StressLocation.MIDDLE),
+            ("bottom", StressLocation.BOTTOM),
+        ):
+            res = recovery.compute_element_stresses(location=loc, stress_type=StressType.TOTAL)
+            sxx[key] = float(res.sigma_xx[idx])
+        out[name] = sxx
+        # Recover kappa from the total strain: eps(z) = z kappa, so eps(h/2) = (h/2) kappa.
+        eps_top = recovery.compute_element_strains(location=StressLocation.TOP)
+        out[f"{name}_kappa_fem"] = np.array(
+            [eps_top.epsilon_xx[idx], eps_top.epsilon_yy[idx], eps_top.gamma_xy[idx]]
+        ) / (0.5 * H)
+        print(
+            f"bending [{name}] element #{idx}: sigma_xx TOP/MID/BOT = "
+            f"{sxx['top'] / 1e6:.4f} / {sxx['middle'] / 1e6:.4f} / {sxx['bottom'] / 1e6:.4f} MPa"
+        )
+    _, sig_top = _hand_clt_sigma_at_z(qbars, z, kappa, +0.5 * H)
+    _, sig_bot = _hand_clt_sigma_at_z(qbars, z, kappa, -0.5 * H)
+    out["sig_top_clt"] = float(sig_top[0])
+    out["sig_bot_clt"] = float(sig_bot[0])
+    print(
+        f"bending hand CLT: kappa = {kappa} 1/m; sigma_xx TOP/BOT = "
+        f"{out['sig_top_clt'] / 1e6:.4f} / {out['sig_bot_clt'] / 1e6:.4f} MPa; "
+        f"centre kappa_fem = {out['centre_kappa_fem']} 1/m"
+    )
+    return out
+
+
+def test_bending_top_and_bottom_match_clt_at_two_stations(bending_case: dict) -> None:
+    """Pure bending: the CLT through-thickness profile holds at centre and 3/4 span.
+
+    Claim 1 is the through-thickness law ``sigma(z) = Qbar(theta_ply) . (z
+    kappa)`` with ``kappa = D^-1 M`` and ``eps0 = 0`` for the symmetric
+    laminate; claim 2 is that the moment (hence the stress) does not vary along
+    the strip, which is what makes the couple a *pure* moment.  Both outer
+    fibres are compared against the closed form at both stations.
+    """
+    for station in ("centre", "three_quarter"):
+        assert_relative_error(
+            bending_case[station]["top"],
+            bending_case["sig_top_clt"],
+            tol=TOL_CLT,
+            kind="analytical",
+            reference_name=(
+                "CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), "
+                "pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M)"
+            ),
+            what=f"[0/90]s pure bending {station} TOP outer-fibre ply sigma_xx",
+        )
+        assert_relative_error(
+            bending_case[station]["bottom"],
+            bending_case["sig_bot_clt"],
+            tol=TOL_CLT,
+            kind="analytical",
+            reference_name=(
+                "CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), "
+                "pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M)"
+            ),
+            what=f"[0/90]s pure bending {station} BOTTOM outer-fibre ply sigma_xx",
+        )
+
+
+def test_bending_moment_is_station_independent(bending_case: dict) -> None:
+    """The couple carries no net force, so the recovered stress is the same at both stations.
+
+    This is the station-independence of a *pure* moment: with zero net force the
+    internal bending moment is constant, so a cross-section at the centre strips
+    the same state as one at 3/4 span.  The two stations are also compared
+    against the closed form in
+    :func:`test_bending_top_and_bottom_match_clt_at_two_stations`; here the
+    relation between them is pinned directly.
+    """
+    for key in ("top", "bottom"):
+        a = bending_case["centre"][key]
+        b = bending_case["three_quarter"][key]
+        scale = max(abs(a), abs(b), 1e-300)
+        rel = abs(a - b) / scale
+        print(f"bending {key}: centre {a:.6e} vs 3/4 {b:.6e} (relative gap {rel:.3e})")
+        assert rel < 1e-4, (
+            f"the pure moment is not station-independent at {key}: centre {a:.6e} vs "
+            f"3/4 span {b:.6e} (relative {rel:.3e}) — the couple is not a pure moment"
+        )
+    # The mid-surface stress is numerical zero, so it has no meaningful relative
+    # gap; its negligibility is asserted in
+    # :func:`test_bending_outer_fibres_are_opposite_and_per_ply`.
+    print(
+        f"bending middle: centre {bending_case['centre']['middle']:.6e} vs 3/4 span "
+        f"{bending_case['three_quarter']['middle']:.6e} Pa (numerical zero)"
+    )
+
+
+def test_bending_outer_fibres_are_opposite_and_per_ply(bending_case: dict) -> None:
+    """TOP and BOTTOM have opposite signs and each carries its own ply's magnitude.
+
+    Pure bending is antisymmetric through the thickness (``eps0 = 0``), so the
+    two outer fibres must have opposite signs and the mid-surface stress must be
+    ~0.  The magnitude at each outer fibre is the stress of the **ply that owns
+    that coordinate** — ``Qbar(theta_ply) . (z kappa)`` with ``z = ±h/2`` — and
+    not the homogenised section mean.  For the symmetric ``[0/90]s`` stack the
+    two outer plies share a fibre angle, so their magnitudes are equal; the two
+    resolved ply indices (0 and 3) are nevertheless distinct, which is the
+    property a future TOP/BOTTOM swap would break (the per-location resolution,
+    not a sign shortcut).
+    """
+    section = StressRecovery._normalise_ply_section(
+        CompositeShellProperty(laminate=_laminate(bending_case["angles"])), "plate", []
+    )
+    assert section is not None, "the [0/90]s CompositeShellProperty must normalise to a ply section"
+    idx_top = StressRecovery._resolve_ply_index(section, +0.5)
+    idx_bot = StressRecovery._resolve_ply_index(section, -0.5)
+    print(
+        f"bending ply resolution ({MIDDLE_TIE_BREAK_RULE}): TOP -> ply {idx_top}, "
+        f"BOTTOM -> ply {idx_bot}"
+    )
+    assert idx_top == len(section.plies) - 1, (
+        f"TOP (z=+h/2) must resolve to the outermost ply {len(section.plies) - 1}, got {idx_top}"
+    )
+    assert idx_bot == 0, f"BOTTOM (z=-h/2) must resolve to the bottom ply 0, got {idx_bot}"
+    assert idx_top != idx_bot, (
+        "TOP and BOTTOM must be distinct physical plies, not a mirror shortcut"
+    )
+
+    # ``[0, 90, 90, 0]`` is symmetric, so its two outer plies share a fibre angle
+    # and the outer-fibre values are exact negatives.  The requested locations are
+    # still two *different* physical plies (3 and 0), and at an internal pair such
+    # as z = \u00b1h/4 the same half-open rule resolves to the 0-deg outer ply and the
+    # 90-deg inner ply \u2014 a genuinely non-mirror pair (different ``Qbar`` and
+    # different magnitude).  That is the sense in which the four plies are not
+    # symmetric at a requested location, and it is what the per-ply resolution
+    # must reproduce.
+    qbars, z, kappa = bending_case["qbars"], bending_case["z"], bending_case["kappa_ref"]
+    idx_pq = StressRecovery._resolve_ply_index(section, +0.25)
+    idx_nq = StressRecovery._resolve_ply_index(section, -0.25)
+    _, sig_pq = _hand_clt_sigma_at_z(qbars, z, kappa, +0.25 * H)
+    _, sig_nq = _hand_clt_sigma_at_z(qbars, z, kappa, -0.25 * H)
+    print(
+        f"bending internal stations: +h/4 -> ply {idx_pq} ({section.plies[idx_pq].angle_deg} deg, "
+        f"{sig_pq[0] / 1e6:.4f} MPa), -h/4 -> ply {idx_nq} "
+        f"({section.plies[idx_nq].angle_deg} deg, {sig_nq[0] / 1e6:.4f} MPa)"
+    )
+    assert section.plies[idx_pq].angle_deg != section.plies[idx_nq].angle_deg, (
+        "the \u00b1h/4 requested locations must resolve to different-angle plies"
+    )
+    assert abs(abs(sig_pq[0]) - abs(sig_nq[0])) / abs(sig_pq[0]) > 0.10, (
+        "the \u00b1h/4 per-ply stresses must differ in magnitude (not a mirror pair)"
+    )
+
+    top = bending_case["centre"]["top"]
+    bottom = bending_case["centre"]["bottom"]
+    middle = bending_case["centre"]["middle"]
+    mean = bending_case["sig_top_clt"] + bending_case["sig_bot_clt"]  # antisymmetric -> 0
+    print(
+        f"bending signs: TOP {top:.6e}, MIDDLE {middle:.6e}, BOTTOM {bottom:.6e} Pa "
+        f"(per-ply CLT {bending_case['sig_top_clt']:.6e} / {bending_case['sig_bot_clt']:.6e})"
+    )
+    assert top * bottom < 0.0, (
+        f"TOP {top:.6e} and BOTTOM {bottom:.6e} must have opposite signs under pure bending"
+    )
+    assert abs(middle) < 1e-3 * max(abs(top), abs(bottom)), (
+        f"mid-surface sigma_xx {middle:.6e} is not negligible against the outer fibres "
+        f"{top:.6e} / {bottom:.6e}"
+    )
+    assert abs(mean) < 1e-12 * max(abs(top), abs(bottom), 1.0)
+
+
+def test_bending_kappa_matches_D_inverse_M(bending_case: dict) -> None:
+    """The recovered curvature is ``kappa = D^-1 M`` from the closed-form ``D`` and applied ``M``.
+
+    Reads the total strain at TOP (``eps(h/2) = (h/2) kappa`` because ``eps0 =
+    0``) and compares the vector ``kappa`` component-wise with the closed form.
+    This is the D-side of the bending discriminator: the membrane cases pin the
+    ``A`` matrix, this one pins ``D``.
+    """
+    kappa_ref = bending_case["kappa_ref"]
+    names = ("kappa_x (bending)", "kappa_y (Poisson-coupled)")
+    for station in ("centre", "three_quarter"):
+        kappa_fem = bending_case[f"{station}_kappa_fem"]
+        for comp in (0, 1):
+            assert_relative_error(
+                float(kappa_fem[comp]),
+                float(kappa_ref[comp]),
+                tol=TOL_CLT,
+                kind="analytical",
+                reference_name=(
+                    "CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), "
+                    "kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]"
+                ),
+                what=f"[0/90]s pure bending {station} {names[comp]}",
+            )
+        # D16 = D26 = 0 for the symmetric cross-ply, so the closed-form twisting
+        # curvature is exactly zero (1.5e-20); the FE value is a small
+        # discretisation residual, bounded in absolute terms against kappa_x.
+        print(
+            f"bending {station} kappa_xy: {kappa_fem[2]:.3e} 1/m vs closed form "
+            f"{kappa_ref[2]:.3e} 1/m (kappa_x {kappa_ref[0]:.6e})"
+        )
+        assert abs(kappa_fem[2]) < 0.05 * abs(kappa_ref[0]), (
+            f"twisting curvature {kappa_fem[2]:.3e} is not negligible against kappa_x "
+            f"{kappa_ref[0]:.3e} for the symmetric cross-ply"
+        )
+
+
+# ============================================================================
+# T3.2 — the angle ply: Qbar(theta) applied per ply
+# ============================================================================
+
+#: ``[+45, -45, -45, +45]`` (bottom to top): symmetric and balanced, so ``B = 0``
+#: and ``A16 = A26 = 0``.  Under the existing uniaxial membrane load ``eps0`` has no
+#: shear component, so every ply carries the **same** global ``sigma_xx`` (CLT =
+#: 2.0000 MPa everywhere): for a balanced laminate the per-ply rotation cannot be
+#: seen in ``sigma_xx``.  What differs between the +45 ply and its -45 neighbour is
+#: the **in-plane shear** ``sigma_xy``: CLT gives ``+0.809 MPa`` in the +45 plies
+#: and ``-0.809 MPa`` in the -45 plies, cancelling to a zero thickness mean, while
+#: the smeared path returns 0.  That is the component the per-ply ``Qbar(theta)``
+#: controls here, so it is the one the angle-ply test asserts.
+ANGLE_PLY = [45.0, -45.0, -45.0, 45.0]
+ANGLE_PLY_NX, ANGLE_PLY_NY = 16, 4  # 8x2 leaves a ~6.8% in-plane edge-shear boundary layer
+
+
+def _hand_clt_ply_stress_vectors(
+    E1: float, E2: float, G12: float, nu12: float, angles: list[float], resultant: list[float]
+) -> tuple[list[np.ndarray], np.ndarray, np.ndarray]:
+    """Per-ply Voigt ``[sxx, syy, sxy]`` and the thickness mean for membrane ``N``.
+
+    ``eps0 = A^-1 N`` and ``sigma_k = Qbar(theta_k) . eps0``; the mean is the
+    equilibrium value ``N / h``.  First-principles ``Qbar``, like the rest of the
+    references in this file.
+    """
+    q = _hand_q(E1, E2, G12, nu12)
+    n = len(angles)
+    z = np.linspace(-0.5 * n * PLY_THICKNESS, 0.5 * n * PLY_THICKNESS, n + 1)
+    qbars = [_hand_qbar(q, theta) for theta in angles]
+    A = np.zeros((3, 3))
+    for k, qb in enumerate(qbars):
+        A += qb * (z[k + 1] - z[k])
+    resultant_vec = np.asarray(resultant, dtype=float)
+    eps0 = np.linalg.solve(A, resultant_vec)
+    return [qb @ eps0 for qb in qbars], resultant_vec / H, eps0
+
+
+@pytest.fixture(scope="module")
+def angle_ply_case() -> dict:
+    """Membrane tension of ``[+45, -45, -45, +45]`` on the existing strip.
+
+    The 8x2 mesh used elsewhere in this file leaves the angle-ply in-plane
+    boundary layer at the clamped edge still ~6.8 % of ``sigma_xy``, so this case
+    is solved on 16x4, where the closed form is within 0.9 %.
+    """
+    angles = ANGLE_PLY
+    mesh = _build_mesh(ANGLE_PLY_NX, ANGLE_PLY_NY)
+    model_cfg = _model_cfg(_laminate(angles))
+    u = _solve_production(mesh, model_cfg)
+    domain = MeshAssembler(mesh=mesh, model=model_cfg)
+    recovery = StressRecovery(domain, u)
+    idx = _centre_element_index(domain)
+
+    comps: dict[str, dict[str, float]] = {}
+    for key, loc in (
+        ("top", StressLocation.TOP),
+        ("middle", StressLocation.MIDDLE),
+        ("bottom", StressLocation.BOTTOM),
+    ):
+        res = recovery.compute_element_stresses(location=loc, stress_type=StressType.TOTAL)
+        comps[key] = {
+            "sxx": float(res.sigma_xx[idx]),
+            "syy": float(res.sigma_yy[idx]),
+            "sxy": float(res.sigma_xy[idx]),
+        }
+
+    sigma_ply, mean_vec, eps0 = _hand_clt_ply_stress_vectors(
+        E1, E2, G12, NU12, angles, [N_X, 0.0, 0.0]
+    )
+    print(
+        f"angle ply [{angles}] 16x4 centre element #{idx}: sigma_xy TOP/MID/BOT = "
+        f"{comps['top']['sxy']:.4e} / {comps['middle']['sxy']:.4e} / "
+        f"{comps['bottom']['sxy']:.4e} Pa; CLT sigma_xy (+45 / -45) = "
+        f"{sigma_ply[3][2]:.4e} / {sigma_ply[2][2]:.4e} Pa, thickness mean {mean_vec[2]:.4e} Pa"
+    )
+    print(
+        f"angle ply sigma_xx TOP/MID/BOT = {comps['top']['sxx'] / 1e6:.4f} / "
+        f"{comps['middle']['sxx'] / 1e6:.4f} / {comps['bottom']['sxx'] / 1e6:.4f} MPa; "
+        f"CLT per ply = {[f'{s[0] / 1e6:.4f}' for s in sigma_ply]} MPa, "
+        f"mean {mean_vec[0] / 1e6:.4f} MPa"
+    )
+    return {
+        "angles": angles,
+        "comps": comps,
+        "sigma_ply": sigma_ply,
+        "mean_vec": mean_vec,
+        "eps0_clt": eps0,
+        "centre_index": idx,
+    }
+
+
+def test_angle_ply_rotates_Qbar_per_ply(angle_ply_case: dict) -> None:
+    """The +45 outer ply and its -45 neighbour carry opposite per-ply shear.
+
+    Under the existing uniaxial load the balanced laminate has no CLT shear
+    strain, so both angles share the same global ``sigma_xx`` (CLT 2.0000 MPa for
+    all four plies).  The per-ply rotation is visible in ``sigma_xy``:
+    ``Qbar(45) . eps0`` and ``Qbar(-45) . eps0`` have opposite shear, while the
+    smeared ``(A/h) . eps0`` gives zero (``N_xy = 0``).  ``TOP`` resolves to the
+    +45 outer ply and ``MIDDLE`` (``z = 0``) to its -45 neighbour, so the two
+    recovered shears must match the two distinct CLT ply values, have opposite
+    signs, and both differ from the (zero) thickness mean.  The printed numbers
+    show the discrimination: per-ply ``sigma_xy`` for the two angles and the
+    mean, plus the (equal) per-ply ``sigma_xx``.
+    """
+    outer_clt = angle_ply_case["sigma_ply"][3]  # +45 ply, index 3
+    neighbour_clt = angle_ply_case["sigma_ply"][2]  # -45 ply, index 2 (TOP's neighbour)
+    outer = angle_ply_case["comps"]["top"]
+    neighbour = angle_ply_case["comps"]["middle"]
+    mean_vec = angle_ply_case["mean_vec"]
+
+    # The discriminating component: per-ply sigma_xy.
+    assert_relative_error(
+        outer["sxy"],
+        float(outer_clt[2]),
+        tol=TOL_CLT,
+        kind="analytical",
+        reference_name=(
+            "CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), "
+            "per-ply Qbar(theta) . eps0, sigma_xy of the +45 outer ply"
+        ),
+        what="[+45,-45]s TOP outer-ply sigma_xy",
+    )
+    assert_relative_error(
+        neighbour["sxy"],
+        float(neighbour_clt[2]),
+        tol=TOL_CLT,
+        kind="analytical",
+        reference_name=(
+            "CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), "
+            "per-ply Qbar(theta) . eps0, sigma_xy of the -45 neighbour ply"
+        ),
+        what="[+45,-45]s MIDDLE neighbour-ply sigma_xy",
+    )
+    assert outer["sxy"] * neighbour["sxy"] < 0.0, (
+        f"the +45 ({outer['sxy']:.6e}) and -45 ({neighbour['sxy']:.6e}) plies must carry "
+        "opposite in-plane shear"
+    )
+    assert abs(mean_vec[2]) < 1e-12 * (abs(float(outer_clt[2])) + 1.0), (
+        "the balanced laminate's thickness-mean sigma_xy must be zero"
+    )
+    for label, value in (("TOP (+45)", outer["sxy"]), ("MIDDLE (-45)", neighbour["sxy"])):
+        assert abs(value - mean_vec[2]) > 0.10 * abs(float(outer_clt[2])), (
+            f"angle ply {label} sigma_xy {value:.6e} is too close to the thickness mean "
+            f"{mean_vec[2]:.6e} — Qbar(theta) was not applied per ply"
+        )
+
+    # The same closed form for the component that does NOT discriminate here, so
+    # the test states plainly that the plies carry equal sigma_xx under N_x.
+    for label, value, ref in (
+        ("TOP (+45)", outer["sxx"], float(outer_clt[0])),
+        ("MIDDLE (-45)", neighbour["sxx"], float(neighbour_clt[0])),
+    ):
+        assert_relative_error(
+            value,
+            ref,
+            tol=TOL_CLT,
+            kind="analytical",
+            reference_name=(
+                "CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), "
+                "per-ply Qbar(theta) . eps0, sigma_xx"
+            ),
+            what=f"[+45,-45]s {label} sigma_xx",
+        )
+
+
+# ============================================================================
+# T3.3 — the MIDDLE tie-break on a ply interface
+# ============================================================================
+
+
+def test_middle_tie_break_rule_is_pinned(cases: dict) -> None:
+    """``z = 0`` in ``[0/90]s`` is a ply interface; the half-open rule owns it.
+
+    The implemented rule (:data:`MIDDLE_TIE_BREAK_RULE`, read from
+    ``StressRecovery._resolve_ply_index``,
+    ``src/aeroelast/postprocess/stress_recovery.py``) scans the plies bottom to
+    top with ``[z_bottom, z_top)`` and returns the first ply whose interval
+    contains ``z``.  At an interface the lower ply's ``z_top == z`` is excluded
+    and the upper ply's ``z_bottom == z`` is included, so the **upper** ply owns
+    the interface.  At ``z = 0`` for ``[0, 90, 90, 0]`` that is ply index 2 (the
+    upper central 90-deg ply); the lower neighbour is index 1 (also 90-deg).
+    Either neighbour is defensible *because* both are 90-deg, and that is exactly
+    why the convention must be pinned by the resolved index: a future change that
+    returned index 1 would leave the recovered number identical, and this
+    assertion would catch it where a value check could not.  The recovered
+    ``MIDDLE`` stress is also asserted to equal one of the two neighbouring
+    plies' CLT values.
+    """
+    angles = LAYUPS["sym_0_90s"]
+    section = StressRecovery._normalise_ply_section(
+        CompositeShellProperty(laminate=_laminate(angles)), "plate", []
+    )
+    assert section is not None, "the [0/90]s CompositeShellProperty must normalise to a ply section"
+    resolved = StressRecovery._resolve_ply_index(section, 0.0)
+    print(f"MIDDLE tie-break rule ({MIDDLE_TIE_BREAK_RULE}): z=0 -> ply {resolved}")
+    assert resolved == 2, (
+        f"the {MIDDLE_TIE_BREAK_RULE} must resolve z=0 in [0/90]s to ply 2 "
+        f"(the upper central 90-deg ply, whose z_bottom = 0), got {resolved}"
+    )
+    assert resolved != 1, (
+        "the convention must not take the lower neighbour (ply 1) at the interface"
+    )
+
+    # The two neighbouring plies at z = 0 are indices 1 and 2; both are 90 deg.
+    plys = section.plies
+    assert plys[1].z_top == 0.0 and plys[2].z_bottom == 0.0, (
+        "z = 0 must be the interface between the two central plies"
+    )
+    neighbours = (1, 2)
+    sigma_ref = cases["sym_0_90s"]["sigma_xx_ref"]
+    recovered = cases["sym_0_90s"]["sxx"]["middle"]
+    ref_resolved = sigma_ref[resolved]
+    print(
+        f"MIDDLE z=0 [0/90]s: recovered {recovered / 1e6:.4f} MPa; CLT neighbours "
+        f"ply1 {sigma_ref[1] / 1e6:.4f} MPa, ply2 {sigma_ref[2] / 1e6:.4f} MPa; "
+        f"thickness mean {cases['sym_0_90s']['mean_ref'] / 1e6:.4f} MPa"
+    )
+    assert any(abs(recovered - sigma_ref[k]) / abs(sigma_ref[k]) < TOL_CLT for k in neighbours), (
+        f"MIDDLE z=0 recovered {recovered:.6e} Pa equals neither neighbouring ply "
+        f"(CLT {[sigma_ref[k] for k in neighbours]})"
+    )
+    assert_relative_error(
+        recovered,
+        ref_resolved,
+        tol=TOL_CLT,
+        kind="analytical",
+        reference_name=(
+            "CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), "
+            "the ply that the documented half-open interface rule owns"
+        ),
+        what="[0/90]s MIDDLE (z=0 interface) sigma_xx of the resolved ply",
+    )
