@@ -1061,3 +1061,46 @@ continuidad del eje de cuerda sin histéresis) en vez de congelarla. Es fidelida
 **Re-ejecutar si cambia**: `solvers/bem/fsi_participant.py` (`_compute_forces`), el projector, o el
 esquema de acople en `precice-config.xml`. La verificación larga es el gate de 30 s
 (`tests/run_step1b_smoke.srm`, job `11611263`) y, después, el re-anclaje de la campaña.
+
+### #27: la mitad que faltaba éramos nosotros — la recuperación de tensiones de compuestos no daba tensión de ply (2026-10-09)
+
+Cierra el issue #27 (ítem 4 del roadmap de #18, P1, sucesor de #3). El issue asumía que la referencia
+no existía porque `*SHELL SECTION, COMPOSITE` ignora `OUTPUT=3D`. Medido, las dos mitades de esa
+premisa son falsas y en direcciones opuestas: CalculiX **sí** juzga la fibra externa (su valor en el
+FRD sigue la ply de cierre —3.6820/3.6853 MPa en `[0/90]s`, 0.3150/0.3148 MPa en `[90/0]s` a 8x2/16x4—
+mientras el nodo de midsurface da exactamente 0.00000 MPa: la tarjeta expande la sección), y
+`OUTPUT=3D` es inerte para compuestos (idéntico valor a valor en el deck de la fila; solo desaparecen
+los 233 nodos de referencia sin tensión). Lo que faltaba era nuestro: la recuperación devolvía la
+media homogeneizada de espesor en TOP/MIDDLE/BOTTOM (2.0000 MPa en los dos stacks, contra
+3.696 / 0.304 MPa de la fibra real: −45.9 % / +558 %), con el `Cm()/h` de
+`src/aeroelast/postprocess/stress_recovery.py` como mecanismo, no un error de escala.
+
+El fix (`208f220`) resuelve la ply que contiene `z` y evalúa `σ_ply = Qbar(θ_ply)·ε(z)`; el camino
+isótropo queda bit-idéntico (0 de 108 arrays distintos) y un dict ABD crudo conserva la media
+avisando una vez por elemento set. El defecto *smeared* que el ítem expuso se publicó como issue
+propio (**#28**, cerrado el mismo día) en vez de absorberse en #27, según la regla del roadmap.
+
+**Árbitro doble, en una fila.** CalculiX 2.20 S8R con `*SHELL SECTION, COMPOSITE` (`kind="code"`) y
+una CLT reimplementada dentro del test (`kind="analytical"`), convergido-vs-convergido con malla
+propia por código, leído en **campo libre** porque el máximo global es una singularidad de
+introducción de carga en el **borde libre cargado** (5.8838 → 6.5803 MPa al refinar; el
+empotramiento no es singular, 3.69 → 3.71 MPa). Medido a 16x4: nuestro 3.6959 / 0.3041 MPa, la forma
+cerrada igual a ≤0.0006 %, CalculiX 3.6853 / 0.3148 MPa → 0.29 % / 3.41 %.
+
+**Dos cosas para llevarse, no para festejar.** `TOL_CCX = 0.05` es **cota, no convergencia**: la
+brecha de `[90/0]s` casi no se mueve al refinar (3.48 % → 3.41 %) y todo el gap está del lado de
+CalculiX. Y este deck reproduce el **mecanismo** de la sonda E2 pero no sus valores (0.07 % / 1.6 %):
+ninguna elección de nodo sobre él da 3.6984/0.2991 MPa, o sea que la sonda usó otro deck, ya
+irrecuperable (`/tmp/ccx_composite_probe/` no existe). Queda registrado como **ancla movida**.
+
+**Store.** Grupo 36 `composite_ply_stress` (13 filas / 18 comparaciones, 12 medidas; 3 filas sin medir
+con motivo escrito: el extractor deduplica aserciones dentro de loops). `gaps.yaml`
+`composite_stress_recovery` **afinado, no borrado**: solo quedan los dos residuales sin evidencia
+citable — un dict ABD crudo conserva la media de espesor, y el caso de flexión `[0/90/90/0]`
+(616.10 vs 595.59 MPa) no tiene fila. Los dos defectos de herramienta que aparecieron corriendo la
+gate de este ítem se publicaron como **#29**.
+
+**Re-ejecutar si cambia**: `src/aeroelast/postprocess/stress_recovery.py` (stack normalizado o
+`Qbar`), el escritor de decks compuestos (`core/mesh/io/writers.py`), o la versión de CalculiX
+(aquí 2.20). Commits: `95bfbab` (RED), `208f220` (fix), `bd4cc05` (cobertura), `62d806a` (fila),
+`5260233` (store).
