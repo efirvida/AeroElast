@@ -134,6 +134,9 @@ def _build_mesh(cfg: dict, config_path: Path):
 
     mesh_cfg = cfg.get("mesh", {})
     source = mesh_cfg.get("source", "generator")
+    # Only the generator branch reads it; the node-set filter below asks for
+    # ``coupling_node_set`` only when the source is not a file.
+    gen_cfg: dict = {}
 
     def _resolve(path_str: str) -> str:
         p = Path(path_str)
@@ -269,8 +272,12 @@ def _build_mesh(cfg: dict, config_path: Path):
 
     # Optional: filter to a specific node set (e.g. "allOuterShellNods" to
     # exclude shear-web nodes from the aerodynamic coupling mesh).
-    # The BEM participant only needs node coordinates for preCICE registration
-    # and force projection — elements are not required after this point.
+    # The BEM participant needs node coordinates for preCICE registration
+    # AND the fully contained elements, because the wall-flow moment
+    # realisation walks the section's chordwise wall graph; a nodes-only
+    # coupling mesh makes every ring section unrealisable and silently falls
+    # back to the minimum-norm distribution (#16).  The node list - and so the
+    # preCICE vertex order - is exactly the node set's, unchanged.
     # The full mesh (with elements) is kept as viz_mesh for VTU surface output.
     viz_mesh = None
     coupling_node_set = (
@@ -286,12 +293,12 @@ def _build_mesh(cfg: dict, config_path: Path):
                 f"Available node sets: {available}"
             )
         viz_mesh = mesh  # full mesh with elements, for surface VTU
-        filtered_nodes = list(ns.nodes.values())
-        mesh = MeshModel(nodes=filtered_nodes)
+        mesh = mesh.subset_to_nodes(list(ns.nodes.keys()))
         logging.info(
-            "[BEM-FSI] Filtered to node set '%s': %d nodes",
+            "[BEM-FSI] Filtered to node set '%s': %d nodes, %d elements",
             coupling_node_set,
-            len(filtered_nodes),
+            len(mesh.nodes),
+            len(mesh.elements),
         )
 
     logging.info(

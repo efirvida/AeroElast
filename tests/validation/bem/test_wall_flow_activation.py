@@ -50,20 +50,12 @@ ELEMENT_SIZE = 1.0
 N_SAMPLES = 150
 
 SPAN_DIR = [0.0, 0.0, 1.0]
+NODE_SET = "allOuterShellNods"
 
 
-def test_production_coupling_mesh_realises_a_ring_section():
-    """The production coupling mesh must keep its skin elements so a ring is realisable.
-
-    Today ``_build_mesh`` returns a nodes-only coupling mesh, so the first
-    assertion fails with the measured ``0`` element count.  It quotes the two
-    counts the feature note records so a green run also carries the evidence.
-    """
-    for path in (YAML, AIRFOILS, AD_PRIMARY):
-        if not path.exists():
-            pytest.skip(f"required input not present: {path}")
-
-    cfg = {
+def _production_cfg() -> dict:
+    """The coupling-mesh section of the fluid YAML every campaign and smoke case uses."""
+    return {
         "mesh": {
             "source": "generator",
             "generator": {
@@ -76,25 +68,87 @@ def test_production_coupling_mesh_realises_a_ring_section():
                     "airfoil_spacing": "constant",
                     "span_grading": "chord",
                 },
-                "coupling_node_set": "allOuterShellNods",
+                "coupling_node_set": NODE_SET,
             },
         }
     }
-    built = _build_mesh(cfg, YAML)
-    # arity-stable: a later task may add a third value
-    mesh, viz_mesh = built[0], built[1]  # noqa: F841
 
-    # The element property map, built the way the mesh generator builds it.
+
+@pytest.fixture(scope="module")
+def production():
+    """The production coupling mesh, the deck's property map and the real BladeAero."""
+    for path in (YAML, AIRFOILS, AD_PRIMARY):
+        if not path.exists():
+            pytest.skip(f"required input not present: {path}")
+
+    built = _build_mesh(_production_cfg(), YAML)
+    # arity-stable: a later task may add the property map as a third value
+    mesh, viz_mesh = built[0], built[1]
+    assert viz_mesh is not None, "a filtered coupling mesh must keep the full mesh as viz_mesh"
+
+    # The element property map and the mesh, built the way the generator builds them.
     model = Blade(str(YAML), element_size=ELEMENT_SIZE)
     model.generate_mesh()
-    props = model.get_element_properties()
-    blade_aero = build_blade_aero_from_aerodyn(AD_PRIMARY)
 
+    return {
+        "mesh": mesh,
+        "viz_mesh": viz_mesh,
+        "node_set": viz_mesh.get_node_set(NODE_SET),
+        "props": model.get_element_properties(),
+        "blade_aero": build_blade_aero_from_aerodyn(AD_PRIMARY),
+    }
+
+
+def test_coupling_node_set_filter_keeps_the_node_list_and_the_skin_elements(production):
+    """The filter is exactly the node set's nodes, in its order, plus the skin elements.
+
+    This pins the #16 wiring: the previous filter returned
+    ``MeshModel(nodes=list(ns.nodes.values()))``, so the node list and its order
+    are the coupling vertex order and must not move, while the fully contained
+    elements must survive or no ring section is realisable.
+    """
+    mesh = production["mesh"]
+    viz_mesh = production["viz_mesh"]
+    requested = list(production["node_set"].nodes.keys())
+
+    assert [node.id for node in mesh.nodes] == requested
+    assert [tuple(node.coords.tolist()) for node in mesh.nodes] == [
+        tuple(viz_mesh.node_map[node_id].coords.tolist()) for node_id in requested
+    ]
+
+    requested_set = set(requested)
+    assert mesh.elements, "the coupling mesh kept no element at all"
+    for element in mesh.elements:
+        assert set(element.node_ids) <= requested_set, (
+            f"element {element.id} drags a node outside the coupling node set"
+        )
+
+    # The shear-web elements are the ones the filter leaves behind, and the full
+    # mesh survives as viz_mesh for the surface VTU output.
+    assert len(mesh.elements) < len(viz_mesh.elements)
+    assert viz_mesh.get_node_set(NODE_SET).node_ids == production["node_set"].node_ids
+
+    for name, element_set in mesh.element_sets.items():
+        assert name in viz_mesh.element_sets, f"element set '{name}' is not the source mesh's"
+        assert {element.id for element in element_set.elements} <= {
+            element.id for element in mesh.elements
+        }, f"element set '{name}' claims an element the filter dropped"
+
+
+def test_production_coupling_mesh_realises_a_ring_section(production):
+    """The production coupling mesh must keep its skin elements so a ring is realisable.
+
+    Before the fix ``_build_mesh`` returned a nodes-only coupling mesh, so the
+    first assertion failed with the measured ``0`` element count (0 of 185 ring
+    sections usable at this mesh size).  It quotes the two counts the feature
+    note records so a green run also carries the evidence.
+    """
+    mesh = production["mesh"]
     proj = ForceProjector(
         mesh,
-        blade_aero,
+        production["blade_aero"],
         span_direction=SPAN_DIR,
-        element_properties=props,
+        element_properties=production["props"],
     )
 
     # One entry per physical ring of every strip; ``None`` means the realisability
