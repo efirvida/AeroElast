@@ -1,7 +1,8 @@
 # Feature: composite outer-fibre stress recovery is not delivered yet (#27, item 4 of #18)
 
-Status: T1-T5 done 2026-10-09 (`95bfbab`, `208f220`, `06f8be0`, `bd4cc05`, `62d806a`);
-T6-T7 open
+Status: T1-T6 done 2026-10-09 (`95bfbab`, `208f220`, `06f8be0`, `bd4cc05`, `62d806a`,
+`5260233`); T7 (the isotropic guard, already green) is the only item left, and the work is
+published (push + #27 comment/close + #28 + #29)
 Owner: this session (2026-10-09)
 Related: issue #27 (roadmap item 4, `P1`, successor of #3), issue #18 (roadmap and
 order of record), `docs/validation/gaps.yaml` id `composite_stress_recovery`,
@@ -37,7 +38,15 @@ absorbed into #27.
 > not close with refinement, so `TOL_CCX` is recorded as a bound and not as a convergence
 > claim. Two further corrections came out of the verification (E4 attribution, expanded FRD).
 >
-> **Next step: T5, the store row.**
+> **Next step: T7 only (the isotropic guard, green and unchanged), then this note closes.**
+>
+> **Published 2026-10-09 with the user's go-ahead:** push `adce7ab..a198ce0` to
+> `origin/integrate/origin-main-2026-09-30`; issue **#28** filed for the smeared-recovery defect and
+> closed the same day with the fix pointer; issue **#29** filed for the two `validation_matrix` gate
+> defects found while running T5; a closing comment on **#27** (comment 6088796371) plus close; the
+> **#18** body updated (item 4 out of the open table, `Closed 2026-10-09` block, `#28` in the closed
+> index, `#29` at P4) and the closure record written as the `#27` section of
+> `docs/validation_closures.md`.
 >
 > **Environment:** every command needs
 > `bash -lc 'module load glu gcc/14.2.0_sequana; export LD_LIBRARY_PATH=/scratch/app_sequana/gcc/14.2.0/lib64:$LD_LIBRARY_PATH; ...'`
@@ -268,11 +277,18 @@ must be corrected in the same push as the closure.
   green for the committed group 7 (1 `unclaimed`, 1 `unmapped`)**: a non-zero `regression`
   exit is pre-existing store practice, not introduced here, and "regression passes" cannot
   be claimed for either group today.
-* **T6 - closure and publication.** New issue for the smeared-recovery defect with the
-  E1 table, comment on #27, the #18 body rows, the `docs/validation_closures.md`
-  section. Push, issue and comment need the user's explicit go-ahead.
-* **T7 - guards.** The isotropic outer-fibre test
-  (`test_shell_stress_ccx_parity.py`) stays green and unchanged in its numbers.
+* **T6 - closure and publication. Done 2026-10-09.** Issue **#28** for the smeared-recovery defect
+  (E1 table, mechanism, impact/scope, reproduction), filed and closed the same day as fixed; issue
+  **#29** for the two `validation_matrix` gate defects plus the loop-dedup limitation (separate
+  issue: tooling, not physics, so a different root class); closing comment on **#27** with the CCX
+  evidence, the satisfied `closes-when`, the moved anchor and the bound caveat, then close; **#18**
+  body updated per its own maintenance rule (open-table row removed, closed-index rows for #27 and
+  #28, `#29` at P4 with its Entry/closes-when, the order section and "State to settle" refreshed);
+  closure record `docs/validation_closures.md` § `#27` (Spanish, like its neighbours); push
+  `adce7ab..a198ce0`.
+* **T7 - guards. Verified green during T4-T6 and not a remaining task:** the isotropic outer-fibre
+  test (`test_shell_stress_ccx_parity.py`) stays green and unchanged in its numbers - measured
+  `3 passed, 1 xfailed` on every run of this work unit.
 
 ## Instrument notes (they cost time, do not re-derive)
 
