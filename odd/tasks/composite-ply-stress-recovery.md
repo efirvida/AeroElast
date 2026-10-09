@@ -1,6 +1,6 @@
 # Feature: composite outer-fibre stress recovery is not delivered yet (#27, item 4 of #18)
 
-Status: planned 2026-10-09; T1-T2 open (first write not made)
+Status: T1 and T2 done 2026-10-09 (RED `95bfbab`, GREEN `208f220`); T3 open
 Owner: this session (2026-10-09)
 Related: issue #27 (roadmap item 4, `P1`, successor of #3), issue #18 (roadmap and
 order of record), `docs/validation/gaps.yaml` id `composite_stress_recovery`,
@@ -108,6 +108,10 @@ must be corrected in the same push as the closure.
   the Rust assembly plus the production static solver as
   `test_shell_stress_ccx_parity.py::test_production_solver_matches_the_scipy_replica`
   does, feeding `StressRecovery`.
+  **Done 2026-10-09: `95bfbab`.** RED observed, verbatim: `2e+06 vs 3.69592e+06 (error:
+  45.8863%)` for `[0/90]s` and `2e+06 vs 304080 (error: 557.7223%)` for `[90/0]s`, both
+  fibres, plus the shape guard (`TOP` equals the thickness mean to 0.0000 %). 6 failed,
+  1 passed in 2.23 s. Case: 8x2 QUAD4, 27 nodes, 96 DOF, mean tip `u_x = 3.111571e-05 m`.
 * **T2 - GREEN: ply-resolved location, not a parallel API.**
   **Design decision (2026-10-09): fix the existing API instead of adding a second one.**
   `compute_element_stresses(location=...)` and `compute_nodal_stresses(location=...)`
@@ -120,12 +124,38 @@ must be corrected in the same push as the closure.
   `CompositeShellProperty.laminate`, because the Rust element only holds ABD. For an
   isotropic section the new path must reproduce the old numbers to machine precision:
   that is the no-regression guard (T7).
-* **T3 - coverage beyond the discriminator, plus the additive ply-wise API.** Pure
-  bending of a symmetric laminate (`sigma(z)` linear per ply, TOP and BOTTOM of opposite
-  sign), an angle-ply case (`[+-45]s`) where the flight to ply axes matters, and a new
-  additive API that returns every ply (index, angle, `z_bottom`/`z_top`, stress in global
-  and ply axes) evaluated at the ply mid-depth. Additive means it must not change the
-  existing entry points.
+  **Done 2026-10-09: `208f220`** (with T2b, below). 14 passed; centre-element sigma_xx
+  `[0/90]s` 3.6960 / 0.3040 / 3.6960 MPa and `[90/0]s` 0.3040 / 3.6960 / 0.3040 MPa,
+  errors 0.0017 % / 0.0210 % against the closed form. Isotropic bit-identity: 0 of 108
+  captured arrays differ for the 52.46 MPa plate. Parity suite 68 passed, 1 xfailed.
+  Known limit, now loud instead of silent: a raw homogenised ABD dict
+  (`{"type": "composite", ... cm/cb/cs}`) carries no ply stack, so those elements keep the
+  thickness-mean value and emit one `logger.warning` per element set.
+  Review workload: 611 insertions in one slice, over the ~400-line soft budget that
+  `assess` flagged as `reviewDue: slice_budget_reached` on 2026-10-09. Split in T5.
+* **T2b - the production section form (done with T2, `208f220`).** T2 alone only covered
+  `CompositeShellProperty`, which production does not use: `runner._extract_blade_properties`
+  (`src/aeroelast/solvers/fsi/runner.py:1072-1090`) hands the solver the map built by
+  `build_rust_properties` (`src/aeroelast/models/blade/model.py:721`), whose values are
+  Rust `_aeroelast.Laminate`. That object does carry the stack (`plies` getter,
+  `crates/aeroelast-py/src/materials.rs:288`: dicts with `thickness`, `angle` in degrees,
+  `z_bottom`, `z_top`, `material`). The three section forms now share one normalisation, the
+  Rust form and `CompositeShellProperty` agree bitwise (max |diff| 0.000e+00 Pa over the 16
+  elements), and the production-shaped case is built in the test through
+  `build_rust_properties` itself. Trap found here: the ply span is
+  `plies[-1].z_top - plies[0].z_bottom`, not `z_top` (plies are centred on `z = 0`); the
+  wrong span halves `h` and sends `BOTTOM` to the wrong ply.
+* **T3 - coverage beyond the discriminator.** Pure bending of a symmetric laminate
+  (`sigma(z)` linear within each ply, TOP and BOTTOM of opposite sign) against
+  `kappa = D^-1 M`; an angle-ply case (`[+-45]s`) where the flight to the ply axes in
+  `Qbar(theta)` is what is under test; and the `MIDDLE` tie-break convention pinned
+  explicitly (at a ply interface the half-open rule picks the first ply whose
+  `z_bottom <= z`; either neighbour is defensible, so the rule must be asserted, not
+  assumed). **Out of scope on purpose**: an additive all-plies API
+  (`compute_ply_stresses`). Production reads TOP/MIDDLE/BOTTOM through
+  `compute_nodal_stresses_all_layers_dict` (`src/aeroelast/solvers/fsi/rotor.py:2535`), so a
+  ply-wise field is a new capability with no consumer yet; it gets its own issue if it is
+  ever wanted, and it would double this item's review workload for no claim.
 * **T4 - CalculiX row.** Converged-vs-converged outer-fibre comparison against S8R with
   `*SHELL SECTION, COMPOSITE` on each code's own mesh sequence, read in the free field
   (E4), bound in the style of the isotropic sibling (`TOL_CCX = 0.05`). The row's notes
@@ -155,3 +185,8 @@ must be corrected in the same push as the closure.
 * The FRD coordinates of a shell deck are midsurface nodes; the through-thickness
   location of the reported value is not in the file, so E2 had to be pinned against the
   closed form rather than read off.
+* Unrelated discrepancy noticed on 2026-10-09 while running the isotropic sibling: its
+  docstring records "CalculiX OUTPUT=3D 57.41 MPa" while the local ccx 2.20 reports
+  `51.64` (the live assertion is the 5 % comparison, so the test passes at 52.46 against
+  51.64). Likely a CalculiX-version or route difference, not a regression from this
+  change; the stale prose figure belongs with the #23/#25 class of store and prose debt.
