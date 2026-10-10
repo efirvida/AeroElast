@@ -399,7 +399,7 @@ references:
       authors, title, journal, volume, pages and year read off both held copies;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2017.01.015
     cited_by_declared:
-      - "src/aeroelast/core/assembler.py:681"
+      - "src/aeroelast/core/assembler.py:749"
       - "src/aeroelast/solvers/fsi/stress_stiffened_dynamic.py:52"
     code_mentions:
       - "Ko, Y."
@@ -748,7 +748,7 @@ references:
       - README.md
       - docs/formulations/teoria_formulacion_fsi_rotor.md:862
     cited_by_declared:
-      - "src/aeroelast/postprocess/stress_recovery.py:53"
+      - "src/aeroelast/postprocess/stress_recovery.py:102"
       - "src/aeroelast/solvers/fsi/stress_stiffened_dynamic.py:54"
     code_mentions:
       - "Bathe"
@@ -824,12 +824,13 @@ references:
     held: false
     verification: repository_citation
     verification_note: >-
-      `src/aeroelast/postprocess/stress_recovery.py:53-55` gives the author
+      `src/aeroelast/postprocess/stress_recovery.py:104-105` gives the author
       list, the title and the edition; the publisher is not given and the
       work is not held. Also cited as "Cook et al. 'Concepts and Applications
       of Finite Element Analysis'" at
       `tests/validation/benchmarks/test_shell_static_and_modal.py:22`.
     cited_by_declared:
+      - "src/aeroelast/postprocess/stress_recovery.py:104"
       - "tests/validation/benchmarks/test_shell_static_and_modal.py:22"
     cited_by_stale:
       - "src/aeroelast/postprocess/stress_recovery.py:53"
@@ -837,8 +838,8 @@ references:
       - "Cook"
     notes: >-
       4th ed. The code names it at
-      `src/aeroelast/postprocess/stress_recovery.py:55`; the prose site was
-      off by two lines and is recorded as stale.
+      `src/aeroelast/postprocess/stress_recovery.py:104`; the old prose site
+      (`:53`, off by two lines before #27 moved the block) stays recorded as stale.
 
   - key: hinton1974
     section: "3. Time integration and the finite element method"
@@ -858,12 +859,12 @@ references:
     held: false
     verification: repository_citation
     verification_note: >-
-      `src/aeroelast/postprocess/stress_recovery.py:57-59` gives authors,
+      `src/aeroelast/postprocess/stress_recovery.py:106-108` gives authors,
       title, journal, volume and pages (no issue number); it is not
       re-verified against a held copy. It grounds the Gauss-to-node
       extrapolation in the stress recovery.
     cited_by_declared:
-      - "src/aeroelast/postprocess/stress_recovery.py:57"
+      - "src/aeroelast/postprocess/stress_recovery.py:106"
     code_mentions:
       - "Hinton"
 
@@ -883,12 +884,12 @@ references:
     held: false
     verification: repository_citation
     verification_note: >-
-      `src/aeroelast/postprocess/stress_recovery.py:60-63` gives authors,
+      `src/aeroelast/postprocess/stress_recovery.py:109-111` gives authors,
       title, journal, volume and pages; it is not re-verified against a held
       copy. It is named as the theoretical basis for the nodal stress
       smoothing.
     cited_by_declared:
-      - "src/aeroelast/postprocess/stress_recovery.py:60"
+      - "src/aeroelast/postprocess/stress_recovery.py:109"
     code_mentions:
       - "Zienkiewicz"
 
@@ -1344,7 +1345,7 @@ references:
     held: false
     verification: unverified
     cited_by_declared:
-      - "tests/validation/blade/test_iea15mw_s7_torsion.py:95"
+      - "tests/validation/blade/test_iea15mw_s7_torsion.py:114"
       - "tools/run_s7_torsion.py:43"
     code_mentions:
       - "IEA-15-240-RWT_BeamDyn_blade.dat"

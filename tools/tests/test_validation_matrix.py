@@ -30,6 +30,25 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOL = REPO_ROOT / "tools" / "validation_matrix.py"
 REAL_STORE = REPO_ROOT / "docs" / "validation"
 
+# The `references` tests need one real line that cites Ko2017 and one that does not.
+# Both are looked up in the live tree: a hard-coded line number drifts with every edit
+# to generators.py (#23).
+GENERATORS = "src/aeroelast/core/mesh/generators.py"
+
+
+def _ko2017_site() -> str:
+    """The first line of generators.py that mentions "Ko2017", as a `path:line` site."""
+    lines = (REPO_ROOT / GENERATORS).read_text(encoding="utf-8").splitlines()
+    number = next(i for i, text in enumerate(lines, start=1) if "Ko2017" in text)
+    return f"{GENERATORS}:{number}"
+
+
+def _dead_site() -> str:
+    """Line 1 of generators.py, asserted not to mention "Ko2017"."""
+    first = (REPO_ROOT / GENERATORS).read_text(encoding="utf-8").splitlines()[0]
+    assert "Ko2017" not in first
+    return f"{GENERATORS}:1"
+
 
 def _load_tool_module() -> Any:
     """Import the tool from its path: tools/ is not a package."""
@@ -903,14 +922,14 @@ def test_reference_gaps_make_an_absence_explicit(tmp_path: Path) -> None:
 def test_cited_by_stale_is_visible_and_never_silently_true(tmp_path: Path) -> None:
     """A stale prose claim is recorded as a warning, and a live one as an error."""
     references = copy.deepcopy(REFERENCES)
-    references["references"][0]["cited_by_stale"] = ["src/aeroelast/core/mesh/generators.py:1"]
+    references["references"][0]["cited_by_stale"] = [_dead_site()]
     store = write_store(tmp_path, [], references=references)
     stale = run(store, "references", "check")
     assert stale.returncode == 0, stale.stdout + stale.stderr
     assert "is known stale" in stale.stdout
 
-    # generators.py:65 does mention "Ko2017", so recording it as stale is wrong.
-    references["references"][0]["cited_by_stale"] = ["src/aeroelast/core/mesh/generators.py:65"]
+    # This site does mention "Ko2017", so recording it as stale is wrong.
+    references["references"][0]["cited_by_stale"] = [_ko2017_site()]
     store = write_store(tmp_path / "alive", [], references=references)
     alive = run(store, "references", "check")
     assert alive.returncode == 1
@@ -958,20 +977,18 @@ def test_real_store_serves_the_section_3_key() -> None:
 def test_references_check_reports_a_stale_declared_site(tmp_path: Path) -> None:
     """A declared site that no longer mentions the work is a finding; a live one is not."""
     references = copy.deepcopy(REFERENCES)
-    references["references"][0]["cited_by_declared"] = [
-        "src/aeroelast/core/mesh/generators.py:65",
-    ]
+    references["references"][0]["cited_by_declared"] = [_ko2017_site()]
     store = write_store(tmp_path, [], references=references)
     clean = run(store, "references", "check")
     assert clean.returncode == 0, clean.stdout + clean.stderr
     assert "no longer mentions" not in clean.stdout
 
-    references["references"][0]["cited_by_declared"] = ["src/aeroelast/core/mesh/generators.py:1"]
+    references["references"][0]["cited_by_declared"] = [_dead_site()]
     store = write_store(tmp_path / "stale", [], references=references)
     stale = run(store, "references", "check")
     assert stale.returncode == 1
     assert "no longer mentions this work" in stale.stdout
-    assert "generators.py:1" in stale.stdout
+    assert _dead_site() in stale.stdout
 
 
 def test_references_check_flags_past_end_of_file(tmp_path: Path) -> None:
@@ -993,7 +1010,7 @@ def test_references_where_used_lists_rows_and_code(tmp_path: Path) -> None:
 
     by_code = run(store, "references", "where-used", "ko2017_perf")
     assert by_code.returncode == 0
-    assert "code | src/aeroelast/core/mesh/generators.py:65" in by_code.stdout
+    assert f"code | {_ko2017_site()}" in by_code.stdout
 
 
 def test_references_bibtex_exports_the_doi(tmp_path: Path) -> None:

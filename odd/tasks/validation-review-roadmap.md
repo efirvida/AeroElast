@@ -266,3 +266,40 @@ Each closure records what was measured and how to re-check it. A tooling item ca
 - **Known limit.** `reference.label` is kept from disk, because a row does not record whether the
   code or a person wrote it. Editing a test's `reference_name=` is therefore invisible to
   `coherence`.
+
+### A3 — #23 and the three `references` tests: line drift (proposed for closing 2026-10-10)
+
+- **Cause.** Every failure was a declared `path:line` site that had moved. In each case the cited
+  work was still the thing the code relied on.
+  - `references check` at `c4d006c`: 5 errors, not the single one #23 names.
+    - `ko2017_nonlinear`: `assembler.py:681` → `:749`. It is the same citation, inside the
+      `assemble_geometric_stiffness` docstring, and the line continues with "in geometric
+      nonlinear analysis". It is not the performance paper, which the needle `Ko, Y.` would also
+      match.
+    - `bathe2014`, `hinton1974`, `zienkiewicz1992`: `stress_recovery.py:53/57/60` →
+      `:102/106/109`. #27 (`208f220`) moved the module's bibliography block down unchanged.
+    - `iea15mw_deck`: `test_iea15mw_s7_torsion.py:95` → `:114`. It is still the S-7
+      `reference_name`, which names the deck's `K[5,5]`. `72f64de` moved it.
+  - The three tests (`cited_by_stale_is_visible_and_never_silently_true`,
+    `check_reports_a_stale_declared_site`, `where_used_lists_rows_and_code`) hard-coded
+    `generators.py:65` as a live Ko2017 site. That mention is now on line 66.
+- **Fix.**
+  - `references.yaml`: the five sites now point at the current lines, and their
+    `verification_note` line ranges were moved with them. `cook2002` is named in the same
+    stress-recovery block (now `:104`), so that line is now a declared site. Its old `:53` prose
+    site stays in `cited_by_stale`, with the note updated. `docs/formulations/solvers.md` quoted
+    `stress_recovery.py:53` and now quotes `:102`.
+  - The tests now find the site in the live tree. `_ko2017_site()` returns the first line of
+    `generators.py` that mentions `Ko2017`. `_dead_site()` returns line 1 and asserts that it
+    does not mention `Ko2017`, so the negative case cannot pass for the wrong reason. The tests
+    still check the same tool behaviour; no expectation was loosened.
+- **Measured.** At `c4d006c` plus this change:
+  - `references check`: 67 entries, **0 errors**, 14 warnings (5 errors before). The warnings
+    are unchanged and are not part of the gate.
+  - `pytest tools/tests -m "not slow"`: **164 passed** (161 passed, 3 failed before).
+  - `contract`: byte-identical output before and after. No verdict moved.
+  - `scripts/check.sh quick`: OK. Only the documented frame-objectivity known-red appears.
+- **Not absorbed (proposed as a new item).** Declared sites are `file:line`, so they will drift
+  again with the next edit above them. Anchoring a site on a symbol or on the mention itself,
+  instead of a line number, would remove this class of failure. It is a tool change, not part of
+  A3.

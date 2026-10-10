@@ -321,7 +321,7 @@ does not describe the implementation.
 **Verification status:** Bathe (1996) is not held, so §6.3 cannot be read here.
 What is verifiable is the mismatch between the citation and the code's own
 described method. `docs/validation/references.yaml` lists Bathe, *Finite Element Procedures*,
-**2nd ed., 2014** at `stress_recovery.py:53`, while this file cites the **1996**
+**2nd ed., 2014** at `stress_recovery.py:102`, while this file cites the **1996**
 edition; the edition discrepancy is another item to resolve. The likely original
 source for the geometric stiffness itself is Ko, Lee & Bathe (2017) — a held PDF
 (`.sources/papers/mitc4+_no_lineal.pdf.pdf`) — but that equation was **not**
