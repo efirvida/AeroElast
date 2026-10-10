@@ -2,7 +2,8 @@
 
 Status: T1-T2 done (instrument `dccf9e2`, record in this note). **T3b done** (part 1 probe
 `tools/diagnose_wall_flow_pattern_ab.py`, part 2 probe `tools/diagnose_wall_flow_static_ab.py`): the
-amplification is structural, it does not need the coupled loop. T3 and T4 (closure) pending.
+amplification is structural, it does not need the coupled loop. **T3 done**: the minimum-norm
+over-delivery is pinned in the closed-tube fixture. T4 (closure) pending.
 Owner: this session (2026-10-10); T3b continues in a clean session - see the handoff at the end.
 Related: issue **#30** (roadmap item `P2` of **#18**), issue **#16** (blocked by #30),
 `odd/tasks/bem-wall-flow-activation.md` (T5/T6 hold the three measurements),
@@ -333,6 +334,45 @@ stiffening the coupled run carries; the deflection still matches to `2 %`, and t
 even its sign stay estimator-sensitive (part 1) and the final ring is degenerate, so the ratio is
 quoted on the window. (iii) The coupled runs' raw `ROTZ` cannot be reproduced statically - it is a
 nodal DOF, not a section rotation.
+
+### T3 - result (2026-10-10): the minimum-norm over-delivery is pinned in the fixture, as a bare regression
+
+The T6 note's `31.69` was a number in a docstring. T3 executes it in the fixture T3 names as the
+arbiter - the validated closed tube - so the recorded defect cannot move silently:
+
+```text
+tests/validation/parity/test_thin_walled_tube_moment_realization.py::
+    test_minimum_norm_realisation_over_delivers_bredt_by_the_recorded_factor
+```
+
+Same tube, same torque, same solver as the file's existing case A/B; only the realisation changes,
+to the legacy `ForceProjector._distribute` couple. It reproduces the record exactly:
+
+| configuration | min-norm twist rate | rate/Bredt | pinned |
+| --- | --- | --- | --- |
+| self-equilibrated (+T tip / -T root, rigid modes removed) | `8.719852e-4` rad/m | **31.69331** | `31.69331` at `1e-3` rel |
+| clamped root, +T tip | `2.863174e-4` rad/m | **10.40654** | `10.40654` at `1e-3` rel |
+
+with `distortion/|rotation| = 2.042` on the self-equilibrated run, against `0.008` for the shear
+flow. The tolerance-free invariances are asserted alongside (each end ring is self-equilibrated, the
+independent ruler `sum(x Fy - y Fx)` reads back the requested torque at `1e-9` relative, and the sign
+follows the request).
+
+**Why the pin is a bare assertion and not an `assert_relative_error`.** The store's comparisons need
+an independent reference the measurement must *meet*; Bredt is the reference this field **misses**, so
+registering it would dress a defect as validation. The pin therefore stays outside the store's
+reference machinery, and the store is unchanged at **211 rows / 277 comparisons / 0 errors / 0
+warnings**. Group 31's `provenance_note` was updated to name the test, because it previously
+described a minimum-norm assertion that did not actually exist in the file.
+
+Evidence: the file alone `2 passed in 2.02 s`; `scripts/check.sh quick` **OK** (ruff clean; the single
+failure is the documented `test_corotational_is_frame_objective_tl_is_not` known-red).
+
+**Not promoted.** The deck's own airfoil ring (`min-norm 1.65658x` Bredt, still rising with node
+count, `33.8 %` of the rectangle's divergence at 51 nodes) stays a **probe** measurement in
+`tools/diagnose_section_moment_realization.py`: promoting it would mean building the extruded
+airfoil tube inside a test, and T3's own text pins the validated closed tube - not a new construction
+- as the arbiter. It is recorded here and in the T2 result instead.
 
 ## Traps
 
