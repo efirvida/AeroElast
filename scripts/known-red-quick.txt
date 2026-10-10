@@ -1,0 +1,6 @@
+# Known-red registry for scripts/check.sh (mode: quick).
+# Re-derived automatically by: scripts/check.sh quick --record
+# Recorded: 2026-10-09T13:23:31-03:00 at revision bd4cc05
+# Invalidated by: any change under crates/, a maturin rebuild, or a new failure
+# that appears here outside this list. Never hand-edit to make a run green.
+tests/test_corotational_large_rotation_validation.py::test_corotational_is_frame_objective_tl_is_not

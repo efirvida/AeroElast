@@ -19,7 +19,7 @@ Convention mapping:
   BeamDyn K_55 = flapwise bending stiffness (EI_flap)  [R6]
   BeamDyn K_66 = edgewise bending stiffness (EI_edge)  [R6]
   BeamDyn M_11 = mass per unit length [kg/m]           [R6]
-  aeroelast DOFs: [ux, uy, uz, rx, ry, rz] per node   [CLAUDE.md]
+  aeroelast DOFs: [ux, uy, uz, rx, ry, rz] per node   [AGENTS.md]
 """
 
 from __future__ import annotations
@@ -111,12 +111,12 @@ class TestAssembledStiffnessProperties:
         assert M is not None, "Mass matrix assembly returned None"
 
     def test_stiffness_matrix_size_consistent_with_dof_count(self, assembler):
-        """K matrix size must match n_nodes × 6 DOFs per node [CLAUDE.md]."""
+        """K matrix size must match n_nodes × 6 DOFs per node [AGENTS.md]."""
         K = assembler.assemble_stiffness_matrix()
         size = K.getSize()
         n_dof = size[0]
         assert n_dof % 6 == 0, (
-            f"K matrix size {n_dof} is not a multiple of 6 — expected 6 DOFs/node [CLAUDE.md]"
+            f"K matrix size {n_dof} is not a multiple of 6 — expected 6 DOFs/node [AGENTS.md]"
         )
         n_nodes = n_dof // 6
         assert n_nodes >= 50, f"Only {n_nodes} nodes — blade mesh seems too coarse"

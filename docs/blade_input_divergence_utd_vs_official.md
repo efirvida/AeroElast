@@ -135,7 +135,7 @@ Se migró el stack de validación a la definición oficial WindIO:
 - La campaña B1/B2 (relanzada 2026-09-08, job 11592005) completó con el
   blade UTD y queda como registro de sensibilidad de input; sus criterios de
   aceptación cierran (B1 orden p=2.57, B2 p=1.17, |Δflap_mean| <1%/5%).
-- Nota canónica agregada a `CLAUDE.md`.
+- Nota canónica agregada a `AGENTS.md`.
 
 ## 7. Notas para trabajo futuro (base de un artículo sobre el modelo UTD)
 
