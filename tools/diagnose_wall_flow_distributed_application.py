@@ -196,7 +196,9 @@ def run_mesh(n_z: int, verbose: bool) -> dict:
             "median": float(np.median(ratios)),
             "worst": float(np.max(np.abs(ratios - 1.0))),
             "median_loaded": float(np.median(ratios[loaded])) if loaded.any() else float("nan"),
-            "worst_loaded": float(np.max(np.abs(ratios[loaded] - 1.0))) if loaded.any() else float("nan"),
+            "worst_loaded": float(np.max(np.abs(ratios[loaded] - 1.0)))
+            if loaded.any()
+            else float("nan"),
         }
         if verbose:
             print(f"\n[{label}] realised torque {realized:.6e} N.m of {tube.TORQUE:.1e}")
@@ -236,7 +238,9 @@ def main() -> int:
             "balance against integral M_cum^2/(2GJ) (1 = Bredt); r(z) = theta'(z)*GJ/M_cum(z), "
             "whose tip blow-up is a metric artefact of dividing by M_cum -> 0"
         )
-        print(f"{'mode':>23} {'n_z':>5} {'dz [m]':>8} {'W/Wbredt':>10} {'median r':>10} {'worst |r-1|':>12}")
+        print(
+            f"{'mode':>23} {'n_z':>5} {'dz [m]':>8} {'W/Wbredt':>10} {'median r':>10} {'worst |r-1|':>12}"
+        )
         for run in runs:
             for label, metrics in run["modes"].items():
                 print(
@@ -253,10 +257,11 @@ def main() -> int:
 
     run = run_mesh(args.n_z, verbose=True)
     print(
-        f"\ntube: {run['rings']} rings, L={tube.L} m, dz={run['dz']:.4f} m, "
-        f"T={tube.TORQUE:.3e} N.m"
+        f"\ntube: {run['rings']} rings, L={tube.L} m, dz={run['dz']:.4f} m, T={tube.TORQUE:.3e} N.m"
     )
-    print(f"control (validated end couple, self-equilibrated) window rate/Bredt = {run['control']:.5f}")
+    print(
+        f"control (validated end couple, self-equilibrated) window rate/Bredt = {run['control']:.5f}"
+    )
     for label, metrics in run["modes"].items():
         print(
             f"[{label:22s}] r median {metrics['median']:.5f}  worst |r-1| {metrics['worst']:.4%} "
