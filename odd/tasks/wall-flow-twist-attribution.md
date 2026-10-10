@@ -1,8 +1,8 @@
 # Feature: attribute the wall-flow coupled twist movement (#30, item P2 of #18)
 
-Status: T1-T2 done (instrument `dccf9e2`, record in this note). T3b part 1 done (probe
-`tools/diagnose_wall_flow_pattern_ab.py`) - the applied pattern carries no sign flip; the movement is
-a response effect. T3, T3b part 2 (frozen-field static solve) and T4 pending.
+Status: T1-T2 done (instrument `dccf9e2`, record in this note). **T3b done** (part 1 probe
+`tools/diagnose_wall_flow_pattern_ab.py`, part 2 probe `tools/diagnose_wall_flow_static_ab.py`): the
+amplification is structural, it does not need the coupled loop. T3 and T4 (closure) pending.
 Owner: this session (2026-10-10); T3b continues in a clean session - see the handoff at the end.
 Related: issue **#30** (roadmap item `P2` of **#18**), issue **#16** (blocked by #30),
 `odd/tasks/bem-wall-flow-activation.md` (T5/T6 hold the three measurements),
@@ -282,13 +282,57 @@ moment into non-torsional deformation) is not supported; reading 2 (the tangenti
 exciting the zero-thickness shell's drilling/distortion) gains evidence on the coupled path - where
 T2 had refuted it on the pure-torsion path.
 
-**What part 2 has to settle** (the only thing left that part 1 cannot): apply each run's own frozen
-`F_AERO` field to the production mesh in a **static** solve - no dynamics, no aero feedback - and
-compare the twist. If the `2.6x` survives statically the mechanism is a structural response to the
-pattern; if it collapses, the coupled loop (aero-elastic torsional feedback, or the transient) is
-what amplifies it, and *that* is the finding. The mesh, properties and a per-node load field are
-already available: `tools/ccx_blade_twist_arbitration.py` assembles the blade with
-`PyMeshAssembler` and solves it with `spsolve` under an arbitrary nodal field.
+**What part 2 had to settle** - done in the next subsection: apply each run's own frozen `F_AERO`
+to the production mesh in a static solve (no dynamics, no aero feedback). It shows the amplification is
+**structural**: the outer-span section rotation grows `2-3.3x` while the applied twist moment differs
+by `4.5 %`.
+
+### T3b - result, part 2 (2026-10-10): the amplification is structural; it does not need the coupled loop
+
+Probe: `tools/diagnose_wall_flow_static_ab.py` (exit 0, ~1.5 min). It regenerates the mesh with the
+case's own generator parameters (`element_size 0.25`, `n_samples 300`, `airfoil_spacing constant`,
+`span_grading chord`, `renumber rcm`) and verifies it is **index-wise identical** to both runs'
+`solid_mesh.vtu` (drift `0.0`), so the frozen `F_AERO` maps node by node with no interpolation. Then:
+`PyMeshAssembler.from_model` + `assemble_k`, `RootNodes` clamped as the case's own `dirichlet`, and
+one `spsolve` per frozen field. 32325 nodes, 33462 elements, 193950 dof, 193542 free; ~21 s per solve.
+
+Sanity: the static deflection under each field reproduces the coupled run. `max|u|` **23.63 m (A)**
+and **23.35 m (B)**, against the coupled runs' **24.10 / 23.63 m**. The comparison is therefore at the
+run's own deflection, not at a different load level.
+
+The applied twist moment at the tip ring differs by `+4.5 %` (`58.3` vs `60.9` N.m). The **response**
+does not:
+
+| outer-span window `z in [93.6, 112.3]` m, 137 of 671 stations | static B/A |
+| --- | --- |
+| affine section rotation `omega` (`t._ring_kinematics`) | median **+1.98**, range `[+1.02, +3.20]` |
+| rigid-only rotation `rigid_rotation`, same helper | median **+3.31**, range `[+1.41, +4.43]` |
+| distortion (affine strain magnitude) | median `1.77` |
+
+Representative stations: `z = 104.52` m, `omega` `-1.0431` (A) against `-2.6297` (B) = `2.52x`, rigid
+`-1.4802` against `-5.2781` = `3.57x`; `z = 97.47` m, `1.42x` / `2.05x`; `z = 111.34` m, `1.71x` /
+`3.59x`. The coupled runs move the same object by **2.6x**: inside that range.
+
+The last station (`z = 117` m, 16 nodes, distortion `0.65-1.0`, i.e. a fully distorted ring) cannot
+decide a ratio - its `omega` even changes sign, the same estimator degeneracy part 1 found on that
+ring. The response to the **difference field alone** (linear superposition, `u_B - u_A`) is
+`omega +1.34` deg / rigid `-1.36` deg at the tip ring: the pattern difference by itself moves the
+section.
+
+**Verdict (T3b closes on its stronger branch).** With the same frozen load level, on the undeformed
+production mesh, in a **linear static** solve with **no dynamics and no aero feedback**, the wall-flow
+pattern is answered by `2-3.3x` the section rotation of the minimum-norm pattern in the outer span.
+The coupled `2.6x` is inside that range, so the mechanism is the **structural response to the
+pattern** - the section-distortion / drilling mode the T2 fixture also identified - and the
+aero-elastic torsional feedback is not required to explain it. The coupled loop amplifies the same
+effect; it does not create it.
+
+**Caveats stated, not hidden.** (i) The static solve is linear and omits the `K_G` / spin-softening
+stiffening the coupled run carries; the deflection still matches to `2 %`, and the quoted ratio is a
+*differential* quantity, so the omission acts on both fields together. (ii) The absolute tip value and
+even its sign stay estimator-sensitive (part 1) and the final ring is degenerate, so the ratio is
+quoted on the window. (iii) The coupled runs' raw `ROTZ` cannot be reproduced statically - it is a
+nodal DOF, not a section rotation.
 
 ## Traps
 
