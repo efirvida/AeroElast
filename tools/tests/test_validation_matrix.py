@@ -2079,12 +2079,13 @@ def test_a_measurement_that_is_not_numeric_is_refused(tmp_path: Path) -> None:
 
 
 def test_a_comparison_with_no_counterpart_says_that(tmp_path: Path, capsys) -> None:
-    """A moved line leaves a fresh comparison with no counterpart, and the message says so.
+    """A changed assertion leaves a fresh comparison with no counterpart, and the message says so.
 
     The message used to claim that no stored measurement matched, which is a different
-    claim: the condition is a source with no counterpart on disk, so it fired whether or not
-    a measurement existed, and a row that had never been measured still told the reader a
-    re-measure was due.
+    claim: the condition is a comparison with no counterpart on disk, so it fired whether or
+    not a measurement existed, and a row that had never been measured still told the reader a
+    re-measure was due. The line moves *and* the bound changes: a moved line alone is carried
+    now (#24), see `test_a_moved_line_keeps_its_measurement`.
     """
     module = _load_tool_module()
     target = tmp_path / "rows" / "1-x.yaml"
@@ -2113,7 +2114,7 @@ def test_a_comparison_with_no_counterpart_says_that(tmp_path: Path, capsys) -> N
             "comparisons": [
                 {
                     "label": "rtol at line 13",
-                    "tolerance": {"kind": "rtol", "value": 0.05, "source": "f.py:13"},
+                    "tolerance": {"kind": "rtol", "value": 0.03, "source": "f.py:13"},
                 }
             ],
         }
@@ -2125,6 +2126,151 @@ def test_a_comparison_with_no_counterpart_says_that(tmp_path: Path, capsys) -> N
     assert carried == 0
     assert "no counterpart" in err
     assert "re-measure is due" not in err
+
+
+def _stored_comparison(line: int, value: float = 0.05, margin: float | None = None) -> dict:
+    measured: dict[str, Any] = {"status": "not_measured", "margin_pct": None}
+    if margin is not None:
+        measured = {"status": "measured", "margin_pct": margin, "digest": f"d{line}"}
+    return {
+        "label": f"rtol at line {line}",
+        "asserted": True,
+        "reference": {"kind": "analytical", "label": "a closed form, written by hand"},
+        "tolerance": {
+            "kind": "rtol",
+            "value": value,
+            "source": f"f.py:{line}",
+            "justified": True,
+            "justification": "a hand-written justification",
+        },
+        "measured": measured,
+    }
+
+
+def test_a_moved_line_keeps_its_measurement(tmp_path: Path) -> None:
+    """An edit above the assertions shifts every line; the measurements stay with their asserts.
+
+    Keying by `<file>:<line>` lost all of them: groups 6, 20 and 31 came back `not_measured`
+    after a docstring was added above their comparisons (#24).
+    """
+    module = _load_tool_module()
+    target = tmp_path / "rows" / "1-x.yaml"
+    target.parent.mkdir(parents=True)
+    stored = [_stored_comparison(10, margin=1.0), _stored_comparison(20, value=0.1, margin=2.0)]
+    module.dump_yaml(target, {"group": "1", "rows": [{"tests": ["t"], "comparisons": stored}]})
+    fresh = [_stored_comparison(25), _stored_comparison(35, value=0.1)]
+
+    carried = module.preserve_measurements(target, [{"tests": ["t"], "comparisons": fresh}])
+
+    assert carried == 2
+    assert [item["measured"]["digest"] for item in fresh] == ["d10", "d20"]
+
+
+def test_an_ambiguous_move_carries_nothing(tmp_path: Path) -> None:
+    """Three identical asserts become two after a move: nothing says which one went, so none
+    is paired, rather than sliding a margin onto a neighbour's reference."""
+    module = _load_tool_module()
+    stored = [_stored_comparison(line, margin=float(line)) for line in (10, 20, 30)]
+    fresh = [_stored_comparison(line) for line in (12, 22)]
+
+    pairs, unpaired = module.pair_comparisons(stored, fresh)
+
+    assert pairs == []
+    assert unpaired == ["f.py:12", "f.py:22"]
+
+
+def test_refresh_citations_moves_the_citations_and_keeps_everything_else() -> None:
+    """The refresh owns the label, the bound and the line; the prose and the margins are kept."""
+    module = _load_tool_module()
+    stored_row = {
+        "id": "g.t.single",
+        "group": "1",
+        "title": "t",
+        "tests": ["t"],
+        "validates": "hand-written validates",
+        "comparisons": [_stored_comparison(10, margin=1.0), _stored_comparison(20, value=0.2)],
+        "flags": ["out_of_band"],
+        "notes": "hand-written notes",
+    }
+    document = {"group": "1", "rows": [stored_row]}
+    derived = copy.deepcopy(stored_row)
+    derived.update(validates="placeholder", notes="placeholder", flags=[])
+    derived["comparisons"] = [_stored_comparison(14), _stored_comparison(24, value=0.3)]
+    for item in derived["comparisons"]:
+        item["reference"]["label"] = "derived expression"
+        item["tolerance"]["justification"] = "placeholder"
+
+    merged, notes = module.refresh_citations(document, [derived], "1")
+
+    row = merged["rows"][0]
+    assert (row["validates"], row["notes"], row["flags"]) == (
+        "hand-written validates",
+        "hand-written notes",
+        ["out_of_band"],
+    )
+    moved, changed = row["comparisons"]
+    assert moved["tolerance"]["source"] == "f.py:14"
+    assert moved["label"] == "rtol at line 14"
+    assert moved["measured"]["digest"] == "d10"
+    assert moved["tolerance"]["justification"] == "a hand-written justification"
+    assert moved["reference"]["label"] == "a closed form, written by hand"
+    # The bound changed (0.2 -> 0.3), so it is a different assertion: it comes in as derived and
+    # the reader is told.
+    assert changed["tolerance"]["value"] == 0.3
+    assert changed["tolerance"]["justification"] == "placeholder"
+    assert any("f.py:24" in note for note in notes)
+    assert document["rows"][0]["comparisons"][0]["tolerance"]["source"] == "f.py:10"
+
+
+def test_coherence_leaves_hand_written_prose_alone(real_store_copy: Path) -> None:
+    """Prose is not a citation: a group whose lines are right is coherent and is not rewritten.
+
+    `coherence` used to compare the bytes of the extractor's output with the file, so every
+    hand-written `validates`, `notes` or justification read as stale and was replaced (#24).
+    """
+    row_file = next((real_store_copy / "rows").glob("4-*.yaml"))
+    data = yaml.safe_load(row_file.read_text(encoding="utf-8"))
+    data["rows"][0]["validates"] = "Hand-written: what this row validates."
+    data["rows"][0]["notes"] = "Hand-written notes."
+    data["rows"][0]["comparisons"][0]["tolerance"]["justification"] = "Hand-written."
+    data["rows"][0]["comparisons"][0]["measured"] = {
+        "status": "measured",
+        "margin_pct": 1.5,
+        "digest": "abc",
+    }
+    row_file.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    before = row_file.read_bytes()
+
+    completed = run(real_store_copy, "coherence", "--group", "4")
+
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "coherent" in completed.stdout
+    assert row_file.read_bytes() == before
+
+
+def test_coherence_refreshes_a_moved_citation_and_keeps_the_prose(real_store_copy: Path) -> None:
+    """A stale citation is refreshed in place: the line comes back, the prose and margin stay."""
+    row_file = next((real_store_copy / "rows").glob("4-*.yaml"))
+    data = yaml.safe_load(row_file.read_text(encoding="utf-8"))
+    comparison = data["rows"][0]["comparisons"][0]
+    true_source = comparison["tolerance"]["source"]
+    true_label = comparison["label"]
+    path, line = true_source.rsplit(":", 1)
+    comparison["tolerance"]["source"] = f"{path}:{int(line) - 3}"
+    comparison["label"] = true_label.replace(line, str(int(line) - 3))
+    comparison["measured"] = {"status": "measured", "margin_pct": 1.5, "digest": "abc"}
+    data["rows"][0]["validates"] = "Hand-written: what this row validates."
+    row_file.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+
+    completed = run(real_store_copy, "coherence", "--group", "4")
+
+    assert completed.returncode == 1, completed.stdout + completed.stderr
+    assert row_file.name in completed.stdout
+    refreshed = yaml.safe_load(row_file.read_text(encoding="utf-8"))["rows"][0]
+    assert refreshed["comparisons"][0]["tolerance"]["source"] == true_source
+    assert refreshed["comparisons"][0]["label"] == true_label
+    assert refreshed["comparisons"][0]["measured"]["digest"] == "abc"
+    assert refreshed["validates"] == "Hand-written: what this row validates."
 
 
 def test_coherence_names_a_row_file_whose_citations_moved(tmp_path: Path) -> None:

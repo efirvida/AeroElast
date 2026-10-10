@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import ast
 import contextlib
+import copy
 import hashlib
 import io
 from collections import Counter
@@ -2978,6 +2979,85 @@ def build_rows(
     return rows, report
 
 
+LINE_IN_LABEL_RE = re.compile(r" at line \d+")
+
+
+def comparison_fingerprint(comparison: dict[str, Any]) -> tuple[Any, ...]:
+    """What a comparison asserts, with where it sits left out.
+
+    The label is `<kind> at line N` plus the loop binding, and the line is the one part of it
+    that moves when an unrelated edit shifts the file. Everything else here changes only when the
+    assertion itself changes: its kind, its bound, whether it asserts, what kind of reference it
+    names, and which loop iteration it is.
+    """
+    tolerance = comparison.get("tolerance") or {}
+    reference = comparison.get("reference") or {}
+    return (
+        LINE_IN_LABEL_RE.sub("", str(comparison.get("label") or "")),
+        tolerance.get("kind"),
+        tolerance.get("value"),
+        bool(comparison.get("asserted", True)),
+        reference.get("kind"),
+    )
+
+
+def pair_comparisons(
+    old: list[Any], new: list[Any]
+) -> tuple[list[tuple[int, dict[str, Any]]], list[str]]:
+    """Pair each fresh comparison with the stored one it continues, or with none.
+
+    Returns `(new_index, old_comparison)` pairs and the sources of the fresh comparisons left
+    unpaired. Two regimes, chosen per row:
+
+    - The row's set of sources is unchanged, so nothing moved: pair by `<file>:<line>`, in order
+      among comparisons that share a line (a call inside a literal `for` is emitted once per
+      execution). A pair whose fingerprint differs is refused: the assertion on that line changed.
+    - Some source moved: pair by fingerprint, in order, and only for a fingerprint that occurs
+      as many times on disk as in the code. When the count changed, nothing says which of the
+      identical comparisons is the new one, so none of them is paired.
+
+    Pairing by position alone would slide every later measurement one slot over when a
+    comparison is dropped; pairing by source alone attaches a margin to whatever assertion now
+    sits on a line an edit shifted. Neither is allowed to happen silently.
+    """
+    old_items = [item for item in old if isinstance(item, dict)]
+    new_items = [(index, item) for index, item in enumerate(new) if isinstance(item, dict)]
+
+    def source(item: dict[str, Any]) -> str:
+        return str((item.get("tolerance") or {}).get("source") or "")
+
+    pairs: list[tuple[int, dict[str, Any]]] = []
+    unpaired: list[str] = []
+    if Counter(source(item) for item in old_items) == Counter(
+        source(item) for _, item in new_items
+    ):
+        by_source: dict[str, list[dict[str, Any]]] = {}
+        for item in old_items:
+            by_source.setdefault(source(item), []).append(item)
+        for index, item in new_items:
+            candidates = by_source.get(source(item))
+            previous = candidates.pop(0) if candidates else None
+            if previous is not None and comparison_fingerprint(
+                previous
+            ) == comparison_fingerprint(item):
+                pairs.append((index, previous))
+            elif item.get("tolerance"):
+                unpaired.append(source(item) or "<no source>")
+        return pairs, unpaired
+    old_counts = Counter(comparison_fingerprint(item) for item in old_items)
+    new_counts = Counter(comparison_fingerprint(item) for _, item in new_items)
+    by_print: dict[tuple[Any, ...], list[dict[str, Any]]] = {}
+    for item in old_items:
+        by_print.setdefault(comparison_fingerprint(item), []).append(item)
+    for index, item in new_items:
+        key = comparison_fingerprint(item)
+        if old_counts[key] == new_counts[key] and by_print.get(key):
+            pairs.append((index, by_print[key].pop(0)))
+        elif item.get("tolerance"):
+            unpaired.append(source(item) or "<no source>")
+    return pairs, unpaired
+
+
 def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
     """Carry each row's measured evidence across a re-extraction.
 
@@ -2987,12 +3067,12 @@ def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
     was ever measured.
 
     Rows are matched by their `tests` set, which is stable as long as the test does not move, and
-    comparisons are matched by their `tolerance.source` -- `<file>:<line>` -- and not by position.
-    Position was the wrong key and dangerously so: dropping or reordering one comparison would have
-    slid every later measurement one slot over, attaching a margin to a reference it was never
-    measured against. A comparison whose source is not found keeps no measurement, and the count of
-    those is reported rather than passed over, because a moved line means someone should decide
-    whether the number still applies.
+    comparisons by `pair_comparisons`: by `<file>:<line>` while no line moved, and by what the
+    comparison asserts once one did. Keying only by line lost every measurement of a group whose
+    file gained a docstring above its assertions (#24); keying by position would slide a margin
+    onto a reference it was never measured against. A comparison left unpaired keeps no
+    measurement, and the count of those is reported rather than passed over, because a changed
+    assertion means someone should decide whether the number still applies.
     """
     if not target.exists():
         return 0
@@ -3014,44 +3094,101 @@ def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
             row["history"] = previous["history"]
         if previous.get("flags"):
             row["flags"] = previous["flags"]
-        # A source is no longer unique per comparison: a call inside a literal `for` is emitted
-        # once per execution and every execution shares `<file>:<line>`. Consuming the stored
-        # comparisons in order is what keeps each iteration's own baseline with its own
-        # iteration; keying them into a dict let the last one overwrite the rest.
-        old_by_source: dict[str, list[dict[str, Any]]] = {}
-        for old in previous.get("comparisons") or []:
-            if not isinstance(old, dict):
-                continue
-            source = str((old.get("tolerance") or {}).get("source") or "")
-            if source:
-                old_by_source.setdefault(source, []).append(old)
-        for comparison in row.get("comparisons") or []:
-            if not isinstance(comparison, dict):
-                continue
-            source = str((comparison.get("tolerance") or {}).get("source") or "")
-            candidates = old_by_source.get(source)
-            old = candidates.pop(0) if candidates else None
-            if old is None:
-                if comparison.get("tolerance"):
-                    unmatched.append(source or "<no source>")
-                continue
+        comparisons = row.get("comparisons") or []
+        pairs, unpaired = pair_comparisons(previous.get("comparisons") or [], comparisons)
+        unmatched.extend(unpaired)
+        for index, old in pairs:
             for name in ("measured", "expected"):
                 value = old.get(name)
                 if value is not None:
-                    comparison[name] = value
+                    comparisons[index][name] = value
                     carried += 1
     if unmatched:
-        # What this sees is a fresh comparison whose source has no counterpart on disk, which is
-        # what a moved line or a newly added comparison looks like. Saying that no measurement
+        # What this sees is a fresh comparison with no counterpart on disk, which is what a
+        # changed assertion or a newly added comparison looks like. Saying that no measurement
         # matched claimed more than the check knows, and it fired on rows never measured at all.
         print(
-            f"{len(unmatched)} comparison(s) have no counterpart in the row file by source, which "
-            "is what a moved line or a newly added comparison looks like. Any margin recorded for "
+            f"{len(unmatched)} comparison(s) have no counterpart in the row file, which is what a "
+            "changed assertion or a newly added comparison looks like. Any margin recorded for "
             "them was not carried, so re-measure those that had one:\n  "
             + "\n  ".join(sorted(unmatched)[:5]),
             file=sys.stderr,
         )
     return carried
+
+
+# The fields the extractor owns. Everything else in a row file -- `validates`, `notes`, `flags`,
+# `history`, the tolerance's `justified`/`justification`, `reference.label`, `measured`,
+# `expected` -- is written by a person or by `regression`, and a refresh must not touch it.
+OWNED_ROW_FIELDS = ("id", "group", "title", "tests")
+OWNED_TOLERANCE_FIELDS = ("kind", "value", "source")
+
+
+def refresh_citations(
+    document: Any, rows: list[dict[str, Any]], group_id: str
+) -> tuple[dict[str, Any], list[str]]:
+    """The row file on disk with only the extractor's fields brought up to date.
+
+    It starts from the stored document and overwrites what the code derives, which is the way
+    `regression --write` records a measurement: in place. Starting from the derived rows and
+    copying a few fields back was how `coherence` dropped hand-written prose -- anything not on
+    the short list was lost (#24). A row the code no longer has is dropped, a new one comes in as
+    derived, and a comparison is carried only when `pair_comparisons` pairs it. Returns the
+    document and one line per thing a reader should look at.
+    """
+    stored = document.get("rows") if isinstance(document, dict) else None
+    previous_rows = [row for row in stored or [] if isinstance(row, dict)]
+    by_tests = {tuple(row.get("tests") or []): row for row in previous_rows}
+    notes: list[str] = []
+    merged_rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, ...]] = set()
+    for row in rows:
+        key = tuple(row.get("tests") or [])
+        seen.add(key)
+        previous = by_tests.get(key)
+        if previous is None:
+            notes.append(f"new row: {row.get('id')}")
+            merged_rows.append(row)
+            continue
+        merged = copy.deepcopy(previous)
+        for name in OWNED_ROW_FIELDS:
+            if name in row:
+                merged[name] = row[name]
+        fresh = row.get("comparisons") or []
+        pairs, unpaired = pair_comparisons(previous.get("comparisons") or [], fresh)
+        paired = dict(pairs)
+        comparisons: list[Any] = []
+        for index, comparison in enumerate(fresh):
+            old = paired.get(index)
+            if old is None:
+                comparisons.append(comparison)
+                continue
+            kept = copy.deepcopy(old)
+            kept["label"] = comparison.get("label")
+            kept["asserted"] = comparison.get("asserted")
+            tolerance = kept.setdefault("tolerance", {})
+            for name in OWNED_TOLERANCE_FIELDS:
+                tolerance[name] = (comparison.get("tolerance") or {}).get(name)
+            reference = kept.setdefault("reference", {})
+            derived_reference = comparison.get("reference") or {}
+            reference["kind"] = derived_reference.get("kind")
+            if "citation" in derived_reference:
+                reference["citation"] = derived_reference["citation"]
+            comparisons.append(kept)
+        for source in unpaired:
+            notes.append(f"{row.get('id')}: comparison at {source} is new or changed, not carried")
+        dropped = len(previous.get("comparisons") or []) - len(pairs)
+        if dropped > 0:
+            notes.append(f"{row.get('id')}: {dropped} stored comparison(s) no longer in the code")
+        merged["comparisons"] = comparisons
+        merged_rows.append(merged)
+    for row in previous_rows:
+        if tuple(row.get("tests") or []) not in seen:
+            notes.append(f"row no longer in the code, dropped: {row.get('id')}")
+    merged_document = dict(document) if isinstance(document, dict) else {}
+    merged_document["group"] = merged_document.get("group", group_id)
+    merged_document["rows"] = merged_rows
+    return merged_document, notes
 
 
 def command_extract(args: argparse.Namespace) -> int:
@@ -3255,7 +3392,20 @@ def command_extract(args: argparse.Namespace) -> int:
             print(f"printed and maybe never asserted (candidate info_only): {node}")
             for call in calls:
                 print(f"  - {call}")
-    if args.write:
+    if args.write and getattr(args, "refresh", False):
+        # `coherence`: bring the citations up to date and leave everything else as it is. The
+        # file is written only when an owned field changed, so a group whose citations are right
+        # is coherent whatever prose or formatting a person gave it.
+        target = args.store / "rows" / f"{group_id}-{group.get('slug')}.yaml"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        document = load_yaml(target) if target.exists() else {"group": group_id, "rows": []}
+        merged, notes = refresh_citations(document, rows, group_id)
+        for note in notes:
+            print(note, file=sys.stderr)
+        if merged != document:
+            dump_yaml(target, merged)
+            print(f"refreshed {display_path(target)}")
+    elif args.write:
         target = args.store / "rows" / f"{group_id}-{group.get('slug')}.yaml"
         target.parent.mkdir(parents=True, exist_ok=True)
         carried = preserve_measurements(target, rows)
@@ -3264,6 +3414,7 @@ def command_extract(args: argparse.Namespace) -> int:
             f"wrote {display_path(target)} ({len(rows)} rows, {carried} measured "
             "comparison(s) carried over)"
         )
+    if args.write:
         probe = load_store(args.store)
         for finding in probe.errors():
             print(finding.as_text(), file=sys.stderr)
@@ -3278,15 +3429,20 @@ def command_extract(args: argparse.Namespace) -> int:
 
 
 def command_coherence(args: argparse.Namespace) -> int:
-    """Re-derive every group and report the row files that no longer match the code.
+    """Re-derive every group and report the row files whose citations no longer match the code.
 
     A row file cites the line each comparison sits on. Editing a test moves those lines,
     and nothing else sees it: `check` cannot read the code, and comparing how many rows a
     group extracts compares a count rather than the bytes of the file, which is how a
-    stale citation hid until `git status` showed it. This writes what the code says and
-    compares in memory -- the same thing as `extract --write` followed by `git diff`,
-    without needing git and with the groups named. A stale file is left refreshed, because
-    the diff it prints is the fix.
+    stale citation hid until `git status` showed it.
+
+    Stale means a citation mismatch: a row, a comparison, or one of the fields the extractor owns
+    (`OWNED_ROW_FIELDS`, the comparison's label, assertion and tolerance bound and line) differs
+    from what the code says. Prose and measurements are not derivable from the code, so they
+    cannot be stale by this definition, and the refresh carries them (`refresh_citations`). It
+    used to rewrite the whole file from the extractor's output, which replaced hand-written
+    `validates`, `notes` and justifications with placeholders and dropped the `measured` blocks
+    (#24). A stale file is left refreshed, because the diff it prints is the fix.
     """
     store = load_store(args.store)
     groups = [args.group] if args.group else sorted(store.groups, key=int)
@@ -3305,7 +3461,13 @@ def command_coherence(args: argparse.Namespace) -> int:
             continue
         before = target.read_text(encoding="utf-8") if target.exists() else None
         quiet = argparse.Namespace(
-            store=args.store, group=group_id, scope=None, citation=None, json=False, write=True
+            store=args.store,
+            group=group_id,
+            scope=None,
+            citation=None,
+            json=False,
+            write=True,
+            refresh=True,
         )
         with contextlib.redirect_stdout(io.StringIO()):
             code = command_extract(quiet)
