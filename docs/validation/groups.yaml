@@ -852,7 +852,11 @@ groups:
       minimum-norm case asserts that it MISSES Bredt, which documents an open
       defect instead of validating a bound, so that assertion stays bare and
       the defect is recorded in gaps.yaml,
-      moment_realization_over_delivers.
+      moment_realization_over_delivers. T3 of issue #30 executed it:
+      `test_minimum_norm_realisation_over_delivers_bredt_by_the_recorded_factor`
+      pins the over-delivery at 31.69331x self-equilibrated and 10.40654x
+      clamped (1e-3 relative) without becoming a store comparison, because
+      Bredt is the reference the field misses rather than one it must meet.
 
   - id: "32"
     title: >-

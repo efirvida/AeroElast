@@ -41,7 +41,11 @@ import pytest
 
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
-from aeroelast.solvers.bem.force_projection import _Strip, realise_section_load  # noqa: E402
+from aeroelast.solvers.bem.force_projection import (  # noqa: E402
+    ForceProjector,
+    _Strip,
+    realise_section_load,
+)
 
 import tests.validation.parity.test_thin_walled_tube_torsion as tube  # noqa: E402
 from tests.support.assertions import assert_relative_error  # noqa: E402
@@ -52,6 +56,17 @@ from tests.support.assertions import assert_relative_error  # noqa: E402
 # tests/validation/parity/test_thin_walled_tube_torsion.py::TOL.
 TOL = 0.05
 WINDOW = (0.4 * tube.L, 0.9 * tube.L)  # the validated interior window of case A
+
+# The legacy minimum-norm realisation's recorded over-delivery of Bredt on this fixture
+# (`ForceProjector._distribute` realising a pure span couple as the circle-tangential field
+# `f_j = omega x d_j`), promoted from the module docstring to an executed regression pin by T3 of
+# issue #30: `31.69331` with the rigid modes removed and `10.40654` with a clamped root.  These are
+# **recorded measurements of a defect**, not validated bounds - Bredt is the reference the field
+# *misses* - so the pin is deliberately kept out of the store's reference machinery and the defect
+# stays recorded in `docs/validation/gaps.yaml` (`moment_realization_over_delivers`).
+MIN_NORM_OVER_DELIVERY_SELF_EQUILIBRATED = 31.69331
+MIN_NORM_OVER_DELIVERY_CLAMPED = 10.40654
+PIN_TOL = 1e-3
 
 
 def _ring_strip(coords: np.ndarray, ring: list[int]) -> _Strip:
@@ -176,4 +191,80 @@ def test_production_shear_flow_moment_realisation_vs_bredt():
         kind="analytical",
         reference_name="Bredt's T/GJ twist rate for the closed tube",
         what="production shear-flow moment realisation interior twist rate",
+    )
+
+
+def _min_norm_ring_couple(coords, ring, torque):
+    """The legacy minimum-norm realisation of a pure span couple about one ring's centroid.
+
+    What ``ForceProjector._distribute`` returns for ``M = torque * z_hat`` on that ring, embedded in
+    the mesh's 6-DOF layout. This is the parked production default, i.e. the field the shear-flow
+    fix replaced.
+    """
+    nodes = ForceProjector._distribute(
+        _ring_strip(coords, ring), np.zeros(3), np.asarray([0.0, 0.0, torque])
+    )
+    f = np.zeros(6 * len(coords))
+    for j, node in enumerate(ring):
+        f[6 * node : 6 * node + 3] = nodes[j]
+    return f
+
+
+def test_minimum_norm_realisation_over_delivers_bredt_by_the_recorded_factor():
+    """Do the two moment realisations stay apart by the factor they were recorded at? (T3, #30)
+
+    The companion assertion to ``test_production_shear_flow_moment_realisation_vs_bredt``: the same
+    tube, the same torque and the same solver, but the span couple realised through the legacy
+    ``ForceProjector._distribute`` instead of the wall shear flow. That field is the
+    circle-tangential ``f_j = omega x d_j`` about the section centroid, so on a closed section it
+    over-delivers Bredt by **31.69331x** with the rigid modes removed and **10.40654x** with a
+    clamped root - a localised, long-decaying end distortion, not a torsion rate.
+
+    This is a **regression pin**, not a validated bound: it asserts that the recorded defect has not
+    moved, so a change to ``_distribute`` (or to the fixture) that silently shifted it makes noise.
+    It deliberately does **not** go through ``assert_relative_error`` - the store's comparisons need
+    an independent reference the measurement must *meet*, and Bredt is the one this field misses -
+    so the defect stays recorded in ``docs/validation/gaps.yaml``
+    (``moment_realization_over_delivers``) rather than dressed as validation.
+    """
+    coords, conn, rings, _n_ring = tube._tube_mesh()
+    _, K = tube._assemble(coords, conn, 4, tube._iso_prop())
+    modes = tube._rigid_modes(coords)
+    _gj, ref_rate = tube._bredt_isotropic()
+
+    # ---- the tolerance-free invariances the field must still satisfy: it is a self-equilibrated
+    #      couple whose torque is what the independent ruler reads, with the requested sign.
+    f_tip = _min_norm_ring_couple(coords, rings[-1], +tube.TORQUE)
+    f_root = _min_norm_ring_couple(coords, rings[0], -tube.TORQUE)
+    tip_nodes = f_tip.reshape(-1, 6)[np.asarray(rings[-1]), :3]
+    root_nodes = f_root.reshape(-1, 6)[np.asarray(rings[0]), :3]
+    assert np.abs(tip_nodes.sum(axis=0)).max() < 1e-9, "tip net force must vanish"
+    assert np.abs(root_nodes.sum(axis=0)).max() < 1e-9, "root net force must vanish"
+    assert abs(tube._realised_torque(coords, f_tip) - tube.TORQUE) / tube.TORQUE < 1e-9
+    assert abs(tube._realised_torque(coords, f_root) + tube.TORQUE) / tube.TORQUE < 1e-9
+
+    # ---- self-equilibrated (+T tip / -T root), rigid modes removed: the recorded configuration
+    u_eq = tube._solve_rigid_removed(K, f_tip + f_root, modes)
+    m_eq = _measure(coords, u_eq, rings, ref_rate)
+    ratio_eq = m_eq["slope_fit"] / ref_rate
+
+    # ---- clamped root, +T at the tip: the same fixture as case A/B's other end condition
+    clamped = tube._clamped_dofs(rings)
+    u_cl = tube._solve_clamped(K, f_tip, clamped)
+    m_cl = _measure(coords, u_cl, rings, ref_rate)
+    ratio_cl = m_cl["slope_fit"] / ref_rate
+
+    print(
+        f"\nminimum-norm over-delivery of Bredt: self-equilibrated {ratio_eq:.5f}x "
+        f"(pinned {MIN_NORM_OVER_DELIVERY_SELF_EQUILIBRATED}), clamped {ratio_cl:.5f}x "
+        f"(pinned {MIN_NORM_OVER_DELIVERY_CLAMPED}); "
+        f"distortion/|rotation| = {m_eq['distortion_over_rotation']:.3f}"
+    )
+    assert ratio_eq == pytest.approx(MIN_NORM_OVER_DELIVERY_SELF_EQUILIBRATED, rel=PIN_TOL), (
+        "the minimum-norm over-delivery moved: it is a recorded defect (gaps.yaml "
+        "moment_realization_over_delivers), so a shift is a finding to report, never a bound "
+        "to widen"
+    )
+    assert ratio_cl == pytest.approx(MIN_NORM_OVER_DELIVERY_CLAMPED, rel=PIN_TOL), (
+        "the clamped minimum-norm over-delivery moved: same recorded defect as above"
     )
