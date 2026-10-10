@@ -2180,6 +2180,29 @@ class ToleranceSite:
     # written before it.
     reference_name: str | None = None
     reference_kind: str | None = None
+    # The `for` bindings this execution ran under, or None when the call runs once. The values are
+    # rendered, not evaluated: they name the iteration in the comparison's `label` and in this
+    # reader's own dedup key, and `tolerance.source` stays `<file>:<line>` because three other
+    # readers parse it that way.
+    binding: dict[str, str] | None = None
+    # The multiplicity is not knowable from the code, so the site was emitted once and its row
+    # will still refuse at `regression` time rather than have a pairing guessed for it.
+    dynamic: bool = False
+
+
+def binding_label(site: ToleranceSite) -> str:
+    """`<kind> at line N`, plus the loop iteration when the call runs inside a literal `for`.
+
+    The iteration is what tells two comparisons printed by the same line apart, and the label is
+    where a reader sees it: `rtol at line 873 (station=centre)`. `tolerance.source` stays the
+    bare `<file>:<line>` because three readers parse it that way, and the pairing at
+    `regression` time is by execution order, never by the label.
+    """
+    base = f"{site.kind} at line {site.line}"
+    if not site.binding:
+        return base
+    rendered = ", ".join(f"{name}={value}" for name, value in site.binding.items())
+    return f"{base} ({rendered})"
 
 
 def parse_node_id(line: str) -> NodeInfo | None:
@@ -2447,6 +2470,130 @@ def param_value_by_name(
     return None
 
 
+def execution_contexts(
+    func: ast.FunctionDef, consts: dict[str, Any]
+) -> list[tuple[ast.Call, dict[str, str] | None, bool]]:
+    """Every execution of a call in a test body, in the order the run reaches it.
+
+    A canonical comparison inside a `for` over a literal sequence prints one residual per
+    iteration, and `compare_row` pairs the Nth print with the Nth comparison. The extractor
+    therefore has to emit them in the order the statements run -- re-entering the loop body once
+    per iteration -- and not expand one site at a time, which would put the second iteration of
+    the first site where the run prints the first iteration of the second site.
+
+    A `for` over anything else, a `while`, and an `if` whose test the code computes have no
+    knowable multiplicity: their sites are emitted once and flagged, and `regression` still
+    reports `unmapped` for them rather than guessing a pairing.
+    """
+    emitted: list[tuple[ast.Call, dict[str, str] | None, bool]] = []
+    # The same filter `tolerance_sites` reads sites through: `tol=`/`atol=` also appears on
+    # geometric helpers (`np.isclose(..., atol=1e-12)`, `_find_node_by_xyz(..., tol=1e-4)`), and
+    # collecting every call in the body imported a node-search tolerance into the store as a
+    # comparison without a reference.
+    asserted = {id(call) for call in assertion_calls(func)}
+
+    def render(item: Any) -> str:
+        """How an iteration names itself: the literal when it is one, and its source when not.
+
+        `for name, angles in (("a", (1, 2)), ...)` binds literals; `for label, value, ref in
+        (("TOP", outer["sxx"], float(top)), ...)` is just as countable and binds expressions. Both
+        are read off the code, and only the label differs.
+        """
+        value = item.value if isinstance(item, ast.Constant) else item
+        if value is None or isinstance(value, str | int | float | bool):
+            return str(value)
+        if isinstance(item, ast.AST):
+            return ast.unparse(item)
+        return str(item)
+
+    def sequence(node: ast.expr, env: dict[str, Any]) -> list[Any] | None:
+        """The values a `for` iterates, when the code states them.
+
+        A tuple or list literal states its *length* even when its elements are computed, and the
+        length is the whole of what the multiplicity needs. Anything else -- a computed sequence,
+        a generator, a conditional -- states nothing, and its sites are emitted once and flagged.
+        """
+        if isinstance(node, (ast.Tuple, ast.List)):
+            elements: list[Any] = list(node.elts)
+        else:
+            value = resolve_literal(node, {**consts, **env})
+            if not isinstance(value, (list, tuple)):
+                return None
+            elements = list(value)
+        # An empty literal runs the body zero times; reporting the sites once and leaving the
+        # count to `regression` is better than silently deleting every comparison in the body.
+        return elements or None
+
+    def bind(target: ast.expr, item: Any) -> dict[str, str] | None:
+        if isinstance(target, ast.Name):
+            return {target.id: render(item)}
+        if isinstance(target, (ast.Tuple, ast.List)):
+            if isinstance(item, (ast.Tuple, ast.List)):
+                if len(item.elts) != len(target.elts):
+                    return None
+                parts = zip(target.elts, item.elts, strict=True)
+            elif isinstance(item, (list, tuple)):
+                if len(item) != len(target.elts):
+                    return None
+                parts = zip(target.elts, item, strict=True)
+            else:
+                return None
+            merged: dict[str, str] = {}
+            for element, value in parts:
+                part = bind(element, value)
+                if part is None:
+                    return None
+                merged.update(part)
+            return merged
+        return None
+
+    def walk(stmts: list[ast.stmt], env: dict[str, Any], dynamic: bool) -> None:
+        for stmt in stmts:
+            if isinstance(stmt, ast.For):
+                values = None if dynamic else sequence(stmt.iter, env)
+                if values is None:
+                    walk(stmt.body, env, True)
+                    walk(stmt.orelse, env, True)
+                    continue
+                for value in values:
+                    extra = bind(stmt.target, value)
+                    if extra is None:
+                        walk(stmt.body, env, True)
+                        continue
+                    walk(stmt.body, {**env, **extra}, dynamic)
+                walk(stmt.orelse, env, True)
+                continue
+            if isinstance(stmt, ast.While):
+                walk(stmt.body, env, True)
+                walk(stmt.orelse, env, True)
+                continue
+            if isinstance(stmt, ast.If):
+                taken = None if dynamic else resolve_literal(stmt.test, {**consts, **env})
+                if isinstance(taken, bool):
+                    walk(stmt.body if taken else stmt.orelse, env, dynamic)
+                else:
+                    walk(stmt.body, env, True)
+                    walk(stmt.orelse, env, True)
+                continue
+            if isinstance(stmt, ast.Try):
+                walk(stmt.body, env, dynamic)
+                walk(stmt.orelse, env, dynamic)
+                for handler in stmt.handlers:
+                    walk(handler.body, env, True)
+                walk(stmt.finalbody, env, dynamic)
+                continue
+            if isinstance(stmt, (ast.With, ast.AsyncWith)):
+                walk(stmt.body, env, dynamic)
+                continue
+            # A leaf statement runs here, so its calls do too, in the order the tree lists them.
+            for node in ast.walk(stmt):
+                if isinstance(node, ast.Call) and id(node) in asserted:
+                    emitted.append((node, env or None, dynamic))
+
+    walk(func.body, {}, False)
+    return emitted
+
+
 def tolerance_sites(
     func: ast.FunctionDef,
     consts: dict[str, Any],
@@ -2462,14 +2609,28 @@ def tolerance_sites(
     comparison is converted to the canonical call, not read. A zero bound
     (`atol=0.0`, or `x > 0.0`) still asserts nothing, so it is reported as ignored
     rather than stored as if it bounded anything.
+
+    One site per *execution*: a call in a `for` over a literal sequence is emitted once per
+    iteration, in execution order, with the loop's binding recorded. See `execution_contexts`.
     """
     sites: list[ToleranceSite] = []
     ignored: list[str] = []
+    executions: list[tuple[ast.Call, dict[str, str] | None, bool]] = [
+        *execution_contexts(func, consts)
+    ]
+    seen = {id(call) for call, _, _ in executions}
+    # A call the walk never reached -- inside a nested definition, say -- is still a site, and the
+    # honest answer for a multiplicity the walk cannot see is the old one: emit it once.
+    executions.extend(
+        (call, None, True) for call in assertion_calls(func) if id(call) not in seen
+    )
     # The test first, then the declared helpers it reaches, in that order: appending after the
     # test's own sites keeps every existing row byte-identical when a group declares no helper.
-    scopes = [func, *(extra or [])]
-    calls = [call for scope in scopes for call in assertion_calls(scope)]
-    for call in calls:
+    # A helper runs wherever its caller runs, which is not a property of the helper, so its sites
+    # are emitted once and never multiplied by a loop in the test that calls it.
+    for scope in extra or []:
+        executions.extend((call, None, True) for call in assertion_calls(scope))
+    for call, binding, dynamic in executions:
         stated_name: str | None = None
         stated_kind: str | None = None
         for keyword in call.keywords:
@@ -2486,7 +2647,9 @@ def tolerance_sites(
             numeric = float(value) if isinstance(value, int | float) else None
             source = ast.unparse(call)[:120]
             if numeric == 0.0:
-                ignored.append(f"{keyword.arg}=0 at line {call.lineno} ({source})")
+                report = f"{keyword.arg}=0 at line {call.lineno} ({source})"
+                if report not in ignored:
+                    ignored.append(report)
                 continue
             sites.append(
                 ToleranceSite(
@@ -2502,12 +2665,16 @@ def tolerance_sites(
                     ),
                     reference_name=stated_name,
                     reference_kind=stated_kind,
+                    binding=binding,
+                    dynamic=dynamic,
                 )
             )
-    unique: dict[tuple[int, str, float | None], ToleranceSite] = {}
+    unique: dict[tuple[Any, ...], ToleranceSite] = {}
     for site in sites:
-        unique.setdefault((site.line, site.kind, site.value), site)
-    return [unique[key] for key in sorted(unique, key=lambda item: item[0])], ignored
+        key = (site.line, site.kind, site.value, tuple(sorted((site.binding or {}).items())))
+        unique.setdefault(key, site)
+    # Insertion order is execution order, which is the order the residuals print in.
+    return list(unique.values()), ignored
 
 
 def parametrize_table(func: ast.FunctionDef, consts: dict[str, Any]) -> list[dict[str, Any]]:
@@ -2696,6 +2863,13 @@ def build_rows(
         sites, ignored = tolerance_sites(func, consts, info.params, extra)
         if ignored:
             report.setdefault("ignored_bounds", {})[info.node] = ignored
+        dynamic = [site for site in sites if site.dynamic]
+        if dynamic:
+            # A multiplicity the code does not state. Named here so a row that stays unmapped has
+            # the tool's own reason instead of a hand-written note about it.
+            report.setdefault("dynamic_multiplicity", {})[info.node] = [
+                f"{site.kind} at line {site.line}" for site in dynamic
+            ]
         if not sites:
             unclaim(info.node, "no_comparison")
             continue
@@ -2779,7 +2953,7 @@ def build_rows(
                 reference["citation"] = citation
             comparisons.append(
                 {
-                    "label": f"{site.kind} at line {site.line}",
+                    "label": binding_label(site),
                     "asserted": site.asserts,
                     "reference": reference,
                     "tolerance": {
@@ -2861,18 +3035,23 @@ def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
             row["history"] = previous["history"]
         if previous.get("flags"):
             row["flags"] = previous["flags"]
-        old_by_source: dict[str, dict[str, Any]] = {}
+        # A source is no longer unique per comparison: a call inside a literal `for` is emitted
+        # once per execution and every execution shares `<file>:<line>`. Consuming the stored
+        # comparisons in order is what keeps each iteration's own baseline with its own
+        # iteration; keying them into a dict let the last one overwrite the rest.
+        old_by_source: dict[str, list[dict[str, Any]]] = {}
         for old in previous.get("comparisons") or []:
             if not isinstance(old, dict):
                 continue
             source = str((old.get("tolerance") or {}).get("source") or "")
             if source:
-                old_by_source[source] = old
+                old_by_source.setdefault(source, []).append(old)
         for comparison in row.get("comparisons") or []:
             if not isinstance(comparison, dict):
                 continue
             source = str((comparison.get("tolerance") or {}).get("source") or "")
-            old = old_by_source.get(source)
+            candidates = old_by_source.get(source)
+            old = candidates.pop(0) if candidates else None
             if old is None:
                 if comparison.get("tolerance"):
                     unmatched.append(source or "<no source>")
@@ -2983,6 +3162,11 @@ def command_extract(args: argparse.Namespace) -> int:
         "dropped_asserts": {
             node: sources for item in reports for node, sources in (item.get("dropped_asserts") or {}).items()
         },
+        "dynamic_multiplicity": {
+            node: labels
+            for item in reports
+            for node, labels in (item.get("dynamic_multiplicity") or {}).items()
+        },
     }
     suppressed = report["declared_not_rows"]
     # The declared nodes that were suppressed count as used patterns just like the unclaimed ones,
@@ -3014,6 +3198,7 @@ def command_extract(args: argparse.Namespace) -> int:
         "declared_helpers_stale": report["declared_helpers_stale"],
         "dropped_asserts": report.get("dropped_asserts") or {},
         "dropped_declared_stale": report["dropped_declared_stale"],
+        "dynamic_multiplicity": report.get("dynamic_multiplicity") or {},
         "undeclared": undeclared,
         "stale_declarations": stale,
         "diverged_params": report["diverged"],
@@ -3028,6 +3213,13 @@ def command_extract(args: argparse.Namespace) -> int:
         print(f"claimed    : {len(report['nodes'])}")
         if report.get("ignored_bounds"):
             print(f"ignored bounds (assert nothing): {len(report['ignored_bounds'])} node(s)")
+        for node, labels in (report.get("dynamic_multiplicity") or {}).items():
+            print(
+                "multiplicity not knowable from the code, so one comparison is emitted: "
+                f"{node}"
+            )
+            for label in labels:
+                print(f"  - {label}")
         if report.get("cross_check_unavailable"):
             print(
                 "cross-check unavailable (no readable numbers in the code): "

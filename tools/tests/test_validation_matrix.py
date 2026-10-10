@@ -1648,6 +1648,33 @@ def test_extract_derives_every_declared_source_file(tmp_path: Path) -> None:
     assert payload["scope"].split() == list(TWO_FILE_SOURCES)
     assert payload["collected"] > 0
     assert payload["rows"] == payload["claimed"]
+    assert isinstance(payload["dynamic_multiplicity"], dict)
+
+
+def test_a_loop_body_assertion_becomes_one_comparison_per_iteration(tmp_path: Path) -> None:
+    """The derived row for `for station in (...)`: four comparisons, in execution order.
+
+    The measured file (`test_composite_ply_stress_parity.py`) prints one residual per iteration
+    from two call sites, so the extraction reported `unmapped` and the store's gate refused to
+    attach a baseline to either: 4 printed residuals against 2 comparisons.
+    """
+    store = write_store(tmp_path, [], groups=two_file_groups())
+
+    completed = run(store, "extract", "--group", "3", "--write")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    rows = yaml.safe_load((store / "rows" / "3-ko2017.yaml").read_text(encoding="utf-8"))["rows"]
+    loop_row = next(row for row in rows if "bending_top_and_bottom_match_clt_at" in row["id"])
+
+    labels = [comparison["label"] for comparison in loop_row["comparisons"]]
+    assert len(labels) == 4
+    # Execution order, and not one site expanded at a time: the same iteration's two sites sit
+    # together (`[line A, line B, line A, line B]`, not `[A, A, B, B]`).
+    numbers = [int(label.split("line ")[1].split(" ")[0]) for label in labels]
+    assert numbers[0] == numbers[2] and numbers[1] == numbers[3] and numbers[0] != numbers[1]
+    assert labels[0].endswith("(station=centre)") and labels[1].endswith("(station=centre)")
+    assert labels[2].endswith("(station=three_quarter)")
+    assert labels[3].endswith("(station=three_quarter)")
+    assert len({comparison["tolerance"]["source"] for comparison in loop_row["comparisons"]}) == 2
 
 
 def test_extract_write_keeps_the_other_source_file_rows(tmp_path: Path) -> None:
@@ -1659,6 +1686,150 @@ def test_extract_write_keeps_the_other_source_file_rows(tmp_path: Path) -> None:
     rows = yaml.safe_load((store / "rows" / "3-ko2017.yaml").read_text(encoding="utf-8"))["rows"]
     derived = {str(row["tests"][0]).split("::", 1)[0] for row in rows}
     assert derived == set(TWO_FILE_SOURCES)
+
+
+# --------------------------------------------------------------------------- #
+# The comparison is one printed residual, not one call site
+# --------------------------------------------------------------------------- #
+
+_TWO_SITES_IN_ONE_LOOP = '''\
+for station in ("centre", "three_quarter"):
+    assert_relative_error(
+        1.0, 2.0, tol=0.05, kind="analytical", reference_name="ref", what=f"{station} TOP"
+    )
+    assert_relative_error(
+        3.0, 4.0, tol=0.05, kind="analytical", reference_name="ref", what=f"{station} BOTTOM"
+    )
+'''
+
+_NESTED_LOOPS = '''\
+for station in ("centre", "three_quarter"):
+    for comp in (0, 1):
+        assert_relative_error(
+            1.0, 2.0, tol=0.05, kind="analytical", reference_name="ref", what="k"
+        )
+'''
+
+_COMPUTED_LOOP = '''\
+for step in steps():
+    assert_relative_error(
+        1.0, 2.0, tol=0.05, kind="analytical", reference_name="ref", what="x"
+    )
+'''
+
+
+def _sites_of(body: str, module: Any = None) -> list[Any]:
+    """The tolerance sites of a test function whose body is `body`."""
+    module = module or _load_tool_module()
+    source = 'def test_case() -> None:\n    """One case."""\n' + "".join(
+        f"    {line}\n" if line.strip() else "\n" for line in body.splitlines()
+    )
+    tree = ast.parse(source)
+    func = next(node for node in tree.body if isinstance(node, ast.FunctionDef))
+    sites, _ = module.tolerance_sites(func, module.module_constants(tree), None)
+    return list(sites)
+
+
+def test_a_literal_loop_yields_one_comparison_per_execution() -> None:
+    """The prints come out in execution order, so the comparisons must be emitted in it too.
+
+    Expanding site by site (`for site: for iteration`) would give line 1, line 1, line 2, line 2,
+    and `compare_row` pairs the Nth print with the Nth comparison -- so the second print would be
+    attached to the wrong site's baseline. The walk has to re-enter the loop body once per
+    iteration instead.
+    """
+    sites = _sites_of(_TWO_SITES_IN_ONE_LOOP)
+
+    assert len(sites) == 4
+    lines = [site.line for site in sites]
+    assert lines[0] == lines[2] and lines[1] == lines[3] and lines[0] != lines[1]
+    assert [site.binding["station"] for site in sites] == [
+        "centre",
+        "centre",
+        "three_quarter",
+        "three_quarter",
+    ]
+
+
+def test_nested_literal_loops_multiply_in_nesting_order() -> None:
+    """One call in two loops is one comparison per pair, innermost varying fastest."""
+    sites = _sites_of(_NESTED_LOOPS)
+
+    assert len(sites) == 4
+    assert [(site.binding["station"], site.binding["comp"]) for site in sites] == [
+        ("centre", "0"),
+        ("centre", "1"),
+        ("three_quarter", "0"),
+        ("three_quarter", "1"),
+    ]
+
+
+def test_a_computed_loop_is_flagged_not_guessed() -> None:
+    """A sequence the code computes has no knowable multiplicity: one site, and it says so."""
+    sites = _sites_of(_COMPUTED_LOOP)
+
+    assert len(sites) == 1
+    assert sites[0].dynamic is True
+    assert sites[0].binding is None
+
+
+def test_a_single_execution_site_carries_no_binding() -> None:
+    """Every existing row derives byte-identically: no loop, no suffix, no change."""
+    sites = _sites_of(
+        'assert_relative_error(\n'
+        '    1.0, 2.0, tol=0.05, kind="analytical", reference_name="ref", what="w"\n'
+        ')\n'
+    )
+
+    assert len(sites) == 1
+    assert sites[0].binding is None
+    assert sites[0].dynamic is False
+
+
+def test_a_geometric_tolerance_is_not_a_comparison() -> None:
+    """`atol=` on a node search bounds nothing about a result: only assertion calls are read.
+
+    The walk collects calls in execution order, so it needs the same filter `assertion_calls`
+    applies -- without it `isclose(..., atol=1e-12)` landed in the store as a comparison with no
+    reference, which is a `check` error.
+    """
+    sites = _sites_of(
+        "tip = [n for n in nodes if isclose(float(n.z), length, atol=1e-12)]\n"
+        "assert_relative_error(\n"
+        '    1.0, 2.0, tol=0.05, kind="analytical", reference_name="ref", what="w"\n'
+        ")\n"
+    )
+
+    assert len(sites) == 1
+
+
+def test_preserve_measurements_carries_duplicate_sources_in_order(tmp_path: Path) -> None:
+    """Two executions of one call share `tolerance.source`; each keeps its own measurement.
+
+    Keying the on-disk comparisons by source collapsed them into a dict, so the last one
+    overwrote the rest and every execution came back carrying the same baseline.
+    """
+    module = _load_tool_module()
+    target = tmp_path / "rows" / "3-ko2017.yaml"
+    target.parent.mkdir(parents=True)
+    stored = make_row()
+    fresh = make_row()
+    for row in (stored, fresh):
+        row["comparisons"][1]["tolerance"]["source"] = row["comparisons"][0]["tolerance"][
+            "source"
+        ]
+    stored["comparisons"][0]["measured"]["margin_pct"] = 0.10
+    stored["comparisons"][1]["measured"]["margin_pct"] = 0.20
+    module.dump_yaml(target, {"group": "3", "rows": [stored]})
+
+    for comparison in fresh["comparisons"]:
+        comparison["measured"] = {"status": "not_measured", "margin_pct": None}
+    carried = module.preserve_measurements(target, [fresh])
+
+    # One carried block per comparison, in order: the property under test is which one each
+    # comparison gets, not how many fields came with it.
+    assert carried >= 2
+    assert [item["measured"]["margin_pct"] for item in fresh["comparisons"]] == [0.10, 0.20]
 
 
 # --------------------------------------------------------------------------- #
