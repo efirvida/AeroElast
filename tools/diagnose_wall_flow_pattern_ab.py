@@ -266,9 +266,7 @@ def analyse(base: Path, step: str, n_stations: int) -> int:
     )
 
     # cumulative torque: what actually twists a cantilever section is the load outboard of it
-    cumulative = {
-        key: np.cumsum(metrics["T_def_own"][key][::-1])[::-1] for key in keys
-    }
+    cumulative = {key: np.cumsum(metrics["T_def_own"][key][::-1])[::-1] for key in keys}
     common_cumulative = np.cumsum(metrics["T_def_common"][first][::-1])[::-1]
 
     stations = np.linspace(ring_z[0], ring_z[-1], n_stations)
