@@ -172,3 +172,33 @@ and it suspends every conclusion above it that uses the same element, solver or 
 | #25, #22 | C (L3) |
 | #20 (closed in #18, reopened since) | C (L3) |
 | Closed items #2–#30 | audited on 2026-10-10 (`odd/tasks/issue18-closure-audit.md`); they enter the contract as unaudited rows and get verdicts in B1–B6 |
+
+## Closures
+
+Each closure records what was measured and how to re-check it. A tooling item carries no
+`contract.yaml` verdict: it touches no store row.
+
+### A1 — #32: the tool suite writes the real store (proposed for closing 2026-10-10)
+
+- **Cause.** Two tests ran `coherence` on `docs/validation`, not one:
+  `test_every_group_re_derives_to_the_rows_on_disk` (slow) and `test_the_real_store_is_coherent`
+  (group 4, *not* slow, so the `-m "not slow"` rule in #32 was not safe either).
+- **Fix.** Both run on `real_store_copy` (a `copytree` into `tmp_path`). The autouse fixture
+  `store_is_never_written` in `tools/tests/conftest.py` snapshots every file of the shipped store
+  before each test. After the test it fails the test if any file was added, removed or rewritten,
+  and puts the bytes back. Every current and future test in `tools/tests` is held to it.
+- **Proof.** `tools/tests/test_store_guard.py` drives the guard against a scratch tree: identical
+  bytes are no change; an added, a removed and a modified file are each named and restored. A
+  green suite alone proves nothing here.
+- **Measured.** At `f5405b8` plus this change, `scripts/aeroenv.sh python -m pytest -o addopts=""
+  -q tools/tests` (slow included, 4 min 52 s): 156 passed, 4 failed. `git status --porcelain --
+  docs/validation` was empty before and after.
+- **Failures, none from A1:**
+  - Three `references` tests (`cited_by_stale`, `check_reports_a_stale_declared_site`,
+    `where_used_lists_rows_and_code`): line drift, item A3.
+  - The coherence sweep, now red honestly. Five row files cite moved lines: `6-tube_torsion`,
+    `20-blade_anchor_beam`, `31-tube_moment_realization`, `34-blade_s7_torsion` and
+    `35-tube_projection`. Before this change the test rewrote them in place and dropped their
+    `measured` blocks, which is the damage #32 describes. Refreshing them is the maintainer's
+    explicit `coherence`. It should wait for A2 (#24), so that the rewrite keeps prose and
+    measurements.

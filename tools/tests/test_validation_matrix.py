@@ -2148,27 +2148,38 @@ def test_coherence_names_a_row_file_whose_citations_moved(tmp_path: Path) -> Non
     assert "coherent" not in completed.stdout
 
 
-def test_the_real_store_is_coherent() -> None:
-    """A cheap spot check: one group re-derives to the rows on disk."""
-    completed = run(REAL_STORE, "coherence", "--group", "4")
+def test_the_real_store_is_coherent(real_store_copy: Path) -> None:
+    """A cheap spot check: one group re-derives to the rows on disk.
+
+    It runs on a copy: `coherence` refreshes a stale file as it finds it, and a test must not
+    write the shipped store (#32).
+    """
+    completed = run(real_store_copy, "coherence", "--group", "4")
 
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert "coherent" in completed.stdout
 
 
 @pytest.mark.slow
-def test_every_group_re_derives_to_the_rows_on_disk() -> None:
+def test_every_group_re_derives_to_the_rows_on_disk(real_store_copy: Path) -> None:
     """The guard: no row file in the store cites a line the code does not have.
 
     This is the whole sweep, and it is slow because it collects every validation file. It
     belongs with the tool's own tests rather than with the physics suite: a row file goes
     stale when a test is edited, so the person it protects is the one working on the store.
     Deselect it with -m "not slow".
-    """
-    completed = run(REAL_STORE, "coherence")
 
-    # A stale file is refreshed as it is found, so the failure leaves the fix in the tree.
-    assert completed.returncode == 0, completed.stdout + completed.stderr
+    The sweep runs on a copy, because `coherence` refreshes every stale file it finds and a
+    test must not write the shipped store (#32). Refreshing the real store stays the
+    maintainer's explicit act: `python tools/validation_matrix.py coherence`.
+    """
+    completed = run(real_store_copy, "coherence")
+
+    assert completed.returncode == 0, (
+        "stale row files; refresh them with `python tools/validation_matrix.py coherence`\n"
+        + completed.stdout
+        + completed.stderr
+    )
     assert "were stale" not in completed.stdout
     assert "re-derive to the rows on disk" in completed.stdout
 
