@@ -111,11 +111,20 @@ Rules:
       0.51% / 0.24%). Group 26's gate stays red on 6 pre-existing `unclaimed` tests.
 - [x] **T7 — the docs that state the old model.** `odd/tasks/validation-matrix-store.md` §8,
       `docs/validation-policy.md` rule 2, and the `#29` section in `docs/validation_closures.md`.
-- [ ] **T8 — publish (needs an explicit OK).** Comment on #29 with the measured outcome, close it, move
-      its row out of the #18 table into the closed block. Record in #24: `extract`/`coherence` now derive
-      every declared file and the working tree's six damaged row files were restored from HEAD; the
-      line-move measurement loss is still open. Decide whether group 26's six undeclared tests and the
-      destructive `tools/tests` sweep become their own issues or join #24.
+- [x] **T8 — published (2026-10-10, authorized).** Push `a9769bb..ae25e03`. Comment on #29
+      (`6098795177`) with the measured outcome, and #29 closed. #18's body updated: the #29 row left the
+      open table, **#31** and **#32** entered P4 with their Entry/closes-when, the `Closed 2026-10-10 —
+      #29` paragraph, a row in the closed index and a line in "State to settle". Two new issues filed
+      instead of absorbed: **#31** (group 26's six tests that are neither rows nor declared) and **#32**
+      (the tool suite writing the real store — `#24` is what the rewrite loses, `#32` is the suite
+      performing it). #24 got the measured record of the six damaged row files (comment `6098797801`)
+      and keeps its status.
+
+**Note on the push.** It carried 23 commits: this work unit's seven plus sixteen that were already
+committed locally on `integrate/origin-main-2026-09-30` (the #30 session's series) and had not been
+pushed. No unrelated working-tree change was committed: the shared tree's staged `CLAUDE.md ->
+AGENTS.md` rename and the other session's four modified files are still uncommitted, untracked or
+staged exactly as they were.
 
 ## Verification (independent, `gentle-ai-verify`, 2026-10-10)
 

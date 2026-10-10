@@ -1413,13 +1413,16 @@ de tools con `-m "not slow"`: **133 passed**, 1 deselected, y los mismos **3 roj
 **Lo que queda abierto, con registro.**
 
 - **#24 sigue abierto**, y este work unit no lo toca: `preserve_measurements` sigue clavando la medición
-  a `file:line`, así que un movimiento de línea la pierde. El barrido de `coherence` sobre una **copia**
-  del store queda en **5 de 35 archivos viejos**: `6-`, `20-`, `31-`, `34-` y `35-` (el grupo 10 es
-  escrito a mano y se saltea). El grupo 36 salió de esa lista.
+a `file:line`, así que un movimiento de línea la pierde. El barrido de `coherence` sobre una **copia**
+del store queda en **5 de 35 archivos viejos**: `6-`, `20-`, `31-`, `34-` y `35-` (el grupo 10 es
+escrito a mano y se saltea). El grupo 36 salió de esa lista. **Que sea la propia suite del tool la que
+escribe el store real quedó separado en #32** (`test_every_group_re_derives_to_the_rows_on_disk` corre
+`coherence` con write): #24 es *qué* pierde la reescritura, #32 es la suite *haciéndola*. El registro
+medido en #24 está en su comentario 6098797801.
 - **#23/#25**: los 3 tests rojos de `references` no se tocaron.
 - **Grupo 26**: su `regression` sigue non-zero por **6 tests del archivo que no son filas ni están
 declarados** (`unclaimed` en `regression_leftover_verdicts`) — la misma forma que el issue registra
-  para el grupo 7 (`1 unclaimed, 1 unmapped`). No es de #29 y no se absorbe: se declara acá.
+para el grupo 7 (`1 unclaimed, 1 unmapped`). No es de #29 y no se absorbe: se abrió como **#31**.
 - **Aviso de operación, medido dos veces**: `tools/tests` es **destructivo** sobre el store real, porque
   `test_every_group_re_derives_to_the_rows_on_disk` corre `coherence` con `--write` por diseño. Correrlo
   con `-m "not slow"` y verificar `git status --porcelain -- docs/validation` después; para probar
@@ -1436,6 +1439,12 @@ orden), `fc24808` (T6, filas del grupo 36), `9cd0c02` (T6, fila del grupo 26). T
 `test_a_computed_loop_is_flagged_not_guessed`, `test_a_single_execution_site_carries_no_binding`,
 `test_a_geometric_tolerance_is_not_a_comparison`,
 `test_preserve_measurements_carries_duplicate_sources_in_order`.
+
+**Publicado (2026-10-10).** Push `a9769bb..ae25e03` (los 7 commits de este work unit, más los que ya
+estaban locales en la rama). Comentario de cierre y cierre de **#29** (comentario 6098795177). Body de
+**#18** actualizado: la fila de #29 sale de la tabla de abiertos, entran **#31** y **#32** en P4 con su
+Entry/closes-when, párrafo `Closed 2026-10-10 — #29`, fila en el índice de cerrados y nota en "State to
+settle". Issues nuevos: **#31** (grupo 26, los 6 sin declarar), **#32** (la suite escribe el store real).
 
 **Re-ejecutar si cambia**: `tools/validation_matrix.py` (`capture_prints`, `command_extract`,
 `command_coherence`, `command_regression`, `execution_contexts`, `tolerance_sites`, `binding_label`,
