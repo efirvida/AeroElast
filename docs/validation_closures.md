@@ -1268,6 +1268,37 @@ contra `0.008` del wall flow. El `1.65658x` del anillo del deck queda como medic
 promoverlo pediría construir el tubo extrusionado dentro de un test, y T3 fijaba el tubo cerrado
 validado como árbitro, no una construcción nueva.
 
+**T5 — el modo de aplicación que corre producción también es sano; el default parqueado no, a ninguna
+resolución.** Levantado al escribir T4: la cota del grupo 31 se mide con el wall flow en los
+**anillos de extremo** (par interno constante, ventana lejos de la aplicación), mientras `project()`
+le pasa a `realise_section_load` un **strip** entero y `_realise_multi_cell_section_load` reparte su
+torsión entre los anillos físicos con `_ring_tributary_weights`, cada anillo con su propio wall flow
+de una celda: el par interno **rampea** y hay un par auto-equilibrado en **cada** anillo. Con
+`dz = 0.2 m` y una perturbación de Saint-Venant que decae en ~una dimensión de sección (~1 m), las
+perturbaciones por anillo se solapan en todo el tubo. Sonda
+`tools/diagnose_wall_flow_distributed_application.py`. La métrica local `r(z) = θ'(z)·GJ/M_cum(z)`
+**no** sirve en este modo (divide por `M_cum`, que tiende a 0 en la punta: mediana 1.09–1.13, peor
+`|r−1|` 63–89 %, en buena parte su propio artefacto); el árbitro es **libre de estimador**, el
+trabajo del campo aplicado contra la energía de Bredt del perfil de par interno que el propio campo
+produce:
+
+| `dz` [m] | control: extremo self-eq | extremo clamped | wall flow distribuido | mínimo-norma distribuido |
+| --- | --- | --- | --- | --- |
+| 0.200 | `1.00309` (registro) | +1.86 % | **+4.36 %** | **+338.2 %** |
+| 0.100 | `1.00311` | +1.24 % | **+2.48 %** | +334.4 % |
+| 0.050 | `1.00316` | +0.94 % | **+1.56 %** | +330.0 % |
+
+El exceso del wall flow distribuido **converge a Bredt** (~se reduce a la mitad por cada mitad de
+`dz`): es la discretización de aplicar un par discreto por anillo, **no un defecto de la aplicación**.
+El del mínimo-norma en el mismo modo es `+330–338 %` y **no se mueve** con el refinamiento (contra
+`+31.7x` en tasa en el modo de extremo): es defecto de la realización, no de la malla. Entregable:
+`test_production_distributed_application_is_bredt_to_a_converging_residual` (pins desnudos de los dos
+excesos en `n_z = 30` y `60`, más dos aserciones estructurales: el del wall flow se encoge con el
+refinamiento, el del mínimo-norma no). **Hallazgo de cobertura**: la fila del store se titula
+"production shear-flow moment realisation" pero su cota es de extremo, y el modo que corre una
+campaña no era el medido; ahora lo está, y deliberadamente **no** como cota (a malla fija la métrica
+local y la de energía discrepan, así que registrar la de energía sería elegir la métrica que pasa).
+
 **Veredicto.** El movimiento acoplado **no** es un cambio de signo del estado de carga ni un artefacto
 del Transfer: es la **respuesta estructural al patrón** de la realización. El resultante es el mismo
 y el par torsor aplicado es `+9 %` mayor y del mismo signo; lo que cambia es que el patrón wall-flow
@@ -1278,7 +1309,10 @@ crudo que titulaba el issue (`+2.583 → -27.404°`) sí invierte el signo, pero
 drilling que el patrón tangencial excita `4–10x` más, y es la lectura 2 del issue ganando evidencia
 en el camino acoplado — donde T2 la había refutado en el de torsión pura. La lectura 1 se sostiene en
 el camino de torsión: el wall flow es Bredt en las dos secciones con referencia y el mínimo-norma
-es el que sobre-entrega.
+es el que sobre-entrega. Y T5 cierra el flanco de la **aplicación**: el modo distribuido que corre
+producción es Bredt-consistente salvo un residual de discretización de pocos por ciento que converge
+con la malla, así que activar la realización **no arregla un camino de carga defectuoso** — cambia la
+respuesta de la estructura a una carga correcta, y eso es un re-baselinado de estado, no un fix.
 
 **Lo que no cambia.** Las reglas del gap siguen: una corrida con la realización activada debe
 declararlo en sus propios resultados, **no** se puede comparar con una de mínimo-norma como si fuera
@@ -1294,7 +1328,9 @@ El `provenance_note` del grupo 31 se corrigió: describía una aserción mínimo
 el archivo.
 
 **Re-ejecutar si cambia**: `ForceProjector._distribute`, `realise_section_load`,
-`_realise_multi_cell_section_load`, la malla de acople (`element_size`), o el camino de proyección.
-Sondas: `tools/diagnose_section_moment_realization.py` (T2), `tools/diagnose_wall_flow_pattern_ab.py`
-(T3b parte 1), `tools/diagnose_wall_flow_static_ab.py` (T3b parte 2). Commits: `dccf9e2`, `a890b30`
-(T1/T2), `5b80b7c`, `d376d4c` (T3b-1), `113b135`, `4b5ea82` (T3b-2), `9152e2b`, `40f8978` (T3).
+`_realise_multi_cell_section_load`, `_ring_tributary_weights`, la malla de acople (`element_size`),
+o el camino de proyección. Sondas: `tools/diagnose_section_moment_realization.py` (T2),
+`tools/diagnose_wall_flow_pattern_ab.py` (T3b parte 1), `tools/diagnose_wall_flow_static_ab.py`
+(T3b parte 2), `tools/diagnose_wall_flow_distributed_application.py` (T5). Commits: `dccf9e2`,
+`a890b30` (T1/T2), `5b80b7c`, `d376d4c` (T3b-1), `113b135`, `4b5ea82` (T3b-2), `9152e2b`, `40f8978`
+(T3), `43f3dd4` (T4), `0ef7f8d`, `e3324c5`, `dbb0216` (T5).

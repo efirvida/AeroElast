@@ -857,6 +857,18 @@ groups:
       pins the over-delivery at 31.69331x self-equilibrated and 10.40654x
       clamped (1e-3 relative) without becoming a store comparison, because
       Bredt is the reference the field misses rather than one it must meet.
+      T5 of the same issue named the coverage limit of the bound above: it is
+      an **end-couple** measurement, while `project()` applies the shear flow
+      ring by ring with `_ring_tributary_weights`, so the internal torque ramps
+      and a self-equilibrated couple sits at every ring - the mode a campaign
+      runs.  test_production_distributed_application_is_bredt_to_a_converging_residual
+      pins that mode with the estimator-free energy balance
+      `W / integral M_cum^2/(2 GJ)`: +4.356 % at dz = 0.2 m and +2.484 % at
+      dz = 0.1 m (a discrete per-ring application residual that converges to
+      Bredt with refinement), against +338 % for the parked minimum-norm field
+      in the same mode, which does not move under refinement. Neither number is
+      registered as a bound either: at a fixed mesh the local
+      `theta'(z)*GJ/M_cum(z)` and the energy metric disagree.
 
   - id: "32"
     title: >-
