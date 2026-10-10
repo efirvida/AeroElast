@@ -3583,9 +3583,15 @@ def parse_prints(output: str) -> dict[str, list[str]]:
 
 
 def capture_prints(scope: str) -> dict[str, list[str]]:
-    """Run the scope and read the prints out of its output."""
+    """Run the scope and read the prints out of its output.
+
+    The scope reaches here as the space-joined `source_files` of a group, so it has to be
+    splatted: passing it as one argv element made pytest look for a file literally named
+    `a.py b.py`, which is how a multi-file group failed with "no node output captured".
+    `command_triage` reads the same string the same way.
+    """
     completed = subprocess.run(
-        [sys.executable, "-m", "pytest", "-o", "addopts=", "-s", "-v", scope],
+        [sys.executable, "-m", "pytest", "-o", "addopts=", "-s", "-v", *scope.split()],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

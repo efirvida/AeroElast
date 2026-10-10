@@ -1552,6 +1552,27 @@ def test_regression_needs_a_declared_pattern(tmp_path: Path) -> None:
     assert "declares no residual patterns" in completed.stderr
 
 
+def test_capture_prints_runs_every_scope_argument(monkeypatch: Any) -> None:
+    """A multi-file group is one pytest call with several paths, not one path with a space.
+
+    `command_regression` joins the group's `source_files` with spaces, and `capture_prints`
+    passed that string as a *single* argv element, so pytest looked for a file literally
+    named `a.py b.py` and the group failed with "no node output captured". `triage` already
+    splats its scope (`*scope.split()`); this is the same contract.
+    """
+    module = _load_tool_module()
+    calls: list[list[str]] = []
+
+    def fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(list(argv))
+        return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    module.capture_prints("tests/a.py tests/b.py")
+
+    assert calls[0][-2:] == ["tests/a.py", "tests/b.py"], calls[0]
+
+
 # --------------------------------------------------------------------------- #
 # T5: cross-validating the Markdown view
 # --------------------------------------------------------------------------- #
