@@ -79,9 +79,14 @@ gaps:
       it cannot reach
     status: bounded
     reason: >-
-      Activated in production on 2026-10-09 (issue #16, roadmap item P2 of #18),
-      so the entry no longer describes a defect in a path that is never taken.
-      The minimum-norm field `f_j = omega x d_j` over-delivered rigid torsion
+      Implemented, guarded and measured on 2026-10-09 (issue #16, roadmap item
+      P2 of #18), but **off by default**: the coupling path delivers the deck's
+      section-property map only when a case sets
+      `bem.wall_flow_realisation: true`, because the coupled consequence
+      measured that same day is a first-order change that nothing attributes yet
+      - parked under its own follow-up issue rather than left riding every
+      campaign. The minimum-norm field
+      `f_j = omega x d_j` over-delivered rigid torsion
       where a closed section carries the wall shear flow, and commit `1146265`
       fixed the linked sign errors. The blocker was never the realisation but
       the coupling mesh: `_build_mesh` filtered the blade mesh to the
@@ -90,15 +95,17 @@ gaps:
       took `_distribute` (0 of 671 ring sections usable at
       `element_size: 0.25`).
       The CLI now keeps the fully contained elements
-      (`MeshModel.subset_to_nodes`) and hands the projector the property map
-      built from the same generator (`_element_properties_for`), so the wall
-      shear flow runs: 671 of 671 ring sections realisable, every wall's
+      (`MeshModel.subset_to_nodes`) and builds the projector's property map from
+      the same generator (`_element_properties_for`), so one config key turns
+      the wall shear flow on: 671 of 671 ring sections realisable, every wall's
       `S = G*t` resolved from the deck's laminates, 100 % property coverage of
-      the coupling elements. Two limits bound it. **The multi-cell half is
-      unreachable in production**: the coupling node set excludes the shear
-      webs on purpose, so every ring is one closed cell and the `q_i - q_j`
-      shared-wall walk never runs there; its only evidence remains our own
-      hand-assembled Bredt-Batho system, not an external code or a published
+      the coupling elements. Measured cell counts: on the campaign mesh
+      (`element_size: 0.25`) every one of the 671 rings bounds **one** closed
+      cell, so the production campaign runs the single-cell half; on the tests'
+      coarse mesh (`element_size: 1.0`) the *same* coupling node set closes 1, 2
+      or 3 cells (94/4/88 of 186), so the `q_i - q_j` shared-wall walk does run
+      there and those tests are not vacuous - but its only evidence remains our
+      own hand-assembled Bredt-Batho system, not an external code or a published
       value. **A coupling mesh whose element sets do not match the deck's
       section-set names keeps the fallback**: a `RotorMesh` coupling mesh
       carries `<set>_blade_N`, so the map is withheld by design and the strips
@@ -141,19 +148,24 @@ gaps:
       difference, not a stiffness or load-frame one (verdict 22.11: their
       4.072 Hz first torsion matches our 4.000 Hz to 1.8%).
     consequence: >-
-      Blade torsional-load numbers from the production path now ride the wall
-      shear flow of the single closed skin cell instead of the minimum-norm
-      field. **The two states are not comparable**: at an identical per-strip
+      The wall-flow moment realisation exists, is guarded by group 37 and
+      reaches the projector on both production entry points, but it is **off
+      by default** (`bem.wall_flow_realisation: false`), so every production and
+      campaign number today rides the minimum-norm field and the old baseline
+      still stands. Turning it on is not a refinement: at an identical per-strip
       resultant the coupled tip section rotation moves from +2.58 to -27.40 deg
       and the peak stresses by tens of percent, with the flapwise deflection
-      essentially unchanged. Until that movement is attributed, a production
-      number from either side must say which realisation it rode, the campaign
-      relaunch is a new physical state rather than a re-anchor of the old
-      baseline, and no result may be called validated by this entry. The
-      multi-cell flow itself may still not be cited as a production result, and
-      a rotor-suffixed coupling mesh keeps the minimum-norm fallback. Pre-fix
-      numbers remain uncitable: before `1146265` the requested section torque
-      was nose-up (`+4.839888e5 N.m`).
+      essentially unchanged, and nothing measured so far attributes it - the
+      section-level arbitration under a pure torque puts the two realisations
+      9 % apart (5.002 vs 5.454 deg against 8.582 deg of Bredt on the same
+      ring), and the tube reference points the other way (group 31: 1.0031
+      against 31.69). A case that activates it must therefore say so in its own
+      results,
+      must not be compared with a minimum-norm run as if it were the same state,
+      and may not call its twist validated. The multi-cell flow itself may still
+      not be cited as a production result, and a rotor-suffixed coupling mesh
+      keeps the minimum-norm fallback. Pre-fix numbers remain uncitable: before
+      `1146265` the requested section torque was nose-up (`+4.839888e5 N.m`).
     citations_forbidden: true
     rows: []
   - id: experimental_validation

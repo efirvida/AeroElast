@@ -117,6 +117,10 @@ bem:
   span_direction: [0.0, 0.0, 1.0]
   normal_direction: [1.0, 0.0, 0.0]
   tangential_direction: [0.0, 1.0, 0.0]
+  # The wall-flow moment realisation is OFF by default: on the coupled gate case it moves the
+  # tip section rotation by ~30 deg at an identical per-strip resultant, and that movement is
+  # not attributed yet, so the strips keep the minimum-norm distribution unless a case asks.
+  wall_flow_realisation: false
 
 output:
   folder: "bem_fsi_results"
@@ -184,6 +188,32 @@ def _element_properties_for(mesh: "MeshModel", generator: object) -> dict | None
     return props
 
 
+def _effective_element_properties(
+    cfg: dict, element_properties: dict | None
+) -> dict | None:
+    """The property map to hand to the projector: ``None`` unless the case asks for it.
+
+    The wall-flow moment realisation is **off by default**. It is implemented, guarded and
+    exercised by its own group, but on the coupled gate case it moved the tip section rotation
+    from ``+2.583`` to ``-27.404`` deg at an identical per-strip resultant, with the flapwise
+    deflection unchanged, and that movement is not attributed yet (``docs/validation/gaps.yaml``,
+    ``moment_realization_over_delivers``). A case activates it with::
+
+        bem:
+          wall_flow_realisation: true
+    """
+    if element_properties is None:
+        return None
+    if not bool(cfg.get("bem", {}).get("wall_flow_realisation", False)):
+        logging.info(
+            "[BEM-FSI] Wall-flow moment realisation off (bem.wall_flow_realisation is not set); "
+            "strips use the minimum-norm distribution"
+        )
+        return None
+    logging.info("[BEM-FSI] Wall-flow moment realisation enabled by bem.wall_flow_realisation")
+    return element_properties
+
+
 def _build_mesh(cfg: dict, config_path: Path):
     """Build or load the coupling mesh from the YAML ``mesh`` section.
 
@@ -198,7 +228,9 @@ def _build_mesh(cfg: dict, config_path: Path):
         The deck's section-property map restricted to the coupling mesh's
         element sets, when the generator carries deck data and the sets cover
         every coupling element; ``None`` otherwise (see
-        :func:`_element_properties_for`).
+        :func:`_element_properties_for`).  This is the **available** map: what is
+        actually handed to the projector is gated by ``bem.wall_flow_realisation``
+        (off by default) through :func:`_effective_element_properties`.
     """
     from aeroelast.core.config import MeshGeneratorType, MeshSource
     from aeroelast.core.mesh import (
@@ -499,7 +531,10 @@ def main(argv=None) -> int:
 
     try:
         participant = build_from_config(
-            mesh, cfg, viz_mesh=viz_mesh, element_properties=element_properties
+            mesh,
+            cfg,
+            viz_mesh=viz_mesh,
+            element_properties=_effective_element_properties(cfg, element_properties),
         )
         participant.run()
     except Exception as exc:

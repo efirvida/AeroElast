@@ -1104,3 +1104,75 @@ gate de este ítem se publicaron como **#29**.
 `Qbar`), el escritor de decks compuestos (`core/mesh/io/writers.py`), o la versión de CalculiX
 (aquí 2.20). Commits: `95bfbab` (RED), `208f220` (fix), `bd4cc05` (cobertura), `62d806a` (fila),
 `5260233` (store).
+
+### #16: la realización wall-flow llega a producción y queda **apagada por defecto** — su efecto acoplado no se pudo atribuir (2026-10-09)
+
+Ítem P2 del roadmap de #18, rama A aprobada por el usuario ("activar skin wall-flow + medir el
+movimiento"). El ítem se **cierra a medias a propósito**: el defecto que denunciaba está arreglado y
+medido, pero la activación queda opt-in porque el movimiento que produce no tiene árbitro. #16 queda
+**abierto y bloqueado** por el issue de seguimiento, según la regla del roadmap (un ítem bloqueado lo
+dice en su propio comentario y no se mueve).
+
+**El defecto era real y era de la malla, no de la realización.** `_build_mesh` filtraba la malla a
+`allOuterShellNods` con `MeshModel(nodes=...)` y tiraba **todos** los elementos, así que `ring_section`
+no encontraba ninguna arista de pared: **0 de 671** anillos usables a `element_size: 0.25`, y cada
+strip caía al mínimo-norma. Se arregla en dos piezas: `MeshModel.subset_to_nodes` (nodos exactos del
+caller, ids preservados, elementos totalmente contenidos, sets restringidos) y el mapa de propiedades
+del deck restringido a los sets que la malla conserva (`_element_properties_for`, que lo **retiene y
+avisa** si algún elemento de acople queda sin cobertura). Medido: **671 de 671** anillos realizables,
+todos de una celda en la malla de campaña, `S = G·t` resuelto desde los laminados, cobertura 100 %.
+
+**Un segundo hop, y lo cazé yo mismo.** Mi primer A/B salió **idéntico a 10 dígitos** (rel. L2
+2.9e-15 en el campo de fuerzas): las campañas no usan `aeroelast-bem-fsi` sino `aeroelast`, que
+despacha los configs con `bem:` a `run_aero_fsi` → `build_aero_participant_from_config` (participante
+legacy). La malla llevaba los elementos (está en el log), pero el mapa nunca llegaba al projector.
+Arreglado en el mismo ítem, con test que falla si se cae el hop.
+
+**El movimiento acoplado (caso gate a `max-time 5.0`, A = fluido `bd8237d`, B = activado, C = malla
+con elementos sin mapa, sólido idéntico en las tres):**
+
+| cantidad (media t∈[2.5,5] s) | A | C | B |
+| --- | --- | --- | --- |
+| empuje | 2.492465 MN | 2.492465 MN | 2.486703 MN |
+| torque / potencia | 19.2082 / 15.1867 | 19.2082 / 15.1867 | 19.1036 / 15.1040 |
+| tip disp X (edgewise) | -1.445670 m | -1.445670 m | -1.327938 m |
+| tip disp Y (flapwise) | 16.324849 m | 16.324849 m | 16.354168 m |
+| fuerza nodal máxima | 168.460 N | 168.460 N | 194.999 N |
+| von Mises TOP/MID/BOT | 2683 / 954 / 155 MPa | 2683 / 954 / 155 MPa | 2165 / 746 / 187 MPa |
+| L2 de la fuerza aero | 9.936e3 N | 9.936e3 N | 1.653e4 N |
+| rotación de sección (ROTZ) | +2.583° | +2.583° | **-27.404°** |
+| rotación de sección (best-fit) | +1.208° | +1.208° | **-9.270°** |
+
+**C ≡ A a 8-9 dígitos y B ≠ ambas**: el mecanismo es la realización y nada más (queda refutada la
+hipótesis del feedback de twist por la malla con elementos). La diferencia de twist es *distribuida*
+(~0 en la raíz → ~-10° en la punta), con los resultantes por strip idénticos a 1e-15 y el flapwise
+casi igual: **no es un refinamiento, es otro estado físico**.
+
+**El árbitro que se pidió antes de decidir, y que empató.** Momento torsor puro de 1e6 N·m sobre un
+segmento skin-only de la malla de producción (empotrado hasta z = 40.95 m, cargado en z = 63.28 m,
+L = 22.33 m; `$SCRATCH/bfs16/probe_section_gj.py`): ambas vías aplican el mismo resultante exacto
+(1.000000e6 N·m) y el giro de sección queda **+5.002° (wall-flow) vs +5.454° (mínimo-norma) contra
++8.582° de Bredt** del propio anillo (`multi_cell_shear_flow` con sus `S = G·t`). 9 % entre ellas,
+~40 % las dos por debajo de la referencia: **sin veredicto**. Dato extra que corrige al store: los
+anillos no son todos de una celda — a `0.25` los 671 son de una celda, a `1.0` hay 94 de una, 4 de
+dos y 88 de tres, así que los tests en malla gruesa **sí** ejercitan la rama multi-celda.
+
+**Decisión del usuario (2026-10-09): parquear.** `bem.wall_flow_realisation` (nuevo, default `false`)
+gatea la entrega del mapa en los **dos** puntos de entrada de producción; el camino de producción y
+toda cifra de campaña siguen sobre el mínimo-norma y el baseline viejo sigue en pie. El movimiento no
+atribuido se publica como issue propio (con las tres mediciones) y #16 queda bloqueado por él.
+
+**Store.** Grupo nuevo **37** `wall_flow_activation` (7 tests: los 6 guards de activación +
+el default opt-in), 0 filas y `non_validation_tests` declarados con motivo. `gaps.yaml`
+`moment_realization_over_delivers` sigue **acotado** y ahora dice explícitamente que la realización
+existe pero está apagada, que encenderla **no** es un refinamiento, y que una corrida activada debe
+declararlo y no puede llamar validado su twist. `check`: 211 filas / 277 comparaciones / 0 errores / 0
+warnings; `status`: 0 archivos sin agrupar. Resultado nulo registrado: la tabla one-way contra
+Zhou et al. 2025 **no** se re-corrió (la producción acopla sólo el skin; esa tabla usa la malla
+completa), así que la predicción del doc de feature sigue sin confirmar.
+
+**Re-ejecutar si cambia**: `_effective_element_properties` / `bem.wall_flow_realisation`,
+`MeshModel.subset_to_nodes`, `_element_properties_for`, o el camino
+`run_aero_fsi` → `build_aero_participant_from_config`. Commits: `a0b9a37` (RED), `fe6ca30`
+(`subset_to_nodes`), `756a3b2` (elementos en la malla), `81a1e15` (mapa al projector), `790b80e`
+(el hop del dispatcher), `2028dc8` (store), y el commit de parqueo (config key + guard).

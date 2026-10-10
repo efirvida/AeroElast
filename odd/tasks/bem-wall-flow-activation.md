@@ -213,6 +213,47 @@ harness uses the full mesh), so nothing here confirms or refutes it.
 not enough here: the campaign numbers after this activation are a *different physical state*, not
 the old one with a corrected load frame.
 
+### T6 - arbitration and decision: parked, off by default
+
+The user asked for one more measurement before deciding: apply a pure span torque to a **blade
+section** and compare both realisations against the ring's own `GJ` (Bredt-Batho of that ring's wall
+graph with its property-resolved `S = G*t`). Probe: `$SCRATCH/bfs16/probe_section_gj.py`, skin-only
+segment of the production coupling mesh (`element_size: 1.0`), clamped below `z = 40.95 m`, a pure
+`T = 1e6 N.m` about the span applied on one ring at `z = 63.28 m` (`L = 22.326 m`). Both
+realisations apply the sqrt-same resultant (`1.000000e6 N.m` of span moment, net force ~1e-10 N):
+
+| | section rotation | ratio to Bredt |
+| --- | --- | --- |
+| Bredt-Batho of the same ring | +8.582 deg | 1.000 |
+| wall-flow | +5.002 deg | 0.583 |
+| minimum-norm | +5.454 deg | 0.636 |
+
+The two realisations sit **9 % apart** and *both* ~40 % under the reference (the profile is
+non-linear, so `theta = rate * L` is itself approximate on a short segment). **No verdict**: the
+section probe cannot explain the coupled factor of 8-30x.
+
+What it did settle is *where* the coupled difference comes from. A third run, C = the element-bearing
+mesh **without** the property map (`756a3b2` in a worktree, `node-only filter: False` and `returns
+the property map: False`), reproduces A to 8-9 digits (thrust 2.492465, tip disp X -1.445670 m,
+`MID` von Mises 954.075638 against 954.075640 MPa) and B differs from both. So the mechanism is the
+**realisation itself** - not the element-bearing mesh, not the participant's ring-based twist
+feedback (refuted). Two secondary measurements: the applied aero force L2 grows 39.9 % with the same
+resultant and the same flapwise deflection, and the cell counts are size-dependent - the campaign
+mesh (`element_size: 0.25`) closes **one** cell in all 671 rings, while the coarse test mesh
+(`element_size: 1.0`) closes 1, 2 or 3 (94/4/88 of 186), so the coarse tests do exercise the
+multi-cell shared-wall walk.
+
+**Decision (user, 2026-10-09): park it.** The realisation is implemented, guarded and reachable, but
+`bem.wall_flow_realisation` defaults to **false**, so the production path and every campaign number
+keep the minimum-norm field and the old baseline. The unattributed coupled movement goes to its own
+issue with the three measurements, and #16 stays **open** and blocked by it. Also a null result: the
+Zhou et al. 2025 one-way de-loading table was **not** re-run, so the prediction above is neither
+confirmed nor refuted.
+
+Commits: `756a3b2` (mesh keeps elements), `81a1e15` (properties reach the projector), `790b80e` (the
+dispatcher hop), `2028dc8` (store + measurement), and the parking commit that adds the config key and
+its guard.
+
 **T6 - store and closure.** Row(s) for the activated realisation, `gaps.yaml`
 `moment_realization_over_delivers` narrowed to what production now does (and the multi-cell limit
 it still does not do: web nodes are not in the coupling mesh), the section in

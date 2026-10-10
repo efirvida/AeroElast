@@ -16,7 +16,7 @@ from pathlib import Path
 
 import yaml
 
-from aeroelast.cli.run_bem_fsi import _build_mesh
+from aeroelast.cli.run_bem_fsi import _build_mesh, _effective_element_properties
 from aeroelast.solvers.aero import build_aero_participant_from_config
 
 logger = logging.getLogger(__name__)
@@ -303,7 +303,7 @@ def main(argv=None, *, default_backend: str | None = None) -> int:
             cfg,
             viz_mesh=viz_mesh,
             default_backend=default_backend,
-            element_properties=element_properties,
+            element_properties=_effective_element_properties(cfg, element_properties),
         )
         runtime_context = getattr(participant, "runtime_context", None)
         if runtime_context is None:

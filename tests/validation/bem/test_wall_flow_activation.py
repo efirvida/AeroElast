@@ -419,3 +419,25 @@ def test_without_the_property_map_every_strip_falls_back(production):
         f"[wall-flow] fallback: max |dF| against the node-only path = "
         f"{np.max(np.abs(forces - forces_pre_16)):.6e} N over {len(forces)} nodes"
     )
+
+
+def test_wall_flow_realisation_is_off_unless_the_case_asks_for_it():
+    """The activation is opt-in: the coupled consequence is not attributed yet.
+
+    Measured 2026-10-09 on the gate case (A = `bd8237d` fluid, B = activated, C = the same
+    element-bearing mesh with the map withheld): A and C agree to 8-9 digits and B moves the
+    tip section rotation from +2.583 to -27.404 deg at an identical per-strip resultant. Until
+    that is attributed, `bem.wall_flow_realisation` defaults to false and the strips keep the
+    minimum-norm distribution.
+    """
+    from aeroelast.cli.run_bem_fsi import _effective_element_properties  # noqa: PLC0415
+
+    props = {"set": object()}
+    assert _effective_element_properties({}, props) is None
+    assert _effective_element_properties({"bem": {}}, props) is None
+    assert _effective_element_properties({"bem": {"wall_flow_realisation": False}}, props) is None
+    assert _effective_element_properties({"bem": {"wall_flow_realisation": True}}, props) is props
+    assert (
+        _effective_element_properties({"bem": {"wall_flow_realisation": True}}, None) is None
+    ), "an absent map stays absent however the case is configured"
+    print("[wall-flow] activation is opt-in through bem.wall_flow_realisation (default off)")
