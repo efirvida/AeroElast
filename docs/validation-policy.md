@@ -16,7 +16,10 @@ stay.
    that make that possible.
 2. **The comparison is the unit.** One result against one independent reference, with its
    own tolerance and its own margin. A result measured against two references is two
-   comparisons, never one cell with a slash in it.
+   comparisons, never one cell with a slash in it. One *printed residual* is one comparison:
+   a canonical call inside a `for` over a tuple or list literal runs once per element and is
+   stored once per element, never collapsed to one call site, because a margin attached to
+   the wrong iteration is a manufactured baseline.
 3. **A number nobody printed is not a number.** `measured.status` says `not_printed` or
    `not_measured`; only `measured` carries a margin, and it carries the revision it was
    measured at.

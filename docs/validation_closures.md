@@ -1334,3 +1334,111 @@ o el camino de proyección. Sondas: `tools/diagnose_section_moment_realization.p
 (T3b parte 2), `tools/diagnose_wall_flow_distributed_application.py` (T5). Commits: `dccf9e2`,
 `a890b30` (T1/T2), `5b80b7c`, `d376d4c` (T3b-1), `113b135`, `4b5ea82` (T3b-2), `9152e2b`, `40f8978`
 (T3), `43f3dd4` (T4), `0ef7f8d`, `e3324c5`, `dbb0216` (T5).
+
+### #29: el gate `regression` corre un grupo multi-archivo, y una comparación es un residual impreso (2026-10-10)
+
+Ítem P4 del roadmap de #18, abierto el 2026-10-09 como límite de herramienta que dejó el T5 del grupo
+36 (#27). Tres defectos medidos, más un prerequisito que apareció al probar el arreglo. **No hay
+física en juego**: el entregable es que el gate del store sea usable y que las filas del `for` dejen
+de quedar sin medir.
+
+**Relevamiento previo (y daño del árbol).** El working tree tenía **6 archivos de fila** reescritos por
+una corrida de `coherence` sobre el store real — `6-`, `20-`, `31-`, `34-`, `35-` y `36-composite_ply_stress.yaml`,
+211 borrados netos —: **se les habían ido los bloques `measured`** (`status: measured → not_measured`, con
+`margin_pct`/`raw`/`digest`/`run`/`date`/`text` borrados) porque `preserve_measurements` empareja por
+`tolerance.source` = `file:line` y las líneas se habían movido (grupo 6: `512 → 527`, `520 → 535`,
+`594 → 614`), y en el grupo 6 además un `reference.label` escrito a mano fue reemplazado por la
+expresión derivada (`results[THICKNESS, 0.2][1]`). El grupo 36 había perdido sus **dos filas de parity
+contra CalculiX** (13 filas / 18 comparaciones → 11 / 14). Los 6 archivos se restauraron desde HEAD
+antes de tocar nada: ese daño es **#24**, no #29, y queda como su evidencia medida.
+
+**Defecto 1 — `regression` no corría un grupo multi-archivo.** `command_regression` unía los
+`source_files` con espacios y `capture_prints` le pasaba esa cadena a pytest como **un solo**
+argumento, así que pytest buscaba un archivo llamado literalmente `a.py b.py`. `triage` ya hacía
+`*scope.split()`; ahora `capture_prints` también. El grupo 36 es el único multi-archivo del store (1
+de 35), y su blast radius hoy es él: `regression --group 36` llega a los 27 nodos de sus dos archivos
+en una sola corrida.
+
+**Defecto 2 — `--group` caía en silencio al 3.** `regression --scope <archivo>` corría con el default
+del parser (`--group 3`) y comparaba el patrón de residuales de un grupo contra las filas de otro,
+imprimiendo `source digest: moved`. Igual en `extract`. Ahora **`--group` es requerido** y el error
+nombra los grupos que declaran ese `--scope` (la corrección queda a un token de distancia).
+
+**Defecto 3 — una aserción canónica dentro de un `for` se deduplicaba.** El extractor emitía una
+comparación por *sitio* de llamada (`tolerance_sites` deduplicaba por `(line, kind, value)`) mientras
+la corrida imprime un residual por *iteración*; `compare_row` empareja el N-ésimo print con la
+N-ésima comparación y, ante un conteo distinto, se niega con `unmapped` en vez de adivinar. Medido en
+el grupo 36: **4 residuales impresos contra 2, 1 y 3 comparaciones** → 3 filas / 6 comparaciones
+paradas en `not_measured`.
+
+**Decisión de modelo de fila (del usuario, esta sesión): una comparación por residual impreso.** El
+extractor recorre el cuerpo del test **en orden de ejecución** y emite una comparación por elemento de
+un `for` sobre tupla/lista literal. El orden de emisión *es* el contrato: expandir sitio por sitio
+(`[A/i0, A/i1, B/i0, B/i1]`) pondría el segundo print del primer sitio donde el run imprime el primero
+del segundo; hay que re-entrar al cuerpo una vez por iteración. Una tupla literal enuncia su longitud
+**aunque sus elementos sean expresiones** (`for label, value, ref in (("TOP", outer["sxx"], ...), ...)`),
+así que la iteración se distingue en el `label` (`rtol at line 838 (name=[45,0,0,45]s)`,
+`rtol at line 1013 (station=centre, comp=0)`), mientras `tolerance.source` queda `file:line` (tres
+lectores lo parsean así) y `preserve_measurements` **consume en orden** las comparaciones que comparten
+fuente en vez de colapsarlas en un diccionario. Una multiplicidad que el código no enuncia (secuencia
+computada, `while`, `if` calculado, o un sitio dentro de un helper declarado) se emite **una vez** y se
+reporta como `dynamic_multiplicity` en el payload de `extract`: sigue sin adivinarse, pero la razón es
+del tool y no una nota a mano. El walk lee las llamadas con **el mismo filtro de aserción** que antes —
+sin él, `isclose(..., atol=1e-12)` entraba al store como comparación sin referencia (lo mostró el grupo
+4 derivando distinto).
+
+**Prerequisito que el arreglo destapó: `extract`/`coherence` leían sólo `source_files[0]`.** Eso borraba
+las filas de los otros archivos declarados — el mecanismo de las dos filas CCX perdidas — y hacía que
+`coherence --group 36` abortara con `the extraction itself did not finish cleanly` porque las
+declaraciones de `non_validation_tests` del segundo archivo no encontraban nodo. Ahora la derivación
+recorre todos los archivos declarados y arma **un** reporte del grupo: los ids de fila se reparten entre
+archivos (`used_ids`) y la clasificación de declaraciones vencidas corre sobre la unión, porque una
+declaración que matcheó cualquier archivo está usada. Alcance elegido explícitamente por el usuario
+(es el mismo defecto y es prerequisito de que las filas del `for` lleguen al store sin borrar las CCX).
+
+**Medición (por el camino de producción, sin `--write` para el veredicto).**
+
+| grupo | antes | después | `regression` |
+| --- | --- | --- | --- |
+| **36** | 13 filas / 18 comparaciones, 6 `not_measured` (4 prints contra 2, 1 y 3) | 13 / **24**, 12 medidas nuevas | `14 declared_non_validation, 24 same`, **exit 0**, `source digest: unchanged` |
+| **26** | fila del loop con 1 comparación (3 cupones) | 3 comparaciones (`[45,0,0,45]s` / `[60,0,0,60]s` / `[45,-45,-45,45]s`), medidas | `8 same` + **6 `unclaimed`** (preexistente) |
+
+Los 12 bloques `measured` que el grupo 36 ya tenía se cargaron correctamente con la nueva clave por
+orden (incluidas las 4 de las filas CCX, que volvieron a dar `same`). `coherence --group 36` queda
+**coherent** (el grupo entero re-deriva a lo que está en disco). `check`: **211 filas / 285
+comparaciones / 0 errores / 0 warnings** (era 277). `status`: 0 archivos sin agrupar ni declarar. Suite
+de tools con `-m "not slow"`: **133 passed**, 1 deselected, y los mismos **3 rojos preexistentes** de
+#23/#25 (sitio citado de `ko2017_perf`: `generators.py:65` vs `:66`). `check.sh quick`: OK.
+
+**Lo que queda abierto, con registro.**
+
+- **#24 sigue abierto**, y este work unit no lo toca: `preserve_measurements` sigue clavando la medición
+  a `file:line`, así que un movimiento de línea la pierde. El barrido de `coherence` sobre una **copia**
+  del store queda en **5 de 35 archivos viejos**: `6-`, `20-`, `31-`, `34-` y `35-` (el grupo 10 es
+  escrito a mano y se saltea). El grupo 36 salió de esa lista.
+- **#23/#25**: los 3 tests rojos de `references` no se tocaron.
+- **Grupo 26**: su `regression` sigue non-zero por **6 tests del archivo que no son filas ni están
+declarados** (`unclaimed` en `regression_leftover_verdicts`) — la misma forma que el issue registra
+  para el grupo 7 (`1 unclaimed, 1 unmapped`). No es de #29 y no se absorbe: se declara acá.
+- **Aviso de operación, medido dos veces**: `tools/tests` es **destructivo** sobre el store real, porque
+  `test_every_group_re_derives_to_the_rows_on_disk` corre `coherence` con `--write` por diseño. Correrlo
+  con `-m "not slow"` y verificar `git status --porcelain -- docs/validation` después; para probar
+  `coherence`, copiar el store y pasar `--store <copia>` **antes** del subcomando. Es #24.
+
+**Commits.** `f3edb65` (T1, `capture_prints`), `99bd123` (T2, `--group` requerido), `f199860` (T3,
+multi-archivo en `extract`/`coherence`), `d49400c` (T4, modelo de fila A + `preserve_measurements` en
+orden), `fc24808` (T6, filas del grupo 36), `9cd0c02` (T6, fila del grupo 26). Tests nuevos en
+`tools/tests/test_validation_matrix.py`: `test_capture_prints_runs_every_scope_argument`,
+`test_group_is_required_and_never_assumed` (y sin `--scope`), `test_extract_derives_every_declared_source_file`,
+`test_extract_write_keeps_the_other_source_file_rows`,
+`test_a_loop_body_assertion_becomes_one_comparison_per_iteration` (pine el orden de ejecución),
+`test_a_literal_loop_yields_one_comparison_per_execution`, `test_nested_literal_loops_multiply_in_nesting_order`,
+`test_a_computed_loop_is_flagged_not_guessed`, `test_a_single_execution_site_carries_no_binding`,
+`test_a_geometric_tolerance_is_not_a_comparison`,
+`test_preserve_measurements_carries_duplicate_sources_in_order`.
+
+**Re-ejecutar si cambia**: `tools/validation_matrix.py` (`capture_prints`, `command_extract`,
+`command_coherence`, `command_regression`, `execution_contexts`, `tolerance_sites`, `binding_label`,
+`preserve_measurements`, `compare_row`), el `label`/`tolerance.source` de alguna fila, o la cantidad de
+`source_files` de un grupo. Contrato del modelo de fila: `odd/tasks/validation-matrix-store.md` §8 y
+`docs/validation-policy.md` regla 2. Artefacto de la feature: `odd/tasks/validation-regression-gate.md`.

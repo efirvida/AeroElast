@@ -397,13 +397,28 @@ validation_matrix status [--json]
 ```
 
 `regression` is the answer to "the values must serve as a regression, without re-reading the
-document": it re-runs the group's scope, reads each node's printed residual with the pattern
-the group declares in `groups.yaml`, pairs the Nth print with the Nth asserted comparison, and
-diffs it against the stored `measured`. It prints only what is not `same` and exits 1 on drift,
-so it is a gate. `--write` records the baseline (`status`, `raw`, `margin_pct`, `text`, `run`,
-`date`), and is how a new group's rows gain their first measurements. A count mismatch between
-prints and asserted comparisons is reported `unmapped`, never guessed: attaching a margin to the
-wrong comparison would manufacture a baseline.
+document": it re-runs **every file the group declares** in one pytest call, reads each node's
+printed residual with the pattern the group declares in `groups.yaml`, pairs the Nth print with the
+Nth asserted comparison, and diffs it against the stored `measured`. The Nth comparison is the Nth
+*execution*: a canonical call inside a `for` over a tuple or list literal is emitted once per
+element, in execution order, because that is the order the residuals print in -- so a call that runs
+three times is three comparisons and each keeps its own margin (`docs/validation-policy.md` rule 2).
+The iteration is named in the comparison's `label` (`rtol at line 838 (name=[45,0,0,45]s)`) and
+`tolerance.source` stays `<file>:<line>`, which is the key several readers parse. `--group` is
+required and never assumed: it names the groups that declare the `--scope` when it is missing.
+It prints only what is not `same` and exits 1 on drift, so it is a gate. `--write` records the
+baseline (`status`, `raw`, `margin_pct`, `text`, `run`, `date`), and is how a new group's rows gain
+their first measurements. A count mismatch between prints and asserted comparisons is reported
+`unmapped`, never guessed: attaching a margin to the wrong comparison would manufacture a baseline.
+A multiplicity the code does not state -- a computed sequence, a `while`, an `if` whose test is
+computed -- is emitted once and reported by `extract` as `dynamic_multiplicity`, so the reason is the
+tool's and not a hand-written note.
+
+`extract` derives **every** `source_files` entry of the group and writes one row file from the union;
+before this, it read the first file only, so re-deriving a multi-file group deleted the other files'
+rows. It is one report for the group: the stale-declaration classification (`non_validation_tests`,
+`validation_helpers`, `non_reference_asserts`) runs over the union, because a declaration matched by
+any file is used, not stale.
 
 Read verbs, and what makes them worth preferring to the Markdown:
 
