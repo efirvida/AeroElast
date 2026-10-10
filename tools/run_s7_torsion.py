@@ -109,9 +109,7 @@ def run_torsion_case(mesh, properties, torque: float) -> np.ndarray:
     dpn = solver.domain.dofs_per_node
     root_node_ids = sorted(mesh.get_node_set("RootNodes").nodes.keys())
     node_id_to_idx = mesh.node_id_to_index
-    root_dofs = sorted(
-        node_id_to_idx[nid] * dpn + d for nid in root_node_ids for d in range(dpn)
-    )
+    root_dofs = sorted(node_id_to_idx[nid] * dpn + d for nid in root_node_ids for d in range(dpn))
     solver.add_dirichlet_conditions([DirichletCondition(root_dofs, 0.0)])
 
     # Tip torque about the span via transverse force couples on the tip section nodes (S-1
@@ -156,7 +154,9 @@ def section_twists_deg(mesh, u: np.ndarray, n_slices: int = 40) -> tuple[np.ndar
     return np.asarray(zs), np.asarray(thetas)
 
 
-def beam_twist_profile_deg(moment: float, z_query: np.ndarray, blade_length: float = 117.0) -> np.ndarray:
+def beam_twist_profile_deg(
+    moment: float, z_query: np.ndarray, blade_length: float = 117.0
+) -> np.ndarray:
     """θ(z) = M·∫₀^z dz'/GJ(z') with the BeamDyn GJ distribution [deg].
 
     The BeamDyn table's last station (r/R=1.0, GJ ≈ 7e4 N·m²) is a
@@ -197,12 +197,12 @@ def main() -> int:
     # already excluded inside beam_twist_profile_deg.
     ratios = []
     print()
-    print(f'{"z [m]":>8} {"shell [deg]":>12} {"beam [deg]":>12} {"ratio":>8}')
+    print(f"{'z [m]':>8} {'shell [deg]':>12} {'beam [deg]':>12} {'ratio':>8}")
     for z, th_s, th_b in zip(zs, theta_s, theta_beam, strict=True):
         if th_b < 1e-9:
             continue
         ratios.append(th_s / th_b)
-        print(f'{z:8.1f} {th_s:12.4e} {th_b:12.4e} {th_s/th_b:8.3f}')
+        print(f"{z:8.1f} {th_s:12.4e} {th_b:12.4e} {th_s / th_b:8.3f}")
     ratios = np.asarray(ratios)
 
     # Mid-span stations (0.3-0.9 of span) — the reliable zone.
@@ -210,14 +210,13 @@ def main() -> int:
     ratio_mid = (theta_s[mid] / theta_beam[mid]).mean()
     print()
     print(f"  Mean shell/beam twist ratio (0.3-0.9 span): {ratio_mid:.3f}")
-    print(f"  Implied shell GJ/beam GJ: {1.0/ratio_mid:.3f}")
+    print(f"  Implied shell GJ/beam GJ: {1.0 / ratio_mid:.3f}")
 
     csv_path = OUT_DIR / "s7_torsion.csv"
     with csv_path.open("w") as f:
         f.write("z_m,theta_shell_deg,theta_beam_deg,ratio\n")
         for z, th_s, th_b in zip(zs, theta_s, theta_beam, strict=True):
-            f.write(f"{z:.6f},{th_s:.6e},{th_b:.6e},"
-                    f"{th_s/th_b if th_b > 1e-9 else ''}\n")
+            f.write(f"{z:.6f},{th_s:.6e},{th_b:.6e},{th_s / th_b if th_b > 1e-9 else ''}\n")
     print(f"[S-7] Wrote {csv_path}")
     return 0
 
