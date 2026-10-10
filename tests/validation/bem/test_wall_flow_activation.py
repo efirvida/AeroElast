@@ -266,8 +266,7 @@ def test_aero_dispatcher_activates_the_realisation_on_the_campaign_path(producti
         element_properties=production["props"],
     )
     assert type(participant).__name__ == "BEMFSIParticipant", (
-        f"the dispatcher built {type(participant).__name__} instead of the legacy "
-        "BEM participant"
+        f"the dispatcher built {type(participant).__name__} instead of the legacy BEM participant"
     )
 
     # The dispatcher's return type is the union of the backends, so the projector
@@ -395,9 +394,7 @@ def test_without_the_property_map_every_strip_falls_back(production):
     node_only = ForceProjector(
         MeshModel(nodes=list(mesh.nodes)), blade_aero, span_direction=SPAN_DIR
     )
-    node_only_sections = [
-        s for per_strip in node_only._strip_ring_sections for s in per_strip
-    ]
+    node_only_sections = [s for per_strip in node_only._strip_ring_sections for s in per_strip]
     assert node_only_sections and all(section is None for section in node_only_sections)
 
     from aeroelast.solvers.bem.engine import BEMSolver  # noqa: PLC0415
@@ -437,7 +434,7 @@ def test_wall_flow_realisation_is_off_unless_the_case_asks_for_it():
     assert _effective_element_properties({"bem": {}}, props) is None
     assert _effective_element_properties({"bem": {"wall_flow_realisation": False}}, props) is None
     assert _effective_element_properties({"bem": {"wall_flow_realisation": True}}, props) is props
-    assert (
-        _effective_element_properties({"bem": {"wall_flow_realisation": True}}, None) is None
-    ), "an absent map stays absent however the case is configured"
+    assert _effective_element_properties({"bem": {"wall_flow_realisation": True}}, None) is None, (
+        "an absent map stays absent however the case is configured"
+    )
     print("[wall-flow] activation is opt-in through bem.wall_flow_realisation (default off)")

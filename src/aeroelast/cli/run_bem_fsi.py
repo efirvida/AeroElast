@@ -188,9 +188,7 @@ def _element_properties_for(mesh: "MeshModel", generator: object) -> dict | None
     return props
 
 
-def _effective_element_properties(
-    cfg: dict, element_properties: dict | None
-) -> dict | None:
+def _effective_element_properties(cfg: dict, element_properties: dict | None) -> dict | None:
     """The property map to hand to the projector: ``None`` unless the case asks for it.
 
     The wall-flow moment realisation is **off by default**. It is implemented, guarded and

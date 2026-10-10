@@ -311,15 +311,11 @@ def regression_leftover_verdicts(group: dict[str, Any], nodes: list[str]) -> lis
     declared, undeclared, stale = classify_unclaimed(group, list(nodes))
     return (
         [{"row": None, "verdict": "unclaimed", "detail": node} for node in undeclared]
-        + [
-            {"row": None, "verdict": "declared_non_validation", "detail": node}
-            for node in declared
-        ]
-        + [
-            {"row": None, "verdict": "stale_declaration", "detail": pattern}
-            for pattern in stale
-        ]
+        + [{"row": None, "verdict": "declared_non_validation", "detail": node} for node in declared]
+        + [{"row": None, "verdict": "stale_declaration", "detail": pattern} for pattern in stale]
     )
+
+
 # A group declares how its tests print their residuals, because the suite prints prose, not
 # a format. `asserted` matches the line behind a real assertion, `unasserted` the line the
 # test prints and never asserts.
@@ -485,6 +481,7 @@ class Store:
     gaps: dict[str, dict[str, Any]] = field(default_factory=dict)
     rows: list[RowRef] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
+
     def error(self, where: str, message: str) -> None:
         self.findings.append(Finding("error", where, message))
 
@@ -633,8 +630,7 @@ def load_groups(store: Store) -> None:
         if reference_kind is not None and reference_kind not in REFERENCE_KINDS:
             store.error(
                 where,
-                f"reference_kind must be one of {sorted(REFERENCE_KINDS)}, "
-                f"got {reference_kind!r}",
+                f"reference_kind must be one of {sorted(REFERENCE_KINDS)}, got {reference_kind!r}",
             )
         assertions = entry.get("non_reference_asserts")
         if assertions is not None and not isinstance(assertions, list):
@@ -698,7 +694,6 @@ def load_groups(store: Store) -> None:
         if prose is not None and not (REPO_ROOT / str(prose).strip()).exists():
             store.warn(where, f"prose file not written yet: {str(prose).strip()}")
         store.groups[group_id] = entry
-
 
 
 def _validate_reference(store: Store, where: str, ref: Any) -> None:
@@ -831,8 +826,7 @@ def _validate_comparison(store: Store, where: str, comparison: Any) -> bool:
     if not isinstance(comparison.get("label"), str) or not comparison["label"]:
         store.error(
             where,
-            "label must be a non-empty string naming which part of the test this "
-            "comparison covers",
+            "label must be a non-empty string naming which part of the test this comparison covers",
         )
     asserted = comparison.get("asserted")
     if not isinstance(asserted, bool):
@@ -1002,15 +996,12 @@ def load_rows(store: Store, only_group: str | None = None) -> None:
             if file_group is not None and isinstance(row, dict) and row.get("group") != file_group:
                 store.error(
                     where,
-                    f"row group {row.get('group')!r} does not match the file group "
-                    f"{file_group!r}",
+                    f"row group {row.get('group')!r} does not match the file group {file_group!r}",
                 )
             validate_row(store, where, row)
             if not isinstance(row, dict) or not isinstance(row.get("id"), str):
                 continue
-            store.rows.append(
-                RowRef(id=row["id"], where=where, path=path, index=index, data=row)
-            )
+            store.rows.append(RowRef(id=row["id"], where=where, path=path, index=index, data=row))
 
     seen: dict[str, str] = {}
     for ref in store.rows:
@@ -1344,10 +1335,7 @@ def command_headline(args: argparse.Namespace) -> int:
             if view["margin_pct"] is not None
         ]
         flagged = sum(
-            1
-            for ref in group_refs
-            for view in comparison_views(ref)
-            if "gt5" in view["flags"]
+            1 for ref in group_refs for view in comparison_views(ref) if "gt5" in view["flags"]
         )
         rows.append(
             {
@@ -1388,8 +1376,7 @@ def resolve_path(path: str) -> list[tuple[str, int | None]]:
             raise StoreError(f"cannot descend past {name!r}: it is a scalar")
         if name not in node:
             raise StoreError(
-                f"unknown field {name!r} in {path!r}: allowed here: "
-                f"{', '.join(sorted(node))}"
+                f"unknown field {name!r} in {path!r}: allowed here: {', '.join(sorted(node))}"
             )
         child = node[name]
         if isinstance(child, list):
@@ -1544,9 +1531,7 @@ def command_set(args: argparse.Namespace) -> int:
     if introduced:
         for finding in sorted(introduced):
             print(finding, file=sys.stderr)
-        raise StoreError(
-            "refusing to write: the edit would leave an error the row did not have"
-        )
+        raise StoreError("refusing to write: the edit would leave an error the row did not have")
 
     dump_yaml(ref.path, document)
     print(f"set {args.id}: wrote {display_path(ref.path)}")
@@ -1912,8 +1897,11 @@ def reference_scan_findings(store: Store, found: dict[str, list[str]]) -> list[F
                         f"(key {key!r} or code_mentions)",
                     )
                 )
-        if not used and not sites and not entry.get("cited_by_stale") and not entry.get(
-            "orphan_ok"
+        if (
+            not used
+            and not sites
+            and not entry.get("cited_by_stale")
+            and not entry.get("orphan_ok")
         ):
             findings.append(
                 Finding(
@@ -2334,9 +2322,7 @@ def param_tokens(params: str | None, expected: int | None = None) -> list[str]:
 
 
 def param_numbers(params: str | None, expected: int | None = None) -> set[float]:
-    return {
-        float(token) for token in param_tokens(params, expected) if _is_number(token)
-    }
+    return {float(token) for token in param_tokens(params, expected) if _is_number(token)}
 
 
 def _numbers_in(
@@ -2621,9 +2607,7 @@ def tolerance_sites(
     seen = {id(call) for call, _, _ in executions}
     # A call the walk never reached -- inside a nested definition, say -- is still a site, and the
     # honest answer for a multiplicity the walk cannot see is the old one: emit it once.
-    executions.extend(
-        (call, None, True) for call in assertion_calls(func) if id(call) not in seen
-    )
+    executions.extend((call, None, True) for call in assertion_calls(func) if id(call) not in seen)
     # The test first, then the declared helpers it reaches, in that order: appending after the
     # test's own sites keeps every existing row byte-identical when a group declares no helper.
     # A helper runs wherever its caller runs, which is not a property of the helper, so its sites
@@ -2660,9 +2644,7 @@ def tolerance_sites(
                     value=numeric,
                     source=source,
                     asserts=True,
-                    reference_expr=(
-                        ast.unparse(call.args[1])[:80] if len(call.args) > 1 else None
-                    ),
+                    reference_expr=(ast.unparse(call.args[1])[:80] if len(call.args) > 1 else None),
                     reference_name=stated_name,
                     reference_kind=stated_kind,
                     binding=binding,
@@ -2807,9 +2789,7 @@ def build_rows(
     """
     tree = ast.parse((REPO_ROOT / scope).read_text(encoding="utf-8"))
     consts = module_constants(tree)
-    functions = {
-        node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)
-    }
+    functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
     # A method lives inside its class, not in the module body, so key it by the qualified name
     # pytest prints. Without this the node resolves to nothing and is reported as unclaimed.
     for parent in tree.body:
@@ -2835,6 +2815,7 @@ def build_rows(
     def unclaim(node: str, reason: str) -> None:
         report["unclaimed"].append(node)
         report["unclaimed_reasons"][node] = reason
+
     used: set[str] = used_ids if used_ids is not None else set()
     for info in nodes:
         # A declared test is not a row, and it may not be claimed either. The declaration has to
@@ -2903,10 +2884,7 @@ def build_rows(
         if unreadable:
             report.setdefault("unresolved", {})[info.node] = unreadable
         # The owner is part of the id: two classes can hold same-named methods.
-        row_id = (
-            f"{slug}.{slugify(info.qualname, 40)}."
-            f"{slugify(info.params or 'single', 40)}"
-        )
+        row_id = f"{slug}.{slugify(info.qualname, 40)}.{slugify(info.params or 'single', 40)}"
         suffix = 2
         candidate = row_id
         while candidate in used:
@@ -2930,9 +2908,7 @@ def build_rows(
             if isinstance(sub, ast.Call)
             and isinstance(sub.func, ast.Name)
             and sub.func.id == "print"
-            and re.search(
-                r"expect|ref|err|margin|norm|ratio|delta|%", ast.unparse(sub), re.I
-            )
+            and re.search(r"expect|ref|err|margin|norm|ratio|delta|%", ast.unparse(sub), re.I)
         ]
         if prints:
             report["prints"][info.node] = prints
@@ -3019,9 +2995,7 @@ def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
     existing = document.get("rows") if isinstance(document, dict) else None
     if not isinstance(existing, list):
         return 0
-    by_tests = {
-        tuple(row.get("tests") or []): row for row in existing if isinstance(row, dict)
-    }
+    by_tests = {tuple(row.get("tests") or []): row for row in existing if isinstance(row, dict)}
     carried = 0
     unmatched: list[str] = []
     for row in rows:
@@ -3086,9 +3060,7 @@ def command_extract(args: argparse.Namespace) -> int:
     # CalculiX-parity rows -- and `coherence` reads this same path, so a group whose second file
     # declares tests reported "the extraction itself did not finish cleanly".
     scopes = (
-        [str(args.scope)]
-        if args.scope
-        else [str(path) for path in group.get("source_files") or []]
+        [str(args.scope)] if args.scope else [str(path) for path in group.get("source_files") or []]
     )
     if not scopes:
         raise StoreError(f"group {group_id} declares no source file; pass --scope")
@@ -3149,18 +3121,24 @@ def command_extract(args: argparse.Namespace) -> int:
             for node, reason in (item.get("declared_not_rows") or {}).items()
         },
         "ignored_bounds": {
-            node: bounds for item in reports for node, bounds in (item.get("ignored_bounds") or {}).items()
+            node: bounds
+            for item in reports
+            for node, bounds in (item.get("ignored_bounds") or {}).items()
         },
         "cross_check_unavailable": [
             node for item in reports for node in (item.get("cross_check_unavailable") or [])
         ],
         "unresolved": {
-            node: sources for item in reports for node, sources in (item.get("unresolved") or {}).items()
+            node: sources
+            for item in reports
+            for node, sources in (item.get("unresolved") or {}).items()
         },
         "diverged": {node: tokens for item in reports for node, tokens in item["diverged"].items()},
         "prints": {node: calls for item in reports for node, calls in item["prints"].items()},
         "dropped_asserts": {
-            node: sources for item in reports for node, sources in (item.get("dropped_asserts") or {}).items()
+            node: sources
+            for item in reports
+            for node, sources in (item.get("dropped_asserts") or {}).items()
         },
         "dynamic_multiplicity": {
             node: labels
@@ -3193,7 +3171,7 @@ def command_extract(args: argparse.Namespace) -> int:
         "unclaimed": report["unclaimed"],
         "unclaimed_reasons": report["unclaimed_reasons"],
         "declared_non_validation": declared_nodes,
-            "declared_not_rows": suppressed,
+        "declared_not_rows": suppressed,
         "declared_helpers_used": report["declared_helpers_used"],
         "declared_helpers_stale": report["declared_helpers_stale"],
         "dropped_asserts": report.get("dropped_asserts") or {},
@@ -3214,10 +3192,7 @@ def command_extract(args: argparse.Namespace) -> int:
         if report.get("ignored_bounds"):
             print(f"ignored bounds (assert nothing): {len(report['ignored_bounds'])} node(s)")
         for node, labels in (report.get("dynamic_multiplicity") or {}).items():
-            print(
-                "multiplicity not knowable from the code, so one comparison is emitted: "
-                f"{node}"
-            )
+            print(f"multiplicity not knowable from the code, so one comparison is emitted: {node}")
             for label in labels:
                 print(f"  - {label}")
         if report.get("cross_check_unavailable"):
@@ -3335,7 +3310,9 @@ def command_coherence(args: argparse.Namespace) -> int:
         after = target.read_text(encoding="utf-8") if target.exists() else None
         if before != after:
             stale.append(target.name)
-            print(f"{target.name}: the rows on disk were not what the code says, and are refreshed now")
+            print(
+                f"{target.name}: the rows on disk were not what the code says, and are refreshed now"
+            )
     if stale:
         print(
             f"{len(stale)} of {len(groups)} row file(s) were stale. Read the change, and commit it "
@@ -3539,15 +3516,11 @@ def command_status(args: argparse.Namespace) -> int:
     """
     store = load_store(args.store)
     grouped = {
-        str(source)
-        for group in store.groups.values()
-        for source in group.get("source_files") or []
+        str(source) for group in store.groups.values() for source in group.get("source_files") or []
     }
     root = REPO_ROOT / "tests" / "validation"
     # Declared out of scope is not the same as forgotten, and only the second is a to-do.
-    declared_out = {
-        str(item) for entry in store.out_of_scope for item in entry.get("files") or []
-    }
+    declared_out = {str(item) for entry in store.out_of_scope for item in entry.get("files") or []}
     ungrouped = sorted(
         str(path.relative_to(REPO_ROOT))
         for path in root.rglob("test_*.py")
@@ -3581,7 +3554,9 @@ def command_status(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
-        print(f"{'group':8s} {'src':>5s} {'rows':>5s} {'cmp':>5s} {'measured':>8s} {'near':>4s} {'gt5':>4s}")
+        print(
+            f"{'group':8s} {'src':>5s} {'rows':>5s} {'cmp':>5s} {'measured':>8s} {'near':>4s} {'gt5':>4s}"
+        )
         for row in rows:
             # A group with no source file is not a broken group: its rows are driven by hand, and
             # no re-derivation can refresh them. Showing "hand" keeps a zero from reading as a gap.
@@ -3931,7 +3906,6 @@ def evidence_digest(printed: dict[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
 
 
-
 def sources_digest(group: dict[str, Any]) -> str:
     """A digest of a group's source files: the test's own contract.
 
@@ -4065,8 +4039,7 @@ def compare_row(
                 "row": ref.id,
                 "verdict": "unmapped",
                 "detail": (
-                    f"{len(asserted)} printed residual(s) for {len(checked)} asserted "
-                    "comparison(s)"
+                    f"{len(asserted)} printed residual(s) for {len(checked)} asserted comparison(s)"
                 ),
             }
         ]
@@ -4099,7 +4072,9 @@ def compare_row(
                 "stored_digest": stored,
                 "value": _float(printed.get("value")),
                 "expected": printed.get("expected"),
-                "text": str(printed.get("line") or measurement_text(printed, residual_suffix(comparison))),
+                "text": str(
+                    printed.get("line") or measurement_text(printed, residual_suffix(comparison))
+                ),
             }
         )
     for printed in unasserted:

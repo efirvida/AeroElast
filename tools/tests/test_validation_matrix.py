@@ -154,7 +154,12 @@ def make_row(**overrides: Any) -> dict[str, Any]:
                 "label": "Kirchhoff closed form used for normalization",
                 "asserted": True,
                 "reference": {"kind": "analytical", "label": "alpha p L^4 / D, alpha = 1.267e-3"},
-                "tolerance": {"kind": "rtol", "value": 0.05, "source": "same assert", "justified": True},
+                "tolerance": {
+                    "kind": "rtol",
+                    "value": 0.05,
+                    "source": "same assert",
+                    "justified": True,
+                },
                 "measured": {"status": "measured", "margin_pct": 0.0, "text": "1.0000 (0.00%)"},
             },
         ],
@@ -525,9 +530,12 @@ def test_set_edits_one_field_and_leaves_the_store_valid(tmp_path: Path) -> None:
     assert completed.returncode == 2
     assert "unknown field 'measured'" in completed.stderr
     # The refused write must not have touched the file.
-    assert yaml.safe_load(run(store, "get", "ko2017.square_plate.reg_clamped", "--json").stdout)[
-        "comparisons"
-    ][2]["measured"]["margin_pct"] == 3.0
+    assert (
+        yaml.safe_load(run(store, "get", "ko2017.square_plate.reg_clamped", "--json").stdout)[
+            "comparisons"
+        ][2]["measured"]["margin_pct"]
+        == 3.0
+    )
 
     completed = run(
         store,
@@ -780,8 +788,7 @@ def test_assertion_calls_exclude_geometric_tolerances() -> None:
     func = next(
         node
         for node in tree.body
-        if isinstance(node, ast.FunctionDef)
-        and node.name == "test_3_1_square_plate_tables_2_to_5"
+        if isinstance(node, ast.FunctionDef) and node.name == "test_3_1_square_plate_tables_2_to_5"
     )
     texts = [ast.unparse(call) for call in module.assertion_calls(func)]
     # The file's comparisons go through the suite's own helper, which is what the criterion reads.
@@ -803,10 +810,7 @@ def test_a_zero_bound_bounds_nothing() -> None:
     than on the shape of a file that has already changed once.
     """
     module = _load_tool_module()
-    tree = ast.parse(
-        "def test_x():\n"
-        "    assert_allclose(value, reference, rtol=1e-6, atol=0.0)\n"
-    )
+    tree = ast.parse("def test_x():\n    assert_allclose(value, reference, rtol=1e-6, atol=0.0)\n")
     func = next(node for node in tree.body if isinstance(node, ast.FunctionDef))
     sites, ignored = module.tolerance_sites(func, module.module_constants(tree), None)
     assert [site.kind for site in sites] == ["rtol"]
@@ -1101,9 +1105,7 @@ def test_parse_prints_reads_the_shape_pytest_actually_emits() -> None:
 
 def test_extract_residuals_uses_the_declared_group_patterns() -> None:
     module = _load_tool_module()
-    patterns = json.loads(
-        (REAL_STORE / module.RESIDUAL_FILE).read_text(encoding="utf-8")
-    )
+    patterns = json.loads((REAL_STORE / module.RESIDUAL_FILE).read_text(encoding="utf-8"))
     residual = patterns["patterns"]["3"]
     asserted, unasserted = module.extract_residuals(
         [
@@ -1321,9 +1323,7 @@ def test_re_extraction_keeps_what_was_measured_and_flagged(tmp_path: Path) -> No
             }
         ],
     }
-    target.write_text(
-        yaml.safe_dump({"group": "3", "rows": [previous_row]}), encoding="utf-8"
-    )
+    target.write_text(yaml.safe_dump({"group": "3", "rows": [previous_row]}), encoding="utf-8")
     new_rows = [
         {
             "id": "ko2017.toy.case",
@@ -1519,7 +1519,9 @@ def test_compare_row_classifies_every_outcome() -> None:
     assert len(unmapped) == 1
     assert unmapped[0]["verdict"] == "unmapped"
 
-    informational = module.compare_row(ref, [_printed("0.10"), _printed("0.20")], [_printed("622932.13")])
+    informational = module.compare_row(
+        ref, [_printed("0.10"), _printed("0.20")], [_printed("622932.13")]
+    )
     assert informational[-1]["verdict"] == "informational"
 
 
@@ -1692,7 +1694,7 @@ def test_extract_write_keeps_the_other_source_file_rows(tmp_path: Path) -> None:
 # The comparison is one printed residual, not one call site
 # --------------------------------------------------------------------------- #
 
-_TWO_SITES_IN_ONE_LOOP = '''\
+_TWO_SITES_IN_ONE_LOOP = """\
 for station in ("centre", "three_quarter"):
     assert_relative_error(
         1.0, 2.0, tol=0.05, kind="analytical", reference_name="ref", what=f"{station} TOP"
@@ -1700,22 +1702,22 @@ for station in ("centre", "three_quarter"):
     assert_relative_error(
         3.0, 4.0, tol=0.05, kind="analytical", reference_name="ref", what=f"{station} BOTTOM"
     )
-'''
+"""
 
-_NESTED_LOOPS = '''\
+_NESTED_LOOPS = """\
 for station in ("centre", "three_quarter"):
     for comp in (0, 1):
         assert_relative_error(
             1.0, 2.0, tol=0.05, kind="analytical", reference_name="ref", what="k"
         )
-'''
+"""
 
-_COMPUTED_LOOP = '''\
+_COMPUTED_LOOP = """\
 for step in steps():
     assert_relative_error(
         1.0, 2.0, tol=0.05, kind="analytical", reference_name="ref", what="x"
     )
-'''
+"""
 
 
 def _sites_of(body: str, module: Any = None) -> list[Any]:
@@ -1776,9 +1778,9 @@ def test_a_computed_loop_is_flagged_not_guessed() -> None:
 def test_a_single_execution_site_carries_no_binding() -> None:
     """Every existing row derives byte-identically: no loop, no suffix, no change."""
     sites = _sites_of(
-        'assert_relative_error(\n'
+        "assert_relative_error(\n"
         '    1.0, 2.0, tol=0.05, kind="analytical", reference_name="ref", what="w"\n'
-        ')\n'
+        ")\n"
     )
 
     assert len(sites) == 1
@@ -1815,9 +1817,7 @@ def test_preserve_measurements_carries_duplicate_sources_in_order(tmp_path: Path
     stored = make_row()
     fresh = make_row()
     for row in (stored, fresh):
-        row["comparisons"][1]["tolerance"]["source"] = row["comparisons"][0]["tolerance"][
-            "source"
-        ]
+        row["comparisons"][1]["tolerance"]["source"] = row["comparisons"][0]["tolerance"]["source"]
     stored["comparisons"][0]["measured"]["margin_pct"] = 0.10
     stored["comparisons"][1]["measured"]["margin_pct"] = 0.20
     module.dump_yaml(target, {"group": "3", "rows": [stored]})
@@ -1835,6 +1835,7 @@ def test_preserve_measurements_carries_duplicate_sources_in_order(tmp_path: Path
 # --------------------------------------------------------------------------- #
 # T5: cross-validating the Markdown view
 # --------------------------------------------------------------------------- #
+
 
 def write_adjudications(store: Path, entries: list[dict[str, Any]], group: str = "3") -> None:
     directory = store / "adjudications"
@@ -1967,9 +1968,7 @@ def test_the_shipped_gap_list_is_present_and_valid() -> None:
         (gap(surprise=True), "unknown keys"),
     ],
 )
-def test_a_malformed_gap_is_reported(
-    tmp_path: Path, entry: dict[str, Any], expected: str
-) -> None:
+def test_a_malformed_gap_is_reported(tmp_path: Path, entry: dict[str, Any], expected: str) -> None:
     store = write_store(tmp_path, [make_row()])
     write_gaps(store, [entry])
     completed = run_check(store)
