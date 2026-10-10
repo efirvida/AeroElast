@@ -1076,6 +1076,80 @@ groups:
       the row deliberately does not read. Evidence:
       `odd/tasks/composite-ply-stress-recovery.md` (T1-T4) and issue #27.
 
+  - id: '37'
+    title: >-
+      `tests/validation/bem/test_wall_flow_activation.py` (the production
+      coupling mesh keeps its skin elements and the deck's section properties,
+      so the wall-flow moment realisation runs instead of falling back)
+    slug: wall_flow_activation
+    source_files:
+      - tests/validation/bem/test_wall_flow_activation.py
+    non_validation_tests:
+      - tests:
+          - test_coupling_node_set_filter_keeps_the_node_list_and_the_skin_elements
+        reason: >-
+          A structural guard on the coupling-mesh filter: the node list, its
+          order, the node ids and the element-set membership must be exactly
+          the node set's plus the fully contained elements. No physical
+          quantity and no reference; the physical comparison for the
+          realisation itself is group 31 against Bredt.
+      - tests:
+          - test_production_coupling_mesh_realises_a_ring_section
+        reason: >-
+          The enablement count of the activation: with the deck's section
+          properties the production projector precomputes realisable ring
+          sections (185 of 185 at the coarse test mesh, 671 of 671 at the
+          campaign's `element_size: 0.25`) where the node-only coupling mesh
+          gave none. A count of our own precomputation, not a measured
+          physical quantity against a reference value.
+      - tests:
+          - test_factory_participant_realises_every_precomputed_ring
+        reason: >-
+          The same enablement through the production factory
+          (`build_from_config` -> `BEMFSIParticipant` -> `ForceProjector`):
+          every precomputed ring resolves its walls from the deck's laminates.
+          A wiring guard with no external reference.
+      - tests:
+          - test_aero_dispatcher_activates_the_realisation_on_the_campaign_path
+        reason: >-
+          The campaign entry point guard: `aeroelast` -> `run_aero_fsi` ->
+          backend dispatch -> legacy `BEMFSIParticipant` must carry the same
+          map. It exists because the coupled A/B stayed identical to ten digits
+          until that hop was added. A wiring guard with no external reference.
+      - tests:
+          - test_wall_flow_leaves_the_applied_resultant_unchanged
+        reason: >-
+          A self-consistency guard between our own two realisations: the
+          wall-flow split and the minimum-norm fallback must apply the same
+          resultant (relative |dF| ~1e-16). There is no external reference for
+          a distribution that carries an exact resultant; the bound is on our
+          own two paths.
+      - tests:
+          - test_without_the_property_map_every_strip_falls_back
+        reason: >-
+          A regression guard: the property-less path must stay bit-identical
+          to the pre-#16 node-only projector (`np.array_equal`). It pins that
+          the activation is opt-in through the property map and does not move
+          the fallback.
+    provenance_note: >-
+      This group is the activation guard of issue #16 (roadmap item P2 of
+      #18): the production BEM coupling mesh is built by filtering the
+      generated blade mesh to the `allOuterShellNods` node set, and the
+      filter used to drop every element, so `ring_section` found no chordwise
+      wall edge and every strip fell back to the minimum-norm `_distribute`
+      field (0 of 671 ring sections usable at the campaign mesh). The filter
+      now keeps the fully contained elements (`MeshModel.subset_to_nodes`) and
+      the CLI hands the generator's own section-property map to the
+      projector, so the wall-flow realisation runs. Measured on the campaign
+      mesh: 27609 nodes with 27598 elements, 671 of 671 ring sections
+      realisable from the deck's laminates, every one of them single-cell
+      (the coupling set excludes the shear webs on purpose), 100 % property
+      coverage of the coupling elements, and a resultant identical between
+      the two realisations to machine precision while the distribution moves
+      (relative L2 92 %). Evidence: `odd/tasks/bem-wall-flow-activation.md`,
+      `docs/validation_closures.md` section "#16", and the gap entry
+      `moment_realization_over_delivers` in `docs/validation/gaps.yaml`.
+
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
 # independent reference and needs a group and a row; a test under

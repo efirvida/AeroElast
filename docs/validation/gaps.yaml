@@ -74,52 +74,86 @@ gaps:
     rows: []
 
   - id: moment_realization_over_delivers
-    scope: "activating the multi-cell wall-flow realisation in production"
-    status: not_validated
+    scope: >-
+      the wall-flow moment realisation in production, and the multi-cell split
+      it cannot reach
+    status: bounded
     reason: >-
-      The realisation defect this entry used to describe is closed. The
-      minimum-norm field `f_j = omega x d_j` over-delivered rigid torsion where
-      a closed section carries the wall shear flow, and commit `1146265`,
-      arbitrated against the deck's own aerofoil geometry by
-      `tools/diagnose_sign_chain.py`, fixed the linked sign errors and the
-      multi-cell realisation now carries the physical field: the skin carries
-      `q_i`, a shared web carries `q_i - q_j`, the total moment is exact and the
-      net force is zero. It is pinned for the single-cell tube (0.3091% against
-      Bredt) and for the multi-cell cells against an independent hand-assembled
-      Bredt-Batho system. What is NOT validated is its activation in production:
-      `BEMFSIParticipant` builds its projectors without `element_properties` on
-      the fluid side, so the blade's strips still route through `_distribute`
-      (the sign-correct but single-cell minimum-norm field), and the multi-cell
-      reference is our own hand assembly, not an external code or a published
-      value.
+      Activated in production on 2026-10-09 (issue #16, roadmap item P2 of #18),
+      so the entry no longer describes a defect in a path that is never taken.
+      The minimum-norm field `f_j = omega x d_j` over-delivered rigid torsion
+      where a closed section carries the wall shear flow, and commit `1146265`
+      fixed the linked sign errors. The blocker was never the realisation but
+      the coupling mesh: `_build_mesh` filtered the blade mesh to the
+      `allOuterShellNods` node set with `MeshModel(nodes=...)` and dropped every
+      element, so `ring_section` found no chordwise wall edge and every strip
+      took `_distribute` (0 of 671 ring sections usable at
+      `element_size: 0.25`).
+      The CLI now keeps the fully contained elements
+      (`MeshModel.subset_to_nodes`) and hands the projector the property map
+      built from the same generator (`_element_properties_for`), so the wall
+      shear flow runs: 671 of 671 ring sections realisable, every wall's
+      `S = G*t` resolved from the deck's laminates, 100 % property coverage of
+      the coupling elements. Two limits bound it. **The multi-cell half is
+      unreachable in production**: the coupling node set excludes the shear
+      webs on purpose, so every ring is one closed cell and the `q_i - q_j`
+      shared-wall walk never runs there; its only evidence remains our own
+      hand-assembled Bredt-Batho system, not an external code or a published
+      value. **A coupling mesh whose element sets do not match the deck's
+      section-set names keeps the fallback**: a `RotorMesh` coupling mesh
+      carries `<set>_blade_N`, so the map is withheld by design and the strips
+      route through `_distribute` again.
     evidence: >-
-      tests/test_multicell_shear_flow.py: an asymmetric two-cell box reproduces
-      the independently hand-assembled `(n+1)` Bredt-Batho system, the shared
-      web reads back `q_i - q_j`, the realised moment is exact and the net force
-      is zero, and the minimum-norm and with-properties realisations of the same
-      rated moment agree in sign (both nose-down, `+8.1048` against `+9.6669`
-      deg; the pre-fix `-0.8696` / `+0.0773` deg inverted because the pitching
-      moment rode the raw span axis - issue #11). The single-cell tube is
-      tests/validation/parity/test_thin_walled_tube_moment_realization.py
-      (group 31): the independent hand-written shear flow and the production
-      path both land at rate/Bredt 1.0031 with `distortion/|rotation|` 0.008,
-      against 31.6933 and 2.042 for the old minimum-norm field (verdict 22.9).
-      The pre-fix departure was an end effect and decayed with length, so the
-      31.69x was never a blade-scale statement. Two earlier claims stay
-      withdrawn: the `0.74x` / `1.35x` torsional deficit of 1df95fe was a
-      reference mix-up and became a 9% residual once `GJ_static/GJ_deck = 1.068`
-      was measured (verdict 22.10), and the deficit's remaining 2.4x against
-      Zhou's tip torsion is an aero/torque difference, not a stiffness or
-      load-frame one (verdict 22.11: their 4.072 Hz first torsion matches our
-      4.000 Hz to 1.8%).
+      Activation, tests/validation/bem/test_wall_flow_activation.py (group 37):
+      the production coupling mesh keeps 27598 of the full mesh's 33462
+      elements and 2828 of 32325 nodes at the test's coarse size, 671 of 671
+      ring sections are realisable at `element_size: 0.25` (0 of 671 before),
+      every one of them single-cell, and the wall-flow split leaves the applied
+      resultant exactly where the minimum-norm field had it - relative
+      `|dF| = 1.403e-16`, `|dM| = 5.984e-16` - while the distribution moves
+      (relative L2 92.22 %, max |df| 5063.666 N, 2828 of 2828 nodes), and the
+      property-less projector is bit-equal to the pre-#16 node-only one.
+      The *coupled* consequence, measured 2026-10-09 on the gate case at
+      `max-time 5.0` (A = the `bd8237d` fluid, B = this tree, same solid tree;
+      jobs `$SCRATCH/bfs16/run_ab.srm`, comparison `compare_ab.py` and
+      `field_ab.py`): thrust -0.232 %, torque/power -0.547 %, edgewise tip
+      disp -8.866 %, flapwise tip disp +0.179 %, max nodal force +13.610 %,
+      `TOP`/`MID`/`BOT` von Mises -23.948 %/-27.867 %/+17.029 %, applied aero
+      force L2 +39.9 %, and the tip section rotation **+2.583 -> -27.404 deg**
+      (`ROTZ`; best-fit +1.208 -> -9.270 deg), a *distributed* difference
+      growing from ~0 at the root to ~-10 deg at the tip. This is a
+      first-order change with a sign flip, not a refinement, and it is **not
+      attributed**: no independent arbiter exists for a blade load
+      distribution, and the tube reference points the other way (group 31:
+      wall flow 1.0031 of Bredt while the minimum-norm field gave 31.69). The
+      zero-thickness shell's drilling rotation is the first candidate and is
+      not audited.
+      Independent evidence for the realisation itself, unchanged: the
+      single-cell tube is group 31 (rate/Bredt 1.0031 with
+      `distortion/|rotation|` 0.008, against 31.6933 and 2.042 for the old
+      minimum-norm field), and `tests/test_multicell_shear_flow.py` reproduces
+      an independently hand-assembled `(n+1)` Bredt-Batho system on an
+      asymmetric two-cell box where the shared web reads back `q_i - q_j`.
+      Two earlier claims stay withdrawn: the `0.74x` / `1.35x` torsional
+      deficit of 1df95fe was a reference mix-up and became a 9% residual once
+      `GJ_static/GJ_deck = 1.068` was measured (verdict 22.10), and the
+      deficit's remaining 2.4x against Zhou's tip torsion is an aero/torque
+      difference, not a stiffness or load-frame one (verdict 22.11: their
+      4.072 Hz first torsion matches our 4.000 Hz to 1.8%).
     consequence: >-
-      A production blade torsional-load number still rides the minimum-norm
-      field, which is sign-correct but not the multi-cell wall flow, so it may
-      not be cited as the multi-cell realisation. Enabling the realisation needs
-      the laminate map on the fluid side, and the multi-cell flow needs an
-      external reference before it can be called independently validated.
-      Pre-fix numbers remain uncitable: before `1146265` the requested section
-      torque was nose-up (`+4.839888e5 N.m`).
+      Blade torsional-load numbers from the production path now ride the wall
+      shear flow of the single closed skin cell instead of the minimum-norm
+      field. **The two states are not comparable**: at an identical per-strip
+      resultant the coupled tip section rotation moves from +2.58 to -27.40 deg
+      and the peak stresses by tens of percent, with the flapwise deflection
+      essentially unchanged. Until that movement is attributed, a production
+      number from either side must say which realisation it rode, the campaign
+      relaunch is a new physical state rather than a re-anchor of the old
+      baseline, and no result may be called validated by this entry. The
+      multi-cell flow itself may still not be cited as a production result, and
+      a rotor-suffixed coupling mesh keeps the minimum-norm fallback. Pre-fix
+      numbers remain uncitable: before `1146265` the requested section torque
+      was nose-up (`+4.839888e5 N.m`).
     citations_forbidden: true
     rows: []
   - id: experimental_validation
@@ -205,8 +239,8 @@ gaps:
       deformation - and it is not quantified here.
     evidence: >-
       `docs/validation_closures.md`, section "#19 y #26: la proyeccion conserva
-      la geometria de referencia..." (2026-10-08); `odd/tasks/coupled-divergence.md`;
-      guard
+      la geometria de referencia..." (2026-10-08);
+      `odd/tasks/coupled-divergence.md`; guard
       `tests/validation/rotor/test_bem_fsi_deformed_geometry.py::test_force_projection_geometry_stays_on_the_reference`.
       The campaign's own projector followed the deformation and contracted
       (`b5d369e`, 500/500 windows), so a deformation-robust derivation of the

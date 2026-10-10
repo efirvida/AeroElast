@@ -166,6 +166,53 @@ root moments and the torsion response, plus the one-way de-loading table against
 declared). Closes when the numbers are in this note with the command and the revision. No
 tolerance is widened and no anchor is retuned to pass; a moved number is the finding.
 
+**Done 2026-10-09, and it changed the item.** The gate case is run at `max-time 5.0` (500
+windows, the scale the roadmap already used for the contraction measurement) because the 30 s
+case takes 2.5 h on a quiet node and ~13 h on a busy one; the response is essentially static
+inside the first window, so 5 s separates the two realisations. Case copy: `$SCRATCH/bfs16/case5s`
+(the gate's own YAMLs with absolute data paths and `max-time 5.0`), job `$SCRATCH/bfs16/run_ab.srm`,
+A = fluid from the worktree at `bd8237d` (`$SCRATCH/bfs16/wt-bd8237d`), B = fluid from this tree,
+same solid tree in both. Comparison: `$SCRATCH/bfs16/compare_ab.py` (reports) and
+`$SCRATCH/bfs16/field_ab.py` (the last window's `fields.vtu`).
+
+| quantity (mean over t in [2.5, 5.0] s) | A (minimum-norm) | B (wall-flow) | B vs A |
+| --- | --- | --- | --- |
+| thrust | 2.492465 MN | 2.486703 MN | **-0.232 %** |
+| torque / power | 19.208218 MN.m / 15.186673 MW | 19.103630 MN.m / 15.103982 MW | **-0.547 %** |
+| tip disp X (edgewise) | -1.445670 m | -1.327938 m | **-8.866 %** |
+| tip disp Y (flapwise) | 16.324849 m | 16.354168 m | +0.179 % |
+| max nodal force | 168.460 N | 194.999 N | **+13.610 %** |
+| `TOP` von Mises | 2683.231 MPa | 2164.805 MPa | **-23.948 %** |
+| `MID` von Mises | 954.076 MPa | 746.146 MPa | **-27.867 %** |
+| `BOT` von Mises | 155.457 MPa | 187.364 MPa | **+17.029 %** |
+| tip section rotation, `ROTZ` | +2.583 deg | **-27.404 deg** | **-29.99 deg** |
+| tip section rotation, best-fit | +1.208 deg | **-9.270 deg** | **-10.48 deg** |
+| applied aero force, L2 | 9.9359e3 N | 1.6528e4 N | **+39.9 %** |
+
+The twist difference is **distributed**, not local: it grows from ~0 at the root to ~-10 deg at
+the tip (the best-fit profile, slice by slice), i.e. an integrated torsional load-path difference,
+and the flapwise deflection moves by 0.2 % while the section rotation moves by 600 %.
+
+**What this does not settle.** The activation moves the coupled rotation field by a *first-order*
+amount with a **sign flip** (+2.58 -> -27.40 deg of `ROTZ`, best-fit +1.21 -> -9.27 deg) while the
+resultants (`sum F` per strip, exact to 1e-15 in the guard) and the flapwise deflection barely
+move. There is no independent arbiter for the load *distribution* on a blade: group 31 validates
+the realisation on a closed tube against Bredt (rate/Bredt 1.0031 for the wall flow against 31.69
+for the minimum-norm field), but that measurement points the *other* way - there the minimum-norm
+field twisted the tube far too much. Two readings are open and neither is measured yet: (a) the
+wall flow delivers the strip's torsion as a genuine couple into the closed skin cell, so the blade
+finally twists by its GJ while the minimum-norm field leaks the moment into non-torsional skin
+deformation - i.e. B is the physical one; or (b) the tangential wall flow excites the shell's
+rotational DOFs in a way the minimum-norm pattern does not, and the 30 deg is an artefact. The
+zero-thickness shell has a drilling rotation with no physical stiffness, which is the first thing
+to audit. Also unmeasured: the prediction in this note's first version - the one-way de-loading
+table against Zhou et al. 2025 was **not** re-run (production couples the skin only, the table's
+harness uses the full mesh), so nothing here confirms or refutes it.
+
+**Not a refinement.** Declaring `reference_projection_geometry_approximation`-style "two moves" is
+not enough here: the campaign numbers after this activation are a *different physical state*, not
+the old one with a corrected load frame.
+
 **T6 - store and closure.** Row(s) for the activated realisation, `gaps.yaml`
 `moment_realization_over_delivers` narrowed to what production now does (and the multi-cell limit
 it still does not do: web nodes are not in the coupling mesh), the section in
