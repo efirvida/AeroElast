@@ -244,13 +244,17 @@ after the arbiter's first run:
    reading dominates the coupled blade's torsion path. That is the next thing to measure, not the
    comparand.
 
+   > **Corrected 2026-10-10 by T7.** Measured, it does not dominate: the centrifugal/inertial path carries
+   > **0.1-0.4 %** of the aero axial moment and **6-16 %** of the aero's twist contribution. The frame mix
+   > diagnosed in §T7 is exactly what would have made it look otherwise. See §T7.
+
 So the arbiter's order changed: **(a)** quantify the centrifugal torsional moment on this mesh and check
 its sign and size against the aero torque above -- if it dominates, the comparison is a different
 question than the one T2 posed; **(b)** only then re-open the comparand, whose only remaining live issue
 is the outer-span estimator divergence (98-104 m); **(c)** the settled activated run at campaign scale is
 still needed for any of it to become a coupled number; **(d)** the reference's +-0.6 deg cycle stays the
 tolerance floor. The activation decision still sits where the 2026-10-10 branch put it: activation off,
-#16 open.
+#16 open. Item (a) is now done: its answer is §T7 (and it is not the centrifugal term).
 
 ## T6 — the arbitrer's first run: a control, and a beam reference that refuses (2026-10-10)
 
@@ -287,6 +291,133 @@ aero torque at all -- something bigger and opposite acts on the torsion path. Th
 centrifugal term (`include_centrifugal: true` in the case), which a beam comparison of this form cannot
 arbitrate because it is missing on the beam side too.
 
+> **Note added by T7 (2026-10-10).** The numbers above were computed with the saved force field used
+> as-is against rotating-frame coordinates. That is a frame mix (§T7), but for the aero field it is
+> almost harmless: 99.7 % of the aero force is axial (the rotation axis `y`), so a rotation about `y`
+> leaves it invariant. Under the frame-correct field the same instrument gives `M_z = +0.5414` instead of
+> `+0.5565 MN.m` at 1.4 m and a beam band mean of `+5.0007` instead of `+5.0946 deg` at t = 15 s -- a
+> 2-3 % shift, not a sign flip. The observation below therefore stands. What the mix **would** have
+> destroyed is the measurement §T7 was asked for: on the same tolerance it reports `-0.4787 MN.m` of
+> centrifugal axial moment where the true value is `+0.0044`.
+
+
+## T7 — the centrifugal torsion, measured: it is not the missing term (2026-10-10)
+
+Probe: `$SCRATCH/bfs16/wf_p2b_diag/probe_centrifugal_torsion.py`; logs
+`logs/tmp_p2b_cf_torsion_n40_beam.txt` (and `..._basefix_n40.txt` for the `n_slices` sweep). Every number
+is read from the runs' own saved fields and the production classes; nothing is re-derived from a
+reimplementation. The four load-bearing numbers were independently re-derived from the raw `.vtu`/`.npz`
+by a second reader and all four reproduced exactly.
+
+### The frame of the saved fields, and why it decides the answer
+
+`fields.vtu` `points` are the **rotating** frame (reference mesh + `U`), but the step callback writes
+`F_INERTIAL`, `F_GRAVITY` and `F_TOTAL` **after** `to_inertial(..., theta)` (`rotor.py:2261-2279`), and
+`F_AERO` is `f_aero_full_global`. All four are the **inertial** frame -- `F_TOTAL = F_AERO + F_INERTIAL +
+F_GRAVITY` holds to 1.5e-12 in that frame -- while the coordinates are the rotating one. The rotation axis
+is `(0,1,0)` (the case YAML's `rotation_axis`).
+
+That mix is asymmetric between the fields, and it is the whole story of the wrong hypothesis:
+
+* the aero resultant is 99.7 % axial -- `sum F = (-0.086, +1.132, 0) MN`, axial meaning the rotation axis
+  `y` -- and a rotation about `y` leaves it invariant, so the mix moves its blade-axis moment by ~3 %
+  (`+0.5565` -> `+0.5414 MN.m` at z = 1.4 m at t = 15 s) and the beam twist derived from it by 2 %
+  (`+5.0946` -> `+5.0007 deg`);
+* the centrifugal force lies **entirely** in the rotation plane (`r_perp = (x, 0, z)`, so `F_y` is zero
+  exactly), and the rotation moves all of it: taken as saved against rotating coordinates it reports
+  **`-0.4787 MN.m`** of blade-axis moment at t = 5 s, where the correctly transformed field carries
+  **`+0.0044 MN.m`**. The frame mix *invents* the missing opposite-sign term the hypothesis was looking
+  for.
+
+Controls that pin the frame down, all on the saved data (`base_fix`, t = 5 s, `theta = 3.953171 rad`):
+
+| control | result |
+|---|---|
+| `F_GRAVITY = m g`, `g = (0, 0, -9.81)` | total **70.7892 t**, the blade mass; it also yields the nodal masses (`F_x`, `F_y` zero to 1e-14) |
+| `to_rotating(F_INERTIAL)` vs `m omega^2 r_perp` | residual **127 N of 9992 N = 1.27 %** (velocity-dependent Coriolis), rotating-frame sum **`(-1.9e4, 0, +1.19644e6) N`** -- span-positive, `F_y = 0` exactly |
+| frame handling of the moment: `R M_rotating` vs `M_inertial` | **7.9e-07 N.m** against a 5.7e7 scale |
+
+### The axial moment each path carries
+
+Cumulative outboard moment about the blade span axis, taken about each section's own ring centroid
+[MN.m], `base_fix` t = 5 s, frame-correct:
+
+| z [m] | AERO | INERTIAL | GRAVITY | TOTAL |
+|---|---|---|---|---|
+| 11.7 | +0.2570 | +0.0044 | -0.0733 | +0.1881 |
+| 35.1 | +0.7018 | -0.0029 | -0.1121 | +0.5867 |
+| 70.2 | +0.5354 | -0.0012 | -0.0464 | +0.4878 |
+| 105.3 | +0.0867 | -0.0000 | -0.0012 | +0.0855 |
+
+**The centrifugal/inertial path carries 0.1-0.4 % of the aero axial moment** (`|−0.0029| / 0.7018` at
+35.1 m). Gravity, not the centrifugal term, is the second contributor: `-0.1121 MN.m`, 16 % of the aero at
+that station, and it changes sign with azimuth (below).
+
+### The relative weight in the torsion path
+
+Linear static solve, material `K`, clamped root, on the campaign mesh (0.25 m, index-wise identical to
+the run's own `solid_mesh.vtu`), each frozen field **alone** rotated back to the rotating frame; band mean
+over `0.3-0.9 * 117 m` of `section_twists_deg` at **`n_slices = 40`**, the recorded S-7 configuration
+(the control reproduces **`+0.9396`** on this same mesh):
+
+| t [s] | theta [rad] | AERO | INERTIAL | GRAVITY | TOTAL, static | coupled run's own `U` | static/coupled |
+|---|---|---|---|---|---|---|---|
+| 1 | 0.791 | -1.0568 | -0.0606 | +0.2337 | -0.8836 | -0.8673 | 1.019 |
+| 5 | 3.953 | -0.4530 | -0.0659 | -0.2381 | -0.7570 | -0.7429 | 1.019 |
+| 15 | 11.860 | -0.4031 | -0.0637 | -0.1938 | -0.6605 | -0.6545 | 1.009 |
+| 25 | 19.766 | -1.0519 | -0.0614 | +0.2584 | -0.8549 | -0.8369 | 1.022 |
+
+Superposition is exact (the band means sum to `TOTAL` to 4 decimals), so this is a decomposition and not
+an approximation of it.
+
+Three results, in order of how much they change #16:
+
+1. **The centrifugal/inertial torsion is 6-16 % of the aero's twist contribution and ~8-10 % of the total**
+   (`-0.061 .. -0.066 deg` against the aero's `-0.40 .. -1.05`). It is neither negligible nor the missing
+   term; the phrase to retire is "dominates the coupled blade's torsion path".
+2. **Gravity is the second path and it flips sign with azimuth**: `+0.234 / -0.238 / -0.194 / +0.258 deg`
+   at t = 1 / 5 / 15 / 25 s, i.e. 26-32 % of the total. Most of the azimuthal swing of our coupled twist
+   is gravity, not the realization. (`t = 1` and `t = 25` sit at nearly the same azimuth three rotor
+   periods apart, and their gravity terms agree to 10 %.)
+3. **The static answer to the frozen total load reproduces the coupled twist to 1-2 % at every sampled
+   instant** (last column). At these instants the coupled section twist *is* the quasi-static response to
+   the instantaneous applied load field; the dynamic and inertia bookkeeping add ~1-2 %.
+
+### What still refuses, and what is now excluded
+
+With the frame handled correctly, the beam reference `integral M_z/GJ` over the **aero** moment gives
+`+6.69 / +6.42 / +2.44 deg` at t = 5 / 15 / 25 s against the shell's own static answer to that same aero
+field, `-0.45 / -0.40 / -1.05 deg`: **opposite sign, 2.3x to 16x in magnitude**. T6's core observation
+survives the frame fix -- the applied axial aero moment is not what sets the shell's section rotation --
+and the centrifugal term is now excluded rather than hypothesized. Candidates that remain, none measured
+here:
+
+* the **geometric bend-twist coupling** of the pre-twisted blade under the large flapwise load, which acts
+  through the section's rotated principal axes and not through `M_z`;
+* the **load application point**: the aero resultants are applied to the shell nodes, so the moment about
+  the section's *shear centre* (offset from the centroid by the composite layup) differs from the `M_z`
+  above -- the suspect the 2026-09-24 parity audit already named first;
+* the beam reference's own `GJ` weighting, whose outermost stations are degenerate.
+
+### Two traps this cost
+
+* **`n_slices` is not cosmetic.** On the same coupled field at t = 15 s the band mean of
+  `section_twists_deg` is **`+1.2425 deg` at `n_slices = 9`** and **`-0.6545 deg` at `n_slices = 40`**
+  (13 m against 2.9 m bands; a wide band mixes the bending slope into the rotation). The S-7 control
+  barely notices (`0.9541` against `0.9396`), so a torsion-only control does **not** certify the estimator
+  on a deflected blade. Any quoted section twist must state `n_slices`; 40 is the recorded configuration.
+* **A frame mix can look like physics.** See above: it fabricated exactly the term the hypothesis named,
+  at the right order of magnitude and the right sign.
+
+### Verdict
+
+The centrifugal torsion is measured: small (6-16 % of the aero path, 0.1-0.4 % of the aero axial moment),
+consistently nose-up with the aero, and not what makes the shell answer opposite to its own aero torque.
+#16's position is therefore where T5 left it minus one candidate: the cheap rung still cannot decide, the
+settled activated run is still missing, and the comparand's live issue is the refusal of the beam
+reference against the shell's response to the **same** aero field -- a load-application / bend-twist
+question, not a centrifugal one.
+
 
 ## Traps
 
@@ -305,7 +436,14 @@ arbitrate because it is missing on the beam side too.
 - On a distorting shell, "the section twist" is not unique: `section_twists_deg`, the affine fit's
   rotation and the chord-line rotation are three different numbers on the same ring, and here they
   disagree in sign. Name the estimator, never quote one as *the* twist (the same discipline as "never
-  widen a pass band").
+  widen a pass band"). `n_slices` belongs to the name: at 9 bands the band mean of the coupled field at
+  t = 15 s is `+1.2425 deg`, at the recorded 40 bands it is `-0.6545 deg` (T7).
+- **The saved force fields and the saved coordinates are in different frames.** `fields.vtu` `points` are
+  the rotating frame; `F_INERTIAL`, `F_GRAVITY`, `F_TOTAL` and `F_AERO` are the inertial one
+  (`rotor.py:2261-2279`). The mix is harmless for the aero field (99.7 % of it is along the rotation axis)
+  and destructive for the inertial one (all of it lies in the rotation plane): it invents `-0.4787 MN.m`
+  of centrifugal axial moment where the frame-correct value is `+0.0044` (T7). Rotate to the rotating
+  frame before pairing a field with the coordinates.
 - The A and B runs stop at t = 5 s, which is the load maximum of the ~5 s cycle: a phase, not a mean.
 - `RotThrust` is kN and `RotTorq` kN-m in this deck, and `TipDxc1`/`OoPDefl1` are `INVALID` under
   `CompElast = 2`; the blade-1 nodal **force** channels are not written, so the reference's per-blade
