@@ -1176,3 +1176,125 @@ completa), así que la predicción del doc de feature sigue sin confirmar.
 `run_aero_fsi` → `build_aero_participant_from_config`. Commits: `a0b9a37` (RED), `fe6ca30`
 (`subset_to_nodes`), `756a3b2` (elementos en la malla), `81a1e15` (mapa al projector), `790b80e`
 (el hop del dispatcher), `2028dc8` (store), y el commit de parqueo (config key + guard).
+
+### #30: el movimiento acoplado del wall-flow está atribuido — es respuesta estructural al patrón, no la carga (2026-10-10)
+
+Ítem P2 del roadmap de #18. #30 nacía de la parqueada de #16: con la realización wall-flow activada,
+la rotación de sección de punta del caso gate se movía `+2.583 → -27.404°` (`ROTZ`) / `+1.208 →
+-9.270°` (best-fit) **con el resultante por strip idéntico**, y nada lo atribuía. Se cierra con
+cuatro mediciones, bajo la misma regla con la que se escribió el ítem: cada hipótesis primero recibe
+una sonda estática o de un solo participante, y **el A/B acoplado de 5 s (5 h de cola) no se volvió a
+correr**.
+
+**T1 — el Transfer no es el mecanismo (resultado nulo).** Las tres corridas imprimen el mismo bloque
+de preCICE: `nearest-neighbor`, `Mapping distance min:0 max:0 avg: 0 var: 0 cnt: 27609` en **ambas**
+direcciones. Verificado por fuera con `meshio`: `fluid_mesh.vtu` y `solid_mesh.vtu` son el mismo
+conjunto de 32325 puntos (`max = 0.0`), y no hay conectividad declarada en ningún lado
+(`set_mesh_vertices` solamente). Un mapeo de orden superior devolvería el mismo vector salvo
+redondeo. El prior del usuario (que `nearest-neighbor` pierde el patrón) sigue siendo válido **donde
+los meshes no coinciden** — sus casos OpenFOAM — y eso es otra observación, no #30.
+
+**T2 — el wall flow ES Bredt sobre la sección del propio deck; el que sobre-entrega es el
+mínimo-norma.** Sonda `tools/diagnose_section_moment_realization.py`, control = el rectángulo del
+grupo 31, tratamiento = el anillo de piel del deck en `z ≈ 40 m` (51 nodos), extruido a `L = 30.268 m`,
+ventana interior `(0.4L, 0.9L)`, `T = 1e4 N·m`, referencia Bredt con el `A66` propio de cada pared:
+
+| forma | realización | BC | rate/Bredt | distorsión rms/dim |
+| --- | --- | --- | --- | --- |
+| rectángulo (control) | wall flow | self-eq | **1.00309** | 1.270e-7 |
+| rectángulo | mínimo-norma | self-eq | **31.69331** | 1.0649e-3 |
+| rectángulo | wall flow / mínimo-norma | clamped | 0.99156 / **10.40654** | 5.204e-6 / 6.0596e-4 |
+| **aire del deck (51 nodos)** | wall flow | self-eq | **0.95943** | 4.1267e-6 |
+| aire del deck | mínimo-norma | self-eq | **1.65658** (sube con el conteo de nodos) | 7.4327e-5 |
+| aire del deck | wall flow / mínimo-norma | clamped | 0.96089 / 1.56841 | 4.0818e-6 / 7.7050e-5 |
+
+Referencia del aire: `A = 5.0655 m²`, `GJ = 4.623668e8 N·m²`, `θ' = 2.162785e-5 rad/m` (suma armónica
+del `A66` por pared, que varía 16.8x en el perímetro). El wall flow queda en Bredt en **las dos**
+formas (0.96–1.00, distorsión 4e-6): la lectura "es un artefacto de los DOF de drilling" queda
+**refutada en el camino de torsión**. El mínimo-norma sobre-entrega en toda sección no circular. La
+hipótesis de elongación de la nota de feature queda refutada: el aire es más elongado que el
+rectángulo y diverge mucho menos; el driver es el desajuste radio-vs-tangente en los nodos de
+discretización.
+
+**T3b — el par aplicado no invierte el signo; la amplificación es estructural.** Dos sondas, ninguna
+de ellas una campaña.
+
+*Parte 1* (`tools/diagnose_wall_flow_pattern_ab.py`, lee los `fields.vtu` de A y B, no resuelve nada).
+Primero, dos hechos que hay que verificar antes de tocar estos archivos: `points == solid_mesh.vtu +
+U` **index a index** (7e-15) en los dos runs, y `A/solid_mesh.vtu == B/solid_mesh.vtu` bit a bit
+(32325 nodos) — o sea que la geometría de referencia es compartida y comparar `points` entre runs es
+comparar deformadas (0.73 m de diferencia), no mallas. Y el `F_AERO` guardado está en el frame de
+referencia/rotante, no inercial (axial share vs el eje de pala `5.3e-3`; rotarlo por `R(-θ)` sobre
+`Y` lo sube a `1.3e-1`).
+
+| cantidad | A (mínimo-norma) | B (wall flow) |
+| --- | --- | --- |
+| `\|F_AERO\|` L2 | 9935.9 N | 16528.3 N (**1.664x**) |
+| campo diferencia `F_B - F_A` | L2 `1.326e4` N = **133.4 % de A**, mueve `27609/27609` nodos | resultante global difiere `0.45 %` |
+| momento torsor acumulado (lo que tuerce una sección empotrada) | `5.941e5` N·m | `6.497e5` N·m (**+9.4 %**, mismo signo) |
+
+El exceso se entrega fuera de `z ≈ 78 m`. La respuesta no acompaña: con `1.09x` el par, B gira
+`2.6x` más que A (`-15.76` vs `-6.05°`, brazos de referencia, en el anillo de punta), con distorsión
+normalizada `7.94e-2` vs `5.35e-2` y RMS de rotación nodal sobre el eje de sección `1.04` vs `0.245`
+rad en `z = 109 m`.
+
+*Parte 2* (`tools/diagnose_wall_flow_static_ab.py`): el campo `F_AERO` **congelado** de cada corrida,
+aplicado a la malla de producción en un solve **estático lineal** — sin dinámica y sin feedback aero.
+La malla se regenera con los parámetros del propio caso y sale **index a index idéntica** al
+`solid_mesh.vtu` de los runs (drift `0.0`), así que el campo se mapea nodo a nodo; `RootNodes`
+empotrado como en el `dirichlet` del caso. Control: la deflexión estática reproduce la acoplada
+(`max|u|` 23.63 / 23.35 m contra 24.10 / 23.63 m). Con el par aplicado en el anillo de punta
+diferiendo `+4.5 %`, en la ventana de pala externa `z ∈ [93.6, 112.3] m` la rotación afín de sección
+de B es **mediana 1.98x** la de A (rango 1.02–3.20), la rotación rígida **3.31x** (1.41–4.43) y la
+distorsión `1.77x`. El `2.6x` acoplado cae adentro de ese rango: **el mecanismo es la respuesta
+estructural al patrón y no necesita el lazo acoplado**. Estaciones testigo: `z = 104.52 m` → `2.52x`
+(afín) y `3.57x` (rígida).
+
+**Caveat que toca al titular del issue.** El anillo de punta tiene 16 nodos y radio medio `0.176 m`, y
+el centroide deformado queda a ~24 m del de referencia, así que cualquier best-fit que mezcle brazos
+de referencia con centroide deformado degenera (`-0.0004°`). El mismo punto da `-6.05 / -15.76`
+(brazos de referencia), `-5.98 / -15.01` (brazos deformados), `+5.71 / -9.58` y `+2.33 / -3.88`
+(outer 5 % del span), y el `+1.208 / -9.270` del issue sale de otra construcción (media del perfil
+interpolado de 40 slices). **El valor absoluto de la punta y hasta su signo dependen del estimador**;
+el signo del cambio y el DOF crudo (`ROTZ` medio) no. Toda cifra de rotación de sección de este issue
+debe nombrar su estimador, y el anillo final no decide ningún ratio (distorsión 0.65–1.0, totalmente
+distorsionado).
+
+**T3 — el over-delivery del mínimo-norma queda pineado en el repo.**
+`tests/validation/parity/test_thin_walled_tube_moment_realization.py::test_minimum_norm_realisation_over_delivers_bredt_by_the_recorded_factor`
+ejecuta el `31.69` de la nota T6 sobre el tubo cerrado validado: `31.69331x` Bredt auto-equilibrado
+(`8.719852e-4` rad/m) y `10.40654x` empotrado (`2.863174e-4`), con `distortion/|rotation| = 2.042`
+contra `0.008` del wall flow. El `1.65658x` del anillo del deck queda como medición de sonda:
+promoverlo pediría construir el tubo extrusionado dentro de un test, y T3 fijaba el tubo cerrado
+validado como árbitro, no una construcción nueva.
+
+**Veredicto.** El movimiento acoplado **no** es un cambio de signo del estado de carga ni un artefacto
+del Transfer: es la **respuesta estructural al patrón** de la realización. El resultante es el mismo
+y el par torsor aplicado es `+9 %` mayor y del mismo signo; lo que cambia es que el patrón wall-flow
+— tangencial y concentrado en las paredes — es respondido con `2–3.3x` la rotación de sección
+(estático, campo congelado, sin dinámica ni feedback aero) y con más distorsión de sección. El `ROTZ`
+crudo que titulaba el issue (`+2.583 → -27.404°`) sí invierte el signo, pero es un DOF **nodal**
+(`src/aeroelast/solvers/checkpoint.py:34-35`), no una rotación de sección: es el contenido de
+drilling que el patrón tangencial excita `4–10x` más, y es la lectura 2 del issue ganando evidencia
+en el camino acoplado — donde T2 la había refutado en el de torsión pura. La lectura 1 se sostiene en
+el camino de torsión: el wall flow es Bredt en las dos secciones con referencia y el mínimo-norma
+es el que sobre-entrega.
+
+**Lo que no cambia.** Las reglas del gap siguen: una corrida con la realización activada debe
+declararlo en sus propios resultados, **no** se puede comparar con una de mínimo-norma como si fuera
+el mismo estado, y no puede llamar validado su twist. Ahora tienen mecanismo medido, no solo
+magnitud. El A/B de 5 s no se re-corrió; el costo de una campaña activada sigue siendo una decisión
+de #16.
+
+**Sin fila nueva en el store, a propósito.** El pin del mínimo-norma es una aserción **desnuda** y no
+un `assert_relative_error`: las comparaciones del store necesitan una referencia independiente que la
+medición deba *cumplir*, y Bredt es la que este campo **falla**, así que registrarlo vestiría un
+defecto de validación. `check`: 211 filas / 277 comparaciones / 0 errores / 0 warnings, sin cambios.
+El `provenance_note` del grupo 31 se corrigió: describía una aserción mínimo-norma que no existía en
+el archivo.
+
+**Re-ejecutar si cambia**: `ForceProjector._distribute`, `realise_section_load`,
+`_realise_multi_cell_section_load`, la malla de acople (`element_size`), o el camino de proyección.
+Sondas: `tools/diagnose_section_moment_realization.py` (T2), `tools/diagnose_wall_flow_pattern_ab.py`
+(T3b parte 1), `tools/diagnose_wall_flow_static_ab.py` (T3b parte 2). Commits: `dccf9e2`, `a890b30`
+(T1/T2), `5b80b7c`, `d376d4c` (T3b-1), `113b135`, `4b5ea82` (T3b-2), `9152e2b`, `40f8978` (T3).
