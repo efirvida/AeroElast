@@ -683,7 +683,36 @@ groups:
     slug: laminate_bend_twist
     source_files:
       - tests/validation/blade/test_laminate_bend_twist.py
-
+    non_validation_tests:
+      - tests:
+          - test_abd_is_the_single_source_of_truth
+        reason: >-
+          Wiring, not a comparison: it asserts that the ABD handed to the
+          element is the same laminate object the references are computed
+          from, plus two properties of that layup (B vanishes, D16 does not).
+          Nothing in it is measured against an independent value.
+      - tests:
+          - test_d16_zero_control_gives_zero_twist
+        reason: >-
+          A decoupled control: with D16 = D26 = 0 our own coupon must not
+          twist. It asserts that nothing happens, which is a property of the
+          model and not an agreement with a reference, like the two controls
+          the row file already excludes by line.
+      - tests:
+          - test_metric_sensitivity
+          - test_ratio_deviation_shrinks_with_width_refinement
+          - test_mesh_convergence_of_the_twist_ratio
+        reason: >-
+          Self-convergence: three twist metrics agreeing with each other, and
+          the twist (or its ratio to the free-edge state) settling in the
+          Cauchy sense as the mesh is refined. Each compares our model with
+          itself on another mesh or metric and carries no tolerance against
+          the reference; the agreement with the reference is in the rows.
+      - tests:
+          - test_report_bend_twist_table
+        reason: >-
+          No assertion: it prints the issue's sweep so the tables in
+          `odd/tasks/composite-bend-twist-verdict.md` can be regenerated.
     provenance_note: >-
       Issue #9's coupon, rebuilt to pin down the definitions the original
       report left implicit. Four comparisons are against the free-edge CLT
