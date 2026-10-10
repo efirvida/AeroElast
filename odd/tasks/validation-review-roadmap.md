@@ -44,10 +44,14 @@ layer that `extract` and `coherence` never write:
 - `docs/validation/contract.yaml`
   - holds one verdict per audited row: class, verdict, audited revision and the files it
     depends on;
-  - a verdict whose files change after its audited revision turns **stale** automatically.
+  - a verdict turns **stale** automatically when anything it rests on changes after its audited
+    revision: its test, its listed reference files, or the code and data its level declares in
+    `depends_on` (element sources for L1, the solver for L2, the mesh generator and the decks for
+    L3, ...), including the levels it requires.
 - `python tools/validation_matrix.py contract [--level Ln] [--rows]` reports, per level, what is
   trusted, stale, undecided, unaudited, absent or over the ceiling. A level is **closed** only
-  when nothing in it is open.
+  when nothing in it is open **and every level it requires is closed**. The tool enforces this
+  and prints `blocked by Lk`.
 
 Day 0 (`a20a78b`): every row is **unaudited**. 280 of the 285 comparisons carry a
 `justified: true` that extraction filled in, so that flag is not a judgement.
@@ -61,7 +65,8 @@ Day 0 (`a20a78b`): every row is **unaudited**. 280 of the 285 comparisons carry 
 | L5 | Coupling between domains (preCICE) | 11 | 5 | 0 | 2 |
 | L6 | Coupled IEA 15 MW FSI | 0 | 4 | 0 | 3 |
 
-**Each level conditions the next.** A finding is argued on the lowest level where it appears,
+**Each level conditions the next**, and the tool enforces it through `requires`. The default
+is every lower level; L4 (pure BEM against AeroDyn) requires none. A finding is argued on the lowest level where it appears,
 and it suspends every conclusion above it that uses the same element, solver or path.
 
 ## How an item is worked
@@ -86,14 +91,14 @@ and it suspends every conclusion above it that uses the same element, solver or 
 | A3 | #23 and the three failing `references` tests (line drift) | `references check` and the non-slow tool suite are green |
 | A4 | #31: group 26 has six undeclared tests | `regression --group 26` exits 0 |
 | A5 | Rows with `rtol 1.0` (groups 24, 25), probably extraction misreads | each is corrected or classed as an identity |
-| A6 | Import the absent anchors (S-0..S-6, V-01/03/05, the #19/#26 guards, the BEM frame and polars) | `contract` reports 0 absent rows that exist as tests |
+| A6 | Import the absent anchors (S-0..S-6, V-01/03/05, the #19/#26 guards, the BEM frame and polars) | `contract` reports 0 absent rows that exist as tests. A path-only absent entry cannot take a verdict; only importing it clears it |
 | A7 | `AGENTS.md`: stale S-7 anchor; `test_rotor_inertial.py` is said to be removed but exists | the text matches the tree |
 
 ### B. Review, level by level (bottom-up; produces verdicts, not fixes)
 
 | # | Item | Closes when |
 | --- | --- | --- |
-| B1 | Audit L1 | every L1 row has a verdict at one revision; the documented reds (D-Tube, UL elastica, ko2017's 8 failures, frame objectivity) are each an exception with a source, or rejected |
+| B1 | Audit L1 | every L1 row has a verdict at one revision; the documented reds (D-Tube, UL elastica, ko2017's 8 failures, frame objectivity) are each an exception with a source, or rejected; every `atol` comparison (23 in the store) is classed or given a relative equivalent, because the ceiling cannot judge an absolute bound |
 | B2 | Audit L2 | as B1; each CalculiX comparison is shown converged **in both codes** |
 | B3 | Audit L3 | as B1; S-2 (+8.1 %) and V-02 first edge (10 %) carry a quantified exception or are rejected |
 | B4 | Audit L4 | as B1 |
@@ -119,6 +124,19 @@ and it suspends every conclusion above it that uses the same element, solver or 
 | L5 | A published FSI benchmark with OpenFOAM. Candidate: the preCICE perpendicular flap. Feasibility is unverified: there is no SOLID family, so the flap must run as a shell or PLANE strip |
 | L6 | A coupled rated run against OpenFAST coupled (ElastoDyn/BeamDyn + AeroDyn) at the same operating point |
 | L6 | A published IEA 15 MW coupled reference to replace Zhou 2025 (declared non-transferable in #14) |
+
+## Open scope decision (maintainer)
+
+A level closes only with no gap listed, whatever the gap's status. Two consequences need a
+decision before B-audits close levels:
+
+- `experimental_validation` sits on L6, so **L6 can never close**. The stated scope is
+  published results, theory and other codes, not experiment.
+- `bounded` gaps, such as L2's `composite_stress_recovery`, block the same way as
+  `not_validated` ones.
+
+Options: a gap blocks its level, or it is shown as a non-blocking caveat. This can be decided
+per status or per gap.
 
 ## Standing caveats (carried over from #18)
 

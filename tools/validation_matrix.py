@@ -3828,7 +3828,7 @@ def command_kinds(args: argparse.Namespace) -> int:
 # +-30 % band justified that way, five times the effect it named, and could not see a
 # direction inversion (72f64de).
 
-LEVEL_KEYS = {"id", "title", "scope", "groups", "gaps", "absent"}
+LEVEL_KEYS = {"id", "title", "scope", "groups", "gaps", "absent", "depends_on", "requires"}
 LEVEL_FILE_KEYS = {"version", "ceiling", "levels"}
 ABSENT_KEYS = {"evidence", "reason"}
 CONTRACT_FILE_KEYS = {"version", "verdicts"}
@@ -3887,6 +3887,13 @@ def load_levels(store: Store) -> dict[str, Any] | None:
         for gap_id in level.get("gaps") or []:
             if gap_id not in store.gaps:
                 store.error(where, f"unknown gap: {gap_id!r}")
+        for dependency in level.get("depends_on") or []:
+            if not isinstance(dependency, str) or not (REPO_ROOT / dependency).exists():
+                store.error(where, f"depends_on names no file or directory: {dependency!r}")
+        lower = [str(item.get("id")) for item in data["levels"][:index] if isinstance(item, dict)]
+        for required in level.get("requires") or []:
+            if required not in lower:
+                store.error(where, f"requires {required!r}, which is not a lower level")
         for item in level.get("absent") or []:
             if not isinstance(item, dict) or _unknown_keys(item, ABSENT_KEYS):
                 store.error(where, "an absent entry is a mapping of 'evidence' and 'reason'")
@@ -3968,9 +3975,17 @@ def load_contract(store: Store) -> list[dict[str, Any]]:
     return verdicts
 
 
-def _verdict_files(entry: dict[str, Any], ref: RowRef | None) -> list[str]:
-    """The files a verdict depends on: its own list plus the test files of its row."""
+def _verdict_files(
+    entry: dict[str, Any], ref: RowRef | None, level_files: list[str] | None = None
+) -> list[str]:
+    """The files a verdict depends on: its own list, the test files of its row, and the code
+    and data its level (and every level it requires) declares in `depends_on` -- a verdict on
+    an element benchmark has to expire when the element changes, not only when the test does.
+    """
     files = list(entry.get("files") or [])
+    for path in level_files or []:
+        if path not in files:
+            files.append(path)
     nodes = list(ref.data.get("tests") or []) if ref is not None else []
     if ref is None and "::" in entry["target"]:
         nodes.append(entry["target"])
@@ -3979,6 +3994,22 @@ def _verdict_files(entry: dict[str, Any], ref: RowRef | None) -> list[str]:
         if path not in files:
             files.append(path)
     return files
+
+
+def level_requirements(levels: list[dict[str, Any]]) -> dict[str, list[str]]:
+    """Each level's transitive requirements; `requires` defaults to every lower level."""
+    closure: dict[str, list[str]] = {}
+    for index, level in enumerate(levels):
+        direct = level.get("requires")
+        if direct is None:
+            direct = [str(item["id"]) for item in levels[:index]]
+        found: list[str] = []
+        for required in direct:
+            for item in [*closure.get(required, []), required]:
+                if item not in found:
+                    found.append(item)
+        closure[str(level["id"])] = found
+    return closure
 
 
 def changed_since(rev: str, files: list[str]) -> list[str] | None:
@@ -3998,7 +4029,10 @@ def changed_since(rev: str, files: list[str]) -> list[str] | None:
 
 
 def contract_status(
-    ceiling: float, verdict: dict[str, Any] | None, ref: RowRef | None
+    ceiling: float,
+    verdict: dict[str, Any] | None,
+    ref: RowRef | None,
+    level_files: list[str] | None = None,
 ) -> dict[str, Any]:
     """One row's (or absent anchor's) standing under the contract."""
     over: list[tuple[str, str, float]] = []
@@ -4016,7 +4050,9 @@ def contract_status(
     klass = verdict.get("class")
     state = verdict.get("verdict")
     if state in ("trusted", "exception", "rejected"):
-        commits = changed_since(str(verdict.get("audited_rev")), _verdict_files(verdict, ref))
+        commits = changed_since(
+            str(verdict.get("audited_rev")), _verdict_files(verdict, ref, level_files)
+        )
         if commits is None:
             commits = ["<audited_rev does not resolve>"]
         if commits:
@@ -4039,8 +4075,9 @@ def command_contract(args: argparse.Namespace) -> int:
     """Per level: how much of the store is trusted, stale, undecided, unaudited or absent.
 
     Read-only. A level is `closed` only when every row on it is trusted (or a valid exception),
-    nothing is stale, undecided, rejected, unaudited, absent or over the ceiling, and it lists
-    no gap.
+    nothing is stale, undecided, rejected, unaudited, absent or over the ceiling, it lists no
+    gap, and every level it requires is closed: a finding on a lower level suspends the levels
+    built on it.
     """
     store = load_store(args.store)
     levels = store.levels
@@ -4057,18 +4094,26 @@ def command_contract(args: argparse.Namespace) -> int:
     for ref in store.rows:
         rows_by_group.setdefault(str(ref.data.get("group")), []).append(ref)
 
+    requirements = level_requirements(levels["levels"])
+    own_files = {
+        str(level["id"]): list(level.get("depends_on") or []) for level in levels["levels"]
+    }
     report: list[dict[str, Any]] = []
+    # Every level is evaluated, even under --level, because a level's closure depends on the
+    # levels it requires.
     for level in levels["levels"]:
-        if args.level and level["id"] != args.level:
-            continue
+        level_id = str(level["id"])
+        level_files: list[str] = []
+        for source in [*requirements[level_id], level_id]:
+            level_files.extend(path for path in own_files[source] if path not in level_files)
         entries: list[dict[str, Any]] = []
         for group_id in level.get("groups") or []:
             for ref in rows_by_group.get(str(group_id), []):
-                status = contract_status(ceiling, by_target.get(ref.id), ref)
+                status = contract_status(ceiling, by_target.get(ref.id), ref, level_files)
                 entries.append({"target": ref.id, "group": str(group_id), **status})
         for item in level.get("absent") or []:
             verdict = by_target.get(item["evidence"])
-            status = contract_status(ceiling, verdict, None)
+            status = contract_status(ceiling, verdict, None, level_files)
             if verdict is None:
                 status["state"] = "absent"
             entries.append(
@@ -4079,18 +4124,25 @@ def command_contract(args: argparse.Namespace) -> int:
             counts[entry["state"]] = counts.get(entry["state"], 0) + 1
         over = sum(1 for entry in entries if entry["over_ceiling"])
         open_states = set(counts) - {"trusted", "exception", "regression_pin"}
-        closed = bool(entries) and not open_states and not over and not level.get("gaps")
+        own_closed = bool(entries) and not open_states and not over and not level.get("gaps")
+        closed_ids = {item["id"] for item in report if item["closed"]}
+        blocked_by = [required for required in requirements[level_id] if required not in closed_ids]
         report.append(
             {
-                "id": level["id"],
+                "id": level_id,
                 "title": level["title"],
-                "closed": closed,
+                "closed": own_closed and not blocked_by,
+                "own_closed": own_closed,
+                "blocked_by": blocked_by,
+                "requires": requirements[level_id],
                 "counts": counts,
                 "over_ceiling": over,
                 "gaps": list(level.get("gaps") or []),
                 "entries": entries,
             }
         )
+    if args.level:
+        report = [item for item in report if item["id"] == args.level]
 
     if args.json:
         print(json.dumps({"ceiling": ceiling, "levels": report}, indent=2, sort_keys=True))
@@ -4110,6 +4162,8 @@ def command_contract(args: argparse.Namespace) -> int:
     )
     for level in report:
         state = "CLOSED" if level["closed"] else "open"
+        if level["blocked_by"]:
+            state += f", blocked by {' '.join(level['blocked_by'])}"
         parts = [f"{name} {level['counts'][name]}" for name in order if level["counts"].get(name)]
         print(f"{level['id']} [{state}] {level['title']}")
         print(

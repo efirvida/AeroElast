@@ -2378,3 +2378,38 @@ def test_contract_command_writes_nothing(tmp_path: Path) -> None:
     run(store, "contract", "--rows")
     after = {path: path.read_bytes() for path in store.rglob("*") if path.is_file()}
     assert before == after
+
+
+def test_contract_verdict_expires_when_its_levels_code_changes(tmp_path: Path) -> None:
+    # The fixture's test file did not change after AGENTS.md's parent commit, AGENTS.md did:
+    # standing in for the element code, it must expire the verdict only through depends_on.
+    added = _git("log", "--format=%H", "--diff-filter=A", "-n1", "--", "AGENTS.md")
+    rev = _git("rev-parse", f"{added}^")
+    assert not _git("log", "--format=%h", f"{rev}..HEAD", "--", NODE_ID.split("::")[0])
+    level = {"id": "L1", "title": "elements", "scope": "the fixture group", "groups": ["3"]}
+    for depends_on, expected in (([], "trusted"), (["AGENTS.md"], "stale")):
+        store = write_store(tmp_path / expected, [make_row()])
+        write_contract(
+            store, [trusted(audited_rev=rev)], levels=[{**level, "depends_on": depends_on}]
+        )
+        assert contract_report(store)["levels"][0]["entries"][0]["state"] == expected
+
+
+def test_contract_a_level_is_blocked_by_an_open_level_it_requires(tmp_path: Path) -> None:
+    levels = [
+        {"id": "L1", "title": "elements", "scope": "the fixture group", "groups": ["3"]},
+        {
+            "id": "L2",
+            "title": "solver",
+            "scope": "one anchor",
+            "absent": [{"evidence": "tests/test_anchor.py::test_it", "reason": "outside"}],
+        },
+    ]
+    anchor = trusted(target="tests/test_anchor.py::test_it")
+    for row_verdict, l2_closed in (("trusted", True), ("undecided", False)):
+        store = write_store(tmp_path / row_verdict, [make_row()])
+        write_contract(store, [trusted(verdict=row_verdict), anchor], levels=levels)
+        l2 = contract_report(store)["levels"][1]
+        assert l2["own_closed"] is True
+        assert l2["closed"] is l2_closed
+        assert l2["blocked_by"] == ([] if l2_closed else ["L1"])

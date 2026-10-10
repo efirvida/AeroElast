@@ -10,9 +10,15 @@
 # verdict in contract.yaml carries an exception with an independent, quantified source fixed
 # before the measurement.
 #
+# `depends_on` lists the code and data a level's verdicts rest on. A verdict expires when any
+# of them changes after its audited revision -- its level's paths and those of every level it
+# `requires` (default: all lower levels). `requires` is also the gate: a level is closed only
+# when the levels it requires are closed.
+#
 # `absent` lists evidence that exists (or must exist) outside the store, so a level cannot look
 # complete because its anchors were never imported. An absent entry leaves the level open until
-# it is imported as rows, or given its own verdict in contract.yaml by its test node id.
+# it is imported as rows (workstream A6); a path-only entry cannot take a verdict, a test node
+# id (path::name) can.
 version: 1
 ceiling: 0.05
 
@@ -24,6 +30,9 @@ levels:
       on canonical benchmarks with published or closed-form answers: linear, modal and
       large-rotation.
     groups: ['3', '10', '12', '13', '14', '15', '16', '19', '22', '25', '28', '33']
+    depends_on:
+      - crates/aeroelast-core/src/elements
+      - src/aeroelast/elements
     gaps: []
     absent:
       - evidence: tests/test_dtube_camarena_bending.py
@@ -41,6 +50,11 @@ levels:
       Isotropic, orthotropic and composite shells and thin-walled sections against closed forms,
       CLT and CalculiX S4/S8R, each code converged on its own mesh; stress recovery included.
     groups: ['4', '6', '7', '8', '9', '17', '18', '21', '24', '26', '36']
+    depends_on:
+      - src/aeroelast/core/assembler.py
+      - src/aeroelast/solvers/elasticity
+      - crates/aeroelast-solvers/src/petsc/elasticity
+      - src/aeroelast/postprocess
     gaps: [composite_stress_recovery]
     absent: []
 
@@ -51,6 +65,12 @@ levels:
       modal (parked and rotating), torsion and transient response against BeamDyn/BModes/
       OpenFAST decks, published models and CalculiX.
     groups: ['5', '20', '23', '27', '32', '34']
+    depends_on:
+      - src/aeroelast/core/mesh
+      - src/aeroelast/models/blade
+      - tests/IEA-15-240-RWT.yaml
+      - tests/IEA15MW/reference
+      - tools/beam_reference.py
     gaps: [rotating_modal_shift]
     absent:
       - evidence: tests/test_iea15mw_s0_omega_zero_consistency.py
@@ -81,6 +101,12 @@ levels:
       polars: rotor performance, spanwise loads, yaw and shear, post-stall extrapolation and the
       load frame it hands to the structure.
     groups: ['11']
+    # Pure aerodynamics: the BEM against AeroDyn does not rest on the shell elements.
+    requires: []
+    depends_on:
+      - src/aeroelast/solvers/bem
+      - src/aeroelast/models/blade
+      - tests/IEA-15-240-RWT.yaml
     gaps: []
     absent:
       - evidence: tests/test_iea15mw_v01_rotor_performance.py
@@ -98,6 +124,10 @@ levels:
       the rotating frame, and convergence of the partitioned coupling; then a published FSI
       benchmark with OpenFOAM.
     groups: ['29', '30', '31', '35', '37']
+    depends_on:
+      - src/aeroelast/solvers/fsi
+      - crates/aeroelast-solvers/src/petsc/fsi
+      - src/aeroelast/core/config.py
     gaps: [moment_realization_over_delivers, reference_projection_geometry_approximation]
     absent:
       - evidence: tests/validation/bem/test_force_projection_load_frame.py
