@@ -7,7 +7,7 @@ rows:
   - tests/validation/blade/test_iea15mw_s7_torsion.py::test_s7_global_torsion_ratio_within_band
   validates: The shell's global torsional response — the tip twist under a tip torsional moment — against the BeamDyn blade deck of the official IEA 15 MW model.
   comparisons:
-  - label: rtol at line 88
+  - label: rtol at line 107
     asserted: true
     reference:
       kind: code
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.3
-      source: tests/validation/blade/test_iea15mw_s7_torsion.py:88
+      source: tests/validation/blade/test_iea15mw_s7_torsion.py:107
       justified: true
       justification: 'The bound is a +-30% window around exact agreement with the deck, and it is what the documented model difference justifies, not a fit to the run: the sectional shell GJ sits +17-24% above the BeamDyn tables (S-1), so an exact match is not the expectation and the envelope has to hold that difference plus the coarse-mesh discretisation it was chosen on. The measured 4.66% clears it by 25 points. A narrower bound would turn a documented model difference into a failure. The direction was asserted here until 2026-10-10, when the tip couple was found to under-deliver the applied moment by a factor 0.8978: load-correct the ratio is 1.0466, above 1, so that claim is withdrawn from this field and the sectional-versus-global sign question is left open (odd/tasks/s7-torsion-ratio.md, section E7).'
     measured:

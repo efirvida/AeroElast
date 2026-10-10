@@ -202,3 +202,67 @@ Each closure records what was measured and how to re-check it. A tooling item ca
     `measured` blocks, which is the damage #32 describes. Refreshing them is the maintainer's
     explicit `coherence`. It should wait for A2 (#24), so that the rewrite keeps prose and
     measurements.
+
+### A2 — #24: `coherence` wipes prose and `measured` blocks (proposed for closing 2026-10-10)
+
+- **Cause, two parts.**
+  - `coherence` re-ran `extract --write`, which rebuilds the whole file from the extractor's output
+    and copies back only `measured`, `expected`, `flags` and `history`. Hand-written `validates`,
+    `notes`, `tolerance.justification` and `reference.label` became placeholders. Stale meant
+    "the bytes differ", so prose alone made a file stale.
+  - `preserve_measurements` paired comparisons by `<file>:<line>`. An edit above the assertions
+    shifts every line, so groups 6, 20 and 31 lost every `measured` block on a pure shift.
+- **Stale is now a citation mismatch.** `refresh_citations` starts from the file on disk and
+  overwrites only what the extractor owns: `id`, `group`, `title`, `tests`, and per comparison
+  `label`, `asserted`, `tolerance.kind/value/source` and `reference.kind/citation`. Everything else
+  is kept. The file is written only when an owned field changed. A comparison is carried only
+  when `pair_comparisons` pairs it with a stored one.
+- **Pairing contract (changed, stated here on purpose).** The old docstring refused to carry a
+  measurement across a moved line. The new rule:
+  - **No source moved in the row:** pair by `<file>:<line>`, in order among comparisons that share
+    a line. A pair whose assertion changed is refused.
+  - **A source moved:** pair by a line-free fingerprint (label without `at line N`, keeping the loop
+    binding; tolerance kind and bound; `asserted`; reference kind). Pairing is in order, and only
+    for a fingerprint that occurs as many times on disk as in the code. If the count changed,
+    nothing is paired, because nothing says which identical comparison is the new one. So a
+    margin is never slid onto a neighbour's reference.
+  - A carried `measured.run` is left untouched, so it still names the revision that produced the
+    number.
+- **Not changed:** `extract --write` still rebuilds a row file from the code. It now pairs
+  measurements the new way, but still replaces prose. That is its documented job ("a better
+  description").
+- **Proof.** Six tests in `tools/tests/test_validation_matrix.py`:
+  - a moved line keeps its measurement;
+  - an ambiguous move carries nothing;
+  - `refresh_citations` moves citations, keeps prose and margins, and refuses a changed bound;
+  - `coherence` on a store copy leaves hand-written prose byte-identical and reports *coherent*;
+  - `coherence` refreshes a moved citation in place and keeps the prose and the margin;
+  - the "no counterpart" message test now uses a changed bound, because a moved line alone is
+    carried.
+- **Measured.** At `d117877` plus this change:
+  - Sweep on a copy, then on `docs/validation`: **4 of 35** stale (6, 20, 31, 34). The diff holds
+    only `label`/`source` lines, plus one real structural change in group 6. There, line 614 now
+    asserts inside a loop over thickness, so one stored comparison (never measured) became two
+    new ones.
+  - `status: measured` counts are unchanged: group 6 has 8, group 20 has 4, group 31 has 2, group 34
+    has 1. S-7's hand-written prose (group 34) and group 6's hand-written `reference.label` survive.
+  - **Group 35 is not stale.** A1 counted it only because its P1a prose differed from the
+    extractor's placeholders. Its citations were right.
+  - `check`: 211 rows, 286 comparisons (+1 from the group-6 split), 0 errors.
+  - `pytest tools/tests -m slow`: the coherence sweep **passes** (red since A1).
+  - `-m "not slow"`: 161 passed, 3 failed. All three are the A3 `references` tests.
+  - `scripts/check.sh quick` is OK. `git status --porcelain -- docs/validation` shows only the
+    four refreshed files.
+- **Checked against the files' own history, not only HEAD.** The hashes cited in #24 do not touch
+  these files (they are probably from before a rebase). So each file's prose and `measured` count
+  were compared through its `git log`:
+  - Group 34 matches `19cf8be`, the S-7 re-measure: same prose, 1 measured.
+  - Group 20 matches `9d71c94`: same prose, 4 measured.
+  - Group 6 matches `c0c5587`: 8 measured. The only row that differs is the group-6 split.
+  - Group 35 is untouched since `6780835`.
+- **Contract.** The only verdict on these rows is S-7's `undecided` (row 34). `contract` still
+  reports it as undecided, not stale, and no level changed state. No verdict is needed: only
+  citation fields changed. The store now holds 286 comparisons, not #33's 285.
+- **Known limit.** `reference.label` is kept from disk, because a row does not record whether the
+  code or a person wrote it. Editing a test's `reference_name=` is therefore invisible to
+  `coherence`.
