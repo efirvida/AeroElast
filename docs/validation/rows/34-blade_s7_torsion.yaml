@@ -17,16 +17,17 @@ rows:
       value: 0.3
       source: tests/validation/blade/test_iea15mw_s7_torsion.py:88
       justified: true
-      justification: 'The bound is a +-30% window around exact agreement with the deck, and it is what the documented model difference justifies, not a fit to the run: the sectional shell GJ sits +17-24% above the BeamDyn tables (S-1), so an exact match is not the expectation and the envelope has to hold that difference plus the coarse-mesh discretisation it was chosen on. The measured 6.04% clears it by 24 points. A narrower bound would turn a documented model difference into a failure; the direction (below 1) is the asserted part.'
+      justification: 'The bound is a +-30% window around exact agreement with the deck, and it is what the documented model difference justifies, not a fit to the run: the sectional shell GJ sits +17-24% above the BeamDyn tables (S-1), so an exact match is not the expectation and the envelope has to hold that difference plus the coarse-mesh discretisation it was chosen on. The measured 4.66% clears it by 25 points. A narrower bound would turn a documented model difference into a failure. The direction was asserted here until 2026-10-10, when the tip couple was found to under-deliver the applied moment by a factor 0.8978: load-correct the ratio is 1.0466, above 1, so that claim is withdrawn from this field and the sectional-versus-global sign question is left open (odd/tasks/s7-torsion-ratio.md, section E7).'
     measured:
       status: measured
-      run: 73a0736
-      date: '2026-10-07'
-      raw: 0.939603
-      margin_pct: 6.0397
-      text: 'shell/beam tip twist ratio over the 0.3-0.9 span band vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, K[5,5] per station), integrated as a Timoshenko torsion beam: 0.939603 vs 1 (error: 6.0397%, bound: 30.0000%)'
-      digest: 84ef9c9d44926b27
+      run: 5b0d8e5
+      date: '2026-10-10'
+      raw: 1.04659
+      margin_pct: 4.6588
+      text: 'shell/beam tip twist ratio over the 0.3-0.9 span band vs BeamDyn blade deck of the official IEA 15 MW reference turbine (IEA-15-240-RWT_BeamDyn_blade.dat, K[5,5] per station), integrated as a Timoshenko torsion beam: 1.04659 vs 1 (error: 4.6588%, bound: 30.0000%)'
+      digest: 32c8600844f4256c
   flags: []
-  notes: 'The direction is the asserted part: the shell is stiffer than the deck, so the ratio runs below 1. Measured 0.939603 at element_size 0.25 and 0.933641 at 0.125, which is 0.64% above it. Between 2026-09-30 and 2026-10-04 the module carried a convergence table reading 1.273..1.406 — the opposite direction — and it does not reproduce at HEAD at any mesh size, with or without the element-winding canonicalisation that `22d3ccc` removed (which accounts for a factor 1.079 of the gap, not all of it). It was replaced with rows measured at HEAD. Evidence: issue #20, `odd/tasks/s7-torsion-ratio.md`, and `docs/validation_closures.md` section S-7 (2026-10-07).
+  notes: 'Corrected 2026-10-10, commit 72f64de: run_torsion_case normalised its tip couple by 2*sum(x_off**2 for x_off > 0), which equals the full chordwise second moment only for an x-symmetric ring, so the applied moment was kappa * torque with kappa = 0.8978 at this mesh. This row was therefore a stiffness ratio times kappa, and kappa is what carried it below 1. With the load honoured the convergence record reads 1.118319 / 1.116392 / 1.069529 / 1.046588 at element_size 0.25 and 1.039011 at 0.125 (the last derived by dividing the measured 0.933641 by its own kappa = 0.898586), monotone and never crossing 1.0: the global GJ of the shell is about 3.8% BELOW the deck, not 6.4% above. That withdraws the direction this row used to state. S-1 still reports the sectional GJ +23.9% ABOVE the deck, so sectional and global now disagree in sign and that question is open (E7). Between 2026-09-30 and 2026-10-04 the module carried a convergence table reading 1.273..1.406 — the same side as the correction
+    — and it does not reproduce at HEAD at any mesh size, with or without the element-winding canonicalisation that `22d3ccc` removed (which accounts for a factor 1.079 of the gap, not all of it). It was replaced with rows measured at HEAD. Evidence: issue #20, `odd/tasks/s7-torsion-ratio.md`, and `docs/validation_closures.md` section S-7 (2026-10-07).
 
     `tools/validation_matrix.py extract` regenerates this file from the code and fills `validates`, `justification` and `notes` with placeholders, so the prose here is hand-written and a re-extract drops it.'
