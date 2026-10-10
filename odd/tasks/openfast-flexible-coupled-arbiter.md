@@ -28,7 +28,7 @@ actually measured against our side. No change to `docs/validation_closures.md` u
 | OpenFAST binary | `/scratch/leahk/eduardo.donestevez/conda-envs/openfast/bin/openfast` | present, 43.4 MB; the run that produced the reference `.out` reports `v5.0.0`, built Apr 11 2026, single precision; `aerodyn_driver`, `beamdyn_driver` sit beside it |
 | converted v5.0 glue deck | `/scratch/leahk/eduardo.donestevez/ofruns/OpenFAST/IEA-15-240-RWT-Monopile/` | complete case: `.fst`, `_ElastoDyn.dat`, `_ElastoDyn_tower.dat`, `_AeroDyn15.dat`, `_ServoDyn.dat` + `_DISCON.IN` + `_ROSCO.yaml`, `_SeaState.dat`, `_HydroDyn.dat`, `_SubDyn.dat`, and a finished `IEA-15-240-RWT-Monopile.out` |
 | shared model dir | `/scratch/leahk/eduardo.donestevez/IEA-15-240-RWT/OpenFAST/IEA-15-240-RWT/` | airfoils, `_AeroDyn15_blade.dat`, `_ElastoDyn_blade.dat`, **`_BeamDyn.dat`**, `_BeamDyn_blade.dat`, `_InflowFile.dat`, `ServoData/`, `Wind/`; the case dirs reach it as `../IEA-15-240-RWT/` |
-| BeamDyn run (diagnostic) | `/scratch/leahk/eduardo.donestevez/tmp/opencode/ofrun-s6-bd/IEA-15-240-RWT-Monopile/` | ran 100 s on 2026-09-15: 33.8 MB `.out`, 6.2 MB `.outb`, three `*.BD.R1.B{1,2,3}.ech`; **`tmp/`**, i.e. the location the standing preference forbids for anything needed |
+| BeamDyn run (diagnostic) | `/scratch/leahk/eduardo.donestevez/tmp/opencode/ofrun-s6-bd/IEA-15-240-RWT-Monopile/` | ran 100 s on 2026-09-15: 33.8 MB `.out`, 6.2 MB `.outb`, three `*.BD.R1.B{1,2,3}.ech`, and (corrected in T3) it **does** carry the 51 `B1N###_RDxr` torsion channels; **`tmp/`**, i.e. the location the standing preference forbids for anything needed |
 | in-repo deck | `tests/reference/iea15mw_openfast/` | **AeroDyn-only**: `case/IEA-15-240-RWT_AeroDyn15.dat`, `IEA-15-240-RWT/IEA-15-240-RWT_AeroDyn15_blade.dat`, 50 polars, `NOTICE`. No `.fst`, no ElastoDyn/ServoDyn/InflowWind. `tests/support/openfast_bem.py:47` resolves it from `tests/support/paths.py:24` (`DATA_DIR = tests/`) |
 
 ### The finding: the deck in use has no blade torsion
@@ -46,17 +46,32 @@ So the S-5 reference run (`TipDxc1 = 16.03 m`, recorded in Engram
 **no OpenFAST number produced by this deck can arbitrate a twist**, in either direction.
 That is why P2b has never run: it is not a scheduling gap, the deck lacks the DOF.
 
-### The BeamDyn run that does exist cannot answer either
+### The BeamDyn run that does exist was not usable as it stood
 
 `tmp/opencode/ofrun-s6-bd/.../IEA-15-240-RWT-Monopile.fst:18` is `CompElast = 2` with
 `BDBldFile(1..3) = ../IEA-15-240-RWT/IEA-15-240-RWT_BeamDyn.dat` (`:42-44`) — the flexible
-torsion model — and it ran (`bd_smoke_11594900`). But the referenced
-`IEA-15-240-RWT_BeamDyn.dat:87` is `NNodeOuts = 0`, so **no BeamDyn nodal output was written**;
-the `.out`/`.outb` carry only ElastoDyn channels (`TipDxb/c`, `TipDyb/c`, `TipDzb/c`,
-`BldPitch1..3`, `PtfmPitch`, ...). The torsion profile is not in the file, and the file is in a
-wipeable path.
+torsion model — and it ran (`bd_smoke_11594900`). Its three defects are *not* the ones this
+section first claimed; T3 measured them:
 
-### What T1 leaves for T2/T3
+1. **It lives in `tmp/`.** The only flexible-torsion reference on the machine sat in the
+   diagnostic location the standing preference forbids for anything needed.
+2. **Its model tree is not the named one.** The case reaches `../IEA-15-240-RWT/`; that
+   sibling carries `HWindSpeed = 10.59` and matches `$SCRATCH/bfs16/case5s`, while the
+   upstream clone `/scratch/leahk/.../IEA-15-240-RWT/OpenFAST/IEA-15-240-RWT/` carries
+   `10.0`. Taking the named clone would have moved the operating point off rated — silently.
+3. **Its AeroDyn deck is stale at source.** The case's
+   `IEA-15-240-RWT-Monopile_AeroDyn15.dat` (mtime 2026-09-15 23:04, *after* the 16:28 run)
+   lists `"B1Mp"`, which this build rejects: `SetOutParam:B1Mp is not an available output
+   channel`. A re-run from the source as found fails in setup.
+
+**Correction to this document's first reading.** The `NNodeOuts = 0` claim was measured on the
+*upstream clone's* `IEA-15-240-RWT_BeamDyn.dat:87`, not on the case's own sibling, which
+already had `NNodeOuts = 1` and the nodal `OutList`. The torsion channels were therefore
+present in the 2026-09-15 `.outb` all along, and the defect was **durability and provenance**,
+not missing output. Recorded because the wrong diagnosis would have sent the next reader to
+edit a deck that did not need editing.
+
+### What T1 left for T2/T3
 
 A durable, channel-carrying flexible-torsion reference:
 1. rebuild the BeamDyn case in `$SCRATCH` (not `tmp/`, not the repo) with the shared model dir
@@ -89,13 +104,39 @@ arbiter is not a number, and the definition is fixed while blind to the result.
   arbiter bounds the **beam-comparable part** of the coupled twist, not the distortion that a
   beam cannot represent (`distortion/|omega| = 1.6728` on the rated path).
 
-## T3 — build and run the durable reference
+## T3 — build and run the durable reference (DONE 2026-10-10)
 
-Deliverable: `$SCRATCH/bfs16/openfast-flexible/` with the deck, the run, the command, and
-`blade1_torsion_profile.csv` (span station [m], mean rotation [deg], window, channel names).
-Sanity checks that must be reported beside the profile: rotor speed, pitch, power
-(`~14.7 MW` at rated), and `TipDxc1` against the S-5 record (`16.03 m`) — a reference that does
-not reproduce its own predecessors' numbers is not an arbiter.
+Regenerator: `tools/openfast_flexible_rated_reference.py` (new, 557 lines, `ruff check` and
+`ruff format --check` clean). It materialises the durable case, patches the case-local decks
+only, runs the binary, gates on the channels being present in the written file before reading a
+number, and extracts the profile.
+
+| item | value |
+|---|---|
+| durable root | `$SCRATCH/bfs16/openfast-flexible/` (`IEA-15-240-RWT-Monopile/`, the `IEA-15-240-RWT/` sibling it needs, `runs/{short,full}/`, logs) |
+| command | `cd <repo> && scripts/aeroenv.sh python tools/openfast_flexible_rated_reference.py both` |
+| the run itself | `cd $SCRATCH/bfs16/openfast-flexible/IEA-15-240-RWT-Monopile && /scratch/leahk/eduardo.donestevez/conda-envs/openfast/bin/openfast IEA-15-240-RWT-Monopile.fst` |
+| profile | `$SCRATCH/bfs16/openfast-flexible/blade1_torsion_profile.csv` (51 rows) |
+| channel | `B1N###_RDxr`, nodes `B1N001..B1N051`, BeamDyn "rotational displacement in X, rad"; the `.out` unit row prints `-` and the `rad` comes from the BeamDyn registry |
+| stations | the `BD_Blade_R1B1_Reference.vtp` output-node polyline, 51 points, `span_m` = cumulative arc length from `B1N001`, total **117.1487 m** against the summary's `Length: 117.149 m` |
+| window | `90 .. 100 s`, `DT_Out = 0.05 s`, 201 samples, `TMax = 100 s` |
+| rotor speed (mean) | **7.5599997 rpm** (`case5s` omega 0.7906341464750989 rad/s = 7.5486 rpm) |
+| pitch | **0.0 deg** (`BldPitch1`) |
+| power | **15.065 MW** rotor aero power; there is **no `GenPwr`** in this deck (`CompServo = 0`, `ServoFile = "unused"`) |
+| wall time | 18.1 s at `TMax = 3 s`; **307.2 s = 5.12 min** at `TMax = 100 s`, both on the login node, no queue |
+| reproducibility | `--skip-run` re-extraction rewrote the CSV to an identical md5; against the archived 2026-09-15 run (same window) `max |dRDxr| = 6.2e-8 rad`, max relative `4.1e-6` (single precision) |
+
+The profile is monotone to ~0.01578 rad at `span = 102.46 m` and flat to the tip
+(`117.15 m`: 0.0157281 rad = **0.901 deg**), raw — no sign, frame or unit conversion applied.
+
+**Sanity checks that the deck can and cannot give.** `TipDxc1` is `INVALID` under
+`CompElast = 2`, so the S-5 cross-check came from the ElastoDyn deck instead: full-run mean
+15.948 m, 90-100 s mean 15.995 m, max 16.80 m — consistent with the recorded 16.03 m as a
+late-run mean, not a peak. Flagged, not forced.
+
+**No ROSCO was needed**: `CompServo = 0`; no `libdiscon.*` exists under
+`/scratch/leahk/eduardo.donestevez` within depth 6, so turning ServoDyn on later is a missing
+input to hunt, not a step to assume.
 
 ## T4 — register the arbiter
 
