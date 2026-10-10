@@ -1,7 +1,6 @@
 # [validation] general review roadmap: what to fix, review and build before the solver is citable
 
-*Draft of the issue that replaces #18 (2026-10-10). This is a plan, not a set of results. Nothing
-below is fixed by writing it down.*
+*Local mirror of issue #33, which replaced #18 on 2026-10-10. The issue is the order of record; keep this file in step with it.*
 
 ## What this issue is
 
