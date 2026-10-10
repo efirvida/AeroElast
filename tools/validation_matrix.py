@@ -415,6 +415,34 @@ class StoreError(Exception):
     """The store could not be read, or an argument cannot be honoured."""
 
 
+def require_group(store: Store, group_id: str | None, scope: str | None) -> str:
+    """The group a command belongs to, stated and never assumed.
+
+    `--group` used to default to `3`, so `regression --scope <file>` read one group's residual
+    pattern against another group's rows and printed `source digest: moved` for a group it had
+    never read. The declaration is required instead of defaulted; naming the groups that declare
+    the scope keeps it one token away for the caller who only has a path in hand.
+    """
+    if group_id is not None:
+        return str(group_id)
+    wanted = {token.split("::", 1)[0] for token in str(scope or "").split()}
+    declaring = sorted(
+        (
+            known
+            for known, group in store.groups.items()
+            if wanted & {str(path) for path in group.get("source_files") or []}
+        ),
+        key=int,
+    )
+    if declaring:
+        raise StoreError(
+            f"--group is required: {scope} is declared by group {', '.join(declaring)}. "
+            "The tool used to assume group 3, which read one group's residual pattern against "
+            "another group's rows"
+        )
+    raise StoreError("--group is required and has no default; pass the group id")
+
+
 @dataclass
 class Finding:
     level: str  # "error" or "warning"
@@ -2862,12 +2890,13 @@ def preserve_measurements(target: Path, rows: list[dict[str, Any]]) -> int:
 
 def command_extract(args: argparse.Namespace) -> int:
     store = load_store(args.store)
-    group = store.groups.get(args.group)
+    group_id = require_group(store, args.group, args.scope)
+    group = store.groups.get(group_id)
     if group is None:
-        raise StoreError(f"unknown group: {args.group}")
+        raise StoreError(f"unknown group: {group_id}")
     scope = args.scope or (group.get("source_files") or [None])[0]
     if not scope:
-        raise StoreError(f"group {args.group} declares no source file; pass --scope")
+        raise StoreError(f"group {group_id} declares no source file; pass --scope")
     citation = args.citation or str(group.get("citation") or "")
     # A citation names a bibliography entry, and the store resolves one only for a paper
     # reference: `_validate_reference` refuses `citation` on any other kind. Requiring it of every
@@ -2876,7 +2905,7 @@ def command_extract(args: argparse.Namespace) -> int:
     # through `reference.label` and carry the version in the group's `provenance_note`.
     if group.get("reference_kind") == "paper" and not citation:
         raise StoreError(
-            f"group {args.group} is a paper group and declares no 'citation'; a paper reference "
+            f"group {group_id} is a paper group and declares no 'citation'; a paper reference "
             "has to resolve in references.yaml"
         )
     nodes = collect_nodes(str(scope))
@@ -2886,7 +2915,7 @@ def command_extract(args: argparse.Namespace) -> int:
         if (match := match_non_validation(group, info.node)) is not None
     }
     rows, report = build_rows(
-        args.group,
+        group_id,
         str(group.get("slug")),
         citation,
         str(scope),
@@ -2985,10 +3014,10 @@ def command_extract(args: argparse.Namespace) -> int:
             for call in calls:
                 print(f"  - {call}")
     if args.write:
-        target = args.store / "rows" / f"{args.group}-{group.get('slug')}.yaml"
+        target = args.store / "rows" / f"{group_id}-{group.get('slug')}.yaml"
         target.parent.mkdir(parents=True, exist_ok=True)
         carried = preserve_measurements(target, rows)
-        dump_yaml(target, {"group": args.group, "rows": rows})
+        dump_yaml(target, {"group": group_id, "rows": rows})
         print(
             f"wrote {display_path(target)} ({len(rows)} rows, {carried} measured "
             "comparison(s) carried over)"
@@ -3878,13 +3907,14 @@ def write_measurement(store: Store, ref: RowRef, index: int, result: dict[str, A
 
 def command_regression(args: argparse.Namespace) -> int:
     store = load_store(args.store)
-    group = store.groups.get(args.group)
+    group_id = require_group(store, args.group, args.scope)
+    group = store.groups.get(group_id)
     if group is None:
-        raise StoreError(f"unknown group: {args.group}")
-    residual = store.residual_patterns.get(str(args.group))
+        raise StoreError(f"unknown group: {group_id}")
+    residual = store.residual_patterns.get(group_id)
     if not residual:
         raise StoreError(
-            f"group {args.group} declares no residual patterns, so its prints cannot be "
+            f"group {group_id} declares no residual patterns, so its prints cannot be "
             f"read; declare them in docs/validation/{RESIDUAL_FILE}"
         )
     scope = args.scope or " ".join(str(item) for item in group.get("source_files") or [])
@@ -3905,7 +3935,7 @@ def command_regression(args: argparse.Namespace) -> int:
     results.extend(regression_leftover_verdicts(group, sorted(set(prints) - claimed)))
 
     sources_now = sources_digest(group)
-    sources_stored = store.source_digests.get(str(args.group))
+    sources_stored = store.source_digests.get(group_id)
     sources_changed = bool(sources_stored) and sources_stored != sources_now
 
     # Collected inside the write block and reported with the other failures below, because
@@ -3928,7 +3958,7 @@ def command_regression(args: argparse.Namespace) -> int:
                 unreadable.append(str(exc))
                 continue
             written += 1
-        write_source_digest(store, str(args.group), sources_now)
+        write_source_digest(store, group_id, sources_now)
         print(f"wrote {written} measurement(s) and the source digest")
 
     failing = [item for item in results if item["verdict"] in REGRESSION_FAILING_VERDICTS]
@@ -4070,7 +4100,10 @@ def build_parser() -> argparse.ArgumentParser:
     extract = subparsers.add_parser(
         "extract", help="derive rows from the collected nodes and the test source"
     )
-    extract.add_argument("--group", default="3")
+    extract.add_argument(
+        "--group",
+        help="the group to derive; required, and never assumed (see require_group)",
+    )
     extract.add_argument("--scope", help="test file to read (default: the group's source)")
     extract.add_argument("--citation", help="bibliography key for paper references")
     extract.add_argument("--write", action="store_true", help="write the rows file")
@@ -4080,7 +4113,10 @@ def build_parser() -> argparse.ArgumentParser:
     regression = subparsers.add_parser(
         "regression", help="re-run the scope and diff its printed residuals against the store"
     )
-    regression.add_argument("--group", default="3")
+    regression.add_argument(
+        "--group",
+        help="the group to re-run; required, and never assumed (see require_group)",
+    )
     regression.add_argument("--scope", help="what to run (default: the group's source files)")
     regression.add_argument(
         "--write", action="store_true", help="record the printed residuals as the baseline"

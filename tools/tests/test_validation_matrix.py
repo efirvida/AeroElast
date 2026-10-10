@@ -843,7 +843,7 @@ def test_the_site_criterion_reads_canonical_calls_only() -> None:
 
 def test_extract_claims_every_collected_node() -> None:
     """T4 acceptance: the section 3 scope extracts to one row per collected node."""
-    completed = run(REAL_STORE, "extract", "--json")
+    completed = run(REAL_STORE, "extract", "--group", "3", "--json")
     assert completed.returncode == 0, completed.stdout + completed.stderr
     payload = json.loads(completed.stdout)
     assert payload["collected"] == 31
@@ -1571,6 +1571,35 @@ def test_capture_prints_runs_every_scope_argument(monkeypatch: Any) -> None:
     module.capture_prints("tests/a.py tests/b.py")
 
     assert calls[0][-2:] == ["tests/a.py", "tests/b.py"], calls[0]
+
+
+def test_group_is_required_and_never_assumed(tmp_path: Path) -> None:
+    """`--group` defaulted to 3, so `--scope <file>` ran an unrelated group's pattern.
+
+    The message names the groups that declare the scope, because that is the one token the
+    caller is missing; assuming a group is how `source digest: moved` got printed against a
+    group the run had never read.
+    """
+    store = write_store(tmp_path, [make_row()])
+
+    completed = run(store, "regression", "--scope", GROUP_SOURCE)
+    assert completed.returncode == 2, completed.stdout + completed.stderr
+    assert "--group is required" in completed.stderr
+    assert GROUP_SOURCE in completed.stderr
+    assert "declared by group 3" in completed.stderr
+
+    extracted = run(store, "extract", "--scope", GROUP_SOURCE)
+    assert extracted.returncode == 2, extracted.stdout + extracted.stderr
+    assert "--group is required" in extracted.stderr
+
+
+def test_group_is_required_even_when_no_scope_is_given(tmp_path: Path) -> None:
+    """The default was the whole problem: a bare `regression` ran group 3 unasked."""
+    store = write_store(tmp_path, [make_row()])
+    completed = run(store, "regression")
+    assert completed.returncode == 2, completed.stdout + completed.stderr
+    assert "--group is required" in completed.stderr
+    assert "has no default" in completed.stderr
 
 
 # --------------------------------------------------------------------------- #
