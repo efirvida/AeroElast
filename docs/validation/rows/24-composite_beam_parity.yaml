@@ -7,45 +7,45 @@ rows:
   - tests/validation/parity/test_composite_beam_parity.py::TestCompositeMaterial::test_clt_matches_independent_hand_reference
   validates: AeroElast CLT must match a first-principles CLT (external judge).
   comparisons:
-  - label: rtol at line 441
+  - label: rtol at line 437
     asserted: true
     reference:
       kind: analytical
       label: the independent hand CLT for the same laminate
     tolerance:
       kind: rtol
-      value: 1.0
-      source: tests/validation/parity/test_composite_beam_parity.py:441
+      value: 1.0e-09
+      source: tests/validation/parity/test_composite_beam_parity.py:437
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.0
-      text: 'A matrix, worst element as a fraction of its allowance vs the independent hand CLT for the same laminate: 0.0000% (bound: 100.0000%)'
+      text: 'A matrix, worst element relative to the largest hand entry vs the independent hand CLT for the same laminate: 0.0000% (bound: 0.0000%)'
       digest: 8911219cf0551533
-  - label: rtol at line 448
+  - label: rtol at line 444
     asserted: true
     reference:
       kind: analytical
       label: the independent hand CLT for the same laminate
     tolerance:
       kind: rtol
-      value: 1.0
-      source: tests/validation/parity/test_composite_beam_parity.py:448
+      value: 1.0e-09
+      source: tests/validation/parity/test_composite_beam_parity.py:444
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.0
-      text: 'D matrix, worst element as a fraction of its allowance vs the independent hand CLT for the same laminate: 0.0000% (bound: 100.0000%)'
+      text: 'D matrix, worst element relative to the largest hand entry vs the independent hand CLT for the same laminate: 0.0000% (bound: 0.0000%)'
       digest: 8911219cf0551533
-  - label: atol at line 459
+  - label: atol at line 455
     asserted: true
     reference:
       kind: analytical
@@ -53,18 +53,18 @@ rows:
     tolerance:
       kind: atol
       value: 1.0e-06
-      source: tests/validation/parity/test_composite_beam_parity.py:459
+      source: tests/validation/parity/test_composite_beam_parity.py:455
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 1.09139e-10
       text: 'hand CLT coupling B vs the analytical B = 0 of a symmetric laminate: 1.09139e-10 (bound: 1e-06)'
       digest: e7d700a33097215c
-  - label: atol at line 467
+  - label: atol at line 463
     asserted: true
     reference:
       kind: analytical
@@ -72,13 +72,13 @@ rows:
     tolerance:
       kind: atol
       value: 1.0e-06
-      source: tests/validation/parity/test_composite_beam_parity.py:467
+      source: tests/validation/parity/test_composite_beam_parity.py:463
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 8.73115e-11
       text: 'AeroElast coupling B vs the analytical B = 0 of a symmetric laminate: 8.73115e-11 (bound: 1e-06)'
@@ -92,7 +92,7 @@ rows:
   - tests/validation/parity/test_composite_beam_parity.py::test_composite_axial_tension
   validates: Test composite shell under axial tension using full ABD matrices.
   comparisons:
-  - label: rtol at line 610
+  - label: rtol at line 606
     asserted: true
     reference:
       kind: analytical
@@ -100,18 +100,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/parity/test_composite_beam_parity.py:610
+      source: tests/validation/parity/test_composite_beam_parity.py:606
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 1.2512
       text: 'composite axial extension against the closed form vs the independent hand CLT for the same laminate: 1.2512% (bound: 2.0000%)'
       digest: 95ec6978deb6fbbb
-  - label: rtol at line 617
+  - label: rtol at line 613
     asserted: true
     reference:
       kind: code
@@ -119,13 +119,13 @@ rows:
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/parity/test_composite_beam_parity.py:617
+      source: tests/validation/parity/test_composite_beam_parity.py:613
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.562
       text: 'composite axial extension against CCX vs CalculiX 2.23, the same mesh, layup and load: 0.5620% (bound: 1.5000%)'
@@ -139,7 +139,7 @@ rows:
   - tests/validation/parity/test_composite_beam_parity.py::test_composite_isotropic_equiv
   validates: Test composite shell using isotropic equivalent (E_avg) for comparison.
   comparisons:
-  - label: rtol at line 731
+  - label: rtol at line 727
     asserted: true
     reference:
       kind: analytical
@@ -147,18 +147,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/parity/test_composite_beam_parity.py:731
+      source: tests/validation/parity/test_composite_beam_parity.py:727
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 1.2342
       text: 'isotropic-equivalent case against the closed form vs the independent hand CLT for the same laminate: 1.2342% (bound: 2.0000%)'
       digest: 1a459e4d985881ae
-  - label: rtol at line 738
+  - label: rtol at line 734
     asserted: true
     reference:
       kind: code
@@ -166,13 +166,13 @@ rows:
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/parity/test_composite_beam_parity.py:738
+      source: tests/validation/parity/test_composite_beam_parity.py:734
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.5781
       text: 'isotropic-equivalent case against CCX vs CalculiX 2.23, the same mesh, layup and load: 0.5781% (bound: 1.5000%)'
@@ -186,7 +186,7 @@ rows:
   - tests/validation/parity/test_composite_beam_parity.py::test_composite_bending
   validates: Test composite shell under transverse bending.
   comparisons:
-  - label: rtol at line 837
+  - label: rtol at line 833
     asserted: true
     reference:
       kind: analytical
@@ -194,18 +194,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/parity/test_composite_beam_parity.py:837
+      source: tests/validation/parity/test_composite_beam_parity.py:833
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.9544
       text: 'in-plane bending against the closed form vs the independent beam closed form for the in-plane bending case: 0.9544% (bound: 2.0000%)'
       digest: 4b64f66b8f4d93ea
-  - label: rtol at line 844
+  - label: rtol at line 840
     asserted: true
     reference:
       kind: code
@@ -213,13 +213,13 @@ rows:
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/parity/test_composite_beam_parity.py:844
+      source: tests/validation/parity/test_composite_beam_parity.py:840
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 1.6848
       text: 'in-plane bending against CCX vs CalculiX 2.23, the same mesh, layup and load: 1.6848% (bound: 2.5000%)'

@@ -836,23 +836,21 @@ class TestExactConsistentMassCoefficients:
         )
         indices = [mesh.node_id_to_index[node.id] for node in element.nodes]
 
+        # Every exact entry is a nonzero fraction of rho*h*A, so the residual is the plain
+        # relative error, worst over the three translational directions. The former allclose
+        # pair added a 1e-18 absolute floor; dropping it only tightens the bound.
+        dev = 0.0
         for direction in range(3):
             dofs = [index * dofs_per_node + direction for index in indices]
-            # allclose applies an absolute and a relative bound at once, so the faithful single
-            # residual is each entry's deviation as a fraction of its own allowance.
-            dev = float(
-                np.max(
-                    np.abs(M[np.ix_(dofs, dofs)] - expected)
-                    / (1e-18 + 1e-12 * np.abs(expected))
-                )
-            )
-            assert_residual_below(
-                dev,
-                tol=1.0,
-                kind="analytical",
-                reference_name="the closed form element mass block",
-                what="element mass block, worst entry as a fraction of its allowance",
-            )
+            block = M[np.ix_(dofs, dofs)]
+            dev = max(dev, float(np.max(np.abs(block - expected) / np.abs(expected))))
+        assert_residual_below(
+            dev,
+            tol=1e-12,
+            kind="analytical",
+            reference_name="the closed form element mass block",
+            what="element mass block, worst entry relative error over the three directions",
+        )
 
     @pytest.mark.parametrize(("name", "element_type", "coords", "area"), _REFERENCE_ELEMENTS)
     def test_rotary_inertia_block(self, material_steel, name, element_type, coords, area):

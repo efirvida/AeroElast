@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.0
       text: 'translational mass per direction vs the closed form rho h A per direction: 0.0000% (bound: 0.0000%)'
@@ -48,8 +48,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.0
       text: 'translational mass per direction vs the closed form rho h A per direction: 0.0000% (bound: 0.0000%)'
@@ -76,8 +76,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.0
       text: 'lumped mass per direction vs the row-sum lumped mass rho h A_tributary: 0.0000% (bound: 0.0000%)'
@@ -173,8 +173,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.0
       text: 'consistent mass per direction vs the total translational mass of the mesh: 0.0000% (bound: 0.0000%)'
@@ -188,20 +188,25 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_translational_block[tri3-5-coords0-0.5]
   validates: M_ij must equal the exact integral of rho*h*N_i*N_j.
   comparisons:
-  - label: rtol at line 849
+  - label: rtol at line 847
     asserted: true
     reference:
       kind: analytical
       label: the closed form element mass block
     tolerance:
       kind: rtol
-      value: 1.0
-      source: tests/validation/element/test_mass_matrix_validation.py:849
+      value: 1.0e-12
+      source: tests/validation/element/test_mass_matrix_validation.py:847
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c6dd90d
+      date: '2026-10-10'
+      raw: null
+      margin_pct: 0.0
+      text: 'element mass block, worst entry relative error over the three directions vs the closed form element mass block: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testexactconsistentmasscoefficients_test.quad4_9_coords1_1_0
@@ -211,20 +216,25 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_translational_block[quad4-9-coords1-1.0]
   validates: M_ij must equal the exact integral of rho*h*N_i*N_j.
   comparisons:
-  - label: rtol at line 849
+  - label: rtol at line 847
     asserted: true
     reference:
       kind: analytical
       label: the closed form element mass block
     tolerance:
       kind: rtol
-      value: 1.0
-      source: tests/validation/element/test_mass_matrix_validation.py:849
+      value: 1.0e-12
+      source: tests/validation/element/test_mass_matrix_validation.py:847
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c6dd90d
+      date: '2026-10-10'
+      raw: null
+      margin_pct: 0.0
+      text: 'element mass block, worst entry relative error over the three directions vs the closed form element mass block: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testexactconsistentmasscoefficients_test.tri3_5_coords0_0_5_2
@@ -234,7 +244,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_rotary_inertia_block[tri3-5-coords0-0.5]
   validates: Each rotational direction must carry rho*h**3/12*A of rotary inertia.
   comparisons:
-  - label: rtol at line 867
+  - label: rtol at line 865
     asserted: true
     reference:
       kind: analytical
@@ -242,13 +252,13 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-12
-      source: tests/validation/element/test_mass_matrix_validation.py:867
+      source: tests/validation/element/test_mass_matrix_validation.py:865
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.0
       text: 'rotary inertia per rotational direction vs the closed form rho h^3 / 12 A rotary inertia: 0.0000% (bound: 0.0000%)'
@@ -262,7 +272,7 @@ rows:
   - tests/validation/element/test_mass_matrix_validation.py::TestExactConsistentMassCoefficients::test_rotary_inertia_block[quad4-9-coords1-1.0]
   validates: Each rotational direction must carry rho*h**3/12*A of rotary inertia.
   comparisons:
-  - label: rtol at line 867
+  - label: rtol at line 865
     asserted: true
     reference:
       kind: analytical
@@ -270,13 +280,13 @@ rows:
     tolerance:
       kind: rtol
       value: 1.0e-12
-      source: tests/validation/element/test_mass_matrix_validation.py:867
+      source: tests/validation/element/test_mass_matrix_validation.py:865
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: c6dd90d
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.0
       text: 'rotary inertia per rotational direction vs the closed form rho h^3 / 12 A rotary inertia: 0.0000% (bound: 0.0000%)'

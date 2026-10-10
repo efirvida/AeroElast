@@ -324,3 +324,41 @@ Each closure records what was measured and how to re-check it. A tooling item ca
     also 286, so no comparison moved.
   - `pytest tools/tests`: 165 passed. `git status --porcelain -- docs/validation` shows only
     `groups.yaml`.
+
+### A5 — `rtol 1.0` rows in groups 24 and 25: allowance-normalized residuals (proposed for closing 2026-10-10)
+
+- **Cause.** The extractor read the code correctly, but the tests broke its convention. A
+  `tol=` on `assert_residual_below` is a relative bound. Both tests passed a ratio instead:
+  deviation over the `allclose` allowance (`atol + rtol·|ref|`), with `tol=1.0`. The store
+  therefore recorded rtol 100 %, and `contract` counted three false over-ceiling entries.
+  - Group 24 (L2), `test_clt_matches_independent_hand_reference` :441/:448, A and D matrices.
+    The real bound was `1e-9·max|hand| + 1e-12·|hand|`.
+  - Group 25 (L1), `test_translational_block[tri3, quad4]` :849. The real bound was
+    `1e-18 + 1e-12·|exact|`.
+- **Fix: corrected, not classed.** Both references are analytical: the independent hand CLT
+  and the closed-form `∫ρhNᵢNⱼ`. So these are physics rows, and calling them `identity` would only
+  hide a misrecorded number from the ceiling.
+  - CLT: normwise relative error `max|ABD − hand| / max|hand|`, `tol=1e-9`. It is normwise
+    because A16/A26 and D16/D26 can be zero.
+  - Mass block: elementwise relative error, `tol=1e-12`. Every exact coefficient is nonzero
+    (2/12, 1/12, 4/36, 2/36, 1/36 of ρhA). The three directions are now folded into one worst
+    residual. Before, a loop asserted three times for one comparison, so `regression` could not
+    map the prints and the rows had never been measured.
+  - **Tightened, not widened.** Each new bound drops the second term of the old `allclose` pair,
+    so it is at least as strict as before.
+  - The rows were re-derived with `extract --write` and measured with `regression --write`. The
+    citations below them in both files moved 4 lines and were followed by the tool.
+- **Measured.** At `c6dd90d` plus this change:
+  - All four comparisons are `measured`, at 0.0000 % of their bound.
+  - `contract`, over the ceiling: L1 3 → **1** (UL elastica only), L2 1 → **0**. L3 is unchanged
+    at 2.
+  - `check`: 211 rows, 286 comparisons, 0 errors, 0 warnings.
+  - `references check`: 0 errors.
+  - `pytest tools/tests`: 165 passed.
+  - `scripts/check.sh quick`: OK, with only the frame-objectivity known-red.
+- **Not absorbed (pre-existing, same class as A4).**
+  - `regression --group 24` still exits 1 on 2 `unclaimed` tests: `test_laminate_abd_matrices`
+    and `test_mesh_connectivity`.
+  - Group 25 still has 4 `unclaimed` tests: the row-sum pair, `test_symmetry` and the Rust lumped
+    binding. It also has 3 `unmapped` `test_first_mode` rows, which print nothing.
+  - None of these was touched here.

@@ -429,28 +429,24 @@ class TestCompositeMaterial:
 
         a_scale = float(np.max(np.abs(A_hand)))
         d_scale = float(np.max(np.abs(D_hand)))
-        # allclose applies an absolute and a relative bound at once, so the faithful single residual is
-        # each element's deviation as a fraction of its own allowance: below one means the whole matrix
-        # is inside the pair of bounds the comparison used to apply elementwise.
-        a_dev = float(
-            np.max(np.abs(ABD[:3, :3] - A_hand) / (1e-9 * a_scale + 1e-12 * np.abs(A_hand)))
-        )
-        d_dev = float(
-            np.max(np.abs(ABD[3:, 3:] - D_hand) / (1e-9 * d_scale + 1e-12 * np.abs(D_hand)))
-        )
+        # Normwise relative error against the largest hand entry: A16/A26 and D16/D26 may be zero,
+        # so an elementwise ratio is undefined there. The former allclose pair was
+        # |dev| <= 1e-9*scale + 1e-12*|hand|; dropping the second term only tightens it.
+        a_dev = float(np.max(np.abs(ABD[:3, :3] - A_hand)) / a_scale)
+        d_dev = float(np.max(np.abs(ABD[3:, 3:] - D_hand)) / d_scale)
         assert_residual_below(
             a_dev,
-            tol=1.0,
+            tol=1e-9,
             kind="analytical",
             reference_name="the independent hand CLT for the same laminate",
-            what="A matrix, worst element as a fraction of its allowance",
+            what="A matrix, worst element relative to the largest hand entry",
         )
         assert_residual_below(
             d_dev,
-            tol=1.0,
+            tol=1e-9,
             kind="analytical",
             reference_name="the independent hand CLT for the same laminate",
-            what="D matrix, worst element as a fraction of its allowance",
+            what="D matrix, worst element relative to the largest hand entry",
         )
         # A symmetric laminate has B = 0 analytically; anything above round-off
         # here is a real coupling bug, on either side of the comparison.
