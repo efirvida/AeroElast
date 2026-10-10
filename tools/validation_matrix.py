@@ -2631,8 +2631,13 @@ def build_rows(
     skip: dict[str, str] | None = None,
     validation_helpers: set[str] | None = None,
     drop: set[str] | None = None,
+    used_ids: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """E1-E3 into rows: one row per collected node, none left unclaimed."""
+    """E1-E3 into rows: one row per collected node, none left unclaimed.
+
+    `used_ids` carries the row ids already handed out when one group derives several source
+    files, so a test that shares a name across files does not collide.
+    """
     tree = ast.parse((REPO_ROOT / scope).read_text(encoding="utf-8"))
     consts = module_constants(tree)
     functions = {
@@ -2663,7 +2668,7 @@ def build_rows(
     def unclaim(node: str, reason: str) -> None:
         report["unclaimed"].append(node)
         report["unclaimed_reasons"][node] = reason
-    used: set[str] = set()
+    used: set[str] = used_ids if used_ids is not None else set()
     for info in nodes:
         # A declared test is not a row, and it may not be claimed either. The declaration has to
         # work in both directions: it used to be consulted only for nodes the extractor could not
@@ -2812,6 +2817,9 @@ def build_rows(
     report["declared_helpers_used"] = sorted(reached)
     report["declared_helpers_stale"] = sorted((validation_helpers or set()) - reached)
     report["dropped_declared_stale"] = sorted((drop or set()) - matched_drops)
+    # Exposed so a caller deriving several files can decide the drop declaration over the union
+    # instead of per file: a `non_reference_asserts` entry matched by one file is not stale.
+    report["matched_drops"] = sorted(matched_drops)
     return rows, report
 
 
@@ -2894,8 +2902,16 @@ def command_extract(args: argparse.Namespace) -> int:
     group = store.groups.get(group_id)
     if group is None:
         raise StoreError(f"unknown group: {group_id}")
-    scope = args.scope or (group.get("source_files") or [None])[0]
-    if not scope:
+    # Every declared source file is the group's scope, not just the first. Deriving one file and
+    # writing the row file deleted the rows of the others -- which is how group 36 lost its two
+    # CalculiX-parity rows -- and `coherence` reads this same path, so a group whose second file
+    # declares tests reported "the extraction itself did not finish cleanly".
+    scopes = (
+        [str(args.scope)]
+        if args.scope
+        else [str(path) for path in group.get("source_files") or []]
+    )
+    if not scopes:
         raise StoreError(f"group {group_id} declares no source file; pass --scope")
     citation = args.citation or str(group.get("citation") or "")
     # A citation names a bibliography entry, and the store resolves one only for a paper
@@ -2908,32 +2924,86 @@ def command_extract(args: argparse.Namespace) -> int:
             f"group {group_id} is a paper group and declares no 'citation'; a paper reference "
             "has to resolve in references.yaml"
         )
-    nodes = collect_nodes(str(scope))
-    skip = {
-        info.node: match[1]
-        for info in nodes
-        if (match := match_non_validation(group, info.node)) is not None
+    declared_helpers = set(group.get("validation_helpers") or [])
+    dropped = {
+        str(item.get("at"))
+        for item in (group.get("non_reference_asserts") or [])
+        if isinstance(item, dict)
     }
-    rows, report = build_rows(
-        group_id,
-        str(group.get("slug")),
-        citation,
-        str(scope),
-        nodes,
-        reference_kind=group.get("reference_kind"),
-        skip=skip,
-        validation_helpers=set(group.get("validation_helpers") or []),
-        drop={str(item.get("at")) for item in (group.get("non_reference_asserts") or []) if isinstance(item, dict)},
-    )
-    suppressed = report.get("declared_not_rows") or {}
+    rows: list[dict[str, Any]] = []
+    reports: list[dict[str, Any]] = []
+    collected = 0
+    used_ids: set[str] = set()
+    for scope in scopes:
+        nodes = collect_nodes(scope)
+        collected += len(nodes)
+        skip = {
+            info.node: match[1]
+            for info in nodes
+            if (match := match_non_validation(group, info.node)) is not None
+        }
+        file_rows, file_report = build_rows(
+            group_id,
+            str(group.get("slug")),
+            citation,
+            scope,
+            nodes,
+            reference_kind=group.get("reference_kind"),
+            skip=skip,
+            validation_helpers=declared_helpers,
+            drop=dropped,
+            used_ids=used_ids,
+        )
+        rows.extend(file_rows)
+        reports.append(file_report)
+    # One report for the group, so the payload, the print block and the exit code read the group
+    # instead of whichever file happened to be derived last.
+    report: dict[str, Any] = {
+        "nodes": [node for item in reports for node in item["nodes"]],
+        "unclaimed": [node for item in reports for node in item["unclaimed"]],
+        "unclaimed_reasons": {
+            node: reason for item in reports for node, reason in item["unclaimed_reasons"].items()
+        },
+        "declared_not_rows": {
+            node: reason
+            for item in reports
+            for node, reason in (item.get("declared_not_rows") or {}).items()
+        },
+        "ignored_bounds": {
+            node: bounds for item in reports for node, bounds in (item.get("ignored_bounds") or {}).items()
+        },
+        "cross_check_unavailable": [
+            node for item in reports for node in (item.get("cross_check_unavailable") or [])
+        ],
+        "unresolved": {
+            node: sources for item in reports for node, sources in (item.get("unresolved") or {}).items()
+        },
+        "diverged": {node: tokens for item in reports for node, tokens in item["diverged"].items()},
+        "prints": {node: calls for item in reports for node, calls in item["prints"].items()},
+        "dropped_asserts": {
+            node: sources for item in reports for node, sources in (item.get("dropped_asserts") or {}).items()
+        },
+    }
+    suppressed = report["declared_not_rows"]
     # The declared nodes that were suppressed count as used patterns just like the unclaimed ones,
-    # or a declaration that did its job would be reported as stale.
+    # or a declaration that did its job would be reported as stale. The classification runs once
+    # over the union: a declaration is stale for the group, not for the file that came up short.
     declared_nodes, undeclared, stale = classify_unclaimed(
         group, list(report["unclaimed"]) + list(suppressed)
     )
+    report["declared_helpers_used"] = sorted(
+        {name for item in reports for name in item["declared_helpers_used"]}
+    )
+    report["declared_helpers_stale"] = sorted(
+        declared_helpers - set(report["declared_helpers_used"])
+    )
+    report["matched_drops"] = sorted(
+        {source for item in reports for source in item["matched_drops"]}
+    )
+    report["dropped_declared_stale"] = sorted(dropped - set(report["matched_drops"]))
     payload = {
-        "scope": str(scope),
-        "collected": len(nodes),
+        "scope": " ".join(scopes),
+        "collected": collected,
         "rows": len(rows),
         "claimed": len(report["nodes"]),
         "unclaimed": report["unclaimed"],
@@ -2952,8 +3022,8 @@ def command_extract(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(payload, indent=2))
     else:
-        print(f"scope      : {scope}")
-        print(f"collected  : {len(nodes)}")
+        print(f"scope      : {' '.join(scopes)}")
+        print(f"collected  : {collected}")
         print(f"rows       : {len(rows)}")
         print(f"claimed    : {len(report['nodes'])}")
         if report.get("ignored_bounds"):
@@ -3053,15 +3123,17 @@ def command_coherence(args: argparse.Namespace) -> int:
         group = store.groups.get(group_id)
         if group is None:
             raise StoreError(f"unknown group: {group_id}")
-        scope = (group.get("source_files") or [None])[0]
+        # Every declared file, because that is what `extract` now derives: passing the first one
+        # derived a single file and wrote it over the row file, deleting the rows of the rest.
+        declared = [str(path) for path in group.get("source_files") or []]
         target = args.store / "rows" / f"{group_id}-{group.get('slug')}.yaml"
-        if not scope:
+        if not declared:
             # Group 10's rows are written by hand; there is nothing to derive them from.
             print(f"{target.name}: no source file to derive from, left alone")
             continue
         before = target.read_text(encoding="utf-8") if target.exists() else None
         quiet = argparse.Namespace(
-            store=args.store, group=group_id, scope=scope, citation=None, json=False, write=True
+            store=args.store, group=group_id, scope=None, citation=None, json=False, write=True
         )
         with contextlib.redirect_stdout(io.StringIO()):
             code = command_extract(quiet)

@@ -1602,6 +1602,65 @@ def test_group_is_required_even_when_no_scope_is_given(tmp_path: Path) -> None:
     assert "has no default" in completed.stderr
 
 
+#: Two real validation files, because a fixture cannot be one: `NODE_ID_RE` admits only node ids
+#: under `tests/`, so a temporary file collects to nothing and the tool blames the environment.
+#: These are the group 36 pair -- the multi-file group this defect actually broke -- and
+#: collecting them is the cheapest of the candidates.
+TWO_FILE_SOURCES = (
+    "tests/validation/parity/test_composite_ply_stress_parity.py",
+    "tests/validation/parity/test_composite_stress_ccx_parity.py",
+)
+
+
+def two_file_groups() -> dict[str, Any]:
+    """One group over two files.
+
+    `reference_kind` keeps the derived rows valid without the `non_validation_tests` and `drop`
+    declarations the real group carries: a test the real group declares is not a row here.
+    """
+    return {
+        "version": 1,
+        "groups": [
+            {
+                "id": "3",
+                "title": "two files",
+                "slug": "ko2017",
+                "reference_kind": "analytical",
+                "source_files": list(TWO_FILE_SOURCES),
+            }
+        ],
+    }
+
+
+def test_extract_derives_every_declared_source_file(tmp_path: Path) -> None:
+    """A group's scope is every file it declares, not only the first.
+
+    `command_extract` read `source_files[0]`, and `--write` dumped just those rows, so
+    re-deriving a multi-file group deleted the rows of its other files -- which is how group 36
+    lost its two CalculiX-parity rows. `coherence` reads the same path, which is why it reported
+    `the extraction itself did not finish cleanly` for a group whose second file declares tests.
+    """
+    store = write_store(tmp_path, [], groups=two_file_groups())
+
+    completed = run(store, "extract", "--group", "3", "--json")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    payload = json.loads(completed.stdout)
+    assert payload["scope"].split() == list(TWO_FILE_SOURCES)
+    assert payload["collected"] > 0
+    assert payload["rows"] == payload["claimed"]
+
+
+def test_extract_write_keeps_the_other_source_file_rows(tmp_path: Path) -> None:
+    """The write is the whole row file: a file left out of the derivation loses its rows."""
+    store = write_store(tmp_path, [], groups=two_file_groups())
+
+    completed = run(store, "extract", "--group", "3", "--write")
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    rows = yaml.safe_load((store / "rows" / "3-ko2017.yaml").read_text(encoding="utf-8"))["rows"]
+    derived = {str(row["tests"][0]).split("::", 1)[0] for row in rows}
+    assert derived == set(TWO_FILE_SOURCES)
+
+
 # --------------------------------------------------------------------------- #
 # T5: cross-validating the Markdown view
 # --------------------------------------------------------------------------- #
