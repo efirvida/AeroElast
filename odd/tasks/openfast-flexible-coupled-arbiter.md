@@ -138,19 +138,110 @@ late-run mean, not a peak. Flagged, not forced.
 `/scratch/leahk/eduardo.donestevez` within depth 6, so turning ServoDyn on later is a missing
 input to hunt, not a step to assume.
 
-## T4 — register the arbiter
+## T4 — register the arbiter (DONE 2026-10-10)
 
-A note in `odd/tasks/production-path-and-independent-arbiters.md` §P2b/§P2c: the arbiter now
-exists, where it lives, how it is regenerated, and the ElastoDyn-has-no-torsion finding (which
-sharpens the S-5 claim: that deck's flexibility is flap/edge only). No store row, no
-`validation_closures.md` section yet: there is no comparison to register until our side is
-measured.
+Registered in `odd/tasks/production-path-and-independent-arbiters.md`: §P2b is now `[x]` with the
+reference's location, its regenerator and the ElastoDyn-has-no-torsion finding (which sharpens the S-5
+claim: that deck's flexibility is flap/edge only); §P2c's coupled row and rule 4 now carry the T5
+outcome — the reference exists, the *comparand* is what is missing. No store row and no
+`validation_closures.md` section: there is no comparison to register until a comparand exists and our
+side is settled.
 
-## T5 — hand back to #16
+## T5 — the cheap rung, measured: it cannot decide (DONE 2026-10-10)
 
-State, in one place, what #16's activation decision now needs: either our coupled side (a
-campaign-scale run with the activation on) or the frozen-field static rung already instrumented
-in `tools/diagnose_wall_flow_static_ab.py`, compared profile by profile against T3's reference.
+T5 asked whether already-saved coupled fields (or the frozen-field static rung) could substitute for a
+campaign-scale run. Every number below comes from the runs' own saved `fields.vtu` /
+`rotor_performance.csv` (production path, no test-local construction) and from T3's reference. Probes
+live outside the repo, as usual: `$SCRATCH/bfs16/wf_p2b_diag/probe_*.py`
+(`twist_vs_openfast`, `run_timeseries`, `cycle_mean_vs_openfast`, `two_estimators_vs_openfast`).
+
+### What exists to compare
+
+| piece | where | state |
+|---|---|---|
+| our side, default (min-norm, pre-activation) | `$SCRATCH/smoke_fix_results/base_fix` | 60 steps at 0.5 s = **30 s**; identical to the #16 `A` run over its first 5 s (same values to 6 digits) |
+| our side, activated (wall flow) | `$SCRATCH/bfs16/B` | **5 s only** |
+| reference | `$SCRATCH/bfs16/openfast-flexible/blade1_torsion_profile.csv` | 90-100 s window mean of `B1N###_RDxr` |
+
+### 1. Our coupled answer is a sustained cycle, and the A/B runs end on its maximum
+
+`base_fix`, 3000 windows, every window "converged" in 2 solid iterations: `sum F_y` **0.653 .. 1.160 MN**,
+`Q_y` **-6.65 .. -3.35 MN.m**, `max|U|` **11.4 .. 24.3 m**, period **~5 s**, with no decay between t = 15 s
+and t = 30 s. Both `A` and `B` stop at **t = 5 s, the cycle's load maximum**: a snapshot is a phase of the
+cycle, not the response. (`frontiersin_results_corotational_100s/yaw_0`, 100 s, older line and lower load
+0.546 MN/blade, settles by ~5 s with a 0.4 m / 1 % residual ripple, so a settled coupled answer *is*
+reachable in this code family; the case5s family's cycle is a property of that case or code state and
+wants its own diagnosis.)
+
+### 2. The reference oscillates too
+
+`B1N046_RDxr` window means [rad]: `[0,1] 0.01094`, `[2,3] 0.02995`, `[4,5] 0.00411`, `[5,10] 0.01292`,
+`[20,30] 0.01227`, `[50,60] 0.01646`, `[90,100] 0.01578` - a **+-0.6 deg torsional limit cycle** about the
++0.75 deg the profile carries. So the reference is usable only as a window mean, and any
+snapshot-to-mean comparison carries an error bar the size of the signal.
+
+### 3. The comparand itself is not quotable on our fields
+
+Same ring, same field (`base_fix`, z ~ 70.9 m); all three are positive for nose-down per E2:
+
+| estimator | t = 15 s | t = 30 s |
+|---|---|---|
+| `section_twists_deg` (the T2-frozen S-7 construction) | -0.676 deg | -0.801 deg |
+| rotation of the least-squares affine fit (`_ring_kinematics` omega) | -0.685 deg | -0.833 deg |
+| chord-line rotation LE->TE (what a beam reference reports) | **+0.611 deg** | **+0.734 deg** |
+| affine-fit residual RMS / (\|theta\| * r_rms) | 5.7 | 4.7 |
+
+At z = 90 m the same three read -1.194 / -1.092 / **+0.841**. Restricting the frozen estimator to the
+outer shell (`allOuterShellNods`) moves it by 0.02 deg, and the ring's node asymmetry
+(`sum rx ry / sum r^2` = 0.02 .. 0.03) cannot explain the flip: **the non-affine in-plane deformation of
+the section dominates the fitted rotation by ~5x**, so "the section twist" is a small difference of large
+cancelling components and two standard constructions of it disagree in sign, by more than the whole
+signal (~1.4 deg at 70.9 m). This is `distortion/|omega| = 1.6728` (P2c) met at the level of the
+comparand. No residual against the reference may be quoted until the comparand is arbitrated.
+
+What *is* estimator-robust: the A/B amplification measured at t = 5 s is ~6x in the band under **both**
+estimators, so #30's "the amplification is structural" conclusion stands; only the absolute comparand is
+blocked.
+
+### 4. Window means, for the record (not verdicts)
+
+`base_fix` 10-30 s window mean band value: frozen estimator **-0.747 deg**, chord-line **+0.413 deg**,
+reference **+0.750 deg**. Per-station chord-line means: 0.10 deg at 45 m, 0.37 at 60, 0.60 at 70.9, 0.87
+at 80, 1.16 at 90, then oscillating (0.45 at 100, 0.02 at 103.8 with a +-1.9 spread, 2.51 at 110)
+against the reference's monotone 0.59 -> 0.90. The activated side has no window at all: its chord-line
+twist runs +0.81 -> +3.69 deg at 70.9 m and +2.75 -> +12.82 at 100 m over 0.5 -> 5 s, i.e. pre-steady.
+
+### 5. The two sides are not at the same loading
+
+| | reference (OpenFAST) | our coupled case (case5s) |
+|---|---|---|
+| rotor speed / pitch | 7.560 rpm / 0.0 deg | 7.55 rpm / 0.0 deg |
+| thrust per blade | 2.436 MN rotor / 3 = **0.812 MN** | `sum F_y` = **0.900 MN** mean (0.653-1.160) |
+| torque per blade | 19.03 MN.m rotor / 3 = **6.34 MN.m** | `Q_y` = **5.55 MN.m** mean (3.35-6.65) |
+| rotor aero power | **15.065 MW** | **13.17 MW** (single blade x3) |
+
+The reference is at the official rated point; our side sits at ~1.11x thrust and ~0.88x torque per blade
+with a +-28 % swing, so a torsion residual measured there would confound the realization question with a
+different aeroelastic state.
+
+### Verdict: the hand-back to #16
+
+The cheap rung cannot decide the activation question, for four measured reasons: our side is not steady
+at 5 s and the activated side has no window at all; the reference is itself a window mean with a +-0.6 deg
+cycle; the comparand is estimator-dependent at the size of the signal, sign included; and the two sides
+run at different loading. What the decision now needs, in order:
+
+1. **an arbiter for the comparand** - a case with a known section twist under a comparable distorting
+   load (a prescribed moment on this mesh, or the `beamdyn_driver` that ships in the same OpenFAST env);
+   the S-7 static case is the closest existing one and does not distort enough to test the estimator;
+2. **a settled activated coupled run at campaign scale** - >= 30 s with 0.5 s output, reporting the
+   window mean *and* the envelope, at the reference's per-blade loading (0.812 MN / 6.34 MN.m);
+3. **a diagnosis of the case5s ~5 s cycle** before any coupled number of ours is re-baselined onto it
+   (#19-adjacent; `frontiersin/yaw_0` settles, so it is a case or code-state property);
+4. the reference's +-0.6 deg cycle stated as the tolerance floor of any comparison.
+
+Until (1) is closed, "activate or park" cannot be decided by a twist comparison, so the decision stays
+where the 2026-10-10 branch put it: activation off, #16 open.
 
 ## Traps
 
@@ -164,6 +255,16 @@ in `tools/diagnose_wall_flow_static_ab.py`, compared profile by profile against 
   `channel_names` (not present in the installed version).
 - `rtk` hides and repeats lines: verify listings with counts and read from a file, as used here.
 - The tree is shared with another session: `git add -- <paths>` **and** `git commit -- <paths>`.
+- `smoke_fix_results/base_fix` and `bfs16/A` are **the same run**: the first 5 s agree to 6 digits. Do not
+  count them as two measurements of the min-norm realization.
+- On a distorting shell, "the section twist" is not unique: `section_twists_deg`, the affine fit's
+  rotation and the chord-line rotation are three different numbers on the same ring, and here they
+  disagree in sign. Name the estimator, never quote one as *the* twist (the same discipline as "never
+  widen a pass band").
+- The A and B runs stop at t = 5 s, which is the load maximum of the ~5 s cycle: a phase, not a mean.
+- `RotThrust` is kN and `RotTorq` kN-m in this deck, and `TipDxc1`/`OoPDefl1` are `INVALID` under
+  `CompElast = 2`; the blade-1 nodal **force** channels are not written, so the reference's per-blade
+  load split is the rotor channel divided by 3, and it is stated as such.
 
 ## Commit plan (work units)
 
