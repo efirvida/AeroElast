@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fc24808
+      date: '2026-10-10'
       raw: null
       margin_pct: 2.471
       text: 'unbalanced coupon twist against the free-edge reference vs the free-edge CLT state for the same layup: 2.4710% (bound: 5.0000%)'
@@ -48,8 +48,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fc24808
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.4384
       text: 'interior twist rate against the free-edge CLT vs the free-edge CLT state for the same layup: 0.4384% (bound: 5.0000%)'
@@ -76,8 +76,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fc24808
+      date: '2026-10-10'
       raw: null
       margin_pct: 1.2116
       text: 'constant-moment tip twist against the free-edge CLT vs the free-edge CLT state for the same layup: 1.2116% (bound: 5.0000%)'
@@ -104,8 +104,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fc24808
+      date: '2026-10-10'
       raw: null
       margin_pct: 0.4613
       text: 'Ritz constant-moment twist against the free-edge CLT vs the free-edge CLT state for the same layup: 0.4613% (bound: 5.0000%)'
@@ -123,8 +123,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fc24808
+      date: '2026-10-10'
       raw: null
       margin_pct: 2.9083
       text: 'element tip twist against the Ritz reference vs the Ritz solution for the same coupon: 2.9083% (bound: 5.0000%)'
@@ -138,7 +138,7 @@ rows:
   - tests/validation/blade/test_laminate_bend_twist.py::test_independent_ccx_deck_confirms_the_coupon
   validates: The element against an independently authored CalculiX S8R model.
   comparisons:
-  - label: rtol at line 838
+  - label: rtol at line 838 (name=[45,0,0,45]s)
     asserted: true
     reference:
       kind: code
@@ -150,7 +150,50 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fc24808
+      date: '2026-10-10'
+      raw: null
+      margin_pct: 0.2267
+      text: '[45,0,0,45]s element twist against the CCX deck vs the independent CCX deck for the same coupon: 0.2267% (bound: 3.0000%)'
+      digest: 149cd3c456cc2d03
+  - label: rtol at line 838 (name=[60,0,0,60]s)
+    asserted: true
+    reference:
+      kind: code
+      label: the independent CCX deck for the same coupon
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/blade/test_laminate_bend_twist.py:838
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: fc24808
+      date: '2026-10-10'
+      raw: null
+      margin_pct: 1.9465
+      text: '[60,0,0,60]s element twist against the CCX deck vs the independent CCX deck for the same coupon: 1.9465% (bound: 3.0000%)'
+      digest: 4fc8279ac45cbe4d
+  - label: rtol at line 838 (name=[45,-45,-45,45]s)
+    asserted: true
+    reference:
+      kind: code
+      label: the independent CCX deck for the same coupon
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/blade/test_laminate_bend_twist.py:838
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: fc24808
+      date: '2026-10-10'
+      raw: null
+      margin_pct: 0.5953
+      text: '[45,-45,-45,45]s element twist against the CCX deck vs the independent CCX deck for the same coupon: 0.5953% (bound: 3.0000%)'
+      digest: c714b599444f8ecd
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
