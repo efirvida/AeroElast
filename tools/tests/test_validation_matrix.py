@@ -2405,7 +2405,10 @@ def test_contract_a_level_is_blocked_by_an_open_level_it_requires(tmp_path: Path
             "absent": [{"evidence": "tests/test_anchor.py::test_it", "reason": "outside"}],
         },
     ]
-    anchor = trusted(target="tests/test_anchor.py::test_it")
+    anchor = trusted(
+        target="tests/test_anchor.py::test_it",
+        arbiters=[{"kind": "analytical", "label": "closed form"}],
+    )
     for row_verdict, l2_closed in (("trusted", True), ("undecided", False)):
         store = write_store(tmp_path / row_verdict, [make_row()])
         write_contract(store, [trusted(verdict=row_verdict), anchor], levels=levels)
@@ -2413,3 +2416,47 @@ def test_contract_a_level_is_blocked_by_an_open_level_it_requires(tmp_path: Path
         assert l2["own_closed"] is True
         assert l2["closed"] is l2_closed
         assert l2["blocked_by"] == ([] if l2_closed else ["L1"])
+
+
+def _code_only_row() -> dict[str, Any]:
+    row = make_row()
+    row["comparisons"] = [row["comparisons"][0]]
+    row["comparisons"][0]["reference"] = {"kind": "code", "label": "CalculiX 2.20 S8R"}
+    return row
+
+
+def test_contract_a_single_numerical_arbiter_is_not_validation(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [_code_only_row()])
+    write_contract(store, [trusted()])
+    level = contract_report(store)["levels"][0]
+    assert level["counts"] == {"unarbitrated": 1}
+    assert level["closed"] is False
+
+
+def test_contract_two_independent_numerical_arbiters_validate(tmp_path: Path) -> None:
+    arbiters = [
+        {"kind": "produced_numerical", "label": "CalculiX 2.20 S8R"},
+        {"kind": "published_numerical", "label": "BeamDyn deck, IEA 15 MW"},
+    ]
+    store = write_store(tmp_path, [_code_only_row()])
+    write_contract(store, [trusted(arbiters=arbiters)])
+    assert contract_report(store)["levels"][0]["closed"] is True
+
+
+def test_contract_experimental_data_arbitrates_alone(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [_code_only_row()])
+    write_contract(store, [trusted(arbiters=[{"kind": "experimental", "label": "test rig"}])])
+    assert contract_report(store)["levels"][0]["closed"] is True
+
+
+@pytest.mark.parametrize(("status", "closed"), [("bounded", True), ("not_validated", False)])
+def test_contract_only_an_unbounded_gap_blocks_its_level(
+    tmp_path: Path, status: str, closed: bool
+) -> None:
+    store = write_store(tmp_path, [make_row()])
+    entry = gap()
+    entry["status"] = status
+    write_gaps(store, [entry])
+    level = {"id": "L1", "title": "elements", "scope": "s", "groups": ["3"], "gaps": [entry["id"]]}
+    write_contract(store, [trusted()], levels=[level])
+    assert contract_report(store)["levels"][0]["closed"] is closed

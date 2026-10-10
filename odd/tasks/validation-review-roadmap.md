@@ -27,6 +27,18 @@ narrative closure with **measured verdicts that expire on their own**.
   - the band is smaller than the effect it claims to detect.
 
   "The models differ" with no number attached is not an exception.
+- **Arbiters.** Data to validate against is limited, so the arbiter depends on what exists. It
+  can be:
+  - experimental data;
+  - a closed form or theory;
+  - published numerical results;
+  - numerical results we produce with another code, such as CalculiX or OpenFAST.
+
+  Experimental data or a closed form settles a comparison alone. **Numerical references settle
+  it only in pairs:** agreement with a single model is not validation, and at least two
+  independent ones are needed. With no arbiter available, the quantity is **not validated**,
+  and the record says so. Experimental validation is a kind of arbiter, available or not on any
+  level. It is not a level of its own.
 - **Identity** checks (round-off or consistency bounds of our own computation) and
   **regression pins** (no independent reference) are outside the rule. They count toward no
   level.
@@ -49,21 +61,26 @@ layer that `extract` and `coherence` never write:
     `depends_on` (element sources for L1, the solver for L2, the mesh generator and the decks for
     L3, ...), including the levels it requires.
 - `python tools/validation_matrix.py contract [--level Ln] [--rows]` reports, per level, what is
-  trusted, stale, undecided, unaudited, absent or over the ceiling. A level is **closed** only
+  trusted, stale, undecided, unarbitrated, unaudited, absent or over the ceiling. A level is **closed** only
   when nothing in it is open **and every level it requires is closed**. The tool enforces this
-  and prints `blocked by Lk`.
+  and prints `blocked by Lk`. A gap blocks its level when it is `not_validated` or an
+  `open_defect`. A `bounded` gap is a stated limit and shows as a caveat.
 
 Day 0 (`a20a78b`): every row is **unaudited**. 280 of the 285 comparisons carry a
 `justified: true` that extraction filled in, so that flag is not a judgement.
 
-| Level | Scope | Store rows | Absent | Over ceiling | Gaps |
-| --- | --- | ---: | ---: | ---: | ---: |
-| L1 | MITC shell elements vs published | 103 | 2 | 3 | 0 |
-| L2 | Linear solver vs published / CalculiX | 61 | 0 | 1 | 1 |
-| L3 | IEA 15 MW blade structure | 24 | 9 | 2 | 1 |
-| L4 | BEM vs OpenFAST AeroDyn | 12 | 3 | 0 | 0 |
-| L5 | Coupling between domains (preCICE) | 11 | 5 | 0 | 2 |
-| L6 | Coupled IEA 15 MW FSI | 0 | 4 | 0 | 3 |
+| Level | Scope | Store rows | Absent | Over ceiling | Single or no arbiter | Blocking gaps |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| L1 | MITC shell elements vs published | 103 | 2 | 3 | 55 | 0 |
+| L2 | Linear solver vs published / CalculiX | 61 | 0 | 1 | 27 | 1 |
+| L3 | IEA 15 MW blade structure | 24 | 9 | 2 | 32 | 1 |
+| L4 | BEM vs OpenFAST AeroDyn | 12 | 3 | 0 | 15 | 0 |
+| L5 | Coupled IEA 15 MW FSI with the built-in BEM (through preCICE) | 11 | 8 | 0 | 9 | 3 |
+| L6 | Coupling with OpenFOAM through preCICE (planned; OpenFOAM side in progress) | 0 | 1 | 0 | 1 | 0 |
+
+The "single or no arbiter" column is a heuristic. It reads the store's reference kinds and
+treats a `paper` as published numerical data until a verdict says the paper reports a
+measurement.
 
 **Each level conditions the next**, and the tool enforces it through `requires`. The default
 is every lower level; L4 (pure BEM against AeroDyn) requires none. A finding is argued on the lowest level where it appears,
@@ -98,12 +115,12 @@ and it suspends every conclusion above it that uses the same element, solver or 
 
 | # | Item | Closes when |
 | --- | --- | --- |
-| B1 | Audit L1 | every L1 row has a verdict at one revision; the documented reds (D-Tube, UL elastica, ko2017's 8 failures, frame objectivity) are each an exception with a source, or rejected; every `atol` comparison (23 in the store) is classed or given a relative equivalent, because the ceiling cannot judge an absolute bound |
+| B1 | Audit L1 | every L1 row has a verdict at one revision, with its arbiters named; the documented reds (D-Tube, UL elastica, ko2017's 8 failures, frame objectivity) are each an exception with a source, or rejected; every `atol` comparison (23 in the store) is classed or given a relative equivalent, because the ceiling cannot judge an absolute bound |
 | B2 | Audit L2 | as B1; each CalculiX comparison is shown converged **in both codes** |
 | B3 | Audit L3 | as B1; S-2 (+8.1 %) and V-02 first edge (10 %) carry a quantified exception or are rejected |
 | B4 | Audit L4 | as B1 |
-| B5 | Audit L5 | as B1, once C-items for L5 exist |
-| B6 | Audit L6 | as B1, once D-items exist |
+| B5 | Audit L5 | as B1, once the D-items for L5 exist |
+| B6 | Audit L6 | as B1, once the OpenFOAM coupling exists |
 
 ### C. Physics questions already open (each attacked only once its level's audit has reached it)
 
@@ -114,36 +131,34 @@ and it suspends every conclusion above it that uses the same element, solver or 
 | L3 | The rated-twist docstring's shear centre (0.477c) and the pre-fix application figures | #25 |
 | L5 | Wall-flow moment realisation: the activation decision | #16 |
 | L5 | Per-process node ordering in the mesh generator | #17 |
-| L6 | Parked V50 divergence (2168 m against ~8 m) | #10 |
+| L5 | Parked V50 divergence (2168 m against ~8 m) | #10 |
 
 ### D. Missing evidence to build (after B1–B4)
 
 | Level | Item |
 | --- | --- |
 | L5 | Conservation of force and work (`Σf`, `Σf·u`) across the preCICE mapping, independent of the fluid participant |
-| L5 | A published FSI benchmark with OpenFOAM. Candidate: the preCICE perpendicular flap. Feasibility is unverified: there is no SOLID family, so the flap must run as a shell or PLANE strip |
-| L6 | A coupled rated run against OpenFAST coupled (ElastoDyn/BeamDyn + AeroDyn) at the same operating point |
-| L6 | A published IEA 15 MW coupled reference to replace Zhou 2025 (declared non-transferable in #14) |
+| L6 | A published FSI benchmark with OpenFOAM. Candidate: the preCICE perpendicular flap. Feasibility is unverified: there is no SOLID family, so the flap must run as a shell or PLANE strip |
+| L5 | A coupled rated run against OpenFAST coupled (ElastoDyn/BeamDyn + AeroDyn) at the same operating point |
+| L5 | A published IEA 15 MW coupled reference to replace Zhou 2025 (declared non-transferable in #14). It is the second, independent arbiter next to OpenFAST coupled |
 
-## Open scope decision (maintainer)
+## Decisions recorded (2026-10-10)
 
-A level closes only with no gap listed, whatever the gap's status. Two consequences need a
-decision before B-audits close levels:
-
-- `experimental_validation` sits on L6, so **L6 can never close**. The stated scope is
-  published results, theory and other codes, not experiment.
-- `bounded` gaps, such as L2's `composite_stress_recovery`, block the same way as
-  `not_validated` ones.
-
-Options: a gap blocks its level, or it is shown as a non-blocking caveat. This can be decided
-per status or per gap.
+- **L5 and L6 were swapped.** The coupled IEA 15 MW rotor with the built-in BEM has references
+  today (OpenFAST coupled, published FSI) and couples through preCICE, so it is L5. Coupling
+  with OpenFOAM is separate work in progress, so it is L6.
+- **Experimental validation is an arbiter, not a level.** It left L6. The arbiter rule above
+  replaces it.
+- **Only unbounded gaps block.** A gap that is `not_validated` or an `open_defect` keeps its
+  level open. A `bounded` gap is shown as a caveat.
 
 ## Standing caveats (carried over from #18)
 
 - Coupled numbers older than `7a84da1` (load frame) and `6765633` (projection geometry) cannot
   be cited.
-- Verification here is against models, codes and literature. `experimental_validation` is an
-  open gap that this list does not reach.
+- Where no experimental data exists, validation rests on closed forms or on at least two
+  independent numerical arbiters. The store gap `experimental_validation` records that no
+  experiment arbitrates the coupled rotor.
 - A digitized figure is a reference with a quadrature: check its trapezoid against the paper's
   own integrals.
 
@@ -152,7 +167,7 @@ per status or per gap.
 | #18 item | Here |
 | --- | --- |
 | #16 | C (L5) |
-| #10 | C (L6) |
+| #10 | C (L5) |
 | #17 | C (L5) |
 | #24, #23, #31, #32 | A2, A3, A4, A1 |
 | #25, #22 | C (L3) |

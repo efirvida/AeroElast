@@ -117,18 +117,24 @@ levels:
         reason: Viterna against the AeroDyn manual (#5), outside the store.
 
   - id: L5
-    title: Coupling between domains
+    title: Coupled FSI of the IEA 15 MW rotor with the built-in BEM
     scope: >-
-      Load and displacement transfer independent of the fluid solver: frames and signs, moment
-      realisation, conservation of force and work across the preCICE mapping, inertial terms in
-      the rotating frame, and convergence of the partitioned coupling; then a published FSI
-      benchmark with OpenFOAM.
+      The rotor coupled through preCICE to the built-in BEM: load and displacement transfer
+      (frames, signs, moment realisation, conservation of force and work across the mapping),
+      inertial terms in the rotating frame and convergence of the partitioned coupling; then the
+      coupled response against OpenFAST coupled (ElastoDyn/BeamDyn + AeroDyn) at the same
+      operating points and against published IEA 15 MW FSI results. Coupled numbers older than
+      7a84da1 and 6765633 are uncitable.
     groups: ['29', '30', '31', '35', '37']
     depends_on:
       - src/aeroelast/solvers/fsi
       - crates/aeroelast-solvers/src/petsc/fsi
       - src/aeroelast/core/config.py
-    gaps: [moment_realization_over_delivers, reference_projection_geometry_approximation]
+    gaps:
+      - moment_realization_over_delivers
+      - reference_projection_geometry_approximation
+      - radii_datum_definition_bias
+      - zhou_spanwise_load_frame
     absent:
       - evidence: tests/validation/bem/test_force_projection_load_frame.py
         reason: '#26 guard: BEM Np/Tp ride the rotor plane; outside the store.'
@@ -138,23 +144,9 @@ levels:
         reason: '#19 guard: the projection keeps the reference geometry; outside the store.'
       - evidence: 'planned: conservation of force and work across the preCICE mapping'
         reason: >-
-          No test checks that sum(f) and sum(f.u) survive the mapping, independent of the fluid
-          participant; only convergence (#19) and frame (#26) are covered.
-      - evidence: 'planned: preCICE perpendicular-flap benchmark with OpenFOAM'
-        reason: >-
-          Candidate published FSI benchmark with results from several solid solvers; feasibility
-          unverified, since there is no SOLID family and the flap must run as a shell or PLANE
-          strip through the adapter.
-
-  - id: L6
-    title: Coupled FSI of the IEA 15 MW rotor
-    scope: >-
-      The coupled rotor against published IEA 15 MW FSI results and against OpenFAST coupled
-      (ElastoDyn/BeamDyn + AeroDyn) at the same operating points. Coupled numbers older than
-      7a84da1 and 6765633 are uncitable.
-    groups: []
-    gaps: [radii_datum_definition_bias, zhou_spanwise_load_frame, experimental_validation]
-    absent:
+          No test checks that sum(f) and sum(f.u) survive the mapping; only convergence (#19)
+          and frame (#26) are covered. The BEM participant couples through preCICE
+          (solvers/bem/fsi_participant.py), so this is testable without OpenFOAM.
       - evidence: tests/test_iea15mw_s5_oneway.py
         reason: S-5 one-way 100 s rated run, outside the store.
       - evidence: tests/test_iea15mw_s6_oneway_dynamic.py
@@ -163,5 +155,22 @@ levels:
         reason: No post-fix coupled comparison against OpenFAST exists.
       - evidence: 'planned: coupled run against a published IEA 15 MW FSI result'
         reason: >-
-          Zhou 2025 was declared non-transferable (#14); no other published coupled reference
-          has been adopted.
+          Zhou 2025 was declared non-transferable (#14); a second, independent arbiter is
+          needed next to OpenFAST coupled.
+
+  - id: L6
+    title: Coupling through preCICE with an external fluid solver (OpenFOAM)
+    scope: >-
+      The structural participant coupled to OpenFOAM through preCICE: a published FSI benchmark
+      first, then the rotor. The OpenFOAM side is work in progress outside this tree, so this
+      level is planned, not yet auditable.
+    groups: []
+    depends_on:
+      - src/aeroelast/solvers/fsi
+    gaps: []
+    absent:
+      - evidence: 'planned: preCICE perpendicular-flap benchmark with OpenFOAM'
+        reason: >-
+          Candidate published FSI benchmark with results from several solid solvers; feasibility
+          unverified, since there is no SOLID family and the flap must run as a shell or PLANE
+          strip through the adapter.

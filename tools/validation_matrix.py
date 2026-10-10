@@ -3827,12 +3827,27 @@ def command_kinds(args: argparse.Namespace) -> int:
 # the measurement. "The models differ" without a number is not an exception: S-7 carried a
 # +-30 % band justified that way, five times the effect it named, and could not see a
 # direction inversion (72f64de).
+#
+# The arbiter rule: a physics verdict is validation only if its references can arbitrate it.
+# Experimental data or a closed form / theory arbitrate alone; numerical references (published
+# numerical data, or a code we run) need at least two independent ones; with none, the row is
+# not validated. Experimental validation is therefore a kind of arbiter, available or not on any
+# level, not a level of its own.
 
 LEVEL_KEYS = {"id", "title", "scope", "groups", "gaps", "absent", "depends_on", "requires"}
 LEVEL_FILE_KEYS = {"version", "ceiling", "levels"}
 ABSENT_KEYS = {"evidence", "reason"}
 CONTRACT_FILE_KEYS = {"version", "verdicts"}
-VERDICT_KEYS = {"target", "class", "verdict", "audited_rev", "files", "exception", "note"}
+VERDICT_KEYS = {
+    "target",
+    "class",
+    "verdict",
+    "audited_rev",
+    "files",
+    "exception",
+    "arbiters",
+    "note",
+}
 EXCEPTION_KEYS = {"bound", "source", "justification", "fixed_before_measuring"}
 # physics: a comparison against an independent reference, judged by the ceiling.
 # identity: a round-off or consistency bound of our own computation, outside the rule.
@@ -3840,6 +3855,20 @@ EXCEPTION_KEYS = {"bound", "source", "justification", "fixed_before_measuring"}
 VERDICT_CLASSES = {"physics", "identity", "regression_pin"}
 VERDICTS = {"trusted", "exception", "undecided", "rejected"}
 RELATIVE_TOLERANCES = {"rtol", "rel_err"}
+# Arbiters that settle a comparison alone, and those that need a second, independent one.
+SOLE_ARBITERS = {"experimental", "analytical"}
+NUMERICAL_ARBITERS = {"published_numerical", "produced_numerical"}
+ARBITER_KINDS = SOLE_ARBITERS | NUMERICAL_ARBITERS
+# The store's reference kinds, read conservatively: a `paper` may report a measurement, but
+# until a verdict says so it counts as published numerical data; `self` arbitrates nothing.
+STORE_REFERENCE_ARBITER = {
+    "analytical": "analytical",
+    "paper": "published_numerical",
+    "code": "produced_numerical",
+}
+# A gap with one of these statuses keeps its level open; a `bounded` gap is a stated limit,
+# reported as a caveat.
+BLOCKING_GAP_STATUSES = {"not_validated", "open_defect"}
 REV_RE = re.compile(r"^[0-9a-f]{7,40}$")
 
 
@@ -3952,6 +3981,20 @@ def load_contract(store: Store) -> list[dict[str, Any]]:
             isinstance(files, list) and all(isinstance(f, str) and f for f in files)
         ):
             store.error(where, "files must be a list of repository paths")
+        arbiters = entry.get("arbiters")
+        if arbiters is not None and not (
+            isinstance(arbiters, list)
+            and all(
+                isinstance(item, dict)
+                and item.get("kind") in ARBITER_KINDS
+                and isinstance(item.get("label"), str)
+                and item["label"]
+                for item in arbiters
+            )
+        ):
+            store.error(
+                where, f"arbiters is a list of {{kind, label}}, kind one of {sorted(ARBITER_KINDS)}"
+            )
         exception = entry.get("exception")
         if verdict == "exception":
             if not isinstance(exception, dict):
@@ -4012,6 +4055,26 @@ def level_requirements(levels: list[dict[str, Any]]) -> dict[str, list[str]]:
     return closure
 
 
+def row_arbiters(ref: RowRef | None) -> list[dict[str, str]]:
+    """The arbiters a row's comparisons name, read from the store's reference kinds."""
+    found: list[dict[str, str]] = []
+    for comparison in (ref.data.get("comparisons") or []) if ref is not None else []:
+        reference = comparison.get("reference") or {}
+        kind = STORE_REFERENCE_ARBITER.get(str(reference.get("kind")))
+        label = str(reference.get("citation") or reference.get("label") or "")
+        if kind is not None and {"kind": kind, "label": label} not in found:
+            found.append({"kind": kind, "label": label})
+    return found
+
+
+def arbiters_suffice(arbiters: list[dict[str, str]]) -> bool:
+    """One sole arbiter, or two independent numerical ones (distinct labels)."""
+    if any(item["kind"] in SOLE_ARBITERS for item in arbiters):
+        return True
+    numerical = {item["label"] for item in arbiters if item["kind"] in NUMERICAL_ARBITERS}
+    return len(numerical) >= 2
+
+
 def changed_since(rev: str, files: list[str]) -> list[str] | None:
     """Commits touching `files` after `rev`; None when git cannot resolve the revision."""
     if not files:
@@ -4043,7 +4106,15 @@ def contract_status(
             kind = tolerance.get("kind")
             if kind in RELATIVE_TOLERANCES and value is not None and value > ceiling:
                 over.append((str(comparison.get("label")), str(kind), value))
-    status: dict[str, Any] = {"over_ceiling": over, "stale_by": []}
+    # A verdict's own arbiter list overrides what the store's reference kinds suggest.
+    arbiters = list(verdict.get("arbiters") or []) if verdict is not None else []
+    arbiters = arbiters or row_arbiters(ref)
+    status: dict[str, Any] = {
+        "over_ceiling": over,
+        "stale_by": [],
+        "arbiters": arbiters,
+        "arbitrated": arbiters_suffice(arbiters),
+    }
     if verdict is None:
         status["state"] = "unaudited"
         return status
@@ -4067,6 +4138,12 @@ def contract_status(
         # The ceiling judges physics comparisons; an identity or a pin is outside the rule.
         status["over_ceiling"] = []
     trusted_pin = klass == "regression_pin" and state == "trusted"
+    if klass != "physics":
+        status["arbitrated"] = True
+    elif state in ("trusted", "exception") and not status["arbitrated"]:
+        # Agreement with a single numerical model is not validation: the row stays open.
+        status["state"] = "unarbitrated"
+        return status
     status["state"] = "regression_pin" if trusted_pin else state
     return status
 
@@ -4124,7 +4201,13 @@ def command_contract(args: argparse.Namespace) -> int:
             counts[entry["state"]] = counts.get(entry["state"], 0) + 1
         over = sum(1 for entry in entries if entry["over_ceiling"])
         open_states = set(counts) - {"trusted", "exception", "regression_pin"}
-        own_closed = bool(entries) and not open_states and not over and not level.get("gaps")
+        blocking_gaps = [
+            gap_id
+            for gap_id in level.get("gaps") or []
+            if store.gaps[gap_id].get("status") in BLOCKING_GAP_STATUSES
+        ]
+        unarbitrated = sum(1 for entry in entries if not entry["arbitrated"])
+        own_closed = bool(entries) and not open_states and not over and not blocking_gaps
         closed_ids = {item["id"] for item in report if item["closed"]}
         blocked_by = [required for required in requirements[level_id] if required not in closed_ids]
         report.append(
@@ -4138,6 +4221,8 @@ def command_contract(args: argparse.Namespace) -> int:
                 "counts": counts,
                 "over_ceiling": over,
                 "gaps": list(level.get("gaps") or []),
+                "blocking_gaps": blocking_gaps,
+                "unarbitrated": unarbitrated,
                 "entries": entries,
             }
         )
@@ -4154,6 +4239,7 @@ def command_contract(args: argparse.Namespace) -> int:
         "undecided",
         "rejected",
         "stale",
+        "unarbitrated",
         "unaudited",
         "absent",
     ]
@@ -4167,17 +4253,26 @@ def command_contract(args: argparse.Namespace) -> int:
         parts = [f"{name} {level['counts'][name]}" for name in order if level["counts"].get(name)]
         print(f"{level['id']} [{state}] {level['title']}")
         print(
-            f"    {', '.join(parts) or 'no rows'}; over ceiling {level['over_ceiling']}; gaps {len(level['gaps'])}"
+            f"    {', '.join(parts) or 'no rows'}; over ceiling {level['over_ceiling']}; "
+            f"single or no arbiter {level['unarbitrated']}; "
+            f"gaps {len(level['blocking_gaps'])} blocking / {len(level['gaps'])}"
         )
         if args.rows:
             for entry in level["entries"]:
-                if entry["state"] == "trusted" and not entry["over_ceiling"]:
+                if (
+                    entry["state"] == "trusted"
+                    and not entry["over_ceiling"]
+                    and entry["arbitrated"]
+                ):
                     continue
                 extra = ""
                 if entry["over_ceiling"]:
                     extra += "  over: " + "; ".join(
                         f"{label} {kind} {value:g}" for label, kind, value in entry["over_ceiling"]
                     )
+                if not entry["arbitrated"]:
+                    names = ", ".join(f"{a['kind']}:{a['label']}" for a in entry["arbiters"])
+                    extra += f"  arbiters: {names or 'none'}"
                 if entry["stale_by"]:
                     extra += f"  stale by: {' '.join(entry['stale_by'][:5])}"
                 print(f"      {entry['state']:<10} {entry['target']}{extra}")

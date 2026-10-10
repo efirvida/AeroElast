@@ -25,6 +25,12 @@
 #                A band wider than the effect it names is not an exception: S-7 carried a
 #                +-30 % band "justified" by the S-1 model difference and could not see its own
 #                direction inversion (72f64de).
+#   arbiters     list of {kind, label}; kind one of experimental | analytical |
+#                published_numerical | produced_numerical. Overrides what the store's
+#                reference kinds suggest (a `paper` reads as published numerical until a verdict
+#                says it is experimental). Experimental data or a closed form arbitrate alone;
+#                numerical references need two independent ones. A trusted physics verdict that
+#                fails this is reported `unarbitrated` and keeps its level open.
 #   note         free text
 version: 1
 
