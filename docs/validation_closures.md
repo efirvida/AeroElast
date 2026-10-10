@@ -89,7 +89,7 @@ ensamble (`assembler.rs`), o el solver UL (`static_nonlinear.rs`/`.py`).
 | V-05 propiedades | masa total +4.1 % = banda documentada +4–8 % (layup vs 6×6) | `test_iea15mw_v05_structural_properties.py` |
 | S-1 seccional | EI_edge ~10 %, EI_flap 20-25 % (sesgo de extracción documentado), **GJ 23.9 %** post-fix local-tangente | `test_iea15mw_s1_sectional.py`; doc `shell_vs_beam_sectional_validation.md` §6 |
 | S-4 modal rotante vs OpenFAST MBC3 | 1F +0.6 %, 1E −4.5 %, 2F −1.5 % | `test_iea15mw_s4_rotating_modal.py` |
-| S-7 torsión (twist global vs viga) | twist **0.9336** convergido ⇒ shell/viga `GJ` **1.071** (re-medido 2026-10-07; el `1.080` del job `s7conv` es pre-merge y quedó invalidado por el merge del 30-09) | `tests/validation/blade/test_iea15mw_s7_torsion.py`; § S-7 (2026-10-07) |
+| S-7 torsión (twist global vs viga) | twist **1.0390** convergido ⇒ shell/viga `GJ` **0.962** (**corregido 2026-10-10**, commit `72f64de`: hasta entonces la razón comparaba la respuesta a `κ·M` contra la viga a `M`, con `κ = 0.8978`; ver el bloque al final de § S-7) | `tests/validation/blade/test_iea15mw_s7_torsion.py`; § S-7 (2026-10-07, corregido 2026-10-10) |
 | S-8c signo de twist | coincide con BeamDyn (+0.545/+0.981°) | `test_iea15mw_s8c_twist_sign` (job s8c) |
 | Campbell / K_G | 5/5 | `test_iea15mw_sx_campbell.py` |
 
@@ -720,7 +720,7 @@ siguen sin ser citables.
 
 ---
 
-### S-7: la tabla de convergencia contradecía a la medición, y el lado "más blanda" es el artefacto (2026-10-07)
+### S-7: la tabla de convergencia contradecía a la medición, y el lado "más blanda" es el artefacto (2026-10-07) — **corregido 2026-10-10: era al revés; ver el bloque al final de esta sección**
 
 Cierra el issue #20 (ítem 8 del roadmap de #18). S-7
 (`tests/validation/blade/test_iea15mw_s7_torsion.py`) sostenía las dos direcciones a la vez: la
@@ -771,7 +771,48 @@ independiente y va declarada como tal en el store.
 (`BladeMesh.generate`, sus opciones de spacing y su convención de winding), en
 `tools/beam_reference.py::load_beamdyn_blade`, en el deck
 `tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat`, o en
-`tools/run_s7_torsion.py::section_twists_deg` (la construcción del twist de sección).
+`tools/run_s7_torsion.py::section_twists_deg` (la construcción del twist de sección), o en
+`tools/run_s7_torsion.py::tip_couple` (la construcción del par).
+
+---
+
+**Corrección (2026-10-10, commit `72f64de`): la dirección de este cierre estaba invertida, y la causa
+es un defecto en la construcción del par.** `run_torsion_case` normalizaba el par de punta con
+`2·Σ_{x_off>0} x_off²`, que vale el segundo momento completo **solo si el anillo es simétrico en `x`**.
+El anillo de punta del IEA 15 MW tiene 16 nodos y no lo es: el par aplicado era `κ·M`, con
+`κ = 0.8978` a `element_size` 0.25 (0.9154 en las tres mallas más gruesas, 0.8986 a 0.125). Medido de
+dos maneras independientes (`Σ x_off·F_y` sobre el anillo, y el momento leído por el instrumento 35 m
+adentro). La razón registrada era entonces una razón de rigidez **multiplicada por `κ`**, y `κ` es lo
+que la llevaba por debajo de 1.
+
+Corregida por `κ` — exacto, porque la respuesta es lineal en el momento aplicado — la tabla de
+convergencia queda:
+
+| es | nodos | `κ` | razón registrada | **razón corregida** | re-medida con el arreglo |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2.000 | 1460 | 0.915365 | 1.0237 | 1.118351 | **1.118319** |
+| 1.000 | 3040 | 0.915365 | 1.0219 | 1.116385 | **1.116392** |
+| 0.500 | 9271 | 0.915365 | 0.9790 | 1.069518 | **1.069529** |
+| 0.250 | 32325 | 0.897777 | 0.939603 | 1.046588 | **1.046588** |
+| 0.125 | 120352 | 0.898586 | 0.933641 | **1.039011** | (derivada) |
+
+O sea: la serie **nunca cruza 1.0** y converge a **1.039** ⇒ el `GJ` global de la cáscara es
+**~3.8 % MENOR** que el del deck BeamDyn, no 6.4 % mayor. El cruce de 1.0 entre `0.500` y `0.250` era
+el único sostén de "la cáscara es más rígida", y dependía enteramente de `κ`. El lado "más blanda"
+**no** era el artefacto: lo era el eje "más rígida" que este cierre dio por bueno.
+
+**Lo que queda abierto, y es de física, no de instrumento**: seccional y global ahora discrepan en
+signo (S-1 seccional `+23.9 %`; S-7 global `~3.8 %` más blanda). Son magnitudes distintas — rigidez de
+sección de Saint-Venant contra un twist global de punta — y una cáscara puede ser legítimamente rígida
+seccionalmente y blanda globalmente (shear lag, restricción de alabeo, empotramiento), pero nada de
+esto lo demuestra. Es la pregunta que #20 creyó cerrar y la razón por la que debería reabrirse.
+
+**El fixture sigue siendo válido**: `0.250` está **0.73 %** por encima de `1.039011` (`0.125`), así
+que el guard de regresión se sostiene. La cota `_RATIO_TOL = 0.30` **tampoco** se tocó: el defecto era
+la construcción del par, no la cota — y vale notar que la cota era cinco veces el efecto que nombraba,
+así que no podía ver la inversión. La tabla de `1.386 … 1.273` (2026-09-30/10-04) tenía la dirección
+correcta y su magnitud sigue sin reproducir a HEAD en ninguna malla: el factor `1.079` del winding
+canónico no la cierra, y `κ` la mueve para el otro lado, a `1.51 … 1.42`.
 
 ---
 

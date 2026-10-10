@@ -94,6 +94,10 @@ measured contributor and not the whole cause; the residual is not bisected.
 
 ### E4 - the direction is settled: the shell is stiffer
 
+> **Reversed by E7 (2026-10-10).** The direction below is an artifact of the tip couple's
+> normalisation, not a measurement: with the load honoured the shell is `~3.8 %` softer globally. The
+> stale table's side was right about the direction. Read E7 before using anything in this section.
+
 Four independent sources agree, and only the stale table disagrees:
 
 | source | value | direction |
@@ -115,6 +119,9 @@ sectional against `+6.4 %` global here, `+7.1 %` at the converged mesh) is real 
 direction question.
 
 ### E5 - a second, new finding: the convergence record is replaced by measured rows
+
+> **Superseded by E7 (2026-10-10)** for the ratios in the table below, every one of which is a
+> stiffness ratio times that mesh's `kappa`. The *plateau* result stands; the values do not.
 
 The committed table claimed the `0.5 -> 0.25` step as `1.303 -> 1.286` (**1.3 %**) and
 concluded "the band itself does not move". The HEAD record, `es = 0.125` measured to
@@ -149,6 +156,52 @@ grouped nor declared" file to none; the reference error count unchanged at 1, an
 error pre-existing), the code facts (`22d3ccc` removes the canonicalisation call, the ratio
 expression created once in `5234b48` and never changed, the deck md5), and that no site in
 `docs/` or `tests/` still asserts the softer direction.
+
+### E7 - the direction was an artifact: the tip couple under-delivered its moment (2026-10-10)
+
+**This reverses E4.** `run_torsion_case` built its tip couple with
+`denom = 2 * sum(x_off**2 for x_off > 0)`, which gives `sum(x_off * F_y) = torque` only for an
+x-symmetric ring. The IEA 15 MW tip ring has 16 nodes and is not symmetric, so the applied moment was
+`kappa * torque`, with `kappa` a function of the ring geometry alone:
+
+| es | nodes | `kappa` | recorded ratio | ratio / `kappa` | re-measured with the fix |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 2.000 | 1460 | 0.915365 | 1.0237 | 1.118351 | **1.118319** |
+| 1.000 | 3040 | 0.915365 | 1.0219 | 1.116385 | **1.116392** |
+| 0.500 | 9271 | 0.915365 | 0.9790 | 1.069518 | **1.069529** |
+| 0.250 | 32325 | 0.897777 | 0.939603 | 1.046588 | **1.046588** |
+| 0.125 | 120352 | 0.898586 | 0.933641 | **1.039011** | (derived, see below) |
+
+`kappa` was measured two ways -- `sum(x_off * F_y)` over the tip ring, and the moment read by the
+instrument at a station 35 m inboard -- and dividing by it is exact: the response is linear in the
+applied moment. The analytic correction predicts the four re-measured rows to 5-6 digits, which is
+what licenses the `0.125` entry without re-running its 230 s / 12 GB solve. (Cross-check that the
+defect moved the *recorded* numbers and not the solver: T8 had already shown `StaticLinearSolver` and
+an independent `_assemble` + `spsolve` give the same band mean to six decimals.)
+
+Two consequences:
+
+1. **The trend never crosses 1.0.** The recorded series crossed between `0.500` and `0.250`, and that
+   crossing is the entire "the shell is stiffer" reading. Corrected, the series is monotone,
+   `1.118 -> 1.039`, and the shell's global `GJ` is **~3.8 % BELOW** the beam's at convergence.
+2. **E4's argument loses its strongest leg.** Three of E4's four "stiffer" sources --
+   `1/0.939603`, the pre-merge `GJ = 1.080`, and `model_parity_audit`'s `0.84` -- all derive from
+   this same ratio. Only S-1's *sectional* `+23.9 %` is independent, and it measures a different
+   quantity (St-Venant section stiffness, not a global tip twist). E4 did not have four independent
+   sources agreeing; it had one measurement and three restatements of it, against the table.
+
+**What this does *not* settle.** Sectional and global now disagree in sign: S-1's sectional shell
+`GJ` is `+17-24 %` above the deck, S-7's global twist says the shell is `~3.8 %` softer. Those are
+different quantities, and a shell can legitimately be sectionally stiff and globally soft (shear lag,
+warping restraint, the clamped root) -- but nothing here demonstrates that it is. That is the open
+question, and it is exactly the question #20 believed it was closing.
+
+**Burn as settled**: the direction claim in the fixture docstring, in E4 above, and in the S-7 rows.
+**Keep**: `_RATIO_TOL = 0.30` -- this is a load-construction defect, not a physics bound, and the
+bound was never the defect. **Note**: the older committed table (`1.386 .. 1.273`) had the *right
+direction* and still does not reproduce at HEAD at any mesh size; E3's factor `1.079` from the
+element-winding canonicalisation does not close it, and neither does `kappa` (which moves those
+numbers the other way, to `1.51 .. 1.42`).
 
 ## Tasks
 
@@ -192,6 +245,14 @@ expression created once in `5234b48` and never changed, the deck md5), and that 
   (comment 6049338529). Three follow-ups were opened from it: #21 (the `regression`
   declaration gap), #22 (the unattributed residual) and #23 (the pre-existing
   `references check` error).
+- [x] T7 Fix the couple normalisation and re-derive the direction. **Done 2026-10-10**, commit
+  `72f64de`: `tip_couple()` extracted as the single construction, `denom = sum(x_off**2)`, the
+  applied-moment test tightened from a `+-30 %` window to exactness (`1e-12` on the forces that reach
+  the solver, plus zero net force) after observing RED at `102.22 N.m` of `1000` missing, and the
+  module docstring, convergence record and assertion comment corrected to the measured direction;
+  E7 records the reversal and the sign disagreement it leaves open. `2 passed`; `ruff check` clean on
+  both changed files. **Two follow-ups belong to the maintainer**: store row 34 still carries the old
+  direction in `measured`/`notes`/`justification`, and #20's closure rests on E4.
 
 ## Delivered, with the evidence
 

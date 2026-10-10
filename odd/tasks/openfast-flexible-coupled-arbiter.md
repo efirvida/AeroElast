@@ -456,8 +456,7 @@ That silently biases every `estimator / beam_twist_profile_deg(torque, zs)` rati
 So the anchor means the shell twists **4.66 % more** than the BeamDyn beam under the same moment: the
 shell's effective torsional stiffness is ~4.5 % **lower**, not 6.4 % higher. The estimator is still
 controlled (within 5 % of the beam), so T6/T7's use of it as a *control* stands, but the direction of
-the recorded S-7 statement does not. It touches issue #20 and the S-7 rows: it wants its own issue and
-its own work unit, not an edit smuggled into this one.
+the recorded S-7 statement does not. **Fixed 2026-10-10, commit `72f64de`** (detail: `odd/tasks/s7-torsion-ratio.md` §E7): `tip_couple()` is now the single construction and normalises by the full second moment, the applied-moment test asserts exactness instead of a ±30 % window, and the corrected convergence record converges to `1.0390` -- the shell is `~3.8 %` softer globally while S-1's sectional stays `+23.9 %` above, so sectional and global now disagree in sign. Two things stay with the maintainer: store row 34 still carries the old direction, and the #20 closure rests on the claim this reverses.
 
 ### 3. Where the residual lives: the flapwise path, and the shell is not beam-shaped there
 
@@ -515,7 +514,7 @@ shell's response to a *distributed* moment differs from the tip couple the contr
   disagree in sign. Name the estimator, never quote one as *the* twist (the same discipline as "never
   widen a pass band"). `n_slices` belongs to the name: at 9 bands the band mean of the coupled field at
   t = 15 s is `+1.2425 deg`, at the recorded 40 bands it is `-0.6545 deg` (T7).
-- **`tools/run_s7_torsion.py::run_torsion_case` under-applies its torque by 10.2 %** on this mesh: the
+- **`tools/run_s7_torsion.py::run_torsion_case` under-applied its torque by 10.2 %** on this mesh: the
   couple normalization (`2*sum(x_off**2 for x_off > 0)`) assumes a symmetric ring, and the 16-node tip
   ring is not (T8). Requesting `1000` applies `897.7774 N.m`. Every `estimator / beam_twist_profile_deg(torque)`
   ratio is therefore 10.2 % low, and the recorded `0.939603` anchor means `1.046588` load-correct.
