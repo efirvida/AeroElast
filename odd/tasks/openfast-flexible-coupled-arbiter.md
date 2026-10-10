@@ -419,6 +419,83 @@ reference against the shell's response to the **same** aero field -- a load-appl
 question, not a centrifugal one.
 
 
+## T8 — the residual is the flapwise path, and the S-7 tool under-applies its torque (2026-10-10)
+
+Probe: `$SCRATCH/bfs16/wf_p2b_diag/probe_aero_torsion_split.py`; log `logs/tmp_p2b_aero_split.txt`. Same
+apparatus as T7 (material `K`, clamped root, campaign mesh, `n_slices = 40`), same production classes.
+
+T7 left one question: on the same frozen aero field the beam `integral(M_z/GJ)` gives `+6.42 deg` at
+t = 15 s while the shell's own static response to that field gives `-0.40 deg`. Two things had to be
+settled before that could be read as anything at all.
+
+### 1. The sign chain, closed
+
+A positive axial moment must give a positive `section_twists_deg`, or nothing else here is legible. The
+S-7 tip couple is the known case, and rebuilt **inside this apparatus** (my `_assemble` + `spsolve`, my
+moment instrument) it reads `+897.7774 N.m` and the shell answers `+0.011095 deg` against a beam
+`+0.010604 deg`: **positive in, positive out**, ratio `+1.0466`. Also settled on the way: the two
+assembly paths are the same object -- `StaticLinearSolver` (`run_torsion_case`) and
+`_assemble` + `spsolve` give the identical band mean on the same load, to six decimals.
+
+### 2. A defect in the S-7 tool, and it moves a recorded anchor
+
+`tools/run_s7_torsion.py::run_torsion_case(mesh, props, torque)` builds its couple with
+`denom = 2 * sum(x_off**2 for x_off > 0)`, which delivers `sum(x_off * f_y) = torque` only when the
+ring's chordwise node distribution is symmetric. The tip ring has 16 nodes and is not: the applied
+couple is `0.897777 * torque`. Measured two independent ways (the tip-centroid sum and the moment
+instrument at 35.1 m): `run_torsion_case(..., 1000.0)` applies **897.7774 N.m**.
+
+That silently biases every `estimator / beam_twist_profile_deg(torque, zs)` ratio in the record:
+
+| ratio | value |
+|---|---|
+| `mean(frozen / beam[1000])` -- the recorded anchor | **+0.939603** (reproduced bit-exact) |
+| `mean(frozen / beam[897.7774])` -- load-correct | **+1.046588** |
+| ratio of band means | +0.912504 |
+
+So the anchor means the shell twists **4.66 % more** than the BeamDyn beam under the same moment: the
+shell's effective torsional stiffness is ~4.5 % **lower**, not 6.4 % higher. The estimator is still
+controlled (within 5 % of the beam), so T6/T7's use of it as a *control* stands, but the direction of
+the recorded S-7 statement does not. It touches issue #20 and the S-7 rows: it wants its own issue and
+its own work unit, not an edit smuggled into this one.
+
+### 3. Where the residual lives: the flapwise path, and the shell is not beam-shaped there
+
+The aero field split by direction, each part solved alone, each with its own beam reference
+(`M_z` at 35.1 m in MN.m; band means in deg):
+
+| t [s] | variant | `M_z`(35.1) | beam | shell band | shell profile at 35.1 / 70.2 / 105.3 m |
+|---|---|---|---|---|---|
+| 5 | AERO | +0.5568 | +6.6933 | -0.4530 | +0.048 / -0.343 / -1.395 |
+| 5 | **AXIAL** (`F_y` only) | +0.5384 | +6.5264 | **-0.4089** | +0.058 / -0.330 / -1.195 |
+| 5 | INPLANE (`F_x, F_z`) | +0.0184 | +0.1669 | -0.0441 | -0.010 / -0.013 / -0.200 |
+| 15 | AERO | +0.5187 | +6.4167 | -0.4031 | +0.065 / -0.347 / -1.137 |
+| 15 | **AXIAL** | +0.5454 | +6.6178 | **-0.4095** | +0.060 / -0.326 / -1.224 |
+| 15 | INPLANE | -0.0267 | -0.2011 | +0.0064 | +0.005 / -0.021 / +0.087 |
+
+`F_y` is the thrust -- along the rotor axis, perpendicular to the blade span -- so the split says the
+whole residual sits in the **flapwise distributed load**: it carries 96-97 % of the aero axial moment
+and produces 90-100 % of the shell's twist, and the in-plane part is negligible. The two columns at the
+right then choose between the readings:
+
+* it is **not the load application point on its own**: the axial moment is `sum(x * F_y)`, so it already
+  contains the chordwise eccentricity of the thrust line, and the shell does receive it -- it just does
+  not answer it as a beam does;
+* the shell's twist is **not beam-shaped**: positive inboard (`+0.06 deg` at 35 m), strongly negative
+  outboard (`-1.2 deg` at 105 m), against a monotone positive beam reaching `~+12 deg` at 104 m. That is
+  the signature of the cross-sectional distortion the arbiter was explicitly *not* built to bound (T2,
+  item d; `distortion/|omega| = 1.6728` on the rated path), not of a wrong moment arm.
+
+### Verdict
+
+The residual is the flapwise path on a closed section whose section rotation a beam reference does not
+describe -- not the centrifugal term (T7) and not the load application point as such. The one
+measurement that discriminates what remains: apply the aero's own `M_z(z)` as a **pure distributed axial
+moment** (zero net force) and compare against `integral(M_z/GJ)`. If the shell reproduces it, the
+shell's torsion is sound and the residual is the bend-twist / distortion coupling; if it does not, the
+shell's response to a *distributed* moment differs from the tip couple the control validates on.
+
+
 ## Traps
 
 - `scripts/aeroenv.sh` for anything importing `aeroelast`; OpenFAST itself needs its own env
@@ -438,7 +515,11 @@ question, not a centrifugal one.
   disagree in sign. Name the estimator, never quote one as *the* twist (the same discipline as "never
   widen a pass band"). `n_slices` belongs to the name: at 9 bands the band mean of the coupled field at
   t = 15 s is `+1.2425 deg`, at the recorded 40 bands it is `-0.6545 deg` (T7).
-- **The saved force fields and the saved coordinates are in different frames.** `fields.vtu` `points` are
+- **`tools/run_s7_torsion.py::run_torsion_case` under-applies its torque by 10.2 %** on this mesh: the
+  couple normalization (`2*sum(x_off**2 for x_off > 0)`) assumes a symmetric ring, and the 16-node tip
+  ring is not (T8). Requesting `1000` applies `897.7774 N.m`. Every `estimator / beam_twist_profile_deg(torque)`
+  ratio is therefore 10.2 % low, and the recorded `0.939603` anchor means `1.046588` load-correct.
+- The saved force fields and the saved coordinates are in different frames. `fields.vtu` `points` are
   the rotating frame; `F_INERTIAL`, `F_GRAVITY`, `F_TOTAL` and `F_AERO` are the inertial one
   (`rotor.py:2261-2279`). The mix is harmless for the aero field (99.7 % of it is along the rotation axis)
   and destructive for the inertial one (all of it lies in the rotation plane): it invents `-0.4787 MN.m`
