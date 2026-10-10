@@ -3,7 +3,9 @@
 Status: T1-T2 done (instrument `dccf9e2`, record in this note). **T3b done** (part 1 probe
 `tools/diagnose_wall_flow_pattern_ab.py`, part 2 probe `tools/diagnose_wall_flow_static_ab.py`): the
 amplification is structural, it does not need the coupled loop. **T3 done**: the minimum-norm
-over-delivery is pinned in the closed-tube fixture. T4 (closure) pending.
+over-delivery is pinned in the closed-tube fixture. **T5 done**: the production *application* mode is
+Bredt-consistent to a converging discretisation residual, and the parked default is not. T4 (closure)
+done and #30 closed.
 Owner: this session (2026-10-10); T3b continues in a clean session - see the handoff at the end.
 Related: issue **#30** (roadmap item `P2` of **#18**), issue **#16** (blocked by #30),
 `odd/tasks/bem-wall-flow-activation.md` (T5/T6 hold the three measurements),
@@ -373,6 +375,57 @@ count, `33.8 %` of the rectangle's divergence at 51 nodes) stays a **probe** mea
 `tools/diagnose_section_moment_realization.py`: promoting it would mean building the extruded
 airfoil tube inside a test, and T3's own text pins the validated closed tube - not a new construction
 - as the arbiter. It is recorded here and in the T2 result instead.
+
+### T5 - result (2026-10-10): the production *application* mode is Bredt-consistent; the parked default is not, at any resolution
+
+Raised while writing T4: the validated group-31 bound is measured with the shear flow on the **end
+rings**, so the internal torque is constant and the interior window sits far from any application.
+Production does something else - `project()` hands `realise_section_load` a whole **strip** and
+`_realise_multi_cell_section_load` splits its torsion over the strip's physical rings with
+`_ring_tributary_weights`, each ring realising its own share as its own single-cell wall flow - so the
+torque **ramps** and a self-equilibrated couple sits at *every* ring. A Saint-Venant disturbance
+decays over ~one section dimension (here ~1 m) against `dz = 0.2` m, so the per-ring disturbances
+overlap along the whole tube. The mode production runs was therefore not covered by the bound that
+claims it.
+
+Probe: `tools/diagnose_wall_flow_distributed_application.py`. **Metric caution first:** the local
+ratio `r(z) = theta'(z) * GJ / M_cum(z)` is fragile in this mode - it divides by `M_cum`, which goes
+to zero at the tip, and it reports a median of `1.09-1.13` with a worst `|r-1|` of `63-89 %` that is
+mostly its own artefact. The arbiter used instead is **estimator-free**: the work done by the applied
+field against Bredt's strain energy for the internal-torque profile the field itself produces,
+`W / integral M_cum(z)^2 / (2 GJ) dz`, with `M_cum` read back from the field
+(`z_hat . sum_{outboard} (x_j - c) x f_j`) so no assumption about how the load was spread enters.
+
+| `dz` [m] | control: end couple, self-eq | end couple, clamped | **wall flow distributed** | **minimum-norm distributed** |
+| --- | --- | --- | --- | --- |
+| 0.200 | `1.00309` (record) | `+1.86 %` | **`+4.36 %`** | **`+338.2 %`** |
+| 0.100 | `1.00311` | `+1.24 %` | **`+2.48 %`** | `+334.4 %` |
+| 0.050 | `1.00316` | `+0.94 %` | **`+1.56 %`** | `+330.0 %` |
+
+The control reproduces the recorded `1.00309` at every mesh.
+
+**Verdicts.** (1) The distributed wall-flow mode's excess **converges to Bredt with refinement**
+(`+4.36 -> +2.48 -> +1.56 %`, ~halving per halving of `dz`): its residual is the discretisation of
+applying a discrete couple per ring, **not a defect of the application**. (2) The parked
+minimum-norm default in the *same* mode is `+330-338 %` and **does not move** with refinement, while
+the end-coupled variant was `+31.7x` in rate: its over-delivery is the realisation's own defect, not
+discretisation. This is the strongest quantification of `moment_realization_over_delivers` the repo
+has. (3) **The production application mode is sound, and it does not explain the blade's `2-3.3x`**:
+at the tube's `dz` its own residual is a few percent and shrinking, two orders below the blade's
+amplification. That amplification is therefore the blade's *structural response to a correct
+distributed load* - the same conclusion as T3b part 2, now with the application-mode confound
+excluded. (4) **Coverage finding**: the store row is titled "production shear-flow moment
+realisation" while its bound is an end-couple measurement. Production's mode is now measured and
+pinned in the same file (bare, with its refinement), and it is the mode a campaign runs.
+
+Deliverable: `test_production_distributed_application_is_bredt_to_a_converging_residual` in
+`tests/validation/parity/test_thin_walled_tube_moment_realization.py` - bare pins on the two energy
+excesses at `n_z = 30` and `60`, plus two structural assertions (`the wall-flow excess shrinks with
+refinement`; `the minimum-norm excess does not`). Deliberately **not** a store comparison: at a fixed
+mesh the local and energy metrics disagree, so registering the energy one as "validated within 5 %"
+would be metric-shopping. No new row; `check` stays at `211 rows / 277 comparisons / 0 errors / 0
+warnings`. Evidence: the file alone `3 passed in 2.58 s`; `scripts/check.sh quick` **OK** (ruff clean,
+the single failure being the documented `test_corotational_is_frame_objective_tl_is_not`).
 
 ## Traps
 
