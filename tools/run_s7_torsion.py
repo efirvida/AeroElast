@@ -65,6 +65,31 @@ def build_mesh_and_properties(element_size: float):
     return mesh, properties
 
 
+def tip_couple(mesh, torque: float) -> tuple[np.ndarray, np.ndarray]:
+    """Pure tip couple about the span axis, as transverse forces on the tip-ring nodes.
+
+    Returns ``(tip_node_indices, F_y)`` with ``F_y = torque * x_off / denom``, where ``x_off`` is the
+    chordwise node offset from the ring centroid.  By construction ``sum(x_off * F_y) = torque`` and
+    ``sum(F_y) = 0``: a couple of the requested magnitude with no net force.
+
+    The normaliser is the whole construction: it must be the ring's chordwise second moment,
+    ``sum(x_off**2)``, because only then does ``sum(x_off * F_y) = torque`` hold for *any* node
+    distribution.  ``2 * sum(x_off**2 for x_off > 0)`` equals it only for an x-symmetric ring, and the
+    IEA 15 MW tip ring is not symmetric: that form under-delivered the applied moment by a
+    mesh-dependent factor (0.8978 at ``element_size`` 0.25, 0.9154 on the coarser three) and carried the
+    S-7 global twist ratio across 1.0, inverting the direction the S-7 module reports.  See
+    ``odd/tasks/s7-torsion-ratio.md``.
+    """
+    coords = mesh.coords_array
+    z = coords[:, 2]
+    tip = np.nonzero(z >= z.max() - 1e-6)[0]
+    x_off = coords[tip, 0] - coords[tip, 0].mean()
+    denom = float(np.sum(x_off**2))
+    if denom <= 0.0:
+        raise ValueError("degenerate tip ring: zero chordwise second moment")
+    return tip, torque * x_off / denom
+
+
 def run_torsion_case(mesh, properties, torque: float) -> np.ndarray:
     """Clamp root, apply tip torque via force couples, return solution."""
     from aeroelast.core.bc import DirichletCondition, NodalLoad
@@ -89,21 +114,14 @@ def run_torsion_case(mesh, properties, torque: float) -> np.ndarray:
     )
     solver.add_dirichlet_conditions([DirichletCondition(root_dofs, 0.0)])
 
-    # Tip torque about the span via transverse force couples on the tip
-    # section nodes (S-1 construction): F_y = torque · x_off / Σ(2·x_off²)
-    coords = mesh.coords_array
-    z = coords[:, 2]
-    tip_nodes = np.nonzero(z >= z.max() - 1e-6)[0]
-    tip_xyz = coords[tip_nodes]
-    x_off = tip_xyz[:, 0] - tip_xyz[:, 0].mean()
-    denom = max(2.0 * float(np.sum(x_off[x_off > 0] ** 2)), 1e-6)
-    f_y = {int(t): [0.0, torque * xo / denom, 0.0] for t, xo in zip(tip_nodes, x_off)}
-
+    # Tip torque about the span via transverse force couples on the tip section nodes (S-1
+    # construction); only the y component is loaded, so the couple lives in the span direction.
+    tip_nodes, f_y = tip_couple(mesh, torque)
     dofs, vals = [], []
-    for t, fvec in f_y.items():
+    for t, fy in zip(tip_nodes, f_y, strict=True):
         for d in range(3):
             dofs.append(int(t) * dpn + d)
-            vals.append(float(fvec[d]))
+            vals.append(float(fy) if d == 1 else 0.0)
     solver.add_nodal_loads([NodalLoad(dofs, vals)])
 
     return solver.solve()
@@ -120,7 +138,7 @@ def section_twists_deg(mesh, u: np.ndarray, n_slices: int = 40) -> tuple[np.ndar
     z = coords[:, 2]
     edges = np.linspace(z.min(), z.max(), n_slices + 1)
     zs, thetas = [], []
-    for a, b in zip(edges[:-1], edges[1:]):
+    for a, b in zip(edges[:-1], edges[1:], strict=True):
         mask = (z >= a) & (z < b) if b < z.max() else (z >= a) & (z <= b)
         idx = np.nonzero(mask)[0]
         if len(idx) < 3:
@@ -180,7 +198,7 @@ def main() -> int:
     ratios = []
     print()
     print(f'{"z [m]":>8} {"shell [deg]":>12} {"beam [deg]":>12} {"ratio":>8}')
-    for z, th_s, th_b in zip(zs, theta_s, theta_beam):
+    for z, th_s, th_b in zip(zs, theta_s, theta_beam, strict=True):
         if th_b < 1e-9:
             continue
         ratios.append(th_s / th_b)
@@ -197,7 +215,7 @@ def main() -> int:
     csv_path = OUT_DIR / "s7_torsion.csv"
     with csv_path.open("w") as f:
         f.write("z_m,theta_shell_deg,theta_beam_deg,ratio\n")
-        for z, th_s, th_b in zip(zs, theta_s, theta_beam):
+        for z, th_s, th_b in zip(zs, theta_s, theta_beam, strict=True):
             f.write(f"{z:.6f},{th_s:.6e},{th_b:.6e},"
                     f"{th_s/th_b if th_b > 1e-9 else ''}\n")
     print(f"[S-7] Wrote {csv_path}")
