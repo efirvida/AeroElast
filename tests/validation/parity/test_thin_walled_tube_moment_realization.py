@@ -43,6 +43,7 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
 from aeroelast.solvers.bem.force_projection import (  # noqa: E402
     ForceProjector,
+    _ring_tributary_weights,
     _Strip,
     realise_section_load,
 )
@@ -67,6 +68,19 @@ WINDOW = (0.4 * tube.L, 0.9 * tube.L)  # the validated interior window of case A
 MIN_NORM_OVER_DELIVERY_SELF_EQUILIBRATED = 31.69331
 MIN_NORM_OVER_DELIVERY_CLAMPED = 10.40654
 PIN_TOL = 1e-3
+
+# T5 of issue #30: production does not apply the shear flow at the end rings.  `project()` hands
+# `realise_section_load` a whole **strip** and `_realise_multi_cell_section_load` splits its torsion
+# over the strip's physical rings with `_ring_tributary_weights`, each ring realising its own share
+# with its own wall flow - so the internal torque ramps and a self-equilibrated couple is applied at
+# every ring.  That mode is not covered by the end-couple bound above, and the two metrics disagree
+# at a fixed mesh: the estimator-free energy balance `W / integral M_cum^2/(2 GJ)` sits a few percent
+# over Bredt and **converges with refinement** (4.356 % at `n_z = 30`, 2.484 % at `n_z = 60`), while
+# the local `theta'(z) * GJ / M_cum(z)` blows up near the tip where `M_cum -> 0`.  Neither number is
+# therefore registered as a validated bound; they are bare regression pins, and the parked
+# minimum-norm field's non-converging `+338 %` in the same mode is pinned next to them.
+DISTRIBUTED_ENERGY_EXCESS = {30: 0.04356, 60: 0.02484}
+MIN_NORM_DISTRIBUTED_ENERGY_EXCESS = {30: 3.38184, 60: 3.34399}
 
 
 def _ring_strip(coords: np.ndarray, ring: list[int]) -> _Strip:
@@ -267,4 +281,122 @@ def test_minimum_norm_realisation_over_delivers_bredt_by_the_recorded_factor():
     )
     assert ratio_cl == pytest.approx(MIN_NORM_OVER_DELIVERY_CLAMPED, rel=PIN_TOL), (
         "the clamped minimum-norm over-delivery moved: same recorded defect as above"
+    )
+
+
+def _ring_couple(coords, ring, torque):
+    """The validated single-ring production route, embedded in the mesh's 6-DOF layout."""
+    idx = np.asarray(ring, dtype=int)
+    nodes = _production_tip_moment(coords, ring, torque).reshape(-1, 6)
+    f = np.zeros(6 * len(coords))
+    for node in idx:
+        f[6 * node : 6 * node + 3] = nodes[node, :3]
+    return f
+
+
+def _distributed_ring_by_ring(coords, rings, z):
+    """Production's structure: one tributary share of the total torsion per ring, its own wall flow."""
+    weights = _ring_tributary_weights(z)
+    f = np.zeros(6 * len(coords))
+    for ring, weight in zip(rings, weights, strict=True):
+        f += _ring_couple(coords, ring, tube.TORQUE * float(weight))
+    return f
+
+
+def _distributed_one_solve(coords, dr):
+    """The parked default's branch: one minimum-norm solve for the whole moment over all nodes."""
+    centroid = coords.mean(axis=0)
+    strip = _Strip(
+        node_indices=np.arange(len(coords), dtype=np.intp),
+        r_center=float(centroid[2]),
+        dr=dr,
+        centroid=centroid,
+        offsets=coords - centroid,
+    )
+    nodes = ForceProjector._distribute(strip, np.zeros(3), np.array([0.0, 0.0, tube.TORQUE]))
+    f = np.zeros(6 * len(coords))
+    f[0::6], f[1::6], f[2::6] = nodes[:, 0], nodes[:, 1], nodes[:, 2]
+    return f
+
+
+def _cumulative_moment(coords, f, rings) -> np.ndarray:
+    """Outboard cumulative applied moment per ring, read back from the applied field itself."""
+    force = f.reshape(-1, 6)[:, :3]
+    zz = coords[:, 2]
+    profile = []
+    for ring in rings:
+        centre = coords[ring].mean(axis=0)
+        outboard = zz > float(coords[ring][:, 2].mean())
+        profile.append(float(np.cross(coords[outboard] - centre, force[outboard]).sum(axis=0)[2]))
+    return np.asarray(profile)
+
+
+def _energy_excess(coords, f, u, rings, z, gj) -> float:
+    """``W / integral M_cum^2/(2 GJ) - 1``: estimator-free, so it cannot repeat a local bias."""
+    work = 0.5 * float(f @ u)
+    bredt = float(np.trapezoid(_cumulative_moment(coords, f, rings) ** 2, z)) / (2.0 * gj)
+    return work / bredt - 1.0
+
+
+def test_production_distributed_application_is_bredt_to_a_converging_residual():
+    """T5 of #30: is the application mode production actually runs Bredt-consistent? (bare pins)
+
+    The bound in ``test_production_shear_flow_moment_realisation_vs_bredt`` is measured with the
+    shear flow on the **end rings**, so the internal torque is constant and the interior window sits
+    far from the application. Production applies a tributary share at **every** ring of the strip,
+    which is a different mode: the torque ramps and the per-ring self-equilibrated couples overlap
+    (a Saint-Venant disturbance decays over ~one section dimension, here ~1 m, against `dz = 0.2`).
+
+    This test measures that mode with the estimator-free energy balance, and pins two facts:
+
+    * the wall flow's excess **shrinks with refinement** (4.356 % -> 2.484 % when `dz` halves): its
+      residual is the discretisation of applying a discrete couple per ring, not a defect of the
+      realisation. It is deliberately **not** turned into a validated bound - at a fixed mesh the
+      local ``theta'(z) * GJ / M_cum(z)`` metric disagrees with the energy one and blows up near the
+      tip where ``M_cum -> 0``, so a bound here would be metric-shopping;
+    * the parked minimum-norm field's excess in the same mode is **+338 % and does not move**
+      (3.38184 -> 3.34399), i.e. its over-delivery is not a discretisation effect at all.
+
+    Read with the bound above: the validated end-couple number and the pin here answer different
+    questions, and the production mode sits between them.
+    """
+    measured = {}
+    for n_z in sorted(DISTRIBUTED_ENERGY_EXCESS):
+        coords, conn, rings, _n_ring = tube._tube_mesh(n_z=n_z)
+        _, K = tube._assemble(coords, conn, 4, tube._iso_prop())
+        gj, _ref_rate = tube._bredt_isotropic()
+        clamped = tube._clamped_dofs(rings)
+        z = np.asarray([coords[ring][:, 2].mean() for ring in rings])
+
+        wall = _distributed_ring_by_ring(coords, rings, z)
+        assert abs(tube._realised_torque(coords, wall) - tube.TORQUE) / tube.TORQUE < 1e-9
+        wall_excess = _energy_excess(
+            coords, wall, tube._solve_clamped(K, wall, clamped), rings, z, gj
+        )
+        plain = _distributed_one_solve(coords, tube.L / n_z)
+        plain_excess = _energy_excess(
+            coords, plain, tube._solve_clamped(K, plain, clamped), rings, z, gj
+        )
+        measured[n_z] = (wall_excess, plain_excess)
+        print(
+            f"[n_z={n_z}, dz={tube.L / n_z:.3f} m] distributed wall flow energy excess "
+            f"{wall_excess:+.5f}, minimum-norm {plain_excess:+.5f}"
+        )
+
+    for n_z, (wall_excess, plain_excess) in measured.items():
+        assert wall_excess == pytest.approx(DISTRIBUTED_ENERGY_EXCESS[n_z], rel=0.02), (
+            "the distributed wall-flow energy excess moved: it is a pinned discretisation residual "
+            "of the production application mode (T5 of #30), not a bound to widen"
+        )
+        assert plain_excess == pytest.approx(MIN_NORM_DISTRIBUTED_ENERGY_EXCESS[n_z], rel=0.02), (
+            "the distributed minimum-norm energy excess moved: this is the parked default's "
+            "recorded defect (gaps.yaml moment_realization_over_delivers)"
+        )
+    coarse, fine = sorted(measured)
+    assert measured[fine][0] < measured[coarse][0], (
+        "the distributed wall-flow excess must shrink with refinement - that is what makes it a "
+        "discretisation residual of a discrete per-ring application rather than a defect"
+    )
+    assert measured[fine][1] > 0.95 * measured[coarse][1], (
+        "the minimum-norm excess is not expected to shrink: it is the realisation's own defect"
     )
