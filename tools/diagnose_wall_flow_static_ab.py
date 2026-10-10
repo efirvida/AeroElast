@@ -92,9 +92,7 @@ def main() -> int:
 
     # ── mesh: the case's own generator, checked against the runs' own solid_mesh.vtu ─────────
     t0 = time.time()
-    generator = BladeMesh(
-        yaml_file=str(YAML), airfoil_dir=str(AIRFOILS), **GENERATOR
-    )
+    generator = BladeMesh(yaml_file=str(YAML), airfoil_dir=str(AIRFOILS), **GENERATOR)
     mesh = generator.generate(renumber="rcm", verbose=False)
     props = build_rust_properties(generator.numad_mesh_data)
     coords = mesh.coords_array
@@ -122,9 +120,18 @@ def main() -> int:
     stations = t._physical_stations(coords)
     tip = np.where(np.abs(coords[:, 2] - stations[-1]) < t.STATION_GAP_TOLERANCE)[0]
     # cumulative applied twist moment about the reference span axis, per station
-    moment = {key: np.asarray([_moment(coords[r] - coords[r].mean(axis=0), fields[key][r]) @ SPAN
-                               for r in [np.where(np.abs(coords[:, 2] - z) < t.STATION_GAP_TOLERANCE)[0]
-                                         for z in stations]]) for key in RUNS}
+    moment = {
+        key: np.asarray(
+            [
+                _moment(coords[r] - coords[r].mean(axis=0), fields[key][r]) @ SPAN
+                for r in [
+                    np.where(np.abs(coords[:, 2] - z) < t.STATION_GAP_TOLERANCE)[0]
+                    for z in stations
+                ]
+            ]
+        )
+        for key in RUNS
+    }
 
     print(f"\nstations: {len(stations)}, tip ring {tip.size} nodes at z={stations[-1]:.3f} m")
     for key in RUNS:
@@ -151,13 +158,16 @@ def main() -> int:
         )
 
     print(f"\n=== section twist profile [deg] over {N_STATIONS} stations ===")
-    print(f"{'z [m]':>7} | {'omega A':>9} {'omega B':>9} {'ratio':>7} | "
-          f"{'rigid A':>9} {'rigid B':>9} | {'dist A':>9} {'dist B':>9} | {'Tcum A':>10} {'Tcum B':>10}")
+    print(
+        f"{'z [m]':>7} | {'omega A':>9} {'omega B':>9} {'ratio':>7} | "
+        f"{'rigid A':>9} {'rigid B':>9} | {'dist A':>9} {'dist B':>9} | {'Tcum A':>10} {'Tcum B':>10}"
+    )
     pick = np.linspace(0, len(stations) - 1, args.stations).astype(int)
     for i in pick:
         zz = stations[i]
-        oa, ob = np.rad2deg(reports[list(RUNS)[0]]["omega"][i]), np.rad2deg(
-            reports[list(RUNS)[1]]["omega"][i]
+        oa, ob = (
+            np.rad2deg(reports[list(RUNS)[0]]["omega"][i]),
+            np.rad2deg(reports[list(RUNS)[1]]["omega"][i]),
         )
         ratio = ob / oa if abs(oa) > 1e-12 else float("nan")
         print(
@@ -170,8 +180,10 @@ def main() -> int:
         )
 
     first, second = list(RUNS)
-    tip_omega = {key: float(np.rad2deg(t._ring_kinematics(coords, solutions[key], tip)["omega"]))
-                 for key in RUNS}
+    tip_omega = {
+        key: float(np.rad2deg(t._ring_kinematics(coords, solutions[key], tip)["omega"]))
+        for key in RUNS
+    }
     tip_rigid = {
         key: float(np.rad2deg(t._ring_kinematics(coords, solutions[key], tip)["rigid_rotation"]))
         for key in RUNS
@@ -236,7 +248,9 @@ def _assemble(mesh, props) -> tuple:
     )
     n_dof = assembler.dofs_count
     rows, cols, vals = assembler.assemble_k()
-    K = coo_matrix((np.asarray(vals), (np.asarray(rows), np.asarray(cols))), shape=(n_dof, n_dof)).tocsr()
+    K = coo_matrix(
+        (np.asarray(vals), (np.asarray(rows), np.asarray(cols))), shape=(n_dof, n_dof)
+    ).tocsr()
     root = {mesh.node_id_to_index[nid] for nid in mesh.get_node_set("RootNodes").node_ids}
     fixed = {6 * i + d for i in root for d in range(6)}
     free = np.asarray([i for i in range(n_dof) if i not in fixed], dtype=np.int64)
