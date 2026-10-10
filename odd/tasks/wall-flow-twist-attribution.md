@@ -1,6 +1,8 @@
 # Feature: attribute the wall-flow coupled twist movement (#30, item P2 of #18)
 
-Status: T1-T2 done (instrument `dccf9e2`, record in this note). T3, T3b and T4 pending.
+Status: T1-T2 done (instrument `dccf9e2`, record in this note). T3b part 1 done (probe
+`tools/diagnose_wall_flow_pattern_ab.py`) - the applied pattern carries no sign flip; the movement is
+a response effect. T3, T3b part 2 (frozen-field static solve) and T4 pending.
 Owner: this session (2026-10-10); T3b continues in a clean session - see the handoff at the end.
 Related: issue **#30** (roadmap item `P2` of **#18**), issue **#16** (blocked by #30),
 `odd/tasks/bem-wall-flow-activation.md` (T5/T6 hold the three measurements),
@@ -189,6 +191,104 @@ activation decision is the wall flow *and* a declared residual for the coupled r
 *Not absorbed:* making the OpenFOAM coupling declare mesh connectivity and use
 `nearest-projection` (the user's hint, valid where the meshes do *not* coincide). If it earns its
 own issue, it goes to #18's table, not here.
+
+### T3b - plan (2026-10-10): the pattern attribution from the runs' own saved fields
+
+The handoff posed T3b as "apply the actual strip loads through both realisations on the production
+mesh and solve". Before paying for any solve, note that the two runs already carry the object. Both
+`A/corotational/5/fields.vtu` and `B/corotational/5/fields.vtu` hold `F_AERO` on the **same**
+32325-node grid (nonzero on the same 27609 coupling nodes) together with `U`, at the converged
+coupled state. `C` reproduces `A` to 8-9 digits, so A vs B *is* the realisation.
+
+Reconnaissance (one read of the two files, no solve):
+
+| quantity | A (min-norm, parked default) | B (wall flow) |
+| --- | --- | --- |
+| `\|F_AERO\|` L2 [N] | 9935.9 | 16528.3 |
+| nonzero nodes | 27609 | 27609 |
+
+The same resultant is delivered by fields whose L2 differs by `1.664x`. The minimum-norm field is
+by construction the *minimal-L2* representative of that resultant, so the gap is the **pattern**,
+not the load. Both fields sit on identical node clouds, so `df = F_B - F_A` is exactly the
+realisation difference at the run's own load level: no transfer step, no mesh change, and no BEM
+state change in the way (T1 already showed the exchange is the identity).
+
+Probe `tools/diagnose_wall_flow_pattern_ab.py` measures, per physical ring of the coupling set:
+
+1. `df`'s resultant, moment and L2 share per band (self-equilibration: they must be ~0);
+2. the section-frame decomposition of each field (chordwise / flapwise / tangential) and the
+   pattern's peakedness (`max|f| / mean|f|`, `L2 / |sum f|`) - the handoff's question (a);
+3. the **conjugate twist torque** `T_eff = a . sum (x - c) x f` about the *deformed* section axis
+   `a` through the deformed centroid `c`, for both fields and on a common geometry, next to the
+   same quantity about the undeformed axis - the handoff's question (b) in its static, first-order
+   form. A reversed twist drive across the section is the sign flip's static source;
+4. the drilling audit of reading 2: the nodal rotation component about the local section normal and
+   the in-plane distortion of `U` (the T2 estimator).
+
+Either outcome closes the measurement: the pattern difference already carries a reversed twist drive
+on the deformed geometry (the mechanism is static and needs no coupled loop), or it does not (the
+mechanism lives in the corotational/coupled path, and *that* is the finding).
+
+### T3b - result, part 1 (2026-10-10): the applied pattern carries no sign flip; the movement is a response effect
+
+Probe: `tools/diagnose_wall_flow_pattern_ab.py` (standalone, reads the two runs' own `fields.vtu`;
+command `scripts/aeroenv.sh python tools/diagnose_wall_flow_pattern_ab.py`, exit 0, no solve).
+
+**What the runs carry, verified first.** `A/solid_mesh.vtu` and `B/solid_mesh.vtu` are bit-identical
+(32325 nodes), and in both runs `points == solid_mesh + U` **index-wise** to `7e-15`, so the
+reference geometry is shared and A vs B is a genuine difference of response. The stored `F_AERO`
+lies in the section plane of the reference span axis (median axial share `5.3e-3` in a mid-span
+band; the global `sum F_z` is `-8e-11`), while rotating it by `R(-theta)` about `Y` raises the share
+to `1.3e-1`: the field is in the reference/rotating frame, the same frame as the coordinates.
+
+| quantity | A (min-norm) | B (wall flow) |
+| --- | --- | --- |
+| `\|F_AERO\|` L2 | 9935.9 N | 16528.3 N (**1.664x**) |
+| `max\|f\|` | 293.2 N | 271.8 N |
+| resulting `sum F` | `[-8.58e4, 1.132e6, ~0]` | `[-8.07e4, 1.128e6, ~0]` |
+| difference field `df = F_B - F_A` | L2 `1.326e4` N = **133.4 % of A**, moves `27609/27609` nodes | global resultant differs `[5075, -3736, 0]` N = **0.45 %** |
+
+**The applied load does not flip the twist.** Per ring, `T = a . sum (r_def x f)` about the
+section's own **deformed** axis through its deformed centroid has the *same sign* for A and B almost
+everywhere (the per-ring difference oscillates: 107 sign changes over 671 rings, `min -675`,
+`max +469` N.m). The **cumulative** applied twist moment (what a cantilever section actually feels)
+is `5.941e5` N.m (A) against `6.497e5` N.m (B): **+9.4 %**, same sign, and the excess `5.56e4`
+N.m is delivered outboard of `z ~ 78` m. So the wall flow delivers *more*, not opposite, twist
+drive.
+
+**The response is disproportionate.** With `1.09x` the applied twist moment, B's tip section
+rotation is `2.6x` A's by the reference-arm estimator on the tip ring (`-6.05` vs `-15.76` deg). The
+extra twist therefore lives in the **structural response to the pattern**: the wall-flow field
+excites section distortion and the drilling rotation, the minimum-norm field does not. Measured
+normalised in-plane distortion `u` minus its best-fit rigid motion: A `5.35e-2` against B `7.94e-2`
+at the tip, and `2.22e-2` against `9.19e-2` at `z = 109` m. RMS nodal rotation about the section
+axis: A `0.245` against B `1.04` rad at `z = 109` m.
+
+**Estimator caveat (new, and it touches the issue's headline).** The tip ring has 16 nodes and a
+mean radius of only `0.176` m, and the deformed centroid sits ~24 m from the reference ring, so any
+best fit that mixes reference arms with the deformed centroid degenerates (`-0.0004` deg). The same
+tip reading is: reference arms `A -6.05 / B -15.76`; deformed arms `A -5.98 / B -15.01`; over the
+outer 5 % of span `A +5.71 / B -9.58` (reference arms) and `A +2.33 / B -3.88` (deformed arms); the
+issue's `+1.208 / -9.270` is the mean of the interpolated 40-slice profile. So the tip *value* and
+even its **sign** depend on the estimator, while the sign of the change and the raw 6th DOF (mean
+`ROTZ +2.583 -> -27.404`) are robust. Any row this issue writes must name the estimator.
+
+**Verdict.** T3b's hypothesis is half right and half refuted. Refuted: the realisation difference
+does **not** deliver a reversed flapwise/torsion pattern - its twist drive is `+9 %`, same sign, so
+the sign flip is not in the applied load. Confirmed: the two realisations' fields differ by `133 %`
+of L2 at an identical resultant, and that pattern difference is answered by a *distorting, drilling*
+section response worth `2.6x` the twist. Reading 1 of the issue (the min-norm field leaking the
+moment into non-torsional deformation) is not supported; reading 2 (the tangential wall flow
+exciting the zero-thickness shell's drilling/distortion) gains evidence on the coupled path - where
+T2 had refuted it on the pure-torsion path.
+
+**What part 2 has to settle** (the only thing left that part 1 cannot): apply each run's own frozen
+`F_AERO` field to the production mesh in a **static** solve - no dynamics, no aero feedback - and
+compare the twist. If the `2.6x` survives statically the mechanism is a structural response to the
+pattern; if it collapses, the coupled loop (aero-elastic torsional feedback, or the transient) is
+what amplifies it, and *that* is the finding. The mesh, properties and a per-node load field are
+already available: `tools/ccx_blade_twist_arbitration.py` assembles the blade with
+`PyMeshAssembler` and solves it with `spsolve` under an arbitrary nodal field.
 
 ## Traps
 
