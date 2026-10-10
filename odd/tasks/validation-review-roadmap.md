@@ -303,3 +303,24 @@ Each closure records what was measured and how to re-check it. A tooling item ca
   again with the next edit above them. Anchoring a site on a symbol or on the mention itself,
   instead of a line number, would remove this class of failure. It is a tool change, not part of
   A3.
+
+### A4 — #31: group 26 has six undeclared tests (closed 2026-10-10, `02018bc`)
+
+- **Cause.** `test_laminate_bend_twist.py` collects six tests that were neither rows nor declared,
+  so `regression --group 26` reported 6 `unclaimed` and exited 1.
+- **Fix.** Each is declared under group 26's `non_validation_tests` in `groups.yaml`, with its
+  reason. None carries a tolerance against an independent reference, so policy rule 6 leaves it no
+  row:
+  - `test_abd_is_the_single_source_of_truth`: wiring (the element and the references use the same
+    laminate object).
+  - `test_d16_zero_control_gives_zero_twist`: a decoupled control that asserts no twist.
+  - `test_metric_sensitivity`, `test_ratio_deviation_shrinks_with_width_refinement`,
+    `test_mesh_convergence_of_the_twist_ratio`: self-convergence. Groups 5 and 14 already treat
+    this as machinery.
+  - `test_report_bend_twist_table`: no assertion, only a printer.
+- **Measured.** At `2999327` plus this change:
+  - `regression --group 26`: 6 `declared_non_validation`, 8 `same`, **exit 0**.
+  - `check`: 211 rows, 286 comparisons, 0 errors, 0 warnings. The baseline before the edit was
+    also 286, so no comparison moved.
+  - `pytest tools/tests`: 165 passed. `git status --porcelain -- docs/validation` shows only
+    `groups.yaml`.
