@@ -105,11 +105,14 @@ this question.
   `RotThrust` 2.436 MN, `RotTorq` x speed = 15.065 MW. T5 then measured the cheap rung and it **cannot
   decide #16**: our coupled answer is a sustained ~5 s cycle (both A and B stop on its load maximum),
   the reference itself carries a +-0.6 deg torsional limit cycle about its +0.75 deg band mean, the
-  two sides run at 1.11x / 0.88x of the reference's per-blade loading, and the frozen section-twist
-  estimator and the chord-line rotation of the same ring **disagree in sign** (the section's
-  non-affine deformation dominates the fitted rotation ~5x). Until a comparand is arbitrated, no
-  coupled number of ours is quotable. Evidence: `odd/tasks/openfast-flexible-coupled-arbiter.md` (T1-T5),
-  commits `c6129c9`, `4f2de63`.
+  two sides run at 1.11x / 0.88x of the reference's per-blade loading, and -- the one that matters --
+  **the only beam reference available for the coupled field disagrees with our shell in sign and by ~8x**
+  (the field's own aero internal torque is nose-down, `M_z = +0.5565 MN.m` at the root, while the section
+  rotates nose-up), which points at the centrifugal/inertial torsion rather than at the comparand. A
+  control on the S-7 case validates the estimators against the beam at 0.94, so the comparand is sound;
+  a first pass of T5 reported an estimator sign disagreement and it was a bug in that probe (corrected in
+  `odd/tasks/openfast-flexible-coupled-arbiter.md` §T5-3/§T6). Evidence: the same document (T1-T6),
+  commits `c6129c9`, `4f2de63`, and the correction commit.
 - [x] P2c **Say which arbiter decides what.** DONE 2026-10-08: the assignment is stated in the
   section at the end of this document, every row carrying its live evidence and, as importantly,
   what the arbiter does **not** decide. It is stated here first because it gates every quotation;
@@ -266,7 +269,7 @@ arbiter does **not** decide.
 | Is the load **application pattern** right? | Bredt closed form on the closed tube, driven through the production `ForceProjector.project()` | the pattern (transverse force + its transfer moment): `0.22%` / `0.09%` of the exact discrete response, `0.03` quadrature on the continuum comparand | store **group 35**, `tests/validation/parity/test_thin_walled_tube_projection.py`, commit `6780835` | the blade's geometry, any magnitude against a paper |
 | Is our **sectional stiffness** right? | OpenFAST MBC3 / BeamDyn deck, rotating modal (S-7) | `GJ` and the sectional stiffness: shell `+6.4%` global, `+23.9%` sectional | group 34, issue #20, `docs/validation_closures.md` S-7 | the twist magnitude, the load application |
 | Is our **structural response** right for a given load? | CalculiX S8R, same blade, **the same nodal load** | the shell's response to that load: MITC4 `+8.0980` vs S8R `+8.4396` = **4.22%** at the converged 0.25 m mesh (each code converged on its own sequence) | `tools/ccx_blade_twist_arbitration.py`, `odd/tasks/force-projection-shear-flow.md:202-204` | the load itself (it is fed our nodal vector) and the coupled response |
-| Is our **coupled** response right? | OpenFAST flexible rated (**P2b: reference run 2026-10-10**) | the aeroelastic response, *once a comparand exists*: our side is a sustained ~5 s cycle and the frozen `section_twists_deg` and the chord-line rotation of the same ring disagree in sign | `$SCRATCH/bfs16/openfast-flexible/blade1_torsion_profile.csv`, `tools/openfast_flexible_rated_reference.py`, `odd/tasks/openfast-flexible-coupled-arbiter.md` T1-T5 | the sectional stiffness (that is S-7's), the paper's definition of "torsion", and (still) our own coupled magnitude: the estimator is not arbitrated |
+| Is our **coupled** response right? | OpenFAST flexible rated (**P2b: reference run 2026-10-10**) | the aeroelastic response, *once our side is settled*: the reference is a window mean with a +-0.6 deg cycle, our side ends on a sustained ~5 s cycle's load maximum, and the beam reference for the field's own aero torque disagrees with our shell in sign and by ~8x | `$SCRATCH/bfs16/openfast-flexible/blade1_torsion_profile.csv`, `tools/openfast_flexible_rated_reference.py`, `odd/tasks/openfast-flexible-coupled-arbiter.md` T1-T6 | the sectional stiffness (that is S-7's), the paper's definition of "torsion", and the centrifugal/inertial torsion (missing on the beam side of that comparison too) |
 | Is our magnitude **comparable with the paper**? | Zhou et al. 2025 Table 4 | **nothing about our model**: it is a GEBT beam number and our shell carries the section distortion a beam cannot (`distortion/\|omega\| = 1.6728`) | `docs/validation_closures.md:244` | any shell magnitude; the arbitrable pair is **beam-vs-beam** (our `-2.0790` vs their `-3.60`) |
 
 Rules that follow, and that the write-up must keep:
@@ -279,12 +282,14 @@ Rules that follow, and that the write-up must keep:
 3. **Zhou is cited for the beam-vs-beam comparison only**: under their own Fig. 11 loads our beam gives
    `-2.0790 deg` against their `-3.60 deg`, a `0.58x` twist (`tools/diagnose_zhou_loads_reverse.py`).
    The `1.61x` is that tool's *shell* figure (`+5.7822 deg`) and is not the production rated number.
-4. **A missing arbiter is stated as missing.** P2b's reference now exists, but the *comparand* does
-   not: our coupled answer is a sustained cycle whose section twist is estimator-dependent (the frozen
-   S-7 construction and the chord-line rotation of the same ring disagree in sign), so no coupled
-   number of *ours* is citable yet. OpenFAST's own coupled solution is a third-party result and stands
-   on its own; it arbitrates our side only once the comparand is fixed **and** the coupled gates
-   (#19 item 0) clear. See `odd/tasks/openfast-flexible-coupled-arbiter.md` T5.
+4. **A missing arbiter is stated as missing.** P2b's reference now exists and the comparand's
+   instrument is controlled (the S-7 construction reproduces the beam at 0.94 on the control case), but
+   our *coupled* number is still not citable: our answer is a sustained cycle with no settled window,
+   the reference is itself a window mean, and the comparison against the field's own aero torque fails by
+   sign and ~8x because that beam reference carries no centrifugal torsion. OpenFAST's own coupled
+   solution is a third-party result and stands on its own; it arbitrates our side only once our side is
+   settled **and** the coupled gates (#19 item 0) clear. See
+   `odd/tasks/openfast-flexible-coupled-arbiter.md` T5/T6.
 
 ## Found while closing #21 (2026-10-08): `coherence` is destructive
 

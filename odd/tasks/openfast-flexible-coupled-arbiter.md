@@ -180,36 +180,36 @@ wants its own diagnosis.)
 +0.75 deg the profile carries. So the reference is usable only as a window mean, and any
 snapshot-to-mean comparison carries an error bar the size of the signal.
 
-### 3. The comparand itself is not quotable on our fields
+### 3. The comparand: the S-7 construction survives, and it took a control to see it (corrected 2026-10-10)
 
-Same ring, same field (`base_fix`, z ~ 70.9 m); all three are positive for nose-down per E2:
+**Correction, and it is mine.** The first pass of this section reported that "the frozen estimator and the
+chord-line rotation of the same ring disagree in sign", which would have made the comparand unquotable.
+That was a **bug in the chord-line probe**, not a property of the field: the implementation computed
+`atan2(c' x c, c' . c)`, the rotation *from the deformed chord to the reference one*, which returns
+`-theta`. The arbiter's control exposes it -- see §T6: on the S-7 case, where the answer is known, the
+four estimators give `frozen 0.9396`, `affine 0.9932`, `rigid 0.9395` and (with `c x c'` the right way
+round) `chord 0.9274` of the beam. With the sign fixed the coupled field gives `frozen -0.676` and
+`chord -0.611` at z = 70.9 m: **same sign, 10 % apart.** No residual was ever quoted from the inverted
+numbers, and the two figures that did escape into §4 below are corrected here.
 
-| estimator | t = 15 s | t = 30 s |
-|---|---|---|
-| `section_twists_deg` (the T2-frozen S-7 construction) | -0.676 deg | -0.801 deg |
-| rotation of the least-squares affine fit (`_ring_kinematics` omega) | -0.685 deg | -0.833 deg |
-| chord-line rotation LE->TE (what a beam reference reports) | **+0.611 deg** | **+0.734 deg** |
-| affine-fit residual RMS / (\|theta\| * r_rms) | 5.7 | 4.7 |
+What survives as a real measurement is smaller and different:
 
-At z = 90 m the same three read -1.194 / -1.092 / **+0.841**. Restricting the frozen estimator to the
-outer shell (`allOuterShellNods`) moves it by 0.02 deg, and the ring's node asymmetry
-(`sum rx ry / sum r^2` = 0.02 .. 0.03) cannot explain the flip: **the non-affine in-plane deformation of
-the section dominates the fitted rotation by ~5x**, so "the section twist" is a small difference of large
-cancelling components and two standard constructions of it disagree in sign, by more than the whole
-signal (~1.4 deg at 70.9 m). This is `distortion/|omega| = 1.6728` (P2c) met at the level of the
-comparand. No residual against the reference may be quoted until the comparand is arbitrated.
-
-What *is* estimator-robust: the A/B amplification measured at t = 5 s is ~6x in the band under **both**
-estimators, so #30's "the amplification is structural" conclusion stands; only the absolute comparand is
-blocked.
+* the estimators agree in the mid band (within ~4 % at 70.9 m) and **diverge in the outer span**, where the
+  section distorts most: at t = 15 s, z = 98.0 m, `frozen -1.92` against `chord -0.14`, and at 103.8 m
+  `frozen -1.50` against `chord -1.90`;
+* the ring's motion is strongly non-affine (affine-fit residual RMS 5.7x the rotation term at 70.9 m), so
+  the single scalar is a model, not a direct reading -- but on the control, where that same machinery is
+  exercised against a known beam answer, all four constructions land within 7 % of it. The non-affinity
+  therefore does not by itself invalidate the S-7 construction.
 
 ### 4. Window means, for the record (not verdicts)
 
-`base_fix` 10-30 s window mean band value: frozen estimator **-0.747 deg**, chord-line **+0.413 deg**,
-reference **+0.750 deg**. Per-station chord-line means: 0.10 deg at 45 m, 0.37 at 60, 0.60 at 70.9, 0.87
-at 80, 1.16 at 90, then oscillating (0.45 at 100, 0.02 at 103.8 with a +-1.9 spread, 2.51 at 110)
-against the reference's monotone 0.59 -> 0.90. The activated side has no window at all: its chord-line
-twist runs +0.81 -> +3.69 deg at 70.9 m and +2.75 -> +12.82 at 100 m over 0.5 -> 5 s, i.e. pre-steady.
+`base_fix` 10-30 s window mean band value: frozen estimator **-0.747 deg**, chord-line **-0.413 deg**
+(the +0.413 of the first pass was the sign bug), reference **+0.750 deg**. Per-station chord-line means
+(sign corrected): -0.10 deg at 45 m, -0.37 at 60, -0.60 at 70.9, -0.87 at 80, -1.16 at 90, then
+oscillating (-0.45 at 100, -0.02 at 103.8 with a +-1.9 spread, -2.51 at 110) against the reference's
+monotone 0.59 -> 0.90. The activated side has no window at all: its chord-line twist runs -0.81 -> -3.69
+deg at 70.9 m and -2.75 -> -12.82 at 100 m over 0.5 -> 5 s (sign corrected), i.e. pre-steady.
 
 ### 5. The two sides are not at the same loading
 
@@ -226,22 +226,67 @@ different aeroelastic state.
 
 ### Verdict: the hand-back to #16
 
-The cheap rung cannot decide the activation question, for four measured reasons: our side is not steady
-at 5 s and the activated side has no window at all; the reference is itself a window mean with a +-0.6 deg
-cycle; the comparand is estimator-dependent at the size of the signal, sign included; and the two sides
-run at different loading. What the decision now needs, in order:
+The cheap rung still cannot decide the activation question, but the list is shorter and better aimed
+after the arbiter's first run:
 
-1. **an arbiter for the comparand** - a case with a known section twist under a comparable distorting
-   load (a prescribed moment on this mesh, or the `beamdyn_driver` that ships in the same OpenFAST env);
-   the S-7 static case is the closest existing one and does not distort enough to test the estimator;
-2. **a settled activated coupled run at campaign scale** - >= 30 s with 0.5 s output, reporting the
-   window mean *and* the envelope, at the reference's per-blade loading (0.812 MN / 6.34 MN.m);
-3. **a diagnosis of the case5s ~5 s cycle** before any coupled number of ours is re-baselined onto it
-   (#19-adjacent; `frontiersin/yaw_0` settles, so it is a case or code-state property);
-4. the reference's +-0.6 deg cycle stated as the tolerance floor of any comparison.
+1. **Our coupled answer is not a state.** `A` and `B` stop on the load maximum of a sustained ~5 s cycle,
+   and the activated side has no window at all (5 s only).
+2. **The reference is itself a window mean** with a +-0.6 deg torsional limit cycle about its band value.
+3. **The two sides are not at the same loading** (~1.11x thrust and ~0.88x torque per blade, 13.17 against
+   15.065 MW, +-28 % swing).
+4. **The one beam reference available for the coupled field disagrees with our shell in sign and by ~8x**:
+   with the field's own internal torque `M_z(z)` (nose-down positive, +0.56 MN.m at the root at t = 15 s)
+   and the deck's `GJ`, a beam twists `+5.09 deg` (band mean, `+12.7` at 103.8 m) while our shell reads
+   `-0.65` (frozen) / `-0.28` (chord). This is **not** an estimator problem (the control validates the
+   estimators against the beam at 0.94) and it is **not** a stiffness problem (the same control says
+   0.94): the aero internal torque is nose-down and our shell twists nose-up, so the missing term is the
+   one the beam reference does not carry either -- the **centrifugal/inertial torsion**, which by this
+   reading dominates the coupled blade's torsion path. That is the next thing to measure, not the
+   comparand.
 
-Until (1) is closed, "activate or park" cannot be decided by a twist comparison, so the decision stays
-where the 2026-10-10 branch put it: activation off, #16 open.
+So the arbiter's order changed: **(a)** quantify the centrifugal torsional moment on this mesh and check
+its sign and size against the aero torque above -- if it dominates, the comparison is a different
+question than the one T2 posed; **(b)** only then re-open the comparand, whose only remaining live issue
+is the outer-span estimator divergence (98-104 m); **(c)** the settled activated run at campaign scale is
+still needed for any of it to become a coupled number; **(d)** the reference's +-0.6 deg cycle stays the
+tolerance floor. The activation decision still sits where the 2026-10-10 branch put it: activation off,
+#16 open.
+
+## T6 — the arbitrer's first run: a control, and a beam reference that refuses (2026-10-10)
+
+Probe: `$SCRATCH/bfs16/wf_p2b_diag/probe_estimator_arbiter.py`; log `logs/tmp_p2b_arbiter_fixed.txt`.
+
+**The control, where the answer is known.** `tools/run_s7_torsion.py::run_torsion_case` on the campaign
+mesh (0.25 m) applies a prescribed tip couple of `1000 N.m`; the beam answer is `M * integral(1/GJ)` from
+the BeamDyn blade deck. Four estimators of the section rotation, ratio to that beam over the 0.3-0.9 band:
+
+| estimator | mean estimator/beam | min .. max |
+|---|---|---|
+| `section_twists_deg` (the S-7 / T2 construction) | **+0.9396** | +0.79 .. +1.24 |
+| affine-fit omega (`_ring_kinematics`) | +0.9932 | +0.80 .. +1.40 |
+| rigid-only fit (`rigid_rotation`) | +0.9395 | +0.79 .. +1.24 |
+| chord-line rotation (unit-tested against the same control) | +0.9274 | +0.73 .. +1.22 |
+
+That reproduces the recorded S-7 anchor (0.939603) exactly, and it is what caught the sign bug of the
+chord implementation described in §T5-3. The instrument is now controlled.
+
+**The coupled field, with the same beam machinery.** The internal torque profile comes from the run's own
+aero field (`M_z(z)`, cumulative outboard moment about the span axis, nose-down positive per the sign
+convention); the beam twist is `integral_0^z M(z')/GJ(z') dz'`, the S-7 construction with a varying
+moment. At t = 15 s: `M_z` +0.5565 MN.m at the root, +0.0076 near the tip; beam band value +5.0946 deg
+(+12.69 at 103.8 m). Our shell: frozen -0.6545 deg, chord -0.2761 deg band mean. At t = 25 s: beam
++2.0025 deg, frozen -0.8369, chord -0.6804.
+
+Read with care, because three things are wrong with this comparison and only one of them is a defect:
+the beam reference carries **no centrifugal or inertial torsion** (so it is only the aero path), the
+`GJ` of the deck's outermost stations is degenerate (the S-7 helper already excludes the last station,
+and the remaining taper still weights the outer span heavily), and the shell's own model is a shell.
+What it establishes is narrower than it looks and still useful: **the aero internal torque is nose-down
+and our shell answers nose-up**, so on this load case the shell's section rotation is not produced by the
+aero torque at all -- something bigger and opposite acts on the torsion path. The candidate is the
+centrifugal term (`include_centrifugal: true` in the case), which a beam comparison of this form cannot
+arbitrate because it is missing on the beam side too.
+
 
 ## Traps
 
