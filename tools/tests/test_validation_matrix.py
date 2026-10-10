@@ -2196,3 +2196,185 @@ def test_duplicate_gap_ids_are_reported(tmp_path: Path) -> None:
     completed = run_check(store)
     assert completed.returncode == 1
     assert "duplicate gap id" in completed.stdout
+
+
+# --------------------------------------------------------------------------- #
+# The contract layer: levels.yaml and contract.yaml
+# --------------------------------------------------------------------------- #
+
+ROW_ID = "ko2017.square_plate.reg_clamped"
+
+
+def _git(*args: str) -> str:
+    completed = subprocess.run(
+        ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True, check=True
+    )
+    return completed.stdout.strip()
+
+
+def write_contract(
+    store: Path,
+    verdicts: list[dict[str, Any]] | None = None,
+    levels: list[dict[str, Any]] | None = None,
+) -> None:
+    level = {"id": "L1", "title": "elements", "scope": "the fixture group", "groups": ["3"]}
+    (store / "levels.yaml").write_text(
+        yaml.safe_dump({"version": 1, "ceiling": 0.05, "levels": levels or [level]}),
+        encoding="utf-8",
+    )
+    (store / "contract.yaml").write_text(
+        yaml.safe_dump({"version": 1, "verdicts": verdicts or []}), encoding="utf-8"
+    )
+
+
+def contract_report(store: Path) -> dict[str, Any]:
+    completed = run(store, "contract", "--json")
+    assert completed.returncode == 0, completed.stderr
+    return json.loads(completed.stdout)
+
+
+def trusted(**overrides: Any) -> dict[str, Any]:
+    entry = {
+        "target": ROW_ID,
+        "class": "physics",
+        "verdict": "trusted",
+        "audited_rev": _git("rev-parse", "HEAD"),
+    }
+    entry.update(overrides)
+    return entry
+
+
+def test_contract_counts_every_row_unaudited_without_a_verdict(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_contract(store)
+    level = contract_report(store)["levels"][0]
+    assert level["counts"] == {"unaudited": 1}
+    assert level["closed"] is False
+
+
+def test_contract_closes_a_level_whose_rows_are_all_trusted(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_contract(store, [trusted()])
+    level = contract_report(store)["levels"][0]
+    assert level["counts"] == {"trusted": 1}
+    assert level["closed"] is True
+
+
+def test_contract_marks_a_verdict_stale_when_a_bound_file_changed(tmp_path: Path) -> None:
+    # AGENTS.md was added after its creating commit's parent, so a verdict audited at that
+    # parent and bound to it has at least one commit against it.
+    added = _git("log", "--format=%H", "--diff-filter=A", "-n1", "--", "AGENTS.md")
+    store = write_store(tmp_path, [make_row()])
+    write_contract(
+        store, [trusted(audited_rev=_git("rev-parse", f"{added}^"), files=["AGENTS.md"])]
+    )
+    entry = contract_report(store)["levels"][0]["entries"][0]
+    assert entry["state"] == "stale"
+    assert entry["stale_by"]
+
+
+def test_contract_marks_an_unresolvable_revision_stale(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_contract(store, [trusted(audited_rev="0000000")])
+    assert contract_report(store)["levels"][0]["entries"][0]["state"] == "stale"
+
+
+def _widened_row(value: float) -> dict[str, Any]:
+    row = make_row()
+    row["comparisons"][0]["tolerance"]["value"] = value
+    # The store itself demands prose for a band over 5 %; extraction fills it in for every
+    # real row, which is exactly why that prose is not a verdict.
+    row["comparisons"][0]["tolerance"]["justification"] = "extracted from the code"
+    return row
+
+
+def test_contract_flags_a_physics_tolerance_over_the_ceiling(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [_widened_row(0.30)])
+    write_contract(store, [trusted()])
+    level = contract_report(store)["levels"][0]
+    assert level["over_ceiling"] == 1
+    assert level["closed"] is False
+
+
+def test_contract_exception_covers_only_up_to_its_bound(tmp_path: Path) -> None:
+    exception = {
+        "bound": 0.10,
+        "source": "two independent beam references disagree by 10 %",
+        "justification": "the shell cannot be held tighter than its references agree",
+        "fixed_before_measuring": True,
+    }
+    for value, covered in ((0.08, True), (0.30, False)):
+        store = write_store(tmp_path / str(value), [_widened_row(value)])
+        write_contract(store, [trusted(verdict="exception", exception=exception)])
+        level = contract_report(store)["levels"][0]
+        assert (level["over_ceiling"] == 0) is covered, value
+
+
+def test_contract_ignores_the_ceiling_for_an_identity(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [_widened_row(0.30)])
+    write_contract(store, [trusted(**{"class": "identity"})])
+    assert contract_report(store)["levels"][0]["over_ceiling"] == 0
+
+
+def test_contract_keeps_an_absent_anchor_open(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    level = {
+        "id": "L1",
+        "title": "elements",
+        "scope": "the fixture group",
+        "groups": ["3"],
+        "absent": [{"evidence": "tests/test_anchor.py", "reason": "not imported"}],
+    }
+    write_contract(store, [trusted()], levels=[level])
+    level_report = contract_report(store)["levels"][0]
+    assert level_report["counts"] == {"trusted": 1, "absent": 1}
+    assert level_report["closed"] is False
+
+
+@pytest.mark.parametrize(
+    ("verdicts", "levels", "expected"),
+    [
+        (
+            [
+                {
+                    "target": ROW_ID,
+                    "class": "physics",
+                    "verdict": "exception",
+                    "audited_rev": "abcdef0",
+                    "exception": {
+                        "bound": 0.1,
+                        "source": "s",
+                        "justification": "j",
+                        "fixed_before_measuring": False,
+                    },
+                }
+            ],
+            None,
+            "fixed before measuring",
+        ),
+        ([{"target": ROW_ID, "class": "physics", "verdict": "trusted"}], None, "audited_rev"),
+        (
+            [{"target": "no.such.row", "class": "physics", "verdict": "undecided"}],
+            None,
+            "neither a row id",
+        ),
+        ([], [{"id": "L1", "title": "t", "scope": "s", "groups": ["99"]}], "unknown group"),
+    ],
+)
+def test_check_validates_the_contract_layer(
+    tmp_path: Path, verdicts: list[dict[str, Any]], levels: Any, expected: str
+) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_contract(store, verdicts, levels=levels)
+    completed = run_check(store)
+    assert completed.returncode == 1
+    assert expected in completed.stdout
+
+
+def test_contract_command_writes_nothing(tmp_path: Path) -> None:
+    store = write_store(tmp_path, [make_row()])
+    write_contract(store, [trusted()])
+    before = {path: path.read_bytes() for path in store.rglob("*") if path.is_file()}
+    run(store, "contract", "--rows")
+    after = {path: path.read_bytes() for path in store.rglob("*") if path.is_file()}
+    assert before == after

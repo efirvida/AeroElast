@@ -1,0 +1,40 @@
+# Hand-written verdicts on store rows (or on test node ids outside the store).
+#
+# No command writes this file: `extract` and `coherence` regenerate rows/, never this.
+# `validation_matrix.py contract` reads it with levels.yaml.
+#
+# Day 0 (2026-10-10): every row is unaudited, whatever its `justified: true` says -- 280 of the
+# store's 285 comparisons had that flag filled in by extraction, not by a judgement.
+#
+# One entry per audited target:
+#   target       row id, or a test node id (tests/...::name) for evidence outside the store
+#   class        physics | identity | regression_pin
+#                physics: compared against an independent reference, judged by the 5 % ceiling
+#                identity: a round-off or consistency bound of our own computation
+#                regression_pin: no independent reference; counts toward no level
+#   verdict      trusted | exception | undecided | rejected
+#   audited_rev  the commit the verdict was measured at (required unless undecided)
+#   files        extra files the verdict depends on (reference decks, tools); the row's own
+#                test files are added automatically. A commit touching any of them after
+#                audited_rev makes the verdict stale.
+#   exception    only for verdict: exception --
+#                  bound: the widened relative bound
+#                  source: the independent source that quantifies the model difference
+#                  justification: why that difference applies to this comparison
+#                  fixed_before_measuring: must be true
+#                A band wider than the effect it names is not an exception: S-7 carried a
+#                +-30 % band "justified" by the S-1 model difference and could not see its own
+#                direction inversion (72f64de).
+#   note         free text
+version: 1
+
+verdicts:
+  - target: blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single
+    class: physics
+    verdict: undecided
+    note: >-
+      #20 closed this as "the shell is 6.4 % stiffer than BeamDyn"; 72f64de found the tip couple
+      applied 0.8978 of the requested torque and the corrected ratio converges to 1.039 (shell
+      ~3.8 % softer). The +-30 % band is over the ceiling and has no quantified source, and S-1
+      sectional (+23.9 % stiffer) disagrees in sign with nothing attributing it. Audit:
+      odd/tasks/issue18-closure-audit.md.

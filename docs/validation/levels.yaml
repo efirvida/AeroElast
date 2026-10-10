@@ -1,0 +1,137 @@
+# The validation ladder: every store group sits on exactly one level.
+#
+# Hand-authored; no command writes this file. `validation_matrix.py contract` reads it with
+# `contract.yaml` and reports, per level, what is trusted, stale, undecided, unaudited or absent.
+#
+# Each level conditions the next: a finding on a lower level suspends every conclusion above it
+# that uses the same element, solver or path, and is argued on the lowest level it appears.
+#
+# `ceiling` is the acceptance rule for a physics comparison: relative error <= 5 %, unless a
+# verdict in contract.yaml carries an exception with an independent, quantified source fixed
+# before the measurement.
+#
+# `absent` lists evidence that exists (or must exist) outside the store, so a level cannot look
+# complete because its anchors were never imported. An absent entry leaves the level open until
+# it is imported as rows, or given its own verdict in contract.yaml by its test node id.
+version: 1
+ceiling: 0.05
+
+levels:
+  - id: L1
+    title: MITC shell elements against published results
+    scope: >-
+      Element formulation (MITC3+, MITC4, MITC4+, strain smoothing, geometric stiffness, mass)
+      on canonical benchmarks with published or closed-form answers: linear, modal and
+      large-rotation.
+    groups: ['3', '10', '12', '13', '14', '15', '16', '19', '22', '25', '28', '33']
+    gaps: []
+    absent:
+      - evidence: tests/test_dtube_camarena_bending.py
+        reason: >-
+          D-Tube bending against Camarena: a documented-red accuracy case outside the store; it
+          needs an exception with a quantified source or a verdict of rejected.
+      - evidence: tests/test_corotational_large_rotation_validation.py::test_corotational_is_frame_objective_tl_is_not
+        reason: >-
+          Documented red by design since the MITC4 path uses the total-Lagrangian tangent; the
+          frame-objectivity claim it encoded has no replacement test.
+
+  - id: L2
+    title: Linear structural solver against published results and CalculiX
+    scope: >-
+      Isotropic, orthotropic and composite shells and thin-walled sections against closed forms,
+      CLT and CalculiX S4/S8R, each code converged on its own mesh; stress recovery included.
+    groups: ['4', '6', '7', '8', '9', '17', '18', '21', '24', '26', '36']
+    gaps: [composite_stress_recovery]
+    absent: []
+
+  - id: L3
+    title: IEA 15 MW blade structure against published models and CalculiX
+    scope: >-
+      The official WindIO blade (tests/IEA-15-240-RWT.yaml): sectional properties, static,
+      modal (parked and rotating), torsion and transient response against BeamDyn/BModes/
+      OpenFAST decks, published models and CalculiX.
+    groups: ['5', '20', '23', '27', '32', '34']
+    gaps: [rotating_modal_shift]
+    absent:
+      - evidence: tests/test_iea15mw_s0_omega_zero_consistency.py
+        reason: S-0 anchor, outside the store.
+      - evidence: tests/test_iea15mw_s1_sectional.py
+        reason: >-
+          S-1 sectional stiffness: +23.9 % torsional GJ against the deck, opposite in sign to
+          S-7's global result after 72f64de; the disagreement is unattributed.
+      - evidence: tests/test_iea15mw_s2_static_prescribed.py
+        reason: S-2 static vs beam references; the official blade closes at +8.1 %, over the ceiling.
+      - evidence: tests/test_iea15mw_s3_newmark_transient.py
+        reason: S-3 Newmark transient anchor, outside the store.
+      - evidence: tests/test_iea15mw_s4_rotating_modal.py
+        reason: S-4 rotating modal vs OpenFAST v5 MBC3 at 7.56 rpm (+0.6 / -4.5 / -1.5 %).
+      - evidence: tests/test_iea15mw_v03_static_gravity.py
+        reason: V-03 static gravity, outside the store.
+      - evidence: tests/test_iea15mw_v05_structural_properties.py
+        reason: V-05 structural properties, outside the store.
+      - evidence: tests/test_iea15mw_sx_mesh_convergence.py
+        reason: Blade mesh convergence, outside the store.
+      - evidence: tests/test_iea15mw_sx_campbell.py
+        reason: Campbell diagram, outside the store.
+
+  - id: L4
+    title: BEM aerodynamics against OpenFAST AeroDyn
+    scope: >-
+      The built-in CCBlade-based BEM, purely aerodynamic, against AeroDyn on the same deck and
+      polars: rotor performance, spanwise loads, yaw and shear, post-stall extrapolation and the
+      load frame it hands to the structure.
+    groups: ['11']
+    gaps: []
+    absent:
+      - evidence: tests/test_iea15mw_v01_rotor_performance.py
+        reason: V-01 rotor performance, outside the store.
+      - evidence: tests/validation/bem/test_bem_load_frame.py
+        reason: The BEM load frame against Zhou's chord-frame pair (#15), outside the store.
+      - evidence: tests/validation/bem/test_bem_polars.py
+        reason: Viterna against the AeroDyn manual (#5), outside the store.
+
+  - id: L5
+    title: Coupling between domains
+    scope: >-
+      Load and displacement transfer independent of the fluid solver: frames and signs, moment
+      realisation, conservation of force and work across the preCICE mapping, inertial terms in
+      the rotating frame, and convergence of the partitioned coupling; then a published FSI
+      benchmark with OpenFOAM.
+    groups: ['29', '30', '31', '35', '37']
+    gaps: [moment_realization_over_delivers, reference_projection_geometry_approximation]
+    absent:
+      - evidence: tests/validation/bem/test_force_projection_load_frame.py
+        reason: '#26 guard: BEM Np/Tp ride the rotor plane; outside the store.'
+      - evidence: tests/validation/bem/test_force_projection_ac_datum.py
+        reason: '#26 guard: aerodynamic-centre datum; outside the store.'
+      - evidence: tests/validation/rotor/test_bem_fsi_deformed_geometry.py
+        reason: '#19 guard: the projection keeps the reference geometry; outside the store.'
+      - evidence: 'planned: conservation of force and work across the preCICE mapping'
+        reason: >-
+          No test checks that sum(f) and sum(f.u) survive the mapping, independent of the fluid
+          participant; only convergence (#19) and frame (#26) are covered.
+      - evidence: 'planned: preCICE perpendicular-flap benchmark with OpenFOAM'
+        reason: >-
+          Candidate published FSI benchmark with results from several solid solvers; feasibility
+          unverified, since there is no SOLID family and the flap must run as a shell or PLANE
+          strip through the adapter.
+
+  - id: L6
+    title: Coupled FSI of the IEA 15 MW rotor
+    scope: >-
+      The coupled rotor against published IEA 15 MW FSI results and against OpenFAST coupled
+      (ElastoDyn/BeamDyn + AeroDyn) at the same operating points. Coupled numbers older than
+      7a84da1 and 6765633 are uncitable.
+    groups: []
+    gaps: [radii_datum_definition_bias, zhou_spanwise_load_frame, experimental_validation]
+    absent:
+      - evidence: tests/test_iea15mw_s5_oneway.py
+        reason: S-5 one-way 100 s rated run, outside the store.
+      - evidence: tests/test_iea15mw_s6_oneway_dynamic.py
+        reason: S-6 one-way dynamic; its NaN is open.
+      - evidence: 'planned: coupled rated run against OpenFAST coupled at the same operating point'
+        reason: No post-fix coupled comparison against OpenFAST exists.
+      - evidence: 'planned: coupled run against a published IEA 15 MW FSI result'
+        reason: >-
+          Zhou 2025 was declared non-transferable (#14); no other published coupled reference
+          has been adopted.
