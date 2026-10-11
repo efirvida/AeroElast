@@ -213,7 +213,10 @@ gaps:
       of a near-inextensible axis under the same bending (`-1/2 int u_y'^2 dz`)
       is absent because the solve is linear. The missing term is twice the
       present one and of opposite sign, so the radii feedback as fed has the
-      wrong physical sign at a 17 m tip deflection (14.6 % of span).
+      wrong physical sign at a 17 m tip deflection (14.6 % of span). The
+      `Rtip = max(r_def) * 1.001` rule of `_rebuild_bem_solver` inherits the
+      same term, so part of the radii row may be tip loss moving outward rather
+      than stations moving.
     evidence: >-
       Measured 2026-10-11 on the fixture of
       `tests/validation/blade/test_blade_deloading_vs_reference.py` (production
@@ -229,6 +232,15 @@ gaps:
       2.541662 MN / 16.389372 MW baseline. The second-order figure is a
       moderate-rotation estimate, not a nonlinear solve; its sign is the claim,
       its magnitude is bounded by a geometrically nonlinear run (not done).
+      Scope of the measurement: the fixture solves `assemble_k()` only, under
+      aero load only, with no `K_G` and no centrifugal load. The production
+      structural state has both; stress stiffening lowers the deflection and
+      the second-order term falls with its square, while centrifugal stretch
+      adds a positive axial term. The sign verdict holds only while the
+      second-order/linear ratio (1.96 here) stays above 1, i.e. roughly while
+      the production deflection exceeds about half of this one. The cheapest
+      discriminator is the same decomposition on the production structural
+      state at rated.
     consequence: >-
       The radii-family rows of the de-loading table may not be cited as "the
       geometric re-loading", and neither may the production rows (`twist +

@@ -65,8 +65,9 @@ written below so the measurement can falsify it.
 ### Prediction (falsifiable, the point of T4)
 
 The minimum-norm field over-delivers rigid torsion, so removing it should **reduce** the
-over-delivered elastic twist. In the one-way de-loading table the blade currently unloads
-**twice** the published reference (-26.36% thrust / -15.74% power against Zhou et al. 2025
+over-delivered elastic twist. In the one-way de-loading table the blade unloaded
+**twice** the published reference (-26.36% thrust / -15.74% power before #33 L5; -26.08% / -15.39%
+after it, 2026-10-11 against Zhou et al. 2025
 Table 6's -13.04% / -8.38%). If the over-delivered twist is a contributor to that gap, the
 wall-flow realisation must move those two numbers **toward** -13.04% / -8.38%. If it does not
 move them, the load-distribution hypothesis for that gap is dead. Either outcome is a result.

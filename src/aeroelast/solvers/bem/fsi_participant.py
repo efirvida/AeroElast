@@ -74,11 +74,13 @@ this class is hub-referenced**: ``_ref_r``, the ``r_def`` returned here, and
 the radii handed to ``_rebuild_bem_solver``.  ``ForceProjector`` anchors its
 own station grid on the mesh datum and re-anchors them internally.
 
-This captures the radial redistribution of blade stations caused by
-flapwise and edgewise bending.  For a pure flapwise deflection
-:math:`\delta` at radius *r*, the effective shortening of the projected
-span is of order :math:`\delta^2 / (2r)` — small but non-negligible for
-flexible blades with tip deflections exceeding 10 % of span.
+**What this does NOT capture.**  Under a geometrically linear structural
+solve :math:`\mathbf{u}\cdot\hat{\mathbf{e}}_s` is first order: at the
+rated point it is almost entirely the prebent axis straightening under flap
+bending, while the second-order shortening of the projected span under the
+same bending (order :math:`\delta^2/(2r)`) is absent and, at a 17 m tip
+deflection, twice as large with the opposite sign
+(``radii_linear_kinematics_axial_term`` in ``docs/validation/gaps.yaml``).
 
 Elastic twist extraction
 ------------------------
@@ -803,8 +805,10 @@ class BEMFSIParticipant:
         ]
 
         # Update Rtip to the actual deformed tip position (+ 0.1% buffer).
-        # The blade elongates spanwise under large flapwise deformations, so
-        # strip centroids can exceed the reference rotor_radius.  A fixed
+        # The linear-solve radii can put the tip station beyond the reference
+        # rotor_radius (the prebent axis straightens under flap bending; whether a
+        # bent blade really lengthens is the open radii_linear_kinematics_axial_term,
+        # and this rule inherits it).  A fixed
         # Rtip_ref causes Prandtl factortip < 0 → exp(+) > 1 → acos(NaN).
         deformed_rtip = float(np.max(r_def)) * 1.001
         rotor_radius = max(deformed_rtip, ba.rotor_radius)

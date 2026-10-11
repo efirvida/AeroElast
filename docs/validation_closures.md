@@ -38,7 +38,11 @@ artículo y evita re-auditar lo ya cerrado.
 > Table 6 **`−13.04 % / −8.38 %`**. Las cifras de twist y de de-loading **pre-fix** de las
 > secciones de abajo (barrido yaw `−30.9 %`/`−32.1 %`, over-twist ×3–12, S-8c `+5…+9.5°`)
 > son registro histórico: no se arrastran como estado actual. Detalle en "Fix de la cadena
-> de signo (2026-10-05)" al final.
+> de signo (2026-10-05)" al final. **Las cifras de radios y de producción de este párrafo
+> también son históricas**: el estado al 2026-10-11 (tras cerrar
+> `radii_datum_definition_bias`) es radios solo `+1.89 % / +1.86 %` y producción
+> `−26.08 % / −15.39 %`, y la fila de radios no es citable
+> (`radii_linear_kinematics_axial_term`).
 
 ## Cómo correr la suite de validación
 
@@ -777,7 +781,11 @@ omitido duplica al presente y tiene signo opuesto, así que la pala flexada real
 span proyectado donde la realimentación de radios lo alarga. Queda registrado como el defecto
 abierto `radii_linear_kinematics_axial_term` (`docs/validation/gaps.yaml`), que reemplaza a
 este en L5. Ninguna fila de radios, ni las de producción como total, se cita como "la recarga
-geométrica".
+geométrica". **Alcance:** el fixture resuelve solo `assemble_k()` bajo carga aerodinámica, sin
+`K_G` ni carga centrífuga; el estado estructural de producción tiene ambas. El veredicto de signo
+vale mientras el cociente segundo orden/lineal (1.96 aquí) siga por encima de 1, es decir,
+aproximadamente mientras la flecha de producción supere la mitad de esta. La regla
+`Rtip = max(r_def)·1.001` hereda el mismo término.
 
 **Consecuencia para el acoplado.** La convergencia 500/500 de #19 se midió con la definición
 anterior de `r_def`; en principio queda invalidada hasta re-correr el caso acoplado (SLURM).
