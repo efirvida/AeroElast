@@ -40,9 +40,8 @@ artículo y evita re-auditar lo ya cerrado.
 > son registro histórico: no se arrastran como estado actual. Detalle en "Fix de la cadena
 > de signo (2026-10-05)" al final. **Las cifras de radios y de producción de este párrafo
 > también son históricas**: el estado al 2026-10-11 (tras cerrar
-> `radii_datum_definition_bias`) es radios solo `+1.89 % / +1.86 %` y producción
-> `−26.08 % / −15.39 %`, y la fila de radios no es citable
-> (`radii_linear_kinematics_axial_term`).
+> `radii_datum_definition_bias` y `radii_linear_kinematics_axial_term`) es twist solo
+> `−26.77 % / −16.48 %`, radios solo `−1.75 % / −1.74 %` y producción `−27.66 % / −17.54 %`.
 
 ## Cómo correr la suite de validación
 
@@ -795,6 +794,121 @@ No se afirma nada sobre ella aquí.
 `_compute_deformed_geometry`, en `_ref_r` o en la construcción de `blade_aero.r`, en el
 cortocircuito rígido, en la asignación de nodos por strip, o en el fixture
 `tests/validation/blade/test_blade_deloading_vs_reference.py`.
+
+---
+
+### `radii_linear_kinematics_axial_term`: el radio deformado lleva el acortamiento de segundo orden (2026-10-11)
+
+Cierra el ítem L5 de #33 que dejó abierto la sección anterior. `r_def` alimentaba solo el
+desplazamiento axial del solve lineal, que en el punto nominal es casi todo el prebend que se
+endereza (`+1.106 m` de punta, hacia afuera). El acortamiento de segundo orden del span
+proyectado bajo la misma flexión (`-2.153 m`) no aparece en un solve lineal. T1 confirmó el
+cociente en el estado de producción: 1.842 con `K + K_G + K_SP` y `F_aero + F_cf`.
+
+**Referencia (independiente, medida antes de tocar el código).** BeamDyn (OpenFAST v5.0.0,
+geométricamente exacto, estático, cargas muertas, sin gravedad ni rotación) sobre el deck
+oficial IEA-15 (`IEA-15-240-RWT_BeamDyn.dat`, 50 key points, prebend `-4 m` en punta; el deck v4
+se convierte al formato v5 al vuelo). La carga es la aerodinámica de pala rígida del fixture,
+agrupada en una carga puntual por strip (`ΣF` conservada: `8.514e5 / -1.040e5 N`).
+Herramienta: `tools/diagnose_radii_beamdyn.py`. Marcos: `x_BD = y_malla` (flap), `y_BD = -x_malla`,
+`z` = span en ambos.
+
+1. **La fórmula sobre el campo de la propia referencia.** Aplicada a los desplazamientos
+   nodales de BeamDyn, `lin + nl = -∫(x0'u_x' + y0'u_y') - ½∫(u_x'² + u_y'²)` da en la punta
+   `+1.2105 - 2.5418 = -1.3313 m`. El desplazamiento axial exacto de BeamDyn es `-1.3390 m`. El
+   error, `-0.0077 m`, es **0.30 % del término de segundo orden**. Tolerancia escrita de
+   antemano a partir del truncamiento de la serie: el término siguiente es `O(θ²)` relativo a
+   `nl`, `θ_max²/4 = 4.0 %` con `θ_max = 0.402 rad`. A lo largo del span el error es de 1–2 mm
+   (z = 58.6 / 87.8 / 105.3 m). Este chequeo separa "la fórmula es correcta" de "rigidez shell
+   vs viga".
+2. **El shell contra BeamDyn** en el span del centroide del strip de punta (`z0 = 116.403 m`):
+
+   | cantidad | shell | BeamDyn |
+   | --- | ---: | ---: |
+   | incremento axial alimentado, antes (1er orden) | `+1.1056 m` | — |
+   | incremento axial alimentado, después | **`-1.0478 m`** | **`-1.3146 m`** |
+   | flap | `17.007 m` | `18.720 m` (shell `-9.15 %`) |
+
+   El signo coincide. Que la magnitud no coincida es consecuencia de la rigidez en flap: el
+   término de segundo orden escala con el cuadrado del flap, y
+   `nl_shell·(18.720/17.007)² = -2.609` contra `-2.494 m` de BeamDyn. El `-9.15 %` de flap no es
+   de este gap. Va con la familia S-2 y S-5 (S-5: shell `-4.5 %` contra ElastoDyn bajo cargas de
+   AeroDyn) y aquí queda solo reportado.
+
+**Opción elegida: (a) corrección cinemática de segundo orden**, no (b) un estado estructural
+geométricamente no lineal (eso sería otro workstream, porque cambia la formulación del solver).
+`r_def[k] = _ref_r[k] + ū_s,k - ½∫_root^{s_k} |dū_⊥/ds|² ds`. Se integra sobre los centroides de
+strip ordenados por la coordenada de span **de la malla** (no por `_ref_r`, para no reintroducir
+el datum del gap anterior), desde la raíz empotrada (`u = 0`) con la regla del trapecio, y se usa
+el `ū_⊥` completo (`ū - (ū·ŝ)ŝ`), no solo `u_y`. A `u = 0` el término es cero, así que el guard
+de geometría del deck sigue exacto. Implementación: `BEMFSIParticipant._span_shortening`.
+
+**`Rtip`.** La regla vieja era `max(max(r_def)·1.001, R_ref)`. En el deck la estación de punta
+está **en** `Rtip` (`R_ref = r_tip = 120.9699 m`, gap 0, así que `F = 0` ahí en el camino rígido).
+La regla vieja tenía dos efectos. (i) Con radios de referencia, el buffer abría un gap de
+`0.121 m` que el camino rígido no tiene, así que **todas** las filas del camino deformado,
+incluida "solo twist", se medían con otro `Rtip` que la baseline. (ii) Con la punta hacia adentro
+devuelve `R_ref` y el gap pasa a `1.05 m`. AeroDyn fija la constante de tip-loss en la
+inicialización con la geometría **no deformada** (`BEMT.f90:244`,
+`B (zTip - zLocal) / (2 zLocal)`). La regla nueva traslada `Rtip` con la estación de punta,
+`max(R_ref + Δr_tip, max(r_def))`, **sin buffer**: el gap de punta queda en su valor no
+deformado (0), y el `max` solo impide que una estación quede fuera de `Rtip` (`acos(NaN)`). Una
+versión intermedia con el buffer conservado se commiteó y se corrigió antes de publicar: el
+buffer ganaba el `max` y dejaba un gap de `0.12 m`. **Diferencia residual reportada:** AeroDyn
+también deja sin deformar el `r` del denominador y la distancia de las estaciones interiores.
+Aquí esas distancias se mueven con `Δr_tip - Δr_k` (como mucho ~1 m sobre `R - r` de decenas de
+metros) y no se midió su efecto por separado.
+
+**Antes / después, separado por cambio**, mismo comando
+(`pytest -s tests/validation/blade/test_blade_deloading_vs_reference.py`), misma baseline
+2.541662 MN / 16.389372 MW. **A** es lo registrado en `d61993a` (los commits posteriores hasta
+`9c85a67` son solo docs y la herramienta T1). **B** es A más el acortamiento con la regla `Rtip`
+vieja. **C** es B más la regla `Rtip` nueva, y es el estado final. Logs:
+`logs/check/t2_split_{B,C}.log`.
+
+| fila (empuje / potencia) | A | B: + acortamiento | C: + `Rtip` |
+| --- | ---: | ---: | ---: |
+| solo twist | -27.04 % / -16.56 % | -27.04 % / -16.56 % | **-26.77 % / -16.48 %** |
+| radios como producción los alimenta | +1.89 % / +1.86 % | -1.26 % / -0.45 % | **-1.75 % / -1.74 %** |
+| twist + radios (producción) | -26.08 % / -15.39 % | -27.80 % / -17.36 % | **-27.66 % / -17.54 %** |
+| camino exacto de producción (cross-check) | -25.60 % / -15.07 % | -27.32 % / -17.05 % | **-27.66 % / -17.54 %** |
+| `dr` de punta alimentado | +1.1056 m | -1.0478 m | -1.0478 m |
+
+Lectura:
+- El acortamiento (A→B) cambia el signo de la fila de radios: la pala flexada ya no recarga el
+  rotor.
+- La regla `Rtip` (B→C) mueve la fila de radios solo `-0.49 / -1.29` pp. También mueve la de
+  solo twist `+0.27 / +0.08` pp, porque el buffer viejo afectaba al camino deformado aun con
+  radios de referencia.
+- Con C, el cross-check del camino exacto de producción coincide con la fila de producción de
+  la tabla. En A y en B diferían en ~0.5 pp, y esa diferencia era el buffer.
+- Producción descarga ahora algo **más** que solo twist.
+
+Las cifras de radios, de twist solo y de producción previas al fix dejan de ser estado actual.
+El mensaje impreso del fixture, que atribuía el signo de potencia de producción a la
+realimentación de radios y decía "radius growth re-loads", se reemplazó por los números.
+
+**Contrato del test.** `test_deformed_radii_are_the_span_projection_not_a_path_length` pasa a
+llamarse `test_deformed_radii_are_the_second_order_span_projection`. Asserta la identidad nueva
+(recalculada en el test con numpy independiente, a `1e-9`) y que el incremento de punta tenga el
+signo de BeamDyn (`BEAMDYN_TIP_AXIAL_M = -1.3146`). No se asserta la magnitud, por lo de la
+rigidez en flap explicado arriba. No se ensanchó ninguna banda.
+
+**Estado de producción** (`tools/diagnose_radii_kinematics.py`, `K + K_G + K_SP`,
+`F_aero + F_cf`, 7.56 rpm): el incremento de punta alimentado pasa de `+1.0389` a `-0.8543 m`.
+
+**Lo que este cierre NO cierra.**
+- La convergencia acoplada 500/500 de #19 sigue pendiente de re-correr en SLURM; ya lo estaba
+  tras el cierre anterior y ahora también cambió `Rtip`.
+- El árbitro de L5 que importa, rated acoplado contra OpenFAST acoplado, sigue abierto
+  (`odd/tasks/validation-review-roadmap.md`).
+- La brecha de flap shell vs BeamDyn (`-9.15 %` bajo esta carga).
+- El brazo del radio de hub en `F_cf`/`K_G` (`odd/tasks/radii-linear-kinematics.md`).
+
+**Disparador de re-ejecución:** invalida este cierre cualquier cambio en
+`_compute_deformed_geometry`, `_span_shortening`, la regla `Rtip` de `_rebuild_bem_solver`, la
+asignación de nodos por strip, el fixture
+`tests/validation/blade/test_blade_deloading_vs_reference.py`, o el deck BeamDyn de referencia.
 
 ---
 

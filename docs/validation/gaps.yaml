@@ -198,70 +198,6 @@ gaps:
     citations_forbidden: true
     rows: []
 
-  - id: radii_linear_kinematics_axial_term
-    scope: >-
-      the deformed BEM station radii the one-way and coupled paths feed, under a
-      geometrically linear structural solve
-    status: open_defect
-    reason: >-
-      The radii feedback is first-order kinematics only. Since #33 L5 the
-      deformed radius is `r_def[k] = _ref_r[k] + mean(u[strip k] . span_dir)`
-      (one datum, zero at u = 0), so it feeds exactly the strip's linear-solve
-      spanwise displacement. At the rated point that displacement is almost
-      entirely the linear kinematics of the prebent axis straightening under
-      flap bending (`u_z = -int y0' u_y' dz`), and the second-order shortening
-      of a near-inextensible axis under the same bending (`-1/2 int u_y'^2 dz`)
-      is absent because the solve is linear. The missing term is twice the
-      present one and of opposite sign, so the radii feedback as fed has the
-      wrong physical sign at a 17 m tip deflection (14.6 % of span). The
-      `Rtip = max(r_def) * 1.001` rule of `_rebuild_bem_solver` inherits the
-      same term, so part of the radii row may be tip loss moving outward rather
-      than stations moving.
-    evidence: >-
-      Measured 2026-10-11 on the fixture of
-      `tests/validation/blade/test_blade_deloading_vs_reference.py` (production
-      `BEMFSIParticipant`, official IEA-15MW mesh at element_size 1.0, real
-      AeroDyn `BladeAero`, rated point, one linear shell solve), by integrating
-      along the strip-centroid line with the trapezoid rule. Tip strip: measured
-      mean `u_z = +1.1056 m`; linear prebend/sweep kinematics `+1.0973 m`
-      (99.2 %); residual axial strain `+0.0083 m`; omitted second-order
-      shortening `-2.1534 m`; flap `u_y = +17.007 m`; reference centroid
-      prebend `y0 = -3.939 m`. The same split holds along the span (strip 40:
-      `u_z +0.4521`, linear `+0.4484`, second order `-0.8205` m). The BEM row
-      the term drives: radii only `+1.89% / +1.86%` thrust / power against the
-      2.541662 MN / 16.389372 MW baseline. The second-order figure is a
-      moderate-rotation estimate, not a nonlinear solve; its sign is the claim,
-      its magnitude is bounded by a geometrically nonlinear run (not done).
-      Scope of the measurement: the fixture solves `assemble_k()` only, under
-      aero load only, with no `K_G` and no centrifugal load. The production
-      structural state has both; stress stiffening lowers the deflection and
-      the second-order term falls with its square, while centrifugal stretch
-      adds a positive axial term. The sign verdict holds only while the
-      second-order/linear ratio (1.96 here) stays above 1, i.e. roughly while
-      the production deflection exceeds about half of this one.
-      Production-state discriminator (T1, 2026-10-11, revision e6b971c,
-      `tools/diagnose_radii_kinematics.py`): `(K + K_G + K_SP) u = F_aero +
-      F_cf` at 7.56 rpm (K_G from the static centrifugal solve with
-      free_dofs) gives a tip flap of `u_y = +15.931 m`, fed `u_z = +1.0389 m`,
-      linear kinematics `+1.0278 m` and second order `-1.8931 m`. The
-      ratio is 1.842, and it stays above 1 along the whole span. The
-      centrifugal-only part is `+0.0275 m` (ratio 0.04). The ratio scales
-      with the flap deflection, so the sign verdict holds for any tip
-      `u_y` above ~8.7 m; the S-5 ElastoDyn rated OoP is 16.10 m. The defect
-      is confirmed on the production state.
-    consequence: >-
-      The radii-family rows of the de-loading table may not be cited as "the
-      geometric re-loading", and neither may the production rows (`twist +
-      radii`, the exact production cross-check) as a total: their radii part
-      re-loads where the bent blade's projected span shortens. The twist-only
-      row is unaffected. Closing it needs either a second-order kinematic
-      correction of `r_def` or a geometrically nonlinear structural state, and
-      a reference for the projected tip position (BeamDyn/OpenFAST at the same
-      point). The standing prohibition holds: pre-fix coupled numbers stay
-      uncitable.
-    citations_forbidden: true
-    rows: []
-
   - id: reference_projection_geometry_approximation
     scope: >-
       the force projection's geometry on the coupled path: the strip grid, the
@@ -286,7 +222,10 @@ gaps:
       (`b5d369e`, 500/500 windows), so a deformation-robust derivation of the
       same geometry - hysteresis-free ring selection, LE/TE tie-break and
       chord-axis continuity - is the alternative that would remove this
-      approximation.
+      approximation. Both 500/500 counts predate the #33 L5 radii fixes
+      (one datum, then the second-order shortening and the moving-tip Rtip,
+      2026-10-11), which change the fed radii and the tip-loss gap; the
+      coupled convergence has not been re-measured since.
     consequence: >-
       Coupled numbers produced with this fix carry the approximation: the
       applied load's distribution and lever arm are the reference ones. Any

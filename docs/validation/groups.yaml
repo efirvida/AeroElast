@@ -168,15 +168,19 @@ out_of_scope:
       construction since #33 L5, and pinned so by an exact-equality guard), the
       deformation increment with the projection metric, the same increment with
       a path metric of the deformed centroid line, and the two combined as
-      production feeds them -- plus the span-projection identity, which is a
-      property of the implementation and not a physical comparison. What it
+      production feeds them -- plus the span-projection identity (first-order
+      spanwise displacement minus the second-order shortening, #33 L5), which is
+      a property of the implementation and not a physical comparison. What it
       asserts is the rigid baseline against the standalone BEM, a regression
       guard that the deformed path did not change the undeformed one; the twist
       sign under the declared convention; the applied-load invariant its own
       comment ties to verdict section 22.4 and the P5 guard; that identity; and
       that the deformed path returns the deck geometry exactly at zero
-      displacement.
-      No physical quantity is measured against an independent reference.
+      displacement. One sign is checked against an independent reference: the
+      fed tip-radius increment moves inward as BeamDyn's geometrically exact
+      static solve under the same load does (-1.0478 vs -1.3146 m); its
+      magnitude is not asserted, because the shell flaps 9.15 % less than
+      BeamDyn there and the term scales with the flap squared.
 
 groups:
   - id: "3"

@@ -15,9 +15,10 @@ the same increment with a path metric of the deformed centroid line, and the two
 production feeds them - plus twist + radii (production).  The path metric is measured beside
 the feedback and never fed to the BEM.
 
-The finding: the participant's radius is the mean span projection of the deformed strip nodes,
-so its response to deformation is the strip's own spanwise displacement to first order, while a
-path measure of the same configuration carries the second-order transverse term as well.  The
+The finding: the participant's radius is the span projection of the deformed strip line - the
+strip's own spanwise displacement plus the second-order shortening the linear solve cannot
+produce (``radii_linear_kinematics_axial_term``) - while a path measure of the same
+configuration lengthens with the transverse deflection instead.  The
 table is **reported**; the only asserts are structural (rigid path invariance, twist sign,
 ``sum F`` conservation).  No magnitude is asserted against Zhou et al. 2025 Table 6
 (-13.04% thrust / -8.38% power, flexible vs rigid).
@@ -70,10 +71,16 @@ CONVENTION = (
 )
 SENSE_THRUST_TOL = 0.02  # the applied-load invariant of verdict section 22.4 / the P5 guard
 ZHOU_FLEX_THRUST_DELTA, ZHOU_FLEX_POWER_DELTA = -0.1304, -0.0838  # Zhou 2025 Table 6
-#: Float64 accumulation bound for the span-projection identity (issue #13).  The participant
-#: stores ``float(np.mean(deformed_coords[idx] @ s))``, so recomputing the increment in numpy
-#: must agree to rounding only; this is not a physical tolerance.
+#: Float64 accumulation bound for the span-projection identity (issue #13).  The test recomputes
+#: the participant's increment from the same displacements with independent numpy code, so the
+#: two must agree to rounding only; this is not a physical tolerance.
 SPAN_PROJECTION_TOL = 1e-9
+#: BeamDyn (OpenFAST v5.0.0, geometrically exact, static, dead loads) under this fixture's own
+#: binned aero load, official IEA-15 BeamDyn deck: axial displacement at the tip-strip centroid
+#: span (z0 = 116.403 m).  ``tools/diagnose_radii_beamdyn.py`` regenerates it.  The shell flaps
+#: 9.15 % less than BeamDyn here (17.007 vs 18.720 m), so the second-order term, which scales with
+#: the flap squared, is not expected to match it closely; only its sign is asserted.
+BEAMDYN_TIP_AXIAL_M = -1.3146
 
 
 @pytest.fixture(scope="module")
@@ -396,13 +403,12 @@ def test_de_loading_table_and_load_conservation(deloading):
         f"\npower sign, deformed radii only: {radii_power:+.2%} (positive = re-loads); "
         f"production path: {both_power:+.2%} (positive = re-loads); twist alone: "
         f"{deltas['twist'][1]:+.2%} -> "
-        f"{'same sign' if np.sign(radii_power) == np.sign(both_power) else 'opposite signs'}: "
-        f"the production power sign is set by the radii feedback (deformation-driven radial "
-        f"redistribution), not the bend-twist unloading"
+        f"{'same sign' if np.sign(radii_power) == np.sign(both_power) else 'opposite signs'} "
+        f"(radii only vs production)"
     )
     print(
         f"tip nodal displacement: axial (span) {axial:+.4f} m, radial (in-plane) {radial:+.4f} m "
-        f"(u_tip = {np.array2string(tip_disp, precision=4)}); axially stretched tip strip: "
+        f"(u_tip = {np.array2string(tip_disp, precision=4)}); tip strip radius increment fed: "
         f"dr = {dr_tip:+.4f} m of {float(deloading['ref_r'][tip_k]):.4f} m"
     )
     _, bem_prod = deloading["participant"]._compute_forces(deloading["displacements"])
@@ -412,13 +418,11 @@ def test_de_loading_table_and_load_conservation(deloading):
         f"power {float(bem_prod.power) / float(deloading['bem_rigid'].power) - 1.0:+.2%}"
     )
     print(
-        "bound (reported, not asserted): the one-way family is bracketed by the twist-only "
-        "(most de-loaded) and the radii-only (the most re-loaded of the rows production can "
-        "feed; the path-metric row printed above is a counterfactual that is never fed to the "
-        "BEM) rows; a converged fixed point "
-        "would deepen the twist, so the twist-only row is a lower bound on the converged thrust "
-        "de-loading magnitude, and nothing here bounds it above.  It would still have to grow "
-        "past 3x to reach Zhou's 13.04%, so one-way-vs-converged alone does not explain the gap."
+        f"one-way rows production can feed (reported, not asserted): twist only "
+        f"{deltas['twist'][0]:+.2%}, radii only {deltas['radii'][0]:+.2%}, twist + radii "
+        f"{deltas['both'][0]:+.2%} thrust; Zhou {ZHOU_FLEX_THRUST_DELTA:+.2%}.  The path-metric "
+        f"row printed above is a counterfactual that is never fed to the BEM; a converged fixed "
+        f"point would deepen the twist."
     )
     print(
         f"\napplied-load invariant: |sum(F)| = {np.linalg.norm(applied):.4f} N vs bem.thrust/"
@@ -447,39 +451,56 @@ def test_zero_displacement_returns_the_deck_geometry(deloading):
     np.testing.assert_array_equal(twist0, participant._ref_twist)
 
 
-def test_deformed_radii_are_the_span_projection_not_a_path_length(deloading):
-    """The feedback's measuring stick is a span projection, not a path length (issue #13).
+def test_deformed_radii_are_the_second_order_span_projection(deloading):
+    """The feedback's measuring stick is a second-order span projection, not a path length.
 
-    The claim in issue #13's terms: the feedback's measuring stick is the **mean span
-    projection of the deformed strip nodes onto the fixed span direction**
-    (``_compute_deformed_geometry``: ``r_def[k] = _ref_r[k] + mean(u[strip nodes] . s)``),
-    so its displacement response is the strip's own spanwise displacement to first order -
-    exactly what this test asserts.  A path measure of the deformed centroid line would carry
-    the **second-order transverse term** instead (a laterally deflected strip line is longer
-    than its span projection), and that quantity is printed beside it in the de-loading table
-    and **never fed to the BEM**.
+    The deformed radius (issue #13, #33 L5 ``radii_linear_kinematics_axial_term``) is
 
-    **Reported:** the tip values of ``dr_proj`` (production's increment), ``dr_path`` (the
-    path measure) and ``L_def/L_ref - 1``.  **Asserted:** one identity to float precision.
+        r_def[k] = _ref_r[k] + mean(u[strip k] . s) - 1/2 int_root^{s_k} |u_perp'|^2 ds
+
+    on the strip-centroid line, from the clamped root.  The first term is the linear solve's
+    spanwise displacement (at the rated point almost entirely the prebent axis straightening);
+    the second is the shortening of a near-inextensible axis under the same bending, which the
+    linear solve cannot produce and which is about twice as large with the opposite sign.  The
+    formula was checked against BeamDyn's own geometrically exact field under this load
+    (``docs/validation_closures.md``): it reproduces BeamDyn's tip axial displacement to 0.3 %
+    of the second-order term.  A path measure of the deformed centroid line lengthens instead;
+    it is printed beside it and **never fed to the BEM**.
+
+    **Reported:** the tip values of ``dr_proj`` (production's increment), ``dr_path``,
+    ``L_def/L_ref - 1`` and BeamDyn's tip axial displacement.  **Asserted:** the identity above
+    to float precision, recomputed independently, and the tip moving inward as BeamDyn's does.
     """
     participant = deloading["participant"]
     displacements = deloading["displacements"]
     span_dir = participant._span_dir
-    proj_exact = np.array(
-        [float(np.mean(displacements[idx] @ span_dir)) for idx in participant._strip_node_indices]
-    )
+    idx_sets = participant._strip_node_indices
+    u_mean = np.stack([displacements[idx].mean(axis=0) for idx in idx_sets])
+    span = np.array([float(np.mean(participant._ref_coords[idx] @ span_dir)) for idx in idx_sets])
+    order = np.argsort(span)
+    u_perp = u_mean[order] - np.outer(u_mean[order] @ span_dir, span_dir)
+    x = np.concatenate([[float(np.min(participant._ref_coords @ span_dir))], span[order]])
+    slope2 = np.sum(np.gradient(np.vstack([np.zeros(3), u_perp]), x, axis=0) ** 2, axis=1)
+    shortening = np.empty(len(idx_sets))
+    shortening[order] = 0.5 * np.cumsum(0.5 * (slope2[1:] + slope2[:-1]) * np.diff(x))
+    expected = u_mean @ span_dir - shortening
+
     dr_proj = deloading["dr_proj"]
     tip_k = deloading["tip_k"]
     ratio_minus_one = deloading["L_def"] / deloading["L_ref"] - 1.0
     print(
-        f"\ntip increment: dr_proj {float(dr_proj[tip_k]):+.6f} m (span projection, fed to "
-        f"the BEM), dr_path {float(deloading['dr_path'][tip_k]):+.6f} m (path measure, not "
-        f"fed), L_def/L_ref - 1 {ratio_minus_one:+.6f} ({ratio_minus_one:+.4%})"
+        f"\ntip increment: dr_proj {float(dr_proj[tip_k]):+.6f} m (fed to the BEM: first order "
+        f"{float(u_mean[tip_k] @ span_dir):+.6f}, shortening {-float(shortening[tip_k]):+.6f}), "
+        f"BeamDyn {BEAMDYN_TIP_AXIAL_M:+.4f} m; dr_path "
+        f"{float(deloading['dr_path'][tip_k]):+.6f} m (path measure, not fed), "
+        f"L_def/L_ref - 1 {ratio_minus_one:+.6f} ({ratio_minus_one:+.4%})"
     )
-    deviation = float(np.max(np.abs(dr_proj - proj_exact)))
+    deviation = float(np.max(np.abs(dr_proj - expected)))
     assert deviation < SPAN_PROJECTION_TOL, (
-        f"the deformed-radius increment is {deviation:.3e} off mean(u_strip . s) (bound "
-        f"{SPAN_PROJECTION_TOL:.0e}); r_def is the mean span projection of the deformed strip "
-        f"nodes, so dr_proj[k] must equal mean(displacements[strip k] @ span_dir) exactly "
-        f"(issue #13)"
+        f"the deformed-radius increment is {deviation:.3e} off mean(u_strip . s) minus the "
+        f"second-order shortening (bound {SPAN_PROJECTION_TOL:.0e})"
+    )
+    assert np.sign(dr_proj[tip_k]) == np.sign(BEAMDYN_TIP_AXIAL_M), (
+        f"tip radius increment {float(dr_proj[tip_k]):+.4f} m has the opposite sign of "
+        f"BeamDyn's geometrically exact {BEAMDYN_TIP_AXIAL_M:+.4f} m"
     )

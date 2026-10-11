@@ -48,17 +48,23 @@ Deformed radial position
 ------------------------
 For each BEM strip *k* with node index set :math:`\mathcal{I}_k`, the
 deformed radial coordinate is the deck station radius plus the arithmetic
-mean of the strip nodes' span-wise displacement:
+mean of the strip nodes' span-wise displacement, plus the second-order
+shortening of the projected span under transverse bending:
 
 .. math::
 
     r_k^{\mathrm{def}}
-        = r_k^{\mathrm{ref}} + \frac{1}{|\mathcal{I}_k|}
-          \sum_{i \in \mathcal{I}_k}
-          \mathbf{u}_i \cdot \hat{\mathbf{e}}_s
+        = r_k^{\mathrm{ref}} + \bar{u}_{s,k}
+          - \frac{1}{2}\int_{s_{\mathrm{root}}}^{s_k}
+            \left|\frac{d\bar{\mathbf{u}}_\perp}{ds}\right|^2 ds,
+    \qquad
+    \bar{\mathbf{u}}_k = \frac{1}{|\mathcal{I}_k|}\sum_{i \in \mathcal{I}_k}\mathbf{u}_i
 
-where :math:`\mathbf{u}_i` is the displacement vector and
-:math:`\hat{\mathbf{e}}_s` the unit span direction.
+where :math:`\bar{u}_{s,k} = \bar{\mathbf{u}}_k\cdot\hat{\mathbf{e}}_s`,
+:math:`\bar{\mathbf{u}}_\perp = \bar{\mathbf{u}} - \bar{u}_s\hat{\mathbf{e}}_s`,
+:math:`\hat{\mathbf{e}}_s` is the unit span direction and :math:`s` the mesh span
+coordinate of the strip centroids, integrated from the clamped root
+(:math:`\bar{\mathbf{u}} = 0` there) with the trapezoid rule.
 
 **Datum.**  The station radius comes from one source only, the deck
 (``blade_aero.r``, hub-referenced, the same annulus the CCBlade solver and
@@ -74,13 +80,21 @@ this class is hub-referenced**: ``_ref_r``, the ``r_def`` returned here, and
 the radii handed to ``_rebuild_bem_solver``.  ``ForceProjector`` anchors its
 own station grid on the mesh datum and re-anchors them internally.
 
-**What this does NOT capture.**  Under a geometrically linear structural
-solve :math:`\mathbf{u}\cdot\hat{\mathbf{e}}_s` is first order: at the
-rated point it is almost entirely the prebent axis straightening under flap
-bending, while the second-order shortening of the projected span under the
-same bending (order :math:`\delta^2/(2r)`) is absent and, at a 17 m tip
-deflection, twice as large with the opposite sign
-(``radii_linear_kinematics_axial_term`` in ``docs/validation/gaps.yaml``).
+**Why the second-order term.**  Under a geometrically linear structural
+solve :math:`\bar{u}_s` is first order: at the rated point it is almost
+entirely the prebent axis straightening under flap bending
+(:math:`-\int y_0' u_y'\,ds`).  The shortening of a near-inextensible axis
+under the same bending is second order and the linear solve cannot produce
+it, yet at a 17 m tip deflection it is about twice the linear term with the
+opposite sign, so without it the tip is fed 1.1 m *outward* while it really
+moves inward.  The integral above is the moderate-rotation completion of
+the inextensibility condition :math:`(1+w')^2 + (y_0'+v')^2 = 1 + y_0'^2`;
+the linear part stays with the structural solve.  Reference
+(``radii_linear_kinematics_axial_term``, ``docs/validation_closures.md``):
+on BeamDyn's own geometrically exact static field under the same load the
+formula reproduces BeamDyn's tip axial displacement (-1.339 m) to 0.3 % of
+the second-order term.  The truncation is :math:`O(\theta^4)` in the
+deflection slope.
 
 Elastic twist extraction
 ------------------------
@@ -409,6 +423,12 @@ class BEMFSIParticipant:
         # Mesh span coordinate (mesh datum).  Radii fed to the BEM never use it:
         # they are _ref_r plus a displacement increment (_compute_deformed_geometry).
         self._mesh_span: np.ndarray = self._ref_coords @ self._span_dir
+        # Abscissa of the second-order shortening integral: the clamped root and
+        # each strip's centroid on the mesh span coordinate (NaN for an empty strip).
+        self._root_span: float = float(np.min(self._mesh_span))
+        self._strip_span: np.ndarray = np.array(
+            [self._mesh_span[idx].mean() if len(idx) else np.nan for idx in self._strip_node_indices]
+        )
         # Mesh-datum strip centres and widths, from the reference projector.
         self._strip_centres: np.ndarray = np.array([s.r_center for s in ref_projector._strips])
         self._strip_widths: np.ndarray = np.array([s.dr for s in ref_projector._strips])
@@ -602,7 +622,8 @@ class BEMFSIParticipant:
 
         1. Deformed coordinates :math:`\mathbf{x}_i = \mathbf{X}_i + \mathbf{u}_i`.
         2. Radial position: the deck station radius ``_ref_r[k]`` plus the mean span-wise
-           displacement of the strip nodes (see the module docstring's "Datum").
+           displacement of the strip nodes (see the module docstring's "Datum"), minus
+           the second-order shortening of the span (``_span_shortening``).
         3. Elastic twist: the in-plane section rotation of the strip's centre physical
            ring (``_section_rotation``), converted into the BEM's twist sense.
         4. Deformed twist:
@@ -627,6 +648,7 @@ class BEMFSIParticipant:
         twist_def = np.empty(n_strips)
 
         s = self._span_dir
+        u_mean = np.zeros((n_strips, 3))
         for k in range(n_strips):
             idx = self._strip_node_indices[k]
             if len(idx) == 0:
@@ -634,10 +656,11 @@ class BEMFSIParticipant:
                 twist_def[k] = self._ref_twist[k]
                 continue
 
-            # Deformed radial position: the deck station radius plus the strip's
-            # mean span-wise displacement, so u = 0 returns _ref_r exactly (see the
-            # module docstring's "Datum" paragraph).
-            r_def[k] = self._ref_r[k] + float(np.mean(displacements[idx] @ s))
+            # Deformed radial position, first order: the deck station radius plus the
+            # strip's mean span-wise displacement, so u = 0 returns _ref_r exactly (see
+            # the module docstring's "Datum" paragraph).
+            u_mean[k] = displacements[idx].mean(axis=0)
+            r_def[k] = self._ref_r[k] + float(u_mean[k] @ s)
 
             # Elastic twist: the rotation of the strip's centre physical ring
             # about the span axis, taken into the BEM's twist sense (see
@@ -649,7 +672,40 @@ class BEMFSIParticipant:
                 0.0 if omega is None else omega
             )
 
+        r_def -= self._span_shortening(u_mean)
         return r_def, twist_def
+
+    def _span_shortening(self, u_mean: np.ndarray) -> np.ndarray:
+        r"""Second-order shortening :math:`\frac12\int_{root}^{s_k}|\bar{\mathbf{u}}_\perp'|^2 ds`.
+
+        The linear structural solve carries the first-order span-wise displacement only;
+        this is the term it cannot produce (module docstring, "Why the second-order
+        term").  The integral runs over the strip centroids sorted along the mesh span
+        coordinate, starting at the clamped root where the displacement and its slope
+        vanish.  Empty strips take no part and get zero.
+
+        Parameters
+        ----------
+        u_mean : ndarray, shape (n_strips, 3)
+            Mean nodal displacement of each strip.
+
+        Returns
+        -------
+        ndarray, shape (n_strips,)
+            Non-negative shortening [m] to subtract from the first-order radius.
+        """
+        out = np.zeros(len(u_mean))
+        valid = np.flatnonzero(np.isfinite(self._strip_span))
+        if len(valid) == 0:
+            return out
+        order = valid[np.argsort(self._strip_span[valid])]
+        s = self._span_dir
+        u_perp = u_mean[order] - np.outer(u_mean[order] @ s, s)
+        x = np.concatenate([[self._root_span], self._strip_span[order]])
+        slope = np.gradient(np.vstack([np.zeros(3), u_perp]), x, axis=0)
+        g = np.sum(slope**2, axis=1)
+        out[order] = 0.5 * np.cumsum(0.5 * (g[1:] + g[:-1]) * np.diff(x))
+        return out
 
     def _resolve_twist_sense(self) -> float:
         r"""``+1`` when a positive section rotation about :math:`+\hat{e}_s` is nose-down.
@@ -804,14 +860,21 @@ class BEMFSIParticipant:
             for k, st in enumerate(ba.stations)
         ]
 
-        # Update Rtip to the actual deformed tip position (+ 0.1% buffer).
-        # The linear-solve radii can put the tip station beyond the reference
-        # rotor_radius (the prebent axis straightens under flap bending; whether a
-        # bent blade really lengthens is the open radii_linear_kinematics_axial_term,
-        # and this rule inherits it).  A fixed
-        # Rtip_ref causes Prandtl factortip < 0 → exp(+) > 1 → acos(NaN).
-        deformed_rtip = float(np.max(r_def)) * 1.001
-        rotor_radius = max(deformed_rtip, ba.rotor_radius)
+        # Move Rtip with the tip station, so the tip gap Rtip - r_tip keeps its
+        # undeformed value.  AeroDyn fixes its tip-loss constant at initialisation
+        # from the undeformed geometry (BEMT.f90, B (zTip - zLocal) / (2 zLocal)),
+        # so a deflected blade keeps its undeformed tip distance there.  A fixed
+        # Rtip would instead widen (tip moving inward) or close (outward) the gap
+        # of the tip strip, where the Prandtl factor is most sensitive to it.  The
+        # deck's tip station sits at Rtip (gap 0, so F = 0 there on the rigid path
+        # too); the max() only keeps every station at or inside Rtip, because a
+        # station past it gives Prandtl factortip < 0 -> exp(+) > 1 -> acos(NaN).
+        # It takes no buffer: a buffer would open a tip gap the rigid path does not have.
+        tip = int(np.argmax(self._ref_r))
+        rotor_radius = max(
+            ba.rotor_radius + float(r_def[tip] - self._ref_r[tip]),
+            float(np.max(r_def)),
+        )
 
         deformed_aero = BladeAero(
             airfoils=ba.airfoils,

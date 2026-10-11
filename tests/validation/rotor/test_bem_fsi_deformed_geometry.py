@@ -412,7 +412,7 @@ def test_one_way_de_loading_reduces_thrust_and_power(fsi):
     )
     print(
         f"  full production path (deformed radii): thrust {net_thrust:+.2%}, "
-        f"power {net_power:+.2%} (reported: the radius growth re-loads)"
+        f"power {net_power:+.2%} (reported)"
     )
 
     assert twist_thrust < 0.0, "the elastic twist must reduce thrust"

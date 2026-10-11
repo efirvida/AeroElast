@@ -141,7 +141,8 @@ levels:
       inertial terms in the rotating frame and convergence of the partitioned coupling; then the
       coupled response against OpenFAST coupled (ElastoDyn/BeamDyn + AeroDyn) at the same
       operating points and against published IEA 15 MW FSI results. Coupled numbers older than
-      7a84da1 and 6765633 are uncitable.
+      7a84da1 and 6765633 are uncitable, and so is any one-way or coupled number fed by the
+      deformed BEM radii before the #33 L5 second-order radii fix (2026-10-11).
     groups: ['29', '30', '31', '35', '37']
     depends_on:
       - src/aeroelast/solvers/fsi
@@ -150,7 +151,6 @@ levels:
     gaps:
       - moment_realization_over_delivers
       - reference_projection_geometry_approximation
-      - radii_linear_kinematics_axial_term
       - zhou_spanwise_load_frame
     absent:
       - evidence: tests/validation/bem/test_force_projection_load_frame.py

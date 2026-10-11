@@ -4,7 +4,7 @@ Store gap: `radii_linear_kinematics_axial_term` (`docs/validation/gaps.yaml`, le
 Predecessor, closed 2026-10-11: `radii_datum_definition_bias` (`d61993a`, `b155c95`; closure
 section in `docs/validation_closures.md`).
 
-## State (2026-10-11)
+## State before T2 (2026-10-11)
 
 `_compute_deformed_geometry` feeds `r_def[k] = _ref_r[k] + mean(u[strip k] . s)`. On the
 de-loading fixture (`tests/validation/blade/test_blade_deloading_vs_reference.py`: official
@@ -53,13 +53,34 @@ lumped as `tools/run_s4_rotating_modal.py`. Rigid-blade rated aero load. Tip str
   load by ~45 %. Neither omission can flip the outcome.
 - The gap stays `open_defect`; its evidence now carries the production number.
 
-## Next session: T2 (T1 confirmed)
+## T2 result (2026-10-11): closed with option (a), against BeamDyn
 
-Pick a fix and its reference:
-- second-order kinematic correction of `r_def` (add `-1/2 int |u_perp'|^2`), plus the
-  `Rtip = max(r_def) * 1.001` rule in `_rebuild_bem_solver`, which inherits the same term; or
-- a geometrically nonlinear structural state for the one-way path.
-Reference: BeamDyn/OpenFAST projected tip position at the same operating point.
+- Reference: `tools/diagnose_radii_beamdyn.py`, a static, geometrically exact BeamDyn run
+  (OpenFAST v5.0.0, `conda-envs/openfast/bin/beamdyn_driver`). Deck: the official
+  `IEA-15-240-RWT/OpenFAST/IEA-15-240-RWT` BeamDyn deck, converted from v4 to v5 on the fly.
+  Load: the fixture's aero load, one point load per strip, dead.
+- Formula on BeamDyn's own field: `lin + nl = -1.3313 m` against BeamDyn's `-1.3390 m` at the
+  tip. The error is 0.30 % of `nl`, inside the `theta_max^2/4 = 4.0 %` truncation bound.
+- Fix: `r_def -= 1/2 int_root |u_perp'|^2 ds` (`_span_shortening`). The new Rtip rule is
+  `max(R_ref + dr_tip, max(r_def))`, with no buffer. The deck's tip station sits at Rtip (gap
+  0), so the old `*1.001` buffer opened a 0.121 m gap on every deformed-path row, twist-only
+  included. AeroDyn's tip-loss constant is fixed on the undeformed geometry (`BEMT.f90:244`).
+- Fixture split (thrust/power). A = before; B = A + shortening; C = B + the new Rtip rule:
+  - radii row: +1.89/+1.86 -> -1.26/-0.45 -> -1.75/-1.74 %
+  - production: -26.08/-15.39 -> -27.80/-17.36 -> -27.66/-17.54 %
+  - twist only: -27.04/-16.56 -> unchanged -> -26.77/-16.48 %
+  - the cross-check now equals the production row
+  - tip `dr`: +1.1056 -> -1.0478 m (BeamDyn -1.3146 m; the shell flap is 9.15 % lower)
+- Gap removed from `docs/validation/gaps.yaml`. The closure section is in
+  `docs/validation_closures.md`.
+- Not done: AeroDyn also keeps the interior tip-loss distances and the `r` denominator
+  undeformed. Here they move by `dr_tip - dr_k`, and that effect is unmeasured.
+
+## Next (separate sessions)
+
+- #19 coupled 500/500 re-run on SLURM (both `r_def` and `Rtip` changed).
+- Shell vs BeamDyn flap gap under the same load (-9.15 %), with the S-2/S-5 family.
+- L5 arbiter: coupled rated run vs OpenFAST coupled.
 
 ## Also open, not in this task
 
