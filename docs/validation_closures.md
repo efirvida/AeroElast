@@ -718,6 +718,76 @@ siguen sin ser citables.
 (`fsi_participant.py:910-912`), en la asignación de nodos por strip, o en el fixture
 `tests/validation/blade/test_blade_deloading_vs_reference.py`.
 
+**Actualización 2026-10-11:** el disparador se activó: `radii_datum_definition_bias` quedó
+cerrado (ver la sección siguiente) y `_mesh_datum_offset` ya no existe. Las cifras de la fila de
+producción de arriba (`+1.24 % / +0.95 %`) son el estado previo al fix.
+
+---
+
+### `radii_datum_definition_bias`: un solo datum para los radios deformados (2026-10-11)
+
+Cierra el ítem L5 de #33. El camino deformado medía el radio de estación como el centroide de
+la nube de nodos del strip llevado al datum del hub por un offset único; el camino rígido usa
+los radios del deck. A desplazamiento cero diferían hasta 0.6 m.
+
+**Diagnóstico (medido antes de tocar el código).** Para las 50 estaciones, el centro del strip
+del `ForceProjector` más el offset coincide con `_ref_r` **exactamente** (`max|Δ| = 0.0`): la
+grilla de fuerzas está bien registrada contra el deck. El sesgo era solo el centroide de la nube
+de nodos: `+0.397959 m` en el strip 0 y `-0.596870 m` en el de punta (semi-celdas de los
+extremos), y `-0.22 … -0.30 m` en los strips 23–39 (espaciado de malla no uniforme dentro del
+strip). El defecto vivía entero en `r_def`.
+
+**Fix.** `r_def[k] = _ref_r[k] + mean(u[strip k] · ŝ)`: el radio sale de una sola fuente (el
+deck) y la malla aporta solo el incremento por desplazamiento. A `u = 0` el camino deformado
+devuelve `_ref_r` exacto y el cortocircuito rígido pasa a ser una optimización pura.
+`_mesh_datum_offset` se eliminó. El incremento `dr_proj` no cambia, así que la identidad pineada
+a `1e-9` sigue igual.
+
+**Guard nuevo.** `test_zero_displacement_returns_the_deck_geometry`: igualdad exacta (sin
+tolerancia) de `_compute_deformed_geometry(0)` con `(_ref_r, _ref_twist)`. Es el guard que
+faltaba; el del camino rígido comparaba el cortocircuito consigo mismo.
+
+**Antes / después**, mismo árbol (`db181e2` vs `db181e2` + fix), mismo comando
+(`pytest -s tests/validation/blade/test_blade_deloading_vs_reference.py`), misma baseline
+2.541662 MN / 16.389372 MW. Logs: `logs/check/l5_radii_datum_{before,after}.log`.
+
+| fila | antes | después |
+| --- | ---: | ---: |
+| radios, solo sesgo de definición | -0.38 % / -0.17 %, tip dr -0.5969 m | **+0.00 % / +0.00 %**, 0 m |
+| radios como producción los alimenta | +1.24 % / +0.95 %, tip dr +0.5088 m | **+1.89 % / +1.86 %**, +1.1056 m |
+| twist + radios (producción) | -26.36 % / -15.74 % | **-26.08 % / -15.39 %** |
+| camino exacto de producción (cross-check) | -25.88 % / -15.41 % | **-25.60 % / -15.07 %** |
+| solo twist | -27.04 % / -16.56 % | -27.04 % / -16.56 % (sin cambio) |
+
+La predicción era falsable y se cumplió: el sesgo colapsa a cero y la fila de producción
+reproduce la del incremento puro (`+1.89 % / +1.86 %`).
+
+**Deriva previa del registro.** En HEAD, antes del fix, `dr_proj` de punta mide `+1.105628 m` y
+`dr_path` `+2.116631 m`; el registro del 2026-10-07 decía `+1.106156` y `+2.112061 m`. La
+diferencia no viene de este cambio (que deja `dr_proj` algebraicamente igual); es deriva del
+árbol entre `7bd497e` y `db181e2`, y no está bisecada.
+
+**Lo que este cierre NO cierra: el término que queda tiene el signo físico equivocado.** Con el
+datum corregido la fila de radios es exactamente el desplazamiento axial del solve lineal, y ese
+desplazamiento es casi todo cinemática lineal del prebend que se endereza. En el strip de punta:
+`u_z` medido `+1.1056 m`; cinemática lineal `-∫ y0' u_y' dz` = `+1.0973 m` (99.2 %); deformación
+axial `+0.0083 m`; el acortamiento de segundo orden que el solve lineal omite,
+`-½ ∫ u_y'² dz`, vale `-2.1534 m` con una flecha de `+17.007 m` (14.6 % del span). El término
+omitido duplica al presente y tiene signo opuesto, así que la pala flexada real **acorta** su
+span proyectado donde la realimentación de radios lo alarga. Queda registrado como el defecto
+abierto `radii_linear_kinematics_axial_term` (`docs/validation/gaps.yaml`), que reemplaza a
+este en L5. Ninguna fila de radios, ni las de producción como total, se cita como "la recarga
+geométrica".
+
+**Consecuencia para el acoplado.** La convergencia 500/500 de #19 se midió con la definición
+anterior de `r_def`; en principio queda invalidada hasta re-correr el caso acoplado (SLURM).
+No se afirma nada sobre ella aquí.
+
+**Disparador de re-ejecución:** invalida este cierre cualquier cambio en
+`_compute_deformed_geometry`, en `_ref_r` o en la construcción de `blade_aero.r`, en el
+cortocircuito rígido, en la asignación de nodos por strip, o en el fixture
+`tests/validation/blade/test_blade_deloading_vs_reference.py`.
+
 ---
 
 ### S-7: la tabla de convergencia contradecía a la medición, y el lado "más blanda" es el artefacto (2026-10-07) — **corregido 2026-10-10: era al revés; ver el bloque al final de esta sección**

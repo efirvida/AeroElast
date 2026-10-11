@@ -69,8 +69,10 @@ over-delivered elastic twist. In the one-way de-loading table the blade currentl
 **twice** the published reference (-26.36% thrust / -15.74% power against Zhou et al. 2025
 Table 6's -13.04% / -8.38%). If the over-delivered twist is a contributor to that gap, the
 wall-flow realisation must move those two numbers **toward** -13.04% / -8.38%. If it does not
-move them, the load-distribution hypothesis for that gap is dead and the gap stays attributed to
-`radii_datum_definition_bias`. Either outcome is a result.
+move them, the load-distribution hypothesis for that gap is dead. Either outcome is a result.
+(Corrected 2026-10-11: the gap used to be attributed to `radii_datum_definition_bias`, but that
+bias moved the production row by only `-0.38% / -0.17%` and cannot explain a 2x gap; it is
+closed, see `docs/validation_closures.md`. Post-fix production row: `-26.08% / -15.39%`.)
 
 ## Design
 

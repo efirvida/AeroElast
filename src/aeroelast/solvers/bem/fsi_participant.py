@@ -47,30 +47,32 @@ Mathematical formulation
 Deformed radial position
 ------------------------
 For each BEM strip *k* with node index set :math:`\mathcal{I}_k`, the
-deformed radial coordinate is the arithmetic mean of the nodal span-wise
-projections on the deformed configuration, carried onto the **hub datum**:
+deformed radial coordinate is the deck station radius plus the arithmetic
+mean of the strip nodes' span-wise displacement:
 
 .. math::
 
     r_k^{\mathrm{def}}
-        = c + \frac{1}{|\mathcal{I}_k|}
+        = r_k^{\mathrm{ref}} + \frac{1}{|\mathcal{I}_k|}
           \sum_{i \in \mathcal{I}_k}
-          \bigl(\mathbf{X}_i + \mathbf{u}_i\bigr) \cdot \hat{\mathbf{e}}_s,
-    \qquad
-    c = r_0^{\mathrm{ref}} - \min_i \bigl(\mathbf{X}_i \cdot \hat{\mathbf{e}}_s\bigr)
+          \mathbf{u}_i \cdot \hat{\mathbf{e}}_s
 
-where :math:`\mathbf{X}_i` are the reference nodal coordinates,
-:math:`\mathbf{u}_i` the displacement vector, and
+where :math:`\mathbf{u}_i` is the displacement vector and
 :math:`\hat{\mathbf{e}}_s` the unit span direction.
 
-**Datum.**  :math:`c` carries the mesh's own span origin - blade-root
-referenced for a single-blade mesh, so :math:`c` is the hub radius - onto the
-hub datum of ``blade_aero.r`` and of the CCBlade annulus
-(``Rhub = blade_aero.hub_radius``); for a hub-referenced rotor mesh it is zero.
-**Every radial quantity of this class is hub-referenced**: ``_ref_r``, the
-``r_def`` returned here, and the radii handed to ``_rebuild_bem_solver``.  The
-CCBlade annulus therefore keeps its hub, while ``ForceProjector`` (which
-anchors its own station grid on the mesh datum) re-anchors them internally.
+**Datum.**  The station radius comes from one source only, the deck
+(``blade_aero.r``, hub-referenced, the same annulus the CCBlade solver and
+the rigid short-circuit use); the mesh contributes only the displacement
+increment.  At :math:`\mathbf{u} = 0` the deformed path therefore returns
+``_ref_r`` exactly and the rigid short-circuit is a pure optimisation.  The
+earlier definition, the mean span projection of the reference node cloud
+carried onto the hub datum by one offset, differed from ``_ref_r`` by up to
+0.6 m before any deformation (the node-cloud centroid of the end half-cells
+and of strips with non-uniform mesh spacing is not the station radius;
+``radii_datum_definition_bias``, issue #33 L5).  **Every radial quantity of
+this class is hub-referenced**: ``_ref_r``, the ``r_def`` returned here, and
+the radii handed to ``_rebuild_bem_solver``.  ``ForceProjector`` anchors its
+own station grid on the mesh datum and re-anchors them internally.
 
 This captures the radial redistribution of blade stations caused by
 flapwise and edgewise bending.  For a pure flapwise deflection
@@ -402,10 +404,9 @@ class BEMFSIParticipant:
         # -- Reference per-strip quantities (all radial ones HUB-referenced) --
         self._ref_r: np.ndarray = blade_aero.r.copy()  # (n_strips,)
         self._ref_twist: np.ndarray = blade_aero.twist.copy()  # (n_strips,) rad
-        # Mesh span coordinate, and the signed offset that carries the mesh's
-        # own blade-root datum onto the hub datum of _ref_r / the BEM annulus.
+        # Mesh span coordinate (mesh datum).  Radii fed to the BEM never use it:
+        # they are _ref_r plus a displacement increment (_compute_deformed_geometry).
         self._mesh_span: np.ndarray = self._ref_coords @ self._span_dir
-        self._mesh_datum_offset: float = float(self._ref_r[0] - self._mesh_span.min())
         # Mesh-datum strip centres and widths, from the reference projector.
         self._strip_centres: np.ndarray = np.array([s.r_center for s in ref_projector._strips])
         self._strip_widths: np.ndarray = np.array([s.dr for s in ref_projector._strips])
@@ -598,8 +599,8 @@ class BEMFSIParticipant:
         **Algorithm summary** (per strip *k*):
 
         1. Deformed coordinates :math:`\mathbf{x}_i = \mathbf{X}_i + \mathbf{u}_i`.
-        2. Radial position: the mean span projection of the strip nodes, carried onto the
-           hub datum by ``_mesh_datum_offset`` (see the module docstring's "Datum").
+        2. Radial position: the deck station radius ``_ref_r[k]`` plus the mean span-wise
+           displacement of the strip nodes (see the module docstring's "Datum").
         3. Elastic twist: the in-plane section rotation of the strip's centre physical
            ring (``_section_rotation``), converted into the BEM's twist sense.
         4. Deformed twist:
@@ -619,7 +620,6 @@ class BEMFSIParticipant:
             Total aerodynamic twist at each strip [rad], reference plus the elastic
             torsion increment, in the BEM's twist sense.
         """
-        deformed_coords = self._ref_coords + displacements
         n_strips = len(self._strip_node_indices)
         r_def = np.empty(n_strips)
         twist_def = np.empty(n_strips)
@@ -632,10 +632,10 @@ class BEMFSIParticipant:
                 twist_def[k] = self._ref_twist[k]
                 continue
 
-            # Deformed radial position: mean span-wise projection on the mesh
-            # datum, converted to this class's hub datum (see the module
-            # docstring's "Datum" paragraph).
-            r_def[k] = float(np.mean(deformed_coords[idx] @ s)) + self._mesh_datum_offset
+            # Deformed radial position: the deck station radius plus the strip's
+            # mean span-wise displacement, so u = 0 returns _ref_r exactly (see the
+            # module docstring's "Datum" paragraph).
+            r_def[k] = self._ref_r[k] + float(np.mean(displacements[idx] @ s))
 
             # Elastic twist: the rotation of the strip's centre physical ring
             # about the span axis, taken into the BEM's twist sense (see

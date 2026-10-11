@@ -190,3 +190,14 @@ question is settled without it.
   collects no nodes here); unrelated to this feature.
 - S-7 WIP (`tests/validation/blade/test_iea15mw_s7_torsion.py` uncommitted delta, store reports
   the module as neither grouped nor declared) is a separate work unit; untouched here.
+
+## Follow-up 2026-10-11: the definition bias is closed (#33 L5)
+
+`r_def[k] = _ref_r[k] + mean(u[strip k] . s)`; `_mesh_datum_offset` is gone, and
+`test_zero_displacement_returns_the_deck_geometry` pins `u = 0 -> (_ref_r, _ref_twist)` exactly.
+Production radii row `+1.24% / +0.95%` -> `+1.89% / +1.86%`. What remains is a new open defect,
+`radii_linear_kinematics_axial_term`: the fed increment is 99.2 % linear prebend kinematics, and
+the omitted second-order shortening is `-2.15 m` at the tip against `+1.10 m` fed. Numbers and
+re-run trigger: `docs/validation_closures.md`, section "`radii_datum_definition_bias`: un solo
+datum".
+

@@ -120,8 +120,10 @@ def deloading():
     displacements = np.column_stack([u[0::6], u[1::6], u[2::6]])
     r_def, twist_def = participant._compute_deformed_geometry(displacements)
     # The same call at zero displacement: the participant's own radius definition on the
-    # reference configuration.  Its offset from ``_ref_r`` is the mesh-vs-deck definition
-    # bias (issue #13); ``dr_proj`` is the deformation increment production actually feeds.
+    # reference configuration.  Its offset from ``_ref_r`` was the mesh-vs-deck definition
+    # bias (issue #13; removed for #33 L5, now pinned to zero by
+    # ``test_zero_displacement_returns_the_deck_geometry``); ``dr_proj`` is the deformation
+    # increment production feeds.
     r_def_rigid, _ = participant._compute_deformed_geometry(np.zeros_like(displacements))
     dr_proj = r_def - r_def_rigid
     # Strip centroids from the participant's own strip node sets, for the path metric.
@@ -318,7 +320,7 @@ def test_de_loading_table_and_load_conservation(deloading):
         (
             "radii",
             "deformed radii only, reference twist",
-            "the radii feedback as production feeds it (bias + increment)",
+            "the radii feedback as production feeds it",
             dr_tip,
             0.0,
         ),
@@ -346,7 +348,7 @@ def test_de_loading_table_and_load_conservation(deloading):
         (
             "radii_bias",
             "radii, definition bias only (zero displacement)",
-            "the mesh-vs-deck radius definition bias, no deformation",
+            "the radius definition bias, no deformation (0 by construction)",
             float(deloading["r_def_rigid"][tip_k] - deloading["ref_r"][tip_k]),
             0.0,
         ),
@@ -429,12 +431,28 @@ def test_de_loading_table_and_load_conservation(deloading):
     )
 
 
+def test_zero_displacement_returns_the_deck_geometry(deloading):
+    """At ``u = 0`` the deformed path is the rigid path: same annulus, same twist (#33 L5).
+
+    The rigid short-circuit (``disp_max < 1e-12``) feeds the BEM the deck's ``_ref_r`` and
+    ``_ref_twist``; the deformed path must reduce to exactly that, or its first iteration
+    moves every station radius by a definition bias before any deformation (it was
+    ``+0.397959 m`` at strip 0 and ``-0.596870 m`` at the tip strip while the radius was the
+    node-cloud centroid; ``radii_datum_definition_bias``).  **Asserted:** exact equality, no
+    tolerance: the radius is ``_ref_r[k] + mean(0)`` and the twist ``_ref_twist[k] + 0``.
+    """
+    participant = deloading["participant"]
+    r0, twist0 = participant._compute_deformed_geometry(np.zeros_like(deloading["displacements"]))
+    np.testing.assert_array_equal(r0, participant._ref_r)
+    np.testing.assert_array_equal(twist0, participant._ref_twist)
+
+
 def test_deformed_radii_are_the_span_projection_not_a_path_length(deloading):
     """The feedback's measuring stick is a span projection, not a path length (issue #13).
 
     The claim in issue #13's terms: the feedback's measuring stick is the **mean span
     projection of the deformed strip nodes onto the fixed span direction**
-    (``_compute_deformed_geometry``: ``r_def[k] = mean((X + u)[strip nodes] . s) + offset``),
+    (``_compute_deformed_geometry``: ``r_def[k] = _ref_r[k] + mean(u[strip nodes] . s)``),
     so its displacement response is the strip's own spanwise displacement to first order -
     exactly what this test asserts.  A path measure of the deformed centroid line would carry
     the **second-order transverse term** instead (a laterally deflected strip line is longer

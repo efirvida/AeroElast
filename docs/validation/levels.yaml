@@ -150,7 +150,7 @@ levels:
     gaps:
       - moment_realization_over_delivers
       - reference_projection_geometry_approximation
-      - radii_datum_definition_bias
+      - radii_linear_kinematics_axial_term
       - zhou_spanwise_load_frame
     absent:
       - evidence: tests/validation/bem/test_force_projection_load_frame.py

@@ -198,53 +198,47 @@ gaps:
     citations_forbidden: true
     rows: []
 
-  - id: radii_datum_definition_bias
+  - id: radii_linear_kinematics_axial_term
     scope: >-
-      the BEM annulus the deformed path feeds, against the deck's own station
-      radii the rigid path uses
+      the deformed BEM station radii the one-way and coupled paths feed, under a
+      geometrically linear structural solve
     status: open_defect
     reason: >-
-      The two annuli are not the same annulus. The rigid path short-circuits
-      before any deformed geometry is measured (`fsi_participant.py:910-912`),
-      while the deformed path rebuilds the stations from the mesh's mean span
-      projection (`:632`) with its datum anchored at a single point (`:402`,
-      `_mesh_datum_offset = _ref_r[0] - _mesh_span.min()`). At zero displacement
-      the two definitions differ by `+0.397959 m` (strip 0) and `-0.596870 m`
-      (tip strip), so the first deformed iteration moves every station radius by
-      up to 0.6 m on its own. No guard sees it: the rigid-path guard compares
-      the short-circuit path against itself.
+      The radii feedback is first-order kinematics only. Since #33 L5 the
+      deformed radius is `r_def[k] = _ref_r[k] + mean(u[strip k] . span_dir)`
+      (one datum, zero at u = 0), so it feeds exactly the strip's linear-solve
+      spanwise displacement. At the rated point that displacement is almost
+      entirely the linear kinematics of the prebent axis straightening under
+      flap bending (`u_z = -int y0' u_y' dz`), and the second-order shortening
+      of a near-inextensible axis under the same bending (`-1/2 int u_y'^2 dz`)
+      is absent because the solve is linear. The missing term is twice the
+      present one and of opposite sign, so the radii feedback as fed has the
+      wrong physical sign at a 17 m tip deflection (14.6 % of span).
     evidence: >-
-      Measured by
-      `tests/validation/blade/test_blade_deloading_vs_reference.py` at HEAD
-      2026-10-07: 5 passed, production `BEMFSIParticipant`, real
-      IEA-15MW mesh and real AeroDyn `BladeAero` at the rated point, one shell
-      solve under the participant's own projected loads. Every row is against
-      the same construction baseline `_rebuild_bem_solver(_ref_r, _ref_twist)`
-      = 2.541662 MN / 16.389372 MW. The four radii-family rows, thrust and power
-      as `(flexible - rigid) / rigid` and the tip `dr` in metres: definition
-      bias only (zero displacement) `-0.38% / -0.17%`, tip `dr -0.5969 m`;
-      deformation increment only (projection metric) `+1.89% / +1.86%`, tip
-      `dr +1.1062 m`; deformation increment only (path metric) `+3.63% /
-      +3.56%`, tip `dr +2.1121 m`; radii feedback as production feeds it (bias +
-      increment) `+1.24% / +0.95%`, tip `dr +0.5093 m`. The definition bias at
-      zero displacement is `+0.397959 m` at strip 0 and `-0.596870 m` at the
-      tip strip. `dr_proj` (production's deformation increment) tip =
-      `+1.106156 m`; `dr_path` (the same increment under the path metric) tip =
-      `+2.112061 m`, ratio `1.909x`, and the second-order transverse term is
-      `47.6%` of the path increment. Path lengths of the deformed strip-centroid
-      polyline: `L_ref = 116.181290 m`, `L_def = 118.293351 m`, `L_def/L_ref - 1
-      = +1.8179%`. The three radii deltas are three separate BEM evaluations and
-      are NOT additive (`-0.38% + 1.89% != +1.24%`). The identity pinned to
-      `1e-9`: `dr_proj[k] == mean(displacements[strip k] . span_dir)`, i.e.
-      `dr_proj` is the span projection of the strip's own spanwise
-      displacement, a linear-solve axial response, not a path artefact.
+      Measured 2026-10-11 on the fixture of
+      `tests/validation/blade/test_blade_deloading_vs_reference.py` (production
+      `BEMFSIParticipant`, official IEA-15MW mesh at element_size 1.0, real
+      AeroDyn `BladeAero`, rated point, one linear shell solve), by integrating
+      along the strip-centroid line with the trapezoid rule. Tip strip: measured
+      mean `u_z = +1.1056 m`; linear prebend/sweep kinematics `+1.0973 m`
+      (99.2 %); residual axial strain `+0.0083 m`; omitted second-order
+      shortening `-2.1534 m`; flap `u_y = +17.007 m`; reference centroid
+      prebend `y0 = -3.939 m`. The same split holds along the span (strip 40:
+      `u_z +0.4521`, linear `+0.4484`, second order `-0.8205` m). The BEM row
+      the term drives: radii only `+1.89% / +1.86%` thrust / power against the
+      2.541662 MN / 16.389372 MW baseline. The second-order figure is a
+      moderate-rotation estimate, not a nonlinear solve; its sign is the claim,
+      its magnitude is bounded by a geometrically nonlinear run (not done).
     consequence: >-
-      A radii-family figure from this table quoted as "the geometric
-      re-loading" overstates the deformation's share: the `+1.24% / +0.95%` row
-      is the net of a `-0.38% / -0.17%` definition bias and a `+1.89% / +1.86%`
-      deformation increment, so it cannot be read as the deformation's
-      contribution on its own. The table's other numbers keep their meaning. The
-      standing prohibition holds: pre-fix coupled numbers stay uncitable.
+      The radii-family rows of the de-loading table may not be cited as "the
+      geometric re-loading", and neither may the production rows (`twist +
+      radii`, the exact production cross-check) as a total: their radii part
+      re-loads where the bent blade's projected span shortens. The twist-only
+      row is unaffected. Closing it needs either a second-order kinematic
+      correction of `r_def` or a geometrically nonlinear structural state, and
+      a reference for the projected tip position (BeamDyn/OpenFAST at the same
+      point). The standing prohibition holds: pre-fix coupled numbers stay
+      uncitable.
     citations_forbidden: true
     rows: []
 
