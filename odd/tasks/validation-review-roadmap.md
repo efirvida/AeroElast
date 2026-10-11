@@ -125,7 +125,7 @@ and it suspends every conclusion above it that uses the same element, solver or 
 
 | Level | Item | Issue |
 | --- | --- | --- |
-| L3 | Blade torsional stiffness: S-1 sectional is +23.9 % stiffer, S-7 global is ~3.8 % softer (after `72f64de`); the sign disagreement is unattributed | #20 (reopened) |
+| L3 | Blade torsional stiffness: S-1 (+10.8 % at HEAD) and S-7 (GJ ~+15 %, after `869ecd5`) now agree in sign; the excess tracks the OML reference surface, parked in `odd/tasks/shell-reference-surface.md` | #20 (open) |
 | L3 | S-7's old table, the residual between 1.014 and 1.286 | #22 |
 | L3 | The rated-twist docstring's shear centre (0.477c) and the pre-fix application figures | #25 |
 | L5 | Wall-flow moment realisation: the activation decision | #16 |
