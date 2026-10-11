@@ -159,6 +159,10 @@ expression created once in `5234b48` and never changed, the deck md5), and that 
 
 ### E7 - the direction was an artifact: the tip couple under-delivered its moment (2026-10-10)
 
+> **Direction reversed again by E8 (2026-10-11).** The `kappa` correction below stands, but the
+> beam reference it was compared against is a staircase that under-states the beam twist; against
+> the integral to `z` the shell is stiffer, on S-1's side. Read E8 before using the direction here.
+
 **This reverses E4.** `run_torsion_case` built its tip couple with
 `denom = 2 * sum(x_off**2 for x_off > 0)`, which gives `sum(x_off * F_y) = torque` only for an
 x-symmetric ring. The IEA 15 MW tip ring has 16 nodes and is not symmetric, so the applied moment was
@@ -202,6 +206,141 @@ bound was never the defect. **Note**: the older committed table (`1.386 .. 1.273
 direction* and still does not reproduce at HEAD at any mesh size; E3's factor `1.079` from the
 element-winding canonicalisation does not close it, and neither does `kappa` (which moves those
 numbers the other way, to `1.51 .. 1.42`).
+
+### E8 - the sign disagreement was a second comparison error; the stiffness excess tracks the OML reference surface (2026-10-11)
+
+Measured at `a9d3454`, sdumont login node, `scripts/aeroenv.sh`, official blade
+`tests/IEA-15-240-RWT.yaml` (S-1's fixture resolves to the same file). Nothing in the solver, the
+S-7 module, row 34 or the S-1 docstring was changed. The three scripts below reproduce every number.
+
+**1. S-7's beam reference is a staircase (comparison error).** `beam_twist_profile_deg` integrates
+`1/GJ` only up to the last BeamDyn station at or below each query `z` and drops the partial segment.
+BeamDyn stations are about 5.85 m apart in the band, and `GJ` falls fast. So the reference under-states
+the beam twist: over 0.3-0.9 R it gives **0.84 of the integral to `z` on average, and 0.63 at worst**,
+and the shell/beam ratio comes out inflated. `tools/diagnose_s7_beam_reference.py`, same mesh, same
+load, same twist estimator:
+
+| es | nodes | staircase (published) | integral to z, K66 | integral to z, 1/C66 |
+| --- | ---: | ---: | ---: | ---: |
+| 1.000 | 3040 | 1.1164 | 0.9227 | 0.9110 |
+| 0.500 | 9271 | 1.0695 | 0.8874 | 0.8763 |
+| 0.250 | 32325 | 1.0466 | **0.8670** | 0.8561 |
+
+The staircase column reproduces E7's re-measured rows to four digits, so the reference is the only
+thing that moved. Dividing E7's derived `0.125` row by the same correction gives about `0.861`. The
+trend is monotone and still moving about 2 % per halving.
+
+Corrected, the shell's global `GJ` is **about 12-15 % ABOVE the deck**, not 3.8 % below it, and on
+the same side as S-1. The spread depends on how BeamDyn interpolates between key points: +15 %
+against a reference linear in `1/GJ`, +12 % against one linear in `GJ` (es = 0.25: 0.8670 and
+0.8920). The BeamDyn user guide is where that gets settled. This is the second time S-7's direction reverses, and the cause is independent of
+E7's `kappa`.
+
+Uncertainty carried by the reference itself:
+- Interpolating `GJ` linearly instead of `1/GJ` changes the beam twist by `0.972`, and log-linear by
+  `0.986`. Which convention BeamDyn uses between key points is **not verified**. Under linear-`GJ`
+  the es = 0.5 ratio is `0.913`.
+- `K66` against the effective `1/C66` (`C = K^-1`, which frees the shear-torsion coupling of the
+  6x6): `1/C66` sits 0.5-5 % below `K66` over 0.3-0.95 R, and bending-torsion coupling is zero.
+
+**2. Sectional and global agree once both are honest.** I re-ran S-1's own torsion path
+(`ea_gj_from_static_response`: local-tangent couple, station estimator, spline `s = 1e-3`) at its own
+mesh (es = 0.5, default generator):
+- the signed mid-span GJ is **+10.8 %** above `K66`;
+- S-1's metric, mean `|rel|`, gives **12.7 %**, not the documented **23.9 %**: an anchor that moved,
+  reported here and not touched. This was confirmed with the production function itself:
+  `ea_gj_from_static_response` with the test's mask gives 12.73 % (+10.76 % signed, 32 stations).
+  `z_static` and `z_eg` are both built from `station_membership`, so they are the same grid;
+- the cumulative twist of that same solve gives a band ratio of 0.897.
+
+A factorial over mesh (S-1 generator against S-7 generator) x load (local-tangent couple against
+global-z `F_y` couple) x estimator (stations against 40 z-slices), all against S-7's staircase
+reference, spans only **1.0695-1.0931**. None of the three instrument differences carries the sign.
+The reference did.
+
+The couple applied by S-1 is exact: `M . t = T` and the net force is zero, by construction.
+
+**3. Where the excess plausibly comes from: the skin's reference surface.** Two premises, each
+checked:
+- **The skin nodes lie on the OML.** At eta 0.3 / 0.5 / 0.7 the largest node-to-node extent of the
+  skin ring equals the yaml chord to within `3e-4` (5.3739 against 5.3724 m, 4.1545 against 4.1548 m,
+  3.2255 against 3.2255 m).
+- **The laminate is centred on the nodes.** `Laminate::new` sets `z` from `-h/2` to `+h/2`. Half of
+  every skin laminate therefore sits outside the aerofoil, and the torsion cell encloses the OML area.
+
+The tools that produce beam 6x6 tables from a layup conventionally stack plies inward from the OML.
+For **this** deck that is **not verified**: the tool that generated `elastic_properties_mb` and its
+layer convention remain to be read from the IEA 15 MW report or the yaml's provenance.
+
+Prediction and counterfactual:
+- **Bredt prediction** (`tools/diagnose_bredt_oml_area.py`): `A_mid = A_OML - 1/2 * contour integral
+  of t ds`, giving a single-cell factor `(A_mid/A_OML)^2` of **0.864** over 169 rings at es = 0.5
+  (0.85-0.90 across the band) and 0.876 at es = 1.0.
+- **Counterfactual** (`tools/diagnose_oml_reference_surface.py`): every skin node moves in its section
+  plane, inward by the mean half-thickness of its skin elements (mean 21.8 mm, maximum 54.5 mm at
+  es = 0.5). The solver, laminates and loads are unchanged.
+
+| es | case | twist ratio, 1/GJ-linear ref | twist ratio, GJ-linear ref | flap at 0.9 L [m/N] | edge at 0.9 L [m/N] |
+| --- | --- | ---: | ---: | ---: | ---: |
+| beam | 6x6 rotated by ElastoDyn `StrcTwst` | 1 | 1 | 4.62e-5 to 4.74e-5 | 1.95e-5 to 1.99e-5 |
+| 1.0 | OML (as built) | 0.9227 | 0.9491 | 4.198e-5 | 2.098e-5 |
+| 1.0 | mid-surface | 1.0210 | 1.0500 | 4.666e-5 | 2.177e-5 |
+| 0.5 | OML (as built) | 0.8874 | 0.9130 | 3.864e-5 | 2.138e-5 |
+| 0.5 | mid-surface | 0.9944 | 1.0228 | 4.448e-5 | 2.211e-5 |
+| 0.25 | OML (as built) | 0.8670 | 0.8920 | 3.788e-5 | 2.144e-5 |
+| 0.25 | mid-surface | **0.9732** | 1.0010 | 4.415e-5 | 2.216e-5 |
+
+Geometry audit of the shift at es = 0.5 (printed by the script):
+- 175 nodes in `HP_TE_REINF`/`HP_TE_PANEL` disagree with the centroid vote. That is the concave
+  aft pressure side, where the centroid test is unreliable. A point-in-polygon test against each
+  original OML ring finds **4 of 7005** shifted ring nodes outside it.
+- **90 `TE_FLAT` elements invert**, 42 of them in the band, because the HP and LP shifts cross in
+  the thin trailing-edge band.
+- The `--keep-te-flat` variant leaves those 1050 nodes on the OML. It gives **0 outside and 0
+  inverted**, with GJ factor 0.8934 against 0.8924, identical flap, and edge 2.172e-5 against
+  2.211e-5.
+
+The table therefore stands, and the edge shift is the only entry the TE band moves (+1.6 % rather
+than +3.4 %).
+
+The inset changes the shell's global GJ by a factor of 0.891-0.904 at all three meshes, which
+accounts for **the bulk** of the excess. The mid-surface ratio still falls about 2-3 % per halving
+(1.021, 0.994, 0.973). At convergence it would sit a few percent below 1 against the
+`1/GJ`-linear reference, and near 1 against the `GJ`-linear one. That residual, roughly 0-5 % too
+stiff, is **unattributed**: its size is inside the stacked uncertainty of the reference (±3 %), the
+first-order counterfactual, and the unconverged trend.
+
+The same change moves the static flap compliance at 0.9 L from 17-19 % too stiff to 4-6 % too
+stiff, so it closes flap as well. Edge goes from 7.5-10 % too soft to 11-13.5 % too soft, so it
+opens edge. Both beam compliances are Euler-Bernoulli from the 6x6 with no shear deformation. The
+tip compliance cannot serve as a reference: the degenerate `eta = 1.0` station changes it by a
+factor of 2 between interpolations.
+
+**What this does not settle.**
+- The dynamic flap is already in tension at HEAD. V-02's 1st flap is -3.8 % and S-4's is +0.6 %,
+  while the static flap above is about 18 % too stiff. Moving the reference surface would lower the
+  flap frequency by about 6 %. Mass, the modal set-up, or the frequency references are therefore
+  part of the question, not only stiffness.
+- Edge moves the wrong way.
+- The reference convention of the deck is unverified, so the OML account is still a hypothesis.
+
+**What follows for the store.** The fix (a reference-surface offset in the laminate, or nodes moved
+to the mid-surface) would live in `crates/aeroelast-core/src/materials/**` or the mesh generator.
+Neither appears in L3's `depends_on`, which is exactly #33 A8. A8 has to land first, or the fix will
+expire no verdict.
+
+**A new item, not absorbed here (A8-adjacent).** `crates/aeroelast-py/src/assembler.rs` computes the
+span-angle offset only for 4-node composites (`node_ids.len() == 4`). Composite MITC3 triangles get
+offset 0, so their fibres follow their own edge 01. The blade has **43 of them at es = 0.5 and 88 at
+es = 0.25** (about 0.3-0.4 % of the composite elements). Also unverified: that the offset's `e1`
+(edge 01 projected on the averaged normal) is the frame in which the MITC4 element consumes its
+constitutive matrix.
+
+Proposed for the maintainer, nothing applied:
+- (a) fix S-7's reference to integrate to `z`, re-measure row 34, and re-state #20's direction;
+- (b) open the reference-surface question as a modelling issue on L3, with this counterfactual as its
+  entry evidence;
+- (c) record that S-1's 23.9 % no longer reproduces.
 
 ## Tasks
 
