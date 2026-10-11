@@ -2545,6 +2545,72 @@ def test_check_validates_the_contract_layer(
     assert expected in completed.stdout
 
 
+# The composite path's sources, which no Python import reaches: the Rust CLT, the fibre-angle
+# offset, the PyO3 assembler that applies it with its (set, angle_bucket) ABD cache, and the
+# assembly that maps a MaterialSpec onto the element constitutive (issue #41).
+COMPOSITE_RUST_SOURCES = (
+    "crates/aeroelast-core/src/materials",
+    "crates/aeroelast-mesh/src/geometry.rs",
+    "crates/aeroelast-py/src/assembler.rs",
+    "crates/aeroelast-core/src/assembly",
+)
+
+
+def _depends_on_covers(levels: list[dict[str, Any]], path: str) -> bool:
+    for level in levels:
+        for dependency in level.get("depends_on") or []:
+            root = dependency.rstrip("/")
+            if path == root or path.startswith(root + "/"):
+                return True
+    return False
+
+
+def _aeroelast_files_imported_by(source: Path) -> set[str]:
+    """Repo-relative files of every `aeroelast` module (and imported submodule) a test names."""
+    modules: set[str] = set()
+    for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("aeroelast"):
+            modules.add(node.module)
+            modules.update(f"{node.module}.{alias.name}" for alias in node.names)
+        elif isinstance(node, ast.Import):
+            modules.update(a.name for a in node.names if a.name.startswith("aeroelast"))
+    files: set[str] = set()
+    for module in modules:
+        base = REPO_ROOT / "src" / Path(*module.split("."))
+        for candidate in (base.with_suffix(".py"), base / "__init__.py"):
+            if candidate.exists():
+                files.add(candidate.relative_to(REPO_ROOT).as_posix())
+                break
+    return files
+
+
+def test_depends_on_covers_every_source_an_l1_l2_row_rests_on() -> None:
+    """A change under any file an L1/L2 row's test imports, or under the composite path's Rust
+    sources, must expire that row's verdict, so each one is covered by some level's
+    `depends_on` (#41)."""
+    levels = yaml.safe_load((REAL_STORE / "levels.yaml").read_text(encoding="utf-8"))["levels"]
+    groups = {
+        str(g["id"]): g
+        for g in yaml.safe_load((REAL_STORE / "groups.yaml").read_text(encoding="utf-8"))["groups"]
+    }
+    missing: dict[str, set[str]] = {}
+    for level in levels:
+        if level["id"] not in ("L1", "L2"):
+            continue
+        for group_id in level.get("groups") or []:
+            for source in groups[str(group_id)].get("source_files") or []:
+                for path in _aeroelast_files_imported_by(REPO_ROOT / source):
+                    if not _depends_on_covers(levels, path):
+                        missing.setdefault(path, set()).add(source)
+    for path in COMPOSITE_RUST_SOURCES:
+        assert (REPO_ROOT / path).exists(), f"stale composite source in this test: {path}"
+        if not _depends_on_covers(levels, path):
+            missing.setdefault(path, set()).add("(composite path, #41)")
+    assert not missing, "depends_on omits: " + "; ".join(
+        f"{path} <- {sorted(users)}" for path, users in sorted(missing.items())
+    )
+
+
 def test_contract_command_writes_nothing(tmp_path: Path) -> None:
     store = write_store(tmp_path, [make_row()])
     write_contract(store, [trusted()])

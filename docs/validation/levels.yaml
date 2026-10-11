@@ -33,6 +33,21 @@ levels:
     depends_on:
       - crates/aeroelast-core/src/elements
       - src/aeroelast/elements
+      # The composite path (#41): the Rust CLT, the fibre-angle offset, the PyO3 assembler that
+      # applies it and owns the (set, angle_bucket) ABD cache, the assembly that maps a
+      # MaterialSpec onto the element constitutive, and the Python CLT and failure mirrors.
+      - crates/aeroelast-core/src/materials
+      - crates/aeroelast-mesh/src/geometry.rs
+      - crates/aeroelast-py/src/assembler.rs
+      - crates/aeroelast-core/src/assembly
+      - src/aeroelast/core/laminate.py
+      - src/aeroelast/constitutive
+      # Imported by L1 rows' tests themselves: materials, section properties, boundary
+      # conditions and the modal solver.
+      - src/aeroelast/core/material.py
+      - src/aeroelast/core/properties.py
+      - src/aeroelast/core/bc.py
+      - src/aeroelast/solvers/modal.py
     gaps: []
     absent:
       - evidence: tests/test_dtube_camarena_bending.py
