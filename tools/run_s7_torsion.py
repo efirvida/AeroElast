@@ -159,6 +159,11 @@ def beam_twist_profile_deg(
 ) -> np.ndarray:
     """θ(z) = M·∫₀^z dz'/GJ(z') with the BeamDyn GJ distribution [deg].
 
+    The integral runs to ``z`` itself: ``1/GJ`` is linear between stations (the trapezoid's own
+    assumption), so the partial segment from the last station below ``z`` up to ``z`` is included.
+    Until 2026-10-11 it was dropped, and that staircase under-stated the beam twist by 16 % on
+    average over the 0.3-0.9 band (``odd/tasks/s7-torsion-ratio.md`` section E8).
+
     The BeamDyn table's last station (r/R=1.0, GJ ≈ 7e4 N·m²) is a
     degenerate razor-tip section — its contribution is excluded by never
     integrating past the last valid station (z=111.1).
@@ -167,11 +172,17 @@ def beam_twist_profile_deg(
     z = np.asarray(bd.z, dtype=np.float64)
     gj = np.asarray(bd.gj, dtype=np.float64)
     z_valid = z[z <= 111.2]
-    gj_valid = gj[z <= 111.2]
+    inv_valid = 1.0 / gj[z <= 111.2]
     out = np.empty_like(z_query, dtype=np.float64)
     for i, zq in enumerate(z_query):
-        m = z_valid <= min(zq, 111.2)
-        theta_rad = moment * np.trapezoid(1.0 / gj_valid[m], z_valid[m])
+        z_end = min(float(zq), float(z_valid[-1]))
+        m = z_valid <= z_end
+        zz = z_valid[m]
+        ii = inv_valid[m]
+        if z_end > zz[-1]:
+            zz = np.append(zz, z_end)
+            ii = np.append(ii, np.interp(z_end, z_valid, inv_valid))
+        theta_rad = moment * np.trapezoid(ii, zz)
         out[i] = np.rad2deg(theta_rad)
     return out
 

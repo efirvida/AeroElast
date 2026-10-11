@@ -92,8 +92,10 @@ levels:
         reason: S-0 anchor, outside the store.
       - evidence: tests/test_iea15mw_s1_sectional.py
         reason: >-
-          S-1 sectional stiffness: +23.9 % torsional GJ against the deck, opposite in sign to
-          S-7's global result after 72f64de; the disagreement is unattributed.
+          S-1 sectional stiffness. At HEAD its GJ path gives +10.8 % signed (12.7 % mean |rel|)
+          against the deck, not the +23.9 % its docstring states, and on the same side as S-7's
+          global result once S-7's beam reference integrates to z (odd/tasks/s7-torsion-ratio.md
+          E8); most of the excess tracks the skin's OML reference surface.
       - evidence: tests/test_iea15mw_s2_static_prescribed.py
         reason: S-2 static vs beam references; the official blade closes at +8.1 %, over the ceiling.
       - evidence: tests/test_iea15mw_s3_newmark_transient.py

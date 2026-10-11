@@ -975,6 +975,16 @@ groups:
           the extractor already reads it as `no_comparison`. The torsional
           response is the other test in the file, and that one compares against
           the BeamDyn deck.
+      - tests:
+          - test_s7_beam_reference_integrates_to_the_query_point
+        reason: >-
+          An exact check of the reference's own integral, not a comparison: the
+          beam twist must grow by the trapezoid of 1/GJ up to the query point
+          itself (rel 1e-12) and be strictly increasing between stations. It
+          exists because the reference used to stop at the station below each
+          section, a staircase that under-stated the beam twist by 16 % on
+          average and the +-30 % band could not see (odd/tasks/s7-torsion-ratio.md
+          section E8).
     provenance_note: >-
       The shell blade, clamped at the root, under a tip torsional moment of
       1000 N.m applied as transverse force couples, against the BeamDyn blade

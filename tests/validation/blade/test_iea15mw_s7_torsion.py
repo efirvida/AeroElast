@@ -2,28 +2,29 @@
 
 The shell's global torsional response (tip torque via force couples, section
 rotation from the displacement field) is compared against the BeamDyn 6×6 tables:
-the station-by-station twist ratio in the 0.3-0.9 span band measures **1.0466** at
-``ELEMENT_SIZE = 0.25``, converging to **1.0390** at ``0.125`` — the shell's global
-GJ runs about **3.8 % BELOW** the beam's at convergence.
+the station-by-station twist ratio in the 0.3-0.9 span band measures **0.8670** at
+an element size of 0.25, trending to about **0.861** at 0.125 — the shell twists
+about 13-14 % LESS than the beam, i.e. its global GJ runs about 15 % ABOVE the deck,
+on the same side as the sectional S-1 comparison.
 
-That direction is a correction (2026-10-10).  The ratios recorded here used to read
-0.9396 / 0.9336 -- the shell *stiffer* -- because ``run_torsion_case`` normalised its
-tip couple by ``2*sum(x_off**2 for x_off > 0)``, which equals the full chordwise second
-moment only for an x-symmetric ring and under-delivered the applied moment by a
-mesh-dependent factor κ (0.8978 at 0.25, 0.9154 on the coarser three).  The ratio was
-therefore a *stiffness* ratio times κ, and κ is what carried it across 1.0.  Corrected
-by dividing each recorded ratio by its own κ -- exact, because the response is linear
-in the applied moment -- the trend is monotone to 1.039 and never crosses 1.0.
-
-The sectional S-1 comparison still reports the shell's GJ *above* the BeamDyn tables, so
-sectional and global now disagree in sign.  That tension is real and open; this module
-reports the measurement and does not settle it.  See ``odd/tasks/s7-torsion-ratio.md``.
+That direction has been corrected twice.  Until 2026-10-10 the tip couple
+under-delivered the applied moment by a mesh-dependent factor κ (0.8978 at 0.25);
+fixing it moved the ratio to 1.0466.  Until 2026-10-11 the beam reference integrated
+1/GJ only up to the last BeamDyn station below each section and dropped the partial
+segment, under-stating the beam twist by 16 % on average over the band; integrating to
+``z`` moves the ratio to 0.8670.  Neither correction touches the shell model, and the
+second one dissolves the sectional-versus-global sign disagreement.  The size of the
+excess is not settled: about 2-3 % of it depends on how BeamDyn interpolates GJ between
+key points (unverified), and most of the rest tracks the skin's reference surface — the
+nodes sit on the outer mould line with the laminate centred on them, and moving them to
+the laminate mid-surface closes the ratio to about 0.97.  See
+``odd/tasks/s7-torsion-ratio.md`` sections E7 and E8.
 
 The bound is a ±30 % window around exact agreement, which is the documented S-1 model
 difference with room for the coarse-mesh envelope, and not a fit to what this run
-happens to produce.  Note it is five times the effect it names: the bound cannot detect
-the 10.2 % load error that used to invert the direction, which is why the couple
-construction carries its own exact test.
+happens to produce.  Note it is far wider than the effects it names: it could detect
+neither the 10.2 % load error nor the 16 % reference error, which is why the couple
+construction and the reference integral each carry their own exact test.
 """
 
 from __future__ import annotations
@@ -50,26 +51,25 @@ from run_s7_torsion import (  # noqa: E402
 
 MOMENT_NM = 1000.0
 # Span resolution.  The ratios below are the *measured* shell/beam twist ratio with the tip couple
-# delivering exactly MOMENT_NM (see tip_couple).  es=2.0/1.0/0.5/0.25 were re-measured on
-# 2026-10-10 with that construction; es=0.125 is the HEAD-measured 0.933641 divided by its
-# geometry-only kappa = 0.898586, which is exact because the response is linear in the applied
-# moment.  The analytic kappa correction reproduces the four re-measured rows to 5-6 digits.
+# delivering exactly MOMENT_NM (see tip_couple) and the beam twist integrated to each section's z
+# (see beam_twist_profile_deg).  es=2.0/1.0/0.5/0.25 were measured on 2026-10-11 with
+# tools/diagnose_s7_beam_reference.py; es=0.125 is the 2026-10-10 load-corrected 1.039011 times
+# the reference correction measured at 0.25 (0.8670/1.0466), so it is derived and good to about
+# +-0.002, not measured.
 #
-#   es=2.000   1460 nodes  ratio=1.118319
-#   es=1.000   3040 nodes  ratio=1.116392
-#   es=0.500   9271 nodes  ratio=1.069529
-#   es=0.250  32325 nodes  ratio=1.046588   <- the fixture
-#   es=0.125 120352 nodes  ratio=1.039011   <- converged (230 s, 12 GB peak RSS)
+#   es=2.000   1460 nodes  ratio=0.9251
+#   es=1.000   3040 nodes  ratio=0.9227
+#   es=0.500   9271 nodes  ratio=0.8874
+#   es=0.250  32325 nodes  ratio=0.8670   <- the fixture
+#   es=0.125 120352 nodes  ratio~0.861    <- derived (230 s, 12 GB peak RSS to measure)
 #
-# 0.250 sits 0.73% above 0.125, which is what justifies it as a regression guard.  This is a
+# 0.250 sits about 0.7% above 0.125, which is what justifies it as a regression guard.  This is a
 # slow test (about 1 min of PETSc per run), which is why it is marked slow.
 #
-# History: before 2026-10-10 these read 1.0237 / 1.0219 / 0.9790 / 0.939603 / 0.933641 -- the
-# ratio crossing 1.0 between 0.500 and 0.250, which is what made "the shell is stiffer" look
-# settled.  A table committed here between 2026-09-30 and 2026-10-04 read 1.386 / 1.406 / 1.303 /
-# 1.286 / 1.273; its *direction* was right, and its magnitude still does not reproduce at HEAD at
-# any mesh size, with or without the element-winding canonicalisation that `22d3ccc` removed.
-# See `odd/tasks/s7-torsion-ratio.md`.
+# History: with the staircase reference these read 1.118319 / 1.116392 / 1.069529 / 1.046588 /
+# 1.039011 (2026-10-10), and before the couple fix 1.0237 / 1.0219 / 0.9790 / 0.939603 / 0.933641.
+# A table committed between 2026-09-30 and 2026-10-04 read 1.386 .. 1.273 and does not reproduce
+# at HEAD at any mesh size.  See `odd/tasks/s7-torsion-ratio.md`.
 ELEMENT_SIZE = 0.25
 
 #: The band [0.7, 1.3] is symmetric around exact agreement with the beam, so it is
@@ -90,11 +90,11 @@ def test_s7_global_torsion_ratio_within_band():
     ratios = theta_s[mid] / theta_beam[mid]
     ratio_mean = float(np.nanmean(ratios))
 
-    # S-1's sectional shell GJ sits +17-24% ABOVE the BeamDyn tables, so a shell that twisted
-    # less would sit below 1 here.  It does not: at the correct load the global ratio is 1.0466,
-    # i.e. the shell twists 4.7% MORE -- globally softer while sectionally stiffer.  The two
-    # comparisons are not the same quantity and they now disagree in sign; this test reports the
-    # global measurement, it does not adjudicate the tension (see the module docstring).
+    # The shell twists less than the beam: at the correct load and against the integral-to-z
+    # reference the global ratio is 0.8670, i.e. the shell's global GJ is about 15 % above the
+    # deck -- the same side as S-1's sectional comparison (+10.8 % signed at HEAD).  Most of the
+    # excess tracks the skin's OML reference surface (E8); this test reports the measurement and
+    # does not adjudicate the model difference.
     #
     # The bound is the documented S-1 model difference plus the coarse-mesh envelope, and not a
     # fit to what this run happens to produce: [0.7, 1.3] is a +-30% window around exact
@@ -116,6 +116,34 @@ def test_s7_global_torsion_ratio_within_band():
         ),
         what="shell/beam tip twist ratio over the 0.3-0.9 span band",
     )
+
+
+def test_s7_beam_reference_integrates_to_the_query_point():
+    """The beam twist at ``z`` is ``M * int_0^z dz'/GJ`` up to ``z`` itself, not to the station below.
+
+    The reference used to stop at the last BeamDyn station at or below each query point and drop
+    the partial segment.  With stations about 5.85 m apart and GJ falling fast, that staircase
+    under-stated the beam twist by 16 % on average (37 % at worst) over the 0.3-0.9 band and
+    carried the S-7 ratio from 0.867 to 1.0466, on the wrong side of 1.  A reference that
+    integrates to ``z`` is continuous and grows at ``M/GJ(z)`` between stations; both are checked
+    against the deck's own stations, linear in ``1/GJ`` (the trapezoid the reference uses).
+    See ``odd/tasks/s7-torsion-ratio.md`` section E8.
+    """
+    from tools.beam_reference import load_beamdyn_blade
+
+    bd = load_beamdyn_blade(
+        REPO_ROOT / "tests" / "IEA15MW" / "reference" / "IEA-15-240-RWT_BeamDyn_blade.dat"
+    )
+    z = np.asarray(bd.z, dtype=np.float64)
+    inv = 1.0 / np.asarray(bd.gj, dtype=np.float64)
+    k = int(np.searchsorted(z, 0.5 * 117.0))  # first station above mid-span
+    z_lo, z_hi = z[k - 1], z[k]
+    z_mid = 0.5 * (z_lo + z_hi)
+    theta = beam_twist_profile_deg(MOMENT_NM, np.array([z_lo, z_mid, z_hi]))
+    inv_mid = np.interp(z_mid, z, inv)
+    expected_increment = np.rad2deg(MOMENT_NM * 0.5 * (inv[k - 1] + inv_mid) * (z_mid - z_lo))
+    assert theta[1] - theta[0] == pytest.approx(expected_increment, rel=1e-12)
+    assert theta[0] < theta[1] < theta[2]
 
 
 @pytest.mark.slow
