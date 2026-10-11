@@ -21,20 +21,39 @@ IEA-15MW mesh, `assemble_k()` only, aero load only, no `K_G`, no centrifugal), t
 Ratio second-order / linear = 1.96, so the fed term has the wrong physical sign **on this
 state**. The verdict holds only while the production deflection is above about half of this one.
 
-## Next session: T1 (decides whether the defect is real)
+## T1 result (2026-10-11): Outcome A, the defect is real on the production state
 
-Repeat the decomposition on the **production structural state** at rated: stress-stiffened `K`
-(`K + K_G` from the static centrifugal solve, `assemble_geometric_stiffness` with `free_dofs`)
-and the centrifugal body load plus the participant's aero load, rotor at 7.56 rpm.
+`tools/diagnose_radii_kinematics.py` (revision `e6b971c`; `_aeroelast` built 2026-10-04 13:24,
+after the last `crates/` commit at 13:12, so not stale):
+`scripts/aeroenv.sh python -W ignore tools/diagnose_radii_kinematics.py` (~24 s).
+Production state: `(K + K_G + K_SP) u = F_aero + F_cf(X0)` at 7.56 rpm, axis `+y`, centre at the
+origin as in every case YAML, `K_G` from the static centrifugal solve with `free_dofs`, `K_SP`
+lumped as `tools/run_s4_rotating_modal.py`. Rigid-blade rated aero load. Tip strip
+(`z0 = 116.403 m`), values in m:
 
-- Reuse the fixture's integration (trapezoid along strip centroids: `lin = -cum(y0' uy' + x0' ux')`,
-  `nl = -1/2 cum(uy'^2 + ux'^2)`), measured against `uz`.
-- Report tip `u_y`, `uz`, `lin`, `nl`, and the ratio `|nl| / lin`.
-- Outcome A (`|nl| > lin`): the defect is confirmed, go to T2.
-- Outcome B (`|nl| < lin`): record the number, downgrade the gap to `bounded` with the ratio as
-  its bound, and stop.
+| state | `u_y` | `uz` fed | `lin` | `nl` | `\|nl\|/lin` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| control: `K`, aero only (the fixture) | 17.007 | +1.1056 | +1.0973 | -2.1534 | 1.962 |
+| **prod: `K+K_G+K_SP`, aero + `F_cf`** | 15.931 | +1.0389 | +1.0278 | -1.8931 | **1.842** |
+| prod operator, aero only | 15.568 | +1.0114 | +1.0034 | -1.8063 | 1.800 |
+| prod operator, `F_cf` only | 0.364 | +0.0275 | +0.0243 | -0.0010 | 0.042 |
 
-## T2 (only if T1 confirms)
+- The control reproduces the fixture to four decimals, so the integration is the same one.
+- The ratio is above 1 along the whole span on the production state (z0 57 / 88 / 105 m:
+  2.64 / 1.72 / 1.76).
+- Stress stiffening lowers the tip flap only 6 %. The centrifugal stretch adds +0.0028 m of
+  axial residual, which is negligible.
+- The ratio scales with the flap deflection (1.962 x 15.93/17.01 = 1.838 against the measured
+  1.842). The verdict therefore reduces to one number: **the fed term has the wrong sign whenever
+  tip `u_y` > ~8.7 m** (15.93 / 1.84).
+- Independent anchors sit far above that crossover. S-5's ElastoDyn rated OoP is 16.10 m, and the
+  shell under the AeroDyn loads gives 15.38 m (`tests/test_iea15mw_s5_oneway.py` docstring).
+  Gravity and the twist feedback's de-loading are omitted. Gravity is mostly edgewise, so it
+  only raises `u_x'^2`. To bring `u_y` under 8.7 m the de-loading would have to cut the flap
+  load by ~45 %. Neither omission can flip the outcome.
+- The gap stays `open_defect`; its evidence now carries the production number.
+
+## Next session: T2 (T1 confirmed)
 
 Pick a fix and its reference:
 - second-order kinematic correction of `r_def` (add `-1/2 int |u_perp'|^2`), plus the
@@ -44,6 +63,10 @@ Reference: BeamDyn/OpenFAST projected tip position at the same operating point.
 
 ## Also open, not in this task
 
+- Hub radius: blade-mesh `z = 0` is the blade root and every case YAML puts `rotation_center`
+  at the origin, so `F_cf` and `K_G` omit the hub-radius arm (production does the same, so T1
+  is faithful to it). That under-stiffens slightly; S-4 still closes at +0.6 % on 1st flap.
+  This is a separate item, not this gap.
 - #19's 500/500 coupled convergence was measured with the old `r_def`; it needs a SLURM re-run.
 - The L5 arbiter that matters: a coupled rated run against OpenFAST coupled (roadmap
   `odd/tasks/validation-review-roadmap.md`, L5 rows). The twist, not the radii, drives the

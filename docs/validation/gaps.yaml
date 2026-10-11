@@ -238,9 +238,17 @@ gaps:
       the second-order term falls with its square, while centrifugal stretch
       adds a positive axial term. The sign verdict holds only while the
       second-order/linear ratio (1.96 here) stays above 1, i.e. roughly while
-      the production deflection exceeds about half of this one. The cheapest
-      discriminator is the same decomposition on the production structural
-      state at rated.
+      the production deflection exceeds about half of this one.
+      Production-state discriminator (T1, 2026-10-11, revision e6b971c,
+      `tools/diagnose_radii_kinematics.py`): `(K + K_G + K_SP) u = F_aero +
+      F_cf` at 7.56 rpm (K_G from the static centrifugal solve with
+      free_dofs) gives a tip flap of `u_y = +15.931 m`, fed `u_z = +1.0389 m`,
+      linear kinematics `+1.0278 m` and second order `-1.8931 m`. The
+      ratio is 1.842, and it stays above 1 along the whole span. The
+      centrifugal-only part is `+0.0275 m` (ratio 0.04). The ratio scales
+      with the flap deflection, so the sign verdict holds for any tip
+      `u_y` above ~8.7 m; the S-5 ElastoDyn rated OoP is 16.10 m. The defect
+      is confirmed on the production state.
     consequence: >-
       The radii-family rows of the de-loading table may not be cited as "the
       geometric re-loading", and neither may the production rows (`twist +
