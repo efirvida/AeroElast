@@ -734,6 +734,16 @@ def build_rust_properties(numad_data: dict) -> dict:
     -------
     dict[str, _aeroelast.Laminate | dict]
         Suitable for passing directly to ``PyMeshAssembler.from_model()``.
+
+    Notes
+    -----
+    Reference surface: the blade's skin nodes sit on the outer mould line (the wet
+    surface FSI couples on) and each laminate is centred on them (``z`` from ``-h/2``
+    to ``+h/2``), so half of every skin laminate lies outside the aerofoil.  On the
+    IEA 15 MW blade that makes the shell's global GJ about 15 % and its static flap
+    stiffness about 18 % higher than the deck.  The options (mid-surface nodes, or
+    plies stacked inward from the OML, which reopens ADR-6) and their measured cost
+    are recorded in ``odd/tasks/shell-reference-surface.md``.
     """
     from _aeroelast import Laminate as RustLaminate, Ply as RustPly, OrthotropicMaterial as RustMat  # noqa: PLC0415
 

@@ -362,3 +362,63 @@ Each closure records what was measured and how to re-check it. A tooling item ca
   - Group 25 still has 4 `unclaimed` tests: the row-sum pair, `test_symmetry` and the Rust lumped
     binding. It also has 3 `unmapped` `test_first_mode` rows, which print nothing.
   - None of these was touched here.
+
+### A6 — scoped, not started (2026-10-11)
+
+- **Scope.** 19 of the 23 `absent` entries point at existing tests. Four are `planned:` entries with
+  no file. The 19 split two ways:
+  - **14 root-level anchors**: S-0..S-6, V-01/03/05, the two `sx`, D-Tube and frame objectivity.
+    `check` refuses a row that claims a test outside `tests/validation/`, so each needs a
+    2160a86-style import.
+  - **5 `tests/validation/` files** that are both `absent` in `levels.yaml` and `out_of_scope` in
+    `groups.yaml`: bem_load_frame, bem_polars, the two force_projection files and
+    deformed_geometry. One of the two records is stale, and deciding which is the maintainer's call.
+    `bem_polars` also holds `test_viterna_matches_aerodyn_theory_manual`, a closed-form check that
+    its out_of_scope reason does not mention.
+- **Proposed slices**:
+  - A6a: the contradiction;
+  - A6b: L3 structural anchors;
+  - A6c: L4/L5, with SLURM for S-5 and S-6;
+  - A6d: the L1 reds, through `check.sh --record`.
+- **Deferred by the maintainer.** The physics questions behind the anchors come first, and the store
+  follows the diagnosis.
+
+### A8 — #41: `depends_on` omits the composite path (proposed for closing 2026-10-11, `7fb832b`)
+
+- **Fix.** L1's `depends_on` gains the four composite Rust sources:
+  - `crates/aeroelast-core/src/materials`;
+  - `crates/aeroelast-mesh/src/geometry.rs`;
+  - `crates/aeroelast-py/src/assembler.rs`;
+  - `crates/aeroelast-core/src/assembly`.
+
+  It also gains the Python CLT and failure mirrors (`core/laminate.py`, `constitutive`), plus four
+  files that L1 rows' own tests import and no level declared: `core/material.py`,
+  `core/properties.py`, `core/bc.py` and `solvers/modal.py`. L1 is the lowest level these feed
+  (group 28). L2 requires L1, so verdicts on groups 18, 24, 26 and 36 expire as well.
+- **Test.** `test_depends_on_covers_every_source_an_l1_l2_row_rests_on` checks that every
+  `aeroelast` file an L1/L2 row's test imports, plus the four Rust sources, is covered. It was RED
+  on 9 paths before the edit.
+- **Measured.** `check` gives 211 rows, 286 comparisons and 0 errors. `tools/tests` gives 166
+  passed. No row and no verdict changed.
+
+### Interlude — the S-1/S-7 GJ disagreement (2026-10-11, `20a8a66`, `869ecd5`)
+
+The maintainer redirected A6 to the physics question behind S-1's anchor.
+
+- **Finding 1: a comparison error in S-7.** S-7's beam reference was a staircase.
+  - Integrated to `z`, the ratio is 0.8670 at es = 0.25 (it was 1.0466). The shell's global GJ is
+    about 15 % above the deck, the same side as S-1.
+  - S-1 at HEAD gives +10.8 % signed, not the 23.9 % its docstring states.
+  - Row 34 was re-measured: it is over the ceiling, a finding for B3.
+- **Finding 2: a modelling question, parked.** The skin's reference surface sits on the OML.
+  - The maintainer keeps the OML nodes because FSI needs them.
+  - The options and their measured cost are in `odd/tasks/shell-reference-surface.md`, for when
+    the structural model is generalised.
+  - Details: `odd/tasks/s7-torsion-ratio.md` E8.
+
+**New items, not absorbed here:**
+
+- the reference-surface options, including whether to reopen ADR-6;
+- composite MITC3 triangles get no span-angle offset (43 at es = 0.5, 88 at es = 0.25);
+- ply order against the element normal;
+- BeamDyn's interpolation convention between key points.
