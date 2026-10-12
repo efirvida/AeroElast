@@ -526,6 +526,13 @@ magnitudes agree, and this is the measured pair.
       part of this closure.
 - [ ] T7 Re-run the 30 s gate (`tests/run_step1b_smoke.srm`) and re-anchor the
       campaign baseline now that the coupled path contracts.
+      Resume (2026-10-11): #33 L5 (`fee2cc8`) changed `r_def`/`Rtip`; the 5 s case still
+      reads 500/500 (job `11613014`) but is not stationary, so the steady thrust needs
+      this gate. The script always writes `$SCRATCH/smoke_fix_results/base_fix/`: copy it
+      to `base_fix_pre_radii` first (job `11611263`, the before side), then
+      `sbatch --time=06:00:00 tests/run_step1b_smoke.srm` (~2.5 h; do not edit `src/`
+      while it runs). Check stationarity before averaging, then thrust vs the rigid
+      2.541 MN and vs `base_fix_pre_radii`.
 - [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
       `force_projection_sense_p5`), the group 27/35 rows and
       `docs/validation_closures.md`; the consequence numbers above are the

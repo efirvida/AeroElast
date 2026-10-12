@@ -1269,6 +1269,7 @@ por encima de su umbral de contracción. La escalera, sobre el caso propio de la
 | `frzsign` / `frzac` / `frzgrid` / `frzrings` / `frzdist` | — | 17% / 44% / 11% / 4% / 9.5% |
 | `frzall` (signo + brazo + grilla + anillos) | 39 | **39 (100%)** |
 | **`fixfull` (el fix en el árbol)** | 500 | **500 (100%)**, media 2.60, máx 11 |
+| `radiifix` (`fee2cc8`, radios de #33 L5; job `11613014`, 2026-10-11) | 500 | **500 (100%)**, media 2.56, máx 10 |
 
 Dos lecturas valen más que el número final: **los dos lados del merge son sanos por separado**
 (`b5d369e` 100% y `5f22f51` 89.8%), así que la regresión es la **combinación** que armó `26ffe6e`,
@@ -1291,6 +1292,7 @@ deformados — escala de cuerda contra una deformación de escala de pala. El pr
 campaña *sí* seguía la deformación y contraía, así que el camino fino queda abierto: hacer la
 derivación del lote #11 robusta a la deformación (selección de anillo sin switch, tie-break LE/TE y
 continuidad del eje de cuerda sin histéresis) en vez de congelarla. Es fidelidad, no este cierre.
+**Re-medido tras #33 L5 (2026-10-11, `fee2cc8`, misma receta que `fixfull`)**: la contracción sobrevive al cambio de `r_def` y `Rtip` (fila `radiifix`). Contra `fixfull`, media t∈[2.5,5] s: empuje −4.25 %, potencia −3.81 %, punta flap −2.72 %. **No es un valor de régimen**: ninguna de las dos corridas es estacionaria en esa ventana (empuje 2.06→2.72 MN y punta flap 12.6→19.2 m entre mitades en `radiifix`), así que es la diferencia en el arranque y no ancla nada; el empuje estacionario es del gate de 30 s.
 **Re-ejecutar si cambia**: `solvers/bem/fsi_participant.py` (`_compute_forces`), el projector, o el
 esquema de acople en `precice-config.xml`. La verificación larga es el gate de 30 s
 (`tests/run_step1b_smoke.srm`, job `11611263`) y, después, el re-anclaje de la campaña.

@@ -78,7 +78,10 @@ lumped as `tools/run_s4_rotating_modal.py`. Rigid-blade rated aero load. Tip str
 
 ## Next (separate sessions)
 
-- #19 coupled 500/500 re-run on SLURM (both `r_def` and `Rtip` changed).
+- [x] #19 coupled 500/500 re-run: done 2026-10-11, job `11613014` (`radiifix`, `fee2cc8`, the
+  `fixfull` recipe): 500/500, mean 2.56, max 10. Versus `fixfull` over t in [2.5,5] s: thrust
+  -4.25 %, flap tip -2.72 %, but neither run is stationary there, so this is a start-up
+  difference, not an anchor. The steady thrust needs the 30 s gate (`tests/run_step1b_smoke.srm`).
 - Shell vs BeamDyn flap gap under the same load (-9.15 %), with the S-2/S-5 family.
 - L5 arbiter: coupled rated run vs OpenFAST coupled.
 
@@ -88,7 +91,7 @@ lumped as `tools/run_s4_rotating_modal.py`. Rigid-blade rated aero load. Tip str
   at the origin, so `F_cf` and `K_G` omit the hub-radius arm (production does the same, so T1
   is faithful to it). That under-stiffens slightly; S-4 still closes at +0.6 % on 1st flap.
   This is a separate item, not this gap.
-- #19's 500/500 coupled convergence was measured with the old `r_def`; it needs a SLURM re-run.
+- #19's 500/500 re-measured after the fix: still 500/500 (job `11613014`).
 - The L5 arbiter that matters: a coupled rated run against OpenFAST coupled (roadmap
   `odd/tasks/validation-review-roadmap.md`, L5 rows). The twist, not the radii, drives the
   -26 % vs Zhou's -13 %, and Zhou is non-transferable (#14).
