@@ -628,6 +628,13 @@ magnitudes agree, and this is the measured pair.
         (feeds T7a.4). Then T7a.4, then add `partner_frame: inertial` to the other ~60
         fluid YAMLs paired with `rotor_fsi` (the `solid_inertial_*` pairs need their
         own frame analysis).
+        In flight: job `11613217` (submitted 2026-10-12 at `ae5cc26`, 30 s, same command
+        as `11613040` with `SOLID_YAML=solid_corotational_yaw_0_nograv.yaml`,
+        `RUN_NAME=nograv_30s`). **Resume recipe:** `sacct -j 11613217`; run the 1P fit
+        (mean + trend + 1P, T = 7.947 s, [10, 30] s) on
+        `runs/smoke_fix/nograv_30s/fluid/bem_report.csv`; 1P amplitude ≈ 0 (≪ 42 kN,
+        resid-std level) ⇒ the residual is gravity; a surviving 1P ⇒ artifact, go to
+        T7a.4. The mean without gravity is also a new datum for the +6.6 % finding.
   - [ ] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
         was measured on rotated displacements.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
