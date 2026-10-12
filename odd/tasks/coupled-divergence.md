@@ -743,6 +743,21 @@ magnitudes agree, and this is the measured pair.
       measured leading edge (as afac31c did for the twist) and refuse a configured
       sense that contradicts it. Either way it is a contract change (high-risk item
       3) and invalidates every coupled result produced with `-x`.
+- [ ] T7c The projector derives the Tp sense from the measured leading edge
+      (`d42ddda`, `0c96b41`, `685b3c7`, `1877b76`; 65 YAMLs lose `-x`, a
+      contradicting `tangential_direction` raises `ValueError`).
+  - [x] T7c.1-3 RED/GREEN, tests and tools, YAMLs. RED: only the refusal test failed
+        (`DID NOT RAISE`); the default was already +x.
+  - [x] T7c.4a Independent verifier (2026-10-12): PASS. 161 passed, 12 skipped
+        (OpenFAST absent), 1 xfailed (NeuralFoil 5.9 % vs 5 %, not new); no bound
+        widened; 685b3c7 is deletions only. Open observations: (A) the in-plane
+        leading-edge guard is `norm <= 1e-12`, so a near-cancelling edge would set the
+        sense from noise (unproven on real blades); (B) `test_multicell_shear_flow.py:1150`
+        still passes `[-1,0,0]` and relies on the guard not firing on its ring mesh.
+  - [ ] T7c.4b 30 s gate on the fixed tree: job `11613577`, `RUN_NAME=t7c_30s`.
+        Expect ~ -22 % thrust, flap ~ 10 m (same as `tplus_30s`).
+  - Leftovers for T8: `docs/model_parity_audit.md:51` (stale MATCH claim),
+    `tools/diagnose_tangential_sense.py:84`, `tools/diagnose_twist_sense_frame.py:11`.
 - [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
       `force_projection_sense_p5`), the group 27/35 rows and
       `docs/validation_closures.md`; the consequence numbers above are the
