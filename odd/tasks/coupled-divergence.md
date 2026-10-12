@@ -588,6 +588,21 @@ magnitudes agree, and this is the measured pair.
         tests (deformed geometry, wall flow, rated twist): 23 passed; ruff clean.
   - [ ] T7a.3 30 s gate on the fix: the 1P is gone (≥ 2 periods), then the mean
         against 2.541 MN, reported separately.
+        In flight: job `11613040` (submitted 2026-10-11 from this worktree,
+        `RUN_NAME=frame_fix_30s`), output in
+        `runs/smoke_fix/frame_fix_30s/fluid/bem_report.csv` (worktree-relative); the
+        pre-radii before side `11613031` was cancelled on purpose. The transform is live:
+        over the first 3 s the tip reads z/y = 0.065 constant while θ sweeps 23°→136°
+        (raw columns would swing). Early warning, not a closure: thrust 2.67-2.69 MN and
+        flap tip ≈ 18 m at t ≤ 3 s, still above the rigid 2.541 MN and far from the
+        2026-10-01 tree's 7.4 m - if the 1P is gone but the mean stays there, that is a
+        separate finding.
+        **Resume recipe:** `sacct -j 11613040`; then load the CSV, check that the
+        thrust and tip have no 7.95 s period over [10, 30] s, and report the mean thrust
+        and tip vs 2.541 MN, `base_fix_pre_radii` (2.726 MN / 17.99 m) and 10-01
+        (1.640 MN / 7.44 m). Then T7a.4, then add `partner_frame: inertial` to the
+        other ~60 fluid YAMLs paired with `rotor_fsi` (the `solid_inertial_*` pairs
+        need their own frame analysis).
   - [ ] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
         was measured on rotated displacements.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
