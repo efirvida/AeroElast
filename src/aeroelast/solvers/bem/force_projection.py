@@ -189,12 +189,11 @@ class ForceProjector:
             two opposite in-plane directions is ``+normal_hat``.  It must be
             (nearly) parallel to the section normal - an orthogonal reference
             makes the sign a round-off decision.
-        tangential_direction : array-like
-            Sense reference for the BEM tangential force *Tp* (default: x-axis
-            ``[1, 0, 0]``, the chordwise direction).  As with
-            *normal_direction*, it selects the sense of the per-strip chord
-            axis, not the axis itself, and must be (nearly) parallel to that
-            axis.
+        tangential_direction : array-like or None
+            Optional cross-check of the sense of the BEM tangential force *Tp*.
+            *Tp* follows the **measured leading edge**; a value on the opposite
+            side raises ``ValueError``.  Leave it unset (default) unless a
+            deliberate assertion is wanted.
         hub_radius : float or None
             Override hub radius for span coordinate calculation.
             If *None*, taken from *blade_aero*.
@@ -233,9 +232,16 @@ class ForceProjector:
         )
         self._normal_dir /= np.linalg.norm(self._normal_dir)
 
-        self._tangential_dir = np.asarray(
-            tangential_direction if tangential_direction is not None else [1.0, 0.0, 0.0],
-            dtype=float,
+        # ``Tp`` points toward the measured leading edge (``Omega x r`` there), so the
+        # key is only a cross-check: a configured sense that contradicts the measured
+        # edge is refused below.  The chord-axis reference stays ``+x`` when it is absent.
+        configured_tangential = (
+            None if tangential_direction is None else np.asarray(tangential_direction, dtype=float)
+        )
+        self._tangential_dir = (
+            configured_tangential.copy()
+            if configured_tangential is not None
+            else np.array([1.0, 0.0, 0.0])
         )
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)
 
@@ -244,8 +250,10 @@ class ForceProjector:
         # ``cn = cl*cos(phi) + cd*sin(phi)`` with ``phi`` measured **from the rotor
         # plane**, so ``Np`` rides the rotor-axis normal and ``Tp`` the in-plane
         # tangential - one frame for the whole blade, not the twisting section's.
-        # ``_load_frame`` orthonormalises the configured pair against the span and
-        # keeps the blade-wide sense.  The per-strip section frames built below stay
+        # ``_load_frame`` orthonormalises the pair against the span and keeps the
+        # blade-wide sense; the tangential sense is first the configured reference and
+        # is replaced by the measured leading edge once the strip frames exist.  The
+        # per-strip section frames built below stay
         # the datum for the aerodynamic centre and the pitching-moment axis, which
         # are genuine section quantities (issue #26).
         self._rotor_tangential_dir, self._rotor_normal_dir = self._load_frame(self._tangential_dir)
@@ -517,6 +525,42 @@ class ForceProjector:
             # about the origin; the chordwise part alone leaves a ~1 %
             # lever-arm error on the real blade.
             self._strip_ac_offsets.append(strip.centroid - ac_point)
+
+        self._resolve_tangential_sense(configured_tangential)
+
+    def _resolve_tangential_sense(self, configured: np.ndarray | None) -> None:
+        """Point ``Tp`` toward the measured leading edge; refuse a contradicting key.
+
+        With ``Omega = +omega * span x normal`` the blade velocity ``Omega x r`` at the
+        leading edge is what ``Tp`` must follow for the power to be positive.  The
+        leading-edge direction is ``-_strip_moment_axis_sign * _strip_chord_dirs``
+        (the same measurement ``FSIParticipant._resolve_twist_sense`` uses), weighted
+        by strip width.  A mesh without measurable sections keeps the configured or
+        default reference.
+        """
+        leading_edge = np.zeros(3)
+        for strip, chord, sign in zip(
+            self._strips, self._strip_chord_dirs, self._strip_moment_axis_sign
+        ):
+            leading_edge += strip.dr * -float(sign) * chord
+        # The rotor-plane tangential is normal to both the span and the rotor normal;
+        # the twisted sections tilt the mean leading edge out of that plane.
+        for axis in (self._span_dir, self._normal_dir):
+            leading_edge -= float(leading_edge @ axis) * axis
+        norm = float(np.linalg.norm(leading_edge))
+        if norm <= 1e-12:
+            return
+        leading_edge /= norm
+        if configured is not None:
+            cfg_in_plane = configured - float(configured @ self._span_dir) * self._span_dir
+            if float(cfg_in_plane @ leading_edge) < 0.0:
+                raise ValueError(
+                    f"tangential_direction {configured.tolist()} points away from the measured "
+                    f"leading edge {np.round(leading_edge, 3).tolist()}, which would reverse the "
+                    "torque on the structure.  Drop the key (the projector derives the sense "
+                    "from the mesh) or set it to the leading-edge side."
+                )
+        self._rotor_tangential_dir, self._rotor_normal_dir = self._load_frame(leading_edge)
 
     @staticmethod
     def _points_chord_axis(

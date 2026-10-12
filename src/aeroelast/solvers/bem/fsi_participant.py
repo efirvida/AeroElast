@@ -338,8 +338,9 @@ class BEMFSIParticipant:
         * ``normal_direction``     – sense reference for the section normal
           the BEM *Np* rides (default Y, the fluid/downwind direction); it
           must be (nearly) parallel to that normal, it is not the axis
-        * ``tangential_direction`` – sense reference for the section chord
-          the BEM *Tp* rides (default X); must be (nearly) parallel to it
+        * ``tangential_direction`` – optional; *Tp* follows the measured leading
+          edge and a value on the opposite side raises ``ValueError`` (default:
+          unset, so the sense is derived from the mesh)
         * ``partner_frame``        – frame of the structural partner's preCICE
           data: ``"rotating"`` (default, data used as-is) or ``"inertial"``
           (the Rust rotor solver: displacements are un-rotated by R(theta)^T on
@@ -425,8 +426,11 @@ class BEMFSIParticipant:
         )
         self._normal_dir /= np.linalg.norm(self._normal_dir)
 
+        self._configured_tangential = bem_config.get("tangential_direction")
         self._tangential_dir = np.asarray(
-            bem_config.get("tangential_direction", [1.0, 0.0, 0.0]),
+            self._configured_tangential
+            if self._configured_tangential is not None
+            else [1.0, 0.0, 0.0],
             dtype=float,
         )
         self._tangential_dir /= np.linalg.norm(self._tangential_dir)
@@ -456,7 +460,7 @@ class BEMFSIParticipant:
             blade_aero,
             span_direction=self._span_dir,
             normal_direction=self._normal_dir,
-            tangential_direction=self._tangential_dir,
+            tangential_direction=self._configured_tangential,
             element_properties=element_properties,
         )
         self._projector = ref_projector
@@ -835,8 +839,10 @@ class BEMFSIParticipant:
         to be read from ``normal . (span x tangential)``, which conflates the two:
         ``tangential_direction`` configures the sense of the tangential force
         :math:`T_p` (``F = N_p \hat{n} + T_p \hat{c}``), and every production case YAML
-        sets it to ``-x`` so that :math:`T_p` drives the rotor at positive torque.  That
-        makes ``span x tangential = -normal``, so the old expression returned ``-1`` in
+        used to set it to ``-x``.  That was the reversed sense (``z x (-x) = -y`` opposes
+        ``Omega = +y``; :math:`T_p` must point toward the leading edge, see
+        ``ForceProjector._resolve_tangential_sense``) and it made
+        ``span x tangential = -normal``, so the old expression returned ``-1`` in
         production while the static fixtures - which never pass ``tangential_direction`` -
         returned ``+1``.  A rigid +2 deg nose-down rotation measured ``+10.63%`` of
         thrust on the production frame against ``-13.05%`` on the fixtures' frame, and

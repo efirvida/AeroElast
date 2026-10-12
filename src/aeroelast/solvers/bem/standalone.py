@@ -82,7 +82,7 @@ class BEMStandaloneSolver:
         # 3. Force projection
         span_dir = self._cfg.get("elements", {}).get("span_direction", [0.0, 0.0, 1.0])
         normal_dir = self._bem_cfg.get("normal_direction", [0.0, 1.0, 0.0])
-        tangential_dir = self._bem_cfg.get("tangential_direction", [1.0, 0.0, 0.0])
+        tangential_dir = self._bem_cfg.get("tangential_direction")
 
         # Per-element-set shell properties, the same dict the structural assembler
         # consumes (``runner._build_model_config`` puts it at ``elements.properties``).

@@ -464,7 +464,7 @@ class BEMConfig:
     viterna_confidence_threshold: float = 0.5
     span_direction: List[float] = field(default_factory=lambda: [0.0, 0.0, 1.0])
     normal_direction: List[float] = field(default_factory=lambda: [0.0, 1.0, 0.0])
-    tangential_direction: List[float] = field(default_factory=lambda: [1.0, 0.0, 0.0])
+    tangential_direction: Optional[List[float]] = None
     # Deformed-geometry feedback isolation (diagnostic experiments).  The
     # participant reads these with cfg.get(...), but until they were declared
     # here the config validator rejected any YAML that set them -- the toggles
