@@ -588,7 +588,7 @@ magnitudes agree, and this is the measured pair.
         tests (deformed geometry, wall flow, rated twist): 23 passed; ruff clean.
   - [ ] T7a.3 30 s gate on the fix: the 1P is gone (≥ 2 periods), then the mean
         against 2.541 MN, reported separately.
-        In flight: job `11613040` (submitted 2026-10-11 from this worktree,
+        Ran: job `11613040` (submitted 2026-10-11 from this worktree,
         `RUN_NAME=frame_fix_30s`), output in
         `runs/smoke_fix/frame_fix_30s/fluid/bem_report.csv` (worktree-relative); the
         pre-radii before side `11613031` was cancelled on purpose. The transform is live:
@@ -597,12 +597,37 @@ magnitudes agree, and this is the measured pair.
         flap tip ≈ 18 m at t ≤ 3 s, still above the rigid 2.541 MN and far from the
         2026-10-01 tree's 7.4 m - if the 1P is gone but the mean stays there, that is a
         separate finding.
-        **Resume recipe:** `sacct -j 11613040`; then load the CSV, check that the
-        thrust and tip have no 7.95 s period over [10, 30] s, and report the mean thrust
-        and tip vs 2.541 MN, `base_fix_pre_radii` (2.726 MN / 17.99 m) and 10-01
-        (1.640 MN / 7.44 m). Then T7a.4, then add `partner_frame: inertial` to the
-        other ~60 fluid YAMLs paired with `rotor_fsi` (the `solid_inertial_*` pairs
-        need their own frame analysis).
+        **Result (2026-10-12, job `11613040` COMPLETED, 30 s):** the limit cycle is
+        gone, a clean 1P is not. Least-squares fit (mean + trend + 1P, T = 7.947 s) over
+        [10, 30] s, after vs `base_fix_pre_radii`:
+        | quantity | frame_fix_30s | base_fix_pre_radii |
+        |---|---|---|
+        | thrust 1P amplitude | 42.4 kN (1.57 %), resid std 303 N | 853 kN (31.4 %), resid std 64 kN |
+        | flap tip Y 1P amplitude | 0.228 m (1.25 %) | 7.04 m (39.4 %) |
+        | edge tip X 1P amplitude | 1.24 m | 1.54 m |
+        | trend | −1.9 N/s (steady) | −319 N/s |
+        The residual is deterministic (resid std ≪ amplitude), so the criterion "1P gone"
+        is **not met**; no tolerance is set after the fact. Phases: tip X 0°, thrust
+        and Mb −178°, torque +4°, i.e. locked to the gravity edge cycle (case: uniform
+        inflow, shear/tilt/yaw/precone 0, no tower key; `gravity:` on in the solid).
+        Thrust is reported as B × one replicated blade (`BladeAero(n_blades=…)` on a
+        single deformed blade, `fsi_participant.py:999`), so a per-blade gravity 1P
+        reaches the rotor total instead of cancelling to 3P; read the residual per
+        blade (1.57 %, Mb ±1.29 MN·m), not as a rotor load.
+        Confound: the after side carries `fee2cc8` (radii) and the frame fix; the
+        one-variable side `11613031` (radii, no frame fix) stopped at 8.33 s, under 2
+        periods, so the 20× is attributed through the corr = 1.0000 diagnosis above,
+        not through a single-variable pair.
+        **Mean, a separate finding (not chased here):** thrust 2.709 MN, tip Y 18.15 m,
+        essentially unchanged from `base_fix_pre_radii` (2.726 MN / 17.99 m); +6.6 %
+        above rigid 2.541 MN despite an 18 m flap (sign-check first, discipline #4),
+        and far from 10-01 (1.640 MN / 7.44 m). The frame fix did not move the mean.
+  - [ ] T7a.3b Discriminate the residual 1P: gravity-off run of the same case (zero
+        `gravity:` in `solid_corotational_yaw_0.yaml`, ~20 s ≈ 1.7 h SLURM). Any 1P
+        that survives is an artifact; prime suspect the frozen projector `6765633`
+        (feeds T7a.4). Then T7a.4, then add `partner_frame: inertial` to the other ~60
+        fluid YAMLs paired with `rotor_fsi` (the `solid_inertial_*` pairs need their
+        own frame analysis).
   - [ ] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
         was measured on rotated displacements.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
