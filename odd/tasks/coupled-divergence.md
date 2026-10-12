@@ -622,7 +622,7 @@ magnitudes agree, and this is the measured pair.
         essentially unchanged from `base_fix_pre_radii` (2.726 MN / 17.99 m); +6.6 %
         above rigid 2.541 MN despite an 18 m flap (sign-check first, discipline #4),
         and far from 10-01 (1.640 MN / 7.44 m). The frame fix did not move the mean.
-  - [ ] T7a.3b Discriminate the residual 1P: gravity-off run of the same case (zero
+  - [x] T7a.3b Discriminate the residual 1P: gravity-off run of the same case (zero
         `gravity:` in `solid_corotational_yaw_0.yaml`, ~20 s ≈ 1.7 h SLURM). Any 1P
         that survives is an artifact; prime suspect the frozen projector `6765633`
         (feeds T7a.4). Then T7a.4, then add `partner_frame: inertial` to the other ~60
@@ -635,6 +635,24 @@ magnitudes agree, and this is the measured pair.
         `runs/smoke_fix/nograv_30s/fluid/bem_report.csv`; 1P amplitude ≈ 0 (≪ 42 kN,
         resid-std level) ⇒ the residual is gravity; a surviving 1P ⇒ artifact, go to
         T7a.4. The mean without gravity is also a new datum for the +6.6 % finding.
+        **Result (2026-10-12, job `11613217` COMPLETED, 30 s): the residual 1P is
+        gravity.** Same fit (mean + trend + 1P, T = 7.947 s, [10, 30] s) on
+        `runs/smoke_fix/nograv_30s/fluid/bem_report.csv` vs `frame_fix_30s`:
+        | quantity | nograv_30s | frame_fix_30s |
+        |---|---|---|
+        | thrust 1P amplitude | 3.9e-10 N (resid std 4.7e-10 N) | 42.4 kN (1.57 %), resid std 303 N |
+        | Mb 1P amplitude | 6.8e-9 N·m | 1.29 MN·m (1.76 %) |
+        | edge tip X 1P amplitude | 5.7e-10 m | 1.24 m |
+        | flap tip Y 1P amplitude | 7.4e-15 m | 0.228 m |
+        | mean thrust / tip Y / power | 2.7086 MN / 18.142 m / 15.948 MW | 2.7082 MN / 18.141 m / 15.942 MW |
+        Without gravity every channel is constant to round-off over [10, 30] s: the
+        coupled solution is a true fixed point, so no frame, projector or replication
+        artifact survives at 1P. The residual in `frame_fix_30s` is the per-blade
+        gravity response, which reaches the "rotor" thrust only because the BEM
+        replicates one deformed blade (`n_blades: 3`); three phased blades would
+        cancel it to 3P. T7a.4 is no longer a 1P suspect; it stays as the fidelity
+        follow-up of T6k. Gravity does not move the mean (Δ 0.4 kN), so the +6.6 %
+        above rigid 2.541 MN is not gravity.
   - [ ] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
         was measured on rotated displacements.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
