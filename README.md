@@ -326,12 +326,12 @@ references, and the third-party software this project builds on, with full
 author lists and a DOI wherever one could be verified.
 
 The formulation implemented in this repository is documented in
-[docs/formulations/teoria_formulacion_fsi_rotor.md](docs/formulations/teoria_formulacion_fsi_rotor.md). The reference
-PDFs used during development now live in the gitignored `.sources/papers/`
-directory: they had been removed from the working tree but were still in git
-history, and they have been recovered. `docs/validation/references.yaml` maps the
-publications it lists to those recovered files and marks every field that still
-needs verification.
+[docs/formulations/teoria_formulacion_fsi_rotor.md](docs/formulations/teoria_formulacion_fsi_rotor.md). Publications are
+cited by bibliographic reference (authors, venue, DOI) and by their key in
+`docs/validation/references.yaml`, never by a file path: the repository does not
+distribute articles. Copies used during development are local only, in the
+gitignored `.sources/papers/`; `references.yaml` records which entries have a held
+copy (`held_files`) and marks every field that still needs verification.
 
 ## Validation Summary
 

@@ -48,7 +48,7 @@ u(r,s,t) = sum_i h_i u_i + (t/2) sum_i a_i h_i (theta_i x V_in)                 
 
 Ko, Y., Bathe, K.-J., Zhang, X., "Continuum mechanics-based shell elements with six
 degrees of freedom at each node — the MITC4/D and MITC4+/D elements", *Computers
-and Structures* 308:107622, 2025 — `1-s2.0-S0045794924003511-main.pdf`, journal
+and Structures* 308:107622, 2025, doi:10.1016/j.compstruc.2024.107622 (`ko2025`), journal
 p. 2. Verified verbatim in the extraction; the same paper defines
 `theta_i = theta_ix i_x + theta_iy i_y + theta_iz i_z` as Eq. (3c).
 
@@ -203,7 +203,7 @@ Reference: Dvorkin, E.N., Bathe, K.-J., "A continuum mechanics based four-node
 shell element for general non-linear analysis", *Engineering Computations*
 1:77–88, 1984 — the page footer of the held scan prints
 `Eng. Comput., 1984, Vol. 1, March 77`, and the last page prints 88; no DOI is
-printed — `.sources/papers/A_Continuum_Mechanics_Based_Four-Node_Shell_Element_for_General_Nonlinear_Analysis.pdf`.
+printed (`dvorkin1984`).
 
 **Status of the verification: partial. Report honestly.**
 
@@ -285,8 +285,7 @@ section cannot silently become false again.
 
 Reference: Lee, Y., Lee, P.-S., Bathe, K.-J., "The MITC3+ shell element and its
 performance", *Computers and Structures* 138:12–23, 2014,
-doi:10.1016/j.compstruc.2014.02.005 —
-`.sources/papers/The_MITC3+_shell_element_and_its_performance.pdf`.
+doi:10.1016/j.compstruc.2014.02.005 (`lee2014`).
 
 ### 3.1 As implemented
 
@@ -507,8 +506,7 @@ and their margins live in `docs/validation/`.
 ### 4.3 The strain-smoothed MITC3+
 
 Reference: Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite element",
-*Computers and Structures* 223:106096, 2019, doi:10.1016/j.compstruc.2019.07.005 —
-`.sources/papers/lee2019.pdf`. The first author is Chaemin Lee, **not** Youngyu Lee
+*Computers and Structures* 223:106096, 2019, doi:10.1016/j.compstruc.2019.07.005 (`lee2019`). The first author is Chaemin Lee, **not** Youngyu Lee
 of item 5.
 
 **What it changes, and what it does not.** Only the membrane field. The paper is
@@ -639,8 +637,8 @@ repository *took from* a paper, which is why no citation is invented for it here
 
 **The gap is declared, not papered over.** Two tempting wrong closures are ruled out
 explicitly. The held Choi & Lee 2023 paper
-(`.sources/papers/1-s2.0-S0045794922001936-main.pdf`, "Towards improving the 2D-MITC4
-element for analysis of plane stress and strain problems") is a **different** element
+("Towards improving the 2D-MITC4 element for analysis of plane stress and strain
+problems", *Computers and Structures* 275:106933, 2023, doi:10.1016/j.compstruc.2022.106933) is a **different** element
 — an assumed-strain MITC4 for the in-plane problem — and must not be attributed to
 this displacement-based kernel. And "matches the Python reference" is not a source
 at all. Closing the gap means either citing the textbook the implementation follows,
@@ -663,8 +661,7 @@ u(r,s,t) = sum h_i u_i + (t/2) sum a_i h_i ( - V_2^i alpha_i + V_1^i beta_i )
 with the prose: *"V_1^i and V_2^i are unit vectors orthogonal to V_n^i and to each
 other, and alpha_i and beta_i are the rotations of the director vector V_n^i about
 V_1^i and V_2^i, respectively, at node i"*
-(`.sources/papers/The_MITC3+_shell_element_and_its_performance.pdf`, PDF page 2,
-journal p. 13).
+(`lee2014`, journal p. 13).
 
 A rotation of the director by `alpha` about `V_1` moves a point at offset `t/2` along
 the director by `(t/2) alpha (V_1 x V_n)`, and one by `beta` about `V_2` by
@@ -697,8 +694,7 @@ the right-handed triad the code uses, which is the standard one for a shell elem
 1. Dvorkin, E.N., Bathe, K.-J., "A continuum mechanics based four-node shell
    element for general non-linear analysis", *Engineering Computations* 1:77–88,
    1984 (footer prints `Eng. Comput., 1984, Vol. 1, March 77`; last page 88; no DOI
-   printed) —
-   `.sources/papers/A_Continuum_Mechanics_Based_Four-Node_Shell_Element_for_General_Nonlinear_Analysis.pdf`.
+   printed) (`dvorkin1984`).
    (Displayed equations not text-extractable from the held scan — §2.4.)
 2. Hughes, T.J.R., Taylor, R.L., Kanoknukulchai, W., "A simple and efficient finite
    element for plate bending", *International Journal for Numerical Methods in
@@ -708,22 +704,17 @@ the right-handed triad the code uses, which is the standard one for a shell elem
    kept for the history in §2.6, not because §2 uses it. The DOI was verified against
    the Wiley record and the MaRDI portal entry.
 3. Ko, Y., Lee, P.-S., Bathe, K.-J., "A new MITC4+ shell element", *Computers and
-   Structures* 182:404–418, 2017, doi:10.1016/j.compstruc.2016.11.004.
-   `.sources/papers/1-s2.0-S0045794916309464-main.pdf`.
+   Structures* 182:404–418, 2017, doi:10.1016/j.compstruc.2016.11.004 (`ko2017_new`).
 4. Ko, Y., Bathe, K.-J., Zhang, X., "Continuum mechanics-based shell elements with
    six degrees of freedom at each node — the MITC4/D and MITC4+/D elements",
    *Computers and Structures* 308:107622, 2025,
-   doi:10.1016/j.compstruc.2024.107622.
-   `.sources/papers/1-s2.0-S0045794924003511-main.pdf`. (`.sources/papers/MITC_D_elements_published.pdf`
-   is a scanned duplicate of the same paper with no text layer.)
+   doi:10.1016/j.compstruc.2024.107622 (`ko2025`).
 5. Lee, Y., Lee, P.-S., Bathe, K.-J., "The MITC3+ shell element and its
    performance", *Computers and Structures* 138:12–23, 2014,
-   doi:10.1016/j.compstruc.2014.02.005.
-   `.sources/papers/The_MITC3+_shell_element_and_its_performance.pdf`.
+   doi:10.1016/j.compstruc.2014.02.005 (`lee2014`).
 6. Lee, C., Lee, P.-S., "The strain-smoothed MITC3+ shell finite element",
    *Computers and Structures* 223:106096, 2019,
-   doi:10.1016/j.compstruc.2019.07.005.
-   `.sources/papers/lee2019.pdf` (authors: Chaemin Lee, Phill-Seung Lee; the first
+   doi:10.1016/j.compstruc.2019.07.005 (`lee2019`; authors: Chaemin Lee, Phill-Seung Lee; the first
    author is **not** Youngyu Lee of item 5). **Implemented** — §4.3 describes it
    equation by equation; verified against the held copy; entry present in
    `docs/validation/references.yaml`.

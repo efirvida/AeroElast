@@ -15,7 +15,6 @@ import pytest
 #   --ignore=tests/test_vol_mesh.py
 collect_ignore = [
     "IEA15MW/validation papers",
-    "IEA15MW/75698.pdf.txt",
 ]
 
 

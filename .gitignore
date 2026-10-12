@@ -60,6 +60,11 @@ __pypackages__/
 # Environments
 .venv
 .sources
+# Articles are cited by reference (docs/validation/references.yaml), never
+# distributed: local copies live in .sources/papers/. Only the open upstream
+# IEA-15-240-RWT repository is tracked here.
+tests/IEA15MW/validation papers/*
+!tests/IEA15MW/validation papers/github-IEA-15-240-RWT/
 
 # Ruff stuff:
 .ruff_cache/

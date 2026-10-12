@@ -358,11 +358,10 @@ references:
     doi_status: verified
     held: true
     held_files:
-      - .sources/papers/1-s2.0-S0045794916309464-main.pdf
       - .sources/papers/A_new_MITC4+_shell_element.pdf
     verification: verified_pdf
     verification_note: >-
-      authors, title, journal, volume, pages and year read off both held copies;
+      authors, title, journal, volume, pages and year read off the held copy;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2016.11.004
     cited_by_declared:
       - "crates/aeroelast-core/src/elements/mitc4.rs:4"
@@ -392,11 +391,10 @@ references:
     doi_status: verified
     held: true
     held_files:
-      - .sources/papers/mitc4+_no_lineal.pdf.pdf
       - .sources/papers/The_MITC4+_shell_element_in_geometric_nonlinear_analysis.pdf
     verification: verified_pdf
     verification_note: >-
-      authors, title, journal, volume, pages and year read off both held copies;
+      authors, title, journal, volume, pages and year read off the held copy;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2017.01.015
     cited_by_declared:
       - "src/aeroelast/core/assembler.py:749"
@@ -426,11 +424,10 @@ references:
     doi_status: verified
     held: true
     held_files:
-      - .sources/papers/1-s2.0-S0045794917309550-main.pdf
       - .sources/papers/Performance_of_the_MITC3+_and_MITC4+_shell_elements_in_widely_used_benchmark_problems.pdf
     verification: verified_pdf
     verification_note: >-
-      authors, title, journal, volume, pages and year read off both held copies;
+      authors, title, journal, volume, pages and year read off the held copy;
       DOI printed as http://dx.doi.org/10.1016/j.compstruc.2017.08.003
     cited_by_declared:
       - "src/aeroelast/core/mesh/generators.py:66"
@@ -525,9 +522,8 @@ references:
     cited_by_stale:
       - "crates/aeroelast-core/src/elements/mitc3.rs:393"
     notes: >-
-      .sources/papers/MITC_D_elements_published.pdf is a scanned copy of the
-      same paper with no text layer, so nothing can be read from it; it is a
-      duplicate of the file above. The README entry carried a title only. The
+      A scanned copy of the same paper with no text layer was dropped as a
+      duplicate on 2026-10-12. The README entry carried a title only. The
       code names this work at `crates/aeroelast-core/src/elements/mitc3.rs:394`
       and `crates/aeroelast-core/src/elements/mitc4.rs:5`; the prose site was
       off by one line and is recorded as stale.
@@ -913,9 +909,8 @@ references:
       - "src/aeroelast/core/mesh/generators.py:2010"
       - "tests/validation/benchmarks/test_ko2017_performance.py:1455"
     notes: >-
-      Read from the reference list of two held copies,
-      `.sources/papers/1-s2.0-S0045794917309550-main.pdf` item [30] and
-      `.sources/papers/mitc4+_no_lineal.pdf.pdf` item [36]; the paper itself is
+      Read from the reference lists of two held works, `ko2017_perf` item [30]
+      and `ko2017_nonlinear` item [36]; the paper itself is
       not held, so the DOI could not be read. The code cites it as "Knight
       (1997)" alone (`src/aeroelast/core/mesh/generators.py:2010,2023`,
       `tests/validation/benchmarks/test_ko2017_performance.py:1455`), for the

@@ -323,8 +323,8 @@ What is verifiable is the mismatch between the citation and the code's own
 described method. `docs/validation/references.yaml` lists Bathe, *Finite Element Procedures*,
 **2nd ed., 2014** at `stress_recovery.py:102`, while this file cites the **1996**
 edition; the edition discrepancy is another item to resolve. The likely original
-source for the geometric stiffness itself is Ko, Lee & Bathe (2017) — a held PDF
-(`.sources/papers/mitc4+_no_lineal.pdf.pdf`) — but that equation was **not**
+source for the geometric stiffness itself is Ko, Lee & Bathe (2017), *Computers and
+Structures* 185:1–14, doi:10.1016/j.compstruc.2017.01.015 (`ko2017_nonlinear`) — but that equation was **not**
 extracted for this revision, so it is not claimed here.
 
 ### 4.3 Code → equation table
@@ -493,25 +493,21 @@ duplicate its per-entry verification annotations.
    verify. **Not held; the code cites nothing.** §2.
 2. Dvorkin, E.N., Bathe, K.-J., "A continuum mechanics based four-node shell
    element for general non-linear analysis", *Engineering Computations*
-   1(1):77–88, 1984. DOI: to verify.
-   `.sources/papers/A_Continuum_Mechanics_Based_Four-Node_Shell_Element_for_General_Nonlinear_Analysis.pdf`.
+   1(1):77–88, 1984. DOI: to verify (`dvorkin1984`).
    Eq. (3) read from the scan image (journal p. 78). §6.
 3. Ko, Y., Lee, P.-S., Bathe, K.-J., "A new MITC4+ shell element", *Computers
-   and Structures* 182:404–418, 2017, doi:10.1016/j.compstruc.2016.11.004.
-   `.sources/papers/1-s2.0-S0045794916309464-main.pdf`. §6.
+   and Structures* 182:404–418, 2017, doi:10.1016/j.compstruc.2016.11.004
+   (`ko2017_new`). §6.
 4. Lee, Y., Lee, P.-S., Bathe, K.-J., "The MITC3+ shell element and its
    performance", *Computers and Structures* 138:12–23, 2014,
-   doi:10.1016/j.compstruc.2014.02.005.
-   `.sources/papers/The_MITC3+_shell_element_and_its_performance.pdf`. §6.
+   doi:10.1016/j.compstruc.2014.02.005 (`lee2014`). §6.
 5. Ko, Y., Bathe, K.-J., Zhang, X., "Continuum mechanics-based shell elements
    with six degrees of freedom at each node — the MITC4/D and MITC4+/D elements",
    *Computers and Structures* 308:107622, 2025,
-   doi:10.1016/j.compstruc.2024.107622.
-   `.sources/papers/1-s2.0-S0045794924003511-main.pdf`. §6.
+   doi:10.1016/j.compstruc.2024.107622 (`ko2025`). §6.
 6. Ko, Y., Lee, P.-S., Bathe, K.-J., "The MITC4+ shell element in geometric
    nonlinear analysis", *Computers and Structures* 185:1–14, 2017,
-   doi:10.1016/j.compstruc.2017.01.015.
-   `.sources/papers/mitc4+_no_lineal.pdf.pdf`. Equation **not extracted** in this
+   doi:10.1016/j.compstruc.2017.01.015 (`ko2017_nonlinear`). Equation **not extracted** in this
    revision. §4, §6.
 7. Hughes, T.J.R., Taylor, R.L., Kanoknukulchai, W., "A simple and efficient
    finite element for plate bending", *International Journal for Numerical
