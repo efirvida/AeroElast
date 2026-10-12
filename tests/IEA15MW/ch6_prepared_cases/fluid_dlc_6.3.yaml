@@ -49,10 +49,6 @@ bem:
   - 0.0
   - 1.0
   - 0.0
-  tangential_direction:
-  - -1.0
-  - 0.0
-  - 0.0
 output:
   folder: bem_fsi_results_dlc_6_3
   log_interval: 1

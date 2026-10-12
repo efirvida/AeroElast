@@ -80,7 +80,6 @@ bem:
   # Positive Tp (CCBlade convention) = force in rotation direction = -X.
   # sign: [-1,0,0] also corrects the LE estimate in force_projection.py
   #        (LE = min projection along tangential_dir = min(-x) = max(x) = +1.186 ✓).
-  tangential_direction:  [-1.0, 0.0, 0.0]  # Tp projected onto -X (CCW rotation direction)
 
 # ── Output ───────────────────────────────────────────────────────────────
 output:

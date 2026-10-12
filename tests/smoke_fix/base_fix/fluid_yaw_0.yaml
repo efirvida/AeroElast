@@ -57,10 +57,6 @@ bem:
   - 0.0
   - 1.0
   - 0.0
-  tangential_direction:
-  - -1.0
-  - 0.0
-  - 0.0
 output:
   folder: fluid
   log_interval: 1
