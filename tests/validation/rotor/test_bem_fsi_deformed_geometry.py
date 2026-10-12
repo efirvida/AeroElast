@@ -82,11 +82,11 @@ HUB_PROTECTION_FRACTION = 0.5
 TWIST_AGREEMENT_DEG = 1e-6
 OUTER_SPAN_FRACTION = 0.75
 
-#: The frame **every production case YAML carries** (62 files under ``tests/``,
-#: ``bem.tangential_direction = [-1, 0, 0]``).  It is the sense the tangential force
-#: ``Tp`` rides, and it makes ``span x tangential = -normal``.  Nothing about where the
-#: leading edge is follows from it, which is why it must not decide the twist sense.
-PRODUCTION_FRAME = {"tangential_direction": [-1.0, 0.0, 0.0]}
+#: The frame the production case YAMLs used to carry as ``bem.tangential_direction =
+#: [-1, 0, 0]``.  That sense is reversed (``Tp`` must point toward the leading edge at
+#: ``+x``) and the projector now refuses it, so the production frame is the explicit
+#: leading-edge side.  It must still not decide the twist sense.
+PRODUCTION_FRAME = {"tangential_direction": [1.0, 0.0, 0.0]}
 
 #: A rigid nose-down section rotation, applied to the section as a whole.
 RIGID_ROTATION_DEG = 2.0
@@ -320,7 +320,7 @@ def test_twist_sense_does_not_follow_the_tangential_force_reference(fsi):
 
     ``tangential_direction`` configures which way the tangential **force** ``Tp`` points;
     the participant also used it to decide which way a section rotation reaches CCBlade's
-    ``theta``, and the production YAMLs set it to ``-x``, so ``span x tangential = -normal``
+    ``theta``, and the production YAMLs used to set it to ``-x``, so ``span x tangential = -normal``
     and the derived factor flipped.  The static fixtures never pass the key, which is what
     kept the two frames apart: group 27's table (twist-only -26.01% thrust) is measured in
     the default frame, while every coupled run maps Solid->Fluid through the production one.
@@ -453,3 +453,13 @@ def test_force_projection_geometry_stays_on_the_reference(fsi):
     # ... but the distribution is the reference projector's, for those loads.
     expected = participant._projector.project(bem)
     np.testing.assert_allclose(forces, expected, rtol=1e-12, atol=1e-9)
+
+
+def test_reversed_tangential_direction_is_refused(fsi):
+    """The retired production sense ``-x`` contradicts the measured leading edge (T7c)."""
+    with pytest.raises(ValueError, match="tangential_direction"):
+        BEMFSIParticipant(
+            fsi["participant"]._mesh,
+            fsi["participant"]._blade_aero,
+            {**BEM_CONFIG, "tangential_direction": [-1.0, 0.0, 0.0]},
+        )

@@ -111,7 +111,8 @@ def main():
 
     s = np.array([0.0, 0.0, 1.0])
     n = np.array([0.0, 1.0, 0.0])
-    t = np.array([-1.0, 0.0, 0.0])
+    # Tp points toward the leading edge (+x on this mesh); -x is refused by ForceProjector.
+    t = np.array([1.0, 0.0, 0.0])
 
     aero_y = load_blade_aero(str(REPO / "tests/IEA-15-240-RWT.yaml"),
                              default_re=1e7, neuralfoil_model="large",

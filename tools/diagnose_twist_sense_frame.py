@@ -8,8 +8,10 @@ chord axis** used by the twist sense.
 
 The static validation fixtures never pass ``tangential_direction``, so they run the
 sign that makes the derivation's premise true (``span x tangential = normal``).  Every
-production case YAML (62 of them) sets ``tangential_direction = [-1, 0, 0]``, which
-makes ``span x tangential = -normal`` and therefore *flips* the derived factor.
+production case YAML used to set ``tangential_direction = [-1, 0, 0]``, which made
+``span x tangential = -normal`` and therefore *flipped* the derived factor.  That sense
+is also the reversed one for ``Tp`` (T7c): ``ForceProjector`` now refuses it, and the
+"production" frame below is the explicit leading-edge side ``+x``.
 
 This prints, on the real blade mesh and the real AeroDyn deck, for both frames:
 
@@ -61,11 +63,11 @@ BASE_BEM = {
     "shear_exp": 0.0,
 }
 
-#: The frame every production case YAML carries (62 files under tests/).
+#: The production frame: the explicit leading-edge side (the retired ``-x`` is refused).
 PRODUCTION_FRAME = {
     "span_direction": [0.0, 0.0, 1.0],
     "normal_direction": [0.0, 1.0, 0.0],
-    "tangential_direction": [-1.0, 0.0, 0.0],
+    "tangential_direction": [1.0, 0.0, 0.0],
 }
 #: The frame the static fixtures run by default.
 DEFAULT_FRAME: dict[str, list[float]] = {}
@@ -164,7 +166,7 @@ if __name__ == "__main__":
 
     print(f"blade mesh element_size = {ARGS.element_size} m")
     default = describe("DEFAULT frame (what the static fixtures run)", DEFAULT_FRAME)
-    production = describe("PRODUCTION frame (tangential_direction = -x)", PRODUCTION_FRAME)
+    production = describe("PRODUCTION frame (tangential_direction = +x)", PRODUCTION_FRAME)
 
     print("\n=== verdict ===")
     print(
