@@ -93,9 +93,11 @@ for name, cfg in (("tangential -x (production)", cfg_prod), ("tangential +x (mot
     pt = BEMFSIParticipant(mesh, blade_aero, cfg)
     U = np.zeros((len(coords), 3))
     t0 = time.time()
+    hist = []
     for it in range(14):
         fn, res = pt._compute_forces(U)
         T = 3 * float(np.sum(np.asarray(res.Np)[:len(dr)] * dr))
+        hist.append(T / 1e6)
         if it == 0:
             T0 = T
         f = np.zeros(n)
@@ -106,3 +108,4 @@ for name, cfg in (("tangential -x (production)", cfg_prod), ("tangential +x (mot
     _, tw = pt._compute_deformed_geometry(U)
     k = int(np.argmax(coords[:, 2]))
     print(f"[{name}] rigid T {T0/1e6:.4f} MN  flexible T {T/1e6:.4f} MN ({100*(T/T0-1):+.2f}%)  tip uy {U[k,1]:+.2f} m  tip elastic twist(BEM) {np.degrees(tw[-1]-pt._ref_twist[-1]):+.2f} deg  ({time.time()-t0:.0f}s)")
+    print("  last iterations [MN]:", " ".join(f"{x:.4f}" for x in hist[-3:]))

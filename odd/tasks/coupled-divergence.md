@@ -680,12 +680,31 @@ magnitudes agree, and this is the measured pair.
         positive Tp (the BEM's positive torque and power) acts along that motion, so
         the force must point +x. afac31c's docstring ("sets it to -x so that Tp drives
         the rotor at positive torque") has it backwards: z × (−x) = −y opposes Ω = +y.
+        The code's own original design agrees: `_resolve_twist_sense`'s fallback
+        `normal · (span × tangential)` is +1 only for tangential +x (z × x = +y). The
+        defaults are +x too (`core/config.py:467`, `fsi_participant.py:429`), so a YAML
+        without the key is already physical and the 65 are the complete reversed set.
       - Static FSI fixed point, `tools/diagnose_tangential_sense.py` (14 iterations,
         relaxation 0.5, rigid 2.554 MN): −x → **+5.55 %**, flap 16.6 m, tip twist
         −0.86°; +x → **−21.6 %**, flap 10.0 m, +6.28°. The −x row reproduces the
         coupled anomaly (+6.6 %, 18.1 m). The +x overshoot against Zhou (−13 %,
-        13.9 m) is the shell over-twist already recorded by #14 (shell/Zhou 1.61×), a
-        separate finding, not tuned here.
+        13.9 m) is consistent with #14's shell over-twist (shell/Zhou 1.61×; here
+        +6.28° vs +3.6° ≈ 1.7×), not measured here; a separate finding, not tuned.
+        Both rows converged to 4 digits over the last 3 iterations.
+      **Pre-registered expectation for `11613528`** (written before the result, from the
+      static +x row shifted by the −x pair's static→coupled offset, +5.55 → +6.6 %):
+      mean thrust ≈ −20 % of rigid (≈ 2.03 MN), flap tip ≈ 10-11 m, BEM tip elastic
+      twist ≈ +6° (nose-down), coupling still contracting (≈ 2 sub-iterations per
+      window), gravity 1P ≈ 1.5 % per blade. A large miss on any of these is a finding,
+      not a reason to move the expectation.
+      Blast radius if confirmed, to list in T8, not edited here: the 65 fluid YAMLs; the
+      tests and tools that encode −x as the production frame
+      (`tests/validation/rotor/test_bem_fsi_deformed_geometry.py`,
+      `tests/test_multicell_shear_flow.py`, `tests/test_rotor_mesh_export.py`,
+      `tests/validation/rotor/test_rotor_inertial.py`, `tools/diagnose_fsi_deformed.py`,
+      `tools/diagnose_twist_sense_frame.py`, afac31c's docstring); every coupled or
+      BEM-loaded anchor produced with −x (S-5, S-6, the V-0x and campaign rows) is
+      expected to move - report the move, never re-band.
       In flight: job `11613528` at `d233e38`, `RUN_NAME=tplus_30s`,
       `FLUID_YAML=fluid_yaw_0_tplus.yaml` (only `tangential_direction` differs from the
       base case; gravity on), the one-variable pair of `frame_fix_30s`.
