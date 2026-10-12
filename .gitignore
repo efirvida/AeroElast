@@ -170,3 +170,6 @@ tests/IEA15MW/_short_hcoarse_dt5e3/run_*/
 tests/IEA15MW/_short_yaw0/run_*/
 tests/IEA15MW/_short_yaw0_dt5e3/run_*/
 tests/smoke_fix/short_diag/run_*/
+
+# Local SLURM run outputs (tests/run_*.srm)
+runs/

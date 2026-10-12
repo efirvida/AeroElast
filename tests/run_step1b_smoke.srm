@@ -2,9 +2,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=8
 #SBATCH --time=06:00:00
-#SBATCH -e step1b_%j.err
+#SBATCH -e runs/slurm/step1b_%j.err
 #SBATCH -J step1b_smoke_fsi
-#SBATCH -o step1b_%j.out
+#SBATCH -o runs/slurm/step1b_%j.out
 #SBATCH -p sequana_cpu
 
 # Step 1b: smoke FSI 30 s yaw=0 with the rotorspin fix — the decisive test:
@@ -18,10 +18,19 @@ export PATH=${VENV_DIR}/bin/:$PATH
 GCC14_LIB=$(gcc -print-file-name=libstdc++.so.6 | xargs dirname)
 export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib64/psm2-compat:/scratch/app/openmpi/4.1.4_gnu/lib
 
-SUBMIT_DIR=/scratch/leahk/eduardo.donestevez/fem-shell/tests
+# Submit from the root of the checkout to run (main tree or a worktree):
+#   mkdir -p runs/slurm && RUN_NAME=<name> sbatch tests/run_step1b_smoke.srm
+# Results land in <checkout>/runs/smoke_fix/<RUN_NAME>/ (git-ignored), and the
+# package is imported from that checkout's src/, not from the editable install.
+REPO=${SLURM_SUBMIT_DIR:-$(pwd)}
+[[ -f ${REPO}/tests/run_step1b_smoke.srm ]] || { echo "submit from the repo root"; exit 2; }
+export PYTHONPATH=${REPO}/src${PYTHONPATH:+:${PYTHONPATH}}
+SUBMIT_DIR=${REPO}/tests
 CASES_DIR=${SUBMIT_DIR}/smoke_fix
-RESULTS_BASE=${SCRATCH}/smoke_fix_results
-CASE_DIR=${RESULTS_BASE}/base_fix
+RESULTS_BASE=${RESULTS_BASE:-${REPO}/runs/smoke_fix}
+RUN_NAME=${RUN_NAME:-base_fix}
+CASE_DIR=${RESULTS_BASE}/${RUN_NAME}
+export CASE_DIR
 rm -rf ${CASE_DIR}
 mkdir -p ${CASE_DIR}/logs
 ( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_solid.sh ${CASES_DIR}/base_fix/solid_corotational_yaw_0.yaml ) \
@@ -39,7 +48,8 @@ wait ${FLUID_PID} || { echo "[FAIL] fluid exit=$?"; FAILED=1; }
 
 python3 - <<'PY'
 import numpy as np, csv
-p = '/scratch/leahk/eduardo.donestevez/smoke_fix_results/base_fix/fluid/bem_report.csv'
+import os
+p = os.path.join(os.environ['CASE_DIR'], 'fluid', 'bem_report.csv')
 t = []; th = []; d = []
 with open(p) as f:
     rdr = csv.DictReader(f)
