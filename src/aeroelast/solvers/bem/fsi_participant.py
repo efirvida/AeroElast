@@ -234,6 +234,65 @@ logger = logging.getLogger(__name__)
 #: below the physical station spacing (~0.63 m against a 2.39 m strip here).
 RING_BIND_FRACTION = 0.05
 
+#: Frames the structural partner may exchange at the preCICE boundary.
+PARTNER_FRAMES = ("rotating", "inertial")
+
+
+# ---------------------------------------------------------------------------
+# Rotor-frame transforms at the preCICE boundary
+# ---------------------------------------------------------------------------
+#
+# The Rust rotor solver (``crates/aeroelast-solvers/src/petsc/fsi/rotor_fsi.rs``)
+# writes its interface displacements as ``disps_to_inertial(u, theta_target)``
+# = R(theta) . u and reads the fluid forces as global, applying
+# ``forces_to_rotating`` = R^T . F.  R is the right-handed Rodrigues matrix of
+# ``RotorTransforms::rotation_matrix`` (``rotor_physics.rs``) and theta_target
+# is the END-of-window rotor angle, starting at 0.  The helpers below restate
+# that matrix so the BEM participant (which works in the rotating blade frame)
+# can undo it on read and apply it on write.
+
+
+def _rodrigues(axis, theta: float) -> np.ndarray:
+    """Right-handed rotation ``R = I + sin(t) K + (1 - cos(t)) K^2`` about ``axis``.
+
+    Same matrix as Rust's ``RotorTransforms::rotation_matrix``; ``axis`` is
+    normalised here, as Rust does.
+    """
+    n = np.asarray(axis, dtype=float).reshape(3)
+    norm = float(np.linalg.norm(n))
+    if norm <= 1e-12:
+        raise ValueError("rotation axis must be non-zero")
+    n = n / norm
+    k = np.array([[0.0, -n[2], n[1]], [n[2], 0.0, -n[0]], [-n[1], n[0], 0.0]])
+    return np.eye(3) + np.sin(theta) * k + (1.0 - np.cos(theta)) * (k @ k)
+
+
+def _to_rotating(vectors: np.ndarray, axis, theta: float) -> np.ndarray:
+    """Row-wise ``R(theta)^T . v``: inertial vectors to the rotating frame."""
+    return np.asarray(vectors, dtype=float) @ _rodrigues(axis, theta)
+
+
+def _to_inertial(vectors: np.ndarray, axis, theta: float) -> np.ndarray:
+    """Row-wise ``R(theta) . v``: rotating vectors to the inertial frame."""
+    return np.asarray(vectors, dtype=float) @ _rodrigues(axis, theta).T
+
+
+def _parse_partner_frame(bem_config: dict) -> str:
+    """Read ``partner_frame`` (default ``"rotating"``: no boundary transform)."""
+    frame = str(bem_config.get("partner_frame", "rotating")).strip().lower()
+    if frame not in PARTNER_FRAMES:
+        raise ValueError(f"bem.partner_frame must be one of {PARTNER_FRAMES}, got {frame!r}")
+    return frame
+
+
+def _parse_rotation_axis(bem_config: dict) -> np.ndarray:
+    """Read ``rotation_axis`` (default +Y, the solid's ``rotor.rotation_axis``)."""
+    axis = np.asarray(bem_config.get("rotation_axis", [0.0, 1.0, 0.0]), dtype=float).reshape(3)
+    norm = float(np.linalg.norm(axis))
+    if norm <= 1e-12:
+        raise ValueError("bem.rotation_axis must be a non-zero 3-vector")
+    return axis / norm
+
 
 # ---------------------------------------------------------------------------
 # Main participant class
@@ -281,6 +340,13 @@ class BEMFSIParticipant:
           must be (nearly) parallel to that normal, it is not the axis
         * ``tangential_direction`` – sense reference for the section chord
           the BEM *Tp* rides (default X); must be (nearly) parallel to it
+        * ``partner_frame``        – frame of the structural partner's preCICE
+          data: ``"rotating"`` (default, data used as-is) or ``"inertial"``
+          (the Rust rotor solver: displacements are un-rotated by R(theta)^T on
+          read and forces rotated by R(theta) on write, theta the end-of-window
+          rotor angle)
+        * ``rotation_axis``        – rotor axis for that transform (default
+          ``[0, 1, 0]``); must match the solid's ``rotor.rotation_axis``
     participant : str
         preCICE participant name (must match the XML config).
     config_file : str or Path
@@ -463,6 +529,45 @@ class BEMFSIParticipant:
         # Starts from the static YAML value so a non-zero initial azimuth is respected.
         self._azimuth: float = float(bem_config.get("azimuth", 0.0))
 
+        # -- Partner frame at the preCICE boundary (T7a) ---------------------
+        # "inertial": the partner (Rust rotor_fsi.rs) exchanges global vectors,
+        # so displacements are un-rotated on read and forces rotated on write.
+        # "rotating" (default) keeps the historical behaviour for partners whose
+        # frame is not declared.
+        self._partner_frame: str = _parse_partner_frame(bem_config)
+        self._rotation_axis: np.ndarray = _parse_rotation_axis(bem_config)
+        # Converged rotor angle [rad] of the partner frame, mirroring Rust's
+        # ``self.theta``: it starts at 0, NOT at ``bem.azimuth`` (the BEM blade
+        # azimuth may carry an offset Rust does not know about), and advances
+        # only when a window completes, so checkpoint reloads do not move it.
+        # Known gaps: (1) a Rust restart via ``with_initial_state(state, theta)``
+        # starts from a non-zero theta that is not mirrored here; (2) Rust's
+        # increment comes from ``kinematics_over_step`` and includes ramp and
+        # angular-acceleration terms, while this side integrates omega * dt with
+        # the omega read from preCICE - they agree for a constant omega
+        # (``omega_ramp_time: 0``).
+        self._frame_theta: float = 0.0
+
+    # -----------------------------------------------------------------------
+    # Rotor-frame boundary
+    # -----------------------------------------------------------------------
+
+    def _frame_theta_end(self, dt: float) -> float:
+        """End-of-window partner angle [rad], Rust's ``theta_target``."""
+        return self._frame_theta + self._current_omega * dt
+
+    def _displacements_from_partner(self, displacements: np.ndarray, dt: float) -> np.ndarray:
+        """Bring the read displacements into the rotating (blade) frame."""
+        if self._partner_frame != "inertial" or len(displacements) == 0:
+            return displacements
+        return _to_rotating(displacements, self._rotation_axis, self._frame_theta_end(dt))
+
+    def _forces_to_partner(self, forces: np.ndarray, dt: float) -> np.ndarray:
+        """Express the rotating-frame forces in the partner's frame for writing."""
+        if self._partner_frame != "inertial" or len(forces) == 0:
+            return forces
+        return _to_inertial(forces, self._rotation_axis, self._frame_theta_end(dt))
+
     # -----------------------------------------------------------------------
     # Public API
     # -----------------------------------------------------------------------
@@ -520,12 +625,9 @@ class BEMFSIParticipant:
 
             dt = adapter.dt
 
-            # Read displacements from the structural solver
-            displacements = adapter.read_data(self._coupling_mesh, self._displacement_data)
-            if len(displacements) == 0:
-                disp_max = 0.0
-            else:
-                disp_max = float(np.max(np.linalg.norm(displacements, axis=1)))
+            # Read displacements from the structural solver (partner frame;
+            # brought to the rotating frame below, once omega is current).
+            displacements_read = adapter.read_data(self._coupling_mesh, self._displacement_data)
 
             # Update omega from preCICE if configured (live rotor speed from Solid)
             if self._omega_mesh is not None:
@@ -552,6 +654,17 @@ class BEMFSIParticipant:
                         )
                     self._current_omega = new_omega
 
+            # From here on ``displacements`` is ROTATING-frame (blade frame):
+            # the BEM geometry, disp_max, the log lines, the timestep output and
+            # the bem_report.csv tip columns all use it.  With an inertial
+            # partner it is R(theta_end)^T . u_read, theta_end using the omega
+            # just updated above.
+            displacements = self._displacements_from_partner(displacements_read, dt)
+            if len(displacements) == 0:
+                disp_max = 0.0
+            else:
+                disp_max = float(np.max(np.linalg.norm(displacements, axis=1)))
+
             # BEM on (possibly deformed) geometry
             forces, bem_result = self._compute_forces(displacements)
             force_norm = float(np.linalg.norm(forces))
@@ -571,7 +684,12 @@ class BEMFSIParticipant:
             )
             self._previous_iteration_forces = forces.copy()
 
-            adapter.write_data(self._coupling_mesh, self._force_data, forces)
+            # ``forces`` stays rotating-frame (checkpoint, _last_forces,
+            # _previous_iteration_forces, output); only the written copy is
+            # expressed in the partner's frame.
+            adapter.write_data(
+                self._coupling_mesh, self._force_data, self._forces_to_partner(forces, dt)
+            )
 
             adapter.advance(dt)
 
@@ -587,6 +705,8 @@ class BEMFSIParticipant:
 
                 self._azimuth += _math.degrees(self._current_omega * dt)
                 self._azimuth %= 360.0  # keep in [0, 360)
+                # Partner-frame angle: same increment, no wrap, no azimuth offset.
+                self._frame_theta += self._current_omega * dt
 
                 self._write_timestep_output(
                     forces,
@@ -1193,6 +1313,9 @@ class BEMFSIParticipant:
         disp_mag = np.linalg.norm(displacements, axis=1)
         force_mag = np.linalg.norm(forces, axis=1)
 
+        # Tip columns are ROTATING-frame (blade frame) displacements: with
+        # ``partner_frame: inertial`` the read data are un-rotated first (T7a),
+        # so they no longer match the raw preCICE (inertial) vectors.
         tip_vec = displacements[self._tip_node_idx] if len(displacements) else np.zeros(3)
         tip_disp_x, tip_disp_y, tip_disp_z = float(tip_vec[0]), float(tip_vec[1]), float(tip_vec[2])
         tip_disp_mag = float(np.linalg.norm(tip_vec))

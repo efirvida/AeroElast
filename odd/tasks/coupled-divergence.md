@@ -563,6 +563,34 @@ magnitudes agree, and this is the measured pair.
       After side: job `11613031` at `cecf020` (includes `fee2cc8`), writes `base_fix/`; it is a second sample
       of the cycle amplitude, **not** the T7 closure. T8/T9 and the campaign re-anchor
       are blocked until the 1P is explained.
+- [ ] T7a The 1P is a frame mismatch at the BEM participant's preCICE boundary
+      (found 2026-10-11, branch `fix/bem-participant-rotor-frame`). `rotor_fsi.rs`
+      writes `disps_to_inertial(u, theta_target)` = R(θ)·u and reads the forces as
+      global (`forces_to_rotating`, Rᵀ). `BEMFSIParticipant` used the read
+      displacements as rotating-frame and wrote rotating-frame forces, so the BEM saw
+      the in-plane and span components (`r_def`, ring twist) mixed by sin θ/cos θ.
+      Evidence on `base_fix_pre_radii`, last 3 periods: raw tip z swings −2.2..1.5 m,
+      while z_rot = sin θ·x + cos θ·z has corr(z_rot, flap y) = 1.0000 (raw: 0.717) and
+      z_rot/y = 0.0650 ± 0.0007, the ratio at t = 0.01 s. The Rust convention dates from
+      2026-04-28 (`54b25ee`), so this is not a post-10-01 regression: the amplitude grew
+      once #11/#33 began reading exactly the components the rotation scrambles.
+      Route: delegated writer (2+ non-trivial files: participant + test + case key).
+      Job `11613031` (after side) could not be cancelled (no permission), so it runs to
+      completion on the corrupted state; the work happens in a worktree.
+  - [x] T7a.1 RED/GREEN unit test: round trip against Rust's Rodrigues sense.
+        Evidence: `tests/validation/bem/test_bem_participant_rotor_frame.py` RED 53 failed
+        (AttributeError, helpers absent) before the change, 53 passed after.
+  - [x] T7a.2 Transform at the IO boundary (end-of-window θ, explicit axis and
+        partner-frame keys); the smoke case declares them.
+        Evidence: `bem.partner_frame` (default `rotating`) + `bem.rotation_axis` in
+        `fsi_participant.py`; frame angle mirrors Rust θ from 0 (not `bem.azimuth`);
+        `base_fix/fluid_yaw_0.yaml` declares `inertial`/[0,1,0]. Existing participant
+        tests (deformed geometry, wall flow, rated twist): 23 passed; ruff clean.
+  - [ ] T7a.3 30 s gate on the fix: the 1P is gone (≥ 2 periods), then the mean
+        against 2.541 MN, reported separately.
+  - [ ] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
+        was measured on rotated displacements.
+  - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
 - [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
       `force_projection_sense_p5`), the group 27/35 rows and
       `docs/validation_closures.md`; the consequence numbers above are the

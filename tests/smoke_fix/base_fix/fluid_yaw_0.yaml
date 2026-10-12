@@ -43,6 +43,12 @@ bem:
   viterna_confidence_threshold: 0.5
   precone: 0.0
   tilt: 0.0
+  # The Rust rotor solver exchanges inertial-frame vectors (T7a).
+  partner_frame: inertial
+  rotation_axis:
+  - 0.0
+  - 1.0
+  - 0.0
   span_direction:
   - 0.0
   - 0.0
