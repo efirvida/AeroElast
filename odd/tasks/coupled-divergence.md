@@ -705,6 +705,23 @@ magnitudes agree, and this is the measured pair.
       `tools/diagnose_twist_sense_frame.py`, afac31c's docstring); every coupled or
       BEM-loaded anchor produced with −x (S-5, S-6, the V-0x and campaign rows) is
       expected to move - report the move, never re-band.
+      **Orientation confirmed with the maintainer (2026-10-12).** Maintainer: "la
+      orientacion correcta es la de Aeroelas estructural de winio" - wind +Y, rotation
+      axis +Y (right hand), blade along +Z with prebend toward −Y. Measured on the
+      aeroelast mesh (`solid_mesh.vtu`): the leading edge is +x at every station
+      (blunt end, nearer the pitch axis), so ω × r = +x moves the blade toward its
+      leading edge. The `turbinesFoam/geometry/stl/iea15mw_blade.stl` is the x-mirror
+      of this mesh (leading edge −x); the maintainer handles that side.
+      **Decision: the BEM follows the structure.** Fix plan (T7c, after `11613528`):
+      1. RED tests first: a configured `tangential_direction` that contradicts the
+         measured leading edge is refused; F_t points toward the measured leading
+         edge; the aerodynamic torque on the structure about +y is positive.
+      2. `ForceProjector` derives the Tp sense from the measured leading edge (the
+         afac31c pattern) instead of the config; a contradicting config raises with a
+         message naming the fix.
+      3. Drop the key from the 65 fluid YAMLs; fix afac31c's docstring and the tests
+         and tools listed above that encode −x.
+      4. Independent verifier (high-risk item 3), then the 30 s gate on the fixed tree.
       In flight: job `11613528` at `d233e38`, `RUN_NAME=tplus_30s`,
       `FLUID_YAML=fluid_yaw_0_tplus.yaml` (only `tangential_direction` differs from the
       base case; gravity on), the one-variable pair of `frame_fix_30s`.
