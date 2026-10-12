@@ -656,7 +656,7 @@ magnitudes agree, and this is the measured pair.
   - [ ] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
         was measured on rotated displacements.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
-- [ ] T7b The +6.6 % mean thrust is a reversed tangential force: every production
+- [x] T7b The +6.6 % mean thrust is a reversed tangential force: every production
       fluid YAML (65 of 65 carrying the key) sets `tangential_direction: -x`, which
       pushes the edgewise load toward the trailing edge.
       Evidence (2026-10-12, all local, no HPC):
@@ -725,6 +725,16 @@ magnitudes agree, and this is the measured pair.
       In flight: job `11613528` at `d233e38`, `RUN_NAME=tplus_30s`,
       `FLUID_YAML=fluid_yaw_0_tplus.yaml` (only `tangential_direction` differs from the
       base case; gravity on), the one-variable pair of `frame_fix_30s`.
+      **Result of `11613528` (2026-10-12, COMPLETED 02:18:45, `tplus_30s`, window
+      [10, 30] s, 2001 samples):** mean thrust **1.976 MN = -22.3 %** of rigid 2.541
+      (expected ~ -20 %, hit); flap tip mean **10.31 m** (expected 10-11, hit; the
+      -x pair is 18.1 m); trend +0.36 kN/s (flat); 1P amplitude **2.7 %** of mean
+      (expected ~1.5 % per blade; the single-blade figure is not separated here, so
+      this row neither confirms nor refutes it); 2 sub-iterations per window
+      (iteration 0 and 1, dF_iter ~ 22 N vs |F| ~ 7 kN: contracting, hit). BEM tip
+      elastic twist was **not measured** (the log does not carry it); the sign is
+      inferred from the thrust and flap moving together with the static +x row.
+      The reversed tangential force is the cause; T7c proceeds as decided.
       **Resume recipe:** `sacct -j 11613528`; run the mean + trend + 1P fit (T = 7.947 s,
       [10, 30] s) on `runs/smoke_fix/tplus_30s/fluid/bem_report.csv`; expect thrust
       below the rigid 2.541 MN, flap tip well below 18 m and a positive BEM tip
