@@ -656,6 +656,47 @@ magnitudes agree, and this is the measured pair.
   - [ ] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
         was measured on rotated displacements.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
+- [ ] T7b The +6.6 % mean thrust is a reversed tangential force: every production
+      fluid YAML (65 of 65 carrying the key) sets `tangential_direction: -x`, which
+      pushes the edgewise load toward the trailing edge.
+      Evidence (2026-10-12, all local, no HPC):
+      - The coupled structure twists **nose-up**: BEM tip elastic twist −3.18°, AoA
+        +2.3°, tip Np +28 % (`nograv_30s`, t = 30 s vs 0.01 s); the solid's own
+        translation fit at z = 80 m reads −1.22° against the participant's −1.25°, so
+        the participant transfers it faithfully (factor +1). Zhou is +3.6° nose-down,
+        BeamDyn +2.08°, #14's static shell +5.78°.
+      - Linear split on the fixture mesh (K + K_G + K_SP, rigid rated aero): aero alone
+        +8.25° nose-down at the tip, centrifugal alone −0.13°. The centrifugal / K_G /
+        K_SP path is not the flip. The VTU's `F_INERTIAL` is written in the inertial
+        frame (R_y(Ωt)·f); rotated back it is the constant (−18 kN, 0, +1.209 MN).
+        VTU `points` are deformed coordinates.
+      - Same mesh, polars and K, only `tangential_direction` changed: +7.78° → −1.87° at
+        r = 118.6 m. Both fields apply nose-down torque about the section centroid
+        (outboard of 80 m: +524 vs +256 kN·m); the sign is set by the edgewise force
+        (outboard Fx +34 vs −34 kN) through the shell's bend-twist coupling.
+      - Which sense is physical: the projector measures the leading edge at +x
+        (`-moment_axis_sign · chord_dir` = (0.999, 0.032, 0)) and the solid's ω × r at
+        the tip is (+92.6, 0, 0.25) m/s. A blade moves toward its leading edge, and
+        positive Tp (the BEM's positive torque and power) acts along that motion, so
+        the force must point +x. afac31c's docstring ("sets it to -x so that Tp drives
+        the rotor at positive torque") has it backwards: z × (−x) = −y opposes Ω = +y.
+      - Static FSI fixed point, `tools/diagnose_tangential_sense.py` (14 iterations,
+        relaxation 0.5, rigid 2.554 MN): −x → **+5.55 %**, flap 16.6 m, tip twist
+        −0.86°; +x → **−21.6 %**, flap 10.0 m, +6.28°. The −x row reproduces the
+        coupled anomaly (+6.6 %, 18.1 m). The +x overshoot against Zhou (−13 %,
+        13.9 m) is the shell over-twist already recorded by #14 (shell/Zhou 1.61×), a
+        separate finding, not tuned here.
+      In flight: job `11613528` at `d233e38`, `RUN_NAME=tplus_30s`,
+      `FLUID_YAML=fluid_yaw_0_tplus.yaml` (only `tangential_direction` differs from the
+      base case; gravity on), the one-variable pair of `frame_fix_30s`.
+      **Resume recipe:** `sacct -j 11613528`; run the mean + trend + 1P fit (T = 7.947 s,
+      [10, 30] s) on `runs/smoke_fix/tplus_30s/fluid/bem_report.csv`; expect thrust
+      below the rigid 2.541 MN, flap tip well below 18 m and a positive BEM tip
+      elastic twist. If it holds, the decision left to the maintainer is the fix's
+      form: flip the 65 YAMLs, or have the projector derive the Tp sense from the
+      measured leading edge (as afac31c did for the twist) and refuse a configured
+      sense that contradicts it. Either way it is a contract change (high-risk item
+      3) and invalidates every coupled result produced with `-x`.
 - [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
       `force_projection_sense_p5`), the group 27/35 rows and
       `docs/validation_closures.md`; the consequence numbers above are the
