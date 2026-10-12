@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --nodes=1
 #SBATCH --ntasks=8
 #SBATCH --time=01:00:00
 #SBATCH -J ab_coupling

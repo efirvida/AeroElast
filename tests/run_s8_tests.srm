@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --nodes=1
 #SBATCH --ntasks=8
 #SBATCH --time=08:00:00
 #SBATCH -e s8_%j.err

@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --nodes=1
 #SBATCH --ntasks=8
 #SBATCH --time=00:20:00
 #SBATCH -J coupling_probe
