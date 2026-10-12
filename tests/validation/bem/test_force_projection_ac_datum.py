@@ -65,10 +65,12 @@ from tests.support.paths import DATA_DIR  # noqa: E402
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
-#: Production defaults of the standalone / FSI projectors.
+#: Production defaults of the standalone / FSI projectors.  ``+x`` is the measured
+#: leading-edge side; the transposed pre-P5 pair (normal +x, tangential +y) is refused
+#: since ``Tp`` follows the leading edge (T7c).
 SPAN_DIR = np.array([0.0, 0.0, 1.0])
-NORMAL_DIR = np.array([1.0, 0.0, 0.0])
-TANGENTIAL_DIR = np.array([0.0, 1.0, 0.0])
+NORMAL_DIR = np.array([0.0, 1.0, 0.0])
+TANGENTIAL_DIR = np.array([1.0, 0.0, 0.0])
 
 DATUM_TOL = 0.02  # AC placement, as a fraction of the local chord
 MOMENT_TOL = 0.01  # relative error on |M_expected|
