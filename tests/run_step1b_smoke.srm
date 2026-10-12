@@ -20,6 +20,7 @@ export LD_LIBRARY_PATH=${GCC14_LIB}:${VENV_DIR}/lib/:${VENV_DIR}/lib64/:/usr/lib
 # Submit from the root of the checkout to run (main tree or a worktree):
 #   mkdir -p runs/slurm && RUN_NAME=<name> sbatch tests/run_step1b_smoke.srm
 # SOLID_YAML=<file in smoke_fix/base_fix/> swaps the solid case (default: the base case).
+# FLUID_YAML=<file in smoke_fix/base_fix/> swaps the fluid case (default: the base case).
 # Results land in <checkout>/runs/smoke_fix/<RUN_NAME>/ (git-ignored), and the
 # package is imported from that checkout's src/, not from the editable install.
 REPO=${SLURM_SUBMIT_DIR:-$(pwd)}
@@ -30,6 +31,7 @@ CASES_DIR=${SUBMIT_DIR}/smoke_fix
 RESULTS_BASE=${RESULTS_BASE:-${REPO}/runs/smoke_fix}
 RUN_NAME=${RUN_NAME:-base_fix}
 SOLID_YAML=${SOLID_YAML:-solid_corotational_yaw_0.yaml}
+FLUID_YAML=${FLUID_YAML:-fluid_yaw_0.yaml}
 CASE_DIR=${RESULTS_BASE}/${RUN_NAME}
 export CASE_DIR
 rm -rf ${CASE_DIR}
@@ -38,7 +40,7 @@ mkdir -p ${CASE_DIR}/logs
     >> ${CASE_DIR}/logs/solid.log 2>&1 &
 SOLID_PID=$!
 sleep 2
-( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_fluid.sh ${CASES_DIR}/base_fix/fluid_yaw_0.yaml ${CASE_DIR} ) \
+( cd ${CASE_DIR} && ${SUBMIT_DIR}/IEA15MW/_run_fluid.sh ${CASES_DIR}/base_fix/${FLUID_YAML} ${CASE_DIR} ) \
     >> ${CASE_DIR}/logs/fluid.log 2>&1 &
 FLUID_PID=$!
 
