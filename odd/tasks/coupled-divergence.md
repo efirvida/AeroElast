@@ -533,6 +533,36 @@ magnitudes agree, and this is the measured pair.
       `sbatch --time=06:00:00 tests/run_step1b_smoke.srm` (~2.5 h; do not edit `src/`
       while it runs). Check stationarity before averaging, then thrust vs the rigid
       2.541 MN and vs `base_fix_pre_radii`.
+      **Result of the before side (2026-10-11): T7 is RED, it does not close.** Job
+      `11611263` (tree of 2026-10-08, after `6765633`/`7a84da1`, before `fee2cc8`), kept
+      in `$SCRATCH/smoke_fix_results/base_fix_pre_radii/` with its `.out`/`.err` in
+      `logs/`. The coupling contracts (3000/3000 windows, mean 2.14 sub-iterations, none
+      at 30), but the response is a full-amplitude **1P limit cycle**: peak spacing
+      7.95 s = 2π/Ω, peak at a fixed azimuth (Ωt mod 2π = 306°), and every whole period
+      is identical, so it is periodic-stationary, not drifting. Whole-period statistics
+      (T = 7.947 s, last 3 periods): thrust **2.726 MN (1.92-3.52)**, tip **17.99 m
+      (11.4-24.3)**, power 13.89 MW, dropping to 8.7 MW at the thrust peak. The script's
+      "steady 2.680 MN" averages [15, 30] = 1.89 periods and is biased; the script's
+      own criterion (flexible thrust below the rigid 2.541 MN) fails either way.
+      The same operating point on the 2026-10-01 tree
+      (`$SCRATCH/frontiersin_results_corotational_100s/yaw_0`, case
+      `tests/IEA15MW/frontiersin_2025_yaw/`, which differs from `smoke_fix/base_fix` only in
+      `velocity_data` and `airfoil_spacing`) reads 1.640 MN (1.60-1.66), tip 7.44 m
+      (7.0-7.9), 12.35 MW: a small 1P. Neither matches G4's recorded 2.20 MN /
+      12.7-12.8 m / 14.71 MW, so G4's source run is a third, unidentified state.
+      **The blind spot:** every #19/#26 verification (500/500, `11613014`) ran at
+      `max-time 5.0`, shorter than one rotor period (7.95 s), so it could not see a 1P
+      mechanism. Contraction says the coupling converges, not that the load is right.
+      Mechanism candidates, none tested yet: the solid is **one blade** and the BEM
+      scales by `n_blades: 3`, so a per-blade 1P shows up in "rotor" thrust; gravity is
+      the only 1P forcing in the case (uniform inflow, no shear/tilt/yaw) but is mostly
+      edgewise and implausible for +/-0.8 MN and +/-6 m of flap; prime suspect is
+      `6765633` (projector frozen on the reference geometry). Check its frame against
+      the azimuth: a projector frozen at one azimuth and applied to a rotating geometry
+      modulates the load at exactly 1P.
+      After side: job `11613031` at `cecf020` (includes `fee2cc8`), writes `base_fix/`; it is a second sample
+      of the cycle amplitude, **not** the T7 closure. T8/T9 and the campaign re-anchor
+      are blocked until the 1P is explained.
 - [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
       `force_projection_sense_p5`), the group 27/35 rows and
       `docs/validation_closures.md`; the consequence numbers above are the
