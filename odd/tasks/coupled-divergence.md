@@ -778,7 +778,7 @@ magnitudes agree, and this is the measured pair.
       A23 corrected, `tools/diagnose_tangential_sense.py` no longer builds a `-x`
       participant (it would raise) and reports the refusal. `diagnose_twist_sense_frame.py:11`
       already says "used to". Not run: the diagnose script itself (needs the full env).
-- [ ] T9 Comment and close #19, and fold #26's remaining closure criteria into
+- [x] T9 Comment and close #19 (done 2026-10-13; #26 was already closed), and fold #26's remaining closure criteria into
       it.
 
 ### Corrections to the issue's own text
