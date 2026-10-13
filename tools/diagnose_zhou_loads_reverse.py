@@ -121,8 +121,18 @@ if TRI_MODE in ("split", "span"):
         pl = []
         for d in lam.plies_data():
             m = d["material"]
-            mat = _Mat(m["e1"], m["e2"], m["e3"], m["g12"], m["g23"], m["g13"],
-                       m["nu12"], m["nu23"], m["nu31"], m["rho"])
+            mat = _Mat(
+                m["e1"],
+                m["e2"],
+                m["e3"],
+                m["g12"],
+                m["g23"],
+                m["g13"],
+                m["nu12"],
+                m["nu23"],
+                m["nu31"],
+                m["rho"],
+            )
             pl.append(_Ply(mat, d["thickness"], d["angle"] + psi))
         return _Lam(pl, lam.shear_correction_factor)
 
@@ -131,20 +141,35 @@ if TRI_MODE in ("split", "span"):
     xyz_k = np.array([n.coords for n in mesh_k.nodes])
     psis = []
     for el in [e for e in mesh_k.elements if e.node_count == 3]:
-        owner = next((nm for nm, es in mesh_k.element_sets.items()
-                      if nm in props_k and isinstance(props_k[nm], _Lam) and el in es.elements), None)
+        owner = next(
+            (
+                nm
+                for nm, es in mesh_k.element_sets.items()
+                if nm in props_k and isinstance(props_k[nm], _Lam) and el in es.elements
+            ),
+            None,
+        )
         if owner is None:
             continue
-        psi = psi_deg(xyz_k[[idx_k[i] for i in el.node_ids]], list(bv.SPAN_DIRECTION)) \
-            if TRI_MODE == "span" else 0.0
+        psi = (
+            psi_deg(xyz_k[[idx_k[i] for i in el.node_ids]], list(bv.SPAN_DIRECTION))
+            if TRI_MODE == "span"
+            else 0.0
+        )
         psis.append(psi)
         mesh_k.element_sets[owner].elements.discard(el)
         new = f"__TRI_{el.id}"
         mesh_k.element_sets[new] = _ES(new, {el})
         props_k[new] = _shifted(props_k[owner], psi)
-    print(f"[{TRI_MODE}] {len(psis)} laminate triangles moved to their own sets"
-          + (f"; |psi| min/median/max {min(map(abs, psis)):.1f}/{np.median(np.abs(psis)):.1f}/"
-             f"{max(map(abs, psis)):.1f} deg" if psis else ""))
+    print(
+        f"[{TRI_MODE}] {len(psis)} laminate triangles moved to their own sets"
+        + (
+            f"; |psi| min/median/max {min(map(abs, psis)):.1f}/{np.median(np.abs(psis)):.1f}/"
+            f"{max(map(abs, psis)):.1f} deg"
+            if psis
+            else ""
+        )
+    )
 assembler = PyMeshAssembler.from_model(
     bv._to_rust_mesh(mesh_k, props_k), props_k, list(bv.SPAN_DIRECTION), None
 )
@@ -243,8 +268,18 @@ if os.environ.get("ZHOU_CCX_DIR"):
         return np.where(np.abs(coords[:, 2] - z) < t.STATION_GAP_TOLERANCE)[0]
 
     _rings = {"tip": tip, **{f"{int(100 * s)}%": _ring_at(s) for s in (0.5, 0.75, 0.9)}}
-    _ccx_compare(mesh, props, f, u, free, coords, _rings,
-                 os.environ["ZHOU_CCX_DIR"], t._ring_kinematics, bv.SPAN_DIRECTION)
+    _ccx_compare(
+        mesh,
+        props,
+        f,
+        u,
+        free,
+        coords,
+        _rings,
+        os.environ["ZHOU_CCX_DIR"],
+        t._ring_kinematics,
+        bv.SPAN_DIRECTION,
+    )
 
 # the beam, on the same completed load, standard shear-centre arm
 r_b = hub + frac * (rotor_radius - hub)

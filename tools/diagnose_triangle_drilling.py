@@ -41,7 +41,11 @@ SCALES = (0.1, 1.0, 10.0, 100.0)
 
 def _prop(ply_t: float = tw.PLY_T, e_scale: float = 1.0) -> dict:
     mat = OrthotropicMaterial(
-        "CFRP", E=(tw.E1, tw.E2, tw.E2), G=(tw.G12, tw.G12, tw.G12), nu=(tw.NU12, tw.NU12, tw.NU12), rho=tw.RHO_PLY
+        "CFRP",
+        E=(tw.E1, tw.E2, tw.E2),
+        G=(tw.G12, tw.G12, tw.G12),
+        nu=(tw.NU12, tw.NU12, tw.NU12),
+        rho=tw.RHO_PLY,
     )
     lam = create_laminate_from_angles(mat, ply_t, [45.0, -45.0, -45.0, 45.0])
     h = lam.total_thickness
@@ -123,7 +127,9 @@ def control_scaling_reaches_k_drill() -> bool:
     d10 = _k(xyz, [[0, 1, 2]], [TRI], _prop(e_scale=10.0)).diagonal()[5::6]
     ratio = d10 / d1
     ok = bool(np.allclose(ratio, 10.0, rtol=1e-6))
-    print(f"CONTROL  triangle K[theta_z,theta_z] at s=10 / s=1 = {np.array2string(ratio, precision=6)}  (must be 10): {'OK' if ok else 'BROKEN'}")
+    print(
+        f"CONTROL  triangle K[theta_z,theta_z] at s=10 / s=1 = {np.array2string(ratio, precision=6)}  (must be 10): {'OK' if ok else 'BROKEN'}"
+    )
     return ok
 
 
@@ -139,9 +145,13 @@ def b1() -> bool:
     g1 = all(abs(table[p][i1] - 1.0) <= GATE1 for p in ("tri", "mixed"))
     tri = table["tri"]
     d2 = abs(tri[SCALES.index(10.0)] - tri[SCALES.index(0.1)]) / abs(tri[SCALES.index(0.1)])
-    print(f"    GATE 1 (tri and mixed at s=1 within {GATE1:.0%} of Bredt): {'PASS' if g1 else 'FAIL'}")
+    print(
+        f"    GATE 1 (tri and mixed at s=1 within {GATE1:.0%} of Bredt): {'PASS' if g1 else 'FAIL'}"
+    )
     verdict = "invisible" if d2 <= GATE2_QUIET else ("MATTERS" if d2 > GATE2_LOUD else "in between")
-    print(f"    GATE 2 triangle ratio change s=0.1 -> 10: {d2:.3%} (<= {GATE2_QUIET:.0%} quiet, > {GATE2_LOUD:.0%} loud): {verdict}")
+    print(
+        f"    GATE 2 triangle ratio change s=0.1 -> 10: {d2:.3%} (<= {GATE2_QUIET:.0%} quiet, > {GATE2_LOUD:.0%} loud): {verdict}"
+    )
     return g1 and d2 <= GATE2_QUIET
 
 

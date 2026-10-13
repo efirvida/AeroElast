@@ -32,7 +32,9 @@ def _ccx_displacement(frd: Path, coords: np.ndarray) -> np.ndarray:
     disp = _parse_ccx_frd(frd, list(ids))
     dist, nn = cKDTree(pts).query(coords)
     if dist.max() > MATCH_TOL:
-        raise RuntimeError(f"{int((dist > MATCH_TOL).sum())} of our nodes have no FRD match (max {dist.max():.2e} m)")
+        raise RuntimeError(
+            f"{int((dist > MATCH_TOL).sum())} of our nodes have no FRD match (max {dist.max():.2e} m)"
+        )
     if len(set(nn.tolist())) != len(nn):
         raise RuntimeError("ambiguous match: two of our nodes map to the same FRD node")
     u = np.zeros(6 * len(coords))
@@ -92,7 +94,9 @@ def compare(mesh, props, f, u_ours, free, coords, ring_sets, outdir, ring_fn, sp
     w_ccx = 0.5 * float(f[free] @ u_ccx[free])
     print(f"[ccx] work W=1/2 f.u  ours {w_ours:.6e}  ccx {w_ccx:.6e}  ratio {w_ours / w_ccx:.4f}")
 
-    print(f"[ccx] {'ring':>8} {'omega ours':>12} {'omega ccx':>12} {'rel diff':>9} {'dist/|om| ours':>15} {'ccx':>8}")
+    print(
+        f"[ccx] {'ring':>8} {'omega ours':>12} {'omega ccx':>12} {'rel diff':>9} {'dist/|om| ours':>15} {'ccx':>8}"
+    )
     gates = {}
     for label, ring in ring_sets.items():
         ko = ring_fn(coords, u_ours, ring)
@@ -105,5 +109,7 @@ def compare(mesh, props, f, u_ours, free, coords, ring_sets, outdir, ring_fn, sp
     wo, wc = gates["tip"]
     d_tip = abs(wo - wc) / abs(wc)
     d_w = abs(w_ours - w_ccx) / abs(w_ccx)
-    print(f"[ccx] GATE tip omega {d_tip:.2%} (<= {GATE:.0%}): {'PASS' if d_tip <= GATE else 'FAIL'}")
+    print(
+        f"[ccx] GATE tip omega {d_tip:.2%} (<= {GATE:.0%}): {'PASS' if d_tip <= GATE else 'FAIL'}"
+    )
     print(f"[ccx] GATE work      {d_w:.2%} (<= {GATE:.0%}): {'PASS' if d_w <= GATE else 'FAIL'}")
