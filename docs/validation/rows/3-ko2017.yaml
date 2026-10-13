@@ -20,8 +20,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0029
+      margin_pct: 0.45
+      text: 'Norm vs Kirchhoff: 1.0029 (expected: 0.9984, error: 0.45%)'
+      digest: 72168962002cbe99
+    expected: 0.9984
   - label: rtol at line 832
     asserted: true
     reference:
@@ -35,8 +41,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0057
+      margin_pct: 0.57
+      text: 'Norm vs Kirchhoff: 1.0057 (expected: 1.0000, error: 0.57%)'
+      digest: d87dd2de11a3f729
+    expected: 1.0
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa_2
@@ -59,8 +71,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0004
+      margin_pct: 0.24
+      text: 'Norm vs Kirchhoff: 1.0004 (expected: 0.9980, error: 0.24%)'
+      digest: 2ac971d1375b5329
+    expected: 0.998
   - label: rtol at line 832
     asserted: true
     reference:
@@ -74,8 +92,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0004
+      margin_pct: 0.06
+      text: 'Norm vs Kirchhoff: 1.0004 (expected: 0.9998, error: 0.06%)'
+      digest: 829944c7d29026fc
+    expected: 0.9998
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa_3
@@ -98,8 +122,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9981
+      margin_pct: 0.02
+      text: 'Norm vs Kirchhoff: 0.9981 (expected: 0.9979, error: 0.02%)'
+      digest: b1a1a035f556a433
+    expected: 0.9979
   - label: rtol at line 832
     asserted: true
     reference:
@@ -113,8 +143,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9998
+      margin_pct: 0.0
+      text: 'Norm vs Kirchhoff: 0.9998 (expected: 0.9998, error: 0.00%)'
+      digest: ba6261c8a4939b64
+    expected: 0.9998
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr
@@ -137,8 +173,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0028
+      margin_pct: 0.08
+      text: 'Norm vs Kirchhoff: 1.0028 (expected: 1.0020, error: 0.08%)'
+      digest: 0aa9a1861c9888f3
+    expected: 1.002
   - label: rtol at line 832
     asserted: true
     reference:
@@ -152,8 +194,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0094
+      margin_pct: 0.64
+      text: 'Norm vs Kirchhoff: 1.0094 (expected: 1.0030, error: 0.64%)'
+      digest: 98cd26476b0fc920
+    expected: 1.003
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr_2
@@ -176,8 +224,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9998
+      margin_pct: 0.12
+      text: 'Norm vs Kirchhoff: 0.9998 (expected: 1.0010, error: 0.12%)'
+      digest: e3b5e05c2939b758
+    expected: 1.001
   - label: rtol at line 832
     asserted: true
     reference:
@@ -191,8 +245,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0009
+      margin_pct: 0.21
+      text: 'Norm vs Kirchhoff: 1.0009 (expected: 1.0030, error: 0.21%)'
+      digest: a21ea180a4237fe6
+    expected: 1.003
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr_3
@@ -215,8 +275,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9978
+      margin_pct: 0.32
+      text: 'Norm vs Kirchhoff: 0.9978 (expected: 1.0010, error: 0.32%)'
+      digest: 997fb49b48668df1
+    expected: 1.001
   - label: rtol at line 832
     asserted: true
     reference:
@@ -230,8 +296,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9997
+      margin_pct: 0.33
+      text: 'Norm vs Kirchhoff: 0.9997 (expected: 1.0030, error: 0.33%)'
+      digest: 018b02b9ba7f2761
+    expected: 1.003
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_01_100_0_0_015625_0_0637019230769
@@ -254,8 +326,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9998
+      margin_pct: 0.12
+      text: 'Norm vs Kirchhoff: 0.9998 (expected: 1.0010, error: 0.12%)'
+      digest: e3b5e05c2939b758
+    expected: 1.001
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_001_100000_0_0_015625_0_063701923
@@ -278,8 +356,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.998
+      margin_pct: 0.17
+      text: 'Norm vs Kirchhoff: 0.9980 (expected: 0.9997, error: 0.17%)'
+      digest: 4caed9c6bea8de9f
+    expected: 0.9997
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_0001_100000000_0_0_015625_0_06370
@@ -302,8 +386,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9968
+      margin_pct: 0.29
+      text: 'Norm vs Kirchhoff: 0.9968 (expected: 0.9997, error: 0.29%)'
+      digest: f8c8ee9eaf3b60c6
+    expected: 0.9997
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_01_100_0_0_015625_0_063701923076
@@ -326,8 +416,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9982
+      margin_pct: 0.09
+      text: 'Norm vs Kirchhoff: 0.9982 (expected: 0.9991, error: 0.09%)'
+      digest: bf3c011f8be6fd50
+    expected: 0.9991
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_001_100000_0_0_015625_0_06370192
@@ -350,8 +446,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9976
+      margin_pct: 0.12
+      text: 'Norm vs Kirchhoff: 0.9976 (expected: 0.9988, error: 0.12%)'
+      digest: 453b8b268725687f
+    expected: 0.9988
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_0001_100000000_0_0_015625_0_0637
@@ -374,8 +476,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9974
+      margin_pct: 0.14
+      text: 'Norm vs Kirchhoff: 0.9974 (expected: 0.9988, error: 0.14%)'
+      digest: 2fdddc76befc9a0b
+    expected: 0.9988
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_3_pinched_cylinder_tables_8_to_9.expected0_false
@@ -398,8 +506,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9674
+      margin_pct: 3.88
+      text: 'Norm vs Kirchhoff: 0.9674 (expected: 0.9313, error: 3.88%)'
+      digest: 355ac6ba259c645c
+    expected: 0.9313
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_3_pinched_cylinder_tables_8_to_9.expected0_true
@@ -422,8 +536,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9467
+      margin_pct: 1.56
+      text: 'Norm vs Kirchhoff: 0.9467 (expected: 0.9321, error: 1.56%)'
+      digest: 2c15d116f35676e1
+    expected: 0.9321
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_4_scordelis_lo_tables_10_to_11.expected0_false
@@ -446,8 +566,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9988
+      margin_pct: 0.15
+      text: 'Norm vs Kirchhoff: 0.9988 (expected: 0.9973, error: 0.15%)'
+      digest: c99ee42449e1cc89
+    expected: 0.9973
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_4_scordelis_lo_tables_10_to_11.expected0_true
@@ -470,8 +596,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9988
+      margin_pct: 0.46
+      text: 'Norm vs Kirchhoff: 0.9988 (expected: 0.9942, error: 0.46%)'
+      digest: bff2448083fd7077
+    expected: 0.9942
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_02667_in_plane_1_0_0_005424_0_001754_0
@@ -494,8 +626,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0001
+      margin_pct: 0.3
+      text: 'Norm vs Kirchhoff: 1.0001 (expected: 0.9971, error: 0.30%)'
+      digest: 19a166d32bca5ef4
+    expected: 0.9971
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_02667_out_of_plane_1_0_0_005424_0_0017
@@ -518,8 +656,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9999
+      margin_pct: 0.26
+      text: 'Norm vs Kirchhoff: 0.9999 (expected: 0.9973, error: 0.26%)'
+      digest: acd897b03f2e8240
+    expected: 0.9973
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_0002667_in_plane_1e_06_0_005256_0_0012
@@ -542,8 +686,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9131
+      margin_pct: 8.49
+      text: 'Norm vs Kirchhoff: 0.9131 (expected: 0.9978, error: 8.49%)'
+      digest: 1bf0575d237b3f6e
+    expected: 0.9978
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_0002667_out_of_plane_1e_06_0_005256_0
@@ -566,8 +716,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9112
+      margin_pct: 8.71
+      text: 'Norm vs Kirchhoff: 0.9112 (expected: 0.9982, error: 8.71%)'
+      digest: fd4e95b29fde0ef5
+    expected: 0.9982
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_6_hook_table_14_minimal_fix.0_9782
@@ -590,8 +746,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9927
+      margin_pct: 1.48
+      text: 'Norm vs Kirchhoff: 0.9927 (expected: 0.9782, error: 1.48%)'
+      digest: 2dbc2b0451900562
+    expected: 0.9782
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_004_2_0_expected_mitc40_false
@@ -614,8 +776,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0047
+      margin_pct: 0.17
+      text: 'Norm vs Kirchhoff: 1.0047 (expected: 1.0030, error: 0.17%)'
+      digest: bb6c9ea8bd22e0a1
+    expected: 1.003
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_004_2_0_expected_mitc40_true
@@ -638,8 +806,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0042
+      margin_pct: 0.84
+      text: 'Norm vs Kirchhoff: 1.0042 (expected: 0.9958, error: 0.84%)'
+      digest: 9da29bcf7d60e371
+    expected: 0.9958
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_0004_0_002_expected_mitc41_false
@@ -662,8 +836,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9786
+      margin_pct: 0.49
+      text: 'Norm vs Kirchhoff: 0.9786 (expected: 0.9834, error: 0.49%)'
+      digest: 859d54479c758416
+    expected: 0.9834
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_0004_0_002_expected_mitc41_true
@@ -686,8 +866,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9641
+      margin_pct: 0.98
+      text: 'Norm vs Kirchhoff: 0.9641 (expected: 0.9736, error: 0.98%)'
+      digest: 0e98d11d4910279b
+    expected: 0.9736
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_8_full_hemisphere_table_17.0_004_2_0_0_996
@@ -710,8 +896,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9982
+      margin_pct: 0.22
+      text: 'Norm vs Kirchhoff: 0.9982 (expected: 0.9960, error: 0.22%)'
+      digest: c66d4000dc718bfe
+    expected: 0.996
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_8_full_hemisphere_table_17.0_0004_0_002_0_9798
@@ -734,8 +926,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.972
+      margin_pct: 0.8
+      text: 'Norm vs Kirchhoff: 0.9720 (expected: 0.9798, error: 0.80%)'
+      digest: f797d249c60da5df
+    expected: 0.9798
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_fa
@@ -758,8 +956,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9761
+      margin_pct: 0.01
+      text: 'Norm vs Kirchhoff: 0.9761 (expected: 0.9762, error: 0.01%)'
+      digest: 3ee17b21b05da6a3
+    expected: 0.9762
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_tr
@@ -782,8 +986,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.9975
+      margin_pct: 0.72
+      text: 'Norm vs Kirchhoff: 0.9975 (expected: 0.9904, error: 0.72%)'
+      digest: f4ef3e0cb0138621
+    expected: 0.9904
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_fa
@@ -806,8 +1016,14 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 0.977
+      margin_pct: 0.07
+      text: 'Norm vs Kirchhoff: 0.9770 (expected: 0.9777, error: 0.07%)'
+      digest: eab3e65e767ab9ba
+    expected: 0.9777
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_tr
@@ -830,7 +1046,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 48617b4
+      date: '2026-10-13'
+      raw: 1.0168
+      margin_pct: 2.34
+      text: 'Norm vs Kirchhoff: 1.0168 (expected: 0.9936, error: 2.34%)'
+      digest: 8805e1e8b8a12988
+    expected: 0.9936
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

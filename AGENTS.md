@@ -183,8 +183,10 @@ full-suite measurement before a merge.
   the MITC4 path of `assemble_kt_corotational` now uses upstream's total-Lagrangian tangent, so
   the asserted property no longer differs), the D-Tube and UL-elastica accuracy cases, and
   `test_iea15mw_s2[LC1_gravity-utd]` (the disowned UTD input).
-- `tests/validation/benchmarks/test_ko2017_performance.py` has 8 pre-existing failures on coarse
-  distributed meshes — not regressions.
+- `tests/validation/benchmarks/test_ko2017_performance.py`: measured 2026-10-13 (HEAD 890d4e6,
+  ~2 min) 29 passed, 2 failed — both `test_3_5_twisted_beam_tables_12_to_13` at t=0.0002667
+  (MITC4 thin twisted beam, 8.5 % / 8.7 % vs a 1 % bound). The older "8 failures on coarse
+  distributed meshes" figure no longer holds on this tree.
 - Removed in the 2026-09-30 merge and therefore absent: 3D solid support and its tests
   (`test_vol_mesh.py`, `test_solid_elements.py`, `test_beam_4cases_parity.py`), plus
   `test_blade_mesh.py` and `test_rotor_inertial.py`. CalculiX helpers read
