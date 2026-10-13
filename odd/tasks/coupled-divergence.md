@@ -791,6 +791,11 @@ magnitudes agree, and this is the measured pair.
           on conservation grounds at zero cost whatever B reads; B only bounds how much
           the bias mattered to the coupled solution. A |Δ flap| > 1 % would contradict the
           u² scaling and is itself a finding.
+        **Launched:** job `11614215` (2026-10-13, from this worktree at `f939653`,
+        `RUN_NAME=t7a5_widths_30s`, ~2 h 45 min). **Resume recipe:** `sacct -j 11614215`;
+        then `PYTHONPATH=$PWD/src scripts/aeroenv.sh python tools/coupled_run_stats.py
+        runs/smoke_fix/t7c_30s runs/smoke_fix/t7a5_widths_30s --t-end 30` and read Gates
+        A/B above.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
 - [x] T7b The +6.6 % mean thrust is a reversed tangential force: every production
       fluid YAML (65 of 65 carrying the key) sets `tangential_direction: -x`, which
