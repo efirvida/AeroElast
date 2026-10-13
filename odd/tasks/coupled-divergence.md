@@ -907,6 +907,26 @@ magnitudes agree, and this is the measured pair.
         The projector-derived sense reproduces the one-variable +x run to 4 digits
         (flap +0.4 %), so the fix is the same physics without the YAML key. Not
         measured: BEM tip elastic twist (the log does not carry it).
+  - [x] T7d BEM tip elastic twist on the fixed tree (2026-10-13, one measurement session,
+        no tuning; precondition T7a.4 decided, Engram obs 357). Metric: last-strip
+        `twist_deg` in `fluid/<t>/bem_sectional.csv` minus the production reference
+        `load_blade_aero(tests/IEA-15-240-RWT.yaml).twist`, whole periods
+        (T = 7.947 s, [14.11, 30] s); positive = nose-down, Zhou's sense. Instrument
+        checks: root strip +0.000 deg, tip reference twist -1.242 deg (official sheet).
+        Tolerance, written after the first read and derived from the references:
+        consistent with Zhou iff |M - 3.6| / 3.6 <= 0.42 (Zhou to BeamDyn +2.08 deg).
+        **Result:** `t7c_30s` and `tplus_30s` identical to 4 digits, tip **+5.589 deg**
+        (min +5.243, max +5.934); profile peak +6.09 deg at r = 113.7 m. Zhou 1.55x
+        (+55 %, outside the band); static +x fixture +6.28 deg 0.89x; BeamDyn 2.7x.
+        Thrust per degree of twist: ours 4.0 %/deg vs Zhou 3.6 %/deg (weak check).
+        **Outcome (b): no model defect with a named cause.** The "stiffness over-twist"
+        reading is not supported by earlier measurements (shell stiffer than BeamDyn by
+        6.4 % global / 23.9 % sectional, #20; independent-code response 4.22 %; Zhou
+        comparison non-transferable because of section distortion). Open candidates are
+        on the load side (application point `x_AC`, steady BEM vs coupled LL-FVW), not
+        separated here. Recorded in `docs/validation_closures.md` as an open magnitude gap
+        that does not block re-anchoring. Proposed, not run: Zhou's Fig. 11 load on the
+        coupled shell to separate load from structure. Script: not committed (scratch).
   - Leftovers for T8: `docs/model_parity_audit.md:51` (stale MATCH claim),
     `tools/diagnose_tangential_sense.py:84`, `tools/diagnose_twist_sense_frame.py:11`.
 - [x] T8 Reconcile the store and the closure log. Finding: both ids named here were

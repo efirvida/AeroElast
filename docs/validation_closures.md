@@ -1705,10 +1705,39 @@ pierden la clave. Gate de 30 s sobre el árbol corregido (job `11613577`, ventan
 
 **Qué invalida**: todo resultado acoplado producido con `-x` (campañas, gates y cifras de la prosa
 del informe) no se cita como evidencia; los anchors acoplados se re-anclan, no se re-bandean.
-**Qué no se cierra**: −22.3 % contra Zhou −13 % es una cuestión de magnitud, consistente con el
-over-twist de la cáscara (~1.7×, ver #14), no medido aquí ni afinado. El twist elástico de punta del
-BEM no se registró en el log del gate. Salvaguarda abierta: la guarda de borde de ataque en el plano
+**Qué no se cierra**: −22.3 % contra Zhou −13 % es una brecha de magnitud **abierta**, sin causa
+de modelo identificada (medición de 2026-10-13, abajo). No bloquea el re-anclaje: es un residuo de
+magnitud declarado, no un defecto de signo ni de marco. Salvaguarda abierta: la guarda de borde de ataque en el plano
 usa `norm <= 1e-12`, y un borde casi cancelado fijaría el sentido desde ruido (no probado en palas
 reales).
 **Re-ejecutar si cambia**: la derivación del sentido en `ForceProjector`, `core/config.py` o
 `fsi_participant.py` (defaults de `tangential_direction`), o la malla del borde de ataque.
+
+**Twist elástico de punta del BEM en el árbol corregido (2026-10-13, una sesión de medición, sin
+ajuste de parámetros).**
+
+- *Métrica*: `twist_deg` de la última franja en `fluid/<t>/bem_sectional.csv` menos la referencia de
+  producción `load_blade_aero(tests/IEA-15-240-RWT.yaml).twist` (sentido del BEM, positivo =
+  nariz abajo, el de Zhou). Media sobre las dos últimas ventanas de período entero
+  (T = 7.947 s, [14.11, 30] s, 1590 muestras). Comprobaciones del instrumento: la franja de raíz da
+  `+0.000°` y el twist de referencia de punta es `−1.242°`, igual que la tabla oficial.
+- *Tolerancia* (escrita después de la primera lectura; deriva de las referencias, no del
+  resultado): "consistente con Zhou" si `|M − 3.6°| / 3.6° ≤ 0.42`, que es la distancia de Zhou a
+  la referencia independiente BeamDyn (+2.08°) y por tanto lo más fino que la métrica puede
+  resolver.
+- *Resultado* (`t7c_30s`; `tplus_30s` idéntico a 4 dígitos): punta **+5.589°** (mín +5.243°,
+  máx +5.934°, 1P ±0.35°); pico del perfil +6.09° en r = 113.7 m; r = 66 m +1.56°.
+  Contra Zhou +3.6°: **1.55×, +55 %, fuera de la banda de 0.42**. Contra el punto fijo estático de
+  la misma malla (+6.28°): 0.89×. Contra BeamDyn +2.08°: 2.7×.
+- *Lectura*: el twist es el mismo orden y la misma dirección que Zhou pero mayor. El empuje no
+  añade una segunda discrepancia: −22.3 %/5.59° = 4.0 %/° contra −13 %/3.6° = 3.6 %/° (cociente
+  1.10; comprobación débil, dos puntos y casos aerodinámicos distintos). **No hay defecto de modelo
+  con causa nombrada.** La hipótesis "over-twist de la cáscara por rigidez" ya estaba acotada por
+  mediciones anteriores y no se sostiene: la cáscara es más rígida que el deck BeamDyn (+6.4 %
+  global, +23.9 % seccional, #20), reproduce la respuesta de un código independiente a 4.22 %
+  bajo una carga dada, y la comparación contra la viga de Zhou no es transferible porque el rated
+  de producción lleva distorsión de sección (`distortion/|omega| = 1.67`, ver S-7 arriba). Los
+  candidatos que quedan son del lado de la carga (punto de aplicación `x_AC`, BEM estacionario
+  frente a LL-FVW acoplado) y no se separaron aquí.
+- *No hecho*: ningún parámetro se movió hacia Zhou; no se corrió un caso con la carga de Zhou
+  sobre el shell acoplado, que sería la prueba que separa carga de estructura.
