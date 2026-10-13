@@ -1,0 +1,51 @@
+# Debt registry for scripts/check_mesh_size.py (2026-10-13). One line per file:
+#   path  values  category   # note
+# Categories: convergence-study (keep: coarse end of a study), geometry-only (turbine/tower/aero/
+# fluid mesh, no structural blade result read from it), anchor-05 (blade at 0.5 m, carries a
+# measured anchor), blade-10 (blade at 1.0 m, carries a measured result). The last two are debt:
+# re-measure on 0.15-0.25 m when docs/blade_mesh_size_rule.md says it is mandatory.
+src/aeroelast/core/mesh/generators.py 0.5 geometry-only
+tests/IEA15MW/_short_hcoarse/solid_h_coarse.yaml 0.5 convergence-study
+tests/IEA15MW/_short_hcoarse_dt5e3/solid_h_coarse.yaml 0.5 convergence-study
+tests/IEA15MW/convergence_b1_b2/runB1_rerun.srm 0.5 convergence-study
+tests/IEA15MW/convergence_b1_b2/runConvergence.srm 0.5 convergence-study
+tests/IEA15MW/convergence_b1_b2/solid_h_coarse.yaml 0.5 convergence-study
+tests/IEA15MW/frontiersin_2025_yaw/fluid_sharpy_yaw_0_smoke.yaml 2.0 geometry-only
+tests/software/mesh/test_axisymmetric_components.py 2.0 geometry-only
+tests/software/mesh/test_blade_mesh.py 0.5 anchor-05
+tests/software/mesh/test_turbine_mesh.py 5.0,10.0 geometry-only
+tests/test_iea15mw_s1_sectional.py 0.5 anchor-05
+tests/test_iea15mw_s2_static_prescribed.py 0.5 anchor-05
+tests/test_iea15mw_s4_rotating_modal.py 0.5 anchor-05
+tests/test_iea15mw_v03_static_gravity.py 0.5 anchor-05
+tests/test_iea15mw_v05_structural_properties.py 0.5 anchor-05
+tests/test_multicell_shear_flow.py 1.0 blade-10
+tests/test_rotor_aero_geometry.py 12.0 geometry-only
+tests/test_rotor_aero_surface.py 12.0 geometry-only
+tests/test_rotor_mesh_export.py 12.0 geometry-only
+tests/validation/bem/test_force_projection_ac_datum.py 1.0 blade-10
+tests/validation/bem/test_force_projection_load_frame.py 1.0 blade-10
+tests/validation/bem/test_wall_flow_activation.py 1.0 blade-10
+tests/validation/blade/test_blade_deloading_vs_reference.py 1.0 blade-10
+tests/validation/blade/test_blade_iea15mw_validation.py 1.0 blade-10
+tests/validation/blade/test_blade_rated_twist.py 1.0 blade-10
+tests/validation/blade/test_blade_section_frame_tear.py 1.0 blade-10
+tests/validation/blade/test_blade_section_torsion_stiffness.py 1.0 blade-10
+tests/validation/blade/test_blade_twist_anchor_beam.py 1.0 blade-10
+tests/validation/blade/test_blade_twist_mechanism.py 1.0 blade-10
+tests/validation/parity/test_blade_iea15mw_mesh_convergence.py 1.0 convergence-study
+tests/validation/rotor/test_bem_fsi_deformed_geometry.py 1.0 blade-10
+tools/diagnose_applied_torsion_sign.py 1.0 blade-10
+tools/diagnose_leading_edge.py 1.0 blade-10
+tools/diagnose_moment_reference.py 1.0 blade-10
+tools/diagnose_multicell_convergence.py 0.5,1.0 convergence-study
+tools/diagnose_pitching_moment_sense.py 1.0 blade-10
+tools/diagnose_radii_beamdyn.py 1.0 blade-10
+tools/diagnose_radii_kinematics.py 1.0 blade-10
+tools/diagnose_sign_chain.py 1.0 blade-10
+tools/diagnose_tangential_sense.py 1.0 blade-10
+tools/diagnose_wall_flow_readback.py 1.0 blade-10
+tools/run_s5_oneway.py 0.5 anchor-05
+tools/run_s6_oneway_dynamic.py 0.5 anchor-05
+tools/run_s8a_gj_circumferential.py 0.5 anchor-05
+tools/run_sx_campbell.py 0.5 anchor-05

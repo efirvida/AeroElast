@@ -81,3 +81,19 @@ mandatory when any of these happens:
 Until then: those numbers are labelled "0.5 m, not converged" wherever they are quoted, and no new
 result is built on top of them. Do not "fix" the debt by editing a band or a mesh size without
 re-measuring.
+
+## Correction to the inventory above, and the guard (2026-10-13)
+
+The inventory above searched 0.5 m only. A scan of every `element_size >= 0.3` found **45 files**
+(`scripts/mesh-size-debt.txt` is the authoritative list): 7 convergence-study points (keep), 7
+geometry-only (turbine, tower, aero surface, fluid meshes; no structural blade result), 10 at
+0.5 m, and **21 at 1.0 m** - about fourteen validation tests under `tests/validation/` and
+`tests/test_multicell_shear_flow.py`, and ten diagnostics under `tools/`, all coarser than the
+0.5 m this document is about. Their numbers are not converged either: in `docs/validation_data/generated/s2e_mesh_convergence.csv`
+the 1.0 m row is further from the 0.25 m one than the 0.5 m row (`f1e` 0.696398 vs 0.697503 vs
+0.697671 Hz; `tx_2e` 11.32 vs 11.22 vs 11.12 %). They are
+debt of the same kind and follow the same deferral and the same triggers.
+
+`scripts/check_mesh_size.py`, called by `scripts/check.sh` (quick and full), fails on any file or
+value not in the registry: the debt can only shrink. Removing a file from the registry requires
+having re-measured it on 0.15-0.25 m. Adding one needs a reason written in this document.

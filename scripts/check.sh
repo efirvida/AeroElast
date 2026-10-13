@@ -119,6 +119,10 @@ else
     ruff_status="no changed .py files (repo total: $(grep -c $'\t' "$log.ruff" 2>/dev/null || echo 0) rule buckets)"
 fi
 
+# ---- Mesh size: no new coarse blade mesh (AGENTS.md rule 9) ----------------------------
+mesh_rc=0
+mesh_out=$(python3 "$REPO_ROOT/scripts/check_mesh_size.py" 2>&1) || mesh_rc=$?
+
 # ---- pytest ---------------------------------------------------------------------------
 if [ "$mode" = "quick" ]; then
     selection=("${QUICK_TESTS[@]}")
@@ -173,6 +177,7 @@ done <<<"$known"
 
 # ---- report ---------------------------------------------------------------------------
 echo "check[$mode]: ruff: $ruff_status"
+echo "check[$mode]: $(printf '%s\n' "$mesh_out" | tail -1)"
 echo "check[$mode]: pytest: ${summary:-no summary}"
 echo "check[$mode]: log: ${log#"$REPO_ROOT"/}"
 for id in ${known_failures[@]+"${known_failures[@]}"}; do
@@ -185,6 +190,11 @@ for id in ${healed[@]+"${healed[@]}"}; do
     echo "  now-passes $id   (re-record: scripts/check.sh $mode --record)"
 done
 
+if [ "$mesh_rc" -ne 0 ]; then
+    printf '%s\n' "$mesh_out"
+    echo "check[$mode]: FAIL - coarse blade mesh outside scripts/mesh-size-debt.txt"
+    exit 1
+fi
 if [ "${#new_failures[@]}" -gt 0 ]; then
     echo "check[$mode]: FAIL — ${#new_failures[@]} failure(s) outside ${KNOWN_RED#"$REPO_ROOT"/}"
     exit 1
