@@ -767,6 +767,30 @@ magnitudes agree, and this is the measured pair.
         target: ΣF_normal = Σ Np·dr_rule(r_def) at rel 1e-9 (what the rebuilt projector
         delivers). E (end half-cells, also in the rigid path, moves every BEM-FSI anchor)
         is deferred to its own follow-up, T7a.6, together with the root-station NaN.
+        **Fix: `6e5d6a2`.** RED `test_frozen_projection_conserves_the_deformed_strip_load`
+        624.3097 vs 617.6559 kN (+1.077 %) → GREEN; deformed-geometry 8/8, rotor-frame
+        53/53, force projection 15/15, tube parity 1/1, `check.sh quick` OK (only the
+        known-red). Rigid path: widths vs `strip.dr` 7e-15 m, ΣF 2.2e-16 rel. Left on
+        reference widths, not load integration: VTU `Force_section`/`dr_m`
+        (`_write_sections_vtu`, diagnostic, ~1 % off when deformed), `_strip_widths` and
+        the LE weighting in `_resolve_twist_sense` (geometry weights).
+        **Pre-registered 30 s gate (before launch).** One variable: `git diff f418fb4
+        6e5d6a2~1 -- src tests/smoke_fix tests/run_step1b_smoke.srm` is empty, so the
+        before side is `t7c_30s` (job `11613577`). Same srm, `RUN_NAME=t7a5_widths_30s`.
+        Metrics: `tools/coupled_run_stats.py` on both run dirs, common `--t-end`.
+        - Gate A (the 6765633 risk: a projector-geometry change can break contraction):
+          every window converges, 0 at the 30-iteration limit; reference 3000/3000,
+          mean 2.11, max 11. Fail ⇒ finding, the fix does not ship as-is.
+        - Gate B (record, not decide): Δ of the last-2-period means (T = 7.947 s) of
+          thrust, flap tip Y, power, Mb vs 1.9746 MN / 10.3366 m / 14.3384 MW /
+          49.1957 MN·m. Prediction: the width term scales with the shortening ∝ u², so at
+          the coupled flap (10.3 m vs the fixture's 17.6 m) it is ≈ 1.08 % × (10.3/17.6)²
+          ≈ 0.37 % of the applied normal load; expected flap Δ ≈ −0.4 %, Mb ≈ −0.4 %,
+          BEM thrust slightly up (less de-loading). This is at the 0.4 % flap spread
+          between `tplus_30s`/`t7c_30s`, so a null is the expected outcome. The fix is kept
+          on conservation grounds at zero cost whatever B reads; B only bounds how much
+          the bias mattered to the coupled solution. A |Δ flap| > 1 % would contradict the
+          u² scaling and is itself a finding.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
 - [x] T7b The +6.6 % mean thrust is a reversed tangential force: every production
       fluid YAML (65 of 65 carrying the key) sets `tangential_direction: -x`, which
