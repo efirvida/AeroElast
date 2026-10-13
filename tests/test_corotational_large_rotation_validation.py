@@ -114,29 +114,48 @@ def test_kt_coro_equals_kt_tl_at_zero_displacement():
     assert err < 1e-10
 
 
-def test_corotational_is_frame_objective_tl_is_not():
+# Round-off bound: the measured error is 1.7e-12..2.6e-12 for 1..30 deg (SLURM 11614644,
+# tools/diagnose_frame_objectivity.py), so 1e-9 leaves three orders of margin and still
+# fails for any frame-dependent tangent (errors of 1e-3 or more).
+TOL_OBJECTIVITY = 1e-9
+
+
+@pytest.mark.parametrize("assemble", ["assemble_kt", "assemble_kt_corotational"])
+@pytest.mark.parametrize("angle_deg", [1.0, 5.0, 30.0])
+def test_tangent_is_frame_objective_under_rigid_rotation(assemble, angle_deg):
+    """K_t(u_rigid) == T K0 T^T on the translational block, for TL and corotational paths.
+
+    Replaces the former ``..._corotational_is_frame_objective_tl_is_not``, whose premise
+    (the TL tangent is not objective) is false for MITC4: both tangents are objective to
+    round-off.
+    """
     nodes, asm = _build_assembler()
     n_nodes = nodes.shape[0]
     t_idx = _translation_dof_indices(n_nodes)
 
-    u0 = np.zeros(asm.dofs_count, dtype=float)
-    rows0, cols0, vals0 = asm.assemble_kt(u0)
-    k0 = _coo_to_dense(rows0, cols0, vals0, asm.dofs_count)
-    k0_tt = k0[np.ix_(t_idx, t_idx)]
+    rows0, cols0, vals0 = asm.assemble_kt(np.zeros(asm.dofs_count, dtype=float))
+    k0_tt = _coo_to_dense(rows0, cols0, vals0, asm.dofs_count)[np.ix_(t_idx, t_idx)]
 
-    u_rigid, r = _rigid_rotation_displacement(nodes, math.radians(30.0))
-    rows_c, cols_c, vals_c = asm.assemble_kt_corotational(u_rigid)
-    rows_tl, cols_tl, vals_tl = asm.assemble_kt(u_rigid)
-
-    kc_tt = _coo_to_dense(rows_c, cols_c, vals_c, asm.dofs_count)[np.ix_(t_idx, t_idx)]
-    ktl_tt = _coo_to_dense(rows_tl, cols_tl, vals_tl, asm.dofs_count)[np.ix_(t_idx, t_idx)]
+    u_rigid, r = _rigid_rotation_displacement(nodes, math.radians(angle_deg))
+    rows, cols, vals = getattr(asm, assemble)(u_rigid)
+    k_tt = _coo_to_dense(rows, cols, vals, asm.dofs_count)[np.ix_(t_idx, t_idx)]
 
     k0_rot = _transform_translation_submatrix(k0_tt, r, n_nodes)
-    err_coro = _rel_err(kc_tt, k0_rot, k0_tt)
-    err_tl = _rel_err(ktl_tt, k0_rot, k0_tt)
+    assert _rel_err(k_tt, k0_rot, k0_tt) < TOL_OBJECTIVITY
 
-    assert err_coro < 1e-2
-    assert err_tl > 5e-2
+
+@pytest.mark.parametrize("angle_deg", [1.0, 5.0, 30.0])
+def test_rigid_rotation_produces_no_internal_force(angle_deg):
+    """A finite rigid rotation about z must not strain the shell: f_int(u_rigid) ~ 0."""
+    nodes, asm = _build_assembler()
+    u_rigid, _ = _rigid_rotation_displacement(nodes, math.radians(angle_deg))
+
+    f = np.asarray(asm.assemble_fint(u_rigid, True))
+    # Scale: the force of a 1e-3 uniform stretch of the undeformed structure.
+    rows0, cols0, vals0 = asm.assemble_kt(np.zeros(asm.dofs_count, dtype=float))
+    k0 = _coo_to_dense(rows0, cols0, vals0, asm.dofs_count)
+    scale = np.linalg.norm(k0 @ np.full(asm.dofs_count, 1e-3))
+    assert np.linalg.norm(f) / scale < TOL_OBJECTIVITY
 
 
 def test_small_displacement_kt_coro_agrees_with_tl():

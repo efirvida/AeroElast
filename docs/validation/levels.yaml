@@ -54,10 +54,12 @@ levels:
         reason: >-
           D-Tube bending against Camarena: a documented-red accuracy case outside the store; it
           needs an exception with a quantified source or a verdict of rejected.
-      - evidence: tests/test_corotational_large_rotation_validation.py::test_corotational_is_frame_objective_tl_is_not
+      - evidence: tests/test_corotational_large_rotation_validation.py::test_tangent_is_frame_objective_under_rigid_rotation
         reason: >-
-          Documented red by design since the MITC4 path uses the total-Lagrangian tangent; the
-          frame-objectivity claim it encoded has no replacement test.
+          Replaces the documented-red `test_corotational_is_frame_objective_tl_is_not`, whose
+          premise was false for MITC4 (both tangents are objective to round-off, 2e-12). The
+          replacement passes (tolerance 1e-9, set from the measured round-off) but has no
+          store row yet, so L1 does not count it.
 
   - id: L2
     title: Linear structural solver against published results and CalculiX
