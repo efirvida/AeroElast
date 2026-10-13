@@ -253,3 +253,45 @@ exists where distortion is ~0 and distortion cannot be its explanation. The beam
 already computed in the Zhou tool but only the tip value is printed. Candidate next measurement
 (needs pre-registration and an OK): print the beam twist at the same 50/75/90 % stations and
 compare it with the shell's `omega` there.
+
+## Line B pre-registration (2026-10-13, committed BEFORE the tool is written or run)
+
+**What #38 is, from the code (no run yet).** Quads (MITC4+/D) use the variational drill-membrane
+strain of Ko-Bathe-Zhang 2025; the composite triangle (`mitc3.rs:320,560`) uses a plain penalty
+`k = 0.15 * E_eq * t^2` on `gamma = (dv/dx - du/dy)/2 - theta_z`, with `E_eq = tr(A)/(3h)` and
+`drilling_scale` hard-wired to 1.0 for composites (`assembler.rs:1270`). Units: `E t^2` is Pa.m^2,
+so the energy is N.m^2, not N.m; the penalty is one length unit off a stiffness per area.
+
+**Change to the plan in "Next session".** The planned probe (flat patch, rigid rotation about the
+normal, spurious energy vs h) is zero BY ALGEBRA: `u=-phi y, v=phi x, theta_z=phi` gives
+`gamma=0`. It cannot discriminate, so it is kept only as a numerical check of that algebra (B0),
+and the discriminating measurement is B1 below, which asks whether the penalty changes a
+PHYSICAL response where drilling couples to bending (the folds of a closed section).
+
+**B0 (element, numeric check of the algebra).** Single flat composite triangle (code 33), rigid
+rotation about its normal. Metric: `u^T K u / (u_s^T K u_s)` with `u_s` a uniform stretch of
+strain 1e-3, at thickness h and 2h. Gate: ratio <= 1e-10 at both thicknesses.
+
+**B1 (the discriminating measurement).** Self-equilibrated torsion of the closed rectangular
+`[45,-45]s` tube of `tests/validation/parity/test_thin_walled_tube_torsion.py` (same mesh, load,
+rigid-mode removal, `theta_fit` rate), in three meshes: all quads (44), all triangles (each quad
+split in two, 33), and mixed (alternate z-rows triangle/quad). The triangle drilling stiffness is
+scaled through the property's `e_equiv` by s = 0.1, 1, 10, 100 (the composite triangle reads it only
+for `k_drill`; a Rust change is NOT needed). Reference: the hand-written Bredt rate
+`T/GJ` of that file (`_bredt_laminate`, independent CLT).
+- Gate 1 (correctness at production setting, s=1): `theta_fit` rate / Bredt within 5 % for the
+  triangle and the mixed mesh (the suite's rule). The quad run is reported beside it (known 0.998).
+- Gate 2 (is the penalty invisible?): relative change of the triangle ratio between s=0.1 and
+  s=10 (two decades). <= 1 % means the dimensional inconsistency has no consequence on this
+  response; > 5 % means #38 changes a physical result and has a named mechanism.
+- Reported, not gated: the rate at each s for each mesh, and the s=100 point.
+
+**Reading, fixed in advance.**
+- Gate 1 and Gate 2 inside: #38 is a dimensional defect without measurable consequence on torsion
+  of a closed section. Say so, and that the blade weight is bounded by the triangle area share
+  (0.12 %), which is NOT a blade measurement.
+- Gate 1 fails, or Gate 2 > 5 %: #38 changes a physical result; name the mechanism, propose the
+  fix (e.g. a penalty scaled by `G t`, not `E t^2`) and STOP for OK; no Rust edit without it.
+- Not shown in any outcome: that #38 explains the blade's 2.82x (the blade has 88 triangles and
+  its drilling scale cannot be varied for composites without a Rust change); torsion is one
+  response only.
