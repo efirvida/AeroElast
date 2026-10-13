@@ -104,16 +104,16 @@ rows:
       margin_pct: 0.0592
       text: 'λ=0.50π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.0592% (bound: 5.0000%)'
       digest: f27a936b98620c5b
-  - label: atol at line 363
+  - label: rtol at line 355
     asserted: true
     reference:
       kind: paper
       label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
       citation: simo1986
     tolerance:
-      kind: atol
-      value: 0.5
-      source: tests/validation/benchmarks/test_large_rotation_benchmarks.py:363
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_large_rotation_benchmarks.py:355
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -153,16 +153,16 @@ rows:
       margin_pct: 0.3206
       text: 'λ=1.00π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.3206% (bound: 5.0000%)'
       digest: 7ca4719709ebec4c
-  - label: atol at line 363
+  - label: rtol at line 355
     asserted: true
     reference:
       kind: paper
       label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
       citation: simo1986
     tolerance:
-      kind: atol
-      value: 0.5
-      source: tests/validation/benchmarks/test_large_rotation_benchmarks.py:363
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_large_rotation_benchmarks.py:355
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -202,16 +202,16 @@ rows:
       margin_pct: 0.1019
       text: 'λ=1.50π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.1019% (bound: 5.0000%)'
       digest: c09122285ec9ddda
-  - label: atol at line 363
+  - label: rtol at line 355
     asserted: true
     reference:
       kind: paper
       label: the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979)
       citation: simo1986
     tolerance:
-      kind: atol
-      value: 0.5
-      source: tests/validation/benchmarks/test_large_rotation_benchmarks.py:363
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_large_rotation_benchmarks.py:355
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
