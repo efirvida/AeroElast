@@ -382,3 +382,65 @@ pre-registration); the unit cleanup of `k_drill` (#38); any Rust change.
 job script `logs/check/zhou_ccx_s8r.srm` (ignored by git, edit the env line to drop
 `ZHOU_CCX_DIR` if CCX is not needed); thresholds committed before the run; nothing tuned toward
 Zhou; if a named cause appears, propose the fix and wait for the OK.
+
+## Beam-vs-ring pre-registration (2026-10-13, committed BEFORE the tool is edited or run)
+
+Confirms the draft above with the changes below. Nothing here is tuned toward Zhou.
+
+**The three traps, settled by a probe that builds the 0.25 m mesh and reads the aero input (no
+solve):**
+1. *Hub offset.* Shell `z` runs 0.000 to 117.000 m (root to tip, 671 physical stations).
+   `blade_aero.blade_length = 116.99993`, `R - hub = 116.99993` (`R = r[-1] = 120.97`, `hub = 3.97`).
+   The beam abscissa is `r_b = hub + frac * (R - hub)`, so `z_b = r_b - hub = frac * (R - hub)`
+   matches the shell `z` with no residual offset (6.9e-5 m). Rule: interpolate `theta` over `z_b`
+   at the ring's own `z`, never at `r`, and never at the nominal 50/75/90 % — the nearest physical
+   station is 58.588 / 87.706 / 105.321 m, not 58.5 / 87.75 / 105.3. Use the ring's actual `z`.
+2. *Sign.* The tool's raw `theta` is nose-up positive (its `m_b`); the shell `omega` and the
+   printed beam value are nose-down positive (`-theta`). The run prints raw `theta` and the
+   converted `-theta` once each, and every ratio uses the converted one. Sign gate: the converted
+   beam tip value must be `+2.079 deg` (same sign as the shell `+5.855`); if the sign differs the
+   run is a harness bug and no ratio is reported.
+3. *Skipped stations.* `ok[i]` is false where `min(gkt[i], gkt[i+1])` is below
+   `median(gkt) / 1000`. In such a segment the beam integrates neither torque nor `theta`. The run
+   prints the list of skipped segments (`frac` and `z`) and, for each ring, whether its `z` falls
+   inside or next to one. A ring in or adjacent to a skipped segment is a HOLE: its ratio is
+   printed with the word HOLE and is not classified.
+
+**Metric.** `rho(z) = (-theta_beam(z)) / omega_shell(z)` at the rings nearest 50, 75, 90 % span
+and at the tip. Both are cumulative from the root and both carry the same sign convention, so the
+ratio is a like-for-like kinematic comparison.
+
+**Which rings are classified.** Only rings whose shell `distortion/|omega| < 0.05` ("rigid"; the
+ring where the two models measure the same kinematic quantity). Other rings are reported and not
+called. 75 % is already known to be rigid (0.019, Line A); 50 %, 90 % and tip are not known and the
+run decides.
+
+**Verdict, fixed in advance (applied to the classified rings):**
+- `0.95 <= rho <= 1.05` at every classified ring (the suite's 5 %), with the mismatch present
+  only at unclassified rings (large distortion) -> reading (i) SUPPORTED: the gap needs section
+  distortion.
+- `rho < 0.75` at ANY classified ring -> the gap exists where the ring is rigid; distortion is NOT
+  the explanation (not the whole one). The literature shell-beam spread is 14-24 %, so 0.75 is
+  outside it. Next candidates stay: load path (nodal force vs shear-centre arm) and the beam
+  section properties themselves.
+- Anything else (`0.75 <= rho < 0.95`, or `rho > 1.05`, at a classified ring) -> report the numbers,
+  do not call it.
+- No classified ring at all -> null; report that the question could not be asked at this mesh.
+
+**What this run can and cannot decide (stated before, so the verdict is not oversold).** The shell
+already shows `omega(75 %) = 3.60 deg` (Line A) and the beam's tip is `2.079 deg`. If the Zhou
+moment does not change sign outboard, `theta_beam(75 %) <= theta_beam(tip)`, so `rho(75 %) <=
+0.58` is nearly fixed before the run: the verdict at 75 % is close to foregone, and the tip ratio
+(0.355) is already known from E3/Line A, not a prediction. The rings that can still surprise are
+50 % (shell 1.44 deg, rigid or not unknown) and 90 %. A `rho < 0.75` also does not say which of
+the models is right: the shell root is clamped (warping restrained), the beam's is not, and the
+beam has no section distortion. That is a statement about where the gap opens, not a ruling on
+which side is physical; the 3D/VABS judge is still the only ruling.
+
+**Reported only (no gate): segment increments.** Between the printed stations (root, 50, 75, 90 %,
+tip) print `d_omega_shell` and `d_theta_beam` per segment and their ratio. The cumulative ratio mixes
+everything accumulated from the root; the per-segment ratio shows where the gap is generated.
+
+**Out of scope here:** any change to the load, the beam, the mesh, or Rust; the 3D/VABS judge.
+**Cost/where:** about 3 min, same command as before without `ZHOU_CCX_DIR`, on the login node if
+it fits, `sequana_cpu_dev` otherwise.
