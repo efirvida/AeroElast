@@ -670,7 +670,7 @@ magnitudes agree, and this is the measured pair.
         (follow-up T7a.5), not folded into this decision. The comparison worktree
         `../fem-shell-worktrees/t7a4-follow` (branch `exp/t7a4-follow-projector`,
         `b0f01e4`) is throwaway; keep it until T7a.5 is scoped, then remove it.
-  - [ ] T7a.5 (follow-up, not started) Does the frozen projector conserve the BEM load
+  - [x] T7a.5 Does the frozen projector conserve the BEM load
         on the coupled run? Metric: ΣF_normal vs ∫Np dr per window (and `bem.thrust/B`);
         reference: the BEM integral itself; static bias to explain: +1.23 % at 17.6 m.
         First prove the mechanism (strip widths vs shortened radii, discipline #4), RED
@@ -796,6 +796,18 @@ magnitudes agree, and this is the measured pair.
         then `PYTHONPATH=$PWD/src scripts/aeroenv.sh python tools/coupled_run_stats.py
         runs/smoke_fix/t7c_30s runs/smoke_fix/t7a5_widths_30s --t-end 30` and read Gates
         A/B above.
+        **Result (2026-10-13, job `11614215` COMPLETED in 2 h 44 min, read with
+        `tools/coupled_run_stats.py`, common `--t-end 30`, window (14.106, 30] s).**
+        Gate A **passes**: 3000/3000 windows converge, 0 at the 30-iteration limit,
+        mean 2.17 iterations (reference 2.11), max 11 (reference 11).
+        Gate B (record): thrust 1.9752 MN (+0.03 %), power 14.342 MW (+0.03 %), Mb
+        49.219 MN m (+0.05 %), flap tip Y 10.290 m (-0.45 %), edge tip X 1.457 m (+0.3 %).
+        Against the prediction: the flap Δ (-0.45 % vs expected -0.4 %) matches; Mb has
+        the opposite sign to the expected -0.4 % but moves 0.05 %, inside the 0.4 % spread
+        between `tplus_30s` and `t7c_30s`, so it neither confirms nor contradicts the u²
+        scaling. |Δ flap| is far below the 1 % that would have been a finding. Verdict:
+        the fix stays on conservation grounds; the width bias barely moved the coupled
+        solution. Whole-period means were not separated from the last-window means here.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
 - [x] T7b The +6.6 % mean thrust is a reversed tangential force: every production
       fluid YAML (65 of 65 carrying the key) sets `tangential_direction: -x`, which
