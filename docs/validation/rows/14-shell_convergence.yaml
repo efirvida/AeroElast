@@ -20,11 +20,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 8cf683c
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.5986
-      text: 0.5986% bound 2.0000%
+      text: 'Richardson-extrapolated tip deflection vs the Euler-Bernoulli tip deflection of the same cantilever: 0.5986% (bound: 2.0000%)'
       digest: 34aa631a2dd6ae84
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
@@ -48,11 +48,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 8cf683c
+      date: '2026-10-13'
       raw: null
-      margin_pct: 1.729
-      text: 1.7290% bound 2.0000%
-      digest: d025c1ef5fcbd548
+      margin_pct: 1.6783
+      text: 'finest-mesh laminate gap vs CalculiX 2.23, the same laminate on the same meshes: 1.6783% (bound: 2.0000%)'
+      digest: 5848a039139afd7f
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

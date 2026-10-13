@@ -455,3 +455,127 @@ verdicts:
     verdict: undecided
     note: >-
       Compared with Lee & Lee 2019 Table 6, i.e. another finite-element result (published numerical) normalised by the MacNeal-Harder 0.3024 value, itself numerical. One numerical arbiter does not suffice; no closed form for this roof is in the repo. Measured 3.86 / 1.00 / 2.63 % (N=8 / 16 / smoothing relief) against 5 %, reproduced at a798c84. Open until a second independent arbiter is named.
+
+# --- PRE-2 (B1/L1), 2026-10-13: G16 large rotation, G22 shell static/modal, G14 convergence, G12 stress-stiffened; measured at 8cf683c ---
+  - target: large_rotation.test_linear_tip_deflection_euler_bernoul.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli closed form P L^3/(3EI)"}
+    note: >-
+      Closed form independent of the element; 0.245 % against 2 %, reproduced at 8cf683c.
+  - target: large_rotation.test_cantilever_large_rotation_half_circ.16
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
+    note: >-
+      Same table as G15, verified against the exact closed form to 4 digits, so the arbiter is analytical. MITC4 path. Measured 0.06-0.32 % on the first points against 5 %.
+  - target: large_rotation.test_equilibrium_path.1_5707963267948966_3_6338_6_3662
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
+    note: >-
+      Same table as G15, verified against the exact closed form to 4 digits, so the arbiter is analytical. MITC4 path. Measured 0.06-0.32 % on the first points against 5 %.
+  - target: large_rotation.test_equilibrium_path.3_141592653589793_10_0_6_3662
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
+    note: >-
+      Same table as G15, verified against the exact closed form to 4 digits, so the arbiter is analytical. MITC4 path. Measured 0.06-0.32 % on the first points against 5 %.
+  - target: large_rotation.test_equilibrium_path.4_71238898038469_12_122_2_1221
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
+    note: >-
+      Same table as G15, verified against the exact closed form to 4 digits, so the arbiter is analytical. MITC4 path. Measured 0.06-0.32 % on the first points against 5 %. The 3*pi/2 w_tip residual is 3.905 % (reference 2.1221), the largest in the group, under the 5 % bound.
+  - target: large_rotation.test_equilibrium_path.6_283185307179586_10_0_0_0
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
+    note: >-
+      Same table as G15, verified against the exact closed form to 4 digits, so the arbiter is analytical. MITC4 path. Measured 0.06-0.32 % on the first points against 5 %. 2*pi rows also carry an absolute w_tip comparison (0.5 m = 5 % of L); regression leaves them UNMAPPED, measured by pytest -s (SLURM 11614700): path u_tip 1.3667 %, w_tip 0.0055 m; rollup u_tip 3.5767 %, w_tip 0.0373 m. The rollup u_tip 3.58 % is single-mesh (10 elements), no refinement table.
+  - target: large_rotation.test_simo_vu_quoc_rollup_360.10
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
+    note: >-
+      Same table as G15, verified against the exact closed form to 4 digits, so the arbiter is analytical. MITC4 path. Measured 0.06-0.32 % on the first points against 5 %. 2*pi rows also carry an absolute w_tip comparison (0.5 m = 5 % of L); regression leaves them UNMAPPED, measured by pytest -s (SLURM 11614700): path u_tip 1.3667 %, w_tip 0.0055 m; rollup u_tip 3.5767 %, w_tip 0.0373 m. The rollup u_tip 3.58 % is single-mesh (10 elements), no refinement table.
+  - target: shell_static_modal.testlinearstatic_test_fx.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
+    note: >-
+      The EXPECTED table is built in the file from closed forms (recomputed here: uz 114.286 m, ux 2.857e-5 m); not another of our results. Measured against the bound at 8cf683c (FX 1.286, FY 1.190, FZ 1.969 of 3 %; axial convergence 0.489 of 1 %; modal 1.228 of 2 %). The bounds are the measured discretisation error plus margin and all sit under the 5 % ceiling.
+  - target: shell_static_modal.testlinearstatic_test_fy.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
+    note: >-
+      The EXPECTED table is built in the file from closed forms (recomputed here: uz 114.286 m, ux 2.857e-5 m); not another of our results. Measured against the bound at 8cf683c (FX 1.286, FY 1.190, FZ 1.969 of 3 %; axial convergence 0.489 of 1 %; modal 1.228 of 2 %). The bounds are the measured discretisation error plus margin and all sit under the 5 % ceiling.
+  - target: shell_static_modal.testlinearstatic_test_fz.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
+    note: >-
+      The EXPECTED table is built in the file from closed forms (recomputed here: uz 114.286 m, ux 2.857e-5 m); not another of our results. Measured against the bound at 8cf683c (FX 1.286, FY 1.190, FZ 1.969 of 3 %; axial convergence 0.489 of 1 %; modal 1.228 of 2 %). The bounds are the measured discretisation error plus margin and all sit under the 5 % ceiling.
+  - target: shell_static_modal.testlinearstatic_test_axial_load_converg.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
+    note: >-
+      The EXPECTED table is built in the file from closed forms (recomputed here: uz 114.286 m, ux 2.857e-5 m); not another of our results. Measured against the bound at 8cf683c (FX 1.286, FY 1.190, FZ 1.969 of 3 %; axial convergence 0.489 of 1 %; modal 1.228 of 2 %). The bounds are the measured discretisation error plus margin and all sit under the 5 % ceiling.
+  - target: shell_static_modal.testnonlinearstatic_test_geometric_nonli.single
+    class: physics
+    verdict: undecided
+    note: >-
+      The linear half (5 %) compares with Euler-Bernoulli, the nonlinear half with the Bisshopp-Drucker elastica; the module docstring records a 6.0 % shell-vs-elastica gap, an xfail over the 5 % ceiling, consistent with the ~4 % stiffer large-deflection response found in G33 (UL elastica). The assert helper used here prints in a form the regression tool does not read (0 printed residuals), so no number is stored. Open: measure it and decide with G33.
+  - target: shell_static_modal.testmodal_test_first_mode.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
+    note: >-
+      The EXPECTED table is built in the file from closed forms (recomputed here: uz 114.286 m, ux 2.857e-5 m); not another of our results. Measured against the bound at 8cf683c (FX 1.286, FY 1.190, FZ 1.969 of 3 %; axial convergence 0.489 of 1 %; modal 1.228 of 2 %). The bounds are the measured discretisation error plus margin and all sit under the 5 % ceiling.
+  - target: shell_convergence.test_in_plane_bending_convergence.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli in-plane bending closed form"}
+    note: >-
+      Closed-form reference; 0.5986 % against 2 % at 8cf683c.
+  - target: shell_convergence.test_composite_laminate_gap_mesh_study.single
+    class: physics
+    verdict: undecided
+    note: >-
+      Compared with CalculiX 2.23 (produced numerical, one code). L2 rule: needs an independently converged CalculiX result; the gap re-measured 1.729 -> 1.678 % (changed by -0.05 pt). Deferred to PRE-3.
+  - target: stress_stiffened.testkgassemblypipeline_test_stress_field.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8cf683c
+    arbiters:
+      - {kind: analytical, label: "Plane-stress closed form sigma_xx = E/(1-nu^2) eps, sigma_yy = nu sigma_xx, sigma_xy = 0"}
+    note: >-
+      Uniform strain state against the closed-form stress; 1e-6 bound, 0.0 measured at 8cf683c. It checks the K_G stress pipeline, not the K_G physics; the other 13 tests in the file are unclaimed by the store.

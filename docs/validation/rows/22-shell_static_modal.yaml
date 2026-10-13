@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 8cf683c
+      date: '2026-10-13'
+      raw: null
+      margin_pct: 1.2861
+      text: 'FX static error vs the analytical cantilever formula in this file''s EXPECTED table: 1.2861% (bound: 3.0000%)'
+      digest: f352f71a126a642e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_static_modal.testlinearstatic_test_fy.single
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 8cf683c
+      date: '2026-10-13'
+      raw: null
+      margin_pct: 1.1904
+      text: 'FY static error vs the analytical cantilever formula in this file''s EXPECTED table: 1.1904% (bound: 3.0000%)'
+      digest: af36b6b65217ec88
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_static_modal.testlinearstatic_test_fz.single
@@ -65,8 +75,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 8cf683c
+      date: '2026-10-13'
+      raw: null
+      margin_pct: 1.9692
+      text: 'FZ static error vs the analytical cantilever formula in this file''s EXPECTED table: 1.9692% (bound: 3.0000%)'
+      digest: 247e1078ac5ccf66
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_static_modal.testlinearstatic_test_axial_load_converg.single
@@ -89,8 +104,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: 8cf683c
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.4888
       text: 'finest-mesh axial error vs the analytical cantilever formula in this file''s EXPECTED table: 0.4888% (bound: 1.0000%)'
@@ -153,7 +168,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 8cf683c
+      date: '2026-10-13'
+      raw: null
+      margin_pct: 1.2276
+      text: 'mode 1 frequency error vs the file''s EXPECTED first modal frequency: 1.2276% (bound: 2.0000%)'
+      digest: 93ca321f5ab3434d
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
