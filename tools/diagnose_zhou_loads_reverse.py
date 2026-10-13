@@ -23,8 +23,13 @@ projector while the beam's `m` is the textbook's nose-up-positive form (Dowell e
 2.1.2). Everything printed below is converted once, at the print, to the one
 nose-down-positive convention, so the shell, the beam and Zhou are directly comparable.
 
-Caveat, stated rather than hidden: the polars are ours (both models use the same official
-airfoils), and the reconstruction extrapolates nothing - it is restricted to 0.15 <= r/R
+Caveat, stated rather than hidden: ``CL, CD, Cm`` come from the AeroDyn tables of the official
+OpenFAST deck (``t.AD_PRIMARY``), not from the windIO polars the coupled BEM reads
+(``tests/IEA-15-240-RWT.yaml``). Swapping the source moves ``Mp`` by -2.5 % to +1.1 % per station
+and +0.7 % in total (checked 2026-10-13, ``docs/validation_closures.md``), so it does not matter
+for the twist. Run it from a checkout that has ``.sources/`` (git-ignored; a worktree needs a
+symlink to the main checkout's), and without ``python -I``, which drops ``PYTHONPATH``. The
+reconstruction extrapolates nothing - it is restricted to 0.15 <= r/R
 where their angle-of-attack figure starts.
 """
 

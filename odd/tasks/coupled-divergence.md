@@ -841,8 +841,11 @@ magnitudes agree, and this is the measured pair.
         relaxation 0.5, rigid 2.554 MN): −x → **+5.55 %**, flap 16.6 m, tip twist
         −0.86°; +x → **−21.6 %**, flap 10.0 m, +6.28°. The −x row reproduces the
         coupled anomaly (+6.6 %, 18.1 m). The +x overshoot against Zhou (−13 %,
-        13.9 m) is consistent with #14's shell over-twist (shell/Zhou 1.61×; here
-        +6.28° vs +3.6° ≈ 1.7×), not measured here; a separate finding, not tuned.
+        13.9 m) is a magnitude gap (here +6.28° vs +3.6° ≈ 1.7×). **Correction
+        2026-10-13:** the "#14 shell over-twist, 1.61×" label is not a validated cause. The 1.61× is
+        the figure of a diagnostic with foreign loads, not the production rated case
+        (`docs/validation_closures.md`, S-7 block), and the shell is stiffer than the BeamDyn deck
+        (#20). See T7d/T7e and `shell-twist-mixed-mesh.md`. Separate finding, not tuned.
         Both rows converged to 4 digits over the last 3 iterations.
       **Pre-registered expectation for `11613528`** (written before the result, from the
       static +x row shifted by the −x pair's static→coupled offset, +5.55 → +6.6 %):
@@ -934,9 +937,9 @@ magnitudes agree, and this is the measured pair.
         **Outcome (b): no model defect with a named cause.** The "stiffness over-twist"
         reading is not supported by earlier measurements (shell stiffer than BeamDyn by
         6.4 % global / 23.9 % sectional, #20; independent-code response 4.22 %; Zhou
-        comparison non-transferable because of section distortion). Open candidates are
-        on the load side (application point `x_AC`, steady BEM vs coupled LL-FVW), not
-        separated here. Recorded in `docs/validation_closures.md` as an open magnitude gap
+        comparison non-transferable because of section distortion). **Superseded by T7e:**
+        the load side is ruled out as the main source (same load, shell 2.86x the beam); the
+        open candidates are in the shell's own response, see `shell-twist-mixed-mesh.md`. Recorded in `docs/validation_closures.md` as an open magnitude gap
         that does not block re-anchoring. Proposed, not run: Zhou's Fig. 11 load on the
         coupled shell to separate load from structure. Script: not committed (scratch).
   - [x] T7e Zhou's published loads on our shell and beam (2026-10-13, existing
