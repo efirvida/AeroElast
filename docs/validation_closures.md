@@ -1737,7 +1737,30 @@ ajuste de parámetros).**
   global, +23.9 % seccional, #20), reproduce la respuesta de un código independiente a 4.22 %
   bajo una carga dada, y la comparación contra la viga de Zhou no es transferible porque el rated
   de producción lleva distorsión de sección (`distortion/|omega| = 1.67`, ver S-7 arriba). Los
-  candidatos que quedan son del lado de la carga (punto de aplicación `x_AC`, BEM estacionario
-  frente a LL-FVW acoplado) y no se separaron aquí.
-- *No hecho*: ningún parámetro se movió hacia Zhou; no se corrió un caso con la carga de Zhou
-  sobre el shell acoplado, que sería la prueba que separa carga de estructura.
+  candidatos que quedan están en la respuesta del shell y se ven en la prueba de abajo.
+- *No hecho*: ningún parámetro se movió hacia Zhou.
+
+**Prueba que separa carga de estructura (2026-10-13, `tools/diagnose_zhou_loads_reverse.py`, sin
+modificar, log en `logs/check/zhou_loads_reverse_t7e.log`).** Las cargas publicadas de Zhou (Fig. 11,
+momento `Mp` reconstruido) aplicadas con el proyector de producción al shell y a la viga estándar
+del deck, mismo convenio (nariz abajo positivo):
+
+| modelo, mismas cargas | twist de punta | contra Zhou +3.60° |
+|---|---|---|
+| shell MITC4 (0.5 m) | +5.955° | 1.65× |
+| viga estándar (deck BeamDyn) | +2.079° | 0.58× |
+| Zhou (LL-FVW + GEBT) | +3.60° | 1× |
+
+- Con **la misma carga** el shell gira 2.86× más que la viga, y el shell bajo las cargas de Zhou
+  (+5.96°) coincide con el shell acoplado bajo nuestras cargas BEM (+5.59°, −6 %). Por tanto la
+  carga **no** es el origen del 1.55×: queda descartada como explicación principal, y mi lectura
+  anterior de "candidatos del lado de la carga" se retira.
+- La brecha vive en la respuesta torsional shell frente a viga bajo carga idéntica. Eso es
+  compatible con dos lecturas, que esta prueba no separa: (i) el shell es correcto (confirmado
+  por un código independiente a 4.22 %) y la viga de Zhou no puede representar la distorsión de
+  sección (`distortion/|omega| = 1.67`), de modo que Zhou no es la referencia adecuada para esta
+  magnitud; (ii) el shell sobre-gira por un efecto de aplicación o de malla que la viga no tiene.
+  Esto es una hipótesis, no un defecto con causa nombrada: sigue abierta como brecha de magnitud.
+- Medición que separaría (i) de (ii), propuesta y sin correr: la misma carga sobre un tubo cerrado
+  o una sección con solución analítica de torsión, comparando shell y viga (existe una base en
+  `odd/tasks/application-exact-case-validation.md`).

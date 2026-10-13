@@ -927,6 +927,16 @@ magnitudes agree, and this is the measured pair.
         separated here. Recorded in `docs/validation_closures.md` as an open magnitude gap
         that does not block re-anchoring. Proposed, not run: Zhou's Fig. 11 load on the
         coupled shell to separate load from structure. Script: not committed (scratch).
+  - [x] T7e Zhou's published loads on our shell and beam (2026-10-13, existing
+        `tools/diagnose_zhou_loads_reverse.py` run unmodified; needed a git-ignored
+        `.sources` symlink into the worktree). Same load, tip twist nose-down positive:
+        shell +5.955 deg (1.65x Zhou), standard beam +2.079 (0.58x), Zhou +3.60. The coupled
+        shell under BEM loads gives +5.59, so the load source is not what drives the 1.55x;
+        T7d's "load-side candidates" is withdrawn. Open: shell vs beam differ 2.86x under
+        identical load (section distortion the beam cannot represent, vs an application or
+        mesh effect in the shell). Not a named defect; still an open magnitude gap that does
+        not block re-anchoring. Next, not run: a closed section with an analytic torsion
+        solution, shell vs beam.
   - Leftovers for T8: `docs/model_parity_audit.md:51` (stale MATCH claim),
     `tools/diagnose_tangential_sense.py:84`, `tools/diagnose_twist_sense_frame.py:11`.
 - [x] T8 Reconcile the store and the closure log. Finding: both ids named here were
