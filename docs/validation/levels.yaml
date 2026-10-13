@@ -29,7 +29,7 @@ levels:
       Element formulation (MITC3+, MITC4, MITC4+, strain smoothing, geometric stiffness, mass)
       on canonical benchmarks with published or closed-form answers: linear, modal and
       large-rotation.
-    groups: ['3', '10', '12', '13', '14', '15', '16', '19', '22', '25', '28', '33']
+    groups: ['3', '10', '12', '13', '14', '15', '16', '19', '22', '25', '28', '33', '44']
     depends_on:
       - crates/aeroelast-core/src/elements
       - src/aeroelast/elements
@@ -54,12 +54,6 @@ levels:
         reason: >-
           D-Tube bending against Camarena: a documented-red accuracy case outside the store; it
           needs an exception with a quantified source or a verdict of rejected.
-      - evidence: tests/test_corotational_large_rotation_validation.py::test_tangent_is_frame_objective_under_rigid_rotation
-        reason: >-
-          Replaces the documented-red `test_corotational_is_frame_objective_tl_is_not`, whose
-          premise was false for MITC4 (both tangents are objective to round-off, 2e-12). The
-          replacement passes (tolerance 1e-9, set from the measured round-off) but has no
-          store row yet, so L1 does not count it.
 
   - id: L2
     title: Linear structural solver against published results and CalculiX

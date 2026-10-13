@@ -1,0 +1,71 @@
+group: '44'
+rows:
+  - id: frame_objectivity.tangent_under_rigid_rotation
+    group: '44'
+    title: MITC4 tangent stiffness under a finite rigid rotation about z (TL and corotational)
+    tests:
+      - tests/test_corotational_large_rotation_validation.py::test_tangent_is_frame_objective_under_rigid_rotation[1.0-assemble_kt]
+      - tests/test_corotational_large_rotation_validation.py::test_tangent_is_frame_objective_under_rigid_rotation[1.0-assemble_kt_corotational]
+      - tests/test_corotational_large_rotation_validation.py::test_tangent_is_frame_objective_under_rigid_rotation[5.0-assemble_kt]
+      - tests/test_corotational_large_rotation_validation.py::test_tangent_is_frame_objective_under_rigid_rotation[5.0-assemble_kt_corotational]
+      - tests/test_corotational_large_rotation_validation.py::test_tangent_is_frame_objective_under_rigid_rotation[30.0-assemble_kt]
+      - tests/test_corotational_large_rotation_validation.py::test_tangent_is_frame_objective_under_rigid_rotation[30.0-assemble_kt_corotational]
+    validates: >-
+      The translational block of K_t(u_rigid) equals T K0 T^T for a rigid rotation of 1, 5 and
+      30 degrees, for both assemble_kt and assemble_kt_corotational.
+    comparisons:
+      - label: relative Frobenius error of K_t(u_rigid) against T K0 T^T
+        asserted: true
+        reference:
+          kind: analytical
+          label: >-
+            Frame objectivity identity K_t(u_rigid) = T K0 T^T, T = I (x) R, from the test source
+        tolerance:
+          kind: rel_err
+          value: 1.0e-9
+          source: tests/test_corotational_large_rotation_validation.py:TOL_OBJECTIVITY
+          justified: true
+          justification: >-
+            Round-off bound. Measured 2.6e-12 / 1.7e-12 / 2.0e-12 at 1 / 5 / 30 degrees
+            (SLURM 11614644, tools/diagnose_frame_objectivity.py), three orders of margin;
+            a frame-dependent tangent errs by 1e-3 or more.
+        measured:
+          status: not_measured
+        expected: T K0 T^T
+    flags: []
+    notes: >-
+      The measured numbers are in odd/tasks/validation-l3-b3-audit.md and logs/check/frameobj.log,
+      not in `measured`, because no store run produced them. Only the translational block is
+      compared; the variant that also sets theta_z = angle in u gives 1.9e-4 / 9.6e-4 / 5.7e-3 for
+      both paths and is not asserted (the interpretation of the rotation DOFs of u is open).
+  - id: frame_objectivity.rigid_rotation_internal_force
+    group: '44'
+    title: MITC4 internal force of a finite rigid rotation about z vanishes
+    tests:
+      - tests/test_corotational_large_rotation_validation.py::test_rigid_rotation_produces_no_internal_force[1.0]
+      - tests/test_corotational_large_rotation_validation.py::test_rigid_rotation_produces_no_internal_force[5.0]
+      - tests/test_corotational_large_rotation_validation.py::test_rigid_rotation_produces_no_internal_force[30.0]
+    validates: >-
+      assemble_fint at a rigid-rotation displacement is zero relative to the force of a 1e-3
+      uniform stretch of the undeformed structure.
+    comparisons:
+      - label: f_int(u_rigid) norm relative to the 1e-3 stretch force scale
+        asserted: true
+        reference:
+          kind: analytical
+          label: A rigid motion produces no strain, so f_int(u_rigid) = 0
+        tolerance:
+          kind: rel_err
+          value: 1.0e-9
+          source: tests/test_corotational_large_rotation_validation.py:TOL_OBJECTIVITY
+          justified: true
+          justification: >-
+            Round-off bound. Measured 5.4e-13 / 5.7e-13 / 8.6e-13 at 1 / 5 / 30 degrees
+            (SLURM 11614644), three orders of margin.
+        measured:
+          status: not_measured
+        expected: 0
+    flags: []
+    notes: >-
+      Same construction and tolerance as the tangent row; measured numbers live in the audit
+      document, not in `measured`.

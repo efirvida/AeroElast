@@ -1338,6 +1338,25 @@ groups:
       The undamped first-frequency comparison is a closed-form thin-walled
       section check placed at L2; energy and damping guards are excluded.
 
+  - id: '44'
+    title: Shell tangent frame objectivity under finite rigid rotation
+    slug: frame_objectivity
+    reference_kind: analytical
+    physical_test_files:
+      - tests/test_corotational_large_rotation_validation.py
+    non_validation_tests:
+      - tests:
+          - test_kt_coro_equals_kt_tl_at_zero_displacement
+          - test_small_displacement_kt_coro_agrees_with_tl
+        reason: >-
+          These compare the corotational tangent with our own total-Lagrangian tangent
+          (an implementation-consistency check), not with an independent reference.
+    provenance_note: >-
+      Replaces the documented-red test_corotational_is_frame_objective_tl_is_not,
+      whose premise (the TL tangent is not objective) was false for MITC4. The
+      reference is an exact identity: a finite rigid rotation R must give
+      K_t(u_rigid) = T K0 T^T and f_int(u_rigid) = 0.
+
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
 # independent reference and needs a group and a row; a test under
