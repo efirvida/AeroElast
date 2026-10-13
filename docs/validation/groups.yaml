@@ -79,6 +79,24 @@ out_of_scope:
       in docs/validation_closures.md (issue #15).
 
   - files:
+      - tests/validation/bem/test_bem_participant_rotor_frame.py
+    reason: >-
+      Participant-boundary rotation, frame round trips, and partner-frame
+      configuration contracts. Expected rotations are restated in the test and
+      the round trips use the same transformation pair; these are implementation
+      and convention checks, not physical quantities compared with an independent
+      reference. Rule 6 leaves this file without a validation row.
+
+  - files:
+      - tests/validation/bem/test_force_projection_tangential_sense.py
+    reason: >-
+      Guards the configured tangential direction and positive aerodynamic torque
+      sign using the same mesh and projected forces under test. It does not compare
+      a torque or load against an independent physical reference. The sign and
+      geometry checks are useful regression guards, but rule 6 leaves this file
+      without a validation row.
+
+  - files:
       - tests/validation/element/test_quad_elements.py
     reason: >-
       Matrix properties and rigid-body modes for QUAD4, QUAD8 and QUAD9:

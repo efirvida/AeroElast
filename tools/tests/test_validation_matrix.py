@@ -222,6 +222,102 @@ def run_check(store: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return run(store, "check", *args)
 
 
+@pytest.mark.parametrize(
+    ("allowed", "node", "should_pass"),
+    [
+        (True, "tests/test_iea15mw_s3_newmark_transient.py::test_physical", True),
+        (False, "tests/test_iea15mw_s3_newmark_transient.py::test_physical", False),
+        (False, NODE_ID, True),
+    ],
+)
+def test_row_test_path_eligibility(
+    tmp_path: Path, allowed: bool, node: str, should_pass: bool
+) -> None:
+    groups = copy.deepcopy(GROUPS)
+    if allowed:
+        groups["groups"][0]["physical_test_files"] = ["tests/test_iea15mw_s3_newmark_transient.py"]
+    row = make_row(tests=[node])
+    store = write_store(tmp_path, [row], groups=groups)
+    completed = run_check(store)
+    assert (completed.returncode == 0) is should_pass, completed.stdout + completed.stderr
+
+
+def test_group_allowlist_rejects_symlink_escaping_repository(tmp_path: Path) -> None:
+    module = _load_tool_module()
+    repo = tmp_path / "repo"
+    tests_dir = repo / "tests"
+    tests_dir.mkdir(parents=True)
+    outside_file = tmp_path / "outside_test.py"
+    outside_file.write_text("def test_physical(): pass\n", encoding="utf-8")
+    link = tests_dir / "test_escape.py"
+    try:
+        link.symlink_to(outside_file)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlinks are unavailable: {exc}")
+
+    store_root = repo / "docs" / "validation"
+    store_root.mkdir(parents=True)
+    (store_root / "groups.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "version": 1,
+                "groups": [
+                    {
+                        "id": "3",
+                        "title": "test group",
+                        "slug": "ko2017",
+                        "source_files": [],
+                        "physical_test_files": ["tests/test_escape.py"],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    store = module.Store(root=store_root)
+    module.REPO_ROOT = repo
+    module.load_groups(store)
+    assert any(
+        "resolve inside the repository tests root" in finding.message for finding in store.errors()
+    )
+
+
+def test_validation_prefix_traversal_is_rejected(tmp_path: Path) -> None:
+    row = make_row(
+        tests=["tests/validation/../test_iea15mw_s3_newmark_transient.py::test_physical"]
+    )
+    store = write_store(tmp_path, [row])
+    completed = run_check(store)
+    assert completed.returncode != 0
+    assert "traversal components" in completed.stdout
+
+
+def test_root_test_allowlist_is_group_scoped(tmp_path: Path) -> None:
+    groups = copy.deepcopy(GROUPS)
+    groups["groups"].append(
+        {
+            "id": "4",
+            "title": "other group",
+            "slug": "other",
+            "source_files": [GROUP_SOURCE],
+            "physical_test_files": ["tests/test_iea15mw_s3_newmark_transient.py"],
+        }
+    )
+    row = make_row(tests=["tests/test_iea15mw_s3_newmark_transient.py::test_physical"])
+    store = write_store(tmp_path, [row], groups=groups)
+    completed = run_check(store)
+    assert completed.returncode != 0
+    assert "tests/validation/" in completed.stdout
+
+
+def test_unlisted_tests_software_path_is_rejected(tmp_path: Path) -> None:
+    row = make_row(tests=["tests/software/test_tool.py::test_contract"])
+    store = write_store(tmp_path, [row])
+    completed = run_check(store)
+    assert completed.returncode != 0
+
+
 def test_three_valid_rows_pass(tmp_path: Path) -> None:
     rows = [
         make_row(),

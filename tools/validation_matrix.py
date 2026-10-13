@@ -171,6 +171,9 @@ GROUP_KEYS = {
     "slug",
     "citation",
     "source_files",
+    # Explicit exceptions for genuine physical tests kept at the tests/ root. Row validation
+    # consults only the row's declared group, so authorization cannot leak across groups.
+    "physical_test_files",
     "common_tolerance",
     "headline",
     "provenance_note",
@@ -694,6 +697,36 @@ def load_groups(store: Store) -> None:
         for source in entry.get("source_files") or []:
             if not isinstance(source, str) or not (REPO_ROOT / source).exists():
                 store.error(where, f"source file does not exist: {source!r}")
+        physical_test_files = entry.get("physical_test_files")
+        if physical_test_files is not None:
+            if (
+                not isinstance(physical_test_files, list)
+                or not physical_test_files
+                or not all(
+                    isinstance(item, str) and re.fullmatch(r"tests/test_[A-Za-z0-9_-]+\.py", item)
+                    for item in physical_test_files
+                )
+            ):
+                store.error(
+                    where,
+                    "physical_test_files must be a non-empty list of root-level tests/test_*.py paths",
+                )
+            else:
+                repo_root = REPO_ROOT.resolve()
+                tests_root = repo_root / "tests"
+                for item in physical_test_files:
+                    test_file = REPO_ROOT / item
+                    if not test_file.is_file():
+                        store.error(where, f"physical test file does not exist: {item}")
+                        continue
+                    resolved_file = test_file.resolve()
+                    if not resolved_file.is_relative_to(
+                        repo_root
+                    ) or not resolved_file.is_relative_to(tests_root):
+                        store.error(
+                            where,
+                            f"physical test file must resolve inside the repository tests root: {item}",
+                        )
         prose = entry.get("prose_after_table")
         if prose is not None and not (REPO_ROOT / str(prose).strip()).exists():
             store.warn(where, f"prose file not written yet: {str(prose).strip()}")
@@ -920,14 +953,40 @@ def validate_row(store: Store, where: str, row: Any) -> None:
         for node in tests:
             if not isinstance(node, str) or not NODE_ID_RE.match(node):
                 store.error(where, f"not a collected node id: {node!r}")
-            elif not (REPO_ROOT / node.split("::")[0]).exists():
+                continue
+
+            node_file = node.split("::", 1)[0]
+            relative_file = Path(node_file)
+            if ".." in relative_file.parts:
+                store.error(where, f"node id path must not contain traversal components: {node!r}")
+                continue
+            file_path = REPO_ROOT / relative_file
+            if not file_path.exists():
                 store.error(where, f"node id names a missing file: {node!r}")
-            elif not node.startswith("tests/validation/"):
+                continue
+
+            resolved_file = file_path.resolve()
+            resolved_root = REPO_ROOT.resolve()
+            # Keep the policy roots lexical: resolving these directories would let a symlinked
+            # tests/validation path redefine the boundary to point at software or elsewhere.
+            tests_root = resolved_root / "tests"
+            validation_root = tests_root / "validation"
+            if not resolved_file.is_relative_to(resolved_root):
+                store.error(where, f"node id resolves outside the repository: {node!r}")
+                continue
+            in_tests_tree = resolved_file.is_relative_to(tests_root)
+            validation_path = relative_file.parts[:2] == ("tests", "validation")
+            is_validation_test = (
+                validation_path and in_tests_tree and resolved_file.is_relative_to(validation_root)
+            )
+            group_files = group.get("physical_test_files") or [] if group is not None else []
+            is_group_allowlisted = node_file in group_files and in_tests_tree
+            if not is_validation_test and not is_group_allowlisted:
                 store.error(
                     where,
-                    f"a row may only claim a test under tests/validation/, and {node!r} is "
-                    "not: a test that validates no physical quantity belongs in "
-                    "tests/software/ and needs no row",
+                    f"a row may claim a test outside tests/validation/ only when its file is "
+                    f"listed in the row's group physical_test_files; {node!r} is not authorized. "
+                    "A test that validates no physical quantity belongs in tests/software/ and needs no row",
                 )
         if not tests and evidence != "out_of_band":
             store.error(where, "an empty 'tests' list requires evidence: out_of_band")
@@ -3037,9 +3096,9 @@ def pair_comparisons(
         for index, item in new_items:
             candidates = by_source.get(source(item))
             previous = candidates.pop(0) if candidates else None
-            if previous is not None and comparison_fingerprint(
-                previous
-            ) == comparison_fingerprint(item):
+            if previous is not None and comparison_fingerprint(previous) == comparison_fingerprint(
+                item
+            ):
                 pairs.append((index, previous))
             elif item.get("tolerance"):
                 unpaired.append(source(item) or "<no source>")

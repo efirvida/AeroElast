@@ -25,10 +25,10 @@
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^tests/[A-Za-z0-9_./-]+\\.py::[A-Za-z0-9_]+(\\[[^\\]]*\\])?$",
-        "description": "Exact collected node id, verbatim from pytest --collect-only."
+        "pattern": "^tests/[A-Za-z0-9_./-]+\\.py::(?:[A-Za-z0-9_]+::)*[A-Za-z0-9_]+(\\[[^\\]]*\\])?$",
+        "description": "Exact collected node id, verbatim from pytest --collect-only. Files under tests/validation/ are accepted by default; a root-level tests/test_*.py file is accepted only when listed in physical_test_files on this row's declared group. The runtime group check is authoritative; schema validation alone does not authorize a path."
       },
-      "description": "Empty only for out-of-band evidence (evidence: out_of_band)."
+      "description": "Empty only for out-of-band evidence (evidence: out_of_band). Path eligibility is enforced at runtime against the row's declared group."
     },
     "evidence": {
       "type": ["string", "null"],

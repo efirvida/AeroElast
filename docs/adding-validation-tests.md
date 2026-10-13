@@ -31,12 +31,21 @@ belong here. Put it under `tests/software/`, rather than giving it a row or a de
 The one-sentence test: name the physical quantity and its independent reference. If you
 cannot, it is a software test.
 
-**The directory is that answer, and it is enforced.** Write a validation test under
+**The directory is the default answer, and it is enforced.** Write a validation test under
 `tests/validation/<domain>/` and a software test under `tests/software/<domain>/`; shared
 helpers go in `tests/support/`, which is a package so any test can import them by name. A row
-may only claim a test under `tests/validation/`, so `check` fails on a row for a software
-test, and the two cannot drift apart. There is no list of excluded files to maintain: the path
-is the classification.
+may claim `tests/validation/` by default. A genuine physical test retained directly under
+`tests/` (for example, an existing `tests/test_*.py`) is an exception only when that exact file
+is listed in `physical_test_files` on the row's declared group in `docs/validation/groups.yaml`.
+This is a per-group authorization, not a general `tests/` exemption: unlisted root paths and
+`tests/software/` remain ineligible, and an allowlist on another group does not authorize the row.
+The runtime check in `tools/validation_matrix.py` is authoritative; the row JSON Schema only
+checks node-id shape and documents the conditional rule, because schema validation cannot resolve
+the row's group against `groups.yaml`.
+
+Prefer moving new validation tests into `tests/validation/<domain>/`; use this exception only for
+existing physical tests whose location is intentionally retained. List exact root-level test file
+paths, not directories, globs, or node IDs.
 
 Why this boundary is strict: a row that cannot be wrong about physics dilutes the rows
 that can. The matrix's own history is the argument — rows comparing a value against a
@@ -114,7 +123,11 @@ literal -- which the store does read and has to be told not to attribute.
    `python tools/validation_matrix.py extract --group <id> --write`. It claims every
    collected node exactly once and fills what the code states — the tolerances, their
    sources, and the references it can label. It writes nothing it cannot read, and
-   reports such a node instead of inventing a value.
+   reports such a node instead of inventing a value. **Before using `--write`, inspect the
+   complete output and existing group row file:** extraction replaces that group's row file
+   wholesale, so it can erase hand-authored rows that were not collected from the selected
+   scope. Preserve/reconcile every existing row in the replacement; do not treat extraction as
+   an append operation.
 7. **Complete the comparisons by hand where the code cannot state them.** Each
    independent reference gets its own entry: `reference.label` carries the locator and
    the cell, `expected` the reference value, `tolerance.source` where the code sets the
