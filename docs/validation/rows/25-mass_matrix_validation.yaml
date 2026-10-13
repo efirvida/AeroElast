@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c6dd90d
-      date: '2026-10-10'
+      run: 252a9b5
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0
       text: 'translational mass per direction vs the closed form rho h A per direction: 0.0000% (bound: 0.0000%)'
@@ -48,8 +48,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c6dd90d
-      date: '2026-10-10'
+      run: 252a9b5
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0
       text: 'translational mass per direction vs the closed form rho h A per direction: 0.0000% (bound: 0.0000%)'
@@ -76,8 +76,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c6dd90d
-      date: '2026-10-10'
+      run: 252a9b5
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0
       text: 'lumped mass per direction vs the row-sum lumped mass rho h A_tributary: 0.0000% (bound: 0.0000%)'
@@ -103,8 +103,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 252a9b5
+      date: '2026-10-13'
+      raw: null
+      margin_pct: 4.339
+      text: 'frequency error vs the closed form frequency of the single element: 4.3390% (bound: 5.0000%)'
+      digest: e45c0b6577066fd5
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density1
@@ -126,8 +131,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 252a9b5
+      date: '2026-10-13'
+      raw: null
+      margin_pct: 2.1112
+      text: 'frequency error vs the closed form frequency of the single element: 2.1112% (bound: 5.0000%)'
+      digest: c138460f26aec642
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density2
@@ -149,8 +159,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: 252a9b5
+      date: '2026-10-13'
+      raw: null
+      margin_pct: 1.148
+      text: 'frequency error vs the closed form frequency of the single element: 1.1480% (bound: 5.0000%)'
+      digest: 3a28d5f8119823a6
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: mass_matrix_validation.testconsistentmasstotal_test_consistent.single
@@ -173,8 +188,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c6dd90d
-      date: '2026-10-10'
+      run: 252a9b5
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0
       text: 'consistent mass per direction vs the total translational mass of the mesh: 0.0000% (bound: 0.0000%)'
@@ -201,8 +216,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c6dd90d
-      date: '2026-10-10'
+      run: 252a9b5
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0
       text: 'element mass block, worst entry relative error over the three directions vs the closed form element mass block: 0.0000% (bound: 0.0000%)'
@@ -229,8 +244,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c6dd90d
-      date: '2026-10-10'
+      run: 252a9b5
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0
       text: 'element mass block, worst entry relative error over the three directions vs the closed form element mass block: 0.0000% (bound: 0.0000%)'
@@ -257,8 +272,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c6dd90d
-      date: '2026-10-10'
+      run: 252a9b5
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0
       text: 'rotary inertia per rotational direction vs the closed form rho h^3 / 12 A rotary inertia: 0.0000% (bound: 0.0000%)'
@@ -285,8 +300,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c6dd90d
-      date: '2026-10-10'
+      run: 252a9b5
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0
       text: 'rotary inertia per rotational direction vs the closed form rho h^3 / 12 A rotary inertia: 0.0000% (bound: 0.0000%)'

@@ -44,3 +44,277 @@ verdicts:
       ~3.8 % softer). The +-30 % band is over the ceiling and has no quantified source, and S-1
       sectional (+23.9 % stiffer) disagrees in sign with nothing attributing it. Audit:
       odd/tasks/issue18-closure-audit.md.
+
+# --- PRE-2 (B1/L1), 2026-10-13: G25 mass matrix and G28 material suite, re-measured at 252a9b5 ---
+  - target: material_suite.testisotropicanalytical_test_mitc4_out_o.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever"}
+    note: >-
+      Closed-form reference independent of the element; measured 1.575 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testisotropicanalytical_test_mitc3_out_o.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever"}
+    note: >-
+      Closed-form reference independent of the element; measured 1.2 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testisotropicanalytical_test_mitc4_in_pl.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, bending about the in-plane axis"}
+    note: >-
+      Closed-form reference independent of the element; measured 0.3496 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testisotropicanalytical_test_mitc4_axial.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the axial bar closed form F L / (E A)"}
+    note: >-
+      Closed-form reference independent of the element; measured 0.4719 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testorthotropicsingleply_test_mitc4comp.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs"}
+    note: >-
+      Closed-form reference independent of the element; measured 0.6447 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testorthotropicsingleply_test_mitc4comp.single_2
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs"}
+    note: >-
+      Closed-form reference independent of the element; measured 0.5788 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testorthotropicsingleply_test_mitc3comp.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs"}
+    note: >-
+      Closed-form reference independent of the element; measured 0.6667 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testorthotropicsingleply_test_mitc4comp.single_3
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the axial bar closed form F L / (A22 B) for the [0 deg] ply"}
+    note: >-
+      Closed-form reference independent of the element; measured 1.425 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testorthotropicsingleply_test_mitc4comp.single_4
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the axial bar closed form F L / (A11 B) for the [90 deg] ply"}
+    note: >-
+      Closed-form reference independent of the element; measured 3.445 % against a 5 % bound at 252a9b5 (stored value reproduced exactly). Residual is a single-mesh discretisation error with no refinement table; it is under the 5 % ceiling but not shown to converge.
+  - target: material_suite.testsymmetriclaminates_test_symmetric_ou.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs"}
+    note: >-
+      Closed-form reference independent of the element; measured 0.2807 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testsymmetriclaminates_test_symmetric_ou.single_2
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs"}
+    note: >-
+      Closed-form reference independent of the element; measured 0.324 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testsymmetriclaminates_test_symmetric_in.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the in-plane stiffness A11 the laminates give"}
+    note: >-
+      Closed-form reference independent of the element; measured 3.846 % against a 5 % bound at 252a9b5 (stored value reproduced exactly). Residual is a single-mesh discretisation error with no refinement table; it is under the 5 % ceiling but not shown to converge.
+  - target: material_suite.testsymmetriclaminates_test_symmetric_ax.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the axial bar closed form F L / (A11 B) for the laminate"}
+    note: >-
+      Closed-form reference independent of the element; measured 1.998 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testsymmetriclaminates_test_quasi_iso_ou.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever with the free-edged strip stiffness 1/(D^-1)[1,1]"}
+    note: >-
+      Closed-form reference independent of the element; measured 1.171 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testasymmetriclaminates_test_axial_produ.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the CLT B-coupling tip deflection for the same strip"}
+    note: >-
+      Closed-form reference independent of the element; measured 0.4464 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testasymmetriclaminates_test_b_coupling.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the Reddy CLT B-coupling tip deflection, w = B11 P L^2 / (2 A11 D11_eff b)"}
+    note: >-
+      Closed-form reference independent of the element; measured 0.4549 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testisoequivalence_test_n_iso_plies_equa.single
+    class: identity
+    verdict: trusted
+    audited_rev: 252a9b5
+    note: >-
+      Consistency of our own computation (reference kind self); measured 0 % against 0.01. Not independent evidence; counts as identity.
+  - target: material_suite.testisoequivalence_test_n_iso_plies_same.single
+    class: identity
+    verdict: trusted
+    audited_rev: 252a9b5
+    note: >-
+      Consistency of our own computation (reference kind self); measured 0 % against 0.01. Not independent evidence; counts as identity.
+  - target: material_suite.testabdmatrices_test_isotropic_ab_d_rati.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the classical lamination result D11 = A11 h^2 / 12"}
+    note: >-
+      Closed-form reference independent of the element; measured 0 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testabdmatrices_test_asymmetric_b11_form.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the two-ply closed form B11 = h^2/2 (Q11_90 - Q11_0) built from the A matrices"}
+    note: >-
+      Closed-form reference independent of the element; measured 0 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testabdmatrices_test_a_matrix_single_ply.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the hand calculation A11 = Q11 h"}
+    note: >-
+      Closed-form reference independent of the element; measured 0 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testabdmatrices_test_d_matrix_single_ply.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "the hand calculation D11 = Q11 h^3 / 12"}
+    note: >-
+      Closed-form reference independent of the element; measured 0 % against a 5 % bound at 252a9b5 (stored value reproduced exactly).
+  - target: material_suite.testabdmatrices_test_qbar_0_equals_q.single
+    class: identity
+    verdict: trusted
+    audited_rev: 252a9b5
+    note: >-
+      Consistency of our own computation (reference kind self); measured 0 % against 1e-10. Not independent evidence; counts as identity.
+  - target: material_suite.testabdmatrices_test_qbar_90_swaps_e1_e2.single
+    class: identity
+    verdict: trusted
+    audited_rev: 252a9b5
+    note: >-
+      Consistency of our own computation (reference kind self); measured 0 % against 1e-10. Not independent evidence; counts as identity.
+  - target: mass_matrix_validation.testelementmassvstotalmass_test_mass_con.tri3
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
+    note: >-
+      Closed-form mass reference; measured 0 % against 1e-12 at 252a9b5 (a round-off-level bound, deliberately tight).
+  - target: mass_matrix_validation.testelementmassvstotalmass_test_mass_con.quad4
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
+    note: >-
+      Closed-form mass reference; measured 0 % against 1e-12 at 252a9b5 (a round-off-level bound, deliberately tight).
+  - target: mass_matrix_validation.testlumpedmassmatrix_test_lumped_vs_anal.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
+    note: >-
+      Closed-form mass reference; measured 0 % against 1e-10 at 252a9b5 (a round-off-level bound, deliberately tight).
+  - target: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density0
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli cantilever first mode f1 = (1.875^2/2pi) sqrt(EI/(rho A L^4))"}
+    note: >-
+      Closed-form beam frequency, measured 4.339 / 2.111 / 1.148 % for 2x1 / 4x2 / 8x4 meshes against a 5 % bound at 252a9b5: monotone convergence toward the closed form. The reference_name 'closed form frequency of the single element' mislabels it (it is the beam frequency). The test turns any non-assertion exception into a skip, so a broken modal solve would skip rather than fail; the three runs here executed.
+  - target: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density1
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli cantilever first mode f1 = (1.875^2/2pi) sqrt(EI/(rho A L^4))"}
+    note: >-
+      Closed-form beam frequency, measured 4.339 / 2.111 / 1.148 % for 2x1 / 4x2 / 8x4 meshes against a 5 % bound at 252a9b5: monotone convergence toward the closed form. The reference_name 'closed form frequency of the single element' mislabels it (it is the beam frequency). The test turns any non-assertion exception into a skip, so a broken modal solve would skip rather than fail; the three runs here executed.
+  - target: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density2
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli cantilever first mode f1 = (1.875^2/2pi) sqrt(EI/(rho A L^4))"}
+    note: >-
+      Closed-form beam frequency, measured 4.339 / 2.111 / 1.148 % for 2x1 / 4x2 / 8x4 meshes against a 5 % bound at 252a9b5: monotone convergence toward the closed form. The reference_name 'closed form frequency of the single element' mislabels it (it is the beam frequency). The test turns any non-assertion exception into a skip, so a broken modal solve would skip rather than fail; the three runs here executed.
+  - target: mass_matrix_validation.testconsistentmasstotal_test_consistent.single
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
+    note: >-
+      Closed-form mass reference; measured 0 % against 1e-12 at 252a9b5 (a round-off-level bound, deliberately tight).
+  - target: mass_matrix_validation.testexactconsistentmasscoefficients_test.tri3_5_coords0_0_5
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
+    note: >-
+      Closed-form mass reference; measured 0 % against 1e-12 at 252a9b5 (a round-off-level bound, deliberately tight).
+  - target: mass_matrix_validation.testexactconsistentmasscoefficients_test.quad4_9_coords1_1_0
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
+    note: >-
+      Closed-form mass reference; measured 0 % against 1e-12 at 252a9b5 (a round-off-level bound, deliberately tight).
+  - target: mass_matrix_validation.testexactconsistentmasscoefficients_test.tri3_5_coords0_0_5_2
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
+    note: >-
+      Closed-form mass reference; measured 0 % against 1e-12 at 252a9b5 (a round-off-level bound, deliberately tight).
+  - target: mass_matrix_validation.testexactconsistentmasscoefficients_test.quad4_9_coords1_1_0_2
+    class: physics
+    verdict: trusted
+    audited_rev: 252a9b5
+    arbiters:
+      - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
+    note: >-
+      Closed-form mass reference; measured 0 % against 1e-12 at 252a9b5 (a round-off-level bound, deliberately tight).
