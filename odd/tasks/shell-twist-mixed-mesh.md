@@ -295,3 +295,44 @@ for `k_drill`; a Rust change is NOT needed). Reference: the hand-written Bredt r
 - Not shown in any outcome: that #38 explains the blade's 2.82x (the blade has 88 triangles and
   its drilling scale cannot be varied for composites without a Rust change); torsion is one
   response only.
+
+## Line B result (2026-10-13, one run, nothing tuned)
+
+Tool `tools/diagnose_triangle_drilling.py`, log `logs/check/triangle_drilling.log` (seconds, login
+node). Control before B1: the `e_equiv` knob scales the triangle's `K[theta_z,theta_z]` by exactly
+10 at s=10, so the sensitivity run is not void.
+
+| check | result | gate |
+|---|---|---|
+| B0 rigid rotation about the normal, energy / stretch energy | 4.0e-17 (h), 8.1e-17 (2h) | <= 1e-10 PASS |
+| B1 tube torsion rate / Bredt, quad, s=0.1 / 1 / 10 / 100 | 0.99417 / 0.99417 / 0.99409 / 0.99370 | reported |
+| B1 same, all triangles | 0.99375 / 0.99300 / 0.99267 / 0.99262 | s=1 within 5 %: PASS |
+| B1 same, mixed (alternate z-rows) | 0.99326 / 0.99335 / 0.99316 / 0.99248 | s=1 within 5 %: PASS |
+| Gate 2: triangle ratio change s=0.1 -> 10 | **0.109 %** | <= 1 % = invisible |
+
+**Verdict (by the reading fixed in advance).** #38 is a dimensional defect (`E t^2` penalty, energy
+in N.m^2) WITHOUT a measurable consequence on closed-section torsion: two decades of drilling
+stiffness move the triangle result by 0.11 %, and triangle, mixed and quad meshes all sit at
+0.993-0.994 of Bredt. The plan's rigid-rotation probe was zero by algebra (B0 confirms it to
+1e-17), so it never could have shown the defect.
+
+**Not shown.** (1) Not a blade measurement: the blade's composite `drilling_scale` is hard-wired
+to 1.0, so varying it needs a Rust change (not made). The blade has 88 triangles = 0.12 % of the
+area, so even a visible sensitivity would be weighted by that. (2) One response only (torsion of a
+convex rectangular tube, flat walls, 90 deg corners); a loaded curved/tapered section or a
+web-flange junction under bending is not covered. (3) That the penalty is *right*: only that it is
+*insensitive* where tested. Correcting the units stays a cleanup, not a fix for the 2.82x.
+
+## Where the 2.82x stands after Lines A and B
+
+Ruled out with measurements: #34 triangle fibre axis (E3, -0.07 %), #38 drilling penalty (B,
+0.11 % on torsion, 0.12 % of blade area), and the MITC4/3 implementation and discretisation (A,
+-1.46 % vs CalculiX S8R on the very load). What remains: the shell MODEL (shared by both codes)
+versus the beam's section properties, i.e. reading (i) not proven, and the load path (applying
+the force at the nodes vs the beam's shear-centre arm).
+Next candidates, each needs its own pre-registration and an OK:
+1. Print the beam twist at 50/75/90 % span beside the shell's `omega` (Line A observation: at
+   75 % the ring is rigid, distortion share 0.019, and the shell already rotates 3.60 deg; if the
+   beam is far below there, distortion cannot be the whole explanation). ~3 min, no CCX.
+2. External judge for "the shell is physically right": 3D solid segment or VABS/BECAS on an
+   outboard section (z ~ 95-117), compared on the chord rotation.
