@@ -173,3 +173,11 @@ Conventions that must carry over: blade mesh 0.15-0.25 m only (`docs/blade_mesh_
 bootstrap `scripts/aeroenv.sh` with `PYTHONPATH=$PWD/src`, never `python -I`; the Zhou-load tool
 needs the git-ignored `.sources` symlink to the main checkout; thresholds are committed before the
 run; nothing is tuned toward Zhou. Work in this worktree/branch; commits are local, no push.
+
+## Closed before handing off (2026-10-13)
+
+- Issue #34 commented with the E1/E2/E3 numbers (https://github.com/efirvida/AeroElast/issues/34#issuecomment-6145882312).
+- Mesh-size guard: `scripts/check_mesh_size.py`, called by `scripts/check.sh`; shrink-only registry
+  `scripts/mesh-size-debt.txt`. Found 45 files with `element_size >= 0.3`, **21 of them at 1.0 m**
+  (validation tests and diagnostics), which the first 0.5 m inventory had missed. Debt, same
+  deferral as the 0.5 m anchors (`docs/blade_mesh_size_rule.md`).
