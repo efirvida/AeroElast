@@ -48,7 +48,7 @@ vendored copy).  Theirs: `$SCRATCH/ofruns/OpenFAST/.../IEA-15-240-RWT-Monopile_A
 | A20 | polar / Re model | NeuralFoil at the local Re (fallback 1e7) | tabulated single design-Re table per airfoil | MISMATCH — measured ~1–3 % on aligned power |
 | A21 | azimuth handling | integrated = axisymmetric average | time average (skew=0 ⇒ axisymmetric) | MATCH |
 | A22 | rpm / pitch | 7.55 rpm, pitch 0, feather-positive | 7.55 rpm, pitch 0 | MATCH (unit conversion verified in code) |
-| A23 | rotation / tangential sign | `tangential_direction=[-1,0,0]` | AeroDyn default | MATCH (documented in code) |
+| A23 | rotation / tangential sign | `tangential_direction` derived from the measured leading edge (+x on the official mesh); a contradicting key raises | AeroDyn default (Tp along the blade motion) | MATCH since T7c (2026-10-12); the earlier `-x` was reversed, see `docs/validation_closures.md` |
 
 Aero summary: **no hidden convention bug.** The controllable gaps are A18,
 A19, A20, A5 (and A2 in their own runs).  The model-class gaps (A12–A14)

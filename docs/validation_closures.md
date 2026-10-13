@@ -1686,3 +1686,29 @@ settle". Issues nuevos: **#31** (grupo 26, los 6 sin declarar), **#32** (la suit
 `preserve_measurements`, `compare_row`), el `label`/`tolerance.source` de alguna fila, o la cantidad de
 `source_files` de un grupo. Contrato del modelo de fila: `odd/tasks/validation-matrix-store.md` §8 y
 `docs/validation-policy.md` regla 2. Artefacto de la feature: `odd/tasks/validation-regression-gate.md`.
+
+### #19: el sentido de `Tp` estaba invertido en los 65 YAML de producción (T7b/T7c, 2026-10-12)
+
+El empuje medio +6.6 % sobre el rígido y la flecha de 18 m del acople no eran un defecto de
+contracción ni del proyector: los 65 YAML de fluido fijaban `tangential_direction = [-1, 0, 0]`, y
+en la malla oficial el borde de ataque está en `+x` (donde apunta `omega x r`). `Tp` iba contra el
+movimiento de la pala. Punto fijo estático FSI (`tools/diagnose_tangential_sense.py`, rígido
+2.554 MN): `-x` da **+5.55 %**, flap 16.6 m, twist de punta −0.86°; `+x` da **−21.6 %**, 10.0 m,
++6.28°. La fila `-x` reproduce la anomalía acoplada.
+
+Fix (`d42ddda`, `0c96b41`, `685b3c7`, `1877b76`): el proyector deriva el sentido de `Tp` del borde
+de ataque medido y una `tangential_direction` que lo contradice lanza `ValueError`; los 65 YAML
+pierden la clave. Gate de 30 s sobre el árbol corregido (job `11613577`, ventana [10, 30] s, período
+7.947 s): empuje **1.976 MN (−22.3 % del rígido 2.541 MN)**, flap de punta 10.35 m, 1P de empuje
+2.69 %, potencia 14.34 MW, Mb 49.23 MN·m. Reproduce a 4 dígitos la corrida de una sola variable con
+`+x` en el YAML (`tplus_30s`, flap 10.31 m).
+
+**Qué invalida**: todo resultado acoplado producido con `-x` (campañas, gates y cifras de la prosa
+del informe) no se cita como evidencia; los anchors acoplados se re-anclan, no se re-bandean.
+**Qué no se cierra**: −22.3 % contra Zhou −13 % es una cuestión de magnitud, consistente con el
+over-twist de la cáscara (~1.7×, ver #14), no medido aquí ni afinado. El twist elástico de punta del
+BEM no se registró en el log del gate. Salvaguarda abierta: la guarda de borde de ataque en el plano
+usa `norm <= 1e-12`, y un borde casi cancelado fijaría el sentido desde ruido (no probado en palas
+reales).
+**Re-ejecutar si cambia**: la derivación del sentido en `ForceProjector`, `core/config.py` o
+`fsi_participant.py` (defaults de `tangential_direction`), o la malla del borde de ataque.

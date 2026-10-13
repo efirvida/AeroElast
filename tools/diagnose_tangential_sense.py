@@ -3,7 +3,8 @@
 A blade moves toward its leading edge, and a positive Tp (positive torque, positive power)
 acts along that motion.  On the official IEA-15MW mesh the projector measures the leading
 edge at +x and the solid's omega x r is +x, so the physical ``tangential_direction`` is +x.
-Every production fluid YAML sets -x.  This script iterates BEM on the deformed geometry
+Every production fluid YAML used to set -x (retired in T7c: the projector now derives the
+sense and refuses -x).  This script iterates BEM on the deformed geometry
 against K + K_G + K_SP (rated, rigid-blade start, relaxation 0.5) for both senses and
 prints the flexible thrust, flap tip and the elastic tip twist the BEM sees.
 
@@ -82,15 +83,15 @@ def solve(A, f):
 Ks = K + Kg + Ksp
 cfg_prod = dict(fx.BEM_CONFIG, span_direction=[0, 0, 1], normal_direction=[0, 1, 0],
                 tangential_direction=[-1, 0, 0])
-part_p = BEMFSIParticipant(mesh, blade_aero, cfg_prod)
-fn_p, _ = part_p._compute_forces(np.zeros((len(coords), 3)))
-f_p = np.zeros(n)
-for d in range(3):
-    f_p[d::6] = fn_p[:, d]
 dr = np.array([s.dr for s in part._projector._strips])
 cfg_px = dict(cfg_prod, tangential_direction=[1, 0, 0])
-for name, cfg in (("tangential -x (production)", cfg_prod), ("tangential +x (motion/LE)", cfg_px)):
-    pt = BEMFSIParticipant(mesh, blade_aero, cfg)
+for name, cfg in (("tangential -x (retired)", cfg_prod), ("tangential +x (motion/LE)", cfg_px)):
+    try:
+        pt = BEMFSIParticipant(mesh, blade_aero, cfg)
+        pt._compute_forces(np.zeros((len(coords), 3)))
+    except ValueError as exc:
+        print(f"[{name}] refused by ForceProjector (expected since T7c): {exc}")
+        continue
     U = np.zeros((len(coords), 3))
     t0 = time.time()
     hist = []

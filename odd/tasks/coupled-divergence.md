@@ -768,10 +768,16 @@ magnitudes agree, and this is the measured pair.
         measured: BEM tip elastic twist (the log does not carry it).
   - Leftovers for T8: `docs/model_parity_audit.md:51` (stale MATCH claim),
     `tools/diagnose_tangential_sense.py:84`, `tools/diagnose_twist_sense_frame.py:11`.
-- [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
-      `force_projection_sense_p5`), the group 27/35 rows and
-      `docs/validation_closures.md`; the consequence numbers above are the
-      record.
+- [x] T8 Reconcile the store and the closure log. Finding: both ids named here were
+      already gone (`1b5256c`, 2026-10-09: `force_projection_sense_p5` removed,
+      `rotor_coupling_noncontraction` replaced by
+      `reference_projection_geometry_approximation`), and groups 27/35 carry no
+      `tangential_direction` claim, so the store needed no edit
+      (`validation_matrix.py check`: 211 rows, 286 comparisons, 0 errors). Done: new
+      closure section in `docs/validation_closures.md`, `docs/model_parity_audit.md`
+      A23 corrected, `tools/diagnose_tangential_sense.py` no longer builds a `-x`
+      participant (it would raise) and reports the refusal. `diagnose_twist_sense_frame.py:11`
+      already says "used to". Not run: the diagnose script itself (needs the full env).
 - [ ] T9 Comment and close #19, and fold #26's remaining closure criteria into
       it.
 
