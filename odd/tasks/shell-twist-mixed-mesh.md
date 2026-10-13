@@ -219,3 +219,37 @@ ours; one run per code, nothing re-run with a different setting.
   matters. Report the number, name the cause if one is found, propose the fix and wait for OK.
 - Not shown by this experiment in any outcome: that Zhou's +3.6 deg is matched, or that the beam
   is wrong.
+
+## Line A result (2026-10-13, 0.25 m, one measurement, nothing tuned)
+
+Job 11614310 (`sequana_cpu_dev`, 5 min 44 s), log `logs/check/zhou_ccx_s8r_11614310.out`; tool
+`tools/zhou_ccx_compare.py` via `ZHOU_CCX_DIR` in `diagnose_zhou_loads_reverse.py`. Earlier
+attempts (11614305, 11614307) died before any result was read, on two harness bugs of mine (a list
+minus a float; an FRD coordinate match tolerance of 1e-4 m against a 5-digit FRD, ~5e-4 m
+resolution at z ~ 100 m). Precondition held: `*CLOAD` resultant equals `f` (rel diff 0.0).
+
+| metric | ours (MITC4/3) | CalculiX S8R/S6 | diff | gate |
+|---|---|---|---|---|
+| tip ring `omega` | +5.8550 deg | +5.9421 deg | -1.46 % | 5 % PASS |
+| work `1/2 f.u` | 1.510489e6 | 1.509266e6 | +0.08 % | 5 % PASS |
+| `omega` 50 % span | 1.4389 | 1.4446 | -0.40 % | reported |
+| `omega` 75 % span | 3.6048 | 3.6140 | -0.25 % | reported |
+| `omega` 90 % span | 5.7896 | 5.8567 | -1.15 % | reported |
+| tip `distortion/|omega|` | 0.636 | 0.562 | - | reported |
+
+**Verdict (by the reading fixed in advance).** The shell implementation and its discretisation
+agree with an independent shell code on the very load where it turns 2.82x the beam. The 2.82x is
+therefore a property of the shell MODEL (shared by both codes) against the beam properties, not a
+MITC4/MITC3 defect. Together with E3 (#34 negligible) the mixed-mesh hypothesis has no support.
+
+**Not shown.** (1) That the shell is physically right: S8R shares the CLT/thin-wall assumptions, so
+a 3D solid or VABS/BECAS judge is still the only closure of reading (i). (2) That Zhou's +3.6 deg
+is matched (shell 1.63x, beam 0.58x of it). (3) That the beam is wrong.
+
+**Observation that weakens reading (i) and is NOT yet a finding.** The tip ring is mostly
+distortion (`distortion/|omega|` 0.64), but at 75 % span the ring is nearly rigid (0.019) and the
+shell already rotates 3.60 deg there. If the beam is well below 3.6 deg at 75 % span, the gap
+exists where distortion is ~0 and distortion cannot be its explanation. The beam's `theta(r)` is
+already computed in the Zhou tool but only the tip value is printed. Candidate next measurement
+(needs pre-registration and an OK): print the beam twist at the same 50/75/90 % stations and
+compare it with the shell's `omega` there.
