@@ -444,3 +444,57 @@ everything accumulated from the root; the per-segment ratio shows where the gap 
 **Out of scope here:** any change to the load, the beam, the mesh, or Rust; the 3D/VABS judge.
 **Cost/where:** about 3 min, same command as before without `ZHOU_CCX_DIR`, on the login node if
 it fits, `sequana_cpu_dev` otherwise.
+
+## Beam-vs-ring result (2026-10-13, 0.25 m, one measurement, nothing tuned)
+
+Job 11614322 (`sequana_cpu_dev`, 3 min 13 s), log `logs/check/zhou_beam_vs_ring_11614322.out`; tool
+block at the end of `tools/diagnose_zhou_loads_reverse.py` (commit b9f2797, after the
+pre-registration 4cc40c4). Traps as settled: mapping `z_b = r_b - hub` ran over 0..117.000 on both
+sides; sign gate passed (raw beam tip -2.0790 deg nose-up, converted +2.0790; shell +5.8550); the
+tip ratio 0.355 reproduces the known one, which is the mapping's consistency check.
+
+| ring | z (m) | omega shell | -theta beam | rho | dist/\|omega\| | class (by the rule) |
+|---|---|---|---|---|---|---|
+| 50 % | 58.591 | 1.4389 | 0.5676 | 0.394 | 0.106 | distorted, not classified |
+| 75 % | 87.709 | 3.6048 | 1.4629 | **0.406** | 0.019 | **rigid, classified** |
+| 90 % | 105.326 | 5.7896 | 2.0077 | 0.347 | 0.280 | HOLE (and distorted) |
+| tip | 117.000 | 5.8550 | 2.0790 | 0.355 | 0.636 | HOLE (and distorted) |
+
+Skipped beam segment: one, number 24, `z_b` 111.15..117.00 (`frac` 0.95..1.00; `gkt` below the floor
+4.1e5). The HOLE flag on 90 % comes from the ring being next to it (pre-registered adjacency
+rule); the beam accumulates nothing after 111.15 m, so 2.008 -> 2.079 is the end of the
+integrable part, not a result at the tip.
+
+**Verdict by the rule fixed in advance:** `rho = 0.406 < 0.75` at the only classified ring (75 %,
+rigid) -> **the gap exists where the ring is rigid; section distortion is not the explanation.**
+As stated before the run, this verdict was close to foregone at 75 % (shell 3.60 vs beam tip 2.08).
+
+Per-segment increments (reported, no gate), shell `d_omega` vs beam `d_theta`:
+
+| segment (m) | d_omega shell | d_theta beam | ratio |
+|---|---|---|---|
+| 0 -> 58.6 | +1.439 | +0.568 | 0.394 |
+| 58.6 -> 87.7 | +2.166 | +0.895 | 0.413 |
+| 87.7 -> 105.3 | +2.185 | +0.545 | 0.249 |
+| 105.3 -> 117.0 | +0.065 | +0.071 | 1.091 |
+
+**What the new information is.** The gap is not a tip effect: the shell twists about 2.4x the
+beam from the first segment on (0.39-0.41 per segment over the inboard 75 %), where the ring is
+rigid or nearly so. The one place where the two agree is the last 11.7 m, where the shell's
+increment is ~0 (its own tip distortion region, distortion share 0.64) and the beam's section is
+degenerate. Reading (i) (distortion) is not supported. Not shown: which side is physical.
+
+**What is NOT shown.** This ratio mixes two things that the data cannot separate: the torsional
+stiffness of the section (shell vs beam `GKt`) and the torque each model sees (nodal force
+projected onto the shell vs the beam's moment about the shear-centre arm). A uniform ratio ~0.4
+along the span is what a stiffness mismatch would give, but a load-path difference would too.
+No named cause has appeared, so no fix is proposed. The shell root is clamped (warping
+restrained), which would make the shell stiffer inboard, not softer, so that is not the source of
+the excess.
+
+**Next candidates (each needs its own pre-registration and an OK):**
+1. Separate stiffness from load: the resultant moment about the shear centre at 3-4 stations from
+   the shell's own nodal forces vs the beam's `torque[i]`. Cheap, no solve beyond the existing one.
+2. Section GJ of the shell vs the deck `GKt`: a pure unit torque on a short rigid-ended shell
+   segment at z ~ 60 and ~ 90 m, compared with the deck. This is the beam-property judge.
+3. The 3D solid or VABS/BECAS judge on one section (the only ruling on which side is physical).
