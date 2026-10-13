@@ -701,6 +701,16 @@ magnitudes agree, and this is the measured pair.
         Price: ~6300 sub-iterations × ~8 s rebuild (27 k nodes, linear scaling
         assumed) + 2.75 h base ≈ 17 h on 8 cores; submitted with `--time=24:00:00`.
         Gate A is readable from the iterations log within the first hours.
+        **Launched:** job `11614191` (2026-10-13 05:28, from the comparison worktree,
+        `RUN_NAME=t7a4_follow_30s`, output `../t7a4-follow/runs/smoke_fix/t7a4_follow_30s/`).
+        **Price miss, recorded:** the measured cost is ~65 s per sub-iteration (fluid log,
+        window 0, iterations 0-7), against ~1.6 s for the frozen baseline (2 h 45 min /
+        6330). The rebuild scales far worse than linearly in nodes (2.7 s at 9 k, ~63 s at
+        27.6 k). Within the 24 h cap the job reaches ~1300 sub-iterations, about the
+        rationale's own 5 s / 500 windows, so **Gate A is testable and Gate B is not**
+        (30 s ≈ 114 h). Cost finding regardless of A: a full rebuild per sub-iteration is
+        ~40× the whole frozen sub-iteration, so "change to the following projector" is not
+        viable as-is for production runs even if it contracts.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
 - [x] T7b The +6.6 % mean thrust is a reversed tangential force: every production
       fluid YAML (65 of 65 carrying the key) sets `tangential_direction: -x`, which
