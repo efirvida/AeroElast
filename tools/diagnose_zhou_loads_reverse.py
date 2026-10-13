@@ -232,6 +232,20 @@ u = np.zeros(n_dof)
 u[free] = np.asarray(spsolve(Kff, f[free]), dtype=float).ravel()
 omega = float(np.rad2deg(t._ring_kinematics(coords, u, tip)["omega"]))
 
+# ZHOU_CCX_DIR=<dir>: also run this exact case through CalculiX S8R and compare (Line A of
+# odd/tasks/shell-twist-mixed-mesh.md; gates committed in bb4cc5d before this ran).
+if os.environ.get("ZHOU_CCX_DIR"):
+    from zhou_ccx_compare import compare as _ccx_compare
+
+    def _ring_at(fraction):
+        z0 = phys[0] + fraction * (phys[-1] - phys[0])
+        z = phys[int(np.argmin(np.abs(phys - z0)))]
+        return np.where(np.abs(coords[:, 2] - z) < t.STATION_GAP_TOLERANCE)[0]
+
+    _rings = {"tip": tip, **{f"{int(100 * s)}%": _ring_at(s) for s in (0.5, 0.75, 0.9)}}
+    _ccx_compare(mesh, props, f, u, free, coords, _rings,
+                 os.environ["ZHOU_CCX_DIR"], t._ring_kinematics, bv.SPAN_DIRECTION)
+
 # the beam, on the same completed load, standard shear-centre arm
 r_b = hub + frac * (rotor_radius - hub)
 Np_b = np.interp(r_b, r_their[order], Np_zhou[order], left=0.0, right=0.0)
