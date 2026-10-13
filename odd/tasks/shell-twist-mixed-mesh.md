@@ -140,3 +140,36 @@ tip twist by more than 1.5 deg (0.42 x 3.6 deg).
   next step for (i), not run: shell vs beam on a section with an exact distortion-free answer
   (closed tube, torsion: shell 0.998 of Bredt in `test_thin_walled_tube_torsion.py`, so the
   shell torsion itself is validated where distortion is absent).
+
+## Next session (decided 2026-10-13): two open lines, in this order
+
+Both are about the same open question: why the production shell turns 2.82x the standard beam
+under the same load (Zhou's, +5.855 vs +2.079 deg at 0.25 m). #34 is ruled out by E3.
+
+**Line A - section distortion (reading (i): shell right, beam cannot represent it).**
+- Idea: find a case where shell and beam have an independent reference AND the section distorts.
+  The closed rectangular tube is distortion-free (shell 0.998 of Bredt), so it validates torsion
+  but not this. Candidates to check first, in the repo: `tests/test_box_multicell_torsion.py`,
+  `docs/twist_distortion_diagnosis.md` (S-8c, `distortion/|omega|`), `tools/diagnose_zhou_loads_reverse.py`
+  with the section-distortion split already printed by `test_blade_rated_twist._ring_kinematics`.
+- Pre-register before running: the metric (`omega` vs `theta_fit` of the tip ring, i.e. the
+  distortion share), the reference (an independent 3D/shell code, CalculiX S8R, or an analytic
+  open-section/warping result) and the tolerance (5 %, the suite's rule).
+- Done when: either the shell matches an independent reference where the beam cannot (reading (i)
+  gets evidence) or it does not (then the shell over-twists and the cause is next to find).
+
+**Line B - #38, drilling penalty of composite triangles.**
+- `mitc3.rs:320`: `k_drill = e_modulus * t^2 * 0.15 * drilling_scale`, dimensionally inconsistent;
+  for composites `e_modulus = tr(A)/(3h)`.
+- Cheap probe, same style as E3 and no Rust change: the Zhou-load shell with `drilling_scale`
+  varied is NOT possible for composites (hard-wired 1.0), so instead use the strip of
+  `tools/diagnose_mixed_mesh_consistency.py` with a flat patch under a rigid rotation about its
+  normal: spurious energy should be zero and must not scale with h (the issue's own "closes when").
+- Pre-register: spurious energy / membrane energy at two thicknesses (h and 2h); a ratio
+  different from 1 within 5 % confirms the h-scaling. Expected weight on the blade is small for the
+  same reason as #34 (triangles are 0.12 % of the area); say so if it is.
+
+Conventions that must carry over: blade mesh 0.15-0.25 m only (`docs/blade_mesh_size_rule.md`);
+bootstrap `scripts/aeroenv.sh` with `PYTHONPATH=$PWD/src`, never `python -I`; the Zhou-load tool
+needs the git-ignored `.sources` symlink to the main checkout; thresholds are committed before the
+run; nothing is tuned toward Zhou. Work in this worktree/branch; commits are local, no push.
