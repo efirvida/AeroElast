@@ -754,8 +754,18 @@ magnitudes agree, and this is the measured pair.
         leading-edge guard is `norm <= 1e-12`, so a near-cancelling edge would set the
         sense from noise (unproven on real blades); (B) `test_multicell_shear_flow.py:1150`
         still passes `[-1,0,0]` and relies on the guard not firing on its ring mesh.
-  - [ ] T7c.4b 30 s gate on the fixed tree: job `11613577`, `RUN_NAME=t7c_30s`.
-        Expect ~ -22 % thrust, flap ~ 10 m (same as `tplus_30s`).
+  - [x] T7c.4b 30 s gate on the fixed tree: job `11613577`, `RUN_NAME=t7c_30s`,
+        COMPLETED 02:45:01 (2026-10-13). Window [10, 30] s, fit T = 7.947 s, same
+        script on both sides:
+        | quantity | tplus_30s (YAML +x) | t7c_30s (derived sense) |
+        |---|---|---|
+        | mean thrust | 1.976 MN (-22.3 % of rigid 2.541) | 1.976 MN |
+        | flap tip Y mean | 10.31 m | 10.35 m |
+        | thrust 1P / mean | 2.69 % | 2.69 % |
+        | power mean / Mb mean | 14.34 MW / 49.23 MN m | 14.34 MW / 49.23 MN m |
+        The projector-derived sense reproduces the one-variable +x run to 4 digits
+        (flap +0.4 %), so the fix is the same physics without the YAML key. Not
+        measured: BEM tip elastic twist (the log does not carry it).
   - Leftovers for T8: `docs/model_parity_audit.md:51` (stale MATCH claim),
     `tools/diagnose_tangential_sense.py:84`, `tools/diagnose_twist_sense_frame.py:11`.
 - [ ] T8 Reconcile the store (`rotor_coupling_noncontraction`,
