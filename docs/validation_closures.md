@@ -1782,5 +1782,5 @@ triángulo contra el cuad coincide con la predicción de CLT escrita antes de re
 a nivel de elemento. En la pala de producción (0.25 m, 32336 nodos) hay 88 triángulos de 33473 elementos (0.12 %
 del área, 0.26 % de los elementos), repartidos en todo el span (52 en paneles LE/TE, 26 en las almas,
 4 en refuerzo TE, 4 en el larguero, 2 en el borde de ataque), todos con el eje 1 a ~88° del span. **No se mostró que explique el 2.82× shell/viga**:
-queda abierto hasta E3 (propiedades de los triángulos pre-rotadas, sin tocar Rust). #38 (penalización
+**E3 lo descarta**: con las propiedades de los 88 triángulos pre-rotadas para que su eje 1 sea el span (signo calibrado en una tira girada 30°), el giro de punta pasa de +5.8550° a +5.8511° (−0.07 %, contra una barra de 1.5° fijada antes de correr); el control que solo separa los conjuntos da +5.8550° exacto. #34 es un defecto de corrección propio pero no causa el 2.82×. Sigue abierto: distorsión de sección que la viga no representa, y #38 (no tocado por E3). #38 (penalización
 de drilling en triángulos compuestos) no se probó.

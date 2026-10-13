@@ -111,3 +111,32 @@ unless E3 shows an effect; #34 is a correctness defect on its own and can be rep
 Possible outward-facing step (maintainer's decision): comment the E1/E2 numbers on issue #34.
 
 **Mesh rule (2026-10-13):** every blade run in this feature uses 0.25 m or finer; see `docs/blade_mesh_size_rule.md`. Re-run E3 on the same mesh as the baseline (a) above.
+
+## E3 result (2026-10-13, 0.25 m, one run per mode, nothing tuned)
+
+Pre-registered rule (written and committed in `e498163` before running): #34 is a relevant cause
+of the shell/beam gap only if moving the triangles onto the quad contract changes the Zhou-load
+tip twist by more than 1.5 deg (0.42 x 3.6 deg).
+
+| run (`ZHOU_TRIANGLE_AXIS`) | tip twist | vs production |
+|---|---|---|
+| `asis` (production) | +5.8550 deg | - |
+| `split` (88 triangles in their own sets, laminates unchanged; control) | +5.8550 deg | 0.0000 |
+| `span` (same, ply angles shifted by psi so axis 1 = projected span) | **+5.8511 deg** | **-0.0039 deg (-0.07 %)** |
+
+- Sign and method of the shift were calibrated first on a strip turned 30 deg
+  (`--calibrate`): +psi gives tri/quad 1.033 axial, 0.996 bending; -psi gives 1.647 / 0.482;
+  unshifted 6.46 / 2.63. psi over the 88 blade triangles: min/median/max |psi| 20.7 / 90.1 /
+  121.4 deg, so the shift is large and the null is not a no-op.
+- **Verdict: #34 is NOT a cause of the 2.82x.** The effect is 0.07 % against a 1.5 deg bar
+  (385x below it). Logs: `logs/check/zhou_e3_split.log`, `zhou_e3_span.log`.
+- #34 stays a correctness defect on its own (E1: tri/quad up to 12x on UD), with negligible
+  weight on this blade's torsion because 88 triangles are 0.12 % of the area. Reporting it does
+  not depend on the twist gap.
+- Limits: one metric (tip ring rotation under Zhou's loads, linear static); the in-plane
+  triangle fibre axis only. #38 (drilling penalty of composite triangles) was not touched by E3.
+- Still open for the 2.82x: (i) the shell is right and the beam cannot represent section
+  distortion (`distortion/|omega|` = 1.67 in the rated case); (ii-bis) #38. A discriminating
+  next step for (i), not run: shell vs beam on a section with an exact distortion-free answer
+  (closed tube, torsion: shell 0.998 of Bredt in `test_thin_walled_tube_torsion.py`, so the
+  shell torsion itself is validated where distortion is absent).
