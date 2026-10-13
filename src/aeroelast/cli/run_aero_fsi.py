@@ -88,7 +88,7 @@ mesh:
         type: "RotorMesh"
         params:
             yaml_file: "path/to/blade.yaml"
-            element_size: 0.5
+            element_size: 0.25
 
 output:
     folder: "aero_fsi_results"

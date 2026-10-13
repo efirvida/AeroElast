@@ -938,16 +938,16 @@ magnitudes agree, and this is the measured pair.
         reading is not supported by earlier measurements (shell stiffer than BeamDyn by
         6.4 % global / 23.9 % sectional, #20; independent-code response 4.22 %; Zhou
         comparison non-transferable because of section distortion). **Superseded by T7e:**
-        the load side is ruled out as the main source (same load, shell 2.86x the beam); the
+        the load side is ruled out as the main source (same load, shell 2.82x the beam); the
         open candidates are in the shell's own response, see `shell-twist-mixed-mesh.md`. Recorded in `docs/validation_closures.md` as an open magnitude gap
         that does not block re-anchoring. Proposed, not run: Zhou's Fig. 11 load on the
         coupled shell to separate load from structure. Script: not committed (scratch).
   - [x] T7e Zhou's published loads on our shell and beam (2026-10-13, existing
         `tools/diagnose_zhou_loads_reverse.py` run unmodified; needed a git-ignored
         `.sources` symlink into the worktree). Same load, tip twist nose-down positive:
-        shell +5.955 deg (1.65x Zhou), standard beam +2.079 (0.58x), Zhou +3.60. The coupled
+        shell +5.855 deg (1.63x Zhou; 0.25 m, the 0.5 m figure +5.955 is not citable), standard beam +2.079 (0.58x), Zhou +3.60. The coupled
         shell under BEM loads gives +5.59, so the load source is not what drives the 1.55x;
-        T7d's "load-side candidates" is withdrawn. Open: shell vs beam differ 2.86x under
+        T7d's "load-side candidates" is withdrawn. Open: shell vs beam differ 2.82x under
         identical load (section distortion the beam cannot represent, vs an application or
         mesh effect in the shell). Not a named defect; still an open magnitude gap that does
         not block re-anchoring. Next, not run: a closed section with an analytic torsion

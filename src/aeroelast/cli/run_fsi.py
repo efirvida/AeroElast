@@ -278,7 +278,7 @@ GENERATOR_TEMPLATES = {
       yaml_file: "reference_turbines/yamls/IEA-15-240-RWT.yaml"  # Path to blade YAML
       n_blades: 3          # Number of blades in rotor
             hub_radius: null     # Hub radius [m] (null = use blade definition or derive from rotor radius)
-      element_size: 0.5    # Target element size [m]
+      element_size: 0.25   # Target element size [m]
       n_samples: 300       # Samples for airfoil discretization
     export_parts:
         enabled: true

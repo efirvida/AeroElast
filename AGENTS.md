@@ -72,6 +72,11 @@ The product of this repository is numbers that survive scrutiny, not code that r
    as an input-sensitivity record in `convergence_b1_b2`
    (`docs/blade_input_divergence_utd_vs_official.md`).
 8. **Report negative and null results.** A reference that disagrees is the deliverable.
+9. **Mesh the blade at 0.15-0.25 m, never 0.5 m.** 0.5 m is not converged for this blade (flap tip
+   4.6 % from the 0.25 m value, 0.84 % between 0.25 and 0.125; torsion and twist move too) and its
+   results are not evidence. It may appear only as the coarse point of a convergence study. A new
+   test, tool, campaign case or example with `element_size >= 0.3` is a defect. Evidence, the
+   exceptions and the known debt: `docs/blade_mesh_size_rule.md`.
 
 ## Conventions that bite
 

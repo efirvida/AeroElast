@@ -95,7 +95,7 @@ chord = np.asarray(aero.chord, dtype=float)
 # ---- our mesh, shell and beam -------------------------------------------------
 Node._id_counter = 0
 MeshElement._id_counter = 0
-model = Blade(str(t.YAML), element_size=0.5)
+model = Blade(str(t.YAML), element_size=0.25)
 model.generate_mesh()
 mesh = model.mesh
 if mesh is None:
@@ -212,7 +212,7 @@ phi = float(np.rad2deg(theta[-1]))
 print()
 print("their complete load (forces published, moment reconstructed) in OUR two models:")
 print("one convention throughout, nose-down positive (leading edge +x, load downwind +y):")
-print(f"  shell (MITC4, 0.5 m)   tip section rotation {omega:+9.4f} deg")
+print(f"  shell (MITC4, 0.25 m)  tip section rotation {omega:+9.4f} deg")
 print(f"  standard beam          tip twist            {-phi:+9.4f} deg")
 print(
     f"  Zhou, their own LL-FVW+GEBT                  {-ZHOU_TIP_TORSION_DEG:+9.4f} deg  (their paper: toward stall positive)"

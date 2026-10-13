@@ -150,7 +150,7 @@ write_mesh(tower, "tower.obj")
 body = NacelleMesh.from_windio("turbine.yaml", axis=(0, 1, 0)).generate()
 write_mesh(body, "nacelle.stl")
 
-result = TurbineMesh("turbine.yaml", element_size=0.5).generate()
+result = TurbineMesh("turbine.yaml", element_size=0.25).generate()
 result.write("meshes/", format="stl")  # {"blade_1": "...", "nacelle": "...", "tower": "..."}
 result.rotor_axis      # (0, 1, 0)
 result.tower_top       # tower-top position relative to the rotor centre

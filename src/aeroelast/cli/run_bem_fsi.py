@@ -29,7 +29,7 @@ The YAML file must contain at minimum::
         type: "BladeMesh"
         params:
           yaml_file: "path/to/blade.yaml"
-          element_size: 0.5
+          element_size: 0.25
 
     bem:
       wind_speed: 10.59             # v_inf [m/s]
@@ -90,7 +90,7 @@ mesh:
     type: "BladeMesh"
     params:
       yaml_file: "path/to/blade.yaml"
-      element_size: 0.5
+      element_size: 0.25
   # Optional: write mesh to file for inspection / preCICE support-radius tuning
   # output_file: "fluid_mesh.vtk"
     # Optional: export separate rotor blades when using RotorMesh

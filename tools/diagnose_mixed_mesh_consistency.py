@@ -15,6 +15,10 @@ laminate rotated by 90 degrees, is printed BEFORE anything is solved.
 ``--blade`` (E2): triangles of the production blade mesh by span station, their area share and the
 angle between their effective axis 1 and the span-projected axis the quads follow.
 
+The blade is meshed at 0.25 m. 0.5 m is NOT converged for the blade (torsion and twist move
+between 0.5 and 0.25) and must not be used for any result here; it only appears in the
+already-done mesh-convergence studies.
+
 Read-only diagnostic: no element code is touched and nothing here is a pass/fail test.
 """
 
@@ -170,7 +174,7 @@ def blade_study():
     from aeroelast.models.blade.model import Blade
     import tests.validation.blade.test_blade_rated_twist as t
 
-    model = Blade(str(t.YAML), element_size=0.5)
+    model = Blade(str(t.YAML), element_size=0.25)
     model.generate_mesh()
     mesh = model.mesh
     xyz = np.array([[n.x, n.y, n.z] for n in mesh.nodes])

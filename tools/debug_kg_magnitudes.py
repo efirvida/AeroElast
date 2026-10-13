@@ -21,7 +21,7 @@ def main():
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(element_size=0.5, yaml_file=str(REPO / "tests/IEA-15-240-RWT.yaml"))
+    gen = BladeMesh(element_size=0.25, yaml_file=str(REPO / "tests/IEA-15-240-RWT.yaml"))
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     model = {"elements": {"element_family": ElementFamily.SHELL,

@@ -1,4 +1,4 @@
-# Feature: is the shell's 2.86x twist (vs the beam, same load) a mixed MITC3/MITC4 effect?
+# Feature: is the shell's 2.82x twist (vs the beam, same load) a mixed MITC3/MITC4 effect?
 
 Spun off from `coupled-divergence.md` T7d/T7e (2026-10-13). Worktree `rotor-frame`, branch
 `fix/bem-participant-rotor-frame`. Read-only investigation: **no element code changes without
@@ -6,8 +6,8 @@ the maintainer's OK.**
 
 ## Question
 
-Under Zhou's published loads the production shell turns +5.96 deg, the standard beam +2.08 deg
-(2.86x). T7e left two readings open: (i) the shell is right and the beam cannot represent section
+Under Zhou's published loads the production shell turns +5.86 deg, the standard beam +2.08 deg
+(2.82x). T7e left two readings open: (i) the shell is right and the beam cannot represent section
 distortion; (ii) the shell over-twists through an effect the beam lacks. The blade mesh mixes
 MITC4 quads with MITC3 triangles (root, trailing edge, tip), and two open defects live exactly
 there: #34 (quads and triangles use different fibre-axis conventions) and #38 (MITC3+ drilling
@@ -70,22 +70,23 @@ once coupling is present, [45,0]s measured 1.065 vs 1.475 naive). The twist colu
 is meaningless where the quad twist is ~0 (UD, isotropic): a one-diagonal triangulation has its
 own chirality (isotropic tri strip twists 2.1 deg at 45 m deflection), not a #34 effect.
 
-**E2: on the production blade the defect is real but touches very little.** 9277 nodes: 9824
-quads, **43 triangles = 0.44 % of the elements, 0.22 % of the area** (0.17 % inside 0.3-0.9 R),
-spread evenly along the span, not only root/tip/TE. Their effective axis 1 is **~88 deg off the
-span in every bin, 100 % of them above 45 deg** (the Z fallback of `rotate_constitutive_to_local`
-fires only when X is exactly normal, which never holds once the blade is twisted). Where they sit
-(sets with a triangle): LE/TE panels (~25), shear webs 14, TE reinforcement 2, spar cap 2
-(one HP, one LP).
+**E2: on the production blade (0.25 m) the defect is real but touches very little.** 32336 nodes:
+33385 quads, **88 triangles = 0.26 % of the elements, 0.12 % of the area** (0.11 % inside 0.3-0.9
+R), spread along the whole span (log `logs/check/mixed_mesh_e2_025.log`). Their effective axis 1
+is **~82-89 deg off the span in every bin** (the Z fallback of `rotate_constitutive_to_local` fires
+only when X is exactly normal, which never holds once the blade is twisted). Sets with a triangle:
+LE/TE panels 52, shear webs 26, TE reinforcement 4, spar cap 4, leading edge 2. (An earlier pass
+at 0.5 m, 43 triangles, was discarded: 0.5 m is not a converged blade mesh,
+`docs/blade_mesh_size_rule.md`. The strip of E1 does not depend on the blade mesh.)
 
 ## Reading, and what is NOT shown
 
 - Shown: the quad/triangle fibre-axis contract differs by ~90 deg (E1), and every blade triangle
   is on the wrong side of it (E2).
-- Not shown: that this explains the 2.86x. Area share is 0.22 %; a single transverse-axis
+- Not shown: that this explains the 2.82x. Area share is 0.12 %; a single transverse-axis
   element in a 12x-stiffer UD cap is a local soft spot whose effect on torsion is not
-  estimated by area. Plausible mechanism for an effect that is not small: the two spar-cap
-  triangles and the 14 web triangles. Plausible reason it is small: 0.22 %.
+  estimated by area. Plausible mechanism for an effect that is not small: the four spar-cap
+  triangles and the 26 web triangles. Plausible reason it is small: 0.12 %.
 - Not tested: #38 (drilling penalty on composite triangles). The isotropic control agrees to
   1 %, which says nothing about the composite penalty (`e_equiv = tr(A)/3h`).
 
@@ -99,12 +100,14 @@ checkout's, git-ignored). Logs: `logs/check/mixed_mesh_e1.log`, `mixed_mesh_e2.l
 
 Next measurement, decided but NOT run (needs the maintainer's OK because it is a model change in
 a sensitivity copy, not a fix): **E3, the decisive one.** Run `tools/diagnose_zhou_loads_reverse.py`
-twice on the same mesh and load: (a) as is (shell +5.955 deg), (b) with the 43 triangles' composite
+twice on the same mesh and load: (a) as is (shell +5.855 deg (0.25 m; 0.5 m gave +5.955, not citable)), (b) with the 88 triangles' composite
 properties pre-rotated in Python by minus the angle `rotate_constitutive_to_local` applies, so
 their effective axis 1 is the span (the #34 contract). No Rust change, no parameter moved.
 Pre-register before running: the tolerance for "explains it" is that (b) moves the tip twist by
 more than the 0.42 band width used in T7d (|delta| > 0.42 x 3.6 deg = 1.5 deg); anything smaller
-closes mixed-mesh #34 as a non-cause of the 2.86x. If it moves less, the next candidates are #38
+closes mixed-mesh #34 as a non-cause of the 2.82x. If it moves less, the next candidates are #38
 and section distortion (reading (i)). Do NOT propose the #34 fix as a remedy for the twist gap
 unless E3 shows an effect; #34 is a correctness defect on its own and can be reported on its own.
 Possible outward-facing step (maintainer's decision): comment the E1/E2 numbers on issue #34.
+
+**Mesh rule (2026-10-13):** every blade run in this feature uses 0.25 m or finer; see `docs/blade_mesh_size_rule.md`. Re-run E3 on the same mesh as the baseline (a) above.

@@ -32,7 +32,7 @@ def run(name, kw):
     from aeroelast.elements import ElementFamily
     from aeroelast.models.blade.model import build_rust_properties
 
-    gen = BladeMesh(element_size=0.5, **kw)
+    gen = BladeMesh(element_size=0.25, **kw)
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
     model = {"elements": {"element_family": ElementFamily.SHELL,

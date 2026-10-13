@@ -75,7 +75,7 @@ def main():
                       airfoil_dir=str(REPO / "tests/airfoils"))),
     ]
     for name, kw in cases:
-        gen = BladeMesh(element_size=0.5, **kw)
+        gen = BladeMesh(element_size=0.25, **kw)
         mesh = gen.generate(renumber="rcm")
         props = build_rust_properties(gen.numad_mesh_data)
         model = {"elements": {"element_family": ElementFamily.SHELL,

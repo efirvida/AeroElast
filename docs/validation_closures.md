@@ -1740,19 +1740,20 @@ ajuste de parámetros).**
   candidatos que quedan están en la respuesta del shell y se ven en la prueba de abajo.
 - *No hecho*: ningún parámetro se movió hacia Zhou.
 
-**Prueba que separa carga de estructura (2026-10-13, `tools/diagnose_zhou_loads_reverse.py`, sin
+**Prueba que separa carga de estructura (2026-10-13, malla de la pala a 0.25 m; a 0.5 m dio +5.955°, no citable, `docs/blade_mesh_size_rule.md`, `tools/diagnose_zhou_loads_reverse.py`, sin
 modificar, log en `logs/check/zhou_loads_reverse_t7e.log`).** Las cargas publicadas de Zhou (Fig. 11,
 momento `Mp` reconstruido) aplicadas con el proyector de producción al shell y a la viga estándar
 del deck, mismo convenio (nariz abajo positivo):
 
 | modelo, mismas cargas | twist de punta | contra Zhou +3.60° |
 |---|---|---|
-| shell MITC4 (0.5 m) | +5.955° | 1.65× |
+| shell MITC4 (0.25 m) | +5.855° | 1.63× |
 | viga estándar (deck BeamDyn) | +2.079° | 0.58× |
 | Zhou (LL-FVW + GEBT) | +3.60° | 1× |
 
-- Con **la misma carga** el shell gira 2.86× más que la viga, y el shell bajo las cargas de Zhou
-  (+5.96°) coincide con el shell acoplado bajo nuestras cargas BEM (+5.59°, −6 %). Por tanto la
+- Con **la misma carga** el shell gira 2.82× más que la viga, y el shell bajo las cargas de Zhou
+  (+5.86°) está cerca del shell acoplado bajo nuestras cargas BEM (+5.59°, −4.5 %; la malla del
+  caso acoplado no se verificó). Por tanto la
   carga **no** es el origen del 1.55×: queda descartada como explicación principal, y mi lectura
   anterior de "candidatos del lado de la carga" se retira.
 - La brecha vive en la respuesta torsional shell frente a viga bajo carga idéntica. Eso es
@@ -1766,7 +1767,7 @@ del deck, mismo convenio (nariz abajo positivo):
   windIO (`tests/IEA-15-240-RWT.yaml`, 8 perfiles con `c_l`, `c_d`, `c_m`). Recalculado con los del
   yaml en las 7 estaciones de Zhou, `Mp` cambia entre −2.5 % y +1.1 % por estación y +0.7 % en
   suma (`Mp` solo entra por `Cm`; `q·c` sale de `|F|/√(CL²+CD²)`), así que la fuente de polares no
-  explica la brecha de 2.86×. La frase "los polares son nuestros" del docstring de la herramienta
+  explica la brecha de 2.82×. La frase "los polares son nuestros" del docstring de la herramienta
   significa "los del deck", no los del yaml; queda sin corregir en el código.
 - Medición que separaría (i) de (ii), propuesta y sin correr: la misma carga sobre un tubo cerrado
   o una sección con solución analítica de torsión, comparando shell y viga (existe una base en
@@ -1778,8 +1779,8 @@ compuesta en voladizo, malla de cuads (44) frente a triángulos (33): la respues
 triángulo contra el cuad coincide con la predicción de CLT escrita antes de resolver (laminado girado
 90°): UD axial 11.84 vs 12.00, flexión 12.00 vs 12.00; [45,0]s axial 5.08 vs 4.94, flexión 1.87 vs
 1.95, flexo-torsión −2.30 vs −2.44 (cambia de signo); control isótropo 0.996/0.999. El defecto es real
-a nivel de elemento. En la pala de producción (0.5 m) hay 43 triángulos de 9867 elementos (0.22 %
-del área), repartidos en todo el span (paneles LE/TE, 14 en las almas, 2 en refuerzo TE, 2 en el
-larguero), todos con el eje 1 a ~88° del span. **No se mostró que explique el 2.86× shell/viga**:
+a nivel de elemento. En la pala de producción (0.25 m, 32336 nodos) hay 88 triángulos de 33473 elementos (0.12 %
+del área, 0.26 % de los elementos), repartidos en todo el span (52 en paneles LE/TE, 26 en las almas,
+4 en refuerzo TE, 4 en el larguero, 2 en el borde de ataque), todos con el eje 1 a ~88° del span. **No se mostró que explique el 2.82× shell/viga**:
 queda abierto hasta E3 (propiedades de los triángulos pre-rotadas, sin tocar Rust). #38 (penalización
 de drilling en triángulos compuestos) no se probó.

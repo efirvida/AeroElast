@@ -225,7 +225,7 @@ params:
   yaml_file: "IEA-15-240-RWT.yaml"   # Path to blade YAML (relative to config)
   n_blades: 3
   hub_radius: null                     # null = use blade definition
-  element_size: 0.5                    # Target element size [m]
+  element_size: 0.25                   # Target element size [m]
   n_samples: 300                       # Airfoil discretization samples
 ```
 </details>
