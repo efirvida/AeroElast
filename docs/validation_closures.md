@@ -1771,3 +1771,15 @@ del deck, mismo convenio (nariz abajo positivo):
 - Medición que separaría (i) de (ii), propuesta y sin correr: la misma carga sobre un tubo cerrado
   o una sección con solución analítica de torsión, comparando shell y viga (existe una base en
   `odd/tasks/application-exact-case-validation.md`).
+
+**Consistencia cuadriláteros/triángulos compuestos (#34), medida el 2026-10-13
+(`tools/diagnose_mixed_mesh_consistency.py`, `odd/tasks/shell-twist-mixed-mesh.md`).** Una tira
+compuesta en voladizo, malla de cuads (44) frente a triángulos (33): la respuesta de punta del
+triángulo contra el cuad coincide con la predicción de CLT escrita antes de resolver (laminado girado
+90°): UD axial 11.84 vs 12.00, flexión 12.00 vs 12.00; [45,0]s axial 5.08 vs 4.94, flexión 1.87 vs
+1.95, flexo-torsión −2.30 vs −2.44 (cambia de signo); control isótropo 0.996/0.999. El defecto es real
+a nivel de elemento. En la pala de producción (0.5 m) hay 43 triángulos de 9867 elementos (0.22 %
+del área), repartidos en todo el span (paneles LE/TE, 14 en las almas, 2 en refuerzo TE, 2 en el
+larguero), todos con el eje 1 a ~88° del span. **No se mostró que explique el 2.86× shell/viga**:
+queda abierto hasta E3 (propiedades de los triángulos pre-rotadas, sin tocar Rust). #38 (penalización
+de drilling en triángulos compuestos) no se probó.
