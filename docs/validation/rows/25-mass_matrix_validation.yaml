@@ -89,17 +89,17 @@ rows:
   title: TestModalMassConvergence::test_first_mode_mass[mesh_density0]
   tests:
   - tests/validation/element/test_mass_matrix_validation.py::TestModalMassConvergence::test_first_mode_mass[mesh_density0]
-  validates: First mode effective mass should converge.
+  validates: Compare first-mode frequency with the closed-form cantilever reference.
   comparisons:
-  - label: atol at line 635
+  - label: rtol at line 634
     asserted: true
     reference:
       kind: analytical
       label: the closed form frequency of the single element
     tolerance:
-      kind: atol
+      kind: rtol
       value: 0.05
-      source: tests/validation/element/test_mass_matrix_validation.py:635
+      source: tests/validation/element/test_mass_matrix_validation.py:634
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -112,17 +112,17 @@ rows:
   title: TestModalMassConvergence::test_first_mode_mass[mesh_density1]
   tests:
   - tests/validation/element/test_mass_matrix_validation.py::TestModalMassConvergence::test_first_mode_mass[mesh_density1]
-  validates: First mode effective mass should converge.
+  validates: Compare first-mode frequency with the closed-form cantilever reference.
   comparisons:
-  - label: atol at line 635
+  - label: rtol at line 634
     asserted: true
     reference:
       kind: analytical
       label: the closed form frequency of the single element
     tolerance:
-      kind: atol
+      kind: rtol
       value: 0.05
-      source: tests/validation/element/test_mass_matrix_validation.py:635
+      source: tests/validation/element/test_mass_matrix_validation.py:634
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -135,17 +135,17 @@ rows:
   title: TestModalMassConvergence::test_first_mode_mass[mesh_density2]
   tests:
   - tests/validation/element/test_mass_matrix_validation.py::TestModalMassConvergence::test_first_mode_mass[mesh_density2]
-  validates: First mode effective mass should converge.
+  validates: Compare first-mode frequency with the closed-form cantilever reference.
   comparisons:
-  - label: atol at line 635
+  - label: rtol at line 634
     asserted: true
     reference:
       kind: analytical
       label: the closed form frequency of the single element
     tolerance:
-      kind: atol
+      kind: rtol
       value: 0.05
-      source: tests/validation/element/test_mass_matrix_validation.py:635
+      source: tests/validation/element/test_mass_matrix_validation.py:634
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:

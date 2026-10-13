@@ -564,7 +564,7 @@ class TestModalMassConvergence:
 
     @pytest.mark.parametrize("mesh_density", [(2, 1), (4, 2), (8, 4)])
     def test_first_mode_mass(self, material_steel, fem_properties, mesh_density):
-        """First mode effective mass should converge."""
+        """Compare first-mode frequency with the closed-form cantilever reference."""
         nx, ny = mesh_density
         L, b, h = 1.0, 0.1, 0.01
         E = material_steel.E
@@ -634,8 +634,7 @@ class TestModalMassConvergence:
             # same value, so it never branched; this is the 5% it always applied.
             assert_residual_below(
                 error,
-                atol=TOL,
-                unit="%",
+                tol=TOL,
                 kind="analytical",
                 reference_name="the closed form frequency of the single element",
                 what="frequency error",

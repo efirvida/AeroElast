@@ -90,7 +90,7 @@ from tests.support.assertions import (  # noqa: E402
     assert_residual_below,
 )
 
-TOL_STATIC = 3.0  # percent
+TOL_STATIC = 0.03  # fractional relative-error bound (3%)
 
 # Mesh sequence for the axial convergence study.  (2,1) is excluded because it
 # is not on the asymptotic branch (measured 1.35%, below the 2.70% of (4,2)).
@@ -206,13 +206,14 @@ class TestLinearStatic:
         """FX in-plane loading."""
         ux = _solve_static(8, 4, (600.0, 0.0, 0.0, 0.0, 0.0, 0.0), 0)
 
-        error = abs(ux - EXPECTED["ux"]) / EXPECTED["ux"] * 100
-        print(f"\nFX: {ux * 1000:.4f} mm (ref: {EXPECTED['ux'] * 1000:.4f} mm, err {error:.2f}%)")
+        error = abs(ux - EXPECTED["ux"]) / EXPECTED["ux"]
+        print(
+            f"\nFX: {ux * 1000:.4f} mm (ref: {EXPECTED['ux'] * 1000:.4f} mm, err {error * 100:.2f}%)"
+        )
 
         assert_residual_below(
             error,
-            atol=TOL_STATIC,
-            unit="%",
+            tol=TOL_STATIC,
             kind="analytical",
             reference_name="the analytical cantilever formula in this file's EXPECTED table",
             what="FX static error",
@@ -222,13 +223,14 @@ class TestLinearStatic:
         """FY in-plane loading."""
         uy = _solve_static(8, 4, (0.0, 600.0, 0.0, 0.0, 0.0, 0.0), 1)
 
-        error = abs(uy - EXPECTED["uy"]) / EXPECTED["uy"] * 100
-        print(f"\nFY: {uy * 1000:.4f} mm (ref: {EXPECTED['uy'] * 1000:.4f} mm, err {error:.2f}%)")
+        error = abs(uy - EXPECTED["uy"]) / EXPECTED["uy"]
+        print(
+            f"\nFY: {uy * 1000:.4f} mm (ref: {EXPECTED['uy'] * 1000:.4f} mm, err {error * 100:.2f}%)"
+        )
 
         assert_residual_below(
             error,
-            atol=TOL_STATIC,
-            unit="%",
+            tol=TOL_STATIC,
             kind="analytical",
             reference_name="the analytical cantilever formula in this file's EXPECTED table",
             what="FY static error",
@@ -238,13 +240,14 @@ class TestLinearStatic:
         """FZ out-of-plane loading."""
         uz = _solve_static(8, 4, (0.0, 0.0, 600.0, 0.0, 0.0, 0.0), 2)
 
-        error = abs(uz - EXPECTED["uz"]) / EXPECTED["uz"] * 100
-        print(f"\nFZ: {uz * 1000:.4f} mm (ref: {EXPECTED['uz'] * 1000:.4f} mm, err {error:.2f}%)")
+        error = abs(uz - EXPECTED["uz"]) / EXPECTED["uz"]
+        print(
+            f"\nFZ: {uz * 1000:.4f} mm (ref: {EXPECTED['uz'] * 1000:.4f} mm, err {error * 100:.2f}%)"
+        )
 
         assert_residual_below(
             error,
-            atol=TOL_STATIC,
-            unit="%",
+            tol=TOL_STATIC,
             kind="analytical",
             reference_name="the analytical cantilever formula in this file's EXPECTED table",
             what="FZ static error",
@@ -400,11 +403,10 @@ class TestModal:
 
         print(f"\nModal mode 1: {f1:.3f} Hz (ref: {EXPECTED['modal_1']:.3f} Hz)")
 
-        error = abs(f1 - EXPECTED["modal_1"]) / EXPECTED["modal_1"] * 100
+        error = abs(f1 - EXPECTED["modal_1"]) / EXPECTED["modal_1"]
         assert_residual_below(
             error,
-            atol=2.0,
-            unit="%",
+            tol=0.02,
             kind="analytical",
             reference_name="the file's EXPECTED first modal frequency",
             what="mode 1 frequency error",

@@ -7,14 +7,14 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_fx
   validates: FX in-plane loading.
   comparisons:
-  - label: atol at line 212
+  - label: rtol at line 212
     asserted: true
     reference:
       kind: analytical
       label: the analytical cantilever formula in this file's EXPECTED table
     tolerance:
-      kind: atol
-      value: 3.0
+      kind: rtol
+      value: 0.03
       source: tests/validation/benchmarks/test_shell_static_and_modal.py:212
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
@@ -30,14 +30,14 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_fy
   validates: FY in-plane loading.
   comparisons:
-  - label: atol at line 228
+  - label: rtol at line 228
     asserted: true
     reference:
       kind: analytical
       label: the analytical cantilever formula in this file's EXPECTED table
     tolerance:
-      kind: atol
-      value: 3.0
+      kind: rtol
+      value: 0.03
       source: tests/validation/benchmarks/test_shell_static_and_modal.py:228
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
@@ -53,14 +53,14 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_fz
   validates: FZ out-of-plane loading.
   comparisons:
-  - label: atol at line 244
+  - label: rtol at line 244
     asserted: true
     reference:
       kind: analytical
       label: the analytical cantilever formula in this file's EXPECTED table
     tolerance:
-      kind: atol
-      value: 3.0
+      kind: rtol
+      value: 0.03
       source: tests/validation/benchmarks/test_shell_static_and_modal.py:244
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
@@ -141,14 +141,14 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestModal::test_first_mode
   validates: First modal frequency.
   comparisons:
-  - label: atol at line 404
+  - label: rtol at line 404
     asserted: true
     reference:
       kind: analytical
       label: the file's EXPECTED first modal frequency
     tolerance:
-      kind: atol
-      value: 2.0
+      kind: rtol
+      value: 0.02
       source: tests/validation/benchmarks/test_shell_static_and_modal.py:404
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
