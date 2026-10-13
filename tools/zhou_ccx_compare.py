@@ -16,7 +16,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 
 GATE = 0.05
-MATCH_TOL = 1e-4  # [m] corner-node match between our mesh and the FRD
+MATCH_TOL = 2e-3  # [m] the FRD prints 5 significant digits: ~5e-4 m resolution at z ~ 100 m
 
 
 def _ccx_displacement(frd: Path, coords: np.ndarray) -> np.ndarray:
@@ -33,6 +33,8 @@ def _ccx_displacement(frd: Path, coords: np.ndarray) -> np.ndarray:
     dist, nn = cKDTree(pts).query(coords)
     if dist.max() > MATCH_TOL:
         raise RuntimeError(f"{int((dist > MATCH_TOL).sum())} of our nodes have no FRD match (max {dist.max():.2e} m)")
+    if len(set(nn.tolist())) != len(nn):
+        raise RuntimeError("ambiguous match: two of our nodes map to the same FRD node")
     u = np.zeros(6 * len(coords))
     for i, k in enumerate(nn):
         d = disp.get(int(ids[k]))

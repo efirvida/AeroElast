@@ -239,7 +239,7 @@ if os.environ.get("ZHOU_CCX_DIR"):
 
     def _ring_at(fraction):
         z0 = phys[0] + fraction * (phys[-1] - phys[0])
-        z = phys[int(np.argmin(np.abs(phys - z0)))]
+        z = phys[int(np.argmin(np.abs(np.asarray(phys) - z0)))]
         return np.where(np.abs(coords[:, 2] - z) < t.STATION_GAP_TOLERANCE)[0]
 
     _rings = {"tip": tip, **{f"{int(100 * s)}%": _ring_at(s) for s in (0.5, 0.75, 0.9)}}
