@@ -655,6 +655,52 @@ magnitudes agree, and this is the measured pair.
         above rigid 2.541 MN is not gravity.
   - [ ] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
         was measured on rotated displacements.
+        **Setup (2026-10-13).** Comparison tree: worktree `../fem-shell-worktrees/t7a4-follow`,
+        branch `exp/t7a4-follow-projector` = HEAD `f418fb4` + `git revert 6765633` + one
+        patch so the rebuilt projector receives exactly the reference's constructor
+        arguments (`tangential_direction=self._configured_tangential`,
+        `element_properties`). The plain revert was **not** one variable: it passed a
+        hard-coded `[1,0,0]` and dropped `element_properties` (`81a1e15`, `d42ddda` came
+        later). Only the coordinates and the strip radii follow the deformation. Frame:
+        `_compute_forces` receives rotating-frame `u` (`_displacements_from_partner`,
+        `fsi_participant.py:667`); the case reads `partner_frame: inertial`.
+        Wall-flow realisation is off in the smoke case (`fluid.log:10`), so both sides use
+        the minimum-norm strip distribution.
+        Liveness (fixture of `test_bem_fsi_deformed_geometry.py`, max |u| 17.6 m): the guard
+        `test_force_projection_geometry_stays_on_the_reference` goes RED in the comparison
+        tree (max nodal diff 1383 N; `e3278ba` read 1372.75 N), the other 7 pass.
+        **Incident:** pytest in a worktree without `PYTHONPATH=$PWD/src` imports the
+        *main checkout's* `aeroelast` (editable install; at `chore/cite-by-reference`), so
+        the guard passed and the `-x` refusal failed on the wrong tree. With the variable
+        set, HEAD reads 7/7 and `test_bem_participant_rotor_frame.py` 53/53. The SLURM
+        srm sets it (`a48ca20`), so the coupled runs were not affected.
+        **Static finding (same fixture, same BEM result), the frozen projector does not
+        conserve the load:** ΣF_normal reference 624.31 kN (**+1.23 %** of ∫Np dr =
+        616.75 kN), following 617.66 kN (+0.15 %), `bem.thrust/B` 614.84 kN. Hypothesis,
+        not proven: the reference strip widths carry Np evaluated on the shortened
+        deformed radii (`fee2cc8`). Cost: projector rebuild 2.68 s on the 9 k-node fixture
+        (BEM rebuild 0.13 s); the smoke fluid mesh has 27 609 nodes.
+        **Pre-registered (before launch).** Same srm, same case, only the tree differs;
+        before side `t7c_30s` (job `11613577`, `src/` identical to HEAD).
+        Metrics: `tools/coupled_run_stats.py` on both run dirs, with `--t-end` = the
+        common end time (truncating the deterministic frozen run is exact).
+        - Gate A, the rationale of `6765633`: every window converges, 0 windows at the
+          30-iteration limit. Reference `t7c_30s`: 3000/3000, 0 at limit, mean 2.11,
+          max 11. Fail ⇒ the rationale still holds ⇒ **keep frozen**.
+        - Gate B (only if A passes): means over the last 2 whole periods
+          (T = 7.947 s) of thrust, flap tip Y, power, Mb. Reference `t7c_30s`
+          (14.106, 30]: 1.9746 MN / 10.3366 m / 14.3384 MW / 49.1957 MN·m (identical over
+          (7.946, 23.840]: stationary). Decision threshold 1 % on thrust and flap,
+          justified as: well under the 9-point gap to Zhou (-22.3 % vs -13 %) that
+          motivates the fidelity work, and above the 0.4 % flap spread between two
+          physically identical runs (`tplus_30s`/`t7c_30s`). |Δ| < 1 % on both ⇒ null:
+          **keep frozen** (no material change at 20× the projector cost), record the
+          static conservation bias as bounded by the measured Δ. |Δ| ≥ 1 % ⇒ the choice
+          is material: **change**, toward whichever variant conserves ∫Np dr (statically:
+          the following one), RED conservation test first, then the 30 s gate.
+        Price: ~6300 sub-iterations × ~8 s rebuild (27 k nodes, linear scaling
+        assumed) + 2.75 h base ≈ 17 h on 8 cores; submitted with `--time=24:00:00`.
+        Gate A is readable from the iterations log within the first hours.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
 - [x] T7b The +6.6 % mean thrust is a reversed tangential force: every production
       fluid YAML (65 of 65 carrying the key) sets `tangential_direction: -x`, which
