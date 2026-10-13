@@ -143,15 +143,14 @@ directions in ``_twist_mesh_to_bem``.
 Force projection on deformed geometry
 --------------------------------------
 After obtaining the BEM distributed loads :math:`N_p(r_k)` and
-:math:`T_p(r_k)` (normal and tangential force per unit span), the
-``ForceProjector`` is reconstructed using the **deformed nodal coordinates**
-:math:`\mathbf{X}_i + \mathbf{u}_i`.  This ensures that:
-
-* Node-to-strip assignment uses actual deformed span positions (a node
-  displaced by bending may migrate to an adjacent strip).
-* The moment-preserving distribution (minimum-norm pseudoinverse) acts on
-  the deformed strip geometry, so the resultant moment about the deformed
-  centroid matches the BEM integrated moment.
+:math:`T_p(r_k)` (normal and tangential force per unit span), the loads are
+laid out by **one** ``ForceProjector`` built once on the **reference**
+geometry.  The node-to-strip assignment, the aerodynamic-centre arm, the
+pitching-moment axis and the moment-preserving distribution all stay on the
+reference: re-deriving them from the current displacement every implicit
+sub-iteration adds a deformation-dependent gain that breaks the coupled
+contraction (``odd/tasks/coupled-divergence.md``).  The loads themselves do
+follow the deformation, through the deformed BEM.
 
 Aerodynamic pitching moment
 ----------------------------
@@ -177,12 +176,12 @@ about the strip centroid matches the aerodynamic pitching moment.
 
 Consistent deformed strip widths
 ---------------------------------
-When the blade geometry is updated from the displacement field, the
-``ForceProjector`` is rebuilt using a **deformed** ``BladeAero`` (the
-same one passed to the BEM solver).  This ensures that the per-strip
-width :math:`\Delta r_k` used to convert force-per-span into total
-strip force is consistent with the deformed radial positions
-:math:`r_k^{\mathrm{def}}`.
+The projector is not rebuilt on the deformed ``BladeAero``; only its
+per-strip width :math:`\Delta r_k`, used to convert force-per-span into total
+strip force, follows the stations the BEM result carries.  ``project()``
+recomputes it from :math:`r_k^{\mathrm{def}}` with the same strip rule that
+built the reference grid, so the deformed loads are integrated over the
+deformed (shortened) span rather than the reference widths.
 
 Checkpoint strategy
 -------------------
@@ -480,9 +479,8 @@ class BEMFSIParticipant:
         # These index arrays define which mesh nodes belong to each BEM strip.
         # The mapping is established on the reference geometry and is used by
         # the deformed-geometry methods (radial position averaging and the
-        # strip's centre-ring selection).  The ForceProjector rebuilt on
-        # deformed coordinates will independently reassign nodes to strips (a
-        # node shifted by large bending may migrate to an adjacent strip).
+        # strip's centre-ring selection).  The projector keeps this same
+        # reference assignment for the load distribution.
         self._strip_node_indices: list[np.ndarray] = [
             strip.node_indices.copy() for strip in ref_projector._strips
         ]

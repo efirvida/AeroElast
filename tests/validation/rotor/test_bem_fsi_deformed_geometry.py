@@ -455,6 +455,54 @@ def test_force_projection_geometry_stays_on_the_reference(fsi):
     np.testing.assert_allclose(forces, expected, rtol=1e-12, atol=1e-9)
 
 
+def _strip_rule_widths(r: np.ndarray) -> np.ndarray:
+    """Strip widths on stations ``r``: midpoint edges plus mirrored end half-cells.
+
+    Written out here, independently of the projector, so the expectation is not the
+    code under test.  The widths do not depend on the span datum of ``r``.
+    """
+    r = np.asarray(r, dtype=float)
+    r_mid = 0.5 * (r[:-1] + r[1:])
+    edges = np.concatenate([[2.0 * r[0] - r_mid[0]], r_mid, [2.0 * r[-1] - r_mid[-1]]])
+    return np.diff(edges)
+
+
+def test_frozen_projection_conserves_the_deformed_strip_load(fsi):
+    """The frozen projector must integrate the deformed BEM over the deformed widths.
+
+    Metric: the summed rotor-normal nodal force ``sum_i F_i . n_rotor`` of the
+    participant's projected forces on the deformed fixture.  Reference: the strip-rule
+    integral on the stations the deformed BEM ran on, ``sum_k Np_k * dr_rule(bem.r)_k``
+    - exactly what a projector rebuilt on ``r_def`` delivers (its widths equal the rule
+    on ``r_def`` to 7e-15 m).  Tolerance: rel 1e-9, the distribution itself conserves
+    the strip force to 1e-10 N, and ``Tp`` has no rotor-normal component.
+
+    Measured before the fix: 624.3 kN against 617.7 kN (+1.077 %), because ``Np`` on
+    the shortened deformed span was integrated over the *reference* strip widths.  The
+    projector stays frozen on the reference (grid, AC arm, moment axis - see
+    ``test_force_projection_geometry_stays_on_the_reference``); only the width follows
+    the BEM stations.  The end half-cell bias of the strip rule itself (bias E, +0.15 %
+    deformed / +0.47 % rigid) is deliberately not covered here: the reference uses the
+    same rule.
+    """
+    participant = fsi["participant"]
+    forces, bem = participant._compute_forces(fsi["displacements"])
+
+    widths = _strip_rule_widths(bem.r)
+    ref_widths = _strip_rule_widths(participant._ref_r)
+    assert not np.allclose(widths, ref_widths, rtol=1e-6), (
+        "the deformed stations carry the reference widths, so this guard measures nothing"
+    )
+
+    n_rotor = participant._projector._rotor_normal_dir
+    applied = float((forces @ n_rotor).sum())
+    expected = float(np.sum(np.asarray(bem.Np, dtype=float) * widths))
+    assert applied == pytest.approx(expected, rel=1e-9), (
+        f"applied normal force {applied / 1e3:.4f} kN vs strip-rule integral on the "
+        f"deformed stations {expected / 1e3:.4f} kN ({100.0 * (applied / expected - 1.0):+.3f} %)"
+    )
+
+
 def test_reversed_tangential_direction_is_refused(fsi):
     """The retired production sense ``-x`` contradicts the measured leading edge (T7c)."""
     with pytest.raises(ValueError, match="tangential_direction"):

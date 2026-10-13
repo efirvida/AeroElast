@@ -761,6 +761,12 @@ magnitudes agree, and this is the measured pair.
         path. Side finding, unverified: the deformed root station sits 1.6e-5 m inboard of
         r_ref[0], CCBlade reports NaN at station 0 and zeroes it (deformed Np₀ = 0 vs
         115 N/m rigid); suspected slip inside Rhub, effect on E ≈ 0.016 %.
+        **Scope decision (user, 2026-10-13): fix D only.** `project()` takes the strip
+        widths from `bem_result.r` with the constructor's strip rule; node assignment, AC
+        arm, axes and distribution stay frozen (no rebuild). Rigid path is a no-op. RED
+        target: ΣF_normal = Σ Np·dr_rule(r_def) at rel 1e-9 (what the rebuilt projector
+        delivers). E (end half-cells, also in the rigid path, moves every BEM-FSI anchor)
+        is deferred to its own follow-up, T7a.6, together with the root-station NaN.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
 - [x] T7b The +6.6 % mean thrust is a reversed tangential force: every production
       fluid YAML (65 of 65 carrying the key) sets `tangential_direction: -x`, which

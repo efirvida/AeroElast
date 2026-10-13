@@ -559,3 +559,64 @@ class TestPrebentRingGrouping:
         covered = np.concatenate(groups)
         assert len(covered) == len(strip.node_indices)
         assert sorted(covered.tolist()) == list(range(len(strip.node_indices)))
+
+
+class TestStripWidthsFollowTheBEMStations:
+    """``project()`` integrates each strip over the width of the stations the BEM ran on.
+
+    The projector's node grid stays frozen on its reference stations; a BEM result
+    evaluated on deformed (here: shrunk) stations must be integrated over the deformed
+    strip widths, not the reference ones.  The expected widths are rebuilt in the test
+    with the strip rule (midpoint edges, mirrored end half-cells).
+    """
+
+    @pytest.fixture
+    def setup(self):
+        n_span, n_chord = 11, 5
+        span_length = 20.0
+        mesh, hub_r = _make_rectangular_mesh(n_span, n_chord, span_length, chord_length=1.0)
+        blade_aero = _make_simple_blade_aero(
+            n_stations=n_span, hub_radius=hub_r, span_length=span_length
+        )
+        projector = ForceProjector(mesh, blade_aero, span_direction=[0, 0, 1])
+        return mesh, blade_aero, projector
+
+    @staticmethod
+    def _rule_widths(r):
+        r = np.asarray(r, dtype=float)
+        r_mid = 0.5 * (r[:-1] + r[1:])
+        edges = np.concatenate([[2.0 * r[0] - r_mid[0]], r_mid, [2.0 * r[-1] - r_mid[-1]]])
+        return np.diff(edges)
+
+    def test_shrunk_stations_integrate_over_shrunk_widths(self, setup):
+        mesh, blade_aero, projector = setup
+        r_ref = np.asarray(blade_aero.r, dtype=float)
+        r_shrunk = r_ref[0] + 0.97 * (r_ref - r_ref[0])
+        bem = _make_uniform_bem_result(blade_aero, Np_val=0.0, Tp_val=0.0)
+        bem.r = r_shrunk
+        bem.Np = np.linspace(500.0, 1500.0, len(r_ref))
+
+        forces = projector.project(bem)
+
+        expected = float(np.sum(bem.Np * self._rule_widths(r_shrunk)))
+        frozen = float(np.sum(bem.Np * self._rule_widths(r_ref)))
+        assert abs(frozen / expected - 1.0) > 1e-2, "the shrink must move the integral"
+        np.testing.assert_allclose(forces[:, 1].sum(), expected, rtol=1e-9)
+        # verify() reconstructs the strip load with the same widths project() used.
+        assert projector.verify(bem, forces)["force_error"] < 1e-6
+
+    def test_reference_stations_leave_the_forces_unchanged(self, setup):
+        mesh, blade_aero, projector = setup
+        bem = _make_uniform_bem_result(blade_aero, Np_val=1000.0, Tp_val=250.0)
+        forces = projector.project(bem)
+        widths = _strip_widths(blade_aero, mesh, [0, 0, 1])
+        np.testing.assert_allclose(forces[:, 1].sum(), 1000.0 * widths.sum(), rtol=1e-12)
+        np.testing.assert_allclose(forces[:, 0].sum(), 250.0 * widths.sum(), rtol=1e-12)
+
+    def test_length_mismatched_stations_are_refused(self, setup):
+        mesh, blade_aero, projector = setup
+        bem = _make_uniform_bem_result(blade_aero, Np_val=1000.0, Tp_val=0.0)
+        bem.r = np.asarray(blade_aero.r, dtype=float)[:-1]
+        bem.Np = bem.Np[:-1]
+        with pytest.raises(ValueError, match="strips"):
+            projector.project(bem)

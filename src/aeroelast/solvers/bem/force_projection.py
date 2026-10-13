@@ -93,6 +93,25 @@ class _Strip:
     offsets: np.ndarray  # (n, 3) node positions relative to centroid
 
 
+def strip_edges(r_stations: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Lower and upper strip edges around BEM stations ``r_stations``.
+
+    Interior edges sit at the midpoints between stations; the first and last strips
+    are extended by a mirrored half-cell.  The strip widths ``r_high - r_low`` are
+    invariant to a shift of the span datum of ``r_stations``.  The single rule the
+    projector uses both to build its node grid and to integrate a BEM result.
+    """
+    r = np.asarray(r_stations, dtype=float)
+    r_mid = 0.5 * (r[:-1] + r[1:])
+    r_low = np.empty(len(r))
+    r_high = np.empty(len(r))
+    r_low[0] = r[0] - (r_mid[0] - r[0])
+    r_high[-1] = r[-1] + (r[-1] - r_mid[-1])
+    r_low[1:] = r_mid
+    r_high[:-1] = r_mid
+    return r_low, r_high
+
+
 @dataclass
 class _RingSection:
     """One physical ring's wall graph, bound to the owning strip's local node space.
@@ -287,13 +306,7 @@ class ForceProjector:
             r_stations = r_stations - float(hub_radius) + mesh_span_min
 
         # Build strip boundaries at midpoints between stations
-        r_mid = 0.5 * (r_stations[:-1] + r_stations[1:])
-        r_low = np.empty(len(r_stations))
-        r_high = np.empty(len(r_stations))
-        r_low[0] = r_stations[0] - (r_mid[0] - r_stations[0])
-        r_high[-1] = r_stations[-1] + (r_stations[-1] - r_mid[-1])
-        r_low[1:] = r_mid
-        r_high[:-1] = r_mid
+        r_low, r_high = strip_edges(r_stations)
 
         # Assign each node to a strip
         node_strip = np.full(n_nodes, -1, dtype=int)
@@ -540,7 +553,7 @@ class ForceProjector:
         """
         leading_edge = np.zeros(3)
         for strip, chord, sign in zip(
-            self._strips, self._strip_chord_dirs, self._strip_moment_axis_sign
+            self._strips, self._strip_chord_dirs, self._strip_moment_axis_sign, strict=True
         ):
             leading_edge += strip.dr * -float(sign) * chord
         # The rotor-plane tangential is normal to both the span and the rotor normal;
@@ -726,8 +739,16 @@ class ForceProjector:
         -------
         forces : ndarray, shape (n_nodes, 3)
             Nodal force vectors in global coordinates.
+
+        Notes
+        -----
+        The node grid, AC arm and moment axis stay on the reference stations the
+        projector was built on; the per-strip integration width follows the stations
+        the BEM result carries (:meth:`strip_widths`).  A BEM run on a deformed,
+        shortened span is thus integrated over its own widths, not the reference ones.
         """
         forces = np.zeros((self._n_nodes, 3))
+        dr = self.strip_widths(bem_result)
 
         for k, strip in enumerate(self._strips):
             n_k = len(strip.node_indices)
@@ -735,8 +756,8 @@ class ForceProjector:
                 continue
 
             # Total strip force in aero frame
-            F_n = float(bem_result.Np[k]) * strip.dr  # normal (N)
-            F_t = float(bem_result.Tp[k]) * strip.dr  # tangential (N)
+            F_n = float(bem_result.Np[k]) * dr[k]  # normal (N)
+            F_t = float(bem_result.Tp[k]) * dr[k]  # tangential (N)
 
             # Strip force on the rotor-plane frame the BEM pair is defined in:
             # ``Np`` along the rotor-axis normal, ``Tp`` along the in-plane
@@ -757,9 +778,7 @@ class ForceProjector:
             # transfer term accounts for the moment arm between the AC and the centroid
             # of the strip nodes and is always present regardless of Mp availability.
             M_ac = (
-                float(bem_result.Mp[k])
-                * strip.dr
-                * (self._strip_moment_axis_sign[k] * self._span_dir)
+                float(bem_result.Mp[k]) * dr[k] * (self._strip_moment_axis_sign[k] * self._span_dir)
                 if bem_result.Mp is not None
                 else np.zeros(3)
             )
@@ -786,12 +805,34 @@ class ForceProjector:
 
         return forces
 
+    def strip_widths(self, bem_result: BEMResult) -> np.ndarray:
+        """Per-strip integration widths (m) on the stations ``bem_result.r``.
+
+        The same rule (:func:`strip_edges`) that built the reference strip grid, applied
+        to the stations the BEM was evaluated on.  On the reference stations this
+        reproduces ``strip.dr``.
+
+        Raises
+        ------
+        ValueError
+            If ``bem_result.r`` does not carry one station per strip.
+        """
+        r = np.asarray(bem_result.r, dtype=float)
+        if r.ndim != 1 or len(r) != len(self._strips):
+            raise ValueError(
+                f"BEM result carries {r.size} stations but the projector has "
+                f"{len(self._strips)} strips; the loads cannot be paired with the strips"
+            )
+        r_low, r_high = strip_edges(r)
+        return r_high - r_low
+
     def verify(self, bem_result: BEMResult, forces: np.ndarray) -> dict:
         """Check global force conservation across the discretised strips.
 
         The expected force is recomputed from the BEM loads and the *same*
         rotor-plane frame :meth:`project` uses,
-        ``sum_k (Np_k * rotor_normal + Tp_k * rotor_tangential) * dr_k``.  The
+        ``sum_k (Np_k * rotor_normal + Tp_k * rotor_tangential) * dr_k``, with the
+        widths ``dr_k`` :meth:`project` integrates over (:meth:`strip_widths`).  The
         vector sum is therefore parallel to one frame for the whole blade.
         Because the frame is shared with :meth:`project`, ``force_error``
         measures only the fidelity of the per-strip nodal distribution (for
@@ -808,12 +849,13 @@ class ForceProjector:
         """
         # Discrete strip sum with the same per-strip frames as project().
         F_bem = np.zeros(3)
+        dr = self.strip_widths(bem_result)
         for k, strip in enumerate(self._strips):
             if len(strip.node_indices) == 0:
                 continue
             F_bem += (
-                float(bem_result.Np[k]) * strip.dr * self._rotor_normal_dir
-                + float(bem_result.Tp[k]) * strip.dr * self._rotor_tangential_dir
+                float(bem_result.Np[k]) * dr[k] * self._rotor_normal_dir
+                + float(bem_result.Tp[k]) * dr[k] * self._rotor_tangential_dir
             )
 
         F_mesh = forces.sum(axis=0)
