@@ -66,7 +66,7 @@ question (dynamic stability) and is out of this plan.
 Order note: #33 attacks C items once their level's audit (B3, L3) has reached them. P0 is
 documentation only and can run before; P1 onward run when the maintainer schedules them.
 
-### [ ] P0. Provenance and pre-registration (docs only; no solver run; one session)
+### [x] P0. Provenance and pre-registration (docs only; no solver run; one session)
 
 Entry: this file; #33 acceptance rule; #14, #20, #25.
 1. Pin the deck's provenance: IEA-15 repository version in use, `ReleaseNotes.md` entry, and
@@ -160,6 +160,15 @@ reproduction or closure (#14 applies in either case). Report `BD_nl/BD_lin`
 as an internal fixed-load geometric factor; **no comparable ALM-GEBT tip-twist factor exists**
 (P0), so no external pass claim. Report tip-couple shell/BeamDyn for #20, not as a gate.
 No other hypotheses, jobs or thresholds are admitted inside P1.
+
+**P0 closure (2026-10-13).** Evidence and P1 pre-registration: local work-unit commit
+`21cb8d9a1597` on `fix/bem-participant-rotor-frame` (not pushed). Issue comment:
+https://github.com/efirvida/AeroElast/issues/42#issuecomment-6148712619.
+Docs-only, no meaningful RED or solver run; `scripts/check.sh quick` exited 0
+(66 passed, 1 xfailed, 1 documented known-red; 697 warnings), and `git diff --check`
+exited 0. This smoke gate says nothing about twist physics. Next entry: P1 only when the
+maintainer schedules it under #33 after its B3/L3 audit; use this frozen pre-registration
+before modifying the BeamDyn diagnostic.
 
 ### [ ] P1. Attribution run with BeamDyn (one job, ~10 min, `sequana_cpu_dev`; one session)
 
