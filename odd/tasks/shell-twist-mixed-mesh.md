@@ -181,3 +181,41 @@ run; nothing is tuned toward Zhou. Work in this worktree/branch; commits are loc
   `scripts/mesh-size-debt.txt`. Found 45 files with `element_size >= 0.3`, **21 of them at 1.0 m**
   (validation tests and diagnostics), which the first 0.5 m inventory had missed. Debt, same
   deferral as the 0.5 m anchors (`docs/blade_mesh_size_rule.md`).
+
+## Line A pre-registration (2026-10-13, committed BEFORE the tool is written or run)
+
+**Question.** Does our MITC4/MITC3 shell reproduce an independent shell code on the exact
+Zhou-load case where it turns 2.82x the beam? This separates "the shell implementation or its
+discretisation is off" from "the shell model gives this and the beam cannot".
+
+**Case.** Production blade, `element_size = 0.25` m (`docs/blade_mesh_size_rule.md`), root
+clamped, the SAME nodal force vector `f` that `tools/diagnose_zhou_loads_reverse.py` builds with
+`ForceProjector` from Zhou's loads (translations only, no nodal moments), applied to:
+- ours: `PyMeshAssembler` MITC4/MITC3, `ZHOU_TRIANGLE_AXIS=asis` (production);
+- reference: CalculiX `ccx`, quadratic mesh, `S8R` / `S6`, deck from `write_ccx_mesh(...,
+  shell_element_type="S8R", load_field=...)`, the same composite layup export the blade parity
+  test uses (`tests/test_blade_ccx_parity.py`).
+
+**Primary metric.** Tip-ring section rotation `omega` (deg), computed by the SAME function
+(`test_blade_rated_twist._ring_kinematics`, as the Zhou tool does) on the corner-node displacement
+field of each code; CalculiX corner nodes matched to ours by coordinates (tolerance 1e-4 m).
+
+**Reference and tolerance.** Reference = CalculiX S8R. Gate: `|omega_ours - omega_ccx| /
+|omega_ccx| <= 5 %` (the suite's rule). Secondary, same 5 % gate: total work `W = 1/2 f.u` over
+the free DOFs (global, node-count independent; AGENTS.md rule 3). Reported, not gated: tip
+distortion share (`distortion/|omega|`) and `omega` at three further rings (50, 75, 90 % span).
+
+**Precondition (checked before reading any result, not a tuning knob).** The resultant of the
+`*CLOAD` block equals the resultant of `f` to 1e-6 relative; the deck's clamped node set equals
+ours; one run per code, nothing re-run with a different setting.
+
+**Reading, fixed in advance.**
+- Both gates inside 5 %: the shell implementation and its discretisation agree with an independent
+  shell code on this load. The 2.82x is then a property of the plate/shell MODEL (shared by both
+  codes) against the beam's section properties. Reading (i) gains support but is NOT proven:
+  S8R shares the CLT/thin-wall assumptions, so a 3D solid or VABS/BECAS judge is still the only
+  closure of "the shell is physically right". Say that in the close.
+- Either gate outside 5 %: the shell differs from the independent shell code on the case that
+  matters. Report the number, name the cause if one is found, propose the fix and wait for OK.
+- Not shown by this experiment in any outcome: that Zhou's +3.6 deg is matched, or that the beam
+  is wrong.
