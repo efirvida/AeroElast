@@ -1,0 +1,85 @@
+group: '39'
+rows:
+  - id: blade_static_prescribed.s2_official_lc1_tip_displacement
+    group: '39'
+    title: S-2 official LC1 gravity displacement vs BeamDyn
+    tests:
+      - >-
+        tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official]
+    validates: >-
+      Official-blade dominant shell tip displacement relative error for LC1
+      gravity against the BeamDyn reference.
+    comparisons:
+      - label: Dominant tip displacement relative error
+        asserted: true
+        reference:
+          kind: code
+          label: >-
+            BeamDyn/ElastoDyn LC1 gravity beam reference displacement
+        tolerance:
+          kind: rel_err
+          value: 0.05
+          source: tests/test_iea15mw_s2_static_prescribed.py:121
+          justified: true
+          justification: Source-stated 5% bound; not independently adjudicated.
+        measured:
+          status: not_measured
+        expected: null
+    flags: []
+    notes: >-
+      Source assertion only; the stored level inventory reports S-2 at +8.1%,
+      which remains over the 5% ceiling and open pending exact adjudication.
+  - id: blade_static_prescribed.s2_official_lc2_tip_displacement
+    group: '39'
+    title: S-2 official LC2 tip-flap displacement vs BeamDyn
+    tests:
+      - >-
+        tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official]
+    validates: >-
+      Official-blade dominant shell tip displacement relative error for LC2
+      tip flap against the BeamDyn reference.
+    comparisons:
+      - label: Dominant tip displacement relative error
+        asserted: true
+        reference:
+          kind: code
+          label: >-
+            BeamDyn/ElastoDyn LC2 tip-flap beam reference displacement
+        tolerance:
+          kind: rel_err
+          value: 0.05
+          source: tests/test_iea15mw_s2_static_prescribed.py:121
+          justified: true
+          justification: Source-stated 5% bound; not independently adjudicated.
+        measured:
+          status: not_measured
+        expected: null
+    flags: []
+    notes: Source assertion only; no result or verdict recorded.
+  - id: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
+    group: '39'
+    title: S-2 official LC4 distributed-load displacement vs BeamDyn
+    tests:
+      - >-
+        tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official]
+    validates: >-
+      Official-blade dominant shell tip displacement relative error for LC4
+      distributed load against the BeamDyn reference.
+    comparisons:
+      - label: Dominant tip displacement relative error
+        asserted: true
+        reference:
+          kind: code
+          label: >-
+            BeamDyn/ElastoDyn LC4 distributed-load beam reference displacement
+        tolerance:
+          kind: rel_err
+          value: 0.05
+          source: tests/test_iea15mw_s2_static_prescribed.py:121
+          justified: true
+          justification: Source-stated 5% bound; not independently adjudicated.
+        measured:
+          status: not_measured
+        expected: null
+    flags: []
+    notes: Source assertion only; no result or verdict recorded.

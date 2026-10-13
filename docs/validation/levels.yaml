@@ -64,12 +64,25 @@ levels:
     scope: >-
       Isotropic, orthotropic and composite shells and thin-walled sections against closed forms,
       CLT and CalculiX S4/S8R, each code converged on its own mesh; stress recovery included.
-    groups: ['4', '6', '7', '8', '9', '17', '18', '21', '24', '26', '36']
+    groups:
+      - '4'
+      - '6'
+      - '7'
+      - '8'
+      - '9'
+      - '17'
+      - '18'
+      - '21'
+      - '24'
+      - '26'
+      - '36'
+      - '43'
     depends_on:
       - src/aeroelast/core/assembler.py
       - src/aeroelast/solvers/elasticity
       - crates/aeroelast-solvers/src/petsc/elasticity
       - src/aeroelast/postprocess
+      - tests/test_iea15mw_s3_newmark_transient.py
     gaps: [composite_stress_recovery]
     absent: []
 
@@ -79,37 +92,47 @@ levels:
       The official WindIO blade (tests/IEA-15-240-RWT.yaml): sectional properties, static,
       modal (parked and rotating), torsion and transient response against BeamDyn/BModes/
       OpenFAST decks, published models and CalculiX.
-    groups: ['5', '20', '23', '27', '32', '34']
+    groups:
+      - '5'
+      - '20'
+      - '23'
+      - '27'
+      - '32'
+      - '34'
+      - '38'
+      - '39'
+      - '40'
+      - '41'
+      - '42'
     depends_on:
       - src/aeroelast/core/mesh
       - src/aeroelast/models/blade
       - tests/IEA-15-240-RWT.yaml
       - tests/IEA15MW/reference
       - tools/beam_reference.py
+      - tests/test_iea15mw_s1_sectional.py
+      - tests/test_iea15mw_s2_static_prescribed.py
+      - tests/test_iea15mw_s4_rotating_modal.py
+      - tests/test_iea15mw_v03_static_gravity.py
+      - tests/test_iea15mw_v05_structural_properties.py
+      - tests/test_iea15mw_sx_mesh_convergence.py
+      - tests/test_iea15mw_sx_campbell.py
     gaps: [rotating_modal_shift]
     absent:
-      - evidence: tests/test_iea15mw_s0_omega_zero_consistency.py
-        reason: S-0 anchor, outside the store.
-      - evidence: tests/test_iea15mw_s1_sectional.py
+      - evidence: "tests/test_iea15mw_s2_static_prescribed.py::\
+          TestS2StaticPrescribed::test_edgewise_ratio_within_band[official]"
         reason: >-
-          S-1 sectional stiffness. At HEAD its GJ path gives +10.8 % signed (12.7 % mean |rel|)
-          against the deck, not the +23.9 % its docstring states, and on the same side as S-7's
-          global result once S-7's beam reference integrates to z (odd/tasks/s7-torsion-ratio.md
-          E8); most of the excess tracks the skin's OML reference surface.
-      - evidence: tests/test_iea15mw_s2_static_prescribed.py
-        reason: S-2 static vs beam references; the official blade closes at +8.1 %, over the ceiling.
-      - evidence: tests/test_iea15mw_s3_newmark_transient.py
-        reason: S-3 Newmark transient anchor, outside the store.
-      - evidence: tests/test_iea15mw_s4_rotating_modal.py
-        reason: S-4 rotating modal vs OpenFAST v5 MBC3 at 7.56 rpm (+0.6 / -4.5 / -1.5 %).
-      - evidence: tests/test_iea15mw_v03_static_gravity.py
-        reason: V-03 static gravity, outside the store.
-      - evidence: tests/test_iea15mw_v05_structural_properties.py
-        reason: V-05 structural properties, outside the store.
+          The official LC3 ratio uses the asymmetric bound
+          0.9 < ratio < 1.2; the row schema cannot preserve this interval,
+          so this exact node remains absent/open.
       - evidence: tests/test_iea15mw_sx_mesh_convergence.py
-        reason: Blade mesh convergence, outside the store.
+        reason: >-
+          Blade mesh convergence is outside the store; data-artifact freshness
+          is unresolved/stale.
       - evidence: tests/test_iea15mw_sx_campbell.py
-        reason: Campbell diagram, outside the store.
+        reason: >-
+          The Campbell diagram is outside the store; data-artifact freshness
+          is unresolved/stale.
 
   - id: L4
     title: BEM aerodynamics against OpenFAST AeroDyn

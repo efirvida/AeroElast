@@ -1,0 +1,122 @@
+group: '40'
+rows:
+  - id: blade_rotating_modes.s4_parked_openfast_modes
+    group: '40'
+    title: S-4 parked modes vs OpenFAST MBC3
+    tests:
+      - >-
+        tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0]
+    validates: Parked blade modal frequencies against OpenFAST v5.0.0 MBC3.
+    comparisons:
+      - label: First flap frequency
+        asserted: true
+        reference:
+          kind: code
+          label: OpenFAST v5.0.0 MBC3 parked first flap, Hz
+        tolerance:
+          kind: rel_err
+          value: 0.08
+          source: tests/test_iea15mw_s4_rotating_modal.py:110
+          justified: true
+          justification: >-
+            Source-stated 8% bound; basis and any L3 ceiling exception are
+            not independently adjudicated.
+        measured:
+          status: not_measured
+        expected: 0.544
+      - label: First edge frequency
+        asserted: true
+        reference:
+          kind: code
+          label: OpenFAST v5.0.0 MBC3 parked first edge, Hz
+        tolerance:
+          kind: rel_err
+          value: 0.08
+          source: tests/test_iea15mw_s4_rotating_modal.py:110
+          justified: true
+          justification: >-
+            Source-stated 8% bound; basis and any L3 ceiling exception are
+            not independently adjudicated.
+        measured:
+          status: not_measured
+        expected: 0.739
+      - label: Second flap frequency
+        asserted: true
+        reference:
+          kind: code
+          label: OpenFAST v5.0.0 MBC3 parked second flap, Hz
+        tolerance:
+          kind: rel_err
+          value: 0.08
+          source: tests/test_iea15mw_s4_rotating_modal.py:110
+          justified: true
+          justification: >-
+            Source-stated 8% bound; basis and any L3 ceiling exception are
+            not independently adjudicated.
+        measured:
+          status: not_measured
+        expected: 1.610
+    flags: []
+    notes: >-
+      Threshold and reference targets are source metadata only; no result,
+      ceiling exception or verdict is recorded.
+  - id: blade_rotating_modes.s4_rated_openfast_modes
+    group: '40'
+    title: S-4 rated modes vs OpenFAST MBC3
+    tests:
+      - >-
+        tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56]
+    validates: Rated blade modal frequencies against OpenFAST v5.0.0 MBC3.
+    comparisons:
+      - label: First flap frequency
+        asserted: true
+        reference:
+          kind: code
+          label: OpenFAST v5.0.0 MBC3 rated first flap at 7.56 rpm, Hz
+        tolerance:
+          kind: rel_err
+          value: 0.08
+          source: tests/test_iea15mw_s4_rotating_modal.py:110
+          justified: true
+          justification: >-
+            Source-stated 8% bound; basis and any L3 ceiling exception are
+            not independently adjudicated.
+        measured:
+          status: not_measured
+        expected: 0.5666
+      - label: First edge frequency
+        asserted: true
+        reference:
+          kind: code
+          label: OpenFAST v5.0.0 MBC3 rated first edge at 7.56 rpm, Hz
+        tolerance:
+          kind: rel_err
+          value: 0.08
+          source: tests/test_iea15mw_s4_rotating_modal.py:110
+          justified: true
+          justification: >-
+            Source-stated 8% bound; basis and any L3 ceiling exception are
+            not independently adjudicated.
+        measured:
+          status: not_measured
+        expected: 0.7461
+      - label: Second flap frequency
+        asserted: true
+        reference:
+          kind: code
+          label: OpenFAST v5.0.0 MBC3 rated second flap at 7.56 rpm, Hz
+        tolerance:
+          kind: rel_err
+          value: 0.08
+          source: tests/test_iea15mw_s4_rotating_modal.py:110
+          justified: true
+          justification: >-
+            Source-stated 8% bound; basis and any L3 ceiling exception are
+            not independently adjudicated.
+        measured:
+          status: not_measured
+        expected: 1.6372
+    flags: []
+    notes: >-
+      Threshold and reference targets are source metadata only; no result,
+      ceiling exception or verdict is recorded.

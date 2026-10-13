@@ -17,6 +17,12 @@ version: 1
 # "out of scope" from "forgotten", and `status` counts only the undeclared ones.
 out_of_scope:
   - files:
+      - tests/test_iea15mw_s0_omega_zero_consistency.py
+    reason: >-
+      Zero-omega limits, zero-load identities and equivalence with plain
+      Newmark are implementation consistency guards, not comparisons against
+      an independent physical reference; rule 6 leaves this file without rows.
+  - files:
       - tests/validation/blade/test_blade_section_frame_tear.py
     reason: >-
       An investigation, and it says so itself: it decides whether the free edges
@@ -84,17 +90,17 @@ out_of_scope:
       Participant-boundary rotation, frame round trips, and partner-frame
       configuration contracts. Expected rotations are restated in the test and
       the round trips use the same transformation pair; these are implementation
-      and convention checks, not physical quantities compared with an independent
-      reference. Rule 6 leaves this file without a validation row.
+      and convention checks, not physical quantities compared with an
+      independent reference. Rule 6 leaves this file without a validation row.
 
   - files:
       - tests/validation/bem/test_force_projection_tangential_sense.py
     reason: >-
       Guards the configured tangential direction and positive aerodynamic torque
-      sign using the same mesh and projected forces under test. It does not compare
-      a torque or load against an independent physical reference. The sign and
-      geometry checks are useful regression guards, but rule 6 leaves this file
-      without a validation row.
+      sign using the same mesh and projected forces under test. It does not
+      compare a torque or load against an independent physical reference.
+      The sign and geometry checks are useful regression guards, but rule 6
+      leaves this file without a validation row.
 
   - files:
       - tests/validation/element/test_quad_elements.py
@@ -1229,6 +1235,108 @@ groups:
       (relative L2 92 %). Evidence: `odd/tasks/bem-wall-flow-activation.md`,
       `docs/validation_closures.md` section "#16", and the gap entry
       `moment_realization_over_delivers` in `docs/validation/gaps.yaml`.
+
+  - id: '38'
+    title: S-1 IEA 15 MW sectional distributions against BeamDyn
+    slug: blade_sectional_distribution
+    reference_kind: code
+    physical_test_files:
+      - tests/test_iea15mw_s1_sectional.py
+    provenance_note: >-
+      Stores the five source assertions comparing mid-span sectional EI-edge,
+      EI-flap, mass, GJ and EA distributions with BeamDyn. Source bounds are
+      retained without a physical verdict or ceiling exception.
+
+  - id: '39'
+    title: S-2 official IEA 15 MW static response against BeamDyn
+    slug: blade_static_prescribed
+    reference_kind: code
+    physical_test_files:
+      - tests/test_iea15mw_s2_static_prescribed.py
+    non_validation_tests:
+      - tests:
+          - test_dominant_component_matches_beam[LC1_gravity-utd]
+          - test_dominant_component_matches_beam[LC2_tip_flap-utd]
+          - test_dominant_component_matches_beam[LC4_distributed-utd]
+          - test_edgewise_ratio_within_band[utd]
+        reason: >-
+          These UTD inputs are retained only as input-sensitivity records and
+          are disowned for physical validation closure; they have no row here.
+    provenance_note: >-
+      Stores only the official blade dominant-displacement comparisons for
+      LC1, LC2 and LC4. The official LC3 asymmetric ratio band remains a
+      node-level absent item because the row schema cannot encode that interval.
+
+  - id: '40'
+    title: S-4 parked and rated modal frequencies against OpenFAST MBC3
+    slug: blade_rotating_modes
+    reference_kind: code
+    physical_test_files:
+      - tests/test_iea15mw_s4_rotating_modal.py
+    non_validation_tests:
+      - tests:
+          - test_s4_centrifugal_stiffening_increases_first_flap
+        reason: >-
+          A monotonic-stiffening direction guard, not a scalar comparison
+          against an independent modal-frequency reference.
+    provenance_note: >-
+      Stores parked and rated modal-frequency comparisons against OpenFAST
+      v5.0.0 MBC3, preserving the source 8% limits without a ceiling exception.
+
+  - id: '41'
+    title: V-03 integrated blade mass against the declared IEA table
+    slug: blade_total_mass
+    reference_kind: code
+    physical_test_files:
+      - tests/test_iea15mw_v03_static_gravity.py
+    non_validation_tests:
+      - tests:
+          - test_tip_edgewise_deflection_in_range
+          - test_root_reaction_balances_weight
+          - test_deflection_direction_downward
+        reason: >-
+          These are an order-of-magnitude bound, internal equilibrium check
+          and sign guard; none measures the blade against an independent
+          quantitative physical reference.
+    provenance_note: >-
+      Stores only the declared-mass comparison. The source test name and prose
+      claim 2%, but the assertion uses 10%; that conflict and any L3 exception
+      remain unresolved.
+
+  - id: '42'
+    title: V-05 blade structural-property cross references
+    slug: blade_structural_properties
+    reference_kind: code
+    physical_test_files:
+      - tests/test_iea15mw_v05_structural_properties.py
+    non_validation_tests:
+      - tests:
+          - test_assembler_creates_valid_matrices
+          - test_stiffness_matrix_size_consistent_with_dof_count
+        reason: >-
+          Matrix existence and DOF-size assertions are implementation checks,
+          not physical-reference comparisons.
+    provenance_note: >-
+      Stores the source K55-to-ElastoDyn EI and shell mass-to-BeamDyn table
+      comparisons. Their broad source bounds remain open against the L3
+      ceiling; no quantitative exception is asserted here.
+
+  - id: '43'
+    title: S-3 undamped thin-walled section frequency against closed form
+    slug: newmark_analytic_frequency
+    reference_kind: analytical
+    physical_test_files:
+      - tests/test_iea15mw_s3_newmark_transient.py
+    non_validation_tests:
+      - tests:
+          - test_energy_conservation_undamped
+          - test_rayleigh_damping_decay_ratio
+        reason: >-
+          These verify integrator energy and prescribed damping properties,
+          not a physical response against an independent reference.
+    provenance_note: >-
+      The undamped first-frequency comparison is a closed-form thin-walled
+      section check placed at L2; energy and damping guards are excluded.
 
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
