@@ -248,8 +248,80 @@ def blade_study():
         print("triangles by component suffix:", dict(sorted(comp.items(), key=lambda kv: -kv[1])))
 
 
+# ---- E3: triangles moved onto the quad contract (axis 1 = projected span) ---------------
+E3_THRESHOLD_DEG = 0.42 * 3.6  # the band width used in T7d: Zhou to BeamDyn, relative to Zhou
+
+
+def psi_deg(p, span):
+    """Signed angle [deg] about the element normal from projected global X to the projected span.
+
+    A triangle's laminate axis 1 is projected global X (global Z when X is normal). Shifting every
+    ply angle by this value points the fibres where the quad contract (axis 1 = projected span)
+    would.  e3 follows the node order, ``(p1 - p0) x (p2 - p0)``.
+    """
+    e3 = np.cross(p[1] - p[0], p[2] - p[0])
+    e3 = e3 / np.linalg.norm(e3)
+    xg = np.array([1.0, 0.0, 0.0])
+    ref = xg - xg.dot(e3) * e3
+    if np.linalg.norm(ref) <= 1e-10:
+        ref = np.array([0.0, 0.0, 1.0]) - e3[2] * e3
+    ref = ref / np.linalg.norm(ref)
+    sp = np.asarray(span, float) - np.dot(span, e3) * e3
+    sp = sp / np.linalg.norm(sp)
+    return float(np.degrees(np.arctan2(e3 @ np.cross(ref, sp), ref @ sp)))
+
+
+def calibrate(alpha_deg=30.0):
+    """Check the sign and the method of the shift on a strip turned by alpha about Z.
+
+    At 90 deg the sign is invisible (a ply is symmetric under 180 deg), so the strip is turned: the
+    quad strip (axis 1 = span) is the reference, the triangle strip must match it only with +psi.
+    """
+    from _aeroelast import PyMeshAssembler
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.linalg import spsolve
+
+    a = np.radians(alpha_deg)
+    rot = np.array([[np.cos(a), -np.sin(a), 0.0], [np.sin(a), np.cos(a), 0.0], [0.0, 0.0, 1.0]])
+    span = rot @ np.array([0.0, 1.0, 0.0])
+    ang = LAMINATES["[45,0]s"]
+    print(f"calibration: strip turned {alpha_deg:.0f} deg about Z, laminate [45,0]s")
+    out = {}
+    for label, pattern, sign in (("quad", "quad", 0.0), ("tri unshifted", "tri", 0.0),
+                                 ("tri shifted +psi", "tri", 1.0), ("tri shifted -psi", "tri", -1.0)):
+        coords, conn, codes, nid = _mesh(pattern, 44, 33)
+        coords = coords @ rot.T
+        psi = 0.0
+        if pattern == "tri":
+            psi = psi_deg(coords[conn[0]], span)
+        prop = _comp_prop(_laminate([x + sign * psi for x in ang]))
+        asm = PyMeshAssembler(coords, conn, codes, [prop] * len(conn))
+        r, c, v = asm.assemble_k()
+        n = asm.dofs_count
+        K = coo_matrix((v, (r, c)), shape=(n, n)).tocsr()
+        tip = [nid[(i, NY)] for i in range(NXC + 1)]
+        clamped = {6 * nid[(i, 0)] + d for i in range(NXC + 1) for d in range(6)}
+        free = np.array(sorted(set(range(n)) - clamped))
+        res = []
+        for vec in (span, np.array([0.0, 0.0, 1.0])):
+            f = np.zeros(n)
+            for t in tip:
+                f[6 * t:6 * t + 3] = P / len(tip) * vec
+            u = np.zeros(n)
+            u[free] = spsolve(K[np.ix_(free, free)].tocsc(), f[free])
+            res.append(np.mean([u[6 * t:6 * t + 3] @ vec for t in tip]))
+        out[label] = res
+        print(f"  {label:>17}  psi = {psi:+8.2f} deg   axial {res[0]:+.4e}   bend {res[1]:+.4e}")
+    q = out["quad"]
+    for label in ("tri unshifted", "tri shifted +psi", "tri shifted -psi"):
+        t = out[label]
+        print(f"  {label:>17}  / quad:  axial {t[0] / q[0]:.3f}   bend {t[1] / q[1]:.3f}")
+
+
 if __name__ == "__main__":
-    if "--element" in sys.argv:
+    if "--calibrate" in sys.argv:
+        calibrate()
+    elif "--element" in sys.argv:
         element_study()
     elif "--blade" in sys.argv:
         blade_study()

@@ -33,6 +33,7 @@ reconstruction extrapolates nothing - it is restricted to 0.15 <= r/R
 where their angle-of-attack figure starts.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -102,8 +103,50 @@ if mesh is None:
     raise SystemExit("no mesh")
 props = model.get_element_properties()
 coords = mesh.coords_array
+# ZHOU_TRIANGLE_AXIS (default "asis" = production): "split" gives each laminate triangle its own
+# element set with its own laminate, unchanged (control, must equal "asis"); "span" also shifts
+# its ply angles so its axis 1 is the projected span, the quad contract (issue #34; sensitivity
+# experiment E3 of odd/tasks/shell-twist-mixed-mesh.md, no Rust change). The load below is always
+# built from the unmodified mesh and properties.
+TRI_MODE = os.environ.get("ZHOU_TRIANGLE_AXIS", "asis")
+mesh_k, props_k = mesh, props
+if TRI_MODE in ("split", "span"):
+    import copy
+
+    from _aeroelast import Laminate as _Lam, OrthotropicMaterial as _Mat, Ply as _Ply
+    from aeroelast.core.mesh.entities import ElementSet as _ES
+    from diagnose_mixed_mesh_consistency import psi_deg
+
+    def _shifted(lam, psi):
+        pl = []
+        for d in lam.plies_data():
+            m = d["material"]
+            mat = _Mat(m["e1"], m["e2"], m["e3"], m["g12"], m["g23"], m["g13"],
+                       m["nu12"], m["nu23"], m["nu31"], m["rho"])
+            pl.append(_Ply(mat, d["thickness"], d["angle"] + psi))
+        return _Lam(pl, lam.shear_correction_factor)
+
+    mesh_k, props_k = copy.deepcopy(mesh), dict(props)
+    idx_k = mesh_k.node_id_to_index
+    xyz_k = np.array([n.coords for n in mesh_k.nodes])
+    psis = []
+    for el in [e for e in mesh_k.elements if e.node_count == 3]:
+        owner = next((nm for nm, es in mesh_k.element_sets.items()
+                      if nm in props_k and isinstance(props_k[nm], _Lam) and el in es.elements), None)
+        if owner is None:
+            continue
+        psi = psi_deg(xyz_k[[idx_k[i] for i in el.node_ids]], list(bv.SPAN_DIRECTION)) \
+            if TRI_MODE == "span" else 0.0
+        psis.append(psi)
+        mesh_k.element_sets[owner].elements.discard(el)
+        new = f"__TRI_{el.id}"
+        mesh_k.element_sets[new] = _ES(new, {el})
+        props_k[new] = _shifted(props_k[owner], psi)
+    print(f"[{TRI_MODE}] {len(psis)} laminate triangles moved to their own sets"
+          + (f"; |psi| min/median/max {min(map(abs, psis)):.1f}/{np.median(np.abs(psis)):.1f}/"
+             f"{max(map(abs, psis)):.1f} deg" if psis else ""))
 assembler = PyMeshAssembler.from_model(
-    bv._to_rust_mesh(mesh, props), props, list(bv.SPAN_DIRECTION), None
+    bv._to_rust_mesh(mesh_k, props_k), props_k, list(bv.SPAN_DIRECTION), None
 )
 n_dof = assembler.dofs_count
 rk, ck, vk = assembler.assemble_k()
@@ -212,7 +255,7 @@ phi = float(np.rad2deg(theta[-1]))
 print()
 print("their complete load (forces published, moment reconstructed) in OUR two models:")
 print("one convention throughout, nose-down positive (leading edge +x, load downwind +y):")
-print(f"  shell (MITC4, 0.25 m)  tip section rotation {omega:+9.4f} deg")
+print(f"  shell (MITC4, 0.25 m, triangles: {TRI_MODE})  tip section rotation {omega:+9.4f} deg")
 print(f"  standard beam          tip twist            {-phi:+9.4f} deg")
 print(
     f"  Zhou, their own LL-FVW+GEBT                  {-ZHOU_TIP_TORSION_DEG:+9.4f} deg  (their paper: toward stall positive)"
