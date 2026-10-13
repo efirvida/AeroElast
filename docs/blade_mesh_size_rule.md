@@ -65,3 +65,19 @@ Already moved to 0.25 m on 2026-10-13: the CLI/doc examples (`cli/run_fsi.py`, `
 anchor (`diagnose_newmark_only`, `diagnose_load_point_sign`, `diagnose_rotating_assembly`,
 `diagnose_damping_matrix`, `debug_kg_magnitudes`, `diagnose_zhou_loads_reverse`,
 `diagnose_mixed_mesh_consistency`).
+
+## Re-calibration of the anchors: deferred until it is mandatory (decision 2026-10-13)
+
+Moving the debt list above to 0.15-0.25 m changes recorded anchors, so each one needs its own
+re-measurement and a reported before/after. That work is **deliberately postponed** and becomes
+mandatory when any of these happens:
+
+- an anchor from the debt list is cited as evidence in a report, paper or review answer;
+- a change touches the code path one of those tests/tools exercises (element, K_G, projector,
+  mass, loads) and the result has to be believed rather than just kept green;
+- a new test is added next to them and would inherit their mesh;
+- the full suite is re-recorded (`scripts/check.sh full --record`).
+
+Until then: those numbers are labelled "0.5 m, not converged" wherever they are quoted, and no new
+result is built on top of them. Do not "fix" the debt by editing a band or a mesh size without
+re-measuring.
