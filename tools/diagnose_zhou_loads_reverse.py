@@ -323,3 +323,83 @@ print("  (see odd/tasks/rated-twist-sign-convention.md for why the sign is not a
 print(
     f"  reconstructed pitching moment, integral over the span: {np.sum(Mp_our * np.gradient(r_hub)):+.6e} N.m"
 )
+
+# ---- beam twist vs shell ring rotation along the span ---------------------------------------------
+# Pre-registered in odd/tasks/shell-twist-mixed-mesh.md "Beam-vs-ring pre-registration" (commit
+# 4cc40c4, before this block existed). Three traps, as settled there:
+#   1. the beam abscissa is r_b = hub + frac*(R-hub); the shell z starts at the root, so the
+#      beam is read at z_b = r_b - hub = frac*(R-hub), at each ring's OWN z (not the nominal %).
+#   2. `theta` is nose-up positive; the comparison uses -theta, nose-down positive like `omega`.
+#   3. a segment with ok[i] False has no integrated twist: a ring in or next to one is a HOLE.
+RIGID_SHARE = 0.05  # distortion/|omega| below this: the ring is rigid, so both models measure the same
+AGREE_TOL = 0.05  # the suite's 5 %
+GAP_RHO = 0.75  # below this the gap is outside the literature shell-beam spread (14-24 %)
+
+z_b = r_b - hub
+theta_nd = -theta  # nose-down positive, rad
+print()
+print("BEAM vs SHELL along the span (pre-registered in 4cc40c4)")
+print(
+    f"  mapping: z_b = r_b - hub, hub = {hub:.3f}; shell z 0..{coords[:, 2].max():.3f}, "
+    f"beam z_b {z_b[0]:.3f}..{z_b[-1]:.3f} (R - hub = {rotor_radius - hub:.3f})"
+)
+print(
+    f"  sign: raw theta[-1] = {np.rad2deg(theta[-1]):+.4f} deg (nose-up +), converted "
+    f"-theta[-1] = {np.rad2deg(theta_nd[-1]):+.4f} deg (nose-down +), shell tip omega {omega:+.4f}"
+)
+if theta_nd[-1] * omega <= 0:
+    raise SystemExit("SIGN GATE FAILED: converted beam and shell tip have opposite signs; harness bug")
+skipped = np.where(~ok)[0]
+if skipped.size:
+    print(f"  skipped beam segments (gkt below floor {floor:.3e}): {skipped.size}")
+    for i in skipped:
+        print(f"    segment {i}: z_b {z_b[i]:.3f}..{z_b[i + 1]:.3f} (frac {frac[i]:.4f}..{frac[i + 1]:.4f})")
+else:
+    print(f"  skipped beam segments (gkt below floor {floor:.3e}): none")
+
+_stations = []
+for _label, _s in (("50%", 0.5), ("75%", 0.75), ("90%", 0.9), ("tip", None)):
+    if _s is None:
+        _ring = tip
+    else:
+        _z0 = phys[0] + _s * (phys[-1] - phys[0])
+        _zr = phys[int(np.argmin(np.abs(np.asarray(phys) - _z0)))]
+        _ring = np.where(np.abs(coords[:, 2] - _zr) < t.STATION_GAP_TOLERANCE)[0]
+    _z = float(np.mean(coords[_ring, 2]))
+    _k = t._ring_kinematics(coords, u, _ring)
+    _om = float(np.rad2deg(_k["omega"]))
+    _share = float(_k["distortion"] / abs(_k["omega"]))
+    _th = float(np.rad2deg(np.interp(_z, z_b, theta_nd)))
+    _j = int(np.clip(np.searchsorted(z_b, _z) - 1, 0, len(ok) - 1))
+    _hole = bool(not ok[max(_j - 1, 0) : min(_j + 2, len(ok))].all())
+    _stations.append((_label, _z, _om, _th, _share, _hole))
+
+print(
+    f"  {'ring':>5} {'z (m)':>8} {'omega shell':>12} {'-theta beam':>12} {'rho':>7} "
+    f"{'dist/|om|':>10}  class"
+)
+_classified = []
+for _label, _z, _om, _th, _share, _hole in _stations:
+    _rho = _th / _om
+    _cls = "HOLE" if _hole else ("rigid" if _share < RIGID_SHARE else "distorted (not classified)")
+    if _cls == "rigid":
+        _classified.append((_label, _rho))
+    print(f"  {_label:>5} {_z:8.3f} {_om:12.4f} {_th:12.4f} {_rho:7.3f} {_share:10.3f}  {_cls}")
+
+print("  per-segment increments (reported only, no gate):")
+_prev = (0.0, 0.0, 0.0)
+for _label, _z, _om, _th, _share, _hole in _stations:
+    _dom, _dth = _om - _prev[1], _th - _prev[2]
+    _rr = _dth / _dom if _dom != 0 else float("nan")
+    print(f"    z {_prev[0]:7.3f} -> {_z:7.3f}  d_omega {_dom:+9.4f}  d_theta_beam {_dth:+9.4f}  ratio {_rr:7.3f}")
+    _prev = (_z, _om, _th)
+
+if not _classified:
+    print("  VERDICT: no classified (rigid, hole-free) ring -> null; the question could not be asked here")
+elif any(_r < GAP_RHO for _, _r in _classified):
+    _bad = ", ".join(f"{_l} {_r:.3f}" for _l, _r in _classified if _r < GAP_RHO)
+    print(f"  VERDICT: rho < {GAP_RHO} at a rigid ring ({_bad}) -> the gap exists where distortion is ~0")
+elif all(abs(_r - 1.0) <= AGREE_TOL for _, _r in _classified):
+    print(f"  VERDICT: rho within {AGREE_TOL:.0%} of 1 at every rigid ring; see the unclassified rings above")
+else:
+    print("  VERDICT: in between at a rigid ring -> report the numbers, do not call it")
