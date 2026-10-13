@@ -336,3 +336,49 @@ Next candidates, each needs its own pre-registration and an OK:
    beam is far below there, distortion cannot be the whole explanation). ~3 min, no CCX.
 2. External judge for "the shell is physically right": 3D solid segment or VABS/BECAS on an
    outboard section (z ~ 95-117), compared on the chord rotation.
+
+## Next session (decided 2026-10-13, after Lines A and B): ONE task
+
+**Task: where along the span does the shell/beam gap open, and does distortion explain it?**
+Print the beam twist next to the shell ring rotation at the same stations, in the Zhou tool,
+no CCX, no new physics. ~3 min on `sequana_cpu_dev` (or the login node if it fits).
+
+Why this and not the 3D judge first: it is cheap and it can already kill reading (i). Line A
+showed that at 75 % span the ring is rigid (`distortion/|omega|` 0.019) and the shell already
+rotates 3.60 deg. If the beam is far below 3.6 deg at 75 %, the gap exists where distortion is ~0
+and distortion cannot be its explanation. If the beam matches there and the gap only opens near the
+tip, reading (i) gains real support.
+
+**Where to hook.** `tools/diagnose_zhou_loads_reverse.py`: the beam `theta` array and `r_b`
+(`hub + frac * (R - hub)`) are computed after `# the beam, on the same completed load`; only
+`theta[-1]` is printed. The shell side is `t._ring_kinematics(coords, u, ring)["omega"]`, rings at
+50/75/90 % already built in the `ZHOU_CCX_DIR` block (`_ring_at`). Reuse, do not rewrite.
+
+**Things to settle BEFORE running (these are the traps):**
+1. Station mapping: the shell `z` is measured from the blade root, the beam `r_b` from the rotor
+   axis (includes `hub`). Interpolate `theta` at `r = hub + z`, not at `z`. A wrong offset moves the
+   comparison by a hub radius and would look like a physical result.
+2. Sign: the tool prints the beam as `-phi` (its `m` is nose-up positive); compare in the
+   same convention as the shell (nose-down positive). Print both raw and converted once.
+3. The beam only twists where `ok` is true (stations with `gkt` above the floor); report which
+   stations were skipped, because a skipped station is a hole, not a zero.
+
+**Pre-register (draft, confirm and commit before the run):**
+- Metric: `theta_beam(z) / omega_shell(z)` at 50, 75, 90 % and the tip.
+- Reference: the shell ring rotation on rings with distortion share < 0.05 (rigid), because there
+  the two models are measuring the same kinematic quantity.
+- Tolerance: "agree" = within 5 % (the suite's rule). "The gap exists without distortion" =
+  ratio < 0.75 at the rigid ring (the literature shell-beam spread is 14-24 %, so < 0.75 is outside
+  it). In between: report, do not call it.
+- Reading: ratio within 5 % at 50/75 %, gap only at 90 %/tip -> reading (i) supported; ratio
+  < 0.75 at 75 % -> distortion is not the explanation, the cause is elsewhere (load path: nodal
+  force vs the beam's shear-centre arm; or the beam properties themselves); do not tune anything.
+
+**Not in this session:** 3D solid or VABS/BECAS judge (separate task, bigger, needs its own
+pre-registration); the unit cleanup of `k_drill` (#38); any Rust change.
+
+**Conventions that carry over:** blade mesh 0.15-0.25 m only; `scripts/aeroenv.sh` with
+`PYTHONPATH=$PWD/src`, never `python -I`; the Zhou tool needs the git-ignored `.sources` symlink;
+job script `logs/check/zhou_ccx_s8r.srm` (ignored by git, edit the env line to drop
+`ZHOU_CCX_DIR` if CCX is not needed); thresholds committed before the run; nothing tuned toward
+Zhou; if a named cause appears, propose the fix and wait for the OK.
