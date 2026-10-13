@@ -653,8 +653,30 @@ magnitudes agree, and this is the measured pair.
         cancel it to 3P. T7a.4 is no longer a 1P suspect; it stays as the fidelity
         follow-up of T6k. Gravity does not move the mean (Δ 0.4 kN), so the +6.6 %
         above rigid 2.541 MN is not gravity.
-  - [ ] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
+  - [x] T7a.4 Retest the deformation-following projector: the rationale for `6765633`
         was measured on rotated displacements.
+        **Decision (2026-10-13): keep the frozen projector.** Grounds: cost, not
+        contraction. The following projector rebuilds at ~63 s per sub-iteration on the
+        27.6 k-node smoke mesh (~40× the whole frozen sub-iteration), so a 30 s gate would
+        take ~114 h; it cannot be the production path whatever Gate A says. The job
+        `11614191` was cancelled by the user before window 0 converged (sub-iteration 8 at
+        05:37:56; the baseline's window 1 took 11), so **Gate A is untested: whether the
+        old 39/500 non-contraction was the frame bug stays open**, and Gate B was never
+        reachable. Not a null result, an unanswered one.
+        What survives as a finding is the static conservation bias of the frozen
+        projector (+1.23 % of ∫Np dr at max |u| 17.6 m, following +0.15 %; numbers
+        below). It is a candidate for a cheap, targeted change (strip widths from the
+        deformed radii on the frozen projector, no rebuild), to be tested on its own
+        (follow-up T7a.5), not folded into this decision. The comparison worktree
+        `../fem-shell-worktrees/t7a4-follow` (branch `exp/t7a4-follow-projector`,
+        `b0f01e4`) is throwaway; keep it until T7a.5 is scoped, then remove it.
+  - [ ] T7a.5 (follow-up, not started) Does the frozen projector conserve the BEM load
+        on the coupled run? Metric: ΣF_normal vs ∫Np dr per window (and `bem.thrust/B`);
+        reference: the BEM integral itself; static bias to explain: +1.23 % at 17.6 m.
+        First prove the mechanism (strip widths vs shortened radii, discipline #4), RED
+        test on the `test_bem_fsi_deformed_geometry.py` fixture, then the fix and the 30 s
+        gate against `t7c_30s` with `tools/coupled_run_stats.py`. Run pytest in a worktree
+        with `PYTHONPATH=$PWD/src` (incident below).
         **Setup (2026-10-13).** Comparison tree: worktree `../fem-shell-worktrees/t7a4-follow`,
         branch `exp/t7a4-follow-projector` = HEAD `f418fb4` + `git revert 6765633` + one
         patch so the rebuilt projector receives exactly the reference's constructor
