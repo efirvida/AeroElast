@@ -26,9 +26,9 @@ about 4% below it:
     steps=256   w/L=0.28974  3.97%
     steps=512   w/L=0.28967  4.00%
 
-So the alpha=1 gap is neither the O(Delta-theta) stepping error nor a mesh
-effect: the reviewed element's large-deflection response is systematically ~4%
-stiffer than the exact elastica.  The previous element was inside -0.5% here.
+So the alpha=1 gap is not the O(Delta-theta) stepping error, and no mesh
+refinement table backs ruling out a mesh effect (open): the reviewed element's
+large-deflection response is systematically ~4% stiffer than the exact elastica.  The previous element was inside -0.5% here.
 The tables stay, and the tight bound lands as an xfail carrying the measured
 number, exactly as `test_2nd_flapwise_frequency` expresses an accepted gap: it
 is an accuracy question about the element's UL path, not a tolerance to widen.
@@ -151,7 +151,7 @@ def _solve_ul(P: float, steps: int) -> tuple[np.ndarray, MeshModel, int]:
     "alpha,ref_wl,steps,tol",
     [
         (1.0, 0.30172, 32, 0.02),
-        (2.0, 0.49346, 64, 0.06),
+        (2.0, 0.49346, 64, 0.02),
     ],
 )
 def test_elastica_tip_deflection(alpha, ref_wl, steps, tol):
