@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 3.6958
       text: 'cantilever tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 3.6958% (bound: 5.0000%)'
@@ -48,8 +48,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 1.8569
       text: 'cantilever tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 1.8569% (bound: 5.0000%)'
@@ -76,8 +76,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 1.2238
       text: 'cantilever tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 1.2238% (bound: 5.0000%)'
@@ -104,8 +104,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.4847
       text: 'centre deflection vs the simply-supported closed form P L^3 (1 - nu^2) / (192 E I): 0.4847% (bound: 5.0000%)'
@@ -132,8 +132,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 3.6958
       text: 'bending tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 3.6958% (bound: 5.0000%)'
@@ -160,8 +160,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 1.8569
       text: 'bending tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 1.8569% (bound: 5.0000%)'
@@ -188,8 +188,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 1.2238
       text: 'bending tip deflection vs the cantilever beam closed form P L^3 / (3 E I): 1.2238% (bound: 5.0000%)'
@@ -216,8 +216,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 1.858
       text: 'membrane extension vs the axial extension closed form, epsilon L: 1.8580% (bound: 5.0000%)'

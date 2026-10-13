@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0824
       text: 'EB tip deflection vs the Euler-Bernoulli closed form P L^3 / (3 E I): 0.0824% (bound: 2.0000%)'
@@ -48,8 +48,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0
       text: 'moment tip deflection vs the linear-theory tip deflection lambda L / 2: 0.0000% (bound: 2.0000%)'
@@ -77,8 +77,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0782
       text: 'λ=0.50π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.0782% (bound: 5.0000%)'
@@ -97,8 +97,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.1218
       text: 'λ=0.50π w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.1218% (bound: 5.0000%)'
@@ -126,8 +126,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.1628
       text: 'λ=1.00π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.1628% (bound: 5.0000%)'
@@ -146,8 +146,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.0443
       text: 'λ=1.00π w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.0443% (bound: 5.0000%)'
@@ -175,8 +175,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.034
       text: 'λ=1.50π u_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.0340% (bound: 5.0000%)'
@@ -195,8 +195,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 0.3908
       text: 'λ=1.50π w_tip vs the elastica reference table of Simo & Vu-Quoc (1986) and Bathe & Bolourchi (1979): 0.3908% (bound: 5.0000%)'

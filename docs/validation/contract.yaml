@@ -318,3 +318,140 @@ verdicts:
       - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
     note: >-
       Closed-form mass reference; measured 0 % against 1e-12 at 252a9b5 (a round-off-level bound, deliberately tight).
+
+# --- PRE-2 (B1/L1), 2026-10-13: G19 shell analytical, G15 MITC3 benchmarks, G13 smoothed MITC3+; measured at a798c84 ---
+  - target: shell_analytical.testcantileverbeam_test_tip_deflection.4_2
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
+    note: >-
+      Closed form (Euler-Bernoulli / bar) independent of the element; stored value reproduced exactly at a798c84, bound 5 %. Mesh sweep 3.696 / 1.857 / 1.224 % converges monotonically; this mesh 3.6958 %.
+  - target: shell_analytical.testcantileverbeam_test_tip_deflection.8_4
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
+    note: >-
+      Closed form (Euler-Bernoulli / bar) independent of the element; stored value reproduced exactly at a798c84, bound 5 %. Mesh sweep 3.696 / 1.857 / 1.224 % converges monotonically; this mesh 1.8569 %.
+  - target: shell_analytical.testcantileverbeam_test_tip_deflection.16_8
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
+    note: >-
+      Closed form (Euler-Bernoulli / bar) independent of the element; stored value reproduced exactly at a798c84, bound 5 %. Mesh sweep 3.696 / 1.857 / 1.224 % converges monotonically; this mesh 1.2238 %.
+  - target: shell_analytical.testsimplysupportedbeam_test_center_defl.single
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
+    note: >-
+      Closed form (Euler-Bernoulli / bar) independent of the element; stored value reproduced exactly at a798c84, bound 5 %.
+  - target: shell_analytical.testbeambending_test_bending_convergence.4_2
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
+    note: >-
+      Closed form (Euler-Bernoulli / bar) independent of the element; stored value reproduced exactly at a798c84, bound 5 %. Same computation and same numbers as the tip_deflection rows (3.696 / 1.857 / 1.224 % for 4x2 / 8x4 / 16x8: monotone convergence), so it adds no independent evidence.
+  - target: shell_analytical.testbeambending_test_bending_convergence.8_4
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
+    note: >-
+      Closed form (Euler-Bernoulli / bar) independent of the element; stored value reproduced exactly at a798c84, bound 5 %. Same computation and same numbers as the tip_deflection rows (3.696 / 1.857 / 1.224 % for 4x2 / 8x4 / 16x8: monotone convergence), so it adds no independent evidence.
+  - target: shell_analytical.testbeambending_test_bending_convergence.16_8
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
+    note: >-
+      Closed form (Euler-Bernoulli / bar) independent of the element; stored value reproduced exactly at a798c84, bound 5 %. Same computation and same numbers as the tip_deflection rows (3.696 / 1.857 / 1.224 % for 4x2 / 8x4 / 16x8: monotone convergence), so it adds no independent evidence.
+  - target: shell_analytical.testmembranestretching_test_axial_extens.single
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
+    note: >-
+      Closed form (Euler-Bernoulli / bar) independent of the element; stored value reproduced exactly at a798c84, bound 5 %.
+  - target: mitc3_benchmarks.test_linear_tip_deflection_euler_bernoul.single
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli closed form P L^3/(3EI) / linear tip deflection lambda L/2"}
+    note: >-
+      Closed form independent of the element; measured at most 0.0824 % against a 2 % bound at a798c84 (stored values reproduced).
+  - target: mitc3_benchmarks.test_linear_tip_moment_sign.single
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli closed form P L^3/(3EI) / linear tip deflection lambda L/2"}
+    note: >-
+      Closed form independent of the element; measured at most 0.0824 % against a 2 % bound at a798c84 (stored values reproduced).
+  - target: mitc3_benchmarks.test_equilibrium_path.1_5707963267948966_3_6338_6_3662
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
+    note: >-
+      The reference table labelled as Simo & Vu-Quoc / Bathe & Bolourchi is the exact closed form for pure end moment: recomputed here from the formula, it matches the four tabulated points to 4 digits (3.6338/6.3662, 10/6.3662, 12.122/2.1221, 10/0). So the arbiter is analytical, not another FE code. Measured 0.03-0.39 % against 5 % at a798c84.
+  - target: mitc3_benchmarks.test_equilibrium_path.3_141592653589793_10_0_6_3662
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
+    note: >-
+      The reference table labelled as Simo & Vu-Quoc / Bathe & Bolourchi is the exact closed form for pure end moment: recomputed here from the formula, it matches the four tabulated points to 4 digits (3.6338/6.3662, 10/6.3662, 12.122/2.1221, 10/0). So the arbiter is analytical, not another FE code. Measured 0.03-0.39 % against 5 % at a798c84.
+  - target: mitc3_benchmarks.test_equilibrium_path.4_71238898038469_12_122_2_1221
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
+    note: >-
+      The reference table labelled as Simo & Vu-Quoc / Bathe & Bolourchi is the exact closed form for pure end moment: recomputed here from the formula, it matches the four tabulated points to 4 digits (3.6338/6.3662, 10/6.3662, 12.122/2.1221, 10/0). So the arbiter is analytical, not another FE code. Measured 0.03-0.39 % against 5 % at a798c84.
+  - target: mitc3_benchmarks.test_equilibrium_path.6_283185307179586_10_0_0_0
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
+    note: >-
+      The reference table labelled as Simo & Vu-Quoc / Bathe & Bolourchi is the exact closed form for pure end moment: recomputed here from the formula, it matches the four tabulated points to 4 digits (3.6338/6.3662, 10/6.3662, 12.122/2.1221, 10/0). So the arbiter is analytical, not another FE code. Measured 0.03-0.39 % against 5 % at a798c84. The 2*pi row also has an absolute w_tip comparison (reference 0): bound 0.5 m = 5 % of L = 10 m, i.e. the ceiling expressed as a distance; the harness prints it in metres and the regression tool does not map it (UNMAPPED), measured separately: u_tip 0.3554 %, w_tip 0.0198 m (SLURM 11614690, test_simo_vu_quoc_rollup_360).
+  - target: mitc3_benchmarks.test_simo_vu_quoc_rollup_360.10
+    class: physics
+    verdict: trusted
+    audited_rev: a798c84
+    arbiters:
+      - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
+    note: >-
+      The reference table labelled as Simo & Vu-Quoc / Bathe & Bolourchi is the exact closed form for pure end moment: recomputed here from the formula, it matches the four tabulated points to 4 digits (3.6338/6.3662, 10/6.3662, 12.122/2.1221, 10/0). So the arbiter is analytical, not another FE code. Measured 0.03-0.39 % against 5 % at a798c84. The 2*pi row also has an absolute w_tip comparison (reference 0): bound 0.5 m = 5 % of L = 10 m, i.e. the ceiling expressed as a distance; the harness prints it in metres and the regression tool does not map it (UNMAPPED), measured separately: u_tip 0.3554 %, w_tip 0.0198 m (SLURM 11614690, test_simo_vu_quoc_rollup_360).
+  - target: mitc3_smoothed.test_scordelis_lo_smoothed_mitc3_matches.8_1_0323
+    class: physics
+    verdict: undecided
+    note: >-
+      Compared with Lee & Lee 2019 Table 6, i.e. another finite-element result (published numerical) normalised by the MacNeal-Harder 0.3024 value, itself numerical. One numerical arbiter does not suffice; no closed form for this roof is in the repo. Measured 3.86 / 1.00 / 2.63 % (N=8 / 16 / smoothing relief) against 5 %, reproduced at a798c84. Open until a second independent arbiter is named.
+  - target: mitc3_smoothed.test_scordelis_lo_smoothed_mitc3_matches.16_1_0075
+    class: physics
+    verdict: undecided
+    note: >-
+      Compared with Lee & Lee 2019 Table 6, i.e. another finite-element result (published numerical) normalised by the MacNeal-Harder 0.3024 value, itself numerical. One numerical arbiter does not suffice; no closed form for this roof is in the repo. Measured 3.86 / 1.00 / 2.63 % (N=8 / 16 / smoothing relief) against 5 %, reproduced at a798c84. Open until a second independent arbiter is named.
+  - target: mitc3_smoothed.test_smoothing_relieves_scordelis_lo_mem.single
+    class: physics
+    verdict: undecided
+    note: >-
+      Compared with Lee & Lee 2019 Table 6, i.e. another finite-element result (published numerical) normalised by the MacNeal-Harder 0.3024 value, itself numerical. One numerical arbiter does not suffice; no closed form for this roof is in the repo. Measured 3.86 / 1.00 / 2.63 % (N=8 / 16 / smoothing relief) against 5 %, reproduced at a798c84. Open until a second independent arbiter is named.

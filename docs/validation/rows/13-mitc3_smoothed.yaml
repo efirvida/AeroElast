@@ -21,11 +21,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c16842d
-      date: '2026-10-04'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 3.8623
-      text: 3.8623% bound 5.0000%
+      text: 'N=8 Scordelis-Lo normalized displacement vs Lee & Lee 2019, Table 6 Mesh I, normalized vertical displacement at B: 3.8623% (bound: 5.0000%)'
       digest: fe4dcb4a578a0bc4
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
@@ -50,11 +50,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c16842d
-      date: '2026-10-04'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 1.0006
-      text: 1.0006% bound 5.0000%
+      text: 'N=16 Scordelis-Lo normalized displacement vs Lee & Lee 2019, Table 6 Mesh I, normalized vertical displacement at B: 1.0006% (bound: 5.0000%)'
       digest: 76569abdbae0582d
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
@@ -79,11 +79,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c16842d
-      date: '2026-10-04'
+      run: a798c84
+      date: '2026-10-13'
       raw: null
       margin_pct: 2.6331
-      text: 2.6331% bound 5.0000%
+      text: 'N=8 plain MITC3+ normalized displacement vs Lee & Lee 2019, Table 6 Mesh I, the plain MITC3+ column: 2.6331% (bound: 5.0000%)'
       digest: 4ce99f56fae7c984
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
