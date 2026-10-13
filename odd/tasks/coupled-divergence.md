@@ -733,6 +733,34 @@ magnitudes agree, and this is the measured pair.
         (30 s ≈ 114 h). Cost finding regardless of A: a full rebuild per sub-iteration is
         ~40× the whole frozen sub-iteration, so "change to the following projector" is not
         viable as-is for production runs even if it contracts.
+        **Mechanism proven (2026-10-13, step 1-2 of T7a.5).** Code path: `project()`
+        computes `F_n = Np[k]*strip.dr` (`force_projection.py:711-787`), pairing reference
+        strip k with deformed BEM station k by index, no interpolation; the widths are the
+        reference `s.dr` (`fsi_participant.py:497`). The rotor-normal axis is the same in
+        both projectors and the AC arm / `Mp` enter only moments, so neither can move
+        ΣF_normal. `ForceProjector.verify` checks against the projector's own `dr`, so it
+        cannot see this. Metric correction: `bem.thrust/B` is not the conservation target
+        (CCBlade integrates it azimuth-averaged with its own end rule, 0.31 % below
+        trapz); the target is ∫Np dr on the deformed span.
+        Diagnostic (`/tmp/t7a5_diag.py`, throwaway; same fixture, one `bem_result`,
+        `aeroelast` from this worktree, max |u| 17.63 m, 50 strips), kN:
+        | quantity | deformed | rigid |
+        |---|---|---|
+        | (a) ΣF_normal, frozen nodes | 624.3 | 851.4 |
+        | (b) Σ Np·dr_ref | 624.3 ((a)−(b) = −1e-10 N) | 851.4 |
+        | (c) Σ Np·dr_def (same strip rule on r_def) = rebuilt projector | 617.7 | — |
+        | (d) trapz(Np, r_def) | 616.8 | 847.5 (on r_ref) |
+        | `bem.thrust/B` | 614.8 | 841.7 |
+        Split of (a)−(d) as % of (d): distribution loss 0.0000 + width term D **+1.079**
+        + end half-cells E **+0.147** = +1.225. D is the reference widths on radii pulled
+        inward by the second-order shortening (tip r_ref−r_def = +1.093 m; largest width
+        loss 0.102 m at k=47, 4.3 % of the strip). E is the mirrored end half-cells,
+        Np₀Δr₀/2 + Np_NΔr_N/2 (matched to 1e-10 N); it is not a constant offset: rigid
+        +0.467 % (tip Np 3203 N/m) vs deformed +0.147 % (787 N/m). So deformed widths
+        remove D only; E is a load-dependent quadrature bias already present in the rigid
+        path. Side finding, unverified: the deformed root station sits 1.6e-5 m inboard of
+        r_ref[0], CCBlade reports NaN at station 0 and zeroes it (deformed Np₀ = 0 vs
+        115 N/m rigid); suspected slip inside Rhub, effect on E ≈ 0.016 %.
   - Known gap: Rust `with_initial_state` restart θ is not mirrored on the fluid side.
 - [x] T7b The +6.6 % mean thrust is a reversed tangential force: every production
       fluid YAML (65 of 65 carrying the key) sets `tangential_direction: -x`, which
