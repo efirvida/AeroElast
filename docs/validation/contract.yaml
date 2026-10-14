@@ -579,3 +579,235 @@ verdicts:
       - {kind: analytical, label: "Plane-stress closed form sigma_xx = E/(1-nu^2) eps, sigma_yy = nu sigma_xx, sigma_xy = 0"}
     note: >-
       Uniform strain state against the closed-form stress; 1e-6 bound, 0.0 measured at 8cf683c. It checks the K_G stress pipeline, not the K_G physics; the other 13 tests in the file are unclaimed by the store.
+
+# --- PRE-2 (B1/L1), 2026-10-13: G3 Ko2017, valid environment (aeroelast from the worktree, _aeroelast from the venv), measured at df7b351 ---
+# Second arbiter = the physical reference each case normalises by (our displacement / reference, printed as 'Norm vs Kirchhoff'), checked within the 5 % ceiling, besides the Ko et al. MITC4+ table cell the test asserts.
+  - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa_2
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa_3
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr_2
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr_3
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_01_100_0_0_015625_0_0637019230769
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_001_100000_0_0_015625_0_063701923
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_0001_100000000_0_0_015625_0_06370
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_01_100_0_0_015625_0_063701923076
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_001_100000_0_0_015625_0_06370192
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_0001_100000000_0_0_015625_0_0637
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
+    note: >-
+      Our displacement / Kirchhoff closed form is within 0.74 % of 1 for all 12 plate cases (thickness t/L 0.01-0.0001, regular and distorted meshes), alongside the Ko table cell (<=0.44 % apart). Thick-plate cases carry the shear effect the Kirchhoff form omits and still sit inside 0.8 %.
+  - target: ko2017.test_3_3_pinched_cylinder_tables_8_to_9.expected0_false
+    class: physics
+    verdict: undecided
+    note: >-
+      Our value / MacNeal-Harder reference (1.8248e-5) is 0.918 (regular) and 0.932 (distorted), i.e. 8.2 % and 6.8 % under the physical reference, over the 5 % ceiling. It agrees with the Ko MITC4+ N=16 cell (0.931 / 0.932) within 1.4 %, so the gap is the discretisation both share, not a defect of this element, but no refinement table in this repo shows it closing. Open until a mesh-refinement run is added.
+  - target: ko2017.test_3_3_pinched_cylinder_tables_8_to_9.expected0_true
+    class: physics
+    verdict: undecided
+    note: >-
+      Our value / MacNeal-Harder reference (1.8248e-5) is 0.918 (regular) and 0.932 (distorted), i.e. 8.2 % and 6.8 % under the physical reference, over the 5 % ceiling. It agrees with the Ko MITC4+ N=16 cell (0.931 / 0.932) within 1.4 %, so the gap is the discretisation both share, not a defect of this element, but no refinement table in this repo shows it closing. Open until a mesh-refinement run is added.
+  - target: ko2017.test_3_4_scordelis_lo_tables_10_to_11.expected0_false
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
+      - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
+    note: >-
+      Two distinct published sources: the Ko table cell the test asserts and the MacNeal-Harder reference the case normalises by. Our value / reference is within 5 % (Scordelis-Lo 0.970 / 0.981; hemisphere with cutout 0.982-1.001; full hemisphere 0.991 / 0.977). The reference carried in the test for the hemisphere (9.3e-2 / 9.24e-2) agrees with the MacNeal-Harder 0.0924 within 0.65 %.
+  - target: ko2017.test_3_4_scordelis_lo_tables_10_to_11.expected0_true
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
+      - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
+    note: >-
+      Two distinct published sources: the Ko table cell the test asserts and the MacNeal-Harder reference the case normalises by. Our value / reference is within 5 % (Scordelis-Lo 0.970 / 0.981; hemisphere with cutout 0.982-1.001; full hemisphere 0.991 / 0.977). The reference carried in the test for the hemisphere (9.3e-2 / 9.24e-2) agrees with the MacNeal-Harder 0.0924 within 0.65 %.
+  - target: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_02667_in_plane_1_0_0_005424_0_001754_0
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "MacNeal & Harder 1985 analytical solution of the thick twisted beam (5.424e-3 in-plane, 1.754e-3 out-of-plane)"}
+    note: >-
+      MacNeal and Harder provided the analytical solution of the thick twisted beam (confirmed in the Abaqus benchmarks manual 2.3.7). Our value / reference 0.9981 and 0.9998.
+  - target: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_02667_out_of_plane_1_0_0_005424_0_0017
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: analytical, label: "MacNeal & Harder 1985 analytical solution of the thick twisted beam (5.424e-3 in-plane, 1.754e-3 out-of-plane)"}
+    note: >-
+      MacNeal and Harder provided the analytical solution of the thick twisted beam (confirmed in the Abaqus benchmarks manual 2.3.7). Our value / reference 0.9981 and 0.9998.
+  - target: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_0002667_in_plane_1e_06_0_005256_0_0012
+    class: physics
+    verdict: undecided
+    note: >-
+      Thin twisted beam (t/L 0.0002667): our value / reference 0.9972 and 0.9981 against the Ko cell 0.9978 / 0.9982 (0.06 / 0.01 %). The reference (5.256e-3, 1.294e-3) is Ko's own 3D solution; the Abaqus manual attributes the thin-beam reference to Simo et al. 1989, a value not compared here. One source; undecided until that second value is checked. NOTE: an earlier run (SLURM 11614628, tree 890d4e6) measured 8.49 % / 8.71 % red on these two rows with the same source and extension; not reproduced in two later runs (11614738 and the valid-env 11614753); cause of the discrepancy not established.
+  - target: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_0002667_out_of_plane_1e_06_0_005256_0
+    class: physics
+    verdict: undecided
+    note: >-
+      Thin twisted beam (t/L 0.0002667): our value / reference 0.9972 and 0.9981 against the Ko cell 0.9978 / 0.9982 (0.06 / 0.01 %). The reference (5.256e-3, 1.294e-3) is Ko's own 3D solution; the Abaqus manual attributes the thin-beam reference to Simo et al. 1989, a value not compared here. One source; undecided until that second value is checked. NOTE: an earlier run (SLURM 11614628, tree 890d4e6) measured 8.49 % / 8.71 % red on these two rows with the same source and extension; not reproduced in two later runs (11614738 and the valid-env 11614753); cause of the discrepancy not established.
+  - target: ko2017.test_3_6_hook_table_14_minimal_fix.0_9782
+    class: physics
+    verdict: undecided
+    note: >-
+      Raasch hook: our value / reference 0.9814 against the Ko cell 0.9782 (0.33 %). The reference (4.82482) is Ko's 3D solution with no second independent source named in the repo.
+  - target: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_004_2_0_expected_mitc40_false
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
+      - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
+    note: >-
+      Two distinct published sources: the Ko table cell the test asserts and the MacNeal-Harder reference the case normalises by. Our value / reference is within 5 % (Scordelis-Lo 0.970 / 0.981; hemisphere with cutout 0.982-1.001; full hemisphere 0.991 / 0.977). The reference carried in the test for the hemisphere (9.3e-2 / 9.24e-2) agrees with the MacNeal-Harder 0.0924 within 0.65 %.
+  - target: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_004_2_0_expected_mitc40_true
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
+      - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
+    note: >-
+      Two distinct published sources: the Ko table cell the test asserts and the MacNeal-Harder reference the case normalises by. Our value / reference is within 5 % (Scordelis-Lo 0.970 / 0.981; hemisphere with cutout 0.982-1.001; full hemisphere 0.991 / 0.977). The reference carried in the test for the hemisphere (9.3e-2 / 9.24e-2) agrees with the MacNeal-Harder 0.0924 within 0.65 %.
+  - target: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_0004_0_002_expected_mitc41_false
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
+      - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
+    note: >-
+      Two distinct published sources: the Ko table cell the test asserts and the MacNeal-Harder reference the case normalises by. Our value / reference is within 5 % (Scordelis-Lo 0.970 / 0.981; hemisphere with cutout 0.982-1.001; full hemisphere 0.991 / 0.977). The reference carried in the test for the hemisphere (9.3e-2 / 9.24e-2) agrees with the MacNeal-Harder 0.0924 within 0.65 %.
+  - target: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_0004_0_002_expected_mitc41_true
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
+      - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
+    note: >-
+      Two distinct published sources: the Ko table cell the test asserts and the MacNeal-Harder reference the case normalises by. Our value / reference is within 5 % (Scordelis-Lo 0.970 / 0.981; hemisphere with cutout 0.982-1.001; full hemisphere 0.991 / 0.977). The reference carried in the test for the hemisphere (9.3e-2 / 9.24e-2) agrees with the MacNeal-Harder 0.0924 within 0.65 %.
+  - target: ko2017.test_3_8_full_hemisphere_table_17.0_004_2_0_0_996
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
+      - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
+    note: >-
+      Two distinct published sources: the Ko table cell the test asserts and the MacNeal-Harder reference the case normalises by. Our value / reference is within 5 % (Scordelis-Lo 0.970 / 0.981; hemisphere with cutout 0.982-1.001; full hemisphere 0.991 / 0.977). The reference carried in the test for the hemisphere (9.3e-2 / 9.24e-2) agrees with the MacNeal-Harder 0.0924 within 0.65 %.
+  - target: ko2017.test_3_8_full_hemisphere_table_17.0_0004_0_002_0_9798
+    class: physics
+    verdict: trusted
+    audited_rev: df7b351
+    arbiters:
+      - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
+      - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
+    note: >-
+      Two distinct published sources: the Ko table cell the test asserts and the MacNeal-Harder reference the case normalises by. Our value / reference is within 5 % (Scordelis-Lo 0.970 / 0.981; hemisphere with cutout 0.982-1.001; full hemisphere 0.991 / 0.977). The reference carried in the test for the hemisphere (9.3e-2 / 9.24e-2) agrees with the MacNeal-Harder 0.0924 within 0.65 %.
+  - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_fa
+    class: physics
+    verdict: undecided
+    note: >-
+      Hyperbolic paraboloid: our value / reference 0.968-1.014 against the Ko cells (0.5-2.0 %). Reference is Ko's own 3D solution; no second independent source named.
+  - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_tr
+    class: physics
+    verdict: undecided
+    note: >-
+      Hyperbolic paraboloid: our value / reference 0.968-1.014 against the Ko cells (0.5-2.0 %). Reference is Ko's own 3D solution; no second independent source named.
+  - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_fa
+    class: physics
+    verdict: undecided
+    note: >-
+      Hyperbolic paraboloid: our value / reference 0.968-1.014 against the Ko cells (0.5-2.0 %). Reference is Ko's own 3D solution; no second independent source named.
+  - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_tr
+    class: physics
+    verdict: undecided
+    note: >-
+      Hyperbolic paraboloid: our value / reference 0.968-1.014 against the Ko cells (0.5-2.0 %). Reference is Ko's own 3D solution; no second independent source named.
