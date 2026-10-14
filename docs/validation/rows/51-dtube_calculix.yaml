@@ -1,0 +1,30 @@
+group: '51'
+rows:
+- id: dtube_calculix.test_dtube_tip_deflection_calculix_s8r_a.32_16_100
+  group: '51'
+  title: test_dtube_tip_deflection_calculix_s8r_against_beam_theory[32-16-100]
+  tests:
+  - tests/validation/benchmarks/test_dtube_calculix.py::test_dtube_tip_deflection_calculix_s8r_against_beam_theory[32-16-100]
+  validates: dtube_tip_deflection_calculix_s8r_against_beam_theory
+  comparisons:
+  - label: rtol at line 70
+    asserted: true
+    reference:
+      kind: analytical
+      label: prismatic cantilever w L^4 / (8 E I_c) about the section centroid
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_dtube_calculix.py:70
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: f9f4f8f
+      date: '2026-10-13'
+      raw: 24.992
+      margin_pct: 1.9024
+      text: 'D-Tube tip deflection, CalculiX S8R 32+16 x 100 vs prismatic cantilever w L^4 / (8 E I_c) about the section centroid: 24.992 vs 24.5254 (error: 1.9024%, bound: 5.0000%)'
+      digest: fb0a3b220457694a
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

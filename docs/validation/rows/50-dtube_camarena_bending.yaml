@@ -1,0 +1,86 @@
+group: '50'
+rows:
+- id: dtube_camarena_bending.test_applied_traction_resultant.single
+  group: '50'
+  title: test_applied_traction_resultant
+  tests:
+  - tests/validation/benchmarks/test_dtube_camarena_bending.py::test_applied_traction_resultant
+  validates: The discretized traction integrates to w*L = p*D*L (vertical).
+  comparisons:
+  - label: rtol at line 184
+    asserted: true
+    reference:
+      kind: analytical
+      label: the traction resultant p D L
+    tolerance:
+      kind: rtol
+      value: 0.001
+      source: tests/validation/benchmarks/test_dtube_camarena_bending.py:184
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: f9f4f8f
+      date: '2026-10-13'
+      raw: 28327200.0
+      margin_pct: 0.0803
+      text: 'D-Tube discretised traction resultant vs the traction resultant p D L: 2.83272e+07 vs 2.835e+07 (error: 0.0803%, bound: 0.1000%)'
+      digest: f8efc185d692729a
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: dtube_camarena_bending.test_dtube_tip_deflection_matches_beam_t.single
+  group: '50'
+  title: test_dtube_tip_deflection_matches_beam_theory
+  tests:
+  - tests/validation/benchmarks/test_dtube_camarena_bending.py::test_dtube_tip_deflection_matches_beam_theory
+  validates: Linear MITC4 shell vs the prismatic-cantilever analytical deflection.
+  comparisons:
+  - label: rtol at line 200
+    asserted: true
+    reference:
+      kind: analytical
+      label: the prismatic cantilever w L^4 / (8 E I_c) about the section centroid
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_dtube_camarena_bending.py:200
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: f9f4f8f
+      date: '2026-10-13'
+      raw: 24.501
+      margin_pct: 0.0997
+      text: 'D-Tube tip deflection vs the prismatic cantilever w L^4 / (8 E I_c) about the section centroid: 24.501 vs 24.5254 (error: 0.0997%, bound: 1.0000%)'
+      digest: 15f1e4b395493d9e
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: dtube_camarena_bending.test_dtube_torsion_matches_bredt.single
+  group: '50'
+  title: test_dtube_torsion_matches_bredt
+  tests:
+  - tests/validation/benchmarks/test_dtube_camarena_bending.py::test_dtube_torsion_matches_bredt
+  validates: Linear MITC4 shell vs Bredt-Batho closed-cell torsional stiffness.
+  comparisons:
+  - label: rtol at line 301
+    asserted: true
+    reference:
+      kind: analytical
+      label: Bredt-Batho closed-cell torsional stiffness G 4 A^2 / oint(ds/t)
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_dtube_camarena_bending.py:301
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: f9f4f8f
+      date: '2026-10-13'
+      raw: 133328000000.0
+      margin_pct: 0.9112
+      text: 'D-Tube torsional stiffness GJ vs Bredt-Batho closed-cell torsional stiffness G 4 A^2 / oint(ds/t): 1.33328e+11 vs 1.34554e+11 (error: 0.9112%, bound: 2.0000%)'
+      digest: 09e29f835092a923
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
