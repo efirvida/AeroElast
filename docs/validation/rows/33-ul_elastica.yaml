@@ -7,7 +7,7 @@ rows:
   - tests/validation/element/test_static_nonlinear_ul_elastica.py::test_elastica_tip_deflection[1.0-0.30172-32-0.02]
   validates: The UL tip deflection against the elastica table, tight bound as xfail.
   comparisons:
-  - label: rtol at line 176
+  - label: rtol at line 185
     asserted: true
     reference:
       kind: paper
@@ -16,12 +16,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:176
+      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:185
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 2462e1f
+      run: 71eebaf
       date: '2026-10-14'
       raw: null
       margin_pct: 3.6347
@@ -36,7 +36,7 @@ rows:
   - tests/validation/element/test_static_nonlinear_ul_elastica.py::test_elastica_tip_deflection[2.0-0.49346-64-0.02]
   validates: The UL tip deflection against the elastica table, tight bound as xfail.
   comparisons:
-  - label: rtol at line 176
+  - label: rtol at line 185
     asserted: true
     reference:
       kind: paper
@@ -45,12 +45,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:176
+      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:185
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 2462e1f
+      run: 71eebaf
       date: '2026-10-14'
       raw: null
       margin_pct: 4.2658

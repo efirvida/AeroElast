@@ -64,7 +64,9 @@ def _ccx_tip(tmp_path, ccx_bin: str, alpha: float, n: int) -> tuple[float, float
     """Tip (w/L, u/L) of the strip in CalculiX: ``n x 2`` S8R elements."""
     nv = 2
     load = alpha * EI / L**2
-    weights = np.array([1.0 if j in (0, 2 * nv) else (4.0 if j % 2 else 2.0) for j in range(2 * nv + 1)])
+    weights = np.array(
+        [1.0 if j in (0, 2 * nv) else (4.0 if j % 2 else 2.0) for j in range(2 * nv + 1)]
+    )
     weights /= weights.sum()  # consistent nodal loads of a quadratic edge
     tip = node_id(2 * n, nv, n)
     inp = tmp_path / f"strip_{alpha:g}_{n}.inp"

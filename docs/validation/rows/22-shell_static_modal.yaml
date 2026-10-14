@@ -7,7 +7,7 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_fx
   validates: FX in-plane loading.
   comparisons:
-  - label: rtol at line 212
+  - label: rtol at line 214
     asserted: true
     reference:
       kind: analytical
@@ -15,12 +15,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/benchmarks/test_shell_static_and_modal.py:212
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:214
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 2462e1f
+      run: 71eebaf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.2861
@@ -35,7 +35,7 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_fy
   validates: FY in-plane loading.
   comparisons:
-  - label: rtol at line 228
+  - label: rtol at line 231
     asserted: true
     reference:
       kind: analytical
@@ -43,12 +43,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/benchmarks/test_shell_static_and_modal.py:228
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:231
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 2462e1f
+      run: 71eebaf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.1904
@@ -63,7 +63,7 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_fz
   validates: FZ out-of-plane loading.
   comparisons:
-  - label: rtol at line 244
+  - label: rtol at line 248
     asserted: true
     reference:
       kind: analytical
@@ -71,12 +71,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/benchmarks/test_shell_static_and_modal.py:244
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:248
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 2462e1f
+      run: 71eebaf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.9692
@@ -91,7 +91,7 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestLinearStatic::test_axial_load_converges_to_the_analytical_solution
   validates: The axial case must converge to P*L/(E*A), not merely land near it.
   comparisons:
-  - label: rtol at line 291
+  - label: rtol at line 294
     asserted: true
     reference:
       kind: analytical
@@ -99,12 +99,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/benchmarks/test_shell_static_and_modal.py:291
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:294
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 2462e1f
+      run: 71eebaf
       date: '2026-10-14'
       raw: null
       margin_pct: 0.4888
@@ -119,7 +119,7 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestNonlinearStatic::test_geometric_nonlinearity
   validates: 'Geometric nonlinearity: stiffening and the beam-elastica limit.'
   comparisons:
-  - label: rtol at line 318
+  - label: rtol at line 331
     asserted: true
     reference:
       kind: analytical
@@ -127,18 +127,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/benchmarks/test_shell_static_and_modal.py:318
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:331
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 2462e1f
+      run: 71eebaf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.9692
       text: 'linear tip deflection vs the Euler-Bernoulli cantilever tip P L^3 / (3 E I): 0.186725 vs 0.190476 (error: 1.9692%, bound: 5.0000%)'
       digest: 247e1078ac5ccf66
-  - label: rtol at line 368
+  - label: rtol at line 381
     asserted: true
     reference:
       kind: analytical
@@ -146,12 +146,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/benchmarks/test_shell_static_and_modal.py:368
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:381
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 2462e1f
+      run: 71eebaf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.3863
@@ -166,7 +166,7 @@ rows:
   - tests/validation/benchmarks/test_shell_static_and_modal.py::TestModal::test_first_mode
   validates: First modal frequency.
   comparisons:
-  - label: rtol at line 404
+  - label: rtol at line 417
     asserted: true
     reference:
       kind: analytical
@@ -174,12 +174,12 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/benchmarks/test_shell_static_and_modal.py:404
+      source: tests/validation/benchmarks/test_shell_static_and_modal.py:417
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 2462e1f
+      run: 71eebaf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.2276
