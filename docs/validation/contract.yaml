@@ -1067,3 +1067,37 @@ verdicts:
       - {kind: produced_numerical, label: "CalculiX S8R, 8 x 48 elements (this row)"}
     note: >-
       CalculiX S8R, an independent code, 0.0588 % from Simo's reference on 8 x 48 elements. The same deck writer reproduces the Scordelis-Lo and hook references, so it is not the source of the agreement.
+
+# --- PRE-2 (B1/L1), 2026-10-13: D-Tube (groups 50-51) ---
+  - target: dtube_camarena_bending.test_dtube_tip_deflection_matches_beam_t.single
+    class: physics
+    verdict: trusted
+    audited_rev: f22dcb5
+    arbiters:
+      - {kind: analytical, label: "Prismatic cantilever w L^4 / (8 E I_c) about the section centroid (Camarena and Anderson 2025, Section 3.1.1)"}
+      - {kind: produced_numerical, label: "CalculiX S8R on the same tube, mesh-independent at 24.992 m (row dtube_calculix.*)"}
+    note: >-
+      MITC4 24.501 m against the beam 24.5254 m, 0.0997 % against a 1 % bound at 32/16/400 elements. The residual the repo carried as open since 2026-10 (1.07 % at 200 layers) was span discretisation: -4.75 / -1.07 / -0.35 / -0.10 % at 100 / 200 / 300 / 400 layers (SLURM 11614803); the earlier note called 200 converged after comparing only 100 and 200. Unresolved: CalculiX S8R converges to +1.90 % above the beam on the same tube, 2 points away from MITC4. Controls: a closed circular tube under distributed load gives CalculiX +0.40 % (the Timoshenko shear term accounts for about +0.5 %) and MITC4 -1.36 / +0.54 / -0.03 % at 32x100 / 32x200 / 64x200 (facetting and span, not converged), so the D-section +1.9 % of CalculiX is not explained by a calibration bias there; both codes are inside the 5 % ceiling, the 2 % spread is reported, not closed.
+  - target: dtube_camarena_bending.test_dtube_torsion_matches_bredt.single
+    class: physics
+    verdict: trusted
+    audited_rev: f22dcb5
+    arbiters:
+      - {kind: analytical, label: "Bredt-Batho closed-cell torsional stiffness G 4 A^2 / oint(ds/t)"}
+    note: >-
+      GJ 1.33328e11 against 1.34554e11 N m^2, 0.9112 % against a 2 % bound (64/32 elements around the section, 100 layers; the span has no effect on GJ).
+  - target: dtube_camarena_bending.test_applied_traction_resultant.single
+    class: identity
+    verdict: trusted
+    audited_rev: f22dcb5
+    note: >-
+      Load bookkeeping: the discretised nodal traction integrates to 2.83272e7 N against p D L = 2.835e7 N, 0.0803 % against a 0.1 % bound. It checks our own load assembly, not the physics.
+  - target: dtube_calculix.test_dtube_tip_deflection_calculix_s8r_a.32_16_100
+    class: physics
+    verdict: trusted
+    audited_rev: f22dcb5
+    arbiters:
+      - {kind: analytical, label: "Prismatic cantilever w L^4 / (8 E I_c) about the section centroid"}
+      - {kind: produced_numerical, label: "AeroElast MITC4+ at 32/16/400, 0.10 % from the same beam value"}
+    note: >-
+      CalculiX S8R 24.992 m against the beam 24.5254 m, 1.9024 % against a 5 % bound; identical to 4 digits from 16/8/50 to 64/32/100 elements (24.9909 to 24.9923). The 2 % gap to the MITC4 sequence is open (see the MITC4 row).
