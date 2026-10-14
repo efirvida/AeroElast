@@ -14,76 +14,60 @@ _log = logging.getLogger(__name__)
 
 class StaticNonlinearSolver(Solver):
     """
-    Nonlinear static solver — Updated-Lagrangian incremental (Rust assembler).
+    Nonlinear static solver — total-Lagrangian Newton (default) or legacy updated-Lagrangian.
 
-    Solves R(u) = F_int(u) - F_ext = 0 through geometric nonlinearity
-    using incremental Updated-Lagrangian steps:
+    The default ``scheme: newton`` solves ``f_int(u) - lam F = 0`` on the Green-Lagrange internal
+    force of the Rust assembler with its consistent tangent (``assemble_kt``), load-stepped with
+    step halving on failure.  It is objective for rotations about any axis (rigid rotations give
+    ``|f_int| ~ 1e-8`` against a 2e7 membrane stiffness up to 2 rad; ``kt`` matches a finite
+    difference of ``f_int`` to 1e-10 at multi-axis states) and agrees with CalculiX S8R NLGEOM to
+    0.2-0.8 % on a pre-twisted beam under combined bending and torsion.
 
-    * each step solves the linearized problem ``K_e(x_ref)·du = dλ·F_ext``
-      on the current reference geometry (exact linear solve — one
-      factorisation per step);
-    * the reference configuration is advanced with ``update_reference``,
-      which rebuilds the per-element geometry from the deformed node
-      positions; the geometric nonlinearity accumulates through these
-      reference updates.
+    Validated envelope: nodal rotations up to about ``pi``.  The rotation DOFs are a total
+    rotation vector with a quadratic director, so beyond ``pi`` the corrector stops converging
+    and the solve raises; it never returns a wrong answer silently.
 
-    The per-step error is O(Δθ²), so the total error is O(Δθ) — below 3%
-    for 20 steps of 9° of section rotation each.  ``continuation_steps``
-    therefore controls both robustness and accuracy (16-32 recommended for
-    large-deflection blade cases).
+    ``scheme: ul`` keeps the previous updated-Lagrangian loop (``K_e(x_ref) du = dlam F``,
+    re-referencing after each step).  It has no equilibrium iteration and no initial-stress
+    stiffness, so refining the steps does **not** converge to the dead-load equilibrium; see
+    *Schemes*.  Keep it only to reproduce old results.
 
     YAML solver parameters (all optional)
     --------------------------------------
-    atol : float
-        Absolute residual tolerance for SNES (default: 1e-10).
-    rtol : float
-        Relative residual tolerance for SNES (default: 1e-8).
-    stol : float
-        Step-length tolerance for SNES (default: 1e-8).
-    max_it : int
-        Maximum Newton iterations (default: 100).
-    continuation : bool
-        Enable adaptive load continuation fallback when a full-load solve
-        diverges (default: True).
+    scheme : str
+        ``"newton"`` (default) or ``"ul"``; see *Schemes* below.
     continuation_steps : int
-        Number of load increments (default: 8; use 16-32 for blades).
+        Number of initial load increments (default: 8; use 16-32 for blades).
     continuation_max_steps : int
-        Maximum number of steps allowed (default: 64).
+        Maximum number of step attempts allowed, halved steps included (default: 64).
+    newton_rtol, newton_etol, newton_max_it
+        ``newton`` only: residual tolerance relative to the applied load (default 1e-5), energy
+        tolerance (default 1e-10), iterations per load step (default 25).
     diagnostics : bool
         Emit per-step diagnostics (default: False).
-    scheme : str
-        ``"ul"`` (default) or ``"newton"``; see *Schemes* below.
-    newton_rtol, newton_etol, newton_max_it
-        Newton scheme only: residual tolerance relative to the applied load (default 1e-5),
-        energy tolerance (default 1e-10), iterations per load step (default 25).
+
+    ``atol``, ``rtol``, ``stol``, ``max_it`` and ``continuation`` belonged to the historical SNES
+    path and are not read any more.
 
     Schemes
     -------
-    ``"ul"`` is a tangent flow: it never checks equilibrium and omits the initial-stress
-    stiffness, so refining the steps does **not** converge to the dead-load equilibrium.
-    Measured on the b = 0.1 shell strip against CalculiX S8R with NLGEOM (mesh and steps
-    converged; the strip is a plate, so the elastica is not the right reference): the scheme
-    reads +2.0 % too soft at 16 deg of tip rotation (alpha = 4/7), +4.4 % at 26 deg (alpha = 1)
-    and +9.6 % at 45 deg (alpha = 2).  On a narrow strip against the exact elastica it is
-    +10.7 % at alpha = 2 and a 2-D corotational beam with the same scheme gives +11.3 %.  It is
-    exact for a pure end moment (no shear or axial force to rotate).  It is the multi-axis path
-    (blade twist), where rotation DOFs are not additive.
+    ``"newton"`` (default) iterates ``f_int(u) - lam F = 0`` with the consistent tangent.  On
+    the b = 0.1 shell strip it agrees with CalculiX S8R NLGEOM to 0.1-0.3 % (alpha = 4/7, 1, 2),
+    on a narrow strip it reproduces the exact elastica to <0.4 %, and on the pre-twisted beam
+    (Simo geometry, tip load 10) it is 0.2-0.5 % from CalculiX where ``"ul"`` is 23 % off.
+    The tangent-consistency doubts recorded here on 2026-09-18 no longer hold: ``f_int`` is
+    objective and ``kt`` consistent with it for multi-axis states.
 
-    ``"newton"`` iterates ``f_int(u) - lam F = 0`` on the total-Lagrangian Green-Lagrange
-    internal force with its consistent tangent, load-stepped with step halving on failure.
-    It reproduces the elastica on a narrow strip (|w| error <0.4 % at b/L = 0.025) but is
-    objective for rotation about a single fixed axis only, because the rotation DOFs are
-    additive.  Use it for planar large-rotation problems.
+    ``"ul"`` is a tangent flow: it never checks equilibrium and omits the initial-stress
+    stiffness.  Against CalculiX on the b = 0.1 strip it reads +2.0 % too soft at 16 deg of tip
+    rotation (alpha = 4/7), +4.4 % at 26 deg and +9.6 % at 45 deg; on the pre-twisted beam
+    +12 % (load 5) and +23 % (load 10), independent of the mesh.  It is exact only for a pure
+    end moment (no shear or axial force to rotate), and then only up to about 1 rad.
 
     Notes
     -----
-    The assembly and the linear solve run entirely in Rust/PETSc.  The
-    historical SNES Newton path (``nonlinear_static_solve_coo``) is kept
-    in the Rust crate but is NOT used by this Python class: its tangent
-    ``assemble_kt`` is inconsistent with the Green-Lagrange internal
-    forces at large rotations (directional-FD check, 2026-09-18), which
-    made the line search diverge on the blade case.  The UL scheme above
-    does not need that tangent and is the supported path.
+    The assembly and the linear solve run entirely in Rust/PETSc.  The historical SNES path
+    (``nonlinear_static_solve_coo``) is kept in the Rust crate but is not used here.
     """
 
     _DEFAULT_ATOL: float = 1e-10
@@ -100,7 +84,7 @@ class StaticNonlinearSolver(Solver):
     _DEFAULT_CONTINUATION_STEPS: int = 8
     _DEFAULT_CONTINUATION_MAX_STEPS: int = 64
     _SCHEMES: tuple = ("ul", "newton")
-    _DEFAULT_SCHEME: str = "ul"
+    _DEFAULT_SCHEME: str = "newton"
     # Newton scheme.  The residual norm cannot reach the SNES-style 1e-8: the shell stiffness
     # spans ~12 orders of magnitude (membrane over bending), so the direct solve leaves a
     # force residual of ~1e-6 relative.  The energy test |du.R| <= etol * |du_1.R_0| is
@@ -124,8 +108,7 @@ class StaticNonlinearSolver(Solver):
 
     def solve(self) -> np.ndarray:
         """
-        Run the nonlinear static solve via Updated-Lagrangian incremental
-        steps.
+        Run the nonlinear static solve with the configured ``scheme``.
 
         Returns
         -------
@@ -141,21 +124,9 @@ class StaticNonlinearSolver(Solver):
 
         Notes
         -----
-        Each step solves the *linearized* problem on the current reference
-        geometry::
-
-            K_e(x_ref) · du = dλ · F_ext
-            x_ref  ← x_ref + du
-
-        The geometric nonlinearity enters through the reference update
-        (``MeshAssembler::update_reference`` rebuilds the per-element
-        geometry after every step).  This is the Updated-Lagrangian scheme
-        of the Rust assembler design: with the linearized internal force the
-        per-step problem is exactly linear, so the per-step error is
-        O(Δθ²) and the accumulated error is O(Δθ) in the rotation — below
-        3% for 20 steps of 9° each.  ``continuation_steps`` therefore
-        controls both robustness and accuracy: use 16-32 steps for
-        large-deflection blade cases.
+        With ``scheme: ul`` each step solves the *linearized* problem on the current reference
+        geometry (``K_e(x_ref) du = dlam F``, ``x_ref <- x_ref + du``); see the class docstring
+        for why that does not converge to the dead-load equilibrium.
         """
         import _aeroelast  # noqa: PLC0415 — optional Rust extension
 
@@ -356,7 +327,10 @@ class StaticNonlinearSolver(Solver):
         if not converged:
             raise RuntimeError(
                 "StaticNonlinearSolver (newton) did not reach full load: "
-                f"lambda={lam:.6f} after {attempts} attempts (max_steps={max_steps})"
+                f"lambda={lam:.6f} after {attempts} attempts (max_steps={max_steps}). "
+                "The rotation DOFs are a total rotation vector, valid up to about pi of nodal "
+                "rotation; beyond that the corrector cannot converge. Lower the load, or use "
+                "scheme='ul' (biased, see the class docstring)."
             )
         return self.u
 

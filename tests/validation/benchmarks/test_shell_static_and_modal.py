@@ -314,13 +314,12 @@ class TestNonlinearStatic:
         linear check the gap was 5.29 % (the previous docstring said 6.0 %,
         which was stale), almost all of it span discretisation: nx = 8 / 16 /
         32 / 64 / 128 give -5.29 / -3.60 / -2.02 / -1.39 / -1.20 % (steps do
-        not matter: 8 -> 256 steps move it 0.7 %).  The 1.39 % at 64 x 4 is a
-        partial compensation, not agreement with the physics of the strip: the strip is a
-        plate, and CalculiX S8R with NLGEOM reads it 3.3 % below the elastica
-        (``test_strip_elastica_calculix.py``, alpha = 4/7), while the
-        updated-Lagrangian scheme used here sits 2.0 % above CalculiX at this load
-        (0.18128 vs 0.17778).  Both are inside the 5 % ceiling; the scheme bias grows
-        with the load, see ``test_static_nonlinear_ul_elastica.py``.
+        not matter: 8 -> 256 steps move it 0.7 %).  What remains is the plate: the
+        strip is stiffer than the beam of the elastica, and CalculiX S8R with NLGEOM reads it
+        3.3 % below the elastica at this load (``test_strip_elastica_calculix.py``, alpha = 4/7).
+        The solve uses the solver's default scheme (total-Lagrangian Newton), which sits within
+        0.2 % of CalculiX; the former updated-Lagrangian default sat 2.0 % above it, so its
+        1.39 % against the elastica here was a partial compensation.
         """
         P = 1.0  # N -> tip deflection ~0.17 L, firmly in the nonlinear regime
         E = STEEL.E
@@ -342,7 +341,7 @@ class TestNonlinearStatic:
         mesh = _build_cantilever_mesh(nx=64, ny=4)
         prop = ShellProperty(material=STEEL, thickness=h)
         cfg_nl = {
-            "solver": {"continuation_steps": 64, "continuation_max_steps": 256},
+            "solver": {},
             "elements": {
                 "element_family": ElementFamily.SHELL,
                 "properties": {"plate": prop},

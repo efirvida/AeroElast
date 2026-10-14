@@ -1,60 +1,100 @@
 group: '33'
 rows:
-- id: ul_elastica.test_elastica_tip_deflection.1_0_0_30172_32_0_02
+- id: ul_elastica.test_default_scheme_tip_deflection_match.1_0_8
   group: '33'
-  title: test_elastica_tip_deflection[1.0-0.30172-32-0.02]
+  title: test_default_scheme_tip_deflection_matches_the_elastica[1.0-8]
   tests:
-  - tests/validation/element/test_static_nonlinear_ul_elastica.py::test_elastica_tip_deflection[1.0-0.30172-32-0.02]
-  validates: The UL tip deflection against the elastica table, tight bound as xfail.
+  - tests/validation/element/test_static_nonlinear_ul_elastica.py::test_default_scheme_tip_deflection_matches_the_elastica[1.0-8]
+  validates: 'Narrow strip, mesh and step converged: tip deflection and shortening vs the elastica.'
   comparisons:
-  - label: rtol at line 185
+  - label: rtol at line 58
     asserted: true
     reference:
       kind: paper
-      label: assert_residual_below(rel, tol=tol, kind='paper', reference_name=reference_name, what=what)
+      label: assert_residual_below(abs(w - w_ref) / w_ref, tol=0.01, kind='paper', reference_name=reference_name, what=f'alpha={alpha
       citation: bathe1979
     tolerance:
       kind: rtol
-      value: 0.02
-      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:185
+      value: 0.01
+      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:58
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 71eebaf
+      run: f2775bf
       date: '2026-10-14'
       raw: null
-      margin_pct: 3.6347
-      text: 'alpha=1.0 tip w/L after 32 load steps vs the elastica reference table of Bisshopp & Drucker (1945), tabulated by Bathe & Bolourchi (1979): 3.6347% (bound: 2.0000%)'
-      digest: 9eec267c12bee7bf
+      margin_pct: 0.3579
+      text: 'alpha=1.0 tip w/L, default scheme vs the elastica reference table of Bisshopp & Drucker (1945), tabulated by Bathe & Bolourchi (1979): 0.3579% (bound: 1.0000%)'
+      digest: 983f96689d16fa4a
+  - label: rtol at line 65
+    asserted: true
+    reference:
+      kind: paper
+      label: assert_residual_below(abs(u - u_ref) / abs(u_ref), tol=0.01, kind='paper', reference_name=reference_name, what=f'alpha={
+      citation: bathe1979
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:65
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: f2775bf
+      date: '2026-10-14'
+      raw: null
+      margin_pct: 0.6217
+      text: 'alpha=1.0 tip u/L, default scheme vs the elastica reference table of Bisshopp & Drucker (1945), tabulated by Bathe & Bolourchi (1979): 0.6217% (bound: 1.0000%)'
+      digest: d7f3fa217ef66cb4
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
-- id: ul_elastica.test_elastica_tip_deflection.2_0_0_49346_64_0_02
+- id: ul_elastica.test_default_scheme_tip_deflection_match.2_0_8
   group: '33'
-  title: test_elastica_tip_deflection[2.0-0.49346-64-0.02]
+  title: test_default_scheme_tip_deflection_matches_the_elastica[2.0-8]
   tests:
-  - tests/validation/element/test_static_nonlinear_ul_elastica.py::test_elastica_tip_deflection[2.0-0.49346-64-0.02]
-  validates: The UL tip deflection against the elastica table, tight bound as xfail.
+  - tests/validation/element/test_static_nonlinear_ul_elastica.py::test_default_scheme_tip_deflection_matches_the_elastica[2.0-8]
+  validates: 'Narrow strip, mesh and step converged: tip deflection and shortening vs the elastica.'
   comparisons:
-  - label: rtol at line 185
+  - label: rtol at line 58
     asserted: true
     reference:
       kind: paper
-      label: assert_residual_below(rel, tol=tol, kind='paper', reference_name=reference_name, what=what)
+      label: assert_residual_below(abs(w - w_ref) / w_ref, tol=0.01, kind='paper', reference_name=reference_name, what=f'alpha={alpha
       citation: bathe1979
     tolerance:
       kind: rtol
-      value: 0.02
-      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:185
+      value: 0.01
+      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:58
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 71eebaf
+      run: f2775bf
       date: '2026-10-14'
       raw: null
-      margin_pct: 4.2658
-      text: 'alpha=2.0 tip w/L after 64 load steps vs the elastica reference table of Bisshopp & Drucker (1945), tabulated by Bathe & Bolourchi (1979): 4.2658% (bound: 2.0000%)'
-      digest: e290dc584009e250
+      margin_pct: 0.388
+      text: 'alpha=2.0 tip w/L, default scheme vs the elastica reference table of Bisshopp & Drucker (1945), tabulated by Bathe & Bolourchi (1979): 0.3880% (bound: 1.0000%)'
+      digest: d4834245ed580d83
+  - label: rtol at line 65
+    asserted: true
+    reference:
+      kind: paper
+      label: assert_residual_below(abs(u - u_ref) / abs(u_ref), tol=0.01, kind='paper', reference_name=reference_name, what=f'alpha={
+      citation: bathe1979
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/element/test_static_nonlinear_ul_elastica.py:65
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: f2775bf
+      date: '2026-10-14'
+      raw: null
+      margin_pct: 0.7118
+      text: 'alpha=2.0 tip u/L, default scheme vs the elastica reference table of Bisshopp & Drucker (1945), tabulated by Bathe & Bolourchi (1979): 0.7118% (bound: 1.0000%)'
+      digest: 633e79eb3fbb91f6
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

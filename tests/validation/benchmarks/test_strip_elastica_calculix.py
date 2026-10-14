@@ -45,7 +45,7 @@ from tests.conftest import ccx_bin_or_skip
 from tests.support.assertions import assert_relative_error
 from tests.support.ccx_io import fail_ccx, run_ccx
 from tests.support.ccx_surface import node_id, read_dat_displacements, write_s8r_surface_deck
-from tests.validation.element.test_static_nonlinear_ul_elastica import (
+from tests.support.strip_cantilever import (
     E,
     H,
     L,

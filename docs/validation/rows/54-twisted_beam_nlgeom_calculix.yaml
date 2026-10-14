@@ -1,0 +1,86 @@
+group: '54'
+rows:
+- id: twisted_beam_nlgeom_calculix.test_twisted_beam_default_scheme_matches.in_plane_10_0_24_4_0_01
+  group: '54'
+  title: test_twisted_beam_default_scheme_matches_calculix_nlgeom[in-plane-10.0-24-4-0.01]
+  tests:
+  - tests/validation/benchmarks/test_twisted_beam_nlgeom_calculix.py::test_twisted_beam_default_scheme_matches_calculix_nlgeom[in-plane-10.0-24-4-0.01]
+  validates: twisted_beam_default_scheme_matches_calculix_nlgeom
+  comparisons:
+  - label: rtol at line 137
+    asserted: true
+    reference:
+      kind: code
+      label: assert_residual_below(float(np.linalg.norm(ours - ccx)) / float(np.linalg.norm(ccx)), tol=tol, kind='code', reference_na
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_twisted_beam_nlgeom_calculix.py:137
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: f2775bf
+      date: '2026-10-14'
+      raw: null
+      margin_pct: 0.5216
+      text: 'twisted beam in-plane P=10 tip displacement vector, 24x4 vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: 0.5216% (bound: 1.0000%)'
+      digest: 4c12a08e6940eca3
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: twisted_beam_nlgeom_calculix.test_twisted_beam_default_scheme_matches.in_plane_10_0_48_8_0_01
+  group: '54'
+  title: test_twisted_beam_default_scheme_matches_calculix_nlgeom[in-plane-10.0-48-8-0.01]
+  tests:
+  - tests/validation/benchmarks/test_twisted_beam_nlgeom_calculix.py::test_twisted_beam_default_scheme_matches_calculix_nlgeom[in-plane-10.0-48-8-0.01]
+  validates: twisted_beam_default_scheme_matches_calculix_nlgeom
+  comparisons:
+  - label: rtol at line 137
+    asserted: true
+    reference:
+      kind: code
+      label: assert_residual_below(float(np.linalg.norm(ours - ccx)) / float(np.linalg.norm(ccx)), tol=tol, kind='code', reference_na
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_twisted_beam_nlgeom_calculix.py:137
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: f2775bf
+      date: '2026-10-14'
+      raw: null
+      margin_pct: 0.1902
+      text: 'twisted beam in-plane P=10 tip displacement vector, 48x8 vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: 0.1902% (bound: 1.0000%)'
+      digest: 4e8c97f8de9ad4eb
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: twisted_beam_nlgeom_calculix.test_twisted_beam_default_scheme_matches.out_of_plane_5_0_48_8_0_015
+  group: '54'
+  title: test_twisted_beam_default_scheme_matches_calculix_nlgeom[out-of-plane-5.0-48-8-0.015]
+  tests:
+  - tests/validation/benchmarks/test_twisted_beam_nlgeom_calculix.py::test_twisted_beam_default_scheme_matches_calculix_nlgeom[out-of-plane-5.0-48-8-0.015]
+  validates: twisted_beam_default_scheme_matches_calculix_nlgeom
+  comparisons:
+  - label: rtol at line 137
+    asserted: true
+    reference:
+      kind: code
+      label: assert_residual_below(float(np.linalg.norm(ours - ccx)) / float(np.linalg.norm(ccx)), tol=tol, kind='code', reference_na
+    tolerance:
+      kind: rtol
+      value: 0.015
+      source: tests/validation/benchmarks/test_twisted_beam_nlgeom_calculix.py:137
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: f2775bf
+      date: '2026-10-14'
+      raw: null
+      margin_pct: 0.8138
+      text: 'twisted beam out-of-plane P=5 tip displacement vector, 48x8 vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: 0.8138% (bound: 1.5000%)'
+      digest: f3d85a928c3741dd
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

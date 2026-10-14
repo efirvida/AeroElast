@@ -951,29 +951,23 @@ groups:
   - id: "33"
     title: >-
       `tests/validation/element/test_static_nonlinear_ul_elastica.py`
-      (the updated-Lagrangian shell against the exact elastica)
+      (StaticNonlinearSolver default scheme against the exact elastica, narrow strip)
     slug: ul_elastica
     citation: bathe1979
     source_files:
       - tests/validation/element/test_static_nonlinear_ul_elastica.py
     provenance_note: >-
-      A cantilever shell strip (L = 1 m, b = 0.1 m, h = 1e-3, steel) under a
-      dead tip load, through StaticNonlinearSolver's updated-Lagrangian path,
-      against the exact large-deflection elastica: Bisshopp & Drucker 1945,
-      tabulated via Bathe & Bolourchi 1979. Two load levels,
-      `alpha = P L^2 / EI` of 1.0 and 2.0. The `alpha = 1` comparison lands as
-      an xfail carrying its measured number. The earlier reading, that refining the
-      load stepping converges about 4% below the elastica, was taken on the 8 x 4
-      mesh and is span discretisation (alpha = 1: -3.83 / -2.29 / -0.83 / -0.11 %
-      for nx = 8 / 16 / 32 / 64). The alpha = 2 gap is real and belongs to the
-      scheme: the updated-Lagrangian loop has no equilibrium iteration and no
-      initial-stress stiffness, so it converges +5.29 % above the elastica (mesh
-      and steps converged) and a corotational beam with the same scheme reaches
-      +11 %. `scheme: newton` removes it (groups 52 and 53). The bound is not
-      widened. Ported on 2026-10-07 off the deleted
-      `test_shell_comprehensive` helpers, which is why the file moved into the
-      validation tree from the repository root; the recorded steps=32 reading,
-      `w/L = 0.29075`, reproduces exactly.
+      A narrow cantilever shell strip (L = 1 m, b = 0.025 m, h = 1e-3, steel) under a dead tip
+      load, through StaticNonlinearSolver's default scheme (total-Lagrangian Newton), against the
+      exact large-deflection elastica: Bisshopp & Drucker 1945, tabulated via Bathe & Bolourchi
+      1979. Two load levels, `alpha = P L^2 / EI` of 1.0 and 2.0. The file used to run the
+      b = 0.1 strip on an 8 x 4 mesh through the updated-Lagrangian loop and read 3.63 / 4.27 %,
+      explained as a stiff element; that was span discretisation (alpha = 1: -3.83 / -2.29 /
+      -0.83 / -0.11 % for nx = 8 / 16 / 32 / 64) plus a biased scheme (no equilibrium iteration,
+      no initial-stress stiffness: +2.0 / +4.4 / +9.6 % above CalculiX NLGEOM at alpha = 4/7, 1,
+      2, +23 % on the pre-twisted beam) against a plate-versus-beam reference problem. The old
+      rows are replaced, not edited: the test, the strip and the scheme all changed. The
+      updated-Lagrangian loop survives as `scheme: ul`, pinned in `tests/software`.
 
   - id: "34"
     title: >-
@@ -1467,3 +1461,17 @@ groups:
       second shell code on the same strip: CalculiX 2.20 S8R with NLGEOM and a dead CLOAD, at 32 and
       64 span elements. Both codes still drift 0.1-0.3 % per mesh doubling, so the pair is held to
       1 % on the tip deflection and 2 % on the shortening.
+
+  - id: '54'
+    title: Pre-twisted beam under a large tip load against CalculiX S8R NLGEOM (production solver)
+    slug: twisted_beam_nlgeom_calculix
+    reference_kind: code
+    source_files:
+      - tests/validation/benchmarks/test_twisted_beam_nlgeom_calculix.py
+    provenance_note: >-
+      The Simo, Fox and Rifai 1989 thin twisted beam (L = 12 in, b = 1.1 in, t = 0.05 in, 90 deg of
+      twist) with tip loads of 5 and 10 instead of the published 1: the section rotates about
+      more than one axis while it bends and twists. CalculiX 2.20 S8R with NLGEOM is the arbiter.
+      The default scheme of StaticNonlinearSolver is 0.19 to 0.52 % from it for the in-plane load
+      and 0.81 % for the out-of-plane one on 48 x 8; the legacy updated-Lagrangian scheme is 23 %
+      off in-plane, independent of the mesh.

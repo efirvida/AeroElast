@@ -20,7 +20,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 71eebaf
+      run: f2775bf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.2861
@@ -48,7 +48,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 71eebaf
+      run: f2775bf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.1904
@@ -76,7 +76,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 71eebaf
+      run: f2775bf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.9692
@@ -104,7 +104,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 71eebaf
+      run: f2775bf
       date: '2026-10-14'
       raw: null
       margin_pct: 0.4888
@@ -132,7 +132,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 71eebaf
+      run: f2775bf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.9692
@@ -151,12 +151,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 71eebaf
+      run: f2775bf
       date: '2026-10-14'
       raw: null
-      margin_pct: 1.3863
-      text: 'nonlinear tip against the elastica vs the elastica (Bisshopp-Drucker) tip deflection: 1.3863% (bound: 5.0000%)'
-      digest: 38b240e089803e38
+      margin_pct: 3.423
+      text: 'nonlinear tip against the elastica vs the elastica (Bisshopp-Drucker) tip deflection: 3.4230% (bound: 5.0000%)'
+      digest: 0e763c6fb920fe4a
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: shell_static_modal.testmodal_test_first_mode.single
@@ -179,7 +179,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 71eebaf
+      run: f2775bf
       date: '2026-10-14'
       raw: null
       margin_pct: 1.2276

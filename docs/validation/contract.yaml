@@ -906,44 +906,6 @@ verdicts:
     audited_rev: d71c2a7
     note: >-
       Round-off bound: a rigid motion produces no strain, so f_int(u_rigid) = 0 (closed form), but the test only checks that our assembly returns it. Measured 5.39e-13 / 5.68e-13 / 8.62e-13 at 1 / 5 / 30 deg relative to the 1e-3 stretch force scale, against 1e-9. Same mesh and scope limits as the tangent row. Counts as identity.
-  - target: ul_elastica.test_elastica_tip_deflection.1_0_0_30172_32_0_02
-    class: physics
-    verdict: rejected
-    audited_rev: 71eebaf
-    arbiters:
-      - {kind: analytical, label: "Bisshopp & Drucker (1945) closed-form elastica, tabulated by Bathe & Bolourchi (1979)"}
-      - {kind: produced_numerical, label: "CalculiX 2.20 S8R NLGEOM on the same strip (rows strip_elastica_calculix.*)"}
-    note: >-
-      Rejected (maintainer decision (a), 2026-10-13); cause established 2026-10-14 and re-audited at
-      71eebaf. The test's 8 x 4 mesh gives 3.6347 % from the elastica against a 2 % bound. That gap is
-      span discretisation (nx = 8 / 16 / 32 / 64: -3.83 / -2.29 / -0.83 / -0.11 % at 64 steps), so the
-      earlier reading of a stiff element converging 4 % below the elastica was wrong. But the agreement at
-      nx >= 64 is compensation: the strip is a plate and CalculiX reads it 4.3 % below the elastica
-      (0.28880), while the updated-Lagrangian scheme sits 4.4 % above CalculiX. The scheme integrates
-      K_e(x_ref) du = dlam F with no equilibrium iteration and no initial-stress stiffness; a 2-D
-      corotational beam with the same scheme is +4.7 % at alpha = 1 and +11.3 % at alpha = 2, with Newton
-      on the consistent tangent it is exact. Stays rejected: the default scheme does not meet the stated
-      bound and the bound is not widened. scheme newton (groups 52 and 53) is the supported path for
-      planar large rotation.
-  - target: ul_elastica.test_elastica_tip_deflection.2_0_0_49346_64_0_02
-    class: physics
-    verdict: rejected
-    audited_rev: 71eebaf
-    arbiters:
-      - {kind: analytical, label: "Bisshopp & Drucker (1945) closed-form elastica, tabulated by Bathe & Bolourchi (1979)"}
-      - {kind: produced_numerical, label: "CalculiX 2.20 S8R NLGEOM on the same strip (rows strip_elastica_calculix.*)"}
-    note: >-
-      Rejected (maintainer decision (a), 2026-10-13); cause established 2026-10-14 and re-audited at
-      71eebaf. The 8 x 4 / 64-step reading is 4.2658 % against a 2 % bound. Mesh and step converged (nx =
-      64, 2048 steps) the updated-Lagrangian scheme reads +5.29 % in w/L and +13 % in u/L from the
-      elastica and +9.6 % above CalculiX (0.47424). The gap grows as the strip narrows (+4.7 / +8.8 /
-      +10.7 % for b = 0.1 / 0.05 / 0.025), so it is neither the element nor the mesh: a pure end moment is
-      reproduced to 0.1-0.6 % up to 115 deg (b = 0.00625), and Newton on the same element converges to
-      CalculiX within 0.3 % and to the elastica within 0.4 % on a narrow strip. The defect is the default
-      scheme (no equilibrium iteration, no initial-stress stiffness). Open for the maintainer: make newton
-      the default for planar problems, or add the initial-stress stiffness to the updated-Lagrangian loop;
-      the updated-Lagrangian loop stays the multi-axis (blade) path because the rotation DOFs are not
-      additive there.
   - target: newton_elastica.test_newton_scheme_narrow_strip_matches.1_0
     class: physics
     verdict: trusted
