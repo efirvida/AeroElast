@@ -1,0 +1,118 @@
+group: '45'
+rows:
+- id: scordelis_lo_triangular.test_scordelis_lo_table_10.false_16_0_9973
+  group: '45'
+  title: test_scordelis_lo_table_10[False-16-0.9973]
+  tests:
+  - tests/validation/benchmarks/test_scordelis_lo_triangular.py::test_scordelis_lo_table_10[False-16-0.9973]
+  validates: scordelis_lo_table_10
+  comparisons:
+  - label: rtol at line 79
+    asserted: true
+    reference:
+      kind: paper
+      label: Ko et al. 2017 Table 10 (regular mesh) cell
+      citation: ko2017_perf
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_scordelis_lo_triangular.py:79
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 38621e1
+      date: '2026-10-13'
+      raw: 0.970087
+      margin_pct: 2.7286
+      text: 'scordelis_lo_reg_MITC4_N16 vs Ko et al. 2017 Table 10 (regular mesh) cell: 0.970087 vs 0.9973 (error: 2.7286%, bound: 5.0000%)'
+      digest: d1b182456abc8521
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: scordelis_lo_triangular.test_scordelis_lo_table_10.true_8_0_8577
+  group: '45'
+  title: test_scordelis_lo_table_10[True-8-0.8577]
+  tests:
+  - tests/validation/benchmarks/test_scordelis_lo_triangular.py::test_scordelis_lo_table_10[True-8-0.8577]
+  validates: scordelis_lo_table_10
+  comparisons:
+  - label: rtol at line 79
+    asserted: true
+    reference:
+      kind: paper
+      label: Ko et al. 2017 Table 10 (regular mesh) cell
+      citation: ko2017_perf
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_scordelis_lo_triangular.py:79
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 38621e1
+      date: '2026-10-13'
+      raw: 0.856147
+      margin_pct: 0.1811
+      text: 'scordelis_lo_reg_MITC3_N8 vs Ko et al. 2017 Table 10 (regular mesh) cell: 0.856147 vs 0.8577 (error: 0.1811%, bound: 5.0000%)'
+      digest: c7fb94d5e390da4b
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: scordelis_lo_triangular.test_scordelis_lo_table_10.true_16_0_955
+  group: '45'
+  title: test_scordelis_lo_table_10[True-16-0.955]
+  tests:
+  - tests/validation/benchmarks/test_scordelis_lo_triangular.py::test_scordelis_lo_table_10[True-16-0.955]
+  validates: scordelis_lo_table_10
+  comparisons:
+  - label: rtol at line 79
+    asserted: true
+    reference:
+      kind: paper
+      label: Ko et al. 2017 Table 10 (regular mesh) cell
+      citation: ko2017_perf
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_scordelis_lo_triangular.py:79
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 38621e1
+      date: '2026-10-13'
+      raw: 0.954484
+      margin_pct: 0.054
+      text: 'scordelis_lo_reg_MITC3_N16 vs Ko et al. 2017 Table 10 (regular mesh) cell: 0.954484 vs 0.955 (error: 0.0540%, bound: 5.0000%)'
+      digest: 65f746a32bd2ca6c
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: scordelis_lo_triangular.test_scordelis_lo_table_10.true_32_0_9851
+  group: '45'
+  title: test_scordelis_lo_table_10[True-32-0.9851]
+  tests:
+  - tests/validation/benchmarks/test_scordelis_lo_triangular.py::test_scordelis_lo_table_10[True-32-0.9851]
+  validates: scordelis_lo_table_10
+  comparisons:
+  - label: rtol at line 79
+    asserted: true
+    reference:
+      kind: paper
+      label: Ko et al. 2017 Table 10 (regular mesh) cell
+      citation: ko2017_perf
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_scordelis_lo_triangular.py:79
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 38621e1
+      date: '2026-10-13'
+      raw: 0.985079
+      margin_pct: 0.0021
+      text: 'scordelis_lo_reg_MITC3_N32 vs Ko et al. 2017 Table 10 (regular mesh) cell: 0.985079 vs 0.9851 (error: 0.0021%, bound: 5.0000%)'
+      digest: 62c00deadcf00304
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

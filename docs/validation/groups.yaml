@@ -877,23 +877,6 @@ groups:
       torque against the load applied at the axis. Everything else in the file
       is machinery for the parity, declared as non-validation tests above.
 
-  - id: "10"
-    title: >-
-      Evidence that exists outside `tests/`, and is not covered by a live test
-    slug: outofband
-    citation: ko2017_perf
-    reference_kind: paper
-    source_files: []
-    headline: >-
-      The triangular MITC3+ path, which no live test exercises: N=32 reproduces
-      the published Table 10 cell digit for digit
-    provenance_note: >-
-      These rows are driven by hand, through the module's own machinery, because
-      the live test of the same benchmark only exercises the quad path. They are
-      not covered by the suite, so `regression` cannot re-measure them; their
-      `measured` values are the ones recorded when the matrix existed, and the
-      reproduction command is in the row's notes.
-
   - id: "31"
     title: >-
       `tests/validation/parity/test_thin_walled_tube_moment_realization.py`
@@ -1356,6 +1339,18 @@ groups:
       whose premise (the TL tangent is not objective) was false for MITC4. The
       reference is an exact identity: a finite rigid rotation R must give
       K_t(u_rigid) = T K0 T^T and f_int(u_rigid) = 0.
+
+  - id: '45'
+    title: Scordelis-Lo roof, triangular MITC3+ and quad MITC4+ against Ko et al. 2017 Table 10
+    slug: scordelis_lo_triangular
+    citation: ko2017_perf
+    reference_kind: paper
+    source_files:
+      - tests/validation/benchmarks/test_scordelis_lo_triangular.py
+    provenance_note: >-
+      Replaces group 10, whose hand-driven, unrevisioned measurements covered the triangular
+      path that the live Ko2017 test does not run. Same mesh, load and normalization as
+      test_3_4_scordelis_lo_tables_10_to_11, regular mesh, w_ref = 3.0240e-1.
 
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
