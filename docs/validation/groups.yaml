@@ -1391,6 +1391,18 @@ groups:
       CalculiX S8R on the models the live Ko tests build. The hyperbolic paraboloid at
       t/L = 1/10000 is excluded: S8R is not monotone there (see the test docstring).
 
+  - id: '49'
+    title: Composite laminate cantilever against its classical-lamination closed form
+    slug: laminate_clt_closed_form
+    reference_kind: analytical
+    source_files:
+      - tests/validation/parity/test_laminate_clt_closed_form.py
+    provenance_note: >-
+      Independent arbiter for the [0/90/45/-45]s laminate, whose CalculiX comparison
+      (test_shell_convergence) rests on a CalculiX sequence that does not converge (orders
+      -0.07 and -0.09). The closed form is a Timoshenko strip in in-plane bending with moduli
+      from the membrane matrix A, built in the test with numpy.
+
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
 # independent reference and needs a group and a row; a test under

@@ -1,0 +1,114 @@
+group: '48'
+rows:
+- id: ko2017_calculix_arbiters.test_hook_calculix_s8r_reaches_ko_refere.8
+  group: '48'
+  title: test_hook_calculix_s8r_reaches_ko_reference[8]
+  tests:
+  - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py::test_hook_calculix_s8r_reaches_ko_reference[8]
+  validates: Same model as the live hook test (E = 3300, nu = 0.3, t = 2, unit tip shear).
+  comparisons:
+  - label: rtol at line 90
+    asserted: true
+    reference:
+      kind: code
+      label: Ko et al. 2017 hook reference 4.82482 (MITC9, N = 64)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_ko2017_calculix_arbiters.py:90
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 4.8194
+      margin_pct: 0.1124
+      text: 'CalculiX S8R hook, 8 x 48 elements vs Ko et al. 2017 hook reference 4.82482 (MITC9, N = 64): 4.8194 vs 4.82482 (error: 0.1124%, bound: 5.0000%)'
+      digest: ff5fbff2c684d56e
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: ko2017_calculix_arbiters.test_hook_calculix_s8r_reaches_ko_refere.16
+  group: '48'
+  title: test_hook_calculix_s8r_reaches_ko_reference[16]
+  tests:
+  - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py::test_hook_calculix_s8r_reaches_ko_reference[16]
+  validates: Same model as the live hook test (E = 3300, nu = 0.3, t = 2, unit tip shear).
+  comparisons:
+  - label: rtol at line 90
+    asserted: true
+    reference:
+      kind: code
+      label: Ko et al. 2017 hook reference 4.82482 (MITC9, N = 64)
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_ko2017_calculix_arbiters.py:90
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 4.82148
+      margin_pct: 0.0692
+      text: 'CalculiX S8R hook, 16 x 96 elements vs Ko et al. 2017 hook reference 4.82482 (MITC9, N = 64): 4.82148 vs 4.82482 (error: 0.0692%, bound: 5.0000%)'
+      digest: 140703bf395ceea0
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: ko2017_calculix_arbiters.test_hyperbolic_paraboloid_calculix_s8r.48
+  group: '48'
+  title: test_hyperbolic_paraboloid_calculix_s8r_reaches_ko_reference[48]
+  tests:
+  - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py::test_hyperbolic_paraboloid_calculix_s8r_reaches_ko_reference[48]
+  validates: t/L = 1/1000 only.
+  comparisons:
+  - label: rtol at line 141
+    asserted: true
+    reference:
+      kind: code
+      label: Ko et al. 2017 hypar reference (MITC9, 72 x 144), t/L = 1/1000
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_ko2017_calculix_arbiters.py:141
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 0.000284769
+      margin_pct: 1.0532
+      text: 'CalculiX S8R hypar t/L = 1/1000, 48 x 48 elements vs Ko et al. 2017 hypar reference (MITC9, 72 x 144), t/L = 1/1000: 0.000284769 vs 0.0002878 (error: 1.0532%, bound: 5.0000%)'
+      digest: 2277ab37ec91f8a8
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: ko2017_calculix_arbiters.test_hyperbolic_paraboloid_calculix_s8r.64
+  group: '48'
+  title: test_hyperbolic_paraboloid_calculix_s8r_reaches_ko_reference[64]
+  tests:
+  - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py::test_hyperbolic_paraboloid_calculix_s8r_reaches_ko_reference[64]
+  validates: t/L = 1/1000 only.
+  comparisons:
+  - label: rtol at line 141
+    asserted: true
+    reference:
+      kind: code
+      label: Ko et al. 2017 hypar reference (MITC9, 72 x 144), t/L = 1/1000
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_ko2017_calculix_arbiters.py:141
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 0.00028606
+      margin_pct: 0.6044
+      text: 'CalculiX S8R hypar t/L = 1/1000, 64 x 64 elements vs Ko et al. 2017 hypar reference (MITC9, 72 x 144), t/L = 1/1000: 0.00028606 vs 0.0002878 (error: 0.6044%, bound: 5.0000%)'
+      digest: 30df12ea8828944e
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

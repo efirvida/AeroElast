@@ -1,0 +1,86 @@
+group: '47'
+rows:
+- id: scordelis_lo_calculix.test_scordelis_lo_calculix_s8r_reaches_m.8
+  group: '47'
+  title: test_scordelis_lo_calculix_s8r_reaches_macneal_harder[8]
+  tests:
+  - tests/validation/benchmarks/test_scordelis_lo_calculix.py::test_scordelis_lo_calculix_s8r_reaches_macneal_harder[8]
+  validates: scordelis_lo_calculix_s8r_reaches_macneal_harder
+  comparisons:
+  - label: rtol at line 79
+    asserted: true
+    reference:
+      kind: code
+      label: MacNeal & Harder 1985 Scordelis-Lo w_ref = 0.3024
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_scordelis_lo_calculix.py:79
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 0.998549
+      margin_pct: 0.1451
+      text: 'CalculiX S8R Scordelis-Lo 8x8 vs MacNeal & Harder 1985 Scordelis-Lo w_ref = 0.3024: 0.998549 vs 1 (error: 0.1451%, bound: 5.0000%)'
+      digest: 48231790337a1e61
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: scordelis_lo_calculix.test_scordelis_lo_calculix_s8r_reaches_m.16
+  group: '47'
+  title: test_scordelis_lo_calculix_s8r_reaches_macneal_harder[16]
+  tests:
+  - tests/validation/benchmarks/test_scordelis_lo_calculix.py::test_scordelis_lo_calculix_s8r_reaches_macneal_harder[16]
+  validates: scordelis_lo_calculix_s8r_reaches_macneal_harder
+  comparisons:
+  - label: rtol at line 79
+    asserted: true
+    reference:
+      kind: code
+      label: MacNeal & Harder 1985 Scordelis-Lo w_ref = 0.3024
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_scordelis_lo_calculix.py:79
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 0.998424
+      margin_pct: 0.1576
+      text: 'CalculiX S8R Scordelis-Lo 16x16 vs MacNeal & Harder 1985 Scordelis-Lo w_ref = 0.3024: 0.998424 vs 1 (error: 0.1576%, bound: 5.0000%)'
+      digest: d1b4cdcb4bd42074
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: scordelis_lo_calculix.test_scordelis_lo_calculix_s8r_reaches_m.32
+  group: '47'
+  title: test_scordelis_lo_calculix_s8r_reaches_macneal_harder[32]
+  tests:
+  - tests/validation/benchmarks/test_scordelis_lo_calculix.py::test_scordelis_lo_calculix_s8r_reaches_macneal_harder[32]
+  validates: scordelis_lo_calculix_s8r_reaches_macneal_harder
+  comparisons:
+  - label: rtol at line 79
+    asserted: true
+    reference:
+      kind: code
+      label: MacNeal & Harder 1985 Scordelis-Lo w_ref = 0.3024
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_scordelis_lo_calculix.py:79
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 0.998424
+      margin_pct: 0.1576
+      text: 'CalculiX S8R Scordelis-Lo 32x32 vs MacNeal & Harder 1985 Scordelis-Lo w_ref = 0.3024: 0.998424 vs 1 (error: 0.1576%, bound: 5.0000%)'
+      digest: d1b4cdcb4bd42074
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

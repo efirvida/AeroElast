@@ -1,0 +1,88 @@
+group: '46'
+rows:
+- id: ko2017_second_arbiters.test_pinched_cylinder_refined_mesh_reach.32
+  group: '46'
+  title: test_pinched_cylinder_refined_mesh_reaches_macneal_harder[32]
+  tests:
+  - tests/validation/benchmarks/test_ko2017_second_arbiters.py::test_pinched_cylinder_refined_mesh_reaches_macneal_harder[32]
+  validates: N = 32 is the finest mesh the dense global assembly of this module solves in memory.
+  comparisons:
+  - label: rtol at line 69
+    asserted: true
+    reference:
+      kind: analytical
+      label: MacNeal & Harder 1985 pinched cylinder w_ref = 1.8248e-5
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_ko2017_second_arbiters.py:69
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 0.984994
+      margin_pct: 1.5006
+      text: 'pinched cylinder regular mesh N=32 vs MacNeal & Harder 1985 pinched cylinder w_ref = 1.8248e-5: 0.984994 vs 1 (error: 1.5006%, bound: 5.0000%)'
+      digest: 574bb25739177de2
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: ko2017_second_arbiters.test_thin_twisted_beam_against_simo_1989.in_plane
+  group: '46'
+  title: test_thin_twisted_beam_against_simo_1989[In-plane]
+  tests:
+  - tests/validation/benchmarks/test_ko2017_second_arbiters.py::test_thin_twisted_beam_against_simo_1989[In-plane]
+  validates: thin_twisted_beam_against_simo_1989
+  comparisons:
+  - label: rtol at line 122
+    asserted: true
+    reference:
+      kind: paper
+      label: Simo, Fox & Rifai 1989 thin twisted beam (b = 0.05 in)
+      citation: simo1989
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_ko2017_second_arbiters.py:122
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 0.99763
+      margin_pct: 0.237
+      text: 'twisted_beam_thin_In-plane_b0.05 vs Simo, Fox & Rifai 1989 thin twisted beam (b = 0.05 in): 0.99763 vs 1 (error: 0.2370%, bound: 5.0000%)'
+      digest: 84957165c1db4213
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: ko2017_second_arbiters.test_thin_twisted_beam_against_simo_1989.out_of_plane
+  group: '46'
+  title: test_thin_twisted_beam_against_simo_1989[Out-of-plane]
+  tests:
+  - tests/validation/benchmarks/test_ko2017_second_arbiters.py::test_thin_twisted_beam_against_simo_1989[Out-of-plane]
+  validates: thin_twisted_beam_against_simo_1989
+  comparisons:
+  - label: rtol at line 122
+    asserted: true
+    reference:
+      kind: paper
+      label: Simo, Fox & Rifai 1989 thin twisted beam (b = 0.05 in)
+      citation: simo1989
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_ko2017_second_arbiters.py:122
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 5e0aa00
+      date: '2026-10-13'
+      raw: 0.998464
+      margin_pct: 0.1536
+      text: 'twisted_beam_thin_Out-of-plane_b0.05 vs Simo, Fox & Rifai 1989 thin twisted beam (b = 0.05 in): 0.998464 vs 1 (error: 0.1536%, bound: 5.0000%)'
+      digest: 3f7f958ce355f8af
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
