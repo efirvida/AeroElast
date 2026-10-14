@@ -53,4 +53,17 @@ No task is complete merely because a report/count exists. For each completed wor
 
 ## Next step
 
-PRE-2 is active: complete the bottom-up B1/L1 audit, starting with the full `atol` comparison inventory and documented-red dispositions. Keep every unsupported comparison open. Do not claim P1 readiness while any required gate is open. Public issue edits and P1 execution remain out of scope.
+Handoff 2026-10-13 (end of session). Worktree `fem-shell-worktrees/rotor-frame`, branch `fix/bem-participant-rotor-frame`, last commit `264041a`. L1 contract: trusted 86, undecided 14, unaudited 5, absent 1 (D-Tube). P1 execution and public issue edits stay out of scope.
+
+**Mandatory environment (every command that imports the package):**
+- Valid import: `PYTHONPATH=$SCRATCH/validenv scripts/aeroenv.sh python ...` (`$SCRATCH/validenv/aeroelast` is a symlink to this worktree's `src/aeroelast`; recreate with `mkdir -p $SCRATCH/validenv && ln -s $PWD/src/aeroelast $SCRATCH/validenv/aeroelast`). Verify first: `python -c 'import aeroelast,_aeroelast; print(aeroelast.__file__, _aeroelast.__file__)'` must show validenv and the venv `.so`. Bare `aeroenv.sh python` imports the stale main checkout.
+- SLURM: `sbatch -p sequana_cpu --ntasks=1 --time=... --wrap "..."`, nothing else. Compute nodes have no `git`: put `$SCRATCH/gitshim` first on PATH (`#!/bin/sh` + `echo <short HEAD>`, rewrite with `mv`) for any `validation_matrix.py regression --write`.
+
+**Remaining PRE-2 (L1):**
+1. G10 out-of-band (4 comparisons, ko2017_perf paper, rows have no test node): decide class and arbiter, or declare out of scope.
+2. frame_objectivity (G44, 2 rows): both `not_measured`; measure under the valid env (`regression --group 44 --write`), then a physics/identity verdict (analytical, tol 1e-9 vs 2e-12).
+3. ul_elastica (G33, 2 rows): maintainer decision (a) = reject the bound; enter `rejected` verdicts with the measured 3.63 / 4.27 %; the mesh-refinement table that would back or drop the 'not a mesh effect' claim needs a physics run.
+4. The 14 undecided: pinched cylinder (2, 8.2 / 6.8 % under the reference: needs a refinement table), thin twisted beam / hook / hyperbolic paraboloid (7, name a verified second source, e.g. Simo et al. 1989 for the thin beam), Scordelis-Lo smoothed G13 (3), G22 nonlinear elastica (1, 6.0 % xfail), G14 CalculiX laminate (1, PRE-3 rule).
+5. D-Tube: still `absent`, four causes excluded; untested: clamp warping restraint, MITC4 on a thick curved wall, Camarena reference definition.
+
+**Then:** PRE-3 (L2, needs independently converged CalculiX; handle `composite_stress_recovery`), B3-1..B3-3 (L3: S-2 +8.1 %, V-02 first edge 9.05 %, S-7), PRE-4 (final readiness record; reconcile #42's stale C1/GJ description). Stale in AGENTS.md/SKILL (not edited mid-session): the removed frame-objectivity red test and the '8 Ko2017 failures'.
