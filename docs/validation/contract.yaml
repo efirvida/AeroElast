@@ -786,7 +786,7 @@ verdicts:
   - target: ko2017.test_3_6_hook_table_14_minimal_fix.0_9782
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 1ecf076
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     arbiters:
@@ -851,7 +851,7 @@ verdicts:
   - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_fa
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 1ecf076
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     arbiters:
@@ -862,7 +862,7 @@ verdicts:
   - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_tr
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 1ecf076
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     arbiters:
@@ -873,7 +873,7 @@ verdicts:
   - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_fa
     class: regression_pin
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 1ecf076
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     note: >-
@@ -881,7 +881,7 @@ verdicts:
   - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_tr
     class: regression_pin
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 1ecf076
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     note: >-
@@ -966,6 +966,7 @@ verdicts:
     audited_rev: e0645fd
     arbiters:
       - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference 1.390 in (b = 0.05 in), via the Abaqus Benchmarks Manual"}
+      - {kind: produced_numerical, label: "CalculiX S8R on the same beam reproduces Simo's value (rows ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.*)"}
     note: >-
       0.237 % against a 5 % bound on 8 x 48 elements. The Simo values were read from the Abaqus Benchmarks Manual tables, not from the paper.
   - target: ko2017_second_arbiters.test_thin_twisted_beam_against_simo_1989.out_of_plane
@@ -974,6 +975,7 @@ verdicts:
     audited_rev: e0645fd
     arbiters:
       - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference 0.3431 in (b = 0.05 in), via the Abaqus Benchmarks Manual"}
+      - {kind: produced_numerical, label: "CalculiX S8R on the same beam reproduces Simo's value (rows ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.*)"}
     note: >-
       0.1536 % against a 5 % bound on 8 x 48 elements. The Simo values were read from the Abaqus Benchmarks Manual tables, not from the paper.
   - target: scordelis_lo_calculix.test_scordelis_lo_calculix_s8r_reaches_m.8
@@ -1006,7 +1008,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_hook_calculix_s8r_reaches_ko_refere.8
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 1ecf076
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 hook reference 4.82482 (MITC9, N = 64)"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined, on the live test's hook model"}
@@ -1015,7 +1017,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_hook_calculix_s8r_reaches_ko_refere.16
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 1ecf076
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 hook reference 4.82482 (MITC9, N = 64)"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined, on the live test's hook model"}
@@ -1024,7 +1026,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_hyperbolic_paraboloid_calculix_s8r.48
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 1ecf076
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 hypar reference 2.8780e-4 (MITC9, 72 x 144), t/L = 1/1000"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined, on the live test's hypar model"}
@@ -1033,7 +1035,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_hyperbolic_paraboloid_calculix_s8r.64
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 1ecf076
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 hypar reference 2.8780e-4 (MITC9, 72 x 144), t/L = 1/1000"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined, on the live test's hypar model"}
@@ -1047,3 +1049,21 @@ verdicts:
       - {kind: analytical, label: "Classical lamination theory, Timoshenko strip in in-plane bending, moduli from the membrane matrix A (numpy, independent of the element code)"}
     note: >-
       0.3366 % against a 2 % bound (fixed from the beam-theory error scale before the test existed in the store) at 16 x 40 elements.
+  - target: ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.in_plane
+    class: physics
+    verdict: trusted
+    audited_rev: 1ecf076
+    arbiters:
+      - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference (b = 0.05 in), via the Abaqus Benchmarks Manual"}
+      - {kind: produced_numerical, label: "CalculiX S8R, 8 x 48 elements (this row)"}
+    note: >-
+      CalculiX S8R, an independent code, 0.3635 % from Simo's reference on 8 x 48 elements. The same deck writer reproduces the Scordelis-Lo and hook references, so it is not the source of the agreement.
+  - target: ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.out_of_plane
+    class: physics
+    verdict: trusted
+    audited_rev: 1ecf076
+    arbiters:
+      - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference (b = 0.05 in), via the Abaqus Benchmarks Manual"}
+      - {kind: produced_numerical, label: "CalculiX S8R, 8 x 48 elements (this row)"}
+    note: >-
+      CalculiX S8R, an independent code, 0.0588 % from Simo's reference on 8 x 48 elements. The same deck writer reproduces the Scordelis-Lo and hook references, so it is not the source of the agreement.
