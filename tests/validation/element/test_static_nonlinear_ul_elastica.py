@@ -23,9 +23,11 @@ span discretisation alone costs ~3.8 % at alpha = 1.  Refining the span (64 step
     nx =   8   w/L=0.29018  -3.83 %        nx = 32  w/L=0.29920  -0.83 %
     nx =  16   w/L=0.29482  -2.29 %        nx = 64  w/L=0.30139  -0.11 %
 
-so the alpha = 1 gap is mesh, and it closes on the elastica at nx >= 64 only by cancellation of
-two opposite errors: the plate is -1.1 % stiffer than a beam (anticlastic root effect, mesh
-independent, shrinking with the width) and the scheme below adds about +1.2 %.
+so the alpha = 1 gap is mesh, and at nx >= 64 it lands on the elastica only by compensation of
+two opposite errors.  The strip is a plate, and CalculiX S8R with NLGEOM reads it 4.3 % below the
+elastica (w/L = 0.28880; the plate effect, anticlastic and Ashwell, grows with curvature: -3.3,
+-4.3, -3.9 % at alpha = 0.571, 1, 2 and vanishes as b -> 0).  The scheme below sits 4.4 % above
+CalculiX at alpha = 1 (+2.0 % at 0.571, +9.6 % at 2).
 
 The scheme is the real defect.  The updated-Lagrangian loop integrates ``K_e(x_ref) du = dlam F``
 with no equilibrium iteration and no initial-stress stiffness, so refining the load steps does not

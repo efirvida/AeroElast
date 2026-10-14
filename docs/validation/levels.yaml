@@ -48,8 +48,6 @@ levels:
       - src/aeroelast/core/properties.py
       - src/aeroelast/core/bc.py
       - src/aeroelast/solvers/modal.py
-      # The updated-Lagrangian and Newton static solver behind groups 22, 33, 52 and 53.
-      - src/aeroelast/solvers/elasticity/static_nonlinear.py
     gaps: []
 
   - id: L2

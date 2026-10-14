@@ -11,6 +11,10 @@ clamp and dead load.
 Measured 2026-10-14 (CalculiX 2.20, 20 increments; 10 and 40 increments agree to 4 digits):
 
     alpha  mesh (u x v)   w/L CalculiX   w/L ours (newton, ny=4)   u/L CalculiX   u/L ours
+    4/7    32 x 2           0.17731          0.17712                 -0.01916       -0.01909
+    4/7    64 x 2           0.17778          0.17753                 -0.01925       -0.01918
+    4/7    32 x 2           0.17731          0.17712                 -0.01916       -0.01909
+    4/7    64 x 2           0.17778          0.17753                 -0.01925       -0.01918
       1    16 x 2           0.28664             -                    -0.05111          -
       1    32 x 2           0.28811          0.28745                 -0.05154       -0.05121
       1    64 x 2           0.28880          0.28806                 -0.05175       -0.05144
@@ -20,7 +24,7 @@ Measured 2026-10-14 (CalculiX 2.20, 20 increments; 10 and 40 increments agree to
 Both codes move monotonically with the span mesh and are still drifting 0.1-0.3 % per doubling, so
 the paired bound is 1 % on the tip deflection and 2 % on the shortening, not a tighter number the
 sequences cannot yet support.  The default updated-Lagrangian scheme is not compared here: it sits
-away from CalculiX by +9 points at alpha = 2 (see the module docstring of
+away from CalculiX by +2.0, +4.4 and +9.6 % at alpha = 4/7, 1 and 2 (see the module docstring of
 ``test_static_nonlinear_newton_elastica.py``).
 """
 
@@ -109,7 +113,8 @@ def _ours_tip(alpha: float, n: int) -> tuple[float, float]:
 
 
 @pytest.mark.parametrize("n", [32, 64])
-@pytest.mark.parametrize("alpha", [1.0, 2.0])
+# 4/7 is the load of ``TestNonlinearStatic`` in ``test_shell_static_and_modal.py`` (P = 1 N, EI = 1.75).
+@pytest.mark.parametrize("alpha", [4.0 / 7.0, 1.0, 2.0])
 def test_newton_strip_matches_calculix_nlgeom(tmp_path, alpha, n):
     w_ccx, u_ccx = _ccx_tip(tmp_path, ccx_bin_or_skip(), alpha, n)
     w, u = _ours_tip(alpha, n)
@@ -119,7 +124,7 @@ def test_newton_strip_matches_calculix_nlgeom(tmp_path, alpha, n):
         tol=0.01,
         kind="code",
         reference_name=CCX_NAME,
-        what=f"alpha={alpha:g} tip w/L, {n} span elements",
+        what=f"alpha={alpha:.6g} tip w/L, {n} span elements",
     )
     assert_relative_error(
         u,
@@ -127,5 +132,5 @@ def test_newton_strip_matches_calculix_nlgeom(tmp_path, alpha, n):
         tol=0.02,
         kind="code",
         reference_name=CCX_NAME,
-        what=f"alpha={alpha:g} tip u/L, {n} span elements",
+        what=f"alpha={alpha:.6g} tip u/L, {n} span elements",
     )

@@ -61,11 +61,13 @@ class StaticNonlinearSolver(Solver):
     -------
     ``"ul"`` is a tangent flow: it never checks equilibrium and omits the initial-stress
     stiffness, so refining the steps does **not** converge to the dead-load equilibrium.
-    Measured on the cantilever strip against the exact elastica (mesh and step converged,
-    b = 0.1): the bias is ~0 up to ~0.5 rad of tip rotation, +1 % at 26° (alpha = 1) and
-    +5.3 % at 45° (alpha = 2); a 2-D corotational beam with the same scheme gives +11 % at
-    alpha = 2.  It is exact for a pure end moment (no shear or axial force to rotate).  It
-    is the multi-axis path (blade twist), where rotation DOFs are not additive.
+    Measured on the b = 0.1 shell strip against CalculiX S8R with NLGEOM (mesh and steps
+    converged; the strip is a plate, so the elastica is not the right reference): the scheme
+    reads +2.0 % too soft at 16 deg of tip rotation (alpha = 4/7), +4.4 % at 26 deg (alpha = 1)
+    and +9.6 % at 45 deg (alpha = 2).  On a narrow strip against the exact elastica it is
+    +10.7 % at alpha = 2 and a 2-D corotational beam with the same scheme gives +11.3 %.  It is
+    exact for a pure end moment (no shear or axial force to rotate).  It is the multi-axis path
+    (blade twist), where rotation DOFs are not additive.
 
     ``"newton"`` iterates ``f_int(u) - lam F = 0`` on the total-Lagrangian Green-Lagrange
     internal force with its consistent tangent, load-stepped with step halving on failure.

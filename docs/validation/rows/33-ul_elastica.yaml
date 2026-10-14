@@ -21,7 +21,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 028de9f
+      run: 2462e1f
       date: '2026-10-14'
       raw: null
       margin_pct: 3.6347
@@ -50,7 +50,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 028de9f
+      run: 2462e1f
       date: '2026-10-14'
       raw: null
       margin_pct: 4.2658

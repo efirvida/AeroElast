@@ -20,7 +20,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 028de9f
+      run: 2462e1f
       date: '2026-10-14'
       raw: null
       margin_pct: 1.2861
@@ -48,7 +48,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 028de9f
+      run: 2462e1f
       date: '2026-10-14'
       raw: null
       margin_pct: 1.1904
@@ -76,7 +76,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 028de9f
+      run: 2462e1f
       date: '2026-10-14'
       raw: null
       margin_pct: 1.9692
@@ -104,7 +104,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 028de9f
+      run: 2462e1f
       date: '2026-10-14'
       raw: null
       margin_pct: 0.4888
@@ -132,7 +132,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 028de9f
+      run: 2462e1f
       date: '2026-10-14'
       raw: null
       margin_pct: 1.9692
@@ -151,7 +151,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 028de9f
+      run: 2462e1f
       date: '2026-10-14'
       raw: null
       margin_pct: 1.3863
@@ -179,7 +179,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 028de9f
+      run: 2462e1f
       date: '2026-10-14'
       raw: null
       margin_pct: 1.2276

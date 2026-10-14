@@ -314,12 +314,13 @@ class TestNonlinearStatic:
         linear check the gap was 5.29 % (the previous docstring said 6.0 %,
         which was stale), almost all of it span discretisation: nx = 8 / 16 /
         32 / 64 / 128 give -5.29 / -3.60 / -2.02 / -1.39 / -1.20 % (steps do
-        not matter: 8 -> 256 steps move it 0.7 %).  What remains, -1.1 %, is
-        the plate being stiffer than a beam (anticlastic root effect; mesh
-        independent, -0.58 % at half the width, -0.32 % at a quarter).  At this
-        load (alpha = 0.571, 16 deg tip rotation) the updated-Lagrangian scheme
-        is still unbiased; see ``test_static_nonlinear_ul_elastica.py`` for
-        where it is not.
+        not matter: 8 -> 256 steps move it 0.7 %).  The 1.39 % at 64 x 4 is a
+        partial compensation, not agreement with the physics of the strip: the strip is a
+        plate, and CalculiX S8R with NLGEOM reads it 3.3 % below the elastica
+        (``test_strip_elastica_calculix.py``, alpha = 4/7), while the
+        updated-Lagrangian scheme used here sits 2.0 % above CalculiX at this load
+        (0.18128 vs 0.17778).  Both are inside the 5 % ceiling; the scheme bias grows
+        with the load, see ``test_static_nonlinear_ul_elastica.py``.
         """
         P = 1.0  # N -> tip deflection ~0.17 L, firmly in the nonlinear regime
         E = STEEL.E

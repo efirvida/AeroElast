@@ -651,8 +651,9 @@ groups:
       form since the degrees case, and this is what it is for. The nonlinear
       case runs on a 64 x 4 mesh (1.39 % from the elastica); on the 8 x 4 mesh
       it read 5.29 % and was an xfail, but that gap was span discretisation
-      (nx = 8 / 16 / 32 / 64 / 128: 5.29 / 3.60 / 2.02 / 1.39 / 1.20 %) on top
-      of a mesh-independent -1.1 % plate-vs-beam offset.
+      (nx = 8 / 16 / 32 / 64 / 128: 5.29 / 3.60 / 2.02 / 1.39 / 1.20 %). The 1.39 %
+      is a compensation: CalculiX S8R NLGEOM reads the plate 3.3 % below the
+      elastica and the updated-Lagrangian solve sits 2.0 % above CalculiX.
 
   - id: "23"
     title: >-
