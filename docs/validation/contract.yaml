@@ -534,7 +534,7 @@ verdicts:
   - target: shell_static_modal.testlinearstatic_test_fx.single
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -542,7 +542,7 @@ verdicts:
   - target: shell_static_modal.testlinearstatic_test_fy.single
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -550,7 +550,7 @@ verdicts:
   - target: shell_static_modal.testlinearstatic_test_fz.single
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -558,7 +558,7 @@ verdicts:
   - target: shell_static_modal.testlinearstatic_test_axial_load_converg.single
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -566,23 +566,24 @@ verdicts:
   - target: shell_static_modal.testnonlinearstatic_test_geometric_nonli.single
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: analytical, label: "Bisshopp & Drucker (1945) closed-form elastica"}
-      - {kind: produced_numerical, label: "CalculiX 2.20 S8R NLGEOM on the same strip at alpha = 4/7 (rows strip_elastica_calculix.*0_5714*), which reads the plate 3.3 % below the elastica"}
+      - {kind: produced_numerical, label: "CalculiX 2.20 S8R NLGEOM on the same strip at alpha = 4/7 (rows strip_elastica_calculix.*0_5714*): 0.17778 at 64 span elements"}
     note: >-
-      Re-audited at 71eebaf after the nonlinear solve moved to a 64 x 4 mesh: 1.3863 % from the elastica
-      against the 5 % ceiling (the linear half is 1.97 % against Euler-Bernoulli). The earlier rejection
-      (5.29 %, SLURM 11614788) was span discretisation on the 8 x 4 mesh: nx = 8 / 16 / 32 / 64 / 128 give
-      5.29 / 3.60 / 2.02 / 1.39 / 1.20 % (updated-Lagrangian, 64 steps; 8 to 256 steps move it 0.7 %), and
-      the stale docstring figure of 6.0 % is corrected. Honest limit of what this row shows: the 1.39 % is
-      a compensation. The strip is a plate and CalculiX reads it 3.3 % below the elastica, while the
-      updated-Lagrangian solve sits 2.0 % above CalculiX (0.18128 against 0.17778). Both stay inside the
-      ceiling; the scheme bias grows with the load (G33).
+      Re-audited at ec3c9f6. The nonlinear solve runs the solver's default scheme (total-Lagrangian
+      Newton) on a 64 x 4 mesh: 3.4230 % from the elastica against the 5 % ceiling, and the linear half is
+      1.97 % against Euler-Bernoulli. The strip is a plate and CalculiX reads it 3.3 % below the elastica
+      at this load, so the elastica gap is the plate effect, and the solve itself sits 0.14 % from
+      CalculiX (0.17753 against 0.17778, rows strip_elastica_calculix.*0_5714*). The earlier rejection
+      (5.29 %, SLURM 11614788) was span discretisation on the 8 x 4 mesh (nx = 8 / 16 / 32 / 64 / 128:
+      5.29 / 3.60 / 2.02 / 1.39 / 1.20 % with the former updated-Lagrangian default); the stale docstring
+      figure of 6.0 % is corrected. The former 1.39 % was a compensation between the plate effect and that
+      scheme's +2.0 % bias.
   - target: shell_static_modal.testmodal_test_first_mode.single
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -909,12 +910,12 @@ verdicts:
   - target: newton_elastica.test_newton_scheme_narrow_strip_matches.1_0
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: published_numerical, label: "Bisshopp & Drucker (1945) elastica tabulated by Bathe & Bolourchi (1979)"}
       - {kind: analytical, label: "the elastica re-integrated by shooting on theta'' = -alpha cos(theta): w/L .30172 / .49346, u/L -.05643 / -.16064"}
     note: >-
-      Measured at 71eebaf: narrow strip b = 0.025, scheme newton, 64 x 2, tip w/L 0.358 % and u/L 0.622 %
+      Measured at ec3c9f6: narrow strip b = 0.025, scheme newton, 64 x 2, tip w/L 0.358 % and u/L 0.622 %
       from the elastica against 1 % bounds. Mesh table (nx = 32 / 64 / 128, ny = 2): alpha 1 -0.52 / -0.36
       / -0.31 %, alpha 2 -0.61 / -0.39 / -0.33 %; ny = 4 agrees to 0.01 %. The elastica is a beam, so it
       is a valid arbiter only near the beam limit: the plate offset is -5.0 / -1.2 / -0.36 % at b = 0.1 /
@@ -924,12 +925,12 @@ verdicts:
   - target: newton_elastica.test_newton_scheme_narrow_strip_matches.2_0
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: published_numerical, label: "Bisshopp & Drucker (1945) elastica tabulated by Bathe & Bolourchi (1979)"}
       - {kind: analytical, label: "the elastica re-integrated by shooting on theta'' = -alpha cos(theta): w/L .30172 / .49346, u/L -.05643 / -.16064"}
     note: >-
-      Measured at 71eebaf: narrow strip b = 0.025, scheme newton, 64 x 2, tip w/L 0.388 % and u/L 0.712 %
+      Measured at ec3c9f6: narrow strip b = 0.025, scheme newton, 64 x 2, tip w/L 0.388 % and u/L 0.712 %
       from the elastica against 1 % bounds. Mesh table (nx = 32 / 64 / 128, ny = 2): alpha 1 -0.52 / -0.36
       / -0.31 %, alpha 2 -0.61 / -0.39 / -0.33 %; ny = 4 agrees to 0.01 %. The elastica is a beam, so it
       is a valid arbiter only near the beam limit: the plate offset is -5.0 / -1.2 / -0.36 % at b = 0.1 /
@@ -939,12 +940,12 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.0_5714285714285714_32
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
     note: >-
-      Measured at 71eebaf: Newton scheme on a 32 x 4 MITC4 mesh against CalculiX S8R on 32 x 2, tip w/L
+      Measured at ec3c9f6: Newton scheme on a 32 x 4 MITC4 mesh against CalculiX S8R on 32 x 2, tip w/L
       0.108 % and u/L 0.367 % apart, against 1 % and 2 % bounds. Both codes move monotonically with the
       span mesh and drift 0.1-0.3 % per doubling, so the pair is held to bounds the sequences support and
       not tighter; the difference does not grow from 32 to 64 span elements. The strip is a plate:
@@ -953,12 +954,12 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.0_5714285714285714_64
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
     note: >-
-      Measured at 71eebaf: Newton scheme on a 64 x 4 MITC4 mesh against CalculiX S8R on 64 x 2, tip w/L
+      Measured at ec3c9f6: Newton scheme on a 64 x 4 MITC4 mesh against CalculiX S8R on 64 x 2, tip w/L
       0.140 % and u/L 0.338 % apart, against 1 % and 2 % bounds. Both codes move monotonically with the
       span mesh and drift 0.1-0.3 % per doubling, so the pair is held to bounds the sequences support and
       not tighter; the difference does not grow from 32 to 64 span elements. The strip is a plate:
@@ -967,12 +968,12 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.1_0_32
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
     note: >-
-      Measured at 71eebaf: Newton scheme on a 32 x 4 MITC4 mesh against CalculiX S8R on 32 x 2, tip w/L
+      Measured at ec3c9f6: Newton scheme on a 32 x 4 MITC4 mesh against CalculiX S8R on 32 x 2, tip w/L
       0.230 % and u/L 0.637 % apart, against 1 % and 2 % bounds. Both codes move monotonically with the
       span mesh and drift 0.1-0.3 % per doubling, so the pair is held to bounds the sequences support and
       not tighter; the difference does not grow from 32 to 64 span elements. The strip is a plate:
@@ -981,12 +982,12 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.1_0_64
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
     note: >-
-      Measured at 71eebaf: Newton scheme on a 64 x 4 MITC4 mesh against CalculiX S8R on 64 x 2, tip w/L
+      Measured at ec3c9f6: Newton scheme on a 64 x 4 MITC4 mesh against CalculiX S8R on 64 x 2, tip w/L
       0.255 % and u/L 0.584 % apart, against 1 % and 2 % bounds. Both codes move monotonically with the
       span mesh and drift 0.1-0.3 % per doubling, so the pair is held to bounds the sequences support and
       not tighter; the difference does not grow from 32 to 64 span elements. The strip is a plate:
@@ -995,12 +996,12 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.2_0_32
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
     note: >-
-      Measured at 71eebaf: Newton scheme on a 32 x 4 MITC4 mesh against CalculiX S8R on 32 x 2, tip w/L
+      Measured at ec3c9f6: Newton scheme on a 32 x 4 MITC4 mesh against CalculiX S8R on 32 x 2, tip w/L
       0.162 % and u/L 0.554 % apart, against 1 % and 2 % bounds. Both codes move monotonically with the
       span mesh and drift 0.1-0.3 % per doubling, so the pair is held to bounds the sequences support and
       not tighter; the difference does not grow from 32 to 64 span elements. The strip is a plate:
@@ -1009,17 +1010,90 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.2_0_64
     class: physics
     verdict: trusted
-    audited_rev: 71eebaf
+    audited_rev: ec3c9f6
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
     note: >-
-      Measured at 71eebaf: Newton scheme on a 64 x 4 MITC4 mesh against CalculiX S8R on 64 x 2, tip w/L
+      Measured at ec3c9f6: Newton scheme on a 64 x 4 MITC4 mesh against CalculiX S8R on 64 x 2, tip w/L
       0.261 % and u/L 0.646 % apart, against 1 % and 2 % bounds. Both codes move monotonically with the
       span mesh and drift 0.1-0.3 % per doubling, so the pair is held to bounds the sequences support and
       not tighter; the difference does not grow from 32 to 64 span elements. The strip is a plate:
       CalculiX reads it -3.3 / -4.3 / -3.9 % from the elastica at alpha = 4/7, 1, 2, which is why the
       elastica is not the arbiter here.
+  - target: ul_elastica.test_default_scheme_tip_deflection_match.1_0_8
+    class: physics
+    verdict: trusted
+    audited_rev: ec3c9f6
+    arbiters:
+      - {kind: published_numerical, label: "Bisshopp & Drucker (1945) elastica tabulated by Bathe & Bolourchi (1979)"}
+      - {kind: analytical, label: "the elastica re-integrated by shooting on theta'' = -alpha cos(theta)"}
+    note: >-
+      Measured at ec3c9f6: the default scheme of StaticNonlinearSolver on the narrow strip b = 0.025, 64 x
+      2, tip w/L 0.358 % and u/L 0.622 % from the elastica against 1 % bounds. Mesh table (nx = 32 / 64 /
+      128): alpha 1 -0.52 / -0.36 / -0.31 %, alpha 2 -0.61 / -0.39 / -0.33 %; the residual is the plate
+      offset, which shrinks with the width (b = 0.00625: w -0.11 %, u -0.18 % at alpha = 2). Replaces the
+      two rejected rows of the former updated-Lagrangian test, whose bias (+2.0 / +4.4 / +9.6 % above
+      CalculiX at alpha = 4/7, 1, 2) is pinned in tests/software.
+  - target: ul_elastica.test_default_scheme_tip_deflection_match.2_0_8
+    class: physics
+    verdict: trusted
+    audited_rev: ec3c9f6
+    arbiters:
+      - {kind: published_numerical, label: "Bisshopp & Drucker (1945) elastica tabulated by Bathe & Bolourchi (1979)"}
+      - {kind: analytical, label: "the elastica re-integrated by shooting on theta'' = -alpha cos(theta)"}
+    note: >-
+      Measured at ec3c9f6: the default scheme of StaticNonlinearSolver on the narrow strip b = 0.025, 64 x
+      2, tip w/L 0.388 % and u/L 0.712 % from the elastica against 1 % bounds. Mesh table (nx = 32 / 64 /
+      128): alpha 1 -0.52 / -0.36 / -0.31 %, alpha 2 -0.61 / -0.39 / -0.33 %; the residual is the plate
+      offset, which shrinks with the width (b = 0.00625: w -0.11 %, u -0.18 % at alpha = 2). Replaces the
+      two rejected rows of the former updated-Lagrangian test, whose bias (+2.0 / +4.4 / +9.6 % above
+      CalculiX at alpha = 4/7, 1, 2) is pinned in tests/software.
+  - target: twisted_beam_nlgeom_calculix.test_twisted_beam_default_scheme_matches.in_plane_10_0_24_4_0_01
+    class: physics
+    verdict: trusted
+    audited_rev: ec3c9f6
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
+      - {kind: analytical, label: "the elastica, as the narrow-strip limit of the same solver (rows ul_elastica.*)"}
+    note: >-
+      Measured at ec3c9f6: the default scheme of StaticNonlinearSolver on the Simo 1989 pre-twisted beam
+      (90 deg of twist) under a large tip load, relative norm of the tip displacement vector difference to
+      CalculiX 0.522 %. Multi-axis rotation: the section bends and twists together. Newton against
+      CalculiX over the mesh: in-plane P = 10 0.52 % at 24 x 4 and 0.19 % at 48 x 8; out-of-plane P = 5
+      2.36 % at 24 x 4 and 0.81 % at 48 x 8. The legacy updated-Lagrangian scheme is 23 % off in-plane on
+      both meshes (pinned in tests/software), so the gap is the scheme and not the discretisation. The
+      bounds (1 % and 1.5 %) are the measured error plus margin and sit under the 5 % ceiling.
+  - target: twisted_beam_nlgeom_calculix.test_twisted_beam_default_scheme_matches.in_plane_10_0_48_8_0_01
+    class: physics
+    verdict: trusted
+    audited_rev: ec3c9f6
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
+      - {kind: analytical, label: "the elastica, as the narrow-strip limit of the same solver (rows ul_elastica.*)"}
+    note: >-
+      Measured at ec3c9f6: the default scheme of StaticNonlinearSolver on the Simo 1989 pre-twisted beam
+      (90 deg of twist) under a large tip load, relative norm of the tip displacement vector difference to
+      CalculiX 0.190 %. Multi-axis rotation: the section bends and twists together. Newton against
+      CalculiX over the mesh: in-plane P = 10 0.52 % at 24 x 4 and 0.19 % at 48 x 8; out-of-plane P = 5
+      2.36 % at 24 x 4 and 0.81 % at 48 x 8. The legacy updated-Lagrangian scheme is 23 % off in-plane on
+      both meshes (pinned in tests/software), so the gap is the scheme and not the discretisation. The
+      bounds (1 % and 1.5 %) are the measured error plus margin and sit under the 5 % ceiling.
+  - target: twisted_beam_nlgeom_calculix.test_twisted_beam_default_scheme_matches.out_of_plane_5_0_48_8_0_015
+    class: physics
+    verdict: trusted
+    audited_rev: ec3c9f6
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
+      - {kind: analytical, label: "the elastica, as the narrow-strip limit of the same solver (rows ul_elastica.*)"}
+    note: >-
+      Measured at ec3c9f6: the default scheme of StaticNonlinearSolver on the Simo 1989 pre-twisted beam
+      (90 deg of twist) under a large tip load, relative norm of the tip displacement vector difference to
+      CalculiX 0.814 %. Multi-axis rotation: the section bends and twists together. Newton against
+      CalculiX over the mesh: in-plane P = 10 0.52 % at 24 x 4 and 0.19 % at 48 x 8; out-of-plane P = 5
+      2.36 % at 24 x 4 and 0.81 % at 48 x 8. The legacy updated-Lagrangian scheme is 23 % off in-plane on
+      both meshes (pinned in tests/software), so the gap is the scheme and not the discretisation. The
+      bounds (1 % and 1.5 %) are the measured error plus margin and sit under the 5 % ceiling.
   - target: scordelis_lo_triangular.test_scordelis_lo_table_10.false_16_0_9973
     class: physics
     verdict: trusted
