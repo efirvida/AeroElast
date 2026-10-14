@@ -146,3 +146,49 @@ def test_hyperbolic_paraboloid_calculix_s8r_reaches_ko_reference(tmp_path, n):
         kind="code",
         what=f"CalculiX S8R hypar t/L = 1/1000, {n} x {n} elements",
     )
+
+
+# --- Thin twisted beam, Simo et al. 1989 -----------------------------------------------------
+TB_LENGTH, TB_WIDTH, TB_TWIST = 12.0, 1.1, math.radians(90.0)
+TB_E, TB_NU, TB_THICKNESS = 29.0e6, 0.22, 0.05
+SIMO_THIN = {"In-plane": 1.390, "Out-of-plane": 0.3431}
+
+
+def _twisted_point(u: float, v: float):
+    """Same mapping as the live test: width along y at the root, rotated by 90 deg at the tip."""
+    phi = TB_TWIST * u
+    y = (v - 0.5) * TB_WIDTH
+    return (u * TB_LENGTH, y * math.cos(phi), y * math.sin(phi))
+
+
+@pytest.mark.parametrize("load_case", ["In-plane", "Out-of-plane"])
+def test_thin_twisted_beam_calculix_s8r_matches_simo(tmp_path, load_case):
+    n_width = 8
+    n_length = 6 * n_width
+    tip_centre = node_id(2 * n_length, n_width, n_length)
+    load_dof = 3 if load_case == "In-plane" else 2  # 1-based: z for in-plane, y for out-of-plane
+    inp = tmp_path / f"twisted_{load_case[0]}.inp"
+    write_s8r_surface_deck(
+        inp,
+        _twisted_point,
+        n_length,
+        n_width,
+        young=TB_E,
+        poisson=TB_NU,
+        thickness=TB_THICKNESS,
+        boundary=lambda x, y, z: [1, 2, 3, 4, 5, 6] if abs(x) < 1e-9 else [],
+        nodal_loads={tip_centre: (load_dof, 1.0)},
+        print_nodes=[tip_centre],
+    )
+    result = run_ccx(inp, ccx_bin_or_skip())
+    if result.returncode != 0:
+        fail_ccx(result, inp)
+    disp = read_dat_displacements(inp.with_suffix(".dat"))[tip_centre]
+    assert_relative_error(
+        abs(float(disp[load_dof - 1])),
+        SIMO_THIN[load_case],
+        tol=TOL,
+        reference_name="Simo, Fox & Rifai 1989 thin twisted beam (b = 0.05 in)",
+        kind="paper",
+        what=f"CalculiX S8R thin twisted beam {load_case}",
+    )
