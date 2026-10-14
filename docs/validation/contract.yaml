@@ -811,3 +811,15 @@ verdicts:
     verdict: undecided
     note: >-
       Hyperbolic paraboloid: our value / reference 0.968-1.014 against the Ko cells (0.5-2.0 %). Reference is Ko's own 3D solution; no second independent source named.
+  - target: frame_objectivity.tangent_under_rigid_rotation
+    class: identity
+    verdict: trusted
+    audited_rev: d71c2a7
+    note: >-
+      Round-off bound of our own computation: K_t(u_rigid) is compared with T K0 T^T built from our own K0 (reference kind analytical, but the reference is derived from the code under test). Measured 2.58e-12 / 1.75e-12 / 1.99e-12 at 1 / 5 / 30 deg against 1e-9, identical to 6 digits for assemble_kt and assemble_kt_corotational, so the corotational MITC4 path is numerically the TL tangent here. Scope: one 4x1 MITC4 cantilever, rotation about z, translational block only; the variant with theta_z set in u (1.9e-4..5.7e-3 for both paths) is not asserted and its interpretation is open. Counts as identity.
+  - target: frame_objectivity.rigid_rotation_internal_force
+    class: identity
+    verdict: trusted
+    audited_rev: d71c2a7
+    note: >-
+      Round-off bound: a rigid motion produces no strain, so f_int(u_rigid) = 0 (closed form), but the test only checks that our assembly returns it. Measured 5.39e-13 / 5.68e-13 / 8.62e-13 at 1 / 5 / 30 deg relative to the 1e-3 stretch force scale, against 1e-9. Same mesh and scope limits as the tangent row. Counts as identity.
