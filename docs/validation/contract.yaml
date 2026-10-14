@@ -839,3 +839,11 @@ verdicts:
       - {kind: analytical, label: "Bisshopp & Drucker (1945) closed-form elastica, tabulated by Bathe & Bolourchi (1979)"}
     note: >-
       Rejected (maintainer decision (a), 2026-10-13): the UL tip deflection (alpha=2) is 4.2658 % from the closed-form elastica against a 2 % bound, so the element does not meet the bound the test states. The test is a documented xfail. Measured at 5fae86c (SLURM 11614671), reproduced exactly in the valid environment. The stiff bias is step-independent (about 4 % over load-step refinement), but no mesh-refinement table backs or drops the claim that it is not a mesh effect; that table needs a physics run and stays open.
+  - target: outofband.scordelis_lo.triangular_versus_published
+    class: physics
+    verdict: undecided
+    arbiters:
+      - {kind: published_numerical, label: "Ko et al. 2017 Table 10 MITC3+ / MITC4+ columns (Scordelis-Lo, regular mesh)"}
+      - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value w_ref = 0.3024 that Table 10 normalises by"}
+    note: >-
+      Class and arbiters assigned (2026-10-13): physics, because the four comparisons are a displacement against published values at 0.00-0.19 % (bound 5 %). The two arbiters are the Ko table cell and the MacNeal-Harder reference it is normalised by. Verdict stays undecided, not trusted: the row has no test, no run id and no recorded revision, so it cannot carry an audited_rev and nothing re-measures it. The MITC3+ triangular path it covers is not exercised by the live test, which runs the quad path only. To close it, drive the triangular mesh through a registered test at a known revision (new measurement, not done here).
