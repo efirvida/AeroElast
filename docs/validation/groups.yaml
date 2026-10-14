@@ -1384,6 +1384,7 @@ groups:
   - id: '48'
     title: Raasch hook and hyperbolic paraboloid against CalculiX S8R, refined
     slug: ko2017_calculix_arbiters
+    citation: simo1989
     reference_kind: code
     source_files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
