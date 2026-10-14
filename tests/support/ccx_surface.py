@@ -42,6 +42,7 @@ def write_s8r_surface_deck(
     print_nodes: Iterable[int] = (),
     periodic_u: bool = False,
     pressure: tuple[Callable[[int, int], bool], float] | None = None,
+    nlgeom: int | None = None,
 ) -> dict[int, np.ndarray]:
     """Write the deck and return the node coordinates by id.
 
@@ -51,6 +52,8 @@ def write_s8r_surface_deck(
     holds the expanded 3D nodes, not the ids of this deck. ``periodic_u`` closes the patch into a
     loop in ``u``. ``pressure`` is ``(select, value)``: ``select(ei, ej)`` picks the elements that
     get ``*DLOAD ... P`` (positive pressure acts against the element normal ``dr/du x dr/dv``).
+    ``nlgeom`` is the number of load increments of a geometrically nonlinear step
+    (``*STEP, NLGEOM``); ``CLOAD`` keeps its global direction, i.e. a dead load.
     """
     coords: dict[int, np.ndarray] = {}
     for j in range(2 * nv + 1):
@@ -97,7 +100,10 @@ def write_s8r_surface_deck(
         for dof in sorted(set(boundary(*map(float, xyz)))):
             lines.append(f"{nid}, {dof}, {dof}")
 
-    lines.append("*STEP\n*STATIC")
+    if nlgeom is None:
+        lines.append("*STEP\n*STATIC")
+    else:
+        lines.append(f"*STEP, NLGEOM, INC={20 * nlgeom}\n*STATIC\n{1.0 / nlgeom:.6e}, 1.0, 1e-8, {1.0 / nlgeom:.6e}")
     if gravity is not None:
         g = float(np.linalg.norm(gravity))
         d = np.asarray(gravity, dtype=float) / g

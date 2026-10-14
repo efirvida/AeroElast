@@ -12,7 +12,7 @@ Worktree `fem-shell-worktrees/rotor-frame`, branch `fix/bem-participant-rotor-fr
 ## Tasks
 
 - [ ] T1 (S1, S3) Register converged-mesh rows for G33 alpha=1 and G22; fix docstrings (6.0 %, "converges ~4 % below"). Commit.
-- [ ] T2 (S2) Independent arbiter for alpha=2: CalculiX NLGEOM S8R dead tip load, same plate, paired convergence. Commit.
+- [x] T2 (S2) CalculiX 2.20 S8R NLGEOM arbiter on the b=0.1 plate (`test_strip_elastica_calculix.py`, `nlgeom=` in `ccx_surface.py`): w/L alpha=1 0.28811/0.28880 (nu=32/64), alpha=2 0.47329/0.47424; u/L -0.05154/-0.05175, -0.14712/-0.14761; insensitive to increments (10..40). Newton agrees to 0.16-0.26 % in w and 0.56-0.65 % in u; the default UL sits +5.6 % (alpha=2) from the elastica and ~9 points from CalculiX. Paired bounds 1 % / 2 % (both codes still drift 0.1-0.3 % per doubling).
 - [x] T3 (S2) Cause established with a 2-D corotational beam (`$SCRATCH/studies/beam_scheme.py`): tangent flow (K_mat on current geometry, no K_sigma, no equilibrium) converges AWAY from the elastica (alpha=1 w/L 0.31576 vs 0.30172; alpha=2 0.54916 vs 0.49346, u/L -0.2054 vs -0.1606) while Newton on the consistent tangent gives 0.30173 / 0.49349. Commit: see T4.
 - [x] T4 (S2, S3) Opt-in `scheme: newton` (total-Lagrangian Newton on fint/kt, planar-valid), UL stays the default (blade twist is multi-axis). Narrow strip b=0.025 nx=64: alpha=1 -0.36 %, alpha=2 -0.39 % vs elastica; b=0.1 converges to -4.5 / -4.1 % (plate physics: -5.0/-1.2/-0.36 % for b=0.1/0.05/0.025). Tests: `test_static_nonlinear_newton_elastica.py` (5), UL numbers unchanged (3.63 / 4.27 / 5.29 %).
 - [ ] T5 (S1, S2) Re-register rows/verdicts, update audit doc, run proportionate checks. Commit.
