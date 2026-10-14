@@ -1,0 +1,142 @@
+group: '55'
+rows:
+- id: dtube_gravity.test_dtube_gravity_tip_deflection_aeroel.single
+  group: '55'
+  title: test_dtube_gravity_tip_deflection_aeroelast_against_beam_theory
+  tests:
+  - tests/validation/benchmarks/test_dtube_gravity.py::test_dtube_gravity_tip_deflection_aeroelast_against_beam_theory
+  validates: dtube_gravity_tip_deflection_aeroelast_against_beam_theory
+  comparisons:
+  - label: rtol at line 123
+    asserted: true
+    reference:
+      kind: analytical
+      label: the prismatic cantilever w L^4 / (8 E I_c) about the section centroid
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_dtube_gravity.py:123
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 51f2946
+      date: '2026-10-14'
+      raw: 24.5139
+      margin_pct: 0.0473
+      text: 'D-Tube tip deflection under self weight, AeroElast MITC4, 400 layers vs the prismatic cantilever w L^4 / (8 E I_c) about the section centroid: 24.5139 vs 24.5254 (error: 0.0473%, bound: 1.0000%)'
+      digest: e5e5ffdb1817c53b
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: dtube_gravity.test_dtube_gravity_aeroelast_converges_w.single
+  group: '55'
+  title: test_dtube_gravity_aeroelast_converges_with_span_refinement
+  tests:
+  - tests/validation/benchmarks/test_dtube_gravity.py::test_dtube_gravity_aeroelast_converges_with_span_refinement
+  validates: dtube_gravity_aeroelast_converges_with_span_refinement
+  comparisons:
+  - label: rtol at line 137
+    asserted: true
+    reference:
+      kind: analytical
+      label: the prismatic cantilever w L^4 / (8 E I_c) about the section centroid
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_dtube_gravity.py:137
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 51f2946
+      date: '2026-10-14'
+      raw: 24.2751
+      margin_pct: 1.0206
+      text: 'D-Tube tip deflection under self weight, AeroElast MITC4, 200 layers vs the prismatic cantilever w L^4 / (8 E I_c) about the section centroid: 24.2751 vs 24.5254 (error: 1.0206%, bound: 5.0000%)'
+      digest: ac01ddf5506ddf9f
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: dtube_gravity.test_dtube_gravity_tip_deflection_calcul.single
+  group: '55'
+  title: test_dtube_gravity_tip_deflection_calculix_s8r_against_beam_theory
+  tests:
+  - tests/validation/benchmarks/test_dtube_gravity.py::test_dtube_gravity_tip_deflection_calculix_s8r_against_beam_theory
+  validates: dtube_gravity_tip_deflection_calculix_s8r_against_beam_theory
+  comparisons:
+  - label: rtol at line 149
+    asserted: true
+    reference:
+      kind: analytical
+      label: the prismatic cantilever w L^4 / (8 E I_c) about the section centroid
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/benchmarks/test_dtube_gravity.py:149
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 51f2946
+      date: '2026-10-14'
+      raw: 24.5537
+      margin_pct: 0.1153
+      text: 'D-Tube tip deflection under self weight, CalculiX S8R, 100 layers vs the prismatic cantilever w L^4 / (8 E I_c) about the section centroid: 24.5537 vs 24.5254 (error: 0.1153%, bound: 5.0000%)'
+      digest: 8ce4c13e7b0a7303
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: dtube_gravity.test_dtube_gravity_calculix_is_span_conv.single
+  group: '55'
+  title: test_dtube_gravity_calculix_is_span_converged
+  tests:
+  - tests/validation/benchmarks/test_dtube_gravity.py::test_dtube_gravity_calculix_is_span_converged
+  validates: dtube_gravity_calculix_is_span_converged
+  comparisons:
+  - label: rtol at line 161
+    asserted: true
+    reference:
+      kind: self
+      label: CalculiX S8R at 100 layers
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_dtube_gravity.py:161
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 51f2946
+      date: '2026-10-14'
+      raw: 24.5534
+      margin_pct: 0.0013
+      text: 'D-Tube tip deflection under self weight, CalculiX S8R, 50 layers vs CalculiX S8R at 100 layers: 24.5534 vs 24.5537 (error: 0.0013%, bound: 1.0000%)'
+      digest: bbcd95bc7b823681
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: dtube_gravity.test_dtube_gravity_aeroelast_and_calculi.single
+  group: '55'
+  title: test_dtube_gravity_aeroelast_and_calculix_agree_when_converged
+  tests:
+  - tests/validation/benchmarks/test_dtube_gravity.py::test_dtube_gravity_aeroelast_and_calculix_agree_when_converged
+  validates: dtube_gravity_aeroelast_and_calculix_agree_when_converged
+  comparisons:
+  - label: rtol at line 173
+    asserted: true
+    reference:
+      kind: code
+      label: CalculiX 2.20 S8R at 100 layers
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_dtube_gravity.py:173
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 51f2946
+      date: '2026-10-14'
+      raw: 24.5139
+      margin_pct: 0.1624
+      text: 'D-Tube tip deflection under self weight, AeroElast 400 layers vs CalculiX 2.20 S8R at 100 layers: 24.5139 vs 24.5537 (error: 0.1624%, bound: 1.0000%)'
+      digest: c95376cd7e049740
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
