@@ -308,9 +308,18 @@ class TestNonlinearStatic:
 
         The linear estimate must match beam theory, the nonlinear solve must
         converge with geometric stiffening, and the result is compared against
-        the closed-form Bisshopp-Drucker elastica.  The measured
-        shell-vs-elastica gap is 6.0%, so the tight 5% analytical band lands as
-        an xfail with the gap as the reason rather than being widened.
+        the closed-form Bisshopp-Drucker elastica.
+
+        The nonlinear solve runs on a 64 x 4 mesh.  On the 8 x 4 mesh of the
+        linear check the gap was 5.29 % (the previous docstring said 6.0 %,
+        which was stale), almost all of it span discretisation: nx = 8 / 16 /
+        32 / 64 / 128 give -5.29 / -3.60 / -2.02 / -1.39 / -1.20 % (steps do
+        not matter: 8 -> 256 steps move it 0.7 %).  What remains, -1.1 %, is
+        the plate being stiffer than a beam (anticlastic root effect; mesh
+        independent, -0.58 % at half the width, -0.32 % at a quarter).  At this
+        load (alpha = 0.571, 16 deg tip rotation) the updated-Lagrangian scheme
+        is still unbiased; see ``test_static_nonlinear_ul_elastica.py`` for
+        where it is not.
         """
         P = 1.0  # N -> tip deflection ~0.17 L, firmly in the nonlinear regime
         E = STEEL.E
@@ -329,10 +338,10 @@ class TestNonlinearStatic:
 
         # Use the solver defaults: ``_DEFAULT_MAX_IT = 100`` converges on this
         # large-displacement cantilever (the old default of 50 did not).
-        mesh = _build_cantilever_mesh(nx=8, ny=4)
+        mesh = _build_cantilever_mesh(nx=64, ny=4)
         prop = ShellProperty(material=STEEL, thickness=h)
         cfg_nl = {
-            "solver": {},
+            "solver": {"continuation_steps": 64, "continuation_max_steps": 256},
             "elements": {
                 "element_family": ElementFamily.SHELL,
                 "properties": {"plate": prop},

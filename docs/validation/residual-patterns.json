@@ -91,7 +91,7 @@
    "unasserted": "(?!)"
   },
   "22": {
-   "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
+   "asserted": "^(?P<what>.+?) vs (?P<reference_name>.+?): (?:\\S+ vs \\S+ \\(error: )?(?P<error>[^%\\s]+)%(?:\\)|,)? ?\\(?bound: (?P<bound>[^%\\s]+)%\\)?$",
    "unasserted": "(?!)"
   },
   "19": {
@@ -159,6 +159,14 @@
       "unasserted": "(?!)"
     },
   "51": {
+      "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
+      "unasserted": "(?!)"
+    },
+  "52": {
+      "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<error>\\S+?)%? \\(bound: (?P<bound>\\S+?)%?\\)$",
+      "unasserted": "(?!)"
+    },
+  "53": {
       "asserted": "^(?P<what>.+) vs (?P<reference_name>.+): (?P<value>\\S+) vs (?P<reference>\\S+) \\(error: (?P<error>\\S+)%, bound: (?P<bound>\\S+)%\\)$",
       "unasserted": "(?!)"
     }

@@ -21,8 +21,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 5fae86c
-      date: '2026-10-13'
+      run: 028de9f
+      date: '2026-10-14'
       raw: null
       margin_pct: 3.6347
       text: 'alpha=1.0 tip w/L after 32 load steps vs the elastica reference table of Bisshopp & Drucker (1945), tabulated by Bathe & Bolourchi (1979): 3.6347% (bound: 2.0000%)'
@@ -50,8 +50,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 5fae86c
-      date: '2026-10-13'
+      run: 028de9f
+      date: '2026-10-14'
       raw: null
       margin_pct: 4.2658
       text: 'alpha=2.0 tip w/L after 64 load steps vs the elastica reference table of Bisshopp & Drucker (1945), tabulated by Bathe & Bolourchi (1979): 4.2658% (bound: 2.0000%)'

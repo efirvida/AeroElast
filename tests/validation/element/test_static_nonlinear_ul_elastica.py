@@ -16,22 +16,29 @@ This regression guards the UL incremental implementation of
 ``StaticNonlinearSolver`` (the historical SNES path is not used — see the
 class docstring for the tangent-consistency finding of 2026-09-18).
 
-**Measured 2026-09-30, and the O(Δθ) claim above is wrong for this element.**
-Refining the load stepping does not converge to the elastica; it converges to
-about 4% below it:
+**Diagnosis, 2026-10-14 (the earlier "converges ~4 % below the elastica" reading was wrong).**
+The 2026-09-30 table (3.63 ... 4.00 % over 32 ... 512 steps) was taken on the 8 x 4 mesh, whose
+span discretisation alone costs ~3.8 % at alpha = 1.  Refining the span (64 steps, ny = 4):
 
-    steps= 32   w/L=0.29075  3.63%
-    steps= 64   w/L=0.29018  3.83%
-    steps=128   w/L=0.28989  3.92%
-    steps=256   w/L=0.28974  3.97%
-    steps=512   w/L=0.28967  4.00%
+    nx =   8   w/L=0.29018  -3.83 %        nx = 32  w/L=0.29920  -0.83 %
+    nx =  16   w/L=0.29482  -2.29 %        nx = 64  w/L=0.30139  -0.11 %
 
-So the alpha=1 gap is not the O(Delta-theta) stepping error, and no mesh
-refinement table backs ruling out a mesh effect (open): the reviewed element's
-large-deflection response is systematically ~4% stiffer than the exact elastica.  The previous element was inside -0.5% here.
-The tables stay, and the tight bound lands as an xfail carrying the measured
-number, exactly as `test_2nd_flapwise_frequency` expresses an accepted gap: it
-is an accuracy question about the element's UL path, not a tolerance to widen.
+so the alpha = 1 gap is mesh, and it closes on the elastica at nx >= 64 only by cancellation of
+two opposite errors: the plate is -1.1 % stiffer than a beam (anticlastic root effect, mesh
+independent, shrinking with the width) and the scheme below adds about +1.2 %.
+
+The scheme is the real defect.  The updated-Lagrangian loop integrates ``K_e(x_ref) du = dlam F``
+with no equilibrium iteration and no initial-stress stiffness, so refining the load steps does not
+converge to the dead-load equilibrium.  At alpha = 2 (45 deg tip rotation), mesh and step
+converged (nx = 64, 2048 steps), w/L is +5.29 % and u/L +13 % from the elastica, and the bias grows
+as the strip narrows (+4.7, +8.8, +10.7 % for b = 0.1, 0.05, 0.025); a 2-D corotational beam with
+the same scheme gives +11.3 %, and with Newton on the consistent tangent 0.49349 (exact 0.49346).
+A pure end moment is reproduced to 0.1-0.6 % up to 115 deg (b = 0.00625): the element kinematics
+are right, the dead-load scheme is not.  ``scheme: newton`` removes the bias
+(``test_static_nonlinear_newton_elastica.py``, ``test_strip_elastica_calculix.py``).
+
+The tight bounds stay as xfails carrying the measured number, exactly as before: they are an
+accuracy limit of the default scheme, not a tolerance to widen.
 """
 
 from __future__ import annotations
@@ -183,6 +190,7 @@ def test_elastica_tip_deflection(alpha, ref_wl, steps, tol):
     except AssertionError:
         pytest.xfail(
             f"alpha={alpha}: w/L={w / L:.5f} vs elastica {ref_wl:.5f} "
-            f"(err={100 * rel:.2f}%, bound={100 * tol:.2f}%) -- element UL accuracy, "
-            "converged at ~4% below the elastica as the load stepping refines"
+            f"(err={100 * rel:.2f}%, bound={100 * tol:.2f}%) -- 8x4 mesh under-resolves the span "
+            "(alpha=1) and the default UL scheme has no equilibrium iteration (alpha=2); "
+            "see the module docstring and scheme='newton'"
         )

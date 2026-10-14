@@ -29,7 +29,7 @@ levels:
       Element formulation (MITC3+, MITC4, MITC4+, strain smoothing, geometric stiffness, mass)
       on canonical benchmarks with published or closed-form answers: linear, modal and
       large-rotation.
-    groups: ['3', '12', '13', '14', '15', '16', '19', '22', '25', '28', '33', '44', '45', '46', '47', '48', '49', '50', '51']
+    groups: ['3', '12', '13', '14', '15', '16', '19', '22', '25', '28', '33', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53']
     depends_on:
       - crates/aeroelast-core/src/elements
       - src/aeroelast/elements
@@ -48,6 +48,8 @@ levels:
       - src/aeroelast/core/properties.py
       - src/aeroelast/core/bc.py
       - src/aeroelast/solvers/modal.py
+      # The updated-Lagrangian and Newton static solver behind groups 22, 33, 52 and 53.
+      - src/aeroelast/solvers/elasticity/static_nonlinear.py
     gaps: []
 
   - id: L2

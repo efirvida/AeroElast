@@ -1,0 +1,190 @@
+group: '53'
+rows:
+- id: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.1_0_32
+  group: '53'
+  title: test_newton_strip_matches_calculix_nlgeom[1.0-32]
+  tests:
+  - tests/validation/benchmarks/test_strip_elastica_calculix.py::test_newton_strip_matches_calculix_nlgeom[1.0-32]
+  validates: newton_strip_matches_calculix_nlgeom
+  comparisons:
+  - label: rtol at line 116
+    asserted: true
+    reference:
+      kind: code
+      label: w_ccx
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_strip_elastica_calculix.py:116
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 028de9f
+      date: '2026-10-14'
+      raw: 0.28745
+      margin_pct: 0.2298
+      text: 'alpha=1 tip w/L, 32 span elements vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: 0.28745 vs 0.288112 (error: 0.2298%, bound: 1.0000%)'
+      digest: eb699a80ac5f098f
+  - label: rtol at line 124
+    asserted: true
+    reference:
+      kind: code
+      label: u_ccx
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_strip_elastica_calculix.py:124
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 028de9f
+      date: '2026-10-14'
+      raw: -0.0512137
+      margin_pct: 0.637
+      text: 'alpha=1 tip u/L, 32 span elements vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: -0.0512137 vs -0.051542 (error: 0.6370%, bound: 2.0000%)'
+      digest: 20163d7903595a47
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.1_0_64
+  group: '53'
+  title: test_newton_strip_matches_calculix_nlgeom[1.0-64]
+  tests:
+  - tests/validation/benchmarks/test_strip_elastica_calculix.py::test_newton_strip_matches_calculix_nlgeom[1.0-64]
+  validates: newton_strip_matches_calculix_nlgeom
+  comparisons:
+  - label: rtol at line 116
+    asserted: true
+    reference:
+      kind: code
+      label: w_ccx
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_strip_elastica_calculix.py:116
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 028de9f
+      date: '2026-10-14'
+      raw: 0.288062
+      margin_pct: 0.2549
+      text: 'alpha=1 tip w/L, 64 span elements vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: 0.288062 vs 0.288798 (error: 0.2549%, bound: 1.0000%)'
+      digest: 1c229c76d39eec84
+  - label: rtol at line 124
+    asserted: true
+    reference:
+      kind: code
+      label: u_ccx
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_strip_elastica_calculix.py:124
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 028de9f
+      date: '2026-10-14'
+      raw: -0.0514437
+      margin_pct: 0.5841
+      text: 'alpha=1 tip u/L, 64 span elements vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: -0.0514437 vs -0.051746 (error: 0.5841%, bound: 2.0000%)'
+      digest: 864e5d1a970cc82c
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.2_0_32
+  group: '53'
+  title: test_newton_strip_matches_calculix_nlgeom[2.0-32]
+  tests:
+  - tests/validation/benchmarks/test_strip_elastica_calculix.py::test_newton_strip_matches_calculix_nlgeom[2.0-32]
+  validates: newton_strip_matches_calculix_nlgeom
+  comparisons:
+  - label: rtol at line 116
+    asserted: true
+    reference:
+      kind: code
+      label: w_ccx
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_strip_elastica_calculix.py:116
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 028de9f
+      date: '2026-10-14'
+      raw: 0.472521
+      margin_pct: 0.1621
+      text: 'alpha=2 tip w/L, 32 span elements vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: 0.472521 vs 0.473288 (error: 0.1621%, bound: 1.0000%)'
+      digest: c346b7274b954393
+  - label: rtol at line 124
+    asserted: true
+    reference:
+      kind: code
+      label: u_ccx
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_strip_elastica_calculix.py:124
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 028de9f
+      date: '2026-10-14'
+      raw: -0.146302
+      margin_pct: 0.5537
+      text: 'alpha=2 tip u/L, 32 span elements vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: -0.146302 vs -0.147117 (error: 0.5537%, bound: 2.0000%)'
+      digest: 6c068fb1ed533172
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.2_0_64
+  group: '53'
+  title: test_newton_strip_matches_calculix_nlgeom[2.0-64]
+  tests:
+  - tests/validation/benchmarks/test_strip_elastica_calculix.py::test_newton_strip_matches_calculix_nlgeom[2.0-64]
+  validates: newton_strip_matches_calculix_nlgeom
+  comparisons:
+  - label: rtol at line 116
+    asserted: true
+    reference:
+      kind: code
+      label: w_ccx
+    tolerance:
+      kind: rtol
+      value: 0.01
+      source: tests/validation/benchmarks/test_strip_elastica_calculix.py:116
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 028de9f
+      date: '2026-10-14'
+      raw: 0.473002
+      margin_pct: 0.2609
+      text: 'alpha=2 tip w/L, 64 span elements vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: 0.473002 vs 0.474239 (error: 0.2609%, bound: 1.0000%)'
+      digest: dd91dc9473b928f1
+  - label: rtol at line 124
+    asserted: true
+    reference:
+      kind: code
+      label: u_ccx
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_strip_elastica_calculix.py:124
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 028de9f
+      date: '2026-10-14'
+      raw: -0.146653
+      margin_pct: 0.6456
+      text: 'alpha=2 tip u/L, 64 span elements vs CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments: -0.146653 vs -0.147606 (error: 0.6456%, bound: 2.0000%)'
+      digest: 1054e6c5ea6ff9ed
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

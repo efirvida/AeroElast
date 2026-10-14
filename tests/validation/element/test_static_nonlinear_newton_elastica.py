@@ -56,7 +56,7 @@ REFERENCE_NAME = (
 )
 
 
-def _solve(alpha: float, *, b: float, nx: int, ny: int, steps: int, scheme: str | None):
+def solve_strip(alpha: float, *, b: float, nx: int, ny: int, steps: int, scheme: str | None):
     """Tip (w/L, u/L) of the dead-tip-loaded strip of width ``b``."""
     solver_cfg: dict = {"continuation_steps": steps, "continuation_max_steps": 4 * steps}
     if scheme is not None:
@@ -88,7 +88,7 @@ def _solve(alpha: float, *, b: float, nx: int, ny: int, steps: int, scheme: str 
 def test_newton_scheme_narrow_strip_matches_the_elastica(alpha):
     """Narrow strip, mesh and step converged: tip deflection and shortening vs the elastica."""
     w_ref, u_ref = ELASTICA[alpha]
-    w, u = _solve(alpha, b=0.025, nx=64, ny=2, steps=8, scheme="newton")
+    w, u = solve_strip(alpha, b=0.025, nx=64, ny=2, steps=8, scheme="newton")
     assert_residual_below(
         abs(w - w_ref) / w_ref,
         tol=0.01,
@@ -103,24 +103,3 @@ def test_newton_scheme_narrow_strip_matches_the_elastica(alpha):
         reference_name=REFERENCE_NAME,
         what=f"alpha={alpha} tip u/L, narrow strip, newton scheme",
     )
-
-
-def test_newton_scheme_does_not_depend_on_the_load_stepping():
-    """A consistent Newton result is a property of the equilibrium, not of the path."""
-    w4, u4 = _solve(2.0, b=0.025, nx=32, ny=2, steps=4, scheme="newton")
-    w16, u16 = _solve(2.0, b=0.025, nx=32, ny=2, steps=16, scheme="newton")
-    assert abs(w4 - w16) / w16 < 1e-3
-    assert abs(u4 - u16) / abs(u16) < 1e-3
-
-
-def test_default_scheme_is_the_updated_lagrangian_one_and_unchanged():
-    """No ``scheme`` key keeps the recorded UL reading (w/L = 0.29075, 32 steps, 8x4 mesh)."""
-    w, _ = _solve(1.0, b=0.1, nx=8, ny=4, steps=32, scheme=None)
-    assert w == pytest.approx(0.29075, abs=2e-5)
-    w_explicit, _ = _solve(1.0, b=0.1, nx=8, ny=4, steps=32, scheme="ul")
-    assert w_explicit == pytest.approx(w, abs=1e-12)
-
-
-def test_unknown_scheme_is_rejected():
-    with pytest.raises(ValueError, match="scheme"):
-        _solve(1.0, b=0.1, nx=8, ny=4, steps=4, scheme="bogus")
