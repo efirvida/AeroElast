@@ -68,6 +68,7 @@ levels:
       - '26'
       - '36'
       - '43'
+      - '55'
     depends_on:
       - src/aeroelast/core/assembler.py
       - src/aeroelast/solvers/elasticity

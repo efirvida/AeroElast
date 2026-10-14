@@ -1428,6 +1428,18 @@ groups:
       beam value (24.992 m), 2 points away from the MITC4 sequence; the circular-tube control
       reads +0.40 %, which the Timoshenko shear term (about +0.5 %) accounts for.
 
+  - id: '55'
+    title: D-Tube cantilever under self weight, AeroElast and CalculiX S8R
+    slug: dtube_gravity
+    reference_kind: analytical
+    source_files:
+      - tests/validation/benchmarks/test_dtube_gravity.py
+    provenance_note: >-
+      The D-Tube of groups 50-51 loaded by a vertical body acceleration with the same resultant per
+      unit span (rho a A = p D), so the closed form is the same prismatic cantilever. Exercises the
+      body-force and mass path, a non-follower dead load. CalculiX point loads (`*CLOAD`) spread over
+      shell nodes lose 25-44 percent of the resultant on this deck and are not used; `*DLOAD GRAV` is.
+
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
 # independent reference and needs a group and a row; a test under
