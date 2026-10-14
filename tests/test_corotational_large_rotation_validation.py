@@ -15,6 +15,7 @@ from scipy.sparse import coo_matrix
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
 
 from _aeroelast import PyMeshAssembler
+from tests.support.assertions import assert_residual_below
 
 
 L = 1.0
@@ -141,7 +142,14 @@ def test_tangent_is_frame_objective_under_rigid_rotation(assemble, angle_deg):
     k_tt = _coo_to_dense(rows, cols, vals, asm.dofs_count)[np.ix_(t_idx, t_idx)]
 
     k0_rot = _transform_translation_submatrix(k0_tt, r, n_nodes)
-    assert _rel_err(k_tt, k0_rot, k0_tt) < TOL_OBJECTIVITY
+    assert_residual_below(
+        _rel_err(k_tt, k0_rot, k0_tt),
+        atol=TOL_OBJECTIVITY,
+        unit="",
+        kind="analytical",
+        reference_name="frame objectivity identity K_t(u_rigid) = T K0 T^T",
+        what=f"MITC4 tangent under rigid rotation ({assemble}, {angle_deg:g} deg)",
+    )
 
 
 @pytest.mark.parametrize("angle_deg", [1.0, 5.0, 30.0])
@@ -155,7 +163,14 @@ def test_rigid_rotation_produces_no_internal_force(angle_deg):
     rows0, cols0, vals0 = asm.assemble_kt(np.zeros(asm.dofs_count, dtype=float))
     k0 = _coo_to_dense(rows0, cols0, vals0, asm.dofs_count)
     scale = np.linalg.norm(k0 @ np.full(asm.dofs_count, 1e-3))
-    assert np.linalg.norm(f) / scale < TOL_OBJECTIVITY
+    assert_residual_below(
+        np.linalg.norm(f) / scale,
+        atol=TOL_OBJECTIVITY,
+        unit="",
+        kind="analytical",
+        reference_name="a rigid motion produces no strain, f_int(u_rigid) = 0",
+        what=f"MITC4 internal force of a rigid rotation ({angle_deg:g} deg)",
+    )
 
 
 def test_small_displacement_kt_coro_agrees_with_tl():
