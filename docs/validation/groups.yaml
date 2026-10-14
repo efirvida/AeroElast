@@ -1352,6 +1352,45 @@ groups:
       path that the live Ko2017 test does not run. Same mesh, load and normalization as
       test_3_4_scordelis_lo_tables_10_to_11, regular mesh, w_ref = 3.0240e-1.
 
+  - id: '46'
+    title: Pinched cylinder and thin twisted beam against sources other than the Ko table cell
+    slug: ko2017_second_arbiters
+    citation: simo1989
+    reference_kind: analytical
+    source_files:
+      - tests/validation/benchmarks/test_ko2017_second_arbiters.py
+    non_validation_tests:
+      - tests:
+          - test_pinched_cylinder_converges_monotonically_towards_the_reference
+        reason: >-
+          A convergence-trend guard (the sequence N = 8, 16, 32 is monotone and stays below 1).
+          The comparison against the closed form is carried by the N = 32 test.
+    provenance_note: >-
+      Pinched cylinder against the MacNeal-Harder closed form, refined; thin twisted beam
+      (b = 0.05 in) against Simo, Fox and Rifai (1989). Added 2026-10-13 to give the Ko rows a
+      second arbiter.
+
+  - id: '47'
+    title: Scordelis-Lo roof against CalculiX S8R, refined
+    slug: scordelis_lo_calculix
+    reference_kind: code
+    source_files:
+      - tests/validation/benchmarks/test_scordelis_lo_calculix.py
+    provenance_note: >-
+      An independent code on the MacNeal-Harder Scordelis-Lo model: CalculiX S8R, 8, 16 and 32
+      elements per side. Only the bending rotation of each symmetry plane is constrained, because
+      S8R has no drilling dof (see the test).
+
+  - id: '48'
+    title: Raasch hook and hyperbolic paraboloid against CalculiX S8R, refined
+    slug: ko2017_calculix_arbiters
+    reference_kind: code
+    source_files:
+      - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
+    provenance_note: >-
+      CalculiX S8R on the models the live Ko tests build. The hyperbolic paraboloid at
+      t/L = 1/10000 is excluded: S8R is not monotone there (see the test docstring).
+
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
 # independent reference and needs a group and a row; a test under

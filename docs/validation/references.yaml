@@ -2197,3 +2197,34 @@ references:
       Presentation, 04.06.2024. DOI does not apply: the source states that a
       DOI does not apply to this presentation.
     orphan_ok: true
+
+  - key: simo1989
+    section: "1. Shell element formulations"
+    kind: journal
+    authors:
+      - "Simo, J.C."
+      - "Fox, D.D."
+      - "Rifai, M.S."
+    title: >-
+      On a stress resultant geometrically exact shell model. Part II: The linear theory;
+      Computational aspects
+    venue: "Computer Methods in Applied Mechanics and Engineering"
+    volume: "73"
+    pages: "53-92"
+    year: 1989
+    doi: "10.1016/0045-7825(89)90098-4"
+    doi_status: verified_externally
+    held: false
+    verification: external_record
+    verification_note: >-
+      DOI, title, volume 73, pages 53-92 and year 1989 read from the Crossref record
+      (`api.crossref.org/works`, 2026-10-13); no PDF is held. The thin twisted beam values
+      (b = 0.05 in: 1.390 in in-plane, 0.3431 in out-of-plane) are taken from Tables 2 and 10 of
+      the Abaqus Benchmarks Manual, "Analysis of a twisted beam", which attributes the thin-beam
+      reference to this paper; they were not read in the paper itself.
+    cited_by_declared:
+      - "tests/validation/benchmarks/test_ko2017_second_arbiters.py"
+    notes: >-
+      Second, independent source for the thin twisted beam benchmark, whose Ko et al. (2017)
+      reference is Ko's own 3D solution.
+    orphan_ok: true
