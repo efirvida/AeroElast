@@ -2,7 +2,7 @@
 
 import logging
 from time import perf_counter
-from typing import List
+from typing import List, Optional
 
 import numpy as np
 
@@ -51,6 +51,27 @@ class StaticNonlinearSolver(Solver):
         Maximum number of steps allowed (default: 64).
     diagnostics : bool
         Emit per-step diagnostics (default: False).
+    scheme : str
+        ``"ul"`` (default) or ``"newton"``; see *Schemes* below.
+    newton_rtol, newton_etol, newton_max_it
+        Newton scheme only: residual tolerance relative to the applied load (default 1e-5),
+        energy tolerance (default 1e-10), iterations per load step (default 25).
+
+    Schemes
+    -------
+    ``"ul"`` is a tangent flow: it never checks equilibrium and omits the initial-stress
+    stiffness, so refining the steps does **not** converge to the dead-load equilibrium.
+    Measured on the cantilever strip against the exact elastica (mesh and step converged,
+    b = 0.1): the bias is ~0 up to ~0.5 rad of tip rotation, +1 % at 26° (alpha = 1) and
+    +5.3 % at 45° (alpha = 2); a 2-D corotational beam with the same scheme gives +11 % at
+    alpha = 2.  It is exact for a pure end moment (no shear or axial force to rotate).  It
+    is the multi-axis path (blade twist), where rotation DOFs are not additive.
+
+    ``"newton"`` iterates ``f_int(u) - lam F = 0`` on the total-Lagrangian Green-Lagrange
+    internal force with its consistent tangent, load-stepped with step halving on failure.
+    It reproduces the elastica on a narrow strip (|w| error <0.4 % at b/L = 0.025) but is
+    objective for rotation about a single fixed axis only, because the rotation DOFs are
+    additive.  Use it for planar large-rotation problems.
 
     Notes
     -----
@@ -76,6 +97,15 @@ class StaticNonlinearSolver(Solver):
     _DEFAULT_CONTINUATION: bool = True
     _DEFAULT_CONTINUATION_STEPS: int = 8
     _DEFAULT_CONTINUATION_MAX_STEPS: int = 64
+    _SCHEMES: tuple = ("ul", "newton")
+    _DEFAULT_SCHEME: str = "ul"
+    # Newton scheme.  The residual norm cannot reach the SNES-style 1e-8: the shell stiffness
+    # spans ~12 orders of magnitude (membrane over bending), so the direct solve leaves a
+    # force residual of ~1e-6 relative.  The energy test |du.R| <= etol * |du_1.R_0| is
+    # scale-free and reaches machine level, so it is the primary criterion.
+    _DEFAULT_NEWTON_RTOL: float = 1e-5
+    _DEFAULT_NEWTON_ETOL: float = 1e-10
+    _DEFAULT_NEWTON_MAX_IT: int = 25
     _DEFAULT_DIAGNOSTICS: bool = False
     _DEFAULT_DIAGNOSTICS_EVERY: int = 1
 
@@ -142,12 +172,21 @@ class StaticNonlinearSolver(Solver):
             sorted(set(range(n_dof)) - set(dirichlet_dofs)), dtype=np.int64
         )
 
+        scheme = str(params.get("scheme", self._DEFAULT_SCHEME)).lower()
+        if scheme not in self._SCHEMES:
+            raise ValueError(
+                f"Unknown StaticNonlinearSolver scheme {scheme!r}; expected one of {self._SCHEMES}"
+            )
+
         n_steps = max(1, int(params.get("continuation_steps", self._DEFAULT_CONTINUATION_STEPS)))
         max_steps = max(
             n_steps,
             int(params.get("continuation_max_steps", self._DEFAULT_CONTINUATION_MAX_STEPS)),
         )
         diagnostics = bool(params.get("diagnostics", self._DEFAULT_DIAGNOSTICS))
+
+        if scheme == "newton":
+            return self._solve_newton(f_ext, free_dofs, n_dof, params, n_steps, max_steps, diagnostics)
 
         u_tot = np.zeros(n_dof, dtype=np.float64)
         lam = 0.0
@@ -209,6 +248,113 @@ class StaticNonlinearSolver(Solver):
             raise RuntimeError(
                 "StaticNonlinearSolver (UL) did not reach full load: "
                 f"lambda={lam:.6f} after {step} steps (max_steps={max_steps})"
+            )
+        return self.u
+
+    def _solve_newton(
+        self,
+        f_ext: np.ndarray,
+        free_dofs: np.ndarray,
+        n_dof: int,
+        params: dict,
+        n_steps: int,
+        max_steps: int,
+        diagnostics: bool,
+    ) -> np.ndarray:
+        """Total-Lagrangian Newton on ``f_int(u) - lam F`` with load stepping.
+
+        A step whose corrector fails is retried with half the load increment; the attempts
+        count against ``max_steps``.
+        """
+        import _aeroelast  # noqa: PLC0415 — optional Rust extension
+
+        rust = self.domain._rust
+        rtol = float(params.get("newton_rtol", self._DEFAULT_NEWTON_RTOL))
+        etol = float(params.get("newton_etol", self._DEFAULT_NEWTON_ETOL))
+        max_it = int(params.get("newton_max_it", self._DEFAULT_NEWTON_MAX_IT))
+        f_free_norm = float(np.linalg.norm(f_ext[free_dofs]))
+
+        def corrector(u0: np.ndarray, lam_target: float) -> tuple[np.ndarray, bool, int, float]:
+            u = u0.copy()
+            f_target = lam_target * f_ext
+            ref_energy = None
+            res = float("inf")
+            for it in range(max_it):
+                r = np.asarray(rust.assemble_fint(np.ascontiguousarray(u), True)) - f_target
+                res = float(np.linalg.norm(r[free_dofs]))
+                if res <= rtol * lam_target * f_free_norm:
+                    return u, True, it, res
+                rows, cols, vals = rust.assemble_kt(np.ascontiguousarray(u))
+                du = np.asarray(
+                    _aeroelast.linear_static_solve_coo(
+                        rows.astype(np.int64),
+                        cols.astype(np.int64),
+                        vals.astype(np.float64),
+                        -r,
+                        n_dof,
+                        free_dofs,
+                    ),
+                    dtype=np.float64,
+                )
+                if not np.all(np.isfinite(du)):
+                    return u0, False, it, res
+                energy = abs(float(du[free_dofs] @ r[free_dofs]))
+                if ref_energy is None:
+                    ref_energy = energy
+                u += du
+                if ref_energy > 0.0 and energy <= etol * ref_energy:
+                    return u, True, it + 1, res
+            return u0, False, max_it, res
+
+        u_tot = np.zeros(n_dof, dtype=np.float64)
+        lam = 0.0
+        dlam = 1.0 / float(n_steps)
+        attempts = 0
+        total_it = 0
+        res = 0.0
+        t0 = perf_counter()
+        while lam < 1.0 - 1e-14:
+            if attempts >= max_steps:
+                _log.error(
+                    "[Newton] max steps reached (attempts=%d, max=%d) at lambda=%.6f",
+                    attempts,
+                    max_steps,
+                    lam,
+                )
+                break
+            attempts += 1
+            lam_try = min(1.0, lam + dlam)
+            u_new, ok, n_it, res = corrector(u_tot, lam_try)
+            total_it += n_it
+            if not ok:
+                dlam *= 0.5
+                _log.warning(
+                    "[Newton] corrector failed at lambda=%.6f (|R|=%.3e); halving dlam to %.3e",
+                    lam_try,
+                    res,
+                    dlam,
+                )
+                continue
+            u_tot = u_new
+            lam = lam_try
+            if diagnostics:
+                _log.info(
+                    "[Newton] lambda=%.5f its=%d |R|=%.3e (%.2fs)",
+                    lam,
+                    n_it,
+                    res,
+                    perf_counter() - t0,
+                )
+
+        converged = lam >= 1.0 - 1e-14
+        self.u = u_tot
+        self._iterations = total_it
+        self._residual_norm = res
+        self._converged_reason = 2 if converged else -1
+        if not converged:
+            raise RuntimeError(
+                "StaticNonlinearSolver (newton) did not reach full load: "
+                f"lambda={lam:.6f} after {attempts} attempts (max_steps={max_steps})"
             )
         return self.u
 
