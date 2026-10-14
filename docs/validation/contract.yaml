@@ -823,3 +823,19 @@ verdicts:
     audited_rev: d71c2a7
     note: >-
       Round-off bound: a rigid motion produces no strain, so f_int(u_rigid) = 0 (closed form), but the test only checks that our assembly returns it. Measured 5.39e-13 / 5.68e-13 / 8.62e-13 at 1 / 5 / 30 deg relative to the 1e-3 stretch force scale, against 1e-9. Same mesh and scope limits as the tangent row. Counts as identity.
+  - target: ul_elastica.test_elastica_tip_deflection.1_0_0_30172_32_0_02
+    class: physics
+    verdict: rejected
+    audited_rev: 832b00e
+    arbiters:
+      - {kind: analytical, label: "Bisshopp & Drucker (1945) closed-form elastica, tabulated by Bathe & Bolourchi (1979)"}
+    note: >-
+      Rejected (maintainer decision (a), 2026-10-13): the UL tip deflection (alpha=1) is 3.6347 % from the closed-form elastica against a 2 % bound, so the element does not meet the bound the test states. The test is a documented xfail. Measured at 5fae86c (SLURM 11614671), reproduced exactly in the valid environment. The stiff bias is step-independent (about 4 % over load-step refinement), but no mesh-refinement table backs or drops the claim that it is not a mesh effect; that table needs a physics run and stays open.
+  - target: ul_elastica.test_elastica_tip_deflection.2_0_0_49346_64_0_02
+    class: physics
+    verdict: rejected
+    audited_rev: 832b00e
+    arbiters:
+      - {kind: analytical, label: "Bisshopp & Drucker (1945) closed-form elastica, tabulated by Bathe & Bolourchi (1979)"}
+    note: >-
+      Rejected (maintainer decision (a), 2026-10-13): the UL tip deflection (alpha=2) is 4.2658 % from the closed-form elastica against a 2 % bound, so the element does not meet the bound the test states. The test is a documented xfail. Measured at 5fae86c (SLURM 11614671), reproduced exactly in the valid environment. The stiff bias is step-independent (about 4 % over load-step refinement), but no mesh-refinement table backs or drops the claim that it is not a mesh effect; that table needs a physics run and stays open.
