@@ -37,6 +37,7 @@ from aeroelast.core.mesh.entities import ElementType
 from aeroelast.core.properties import ShellProperty
 from aeroelast.elements import ElementFamily
 from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
+from tests.support.assertions import assert_relative_error
 
 R = 2.25
 T = 0.08
@@ -49,17 +50,16 @@ N_WEB = 16
 # Span resolution from the measured convergence of the tip deflection
 # (beam anchor delta = 24.5254 m, the test bounds the relative gap at 1%):
 #
-#   n_arc/n_web/n_z = 32/16/100   23.3594 m   4.75%   <- the earlier value
-#   n_arc/n_web/n_z = 64/32/100   23.3862 m   4.65%   (section alone: no help)
-#   n_arc/n_web/n_z = 64/32/200   24.2549 m   1.10%   (span: converged)
-#   n_arc/n_web/n_z = 96/48/200   24.2561 m   1.10%   (more section: no change)
+#   n_arc/n_web/n_z = 32/16/100   23.3594 m   -4.75%
+#   n_arc/n_web/n_z = 32/16/200   24.2624 m   -1.07%   <- the former setting
+#   n_arc/n_web/n_z = 32/16/300   24.4386 m   -0.35%
+#   n_arc/n_web/n_z = 32/16/400   24.5010 m   -0.10%   (SLURM 11614803)
 #
-# The 4.75% was span discretisation and is gone.  What is left is a converged
-# 1.10% and it is left red on purpose: it is about ten times the transverse
-# shear estimate in the module docstring (w*L^2/(2GA) ~ 0.1%), so the residual
-# is an open question about the element's bending-shear response, not a mesh
-# artefact and not something to absorb by widening the bound.
-NZ = 200
+# The 1.07% that this module used to call "a converged, open question about the element's
+# bending-shear response" was span discretisation: the sequence keeps closing on the beam value
+# (and CalculiX S8R on the same tube is mesh-independent at +1.90%, see test_dtube_calculix.py).
+# Section resolution never mattered (64/32 and 96/48 at 200 layers differ by 5e-5).
+NZ = 400
 
 A_SEC = np.pi * R * T + 2.0 * R * T
 Y_C = -(2.0 * R / np.pi) * (np.pi * R * T) / A_SEC
@@ -181,7 +181,14 @@ def dtube_linear():
 
 def test_applied_traction_resultant(dtube_linear):
     """The discretized traction integrates to w*L = p*D*L (vertical)."""
-    assert dtube_linear["f_y_total"] == pytest.approx(W_RES * L, rel=1e-3)
+    assert_relative_error(
+        dtube_linear["f_y_total"],
+        W_RES * L,
+        tol=1e-3,
+        kind="analytical",
+        reference_name="the traction resultant p D L",
+        what="D-Tube discretised traction resultant",
+    )
 
 
 def test_dtube_tip_deflection_matches_beam_theory(dtube_linear):
@@ -190,11 +197,13 @@ def test_dtube_tip_deflection_matches_beam_theory(dtube_linear):
     The linear shell must reproduce beam theory (bending about the
     centroidal axis) well inside 1% for a prismatic closed section.
     """
-    tip_uy = dtube_linear["tip_uy"]
-    rel = abs(tip_uy - DELTA_REF) / DELTA_REF
-    assert rel < 0.01, (
-        f"D-Tube tip {tip_uy:.3f} m vs beam theory {DELTA_REF:.3f} m "
-        f"(I_c={I_C:.4f} m^4, rel {rel:.2%} > 1%)"
+    assert_relative_error(
+        dtube_linear["tip_uy"],
+        DELTA_REF,
+        tol=0.01,
+        kind="analytical",
+        reference_name="the prismatic cantilever w L^4 / (8 E I_c) about the section centroid",
+        what="D-Tube tip deflection",
     )
 
 
@@ -219,7 +228,7 @@ def dtube_torsion():
     the torsional error is controlled by the wall discretization
     (32 arc elements -> 2.10%, 64 -> 0.92%, span refinement has no effect).
     """
-    mesh, _arc_nodes, _thetas = _build_dtube_mesh(n_arc=64, n_web=32)
+    mesh, _arc_nodes, _thetas = _build_dtube_mesh(n_arc=64, n_web=32, n_z=100)  # span refinement has no effect on GJ
     prop = ShellProperty(
         material=IsotropicMaterial(name="Steel", E=E, nu=NU, rho=7850.0),
         thickness=T,
@@ -289,9 +298,11 @@ def test_dtube_torsion_matches_bredt(dtube_torsion):
     the relative transverse displacement of the web ends.  With the 64
     arc-element mesh the error is 0.92% (converged in the span).
     """
-    gj_num = dtube_torsion["gj_num"]
-    rel = abs(gj_num - GJ_EXACT) / GJ_EXACT
-    assert rel < 0.02, (
-        f"D-Tube GJ {gj_num:.4e} vs Bredt {GJ_EXACT:.4e} N m^2 "
-        f"(rel {rel:.2%} > 2%)"
+    assert_relative_error(
+        dtube_torsion["gj_num"],
+        GJ_EXACT,
+        tol=0.02,
+        kind="analytical",
+        reference_name="Bredt-Batho closed-cell torsional stiffness G 4 A^2 / oint(ds/t)",
+        what="D-Tube torsional stiffness GJ",
     )

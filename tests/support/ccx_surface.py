@@ -16,8 +16,13 @@ Point = Callable[[float, float], tuple[float, float, float]]
 Boundary = Callable[[float, float, float], Iterable[int]]  # xyz -> constrained dofs, 1-based
 
 
-def node_id(i: int, j: int, nu: int) -> int:
-    """Id of the grid point ``(i, j)``, ``i`` in ``0..2nu``, ``j`` in ``0..2nv``."""
+def node_id(i: int, j: int, nu: int, *, periodic: bool = False) -> int:
+    """Id of the grid point ``(i, j)``, ``i`` in ``0..2nu``, ``j`` in ``0..2nv``.
+
+    With ``periodic`` the column ``2nu`` is the column ``0`` (a closed loop in ``u``).
+    """
+    if periodic:
+        return j * (2 * nu) + (i % (2 * nu)) + 1
     return j * (2 * nu + 1) + i + 1
 
 
@@ -35,18 +40,22 @@ def write_s8r_surface_deck(
     gravity: tuple[float, float, float] | None = None,
     nodal_loads: dict[int, tuple[int, float]] | None = None,
     print_nodes: Iterable[int] = (),
+    periodic_u: bool = False,
+    pressure: tuple[Callable[[int, int], bool], float] | None = None,
 ) -> dict[int, np.ndarray]:
     """Write the deck and return the node coordinates by id.
 
     ``gravity`` is the acceleration vector applied with ``*DLOAD ... GRAV`` (needs ``density``).
     ``nodal_loads`` maps a node id to ``(dof, value)``. ``print_nodes`` are written to the ``.dat``
     with ``*NODE PRINT`` (read them with ``read_dat_displacements``): the ``.frd`` of a shell model
-    holds the expanded 3D nodes, not the ids of this deck.
+    holds the expanded 3D nodes, not the ids of this deck. ``periodic_u`` closes the patch into a
+    loop in ``u``. ``pressure`` is ``(select, value)``: ``select(ei, ej)`` picks the elements that
+    get ``*DLOAD ... P`` (positive pressure acts against the element normal ``dr/du x dr/dv``).
     """
     coords: dict[int, np.ndarray] = {}
     for j in range(2 * nv + 1):
-        for i in range(2 * nu + 1):
-            coords[node_id(i, j, nu)] = np.asarray(
+        for i in range(2 * nu if periodic_u else 2 * nu + 1):
+            coords[node_id(i, j, nu, periodic=periodic_u)] = np.asarray(
                 point(i / (2 * nu), j / (2 * nv)), dtype=float
             )
 
@@ -56,6 +65,7 @@ def write_s8r_surface_deck(
 
     lines.append("*ELEMENT, TYPE=S8R, ELSET=SHELL")
     eid = 0
+    pressured: list[int] = []
     for ej in range(nv):
         for ei in range(nu):
             i, j = 2 * ei, 2 * ej
@@ -64,7 +74,14 @@ def write_s8r_surface_deck(
                 (i + 1, j), (i + 2, j + 1), (i + 1, j + 2), (i, j + 1),
             ]  # fmt: skip
             eid += 1
-            lines.append(f"{eid}, " + ", ".join(str(node_id(a, b, nu)) for a, b in ring))
+            if pressure is not None and pressure[0](ei, ej):
+                pressured.append(eid)
+            lines.append(
+                f"{eid}, " + ", ".join(str(node_id(a, b, nu, periodic=periodic_u)) for a, b in ring)
+            )
+    if pressured:
+        lines.append("*ELSET, ELSET=PRESSURED")
+        lines += [f"{e}," for e in pressured]
 
     lines += [
         "*MATERIAL, NAME=MAT",
@@ -85,6 +102,8 @@ def write_s8r_surface_deck(
         g = float(np.linalg.norm(gravity))
         d = np.asarray(gravity, dtype=float) / g
         lines.append(f"*DLOAD\nSHELL, GRAV, {g:.12e}, {d[0]:.12e}, {d[1]:.12e}, {d[2]:.12e}")
+    if pressure is not None and pressured:
+        lines.append(f"*DLOAD\nPRESSURED, P, {pressure[1]:.12e}")
     if nodal_loads:
         lines.append("*CLOAD")
         for nid, (dof, value) in nodal_loads.items():

@@ -1404,6 +1404,28 @@ groups:
       -0.07 and -0.09). The closed form is a Timoshenko strip in in-plane bending with moduli
       from the membrane matrix A, built in the test with numpy.
 
+  - id: '50'
+    title: D-Tube cantilever (Camarena and Anderson 2025) against beam theory and Bredt-Batho
+    slug: dtube_camarena_bending
+    reference_kind: analytical
+    source_files:
+      - tests/test_dtube_camarena_bending.py
+    provenance_note: >-
+      Prismatic D-section cantilever, L = 100 m, R = 2.25 m, t = 80 mm. The tip deflection closes
+      on the beam value with span refinement (-4.75 / -1.07 / -0.35 / -0.10 % at 100 / 200 / 300 /
+      400 layers); the former "converged 1.10 %" was span discretisation.
+
+  - id: '51'
+    title: D-Tube cantilever against CalculiX S8R
+    slug: dtube_calculix
+    reference_kind: analytical
+    source_files:
+      - tests/test_dtube_calculix.py
+    provenance_note: >-
+      The same tube in a second shell code. CalculiX S8R is mesh-independent at +1.90 % over the
+      beam value (24.992 m), 2 points away from the MITC4 sequence; the circular-tube control
+      reads +0.40 %, which the Timoshenko shear term (about +0.5 %) accounts for.
+
 # There is no drift bucket any more. The directory is the classification: a
 # test under `tests/validation/` validates a physical quantity against an
 # independent reference and needs a group and a row; a test under
