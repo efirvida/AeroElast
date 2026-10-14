@@ -1,6 +1,6 @@
 """Diagnose which tip-deflection measure matches the D-Tube beam reference.
 
-Solves the same linear problem as tests/test_dtube_camarena_bending.py and reports the
+Solves the same linear problem as tests/validation/benchmarks/test_dtube_camarena_bending.py and reports the
 tip uy as: arc-node mean (the test's measure), web-node mean, all-node mean, and the
 section-centroid-equivalent (area-weighted over the tip ring). Read-only on the test.
 """

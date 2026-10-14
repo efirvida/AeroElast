@@ -1409,7 +1409,7 @@ groups:
     slug: dtube_camarena_bending
     reference_kind: analytical
     source_files:
-      - tests/test_dtube_camarena_bending.py
+      - tests/validation/benchmarks/test_dtube_camarena_bending.py
     provenance_note: >-
       Prismatic D-section cantilever, L = 100 m, R = 2.25 m, t = 80 mm. The tip deflection closes
       on the beam value with span refinement (-4.75 / -1.07 / -0.35 / -0.10 % at 100 / 200 / 300 /
@@ -1420,7 +1420,7 @@ groups:
     slug: dtube_calculix
     reference_kind: analytical
     source_files:
-      - tests/test_dtube_calculix.py
+      - tests/validation/benchmarks/test_dtube_calculix.py
     provenance_note: >-
       The same tube in a second shell code. CalculiX S8R is mesh-independent at +1.90 % over the
       beam value (24.992 m), 2 points away from the MITC4 sequence; the circular-tube control

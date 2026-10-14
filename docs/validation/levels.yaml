@@ -49,11 +49,6 @@ levels:
       - src/aeroelast/core/bc.py
       - src/aeroelast/solvers/modal.py
     gaps: []
-    absent:
-      - evidence: tests/test_dtube_camarena_bending.py
-        reason: >-
-          D-Tube bending against Camarena: a documented-red accuracy case outside the store; it
-          needs an exception with a quantified source or a verdict of rejected.
 
   - id: L2
     title: Linear structural solver against published results and CalculiX
