@@ -39,6 +39,7 @@ def write_s8r_surface_deck(
     density: float = 0.0,
     gravity: tuple[float, float, float] | None = None,
     nodal_loads: dict[int, tuple[int, float]] | None = None,
+    load_field: dict[int, tuple[float, float, float]] | None = None,
     print_nodes: Iterable[int] = (),
     periodic_u: bool = False,
     pressure: tuple[Callable[[int, int], bool], float] | None = None,
@@ -47,7 +48,8 @@ def write_s8r_surface_deck(
     """Write the deck and return the node coordinates by id.
 
     ``gravity`` is the acceleration vector applied with ``*DLOAD ... GRAV`` (needs ``density``).
-    ``nodal_loads`` maps a node id to ``(dof, value)``. ``print_nodes`` are written to the ``.dat``
+    ``nodal_loads`` maps a node id to ``(dof, value)``; ``load_field`` maps a node id to
+    the three fixed global force components (dead CLOAD). ``print_nodes`` are written to the ``.dat``
     with ``*NODE PRINT`` (read them with ``read_dat_displacements``): the ``.frd`` of a shell model
     holds the expanded 3D nodes, not the ids of this deck. ``periodic_u`` closes the patch into a
     loop in ``u``. ``pressure`` is ``(select, value)``: ``select(ei, ej)`` picks the elements that
@@ -100,20 +102,35 @@ def write_s8r_surface_deck(
         for dof in sorted(set(boundary(*map(float, xyz)))):
             lines.append(f"{nid}, {dof}, {dof}")
 
+    if load_field:
+        for nid, force in load_field.items():
+            if nid not in coords:
+                raise ValueError(f"unknown load node: {nid}")
+            if len(force) != 3 or not np.all(np.isfinite(force)):
+                raise ValueError(f"invalid load vector at node: {nid}")
+
     if nlgeom is None:
         lines.append("*STEP\n*STATIC")
     else:
-        lines.append(f"*STEP, NLGEOM, INC={20 * nlgeom}\n*STATIC\n{1.0 / nlgeom:.6e}, 1.0, 1e-8, {1.0 / nlgeom:.6e}")
+        lines.append(
+            f"*STEP, NLGEOM, INC={20 * nlgeom}\n*STATIC\n{1.0 / nlgeom:.6e}, 1.0, 1e-8, {1.0 / nlgeom:.6e}"
+        )
     if gravity is not None:
         g = float(np.linalg.norm(gravity))
         d = np.asarray(gravity, dtype=float) / g
         lines.append(f"*DLOAD\nSHELL, GRAV, {g:.12e}, {d[0]:.12e}, {d[1]:.12e}, {d[2]:.12e}")
     if pressure is not None and pressured:
         lines.append(f"*DLOAD\nPRESSURED, P, {pressure[1]:.12e}")
-    if nodal_loads:
+    if nodal_loads or load_field:
         lines.append("*CLOAD")
-        for nid, (dof, value) in nodal_loads.items():
-            lines.append(f"{nid}, {dof}, {value:.12e}")
+        if nodal_loads:
+            for nid, (dof, value) in nodal_loads.items():
+                lines.append(f"{nid}, {dof}, {value:.12e}")
+        if load_field:
+            for nid, force in load_field.items():
+                for dof, value in enumerate(force, start=1):
+                    if value != 0.0:
+                        lines.append(f"{nid}, {dof}, {value:.12e}")
     printed = sorted(set(print_nodes))
     if printed:
         lines.append("*NSET, NSET=PRINTED")
