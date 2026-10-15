@@ -260,3 +260,25 @@ Remaining PRE-3: relabel G21, enter L2 verdicts where supported, merge to main a
 **Correction (same session).** The Newmark period error `(w dt)^2/24` used in `tools/g43_decomp.py` and quoted above (-0.007 %) was wrong by a factor 2: trapezoidal dispersion is `omega_d = (2/dt) atan(omega dt/2)` = `omega (1-(omega dt)^2/12)`, i.e. -0.0145 %. New test `test_newmark_frequency_matches_discrete_dispersion` (tol 0.05 % fixed before measuring) isolates the integrator: 6.64195 vs 6.64126 Hz, 0.0105 % (SLURM 11616428, `logs/check/l2-audit/g43-dispersion.log`). The G43 maintainer decision on a tight Newmark check is therefore closed.
 
 **Staleness trap (same session).** `docs/validation/levels.yaml` lists `tests/test_iea15mw_s3_newmark_transient.py` in L2 `depends_on`, so any edit to that file (even adding one test function) makes all L2 verdicts stale: commit `af95fa8` turned 54 verdicts stale. Fixed by re-measuring all 13 L2 groups at `af95fa8` (SLURM 11616430-42, `logs/check/l2-audit/restamp-g*.log`: every comparison `same`, source digest unchanged) and restamping `audited_rev` to `af95fa8`. Before editing a file named in a level's `depends_on`, expect this cost. L2 now: trusted 54, undecided 4, unaudited 12, 0 stale. Check: 269 rows / 374 comparisons / 0 errors.
+
+## Handoff 2026-10-15 (CLOSE of the fourth PRE-3 session; supersedes the "Unfinished" lists above)
+
+**Goal.** PRE-3 (B2/L2 audit) of this feature. Rules: analytic/paper reference first, numerical arbiter non-gating; predeclare criteria before measuring; branch per work unit, ALWAYS merge to main and delete it; never widen a bound to pass.
+
+**State (main = origin/main, HEAD `c3ce2c4`, tree clean, no branches/worktrees left).** L2: trusted 54, undecided 4, unaudited 12, 0 stale, 13 single-or-no-arbiter, gap `composite_stress_recovery` (a) raw ABD dict still blocking. `validation_matrix.py check`: 269 rows / 374 comparisons / 0 errors.
+
+**Decisions and why.**
+- Baselines written (`regression --write`, gitshim at HEAD): G4, G6, G7, G9, G18, G43 -> 19 verdicts (17 trusted, 2 undecided). Only rows measured and reproduced get a verdict.
+- G43 Newmark: new test `test_newmark_frequency_matches_discrete_dispersion` (tol 0.05 % fixed before measuring) uses the fixture's own generalized eigenfrequency of the same K, M (not `ModalSolver`: it would pair different operators) and `omega_d = (2/dt) atan(omega dt/2)`. Measured 0.0105 %. The earlier `/24` was wrong; correct is `/12` (-0.0145 %).
+- All 54 L2 verdicts restamped to `af95fa8` after re-measuring all 13 groups (every comparison `same`), because `levels.yaml` L2 `depends_on` lists the Newmark test file and any edit to it stales the whole level.
+- Worktrees `t7a4-follow` and the 15 detached ones no longer exist (nothing to rescue); main pushed after rebase over `8f7d9d0` (pyproject floors only).
+
+**Evidence.** `regression --write` SLURM 11616411-16, 11616425, 11616429 (logs `logs/check/l2-audit/write-g*.log`); `pytest ... -k frequency` SLURM 11616428 -> 2 passed (2.9385 % vs EB, 0.0105 % vs dispersion); re-measure SLURM 11616430-42 -> 13 groups all `same`, digest unchanged; `contract --level L2` -> 54/4/12/0 stale.
+
+**Unfinished.**
+1. Undecided (need cause or mesh sweep): G4 orthotropic bending 3.648 % vs closed form; G18 quasi_iso transverse bending 1.757 % (clamped-root attribution unmeasured); G17 loaded-node axial tension/compression (point-load singularity diverges).
+2. 12 unaudited: 5 G18 modal rows + `multi_layer_iso_equivalence` (no analytic arbiter; numerical is non-gating), G21 relabel `self` -> `code` + verdicts, G24 row 1 (`atol` 1e-6 identity), G26 deck row, G55 rows 4-5.
+3. Gap `composite_stress_recovery` (a) raw ABD dict.
+4. B1: 2 rejected G33 rows, 2 hypar pins. Then B3-1..3, PRE-4 (out of scope here; no GitHub edits, no P1).
+
+**Next concrete step.** New branch `audit/pre3-sweeps` from main; write a mesh sweep for G4 orthotropic bending (model on `tools/g4_g8_ccx_convergence.py`; predeclare the criterion first), run it on SLURM (`sbatch -p sequana_cpu --ntasks=1 --time=40`, `PYTHONPATH=$SCRATCH/validenv scripts/aeroenv.sh python ...`), then the G18 quasi_iso bending sweep, then verdicts. Do NOT edit `tests/test_iea15mw_s3_newmark_transient.py` without budgeting a full L2 re-measure.
