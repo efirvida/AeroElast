@@ -113,3 +113,17 @@ Weighting rule applied (analytical reference decides). Numbers are SLURM 1161623
 
 - **G6 clamped-root convergence** (`test_thin_walled_tube_torsion.py:614`): metric = |theta_z rate over 0.4L-0.9L at L=24 m / (T/GJ) - 1|, reference the Bredt-Batho closed form (analytical, independent). t=10 mm **0.677 %**, t=0.5 mm **0.701 %**, bound 5 %. The 0.677 / 0.701 were percentages, not rates (rates 1.00677 / 1.00701). Convergence trend in L (6, 12, 24 m) is printed by the test, `theta_fit` is deliberately not asserted. Supports a verdict.
 - **G9 CCX element types** (`test_ccx_shell_element_types_parity.py:350`): metric = |CCX tip deflection / Euler-Bernoulli - 1| at one mesh (8x4): S4 **0.614 %**, S8 **0.225 %**, S8R **0.493 %**, bound 2 %; reference analytical. The source docstring carries a 4x2/8x4/16x8 study (spread 2.67 -> 1.11 -> 0.42 %) that converges toward the closed form, but only the 8x4 mesh is asserted, so the trend is documented, not enforced. This group validates CalculiX, i.e. the arbiter, not AeroElast. Open: whether to count the docstring study as the convergence evidence or re-measure it.
+
+## Addendum 2026-10-15 - G9 mesh convergence re-measured (SLURM 11616296, `tools/g9_ccx_convergence.py`)
+
+CalculiX 2.23, same deck/loads as the test, meshes 4x2 .. 64x32. Closed forms: Euler-Bernoulli 1.1428571e-2 m, Timoshenko (kappa 5/6) 1.1517714e-2 m (shear share +0.780 %). Error vs EB / vs Timoshenko:
+
+| mesh | S4 | S8 | S8R |
+|---|---|---|---|
+| 4x2 | -2.55 / -3.30 | -0.90 / -1.67 | +0.06 / -0.71 |
+| 8x4 | -0.61 / -1.38 | +0.23 / -0.55 | +0.49 / -0.28 |
+| 16x8 | +0.15 / -0.63 | +0.48 / -0.30 | +0.57 / -0.21 |
+| 32x16 | +0.44 / -0.34 | +0.56 / -0.22 | +0.59 / -0.19 |
+| 64x32 | +0.54 / -0.23 | +0.59 / -0.19 | +0.60 / -0.18 |
+
+Findings: (1) the docstring table reproduces to the digit, so the 4x2/8x4/16x8 study is now measured evidence; (2) all three types converge monotonically (spread S4-vs-S8R 0.06 % at 64x32) to about +0.60 % above Euler-Bernoulli, i.e. **not** to the asserted reference: the docstring's "every formulation moves towards the analytical value" is wrong for S8/S8R (they pass it by at 8x4); (3) the limit is the shear-flexible one: Timoshenko explains +0.78 %, the remaining -0.18 % is plate effect (finite width, clamped-edge Poisson restraint, kappa choice), not quantified here. For G9 the analytic EB reference stays the deciding one (all rows within the 2 % bound, converged limit 0.60 %); the converged-mesh requirement is met, but the limit sits 0.6 % from the reference by physics, so the 2 % bound is not a refinement-tightenable number.
