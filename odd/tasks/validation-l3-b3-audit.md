@@ -339,3 +339,17 @@ Maintainer-approved contract change: `StressRecovery` raises `ValueError` (namin
 **Traps.** (a) Editing any file named in a level's `depends_on` (`levels.yaml`) or in a verdict's `files` stales verdicts; re-measure the group with `validation_matrix.py regression --group N` (SLURM, ~1 min) and restamp `audited_rev`. (b) `logs/` is ignored: put numbers that matter in the doc, not only in a log. (c) A single numerical arbiter makes a trusted row `unarbitrated`.
 
 **Next concrete step.** New branch `audit/pre3-multilayer-iso` from main; read the test body of `test_multi_layer_iso_equivalence`, decide closed form vs pin, write the verdict (then `check`, `contract --level L2`), merge ff to main and delete the branch. SLURM: `sbatch -p sequana_cpu --ntasks=1 --time=40`.
+
+## Continuation: multilayer pin and inherited L2 freshness
+
+User request (verbatim):
+> multi_layer_iso_equivalence. Primero el closed form (D = E·
+>    h³/(12(1−ν²))) y, si no encaja, lo pino como regression_pin.
+>  - Después: G21 (segundo árbitro o declararlo unarbitrated), las 3 advertencias de las
+>    herramientas g4/g18, B1 y B3.
+>  - Para vos: el push de main.
+
+- Multilayer verdict committed in `f27ac22` on `audit/pre3-multilayer-iso`, audited at `322d966`, as `regression_pin`. The asserted observable is the relative norm of two internally assembled K matrices, not an analytical section stiffness. A separate laminate-side check with E=70e9, nu=0.3, h=0.01 and four identical plies gives A11/A12/A66 and D11/D12/D66 relative errors no larger than 2.22e-16, B=0. This does not make the existing K comparison independent physics validation. Its 1e-4 bound is unchanged.
+- Checks: focused equivalence test **1 passed**; `scripts/check.sh quick` **75 passed, 1 xfailed**, exit 0; matrix check **269 rows / 374 comparisons / 0 errors / 0 warnings**. Logs: `logs/check/multilayer-pin-focused.log`, `logs/check/multilayer-pin-quick.log` (ignored; summary retained here). No solver or Rust source changed; no full suite run. RDD mode reports off globally; no native review started.
+- **Correction to the preceding handoff:** L2 is not fresh. `contract --level L2` reports 69 stale plus the new pin; the parent revision already reported 69 stale and one unaudited row. `levels.yaml` declares `src/aeroelast/postprocess` as an L2 dependency; `git log --format='%h %s' 28dcbd8..HEAD -- src/aeroelast/postprocess` returns `5a9fe64` (raw-ABD stress refusal). Thus older L2 verdicts are conservatively invalidated by a real shared dependency change. No verdicts were re-stamped. The explorer's gitshim explanation was only a hypothesis: `command -v git` returns `/usr/bin/git` and Git resolves the tested range. A detailed contract query timed out after 30 s and was not retried.
+- Outstanding: revalidate affected L2 measurements before restamping, reconcile G21, fix and rerun the three tool advisories, then B1/B3. No merge or push yet. Scientific blockers must remain explicit; pushing main is authorized but does not establish level closure.
