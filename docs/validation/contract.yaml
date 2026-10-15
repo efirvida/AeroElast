@@ -1794,3 +1794,10 @@ verdicts:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
       AeroElast 400 layers vs CalculiX S8R 100 layers: 0.1624 % against a 1 % bound, with both codes converged (AE within -0.05 % and CCX within +0.12 % of the closed form, which accounts for the gap). The closed form arbitrates; the code-vs-code agreement is context.
+  - target: laminate_bend_twist.test_independent_ccx_deck_confirms_the_c.single
+    class: regression_pin
+    verdict: trusted
+    audited_rev: af95fa8
+    files: [tools/g26_ccx_deck_convergence.py]
+    note: >-
+      Code parity against a hand-authored CCX S8R deck, not validation: the free-edge CLT rows of this group carry it. Paired sweep 2x12..16x96 (criterion predeclared in the tool): [45,0,0,45]s and [45,-45,-45,45]s CLOSE (last step element -0.26 / +0.90 %, CCX +0.06 / +0.07 %, gap 0.17 / 0.66 %); [60,0,0,60]s does NOT: CCX is converged (+0.21 %) but the element still moves -3.06 % from 8x48 to 16x96, the gap closing monotonically 32.6 / 12.9 / 5.2 / 1.7 % without reaching a limit. The test's 1.95 % pairs element 16x96 with CCX 8x48; at equal 16x96 the gap is 1.73 %. Counts toward no level.
