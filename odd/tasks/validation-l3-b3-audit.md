@@ -282,3 +282,26 @@ Remaining PRE-3: relabel G21, enter L2 verdicts where supported, merge to main a
 4. B1: 2 rejected G33 rows, 2 hypar pins. Then B3-1..3, PRE-4 (out of scope here; no GitHub edits, no P1).
 
 **Next concrete step.** New branch `audit/pre3-sweeps` from main; write a mesh sweep for G4 orthotropic bending (model on `tools/g4_g8_ccx_convergence.py`; predeclare the criterion first), run it on SLURM (`sbatch -p sequana_cpu --ntasks=1 --time=40`, `PYTHONPATH=$SCRATCH/validenv scripts/aeroenv.sh python ...`), then the G18 quasi_iso bending sweep, then verdicts. Do NOT edit `tests/test_iea15mw_s3_newmark_transient.py` without budgeting a full L2 re-measure.
+
+## Handoff 2026-10-15 (CLOSE of the fifth PRE-3 session; supersedes the "Unfinished" lists above)
+
+**State (main, HEAD `0760d76` + this handoff, tree clean, no branches left, NOT pushed: 8 commits ahead of origin).** L2: trusted 59, regression_pin 3, unarbitrated 2, unaudited 6, 0 undecided, 0 stale; gap `composite_stress_recovery` (a) raw ABD dict still blocking. `validation_matrix.py check`: 269 rows / 374 comparisons / 0 errors.
+
+**Done this session (each on a branch merged ff to main and deleted).**
+- G4 in-plane bending 3.648 % vs EB = Timoshenko shear (+3.93 % at L/B = 10); sweep 4x10..32x80 converges, +0.178 % vs EB+T. `tools/g4_bending_sweep.py`. Trusted.
+- G18 quasi_iso bending: test's -1.757 % is the coarse 4x10 number; ny=80 gives -1.05 %, the rest is clamped-root restraint, scaling with B/L (-1.03/-0.49/-0.24/-0.15 % for B = 0.1..0.0125), control sym_0_90s <= 0.02 %. `tools/g18_quasi_iso_root_sweep.py`. Trusted.
+- G17 loaded-node axial (2 rows): `regression_pin` (divergent point-load metric; face-mean closed-form rows carry validation).
+- G21: `kind="self"` was wrong; the reference is the CalculiX C3D20R 3D solid. Relabelled to `code` in the test, store re-extracted and re-measured (SLURM 11616449, 0.2143 % reproduced). 2 verdicts trusted but `unarbitrated` (one numerical arbiter, no closed form).
+- G24 row 1 trusted (|B| 1e-10 at the round-off floor vs bound 1e-6).
+- G55 rows 4-5 trusted (prismatic closed form).
+- G26 deck row: paired sweep (`tools/g26_ccx_deck_convergence.py`): [45,0,0,45]s and [45,-45,-45,45]s close, **[60,0,0,60]s does not** (CCX converged, element still -3.06 % in the last step, gap 1.73 % at 16x96, test's 1.95 % pairs element 16x96 with CCX 8x48). Row pinned as `regression_pin`.
+
+**Native review (RDD) of the G4+G18 commits (lineage review-4bdf7e1f0577dcc0): approved, authority burned.** Three non-blocking advisories, not fixed: (1) `tools/g4_bending_sweep.py:26` the `replace("nx, nz = 4, 10", ...)` is a silent no-op if the builder text changes; (2) `tools/g4_bending_sweep.py:47` the printed gate differs from the docstring criterion; (3) `tools/g18_quasi_iso_root_sweep.py:49-55` the sym_0_90s control is printed, not gated. Fixing a tool does not stale verdicts (tools are not in `files`), but re-run it after.
+
+**Unfinished.**
+1. 6 unaudited G18 rows: 5 modal comparisons + `multi_layer_iso_equivalence` (no analytic arbiter; numerical is non-gating). Earlier note: modals closed by paired convergence (<1 % change, ~0.1 % gap), so the verdict only needs the data to be re-read and written.
+2. Gap `composite_stress_recovery` (a) raw ABD dict.
+3. Decision for the maintainer: G21 needs a second independent arbiter to leave `unarbitrated` (OpenSeesPy cannot build +-45 deg plies); G26 [60,0,0,60]s element convergence is slow (open question: why 60 deg converges slower than 45 deg).
+4. B1: 2 rejected G33 rows, 2 hypar pins. Then B3-1..3, PRE-4 (out of scope here; no GitHub edits, no P1). Push is the maintainer's call.
+
+**Next concrete step.** New branch `audit/pre3-g18-modal` from main; re-read the stored G18 modal paired-convergence numbers (`tools/g18_modal_convergence.py`, log under `logs/check/l2-audit/`), predeclare nothing new, write the 5 verdicts, then decide `multi_layer_iso_equivalence`. SLURM: `sbatch -p sequana_cpu --ntasks=1 --time=40`, gitshim first on PATH for any `regression --write`.
