@@ -27,6 +27,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tests"))
 
+from support.assertions import assert_relative_error  # noqa: E402
 from test_box_torsion_bending_benchmark import (  # noqa: E402
     DOF,
     E,
@@ -157,11 +158,13 @@ def test_undamped_free_vibration_frequency(transient_case):
     crossings = np.where(np.diff(np.sign(s)))[0]
     f_num = (len(crossings) / 2.0) / (N_STEPS * DT)
 
-    rel = abs(f_num - F1_EXACT) / F1_EXACT
-    assert rel < 0.05, (
-        f"free-vibration frequency {f_num:.3f} Hz vs analytic {F1_EXACT:.3f} Hz "
-        f"(rel {rel:.2%} > 5%; the shell's 1st mode is at "
-        f"{transient_case['f1_num']:.3f} Hz)"
+    assert_relative_error(
+        f_num,
+        F1_EXACT,
+        tol=0.05,
+        kind="analytical",
+        reference_name="Euler-Bernoulli cantilever first frequency F1_EXACT",
+        what="Newmark free-vibration frequency (Hz)",
     )
 
 
