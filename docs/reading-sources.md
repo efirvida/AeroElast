@@ -5,9 +5,10 @@ figure value or number. Every document that quotes a source points here. Do not 
 these rules elsewhere: restating them is how they drift apart, which is what this file
 replaced.
 
-Where sources live: `.sources/papers/` (gitignored, recoverable from git history — see
-`docs/validation/references.yaml`). The bibliography that keys them is
-`docs/validation/references.yaml`.
+Where sources live: `.sources/papers/`, a gitignored local copy for development only;
+articles are never committed. The bibliography that keys them is
+`docs/validation/references.yaml` (`held_files`); docs and code cite by DOI and key,
+never by PDF path.
 
 ## Why this exists
 

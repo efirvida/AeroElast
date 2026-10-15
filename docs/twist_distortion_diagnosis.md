@@ -223,10 +223,9 @@ puede afirmar si el de-loading correcto es ≈−15% (viga/ancla) o mayor.
 
 ## 11. La lectura de Camarena y el candidato final: el solver lineal
 
-Leído Camarena & Anderson 2025 (Sandia, *Composite Structures* 360, "A
+Leído Camarena & Anderson 2025 (Sandia, *Composite Structures* 360:118999, "A
 critical verification of beam and shell models of wind turbine blades",
-pala de 100 m, `tests/IEA15MW/validation papers/shell_vs_beam/
-1-s2.0-S0263822325001643-main.pdf`). Puntos clave:
+pala de 100 m, doi:10.1016/j.compstruct.2025.118999). Puntos clave:
 
 1. **Su setup es "static, large-deflection, flap-wise load"** — análisis
    geométricamente NO LINEAL. Nuestro S-8c y todos los tests del twist

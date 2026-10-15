@@ -7,7 +7,7 @@ This test suite does two things:
    reference envelopes.
 
 Reference documents:
-- tests/IEA15MW/75698.pdf (NREL/TP-5000-75698, Chapter 6)
+- Gaertner et al. (2020), NREL/TP-5000-75698, Chapter 6, doi:10.2172/1603478
 - tests/IEA15MW/ch6_dlc_cases.yaml (Table 6-1 transcription)
 - tests/IEA15MW/ch6_dlc_tip_deflection_reference.csv (Figure 6-2 envelopes)
 """
@@ -22,7 +22,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-CH6_PDF = Path("tests/IEA15MW/validation papers/75698.pdf")
 CH6_DLC_CASES_FILE = Path("tests/IEA15MW/ch6_dlc_cases.yaml")
 CH6_DLC_REFERENCE_FILE = Path("tests/IEA15MW/ch6_dlc_tip_deflection_reference.csv")
 
@@ -180,7 +179,6 @@ _MISSING_RESULTS = (
 
 
 def test_ch6_reference_artifacts_exist():
-    assert CH6_PDF.exists(), f"Missing Chapter 6 PDF at {CH6_PDF}"
     assert CH6_DLC_CASES_FILE.exists(), f"Missing DLC case table at {CH6_DLC_CASES_FILE}"
     if not _HAS_DLC_REF:
         pytest.skip(_MISSING_DLC_REF)

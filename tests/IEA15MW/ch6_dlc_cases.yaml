@@ -1,6 +1,6 @@
 # Chapter 6 (NREL/TP-5000-75698) - Table 6-1
 # IEC DLC settings used for V-06 FSI load-assessment validation.
-# Source text extracted from tests/IEA15MW/75698.pdf.txt.
+# Transcribed from Gaertner et al. (2020), doi:10.2172/1603478 (`gaertner2020`).
 
 dlcs:
   - dlc: "1.1"

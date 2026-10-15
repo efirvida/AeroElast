@@ -15,11 +15,11 @@ require re-reading the PDF each time.
 from the PDF with vision (`pdftoppm -png -r 300`, never `pdftotext` for
 equations). Gaps are marked as gaps.
 
-- Paper: Ko, Y., Bathe, K.-J., Zhang, L., *"Continuum mechanics-based shell
+- Paper: Ko, Y., Bathe, K.-J., Zhang, X., *"Continuum mechanics-based shell
   elements with six degrees of freedom at each node − the MITC4/D and MITC4+/D
   elements"*, **Computers and Structures 308 (2025) 107622**.
-- File: `.sources/papers/1-s2.0-S0045794924003511-main.pdf` (21 pages).
-- Companion/duplicate: `.sources/papers/MITC_D_elements_published.pdf`.
+- DOI: 10.1016/j.compstruc.2024.107622 (`ko2025` in `docs/validation/references.yaml`;
+  21 pages).
 
 **No letter shorthand in this document.**  `mitc4plus-2017-extract.md` labels its
 two 2017 papers "A" (the formulation, C&S 182) and "B" (the benchmarks, C&S 193).

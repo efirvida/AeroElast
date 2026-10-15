@@ -395,7 +395,7 @@ La regla de esta version es simple:
 | ID | Fuente | Uso en el informe |
 |----|--------|-------------------|
 | [R1] | `tests/IEA15MW/IEA-15-240-RWT/Documentation/IEA-15-240-RWT_tabular.xlsx` | overview del rotor, curva de potencia, masa de pala |
-| [R2] | `tests/IEA15MW/75698.pdf.txt` | frecuencias de referencia y contexto NREL del IEA 15 MW |
+| [R2] | Gaertner et al. 2020, NREL/TP-5000-75698, doi:10.2172/1603478 (`gaertner2020`) | frecuencias de referencia y contexto NREL del IEA 15 MW |
 | [R3] | `tests/IEA15MW/IEA-15-240-RWT/OpenFAST/IEA-15-240-RWT/IEA-15-240-RWT_ElastoDyn_blade.dat` | soporte para modos, rigidez y masa distribuidas |
 | [R4] | `tests/NuMAD_utd_iea15mw.xlsx` | geometria estructural y malla de los casos V-02 y V-03 |
 | [R5] | `tests/test_material_suite.py` | referencias analiticas para MITC3 / MITC4 |

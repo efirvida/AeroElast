@@ -17,10 +17,10 @@ gaps are marked as gaps rather than filled in.
 
 ## The two 2017 papers, and why the distinction matters
 
-| | Paper | Role | File |
+| | Paper | Role | Reference |
 |---|---|---|---|
-| **A** | Ko, Lee & Bathe (2017), *"A new MITC4+ shell element"*, **Computers and Structures 182:404–418** | **The formulation.** Defines the assumed membrane and shear fields. This document. | `.sources/papers/A_new_MITC4+_shell_element.pdf` |
-| **B** | Ko, Lee, Lee & Bathe (2017), *"Performance of the MITC3+ and MITC4+ shell elements in widely-used benchmark problems"*, **Computers and Structures 193:187–206** | **The benchmarks.** Publishes the values the tests compare against (Tables 3–19). | `.sources/papers/1-s2.0-S0045794917309550-main.pdf` |
+| **A** | Ko, Lee & Bathe (2017), *"A new MITC4+ shell element"*, **Computers and Structures 182:404–418** | **The formulation.** Defines the assumed membrane and shear fields. This document. | doi:10.1016/j.compstruc.2016.11.004 (`ko2017_new`) |
+| **B** | Ko, Lee, Lee & Bathe (2017), *"Performance of the MITC3+ and MITC4+ shell elements in widely-used benchmark problems"*, **Computers and Structures 193:187–206** | **The benchmarks.** Publishes the values the tests compare against (Tables 3–19). | doi:10.1016/j.compstruc.2017.08.003 (`ko2017_perf`) |
 
 Paper **B** is the judge, paper **A** is the law. Citing one for the other is a
 real error: an earlier comment in `mitc4.rs` cited *"Ko et al. 2017, Eqs. 27a-c"*
@@ -565,9 +565,9 @@ cd crates && cargo test -p aeroelast-core -q          # 112 passed
 cargo test -p aeroelast-solvers --lib -- --test-threads=1   # 41 passed; parallel CRASHES (PETSc/preCICE are not thread-safe)
 python -m pytest -m "not slow" -q                     # 345 passed, 2 xfailed, 2 skipped
 
-# the papers
-.sources/papers/A_new_MITC4+_shell_element.pdf        # paper A: formulation
-.sources/papers/1-s2.0-S0045794917309550-main.pdf     # paper B: benchmarks
+# the papers (keys in docs/validation/references.yaml)
+python tools/validation_matrix.py references get ko2017_new    # paper A: formulation
+python tools/validation_matrix.py references get ko2017_perf   # paper B: benchmarks
 ```
 
 **Acceptance.** The twisted beam at N=8 and N=16 reaches ~0.9959 / 0.9975, the
