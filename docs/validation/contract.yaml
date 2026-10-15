@@ -1841,3 +1841,9 @@ verdicts:
       - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
     note: >-
       Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.43 %, CalculiX worst 0.02 %), matched gap at 32x80 at most 0.10 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: orthotropic_shell_parity.test_multi_layer_iso_equivalence.single
+    class: regression_pin
+    verdict: trusted
+    audited_rev: 322d966
+    note: >-
+      Pinned as a software guard, with no independent reference: the asserted metric is the relative norm of K(4 isotropic plies) - K(one isotropic layer), two builds of our own model, so it does not map onto the closed form. The closed form was checked on the laminate side only (create_laminate_from_angles, E 70e9, nu 0.3, h 0.01, 4 plies): A11, A12, A66 and D11, D12, D66 match E h/(1-nu^2) and E h^3/(12(1-nu^2)) (with nu and (1-nu)/2 factors) to 2e-16, and B = 0 exactly. Measured K difference 0.0 against the unchanged 1e-4 bound. Counts toward no level.
