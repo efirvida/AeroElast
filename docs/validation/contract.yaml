@@ -1447,17 +1447,19 @@ verdicts:
     note: >-
       Closed form <= 0.87 % vs 2 % bound; regression same.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial_2
-    class: physics
-    verdict: undecided
+    class: regression_pin
+    verdict: trusted
+    audited_rev: af95fa8
     files: [tools/g17_closed_form.py]
     note: >-
-      Loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation.
+      Pinned as AeroElast-vs-CalculiX code parity, with no valid independent reference: the loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation. Counts toward no level.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial_2
-    class: physics
-    verdict: undecided
+    class: regression_pin
+    verdict: trusted
+    audited_rev: af95fa8
     files: [tools/g17_closed_form.py]
     note: >-
-      Loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation.
+      Pinned as AeroElast-vs-CalculiX code parity, with no valid independent reference: the loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation. Counts toward no level.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx_2
     class: physics
     verdict: trusted
