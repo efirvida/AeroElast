@@ -305,3 +305,9 @@ Remaining PRE-3: relabel G21, enter L2 verdicts where supported, merge to main a
 4. B1: 2 rejected G33 rows, 2 hypar pins. Then B3-1..3, PRE-4 (out of scope here; no GitHub edits, no P1). Push is the maintainer's call.
 
 **Next concrete step.** New branch `audit/pre3-g18-modal` from main; re-read the stored G18 modal paired-convergence numbers (`tools/g18_modal_convergence.py`, log under `logs/check/l2-audit/`), predeclare nothing new, write the 5 verdicts, then decide `multi_layer_iso_equivalence`. SLURM: `sbatch -p sequana_cpu --ntasks=1 --time=40`, gitshim first on PATH for any `regression --write`.
+
+## Addendum 2026-10-15 - G18 modal verdicts (branch audit/pre3-g18-modal)
+
+Re-measured with `tools/g18_modal_convergence.py` (SLURM 11616456, log `logs/check/l2-audit/g18-modal.log`, git-ignored) and wrote the 5 `trusted` physics verdicts at `28dcbd8` (analytical anchor: Euler-Bernoulli from the hand-CLT strip). Per layup, worst change 16x40 -> 32x80 (AeroElast / CalculiX) and worst matched gap at 32x80: uni_0 0.67 / 0.07 %, 0.16 %; uni_90 0.33 / 0.00 %, 0.21 %; sym_0_90s 0.67 / 0.03 %, 0.14 %; asym_0_90 0.67 / 0.02 %, 0.14 %; quasi_iso 0.43 / 0.02 %, 0.10 %. L2: trusted 64, regression_pin 2 (the two G17 pins), stale 1, unarbitrated 2, unaudited 1. `check`: 269 rows / 374 comparisons / 0 errors.
+
+**Found, not fixed:** `laminate_bend_twist.test_independent_ccx_deck_confirms_the_c.single` (the G26 deck pin) is stale by `0760d76` already on `main` before this branch; it needs a restamp or re-measure. Left: `multi_layer_iso_equivalence` (no analytic arbiter), gap `composite_stress_recovery` (a).

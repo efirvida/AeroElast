@@ -1801,3 +1801,43 @@ verdicts:
     files: [tools/g26_ccx_deck_convergence.py]
     note: >-
       Code parity against a hand-authored CCX S8R deck, not validation: the free-edge CLT rows of this group carry it. Paired sweep 2x12..16x96 (criterion predeclared in the tool): [45,0,0,45]s and [45,-45,-45,45]s CLOSE (last step element -0.26 / +0.90 %, CCX +0.06 / +0.07 %, gap 0.17 / 0.66 %); [60,0,0,60]s does NOT: CCX is converged (+0.21 %) but the element still moves -3.06 % from 8x48 to 16x96, the gap closing monotonically 32.6 / 12.9 / 5.2 / 1.7 % without reaching a limit. The test's 1.95 % pairs element 16x96 with CCX 8x48; at equal 16x96 the gap is 1.73 %. Counts toward no level.
+  - target: composite_layup.test_modal_frequencies_match_ccx.uni_0
+    class: physics
+    verdict: trusted
+    audited_rev: 28dcbd8
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.67 %, CalculiX worst 0.07 %), matched gap at 32x80 at most 0.16 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: composite_layup.test_modal_frequencies_match_ccx.uni_90
+    class: physics
+    verdict: trusted
+    audited_rev: 28dcbd8
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.33 %, CalculiX worst 0.00 %), matched gap at 32x80 at most 0.21 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: composite_layup.test_modal_frequencies_match_ccx.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: 28dcbd8
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.67 %, CalculiX worst 0.03 %), matched gap at 32x80 at most 0.14 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: composite_layup.test_modal_frequencies_match_ccx.asym_0_90
+    class: physics
+    verdict: trusted
+    audited_rev: 28dcbd8
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.67 %, CalculiX worst 0.02 %), matched gap at 32x80 at most 0.14 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: composite_layup.test_modal_frequencies_match_ccx.quasi_iso
+    class: physics
+    verdict: trusted
+    audited_rev: 28dcbd8
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.43 %, CalculiX worst 0.02 %), matched gap at 32x80 at most 0.10 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
