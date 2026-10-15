@@ -1,4 +1,4 @@
-"""Static stress recovery: AeroElast against CalculiX, outer fibre.
+"""Static stress recovery: AeroElast against beam theory, outer fibre.
 
 Why the outer fibre needs a special CalculiX output
 ---------------------------------------------------
@@ -27,8 +27,6 @@ CalculiX route and is not covered here.
 
 from __future__ import annotations
 
-import subprocess
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -46,7 +44,6 @@ from aeroelast.core.mesh.entities import (
     Node,
     NodeSet,
 )
-from aeroelast.core.mesh.io.writers import write_ccx_mesh
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.elements import ElementFamily
 from aeroelast.postprocess.stress_recovery import (
@@ -55,8 +52,6 @@ from aeroelast.postprocess.stress_recovery import (
     StressType,
 )
 
-from tests.support.ccx_io import parse_frd_stress, von_mises_from_voigt
-from tests.conftest import ccx_bin_or_skip
 
 # Cantilever plate, out-of-plane tip load.
 L, B, H = 1.0, 0.1, 0.01  # length, width, thickness [m]
@@ -67,9 +62,7 @@ FORCE = 100.0  # total out-of-plane load at the free edge [N]
 #: Outer-fibre bending stress ``M c / I`` at the clamped edge.
 ANALYTICAL_STRESS = FORCE * L * (H / 2.0) / (B * H**3 / 12.0)
 
-#: Measured: AeroElast 52.46 MPa, CalculiX OUTPUT=3D 57.41 MPa, analytical
-#: 60 MPa.  The coarse 8x2 linear mesh is why the analytical gap is the largest.
-TOL_CCX = 0.05
+#: Bound against beam theory at mid-span (see the test for why mid-span).
 TOL_ANALYTICAL = 0.05
 
 _PROP = {"type": "isotropic", "name": "STEEL", "e": E, "nu": NU, "rho": RHO, "thickness": H}
@@ -143,51 +136,9 @@ def _solve_aeroelast(mesh: MeshModel) -> tuple[MeshAssembler, np.ndarray]:
     return domain, u
 
 
-def _run_ccx_outer_fibre(tmp_path: Path, mesh: MeshModel) -> float:
-    ccx_bin = ccx_bin_or_skip()
-    inp = tmp_path / "plate.inp"
-
-    write_ccx_mesh(
-        mesh,
-        str(inp),
-        properties={"plate": _PROP},
-        boundary_nodeset="clamped",
-        solver_type="LinearStatic",
-        load_nodeset=None,
-        load_vector=None,
-        shell_element_type="S8R",
-    )
-    # Request the outer-fibre stress.  ``OUTPUT=2D`` gives the mid-surface value
-    # (zero for this pure-bending case); ``OUTPUT=3D`` expands the shell.
-    inp.write_text(inp.read_text().replace("*EL FILE, OUTPUT=2D", "*EL FILE, OUTPUT=3D"))
-
-    # Out-of-plane consistent edge load (dof 3), inserted after *STATIC.
-    free_nodes = sorted(
-        (nd for nd in mesh.nodes if np.isclose(nd.x, L, atol=1e-12)), key=lambda nd: nd.y
-    )
-    per_node = FORCE / len(free_nodes)
-    lines = inp.read_text().splitlines()
-    out: list[str] = []
-    for line in lines:
-        out.append(line)
-        if line.strip().upper() == "*STATIC":
-            out.append("*CLOAD")
-            for nd in free_nodes:
-                out.append(f"{nd.id:8d}, 3, {-per_node:.6E}")
-    inp.write_text("\n".join(out) + "\n")
-
-    proc = subprocess.run([str(ccx_bin), "plate"], cwd=tmp_path, capture_output=True, text=True)
-    if proc.returncode != 0:
-        pytest.fail(f"CalculiX failed (rc={proc.returncode}):\n{proc.stdout[-1500:]}")
-
-    stress = parse_frd_stress(tmp_path / "plate.frd")
-    assert stress, "no STRESS block in the CalculiX FRD"
-    return float(von_mises_from_voigt(np.array(list(stress.values()))).max())
-
-
 @pytest.fixture(scope="module")
 def plate_stress(tmp_path_factory: pytest.TempPathFactory) -> dict:
-    """Solve the plate once in AeroElast and once in CalculiX."""
+    """Solve the plate once in AeroElast."""
     mesh = _build_plate()
     domain, u = _solve_aeroelast(mesh)
     recovery = StressRecovery(domain, u)
@@ -200,14 +151,17 @@ def plate_stress(tmp_path_factory: pytest.TempPathFactory) -> dict:
     lower = max_von_mises(StressLocation.BOTTOM)
     middle = max_von_mises(StressLocation.MIDDLE)
 
-    ccx = _run_ccx_outer_fibre(tmp_path_factory.mktemp("ccx_plate_stress"), mesh)
+    # Element value at the centroid of the centre-line element just inboard of mid-span.
+    top = recovery.compute_element_stresses(location=StressLocation.TOP, stress_type=StressType.TOTAL)
+    x_mid = (NX // 2 - 0.5) * (L / NX)
+    midspan = float(np.asarray(top.von_mises)[(NY // 2) * NX + (NX // 2 - 1)])
 
     print(
         f"  stress: aero TOP/BOT {upper / 1e6:.2f}/{lower / 1e6:.2f} MPa, "
-        f"MID {middle / 1e6:.2f} MPa, ccx 3D {ccx / 1e6:.2f} MPa, "
-        f"analytical {ANALYTICAL_STRESS / 1e6:.2f} MPa"
+        f"MID {middle / 1e6:.2f} MPa, mid-span {midspan / 1e6:.2f} MPa at x={x_mid:.4f} m, "
+        f"root M c / I {ANALYTICAL_STRESS / 1e6:.2f} MPa"
     )
-    return {"upper": upper, "lower": lower, "middle": middle, "ccx": ccx}
+    return {"upper": upper, "lower": lower, "middle": middle, "midspan": midspan, "x_mid": x_mid}
 
 
 def test_bending_has_no_membrane_stress(plate_stress: dict) -> None:
@@ -227,41 +181,34 @@ def test_outer_fibre_stress_is_symmetric(plate_stress: dict) -> None:
     )
 
 
-def test_outer_fibre_stress_matches_ccx_and_analytical(plate_stress: dict) -> None:
-    """AeroElast outer-fibre von Mises matches CalculiX 3D and beam theory."""
-    aero = plate_stress["upper"]
-    ccx = plate_stress["ccx"]
-    rel_ana = abs(aero - ANALYTICAL_STRESS) / ANALYTICAL_STRESS
-    print(
-        f"  aero vs ccx {abs(aero - ccx) / ccx * 100:.2f}%, aero vs analytical {rel_ana * 100:.2f}%"
-    )
-    # Two references, two statements, two comparisons: the test says which is which and the store
-    # reads it, instead of the kinds being declared beside the row. See docs/adding-validation-tests.md.
+def test_outer_fibre_stress_matches_beam_theory(plate_stress: dict) -> None:
+    """AeroElast outer-fibre stress at mid-span matches beam theory ``M(x) c / I``.
+
+    The sample is taken away from the clamp on purpose: the maximum over the whole plate picks up
+    the clamped-edge stress singularity (six DOF held), which keeps growing with refinement
+    (2026-10-15 probe ``tools/g7_stress_convergence.py``: 8x2 -> 128x32 moves 52.5 -> 61.8 MPa
+    against ``M c / I`` = 60), so that metric has no converged value to compare. The mid-span
+    value is converged in the mesh (``tools/g7_midspan_convergence.py``).
+
+    CalculiX is deliberately not an arbiter here: its ``OUTPUT=3D`` outer-fibre stress for an
+    expanded S8R shell is one element ``h`` out of position in x (the field is linear with the
+    correct slope but ``sigma_ccx(x) = M c / I (x + h)``), so a point comparison measures that
+    output offset, not AeroElast. See ``odd/tasks/validation-l3-b3-audit.md`` (PRE-3, G7).
+    """
+    x = plate_stress["x_mid"]
+    reference = FORCE * (L - x) * (H / 2.0) / (B * H**3 / 12.0)
     assert_relative_error(
-        aero,
-        ccx,
-        tol=TOL_CCX,
-        kind="code",
-        reference_name="CalculiX 2.23 3D solid, outer-fibre von Mises",
-        what="outer-fibre von Mises stress",
-    )
-    if rel_ana > TOL_ANALYTICAL:
-        pytest.xfail(
-            f"coarse 8x2 linear mesh: outer fibre {rel_ana * 100:.2f}% from M c / I "
-            f"(bound {TOL_ANALYTICAL * 100:.0f}%) -- validity limit of the mesh, not a bug"
-        )
-    assert_relative_error(
-        aero,
-        ANALYTICAL_STRESS,
+        plate_stress["midspan"],
+        reference,
         tol=TOL_ANALYTICAL,
         kind="analytical",
-        reference_name="beam theory M c / I, outer-fibre stress",
-        what="outer-fibre von Mises stress",
+        reference_name="beam theory M(x) c / I at the sample station, outer-fibre stress",
+        what="mid-span outer-fibre von Mises stress",
     )
 
 
 #: Bound for the production-vs-replica comparison. Measured on this case: 1.85e-10 relative
-#: (WU-3a), so this leaves ~5000x of margin while staying five orders tighter than TOL_CCX.
+#: (WU-3a), so this leaves ~5000x of margin while staying five orders tighter than the 5 % physics bound.
 ARBITER_RTOL = 1e-6
 
 

@@ -1,39 +1,25 @@
 group: '7'
 rows:
-- id: shell_stress_ccx.test_outer_fibre_stress_matches_ccx_and.single
+- id: shell_stress_ccx.test_outer_fibre_stress_matches_beam_th.single
   group: '7'
-  title: test_outer_fibre_stress_matches_ccx_and_analytical
+  title: test_outer_fibre_stress_matches_beam_theory
   tests:
-  - tests/validation/parity/test_shell_stress_ccx_parity.py::test_outer_fibre_stress_matches_ccx_and_analytical
-  validates: AeroElast outer-fibre von Mises matches CalculiX 3D and beam theory.
+  - tests/validation/parity/test_shell_stress_ccx_parity.py::test_outer_fibre_stress_matches_beam_theory
+  validates: AeroElast outer-fibre von Mises at mid-span matches beam theory M(x) c / I.
   comparisons:
-  - label: rtol at line 240
-    asserted: true
-    reference:
-      kind: code
-      label: CalculiX 2.23 3D solid, outer-fibre von Mises
-    tolerance:
-      kind: rtol
-      value: 0.05
-      source: tests/validation/parity/test_shell_stress_ccx_parity.py:240
-      justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
-    measured:
-      status: not_measured
-      margin_pct: null
-  - label: rtol at line 253
+  - label: rtol at mid-span
     asserted: true
     reference:
       kind: analytical
-      label: beam theory M c / I, outer-fibre stress
+      label: beam theory M(x) c / I at the sample station, outer-fibre stress
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/parity/test_shell_stress_ccx_parity.py:253
+      source: tests/validation/parity/test_shell_stress_ccx_parity.py:TOL_ANALYTICAL
       justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+      justification: 5 % physics bound; sampled at mid-span because the whole-plate maximum includes the clamped-edge singularity and does not converge.
     measured:
       status: not_measured
       margin_pct: null
   flags: []
-  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+  notes: 'Gating reference is the closed form (it outweighs any numerical reference). CalculiX 2.23 S8R OUTPUT=3D is reported as non-gating context from tools/g7_midspan_convergence.py: its outer-fibre stress is linear with the right slope but one element h out of position in x (ratio to M c / I = 1 - 2/NX: 0.875, 0.9375, 0.9688, 0.9844 for NX = 16..128), so at mid-span it approaches the closed form at first order. The earlier whole-plate-maximum comparison (CalculiX 1.58 % at 8x2) was a coincidence of two coarse meshes: that maximum includes the clamped-edge singularity and does not converge in either code (128x32: AeroElast 61.8, CalculiX 65.9 MPa vs 60.0).'
