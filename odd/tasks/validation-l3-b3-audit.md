@@ -222,3 +222,29 @@ Remaining PRE-3: relabel G21, enter L2 verdicts where supported, merge to main a
 `validation_matrix.py regression` (no `--write`) for groups 36, 24, 17, 26, 55, 6, 8: every previously measured comparison reproduced (`same`); G6 shows 2 `new_baseline` (the unmeasured convergence-identity row, not written). 36 verdicts appended to `docs/validation/contract.yaml`: 34 trusted (G36 all 13 rows; G24 rows 2-4; G17 rows 1-4, 7-9; G26 analytic rows 1-4; G55 rows 1-3; G6 rows 1, 2, 4; G8), 2 undecided (G17 loaded-node axial tension/compression, divergent point-load metric). L2 contract now: trusted 34, undecided 2, unaudited 33, 14 single-or-no-arbiter, gap `composite_stress_recovery` still blocking (residual (a) raw ABD dict). Check: 268 rows / 373 comparisons / 0 errors.
 
 **Still open in PRE-3:** (1) `regression --write` for the `not_measured` analytic comparisons (G4 axial/bending, G6 row 3, G7, G9 x3, G18 analytic, G43) so their verdicts are measured at a revision; (2) G18 (16 rows incl. 5 modal), G21 (relabel `self` -> `code`), G24 row 1 (`atol` 1e-6 identity), G26 deck row, G55 rows 4-5, G43; (3) B1 still needs the 2 rejected G33 rows and 2 hypar pins decided; (4) maintainer decisions: G43 tight Newmark check, other worktrees' unpushed work.
+
+## Handoff 2026-10-15 (end of the third PRE-3 session)
+
+**Goal.** PRE-3 (B2/L2 audit) of this feature. Maintainer rules: analytic/paper reference first, numerical arbiter non-gating; predeclare convergence criteria before running; work on a branch and ALWAYS merge to main and delete it at the end (Engram `odd/validation-l3-b3-audit/branch-policy`). No push, no GitHub edits, no P1.
+
+**State.** Everything is on local `main` (HEAD `ba742c2`, 6 commits ahead of origin, NOT pushed); branch `audit/pre3-l2-closed-forms` merged (ff) and deleted. L2 contract: trusted 34, undecided 2, unaudited 33, 14 single-or-no-arbiter, gap `composite_stress_recovery` still blocking. `validation_matrix.py check`: 268 rows / 373 comparisons / 0 errors.
+
+**Decisions and why.**
+- G4 axial / G8: measure rather than only classify (user choice). Both converge (last step AE +0.016/+0.055 %, CCX +0.103/+0.141 %, gap 0.10/0.01 %). G8 sits -1.0 % from Euler-Bernoulli in both codes (cause unestablished); G4 +0.72 % AE / +0.62 % CCX vs EB with D22 (fibre axis read from the 12x E1/E2 ratio, supporting evidence only).
+- G26 deck row = non-gating context (analytic CLT + Ritz rows carry it). 5 `self`: G4 multi-layer iso = identity guard; G21 x2 mislabelled, reference is an independent CCX C3D20R model -> should be `code` (NOT yet relabelled in the store); G26 Ritz = analytical-class support; G55 span convergence = convergence statement.
+- `composite_stress_recovery` (b) closed in `gaps.yaml`: 616.10/595.59 MPa is a whole-plate max |SZZ| with clamp singularity (CCX side stated in the test; ours presumed same metric, not re-measured). Group 36 pure-bending rows (<= 0.0013 %) are the citable evidence. (a) raw ABD dict stays not validated.
+- Verdicts only on rows measured AND reproduced at the audited rev (`7d21658`); rows `not_measured` were deliberately skipped. G17 loaded-node axial (rows 5-6) = undecided: point-load singularity diverges (+4.4/+6.3/+8.4 %).
+
+**Evidence (command -> result).**
+- `sbatch ... tools/g4_g8_ccx_convergence.py` (SLURM 11616366) -> G4 and G8 CLOSED under the predeclared criterion; log `logs/check/l2-audit/g4-g8-convergence.log` (untracked).
+- `validation_matrix.py regression --group {36,24,17,26,55,6,8}` (no --write, SLURM 11616367-73, PATH with `$SCRATCH/gitshim`, `PYTHONPATH=$SCRATCH/validenv`) -> all measured comparisons `same`; G6: 2 `new_baseline` (not written); source digest unchanged. Logs `logs/check/l2-audit/regression-g*.log`.
+- `validation_matrix.py check` -> 268/373/0 errors. `contract --level L2` -> trusted 34, undecided 2, unaudited 33.
+- Commits: `3b1fde6` (G4/G8), `7d21658` (G26/self/gap), `ba742c2` (36 verdicts).
+
+**Unfinished.**
+1. `regression --write` for `not_measured` analytic comparisons: G4 axial+bending, G6 row 3, G7, G9 x3, G18 analytic (15 `new_baseline`), G43; then verdicts for them.
+2. G18 (16 rows incl. 5 modal, paired convergence done), G21 relabel `self` -> `code` + verdicts, G24 row 1 (`atol` 1e-6 identity), G26 deck row, G55 rows 4-5.
+3. B1 still open: 2 rejected G33 rows, 2 hypar pins.
+4. Maintainer decisions: tight Newmark check in G43 (`f1_num*(1-(w dt)^2/24)`); unpushed work in `t7a4-follow` (1 commit + 1 file) and 15 detached worktrees (1 uncommitted file each); whether to push `main`.
+
+**Next concrete step.** New branch from main (e.g. `audit/pre3-baselines`); run `regression --write --group N` on SLURM for G4, G6, G7, G9, G18, G43 (gitshim mandatory for --write), inspect each `new_baseline`, then append verdicts to `docs/validation/contract.yaml`. Environment: `PYTHONPATH=$SCRATCH/validenv scripts/aeroenv.sh python ...` (verify symlink points here); SLURM `sbatch -p sequana_cpu --ntasks=1 --time=...`. At the end merge to main and delete the branch.
