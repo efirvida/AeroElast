@@ -51,9 +51,10 @@ element-set name), which occurs in three shapes in the tree:
   second code path).
 * Raw composite ABD dicts (``{"type": "composite", "cm"/"cb"/"cs", ...}``,
   the legacy hand-built form) — these carry **no ply stack**, so the ply
-  resolution cannot apply.  They keep the smeared homogenised value
-  (``N/h`` at every location) and emit a one-time ``logger.warning`` naming
-  the element set; the limitation is deliberate, not a silent answer.
+  resolution cannot apply, and the homogenised ABD does not determine a ply
+  stress.  A stress request on such an element set raises ``ValueError``
+  naming the set; assembly, stiffness and the displacement solve are
+  unaffected.
 * Isotropic dicts / ``ShellProperty`` — the smeared constitutive path,
   bit-identical to the pre-composite behaviour.
 
@@ -383,9 +384,9 @@ class StressRecovery:
           getter exposes the stack as dicts: ``angle`` in degrees, ``z_bottom``/
           ``z_top``, and a ``material`` sub-dict of engineering constants).
         * Raw composite ABD dicts (``{"type": "composite", "cm"/"cb"/"cs", ...}``,
-          the legacy hand-built form) — **no ply stack exists**.  These keep the
-          smeared homogenised path and trigger a one-time warning; they are NOT
-          silently treated as ply-resolved.
+          the legacy hand-built form) — **no ply stack exists**.  A stress
+          request on them raises ``ValueError``; they are never treated as
+          ply-resolved.
 
         Isotropic dicts (and anything else) map to ``None`` and keep the smeared
         path unchanged.
@@ -408,14 +409,13 @@ class StressRecovery:
                 for elem in mesh.element_sets[set_name].elements:
                     section_by_elem_id[elem.id] = section
         if raw_abd_sets:
-            # Do not answer silently: the value a caller gets for these elements
-            # is the homogenised thickness mean, not a ply stress.
-            logger.warning(
-                "Composite element set(s) %s use raw homogenised ABD section dicts "
-                '("type": "composite" with cm/cb/cs) which carry no ply stack; '
-                "TOP/MIDDLE/BOTTOM stresses for their elements are the homogenised "
-                "thickness-mean equivalent (A/h · ε), not a ply stress.",
-                ", ".join(sorted(set(raw_abd_sets))),
+            # The homogenised ABD does not determine a ply stress; the thickness
+            # mean (A/h · ε) would be a number labelled TOP/MIDDLE/BOTTOM that is not.
+            raise ValueError(
+                f"Composite element set(s) {', '.join(sorted(set(raw_abd_sets)))} use raw "
+                'homogenised ABD section dicts ("type": "composite" with cm/cb/cs) which '
+                "carry no ply stack; a ply stress cannot be recovered. Provide a "
+                "CompositeShellProperty / Laminate with its plies."
             )
         if not section_by_elem_id:
             return sections
@@ -430,11 +430,11 @@ class StressRecovery:
         """Normalise one properties-map value to a ``_PlySection`` (or ``None``).
 
         ``raw_abd_sets`` collects element-set names whose value is a raw
-        composite ABD dict (no ply stack) so the caller can warn once.
+        composite ABD dict (no ply stack) so the caller can raise once.
         """
         if isinstance(prop, dict):
-            # Isotropic dicts and raw composite ABD dicts both keep the smeared
-            # path; only the composite form represents a (smeared) laminate.
+            # Isotropic dicts keep the smeared path; a raw composite ABD dict is
+            # collected so the caller refuses the stress request.
             if prop.get("type") == "composite":
                 raw_abd_sets.append(set_name)
             return None

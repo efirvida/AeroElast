@@ -1135,7 +1135,7 @@ groups:
           Policy rule 6 leaves it no row; it is the guard that the ply
           resolution is not a second implementation.
       - tests:
-          - test_raw_abd_section_is_smeared_and_warns
+          - test_raw_abd_section_refuses_ply_stress
         reason: >-
           A characterisation of a known limitation, not a validation: it pins
           that a raw homogenised ABD dict (no ply stack) keeps returning the

@@ -315,3 +315,7 @@ Re-measured with `tools/g18_modal_convergence.py` (SLURM 11616456, log `logs/che
 ## Addendum 2026-10-15 - G26 deck pin restamped
 
 Re-measured group 26 (SLURM 11616467, 8 comparisons `same`, source digest unchanged) and restamped the deck pin `audited_rev` af95fa8 -> 60db9d4. L2: trusted 64, regression_pin 3, unarbitrated 2, unaudited 1, 0 stale. Open: gap `composite_stress_recovery` (a) awaits a maintainer decision (raise on a ply-less section vs documented limit), G21 second arbiter, `multi_layer_iso_equivalence`.
+
+## Addendum 2026-10-15 - gap composite_stress_recovery (a) closed by refusal (branch fix/composite-no-ply-stack-raise)
+
+Maintainer-approved contract change: `StressRecovery` raises `ValueError` (naming the element set) when a stress is requested on a raw homogenised ABD dict, instead of returning the thickness mean `N/h` labelled TOP/MIDDLE/BOTTOM with a warning. Lazy: assembly, stiffness and the displacement solve are unaffected. Only `test_composite_ply_stress_parity.py` exercised that path; its characterization test became `test_raw_abd_section_refuses_ply_stress` (RED observed first: the old code only warned). `gaps.yaml` `composite_stress_recovery` -> `bounded`. L2: trusted 64, regression_pin 3, unarbitrated 2, unaudited 1, 0 stale, gaps 0 blocking. Verified: that test file 20 passed, ruff clean, `check.sh quick` OK, `validation_matrix check` 0 errors. Not run: the full suite. Left in L2: G21 second arbiter, `multi_layer_iso_equivalence`.
