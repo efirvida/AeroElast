@@ -20,7 +20,7 @@ rows:
       justification: Source-stated 5% bound; no result or verdict recorded.
     measured:
       status: measured
-      run: fe15b0c
+      run: a0e9279
       date: '2026-10-15'
       raw: 6.64195
       margin_pct: 2.9385
@@ -29,3 +29,32 @@ rows:
     expected: F1_EXACT
   flags: []
   notes: Analytic frequency comparison only; energy conservation and damping decay assertions remain implementation checks, not independent-reference rows.
+- id: newmark_analytic_frequency.s3_newmark_dispersion
+  group: '43'
+  title: S-3 Newmark transient frequency vs trapezoidal-rule dispersion of the mesh's own eigenfrequency
+  tests:
+  - tests/test_iea15mw_s3_newmark_transient.py::test_newmark_frequency_matches_discrete_dispersion
+  validates: The time integrator alone, with the mesh error removed, against the exact trapezoidal dispersion relation omega_d = (2/dt) atan(omega dt / 2).
+  comparisons:
+  - label: Newmark frequency vs trapezoidal dispersion
+    asserted: true
+    reference:
+      kind: analytical
+      label: trapezoidal-rule dispersion of the first generalized eigenfrequency of the same K and M
+    tolerance:
+      kind: rel_err
+      value: 0.0005
+      source: tests/test_iea15mw_s3_newmark_transient.py
+      justified: true
+      justification: Fixed before measuring at 0.05 %; the predicted offset is -0.0145 %.
+    measured:
+      status: measured
+      run: a0e9279
+      date: '2026-10-15'
+      raw: 6.64195
+      margin_pct: 0.0105
+      text: 'Newmark free-vibration frequency (Hz) vs trapezoidal-rule dispersion of the mesh''s own first eigenfrequency: 6.64195 vs 6.64126 (error: 0.0105%, bound: 0.0500%)'
+      digest: 0a56ea3bba00da13
+    expected: f_discrete
+  flags: []
+  notes: Isolates the integrator; the Euler-Bernoulli row carries the mesh error.

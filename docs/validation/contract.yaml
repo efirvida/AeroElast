@@ -1737,4 +1737,12 @@ verdicts:
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever first frequency"}
     note: >-
-      2.9385 % vs EB (bound 5 %) decomposed in tools/g43_decomp.py as spatial -2.93 % (shell mesh vs EB) + Newmark -0.007 %; integrator correct. Zero-crossing estimator is interpolated.
+      2.9385 % vs EB (bound 5 %) decomposed in tools/g43_decomp.py as spatial -2.93 % (shell mesh vs EB) + Newmark -0.0145 % (exact trapezoidal dispersion); integrator checked on its own by test_newmark_frequency_matches_discrete_dispersion (0.0105 % vs 0.05 %). Zero-crossing estimator is interpolated.
+  - target: newmark_analytic_frequency.s3_newmark_dispersion
+    class: physics
+    verdict: trusted
+    audited_rev: a0e9279
+    arbiters:
+      - {kind: analytical, label: "trapezoidal-rule dispersion omega_d = (2/dt) atan(omega dt/2) of the mesh's own first eigenfrequency"}
+    note: >-
+      Measured 0.0105 % vs 0.05 % bound fixed before measuring; the predicted offset is -0.0145 %. Isolates the integrator from the shell mesh error carried by the Euler-Bernoulli row.

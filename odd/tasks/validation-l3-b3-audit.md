@@ -256,3 +256,5 @@ Remaining PRE-3: relabel G21, enter L2 verdicts where supported, merge to main a
 **Undecided (need a cause or a sweep).** G4 orthotropic bending 3.648 % vs closed form; G18 quasi_iso transverse bending 1.757 % (clamped-root attribution unmeasured); plus the 2 G17 loaded-node rows.
 
 **Left.** 5 G18 modal rows and `multi_layer_iso_equivalence` (no analytic arbiter; numerical is non-gating); G21 relabel `self` -> `code` + verdicts; G24 row 1; G26 deck row; G55 rows 4-5; B1 (2 rejected G33 rows, 2 hypar pins); maintainer decisions (G43 tight Newmark check, other worktrees, push of main).
+
+**Correction (same session).** The Newmark period error `(w dt)^2/24` used in `tools/g43_decomp.py` and quoted above (-0.007 %) was wrong by a factor 2: trapezoidal dispersion is `omega_d = (2/dt) atan(omega dt/2)` = `omega (1-(omega dt)^2/12)`, i.e. -0.0145 %. New test `test_newmark_frequency_matches_discrete_dispersion` (tol 0.05 % fixed before measuring) isolates the integrator: 6.64195 vs 6.64126 Hz, 0.0105 % (SLURM 11616428, `logs/check/l2-audit/g43-dispersion.log`). The G43 maintainer decision on a tight Newmark check is therefore closed.

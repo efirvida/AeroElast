@@ -171,6 +171,42 @@ def test_undamped_free_vibration_frequency(transient_case):
     )
 
 
+def test_newmark_frequency_matches_discrete_dispersion(transient_case):
+    """The integrator alone: the transient frequency must equal the trapezoidal-rule
+    prediction for the *same* discrete operator.
+
+    The comparison against ``F1_EXACT`` mixes the shell mesh error with the time
+    integration error. Here the reference is the generalized eigenfrequency of the very
+    K and M that Newmark integrates (``f1_num``), corrected by the exact trapezoidal
+    dispersion relation ``omega_d = (2/dt) atan(omega dt / 2)``. Tolerance 0.05 % was fixed
+    before measuring: the prediction is -0.0145 %, so a wrong integrator coefficient or a
+    mistaken step moves the result far outside it.
+    """
+    K, M, fixed, tip_dof = (transient_case[k] for k in
+                            ("K", "M", "fixed", "tip_dof"))
+    u0 = transient_case["u_modal"]
+    v0 = np.zeros_like(u0)
+
+    hist, _ = _newmark_transient(K, M, 0.0 * M, u0, v0, DT, N_STEPS, fixed, tip_dof)
+
+    s = hist - hist.mean()
+    idx = np.where(np.diff(np.sign(s)))[0]
+    t_cross = (idx + s[idx] / (s[idx] - s[idx + 1])) * DT
+    f_num = ((len(idx) - 1) / 2.0) / (t_cross[-1] - t_cross[0])
+
+    omega = 2 * np.pi * transient_case["f1_num"]
+    f_discrete = (2.0 / DT) * np.arctan(omega * DT / 2.0) / (2 * np.pi)
+
+    assert_relative_error(
+        f_num,
+        f_discrete,
+        tol=5.0e-4,
+        kind="analytical",
+        reference_name="trapezoidal-rule dispersion of the mesh's own first eigenfrequency",
+        what="Newmark free-vibration frequency (Hz)",
+    )
+
+
 def test_energy_conservation_undamped(transient_case):
     """The trapezoidal scheme must conserve energy in the undamped case."""
     K, M, fixed, tip_dof = (transient_case[k] for k in
