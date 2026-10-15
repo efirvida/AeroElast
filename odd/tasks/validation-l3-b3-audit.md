@@ -190,3 +190,10 @@ Open: enter verdicts and the divergence note in the store (not yet written).
 - isotropic-equivalent: +0.16 % / +0.10 %; gap 0.13 % (bound 1.5 %); AeroElast -0.32 %, CalculiX -0.19 % vs closed form. CLOSED.
 - in-plane bending: +0.11 % / +0.30 %; gap 1.82 % (bound 2.5 %); AeroElast +0.54 %, CalculiX **+2.41 %** vs the Euler-Bernoulli closed form. CLOSED under the criterion, but note the gap does not shrink with refinement (1.69 -> 1.30 -> 1.64 -> 1.82 %): it is the CalculiX S4 value drifting above the beam (+0.74 -> +2.41 %) while AeroElast sits on it. The cause is not established (a shear-deformation term would explain a positive offset, not measured here); the arbiter that carries the row is the closed form, which AeroElast meets at 0.54 %.
 Open: enter verdicts in the store (not yet written).
+
+## Addendum 2026-10-15 - G36 paired convergence (PRE-3 step 1; no store write, no verdict yet)
+
+`tools/g36_ccx_convergence.py` (criterion predeclared in its docstring: converged = < 1 % change 32x8 -> 64x16; closed form is the arbiter), SLURM, log `logs/check/l2-audit/g36-convergence.log`; meshes 8x2, 16x4, 32x8, 64x16, free-field centre TOP sigma_xx.
+- Both codes converge on both layups (changes <= 0.01 % at the last step). AeroElast sits on the CLT closed form on every mesh (|err| <= 0.021 %).
+- [0/90]s: CalculiX -0.29 % vs CLT, gap to AeroElast 0.29 %. [90/0]s: CalculiX converges to **+3.54 % above the closed form** (gap to AeroElast 3.42 %, stable across meshes). This is a converged offset of the CalculiX composite-section value, not a mesh effect, so a finer mesh will not close it; per the maintainer rule the closed form (analytical, 0.002 %) is the arbiter and CalculiX stays non-gating context. Cause of the [90/0]s offset is not established.
+Open: store verdicts for G36 (not yet written).
