@@ -298,8 +298,8 @@ def test_3d_matches_the_shell_within_2_percent(tmp_path):
     assert_residual_below(
         abs(ratio - 1.0),
         tol=0.02,
-        kind="self",
-        reference_name="the AeroElast shell answer for the same strip",
+        kind="code",
+        reference_name="CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction",
         what="3D solid twist over the shell twist",
     )
 
@@ -322,7 +322,7 @@ def test_3d_mesh_convergence(tmp_path):
     assert_residual_below(
         abs(values[2] / shell - 1.0),
         tol=0.02,
-        kind="self",
-        reference_name="the AeroElast shell answer for the same strip",
+        kind="code",
+        reference_name="CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction",
         what="refined 3D twist over the shell twist",
     )
