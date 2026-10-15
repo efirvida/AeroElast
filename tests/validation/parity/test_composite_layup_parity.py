@@ -50,6 +50,7 @@ from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, N
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
 from aeroelast.core.mesh.model import MeshModel  # noqa: E402
 from aeroelast.core.properties import CompositeShellProperty  # noqa: E402
+from tests.validation.parity.test_composite_beam_parity import _hand_clt_abd  # noqa: E402
 
 # ============================================================================
 # Geometry and material (same cantilever as test_composite_beam_parity)
@@ -84,6 +85,16 @@ from tests.support.assertions import assert_residual_below  # noqa: E402
 AXIAL_TOL = 0.025  # measured max 1.83% (uni_90, 4x10)
 BENDING_TOL = 0.01  # measured max 0.51% (uni_0, 4x10)
 B_COUPLING_TOL = 0.02  # measured 0.37% (asym_0_90, 4x10)
+
+# Against the independent hand-CLT strip solution (``_clt_strip_reference``), AeroElast at 4x10:
+# worst axial 1.36% (uni_90), worst bending 1.76% (quasi_iso), b_coupling 0.02%. A 4x10-32x80
+# refinement (tools/g18_static_convergence.py) brings both codes to <= 0.2% on axial and
+# b_coupling; the quasi_iso bending gap settles at about 1.0% (AeroElast) and 1.2% (CCX), the
+# same sign in both codes, i.e. a root-restraint effect of the clamped strip that the
+# free-width closed form leaves out, not a formulation difference.
+CLT_AXIAL_TOL = 0.03
+CLT_BENDING_TOL = 0.03
+CLT_B_COUPLING_TOL = 0.01
 SYMMETRIC_B_ABS = 1e-11  # old absolute bound on |w| (m) for symmetric layups, aero and CCX
 # The same bound as a ratio to the coupled response of the asymmetric strip, which the
 # asymmetric test asserts is above 1e-3 m: 1e-11 m / 1e-3 m.
@@ -118,6 +129,25 @@ def _material() -> Material:
 
 def _laminate(angles: list[float]):
     return create_laminate_from_angles(_material(), THICKNESS / len(angles), angles)
+
+
+def _clt_strip_reference(layup: str, case: str) -> float:
+    """Closed-form strip response from the independent hand CLT (Reddy 2004; Jones 1999).
+
+    The strip is free in width, so a uniform edge resultant ``N_y = F / B`` with zero moments
+    gives ``[eps; kappa] = ABD^-1 [N; 0]`` and a tip load gives ``m_y = F (L - y) / B``.
+    Fibre 0 deg lies along the width X, so the length axis is the CLT ``y`` (indices 1 and 4).
+    The CLT curvature is ``kappa = -w''``, which fixes the sign of the coupling deflection.
+    """
+    angles = LAYUPS[layup]
+    A, Bm, D = _hand_clt_abd(E1, E2, G12, NU12, angles, THICKNESS / len(angles))
+    inv = np.linalg.inv(np.block([[A, Bm], [Bm, D]]))
+    n_y = CASES["axial"][1] / B
+    if case == "axial":
+        return float(inv[1, 1] * n_y * L)
+    if case == "b_coupling":
+        return float(-0.5 * inv[4, 1] * n_y * L**2)
+    return float(inv[4, 4] * CASES["bending"][1] * L**3 / (3.0 * B))
 
 
 def _aero_material_dict(laminate) -> dict:
@@ -349,6 +379,14 @@ def _modal_pair(mesh: MeshModel, laminate, ccx_bin: str, workdir: Path, name: st
 def test_axial_extension_matches_ccx(parity: dict, layup: str) -> None:
     """Mean axial extension under an edge resultant matches CCX S8R."""
     aero, ccx = parity["static"][(layup, "axial")]
+    ref = _clt_strip_reference(layup, "axial")
+    assert_residual_below(
+        abs(aero - ref) / abs(ref),
+        tol=CLT_AXIAL_TOL,
+        kind="analytical",
+        reference_name="the independent hand-CLT strip solution, eps_y = (ABD^-1)[y,y] N_y",
+        what=f"{layup} AeroElast mean axial extension",
+    )
     rel = abs(aero - ccx) / max(abs(ccx), 1e-30)
     assert_residual_below(
         rel,
@@ -363,6 +401,14 @@ def test_axial_extension_matches_ccx(parity: dict, layup: str) -> None:
 def test_transverse_bending_matches_ccx(parity: dict, layup: str) -> None:
     """Mean out-of-plane bending deflection matches CCX S8R."""
     aero, ccx = parity["static"][(layup, "bending")]
+    ref = _clt_strip_reference(layup, "bending")
+    assert_residual_below(
+        abs(aero - ref) / abs(ref),
+        tol=CLT_BENDING_TOL,
+        kind="analytical",
+        reference_name="the independent hand-CLT cantilever strip, w = (ABD^-1)[kappa_y,M_y] F L^3 / (3 B)",
+        what=f"{layup} AeroElast mean out-of-plane bending deflection",
+    )
     rel = abs(aero - ccx) / max(abs(ccx), 1e-30)
     assert_residual_below(
         rel,
@@ -381,6 +427,14 @@ def test_asymmetric_b_coupling_matches_ccx(parity: dict) -> None:
     """
     aero, ccx = parity["static"][("asym_0_90", "b_coupling")]
     assert abs(ccx) > 1e-3, f"CCX reference is not macroscopic: {ccx:.3e}"
+    ref = _clt_strip_reference("asym_0_90", "b_coupling")
+    assert_residual_below(
+        abs(aero - ref) / abs(ref),
+        tol=CLT_B_COUPLING_TOL,
+        kind="analytical",
+        reference_name="the independent hand-CLT strip solution, w = -kappa_y L^2 / 2",
+        what="asym_0_90 AeroElast membrane-bending coupling deflection",
+    )
     rel = abs(aero - ccx) / abs(ccx)
     assert_residual_below(
         rel,

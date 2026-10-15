@@ -133,3 +133,22 @@ Findings: (1) the docstring table reproduces to the digit, so the 4x2/8x4/16x8 s
 - **Claimed (G18, 2 tests / 4 comparisons):** `test_symmetric_laminates_have_no_b_coupling[sym_0_90s|quasi_iso]`. Reference: classical laminate theory, B = 0 (analytical, independent). The old bound was absolute (`SYMMETRIC_B_ABS` = 1e-11 m on |w|); now `assert_residual_below` on |w| / |w_asym_0_90|, `SYMMETRIC_B_REL` = 1e-8. The asymmetric strip's coupled deflection is asserted > 1e-3 m, so 1e-8 is no wider than the old absolute bound. SLURM 11616312: 16 existing comparisons `same`, 4 new at 0.0000 % (new_baseline, not written). Row source lines of the other G18 rows were refreshed to the shifted test; no measurement or note touched.
 - **Declared non_validation (with reasons in `groups.yaml`):** G7 `test_production_solver_matches_the_scipy_replica` (two paths of our own code, no independent reference); G21 `test_deck_controls` (arbiter deck machinery) and `test_a_uniform_nodal_force_on_the_face_is_not_a_uniform_traction` (pins a known load artifact); G24 `test_laminate_abd_matrices` (data structure) and `test_mesh_connectivity` (fixture geometry).
 - Store: `validation_matrix check` 268 rows / 362 comparisons / 0 errors.
+
+## Addendum 2026-10-15 - G18 statics: analytic reference found (PRE-3 item 4, analytic-first rule)
+
+The 11 static G18 comparisons (axial 5, bending 5, b_coupling 1) had only CalculiX as reference. An independent closed form exists: the hand CLT of `test_composite_beam_parity._hand_clt_abd` with a strip free in width (`[eps;kappa] = ABD^-1 [N;0]`, tip load `m_y = F(L-y)/B`). Fibre 0 deg lies along the width X (read off the first run, which printed both conventions); the coupling sign follows the CLT convention kappa = -w'' (a first pass with the opposite sign was wrong, derived not fitted).
+
+Error vs the hand CLT, AeroElast / CalculiX, % (`tools/g18_static_convergence.py`, `g18_static_table.py`, SLURM 11616314, log `logs/check/l2-audit/g18-static.log`):
+
+| case | 4x10 (asserted) | 32x80 |
+|---|---|---|
+| axial, worst of 5 | +1.36 / +2.90 (uni_90) | +0.11 / +0.19 |
+| bending, 4 laminates | <= 0.37 / 0.83 | <= 0.13 / 0.30 |
+| bending quasi_iso | -1.76 / -1.56 | -1.00 / -1.20 |
+| asym_0_90 b_coupling | -0.024 / -0.39 | -0.007 / -0.24 |
+
+Both codes converge to the closed form (<= 0.3 %) except quasi_iso bending, where both settle ~1-1.2 % below it with the same sign: attributed (not measured) to the clamped-root warping restraint the free-width closed form omits. The CalculiX comparison stays as non-gating context.
+
+Test change (`test_composite_layup_parity.py`): the axial, bending and asym b_coupling tests now also assert AeroElast against `_clt_strip_reference`, `CLT_AXIAL_TOL` 0.03, `CLT_BENDING_TOL` 0.03, `CLT_B_COUPLING_TOL` 0.01 (asserted-mesh worst 1.36 / 1.76 / 0.024 %). No existing bound moved. SLURM 11616316: the 16 CalculiX comparisons `same`, the 15 analytic/B=0 comparisons `new_baseline` (not written). Store: 268 rows / 373 comparisons / 0 errors.
+
+Remaining numerical-only in G18: the 5 modal comparisons (worst of five matched modes, per layup); they need paired convergence in both codes.
