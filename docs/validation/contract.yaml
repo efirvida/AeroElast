@@ -1281,3 +1281,296 @@ verdicts:
       - {kind: produced_numerical, label: "AeroElast MITC4+ at 32/16/400, 0.10 % from the same beam value"}
     note: >-
       CalculiX S8R 24.992 m against the beam 24.5254 m, 1.9024 % against a 5 % bound; identical to 4 digits from 16/8/50 to 64/32/100 elements (24.9909 to 24.9923). The 2 % gap to the MITC4 sequence is open (see the MITC4 row).
+
+# --- PRE-3 (B2/L2), 2026-10-15: analytic-first verdicts, regression re-run at 7d21658 (all rows reproduced: same) ---
+  - target: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_90_0s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_90_0s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_90_0s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_90_0s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_bending_top_and_bottom_match_clt_at.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_bending_kappa_matches_d_inverse_m.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_angle_ply_rotates_qbar_per_ply.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_90_0s
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "CLT / closed form asserted by the test"}
+    note: >-
+      Group 36 ply stress against the in-test CLT closed form (<= 0.021 % pure-bending / outer fibre); CalculiX S8R is non-gating context (paired convergence 32x8 -> 64x16, < 0.01 %; [90/0]s CCX converges 3.4 % above CLT, reported not hidden). Regression re-run same at 7d21658.
+  - target: composite_beam_parity.test_composite_axial_tension.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    files: [tools/g24_ccx_convergence.py]
+    arbiters:
+      - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
+    note: >-
+      Closed form within <= 1.25 %; paired convergence (tools/g24_ccx_convergence.py, 4x10 -> 32x80) closes all three comparisons; CCX in-plane bending drifts +2.41 % above Euler-Bernoulli (non-gating, cause unestablished). Regression same.
+  - target: composite_beam_parity.test_composite_isotropic_equiv.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    files: [tools/g24_ccx_convergence.py]
+    arbiters:
+      - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
+    note: >-
+      Closed form within <= 1.25 %; paired convergence (tools/g24_ccx_convergence.py, 4x10 -> 32x80) closes all three comparisons; CCX in-plane bending drifts +2.41 % above Euler-Bernoulli (non-gating, cause unestablished). Regression same.
+  - target: composite_beam_parity.test_composite_bending.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    files: [tools/g24_ccx_convergence.py]
+    arbiters:
+      - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
+    note: >-
+      Closed form within <= 1.25 %; paired convergence (tools/g24_ccx_convergence.py, 4x10 -> 32x80) closes all three comparisons; CCX in-plane bending drifts +2.41 % above Euler-Bernoulli (non-gating, cause unestablished). Regression same.
+  - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "beam closed form asserted by the test"}
+    note: >-
+      Closed form <= 0.87 % vs 2 % bound; regression same.
+  - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "beam closed form asserted by the test"}
+    note: >-
+      Closed form <= 0.87 % vs 2 % bound; regression same.
+  - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "beam closed form asserted by the test"}
+    note: >-
+      Closed form <= 0.87 % vs 2 % bound; regression same.
+  - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "beam closed form asserted by the test"}
+    note: >-
+      Closed form <= 0.87 % vs 2 % bound; regression same.
+  - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial_2
+    class: physics
+    verdict: undecided
+    files: [tools/g17_closed_form.py]
+    note: >-
+      Loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation.
+  - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial_2
+    class: physics
+    verdict: undecided
+    files: [tools/g17_closed_form.py]
+    note: >-
+      Loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation.
+  - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx_2
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    files: [tools/g17_closed_form.py]
+    arbiters:
+      - {kind: analytical, label: "beam closed form, face-mean (tools/g17_closed_form.py C1)"}
+    note: >-
+      Loaded-node metric converges (change <= 0.21 %); both codes within 1.03 % of the closed form at 4x20 and 0.50 % at 16x80.
+  - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy_2
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    files: [tools/g17_closed_form.py]
+    arbiters:
+      - {kind: analytical, label: "beam closed form, face-mean (tools/g17_closed_form.py C1)"}
+    note: >-
+      Loaded-node metric converges (change <= 0.21 %); both codes within 1.03 % of the closed form at 4x20 and 0.50 % at 16x80.
+  - target: beam_shell_4cases.testbeamshell4casesparity_test_modal_fir.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    files: [tools/g17_closed_form.py]
+    arbiters:
+      - {kind: analytical, label: "thin-plate modal closed forms (tools/g17_closed_form.py C3/C4)"}
+    note: >-
+      Four matched modes within 1.3 % of closed form in both codes, mesh change < 0.8 % 8x40 -> 16x80; the fifth mode (473 Hz) has no closed form within 10 % and is code parity only.
+  - target: laminate_bend_twist.test_unbalanced_layup_matches_the_free_e.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "free-edge CLT state for the same layup"}
+    note: >-
+      Analytic CLT free-edge state, 0.44-2.47 % vs 5 %; Ritz solution and the CCX deck are non-gating context. Regression same.
+  - target: laminate_bend_twist.test_constant_moment_interior_state_is_t.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "free-edge CLT state for the same layup"}
+    note: >-
+      Analytic CLT free-edge state, 0.44-2.47 % vs 5 %; Ritz solution and the CCX deck are non-gating context. Regression same.
+  - target: laminate_bend_twist.test_constant_moment_tip_twist_matches_t.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "free-edge CLT state for the same layup"}
+    note: >-
+      Analytic CLT free-edge state, 0.44-2.47 % vs 5 %; Ritz solution and the CCX deck are non-gating context. Regression same.
+  - target: laminate_bend_twist.test_ritz_reference_converges_and_matche.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "free-edge CLT state for the same layup"}
+    note: >-
+      Analytic CLT free-edge state, 0.44-2.47 % vs 5 %; Ritz solution and the CCX deck are non-gating context. Regression same.
+  - target: dtube_gravity.test_dtube_gravity_tip_deflection_aeroel.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
+    note: >-
+      Closed form; AE 400 layers -0.05 %, AE 200 layers -1.02 %, CCX S8R +0.12 %. Regression same.
+  - target: dtube_gravity.test_dtube_gravity_aeroelast_converges_w.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
+    note: >-
+      Closed form; AE 400 layers -0.05 %, AE 200 layers -1.02 %, CCX S8R +0.12 %. Regression same.
+  - target: dtube_gravity.test_dtube_gravity_tip_deflection_calcul.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
+    note: >-
+      Closed form; AE 400 layers -0.05 %, AE 200 layers -1.02 %, CCX S8R +0.12 %. Regression same.
+  - target: tube_torsion.test_self_equilibrated_isotropic_reprodu.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "Bredt thin-wall closed form"}
+    note: >-
+      Measured margins <= 0.70 % vs 5 %; regression same.
+  - target: tube_torsion.test_self_equilibrated_laminate_reproduc.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "Bredt thin-wall closed form"}
+    note: >-
+      Measured margins <= 0.70 % vs 5 %; regression same.
+  - target: tube_torsion.test_distributed_force_plus_transfer_mom.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    arbiters:
+      - {kind: analytical, label: "Bredt thin-wall closed form"}
+    note: >-
+      Measured margins <= 0.70 % vs 5 %; regression same.
+  - target: isotropic_shell.testisotropicshellparity_test_transverse.single
+    class: physics
+    verdict: trusted
+    audited_rev: 7d21658
+    files: [tools/g4_g8_ccx_convergence.py]
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli P L^3/(3 E I) (tools/g4_g8_ccx_convergence.py)"}
+    note: >-
+      Converged by mesh sweep (last step +0.055 % AE, +0.141 % CCX, gap 0.01 %); both codes -1.0 % from Euler-Bernoulli (Timoshenko shear adds 0.002 %; remaining offset unestablished, plausibly plate effect). The test asserts code parity; the closed form is from the audit tool.
