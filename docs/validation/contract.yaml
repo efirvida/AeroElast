@@ -1778,3 +1778,19 @@ verdicts:
       - {kind: analytical, label: "independent first-principles hand CLT (_hand_clt_abd) and the analytical B = 0 of a symmetric laminate"}
     note: >-
       A and D match the hand CLT to 0.0000 % (bound 1e-9). The two atol 1e-6 comparisons assert B = 0 for the symmetric [0/90/45/-45]s stack: measured |B| 1.1e-10 (hand) and 8.7e-11 (AeroElast), at the round-off floor eps*max|A|*h/2 ~ 1.4e-10, four orders under the bound and ten under the |B| ~ 6.5e4 that one perturbed ply gives, so the absolute bound still separates a coupling bug from round-off.
+  - target: dtube_gravity.test_dtube_gravity_calculix_is_span_conv.single
+    class: physics
+    verdict: trusted
+    audited_rev: af95fa8
+    arbiters:
+      - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
+    note: >-
+      CalculiX S8R span convergence, 50 vs 100 layers: 0.0013 % against a 1 % bound, so the CalculiX number used as comparator is converged in span. The converged value sits +0.12 % from the closed form (row tip_deflection_calculix). The test labels its reference `self` (CCX against itself at a finer span), which is right for a convergence check; the independent arbiter is the closed form.
+  - target: dtube_gravity.test_dtube_gravity_aeroelast_and_calculi.single
+    class: physics
+    verdict: trusted
+    audited_rev: af95fa8
+    arbiters:
+      - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
+    note: >-
+      AeroElast 400 layers vs CalculiX S8R 100 layers: 0.1624 % against a 1 % bound, with both codes converged (AE within -0.05 % and CCX within +0.12 % of the closed form, which accounts for the gap). The closed form arbitrates; the code-vs-code agreement is context.
