@@ -100,3 +100,9 @@ Worktree `fem-shell-worktrees/rotor-frame`, branch `fix/bem-participant-rotor-fr
 6. Then enter L2 verdicts in `docs/validation/contract.yaml` only where evidence supports them; B1 stays required to close (open: the 2 rejected G33 rows, 2 hypar pins).
 
 **Findings to keep in view:** (a) CalculiX OUTPUT=3D outer-fibre stress of an expanded S8R shell is one element h out of position in x (probes `tools/g7_stress_convergence.py`, `tools/g7_midspan_convergence.py`); (b) the whole-plate maximum von Mises includes the clamp singularity and does not converge in either code; (c) OpenSeesPy second arbiter is feasible (`tools/ops_shell_probe.py`, singularity image) but is optional context under the weighting rule, not a requirement.
+
+## Addendum 2026-10-15 - G43 estimator (PRE-3 item 3, maintainer approved)
+
+`test_undamped_free_vibration_frequency` now estimates f from linearly interpolated zero crossings (span first-to-last crossing), bound 5 % and analytical reference `F1_EXACT` unchanged. Result (SLURM 11616276): 6.64195 vs 6.84304 Hz, error **2.94 %** (was 2.58 % with the 0.333 Hz-quantised count).
+
+Decomposition (SLURM 11616280, `tools/g43_decomp.py`): spatial error of the FE mode `f1_num` = 6.64222 Hz vs `F1_EXACT` = **-2.93 %**; analytic Newmark average-acceleration period elongation -(w dt)^2/24 = **-0.007 %** (predicted 6.64174 Hz vs measured 6.64195). So the integrator is correct to ~0.003 %; the 2.9 % is the shell mesh against the Euler-Bernoulli beam, not Newmark. Open proposal (needs approval): add a tight check of the transient against `f1_num*(1-(w dt)^2/24)`, which isolates the integrator analytically; the 5 % check against `F1_EXACT` stays as the row.

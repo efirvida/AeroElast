@@ -155,8 +155,11 @@ def test_undamped_free_vibration_frequency(transient_case):
     hist, _ = _newmark_transient(K, M, 0.0 * M, u0, v0, DT, N_STEPS, fixed, tip_dof)
 
     s = hist - hist.mean()
-    crossings = np.where(np.diff(np.sign(s)))[0]
-    f_num = (len(crossings) / 2.0) / (N_STEPS * DT)
+    # Interpolated zero crossings: the span between first and last crossing is
+    # not quantised by the step, unlike counting crossings over the whole record.
+    idx = np.where(np.diff(np.sign(s)))[0]
+    t_cross = (idx + s[idx] / (s[idx] - s[idx + 1])) * DT
+    f_num = ((len(idx) - 1) / 2.0) / (t_cross[-1] - t_cross[0])
 
     assert_relative_error(
         f_num,
