@@ -1626,9 +1626,12 @@ verdicts:
       Measured 0.539 % vs CalculiX; mesh sweep converged (last step AE +0.016 %, CCX +0.103 %, gap 0.10 %); +0.72 % AE / +0.62 % CCX vs EB with D22.
   - target: orthotropic_shell_parity.test_orthotropic_bending.single
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: af95fa8
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli plus Timoshenko shear, kappa 5/6, A66 (tools/g4_bending_sweep.py)"}
     note: >-
-      Measured 3.648 % vs the in-plane bending closed form (bound 5 %). Under the ceiling but large and not attributed; no convergence sweep for this comparison. Needs a cause (shear, root restraint) or a sweep before a verdict.
+      Measured 3.648 % vs Euler-Bernoulli (bound 5 %); attributed to shear deformation (+3.93 % for L/B = 10). Mesh sweep 4x10..32x80: tip changes +0.024 % in the last step and sits +0.178 % from EB+Timoshenko (criterion predeclared in the tool). kappa is approximate for an orthotropic deep beam, so the Timoshenko match is context, not a gate.
   - target: composite_layup.test_axial_extension_matches_ccx.uni_0
     class: physics
     verdict: trusted
