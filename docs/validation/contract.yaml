@@ -1754,3 +1754,19 @@ verdicts:
       - {kind: analytical, label: "trapezoidal-rule dispersion omega_d = (2/dt) atan(omega dt/2) of the mesh's own first eigenfrequency"}
     note: >-
       Measured 0.0105 % vs 0.05 % bound fixed before measuring; the predicted offset is -0.0145 %. Isolates the integrator from the shell mesh error carried by the Euler-Bernoulli row.
+  - target: laminate_bend_twist_3d.test_3d_matches_the_shell_within_2_perce.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8214a11
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction"}
+    note: >-
+      Shell twist vs a 3D layer-wise elasticity solve of the same strip: 0.2143 % against a 2 % bound, reproduced exactly from the 2026-10-04 measurement. The relabel from `self` to `code` is correct: the reference is the CalculiX 3D solid, which judges the shell. Single numerical arbiter and no closed form (the hand-CLT reference was the original problem, per the test docstring), so the level keeps this row as single-arbiter.
+  - target: laminate_bend_twist_3d.test_3d_mesh_convergence.single
+    class: physics
+    verdict: trusted
+    audited_rev: 8214a11
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction"}
+    note: >-
+      Refined 3D twist (16x10) vs the shell: 0.2143 % against a 2 % bound; the test also asserts that the 3D value settles under in-plane refinement (6x4, 10x6, 16x10). Same single numerical arbiter as the row above.
