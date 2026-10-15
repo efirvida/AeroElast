@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b9cb561
-      date: '2026-10-08'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: 1.00309
       margin_pct: 0.3091
       text: 'isotropic theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 1.00309 vs 1 (error: 0.3091%, bound: 5.0000%)'
@@ -39,8 +39,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b9cb561
-      date: '2026-10-08'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: 1.00674
       margin_pct: 0.6745
       text: 'isotropic theta_z rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 1.00674 vs 1 (error: 0.6745%, bound: 5.0000%)'
@@ -67,8 +67,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b9cb561
-      date: '2026-10-08'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: 0.998598
       margin_pct: 0.1402
       text: 'laminate theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.998598 vs 1 (error: 0.1402%, bound: 5.0000%)'
@@ -86,8 +86,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b9cb561
-      date: '2026-10-08'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: 1.00703
       margin_pct: 0.7033
       text: 'laminate theta_z rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 1.00703 vs 1 (error: 0.7033%, bound: 5.0000%)'
@@ -113,8 +113,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: 1.00677
+      margin_pct: 0.6772
+      text: 't=10.0 mm asymptotic theta_z rate at L=24 m vs the idealised limit: at L=24 m the section rotation rate is T/GJ, so the theta_z rate on it must reach 1: 1.00677 vs 1 (error: 0.6772%, bound: 5.0000%)'
+      digest: d207e2f211bdca2b
   - label: rtol at line 614 (thickness=0.0005, ref_rate=ref_05)
     asserted: true
     reference:
@@ -127,8 +132,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: 1.00701
+      margin_pct: 0.701
+      text: 't=0.5 mm asymptotic theta_z rate at L=24 m vs the idealised limit: at L=24 m the section rotation rate is T/GJ, so the theta_z rate on it must reach 1: 1.00701 vs 1 (error: 0.7010%, bound: 5.0000%)'
+      digest: 87173c2c57477a55
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: tube_torsion.test_distributed_force_plus_transfer_mom.single
@@ -151,8 +161,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b9cb561
-      date: '2026-10-08'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: 0.000988158
       margin_pct: 0.2341
       text: 'tip theta_z, 10 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.000988158 vs 0.000990476 (error: 0.2341%, bound: 5.0000%)'
@@ -170,8 +180,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b9cb561
-      date: '2026-10-08'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: 0.00197632
       margin_pct: 0.2341
       text: 'tip theta_z, 10 mm wall, offset 0.40 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.00197632 vs 0.00198095 (error: 0.2341%, bound: 5.0000%)'
@@ -189,8 +199,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b9cb561
-      date: '2026-10-08'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: 0.0197884
       margin_pct: 0.1068
       text: 'tip theta_z, 0.5 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.0197884 vs 0.0198095 (error: 0.1068%, bound: 5.0000%)'
@@ -208,8 +218,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b9cb561
-      date: '2026-10-08'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: 0.0395767
       margin_pct: 0.1068
       text: 'tip theta_z, 0.5 mm wall, offset 0.40 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.0395767 vs 0.039619 (error: 0.1068%, bound: 5.0000%)'

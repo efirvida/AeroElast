@@ -1574,3 +1574,167 @@ verdicts:
       - {kind: analytical, label: "Euler-Bernoulli P L^3/(3 E I) (tools/g4_g8_ccx_convergence.py)"}
     note: >-
       Converged by mesh sweep (last step +0.055 % AE, +0.141 % CCX, gap 0.01 %); both codes -1.0 % from Euler-Bernoulli (Timoshenko shear adds 0.002 %; remaining offset unestablished, plausibly plate effect). The test asserts code parity; the closed form is from the audit tool.
+
+# --- PRE-3 (B2/L2), 2026-10-15, session 4: baselines written at fe15b0c (regression --write) ---
+  - target: ccx_element_types.test_ccx_element_type_matches_analytical.s4
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
+    note: >-
+      Measured 0.614 % vs the closed form; CalculiX converges +0.60 % above EB, Timoshenko explains +0.78 %. Bound 5 %.
+  - target: ccx_element_types.test_ccx_element_type_matches_analytical.s8
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
+    note: >-
+      Measured 0.2251 % vs the closed form; CalculiX converges +0.60 % above EB, Timoshenko explains +0.78 %. Bound 5 %.
+  - target: ccx_element_types.test_ccx_element_type_matches_analytical.s8r
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
+    note: >-
+      Measured 0.4929 % vs the closed form; CalculiX converges +0.60 % above EB, Timoshenko explains +0.78 %. Bound 5 %.
+  - target: tube_torsion.test_clamped_root_metric_convergence_ide.single
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "Bredt thin-wall closed form"}
+    note: >-
+      Measured 0.677 % (t=10 mm) and 0.701 % (t=0.5 mm) vs the idealised limit at L=24 m; bound 5 %.
+  - target: shell_stress_ccx.test_outer_fibre_stress_matches_beam_th.single
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "beam theory M(x) c / I at mid-span"}
+    note: >-
+      Measured 0.306 % at mid-span (1.0000 at >=16x4). Whole-plate max is excluded: clamp singularity does not converge.
+  - target: orthotropic_shell_parity.test_orthotropic_axial.single
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli axial/transverse closed form (tools/g4_g8_ccx_convergence.py)"}
+    note: >-
+      Measured 0.539 % vs CalculiX; mesh sweep converged (last step AE +0.016 %, CCX +0.103 %, gap 0.10 %); +0.72 % AE / +0.62 % CCX vs EB with D22.
+  - target: orthotropic_shell_parity.test_orthotropic_bending.single
+    class: physics
+    verdict: undecided
+    note: >-
+      Measured 3.648 % vs the in-plane bending closed form (bound 5 %). Under the ceiling but large and not attributed; no convergence sweep for this comparison. Needs a cause (shear, root restraint) or a sweep before a verdict.
+  - target: composite_layup.test_axial_extension_matches_ccx.uni_0
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
+    note: >-
+      Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %.
+  - target: composite_layup.test_axial_extension_matches_ccx.uni_90
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
+    note: >-
+      Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %.
+  - target: composite_layup.test_axial_extension_matches_ccx.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
+    note: >-
+      Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %.
+  - target: composite_layup.test_axial_extension_matches_ccx.asym_0_90
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
+    note: >-
+      Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %.
+  - target: composite_layup.test_axial_extension_matches_ccx.quasi_iso
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
+    note: >-
+      Both codes <= 0.3 % vs the independent hand-CLT closed form at 32x80; bound 3 %.
+  - target: composite_layup.test_transverse_bending_matches_ccx.uni_0
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
+    note: >-
+      Measured 0.3249 % vs hand-CLT; bound 3 %.
+  - target: composite_layup.test_transverse_bending_matches_ccx.uni_90
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
+    note: >-
+      Measured 0.3736 % vs hand-CLT; bound 3 %.
+  - target: composite_layup.test_transverse_bending_matches_ccx.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
+    note: >-
+      Measured 0.2844 % vs hand-CLT; bound 3 %.
+  - target: composite_layup.test_transverse_bending_matches_ccx.asym_0_90
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
+    note: >-
+      Measured 0.2952 % vs hand-CLT; bound 3 %.
+  - target: composite_layup.test_transverse_bending_matches_ccx.quasi_iso
+    class: physics
+    verdict: undecided
+    note: >-
+      Measured 1.757 % vs hand-CLT (bound 3 %). The offset, larger than the other layups, was attributed to clamped-root restraint but not measured; needs a sweep before a verdict.
+  - target: composite_layup.test_asymmetric_b_coupling_matches_ccx.single
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, w = -kappa_y L^2/2"}
+    note: >-
+      Measured 0.0241 % vs hand-CLT; bound 1 %.
+  - target: composite_layup.test_symmetric_laminates_have_no_b_coupl.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "classical laminate theory: B = 0 for a symmetric layup"}
+    note: >-
+      Out-of-plane deflection of the symmetric layup is 0.0000 % of the coupled one, in both codes.
+  - target: composite_layup.test_symmetric_laminates_have_no_b_coupl.quasi_iso
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "classical laminate theory: B = 0 for a symmetric layup"}
+    note: >-
+      Out-of-plane deflection of the symmetric layup is 0.0000 % of the coupled one, in both codes.
+  - target: newmark_analytic_frequency.s3_undamped_free_vibration_f1
+    class: physics
+    verdict: trusted
+    audited_rev: fe15b0c
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli cantilever first frequency"}
+    note: >-
+      2.9385 % vs EB (bound 5 %) decomposed in tools/g43_decomp.py as spatial -2.93 % (shell mesh vs EB) + Newmark -0.007 %; integrator correct. Zero-crossing estimator is interpolated.

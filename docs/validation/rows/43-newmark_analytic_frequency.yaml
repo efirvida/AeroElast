@@ -1,31 +1,31 @@
 group: '43'
 rows:
-  - id: newmark_analytic_frequency.s3_undamped_free_vibration_f1
-    group: '43'
-    title: S-3 undamped free-vibration frequency vs analytic value
-    tests:
-      - >-
-        tests/test_iea15mw_s3_newmark_transient.py::test_undamped_free_vibration_frequency
-    validates: >-
-      Undamped Newmark free-vibration frequency against the Euler-Bernoulli
-      cantilever first-frequency expression.
-    comparisons:
-      - label: First free-vibration frequency relative error
-        asserted: true
-        reference:
-          kind: analytical
-          label: >-
-            F1_EXACT Euler-Bernoulli cantilever expression from the test source
-        tolerance:
-          kind: rel_err
-          value: 0.05
-          source: tests/test_iea15mw_s3_newmark_transient.py:161
-          justified: true
-          justification: Source-stated 5% bound; no result or verdict recorded.
-        measured:
-          status: not_measured
-        expected: F1_EXACT
-    flags: []
-    notes: >-
-      Analytic frequency comparison only; energy conservation and damping decay
-      assertions remain implementation checks, not independent-reference rows.
+- id: newmark_analytic_frequency.s3_undamped_free_vibration_f1
+  group: '43'
+  title: S-3 undamped free-vibration frequency vs analytic value
+  tests:
+  - tests/test_iea15mw_s3_newmark_transient.py::test_undamped_free_vibration_frequency
+  validates: Undamped Newmark free-vibration frequency against the Euler-Bernoulli cantilever first-frequency expression.
+  comparisons:
+  - label: First free-vibration frequency relative error
+    asserted: true
+    reference:
+      kind: analytical
+      label: F1_EXACT Euler-Bernoulli cantilever expression from the test source
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s3_newmark_transient.py:161
+      justified: true
+      justification: Source-stated 5% bound; no result or verdict recorded.
+    measured:
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: 6.64195
+      margin_pct: 2.9385
+      text: 'Newmark free-vibration frequency (Hz) vs Euler-Bernoulli cantilever first frequency F1_EXACT: 6.64195 vs 6.84304 (error: 2.9385%, bound: 5.0000%)'
+      digest: 0eee854f7bc22eca
+    expected: F1_EXACT
+  flags: []
+  notes: Analytic frequency comparison only; energy conservation and damping decay assertions remain implementation checks, not independent-reference rows.

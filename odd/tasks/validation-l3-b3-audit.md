@@ -248,3 +248,11 @@ Remaining PRE-3: relabel G21, enter L2 verdicts where supported, merge to main a
 4. Maintainer decisions: tight Newmark check in G43 (`f1_num*(1-(w dt)^2/24)`); unpushed work in `t7a4-follow` (1 commit + 1 file) and 15 detached worktrees (1 uncommitted file each); whether to push `main`.
 
 **Next concrete step.** New branch from main (e.g. `audit/pre3-baselines`); run `regression --write --group N` on SLURM for G4, G6, G7, G9, G18, G43 (gitshim mandatory for --write), inspect each `new_baseline`, then append verdicts to `docs/validation/contract.yaml`. Environment: `PYTHONPATH=$SCRATCH/validenv scripts/aeroenv.sh python ...` (verify symlink points here); SLURM `sbatch -p sequana_cpu --ntasks=1 --time=...`. At the end merge to main and delete the branch.
+
+## Handoff 2026-10-15 (end of the fourth PRE-3 session)
+
+**Done.** `regression --write` at `fe15b0c` (SLURM 11616411-16, 11616425; G43 needs `--scope tests/test_iea15mw_s3_newmark_transient.py`, the default group scope hits the 20 min limit): G4 2, G6 2, G7 1, G9 3, G18 15, G43 1 `new_baseline`, all written; logs `logs/check/l2-audit/write-g*.log`. 19 verdicts appended to `contract.yaml` (17 trusted, 2 undecided). L2: trusted 53, undecided 4, unaudited 12, 13 single-or-no-arbiter, gap `composite_stress_recovery` (a) still blocking. Check: 268 / 373 / 0 errors. Branch `audit/pre3-baselines` merged to main and deleted; main NOT pushed.
+
+**Undecided (need a cause or a sweep).** G4 orthotropic bending 3.648 % vs closed form; G18 quasi_iso transverse bending 1.757 % (clamped-root attribution unmeasured); plus the 2 G17 loaded-node rows.
+
+**Left.** 5 G18 modal rows and `multi_layer_iso_equivalence` (no analytic arbiter; numerical is non-gating); G21 relabel `self` -> `code` + verdicts; G24 row 1; G26 deck row; G55 rows 4-5; B1 (2 rejected G33 rows, 2 hypar pins); maintainer decisions (G43 tight Newmark check, other worktrees, push of main).

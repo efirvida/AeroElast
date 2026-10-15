@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.332
+      text: 'uni_0 AeroElast mean axial extension vs the independent hand-CLT strip solution, eps_y = (ABD^-1)[y,y] N_y: 0.3320% (bound: 3.0000%)'
+      digest: d9d10e871ececf0d
   - label: rtol at line 391
     asserted: true
     reference:
@@ -34,8 +39,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.0686
       text: 'uni_0 mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.0686% (bound: 2.5000%)'
@@ -61,8 +66,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 1.3551
+      text: 'uni_90 AeroElast mean axial extension vs the independent hand-CLT strip solution, eps_y = (ABD^-1)[y,y] N_y: 1.3551% (bound: 3.0000%)'
+      digest: b506cae2c822d82a
   - label: rtol at line 391
     asserted: true
     reference:
@@ -76,8 +86,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 1.5016
       text: 'uni_90 mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 1.5016% (bound: 2.5000%)'
@@ -103,8 +113,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.9244
+      text: 'sym_0_90s AeroElast mean axial extension vs the independent hand-CLT strip solution, eps_y = (ABD^-1)[y,y] N_y: 0.9244% (bound: 3.0000%)'
+      digest: 3d38a79b84faaaf3
   - label: rtol at line 391
     asserted: true
     reference:
@@ -118,8 +133,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.3941
       text: 'sym_0_90s mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.3941% (bound: 2.5000%)'
@@ -145,8 +160,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.4895
+      text: 'asym_0_90 AeroElast mean axial extension vs the independent hand-CLT strip solution, eps_y = (ABD^-1)[y,y] N_y: 0.4895% (bound: 3.0000%)'
+      digest: 4e071859c225675a
   - label: rtol at line 391
     asserted: true
     reference:
@@ -160,8 +180,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.0866
       text: 'asym_0_90 mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.0866% (bound: 2.5000%)'
@@ -187,8 +207,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.1194
+      text: 'quasi_iso AeroElast mean axial extension vs the independent hand-CLT strip solution, eps_y = (ABD^-1)[y,y] N_y: 0.1194% (bound: 3.0000%)'
+      digest: 5b3ffa65c3d43766
   - label: rtol at line 391
     asserted: true
     reference:
@@ -202,8 +227,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.2453
       text: 'quasi_iso mean axial extension vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.2453% (bound: 2.5000%)'
@@ -229,8 +254,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.3249
+      text: 'uni_0 AeroElast mean out-of-plane bending deflection vs the independent hand-CLT cantilever strip, w = (ABD^-1)[kappa_y,M_y] F L^3 / (3 B): 0.3249% (bound: 3.0000%)'
+      digest: 6717e079d08c8de0
   - label: rtol at line 413
     asserted: true
     reference:
@@ -244,8 +274,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.5068
       text: 'uni_0 mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.5068% (bound: 1.0000%)'
@@ -271,8 +301,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.3736
+      text: 'uni_90 AeroElast mean out-of-plane bending deflection vs the independent hand-CLT cantilever strip, w = (ABD^-1)[kappa_y,M_y] F L^3 / (3 B): 0.3736% (bound: 3.0000%)'
+      digest: b44afd7836f9e158
   - label: rtol at line 413
     asserted: true
     reference:
@@ -286,8 +321,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.2596
       text: 'uni_90 mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.2596% (bound: 1.0000%)'
@@ -313,8 +348,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.2844
+      text: 'sym_0_90s AeroElast mean out-of-plane bending deflection vs the independent hand-CLT cantilever strip, w = (ABD^-1)[kappa_y,M_y] F L^3 / (3 B): 0.2844% (bound: 3.0000%)'
+      digest: 37d87fcc456924b2
   - label: rtol at line 413
     asserted: true
     reference:
@@ -328,8 +368,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.2656
       text: 'sym_0_90s mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.2656% (bound: 1.0000%)'
@@ -355,8 +395,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.2952
+      text: 'asym_0_90 AeroElast mean out-of-plane bending deflection vs the independent hand-CLT cantilever strip, w = (ABD^-1)[kappa_y,M_y] F L^3 / (3 B): 0.2952% (bound: 3.0000%)'
+      digest: 03675a93be93641a
   - label: rtol at line 413
     asserted: true
     reference:
@@ -370,8 +415,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.1059
       text: 'asym_0_90 mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.1059% (bound: 1.0000%)'
@@ -397,8 +442,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 1.7572
+      text: 'quasi_iso AeroElast mean out-of-plane bending deflection vs the independent hand-CLT cantilever strip, w = (ABD^-1)[kappa_y,M_y] F L^3 / (3 B): 1.7572% (bound: 3.0000%)'
+      digest: 5d1e6dfd80f1cdc9
   - label: rtol at line 413
     asserted: true
     reference:
@@ -412,8 +462,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.2056
       text: 'quasi_iso mean out-of-plane bending deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.2056% (bound: 1.0000%)'
@@ -439,8 +489,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.0241
+      text: 'asym_0_90 AeroElast membrane-bending coupling deflection vs the independent hand-CLT strip solution, w = -kappa_y L^2 / 2: 0.0241% (bound: 1.0000%)'
+      digest: ea7604679b73e5bd
   - label: rtol at line 439
     asserted: true
     reference:
@@ -454,8 +509,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.3698
       text: 'asym_0_90 membrane-bending coupling deflection vs CalculiX 2.23 S8R, the same layup on the same mesh: 0.3698% (bound: 2.0000%)'
@@ -481,8 +536,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.0
+      text: 'sym_0_90s AeroElast out-of-plane deflection over the asym_0_90 coupled deflection vs classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   - label: rtol at line 464
     asserted: true
     reference:
@@ -495,8 +555,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.0
+      text: 'sym_0_90s CalculiX out-of-plane deflection over the asym_0_90 coupled deflection vs classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_symmetric_laminates_have_no_b_coupl.quasi_iso
@@ -518,8 +583,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.0
+      text: 'quasi_iso AeroElast out-of-plane deflection over the asym_0_90 coupled deflection vs classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   - label: rtol at line 464
     asserted: true
     reference:
@@ -532,8 +602,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.0
+      text: 'quasi_iso CalculiX out-of-plane deflection over the asym_0_90 coupled deflection vs classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_layup.test_modal_frequencies_match_ccx.uni_0
@@ -556,8 +631,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 1.2587
       text: 'uni_0 worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.2587% (bound: 3.0000%)'
@@ -584,8 +659,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 1.2401
       text: 'uni_90 worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.2401% (bound: 3.0000%)'
@@ -612,8 +687,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 1.2555
       text: 'sym_0_90s worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.2555% (bound: 3.0000%)'
@@ -640,8 +715,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 1.2576
       text: 'asym_0_90 worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.2576% (bound: 3.0000%)'
@@ -668,8 +743,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 1.4241
       text: 'quasi_iso worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.4241% (bound: 3.0000%)'

@@ -19,8 +19,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 0.5391
+      text: 'ortho transverse tip displacement vs CalculiX 2.23 S8R, orthotropic cantilever: 3.18968 vs 3.17258 (error: 0.5391%, bound: 5.0000%)'
+      digest: 39435b2600514e54
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: orthotropic_shell_parity.test_orthotropic_bending.single
@@ -42,8 +47,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: null
+      margin_pct: 3.6479
+      text: 'ortho bending tip displacement vs the closed form for in-plane bending of the orthotropic cantilever: 0.0012661 vs 0.00122154 (error: 3.6479%, bound: 5.0000%)'
+      digest: 3f806de49f136025
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: orthotropic_shell_parity.test_multi_layer_iso_equivalence.single
@@ -66,11 +76,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c16842d
-      date: '2026-10-04'
+      run: fe15b0c
+      date: '2026-10-15'
       raw: null
       margin_pct: 0.0
-      text: 0.0000% bound 0.0100%
+      text: 'multi-layer isotropic stiffness matrix vs the same laminate built as one isotropic layer: 0.0000% (bound: 0.0100%)'
       digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

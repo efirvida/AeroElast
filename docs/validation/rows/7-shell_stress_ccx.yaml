@@ -19,7 +19,12 @@ rows:
       justified: true
       justification: 5 % physics bound; sampled at mid-span because the whole-plate maximum includes the clamped-edge singularity and does not converge.
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: fe15b0c
+      date: '2026-10-15'
+      raw: 33646700.0
+      margin_pct: 0.3062
+      text: 'mid-span outer-fibre von Mises stress vs beam theory M(x) c / I at the sample station, outer-fibre stress: 3.36467e+07 vs 3.375e+07 (error: 0.3062%, bound: 5.0000%)'
+      digest: f23a60ffd4f28422
   flags: []
   notes: 'Gating reference is the closed form (it outweighs any numerical reference). CalculiX 2.23 S8R OUTPUT=3D is reported as non-gating context from tools/g7_midspan_convergence.py: its outer-fibre stress is linear with the right slope but one element h out of position in x (ratio to M c / I = 1 - 2/NX: 0.875, 0.9375, 0.9688, 0.9844 for NX = 16..128), so at mid-span it approaches the closed form at first order. The earlier whole-plate-maximum comparison (CalculiX 1.58 % at 8x2) was a coincidence of two coarse meshes: that maximum includes the clamped-edge singularity and does not converge in either code (128x32: AeroElast 61.8, CalculiX 65.9 MPa vs 60.0).'
