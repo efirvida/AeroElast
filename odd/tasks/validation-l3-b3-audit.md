@@ -319,3 +319,23 @@ Re-measured group 26 (SLURM 11616467, 8 comparisons `same`, source digest unchan
 ## Addendum 2026-10-15 - gap composite_stress_recovery (a) closed by refusal (branch fix/composite-no-ply-stack-raise)
 
 Maintainer-approved contract change: `StressRecovery` raises `ValueError` (naming the element set) when a stress is requested on a raw homogenised ABD dict, instead of returning the thickness mean `N/h` labelled TOP/MIDDLE/BOTTOM with a warning. Lazy: assembly, stiffness and the displacement solve are unaffected. Only `test_composite_ply_stress_parity.py` exercised that path; its characterization test became `test_raw_abd_section_refuses_ply_stress` (RED observed first: the old code only warned). `gaps.yaml` `composite_stress_recovery` -> `bounded`. L2: trusted 64, regression_pin 3, unarbitrated 2, unaudited 1, 0 stale, gaps 0 blocking. Verified: that test file 20 passed, ruff clean, `check.sh quick` OK, `validation_matrix check` 0 errors. Not run: the full suite. Left in L2: G21 second arbiter, `multi_layer_iso_equivalence`.
+
+## Handoff 2026-10-15 (CLOSE of the sixth PRE-3 session; supersedes the "Unfinished" list of the fifth)
+
+**State (main, HEAD = this handoff commit, tree clean, no branches left, NOT pushed: 11 commits ahead of origin).** L2: trusted 64, regression_pin 3, unarbitrated 2, unaudited 1, 0 stale, gaps 0 blocking (L2 still `open`). `validation_matrix.py check`: 269 rows / 374 comparisons / 0 errors. `check.sh quick` OK at `5a9fe64`; the full suite was not run.
+
+**Done this session (each on a branch merged ff to main and deleted).**
+- G18 modal: 5 `trusted` physics verdicts. Re-measured `tools/g18_modal_convergence.py` (SLURM 11616456; the original log was lost because `logs/` is git-ignored, the per-layup numbers are in the addendum above). Worst change 16x40 -> 32x80 0.67 % AeroElast / 0.07 % CalculiX, worst gap 0.21 % (bound 3 %); analytic arbiter = Euler-Bernoulli from the hand-CLT strip.
+- G26 deck pin restamped (`af95fa8` -> `60db9d4`): group 26 re-measured, 8 comparisons `same` (SLURM 11616467). The stale came from `0760d76` touching `tools/g26_ccx_deck_convergence.py`, a file in the verdict's `files`.
+- Gap `composite_stress_recovery` (a) closed by refusal (maintainer-approved contract change): `StressRecovery` raises `ValueError` on a stress request for a raw ABD section; lazy, so assembly and displacement solves are unaffected. Test `test_raw_abd_section_refuses_ply_stress` (RED observed first), `gaps.yaml` status `bounded`, `groups.yaml` test name updated.
+
+**Unfinished.**
+1. `orthotropic_shell_parity.test_multi_layer_iso_equivalence.single` (the only unaudited L2 row, no arbiter). Try a closed form first: a laminate of isotropic layers must give D = E h^3 / (12 (1 - nu^2)) and A = E h / (1 - nu^2); `trusted` if the test's metric maps onto it, otherwise `regression_pin`. Never widen the bound.
+2. G21 (2 verdicts) is `unarbitrated`: one numerical arbiter (CalculiX C3D20R). Look for a closed form or a published laminate +-45 deg number; if none exists, leave it declared `unarbitrated` and report it (OpenSeesPy cannot build +-45 deg plies).
+3. Advisories from the native review of G4+G18, not fixed: `tools/g4_bending_sweep.py:26` silent no-op `replace`; `:47` printed gate differs from the docstring criterion; `tools/g18_quasi_iso_root_sweep.py:49-55` sym_0_90s control printed, not gated. Re-run the tool after fixing; tools are not in `files`, so verdicts do not go stale.
+4. B1: 2 rejected G33 rows, 2 hypar pins. Then B3-1..3 and PRE-4 (L3 is `blocked by L2`: 39 unaudited, 15 over the 5 % ceiling). Out of scope here: GitHub edits, P1.
+5. Maintainer: push of main (11 commits).
+
+**Traps.** (a) Editing any file named in a level's `depends_on` (`levels.yaml`) or in a verdict's `files` stales verdicts; re-measure the group with `validation_matrix.py regression --group N` (SLURM, ~1 min) and restamp `audited_rev`. (b) `logs/` is ignored: put numbers that matter in the doc, not only in a log. (c) A single numerical arbiter makes a trusted row `unarbitrated`.
+
+**Next concrete step.** New branch `audit/pre3-multilayer-iso` from main; read the test body of `test_multi_layer_iso_equivalence`, decide closed form vs pin, write the verdict (then `check`, `contract --level L2`), merge ff to main and delete the branch. SLURM: `sbatch -p sequana_cpu --ntasks=1 --time=40`.
