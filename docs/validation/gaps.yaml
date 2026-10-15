@@ -26,9 +26,18 @@ gaps:
       the expanded outer-fibre node, the midsurface node is exactly 0 -- so
       `OUTPUT=3D` being inert for composites is not a bar. What remains:
       (a) a section with no ply stack, i.e. a raw homogenised ABD dict,
-      still returns the thickness-mean equivalent and only warns; and
-      (b) the bending laminate `[0/90/90/0]` is measured (ours 616.10 MPa
-      against CalculiX 595.59 MPa) but has no row, so it cannot be cited.
+      still returns the thickness-mean equivalent and only warns.
+      (b) CLOSED 2026-10-15 (PRE-3 audit): the bending `[0/90/90/0]` number
+      (ours 616.10 MPa against CalculiX 595.59 MPa) is a whole-plate maximum
+      |SZZ| (stated for the CalculiX value in `test_composite_stress_ccx_parity.py`
+      E3; the same metric is presumed, not re-measured, for ours), which
+      includes the clamp singularity that does not converge in either code
+      (group 7 finding); it is withdrawn as a metric. The
+      citable bending evidence is group 36: the pure-bending outer-fibre ply
+      stress against the closed-form CLT profile at two stations (rows
+      `test_bending_top_and_bottom_match_clt_at_two_stations`, margins
+      <= 0.0013 %), and the free-field centre stress against CalculiX S8R
+      with paired convergence (< 0.01 % change 32x8 -> 64x16, both codes).
     evidence: >-
       Issue #27 and `odd/tasks/composite-ply-stress-recovery.md` (T1-T4:
       `95bfbab`, `208f220`, `bd4cc05`, `62d806a`), with the group 36 rows.
@@ -39,8 +48,8 @@ gaps:
     consequence: >-
       The membrane outer-fibre ply stress may be cited from group 36. The
       thickness-mean value a raw ABD section returns may not be cited as a
-      ply stress, and the `[0/90/90/0]` bending number may not be cited
-      until it has a row.
+      ply stress, and the whole-plate maximum `[0/90/90/0]` bending number
+      (616.10 / 595.59 MPa) may not be cited as a validation.
     citations_forbidden: true
     rows: []
 
