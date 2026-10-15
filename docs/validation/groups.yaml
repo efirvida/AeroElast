@@ -355,6 +355,15 @@ groups:
           solution rather than a comparison against anything independent. The
           extractor finds no site in it because the bound is
           `0.02 * plate_stress["upper"]` and not a literal.
+      - tests:
+          - test_production_solver_matches_the_scipy_replica
+        reason: >-
+          It compares the production PETSc solve with a scipy solve of the same
+          production stiffness on the same mesh, loads and constraints: two
+          paths through our own code, with no independent reference. It guards
+          against the solver paths drifting apart and says nothing about the
+          physics, which the rows of this group take from CalculiX and beam
+          theory. Software consistency, so policy rule 6 leaves it no row.
     provenance_note: >-
       The row compares the outer-fibre von Mises stress against two references
       at once: the CalculiX 2.23 result, read from the binary, and the
@@ -627,6 +636,24 @@ groups:
     slug: laminate_bend_twist_3d
     source_files:
       - tests/validation/blade/test_laminate_bend_twist_3d.py
+    non_validation_tests:
+      - tests:
+          - test_deck_controls
+        reason: >-
+          Controls of the hand-authored solid deck, not a comparison against a
+          reference: a decoupled layup must not twist and a +45/-45 pair must be
+          antisymmetric, which checks that the deck's own `*ORIENTATION`
+          handling is wired before the judge is trusted. Machinery of the
+          arbiter, so policy rule 6 leaves it no row.
+      - tests:
+          - test_a_uniform_nodal_force_on_the_face_is_not_a_uniform_traction
+        reason: >-
+          Pins a documented load-discretisation artifact (a uniform nodal force
+          over the tip face moves the 3D twist 15-30 % from the shell) so it
+          cannot be mistaken for a theory verdict again. The band is a
+          regression pin on a known defect of the loading, not a physical
+          comparison; the consistent-traction agreement it also asserts is the
+          3D-versus-shell comparison already carried by this group's rows.
 
     provenance_note: >-
       A hand-authored CalculiX deck, one C3D20R per ply, used as an independent
@@ -682,6 +709,21 @@ groups:
       - tests/validation/parity/test_composite_beam_parity.py
     # Two assertions are mesh-connectivity checks, not comparisons. The
     # lines are the ones the extractor reported.
+    non_validation_tests:
+      - tests:
+          - TestCompositeMaterial::test_laminate_abd_matrices
+        reason: >-
+          Checks that the laminate dictionary carries the expected keys and
+          that its A, B and D entries have nine components each. Structure of
+          our own data, with no value compared against anything; the ABD values
+          are compared against the hand CLT in `test_clt_matches_independent_hand_reference`.
+      - tests:
+          - TestCompositeMaterial::test_mesh_connectivity
+        reason: >-
+          Asserts that the plate mesh has its node sets and that the clamped
+          and free nodes sit on y = 0 and y = L: the fixture is built as
+          intended. Geometry of the test setup, not a comparison with a
+          reference.
     provenance_note: >-
       Two references per case, and the file says why: an independent hand CLT
       for the closed-form leg and CalculiX on the same mesh, layup and load for

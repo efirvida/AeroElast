@@ -84,7 +84,10 @@ from tests.support.assertions import assert_residual_below  # noqa: E402
 AXIAL_TOL = 0.025  # measured max 1.83% (uni_90, 4x10)
 BENDING_TOL = 0.01  # measured max 0.51% (uni_0, 4x10)
 B_COUPLING_TOL = 0.02  # measured 0.37% (asym_0_90, 4x10)
-SYMMETRIC_B_ABS = 1e-11  # symmetric layups must give |w| below this, aero and CCX
+SYMMETRIC_B_ABS = 1e-11  # old absolute bound on |w| (m) for symmetric layups, aero and CCX
+# The same bound as a ratio to the coupled response of the asymmetric strip, which the
+# asymmetric test asserts is above 1e-3 m: 1e-11 m / 1e-3 m.
+SYMMETRIC_B_REL = 1e-8
 
 # Modal: request extra modes on both sides and match the closest pairs, so a
 # swapped spurious mode cannot turn a real mismatch into a false failure.
@@ -392,8 +395,25 @@ def test_asymmetric_b_coupling_matches_ccx(parity: dict) -> None:
 def test_symmetric_laminates_have_no_b_coupling(parity: dict, layup: str) -> None:
     """Symmetric laminates stay flat under axial load, in both codes (B = 0)."""
     aero, ccx = parity["static"][(layup, "b_coupling")]
-    assert abs(aero) < SYMMETRIC_B_ABS, f"{layup}: aero w={aero:.3e} (expected ~0)"
-    assert abs(ccx) < SYMMETRIC_B_ABS, f"{layup}: ccx w={ccx:.3e} (expected ~0)"
+    # The reference is exactly zero, so the bound is relative to the coupled response of the
+    # asymmetric [0/90] strip under the same load. That scale is macroscopic (> 1e-3 m), so
+    # SYMMETRIC_B_REL is no wider than the old absolute 1e-11 m bound.
+    _, scale = parity["static"][("asym_0_90", "b_coupling")]
+    assert abs(scale) > 1e-3, f"coupling scale is not macroscopic: {scale:.3e}"
+    assert_residual_below(
+        abs(aero) / abs(scale),
+        tol=SYMMETRIC_B_REL,
+        kind="analytical",
+        reference_name="classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat",
+        what=f"{layup} AeroElast out-of-plane deflection over the asym_0_90 coupled deflection",
+    )
+    assert_residual_below(
+        abs(ccx) / abs(scale),
+        tol=SYMMETRIC_B_REL,
+        kind="analytical",
+        reference_name="classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat",
+        what=f"{layup} CalculiX out-of-plane deflection over the asym_0_90 coupled deflection",
+    )
 
 
 @pytest.mark.parametrize("layup", list(LAYUPS))

@@ -7,7 +7,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[uni_0]
   validates: Mean axial extension under an edge resultant matches CCX S8R.
   comparisons:
-  - label: rtol at line 350
+  - label: rtol at line 353
     asserted: true
     reference:
       kind: code
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/parity/test_composite_layup_parity.py:350
+      source: tests/validation/parity/test_composite_layup_parity.py:353
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -35,7 +35,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[uni_90]
   validates: Mean axial extension under an edge resultant matches CCX S8R.
   comparisons:
-  - label: rtol at line 350
+  - label: rtol at line 353
     asserted: true
     reference:
       kind: code
@@ -43,7 +43,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/parity/test_composite_layup_parity.py:350
+      source: tests/validation/parity/test_composite_layup_parity.py:353
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -63,7 +63,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[sym_0_90s]
   validates: Mean axial extension under an edge resultant matches CCX S8R.
   comparisons:
-  - label: rtol at line 350
+  - label: rtol at line 353
     asserted: true
     reference:
       kind: code
@@ -71,7 +71,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/parity/test_composite_layup_parity.py:350
+      source: tests/validation/parity/test_composite_layup_parity.py:353
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -91,7 +91,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[asym_0_90]
   validates: Mean axial extension under an edge resultant matches CCX S8R.
   comparisons:
-  - label: rtol at line 350
+  - label: rtol at line 353
     asserted: true
     reference:
       kind: code
@@ -99,7 +99,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/parity/test_composite_layup_parity.py:350
+      source: tests/validation/parity/test_composite_layup_parity.py:353
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -119,7 +119,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_axial_extension_matches_ccx[quasi_iso]
   validates: Mean axial extension under an edge resultant matches CCX S8R.
   comparisons:
-  - label: rtol at line 350
+  - label: rtol at line 353
     asserted: true
     reference:
       kind: code
@@ -127,7 +127,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/parity/test_composite_layup_parity.py:350
+      source: tests/validation/parity/test_composite_layup_parity.py:353
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -147,7 +147,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[uni_0]
   validates: Mean out-of-plane bending deflection matches CCX S8R.
   comparisons:
-  - label: rtol at line 364
+  - label: rtol at line 367
     asserted: true
     reference:
       kind: code
@@ -155,7 +155,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/parity/test_composite_layup_parity.py:364
+      source: tests/validation/parity/test_composite_layup_parity.py:367
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -175,7 +175,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[uni_90]
   validates: Mean out-of-plane bending deflection matches CCX S8R.
   comparisons:
-  - label: rtol at line 364
+  - label: rtol at line 367
     asserted: true
     reference:
       kind: code
@@ -183,7 +183,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/parity/test_composite_layup_parity.py:364
+      source: tests/validation/parity/test_composite_layup_parity.py:367
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -203,7 +203,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[sym_0_90s]
   validates: Mean out-of-plane bending deflection matches CCX S8R.
   comparisons:
-  - label: rtol at line 364
+  - label: rtol at line 367
     asserted: true
     reference:
       kind: code
@@ -211,7 +211,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/parity/test_composite_layup_parity.py:364
+      source: tests/validation/parity/test_composite_layup_parity.py:367
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -231,7 +231,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[asym_0_90]
   validates: Mean out-of-plane bending deflection matches CCX S8R.
   comparisons:
-  - label: rtol at line 364
+  - label: rtol at line 367
     asserted: true
     reference:
       kind: code
@@ -239,7 +239,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/parity/test_composite_layup_parity.py:364
+      source: tests/validation/parity/test_composite_layup_parity.py:367
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -259,7 +259,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_transverse_bending_matches_ccx[quasi_iso]
   validates: Mean out-of-plane bending deflection matches CCX S8R.
   comparisons:
-  - label: rtol at line 364
+  - label: rtol at line 367
     asserted: true
     reference:
       kind: code
@@ -267,7 +267,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/parity/test_composite_layup_parity.py:364
+      source: tests/validation/parity/test_composite_layup_parity.py:367
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -287,7 +287,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_asymmetric_b_coupling_matches_ccx
   validates: The asymmetric [0/90] strip bends out of plane under axial load, as in CCX.
   comparisons:
-  - label: rtol at line 382
+  - label: rtol at line 385
     asserted: true
     reference:
       kind: code
@@ -295,7 +295,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.02
-      source: tests/validation/parity/test_composite_layup_parity.py:382
+      source: tests/validation/parity/test_composite_layup_parity.py:385
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -315,7 +315,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[uni_0]
   validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 405
+  - label: rtol at line 425
     asserted: true
     reference:
       kind: code
@@ -323,7 +323,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/parity/test_composite_layup_parity.py:405
+      source: tests/validation/parity/test_composite_layup_parity.py:425
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -343,7 +343,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[uni_90]
   validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 405
+  - label: rtol at line 425
     asserted: true
     reference:
       kind: code
@@ -351,7 +351,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/parity/test_composite_layup_parity.py:405
+      source: tests/validation/parity/test_composite_layup_parity.py:425
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -371,7 +371,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[sym_0_90s]
   validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 405
+  - label: rtol at line 425
     asserted: true
     reference:
       kind: code
@@ -379,7 +379,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/parity/test_composite_layup_parity.py:405
+      source: tests/validation/parity/test_composite_layup_parity.py:425
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -399,7 +399,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[asym_0_90]
   validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 405
+  - label: rtol at line 425
     asserted: true
     reference:
       kind: code
@@ -407,7 +407,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/parity/test_composite_layup_parity.py:405
+      source: tests/validation/parity/test_composite_layup_parity.py:425
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -427,7 +427,7 @@ rows:
   - tests/validation/parity/test_composite_layup_parity.py::test_modal_frequencies_match_ccx[quasi_iso]
   validates: First five matched eigenfrequencies match CCX S8R within ``MODAL_TOL``.
   comparisons:
-  - label: rtol at line 405
+  - label: rtol at line 425
     asserted: true
     reference:
       kind: code
@@ -435,7 +435,7 @@ rows:
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/parity/test_composite_layup_parity.py:405
+      source: tests/validation/parity/test_composite_layup_parity.py:425
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -446,5 +446,79 @@ rows:
       margin_pct: 1.4241
       text: 'quasi_iso worst matched modal frequency vs CalculiX 2.23 S8R, the same layup on the same mesh, first five matched modes: 1.4241% (bound: 3.0000%)'
       digest: 97f22457ca61a2e1
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_symmetric_laminates_have_no_b_coupl.sym_0_90s
+  group: '18'
+  title: test_symmetric_laminates_have_no_b_coupling[sym_0_90s]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_symmetric_laminates_have_no_b_coupling[sym_0_90s]
+  validates: Symmetric laminates stay flat under axial load, in both codes (B = 0).
+  comparisons:
+  - label: rtol at line 403
+    asserted: true
+    reference:
+      kind: analytical
+      label: 'classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat'
+    tolerance:
+      kind: rtol
+      value: 1.0e-08
+      source: tests/validation/parity/test_composite_layup_parity.py:403
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 410
+    asserted: true
+    reference:
+      kind: analytical
+      label: 'classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat'
+    tolerance:
+      kind: rtol
+      value: 1.0e-08
+      source: tests/validation/parity/test_composite_layup_parity.py:410
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: composite_layup.test_symmetric_laminates_have_no_b_coupl.quasi_iso
+  group: '18'
+  title: test_symmetric_laminates_have_no_b_coupling[quasi_iso]
+  tests:
+  - tests/validation/parity/test_composite_layup_parity.py::test_symmetric_laminates_have_no_b_coupling[quasi_iso]
+  validates: Symmetric laminates stay flat under axial load, in both codes (B = 0).
+  comparisons:
+  - label: rtol at line 403
+    asserted: true
+    reference:
+      kind: analytical
+      label: 'classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat'
+    tolerance:
+      kind: rtol
+      value: 1.0e-08
+      source: tests/validation/parity/test_composite_layup_parity.py:403
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  - label: rtol at line 410
+    asserted: true
+    reference:
+      kind: analytical
+      label: 'classical laminate theory: B = 0 for a symmetric layup, so the strip stays flat'
+    tolerance:
+      kind: rtol
+      value: 1.0e-08
+      source: tests/validation/parity/test_composite_layup_parity.py:410
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
