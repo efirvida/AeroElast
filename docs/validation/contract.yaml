@@ -1770,3 +1770,11 @@ verdicts:
       - {kind: produced_numerical, label: "CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction"}
     note: >-
       Refined 3D twist (16x10) vs the shell: 0.2143 % against a 2 % bound; the test also asserts that the 3D value settles under in-plane refinement (6x4, 10x6, 16x10). Same single numerical arbiter as the row above.
+  - target: composite_beam_parity.testcompositematerial_test_clt_matches_i.single
+    class: physics
+    verdict: trusted
+    audited_rev: af95fa8
+    arbiters:
+      - {kind: analytical, label: "independent first-principles hand CLT (_hand_clt_abd) and the analytical B = 0 of a symmetric laminate"}
+    note: >-
+      A and D match the hand CLT to 0.0000 % (bound 1e-9). The two atol 1e-6 comparisons assert B = 0 for the symmetric [0/90/45/-45]s stack: measured |B| 1.1e-10 (hand) and 8.7e-11 (AeroElast), at the round-off floor eps*max|A|*h/2 ~ 1.4e-10, four orders under the bound and ten under the |B| ~ 6.5e4 that one perturbed ply gives, so the absolute bound still separates a coupling bug from round-off.
