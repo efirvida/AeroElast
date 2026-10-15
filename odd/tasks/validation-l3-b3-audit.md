@@ -311,3 +311,7 @@ Remaining PRE-3: relabel G21, enter L2 verdicts where supported, merge to main a
 Re-measured with `tools/g18_modal_convergence.py` (SLURM 11616456, log `logs/check/l2-audit/g18-modal.log`, git-ignored) and wrote the 5 `trusted` physics verdicts at `28dcbd8` (analytical anchor: Euler-Bernoulli from the hand-CLT strip). Per layup, worst change 16x40 -> 32x80 (AeroElast / CalculiX) and worst matched gap at 32x80: uni_0 0.67 / 0.07 %, 0.16 %; uni_90 0.33 / 0.00 %, 0.21 %; sym_0_90s 0.67 / 0.03 %, 0.14 %; asym_0_90 0.67 / 0.02 %, 0.14 %; quasi_iso 0.43 / 0.02 %, 0.10 %. L2: trusted 64, regression_pin 2 (the two G17 pins), stale 1, unarbitrated 2, unaudited 1. `check`: 269 rows / 374 comparisons / 0 errors.
 
 **Found, not fixed:** `laminate_bend_twist.test_independent_ccx_deck_confirms_the_c.single` (the G26 deck pin) is stale by `0760d76` already on `main` before this branch; it needs a restamp or re-measure. Left: `multi_layer_iso_equivalence` (no analytic arbiter), gap `composite_stress_recovery` (a).
+
+## Addendum 2026-10-15 - G26 deck pin restamped
+
+Re-measured group 26 (SLURM 11616467, 8 comparisons `same`, source digest unchanged) and restamped the deck pin `audited_rev` af95fa8 -> 60db9d4. L2: trusted 64, regression_pin 3, unarbitrated 2, unaudited 1, 0 stale. Open: gap `composite_stress_recovery` (a) awaits a maintainer decision (raise on a ply-less section vs documented limit), G21 second arbiter, `multi_layer_iso_equivalence`.
