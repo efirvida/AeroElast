@@ -29,6 +29,15 @@ GRAVITY = (0.0, -9.81, 0.0)
 STEPS = {"newton": 8, "ul": 64}
 
 
+def tip_ring_mean(mesh, u) -> np.ndarray:
+    """Mean translation of every node on the tip ring (z at its maximum): less mesh-sensitive
+    than the single max-z node, whose offset from the beam axis couples to the section slope."""
+    coords = mesh.coords_array
+    dpn = len(u) // coords.shape[0]
+    ring = np.nonzero(coords[:, 2] >= coords[:, 2].max() - 1e-6)[0]
+    return np.mean([np.asarray(u[i * dpn : i * dpn + 3]) for i in ring], axis=0)
+
+
 def _solve(cls, mesh, props, solver_cfg):
     from aeroelast.core.bc import BodyForce, DirichletCondition
     from aeroelast.elements import ElementFamily
@@ -52,7 +61,7 @@ def _solve(cls, mesh, props, solver_cfg):
     solver.add_body_forces([BodyForce(list(GRAVITY))])
     start = time.time()
     u = solver.solve()
-    return shell_tip_displacement(mesh, u), time.time() - start
+    return (shell_tip_displacement(mesh, u), tip_ring_mean(mesh, u)), time.time() - start
 
 
 def main() -> None:
@@ -85,15 +94,16 @@ def main() -> None:
     ub = beam.solve_gravity(GRAVITY).reshape(-1, 6)
     dz_ref = foreshortening(beam.z, ub[:, 0], ub[:, 1])
 
-    lin, t_lin = _solve(StaticLinearSolver, mesh, props, {})
+    (lin, lin_ring), t_lin = _solve(StaticLinearSolver, mesh, props, {})
     steps = STEPS[args.scheme]
-    nl, t_nl = _solve(
+    (nl, nl_ring), t_nl = _solve(
         StaticNonlinearSolver,
         mesh,
         props,
         {"scheme": args.scheme, "continuation_steps": steps, "continuation_max_steps": 16 * steps},
     )
     dz = float(nl[2] - lin[2])
+    dz_ring = float(nl_ring[2] - lin_ring[2])
     print(
         json.dumps(
             {
@@ -105,6 +115,9 @@ def main() -> None:
                 "dz_shell_nl_minus_lin": dz,
                 "dz_beam_reference": dz_ref,
                 "dz_relative_error": dz / dz_ref - 1.0,
+                "dz_ring_mean": dz_ring,
+                "dz_ring_mean_relative_error": dz_ring / dz_ref - 1.0,
+                "tip_ring_mean_linear": [float(x) for x in lin_ring],
                 "beam_tip_uy": float(ub[-1, 1]),
                 "seconds_linear": t_lin,
                 "seconds_nonlinear": t_nl,
