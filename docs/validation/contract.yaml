@@ -1706,9 +1706,12 @@ verdicts:
       Measured 0.2952 % vs hand-CLT; bound 3 %.
   - target: composite_layup.test_transverse_bending_matches_ccx.quasi_iso
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: af95fa8
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B) (tools/g18_quasi_iso_root_sweep.py)"}
     note: >-
-      Measured 1.757 % vs hand-CLT (bound 3 %). The offset, larger than the other layups, was attributed to clamped-root restraint but not measured; needs a sweep before a verdict.
+      Measured 1.757 % vs hand-CLT on the test mesh (4x10, bound 3 %). Length-wise refinement takes it to -1.05 % (ny=80); the remainder is the clamped-root restraint of the free-width closed form: it scales with B/L (-1.03, -0.49, -0.24, -0.15 % for B = 0.1..0.0125 m) while the control sym_0_90s stays <= 0.02 %. Criteria predeclared in the tool.
   - target: composite_layup.test_asymmetric_b_coupling_matches_ccx.single
     class: physics
     verdict: trusted
