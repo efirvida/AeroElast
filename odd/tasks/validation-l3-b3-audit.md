@@ -174,3 +174,11 @@ Worktree `fem-shell-worktrees/rotor-frame`, branch `fix/bem-participant-rotor-fr
 4. Maintainer decisions pending: add a tight Newmark check against `f1_num*(1-(w dt)^2/24)` in G43; what to do with unpushed work in other worktrees (`t7a4-follow`: 1 commit + 1 modified file; 15 detached worktrees with one uncommitted file each, `fsi_participant.py` or `rotor.py`).
 
 Resume: `mem_search` "PRE-3", then this section.
+
+## Addendum 2026-10-15 - G17 closed form and paired convergence (PRE-3 step 1; branch audit/pre3-l2-closed-forms; no store write, no verdict yet)
+
+`tools/g17_closed_form.py` (criteria C1-C4 predeclared in its docstring), SLURM on sequana_cpu, log `logs/check/l2-audit/g17-closed-form.log`; meshes 4x20 (the test), 8x40, 16x80; AeroElast MITC4 and CalculiX S4, same load/material/BC.
+- **Statics, C1 PASS in all four cases** (metric: free-face mean vs beam closed form): both codes within 1.03 % at 4x20 and 0.50 % at 16x80; change 8x40 -> 16x80 <= 0.21 %. The closed form is the arbiter; the two codes also agree with each other.
+- **Finding, C2 (the metric the CalculiX row asserts = loaded-node displacement)**: converged for bending_fx and transverse_fy (changes <= 0.21 %), **NOT converged for tension/compression**: the loaded node over-reads the closed form by +4.4 / +6.3 / +8.4 % (AeroElast) and +5.1 / +7.2 / +9.3 % (CalculiX) at 4x20 / 8x40 / 16x80, i.e. the point-load singularity grows with refinement. The test's AE-vs-CCX agreement (0.70-0.82 %) is therefore a same-discretisation agreement on a diverging metric, not convergence. The closed-form face-mean rows (G17 analytical) carry the validation; the loaded-node axial comparison should be read as code-parity only.
+- **Modal, C3/C4 PASS** (5 matched modes): all change < 0.8 % from 8x40 to 16x80 in both codes, matched gap <= 0.02 % at 16x80; the four modes with a closed form are within 1.3 % of it in both codes (out1 +0.33/+0.34 %, out2 +0.35/+0.34 %, in1 -0.09/-0.11 %, torsion1 -1.28/-1.27 % for a thin-plate J = B t^3/3); the fifth (473 Hz) has no closed form within 10 %.
+Open: enter verdicts and the divergence note in the store (not yet written).
