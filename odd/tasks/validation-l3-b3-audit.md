@@ -156,3 +156,21 @@ Remaining numerical-only in G18: the 5 modal comparisons (worst of five matched 
 ## Predeclared criterion - G18 modal paired convergence (written before the run)
 
 Meshes 8x20, 16x40, 32x80 (the asserted modal mesh is 8x20), five layups, the five matched modes the test compares (`linear_sum_assignment` over the first ten modes of each code, as in the test). A mode counts as **converged in both codes** when, for AeroElast and for CalculiX S8R separately, its frequency changes by less than **1 %** from 16x40 to 32x80. A comparison is **closed** only if all five of its matched modes are converged in both codes and the matched-pair gap at 32x80 is <= 3 % (the existing `MODAL_TOL`). A mode that fails the self-convergence test is reported as not converged and the comparison stays open; the criterion is not relaxed afterwards. Analytical anchors, tried first: out-of-plane bending modes 1-2 and in-plane bending mode 1 from Euler-Bernoulli with the hand-CLT stiffness of the strip (free in width), reported next to the codes as context for the modes they identify.
+
+## Result - G18 modal paired convergence (SLURM 11616317, `tools/g18_modal_convergence.py`, log `logs/check/l2-audit/g18-modal.log`)
+
+All five layups are **CLOSED** under the predeclared criterion: every matched mode changes < 1 % from 16x40 to 32x80 in both codes (AeroElast worst -0.67 %, CalculiX worst -0.02 %), and the matched gap at 32x80 is about 0.1 % (limit 3 %). Example quasi_iso 32x80: AeroElast 2.892 / 18.121 / 50.779 / 76.773 / 231.179 Hz vs CalculiX 2.895 / 18.132 / 50.774 / 76.762 / 231.104. Nothing was written to the store (no `--write`); verdict entry waits for step 6.
+
+## Handoff 2026-10-15 (end of the second PRE-3 session)
+
+Worktree `fem-shell-worktrees/rotor-frame`, branch `fix/bem-participant-rotor-frame`, **pushed** to origin (new remote branch, 134 commits over origin/main). Environment: see `## Next step` and the 2026-10-15 handoff above. Public issue edits and P1 execution stay out of scope.
+
+**Done this session:** step 1 G6/G9 read (G9 re-measured to 64x32, limit +0.60 % over EB, Timoshenko explains +0.78 %); step 2 the 7 unclaimed tests (2 claimed as G18 rows, 5 declared non_validation); step 3 G43 interpolated estimator (2.94 %, spatial -2.93 % + Newmark -0.007 %); G18 fully covered (11 statics via the hand-CLT strip closed form, 5 modal via paired convergence).
+
+**Next, in order:**
+1. Same analytic-first pass for the other CalculiX-only groups: G17 (5), G24 (3), G26 (3), G36 (2), G4/G8/G55 (1 each). Try a closed form first; only the rest needs paired convergence with a predeclared criterion written before the run.
+2. Classify the 5 `self` comparisons (G4 multi-layer iso, G21 x2, G26 Ritz, G55 span convergence) and handle `composite_stress_recovery`.
+3. Enter L2 verdicts in `docs/validation/contract.yaml` only where evidence supports them, including the new analytic comparisons of G18 (15 `new_baseline`, not written) and G6/G9/G43. B1 stays required to close (open: the 2 rejected G33 rows, 2 hypar pins).
+4. Maintainer decisions pending: add a tight Newmark check against `f1_num*(1-(w dt)^2/24)` in G43; what to do with unpushed work in other worktrees (`t7a4-follow`: 1 commit + 1 modified file; 15 detached worktrees with one uncommitted file each, `fsi_participant.py` or `rotor.py`).
+
+Resume: `mem_search` "PRE-3", then this section.
