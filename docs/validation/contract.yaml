@@ -1286,7 +1286,7 @@ verdicts:
   - target: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1294,7 +1294,7 @@ verdicts:
   - target: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1302,7 +1302,7 @@ verdicts:
   - target: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1310,7 +1310,7 @@ verdicts:
   - target: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1318,7 +1318,7 @@ verdicts:
   - target: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1326,7 +1326,7 @@ verdicts:
   - target: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1334,7 +1334,7 @@ verdicts:
   - target: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1342,7 +1342,7 @@ verdicts:
   - target: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1350,7 +1350,7 @@ verdicts:
   - target: composite_ply_stress.test_bending_top_and_bottom_match_clt_at.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1358,7 +1358,7 @@ verdicts:
   - target: composite_ply_stress.test_bending_kappa_matches_d_inverse_m.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1366,7 +1366,7 @@ verdicts:
   - target: composite_ply_stress.test_angle_ply_rotates_qbar_per_ply.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1374,7 +1374,7 @@ verdicts:
   - target: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1382,7 +1382,7 @@ verdicts:
   - target: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1390,7 +1390,7 @@ verdicts:
   - target: composite_beam_parity.test_composite_axial_tension.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     files: [tools/g24_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
@@ -1399,7 +1399,7 @@ verdicts:
   - target: composite_beam_parity.test_composite_isotropic_equiv.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     files: [tools/g24_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
@@ -1408,7 +1408,7 @@ verdicts:
   - target: composite_beam_parity.test_composite_bending.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     files: [tools/g24_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
@@ -1417,7 +1417,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
@@ -1425,7 +1425,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
@@ -1433,7 +1433,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
@@ -1441,7 +1441,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
@@ -1461,7 +1461,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx_2
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     files: [tools/g17_closed_form.py]
     arbiters:
       - {kind: analytical, label: "beam closed form, face-mean (tools/g17_closed_form.py C1)"}
@@ -1470,7 +1470,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy_2
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     files: [tools/g17_closed_form.py]
     arbiters:
       - {kind: analytical, label: "beam closed form, face-mean (tools/g17_closed_form.py C1)"}
@@ -1479,7 +1479,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_modal_fir.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     files: [tools/g17_closed_form.py]
     arbiters:
       - {kind: analytical, label: "thin-plate modal closed forms (tools/g17_closed_form.py C3/C4)"}
@@ -1488,7 +1488,7 @@ verdicts:
   - target: laminate_bend_twist.test_unbalanced_layup_matches_the_free_e.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
@@ -1496,7 +1496,7 @@ verdicts:
   - target: laminate_bend_twist.test_constant_moment_interior_state_is_t.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
@@ -1504,7 +1504,7 @@ verdicts:
   - target: laminate_bend_twist.test_constant_moment_tip_twist_matches_t.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
@@ -1512,7 +1512,7 @@ verdicts:
   - target: laminate_bend_twist.test_ritz_reference_converges_and_matche.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
@@ -1520,7 +1520,7 @@ verdicts:
   - target: dtube_gravity.test_dtube_gravity_tip_deflection_aeroel.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
@@ -1528,7 +1528,7 @@ verdicts:
   - target: dtube_gravity.test_dtube_gravity_aeroelast_converges_w.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
@@ -1536,7 +1536,7 @@ verdicts:
   - target: dtube_gravity.test_dtube_gravity_tip_deflection_calcul.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
@@ -1544,7 +1544,7 @@ verdicts:
   - target: tube_torsion.test_self_equilibrated_isotropic_reprodu.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
@@ -1552,7 +1552,7 @@ verdicts:
   - target: tube_torsion.test_self_equilibrated_laminate_reproduc.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
@@ -1560,7 +1560,7 @@ verdicts:
   - target: tube_torsion.test_distributed_force_plus_transfer_mom.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
@@ -1568,7 +1568,7 @@ verdicts:
   - target: isotropic_shell.testisotropicshellparity_test_transverse.single
     class: physics
     verdict: trusted
-    audited_rev: 7d21658
+    audited_rev: af95fa8
     files: [tools/g4_g8_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli P L^3/(3 E I) (tools/g4_g8_ccx_convergence.py)"}
@@ -1579,7 +1579,7 @@ verdicts:
   - target: ccx_element_types.test_ccx_element_type_matches_analytical.s4
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
     note: >-
@@ -1587,7 +1587,7 @@ verdicts:
   - target: ccx_element_types.test_ccx_element_type_matches_analytical.s8
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
     note: >-
@@ -1595,7 +1595,7 @@ verdicts:
   - target: ccx_element_types.test_ccx_element_type_matches_analytical.s8r
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
     note: >-
@@ -1603,7 +1603,7 @@ verdicts:
   - target: tube_torsion.test_clamped_root_metric_convergence_ide.single
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
@@ -1611,7 +1611,7 @@ verdicts:
   - target: shell_stress_ccx.test_outer_fibre_stress_matches_beam_th.single
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "beam theory M(x) c / I at mid-span"}
     note: >-
@@ -1619,7 +1619,7 @@ verdicts:
   - target: orthotropic_shell_parity.test_orthotropic_axial.single
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli axial/transverse closed form (tools/g4_g8_ccx_convergence.py)"}
     note: >-
@@ -1632,7 +1632,7 @@ verdicts:
   - target: composite_layup.test_axial_extension_matches_ccx.uni_0
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1640,7 +1640,7 @@ verdicts:
   - target: composite_layup.test_axial_extension_matches_ccx.uni_90
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1648,7 +1648,7 @@ verdicts:
   - target: composite_layup.test_axial_extension_matches_ccx.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1656,7 +1656,7 @@ verdicts:
   - target: composite_layup.test_axial_extension_matches_ccx.asym_0_90
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1664,7 +1664,7 @@ verdicts:
   - target: composite_layup.test_axial_extension_matches_ccx.quasi_iso
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1672,7 +1672,7 @@ verdicts:
   - target: composite_layup.test_transverse_bending_matches_ccx.uni_0
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
@@ -1680,7 +1680,7 @@ verdicts:
   - target: composite_layup.test_transverse_bending_matches_ccx.uni_90
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
@@ -1688,7 +1688,7 @@ verdicts:
   - target: composite_layup.test_transverse_bending_matches_ccx.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
@@ -1696,7 +1696,7 @@ verdicts:
   - target: composite_layup.test_transverse_bending_matches_ccx.asym_0_90
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
@@ -1709,7 +1709,7 @@ verdicts:
   - target: composite_layup.test_asymmetric_b_coupling_matches_ccx.single
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = -kappa_y L^2/2"}
     note: >-
@@ -1717,7 +1717,7 @@ verdicts:
   - target: composite_layup.test_symmetric_laminates_have_no_b_coupl.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "classical laminate theory: B = 0 for a symmetric layup"}
     note: >-
@@ -1725,7 +1725,7 @@ verdicts:
   - target: composite_layup.test_symmetric_laminates_have_no_b_coupl.quasi_iso
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "classical laminate theory: B = 0 for a symmetric layup"}
     note: >-
@@ -1733,7 +1733,7 @@ verdicts:
   - target: newmark_analytic_frequency.s3_undamped_free_vibration_f1
     class: physics
     verdict: trusted
-    audited_rev: fe15b0c
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever first frequency"}
     note: >-
@@ -1741,7 +1741,7 @@ verdicts:
   - target: newmark_analytic_frequency.s3_newmark_dispersion
     class: physics
     verdict: trusted
-    audited_rev: a0e9279
+    audited_rev: af95fa8
     arbiters:
       - {kind: analytical, label: "trapezoidal-rule dispersion omega_d = (2/dt) atan(omega dt/2) of the mesh's own first eigenfrequency"}
     note: >-
