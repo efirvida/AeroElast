@@ -1,7 +1,7 @@
 """S-4 — IEA 15 MW blade: rotating modal (K + K_G + K_SP) vs OpenFAST targets.
 
 Computes the root-clamped rotating-frame modal of the official WindIO blade
-(tests/IEA-15-240-RWT.yaml, MITC3 shell, element_size 0.5, consistent mass)
+(tests/IEA-15-240-RWT.yaml, MITC3 shell, element_size 0.25, consistent mass)
 at the rated rotor speed (7.56 rpm, rotation axis +y, span +z) with:
 
   K_eff = K + K_G + K_SP
@@ -55,10 +55,10 @@ _OF_TARGETS = {
     "rotating": {"1st flap": 0.5666, "1st edge": 0.7461, "2nd flap": 1.6372},
 }
 
-REL_TOL = 0.08
+REL_TOL = 0.05
 
 
-def _build_assembly(element_size=0.5):
+def _build_assembly(element_size=0.25):
     from aeroelast.core.assembler import MeshAssembler
     from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.elements import ElementFamily

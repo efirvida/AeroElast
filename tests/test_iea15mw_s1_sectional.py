@@ -64,7 +64,7 @@ class TestS1SectionalProperties:
         ref_dir = Path(__file__).resolve().parents[1] / "tests" / "IEA15MW" / "reference"
         bd = load_beamdyn_blade(ref_dir / "IEA-15-240-RWT_BeamDyn_blade.dat")
 
-        generator = BladeMesh(yaml_file=str(iea_blade_yaml), element_size=0.5)
+        generator = BladeMesh(yaml_file=str(iea_blade_yaml), element_size=0.25)
         mesh = generator.generate(renumber="rcm")
         props = build_rust_properties(generator.numad_mesh_data)
         ext = SectionalExtractor(mesh, props)
@@ -91,8 +91,8 @@ class TestS1SectionalProperties:
         m = s1_results["mid"]
         rel = np.abs(s1_results["ei_edge"][m] / s1_results["ei_edge_bd"][m] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.25, (
-            f"EI_edge mid-span mean |rel err| = {err:.2%} (tol 25%)"
+        assert err < 0.05, (
+            f"EI_edge mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )
 
     def test_flapwise_ei_within_band(self, s1_results):
@@ -101,8 +101,8 @@ class TestS1SectionalProperties:
         m = s1_results["mid"]
         rel = np.abs(s1_results["ei_flap"][m] / s1_results["ei_flap_bd"][m] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.40, (
-            f"EI_flap mid-span mean |rel err| = {err:.2%} (tol 40%)"
+        assert err < 0.05, (
+            f"EI_flap mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )
 
     def test_mass_distribution_matches_beamdyn(self, s1_results):
@@ -111,8 +111,8 @@ class TestS1SectionalProperties:
         mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())
         rel = np.abs(m[mid] / mb[mid] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.15, (
-            f"m(r) mid-span mean |rel err| = {err:.2%} (tol 15%)"
+        assert err < 0.05, (
+            f"m(r) mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )
 
     def test_gj_distribution_matches_beamdyn(self, s1_results):
@@ -131,8 +131,8 @@ class TestS1SectionalProperties:
         mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())
         rel = np.abs(gj[mid] / gjb[mid] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.30, (
-            f"GJ(r) mid-span mean |rel err| = {err:.2%} (tol 30%)"
+        assert err < 0.05, (
+            f"GJ(r) mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )
 
     def test_ea_clt_distribution_matches_beamdyn(self, s1_results):
@@ -147,6 +147,6 @@ class TestS1SectionalProperties:
         mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())
         rel = np.abs(ea[mid] / eab[mid] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.30, (
-            f"EA(r) mid-span mean |rel err| = {err:.2%} (tol 30%)"
+        assert err < 0.05, (
+            f"EA(r) mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )

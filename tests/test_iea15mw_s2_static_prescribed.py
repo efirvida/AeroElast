@@ -47,7 +47,7 @@ GRAVITY = (0.0, -9.81, 0.0)
 TIP_FORCE_N = 1.0e6
 DISTRIB_Q_NM = 5.0e3
 
-# Per-source expectations (measured 2026-09-08, element_size 0.5).
+# Per-source expectations (measured 2026-09-08 at element_size 0.5 (stale: unconverged mesh, re-measure at 0.25)).
 _BLADES = {
     "official": {"rel_tol_dominant": 0.05, "lc3_ratio": (0.9, 1.2)},
     "utd": {"rel_tol_dominant": 0.05, "lc3_ratio": (1.0, 2.2)},
@@ -88,7 +88,7 @@ class TestS2StaticPrescribed:
             excel_file=None if blade_name == "official" else str(iea_blade_xlsx),
             yaml_file=iea_blade_yaml if blade_name == "official" else None,
             airfoil_dir=str(iea_blade_xlsx.parent / "airfoils"),
-            element_size=0.5,
+            element_size=0.25,
         )
         mesh = generator.generate(renumber="rcm")
         properties = build_rust_properties(generator.numad_mesh_data)

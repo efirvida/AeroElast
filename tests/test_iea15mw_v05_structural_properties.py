@@ -73,7 +73,7 @@ class TestBeamDynK55K66Consistency:
             pytest.skip(f"No ElastoDyn reference at r/R={rR}")
 
         rel_diff = abs(k55 - ei_flap) / ei_flap
-        assert rel_diff < 0.20, (
+        assert rel_diff < 0.05, (
             f"r/R={rR}: BeamDyn K_55={k55:.3e} vs ElastoDyn EI_flap={ei_flap:.3e} "
             f"(diff={rel_diff:.1%}) [R3][R4][R6]"
         )
@@ -91,7 +91,7 @@ class TestAssembledStiffnessProperties:
         from aeroelast.core.mesh.generators import BladeMesh
         from aeroelast.models.blade.model import build_rust_properties
 
-        generator = BladeMesh(yaml_file=iea_blade_yaml, element_size=0.5)
+        generator = BladeMesh(yaml_file=iea_blade_yaml, element_size=0.25)
         mesh = generator.generate(renumber="rcm")
         properties = build_rust_properties(generator.numad_mesh_data)
         model = {
@@ -139,7 +139,7 @@ class TestAssembledStiffnessProperties:
         total_mass = float(m_vals[x_row_mask].sum())
         ref_mass = 67_921.0  # kg [R3][R6] beam-table representation
         rel_err = abs(total_mass - ref_mass) / ref_mass
-        assert rel_err < 0.08, (
+        assert rel_err < 0.05, (
             f"Assembled mass {total_mass:.0f} kg vs beam-table ref {ref_mass:.0f} kg "
             f"(err={rel_err:.1%}) — outside the documented +4-8% layup-vs-6x6 band "
             f"[R3][R6]"
