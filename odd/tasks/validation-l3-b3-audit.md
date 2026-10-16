@@ -396,3 +396,16 @@ Entry facts. Re-measure at d94d891 (SLURM 11616944, valid env, official blade, e
 Why ADJ-1032 does not make 1E an exception: it was written after the measurement (0.698595 was known) and its source (Zhou 2025 Table 3, six independent models, 0.547-0.692 Hz) is the spread BETWEEN different blade models, not an error bar on this blade's reference value; the reference blade is the same one we model. Per `contract.yaml` an exception needs `fixed_before_measuring` and a source that quantifies THIS model difference. So 1E is judged against the 5 % ceiling unless the evidence below supports otherwise.
 
 Criterion (fixed now). Modal sequence on the official blade at es = 0.5 / 0.25 / 0.125 (tool `tools/v02_modal_convergence.py`, same BCs as the test). (C1) a frequency is "converged" if |f(0.25)-f(0.125)|/f(0.125) <= 1 % and the sequence is monotone; the verdict number is the es = 0.125 value. (C2) 1F: trusted if its es=0.125 error vs 0.5585 <= 5 % AND a second independent arbiter agrees within 5 % (Bernardi 2025, shell model, 0.5369 Hz). (C3) 1E: if its converged error vs 0.6406 stays > 5 %, verdict `rejected` (physics) - no widening, no post-hoc exception; the cause is open (candidates: skin reference surface / OML, as S-7 E8; BeamDyn-vs-shell). If it falls <= 5 % at es=0.125 that is a finding and the row is judged on that number.
+
+## B3-3a V-02 RESULT (2026-10-16; SLURM 11616944 test, 11616961 + 11616972 mesh study, 11616979/80 regression; tool `tools/v02_modal_convergence.py`)
+
+Official blade, clamped root, es 0.5 / 0.25 / 0.125 (0.125 needs `--ntasks=12`: with `--ntasks=1` it is OOM-killed; peak RSS 18.6 GB, 10 min).
+
+| mode | ref (NREL/ElastoDyn) | 0.5 | 0.25 | 0.125 | err at 0.125 | 0.25 -> 0.125 |
+|---|---|---|---|---|---|---|
+| 1F | 0.5585 | 0.535104 | 0.537085 | 0.537561 | -3.75 % | 0.09 % |
+| 1E | 0.6406 | 0.699282 | 0.698595 | 0.698760 | +9.08 % | 0.02 % |
+| 2F | 1.659 | 1.570719 | 1.585453 | 1.589074 | -4.2 % | 0.23 % |
+| 2E | 2.167 | 2.115908 | 2.110839 | 2.109639 | -2.6 % | 0.06 % |
+
+Verdicts (criterion C1-C3 fixed above before the run): **1F `trusted`** (two published sources, NREL 0.5585 and Bernardi 2025 0.5369, both within 5 %; monotone). **1E `rejected`**: converged (0.02 %) at +9.08 % over the 5 % ceiling; ADJ-1032's 10 % is not a pre-measurement exception (written after the number was known; its source is the spread between different blade models). Open and NOT resolved: the two published numerical sources disagree with each other by 13 % on 1E (0.6406 vs 0.7267; ours 0.6988 is -3.85 % from Bernardi), and the cause of the ~19 % high edgewise stiffness equivalent is not established (candidate: skin OML reference surface, S-7 E8). 1E sequence is non-monotone at the 0.1 % level (C1 asked for monotone; reported, immaterial next to 9 %). Test bound left at 0.10 (not widened, not tightened): tightening it to 0.05 and making it a documented xfail, as for G33, is a maintainer decision. 2F and 2E tests exist but are unclaimed by the store (no row; 2F -4.2 % is close to the ceiling); not entered. Group 32 now has a residual pattern (copy of group 36's), baselines written. The `1E -1.81 %` in `validation_closures.md` was on the UTD blade; corrected there.

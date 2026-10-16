@@ -86,7 +86,7 @@ ensamble (`assembler.rs`), o el solver UL (`static_nonlinear.rs`/`.py`).
 
 | Ítem | Resultado | Evidencia |
 |---|---|---|
-| V-02 modal (pala oficial) | 1F −0.86 %, 1E −1.81 %, 2F +2.15 % | `test_iea15mw_v02_natural_frequencies.py` (job v02_11594905: 3 passed) |
+| V-02 modal (**pala UTD xlsx**, no la oficial; corregido 2026-10-16) | 1F −0.86 %, 1E −1.81 %, 2F +2.15 % (sobre la pala oficial a es 0.125: 1F −3.75 %, **1E +9.08 %**, 2F −4.2 %; ver `odd/tasks/validation-l3-b3-audit.md` B3-3a) | `test_iea15mw_v02_natural_frequencies.py` (job v02_11594905: 3 passed) |
 | V-02 2E con pala oficial | −2.6 % (en banda) | S-2E, job 11594902 |
 | V-03 estática | masa −1.11 %, equilibrio 8.2e-8 % | `test_iea15mw_v03_static_gravity.py` |
 | V-05 propiedades | masa total +4.1 % = banda documentada +4–8 % (layup vs 6×6) | `test_iea15mw_v05_structural_properties.py` |

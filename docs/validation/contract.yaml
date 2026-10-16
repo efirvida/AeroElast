@@ -1847,3 +1847,27 @@ verdicts:
     audited_rev: 322d966
     note: >-
       Pinned as a software guard, with no independent reference: the asserted metric is the relative norm of K(4 isotropic plies) - K(one isotropic layer), two builds of our own model, so it does not map onto the closed form. The closed form was checked on the laminate side only (create_laminate_from_angles, E 70e9, nu 0.3, h 0.01, 4 plies): A11, A12, A66 and D11, D12, D66 match E h/(1-nu^2) and E h^3/(12(1-nu^2)) (with nu and (1-nu)/2 factors) to 2e-16, and B = 0 exactly. Measured K difference 0.0 against the unchanged 1e-4 bound. Counts toward no level.
+
+# --- B3-3a (L3), 2026-10-16: V-02 natural frequencies, group 32, official blade, mesh study 0.5 / 0.25 / 0.125 ---
+  - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_fla.single
+    class: physics
+    verdict: trusted
+    audited_rev: 01d8805
+    files:
+      - tools/v02_modal_convergence.py
+    arbiters:
+      - {kind: published_numerical, label: "NREL/TP-5000-75698 Table 5-2 / ElastoDyn blade deck, 0.5585 Hz (WISDEM beam model)"}
+      - {kind: published_numerical, label: "Bernardi et al. 2025 (WES) structural solver, 0.5369 Hz"}
+    note: >-
+      Criterion fixed before the run (odd/tasks/validation-l3-b3-audit.md, B3-3a C1/C2). Official blade, clamped root, es 0.5 / 0.25 / 0.125: 0.535104 / 0.537085 / 0.537561 Hz, monotone, 0.09 % between the two finest. Converged value 0.5376 Hz is -3.75 % from NREL (bound 5 %) and +0.12 % from Bernardi (0.5369); two independent published numerical sources both within the ceiling. The run at 01d8805 (SLURM 11616961/11616972; test run 11616944) reproduces the stored 3.8343 % at es 0.25.
+  - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
+    class: physics
+    verdict: rejected
+    audited_rev: 01d8805
+    files:
+      - tools/v02_modal_convergence.py
+    arbiters:
+      - {kind: published_numerical, label: "NREL/TP-5000-75698 Table 5-2 / ElastoDyn blade deck, 0.6406 Hz (WISDEM beam model)"}
+      - {kind: published_numerical, label: "Bernardi et al. 2025 (WES) structural solver, 0.7267 Hz"}
+    note: >-
+      Official blade, es 0.5 / 0.25 / 0.125: 0.699282 / 0.698595 / 0.698760 Hz, i.e. converged to 0.02 % (non-monotone at the 0.1 % level) at +9.08 % from NREL 0.6406, over the 5 % ceiling. Not a discretisation effect. The 10 % test bound is not an exception: ADJ-1032 was written after the measurement and its source (Zhou 2025 Table 3, six different blade models, 0.547-0.692 Hz) is the spread between models, not an uncertainty on this reference value (criterion C3, fixed before the run). The two published sources disagree with each other by 13 % (0.6406 vs 0.7267), and our 0.6988 sits 3.85 % below Bernardi's; that does not rescue the row (its declared reference is NREL) and does not show the shell is right (Bernardi's blade properties are not verified to be the official layup). Cause open: equivalent edgewise stiffness about 19 % above the NREL deck, same family as S-1 edgewise EI and S-7 GJ (skin OML reference surface, odd/tasks/s7-torsion-ratio.md E8). The earlier 'V-02 1E -1.81 %' in docs/validation_closures.md was measured on the UTD xlsx blade, not the official one.
