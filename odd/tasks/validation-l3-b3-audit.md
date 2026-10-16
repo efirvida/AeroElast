@@ -482,3 +482,21 @@ Consequence for the other L3 anchors (reference used by each):
 S-2 (11617017) at es 0.25 / 5 %: all `official` rows pass; only `LC1_gravity-utd` fails (7.23 %, the disowned UTD input, already documented red). V-03 (11617018): all pass. The green tests print no measured values, so the S-2 `_BLADES` header and the V-03 "~1.5 %" comment cannot be restamped from these logs; that needs `tools/run_s2_static_cases.py --element-size 0.25 --blade-yaml tests/IEA-15-240-RWT.yaml` (its defaults, es 0.5 and the UTD xlsx, are the rule-7 and rule-9 defects). V-03's `_TIP_EDGE_DEFL_MIN/MAX` = 1.2-4.0 m is an order-of-magnitude band with no reference, not a 5 % tolerance: flag it in the store.
 
 **Decisions needed (maintainer):** (a) drop V-05b from L3 or relabel it as an input-consistency record; (b) which deck is the L3 arbiter for sectional stiffness (BeamDyn = SONATA/ANBA from the layup, or ElastoDyn), given that they differ by more than 5 %.
+
+## B3-2 finding (2026-10-16): published blade frequencies are for IEA-15 v1.0, the decks and our yaml are v1.1 (`tools/s4_deck_clamped_beam_modes.py`, log `logs/check/s4/deck_clamped_beam.txt`)
+
+Search for a second S-4 arbiter (C2). Primary source Rinker et al. 2020 (J. Phys. Conf. Ser. 1618 052052, NREL/TP 77106, Table 1, "Blade structural natural frequencies in Hz (0 RPM)", OpenFAST 2.2 / HAWCStab2 2.16a): ED 0.545/0.631/1.618, H2-PTNT 0.538/0.638/1.658, BD 0.517/0.630/1.603, H2-FPM 0.521/0.619/1.559 (1F/1E/2F). The Zhou 2025 Table 3 / Frontiers 2025 (doi 10.3389/fenrg.2025.1571567) Table 2 columns cited by ADJ-1032 are these same 2020-era values plus Lu 2022 / Zhang 2023 3D-FEM.
+
+Hypothesis tested and FALSIFIED: "0.739 Hz is a drivetrain/free-rotor collective edge mode, not a clamped-blade mode". A clamped Euler-Bernoulli beam of the CURRENT decks (flap/edge uncoupled, principal axes, 200 and 400 Hermite elements, identical to 4 digits) gives:
+
+| deck | mass | 1F | 1E | 2F | 2E |
+|---|---|---|---|---|---|
+| ElastoDyn | 68,516 kg | 0.5383 | 0.7293 | 1.6010 | 2.2842 |
+| BeamDyn (elastic centre) | 66,912 kg | 0.5159 | 0.7242 | 1.5633 | 2.2987 |
+
+So 0.739 is the ElastoDyn deck's own clamped physics (EB 0.729, plus ~1.3 % from ElastoDyn's assumed-mode shapes). The 2020 values (1E 0.62-0.64) differ because the blade changed: `ReleaseNotes.md` of the bundled IEA-15 repo (v1.1) records composite-property fixes (blade mass 65 t -> 68 t), the TE reinforcement corrected (PR #48), wrong ElastoDyn mode shapes in v1.0 ("flap and edge modes were both the first bending mode", Issue #37), and in v1.1.4 "Blade elastic properties consistently originate from SONATA/ANBA4".
+
+Consequences (findings, no store write):
+- Every published 2020 blade frequency (NREL/TP-5000-75698, Rinker 2020, and the Zhou/Frontiers tables that copy them) describes the v1.0 blade. None can arbitrate our v1.1 yaml blade at 5 %. That covers the V-02 references (0.555 / 0.6406): the V-02 1F `trusted` and 1E `rejected` verdicts rest on a v1.0 reference and must be re-opened by the maintainer.
+- S-4 1E (shell 0.6988 parked, converged): -5.45 % vs OpenFAST/ElastoDyn, -4.2 % vs the ED clamped EB beam, -3.5 % vs the BeamDyn clamped EB beam. About 1.3 points of the 5.45 % are ElastoDyn's assumed-mode stiffening, not shell error. The in-house EB beam is NOT an independent arbiter (our code, written after the measurement); it only explains the reference. 1E stays `rejected` at 5 % per C3.
+- S-4 1F / 2F parked have no valid second arbiter for v1.1 yet. Admissible candidates: OpenFAST v5 with BeamDyn on the v1.1 deck, or HAWC2/HAWCStab2 on the v1.1 `HAWC2/IEA-15-240-RWT/IEA_15MW_RWT_Blade_st_FPM.st` (bundled). Until then, 1F/2F are `regression_pin`/open (C2).
