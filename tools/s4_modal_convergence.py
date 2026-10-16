@@ -4,7 +4,7 @@ Same construction as tests/test_iea15mw_s4_rotating_modal.py (BladeMesh + build_
 assemble_rotating from tools/run_s4_rotating_modal.py, clamped root, mode families by tip motion),
 but with the element size as an argument so the 0.5 m default can be shown to be unconverged.
 Prints 1st flap / 1st edge / 2nd flap per element size and rpm against OpenFAST v5.0.0 MBC3.
-Usage: scripts/aeroenv.sh python tools/s4_modal_convergence.py 0.5 0.25 [0.125]
+Usage: scripts/aeroenv.sh python tools/s4_modal_convergence.py 0.5 0.25 [0.125] [--rpm=7.56]
 es=0.125 needs --ntasks=12 on SLURM (OOM with one task).
 """
 import sys
@@ -43,8 +43,10 @@ def run(es: float, rpm: float) -> dict:
 
 
 if __name__ == "__main__":
-    for es in (float(x) for x in sys.argv[1:]):
-        for rpm in (0.0, 7.56):
+    # Optional --rpm=<value> restricts the run to one speed (es=0.125 at both speeds exceeds 90 min).
+    rpms = tuple(float(a.split("=", 1)[1]) for a in sys.argv[1:] if a.startswith("--rpm=")) or (0.0, 7.56)
+    for es in (float(x) for x in sys.argv[1:] if not x.startswith("--")):
+        for rpm in rpms:
             res = run(es, rpm)
             for name, f in res.items():
                 ref = OF[rpm][name]

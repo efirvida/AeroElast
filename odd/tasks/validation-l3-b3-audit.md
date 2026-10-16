@@ -452,3 +452,33 @@ Criterion (fixed now). Tool `tools/s4_modal_convergence.py` (same assembly/mode 
 5. Then B3-2 for G5, G20, G23, G27, G34 (S-7), and B3-3 special cases, then PRE-4. G21 (L2 single arbiter) still blocks L3 as a level. Still out of scope: P1 execution, GitHub edits, push.
 
 **Traps.** Every command that imports the package goes through `scripts/aeroenv.sh`; the `contract` command takes ~1.5 min (run in background with output to `logs/check/`); the shell tool times out at 15-30 s on some commands, so use `bash_background` for anything heavy; es 0.125 needs `--ntasks=12`.
+
+## B3-2a S-4 RESULT, parked half (2026-10-16; SLURM 11617012 es 0.5/0.25, 11617013 es 0.125; logs `logs/check/s4/`)
+
+11617013 TIMED OUT (1:30 h) after the parked es=0.125 case; the 7.56 rpm es=0.125 case was never run. Resubmitted alone as **11617092** (`tools/s4_modal_convergence.py 0.125 --rpm=7.56`, 12 tasks, 3 h; log `logs/check/s4/es0125-rot-11617092.out`). The `--rpm=` filter is the only tool change; the computation is unchanged.
+
+Parked, criterion C1-C3 applied as written (OpenFAST v5 MBC3 parked 0.544/0.739/1.610 Hz):
+
+| mode | es 0.5 | es 0.25 | es 0.125 | C1 \|f.25-f.125\|/f.125 | err at 0.125 | verdict |
+|---|---|---|---|---|---|---|
+| 1F | 0.535104 | 0.537085 | 0.537561 | 0.09 % | -1.18 % | inside 5 %, ONE arbiter -> `regression_pin`/open (C2) |
+| 1E | 0.699282 | 0.698595 | 0.698760 | 0.02 % | **-5.45 %** | **rejected** (C3); bound stays 5 % |
+| 2F | 1.570719 | 1.585453 | 1.589074 | 0.23 % | -1.30 % | inside 5 %, ONE arbiter -> `regression_pin`/open (C2) |
+
+Rotating es 0.25 (es 0.125 pending): 1F 0.558780 (-1.38 %), 1E 0.704137 (-5.62 %), 2F 1.609045 (-1.72 %). 1E at 7.56 rpm will be `rejected` unless es 0.125 moves it by > 0.6 points, which the parked trend (0.02 %) makes implausible; the verdict waits for the number anyway.
+
+## B3-2 finding (2026-10-16): the two official reference decks disagree by more than 5 % (`tools/v05_deck_consistency.py`, log `logs/check/v05/deck_consistency.txt`)
+
+V-05b (`test_k55_consistent_with_ei_flap`) compares BeamDyn K55 with ElastoDyn FlpStff; no aeroelast code is involved. At es 0.25 / bound 5 % it fails at r/R=0.1 (7.8 %). Diagnosis (units/frame/reference first):
+- The hard-coded ElastoDyn values labelled r/R 0.10/0.50/0.90 are the ElastoDyn rows at BlFract 0.102/0.510/0.898; the BeamDyn values are at eta 0.10/0.50/0.90. The test compares different stations.
+- Compared at the SAME eta, BeamDyn reduced to the elastic centre (Schur complement of K33) and to principal axes (what ElastoDyn tabulates): flap ED/BD-1 is +10 to +24 % over eta 0.03-0.25 and +5 to +13 % over 0.35-0.65; edge is +8 to +18 % over 0.45-0.6 and -20 to -39 % over 0.85-0.95; mass +5 to +9 % over 0.45-0.65, -9 % at 0.95. Mid-span (0.2-0.85R) mean |ED/BD-1|: flap ~8.7 %, edge ~7.4 %.
+- The 0.0/0.5/0.9 rows pass only by station choice. V-05b validates no code and cannot be a 5 % L3 anchor in its current form: the decks themselves differ by up to 24 % (flap) and 39 % (edge). Proposal (maintainer decision): drop V-05b from the L3 contract and keep the deck spread as a recorded reference-uncertainty finding.
+
+Consequence for the other L3 anchors (reference used by each):
+- S-1 compares shell sections against the BeamDyn deck; S-2's beam reference (`tools/beam_reference.py`) takes EI_flap/EI_edge/mass from ElastoDyn and GJ/EA from BeamDyn; S-4's OpenFAST arbiter is ElastoDyn. Any shell-vs-deck comparison carries a reference spread of ~7-9 % mid-span mean (much more locally), above the 5 % ceiling, so the result depends on which deck is chosen as the arbiter.
+- The spread explains only part of S-1 (flap 23 % and edge 10 % vs an ~8.7 / ~7.4 % deck spread): the S-1 extractor diagnosis stays open.
+- S-4 1E -5.45 %: ElastoDyn EdgStff, which drives OpenFAST 1E, is 20-39 % softer than BeamDyn over 0.85-0.95 and 8-18 % stiffer over 0.45-0.6, and the NREL-published 1E (0.6406 Hz) is 13 % below OpenFAST's. The shell (0.6988) lies between the two. This is a candidate cause for the 1E rejection, not a demonstrated one.
+
+S-2 (11617017) at es 0.25 / 5 %: all `official` rows pass; only `LC1_gravity-utd` fails (7.23 %, the disowned UTD input, already documented red). V-03 (11617018): all pass. The green tests print no measured values, so the S-2 `_BLADES` header and the V-03 "~1.5 %" comment cannot be restamped from these logs; that needs `tools/run_s2_static_cases.py --element-size 0.25 --blade-yaml tests/IEA-15-240-RWT.yaml` (its defaults, es 0.5 and the UTD xlsx, are the rule-7 and rule-9 defects). V-03's `_TIP_EDGE_DEFL_MIN/MAX` = 1.2-4.0 m is an order-of-magnitude band with no reference, not a 5 % tolerance: flag it in the store.
+
+**Decisions needed (maintainer):** (a) drop V-05b from L3 or relabel it as an input-consistency record; (b) which deck is the L3 arbiter for sectional stiffness (BeamDyn = SONATA/ANBA from the layup, or ElastoDyn), given that they differ by more than 5 %.
