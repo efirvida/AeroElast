@@ -5,9 +5,9 @@ uniform tip shear flow, mean tip Ux) is rerun on 4x10 (the test), 8x20, 16x40, 3
 mesh builder; the (computed, reference) pair handed to assert_relative_error is captured, not
 asserted. The 3.648 % gap of the test is ATTRIBUTED when (a) the AeroElast tip changes < 1 % from
 16x40 to 32x80 (converged) and (b) at the finest mesh it lies within 1 % of Euler-Bernoulli plus a
-Timoshenko shear term P L / (kappa A66 B), kappa = 5/6 (reported, not gated, as kappa for an
-orthotropic deep beam is approximate). If (a) fails the gap stays unattributed (bilinear membrane
-locking). Run through scripts/aeroenv.sh with PYTHONPATH=$SCRATCH/validenv.
+Timoshenko shear term P L / (kappa A66 B), kappa = 5/6. Both (a) and (b) gate attribution;
+kappa for an orthotropic deep beam is approximate, so this is a diagnostic attribution, not a
+new physics acceptance bound. If either criterion fails the gap stays unattributed. Run through scripts/aeroenv.sh with PYTHONPATH=$SCRATCH/validenv.
 """
 import inspect
 import sys
@@ -23,7 +23,10 @@ src = inspect.getsource(ortho._build_plate)
 
 def patched(nx, nz):
     ns = dict(vars(ortho))
-    exec(src.replace("nx, nz = 4, 10", f"nx, nz = {nx}, {nz}"), ns)
+    marker = "nx, nz = 4, 10"
+    if src.count(marker) != 1:
+        raise RuntimeError("mesh patch requires exactly one 'nx, nz = 4, 10' marker")
+    exec(src.replace(marker, f"nx, nz = {nx}, {nz}"), ns)
     return ns["_build_plate"]()
 
 

@@ -8,8 +8,8 @@ at B = 0.1, 0.05, 0.025, 0.0125 m with L = 1 m, ny = 80 and nx in {4, 8} (the se
 that the gap is not a discretization effect). The offset is ATTRIBUTED to root restraint when
 (a) the gap at B = 0.1 reproduces the stored -1 to -1.2 % band, (b) |gap| decreases monotonically
 as B/L decreases, (c) |gap| at B = 0.0125 is <= 0.3 % (the level of the other layups), and (d) the
-gap changes < 0.3 percentage points between nx = 4 and 8 at every B. sym_0_90s, which closes at
-<= 0.3 %, runs as a control. Run through scripts/aeroenv.sh with PYTHONPATH=$SCRATCH/validenv.
+gap changes < 0.3 percentage points between nx = 4 and 8 at every B, and (e) sym_0_90s closes
+at <= 0.3 % on both meshes at every width. This control gates attribution. Run through scripts/aeroenv.sh with PYTHONPATH=$SCRATCH/validenv.
 """
 import sys
 
@@ -50,8 +50,9 @@ a = -1.2 <= q[0][1] <= -1.0
 b = all(abs(q[i + 1][1]) < abs(q[i][1]) for i in range(3))
 c = abs(q[3][1]) <= 0.3
 d = all(abs(r[0] - r[1]) < 0.3 for r in q)
-print(f"criteria: (a) B=0.1 in band {a}  (b) monotone {b}  (c) B=0.0125 <= 0.3 % {c}  (d) mesh {d}")
-print("  => " + ("ATTRIBUTED" if all((a, b, c, d)) else "UNATTRIBUTED") + " under the predeclared criterion")
+e = all(abs(gap) <= 0.3 for (name, _), row in gaps.items() if name == "sym_0_90s" for gap in row)
+print(f"criteria: (a) B=0.1 in band {a}  (b) monotone {b}  (c) B=0.0125 <= 0.3 % {c}  (d) mesh {d}  (e) control <= 0.3 % {e}")
+print("  => " + ("ATTRIBUTED" if all((a, b, c, d, e)) else "UNATTRIBUTED") + " under the predeclared criterion")
 
 # The test's own mesh is 4x10: show how much of its stored gap is length-wise discretization.
 m.B = 0.1
