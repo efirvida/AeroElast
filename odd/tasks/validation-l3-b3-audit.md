@@ -365,3 +365,11 @@ User request (verbatim):
 - The 69 stale L2 verdicts were all stale by `5a9fe64` (shared dependency `src/aeroelast/postprocess`). Re-measured 13 groups (4, 6, 7, 8, 9, 17, 18, 21, 24, 26, 36, 43, 55) with `regression --group N` on SLURM at `a4baf6e`: every comparison `same`. G36's source digest moved because `5a9fe64` rewrote one of its tests; re-recorded with `--write` (numbers identical). G43 has no `source_files`, so its default scope is all of `tests/` (1 h 20 min, picks up unrelated ko2017 drifts of about 0.01 points): run it with `--scope tests/test_iea15mw_s3_newmark_transient.py` (3 min, 2 same). The 69 `audited_rev` were restamped to `a4baf6e`.
 - `contract --level L2`: trusted 64, regression_pin 4, unarbitrated 2, 0 stale, 0 over the 5 % ceiling. L2 stays `open` only on G21.
 - G21: considered a closed form again. The test's own docstring records that the hand-CLT beam reference is what the 3D solve refuted (H6), so CLT cannot arbitrate the shell-vs-3D twist, and OpenSeesPy cannot build +-45 deg plies. No second independent arbiter exists; the two verdicts stay declared single-arbiter. Not closed by weakening the rule.
+
+## Handoff 2026-10-16 (PRE-3 CLOSE; supersedes the "Unfinished" lists above)
+
+**State (main, HEAD = this commit, no branches left, NOT pushed).** L2: trusted 64, regression_pin 4, unarbitrated 2 (G21), 0 stale, 0 over the 5 % ceiling, gaps 0 blocking. `validation_matrix.py check` 269 rows / 374 comparisons / 0 errors. PRE-3 work is exhausted: the only L2 items left are scientific, not procedural (G21 has no second independent arbiter; L2 also requires B1 to close). Full suite not run; no solver or Rust source changed this session.
+
+**Next (separate sessions).** (1) PRE-2 / B1 (L1: 103 unaudited rows, 2 rejected G33 rows to tighten to the alpha=1 standard and keep xfail, 2 hypar pins; needs a mesh-refinement table for the G33 docstring claim, a physics run). (2) B3-1..3, then PRE-4 (L3 is blocked by L2/L1). (3) Maintainer: push of main (about 15 commits ahead of origin).
+
+**Trap.** `regression --group 43` without `--scope tests/test_iea15mw_s3_newmark_transient.py` runs all of `tests/` (1 h 20 min).
