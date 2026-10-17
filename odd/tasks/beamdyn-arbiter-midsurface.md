@@ -120,3 +120,15 @@ State: step 1 DONE (wrench equivalent within ~1 %, LC2 is not a clean metric). T
 3. If switching: own commit changing `src/aeroelast/core/mesh/generators.py:1055` default to "mid" plus `tests/test_blade_skin_reference.py::test_default_is_identical_to_explicit_oml` (the requested contract change, not editing-to-pass), `Risk: item 3` -> independent verifier, then `scripts/check.sh full --record` as a SLURM job.
 
 Open side items unchanged: `/tmp/verif-8C6s7D` (consent), PETSc default LU ordering hang, missing `raise` in `_add_components`. New: `logs/check/t10/` holds 2.4 GB of raw CalculiX evidence (ignored; prune with consent).
+
+## Handoff 3 (T4 step 3), 2026-10-17 - resume here
+Maintainer decisions: (1) "A": mid wins vs self-consistent references; the tests it leaves red (V-02 paper 1F, S-2 vs EB beam, S-4 vs ElastoDyn) stay red as documented findings, no band widened. (2) "A1": `BladeMesh` default stays `"oml"` (it feeds the CFD/FSI coupling surface: runner.py:727/829, run_bem_fsi.py:282, cli/mesh.py, turbine.py:268); the validation anchors pass `skin_reference="mid"` explicitly.
+
+Done: commit `7324508` (six test files, kwarg only; `tests/test_blade_skin_reference.py` 3 passed, `check.sh quick` OK, ruff issue count unchanged at 4). No independent verifier: the runtime does not admit one without a named high-risk item.
+
+s4c (S-4 rotating, es 0.25 / 0.125, 7.56 rpm; err vs ElastoDyn 0.5666/0.7461/1.6372): mid 0.25 -3.40/-6.09/-6.13 %, mid 0.125 -3.48/-6.10/-6.46 %; oml 0.25 +1.35/-5.59/-6.39 %. oml 11617749 TIMED OUT before 0.125.
+
+Pending jobs:
+1. **11617926** oml es 0.125 only (`logs/check/t4/s4c-oml125-11617926.log`, 360 min). Then tabulate vs ED and BD p20 rated (1F 0.5320, 2F 1.5081; BD 1E 0.7118 artifact).
+2. **11617933** `check.sh full --record` on HEAD 7324508 (`logs/check/t4/full-after-11617933.log`, 240 min). When done: review the diff of `scripts/known-red-full.txt` (never hand-edit), list newly red tests as findings, and report suite counts against `docs/origin_main_integration_2026-09-30.md`.
+Then T5: anchor-move records (S-1 docstring, docs/validation_closures.md), ED-vs-BD deck gap and BD rotating in-plane defect as findings.
