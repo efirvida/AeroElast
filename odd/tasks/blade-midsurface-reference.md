@@ -10,7 +10,7 @@ Branch: main (maintainer works on main; commits not pushed). Parent audit: `odd/
 - S6: maintainer rules (previous handoff): every L3 tolerance <= 5 %; failure means find the error or a physical explanation, never widen; element_size 0.5 only as the coarse point of a study; commit always.
 
 ## Tasks
-- [ ] T1 (S2) `BladeMesh` option `skin_reference` ("oml" default | "mid"), shared inset function, unit tests (default unchanged, mid moves skin inward, no inverted element). Route: worker.
+- [x] T1 (S2) `BladeMesh` option `skin_reference` ("oml" default | "mid"), shared inset function, unit tests (default unchanged, mid moves skin inward, no inverted element). Route: worker. DONE: GREEN 3 passed (SLURM 11617328), commit see git log
 - [ ] T2 (S3) before/after S-1, S-2, S-4, V-03 (es 0.25) with the option off/on; report. Route: parent via sbatch.
 - [ ] T3 (S4) `tools/` independent yaml-layup calculator of mass and EA vs 6x6 and vs the mesh CLT sum. Route: worker.
 - [ ] T4 (S5) EI edge vs BeamDyn principal-axes-rotated reference. Route: parent/worker.
