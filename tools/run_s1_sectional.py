@@ -52,6 +52,39 @@ def _interp(x_src, y_src, x_dst):
     return np.interp(x_dst, x_src, y_src)
 
 
+def laminate_a11(layup, mats) -> float:
+    """Extensional stiffness A11 = sum Qbar11_k h_k [N/m] of a laminate.
+
+    Plane-stress orthotropic reduced stiffness with the reciprocal Poisson ratio
+    nu21 = nu12 E2 / E1: Q11 = E1/D, Q22 = E2/D, Q12 = nu12 E2/D, D = 1 - nu12 nu21. (Before
+    2026-10-16 this used D = 1 - nu12**2, which overstates Q11 for E1 > E2 by ~7 % on the
+    unidirectional glass and inflated the S-1 EA(CLT) diagnostic.)
+    """
+    a11 = 0.0
+    for mat_name, h, ang in layup:
+        el = mats[mat_name]["elastic"]
+        E_raw = el["E"]
+        if isinstance(E_raw, (list, tuple)):
+            E1, E2 = float(E_raw[0]), float(E_raw[1])
+            nu12 = float(el["nu"][0])
+            G12 = float(el["G"][0]) if el.get("G") else E1 / (2 * (1 + nu12))
+        else:
+            E1 = E2 = float(E_raw)
+            nu12 = float(el["nu"])
+            G12 = float(el["G"]) if el.get("G") else E1 / (2 * (1 + nu12))
+        th = np.deg2rad(ang)
+        s2, c2 = np.sin(th) ** 2, np.cos(th) ** 2
+        s4, c4 = s2 * s2, c2 * c2
+        nu21 = nu12 * E2 / E1
+        den = 1.0 - nu12 * nu21
+        Q11 = E1 / den
+        Q22 = E2 / den
+        Q12 = nu12 * E2 / den
+        Qbar11 = Q11 * c4 + 2 * (Q12 + 2 * G12) * s2 * c2 + Q22 * s4
+        a11 += Qbar11 * float(h)
+    return a11
+
+
 def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
                                 numad_data=None):
     """Extract EA(r) and GJ(r) from full-mesh static tip-load solves.
@@ -167,28 +200,7 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     sections = {s2["elementSet"]: s2 for s2 in numad_data["sections"]}
 
     def layup_a11(layup):
-        a11 = 0.0
-        for mat_name, h, ang in layup:
-            m = mats[mat_name]
-            el = m["elastic"]
-            E_raw = el["E"]
-            if isinstance(E_raw, (list, tuple)):
-                E1, E2 = float(E_raw[0]), float(E_raw[1])
-                nu12 = float(el["nu"][0])
-                G12 = float(el["G"][0]) if el.get("G") else E1 / (2 * (1 + nu12))
-            else:
-                E1 = E2 = float(E_raw)
-                nu12 = float(el["nu"])
-                G12 = float(el["G"]) if el.get("G") else E1 / (2 * (1 + nu12))
-            th = np.deg2rad(ang)
-            s2, c2 = np.sin(th) ** 2, np.cos(th) ** 2
-            s4, c4 = s2 * s2, c2 * c2
-            Q11 = E1 / (1 - nu12**2)
-            Q22 = E2 / (1 - nu12**2)
-            Q12 = nu12 * Q22
-            Qbar11 = Q11 * c4 + 2 * (Q12 + 2 * G12) * s2 * c2 + Q22 * s4
-            a11 += Qbar11 * float(h)
-        return a11
+        return laminate_a11(layup, mats)
 
     # element -> set name (the DETAILED set wins; the aggregate sets like
     # allOuterShellEls come later in the iteration and must not override)
