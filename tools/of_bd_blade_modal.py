@@ -10,6 +10,9 @@ linearizations and unavoidable header-only OpenFAST output live in logs/check/of
 No original deck is modified. Existing linearizations are never overwritten by
 submit; rerun completed cases in a fresh checkout. Use --case to select a case,
 and --attempt N to retry an initialization failure while preserving its logs.
+Uniform Southwell cases: --case sw_bd10_0, sw_bd10_10, sw_bd20_0,
+sw_bd20_10, sw_ed_0 or sw_ed_10; their isolated output is logs/check/of_bd_sw.
+See tools/of_bd_southwell.py for the analytic reference and fixed tolerances.
 post uses openfast_toolbox's MBC3, then extracts
 its collective invariant block; it records off-block coupling as a diagnostic.
 """
@@ -42,6 +45,18 @@ CASES += [('bd15_7.56_loose', 'bd15', 7.56, 15)]
 SINGLE_MEMBER = {'bp10': 10, 'bp15': 15, 'bp20': 20}
 CASES += [(f'{kind}_{rpm:g}', kind, rpm, order) for kind, order in SINGLE_MEMBER.items()
           for rpm in [0.0, 7.56]]
+
+SOUTHWELL_CASES = [(f'{kind}_{rpm:g}', kind, rpm, order)
+                   for kind, order in [('sw_bd10', 10), ('sw_bd20', 20), ('sw_ed', 0)]
+                   for rpm in [0.0, 10.0]]
+SOUTHWELL_CASES += [(f'sw_bd{order}d_10', f'sw_bd{order}d', 10.0, order)
+                    for order in [10, 20]]
+# Published analytic-box campaign (Omega supplied by worker D in cases.json).
+SOUTHWELL_CASES += [(f'{kind}_{speed}', kind, rpm, order)
+                    for kind, order in [('sw_boxbd10d', 10), ('sw_boxbd15d', 15),
+                                        ('sw_boxbd20d', 20), ('sw_boxed', 0)]
+                    for speed, rpm in [('0', 0.0), ('rot', 29.023611576)]]
+CASES += SOUTHWELL_CASES
 
 
 def replace(text, key, value):
@@ -90,7 +105,7 @@ def build(selected):
     for filename, text in shared.items():
         (INPUTS / filename).write_text(text)
     for name, kind, rpm, n in CASES:
-        if selected and name != selected:
+        if (selected and name != selected) or (not selected and name.startswith('sw_')):
             continue
         case = INPUTS / name
         case.mkdir(exist_ok=True)
@@ -158,7 +173,7 @@ def build(selected):
 
 def submit(selected, attempt):
     for name, _, _, _ in CASES:
-        if selected and name != selected:
+        if (selected and name != selected) or (not selected and name.startswith('sw_')):
             continue
         out = LOGS / name
         if any(out.glob('case.*.lin')):
@@ -231,6 +246,13 @@ def main():
     parser.add_argument('--attempt', type=int, default=1,
                         help='Attempt number; preserves earlier job records and logs (default: 1)')
     args = parser.parse_args()
+    if args.case and args.case.startswith('sw_'):
+        global LOGS
+        LOGS = ROOT / 'logs/check/of_bd_sw'
+        if args.action == 'build':
+            from of_bd_southwell import build as build_southwell
+            build_southwell(sys.modules[__name__], args.case)
+            return
     if args.action == 'build':
         build(args.case)
     elif args.action == 'submit':

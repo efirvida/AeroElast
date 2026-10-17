@@ -1,0 +1,12 @@
+{
+  "basis": "s^2..s^6; least squares, 1001 equally spaced points; tip normalized",
+  "coefficients": [
+    1.757337212214604,
+    -0.7999426786238545,
+    -0.02486901009187472,
+    0.04347089975426253,
+    0.02400357674686267
+  ],
+  "max_absolute_residual": 6.336022588371293e-06,
+  "rms_residual": 2.710172005353859e-06
+}

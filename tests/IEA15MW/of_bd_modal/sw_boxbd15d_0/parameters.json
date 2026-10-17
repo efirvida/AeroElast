@@ -1,0 +1,101 @@
+{
+  "L": 30.0,
+  "m": 432.00000000000006,
+  "EI_flap": 1634208333.3333333,
+  "EI_edge": 757458333.3333334,
+  "rpm": 0.0,
+  "published_box": {
+    "geometry": {
+      "section": "four non-overlapping shell wall strips",
+      "w": 0.6,
+      "h": 1.0,
+      "t": 0.05,
+      "L": 30.0,
+      "dimensions_reference": "wall midplanes",
+      "r0": 0,
+      "precone": 0
+    },
+    "material": {
+      "E": 70000000000.0,
+      "nu": 0.3,
+      "rho": 2700.0
+    },
+    "Omega_rad_s": 3.0393454969676497,
+    "parked_Omega_rad_s": 0,
+    "beam": {
+      "EA": 11200000000.000002,
+      "EI_flap": 1634208333.3333333,
+      "EI_edge": 757458333.3333334,
+      "GJ": 605769230.7692306,
+      "kGA_flap": 2429522595.268453,
+      "kGA_edge": 1161012900.1433349,
+      "kappa_flap": 0.563996316758748,
+      "kappa_edge": 0.2695208518189884,
+      "shear_method": "closed-cell thin-wall shear energy, integral(q/t ds)=0",
+      "m": 432.00000000000006,
+      "rotary_flap": 63.03375,
+      "rotary_edge": 29.21625,
+      "rotary_polar": 92.25,
+      "elastic_centre_xyz": [
+        0,
+        0,
+        0
+      ],
+      "shear_centre_xyz": [
+        0,
+        0,
+        0
+      ],
+      "mass_centre_xyz": [
+        0,
+        0,
+        0
+      ]
+    },
+    "analytic": {
+      "flap": [
+        {
+          "order": 1,
+          "omega_0_EB_rad_s": 7.598363742419124,
+          "omega_0_Timoshenko_rad_s": 7.582361293504847,
+          "K1": 1.1910310535463955,
+          "K1_low_speed": 1.1933363741083514,
+          "omega_rotating_rad_s": 8.29080364581619
+        },
+        {
+          "order": 2,
+          "omega_0_EB_rad_s": 47.618132744635126,
+          "omega_0_Timoshenko_rad_s": 46.931927585758295
+        }
+      ],
+      "edge": [
+        {
+          "order": 1,
+          "omega_0_EB_rad_s": 5.173038891224663,
+          "omega_0_Timoshenko_rad_s": 5.163448814498213,
+          "K1": 1.1884687706304777,
+          "K1_low_speed": 1.1933363741083514,
+          "omega_rotating_rad_s": 5.338664107523046
+        },
+        {
+          "order": 2,
+          "omega_0_EB_rad_s": 32.41888134945627,
+          "omega_0_Timoshenko_rad_s": 32.00654537527237
+        }
+      ],
+      "torsion": {
+        "order": 1,
+        "omega_0_rad_s": 134.17420786029186
+      }
+    },
+    "formulas_sources": [
+      "EB omega_n=beta_n^2 sqrt(EI/(m L^4)); beta=1.8751040687,4.694091133; Blevins",
+      "torsion omega=pi/(2L) sqrt(GJ/(rho(Ix+Iy))); J=2w^2h^2t/(w+h), Bredt-Batho",
+      "I_flap=t(w h^2/2+h^3/6)+w t^3/6; edge swap w,h; m=rho 2(w+h)t",
+      "rotating EB y''''-(mu^2(1-x^2)y'/2)'=lambda*y, Legendre Ritz degree12",
+      "K1=(lambda(mu)-lambda(0))/mu^2, lead-lag K=K1-1; finite-speed, not constant",
+      "Wright, Smith, Thresher & Wang 1982, J Appl Mech 49:197-202; K1(0)~1.193",
+      "Timoshenko energy EI theta'^2+GAs(w'-theta)^2; mass m w^2+rho I theta^2"
+    ]
+  }
+}
