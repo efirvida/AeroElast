@@ -21,7 +21,6 @@ Recorded in odd/tasks/validation-l3-b3-audit.md.
 from __future__ import annotations
 
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -32,69 +31,12 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 from beam_reference import load_beamdyn_blade  # noqa: E402
 from run_s1_sectional import ea_gj_from_static_response  # noqa: E402
+from aeroelast.core.mesh.skin_reference import (  # noqa: E402
+    apply_midsurface_inset as inset_to_midsurface,
+)
 
 BLADE_YAML = REPO_ROOT / "tests" / "IEA-15-240-RWT.yaml"
 BEAMDYN = REPO_ROOT / "tests" / "IEA15MW" / "reference" / "IEA-15-240-RWT_BeamDyn_blade.dat"
-
-
-def inset_to_midsurface(mesh, props) -> float:
-    """Shift every outer-skin node inward by the mean half-thickness of its skin elements."""
-    X0 = mesh.coords_array.copy()
-    idx = mesh.node_id_to_index
-    outer = {idx[n] for n in mesh.get_node_set("allOuterShellNods").nodes}
-    th_of = {}
-    for name in mesh.element_sets_names:
-        lam = props.get(name)
-        if lam is None or not hasattr(lam, "total_thickness"):
-            continue
-        for e in mesh.get_element_set(name).elements:
-            th_of[getattr(e, "id", e)] = lam.total_thickness
-    nsum = defaultdict(lambda: np.zeros(3))
-    tsum = defaultdict(float)
-    cnt = defaultdict(int)
-    for el in mesh.elements:
-        ids = [idx[n] for n in el.node_ids] if hasattr(el, "node_ids") else [idx[n.id] for n in el.nodes]
-        if not all(a in outer for a in ids) or el.id not in th_of:
-            continue
-        P = X0[ids]
-        nrm = (
-            np.cross(P[2] - P[0], P[3] - P[1]) if len(ids) == 4 else np.cross(P[1] - P[0], P[2] - P[0])
-        )
-        nrm /= np.linalg.norm(nrm)
-        for a in ids:
-            nsum[a] += nrm
-            tsum[a] += th_of[el.id]
-            cnt[a] += 1
-    zr = np.round(X0[:, 2], 6)
-    cz = defaultdict(list)
-    for a in outer:
-        cz[zr[a]].append(a)
-    cent = {z: X0[ns, :2].mean(0) for z, ns in cz.items()}
-    votes = sum(np.sign(np.dot(nsum[a][:2], cent[zr[a]] - X0[a, :2])) for a in nsum)
-    sign = 1.0 if votes > 0 else -1.0
-    te_flat = set()
-    te_ids = set()
-    for name in mesh.element_sets_names:
-        if name.endswith("_TE_FLAT"):
-            te_ids.update(getattr(e, "id", e) for e in mesh.get_element_set(name).elements)
-    for el in mesh.elements:
-        if el.id in te_ids:
-            te_flat.update(idx[n] for n in el.node_ids)
-    X1 = X0.copy()
-    shift = []
-    for a in nsum:
-        if a in te_flat:
-            continue
-        n = sign * nsum[a]
-        n[2] = 0.0
-        n /= np.linalg.norm(n)
-        h = 0.5 * tsum[a] / cnt[a]
-        X1[a] += h * n
-        shift.append(h)
-    mesh.coords_array = X1
-    print(f"inset: {len(shift)} nodes, sign {sign:+.0f} (votes {votes:+.0f}), "
-          f"mean half-thickness {np.mean(shift) * 1e3:.1f} mm, max {np.max(shift) * 1e3:.1f} mm", flush=True)
-    return float(np.mean(shift))
 
 
 def s1_numbers(mesh, props, numad, bd, label) -> dict:

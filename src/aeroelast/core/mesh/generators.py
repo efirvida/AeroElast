@@ -1021,6 +1021,15 @@ class BladeMesh:
     include_webs : bool
         When *False* the shear webs are omitted and only the blade outer shell
         (outer-mold-line surface) is meshed.  Use this for CFD wall surfaces.
+    skin_reference : {"oml", "mid"}, optional
+        Reference surface of the skin (default: "oml", the unchanged CFD/FSI
+        outer mould line). "mid" shifts outer-skin nodes inward in their XY
+        section plane by the mean adjacent skin-laminate half-thickness, in
+        metres, using the solver's laminate properties. Nodes of *_TE_FLAT
+        elements remain on the OML to avoid trailing-edge inversions.
+        Interior/web-only nodes are untouched; shared skin/web boundary nodes
+        follow the skin. Applied once to each generated mesh before use.
+        Not the default because the OML is the CFD/FSI coupling surface.
 
     Examples
     --------
@@ -1043,7 +1052,11 @@ class BladeMesh:
         span_grading: str = "chord",
         airfoil_spacing: str = "cosine",
         include_webs: bool = True,
+        skin_reference: str = "oml",
     ):
+        if skin_reference not in ("oml", "mid"):
+            raise ValueError("skin_reference must be 'oml' or 'mid'")
+        self.skin_reference = skin_reference
         self.yaml_file = yaml_file
         self.excel_file = excel_file
         self.airfoil_dir = airfoil_dir
@@ -1142,6 +1155,14 @@ class BladeMesh:
 
         # Deduplicate nodes
         self._deduplicate_and_create_mesh(mesh_model, verbose)
+
+        if self.skin_reference == "mid":
+            from aeroelast.core.mesh.skin_reference import apply_midsurface_inset
+            from aeroelast.models.blade.model import build_rust_properties
+
+            apply_midsurface_inset(
+                mesh_model, build_rust_properties(self.numad_mesh_data), verbose=verbose
+            )
 
         # Renumber mesh if requested
         if renumber is not None:
