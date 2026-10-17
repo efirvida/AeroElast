@@ -179,7 +179,8 @@ class Layer:
     layer_name : str
     thicknessA : float
     thicknessB :float
-    quantity : int
+    quantity : float
+        Stock-ply count; fractional for continuous WindIO laminate thickness.
     theta : float
     """
 
@@ -187,5 +188,5 @@ class Layer:
         self.layer_name: str | None = None
         self.thicknessA: float | None = None
         self.thicknessB: float | None = None
-        self.quantity: int | None = None
+        self.quantity: float | None = None
         self.theta: float | None = None

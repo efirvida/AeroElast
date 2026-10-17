@@ -39,6 +39,11 @@ class Component:
         self.control_points: np.ndarray | None = None
         self.imethod: str = "linear"
         self.pinnedends: bool = False
+        # WindIO prescribes continuous laminate thickness, not stock-ply counts.
+        # Excel/NuMAD components retain their integer-ply interpretation.
+        self.continuous_layers: bool = False
+        self.nd_arc_start: dict | None = None
+        self.nd_arc_end: dict | None = None
         self._keylabels = [
             "te",
             "e",

@@ -369,12 +369,11 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
             np.multiply(np.transpose(i_component_data["thickness"]["values"]), 1000.0)
             / definition.materials[cur_comp.materialid].layerthickness
         )
-        np.flatnonzero((temp_n_layer > 0.05) & (temp_n_layer < 0.5))
-        cptemp2 = np.round(
-            np.multiply(np.transpose(i_component_data["thickness"]["values"]), 1000.0)
-            / definition.materials[cur_comp.materialid].layerthickness
-        )
-        cur_comp.control_points = np.stack((cptemp1, cptemp2), axis=1)
+        cur_comp.continuous_layers = True
+        cur_comp.control_points = np.stack((cptemp1, temp_n_layer), axis=1)
+        if "shell" in cur_comp.name.lower():
+            cur_comp.nd_arc_start = i_component_data.get("start_nd_arc")
+            cur_comp.nd_arc_end = i_component_data.get("end_nd_arc")
         # if I_round_up.size > 0:
         #     cur_comp.control_points[I_round_up,1] = 1 # increase n_layers from 0 to 1 for 0.05<n_layers<0.5
         #     comp['cp'](:,2) = cell2mat(blade_internal_structure['layers']{i}['thickness']['values'])'.*1000;  # use when each material ply is 1 mm
