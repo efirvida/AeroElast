@@ -18,7 +18,6 @@ tests/test_iea15mw_s1_sectional.py 0.5 anchor-05
 tests/test_iea15mw_s2_static_prescribed.py 0.5 anchor-05
 tests/test_iea15mw_s4_rotating_modal.py 0.5 anchor-05
 tests/test_iea15mw_v03_static_gravity.py 0.5 anchor-05
-tests/test_iea15mw_v05_structural_properties.py 0.5 anchor-05
 tests/test_multicell_shear_flow.py 1.0 blade-10
 tests/test_rotor_aero_geometry.py 12.0 geometry-only
 tests/test_rotor_aero_surface.py 12.0 geometry-only

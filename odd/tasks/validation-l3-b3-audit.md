@@ -544,3 +544,35 @@ Findings (no store verdict entered, no band touched):
 1. Hypothesis from E8 confirmed quantitatively for two of five: shell flap bending and torsion are stiff by ~+23 % / +14 % because the skin sits on the OML; at the mid-surface flap is +4.6 % and GJ +1.3 % (signed). The earlier S-1 docstring attribution ("disagreement between the yaml's own two representations, not a shell error") was wrong for flap and GJ: part of it is the shell's own reference-surface placement.
 2. EA (+19 %), mass (+4.6 %) and edge EI (-11 %) are independent of the OML offset. EA and mass are pure layup integrals (no FE), so they measure the yaml layup against its own 6x6; edge is open. Candidates, untested: ply/material knockdowns or fibre-content differences in the 6x6 tool, adhesive/filler mass in the layup, edge-direction stiffness carried by the TE reinforcement (see the UTD-vs-official TE finding) and ElastoDyn-vs-BeamDyn edge spread (BeamDyn is the arbiter by decision (b)).
 3. The mid-surface mesh is a counterfactual, not the production mesh: adopting it is a mesh-geometry (model) decision that moves every blade anchor (S-2, S-4, V-02, V-03, FSI surface mapping) and is left to the maintainer.
+
+## B3-2 RESULT: mid-surface option, S-1 reference defects, before/after table (2026-10-16; commits 14a7d75, e4177e3, 517a1b0 and the closing commit; SLURM logs `logs/check/skinref/`, `logs/check/layup/`; feature document `odd/tasks/blade-midsurface-reference.md`)
+
+Maintainer approval: "continua con todo tiees mi aprovacion para hacer todo". Default meshes unchanged: `BladeMesh(skin_reference="oml")` stays the default; `"mid"` is opt-in (unit tests `tests/test_blade_skin_reference.py`, 3 passed). `tools/with_skin_reference.py {oml|mid} <script|-m pytest ...>` forces the default for before/after runs without editing a test.
+
+**Two reference/diagnostic defects found and fixed (both in S-1's measuring stick, not in the solver).**
+1. EA(CLT) used `Q11 = E1/(1-nu12^2)`; the reciprocal form `1-nu12*nu21` is the orthotropic one. UD glass +6.7 %. EA mid-span error 20.00 % -> 11.56 % (`tools/run_s1_sectional.laminate_a11`, closed-form tests `tests/test_s1_laminate_a11.py`, e4177e3).
+2. EI was compared with the BeamDyn K44/K55 diagonal, which is about the reference axis and carries EA*d^2 parallel-axis terms. The shell measures about the elastic centre. Reference changed to the elastic-centre principal values (Schur complement of K33 + eigenvalues; `BeamDynBlade.ei_flap_ec/ei_edge_ec`). Mid-span: edge diagonal was +8 % over principal, flap +0.9 %. EI_edge 10.18 % -> 4.20 %.
+
+**S-1 (es 0.25, mid-span mean |rel err| vs BeamDyn, signed in brackets), OML as built -> skin on mid-surface:**
+
+| quantity | OML | mid-surface | note |
+|---|---|---|---|
+| EI_flap | 24.00 % (+24.00) | 5.57 % (+5.38) | OML placement is the cause (E8) |
+| EI_edge | 4.20 % (-2.69) PASS | 4.68 % (-3.83) PASS | was 10.18 % against the wrong reference |
+| mass | 5.78 % (+5.66) | 4.75 % (+4.57) | independent yaml layup integral is +2.76 % above the 6x6; shell +3.6 % above that integral (glass_triax +11.9 kg/m in the mesh): OPEN |
+| GJ | 15.43 % (+14.17) | 8.49 % (+1.31) | bias removed, station scatter remains |
+| EA(CLT) | 11.56 % (+11.56) | 10.27 % (+10.27) | independent yaml reciprocal-CLT integral is +9.58 % above the 6x6 and within 2.4 % of the shell: the excess is inside the yaml |
+
+**S-2 (es 0.25, official blade, tip uy; shell vs beam reference), same command with the skin on OML / mid:**
+
+| case | ElastoDyn-EI reference (historical) | BeamDyn elastic-centre EI (decision (b)) |
+|---|---|---|
+| LC1 gravity | OML +2.93 % / mid 8.93 % | OML +9.46 % / mid -1.60 % |
+| LC2 tip flap | OML -1.63 % / mid 12.87 % | OML -6.54 % / mid +7.23 % |
+| LC4 distributed | OML -4.38 % / mid 9.96 % | OML -11.92 % / mid +1.28 % |
+
+The OML-vs-ElastoDyn pass is two offsets cancelling (shell flap too stiff, ElastoDyn flap +9 % over BeamDyn); the mid-surface shell agrees with the BeamDyn-based beam to 1.3-7.2 %, but LC2 (+7.23 %) is still above 5 % (the Euler-Bernoulli beam has no shear flexibility). No combination closes all three within 5 %.
+
+**S-4 (es 0.25, vs OpenFAST/ElastoDyn MBC3):** mid-surface parked 1F 0.5085 (-6.53 %), 1E 0.6949 (-5.96 %), 2F 1.4778 (-8.21 %); rated 1F -6.11 %, 1E -6.14 %, 2F -8.16 %. Against the BeamDyn-deck clamped EB beam (0.5159/0.7242/1.5633 Hz, an explanation not an arbiter): mid -1.4 / -4.0 / -5.5 %, OML +4.1 / -3.5 / +1.4 %. So the OML 1F/2F "agreement" with ElastoDyn is also error cancellation (stiff shell, heavy shell, ElastoDyn stiff); with the mid-surface placement the shell is below the ElastoDyn reference by 6-8 % and the arbiter question (OpenFAST+BeamDyn on the v1.1 deck) becomes decisive. V-02: mid 1F fails 5 % (+8.96 % vs the v1.0 reference 0.5585, which is not a valid arbiter for v1.1), 1E passes its 10 % bound. V-03: 4 passed on both meshes (mass +4.12 %).
+
+**Disposition.** Mid-surface is NOT adopted as default: it fixes S-1 flap/GJ and brings S-2 toward BeamDyn, but it moves S-4 away from ElastoDyn and every anchor that was green by cancellation turns red. The honest status is that the validation arbiters for L3 (ElastoDyn for dynamics, BeamDyn for statics) disagree with each other by more than 5 % and the shell sits between them; the next evidence needed is OpenFAST v5 with BeamDyn on the v1.1 deck (one arbiter that is self-consistent) for S-4/V-02, before any further mesh decision. No band widened; store rows updated: group 38 (5 rows), 39 (3), 40 (6, earlier), 41 (1), 42 (K55 rows removed earlier).

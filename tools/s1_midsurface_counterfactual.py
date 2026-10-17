@@ -50,16 +50,16 @@ def s1_numbers(mesh, props, numad, bd, label) -> dict:
     midm = (sec.z > 0.2 * sec.z.max()) & (sec.z < 0.85 * sec.z.max())
     mide = (z_eg > 0.2 * z_eg.max()) & (z_eg < 0.85 * z_eg.max())
     out = {
-        "EI_flap": np.nanmean(np.abs(ei_flap[mid] / np.interp(z[mid], bd.z, bd.ei_flap) - 1)),
-        "EI_edge": np.nanmean(np.abs(ei_edge[mid] / np.interp(z[mid], bd.z, bd.ei_edge) - 1)),
+        "EI_flap": np.nanmean(np.abs(ei_flap[mid] / np.interp(z[mid], bd.z, bd.ei_flap_ec) - 1)),
+        "EI_edge": np.nanmean(np.abs(ei_edge[mid] / np.interp(z[mid], bd.z, bd.ei_edge_ec) - 1)),
         "mass": np.nanmean(np.abs(sec.mass_dens[midm] / np.interp(sec.z[midm], bd.z, bd.mass_dens) - 1)),
         "GJ": np.nanmean(np.abs(gj[mide] / np.interp(z_eg[mide], bd.z, bd.gj) - 1)),
         "EA_CLT": np.nanmean(np.abs(ea_clt[mide] / np.interp(z_eg[mide], bd.z, bd.ea) - 1)),
     }
     # signed mean too: the sign says whether the shell is stiffer or softer than the deck
     sgn = {
-        "EI_flap": np.nanmean(ei_flap[mid] / np.interp(z[mid], bd.z, bd.ei_flap) - 1),
-        "EI_edge": np.nanmean(ei_edge[mid] / np.interp(z[mid], bd.z, bd.ei_edge) - 1),
+        "EI_flap": np.nanmean(ei_flap[mid] / np.interp(z[mid], bd.z, bd.ei_flap_ec) - 1),
+        "EI_edge": np.nanmean(ei_edge[mid] / np.interp(z[mid], bd.z, bd.ei_edge_ec) - 1),
         "mass": np.nanmean(sec.mass_dens[midm] / np.interp(sec.z[midm], bd.z, bd.mass_dens) - 1),
         "GJ": np.nanmean(gj[mide] / np.interp(z_eg[mide], bd.z, bd.gj) - 1),
         "EA_CLT": np.nanmean(ea_clt[mide] / np.interp(z_eg[mide], bd.z, bd.ea) - 1),

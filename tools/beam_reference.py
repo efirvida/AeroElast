@@ -57,6 +57,12 @@ class BeamDynBlade:
     ei_flap: np.ndarray
     ei_edge: np.ndarray
     mass_dens: np.ndarray
+    # Bending stiffness about the elastic centre, principal axes (flap <= edge): the 6x6 bending
+    # block with the axial-bending coupling removed (Schur complement of K33) and diagonalised.
+    # `ei_flap`/`ei_edge` above are the raw K55/K44 diagonal terms about the BeamDyn reference
+    # axis, which carry EA * d^2 parallel-axis terms (mid-span edge: +8 % over the principal one).
+    ei_flap_ec: Optional[np.ndarray] = None
+    ei_edge_ec: Optional[np.ndarray] = None
 
 
 def load_elastodyn_blade(path: str | Path, blade_length: float = 117.0) -> ElastoDynBlade:
@@ -91,7 +97,7 @@ def load_beamdyn_blade(path: str | Path, blade_length: float = 117.0) -> BeamDyn
     while i < len(lines) and "DISTRIBUTED PROPERTIES" not in lines[i]:
         i += 1
     i += 1
-    zs, ea, gj, eif, eie, md = [], [], [], [], [], []
+    zs, ea, gj, eif, eie, md, eifc, eiec = [], [], [], [], [], [], [], []
     while i < len(lines):
         parts = lines[i].split()
         if len(parts) != 1:
@@ -116,6 +122,10 @@ def load_beamdyn_blade(path: str | Path, blade_length: float = 117.0) -> BeamDyn
         eif.append(K[4, 4])
         gj.append(K[5, 5])
         md.append(M[0, 0])
+        k_ax = K[2, 3:5]
+        lo, hi = np.sort(np.linalg.eigvalsh(K[3:5, 3:5] - np.outer(k_ax, k_ax) / K[2, 2]))
+        eifc.append(lo)
+        eiec.append(hi)
         i = j + 6
     if not zs:
         raise ValueError(f"No stations parsed from {path}")
@@ -126,6 +136,8 @@ def load_beamdyn_blade(path: str | Path, blade_length: float = 117.0) -> BeamDyn
         ei_flap=np.asarray(eif),
         ei_edge=np.asarray(eie),
         mass_dens=np.asarray(md),
+        ei_flap_ec=np.asarray(eifc),
+        ei_edge_ec=np.asarray(eiec),
     )
 
 
@@ -254,8 +266,10 @@ class BeamReference:
         self.ed = ed
         self.g = np.asarray(g, dtype=np.float64)
         src = bd if ei_source == "beamdyn" else ed
-        self.ei_flap = _interp(src.z, src.ei_flap, z)
-        self.ei_edge = _interp(src.z, src.ei_edge, z)
+        # BeamDyn: the elastic-centre principal values (what ElastoDyn tabulates and what the
+        # beam about the mesh centroids needs), not the reference-axis diagonal K55/K44.
+        self.ei_flap = _interp(src.z, bd.ei_flap_ec if ei_source == "beamdyn" else src.ei_flap, z)
+        self.ei_edge = _interp(src.z, bd.ei_edge_ec if ei_source == "beamdyn" else src.ei_edge, z)
         self.mass_dens = _interp(src.z, src.mass_dens, z)
         if bd is not None:
             self.gj = _interp(bd.z, bd.gj, z)

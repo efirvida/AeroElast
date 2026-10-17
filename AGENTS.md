@@ -143,7 +143,7 @@ deltas live in the documents listed here — do not duplicate numbers into this 
 |---|---|---|
 | S-0, S-1, S-3 | omega-zero consistency, sectional, Newmark transient | the `tests/test_iea15mw_s*.py` docstrings |
 | S-2 | static prescribed (gravity and LC sets) vs beam references | `docs/origin_main_integration_2026-09-30.md`; official blade closes at +8.1 % |
-| S-4 | rotating modal vs OpenFAST v5 MBC3 at 7.56 rpm | inline: 1st flap +0.6 %, 1st edge −4.5 %, 2nd flap −1.5 % |
+| S-4 | rotating modal vs OpenFAST v5 MBC3 at 7.56 rpm | converged es 0.25 (0.125 within 0.35 %): 1st flap −1.4 %, 1st edge −5.6 % (rejected at 5 %), 2nd flap −1.7 %; one ElastoDyn arbiter, see `odd/tasks/validation-l3-b3-audit.md` "B3-2 RESULT" |
 | S-5, S-6 | one-way 100 s rated run; one-way dynamic (S-6 NaN open) | `docs/validation_closures.md` |
 | S-7 | torsion ratio | `docs/validation_closures.md` (superseded 2026-10-07: 0.9396 → 0.9336) |
 | V-01/V-02/V-03/V-05 | rotor performance, natural frequencies (2F open), gravity, structural properties | `docs/validation_results_v01_v02_v04.md` |

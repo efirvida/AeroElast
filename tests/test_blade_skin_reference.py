@@ -13,8 +13,7 @@ BLADE_YAML = Path(__file__).parent / "IEA-15-240-RWT.yaml"
 
 
 def generator(**kwargs):
-    # 0.5 m is intentional for this geometric-transform unit test, not physics evidence.
-    return BladeMesh(yaml_file=str(BLADE_YAML), element_size=0.5, **kwargs)
+    return BladeMesh(yaml_file=str(BLADE_YAML), element_size=0.25, **kwargs)
 
 
 @pytest.fixture(scope="module")

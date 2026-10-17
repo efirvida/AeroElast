@@ -1,85 +1,86 @@
 group: '39'
 rows:
-  - id: blade_static_prescribed.s2_official_lc1_tip_displacement
-    group: '39'
-    title: S-2 official LC1 gravity displacement vs BeamDyn
-    tests:
-      - >-
-        tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official]
-    validates: >-
-      Official-blade dominant shell tip displacement relative error for LC1
-      gravity against the BeamDyn reference.
-    comparisons:
-      - label: Dominant tip displacement relative error
-        asserted: true
-        reference:
-          kind: code
-          label: >-
-            BeamDyn/ElastoDyn LC1 gravity beam reference displacement
-        tolerance:
-          kind: rel_err
-          value: 0.05
-          source: tests/test_iea15mw_s2_static_prescribed.py:121
-          justified: true
-          justification: Source-stated 5% bound; not independently adjudicated.
-        measured:
-          status: not_measured
-        expected: null
-    flags: []
-    notes: >-
-      Source assertion only; the stored level inventory reports S-2 at +8.1%,
-      which remains over the 5% ceiling and open pending exact adjudication.
-  - id: blade_static_prescribed.s2_official_lc2_tip_displacement
-    group: '39'
-    title: S-2 official LC2 tip-flap displacement vs BeamDyn
-    tests:
-      - >-
-        tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official]
-    validates: >-
-      Official-blade dominant shell tip displacement relative error for LC2
-      tip flap against the BeamDyn reference.
-    comparisons:
-      - label: Dominant tip displacement relative error
-        asserted: true
-        reference:
-          kind: code
-          label: >-
-            BeamDyn/ElastoDyn LC2 tip-flap beam reference displacement
-        tolerance:
-          kind: rel_err
-          value: 0.05
-          source: tests/test_iea15mw_s2_static_prescribed.py:121
-          justified: true
-          justification: Source-stated 5% bound; not independently adjudicated.
-        measured:
-          status: not_measured
-        expected: null
-    flags: []
-    notes: Source assertion only; no result or verdict recorded.
-  - id: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
-    group: '39'
-    title: S-2 official LC4 distributed-load displacement vs BeamDyn
-    tests:
-      - >-
-        tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official]
-    validates: >-
-      Official-blade dominant shell tip displacement relative error for LC4
-      distributed load against the BeamDyn reference.
-    comparisons:
-      - label: Dominant tip displacement relative error
-        asserted: true
-        reference:
-          kind: code
-          label: >-
-            BeamDyn/ElastoDyn LC4 distributed-load beam reference displacement
-        tolerance:
-          kind: rel_err
-          value: 0.05
-          source: tests/test_iea15mw_s2_static_prescribed.py:121
-          justified: true
-          justification: Source-stated 5% bound; not independently adjudicated.
-        measured:
-          status: not_measured
-        expected: null
-    flags: []
-    notes: Source assertion only; no result or verdict recorded.
+- id: blade_static_prescribed.s2_official_lc1_tip_displacement
+  group: '39'
+  title: S-2 official LC1 gravity displacement vs BeamDyn
+  tests:
+  - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official]
+  validates: Official-blade dominant shell tip displacement relative error for LC1 gravity against the BeamDyn reference.
+  comparisons:
+  - label: Dominant tip displacement relative error
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn/ElastoDyn LC1 gravity beam reference displacement
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s2_static_prescribed.py:121
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is a beam model built from the ElastoDyn EI and mass (the two reference decks differ by more than 5 %, so a pass is not independent confirmation). Against the BeamDyn elastic-centre EI instead (decision (b)), the OML shell reads +9.46 % (LC1), -6.54 % (LC2), -11.92 % (LC4); the mid-surface shell -1.60 %, +7.23 %, +1.28 %.'
+    measured:
+      status: measured
+      run: 517a1b0
+      date: '2026-10-16'
+      raw: -1.9327
+      margin_pct: 2.93
+      text: 'S-2 LC1 gravity uy es 0.25 official blade: shell -1.9327 vs beam(ElastoDyn EI) -1.9910 m (2.93 %, bound 5 %). Skin on mid-surface: -2.1688 (8.93 %) RED; BeamDyn-EI reference: OML 8.35 %, mid 2.85 %. SLURM 11617336/40/62/63.'
+    expected: null
+  flags: []
+  notes: Source assertion only; the stored level inventory reports S-2 at +8.1%, which remains over the 5% ceiling and open pending exact adjudication.
+- id: blade_static_prescribed.s2_official_lc2_tip_displacement
+  group: '39'
+  title: S-2 official LC2 tip-flap displacement vs BeamDyn
+  tests:
+  - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official]
+  validates: Official-blade dominant shell tip displacement relative error for LC2 tip flap against the BeamDyn reference.
+  comparisons:
+  - label: Dominant tip displacement relative error
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn/ElastoDyn LC2 tip-flap beam reference displacement
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s2_static_prescribed.py:121
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is a beam model built from the ElastoDyn EI and mass (the two reference decks differ by more than 5 %, so a pass is not independent confirmation). Against the BeamDyn elastic-centre EI instead (decision (b)), the OML shell reads +9.46 % (LC1), -6.54 % (LC2), -11.92 % (LC4); the mid-surface shell -1.60 %, +7.23 %, +1.28 %.'
+    measured:
+      status: measured
+      run: 517a1b0
+      date: '2026-10-16'
+      raw: 67.378
+      margin_pct: 1.63
+      text: 'S-2 LC2 tip flap uy es 0.25 official blade: shell 67.378 vs beam(ElastoDyn EI) 68.497 m (1.63 %, bound 5 %). Skin on mid-surface: 77.310 (12.87 %) RED; BeamDyn-EI reference: OML 5.42 %, mid 8.53 %. SLURM 11617336/40/62/63.'
+    expected: null
+  flags: []
+  notes: Source assertion only; no result or verdict recorded.
+- id: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
+  group: '39'
+  title: S-2 official LC4 distributed-load displacement vs BeamDyn
+  tests:
+  - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official]
+  validates: Official-blade dominant shell tip displacement relative error for LC4 distributed load against the BeamDyn reference.
+  comparisons:
+  - label: Dominant tip displacement relative error
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn/ElastoDyn LC4 distributed-load beam reference displacement
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s2_static_prescribed.py:121
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is a beam model built from the ElastoDyn EI and mass (the two reference decks differ by more than 5 %, so a pass is not independent confirmation). Against the BeamDyn elastic-centre EI instead (decision (b)), the OML shell reads +9.46 % (LC1), -6.54 % (LC2), -11.92 % (LC4); the mid-surface shell -1.60 %, +7.23 %, +1.28 %.'
+    measured:
+      status: measured
+      run: 517a1b0
+      date: '2026-10-16'
+      raw: 7.26
+      margin_pct: 4.38
+      text: 'S-2 LC4 distributed uy es 0.25 official blade: shell 7.260 vs beam(ElastoDyn EI) 7.592 m (4.38 %, bound 5 %). Skin on mid-surface: 8.3485 (9.96 %) RED; BeamDyn-EI reference: OML 10.98 %, mid 2.37 %. SLURM 11617336/40/62/63.'
+    expected: null
+  flags: []
+  notes: Source assertion only; no result or verdict recorded.

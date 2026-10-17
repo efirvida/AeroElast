@@ -11,10 +11,12 @@ Branch: main (maintainer works on main; commits not pushed). Parent audit: `odd/
 
 ## Tasks
 - [x] T1 (S2) `BladeMesh` option `skin_reference` ("oml" default | "mid"), shared inset function, unit tests (default unchanged, mid moves skin inward, no inverted element). Route: worker. DONE: GREEN 3 passed (SLURM 11617328), commit see git log
-- [ ] T2 (S3) before/after S-1, S-2, S-4, V-03 (es 0.25) with the option off/on; report. Route: parent via sbatch.
-- [ ] T3 (S4) `tools/` independent yaml-layup calculator of mass and EA vs 6x6 and vs the mesh CLT sum. Route: worker.
-- [ ] T4 (S5) EI edge vs BeamDyn principal-axes-rotated reference. Route: parent/worker.
+- [x] T2 (S3) before/after S-1, S-2, S-4, V-03 (es 0.25) with the option off/on; report. Route: parent via sbatch.
+- [x] T3 (S4) `tools/` independent yaml-layup calculator of mass and EA vs 6x6 and vs the mesh CLT sum. Route: worker.
+- [x] T4 (S5) EI edge vs BeamDyn principal-axes-rotated reference. Route: parent/worker.
 - [ ] T5 close: store rows/docs, AGENTS.md S-4 row (1E -5.5 %), handoff.
 
 ## Log
 - L1: "continua con todo tiees mi aprovacion para hacer todo"
+
+- L2: T2-T4 done 2026-10-16; results in odd/tasks/validation-l3-b3-audit.md ('B3-2 RESULT: mid-surface option...'). T4 outcome: the S-1 edge 'red' was the K44-diagonal reference (EA d^2 terms), not physics; edge now 4.20 % PASS.
