@@ -500,3 +500,15 @@ Consequences (findings, no store write):
 - Every published 2020 blade frequency (NREL/TP-5000-75698, Rinker 2020, and the Zhou/Frontiers tables that copy them) describes the v1.0 blade. None can arbitrate our v1.1 yaml blade at 5 %. That covers the V-02 references (0.555 / 0.6406): the V-02 1F `trusted` and 1E `rejected` verdicts rest on a v1.0 reference and must be re-opened by the maintainer.
 - S-4 1E (shell 0.6988 parked, converged): -5.45 % vs OpenFAST/ElastoDyn, -4.2 % vs the ED clamped EB beam, -3.5 % vs the BeamDyn clamped EB beam. About 1.3 points of the 5.45 % are ElastoDyn's assumed-mode stiffening, not shell error. The in-house EB beam is NOT an independent arbiter (our code, written after the measurement); it only explains the reference. 1E stays `rejected` at 5 % per C3.
 - S-4 1F / 2F parked have no valid second arbiter for v1.1 yet. Admissible candidates: OpenFAST v5 with BeamDyn on the v1.1 deck, or HAWC2/HAWCStab2 on the v1.1 `HAWC2/IEA-15-240-RWT/IEA_15MW_RWT_Blade_st_FPM.st` (bundled). Until then, 1F/2F are `regression_pin`/open (C2).
+
+## B3-2a S-4 RESULT, rotating half (2026-10-16; SLURM 11617092 COMPLETED 2:44:38, es 0.125 at 7.56 rpm; log `logs/check/s4/es0125-rot-11617092.out`)
+
+Criterion C1-C3 applied as written (OpenFAST v5 MBC3 rated 0.5666 / 0.7461 / 1.6372 Hz); es 0.5 / 0.25 values from 11617012.
+
+| mode | es 0.25 | es 0.125 | C1 \|f.25-f.125\|/f.125 | err at 0.125 | verdict |
+|---|---|---|---|---|---|
+| 1F | 0.558780 | 0.559526 | 0.13 % | -1.25 % | inside 5 %, ONE arbiter -> `regression_pin`/open (C2) |
+| 1E | 0.704137 | 0.704597 | 0.07 % | **-5.56 %** | **rejected** (C3); bound stays 5 % |
+| 2F | 1.609045 | 1.614654 | 0.35 % | -1.38 % | inside 5 %, ONE arbiter -> `regression_pin`/open (C2) |
+
+C1 holds for all six frequencies (parked and rated, max 0.35 %). The S-4 anchor therefore reads, converged: 1F and 2F within 1.4 % of OpenFAST, 1E rejected at -5.45 % parked / -5.56 % rated (the test docstring's -4.5 / -5.6 % at es 0.5 were not converged). The 1E rotating-vs-parked shift (+0.8 %, shell) vs OpenFAST (+1.0 %) is consistent, so K_G/K_SP are not the cause; the offset is already present parked. Cause candidates stay as recorded in the two findings above (ElastoDyn EdgStff vs BeamDyn spread, ~1.3 points from ElastoDyn assumed modes, OML reference surface). No new criterion, no widening.
