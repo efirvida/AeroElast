@@ -135,6 +135,8 @@ def beam_tip_displacement(beam: BeamReference, load) -> np.ndarray:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--element-size", type=float, default=0.5)
+    ap.add_argument("--out-csv", default=None, help="default: docs/validation_data/generated/s2_static_prescribed.csv")
+    ap.add_argument("--ei-source", choices=("elastodyn", "beamdyn"), default="elastodyn")
     ap.add_argument("--n-slices", type=int, default=60)
     ap.add_argument("--blade-xlsx", default=str(REPO_ROOT / "tests" / "NuMAD_utd_iea15mw.xlsx"))
     ap.add_argument("--blade-yaml", default=None,
@@ -158,7 +160,7 @@ def main() -> int:
 
     ed = load_elastodyn_blade(ELASTODYN_FILE)
     bd = load_beamdyn_blade(BEAMDYN_FILE)
-    beam = BeamReference.from_mesh(mesh, ed, bd, n_slices=args.n_slices)
+    beam = BeamReference.from_mesh(mesh, ed, bd, n_slices=args.n_slices, ei_source=args.ei_source)
     print(f"[S2] beam reference: {beam.n_nodes} slices, "
           f"integrated mass={beam.total_mass_kg:.0f} kg")
 
@@ -190,7 +192,8 @@ def main() -> int:
                          "rel_err": rel})
         print()
 
-    out_csv = REPO_ROOT / "docs" / "validation_data" / "generated" / "s2_static_prescribed.csv"
+    out_csv = (Path(args.out_csv) if args.out_csv else
+               REPO_ROOT / "docs" / "validation_data" / "generated" / "s2_static_prescribed.csv")
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     with open(out_csv, "w") as f:
         f.write("case,component,shell_m,beam_m,rel_err\n")

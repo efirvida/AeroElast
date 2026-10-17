@@ -237,16 +237,26 @@ class BeamReference:
         ed: ElastoDynBlade,
         bd: Optional[BeamDynBlade] = None,
         g: Tuple[float, float, float] = (0.0, 0.0, -9.81),
+        ei_source: str = "elastodyn",
     ):
+        # ei_source picks the deck that provides EI_flap, EI_edge and the mass density:
+        # "elastodyn" (default, the historical S-2 reference) or "beamdyn" (the 6x6 diagonal,
+        # the sectional arbiter fixed 2026-10-16, odd/tasks/validation-l3-b3-audit.md (b)).
+        if ei_source not in ("elastodyn", "beamdyn"):
+            raise ValueError("ei_source must be 'elastodyn' or 'beamdyn'")
+        if ei_source == "beamdyn" and bd is None:
+            raise ValueError("ei_source='beamdyn' needs the BeamDyn blade")
+        self.ei_source = ei_source
         self.z = z
         self.centroids = centroids
         self.chord_dir = chord_dir
         self.flap_dir = flap_dir
         self.ed = ed
         self.g = np.asarray(g, dtype=np.float64)
-        self.ei_flap = _interp(ed.z, ed.ei_flap, z)
-        self.ei_edge = _interp(ed.z, ed.ei_edge, z)
-        self.mass_dens = _interp(ed.z, ed.mass_dens, z)
+        src = bd if ei_source == "beamdyn" else ed
+        self.ei_flap = _interp(src.z, src.ei_flap, z)
+        self.ei_edge = _interp(src.z, src.ei_edge, z)
+        self.mass_dens = _interp(src.z, src.mass_dens, z)
         if bd is not None:
             self.gj = _interp(bd.z, bd.gj, z)
             self.ea = _interp(bd.z, bd.ea, z)
@@ -258,11 +268,11 @@ class BeamReference:
     @classmethod
     def from_mesh(
         cls, mesh, ed: ElastoDynBlade, bd: Optional[BeamDynBlade] = None,
-        n_slices: int = 60,
+        n_slices: int = 60, ei_source: str = "elastodyn",
     ) -> "BeamReference":
         coords = mesh.coords_array
         z, cents, chord, flap = extract_section_orientation(coords, n_slices)
-        return cls(z, cents, chord, flap, ed, bd)
+        return cls(z, cents, chord, flap, ed, bd, ei_source=ei_source)
 
     # ------------------------------------------------------------------ FEM --
     def _assemble(self) -> None:
