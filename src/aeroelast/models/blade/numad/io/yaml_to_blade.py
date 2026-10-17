@@ -394,7 +394,7 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
     spar_caps_ps = full_keys_from_substrings(component_dict, ["spar", "ps"])
     component_dict[spar_caps_ps[0]].hpextents = ["b", "c"]
 
-    spar_caps_ss = full_keys_from_substrings(component_dict, ["spar", "ps"])
+    spar_caps_ss = full_keys_from_substrings(component_dict, ["spar", "ss"])
     component_dict[spar_caps_ss[0]].lpextents = ["b", "c"]
 
     uv = full_keys_from_substrings(component_dict, ["uv"])
@@ -428,7 +428,7 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
         else:
             ValueError("Incorrect number of te reinf ss components")
 
-        ps = full_keys_from_substrings(component_dict, ["te", "reinf", "ss"])
+        ps = full_keys_from_substrings(component_dict, ["te", "reinf", "ps"])
         if len(ps) == 1:
             component_dict[ps[0]].hpextents = ["d", "te"]
         else:
