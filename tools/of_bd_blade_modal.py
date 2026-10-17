@@ -36,6 +36,12 @@ CASES = [(f'{kind}_{rpm:g}', kind, rpm, n) for kind, n in
 # Separate numerical-stability attempts preserve the original failed decks.
 CASES += [('bd15_7.56_dt001', 'bd15', 7.56, 15)]
 CASES += [('bd15_7.56_loose', 'bd15', 7.56, 15)]
+# Rotating BeamDyn only integrates with ONE member (diagnosis 2026-10-17: 2, 7 and 15
+# members die in BD_CheckRotMat at 0.01-0.025 s even at 0.5 rpm; 1 member with the deck's own
+# 50 keypoints is stable). The refinement variable is the element order (p-refinement).
+SINGLE_MEMBER = {'bp10': 10, 'bp15': 15, 'bp20': 20}
+CASES += [(f'{kind}_{rpm:g}', kind, rpm, order) for kind, order in SINGLE_MEMBER.items()
+          for rpm in [0.0, 7.56]]
 
 
 def replace(text, key, value):
@@ -127,11 +133,17 @@ def build(selected):
             # v5 removed the old BeamDyn pitch-actuator input section.
             bd = re.sub(r'---------------------- PITCH ACTUATOR PARAMETERS.*?'
                         r'(?=---------------------- OUTPUTS)', '', bd, flags=re.S)
+            single = kind in SINGLE_MEMBER
             for key, value in {'rhoinf': 0.8 if stable_attempt else 0,
-                               'order_elem': 4, 'quadrature': 1, 'member_total': n,
-                                   'kp_total': 2*n+1, 'RotStates': 'True',
+                               'order_elem': n if single else 4, 'quadrature': 1,
+                               'member_total': 1 if single else n,
+                               'kp_total': 50 if single else 2*n+1, 'RotStates': 'True',
                                    'BldFile': f'"{INPUTS / "bd_blade.dat"}"'}.items():
                 bd = replace(bd, key, value)
+            if single:  # keep the deck's own single member / 50 keypoints
+                (case / 'bd.dat').write_text(bd)
+                print(name, case / 'case.fst', 'output', out)
+                continue
             newpoints = CubicSpline(points[:, 2], points, axis=0)(
                 np.linspace(points[0, 2], points[-1, 2], 2*n+1))
             start = bd.index('     1     50')

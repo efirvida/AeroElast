@@ -8,7 +8,7 @@ Branch: main. Parent: `odd/tasks/validation-l3-b3-audit.md` ("B3-2 RESULT"). Ana
 
 ## Tasks
 - [ ] T1 locate or obtain an OpenFAST v5.0.0 binary (and a BeamDyn-enabled IEA-15 v1.1 deck); record paths.
-- [ ] T2 blade-only modal runs, BeamDyn blade: parked (0 rpm) and 7.56 rpm, collective (MBC3) frequencies for 1F, 1E, 2F, 2E (+ torsion if present).
+- [x] T2 (completed 2026-10-17 continuation, single-member p-refinement; see below) blade-only modal runs, BeamDyn blade: parked (0 rpm) and 7.56 rpm, collective (MBC3) frequencies for 1F, 1E, 2F, 2E (+ torsion if present).
 - [ ] T3 same two cases with the ElastoDyn blade of the same deck as a control (must reproduce the stored S-4 targets 0.544/0.739/1.610 parked, 0.5666/0.7461/1.6372 rated within ~1 %; if not, report before anything else).
 - [ ] T4 raw result table + handoff block in this file (paths, job ids, commands), no analysis.
 
@@ -107,3 +107,62 @@ The completed current BD15 parked case used attempt 3, so current-artifact postp
 Observed verification: Ruff (`--no-cache`) passed; all eight generated cases passed `openfast_toolbox.io.FASTInputFile` parameter checks (including DOF isolation, gravity, rotor speeds, linearization counts and FE orders/counts); the 6x6 distributed-property text was checked byte-identical; the public submit CLI rejected an attempted overwrite of an existing `.lin` file with nonzero exit and unchanged file hash/job records. No repository tests were edited. This is a runs-only campaign rather than a package behavior change; no formal RED/GREEN test suite or package/physics suite was run. The failed OpenFAST runs remain reported above, not hidden as passing verification.
 
 **Open:** obtain a numerically successful blade-only BeamDyn 7.56 rpm periodic linearization at 15 and 30 elements, then its collective MBC3 frequencies and rotating element-count differences. Determine the cause of the recorded integration failures in a separately scoped continuation; do not silently adjust physics or tolerances. Analysis of these raw results, shell comparisons, validation-store edits and any reopening of S-4/V-02 verdicts remain deferred to the maintainer's separate analysis session. Logs/linearizations are under ignored `logs/check/of_bd/` (about 560 MiB of `.lin` data alone); preserve that directory with this handoff. There are no outstanding jobs or scratch directories.
+
+
+## Continuation 2026-10-17 (rotating BeamDyn fix; runs only, still no analysis)
+
+L4: "continuamos" (resume; open item = rotating BeamDyn). Baseline `3b85863`; scope unchanged (S2: analysis is a separate session).
+
+### Cause of the rotating failure (bisect, 0.5 s runs, no linearization, `logs/check/of_bd_diag/`, ignored)
+
+Physics and tolerances untouched. Only the BeamDyn discretization varied:
+
+| variant (blade, 7.56 rpm unless noted) | result |
+|---|---|
+| 15 members x order 4 (previous campaign) | FATAL `BD_CheckRotMat:DBDSQR` at 0.010 s |
+| same, 2 rpm / 0.5 rpm | FATAL at 0.015 s / 0.025 s (fails at any speed; later at lower speed) |
+| same, `QuasiStaticInit=False`; or PreCone=0 and ShftTilt=0 | FATAL at 0.010 s / 0.015 s (not the cause) |
+| 7 members x order 4; 2 members x order 6 (deck's own 50 kp split) | FATAL at 0.015 s / 0.020 s |
+| trapezoidal quadrature with several members | rejected at init: "Trapezoidal quadrature only allows one member" |
+| **1 member, deck's 50 kp, order 10 (Gauss or trapezoidal), 15, 20** | **0.5 s completed** |
+| 1 member, my 31 spline keypoints, order 10 | completed |
+
+Conclusion (as measured, not generalised): in this OpenFAST v5.0.0 build, BeamDyn with a rotating root is only integrable here with a **single member**; every multi-member split failed. The deck's own configuration is 1 member, 50 kp, order 10 (`quadrature=2`, `refine=2`). The multi-member 15/30 discretization of the first campaign was the defect. Refinement variable is now element order (Gauss, 1 member, 50 kp).
+
+### New cases (`tools/of_bd_blade_modal.py`: `SINGLE_MEMBER`, kinds `bp10/bp15/bp20`)
+
+Same physical set-up as before (gravity 0, prescribed rotor speed, BeamDyn damping off, BD-internal `rhoinf=0`, `DT=0.005`, ModCoupling 3, `QuasiStaticInit=True`, `RotStates=True`, 12 linearizations at 30 deg spacing from 30 s). Parked 1 linearization at 1 s. Order 10/15/20 = 11/16/21 nodes per blade. All rotating runs completed with 12 `.lin`; collective off-block ratio <= 3.3e-9.
+
+| Case | rpm | order | 1F / 1E / 2F / 2E (Hz) | first torsion-dominated (Hz) | run job | post job |
+|---|---:|---:|---|---:|---|---|
+| `bp10_0` | 0 | 10 | 0.505013066 / 0.693987370 / 1.476464901 / 2.140556276 | 4.104602861 | 11617529 | 11617537 |
+| `bp15_0` | 0 | 15 | 0.507209819 / 0.692505710 / 1.479802885 / 2.137003223 | 4.083754200 | 11617530 | 11617538 |
+| `bp20_0` | 0 | 20 | 0.507082680 / 0.693376286 / 1.480900161 / 2.136559808 | 4.093666297 | 11617531 | 11617539 |
+| `bp10_7.56` | 7.56 | 10 | 0.529992401 / 0.712504444 / 1.503722612 / 2.170880143 | 4.077481318 | 11617532 | 11617540 |
+| `bp15_7.56` | 7.56 | 15 | 0.532167172 / 0.711012544 / 1.506974344 / 2.167418757 | 4.057223452 | 11617533 | 11617541 |
+| `bp20_7.56` | 7.56 | 20 | 0.532003414 / 0.711838468 / 1.508057474 / 2.166750450 | 4.067596016 | 11617534 | 11617542 |
+
+Order differences `100*(f_p20/f_p15 - 1)` (%), 1F / 1E / 2F / 2E / torsion: parked -0.0251 / +0.1257 / +0.0742 / -0.0207 / +0.2427; **7.56 rpm -0.0308 / +0.1162 / +0.0719 / -0.0308 / +0.2557**. `100*(f_p10/f_p15 - 1)` at 7.56 rpm: -0.409 / +0.210 / -0.216 / +0.160 / +0.499. Rotating/parked at p20: +4.915 / +2.663 / +1.834 / +1.413 / -0.637 %. Parked single-member values agree with the 15/30-member parked values of the first campaign to within about 0.5 %.
+
+No shell comparison, store edit or verdict was made. Uncommitted: `tools/of_bd_blade_modal.py`, `tests/IEA15MW/of_bd_modal/bp*/`, this file. Outputs in `logs/check/of_bd/bp*/` (ignored). Postprocess: `post --case bp20_7.56` (default attempt 1).
+
+## Analysis 2026-10-17 (L5: "continua analizando los resultados"; numbers above, shell values from `logs/check/s4/` and `logs/check/skinref/s4-mid-11617341.out`)
+
+BeamDyn reference = single member, order 20 (p15 -> p20 changes <= 0.13 % parked and rated, so converged for this purpose). Shell = OML at es 0.125 (default blade) and mid-surface at es 0.25 (not adopted). Errors are `100*(a/b-1)`, 1F / 1E / 2F.
+
+| comparison | parked | 7.56 rpm |
+|---|---|---|
+| BeamDyn p20 vs ElastoDyn | -6.65 / -6.34 / -8.12 | -6.11 / -4.60 / -7.90 |
+| shell OML vs BeamDyn p20 | +6.01 / +0.78 / +7.30 | +5.17 / -1.02 / +7.07 |
+| shell mid-surface vs BeamDyn p20 | +0.28 / +0.22 / -0.21 | -0.00 / -1.62 / -0.29 |
+| EB clamped beam (BeamDyn deck) vs BeamDyn p20 | +1.74 / +4.45 / +5.56 | n/a |
+
+Findings (measured; interpretation marked):
+1. The two OpenFAST structural models disagree by 6-8 % on the flap modes (and 4.6-6.3 % on 1E), larger than the 5 % ceiling: the S-4 arbiter choice moves the verdict, as the audit anticipated.
+2. Against the self-consistent BeamDyn arbiter the OML shell flips: 1E is inside 5 % (+0.8 / -1.0 %) while 1F and 2F are outside (+5.2..+6.0 %, +7.1..+7.3 %). The mid-surface shell agrees with BeamDyn within 0.3 % parked and within 1.6 % rated on all three. This is the same sign pattern as S-1 (OML flap EI +23 %): the OML skin placement makes the shell too stiff in flap, ElastoDyn is too stiff in flap as well, and the old S-4 "agreement" was two offsets cancelling.
+3. Caveat on the mid-surface agreement: shell mass is +3.6..+4.1 % above the layup integral, which alone lowers frequencies ~2 %; agreement to 0.3 % therefore still contains a compensating offset somewhere (open item 5 of the previous handoff). It is not a closure.
+4. The EB beam is stiffer than BeamDyn FEM by 1.7 / 4.5 / 5.6 %, growing with mode order: shear and the full 6x6 coupling matter (also seen in S-2 LC2 +7.2 % for mid-surface vs the EB beam). The EB beam cannot be the arbiter for 2F.
+5. Rotating 1E is anomalous in BeamDyn only. Rotating/parked: 1F +4.91 (BD) / +4.09 (shell OML) / +4.32 (ED) %; 2F +1.83 / +1.61 / +1.58 %; **1E +2.66 (BD) vs +0.84 (shell) vs +0.78 (ED) %**. Southwell coefficient K in f_rot^2 = f_0^2 + K*Omega^2/(4 pi^2)... (dimensionless, Omega = 0.7917 rad/s): flap K = 1.63 (BD), 1.64 (ED), 1.52 (shell); edge K = **1.64 (BD)**, 0.55 (ED), 0.52 (shell). BeamDyn's edge coefficient equals its flap coefficient to three digits, whereas ED and the shell both give K_edge ~ K_flap - 1. Hypothesis, not demonstrated: the BeamDyn linearization lacks the rotating-frame softening term in the edge direction (or the collective 1E state is classified differently). Until that is excluded the BeamDyn 7.56 rpm 1E value should not be used to judge the shell; the parked 1E (0.693 Hz) is unaffected.
+6. 2E (2.137 Hz parked) and first torsion (4.09 Hz parked, 4.07 rpm) exist only for BeamDyn; no shell value is recorded yet.
+
+Not done (needs the maintainer, per S2/AGENTS rules): no store row, test, tolerance or verdict was changed from these numbers. Candidate decisions: (a) adopt BeamDyn p20 as the S-4 1F/2F arbiter parked (second arbiter for C2, so 1F/2F could leave `regression_pin`, but with the OML shell they would then be `rejected` at 5 %); (b) decide whether mid-surface becomes the production blade mesh (it would close S-1 flap/GJ and S-4 vs BeamDyn but moves S-2 LC2 to +7.2 % and S-4 vs ElastoDyn to -6..-8 %); (c) a diagnostic for finding 5 (BeamDyn modes.json dominant states for 1E; a rigid-hub zero-precone uniform-beam case against the analytic Southwell value).
