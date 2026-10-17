@@ -74,6 +74,7 @@ def _build_assembly(element_size=0.25):
     gen = BladeMesh(
         element_size=element_size,
         yaml_file=str(REPO_ROOT / "tests/IEA-15-240-RWT.yaml"),
+        skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
     )
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)

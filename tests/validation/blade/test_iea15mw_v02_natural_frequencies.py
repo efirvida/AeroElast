@@ -77,6 +77,7 @@ class TestBladeNaturalFrequencies:
         generator = BladeMesh(
             yaml_file=str(iea_blade_yaml),
             element_size=0.25,
+            skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
         )
         mesh = generator.generate(renumber="rcm")
         properties = build_rust_properties(generator.numad_mesh_data)

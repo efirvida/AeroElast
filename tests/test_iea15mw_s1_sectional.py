@@ -66,7 +66,11 @@ class TestS1SectionalProperties:
         ref_dir = Path(__file__).resolve().parents[1] / "tests" / "IEA15MW" / "reference"
         bd = load_beamdyn_blade(ref_dir / "IEA-15-240-RWT_BeamDyn_blade.dat")
 
-        generator = BladeMesh(yaml_file=str(iea_blade_yaml), element_size=0.25)
+        generator = BladeMesh(
+            yaml_file=str(iea_blade_yaml),
+            element_size=0.25,
+            skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
+        )
         mesh = generator.generate(renumber="rcm")
         props = build_rust_properties(generator.numad_mesh_data)
         ext = SectionalExtractor(mesh, props)

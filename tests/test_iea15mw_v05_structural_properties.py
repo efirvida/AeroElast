@@ -96,7 +96,11 @@ class TestAssembledStiffnessProperties:
         from aeroelast.core.mesh.generators import BladeMesh
         from aeroelast.models.blade.model import build_rust_properties
 
-        generator = BladeMesh(yaml_file=iea_blade_yaml, element_size=0.25)
+        generator = BladeMesh(
+            yaml_file=iea_blade_yaml,
+            element_size=0.25,
+            skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
+        )
         mesh = generator.generate(renumber="rcm")
         properties = build_rust_properties(generator.numad_mesh_data)
         model = {
