@@ -1,122 +1,134 @@
 group: '40'
 rows:
-  - id: blade_rotating_modes.s4_parked_openfast_modes
-    group: '40'
-    title: S-4 parked modes vs OpenFAST MBC3
-    tests:
-      - >-
-        tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0]
-    validates: Parked blade modal frequencies against OpenFAST v5.0.0 MBC3.
-    comparisons:
-      - label: First flap frequency
-        asserted: true
-        reference:
-          kind: code
-          label: OpenFAST v5.0.0 MBC3 parked first flap, Hz
-        tolerance:
-          kind: rel_err
-          value: 0.08
-          source: tests/test_iea15mw_s4_rotating_modal.py:110
-          justified: true
-          justification: >-
-            Source-stated 8% bound; basis and any L3 ceiling exception are
-            not independently adjudicated.
-        measured:
-          status: not_measured
-        expected: 0.544
-      - label: First edge frequency
-        asserted: true
-        reference:
-          kind: code
-          label: OpenFAST v5.0.0 MBC3 parked first edge, Hz
-        tolerance:
-          kind: rel_err
-          value: 0.08
-          source: tests/test_iea15mw_s4_rotating_modal.py:110
-          justified: true
-          justification: >-
-            Source-stated 8% bound; basis and any L3 ceiling exception are
-            not independently adjudicated.
-        measured:
-          status: not_measured
-        expected: 0.739
-      - label: Second flap frequency
-        asserted: true
-        reference:
-          kind: code
-          label: OpenFAST v5.0.0 MBC3 parked second flap, Hz
-        tolerance:
-          kind: rel_err
-          value: 0.08
-          source: tests/test_iea15mw_s4_rotating_modal.py:110
-          justified: true
-          justification: >-
-            Source-stated 8% bound; basis and any L3 ceiling exception are
-            not independently adjudicated.
-        measured:
-          status: not_measured
-        expected: 1.610
-    flags: []
-    notes: >-
-      Threshold and reference targets are source metadata only; no result,
-      ceiling exception or verdict is recorded.
-  - id: blade_rotating_modes.s4_rated_openfast_modes
-    group: '40'
-    title: S-4 rated modes vs OpenFAST MBC3
-    tests:
-      - >-
-        tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56]
-    validates: Rated blade modal frequencies against OpenFAST v5.0.0 MBC3.
-    comparisons:
-      - label: First flap frequency
-        asserted: true
-        reference:
-          kind: code
-          label: OpenFAST v5.0.0 MBC3 rated first flap at 7.56 rpm, Hz
-        tolerance:
-          kind: rel_err
-          value: 0.08
-          source: tests/test_iea15mw_s4_rotating_modal.py:110
-          justified: true
-          justification: >-
-            Source-stated 8% bound; basis and any L3 ceiling exception are
-            not independently adjudicated.
-        measured:
-          status: not_measured
-        expected: 0.5666
-      - label: First edge frequency
-        asserted: true
-        reference:
-          kind: code
-          label: OpenFAST v5.0.0 MBC3 rated first edge at 7.56 rpm, Hz
-        tolerance:
-          kind: rel_err
-          value: 0.08
-          source: tests/test_iea15mw_s4_rotating_modal.py:110
-          justified: true
-          justification: >-
-            Source-stated 8% bound; basis and any L3 ceiling exception are
-            not independently adjudicated.
-        measured:
-          status: not_measured
-        expected: 0.7461
-      - label: Second flap frequency
-        asserted: true
-        reference:
-          kind: code
-          label: OpenFAST v5.0.0 MBC3 rated second flap at 7.56 rpm, Hz
-        tolerance:
-          kind: rel_err
-          value: 0.08
-          source: tests/test_iea15mw_s4_rotating_modal.py:110
-          justified: true
-          justification: >-
-            Source-stated 8% bound; basis and any L3 ceiling exception are
-            not independently adjudicated.
-        measured:
-          status: not_measured
-        expected: 1.6372
-    flags: []
-    notes: >-
-      Threshold and reference targets are source metadata only; no result,
-      ceiling exception or verdict is recorded.
+- id: blade_rotating_modes.s4_parked_openfast_modes
+  group: '40'
+  title: S-4 parked modes vs OpenFAST MBC3
+  tests:
+  - tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[0.0]
+  validates: Parked blade modal frequencies against OpenFAST v5.0.0 MBC3.
+  comparisons:
+  - label: First flap frequency
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 MBC3 parked first flap, Hz
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
+    measured:
+      status: measured
+      run: 48c7c88
+      date: '2026-10-16'
+      raw: 0.537085
+      margin_pct: 1.271
+      text: 'S-4 parked 1F es 0.25: 0.537085 vs 0.544 Hz (error 1.27 %, bound 5 %); es 0.125: 0.537561 (-1.18 %), C1 0.09 %. Tool s4_modal_convergence, SLURM 11617012/13. Single arbiter -> regression_pin/open (C2).'
+    expected: 0.544
+  - label: First edge frequency
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 MBC3 parked first edge, Hz
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
+    measured:
+      status: measured
+      run: 48c7c88
+      date: '2026-10-16'
+      raw: 0.698595
+      margin_pct: 5.467
+      text: 'S-4 parked 1E es 0.25: 0.698595 vs 0.739 Hz (error 5.47 %, bound 5 %) RED; es 0.125: 0.698760 (-5.45 %), C1 0.02 %. Converged -> rejected (C3), bound not widened. Tool s4_modal_convergence, SLURM 11617012/13.'
+    expected: 0.739
+  - label: Second flap frequency
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 MBC3 parked second flap, Hz
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
+    measured:
+      status: measured
+      run: 48c7c88
+      date: '2026-10-16'
+      raw: 1.585453
+      margin_pct: 1.525
+      text: 'S-4 parked 2F es 0.25: 1.585453 vs 1.610 Hz (error 1.53 %, bound 5 %); es 0.125: 1.589074 (-1.30 %), C1 0.23 %. Tool s4_modal_convergence, SLURM 11617012/13. Single arbiter -> regression_pin/open (C2).'
+    expected: 1.61
+  flags: []
+  notes: 'Measured 2026-10-16 at es 0.25 and es 0.125 (tools/s4_modal_convergence.py). 1F and 2F inside 5 % against one numerical arbiter (OpenFAST/ElastoDyn): regression_pin/open. 1E is converged (C1 <= 0.07 %) at -5.5 %/-5.6 %: rejected, bound stays 5 %. Cause candidates in odd/tasks/validation-l3-b3-audit.md (deck spread, ElastoDyn assumed modes, OML surface).'
+- id: blade_rotating_modes.s4_rated_openfast_modes
+  group: '40'
+  title: S-4 rated modes vs OpenFAST MBC3
+  tests:
+  - tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56]
+  validates: Rated blade modal frequencies against OpenFAST v5.0.0 MBC3.
+  comparisons:
+  - label: First flap frequency
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 MBC3 rated first flap at 7.56 rpm, Hz
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
+    measured:
+      status: measured
+      run: 48c7c88
+      date: '2026-10-16'
+      raw: 0.55878
+      margin_pct: 1.38
+      text: 'S-4 rated 1F es 0.25: 0.558780 vs 0.5666 Hz (error 1.38 %, bound 5 %); es 0.125: 0.559526 (-1.25 %), C1 0.13 %. Tool s4_modal_convergence, SLURM 11617012/92. Single arbiter -> regression_pin/open (C2).'
+    expected: 0.5666
+  - label: First edge frequency
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 MBC3 rated first edge at 7.56 rpm, Hz
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
+    measured:
+      status: measured
+      run: 48c7c88
+      date: '2026-10-16'
+      raw: 0.704137
+      margin_pct: 5.624
+      text: 'S-4 rated 1E es 0.25: 0.704137 vs 0.7461 Hz (error 5.62 %, bound 5 %) RED; es 0.125: 0.704597 (-5.56 %), C1 0.07 %. Converged -> rejected (C3), bound not widened. Tool s4_modal_convergence, SLURM 11617012/92.'
+    expected: 0.7461
+  - label: Second flap frequency
+    asserted: true
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 MBC3 rated second flap at 7.56 rpm, Hz
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
+    measured:
+      status: measured
+      run: 48c7c88
+      date: '2026-10-16'
+      raw: 1.609045
+      margin_pct: 1.72
+      text: 'S-4 rated 2F es 0.25: 1.609045 vs 1.6372 Hz (error 1.72 %, bound 5 %); es 0.125: 1.614654 (-1.38 %), C1 0.35 %. Tool s4_modal_convergence, SLURM 11617012/92. Single arbiter -> regression_pin/open (C2).'
+    expected: 1.6372
+  flags: []
+  notes: 'Measured 2026-10-16 at es 0.25 and es 0.125 (tools/s4_modal_convergence.py). 1F and 2F inside 5 % against one numerical arbiter (OpenFAST/ElastoDyn): regression_pin/open. 1E is converged (C1 <= 0.07 %) at -5.5 %/-5.6 %: rejected, bound stays 5 %. Cause candidates in odd/tasks/validation-l3-b3-audit.md (deck spread, ElastoDyn assumed modes, OML surface).'

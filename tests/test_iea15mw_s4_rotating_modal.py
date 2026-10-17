@@ -21,10 +21,17 @@ Reference targets: OpenFAST v5.0.0, ElastoDyn beam model, blade DOFs only
   1st edge    0.739 Hz            0.7461 Hz
   2nd flap    1.610 Hz            1.6372 Hz
 
-Measured agreement (2026-09-09, this test):
+Measured agreement (2026-10-16, tools/s4_modal_convergence.py, SLURM 11617012/13/92;
+error vs OpenFAST, shell below reference). The 2026-09-09 figures were at element_size 0.5,
+which is not converged for this blade. C1: |f(0.25)-f(0.125)|/f(0.125) <= 0.35 %.
 
-  rotating:  1F +0.6% | 1E -4.5% | 2F -1.5%
-  parked:    1F -1.5% | 1E -5.6% | 2F -2.3%
+                 es 0.25                    es 0.125 (converged)
+  rotating:  1F -1.38 | 1E -5.62 | 2F -1.72     1F -1.25 | 1E -5.56 | 2F -1.38  %
+  parked:    1F -1.27 | 1E -5.47 | 2F -1.53     1F -1.18 | 1E -5.45 | 2F -1.30  %
+
+1E exceeds the 5 % bound at both rotor speeds and is converged, so the test is red for
+1st edge by design: documented as rejected, bound not widened
+(odd/tasks/validation-l3-b3-audit.md, "B3-2a S-4 RESULT").
 
 Marks: slow (blade mesh generation + static solve + modal solve).
 """
