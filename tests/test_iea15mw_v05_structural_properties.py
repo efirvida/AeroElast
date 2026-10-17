@@ -52,22 +52,27 @@ _K55_REF = {
 
 
 class TestBeamDynK55K66Consistency:
-    """V-05b — verify BeamDyn K_55/K_66 vs ElastoDyn FlpStff/EdgStff [R3][R4][R6].
+    """V-05b — reference-deck consistency record: BeamDyn K_55 vs ElastoDyn FlpStff.
 
-    Both sources describe the same blade, so they should agree within ~10%.
-    The difference arises from Timoshenko (BeamDyn) vs Euler-Bernoulli (ElastoDyn)
-    formulation at the root section.
+    NOT a validation of aeroelast: no aeroelast code runs here, so the class is outside the
+    L3 contract (validation store group 42 lists it under ``non_validation_tests``). It records
+    that the two official decks of the same blade disagree. The hard-coded ElastoDyn values
+    labelled r/R 0.10/0.50/0.90 are the rows at BlFract 0.102/0.510/0.898 while the BeamDyn
+    values are at eta 0.10/0.50/0.90, so stations differ; compared at the same eta the decks
+    differ by up to 24 % (flap) and 39 % (edge)
+    (tools/v05_deck_consistency.py, logs/check/v05/deck_consistency.txt;
+    odd/tasks/validation-l3-b3-audit.md, "B3-2 finding"). The 5 % assertion is kept, not
+    widened; the r/R=0.1 case fails (7.8 %), the others pass only by station choice.
     """
 
+    @pytest.mark.xfail(
+        strict=False,
+        reason="reference decks disagree by more than 5 % (BeamDyn vs ElastoDyn, same blade); "
+        "documented deck spread, not an aeroelast result",
+    )
     @pytest.mark.parametrize("rR, k55", sorted(_K55_REF.items()))
     def test_k55_consistent_with_ei_flap(self, rR, k55):
-        """BeamDyn K_55 must be within 20% of ElastoDyn EI_flap [R3][R4][R6].
-
-        A 20% tolerance is used because:
-        1. Timoshenko shear flexibility slightly reduces effective bending stiffness
-        2. BeamDyn uses a different coordinate convention than ElastoDyn
-        3. Reference stations may not coincide exactly
-        """
+        """BeamDyn K_55 within 5 % of ElastoDyn EI_flap [R3][R4][R6] (deck-vs-deck record)."""
         ei_flap = _EI_FLAP_REF.get(rR)
         if ei_flap is None:
             pytest.skip(f"No ElastoDyn reference at r/R={rR}")

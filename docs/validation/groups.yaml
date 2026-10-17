@@ -1343,10 +1343,17 @@ groups:
         reason: >-
           Matrix existence and DOF-size assertions are implementation checks,
           not physical-reference comparisons.
+      - tests:
+          - test_k55_consistent_with_ei_flap
+        reason: >-
+          Deck-vs-deck comparison (BeamDyn K55 vs ElastoDyn FlpStff): no
+          aeroelast code runs, so it validates nothing here. The two official
+          decks of the same blade differ by up to 24 % (flap) and 39 % (edge)
+          at equal eta (tools/v05_deck_consistency.py); kept in the suite as
+          a non-strict xfail record of that reference spread.
     provenance_note: >-
-      Stores the source K55-to-ElastoDyn EI and shell mass-to-BeamDyn table
-      comparisons. Their broad source bounds remain open against the L3
-      ceiling; no quantitative exception is asserted here.
+      Stores the shell mass-to-BeamDyn table comparison. The K55-to-ElastoDyn
+      rows were removed 2026-10-16: they compare two reference decks, not code.
 
   - id: '43'
     title: S-3 undamped thin-walled section frequency against closed form
