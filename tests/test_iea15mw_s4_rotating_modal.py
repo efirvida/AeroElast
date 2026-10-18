@@ -9,8 +9,12 @@ at the rated rotor speed (7.56 rpm, rotation axis +y, span +z) with:
           (K u = f_cf, root-clamped; membrane stresses recovered from u)
   K_SP  = spin softening -w^2 m_i (I - n n^T) on translational DOFs
 
-Modes are classified by the tip-node translation direction: flap = u_y
-(out-of-plane, chord lies along x in the rotor plane), edge = u_x.
+Modes are classified by projecting the whole mode on beam kinematics (rigid cross-sections
+per span bin, ``classify_modes``): flap = u_y (out-of-plane, chord lies along x in the rotor
+plane), edge = u_x; a mode the projection explains below 60 % is "local" and never enters a
+family. Until 2026-10-18 the label came from the single tip node, which took a local mode
+(oml, es 0.25, 7.56 rpm, 1.5325 Hz, beam fraction 0.15) as 2nd flap
+(odd/tasks/s4-mode-classifier.md).
 
 Reference targets: OpenFAST v5.0.0, ElastoDyn beam model, blade DOFs only
 (no aero, no tower/platform DOFs), MBC3 rotating frame, collective members
@@ -21,17 +25,17 @@ Reference targets: OpenFAST v5.0.0, ElastoDyn beam model, blade DOFs only
   1st edge    0.739 Hz            0.7461 Hz
   2nd flap    1.610 Hz            1.6372 Hz
 
-Measured agreement (2026-10-16, tools/s4_modal_convergence.py, SLURM 11617012/13/92;
-error vs OpenFAST, shell below reference). The 2026-09-09 figures were at element_size 0.5,
-which is not converged for this blade. C1: |f(0.25)-f(0.125)|/f(0.125) <= 0.35 %.
+Measured agreement (2026-10-18, mid-surface skin, es 0.25, tools/diagnose_mode_beam_projection.py,
+SLURM 11618419; error vs OpenFAST). The beam-projection labels pick the same three modes the
+tip-node labels picked on this mesh, so the numbers did not move with the classifier:
 
-                 es 0.25                    es 0.125 (converged)
-  rotating:  1F -1.38 | 1E -5.62 | 2F -1.72     1F -1.25 | 1E -5.56 | 2F -1.38  %
-  parked:    1F -1.27 | 1E -5.47 | 2F -1.53     1F -1.18 | 1E -5.45 | 2F -1.30  %
+  rotating:  1F -3.40 | 1E -6.09 | 2F -6.13 %     (es 0.125: -3.48 | -6.10 | -6.46 %, T12)
+  parked:    1F -3.56 | 1E -5.94 | 2F -6.34 %
 
-1E exceeds the 5 % bound at both rotor speeds and is converged, so the test is red for
-1st edge by design: documented as rejected, bound not widened
-(odd/tasks/validation-l3-b3-audit.md, "B3-2a S-4 RESULT").
+1E and 2F exceed the 5 % bound at both rotor speeds and are converged, so the test is red by
+design: ElastoDyn and BeamDyn differ 6-8 % on this blade and both pass analytic uniform beams,
+so the gap sits in the reference decks; documented, bound not widened
+(docs/validation_closures.md, "Superficie media en las anclas de pala").
 
 Marks: slow (blade mesh generation + static solve + modal solve).
 """

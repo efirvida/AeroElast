@@ -1841,12 +1841,14 @@ hallazgo, no se esconde.
   etiqueta bien (2F 1.5314 Hz, |uy| 3.9e-2; −6.46 % ED, +1.55 % BD); mid es 0.25 (1.5368 Hz) no
   tiene espectro volcado, pero cae −0.35 % del valor de 0.125. El −6.39 % del 2F oml a 0.25 que
   figura en la tabla de Handoff 3 (`odd/tasks/beamdyn-arbiter-midsurface.md`) era ese modo de baja
-  amplitud y queda anulado. Defecto abierto: `classify_modes` juzga por la razón de un solo nodo
-  de punta y no exige participación global, así que un modo de baja amplitud en la punta entra
-  en la familia; S-4 y las herramientas Campbell (`tools/run_sx_*`) leen 2F de él (V-02 no). Mismo
-  defecto que ya diagnosticó `tools/diagnose_s4_mode_labels.py` para el 1E a es 0.125 (propone
-  una etiqueta por participación integrada en el vano). Se corrige solo con un test RED propio
-  (fuera de esta feature).
+  amplitud y queda anulado. Corregido en `odd/tasks/s4-mode-classifier.md` (2026-10-18):
+  `classify_modes` proyecta el modo entero sobre cinemática de viga (secciones rígidas por bin
+  de vano) y llama "local" a lo que esa proyección explica < 60 %; el modo de 1.5325 Hz tiene
+  fracción 0.151, el 2F real 0.828. Con mid las familias de S-4 no cambian.
+- *Modos locales de punta solo en rotación* (mismo T1, es 0.25): parada, ningún modo local
+  bajo 3.8 Hz; a 7.56 rpm aparecen modos con fracción de viga 0.12-0.44 en 1.53 / 2.36 / 2.85 /
+  3.45 Hz (oml) y 2.17 / 2.92 / 2.96 / 3.61 Hz (mid), con el residuo en z/L 0.94-0.97 (mid
+  es 0.125 tenía uno en 1.02 Hz, T12). Apunta a K_G/K_SP en la zona de punta; sin diagnóstico.
 - *Fuera de esta feature* (rojos con oml por default, tests no tocados por `7324508`):
   `test_blade_mesh` ×2 (9357 nodos vs 9277), `test_blade_section_frame_tear` (la firma del
   desgarro desapareció), `test_blade_twist_mechanism`, `test_blade_iea15mw_mesh_convergence`
