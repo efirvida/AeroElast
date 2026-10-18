@@ -89,6 +89,29 @@ fi
 
 log="$LOG_DIR/$mode-$(date +%Y%m%dT%H%M%S).log"
 
+# ---- git facts ------------------------------------------------------------------------
+# A SLURM compute node has no git (job 11617933): scripts/check_sbatch.sh snapshots the
+# revision and the file lists on the login node. Without git or a complete snapshot the gate
+# stops, because the ruff and mesh-size verdicts would be computed on an empty file list.
+GIT_BIN="$(command -v "${CHECK_GIT:-git}" 2>/dev/null || true)"
+snapshot="${CHECK_GIT_SNAPSHOT:-}"
+if [ -n "$GIT_BIN" ]; then
+    revision="$("$GIT_BIN" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    changed_py_list() {
+        "$GIT_BIN" diff --name-only HEAD -- '*.py' 2>/dev/null
+        "$GIT_BIN" ls-files --others --exclude-standard -- '*.py' 2>/dev/null
+    }
+elif [ -n "$snapshot" ] && [ -f "$snapshot/revision" ] && [ -f "$snapshot/tracked" ] && [ -f "$snapshot/changed_py" ]; then
+    revision="$(cat "$snapshot/revision") (git snapshot taken at submission)"
+    changed_py_list() { cat "$snapshot/changed_py"; }
+elif [ -n "$snapshot" ]; then
+    echo "check: FAIL — git is not on PATH and the snapshot '$snapshot' lacks revision/tracked/changed_py" >&2
+    exit 2
+else
+    echo "check: FAIL — git is not on PATH (compute node?) and CHECK_GIT_SNAPSHOT is unset; submit with scripts/check_sbatch.sh" >&2
+    exit 2
+fi
+
 # ---- environment ---------------------------------------------------------------------
 # shellcheck source=scripts/aeroenv.sh
 if ! source "$REPO_ROOT/scripts/aeroenv.sh"; then
@@ -103,10 +126,7 @@ changed_py=()
 while IFS= read -r path; do
     [ -n "$path" ] && [ -f "$path" ] && changed_py+=("$path")
 done < <(
-    {
-        git diff --name-only HEAD -- '*.py' 2>/dev/null
-        git ls-files --others --exclude-standard -- '*.py' 2>/dev/null
-    } | sort -u
+    changed_py_list | sort -u
 )
 
 ruff_status="clean"
@@ -147,7 +167,7 @@ if [ "$record" = "1" ]; then
     {
         echo "# Known-red registry for scripts/check.sh (mode: $mode)."
         echo "# Re-derived automatically by: scripts/check.sh $mode --record"
-        echo "# Recorded: $(date -Iseconds) at revision $(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+        echo "# Recorded: $(date -Iseconds) at revision $revision"
         echo "# Invalidated by: any change under crates/, a maturin rebuild, or a new failure"
         echo "# that appears here outside this list. Never hand-edit to make a run green."
         printf '%s\n' ${failed_ids[@]+"${failed_ids[@]}"}
@@ -190,6 +210,11 @@ for id in ${healed[@]+"${healed[@]}"}; do
     echo "  now-passes $id   (re-record: scripts/check.sh $mode --record)"
 done
 
+if [ "$mesh_rc" -eq 2 ]; then
+    printf '%s\n' "$mesh_out"
+    echo "check[$mode]: FAIL — the mesh-size gate could not run (environment, not a coarse mesh)"
+    exit 2
+fi
 if [ "$mesh_rc" -ne 0 ]; then
     printf '%s\n' "$mesh_out"
     echo "check[$mode]: FAIL - coarse blade mesh outside scripts/mesh-size-debt.txt"
