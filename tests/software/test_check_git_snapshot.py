@@ -9,8 +9,11 @@ can simulate its absence.
 """
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 MESH_SIZE = ROOT / "scripts" / "check_mesh_size.py"
@@ -44,6 +47,7 @@ def test_mesh_size_without_git_or_snapshot_is_an_environment_error():
     assert "mesh-size: OK" not in res.stdout and "NEW coarse mesh" not in res.stdout
 
 
+@pytest.mark.skipif(shutil.which("git") is None, reason="the reference run needs git (compute node)")
 def test_mesh_size_from_snapshot_matches_the_git_run(tmp_path):
     with_git = _run(["python3", str(MESH_SIZE)])
     from_snapshot = _run(["python3", str(MESH_SIZE)], CHECK_GIT=NO_GIT, CHECK_GIT_SNAPSHOT=str(_snapshot(tmp_path)))
