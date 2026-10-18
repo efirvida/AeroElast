@@ -20,11 +20,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
     measured:
       status: measured
-      run: 517a1b0
-      date: '2026-10-16'
-      raw: 0.042
-      margin_pct: 4.2
-      text: 'S-1 EI_edge es 0.25, mean |rel err| vs BeamDyn elastic-centre principal EI 4.20 % (signed -2.69 %, bound 5 %) PASS (near the bound). Skin on mid-surface: 4.68 % (-3.83 %). Against the raw K44 diagonal it read 10.18 %: that reference carried EA d^2 terms (reference-axis, mid-span +8 %). SLURM 11617384.'
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.127
+      margin_pct: 12.7
+      text: 'S-1 EI_edge es 0.25, skin on mid-surface: mean |rel err| 12.70 % (signed -12.10 %) vs BeamDyn, bound 5 % FAIL. OML contrast: 12.0 % (signed -11.11 %); mid worsens edge by 0.7 pt (extraction defect T8). SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
     expected: null
   flags: []
   notes: Source assertion only; no result or verdict recorded.
@@ -48,11 +48,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
     measured:
       status: measured
-      run: 517a1b0
-      date: '2026-10-16'
-      raw: 0.24
-      margin_pct: 24.0
-      text: 'S-1 EI_flap es 0.25, mean |rel err| vs BeamDyn elastic-centre principal EI 24.00 % (signed +24.00 %, bound 5 %) RED. With the skin on the mid-surface: 5.57 % (+5.38 %), still just red. Cause: skin nodes sit on the OML with the laminate stacked outward (E8). SLURM 11617384.'
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0518
+      margin_pct: 5.18
+      text: 'S-1 EI_flap es 0.25, skin on mid-surface: mean |rel err| 5.18 % (signed +3.33 %) vs BeamDyn elastic-centre principal EI, bound 5 % FAIL. OML contrast: 21.6 % (signed +21.63 %). SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
     expected: null
   flags: []
   notes: Source assertion only; no result or verdict recorded.
@@ -76,11 +76,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
     measured:
       status: measured
-      run: 517a1b0
-      date: '2026-10-16'
-      raw: 0.0578
-      margin_pct: 5.78
-      text: 'S-1 mass per length es 0.25, mean |rel err| vs BeamDyn 5.78 % (signed +5.66 %, bound 5 %) RED. Mid-surface: 4.75 %. Independent yaml layup integral is +2.76 % above the 6x6, the shell +3.6 % above that integral (glass_triax +11.9 kg/m in the mesh): open (tools/yaml_layup_vs_shell.py).'
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0073
+      margin_pct: 0.73
+      text: 'S-1 mass per length es 0.25, skin on mid-surface: signed mid-span error +0.73 % vs BeamDyn (mean |rel err| not recorded; raw/margin carry the signed value), bound 5 %: PASS per T2/T4 (mass red to green after df446c3). OML contrast: signed +1.79 %. SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
     expected: null
   flags: []
   notes: Source assertion only; no result or verdict recorded.
@@ -104,11 +104,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
     measured:
       status: measured
-      run: 517a1b0
-      date: '2026-10-16'
-      raw: 0.1543
-      margin_pct: 15.43
-      text: 'S-1 GJ es 0.25, mean |rel err| vs BeamDyn 15.43 % (signed +14.17 %, bound 5 %) RED. Mid-surface: 8.49 % (signed +1.31 %, station scatter). SLURM 11617333/37/64.'
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0613
+      margin_pct: 6.13
+      text: 'S-1 GJ es 0.25, skin on mid-surface: mean |rel err| 6.13 % (signed -4.30 %) vs BeamDyn, bound 5 % FAIL. OML contrast: 10.2 % (signed +7.37 %). SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
     expected: null
   flags: []
   notes: Source assertion only. The level inventory records a GJ discrepancy; no result or verdict recorded here.
@@ -132,11 +132,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
     measured:
       status: measured
-      run: 517a1b0
-      date: '2026-10-16'
-      raw: 0.1156
-      margin_pct: 11.56
-      text: 'S-1 EA(CLT) es 0.25, mean |rel err| vs BeamDyn 11.56 % (signed +11.56 %, bound 5 %) RED after fixing the A11 nu21 defect (was 20.00 %, e4177e3). Independent yaml layup integral (reciprocal CLT) is +9.58 % above the 6x6 and within 2.4 % of the shell: the excess is inside the yaml. SLURM 11617364/47.'
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0759
+      margin_pct: 7.59
+      text: 'S-1 EA es 0.25, skin on mid-surface: mean |rel err| 7.59 % (signed +7.57 %) vs BeamDyn, bound 5 % FAIL. OML contrast: 8.8 % (signed +8.82 %). SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
     expected: null
   flags: []
   notes: Source assertion only; no result or verdict recorded.

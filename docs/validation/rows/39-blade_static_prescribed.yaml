@@ -20,14 +20,14 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is a beam model built from the ElastoDyn EI and mass (the two reference decks differ by more than 5 %, so a pass is not independent confirmation). Against the BeamDyn elastic-centre EI instead (decision (b)), the OML shell reads +9.46 % (LC1), -6.54 % (LC2), -11.92 % (LC4); the mid-surface shell -1.60 %, +7.23 %, +1.28 %.'
     measured:
       status: measured
-      run: 517a1b0
-      date: '2026-10-16'
-      raw: -1.9327
-      margin_pct: 2.93
-      text: 'S-2 LC1 gravity uy es 0.25 official blade: shell -1.9327 vs beam(ElastoDyn EI) -1.9910 m (2.93 %, bound 5 %). Skin on mid-surface: -2.1688 (8.93 %) RED; BeamDyn-EI reference: OML 8.35 %, mid 2.85 %. SLURM 11617336/40/62/63.'
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0547
+      margin_pct: 5.47
+      text: 'S-2 LC1 gravity tip uy es 0.25 official blade, skin on mid-surface: +5.47 % vs the test''s EB beam (ElastoDyn EI), bound 5 % FAIL. OML contrast: 5.81 % FAIL. SLURM mid 11617753 / oml 11617747; full suite 11617933 confirms.'
     expected: null
   flags: []
-  notes: Source assertion only; the stored level inventory reports S-2 at +8.1%, which remains over the 5% ceiling and open pending exact adjudication.
+  notes: 'Source assertion only; no verdict recorded. MISMATCH: row title/reference label say BeamDyn, but the test compares against an Euler-Bernoulli beam built from ElastoDyn EI and mass (BeamReference.from_mesh), which is 4-14 % too stiff vs the BeamDyn static driver (T3); reference NOT edited. Against the BeamDyn driver p60 (T4 step 1, es 0.25, S-2 node): LC1 oml -17.36 / mid -7.46 %, LC2 oml -15.69 / mid -3.70 %, LC4 oml -18.24 / mid -6.26 %. Raw/margin_pct hold the relative error as a fraction / percent (signed in text); earlier measured blocks held displacements.'
 - id: blade_static_prescribed.s2_official_lc2_tip_displacement
   group: '39'
   title: S-2 official LC2 tip-flap displacement vs BeamDyn
@@ -48,14 +48,14 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is a beam model built from the ElastoDyn EI and mass (the two reference decks differ by more than 5 %, so a pass is not independent confirmation). Against the BeamDyn elastic-centre EI instead (decision (b)), the OML shell reads +9.46 % (LC1), -6.54 % (LC2), -11.92 % (LC4); the mid-surface shell -1.60 %, +7.23 %, +1.28 %.'
     measured:
       status: measured
-      run: 517a1b0
-      date: '2026-10-16'
-      raw: 67.378
-      margin_pct: 1.63
-      text: 'S-2 LC2 tip flap uy es 0.25 official blade: shell 67.378 vs beam(ElastoDyn EI) 68.497 m (1.63 %, bound 5 %). Skin on mid-surface: 77.310 (12.87 %) RED; BeamDyn-EI reference: OML 5.42 %, mid 8.53 %. SLURM 11617336/40/62/63.'
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.1584
+      margin_pct: 15.84
+      text: 'S-2 LC2 tip-flap uy es 0.25 official blade, skin on mid-surface: +15.84 % vs the test''s EB beam, bound 5 % FAIL. OML contrast: PASS (within 5 %, value not recorded). LC2 is not a clean metric (node vs tip-ring differ 9-11 %). SLURM mid 11617753 / oml 11617747; full suite 11617933 confirms.'
     expected: null
   flags: []
-  notes: Source assertion only; no result or verdict recorded.
+  notes: 'Source assertion only; no verdict recorded. MISMATCH: row title/reference label say BeamDyn, but the test compares against an Euler-Bernoulli beam built from ElastoDyn EI and mass (BeamReference.from_mesh), which is 4-14 % too stiff vs the BeamDyn static driver (T3); reference NOT edited. Against the BeamDyn driver p60 (T4 step 1, es 0.25, S-2 node): LC1 oml -17.36 / mid -7.46 %, LC2 oml -15.69 / mid -3.70 %, LC4 oml -18.24 / mid -6.26 %. Raw/margin_pct hold the relative error as a fraction / percent (signed in text); earlier measured blocks held displacements.'
 - id: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
   group: '39'
   title: S-2 official LC4 distributed-load displacement vs BeamDyn
@@ -76,11 +76,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is a beam model built from the ElastoDyn EI and mass (the two reference decks differ by more than 5 %, so a pass is not independent confirmation). Against the BeamDyn elastic-centre EI instead (decision (b)), the OML shell reads +9.46 % (LC1), -6.54 % (LC2), -11.92 % (LC4); the mid-surface shell -1.60 %, +7.23 %, +1.28 %.'
     measured:
       status: measured
-      run: 517a1b0
-      date: '2026-10-16'
-      raw: 7.26
-      margin_pct: 4.38
-      text: 'S-2 LC4 distributed uy es 0.25 official blade: shell 7.260 vs beam(ElastoDyn EI) 7.592 m (4.38 %, bound 5 %). Skin on mid-surface: 8.3485 (9.96 %) RED; BeamDyn-EI reference: OML 10.98 %, mid 2.37 %. SLURM 11617336/40/62/63.'
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.1253
+      margin_pct: 12.53
+      text: 'S-2 LC4 distributed uy es 0.25 official blade, skin on mid-surface: +12.53 % vs the test''s EB beam, bound 5 % FAIL. OML contrast: PASS (within 5 %, value not recorded). SLURM mid 11617753 / oml 11617747; full suite 11617933 confirms.'
     expected: null
   flags: []
-  notes: Source assertion only; no result or verdict recorded.
+  notes: 'Source assertion only; no verdict recorded. MISMATCH: row title/reference label say BeamDyn, but the test compares against an Euler-Bernoulli beam built from ElastoDyn EI and mass (BeamReference.from_mesh), which is 4-14 % too stiff vs the BeamDyn static driver (T3); reference NOT edited. Against the BeamDyn driver p60 (T4 step 1, es 0.25, S-2 node): LC1 oml -17.36 / mid -7.46 %, LC2 oml -15.69 / mid -3.70 %, LC4 oml -18.24 / mid -6.26 %. Raw/margin_pct hold the relative error as a fraction / percent (signed in text); earlier measured blocks held displacements.'
