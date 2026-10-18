@@ -1804,7 +1804,7 @@ dentro del 1.6 %. Contra las referencias autoconsistentes, mid cierra más cerca
 |---|---|---|---|
 | S-2 flecha de punta LC1 / LC4 | driver estático BeamDyn p60 | −17.4 / −18.2 % | −7.5 / −6.3 % |
 | parked 1F / 1E / 2F | BeamDyn p20 0.5071 / 0.6934 / 1.4809 Hz | +9.1 / +0.8 / n.p. % | +3.5 / +0.3 / +1.8 % |
-| rated 7.56 rpm 1F / 2F (es 0.125) | BeamDyn p20 0.5320 / 1.5081 Hz | +8.1 / (ver T12) % | +2.8 / +1.6 % |
+| rated 7.56 rpm 1F / 2F (es 0.125) | BeamDyn p20 0.5320 / 1.5081 Hz | +8.1 / +9.1 % | +2.8 / +1.6 % |
 
 El 5-7 % restante contra BeamDyn también aparece en CalculiX con OFFSET: es el modelo shell del
 layup yaml contra el deck 6×6 publicado, no el inset ni el elemento.
@@ -1832,8 +1832,21 @@ hallazgo, no se esconde.
 - *BeamDyn rotante en el plano*: el factor de Southwell de borde sale +517..+529 % contra Wright
   1982 en vigas uniformes (p10-p20); el flap rotante es correcto (−0.1..−0.4 %). El 1E rotante de
   BeamDyn (0.7118 Hz) no es referencia.
-- *S-4 oml 2F a es 0.125*: salta +7.4 % respecto de es 0.25 mientras 1F/1E se mueven < 0.15 %;
-  sospecha de etiqueta de modo, no evidencia hasta leer el espectro (T12).
+- *S-4 oml 2F: el salto es de etiqueta, no de malla (T12, jobs 11618212/13/14,
+  `logs/check/t12/`)*. Con el espectro completo (12 modos, tip |ux|/|uy|/|uz|), oml es 0.25 tiene
+  en 1.5325 Hz un modo con amplitud de punta baja (|uy| 6.5e-3) que `classify_modes` etiqueta
+  "flap" y toma como 2F; el 2F global está en 1.6521 Hz (|uy| 4.05e-2) y a es 0.125 en 1.6455 Hz
+  (|uy| 4.06e-2): converge −0.40 %. El 2F rotante oml real es **+0.9 / +0.5 % vs ElastoDyn**
+  (es 0.25 / 0.125) y **+9.5 / +9.1 % vs BeamDyn p20**, coherente con su 1F (+8.1 %). Mid es 0.125
+  etiqueta bien (2F 1.5314 Hz, |uy| 3.9e-2; −6.46 % ED, +1.55 % BD); mid es 0.25 (1.5368 Hz) no
+  tiene espectro volcado, pero cae −0.35 % del valor de 0.125. El −6.39 % del 2F oml a 0.25 que
+  figura en la tabla de Handoff 3 (`odd/tasks/beamdyn-arbiter-midsurface.md`) era ese modo de baja
+  amplitud y queda anulado. Defecto abierto: `classify_modes` juzga por la razón de un solo nodo
+  de punta y no exige participación global, así que un modo de baja amplitud en la punta entra
+  en la familia; S-4 y las herramientas Campbell (`tools/run_sx_*`) leen 2F de él (V-02 no). Mismo
+  defecto que ya diagnosticó `tools/diagnose_s4_mode_labels.py` para el 1E a es 0.125 (propone
+  una etiqueta por participación integrada en el vano). Se corrige solo con un test RED propio
+  (fuera de esta feature).
 - *Fuera de esta feature* (rojos con oml por default, tests no tocados por `7324508`):
   `test_blade_mesh` ×2 (9357 nodos vs 9277), `test_blade_section_frame_tear` (la firma del
   desgarro desapareció), `test_blade_twist_mechanism`, `test_blade_iea15mw_mesh_convergence`
