@@ -17,3 +17,10 @@ Heavy compute goes through `sbatch` (partition `sequana_cpu`), never the login n
 ## Log
 - L1: 2026-10-18 maintainer: "vamos con eso" (after the beamdyn-arbiter-midsurface close listing three follow-ups; item 1 recommended first).
 - L2: 2026-10-18 all four tasks closed; follow-up proposed, not started: rotating-only local tip modes (K_G/K_SP near the tip).
+
+## Handoff 2026-10-18 - next session starts a NEW feature
+This feature is closed (`ab9aa1e`, `dfc4a4a`). Next, maintainer-approved order:
+1. **rotating-local-tip-modes** (new `odd/tasks/` doc): why low-beam-fraction modes (0.12-0.44) appear only at 7.56 rpm with the residual at z/L 0.94-0.97. Evidence on disk: `logs/check/modecls/modes-{oml,mid}-025.npz` (12 modes, rpm 0 and 7.56; re-analyse offline with `tools/diagnose_mode_beam_projection.py analyse`, no solve needed). Suspects, units/signs/frames first: K_G stress recovery in the tip refinement sections (the same tip refinement that turned `test_blade_mesh` red, 9357 vs 9277 nodes), K_SP sign/magnitude, tip cap elements. First cheap step: from the npz, locate the residual nodes (elements, section, skin/web) and check whether the rated K_G membrane stress is compressive there.
+2. The 7 reds not caused by mid (`test_blade_mesh` x2, section tear guard, twist mechanism, CCX mesh convergence, S-6 x2).
+3. End of validation stage: the store as single source of known-red; stale "four documented-red" text in AGENTS.md and the check.sh header. `scripts/known-red-full.txt` stays untracked until then.
+Resume: `mem_search "s4-mode-classifier"`, read this section only.
