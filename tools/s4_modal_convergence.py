@@ -3,12 +3,15 @@
 Same construction as tests/test_iea15mw_s4_rotating_modal.py (BladeMesh + build_rust_properties +
 assemble_rotating from tools/run_s4_rotating_modal.py, clamped root, mode families by tip motion),
 but with the element size as an argument so the 0.5 m default can be shown to be unconverged.
-Prints 1st flap / 1st edge / 2nd flap per element size and rpm against OpenFAST v5.0.0 MBC3.
+Prints 1st flap / 1st edge / 2nd flap per element size and rpm against OpenFAST v5.0.0 MBC3,
+preceded by one MODE line per computed mode (frequency, family label, tip translations).
 Usage: scripts/aeroenv.sh python tools/s4_modal_convergence.py 0.5 0.25 [0.125] [--rpm=7.56]
 es=0.125 needs --ntasks=12 on SLURM (OOM with one task).
 """
 import sys
 from pathlib import Path
+
+import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "tools"))
@@ -35,6 +38,17 @@ def run(es: float, rpm: float) -> dict:
     asm = MeshAssembler(mesh, model)
     freqs, modes, free = assemble_rotating(asm, mesh, omega_from_rpm(rpm), n_modes=12)
     labels = classify_modes(mesh, modes, free)
+    # The whole spectrum with the labels and the tip components classify_modes judged by, so a
+    # mode that jumps family between meshes can be traced (S-4 oml 2F, es 0.25 -> 0.125).
+    xyz = np.asarray([n.coords for n in mesh.nodes])
+    tip_dof0 = mesh.node_id_to_index[int(np.argmax(xyz[:, 2]))] * 6
+    for k, (f, lab) in enumerate(zip(freqs, labels, strict=True)):
+        u = [0.0, 0.0, 0.0]
+        for d in range(3):
+            pos = np.searchsorted(free, tip_dof0 + d)
+            if pos < len(free) and free[pos] == tip_dof0 + d:
+                u[d] = abs(float(modes[k, pos]))
+        print(f"MODE es={es} rpm={rpm} k={k} {float(f):.6f} Hz {lab:<5} tip |ux|={u[0]:.3e} |uy|={u[1]:.3e} |uz|={u[2]:.3e}", flush=True)
     out = {}
     for name, direction, order in FAMILIES:
         cand = sorted(f for f, lab in zip(freqs, labels) if lab == direction)
