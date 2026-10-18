@@ -1,7 +1,7 @@
 """S-4 mesh study: official IEA 15 MW blade, rotating modal (K + K_G + K_SP) vs element size.
 
 Same construction as tests/test_iea15mw_s4_rotating_modal.py (BladeMesh + build_rust_properties +
-assemble_rotating from tools/run_s4_rotating_modal.py, clamped root, mode families by tip motion),
+assemble_rotating from tools/run_s4_rotating_modal.py, clamped root, mode families by beam projection, classify_modes),
 but with the element size as an argument so the 0.5 m default can be shown to be unconverged.
 Prints 1st flap / 1st edge / 2nd flap per element size and rpm against OpenFAST v5.0.0 MBC3,
 preceded by one MODE line per computed mode (frequency, family label, tip translations).
@@ -38,8 +38,8 @@ def run(es: float, rpm: float) -> dict:
     asm = MeshAssembler(mesh, model)
     freqs, modes, free = assemble_rotating(asm, mesh, omega_from_rpm(rpm), n_modes=12)
     labels = classify_modes(mesh, modes, free)
-    # The whole spectrum with the labels and the tip components classify_modes judged by, so a
-    # mode that jumps family between meshes can be traced (S-4 oml 2F, es 0.25 -> 0.125).
+    # The whole spectrum with the labels and the tip components, so a mode that jumps family
+    # between meshes can be traced (S-4 oml 2F, es 0.25 -> 0.125).
     xyz = np.asarray([n.coords for n in mesh.nodes])
     tip_dof0 = mesh.node_id_to_index[int(np.argmax(xyz[:, 2]))] * 6
     for k, (f, lab) in enumerate(zip(freqs, labels, strict=True)):

@@ -94,34 +94,86 @@ def assemble_rotating(assembler, mesh, omega, n_modes):
     return freqs, modes, free
 
 
+# Below this fraction of the mode explained by rigid-section (beam) motion the mode is "local".
+# Measured on the IEA-15 blade, es 0.25, oml and mid, 0 and 7.56 rpm (logs/check/modecls/,
+# odd/tasks/s4-mode-classifier.md T1): below 3.5 Hz the beam modes 1F-3F/1E-2E sit at >= 0.83
+# and the local modes at <= 0.44; 0.6 splits that gap.
+BEAM_FRACTION_MIN = 0.6
+# A family wins when its beam amplitude is at least this factor above every other family.
+FAMILY_DOMINANCE = 2.0
+SPAN_BINS = 200
+
+
+def nodal_translations(mode, free, n_nodes, dpn=6):
+    """Scatter a free-DOF mode vector into an (n_nodes, 3) translation array."""
+    u = np.zeros((n_nodes, 3))
+    node = free // dpn
+    comp = free % dpn
+    m = comp < 3
+    u[node[m], comp[m]] = mode[m]
+    return u
+
+
+def beam_projection(xyz, u, n_bins=SPAN_BINS):
+    """Rigid-section fit u_i = t + theta x (p_i - c) of nodal translations, binned along +z.
+
+    Returns the beam fraction sum|u_fit|^2 / sum|u|^2 (unweighted by mass), the energy per
+    beam family (edge t_x, flap t_y, axial t_z, torsion theta_z x r) and the residual.
+    """
+    z = xyz[:, 2]
+    edges = np.linspace(z.min(), z.max() + 1e-9, n_bins + 1)
+    which = np.clip(np.searchsorted(edges, z, side="right") - 1, 0, n_bins - 1)
+    fit = np.zeros_like(u)
+    energy = {"flap": 0.0, "edge": 0.0, "axial": 0.0, "torsion": 0.0}
+    for b in range(n_bins):
+        idx = np.flatnonzero(which == b)
+        if idx.size < 3:
+            continue
+        r = xyz[idx] - xyz[idx].mean(axis=0)
+        # u_i = t + theta x r_i  ->  rows [I | -skew(r_i)] [t; theta]
+        a = np.zeros((3 * idx.size, 6))
+        a[0::3, 0] = a[1::3, 1] = a[2::3, 2] = 1.0
+        a[0::3, 4], a[0::3, 5] = r[:, 2], -r[:, 1]
+        a[1::3, 3], a[1::3, 5] = -r[:, 2], r[:, 0]
+        a[2::3, 3], a[2::3, 4] = r[:, 1], -r[:, 0]
+        sol, *_ = np.linalg.lstsq(a, u[idx].reshape(-1), rcond=None)
+        fit[idx] = (a @ sol).reshape(-1, 3)
+        t, th = sol[:3], sol[3:]
+        energy["edge"] += idx.size * t[0] ** 2
+        energy["flap"] += idx.size * t[1] ** 2
+        energy["axial"] += idx.size * t[2] ** 2
+        energy["torsion"] += th[2] ** 2 * float(np.sum(r[:, 0] ** 2 + r[:, 1] ** 2))
+    total = float(np.sum(u**2))
+    frac = float(np.sum(fit**2)) / total if total > 0 else 0.0
+    return frac, energy, u - fit
+
+
 def classify_modes(mesh, modes, free, dpn=6):
-    """Classify each mode by tip-node translation direction (flap/edge/axial).
+    """Label each mode flap/edge/axial/torsion/mixed/local from the whole blade.
 
     Blade mesh convention: span along +z, chord along x (rotor plane), so
     out-of-plane flap motion = u_y and in-plane edge motion = u_x, with the
     rotation axis along y.
+
+    Every mode is projected on beam kinematics (rigid cross-sections per span bin,
+    ``beam_projection``). A mode the projection explains below ``BEAM_FRACTION_MIN`` is
+    "local" (wall/panel motion, not a beam mode). Otherwise the family whose beam amplitude
+    (square root of its span-summed energy) is ``FAMILY_DOMINANCE`` times every other wins,
+    else "mixed". This replaced a label read from the single highest-z node, which let a
+    low-amplitude local mode into the flap family (odd/tasks/s4-mode-classifier.md).
     """
-    nid2idx = mesh.node_id_to_index
-    xyz = np.asarray([n.coords for n in mesh.nodes])
-    tip_idx = int(np.argmax(xyz[:, 2]))
-    tip_dof0 = nid2idx[tip_idx] * dpn
+    xyz = np.asarray([n.coords for n in mesh.nodes], dtype=np.float64)
     labels = []
     for k in range(modes.shape[0]):
-        u = np.zeros(dpn)
-        for d in range(3):
-            dof = tip_dof0 + d
-            pos = np.searchsorted(free, dof)
-            if pos < len(free) and free[pos] == dof:
-                u[d] = modes[k, pos]
-        ux, uy, uz = abs(u[0]), abs(u[1]), abs(u[2])
-        if uy >= 2.0 * ux and uy >= 2.0 * uz:
-            labels.append("flap")
-        elif ux >= 2.0 * uy and ux >= 2.0 * uz:
-            labels.append("edge")
-        elif uz >= 2.0 * ux and uz >= 2.0 * uy:
-            labels.append("axial")
-        else:
-            labels.append("mixed")
+        u = nodal_translations(modes[k], free, len(xyz), dpn)
+        frac, energy, _ = beam_projection(xyz, u)
+        if frac < BEAM_FRACTION_MIN:
+            labels.append("local")
+            continue
+        amp = {fam: np.sqrt(e) for fam, e in energy.items()}
+        best = max(amp, key=amp.get)
+        others = [a for fam, a in amp.items() if fam != best]
+        labels.append(best if amp[best] >= FAMILY_DOMINANCE * max(others) else "mixed")
     return labels
 
 
