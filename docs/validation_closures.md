@@ -90,8 +90,9 @@ ensamble (`assembler.rs`), o el solver UL (`static_nonlinear.rs`/`.py`).
 | V-02 2E con pala oficial | −2.6 % (en banda) | S-2E, job 11594902 |
 | V-03 estática | masa −1.11 %, equilibrio 8.2e-8 % | `test_iea15mw_v03_static_gravity.py` |
 | V-05 propiedades | masa total +4.1 % = banda documentada +4–8 % (layup vs 6×6) | `test_iea15mw_v05_structural_properties.py` |
-| S-1 seccional | EI_edge ~10 %, EI_flap 20-25 % (sesgo de extracción documentado), **GJ 23.9 %** post-fix local-tangente | `test_iea15mw_s1_sectional.py`; doc `shell_vs_beam_sectional_validation.md` §6 |
-| S-4 modal rotante vs OpenFAST MBC3 | 1F +0.6 %, 1E −4.5 %, 2F −1.5 % | `test_iea15mw_s4_rotating_modal.py` |
+| S-1 seccional (**piel en superficie media desde `7324508`**, 2026-10-17) | media \|err\| 0.2-0.85R vs 6×6 BD: EI_flap 5.18 %, EI_edge 12.70 %, GJ 6.13 %, EA 7.59 % (las cuatro rojas a 5 %; con oml 21.6 / 12.0 / 10.2 / 8.8 %) | `test_iea15mw_s1_sectional.py`; § "Superficie media en las anclas de pala" (2026-10-18) |
+| S-4 modal rotante vs OpenFAST MBC3 (ElastoDyn; mid, es 0.25) | 1E parked −5.9 %, rated −6.1 % (rojo; oml −5.5/−5.6 %, también rojo); rated 1F −3.40 %, 2F −6.13 % | `test_iea15mw_s4_rotating_modal.py`; mismo § |
+| V-02 1F con pala oficial (mid, es 0.25) | −6.06 % vs NREL/TP-5000-75698 Tab. 5-2 (rojo; oml −0.92 %) | `test_iea15mw_v02_natural_frequencies.py`; mismo § |
 | S-7 torsión (twist global vs viga) | twist **1.0390** convergido ⇒ shell/viga `GJ` **0.962** (**corregido 2026-10-10**, commit `72f64de`: hasta entonces la razón comparaba la respuesta a `κ·M` contra la viga a `M`, con `κ = 0.8978`; ver el bloque al final de § S-7) | `tests/validation/blade/test_iea15mw_s7_torsion.py`; § S-7 (2026-10-07, corregido 2026-10-10) |
 | S-8c signo de twist | coincide con BeamDyn (+0.545/+0.981°) | `test_iea15mw_s8c_twist_sign` (job s8c) |
 | Campbell / K_G | 5/5 | `test_iea15mw_sx_campbell.py` |
@@ -1784,3 +1785,59 @@ del área, 0.26 % de los elementos), repartidos en todo el span (52 en paneles L
 4 en refuerzo TE, 4 en el larguero, 2 en el borde de ataque), todos con el eje 1 a ~88° del span. **No se mostró que explique el 2.82× shell/viga**:
 **E3 lo descarta**: con las propiedades de los 88 triángulos pre-rotadas para que su eje 1 sea el span (signo calibrado en una tira girada 30°), el giro de punta pasa de +5.8550° a +5.8511° (−0.07 %, contra una barra de 1.5° fijada antes de correr); el control que solo separa los conjuntos da +5.8550° exacto. #34 es un defecto de corrección propio pero no causa el 2.82×. Sigue abierto: distorsión de sección que la viga no representa, y #38 (no tocado por E3). #38 (penalización
 de drilling en triángulos compuestos) no se probó.
+
+### Superficie media en las anclas de pala: qué se movió y por qué queda rojo (2026-10-18)
+
+Feature `odd/tasks/beamdyn-arbiter-midsurface.md` (T1-T4, T10). Las anclas de pala S-1, S-2,
+S-4, V-02, V-03 y V-05 construyen la malla con `BladeMesh(skin_reference="mid")` desde `7324508`.
+El default de `BladeMesh` **sigue en `"oml"`** porque alimenta la superficie de acople CFD/FSI
+(decisión A1 del mantenedor). Ninguna banda se tocó.
+
+**Por qué mid.** Con la piel sobre la OML el laminado queda centrado en la superficie exterior:
+la mitad del espesor cae fuera de la pala. En el cajón analítico, ese desplazamiento solo agrega
+~18 % de EI (efecto de modelo, T6c); el shell contra su propia I analítica cierra en 0.35 %.
+CalculiX S8R sobre la misma malla (T10) confirma la implementación (oml centrado igual al nuestro
+en ≤ 0.55 % estático, 0.04 % modal) y que nuestro inset reproduce su `*SHELL SECTION, OFFSET`
+dentro del 1.6 %. Contra las referencias autoconsistentes, mid cierra más cerca:
+
+| métrica (es 0.25) | referencia | oml | mid |
+|---|---|---|---|
+| S-2 flecha de punta LC1 / LC4 | driver estático BeamDyn p60 | −17.4 / −18.2 % | −7.5 / −6.3 % |
+| parked 1F / 1E / 2F | BeamDyn p20 0.5071 / 0.6934 / 1.4809 Hz | +9.1 / +0.8 / n.p. % | +3.5 / +0.3 / +1.8 % |
+| rated 7.56 rpm 1F / 2F (es 0.125) | BeamDyn p20 0.5320 / 1.5081 Hz | +8.1 / (ver T12) % | +2.8 / +1.6 % |
+
+El 5-7 % restante contra BeamDyn también aparece en CalculiX con OFFSET: es el modelo shell del
+layup yaml contra el deck 6×6 publicado, no el inset ni el elemento.
+
+**Qué queda rojo, y por qué no se re-bandea (decisión A).**
+
+| test | mid | oml | lectura |
+|---|---|---|---|
+| S-2 LC1-official / LC2 ×2 / LC4 ×2 / LC3 ratio | +5.5 / +15.8, +11.7 / +12.5, +13.0 % / 1.25 | 3 rojos (LC1 ×2, LC3 1.23) | la viga Euler-Bernoulli es 4-14 % demasiado rígida (sin corte, vano 1.95 m más corto, T3); LC2 no es métrica limpia (nodo vs anillo de punta difieren 9-11 %) |
+| S-4 1E parked / rated | −5.9 / −6.1 % | −5.5 / −5.6 % (rojo igual) | ElastoDyn y BeamDyn difieren 6-8 % en esta pala; los dos pasan vigas uniformes analíticas (T7), así que la brecha está en los decks |
+| V-02 1F | −6.06 % | −0.92 % | la frecuencia del paper sale de los mismos modelos de viga |
+| S-1 EI_flap / EI_edge / GJ / EA | 5.18 / 12.70 / 6.13 / 7.59 % | 21.6 / 12.0 / 10.2 / 8.8 % | rojas con las dos pieles; EI_edge es la extracción de S-1 (T8), EA +9.6 % y la masa +2.8 % ya están dentro del yaml contra el 6×6 |
+
+Conteo con el mismo comando sobre los seis archivos que tocó `7324508` (matriz T4): **oml 16 rojos
+en la suite, mid 20** (S-2 3 → 6, V-02 0 → 1; S-1 4/4, S-4 2/2, V-03 0/0; V-05 pasa con mid y
+no se midió con oml). Por semáforo, oml
+estaba mejor por cuatro tests; por referencia autoconsistente, mid. Se registra lo primero como
+hallazgo, no se esconde.
+
+**Hallazgos que quedan abiertos.**
+- *ElastoDyn vs BeamDyn*: 6-8 % en los modos de la pala IEA-15. Los dos solvers cierran contra
+  analítico (BeamDyn parked ≤ 0.003 %, ElastoDyn ≤ 0.21 %), así que la diferencia está en los decks
+  (propiedades distribuidas + modos supuestos de ElastoDyn vs 6×6 de BeamDyn). Un ancla que usa
+  uno de los dos como referencia hereda esa incertidumbre.
+- *BeamDyn rotante en el plano*: el factor de Southwell de borde sale +517..+529 % contra Wright
+  1982 en vigas uniformes (p10-p20); el flap rotante es correcto (−0.1..−0.4 %). El 1E rotante de
+  BeamDyn (0.7118 Hz) no es referencia.
+- *S-4 oml 2F a es 0.125*: salta +7.4 % respecto de es 0.25 mientras 1F/1E se mueven < 0.15 %;
+  sospecha de etiqueta de modo, no evidencia hasta leer el espectro (T12).
+- *Fuera de esta feature* (rojos con oml por default, tests no tocados por `7324508`):
+  `test_blade_mesh` ×2 (9357 nodos vs 9277), `test_blade_section_frame_tear` (la firma del
+  desgarro desapareció), `test_blade_twist_mechanism`, `test_blade_iea15mw_mesh_convergence`
+  (9.3 % contra CalculiX en modos altos), S-6 ×2 (divergencia).
+
+**Re-ejecutar si cambia**: `apply_midsurface_inset`, el mapeo de layup en
+`models/blade/numad/`, los decks de referencia ElastoDyn/BeamDyn, o el default de `BladeMesh`.

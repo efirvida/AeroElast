@@ -18,11 +18,18 @@ Targets: the official BeamDyn 6x6 section matrices
 (tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat), which are the
 PreComp/VABS/BECAS results published for the IEA 15 MW.
 
-Measured 2026-10-16, element_size 0.25, mid-span (0.2-0.85R) mean |rel err| vs BeamDyn
-(SLURM 11617384; OML as built / skin on the mid-surface, BladeMesh(skin_reference="mid")):
+The anchor builds the skin on the mid-surface (BladeMesh(skin_reference="mid"), 7324508).
+Measured 2026-10-17 after the layup mass-mapping fix (df446c3), element_size 0.25, mid-span
+(0.2-0.85R) mean |rel err| vs BeamDyn, signed in brackets (SLURM 11617746 OML / 11617752 mid):
 
-  EI_flap 24.0 % / 5.6 %   EI_edge 4.2 % / 4.7 %   mass 5.8 % / 4.8 %
-  GJ 15.4 % / 8.5 % (signed +14.2 % / +1.3 %)      EA(CLT) 11.6 % / 10.3 %
+  EI_flap 21.63 % / 5.18 % (+21.63 / +3.33)   EI_edge 11.96 % / 12.70 % (-11.11 / -12.10)
+  GJ 10.20 % / 6.13 % (+7.37 / -4.30)         EA(CLT) 8.82 % / 7.59 % (+8.82 / +7.57)
+  mass signed +1.79 % / +0.73 %
+
+Anchor move vs 2026-10-16 (SLURM 11617384): the mapping fix removed surplus skin glass, so mass
+went green and EI_edge went red (4.7 % -> 12.7 % mid); EI_edge is the S-1 extraction, not the layup
+(odd/tasks/beamdyn-arbiter-midsurface.md, "T8 result"). Record: docs/validation_closures.md,
+"Superficie media en las anclas de pala".
 
 The flap and GJ excess is the skin sitting on the OML with the laminate stacked outward (E8,
 tools/s1_midsurface_counterfactual.py). EA and mass are layup integrals independent of that: an
