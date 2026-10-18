@@ -132,3 +132,23 @@ Pending jobs:
 1. **11617926** oml es 0.125 only (`logs/check/t4/s4c-oml125-11617926.log`, 360 min). Then tabulate vs ED and BD p20 rated (1F 0.5320, 2F 1.5081; BD 1E 0.7118 artifact).
 2. **11617933** `check.sh full --record` on HEAD 7324508 (`logs/check/t4/full-after-11617933.log`, 240 min). When done: review the diff of `scripts/known-red-full.txt` (never hand-edit), list newly red tests as findings, and report suite counts against `docs/origin_main_integration_2026-09-30.md`.
 Then T5: anchor-move records (S-1 docstring, docs/validation_closures.md), ED-vs-BD deck gap and BD rotating in-plane defect as findings.
+
+### Handoff 3 results (2026-10-18): both jobs read
+**11617926 (s4c oml es 0.125, 3 h 17 min, COMPLETED).** Rated 7.56 rpm, err vs ElastoDyn (0.5666/0.7461/1.6372) and vs BD p20 (1F 0.5320, 2F 1.5081; BD rotating 1E is the in-plane artifact, not a reference):
+
+| case | 1F Hz | vs ED | vs BD | 1E Hz | vs ED | 2F Hz | vs ED | vs BD |
+|---|---|---|---|---|---|---|---|---|
+| oml 0.25 | 0.574231 | +1.35 % | +7.94 % | 0.704399 | -5.59 % | 1.532530 | -6.39 % | +1.62 % |
+| oml 0.125 | 0.574964 | +1.48 % | +8.08 % | 0.704756 | -5.54 % | 1.645516 | +0.51 % | +9.11 % |
+| mid 0.25 | 0.547361 | -3.40 % | +2.89 % | 0.700651 | -6.09 % | 1.536760 | -6.13 % | +1.90 % |
+| mid 0.125 | 0.546879 | -3.48 % | +2.80 % | 0.700569 | -6.10 % | 1.531430 | -6.46 % | +1.55 % |
+
+Finding: oml 2F moves +7.4 % between es 0.25 and 0.125 while 1F/1E move < 0.15 % and mid 2F moves -0.35 %. That is not mesh convergence; most likely `classify_modes` labelled a different mode "2nd flap" at 0.125 (the tool prints only the three labelled modes, no spectrum). The oml 0.125 2F value is **not evidence** until the spectrum and labels are dumped. 1F/1E converge on both references; mid stays closer to BD (1F +2.8 % vs +8.1 %), oml closer to ED 1F.
+
+**11617933 (`check.sh full --record`, 1 h 40 min, exit 1).** pytest: **20 failed, 1319 passed, 38 skipped, 13 xfailed, 3 xpassed** (log `logs/check/full-20261017T183632.log`). Baseline in `docs/origin_main_integration_2026-09-30.md` (`69ec5d2`): 917 passed / 4 failed of 974; none of those four documented-red tests is in today's red set. `check.sh` exit 1 is NOT pytest: `scripts/check_mesh_size.py` calls `git ls-files`, and `git` is not on PATH on the compute node (`FileNotFoundError`), so the mesh-size gate fails and the record stamp says "revision unknown". `scripts/known-red-full.txt` (20 entries) is new and untracked; not committed pending that decision.
+
+The 20 red, by cause:
+- **From the mid kwarg (`7324508`)**, identical to the T4 matrix numbers (reproducible): S-2 x6 (LC1-official +5.47 %, LC2 +15.8/+11.7 %, LC4 +12.5/+13.0 %, LC3 edge ratio 1.25; vs the EB beam that is 4-14 % too stiff), S-4 x2 (1E parked -5.9 %, rated -6.1 %; oml was also red at -5.5/-5.6), V-02 1F -6.06 % vs paper (oml passed). Decision A: stay red as findings.
+- **S-1 x4, red on both skins** (T4 matrix: oml EI_flap 21.6 / EI_edge 12.0 / GJ 10.2 / EA 8.8 %; mid 5.18 / 12.70 / 6.13 / 7.59 %). Mid improves three and worsens edge by 0.7 pt; EI_edge is the S-1 extraction defect from T8.
+- **Not touched by `7324508`** (default oml, test files unchanged), so pre-existing relative to this commit: `test_blade_mesh` x2 (9357 nodes, expected 9277 at es 0.5: the tip refinement adds 2 sections), `test_blade_section_frame_tear` (the recorded tear signature is gone; the guard asks to update verdict 14.3/22.10), `test_blade_twist_mechanism` (63.6 > 10x12.4 fails), `test_blade_iea15mw_mesh_convergence` (9.31 % high-mode gap vs CCX), S-6 x2 (divergence to 1e74 m: the open S-6 NaN).
+No pass band touched.
