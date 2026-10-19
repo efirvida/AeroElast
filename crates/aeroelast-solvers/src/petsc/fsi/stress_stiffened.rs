@@ -174,16 +174,11 @@ impl StressStiffenedFsiSolver {
 
         self.expand_u_into_buffer(u_red);
 
-        // Recover element-centroid membrane stresses (z=0, membrane-only).
+        // Recover local section-resultant prestress, including membrane-bending coupling.
         let t_sr = Instant::now();
-        let (sigma, _) = self.assembler.compute_stress_field(&self.u_full_buf, 0.0, 0);
+        let sigma = self.assembler.compute_prestress_field(&self.u_full_buf);
         prof.record_since("stress_recovery", t_sr);
 
-        // Convert recovered stress field to per-element membrane 3-vector
-        // [σxx, σyy, σxy] (Voigt 6→3). `compute_stress_field` returns
-        // [σxx, σyy, σzz, τxy, τyz, τzx]; for shell membrane σzz=τyz=τzx=0,
-        // so index 3 = τxy = σxy.
-        //
         // The positive-part (tensile) filter that prevents spurious compressive
         // K_G contributions from twisted shells under large rotation lives
         // inside `MeshAssembler::assemble_geometric_k` itself, so all solvers
@@ -196,7 +191,7 @@ impl StressStiffenedFsiSolver {
                     max_s = av;
                 }
             }
-            *sigma_m = [s[0], s[1], s[3]];
+            *sigma_m = *s;
         }
 
         // Skip K_G update when stresses are negligible (e.g. at t≈0).

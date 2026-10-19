@@ -3038,6 +3038,24 @@ pub fn compute_centrifugal_prestress(
     )
 }
 
+/// K_G prestress at the centroid in the element-local frame, [sxx, syy, sxy] (Pa).
+/// Uses the section resultant (A eps_m + B kappa)/h, not the output membrane stress.
+pub fn compute_prestress_membrane_stress(
+    pre: &Mitc4Precomputed,
+    u_global: &Vec24,
+) -> [f64; 3] {
+    let u_local = build_t24(pre) * u_global;
+    let eps_m = b_membrane_2017(pre, 0.0, 0.0) * u_local;
+    let (bb1, _) = b_bending_2017(pre, 0.0, 0.0);
+    let kappa = (2.0 / pre.thickness) * (bb1 * u_local);
+    // Deliberately exclude W_02 = D E2: L28 of rotating-local-tip-modes
+    // found only degenerate-sliver sensitivity, not evidence for changing
+    // isotropic/symmetric shells. Output stress recovery remains unchanged.
+    let sigma = (pre.constitutive.cm * eps_m
+        + pre.constitutive.cb_coupling * kappa) / pre.thickness;
+    [sigma[0], sigma[1], sigma[2]]
+}
+
 /// Element stress and strain at the element centre `(r, s) = (0, 0)` in the
 /// element's LOCAL frame, `([sx, sy, sxy, 0, 0, 0], [exx, eyy, exy, 0, 0, 0])`.
 ///
@@ -3144,6 +3162,53 @@ impl Mitc4Precomputed {
 
 #[cfg(test)]
 mod tests {
+
+    // Analytic affine membrane strain and constant curvature on a flat element.
+    fn prestress_case(coupled: bool, membrane: bool) {
+        let mut pre = make_pre();
+        if coupled {
+            pre.constitutive.cb_coupling = pre.constitutive.cm * (pre.thickness / 6.0);
+        }
+        let coords = FLAT_SQUARE;
+        let mut u = Vec24::zeros();
+        for (i, [x, y, _]) in coords.iter().enumerate() {
+            // Physical rotations: kappa = [theta_y,x, -theta_x,y,
+            //                                theta_y,y - theta_x,x].
+            u[6 * i + 3] = -0.003 * y;
+            u[6 * i + 4] = 0.002 * x + 0.004 * y;
+            if membrane {
+                u[6 * i] = 0.001 * x + 0.0002 * y;
+                u[6 * i + 1] = -0.0003 * y;
+            }
+        }
+        let (old, strain) = super::compute_element_stress(&pre, &u, 0.0, 0);
+        let eps = Vector3::new(strain[0], strain[1], strain[3]);
+        let local = build_t24(&pre) * u;
+        let kappa = (2.0 / pre.thickness) * (b_bending_2017(&pre, 0.0, 0.0).0 * local);
+        // Use the existing recovery operator's curvature: this tests the
+        // constitutive addition, not its geometric-map regularization.
+        assert!(kappa.norm() > 1e-3);
+        let expected = (pre.constitutive.cm * eps
+            + pre.constitutive.cb_coupling * kappa) / pre.thickness;
+        let actual = Vector3::from(super::compute_prestress_membrane_stress(&pre, &u));
+        assert!((actual - expected).norm() <= 1e-14 * expected.norm().max(1.0));
+        let old = Vector3::new(old[0], old[1], old[3]);
+        if !coupled {
+            assert!((actual - old).norm() <= 1e-14 * old.norm().max(1.0));
+        } else if !membrane {
+            assert!(old.norm() < 1e-10);
+            assert!(actual.norm() > 1.0);
+        }
+    }
+
+    #[test]
+    fn prestress_isotropic_preserves_membrane() { prestress_case(false, true); }
+
+    #[test]
+    fn prestress_unsymmetric_pure_bending() { prestress_case(true, false); }
+
+    #[test]
+    fn prestress_unsymmetric_mixed() { prestress_case(true, true); }
     use super::{
         b_bending_2017, b_bending_covariant_2017, b_drill_membrane_2025, b_membrane_2017,
         b_membrane_covariant_2017, b_shear_mitc4, build_t24, compute_body_load_global,

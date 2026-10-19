@@ -730,7 +730,7 @@ impl MeshAssembler {
     ///
     /// Recovers the membrane stresses `[sigma_xx, sigma_yy, sigma_xy]` (Pa) at
     /// each shell element centroid from `u` (full DOF vector) via
-    /// `compute_element_stress(..., stress_type=0)`, then assembles K_sigma with
+    /// `compute_prestress_field` (including B kappa), then assembles K_sigma with
     /// `assemble_geometric_k`.  Note that `assemble_geometric_k` interprets its
     /// input as stress (Pa) and multiplies by the element thickness internally
     /// to obtain the force resultants.
@@ -740,30 +740,26 @@ impl MeshAssembler {
     /// the resulting membrane state — the accumulated centrifugal tension is
     /// captured exactly by static equilibrium.
     pub fn assemble_geometric_k_from_disp(&self, u: &[f64]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
+        self.assemble_geometric_k(&self.compute_prestress_field(u))
+    }
+
+    /// Centroid K_G prestress (A eps_m + B kappa)/h in local [sxx, syy, sxy] (Pa).
+    /// Non-shell elements return zero, as in displacement-based geometric assembly.
+    /// Postprocessing via `compute_stress_field` is deliberately unchanged.
+    pub fn compute_prestress_field(&self, u: &[f64]) -> Vec<[f64; 3]> {
         assert_eq!(u.len(), self.dofs_count, "displacement vector length mismatch");
-
-        let n_elems = self.topology.n_elems;
-        let mut sigma = vec![[0.0f64; 3]; n_elems];
-
-        for e in 0..n_elems {
+        self.precomputed.iter().enumerate().map(|(e, pre)| {
             let dofs = &self.dof_connectivity[e];
-            let (sig6, _): ([f64; 6], [f64; 6]) = match &self.precomputed[e] {
+            match pre {
                 PrecomputedElem::Tri(pre) => {
-                    let ue = extract_elem_disp_18(u, dofs);
-                    mitc3::compute_element_stress(pre, &ue, 0.0, 0)
+                    mitc3::compute_prestress_membrane_stress(pre, &extract_elem_disp_18(u, dofs))
                 }
                 PrecomputedElem::Quad(pre) => {
-                    let ue = extract_elem_disp_24(u, dofs);
-                    mitc4::compute_element_stress(pre, &ue, 0.0, 0)
+                    mitc4::compute_prestress_membrane_stress(pre, &extract_elem_disp_24(u, dofs))
                 }
-                _ => continue,
-            };
-            sigma[e][0] = sig6[0];
-            sigma[e][1] = sig6[1];
-            sigma[e][2] = sig6[3];
-        }
-
-        self.assemble_geometric_k(&sigma)
+                _ => [0.0; 3],
+            }
+        }).collect()
     }
 
     pub fn assemble_geometric_k(&self, sigma: &[[f64; 3]]) -> (Vec<i64>, Vec<i64>, Vec<f64>) {
