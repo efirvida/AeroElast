@@ -12,6 +12,8 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 - S4. "Mirar la tendencia al refinar la malla: 0.25 contra 0.15 m. Un artefacto numérico se mueve con la malla; un modo físico converge."
 - S6. "si armalas y ponlas a correr, recuerda que tambien tenemos openseespy que podria ser otro arbitro tambien si fuera necesario" (context: CalculiX reference proposed in L7: static CENTRIF, then *BUCKLE and *FREQUENCY PERTURBATION on the same shell mesh).
 - S7. "vamos con la vlalidacion analitica en otra sesion" (context: L15 proposal, T7 i-iv).
+- S8. "ante la duda, en orden de prioridades el ancla seria: 1- resultado analitico 2- resultado publicado en revista cientifia 3- resultado de un arbitro numerico externo" ... "No somos desarrolladores de Calculix, CCX es solo uno de los arbitros externos, que va en 3er ugar en la escala de prioridades de validacion."
+- S9. "ok, vamos con tu recomendacion." (context L36: lambda1 vs CCX is a diagnostic, not an anchor; next, two analytic anchors: orthotropic plate buckling closed form, centrifugal prestress closed form through compute_prestress_field).
 - S5. "El rojo de S-4 en el 1er modo de borde (5.9–6.1 % contra un límite de 5 %) es un hallazgo de precisión. No se toca la banda."
 
 ## Tasks
@@ -20,8 +22,9 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 - T2 [S2] centrifugal prestress at 7.56 rpm: per-element membrane resultants N vs the section tension T(r) - inline + sbatch - DONE (L7) - commit: -
 - T3 [S3] rated modal with K_G off, and with K_SP off - inline + sbatch - DONE (L4) - commit: -
 - T4 [S4] es 0.25 vs 0.15 local-mode frequencies and beam fractions - sbatch - DONE (L6) - commit: -
-- T6 [S6] independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
-- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii) - commit: (iv) af7b8fe
+- T6 [S6] (CLOSED as DIAGNOSTIC by S9, L36: lambda1 3.224 vs CCX 2.29 documented and localised in TE_FLAT slivers, L35; not an anchor) independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
+- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii); (ii) orthotropic closed form (Whitney/Lekhnitskii, D11/D12/D22/D66) RESUMED by S9 (L36) - commit: (iv) af7b8fe
+- T8 [S8, S9] analytic anchor for the centrifugal prestress recovery: compute_prestress_field (the path fixed in 41e9a16) vs a closed form (e.g. rotating prismatic member, sigma(r) = rho omega^2 (R^2 - r^2)/2, plus a case where B kappa is non-zero), tolerance predeclared in the docstring - inline - commit: -
 - T5 [S5] record finding (closures doc, S-4 docstring if a number moves), close - inline - commit: -
 
 ## Log
@@ -474,7 +477,7 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   RESULTS: P1 PASS 3.2243867889 vs npz 3.2243867889 (OUR1-cond = OUR1-own to 1e-12: K_G acts on translations only, so our eigenmode
   rotations are already K-condensed). P3 PASS: K_ours/K_ccx BEAM free 1.0016, full 0.9997, edge 0.9995. P4 PASS: OUR1 free 0.9938
   (ours 8.8376 vs CCX 8.8926): on OUR mode shape both codes agree on K within 0.6 %. P2 FAIL by +3 %: CCX full = 1.0305 / 1.0346 /
-  1.0329 for B1/B2/B3 (free 1.0097 / 1.0238 / 1.0227); a ~3 % CCX-side systematic on its own eigenfields remains unexplained (frd 6-digit
+  1.0329 for B1/B2/B3 (free 1.0097 / 1.0238 / 1.0227); a ~3 % error of OUR round-trip procedure (frd 6 digits, midsurface translations re-imposed as BCs in a second CCX run, RF summed) remains unexplained - NOT a CalculiX error (corrected in L36); the "=1" reference is itself an inference (1+1/lambda argument), not confirmed in CCX documentation (frd 6-digit
   rounding or 2D-node BC vs expanded-solid field; not chased: it cannot touch a factor 3-8). CCXF1: free 13.41, full 13.60, ours 13.535.
   'edge' is NOT a valid comparator on curved geometry: CCX on OUR OWN mode with chord-averaged midsides costs 113 vs 8.89 (x12.7) -
   averaging corner displacements of a rotation-like field puts the midside off its true displacement and injects membrane strain.
@@ -509,6 +512,28 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   in TE_PANEL/TE_REINF next to them. Which part of our element (MITC4+D drill-membrane of Ko, Bathe & Zhang 2025, transverse shear, or
   bending) carries it is NOT determined; nor is which code is right on a 1.25 mm wide, 1 mm thick shell (neither is a valid shell there).
   This is hypothesis (iv) TE_FLAT (lambda1 bracket 2.85-3.22, L29-L30), now with a localised target. No production change, no band touched.
+
+- L36 (2026-10-19) User: anchor hierarchy S8 (analytic > published > external numerical arbiter; CCX is only a level-3 arbiter) and
+  "no entiendo como puede haber una diferencia de un 3% en un codigo externo que no tocamos": my L34 wording "CCX-side systematic" was
+  wrong; the 3 % is the uncertainty of our frd -> BC -> RF round trip, corrected in L34. OpenSees asked and re-assessed: not viable for the
+  blade (L8: no +-45 deg plies in this build, singularity for GLIBC), level 3 like CCX, ShellMITC4 shares our element family (ASDShellQ4
+  = ShellMITC4 to 4 digits in the probe), no native centrifugal load, and (my understanding, unverified here) no linear K_G eigen analysis;
+  above all the discrepancy lives in 1.25 mm x 1 mm slivers where no shell element is valid. Decision S9: lambda1 vs CCX is a DIAGNOSTIC
+  (T6 closed as such); the roadmap keeps the qualitative result (lambda1 > 1 in both codes: no local buckling at rated, the pre-fix 0.518
+  was the spurious one). Next: level-1 anchors for the ingredients - T7(ii) orthotropic plate buckling closed form and T8 centrifugal
+  prestress recovery closed form. Existing level-1 coverage: tests/validation/element/test_plate_buckling_analytic.py (isotropic flat
+  SS plate, prescribed stress, Timoshenko & Gere); tests/validation/rotor/test_rotor_inertial.py checks nodal m omega^2 r, NOT the
+  recovered prestress.
+
+## Handoff 2026-10-19 (13) - START HERE: level-1 anchors T7(ii) and T8 (decision S9)
+Supersedes (12). Read S8-S9, L36 and the T7/T8 lines. Step A unchanged: full suite SLURM 11619070 was still RUNNING at 1h01 at close;
+read logs/check/full-slurm-11619070.log tail vs scripts/known-red-full.txt (untracked); outside-registry failures need a 54a6386
+worktree rerun of that test alone; no --record unless justified. Then T7(ii): orthotropic SS plate under uniaxial compression,
+N_cr = pi^2/b^2 [D11 (m b/a)^2 + 2 (D12 + 2 D66) + D22 (a/(m b))^2] (Whitney, check the form and its reference twice before reading
+the FE, as test_plate_buckling_analytic.py does), extend that test with 0/90 laminates; tolerance and convergence criteria predeclared
+in the docstring. Then T8: compute_prestress_field vs a closed-form centrifugal stress, include a case with non-zero B kappa (offset
+reference surface or unsymmetric laminate). One anchor per session if the context grows. lambda1 vs CCX is closed as a diagnostic.
+
 
 ## Handoff 2026-10-19 (12) - START HERE: hypothesis (iv) TE_FLAT slivers, with the localised target of L35
 Supersedes (11). Read L34-L35 only. Step A: full suite SLURM 11619070 (sequana_cpu, e4473ee) was still RUNNING at close; read
