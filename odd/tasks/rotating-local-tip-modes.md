@@ -24,7 +24,7 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 - T4 [S4] es 0.25 vs 0.15 local-mode frequencies and beam fractions - sbatch - DONE (L6) - commit: -
 - T6 [S6] (CLOSED as DIAGNOSTIC by S9, L36: lambda1 3.224 vs CCX 2.29 documented and localised in TE_FLAT slivers, L35; not an anchor) independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
 - T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii); (ii) orthotropic closed form DONE (L37, all predeclared bands met) - commit: (iv) af7b8fe, (ii) 3da1cb8
-- T8 [S8, S9] analytic anchor for the centrifugal prestress recovery: compute_prestress_field (the path fixed in 41e9a16) vs a closed form (e.g. rotating prismatic member, sigma(r) = rho omega^2 (R^2 - r^2)/2, plus a case where B kappa is non-zero), tolerance predeclared in the docstring - inline - commit: -
+- T8 [S8, S9] analytic anchor for the centrifugal prestress recovery: compute_prestress_field (the path fixed in 41e9a16) vs a closed form (e.g. rotating prismatic member, sigma(r) = rho omega^2 (R^2 - r^2)/2, plus a case where B kappa is non-zero), tolerance predeclared in the docstring - inline - DONE (L38, all predeclared bounds met) - commit: (this)
 - T5 [S5] record finding (closures doc, S-4 docstring if a number moves), close - inline - commit: -
 
 ## Log
@@ -542,7 +542,28 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   Checks: file 25 passed, 2 xfailed (T7(iii) strict xfails unchanged); scripts/check.sh quick OK (75 passed, 1 xfailed).
 
 
-## Handoff 2026-10-19 (14) - START HERE: T8, then read full suite 11619070
+- L38 (2026-10-19) User verbatim: "vamos con estas dos tareas en paralelo / 1. Suite: "leé el Handoff (14) y hacé el paso A". Compara
+  el resultado con known-red-full.txt. Si se pasó de las 4 h, hay que reenviarlo a sequana_cpu_bigmem con más --time. / 2. T8: "leé el
+  Handoff (14) y hacé T8"."
+  Step A CLOSED: SLURM 11619070 (sequana_cpu, e4473ee) COMPLETED 02:15:27 of 4h00, no resubmission. pytest 20 failed, 1357 passed,
+  38 skipped, 15 xfailed, 3 xpassed (names not in the log), 0 ERROR lines; check.sh full OK. The 20 failures equal the 20 entries
+  of scripts/known-red-full.txt (52e9bba) one-to-one: none outside the registry, none stale (test_blade_modal_gap_converges_with_mesh
+  still red, so it is not stale). No 54a6386 rerun needed; no --record.
+  T8 DONE: tests/validation/element/test_prestress_centrifugal_analytic.py. Flat strip r0 2 m -> R 10 m, b 0.5 m, root clamped, spin
+  about y (body force in plane), nu = 0 so the uniaxial state N_x = m w^2 (R^2 - x^2)/2 is the exact plane-elasticity solution; M_x = 0
+  (no transverse load) so N is set by equilibrium for any layup. Discretisation predicted before measuring: centroid-lumped load gives
+  N_i = N(x_c) - m w^2 L^2/8 exactly. Measured (isotropic, symmetric, unsymmetric [soft/stiff], 20 and 40 elements): normalised error
+  4.1667e-4 / 1.0417e-4 = the predicted bound, ratio 4.00; discrete identity <= 2.1e-11; sigma_yy, sigma_xy <= 1.7e-13. B kappa:
+  output A eps/h over prestress = A11 D11/(A11 D11 - B11^2) = 2.008299 to 1e-6 (unsymmetric), 1 (symmetric): the pre-41e9a16
+  recovery reads this tension 100 % high. Not covered: MITC3 (uneven load split across the width), nu != 0 (not uniaxial).
+  Harness slip on the first run (assembler element proxies carry no nodes), fixed; no bound was touched.
+
+## Handoff 2026-10-19 (15) - START HERE: T5 closure
+Supersedes (14). Step A and T8 DONE (L38). Remaining: T5 (record the finding in docs/validation_closures.md, S-4 docstring only if
+a number moved: the 11619070 S-4 reds are the registered ones), TE_FLAT sliver decision (L28), old-mode Rayleigh flag 9.37 vs 7.29
+(L29). No push; branch feat/rotating-local-tip-modes.
+
+## Handoff 2026-10-19 (14) - superseded by (15): T8, then read full suite 11619070
 Supersedes (13). T7(ii) DONE (L37, 3da1cb8). Session closed by the user at 19:20 (going home); 11619070 was at 60 % at
 1h47 (4 h limit, likely to finish). Resume manually once squeue shows it gone. Step A: read
 logs/check/full-slurm-11619070.log tail vs scripts/known-red-full.txt (untracked); if it timed out, resubmit with a longer --time on
