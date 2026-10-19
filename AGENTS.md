@@ -166,6 +166,9 @@ full-suite measurement before a merge.
   `make all` casually, they compile PETSc/preCICE/OpenFOAM from source for hours.
 - Cluster build details (module load, `maturin` flags, stale flat `_aeroelast.so`) are in
   `.github/skills/build-aeroelast/SKILL.md`.
+- **Temporary directory**: `$SCRATCH/tmp` is the only TMPDIR. The one inherited from a login shell is
+  per-session and disappears mid-job (SLURM 11619021: 152 pytest setup errors). `scripts/check.sh` sets
+  `TMPDIR=$SCRATCH/tmp/check-<mode>-<jobid>` and `--basetemp`; do the same in any sbatch you write.
 - **SLURM requests**: ask for `--ntasks=N` and nothing else (no `--nodes`, `--ntasks-per-node`,
   `--cpus-per-task` or `--mem`); the scheduler finds the resources and the job starts sooner. A
   whole node (cpu=48, mem=750G) rarely starts. Under 20 min go to `sequana_cpu_dev`. Longer jobs go

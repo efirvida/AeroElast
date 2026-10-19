@@ -435,6 +435,28 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   Buckling (tools/diagnose_rotating_prestress.py now uses compute_prestress_field; solve 11618949 ok, buckle 11618981 with --sigma 3.0): lambda 3.22439 (z/L 0.960, 09_47_LP_TE_PANEL, beam fraction 0.115, residual 2.7e-11), 4.0669 (0.965), 4.2997 (0.790), 5.247 (0.866); production 3.2243868, so diagnostic = production. CCX 2.290/2.572/4.18. Buckle failures 11618949 (sigma 0.5) and 11618958 (sigma 0.3): the shift must be above lambda1 now, otherwise ARPACK returns only the negative (tension) branch (-2.1..-0.53). Outputs: prestress-oml-025-kgfix.npz, buckle-oml-025-kgfix.npz.
   READING: the cause (K_G without B kappa) is fixed and demonstrated against two independent codes; beam modes agree with CCX within 0.2 %; 1E vs ElastoDyn stays 5.6-6.1 % but ours equals CCX and BeamDyn parked (0.6986 vs 0.6946/0.6995), so the residual is ElastoDyn-side (ElastoDyn parked 1E 0.7403 vs BeamDyn 0.6946). User: 5-6 % between different codes is acceptable context, 5 % stays his own yardstick, not widened. Main open concern (user): lambda1 3.22 vs CCX 2.29, +41 %.
 
+- L32 (2026-10-19) User: fix all infrastructure problems; TMPDIR under $SCRATCH/tmp (rule to AGENTS.md at close); relaunch all, dev where possible.
+  Full-suite SLURM 11619021 was NOT a valid measurement: 152 pytest setup ERRORs (the inherited per-login-session TMPDIR
+  $SCRATCH/tmp/gpZFUcEV vanished mid-run) that check.sh did not count, plus 3 spurious NEW-FAIL. Fix e4473ee: check.sh owns
+  TMPDIR=$SCRATCH/tmp/check-<mode>-<jobid>, pytest --basetemp there, and any ERROR fails the gate (exit 1). Rerun in dev (11619071,
+  4 tasks): test_blade_mass_mapping x2 and test_blade_parity_ccx[tip_axial_compression] PASS (they were tmp-induced);
+  test_blade_mesh_generation x2 stay red (9357 vs 9277 nodes) and are in the known-red registry recorded at 52e9bba, i.e. red
+  before 41e9a16. Valid reading of 11619021 for the rest: S-1/S-2/S-4/S-6/V-02 reds identical to the registry (S-4 1st edge 5.9 %/6.1 %
+  vs 5 %); test_blade_modal_gap_converges_with_mesh now passes (stale entry). No --record done. Fresh full suite: SLURM 11619070
+  (sequana_cpu, --ntasks=4, snapshot logs/check/git-snapshot-20261019T173239, revision e4473ee clean) - READ ITS RESULT.
+  Step B(i)/(ii) K-vs-K_G split on the CCX buckling mode shapes (logs/check/tipmodes/t7-v/{kenergy.py,kenergy-dev.sbatch},
+  SLURM 11619079, results kenergy-11619079/{ours.json,split.json}): translations of CCX mode k prescribed in CCX (RF -> phi.K_ccx.phi) and in
+  ours (rotations condensed). Calibration, CCX parked-frequency mode 1 (beam): K_ours/K_ccx = 1.009 -> plumbing valid.
+  CCX buckle modes 1/2/3: K_ours/K_ccx = 2.93 / 7.74 / 4.03; G_ours/G_ccx (G_ccx = K_ccx/lambda_ccx) = 0.755 / 0.765 / 0.687;
+  our Rayleigh on the CCX shape 8.89 / 26.0 / 24.5 vs lambda_ccx 2.29 / 2.57 / 4.18. READING: on the CCX local mode shapes our K is
+  3-8x stiffer than CCX's, but our eigenmode relaxes to a different, cheaper shape (lambda 3.22), so the K ratio of a non-eigen shape
+  does NOT decompose the 1.41 eigenvalue ratio. Not yet localized (which elements/regions carry our excess energy: TE_FLAT slivers? TE_REINF? midside/rotation
+  consistency of the CCX field?). Hypotheses (iii)-(v) untouched. No production change, no band touched.
+
+## Handoff 2026-10-19 (11) - START HERE: read full suite 11619070, then localize the K-energy excess
+Supersedes (10). Read L32 only. Step A: read tail of logs/check/full-slurm-11619070.log (check.sh now prints ERROR lines and fails on them); compare with scripts/known-red-full.txt (untracked); any failure outside it needs a 54a6386 worktree rerun of that test alone; no --record unless the run justifies it (the stale entry test_blade_modal_gap_converges_with_mesh is one reason).
+Step B next: localize the 3-8x K-energy excess on the CCX buckle mode shapes. Add `*EL PRINT, ELSET=T6ALL / ENER` to the kenergy deck (per-element strain energy in CCX) and compute our per-element energy (Rust element K x condensed phi), then compare by element set (TE_FLAT, TE_REINF, TE_PANEL, SW, rest) and by z/L. Also check whether CCX phi translations are mutually consistent at midside nodes. Then hypotheses (iii) MITC4 vs S8R coupling/shear path, (iv) TE_FLAT strip, (v) D E2. SLURM rules unchanged; TMPDIR is $SCRATCH/tmp (check.sh sets its own).
+
 ## Handoff 2026-10-19 (10) - START HERE: read the full-suite result, then lambda1 vs CCX
 Supersedes (9). Step 1 of (9) is DONE (L31). State: fix 41e9a16 + docs, branch feat/rotating-local-tip-modes, no push; full suite SLURM 11619021 (sequana_cpu, --ntasks=4 only, log logs/check/full-slurm-11619021.log, snapshot logs/check/git-snapshot-20261019T153609, revision 9fb7385 clean; 11619005 and 11619020 were cancelled: 48 cpus requested / bad snapshot export).
 Read only L27-L31 and this handoff; mem_search "k-g-prestress-coupling". Rebuild the .so first only if crates/ changed.
