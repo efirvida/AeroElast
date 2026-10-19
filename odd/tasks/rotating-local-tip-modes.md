@@ -2,6 +2,7 @@
 
 Why do low-beam-fraction (local) modes appear at 7.56 rpm but not parked, with the residual at
 z/L 0.94-0.97? IEA-15 official blade, es 0.25, oml and mid. Follows `odd/tasks/s4-mode-classifier.md`.
+Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; checks: aeroenv + focused tests + quick.
 
 ## Specs
 
@@ -20,7 +21,7 @@ z/L 0.94-0.97? IEA-15 official blade, es 0.25, oml and mid. Follows `odd/tasks/s
 - T3 [S3] rated modal with K_G off, and with K_SP off - inline + sbatch - DONE (L4) - commit: -
 - T4 [S4] es 0.25 vs 0.15 local-mode frequencies and beam fractions - sbatch - DONE (L6) - commit: -
 - T6 [S6] independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
-- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - inline - (i) DONE (L16), (iii) DONE (L17, defect found), (ii)/(iv) open - commit: (i) 3f0169d
+- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); (ii) next, delegated worker at context backstop - commit: (iv) this parked-panel work unit
 - T5 [S5] record finding (closures doc, S-4 docstring if a number moves), close - inline - commit: -
 
 ## Log
@@ -223,6 +224,118 @@ z/L 0.94-0.97? IEA-15 official blade, es 0.25, oml and mid. Follows `odd/tasks/s
   (2) the bending D of the thin orthotropic triax laminate, including the per-element ply-angle correction
   (`assembler.rs` angle + angle_deg) = T7(ii); (3) curvature of the real panel (flat-plate anchors do not test it);
   (4) T7(iv) parked panel K vs CCX.
+
+- L18 (2026-10-19) Continuation: user "continua" (twice), following the explicit order
+  "(iii) sándwich, después (iv) (recomendado)". Proceed with T7(iv), parked TE-panel stiffness vs CCX;
+  do not change the section-shear formulation or the physics tolerances. Route: bounded worker, because the
+  runtime signalled the parent context backstop. Edit surfaces: a new panel-parity diagnostic and its focused
+  tests; existing production assemblers, CCX writers and T6 tools are read-only.
+  Evidence qualification: L16 validates the flat isotropic plate only; it does NOT clear K_G for a curved,
+  orthotropic blade panel. L13 compared N_zz, not the full stress tensor. Thus "the gap must be in laminate K"
+  was too strong: both K and the untested stress/K_G components remain hypotheses until separately measured.
+  Verification plan: two reference checks before reading a panel comparison, identical extracted geometry,
+  material orientation, loads and constrained boundary; report load work and residuals, not a single node.
+  Physics comparisons are diagnostic unless an independently justified tolerance is available.
+  Implementation: tools/t7_panel_stiffness_parity.py + tests/test_t7_panel_stiffness_parity.py (bounded worker).
+  Meaningful RED: five behavioral failures after module scaffolding, then GREEN: 5 passed (2.40 s); parent
+  spot check: 5 passed (2.48 s), exit 0. Ruff exit 0; quick exit 0 (75 passed, 1 xfailed, 15.92 s).
+  CCX reference, before panel comparison: homogeneous axial composite strip, analytical work
+  F^2 L/(2 E b h) = 2.380952381e-8 J; errors +0.66261 % and +0.31060 % on 4x16 and 8x32 meshes
+  (existing 2 % membrane band). Load doubling gives 3.999998957 and 4.000003140 work ratios.
+  This validates membrane/load/BC plumbing only, not curved orthotropic bending accuracy. Native assessment
+  unavailable: eligible untracked paths not declared (includes unrelated known-red-full.txt); no tier or
+  review approval is claimed. Returned plan retains writer self-verification, no separate verifier.
+  Delivery: the feature starts at 29897f1 (local main at branch creation), not origin/main; inherited main
+  history is not part of this feature. Existing slices: c6f0573 (T6 carry-over), 3f0169d + f961694 (T7i),
+  968d20d (T7iii). T7(iv) is a separate local work-unit slice. Publishing/PR shape remains undecided.
+
+- L19 (2026-10-19) First T7(iv) panel run: SLURM 11618805, FAILED exit 1 after 2m31s,
+  MaxRSS 350448K, logs/check/tipmodes/t7-iv/panel-dev-11618805.log. CCX reference checks passed; actual
+  panel extraction and both static solves reached the artifact-writing step (panel.npz exists). Failure:
+  `TypeError: Object of type ndarray is not JSON serializable` at json.dumps(result): real NuMAD section
+  metadata contains arrays not covered by the synthetic tests. No result.json was delivered; no parity
+  verdict is claimed. One bounded worker correction: regression for realistic section metadata and JSON
+  serialization, preserving geometry/materials/loads and already produced artifacts. Not a solver timeout.
+  Correction observed: array/scalar-only JSON conversion; unsupported object types still fail visibly.
+  Regression through panel(): RED 2 failed, 5 passed, exit 1 -> GREEN 7 passed (2.57 s), exit 0;
+  parent spot check 7 passed (2.49 s), exit 0. Ruff exit 0; quick exit 0 (75 passed, 1 xfailed, 13.44 s).
+  Original panel.npz read-only check: 100 nodes, 76 quads, 5 fixed corners; all finite, both fixed
+  translations zero (CCX ~8e-25 m); load-work ratio MITC4/CCX = 0.8437892767. Preliminary artifact check
+  only; a fresh end-to-end SLURM run is required to verify that the complete report is now delivered.
+
+- L20 (2026-10-19) T7(iv) parked panel result: corrected SLURM 11618812 COMPLETED exit 0, elapsed 36s,
+  MaxRSS 365652K. Evidence: logs/check/tipmodes/t7-iv/panel-dev-11618812/{result.json,panel.npz,panel.inp,
+  panel.stdout}; submission: logs/check/tipmodes/t7-iv/panel-dev.sbatch (sequana_cpu_dev, 1 process, 8 GB,
+  20 min cap). Revision 968d20d plus the new diagnostic; source SHA-256 is captured in the SLURM log.
+  Same geometry/connectivity, centered layup, shared orientation bucketing, inboard-cut clamp including CCX
+  midsides, and serialized corner-node force vector. Patch: 09_46_LP_TE_PANEL, 100 nodes, 76 quads, 5 fixed
+  corner nodes; es 0.25, official IEA-15, OML geometry with OFFSET=0. Actual layup is Gelcoat 1 mm,
+  glass_triax 1.0003966 mm, glass_triax 0.7109679 mm (not symmetric, no core).
+  Both reference checks passed again before the panel: axial work errors +0.66261/+0.31060 % on 4x16/8x32,
+  load-doubling work ratios 3.999998957/4.000003140. These validate axial reference plumbing, not curved
+  orthotropic bending accuracy. The same discrete ~1 N resultant was used by both solvers; serialization
+  changes the requested vector by 1.88e-7 relative (not a load mismatch between solvers).
+  W_MITC4 = 0.00829268508357279 J, W_CCX = 0.009827910015117946 J, ratio 0.8437892767451503
+  (-15.6211 % compliance; reciprocal directional effective stiffness ratio ~1.18513).
+  MITC4 free residual 5.58e-8, energy identity error 1.10e-10, force-balance error 6.11e-9; all below
+  their pre-existing diagnostic limits. No physical parity band is defined: verdict DIAGNOSTIC ONLY.
+  Interpretation: this parked patch/load is stiffer with MITC4, so it does not reproduce a 4-5x softer
+  bending response. It does NOT clear the whole K matrix, K_G, the full stress tensor, or the blade
+  buckling mode: the isolated clamp and load do not match that eigenmode. Still open: orthotropic anchor
+  T7(ii), N_xx/N_xy parity, and curved-panel stress/geometric-stiffness effects. Do not change anchors.
+  Checks: final diagnostic regression 7 passed (parent 2.49 s), Ruff clean, quick 75 passed/1 xfailed;
+  existing sandwich strict xfails retained, no full-suite/Rust build (no production or Rust edits).
+  Native assessment unavailable (undeclared untracked paths); no native review approval is claimed.
+  Risk: none for this isolated diagnostic; existing shared helpers were only read, not changed.
+  Delivery workload: this coherent diagnostic is 498 new source/test lines (307 + 191), plus logbook;
+  do not split code from tests or compress it. Before its commit, resolve feature delivery shape once.
+
+- L21 (2026-10-19) User selected "Un único PR — menos recomendado" (`single-pr`). Whole future PR scope:
+  rotating-local-tip-modes T1-T7 tooling, analytic anchors, evidence and closure, based on local main
+  29897f1 (exclude inherited origin/main history). No chain strategy, tracker, or chain diagrams.
+  Keep coherent local work-unit commits; no publishing, PR creation, merge, or review consent granted.
+  The ~498-line T7(iv) diagnostic plus logbook is one unit because its shared reference/deck path and tests
+  must remain together; no code compression or test-only split. After recording it, proceed with T7(ii),
+  the remaining orthotropic CLT anchor, without a production section-shear change.
+
+- L22 (2026-10-19) User correction verbatim: "pero no me has hablado nada sobre la identificacion de los problemas fisicos, yo no hago nada con que los tests pasen eso no es lo que estoy resolviendo".
+  Prioritize identifying the cause of the physical instability discrepancy, not test/commit status.
+- L23 (2026-10-19) Full prestress tensor, existing data only, common tangent axes (span projection and
+  normal cross span). This corrects the earlier overstatement that the prestress is the same. Geometry
+  mapping max centroid error 0; reconstruction reproduces ours N_zz relative L2 1.21e-16 and saved CCX
+  N_zz 3.76e-8 (rounded exported ply thicknesses). CCX input is GLOBAL=YES, layer-integrated first static
+  block; ours is local Pa, mapped by element frame and h. Area-weighted transverse resultants ours/CCX:
+  09_42 -366.53/-45.15; 09_43 -446.35/-38.10; 09_44 -457.91/-47.10; 09_45 -412.05/-41.61;
+  09_46 -430.12/-106.86; 09_47 -418.63/+12.12 N/m. Thus panel 47 changes from small mean transverse
+  tension in CCX to strong compression in ours. For 46, span/shear means ours vs CCX are 753.52/928.36
+  and 418.12/423.94 N/m; for 47, 421.81/721.97 and 623.05/582.20. This is a destabilizing difference,
+  not just the parked stiffness difference. It is not yet proof of the 4.4x buckling-factor cause.
+  Source qualification: our recovered membrane stress is A*epsilon/h, not (A*epsilon+B*kappa)/h
+  (mitc4.rs:3041-3083, materials/composite.rs:53-57); the same field feeds K_G
+  (assembly/assembler.rs:742-766). The actual unsymmetric tip stack makes missing B*kappa a candidate,
+  but centroid-vs-Gauss averaging, frame conventions and other prestress differences remain alternatives.
+  Causal experiment: same K and clamped free DOFs, replace only K_G stress with CCX, then replace only
+  the transverse component (globally and within LP_TE_PANEL 42..49). Reproduce the stored baseline first,
+  require eigenpair residuals, and compare the original-mode Rayleigh energies as well as new modes.
+  Script: logs/check/tipmodes/t7-iv/stress-swap-dev.sbatch; one sequana_cpu_dev job, 20 min, 16 GB.
+  No production code, physical tolerance, or shear correction change. First experiment SLURM 11618824:
+  FAILED exit 1 after 1m58s, MaxRSS 2189940K. Baseline reproduced lambda 0.5176621298031965,
+  original-mode Rayleigh 0.5176621298045456, residual 1.62e-10. CCX-stress branch returned no positive
+  factors among the largest-magnitude inverse eigenvalues; this is NOT evidence of physical stability.
+  Bounded numerical correction: target largest REAL inverse eigenvalues (nu=1/lambda), not magnitude,
+  to seek the smallest positive factor; log spectrum and persist fixed-mode energy before extraction.
+  Matrices, stresses and free DOFs unchanged. Corrected experiment pending.
+
+## Handoff 2026-10-19 (4) - T7(iv) measured; packaging resolved in L21
+Supersedes (3). Branch feat/rotating-local-tip-modes, base local main 29897f1, HEAD 968d20d.
+New files tools/t7_panel_stiffness_parity.py and tests/test_t7_panel_stiffness_parity.py are verified but
+not committed; the task document is modified. scripts/known-red-full.txt is unrelated and untouched.
+Read L18-L20 for evidence, not the historical log. Successful result: SLURM 11618812, parked work ratio
+MITC4/CCX = 0.843789; no physical PASS/FAIL band. Failed run 11618805 is preserved (JSON metadata defect,
+fixed with RED/GREEN). T7 is not complete: (ii) remains open and (iii) retains two strict xfails.
+Next: choose delivery shape for the oversized feature, record/commit the coherent T7(iv) unit, then
+continue the orthotropic anchor without changing production section shear or widening any band.
+Engram has active-scope progress/evidence records; the full historical document mirror remains pending.
 
 ## Handoff 2026-10-19 (3) - T7(i) and (iii) done; decision pending on the section-shear defect
 Supersedes (2). Branch `feat/rotating-local-tip-modes` (from main; commits c6f0573, 3f0169d, f961694 and this one).
