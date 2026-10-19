@@ -20,7 +20,7 @@ z/L 0.94-0.97? IEA-15 official blade, es 0.25, oml and mid. Follows `odd/tasks/s
 - T3 [S3] rated modal with K_G off, and with K_SP off - inline + sbatch - DONE (L4) - commit: -
 - T4 [S4] es 0.25 vs 0.15 local-mode frequencies and beam fractions - sbatch - DONE (L6) - commit: -
 - T6 [S6] independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
-- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - NEW SESSION - commit: -
+- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - inline - (i) DONE (L16), (ii)-(iv) open - commit: (i) see L16
 - T5 [S5] record finding (closures doc, S-4 docstring if a number moves), close - inline - commit: -
 
 ## Log
@@ -176,6 +176,22 @@ z/L 0.94-0.97? IEA-15 official blade, es 0.25, oml and mid. Follows `odd/tasks/s
   analytic plate-buckling anchor. (i) Isotropic SS square plate, uniaxial: N_cr = 4 pi^2 D / b^2.
   (ii) Orthotropic CLT closed form. (iii) A sandwich with a soft core, with the transverse-shear correction.
   (iv) Our parked panel stiffness (K without K_G) on the TE panel vs CCX, to split K from K_G.
+- L16 (2026-10-19) T7(i) RESULT, isotropic SS plate, uniaxial compression, branch `feat/rotating-local-tip-modes`,
+  `tests/validation/element/test_plate_buckling_analytic.py`, log `logs/check/tipmodes/t7-i-plate.log`.
+  Reference N_cr = k pi^2 D/b^2, k = min_m (m b/a + a/(m b))^2, checked twice before the FE result was read (L20 rule):
+  (A) Timoshenko & Gere k table, a/b 0.5/0.6/0.8/1/1.5/2 -> 6.25/5.14/4.20/4.00/4.34/4.00 with m 1/1/1/1/2/2: PASS;
+  (B) independent FD solve of D lap^2 w = N(-w_xx) with w = lap w = 0: a/b 1 err -0.321/-0.080/-0.020 %, a/b 1.5
+  -0.405/-0.100/-0.025 % at n 15/31/63 (clean O(h^2)): PASS. Tolerances fixed before measuring: monotone error over
+  8/16/32, observed order in [1.5, 2.5], Richardson within 0.3 %, 32x32 within 1 %. MITC4, steel, b/h 100 (Mindlin
+  correction 0.06 %), hard SS, prescribed sigma via public `assemble_geometric_stiffness(stress_field=...)`, Arnoldi
+  shift-invert (residuals <= 1e-10): square N_cr err +9.25/+2.14/+0.49/+0.088 % at n 4/8/16/32, order 2.025,
+  Richardson -0.045 %: PASS. a/b 1.5 at 48x32: m = 2 picked, +0.12 %: PASS. Dense eigh = Arnoldi to 1e-9 at 8x8;
+  sigma_xx vs sigma_yy load identical to 1e-8. VERDICT: the MITC4 K_G formulation (N = sigma h, translational
+  B_geo) is correct for a thin isotropic plate; it converges from the stiff side, so it cannot by itself make the
+  blade panels 4-5x softer. With L13 (N field = CCX's), the gap moves to the laminate K: the panel bending D
+  and/or the transverse-shear stiffness of the soft-core sandwich, or the K_G-K interaction at small b/h.
+  Next: (iii) sandwich with shear correction and (iv) parked TE-panel K vs CCX are now the discriminating steps;
+  (ii) orthotropic CLT is the cheaper intermediate.
 
 ## Handoff 2026-10-19 (2) - T1-T4, T6 done; T7 next in a new session
 Supersedes the handoff below. State: K_G alone causes the tip local modes. The prestress is identical to
