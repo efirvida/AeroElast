@@ -166,6 +166,13 @@ full-suite measurement before a merge.
   `make all` casually, they compile PETSc/preCICE/OpenFOAM from source for hours.
 - Cluster build details (module load, `maturin` flags, stale flat `_aeroelast.so`) are in
   `.github/skills/build-aeroelast/SKILL.md`.
+- **SLURM partitions**: a job expected to take under 20 min goes to `sequana_cpu_dev` (limit 20:00).
+  Longer jobs are balanced between `sequana_cpu` and `sequana_cpu_bigmem` (same 48 cpus; bigmem is
+  usually emptier). Prefer several small jobs (about 4 cpus) over one large one, and expect an
+  `AssocMaxSubmitJobLimit` cap: chain submissions instead of failing. Measured: prestress/buckle
+  diagnostics 2-4 min (dev), blade modes es 0.25 about 15-18 min (borderline), the S-4 test 24-32 min.
+  A pending job moves with `scontrol update JobId=<id> Partition=<p>`, but not into dev if its
+  `--time` exceeds 20.
 - OpenFAST S-4/S-5 reference decks, the v4.2→v5 conversions and the ROSCO build are recorded in
   Engram (`config/openfast-5-0-0-corriendo-iea-15-mw-deck-v4-2-v5-0-convertido`); the `/tmp`
   paths in older notes do not survive a reboot, so rebuild rather than reuse them.

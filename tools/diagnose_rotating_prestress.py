@@ -107,9 +107,10 @@ def solve(args):
     print(f"prestress solve: |u|max={np.abs(u).max():.3e} m, |K u - f|/|f| ="
           f" {np.linalg.norm((K @ u - f_cf)[free]) / np.linalg.norm(f_cf[free]):.2e}", flush=True)
 
-    # 2. membrane stress as assemble_geometric_k_from_disp recovers it (centroid, local frame, N/h)
-    sig, _ = asm._rust.compute_stress_field(np.ascontiguousarray(u), 0.0, 0)
-    sig = np.asarray(sig)[:, [0, 1, 3]]
+    # 2. K_G prestress as assemble_geometric_k_from_disp recovers it: (A eps_m + B kappa)/h at the
+    #    element centre, local frame [sxx, syy, sxy] in Pa (41e9a16; the membrane-only recovery
+    #    that the 2026-10 baselines used dropped B kappa).
+    sig = np.asarray(asm._rust.compute_prestress_field(np.ascontiguousarray(u)))
 
     elems = asm.elements
     n_el = len(elems)
