@@ -143,6 +143,13 @@ fi
 mesh_rc=0
 mesh_out=$(python3 "$REPO_ROOT/scripts/check_mesh_size.py" 2>&1) || mesh_rc=$?
 
+# ---- scratch -------------------------------------------------------------------------
+# The inherited TMPDIR is a per-login-session directory (job 11619021: it vanished mid-run
+# and 152 tests errored in setup). Own the directory for the whole run, under $SCRATCH/tmp.
+CHECK_TMP="${SCRATCH:-$REPO_ROOT/logs/check}/tmp/check-$mode-${SLURM_JOB_ID:-$$}"
+mkdir -p "$CHECK_TMP"
+export TMPDIR="$CHECK_TMP"
+
 # ---- pytest ---------------------------------------------------------------------------
 if [ "$mode" = "quick" ]; then
     selection=("${QUICK_TESTS[@]}")
@@ -150,8 +157,9 @@ else
     selection=(tests/)
 fi
 
-python -m pytest "${PYTEST_OPTS[@]}" "${selection[@]}" >"$log" 2>&1
+python -m pytest "${PYTEST_OPTS[@]}" --basetemp="$CHECK_TMP/pytest" "${selection[@]}" >"$log" 2>&1
 pytest_rc=$?
+[ -d "$CHECK_TMP" ] && rm -rf "$CHECK_TMP" 2>/dev/null
 
 summary="$(grep -E '^[0-9]+ (passed|failed|error)|=+ .* (passed|failed|error).* =+$' "$log" | tail -1)"
 [ -n "$summary" ] || summary="$(tail -1 "$log")"
@@ -160,6 +168,13 @@ failed_ids=()
 while IFS= read -r line; do
     [ -n "$line" ] && failed_ids+=("${line#FAILED }")
 done < <(grep -E '^FAILED ' "$log" || true)
+
+# A setup/collection ERROR means the test never ran: it is never known-red and never
+# recorded. Counting only FAILED hid 152 of them in job 11619021.
+error_ids=()
+while IFS= read -r line; do
+    [ -n "$line" ] && error_ids+=("${line#ERROR }")
+done < <(grep -E '^ERROR ' "$log" | sort -u || true)
 
 # ---- record ---------------------------------------------------------------------------
 # Record before classifying: a recorded run must not also report its own entries as new.
@@ -203,6 +218,9 @@ echo "check[$mode]: log: ${log#"$REPO_ROOT"/}"
 for id in ${known_failures[@]+"${known_failures[@]}"}; do
     echo "  KNOWN-RED  $id"
 done
+for id in ${error_ids[@]+"${error_ids[@]}"}; do
+    echo "  ERROR      $id"
+done
 for id in ${new_failures[@]+"${new_failures[@]}"}; do
     echo "  NEW-FAIL   $id"
 done
@@ -218,6 +236,10 @@ fi
 if [ "$mesh_rc" -ne 0 ]; then
     printf '%s\n' "$mesh_out"
     echo "check[$mode]: FAIL - coarse blade mesh outside scripts/mesh-size-debt.txt"
+    exit 1
+fi
+if [ "${#error_ids[@]}" -gt 0 ]; then
+    echo "check[$mode]: FAIL — ${#error_ids[@]} test(s) errored before running (infrastructure, not physics); see ${log#"$REPO_ROOT"/}"
     exit 1
 fi
 if [ "${#new_failures[@]}" -gt 0 ]; then
