@@ -453,9 +453,18 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   does NOT decompose the 1.41 eigenvalue ratio. Not yet localized (which elements/regions carry our excess energy: TE_FLAT slivers? TE_REINF? midside/rotation
   consistency of the CCX field?). Hypotheses (iii)-(v) untouched. No production change, no band touched.
 
+- L33 (2026-10-19) User: the 3-8x K ratio of L32 does not fit what was established before (parked panel W ratio 0.844, beam modes
+  within 0.2-1 %, lambda ratio 1.41). Agreed: L32 is NOT evidence about K. Likely measurement defects, untested: (a) the CCX field is
+  S8R (midside nodes carry the shape) but our MITC4 uses corner nodes only, so sampling it at corners may inject spurious bending
+  energy on locally short-wavelength modes (z/L 0.96, 1-2 elements wide); (b) all three buckle modes give K_ccx ~1.01-1.02 whatever the
+  shape (normalisation artefact or RF sum over a subset); (c) rotations condensed in ours vs CCX expanded-solid kinematics; (d) energies
+  are not compared on the same element set. Do not quote the 2.93/7.74/4.03 as a finding. First action next session: self-consistency
+  test of the procedure (prescribe OUR eigenmode and a smooth analytic field in both codes; require K_ours/K_ccx to reproduce the
+  0.84-1.0 seen before) before any per-element localisation.
+
 ## Handoff 2026-10-19 (11) - START HERE: read full suite 11619070, then localize the K-energy excess
 Supersedes (10). Read L32 only. Step A: read tail of logs/check/full-slurm-11619070.log (check.sh now prints ERROR lines and fails on them); compare with scripts/known-red-full.txt (untracked); any failure outside it needs a 54a6386 worktree rerun of that test alone; no --record unless the run justifies it (the stale entry test_blade_modal_gap_converges_with_mesh is one reason).
-Step B next: localize the 3-8x K-energy excess on the CCX buckle mode shapes. Add `*EL PRINT, ELSET=T6ALL / ENER` to the kenergy deck (per-element strain energy in CCX) and compute our per-element energy (Rust element K x condensed phi), then compare by element set (TE_FLAT, TE_REINF, TE_PANEL, SW, rest) and by z/L. Also check whether CCX phi translations are mutually consistent at midside nodes. Then hypotheses (iii) MITC4 vs S8R coupling/shear path, (iv) TE_FLAT strip, (v) D E2. SLURM rules unchanged; TMPDIR is $SCRATCH/tmp (check.sh sets its own).
+Step B next (see L33: the 3-8x is a suspect measurement, validate the procedure FIRST with our own eigenmode and a smooth field in both codes): then localize any excess. Add `*EL PRINT, ELSET=T6ALL / ENER` to the kenergy deck (per-element strain energy in CCX) and compute our per-element energy (Rust element K x condensed phi), then compare by element set (TE_FLAT, TE_REINF, TE_PANEL, SW, rest) and by z/L. Also check whether CCX phi translations are mutually consistent at midside nodes. Then hypotheses (iii) MITC4 vs S8R coupling/shear path, (iv) TE_FLAT strip, (v) D E2. SLURM rules unchanged; TMPDIR is $SCRATCH/tmp (check.sh sets its own).
 
 ## Handoff 2026-10-19 (10) - START HERE: read the full-suite result, then lambda1 vs CCX
 Supersedes (9). Step 1 of (9) is DONE (L31). State: fix 41e9a16 + docs, branch feat/rotating-local-tip-modes, no push; full suite SLURM 11619021 (sequana_cpu, --ntasks=4 only, log logs/check/full-slurm-11619021.log, snapshot logs/check/git-snapshot-20261019T153609, revision 9fb7385 clean; 11619005 and 11619020 were cancelled: 48 cpus requested / bad snapshot export).
