@@ -335,6 +335,119 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   Local work-unit commit af7b8fe holds the parked-panel diagnostic, its 7 focused tests and L18-L23.
   It is a coherent 612-addition/1-deletion unit, accepted under the user's single-pr delivery choice;
   do not count inherited local-main commits as part of this feature. No push or PR created.
+- L26 (2026-10-19) User request verbatim: "Analizá los resultados de stress-swap-11618827: cuánto de la brecha
+  de pandeo explica el pretensado completo y cuánto la componente transversal, manteniendo K fijo. Priorizá la
+  causa física; no modifiques la formulación hasta demostrarla."
+  Stress swap 11618827 (same K/free DOFs; residuals <=1e-9 on low modes; first positive lambda / original-mode
+  Rayleigh / original-mode destabilizing energy vs ours): ours 0.5177/0.5177/1.00 (baseline reproduced);
+  ccx_all 3.189/7.17/0.072; ccx_transverse_only 2.501/6.62/0.078; ccx_transverse_tip_only (09_42..49
+  LP_TE_PANEL) 0.559/0.613/0.84. Gap 0.518->2.29 is x4.42; stress alone x6.16 (overshoots), so the operator
+  residual (K/K_G discretisation) is x0.72, i.e. ours stiffer, consistent with W ratio 0.844. Transverse N is
+  ln-share 87 % of the stress effect (x4.83 of x6.16); span+shear x1.28. Tip-panel-only swap x1.08: the mode
+  migrates (peak z/L 0.864->0.845); the spurious compression is distributed over LP_TE_PANEL and LP/HP_TE_REINF,
+  z/L 0.7-1.0 (area-mean N_tt z/L>=0.8 ours/CCX: LP_TE_REINF -1108/-62, HP_TE_REINF +499/+47, LP_TE_PANEL
+  -284/-35, HP_TE_PANEL +59/-5; symmetric SW -317/-326). Mismatch tracks laminate asymmetry e2=B22/A22: SW 0,
+  tip TE_PANEL e2/(h/2)=0.27, tip TE_REINF 0.38 (1 mm gelcoat + 0.3-0.6 mm biax).
+  CCX self-split (logs/check/tipmodes/t7-iv/bkappa_ccx.py, existing ply Gauss stresses only, 3D compliance
+  ORI_P0_0, exact plane-stress Q in the common (s,t) axes, linear fit eps0+z*kappa): Gauss order zeta-slowest
+  (fit residual median 4 % vs 12 % alternative, closure 0.38 vs 0.79 overall); tip TE regions close to
+  5-10 %, fit 1-7 %. CCX A*eps0 / B*kappa at z/L>=0.8: LP_TE_PANEL -235/+220, LP_TE_REINF -641/+627,
+  HP_TE_PANEL +82/-91, HP_TE_REINF +747/-739. Ours vs CCX A*eps0 area-L2 difference at z/L 0.8-1.0 is
+  ~2.6x smaller than vs CCX full.
+  Causal swap SLURM 11618888 (bkappa-swap-dev.sbatch, K fixed, COMPLETED 0:0, 4m48s): ccx_minus_own_Bkappa
+  0.848 (Rayleigh 0.887, energy 0.58); same but tt only 0.855; ours_plus_ccx_Bkappa 0.864 (Rayleigh 1.06,
+  energy 0.49). Interpretation as a 2x2 factorial {membrane field ours/CCX} x {B*kappa absent/CCX}:
+  0.518, 0.864 / 0.848, 3.189. Removing CCX's own B*kappa (almost entirely its tt part) collapses lambda
+  3.19->0.85 (73 % of the ln stress effect): missing B*kappa is DEMONSTRATED as a necessary cause. It is NOT
+  sufficient: adding CCX's B*kappa to ours only reaches 0.864, because our A*eps membrane field also differs
+  in the TE reinforcement (LP_TE_REINF -1108 vs CCX A*eps0 -641; z/L 0.7-0.8 large area-L2 difference) and
+  the two effects interact strongly (each alone x1.6, together x6.2). Caveats: ccx_minus_own_Bkappa contains
+  the 5-10 % split residual; NB uses CCX's kappa, not ours; cb*E2 term not quantified. No production change.
+
+- L27 (2026-10-19) User: "continua". Our own consistent resultant, K fixed, SLURM 11618900 (COMPLETED 0:0,
+  5m21s; logs/check/tipmodes/t7-iv/consistent-swap-dev.sbatch, consistent-swap-11618900/{result.json,fields.npz}).
+  Prestress source reproduced exactly (sigma rel. error 0, static residual 5.2e-10). Local ABD rotation sign +1
+  verified to <=1e-8 on all MITC4 quads; the 92 MITC3 triangles (0.13 % area) fail for both signs and keep
+  our sigma (worker jobs 11618895 script bug, 11618898 frame gate). N = A eps_m + B kappa + D E2 per
+  mitc4.rs W blocks (kappa=(2/h)e^b1, E2=(4/h^2)e^b2). Area-mean N_tt z/L>=0.8, ours -> ours_consistent vs
+  CCX full: LP_TE_REINF -1108 -> -68 vs -62; LP_TE_PANEL -284 -> -37 vs -35; HP_TE_REINF +499 -> +50 vs +47;
+  HP_TE_PANEL +59 -> -2.5 vs -4.9; LP_LE -73 -> -98 vs -99; LP_SPAR 10 -> 26 vs 31; SW unchanged (B=0).
+  K-fixed lambda (peak z/L, residual <=1e-10): ours 0.518 (0.864); ours_A_plus_Bkappa 3.224 (0.96), cf. ccx_all
+  3.189; ours_consistent 2.849 (0.79), next 3.192 (0.96); ours_consistent_tt_only 2.464 (0.961), cf.
+  ccx_transverse_only 2.501. Original-mode destabilizing energy drops to 7-9 %.
+  CONCLUSION: the buckling gap is caused by the K_G prestress recovery sigma = A eps_m / h, which omits the
+  membrane-bending coupling B kappa (and W_02 D E2) that the stiffness itself contains; in the thin
+  gelcoat-dominated unsymmetric tip TE laminates this turns ~zero transverse resultant into strong compression.
+  Our own consistent resultant reproduces CCX N_tt region by region and moves lambda from 0.518 to 2.85-3.22
+  (CCX 2.29). The remaining factor 0.71-0.80 is the operator (K/K_G discretisation) difference, ours stiffer,
+  consistent with W_MITC4/W_CCX 0.844; separate question. CORRECTS L26 "not sufficient": the 0.864 of
+  ours_plus_ccx_Bkappa mixed our A eps_m with CCX's split (ours B kappa LP_TE_REINF +1040 vs CCX +627);
+  the A eps / B kappa split is model-specific, only the total N is comparable. Open details: D E2 is
+  negligible except on TE_FLAT (0.03 m2, -2679 N/m) and moves the first consistent mode to z/L 0.79 (2.85 vs
+  3.22) - check whether that mode sits on degenerate TE_FLAT elements; MITC3 recovery not examined.
+  Still no production change; a fix touches crates/ recovery feeding K_G and will move S-4 and every
+  K_G-based anchor - user decision required.
+
+- L28 (2026-10-19) User chose "Antes ubicar el modo de z/L 0.79". Worker job 11618908 (COMPLETED, 3m34s;
+  11618903 failed on a JSON uint64 script bug), locate-mode-dev.sbatch, locate-mode-11618908/{result.json,
+  modes.npz}; K fixed, reused consistent-swap-11618900 fields. consistent mode 1 = 2.8485 (residual 2.4e-11),
+  peak z/L 0.790 on 09_38_LP_TE_PANEL/10_38_LP_TE_REINF; signed energy shares LP_TE_REINF 0.93,
+  HP_TE_REINF 0.14, TE_FLAT -0.069 (stabilising), TE_FLAT |translation|^2 5.7 %. Removing D E2 ONLY on
+  TE_FLAT: mode 1 = 3.2246 at z/L 0.960 (LP_TE_PANEL 0.95), equal to dropping D E2 everywhere (3.2244).
+  So the 2.85 TE_REINF mode is not on TE_FLAT but its factor is set by how much TE_FLAT restrains the
+  TE_REINF. TE_FLAT is a degenerate sliver strip: median h 24.6 mm, area/element 2.8e-4 m2 (~1 mm wide for
+  0.25 m long elements), so h/width ~25 and its shell resultants are not physical in either model. Area-mean
+  N_tt ours/consistent/CCX at z/L 0.6-0.8: HP 13035/1903/-168, LP 5929/1073/-171 N/m (Nss agrees within
+  ~7 %). Correction to L27: TE_FLAT is 9.5 m2 over the whole span; the 0.03 m2 figure is z/L>=0.8 only.
+  Reading: the B kappa conclusion stands; the 2.85-3.22 bracket is the sensitivity to the TE_FLAT sliver
+  strip (a meshing/modelling artefact shared with CCX in different form), not to the panel physics.
+
+- L29 (2026-10-19) User verbatim: "podemos hacerlo aqui  asi que corrige el codigo de produccion  luego
+  probamos todo en otra sesion" and "antes de ejecutrar todo hay que validar que los cambios efectivamente
+  corrijen lo que estamos evaluando". Production fix (worker): K_G prestress = (A eps_m + B kappa)/h at the
+  element centre, local frame; D E2 deliberately excluded (L28); output/postprocess stresses unchanged.
+  mitc4.rs/mitc3.rs compute_prestress_membrane_stress, assembler.rs compute_prestress_field (used by
+  assemble_geometric_k_from_disp), PyO3 compute_prestress_field, stress_stiffened.rs and
+  stress_stiffened_dynamic.py K_G sources; tests/test_kg_prestress_coupling.py; docs/formulations/
+  shell-elements.md. RED observed (missing API / E0425); GREEN 6 Rust + 6 Python; maturin develop --release;
+  plate-buckling anchor 24 passed 2 xfailed (unchanged strict xfails); check.sh quick 75 passed 1 xfailed.
+  VALIDATION of the production path, SLURM 11618946 (validate-fix-dev.sbatch, COMPLETED, 1m45s, uncommitted
+  tree on 54a6386): field new vs diagnostic N_AB/h on quads 8.2e-17, SW (B=0) new vs old 1.3e-16; triangles
+  change 54 % (now get B kappa; diagnostic had kept them). assemble_geometric_stiffness(omega, free_dofs):
+  lambda1 3.2243868 (residual 7.5e-11, peak z/L 0.960) vs diagnostic 3.2243628 (rel 7.4e-6, the triangles);
+  next 4.067, 4.300 (z/L 0.79), 5.247. The production fix reproduces the demonstrated correction.
+  Flag: Rayleigh of the OLD first mode is 9.37 vs 7.29 in the diagnostic - only the triangle change differs;
+  not investigated (old mode is no longer the critical one).
+  Not done (next session, user's plan): full suite, S-4 rotating modal vs OpenFAST, S-5/S-6, T7 vs CCX 2.29,
+  re-derive known-red. tools/diagnose_rotating_prestress.py:111-163 still builds K_G from membrane-only sigma
+  (diagnostic baseline 0.5177 tool) - update it before reusing it; test_stress_stiffened_solver.py:285-301 and
+  tools/debug_kg_magnitudes.py:88 use the old pattern (isotropic / print only).
+
+## Handoff 2026-10-19 (8) - fix implemented and validated on the blade; full re-validation next
+Supersedes (7). Read L27-L29. Next session, in order: (1) full suite via SLURM (scripts/check.sh full),
+compare with known-red-full; (2) S-4 rotating modal vs OpenFAST v5 MBC3 (K_G changed for unsymmetric
+laminates: report every moved number, do not widen); (3) T7 tip buckling vs CCX 2.29 - remaining factor
+~0.71 is the operator difference (W ratio 0.844), separate question; (4) update
+tools/diagnose_rotating_prestress.py to compute_prestress_field; (5) TE_FLAT sliver strip modelling decision
+(L28); T7(ii), T5 still open.
+
+## Handoff 2026-10-19 (7) - cause demonstrated; production fix awaits user decision
+Supersedes (6). Read L26-L27. Physical cause demonstrated (L27). Next, only after explicit user decision:
+consistent membrane resultant in the K_G stress recovery (mitc4.rs compute_element_stress path used by
+assemble_geometric_k_from_disp / assemble_geometric_stiffness; MITC3 equivalent), maturin rebuild, then the
+anchors (S-4 rotating modal vs OpenFAST, T7 buckling vs CCX 2.29, full suite). Before that, optional
+diagnostic: locate the z/L 0.79 consistent mode (TE_FLAT D E2). T7(ii), T5 open.
+
+## Handoff 2026-10-19 (6) - B*kappa necessary, not sufficient; next: our consistent resultant
+Supersedes (5). Read this, L26, and mem_search full-prestress-tensor. Established in L26 (numbers there).
+Next, in order, still diagnostic-only (no formulation change until shown):
+1. Our own consistent membrane resultant N = A*eps_m + B*kappa + cb*E2 (mitc4.rs W blocks, :1262) from OUR
+   static u (kappa=(2/h)e^b1, E2=(4/h^2)e^b2); K-fixed swap with it. Prediction to test: lambda well above
+   0.86 only if our kappa also differs from CCX's or eps_m is coupled; report whatever it gives.
+2. Explain the remaining membrane-strain difference in the TE_REINF (ours A*eps vs CCX A*eps0) - compare
+   eps0 directly, not resultants; suspects: thin unsymmetric TE_REINF stiffness/coupling in K, S8R vs MITC4.
+T7(ii) and T5 remain open. Artifacts: t7-iv/{bkappa_ccx.py,bkappa-ccx.npz,bkappa-swap-dev.sbatch,
+bkappa-swap-11618888/result.json, bkappa-swap-11618888.log} (ignored, preserve).
 
 ## Handoff 2026-10-19 (5) - STOPPED by user; analyze stress-swap 11618827 next
 Supersedes (4). One objective next session: identify the physical cause of the 0.52 vs 2.29 buckling gap,
