@@ -16,6 +16,11 @@ This tool rebuilds the exact K_G path of ``assemble_geometric_stiffness`` and re
 
   python tools/diagnose_rotating_prestress.py solve --modes logs/check/modecls/modes-oml-025.npz --out X.npz
   python tools/diagnose_rotating_prestress.py analyse X.npz [--top 12]
+  scripts/aeroenv.sh python -B tools/diagnose_rotating_prestress.py buckle --modes M.npz --out B.npz
+
+``buckle`` reuses the stored mode mesh/rpm and exactly the same clamped prestress path.
+It solves (-K_G) phi = mu K phi (SPD metric K), selects largest positive mu,
+and reports total centrifugal load factors lambda=1/mu, without K_SP.
 """
 
 from __future__ import annotations
@@ -115,14 +120,22 @@ def solve(args):
             set_of.setdefault(e.id, k)  # first (alphabetical) set wins; reported for orientation only
     cen, area, h, nzz, nmin, nmax, eset, n_nodes = (np.zeros((n_el, 3)), *(np.zeros(n_el) for _ in range(5)),
                                                      np.full(n_el, -1), np.zeros(n_el, dtype=np.int64))
+    # asm.elements yields Rust-backed proxies (.id, .node_ids only): take geometry from the
+    # MeshElement and h from the section layup, the total thickness the Rust laminate uses.
+    h_of = {}
+    for sec in gen.numad_mesh_data["sections"]:
+        h_sec = float(sum(float(t) for _, t, _ in sec["layup"]))
+        for e in mesh.element_sets[sec["elementSet"]].elements:
+            h_of.setdefault(e.id, h_sec)
     elem_dofs = []
-    for i, el in enumerate(elems):
+    for i, proxy in enumerate(elems):
+        el = mesh.get_element_by_id(proxy.id)
         p = np.asarray([n.coords for n in el.nodes], dtype=float)
         n_nodes[i] = len(p)
         cen[i] = p.mean(axis=0)
         area[i] = 0.5 * np.linalg.norm(np.cross(p[2] - p[0], p[3] - p[1])) if len(p) == 4 else \
             0.5 * np.linalg.norm(np.cross(p[1] - p[0], p[2] - p[0]))
-        h[i] = float(getattr(el, "thickness", np.nan) or np.nan)
+        h[i] = h_of.get(el.id, np.nan)
         e1, e2, _ = element_frame(p)
         sxx, syy, sxy = sig[i]
         s3 = sxx * np.outer(e1, e1) + syy * np.outer(e2, e2) + sxy * (np.outer(e1, e2) + np.outer(e2, e1))
@@ -131,6 +144,9 @@ def solve(args):
         nmin[i], nmax[i] = ev
         eset[i] = set_of.get(el.id, -1)
         elem_dofs.append([nid2idx[n.id] * dpn + d for n in el.nodes for d in range(dpn)])
+
+    if np.isnan(h).any():
+        raise SystemExit(f"{int(np.isnan(h).sum())} elements have no section thickness")
 
     # 3. section force vs the exact discrete reference
     z = xyz[:, 2]
@@ -150,6 +166,67 @@ def solve(args):
         raise SystemExit(f"K_G COO has {len(gv)} entries, expected {blk.sum()}: block split invalid")
     start = np.concatenate([[0], np.cumsum(blk)])
     KG = coo_matrix((gv, (gr, gc)), shape=(n_dof, n_dof)).tocsr()
+    if args.cmd == "buckle":
+        from scipy.sparse.linalg import LinearOperator, eigs
+        from scipy.sparse.linalg import norm as sp_norm
+
+        # K phi = lam Gf phi with Gf = -K_G (indefinite): ARPACK buckling mode, shift-invert about
+        # sigma with OPinv = (K - sigma Gf)^-1 factored once by MUMPS. The regular mode with K as the
+        # metric returned unconverged pairs (relative residual ~1, job 11618699).
+        Gf = -KG[free][:, free].tocsr()
+        A = (Kf - args.sigma * Gf).tocsr()
+        A.sort_indices()
+        A_p = PETSc.Mat().createAIJ(size=A.shape, csr=(A.indptr.astype(PETSc.IntType),
+                                                       A.indices.astype(PETSc.IntType), A.data))
+        A_p.assemble()
+        ksp_s = PETSc.KSP().create()
+        ksp_s.setOperators(A_p)
+        ksp_s.setType("preonly")
+        ksp_s.getPC().setType("lu")
+        ksp_s.getPC().setFactorSolverType("mumps")
+        x_s, b_s = A_p.createVecs()
+
+        def inverse_shifted(x):
+            b_s.setArray(np.asarray(x, dtype=float))
+            ksp_s.solve(b_s, x_s)
+            if ksp_s.getConvergedReason() < 0:
+                raise RuntimeError("shifted buckling factorization failed")
+            return x_s.getArray().copy()
+
+        # Symmetry is what Lanczos (eigsh) assumes; the symmetric buckling mode still returned residuals
+        # ~0.9 (jobs 11618724/27), so print it and use general Arnoldi: nu = 1/(lam - sigma) are the
+        # eigenvalues of (K - sigma Gf)^-1 Gf, valid without symmetry or definiteness.
+        for name, mat in (("K", Kf), ("-K_G", Gf)):
+            print(f"asymmetry |{name} - {name}^T|_F / |{name}|_F = "
+                  f"{sp_norm(mat - mat.T) / sp_norm(mat):.3e}", flush=True)
+        nu, vectors = eigs(LinearOperator(A.shape, matvec=lambda x: inverse_shifted(Gf @ x)),
+                           k=args.n_modes, which="LM", tol=1e-10, maxiter=5000,
+                           v0=np.random.default_rng(0).normal(size=len(free)))
+        lam_c = args.sigma + 1.0 / nu
+        real = np.flatnonzero(np.abs(lam_c.imag) <= 1e-8 * np.abs(lam_c))
+        lam_all, vectors = lam_c.real[real], np.real(vectors[:, real])
+        print(f"Arnoldi: {len(nu)} pairs, {len(real)} real, lam = {np.sort(lam_c.real)}", flush=True)
+        positive = np.flatnonzero(lam_all > 0)
+        order = positive[np.argsort(lam_all[positive])]
+        if not len(order):
+            raise RuntimeError("no positive buckling factor near sigma")
+        factors, shapes, rows = lam_all[order], vectors[:, order].T, []
+        for lam, v in zip(factors, shapes, strict=True):
+            t = nodal_translations(v, free, len(xyz))
+            peak = int(np.argmax(np.linalg.norm(t, axis=1)))
+            frac, _, _ = beam_projection(xyz, t)
+            touching = [set_names[eset[i]] for i, el in enumerate(elems)
+                        if mesh.nodes[peak].id in el.node_ids and eset[i] >= 0]
+            residual = np.linalg.norm(Kf @ v - lam * (Gf @ v)) / np.linalg.norm(Kf @ v)
+            rows.append((float(lam), float((z[peak] - z0) / span), frac, residual))
+            print(f"BUCKLE lam={lam:.9g} peak_z/L={rows[-1][1]:.5f} "
+                  f"sets={','.join(sorted(set(touching)))} beam_fraction={frac:.5f} "
+                  f"relative_residual={residual:.3e}", flush=True)
+        np.savez_compressed(args.out, ref=ref, es=es, rpm=rpm, factors=factors,
+                            modes=shapes, free=free, xyz=xyz, rows=np.asarray(rows))
+        print(f"wrote {args.out}", flush=True)
+        return
+
     mr, mc, mv = (np.asarray(a) for a in asm._rust.assemble_m())
     M = coo_matrix((mv, (mr, mc)), shape=(n_dof, n_dof)).tocsr()
     nodal_m = np.bincount(mr[mr % dpn == 0] // dpn, weights=mv[mr % dpn == 0], minlength=mesh.node_count)
@@ -215,11 +292,17 @@ def main():
     s.add_argument("--modes", type=Path, required=True, help="npz written by diagnose_mode_beam_projection.py solve")
     s.add_argument("--out", type=Path, required=True)
     s.add_argument("--top", type=int, default=12)
+    b = sub.add_parser("buckle", help="lowest positive linear buckling factors at the stored rated rpm")
+    b.add_argument("--modes", type=Path, required=True, help="same mesh/rpm provenance as solve")
+    b.add_argument("--out", type=Path, required=True)
+    b.add_argument("--n-modes", type=int, default=6)
+    b.add_argument("--sigma", type=float, default=0.5,
+                   help="shift: factors nearest sigma are found (L7 Rayleigh bound: lam_min <= ~1.05)")
     a = sub.add_parser("analyse")
     a.add_argument("npz", type=Path)
     a.add_argument("--top", type=int, default=12)
     args = ap.parse_args()
-    if args.cmd == "solve":
+    if args.cmd in ("solve", "buckle"):
         solve(args)
     else:
         analyse_file(args.npz, args.top)
