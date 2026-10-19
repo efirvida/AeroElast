@@ -423,6 +423,39 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   (diagnostic baseline 0.5177 tool) - update it before reusing it; test_stress_stiffened_solver.py:285-301 and
   tools/debug_kg_magnitudes.py:88 use the old pattern (isotropic / print only).
 
+- L30 (2026-10-19) User verbatim: "prepara el handoff de esta sesion para comenzar en la proxima, pero de igual
+  forma creo que antes de correr la suite ocmpleta deberiamos correr la parte de la suite que nos trajo a estos
+  diagnosticos, luego toda la suite". Session closed; Handoff (9) orders the targeted K_G suite before the
+  full suite.
+
+## Handoff 2026-10-19 (9) - START HERE: targeted K_G re-validation, then full suite
+Supersedes (8). State: fix 41e9a16 (K_G prestress (A eps + B kappa)/h, D E2 excluded), doc 32399bb, branch
+feat/rotating-local-tip-modes, no push. Validated on the blade production path (L29, SLURM 11618946:
+lambda1 3.2244 vs diagnostic 3.2244, B=0 fields 1e-16). Read L27-L30 only; mem_search "k-g-prestress-coupling".
+Rebuild first if the .so may be stale: cd crates/aeroelast-py && maturin develop --release (aeroenv).
+
+Step 1 - the tests that led to this diagnosis (K_G-dependent), run as ONE SLURM job, log to logs/check/:
+- direct: tests/test_kg_prestress_coupling.py, tests/validation/element/test_plate_buckling_analytic.py,
+  tests/validation/element/test_stress_stiffened_solver.py, tests/test_t7_panel_stiffness_parity.py,
+  tests/test_iea15mw_s4_rotating_modal.py (the anchor that opened this feature: S5 1st edge red 5.9-6.1 %
+  vs 5 %; recorded S-4 at es 0.25: 1st flap -1.4 %, 1st edge -5.6 %, 2nd flap -1.7 %),
+  tests/test_iea15mw_s0_omega_zero_consistency.py.
+- rotating K_G users: tests/test_iea15mw_sx_campbell.py, tests/test_iea15mw_sx_campbell_cross.py,
+  tests/test_rotor_centrifugal_branch.py, tests/test_omega_rebuild_predicate.py,
+  tests/validation/rotor/test_rotor_rust_parity.py, tests/test_inertial_rotor_rust_parity.py,
+  tests/test_inertial_corotational_eigen_parity.py, tests/validation/blade/test_blade_deloading_vs_reference.py.
+- S-5/S-6 (tests/test_iea15mw_s5_oneway.py, s6) only if time allows in the same job; else step 2.
+Report every anchor number that moved vs the recorded values (docs/origin_main_integration_2026-09-30.md,
+docs/validation_closures.md, test docstrings); never widen a band; a moved anchor is a finding.
+Also re-run the local-mode diagnosis that started this (S1-S4): update tools/diagnose_rotating_prestress.py
+(:111-163) to asm._rust.compute_prestress_field, then rerun its solve/buckle sbatch at es 0.25 oml to NEW
+output names (do not overwrite *-oml-025.npz baselines) and check whether the low-beam-fraction tip modes at
+7.56 rpm (z/L 0.94-0.97) disappear.
+Step 2 - full suite via SLURM: scripts/check.sh full, compare with scripts/known-red-full.txt (untracked,
+unrelated to this feature; re-derive with --record only from a real run and say which).
+Step 3 - T5 closure (record the finding, S-4 docstring if a number moves), T7 vs CCX 2.29 residual (operator
+x0.71, W ratio 0.844), TE_FLAT sliver decision (L28), T7(ii). Open flag: old-mode Rayleigh 9.37 vs 7.29 (L29).
+
 ## Handoff 2026-10-19 (8) - fix implemented and validated on the blade; full re-validation next
 Supersedes (7). Read L27-L29. Next session, in order: (1) full suite via SLURM (scripts/check.sh full),
 compare with known-red-full; (2) S-4 rotating modal vs OpenFAST v5 MBC3 (K_G changed for unsymmetric
