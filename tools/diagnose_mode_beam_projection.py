@@ -19,6 +19,9 @@ Modes are solved once and written to an .npz, so the projection can be redone of
 
   python tools/diagnose_mode_beam_projection.py solve --ref oml --es 0.25 --rpm 0 7.56 --out X.npz
   python tools/diagnose_mode_beam_projection.py analyse X.npz [--bins 200]
+
+``--without kg`` / ``--without ksp`` drops that term from the rotating operator, to tell which
+one produces a mode (odd/tasks/rotating-local-tip-modes.md, T3).
 """
 
 from __future__ import annotations
@@ -67,9 +70,12 @@ def solve(args):
     model = {"elements": {"element_family": ElementFamily.SHELL, "span_direction": (0.0, 0.0, 1.0), "properties": props}}
     asm = MeshAssembler(mesh, model)
     xyz = np.asarray([n.coords for n in mesh.nodes])
-    out = {"xyz": xyz, "ref": args.ref, "es": args.es, "rpm": np.asarray(args.rpm)}
+    out = {"xyz": xyz, "ref": args.ref, "es": args.es, "rpm": np.asarray(args.rpm),
+           "without": np.asarray(args.without, dtype=str)}
     for i, rpm in enumerate(args.rpm):
-        freqs, modes, free = assemble_rotating(asm, mesh, omega_from_rpm(rpm), n_modes=args.n_modes)
+        freqs, modes, free = assemble_rotating(asm, mesh, omega_from_rpm(rpm), n_modes=args.n_modes,
+                                               include_kg="kg" not in args.without,
+                                               include_ksp="ksp" not in args.without)
         out[f"freqs_{i}"] = np.asarray(freqs)
         out[f"modes_{i}"] = np.asarray(modes)
         out[f"free_{i}"] = np.asarray(free)
@@ -86,7 +92,8 @@ def analyse_file(path, n_bins):
     for i, rpm in enumerate(d["rpm"]):
         freqs, modes, free = d[f"freqs_{i}"], d[f"modes_{i}"], d[f"free_{i}"]
         new = classify_modes(SimpleNamespace(nodes=[SimpleNamespace(coords=p) for p in xyz]), modes, free)
-        print(f"\n=== ref={d['ref']} es={float(d['es'])} rpm={float(rpm)} bins={n_bins} ===")
+        without = ",".join(d["without"]) if "without" in d.files and d["without"].size else "-"
+        print(f"\n=== ref={d['ref']} es={float(d['es'])} rpm={float(rpm)} without={without} bins={n_bins} ===")
         for k in np.argsort(freqs):
             u = nodal_translations(modes[k], free, len(xyz))
             frac, en, res = beam_projection(xyz, u, n_bins)
@@ -111,6 +118,7 @@ def main():
     s.add_argument("--es", type=float, required=True)
     s.add_argument("--rpm", type=float, nargs="+", default=[0.0, 7.56])
     s.add_argument("--n-modes", type=int, default=12)
+    s.add_argument("--without", choices=("kg", "ksp"), nargs="*", default=[])
     s.add_argument("--bins", type=int, default=200)
     s.add_argument("--out", type=Path, required=True)
     a = sub.add_parser("analyse")

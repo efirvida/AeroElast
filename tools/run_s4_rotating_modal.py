@@ -33,7 +33,8 @@ def omega_from_rpm(rpm):
     return rpm * 2.0 * np.pi / 60.0
 
 
-def assemble_rotating(assembler, mesh, omega, n_modes):
+def assemble_rotating(assembler, mesh, omega, n_modes, include_kg=True, include_ksp=True):
+    """Rotating-frame modal of K + K_G + K_SP; ``include_kg``/``include_ksp`` drop a term for diagnosis."""
     import _aeroelast
 
     n_dof = assembler.dofs_count
@@ -52,7 +53,7 @@ def assemble_rotating(assembler, mesh, omega, n_modes):
             root_dofs.add(nid2idx[n] * dpn + d)
     free = np.array(sorted(set(range(n_dof)) - root_dofs), dtype=np.int64)
 
-    if omega > 0.0:
+    if omega > 0.0 and include_kg:
         kg = assembler.assemble_geometric_stiffness(
             omega=omega, rotation_axis=AXIS, rotation_center=np.zeros(3),
             free_dofs=free)
@@ -64,7 +65,7 @@ def assemble_rotating(assembler, mesh, omega, n_modes):
     m_rows, m_cols, m_vals = assembler._rust.assemble_m()
     m_rows = np.asarray(m_rows)
 
-    if omega > 0.0:
+    if omega > 0.0 and include_ksp:
         nodal_m = np.zeros(mesh.node_count)
         for i in range(mesh.node_count):
             nodal_m[i] = np.asarray(m_vals)[m_rows == i * dpn].sum()
