@@ -166,13 +166,15 @@ full-suite measurement before a merge.
   `make all` casually, they compile PETSc/preCICE/OpenFOAM from source for hours.
 - Cluster build details (module load, `maturin` flags, stale flat `_aeroelast.so`) are in
   `.github/skills/build-aeroelast/SKILL.md`.
-- **SLURM partitions**: a job expected to take under 20 min goes to `sequana_cpu_dev` (limit 20:00).
-  Longer jobs are balanced between `sequana_cpu` and `sequana_cpu_bigmem` (same 48 cpus; bigmem is
-  usually emptier). Prefer several small jobs (about 4 cpus) over one large one, and expect an
-  `AssocMaxSubmitJobLimit` cap: chain submissions instead of failing. Measured: prestress/buckle
-  diagnostics 2-4 min (dev), blade modes es 0.25 about 15-18 min (borderline), the S-4 test 24-32 min.
-  A pending job moves with `scontrol update JobId=<id> Partition=<p>`, but not into dev if its
-  `--time` exceeds 20.
+- **SLURM requests**: ask for `--ntasks=N` and nothing else (no `--nodes`, `--ntasks-per-node`,
+  `--cpus-per-task` or `--mem`); the scheduler finds the resources and the job starts sooner. A
+  whole node (cpu=48, mem=750G) rarely starts. Under 20 min go to `sequana_cpu_dev`. Longer jobs go
+  to `sequana_cpu` or `sequana_cpu_bigmem`, whichever has fewer of the user's running jobs
+  (`squeue -u $USER -h -p <part> -t R | wc -l`): the cap is about 4 running jobs per partition
+  (`AssocMaxJobsLimit`), so free nodes do not help. Prefer several small jobs; chain submissions
+  when `AssocMaxSubmitJobLimit` blocks. Measured: prestress/buckle diagnostics 2-4 min, blade
+  modes es 0.25 about 15-18 min, the S-4 test 24-32 min. Move a pending job with
+  `scontrol update JobId=<id> Partition=<p>` (not into dev if `--time` exceeds 20).
 - OpenFAST S-4/S-5 reference decks, the v4.2→v5 conversions and the ROSCO build are recorded in
   Engram (`config/openfast-5-0-0-corriendo-iea-15-mw-deck-v4-2-v5-0-convertido`); the `/tmp`
   paths in older notes do not survive a reboot, so rebuild rather than reuse them.

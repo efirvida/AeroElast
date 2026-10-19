@@ -9,7 +9,7 @@
 # Usage:
 #   scripts/check_sbatch.sh full [--record] [-- extra sbatch options]
 #   scripts/check_sbatch.sh quick [--record]
-# Defaults: partition sequana_cpu, 240 min, 12 tasks x 4 cpus; log logs/check/<mode>-slurm-%j.log.
+# Defaults: partition sequana_cpu, 240 min, 4 tasks (--ntasks only; no nodes, cpus-per-task or mem); log logs/check/<mode>-slurm-%j.log.
 
 set -euo pipefail
 
@@ -43,7 +43,7 @@ git ls-files --cached --others --exclude-standard tests tools src scripts >"$sna
     git ls-files --others --exclude-standard -- '*.py'
 } | sort -u >"$snap/changed_py"
 
-sbatch --partition=sequana_cpu --time=240 --ntasks=12 --cpus-per-task=4 \
+sbatch --partition=sequana_cpu --time=240 --ntasks=4 \
     --job-name="check-$mode" --output="logs/check/$mode-slurm-%j.log" \
     --export="ALL,CHECK_GIT_SNAPSHOT=$snap,OMP_NUM_THREADS=1,OPENBLAS_NUM_THREADS=1,RAYON_NUM_THREADS=4,PYTHONDONTWRITEBYTECODE=1" \
     ${sbatch_extra[@]+"${sbatch_extra[@]}"} \
