@@ -23,7 +23,7 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 - T3 [S3] rated modal with K_G off, and with K_SP off - inline + sbatch - DONE (L4) - commit: -
 - T4 [S4] es 0.25 vs 0.15 local-mode frequencies and beam fractions - sbatch - DONE (L6) - commit: -
 - T6 [S6] (CLOSED as DIAGNOSTIC by S9, L36: lambda1 3.224 vs CCX 2.29 documented and localised in TE_FLAT slivers, L35; not an anchor) independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
-- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii); (ii) orthotropic closed form (Whitney/Lekhnitskii, D11/D12/D22/D66) RESUMED by S9 (L36) - commit: (iv) af7b8fe
+- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii); (ii) orthotropic closed form DONE (L37, all predeclared bands met) - commit: (iv) af7b8fe, (ii) see L37
 - T8 [S8, S9] analytic anchor for the centrifugal prestress recovery: compute_prestress_field (the path fixed in 41e9a16) vs a closed form (e.g. rotating prismatic member, sigma(r) = rho omega^2 (R^2 - r^2)/2, plus a case where B kappa is non-zero), tolerance predeclared in the docstring - inline - commit: -
 - T5 [S5] record finding (closures doc, S-4 docstring if a number moves), close - inline - commit: -
 
@@ -524,6 +524,30 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   prestress recovery closed form. Existing level-1 coverage: tests/validation/element/test_plate_buckling_analytic.py (isotropic flat
   SS plate, prescribed stress, Timoshenko & Gere); tests/validation/rotor/test_rotor_inertial.py checks nodal m omega^2 r, NOT the
   recovered prestress.
+
+- L37 (2026-10-19) User verbatim: "leé el Handoff (13) de odd/tasks/rotating-local-tip-modes.md. Empezá por el log de 11619070 contra
+  scripts/known-red-full.txt y después seguí con la T7(ii). Si el contexto crece, dejá la T8 para otra sesión."
+  Step A: SLURM 11619070 (sequana_cpu, e4473ee) still RUNNING at 1h05 and only 25 % (logs/check/full-20261019T173319.log; the
+  slurm log is empty until exit), limit 4h00: no comparison with known-red-full.txt yet. Failures visible so far: 2 near 5 %, ~14 near
+  25 % (names unknown until the summary). Risk: the run may hit the 4 h limit.
+  T7(ii) DONE: tests/validation/element/test_plate_buckling_analytic.py, specially orthotropic SS cross-ply [0/90/90/0], carbon/epoxy
+  (E1 140, E2 10, G12 5 GPa, nu12 0.3), h 4 mm, b/h 250, prescribed sigma. Reference N_cr = pi^2/b^2 [D11 (mb/a)^2 + 2(D12+2D66) +
+  D22 (a/(mb))^2] checked twice before the FE: A (isotropic reduction = T&G to 1e-12, m switch at (D11/D22)^(1/4) sqrt(m(m+1)), wide
+  column, Navier FSDT S -> inf), B (FD of the orthotropic PDE, 0.2 % at n=31, O(dx^2)). Section: aeroelast Laminate D = own CLT, B = 0;
+  shear lowers N_cr < 0.1 % for min(Cs, A55-uncorrected) (asserted). FE (MITC4) vs CLT: x load (m=1) 8/16/32 = +2.47/+0.58/+0.12 %,
+  observed order 2.03, Richardson -0.033 % (band 0.3 %); y load (m=2 picked, lam2/lam1 1.086) 48x48 +0.15 % (band 1 %);
+  [90/0/0/90] under y == [0/90/90/0] under x to 1e-8 (ply angle follows element e1). Reading: MITC4 K_G + composite D is a correct
+  Kirchhoff orthotropic plate where the shell is thin; no band touched. Two reference-check tolerances were mine and numerical
+  (S = 1e20, then 1e13, singular/round-off in the 3x3 Navier solve), fixed to S = 1e11, rel 1e-6; no FE band was changed.
+  Checks: file 25 passed, 2 xfailed (T7(iii) strict xfails unchanged); scripts/check.sh quick OK (75 passed, 1 xfailed).
+
+
+## Handoff 2026-10-19 (14) - START HERE: T8, then read full suite 11619070
+Supersedes (13). T7(ii) DONE (L37). Step A: SLURM 11619070 was still running (25 % at 1h05, 4 h limit): read
+logs/check/full-slurm-11619070.log tail vs scripts/known-red-full.txt (untracked); if it timed out, resubmit with a longer --time on
+sequana_cpu_bigmem; outside-registry failures need a 54a6386 worktree rerun of that test alone; no --record unless justified.
+Then T8: compute_prestress_field vs a closed-form centrifugal stress (rotating prismatic member sigma(r) = rho omega^2 (R^2 - r^2)/2,
+plus a case with non-zero B kappa: offset reference surface or unsymmetric laminate), tolerance predeclared in the docstring.
 
 ## Handoff 2026-10-19 (13) - START HERE: level-1 anchors T7(ii) and T8 (decision S9)
 Supersedes (12). Read S8-S9, L36 and the T7/T8 lines. Step A unchanged: full suite SLURM 11619070 was still RUNNING at 1h01 at close;
