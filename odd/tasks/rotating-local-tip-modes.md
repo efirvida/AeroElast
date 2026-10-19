@@ -23,7 +23,7 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 - T3 [S3] rated modal with K_G off, and with K_SP off - inline + sbatch - DONE (L4) - commit: -
 - T4 [S4] es 0.25 vs 0.15 local-mode frequencies and beam fractions - sbatch - DONE (L6) - commit: -
 - T6 [S6] (CLOSED as DIAGNOSTIC by S9, L36: lambda1 3.224 vs CCX 2.29 documented and localised in TE_FLAT slivers, L35; not an anchor) independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
-- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii); (ii) orthotropic closed form DONE (L37, all predeclared bands met) - commit: (iv) af7b8fe, (ii) see L37
+- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii); (ii) orthotropic closed form DONE (L37, all predeclared bands met) - commit: (iv) af7b8fe, (ii) 3da1cb8
 - T8 [S8, S9] analytic anchor for the centrifugal prestress recovery: compute_prestress_field (the path fixed in 41e9a16) vs a closed form (e.g. rotating prismatic member, sigma(r) = rho omega^2 (R^2 - r^2)/2, plus a case where B kappa is non-zero), tolerance predeclared in the docstring - inline - commit: -
 - T5 [S5] record finding (closures doc, S-4 docstring if a number moves), close - inline - commit: -
 
@@ -543,7 +543,8 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 
 
 ## Handoff 2026-10-19 (14) - START HERE: T8, then read full suite 11619070
-Supersedes (13). T7(ii) DONE (L37). Step A: SLURM 11619070 was still running (25 % at 1h05, 4 h limit): read
+Supersedes (13). T7(ii) DONE (L37, 3da1cb8). Session closed by the user at 19:20 (going home); 11619070 was at 60 % at
+1h47 (4 h limit, likely to finish). Resume manually once squeue shows it gone. Step A: read
 logs/check/full-slurm-11619070.log tail vs scripts/known-red-full.txt (untracked); if it timed out, resubmit with a longer --time on
 sequana_cpu_bigmem; outside-registry failures need a 54a6386 worktree rerun of that test alone; no --record unless justified.
 Then T8: compute_prestress_field vs a closed-form centrifugal stress (rotating prismatic member sigma(r) = rho omega^2 (R^2 - r^2)/2,
