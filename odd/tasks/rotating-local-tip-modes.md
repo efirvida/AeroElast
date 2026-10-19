@@ -20,7 +20,7 @@ z/L 0.94-0.97? IEA-15 official blade, es 0.25, oml and mid. Follows `odd/tasks/s
 - T3 [S3] rated modal with K_G off, and with K_SP off - inline + sbatch - DONE (L4) - commit: -
 - T4 [S4] es 0.25 vs 0.15 local-mode frequencies and beam fractions - sbatch - DONE (L6) - commit: -
 - T6 [S6] independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
-- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - inline - (i) DONE (L16), (ii)-(iv) open - commit: (i) 3f0169d
+- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - inline - (i) DONE (L16), (iii) DONE (L17, defect found), (ii)/(iv) open - commit: (i) 3f0169d
 - T5 [S5] record finding (closures doc, S-4 docstring if a number moves), close - inline - commit: -
 
 ## Log
@@ -192,6 +192,49 @@ z/L 0.94-0.97? IEA-15 official blade, es 0.25, oml and mid. Follows `odd/tasks/s
   and/or the transverse-shear stiffness of the soft-core sandwich, or the K_G-K interaction at small b/h.
   Next: (iii) sandwich with shear correction and (iv) parked TE-panel K vs CCX are now the discriminating steps;
   (ii) orthotropic CLT is the cheaper intermediate.
+
+- L17 (2026-10-19) User choice after L16: "(iii) sándwich, después (iv) (recomendado)". T7(iii) RESULT, log
+  `logs/check/tipmodes/t7-iii-sandwich.log`. Section: faces 2 x 2 mm E 20 GPa, core 30 mm E 60 MPa, nu 0.3 (isotropic
+  FSDT plate). Reference N_cr = min_m D K^4/kx^2/(1 + D K^2/S), checked twice: (A) numerical 3x3 Navier FSDT Hessian =
+  closed form to 1e-12 for m 1-4; (B) S -> inf gives Kirchhoff, b -> inf gives Allen's strut exactly, and S from two
+  definitions (own energy-equivalent quadrature 7.8895e5 vs Allen G_c d^2/t_c 7.8769e5 N/m, +0.16 %); aeroelast's
+  Python `Laminate` D11 and Cs equal the own values (1e-6 / 1e-4). Choice of b: 0.5 m rejected (shear crimping, N
+  decreases with m towards S, no finite critical m); b = 1.5 (m = 1, shear lowers N 25 %) and b = 0.75 (m = 2,
+  shear lowers N 2.25x). MITC4: b = 1.5 N 4.041/3.976/3.960e5 at 8/16/32, order 2.025, Richardson 3.9551e5 vs FSDT
+  3.1783e5 (+24.4 %): FAIL; b = 0.75 at 48x48 1.5536e6 with m = 1 vs FSDT 7.0621e5 with m = 2 (+120 %): FAIL.
+  Root cause, measured: the same FSDT with S = A55 = sum G_k t_k = 3.1462e7 (39.9 x S) gives 3.95496e5 (MITC4
+  +0.002 %) and 1.55271e6 with m = 1 (+0.06 %). The element is a correct FSDT plate; its composite shear input is
+  wrong for sandwiches: `crates/aeroelast-py/src/assembler.rs:300-311` feeds `shear_stiffness_uncorrected()` (A55)
+  to the shear block since 8cbfc0b (2026-09-28, "ADR-1 amended", Ko-Lee-Bathe 2017 p. 410 "no numerical factor").
+  For a homogeneous ply that only drops the 5/6; for a soft core it replaces the core-governed S = G_c d^2/t_c by
+  the face-governed sum, so sandwich panels lose their shear flexibility (unconservative local buckling and local
+  modes). The blade uses this path (`build_rust_properties` -> `RustLaminate` -> `MaterialSpec::Composite`).
+  Blade scope (`tools/diagnose_section_shear.py`, `logs/check/tipmodes/t7-iii-blade-shear.log`, 27 s): 676
+  multi-ply sections, A55/Cs median 1.12, max 30.6, 230 above 2 (foam-core sandwiches).
+  NOT the tip-mode cause: (a) direction, a too-stiff shear raises lam, and ours is 4.4x BELOW CCX; (b) the tip
+  panels 09_42..09_49_LP_TE_PANEL have no core, they are 2.7-3.4 mm gelcoat/glass_triax/glass_triax, b/h ~ 100+,
+  where transverse shear barely matters. Open question, not investigated: for those tip panels A55/Cs = 0.3-0.4,
+  i.e. the energy-equivalent Cs is 2.5-3x ABOVE the plain integral (a near-homogeneous stack should give ~0.83).
+  Tests: the two sandwich-vs-FSDT comparisons are `xfail(strict=True)` (band untouched); a characterization test
+  pins MITC4 = FSDT(S = A55) and must be deleted with the fix. Fixing the section shear is a contract change (ADR-1,
+  every composite result, S-2/S-4 anchors may move): needs a user decision.
+  Consequence for the tip gap: with K_G (i) and the prestress N_zz (L13) cleared, and shear irrelevant for these
+  thin panels, the remaining candidates are (1) N_xx and N_xy of the prestress, never compared with CCX (L13);
+  (2) the bending D of the thin orthotropic triax laminate, including the per-element ply-angle correction
+  (`assembler.rs` angle + angle_deg) = T7(ii); (3) curvature of the real panel (flat-plate anchors do not test it);
+  (4) T7(iv) parked panel K vs CCX.
+
+## Handoff 2026-10-19 (3) - T7(i) and (iii) done; decision pending on the section-shear defect
+Supersedes (2). Branch `feat/rotating-local-tip-modes` (from main; commits c6f0573, 3f0169d, f961694 and this one).
+State: MITC4 K_G is correct for a thin isotropic plate (L16). The composite shear block consumes A55 instead of the
+energy-equivalent Cs, which is wrong for sandwiches (L17; 230 of the 676 blade multi-ply sections), but it is NOT the
+cause of the tip-panel gap (wrong direction; the tip panels are thin monolithic glass).
+1. Resume: this section plus L16-L17. `mem_search "mitc4-panel-buckling-gap"`. Load `.pi/skills/fem-shell/SKILL.md`.
+2. User decision pending: fix the section-shear input (ADR-1 amended, 8cbfc0b) now, as its own feature with anchor
+   re-measurement (S-2, S-4), or defer it and keep the strict xfails.
+3. Tip gap, cheapest first: (1) compare N_xx and N_xy per element, ours vs CCX, at z/L 0.94-0.97 (T6 data, L13 compared only
+   N_zz); (2) T7(ii) orthotropic CLT plate with a glass_triax layup and a rotated ply angle (tests the per-element
+   angle correction); (3) T7(iv) parked TE-panel K vs CCX. Then T5.
 
 ## Handoff 2026-10-19 (2) - T1-T4, T6 done; T7 next in a new session
 Supersedes the handoff below. State: K_G alone causes the tip local modes. The prestress is identical to

@@ -40,10 +40,11 @@ pytest.importorskip("petsc4py", reason="PETSc not available")
 from scipy.sparse.linalg import LinearOperator, eigs, splu  # noqa: E402
 
 from aeroelast.core.assembler import MeshAssembler  # noqa: E402
-from aeroelast.core.material import IsotropicMaterial  # noqa: E402
+from aeroelast.core.laminate import Laminate, Ply  # noqa: E402
+from aeroelast.core.material import IsotropicMaterial, OrthotropicMaterial  # noqa: E402
 from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, Node  # noqa: E402
 from aeroelast.core.mesh.model import MeshModel  # noqa: E402
-from aeroelast.core.properties import ShellProperty  # noqa: E402
+from aeroelast.core.properties import CompositeShellProperty, ShellProperty  # noqa: E402
 from aeroelast.elements import ElementFamily  # noqa: E402
 
 E, NU, B_EDGE, H = 210e9, 0.3, 1.0, 0.01
@@ -117,10 +118,15 @@ def _to_scipy(mat) -> sp.csr_matrix:
     return sp.csr_matrix((data, indices, indptr), shape=mat.getSize())
 
 
-def mitc4_plate_buckling(nx: int, ny: int, a: float, b: float, load: str = "xx", n_modes: int = 4):
-    """Lowest buckling factors and mode shapes (w at the nodes) of the SS plate, N_cr = lam sigma0 h."""
+def mitc4_plate_buckling(nx: int, ny: int, a: float, b: float, load: str = "xx", n_modes: int = 4, prop=None):
+    """Lowest buckling factors and mode shapes (w at the nodes) of the SS plate, N_cr = lam sigma0 h.
+
+    ``prop`` defaults to the isotropic steel plate of thickness ``H``; a ``CompositeShellProperty``
+    gives the laminate case, with h its total thickness.
+    """
     mesh = _plate_mesh(nx, ny, a, b)
-    prop = ShellProperty(material=IsotropicMaterial(name="steel", E=E, nu=NU, rho=7800.0), thickness=H)
+    if prop is None:
+        prop = ShellProperty(material=IsotropicMaterial(name="steel", E=E, nu=NU, rho=7800.0), thickness=H)
     asm = MeshAssembler(mesh=mesh, model={"elements": {"element_family": ElementFamily.SHELL,
                                                        "properties": {"plate": prop}}})
     dpn, tol = asm.dofs_per_node, 1e-9 * max(a, b)
@@ -250,3 +256,171 @@ def test_mitc4_rectangular_plate_picks_two_half_waves():
     assert half_waves(w[0], xyz, 0, B_EDGE / 2) == 2
     assert half_waves(w[0], xyz, 1, a / 4) == 1  # x = a/2 is a nodal line of the m = 2 mode
     assert abs(ncr / exact - 1.0) < 1e-2
+
+
+# ---------------------------------------------------------------------------
+# T7 (iii): soft-core sandwich, first-order shear deformation (FSDT) reference
+# ---------------------------------------------------------------------------
+#
+# Symmetric sandwich, isotropic faces and core with one Poisson ratio, so D11 = D22 = D, D12 = nu D and
+# the section is an isotropic FSDT plate with bending stiffness D (CLT) and transverse-shear stiffness S.
+# SS plate, uniaxial N along x, w = sin(kx x) sin(ky y), kx = m pi/a, ky = pi/b, K^2 = kx^2 + ky^2:
+#
+#     N_cr = min_m  D K^4 / kx^2 / (1 + D K^2 / S)
+#
+# (Engesser form; for a wide plate it is Allen's strut 1/N = 1/N_E + 1/S). Checked twice: A, a numerical
+# Navier solve of the 3x3 FSDT energy Hessian in (w, psi_x, psi_y); B, its limits (S -> inf gives
+# Kirchhoff, b -> inf gives Allen) and S itself from two definitions, the energy-equivalent
+# S = D^2 / int Phi^2/G dz (own quadrature, the definition MITC4 consumes from the laminate) and Allen's
+# antiplane-core S = G_c d^2/t_c. Accepted FE tolerances (fixed before measuring): b = 1.5 m (m = 1,
+# shear lowers N 25 %) monotone over 8/16/32, order in [1.5, 2.5], Richardson within 0.5 %, 32x32 within
+# 1 %; b = 0.75 m (m = 2, shear lowers N 2.25x) within 1 % at 48x48 with m = 2 picked. The S spread
+# (0.16 %) moves N by < 0.1 %.
+
+E_FACE, T_FACE, E_CORE, T_CORE = 20e9, 0.002, 60e6, 0.030
+SANDWICH = ((E_FACE, T_FACE), (E_CORE, T_CORE), (E_FACE, T_FACE))
+H_SANDWICH = sum(t for _, t in SANDWICH)
+
+
+def sandwich_section(n_quad: int = 200001) -> tuple[float, float, float]:
+    """(D, S_energy, S_allen) of SANDWICH, own implementation (independent of aeroelast.core.laminate)."""
+    q = lambda e: e / (1.0 - NU**2)  # noqa: E731
+    zb = np.cumsum([0.0] + [t for _, t in SANDWICH]) - H_SANDWICH / 2.0
+    d = sum(q(e) * (zb[i + 1] ** 3 - zb[i] ** 3) / 3.0 for i, (e, _) in enumerate(SANDWICH))
+    z = np.linspace(-H_SANDWICH / 2.0, H_SANDWICH / 2.0, n_quad)
+    e_z = np.where(np.abs(z) < T_CORE / 2.0, E_CORE, E_FACE)
+    integrand = q(e_z) * z
+    phi = -np.concatenate([[0.0], np.cumsum(0.5 * (integrand[1:] + integrand[:-1]) * np.diff(z))])
+    s_energy = d**2 / np.trapezoid(phi**2 / (e_z / (2.0 * (1.0 + NU))), z)
+    g_core = E_CORE / (2.0 * (1.0 + NU))
+    return float(d), float(s_energy), g_core * (T_CORE + T_FACE) ** 2 / T_CORE
+
+
+def fsdt_ncr_mode(a: float, b: float, d: float, s: float, m: int) -> float:
+    kx, ky = m * np.pi / a, np.pi / b
+    k2 = kx**2 + ky**2
+    return d * k2**2 / kx**2 / (1.0 + d * k2 / s)
+
+
+def fsdt_ncr(a: float, b: float, d: float, s: float, m_max: int = 20) -> tuple[float, int]:
+    values = [fsdt_ncr_mode(a, b, d, s, m) for m in range(1, m_max + 1)]
+    i = int(np.argmin(values))
+    return values[i], i + 1
+
+
+def fsdt_navier_ncr(a: float, b: float, d: float, s: float, m: int, n: float = 1.0) -> float:
+    """Check A: smallest N of the FSDT energy Hessian in (W, X, Y) for one (m, n) Navier term."""
+    kx, ky = m * np.pi / a, n * np.pi / b
+    c = (1.0 - NU) / 2.0
+    k_bend = d * np.array([[0.0, 0.0, 0.0],
+                           [0.0, kx**2 + c * ky**2, (NU + c) * kx * ky],
+                           [0.0, (NU + c) * kx * ky, ky**2 + c * kx**2]])
+    k_shear = s * np.array([[kx**2 + ky**2, kx, ky], [kx, 1.0, 0.0], [ky, 0.0, 1.0]])
+    k_geo = np.diag([kx**2, 0.0, 0.0])
+    return float(1.0 / np.linalg.eigvals(np.linalg.solve(k_bend + k_shear, k_geo)).real.max())
+
+
+def sandwich_property() -> CompositeShellProperty:
+    def iso(name, e):
+        g = e / (2.0 * (1.0 + NU))
+        return OrthotropicMaterial(name=name, E=(e, e, e), G=(g, g, g), nu=(NU, NU, NU), rho=1000.0)
+
+    face, core = iso("face", E_FACE), iso("core", E_CORE)
+    plies = [Ply(face, T_FACE, 0.0), Ply(core, T_CORE, 0.0), Ply(face, T_FACE, 0.0)]
+    return CompositeShellProperty(laminate=Laminate(plies))
+
+
+@pytest.mark.parametrize("b", [0.75, 1.5])
+def test_sandwich_reference_check_a_navier_fsdt(b):
+    d, s, _ = sandwich_section()
+    for m in range(1, 5):
+        assert fsdt_navier_ncr(b, b, d, s, m) == pytest.approx(fsdt_ncr_mode(b, b, d, s, m), rel=1e-12)
+
+
+def test_sandwich_reference_check_b_limits_and_shear_stiffness():
+    d, s_energy, s_allen = sandwich_section()
+    assert s_energy / s_allen - 1.0 == pytest.approx(0.0, abs=5e-3)  # measured +0.16 %
+    for b in (0.75, 1.5):  # S -> inf: Kirchhoff (the reference already checked in A/B above)
+        k, _ = ss_buckling_coefficient(1.0)
+        assert fsdt_ncr(b, b, d, 1e20)[0] == pytest.approx(k * np.pi**2 * d / b**2, rel=1e-10)
+    kx = np.pi  # a = 1, b -> inf: Allen's sandwich strut
+    allen = 1.0 / (1.0 / (d * kx**2) + 1.0 / s_allen)
+    assert fsdt_navier_ncr(1.0, 1e6, d, s_allen, 1, n=1e-9) == pytest.approx(allen, rel=1e-9)
+    assert fsdt_ncr(1.5, 1.5, d, s_energy)[1] == 1
+    assert fsdt_ncr(0.75, 0.75, d, s_energy)[1] == 2
+
+
+def test_sandwich_laminate_section_matches_reference():
+    """The input MITC4 consumes: aeroelast's CLT D and energy-equivalent Cs vs the own implementation."""
+    d, s_energy, _ = sandwich_section()
+    lam = sandwich_property().laminate
+    assert lam.total_thickness == pytest.approx(H_SANDWICH, rel=1e-12)
+    assert lam.D[0, 0] == pytest.approx(d, rel=1e-6)
+    assert lam.Cs[0, 0] == pytest.approx(s_energy, rel=1e-4)
+    assert lam.Cs[1, 1] == pytest.approx(s_energy, rel=1e-4)
+
+
+_SECTION_SHEAR_DEFECT = pytest.mark.xfail(
+    strict=True,
+    reason="T7(iii) L17: the MITC4 composite shear block consumes A55 = sum G_k t_k "
+    "(crates/aeroelast-py/src/assembler.rs, ADR-1 amended, 8cbfc0b), 40x the sandwich S; "
+    "MITC4 then equals FSDT with S = A55 (test_mitc4_sandwich_equals_fsdt_with_the_shear_it_consumes)",
+)
+
+
+@_SECTION_SHEAR_DEFECT
+def test_mitc4_sandwich_plate_m1_converges_to_fsdt():
+    b = 1.5
+    d, s, _ = sandwich_section()
+    exact, _ = fsdt_ncr(b, b, d, s)
+    ncr, rows = {}, []
+    for n in (8, 16, 32):
+        lam, res, w, xyz, _ = mitc4_plate_buckling(n, n, b, b, prop=sandwich_property())
+        ncr[n] = lam[0] * SIGMA0 * H_SANDWICH
+        rows.append(f"n={n:2d} N_cr={ncr[n]:.6e} err={ncr[n] / exact - 1.0:+.4%} res={res[0]:.1e} "
+                    f"m={half_waves(w[0], xyz, 0, b / 2)}")
+        assert res[0] < 1e-8
+    print(f"\nsandwich b={b}: FSDT N_cr = {exact:.6e} N/m (Kirchhoff {4 * np.pi**2 * d / b**2:.6e})\n"
+          + "\n".join(rows))
+    assert half_waves(w[0], xyz, 0, b / 2) == 1
+    err = {n: abs(ncr[n] / exact - 1.0) for n in ncr}
+    assert err[32] < err[16] < err[8]
+    order = np.log2(abs(ncr[8] - ncr[16]) / abs(ncr[16] - ncr[32]))
+    richardson = ncr[32] + (ncr[32] - ncr[16]) / (2.0**order - 1.0)
+    print(f"observed order {order:.3f}, Richardson {richardson:.6e} ({richardson / exact - 1.0:+.4%})")
+    assert 1.5 <= order <= 2.5
+    assert abs(richardson / exact - 1.0) < 5e-3
+    assert err[32] < 1e-2
+
+
+@_SECTION_SHEAR_DEFECT
+def test_mitc4_sandwich_plate_m2_shear_dominated():
+    b = 0.75
+    d, s, _ = sandwich_section()
+    exact, m = fsdt_ncr(b, b, d, s)
+    lam, res, w, xyz, _ = mitc4_plate_buckling(48, 48, b, b, prop=sandwich_property())
+    ncr = lam[0] * SIGMA0 * H_SANDWICH
+    print(f"\nsandwich b={b}: FSDT N_cr = {exact:.6e} (m={m}), MITC4 48x48 {ncr:.6e} "
+          f"({ncr / exact - 1.0:+.4%}), m_FE={half_waves(w[0], xyz, 0, b / 4)}, lam2/lam1={lam[1] / lam[0]:.4f}")
+    assert res[0] < 1e-8
+    assert half_waves(w[0], xyz, 0, b / 4) == 2
+    assert abs(ncr / exact - 1.0) < 1e-2
+
+
+@pytest.mark.parametrize(("b", "n", "m_expected"), [(1.5, 32, 1), (0.75, 48, 1)])
+def test_mitc4_sandwich_equals_fsdt_with_the_shear_it_consumes(b, n, m_expected):
+    """Characterization of the L17 defect: the element is a correct FSDT plate for the S it is given.
+
+    With S = A55 (``Laminate.shear_stiffness_uncorrected``) the same reference matches MITC4 (Richardson
+    +0.002 % at b = 1.5, +0.06 % at 48x48 for b = 0.75), so the error is the section input, not the
+    element. Delete this test when the composite shear block receives the energy-equivalent ``Cs``: the
+    two xfail tests above then pass and this one fails.
+    """
+    d, _, _ = sandwich_section()
+    a55 = float(sandwich_property().laminate.shear_stiffness_uncorrected()[0, 0])
+    expected, m = fsdt_ncr(b, b, d, a55)
+    lam, res, w, xyz, _ = mitc4_plate_buckling(n, n, b, b, prop=sandwich_property())
+    assert m == m_expected
+    assert res[0] < 1e-8
+    assert half_waves(w[0], xyz, 0, b / 4) == m_expected
+    assert lam[0] * SIGMA0 * H_SANDWICH / expected - 1.0 == pytest.approx(0.0, abs=5e-3)
