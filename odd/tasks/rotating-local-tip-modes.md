@@ -462,6 +462,63 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   test of the procedure (prescribe OUR eigenmode and a smooth analytic field in both codes; require K_ours/K_ccx to reproduce the
   0.84-1.0 seen before) before any per-element localisation.
 
+- L34 (2026-10-19) Step B self-test of the prescribed-field K-energy procedure (L33), BEFORE any localisation.
+  Script logs/check/tipmodes/t7-v/kselftest.py (+kselftest-dev.sbatch), SLURM 11619083 (sequana_cpu_dev, --ntasks=16, 3m15s, 0:0;
+  tree 9a712de, no code change; the log lacks the revision because git is not on PATH before aeroenv.sh), results
+  selftest-11619083/{ours.json,split.json}. Fields: OUR1 = production buckle mode 1 (logs/check/kgrevalid/buckle-oml-025-kgfix.npz,
+  lambda 3.22438679), BEAM = constant-curvature flap bending with plane sections (u_y = k s^2/2, u_z = -k y s), CCXB1-3 / CCXF1 = CCX
+  modes from the frd INCLUDING midside nodes. CCX midside variants: free (corners only, midsides relax = L32), edge (midside = mean of
+  its two corners), full (exact midside). Ours: corner translations prescribed, rotations condensed. Criteria fixed before running:
+  P1 Rayleigh of our mode = 3.224387; P2 CCX full = 1 +-1 % (normalisation); P3 BEAM ratio 1.00 +-0.02; P4 OUR1 ratio in [0.84, 1.19]
+  (L20 compliance 0.844 <-> stiffness 1.185).
+  RESULTS: P1 PASS 3.2243867889 vs npz 3.2243867889 (OUR1-cond = OUR1-own to 1e-12: K_G acts on translations only, so our eigenmode
+  rotations are already K-condensed). P3 PASS: K_ours/K_ccx BEAM free 1.0016, full 0.9997, edge 0.9995. P4 PASS: OUR1 free 0.9938
+  (ours 8.8376 vs CCX 8.8926): on OUR mode shape both codes agree on K within 0.6 %. P2 FAIL by +3 %: CCX full = 1.0305 / 1.0346 /
+  1.0329 for B1/B2/B3 (free 1.0097 / 1.0238 / 1.0227); a ~3 % CCX-side systematic on its own eigenfields remains unexplained (frd 6-digit
+  rounding or 2D-node BC vs expanded-solid field; not chased: it cannot touch a factor 3-8). CCXF1: free 13.41, full 13.60, ours 13.535.
+  'edge' is NOT a valid comparator on curved geometry: CCX on OUR OWN mode with chord-averaged midsides costs 113 vs 8.89 (x12.7) -
+  averaging corner displacements of a rotation-like field puts the midside off its true displacement and injects membrane strain.
+  Q3 answered: K_ccx(free) ~ 1.01-1.02 on the buckle modes is the normalisation of CCX buckling eigenvectors, phi^T K0 phi = 1 (ARPACK
+  buckling mode, B = K0; if the base stress were in B the value would be 1 + 1/lambda = 1.44 for mode 1). Not a subset artefact: the
+  corner-only RF sum equals the all-node sum (free midside |RF| <= 8.2e-7); extra_nodes 66471 = the midside count, all with zero RF.
+  VERDICT: the 'free' procedure (min K energy given corner translations, interior kinematics relaxed in each code) passes the user's
+  self-test (our mode 0.994, smooth field 1.002); the L32 ratios 2.93 / 7.74 / 4.03 are therefore a valid measurement of THAT quantity.
+  Reading (hypothesis, not yet localised): CCX's buckle modes are cheap for S8R given corner values but 3-8x dearer for MITC4, while our
+  mode is equally priced by both; CCX-edge/CCX-full = 9.9 / 8.0 / 19.9 shows the CCX modes carry sub-element (midside) content.
+  Next: per-element localisation, SLURM 11619087 (klocal-dev.sbatch, stages elem/local in kselftest.py).
+
+- L35 (2026-10-19) Step B localisation (allowed: the 'free' procedure passed its self-test, L34). SLURM 11619087
+  (klocal-dev.sbatch, sequana_cpu_dev, --ntasks=6, 2m41s, 0:0); split/local re-run on the login node after a parser fix (the ELSE block
+  broke the RF parser; heavy stages were fine). Output logs/check/tipmodes/t7-v/klocal-11619087/{ours-elem.npz,split.json,local.json}.
+  Method: same corner-translation field in both codes ('free'); CCX per-element *EL PRINT ELSE (= 1/2 uKu, doubled), ours per element
+  from the contiguous assemble_k COO blocks (asserted: block count, each block touches exactly its own nodes), matched by corner-node set.
+  Closure checks: ours sum-per-element = global to 1e-12; CCX 2*sum ELSE = sum RF.u (B2 1.0238 both).
+  Controls: BEAM every set 1.001-1.018 and every z/L band 0.992-1.015; OUR1 total 0.994, TE_PANEL 1.056, SPAR 1.057, TE_FLAT 1.515,
+  TE_REINF 0.527, SW 0.716 (compensating moderate differences on our own mode).
+  CCX buckle modes, K_ours/K_ccx by set (share of ours / share of CCX):
+    B1 total 2.93: TE_FLAT 116 (0.395 / 0.010), TE_PANEL 1.67 (0.485 / 0.855), TE_REINF 2.24; z/L 0.94-0.97 carries 99 %.
+    B2 total 7.74: TE_FLAT 334 (0.487 / 0.011), TE_PANEL 3.59 (0.404 / 0.871), TE_REINF 5.60, SPAR 8.6, LE 1901 (1 % of ours).
+    B3 total 4.03: TE_FLAT 23 (0.579 / 0.102), TE_REINF 2.27 (0.298 / 0.531), TE_PANEL 1.33; z/L 0.8-0.9 carries 99 %.
+  Top-excess elements are all LP_TE_FLAT (B1: 947/973/921 at z/L 0.962; B2: 1025/1055/999 at 0.959; B3: 4271/4303 at 0.838).
+  Geometry: those TE_FLAT elements are slivers 1.25 x 126 mm (B3 region 1.68 x 141 mm), laminate thickness 1.0 mm (width ~ thickness,
+  aspect ratio ~100), flat (warp 0). The CCX modes impose on them eps22 ~ 2-3e-4, in-plane shear ~ 1e-3 and an across-width normal
+  relative displacement dn/W ~ 0.01-0.03 (a rotation of the strip); OUR1 imposes the same order (7.6e-4 / 5.4e-4 / 2.5e-2), yet there
+  ours/CCX on TE_FLAT is only 1.5. A membrane estimate of uKu for such an element (E~2e10, h 1e-3, eps 1e-3, area 1.6e-4 m^2) is ~3e-3;
+  ours carries 0.77 on element 1025 (B2): the excess is not membrane energy of the strip.
+  READING: the 3-8x on CCX shapes is localised in the TE_FLAT slivers (40-58 % of our energy vs 1-10 % of CCX's), plus a secondary 1.3-3.6x
+  in TE_PANEL/TE_REINF next to them. Which part of our element (MITC4+D drill-membrane of Ko, Bathe & Zhang 2025, transverse shear, or
+  bending) carries it is NOT determined; nor is which code is right on a 1.25 mm wide, 1 mm thick shell (neither is a valid shell there).
+  This is hypothesis (iv) TE_FLAT (lambda1 bracket 2.85-3.22, L29-L30), now with a localised target. No production change, no band touched.
+
+## Handoff 2026-10-19 (12) - START HERE: hypothesis (iv) TE_FLAT slivers, with the localised target of L35
+Supersedes (11). Read L34-L35 only. Step A: full suite SLURM 11619070 (sequana_cpu, e4473ee) was still RUNNING at close; read
+logs/check/full-slurm-11619070.log tail vs scripts/known-red-full.txt (untracked); outside-registry failures need a 54a6386 worktree
+rerun of that test alone; no --record unless justified. Step B is closed (procedure validated, excess localised). Next (iv): split OUR
+energy on the TE_FLAT slivers into membrane / drill / transverse shear / bending (element-level, e.g. ours-elem with the drill term
+switched off or K_e of element 1025 decomposed), and test the sliver directly: lambda1 with the TE_FLAT strip merged/removed near the
+tip (both codes) - the L29 bracket 2.85-3.22 is the prior. Tools: logs/check/tipmodes/t7-v/kselftest.py (stages gen/ccx/ours/split/
+elem/local), klocal-dev.sbatch. sequana_cpu_dev accepts only ONE submitted job (maxsubmit 1): no arrays there.
+
 ## Handoff 2026-10-19 (11) - START HERE: read full suite 11619070, then localize the K-energy excess
 Supersedes (10). Read L32 only. Step A: read tail of logs/check/full-slurm-11619070.log (check.sh now prints ERROR lines and fails on them); compare with scripts/known-red-full.txt (untracked); any failure outside it needs a 54a6386 worktree rerun of that test alone; no --record unless the run justifies it (the stale entry test_blade_modal_gap_converges_with_mesh is one reason).
 Step B next (see L33: the 3-8x is a suspect measurement, validate the procedure FIRST with our own eigenmode and a smooth field in both codes): then localize any excess. Add `*EL PRINT, ELSET=T6ALL / ENER` to the kenergy deck (per-element strain energy in CCX) and compute our per-element energy (Rust element K x condensed phi), then compare by element set (TE_FLAT, TE_REINF, TE_PANEL, SW, rest) and by z/L. Also check whether CCX phi translations are mutually consistent at midside nodes. Then hypotheses (iii) MITC4 vs S8R coupling/shear path, (iv) TE_FLAT strip, (v) D E2. SLURM rules unchanged; TMPDIR is $SCRATCH/tmp (check.sh sets its own).
