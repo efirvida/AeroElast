@@ -21,7 +21,7 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 - T3 [S3] rated modal with K_G off, and with K_SP off - inline + sbatch - DONE (L4) - commit: -
 - T4 [S4] es 0.25 vs 0.15 local-mode frequencies and beam fractions - sbatch - DONE (L6) - commit: -
 - T6 [S6] independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
-- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); (ii) next, delegated worker at context backstop - commit: (iv) this parked-panel work unit
+- T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii) - commit: (iv) af7b8fe
 - T5 [S5] record finding (closures doc, S-4 docstring if a number moves), close - inline - commit: -
 
 ## Log
@@ -325,6 +325,53 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   Bounded numerical correction: target largest REAL inverse eigenvalues (nu=1/lambda), not magnitude,
   to seek the smallest positive factor; log spectrum and persist fixed-mode energy before extraction.
   Matrices, stresses and free DOFs unchanged. Corrected experiment pending.
+
+- L24 (2026-10-19) Explicit session stop, user verbatim: "haz el cierre para analizar resultados en otra sesion q ya esta esta con el contexto muy largo". No further physical result analysis in this session.
+- L25 (2026-10-19) During closure, corrected stress-swap job 11618827 COMPLETED, wrapper exit 0
+  after 3m22s. Results deliberately UNREAD/UNINTERPRETED, not a physics PASS. Artifacts:
+  logs/check/tipmodes/t7-iv/stress-swap-11618827/{result.json,stress-fields.npz}; stdout:
+  logs/check/tipmodes/t7-iv/stress-swap-11618827.log. Reproducible submission script:
+  logs/check/tipmodes/t7-iv/stress-swap-dev.sbatch (ignored local artifact, not tracked source).
+  Local work-unit commit af7b8fe holds the parked-panel diagnostic, its 7 focused tests and L18-L23.
+  It is a coherent 612-addition/1-deletion unit, accepted under the user's single-pr delivery choice;
+  do not count inherited local-main commits as part of this feature. No push or PR created.
+
+## Handoff 2026-10-19 (5) - STOPPED by user; analyze stress-swap 11618827 next
+Supersedes (4). One objective next session: identify the physical cause of the 0.52 vs 2.29 buckling gap,
+not add tests or fix section shear speculatively. Branch feat/rotating-local-tip-modes; diagnostic commit af7b8fe;
+feature base local main 29897f1. Delivery single-pr; no publishing authorized.
+
+**Established physical evidence** (L20, L23):
+- Parked 09_46 patch under one identical discrete load: W_MITC4/W_CCX = 0.843789 (MITC4 less compliant).
+  This does not clear K for the blade buckling shape; no physical parity band exists.
+- The FULL prestress is not the same. Transverse mean N ours/CCX in N/m: panel 46 -430.12/-106.86;
+  panel 47 -418.63/+12.12. Matching only N_zz hid this difference. Frames, element mapping and stored
+  N_zz reconstruction were checked (errors 0 m, 1.21e-16 and 3.76e-8 respectively).
+- Recovery feeding our K_G uses A*epsilon/h, omitting B*kappa from the full unsymmetric laminate
+  resultant. This is a candidate implementation defect, NOT yet the demonstrated cause of the gap.
+- Sandwich section-shear discrepancy is separate; it does not establish the cause in these no-core tip
+  panels. Do not modify production shear or any acceptance band.
+
+**First action**: read this handoff plus L22-L25, recall `full-prestress-tensor`, then inspect
+`logs/check/tipmodes/t7-iv/stress-swap-11618827/result.json` and its stdout. The job exited 0 but its values
+were NOT read before closing. Same K and free DOFs in all cases:
+1. `ours`: confirm baseline lambda ~0.5176621298 and acceptable residuals.
+2. `ccx_all`: quantify change with the complete CCX tangent prestress.
+3. `ccx_transverse_only`: quantify the effect of replacing just the transverse component globally.
+4. `ccx_transverse_tip_only`: same replacement only in 09_42..49_LP_TE_PANEL.
+Compare the original-mode destabilizing-energy ratios and Rayleigh factors as well as the new lowest
+positive factors; mode switching is not proof of a mechanism. If stress substitution explains the gap,
+next isolate why the stress differs (quantify B*kappa, rather than assuming it). If not, examine remaining
+stress/geometric-stiffness effects. T7(ii) orthotropic anchor and T5 closure are still open.
+
+**Numerical history / limits**: 11618824 failed at positive-factor selection after reproducing the baseline;
+the corrected job uses largest-real inverse eigenvalues, not largest-magnitude. No matrices/stresses were
+changed by that correction. Panel job 11618805 failed JSON serialization, fixed with a realistic regression;
+11618812 produced the static result. Diagnostic checks: 7 passed, Ruff clean, quick 75 passed/1 xfailed;
+existing sandwich 2 strict xfails remain. No Rust rebuild/full suite (production unchanged). Native assessment
+was unavailable due undeclared untracked paths; no review approval claimed. scripts/known-red-full.txt is
+unrelated and untouched. Scientific logs/output remain local ignored artifacts; preserve them.
+Engram stores this active handoff and discoveries; full historical-document mirror remains pending.
 
 ## Handoff 2026-10-19 (4) - T7(iv) measured; packaging resolved in L21
 Supersedes (3). Branch feat/rotating-local-tip-modes, base local main 29897f1, HEAD 968d20d.
