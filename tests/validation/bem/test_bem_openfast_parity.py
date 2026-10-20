@@ -30,7 +30,10 @@ The shipped IEA primary file enables unsteady aerodynamics (`UA_Mod=3`, a
 Beddoes-Leishman model) and tower influence/shadow (`TwrPotent=1`,
 `TwrShadow=1`, `TwrAero=True`).  AeroElast's BEM is quasi-steady and tower-free,
 so those are set to `0`/`False` and the BEM stays legacy (`Wake_Mod=1`,
-`BEM_Mod=1`).  The override list is the record of that choice.
+`BEM_Mod=1`, `DBEMT_Mod=0`).  The override list records that choice and the
+F6 correction: the prior harness retained the deck's dynamic inflow.
+
+The measured-margin numbers below are OpenFAST 4.2.1 history, not v5 measurements.
 
 Measured margins (V = 8 / 9 / 12 m/s, 7.56 rpm, 0 deg pitch, no shear)
 ----------------------------------------------------------------------
@@ -247,14 +250,14 @@ def test_yaw_and_shear_match_aerodyn(bem_yaw_shear, case_index):
         abs(err_thrust),
         tol=TOL_A2_THRUST,
         kind="code",
-        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck",
         what="thrust, yaw and shear case",
     )
     assert_residual_below(
         abs(err_torque),
         tol=TOL_A2_TORQUE,
         kind="code",
-        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck",
         what="torque, yaw and shear case",
     )
 
@@ -305,14 +308,14 @@ def test_bem_with_repo_default_polars_matches_aerodyn(
         abs(err_thrust),
         tol=TOL_POLAR_SET,
         kind="code",
-        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck",
         what="thrust with the repository's own polars",
     )
     assert_residual_below(
         abs(err_torque),
         tol=TOL_POLAR_SET,
         kind="code",
-        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck",
         what="torque with the repository's own polars",
     )
 
@@ -469,14 +472,14 @@ def test_rotor_performance_matches_aerodyn(bem_parity, case_index):
         abs(err_thrust),
         tol=TOL_THRUST,
         kind="code",
-        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck",
         what="rotor thrust",
     )
     assert_residual_below(
         abs(err_torque),
         tol=TOL_TORQUE,
         kind="code",
-        reference_name="OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck",
         what="rotor torque",
     )
 
@@ -509,14 +512,14 @@ def test_spanwise_loads_match_aerodyn(bem_parity, case_index):
         atol=TOL_ALPHA_DEG,
         unit="deg",
         kind="code",
-        reference_name="the official AeroDyn polar tables, interior stations",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations",
         what="interior angle of attack",
     )
     assert_residual_below(
         mean_cn,
         tol=TOL_CN_MEAN,
         kind="code",
-        reference_name="the official AeroDyn polar tables, interior stations",
+        reference_name="OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations",
         what="interior mean normal force coefficient",
     )
 

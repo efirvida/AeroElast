@@ -27,7 +27,7 @@ Audit work: produces measured verdict proposals; the maintainer closes or reopen
   tool + test-first in `tools/validation_matrix.py`, roadmap mirror amended, issue text proposed - inline
 - [-] T4-old (D1) second-arbiter search: dropped by L3/L4 (the official model is the arbiter)
 - [x] T5 (S2, S3) Predeclared verdict criterion, written before any re-measurement - inline
-- [ ] T6 (S2, D3) Adapt the AeroDyn driver writer to OpenFAST v5.0.0 (test-first: v5 setup fails today) - inline
+- [x] T6 (S2, D3) Adapt the AeroDyn driver writer to OpenFAST v5.0.0 (test-first: v5 setup fails today) - inline
 - [ ] T7 (S2) Re-measure group 11 + imported rows at the audited revision with v5 - SLURM dev
 - [ ] T8 (S2, S4) Verdicts in `contract.yaml` + closure section; issue comment text proposed, not posted
 
@@ -106,4 +106,9 @@ The 4.2.1 numbers in the store (1d9a665) are known; they are history, not the ba
   0 errors / 0 warnings; `status` 0 undeclared; L4 unaudited 23, absent 0; 11 node ids collect. Note for T8: V-01 adds 14
   `atol` coefficient bounds; K6 already makes V-01 `unarbitrated` whatever e; the Viterna 1e-10 bound is a round-off check of
   an implementation against its closed form.
+- L8 (agent, T6 evidence, worker): v5 driver gets SeaState (`CompSeaSt=0`); temp primary drops `Buoyancy`, adds tower
+  `TwrCp=TwrCa=0`, sets `DBEMT_Mod=0` (F6); `UA_Mod=0`, tower off, `Wake_Mod=1`, `BEM_Mod=1`, skew/tip/hub loss unchanged;
+  no output channel renamed; vendored deck untouched. Parity file with v5: 13 passed, 1 xfailed (NeuralFoil, documented)
+  (`logs/check/b4/T6-green-v5.log`). These are the K1 numbers at dt as written; K4 (needs max |alpha_AeroDyn|) and K5 (dt/2)
+  are T7. Slice boundary: slice 1 = dbaa250..ae235f6 (opening, arbiter rule, imports); slice 2 = T6 onwards.
 
