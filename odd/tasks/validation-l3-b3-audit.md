@@ -679,7 +679,7 @@ pending decisions: (a) register the K_G anchors as rows, (b) PR split).
   (K_G anchors of 41e9a16 -> L1), tests/validation/benchmarks/test_analytic_beam_closed_section.py (43dce4d thin-walled box closed
   forms -> L2 scope "thin-walled sections against closed forms"). New groups, rows extracted, measured with `regression --write`,
   verdicts only where an independent analytical arbiter is in the test; any unsupported row is reported, never forced trusted.
-- [ ] **DELIVERY** One PR feat/rotating-local-tip-modes -> main (everything unmerged: local main is contained in the branch, all
+- [x] **DELIVERY** DONE 2026-10-19: PR #43 merged into main with merge commit 8de3521 (branch deleted). One PR feat/rotating-local-tip-modes -> main (everything unmerged: local main is contained in the branch, all
   other remote branches are already in origin/main), full-suite measurement first (the branch touches crates/), then merge.
 
 REG-1 result checks (2026-10-19): `check` 289 rows / 399 comparisons, 0 errors; `status` 0 ungrouped validation files;
