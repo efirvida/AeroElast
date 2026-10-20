@@ -28,7 +28,7 @@ Audit work: produces measured verdict proposals; the maintainer closes or reopen
 - [-] T4-old (D1) second-arbiter search: dropped by L3/L4 (the official model is the arbiter)
 - [x] T5 (S2, S3) Predeclared verdict criterion, written before any re-measurement - inline
 - [x] T6 (S2, D3) Adapt the AeroDyn driver writer to OpenFAST v5.0.0 (test-first: v5 setup fails today) - inline
-- [ ] T7 (S2) Re-measure group 11 + imported rows at the audited revision with v5 - SLURM dev
+- [x] T7 (S2) Re-measure group 11 + imported rows at the audited revision with v5 - SLURM dev
 - [ ] T8 (S2, S4) Verdicts in `contract.yaml` + closure section; issue comment text proposed, not posted
 
 ## Entry measurement (T1, 2026-10-20, 2b95e5f, read-only)
@@ -111,4 +111,19 @@ The 4.2.1 numbers in the store (1d9a665) are known; they are history, not the ba
   no output channel renamed; vendored deck untouched. Parity file with v5: 13 passed, 1 xfailed (NeuralFoil, documented)
   (`logs/check/b4/T6-green-v5.log`). These are the K1 numbers at dt as written; K4 (needs max |alpha_AeroDyn|) and K5 (dt/2)
   are T7. Slice boundary: slice 1 = dbaa250..ae235f6 (opening, arbiter rule, imports); slice 2 = T6 onwards.
+- L9 (agent, T7 evidence, worker; `tools/b4_l4_measure.py`, logs `logs/check/b4/T7/`): control at dt-scale 1 reproduces 48/48
+  T6 printed lines. Errors (signed fraction, dt -> dt/2): A1 thrust +0.00449/+0.00399/+0.00363, torque -0.00672/-0.00067/
+  +0.00828; A2 thrust +0.00347/+0.00159, torque -0.00367/-0.00258; A3 thrust +0.0118/+0.0140/+0.0200, torque -0.0138/
+  +0.0006/+0.0215; K5 deltas for all of these <= 0.0075 pp (converged). Viterna like-for-like dCl 0.00233, dCd 0.00128 (no
+  AeroDyn run). Spanwise (K4 e_alpha = max|d alpha| / max|alpha_AeroDyn|, interior): dt 0.0772/0.0696/0.0983 (0.661/0.764/
+  1.814 deg over 8.57/10.98/18.45 deg); dt/2 0.0265/0.0179/0.0252 (0.239/0.206/0.498 deg over 8.99/11.56/19.77 deg); mean
+  |d Cn| 0.87/1.06/1.83 % -> 0.73/0.64/1.59 %. K5 deltas e_alpha 5.06/5.17/7.31 pp, Cn 0.14/0.42/0.24 pp: all > 0.1 pp.
+  F7: the spanwise reference is not time-converged at the test's dt = 1 s (45 deg of azimuth per step at 7.56 rpm); the
+  AeroDyn alpha itself moves ~5 % between dt and dt/2 while the revolution-averaged thrust/torque do not. Cause not proven.
+  V-01 (group 59, 10 passed): thrust 2.67 %, torque 3.34 %; Cp/Ct absolute 0.0013-0.0150, relative |dC|/C_ref 0.7-2.6 %.
+  Viterna manual (group 60, 1 passed): residual 0.0 (CL 90 deg 8.7e-17). Store: `regression --group 11 --write` wrote 18
+  comparisons; spanwise 3 rows UNMAPPED (one printed line carries both alpha and Cn); groups 59/60 have no residual patterns
+  (same gap as 38-42). `coherence --group 11` refreshed citations; reference labels updated by hand to the source
+  (`OpenFAST 5.0.0 AeroDyn ...`, F1 interior label). F8: `write_aerodyn_dvr` formats dt with 2 decimals (0.125 -> 0.12); the
+  tool writes the exact dt only at dt-scale 0.5. `check` 300 / 419, 0 / 0.
 
