@@ -1126,3 +1126,6 @@ Resume steps:
    (log to logs/check/b3-2e/), `scripts/check.sh quick`; commit; push to PR #45; tick B3-2.1e/f.
 Known: `tools/tests/test_validation_matrix.py::test_coherence_leaves_hand_written_prose_alone` fails (row 4 stale) and also fails
 on main 2b95e5f: pre-existing, not from this branch. Full tool-test run without -x: `logs/check/b3-2e/tool-tests-full.log`.
+Tool-test baseline (closes resume step "compare FAILED"): main 2b95e5f 6 failed / 164 passed; this branch 6 failed / 165 passed,
+the same six tests (coherence x2, real store coherent, groups re-derive, no pending migration, depends_on L1/L2). All
+pre-existing; the extra pass is cf2115f's new test. Logs: `logs/check/b3-2e/tool-tests-{main-2b95e5f,full}.log`.
