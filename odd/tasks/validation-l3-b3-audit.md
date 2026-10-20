@@ -34,6 +34,7 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.1c** measure at the edit commit (SLURM 11619652 S-1/S-2/V-03 capture, 11619653 S-4 capture, 11619654 V-02/S-7 `regression --write`; `logs/check/b3-2/measure.sbatch`, metrics `logs/check/b3-2/metrics.py`); fidelity vs b3-1r/head.
   - [x] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
   - [ ] **B3-2.1e** es 0.125 for the three K3(b) items (S-1 flap, S-2 LC1, S-4 parked 1E), judged by K7 (section "K7" at the end, fixed before the runs). Route: worker + SLURM.
+  - [ ] **B3-2.1f** K8: S-4 test and row 40 against BeamDyn (reference_model), ElastoDyn as comparison; re-adjudicate S-4 rows. Needs cf2115f (cherry-picked).
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -1066,3 +1067,27 @@ Rows: G38 `s1_sectional_flapwise_ei` (e 5.17 % at es 0.25), G39 `s2_official_lc1
 - K7.3 verdict on e(0.125) when K7.2 holds: |e| > 5 % -> `rejected`; |e| <= 5 % -> `trusted` with the K4 arbiters (S-1 flap:
   single published numerical -> contract reports `unarbitrated`), except where the reference is not an arbiter (S-2 LC1, K4):
   a pass stays `undecided`, a fail is `rejected`. The 1 pp margin of K3(a)/(c) no longer applies once es 0.125 exists.
+
+## K8 - which official model arbitrates L3 (2026-10-20, at 8e5ee61 + cherry-pick of cf2115f; numbers already known, see honesty note)
+User verbatim: (1) "creo que me hiria por la opcion recomendada, pero recordemos que todos son metodos numericos diferentes y ya
+el nuestro fue evaluado contra otro aritro umerico extenro CCX y analitico, entonces creo que solo mantener la comparacion como
+comparacion y no como criterio de validado o no." (2) "Solo corridas de OpenFAST (Recomendado)". (3) "Cherry-pick de cf2115f
+ahora (Recomendado)". (4) "nosotros estamos validando aeroelast no estamos validando ni BeamDyn ni ElastoDyn, entonces la
+eleccion sera la que mas correcta sea para nuestro proposito". B4 context: `reference_model` (official OpenFAST model on the
+official deck) settles a comparison alone, L3 and L4 (`eadb1fa`, `cf2115f`).
+- K8.1 qualifying references (answer 2): only OpenFAST runs on the official deck. S-4 ElastoDyn MBC3 and BeamDyn p20 qualify.
+  Not: the BeamDyn 6x6 deck as data (S-1), K55 through our own integral (S-7), our EB beam (S-2), the tabular mass (V-03), NREL
+  Table 5-2 v1.0 (V-02). Those rows keep their K3/K4 verdicts.
+- K8.2 arbiter for blade frequencies (answer 4 delegates the choice): OpenFAST BeamDyn. ElastoDyn is printed and recorded as a
+  comparison, not a pass/fail criterion. Reason, stated on model physics and not on which side passes: ElastoDyn's blade modes
+  come from assumed mode shapes that are input polynomial fits in the deck, on an Euler-Bernoulli beam with no shear and no
+  cross-section coupling, so its frequencies are a property of those fitted shapes. BeamDyn solves the geometrically exact
+  Timoshenko beam on the full 6x6 deck, with no fitted modal input: the physics a shell model also carries (shear, couplings).
+  The structure aeroelast must reproduce is the one the deck defines; the model that uses the whole deck is its definition.
+- Honesty note: this is decided after the numbers. Against ElastoDyn, 1E/2F fail (-5.9 to -6.5 %); against BeamDyn they pass
+  (+0.2 to +1.8 %). The choice moves them to pass, so it rests only on K8.2's reason; the 6-8 % ElastoDyn/BeamDyn disagreement
+  stays recorded as a finding about the references (an OpenFAST question, not an aeroelast defect).
+- K8.3 consequences: the S-4 test asserts against BeamDyn p20 (bound 5 % unchanged) and prints ElastoDyn as a comparison.
+  Parked 1F/1E/2F and rated 1F/2F are judged against BeamDyn by K3/K7; rated 1E has no admissible BeamDyn number (rotating
+  in-plane artefact, beamdyn-arbiter-midsurface T1/T7), so the rated row stays `undecided` until that number exists.
+  BeamDyn convergence (p20) is to be cited with the verdict (C1 analogue for the reference).
