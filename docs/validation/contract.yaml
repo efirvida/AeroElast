@@ -1757,19 +1757,29 @@ verdicts:
   - target: laminate_bend_twist_3d.test_3d_matches_the_shell_within_2_perce.single
     class: physics
     verdict: trusted
-    audited_rev: a399141
+    audited_rev: 17ef8ad
     arbiters:
       - {kind: produced_numerical, label: "CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction"}
+      - {kind: analytical, label: "free-edge CLT tip-force closed form theta(L) = (D^-1)[2,0] P L^2 / (4 b) for the same strip (row laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl)"}
     note: >-
-      Shell twist vs a 3D layer-wise elasticity solve of the same strip: 0.2143 % against a 2 % bound, reproduced exactly from the 2026-10-04 measurement. The relabel from `self` to `code` is correct: the reference is the CalculiX 3D solid, which judges the shell. Single numerical arbiter and no closed form (the hand-CLT reference was the original problem, per the test docstring), so the level keeps this row as single-arbiter.
+      Shell twist vs a 3D layer-wise elasticity solve of the same strip: 0.2143 % against a 2 % bound (same at 17ef8ad). The relabel from `self` to `code` is correct: the reference is the CalculiX 3D solid, which judges the shell. CORRECTED 2026-10-19: the earlier note said no closed form exists because "the hand-CLT reference was the original problem"; that misread the docstring, where what failed was the issue-#9 formula (missing 1/b and kappa/2). The corrected free-edge closed form is the analytical arbiter of this same coupon (G26 already trusts it for the shell) and both sides of this comparison now face it in their own row: 3D -2.51 %, shell -2.72 %, under the 5 % ceiling.
   - target: laminate_bend_twist_3d.test_3d_mesh_convergence.single
     class: physics
     verdict: trusted
-    audited_rev: a399141
+    audited_rev: 17ef8ad
     arbiters:
       - {kind: produced_numerical, label: "CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction"}
+      - {kind: analytical, label: "free-edge CLT tip-force closed form theta(L) = (D^-1)[2,0] P L^2 / (4 b) for the same strip (row laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl)"}
     note: >-
-      Refined 3D twist (16x10) vs the shell: 0.2143 % against a 2 % bound; the test also asserts that the 3D value settles under in-plane refinement (6x4, 10x6, 16x10). Same single numerical arbiter as the row above.
+      Refined 3D twist (16x10) vs the shell: 0.2143 % against a 2 % bound; the test also asserts that the 3D value settles under in-plane refinement (6x4, 10x6, 16x10). Against the closed form the 3D sequence is -1.31 / -2.24 / -2.51 % (increments 0.93, 0.27 points, so about -2.6 % extrapolated): it converges toward the shell, away from the first-order closed form, and stays under the 5 % ceiling. Arbiters as the row above.
+  - target: laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl.single
+    class: physics
+    verdict: trusted
+    audited_rev: 17ef8ad
+    arbiters:
+      - {kind: analytical, label: "free-edge CLT tip-force closed form theta(L) = (D^-1)[2,0] P L^2 / (4 b) for the same strip"}
+    note: >-
+      Added 2026-10-19 (PRE-3, maintainer approved). 3D C3D20R 16x10 -2.5137 % and MITC4 shell 16x96 -2.7222 % against the closed form, bound the 5 % physics ceiling (not fitted; the 3D value had been measured once in the read-only question that proposed this row). Same laminate [45,0,0,45]s, load P = 10 N, clamp and twist_lsq metric. The closed form is exact for a constant moment and first order for a tip force (it neglects the y-redistribution and the clamp layer), so the ~2.5-2.7 % both codes share is its model residual; its own size is not separately quantified. It is CLT, the shell's theory: it arbitrates the observable (tip twist), not the H6 question of CLT adequacy, which the 3D-vs-shell row answers.
   - target: composite_beam_parity.testcompositematerial_test_clt_matches_i.single
     class: physics
     verdict: trusted
