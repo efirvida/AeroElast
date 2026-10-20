@@ -1,7 +1,8 @@
 """S-4 — IEA 15 MW blade: rotating modal (K + K_G + K_SP) vs OpenFAST targets.
 
 Computes the root-clamped rotating-frame modal of the official WindIO blade
-(tests/IEA-15-240-RWT.yaml, MITC3 shell, element_size 0.25, consistent mass)
+(tests/IEA-15-240-RWT.yaml, MITC4 shell with a few MITC3 (oml: 33721 quads, 92 triangles),
+element_size 0.25, consistent mass)
 at the rated rotor speed (7.56 rpm, rotation axis +y, span +z) with:
 
   K_eff = K + K_G + K_SP
@@ -31,6 +32,12 @@ tip-node labels picked on this mesh, so the numbers did not move with the classi
 
   rotating:  1F -3.40 | 1E -6.09 | 2F -6.13 %     (es 0.125: -3.48 | -6.10 | -6.46 %, T12)
   parked:    1F -3.56 | 1E -5.94 | 2F -6.34 %
+
+After the K_G prestress fix 41e9a16 ((A eps + B kappa)/h; SLURM 11619165, mid es 0.25) the
+rotating row reads 1F -3.41 | 1E -6.10 | 2F -6.37 % (2F moved -0.25 % in frequency, the rest
+< 0.02 %); parked is unchanged by construction (no K_G at 0 rpm); the es 0.125 values are
+pre-fix. The rotating-only tip local modes (2.17-3.61 Hz) are gone with the fix
+(odd/tasks/rotating-local-tip-modes.md L39).
 
 1E and 2F exceed the 5 % bound at both rotor speeds and are converged, so the test is red by
 design: ElastoDyn and BeamDyn differ 6-8 % on this blade and both pass analytic uniform beams,

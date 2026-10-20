@@ -91,7 +91,7 @@ ensamble (`assembler.rs`), o el solver UL (`static_nonlinear.rs`/`.py`).
 | V-03 estática | masa −1.11 %, equilibrio 8.2e-8 % | `test_iea15mw_v03_static_gravity.py` |
 | V-05 propiedades | masa total +4.1 % = banda documentada +4–8 % (layup vs 6×6) | `test_iea15mw_v05_structural_properties.py` |
 | S-1 seccional (**piel en superficie media desde `7324508`**, 2026-10-17) | media \|err\| 0.2-0.85R vs 6×6 BD: EI_flap 5.18 %, EI_edge 12.70 %, GJ 6.13 %, EA 7.59 % (las cuatro rojas a 5 %; con oml 21.6 / 12.0 / 10.2 / 8.8 %) | `test_iea15mw_s1_sectional.py`; § "Superficie media en las anclas de pala" (2026-10-18) |
-| S-4 modal rotante vs OpenFAST MBC3 (ElastoDyn; mid, es 0.25) | 1E parked −5.9 %, rated −6.1 % (rojo; oml −5.5/−5.6 %, también rojo); rated 1F −3.40 %, 2F −6.13 % | `test_iea15mw_s4_rotating_modal.py`; mismo § |
+| S-4 modal rotante vs OpenFAST MBC3 (ElastoDyn; mid, es 0.25) | 1E parked −5.9 %, rated −6.1 % (rojo; oml −5.5/−5.6 %, también rojo); rated 1F −3.41 %, 2F −6.37 % (tras 41e9a16; antes −3.40 / −6.13 %) | `test_iea15mw_s4_rotating_modal.py`; mismo § y "Modos locales de punta en rotación" |
 | V-02 1F con pala oficial (mid, es 0.25) | −6.06 % vs NREL/TP-5000-75698 Tab. 5-2 (rojo; oml −0.92 %) | `test_iea15mw_v02_natural_frequencies.py`; mismo § |
 | S-7 torsión (twist global vs viga) | twist **1.0390** convergido ⇒ shell/viga `GJ` **0.962** (**corregido 2026-10-10**, commit `72f64de`: hasta entonces la razón comparaba la respuesta a `κ·M` contra la viga a `M`, con `κ = 0.8978`; ver el bloque al final de § S-7) | `tests/validation/blade/test_iea15mw_s7_torsion.py`; § S-7 (2026-10-07, corregido 2026-10-10) |
 | S-8c signo de twist | coincide con BeamDyn (+0.545/+0.981°) | `test_iea15mw_s8c_twist_sign` (job s8c) |
@@ -1848,7 +1848,8 @@ hallazgo, no se esconde.
 - *Modos locales de punta solo en rotación* (mismo T1, es 0.25): parada, ningún modo local
   bajo 3.8 Hz; a 7.56 rpm aparecen modos con fracción de viga 0.12-0.44 en 1.53 / 2.36 / 2.85 /
   3.45 Hz (oml) y 2.17 / 2.92 / 2.96 / 3.61 Hz (mid), con el residuo en z/L 0.94-0.97 (mid
-  es 0.125 tenía uno en 1.02 Hz, T12). Apunta a K_G/K_SP en la zona de punta; sin diagnóstico.
+  es 0.125 tenía uno en 1.02 Hz, T12). **Cerrado 2026-10-19**: era K_G sin B κ; ver
+  "Modos locales de punta en rotación" al final.
 - *Fuera de esta feature* (rojos con oml por default, tests no tocados por `7324508`):
   `test_blade_mesh` ×2 (9357 nodos vs 9277), `test_blade_section_frame_tear` (la firma del
   desgarro desapareció), `test_blade_twist_mechanism`, `test_blade_iea15mw_mesh_convergence`
@@ -1856,3 +1857,56 @@ hallazgo, no se esconde.
 
 **Re-ejecutar si cambia**: `apply_midsurface_inset`, el mapeo de layup en
 `models/blade/numad/`, los decks de referencia ElastoDyn/BeamDyn, o el default de `BladeMesh`.
+
+### Modos locales de punta en rotación: K_G sin B κ (2026-10-19)
+
+Feature `odd/tasks/rotating-local-tip-modes.md` (L7-L39), rama `feat/rotating-local-tip-modes`.
+
+**Hallazgo.** Los modos con fracción de viga 0.12-0.44 que aparecían solo a 7.56 rpm, con residuo
+en z/L 0.94-0.97, los generaba K_G (T3: desaparecen con K_G apagado, no con K_SP apagado). La
+recuperación de la pre-tensión que alimenta K_G usaba A ε/h y omitía B κ; en los laminados
+asimétricos de los paneles TE de punta eso da otra tensión transversal (L23: N medio ours/CCX
+−430/−107 N/m). El pandeo local de punta salía en λ1 = 0.518 (espurio, inestable en rated).
+**Fix 41e9a16**: pre-tensión de K_G = (A ε_m + B κ)/h en el centro del elemento, marco local; D E2
+excluido a propósito (L28); el postproceso de tensiones no cambia.
+
+**Anclas, por la jerarquía S8 (analítica > publicada > árbitro numérico):**
+
+| ancla | nivel | resultado |
+|---|---|---|
+| franja rotante, N_x = mω²(R²−x²)/2, ν = 0, M = 0 (`test_prestress_centrifugal_analytic.py`, T8) | 1, analítica | error = sesgo discreto predicho mω²L²/8 (4.17e-4 → 1.04e-4, orden 2); identidad 2e-11; laminado asimétrico: A ε/h = 2.0083 × pre-tensión (el cálculo previo leía +100 %) |
+| parche ε, κ uniformes vs CLT, MITC3 y MITC4, capa a 30° | 1, analítica | 1e-9 en el marco local de cada elemento |
+| placa ortotrópica SS a compresión (Whitney; `test_plate_buckling_analytic.py`, T7 ii) | 1, analítica | MITC4 32×32 +0.12 %, orden 2.03 |
+| CalculiX S8R CENTRIF → *BUCKLE, misma malla (T6) | 3, diagnóstico | pre-tensión coincide (L27); λ1 3.224 vs 2.29: la diferencia vive en las tiras TE_FLAT (abajo); los dos > 1 |
+
+**Lo que se movió en S-4** (mid, es 0.25, 7.56 rpm, SLURM 11619165 contra 11618419): 1F −3.40 → −3.41 %,
+1E −6.09 → −6.10 %, 2F −6.13 → **−6.37 %** contra ElastoDyn; parado no cambia (sin K_G). Los modos
+locales rotantes de mid (2.17 / 2.92 / 2.96 / 3.61 Hz) desaparecen: el primer local queda en 3.71 Hz,
+como parado, y 2.926 Hz pasa a ser el 3F de viga (fracción 0.993). En oml los cuatro locales (1.53-3.45 Hz)
+también desaparecen y el 2F queda con fracción 0.999 (L31). La banda de 5 % no se tocó; el rojo de
+1E (S5) sigue y su brecha está del lado de ElastoDyn (parado: el nuestro 0.6986 ≈ CCX 0.6995 ≈ BeamDyn 0.6946; ElastoDyn 0.7403).
+La suite completa 11619070 (e4473ee) falla exactamente los 20 del registro `known-red-full`.
+
+**Limitación documentada: tiras TE_FLAT** (decisión del usuario, S10). Los elementos TE_FLAT son
+astillas de ≈1.25 mm × 126 mm con laminado de ≈1 mm (ancho ≈ espesor): ninguna cáscara es válida ahí,
+ni la nuestra ni S8R. Fijan solo el factor de pandeo local TE de punta (λ1 entre 2.85 y 3.22 según
+cuánto restrinjan al TE_REINF; CCX 2.29), y cargan 40-58 % de nuestra energía sobre los modos de CCX
+(L35); no mueven ninguna ancla (modos de viga < 0.01 %). **Mejora futura propuesta** (no hecha):
+en `BladeMesh`, fundir la tira TE_FLAT en el TE_REINF vecino (o colapsar el borde de fuga a una arista
+compartida) cuando su ancho < ~5 h, o modelar el pegado TE como viga / unión rígida. Cambia la malla de
+todas las anclas de pala, así que exige re-medir S-1..S-4 y V-0x; solo vale si el pandeo local TE pasa
+a ser entregable.
+
+**Bandera de Rayleigh cerrada** (L29 → L39, SLURM 11619170). El Rayleigh del modo viejo (el de 0.518)
+con K_G de producción da 9.369 y en el diagnóstico 7.290; la única diferencia eran los 92 triángulos
+de 33813 elementos (puntas de estación 49 y almas), que el diagnóstico dejaba en A ε/h. Con
+cuadriláteros nuevos y triángulos viejos se reproduce 7.28963 (criterio 1e-3 contra 7.2896, fijado
+antes). Pesan 28 % porque la energía desestabilizante neta de ese modo, con el campo nuevo, es un
+residuo de mucha cancelación (la G vieja era 18 × mayor). 9.369 es el valor consistente; λ1 cambia
+7.4e-6. Detalle: el marco local de MITC3 toma e1 sobre su primera arista, no sobre `span_direction`;
+K_G es consistente (mismo `t3`), pero una herramienta que lea componentes del campo como si
+estuvieran en el marco de la envergadura lee mal los triángulos.
+
+**Re-ejecutar si cambia**: `compute_prestress_membrane_stress` (`mitc3.rs`, `mitc4.rs`),
+`compute_prestress_field` / `assemble_geometric_k_from_disp` (`assembler.rs`), `centrifugal_load`, o el
+modelado del borde de fuga en `BladeMesh`.

@@ -31,8 +31,17 @@ resultant N_i = N_x(x_c) - m omega^2 L^2 / 8, L the element length. Predeclared 
 4. B kappa: sigma_out / sigma_prestress = A11 D11 / (A11 D11 - B11^2) within 1e-6 relative;
    it is 1 for the symmetric layups.
 
-Coverage: MITC4 quads only. MITC3 triangles split loads unevenly across the width, so the 1D
-closed form is not exact for them; that path is not anchored here.
+Coverage: the strip is MITC4 only (MITC3 triangles split loads unevenly across the width, so
+the 1D closed form is not exact for them). The triangle recovery is anchored by a patch test
+instead: a prescribed Kirchhoff field with uniform membrane strain eps and curvature kappa
+(u = eps x, w = -(k1 x^2 + k2 y^2 + k12 x y)/2, theta_x = w_y, theta_y = -w_x) on an
+unsymmetric laminate with an off-axis ply, where both elements must return the CLT resultant
+(A eps + B kappa)/h of ``Laminate`` to 1e-9 relative (a constant state is exact for both).
+The field is element-local: the MITC3 local e1 is its first edge (node 0 -> node 1), not the
+span_direction projection, so the CLT tensor is rotated into that frame before comparing
+(measured 2026-10-19: triangles whose first edge is vertical return (s_yy, s_xx, -s_xy)).
+On the IEA-15 blade the 92 triangles of 33813 elements carry the L29 Rayleigh flag
+(odd/tasks/rotating-local-tip-modes.md L39).
 """
 
 import numpy as np
@@ -161,3 +170,67 @@ def test_output_stress_differs_from_prestress_by_the_b_kappa_factor(layup):
         assert factor == pytest.approx(1.0, abs=1e-12)
     else:
         assert factor - 1.0 > 1e3 * RATIO_TOL  # B kappa is not a rounding-level effect
+
+
+PATCH_TOL = 1e-9
+EPS = np.array([4e-4, -1.5e-4, 2.5e-4])  # eps_xx, eps_yy, gamma_xy
+KAPPA = np.array([0.3, -0.1, 0.2])  # k_xx, k_yy, k_xy (engineering twist), 1/m
+
+
+def _patch(element_type):
+    glass = OrthotropicMaterial(name="ud", E=(45e9, 12e9, 12e9), G=(5e9, 5e9, 4e9),
+                                nu=(0.28, 0.28, 0.4), rho=1900.0)
+    soft = _orthotropic("soft", 10e9, 1200.0)
+    lam = Laminate([Ply(soft, 0.004, 0), Ply(glass, 0.003, 30), Ply(glass, 0.003, 0)])
+    mesh = MeshModel()
+    nodes = {}
+    for j in range(3):
+        for i in range(3):
+            nodes[i, j] = Node([0.5 * i, 0.4 * j, 0.0], geometric_node=False)
+            mesh.add_node(nodes[i, j])
+    for j in range(2):
+        for i in range(2):
+            a, b, c, d = nodes[i, j], nodes[i + 1, j], nodes[i + 1, j + 1], nodes[i, j + 1]
+            if element_type == ElementType.quad:
+                cells = [[a, b, c, d]]
+            else:  # alternate the diagonal so both triangle orientations appear
+                cells = [[a, b, c], [a, c, d]] if (i + j) % 2 == 0 else [[a, b, d], [b, c, d]]
+            for cell in cells:
+                mesh.add_element(MeshElement(nodes=cell, element_type=element_type))
+    mesh.add_element_set(ElementSet("patch", set(mesh.elements)))
+    asm = MeshAssembler(mesh=mesh, model={"span_direction": [1, 0, 0], "elements": {
+        "element_family": ElementFamily.SHELL,
+        "properties": {"patch": CompositeShellProperty(laminate=lam)}}})
+    return asm, lam
+
+
+@pytest.mark.parametrize("element_type", [ElementType.triangle, ElementType.quad],
+                         ids=["mitc3", "mitc4"])
+def test_prestress_patch_uniform_strain_and_curvature_matches_clt(element_type):
+    asm, lam = _patch(element_type)
+    k1, k2, k12 = KAPPA
+    u = np.zeros(asm.dofs_count)
+    for node in asm.nodes:
+        i = asm.node_id_to_index[node.id]
+        x, y, _ = node.coords
+        u[6 * i] = EPS[0] * x + 0.5 * EPS[2] * y
+        u[6 * i + 1] = EPS[1] * y + 0.5 * EPS[2] * x
+        u[6 * i + 2] = -(k1 * x**2 + k2 * y**2 + k12 * x * y) / 2
+        u[6 * i + 3] = -(k2 * y + 0.5 * k12 * x)  # theta_x = w_y
+        u[6 * i + 4] = k1 * x + 0.5 * k12 * y  # theta_y = -w_x
+    expected = (lam.A @ EPS + lam.B @ KAPPA) / lam.total_thickness
+    assert np.linalg.norm(lam.B @ KAPPA) > 0.5 * np.linalg.norm(lam.A @ EPS)  # B kappa matters
+    assert abs(lam.A[0, 2]) > 1e-3 * lam.A[0, 0]  # the 30 deg ply couples shear (A16 != 0)
+    actual = np.asarray(asm._rust.compute_prestress_field(u))
+    assert actual.shape == (len(asm.elements), 3)
+    coords = {node.id: np.asarray(node.coords) for node in asm.nodes}
+    for k, el in enumerate(asm.elements):
+        edge = coords[el.node_ids[1]] - coords[el.node_ids[0]]
+        c, s = edge[:2] / np.linalg.norm(edge[:2])
+        sxx, syy, sxy = expected
+        local = np.array([c * c * sxx + s * s * syy + 2 * c * s * sxy,
+                          s * s * sxx + c * c * syy - 2 * c * s * sxy,
+                          c * s * (syy - sxx) + (c * c - s * s) * sxy])
+        err = np.max(np.abs(actual[k] - local)) / np.linalg.norm(expected)
+        assert err <= PATCH_TOL, (
+            f"{element_type.name} element {k}: {err:.3e}; got {actual[k]}, CLT in its frame {local}")

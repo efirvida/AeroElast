@@ -14,6 +14,7 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 - S7. "vamos con la vlalidacion analitica en otra sesion" (context: L15 proposal, T7 i-iv).
 - S8. "ante la duda, en orden de prioridades el ancla seria: 1- resultado analitico 2- resultado publicado en revista cientifia 3- resultado de un arbitro numerico externo" ... "No somos desarrolladores de Calculix, CCX es solo uno de los arbitros externos, que va en 3er ugar en la escala de prioridades de validacion."
 - S9. "ok, vamos con tu recomendacion." (context L36: lambda1 vs CCX is a diagnostic, not an anchor; next, two analytic anchors: orthotropic plate buckling closed form, centrifugal prestress closed form through compute_prestress_field).
+- S10. "vamos a cerrarlo comentando la limitacion, pero proponiendo una futura modificacion del mesher como posible solucion futura, y se queda anotado en memoria como posibles mejoras para un futuro" (context: TE_FLAT sliver decision, L28/L35).
 - S5. "El rojo de S-4 en el 1er modo de borde (5.9–6.1 % contra un límite de 5 %) es un hallazgo de precisión. No se toca la banda."
 
 ## Tasks
@@ -25,7 +26,7 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 - T6 [S6] (CLOSED as DIAGNOSTIC by S9, L36: lambda1 3.224 vs CCX 2.29 documented and localised in TE_FLAT slivers, L35; not an anchor) independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
 - T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii); (ii) orthotropic closed form DONE (L37, all predeclared bands met) - commit: (iv) af7b8fe, (ii) 3da1cb8
 - T8 [S8, S9] analytic anchor for the centrifugal prestress recovery: compute_prestress_field (the path fixed in 41e9a16) vs a closed form (e.g. rotating prismatic member, sigma(r) = rho omega^2 (R^2 - r^2)/2, plus a case where B kappa is non-zero), tolerance predeclared in the docstring - inline - DONE (L38, all predeclared bounds met) - commit: 7ee5da2
-- T5 [S5] record finding (closures doc, S-4 docstring if a number moves), close - inline - commit: -
+- T5 [S5, S10] record finding (closures doc, S-4 docstring if a number moves), close - inline - DONE (L39) - commit: (this)
 
 ## Log
 
@@ -558,7 +559,31 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
   recovery reads this tension 100 % high. Not covered: MITC3 (uneven load split across the width), nu != 0 (not uniaxial).
   Harness slip on the first run (assembler element proxies carry no nodes), fixed; no bound was touched.
 
-## Handoff 2026-10-19 (15) - START HERE: T5 closure
+- L39 (2026-10-19) User verbatim: "creo que ese hallazgo lo podemos resolver aqui, y tambien las desiciones abiertas"; TE_FLAT
+  decision S10 (verbatim in Specs). T5 CLOSED in docs/validation_closures.md "Modos locales de punta en rotación: K_G sin B κ".
+  S-4 re-measured after 41e9a16 (SLURM 11619165, mid es 0.25, 7.56 rpm, logs/check/t5/analyse-mid-025-kgfix.txt) vs 11618419:
+  1F 0.547361 -> 0.547261 (-3.40 -> -3.41 % vs ED), 1E 0.700651 -> 0.700597 (-6.09 -> -6.10 %), 2F 1.536760 -> 1.532877 Hz
+  (-6.13 -> -6.37 %): 2F moved, S-4 docstring updated, band untouched. Mid rotating local modes 2.17/2.92/2.96/3.61 Hz gone (first
+  local 3.71 Hz, as parked; 2.926 Hz is now 3F, fraction 0.993). The docstring's "MITC3 shell" was wrong: oml es 0.25 has 33721
+  quads, 92 triangles.
+  Rayleigh flag (L29) CLOSED, SLURM 11619170 (dev, 1m05, revision 53e90b1; 11619164 died on git absent on compute nodes, 11619166
+  on my splu-vs-MUMPS source guard; with MUMPS the source matches exactly). Criteria fixed before: C0 R(all new) 9.36886172 PASS;
+  C1 R(quads new, triangles A eps/h) 7.28963 vs 7.2896 PASS (1e-3). Triangles: 92/33813 (station-49 tips, SW); their field changes
+  54 %; they move the old-mode Rayleigh 28 % because its net destabilising energy under the new field is a cancellation residual
+  (G_old 18x larger). 9.369 is the consistent value. MITC3 B kappa anchored by a new closed-form patch test (uniform eps, kappa,
+  unsymmetric laminate with a 30 deg orthotropic ply, CLT to 1e-9) in test_prestress_centrifugal_analytic.py. Finding: MITC3 local
+  e1 = first edge (node0->node1), not the span_direction projection: physical tensor exact, K_G consistent (same t3), but any tool
+  reading components as span-frame misreads triangles. First patch attempt: my B kappa guard fired (B kappa 1 % of N) and my
+  "orthotropic" ply was in-plane isotropic; both fixed in the test inputs, no bound changed.
+  TE_FLAT: closed as a documented limitation with a future BladeMesh proposal (Engram future-improvements/blade-mesh-te-flat-slivers).
+
+## Handoff 2026-10-19 (16) - feature closed; next: L1 refresh (new session)
+Supersedes (15). T1-T8 done or closed (L39). Feature ready for delivery (single-pr; push/PR are the user's call). Validation
+stage next, one per session: (1) the L1 contract shows stale 136 because 41e9a16 touched mitc3.rs/mitc4.rs: re-measure the L1
+regression at the new revision (tools/validation_matrix.py regression, SLURM), new verdicts only if a number moves; (2) PRE-3 L2
+audit (odd/tasks/validation-l3-b3-audit.md); (3) B3 L3. Pre-existing ruff B905 in tests/test_iea15mw_s4_rotating_modal.py, not ours.
+
+## Handoff 2026-10-19 (15) - superseded by (16): T5 closure
 Supersedes (14). Step A and T8 DONE (L38). Remaining: T5 (record the finding in docs/validation_closures.md, S-4 docstring only if
 a number moved: the 11619070 S-4 reds are the registered ones), TE_FLAT sliver decision (L28), old-mode Rayleigh flag 9.37 vs 7.29
 (L29). No push; branch feat/rotating-local-tip-modes.
