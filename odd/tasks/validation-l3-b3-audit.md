@@ -700,7 +700,7 @@ Specs (user verbatim, 2026-10-19):
   `scripts/check_sbatch.sh full`."
 - S5 "Objetivo: `contract --level L1` y `--level L2` en CLOSED. Mergeá con un merge commit (nunca squash ni rebase ...) y borrá la rama."
 - Rules: "nunca ensanchar una cota; criterio fijado antes de medir; SLURM solo con --ntasks."
-Tasks: [x] T1 S1 DELIVERY tick (487e75a). [x] T2 S2 diagnosis below (4b1cac5). [x] T3 S3 fix test-first (see L4). [ ] T4 S4 rebuild, G56 + stale
+Tasks: [x] T1 S1 DELIVERY tick (487e75a). [x] T2 S2 diagnosis below (4b1cac5). [x] T3 S3 fix test-first (see L4). [~] T4 S4 rebuild, G56 + stale
 groups, full suite. [ ] T5 S5 contract CLOSED, merge commit, branch deleted.
 
 ### Diagnosis (T2): input and convention, not the element and not units
@@ -759,3 +759,28 @@ Fix: `Laminate` path element input = energy-equivalent Cs, with Phi referenced t
   contract.yaml: 6 G56 rows physics/trusted at c0fdeea (m1 was rejected, m2 unaudited); the deleted characterization test had no
   verdict (its groups.yaml declaration removed). `check` 289/399 0 errors, `references check` 0 errors, `status` 0 ungrouped.
   L1/L2 regressions without --write at c0fdeea: SLURM 11619472-75 (`logs/check/shear-refresh/`).
+- L6 L1/L2 regressions without --write at c0fdeea (SLURM 11619472-75, JSON `logs/check/shear-refresh/g<N>.json`), read at
+  2026-10-19 ~23:55 with G16 still running: 234 same, 42 changed, 2 unmapped (G15; check whether that pre-dates c0fdeea, as G56's
+  did at e7c5059), 0 failures. Every `changed` is a composite/laminate group and stays inside its band; isotropic groups all same
+  (G3, G7-G9, G12-G14, G17, G22, G24, G25, G33, G43-G55, G57, G58). Changed: G4 ortho CCX 0.5391 -> 0.5405 %; G6 Bredt laminate
+  0.1402 -> 0.1406, 0.7033 -> 0.7036 %; G18 17 CLT/CCX parity rows (largest: quasi_iso modal vs CCX 1.4241 -> 0.8873 %, sym_0_90s
+  modal 1.2555 -> 0.8912 %, uni_0/uni_90 modal 1.26/1.24 -> 1.08/1.05 %, bending rows +-0.02 pp); G21 3D-solid twist 0.2143 ->
+  0.2462 % (x2), shell tip twist 2.7222 -> 2.7531 %; G26 7 twist rows (CCX [60,0,0,60]s 1.9465 -> 1.6721 %, others +-0.03 pp);
+  G28 6 rows (+-0.02 pp); G36 6 rows ([0/90]s kappa_y 0.7229 -> 0.6228 %, 3.1279 -> 3.0347 %). Modal agreement with CalculiX S8R
+  improved in every G18 layup: the element shear input now matches what S8R's composite section uses.
+
+## Handoff 2026-10-19 (L1-SHEAR) - resume here
+State: branch `fix/sandwich-transverse-shear` (not pushed): 487e75a DELIVERY tick, 4b1cac5 diagnosis, c0fdeea fix (neutral-axis Cs,
+element consumes Cs, ADR-1 re-amended), 28470b8 G56 re-measured (m1/m2 trusted). Running: full suite SLURM 11619479
+(`scripts/check_sbatch.sh full`, revision 28470b8, ~2 h, log `logs/check/full-slurm-11619479.log`); G16 of batch 11619472.
+Next, in order:
+1. Read the full-suite tail; compare its failure set with `scripts/known-red-full.txt` (untracked, pre-existing in the worktree;
+   do not hand-edit). A red outside the registry is a regression of c0fdeea, to diagnose before anything else.
+2. G16 JSON; G15 `unmapped` x2: check against the previous run (logs/check/l1-refresh/g15.json) - if it pre-dates c0fdeea, record it.
+3. Restamp: `same` verdicts -> audited_rev c0fdeea in docs/validation/contract.yaml (L2 precedent af95fa8/a4baf6e, PRE-2r);
+   `changed` groups (4, 6, 18, 21, 26, 28, 36) -> `regression --group N --write` on SLURM (no tree edits meanwhile), then re-adjudicate
+   each changed verdict with its new number (all inside their bands; never widen). Then `check`, `references check` 0 errors.
+4. `contract --level L1` and `--level L2` must both print CLOSED; record in this doc; tick T4/T5.
+5. Merge with a MERGE COMMIT (never squash/rebase), via PR or locally per the user's choice, then delete the branch locally and on
+   origin. Commit slice is ~620 lines: one PR, as the user asked for #43.
+Rules: SLURM `--ntasks` only; criteria fixed before measuring; never widen a band.
