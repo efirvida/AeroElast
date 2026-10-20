@@ -13,6 +13,8 @@ Audit work: produces measured verdict proposals; the maintainer closes or reopen
 - S3 (roadmap acceptance rule, verbatim): "A **physics comparison** passes at **≤ 5 % relative error** against an independent
   reference (...)" and "**Numerical references settle it only in pairs:** agreement with a single model is not validation, and at
   least two independent ones are needed. With no arbiter available, the quantity is **not validated**, and the record says so."
+- S5 (user, verbatim, amends S3 for IEA 15 MW): "para la turbina IEA 15mw aunque no tenemos arbitro analitico o pulicaciones
+  tenemos el repositorio oficial de OpenFAST por lo que ese arbitro es valido"; scope (L4): "Todo OpenFAST oficial (L3 y L4)".
 - S4 (roadmap, verbatim): "A closure ships three things in one push: 1. the verdict in `contract.yaml`; 2. the closure section;
   3. the comment on the item." Push and the issue comment are the maintainer's.
 
@@ -21,8 +23,10 @@ Audit work: produces measured verdict proposals; the maintainer closes or reopen
 - [x] T1 (S2) Entry measurement and environment at 2b95e5f - inline - this commit
 - [x] T2 (S2, S3) Per-row inventory and source findings (below), no verdict - inline
 - [ ] T3 (S2, D2) Import V-01 and `test_viterna_matches_aerodyn_theory_manual` as manual rows; `bem_load_frame` to out_of_scope - inline
-- [ ] T4 (S3, D1) Second-arbiter search (HAWCStab2 in the official IEA-15 repo, QBlade, ...) as a separate item; proposal only - later
-- [ ] T5 (S2, S3) Predeclared verdict criterion, written before any re-measurement - inline
+- [x] T4 (S3, S5) Amend the arbiter rule: `reference_model` (official OpenFAST model on the official deck) settles alone, L3 and L4;
+  tool + test-first in `tools/validation_matrix.py`, roadmap mirror amended, issue text proposed - inline
+- [-] T4-old (D1) second-arbiter search: dropped by L3/L4 (the official model is the arbiter)
+- [x] T5 (S2, S3) Predeclared verdict criterion, written before any re-measurement - inline
 - [ ] T6 (S2, D3) Adapt the AeroDyn driver writer to OpenFAST v5.0.0 (test-first: v5 setup fails today) - inline
 - [ ] T7 (S2) Re-measure group 11 + imported rows at the audited revision with v5 - SLURM dev
 - [ ] T8 (S2, S4) Verdicts in `contract.yaml` + closure section; issue comment text proposed, not posted
@@ -50,6 +54,25 @@ Audit work: produces measured verdict proposals; the maintainer closes or reopen
 
 Non-validation by `groups.yaml`: `test_neuralfoil_generated_polar_differs_from_official`, `test_reference_polars_are_the_official_aerodyn_tables`.
 
+## T5 predeclared verdict criterion (written BEFORE any v5 number, 2026-10-20; T6 RED seen: v5 fails parsing `a1.dvr`)
+
+The 4.2.1 numbers in the store (1d9a665) are known; they are history, not the baseline, and no v5 number exists yet.
+- K1 measurement: each row's own printed metric, at the branch head after T6, `aerodyn_driver` of OpenFAST **v5.0.0** on the
+  vendored official deck with the `write_bem_primary` overrides (quasi-steady, tower-free, BEM_Mod 1); BEM side unchanged.
+- K2 arbiter: `reference_model` "OpenFAST v5.0.0 AeroDyn, official IEA 15 MW deck" (S5) for A1, A2, spanwise and the Viterna
+  like-for-like rows. The verdict note states it is verification against the turbine's definition, not physics.
+- K3 ceiling: |e| <= 5 % -> `trusted`; |e| > 5 % -> `rejected`. A row that is <= 5 % but fails its own tighter source bound
+  (1.5 %, 2.5 %, 1 %) is a moved anchor: reported as a finding and left `undecided`; no bound is touched.
+- K4 the `atol` (spanwise max |d alpha| <= 2 deg, the 3 L4 atols): relative equivalent fixed now as
+  e_alpha = max_i |d alpha_i| / max_i |alpha_AeroDyn,i| over the same interior stations, judged by K3. Station-wise
+  |d alpha|/|alpha| is not used (ill-conditioned where alpha -> 0).
+- K5 AeroDyn time convergence: one control run with dt halved (A1: 0.5 s, A2: 0.125 s), same tmax. |delta e| <= 0.1 pp per
+  comparison -> converged; otherwise the row is `undecided` whatever its e.
+- K6 class: A3 `test_bem_with_repo_default_polars_matche.{0,1,2}` compare different inputs (its docstring: "a **sensitivity**,
+  not a parity claim") -> class `regression_pin`, outside the ceiling. Imported Viterna closed form (T3) -> `analytical`.
+  Imported V-01 vs the WISDEM tabular (CCBlade, the same BEM code as ours, not OpenFAST) -> `published_numerical`, single and
+  not independent -> `unarbitrated` whatever e. F1 label is corrected to the AeroDyn run before the verdict.
+
 ## Decisions (asked and answered 2026-10-20, all as recommended; see L2)
 
 - D1 arbiter: every row rests on one numerical code (AeroDyn). By S3 that leaves them unarbitrated unless a second independent code
@@ -63,3 +86,13 @@ Non-validation by `groups.yaml`: `test_neuralfoil_generated_polar_differs_from_o
 - L1 (user, 2026-10-20): "vamos a arrancar con L4"
 - L2 (user, 2026-10-20, answers): D1 "Unarbitrated ahora + buscar 2º código (Recomendado)"; D2 "Importar V-01 y Viterna;
   load_frame fuera (Recom.)"; D3 "Adaptar el driver a v5 y medir con v5 (Recomendado)".
+- L3 (user, 2026-10-20, mid-turn, revises D1): "para la turbina IEA 15mw aunque no tenemos arbitro analitico o pulicaciones
+  tenemos el repositorio oficial de OpenFAST por lo que ese arbitro es valido"
+- L4 (user, 2026-10-20, scope of L3): "Todo OpenFAST oficial (L3 y L4) (Recomendado)" - ElastoDyn/BeamDyn/AeroDyn on the official
+  deck count as a sole arbiter; L3 verdicts are re-adjudicated on the B3 branch, not here. Agent caveat recorded: with identical
+  inputs on both sides this is verification against the reference implementation, not validation against physics.
+- L5 (agent, T4 evidence): RED `test_contract_the_official_reference_model_arbitrates_alone` (contract refused kind
+  `reference_model`), GREEN after adding it to `SOLE_ARBITERS`. Non-slow `tools/tests`: 185 passed, 5 failed
+  (`logs/check/b4/tools-tests-T4.log`); the same 5 fail at clean 2b95e5f (`logs/check/b4-base-5fail.log`: coherence x2,
+  real store coherent, no pending migration, depends_on covers L1/L2 sources) -> pre-existing store line drift, not this change.
+
