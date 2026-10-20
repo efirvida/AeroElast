@@ -118,6 +118,10 @@ def test_s4_rotating_modal_vs_openfast(rpm):
     asm, mesh = _build_assembly()
     freqs, modes, free = assemble_rotating(asm, mesh, omega_from_rpm(rpm), n_modes=12)
 
+    # Every family is computed and printed before anything is asserted, so a red family
+    # (1E) does not hide the ones after it (2F was never measured in a red run before
+    # B3-2 batch 1, odd/tasks/validation-l3-b3-audit.md K6).
+    failures = []
     for family, direction, order in [
         ("1st flap", "flap", 1),
         ("1st edge", "edge", 1),
@@ -126,10 +130,16 @@ def test_s4_rotating_modal_vs_openfast(rpm):
         f_shell = _family_frequency(freqs, modes, free, mesh, direction, order)
         f_of = _OF_TARGETS[key][family]
         rel = abs(f_shell - f_of) / f_of
-        assert rel < REL_TOL, (
-            f"{family} ({key}, {rpm} rpm): shell {f_shell:.4f} Hz vs "
-            f"OpenFAST {f_of:.4f} Hz — rel {rel:.1%} > {REL_TOL:.0%}"
+        print(
+            f"S-4 {key} {family} [Hz] vs OpenFAST v5.0.0 MBC3: {f_shell:.6f} vs {f_of:.6g} "
+            f"(error: {rel:.4%}, bound: {REL_TOL:.4%})"
         )
+        if rel >= REL_TOL:
+            failures.append(
+                f"{family} ({key}, {rpm} rpm): shell {f_shell:.4f} Hz vs "
+                f"OpenFAST {f_of:.4f} Hz — rel {rel:.1%} > {REL_TOL:.0%}"
+            )
+    assert not failures, "; ".join(failures)
 
 
 @pytest.mark.slow

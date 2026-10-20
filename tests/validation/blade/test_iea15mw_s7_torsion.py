@@ -20,11 +20,10 @@ nodes sit on the outer mould line with the laminate centred on them, and moving 
 the laminate mid-surface closes the ratio to about 0.97.  See
 ``odd/tasks/s7-torsion-ratio.md`` sections E7 and E8.
 
-The bound is a ±30 % window around exact agreement, which is the documented S-1 model
-difference with room for the coarse-mesh envelope, and not a fit to what this run
-happens to produce.  Note it is far wider than the effects it names: it could detect
-neither the 10.2 % load error nor the 16 % reference error, which is why the couple
-construction and the reference integral each carry their own exact test.
+The bound is the L3 ceiling, ±5 % around exact agreement, so the test is red while the
+ratio reads about 0.91 at es 0.25.  The former ±30 % window had no quantified source and
+could detect neither the 10.2 % load error nor the 16 % reference error, which is why the
+couple construction and the reference integral each carry their own exact test.
 """
 
 from __future__ import annotations
@@ -72,9 +71,11 @@ MOMENT_NM = 1000.0
 # at HEAD at any mesh size.  See `odd/tasks/s7-torsion-ratio.md`.
 ELEMENT_SIZE = 0.25
 
-#: The band [0.7, 1.3] is symmetric around exact agreement with the beam, so it is
-#: the same statement as a relative bound of 0.30 on the ratio.
-_RATIO_TOL = 0.30
+#: L3 ceiling (maintainer rule 2026-10-16): a relative bound of 0.05 on the ratio, i.e. the
+#: band [0.95, 1.05] around exact agreement with the beam. It was 0.30 ([0.7, 1.3]), a band
+#: with no quantified source; tightened in B3-2 batch 1 (odd/tasks/validation-l3-b3-audit.md),
+#: red allowed.
+_RATIO_TOL = 0.05
 
 
 @pytest.mark.slow
@@ -96,9 +97,8 @@ def test_s7_global_torsion_ratio_within_band():
     # excess tracks the skin's OML reference surface (E8); this test reports the measurement and
     # does not adjudicate the model difference.
     #
-    # The bound is the documented S-1 model difference plus the coarse-mesh envelope, and not a
-    # fit to what this run happens to produce: [0.7, 1.3] is a +-30% window around exact
-    # agreement, which is what assert_relative_error expresses symmetrically.
+    # The bound is the L3 ceiling, [0.95, 1.05] around exact agreement, which is what
+    # assert_relative_error expresses symmetrically (it was [0.7, 1.3] before B3-2 batch 1).
     #
     # The reference kind is `code`: the values compared against come from the
     # BeamDyn blade deck (a code's tables); the closed form is only how those

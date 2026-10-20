@@ -4,7 +4,7 @@ rows:
   group: '41'
   title: V-03 assembled total mass vs declared IEA mass
   tests:
-  - tests/test_iea15mw_v03_static_gravity.py::TestBladeMassIntegration::test_total_blade_mass_within_2pct
+  - tests/test_iea15mw_v03_static_gravity.py::TestBladeMassIntegration::test_total_blade_mass_within_5pct
   validates: Integrated blade mass against the IEA tabular declared blade mass.
   comparisons:
   - label: Assembled total blade mass relative error

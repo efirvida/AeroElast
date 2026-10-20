@@ -237,15 +237,14 @@ class TestBladeMassIntegration:
         total_mass = float(m_vals[x_row_mask].sum())
         return total_mass
 
-    def test_total_blade_mass_within_2pct(self, assembled_mass_kg):
-        """Assembled mass must be within ±2 % of 67,921 kg [R1].
+    def test_total_blade_mass_within_5pct(self, assembled_mass_kg):
+        """Assembled mass must be within ±5 % of 67,921 kg [R1] (L3 ceiling).
 
         Note: NREL/TP-5000-75698 Table 2-1 [R2] gives 65,250 kg as the WISDEM
         design target and the IEA tabular inputs declare ~67,921 kg [R1].  The
-        canonical official WindIO blade (tests/IEA-15-240-RWT.yaml) integrates
-        to 70,721 kg — within the layup-vs-tabular band documented in S-5
-        (+8 % vs the ElastoDyn BMassDen integral).  The tolerance guards
-        against gross mass-integration errors, not the input-model choice.
+        official WindIO blade (tests/IEA-15-240-RWT.yaml), skin on the
+        mid-surface, assembles to 66,682 kg at element_size 0.25 (-1.82 %) since
+        the layup mass-mapping fix df446c3 (70,721 kg before it).
         """
         rel_err = abs(assembled_mass_kg - _BLADE_MASS_KG) / _BLADE_MASS_KG
         assert rel_err < 0.05, (
