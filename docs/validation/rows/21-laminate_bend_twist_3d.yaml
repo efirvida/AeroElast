@@ -20,12 +20,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 17ef8ad
-      date: '2026-10-19'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.2143
-      text: '3D solid twist over the shell twist vs CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction: 0.2143% (bound: 2.0000%)'
-      digest: 9ed38752fc5c8dcb
+      margin_pct: 0.2462
+      text: '3D solid twist over the shell twist vs CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction: 0.2462% (bound: 2.0000%)'
+      digest: 1cbca2f8c08e50f0
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist_3d.test_3d_mesh_convergence.single
@@ -48,12 +48,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 17ef8ad
-      date: '2026-10-19'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.2143
-      text: 'refined 3D twist over the shell twist vs CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction: 0.2143% (bound: 2.0000%)'
-      digest: 9ed38752fc5c8dcb
+      margin_pct: 0.2462
+      text: 'refined 3D twist over the shell twist vs CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction: 0.2462% (bound: 2.0000%)'
+      digest: 1cbca2f8c08e50f0
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl.single
@@ -76,8 +76,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 17ef8ad
-      date: '2026-10-19'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
       margin_pct: 2.5137
       text: '3D layer-wise tip twist vs the free-edge CLT tip-force closed form for the same strip: 2.5137% (bound: 5.0000%)'
@@ -95,11 +95,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 17ef8ad
-      date: '2026-10-19'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 2.7222
-      text: 'MITC4 shell tip twist (16x96) vs the free-edge CLT tip-force closed form for the same strip: 2.7222% (bound: 5.0000%)'
-      digest: 0b1ca7ee3317345d
+      margin_pct: 2.7531
+      text: 'MITC4 shell tip twist (16x96) vs the free-edge CLT tip-force closed form for the same strip: 2.7531% (bound: 5.0000%)'
+      digest: 8eb8274924cb8810
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

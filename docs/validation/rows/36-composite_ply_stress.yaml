@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 3695980.0
       margin_pct: 0.0017
       text: 'sym_0_90s TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 3.69598e+06 vs 3.69592e+06 (error: 0.0017%, bound: 5.0000%)'
@@ -48,8 +48,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 304016.0
       margin_pct: 0.021
       text: 'sym_90_0s TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 304016 vs 304080 (error: 0.0210%, bound: 5.0000%)'
@@ -76,8 +76,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 3695980.0
       margin_pct: 0.0017
       text: 'sym_0_90s BOTTOM outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 3.69598e+06 vs 3.69592e+06 (error: 0.0017%, bound: 5.0000%)'
@@ -104,8 +104,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 304016.0
       margin_pct: 0.021
       text: 'sym_90_0s BOTTOM outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 304016 vs 304080 (error: 0.0210%, bound: 5.0000%)'
@@ -132,8 +132,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 3695980.0
       margin_pct: 0.0017
       text: 'sym_0_90s TOP outer-fibre ply sigma_xx (production Rust Laminate) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section: 3.69598e+06 vs 3.69592e+06 (error: 0.0017%, bound: 5.0000%)'
@@ -160,8 +160,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 304016.0
       margin_pct: 0.021
       text: 'sym_90_0s TOP outer-fibre ply sigma_xx (production Rust Laminate) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section: 304016 vs 304080 (error: 0.0210%, bound: 5.0000%)'
@@ -188,8 +188,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 3695980.0
       margin_pct: 0.0017
       text: 'sym_0_90s BOTTOM outer-fibre ply sigma_xx (production Rust Laminate) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section: 3.69598e+06 vs 3.69592e+06 (error: 0.0017%, bound: 5.0000%)'
@@ -216,8 +216,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 304016.0
       margin_pct: 0.021
       text: 'sym_90_0s BOTTOM outer-fibre ply sigma_xx (production Rust Laminate) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx, production Rust-Laminate section: 304016 vs 304080 (error: 0.0210%, bound: 5.0000%)'
@@ -244,8 +244,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 271169.0
       margin_pct: 0.0003
       text: '[0/90]s pure bending centre TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M): 271169 vs 271170 (error: 0.0003%, bound: 5.0000%)'
@@ -263,8 +263,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: -271169.0
       margin_pct: 0.0003
       text: '[0/90]s pure bending centre BOTTOM outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M): -271169 vs -271170 (error: 0.0003%, bound: 5.0000%)'
@@ -282,12 +282,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 271167.0
-      margin_pct: 0.0013
-      text: '[0/90]s pure bending three_quarter TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M): 271167 vs 271170 (error: 0.0013%, bound: 5.0000%)'
-      digest: fdf738509a73777f
+      margin_pct: 0.0012
+      text: '[0/90]s pure bending three_quarter TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M): 271167 vs 271170 (error: 0.0012%, bound: 5.0000%)'
+      digest: ad33ceb08d7646d7
   - label: rtol at line 884 (station=three_quarter)
     asserted: true
     reference:
@@ -301,12 +301,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: -271167.0
-      margin_pct: 0.0013
-      text: '[0/90]s pure bending three_quarter BOTTOM outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M): -271167 vs -271170 (error: 0.0013%, bound: 5.0000%)'
-      digest: 887a7f15a20311ca
+      margin_pct: 0.0012
+      text: '[0/90]s pure bending three_quarter BOTTOM outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), pure-bending sigma(z) = Qbar(theta_ply) . (z D^-1 M): -271167 vs -271170 (error: 0.0012%, bound: 5.0000%)'
+      digest: 2b5f5e116b718f0e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_ply_stress.test_bending_kappa_matches_d_inverse_m.single
@@ -329,12 +329,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
-      raw: 0.00089994
-      margin_pct: 0.0026
-      text: '[0/90]s pure bending centre kappa_x (bending) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]: 0.00089994 vs 0.000899963 (error: 0.0026%, bound: 5.0000%)'
-      digest: 837480567eaddc9b
+      run: c0fdeea
+      date: '2026-10-20'
+      raw: 0.000899943
+      margin_pct: 0.0022
+      text: '[0/90]s pure bending centre kappa_x (bending) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]: 0.000899943 vs 0.000899963 (error: 0.0022%, bound: 5.0000%)'
+      digest: 03df453307b3466b
   - label: rtol at line 1013 (station=centre, comp=1)
     asserted: true
     reference:
@@ -348,12 +348,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
-      raw: -0.000112858
-      margin_pct: 0.7229
-      text: '[0/90]s pure bending centre kappa_y (Poisson-coupled) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]: -0.000112858 vs -0.00011368 (error: 0.7229%, bound: 5.0000%)'
-      digest: 57066d0dbf87942b
+      run: c0fdeea
+      date: '2026-10-20'
+      raw: -0.000112971
+      margin_pct: 0.6228
+      text: '[0/90]s pure bending centre kappa_y (Poisson-coupled) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]: -0.000112971 vs -0.00011368 (error: 0.6228%, bound: 5.0000%)'
+      digest: ecf9a52d328fe89d
   - label: rtol at line 1013 (station=three_quarter, comp=0)
     asserted: true
     reference:
@@ -367,12 +367,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
-      raw: 0.000899862
-      margin_pct: 0.0112
-      text: '[0/90]s pure bending three_quarter kappa_x (bending) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]: 0.000899862 vs 0.000899963 (error: 0.0112%, bound: 5.0000%)'
-      digest: 7fd9a8ebd2d11879
+      run: c0fdeea
+      date: '2026-10-20'
+      raw: 0.000899865
+      margin_pct: 0.0108
+      text: '[0/90]s pure bending three_quarter kappa_x (bending) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]: 0.000899865 vs 0.000899963 (error: 0.0108%, bound: 5.0000%)'
+      digest: 647aebe664afef48
   - label: rtol at line 1013 (station=three_quarter, comp=1)
     asserted: true
     reference:
@@ -386,12 +386,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
-      raw: -0.000110124
-      margin_pct: 3.1279
-      text: '[0/90]s pure bending three_quarter kappa_y (Poisson-coupled) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]: -0.000110124 vs -0.00011368 (error: 3.1279%, bound: 5.0000%)'
-      digest: 8cdfc1e970fd4c47
+      run: c0fdeea
+      date: '2026-10-20'
+      raw: -0.00011023
+      margin_pct: 3.0347
+      text: '[0/90]s pure bending three_quarter kappa_y (Poisson-coupled) vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), kappa = D^-1 M for the pure bending moment M = [m_x, 0, 0]: -0.00011023 vs -0.00011368 (error: 3.0347%, bound: 5.0000%)'
+      digest: 02c8c67ea118bb1c
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: composite_ply_stress.test_angle_ply_rotates_qbar_per_ply.single
@@ -414,8 +414,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 816188.0
       margin_pct: 0.9106
       text: '[+45,-45]s TOP outer-ply sigma_xy vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), per-ply Qbar(theta) . eps0, sigma_xy of the +45 outer ply: 816188 vs 808824 (error: 0.9106%, bound: 5.0000%)'
@@ -433,8 +433,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: -801274.0
       margin_pct: 0.9334
       text: '[+45,-45]s MIDDLE neighbour-ply sigma_xy vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), per-ply Qbar(theta) . eps0, sigma_xy of the -45 neighbour ply: -801274 vs -808824 (error: 0.9334%, bound: 5.0000%)'
@@ -452,8 +452,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 2006440.0
       margin_pct: 0.3218
       text: '[+45,-45]s TOP (+45) sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), per-ply Qbar(theta) . eps0, sigma_xx: 2.00644e+06 vs 2e+06 (error: 0.3218%, bound: 5.0000%)'
@@ -471,8 +471,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 1993210.0
       margin_pct: 0.3397
       text: '[+45,-45]s MIDDLE (-45) sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), per-ply Qbar(theta) . eps0, sigma_xx: 1.99321e+06 vs 2e+06 (error: 0.3397%, bound: 5.0000%)'
@@ -499,8 +499,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 3695900.0
       margin_pct: 0.2881
       text: 'sym_0_90s TOP outer-fibre ply sigma_xx vs CalculiX 2.20 S8R, *SHELL SECTION, COMPOSITE, outer-fibre ply stress: 3.6959e+06 vs 3.68528e+06 (error: 0.2881%, bound: 5.0000%)'
@@ -518,8 +518,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 3695900.0
       margin_pct: 0.0006
       text: 'sym_0_90s TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 3.6959e+06 vs 3.69592e+06 (error: 0.0006%, bound: 5.0000%)'
@@ -546,8 +546,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 304079.0
       margin_pct: 3.4067
       text: 'sym_90_0s TOP outer-fibre ply sigma_xx vs CalculiX 2.20 S8R, *SHELL SECTION, COMPOSITE, outer-fibre ply stress: 304079 vs 314803 (error: 3.4067%, bound: 5.0000%)'
@@ -565,8 +565,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: a4baf6e
-      date: '2026-10-16'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: 304079.0
       margin_pct: 0.0004
       text: 'sym_90_0s TOP outer-fibre ply sigma_xx vs CLT closed form re-implemented in this test (Jones 1999 / Reddy 2004), outer-fibre ply sigma_xx: 304079 vs 304080 (error: 0.0004%, bound: 5.0000%)'

@@ -700,8 +700,8 @@ Specs (user verbatim, 2026-10-19):
   `scripts/check_sbatch.sh full`."
 - S5 "Objetivo: `contract --level L1` y `--level L2` en CLOSED. Mergeá con un merge commit (nunca squash ni rebase ...) y borrá la rama."
 - Rules: "nunca ensanchar una cota; criterio fijado antes de medir; SLURM solo con --ntasks."
-Tasks: [x] T1 S1 DELIVERY tick (487e75a). [x] T2 S2 diagnosis below (4b1cac5). [x] T3 S3 fix test-first (see L4). [~] T4 S4 rebuild, G56 + stale
-groups, full suite. [ ] T5 S5 contract CLOSED, merge commit, branch deleted.
+Tasks: [x] T1 S1 DELIVERY tick (487e75a). [x] T2 S2 diagnosis below (4b1cac5). [x] T3 S3 fix test-first (see L4). [x] T4 S4 rebuild, G56 + stale
+groups, full suite (L7). [~] T5 S5 contract CLOSED (L7), merge commit + branch deleted pending (PR, user choice L8).
 
 ### Diagnosis (T2): input and convention, not the element and not units
 Probe: `logs/check/sandwich-shear/probe_cs.py` (own quadrature, independent of `aeroelast.core.laminate`).
@@ -768,19 +768,36 @@ Fix: `Laminate` path element input = energy-equivalent Cs, with Phi referenced t
   0.2462 % (x2), shell tip twist 2.7222 -> 2.7531 %; G26 7 twist rows (CCX [60,0,0,60]s 1.9465 -> 1.6721 %, others +-0.03 pp);
   G28 6 rows (+-0.02 pp); G36 6 rows ([0/90]s kappa_y 0.7229 -> 0.6228 %, 3.1279 -> 3.0347 %). Modal agreement with CalculiX S8R
   improved in every G18 layup: the element shear input now matches what S8R's composite section uses.
+- L7 T4/T5 close-out (2026-10-20). (a) Full suite SLURM 11619479 at 28470b8 COMPLETED exit 0 (1:45:02): 20 failed, 1376 passed,
+  39 skipped, 13 xfailed, 3 xpassed; the 20 failures are exactly the 20 entries of `scripts/known-red-full.txt` (52e9bba registry,
+  untracked, not edited), none new, none gone. xpassed 3 as in the three previous full runs; xfailed 15 -> 13 = the two sandwich xfails
+  removed. No c0fdeea regression. (b) G16 9 same + 2 unmapped; the G15/G16 unmapped (lam=2pi w_tip, rollup_360 atols) and G15's
+  1 unclaimed are identical at 74c6b9f (`logs/check/l1-refresh/`), so they pre-date c0fdeea. Totals at c0fdeea: 251 same, 42 changed,
+  4 unmapped, 0 failures. (c) `regression --group N --write` for 4 6 18 21 26 28 36: SLURM 11619561 (`logs/check/shear-write/`,
+  REV=c0fdeea gitshim, recipe + --write, criterion in the sbatch header fixed before running): all 146 comparisons equal the
+  `shear-refresh` current values and digests (0 diffs), the same 42 changed. Every change traces to c0fdeea: in G4/G6/G18/G26/G28 the
+  test builders dropped `cs_uncorrected` (A55) so the element gets Cs, G21 reuses the G26 coupon, G36 goes through the production
+  `Laminate` path (assembler.rs A55 -> Cs); the one MITC3 move (G28 [0/90] axial_produ 0.4464 -> 0.4461 %) is the neutral-axis Cs
+  of an unsymmetric stack, since MITC3 always consumed Cs. No unexplained move, no finding. (d) contract.yaml: 195 verdicts
+  restamped to c0fdeea by target (191 all-`same` + the 4 unmapped, PRE-2r precedent; only `audited_rev` changed), 29 verdicts on
+  changed rows re-adjudicated trusted at c0fdeea with old -> new number, unchanged bound and mechanism appended to the note (largest:
+  G18 quasi_iso modal 1.4241 -> 0.8873 %, G26 deck pin [60,0,0,60]s 1.9465 -> 1.6721 %, G36 kappa_y 3.1279 -> 3.0347 %, G21 shell vs
+  closed form 2.7222 -> 2.7531 %). No bound touched. (e) `check` 289 rows / 399 comparisons 0 errors 0 warnings; `references check`
+  68 entries 0 errors (14 warnings: stale citation sites, unverifiable entries); `status` 0 errors, 0 ungrouped validation files;
+  `contract --level L1` **CLOSED** trusted 145, regression_pin 2, single or no arbiter 0; `--level L2` **CLOSED** trusted 79,
+  regression_pin 4, gaps 0 blocking / 1. Tool wart: `regression --write --json` prints "wrote N measurement(s)" on stdout before the
+  JSON, so the file is not parseable as-is.
+- L8 user choice (merge route): "PR en GitHub" -- push, PR, merge commit (never squash/rebase), delete the branch locally and on origin.
 
-## Handoff 2026-10-19 (L1-SHEAR) - resume here
-State: branch `fix/sandwich-transverse-shear` (not pushed): 487e75a DELIVERY tick, 4b1cac5 diagnosis, c0fdeea fix (neutral-axis Cs,
-element consumes Cs, ADR-1 re-amended), 28470b8 G56 re-measured (m1/m2 trusted). Running: full suite SLURM 11619479
-(`scripts/check_sbatch.sh full`, revision 28470b8, ~2 h, log `logs/check/full-slurm-11619479.log`); G16 of batch 11619472.
-Next, in order:
-1. Read the full-suite tail; compare its failure set with `scripts/known-red-full.txt` (untracked, pre-existing in the worktree;
-   do not hand-edit). A red outside the registry is a regression of c0fdeea, to diagnose before anything else.
-2. G16 JSON; G15 `unmapped` x2: check against the previous run (logs/check/l1-refresh/g15.json) - if it pre-dates c0fdeea, record it.
-3. Restamp: `same` verdicts -> audited_rev c0fdeea in docs/validation/contract.yaml (L2 precedent af95fa8/a4baf6e, PRE-2r);
-   `changed` groups (4, 6, 18, 21, 26, 28, 36) -> `regression --group N --write` on SLURM (no tree edits meanwhile), then re-adjudicate
-   each changed verdict with its new number (all inside their bands; never widen). Then `check`, `references check` 0 errors.
-4. `contract --level L1` and `--level L2` must both print CLOSED; record in this doc; tick T4/T5.
-5. Merge with a MERGE COMMIT (never squash/rebase), via PR or locally per the user's choice, then delete the branch locally and on
-   origin. Commit slice is ~620 lines: one PR, as the user asked for #43.
-Rules: SLURM `--ntasks` only; criteria fixed before measuring; never widen a band.
+## Handoff 2026-10-20 (L1-SHEAR closed) - resume here
+State: L1-SHEAR done on `fix/sandwich-transverse-shear`: G56 m1/m2 trusted, L1 and L2 CLOSED at c0fdeea (L7). Merge route: PR with a
+merge commit (L8); T5 is ticked when the merge commit exists on main and the branch is gone locally and on origin.
+Next step (separate session, out of scope here): **B3-1 - freeze the L3 evidence inventory and audit rubric, measured on a revision
+that already contains c0fdeea** (main after this merge). The 2026-10-16 B3-1 inventory (HEAD 3fdd429) predates the composite shear fix:
+every blade anchor (S-1, S-2, S-4, V-02, V-03, V-05, S-7) is composite, its element shear input moved A55 -> Cs (median A55/Cs 1.12,
+230 of 676 sections above 2), so its numbers are stale until re-measured. Predicted (fixed in T2, not yet measured): global rows move
+< 0.5 %, local panel modes may move more; report any move, never absorb it.
+Carry-over: `scripts/known-red-full.txt` (untracked) was recorded at 52e9bba, before the crates change; the 28470b8 run reproduced its
+20 entries exactly. Re-derive with `scripts/check.sh full --record` on the merge revision if a stamped registry is wanted; never hand-edit.
+Rules: SLURM `--ntasks` only; criteria fixed before measuring; never widen a band; `scripts/aeroenv.sh` on every command. B3/L3 and P1
+stay out of the L1-SHEAR session.
