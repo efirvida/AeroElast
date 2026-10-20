@@ -686,3 +686,53 @@ REG-1 result checks (2026-10-19): `check` 289 rows / 399 comparisons, 0 errors; 
 `contract --level L1` open (trusted 143+, regression_pin 2, rejected 1, unaudited 1 - both sandwich); `--level L2` open, blocked
 by L1 only. Also fixed: 5 `references check` errors (citation sites moved by 5a9fe64 / 43dce4d), which failed the PR's `store` CI job.
 Next for L1: fix the composite section transverse-shear input the sandwich anchor exposes (968d20d), then re-measure G56.
+
+## L1-SHEAR (2026-10-19): composite section transverse shear, reopened L1
+Branch `fix/sandwich-transverse-shear` from main 8de3521. Goal: G56 sandwich m1/m2 green at the unchanged bands, L1 and L2 CLOSED.
+Specs (user verbatim, 2026-10-19):
+- S1 "Primer commit: marcar el checkbox DELIVERY del documento (PR #43, merge 8de3521)."
+- S2 "Diagnosticá por qué la sección compuesta sandwich da un corte transversal equivocado ... Sospechá de unidades, convención y
+  entrada antes que de la física. Antes de tocar código, escribí en el documento la causa y la predicción cuantitativa del arreglo."
+- S3 "Arreglalo con test-first: el xfail tiene que pasar a verde sin tocar la cota del 0.5 %. Si el arreglo cambia otras anclas, eso
+  es un hallazgo a reportar, no algo para tapar."
+- S4 "Si tocás crates/, corré `maturin develop --release`. Después re-medí G56 con `validation_matrix.py regression --group 56
+  --write` y cargá las verdicts de m1/m2. Re-medí los grupos de L1/L2 que queden stale ... corré la suite completa en SLURM con
+  `scripts/check_sbatch.sh full`."
+- S5 "Objetivo: `contract --level L1` y `--level L2` en CLOSED. Mergeá con un merge commit (nunca squash ni rebase ...) y borrá la rama."
+- Rules: "nunca ensanchar una cota; criterio fijado antes de medir; SLURM solo con --ntasks."
+Tasks: [x] T1 S1 DELIVERY tick (487e75a). [x] T2 S2 diagnosis below. [ ] T3 S3 fix test-first. [ ] T4 S4 rebuild, G56 + stale
+groups, full suite. [ ] T5 S5 contract CLOSED, merge commit, branch deleted.
+
+### Diagnosis (T2): input and convention, not the element and not units
+Probe: `logs/check/sandwich-shear/probe_cs.py` (own quadrature, independent of `aeroelast.core.laminate`).
+1. **Cause of the G56 failure: the element's shear input.** `crates/aeroelast-py/src/assembler.rs:301-311` hands the MITC4 shear
+   block `Laminate::shear_stiffness_uncorrected()` = A55 = sum G_k t_k (ADR-1 amended, 8cbfc0b). Sandwich: A55 = 3.14615e7 N/m,
+   energy-equivalent Cs = 7.88928e5 N/m (= own quadrature to 1e-5, = Allen G_c d^2/t_c within 0.16 %), ratio 39.88. The face plies
+   dominate sum G t, but shear flows through the core. The element is a correct FSDT plate for the S it receives (characterization
+   test: MITC4 = FSDT(A55) at +0.002 %). Units are consistent (N/m on both sides; `Cs` is integrated, as is `Cm`).
+2. **The convention conflict behind it.** "No numerical factor" (Ko-Lee-Bathe 2017 p. 410) is a homogeneous-plate statement: it
+   drops the 5/6. For a layered section the analogue sum G t assumes a constant shear strain through the thickness, which for a soft
+   core is wrong by 40x, not by 20 %. No scalar reconciles both: Cs * 6/5 (homogeneous stack -> G h, as ADR-1 wants) moves the m1
+   anchor by +3.47 % against the 0.5 % band. Only the energy-equivalent Cs meets the reference. Today the repository uses three
+   conventions: isotropic -> G h; single-material orthotropic shell (raw dict, `core/assembler.py:293-320`) -> k G h = (5/6) G h;
+   `Laminate` path -> sum G t. MITC3 consumes `constitutive.cs` (corrected) in every case.
+3. **A second, latent input defect in Cs itself (unsymmetric stacks).** `compute_shear_stiffness` (Rust `laminate.rs:116-199`,
+   Python `laminate.py:385-479`, identical algorithm) builds Phi(z) about the mid-plane with D11, not about the neutral axis
+   z_n = B11/A11 with D* = D11 - B11^2/A11. For B != 0, Phi does not vanish at the top face (the shear stress at a free surface is
+   not zero) and Cs is wrong: soft-outer 2-material stack Cs = 4.724e7 vs neutral-axis value 1.657e7 (2.85x); gelcoat/triax/triax-like
+   stack 0.904x. Symmetric stacks are exact (sandwich, homogeneous unsymmetric split: Cs/own = 1.0000). This is the open question
+   of L17 (tip panels A55/Cs = 0.3-0.4: Cs 2.5-3x above the plain integral). It is harmless today only because the element
+   ignores Cs on the `Laminate` path; feeding Cs to the element without fixing it would put a 2.85x error into the blade's
+   unsymmetric sections.
+### Quantitative prediction of the fix (fixed before measuring)
+Fix: `Laminate` path element input = energy-equivalent Cs, with Phi referenced to the neutral axis (D*). Predictions:
+- m1 (b = 1.5): MITC4 Richardson within 0.1 % of FSDT 3.17831e5 N/m (band 0.5 %, unchanged), 32x32 within 1 %, order in [1.5, 2.5],
+  m = 1. m2 (b = 0.75): 48x48 within 1 % of FSDT 7.06207e5 N/m, m = 2 picked (m = 3 is 3.6 % higher). Both xfails become XPASS
+  (strict) -> remove the markers; the characterization test MITC4 = FSDT(A55) fails and is deleted as its docstring says.
+- Symmetric laminates: Cs unchanged bit-for-bit (z_n = 0, D* = D). Unsymmetric: Cs equals the own neutral-axis quadrature to 1e-4.
+- Tests that encode ADR-1 amended (homogeneous multi-ply laminate == isotropic shell in the shear block: `test_material_suite::
+  TestIsoEquivalence` 3.434 %, `test_orthotropic_shell_parity::test_multi_layer_iso_equivalence` 5.42 %, Rust `materials/mod.rs`,
+  `mitc4.rs:8466`, `laminate.rs:481`) go red, by exactly the 5/6 of the shear block, unless the isotropic convention also changes.
+- Blade anchors (composite everywhere): the element shear input drops by A55/Cs (median 1.12, 230 of 676 sections above 2). Global
+  modes and static deflection are carried by the walls' membrane stiffness, so S-2 / S-4 / G56-58 global rows are predicted to move
+  by < 0.5 %; local panel modes may move more. Any move is reported, not absorbed.
