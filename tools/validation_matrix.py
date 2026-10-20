@@ -4050,9 +4050,9 @@ def command_kinds(args: argparse.Namespace) -> int:
 # direction inversion (72f64de).
 #
 # The arbiter rule: a physics verdict is validation only if its references can arbitrate it.
-# Experimental data or a closed form / theory arbitrate alone; numerical references (published
-# numerical data, or a code we run) need at least two independent ones; with none, the row is
-# not validated. Experimental validation is therefore a kind of arbiter, available or not on any
+# Experimental data, a closed form / theory, or a reference turbine's official model (see
+# SOLE_ARBITERS) arbitrate alone; numerical references (published numerical data, or a code we
+# run) need at least two independent ones; with none, the row is not validated. Experimental validation is therefore a kind of arbiter, available or not on any
 # level, not a level of its own.
 
 LEVEL_KEYS = {"id", "title", "scope", "groups", "gaps", "absent", "depends_on", "requires"}
@@ -4077,7 +4077,12 @@ VERDICT_CLASSES = {"physics", "identity", "regression_pin"}
 VERDICTS = {"trusted", "exception", "undecided", "rejected"}
 RELATIVE_TOLERANCES = {"rtol", "rel_err"}
 # Arbiters that settle a comparison alone, and those that need a second, independent one.
-SOLE_ARBITERS = {"experimental", "analytical"}
+# `reference_model`: the official model of a reference turbine, run by its reference code on its
+# official deck (OpenFAST for the IEA 15 MW). Such a turbine has no physical existence, so that
+# model is its definition and settles a comparison alone (#33 amendment, B4, L3 and L4). It is
+# verification against the definition, not validation against physics; only a verdict declares
+# it, never a store reference kind.
+SOLE_ARBITERS = {"experimental", "analytical", "reference_model"}
 NUMERICAL_ARBITERS = {"published_numerical", "produced_numerical"}
 ARBITER_KINDS = SOLE_ARBITERS | NUMERICAL_ARBITERS
 # The store's reference kinds, read conservatively: a `paper` may report a measurement, but
