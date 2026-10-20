@@ -700,7 +700,7 @@ Specs (user verbatim, 2026-10-19):
   `scripts/check_sbatch.sh full`."
 - S5 "Objetivo: `contract --level L1` y `--level L2` en CLOSED. Mergeá con un merge commit (nunca squash ni rebase ...) y borrá la rama."
 - Rules: "nunca ensanchar una cota; criterio fijado antes de medir; SLURM solo con --ntasks."
-Tasks: [x] T1 S1 DELIVERY tick (487e75a). [x] T2 S2 diagnosis below. [ ] T3 S3 fix test-first. [ ] T4 S4 rebuild, G56 + stale
+Tasks: [x] T1 S1 DELIVERY tick (487e75a). [x] T2 S2 diagnosis below (4b1cac5). [x] T3 S3 fix test-first (see L4). [ ] T4 S4 rebuild, G56 + stale
 groups, full suite. [ ] T5 S5 contract CLOSED, merge commit, branch deleted.
 
 ### Diagnosis (T2): input and convention, not the element and not units
@@ -736,3 +736,20 @@ Fix: `Laminate` path element input = energy-equivalent Cs, with Phi referenced t
 - Blade anchors (composite everywhere): the element shear input drops by A55/Cs (median 1.12, 230 of 676 sections above 2). Global
   modes and static deflection are carried by the walls' membrane stiffness, so S-2 / S-4 / G56-58 global rows are predicted to move
   by < 0.5 %; local panel modes may move more. Any move is reported, not absorbed.
+### Log (L1-SHEAR)
+- L1 user request 2026-10-19: the S1-S5 text above (verbatim in the session prompt), resume from REG-1 + DELIVERY.
+- L2 user decision (question "¿Qué convención adopto?"): "A: composite = Cs, isotrópico = Gh (recomendado)". Laminate (and raw-dict
+  composite) shear block consumes the energy-equivalent Cs with the neutral-axis fix; the isotropic shell keeps Ko-Lee-Bathe G h; the
+  ADR-1 equivalence tests are re-specified to split invariance (4 plies == 1 ply, same band) plus a convention probe (plain integral
+  injected through `cs_uncorrected` == isotropic, same band); single-ply laminates keep Cs = k A55 (blade k = 5/6).
+- L3 baseline (main 8de3521 + docs, fresh `maturin develop --release`): 13 affected files 165 passed, 3 xfailed
+  (`logs/check/sandwich-shear/base.log`). RED with the tests changed and the old .so (`red.log`): 5 failed = sandwich m1 Richardson
+  +24.4392 %, m2 +119.99 % (m_FE = 1), unsymmetric Cs 0.904x / 2.85x of the neutral-axis value; the raw-dict test builders now feed Cs
+  (production convention) and every comparison stays inside its band: largest moves CCX twist [60,0,0,60]s 1.9465 -> 1.6721 %,
+  [45,0,0,45]s 0.2267 -> 0.1948 %, [45,-45,-45,45]s 0.5953 -> 0.6285 %, quasi-iso EB 1.1711 -> 1.1495 %, others < 0.01 pp.
+- L4 GREEN (T3, worker, fresh `maturin develop --release`): affected files 170 passed, 1 xfailed (`green.log`); `cargo test -p
+  aeroelast-core --release laminate` 8 passed (new closed-form neutral-axis test was RED first); ruff clean; `check.sh quick` exit 0
+  (75 passed, 1 xfailed). Sandwich m1: N 3.233711/3.191994/3.181705e5 at 8/16/32, order 2.019, Richardson 3.178336e5 = +0.0009 %
+  (prediction < 0.1 %, band 0.5 % untouched); m2 48x48 7.064897e5 = +0.0401 % with m_FE = 2 (band 1 %). Unsymmetric Cs = own
+  neutral-axis quadrature to 1e-4 (Rust and Python). Other residuals vs red.log moving > 0.1 pp, both toward the reference:
+  asym_0_90 worst modal frequency vs CCX 1.4487 -> 1.0582 %, [0/90]s pure-bending kappa_y 0.7229 -> 0.6228 %.

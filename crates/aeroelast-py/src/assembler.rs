@@ -298,17 +298,12 @@ impl PyMeshAssembler {
             cs[2] = corrected_lam.cs[(1,0)];
             cs[3] = corrected_lam.cs[(1,1)];
 
-            // ADR-1 (amended): the uncorrected section shear the element
-            // consumes. The energy-equivalent `cs` above carries the section's
-            // own correction -- the 5/6 of a homogeneous stack -- so it must not
-            // be what the element's shear block sees.
-            let cs_plain = corrected_lam.shear_stiffness_uncorrected();
-            let cs_uncorrected = [
-                cs_plain[(0, 0)],
-                cs_plain[(0, 1)],
-                cs_plain[(1, 0)],
-                cs_plain[(1, 1)],
-            ];
+            // ADR-1 re-amended 2026-10-19 (L1-SHEAR): a laminate's shear
+            // block consumes the energy-equivalent section stiffness. The plain
+            // sum G t assumes constant shear strain through the thickness and is
+            // about 40x too stiff for a soft-core sandwich. The isotropic shell
+            // keeps Ko-Lee-Bathe's G h. Retain the internal field name.
+            let cs_uncorrected = cs;
 
             Ok(MaterialSpec::Composite {
                 cm,

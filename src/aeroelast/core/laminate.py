@@ -361,15 +361,12 @@ class Laminate:
         thickness integral ``a_ij = Σ Cbar_s(k)_ij · t_k``, which for a
         homogeneous stack of total thickness ``h`` is exactly ``G·h``.
 
-        This is the value the elementary shell element consumes. ``Cs`` must not
-        be fed to it: ``Cs`` carries the section's own correction -- ``k`` on the
-        single-ply branch and the ``5/6`` of the parabolic shear distribution
-        inside the multi-ply energy-equivalence formula -- and Ko, Lee & Bathe
-        (2017), C&S 182:404-418, p. 410 states that the element formulation
-        "does not include any numerical factor".
-
-        Additive: no stored field, and ``Cs`` plus every existing result are
-        unchanged.
+        Diagnostic plain integral, not the laminate element's shear input.
+        ADR-1 re-amended 2026-10-19 (L1-SHEAR): laminates consume the
+        energy-equivalent ``Cs``; sum G t assumes constant through-thickness
+        shear strain and is about 40x too stiff for a soft-core sandwich.
+        The isotropic shell separately retains Ko-Lee-Bathe's G h convention.
+        This accessor does not modify the stored ``Cs``.
         """
         # Zeroth-moment components (uncorrected), matching
         # `_compute_shear_stiffness`'s own first block.
@@ -395,6 +392,9 @@ class Laminate:
         from 3D equilibrium of bending stresses and equates the complementary
         shear strain energy to that of FSDT. This yields k = 5/6 for homogeneous
         plates and proper anisotropic corrections for layered composites.
+        Per direction, Phi is referenced to the neutral axis z_n = B_aa/A_aa
+        and uses D*_aa = D_aa - B_aa**2/A_aa, so Phi vanishes on both free
+        faces even for unsymmetric stacks.
         """
         # Zeroth-moment components (uncorrected)
         A44, A45, A55 = 0.0, 0.0, 0.0
@@ -411,12 +411,14 @@ class Laminate:
             self.Cs = k * np.array([[A55, A45], [A45, A44]])
             return
 
-        D_11 = self.D[0, 0]
-        D_22 = self.D[1, 1]
+        zn_55 = self.B[0, 0] / self.A[0, 0]
+        zn_44 = self.B[1, 1] / self.A[1, 1]
+        D_11 = self.D[0, 0] - self.B[0, 0] * zn_55
+        D_22 = self.D[1, 1] - self.B[1, 1] * zn_44
 
         # Compliance-weighted integral of shear stress shape function squared
-        # Phi_aa(z) = integral from -h/2 to z of Q_aa(z') * z' dz'
-        # In ply j: Phi(z) = cum + Q_aa^j/2 * (z^2 - z_bot^2) = A_j + B_j * z^2
+        # Phi_aa(z) = integral from -h/2 to z of Q_aa(z') * (z'-z_n) dz'
+        # In each ply: Phi(z) = A_j + B_j * (z-z_n)^2.
         flex_55 = 0.0
         flex_44 = 0.0
         cum_55 = 0.0
@@ -435,18 +437,21 @@ class Laminate:
             z_top = ply.z_top
             t = ply.thickness
 
-            # Phi(z) = A + B * z^2 within this ply
-            A_55 = cum_55 - Q11 / 2 * z_bot**2
+            bot55, top55 = z_bot - zn_55, z_top - zn_55
+            bot44, top44 = z_bot - zn_44, z_top - zn_44
+            # Phi(z) = A + B * (z-z_n)^2 within this ply
+            A_55 = cum_55 - Q11 / 2 * bot55**2
             B_55 = Q11 / 2
-            A_44 = cum_44 - Q22 / 2 * z_bot**2
+            A_44 = cum_44 - Q22 / 2 * bot44**2
             B_44 = Q22 / 2
 
-            # integral (A + B*z^2)^2 dz from z_bot to z_top
-            dz3 = (z_top**3 - z_bot**3) / 3
-            dz5 = (z_top**5 - z_bot**5) / 5
+            dz3_55 = (top55**3 - bot55**3) / 3
+            dz5_55 = (top55**5 - bot55**5) / 5
+            dz3_44 = (top44**3 - bot44**3) / 3
+            dz5_44 = (top44**5 - bot44**5) / 5
 
-            I_55 = A_55**2 * t + 2 * A_55 * B_55 * dz3 + B_55**2 * dz5
-            I_44 = A_44**2 * t + 2 * A_44 * B_44 * dz3 + B_44**2 * dz5
+            I_55 = A_55**2 * t + 2 * A_55 * B_55 * dz3_55 + B_55**2 * dz5_55
+            I_44 = A_44**2 * t + 2 * A_44 * B_44 * dz3_44 + B_44**2 * dz5_44
 
             if C55_k > 0:
                 flex_55 += I_55 / C55_k
@@ -454,10 +459,10 @@ class Laminate:
                 flex_44 += I_44 / C44_k
 
             # Update cumulative for next ply
-            cum_55 += Q11 * (z_top**2 - z_bot**2) / 2
-            cum_44 += Q22 * (z_top**2 - z_bot**2) / 2
+            cum_55 += Q11 * (top55**2 - bot55**2) / 2
+            cum_44 += Q22 * (top44**2 - bot44**2) / 2
 
-        # Corrected diagonal stiffnesses: Cs_aa = D_aa^2 / flex_aa
+        # Corrected diagonal stiffnesses: Cs_aa = D*_aa^2 / flex_aa
         if flex_55 > 0 and D_11 > 0:
             Cs_55 = D_11**2 / flex_55
         else:

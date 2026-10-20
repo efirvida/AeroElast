@@ -162,28 +162,28 @@ def _iso_prop(mat: IsotropicMaterial, thickness: float) -> dict:
     }
 
 
-def _lam_prop(lam: Laminate) -> dict:
+def _lam_prop(lam: Laminate, element_shear: np.ndarray | None = None) -> dict:
+    """Raw composite dict. The element's shear block consumes the energy-equivalent ``Cs`` (ADR-1
+    re-amended, L1-SHEAR of odd/tasks/validation-l3-b3-audit.md), the raw-dict default when
+    ``cs_uncorrected`` is absent; ``element_shear`` overrides it to probe the convention."""
     h = lam.total_thickness
     e_equiv = np.trace(lam.A) / (3.0 * h)
     mpa = sum(p.material.rho * p.thickness for p in lam.plies)
     ri = sum(p.material.rho * (p.z_top**3 - p.z_bottom**3) / 3 for p in lam.plies)
-    return {
+    prop = {
         "type": "composite",
         "cm": lam.A.ravel().tolist(),
         "b_coupling": lam.B.ravel().tolist(),
         "cb": lam.D.ravel().tolist(),
         "cs": lam.Cs.ravel().tolist(),
-        # ADR-1 (amended): the element's shear block consumes the UNCORRECTED
-        # section integral, not `Cs` -- `Cs` carries the 5/6 of a homogeneous
-        # stack inside the energy-equivalence formula. Without this key the
-        # raw-dict path falls back to `cs` verbatim, and a 4-ply [0,0,0,0]
-        # isotropic stack differs from the single `h` layer it must equal.
-        "cs_uncorrected": lam.shear_stiffness_uncorrected().ravel().tolist(),
         "thickness": h,
         "e_equiv": e_equiv,
         "mass_per_area": mpa,
         "rotational_inertia": ri,
     }
+    if element_shear is not None:
+        prop["cs_uncorrected"] = np.asarray(element_shear).ravel().tolist()
+    return prop
 
 
 # =============================================================================
@@ -793,7 +793,47 @@ class TestAsymmetricLaminates:
 
 
 class TestIsoEquivalence:
-    """N identical isotropic plies must give same K as single layer of same total thickness."""
+    """N identical isotropic plies must give the same K as one layer of the same total thickness.
+
+    ADR-1 re-amended (L1-SHEAR, odd/tasks/validation-l3-b3-audit.md): a laminate's shear block
+    consumes the energy-equivalent ``Cs``, which for a homogeneous stack is (5/6) G h, while the
+    isotropic shell keeps Ko-Lee-Bathe's G h. The physical identity is therefore checked against
+    ONE PLY of the same material through the same composite path (split invariance), and the
+    identity with the isotropic shell is checked with the plain integral G h injected into the
+    shear block, which proves the two paths differ only by that convention.
+    """
+
+    @staticmethod
+    def _models(h):
+        G = E_ISO / (2 * (1 + NU_ISO))
+        mat_iso = OrthotropicMaterial(
+            "IsoEquiv", E=(E_ISO, E_ISO, E_ISO), G=(G, G, G), nu=(NU_ISO, NU_ISO, NU_ISO), rho=RHO_ISO
+        )
+        four = create_laminate_from_angles(mat_iso, h / 4, [0, 0, 0, 0])
+        one = create_laminate_from_angles(mat_iso, h, [0], shear_correction_factor=5.0 / 6.0)
+        return four, one
+
+    def test_n_iso_plies_equal_one_ply_of_the_same_material(self):
+        """4 plies of h/4 = 1 ply of h through the production composite path (Cs = (5/6) G h)."""
+        h = 0.01
+        four, one = self._models(h)
+        assert four.Cs[0, 0] == pytest.approx(one.Cs[0, 0], rel=1e-10)
+        coords, conn, clamped, tips = _cantilever_quad_mesh(2, 10)
+        n = len(conn)
+        asm_4 = PyMeshAssembler(coords, conn, [44] * n, [_lam_prop(four)] * n)
+        asm_1 = PyMeshAssembler(coords, conn, [44] * n, [_lam_prop(one)] * n)
+        f = np.zeros(asm_4.dofs_count)
+        for nd in tips:
+            f[nd * 6 + 1] = F / len(tips)
+        u4 = _tip_disp(_solve(asm_4, f, clamped), tips, 1)
+        u1 = _tip_disp(_solve(asm_1, f, clamped), tips, 1)
+        assert_residual_below(
+            abs(u4 - u1) / max(abs(u1), 1e-12),
+            tol=0.01,
+            kind="self",
+            reference_name="one ply of the same material and total thickness",
+            what="tip deflection of four isotropic plies",
+        )
 
     def test_n_iso_plies_equal_single_layer_mitc4(self):
         """4 isotropic plies of h/4 each = 1 ply of h for MITC4Composite."""
@@ -809,7 +849,7 @@ class TestIsoEquivalence:
             "IsoEquiv", E=(E, E, E), G=(G, G, G), nu=(nu, nu, nu), rho=rho
         )
         lam = create_laminate_from_angles(mat_iso, h / 4, [0, 0, 0, 0])
-        multi = _lam_prop(lam)
+        multi = _lam_prop(lam, element_shear=lam.shear_stiffness_uncorrected())
 
         coords, conn, clamped, tips = _cantilever_quad_mesh(2, 10)
         n = len(conn)
@@ -844,7 +884,7 @@ class TestIsoEquivalence:
             "IsoEquiv", E=(E, E, E), G=(G, G, G), nu=(nu, nu, nu), rho=rho
         )
         lam = create_laminate_from_angles(mat_iso, h / 4, [0, 0, 0, 0])
-        multi = _lam_prop(lam)
+        multi = _lam_prop(lam, element_shear=lam.shear_stiffness_uncorrected())
 
         coords, conn, clamped, tips = _cantilever_quad_mesh(2, 10)
         n = len(conn)

@@ -161,8 +161,6 @@ def _aero_material_dict(laminate) -> dict:
         "b_coupling": B_mat.ravel().tolist(),
         "cb": D.ravel().tolist(),
         "cs": laminate.Cs.ravel().tolist(),
-        # ADR-1 (amended): the element consumes the UNCORRECTED section shear.
-        "cs_uncorrected": laminate.shear_stiffness_uncorrected().ravel().tolist(),
         "thickness": h,
         "e_equiv": A[0, 0] / h,
         "mass_per_area": RHO * h,

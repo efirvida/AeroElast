@@ -275,6 +275,19 @@ explicitly (`test_composite_b_coupling.py` ×3, `test_composite_beam_parity.py`,
 `test_rust_composite.py`) and therefore still hand the element the corrected stiffness;
 they pass today under the legacy convention and moving them is a separate measured step.
 
+**Re-amended 2026-10-19 (L1-SHEAR, decision L2 option A).** Composite
+laminates and raw-dict composites supply the energy-equivalent section `Cs` to
+the element shear block; isotropic shells retain Ko-Lee-Bathe's `G h`.
+The plain sum `G t` assumes constant through-thickness shear strain and is
+about 40x too stiff for the soft-core sandwich. Multi-ply `Phi` is referenced
+per direction to `z_n = B_aa/A_aa`, with `D*_aa = D_aa - B_aa²/A_aa`, so shear
+stress vanishes on both free faces even in unsymmetric stacks. Single-ply
+laminates retain `Cs = k A55`. Keep the internal `cs_uncorrected` field and the
+raw-dict explicit override for compatibility; the plain-integral accessors
+remain diagnostics, not the laminate element input. Homogeneous laminate vs
+isotropic-shell equivalence is no longer the convention; split-ply invariance
+and explicit plain-integral convention probes replace that expectation.
+
 ### ADR-2 — Internal structure: a new module, `Mitc4PlusDPrecomputed`, unchanged 24-DOF layout
 
 **Decision.** The faithful element lands in a **new module**

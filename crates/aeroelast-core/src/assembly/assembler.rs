@@ -1304,18 +1304,13 @@ fn build_constitutive_mitc4(
     }
 }
 
-/// The uncorrected section transverse-shear stiffness the MITC4+/D shear block
-/// consumes (ADR-1, amended).
-///
-/// The isotropic path removes the scalar its material model applied
-/// (`k·G·h -> G·h`). The composite path takes the laminate's plain section
-/// integral, because the energy-equivalent `cs` already carries the `5/6` of a
-/// homogeneous section: feeding that to the element made a `[0,0,0,0]` stack of
-/// four `h/4` isotropic plies differ from the single `h` layer it is physically
-/// identical to (measured 3.434% on the assembled K trace).
-///
-/// The element's own constructor derives the isotropic value; this overwrites it
-/// with what the material reports, so the element has ONE input convention.
+/// Section transverse-shear stiffness consumed by the MITC4+/D shear block.
+/// ADR-1 re-amended 2026-10-19 (L1-SHEAR): isotropic shells remove the scalar
+/// correction (`k·G·h -> G·h`), while laminates supply energy-equivalent `cs`
+/// through the historically named `cs_uncorrected` field. A plain sum G t
+/// assumes constant through-thickness shear strain and is about 40x too stiff
+/// for a soft-core sandwich. Raw composite dictionaries may explicitly override
+/// this channel; otherwise they also supply `cs` verbatim.
 fn mitc4_uncorrected_shear(
     mat: &MaterialSpec,
     constitutive: &crate::materials::ShellConstitutive,

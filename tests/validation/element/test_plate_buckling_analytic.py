@@ -367,15 +367,6 @@ def test_sandwich_laminate_section_matches_reference():
     assert lam.Cs[1, 1] == pytest.approx(s_energy, rel=1e-4)
 
 
-_SECTION_SHEAR_DEFECT = pytest.mark.xfail(
-    strict=True,
-    reason="T7(iii) L17: the MITC4 composite shear block consumes A55 = sum G_k t_k "
-    "(crates/aeroelast-py/src/assembler.rs, ADR-1 amended, 8cbfc0b), 40x the sandwich S; "
-    "MITC4 then equals FSDT with S = A55 (test_mitc4_sandwich_equals_fsdt_with_the_shear_it_consumes)",
-)
-
-
-@_SECTION_SHEAR_DEFECT
 def test_mitc4_sandwich_plate_m1_converges_to_fsdt():
     b = 1.5
     d, s, _ = sandwich_section()
@@ -404,7 +395,6 @@ def test_mitc4_sandwich_plate_m1_converges_to_fsdt():
                           kind="analytical", what="sandwich 32x32 N_cr")
 
 
-@_SECTION_SHEAR_DEFECT
 def test_mitc4_sandwich_plate_m2_shear_dominated():
     b = 0.75
     d, s, _ = sandwich_section()
@@ -420,23 +410,81 @@ def test_mitc4_sandwich_plate_m2_shear_dominated():
                           kind="analytical", what="sandwich m2 48x48 N_cr")
 
 
-@pytest.mark.parametrize(("b", "n", "m_expected"), [(1.5, 32, 1), (0.75, 48, 1)])
-def test_mitc4_sandwich_equals_fsdt_with_the_shear_it_consumes(b, n, m_expected):
-    """Characterization of the L17 defect: the element is a correct FSDT plate for the S it is given.
+# The section shear for an UNSYMMETRIC stack. With B != 0 the bending stress of a cylindrical bending
+# free of membrane force is Q (z - z_n) kappa about the neutral axis z_n = B11/A11, with M = D* kappa,
+# D* = D11 - B11^2/A11, so the equilibrium shape Phi(z) = int_{-h/2}^{z} Q (z' - z_n) dz' vanishes on
+# both faces and S = D*^2 / int Phi^2/G dz. Referencing Phi to the mid-plane instead leaves a shear
+# stress on the free top face (Phi(h/2) = B11) and gave 2.85x the value for a soft-outer stack (L1-SHEAR,
+# odd/tasks/validation-l3-b3-audit.md). The reference below is an own quadrature; it is checked by its
+# own limits first (Phi vanishes on both faces, a homogeneous stack split unevenly gives 5/6 G h, and a
+# symmetric stack gives the mid-plane value), then both laminate implementations must equal it.
 
-    With S = A55 (``Laminate.shear_stiffness_uncorrected``) the same reference matches MITC4 (Richardson
-    +0.002 % at b = 1.5, +0.06 % at 48x48 for b = 0.75), so the error is the section input, not the
-    element. Delete this test when the composite shear block receives the energy-equivalent ``Cs``: the
-    two xfail tests above then pass and this one fails.
-    """
-    d, _, _ = sandwich_section()
-    a55 = float(sandwich_property().laminate.shear_stiffness_uncorrected()[0, 0])
-    expected, m = fsdt_ncr(b, b, d, a55)
-    lam, res, w, xyz, _ = mitc4_plate_buckling(n, n, b, b, prop=sandwich_property())
-    assert m == m_expected
-    assert res[0] < 1e-8
-    assert half_waves(w[0], xyz, 0, b / 4) == m_expected
-    assert lam[0] * SIGMA0 * H_SANDWICH / expected - 1.0 == pytest.approx(0.0, abs=5e-3)
+UNSYMMETRIC_STACKS = {
+    "soft-outer 2-material": ((3.4e9, 0.0006), (20e9, 0.0024)),
+    "gelcoat/triax/triax-like": ((3.4e9, 0.0005), (25e9, 0.0015), (12e9, 0.0012)),
+}
+
+
+def energy_equivalent_shear(stack, n_quad: int = 400001) -> tuple[float, float, float]:
+    """(S about the neutral axis, Phi(h/2) / max|Phi|, plain sum G t) of an isotropic-ply stack."""
+    h = sum(t for _, t in stack)
+    zb = np.cumsum([0.0] + [t for _, t in stack]) - h / 2.0
+    z = np.linspace(-h / 2.0, h / 2.0, n_quad)
+    e_z = np.select([(z >= zb[i]) & (z <= zb[i + 1]) for i in range(len(stack))], [e for e, _ in stack])
+    q, g = e_z / (1.0 - NU**2), e_z / (2.0 * (1.0 + NU))
+    a, b, d = (np.trapezoid(q * z**k, z) for k in (0, 1, 2))
+    integrand = q * (z - b / a)
+    phi = -np.concatenate([[0.0], np.cumsum(0.5 * (integrand[1:] + integrand[:-1]) * np.diff(z))])
+    s = (d - b * b / a) ** 2 / np.trapezoid(phi**2 / g, z)
+    return float(s), float(phi[-1] / np.abs(phi).max()), float(np.trapezoid(g, z))
+
+
+def _iso_plies(stack):
+    def iso(i, e):
+        g = e / (2.0 * (1.0 + NU))
+        return OrthotropicMaterial(name=f"m{i}", E=(e, e, e), G=(g, g, g), nu=(NU, NU, NU), rho=1000.0)
+
+    return [Ply(iso(i, e), t, 0.0) for i, (e, t) in enumerate(stack)]
+
+
+def _rust_cs(stack) -> np.ndarray:
+    from _aeroelast import Laminate as RustLaminate, OrthotropicMaterial as RustMat, Ply as RustPly
+
+    plies = []
+    for e, t in stack:
+        g = e / (2.0 * (1.0 + NU))
+        plies.append(RustPly(RustMat(e, e, e, g, g, g, NU, NU, NU, 1000.0), t, 0.0))
+    return np.asarray(RustLaminate(plies, 5.0 / 6.0).cs_matrix())
+
+
+def test_unsymmetric_shear_reference_check_limits():
+    d, s_sandwich, _ = sandwich_section()
+    s, phi_top, _ = energy_equivalent_shear(SANDWICH)
+    assert s == pytest.approx(s_sandwich, rel=1e-4)  # symmetric: the mid-plane reference (its 1e-4)
+    g = 20e9 / (2.0 * (1.0 + NU))
+    s, phi_top, _ = energy_equivalent_shear(((20e9, 0.001), (20e9, 0.003)))
+    assert s == pytest.approx(5.0 / 6.0 * g * 0.004, rel=1e-6)
+    for stack in UNSYMMETRIC_STACKS.values():
+        assert abs(energy_equivalent_shear(stack)[1]) < 1e-6  # no shear stress on the free top face
+
+
+@pytest.mark.parametrize("name", sorted(UNSYMMETRIC_STACKS))
+def test_unsymmetric_laminate_shear_is_neutral_axis_referenced(name):
+    """Both laminate implementations give the neutral-axis energy-equivalent S of an unsymmetric stack."""
+    stack = UNSYMMETRIC_STACKS[name]
+    s, _, _ = energy_equivalent_shear(stack)
+    lam = Laminate(_iso_plies(stack))
+    assert abs(lam.B[0, 0]) > 1e2  # non-vacuity: the stack really is unsymmetric
+    for cs in (lam.Cs, _rust_cs(stack)):
+        assert cs[0, 0] == pytest.approx(s, rel=1e-4)
+        assert cs[1, 1] == pytest.approx(s, rel=1e-4)
+
+
+def test_symmetric_laminate_shear_is_unchanged_by_the_neutral_axis_reference():
+    """Previous behaviour kept: z_n = 0 for a symmetric stack, so Cs is the mid-plane value (sandwich)."""
+    _, s_energy, _ = sandwich_section()
+    assert _rust_cs(SANDWICH)[0, 0] == pytest.approx(s_energy, rel=1e-4)
+    assert Laminate(_iso_plies(SANDWICH)).Cs[0, 0] == pytest.approx(s_energy, rel=1e-4)
 
 
 # ---------------------------------------------------------------------------
