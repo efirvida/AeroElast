@@ -26,7 +26,7 @@ Branch: `feat/rotating-local-tip-modes` from `29897f1`; delivery: `single-pr`; c
 - T6 [S6] (CLOSED as DIAGNOSTIC by S9, L36: lambda1 3.224 vs CCX 2.29 documented and localised in TE_FLAT slivers, L35; not an anchor) independent shell arbiter for the tip local modes: our linear buckling factor + CalculiX S8R CENTRIF -> *BUCKLE and *FREQUENCY PERTURBATION at 7.56 rpm, same mesh es 0.25 - worker + sbatch - commit: -
 - T7 [S7] analytic plate-buckling anchor for MITC4 K_G (L15 plan i-iv) - (i) DONE (L16, 3f0169d), (iii) measured with 2 strict xfails (L17, 968d20d); (iv) measured, diagnostic only (L20, SLURM 11618812), delegated worker (context-backstop trigger); PAUSED by user (L24): analyze stress-swap 11618827 first, then (ii); (ii) orthotropic closed form DONE (L37, all predeclared bands met) - commit: (iv) af7b8fe, (ii) 3da1cb8
 - T8 [S8, S9] analytic anchor for the centrifugal prestress recovery: compute_prestress_field (the path fixed in 41e9a16) vs a closed form (e.g. rotating prismatic member, sigma(r) = rho omega^2 (R^2 - r^2)/2, plus a case where B kappa is non-zero), tolerance predeclared in the docstring - inline - DONE (L38, all predeclared bounds met) - commit: 7ee5da2
-- T5 [S5, S10] record finding (closures doc, S-4 docstring if a number moves), close - inline - DONE (L39) - commit: (this)
+- T5 [S5, S10] record finding (closures doc, S-4 docstring if a number moves), close - inline - DONE (L39) - commit: 9e8d599
 
 ## Log
 
