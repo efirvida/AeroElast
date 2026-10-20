@@ -33,6 +33,7 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.1b** test-source edits: V-02 1E and S-7 bounds to 0.05, S-4 measures all families then asserts (2F), V-03 docstring/name. Commit `19ff1a3` (criterion `b06eedd`).
   - [x] **B3-2.1c** measure at the edit commit (SLURM 11619652 S-1/S-2/V-03 capture, 11619653 S-4 capture, 11619654 V-02/S-7 `regression --write`; `logs/check/b3-2/measure.sbatch`, metrics `logs/check/b3-2/metrics.py`); fidelity vs b3-1r/head.
   - [x] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
+  - [ ] **B3-2.1e** es 0.125 for the three K3(b) items (S-1 flap, S-2 LC1, S-4 parked 1E), judged by K7 (section "K7" at the end, fixed before the runs). Route: worker + SLURM.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -1051,3 +1052,17 @@ Follow-ups (not done here): es 0.125 for S-1 flap, S-2 LC1 and S-4 parked 1E (K3
 no residual pattern (`regression` cannot read them); `validation_matrix check` does not validate a tolerance value against the
 source literal nor source-line drift (rows 32/34 were stale with 0 errors). Carry-over: base worktree `logs/check/b3-1r/base-8de3521`,
 `scripts/known-red-full.txt` untracked, push/PR = maintainer. Ruff: 2 pre-existing findings in S-4 (:105 B905), V-03 (:209 F841).
+
+## K7 - completion of K3(b) at es 0.125 (written BEFORE any es 0.125 number of these rows, 2026-10-20, at 8924d77)
+User (L): "sigue tus recomendaciones" (follow-up 1 of the batch 1 RESULT: es 0.125 for the K3(b) items); PR #45 stays the single PR.
+Rows: G38 `s1_sectional_flapwise_ei` (e 5.17 % at es 0.25), G39 `s2_official_lc1_tip_displacement` (5.53 %), G40 parked 1E
+(-5.98 % vs ElastoDyn; the parked row verdict stays `rejected` on 2F whatever 1E gives). K7 only applies rules already fixed
+(K1, K3, K4; precedents S-4 C1/C3 and V-02 B3-3a, 2026-10-16), and adds no freedom:
+- K7.1 measurement: the K1 quantity, same construction (skin mid-surface, same reference, same metric and mask), at es 0.125,
+  at the current branch head; the es 0.25 point is re-measured in the same job as a control and must reproduce the 19ff1a3
+  number to the printed digit (else a finding, stop).
+- K7.2 convergence: move m = |e(0.125) - e(0.25)| in percentage points. m <= 1 pp (the K3(b) envelope) -> the es 0.125 value
+  is the converged estimate. m > 1 pp -> convergence not shown: stays `undecided` (pending a third mesh), whatever e(0.125).
+- K7.3 verdict on e(0.125) when K7.2 holds: |e| > 5 % -> `rejected`; |e| <= 5 % -> `trusted` with the K4 arbiters (S-1 flap:
+  single published numerical -> contract reports `unarbitrated`), except where the reference is not an arbiter (S-2 LC1, K4):
+  a pass stays `undecided`, a fail is `rejected`. The 1 pp margin of K3(a)/(c) no longer applies once es 0.125 exists.
