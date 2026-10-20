@@ -941,3 +941,14 @@ T2 verdict: on every L3 quantity measured at es 0.25 (V-02, S-7, S-1, S-2, S-4, 
   (S-1 mid-span: edge 12.71, flap 5.17, GJ 6.22, EA and mass to read from the capture), G39 (S-2), G40 (S-4 1F/1E; 2F to capture),
   G41 (V-03 mass 66,682 kg vs 67,921 kg), G34 (S-7, oml, ratio 0.909). Then the rule-9 re-mesh of G5/G23/G27 and the store hygiene
   items, each with its own predeclared criterion.
+
+## Handoff 2026-10-20 (B3-1 closed) - resume here
+State: B3-1 DONE on `audit/b3-1-l3-inventory` (7730249, 43e101a, f150e93 + this handoff), not pushed. Frozen inventory: section
+"B3-1 L3 evidence inventory, FROZEN" above; T2 shear move < 0.5 % on every measured L3 row (largest S-1 GJ mid-span 0.320 %).
+Next step (new session): **B3-2 batch 1** - adjudicate G32, G34, G38, G39, G40, G41 with the numbers already measured at es 0.25 on
+the audited tree (`logs/check/b3-1r/head/`: `g32.json`, `g34.json`, `capture-s1s2v3.pkl`, `capture-s4.pkl`, `modes-oml-025.log`).
+First: predeclare per row metric, reference, 5 % bound (V-02 1E band 0.10 and S-7 0.30 tighten to 0.05, red allowed); fix the store
+hygiene items listed in the frozen inventory before writing verdicts; S-4 2F still to capture.
+Carry-over: baseline worktree `logs/check/b3-1r/base-8de3521` (+ `base-site` wheel, A55) still registered - reusable for paired runs,
+else `git worktree remove`. `scripts/known-red-full.txt` untracked (stamped 52e9bba). Push/PR = maintainer decision.
+Rules: SLURM `--ntasks` + explicit `-p`; criteria fixed before measuring; never widen a band; `scripts/aeroenv.sh` on every command.
