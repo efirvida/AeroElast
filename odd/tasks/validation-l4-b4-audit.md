@@ -22,7 +22,7 @@ Audit work: produces measured verdict proposals; the maintainer closes or reopen
 
 - [x] T1 (S2) Entry measurement and environment at 2b95e5f - inline - this commit
 - [x] T2 (S2, S3) Per-row inventory and source findings (below), no verdict - inline
-- [ ] T3 (S2, D2) Import V-01 and `test_viterna_matches_aerodyn_theory_manual` as manual rows; `bem_load_frame` to out_of_scope - inline
+- [x] T3 (S2, D2) Import V-01 and `test_viterna_matches_aerodyn_theory_manual` as manual rows; `bem_load_frame` to out_of_scope - inline
 - [x] T4 (S3, S5) Amend the arbiter rule: `reference_model` (official OpenFAST model on the official deck) settles alone, L3 and L4;
   tool + test-first in `tools/validation_matrix.py`, roadmap mirror amended, issue text proposed - inline
 - [-] T4-old (D1) second-arbiter search: dropped by L3/L4 (the official model is the arbiter)
@@ -95,4 +95,15 @@ The 4.2.1 numbers in the store (1d9a665) are known; they are history, not the ba
   `reference_model`), GREEN after adding it to `SOLE_ARBITERS`. Non-slow `tools/tests`: 185 passed, 5 failed
   (`logs/check/b4/tools-tests-T4.log`); the same 5 fail at clean 2b95e5f (`logs/check/b4-base-5fail.log`: coherence x2,
   real store coherent, no pending migration, depends_on covers L1/L2 sources) -> pre-existing store line drift, not this change.
+- L6 (agent, T6 partial): v5 driver needs a SeaState section (`CompSeaSt=0`), then the v5 primary refuses the 4.x layout
+  (`NacelleDrag` not found). F6: the vendored primary has `DBEMT_Mod=2` and the 4.2.1 store numbers ran with dynamic inflow;
+  K1 ("quasi-steady") fixes `DBEMT_Mod=0` for v5 (agent decision, consistent with K1; no criterion change).
+- L7 (agent, T3 evidence, worker): group 59 `rotor_v01_performance` (V-01, 10 rows / 16 comparisons: thrust, torque rtol 0.05;
+  rated Cp atol 0.02, rated Ct and six curve points Cp/Ct atol 0.05; reference `paper` gaertner2020, WISDEM/CCBlade, no
+  independence claimed) and group 60 `viterna_manual.closed_form` (4 comparisons atol 1e-10 vs the AeroDyn Theory Manual
+  eqs [98]-[102], hand-coded in the test; `analytical`); other `test_bem_polars.py` tests declared non-validation; load frame
+  kept `out_of_scope` (machine-precision identity, #15). All `not_measured`, no verdicts. `check` 300 rows / 419 comparisons,
+  0 errors / 0 warnings; `status` 0 undeclared; L4 unaudited 23, absent 0; 11 node ids collect. Note for T8: V-01 adds 14
+  `atol` coefficient bounds; K6 already makes V-01 `unarbitrated` whatever e; the Viterna 1e-10 bound is a round-off check of
+  an implementation against its closed form.
 

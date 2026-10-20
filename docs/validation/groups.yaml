@@ -42,13 +42,6 @@ out_of_scope:
       our own implementation, not a comparison against an independent
       reference.
   - files:
-      - tests/validation/bem/test_bem_polars.py
-    reason: >-
-      It tests the aerodynamic data layer: polar interpolation, periodic
-      wrapping, Reynolds-number selection, and loading the IEA 15 MW
-      BladeAero from WindIO. That is the software that reads and serves
-      the data, not a physical result measured against a reference.
-  - files:
       - tests/validation/bem/test_force_projection.py
       - tests/validation/bem/test_force_projection_load_frame.py
     reason: >-
@@ -73,7 +66,9 @@ out_of_scope:
   - files:
       - tests/validation/bem/test_bem_load_frame.py
     reason: >-
-      An investigation of a frame, and it says so itself: it pins that the
+      Machine-precision frame identity and frame-classification guards, not
+      physical validation (issue #15): the production identity uses a 1e-9 deg
+      bound on its own output. The file pins that the
       production BEM emits the rotor-plane pair (ccblade's `cn = cl cos(phi)
       + cd sin(phi)`), and that Zhou et al. 2025's published Fig. 11 pair is
       instead a section-frame pair, by reading their own Fig. 10 angle of
@@ -1605,3 +1600,60 @@ groups:
       The default scheme of StaticNonlinearSolver is 0.19 to 0.52 % from it for the in-plane load
       and 0.81 % for the out-of-plane one on 48 x 8; the legacy updated-Lagrangian scheme is 23 %
       off in-plane, independent of the mesh.
+
+  - id: '59'
+    title: V-01 IEA 15 MW rotor performance against the WISDEM tabular reference
+    slug: rotor_v01_performance
+    reference_kind: paper
+    citation: gaertner2020
+    physical_test_files:
+      - tests/test_iea15mw_v01_rotor_performance.py
+    provenance_note: >-
+      Manual import of the rated thrust, torque, Cp and Ct assertions and the
+      six Cp/Ct curve points. Source: NREL/TP-5000-75698 Table 3-1 and
+      IEA-15-240-RWT_tabular.xlsx, Rotor Performance (WISDEM quasi-static).
+      Bounds are source-exact; no measurement or verdict is recorded. T5 K6
+      identifies this as published numerical evidence from CCBlade, the same
+      BEM code as ours, not an independent arbiter or an OpenFAST comparison.
+
+  - id: '60'
+    title: Viterna extrapolation against the AeroDyn theory manual closed form
+    slug: viterna_manual
+    reference_kind: analytical
+    source_files:
+      - tests/validation/bem/test_bem_polars.py
+    non_validation_tests:
+      - tests:
+          - TestPolarData::test_evaluate_at_zero
+          - TestPolarData::test_evaluate_at_known_alpha
+          - TestPolarData::test_evaluate_periodic_wrapping
+          - TestPolarData::test_evaluate_vectorised
+          - TestAirfoilAero::test_get_polar_exact_match
+          - TestAirfoilAero::test_get_polar_closest
+          - TestAirfoilAero::test_get_polar_single
+        reason: >-
+          Data-layer unit tests of interpolation, periodic wrapping, output
+          shapes and Reynolds-number selection, not physical-reference results.
+      - tests:
+          - TestBladeAeroYAML::test_blade_length_positive
+          - TestBladeAeroYAML::test_hub_radius_positive
+          - TestBladeAeroYAML::test_rotor_radius
+          - TestBladeAeroYAML::test_n_blades
+          - TestBladeAeroYAML::test_stations_ordered
+          - TestBladeAeroYAML::test_chord_physical
+          - TestBladeAeroYAML::test_twist_range
+          - TestBladeAeroYAML::test_airfoils_have_polars
+          - TestBladeAeroYAML::test_polar_alpha_covers_range
+          - TestBladeAeroYAML::test_polar_cl_not_constant
+          - TestBladeAeroYAML::test_r_property_shape
+          - TestBladeAeroYAML::test_chord_property_shape
+          - TestBladeAeroYAML::test_twist_property_shape
+        reason: >-
+          WindIO loading, geometry and polar sanity, and accessor-shape guards.
+          These qualify the input data layer rather than compare a physical
+          result against an independent reference.
+    provenance_note: >-
+      Manual import of test_viterna_matches_aerodyn_theory_manual only:
+      AeroDyn Theory Manual (Moriarty & Hansen 2005, NREL/TP-500-36881,
+      p. 22), Viterna equations [98]-[102] and the two limits at 90 deg.
+      Source absolute bounds are retained; no measurement or verdict recorded.

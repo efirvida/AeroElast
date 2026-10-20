@@ -1,0 +1,63 @@
+group: '60'
+rows:
+- id: viterna_manual.closed_form
+  group: '60'
+  title: Viterna extrapolation vs AeroDyn theory manual equations and 90 deg limits
+  tests:
+  - tests/validation/bem/test_bem_polars.py::test_viterna_matches_aerodyn_theory_manual
+  validates: CL and CD against the manual's Viterna closed form at 20, 30, 45, 60 and 90 deg, and its two named 90 deg limits.
+  comparisons:
+  - label: CL absolute difference at 20, 30, 45, 60 and 90 deg
+    asserted: true
+    reference:
+      kind: analytical
+      label: AeroDyn Theory Manual (Moriarty & Hansen 2005, NREL/TP-500-36881, p. 22), Viterna equations [98]-[102], attributed to Viterna & Janetzke (1982, NASA TM-82944)
+    tolerance:
+      kind: atol
+      value: 1.0e-10
+      source: tests/validation/bem/test_bem_polars.py:257
+      justified: true
+      justification: Source-stated absolute CL bound at every angle in the loop; retained without measurement.
+    measured: {status: not_measured}
+    expected: cl_ref
+  - label: CD absolute difference at 20, 30, 45, 60 and 90 deg
+    asserted: true
+    reference:
+      kind: analytical
+      label: AeroDyn Theory Manual (Moriarty & Hansen 2005, NREL/TP-500-36881, p. 22), Viterna equations [98]-[102], attributed to Viterna & Janetzke (1982, NASA TM-82944)
+    tolerance:
+      kind: atol
+      value: 1.0e-10
+      source: tests/validation/bem/test_bem_polars.py:258
+      justified: true
+      justification: Source-stated absolute CD bound at every angle in the loop; retained without measurement.
+    measured: {status: not_measured}
+    expected: cd_ref
+  - label: CL absolute value at 90 deg
+    asserted: true
+    reference:
+      kind: analytical
+      label: AeroDyn Theory Manual (Moriarty & Hansen 2005, NREL/TP-500-36881, p. 22), Viterna equations [98]-[102], named limit CL = 0 at 90 deg
+    tolerance:
+      kind: atol
+      value: 1.0e-10
+      source: tests/validation/bem/test_bem_polars.py:261
+      justified: true
+      justification: Source-stated absolute bound for the manual's zero-lift limit; retained without measurement.
+    measured: {status: not_measured}
+    expected: 0.0
+  - label: CD absolute difference from Cd_max at 90 deg
+    asserted: true
+    reference:
+      kind: analytical
+      label: AeroDyn Theory Manual (Moriarty & Hansen 2005, NREL/TP-500-36881, p. 22), Viterna equations [98]-[102], named limit CD = Cd_max at 90 deg
+    tolerance:
+      kind: atol
+      value: 1.0e-10
+      source: tests/validation/bem/test_bem_polars.py:262
+      justified: true
+      justification: Source-stated absolute bound for the manual's maximum-drag limit; retained without measurement.
+    measured: {status: not_measured}
+    expected: cd_max
+  flags: []
+  notes: Manual source assertion import only; no execution result or verdict. All other tests in this file are declared non-validation in group 60.

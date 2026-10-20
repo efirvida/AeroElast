@@ -133,7 +133,7 @@ levels:
       The built-in CCBlade-based BEM, purely aerodynamic, against AeroDyn on the same deck and
       polars: rotor performance, spanwise loads, yaw and shear, post-stall extrapolation and the
       load frame it hands to the structure.
-    groups: ['11']
+    groups: ['11', '59', '60']
     # Pure aerodynamics: the BEM against AeroDyn does not rest on the shell elements.
     requires: []
     depends_on:
@@ -141,13 +141,9 @@ levels:
       - src/aeroelast/models/blade
       - tests/IEA-15-240-RWT.yaml
     gaps: []
-    absent:
-      - evidence: tests/test_iea15mw_v01_rotor_performance.py
-        reason: V-01 rotor performance, outside the store.
-      - evidence: tests/validation/bem/test_bem_load_frame.py
-        reason: The BEM load frame against Zhou's chord-frame pair (#15), outside the store.
-      - evidence: tests/validation/bem/test_bem_polars.py
-        reason: Viterna against the AeroDyn manual (#5), outside the store.
+    # Load-frame identity/classification guards (#15) are declared out_of_scope
+    # in groups.yaml; they are not missing independent physics comparisons.
+    absent: []
 
   - id: L5
     title: Coupled FSI of the IEA 15 MW rotor with the built-in BEM
