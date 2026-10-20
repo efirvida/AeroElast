@@ -670,3 +670,14 @@ over ceiling 3, single or no arbiter 34, gaps 1 blocking. Next: B3-1..B3-3, then
 Pending maintainer decisions: (a) register the K_G anchors (T7(ii), T8) as L1 rows; (b) PR split of the branch (~23.6 k lines).
 Trap: any commit to assembler.py / L1 depends_on restales L2 (L2 inherits L1's depends_on); re-measure with
 logs/check/l2-refresh/regress.sbatch "<groups>" (REV exported, git shim).
+
+## REG-1 + DELIVERY (2026-10-19, maintainer decisions)
+User verbatim: "1- si registra todo como filas. 2- un solo PR, para TODO lo que no este mergeado, y mesclalo" (answer to the two
+pending decisions: (a) register the K_G anchors as rows, (b) PR split).
+- [ ] **REG-1** Register as store rows the 3 validation files `validation_matrix.py status` reports "neither grouped nor declared":
+  tests/validation/element/test_plate_buckling_analytic.py and tests/validation/element/test_prestress_centrifugal_analytic.py
+  (K_G anchors of 41e9a16 -> L1), tests/validation/benchmarks/test_analytic_beam_closed_section.py (43dce4d thin-walled box closed
+  forms -> L2 scope "thin-walled sections against closed forms"). New groups, rows extracted, measured with `regression --write`,
+  verdicts only where an independent analytical arbiter is in the test; any unsupported row is reported, never forced trusted.
+- [ ] **DELIVERY** One PR feat/rotating-local-tip-modes -> main (everything unmerged: local main is contained in the branch, all
+  other remote branches are already in origin/main), full-suite measurement first (the branch touches crates/), then merge.

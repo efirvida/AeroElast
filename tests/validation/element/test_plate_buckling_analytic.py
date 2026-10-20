@@ -46,6 +46,7 @@ from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, N
 from aeroelast.core.mesh.model import MeshModel  # noqa: E402
 from aeroelast.core.properties import CompositeShellProperty, ShellProperty  # noqa: E402
 from aeroelast.elements import ElementFamily  # noqa: E402
+from tests.support.assertions import assert_residual_below  # noqa: E402
 
 E, NU, B_EDGE, H = 210e9, 0.3, 1.0, 0.01
 D_PLATE = E * H**3 / (12.0 * (1.0 - NU**2))
@@ -230,8 +231,12 @@ def test_mitc4_square_plate_converges_to_4pi2d_over_b2():
     richardson = ncr[32] + (ncr[32] - ncr[16]) / (2.0**order - 1.0)
     print(f"observed order {order:.3f}, Richardson {richardson:.6e} ({richardson / exact - 1.0:+.4%})")
     assert 1.5 <= order <= 2.5
-    assert abs(richardson / exact - 1.0) < 3e-3
-    assert err[32] < 1e-2
+    assert_residual_below(abs(richardson / exact - 1.0), tol=3e-3,
+                          reference_name="Timoshenko-Gere Kirchhoff SS plate N_cr = 4 pi^2 D / b^2",
+                          kind="analytical", what="isotropic Richardson N_cr")
+    assert_residual_below(err[32], tol=1e-2,
+                          reference_name="Timoshenko-Gere Kirchhoff SS plate N_cr = 4 pi^2 D / b^2",
+                          kind="analytical", what="isotropic 32x32 N_cr")
 
 
 def test_mitc4_square_plate_dense_eigensolve_agrees_with_arnoldi():
@@ -255,7 +260,9 @@ def test_mitc4_rectangular_plate_picks_two_half_waves():
     assert res[0] < 1e-8
     assert half_waves(w[0], xyz, 0, B_EDGE / 2) == 2
     assert half_waves(w[0], xyz, 1, a / 4) == 1  # x = a/2 is a nodal line of the m = 2 mode
-    assert abs(ncr / exact - 1.0) < 1e-2
+    assert_residual_below(abs(ncr / exact - 1.0), tol=1e-2,
+                          reference_name="Timoshenko-Gere Kirchhoff SS rectangular plate, minimum over m",
+                          kind="analytical", what="isotropic rectangular 48x32 N_cr")
 
 
 # ---------------------------------------------------------------------------
@@ -389,8 +396,12 @@ def test_mitc4_sandwich_plate_m1_converges_to_fsdt():
     richardson = ncr[32] + (ncr[32] - ncr[16]) / (2.0**order - 1.0)
     print(f"observed order {order:.3f}, Richardson {richardson:.6e} ({richardson / exact - 1.0:+.4%})")
     assert 1.5 <= order <= 2.5
-    assert abs(richardson / exact - 1.0) < 5e-3
-    assert err[32] < 1e-2
+    assert_residual_below(abs(richardson / exact - 1.0), tol=5e-3,
+                          reference_name="SS sandwich Navier FSDT N_cr = D K^4 / kx^2 / (1 + D K^2 / S)",
+                          kind="analytical", what="sandwich Richardson N_cr")
+    assert_residual_below(err[32], tol=1e-2,
+                          reference_name="SS sandwich Navier FSDT N_cr = D K^4 / kx^2 / (1 + D K^2 / S)",
+                          kind="analytical", what="sandwich 32x32 N_cr")
 
 
 @_SECTION_SHEAR_DEFECT
@@ -404,7 +415,9 @@ def test_mitc4_sandwich_plate_m2_shear_dominated():
           f"({ncr / exact - 1.0:+.4%}), m_FE={half_waves(w[0], xyz, 0, b / 4)}, lam2/lam1={lam[1] / lam[0]:.4f}")
     assert res[0] < 1e-8
     assert half_waves(w[0], xyz, 0, b / 4) == 2
-    assert abs(ncr / exact - 1.0) < 1e-2
+    assert_residual_below(abs(ncr / exact - 1.0), tol=1e-2,
+                          reference_name="SS sandwich Navier FSDT N_cr = D K^4 / kx^2 / (1 + D K^2 / S)",
+                          kind="analytical", what="sandwich m2 48x48 N_cr")
 
 
 @pytest.mark.parametrize(("b", "n", "m_expected"), [(1.5, 32, 1), (0.75, 48, 1)])
@@ -575,8 +588,12 @@ def test_mitc4_cross_ply_square_plate_x_load_converges():
     richardson = ncr[32] + (ncr[32] - ncr[16]) / (2.0**order - 1.0)
     print(f"observed order {order:.3f}, Richardson {richardson:.6e} ({richardson / exact - 1.0:+.4%})")
     assert 1.5 <= order <= 2.5
-    assert abs(richardson / exact - 1.0) < 3e-3
-    assert err[32] < 1e-2
+    assert_residual_below(abs(richardson / exact - 1.0), tol=3e-3,
+                          reference_name="Whitney-Jones specially orthotropic SS plate buckling, hand CLT D",
+                          kind="analytical", what="cross-ply x Richardson N_cr")
+    assert_residual_below(err[32], tol=1e-2,
+                          reference_name="Whitney-Jones specially orthotropic SS plate buckling, hand CLT D",
+                          kind="analytical", what="cross-ply x 32x32 N_cr")
 
 
 def test_mitc4_cross_ply_square_plate_y_load_picks_two_half_waves():
@@ -589,7 +606,9 @@ def test_mitc4_cross_ply_square_plate_y_load_picks_two_half_waves():
     assert res[0] < 1e-8
     assert half_waves(w[0], xyz, 1, 0.5) == 2
     assert half_waves(w[0], xyz, 0, 0.25) == 1
-    assert abs(ncr / exact - 1.0) < 1e-2
+    assert_residual_below(abs(ncr / exact - 1.0), tol=1e-2,
+                          reference_name="Whitney-Jones specially orthotropic SS plate buckling, hand CLT D",
+                          kind="analytical", what="cross-ply y 48x48 N_cr")
 
 
 def test_mitc4_cross_ply_ply_angle_follows_the_element_frame():

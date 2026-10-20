@@ -54,12 +54,15 @@ from aeroelast.core.mesh.entities import ElementSet, ElementType, MeshElement, N
 from aeroelast.core.mesh.model import MeshModel
 from aeroelast.core.properties import CompositeShellProperty, ShellProperty
 from aeroelast.elements import ElementFamily
+from tests.support.assertions import assert_residual_below
 
 R0, R_TIP, WIDTH, OMEGA = 2.0, 10.0, 0.5, 1.2
 AXIS, CENTER = np.array([0.0, 1.0, 0.0]), np.zeros(3)
 IDENTITY_TOL = 1e-6
 TRANSVERSE_TOL = 1e-6
 RATIO_TOL = 1e-6
+# L^2/[4 (R^2-r0^2)] * (1+IDENTITY_TOL) at n_span=40; literal for extraction.
+PRESTRESS_40_TOL = 0.00010416677083333334
 
 
 def _orthotropic(name, e, rho):
@@ -156,6 +159,12 @@ def test_prestress_matches_rotating_strip_closed_form(layup):
         transverse = np.max(np.abs(r["prestress"][:, 1:])) / sig_root
         assert transverse <= TRANSVERSE_TOL, f"{layup}: sigma_yy/xy {transverse:.3e}"
     assert errors[20] / errors[40] == pytest.approx(4.0, rel=0.01)
+    assert PRESTRESS_40_TOL == bound * (1 + IDENTITY_TOL)
+    # strict < replaces <=; differs only at exact equality
+    assert_residual_below(
+        errors[40], tol=PRESTRESS_40_TOL,
+        reference_name="rotating nu=0 strip equilibrium sigma_x = m omega^2 (R^2-x^2)/(2h), root-normalized",
+        kind="analytical", what=f"{layup} 40-element prestress")
 
 
 @pytest.mark.parametrize("layup", ["symmetric", "unsymmetric"])
@@ -165,7 +174,11 @@ def test_output_stress_differs_from_prestress_by_the_b_kappa_factor(layup):
     a11, b11, d11 = lam.A[0, 0], lam.B[0, 0], lam.D[0, 0]
     factor = a11 * d11 / (a11 * d11 - b11**2)
     ratio = r["output"][:, 0] / r["prestress"][:, 0]
-    np.testing.assert_allclose(ratio, factor, rtol=RATIO_TOL)
+    # Strict < replaces inclusive allclose; its default absolute allowance is zero.
+    assert_residual_below(
+        np.max(np.abs(ratio / factor - 1.0)), tol=RATIO_TOL,
+        reference_name="zero-moment laminate equilibrium sigma_output/sigma_prestress = A11 D11/(A11 D11-B11^2)",
+        kind="analytical", what=f"{layup} B-kappa recovery factor")
     if layup == "symmetric":
         assert factor == pytest.approx(1.0, abs=1e-12)
     else:

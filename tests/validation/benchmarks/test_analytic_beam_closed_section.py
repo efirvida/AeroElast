@@ -22,11 +22,11 @@ without widening it. Timoshenko separates shear+rotary inertia from EB:
 first-mode shifts ~0.2%, second-mode shifts 1.27-1.44%.
 
 The native LU graph-ordering hang is bypassed ONLY by a scoped RCM solver
-option (no changed matrices). The Southwell tests remain RED: isotropic
-centrifugal loading receives rho rather than rho*t, giving exactly 20x the
-analytic resultant for t=.05. Final K_flap=23.1293 vs1.19103, K_lag=21.6663
-vs0.188469; last coefficient changes <.004. Keep the strict pre-set 3% bound.
-Do not repair source or xfail these implementation findings inside T6.
+option (no changed matrices). The Southwell tests were RED until 43dce4d:
+isotropic centrifugal loading received rho rather than rho*t, giving exactly
+20x the analytic resultant for t=.05 (K_flap 23.1293 vs 1.19103, K_lag 21.6663
+vs 0.188469). With rho*t they pass the strict pre-set 3% bound: K_flap 0.19 %,
+K_lag 0.60 % from Wright et al. 1982 (measured 2026-10-19, SLURM 11619328).
 
 The shared modal convergence fixture takes ~551s on sequana_cpu, so this file
 belongs in SLURM, not a login-node smoke run. Static/mass checks remain fast.
@@ -45,6 +45,8 @@ from tests.validation.benchmarks.analytic_beam_helpers import (  # noqa: E402
     assembled_mass, build_box, composite_reference, modal_families,
     parked_reference, rotating_beam_ritz, section, static_rigidities, timoshenko_reference,
 )
+
+from tests.support.assertions import assert_residual_below  # noqa: E402
 
 MESHES = [(40, 2), (80, 4), (160, 8)]
 STATIC_MESHES = [(160, 4), (320, 4), (640, 4)]
@@ -124,8 +126,13 @@ def test_exact_closed_section_mass():
     print(f"mass study runtime={time.monotonic()-start:.3f}s")
     expected = RHO * 2*(WIDTH+HEIGHT)*THICKNESS*LENGTH
     errors = report("total mass kg (x,y,z)", masses, expected)
-    assert np.max(errors) < 1e-10
-    np.testing.assert_allclose(masses, expected, rtol=1e-10, atol=0)
+    assert_residual_below(np.max(errors), tol=1e-10,
+                          reference_name="exact thin-wall mass rho * perimeter * t * L",
+                          kind="analytical", what="finest-mesh rigid-translation mass")
+    # Strict < replaces inclusive allclose; explicit atol=0 drops no absolute allowance.
+    assert_residual_below(np.max(np.abs(np.asarray(masses) / expected - 1.0)), tol=1e-10,
+                          reference_name="exact thin-wall mass rho * perimeter * t * L",
+                          kind="analytical", what="all-mesh rigid-translation masses")
 
 
 @pytest.mark.slow
@@ -145,7 +152,9 @@ def test_parked_closed_section_modes(modal_study, family, order):
         reference = corrected
     error = report(f"parked {family} {order+1} Hz", values, reference, MODAL_MESHES)
     assert abs(values[-1]/values[-2]-1) < .005, "mesh not converged within 0.5%"
-    assert error < .02, f"{family} {order+1}: converged shell vs analytical beam error {error:.3%}"
+    assert_residual_below(error, tol=.02,
+                          reference_name="cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave",
+                          kind="analytical", what=f"parked {family} mode {order+1}")
 
 
 @pytest.mark.slow
@@ -169,7 +178,9 @@ def test_rotating_southwell_same_s4_path(modal_study, family, subtract):
     report(f"rotating {family} 1 Hz", [r[family][0] for r in rotating],
            reference_rotating, MODAL_MESHES)
     assert abs(values[-1]-values[-2]) < .005, "coefficient not mesh converged"
-    assert error < .03, f"{family}: converged S-4 K_G+K_SP coefficient error {error:.3%}"
+    assert_residual_below(error, tol=.03,
+                          reference_name="rotating Euler-Bernoulli ODE finite-speed Southwell coefficient; Wright et al. 1982 low-speed check",
+                          kind="analytical", what=f"rotating {family} Southwell coefficient")
 
 
 @pytest.mark.parametrize("surface", ["mid", "outer"])
@@ -188,11 +199,13 @@ def test_explicit_reference_surface_inertia(surface):
     error = report(f"{surface} EI N m2 runtime={time.monotonic()-start:.3f}s", values, expected,
                    STATIC_MESHES)
     assert abs(values[-1]/values[-2]-1) < .005
-    assert error < .005
+    assert_residual_below(error, tol=.005,
+                          reference_name="Euler-Bernoulli EI from four wall-strip inertias including local t^3/12",
+                          kind="analytical", what=f"{surface} surface EI")
 
 
-@pytest.mark.parametrize("quantity,index", [("EA", 0), ("EI", 1)])
-def test_composite_closed_box_effective_clt(quantity, index):
+@pytest.mark.parametrize("quantity,index,tolerance", [("EA", 0, 1e-5), ("EI", 1, .005)])
+def test_composite_closed_box_effective_clt(quantity, index, tolerance):
     """Symmetric balanced glass [0/+45/-45/90]s, free transverse contraction."""
     start = time.monotonic()
     values = [static_rigidities(build_box(s, w, thickness=.01, composite=True))[index]
@@ -201,4 +214,6 @@ def test_composite_closed_box_effective_clt(quantity, index):
     error = report(f"glass {quantity} runtime={time.monotonic()-start:.3f}s", values, expected,
                    STATIC_MESHES)
     assert abs(values[-1]/values[-2]-1) < .005
-    assert error < (1e-5 if quantity == "EA" else .005)
+    assert_residual_below(error, tol=tolerance,
+                          reference_name="Jones hand CLT A_eff = 1/a11, integrated over closed-box walls",
+                          kind="analytical", what=f"glass closed-box {quantity}")
