@@ -29,6 +29,10 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-1r.3** — paired SLURM measurement 2b95e5f^1 vs 2b95e5f per the B3-1r predeclared criterion; record each move with its class.
   - [x] **B3-1r.4** — write the frozen inventory section (counts, map, staleness, over-ceiling, absent, first admissible batch); `git diff --check`, `check.sh quick`.
 - [ ] **B3-2 — Adjudicate L3 groups.** At the frozen audited revision, inspect test sources, original references, convergence, arbiter independence, class and measured errors; enter only supported verdicts with named arbiters. Missing second independent numerical judge remains unvalidated/open. Check: contract `--level L3 --rows`; link evidence to each adjudication.
+  - [x] **B3-2.1a** batch 1 (G32/34/38/39/40/41) criterion K1-K6 predeclared (section at the end).
+  - [ ] **B3-2.1b** test-source edits: V-02 1E and S-7 bounds to 0.05, S-4 measures all families then asserts (2F), V-03 docstring/name.
+  - [ ] **B3-2.1c** measure at the edit commit (SLURM): S-1/S-2/V-03 capture, S-4 capture, V-02/S-7 regression; fidelity vs b3-1r/head.
+  - [ ] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -952,3 +956,39 @@ hygiene items listed in the frozen inventory before writing verdicts; S-4 2F sti
 Carry-over: baseline worktree `logs/check/b3-1r/base-8de3521` (+ `base-site` wheel, A55) still registered - reusable for paired runs,
 else `git worktree remove`. `scripts/known-red-full.txt` untracked (stamped 52e9bba). Push/PR = maintainer decision.
 Rules: SLURM `--ntasks` + explicit `-p`; criteria fixed before measuring; never widen a band; `scripts/aeroenv.sh` on every command.
+
+## B3-2 batch 1 predeclared criterion (G32, G34, G38, G39, G40, G41; written BEFORE any verdict, 2026-10-20, branch `audit/b3-1-l3-inventory` at 6bea869)
+User verbatim (L): "B3-2 lote 1 (G32, G34, G38, G39, G40, G41): antes de escribir veredictos, fijar por fila métrica, referencia y
+cota del 5 % (V-02 1E y S-7 se ajustan a 0.05, rojo permitido), arreglar la higiene del store y capturar el 2F de S-4. Los números
+ya medidos a es 0.25 están en logs/check/b3-1r/head/."
+Honesty note: most numbers are already known (B3-1r.3). This criterion therefore adds no freedom: it only applies rules fixed
+earlier (maintainer 5 % rule 2026-10-16, S-4 C1-C3 2026-10-16, decision (b) 2026-10-16, the v1.0-reference finding 2026-10-16,
+contract.yaml arbiter semantics) to each row, and states what each verdict will be as a function of the number.
+- K1 measurement. The number is the quantity the test asserts, computed exactly as the test computes it, with the test's own
+  construction (es 0.25; skin `mid` for G32/38/39/40/41, `oml` for G34 as `tools/run_s7_torsion.py` builds it), at the revision
+  that carries this batch's test edits (audited_rev). The B3-1r head capture (2b95e5f tree) must be reproduced to the printed
+  digit (fidelity check; only bounds, prints and docstrings change). A difference is a finding and stops the batch.
+- K2 bound. 5 % relative on the test's declared reference, in the test source and the store row. V-02 1E 0.10 -> 0.05 and S-7
+  0.30 -> 0.05 (red allowed; ADJ-1032's 10 % is withdrawn by a new adjudication entry, not edited away).
+- K3 verdict, class physics:
+  (a) |e| > 5 % and margin to the bound >= 1 pp -> `rejected`.
+  (b) |e| within 1 pp of 5 % (either side) and no es 0.125 measurement of that row -> `undecided` (pending es 0.125). The 1 pp is
+      the envelope of measured es 0.25 -> 0.125 moves on this blade: S-4 <= 0.35 % in frequency (~0.7 % in stiffness), V-02
+      <= 0.23 %, S-7 ratio 0.7 %.
+  (c) |e| <= 5 % - 1 pp -> `trusted` with its arbiters listed; the contract itself reports `unarbitrated` (level open) when fewer
+      than two independent numerical arbiters exist. A reference that does not describe the modelled object, or is our own code,
+      is not an arbiter: a pass against it gives `undecided`, never `trusted`.
+- K4 arbiters per row (fixed now, from earlier records only):
+  | grp | metric | declared reference | arbiter status |
+  |---|---|---|---|
+  | 32 | V-02 1F, 1E [Hz], rel err | NREL/TP-5000-75698 Table 5-2 0.5585 / 0.6406 | NOT an arbiter: v1.0 blade, decks and yaml are v1.1 (finding 2026-10-16). Bernardi 2025 blade version unverified, not an arbiter. |
+  | 34 | S-7 shell/beam tip-twist ratio over 0.3-0.9 span, err = |r - 1| | BeamDyn deck K55 integrated as a Timoshenko torsion beam | single published_numerical (deck), our integration |
+  | 38 | S-1 mid-span (0.2-0.85 R) mean |rel err| of EI_edge, EI_flap (elastic-centre principal), mass, GJ, EA(CLT) | BeamDyn 6x6 deck (SONATA/ANBA4, decision (b)) | single published_numerical |
+  | 39 | S-2 LC1/LC2/LC4 dominant tip component, rel err | in-house EB beam (`tools/beam_reference.py`, ElastoDyn EI) | NOT an arbiter: our code, and T3 measured it 4-14 % too stiff (no shear, 1.95 m short span) |
+  | 40 | S-4 parked / 7.56 rpm 1F, 1E, 2F [Hz], rel err | OpenFAST v5 ElastoDyn MBC3 | ElastoDyn decides pass/fail (C3). Second independent arbiter for C2 = OpenFAST v5 BeamDyn single member p20 on the v1.1 deck (named admissible in the 2026-10-16 finding before its numbers existed): parked 0.507083 / 0.693376 / 1.480900, rated 0.532003 / - / 1.508057 Hz (rated 1E excluded: BeamDyn rotating in-plane artefact, beamdyn-arbiter-midsurface T1/T7). C2: trusted needs |e| <= 5 % vs BOTH. Shell convergence (C1): mid es 0.125 rows of T4 (<= 0.35 %). |
+  | 41 | V-03 assembled total mass, rel err | IEA tabular xlsx declared mass 67,921 kg | single published_numerical (deck integrals of the same pipeline are not independent of it) |
+- K5 store hygiene before verdicts: `source:` lines to the actual assertion lines (S-1, S-4, V-03 and whatever the edits move);
+  justification text matching the asserted bound (V-03 says 10 %, S-7 30 %, V-02 1E 10 %); every measured block of a row at the
+  same construction and revision (S-4 parked mixes oml 48c7c88 and mid 7324508); the oml-era V-02 1F `trusted` (01d8805) replaced.
+- K6 S-4 2F: the test stops at the first failing family (1E), so 2F is never computed in a red run. The test is changed to compute
+  all three families, print one residual line each, and assert once at the end (same bound, same references).
