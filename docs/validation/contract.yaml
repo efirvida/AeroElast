@@ -1859,10 +1859,11 @@ verdicts:
       Pinned as a software guard, with no independent reference: the asserted metric is the relative norm of K(4 isotropic plies) - K(one isotropic layer), two builds of our own model, so it does not map onto the closed form. The closed form was checked on the laminate side only (create_laminate_from_angles, E 70e9, nu 0.3, h 0.01, 4 plies): A11, A12, A66 and D11, D12, D66 match E h/(1-nu^2) and E h^3/(12(1-nu^2)) (with nu and (1-nu)/2 factors) to 2e-16, and B = 0 exactly. Measured K difference 0.0 against the unchanged 1e-4 bound. Counts toward no level.
 
 # --- REG-1, 2026-10-19: plate K_G, centrifugal recovery and closed-section beam; e7c5059 ---
+# G56 remeasured at c0fdeea for L1-SHEAR; other groups retain their REG-1 audit.
   - target: plate_buckling_analytic.test_mitc4_square_plate_converges_to_4pi.single
     class: physics
     verdict: trusted
-    audited_rev: e7c5059
+    audited_rev: c0fdeea
     arbiters:
       - {kind: analytical, label: "Timoshenko and Gere, Theory of Elastic Stability, 2nd ed., section 9.2: Kirchhoff SS square plate N_cr = 4 pi^2 D/b^2"}
     note: >-
@@ -1870,35 +1871,43 @@ verdicts:
   - target: plate_buckling_analytic.test_mitc4_rectangular_plate_picks_two_h.single
     class: physics
     verdict: trusted
-    audited_rev: e7c5059
+    audited_rev: c0fdeea
     arbiters:
       - {kind: analytical, label: "Timoshenko and Gere section 9.2: Kirchhoff SS plate N_cr = min_m (m b/a + a/(m b))^2 pi^2 D/b^2"}
     note: >-
       At a/b=1.5 the independent minimum selects two half-waves. Measured 0.1196 % against 1 % at 48x32; both half-wave counts and eigensolve residual are asserted.
   - target: plate_buckling_analytic.test_mitc4_sandwich_plate_m1_converges_t.single
     class: physics
-    verdict: rejected
-    audited_rev: e7c5059
+    verdict: trusted
+    audited_rev: c0fdeea
     arbiters:
       - {kind: analytical, label: "SS sandwich Navier FSDT: N_cr = min_m D K^4/[kx^2 (1 + D K^2/S)], with independently integrated energy-equivalent S"}
     note: >-
-      Documented T7(iii)/L17 FSDT shear-input finding: MITC4 consumes uncorrected A55 rather than the sandwich energy-equivalent S. Richardson error 24.4392 % against 0.5 % (documented focused-run evidence); 32x32 diagnostic error 24.6027 % against 1 %. Bounds and strict xfail are unchanged, never trusted. Regression at e7c5059 reports unmapped (one printed helper residual for two comparisons): the first failure prevents the second helper. Both stored measurements deliberately remain not_measured; no partial output was assigned to a comparison.
+      L1-SHEAR fixes the T7(iii)/L17 shear-input defect: the element now consumes energy-equivalent Cs, with the section shear referenced to the neutral axis, instead of uncorrected A55. Measured Richardson error 0.0009 % against 0.5 % and 32x32 error 0.1069 % against 1 %; both bands unchanged. Monotone 8/16/32 refinement, observed second order and m = 1 are asserted. The independent Navier FSDT arbiter is unchanged.
+  - target: plate_buckling_analytic.test_mitc4_sandwich_plate_m2_shear_domin.single
+    class: physics
+    verdict: trusted
+    audited_rev: c0fdeea
+    arbiters:
+      - {kind: analytical, label: "SS sandwich Navier FSDT: N_cr = min_m D K^4/[kx^2 (1 + D K^2/S)], with independently integrated energy-equivalent S"}
+    note: >-
+      L1-SHEAR: the element now consumes energy-equivalent Cs, neutral-axis referenced, rather than uncorrected A55. Measured 48x48 error 0.0401 % against the unchanged 1 % band; the independent minimum and FE mode both select m = 2. Same independently qualified Navier FSDT arbiter as m1.
   - target: plate_buckling_analytic.test_mitc4_cross_ply_square_plate_x_load.single
     class: physics
     verdict: trusted
-    audited_rev: e7c5059
+    audited_rev: c0fdeea
     arbiters:
       - {kind: analytical, label: "Whitney (1987) / Jones (1999), specially orthotropic SS plate buckling: min_m pi^2/b^2 [D11 r^2 + 2(D12+2D66) + D22/r^2], independent hand-CLT D"}
     note: >-
-      Independent orthotropic Kirchhoff formula qualified by limits and FD PDE checks; shear-negligibility is asserted. Richardson 0.0326 % against 0.3 %, 32x32 0.1176 % against 1 %, with monotone second-order refinement.
+      Independent orthotropic Kirchhoff formula qualified by limits and FD PDE checks; shear-negligibility is asserted. L1-SHEAR remeasurement: Richardson 0.0389 % against 0.3 % (was 0.0326 %), 32x32 0.1113 % against 1 % (was 0.1176 %), with monotone second-order refinement. Bands unchanged.
   - target: plate_buckling_analytic.test_mitc4_cross_ply_square_plate_y_load.single
     class: physics
     verdict: trusted
-    audited_rev: e7c5059
+    audited_rev: c0fdeea
     arbiters:
       - {kind: analytical, label: "Whitney (1987) / Jones (1999), specially orthotropic SS plate buckling closed form with D11/D22 exchanged for y loading"}
     note: >-
-      Measured 0.1484 % against 1 % on 48x48; the independent minimum and FE mode both select two half-waves along y. Same hand-CLT reference and shear-negligibility controls as the x case.
+      L1-SHEAR remeasurement: 0.1165 % (was 0.1484 %) against the unchanged 1 % band on 48x48; the independent minimum and FE mode both select two half-waves along y. Same hand-CLT reference and shear-negligibility controls as the x case.
   - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.isotropic
     class: physics
     verdict: trusted

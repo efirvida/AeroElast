@@ -753,3 +753,9 @@ Fix: `Laminate` path element input = energy-equivalent Cs, with Phi referenced t
   (prediction < 0.1 %, band 0.5 % untouched); m2 48x48 7.064897e5 = +0.0401 % with m_FE = 2 (band 1 %). Unsymmetric Cs = own
   neutral-axis quadrature to 1e-4 (Rust and Python). Other residuals vs red.log moving > 0.1 pp, both toward the reference:
   asym_0_90 worst modal frequency vs CCX 1.4487 -> 1.0582 %, [0/90]s pure-bending kappa_y 0.7229 -> 0.6228 %.
+- L5 G56 (T4a, at c0fdeea): rows regenerated (coherence clean), `regression --group 56 --write`: sandwich m1 Richardson 0.0009 %,
+  m1 32x32 0.1069 %, m2 48x48 0.0401 % (new baselines); isotropic 3 same; cross-ply changed inside bands (x Richardson 0.0326 ->
+  0.0389 %, x 32x32 0.1176 -> 0.1113 %, y 48x48 0.1484 -> 0.1165 %; a symmetric stack, so the move is the element input A55 -> Cs).
+  contract.yaml: 6 G56 rows physics/trusted at c0fdeea (m1 was rejected, m2 unaudited); the deleted characterization test had no
+  verdict (its groups.yaml declaration removed). `check` 289/399 0 errors, `references check` 0 errors, `status` 0 ungrouped.
+  L1/L2 regressions without --write at c0fdeea: SLURM 11619472-75 (`logs/check/shear-refresh/`).

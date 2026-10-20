@@ -20,7 +20,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
+      run: c0fdeea
       date: '2026-10-19'
       raw: null
       margin_pct: 0.0445
@@ -39,7 +39,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
+      run: c0fdeea
       date: '2026-10-19'
       raw: null
       margin_pct: 0.0876
@@ -67,7 +67,7 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
+      run: c0fdeea
       date: '2026-10-19'
       raw: null
       margin_pct: 0.1196
@@ -82,7 +82,7 @@ rows:
   - tests/validation/element/test_plate_buckling_analytic.py::test_mitc4_sandwich_plate_m1_converges_to_fsdt
   validates: mitc4_sandwich_plate_m1_converges_to_fsdt
   comparisons:
-  - label: rtol at line 399
+  - label: rtol at line 390
     asserted: true
     reference:
       kind: analytical
@@ -90,13 +90,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.005
-      source: tests/validation/element/test_plate_buckling_analytic.py:399
+      source: tests/validation/element/test_plate_buckling_analytic.py:390
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
-  - label: rtol at line 402
+      status: measured
+      run: c0fdeea
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0009
+      text: 'sandwich Richardson N_cr vs SS sandwich Navier FSDT N_cr = D K^4 / kx^2 / (1 + D K^2 / S): 0.0009% (bound: 0.5000%)'
+      digest: bbedfbd7561a00b7
+  - label: rtol at line 393
     asserted: true
     reference:
       kind: analytical
@@ -104,12 +109,17 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/element/test_plate_buckling_analytic.py:402
+      source: tests/validation/element/test_plate_buckling_analytic.py:393
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c0fdeea
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.1069
+      text: 'sandwich 32x32 N_cr vs SS sandwich Navier FSDT N_cr = D K^4 / kx^2 / (1 + D K^2 / S): 0.1069% (bound: 1.0000%)'
+      digest: 3ae2bc3bc9b0553c
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: plate_buckling_analytic.test_mitc4_sandwich_plate_m2_shear_domin.single
@@ -119,7 +129,7 @@ rows:
   - tests/validation/element/test_plate_buckling_analytic.py::test_mitc4_sandwich_plate_m2_shear_dominated
   validates: mitc4_sandwich_plate_m2_shear_dominated
   comparisons:
-  - label: rtol at line 418
+  - label: rtol at line 408
     asserted: true
     reference:
       kind: analytical
@@ -127,12 +137,17 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/element/test_plate_buckling_analytic.py:418
+      source: tests/validation/element/test_plate_buckling_analytic.py:408
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: c0fdeea
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0401
+      text: 'sandwich m2 48x48 N_cr vs SS sandwich Navier FSDT N_cr = D K^4 / kx^2 / (1 + D K^2 / S): 0.0401% (bound: 1.0000%)'
+      digest: 840301d5aa9018eb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: plate_buckling_analytic.test_mitc4_cross_ply_square_plate_x_load.single
@@ -142,7 +157,7 @@ rows:
   - tests/validation/element/test_plate_buckling_analytic.py::test_mitc4_cross_ply_square_plate_x_load_converges
   validates: mitc4_cross_ply_square_plate_x_load_converges
   comparisons:
-  - label: rtol at line 591
+  - label: rtol at line 639
     asserted: true
     reference:
       kind: analytical
@@ -150,18 +165,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.003
-      source: tests/validation/element/test_plate_buckling_analytic.py:591
+      source: tests/validation/element/test_plate_buckling_analytic.py:639
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
+      run: c0fdeea
       date: '2026-10-19'
       raw: null
-      margin_pct: 0.0326
-      text: 'cross-ply x Richardson N_cr vs Whitney-Jones specially orthotropic SS plate buckling, hand CLT D: 0.0326% (bound: 0.3000%)'
-      digest: 9566918a85fb2265
-  - label: rtol at line 594
+      margin_pct: 0.0389
+      text: 'cross-ply x Richardson N_cr vs Whitney-Jones specially orthotropic SS plate buckling, hand CLT D: 0.0389% (bound: 0.3000%)'
+      digest: 4f988429745d2884
+  - label: rtol at line 642
     asserted: true
     reference:
       kind: analytical
@@ -169,17 +184,17 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/element/test_plate_buckling_analytic.py:594
+      source: tests/validation/element/test_plate_buckling_analytic.py:642
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
+      run: c0fdeea
       date: '2026-10-19'
       raw: null
-      margin_pct: 0.1176
-      text: 'cross-ply x 32x32 N_cr vs Whitney-Jones specially orthotropic SS plate buckling, hand CLT D: 0.1176% (bound: 1.0000%)'
-      digest: 8fa782bd897778d8
+      margin_pct: 0.1113
+      text: 'cross-ply x 32x32 N_cr vs Whitney-Jones specially orthotropic SS plate buckling, hand CLT D: 0.1113% (bound: 1.0000%)'
+      digest: 0481726ae61ab324
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: plate_buckling_analytic.test_mitc4_cross_ply_square_plate_y_load.single
@@ -189,7 +204,7 @@ rows:
   - tests/validation/element/test_plate_buckling_analytic.py::test_mitc4_cross_ply_square_plate_y_load_picks_two_half_waves
   validates: mitc4_cross_ply_square_plate_y_load_picks_two_half_waves
   comparisons:
-  - label: rtol at line 609
+  - label: rtol at line 657
     asserted: true
     reference:
       kind: analytical
@@ -197,16 +212,16 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/element/test_plate_buckling_analytic.py:609
+      source: tests/validation/element/test_plate_buckling_analytic.py:657
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
+      run: c0fdeea
       date: '2026-10-19'
       raw: null
-      margin_pct: 0.1484
-      text: 'cross-ply y 48x48 N_cr vs Whitney-Jones specially orthotropic SS plate buckling, hand CLT D: 0.1484% (bound: 1.0000%)'
-      digest: 6c6e963f08d9ccc3
+      margin_pct: 0.1165
+      text: 'cross-ply y 48x48 N_cr vs Whitney-Jones specially orthotropic SS plate buckling, hand CLT D: 0.1165% (bound: 1.0000%)'
+      digest: 207849257209d253
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
