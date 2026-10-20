@@ -29,7 +29,7 @@ Audit work: produces measured verdict proposals; the maintainer closes or reopen
 - [x] T5 (S2, S3) Predeclared verdict criterion, written before any re-measurement - inline
 - [x] T6 (S2, D3) Adapt the AeroDyn driver writer to OpenFAST v5.0.0 (test-first: v5 setup fails today) - inline
 - [x] T7 (S2) Re-measure group 11 + imported rows at the audited revision with v5 - SLURM dev
-- [ ] T8 (S2, S4) Verdicts in `contract.yaml` + closure section; issue comment text proposed, not posted
+- [x] T8 (S2, S4) Verdicts in `contract.yaml` + closure section; issue comment text proposed, not posted
 
 ## Entry measurement (T1, 2026-10-20, 2b95e5f, read-only)
 
@@ -72,6 +72,36 @@ The 4.2.1 numbers in the store (1d9a665) are known; they are history, not the ba
   not a parity claim") -> class `regression_pin`, outside the ceiling. Imported Viterna closed form (T3) -> `analytical`.
   Imported V-01 vs the WISDEM tabular (CCBlade, the same BEM code as ours, not OpenFAST) -> `published_numerical`, single and
   not independent -> `unarbitrated` whatever e. F1 label is corrected to the AeroDyn run before the verdict.
+
+## B4 result (T8, verdicts measured at f1a1a18; `logs/check/b4/contract-l4-rows-T8.log`)
+
+`contract --level L4 --rows`: L4 **open**: trusted 7, regression_pin 3, undecided 3, unarbitrated 10; over ceiling 0; absent 0;
+`check` 300 rows / 419 comparisons, 0 / 0. Proposed for the maintainer; nothing is closed by the agent.
+| rows | verdict | why |
+|---|---|---|
+| A1 rotor performance .0-.2 | trusted (reference_model) | thrust +0.36..+0.45 %, torque -0.67..+0.83 %; K5 <= 0.0065 pp |
+| A2 yaw / shear .0-.1 | trusted (reference_model) | <= 0.37 %; K5 <= 0.0075 pp |
+| Viterna like-for-like | trusted (reference_model) | 0.23 % Cl / 0.13 % Cd; F4 caveat (AR from the reference's Cd(90)) |
+| Viterna manual (G60) | trusted (analytical) | residual 0.0 |
+| A3 repo polars .0-.2 | regression_pin | sensitivity, different inputs (K6); <= 2.15 % |
+| spanwise .0-.2 | undecided | K5 fails: AeroDyn alpha not time-converged at dt = 1 s (F7); at dt/2 e_alpha 1.8-2.7 % |
+| V-01 (G59, 10 rows) | unarbitrated | all <= 3.34 %, but WISDEM/CCBlade is one non-independent reference (K6) |
+
+What keeps L4 open, each a separate follow-up (not done here):
+1. Spanwise: a third AeroDyn dt (A1 at 0.25 s) under a criterion written first, and decide whether the test's dt = 1 s is
+   too coarse for the spanwise reference (F7); the store also needs a residual pattern for its two-quantity print.
+2. V-01: needs an independent second reference, or re-point it at OpenFAST on the official deck (then it is A1 at rated).
+3. Groups 59/60 have no residual patterns (same gap as 38-42); F8 driver dt formatting; F5 test-docstring figure.
+4. L3: the reference_model amendment applies to ElastoDyn/BeamDyn rows too (L4 of the Log); re-adjudicate on the B3 branch.
+5. Pre-existing, not B4: 5 `tools/tests` failures from group-4 store drift (`logs/check/b4-base-5fail.log`).
+
+Proposed comment for #33 (not posted; the maintainer posts it):
+> B4 (L4) audited at f1a1a18 on `audit/b4-l4`, OpenFAST 5.0.0 (the only build here; harness ported, DBEMT now off, F6).
+> Amendment proposed for the acceptance rule: the official OpenFAST model of the IEA 15 MW on its official deck arbitrates
+> alone (`reference_model`), as verification against the turbine's definition. Result: 7 trusted (rotor thrust/torque at
+> 8/9/12 m/s within 0.83 %, yaw/shear within 0.37 %, Viterna like-for-like and closed form), 3 regression pins (repo
+> polars, a sensitivity), 3 undecided (spanwise alpha/Cn: the AeroDyn reference is not time-converged at dt = 1 s), 10
+> unarbitrated (V-01 vs WISDEM, which runs the same CCBlade). L4 stays open on the spanwise and V-01 items.
 
 ## Decisions (asked and answered 2026-10-20, all as recommended; see L2)
 
@@ -126,4 +156,5 @@ The 4.2.1 numbers in the store (1d9a665) are known; they are history, not the ba
   (same gap as 38-42). `coherence --group 11` refreshed citations; reference labels updated by hand to the source
   (`OpenFAST 5.0.0 AeroDyn ...`, F1 interior label). F8: `write_aerodyn_dvr` formats dt with 2 decimals (0.125 -> 0.12); the
   tool writes the exact dt only at dt-scale 0.5. `check` 300 / 419, 0 / 0.
+- L10 (agent, T8): verdicts written per K1-K6 at f1a1a18, no criterion changed after the numbers; L4 stays open (see B4 result).
 
