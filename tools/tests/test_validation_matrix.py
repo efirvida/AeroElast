@@ -2785,6 +2785,19 @@ def test_contract_experimental_data_arbitrates_alone(tmp_path: Path) -> None:
     assert contract_report(store)["levels"][0]["closed"] is True
 
 
+def test_contract_the_official_reference_model_arbitrates_alone(tmp_path: Path) -> None:
+    # A reference turbine has no physical existence: its official model on its official deck
+    # is the definition (#33 amendment, B4 L3/L4). Only a verdict can declare it; a store
+    # `code` reference stays produced_numerical, which the single-arbiter test above pins.
+    official = {"kind": "reference_model", "label": "OpenFAST AeroDyn, official IEA 15 MW deck"}
+    store = write_store(tmp_path, [_code_only_row()])
+    write_contract(store, [trusted(arbiters=[official])])
+    level = contract_report(store)["levels"][0]
+    assert level["counts"] == {"trusted": 1}
+    assert level["closed"] is True
+    assert run(store, "check").returncode == 0
+
+
 @pytest.mark.parametrize(("status", "closed"), [("bounded", True), ("not_validated", False)])
 def test_contract_only_an_unbounded_gap_blocks_its_level(
     tmp_path: Path, status: str, closed: bool
