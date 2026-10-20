@@ -801,3 +801,29 @@ Carry-over: `scripts/known-red-full.txt` (untracked) was recorded at 52e9bba, be
 20 entries exactly. Re-derive with `scripts/check.sh full --record` on the merge revision if a stamped registry is wanted; never hand-edit.
 Rules: SLURM `--ntasks` only; criteria fixed before measuring; never widen a band; `scripts/aeroenv.sh` on every command. B3/L3 and P1
 stay out of the L1-SHEAR session.
+
+## B3-1r predeclared criterion: L3 move from the composite shear fix (written BEFORE any measurement, 2026-10-20, branch `audit/b3-1-l3-inventory` at 2b95e5f)
+Maintainer instruction (verbatim): "Abrir una rama nueva desde main (2b95e5f, que ya incluye c0fdeea) y rehacer el inventario. Antes de
+medir, dejar fijada la predicción de T2: filas globales < 0.5 %, modos locales de panel pueden moverse más."
+Source of the prediction: L1-SHEAR T2 "Quantitative prediction of the fix" above (element shear input drops by A55/Cs, median 1.12,
+230 of 676 sections above 2; global behaviour is carried by wall membrane stiffness).
+Row set: `validation_matrix.py contract --level L3 --rows` at 2b95e5f (`logs/check/b3-1r/contract-l3-rows.log`): 36 measured rows +
+3 absent + gap `rotating_modal_shift`. Counts there: undecided 1, stale 2, unaudited 33, absent 3, over ceiling 3, single/no arbiter 34.
+
+Metric: move = |q(2b95e5f) / q(2b95e5f^1) - 1| per row, SAME command, SAME mesh (es per row, never >= 0.3 except as the coarse point of a
+convergence study), SAME environment, each side's `_aeroelast` rebuilt with `maturin develop --release` at that revision. 2b95e5f^1 is
+main before PR #44 (no c0fdeea). The stored store values are NOT the baseline (older revisions, some at es 0.5).
+The move says nothing about agreement with the arbiter; the verdict against the arbiter is a separate step with the row's own bound.
+
+Classification, fixed per row before measuring (no row may be reclassified after its number is seen):
+| class | rows | predicted move |
+|---|---|---|
+| M (mass; transverse shear does not enter M) | G23 `test_blade_mass_matches_published_models`; S-1 `s1_sectional_mass`; V-03 `v03_assembled_mass_vs_tabular`; V-05 `v05_assembled_mass_vs_beam_table` | 0 to 1e-10 relative |
+| A (aero only, no structural input) | G27 `test_rated_bem_matches_the_literature_ri`, `test_rated_aero_loads_reproduce_the_bem` | 0 to 1e-10 relative |
+| G (global, wall membrane carried) | G5 mesh-convergence modal gap; G20 anchor-section cross-check; G23 CalculiX modes .0-.4, CalculiX static tip, Bernardi static, Bernardi modes .0-.7 (1F, 1E, 2F, 2E, 3F, 1T, 3E, 4F); G27 `test_rated_twist_under_production_loads`; V-02 1F, 1E; S-7 torsion ratio; S-1 edgewise EI, flapwise EI, GJ, EA; S-2 LC1, LC2, LC4 tip; S-4 parked, rated modes | < 0.5 % |
+| L (local panel modes) | none: no L3 row measures a panel mode (Bernardi/CalculiX/S-4/V-02 are all beam-like blade modes) | not applicable |
+Absent rows (S-2 LC3 edgewise ratio, sx_mesh_convergence, sx_campbell) have no measurement and are outside this check.
+
+Reading: a class-M/A row that moves at all, or a class-G row that moves >= 0.5 %, falsifies the T2 prediction for that row and is
+reported as a finding with its number; it is not reclassified to L and no band is widened. Higher modes (3E, 4F, 1T) are the most
+shear-sensitive class-G rows; they stay under the same 0.5 % prediction so a breach is visible, not pre-excused.
