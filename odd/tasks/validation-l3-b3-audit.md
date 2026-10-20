@@ -1091,3 +1091,38 @@ official deck) settles a comparison alone, L3 and L4 (`eadb1fa`, `cf2115f`).
   Parked 1F/1E/2F and rated 1F/2F are judged against BeamDyn by K3/K7; rated 1E has no admissible BeamDyn number (rotating
   in-plane artefact, beamdyn-arbiter-midsurface T1/T7), so the rated row stays `undecided` until that number exists.
   BeamDyn convergence (p20) is to be cited with the verdict (C1 analogue for the reference).
+
+## Handoff 2026-10-20 (B3-2.1e/f, waiting on SLURM 11619975) - resume here
+State: branch `audit/b3-1-l3-inventory`, PR #45 (single PR to main, maintainer decision). Commits since the batch 1 verdicts:
+8e5ee61 K7, 8c3b6e7 cherry-pick of cf2115f (`reference_model` sole arbiter, from `audit/b4-l4`), 38fbc6b K8 (BeamDyn arbitrates
+L3 blade frequencies, ElastoDyn is a comparison), this handoff. L4 runs in a parallel session (`logs/worktrees/b4-l4`); expect a
+trivial `contract.yaml` conflict at merge; do not touch `tools/validation_matrix.py` here.
+Measurement (`logs/check/b3-2e/`: `es_override.py` rebuilds the tests' `BladeMesh(element_size=0.25)` at `$B3_ES`, fails if it
+never fires; `measure.sbatch`; `submitted.txt`; captures `capture-<tag>.pkl` via `logs/check/b3-1r/capture_plugin.py`):
+| tag | job | result |
+|---|---|---|
+| s1-025 | 11619956 | control OK: 5.1666 % signed +3.3038 % n=32 (exact) |
+| s1-0125 | 11619953 OOM (96 GB) -> **11619975** (48 tasks, running) | pending |
+| s2-025 | 11619962 | control OK: shell -2.066107 beam -1.957812 5.5314 % (exact) |
+| s2-0125 | 11619954 | shell -2.070734 beam -1.697731 21.9707 % |
+| s4p-025 | 11619974 | control OK: 1F 0.524444, 1E 0.694793, 2F 1.507523 (exact) |
+| s4p-0125 | 11619955 | 1F 0.523888 (ED -3.6971 %), 1E 0.695379 (ED -5.9027 %), 2F 1.505527 (ED -6.4890 %) |
+Deviation from K7.1: controls ran in separate jobs at the same revision (only docs commits since 19ff1a3), not in the same job.
+Finding (S-2): the shell moves +0.22 % from es 0.25 to 0.125, the in-house beam reference moves -13.3 %:
+`BeamReference.from_mesh` (`tools/beam_reference.py:287`) takes z/centres/chord/flap from slicing the shell mesh, so the reference
+depends on the mesh it judges (hypothesis, unverified: the extracted flap orientation changes the gravity split). K7.2 (16.4 pp
+move) -> S-2 LC1 stays `undecided`; strengthens S-2 -> BeamDyn static driver (T3).
+Resume steps:
+1. `sacct -j 11619975 -X -o JobID,State,Elapsed`; if OOM again resubmit on `sequana_cpu_bigmem`. Read S-1 flap at es 0.125 from
+   `capture-s1-0125.pkl` (fixture `s1_results`: mean |ei_flap[mid]/ei_flap_bd[mid]-1|, as the test). Apply K7: m <= 1 pp -> verdict
+   on e(0.125) (> 5 % rejected, <= 5 % trusted, unarbitrated: single published numerical).
+2. B3-2.1f (K8): edit `tests/test_iea15mw_s4_rotating_modal.py` so the families assert against BeamDyn p20 (parked 0.507083 /
+   0.693376 / 1.480900, rated 0.532003 / - / 1.508057 Hz; bound 5 % unchanged) and print ElastoDyn as a comparison; rated 1E has
+   no BeamDyn number -> not asserted, printed. Then row 40 references/measured, contract arbiters
+   `{kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}`. Expected by K7/K8 (confirm on the run at
+   the edit commit): parked 1F +3.3 %, 1E +0.29 %, 2F +1.66 % vs BD at es 0.125 -> parked row `trusted`; rated row `undecided` (1E).
+   Cite BeamDyn p20 convergence with the verdict.
+3. Store and contract for K7 (rows 38 flap, 39 LC1, 40), `validation_matrix.py check`, `contract --level L3 --rows`
+   (log to logs/check/b3-2e/), `scripts/check.sh quick`; commit; push to PR #45; tick B3-2.1e/f.
+Known: `tools/tests/test_validation_matrix.py::test_coherence_leaves_hand_written_prose_alone` fails (row 4 stale) and also fails
+on main 2b95e5f: pre-existing, not from this branch. Full tool-test run without -x: `logs/check/b3-2e/tool-tests-full.log`.
