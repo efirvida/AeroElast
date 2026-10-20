@@ -1,7 +1,8 @@
 # Validation environment
 
-The exact environment in which the rows of the validation store (`docs/validation/`)
-were measured.
+The environment used by the validation harness. Historical rows of the validation
+store (`docs/validation/`) retain their recorded measurement versions; the current
+OpenFAST installation does not reproduce the old 4.2.1 environment.
 Reproduce it before quoting a number, because several references are version-sensitive
 (CalculiX element output, OpenFAST AeroDyn tables, the ccblade BEM solution).
 
@@ -12,7 +13,7 @@ Reproduce it before quoting a number, because several references are version-sen
 | Python | 3.12.14 | conda env `aeroelast-dev` |
 | Ruff | 0.16.0 | lint, also in CI |
 | CalculiX (ccx) | 2.23 | `~/miniconda3/envs/aeroelast-dev/bin/ccx` |
-| OpenFAST | 4.2.1 | conda env `openfast`; resolved by the tests via `OPENFAST_BIN`, then that env, then `PATH` |
+| OpenFAST | 5.0.0 | `/scratch/leahk/eduardo.donestevez/conda-envs/openfast/bin/openfast`; set `OPENFAST_BIN` explicitly |
 | ccblade | 1.3.1 | editable install; see the fragility note below |
 | neuralfoil | 0.3.3 | polar generation |
 | preCICE | 3.4.0 | `libprecice.pc` in the conda env |
@@ -27,20 +28,39 @@ high-mode worst gap of 2.12% under CCX **2.23**, while issue #8 measured 4.03% u
 CCX **2.20**. A missing external tool makes the affected rows **skip**, not fail; a tool that is present and
 refuses its input is a different case and shows up as an error, which is the signal it should be.
 
-**OpenFAST needs its own environment, and PATH does not find it.** The version above lives in the
-conda env `openfast`; the development env also carries an OpenFAST, and that one reports v5.0.0.
-It mattered because the tests resolved the binary through PATH, which inside the development env
-means v5.0.0, and v5 makes mandatory fields that the 4.x driver input these tests write leaves out:
-it refuses the deck at `AbortLevel` first, and at `ModCoupling` once `AbortLevel` is supplied, both
-with FATAL ERROR and no simulation run. Twelve tests in
-tests/validation/bem/test_bem_openfast_parity.py errored in setup that way, while the pinned binary
-sat unused in its own environment.
+**The cluster has only OpenFAST v5.0.0, not the historical 4.2.1 binary.** Use
+`OPENFAST_BIN=/scratch/leahk/eduardo.donestevez/conda-envs/openfast/bin/openfast`;
+`aerodyn_driver` sits next to it. `find_openfast_bin` resolves `OPENFAST_BIN` first,
+then sibling/home `openfast` environments, then PATH. Its fallback locations do
+not cover this cluster installation, so set the variable explicitly.
 
-`find_openfast_bin` resolves `OPENFAST_BIN` first, then the pinned env, then PATH, and measured
-after that change the same twelve pass with no environment variable set. One or two new mandatory
-fields per release are enough to break this again, so compare the version before believing a
-number, and prefer both: a missing binary skips, and a binary that refuses its input has to stay
-visible as an error.
+The parity harness writes the v5 driver layout, including the mandatory SeaState
+section (`CompSeaSt=0`, `SeaStFile="unused"`, with `MHK=0`). On the temporary
+AeroDyn primary copy it removes the disabled `Buoyancy` switch and adds zero
+`TwrCp`/`TwrCa` tower coefficients required by v5. The vendored deck is unchanged.
+The format reference is the OpenFAST `v5.0.0` source:
+[`AeroDyn_Driver_Subs.f90`](https://github.com/OpenFAST/openfast/blob/v5.0.0/modules/aerodyn/src/AeroDyn_Driver_Subs.f90)
+and [`AeroDyn_IO.f90`](https://github.com/OpenFAST/openfast/blob/v5.0.0/modules/aerodyn/src/AeroDyn_IO.f90).
+`AbortLevel` and `ModCoupling` are not inputs to this v5 AeroDyn driver.
+
+The comparison is quasi-steady and tower-free (`UA_Mod=0`, `TwrPotent=0`,
+`TwrShadow=0`, `TwrAero=False`, `Wake_Mod=1`, `BEM_Mod=1`, `DBEMT_Mod=0`).
+**F6 correction:** the old harness retained the deck's `DBEMT_Mod=2`; the 4.2.1
+store numbers therefore included dynamic inflow. Its time scale (~R/U, ~13 s)
+exceeds the rotor period (~8 s), filtering yaw/shear induction variation that
+quasi-steady per-azimuth CCBlade resolves. Explicitly disabling it implements
+K1's quasi-steady intent; old margins are history, not a like-for-like baseline.
+No skew, tip/hub-loss or other induction settings are tuned for the new run.
+
+From the worktree root, use the bootstrap and local source path (to avoid importing
+another worktree's installed code):
+
+```bash
+OPENFAST_BIN=/scratch/leahk/eduardo.donestevez/conda-envs/openfast/bin/openfast PYTHONPATH=$PWD/src scripts/aeroenv.sh python -m pytest -q -p no:cacheprovider -rA -s tests/validation/bem/test_bem_openfast_parity.py
+```
+
+Compare the binary version before quoting a number. A missing binary skips;
+a binary that refuses its input remains a visible setup error.
 
 ## Run the suite
 
