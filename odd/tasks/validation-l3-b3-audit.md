@@ -31,8 +31,8 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
 - [ ] **B3-2 — Adjudicate L3 groups.** At the frozen audited revision, inspect test sources, original references, convergence, arbiter independence, class and measured errors; enter only supported verdicts with named arbiters. Missing second independent numerical judge remains unvalidated/open. Check: contract `--level L3 --rows`; link evidence to each adjudication.
   - [x] **B3-2.1a** batch 1 (G32/34/38/39/40/41) criterion K1-K6 predeclared (section at the end).
   - [x] **B3-2.1b** test-source edits: V-02 1E and S-7 bounds to 0.05, S-4 measures all families then asserts (2F), V-03 docstring/name. Commit `19ff1a3` (criterion `b06eedd`).
-  - [ ] **B3-2.1c** measure at the edit commit (SLURM 11619652 S-1/S-2/V-03 capture, 11619653 S-4 capture, 11619654 V-02/S-7 `regression --write`; `logs/check/b3-2/measure.sbatch`, metrics `logs/check/b3-2/metrics.py`); fidelity vs b3-1r/head.
-  - [ ] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
+  - [x] **B3-2.1c** measure at the edit commit (SLURM 11619652 S-1/S-2/V-03 capture, 11619653 S-4 capture, 11619654 V-02/S-7 `regression --write`; `logs/check/b3-2/measure.sbatch`, metrics `logs/check/b3-2/metrics.py`); fidelity vs b3-1r/head.
+  - [x] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -1023,3 +1023,31 @@ Resume steps (B3-2.1c then B3-2.1d):
    mid (maintainer decision), V-02 reference re-point or drop (v1.0), S-2 reference -> BeamDyn static driver (T3), groups 38-42 have no
    residual pattern (`regression` cannot read them). Carry-over unchanged: base worktree `logs/check/b3-1r/base-8de3521`,
    `scripts/known-red-full.txt` untracked, push/PR = maintainer. Ruff: 2 pre-existing findings in S-4 (:105 B905) and V-03 (:209 F841).
+
+## B3-2 batch 1 RESULT (2026-10-20, audited_rev 19ff1a3) - the handoff above is consumed
+B3-2.1c: SLURM 11619652 (9:44), 11619653 (23:20), 11619654 (4:01) COMPLETED. `metrics.py` re-run on resume is byte-identical
+to `logs/check/b3-2/metrics.out`; K1 fidelity 0 for S-1, S-2, V-03 and every S-4 family that existed (2F is new);
+g32/g34 reproduce 0.524444 / 0.694793 Hz and 0.909073. No finding, the batch proceeds.
+B3-2.1d: K5 store hygiene (rows 32/34 label+source :133/:158, V-02 1E 0.1 -> 0.05, S-7 0.3 -> 0.05, justifications and notes
+no longer describe 10 %/30 %/single-arbiter; rows 38-41 measured blocks all at 19ff1a3, scripts `logs/check/b3-2/store_edit.py`,
+`store_text.py`); S-1 mass block now stores mean |rel err| (what the test asserts), not the signed value.
+| grp | row / family | e (vs declared ref) | K3 | verdict |
+|---|---|---|---|---|
+| 32 | V-02 1F / 1E | -6.10 / +8.46 % | a | rejected / rejected (reference v1.0, not an arbiter) |
+| 34 | S-7 ratio (OML) | 9.09 % | a | rejected |
+| 38 | S-1 edge / flap / mass / GJ / EA | 12.71 / 5.17 / 2.23 / 6.22 / 7.59 % | a / b / c / a / a | rejected / undecided / trusted (unarbitrated) / rejected / rejected |
+| 39 | S-2 LC1 / LC2 / LC4 | 5.53 / 15.87 / 12.58 % | b / a / a | undecided / rejected / rejected (reference not an arbiter) |
+| 40 | S-4 parked 1F / 1E / 2F (ED; BD p20) | -3.59; +3.42 / -5.98; +0.20 / -6.37; +1.80 % | c (C2) / **b** / a | row rejected |
+| 40 | S-4 rated 1F / 1E / 2F | -3.45; +2.83 / -6.14; excl. / -6.40; +1.62 % | c (C2) / a / a | row rejected |
+| 41 | V-03 total mass | -1.82 % | c | trusted (unarbitrated) |
+Deviation from the handoff's expectation, decided by the criterion as written: parked 1E is 0.98 pp over the ceiling and no
+parked mid es 0.125 exists (`s4c-mid-11617755` ran 7.56 rpm only), so K3(b) gives `undecided`, not `rejected`. The row verdict
+does not change (parked 2F is rejected). Gates: `check` 289 rows / 399 comparisons, 0 errors / 0 warnings. `contract --level L3 --rows`
+(`logs/check/b3-2/contract-l3-rows.log`): undecided 2, rejected 10, unarbitrated 2, unaudited 22, absent 3, over ceiling 1
+(V-05, unaudited, outside this batch), no stale verdict; before (after-S-4 log): undecided 1, stale 2, unaudited 37, over
+ceiling 13. L3 stays open. `scripts/check.sh quick` OK: 75 passed, 1 xfailed (`logs/check/quick-20261020T122752.log`).
+Follow-ups (not done here): es 0.125 for S-1 flap, S-2 LC1 and S-4 parked 1E (K3b); S-7 on OML while the other anchors are mid
+(maintainer decision); V-02 reference re-point or drop (v1.0); S-2 reference -> BeamDyn static driver (T3); groups 38-42 have
+no residual pattern (`regression` cannot read them); `validation_matrix check` does not validate a tolerance value against the
+source literal nor source-line drift (rows 32/34 were stale with 0 errors). Carry-over: base worktree `logs/check/b3-1r/base-8de3521`,
+`scripts/known-red-full.txt` untracked, push/PR = maintainer. Ruff: 2 pre-existing findings in S-4 (:105 B905), V-03 (:209 F841).

@@ -7,7 +7,7 @@ rows:
   - tests/validation/blade/test_iea15mw_v02_natural_frequencies.py::TestBladeNaturalFrequencies::test_1st_flapwise_frequency
   validates: 1st flapwise freq must be within ±5 % of 0.5585 Hz [R1][R4].
   comparisons:
-  - label: rtol at line 132
+  - label: rtol at line 133
     asserted: true
     reference:
       kind: paper
@@ -16,19 +16,19 @@ rows:
     tolerance:
       kind: rtol
       value: 0.05
-      source: tests/validation/blade/test_iea15mw_v02_natural_frequencies.py:132
+      source: tests/validation/blade/test_iea15mw_v02_natural_frequencies.py:133
       justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The declared reference (NREL/TP-5000-75698 Table 5-2) describes the v1.0 blade while the decks and the yaml are v1.1 (finding 2026-10-16), so it is not an arbiter (K4): a fail is reported, a pass would not validate.'
     measured:
       status: measured
-      run: 7324508
-      date: '2026-10-17'
-      raw: 0.0606
-      margin_pct: 6.06
-      text: '1st flapwise es 0.25, skin on mid-surface: -6.06 % vs NREL/TP-5000-75698 Table 5-2 0.5585 Hz, bound 5 % FAIL. OML contrast: -0.92 % PASS. Kept red as a finding (paper value comes from beam models). SLURM mid 11617756 / oml 11617750; full suite 11617933 confirms.'
-      digest: b4c173a2430caecf
+      run: 19ff1a3
+      date: '2026-10-20'
+      raw: 0.524444
+      margin_pct: 6.0978
+      text: '1st flapwise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st flapwise [R1]: 0.524444 vs 0.5585 (error: 6.0978%, bound: 5.0000%)'
+      digest: 4c74f48449ead8a3
   flags: []
-  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+  notes: 'Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.'
 - id: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
   group: '32'
   title: TestBladeNaturalFrequencies::test_1st_edgewise_frequency
@@ -36,7 +36,7 @@ rows:
   - tests/validation/blade/test_iea15mw_v02_natural_frequencies.py::TestBladeNaturalFrequencies::test_1st_edgewise_frequency
   validates: 1st edgewise freq must be within ±10 % of 0.6406 Hz [R1][R4].
   comparisons:
-  - label: rtol at line 160
+  - label: rtol at line 158
     asserted: true
     reference:
       kind: paper
@@ -44,17 +44,17 @@ rows:
       citation: gaertner2020
     tolerance:
       kind: rtol
-      value: 0.1
-      source: tests/validation/blade/test_iea15mw_v02_natural_frequencies.py:160
+      value: 0.05
+      source: tests/validation/blade/test_iea15mw_v02_natural_frequencies.py:158
       justified: true
-      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The declared reference (NREL/TP-5000-75698 Table 5-2) describes the v1.0 blade while the decks and the yaml are v1.1 (finding 2026-10-16), so it is not an arbiter (K4): a fail is reported, a pass would not validate.'
     measured:
       status: measured
-      run: 01d8805
-      date: '2026-10-16'
-      raw: 0.698595
-      margin_pct: 9.0532
-      text: '1st edgewise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1]: 0.698595 vs 0.6406 (error: 9.0532%, bound: 10.0000%)'
-      digest: 781ca936acf53376
+      run: 19ff1a3
+      date: '2026-10-20'
+      raw: 0.694793
+      margin_pct: 8.4598
+      text: '1st edgewise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1]: 0.694793 vs 0.6406 (error: 8.4598%, bound: 5.0000%)'
+      digest: a3e07fa0119e073b
   flags: []
-  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+  notes: 'Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.'

@@ -20,11 +20,11 @@ rows:
       justification: "The test asserts 5 % (the L3 ceiling, maintainer rule 2026-10-16); test name and docstring now say 5 % (19ff1a3). Reference is the IEA tabular declared mass, one published numerical source; deck integrals of the same pipeline are not independent of it."
     measured:
       status: measured
-      run: 517a1b0
-      date: '2026-10-16'
-      raw: 70721
-      margin_pct: 4.12
-      text: V-03 assembled mass 70,721 kg vs tabular 67,921 kg (+4.12 %, bound 5 %); test PASSED at es 0.25 on OML and mid-surface meshes (SLURM 11617335/39). The tabular mass is the ElastoDyn/BeamDyn integral; the independent yaml layup integral is +2.76 % above the 6x6 mass.
+      run: 19ff1a3
+      date: '2026-10-20'
+      raw: 66682.346
+      margin_pct: 1.8237
+      text: 'V-03 assembled total mass es 0.25, skin on mid-surface: 66,682.346 kg vs IEA tabular 67,921 kg (error -1.8237 %, bound 5 %) PASS; capture SLURM 11619652 (S-1/S-2/V-03) and 11619653 (S-4) at 19ff1a3, bit-identical to the B3-1r head capture (K1).'
     expected: 67921.0
   flags: []
-  notes: Source metadata only. No run result is recorded; the source's 2% prose and 10% assertion conflict and require audit.
+  notes: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml. Test name, docstring and assertion all say 5 % since 19ff1a3.
