@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s1_sectional.py:96
+      source: tests/test_iea15mw_s1_sectional.py:107
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
     measured:
@@ -43,7 +43,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s1_sectional.py:105
+      source: tests/test_iea15mw_s1_sectional.py:116
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
     measured:
@@ -71,7 +71,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s1_sectional.py:115
+      source: tests/test_iea15mw_s1_sectional.py:126
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
     measured:
@@ -99,7 +99,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s1_sectional.py:128
+      source: tests/test_iea15mw_s1_sectional.py:139
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
     measured:
@@ -127,7 +127,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s1_sectional.py:142
+      source: tests/test_iea15mw_s1_sectional.py:153
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
     measured:

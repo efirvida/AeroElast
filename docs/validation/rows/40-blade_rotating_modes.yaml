@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      source: tests/test_iea15mw_s4_rotating_modal.py:137
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
     measured:
@@ -34,7 +34,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      source: tests/test_iea15mw_s4_rotating_modal.py:137
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
     measured:
@@ -53,7 +53,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      source: tests/test_iea15mw_s4_rotating_modal.py:137
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
     measured:
@@ -81,7 +81,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      source: tests/test_iea15mw_s4_rotating_modal.py:137
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
     measured:
@@ -100,7 +100,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      source: tests/test_iea15mw_s4_rotating_modal.py:137
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
     measured:
@@ -119,7 +119,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:117
+      source: tests/test_iea15mw_s4_rotating_modal.py:137
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is ONE numerical arbiter (OpenFAST v5 ElastoDyn MBC3), so even a pass is at most regression_pin (criterion C2, odd/tasks/validation-l3-b3-audit.md); basis not independently adjudicated.'
     measured:

@@ -2,7 +2,7 @@ group: '39'
 rows:
 - id: blade_static_prescribed.s2_official_lc1_tip_displacement
   group: '39'
-  title: S-2 official LC1 gravity displacement vs BeamDyn
+  title: S-2 official LC1 gravity displacement vs in-house EB beam (ElastoDyn EI)
   tests:
   - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC1_gravity-official]
   validates: Official-blade dominant shell tip displacement relative error for LC1 gravity against the BeamDyn reference.
@@ -15,7 +15,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s2_static_prescribed.py:121
+      source: tests/test_iea15mw_s2_static_prescribed.py:122
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is a beam model built from the ElastoDyn EI and mass (the two reference decks differ by more than 5 %, so a pass is not independent confirmation). Against the BeamDyn elastic-centre EI instead (decision (b)), the OML shell reads +9.46 % (LC1), -6.54 % (LC2), -11.92 % (LC4); the mid-surface shell -1.60 %, +7.23 %, +1.28 %.'
     measured:
@@ -30,7 +30,7 @@ rows:
   notes: 'Source assertion only; no verdict recorded. MISMATCH: row title/reference label say BeamDyn, but the test compares against an Euler-Bernoulli beam built from ElastoDyn EI and mass (BeamReference.from_mesh), which is 4-14 % too stiff vs the BeamDyn static driver (T3); reference NOT edited. Against the BeamDyn driver p60 (T4 step 1, es 0.25, S-2 node): LC1 oml -17.36 / mid -7.46 %, LC2 oml -15.69 / mid -3.70 %, LC4 oml -18.24 / mid -6.26 %. Raw/margin_pct hold the relative error as a fraction / percent (signed in text); earlier measured blocks held displacements.'
 - id: blade_static_prescribed.s2_official_lc2_tip_displacement
   group: '39'
-  title: S-2 official LC2 tip-flap displacement vs BeamDyn
+  title: S-2 official LC2 tip-flap displacement vs in-house EB beam (ElastoDyn EI)
   tests:
   - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC2_tip_flap-official]
   validates: Official-blade dominant shell tip displacement relative error for LC2 tip flap against the BeamDyn reference.
@@ -43,7 +43,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s2_static_prescribed.py:121
+      source: tests/test_iea15mw_s2_static_prescribed.py:122
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is a beam model built from the ElastoDyn EI and mass (the two reference decks differ by more than 5 %, so a pass is not independent confirmation). Against the BeamDyn elastic-centre EI instead (decision (b)), the OML shell reads +9.46 % (LC1), -6.54 % (LC2), -11.92 % (LC4); the mid-surface shell -1.60 %, +7.23 %, +1.28 %.'
     measured:
@@ -58,7 +58,7 @@ rows:
   notes: 'Source assertion only; no verdict recorded. MISMATCH: row title/reference label say BeamDyn, but the test compares against an Euler-Bernoulli beam built from ElastoDyn EI and mass (BeamReference.from_mesh), which is 4-14 % too stiff vs the BeamDyn static driver (T3); reference NOT edited. Against the BeamDyn driver p60 (T4 step 1, es 0.25, S-2 node): LC1 oml -17.36 / mid -7.46 %, LC2 oml -15.69 / mid -3.70 %, LC4 oml -18.24 / mid -6.26 %. Raw/margin_pct hold the relative error as a fraction / percent (signed in text); earlier measured blocks held displacements.'
 - id: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
   group: '39'
-  title: S-2 official LC4 distributed-load displacement vs BeamDyn
+  title: S-2 official LC4 distributed-load displacement vs in-house EB beam (ElastoDyn EI)
   tests:
   - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_dominant_component_matches_beam[LC4_distributed-official]
   validates: Official-blade dominant shell tip displacement relative error for LC4 distributed load against the BeamDyn reference.
@@ -71,7 +71,7 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s2_static_prescribed.py:121
+      source: tests/test_iea15mw_s2_static_prescribed.py:122
       justified: true
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is a beam model built from the ElastoDyn EI and mass (the two reference decks differ by more than 5 %, so a pass is not independent confirmation). Against the BeamDyn elastic-centre EI instead (decision (b)), the OML shell reads +9.46 % (LC1), -6.54 % (LC2), -11.92 % (LC4); the mid-surface shell -1.60 %, +7.23 %, +1.28 %.'
     measured:

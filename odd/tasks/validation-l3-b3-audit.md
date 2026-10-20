@@ -30,8 +30,8 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-1r.4** — write the frozen inventory section (counts, map, staleness, over-ceiling, absent, first admissible batch); `git diff --check`, `check.sh quick`.
 - [ ] **B3-2 — Adjudicate L3 groups.** At the frozen audited revision, inspect test sources, original references, convergence, arbiter independence, class and measured errors; enter only supported verdicts with named arbiters. Missing second independent numerical judge remains unvalidated/open. Check: contract `--level L3 --rows`; link evidence to each adjudication.
   - [x] **B3-2.1a** batch 1 (G32/34/38/39/40/41) criterion K1-K6 predeclared (section at the end).
-  - [ ] **B3-2.1b** test-source edits: V-02 1E and S-7 bounds to 0.05, S-4 measures all families then asserts (2F), V-03 docstring/name.
-  - [ ] **B3-2.1c** measure at the edit commit (SLURM): S-1/S-2/V-03 capture, S-4 capture, V-02/S-7 regression; fidelity vs b3-1r/head.
+  - [x] **B3-2.1b** test-source edits: V-02 1E and S-7 bounds to 0.05, S-4 measures all families then asserts (2F), V-03 docstring/name. Commit `19ff1a3` (criterion `b06eedd`).
+  - [ ] **B3-2.1c** measure at the edit commit (SLURM 11619652 S-1/S-2/V-03 capture, 11619653 S-4 capture, 11619654 V-02/S-7 `regression --write`; `logs/check/b3-2/measure.sbatch`, metrics `logs/check/b3-2/metrics.py`); fidelity vs b3-1r/head.
   - [ ] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
@@ -992,3 +992,34 @@ contract.yaml arbiter semantics) to each row, and states what each verdict will 
   same construction and revision (S-4 parked mixes oml 48c7c88 and mid 7324508); the oml-era V-02 1F `trusted` (01d8805) replaced.
 - K6 S-4 2F: the test stops at the first failing family (1E), so 2F is never computed in a red run. The test is changed to compute
   all three families, print one residual line each, and assert once at the end (same bound, same references).
+
+## Handoff 2026-10-20 (B3-2 batch 1, waiting on SLURM) - resume here
+Done: `b06eedd` criterion K1-K6 (section "B3-2 batch 1 predeclared criterion" above; apply it as written, no new criterion);
+`19ff1a3` test edits (V-02 1E and S-7 bounds 0.05, S-4 prints all three families then asserts once, V-03 test renamed
+`test_total_blade_mass_within_5pct`); handoff commit: store hygiene (row `source:` lines 38/39/40/41 to the assertion lines,
+S-2 titles "vs in-house EB beam (ElastoDyn EI)", V-03 justification, ADJ-1034 withdrawing ADJ-1032's 10 %).
+Pending SLURM at 19ff1a3 (all on `sequana_cpu_bigmem`; 11619653 had NODE_FAIL and was requeued):
+11619652 capture S-1/S-2/V-03 -> `logs/check/b3-2/capture-s1s2v3.pkl`, `pytest-s1s2v3.log`;
+11619653 capture S-4 -> `capture-s4.pkl`, `pytest-s4.log` (now prints `S-4 <parked|rotating> <family> ... (error: ...)` incl. 2F);
+11619654 `regression --group 32 34 --write --json` (git shim `$SCRATCH/gitshim-19ff1a3`) -> `g32.json`, `g34.json`, and it
+rewrites the `measured` blocks of rows 32/34 in the worktree. Check: `sacct -j 11619652,11619653,11619654 -X -o JobID,State,Elapsed`;
+if a job failed, resubmit the same line from `logs/check/b3-2/measure.sbatch` usage (`sbatch -p <part> --ntasks=8 --time=60|90`).
+Resume steps (B3-2.1c then B3-2.1d):
+1. `scripts/aeroenv.sh python -I logs/check/b3-2/metrics.py logs/check/b3-2 logs/check/b3-1r/head`: K1 fidelity must read 0
+   (bit-identical to the B3-1r head capture); a nonzero diff is a finding and stops the batch. S-4 2F lines say `K1 fidelity new`.
+   g32/g34 JSON must reproduce 0.524444 / 0.694793 Hz and ratio 0.909073 (now against bound 5 %).
+2. Expected from the B3-1r numbers (confirm, do not assume): G32 1F -6.10 % and 1E +8.46 % -> `rejected` (K3a; reference v1.0, not an
+   arbiter); G34 9.09 % -> `rejected`; G38 edge 12.71 / GJ 6.22 / EA 7.59 -> `rejected`, flap 5.17 -> `undecided` (K3b, es 0.125 pending),
+   mass 2.23 -> `trusted` single arbiter (contract reports unarbitrated); G39 LC2 15.87 / LC4 12.58 -> `rejected`, LC1 5.53 ->
+   `undecided` (K3b), reference not an arbiter; G40 parked/rated 1F (ED -3.59/-3.45, BD p20 +3.42/+2.83) -> `trusted` with two
+   arbiters (C2), 1E (ED -5.98/-6.14) -> `rejected` (C3), 2F per the new capture (expected ~-6.3 % vs ED -> `rejected`);
+   G41 -1.82 % -> `trusted` single arbiter. K3(c) needs margin >= 1 pp: 1F 3.59 % has it.
+3. Store: hand-write the `measured` blocks of rows 38-41 at run 19ff1a3 (G40 parked row currently mixes oml 48c7c88 and mid
+   7324508; replace all six); update rows 32/34 labels/sources (V-02 calls at :133/:158, S-7 at :107), tolerance value 0.05 and the
+   S-7 justification (still describes the 30 % band); then contract.yaml verdicts (replace the V-02 1F `trusted`@01d8805 and 1E
+   `rejected`@01d8805, and the S-7 `undecided`), audited_rev 19ff1a3, arbiters per K4, `files` incl. `logs`-free tools only.
+4. `validation_matrix.py check`, `contract --level L3 --rows` (background, ~1.5 min, log to logs/check/b3-2/), `scripts/check.sh quick`;
+   commit; tick B3-2.1c/d. Follow-ups to list: es 0.125 for S-1 flap and S-2 LC1 (K3b), S-7 still on oml while the other anchors are
+   mid (maintainer decision), V-02 reference re-point or drop (v1.0), S-2 reference -> BeamDyn static driver (T3), groups 38-42 have no
+   residual pattern (`regression` cannot read them). Carry-over unchanged: base worktree `logs/check/b3-1r/base-8de3521`,
+   `scripts/known-red-full.txt` untracked, push/PR = maintainer. Ruff: 2 pre-existing findings in S-4 (:105 B905) and V-03 (:209 F841).

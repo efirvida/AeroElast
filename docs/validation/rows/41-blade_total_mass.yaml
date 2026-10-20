@@ -15,9 +15,9 @@ rows:
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_v03_static_gravity.py:249
+      source: tests/test_iea15mw_v03_static_gravity.py:250
       justified: true
-      justification: Source assertion uses 10% despite the test name and prose claiming 2%; discrepancy and L3 ceiling exception remain unresolved.
+      justification: "The test asserts 5 % (the L3 ceiling, maintainer rule 2026-10-16); test name and docstring now say 5 % (19ff1a3). Reference is the IEA tabular declared mass, one published numerical source; deck integrals of the same pipeline are not independent of it."
     measured:
       status: measured
       run: 517a1b0
