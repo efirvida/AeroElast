@@ -607,3 +607,17 @@ L2 is no longer blocked by L1 but reads stale 70 (next: PRE-3; first find whethe
 Open, not done: the new K_G anchors (tests/validation/element/test_plate_buckling_analytic.py T7(ii) cross-ply,
 tests/validation/element/test_prestress_centrifugal_analytic.py T8) belong to no store group, so L1 does not yet cover the
 path 41e9a16 changed; registering them is a store change for the maintainer to decide.
+
+## Handoff 2026-10-19 (after PRE-2r) - START HERE: PRE-3 (L2)
+State: branch `feat/rotating-local-tip-modes` pushed to origin (no PR; 93 commits / ~23 k lines since origin/main, earlier
+features stacked on the local main: splitting into reviewable PRs is an open maintainer decision). L1 CLOSED at 74c6b9f
+(PRE-2r above). L2 = open, stale 70, single or no arbiter 6, gaps 1 non-blocking (`composite_stress_recovery`).
+Resume: read this handoff, the PRE-2r section and the PRE-3 task line; `mem_search "l1-refresh-after-41e9a16"`.
+First step (cheap, before the audit itself): `git log --format='%h %s' <each L2 audited_rev>..HEAD -- <L2 depends_on in
+docs/validation/levels.yaml>` to learn whether 41e9a16 is again the only cause; if so, re-measure the L2 groups exactly as
+PRE-2r (logs/check/l1-refresh/regress.sbatch "<groups>", export REV, git shim `$SCRATCH/gitshim-<rev>`; regression exits 1 on
+unclaimed/unmapped, read the JSON), restamp by target only if every comparison is `same`; a `changed` one is a finding.
+Then the PRE-3 audit proper (rows, references, arbiters, atol subset, the composite_stress_recovery gap).
+Maintainer decisions pending: (a) register the new K_G anchors (test_plate_buckling_analytic.py T7(ii) cross-ply,
+test_prestress_centrifugal_analytic.py T8) as L1 store rows so L1 covers the 41e9a16 path; (b) PR split of the branch.
+SLURM: only --ntasks; sequana_cpu 2 / bigmem 3 of my jobs were running at close (phaseVI campaign).
