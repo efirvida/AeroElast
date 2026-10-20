@@ -23,6 +23,11 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
 - [x] **PRE-2r — Re-measure L1 after 41e9a16 (stale 136).** DONE 2026-10-19: 164 `same`, 0 `changed`; 136 verdicts restamped to 74c6b9f; L1 CLOSED again (trusted 134, regression_pin 2). Re-run `validation_matrix.py regression` for all 22 L1 groups without `--write`; if every comparison is `same`, restamp the L1 `audited_rev` in `docs/validation/contract.yaml` (L2 precedent, af95fa8/a4baf6e); any `changed` comparison is a finding and gets a new verdict, never a restamp. See "PRE-2r" at the end. Route: parent + SLURM.
 - [x] **PRE-3 — Complete B2/L2 audit.** CLOSED 2026-10-19 (f8dd602 restamp, 17ef8ad G21 closed-form row, then the verdict commit): L2 trusted 67, regression_pin 4, 0 stale, 0 single-arbiter. PRE-3r re-measured after 41e9a16+43dce4d (109 `same`, 0 `changed`); G21 arbitrated by the free-edge closed form — see "PRE-3r" and "G21 closed form" at the end. Entry text follows: Inventory every L2 row, comparison, source assertion, reference, arbiter and bound; handle L2's `atol` subset and `composite_stress_recovery` gap. For every CalculiX comparison, demonstrate independently converged results in both codes using same metric, load, material and boundary conditions and predeclared convergence criterion; do not infer convergence from one mesh or one code. Check: contract `--level L2 --rows`, per-comparison paired convergence evidence, and B1 required to close.
 - [ ] **B3-1 — Freeze the L3 evidence inventory and audit rubric.** Verify exact row/comparison IDs and file locations for all six groups, absent anchor list, arbiter kinds/independence, source tolerance use, over-ceiling cases, audited-revision semantics, and current lower-level blocks. Record per-group inventory with citations and first admissible verdict batch. Check: contract counts, source assertion/tolerance map, `git diff --check`, docs smoke gate `scripts/check.sh quick` (~13 s; not physics). Inventory has initial row IDs/store bounds but source assertions, per-row arbitral sufficiency and staleness semantics remain to check.
+  - [x] **B3-1r.0** — branch `audit/b3-1-l3-inventory` from 2b95e5f; T2 move prediction predeclared (7730249).
+  - [ ] **B3-1r.1** — read-only per-row map at 2b95e5f: node, assertion + tolerance `path:line`, mesh size, arbiter kind/independence, composite input, measuring command at es <= 0.25.
+  - [ ] **B3-1r.2** — paired environments: fresh `maturin develop --release` at 2b95e5f; baseline worktree at 2b95e5f^1 with its own wheel on `PYTHONPATH`.
+  - [ ] **B3-1r.3** — paired SLURM measurement 2b95e5f^1 vs 2b95e5f per the B3-1r predeclared criterion; record each move with its class.
+  - [ ] **B3-1r.4** — write the frozen inventory section (counts, map, staleness, over-ceiling, absent, first admissible batch); `git diff --check`, `check.sh quick`.
 - [ ] **B3-2 — Adjudicate L3 groups.** At the frozen audited revision, inspect test sources, original references, convergence, arbiter independence, class and measured errors; enter only supported verdicts with named arbiters. Missing second independent numerical judge remains unvalidated/open. Check: contract `--level L3 --rows`; link evidence to each adjudication.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
@@ -827,3 +832,44 @@ Absent rows (S-2 LC3 edgewise ratio, sx_mesh_convergence, sx_campbell) have no m
 Reading: a class-M/A row that moves at all, or a class-G row that moves >= 0.5 %, falsifies the T2 prediction for that row and is
 reported as a finding with its number; it is not reclassified to L and no band is widened. Higher modes (3E, 4F, 1T) are the most
 shear-sensitive class-G rows; they stay under the same 0.5 % prediction so a breach is visible, not pre-excused.
+
+## B3-1r.1 per-row map at 2b95e5f (read-only, explorer; no verdict, no measurement)
+Files: VAL=`tests/validation/blade/test_blade_iea15mw_validation.py`, MC=`tests/validation/parity/test_blade_iea15mw_mesh_convergence.py`,
+ANC=`tests/validation/blade/test_blade_twist_anchor_beam.py`, RT=`tests/validation/blade/test_blade_rated_twist.py`,
+V02=`tests/validation/blade/test_iea15mw_v02_natural_frequencies.py`, S7=`tests/validation/blade/test_iea15mw_s7_torsion.py`,
+S1/S2/S4/V03/V05=`tests/test_iea15mw_{s1_sectional,s2_static_prescribed,s4_rotating_modal,v03_static_gravity,v05_structural_properties}.py`.
+Every shell-building row uses Rust `Laminate` input (`models/blade/model.py:833`, `:108-112`); skin default oml (`core/mesh/generators.py:1055`).
+| grp | rows | assertion -> tolerance | es | skin | arbiter (independence) | stored |
+|---|---|---|---|---|---|---|
+| 5 | mesh conv modal gap | MC:172 `LOW_TOL` 0.01, MC:179 `HIGH_TOL` 0.05 | 2.0/1.0/0.5 (MC:47) **>=0.3** | oml | CCX on our mesh (not independent) | 1d9a665 |
+| 20 | anchor sections | ANC:259/266 0.01; ANC:280/287 0.02 | no shell (deck reading only) | - | BeamDyn/ElastoDyn decks (checks deck reading) | e1b7da7 |
+| 23 | mass; ccx .0-.4; ccx static; Bernardi static; Bernardi .0-.7 | `MASS_TOL`/`MODAL_TOL`/`STATIC_TOL`/`BERNARDI_MODE_TOL` 0.05 (VAL:122-146) | `ELEMENT_SIZE=1.0` (VAL:77) **>=0.3** | oml | bernardi2025 (indep.); CCX same mesh (not indep.) | 73743de; Bernardi .3-.7 and static not_measured (xfail escape VAL:482, VAL:511) |
+| 27 | BEM vs lit.; aero loads vs BEM; twist under prod. loads | RT:106/113 0.03; RT:1020-1041 0.005; RT:1287 0.02 | BEM none; 1.0 (RT:143) **>=0.3** | oml | zhou2025 (BEM only); self (none) | ee50e3a |
+| 32 | V-02 1F, 1E | V02:132 0.05; V02:160 0.10 (>5 %) | 0.25 | mid | contract verdicts (NREL + Bernardi) | 1F 6.06 % FAIL at 7324508 vs verdict trusted 3.83 % at 01d8805 (oml) |
+| 34 | S-7 ratio | S7:107 `_RATIO_TOL` 0.30 (>5 %) | 0.25 | oml (`tools/run_s7_torsion.py:55-62`) | BeamDyn K55 (single) | 7fb832b |
+| 38 | S-1 EI edge/flap, mass, GJ, EA | S1:107/116/126/139/153 0.05 (row source lines drifted) | 0.25 | mid | BeamDyn 6x6 (single) | 7324508 |
+| 39 | S-2 LC1/LC2/LC4 | S2:122 0.05 | 0.25 | mid | own EB beam from ElastoDyn EI (S2:96), labelled BeamDyn/ElastoDyn | 7324508 |
+| 40 | S-4 parked, rated | S4:129 0.05 (row says :117) | 0.25 | mid | ElastoDyn MBC3 (single; contract counts 3 by distinct labels, `validation_matrix.py:4279-4296`) | parked mixes oml 48c7c88 (1F/2F) and mid 7324508 (1E) |
+| 41 | V-03 mass | V03:251 0.05 (row :249; justification says 10 %, docstring 2 %) | 0.25 | mid | tabular xlsx | 517a1b0 |
+| 42 | V-05 mass | V05:151 0.05 (row stores 0.08 at :142: false over-ceiling) | 0.25 | mid | BeamDyn table (same 67,921 kg as row 41) | not_measured |
+Measuring tools at es <= 0.25: `blade_ccx_convergence.py --element-sizes`, `v02_modal_convergence.py <es>` (oml), `s4_modal_convergence.py
+<es> [--rpm=]` (oml), `run_s1_sectional.py`/`run_s2_static_cases.py`/`run_s4_rotating_modal.py`/`run_s7_torsion.py --element-size`
+(all default 0.5: rule-9 defect). No tool for groups 27, 41, 42.
+
+## B3-1r criterion amendment (written BEFORE any measurement; no number seen)
+Maintainer "continua" left the G5/G23/G27 es question unanswered; the agent chose the cheapest rule-9-compliant route below.
+- Baseline is `8de3521` (= 2b95e5f^1): detached worktree `logs/check/b3-1r/base-8de3521`, its own `maturin build --release` wheel
+  unpacked to `logs/check/b3-1r/base-site` (pip refuses the manylinux_2_39 tag), `PYTHONPATH=base-site:base-8de3521/src`.
+  HEAD side: fresh `maturin develop --release` at 2b95e5f. Discriminator (`logs/check/b3-1r/discriminator-{base,head}.log`):
+  base passes `test_mitc4_sandwich_equals_fsdt_with_the_shear_it_consumes` (A55 consumed) with m1/m2 xfailed; head passes m1/m2.
+  The two environments therefore differ exactly in the shear input.
+- Groups 20, 32, 34, 38, 39, 40, 41, 42: `validation_matrix.py regression --group N --json` on each side (test sources of these
+  groups are identical between the two revisions). It reports |relative error| to 4 decimals in %, so the metric for these rows is
+  d = | |e_head| - |e_base| | in percentage points of the reference. d is a lower bound of the move |q_head/q_base - 1|(1+e);
+  d >= 0.5 pp falsifies T2 outright; d < 0.5 pp confirms it only when |e_head| + |e_base| < 0.5 pp or the row text gives signed values,
+  otherwise the row is reported "undecided by resolution". Class M/A resolution is 5e-5 pp (the printed digit), not 1e-10.
+- G23 modal rows (es 1.0) and G5 (es 2.0/1.0/0.5) are NOT re-run at their test mesh (rule 9). Surrogate at es 0.25, same oml
+  construction as G23: `tools/v02_modal_convergence.py 0.25` prints the first 10 clamped-root frequencies (5 decimals); move per
+  index i = f_head[i]/f_base[i] - 1, class G (< 0.5 %). Pairing is by index, not by shape: a mode-order swap is reported as such.
+- Not measured here (recorded as rule-9 / scope items for B3-2): G23 mass and static rows, G5, G27 aero-loads and twist rows
+  (es 1.0). G27 BEM row and G20 have no shell: move 0 by construction (G20 is still re-run as a control).
