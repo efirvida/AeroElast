@@ -49,7 +49,7 @@ verdicts:
   - target: material_suite.testisotropicanalytical_test_mitc4_out_o.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever"}
     note: >-
@@ -57,7 +57,7 @@ verdicts:
   - target: material_suite.testisotropicanalytical_test_mitc3_out_o.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever"}
     note: >-
@@ -65,7 +65,7 @@ verdicts:
   - target: material_suite.testisotropicanalytical_test_mitc4_in_pl.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, bending about the in-plane axis"}
     note: >-
@@ -73,7 +73,7 @@ verdicts:
   - target: material_suite.testisotropicanalytical_test_mitc4_axial.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the axial bar closed form F L / (E A)"}
     note: >-
@@ -81,7 +81,7 @@ verdicts:
   - target: material_suite.testorthotropicsingleply_test_mitc4comp.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs"}
     note: >-
@@ -89,7 +89,7 @@ verdicts:
   - target: material_suite.testorthotropicsingleply_test_mitc4comp.single_2
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs"}
     note: >-
@@ -97,7 +97,7 @@ verdicts:
   - target: material_suite.testorthotropicsingleply_test_mitc3comp.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the lamina D22 the curvature direction needs"}
     note: >-
@@ -105,7 +105,7 @@ verdicts:
   - target: material_suite.testorthotropicsingleply_test_mitc4comp.single_3
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the axial bar closed form F L / (A22 B) for the [0 deg] ply"}
     note: >-
@@ -113,7 +113,7 @@ verdicts:
   - target: material_suite.testorthotropicsingleply_test_mitc4comp.single_4
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the axial bar closed form F L / (A11 B) for the [90 deg] ply"}
     note: >-
@@ -121,7 +121,7 @@ verdicts:
   - target: material_suite.testsymmetriclaminates_test_symmetric_ou.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs"}
     note: >-
@@ -129,7 +129,7 @@ verdicts:
   - target: material_suite.testsymmetriclaminates_test_symmetric_ou.single_2
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the laminate D22 the curvature direction needs"}
     note: >-
@@ -137,7 +137,7 @@ verdicts:
   - target: material_suite.testsymmetriclaminates_test_symmetric_in.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever, with the in-plane stiffness A11 the laminates give"}
     note: >-
@@ -145,7 +145,7 @@ verdicts:
   - target: material_suite.testsymmetriclaminates_test_symmetric_ax.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the axial bar closed form F L / (A11 B) for the laminate"}
     note: >-
@@ -153,7 +153,7 @@ verdicts:
   - target: material_suite.testsymmetriclaminates_test_quasi_iso_ou.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Euler-Bernoulli tip deflection for the same cantilever with the free-edged strip stiffness 1/(D^-1)[1,1]"}
     note: >-
@@ -161,7 +161,7 @@ verdicts:
   - target: material_suite.testasymmetriclaminates_test_axial_produ.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the CLT B-coupling tip deflection for the same strip"}
     note: >-
@@ -169,7 +169,7 @@ verdicts:
   - target: material_suite.testasymmetriclaminates_test_b_coupling.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the Reddy CLT B-coupling tip deflection, w = B11 P L^2 / (2 A11 D11_eff b)"}
     note: >-
@@ -177,19 +177,19 @@ verdicts:
   - target: material_suite.testisoequivalence_test_n_iso_plies_equa.single
     class: identity
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     note: >-
       Consistency of our own computation (reference kind self); measured 0 % against 0.01. Not independent evidence; counts as identity.
   - target: material_suite.testisoequivalence_test_n_iso_plies_same.single
     class: identity
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     note: >-
       Consistency of our own computation (reference kind self); measured 0 % against 0.01. Not independent evidence; counts as identity.
   - target: material_suite.testabdmatrices_test_isotropic_ab_d_rati.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the classical lamination result D11 = A11 h^2 / 12"}
     note: >-
@@ -197,7 +197,7 @@ verdicts:
   - target: material_suite.testabdmatrices_test_asymmetric_b11_form.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the two-ply closed form B11 = h^2/2 (Q11_90 - Q11_0) built from the A matrices"}
     note: >-
@@ -205,7 +205,7 @@ verdicts:
   - target: material_suite.testabdmatrices_test_a_matrix_single_ply.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the hand calculation A11 = Q11 h"}
     note: >-
@@ -213,7 +213,7 @@ verdicts:
   - target: material_suite.testabdmatrices_test_d_matrix_single_ply.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "the hand calculation D11 = Q11 h^3 / 12"}
     note: >-
@@ -221,19 +221,19 @@ verdicts:
   - target: material_suite.testabdmatrices_test_qbar_0_equals_q.single
     class: identity
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     note: >-
       Consistency of our own computation (reference kind self); measured 0 % against 1e-10. Not independent evidence; counts as identity.
   - target: material_suite.testabdmatrices_test_qbar_90_swaps_e1_e2.single
     class: identity
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     note: >-
       Consistency of our own computation (reference kind self); measured 0 % against 1e-10. Not independent evidence; counts as identity.
   - target: mass_matrix_validation.testelementmassvstotalmass_test_mass_con.tri3
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
     note: >-
@@ -241,7 +241,7 @@ verdicts:
   - target: mass_matrix_validation.testelementmassvstotalmass_test_mass_con.quad4
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
     note: >-
@@ -249,7 +249,7 @@ verdicts:
   - target: mass_matrix_validation.testlumpedmassmatrix_test_lumped_vs_anal.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
     note: >-
@@ -257,7 +257,7 @@ verdicts:
   - target: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density0
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever first mode f1 = (1.875^2/2pi) sqrt(EI/(rho A L^4))"}
     note: >-
@@ -265,7 +265,7 @@ verdicts:
   - target: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density1
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever first mode f1 = (1.875^2/2pi) sqrt(EI/(rho A L^4))"}
     note: >-
@@ -273,7 +273,7 @@ verdicts:
   - target: mass_matrix_validation.testmodalmassconvergence_test_first_mode.mesh_density2
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever first mode f1 = (1.875^2/2pi) sqrt(EI/(rho A L^4))"}
     note: >-
@@ -281,7 +281,7 @@ verdicts:
   - target: mass_matrix_validation.testconsistentmasstotal_test_consistent.single
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
     note: >-
@@ -289,7 +289,7 @@ verdicts:
   - target: mass_matrix_validation.testexactconsistentmasscoefficients_test.tri3_5_coords0_0_5
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
     note: >-
@@ -297,7 +297,7 @@ verdicts:
   - target: mass_matrix_validation.testexactconsistentmasscoefficients_test.quad4_9_coords1_1_0
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
     note: >-
@@ -305,7 +305,7 @@ verdicts:
   - target: mass_matrix_validation.testexactconsistentmasscoefficients_test.tri3_5_coords0_0_5_2
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
     note: >-
@@ -313,7 +313,7 @@ verdicts:
   - target: mass_matrix_validation.testexactconsistentmasscoefficients_test.quad4_9_coords1_1_0_2
     class: physics
     verdict: trusted
-    audited_rev: 252a9b5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Total mass rho*h*A / textbook consistent-mass coefficients (closed form)"}
     note: >-
@@ -323,7 +323,7 @@ verdicts:
   - target: shell_analytical.testcantileverbeam_test_tip_deflection.4_2
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
     note: >-
@@ -331,7 +331,7 @@ verdicts:
   - target: shell_analytical.testcantileverbeam_test_tip_deflection.8_4
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
     note: >-
@@ -339,7 +339,7 @@ verdicts:
   - target: shell_analytical.testcantileverbeam_test_tip_deflection.16_8
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
     note: >-
@@ -347,7 +347,7 @@ verdicts:
   - target: shell_analytical.testsimplysupportedbeam_test_center_defl.single
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
     note: >-
@@ -355,7 +355,7 @@ verdicts:
   - target: shell_analytical.testbeambending_test_bending_convergence.4_2
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
     note: >-
@@ -363,7 +363,7 @@ verdicts:
   - target: shell_analytical.testbeambending_test_bending_convergence.8_4
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
     note: >-
@@ -371,7 +371,7 @@ verdicts:
   - target: shell_analytical.testbeambending_test_bending_convergence.16_8
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
     note: >-
@@ -379,7 +379,7 @@ verdicts:
   - target: shell_analytical.testmembranestretching_test_axial_extens.single
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar closed form"}
     note: >-
@@ -387,7 +387,7 @@ verdicts:
   - target: mitc3_benchmarks.test_linear_tip_deflection_euler_bernoul.single
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli closed form P L^3/(3EI) / linear tip deflection lambda L/2"}
     note: >-
@@ -395,7 +395,7 @@ verdicts:
   - target: mitc3_benchmarks.test_linear_tip_moment_sign.single
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli closed form P L^3/(3EI) / linear tip deflection lambda L/2"}
     note: >-
@@ -403,7 +403,7 @@ verdicts:
   - target: mitc3_benchmarks.test_equilibrium_path.1_5707963267948966_3_6338_6_3662
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
     note: >-
@@ -411,7 +411,7 @@ verdicts:
   - target: mitc3_benchmarks.test_equilibrium_path.3_141592653589793_10_0_6_3662
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
     note: >-
@@ -419,7 +419,7 @@ verdicts:
   - target: mitc3_benchmarks.test_equilibrium_path.4_71238898038469_12_122_2_1221
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
     note: >-
@@ -427,7 +427,7 @@ verdicts:
   - target: mitc3_benchmarks.test_equilibrium_path.6_283185307179586_10_0_0_0
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
     note: >-
@@ -435,7 +435,7 @@ verdicts:
   - target: mitc3_benchmarks.test_simo_vu_quoc_rollup_360.10
     class: physics
     verdict: trusted
-    audited_rev: a798c84
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam)/lam)"}
     note: >-
@@ -443,7 +443,7 @@ verdicts:
   - target: mitc3_smoothed.test_scordelis_lo_smoothed_mitc3_matches.8_1_0323
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_scordelis_lo_calculix.py
     arbiters:
@@ -454,7 +454,7 @@ verdicts:
   - target: mitc3_smoothed.test_scordelis_lo_smoothed_mitc3_matches.16_1_0075
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_scordelis_lo_calculix.py
     arbiters:
@@ -465,7 +465,7 @@ verdicts:
   - target: mitc3_smoothed.test_smoothing_relieves_scordelis_lo_mem.single
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_scordelis_lo_calculix.py
     arbiters:
@@ -478,7 +478,7 @@ verdicts:
   - target: large_rotation.test_linear_tip_deflection_euler_bernoul.single
     class: physics
     verdict: trusted
-    audited_rev: 8cf683c
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli closed form P L^3/(3EI)"}
     note: >-
@@ -486,7 +486,7 @@ verdicts:
   - target: large_rotation.test_cantilever_large_rotation_half_circ.16
     class: physics
     verdict: trusted
-    audited_rev: 8cf683c
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
     note: >-
@@ -494,7 +494,7 @@ verdicts:
   - target: large_rotation.test_equilibrium_path.1_5707963267948966_3_6338_6_3662
     class: physics
     verdict: trusted
-    audited_rev: 8cf683c
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
     note: >-
@@ -502,7 +502,7 @@ verdicts:
   - target: large_rotation.test_equilibrium_path.3_141592653589793_10_0_6_3662
     class: physics
     verdict: trusted
-    audited_rev: 8cf683c
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
     note: >-
@@ -510,7 +510,7 @@ verdicts:
   - target: large_rotation.test_equilibrium_path.4_71238898038469_12_122_2_1221
     class: physics
     verdict: trusted
-    audited_rev: 8cf683c
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
     note: >-
@@ -518,7 +518,7 @@ verdicts:
   - target: large_rotation.test_equilibrium_path.6_283185307179586_10_0_0_0
     class: physics
     verdict: trusted
-    audited_rev: 8cf683c
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
     note: >-
@@ -526,7 +526,7 @@ verdicts:
   - target: large_rotation.test_simo_vu_quoc_rollup_360.10
     class: physics
     verdict: trusted
-    audited_rev: 8cf683c
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Exact elastica of a cantilever under tip moment (circular arc): u = L(1-sin(lam)/lam), w = L(1-cos(lam))/lam"}
     note: >-
@@ -534,7 +534,7 @@ verdicts:
   - target: shell_static_modal.testlinearstatic_test_fx.single
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -542,7 +542,7 @@ verdicts:
   - target: shell_static_modal.testlinearstatic_test_fy.single
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -550,7 +550,7 @@ verdicts:
   - target: shell_static_modal.testlinearstatic_test_fz.single
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -558,7 +558,7 @@ verdicts:
   - target: shell_static_modal.testlinearstatic_test_axial_load_converg.single
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -566,7 +566,7 @@ verdicts:
   - target: shell_static_modal.testnonlinearstatic_test_geometric_nonli.single
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Bisshopp & Drucker (1945) closed-form elastica"}
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R NLGEOM on the same strip at alpha = 4/7 (rows strip_elastica_calculix.*0_5714*): 0.17778 at 64 span elements"}
@@ -583,7 +583,7 @@ verdicts:
   - target: shell_static_modal.testmodal_test_first_mode.single
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli / axial bar / clamped-free f1 = 1.875104^2/2pi sqrt(EI/(rho A L^4))"}
     note: >-
@@ -591,7 +591,7 @@ verdicts:
   - target: shell_convergence.test_in_plane_bending_convergence.single
     class: physics
     verdict: trusted
-    audited_rev: 8cf683c
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli in-plane bending closed form"}
     note: >-
@@ -599,7 +599,7 @@ verdicts:
   - target: shell_convergence.test_composite_laminate_gap_mesh_study.single
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     files:
       - tests/validation/parity/test_laminate_clt_closed_form.py
     arbiters:
@@ -610,7 +610,7 @@ verdicts:
   - target: stress_stiffened.testkgassemblypipeline_test_stress_field.single
     class: physics
     verdict: trusted
-    audited_rev: 8cf683c
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Plane-stress closed form sigma_xx = E/(1-nu^2) eps, sigma_yy = nu sigma_xx, sigma_xy = 0"}
     note: >-
@@ -621,7 +621,7 @@ verdicts:
   - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -629,7 +629,7 @@ verdicts:
   - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa_2
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -637,7 +637,7 @@ verdicts:
   - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_fa_3
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -645,7 +645,7 @@ verdicts:
   - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -653,7 +653,7 @@ verdicts:
   - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr_2
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -661,7 +661,7 @@ verdicts:
   - target: ko2017.test_3_1_square_plate_tables_2_to_5.expected_table2_30_expected_table4_50_tr_3
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -669,7 +669,7 @@ verdicts:
   - target: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_01_100_0_0_015625_0_0637019230769
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -677,7 +677,7 @@ verdicts:
   - target: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_001_100000_0_0_015625_0_063701923
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -685,7 +685,7 @@ verdicts:
   - target: ko2017.test_3_2_circular_plate_tables_6_to_7.true_0_0001_100000000_0_0_015625_0_06370
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -693,7 +693,7 @@ verdicts:
   - target: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_01_100_0_0_015625_0_063701923076
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -701,7 +701,7 @@ verdicts:
   - target: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_001_100000_0_0_015625_0_06370192
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -709,7 +709,7 @@ verdicts:
   - target: ko2017.test_3_2_circular_plate_tables_6_to_7.false_0_0001_100000000_0_0_015625_0_0637
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Kirchhoff thin-plate closed form (the test normalises by it)"}
     note: >-
@@ -717,7 +717,7 @@ verdicts:
   - target: ko2017.test_3_3_pinched_cylinder_tables_8_to_9.expected0_false
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_ko2017_second_arbiters.py
     arbiters:
@@ -728,7 +728,7 @@ verdicts:
   - target: ko2017.test_3_3_pinched_cylinder_tables_8_to_9.expected0_true
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_ko2017_second_arbiters.py
     arbiters:
@@ -739,7 +739,7 @@ verdicts:
   - target: ko2017.test_3_4_scordelis_lo_tables_10_to_11.expected0_false
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
@@ -748,7 +748,7 @@ verdicts:
   - target: ko2017.test_3_4_scordelis_lo_tables_10_to_11.expected0_true
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
@@ -757,7 +757,7 @@ verdicts:
   - target: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_02667_in_plane_1_0_0_005424_0_001754_0
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "MacNeal & Harder 1985 analytical solution of the thick twisted beam (5.424e-3 in-plane, 1.754e-3 out-of-plane)"}
     note: >-
@@ -765,7 +765,7 @@ verdicts:
   - target: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_02667_out_of_plane_1_0_0_005424_0_0017
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "MacNeal & Harder 1985 analytical solution of the thick twisted beam (5.424e-3 in-plane, 1.754e-3 out-of-plane)"}
     note: >-
@@ -773,7 +773,7 @@ verdicts:
   - target: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_0002667_in_plane_1e_06_0_005256_0_0012
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_ko2017_second_arbiters.py
     arbiters:
@@ -784,7 +784,7 @@ verdicts:
   - target: ko2017.test_3_5_twisted_beam_tables_12_to_13.0_0002667_out_of_plane_1e_06_0_005256_0
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_ko2017_second_arbiters.py
     arbiters:
@@ -795,7 +795,7 @@ verdicts:
   - target: ko2017.test_3_6_hook_table_14_minimal_fix.0_9782
     class: physics
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     arbiters:
@@ -806,7 +806,7 @@ verdicts:
   - target: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_004_2_0_expected_mitc40_false
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
@@ -815,7 +815,7 @@ verdicts:
   - target: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_004_2_0_expected_mitc40_true
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
@@ -824,7 +824,7 @@ verdicts:
   - target: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_0004_0_002_expected_mitc41_false
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
@@ -833,7 +833,7 @@ verdicts:
   - target: ko2017.test_3_7_hemisphere_cutout_tables_15_to.0_0004_0_002_expected_mitc41_true
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
@@ -842,7 +842,7 @@ verdicts:
   - target: ko2017.test_3_8_full_hemisphere_table_17.0_004_2_0_0_996
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
@@ -851,7 +851,7 @@ verdicts:
   - target: ko2017.test_3_8_full_hemisphere_table_17.0_0004_0_002_0_9798
     class: physics
     verdict: trusted
-    audited_rev: df7b351
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 MITC4+ N=16 table cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value (3D/closed-form solution)"}
@@ -860,7 +860,7 @@ verdicts:
   - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_fa
     class: physics
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     arbiters:
@@ -871,7 +871,7 @@ verdicts:
   - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_001_360_0_expected_mitc40_0_0002878_tr
     class: physics
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     arbiters:
@@ -882,7 +882,7 @@ verdicts:
   - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_fa
     class: regression_pin
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     note: >-
@@ -890,7 +890,7 @@ verdicts:
   - target: ko2017.test_3_9_hyperbolic_paraboloid_tables_18.0_0001_3_6_expected_mitc41_0_00023856_tr
     class: regression_pin
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     files:
       - tests/validation/benchmarks/test_ko2017_calculix_arbiters.py
     note: >-
@@ -898,19 +898,19 @@ verdicts:
   - target: frame_objectivity.tangent_under_rigid_rotation
     class: identity
     verdict: trusted
-    audited_rev: d71c2a7
+    audited_rev: 74c6b9f
     note: >-
       Round-off bound of our own computation: K_t(u_rigid) is compared with T K0 T^T built from our own K0 (reference kind analytical, but the reference is derived from the code under test). Measured 2.58e-12 / 1.75e-12 / 1.99e-12 at 1 / 5 / 30 deg against 1e-9, identical to 6 digits for assemble_kt and assemble_kt_corotational, so the corotational MITC4 path is numerically the TL tangent here. Scope: one 4x1 MITC4 cantilever, rotation about z, translational block only; the variant with theta_z set in u (1.9e-4..5.7e-3 for both paths) is not asserted and its interpretation is open. Counts as identity.
   - target: frame_objectivity.rigid_rotation_internal_force
     class: identity
     verdict: trusted
-    audited_rev: d71c2a7
+    audited_rev: 74c6b9f
     note: >-
       Round-off bound: a rigid motion produces no strain, so f_int(u_rigid) = 0 (closed form), but the test only checks that our assembly returns it. Measured 5.39e-13 / 5.68e-13 / 8.62e-13 at 1 / 5 / 30 deg relative to the 1e-3 stretch force scale, against 1e-9. Same mesh and scope limits as the tangent row. Counts as identity.
   - target: newton_elastica.test_newton_scheme_narrow_strip_matches.1_0
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Bisshopp & Drucker (1945) elastica tabulated by Bathe & Bolourchi (1979)"}
       - {kind: analytical, label: "the elastica re-integrated by shooting on theta'' = -alpha cos(theta): w/L .30172 / .49346, u/L -.05643 / -.16064"}
@@ -925,7 +925,7 @@ verdicts:
   - target: newton_elastica.test_newton_scheme_narrow_strip_matches.2_0
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Bisshopp & Drucker (1945) elastica tabulated by Bathe & Bolourchi (1979)"}
       - {kind: analytical, label: "the elastica re-integrated by shooting on theta'' = -alpha cos(theta): w/L .30172 / .49346, u/L -.05643 / -.16064"}
@@ -940,7 +940,7 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.0_5714285714285714_32
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
@@ -954,7 +954,7 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.0_5714285714285714_64
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
@@ -968,7 +968,7 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.1_0_32
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
@@ -982,7 +982,7 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.1_0_64
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
@@ -996,7 +996,7 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.2_0_32
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
@@ -1010,7 +1010,7 @@ verdicts:
   - target: strip_elastica_calculix.test_newton_strip_matches_calculix_nlgeo.2_0_64
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica as the b -> 0 limit of the same Newton sequence (rows newton_elastica.*)"}
@@ -1024,7 +1024,7 @@ verdicts:
   - target: ul_elastica.test_default_scheme_tip_deflection_match.1_0_8
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Bisshopp & Drucker (1945) elastica tabulated by Bathe & Bolourchi (1979)"}
       - {kind: analytical, label: "the elastica re-integrated by shooting on theta'' = -alpha cos(theta)"}
@@ -1038,7 +1038,7 @@ verdicts:
   - target: ul_elastica.test_default_scheme_tip_deflection_match.2_0_8
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Bisshopp & Drucker (1945) elastica tabulated by Bathe & Bolourchi (1979)"}
       - {kind: analytical, label: "the elastica re-integrated by shooting on theta'' = -alpha cos(theta)"}
@@ -1052,7 +1052,7 @@ verdicts:
   - target: twisted_beam_nlgeom_calculix.test_twisted_beam_default_scheme_matches.in_plane_10_0_24_4_0_01
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica, as the narrow-strip limit of the same solver (rows ul_elastica.*)"}
@@ -1067,7 +1067,7 @@ verdicts:
   - target: twisted_beam_nlgeom_calculix.test_twisted_beam_default_scheme_matches.in_plane_10_0_48_8_0_01
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica, as the narrow-strip limit of the same solver (rows ul_elastica.*)"}
@@ -1082,7 +1082,7 @@ verdicts:
   - target: twisted_beam_nlgeom_calculix.test_twisted_beam_default_scheme_matches.out_of_plane_5_0_48_8_0_015
     class: physics
     verdict: trusted
-    audited_rev: ec3c9f6
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: produced_numerical, label: "CalculiX 2.20 S8R, NLGEOM, dead CLOAD, 20 increments (10 and 40 agree to 4 digits)"}
       - {kind: analytical, label: "the elastica, as the narrow-strip limit of the same solver (rows ul_elastica.*)"}
@@ -1097,7 +1097,7 @@ verdicts:
   - target: scordelis_lo_triangular.test_scordelis_lo_table_10.false_16_0_9973
     class: physics
     verdict: trusted
-    audited_rev: ce87317
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 Table 10 (regular mesh) MITC4+ N=16 quads cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value w_ref = 0.3024 that Table 10 normalises by"}
@@ -1106,7 +1106,7 @@ verdicts:
   - target: scordelis_lo_triangular.test_scordelis_lo_table_10.true_8_0_8577
     class: physics
     verdict: trusted
-    audited_rev: ce87317
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 Table 10 (regular mesh) MITC3+ N=8 triangles cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value w_ref = 0.3024 that Table 10 normalises by"}
@@ -1115,7 +1115,7 @@ verdicts:
   - target: scordelis_lo_triangular.test_scordelis_lo_table_10.true_16_0_955
     class: physics
     verdict: trusted
-    audited_rev: ce87317
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 Table 10 (regular mesh) MITC3+ N=16 triangles cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value w_ref = 0.3024 that Table 10 normalises by"}
@@ -1124,7 +1124,7 @@ verdicts:
   - target: scordelis_lo_triangular.test_scordelis_lo_table_10.true_32_0_9851
     class: physics
     verdict: trusted
-    audited_rev: ce87317
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 Table 10 (regular mesh) MITC3+ N=32 triangles cell"}
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference value w_ref = 0.3024 that Table 10 normalises by"}
@@ -1135,7 +1135,7 @@ verdicts:
   - target: ko2017_second_arbiters.test_pinched_cylinder_refined_mesh_reach.32
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "MacNeal & Harder 1985 pinched cylinder closed-form series, w_ref = 1.8248e-5"}
     note: >-
@@ -1143,7 +1143,7 @@ verdicts:
   - target: ko2017_second_arbiters.test_thin_twisted_beam_against_simo_1989.in_plane
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference 1.390 in (b = 0.05 in), via the Abaqus Benchmarks Manual"}
       - {kind: produced_numerical, label: "CalculiX S8R on the same beam reproduces Simo's value (rows ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.*)"}
@@ -1152,7 +1152,7 @@ verdicts:
   - target: ko2017_second_arbiters.test_thin_twisted_beam_against_simo_1989.out_of_plane
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference 0.3431 in (b = 0.05 in), via the Abaqus Benchmarks Manual"}
       - {kind: produced_numerical, label: "CalculiX S8R on the same beam reproduces Simo's value (rows ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.*)"}
@@ -1161,7 +1161,7 @@ verdicts:
   - target: scordelis_lo_calculix.test_scordelis_lo_calculix_s8r_reaches_m.8
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference w_ref = 0.3024"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined (this row)"}
@@ -1170,7 +1170,7 @@ verdicts:
   - target: scordelis_lo_calculix.test_scordelis_lo_calculix_s8r_reaches_m.16
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference w_ref = 0.3024"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined (this row)"}
@@ -1179,7 +1179,7 @@ verdicts:
   - target: scordelis_lo_calculix.test_scordelis_lo_calculix_s8r_reaches_m.32
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "MacNeal & Harder 1985 reference w_ref = 0.3024"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined (this row)"}
@@ -1188,7 +1188,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_hook_calculix_s8r_reaches_ko_refere.8
     class: physics
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 hook reference 4.82482 (MITC9, N = 64)"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined, on the live test's hook model"}
@@ -1197,7 +1197,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_hook_calculix_s8r_reaches_ko_refere.16
     class: physics
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 hook reference 4.82482 (MITC9, N = 64)"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined, on the live test's hook model"}
@@ -1206,7 +1206,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_hyperbolic_paraboloid_calculix_s8r.48
     class: physics
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 hypar reference 2.8780e-4 (MITC9, 72 x 144), t/L = 1/1000"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined, on the live test's hypar model"}
@@ -1215,7 +1215,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_hyperbolic_paraboloid_calculix_s8r.64
     class: physics
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Ko et al. 2017 hypar reference 2.8780e-4 (MITC9, 72 x 144), t/L = 1/1000"}
       - {kind: produced_numerical, label: "CalculiX S8R, refined, on the live test's hypar model"}
@@ -1224,7 +1224,7 @@ verdicts:
   - target: laminate_clt_closed_form.test_laminate_tip_matches_the_classical.single
     class: physics
     verdict: trusted
-    audited_rev: e0645fd
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Classical lamination theory, Timoshenko strip in in-plane bending, moduli from the membrane matrix A (numpy, independent of the element code)"}
     note: >-
@@ -1232,7 +1232,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.in_plane
     class: physics
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference (b = 0.05 in), via the Abaqus Benchmarks Manual"}
       - {kind: produced_numerical, label: "CalculiX S8R, 8 x 48 elements (this row)"}
@@ -1241,7 +1241,7 @@ verdicts:
   - target: ko2017_calculix_arbiters.test_thin_twisted_beam_calculix_s8r_matc.out_of_plane
     class: physics
     verdict: trusted
-    audited_rev: 1ecf076
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: published_numerical, label: "Simo, Fox & Rifai 1989 thin twisted beam reference (b = 0.05 in), via the Abaqus Benchmarks Manual"}
       - {kind: produced_numerical, label: "CalculiX S8R, 8 x 48 elements (this row)"}
@@ -1252,7 +1252,7 @@ verdicts:
   - target: dtube_camarena_bending.test_dtube_tip_deflection_matches_beam_t.single
     class: physics
     verdict: trusted
-    audited_rev: f22dcb5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Prismatic cantilever w L^4 / (8 E I_c) about the section centroid (Camarena and Anderson 2025, Section 3.1.1)"}
       - {kind: produced_numerical, label: "CalculiX S8R on the same tube, mesh-independent at 24.992 m (row dtube_calculix.*)"}
@@ -1261,7 +1261,7 @@ verdicts:
   - target: dtube_camarena_bending.test_dtube_torsion_matches_bredt.single
     class: physics
     verdict: trusted
-    audited_rev: f22dcb5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Bredt-Batho closed-cell torsional stiffness G 4 A^2 / oint(ds/t)"}
     note: >-
@@ -1269,13 +1269,13 @@ verdicts:
   - target: dtube_camarena_bending.test_applied_traction_resultant.single
     class: identity
     verdict: trusted
-    audited_rev: f22dcb5
+    audited_rev: 74c6b9f
     note: >-
       Load bookkeeping: the discretised nodal traction integrates to 2.83272e7 N against p D L = 2.835e7 N, 0.0803 % against a 0.1 % bound. It checks our own load assembly, not the physics.
   - target: dtube_calculix.test_dtube_tip_deflection_calculix_s8r_a.32_16_100
     class: physics
     verdict: trusted
-    audited_rev: f22dcb5
+    audited_rev: 74c6b9f
     arbiters:
       - {kind: analytical, label: "Prismatic cantilever w L^4 / (8 E I_c) about the section centroid"}
       - {kind: produced_numerical, label: "AeroElast MITC4+ at 32/16/400, 0.10 % from the same beam value"}
@@ -1286,7 +1286,7 @@ verdicts:
   - target: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1294,7 +1294,7 @@ verdicts:
   - target: composite_ply_stress.test_top_fibre_ply_stress_matches_clt.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1302,7 +1302,7 @@ verdicts:
   - target: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1310,7 +1310,7 @@ verdicts:
   - target: composite_ply_stress.test_bottom_fibre_ply_stress_matches_clt.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1318,7 +1318,7 @@ verdicts:
   - target: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1326,7 +1326,7 @@ verdicts:
   - target: composite_ply_stress.test_production_rust_laminate_top_fibre.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1334,7 +1334,7 @@ verdicts:
   - target: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1342,7 +1342,7 @@ verdicts:
   - target: composite_ply_stress.test_production_rust_laminate_bottom_fib.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1350,7 +1350,7 @@ verdicts:
   - target: composite_ply_stress.test_bending_top_and_bottom_match_clt_at.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1358,7 +1358,7 @@ verdicts:
   - target: composite_ply_stress.test_bending_kappa_matches_d_inverse_m.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1366,7 +1366,7 @@ verdicts:
   - target: composite_ply_stress.test_angle_ply_rotates_qbar_per_ply.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1374,7 +1374,7 @@ verdicts:
   - target: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1382,7 +1382,7 @@ verdicts:
   - target: composite_ply_stress.test_outer_fibre_stress_matches_ccx_and.sym_90_0s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "CLT / closed form asserted by the test"}
     note: >-
@@ -1390,7 +1390,7 @@ verdicts:
   - target: composite_beam_parity.test_composite_axial_tension.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     files: [tools/g24_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
@@ -1399,7 +1399,7 @@ verdicts:
   - target: composite_beam_parity.test_composite_isotropic_equiv.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     files: [tools/g24_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
@@ -1408,7 +1408,7 @@ verdicts:
   - target: composite_beam_parity.test_composite_bending.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     files: [tools/g24_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "hand CLT bar / closed form asserted by the test"}
@@ -1417,7 +1417,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
@@ -1425,7 +1425,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
@@ -1433,7 +1433,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
@@ -1441,27 +1441,29 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "beam closed form asserted by the test"}
     note: >-
       Closed form <= 0.87 % vs 2 % bound; regression same.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.tension_axial_2
-    class: physics
-    verdict: undecided
+    class: regression_pin
+    verdict: trusted
+    audited_rev: a399141
     files: [tools/g17_closed_form.py]
     note: >-
-      Loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation.
+      Pinned as AeroElast-vs-CalculiX code parity, with no valid independent reference: the loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation. Counts toward no level.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.compression_axial_2
-    class: physics
-    verdict: undecided
+    class: regression_pin
+    verdict: trusted
+    audited_rev: a399141
     files: [tools/g17_closed_form.py]
     note: >-
-      Loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation.
+      Pinned as AeroElast-vs-CalculiX code parity, with no valid independent reference: the loaded-node axial displacement is a point-load singularity: over-reads the closed form +4.4/+6.3/+8.4 % (AeroElast) at 4x20/8x40/16x80 and does not converge (tools/g17_closed_form.py C2). The AE-vs-CCX agreement is code parity on a diverging metric; the face-mean closed-form rows carry the validation. Counts toward no level.
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.bending_fx_2
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     files: [tools/g17_closed_form.py]
     arbiters:
       - {kind: analytical, label: "beam closed form, face-mean (tools/g17_closed_form.py C1)"}
@@ -1470,7 +1472,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_linear_st.transverse_fy_2
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     files: [tools/g17_closed_form.py]
     arbiters:
       - {kind: analytical, label: "beam closed form, face-mean (tools/g17_closed_form.py C1)"}
@@ -1479,7 +1481,7 @@ verdicts:
   - target: beam_shell_4cases.testbeamshell4casesparity_test_modal_fir.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     files: [tools/g17_closed_form.py]
     arbiters:
       - {kind: analytical, label: "thin-plate modal closed forms (tools/g17_closed_form.py C3/C4)"}
@@ -1488,7 +1490,7 @@ verdicts:
   - target: laminate_bend_twist.test_unbalanced_layup_matches_the_free_e.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
@@ -1496,7 +1498,7 @@ verdicts:
   - target: laminate_bend_twist.test_constant_moment_interior_state_is_t.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
@@ -1504,7 +1506,7 @@ verdicts:
   - target: laminate_bend_twist.test_constant_moment_tip_twist_matches_t.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
@@ -1512,7 +1514,7 @@ verdicts:
   - target: laminate_bend_twist.test_ritz_reference_converges_and_matche.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "free-edge CLT state for the same layup"}
     note: >-
@@ -1520,7 +1522,7 @@ verdicts:
   - target: dtube_gravity.test_dtube_gravity_tip_deflection_aeroel.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
@@ -1528,7 +1530,7 @@ verdicts:
   - target: dtube_gravity.test_dtube_gravity_aeroelast_converges_w.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
@@ -1536,7 +1538,7 @@ verdicts:
   - target: dtube_gravity.test_dtube_gravity_tip_deflection_calcul.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
     note: >-
@@ -1544,7 +1546,7 @@ verdicts:
   - target: tube_torsion.test_self_equilibrated_isotropic_reprodu.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
@@ -1552,7 +1554,7 @@ verdicts:
   - target: tube_torsion.test_self_equilibrated_laminate_reproduc.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
@@ -1560,7 +1562,7 @@ verdicts:
   - target: tube_torsion.test_distributed_force_plus_transfer_mom.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
@@ -1568,7 +1570,7 @@ verdicts:
   - target: isotropic_shell.testisotropicshellparity_test_transverse.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     files: [tools/g4_g8_ccx_convergence.py]
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli P L^3/(3 E I) (tools/g4_g8_ccx_convergence.py)"}
@@ -1579,7 +1581,7 @@ verdicts:
   - target: ccx_element_types.test_ccx_element_type_matches_analytical.s4
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
     note: >-
@@ -1587,7 +1589,7 @@ verdicts:
   - target: ccx_element_types.test_ccx_element_type_matches_analytical.s8
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
     note: >-
@@ -1595,7 +1597,7 @@ verdicts:
   - target: ccx_element_types.test_ccx_element_type_matches_analytical.s8r
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever tip deflection"}
     note: >-
@@ -1603,7 +1605,7 @@ verdicts:
   - target: tube_torsion.test_clamped_root_metric_convergence_ide.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "Bredt thin-wall closed form"}
     note: >-
@@ -1611,7 +1613,7 @@ verdicts:
   - target: shell_stress_ccx.test_outer_fibre_stress_matches_beam_th.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "beam theory M(x) c / I at mid-span"}
     note: >-
@@ -1619,20 +1621,23 @@ verdicts:
   - target: orthotropic_shell_parity.test_orthotropic_axial.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli axial/transverse closed form (tools/g4_g8_ccx_convergence.py)"}
     note: >-
       Measured 0.539 % vs CalculiX; mesh sweep converged (last step AE +0.016 %, CCX +0.103 %, gap 0.10 %); +0.72 % AE / +0.62 % CCX vs EB with D22.
   - target: orthotropic_shell_parity.test_orthotropic_bending.single
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli plus Timoshenko shear, kappa 5/6, A66 (tools/g4_bending_sweep.py)"}
     note: >-
-      Measured 3.648 % vs the in-plane bending closed form (bound 5 %). Under the ceiling but large and not attributed; no convergence sweep for this comparison. Needs a cause (shear, root restraint) or a sweep before a verdict.
+      Measured 3.648 % vs Euler-Bernoulli (bound 5 %); attributed to shear deformation (+3.93 % for L/B = 10). Mesh sweep 4x10..32x80: tip changes +0.024 % in the last step and sits +0.178 % from EB+Timoshenko (criterion predeclared in the tool). kappa is approximate for an orthotropic deep beam, so the Timoshenko match is context, not a gate.
   - target: composite_layup.test_axial_extension_matches_ccx.uni_0
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1640,7 +1645,7 @@ verdicts:
   - target: composite_layup.test_axial_extension_matches_ccx.uni_90
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1648,7 +1653,7 @@ verdicts:
   - target: composite_layup.test_axial_extension_matches_ccx.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1656,7 +1661,7 @@ verdicts:
   - target: composite_layup.test_axial_extension_matches_ccx.asym_0_90
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1664,7 +1669,7 @@ verdicts:
   - target: composite_layup.test_axial_extension_matches_ccx.quasi_iso
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, fibre 0 along X"}
     note: >-
@@ -1672,7 +1677,7 @@ verdicts:
   - target: composite_layup.test_transverse_bending_matches_ccx.uni_0
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
@@ -1680,7 +1685,7 @@ verdicts:
   - target: composite_layup.test_transverse_bending_matches_ccx.uni_90
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
@@ -1688,7 +1693,7 @@ verdicts:
   - target: composite_layup.test_transverse_bending_matches_ccx.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
@@ -1696,20 +1701,23 @@ verdicts:
   - target: composite_layup.test_transverse_bending_matches_ccx.asym_0_90
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B)"}
     note: >-
       Measured 0.2952 % vs hand-CLT; bound 3 %.
   - target: composite_layup.test_transverse_bending_matches_ccx.quasi_iso
     class: physics
-    verdict: undecided
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "hand-CLT strip, w = (ABD^-1)[kappa_y,M_y] F L^3/(3 B) (tools/g18_quasi_iso_root_sweep.py)"}
     note: >-
-      Measured 1.757 % vs hand-CLT (bound 3 %). The offset, larger than the other layups, was attributed to clamped-root restraint but not measured; needs a sweep before a verdict.
+      Measured 1.757 % vs hand-CLT on the test mesh (4x10, bound 3 %). Length-wise refinement takes it to -1.05 % (ny=80); the remainder is the clamped-root restraint of the free-width closed form: it scales with B/L (-1.03, -0.49, -0.24, -0.15 % for B = 0.1..0.0125 m) while the control sym_0_90s stays <= 0.02 %. Criteria predeclared in the tool.
   - target: composite_layup.test_asymmetric_b_coupling_matches_ccx.single
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "hand-CLT strip, w = -kappa_y L^2/2"}
     note: >-
@@ -1717,7 +1725,7 @@ verdicts:
   - target: composite_layup.test_symmetric_laminates_have_no_b_coupl.sym_0_90s
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "classical laminate theory: B = 0 for a symmetric layup"}
     note: >-
@@ -1725,7 +1733,7 @@ verdicts:
   - target: composite_layup.test_symmetric_laminates_have_no_b_coupl.quasi_iso
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "classical laminate theory: B = 0 for a symmetric layup"}
     note: >-
@@ -1733,7 +1741,7 @@ verdicts:
   - target: newmark_analytic_frequency.s3_undamped_free_vibration_f1
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "Euler-Bernoulli cantilever first frequency"}
     note: >-
@@ -1741,8 +1749,335 @@ verdicts:
   - target: newmark_analytic_frequency.s3_newmark_dispersion
     class: physics
     verdict: trusted
-    audited_rev: af95fa8
+    audited_rev: a399141
     arbiters:
       - {kind: analytical, label: "trapezoidal-rule dispersion omega_d = (2/dt) atan(omega dt/2) of the mesh's own first eigenfrequency"}
     note: >-
       Measured 0.0105 % vs 0.05 % bound fixed before measuring; the predicted offset is -0.0145 %. Isolates the integrator from the shell mesh error carried by the Euler-Bernoulli row.
+  - target: laminate_bend_twist_3d.test_3d_matches_the_shell_within_2_perce.single
+    class: physics
+    verdict: trusted
+    audited_rev: 17ef8ad
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction"}
+      - {kind: analytical, label: "free-edge CLT tip-force closed form theta(L) = (D^-1)[2,0] P L^2 / (4 b) for the same strip (row laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl)"}
+    note: >-
+      Shell twist vs a 3D layer-wise elasticity solve of the same strip: 0.2143 % against a 2 % bound (same at 17ef8ad). The relabel from `self` to `code` is correct: the reference is the CalculiX 3D solid, which judges the shell. CORRECTED 2026-10-19: the earlier note said no closed form exists because "the hand-CLT reference was the original problem"; that misread the docstring, where what failed was the issue-#9 formula (missing 1/b and kappa/2). The corrected free-edge closed form is the analytical arbiter of this same coupon (G26 already trusts it for the shell) and both sides of this comparison now face it in their own row: 3D -2.51 %, shell -2.72 %, under the 5 % ceiling.
+  - target: laminate_bend_twist_3d.test_3d_mesh_convergence.single
+    class: physics
+    verdict: trusted
+    audited_rev: 17ef8ad
+    arbiters:
+      - {kind: produced_numerical, label: "CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction"}
+      - {kind: analytical, label: "free-edge CLT tip-force closed form theta(L) = (D^-1)[2,0] P L^2 / (4 b) for the same strip (row laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl)"}
+    note: >-
+      Refined 3D twist (16x10) vs the shell: 0.2143 % against a 2 % bound; the test also asserts that the 3D value settles under in-plane refinement (6x4, 10x6, 16x10). Against the closed form the 3D sequence is -1.31 / -2.24 / -2.51 % (increments 0.93, 0.27 points, so about -2.6 % extrapolated): it converges toward the shell, away from the first-order closed form, and stays under the 5 % ceiling. Arbiters as the row above.
+  - target: laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl.single
+    class: physics
+    verdict: trusted
+    audited_rev: 17ef8ad
+    arbiters:
+      - {kind: analytical, label: "free-edge CLT tip-force closed form theta(L) = (D^-1)[2,0] P L^2 / (4 b) for the same strip"}
+    note: >-
+      Added 2026-10-19 (PRE-3, maintainer approved). 3D C3D20R 16x10 -2.5137 % and MITC4 shell 16x96 -2.7222 % against the closed form, bound the 5 % physics ceiling (not fitted; the 3D value had been measured once in the read-only question that proposed this row). Same laminate [45,0,0,45]s, load P = 10 N, clamp and twist_lsq metric. The closed form is exact for a constant moment and first order for a tip force (it neglects the y-redistribution and the clamp layer), so the ~2.5-2.7 % both codes share is its model residual; its own size is not separately quantified. It is CLT, the shell's theory: it arbitrates the observable (tip twist), not the H6 question of CLT adequacy, which the 3D-vs-shell row answers.
+  - target: composite_beam_parity.testcompositematerial_test_clt_matches_i.single
+    class: physics
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "independent first-principles hand CLT (_hand_clt_abd) and the analytical B = 0 of a symmetric laminate"}
+    note: >-
+      A and D match the hand CLT to 0.0000 % (bound 1e-9). The two atol 1e-6 comparisons assert B = 0 for the symmetric [0/90/45/-45]s stack: measured |B| 1.1e-10 (hand) and 8.7e-11 (AeroElast), at the round-off floor eps*max|A|*h/2 ~ 1.4e-10, four orders under the bound and ten under the |B| ~ 6.5e4 that one perturbed ply gives, so the absolute bound still separates a coupling bug from round-off.
+  - target: dtube_gravity.test_dtube_gravity_calculix_is_span_conv.single
+    class: physics
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
+    note: >-
+      CalculiX S8R span convergence, 50 vs 100 layers: 0.0013 % against a 1 % bound, so the CalculiX number used as comparator is converged in span. The converged value sits +0.12 % from the closed form (row tip_deflection_calculix). The test labels its reference `self` (CCX against itself at a finer span), which is right for a convergence check; the independent arbiter is the closed form.
+  - target: dtube_gravity.test_dtube_gravity_aeroelast_and_calculi.single
+    class: physics
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "prismatic cantilever w L^4/(8 E I_c)"}
+    note: >-
+      AeroElast 400 layers vs CalculiX S8R 100 layers: 0.1624 % against a 1 % bound, with both codes converged (AE within -0.05 % and CCX within +0.12 % of the closed form, which accounts for the gap). The closed form arbitrates; the code-vs-code agreement is context.
+  - target: laminate_bend_twist.test_independent_ccx_deck_confirms_the_c.single
+    class: regression_pin
+    verdict: trusted
+    audited_rev: a399141
+    files: [tools/g26_ccx_deck_convergence.py]
+    note: >-
+      Code parity against a hand-authored CCX S8R deck, not validation: the free-edge CLT rows of this group carry it. Paired sweep 2x12..16x96 (criterion predeclared in the tool): [45,0,0,45]s and [45,-45,-45,45]s CLOSE (last step element -0.26 / +0.90 %, CCX +0.06 / +0.07 %, gap 0.17 / 0.66 %); [60,0,0,60]s does NOT: CCX is converged (+0.21 %) but the element still moves -3.06 % from 8x48 to 16x96, the gap closing monotonically 32.6 / 12.9 / 5.2 / 1.7 % without reaching a limit. The test's 1.95 % pairs element 16x96 with CCX 8x48; at equal 16x96 the gap is 1.73 %. Counts toward no level.
+  - target: composite_layup.test_modal_frequencies_match_ccx.uni_0
+    class: physics
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.67 %, CalculiX worst 0.07 %), matched gap at 32x80 at most 0.16 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: composite_layup.test_modal_frequencies_match_ccx.uni_90
+    class: physics
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.33 %, CalculiX worst 0.00 %), matched gap at 32x80 at most 0.21 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: composite_layup.test_modal_frequencies_match_ccx.sym_0_90s
+    class: physics
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.67 %, CalculiX worst 0.03 %), matched gap at 32x80 at most 0.14 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: composite_layup.test_modal_frequencies_match_ccx.asym_0_90
+    class: physics
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.67 %, CalculiX worst 0.02 %), matched gap at 32x80 at most 0.14 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: composite_layup.test_modal_frequencies_match_ccx.quasi_iso
+    class: physics
+    verdict: trusted
+    audited_rev: a399141
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli beam frequencies from the hand-CLT strip stiffness (out-of-plane 1-2, in-plane 1; tools/g18_modal_convergence.py)"}
+    note: >-
+      Paired convergence 8x20..32x80 (criterion predeclared in the tool): all five matched modes change < 1 % from 16x40 to 32x80 in both codes (AeroElast worst 0.43 %, CalculiX worst 0.02 %), matched gap at 32x80 at most 0.10 % (bound 3 %). The asserted 1-1.5 % at 8x20 is mesh error of the coarse point, not a model difference. Beam anchors are printed next to both codes in the tool log as context. Re-measured 2026-10-15 (SLURM 11616456).
+  - target: orthotropic_shell_parity.test_multi_layer_iso_equivalence.single
+    class: regression_pin
+    verdict: trusted
+    audited_rev: a399141
+    note: >-
+      Pinned as a software guard, with no independent reference: the asserted metric is the relative norm of K(4 isotropic plies) - K(one isotropic layer), two builds of our own model, so it does not map onto the closed form. The closed form was checked on the laminate side only (create_laminate_from_angles, E 70e9, nu 0.3, h 0.01, 4 plies): A11, A12, A66 and D11, D12, D66 match E h/(1-nu^2) and E h^3/(12(1-nu^2)) (with nu and (1-nu)/2 factors) to 2e-16, and B = 0 exactly. Measured K difference 0.0 against the unchanged 1e-4 bound. Counts toward no level.
+
+# --- REG-1, 2026-10-19: plate K_G, centrifugal recovery and closed-section beam; e7c5059 ---
+  - target: plate_buckling_analytic.test_mitc4_square_plate_converges_to_4pi.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Timoshenko and Gere, Theory of Elastic Stability, 2nd ed., section 9.2: Kirchhoff SS square plate N_cr = 4 pi^2 D/b^2"}
+    note: >-
+      Independent plate closed form, qualified against the tabulated coefficient and an independent FD PDE solve. Richardson 0.0445 % against 0.3 %; 32x32 0.0876 % against 1 %. Monotone 8/16/32 refinement and observed second order are asserted.
+  - target: plate_buckling_analytic.test_mitc4_rectangular_plate_picks_two_h.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Timoshenko and Gere section 9.2: Kirchhoff SS plate N_cr = min_m (m b/a + a/(m b))^2 pi^2 D/b^2"}
+    note: >-
+      At a/b=1.5 the independent minimum selects two half-waves. Measured 0.1196 % against 1 % at 48x32; both half-wave counts and eigensolve residual are asserted.
+  - target: plate_buckling_analytic.test_mitc4_sandwich_plate_m1_converges_t.single
+    class: physics
+    verdict: rejected
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "SS sandwich Navier FSDT: N_cr = min_m D K^4/[kx^2 (1 + D K^2/S)], with independently integrated energy-equivalent S"}
+    note: >-
+      Documented T7(iii)/L17 FSDT shear-input finding: MITC4 consumes uncorrected A55 rather than the sandwich energy-equivalent S. Richardson error 24.4392 % against 0.5 % (documented focused-run evidence); 32x32 diagnostic error 24.6027 % against 1 %. Bounds and strict xfail are unchanged, never trusted. Regression at e7c5059 reports unmapped (one printed helper residual for two comparisons): the first failure prevents the second helper. Both stored measurements deliberately remain not_measured; no partial output was assigned to a comparison.
+  - target: plate_buckling_analytic.test_mitc4_cross_ply_square_plate_x_load.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Whitney (1987) / Jones (1999), specially orthotropic SS plate buckling: min_m pi^2/b^2 [D11 r^2 + 2(D12+2D66) + D22/r^2], independent hand-CLT D"}
+    note: >-
+      Independent orthotropic Kirchhoff formula qualified by limits and FD PDE checks; shear-negligibility is asserted. Richardson 0.0326 % against 0.3 %, 32x32 0.1176 % against 1 %, with monotone second-order refinement.
+  - target: plate_buckling_analytic.test_mitc4_cross_ply_square_plate_y_load.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Whitney (1987) / Jones (1999), specially orthotropic SS plate buckling closed form with D11/D22 exchanged for y loading"}
+    note: >-
+      Measured 0.1484 % against 1 % on 48x48; the independent minimum and FE mode both select two half-waves along y. Same hand-CLT reference and shear-negligibility controls as the x case.
+  - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.isotropic
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Exact nu=0 rotating strip equilibrium: sigma_x(x) = m omega^2 (R^2-x^2)/(2h), sigma_y = tau_xy = 0"}
+    note: >-
+      Independent statically determinate plane-elasticity solution, not production stress recovery. Root-normalized 40-element error prints 0.0104 % against the exact 0.010416677083333334 % bound; strict assertion passes. The bound is derived from midpoint loading, not fitted. Discrete identity and second-order 20/40 error-ratio guards are retained.
+  - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.symmetric
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Exact nu=0 rotating strip equilibrium: sigma_x(x) = m omega^2 (R^2-x^2)/(2h), independent of symmetric layup stiffness"}
+    note: >-
+      Root-normalized finest error 0.0104 % against 0.010416677083333334 %. Exact equilibrium fixes the resultant independently of the laminate constitutive implementation; source assertion passes with the original discretization-derived bound and second-order convergence check.
+  - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.unsymmetric
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Exact nu=0 rotating strip equilibrium: N_x = m omega^2 (R^2-x^2)/2 and M_x=0, including unsymmetric-laminate B-kappa recovery"}
+    note: >-
+      Root-normalized finest error 0.0104 % against 0.010416677083333334 %. Equilibrium is independent of the shared Laminate A/B/D and remains exact for B != 0; the old A-epsilon-only recovery would be about 100 % high. Original load identity, transverse and second-order guards remain.
+  - target: prestress_centrifugal_analytic.test_output_stress_differs_from_prestres.symmetric
+    class: identity
+    verdict: trusted
+    audited_rev: e7c5059
+    note: >-
+      Two recovery outputs from the same assembled solution, compared with A11 D11/(A11 D11-B11^2) computed from the same production Laminate. For symmetric B=0 this is the unit-ratio identity, not an independent section arbiter. Printed error 0.0000 % against 0.0001 % (fraction 1e-6).
+  - target: prestress_centrifugal_analytic.test_output_stress_differs_from_prestres.unsymmetric
+    class: identity
+    verdict: trusted
+    audited_rev: e7c5059
+    note: >-
+      Algebraic consistency of output and prestress recovery using the same solution and production Laminate A/B/D; the independent equilibrium result is adjudicated separately. Ratio reference A11 D11/(A11 D11-B11^2) is about 2.0083. Printed error 0.0000 % against 0.0001 %; not an independent physical section validation.
+  - target: analytic_beam_closed_section.test_exact_closed_section_mass.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "Exact volumetric mass integral for four thin-wall strips: rho * 2(width+height) * thickness * length"}
+    note: >-
+      Physics despite the roundoff bound: expected mass is computed independently from scalar density and geometry, not from the assembled mass matrix. Each rigid x/y/z translation samples that matrix. Finest and all-mesh comparisons both print 0.0000 % against fraction 1e-10 (1e-8 %); the strict source checks pass. Bound display rounds to zero, but the stored tolerance is nonzero.
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.torsion_0
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "Saint-Venant-Bredt torsional wave of a uniform cantilever: f1 = sqrt(GJ/[rho(Ix+Iy)])/(4L), J=2 w^2 h^2 t/(w+h)"}
+    note: >-
+      Independent closed-form torsional wave and thin-wall Bredt section integral. Measured 0.0173 % against 2 % with joint span/wall refinement and mesh movement below 0.5 %.
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.flap_0
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
+    note: >-
+      Measured 0.4053 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.flap_1
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
+    note: >-
+      Measured 0.4368 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.edge_0
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
+    note: >-
+      Measured 0.4043 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.edge_1
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
+    note: >-
+      Measured 0.4785 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_rotating_southwell_same_s4_path.flap_0
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact finite-speed Southwell coefficient of the rotating Euler-Bernoulli ODE y'''' - (T y')' = lambda y, Ritz converged to 1e-6 (degree 12 vs 16, asserted); low-speed limit checked against Wright, Smith, Thresher & Wang 1982 (J. Appl. Mech. 49, 197-202), 1.17 < K1(0) < 1.20"}
+    note: >-
+      Measured 0.1883 % against a 3 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_rotating_southwell_same_s4_path.edge_1
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact finite-speed Southwell coefficient of the rotating Euler-Bernoulli ODE y'''' - (T y')' = lambda y, Ritz converged to 1e-6 (degree 12 vs 16, asserted); low-speed limit checked against Wright, Smith, Thresher & Wang 1982 (J. Appl. Mech. 49, 197-202), 1.17 < K1(0) < 1.20"}
+    note: >-
+      Measured 0.6039 % against a 3 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_explicit_reference_surface_inertia.mid
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli EI: independent integral of four mid-surface wall strips, including each local t^3/12 inertia"}
+    note: >-
+      Measured interior curvature rigidity error 0.3528 % against 0.5 %. Independent geometric integral, not stiffness-matrix extraction as its own reference. Static 160/320/640 span refinement retains wall count four; last step below 0.5 % is asserted.
+  - target: analytic_beam_closed_section.test_explicit_reference_surface_inertia.outer
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli EI: four wall-strip integral with OML planes shifted out by t/2, including local t^3/12"}
+    note: >-
+      Measured 0.3336 % against 0.5 %; independent geometry includes the same explicit plane shift as the mesh, without corner-overlap material. Mesh movement below 0.5 % is asserted; this is not a BladeMesh offset-option test.
+  - target: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ea_0_1e_05
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+      - tests/validation/parity/test_composite_beam_parity.py
+    arbiters:
+      - {kind: analytical, label: "Jones classical lamination theory: balanced free-transverse-contraction A_eff=1/a11, EA=A_eff*2(w+h), independent hand CLT"}
+    note: >-
+      Physics despite the tight bound: composite_reference uses the independent numpy _hand_clt_abd implementation, not production Laminate matrices or the measured shell rigidity. Error 0.0003 % against 0.001 % (fraction 1e-5); span refinement and the mesh movement guard pass.
+  - target: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ei_1_0_005
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+      - tests/validation/parity/test_composite_beam_parity.py
+    arbiters:
+      - {kind: analytical, label: "Jones hand CLT A_eff=1/a11 times closed-box wall bending integral w h^2/2+h^3/6"}
+    note: >-
+      Independent hand CLT and wall-strip integration, not the shell's own ABD or a fitted stiffness. EI error 0.3371 % against 0.5 %, with 160/320/640 span refinement and mesh movement below 0.5 % asserted. Local wall D is neglected at t/h=0.01 as stated by the reference helper.
+
+# --- B3-3a (L3), 2026-10-16: V-02 natural frequencies, group 32, official blade, mesh study 0.5 / 0.25 / 0.125 ---
+  - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_fla.single
+    class: physics
+    verdict: trusted
+    audited_rev: 01d8805
+    files:
+      - tools/v02_modal_convergence.py
+    arbiters:
+      - {kind: published_numerical, label: "NREL/TP-5000-75698 Table 5-2 / ElastoDyn blade deck, 0.5585 Hz (WISDEM beam model)"}
+      - {kind: published_numerical, label: "Bernardi et al. 2025 (WES) structural solver, 0.5369 Hz"}
+    note: >-
+      Criterion fixed before the run (odd/tasks/validation-l3-b3-audit.md, B3-3a C1/C2). Official blade, clamped root, es 0.5 / 0.25 / 0.125: 0.535104 / 0.537085 / 0.537561 Hz, monotone, 0.09 % between the two finest. Converged value 0.5376 Hz is -3.75 % from NREL (bound 5 %) and +0.12 % from Bernardi (0.5369); two independent published numerical sources both within the ceiling. The run at 01d8805 (SLURM 11616961/11616972; test run 11616944) reproduces the stored 3.8343 % at es 0.25.
+  - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
+    class: physics
+    verdict: rejected
+    audited_rev: 01d8805
+    files:
+      - tools/v02_modal_convergence.py
+    arbiters:
+      - {kind: published_numerical, label: "NREL/TP-5000-75698 Table 5-2 / ElastoDyn blade deck, 0.6406 Hz (WISDEM beam model)"}
+      - {kind: published_numerical, label: "Bernardi et al. 2025 (WES) structural solver, 0.7267 Hz"}
+    note: >-
+      Official blade, es 0.5 / 0.25 / 0.125: 0.699282 / 0.698595 / 0.698760 Hz, i.e. converged to 0.02 % (non-monotone at the 0.1 % level) at +9.08 % from NREL 0.6406, over the 5 % ceiling. Not a discretisation effect. The 10 % test bound is not an exception: ADJ-1032 was written after the measurement and its source (Zhou 2025 Table 3, six different blade models, 0.547-0.692 Hz) is the spread between models, not an uncertainty on this reference value (criterion C3, fixed before the run). The two published sources disagree with each other by 13 % (0.6406 vs 0.7267), and our 0.6988 sits 3.85 % below Bernardi's; that does not rescue the row (its declared reference is NREL) and does not show the shell is right (Bernardi's blade properties are not verified to be the official layup). Cause open: equivalent edgewise stiffness about 19 % above the NREL deck, same family as S-1 edgewise EI and S-7 GJ (skin OML reference surface, odd/tasks/s7-torsion-ratio.md E8). The earlier 'V-02 1E -1.81 %' in docs/validation_closures.md was measured on the UTD xlsx blade, not the official one.

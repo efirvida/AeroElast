@@ -1,0 +1,162 @@
+"""BeamDyn v5 static S-2 reference, without importing aeroelast.
+
+python tools/bd_static_reference.py build --case LC2 --order 60 --scale .0001
+python tools/bd_static_reference.py run --case LC2 --order 60 --scale .0001
+python tools/bd_static_reference.py post --case LC2 --order 60 --scale .0001
+
+Run `run` on a compute node (sbatch -p sequana_cpu --ntasks=1). Build writes
+inputs only under tests/IEA15MW/bd_static; run/post write logs/check/bd_static.
+Use distinct order/scale combinations to preserve prior evidence. No overwrite.
+
+Frame: BD (x,y,z) -> shell (-y,x,z). The published prebend in BD x maps to
+shell y; positive BD twist rotates chord y toward -x, matching NuMAD's
+negative twist about shell z. Root DCM is identity, root motion fixed, omega=0.
+Thus BD TipTDxr is shell tip uy (m), NOT TipTDyr. Loads are dead/global loads.
+LC1 g=(-9.81,0,0), LC2 tip F=(1e6,0,0), LC4 q=(5e3,0,0), scaled uniformly.
+Small-load displacement / scale estimates the linear response; compare at least
+two scales before using it. Full LC2 is outside the small-deflection regime
+(~82 m linear reference). p40..60 changed normalized tip uy by at most 0.13%
+in the initial campaign; do not infer convergence from p15..20 alone.
+
+Limitations: BD tip is its reference axis, shell tip is the first maximum-z
+node, not the same material point. BD q is per reference arc length whereas
+shell LC4 is per projected z, lumped into 60 bins. EB endpoints are bin centres
+rather than the true root/tip. Keep these differences visible in any verdict.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+sys.dont_write_bytecode = True
+from of_bd_blade_modal import replace  # noqa: E402
+
+ROOT = Path(__file__).resolve().parents[1]
+BASE = Path('/scratch/leahk/eduardo.donestevez')
+GEOMETRY = BASE / 'ofruns/OpenFAST/IEA-15-240-RWT/IEA-15-240-RWT_BeamDyn.dat'
+PROPERTIES = ROOT / 'tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat'
+BINARY = BASE / 'tools/openfast-env/bin/beamdyn_driver'
+INPUTS = ROOT / 'tests/IEA15MW/bd_static'
+LOGS = ROOT / 'logs/check/bd_static'
+CHANNELS = ('TipTDxr', 'TipTDyr', 'TipTDzr')
+
+
+def case_loads(case, scale):
+    """Return gravity, tip force, and distributed force in BD GLOBAL axes."""
+    if not math.isfinite(scale) or scale <= 0:
+        raise ValueError('scale must be positive and finite')
+    index, magnitude = {'LC1': (0, -9.81), 'LC2': (1, 1e6), 'LC4': (2, 5e3)}[case]
+    loads = [(0, 0, 0)] * 3
+    loads[index] = (magnitude * scale, 0, 0)
+    return loads
+
+
+def driver_text(case, scale, beam):
+    gravity, tip, distributed = case_loads(case, scale)
+    lines = ['BeamDyn driver v5', 'S-2 small-load static reference',
+             '--- simulation', 'False DynamicSolve', '0 t_initial', '10 t_final',
+             '1 dt', '--- gravity']
+    lines += [f'{v:.12g} gravity_{axis}' for axis, v in zip('xyz', gravity, strict=True)]
+    lines += ['--- frame', '0 x', '0 y', '0 z', '! DCM rows', '! global to root',
+              '1 0 0', '0 1 0', '0 0 1', 'True GlbRotBladeT0', '--- velocity',
+              '0 omega_x', '0 omega_y', '0 omega_z', '--- loads']
+    for name, vector in [('Distr', distributed), ('Tip', tip)]:
+        lines += [f'{v:.12g} {name}{component}' for component, v in
+                  zip(('Fx', 'Fy', 'Fz', 'Mx', 'My', 'Mz'), (*vector, 0, 0, 0), strict=True)]
+    lines += ['0 NumPointLoads', '! point load table', '! units', '--- beam',
+              f'"{beam}" InputFile', '--- outputs', '0 WrVTK', '1 VTK_fps']
+    return '\n'.join(lines) + '\n'
+
+
+def parse_output(text):
+    """Parse last finite driver row, requiring all tip translation channels."""
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        headers = line.split()
+        if headers and headers[0] == 'Time' and all(c in headers for c in CHANNELS):
+            if i + 1 >= len(lines):
+                break
+            units = lines[i+1].split()
+            if len(units) != len(headers) or any(units[headers.index(c)] != '(m)' for c in CHANNELS):
+                raise ValueError('expected tip translations in metres')
+            rows = [row.split() for row in lines[i+2:] if row.strip()]
+            if not rows or len(rows[-1]) != len(headers):
+                break
+            try:
+                values = [float(v.replace('D', 'E')) for v in rows[-1]]
+            except ValueError as exc:
+                raise ValueError('invalid BeamDyn output row') from exc
+            if not all(math.isfinite(v) for v in values):
+                raise ValueError('nonfinite BeamDyn output')
+            if values[0] <= 0:
+                raise ValueError('no solved static output after initialization')
+            return {c: values[headers.index(c)] for c in CHANNELS}
+    raise ValueError('missing BeamDyn tip channels or data')
+
+
+def build(case, order, scale):
+    name = f'{case}-p{order}-s{scale:g}'
+    target = INPUTS / name
+    target.mkdir(parents=True, exist_ok=False)
+    prop = replace(PROPERTIES.read_text(), 'damp_type', 0)
+    prop = prop.replace(' ---------------------- DISTRIBUTED PROPERTIES',
+                        ' ---------------------- MODAL DAMPING ---------------------\n'
+                        '1 n_modes - unused\n0 zeta - unused\n'
+                        ' ---------------------- DISTRIBUTED PROPERTIES')
+    (target / 'blade.dat').write_text(prop)
+    beam = GEOMETRY.read_text()
+    beam = re.sub(r'---------------------- PITCH ACTUATOR PARAMETERS.*?'
+                  r'(?=---------------------- OUTPUTS)', '', beam, flags=re.S)
+    for key, value in {'order_elem': order, 'quadrature': 1, 'NRMax': 50,
+                       'BldFile': f'"{target / "blade.dat"}"',
+                       'OutFmt': '"ES20.10E3"'}.items():
+        beam = replace(beam, key, value)
+    (target / 'beam.dat').write_text(beam)
+    (target / 'driver.dvr').write_text(driver_text(case, scale, target / 'beam.dat'))
+    return name
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('action', choices=('build', 'run', 'post'))
+    parser.add_argument('--case', choices=('LC1', 'LC2', 'LC4'), required=True)
+    parser.add_argument('--order', type=int, default=60, help='single member polynomial order, >=10 (default: 60)')
+    parser.add_argument('--scale', type=float, default=.0001, help='positive load scale (default: .0001); check linearity across scales')
+    args = parser.parse_args()
+    case_loads(args.case, args.scale)
+    if args.order < 10:
+        parser.error('order must be >=10')
+    name = f'{args.case}-p{args.order}-s{args.scale:g}'
+    if args.action == 'build':
+        print(build(args.case, args.order, args.scale))
+        return
+    output = LOGS / name
+    if args.action == 'run':
+        output.mkdir(parents=True, exist_ok=False)
+        # Driver writes all products beside its .dvr file, not its BeamDyn input.
+        driver = output / 'driver.dvr'
+        driver.write_text((INPUTS / name / 'driver.dvr').read_text())
+        with (output / 'driver.log').open('w') as log:
+            subprocess.run([str(BINARY), str(driver)], cwd=output, stdout=log,
+                           stderr=subprocess.STDOUT, check=True,
+                           env={**os.environ, 'OMP_NUM_THREADS': '1', 'OPENBLAS_NUM_THREADS': '1'})
+    else:
+        log = (output / 'driver.log').read_text()
+        if 'terminated normally' not in log:
+            raise ValueError('driver did not terminate normally')
+        tip = parse_output((output / 'driver.out').read_text())
+        record = {'case': args.case, 'order': args.order, 'scale': args.scale,
+                  'tip_bd_m': tip, 'linear_shell_uy_m': tip['TipTDxr'] / args.scale,
+                  'binary': str(BINARY), 'geometry': str(GEOMETRY), 'properties': str(PROPERTIES)}
+        (output / 'result.json').write_text(json.dumps(record, indent=2) + '\n')
+        print(json.dumps(record))
+
+
+if __name__ == '__main__':
+    main()

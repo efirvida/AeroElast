@@ -62,7 +62,7 @@ _TIP_EDGE_DEFL_MIN = 1.2  # m
 _TIP_EDGE_DEFL_MAX = 4.0  # m
 
 # Root reaction force tolerance.
-# With element_size=0.5 m the numerical error on the body-load integral is
+# With element_size=0.25 m the numerical error on the body-load integral is
 # ~1.5 % due to Gauss-quadrature discretisation of the distributed mass.
 _REACTION_TOL = 0.02
 
@@ -90,7 +90,8 @@ class TestStaticGravityDeflection:
         # see docs/blade_input_divergence_utd_vs_official.md)
         generator = BladeMesh(
             yaml_file=str(iea_blade_yaml),
-            element_size=0.5,
+            element_size=0.25,
+            skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
         )
         mesh = generator.generate(renumber="rcm")
         properties = build_rust_properties(generator.numad_mesh_data)
@@ -177,7 +178,7 @@ class TestStaticGravityDeflection:
         the tabulated mass comparison is done separately in V-03b.
 
         Tolerance of 2 % accounts for Gauss-quadrature discretisation error
-        in the body-load integral at element_size=0.5 m.
+        in the body-load integral at element_size=0.25 m.
         """
         r_y = abs(static_result.root_reaction_y)
         w = static_result.assembled_weight_n
@@ -214,7 +215,8 @@ class TestBladeMassIntegration:
 
         generator = BladeMesh(
             yaml_file=str(iea_blade_yaml),
-            element_size=0.5,
+            element_size=0.25,
+            skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
         )
         mesh = generator.generate(renumber="rcm")
         properties = build_rust_properties(generator.numad_mesh_data)
@@ -246,7 +248,7 @@ class TestBladeMassIntegration:
         against gross mass-integration errors, not the input-model choice.
         """
         rel_err = abs(assembled_mass_kg - _BLADE_MASS_KG) / _BLADE_MASS_KG
-        assert rel_err < 0.10, (
+        assert rel_err < 0.05, (
             f"Assembled mass {assembled_mass_kg:.0f} kg vs ref {_BLADE_MASS_KG:.0f} kg "
             f"(err={rel_err:.1%})"
         )

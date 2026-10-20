@@ -1,7 +1,9 @@
 """Diagnose the S-4 mode-label classifier at fine meshes.
 
-``classify_modes`` labels a mode from the translation of the single
-highest-z tip node with a 2:1 dominance threshold.  At the 0.125 m mesh the
+``classify_modes`` labelled a mode from the translation of the single
+highest-z tip node with a 2:1 dominance threshold (until 2026-10-18; it now projects the
+whole mode on beam kinematics, odd/tasks/s4-mode-classifier.md, so "legacy" below is that
+current label).  At the 0.125 m mesh the
 first-edgewise pick jumps out of the convergence trend of the S-x artifact
 (0.6970 -> 0.7019 Hz), so this dumps, per mesh size and parked mode:
 

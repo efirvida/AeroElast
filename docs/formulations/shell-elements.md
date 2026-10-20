@@ -91,6 +91,35 @@ local frame**:
   the covariant sampling is an intermediate purely for the assumed-field
   construction.
 
+
+### 1.5 Prestress feeding geometric stiffness
+
+For both MITC4+/D and MITC3+, displacement-based `K_G` assembly uses the
+centroid, element-local membrane prestress
+
+```text
+sigma_G = (A eps_m + B kappa) / h     [sigma_xx, sigma_yy, tau_xy], Pa
+```
+
+`compute_prestress_field(u)` exposes this separately from output stress recovery.
+MITC4 uses `eps_m = B_m u_local` and `kappa = (2/h) B_b1 u_local`;
+MITC3 uses its constant membrane operator and the centroid `B_kappa` nodal
+18-column block, as in its existing stress recovery. `K_G` multiplies by `h`
+internally to obtain force resultants. With `B = 0`, this recovers the previous
+membrane-only prestress (isotropic and symmetric laminates).
+
+The rotating-blade diagnostic in `odd/tasks/rotating-local-tip-modes.md`, L27,
+identified the missing coupling: LP_TE_REINF transverse resultant changed from
+-1108 to -68 N/m (CCX -62 N/m, full-resultant diagnostic); the isolated
+`A eps_m + B kappa` swap, holding K fixed, moved the buckling factor from 0.518
+to 3.22. These are diagnostic results, not a revalidation of production anchors.
+
+**Deliberately excluded:** MITC4's `W_02 = cb` contribution `D E2`. L28 traced
+its sensitivity to degenerate TE_FLAT slivers, not demonstrated panel physics;
+including it would also change isotropic/symmetric shells. This change adds only
+`B kappa`. `compute_element_stress`, `compute_stress_field`, and all output /
+postprocessing stress semantics remain unchanged.
+
 ---
 
 ## 2. MITC4+/D (quadrilateral, 24 DOF) — the production shell element

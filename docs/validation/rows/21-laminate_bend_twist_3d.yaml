@@ -10,8 +10,8 @@ rows:
   - label: rtol at line 298
     asserted: true
     reference:
-      kind: self
-      label: the AeroElast shell answer for the same strip
+      kind: code
+      label: CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction
     tolerance:
       kind: rtol
       value: 0.02
@@ -20,11 +20,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c16842d
-      date: '2026-10-04'
+      run: 17ef8ad
+      date: '2026-10-19'
       raw: null
       margin_pct: 0.2143
-      text: 0.2143% bound 2.0000%
+      text: '3D solid twist over the shell twist vs CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction: 0.2143% (bound: 2.0000%)'
       digest: 9ed38752fc5c8dcb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
@@ -38,8 +38,8 @@ rows:
   - label: rtol at line 322
     asserted: true
     reference:
-      kind: self
-      label: the AeroElast shell answer for the same strip
+      kind: code
+      label: CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction
     tolerance:
       kind: rtol
       value: 0.02
@@ -48,11 +48,58 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: c16842d
-      date: '2026-10-04'
+      run: 17ef8ad
+      date: '2026-10-19'
       raw: null
       margin_pct: 0.2143
-      text: 0.2143% bound 2.0000%
+      text: 'refined 3D twist over the shell twist vs CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction: 0.2143% (bound: 2.0000%)'
       digest: 9ed38752fc5c8dcb
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: laminate_bend_twist_3d.test_3d_and_shell_match_the_free_edge_cl.single
+  group: '21'
+  title: test_3d_and_shell_match_the_free_edge_closed_form
+  tests:
+  - tests/validation/blade/test_laminate_bend_twist_3d.py::test_3d_and_shell_match_the_free_edge_closed_form
+  validates: Both solutions of the same strip against the closed form, not only each other.
+  comparisons:
+  - label: rtol at line 349
+    asserted: true
+    reference:
+      kind: analytical
+      label: the free-edge CLT tip-force closed form for the same strip
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_laminate_bend_twist_3d.py:349
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 17ef8ad
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 2.5137
+      text: '3D layer-wise tip twist vs the free-edge CLT tip-force closed form for the same strip: 2.5137% (bound: 5.0000%)'
+      digest: 6e0340232ca7873d
+  - label: rtol at line 356
+    asserted: true
+    reference:
+      kind: analytical
+      label: the free-edge CLT tip-force closed form for the same strip
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/blade/test_laminate_bend_twist_3d.py:356
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: 17ef8ad
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 2.7222
+      text: 'MITC4 shell tip twist (16x96) vs the free-edge CLT tip-force closed form for the same strip: 2.7222% (bound: 5.0000%)'
+      digest: 0b1ca7ee3317345d
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

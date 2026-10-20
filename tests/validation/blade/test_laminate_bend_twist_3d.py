@@ -298,8 +298,8 @@ def test_3d_matches_the_shell_within_2_percent(tmp_path):
     assert_residual_below(
         abs(ratio - 1.0),
         tol=0.02,
-        kind="self",
-        reference_name="the AeroElast shell answer for the same strip",
+        kind="code",
+        reference_name="CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction",
         what="3D solid twist over the shell twist",
     )
 
@@ -322,7 +322,41 @@ def test_3d_mesh_convergence(tmp_path):
     assert_residual_below(
         abs(values[2] / shell - 1.0),
         tol=0.02,
-        kind="self",
-        reference_name="the AeroElast shell answer for the same strip",
+        kind="code",
+        reference_name="CalculiX C3D20R layer-wise 3D solid, one brick per ply, consistent tip traction",
         what="refined 3D twist over the shell twist",
+    )
+
+
+def test_3d_and_shell_match_the_free_edge_closed_form(tmp_path):
+    """Both solutions of the same strip against the closed form, not only each other.
+
+    The free-edge CLT tip-force reference ``theta(L) = (D^-1)[2,0] P L^2 / (4 b)``
+    (``coupon.tip_force_free_edge_reference``) is the analytical arbiter of this coupon:
+    same laminate, load, clamp and ``twist_lsq`` metric. It is exact for a constant moment
+    and first order for a tip force, so the ~2.5 % both codes share is that model residual,
+    not a disagreement between them. The bound is the 5 % physics ceiling, not a fit.
+    """
+    lam = coupon._laminate([45.0, 0.0, 0.0, 45.0])
+    closed_form = coupon.tip_force_free_edge_reference(lam)
+    coords, u, tips = coupon._run_coupon(lam, nx=16, ny=96)
+    shell = coupon.twist_lsq(coords, u, tips)
+    three_d = solid_tip_twist([45.0, 0.0, 0.0, 45.0], nx=16, ny=10,
+                              workdir=tmp_path / "fine")
+    print(f"\nfree-edge closed form = {closed_form:+.6e} rad, 3D = {three_d:+.6e} rad "
+          f"({three_d / closed_form - 1.0:+.4%}), shell = {shell:+.6e} rad "
+          f"({shell / closed_form - 1.0:+.4%})")
+    assert_residual_below(
+        abs(three_d / closed_form - 1.0),
+        tol=0.05,
+        kind="analytical",
+        reference_name="the free-edge CLT tip-force closed form for the same strip",
+        what="3D layer-wise tip twist",
+    )
+    assert_residual_below(
+        abs(shell / closed_form - 1.0),
+        tol=0.05,
+        kind="analytical",
+        reference_name="the free-edge CLT tip-force closed form for the same strip",
+        what="MITC4 shell tip twist (16x96)",
     )

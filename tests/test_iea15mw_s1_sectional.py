@@ -1,14 +1,10 @@
 """S-1 — IEA 15 MW blade: sectional property validation (shell vs beam targets).
 
-Input-chain verification (2026-09-10): the WindIO yaml publishes BOTH
-structural representations side by side — ``elastic_properties_mb.six_x_six``
-(the beam 6x6 matrices, identical to machine precision with the BeamDyn
-blade file) and ``internal_structure_2d_fem`` (the 2D layup the shell is
-built from).  The measured shell-vs-beam bands (GJ ~+17%, EI 10-25%,
-mass +4-8%) are the disagreement between the yaml's own two
-representations, not a shell error — the shell is CLT-consistent with its
-layup.  The tests below are regression guards around those documented
-bands, NOT claims of exact agreement with the beam tables.
+The WindIO yaml publishes BOTH structural representations: ``elastic_properties_mb.six_x_six``
+(the beam 6x6 matrices, identical to the BeamDyn blade file) and ``internal_structure_2d_fem``
+(the 2D layup the shell is built from). The 6x6 is the sectional arbiter (decision (b),
+odd/tasks/validation-l3-b3-audit.md); EI is compared with its elastic-centre principal values
+(Schur complement of K33, eigenvalues of the bending block), not the reference-axis K44/K55.
 
 Two independent extractions from the assembled shell model:
 
@@ -22,11 +18,24 @@ Targets: the official BeamDyn 6x6 section matrices
 (tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat), which are the
 PreComp/VABS/BECAS results published for the IEA 15 MW.
 
-Measured (2026-09-09, element_size 0.5, official WindIO blade):
-  mid-span (0.2-0.85R) mean |rel err| vs BeamDyn:
-    EI_edge ≈ 10%, EI_flap ≈ 20-25% (systematically high — the global load
-    direction mixes flap/edge through the blade twist, contaminating the
-    flap extraction upward), m(r) ≈ 1-10%.
+The anchor builds the skin on the mid-surface (BladeMesh(skin_reference="mid"), 7324508).
+Measured 2026-10-17 after the layup mass-mapping fix (df446c3), element_size 0.25, mid-span
+(0.2-0.85R) mean |rel err| vs BeamDyn, signed in brackets (SLURM 11617746 OML / 11617752 mid):
+
+  EI_flap 21.63 % / 5.18 % (+21.63 / +3.33)   EI_edge 11.96 % / 12.70 % (-11.11 / -12.10)
+  GJ 10.20 % / 6.13 % (+7.37 / -4.30)         EA(CLT) 8.82 % / 7.59 % (+8.82 / +7.57)
+  mass signed +1.79 % / +0.73 %
+
+Anchor move vs 2026-10-16 (SLURM 11617384): the mapping fix removed surplus skin glass, so mass
+went green and EI_edge went red (4.7 % -> 12.7 % mid); EI_edge is the S-1 extraction, not the layup
+(odd/tasks/beamdyn-arbiter-midsurface.md, "T8 result"). Record: docs/validation_closures.md,
+"Superficie media en las anclas de pala".
+
+The flap and GJ excess is the skin sitting on the OML with the laminate stacked outward (E8,
+tools/s1_midsurface_counterfactual.py). EA and mass are layup integrals independent of that: an
+independent integral of the yaml layup is +9.6 % (EA) and +2.8 % (mass) above the 6x6 itself
+(tools/yaml_layup_independent.py), so part of the residual is inside the yaml. Bounds are 5 %
+(maintainer rule); the red ones stay red.
 
 Marks: slow (mesh generation + 2 static solves + extraction).
 """
@@ -64,7 +73,11 @@ class TestS1SectionalProperties:
         ref_dir = Path(__file__).resolve().parents[1] / "tests" / "IEA15MW" / "reference"
         bd = load_beamdyn_blade(ref_dir / "IEA-15-240-RWT_BeamDyn_blade.dat")
 
-        generator = BladeMesh(yaml_file=str(iea_blade_yaml), element_size=0.5)
+        generator = BladeMesh(
+            yaml_file=str(iea_blade_yaml),
+            element_size=0.25,
+            skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
+        )
         mesh = generator.generate(renumber="rcm")
         props = build_rust_properties(generator.numad_mesh_data)
         ext = SectionalExtractor(mesh, props)
@@ -78,8 +91,8 @@ class TestS1SectionalProperties:
         return {
             "z": z_static, "mid": mid,
             "ei_flap": ei_flap, "ei_edge": ei_edge,
-            "ei_flap_bd": _interp(bd.z, bd.ei_flap, z_static),
-            "ei_edge_bd": _interp(bd.z, bd.ei_edge, z_static),
+            "ei_flap_bd": _interp(bd.z, bd.ei_flap_ec, z_static),
+            "ei_edge_bd": _interp(bd.z, bd.ei_edge_ec, z_static),
             "z_mass": sec.z, "mass": sec.mass_dens,
             "mass_bd": _interp(bd.z, bd.mass_dens, sec.z),
             "gj": gj_static, "gj_bd": _interp(bd.z, bd.gj, z_eg),
@@ -87,66 +100,56 @@ class TestS1SectionalProperties:
         }
 
     def test_edgewise_ei_matches_beamdyn(self, s1_results):
-        """EI_edge mid-span within 25% of the BeamDyn targets."""
+        """EI_edge mid-span mean |rel err| vs the BeamDyn elastic-centre EI below 5 %."""
         m = s1_results["mid"]
         rel = np.abs(s1_results["ei_edge"][m] / s1_results["ei_edge_bd"][m] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.25, (
-            f"EI_edge mid-span mean |rel err| = {err:.2%} (tol 25%)"
+        assert err < 0.05, (
+            f"EI_edge mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )
 
     def test_flapwise_ei_within_band(self, s1_results):
-        """EI_flap mid-span within 40% (global-load direction mixing biases
-        the flap extraction upward; see module docstring)."""
+        """EI_flap mid-span mean |rel err| vs the BeamDyn elastic-centre EI below 5 %."""
         m = s1_results["mid"]
         rel = np.abs(s1_results["ei_flap"][m] / s1_results["ei_flap_bd"][m] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.40, (
-            f"EI_flap mid-span mean |rel err| = {err:.2%} (tol 40%)"
+        assert err < 0.05, (
+            f"EI_flap mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )
 
     def test_mass_distribution_matches_beamdyn(self, s1_results):
-        """Mass per unit length mid-span within 15% of the BeamDyn targets."""
+        """Mass per unit length mid-span mean |rel err| vs BeamDyn below 5 %."""
         z, m, mb = s1_results["z_mass"], s1_results["mass"], s1_results["mass_bd"]
         mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())
         rel = np.abs(m[mid] / mb[mid] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.15, (
-            f"m(r) mid-span mean |rel err| = {err:.2%} (tol 15%)"
+        assert err < 0.05, (
+            f"m(r) mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )
 
     def test_gj_distribution_matches_beamdyn(self, s1_results):
-        """GJ(r) mid-span within 30% of the BeamDyn targets.
+        """GJ(r) mid-span mean |rel err| vs BeamDyn below 5 %.
 
-        Static-response torsion test (tip torque couple -> section twist
-        rate).  Post twist-sign fix (2026-09-15), the couple is applied
-        about the LOCAL pre-bent span tangent and theta is projected on it:
-        a global-z couple on the swept blade mixes bending into the twist
-        (same artefact as EI_flap/EA).  Measured 23.9% mean |rel| — the
-        yaml's two structural representations (2D layup vs the 6x6),
-        consistent with the CLT/Bredt layup judge (~20%); see
-        docs/shell_vs_beam_sectional_validation.md section 6.
+        Static-response torsion test: tip torque couple about the local pre-bent span tangent.
         """
         z, gj, gjb = s1_results["z"], s1_results["gj"], s1_results["gj_bd"]
         mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())
         rel = np.abs(gj[mid] / gjb[mid] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.30, (
-            f"GJ(r) mid-span mean |rel err| = {err:.2%} (tol 30%)"
+        assert err < 0.05, (
+            f"GJ(r) mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )
 
     def test_ea_clt_distribution_matches_beamdyn(self, s1_results):
-        """EA(r) from the direct CLT section integral within 30% of BeamDyn.
+        """EA(r) from the direct CLT section integral, mid-span mean |rel err| vs BeamDyn below 5 %.
 
-        The CLT path (sum of A11(layup) per element) is immune to the
-        pre-bend bending contamination that biased the global-response
-        extraction.  Measured ~20% (2026-09-10) — same representation band
-        as the GJ.
+        The CLT path (sum of A11(layup) per element, reciprocal-Poisson reduced stiffness) is
+        immune to the pre-bend bending contamination of the global-response extraction.
         """
         z, ea, eab = s1_results["z"], s1_results["ea"], s1_results["ea_bd"]
         mid = (z > 0.2 * z.max()) & (z < 0.85 * z.max())
         rel = np.abs(ea[mid] / eab[mid] - 1)
         err = float(np.nanmean(rel))
-        assert err < 0.30, (
-            f"EA(r) mid-span mean |rel err| = {err:.2%} (tol 30%)"
+        assert err < 0.05, (
+            f"EA(r) mid-span mean |rel err| = {err:.2%} (tol 5%)"
         )

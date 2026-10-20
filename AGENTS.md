@@ -143,7 +143,7 @@ deltas live in the documents listed here — do not duplicate numbers into this 
 |---|---|---|
 | S-0, S-1, S-3 | omega-zero consistency, sectional, Newmark transient | the `tests/test_iea15mw_s*.py` docstrings |
 | S-2 | static prescribed (gravity and LC sets) vs beam references | `docs/origin_main_integration_2026-09-30.md`; official blade closes at +8.1 % |
-| S-4 | rotating modal vs OpenFAST v5 MBC3 at 7.56 rpm | inline: 1st flap +0.6 %, 1st edge −4.5 %, 2nd flap −1.5 % |
+| S-4 | rotating modal vs OpenFAST v5 MBC3 at 7.56 rpm | converged es 0.25 (0.125 within 0.35 %): 1st flap −1.4 %, 1st edge −5.6 % (rejected at 5 %), 2nd flap −1.7 %; one ElastoDyn arbiter, see `odd/tasks/validation-l3-b3-audit.md` "B3-2 RESULT" |
 | S-5, S-6 | one-way 100 s rated run; one-way dynamic (S-6 NaN open) | `docs/validation_closures.md` |
 | S-7 | torsion ratio | `docs/validation_closures.md` (superseded 2026-10-07: 0.9396 → 0.9336) |
 | V-01/V-02/V-03/V-05 | rotor performance, natural frequencies (2F open), gravity, structural properties | `docs/validation_results_v01_v02_v04.md` |
@@ -166,6 +166,18 @@ full-suite measurement before a merge.
   `make all` casually, they compile PETSc/preCICE/OpenFOAM from source for hours.
 - Cluster build details (module load, `maturin` flags, stale flat `_aeroelast.so`) are in
   `.github/skills/build-aeroelast/SKILL.md`.
+- **Temporary directory**: `$SCRATCH/tmp` is the only TMPDIR. The one inherited from a login shell is
+  per-session and disappears mid-job (SLURM 11619021: 152 pytest setup errors). `scripts/check.sh` sets
+  `TMPDIR=$SCRATCH/tmp/check-<mode>-<jobid>` and `--basetemp`; do the same in any sbatch you write.
+- **SLURM requests**: ask for `--ntasks=N` and nothing else (no `--nodes`, `--ntasks-per-node`,
+  `--cpus-per-task` or `--mem`); the scheduler finds the resources and the job starts sooner. A
+  whole node (cpu=48, mem=750G) rarely starts. Under 20 min go to `sequana_cpu_dev`. Longer jobs go
+  to `sequana_cpu` or `sequana_cpu_bigmem`, whichever has fewer of the user's running jobs
+  (`squeue -u $USER -h -p <part> -t R | wc -l`): the cap is about 4 running jobs per partition
+  (`AssocMaxJobsLimit`), so free nodes do not help. Prefer several small jobs; chain submissions
+  when `AssocMaxSubmitJobLimit` blocks. Measured: prestress/buckle diagnostics 2-4 min, blade
+  modes es 0.25 about 15-18 min, the S-4 test 24-32 min. Move a pending job with
+  `scontrol update JobId=<id> Partition=<p>` (not into dev if `--time` exceeds 20).
 - OpenFAST S-4/S-5 reference decks, the v4.2→v5 conversions and the ROSCO build are recorded in
   Engram (`config/openfast-5-0-0-corriendo-iea-15-mw-deck-v4-2-v5-0-convertido`); the `/tmp`
   paths in older notes do not survive a reboot, so rebuild rather than reuse them.

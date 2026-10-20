@@ -21,11 +21,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b1d6935
-      date: '2026-10-06'
-      raw: null
-      margin_pct: 3.8343
-      text: '1st flapwise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st flapwise [R1]: 0.537085 vs 0.5585 (error: 3.8343%, bound: 5.0000%)'
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0606
+      margin_pct: 6.06
+      text: '1st flapwise es 0.25, skin on mid-surface: -6.06 % vs NREL/TP-5000-75698 Table 5-2 0.5585 Hz, bound 5 % FAIL. OML contrast: -0.92 % PASS. Kept red as a finding (paper value comes from beam models). SLURM mid 11617756 / oml 11617750; full suite 11617933 confirms.'
+      digest: b4c173a2430caecf
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
@@ -49,10 +50,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: b1d6935
-      date: '2026-10-06'
-      raw: null
+      run: 01d8805
+      date: '2026-10-16'
+      raw: 0.698595
       margin_pct: 9.0532
       text: '1st edgewise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1]: 0.698595 vs 0.6406 (error: 9.0532%, bound: 10.0000%)'
+      digest: 781ca936acf53376
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

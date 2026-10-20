@@ -694,6 +694,21 @@ impl PyMeshAssembler {
         ))
     }
 
+    /// K_G centroid prestress (A eps_m + B kappa)/h, element-local [sxx, syy, sxy]
+    /// in Pa. Returns an (n_elems, 3) array; output stress recovery is unchanged.
+    pub fn compute_prestress_field<'py>(
+        &self,
+        py: Python<'py>,
+        u: PyReadonlyArray1<f64>,
+    ) -> PyResult<pyo3::Bound<'py, PyArray2<f64>>> {
+        let sigma = self.inner.compute_prestress_field(u.as_slice()?);
+        let n = sigma.len();
+        let flat: Vec<f64> = sigma.into_iter().flatten().collect();
+        Ok(Array2::from_shape_vec((n, 3), flat)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?
+            .into_pyarray(py))
+    }
+
     /// Compute element-centroid stress and strain for every element.
     ///
     /// Parameters

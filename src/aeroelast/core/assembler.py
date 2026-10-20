@@ -459,6 +459,16 @@ class MeshAssembler:
             self._rust = PyMeshAssembler.from_model(rust_mesh, rust_properties, span_dir_list, None)
             self._row_nnz = np.asarray(self._rust.nnz_per_row(), dtype=PETSc.IntType)
             self._rho_per_elem = np.asarray(self._rust.rho_per_elem(), dtype=np.float64)
+            # Rust exposes volumetric rho for isotropic specs, but the
+            # centrifugal-load kernel integrates over area, not volume.
+            # Laminate values are already kg/m² and must not be rescaled.
+            thickness_by_element = {}
+            for set_name, prop in rust_properties.items():
+                if isinstance(prop, dict) and prop.get("type") == "isotropic":
+                    for element_id in rust_esets.get(set_name, []):
+                        thickness_by_element[element_id] = float(prop["thickness"])
+            for i, element_id in enumerate(element_ids_arr):
+                self._rho_per_elem[i] *= thickness_by_element.get(element_id, 1.0)
             logger.info("[assembler] from_model() done in %.2fs", time.perf_counter() - _t)
             return
 
@@ -520,7 +530,8 @@ class MeshAssembler:
             materials_list.append(mat_dict)
 
         self._rho_per_elem = np.array(
-            [m.get("rho", m.get("mass_per_area", 0.0)) for m in materials_list], dtype=np.float64
+            [m["rho"] * m["thickness"] if m["type"] == "isotropic"
+             else m["mass_per_area"] for m in materials_list], dtype=np.float64
         )
 
         try:
@@ -679,6 +690,24 @@ class MeshAssembler:
             "The Python per-element fallback has been removed."
         )
 
+    def assemble_centrifugal_load(
+        self, omega: float, rotation_axis: np.ndarray, rotation_center: np.ndarray
+    ) -> np.ndarray:
+        """Return centrifugal nodal loads in global DOF order (N, N m).
+
+        ``omega`` is in rad/s, ``rotation_center`` in m, and
+        ``rotation_axis`` is a unit vector. Shell densities passed to Rust
+        are mass per area (kg/m²), for both isotropic and composite shells.
+        """
+        if self._rust is None or self._rho_per_elem is None:
+            raise RuntimeError("Rust assembler not available — cannot assemble centrifugal load")
+        return np.asarray(self._rust.centrifugal_load(
+            float(omega),
+            list(map(float, rotation_axis)),
+            list(map(float, rotation_center)),
+            self._rho_per_elem,
+        ))
+
     def assemble_geometric_stiffness(
         self,
         stress_field: Optional[Dict[int, np.ndarray]] = None,
@@ -803,12 +832,9 @@ class MeshAssembler:
                 free_dofs = np.asarray(free_dofs, dtype=np.int64)
 
                 # 1. Centrifugal nodal load (Rust, lumped per element)
-                f_full = np.asarray(self._rust.centrifugal_load(
-                    float(omega),
-                    list(map(float, rotation_axis)),
-                    list(map(float, rotation_center)),
-                    self._rho_per_elem,
-                ))
+                f_full = self.assemble_centrifugal_load(
+                    omega, rotation_axis, rotation_center
+                )
 
                 # 2. Static solve K u = f on the free DOFs
                 k_rows, k_cols, k_vals = self._rust.assemble_k()

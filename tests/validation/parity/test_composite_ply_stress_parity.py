@@ -45,7 +45,6 @@ refinement, so the comparison reads the **centre element** (nearest centroid to
 
 from __future__ import annotations
 
-import logging
 
 import numpy as np
 import pytest
@@ -635,13 +634,14 @@ def _raw_abd_property(angles: list[float]) -> dict:
     }
 
 
-def test_raw_abd_section_is_smeared_and_warns(caplog) -> None:
-    """Raw ABD dicts carry no ply stack: the smeared thickness mean is pinned, not silent.
+def test_raw_abd_section_refuses_ply_stress() -> None:
+    """Raw ABD dicts carry no ply stack: asking for a stress on them is an error.
 
-    Characterization of the documented limitation: for a raw composite ABD dict the
-    recovery cannot resolve plies, keeps the homogenised value (``N_x / h`` at every
-    through-thickness location) and emits a one-time warning naming the element set —
-    the caller is never left to mistake the thickness mean for a ply stress.
+    The homogenised ABD does not determine the ply stress (the stack is not in it), so
+    the recovery refuses instead of returning the thickness mean ``N_x / h`` labelled as
+    TOP/MIDDLE/BOTTOM.  The error names the element set and the way out (a ply stack).
+    Stiffness, assembly and the displacement solve on the same section are untouched:
+    only the stress request raises.
     """
     mesh = _build_mesh()
     model_cfg = _model_cfg_from_property(_raw_abd_property(LAYUPS["sym_0_90s"]))
@@ -649,29 +649,10 @@ def test_raw_abd_section_is_smeared_and_warns(caplog) -> None:
     domain = MeshAssembler(mesh=mesh, model=model_cfg)
     recovery = StressRecovery(domain, u)
 
-    with caplog.at_level(logging.WARNING, logger="aeroelast.postprocess.stress_recovery"):
-        res = recovery.compute_element_stresses(
+    with pytest.raises(ValueError, match=r"plate.*no ply stack"):
+        recovery.compute_element_stresses(
             location=StressLocation.TOP, stress_type=StressType.TOTAL
         )
-
-    idx = _centre_element_index(domain)
-    top = float(res.sigma_xx[idx])
-    mean = N_X / H
-    print(f"raw ABD [0/90]s: TOP sigma_xx = {top:.6e} Pa, thickness mean = {mean:.6e} Pa")
-    # The smeared value IS the thickness mean (the pre-T2 behaviour for every form).
-    assert_relative_error(
-        top,
-        mean,
-        tol=0.01,
-        kind="analytical",
-        reference_name="N_x / h thickness-mean equivalent (raw ABD dict, no ply stack)",
-        what="[0/90]s TOP sigma_xx (raw composite ABD dict)",
-    )
-    # And the warning names the element set and the limitation.
-    messages = [r.getMessage() for r in caplog.records]
-    assert any("plate" in m and "thickness-mean" in m and "no ply stack" in m for m in messages), (
-        f"expected a one-time raw-ABD warning naming 'plate'; got {messages}"
-    )
 
 
 # ============================================================================

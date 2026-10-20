@@ -1,149 +1,142 @@
 group: '38'
 rows:
-  - id: blade_sectional_distribution.s1_sectional_edgewise_ei
-    group: '38'
-    title: S-1 edgewise sectional EI vs BeamDyn
-    tests:
-      - >-
-        tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_edgewise_ei_matches_beamdyn
-    validates: >-
-      Mid-span mean absolute relative error of the edgewise EI distribution
-      against BeamDyn.
-    comparisons:
-      - label: Mid-span mean relative error
-        asserted: true
-        reference:
-          kind: code
-          label: >-
-            BeamDyn sectional distribution in the official IEA 15 MW deck
-        tolerance:
-          kind: rel_err
-          value: 0.25
-          source: tests/test_iea15mw_s1_sectional.py:94
-          justified: true
-          justification: >-
-            Source-stated bound only; its basis is not independently adjudicated
-            and it exceeds the L3 ceiling.
-        measured:
-          status: not_measured
-        expected: null
-    flags: []
-    notes: Source assertion only; no result or verdict recorded.
-  - id: blade_sectional_distribution.s1_sectional_flapwise_ei
-    group: '38'
-    title: S-1 flapwise sectional EI vs BeamDyn
-    tests:
-      - >-
-        tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_flapwise_ei_within_band
-    validates: >-
-      Mid-span mean absolute relative error of the flapwise EI distribution
-      against BeamDyn.
-    comparisons:
-      - label: Mid-span mean relative error
-        asserted: true
-        reference:
-          kind: code
-          label: >-
-            BeamDyn sectional distribution in the official IEA 15 MW deck
-        tolerance:
-          kind: rel_err
-          value: 0.40
-          source: tests/test_iea15mw_s1_sectional.py:104
-          justified: true
-          justification: >-
-            Source-stated bound only; its basis is not independently adjudicated
-            and it exceeds the L3 ceiling.
-        measured:
-          status: not_measured
-        expected: null
-    flags: []
-    notes: Source assertion only; no result or verdict recorded.
-  - id: blade_sectional_distribution.s1_sectional_mass
-    group: '38'
-    title: S-1 sectional mass distribution vs BeamDyn
-    tests:
-      - >-
-        tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_mass_distribution_matches_beamdyn
-    validates: >-
-      Mid-span mean absolute relative error of the mass distribution against
-      BeamDyn.
-    comparisons:
-      - label: Mid-span mean relative error
-        asserted: true
-        reference:
-          kind: code
-          label: >-
-            BeamDyn sectional distribution in the official IEA 15 MW deck
-        tolerance:
-          kind: rel_err
-          value: 0.15
-          source: tests/test_iea15mw_s1_sectional.py:114
-          justified: true
-          justification: >-
-            Source-stated bound only; its basis is not independently adjudicated
-            and it exceeds the L3 ceiling.
-        measured:
-          status: not_measured
-        expected: null
-    flags: []
-    notes: Source assertion only; no result or verdict recorded.
-  - id: blade_sectional_distribution.s1_sectional_gj
-    group: '38'
-    title: S-1 torsional GJ distribution vs BeamDyn
-    tests:
-      - >-
-        tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_gj_distribution_matches_beamdyn
-    validates: >-
-      Mid-span mean absolute relative error of the GJ distribution against
-      BeamDyn.
-    comparisons:
-      - label: Mid-span mean relative error
-        asserted: true
-        reference:
-          kind: code
-          label: >-
-            BeamDyn sectional distribution in the official IEA 15 MW deck
-        tolerance:
-          kind: rel_err
-          value: 0.30
-          source: tests/test_iea15mw_s1_sectional.py:134
-          justified: true
-          justification: >-
-            Source-stated bound only; its basis is not independently adjudicated
-            and it exceeds the L3 ceiling.
-        measured:
-          status: not_measured
-        expected: null
-    flags: []
-    notes: >-
-      Source assertion only. The level inventory records a GJ discrepancy;
-      no result or verdict recorded here.
-  - id: blade_sectional_distribution.s1_sectional_ea
-    group: '38'
-    title: S-1 axial EA distribution vs BeamDyn
-    tests:
-      - >-
-        tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_ea_clt_distribution_matches_beamdyn
-    validates: >-
-      Mid-span mean absolute relative error of the axial EA distribution
-      against BeamDyn.
-    comparisons:
-      - label: Mid-span mean relative error
-        asserted: true
-        reference:
-          kind: code
-          label: >-
-            BeamDyn sectional distribution in the official IEA 15 MW deck
-        tolerance:
-          kind: rel_err
-          value: 0.30
-          source: tests/test_iea15mw_s1_sectional.py:150
-          justified: true
-          justification: >-
-            Source-stated bound only; its basis is not independently adjudicated
-            and it exceeds the L3 ceiling.
-        measured:
-          status: not_measured
-        expected: null
-    flags: []
-    notes: Source assertion only; no result or verdict recorded.
+- id: blade_sectional_distribution.s1_sectional_edgewise_ei
+  group: '38'
+  title: S-1 edgewise sectional EI vs BeamDyn
+  tests:
+  - tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_edgewise_ei_matches_beamdyn
+  validates: Mid-span mean absolute relative error of the edgewise EI distribution against BeamDyn.
+  comparisons:
+  - label: Mid-span mean relative error
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn sectional distribution in the official IEA 15 MW deck
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s1_sectional.py:96
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
+    measured:
+      status: measured
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.127
+      margin_pct: 12.7
+      text: 'S-1 EI_edge es 0.25, skin on mid-surface: mean |rel err| 12.70 % (signed -12.10 %) vs BeamDyn, bound 5 % FAIL. OML contrast: 12.0 % (signed -11.11 %); mid worsens edge by 0.7 pt (extraction defect T8). SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
+    expected: null
+  flags: []
+  notes: Source assertion only; no result or verdict recorded.
+- id: blade_sectional_distribution.s1_sectional_flapwise_ei
+  group: '38'
+  title: S-1 flapwise sectional EI vs BeamDyn
+  tests:
+  - tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_flapwise_ei_within_band
+  validates: Mid-span mean absolute relative error of the flapwise EI distribution against BeamDyn.
+  comparisons:
+  - label: Mid-span mean relative error
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn sectional distribution in the official IEA 15 MW deck
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s1_sectional.py:105
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
+    measured:
+      status: measured
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0518
+      margin_pct: 5.18
+      text: 'S-1 EI_flap es 0.25, skin on mid-surface: mean |rel err| 5.18 % (signed +3.33 %) vs BeamDyn elastic-centre principal EI, bound 5 % FAIL. OML contrast: 21.6 % (signed +21.63 %). SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
+    expected: null
+  flags: []
+  notes: Source assertion only; no result or verdict recorded.
+- id: blade_sectional_distribution.s1_sectional_mass
+  group: '38'
+  title: S-1 sectional mass distribution vs BeamDyn
+  tests:
+  - tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_mass_distribution_matches_beamdyn
+  validates: Mid-span mean absolute relative error of the mass distribution against BeamDyn.
+  comparisons:
+  - label: Mid-span mean relative error
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn sectional distribution in the official IEA 15 MW deck
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s1_sectional.py:115
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
+    measured:
+      status: measured
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0073
+      margin_pct: 0.73
+      text: 'S-1 mass per length es 0.25, skin on mid-surface: signed mid-span error +0.73 % vs BeamDyn (mean |rel err| not recorded; raw/margin carry the signed value), bound 5 %: PASS per T2/T4 (mass red to green after df446c3). OML contrast: signed +1.79 %. SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
+    expected: null
+  flags: []
+  notes: Source assertion only; no result or verdict recorded.
+- id: blade_sectional_distribution.s1_sectional_gj
+  group: '38'
+  title: S-1 torsional GJ distribution vs BeamDyn
+  tests:
+  - tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_gj_distribution_matches_beamdyn
+  validates: Mid-span mean absolute relative error of the GJ distribution against BeamDyn.
+  comparisons:
+  - label: Mid-span mean relative error
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn sectional distribution in the official IEA 15 MW deck
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s1_sectional.py:128
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
+    measured:
+      status: measured
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0613
+      margin_pct: 6.13
+      text: 'S-1 GJ es 0.25, skin on mid-surface: mean |rel err| 6.13 % (signed -4.30 %) vs BeamDyn, bound 5 % FAIL. OML contrast: 10.2 % (signed +7.37 %). SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
+    expected: null
+  flags: []
+  notes: Source assertion only. The level inventory records a GJ discrepancy; no result or verdict recorded here.
+- id: blade_sectional_distribution.s1_sectional_ea
+  group: '38'
+  title: S-1 axial EA distribution vs BeamDyn
+  tests:
+  - tests/test_iea15mw_s1_sectional.py::TestS1SectionalProperties::test_ea_clt_distribution_matches_beamdyn
+  validates: Mid-span mean absolute relative error of the axial EA distribution against BeamDyn.
+  comparisons:
+  - label: Mid-span mean relative error
+    asserted: true
+    reference:
+      kind: code
+      label: BeamDyn sectional distribution in the official IEA 15 MW deck
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s1_sectional.py:142
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
+    measured:
+      status: measured
+      run: 7324508
+      date: '2026-10-17'
+      raw: 0.0759
+      margin_pct: 7.59
+      text: 'S-1 EA es 0.25, skin on mid-surface: mean |rel err| 7.59 % (signed +7.57 %) vs BeamDyn, bound 5 % FAIL. OML contrast: 8.8 % (signed +8.82 %). SLURM mid 11617752 / oml 11617746; full suite 11617933 confirms.'
+    expected: null
+  flags: []
+  notes: Source assertion only; no result or verdict recorded.

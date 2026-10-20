@@ -60,8 +60,6 @@ import logging
 
 import numpy as np
 
-from aeroelast.postprocess.stress_recovery import StressLocation, StressRecovery, StressType
-
 from .linear_dynamic import LinearDynamicFSISolver
 
 _logger = logging.getLogger(__name__)
@@ -385,22 +383,11 @@ class StressStiffenedFSISolver(LinearDynamicFSISolver):
         if np.max(np.abs(u_full)) < 1e-20:
             return None
 
-        # Recover membrane stresses per element
-        sr = StressRecovery(self.domain, u_full)
-        elem_result = sr.compute_element_stresses(
-            location=StressLocation.MIDDLE,
-            stress_type=StressType.MEMBRANE,
-        )
-
+        # K_G consumes the section resultant (A eps_m + B kappa)/h, not
+        # postprocessing's membrane-only A eps_m/h. The assembler requires Rust.
+        prestress = self.domain._rust.compute_prestress_field(u_full)
         stress_field: dict = {}
-        for i, elem in enumerate(self.domain.elements):
-            sigma = np.array(
-                [
-                    elem_result.sigma_xx[i],
-                    elem_result.sigma_yy[i],
-                    elem_result.sigma_xy[i],
-                ]
-            )
+        for elem, sigma in zip(self.domain.elements, prestress, strict=True):
             if np.max(np.abs(sigma)) > 1e-20:
                 stress_field[elem.id] = sigma
 

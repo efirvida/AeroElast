@@ -1135,7 +1135,7 @@ groups:
           Policy rule 6 leaves it no row; it is the guard that the ply
           resolution is not a second implementation.
       - tests:
-          - test_raw_abd_section_is_smeared_and_warns
+          - test_raw_abd_section_refuses_ply_stress
         reason: >-
           A characterisation of a known limitation, not a validation: it pins
           that a raw homogenised ABD dict (no ply stack) keeps returning the
@@ -1343,10 +1343,17 @@ groups:
         reason: >-
           Matrix existence and DOF-size assertions are implementation checks,
           not physical-reference comparisons.
+      - tests:
+          - test_k55_consistent_with_ei_flap
+        reason: >-
+          Deck-vs-deck comparison (BeamDyn K55 vs ElastoDyn FlpStff): no
+          aeroelast code runs, so it validates nothing here. The two official
+          decks of the same blade differ by up to 24 % (flap) and 39 % (edge)
+          at equal eta (tools/v05_deck_consistency.py); kept in the suite as
+          a non-strict xfail record of that reference spread.
     provenance_note: >-
-      Stores the source K55-to-ElastoDyn EI and shell mass-to-BeamDyn table
-      comparisons. Their broad source bounds remain open against the L3
-      ceiling; no quantitative exception is asserted here.
+      Stores the shell mass-to-BeamDyn table comparison. The K55-to-ElastoDyn
+      rows were removed 2026-10-16: they compare two reference decks, not code.
 
   - id: '43'
     title: S-3 undamped thin-walled section frequency against closed form
@@ -1515,6 +1522,74 @@ groups:
       second shell code on the same strip: CalculiX 2.20 S8R with NLGEOM and a dead CLOAD, at 32 and
       64 span elements. Both codes still drift 0.1-0.3 % per mesh doubling, so the pair is held to
       1 % on the tip deflection and 2 % on the shortening.
+
+  - id: '56'
+    title: Simply supported plate buckling against Kirchhoff, CLT and FSDT closed forms
+    slug: plate_buckling_analytic
+    source_files:
+      - tests/validation/element/test_plate_buckling_analytic.py
+    non_validation_tests:
+      - tests:
+          - test_reference_check_a_timoshenko_gere_table
+        reason: Reference-formula qualification against rounded tabulated coefficients, before any FE comparison.
+      - tests:
+          - test_reference_check_b_finite_difference_pde
+          - test_ortho_reference_check_b_finite_difference_pde
+        reason: Independent reference-solver convergence controls, not assembled shell results.
+      - tests:
+          - test_mitc4_square_plate_dense_eigensolve_agrees_with_arnoldi
+        reason: Dense and Arnoldi eigensolvers solve the same assembled matrices.
+      - tests:
+          - test_mitc4_square_plate_load_direction_is_frame_independent
+          - test_mitc4_cross_ply_ply_angle_follows_the_element_frame
+        reason: Rotated load and ply conventions must reproduce the same model eigenvalue.
+      - tests:
+          - test_sandwich_reference_check_a_navier_fsdt
+          - test_sandwich_reference_check_b_limits_and_shear_stiffness
+          - test_ortho_reference_check_a_limits_and_mode_switch
+        reason: Reference-formula identities and limiting-case controls qualify the analytical judge.
+      - tests:
+          - test_sandwich_laminate_section_matches_reference
+          - test_cross_ply_laminate_section_matches_reference_and_shear_is_negligible
+        reason: Section-input qualification and shear-negligibility controls precede the plate buckling comparison.
+      - tests:
+          - test_mitc4_sandwich_equals_fsdt_with_the_shear_it_consumes
+        reason: Pins the documented wrong-shear-input model using its own consumed A55, not the physical sandwich shear.
+    provenance_note: >-
+      K_G anchors of 41e9a16. Independent references and predeclared bounds are
+      stated beside the assertions; sandwich shear-input defects remain explicit
+      xfails, not trusted physics. Consistency checks are not independent arbiters.
+
+  - id: '57'
+    title: Centrifugal strip prestress against equilibrium and CLT resultants
+    slug: prestress_centrifugal_analytic
+    source_files:
+      - tests/validation/element/test_prestress_centrifugal_analytic.py
+    non_validation_tests:
+      - tests:
+          - test_prestress_patch_uniform_strain_and_curvature_matches_clt
+        reason: Recovery patch consistency against the same Laminate A and B consumed by the assembler.
+    provenance_note: >-
+      K_G recovery anchors of 41e9a16. The rotating nu=0 strip has the exact
+      equilibrium resultant m omega^2 (R^2-x^2)/2; discrete-load identities and
+      same-Laminate patch checks must be distinguished from independent physics.
+
+  - id: '58'
+    title: Thin-walled closed-section beam against independent closed forms
+    slug: analytic_beam_closed_section
+    source_files:
+      - tests/validation/benchmarks/test_analytic_beam_closed_section.py
+    non_validation_tests:
+      - tests:
+          - test_modal_ordering_option_is_restored
+        reason: PETSc option restoration is a software-state guard with no physical comparison.
+      - tests:
+          - test_independent_beam_references_converge
+        reason: Qualifies reference-solver convergence and its rounded low-speed literature limit before shell comparisons.
+    provenance_note: >-
+      Thin-walled box anchors of 43dce4d: exact mass, section rigidities,
+      Timoshenko bending, Bredt torsion and rotating-beam Southwell coefficients.
+      Source bounds remain authoritative, including any failing comparison.
 
   - id: '54'
     title: Pre-twisted beam under a large tip load against CalculiX S8R NLGEOM (production solver)

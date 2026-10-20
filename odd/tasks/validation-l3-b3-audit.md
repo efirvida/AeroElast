@@ -19,8 +19,9 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
 - [x] **PRE-1a — Implement narrow A6 row eligibility (authorized design: explicitly allow root-level physical tests).** Add a per-group explicit allowlist for non-`tests/validation/` node paths, and extend schema/validator only for those declared physical validation sources; continue rejecting unlisted root-level/software tests. Add test-first regressions for allowed-listed root test, unlisted root test rejection, normal validation-tree test, and preservation of all existing group rows. Document migration and extraction's whole-file replacement hazard. Do not loosen all `tests/` paths. Focused RED/GREEN, traversal/symlink regressions, quick smoke, full matrix module (170 passed), and store checks all pass.
 - [x] **PRE-1b — Reconcile pre-existing ungrouped software/guard tests.** Declare `tests/validation/bem/test_bem_participant_rotor_frame.py` and `test_force_projection_tangential_sense.py` out of scope with evidence-based rationale: their assertions are frame/round-trip/configuration or sign guards without independent physical reference values. They are not group-26 or A6 physical comparison rows. Check: `validation_matrix.py status` reports no undeclared validation files and the existing status regression passes; preserve the tests and all store rows.
 - [x] **PRE-1c — Import A6 anchors with manual, exact rows.** Taxonomy chosen: add narrow groups 38 (S-1 sectional, L3), 39 (S-2 official LC1/LC2/LC4, L3), 40 (S-4 parked/rated OpenFAST MBC3, L3), 41 (V-03 declared blade mass, L3), 42 (V-05 K55 and total-mass references, L3), and 43 (S-3 undamped analytic frequency, L2). Exclude identity/software checks; keep S-2 asymmetric LC3 ratio and stale Sx mesh/Campbell artifacts as exact absent blockers. Import only source-backed assertions with source tolerances; no exceptions or verdicts. Extraction is not suitable for S-1 root file (dry run: five tests, zero rows) and `--write` replaces the whole group row file; avoid it unless complete replacement is inspected. Check: `validation_matrix.py check` and contract show no imported anchor absent and no existing row loss.
-- [ ] **PRE-2 — Complete B1/L1 audit.** Initial scout: 12 L1 groups (`3, 10, 12–16, 19, 22, 25, 28, 33`); the original `kind: atol` inventory was 17 L1 cases (G15:5, G16:5, G22:4, G25:3) among 23 store-wide cases. After the G25 fractional-error correction, 14 L1 atols remained (G15:5, G16:5, G22:4); after the G22 correction below, 10 L1 atols remain, all G15/G16. The other original store-wide cases were 2 L2, 3 L4 and 1 L5. G15/G16 near-zero elastica comparisons use `0.5 m` against paper references; measured margins are stored for only 3 of 5 rows in each group. G15/G16 finding (2026-10-13): 6 of the 10 L1 atols (3 per group, equilibrium_path at lam=0.5pi, pi, 1.5pi, w_tip) were extractor mislabels - |ref|>=1 so the executed branch is the 5 % rtol one (stored bound 5.0000 %); relabelled rtol 0.05 at the rtol source line. The 4 genuine atols remain (lam=2pi w_tip ref 0 and rollup_360 w_tip, both groups): 0.5 m = 5 % of L=10 m, a distance against a zero reference, kept absolute; two are not_measured per group. G33 finding (2026-10-13, source read only, no run): references w/L=0.30172 (alpha=1) and 0.49346 (alpha=2) are the closed-form Bisshopp & Drucker elastica values, i.e. an independent analytic arbiter. alpha=1 bound 2 % vs stored 3.63 % -> red by design (xfail); the test docstring records step refinement 32->512 converging to 4.00 % stiff, so it is not a stepping artefact; its claim that it is not a mesh effect is NOT backed by a mesh-refinement table in the file (open). alpha=2 bound 6 % is above the 5 % ceiling and sits just above the stored 4.27 % bias: it reads as set to fit the element, not derived from the reference. Disposition pending: reject (tighten to the alpha=1 standard and keep red) or a pre-measurement exception; no widening, no verdict entered. G33 DECISION (maintainer, 2026-10-13): option (a) - REJECT the alpha=2 6 % bound. Deferred work (not done now): tighten alpha=2 to the alpha=1 standard so it is red like alpha=1, keep both as documented xfail with measured numbers, no widening; add a mesh-refinement table (physics run, needs authorization) to back or drop the docstring's 'not a mesh effect' claim. G3 Ko2017 MEASURED (2026-10-13, SLURM 11614628, HEAD 890d4e6, test_ko2017_performance.py only, log logs/check/ko2017-g3-audit.log): 31 collected, 29 passed, 2 failed in 120 s. The AGENTS.md figure of '8 pre-existing failures on coarse distributed meshes' is STALE for this tree. The 2 failures are test_3_5_twisted_beam_tables_12_to_13 at t=0.0002667 (thin twisted beam, MITC4): In-plane 8.4914 % vs table 0.9978 and Out-of-plane 8.7132 % vs 0.9982, both against a 1 % bound. Thin-limit twisted-beam accuracy question, not a tolerance to widen; no verdict entered, store rows still not_measured (not written back). G3 baseline WRITTEN (2026-10-13, SLURM 11614631, `validation_matrix.py regression --group 3 --write`, run 48617b4): all 37 comparisons / 31 rows now `measured`; the two twisted-beam rows store 8.49 % / 8.71 % against 1 %. Measured margins only, no verdicts. check: 228/307/0/0. Their run ID `73743de` resolves to `73743ded7b3405a6c28201604fa45df038534dc9`, an ancestor of current HEAD; declared L1 dependencies and both test sources are unchanged since that run, and the cited Simo/Bathe reference records are unchanged despite other edits in `references.yaml`. This supports path-level freshness only; it does not establish physical validity or independent arbiters. G22's three static bounds and one modal bound were expressed as percentage-error metrics with `atol=3.0%`/`2.0%`; these are now fractional errors with `tol=0.03`/`0.02` and row kinds `rtol`, preserving the exact strict predicate. The four results remain not measured. `test_ratio_physical` and nonlinear internal/xfail assertions are unrepresented and deliberately remain open for audit. G25's dimensionless first-mode frequency-error fraction now uses `tol=TOL` (0.05 fraction), matching the helper contract without a false `%` quantity label; the source docstring and all three row descriptions identify frequency against the closed-form cantilever reference. This metadata correction preserves the strict `error < 0.05` predicate; matrix consistency check (228 rows/307 comparisons, 0 errors/warnings), 15-test collect-only, and `git diff --check` passed. The L1 contract remains open. Current L1 contract remains open: 103 unaudited, 2 absent, 1 over-ceiling row and 55 with one-or-no arbiter, with no trusted verdicts. The over-ceiling item is group 33 UL elastica (`ul_elastica.test_elastica_tip_deflection.2_0_0_49346_64_0_06`): source `rtol=0.06`, stored margin 4.2658%, paper reference Bisshopp & Drucker tabulated by Bathe; only the generic pilot-pending tolerance text is stored. Audit every L1 row, references/arbiters, staleness, over-ceiling cases and reds; do not enter verdicts until evidence is reconciled. Inventory every L1 row and comparison, source assertions and bounds including the 23 store-wide `atol` comparisons (identify the L1 subset), references and arbiter independence, revision staleness, over-ceiling cases and documented reds (D-Tube, UL elastica, Ko2017's eight failures, frame objectivity). Record supported verdicts at a coherent audited revision; unsupported comparisons stay open. Check: contract `--level L1 --rows`, all B1 `atol` cases classified/relativized, and every known red explicitly source-justified or rejected.
-- [ ] **PRE-3 — Complete B2/L2 audit.** Inventory every L2 row, comparison, source assertion, reference, arbiter and bound; handle L2's `atol` subset and `composite_stress_recovery` gap. For every CalculiX comparison, demonstrate independently converged results in both codes using same metric, load, material and boundary conditions and predeclared convergence criterion; do not infer convergence from one mesh or one code. Check: contract `--level L2 --rows`, per-comparison paired convergence evidence, and B1 required to close.
+- [x] **PRE-2 — Complete B1/L1 audit.** CLOSED 2026-10-14 (ec3c9f6): L1 trusted 134, regression_pin 2, nothing else; see "Handoff 2026-10-16 (PRE-2 re-check)" at the end. Entry-state text follows, kept as history: Initial scout: 12 L1 groups (`3, 10, 12–16, 19, 22, 25, 28, 33`); the original `kind: atol` inventory was 17 L1 cases (G15:5, G16:5, G22:4, G25:3) among 23 store-wide cases. After the G25 fractional-error correction, 14 L1 atols remained (G15:5, G16:5, G22:4); after the G22 correction below, 10 L1 atols remain, all G15/G16. The other original store-wide cases were 2 L2, 3 L4 and 1 L5. G15/G16 near-zero elastica comparisons use `0.5 m` against paper references; measured margins are stored for only 3 of 5 rows in each group. G15/G16 finding (2026-10-13): 6 of the 10 L1 atols (3 per group, equilibrium_path at lam=0.5pi, pi, 1.5pi, w_tip) were extractor mislabels - |ref|>=1 so the executed branch is the 5 % rtol one (stored bound 5.0000 %); relabelled rtol 0.05 at the rtol source line. The 4 genuine atols remain (lam=2pi w_tip ref 0 and rollup_360 w_tip, both groups): 0.5 m = 5 % of L=10 m, a distance against a zero reference, kept absolute; two are not_measured per group. G33 finding (2026-10-13, source read only, no run): references w/L=0.30172 (alpha=1) and 0.49346 (alpha=2) are the closed-form Bisshopp & Drucker elastica values, i.e. an independent analytic arbiter. alpha=1 bound 2 % vs stored 3.63 % -> red by design (xfail); the test docstring records step refinement 32->512 converging to 4.00 % stiff, so it is not a stepping artefact; its claim that it is not a mesh effect is NOT backed by a mesh-refinement table in the file (open). alpha=2 bound 6 % is above the 5 % ceiling and sits just above the stored 4.27 % bias: it reads as set to fit the element, not derived from the reference. Disposition pending: reject (tighten to the alpha=1 standard and keep red) or a pre-measurement exception; no widening, no verdict entered. G33 DECISION (maintainer, 2026-10-13): option (a) - REJECT the alpha=2 6 % bound. Deferred work (not done now): tighten alpha=2 to the alpha=1 standard so it is red like alpha=1, keep both as documented xfail with measured numbers, no widening; add a mesh-refinement table (physics run, needs authorization) to back or drop the docstring's 'not a mesh effect' claim. G3 Ko2017 MEASURED (2026-10-13, SLURM 11614628, HEAD 890d4e6, test_ko2017_performance.py only, log logs/check/ko2017-g3-audit.log): 31 collected, 29 passed, 2 failed in 120 s. The AGENTS.md figure of '8 pre-existing failures on coarse distributed meshes' is STALE for this tree. The 2 failures are test_3_5_twisted_beam_tables_12_to_13 at t=0.0002667 (thin twisted beam, MITC4): In-plane 8.4914 % vs table 0.9978 and Out-of-plane 8.7132 % vs 0.9982, both against a 1 % bound. Thin-limit twisted-beam accuracy question, not a tolerance to widen; no verdict entered, store rows still not_measured (not written back). G3 baseline WRITTEN (2026-10-13, SLURM 11614631, `validation_matrix.py regression --group 3 --write`, run 48617b4): all 37 comparisons / 31 rows now `measured`; the two twisted-beam rows store 8.49 % / 8.71 % against 1 %. Measured margins only, no verdicts. check: 228/307/0/0. Their run ID `73743de` resolves to `73743ded7b3405a6c28201604fa45df038534dc9`, an ancestor of current HEAD; declared L1 dependencies and both test sources are unchanged since that run, and the cited Simo/Bathe reference records are unchanged despite other edits in `references.yaml`. This supports path-level freshness only; it does not establish physical validity or independent arbiters. G22's three static bounds and one modal bound were expressed as percentage-error metrics with `atol=3.0%`/`2.0%`; these are now fractional errors with `tol=0.03`/`0.02` and row kinds `rtol`, preserving the exact strict predicate. The four results remain not measured. `test_ratio_physical` and nonlinear internal/xfail assertions are unrepresented and deliberately remain open for audit. G25's dimensionless first-mode frequency-error fraction now uses `tol=TOL` (0.05 fraction), matching the helper contract without a false `%` quantity label; the source docstring and all three row descriptions identify frequency against the closed-form cantilever reference. This metadata correction preserves the strict `error < 0.05` predicate; matrix consistency check (228 rows/307 comparisons, 0 errors/warnings), 15-test collect-only, and `git diff --check` passed. The L1 contract remains open. Current L1 contract remains open: 103 unaudited, 2 absent, 1 over-ceiling row and 55 with one-or-no arbiter, with no trusted verdicts. The over-ceiling item is group 33 UL elastica (`ul_elastica.test_elastica_tip_deflection.2_0_0_49346_64_0_06`): source `rtol=0.06`, stored margin 4.2658%, paper reference Bisshopp & Drucker tabulated by Bathe; only the generic pilot-pending tolerance text is stored. Audit every L1 row, references/arbiters, staleness, over-ceiling cases and reds; do not enter verdicts until evidence is reconciled. Inventory every L1 row and comparison, source assertions and bounds including the 23 store-wide `atol` comparisons (identify the L1 subset), references and arbiter independence, revision staleness, over-ceiling cases and documented reds (D-Tube, UL elastica, Ko2017's eight failures, frame objectivity). Record supported verdicts at a coherent audited revision; unsupported comparisons stay open. Check: contract `--level L1 --rows`, all B1 `atol` cases classified/relativized, and every known red explicitly source-justified or rejected.
+- [x] **PRE-2r — Re-measure L1 after 41e9a16 (stale 136).** DONE 2026-10-19: 164 `same`, 0 `changed`; 136 verdicts restamped to 74c6b9f; L1 CLOSED again (trusted 134, regression_pin 2). Re-run `validation_matrix.py regression` for all 22 L1 groups without `--write`; if every comparison is `same`, restamp the L1 `audited_rev` in `docs/validation/contract.yaml` (L2 precedent, af95fa8/a4baf6e); any `changed` comparison is a finding and gets a new verdict, never a restamp. See "PRE-2r" at the end. Route: parent + SLURM.
+- [x] **PRE-3 — Complete B2/L2 audit.** CLOSED 2026-10-19 (f8dd602 restamp, 17ef8ad G21 closed-form row, then the verdict commit): L2 trusted 67, regression_pin 4, 0 stale, 0 single-arbiter. PRE-3r re-measured after 41e9a16+43dce4d (109 `same`, 0 `changed`); G21 arbitrated by the free-edge closed form — see "PRE-3r" and "G21 closed form" at the end. Entry text follows: Inventory every L2 row, comparison, source assertion, reference, arbiter and bound; handle L2's `atol` subset and `composite_stress_recovery` gap. For every CalculiX comparison, demonstrate independently converged results in both codes using same metric, load, material and boundary conditions and predeclared convergence criterion; do not infer convergence from one mesh or one code. Check: contract `--level L2 --rows`, per-comparison paired convergence evidence, and B1 required to close.
 - [ ] **B3-1 — Freeze the L3 evidence inventory and audit rubric.** Verify exact row/comparison IDs and file locations for all six groups, absent anchor list, arbiter kinds/independence, source tolerance use, over-ceiling cases, audited-revision semantics, and current lower-level blocks. Record per-group inventory with citations and first admissible verdict batch. Check: contract counts, source assertion/tolerance map, `git diff --check`, docs smoke gate `scripts/check.sh quick` (~13 s; not physics). Inventory has initial row IDs/store bounds but source assertions, per-row arbitral sufficiency and staleness semantics remain to check.
 - [ ] **B3-2 — Adjudicate L3 groups.** At the frozen audited revision, inspect test sources, original references, convergence, arbiter independence, class and measured errors; enter only supported verdicts with named arbiters. Missing second independent numerical judge remains unvalidated/open. Check: contract `--level L3 --rows`; link evidence to each adjudication.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
@@ -282,3 +283,406 @@ Remaining PRE-3: relabel G21, enter L2 verdicts where supported, merge to main a
 4. B1: 2 rejected G33 rows, 2 hypar pins. Then B3-1..3, PRE-4 (out of scope here; no GitHub edits, no P1).
 
 **Next concrete step.** New branch `audit/pre3-sweeps` from main; write a mesh sweep for G4 orthotropic bending (model on `tools/g4_g8_ccx_convergence.py`; predeclare the criterion first), run it on SLURM (`sbatch -p sequana_cpu --ntasks=1 --time=40`, `PYTHONPATH=$SCRATCH/validenv scripts/aeroenv.sh python ...`), then the G18 quasi_iso bending sweep, then verdicts. Do NOT edit `tests/test_iea15mw_s3_newmark_transient.py` without budgeting a full L2 re-measure.
+
+## Handoff 2026-10-15 (CLOSE of the fifth PRE-3 session; supersedes the "Unfinished" lists above)
+
+**State (main, HEAD `0760d76` + this handoff, tree clean, no branches left, NOT pushed: 8 commits ahead of origin).** L2: trusted 59, regression_pin 3, unarbitrated 2, unaudited 6, 0 undecided, 0 stale; gap `composite_stress_recovery` (a) raw ABD dict still blocking. `validation_matrix.py check`: 269 rows / 374 comparisons / 0 errors.
+
+**Done this session (each on a branch merged ff to main and deleted).**
+- G4 in-plane bending 3.648 % vs EB = Timoshenko shear (+3.93 % at L/B = 10); sweep 4x10..32x80 converges, +0.178 % vs EB+T. `tools/g4_bending_sweep.py`. Trusted.
+- G18 quasi_iso bending: test's -1.757 % is the coarse 4x10 number; ny=80 gives -1.05 %, the rest is clamped-root restraint, scaling with B/L (-1.03/-0.49/-0.24/-0.15 % for B = 0.1..0.0125), control sym_0_90s <= 0.02 %. `tools/g18_quasi_iso_root_sweep.py`. Trusted.
+- G17 loaded-node axial (2 rows): `regression_pin` (divergent point-load metric; face-mean closed-form rows carry validation).
+- G21: `kind="self"` was wrong; the reference is the CalculiX C3D20R 3D solid. Relabelled to `code` in the test, store re-extracted and re-measured (SLURM 11616449, 0.2143 % reproduced). 2 verdicts trusted but `unarbitrated` (one numerical arbiter, no closed form).
+- G24 row 1 trusted (|B| 1e-10 at the round-off floor vs bound 1e-6).
+- G55 rows 4-5 trusted (prismatic closed form).
+- G26 deck row: paired sweep (`tools/g26_ccx_deck_convergence.py`): [45,0,0,45]s and [45,-45,-45,45]s close, **[60,0,0,60]s does not** (CCX converged, element still -3.06 % in the last step, gap 1.73 % at 16x96, test's 1.95 % pairs element 16x96 with CCX 8x48). Row pinned as `regression_pin`.
+
+**Native review (RDD) of the G4+G18 commits (lineage review-4bdf7e1f0577dcc0): approved, authority burned.** Three non-blocking advisories, not fixed: (1) `tools/g4_bending_sweep.py:26` the `replace("nx, nz = 4, 10", ...)` is a silent no-op if the builder text changes; (2) `tools/g4_bending_sweep.py:47` the printed gate differs from the docstring criterion; (3) `tools/g18_quasi_iso_root_sweep.py:49-55` the sym_0_90s control is printed, not gated. Fixing a tool does not stale verdicts (tools are not in `files`), but re-run it after.
+
+**Unfinished.**
+1. 6 unaudited G18 rows: 5 modal comparisons + `multi_layer_iso_equivalence` (no analytic arbiter; numerical is non-gating). Earlier note: modals closed by paired convergence (<1 % change, ~0.1 % gap), so the verdict only needs the data to be re-read and written.
+2. Gap `composite_stress_recovery` (a) raw ABD dict.
+3. Decision for the maintainer: G21 needs a second independent arbiter to leave `unarbitrated` (OpenSeesPy cannot build +-45 deg plies); G26 [60,0,0,60]s element convergence is slow (open question: why 60 deg converges slower than 45 deg).
+4. B1: 2 rejected G33 rows, 2 hypar pins. Then B3-1..3, PRE-4 (out of scope here; no GitHub edits, no P1). Push is the maintainer's call.
+
+**Next concrete step.** New branch `audit/pre3-g18-modal` from main; re-read the stored G18 modal paired-convergence numbers (`tools/g18_modal_convergence.py`, log under `logs/check/l2-audit/`), predeclare nothing new, write the 5 verdicts, then decide `multi_layer_iso_equivalence`. SLURM: `sbatch -p sequana_cpu --ntasks=1 --time=40`, gitshim first on PATH for any `regression --write`.
+
+## Addendum 2026-10-15 - G18 modal verdicts (branch audit/pre3-g18-modal)
+
+Re-measured with `tools/g18_modal_convergence.py` (SLURM 11616456, log `logs/check/l2-audit/g18-modal.log`, git-ignored) and wrote the 5 `trusted` physics verdicts at `28dcbd8` (analytical anchor: Euler-Bernoulli from the hand-CLT strip). Per layup, worst change 16x40 -> 32x80 (AeroElast / CalculiX) and worst matched gap at 32x80: uni_0 0.67 / 0.07 %, 0.16 %; uni_90 0.33 / 0.00 %, 0.21 %; sym_0_90s 0.67 / 0.03 %, 0.14 %; asym_0_90 0.67 / 0.02 %, 0.14 %; quasi_iso 0.43 / 0.02 %, 0.10 %. L2: trusted 64, regression_pin 2 (the two G17 pins), stale 1, unarbitrated 2, unaudited 1. `check`: 269 rows / 374 comparisons / 0 errors.
+
+**Found, not fixed:** `laminate_bend_twist.test_independent_ccx_deck_confirms_the_c.single` (the G26 deck pin) is stale by `0760d76` already on `main` before this branch; it needs a restamp or re-measure. Left: `multi_layer_iso_equivalence` (no analytic arbiter), gap `composite_stress_recovery` (a).
+
+## Addendum 2026-10-15 - G26 deck pin restamped
+
+Re-measured group 26 (SLURM 11616467, 8 comparisons `same`, source digest unchanged) and restamped the deck pin `audited_rev` af95fa8 -> 60db9d4. L2: trusted 64, regression_pin 3, unarbitrated 2, unaudited 1, 0 stale. Open: gap `composite_stress_recovery` (a) awaits a maintainer decision (raise on a ply-less section vs documented limit), G21 second arbiter, `multi_layer_iso_equivalence`.
+
+## Addendum 2026-10-15 - gap composite_stress_recovery (a) closed by refusal (branch fix/composite-no-ply-stack-raise)
+
+Maintainer-approved contract change: `StressRecovery` raises `ValueError` (naming the element set) when a stress is requested on a raw homogenised ABD dict, instead of returning the thickness mean `N/h` labelled TOP/MIDDLE/BOTTOM with a warning. Lazy: assembly, stiffness and the displacement solve are unaffected. Only `test_composite_ply_stress_parity.py` exercised that path; its characterization test became `test_raw_abd_section_refuses_ply_stress` (RED observed first: the old code only warned). `gaps.yaml` `composite_stress_recovery` -> `bounded`. L2: trusted 64, regression_pin 3, unarbitrated 2, unaudited 1, 0 stale, gaps 0 blocking. Verified: that test file 20 passed, ruff clean, `check.sh quick` OK, `validation_matrix check` 0 errors. Not run: the full suite. Left in L2: G21 second arbiter, `multi_layer_iso_equivalence`.
+
+## Handoff 2026-10-15 (CLOSE of the sixth PRE-3 session; supersedes the "Unfinished" list of the fifth)
+
+**State (main, HEAD = this handoff commit, tree clean, no branches left, NOT pushed: 11 commits ahead of origin).** L2: trusted 64, regression_pin 3, unarbitrated 2, unaudited 1, 0 stale, gaps 0 blocking (L2 still `open`). `validation_matrix.py check`: 269 rows / 374 comparisons / 0 errors. `check.sh quick` OK at `5a9fe64`; the full suite was not run.
+
+**Done this session (each on a branch merged ff to main and deleted).**
+- G18 modal: 5 `trusted` physics verdicts. Re-measured `tools/g18_modal_convergence.py` (SLURM 11616456; the original log was lost because `logs/` is git-ignored, the per-layup numbers are in the addendum above). Worst change 16x40 -> 32x80 0.67 % AeroElast / 0.07 % CalculiX, worst gap 0.21 % (bound 3 %); analytic arbiter = Euler-Bernoulli from the hand-CLT strip.
+- G26 deck pin restamped (`af95fa8` -> `60db9d4`): group 26 re-measured, 8 comparisons `same` (SLURM 11616467). The stale came from `0760d76` touching `tools/g26_ccx_deck_convergence.py`, a file in the verdict's `files`.
+- Gap `composite_stress_recovery` (a) closed by refusal (maintainer-approved contract change): `StressRecovery` raises `ValueError` on a stress request for a raw ABD section; lazy, so assembly and displacement solves are unaffected. Test `test_raw_abd_section_refuses_ply_stress` (RED observed first), `gaps.yaml` status `bounded`, `groups.yaml` test name updated.
+
+**Unfinished.**
+1. `orthotropic_shell_parity.test_multi_layer_iso_equivalence.single` (the only unaudited L2 row, no arbiter). Try a closed form first: a laminate of isotropic layers must give D = E h^3 / (12 (1 - nu^2)) and A = E h / (1 - nu^2); `trusted` if the test's metric maps onto it, otherwise `regression_pin`. Never widen the bound.
+2. G21 (2 verdicts) is `unarbitrated`: one numerical arbiter (CalculiX C3D20R). Look for a closed form or a published laminate +-45 deg number; if none exists, leave it declared `unarbitrated` and report it (OpenSeesPy cannot build +-45 deg plies).
+3. Advisories from the native review of G4+G18, not fixed: `tools/g4_bending_sweep.py:26` silent no-op `replace`; `:47` printed gate differs from the docstring criterion; `tools/g18_quasi_iso_root_sweep.py:49-55` sym_0_90s control printed, not gated. Re-run the tool after fixing; tools are not in `files`, so verdicts do not go stale.
+4. B1: 2 rejected G33 rows, 2 hypar pins. Then B3-1..3 and PRE-4 (L3 is `blocked by L2`: 39 unaudited, 15 over the 5 % ceiling). Out of scope here: GitHub edits, P1.
+5. Maintainer: push of main (11 commits).
+
+**Traps.** (a) Editing any file named in a level's `depends_on` (`levels.yaml`) or in a verdict's `files` stales verdicts; re-measure the group with `validation_matrix.py regression --group N` (SLURM, ~1 min) and restamp `audited_rev`. (b) `logs/` is ignored: put numbers that matter in the doc, not only in a log. (c) A single numerical arbiter makes a trusted row `unarbitrated`.
+
+**Next concrete step.** New branch `audit/pre3-multilayer-iso` from main; read the test body of `test_multi_layer_iso_equivalence`, decide closed form vs pin, write the verdict (then `check`, `contract --level L2`), merge ff to main and delete the branch. SLURM: `sbatch -p sequana_cpu --ntasks=1 --time=40`.
+
+## Continuation: multilayer pin and inherited L2 freshness
+
+User request (verbatim):
+> multi_layer_iso_equivalence. Primero el closed form (D = E·
+>    h³/(12(1−ν²))) y, si no encaja, lo pino como regression_pin.
+>  - Después: G21 (segundo árbitro o declararlo unarbitrated), las 3 advertencias de las
+>    herramientas g4/g18, B1 y B3.
+>  - Para vos: el push de main.
+
+- Multilayer verdict committed in `f27ac22` on `audit/pre3-multilayer-iso`, audited at `322d966`, as `regression_pin`. The asserted observable is the relative norm of two internally assembled K matrices, not an analytical section stiffness. A separate laminate-side check with E=70e9, nu=0.3, h=0.01 and four identical plies gives A11/A12/A66 and D11/D12/D66 relative errors no larger than 2.22e-16, B=0. This does not make the existing K comparison independent physics validation. Its 1e-4 bound is unchanged.
+- Checks: focused equivalence test **1 passed**; `scripts/check.sh quick` **75 passed, 1 xfailed**, exit 0; matrix check **269 rows / 374 comparisons / 0 errors / 0 warnings**. Logs: `logs/check/multilayer-pin-focused.log`, `logs/check/multilayer-pin-quick.log` (ignored; summary retained here). No solver or Rust source changed; no full suite run. RDD mode reports off globally; no native review started.
+- **Correction to the preceding handoff:** L2 is not fresh. `contract --level L2` reports 69 stale plus the new pin; the parent revision already reported 69 stale and one unaudited row. `levels.yaml` declares `src/aeroelast/postprocess` as an L2 dependency; `git log --format='%h %s' 28dcbd8..HEAD -- src/aeroelast/postprocess` returns `5a9fe64` (raw-ABD stress refusal). Thus older L2 verdicts are conservatively invalidated by a real shared dependency change. No verdicts were re-stamped. The explorer's gitshim explanation was only a hypothesis: `command -v git` returns `/usr/bin/git` and Git resolves the tested range. A detailed contract query timed out after 30 s and was not retried.
+- Outstanding: revalidate affected L2 measurements before restamping, reconcile G21, fix and rerun the three tool advisories, then B1/B3. No merge or push yet. Scientific blockers must remain explicit; pushing main is authorized but does not establish level closure.
+
+## Continuation: g4/g18 tool advisories fixed and re-run (PRE-3)
+
+- `tools/g4_bending_sweep.py`: the mesh patch now raises unless the `nx, nz = 4, 10` marker occurs exactly once (was a silent no-op); the docstring states that both (a) and (b) gate attribution. `tools/g18_quasi_iso_root_sweep.py`: the sym_0_90s control is now criterion (e), gated (<= 0.3 % on both meshes at every width). Guards: `tools/tests/test_audit_sweep_guards.py`, 4 passed.
+- Re-run (SLURM 11616829 / 11616830). G4: 16x40 -> 32x80 change +0.024 %, finest vs EB+Timoshenko +0.178 %: ATTRIBUTED. G18: criteria (a)-(e) all True: ATTRIBUTED. Same verdicts as before the fix; no bound changed; tools are not in `files`, so no verdict went stale.
+- Still open: G21 (declared `unarbitrated`), L2 staleness from `5a9fe64` (revalidate before restamping), B1, B3. Push of main is the maintainer's.
+
+## Continuation: L2 freshness restored, G21 stays unarbitrated (PRE-3)
+
+- The 69 stale L2 verdicts were all stale by `5a9fe64` (shared dependency `src/aeroelast/postprocess`). Re-measured 13 groups (4, 6, 7, 8, 9, 17, 18, 21, 24, 26, 36, 43, 55) with `regression --group N` on SLURM at `a4baf6e`: every comparison `same`. G36's source digest moved because `5a9fe64` rewrote one of its tests; re-recorded with `--write` (numbers identical). G43 has no `source_files`, so its default scope is all of `tests/` (1 h 20 min, picks up unrelated ko2017 drifts of about 0.01 points): run it with `--scope tests/test_iea15mw_s3_newmark_transient.py` (3 min, 2 same). The 69 `audited_rev` were restamped to `a4baf6e`.
+- `contract --level L2`: trusted 64, regression_pin 4, unarbitrated 2, 0 stale, 0 over the 5 % ceiling. L2 stays `open` only on G21.
+- G21: considered a closed form again. The test's own docstring records that the hand-CLT beam reference is what the 3D solve refuted (H6), so CLT cannot arbitrate the shell-vs-3D twist, and OpenSeesPy cannot build +-45 deg plies. No second independent arbiter exists; the two verdicts stay declared single-arbiter. Not closed by weakening the rule.
+
+## Handoff 2026-10-16 (PRE-3 CLOSE; supersedes the "Unfinished" lists above)
+
+**State (main, HEAD = this commit, no branches left, NOT pushed).** L2: trusted 64, regression_pin 4, unarbitrated 2 (G21), 0 stale, 0 over the 5 % ceiling, gaps 0 blocking. `validation_matrix.py check` 269 rows / 374 comparisons / 0 errors. PRE-3 work is exhausted: the only L2 items left are scientific, not procedural (G21 has no second independent arbiter; L2 also requires B1 to close). Full suite not run; no solver or Rust source changed this session.
+
+**Next (separate sessions).** (1) PRE-2 / B1 (L1: 103 unaudited rows, 2 rejected G33 rows to tighten to the alpha=1 standard and keep xfail, 2 hypar pins; needs a mesh-refinement table for the G33 docstring claim, a physics run). (2) B3-1..3, then PRE-4 (L3 is blocked by L2/L1). (3) Maintainer: push of main (about 15 commits ahead of origin).
+
+**Trap.** `regression --group 43` without `--scope tests/test_iea15mw_s3_newmark_transient.py` runs all of `tests/` (1 h 20 min).
+
+## Handoff 2026-10-16 (PRE-2 re-check; CORRECTS the "Next (1)" of the PRE-3 close)
+
+**The PRE-3 close handoff listed PRE-2 as open ("103 unaudited, 2 rejected G33, 2 hypar pins"). That was the 2026-10-13 entry state, not the state of main.** Measured at 8785d61 (`validation_matrix.py contract`): L1 `CLOSED`, trusted 134, regression_pin 2, over ceiling 0, single/no arbiter 0, 0 stale; `check` 269 rows / 374 comparisons / 0 errors. How each item of the proposed order resolves:
+
+1. Inventory: nothing unaudited remains (120 trusted on 2026-10-13, 129 on 2026-10-14 after groups 52-53, 134 at ec3c9f6 after the default-scheme change). No batch of verdicts to propose.
+2. G33: superseded, not tightened. The alpha=1/2 rejected rows were of the legacy updated-Lagrangian scheme (+2.0/+4.4/+9.6 % above CalculiX at alpha 4/7, 1, 2; cause: no equilibrium iteration and no initial-stress stiffness, proven on a 2-D corotational beam). ec3c9f6 made total-Lagrangian Newton the default of `StaticNonlinearSolver`; the rows `ul_elastica.test_default_scheme_tip_deflection_match.{1,2}_0_8` are trusted at ec3c9f6 (w 0.358 / 0.388 %, u 0.622 / 0.712 % against 1 %, two arbiters: Bisshopp-Drucker and the elastica re-integrated by shooting). The mesh table that was missing is there: nx = 32 / 64 / 128 gives alpha 1 -0.52 / -0.36 / -0.31 %, alpha 2 -0.61 / -0.39 / -0.33 %, residual = plate offset, which shrinks with strip width (b = 0.00625: w -0.11 %, u -0.18 %). The legacy UL bias is pinned in `tests/software`. No physics run was needed or launched.
+3. Hypar t/L 1/10000 (2 pins): decision stands as `regression_pin`. The only available second source, CalculiX S8R, is not a converged arbiter at that thickness (w/w_ref 0.28 / 0.77 / 0.985 / 0.940 at 12 / 24 / 48 / 64 elements; 0.88 / 0.95 / 0.94 / 0.99 after rescaling E). A refinement of our own MITC4+ would be a self-convergence, not an independent arbiter, so it cannot upgrade the pin to a verdict. They count toward no level.
+4. Freshness: the only source change since ec3c9f6 is `postprocess/stress_recovery.py` (L2 dependency, already re-measured and restamped at a4baf6e). Caveat recorded in L3 of `ul-elastica-alpha2.md`: `static_nonlinear.py` is NOT in L1 `depends_on` (adding it staled 125 verdicts, reverted), so a future change to that solver does not stale the G22/G33/G52/G53 verdicts by itself; re-run `regression --group 22/33/52/53` by hand after touching it.
+
+**Facts for the reader of the L1 trust.** (a) G15/G16 roll-up tests drive a test-local updated-Lagrangian `incremental_solve`, not the production solver: they validate the MITC3/MITC4 element kernels, not `StaticNonlinearSolver` (finding L7). (b) Production Newton stops converging past about pi of nodal rotation (rotation-vector parametrisation); legacy UL returns -27 % silently at 1.5 pi. (c) CalculiX S8R is +1.90 % above the beam on the D-Tube while MITC4 closes on it (cause open). None changes an L1 verdict; they are the open science.
+
+**Not done, and why.** No solver run, no SLURM job, no store write, no verdict changed: every proposed physics action was either already done or could not change a verdict by the arbiter rule. Only this doc was edited.
+
+**Next (separate sessions).** (1) `odd/tasks/ul-elastica-alpha2.md` T9/T10: does the FSI linear / rotor solver carry the same missing-equilibrium or initial-stress defect; this is the open physics, one solver at a time with an independent reference. (2) B3-1..3 (L3: S-2 +8.1 %, V-02 first edge 9.05 %, S-7), then PRE-4; L3 stays blocked by L2 (G21, single arbiter). (3) Maintainer: push of main (about 15 commits ahead of origin); AGENTS.md / SKILL still describe the removed frame-objectivity red test and the stale "8 Ko2017 failures".
+
+## B3-3a V-02 (L3, group 32) - predeclared criterion (written BEFORE the mesh run, 2026-10-16, HEAD d94d891)
+
+Entry facts. Re-measure at d94d891 (SLURM 11616944, valid env, official blade, es 0.25, 32336 nodes) reproduces the store: 1F 0.537085 Hz vs 0.5585 (3.8343 %), 1E 0.698595 vs 0.6406 (9.0532 %). The `validation_closures.md` / `validation_results_v01_v02_v04.md` figure "1E -1.81 % (0.6290 Hz)" was measured on the UTD xlsx blade, not the official one (thinner TE reinforcement = softer edgewise, AGENTS rule 7); it is not a regression, it is a different input. Group 32 has no residual pattern, so `regression --group 32` cannot read it (numbers come from `pytest -s`).
+
+Why ADJ-1032 does not make 1E an exception: it was written after the measurement (0.698595 was known) and its source (Zhou 2025 Table 3, six independent models, 0.547-0.692 Hz) is the spread BETWEEN different blade models, not an error bar on this blade's reference value; the reference blade is the same one we model. Per `contract.yaml` an exception needs `fixed_before_measuring` and a source that quantifies THIS model difference. So 1E is judged against the 5 % ceiling unless the evidence below supports otherwise.
+
+Criterion (fixed now). Modal sequence on the official blade at es = 0.5 / 0.25 / 0.125 (tool `tools/v02_modal_convergence.py`, same BCs as the test). (C1) a frequency is "converged" if |f(0.25)-f(0.125)|/f(0.125) <= 1 % and the sequence is monotone; the verdict number is the es = 0.125 value. (C2) 1F: trusted if its es=0.125 error vs 0.5585 <= 5 % AND a second independent arbiter agrees within 5 % (Bernardi 2025, shell model, 0.5369 Hz). (C3) 1E: if its converged error vs 0.6406 stays > 5 %, verdict `rejected` (physics) - no widening, no post-hoc exception; the cause is open (candidates: skin reference surface / OML, as S-7 E8; BeamDyn-vs-shell). If it falls <= 5 % at es=0.125 that is a finding and the row is judged on that number.
+
+## B3-3a V-02 RESULT (2026-10-16; SLURM 11616944 test, 11616961 + 11616972 mesh study, 11616979/80 regression; tool `tools/v02_modal_convergence.py`)
+
+Official blade, clamped root, es 0.5 / 0.25 / 0.125 (0.125 needs `--ntasks=12`: with `--ntasks=1` it is OOM-killed; peak RSS 18.6 GB, 10 min).
+
+| mode | ref (NREL/ElastoDyn) | 0.5 | 0.25 | 0.125 | err at 0.125 | 0.25 -> 0.125 |
+|---|---|---|---|---|---|---|
+| 1F | 0.5585 | 0.535104 | 0.537085 | 0.537561 | -3.75 % | 0.09 % |
+| 1E | 0.6406 | 0.699282 | 0.698595 | 0.698760 | +9.08 % | 0.02 % |
+| 2F | 1.659 | 1.570719 | 1.585453 | 1.589074 | -4.2 % | 0.23 % |
+| 2E | 2.167 | 2.115908 | 2.110839 | 2.109639 | -2.6 % | 0.06 % |
+
+Verdicts (criterion C1-C3 fixed above before the run): **1F `trusted`** (two published sources, NREL 0.5585 and Bernardi 2025 0.5369, both within 5 %; monotone). **1E `rejected`**: converged (0.02 %) at +9.08 % over the 5 % ceiling; ADJ-1032's 10 % is not a pre-measurement exception (written after the number was known; its source is the spread between different blade models). Open and NOT resolved: the two published numerical sources disagree with each other by 13 % on 1E (0.6406 vs 0.7267; ours 0.6988 is -3.85 % from Bernardi), and the cause of the ~19 % high edgewise stiffness equivalent is not established (candidate: skin OML reference surface, S-7 E8). 1E sequence is non-monotone at the 0.1 % level (C1 asked for monotone; reported, immaterial next to 9 %). Test bound left at 0.10 (not widened, not tightened): tightening it to 0.05 and making it a documented xfail, as for G33, is a maintainer decision. 2F and 2E tests exist but are unclaimed by the store (no row; 2F -4.2 % is close to the ceiling); not entered. Group 32 now has a residual pattern (copy of group 36's), baselines written. The `1E -1.81 %` in `validation_closures.md` was on the UTD blade; corrected there.
+
+## B3-1 L3 evidence inventory (2026-10-16, HEAD 3fdd429; read-only, no verdict entered)
+
+Source: `validation_matrix.py contract --level L3 --rows/--json` (logs `logs/check/b3-1-contract-l3*.{log,json}`). L3 is `open, blocked by L2`; L2 is open ONLY through G21 (2 unarbitrated rows; trusted 64, pins 4, over ceiling 0). L1 closed.
+
+Counts: trusted 1 (V-02 1F), rejected 1 (V-02 1E), undecided 1 (S-7), **unaudited 37**, absent 3; **over the 5 % ceiling 15**; single/no arbiter 38; gap `rotating_modal_shift` (not_validated) blocking.
+
+Rows per group: G5 mesh conv 1 (CalculiX arbiter only); G20 anchor beam 1 (no arbiter); G23 Bernardi/CalculiX blade 16 (8 Bernardi modes, 5 CalculiX modes, mass, 2 static; each single arbiter); G27 rated twist 3 (Zhou BEM; 2 with NO arbiter); G32 V-02 1; G34 S-7 1; G38 S-1 sectional 5; G39 S-2 3; G40 S-4 2; G41 V-03 mass 1; G42 V-05 5. Absent: S-2 LC3 asymmetric ratio (schema cannot hold 0.9<r<1.2), sx_mesh_convergence, sx_campbell.
+
+Source bounds above 5 % (the 15 over-ceiling items), each needs a pre-measurement quantified exception or `rejected`/relabelled: S-1 sectional EI/GJ/EA/mass 15-40 % (G38, 5 rows); S-4 8 % (G40, 2 rows); V-03 mass 10 %; V-05 flapwise EI 20 % (4 rows) and mass 8 %; V-02 1E 10 % (already rejected); S-7 30 % (undecided). None may be widened; the S-1/V-05 ones are loose by design (BeamDyn vs shell sectional) and probably cannot be defended as <=5 %.
+
+First admissible batch (proposal, not entered): G32 done (1F trusted, 1E rejected). Next cheapest: S-4 (OpenFAST MBC3 deltas +0.6/-4.5/-1.5 %, all inside 5 % but the band is 8 % -> tighten the band to 5 %, then a trust candidate with ONE arbiter, OpenFAST; stays single-arbiter without a second independent one), then S-2 (+8.1 %, needs a quantified pre-measurement exception or `rejected`). Mesh-converged evidence for S-1/V-05 sectional is absent (sx_mesh_convergence absent).
+
+Structural blocker independent of any verdict: 38 of 40 L3 items have one or no independent arbiter, and numerical references settle only in pairs. Realistic outcome of B3-2: few `trusted`, many `rejected`/`unvalidated` with documented cause. Whether P1 may proceed with L3 closed on rejections is a maintainer call; PRE-4 must state the exact blocker list.
+
+**Maintainer rule (2026-10-16): every L3 tolerance is at most 5 %; if a row fails at 5 % the task is to find the error or a physical explanation, never to widen.** Consequence: S-1 (15-40 %), S-4 (8 %), V-03 (10 %), V-05 (20 %, 8 %) bounds are tightened to 5 % in the test source (red is allowed and recorded), not defended as exceptions. Also, S-4, V-05 and others build the blade at es=0.5, which AGENTS rule 9 calls a defect, so the old measured deltas are not evidence; each needs a converged-mesh re-measurement.
+
+## B3-2a S-4 (L3, group 40) - predeclared criterion (written BEFORE the mesh run, 2026-10-16, HEAD 73ca62e)
+
+Entry facts. Test default es=0.5 (defect). Docstring deltas at es=0.5: rotating 1F +0.6 / 1E -4.5 / 2F -1.5 %; parked 1F -1.5 / 1E -5.6 / 2F -2.3 % (parked 1E already beyond 5 %). Reference: OpenFAST v5.0.0 ElastoDyn beam model, MBC3 collective members (parked 0.544/0.739/1.610 Hz; rated 7.56 rpm 0.5666/0.7461/1.6372 Hz). It is a beam model of the same blade, one numerical arbiter; the published NREL 1E (0.6406) and OpenFAST 1E (0.739) disagree by 13 % with each other (see V-02 result), so a second independent arbiter for 1E is not available.
+
+Criterion (fixed now). Tool `tools/s4_modal_convergence.py` (same assembly/mode classification as the test via `tools/run_s4_rotating_modal.py`), es = 0.5 / 0.25 / 0.125, parked and 7.56 rpm. (C1) a frequency is converged if |f(0.25)-f(0.125)|/f(0.125) <= 1 %; verdict number is the es=0.125 value. (C2) a mode is `trusted` only if its converged error vs OpenFAST is <= 5 % AND it has a second independent arbiter within 5 %; with one arbiter it is at most `regression_pin`/open (numerical references settle only in pairs). (C3) error > 5 % at converged mesh -> `rejected`, bound stays 5 %, cause investigated (candidates: OML reference surface as S-7 E8; BeamDyn-vs-shell; K_G/K_SP formulation). No post-hoc exception.
+
+## Handoff 2026-10-16 (B3-2 start: L3 at 5 % / es 0.25; resume here)
+
+**Rules fixed by the maintainer this session.** (1) Every L3 tolerance <= 5 %; a failure means find the error or a physical explanation, never widen. (2) element_size 0.5 is a waste in real tests; only as the coarse point of a convergence study. (3) Commit always.
+
+**Commits (main, NOT pushed).** `73ca62e` B3-1 inventory; `9b790a9` S-4 predeclared criterion (C1-C3 above) + `tools/s4_modal_convergence.py`; `d42377c` tests S-1/S-2/S-4/V-03/V-05 to es 0.25 and bound 5 % (results not yet in the store; store bounds/sources and `source: file:line` still say the old bands, so `validation_matrix.py check` will flag the mismatch until the rows are updated).
+
+**Jobs submitted (results are in logs, read them first).**
+- S-4 mesh study (parked + 7.56 rpm, es 0.5/0.25 and 0.125): SLURM 11617012 and 11617013, `logs/check/s4/*.out`; `grep RESULT logs/check/s4/*.out | sort`. Apply criterion C1-C3 as written; no new criterion.
+- L3 re-measure at es 0.25, bound 5 %: 11617016 (S-1, DONE), 11617017 (S-2), 11617018 (V-03), 11617019 (V-05); logs `logs/check/l3/<test>-<jobid>.out`. If a log is empty/cancelled, resubmit with `sbatch -p sequana_cpu --ntasks=4 --time=120 --wrap "cd <repo> && scripts/aeroenv.sh python -m pytest tests/test_iea15mw_<x>.py -q --tb=line -rA"`.
+
+**S-1 measured (es 0.25, mid-span mean |rel err| vs BeamDyn deck), all red at 5 %:** edgewise EI 10.18 %, flapwise EI 23.16 %, mass 5.78 %, GJ 15.43 %, EA 19.997 %. The old bands (25/40/15/30/30 %) were set at es 0.5 and are gone. These are NOT yet explained; per rule (1) next is diagnosis, not a band. Hypotheses to test, one at a time: mass 5.8 % ~ the +4 % layup-vs-tabular mass offset already known for V-03 (70,721 vs 67,921 kg); EI/GJ/EA offsets ~ OML reference surface and BeamDyn 6x6 vs shell section integration (see s7 E8, `project_gj_oml_reference_surface`); flapwise 23 % is the largest and should be checked against the sectional extractor itself (`postprocess/sectional.py`) before blaming the physics.
+
+**Next steps in order.**
+1. Read the S-4, S-2, V-03, V-05 logs; write the S-4 verdicts per C1-C3 (record es 0.125 numbers, clamp the claim "second arbiter" honestly: OpenFAST MBC3 is a single beam-model arbiter, so at most `regression_pin`/open).
+2. For every red at 5 %: diagnose (units/frame/reference first, AGENTS rule 4), then either fix, or record a physical explanation with an independent source, or mark `rejected`. V-05 K55 rows compare two reference decks (BeamDyn K55 vs ElastoDyn FlpStff) with no shell involved: if they differ > 5 % the explanation is in the decks, say so and decide whether that row belongs to the L3 contract at all (it validates no code).
+3. Update the store rows for G38/39/40/41/42 (bound value, `source` line, justification text) to match the tests; run `validation_matrix.py check`, `contract --level L3 --rows` (slow, ~1.5 min, run it in the background), then `scripts/check.sh quick`. Fix the V-03 comment "~1.5 % at es 0.25" and the S-2 `_BLADES` header with the measured numbers.
+4. Other es 0.5 users, not tests: `tools/run_s5_oneway.py`, `run_s6_oneway_dynamic.py`, `run_s8a_gj_circumferential.py`, `run_sx_campbell.py` (set 0.25 or document as convergence points). `tests/validation/blade/test_iea15mw_s7_torsion.py` has a 0.5 row only as the convergence history (fine).
+5. Then B3-2 for G5, G20, G23, G27, G34 (S-7), and B3-3 special cases, then PRE-4. G21 (L2 single arbiter) still blocks L3 as a level. Still out of scope: P1 execution, GitHub edits, push.
+
+**Traps.** Every command that imports the package goes through `scripts/aeroenv.sh`; the `contract` command takes ~1.5 min (run in background with output to `logs/check/`); the shell tool times out at 15-30 s on some commands, so use `bash_background` for anything heavy; es 0.125 needs `--ntasks=12`.
+
+## B3-2a S-4 RESULT, parked half (2026-10-16; SLURM 11617012 es 0.5/0.25, 11617013 es 0.125; logs `logs/check/s4/`)
+
+11617013 TIMED OUT (1:30 h) after the parked es=0.125 case; the 7.56 rpm es=0.125 case was never run. Resubmitted alone as **11617092** (`tools/s4_modal_convergence.py 0.125 --rpm=7.56`, 12 tasks, 3 h; log `logs/check/s4/es0125-rot-11617092.out`). The `--rpm=` filter is the only tool change; the computation is unchanged.
+
+Parked, criterion C1-C3 applied as written (OpenFAST v5 MBC3 parked 0.544/0.739/1.610 Hz):
+
+| mode | es 0.5 | es 0.25 | es 0.125 | C1 \|f.25-f.125\|/f.125 | err at 0.125 | verdict |
+|---|---|---|---|---|---|---|
+| 1F | 0.535104 | 0.537085 | 0.537561 | 0.09 % | -1.18 % | inside 5 %, ONE arbiter -> `regression_pin`/open (C2) |
+| 1E | 0.699282 | 0.698595 | 0.698760 | 0.02 % | **-5.45 %** | **rejected** (C3); bound stays 5 % |
+| 2F | 1.570719 | 1.585453 | 1.589074 | 0.23 % | -1.30 % | inside 5 %, ONE arbiter -> `regression_pin`/open (C2) |
+
+Rotating es 0.25 (es 0.125 pending): 1F 0.558780 (-1.38 %), 1E 0.704137 (-5.62 %), 2F 1.609045 (-1.72 %). 1E at 7.56 rpm will be `rejected` unless es 0.125 moves it by > 0.6 points, which the parked trend (0.02 %) makes implausible; the verdict waits for the number anyway.
+
+## B3-2 finding (2026-10-16): the two official reference decks disagree by more than 5 % (`tools/v05_deck_consistency.py`, log `logs/check/v05/deck_consistency.txt`)
+
+V-05b (`test_k55_consistent_with_ei_flap`) compares BeamDyn K55 with ElastoDyn FlpStff; no aeroelast code is involved. At es 0.25 / bound 5 % it fails at r/R=0.1 (7.8 %). Diagnosis (units/frame/reference first):
+- The hard-coded ElastoDyn values labelled r/R 0.10/0.50/0.90 are the ElastoDyn rows at BlFract 0.102/0.510/0.898; the BeamDyn values are at eta 0.10/0.50/0.90. The test compares different stations.
+- Compared at the SAME eta, BeamDyn reduced to the elastic centre (Schur complement of K33) and to principal axes (what ElastoDyn tabulates): flap ED/BD-1 is +10 to +24 % over eta 0.03-0.25 and +5 to +13 % over 0.35-0.65; edge is +8 to +18 % over 0.45-0.6 and -20 to -39 % over 0.85-0.95; mass +5 to +9 % over 0.45-0.65, -9 % at 0.95. Mid-span (0.2-0.85R) mean |ED/BD-1|: flap ~8.7 %, edge ~7.4 %.
+- The 0.0/0.5/0.9 rows pass only by station choice. V-05b validates no code and cannot be a 5 % L3 anchor in its current form: the decks themselves differ by up to 24 % (flap) and 39 % (edge). Proposal (maintainer decision): drop V-05b from the L3 contract and keep the deck spread as a recorded reference-uncertainty finding.
+
+Consequence for the other L3 anchors (reference used by each):
+- S-1 compares shell sections against the BeamDyn deck; S-2's beam reference (`tools/beam_reference.py`) takes EI_flap/EI_edge/mass from ElastoDyn and GJ/EA from BeamDyn; S-4's OpenFAST arbiter is ElastoDyn. Any shell-vs-deck comparison carries a reference spread of ~7-9 % mid-span mean (much more locally), above the 5 % ceiling, so the result depends on which deck is chosen as the arbiter.
+- The spread explains only part of S-1 (flap 23 % and edge 10 % vs an ~8.7 / ~7.4 % deck spread): the S-1 extractor diagnosis stays open.
+- S-4 1E -5.45 %: ElastoDyn EdgStff, which drives OpenFAST 1E, is 20-39 % softer than BeamDyn over 0.85-0.95 and 8-18 % stiffer over 0.45-0.6, and the NREL-published 1E (0.6406 Hz) is 13 % below OpenFAST's. The shell (0.6988) lies between the two. This is a candidate cause for the 1E rejection, not a demonstrated one.
+
+S-2 (11617017) at es 0.25 / 5 %: all `official` rows pass; only `LC1_gravity-utd` fails (7.23 %, the disowned UTD input, already documented red). V-03 (11617018): all pass. The green tests print no measured values, so the S-2 `_BLADES` header and the V-03 "~1.5 %" comment cannot be restamped from these logs; that needs `tools/run_s2_static_cases.py --element-size 0.25 --blade-yaml tests/IEA-15-240-RWT.yaml` (its defaults, es 0.5 and the UTD xlsx, are the rule-7 and rule-9 defects). V-03's `_TIP_EDGE_DEFL_MIN/MAX` = 1.2-4.0 m is an order-of-magnitude band with no reference, not a 5 % tolerance: flag it in the store.
+
+**Decisions needed (maintainer):** (a) drop V-05b from L3 or relabel it as an input-consistency record; (b) which deck is the L3 arbiter for sectional stiffness (BeamDyn = SONATA/ANBA from the layup, or ElastoDyn), given that they differ by more than 5 %.
+
+## B3-2 finding (2026-10-16): published blade frequencies are for IEA-15 v1.0, the decks and our yaml are v1.1 (`tools/s4_deck_clamped_beam_modes.py`, log `logs/check/s4/deck_clamped_beam.txt`)
+
+Search for a second S-4 arbiter (C2). Primary source Rinker et al. 2020 (J. Phys. Conf. Ser. 1618 052052, NREL/TP 77106, Table 1, "Blade structural natural frequencies in Hz (0 RPM)", OpenFAST 2.2 / HAWCStab2 2.16a): ED 0.545/0.631/1.618, H2-PTNT 0.538/0.638/1.658, BD 0.517/0.630/1.603, H2-FPM 0.521/0.619/1.559 (1F/1E/2F). The Zhou 2025 Table 3 / Frontiers 2025 (doi 10.3389/fenrg.2025.1571567) Table 2 columns cited by ADJ-1032 are these same 2020-era values plus Lu 2022 / Zhang 2023 3D-FEM.
+
+Hypothesis tested and FALSIFIED: "0.739 Hz is a drivetrain/free-rotor collective edge mode, not a clamped-blade mode". A clamped Euler-Bernoulli beam of the CURRENT decks (flap/edge uncoupled, principal axes, 200 and 400 Hermite elements, identical to 4 digits) gives:
+
+| deck | mass | 1F | 1E | 2F | 2E |
+|---|---|---|---|---|---|
+| ElastoDyn | 68,516 kg | 0.5383 | 0.7293 | 1.6010 | 2.2842 |
+| BeamDyn (elastic centre) | 66,912 kg | 0.5159 | 0.7242 | 1.5633 | 2.2987 |
+
+So 0.739 is the ElastoDyn deck's own clamped physics (EB 0.729, plus ~1.3 % from ElastoDyn's assumed-mode shapes). The 2020 values (1E 0.62-0.64) differ because the blade changed: `ReleaseNotes.md` of the bundled IEA-15 repo (v1.1) records composite-property fixes (blade mass 65 t -> 68 t), the TE reinforcement corrected (PR #48), wrong ElastoDyn mode shapes in v1.0 ("flap and edge modes were both the first bending mode", Issue #37), and in v1.1.4 "Blade elastic properties consistently originate from SONATA/ANBA4".
+
+Consequences (findings, no store write):
+- Every published 2020 blade frequency (NREL/TP-5000-75698, Rinker 2020, and the Zhou/Frontiers tables that copy them) describes the v1.0 blade. None can arbitrate our v1.1 yaml blade at 5 %. That covers the V-02 references (0.555 / 0.6406): the V-02 1F `trusted` and 1E `rejected` verdicts rest on a v1.0 reference and must be re-opened by the maintainer.
+- S-4 1E (shell 0.6988 parked, converged): -5.45 % vs OpenFAST/ElastoDyn, -4.2 % vs the ED clamped EB beam, -3.5 % vs the BeamDyn clamped EB beam. About 1.3 points of the 5.45 % are ElastoDyn's assumed-mode stiffening, not shell error. The in-house EB beam is NOT an independent arbiter (our code, written after the measurement); it only explains the reference. 1E stays `rejected` at 5 % per C3.
+- S-4 1F / 2F parked have no valid second arbiter for v1.1 yet. Admissible candidates: OpenFAST v5 with BeamDyn on the v1.1 deck, or HAWC2/HAWCStab2 on the v1.1 `HAWC2/IEA-15-240-RWT/IEA_15MW_RWT_Blade_st_FPM.st` (bundled). Until then, 1F/2F are `regression_pin`/open (C2).
+
+## B3-2a S-4 RESULT, rotating half (2026-10-16; SLURM 11617092 COMPLETED 2:44:38, es 0.125 at 7.56 rpm; log `logs/check/s4/es0125-rot-11617092.out`)
+
+Criterion C1-C3 applied as written (OpenFAST v5 MBC3 rated 0.5666 / 0.7461 / 1.6372 Hz); es 0.5 / 0.25 values from 11617012.
+
+| mode | es 0.25 | es 0.125 | C1 \|f.25-f.125\|/f.125 | err at 0.125 | verdict |
+|---|---|---|---|---|---|
+| 1F | 0.558780 | 0.559526 | 0.13 % | -1.25 % | inside 5 %, ONE arbiter -> `regression_pin`/open (C2) |
+| 1E | 0.704137 | 0.704597 | 0.07 % | **-5.56 %** | **rejected** (C3); bound stays 5 % |
+| 2F | 1.609045 | 1.614654 | 0.35 % | -1.38 % | inside 5 %, ONE arbiter -> `regression_pin`/open (C2) |
+
+C1 holds for all six frequencies (parked and rated, max 0.35 %). The S-4 anchor therefore reads, converged: 1F and 2F within 1.4 % of OpenFAST, 1E rejected at -5.45 % parked / -5.56 % rated (the test docstring's -4.5 / -5.6 % at es 0.5 were not converged). The 1E rotating-vs-parked shift (+0.8 %, shell) vs OpenFAST (+1.0 %) is consistent, so K_G/K_SP are not the cause; the offset is already present parked. Cause candidates stay as recorded in the two findings above (ElastoDyn EdgStff vs BeamDyn spread, ~1.3 points from ElastoDyn assumed modes, OML reference surface). No new criterion, no widening.
+
+## B3-2 decisions (2026-10-16; maintainer: "vamos con tus recomendaciones"; recorded BEFORE any re-measure)
+
+**(a) V-05b leaves the L3 contract.** `test_k55_consistent_with_ei_flap` compares two reference decks and runs no aeroelast code. Store: the four `k55_*` rows of group 42 removed (265 rows / 370 comparisons, `check` 0 errors); the test name added to the group's `non_validation_tests` with the reason; the test stays in the suite as a non-strict xfail with its 5 % assertion unchanged and a docstring that states what it is (station mismatch 0.102/0.510/0.898 vs 0.10/0.50/0.90; deck spread up to 24 % flap / 39 % edge). The deck spread stays recorded as a reference-uncertainty finding (`tools/v05_deck_consistency.py`). No tolerance was widened.
+
+**(b) Arbiter for sectional stiffness and mass (S-1, S-2 EI/GJ/EA, V-03/V-05 mass): the BeamDyn deck.** Reason, fixed on physics and not on which deck makes a test green: since IEA-15 v1.1.4 the blade elastic properties "consistently originate from SONATA/ANBA4" (bundled `ReleaseNotes.md`), i.e. a full 6x6 cross-section model of the same layup our shell is built from, with bend-twist coupling; ElastoDyn is a reduced, principal-axis tabulation derived from it and carries the assumed-mode and station conventions on top. ElastoDyn stays the arbiter only where OpenFAST's own physics is the object (S-4 modal frequencies, since the OpenFAST MBC3 numbers are ElastoDyn's). Consequences, to be executed as separate steps, each with the same command before and after:
+1. S-2 `tools/beam_reference.py` takes EI_flap/EI_edge/mass from ElastoDyn: re-point to BeamDyn (elastic centre + principal axes, as in `tools/v05_deck_consistency.py`) and report BOTH references side by side; the S-2 official rows pass at 5 % today against the ElastoDyn reference, and a change of arbiter that moved a pass or a fail is reported as a finding, not tuned.
+2. S-1 already compares against BeamDyn; its reds (flap EI 23.16 %, edge 10.18 %, mass 5.78 %, GJ 15.43 %, EA 19.997 %) are NOT explained by the deck spread (~8.7 / 7.4 %). Next: diagnose the sectional extractor (`postprocess/sectional.py`) for units/frame/reference surface before any physics claim (AGENTS rule 4).
+3. S-4 1F/2F second arbiter: OpenFAST v5 + BeamDyn on the v1.1 deck, or HAWCStab2 on the bundled FPM `.st`; until then `regression_pin`/open.
+
+## Handoff 2026-10-16 (end of B3-2 S-4 + decisions (a)/(b); resume at S-1 diagnosis)
+
+Done this session (main, NOT pushed): `48c7c88` S-4 rotating result, `a772f01` group 40 rows/docstring, `c8512e7` V-05b out of L3 + BeamDyn arbiter rule. `validation_matrix check` 265/370/0/0; `check.sh quick` OK at a772f01 (re-run not needed for c8512e7: docs + an xfail mark + store; collect-only OK).
+
+Resume here (one work unit: S-1 diagnosis, no band changes). Leads already in the repo, read before running anything: (1) `tests/test_iea15mw_s1_sectional.py` docstring says the flap EI extraction is "systematically high" because the static tip load has a global direction that mixes flap/edge through the blade twist (a measurement defect, testable: load/curvature along each section's principal axes, or fit the 2x2 bending compliance from two orthogonal loads); (2) the same docstring says the yaml carries both `elastic_properties_mb.six_x_six` (BeamDyn) and `internal_structure_2d_fem` (the layup the shell uses), so shell-vs-BeamDyn differences can be an input disagreement, not a shell error: check by integrating the layup with the same CLT used by the shell and comparing with the 6x6 of the yaml, no FE run needed (cheap); (3) mass +5.8 % vs the known +4 % layup-vs-tabular offset (70,721 vs 67,921 kg). Order: (2) first (cheap, no SLURM), then (1), then (3). Traps unchanged: `scripts/aeroenv.sh`, heavy runs through `sbatch`/`bash_background`, es 0.125 needs `--ntasks=12`. Still open: V-02 reopen (references are v1.0), S-4 second arbiter, G21 single arbiter blocking L3, AGENTS.md S-4 row (1E -4.5 % -> -5.5 %), push.
+
+## B3-2 S-1 diagnosis (2026-10-16; SLURM 11617314, es 0.25, 10 min; tool `tools/s1_midsurface_counterfactual.py`, log `logs/check/s1/midsurface-es025-11617314.out`)
+
+Question: do the five S-1 reds move when the skin reference surface goes from the OML (as built, laminate stacked outward; E8) to the laminate mid-surface? Same mesh constructor, extractors and mid-span window (0.2-0.85 R) as `tests/test_iea15mw_s1_sectional.py`; the OML run reproduces the logged S-1 numbers to the printed digit (fidelity check passed). Nodes of the skin moved inward by the mean half-thickness of their skin elements (25,607 nodes, mean 23.4 mm, max 54.5 mm; TE_FLAT left on the OML, the variant that inverts no element). Solver, laminates and loads unchanged.
+
+| quantity (vs BeamDyn 6x6) | OML as built: mean abs / signed | mid-surface: mean abs / signed | reading |
+|---|---|---|---|
+| EI_flap | 23.16 % / +23.16 % | **5.12 % / +4.65 %** | OML placement explains ~80 % of the flap excess |
+| GJ | 15.43 % / +14.17 % | 8.49 % / **+1.31 %** | bias removed; the remaining 8.5 % is station scatter (sign mixed) |
+| EI_edge | 10.18 % / -9.87 % | 11.12 % / -10.94 % | NOT explained: shell is ~10-11 % softer in edge either way; the inset makes it slightly worse |
+| mass | 5.78 % / +5.66 % | 4.75 % / +4.57 % | placement-independent (as expected); the +4 % layup-vs-table mass offset of the yaml |
+| EA (CLT sum, no FE) | 20.00 % / +20.00 % | 18.61 % / +18.61 % | placement-independent: membrane content of the layup is ~19 % above the 6x6 EA |
+
+Findings (no store verdict entered, no band touched):
+1. Hypothesis from E8 confirmed quantitatively for two of five: shell flap bending and torsion are stiff by ~+23 % / +14 % because the skin sits on the OML; at the mid-surface flap is +4.6 % and GJ +1.3 % (signed). The earlier S-1 docstring attribution ("disagreement between the yaml's own two representations, not a shell error") was wrong for flap and GJ: part of it is the shell's own reference-surface placement.
+2. EA (+19 %), mass (+4.6 %) and edge EI (-11 %) are independent of the OML offset. EA and mass are pure layup integrals (no FE), so they measure the yaml layup against its own 6x6; edge is open. Candidates, untested: ply/material knockdowns or fibre-content differences in the 6x6 tool, adhesive/filler mass in the layup, edge-direction stiffness carried by the TE reinforcement (see the UTD-vs-official TE finding) and ElastoDyn-vs-BeamDyn edge spread (BeamDyn is the arbiter by decision (b)).
+3. The mid-surface mesh is a counterfactual, not the production mesh: adopting it is a mesh-geometry (model) decision that moves every blade anchor (S-2, S-4, V-02, V-03, FSI surface mapping) and is left to the maintainer.
+
+## B3-2 RESULT: mid-surface option, S-1 reference defects, before/after table (2026-10-16; commits 14a7d75, e4177e3, 517a1b0 and the closing commit; SLURM logs `logs/check/skinref/`, `logs/check/layup/`; feature document `odd/tasks/blade-midsurface-reference.md`)
+
+Maintainer approval: "continua con todo tiees mi aprovacion para hacer todo". Default meshes unchanged: `BladeMesh(skin_reference="oml")` stays the default; `"mid"` is opt-in (unit tests `tests/test_blade_skin_reference.py`, 3 passed). `tools/with_skin_reference.py {oml|mid} <script|-m pytest ...>` forces the default for before/after runs without editing a test.
+
+**Two reference/diagnostic defects found and fixed (both in S-1's measuring stick, not in the solver).**
+1. EA(CLT) used `Q11 = E1/(1-nu12^2)`; the reciprocal form `1-nu12*nu21` is the orthotropic one. UD glass +6.7 %. EA mid-span error 20.00 % -> 11.56 % (`tools/run_s1_sectional.laminate_a11`, closed-form tests `tests/test_s1_laminate_a11.py`, e4177e3).
+2. EI was compared with the BeamDyn K44/K55 diagonal, which is about the reference axis and carries EA*d^2 parallel-axis terms. The shell measures about the elastic centre. Reference changed to the elastic-centre principal values (Schur complement of K33 + eigenvalues; `BeamDynBlade.ei_flap_ec/ei_edge_ec`). Mid-span: edge diagonal was +8 % over principal, flap +0.9 %. EI_edge 10.18 % -> 4.20 %.
+
+**S-1 (es 0.25, mid-span mean |rel err| vs BeamDyn, signed in brackets), OML as built -> skin on mid-surface:**
+
+| quantity | OML | mid-surface | note |
+|---|---|---|---|
+| EI_flap | 24.00 % (+24.00) | 5.57 % (+5.38) | OML placement is the cause (E8) |
+| EI_edge | 4.20 % (-2.69) PASS | 4.68 % (-3.83) PASS | was 10.18 % against the wrong reference |
+| mass | 5.78 % (+5.66) | 4.75 % (+4.57) | independent yaml layup integral is +2.76 % above the 6x6; shell +3.6 % above that integral (glass_triax +11.9 kg/m in the mesh): OPEN |
+| GJ | 15.43 % (+14.17) | 8.49 % (+1.31) | bias removed, station scatter remains |
+| EA(CLT) | 11.56 % (+11.56) | 10.27 % (+10.27) | independent yaml reciprocal-CLT integral is +9.58 % above the 6x6 and within 2.4 % of the shell: the excess is inside the yaml |
+
+**S-2 (es 0.25, official blade, tip uy; shell vs beam reference), same command with the skin on OML / mid:**
+
+| case | ElastoDyn-EI reference (historical) | BeamDyn elastic-centre EI (decision (b)) |
+|---|---|---|
+| LC1 gravity | OML +2.93 % / mid 8.93 % | OML +9.46 % / mid -1.60 % |
+| LC2 tip flap | OML -1.63 % / mid 12.87 % | OML -6.54 % / mid +7.23 % |
+| LC4 distributed | OML -4.38 % / mid 9.96 % | OML -11.92 % / mid +1.28 % |
+
+The OML-vs-ElastoDyn pass is two offsets cancelling (shell flap too stiff, ElastoDyn flap +9 % over BeamDyn); the mid-surface shell agrees with the BeamDyn-based beam to 1.3-7.2 %, but LC2 (+7.23 %) is still above 5 % (the Euler-Bernoulli beam has no shear flexibility). No combination closes all three within 5 %.
+
+**S-4 (es 0.25, vs OpenFAST/ElastoDyn MBC3):** mid-surface parked 1F 0.5085 (-6.53 %), 1E 0.6949 (-5.96 %), 2F 1.4778 (-8.21 %); rated 1F -6.11 %, 1E -6.14 %, 2F -8.16 %. Against the BeamDyn-deck clamped EB beam (0.5159/0.7242/1.5633 Hz, an explanation not an arbiter): mid -1.4 / -4.0 / -5.5 %, OML +4.1 / -3.5 / +1.4 %. So the OML 1F/2F "agreement" with ElastoDyn is also error cancellation (stiff shell, heavy shell, ElastoDyn stiff); with the mid-surface placement the shell is below the ElastoDyn reference by 6-8 % and the arbiter question (OpenFAST+BeamDyn on the v1.1 deck) becomes decisive. V-02: mid 1F fails 5 % (+8.96 % vs the v1.0 reference 0.5585, which is not a valid arbiter for v1.1), 1E passes its 10 % bound. V-03: 4 passed on both meshes (mass +4.12 %).
+
+**Disposition.** Mid-surface is NOT adopted as default: it fixes S-1 flap/GJ and brings S-2 toward BeamDyn, but it moves S-4 away from ElastoDyn and every anchor that was green by cancellation turns red. The honest status is that the validation arbiters for L3 (ElastoDyn for dynamics, BeamDyn for statics) disagree with each other by more than 5 % and the shell sits between them; the next evidence needed is OpenFAST v5 with BeamDyn on the v1.1 deck (one arbiter that is self-consistent) for S-4/V-02, before any further mesh decision. No band widened; store rows updated: group 38 (5 rows), 39 (3), 40 (6, earlier), 41 (1), 42 (K55 rows removed earlier).
+
+## Handoff 2026-10-17 (OpenFAST v5 + BeamDyn runs delivered; ANALYSIS is for the next session, maintainer's instruction)
+
+Runs only, feature document `odd/tasks/openfast-beamdyn-modal-arbiter.md` (raw table, paths, rerun recipe), tool `tools/of_bd_blade_modal.py`, decks `tests/IEA15MW/of_bd_modal/`, raw outputs `logs/check/of_bd/` (563 MiB, git-ignored). Binary `/scratch/leahk/eduardo.donestevez/tools/openfast-env/bin/openfast` (v5.0.0, single precision). No store edit, no verdict, no test change was made from these numbers.
+
+Raw (Hz, blade-only, zero pitch, gravity off): ElastoDyn control reproduces the stored S-4 targets (max 0.18 %): parked 0.5432/0.7403/1.6118, 7.56 rpm 0.5666/0.7461/1.6373. BeamDyn parked, 15 / 30 elements: 1F 0.5053 / 0.5023, 1E 0.6946 / 0.6995, 2F 1.4793 / 1.4798, 2E 2.1398 / 2.1459, torsion 4.07 / 4.03. **BeamDyn 7.56 rpm FAILED in all four attempts** (BD_CheckRotMat DBDSQR did not converge at 0.005-0.01 s; loose coupling: GA2 no convergence at 0.027 s): there is no rotating BeamDyn number yet.
+
+For the analysis session, first questions (not conclusions): (1) compare the BeamDyn parked set with the shell numbers already recorded: mid-surface mesh parked 0.5085 / 0.6949 / 1.4778 Hz and OML mesh 0.5371 / 0.6988 / 1.5891 (es 0.125) / 1.585 (0.25); (2) the 15 -> 30 element change is 0.6-0.7 % on 1F/1E, check against the C1 criterion before using it; (3) fix the rotating BeamDyn run (candidate causes to test one at a time: initial-state/rotation-matrix handling at the root with a prescribed rotor speed, time step and gravity off, BeamDyn QuasiStaticInit / rotating-frame inputs); (4) only then decide arbiter status for S-4 1F/2F and V-02, and whether the mid-surface option should become the production blade mesh; (5) still open from before: shell mass +3.6 % above the yaml layup integral (glass_triax +11.9 kg/m in the mesh), V-02 references are v1.0, push.
+
+## PRE-2r L1 refresh after 41e9a16 (2026-10-19)
+
+User verbatim (session of odd/tasks/rotating-local-tip-modes.md, after its Handoff (16) proposed this as the next step): "ok vamos con eso".
+Entry: `contract --level L1` = stale 136, over ceiling 0, single or no arbiter 6, gaps 0. `git log ec3c9f6..HEAD -- <L1 depends_on>`
+returns exactly one commit, 41e9a16 (K_G prestress (A eps + B kappa)/h in mitc3.rs/mitc4.rs/assembler.rs; output stress
+recovery unchanged). No L1 test calls compute_prestress_field / assemble_geometric_k_from_disp (group 12 passes an explicit
+stress field), so the prediction, stated before measuring, is: every L1 comparison `same`. Plan: 3 SLURM jobs, regression
+without --write per group, git shim echoing the measured HEAD; then restamp or record findings.
+
+RESULT (SLURM 11619177 / 11619178 sequana_cpu, 11619179 bigmem; all COMPLETED; revision 74c6b9f via a git shim on the compute
+nodes; `logs/check/l1-refresh/g<N>.json`, batch logs `batch-l1-*`). All 22 L1 groups: 164 comparisons `same`, **0 `changed`**;
+plus 39 `unclaimed` (test functions without a row), 4 `unmapped` (G15/G16 lam=2pi w_tip and rollup_360, the genuine atols
+already `not_measured` at PRE-2) and 3 `declared_non_validation`; these make the tool exit 1, they are not failures. CalculiX
+groups 47/48/51/53/54 ran (values present, no skip). Prediction met, so the 136 L1 verdicts were restamped by target (only
+rows the regression covered; old revisions 252a9b5 35, df7b351 22, ec3c9f6 19, a798c84 15, e0645fd 15, 1ecf076 11, 8cf683c 9,
+ce87317 4, f22dcb5 4, d71c2a7 2) to 74c6b9f; only `audited_rev` changed. After: `contract --level L1` = **CLOSED**, trusted 134,
+regression_pin 2, over ceiling 0, single or no arbiter 0, gaps 0; `check` 265 rows / 370 comparisons, 0 errors, 0 warnings.
+L2 is no longer blocked by L1 but reads stale 70 (next: PRE-3; first find whether 41e9a16 is again the only cause).
+Open, not done: the new K_G anchors (tests/validation/element/test_plate_buckling_analytic.py T7(ii) cross-ply,
+tests/validation/element/test_prestress_centrifugal_analytic.py T8) belong to no store group, so L1 does not yet cover the
+path 41e9a16 changed; registering them is a store change for the maintainer to decide.
+
+## Handoff 2026-10-19 (after PRE-2r) - START HERE: PRE-3 (L2)
+State: branch `feat/rotating-local-tip-modes` pushed to origin (no PR; 93 commits / ~23 k lines since origin/main, earlier
+features stacked on the local main: splitting into reviewable PRs is an open maintainer decision). L1 CLOSED at 74c6b9f
+(PRE-2r above). L2 = open, stale 70, single or no arbiter 6, gaps 1 non-blocking (`composite_stress_recovery`).
+Resume: read this handoff, the PRE-2r section and the PRE-3 task line; `mem_search "l1-refresh-after-41e9a16"`.
+First step (cheap, before the audit itself): `git log --format='%h %s' <each L2 audited_rev>..HEAD -- <L2 depends_on in
+docs/validation/levels.yaml>` to learn whether 41e9a16 is again the only cause; if so, re-measure the L2 groups exactly as
+PRE-2r (logs/check/l1-refresh/regress.sbatch "<groups>", export REV, git shim `$SCRATCH/gitshim-<rev>`; regression exits 1 on
+unclaimed/unmapped, read the JSON), restamp by target only if every comparison is `same`; a `changed` one is a finding.
+Then the PRE-3 audit proper (rows, references, arbiters, atol subset, the composite_stress_recovery gap).
+Maintainer decisions pending: (a) register the new K_G anchors (test_plate_buckling_analytic.py T7(ii) cross-ply,
+test_prestress_centrifugal_analytic.py T8) as L1 store rows so L1 covers the 41e9a16 path; (b) PR split of the branch.
+SLURM: only --ntasks; sequana_cpu 2 / bigmem 3 of my jobs were running at close (phaseVI campaign).
+
+## PRE-3r L2 refresh after 41e9a16 + 43dce4d (2026-10-19)
+
+User verbatim: "leé el "Handoff 2026-10-19 (after PRE-2r)" de odd/tasks/validation-l3-b3-audit.md y hacé  PRE-3".
+Entry: `contract --level L2` = stale 70, over ceiling 0, single or no arbiter 6, gaps 0 blocking / 1 (`composite_stress_recovery`,
+bounded); log `logs/check/l2-refresh/contract-before.log`. Cause, measured: every one of the 70 reads "stale by: 41e9a16 43dce4d".
+41e9a16 is NOT on the L2 `depends_on`; it reaches L2 through L1's `depends_on` (a level inherits every required level's
+dependencies, `tools/validation_matrix.py:4246`). 43dce4d is on L2's own `src/aeroelast/core/assembler.py`: isotropic
+`_rho_per_elem` becomes rho*t, read only by `assemble_centrifugal_load` (and the centrifugal K_G path). No L2 row test file names
+geometric stiffness, prestress, buckling, centrifugal load or `assemble_kt` (grep over the 14 row files). Prediction, stated
+before measuring: every L2 comparison `same`. Plan: 3 SLURM jobs (11619192 dev "4 6 7 8 9", 11619193 "17 18 21 24", 11619194
+"26 36 43 55", G43 with `--scope tests/test_iea15mw_s3_newmark_transient.py`), regression without --write, git shim echoing
+a399141; restamp by target only if all `same`.
+
+RESULT (SLURM 11619192 dev 38 s, 11619193 53 s, 11619194 4 min 51 s, all COMPLETED; revision a399141 via git shim; JSON
+`logs/check/l2-refresh/g<N>.json`, batch logs `batch-l2-refresh-*`). All 13 L2 groups: **109 comparisons `same`, 0 `changed`**,
+plus 31 `declared_non_validation` (not failures); every group exited 0. Values are live runs, not cache (e.g. G9 prints the CCX
+S4 tip deflection 0.0113584 vs EB 0.0114286). Prediction met. The 70 stale targets all had measured comparisons, all `same`;
+restamped by target to a399141 (old a4baf6e 69, 322d966 1), only `audited_rev` changed. After (`contract-after.log`):
+`contract --level L2` = trusted 64, regression_pin 4, unarbitrated 2, **0 stale**, over ceiling 0, single or no arbiter 2,
+gaps 0 blocking / 1; `check` 265 rows / 370 comparisons, 0 errors, 0 warnings. Same state as the 2026-10-16 PRE-3 close.
+Audit items re-checked, unchanged: L2 `atol` subset = the two G24 `B = 0` comparisons (classified 2026-10-15, |B| ~1e-10 at
+round-off vs 1e-6 bound); `composite_stress_recovery` bounded, limits (a)/(b) closed 2026-10-15; paired convergence evidence per
+CalculiX comparison is in the 2026-10-15 addenda and its tools are verdict `files` (none touched). L2 stays `open` only on
+G21 (2 rows, single produced-numerical arbiter; no second independent arbiter exists, see "Continuation: L2 freshness
+restored"). Not a procedural item: closing it needs a new independent arbiter or a maintainer decision. No solver/Rust change.
+
+## G21 closed form (2026-10-19; maintainer: "ok" to the proposal)
+
+Question (user verbatim): "y no tenemos arbitro analitico para G21?". Finding: yes. The 2026-10-15 note "the hand-CLT reference
+was the original problem" misread the docstring of test_laminate_bend_twist_3d.py: what H6 refuted was that CLT/FSDT is
+insufficient; what failed was the issue-#9 formula (missing 1/b and kappa/2). The corrected free-edge CLT tip-force closed form
+`tip_force_free_edge_reference` (theta(L) = (D^-1)[2,0] P L^2 / (4 b)), already G26's trusted analytical arbiter for the shell,
+applies to the same strip, load, clamp and twist_lsq metric. New test `test_3d_and_shell_match_the_free_edge_closed_form`
+(5 % physics ceiling, not fitted; no meaningful RED: it pins an existing agreement), row added by `extract --write` (diff: only
+the new row), measured by `regression --group 21 --write` at 17ef8ad: 3D 16x10 -2.5137 %, shell 16x96 -2.7222 %; the two old
+comparisons `same` (0.2143 %). 3D sequence vs the closed form 6x4/10x6/16x10: -1.31/-2.24/-2.51 % (about -2.6 % extrapolated),
+converging toward the shell, away from the first-order closed form. Caveats recorded in the verdicts: the closed form is exact
+for a constant moment and first order for a tip force (its model residual is the shared ~2.5-2.7 %, not separately quantified),
+and as CLT it arbitrates the observable, not the H6 question. The two old G21 verdicts gain the analytical arbiter and their
+note is corrected. Result: `contract --level L2` = **CLOSED** (trusted 67, regression_pin 4, single or no arbiter 0, 0 stale,
+gaps 0 blocking / 1 bounded); `check` 266 rows / 372 comparisons, 0 errors; `scripts/check.sh quick` 75 passed, 1 xfailed.
+
+## Handoff 2026-10-19 (after PRE-3) - next: B3 (L3)
+L1 CLOSED (74c6b9f), L2 CLOSED (G21 at 17ef8ad, rest at a399141). L3 now reads: undecided 1, stale 2, unaudited 33, absent 3,
+over ceiling 3, single or no arbiter 34, gaps 1 blocking. Next: B3-1..B3-3, then PRE-4.
+Pending maintainer decisions: (a) register the K_G anchors (T7(ii), T8) as L1 rows; (b) PR split of the branch (~23.6 k lines).
+Trap: any commit to assembler.py / L1 depends_on restales L2 (L2 inherits L1's depends_on); re-measure with
+logs/check/l2-refresh/regress.sbatch "<groups>" (REV exported, git shim).
+
+## REG-1 + DELIVERY (2026-10-19, maintainer decisions)
+User verbatim: "1- si registra todo como filas. 2- un solo PR, para TODO lo que no este mergeado, y mesclalo" (answer to the two
+pending decisions: (a) register the K_G anchors as rows, (b) PR split).
+- [x] **REG-1** DONE 2026-10-19 (e7c5059 instrumentation, then the verdict commit): groups 56/57 (L1) and 58 (L2), 23 rows / 27 comparisons, 24 measured at e7c5059; 21 trusted (19 physics, 2 identity), 1 rejected, 1 unaudited. L1 REOPENED by the sandwich plate-buckling anchor (24.44 % vs 0.5 % against Navier FSDT with energy-equivalent shear: composite section transverse-shear input finding of 968d20d; m1 rejected, m2 unaudited because an earlier assertion fails before its residual prints); L2 open only as blocked by L1. G58 parked-mode and Southwell rows adjudicated analytical by the parent (exact 1D ODE eigenvalue, Ritz converged to 1e-6, G26 precedent). Original text: Register as store rows the 3 validation files `validation_matrix.py status` reports "neither grouped nor declared":
+  tests/validation/element/test_plate_buckling_analytic.py and tests/validation/element/test_prestress_centrifugal_analytic.py
+  (K_G anchors of 41e9a16 -> L1), tests/validation/benchmarks/test_analytic_beam_closed_section.py (43dce4d thin-walled box closed
+  forms -> L2 scope "thin-walled sections against closed forms"). New groups, rows extracted, measured with `regression --write`,
+  verdicts only where an independent analytical arbiter is in the test; any unsupported row is reported, never forced trusted.
+- [ ] **DELIVERY** One PR feat/rotating-local-tip-modes -> main (everything unmerged: local main is contained in the branch, all
+  other remote branches are already in origin/main), full-suite measurement first (the branch touches crates/), then merge.
+
+REG-1 result checks (2026-10-19): `check` 289 rows / 399 comparisons, 0 errors; `status` 0 ungrouped validation files;
+`contract --level L1` open (trusted 143+, regression_pin 2, rejected 1, unaudited 1 - both sandwich); `--level L2` open, blocked
+by L1 only. Also fixed: 5 `references check` errors (citation sites moved by 5a9fe64 / 43dce4d), which failed the PR's `store` CI job.
+Next for L1: fix the composite section transverse-shear input the sandwich anchor exposes (968d20d), then re-measure G56.

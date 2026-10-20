@@ -5,6 +5,7 @@ from numpy import ndarray
 
 from aeroelast.models.blade.numad.objects.bom import BillOfMaterials
 from aeroelast.models.blade.numad.objects.keypoints import KeyPoints
+from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
 
 
 class StackDatabase:
@@ -35,7 +36,7 @@ class StackDatabase:
                 return False
         return True
 
-    def generate(self, keypoints: KeyPoints, bom: BillOfMaterials):
+    def generate(self, keypoints: KeyPoints, bom: BillOfMaterials, definition=None):
         # build the material stack for each area
         if (
             keypoints.key_areas is None
@@ -136,6 +137,78 @@ class StackDatabase:
                 for k_stat in range(ind[0], ind[1]):
                     self.swstacks[k_web, k_stat].addply(deepcopy(cur_ply))
 
+        if definition is not None and any(
+            c.continuous_layers for c in definition.components.values()
+        ):
+            self._map_continuous_layers(definition, keypoints)
+
+    def _map_continuous_layers(self, definition, keypoints):
+        """Map WindIO laminates without converting thickness to integer stock plies.
+
+        Keep the existing NuMAD region topology. Integrate thickness across
+        each span bay (two-point Gauss is exact for linear/cubic interpolation),
+        rather than holding the inboard value over a thinning bay. Evaluate
+        skin ND bounds at the bay midpoint. At a boundary, use the arc-overlap fraction of
+        the region: this is a conservative, region-averaged laminate, NOT a
+        new geometric edge. Thickness is unchanged in fully covered regions.
+        The YAML skin bounds are symmetric about 0.5; reject asymmetric ones
+        rather than silently guessing the WindIO/NuMAD side correspondence.
+        Excel components never enter this path.
+        """
+        span = definition.ispan
+        eta = (span-span[0])/(span[-1]-span[0])
+        mid = .5*(eta[:-1]+eta[1:])
+        offset = .5*np.diff(eta)/np.sqrt(3.)
+        for stack in self.stacks.flat:
+            stack.plygroups = []
+        for stack in self.swstacks.flat:
+            stack.plygroups = []
+        for component in definition.components.values():
+            if not component.continuous_layers:
+                raise ValueError("Cannot mix continuous WindIO and integer-ply components")
+            counts = .5*(np.maximum(component.get_num_layers(mid-offset), 0.)
+                         + np.maximum(component.get_num_layers(mid+offset), 0.))
+            material = definition.materials[component.materialid]
+            if component.group:
+                regions = [(self.swstacks[component.group-1], None)]
+            else:
+                hp, lp = component.find_region_extents()
+                regions = [(self.stacks[j], j) for region in (hp, lp) if region
+                           for j in range(*region)]
+            start = np.zeros_like(mid)
+            end = np.ones_like(mid)
+            if component.nd_arc_start is not None and component.nd_arc_end is not None:
+                start = interpolator_wrap(component.nd_arc_start["grid"],
+                                          component.nd_arc_start["values"], mid, "pchip")
+                end = interpolator_wrap(component.nd_arc_end["grid"],
+                                        component.nd_arc_end["values"], mid, "pchip")
+                if not np.allclose(start+end, 1., rtol=0., atol=1e-12):
+                    raise ValueError("Asymmetric WindIO skin ND bounds are not supported")
+                if np.any(start < 0.) or np.any(end > 1.) or np.any(start > end):
+                    raise ValueError("Invalid WindIO skin ND bounds")
+            for stacks, segment in regions:
+                for station, stack in enumerate(stacks):
+                    fraction = 1.
+                    if segment is not None:
+                        arcs = keypoints.key_arcs[:, station]
+                        perimeter = arcs[-1]-arcs[0]
+                        a, b = (arcs[segment:segment+2]-arcs[0])/perimeter
+                        if b <= a:
+                            # A sharp TE has coincident key arcs before TE expansion.
+                            fraction = float(start[station] <= a <= end[station])
+                        else:
+                            fraction = max(0., min(b, end[station])-max(a, start[station]))/(b-a)
+                    count = counts[station]*fraction
+                    if count <= 0.:
+                        continue
+                    ply = Ply()
+                    ply.component = component.name
+                    ply.materialid = component.materialid
+                    ply.thickness = material.layerthickness
+                    ply.angle = 0  # Preserve NuMAD's existing orientation convention.
+                    ply.nPlies = float(count)
+                    stack.addply(ply)
+
 
 class Stack:
     """A class definition for a stack of composite layers.
@@ -192,7 +265,7 @@ class Stack:
             and ply.component == plygroups[-1].component
             and ply.angle == plygroups[-1].angle
         ):
-            plygroups[-1].nPlies += 1
+            plygroups[-1].nPlies += ply.nPlies
         else:
             plygroups.append(ply)
 
@@ -213,8 +286,8 @@ class Ply:
         thickness of single ply (mm)
     angle : float
         ply angle
-    nPlies : int
-        number of plies
+    nPlies : float
+        number of plies (fractional for continuous WindIO laminate thickness)
     """
 
     def __init__(self):
@@ -222,7 +295,7 @@ class Ply:
         self.materialid: str | None = None
         self.thickness: float | None = None
         self.angle: float | None = None
-        self.nPlies: int | None = None
+        self.nPlies: float | None = None
 
     def __eq__(self, other):
         attrs = vars(self).keys()

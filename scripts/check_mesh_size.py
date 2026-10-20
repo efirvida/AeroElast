@@ -11,9 +11,15 @@ A line of the registry is ``path  v1,v2  category  # note``. A file may carry th
 and no other >= THRESHOLD value. The registry is debt, not permission: new entries need the reason
 in ``docs/blade_mesh_size_rule.md``. A listed file that no longer has a coarse value is reported
 as cleared so the entry can be deleted.
+
+On a node without ``git`` (SLURM compute nodes) the file list comes from the snapshot that
+``scripts/check_sbatch.sh`` writes on the login node (``$CHECK_GIT_SNAPSHOT/tracked``); with
+neither, the script exits 2 rather than give a verdict. ``CHECK_GIT`` names the git executable.
 """
 
+import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -26,9 +32,19 @@ PATTERN = re.compile(r"\b(?:element_size|elem_size)\b\s*[=:]\s*([0-9]*\.?[0-9]+)
 
 
 def tracked_files() -> list[str]:
-    out = subprocess.check_output(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard",
-         "tests", "tools", "src", "scripts"], cwd=ROOT, text=True)
+    git = shutil.which(os.environ.get("CHECK_GIT", "git"))
+    snapshot = os.environ.get("CHECK_GIT_SNAPSHOT")
+    if git:
+        out = subprocess.check_output(
+            [git, "ls-files", "--cached", "--others", "--exclude-standard",
+             "tests", "tools", "src", "scripts"], cwd=ROOT, text=True)
+    elif snapshot and (Path(snapshot) / "tracked").is_file():
+        out = (Path(snapshot) / "tracked").read_text()
+    else:
+        print("mesh-size: ERROR - git is not on PATH and CHECK_GIT_SNAPSHOT names no snapshot "
+              "with a 'tracked' file; on a compute node submit with scripts/check_sbatch.sh",
+              file=sys.stderr)
+        sys.exit(2)
     return [f for f in out.split() if f.endswith(SUFFIXES) and f != "scripts/check_mesh_size.py"]
 
 

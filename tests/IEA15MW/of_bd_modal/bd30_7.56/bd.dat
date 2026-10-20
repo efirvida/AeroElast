@@ -1,0 +1,129 @@
+--------- BEAMDYN with OpenFAST INPUT FILE -------------------------------------------
+IEA 15 MW Offshore Reference Turbine
+---------------------- SIMULATION CONTROL --------------------------------------
+False          Echo            - Echo input data to "<RootName>.ech" (flag)
+True          QuasiStaticInit - Use quasistatic pre-conditioning with centripetal accelerations in initialization (flag) [dynamic solve only]
+ 0            rhoinf          - Numerical damping parameter for generalized-alpha integrator
+1            quadrature      - Quadrature method: 1=Gaussian; 2=Trapezoidal (switch)
+ 2            refine          - Refinement factor for trapezoidal quadrature (-) [DEFAULT = 1; used only when quadrature=2]
+"DEFAULT"     n_fact          - Factorization frequency for the Jacobian in N-R iteration(-) [DEFAULT = 5]
+"DEFAULT"     DTBeam          - Time step size (s)
+"DEFAULT"     load_retries    - Number of factored load retries before quitting the simulation [DEFAULT = 20]
+"DEFAULT"     NRMax           - Max number of iterations in Newton-Raphson algorithm (-) [DEFAULT = 10]
+"DEFAULT"     stop_tol        - Tolerance for stopping criterion (-) [DEFAULT = 1E-5]
+"DEFAULT"     tngt_stf_fd     - Use finite differenced tangent stiffness matrix? (flag)
+"DEFAULT"     tngt_stf_comp   - Compare analytical finite differenced tangent stiffness matrix? (flag)
+"DEFAULT"     tngt_stf_pert   - Perturbation size for finite differencing (-) [DEFAULT = 1E-6]
+"DEFAULT"     tngt_stf_difftol- Maximum allowable relative difference between analytical and fd tangent stiffness (-); [DEFAULT = 0.1]
+True          RotStates       - Orient states in the rotating frame during linearization? (flag) [used only when linearizing]
+---------------------- GEOMETRY PARAMETER --------------------------------------
+30   member_total    - Total number of members (-)
+61   kp_total        - Total number of key points (-) [must be at least 3]
+1 3
+2 3
+3 3
+4 3
+5 3
+6 3
+7 3
+8 3
+9 3
+10 3
+11 3
+12 3
+13 3
+14 3
+15 3
+16 3
+17 3
+18 3
+19 3
+20 3
+21 3
+22 3
+23 3
+24 3
+25 3
+26 3
+27 3
+28 3
+29 3
+30 3
+kp_xr kp_yr kp_zr initial_twist
+(m) (m) (m) (deg)
+0.000000000000e+00 0.000000000000e+00 0.000000000000e+00 1.559460000000e+01
+1.460467093844e-02 0.000000000000e+00 1.950000000000e+00 1.559691909955e+01
+3.281332582046e-02 0.000000000000e+00 3.900000000000e+00 1.550561930019e+01
+5.475048194917e-02 0.000000000000e+00 5.850000000000e+00 1.523689164217e+01
+7.970293497136e-02 0.000000000000e+00 7.800000000000e+00 1.478394429805e+01
+1.063798604607e-01 0.000000000000e+00 9.750000000000e+00 1.419255182607e+01
+1.337099000010e-01 0.000000000000e+00 1.170000000000e+01 1.348938300566e+01
+1.606056320656e-01 0.000000000000e+00 1.365000000000e+01 1.270619973829e+01
+1.858515343658e-01 0.000000000000e+00 1.560000000000e+01 1.187683879924e+01
+2.083343716466e-01 0.000000000000e+00 1.755000000000e+01 1.103328547085e+01
+2.270758796728e-01 0.000000000000e+00 1.950000000000e+01 1.020428420745e+01
+2.408522881247e-01 0.000000000000e+00 2.145000000000e+01 9.419314290078e+00
+2.483123172087e-01 0.000000000000e+00 2.340000000000e+01 8.710964490997e+00
+2.503749781956e-01 0.000000000000e+00 2.535000000000e+01 8.095013013485e+00
+2.500256548346e-01 0.000000000000e+00 2.730000000000e+01 7.551190568108e+00
+2.490451596113e-01 0.000000000000e+00 2.925000000000e+01 7.031569452898e+00
+2.474131081973e-01 0.000000000000e+00 3.120000000000e+01 6.509491440285e+00
+2.451746595420e-01 0.000000000000e+00 3.315000000000e+01 6.004556497280e+00
+2.424751340515e-01 0.000000000000e+00 3.510000000000e+01 5.519022279621e+00
+2.391341865299e-01 0.000000000000e+00 3.705000000000e+01 5.056375895300e+00
+2.355405138911e-01 0.000000000000e+00 3.900000000000e+01 4.624037574606e+00
+2.316545017729e-01 0.000000000000e+00 4.095000000000e+01 4.225947728627e+00
+2.256481255791e-01 0.000000000000e+00 4.290000000000e+01 3.861127469480e+00
+2.147945837996e-01 0.000000000000e+00 4.485000000000e+01 3.529012798270e+00
+1.982147434035e-01 0.000000000000e+00 4.680000000000e+01 3.220989695524e+00
+1.723052998758e-01 0.000000000000e+00 4.875000000000e+01 2.931040138508e+00
+1.373369019130e-01 0.000000000000e+00 5.070000000000e+01 2.656663560817e+00
+9.647616017312e-02 0.000000000000e+00 5.265000000000e+01 2.396726586931e+00
+4.926380662732e-02 0.000000000000e+00 5.460000000000e+01 2.150679196838e+00
+-1.853809076760e-03 0.000000000000e+00 5.655000000000e+01 1.916482389500e+00
+-5.526537164920e-02 0.000000000000e+00 5.850000000000e+01 1.692039068306e+00
+-1.104238892017e-01 0.000000000000e+00 6.045000000000e+01 1.475938365377e+00
+-1.688397177617e-01 0.000000000000e+00 6.240000000000e+01 1.269603617960e+00
+-2.348402204530e-01 0.000000000000e+00 6.435000000000e+01 1.075905270101e+00
+-3.125655398760e-01 0.000000000000e+00 6.630000000000e+01 8.935892317040e-01
+-3.996187742521e-01 0.000000000000e+00 6.825000000000e+01 7.214506228655e-01
+-4.941314288703e-01 0.000000000000e+00 7.020000000000e+01 5.562207134248e-01
+-5.954375545513e-01 0.000000000000e+00 7.215000000000e+01 3.942100700434e-01
+-7.019344243196e-01 0.000000000000e+00 7.410000000000e+01 2.330761282752e-01
+-8.114681934887e-01 0.000000000000e+00 7.605000000000e+01 7.023740069461e-02
+-9.238088032512e-01 0.000000000000e+00 7.800000000000e+01 -1.001087853443e-01
+-1.036802132435e+00 0.000000000000e+00 7.995000000000e+01 -2.824416814419e-01
+-1.151956630085e+00 0.000000000000e+00 8.190000000000e+01 -4.840116146966e-01
+-1.272781573915e+00 0.000000000000e+00 8.385000000000e+01 -7.157798203635e-01
+-1.399737161665e+00 0.000000000000e+00 8.580000000000e+01 -9.775273881050e-01
+-1.531861104920e+00 0.000000000000e+00 8.775000000000e+01 -1.241264834075e+00
+-1.668938214734e+00 0.000000000000e+00 8.970000000000e+01 -1.496102025709e+00
+-1.810353523210e+00 0.000000000000e+00 9.165000000000e+01 -1.728506114249e+00
+-1.955207846510e+00 0.000000000000e+00 9.360000000000e+01 -1.931696879094e+00
+-2.103142466195e+00 0.000000000000e+00 9.555000000000e+01 -2.088559582492e+00
+-2.254305299928e+00 0.000000000000e+00 9.750000000000e+01 -2.157641413394e+00
+-2.408348556344e+00 0.000000000000e+00 9.945000000000e+01 -2.176026806314e+00
+-2.567062384305e+00 0.000000000000e+00 1.014000000000e+02 -2.170014349777e+00
+-2.730660885121e+00 0.000000000000e+00 1.033500000000e+02 -2.143736701805e+00
+-2.898731414581e+00 0.000000000000e+00 1.053000000000e+02 -2.095903047084e+00
+-3.072158940305e+00 0.000000000000e+00 1.072500000000e+02 -2.026690068889e+00
+-3.249531024331e+00 0.000000000000e+00 1.092000000000e+02 -1.933858702723e+00
+-3.431667171825e+00 0.000000000000e+00 1.111500000000e+02 -1.807854565750e+00
+-3.617469711133e+00 0.000000000000e+00 1.131000000000e+02 -1.650084345772e+00
+-3.806261566300e+00 0.000000000000e+00 1.150500000000e+02 -1.463420786970e+00
+-4.000000000000e+00 0.000000000000e+00 1.170000000000e+02 -1.242390000000e+00
+---------------------- MESH PARAMETER ------------------------------------------
+4   order_elem     - Order of interpolation (basis) function (-)
+---------------------- MATERIAL PARAMETER --------------------------------------
+"/scratch/leahk/eduardo.donestevez/fem-shell/tests/IEA15MW/of_bd_modal/bd_blade.dat"    BldFile - Name of file containing properties for blade (quoted string)
+---------------------- OUTPUTS -------------------------------------------------
+False          SumPrint       - Print summary data to "<RootName>.sum" (flag)
+"ES10.3E2"     OutFmt         - Format used for text tabular output, excluding the time channel.
+          0    NNodeOuts      - Number of nodes to output to file [0 - 9] (-)
+          0    OutNd          - Nodes whose values will be output  (-)
+          OutList            - The next line(s) contains a list of output parameters. See OutListParameters.xlsx for a listing of available output channels, (-)
+END of input file (the word "END" must appear in the first 3 columns of this last OutList line)
+====== Outputs for all blade stations (same ending as above for B1N1.... =========================== (optional section)
+   "All"          BldNd_BlOutNd       - Future feature will allow selecting a portion of the nodes to output.  Not implemented yet. (-)
+                  OutList             - The next line(s) contains a list of output parameters.  See OutListParameters.xlsx for a listing of available output channels, (-)
+END of input file (the word "END" must appear in the first 3 columns of this last OutList line)

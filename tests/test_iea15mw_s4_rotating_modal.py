@@ -1,7 +1,8 @@
 """S-4 — IEA 15 MW blade: rotating modal (K + K_G + K_SP) vs OpenFAST targets.
 
 Computes the root-clamped rotating-frame modal of the official WindIO blade
-(tests/IEA-15-240-RWT.yaml, MITC3 shell, element_size 0.5, consistent mass)
+(tests/IEA-15-240-RWT.yaml, MITC4 shell with a few MITC3 (oml: 33721 quads, 92 triangles),
+element_size 0.25, consistent mass)
 at the rated rotor speed (7.56 rpm, rotation axis +y, span +z) with:
 
   K_eff = K + K_G + K_SP
@@ -9,8 +10,12 @@ at the rated rotor speed (7.56 rpm, rotation axis +y, span +z) with:
           (K u = f_cf, root-clamped; membrane stresses recovered from u)
   K_SP  = spin softening -w^2 m_i (I - n n^T) on translational DOFs
 
-Modes are classified by the tip-node translation direction: flap = u_y
-(out-of-plane, chord lies along x in the rotor plane), edge = u_x.
+Modes are classified by projecting the whole mode on beam kinematics (rigid cross-sections
+per span bin, ``classify_modes``): flap = u_y (out-of-plane, chord lies along x in the rotor
+plane), edge = u_x; a mode the projection explains below 60 % is "local" and never enters a
+family. Until 2026-10-18 the label came from the single tip node, which took a local mode
+(oml, es 0.25, 7.56 rpm, 1.5325 Hz, beam fraction 0.15) as 2nd flap
+(odd/tasks/s4-mode-classifier.md).
 
 Reference targets: OpenFAST v5.0.0, ElastoDyn beam model, blade DOFs only
 (no aero, no tower/platform DOFs), MBC3 rotating frame, collective members
@@ -21,10 +26,23 @@ Reference targets: OpenFAST v5.0.0, ElastoDyn beam model, blade DOFs only
   1st edge    0.739 Hz            0.7461 Hz
   2nd flap    1.610 Hz            1.6372 Hz
 
-Measured agreement (2026-09-09, this test):
+Measured agreement (2026-10-18, mid-surface skin, es 0.25, tools/diagnose_mode_beam_projection.py,
+SLURM 11618419; error vs OpenFAST). The beam-projection labels pick the same three modes the
+tip-node labels picked on this mesh, so the numbers did not move with the classifier:
 
-  rotating:  1F +0.6% | 1E -4.5% | 2F -1.5%
-  parked:    1F -1.5% | 1E -5.6% | 2F -2.3%
+  rotating:  1F -3.40 | 1E -6.09 | 2F -6.13 %     (es 0.125: -3.48 | -6.10 | -6.46 %, T12)
+  parked:    1F -3.56 | 1E -5.94 | 2F -6.34 %
+
+After the K_G prestress fix 41e9a16 ((A eps + B kappa)/h; SLURM 11619165, mid es 0.25) the
+rotating row reads 1F -3.41 | 1E -6.10 | 2F -6.37 % (2F moved -0.25 % in frequency, the rest
+< 0.02 %); parked is unchanged by construction (no K_G at 0 rpm); the es 0.125 values are
+pre-fix. The rotating-only tip local modes (2.17-3.61 Hz) are gone with the fix
+(odd/tasks/rotating-local-tip-modes.md L39).
+
+1E and 2F exceed the 5 % bound at both rotor speeds and are converged, so the test is red by
+design: ElastoDyn and BeamDyn differ 6-8 % on this blade and both pass analytic uniform beams,
+so the gap sits in the reference decks; documented, bound not widened
+(docs/validation_closures.md, "Superficie media en las anclas de pala").
 
 Marks: slow (blade mesh generation + static solve + modal solve).
 """
@@ -55,10 +73,10 @@ _OF_TARGETS = {
     "rotating": {"1st flap": 0.5666, "1st edge": 0.7461, "2nd flap": 1.6372},
 }
 
-REL_TOL = 0.08
+REL_TOL = 0.05
 
 
-def _build_assembly(element_size=0.5):
+def _build_assembly(element_size=0.25):
     from aeroelast.core.assembler import MeshAssembler
     from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.elements import ElementFamily
@@ -67,6 +85,7 @@ def _build_assembly(element_size=0.5):
     gen = BladeMesh(
         element_size=element_size,
         yaml_file=str(REPO_ROOT / "tests/IEA-15-240-RWT.yaml"),
+        skin_reference="mid",  # blade skin on the mid-surface (odd/tasks/beamdyn-arbiter-midsurface.md, T4)
     )
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)
