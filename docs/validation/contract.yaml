@@ -1858,6 +1858,206 @@ verdicts:
     note: >-
       Pinned as a software guard, with no independent reference: the asserted metric is the relative norm of K(4 isotropic plies) - K(one isotropic layer), two builds of our own model, so it does not map onto the closed form. The closed form was checked on the laminate side only (create_laminate_from_angles, E 70e9, nu 0.3, h 0.01, 4 plies): A11, A12, A66 and D11, D12, D66 match E h/(1-nu^2) and E h^3/(12(1-nu^2)) (with nu and (1-nu)/2 factors) to 2e-16, and B = 0 exactly. Measured K difference 0.0 against the unchanged 1e-4 bound. Counts toward no level.
 
+# --- REG-1, 2026-10-19: plate K_G, centrifugal recovery and closed-section beam; e7c5059 ---
+  - target: plate_buckling_analytic.test_mitc4_square_plate_converges_to_4pi.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Timoshenko and Gere, Theory of Elastic Stability, 2nd ed., section 9.2: Kirchhoff SS square plate N_cr = 4 pi^2 D/b^2"}
+    note: >-
+      Independent plate closed form, qualified against the tabulated coefficient and an independent FD PDE solve. Richardson 0.0445 % against 0.3 %; 32x32 0.0876 % against 1 %. Monotone 8/16/32 refinement and observed second order are asserted.
+  - target: plate_buckling_analytic.test_mitc4_rectangular_plate_picks_two_h.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Timoshenko and Gere section 9.2: Kirchhoff SS plate N_cr = min_m (m b/a + a/(m b))^2 pi^2 D/b^2"}
+    note: >-
+      At a/b=1.5 the independent minimum selects two half-waves. Measured 0.1196 % against 1 % at 48x32; both half-wave counts and eigensolve residual are asserted.
+  - target: plate_buckling_analytic.test_mitc4_sandwich_plate_m1_converges_t.single
+    class: physics
+    verdict: rejected
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "SS sandwich Navier FSDT: N_cr = min_m D K^4/[kx^2 (1 + D K^2/S)], with independently integrated energy-equivalent S"}
+    note: >-
+      Documented T7(iii)/L17 FSDT shear-input finding: MITC4 consumes uncorrected A55 rather than the sandwich energy-equivalent S. Richardson error 24.4392 % against 0.5 % (documented focused-run evidence); 32x32 diagnostic error 24.6027 % against 1 %. Bounds and strict xfail are unchanged, never trusted. Regression at e7c5059 reports unmapped (one printed helper residual for two comparisons): the first failure prevents the second helper. Both stored measurements deliberately remain not_measured; no partial output was assigned to a comparison.
+  - target: plate_buckling_analytic.test_mitc4_cross_ply_square_plate_x_load.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Whitney (1987) / Jones (1999), specially orthotropic SS plate buckling: min_m pi^2/b^2 [D11 r^2 + 2(D12+2D66) + D22/r^2], independent hand-CLT D"}
+    note: >-
+      Independent orthotropic Kirchhoff formula qualified by limits and FD PDE checks; shear-negligibility is asserted. Richardson 0.0326 % against 0.3 %, 32x32 0.1176 % against 1 %, with monotone second-order refinement.
+  - target: plate_buckling_analytic.test_mitc4_cross_ply_square_plate_y_load.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Whitney (1987) / Jones (1999), specially orthotropic SS plate buckling closed form with D11/D22 exchanged for y loading"}
+    note: >-
+      Measured 0.1484 % against 1 % on 48x48; the independent minimum and FE mode both select two half-waves along y. Same hand-CLT reference and shear-negligibility controls as the x case.
+  - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.isotropic
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Exact nu=0 rotating strip equilibrium: sigma_x(x) = m omega^2 (R^2-x^2)/(2h), sigma_y = tau_xy = 0"}
+    note: >-
+      Independent statically determinate plane-elasticity solution, not production stress recovery. Root-normalized 40-element error prints 0.0104 % against the exact 0.010416677083333334 % bound; strict assertion passes. The bound is derived from midpoint loading, not fitted. Discrete identity and second-order 20/40 error-ratio guards are retained.
+  - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.symmetric
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Exact nu=0 rotating strip equilibrium: sigma_x(x) = m omega^2 (R^2-x^2)/(2h), independent of symmetric layup stiffness"}
+    note: >-
+      Root-normalized finest error 0.0104 % against 0.010416677083333334 %. Exact equilibrium fixes the resultant independently of the laminate constitutive implementation; source assertion passes with the original discretization-derived bound and second-order convergence check.
+  - target: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.unsymmetric
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    arbiters:
+      - {kind: analytical, label: "Exact nu=0 rotating strip equilibrium: N_x = m omega^2 (R^2-x^2)/2 and M_x=0, including unsymmetric-laminate B-kappa recovery"}
+    note: >-
+      Root-normalized finest error 0.0104 % against 0.010416677083333334 %. Equilibrium is independent of the shared Laminate A/B/D and remains exact for B != 0; the old A-epsilon-only recovery would be about 100 % high. Original load identity, transverse and second-order guards remain.
+  - target: prestress_centrifugal_analytic.test_output_stress_differs_from_prestres.symmetric
+    class: identity
+    verdict: trusted
+    audited_rev: e7c5059
+    note: >-
+      Two recovery outputs from the same assembled solution, compared with A11 D11/(A11 D11-B11^2) computed from the same production Laminate. For symmetric B=0 this is the unit-ratio identity, not an independent section arbiter. Printed error 0.0000 % against 0.0001 % (fraction 1e-6).
+  - target: prestress_centrifugal_analytic.test_output_stress_differs_from_prestres.unsymmetric
+    class: identity
+    verdict: trusted
+    audited_rev: e7c5059
+    note: >-
+      Algebraic consistency of output and prestress recovery using the same solution and production Laminate A/B/D; the independent equilibrium result is adjudicated separately. Ratio reference A11 D11/(A11 D11-B11^2) is about 2.0083. Printed error 0.0000 % against 0.0001 %; not an independent physical section validation.
+  - target: analytic_beam_closed_section.test_exact_closed_section_mass.single
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "Exact volumetric mass integral for four thin-wall strips: rho * 2(width+height) * thickness * length"}
+    note: >-
+      Physics despite the roundoff bound: expected mass is computed independently from scalar density and geometry, not from the assembled mass matrix. Each rigid x/y/z translation samples that matrix. Finest and all-mesh comparisons both print 0.0000 % against fraction 1e-10 (1e-8 %); the strict source checks pass. Bound display rounds to zero, but the stored tolerance is nonzero.
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.torsion_0
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "Saint-Venant-Bredt torsional wave of a uniform cantilever: f1 = sqrt(GJ/[rho(Ix+Iy)])/(4L), J=2 w^2 h^2 t/(w+h)"}
+    note: >-
+      Independent closed-form torsional wave and thin-wall Bredt section integral. Measured 0.0173 % against 2 % with joint span/wall refinement and mesh movement below 0.5 %.
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.flap_0
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
+    note: >-
+      Measured 0.4053 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.flap_1
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
+    note: >-
+      Measured 0.4368 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.edge_0
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
+    note: >-
+      Measured 0.4043 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_parked_closed_section_modes.edge_1
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact eigenvalue of the 1D Timoshenko cantilever (shear + rotary inertia), integrated-Legendre Ritz converged to 1e-6 (degree 16 vs 20, asserted), no shell matrices; Blevins EB closed form beta L = 1.875104 / 4.694091 printed alongside"}
+    note: >-
+      Measured 0.4785 % against a 2 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_rotating_southwell_same_s4_path.flap_0
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact finite-speed Southwell coefficient of the rotating Euler-Bernoulli ODE y'''' - (T y')' = lambda y, Ritz converged to 1e-6 (degree 12 vs 16, asserted); low-speed limit checked against Wright, Smith, Thresher & Wang 1982 (J. Appl. Mech. 49, 197-202), 1.17 < K1(0) < 1.20"}
+    note: >-
+      Measured 0.1883 % against a 3 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_rotating_southwell_same_s4_path.edge_1
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "exact finite-speed Southwell coefficient of the rotating Euler-Bernoulli ODE y'''' - (T y')' = lambda y, Ritz converged to 1e-6 (degree 12 vs 16, asserted); low-speed limit checked against Wright, Smith, Thresher & Wang 1982 (J. Appl. Mech. 49, 197-202), 1.17 < K1(0) < 1.20"}
+    note: >-
+      Measured 0.6039 % against a 3 % bound at e7c5059 (regression --write, SLURM 11619381); the test also asserts mesh convergence of the shell value. The reference is the exact solution of the governing 1D ODE computed to 1e-6 by an independent Ritz with no shell matrices, the same standard as the trusted G26 Ritz row; the worker withheld it as "numerical", the parent adjudicated it analytical (2026-10-19).
+  - target: analytic_beam_closed_section.test_explicit_reference_surface_inertia.mid
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli EI: independent integral of four mid-surface wall strips, including each local t^3/12 inertia"}
+    note: >-
+      Measured interior curvature rigidity error 0.3528 % against 0.5 %. Independent geometric integral, not stiffness-matrix extraction as its own reference. Static 160/320/640 span refinement retains wall count four; last step below 0.5 % is asserted.
+  - target: analytic_beam_closed_section.test_explicit_reference_surface_inertia.outer
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+    arbiters:
+      - {kind: analytical, label: "Euler-Bernoulli EI: four wall-strip integral with OML planes shifted out by t/2, including local t^3/12"}
+    note: >-
+      Measured 0.3336 % against 0.5 %; independent geometry includes the same explicit plane shift as the mesh, without corner-overlap material. Mesh movement below 0.5 % is asserted; this is not a BladeMesh offset-option test.
+  - target: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ea_0_1e_05
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+      - tests/validation/parity/test_composite_beam_parity.py
+    arbiters:
+      - {kind: analytical, label: "Jones classical lamination theory: balanced free-transverse-contraction A_eff=1/a11, EA=A_eff*2(w+h), independent hand CLT"}
+    note: >-
+      Physics despite the tight bound: composite_reference uses the independent numpy _hand_clt_abd implementation, not production Laminate matrices or the measured shell rigidity. Error 0.0003 % against 0.001 % (fraction 1e-5); span refinement and the mesh movement guard pass.
+  - target: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ei_1_0_005
+    class: physics
+    verdict: trusted
+    audited_rev: e7c5059
+    files:
+      - tests/validation/benchmarks/analytic_beam_helpers.py
+      - tests/validation/parity/test_composite_beam_parity.py
+    arbiters:
+      - {kind: analytical, label: "Jones hand CLT A_eff=1/a11 times closed-box wall bending integral w h^2/2+h^3/6"}
+    note: >-
+      Independent hand CLT and wall-strip integration, not the shell's own ABD or a fitted stiffness. EI error 0.3371 % against 0.5 %, with 160/320/640 span refinement and mesh movement below 0.5 % asserted. Local wall D is neglected at t/h=0.01 as stated by the reference helper.
+
 # --- B3-3a (L3), 2026-10-16: V-02 natural frequencies, group 32, official blade, mesh study 0.5 / 0.25 / 0.125 ---
   - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_fla.single
     class: physics

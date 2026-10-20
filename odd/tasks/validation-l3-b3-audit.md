@@ -674,10 +674,15 @@ logs/check/l2-refresh/regress.sbatch "<groups>" (REV exported, git shim).
 ## REG-1 + DELIVERY (2026-10-19, maintainer decisions)
 User verbatim: "1- si registra todo como filas. 2- un solo PR, para TODO lo que no este mergeado, y mesclalo" (answer to the two
 pending decisions: (a) register the K_G anchors as rows, (b) PR split).
-- [ ] **REG-1** Register as store rows the 3 validation files `validation_matrix.py status` reports "neither grouped nor declared":
+- [x] **REG-1** DONE 2026-10-19 (e7c5059 instrumentation, then the verdict commit): groups 56/57 (L1) and 58 (L2), 23 rows / 27 comparisons, 24 measured at e7c5059; 21 trusted (19 physics, 2 identity), 1 rejected, 1 unaudited. L1 REOPENED by the sandwich plate-buckling anchor (24.44 % vs 0.5 % against Navier FSDT with energy-equivalent shear: composite section transverse-shear input finding of 968d20d; m1 rejected, m2 unaudited because an earlier assertion fails before its residual prints); L2 open only as blocked by L1. G58 parked-mode and Southwell rows adjudicated analytical by the parent (exact 1D ODE eigenvalue, Ritz converged to 1e-6, G26 precedent). Original text: Register as store rows the 3 validation files `validation_matrix.py status` reports "neither grouped nor declared":
   tests/validation/element/test_plate_buckling_analytic.py and tests/validation/element/test_prestress_centrifugal_analytic.py
   (K_G anchors of 41e9a16 -> L1), tests/validation/benchmarks/test_analytic_beam_closed_section.py (43dce4d thin-walled box closed
   forms -> L2 scope "thin-walled sections against closed forms"). New groups, rows extracted, measured with `regression --write`,
   verdicts only where an independent analytical arbiter is in the test; any unsupported row is reported, never forced trusted.
 - [ ] **DELIVERY** One PR feat/rotating-local-tip-modes -> main (everything unmerged: local main is contained in the branch, all
   other remote branches are already in origin/main), full-suite measurement first (the branch touches crates/), then merge.
+
+REG-1 result checks (2026-10-19): `check` 289 rows / 399 comparisons, 0 errors; `status` 0 ungrouped validation files;
+`contract --level L1` open (trusted 143+, regression_pin 2, rejected 1, unaudited 1 - both sandwich); `--level L2` open, blocked
+by L1 only. Also fixed: 5 `references check` errors (citation sites moved by 5a9fe64 / 43dce4d), which failed the PR's `store` CI job.
+Next for L1: fix the composite section transverse-shear input the sandwich anchor exposes (968d20d), then re-measure G56.

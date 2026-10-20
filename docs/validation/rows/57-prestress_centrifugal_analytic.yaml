@@ -1,0 +1,142 @@
+group: '57'
+rows:
+- id: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.isotropic
+  group: '57'
+  title: test_prestress_matches_rotating_strip_closed_form[isotropic]
+  tests:
+  - tests/validation/element/test_prestress_centrifugal_analytic.py::test_prestress_matches_rotating_strip_closed_form[isotropic]
+  validates: prestress_matches_rotating_strip_closed_form
+  comparisons:
+  - label: rtol at line 164
+    asserted: true
+    reference:
+      kind: analytical
+      label: rotating nu=0 strip equilibrium sigma_x = m omega^2 (R^2-x^2)/(2h), root-normalized
+    tolerance:
+      kind: rtol
+      value: 0.00010416677083333334
+      source: tests/validation/element/test_prestress_centrifugal_analytic.py:164
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0104
+      text: 'isotropic 40-element prestress vs rotating nu=0 strip equilibrium sigma_x = m omega^2 (R^2-x^2)/(2h), root-normalized: 0.0104% (bound: 0.0104%)'
+      digest: 7b6d1efba8c081b7
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.symmetric
+  group: '57'
+  title: test_prestress_matches_rotating_strip_closed_form[symmetric]
+  tests:
+  - tests/validation/element/test_prestress_centrifugal_analytic.py::test_prestress_matches_rotating_strip_closed_form[symmetric]
+  validates: prestress_matches_rotating_strip_closed_form
+  comparisons:
+  - label: rtol at line 164
+    asserted: true
+    reference:
+      kind: analytical
+      label: rotating nu=0 strip equilibrium sigma_x = m omega^2 (R^2-x^2)/(2h), root-normalized
+    tolerance:
+      kind: rtol
+      value: 0.00010416677083333334
+      source: tests/validation/element/test_prestress_centrifugal_analytic.py:164
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0104
+      text: 'symmetric 40-element prestress vs rotating nu=0 strip equilibrium sigma_x = m omega^2 (R^2-x^2)/(2h), root-normalized: 0.0104% (bound: 0.0104%)'
+      digest: 7b6d1efba8c081b7
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: prestress_centrifugal_analytic.test_prestress_matches_rotating_strip_cl.unsymmetric
+  group: '57'
+  title: test_prestress_matches_rotating_strip_closed_form[unsymmetric]
+  tests:
+  - tests/validation/element/test_prestress_centrifugal_analytic.py::test_prestress_matches_rotating_strip_closed_form[unsymmetric]
+  validates: prestress_matches_rotating_strip_closed_form
+  comparisons:
+  - label: rtol at line 164
+    asserted: true
+    reference:
+      kind: analytical
+      label: rotating nu=0 strip equilibrium sigma_x = m omega^2 (R^2-x^2)/(2h), root-normalized
+    tolerance:
+      kind: rtol
+      value: 0.00010416677083333334
+      source: tests/validation/element/test_prestress_centrifugal_analytic.py:164
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0104
+      text: 'unsymmetric 40-element prestress vs rotating nu=0 strip equilibrium sigma_x = m omega^2 (R^2-x^2)/(2h), root-normalized: 0.0104% (bound: 0.0104%)'
+      digest: 7b6d1efba8c081b7
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: prestress_centrifugal_analytic.test_output_stress_differs_from_prestres.symmetric
+  group: '57'
+  title: test_output_stress_differs_from_prestress_by_the_b_kappa_factor[symmetric]
+  tests:
+  - tests/validation/element/test_prestress_centrifugal_analytic.py::test_output_stress_differs_from_prestress_by_the_b_kappa_factor[symmetric]
+  validates: output_stress_differs_from_prestress_by_the_b_kappa_factor
+  comparisons:
+  - label: rtol at line 178
+    asserted: true
+    reference:
+      kind: analytical
+      label: zero-moment laminate equilibrium sigma_output/sigma_prestress = A11 D11/(A11 D11-B11^2)
+    tolerance:
+      kind: rtol
+      value: 1.0e-06
+      source: tests/validation/element/test_prestress_centrifugal_analytic.py:178
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0
+      text: 'symmetric B-kappa recovery factor vs zero-moment laminate equilibrium sigma_output/sigma_prestress = A11 D11/(A11 D11-B11^2): 0.0000% (bound: 0.0001%)'
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: prestress_centrifugal_analytic.test_output_stress_differs_from_prestres.unsymmetric
+  group: '57'
+  title: test_output_stress_differs_from_prestress_by_the_b_kappa_factor[unsymmetric]
+  tests:
+  - tests/validation/element/test_prestress_centrifugal_analytic.py::test_output_stress_differs_from_prestress_by_the_b_kappa_factor[unsymmetric]
+  validates: output_stress_differs_from_prestress_by_the_b_kappa_factor
+  comparisons:
+  - label: rtol at line 178
+    asserted: true
+    reference:
+      kind: analytical
+      label: zero-moment laminate equilibrium sigma_output/sigma_prestress = A11 D11/(A11 D11-B11^2)
+    tolerance:
+      kind: rtol
+      value: 1.0e-06
+      source: tests/validation/element/test_prestress_centrifugal_analytic.py:178
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0
+      text: 'unsymmetric B-kappa recovery factor vs zero-moment laminate equilibrium sigma_output/sigma_prestress = A11 D11/(A11 D11-B11^2): 0.0000% (bound: 0.0001%)'
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

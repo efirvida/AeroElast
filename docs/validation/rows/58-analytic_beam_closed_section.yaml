@@ -1,0 +1,357 @@
+group: '58'
+rows:
+- id: analytic_beam_closed_section.test_exact_closed_section_mass.single
+  group: '58'
+  title: test_exact_closed_section_mass
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_exact_closed_section_mass
+  validates: Rigid x/y/z translation each measures rho*perimeter*t*L, not trace(M).
+  comparisons:
+  - label: rtol at line 129
+    asserted: true
+    reference:
+      kind: analytical
+      label: exact thin-wall mass rho * perimeter * t * L
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:129
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0
+      text: 'finest-mesh rigid-translation mass vs exact thin-wall mass rho * perimeter * t * L: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  - label: rtol at line 133
+    asserted: true
+    reference:
+      kind: analytical
+      label: exact thin-wall mass rho * perimeter * t * L
+    tolerance:
+      kind: rtol
+      value: 1.0e-10
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:133
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0
+      text: 'all-mesh rigid-translation masses vs exact thin-wall mass rho * perimeter * t * L: 0.0000% (bound: 0.0000%)'
+      digest: 8911219cf0551533
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_parked_closed_section_modes.flap_0
+  group: '58'
+  title: test_parked_closed_section_modes[flap-0]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_parked_closed_section_modes[flap-0]
+  validates: EB/Bredt wave references; bending shear/rotary correction is reported.
+  comparisons:
+  - label: rtol at line 155
+    asserted: true
+    reference:
+      kind: analytical
+      label: cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:155
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.4053
+      text: 'parked flap mode 1 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.4053% (bound: 2.0000%)'
+      digest: 3588ab0a3d06a22a
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_parked_closed_section_modes.flap_1
+  group: '58'
+  title: test_parked_closed_section_modes[flap-1]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_parked_closed_section_modes[flap-1]
+  validates: EB/Bredt wave references; bending shear/rotary correction is reported.
+  comparisons:
+  - label: rtol at line 155
+    asserted: true
+    reference:
+      kind: analytical
+      label: cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:155
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.4368
+      text: 'parked flap mode 2 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.4368% (bound: 2.0000%)'
+      digest: 92dedf7e7ce3ffba
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_parked_closed_section_modes.edge_0
+  group: '58'
+  title: test_parked_closed_section_modes[edge-0]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_parked_closed_section_modes[edge-0]
+  validates: EB/Bredt wave references; bending shear/rotary correction is reported.
+  comparisons:
+  - label: rtol at line 155
+    asserted: true
+    reference:
+      kind: analytical
+      label: cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:155
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.4043
+      text: 'parked edge mode 1 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.4043% (bound: 2.0000%)'
+      digest: c72ec839adb4d487
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_parked_closed_section_modes.edge_1
+  group: '58'
+  title: test_parked_closed_section_modes[edge-1]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_parked_closed_section_modes[edge-1]
+  validates: EB/Bredt wave references; bending shear/rotary correction is reported.
+  comparisons:
+  - label: rtol at line 155
+    asserted: true
+    reference:
+      kind: analytical
+      label: cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:155
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.4785
+      text: 'parked edge mode 2 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.4785% (bound: 2.0000%)'
+      digest: 8e88b45dc636a7a3
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_parked_closed_section_modes.torsion_0
+  group: '58'
+  title: test_parked_closed_section_modes[torsion-0]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_parked_closed_section_modes[torsion-0]
+  validates: EB/Bredt wave references; bending shear/rotary correction is reported.
+  comparisons:
+  - label: rtol at line 155
+    asserted: true
+    reference:
+      kind: analytical
+      label: cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave
+    tolerance:
+      kind: rtol
+      value: 0.02
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:155
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0173
+      text: 'parked torsion mode 1 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.0173% (bound: 2.0000%)'
+      digest: d3263071d7e433ad
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_rotating_southwell_same_s4_path.flap_0
+  group: '58'
+  title: test_rotating_southwell_same_s4_path[flap-0]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_rotating_southwell_same_s4_path[flap-0]
+  validates: 'Measure K, not just frequency: a missing K_SP or K_G cannot hide.'
+  comparisons:
+  - label: rtol at line 181
+    asserted: true
+    reference:
+      kind: analytical
+      label: rotating Euler-Bernoulli ODE finite-speed Southwell coefficient; Wright et al. 1982 low-speed check
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:181
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.1883
+      text: 'rotating flap Southwell coefficient vs rotating Euler-Bernoulli ODE finite-speed Southwell coefficient; Wright et al. 1982 low-speed check: 0.1883% (bound: 3.0000%)'
+      digest: 658849b35a450e5d
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_rotating_southwell_same_s4_path.edge_1
+  group: '58'
+  title: test_rotating_southwell_same_s4_path[edge-1]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_rotating_southwell_same_s4_path[edge-1]
+  validates: 'Measure K, not just frequency: a missing K_SP or K_G cannot hide.'
+  comparisons:
+  - label: rtol at line 181
+    asserted: true
+    reference:
+      kind: analytical
+      label: rotating Euler-Bernoulli ODE finite-speed Southwell coefficient; Wright et al. 1982 low-speed check
+    tolerance:
+      kind: rtol
+      value: 0.03
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:181
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.6039
+      text: 'rotating edge Southwell coefficient vs rotating Euler-Bernoulli ODE finite-speed Southwell coefficient; Wright et al. 1982 low-speed check: 0.6039% (bound: 3.0000%)'
+      digest: fedfca40388b562c
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_explicit_reference_surface_inertia.mid
+  group: '58'
+  title: test_explicit_reference_surface_inertia[mid]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_explicit_reference_surface_inertia[mid]
+  validates: 'Same t=.05 walls: outer placement shifts planes outward by t/2.'
+  comparisons:
+  - label: rtol at line 202
+    asserted: true
+    reference:
+      kind: analytical
+      label: Euler-Bernoulli EI from four wall-strip inertias including local t^3/12
+    tolerance:
+      kind: rtol
+      value: 0.005
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:202
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.3528
+      text: 'mid surface EI vs Euler-Bernoulli EI from four wall-strip inertias including local t^3/12: 0.3528% (bound: 0.5000%)'
+      digest: d01119a47f7eafd7
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_explicit_reference_surface_inertia.outer
+  group: '58'
+  title: test_explicit_reference_surface_inertia[outer]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_explicit_reference_surface_inertia[outer]
+  validates: 'Same t=.05 walls: outer placement shifts planes outward by t/2.'
+  comparisons:
+  - label: rtol at line 202
+    asserted: true
+    reference:
+      kind: analytical
+      label: Euler-Bernoulli EI from four wall-strip inertias including local t^3/12
+    tolerance:
+      kind: rtol
+      value: 0.005
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:202
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.3336
+      text: 'outer surface EI vs Euler-Bernoulli EI from four wall-strip inertias including local t^3/12: 0.3336% (bound: 0.5000%)'
+      digest: f573db8ef23734d1
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ea_0_1e_05
+  group: '58'
+  title: test_composite_closed_box_effective_clt[EA-0-1e-05]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_composite_closed_box_effective_clt[EA-0-1e-05]
+  validates: Symmetric balanced glass [0/+45/-45/90]s, free transverse contraction.
+  comparisons:
+  - label: rtol at line 217
+    asserted: true
+    reference:
+      kind: analytical
+      label: Jones hand CLT A_eff = 1/a11, integrated over closed-box walls
+    tolerance:
+      kind: rtol
+      value: 1.0e-05
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:217
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.0003
+      text: 'glass closed-box EA vs Jones hand CLT A_eff = 1/a11, integrated over closed-box walls: 0.0003% (bound: 0.0010%)'
+      digest: 50bf9d83f2978610
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ei_1_0_005
+  group: '58'
+  title: test_composite_closed_box_effective_clt[EI-1-0.005]
+  tests:
+  - tests/validation/benchmarks/test_analytic_beam_closed_section.py::test_composite_closed_box_effective_clt[EI-1-0.005]
+  validates: Symmetric balanced glass [0/+45/-45/90]s, free transverse contraction.
+  comparisons:
+  - label: rtol at line 217
+    asserted: true
+    reference:
+      kind: analytical
+      label: Jones hand CLT A_eff = 1/a11, integrated over closed-box walls
+    tolerance:
+      kind: rtol
+      value: 0.005
+      source: tests/validation/benchmarks/test_analytic_beam_closed_section.py:217
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: measured
+      run: e7c5059
+      date: '2026-10-19'
+      raw: null
+      margin_pct: 0.3371
+      text: 'glass closed-box EI vs Jones hand CLT A_eff = 1/a11, integrated over closed-box walls: 0.3371% (bound: 0.5000%)'
+      digest: e27c6c9293f4743b
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
