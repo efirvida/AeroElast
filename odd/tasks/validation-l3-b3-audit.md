@@ -679,10 +679,125 @@ pending decisions: (a) register the K_G anchors as rows, (b) PR split).
   (K_G anchors of 41e9a16 -> L1), tests/validation/benchmarks/test_analytic_beam_closed_section.py (43dce4d thin-walled box closed
   forms -> L2 scope "thin-walled sections against closed forms"). New groups, rows extracted, measured with `regression --write`,
   verdicts only where an independent analytical arbiter is in the test; any unsupported row is reported, never forced trusted.
-- [ ] **DELIVERY** One PR feat/rotating-local-tip-modes -> main (everything unmerged: local main is contained in the branch, all
+- [x] **DELIVERY** DONE 2026-10-19: PR #43 merged into main with merge commit 8de3521 (branch deleted). One PR feat/rotating-local-tip-modes -> main (everything unmerged: local main is contained in the branch, all
   other remote branches are already in origin/main), full-suite measurement first (the branch touches crates/), then merge.
 
 REG-1 result checks (2026-10-19): `check` 289 rows / 399 comparisons, 0 errors; `status` 0 ungrouped validation files;
 `contract --level L1` open (trusted 143+, regression_pin 2, rejected 1, unaudited 1 - both sandwich); `--level L2` open, blocked
 by L1 only. Also fixed: 5 `references check` errors (citation sites moved by 5a9fe64 / 43dce4d), which failed the PR's `store` CI job.
 Next for L1: fix the composite section transverse-shear input the sandwich anchor exposes (968d20d), then re-measure G56.
+
+## L1-SHEAR (2026-10-19): composite section transverse shear, reopened L1
+Branch `fix/sandwich-transverse-shear` from main 8de3521. Goal: G56 sandwich m1/m2 green at the unchanged bands, L1 and L2 CLOSED.
+Specs (user verbatim, 2026-10-19):
+- S1 "Primer commit: marcar el checkbox DELIVERY del documento (PR #43, merge 8de3521)."
+- S2 "Diagnosticá por qué la sección compuesta sandwich da un corte transversal equivocado ... Sospechá de unidades, convención y
+  entrada antes que de la física. Antes de tocar código, escribí en el documento la causa y la predicción cuantitativa del arreglo."
+- S3 "Arreglalo con test-first: el xfail tiene que pasar a verde sin tocar la cota del 0.5 %. Si el arreglo cambia otras anclas, eso
+  es un hallazgo a reportar, no algo para tapar."
+- S4 "Si tocás crates/, corré `maturin develop --release`. Después re-medí G56 con `validation_matrix.py regression --group 56
+  --write` y cargá las verdicts de m1/m2. Re-medí los grupos de L1/L2 que queden stale ... corré la suite completa en SLURM con
+  `scripts/check_sbatch.sh full`."
+- S5 "Objetivo: `contract --level L1` y `--level L2` en CLOSED. Mergeá con un merge commit (nunca squash ni rebase ...) y borrá la rama."
+- Rules: "nunca ensanchar una cota; criterio fijado antes de medir; SLURM solo con --ntasks."
+Tasks: [x] T1 S1 DELIVERY tick (487e75a). [x] T2 S2 diagnosis below (4b1cac5). [x] T3 S3 fix test-first (see L4). [x] T4 S4 rebuild, G56 + stale
+groups, full suite (L7). [x] T5 S5 contract CLOSED (L7), PR #44 merged with a merge commit, branch deleted (L8).
+
+### Diagnosis (T2): input and convention, not the element and not units
+Probe: `logs/check/sandwich-shear/probe_cs.py` (own quadrature, independent of `aeroelast.core.laminate`).
+1. **Cause of the G56 failure: the element's shear input.** `crates/aeroelast-py/src/assembler.rs:301-311` hands the MITC4 shear
+   block `Laminate::shear_stiffness_uncorrected()` = A55 = sum G_k t_k (ADR-1 amended, 8cbfc0b). Sandwich: A55 = 3.14615e7 N/m,
+   energy-equivalent Cs = 7.88928e5 N/m (= own quadrature to 1e-5, = Allen G_c d^2/t_c within 0.16 %), ratio 39.88. The face plies
+   dominate sum G t, but shear flows through the core. The element is a correct FSDT plate for the S it receives (characterization
+   test: MITC4 = FSDT(A55) at +0.002 %). Units are consistent (N/m on both sides; `Cs` is integrated, as is `Cm`).
+2. **The convention conflict behind it.** "No numerical factor" (Ko-Lee-Bathe 2017 p. 410) is a homogeneous-plate statement: it
+   drops the 5/6. For a layered section the analogue sum G t assumes a constant shear strain through the thickness, which for a soft
+   core is wrong by 40x, not by 20 %. No scalar reconciles both: Cs * 6/5 (homogeneous stack -> G h, as ADR-1 wants) moves the m1
+   anchor by +3.47 % against the 0.5 % band. Only the energy-equivalent Cs meets the reference. Today the repository uses three
+   conventions: isotropic -> G h; single-material orthotropic shell (raw dict, `core/assembler.py:293-320`) -> k G h = (5/6) G h;
+   `Laminate` path -> sum G t. MITC3 consumes `constitutive.cs` (corrected) in every case.
+3. **A second, latent input defect in Cs itself (unsymmetric stacks).** `compute_shear_stiffness` (Rust `laminate.rs:116-199`,
+   Python `laminate.py:385-479`, identical algorithm) builds Phi(z) about the mid-plane with D11, not about the neutral axis
+   z_n = B11/A11 with D* = D11 - B11^2/A11. For B != 0, Phi does not vanish at the top face (the shear stress at a free surface is
+   not zero) and Cs is wrong: soft-outer 2-material stack Cs = 4.724e7 vs neutral-axis value 1.657e7 (2.85x); gelcoat/triax/triax-like
+   stack 0.904x. Symmetric stacks are exact (sandwich, homogeneous unsymmetric split: Cs/own = 1.0000). This is the open question
+   of L17 (tip panels A55/Cs = 0.3-0.4: Cs 2.5-3x above the plain integral). It is harmless today only because the element
+   ignores Cs on the `Laminate` path; feeding Cs to the element without fixing it would put a 2.85x error into the blade's
+   unsymmetric sections.
+### Quantitative prediction of the fix (fixed before measuring)
+Fix: `Laminate` path element input = energy-equivalent Cs, with Phi referenced to the neutral axis (D*). Predictions:
+- m1 (b = 1.5): MITC4 Richardson within 0.1 % of FSDT 3.17831e5 N/m (band 0.5 %, unchanged), 32x32 within 1 %, order in [1.5, 2.5],
+  m = 1. m2 (b = 0.75): 48x48 within 1 % of FSDT 7.06207e5 N/m, m = 2 picked (m = 3 is 3.6 % higher). Both xfails become XPASS
+  (strict) -> remove the markers; the characterization test MITC4 = FSDT(A55) fails and is deleted as its docstring says.
+- Symmetric laminates: Cs unchanged bit-for-bit (z_n = 0, D* = D). Unsymmetric: Cs equals the own neutral-axis quadrature to 1e-4.
+- Tests that encode ADR-1 amended (homogeneous multi-ply laminate == isotropic shell in the shear block: `test_material_suite::
+  TestIsoEquivalence` 3.434 %, `test_orthotropic_shell_parity::test_multi_layer_iso_equivalence` 5.42 %, Rust `materials/mod.rs`,
+  `mitc4.rs:8466`, `laminate.rs:481`) go red, by exactly the 5/6 of the shear block, unless the isotropic convention also changes.
+- Blade anchors (composite everywhere): the element shear input drops by A55/Cs (median 1.12, 230 of 676 sections above 2). Global
+  modes and static deflection are carried by the walls' membrane stiffness, so S-2 / S-4 / G56-58 global rows are predicted to move
+  by < 0.5 %; local panel modes may move more. Any move is reported, not absorbed.
+### Log (L1-SHEAR)
+- L1 user request 2026-10-19: the S1-S5 text above (verbatim in the session prompt), resume from REG-1 + DELIVERY.
+- L2 user decision (question "¿Qué convención adopto?"): "A: composite = Cs, isotrópico = Gh (recomendado)". Laminate (and raw-dict
+  composite) shear block consumes the energy-equivalent Cs with the neutral-axis fix; the isotropic shell keeps Ko-Lee-Bathe G h; the
+  ADR-1 equivalence tests are re-specified to split invariance (4 plies == 1 ply, same band) plus a convention probe (plain integral
+  injected through `cs_uncorrected` == isotropic, same band); single-ply laminates keep Cs = k A55 (blade k = 5/6).
+- L3 baseline (main 8de3521 + docs, fresh `maturin develop --release`): 13 affected files 165 passed, 3 xfailed
+  (`logs/check/sandwich-shear/base.log`). RED with the tests changed and the old .so (`red.log`): 5 failed = sandwich m1 Richardson
+  +24.4392 %, m2 +119.99 % (m_FE = 1), unsymmetric Cs 0.904x / 2.85x of the neutral-axis value; the raw-dict test builders now feed Cs
+  (production convention) and every comparison stays inside its band: largest moves CCX twist [60,0,0,60]s 1.9465 -> 1.6721 %,
+  [45,0,0,45]s 0.2267 -> 0.1948 %, [45,-45,-45,45]s 0.5953 -> 0.6285 %, quasi-iso EB 1.1711 -> 1.1495 %, others < 0.01 pp.
+- L4 GREEN (T3, worker, fresh `maturin develop --release`): affected files 170 passed, 1 xfailed (`green.log`); `cargo test -p
+  aeroelast-core --release laminate` 8 passed (new closed-form neutral-axis test was RED first); ruff clean; `check.sh quick` exit 0
+  (75 passed, 1 xfailed). Sandwich m1: N 3.233711/3.191994/3.181705e5 at 8/16/32, order 2.019, Richardson 3.178336e5 = +0.0009 %
+  (prediction < 0.1 %, band 0.5 % untouched); m2 48x48 7.064897e5 = +0.0401 % with m_FE = 2 (band 1 %). Unsymmetric Cs = own
+  neutral-axis quadrature to 1e-4 (Rust and Python). Other residuals vs red.log moving > 0.1 pp, both toward the reference:
+  asym_0_90 worst modal frequency vs CCX 1.4487 -> 1.0582 %, [0/90]s pure-bending kappa_y 0.7229 -> 0.6228 %.
+- L5 G56 (T4a, at c0fdeea): rows regenerated (coherence clean), `regression --group 56 --write`: sandwich m1 Richardson 0.0009 %,
+  m1 32x32 0.1069 %, m2 48x48 0.0401 % (new baselines); isotropic 3 same; cross-ply changed inside bands (x Richardson 0.0326 ->
+  0.0389 %, x 32x32 0.1176 -> 0.1113 %, y 48x48 0.1484 -> 0.1165 %; a symmetric stack, so the move is the element input A55 -> Cs).
+  contract.yaml: 6 G56 rows physics/trusted at c0fdeea (m1 was rejected, m2 unaudited); the deleted characterization test had no
+  verdict (its groups.yaml declaration removed). `check` 289/399 0 errors, `references check` 0 errors, `status` 0 ungrouped.
+  L1/L2 regressions without --write at c0fdeea: SLURM 11619472-75 (`logs/check/shear-refresh/`).
+- L6 L1/L2 regressions without --write at c0fdeea (SLURM 11619472-75, JSON `logs/check/shear-refresh/g<N>.json`), read at
+  2026-10-19 ~23:55 with G16 still running: 234 same, 42 changed, 2 unmapped (G15; check whether that pre-dates c0fdeea, as G56's
+  did at e7c5059), 0 failures. Every `changed` is a composite/laminate group and stays inside its band; isotropic groups all same
+  (G3, G7-G9, G12-G14, G17, G22, G24, G25, G33, G43-G55, G57, G58). Changed: G4 ortho CCX 0.5391 -> 0.5405 %; G6 Bredt laminate
+  0.1402 -> 0.1406, 0.7033 -> 0.7036 %; G18 17 CLT/CCX parity rows (largest: quasi_iso modal vs CCX 1.4241 -> 0.8873 %, sym_0_90s
+  modal 1.2555 -> 0.8912 %, uni_0/uni_90 modal 1.26/1.24 -> 1.08/1.05 %, bending rows +-0.02 pp); G21 3D-solid twist 0.2143 ->
+  0.2462 % (x2), shell tip twist 2.7222 -> 2.7531 %; G26 7 twist rows (CCX [60,0,0,60]s 1.9465 -> 1.6721 %, others +-0.03 pp);
+  G28 6 rows (+-0.02 pp); G36 6 rows ([0/90]s kappa_y 0.7229 -> 0.6228 %, 3.1279 -> 3.0347 %). Modal agreement with CalculiX S8R
+  improved in every G18 layup: the element shear input now matches what S8R's composite section uses.
+- L7 T4/T5 close-out (2026-10-20). (a) Full suite SLURM 11619479 at 28470b8 COMPLETED exit 0 (1:45:02): 20 failed, 1376 passed,
+  39 skipped, 13 xfailed, 3 xpassed; the 20 failures are exactly the 20 entries of `scripts/known-red-full.txt` (52e9bba registry,
+  untracked, not edited), none new, none gone. xpassed 3 as in the three previous full runs; xfailed 15 -> 13 = the two sandwich xfails
+  removed. No c0fdeea regression. (b) G16 9 same + 2 unmapped; the G15/G16 unmapped (lam=2pi w_tip, rollup_360 atols) and G15's
+  1 unclaimed are identical at 74c6b9f (`logs/check/l1-refresh/`), so they pre-date c0fdeea. Totals at c0fdeea: 251 same, 42 changed,
+  4 unmapped, 0 failures. (c) `regression --group N --write` for 4 6 18 21 26 28 36: SLURM 11619561 (`logs/check/shear-write/`,
+  REV=c0fdeea gitshim, recipe + --write, criterion in the sbatch header fixed before running): all 146 comparisons equal the
+  `shear-refresh` current values and digests (0 diffs), the same 42 changed. Every change traces to c0fdeea: in G4/G6/G18/G26/G28 the
+  test builders dropped `cs_uncorrected` (A55) so the element gets Cs, G21 reuses the G26 coupon, G36 goes through the production
+  `Laminate` path (assembler.rs A55 -> Cs); the one MITC3 move (G28 [0/90] axial_produ 0.4464 -> 0.4461 %) is the neutral-axis Cs
+  of an unsymmetric stack, since MITC3 always consumed Cs. No unexplained move, no finding. (d) contract.yaml: 195 verdicts
+  restamped to c0fdeea by target (191 all-`same` + the 4 unmapped, PRE-2r precedent; only `audited_rev` changed), 29 verdicts on
+  changed rows re-adjudicated trusted at c0fdeea with old -> new number, unchanged bound and mechanism appended to the note (largest:
+  G18 quasi_iso modal 1.4241 -> 0.8873 %, G26 deck pin [60,0,0,60]s 1.9465 -> 1.6721 %, G36 kappa_y 3.1279 -> 3.0347 %, G21 shell vs
+  closed form 2.7222 -> 2.7531 %). No bound touched. (e) `check` 289 rows / 399 comparisons 0 errors 0 warnings; `references check`
+  68 entries 0 errors (14 warnings: stale citation sites, unverifiable entries); `status` 0 errors, 0 ungrouped validation files;
+  `contract --level L1` **CLOSED** trusted 145, regression_pin 2, single or no arbiter 0; `--level L2` **CLOSED** trusted 79,
+  regression_pin 4, gaps 0 blocking / 1. Tool wart: `regression --write --json` prints "wrote N measurement(s)" on stdout before the
+  JSON, so the file is not parseable as-is.
+- L8 user choice (merge route): "PR en GitHub" -- push, PR, merge commit (never squash/rebase), delete the branch locally and on origin.
+
+## Handoff 2026-10-20 (L1-SHEAR closed) - resume here
+State: L1-SHEAR done on `fix/sandwich-transverse-shear`: G56 m1/m2 trusted, L1 and L2 CLOSED at c0fdeea (L7). Merge route: PR with a
+merge commit (L8): PR #44, branch deleted locally and on origin.
+Next step (separate session, out of scope here): **B3-1 - freeze the L3 evidence inventory and audit rubric, measured on a revision
+that already contains c0fdeea** (main after this merge). The 2026-10-16 B3-1 inventory (HEAD 3fdd429) predates the composite shear fix:
+every blade anchor (S-1, S-2, S-4, V-02, V-03, V-05, S-7) is composite, its element shear input moved A55 -> Cs (median A55/Cs 1.12,
+230 of 676 sections above 2), so its numbers are stale until re-measured. Predicted (fixed in T2, not yet measured): global rows move
+< 0.5 %, local panel modes may move more; report any move, never absorb it.
+Carry-over: `scripts/known-red-full.txt` (untracked) was recorded at 52e9bba, before the crates change; the 28470b8 run reproduced its
+20 entries exactly. Re-derive with `scripts/check.sh full --record` on the merge revision if a stamped registry is wanted; never hand-edit.
+Rules: SLURM `--ntasks` only; criteria fixed before measuring; never widen a band; `scripts/aeroenv.sh` on every command. B3/L3 and P1
+stay out of the L1-SHEAR session.

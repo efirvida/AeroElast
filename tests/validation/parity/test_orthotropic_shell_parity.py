@@ -82,11 +82,6 @@ def _laminate_to_mat_dict(laminate: Laminate) -> dict:
         "b_coupling": laminate.B.ravel().tolist(),
         "cb": laminate.D.ravel().tolist(),
         "cs": laminate.Cs.ravel().tolist(),
-        # ADR-1 (amended): the element's shear block consumes the UNCORRECTED
-        # section integral, not `Cs` -- `Cs` carries the 5/6 of a homogeneous
-        # stack inside the energy-equivalence formula. Without this key the
-        # raw-dict path falls back to `cs` verbatim.
-        "cs_uncorrected": laminate.shear_stiffness_uncorrected().ravel().tolist(),
         "thickness": h,
         "e_equiv": e_equiv,
         "mass_per_area": mpa,
@@ -481,6 +476,10 @@ def test_multi_layer_iso_equivalence():
     t_ply = t_total / N_plies
     laminate = create_laminate_from_angles(iso_as_ortho, t_ply, [0] * N_plies)
     composite_mat_dict = _laminate_to_mat_dict(laminate)
+    # Convention probe (ADR-1 re-amended): the composite shear block consumes the energy-equivalent
+    # Cs = (5/6) G h, the isotropic shell G h. With the plain integral injected, the two paths must
+    # agree to 1e-4, which proves the shear-block convention is their only difference.
+    composite_mat_dict["cs_uncorrected"] = laminate.shear_stiffness_uncorrected().ravel().tolist()
 
     asm_comp = PyMeshAssembler(
         node_coords, conn_list, [44] * n_elems, [composite_mat_dict] * n_elems

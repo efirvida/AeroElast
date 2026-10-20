@@ -175,7 +175,6 @@ def _laminate_and_prop():
         "b_coupling": lam.B.ravel().tolist(),
         "cb": lam.D.ravel().tolist(),
         "cs": lam.Cs.ravel().tolist(),
-        "cs_uncorrected": lam.shear_stiffness_uncorrected().ravel().tolist(),
         "thickness": h,
         "e_equiv": float(np.trace(lam.A) / (3.0 * h)),
         "mass_per_area": mpa,

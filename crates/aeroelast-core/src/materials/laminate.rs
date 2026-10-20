@@ -112,7 +112,9 @@ impl Laminate {
     /// Compute transverse shear stiffness using energy equivalence.
     ///
     /// For multi-ply laminates, uses equilibrium-based shear stress distribution
-    /// through the thickness. For single-ply, falls back to scalar correction factor.
+    /// through the thickness, referenced per direction to z_n = B_aa/A_aa with
+    /// D*_aa = D_aa - B_aa²/A_aa. This makes Phi vanish on both free faces,
+    /// including for unsymmetric stacks. Single-ply uses the scalar correction factor.
     fn compute_shear_stiffness(&mut self) {
         let mut a44 = 0.0_f64;
         let mut a45 = 0.0_f64;
@@ -139,8 +141,10 @@ impl Laminate {
             return;
         }
 
-        let d11 = self.d[(0, 0)];
-        let d22 = self.d[(1, 1)];
+        let zn55 = self.b[(0, 0)] / self.a[(0, 0)];
+        let zn44 = self.b[(1, 1)] / self.a[(1, 1)];
+        let d11 = self.d[(0, 0)] - self.b[(0, 0)] * zn55;
+        let d22 = self.d[(1, 1)] - self.b[(1, 1)] * zn44;
 
         let mut flex_55 = 0.0_f64;
         let mut flex_44 = 0.0_f64;
@@ -153,24 +157,29 @@ impl Laminate {
             let c55_k = cbar_s[(0, 0)];
             let c44_k = cbar_s[(1, 1)];
 
-            // Phi(z) = A + B*z^2 within this ply
-            let a_55 = cum_55 - q11 / 2.0 * z_bot * z_bot;
+            let bot55 = z_bot - zn55;
+            let top55 = z_top - zn55;
+            let bot44 = z_bot - zn44;
+            let top44 = z_top - zn44;
+            // Phi(z) = A + B*(z-z_n)^2 within this ply.
+            let a_55 = cum_55 - q11 / 2.0 * bot55 * bot55;
             let b_55 = q11 / 2.0;
-            let a_44 = cum_44 - q22 / 2.0 * z_bot * z_bot;
+            let a_44 = cum_44 - q22 / 2.0 * bot44 * bot44;
             let b_44 = q22 / 2.0;
 
-            // integral (A + B*z^2)^2 dz from z_bot to z_top
-            let dz3 = (z_top.powi(3) - z_bot.powi(3)) / 3.0;
-            let dz5 = (z_top.powi(5) - z_bot.powi(5)) / 5.0;
+            let dz3_55 = (top55.powi(3) - bot55.powi(3)) / 3.0;
+            let dz5_55 = (top55.powi(5) - bot55.powi(5)) / 5.0;
+            let dz3_44 = (top44.powi(3) - bot44.powi(3)) / 3.0;
+            let dz5_44 = (top44.powi(5) - bot44.powi(5)) / 5.0;
 
-            let i_55 = a_55 * a_55 * t + 2.0 * a_55 * b_55 * dz3 + b_55 * b_55 * dz5;
-            let i_44 = a_44 * a_44 * t + 2.0 * a_44 * b_44 * dz3 + b_44 * b_44 * dz5;
+            let i_55 = a_55 * a_55 * t + 2.0 * a_55 * b_55 * dz3_55 + b_55 * b_55 * dz5_55;
+            let i_44 = a_44 * a_44 * t + 2.0 * a_44 * b_44 * dz3_44 + b_44 * b_44 * dz5_44;
 
             if c55_k > 0.0 { flex_55 += i_55 / c55_k; }
             if c44_k > 0.0 { flex_44 += i_44 / c44_k; }
 
-            cum_55 += q11 * (z_top * z_top - z_bot * z_bot) / 2.0;
-            cum_44 += q22 * (z_top * z_top - z_bot * z_bot) / 2.0;
+            cum_55 += q11 * (top55 * top55 - bot55 * bot55) / 2.0;
+            cum_44 += q22 * (top44 * top44 - bot44 * bot44) / 2.0;
         }
 
         let k = self.shear_correction_factor;
@@ -229,26 +238,12 @@ impl Laminate {
     ///
     /// which for a homogeneous stack of total thickness `h` is exactly `G·h`.
     ///
-    /// WHY THE ELEMENT NEEDS THIS AND NOT `cs`. Ko, Lee & Bathe (2017),
-    /// C&S 182:404-418, p. 410 states that "the element formulation does not
-    /// include any numerical factor". [`Self::compute_shear_stiffness`]'s
-    /// multi-ply branch builds an *energy-equivalent* `cs` with `Phi(z)`, which
-    /// for a homogeneous section already carries the `5/6` of the parabolic
-    /// shear distribution, and the single-ply branch builds `cs = k·G·h`.
-    /// Feeding either to the element makes a `[0,0,0,0]` stack of four `h/4`
-    /// isotropic plies differ from the single `h` isotropic layer it is
-    /// physically identical to, by 20% in the shear block (measured: 3.434% on
-    /// the assembled `K` trace).
-    ///
-    /// The value here is the one the element's constraint requires, and it is
-    /// confirmed externally: the element reproduces the published twisted-beam
-    /// cells of Ko et al. (2017), C&S 193:187-206, Tables 12/13 -- a
-    /// shear-locking benchmark -- to 0.01-0.25% while its shear input is the
-    /// uncorrected modulus, so the paper's element uses the uncorrected
-    /// modulus too.
-    ///
-    /// Additive: no stored field, no change to `cs`, and every existing
-    /// numerical result of `Laminate` is unchanged.
+    /// Diagnostic plain integral, not the laminate element's shear input.
+    /// ADR-1 re-amended 2026-10-19 (L1-SHEAR): laminates consume the
+    /// energy-equivalent `cs`; sum G t assumes constant through-thickness shear
+    /// strain and is about 40x too stiff for a soft-core sandwich. The isotropic
+    /// shell separately retains Ko-Lee-Bathe's G h convention.
+    /// This accessor does not modify the stored `cs`.
     pub fn shear_stiffness_uncorrected(&self) -> Matrix2<f64> {
         let mut a44 = 0.0_f64;
         let mut a45 = 0.0_f64;
@@ -356,6 +351,54 @@ mod tests {
     }
 
     #[test]
+    fn test_laminate_shear_neutral_axis_closed_form() {
+        let nu = 0.3;
+        let material = |e| {
+            let g = e / (2.0 * (1.0 + nu));
+            OrthotropicMaterial::new(e, e, e, g, g, g, nu, nu, nu, 1600.0)
+        };
+        let e1 = 3.4e9;
+        let e2 = 20.0e9;
+        let t1: f64 = 0.0006;
+        let t2: f64 = 0.0024;
+        let h = t1 + t2;
+        // Independent closed form in a coordinate y measured from the bottom face.
+        let q1 = e1 / (1.0 - nu * nu);
+        let q2 = e2 / (1.0 - nu * nu);
+        let yn = (q1 * t1 * t1 / 2.0 + q2 * t2 * (t1 + t2 / 2.0))
+            / (q1 * t1 + q2 * t2);
+        let d = q1 * (t1.powi(3) / 12.0 + t1 * (t1 / 2.0 - yn).powi(2))
+            + q2 * (t2.powi(3) / 12.0 + t2 * (t1 + t2 / 2.0 - yn).powi(2));
+        // Phi(y) = a*y^2 + b*y + c; integrate its square analytically.
+        let primitive = |y: f64, a: f64, b: f64, c: f64| {
+            a * a * y.powi(5) / 5.0 + a * b * y.powi(4) / 2.0
+                + (b * b + 2.0 * a * c) * y.powi(3) / 3.0
+                + b * c * y * y + c * c * y
+        };
+        let phi_interface = q1 * (t1 * t1 / 2.0 - yn * t1);
+        let c2 = phi_interface - q2 * (t1 * t1 / 2.0 - yn * t1);
+        let flex = primitive(t1, q1 / 2.0, -q1 * yn, 0.0)
+            / (e1 / (2.0 * (1.0 + nu)))
+            + (primitive(h, q2 / 2.0, -q2 * yn, c2)
+                - primitive(t1, q2 / 2.0, -q2 * yn, c2))
+                / (e2 / (2.0 * (1.0 + nu)));
+        let expected = d * d / flex;
+        let lam = Laminate::new(vec![
+            Ply::new(material(e1), t1, 0.0),
+            Ply::new(material(e2), t2, 0.0),
+        ], 5.0 / 6.0).unwrap();
+        assert!((lam.cs[(0, 0)] / expected - 1.0).abs() < 1e-10);
+
+        // Symmetric homogeneous split retains the original parabolic 5/6 value.
+        let symmetric = Laminate::new(vec![
+            Ply::new(material(e2), h / 2.0, 0.0),
+            Ply::new(material(e2), h / 2.0, 0.0),
+        ], 5.0 / 6.0).unwrap();
+        let expected_symmetric = (5.0 / 6.0) * e2 / (2.0 * (1.0 + nu)) * h;
+        assert!((symmetric.cs[(0, 0)] / expected_symmetric - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
     fn test_laminate_symmetric() {
         let lam = make_test_laminate();
         assert!(lam.is_symmetric(), "2-ply with ±angle should be symmetric");
@@ -447,8 +490,8 @@ mod tests {
 
     /// `shear_stiffness_uncorrected` is the plain section integral, and for a
     /// homogeneous stack of four `h/4` plies it must equal the `G·h` a single
-    /// `h` layer gives -- which is the value the element's shear block requires
-    /// (ADR-1, amended: the material supplies the uncorrected stiffness).
+    /// `h` layer gives. This diagnostic is distinct from the energy-equivalent
+    /// `cs` consumed by laminate elements (ADR-1 re-amended 2026-10-19).
     #[test]
     fn test_shear_stiffness_uncorrected_is_the_plain_integral() {
         let e = 70.0e9;

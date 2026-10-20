@@ -1547,18 +1547,19 @@ groups:
           - test_sandwich_reference_check_a_navier_fsdt
           - test_sandwich_reference_check_b_limits_and_shear_stiffness
           - test_ortho_reference_check_a_limits_and_mode_switch
+          - test_unsymmetric_shear_reference_check_limits
         reason: Reference-formula identities and limiting-case controls qualify the analytical judge.
       - tests:
           - test_sandwich_laminate_section_matches_reference
           - test_cross_ply_laminate_section_matches_reference_and_shear_is_negligible
+          - test_unsymmetric_laminate_shear_is_neutral_axis_referenced
+          - test_symmetric_laminate_shear_is_unchanged_by_the_neutral_axis_reference
         reason: Section-input qualification and shear-negligibility controls precede the plate buckling comparison.
-      - tests:
-          - test_mitc4_sandwich_equals_fsdt_with_the_shear_it_consumes
-        reason: Pins the documented wrong-shear-input model using its own consumed A55, not the physical sandwich shear.
     provenance_note: >-
       K_G anchors of 41e9a16. Independent references and predeclared bounds are
-      stated beside the assertions; sandwich shear-input defects remain explicit
-      xfails, not trusted physics. Consistency checks are not independent arbiters.
+      stated beside the assertions. L1-SHEAR (c0fdeea) fixes the composite shear
+      input to energy-equivalent Cs referenced to the neutral axis; sandwich
+      bounds are unchanged. Consistency checks are not independent arbiters.
 
   - id: '57'
     title: Centrifugal strip prestress against equilibrium and CLT resultants

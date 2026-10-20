@@ -20,12 +20,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: fc24808
-      date: '2026-10-10'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 2.471
-      text: 'unbalanced coupon twist against the free-edge reference vs the free-edge CLT state for the same layup: 2.4710% (bound: 5.0000%)'
-      digest: fca334fed6951df1
+      margin_pct: 2.4685
+      text: 'unbalanced coupon twist against the free-edge reference vs the free-edge CLT state for the same layup: 2.4685% (bound: 5.0000%)'
+      digest: b895d6abfd5f67aa
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist.test_constant_moment_interior_state_is_t.single
@@ -48,12 +48,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: fc24808
-      date: '2026-10-10'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.4384
-      text: 'interior twist rate against the free-edge CLT vs the free-edge CLT state for the same layup: 0.4384% (bound: 5.0000%)'
-      digest: 4832bc72d225dffb
+      margin_pct: 0.4085
+      text: 'interior twist rate against the free-edge CLT vs the free-edge CLT state for the same layup: 0.4085% (bound: 5.0000%)'
+      digest: 0608a7b739b785a5
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist.test_constant_moment_tip_twist_matches_t.single
@@ -76,12 +76,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: fc24808
-      date: '2026-10-10'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 1.2116
-      text: 'constant-moment tip twist against the free-edge CLT vs the free-edge CLT state for the same layup: 1.2116% (bound: 5.0000%)'
-      digest: 3ac97ca19f13b21d
+      margin_pct: 1.2158
+      text: 'constant-moment tip twist against the free-edge CLT vs the free-edge CLT state for the same layup: 1.2158% (bound: 5.0000%)'
+      digest: f34a02fbbd2cc924
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist.test_ritz_reference_converges_and_matche.single
@@ -104,8 +104,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: fc24808
-      date: '2026-10-10'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
       margin_pct: 0.4613
       text: 'Ritz constant-moment twist against the free-edge CLT vs the free-edge CLT state for the same layup: 0.4613% (bound: 5.0000%)'
@@ -123,12 +123,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: fc24808
-      date: '2026-10-10'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 2.9083
-      text: 'element tip twist against the Ritz reference vs the Ritz solution for the same coupon: 2.9083% (bound: 5.0000%)'
-      digest: e89e7358ae4bab68
+      margin_pct: 2.9058
+      text: 'element tip twist against the Ritz reference vs the Ritz solution for the same coupon: 2.9058% (bound: 5.0000%)'
+      digest: f75f99d9d7cd619a
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: laminate_bend_twist.test_independent_ccx_deck_confirms_the_c.single
@@ -151,12 +151,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: fc24808
-      date: '2026-10-10'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.2267
-      text: '[45,0,0,45]s element twist against the CCX deck vs the independent CCX deck for the same coupon: 0.2267% (bound: 3.0000%)'
-      digest: 149cd3c456cc2d03
+      margin_pct: 0.1948
+      text: '[45,0,0,45]s element twist against the CCX deck vs the independent CCX deck for the same coupon: 0.1948% (bound: 3.0000%)'
+      digest: 80a7c7a60508611e
   - label: rtol at line 838 (name=[60,0,0,60]s)
     asserted: true
     reference:
@@ -170,12 +170,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: fc24808
-      date: '2026-10-10'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 1.9465
-      text: '[60,0,0,60]s element twist against the CCX deck vs the independent CCX deck for the same coupon: 1.9465% (bound: 3.0000%)'
-      digest: 4fc8279ac45cbe4d
+      margin_pct: 1.6721
+      text: '[60,0,0,60]s element twist against the CCX deck vs the independent CCX deck for the same coupon: 1.6721% (bound: 3.0000%)'
+      digest: 6f3a889c61ee2bb8
   - label: rtol at line 838 (name=[45,-45,-45,45]s)
     asserted: true
     reference:
@@ -189,11 +189,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: fc24808
-      date: '2026-10-10'
+      run: c0fdeea
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.5953
-      text: '[45,-45,-45,45]s element twist against the CCX deck vs the independent CCX deck for the same coupon: 0.5953% (bound: 3.0000%)'
-      digest: c714b599444f8ecd
+      margin_pct: 0.6285
+      text: '[45,-45,-45,45]s element twist against the CCX deck vs the independent CCX deck for the same coupon: 0.6285% (bound: 3.0000%)'
+      digest: a76f9801e0ff37ad
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

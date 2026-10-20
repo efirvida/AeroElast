@@ -95,8 +95,7 @@ def _laminate(half: list[float], material: OrthotropicMaterial = _CFRP,
 def _lam_prop(lam: Laminate) -> dict:
     """Composite property dict for ``PyMeshAssembler`` (same keys as the suite).
 
-    ``cs_uncorrected`` is what the element consumes (ADR-1): the section integral
-    without the 5/6 of a homogeneous stack.
+    No ``cs_uncorrected``: the element consumes the energy-equivalent ``cs`` (ADR-1 re-amended).
     """
     h = lam.total_thickness
     mpa = sum(p.material.rho * p.thickness for p in lam.plies)
@@ -107,7 +106,6 @@ def _lam_prop(lam: Laminate) -> dict:
         "b_coupling": lam.B.ravel().tolist(),
         "cb": lam.D.ravel().tolist(),
         "cs": lam.Cs.ravel().tolist(),
-        "cs_uncorrected": lam.shear_stiffness_uncorrected().ravel().tolist(),
         "thickness": h,
         "e_equiv": float(np.trace(lam.A) / (3.0 * h)),
         "mass_per_area": mpa,

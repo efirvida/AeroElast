@@ -68,12 +68,10 @@ pub(crate) fn parse_material(py: Python, obj: &Py<PyAny>) -> PyResult<MaterialSp
             cb.copy_from_slice(&cb_list);
             cs.copy_from_slice(&cs_list);
 
-            // Optional ADR-1 (amended) channel: the uncorrected section shear the
-            // element consumes. Absent -> `cs` verbatim, which is the legacy
-            // contract of this raw-dict path (the element's own constructor
-            // derivation yields the same value for a factor of 1.0). A caller
-            // that wants the paper's convention must supply it, as the
-            // `Laminate` path does.
+            // ADR-1 re-amended 2026-10-19 (L1-SHEAR): composites consume
+            // energy-equivalent `cs`, as does the Laminate path. Retain the
+            // optional historical `cs_uncorrected` key as an explicit override;
+            // absent -> `cs` verbatim. Only isotropic shells use plain G h.
             let cs_uncorrected = match dict.get_item("cs_uncorrected").ok() {
                 Some(v) => {
                     let list: Vec<f64> = v.extract()?;
@@ -89,9 +87,8 @@ pub(crate) fn parse_material(py: Python, obj: &Py<PyAny>) -> PyResult<MaterialSp
                 None => cs,
             };
 
-            // Raw-dict composite path has no `Laminate`: either the caller
-            // supplied the uncorrected shear, or `cs` stands as its own
-            // uncorrected value (ADR-1 amended).
+            // Raw-dict composites use `cs` unless the caller explicitly
+            // overrides the element shear channel.
             Ok(MaterialSpec::Composite { cm, cb_coupling, cb, cs, thickness, e_equiv, mass_per_area, rotational_inertia, applied_shear_correction: 1.0, cs_uncorrected })
         }
         "plane_stress" => {
