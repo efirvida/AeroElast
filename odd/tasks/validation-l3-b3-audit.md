@@ -701,7 +701,7 @@ Specs (user verbatim, 2026-10-19):
 - S5 "Objetivo: `contract --level L1` y `--level L2` en CLOSED. Mergeá con un merge commit (nunca squash ni rebase ...) y borrá la rama."
 - Rules: "nunca ensanchar una cota; criterio fijado antes de medir; SLURM solo con --ntasks."
 Tasks: [x] T1 S1 DELIVERY tick (487e75a). [x] T2 S2 diagnosis below (4b1cac5). [x] T3 S3 fix test-first (see L4). [x] T4 S4 rebuild, G56 + stale
-groups, full suite (L7). [~] T5 S5 contract CLOSED (L7), merge commit + branch deleted pending (PR, user choice L8).
+groups, full suite (L7). [x] T5 S5 contract CLOSED (L7), PR #44 merged with a merge commit, branch deleted (L8).
 
 ### Diagnosis (T2): input and convention, not the element and not units
 Probe: `logs/check/sandwich-shear/probe_cs.py` (own quadrature, independent of `aeroelast.core.laminate`).
@@ -791,7 +791,7 @@ Fix: `Laminate` path element input = energy-equivalent Cs, with Phi referenced t
 
 ## Handoff 2026-10-20 (L1-SHEAR closed) - resume here
 State: L1-SHEAR done on `fix/sandwich-transverse-shear`: G56 m1/m2 trusted, L1 and L2 CLOSED at c0fdeea (L7). Merge route: PR with a
-merge commit (L8); T5 is ticked when the merge commit exists on main and the branch is gone locally and on origin.
+merge commit (L8): PR #44, branch deleted locally and on origin.
 Next step (separate session, out of scope here): **B3-1 - freeze the L3 evidence inventory and audit rubric, measured on a revision
 that already contains c0fdeea** (main after this merge). The 2026-10-16 B3-1 inventory (HEAD 3fdd429) predates the composite shear fix:
 every blade anchor (S-1, S-2, S-4, V-02, V-03, V-05, S-7) is composite, its element shear input moved A55 -> Cs (median A55/Cs 1.12,
