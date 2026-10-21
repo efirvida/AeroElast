@@ -1493,3 +1493,8 @@ User (L): "trabaja todos en paralelos segun sea posile" (after reading the D1-D8
   |digitised - v1.1| / v1.1 <= max(2 delta_rel, 5 %). Closer to v1.0 at >= 80 % -> v1.0, not an arbiter. Fewer than 5 separable
   stations in total, or neither 80 % -> `cannot tell`, not an arbiter. Until v1.1 is shown the 8 G23 modal rows stay at most
   `undecided`.
+- K11.4 addendum (before digitising; Fig. B1 = `wes-11-2345-2026-f14.png`, 998x804, sha256 148012b8...; panels a stiffness
+  [GN m^2] edge/flap/torsion, b inertia [kg m] edge/flap, c rhoA (printed kg/m^3, read as kg/m), d twist [deg]; x = (r - R_hub)/L).
+  Erratum: the v1.0 tag is `v1.0` (commit 630f7cb, IEAWindSystems/IEA-15-240-RWT; 21 stations), not `v1.0.0`. Deck quantities
+  compared: a -> raw K44 (edge), K55 (flap), K66 (GJ); b -> M44, M55; c -> M11; d -> the BeamDyn.dat key-point twist. The elastic-
+  centre principal EI is computed as a sensitivity: the verdict must be the same under raw and principal, else `cannot tell`.
