@@ -25,6 +25,15 @@ Two blade inputs are compared:
     +40-55% vs the beam references.  Kept as an input-sensitivity record;
     the UTD model is NOT used for the closing claims.
 
+Arbiter for the official blade (odd/tasks/validation-l3-b3-audit.md K9, 2026-10-21): OpenFAST v5.0.0
+BeamDyn driver, single member p60, linear static, official v1.1 deck (T3, d19ef69, report
+logs/check/bd_static/report.md, p40-p60 within 0.13 %). Tip uy [m]: LC1 -2.231483, LC2 82.273278,
+LC4 9.062631. The in-house EB beam above is printed as a comparison only: its geometry is sliced from
+the shell mesh, so it moves with the mesh it judges (es 0.125: -13.3 % on LC1). Shell vs BeamDyn
+(mid-surface skin): es 0.25 / 0.125 LC1 -7.41 / -7.20 %, LC2 -3.68 / -4.05 %, LC4 -6.22 / -6.24 %.
+LC2 is printed, not asserted: node and ring tip uy differ by 9-11 % from local load introduction
+(T4 report), so it is not a clean metric. The K9 choice was made after these numbers were known.
+
 Marks: slow (blade mesh generation + 4 static solves per blade).
 """
 
@@ -58,6 +67,10 @@ _DOMINANT = {
     "LC2_tip_flap": {"component": "uy"},
     "LC4_distributed": {"component": "uy"},
 }
+
+# OpenFAST v5.0.0 BeamDyn driver, p60, linear static, official deck: tip uy [m] (K9).
+_BD_STATIC_UY = {"LC1_gravity": -2.231483, "LC2_tip_flap": 82.273278, "LC4_distributed": 9.062631}
+_NOT_ASSERTED_VS_BD = {"LC2_tip_flap"}
 
 # Cache of expensive per-blade results shared across the test session.
 _S2_CACHE: dict = {}
@@ -117,11 +130,23 @@ class TestS2StaticPrescribed:
         comp_idx = {"ux": 0, "uy": 1, "uz": 2}[spec["component"]]
         d_shell = s2_results[case_name]["shell"][comp_idx]
         d_beam = s2_results[case_name]["beam"][comp_idx]
-        rel = abs(d_shell - d_beam) / abs(d_beam)
         tol = _BLADES[blade_name]["rel_tol_dominant"]
+        if blade_name == "official":
+            d_bd = _BD_STATIC_UY[case_name]
+            print(
+                f"S-2 {case_name} uy [m]: shell {d_shell:.6f} vs OpenFAST BeamDyn p60 {d_bd:.6f} "
+                f"(signed error: {d_shell / d_bd - 1:+.4%}, bound: {tol:.4%}); in-house EB beam "
+                f"{d_beam:.6f} ({d_shell / d_beam - 1:+.4%}, comparison, not asserted)"
+            )
+            if case_name in _NOT_ASSERTED_VS_BD:
+                return
+            d_ref, ref_name = d_bd, "BeamDyn p60"
+        else:
+            d_ref, ref_name = d_beam, "beam"
+        rel = abs(d_shell - d_ref) / abs(d_ref)
         assert rel < tol, (
             f"[{blade_name}] {case_name} {spec['component']}: shell={d_shell:.4f} "
-            f"beam={d_beam:.4f} (rel={rel:.2%}, tol={tol:.0%})"
+            f"{ref_name}={d_ref:.4f} (rel={rel:.2%}, tol={tol:.0%})"
         )
         if spec.get("expect_negative"):
             assert d_shell < 0, f"[{blade_name}] {case_name}: expected downward deflection"

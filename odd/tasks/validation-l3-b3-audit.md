@@ -1142,3 +1142,21 @@ pre-existing; the extra pass is cf2115f's new test. Logs: `logs/check/b3-2e/tool
   (the S-4 test edit made them stale only through the level file list). check 0 errors; `contract --level L3 --rows` log
   `logs/check/b3-2e/contract-L3-k7k8.log`; `check.sh quick` OK. Honesty: arbiter chosen after the numbers (K8).
 - Open: BeamDyn rated 1E number; S-2 reference -> BeamDyn static driver (T3); BeamDyn p20 convergence citation.
+
+## K9 - S-2 judged against the OpenFAST BeamDyn static driver (2026-10-21, at 187de20; numbers already known, see honesty note)
+User (L): "ok vamos en ese orden" (after the proposal "S-2 contra BeamDyn static driver (T3)" as the first closing step of L3).
+Applies K8 (BeamDyn on the official deck is the arbiter for L3; `reference_model`) to the static rows; no new freedom.
+- K9.1 reference: BeamDyn driver v5.0.0, single member, p60, linear (scale 1e-4, last static solution / scale), official v1.1 deck,
+  `logs/check/bd_static/report.md` (T3, `d19ef69`): tip uy LC1 -2.231483, LC2 82.273278, LC4 9.062631 m. p40-p60 move <= 0.13 %
+  (reference convergence). The in-house EB beam (`BeamReference`) is demoted to a printed comparison (its geometry comes from
+  slicing the shell mesh; K7 finding 2026-10-20) and arbitrates nothing. UTD stays on the EB beam, an input-sensitivity record.
+- K9.2 convergence: K7.2 as written (m <= 1 pp between es 0.25 and 0.125, shell mid-surface, same fixture; the es 0.125 values
+  are those of SLURM 11619954, the es 0.25 control reproduced at 11619962).
+- K9.3 verdict, bound 5 % unchanged: |e| > 5 % -> `rejected`; |e| <= 5 % -> `trusted`, except where the metric is not clean.
+  LC2 is not clean (T4 report: node vs ring tip uy differ 9-11 % from local load introduction of 1 MN over 16 cap nodes, which a
+  beam does not have), so LC2 is printed, not asserted, and its row is `undecided` until measured on an inboard section or with a
+  distributing tip load. LC1/LC4 are clean (node and ring within 0.5 %).
+- Honesty note: decided after the numbers. Shell tip uy vs BD, es 0.25 / 0.125: LC1 -7.41 / -7.20 %, LC2 -3.68 / -4.05 %,
+  LC4 -6.22 / -6.24 %. Moves 0.21 / 0.37 / 0.02 pp. So LC1 and LC4 are `rejected` (shell stiffer than BeamDyn by 6-7 %, consistent
+  with S-1 and the recorded 6x6-vs-layup inconsistency), LC2 would pass but is not a clean metric. The reason for the LC2 split
+  is the metric, not which side passes. Open (not closed by this): shell vs BD load-wrench equivalence for LC2/LC4 (T4).
