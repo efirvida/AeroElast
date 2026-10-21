@@ -93,12 +93,31 @@ def _peak(t, residual, one_p_hz, band, taken):
     return f[i]
 
 
+def band_limit(t, y, band):
+    """Zero-phase low-pass (Butterworth 8, cutoff 1.5 band[1]) and decimation to >= 6 band[1].
+
+    A damped sinusoid is an eigenfunction of the filter in both passes, so its frequency and
+    decay survive (only its amplitude scales); the filter end transients are dropped.
+    """
+    from scipy.signal import butter, sosfiltfilt
+
+    dt = t[1] - t[0]
+    q = int(1 / (dt * 6 * band[1]))
+    if q <= 1:
+        return t, y
+    cutoff = 1.5 * band[1]
+    y = sosfiltfilt(butter(8, cutoff, fs=1 / dt, output='sos'), y, axis=1)
+    margin = int(20 / (cutoff * dt))
+    keep = slice(margin, len(t) - margin, q)
+    return t[keep], y[:, keep]
+
+
 def fit_frequencies(t, y, one_p_hz, band, max_modes=6, rel_amplitude=1e-3):
     """Modes shared by the channels of y (n_channels x n_samples); see the module docstring."""
     from scipy.optimize import least_squares
 
-    t = np.asarray(t, float) - t[0]
-    y = np.asarray(y, float)
+    t, y = band_limit(np.asarray(t, float), np.asarray(y, float), band)
+    t = t - t[0]
     freqs, sigmas = [], []
     largest = 0.0
     scale = np.linalg.norm(y - y.mean(axis=1, keepdims=True))
@@ -117,9 +136,9 @@ def fit_frequencies(t, y, one_p_hz, band, max_modes=6, rel_amplitude=1e-3):
             lambda p: _solve(t, y, one_p_hz, p[:k], p[k:])[1].ravel() / scale,
             np.clip(np.array(trial_f + trial_s), lower, upper), bounds=(lower, upper),
             xtol=1e-15, ftol=1e-15, gtol=1e-15, max_nfev=2000)
-        new = fit.x[k - 1]
-        if min(new - band[0], band[1] - new) < guard or any(abs(new - g) < guard for g in fit.x[:k - 1]):
-            break  # pinned to the band edge or splitting an existing mode: not a new mode
+        f = np.sort(fit.x[:k])
+        if f[0] - band[0] < guard or band[1] - f[-1] < guard or (k > 1 and np.diff(f).min() < guard):
+            break  # a mode pinned to the band edge or split in two: the trial mode is not real
         coef, _ = _solve(t, y, one_p_hz, fit.x[:k], fit.x[k:])
         amplitude = np.hypot(coef[3 + 2 * (k - 1)], coef[4 + 2 * (k - 1)]).max()
         largest = max(largest, amplitude)

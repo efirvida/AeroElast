@@ -36,8 +36,8 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.1e** es 0.125 for the three K3(b) items (S-1 flap, S-2 LC1, S-4 parked 1E), judged by K7 (section "K7" at the end, fixed before the runs). Route: worker + SLURM.
   - [x] **B3-2.1f** K8: S-4 test and row 40 against BeamDyn (reference_model), ElastoDyn as comparison; re-adjudicate S-4 rows. Needs cf2115f (cherry-picked).
   - [x] **B3-2.2a** K10 predeclared (BeamDyn rated 1E admissibility), before any BD-driver number (this commit).
-  - [ ] **B3-2.2b** tool: BD driver, dynamic rotating free vibration + frequency fit (uniform, box, IEA blade). IN PROGRESS: tool committed, bound-fix GREEN pending (see the mid-gate handoff).
-  - [ ] **B3-2.2c** K10.2 gate on the uniform and box beams (SLURM).
+  - [x] **B3-2.2b** tool: BD driver, dynamic rotating free vibration + frequency fit (uniform, box, IEA blade). Tool 3c57cc3, band-limited fit in the K10.2 RESULT commit.
+  - [x] **B3-2.2c** K10.2 gate on the uniform and box beams (SLURM 11621046): PASS, see "B3-2.2c K10.2 RESULT".
   - [ ] **B3-2.2d** blade: K10.3 (parked match, p15/p20, dt/dt2), K10.4 hub 3.97, shell rated es 0.125.
   - [ ] **B3-2.2e** verdict row 40 rated (K10.5), store/contract, check, quick, commit, push.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
@@ -1281,3 +1281,22 @@ Resume steps:
    The IEA blade is twisted, so the `dominant` flap/edge label is by tip channel; check it against the expected order (1F < 1E < 2F).
 4. K10.5 with 11621047 (shell rated 1E es 0.125) and es 0.25 0.700260; then S-4 test rated 1E target, row 40, contract, `check`,
    `contract --level L3 --rows` (log to logs/check/b3-2e/), `check.sh quick`, commit, push; then the single PR.
+
+## B3-2.2c K10.2 RESULT (2026-10-21; BeamDyn runs SLURM 11621046, re-posted with the band-limited fit; table `logs/check/bd_freevib/gate.md`)
+Fit fix: zero-phase Butterworth-8 low-pass at 1.5 band[1], decimation to >= 6 band[1], end transients dropped; any mode within 3/T of
+a band edge or of another mode rejects the trial mode after every refit. The RED test is now green (3 passed, 25 s; it took 814 s
+and failed before).
+| beam | mode | f0 Hz | f0 err % | f_rot Hz | K | analytic K | K err % |
+|---|---|---:|---:|---:|---:|---:|---:|
+| uniform | flap | 0.559574610 | -0.0030 | 0.588414225 | 1.191872 | 1.193336 | -0.123 |
+| uniform | edge | 0.839333144 | -0.0064 | 0.842503049 | 0.191925 | 0.193336 | -0.730 |
+| box | flap | 1.206745951 | -0.0020 | 1.316719939 | 1.186006 | 1.191031 | -0.422 |
+| box | edge | 0.821780808 | -0.0009 | 0.847462546 | 0.183208 | 0.188469 | -2.791 |
+K10.2 PASS: parked within 0.01 % (1 % allowed), K within 2.8 % (5 % allowed). Half load moves rotating 1E by -1.2e-6 (uniform)
+and -2.6e-5 (box), inside the 0.01 % linearity check. Box rotating reference is the published rotating EULER-BERNOULLI value (the
+file has no rotating Timoshenko one, as in T7); part of the box edge -2.8 % may be that model difference. Recorded, not tuned.
+FINDING confirmed on both beams: BeamDyn's nonlinear time integration carries the in-plane centrifugal softening; the T1/T7 artefact
+(edge K 1.19) is in the linearization/MBC3 extraction, not in BeamDyn's beam physics.
+Launched (K10.3/K10.4, `logs/check/bd_freevib/case.sbatch`, `submitted.txt`): IEA p20 r0 11621098, p20 r7.56 11621099, p15 r7.56
+11621100, p20 F500 11621101, p20 hub 3.97 11621102, p20 dt0.0025 11621103 (bigmem). Shell rated es 0.125 resubmitted 11621097
+(3 h; the timed-out log is kept as `pytest-s4r-0125-timeout-11621047.log`).
