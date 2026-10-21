@@ -12,7 +12,9 @@ Frame: BD (x,y,z) -> shell (-y,x,z). The published prebend in BD x maps to
 shell y; positive BD twist rotates chord y toward -x, matching NuMAD's
 negative twist about shell z. Root DCM is identity, root motion fixed, omega=0.
 Thus BD TipTDxr is shell tip uy (m), NOT TipTDyr. Loads are dead/global loads.
-LC1 g=(-9.81,0,0), LC2 tip F=(1e6,0,0), LC4 q=(5e3,0,0), scaled uniformly.
+LC1 g=(-9.81,0,0), LC2 tip F=(1e6,0,0), LC3 tip F=(0,-1e6,0), LC4 q=(5e3,0,0),
+scaled uniformly. LC3 is the shell edgewise tip load (+1 MN, 0, 0): its shell
+tip ux is -TipTDyr. The summary file (SumPrint) is written for the deck mass.
 Small-load displacement / scale estimates the linear response; compare at least
 two scales before using it. Full LC2 is outside the small-deflection regime
 (~82 m linear reference). p40..60 changed normalized tip uy by at most 0.13%
@@ -51,9 +53,10 @@ def case_loads(case, scale):
     """Return gravity, tip force, and distributed force in BD GLOBAL axes."""
     if not math.isfinite(scale) or scale <= 0:
         raise ValueError('scale must be positive and finite')
-    index, magnitude = {'LC1': (0, -9.81), 'LC2': (1, 1e6), 'LC4': (2, 5e3)}[case]
+    index, vector = {'LC1': (0, (-9.81, 0, 0)), 'LC2': (1, (1e6, 0, 0)),
+                     'LC3': (1, (0, -1e6, 0)), 'LC4': (2, (5e3, 0, 0))}[case]
     loads = [(0, 0, 0)] * 3
-    loads[index] = (magnitude * scale, 0, 0)
+    loads[index] = tuple(v * scale for v in vector)
     return loads
 
 
@@ -113,7 +116,7 @@ def build(case, order, scale):
     beam = GEOMETRY.read_text()
     beam = re.sub(r'---------------------- PITCH ACTUATOR PARAMETERS.*?'
                   r'(?=---------------------- OUTPUTS)', '', beam, flags=re.S)
-    for key, value in {'order_elem': order, 'quadrature': 1, 'NRMax': 50,
+    for key, value in {'order_elem': order, 'quadrature': 1, 'NRMax': 50, 'SumPrint': 'True',
                        'BldFile': f'"{target / "blade.dat"}"',
                        'OutFmt': '"ES20.10E3"'}.items():
         beam = replace(beam, key, value)
@@ -125,7 +128,7 @@ def build(case, order, scale):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('action', choices=('build', 'run', 'post'))
-    parser.add_argument('--case', choices=('LC1', 'LC2', 'LC4'), required=True)
+    parser.add_argument('--case', choices=('LC1', 'LC2', 'LC3', 'LC4'), required=True)
     parser.add_argument('--order', type=int, default=60, help='single member polynomial order, >=10 (default: 60)')
     parser.add_argument('--scale', type=float, default=.0001, help='positive load scale (default: .0001); check linearity across scales')
     args = parser.parse_args()
@@ -153,6 +156,7 @@ def main():
         tip = parse_output((output / 'driver.out').read_text())
         record = {'case': args.case, 'order': args.order, 'scale': args.scale,
                   'tip_bd_m': tip, 'linear_shell_uy_m': tip['TipTDxr'] / args.scale,
+                  'linear_shell_ux_m': -tip['TipTDyr'] / args.scale,
                   'binary': str(BINARY), 'geometry': str(GEOMETRY), 'properties': str(PROPERTIES)}
         (output / 'result.json').write_text(json.dumps(record, indent=2) + '\n')
         print(json.dumps(record))
