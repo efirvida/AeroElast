@@ -1674,3 +1674,59 @@ Diagnostic outcomes only; no verdict, band or contract edit.
 Cheapest next discriminants (not run): per-station hoop-free Steiner edge vs FE 2x2 edge on the same stations (seconds, exists in
 M2 code) to see if the 63-100 m dip is in the laminate or only in the FE; count/locate the MITC3 composite triangles at 63-100 m
 (seconds); an independent section solve of the yaml at 3-5 stations (PreComp/SONATA, not installed here: cost unknown).
+
+
+## K13 - B3-3 closing verifications (written BEFORE any K13 number, 2026-10-21, branch audit/b3-s2-beamdyn-static at bbec949)
+User (L): "correr en paralelo todas las verificaciones que faltan para cerrar B3-3 ... escribi primero la seccion K13 con su criterio
+y commiteala antes de leer cualquier numero." Maintainer decisions D1 (V-02 arbiter), D2 (S-7 skin), D3 (flap/EA route) arrived as
+the unfilled template (options listed, none chosen): per the instruction they are PENDING and their rows are not touched.
+Consequences: front E (independent section solver) and front F (re-judge D1/D2 rows) do not run; `contract.yaml` is not edited.
+Diagnostic only, as K12: no verdict, no band. Rules: no band widened; es 0.15-0.25 m, 0.125 only as the convergence point; a number
+without a reference is not evidence. Window W = [62 m, 0.85 R] (the FE edge EI drops from -5.4 % at 60.9 m to -10.5 % at 63.3 m in
+the stored M1 table); inboard I = [0.2 R, 62 m). Gap = FE 2x2 edge (M1 log) - hoop-free laminate edge (1/a11, vs deck), in pp.
+Tools (committed with this section): `tools/diagnose_edge_dip_locator.py` (A1+A2), `tools/diagnose_s1_gj_station.py` (D),
+`tools/edge_profile_from_m1.py` + `--ei-edge-profile` of `tools/bd_rotating_freevib.py` (C), `include_triangles` in
+`tools/diagnose_clt_compliance_steiner.py` (default off: the recorded M2 numbers are unchanged).
+- K13.A1 (es 0.25 and 0.125, mid; logs `m1-025-11621390.log`, `m1-0125-11621391.log`). Void if the laminate hoop-free means over
+  0.2-0.85 R differ from the recorded M2 ones (edge -4.93 / -4.54 %, flap +6.51 / +6.50 %) by more than 0.1 pp, or the per-station
+  FE columns do not match the M1 log (station z within 0.02 m). Outcome on mean gap in W:
+  (i) gap_W <= -6 pp AND mean laminate edge in W >= -8 %: the dip is in the FE response, not in the laminate -> model suspect
+      (the laminate integral cannot show it);
+  (ii) |gap_W| <= 3 pp: the dip is in the laminate as meshed (it is the layup/input, not the FE) -> A3 decides yaml vs mapping;
+  otherwise mixed, reported per station. Convergence: each W quantity moves <= 1 pp from es 0.25 to 0.125, else not converged.
+  Caveat stated before the numbers: the FE column comes from a spline second derivative of the tip-load displacement
+  (`diagnose_bending_compliance_2x2.py`), so a gap in W can also be extractor behaviour; A1 alone cannot separate it from the model
+  (B can, if there is a candidate).
+- K13.A2 (census of composite MITC3 triangles, es 0.25 and 0.125): count by 10 m bin and component (web, TE_flat, TE_panel, LE_panel,
+  spar_cap, other) and, per station, the share of the laminate edge integral the triangles carry (1 - quad-only/all, hoop-free
+  weights, triangle = one point at the centroid). A UPPER bound on what triangles can remove from EI edge even if they were
+  worthless: triangles are a CANDIDATE only if the mean share over the stations with FE edge <= -10 % is >= half the mean gap at
+  those stations (and >= 2 pp); otherwise triangles are EXCLUDED as the cause of the dip.
+- K13.A3 (gentle-ai-explore, read-only, path:line): map the yaml TE reinforcement (`TE_reinforcement_SS/PS`: width grid
+  [0, 0.082, 0.102, 0.796, 0.816, 1], values [0, 0, 0.75, 0.75, 0, 0], thickness, start/end arcs) to the mesh sections
+  (`numad_mesh_data` layups per element set) around 55-100 m: where the layer enters/leaves, its arc extent and whether the 62 m step
+  corresponds to a yaml grid point or to a mesh/mapping artefact. Candidate only if it names a concrete yaml-to-mesh discrepancy
+  with path:line and stations; no numbers are re-derived as evidence by the explorer.
+- K13.B (counterfactual): runs only if A2 names triangles a candidate (then: triangles with the offset corrected, or a quad-only
+  mesh over W, if the generator can produce it without touching crates) or A3 names a concrete mapping discrepancy that can be
+  switched in a copy of the yaml. M1 es 0.25 on sequana_cpu_dev (~3 min); es 0.125 always on sequana_cpu (16 tasks, ~21 min;
+  dev times out). Criterion (maintainer): the FE 2x2 edge in W goes from -10.5 % to within 2 pp of the hoop-free laminate
+  (-4.5 %) -> the candidate explains the dip; otherwise it does not (and is excluded). No candidate -> B is reported as BLOCKED
+  (no candidate), not forced.
+- K13.C (1E tension, 2.5 pp): BeamDyn v5 driver, `iea` p20, rpm 0, same settings as the stored `iea-p20-r0-h0-dt0.005-F1000`, with the
+  deck K[3,3] (edge EI) times the M1 2x2 ratio profile (es 0.25 log; variants A and B of K12.M4) via `edge_profile_from_m1.py`.
+  Controls: (c0) the same run with ratio 1 everywhere must reproduce the stored parked 1F/1E (0.50696 / 0.69351 Hz) within 0.1 %,
+  else void (the rewritten property table is not equivalent). Outcome on d1E = f1E(scaled)/f1E(c0) - 1 (variant B, the one that
+  explains LC3): d1E <= -1.5 % -> the tension is real: BeamDyn itself loses ~2 % of 1E with the soft edge profile while the shell does
+  not (+0.2 %), so the shell's 1E has compensation (mass or mode shape) to be explained; d1E >= -1.0 % -> the Euler-Bernoulli estimator
+  of M4 (-2.2..-2.7 %) overstated it and the tension is <= 1.5 pp; in between: undetermined. 1F reported (must stay within 0.5 %).
+- K13.D (S-1 GJ at mid, es 0.25 and 0.125): per-station GJ error against K66 and against 1/C66 over 0.2-0.85 R (signed mean, abs mean,
+  std, fraction positive), plus the spline-free window estimate T dz/(theta_b - theta_a) against the harmonic mean of each reference.
+  Note before the numbers: the stored signed mean (-4.55 %) is already inside 5 %; the row is rejected on the abs mean (6.22 %) of
+  the test's own criterion. Outcome: dispersion of the extractor if |window ratio - 1| <= 5 % against K66 AND the per-station std
+  >= 4 % with both signs present (frac>0 in [0.2, 0.8]); a systematic offset if |window ratio - 1| > 5 %; if the window estimate
+  is within 5 % but the per-station std is < 4 %, the abs mean is the offset and the row stays as is. The 1/C66 comparison is the
+  reference uncertainty, not a choice of reference. Control: the per-station numbers at es 0.25 reproduce the stored signed -4.55 %
+  and abs 6.22 % within 0.2 pp, else void. Convergence: 0.25 -> 0.125 move <= 1 pp.
+- K13.E, K13.F: not run (D3 and D1/D2 pending). Verdict proposals in K13 RESULT follow K3/K7 (|e| > 5 % at a converged es 0.125 ->
+  `rejected`; the closure family cannot be changed by diagnostics alone) and are proposals only.

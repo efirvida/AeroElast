@@ -154,8 +154,9 @@ def fit_frequencies(t, y, one_p_hz, band, max_modes=6, rel_amplitude=1e-3):
 
 
 # --------------------------------------------------------------------------- inputs
-def case_name(beam, rpm, order, hub, dt, load):
-    return f'{beam}-p{order}-r{rpm:g}-h{hub:g}-dt{dt:g}-F{load:g}'
+def case_name(beam, rpm, order, hub, dt, load, profile=None):
+    tag = f'-eie{Path(profile).stem}' if profile else ''
+    return f'{beam}-p{order}-r{rpm:g}-h{hub:g}-dt{dt:g}-F{load:g}{tag}'
 
 
 def _blade_properties(stations=None):
@@ -198,15 +199,27 @@ def rpm_of(beam, rpm):
     return rpm
 
 
-def build(beam, rpm, order, hub, dt, load, t_final):
-    name = case_name(beam, rpm, order, hub, dt, load)
+def _scaled_deck(profile):
+    """Deck stations (eta, K, M) with K[3, 3] (edge EI) times the ratio profile `eta ratio` (B3-3 K13.C)."""
+    from v05_deck_consistency import load_beamdyn
+    table = np.loadtxt(profile)
+    stations = []
+    for eta, stiffness, mass in load_beamdyn(PROPERTIES):
+        stiffness = stiffness.copy()
+        stiffness[3, 3] *= np.interp(eta, table[:, 0], table[:, 1])
+        stations.append((eta, stiffness, mass))
+    return stations
+
+
+def build(beam, rpm, order, hub, dt, load, t_final, profile=None):
+    name = case_name(beam, rpm, order, hub, dt, load, profile)
     target = INPUTS / name
     target.mkdir(parents=True, exist_ok=False)
     primary = GEOMETRY.read_text()
     primary = re.sub(r'---------------------- PITCH ACTUATOR PARAMETERS.*?'
                      r'(?=---------------------- OUTPUTS)', '', primary, flags=re.S)
     if beam == 'iea':
-        (target / 'blade.dat').write_text(_blade_properties())
+        (target / 'blade.dat').write_text(_blade_properties(_scaled_deck(profile) if profile else None))
     else:
         length, stations = _uniform_section(beam)
         (target / 'blade.dat').write_text(_blade_properties(stations))
@@ -310,6 +323,7 @@ def main():
     parser.add_argument('--load', type=float, help='tip load per direction (N); halve it for the linearity check')
     parser.add_argument('--t-final', type=float)
     parser.add_argument('--skip', type=float, default=2.0, help='seconds discarded before the fit')
+    parser.add_argument('--ei-edge-profile', help='iea only: `eta ratio` file scaling the deck K[3,3] (K13.C)')
     parser.add_argument('--gate', nargs=4, metavar=('UNI0', 'UNIW', 'BOX0', 'BOXW'), help='case names for gate')
     args = parser.parse_args()
     if args.action == 'gate':
@@ -322,9 +336,9 @@ def main():
     order, load = args.order or order, args.load or load
     dt, t_final = args.dt or dt, args.t_final or t_final
     rpm = rpm_of(args.beam, args.rpm)
-    name = case_name(args.beam, rpm, order, args.hub, dt, load)
+    name = case_name(args.beam, rpm, order, args.hub, dt, load, args.ei_edge_profile)
     if args.action == 'build':
-        print(build(args.beam, rpm, order, args.hub, dt, load, t_final))
+        print(build(args.beam, rpm, order, args.hub, dt, load, t_final, args.ei_edge_profile))
     elif args.action == 'run':
         output = LOGS / name
         output.mkdir(parents=True, exist_ok=False)

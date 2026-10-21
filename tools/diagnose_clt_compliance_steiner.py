@@ -55,8 +55,12 @@ def laminate_a(layup, mats) -> np.ndarray:
     return a
 
 
-def section_integrals(gen, mesh, ext):
-    """Rows (z, EA, EI_lo, EI_hi) per station for weights A11 and 1/a11 (Steiner, Gauss points)."""
+def section_integrals(gen, mesh, ext, include_triangles=False):
+    """Rows (z, EA, EI_lo, EI_hi) per station for weights A11 and 1/a11 (Steiner, Gauss points).
+
+    Default: 4-node elements only (the recorded M2 numbers). `include_triangles` adds each 3-node
+    element as one point at its centroid with weight area (K13.A2, share carried by MITC3).
+    """
     mem = ext.station_membership()
     sts = sorted(mem)
     coords = np.asarray([n.coords for n in mesh.nodes])
@@ -84,9 +88,15 @@ def section_integrals(gen, mesh, ext):
         for e in mesh.elements:
             m = mods.get(e.id)
             ids = [idx[n] for n in e.node_ids]
-            if m is None or any(i not in ns for i in ids) or len(ids) != 4:
+            if m is None or any(i not in ns for i in ids) or len(ids) not in (3, 4):
                 continue
             c = coords[ids]
+            if len(ids) == 3:
+                if include_triangles:
+                    area = 0.5 * np.linalg.norm(np.cross(c[1] - c[0], c[2] - c[0]))
+                    pts.append(c.mean(axis=0)[:2])
+                    w.append(np.array(m) * area / dz)
+                continue
             area = 0.5 * np.linalg.norm(np.cross(c[2] - c[0], c[3] - c[1]))
             for xi, eta in gp:
                 N = .25 * np.array([(1 - xi) * (1 - eta), (1 + xi) * (1 - eta), (1 + xi) * (1 + eta),
