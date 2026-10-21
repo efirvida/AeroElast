@@ -1262,7 +1262,11 @@ Proposed fix (not started): band-limit before fitting, zero-phase low-pass + dec
 drop a margin at both ends), sample rate about 4x band[1]. A zero-phase filter scales in-band amplitudes but does not move
 frequencies. Then reject any mode within 3/T of a band edge or of another mode after every refit, not only the newest. It should
 also cut the fit cost by about 50x. Keep the RED test as is; step 1 below stays the entry gate.
-Running: SLURM 11621047 (shell S-4 rated at es 0.125 for K10.5, sequana_cpu, 12 tasks; log `logs/check/b3-2e/pytest-s4r-0125.log`).
+SLURM 11621047 (shell S-4 rated at es 0.125 for K10.5, sequana_cpu, 12 tasks, rev a50dfc8) ended TIMEOUT at 40:13, no number.
+The parked es 0.125 took 8:26, but the rated one adds the centrifugal static solve and K_G (the old es 0.125 rated run, 11617092, took
+2:44:38). Not resubmitted (the maintainer decides). Recipe: `sbatch -p sequana_cpu --ntasks=12 --time=03:00:00
+logs/check/b3-2e/measure.sbatch 0.125 "tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56]" s4r-0125`
+(move or delete the partial `pytest-s4r-0125.log` first).
 Resume steps:
 1. `OPENBLAS_NUM_THREADS=1 scripts/aeroenv.sh python -m pytest -q tools/tests/test_bd_rotating_freevib.py` -> 3 passed (else fix the fit).
 2. Re-post (no BeamDyn rerun) all six gate cases with OPENBLAS_NUM_THREADS=1, e.g.
