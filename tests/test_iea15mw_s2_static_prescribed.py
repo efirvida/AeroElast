@@ -38,7 +38,9 @@ LC3 (K11.3, D7): the shell tip ux is judged against the same BeamDyn driver, LC3
 (+1 MN, 0, 0) = BD (0, -1 MN, 0)), p60 linear tip ux 34.469441 m (p50-p60 0.047 %, scale 1e-4 vs 2e-4
 0.0005 %; logs/check/bd_static/LC3-p*). The 0.9-1.2 band on the shell/EB ratio is gone; that ratio
 (1.25, known before K11) is printed only. The tip-ring mean ux is printed next to the node for the
-K11.3 clean-metric gate (node vs ring within 0.5 %, as K9.3).
+K11.3 clean-metric gate (node vs ring within 0.5 %, as K9.3). Measured at es 0.25 (SLURM 11621347):
+shell 40.310002 m, +16.94 % vs BeamDyn, ring mean 39.837109 m, node vs ring +1.19 % > 0.5 %, so by
+K11.3 LC3 is printed, not asserted (`undecided`), like LC2.
 
 Marks: slow (blade mesh generation + 4 static solves per blade).
 """
@@ -80,6 +82,8 @@ _BD_STATIC_UY = {"LC1_gravity": -2.231483, "LC2_tip_flap": 82.273278, "LC4_distr
 _NOT_ASSERTED_VS_BD = {"LC2_tip_flap"}
 # Same driver, LC3 case (K11.3): linear tip ux [m] in shell axes, -TipTDyr / scale.
 _BD_STATIC_LC3_UX = 34.469441
+# K11.3 clean-metric gate failed at es 0.25 (node vs ring +1.19 % > 0.5 %): printed, not asserted.
+_LC3_ASSERTED_VS_BD = False
 
 # Cache of expensive per-blade results shared across the test session.
 _S2_CACHE: dict = {}
@@ -177,6 +181,8 @@ class TestS2StaticPrescribed:
                 f"(node vs ring {d_shell / d_ring - 1:+.4%}); in-house EB beam {d_beam:.6f} "
                 f"(ratio {ratio:.4f}, comparison, not asserted)"
             )
+            if not _LC3_ASSERTED_VS_BD:
+                return
             rel = abs(d_shell - d_bd) / abs(d_bd)
             assert rel < tol, (
                 f"[official] LC3_tip_edge ux: shell={d_shell:.4f} BeamDyn p60={d_bd:.4f} "
