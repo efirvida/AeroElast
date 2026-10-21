@@ -2,31 +2,40 @@ group: '42'
 rows:
   - id: blade_structural_properties.v05_assembled_mass_vs_beam_table
     group: '42'
-    title: V-05 assembled mass vs BeamDyn table
+    title: V-05 assembled mass vs the integrated BeamDyn v1.1 deck mass
     tests:
       - >-
         tests/test_iea15mw_v05_structural_properties.py::TestAssembledStiffnessProperties::test_mass_matrix_total_consistent_with_reference
     validates: >-
-      Assembled shell total mass relative error against the BeamDyn table
-      representation.
+      Assembled shell total mass (es 0.25, mid-surface skin, row-sum of M) against the total mass of the
+      official v1.1 BeamDyn deck (K11.2, D6).
     comparisons:
       - label: Total mass relative error
         asserted: true
         reference:
           kind: code
-          label: BeamDyn table representation, total blade mass 67,921 kg
+          label: >-
+            Official v1.1 BeamDyn deck mass, integral of M11 over the 117.149 m reference axis, 66,996.9 kg
+            (BeamDyn v5 summary 66,934.6 kg at p60, 0.093 % apart)
         tolerance:
           kind: rel_err
-          value: 0.08
-          source: tests/test_iea15mw_v05_structural_properties.py:142
+          value: 0.05
+          source: tests/test_iea15mw_v05_structural_properties.py:180
           justified: true
           justification: >-
-            Source documents a layup-vs-6x6 representation difference and
-            historical +4.1%; no quantified L3 ceiling exception is established.
+            Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The stale 0.08 read from the old docstring
+            ("+4-8 %") is gone (K11.2).
         measured:
-          status: not_measured
-        expected: 67921.0
+          status: measured
+          run: '6318955'
+          date: '2026-10-21'
+          raw: 0.004695
+          margin_pct: 0.4695
+          text: >-
+            Shell 66,682.3 kg vs 66,996.9 kg, signed error -0.4695 % at es 0.25 (SLURM 11621355); es 0.125
+            66,760.5 kg, -0.3529 % (SLURM 11621349), move 0.12 pp <= 1 pp (K7.2). Bound 5 %.
+        expected: 66996.9
     flags: []
     notes: >-
-      Source assertions only. The docstring mentions historical +4.1%; this
-      is not a current measured result or validation verdict.
+      Re-pointed from the xlsx 67,921 kg (now only G41's reference) to the BeamDyn deck mass by D6/K11.2.
+      Verdict in contract.yaml.

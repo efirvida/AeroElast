@@ -2468,3 +2468,106 @@ verdicts:
       - {kind: analytical, label: "AeroDyn Theory Manual eqs [98]-[102], Viterna & Janetzke 1982"}
     note: >-
       B4 K6. _viterna_extrapolation against the AeroDyn Theory Manual eqs [98]-[102] (Viterna & Janetzke 1982), hand-coded in the test, at 20/30/45/60/90 deg: residual 0.0 on CL and CD, CL(90) 8.7e-17, CD(90) = Cd_max exactly; the 1e-10 atol is a round-off bound, relative equivalent 0. Measured at f1a1a18 (logs/check/b4/T7/group-60.log); no residual pattern for group 60.
+  - target: blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single
+    class: identity
+    verdict: trusted
+    audited_rev: "6318955"
+    files:
+      - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
+      - tests/IEA15MW/reference/IEA-15-240-RWT_ElastoDyn_blade.dat
+    note: >-
+      K11.1 (D5). No aeroelast computation: a consistency check of our reading of the official decks. Root EA 4.605108e10 N vs the
+      BeamDyn transcription 4.605e10 (0.0023 %, bound 1 %), GKt 8.748569e10 vs 8.749e10 (0.0049 %, bound 1 %), decoupled EIxp vs
+      ElastoDyn FlpStff +1.92 % and EIyp vs EdgStff +1.80 % (bound 2 %), re-measured at 6318955 (logs/check/b3-2e/k11-g20-inline.log;
+      same margins as e1b7da7). Not independent evidence and no physics verdict; counts as identity.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.0
+    class: physics
+    verdict: undecided
+    note: >-
+      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
+      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
+      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
+      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.1
+    class: physics
+    verdict: undecided
+    note: >-
+      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
+      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
+      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
+      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.2
+    class: physics
+    verdict: undecided
+    note: >-
+      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
+      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
+      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
+      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.3
+    class: physics
+    verdict: undecided
+    note: >-
+      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
+      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
+      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
+      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.4
+    class: physics
+    verdict: undecided
+    note: >-
+      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
+      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
+      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
+      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.5
+    class: physics
+    verdict: undecided
+    note: >-
+      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
+      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
+      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
+      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.6
+    class: physics
+    verdict: undecided
+    note: >-
+      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
+      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
+      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
+      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
+  - target: blade_iea15mw.test_blade_modal_frequencies_match_berna.7
+    class: physics
+    verdict: undecided
+    note: >-
+      D8/K11.4 (2026-10-21, tools/d8_bernardi_figb1.py at 8a577fb, logs/check/d8/report.md): Fig. B1 of Bernardi et al. 2026
+      (WES 11:2345) cannot be tied to the v1.1 blade - closer to v1.1 at 69.5 % (raw) / 69.8 % (principal) of the separable stations,
+      below the 80 % rule - so Bernardi is not an arbiter for this row. Its rho-A panel sits near half of M11 of both decks.
+      Element size 1.0 (rule-9 defect) until batch 2b re-meshes it.
+  - target: blade_structural_properties.v05_assembled_mass_vs_beam_table
+    class: physics
+    verdict: trusted
+    audited_rev: "6318955"
+    files:
+      - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
+      - tools/beam_reference.py
+      - tests/IEA-15-240-RWT.yaml
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn summary mass of the official v1.1 deck (66,934.6 kg at p60), matched by the deck integral 66,996.9 kg within 0.093 %"}
+    note: >-
+      K11.2 (D6). Shell 66,682.3 kg vs 66,996.9 kg: -0.4695 % at es 0.25 (SLURM 11621355), -0.3529 % at es 0.125 (SLURM 11621349),
+      move 0.12 pp. Honesty note: predicted before measuring (about -0.3 % from G41 and the straight-axis 66,912 kg). G41 judges the
+      same shell mass against the xlsx 67,921 kg; the two official representations differ by 1.4 %.
+  - target: blade_static_prescribed.s2_official_lc3_tip_edge_displacement
+    class: physics
+    verdict: undecided
+    files:
+      - tools/bd_static_reference.py
+      - tests/IEA-15-240-RWT.yaml
+    arbiters:
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC3 case"}
+    note: >-
+      K11.3 (D7). Shell tip ux 40.310002 m vs BeamDyn p60 34.469441 m: +16.94 % at es 0.25, +17.89 % at es 0.125 (move 0.95 pp).
+      Node vs tip-ring mean +1.19 % / +1.14 % > 0.5 %: not a clean metric, printed, not asserted (as LC2). The size of the gap
+      (shell ~17 % more flexible edgewise, while LC1/LC4 are 6-7 % stiffer) is a finding for the model investigation, not explained
+      by the 1.2 % node/ring spread. Open: an LC3 metric with a distributing tip load or an inboard section.

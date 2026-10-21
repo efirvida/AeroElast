@@ -1502,3 +1502,25 @@ User (L): "trabaja todos en paralelos segun sea posile" (after reading the D1-D8
   normalised, median over separable stations of e_i / max(2 delta_rel_i, 5 %) <= 1, with e_i = |digitised - v1.1| / v1.1.
   Timing note: this line was written to the file before the digitising run, but its commit failed on a transient `index.lock`
   and landed after that run; the worker received option A in its prompt before it started digitising.
+
+## B3-2.3d map (read-only explorer, 2026-10-21; input for the batch 2b criteria, no number read as evidence)
+- G5 `tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:144`: MESHES (2.0, 1.0, 0.5) (:47, all rule-9 defects; debt
+  `scripts/mesh-size-debt.txt:35`), oml; AE vs CCX first 8 modes paired by Hungarian cost (:61-71); asserts gap shrink 2.0 -> 1.0
+  and worst gap at 0.5 m <= 1 % (pairs 1-4) / 5 % (5-8). CCX live on the SAME mesh (S8R via `write_ccx_mesh`, :106-118): parity,
+  not an arbiter under D1. `_modal_couple(es, workdir, ccx_bin)` (:74) takes any es. ~11 min for the three meshes; no CCX timing
+  below 0.5 m (0.5 m = 9,277 nodes, 0.125 m = 120,352). Known: margins 0.19 / 2.12 % at 1d9a665; pairs 5-8 move 0.40-2.12 % (CCX
+  2.23) vs 3.90-4.04 % (CCX 2.20) - CCX-version sensitivity.
+- G23 `tests/validation/blade/test_blade_iea15mw_validation.py`: one fixture, ELEMENT_SIZE 1.0 (:77, debt "blade-10"), oml, same
+  mesh for AE and CCX. CCX modes .0-.4 (<= 5 %, :355); CCX static (:464) with an equal force per NODE (:266-273), so the load
+  changes with node density, and a node-mean tip uy (not work, rule 3); mass vs Escalera Mendoza 68,077 kg (:328); DLC static
+  vs 23.49 m and the 8 Bernardi modes both xfail when rel > 5 % (:477-482, :506-511): they can never fail. All G23 rows ERRORed at
+  setup in full-20261019T153623 (TMPDIR). Known: stored margins at 73743de (mass 3.74 %, CCX 0.44-1.65 %, static 1.86 %, Bernardi
+  1.94/3.35/4.37 %); AE-only es 0.25 oml modes exist (:899 of this doc). Bernardi is not an arbiter (K11.4 result below).
+- `tests/test_iea15mw_sx_mesh_convergence.py` exists but its CSV (`docs/validation_data/generated/sx_mesh_convergence.csv`) is
+  absent, so every test skips; it judges the 0.5 m values against bands of 4-10 % (:117-131, rule-9 defect). Producer
+  `tools/run_sx_convergence.py` (defaults 1.0/0.5/0.25, oml, hard-coded OpenFAST paths); last run SLURM 11599739 (2 h 27 m,
+  stale: pre-winding-removal). The OoP target 16.1033 m has no cited source.
+- `tests/test_iea15mw_sx_campbell.py` exists, CSV absent, skips; asserts monotonic 1F/2F, Southwell spread, rated/parked within
+  8 % of ED MBC3 (superseded for 1E by K10.5). Producer `tools/run_sx_campbell.py` defaults es 0.5 (debt "anchor-05"). Candidate
+  arbiter: `tools/bd_rotating_freevib.py` (K10 method; admissibility shown only at 0 and 7.56 rpm). Cost ~6 rotating modals at es
+  0.25 (S-4 test 24-32 min).

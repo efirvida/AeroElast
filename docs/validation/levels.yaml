@@ -114,12 +114,6 @@ levels:
       - tests/test_iea15mw_sx_campbell.py
     gaps: [rotating_modal_shift]
     absent:
-      - evidence: "tests/test_iea15mw_s2_static_prescribed.py::\
-          TestS2StaticPrescribed::test_edgewise_ratio_within_band[official]"
-        reason: >-
-          The official LC3 ratio uses the asymmetric bound
-          0.9 < ratio < 1.2; the row schema cannot preserve this interval,
-          so this exact node remains absent/open.
       - evidence: tests/test_iea15mw_sx_mesh_convergence.py
         reason: >-
           Blade mesh convergence is outside the store; data-artifact freshness
