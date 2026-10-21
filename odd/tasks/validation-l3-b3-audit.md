@@ -1565,3 +1565,70 @@ static load per node and node-mean metric need a decision; the DLC/Bernardi xfai
 (2) Maintainer, before B3-3: the 9 rejected rows (exceptions vs model investigation), now with the S-2 LC3 finding (shell ~17 %
 more flexible edgewise vs 6-7 % stiffer in LC1/LC4) and the LC2/LC3 clean-metric route (distributing tip load or inboard section).
 (3) Schema: group 27 is on no level (warning) until P1 has a place in levels.yaml.
+
+## B3-3 rejected-rows analysis (2026-10-21, at 97fa549; read-only diagnosis, no verdict, no band, no contract edit)
+Scope (maintainer, verbatim): "analizar en detalle las 9 filas L3 rejected más S-2 LC3 (undecided, +17 %) ... Hoy es SOLO
+lectura y diagnóstico: ningún veredicto, ninguna banda nueva, ningún cambio en contract.yaml. La decisión excepción-cuantificada
+vs investigación del modelo es mía, fila por fila, después de ver la tabla."
+Inputs: four read-only explorers (one per family), path:line evidence summarised below; numbers are the stored ones.
+Error signs: S-1 EI/EA/GJ = shell/ref - 1 (negative = shell softer); S-2 = shell displacement/ref - 1 (negative = shell
+stiffer); V-02 = frequency/ref - 1; S-7 = shell twist / beam twist (below 1 = shell stiffer). Skin mid unless stated.
+
+### Table before measuring (stored numbers)
+| row | signed error es 0.25 / 0.125 | reference (version) | mesh trend | candidate cause family | discriminating measurement | SLURM cost |
+|---|---|---|---|---|---|---|
+| S-1 EI edge | -12.12 % (mean signed; 12.71 % mean abs) / not measured | 6x6 deck v1.1 (SONATA/ANBA4), principal EI (Schur, larger eig), as data | none | extraction: global +x curvature vs a PRINCIPAL reference (axis mixing) and/or tip-load introduction; no-FE Steiner of the mesh laminate gives -0.40 % | M1 (2x2 compliance, eigenvalues) | ~5 min dev |
+| S-1 EI flap | +5.17 % abs / +4.09 % signed, 5.31 % abs (move 0.14 pp) | same, smaller eig | converged | flap surplus shared with LC1/LC4/1F (mid Steiner +7.74 %) plus the same axis mixing | M1 + M2 | M1 + seconds |
+| S-1 GJ | -4.55 % (6.22 % abs) / not measured | raw K66 about the BD reference axis | none | station scatter (sign mixed); mid +1.31 % on 2026-10-16 vs -4.55 % now, move unexplained | M3 covers the global torsion; no sectional measurement today | - |
+| S-1 EA | +7.57 % (7.59 % abs), no FE in it | K33 | mesh-blind (CLT sum) | definition: A11 = hoop strain clamped; a beam section is hoop-free (1/a11) | M2 | seconds-minutes |
+| S-2 LC1 gravity | -7.41 / -7.20 % (move 0.21 pp toward) | OpenFAST v5 BeamDyn driver p60, v1.1 deck | converged | shell flap stiffer: laminate-as-meshed vs 6x6 (CalculiX S8R OFFSET -6.9 %, element and inset ruled out) or a shell over-stiffness absent from beam theory | M2 (laminate beam integral, hoop-free) + M1 flap | as above |
+| S-2 LC4 distributed | -6.22 / -6.24 % (0.02 pp) | same | converged | same as LC1 (CalculiX -5.3 %) | same | - |
+| S-2 LC3 tip edge | +16.94 / +17.89 % node (ring about +15.6 / +16.6 %), move 0.95 pp away | same; BD also gives coupled uy +0.746 m | near the 1 pp limit | frame/coupling (principal axes of the shell vs BD), edge tip-load introduction (16 nodes, no RBE), torsion through the -4 m prebend lever | M1 | ~5 min dev |
+| V-02 1F | -6.10 / -6.20 % vs Gaertner 2020 Table 5-2 (v1.0); vs BD p20 parked v1.1: +3.42 / +3.31 % | paper, v1.0 blade (K8.1: not an arbiter) | converged (0.11 pp) | arbiter: v1.0 blade (65 t, TE reinforcement, SONATA properties changed in v1.1) | none: S-4 parked already holds the v1.1 comparison | 0 |
+| V-02 1E | +8.46 / +8.55 % vs v1.0; vs BD p20: +0.20 / +0.29 % | same | converged (0.08 pp) | arbiter, as 1F | none | 0 |
+| S-7 torsion ratio | 0.9091 (OML skin, -9.09 % twist) / not measured at this rev | St-Venant integral of K66, v1.1 deck (label "Timoshenko" is name only) | OML 2026-10-11: monotone down with refinement | OML reference surface (mid counterfactual 0.973 at a9d3454); 1/GJ interpolation 2-3 %; the 0.867 -> 0.9065 drift has no recorded cause | M3 | ~2 + ~6 min dev |
+
+Cross-family constraint (the strongest recorded fact): on the same mid mesh the shell 1E is +0.20 % from BeamDyn (parked, v1.1),
+yet S-1 edge EI reads -12 % and S-2 LC3 +17 % more flexible. A real ~15 % edge-EI deficit would pull 1E down by roughly 7-8 %.
+Frequencies do not depend on the frame; a single-axis static reading does. The flap side is coherent across families: LC1 -7.4,
+LC4 -6.2, S-1 flap +4, 1F +3.3 % (about +7 % EI), mid Steiner +7.7 %.
+
+### Hypotheses (rule 4 first)
+- H1 frame/axis (S-1 edge+flap, LC3): the static rows read global axes; if the shell's principal bending axes sit ~20 deg away from
+  BeamDyn's, the BD principal compliances (34.45, 82.29 m/MN at the tip) rotated by 20 deg give shell cxx about 40.3 (+17 %), cyy
+  about 76.4 (-7 %) and a coupling |cxy| about 15 m, against BD's 0.75 m. Sign and mapping of the BD frame were checked for LC1/LC2/
+  LC4 (wrench T4) but never for an edge load.
+- H2 edge tip-load introduction / torsion via prebend (LC3, S-1 edge): local, not a section property; would show as a section EI
+  that agrees once read away from the tip, with tip compliance still high.
+- H3 genuine edge deficit: rejected by 1E unless it is concentrated where the mode does not weigh it; M1 per-station shows it.
+- H4 laminate vs 6x6 (flap rows, EA): the beam integral of the mesh laminate, taken with the hoop-free modulus that a section
+  solver uses, either matches the 6x6 (then the FE shell is stiffer than its own laminate in beam theory: model) or not (then the
+  layup as meshed and the deck disagree: input/arbiter, and an exception needs an independent section solve of the yaml).
+- H5 V-02 is an arbiter question (v1.0 reference on a v1.1 blade), not a model question.
+- H6 S-7 is the OML skin placement (stored row is OML; every other anchor is mid).
+
+## K12 - B3-3 diagnostic criteria (written BEFORE any M1/M2/M3 number, 2026-10-21, tools committed with this section)
+Diagnostic only: an outcome routes the maintainer's per-row decision, never a verdict, a band or a contract edit.
+- K12.M1 `tools/diagnose_bending_compliance_2x2.py <es>`, es 0.25 and 0.125, mid. Void if the single-axis S-1 numbers it prints
+  differ from the stored S-1 rows (edge -12.12 %, flap +4.09 % signed at 0.125) by more than 0.5 pp, or the tip-ring reciprocity
+  residual exceeds 1 %.
+  (a) H1 supported if the shell tip-ring |cxy| >= 3 m/MN AND both shell tip eigen-compliances are within 5 % of BD's; refuted if
+      |cxy| <= 1.5 m/MN. In between: undetermined, reported.
+  (b) S-1 method: if the 2x2-eigenvalue edge EI is within 5 % (mean signed) of the deck principal while the single-axis reading
+      stays near -12 %, the S-1 edge rejection is the extraction; if the eigenvalue edge EI stays <= -8 %, the shell edge section is
+      genuinely soft and the 1E agreement needs its own explanation (H3).
+  (c) LC3 local vs global: if the per-station eigenvalue EIs agree with the deck within 5 % but the tip eigen-compliance is still
+      >= 10 % high, the excess is local to the tip/introduction or torsion (H2).
+  (d) Convergence: each quoted quantity moves <= 1 pp from es 0.25 to 0.125, else marked not converged.
+- K12.M2 `tools/diagnose_clt_compliance_steiner.py mid <es>`, es 0.25 and 0.125. Void if its A11 columns differ from the recorded
+  ones (EA +7.57 %, flap +7.74 %, edge -0.40 %) by more than 0.5 pp.
+  (a) EA: if the hoop-free EA is within 3 % (mean signed) of K33, the EA row is a definition defect of the A11 extraction (route:
+      fix the extraction / measure EA on the FE response), not a stiffness finding.
+  (b) Flap: if the hoop-free flap integral is within 3 % of the deck while the FE shell stays 6-7 % stiffer (LC1/LC4), the shell is
+      stiffer than its own laminate in beam theory -> model investigation; if it stays >= +5 %, the laminate-as-meshed and the
+      6x6 disagree -> input/arbiter, and an exception needs an independent section solve of the yaml (PreComp/ANBA/SONATA).
+- K12.M3 S-7 under `tools/with_skin_reference.py mid tools/diagnose_s7_beam_reference.py <es>`, es 0.25 and 0.125, plus an OML
+  es 0.25 control that must reproduce the stored 0.9091 within 0.002 (else void). H6 supported if the mid ratio (as the test
+  computes it) is in [0.95, 1.05] at both sizes with a move <= 1 pp; a mid ratio < 0.95 leaves a torsion over-stiffness to
+  investigate. The K66 vs 1/C66 variants are printed as reference uncertainty, not to choose a reference.
+- V-02: no measurement (the v1.1 comparison is S-4 parked, already stored).
