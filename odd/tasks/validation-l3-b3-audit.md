@@ -1254,6 +1254,14 @@ Gate first pass (SLURM 11621046, COMPLETED 11:52, the fit BEFORE the bound fix):
   3/T of a band edge or of an existing mode. RED test `test_fit_never_leaves_the_band_for_a_strong_out_of_band_mode` observed failing
   before the fix; GREEN NOT YET OBSERVED: the first rerun was killed on the login node (multithreaded BLAS, 30 CPU-min in 30 s);
   rerun with OPENBLAS_NUM_THREADS=1 was pending at the handoff.
+UPDATE after the handoff (job with OPENBLAS_NUM_THREADS=1, 814 s): the bound fix is NOT green. 2 passed, the new RED test still
+fails: fitted [0.791248, 0.8218, 1.2067, 1.663835, 6.0, 6.0] vs [0.8218, 1.2067]. The two true modes are exact, but the strong
+unmodelled 20.4 Hz line leaves a residual that spurious in-band sinusoids absorb (two pinned at the 6.0 band edge: the edge/split
+check only looks at the newest mode, so earlier modes the joint refit pushes to the edge pass), and the test takes 812 s.
+Proposed fix (not started): band-limit before fitting, zero-phase low-pass + decimation (`scipy.signal.decimate`, filtfilt;
+drop a margin at both ends), sample rate about 4x band[1]. A zero-phase filter scales in-band amplitudes but does not move
+frequencies. Then reject any mode within 3/T of a band edge or of another mode after every refit, not only the newest. It should
+also cut the fit cost by about 50x. Keep the RED test as is; step 1 below stays the entry gate.
 Running: SLURM 11621047 (shell S-4 rated at es 0.125 for K10.5, sequana_cpu, 12 tasks; log `logs/check/b3-2e/pytest-s4r-0125.log`).
 Resume steps:
 1. `OPENBLAS_NUM_THREADS=1 scripts/aeroenv.sh python -m pytest -q tools/tests/test_bd_rotating_freevib.py` -> 3 passed (else fix the fit).
