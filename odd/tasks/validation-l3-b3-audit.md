@@ -1160,3 +1160,11 @@ Applies K8 (BeamDyn on the official deck is the arbiter for L3; `reference_model
   LC4 -6.22 / -6.24 %. Moves 0.21 / 0.37 / 0.02 pp. So LC1 and LC4 are `rejected` (shell stiffer than BeamDyn by 6-7 %, consistent
   with S-1 and the recorded 6x6-vs-layup inconsistency), LC2 would pass but is not a clean metric. The reason for the LC2 split
   is the metric, not which side passes. Open (not closed by this): shell vs BD load-wrench equivalence for LC2/LC4 (T4).
+
+## K9 RESULT (2026-10-21, test at 44ebffa, SLURM 11621034; es 0.125 from 11619954)
+Shell tip uy vs BeamDyn p60: LC1 -7.41 / -7.20 %, LC2 -3.68 / -4.05 %, LC4 -6.22 / -6.24 % (es 0.25 / 0.125; the es 0.25 numbers at the
+test commit equal the predicted ones to the printed digit). Verdicts: LC1 `rejected`, LC4 `rejected`, LC2 `undecided` (printed, not asserted,
+`info_only`). Rows 39 and contract updated; the contract's `reference_model` arbiter now covers them (single/no-arbiter 36 -> 33).
+`audited_rev` of the rows untouched by the test edit bumped to 44ebffa (the S-2 test is a level file). check 0 errors, quick OK, logs
+`logs/check/b3-2e/contract-L3-k9.log`. Open: shell vs BD load-wrench equivalence for LC2/LC4 (T4); LC2 on an inboard section or with a distributing tip load.
+Next in the agreed order: (2) BeamDyn number for rated 1E; (3) the 22 unaudited and 3 absent rows.
