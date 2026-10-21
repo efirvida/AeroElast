@@ -1632,3 +1632,10 @@ Diagnostic only: an outcome routes the maintainer's per-row decision, never a ve
   computes it) is in [0.95, 1.05] at both sizes with a move <= 1 pp; a mid ratio < 0.95 leaves a torsion over-stiffness to
   investigate. The K66 vs 1/C66 variants are printed as reference uncertainty, not to choose a reference.
 - V-02: no measurement (the v1.1 comparison is S-4 parked, already stored).
+- K12.M4 (added after the M1 es 0.25 result, BEFORE computing it): `tools/diagnose_edge_static_modal_consistency.py <M1 log>`, no FE.
+  Scale the deck principal EIs by the M1 2x2-eigenvalue shell/deck ratio per station (variant A: ratio 1 outside 0.2-0.85 R;
+  variant B: the nearest window ratio held to root and tip); predict with a clamped Euler-Bernoulli beam the tip compliance change
+  and the 1E/1F change. If the predicted 1E change is <= -3 % (measured +0.2 %), the per-station edge softness and the modal result
+  are inconsistent: the static edge softness is a static-instrument/load-introduction effect, not a section property. If it is
+  within +-1 %, the deficit is real but modally invisible, and 1E is no counter-evidence. If the predicted tip compliance change
+  falls short of the measured +15.6 % (ring) by more than 5 pp, the static tip excess is not explained by the sections either.
