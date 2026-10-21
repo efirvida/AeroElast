@@ -40,6 +40,10 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.2c** K10.2 gate on the uniform and box beams (SLURM 11621046): PASS, see "B3-2.2c K10.2 RESULT".
   - [x] **B3-2.2d** blade: K10.3 (parked match, p15/p20, dt/dt2), K10.4 hub 3.97, shell rated es 0.125. PASS, see "B3-2.2 K10.3-K10.5 RESULT" (2eab2c6).
   - [x] **B3-2.2e** verdict row 40 rated (K10.5), store/contract, check, quick, commit, push. Rated 1E `trusted`, see "B3-2.2e STORE".
+  - [x] **B3-2.3a** Bernardi 2025 (WES 11:2345-2367, 2026) blade version: which IEA 15 MW blade/deck it models (v1.0 vs v1.1), with page/table citations; arbiter status for the 9 G23 rows (D2). Route: read-only research.
+  - [ ] **B3-2.3b** batch 2a criterion K11 (G20 deck reading, G42 V-05 mass hygiene + measure, absent S-2 LC3 ratio) predeclared, then measure, store, contract.
+  - [ ] **B3-2.3c** G27 out of L3 (D3): levels.yaml/contract change, rationale, the rows go with P1.
+  - [ ] **B3-2.3d** batch 2b criteria (rule-9 re-mesh G5, G23, sx_mesh_convergence, sx_campbell; CCX per D1), one predeclared criterion each.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -1387,3 +1391,71 @@ Next, agreed order step 3: the 22 unaudited L3 rows (groups 5, 20, 23, 27, 42) a
 convergence, Sx Campbell). Open maintainer decision before B3-3: for the 9 rejected rows (S-1 EI edge/flap, GJ, EA; S-2 LC1/LC4;
 V-02 1F/1E; S-7), predeclared quantified exceptions or a model investigation; L3 cannot close while any stays rejected.
 Untracked on purpose: `tests/IEA15MW/bd_freevib/`.
+
+## B3-2.3 maintainer decisions for the 22 unaudited + 3 absent L3 rows (2026-10-21, at 924285a, before any criterion)
+User (L): "continuamos"; asked four method questions, answers verbatim:
+- D1 CalculiX in L3 (G5 and the 6 CCX rows of G23): "CCX convergido en su propia malla (Recomendado)" - CCX is an arbiter only
+  with its own converged mesh series (L2/PRE-3 precedent); same-mesh CCX is parity, never `trusted`.
+- D2 Bernardi 2025 (9 G23 rows): "Investigar la versión primero (Recomendado)" - establish which blade/deck the paper models before
+  any criterion; v1.1 -> arbiter, otherwise not.
+- D3 G27 rated twist (3 rows): "Sacarlo de L3, va con P1 (Recomendado)" - twist and loads are P1's deliverable; L3 keeps only what
+  has an arbiter.
+- D4 order: "2a barato primero (Recomendado)" - batch 2a = G20 (deck reading), G42 (hygiene, false over-ceiling), S-2 LC3 ratio;
+  then batch 2b = rule-9 re-mesh of G5, G23, sx_mesh_convergence, sx_campbell, each with its own predeclared criterion.
+Tasks B3-2.3a-d above.
+
+## B3-2.3a RESULT - Bernardi 2025 blade version (read-only research, 2026-10-21)
+Source: the published HTML, https://wes.copernicus.org/articles/11/2345/2026/wes-11-2345-2026.html (the PDFs timed out, no page
+numbers). Verdict: **cannot tell** -> under D2 Bernardi is **not an arbiter** (v1.1 not shown).
+- The paper cites only Gaertner et al. 2020b (NREL/TP-5000-75698, the v1.0-era report) for the turbine (Sec. 3, Table 1). Its
+  structural model is its own Euler-Bernoulli 6-DoF beam with lumped mass (Sec. 2.1.2). The input properties are Fig. B1 (App. B),
+  with no source given. OpenFAST v3.2.0 is used for the cross-checks (Sec. 2.2). That only hints at v1.1 decks (the v1.1 tag,
+  2022-03-04, targets OpenFAST v3.1); nothing ties Fig. B1 to a version. Code and data are "available upon reasonable request".
+- The 8 modal references `BERNARDI_MODES_HZ` (`tests/validation/blade/test_blade_iea15mw_validation.py:121`) are exactly Table B1 of
+  the published paper. The test comment (`:115-120`, `:500`) still cites the preprint's "Table 2".
+- FINDING, mislabelled references: the G23 mass row (`ARTICLE_MASS_KG = 68_077`, `:91`) and the static row
+  (`ARTICLE_TIP_DEFLECTION_M = 23.49`, `:143`) are labelled Bernardi but come from Escalera Mendoza 2023 (the static one from its
+  Sec. V DLC 1.4). Bernardi gives no blade mass and no static deflection. Escalera Mendoza's blade version has not been checked.
+- `docs/validation/references.yaml:1488-1517` still records the preprint (10.5194/wes-2025-120, year null). The published record is
+  Wind Energ. Sci. 11, 2345-2367, 2026-07-08, DOI 10.5194/wes-11-2345-2026.
+- Remaining routes to settle the version: digitise Fig. B1 against the v1.0 and v1.1 BeamDyn properties, or ask the authors.
+
+## B3-2.3b map (read-only, 2026-10-21; open points for K11, no number read as evidence)
+- G20 (`test_blade_twist_anchor_beam.py:241-304`): no aeroelast computation. EA/GKt at the root are checked against a transcription
+  of the same BeamDyn deck (:259/:266, 1 %), and EIxp/EIyp against the ElastoDyn deck (:280/:287, 2 %, stored margins 1.92/1.80 %
+  at e1b7da7). That is a consistency check of the deck reading. Schema mechanisms: `class: identity` (contract.yaml:11-14,
+  precedents :188-238) or `non_validation_tests` (K55 precedent, groups.yaml:1340-1347).
+- G42 (`test_iea15mw_v05_structural_properties.py:151`, 5 %): the row is stale (stores 0.08 at :142, a docstring line;
+  `not_measured`; the docstring still says "+4-8 %, +4.1 %", pre-df446c3). The reference is the same 67,921 kg as G41 under a
+  "BeamDyn table" label, and nothing shows a BeamDyn-integrated mass. The construction is identical to G41 (es 0.25, mid, rcm,
+  row-sum of M), so it duplicates G41's measurement and reference.
+- S-2 LC3 ratio (`test_iea15mw_s2_static_prescribed.py:154-162`, `0.9 < ratio < 1.2`, :61): the reference is the in-house EB beam,
+  which K9 demoted to a non-arbiter. `tools/bd_static_reference.py:54,128` has no LC3 case (shell +x = BD -y). Honesty note: the
+  number is already known red, ratio 1.25 (`logs/check/full-20261019T153623.log:503`, `t4/s2-mid-11617753.log:152`), and it is
+  absent from known-red. Import path: a contract verdict on the node id (levels.yaml:18-21; validation_matrix.py:4419-4425) or a
+  comparison added to row 39 (the group lists the file).
+
+## B3-2.3b maintainer decisions (2026-10-21, after the map above; verbatim answers)
+- D5 G20: "class: identity (Recomendado)" - the four G20 bounds stay in the contract as a deck-reading consistency check of our
+  own (`class: identity`, contract.yaml:11-14). They close the row without a physics verdict.
+- D6 G42: "Re-apuntar a masa del deck BeamDyn (Recomendado)" - the reference becomes the total mass integrated from the official
+  v1.1 BeamDyn deck (integral of m(s)), computed and cited on its own. Fix the row (0.05, :151) and the docstring, then measure.
+- D7 S-2 LC3: "BeamDyn p60 como K9 (Recomendado)" - add an LC3 case to `tools/bd_static_reference.py` (shell +x = BD -y), run it
+  on SLURM with its p-convergence, metric tip ux `rel_err` <= 5 % (the band 0.9-1.2 goes). Honesty note: ratio 1.25 vs the EB beam is
+  already known.
+- D8 Bernardi modes: "Digitalizar Fig. B1 vs decks (Recomendado)" - digitise Fig. B1 of the published paper against the v1.0 and
+  v1.1 BeamDyn properties, with an agreement threshold predeclared before digitising. Bernardi becomes an arbiter only if the figure
+  matches v1.1 and separates from v1.0 within the reading resolution. Until then the 8 G23 modal rows are at most `undecided`.
+
+## Handoff 2026-10-21 (B3-2.3 decisions D1-D8 taken) - resume here
+Branch `audit/b3-s2-beamdyn-static`, HEAD = this commit (local; 924285a is the last push). ONE PR, not opened.
+Read only: "B3-2.3 maintainer decisions" (D1-D4), "B3-2.3a RESULT", "B3-2.3b map", "B3-2.3b maintainer decisions" (D5-D8).
+Next, in order (each with its criterion predeclared before any new number; record honesty notes for numbers already known):
+1. K11 for batch 2a: G20 -> `class: identity` verdict (re-measure at HEAD; e1b7da7 is old); G42 -> BeamDyn-deck integrated mass
+   (small tool or a function in `tools/beam_reference.py`; check v1.1 `tests/IEA15MW/reference` deck), row hygiene, measure the test
+   (slow, es 0.25 mid, a few minutes); LC3 -> new case in `tools/bd_static_reference.py`, p-convergence as K9, test re-pointed,
+   then a row comparison in group 39 or a contract verdict on the node id (map, Import procedure).
+2. D8 Fig. B1 digitisation (criterion first). D3 G27 out of L3 (task B3-2.3c). Fix the Bernardi/Escalera Mendoza labels and the
+   preprint citation (references.yaml:1488) as store hygiene.
+3. Batch 2b (task B3-2.3d): rule-9 re-mesh G5, G23 (CCX on its own converged mesh, D1), sx_mesh_convergence, sx_campbell.
+Still open for the maintainer before B3-3: the 9 rejected rows (exceptions vs model investigation).
