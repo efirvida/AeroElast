@@ -36,7 +36,7 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.1e** es 0.125 for the three K3(b) items (S-1 flap, S-2 LC1, S-4 parked 1E), judged by K7 (section "K7" at the end, fixed before the runs). Route: worker + SLURM.
   - [x] **B3-2.1f** K8: S-4 test and row 40 against BeamDyn (reference_model), ElastoDyn as comparison; re-adjudicate S-4 rows. Needs cf2115f (cherry-picked).
   - [x] **B3-2.2a** K10 predeclared (BeamDyn rated 1E admissibility), before any BD-driver number (this commit).
-  - [ ] **B3-2.2b** tool: BD driver, dynamic rotating free vibration + frequency fit (uniform, box, IEA blade).
+  - [ ] **B3-2.2b** tool: BD driver, dynamic rotating free vibration + frequency fit (uniform, box, IEA blade). IN PROGRESS: tool committed, bound-fix GREEN pending (see the mid-gate handoff).
   - [ ] **B3-2.2c** K10.2 gate on the uniform and box beams (SLURM).
   - [ ] **B3-2.2d** blade: K10.3 (parked match, p15/p20, dt/dt2), K10.4 hub 3.97, shell rated es 0.125.
   - [ ] **B3-2.2e** verdict row 40 rated (K10.5), store/contract, check, quick, commit, push.
@@ -1230,3 +1230,42 @@ T1/T7 linearization artefact (BD edge K 1.19 vs 0.193). Not known: any BeamDyn d
   0.125 measured at the verdict revision by the S-4 test, as K7 did for parked); move <= 1 pp -> verdict on e(0.125): |e| <= 5 % ->
   rated row `trusted` (1F/2F already pass vs BD p20), |e| > 5 % -> `rejected`; move > 1 pp -> `undecided`. Arbiter of 1E:
   `reference_model`, "OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck", BeamDyn convergence cited with it.
+
+## Handoff 2026-10-21 (B3-2.2 mid-gate; maintainer monitors the jobs) - resume here
+State: branch `audit/b3-s2-beamdyn-static`; K10 at a50dfc8 (predeclared); this commit adds `tools/bd_rotating_freevib.py`,
+`tools/tests/test_bd_rotating_freevib.py`. The driver inputs `tests/IEA15MW/bd_freevib/` (gate + 6 IEA cases, not run) are built
+but NOT committed (deterministic from `build`; the deck's trailing whitespace fails `diff --check`); they stay untracked on disk.
+Outputs (gitignored) `logs/check/bd_freevib/`: `gate.sbatch`, `gate-11621046.out`, per-case `result.json`, `gate.md`, `diag_box.py`.
+Gate first pass (SLURM 11621046, COMPLETED 11:52, the fit BEFORE the bound fix):
+| beam | mode | f0 Hz (err %) | f_rot Hz | K | analytic K | K err % |
+|---|---|---|---:|---:|---:|---:|
+| uniform | flap | 0.559574617 (-0.0030) | 0.588414238 | 1.191872 | 1.193336 | -0.123 |
+| uniform | edge | 0.839333157 (-0.0064) | 0.842503028 | 0.191923 | 0.193336 | -0.731 |
+| box | flap | 1.206745951 (-0.002) | 1.316720095 | (hand) 1.18602 | 1.191031 | (hand) -0.42 |
+| box | edge | 0.821780808 (-0.001) | ~0.84746 (see below) | (hand) ~0.1832 | 0.188469 | (hand) ~-2.8 |
+- Uniform passes K10.2 as the tool computes it. Half load moves 1E by -1e-6 relative (linear).
+- FINDING (to confirm with the box): BeamDyn's nonlinear time integration HAS the in-plane softening (edge K 0.192 vs 0.193);
+  the T1/T7 artefact (K 1.19) belongs to the linearization/MBC3 extraction, not to BeamDyn's physics.
+- Box: the tool's `gate` printed FAIL, a fit defect, not physics: parked, the unbounded fit wandered to -20.4/-13.98 Hz
+  (out of band; `_first` took them); rotating, 1E split into 0.8455/0.8476/0.8525. `diag_box.py`: one spectral peak at 0.84742 Hz,
+  single-mode fits of the two halves 0.847357 / 0.847571 (0.025 % drift; uniform drifts 0). The box hand numbers above are NOT the
+  gate result; the gate is re-judged by the tool after the fix.
+- Fit fix (uncommitted before this handoff, committed here): frequencies bounded to the band, a new mode rejected if it ends within
+  3/T of a band edge or of an existing mode. RED test `test_fit_never_leaves_the_band_for_a_strong_out_of_band_mode` observed failing
+  before the fix; GREEN NOT YET OBSERVED: the first rerun was killed on the login node (multithreaded BLAS, 30 CPU-min in 30 s);
+  rerun with OPENBLAS_NUM_THREADS=1 was pending at the handoff.
+Running: SLURM 11621047 (shell S-4 rated at es 0.125 for K10.5, sequana_cpu, 12 tasks; log `logs/check/b3-2e/pytest-s4r-0125.log`).
+Resume steps:
+1. `OPENBLAS_NUM_THREADS=1 scripts/aeroenv.sh python -m pytest -q tools/tests/test_bd_rotating_freevib.py` -> 3 passed (else fix the fit).
+2. Re-post (no BeamDyn rerun) all six gate cases with OPENBLAS_NUM_THREADS=1, e.g.
+   `python tools/bd_rotating_freevib.py post --beam box --rpm 1` (also `--rpm 0`, `--load 500`, uniform `--rpm 0/10`, `--load 0.5`),
+   then `python tools/bd_rotating_freevib.py gate --gate uniform-p10-r0-h0-dt0.005-F1 uniform-p10-r10-h0-dt0.005-F1
+   box-p10-r0-h0-dt0.002-F1000 box-p10-r29.0236-h0-dt0.002-F1000 > logs/check/bd_freevib/gate.md`. Judge K10.2 from that table. The box
+   1E drift (0.025 %) is an open question: if the gate passes, record it; if it decides the gate, ask the maintainer, do not tune.
+   If K10.2 fails -> stop, ask among the handoff options (leave undecided / ED arbitrates rated 1E / method (b)).
+3. If K10.2 passes: run the six IEA cases (already built: p20 r0, p20 r7.56, p15 r7.56, p20 dt0.0025, p20 F500, p20 hub 3.97) with a
+   copy of `gate.sbatch` (sequana_cpu, ~30-60 min: 60k steps p20 each; dt0.0025 doubles). Judge K10.3 (parked 1F/1E vs 0.507083 /
+   0.693376 within 0.1 %; p15->p20 and dt->dt/2 move rated 1E <= 0.2 %), record K10.4 (hub 3.97 vs MBC3 rated 1F/2F).
+   The IEA blade is twisted, so the `dominant` flap/edge label is by tip channel; check it against the expected order (1F < 1E < 2F).
+4. K10.5 with 11621047 (shell rated 1E es 0.125) and es 0.25 0.700260; then S-4 test rated 1E target, row 40, contract, `check`,
+   `contract --level L3 --rows` (log to logs/check/b3-2e/), `check.sh quick`, commit, push; then the single PR.
