@@ -1338,3 +1338,33 @@ Resume steps:
    `{kind: reference_model, ...}`, drop the rated 1E `info_only`, `audited_rev` bump as in K9, `tools/validation_matrix.py check`,
    `contract --level L3 --rows > logs/check/b3-2e/contract-L3-k10.log`, `scripts/check.sh quick`, commit, push; tick B3-2.2d/e.
 6. Then (agreed order, step 3): the 22 unaudited and 3 absent L3 rows; and the single PR (after the split decision).
+
+## B3-2.2 K10.3-K10.5 RESULT (2026-10-21, at 4b18a9c; BeamDyn SLURM 11621098-103, shell es 0.125 SLURM 11621097) - the handoff above is consumed
+All seven jobs COMPLETED (BD 2:35-7:38; shell 2:46:09, `1 passed`). Mode labels: on every IEA case the first three fitted modes are,
+in order, flap-dominant / edge-dominant / flap-dominant (tip channels TDxr / TDyr), so 1F / 1E / 2F by order and by channel agree.
+Relative fit residual 0.0036-0.0057 rotating, 0.038 parked (smaller response, same fit).
+| case (`--beam iea`, p20, hub 0, dt 0.005, F1000 unless named) | 1F Hz | 1E Hz | 2F Hz |
+|---|---:|---:|---:|
+| rpm 0 | 0.506964 | 0.693513 | 1.480648 |
+| rpm 7.56 | 0.530595 | 0.699413 | 1.506848 |
+| rpm 7.56 p15 | 0.530853 | 0.698604 | 1.505867 |
+| rpm 7.56 dt 0.0025 | 0.530605 | 0.699440 | 1.507071 |
+| rpm 7.56 F500 | 0.530600 | 0.699377 | 1.506843 |
+| rpm 7.56 hub 3.97 | 0.531731 | 0.700256 | 1.508008 |
+K10.3 PASS (bounds fixed in K10, unchanged):
+- (i) parked vs BD p20 MBC3 (0.507083 / 0.693376): 1F -0.0235 %, 1E +0.0197 % (<= 0.1 %).
+- (ii) rated 1E p15 -> p20 +0.1159 %, dt -> dt/2 +0.0038 % (<= 0.2 %). For the record 1F -0.049 / +0.002 %, 2F +0.065 / +0.015 %.
+- linearity: rated 1E F500 vs F1000 -0.0053 % (<= 0.01 %).
+K10.4 (recorded, no verdict): hub 3.97 vs hub 0 moves 1F +0.214 %, 1E +0.121 %, 2F +0.077 %. Against MBC3 rated (HubRad 3.97, PreCone
+-4 deg) 1F 0.532003 / 2F 1.508057: hub 3.97 driver -0.051 % / -0.003 %, hub 0 driver -0.265 % / -0.080 %. FINDING: the configuration
+mismatch between the shell's rated modal (rotation centre 0, no precone) and the MBC3 reference used for rated 1F/2F (K8) is
+<= 0.27 % on 1F, small against the 5 % bound; the driver reproduces MBC3 rated 1F/2F within 0.06 % once the hub radius matches,
+an independent cross-check of the MBC3 flap numbers (precone -4 deg is not modelled and stays below that 0.06 %).
+K10.5 verdict, rated 1E, BD = driver p20 rated hub 0 = 0.699413 Hz:
+- es 0.25: shell 0.700260 -> e = +0.121 %; es 0.125: shell 0.700841 (SLURM 11621097, `logs/check/b3-2e/pytest-s4r-0125.log`)
+  -> e = +0.204 %. Move 0.083 pp (<= 1 pp) -> verdict on e(0.125): |e| = 0.20 % <= 5 % -> row 40 rated 1E `trusted`.
+- Arbiter of rated 1E: `reference_model` "OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck, hub 0" (K10), with
+  convergence p15->p20 +0.116 %, dt->dt/2 +0.004 %, linearity -0.005 %, method gate K10.2 (parked <= 0.01 %, K <= 2.8 %).
+- Same log, for the record: rated 1F/2F at es 0.125 vs BD p20 MBC3 +2.73 % / +1.48 % (already passing, K8); vs ElastoDyn
+  rated 1E -6.07 % (comparison only; K8 left the rated 1E row `undecided`, this arbiter decides it).
+Next: step 5 of the handoff (test target + es 0.25 SLURM run, then store, contract, quick gate, commit).
