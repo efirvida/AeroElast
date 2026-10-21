@@ -1639,3 +1639,38 @@ Diagnostic only: an outcome routes the maintainer's per-row decision, never a ve
   are inconsistent: the static edge softness is a static-instrument/load-introduction effect, not a section property. If it is
   within +-1 %, the deficit is real but modally invisible, and 1E is no counter-evidence. If the predicted tip compliance change
   falls short of the measured +15.6 % (ring) by more than 5 pp, the static tip excess is not explained by the sections either.
+
+## K12 RESULT (2026-10-21; tools at 3700691 / M4 at its own commit; logs `logs/check/b3-3/m1-025-11621390.log`, `m1-0125-11621391.log`, `m2m3-11621392.log`; the dev copy 11621397 timed out at 20 min, no output)
+Diagnostic outcomes only; no verdict, band or contract edit.
+- M1 validity: single-axis S-1 reproduced (edge -12.12 % at 0.25; flap +4.09 % signed at 0.125, both = stored); tip-ring
+  reciprocity 0.00 %. Valid. Sectional reciprocity median 2.8 / 1.8 %, max 6.6 / 19.3 % (outboard spline noise at 0.125).
+- M1(a) H1 REFUTED: shell tip-ring |cxy| 0.04 (0.25) / 0.21 (0.125) m/MN <= 1.5 (BD 0.75). Tip ring vs BD p60: edge eig-compliance
+  +15.61 / +16.60 % (move 0.99 pp), flap +5.00 / +6.77 % (move 1.77 pp: NOT converged, tip-local; the node reads -3.7 %).
+- M1(b) the edge section is soft independently of the frame: 2x2-eigenvalue edge EI -10.88 / -10.45 % (mean signed; 11.69 /
+  11.23 % abs), move 0.43 pp, vs single-axis -12.12 / -11.99 %; axis mixing is worth ~1.3 pp only. Concentrated at 63-100 m:
+  -10 to -22 % per station at both sizes; inboard of 60 m within about +-12 %. Flap 2x2 +2.57 / +3.15 % (move 0.58 pp).
+- M1(c) not met: the section EIs are not within 5 %, so the LC3 excess is not tip-local.
+- M4 (EB beam, deck EI scaled by the M1 2x2 profile): tip edge compliance +9.70 % (A) / +15.27 % (B) at 0.25, +9.70 / +14.58 % at
+  0.125, vs the measured +15.6 / +16.6 %: variant B explains the LC3 static excess within 2 pp (sections, not load introduction).
+  Predicted 1E -2.40 / -2.72 % (0.25), -2.18 / -2.22 % (0.125) vs the measured +0.20 / +0.29 %: between the two K12.M4 branches
+  (neither <= -3 % nor within +-1 %) -> undetermined; about 2.5 pp of 1E is not explained by the section profile under EB.
+- M2 validity: the A11 columns reproduce EA +7.56 %, flap +7.74 %, edge -0.40 % at 0.25. Valid. Hoop-free (1/a11): EA +5.76 / +5.86 %,
+  flap +6.51 / +6.50 %, edge -4.93 / -4.54 % (0.25 / 0.125). (a) EA not within 3 %: the A11 definition inflates by ~1.8 pp only; the
+  laminate as meshed is ~+5.8 % above K33. (b) flap >= +5 %: laminate-as-meshed and 6x6 disagree in flap; the FE shell matches its
+  own laminate (LC1/LC4 -7.4/-6.2 %, CalculiX -6.9/-5.3 %). Edge: the FE section (-10.5 %) is ~6 pp softer than its own hoop-free
+  laminate integral (-4.5 %).
+- M3 validity: OML control 0.9091 = stored. Mid ratio (as the test computes it, K66) 1.0155 / 1.0109, move 0.46 pp, in [0.95, 1.05]
+  -> H6 supported: the S-7 -9 % is the OML skin placement. 1/C66 variant 1.0024 / 0.9978 (reference uncertainty ~1.3 %).
+
+### Table after measuring and per-row recommendation (the maintainer decides)
+| row | cause family (diagnosed) | evidence | recommendation |
+|---|---|---|---|
+| V-02 1F, 1E | arbiter: v1.0 paper on a v1.1 blade | vs BD p20 parked v1.1: +3.42/+3.31 %, +0.20/+0.29 % (S-4 parked, stored) | change arbiter (or retire V-02 in favour of S-4 parked); 1F +3.3 % belongs to the flap family below |
+| S-7 torsion | configuration: OML skin (all other anchors mid) | mid 1.0155 / 1.0109, OML 0.9091 | move S-7 to mid (maintainer decision already open) and re-judge; no model investigation |
+| S-1 EA | input vs arbiter: laminate-as-meshed +5.8 % vs K33 (plus ~1.8 pp A11 definition) | M2 | exception only with an independent section solve of the yaml (PreComp/ANBA/SONATA), else investigate the yaml->mesh layup mapping; fix the extraction to 1/a11 or an FE EA either way |
+| S-1 EI flap, S-2 LC1, S-2 LC4 | input vs arbiter: laminate-as-meshed flap +6.5 % vs 6x6; the FE matches its laminate | M2(b), CalculiX, M1 flap 2x2 +3 % | same as EA: one independent section solve decides between "deck disagrees with the yaml" (quantified exception) and "our mapping is wrong" (model) |
+| S-1 EI edge, S-2 LC3 | model/implementation suspect: the FE edge section is ~6 pp softer than its own laminate, at 63-100 m (-10 to -22 %), frame-independent, converged; it explains LC3 | M1, M2, M4 | model investigation (first suspects: composite MITC3 triangles without span-angle offset (recorded defect, 88 at es 0.25), TE flat-region section deformation, outboard TE reinforcement mapping); the 1E 2.5 pp tension stays open |
+| S-1 GJ | not measured here; S-7 mid says global torsion within ~1 % | M3 | likely sectional-extractor scatter; one sectional GJ check before deciding |
+Cheapest next discriminants (not run): per-station hoop-free Steiner edge vs FE 2x2 edge on the same stations (seconds, exists in
+M2 code) to see if the 63-100 m dip is in the laminate or only in the FE; count/locate the MITC3 composite triangles at 63-100 m
+(seconds); an independent section solve of the yaml at 3-5 stations (PreComp/SONATA, not installed here: cost unknown).
