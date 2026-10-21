@@ -1459,3 +1459,37 @@ Next, in order (each with its criterion predeclared before any new number; recor
    preprint citation (references.yaml:1488) as store hygiene.
 3. Batch 2b (task B3-2.3d): rule-9 re-mesh G5, G23 (CCX on its own converged mesh, D1), sx_mesh_convergence, sx_campbell.
 Still open for the maintainer before B3-3: the 9 rejected rows (exceptions vs model investigation).
+
+## K11 - batch 2a and D8 predeclared criteria (written BEFORE any new number, 2026-10-21, at f869507)
+User (L): "trabaja todos en paralelos segun sea posile" (after reading the D1-D8 handoff). Applies D5-D8 as answered; no new freedom.
+- K11.1 G20 (D5) `class: identity`. Re-run the anchor test at HEAD; the four stored bounds stay as written (EA, GKt vs the BeamDyn
+  deck transcription 1 %; EIxp/EIyp vs ElastoDyn FlpStff/EdgStff 2 %). All four inside -> `identity` `trusted` (a deck-reading
+  consistency check, no arbiter, no physics claim). Any outside -> `identity` `rejected` (a transcription defect to fix), never a
+  wider bound. Honesty note: at e1b7da7 the margins were 1.92 / 1.80 % against 2 %, so the bending pair sits close to its bound.
+- K11.2 G42 (D6) `class: physics`. Reference: total mass of the official v1.1 BeamDyn deck, integral of M11(s) over the reference-axis
+  arc length, admitted only if two integrations agree within 0.1 %: (a) BeamDyn's own summary file (driver, SumPrint True) when it
+  prints a blade mass, (b) a function in `tools/beam_reference.py` (trapezoid on the deck stations, arc length from the BeamDyn.dat
+  key points), quadrature-checked by halving the interval. If (a) prints no mass, (b) alone is a `produced_numerical` single
+  arbiter and the row may at best be `unarbitrated`; with (a) the arbiter is `reference_model`. Metric: rel_err of the assembled shell
+  mass (es 0.25, mid, row-sum of M, the test as is) vs that reference, bound 5 %; the stored 0.08 becomes 0.05 (the test's bound) and
+  the docstring loses the stale "+4-8 %, +4.1 %". Convergence: mass at es 0.25 vs 0.125 moves <= 1 pp (K7.2). |e| <= 5 % ->
+  `trusted`, else `rejected`. Honesty note: both sides are already known - G41 shell 66,682 kg (es 0.25 mid) and the BeamDyn clamped
+  EB tool's deck mass 66,912 kg (`s4_deck_clamped_beam_modes.py`) - so the expected result is about -0.3 %. G41 (xlsx 67,921 kg) and
+  G42 then judge the same shell mass against two official representations that differ by 1.5 %; that difference is recorded, not
+  averaged.
+- K11.3 S-2 LC3 (D7) `class: physics`, arbiter `reference_model` as K9.1. New `tools/bd_static_reference.py` case LC3: shell tip
+  force (+1 MN, 0, 0) = BD tip force (0, -1 MN, 0) (BD (x,y,z) -> shell (-y,x,z)), so shell tip ux = -TipTDyr / scale. Reference
+  admission as K9.1: p40/p50/p60 at scale 1e-4 move <= 0.2 % between p50 and p60, and scale 1e-4 vs 2e-4 at p60 agree <= 0.1 %
+  (linearity). Metric: shell tip ux (the test's node) vs that reference, rel_err, bound 5 %; the 0.9-1.2 band vs the EB beam is
+  removed and the EB ratio is printed only. Clean-metric gate as K9.3: if node vs ring tip ux differ > 0.5 % (local load
+  introduction, as LC2) LC3 is printed, not asserted, and stays `undecided`. Convergence K7.2 (es 0.25 vs 0.125, <= 1 pp). Import:
+  as a comparison of row group 39 (the S-2 group already lists the file) via `extract`, verdict on that row; the absent node id goes.
+  Honesty note: shell ux / EB ux = 1.25 is known (full-20261019T153623.log:503); no BeamDyn LC3 number exists yet.
+- K11.4 D8 Fig. B1 threshold (before digitising). Properties: every curve Fig. B1 shows (at least m, EI flap, EI edge, GJ if present).
+  Reading resolution delta_rel per curve: 2 px of the extracted figure converted to data units at the read point, divided by the
+  value (log axes: 2 px in decades). Deck values: v1.0 (IEA-15-240-RWT tag v1.0.0 BeamDyn blade deck) and v1.1 (ours), at the deck
+  stations inside the plotted span. A station is separable when |v1.1 - v1.0| / v1.1 > 2 delta_rel. Bernardi models v1.1 iff, over
+  all separable stations of all curves, the digitised value is closer to v1.1 at >= 80 % of them AND the median
+  |digitised - v1.1| / v1.1 <= max(2 delta_rel, 5 %). Closer to v1.0 at >= 80 % -> v1.0, not an arbiter. Fewer than 5 separable
+  stations in total, or neither 80 % -> `cannot tell`, not an arbiter. Until v1.1 is shown the 8 G23 modal rows stay at most
+  `undecided`.
