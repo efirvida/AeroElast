@@ -1,0 +1,160 @@
+# Feature: B4 audit of L4 (BEM aerodynamics against OpenFAST AeroDyn)
+
+Issue: efirvida/AeroElast#33, item B4. Branch `audit/b4-l4` from `origin/main` 2b95e5f, worktree `logs/worktrees/b4-l4`
+(separate from `audit/b3-1-l3-inventory`, where B3 K7 jobs were running at entry). L4 `requires: []`, so it does not wait on B3.
+Audit work: produces measured verdict proposals; the maintainer closes or reopens. No band is widened, no verdict precedes its criterion.
+
+## Specs
+
+- S1 (user, verbatim): "vamos a arrancar con L4"
+- S2 (roadmap #33, B4, verbatim): "| B4 | Audit L4 | as B1 |", where B1 reads: "every L1 row has a verdict at one revision, with
+  its arbiters named; the documented reds (...) are each an exception with a source, or rejected; every `atol` comparison (23 in
+  the store) is classed or given a relative equivalent, because the ceiling cannot judge an absolute bound"
+- S3 (roadmap acceptance rule, verbatim): "A **physics comparison** passes at **≤ 5 % relative error** against an independent
+  reference (...)" and "**Numerical references settle it only in pairs:** agreement with a single model is not validation, and at
+  least two independent ones are needed. With no arbiter available, the quantity is **not validated**, and the record says so."
+- S5 (user, verbatim, amends S3 for IEA 15 MW): "para la turbina IEA 15mw aunque no tenemos arbitro analitico o pulicaciones
+  tenemos el repositorio oficial de OpenFAST por lo que ese arbitro es valido"; scope (L4): "Todo OpenFAST oficial (L3 y L4)".
+- S4 (roadmap, verbatim): "A closure ships three things in one push: 1. the verdict in `contract.yaml`; 2. the closure section;
+  3. the comment on the item." Push and the issue comment are the maintainer's.
+
+## Tasks
+
+- [x] T1 (S2) Entry measurement and environment at 2b95e5f - inline - this commit
+- [x] T2 (S2, S3) Per-row inventory and source findings (below), no verdict - inline
+- [x] T3 (S2, D2) Import V-01 and `test_viterna_matches_aerodyn_theory_manual` as manual rows; `bem_load_frame` to out_of_scope - inline
+- [x] T4 (S3, S5) Amend the arbiter rule: `reference_model` (official OpenFAST model on the official deck) settles alone, L3 and L4;
+  tool + test-first in `tools/validation_matrix.py`, roadmap mirror amended, issue text proposed - inline
+- [-] T4-old (D1) second-arbiter search: dropped by L3/L4 (the official model is the arbiter)
+- [x] T5 (S2, S3) Predeclared verdict criterion, written before any re-measurement - inline
+- [x] T6 (S2, D3) Adapt the AeroDyn driver writer to OpenFAST v5.0.0 (test-first: v5 setup fails today) - inline
+- [x] T7 (S2) Re-measure group 11 + imported rows at the audited revision with v5 - SLURM dev
+- [x] T8 (S2, S4) Verdicts in `contract.yaml` + closure section; issue comment text proposed, not posted
+
+## Entry measurement (T1, 2026-10-20, 2b95e5f, read-only)
+
+- `contract --level L4 --rows` (`logs/check/b4/contract-l4-rows-entry.log`): L4 open; unaudited 12, absent 3, over ceiling 0,
+  single or no arbiter 15, gaps 0. `check`: 289 rows, 399 comparisons, 0 errors, 0 warnings.
+- Store: all 12 rows of group 11 measured at `1d9a665` (2026-10-04), 655 commits before 2b95e5f; since then `solvers/bem/engine.py`
+  changed (4 lines) along with force projection / participant files. Stored margins are not a measurement at the audited revision.
+- Environment: the store and the test labels name **OpenFAST 4.2.1**. On this cluster the only binaries are
+  `conda-envs/openfast/bin/openfast` and `tools/openfast-env/bin/openfast`, both **v5.0.0** (GCC 14.3). `find_openfast_bin`
+  finds neither (it looks at `<venv>/../openfast` and `~/miniconda3/envs`), so without `OPENFAST_BIN` all 12 rows skip.
+  `docs/validation-environment.md:30-36` records that v5 refuses the 4.x driver input this test writes.
+
+## T2 inventory (source `tests/validation/bem/test_bem_openfast_parity.py` at 2b95e5f)
+
+| rows | quantity | bound | stored | reference as labelled | finding |
+|---|---|---|---|---|---|
+| `test_rotor_performance_matches_aerodyn.{0,1,2}` (A1, V 8/9/12, 7.56 rpm, pitch 0) | thrust, torque | rtol 0.015 | 0.05-0.79 % | AeroDyn 4.2.1 | physics row; single numerical arbiter |
+| `test_yaw_and_shear_match_aerodyn.{0,1}` (A2, yaw 10 deg / shear 0.2) | azimuth-avg thrust, torque | rtol 0.015 | 0.33 / 0.27 % (row .0) | AeroDyn 4.2.1 | physics row; single numerical arbiter |
+| `test_spanwise_loads_match_aerodyn.{0,1,2}` | interior max abs d-alpha; mean abs d-Cn | atol 2.0 deg; rtol 0.025 | - | "the official AeroDyn polar tables, interior stations" | F1: the label is wrong, the reference is the AeroDyn run (`ref.alpha_deg`, `ref.cn`); F2: the 3 `atol` of L4 are these d-alpha bounds |
+| `test_bem_with_repo_default_polars_matche.{0,1,2}` (A3) | thrust, torque with the WindIO polars | rtol 0.03 | up to 2.12 % | AeroDyn 4.2.1 | F3: its own docstring says "a **sensitivity**, not a parity claim": different inputs on the two sides, so not a physics comparison of the BEM |
+| `test_viterna_extension_matches_official.single` | worst Cl, Cd over 48-88 deg | rtol 0.01 | - | official polar tables | F4: AR is fitted from the reference's own Cd(90), so Cd near 90 deg agrees by construction; F5: module docstring says 0.23 % / 0.13 %, test docstring and comment say 0.48 % / 0.18 % |
+
+Non-validation by `groups.yaml`: `test_neuralfoil_generated_polar_differs_from_official`, `test_reference_polars_are_the_official_aerodyn_tables`.
+
+## T5 predeclared verdict criterion (written BEFORE any v5 number, 2026-10-20; T6 RED seen: v5 fails parsing `a1.dvr`)
+
+The 4.2.1 numbers in the store (1d9a665) are known; they are history, not the baseline, and no v5 number exists yet.
+- K1 measurement: each row's own printed metric, at the branch head after T6, `aerodyn_driver` of OpenFAST **v5.0.0** on the
+  vendored official deck with the `write_bem_primary` overrides (quasi-steady, tower-free, BEM_Mod 1); BEM side unchanged.
+- K2 arbiter: `reference_model` "OpenFAST v5.0.0 AeroDyn, official IEA 15 MW deck" (S5) for A1, A2, spanwise and the Viterna
+  like-for-like rows. The verdict note states it is verification against the turbine's definition, not physics.
+- K3 ceiling: |e| <= 5 % -> `trusted`; |e| > 5 % -> `rejected`. A row that is <= 5 % but fails its own tighter source bound
+  (1.5 %, 2.5 %, 1 %) is a moved anchor: reported as a finding and left `undecided`; no bound is touched.
+- K4 the `atol` (spanwise max |d alpha| <= 2 deg, the 3 L4 atols): relative equivalent fixed now as
+  e_alpha = max_i |d alpha_i| / max_i |alpha_AeroDyn,i| over the same interior stations, judged by K3. Station-wise
+  |d alpha|/|alpha| is not used (ill-conditioned where alpha -> 0).
+- K5 AeroDyn time convergence: one control run with dt halved (A1: 0.5 s, A2: 0.125 s), same tmax. |delta e| <= 0.1 pp per
+  comparison -> converged; otherwise the row is `undecided` whatever its e.
+- K6 class: A3 `test_bem_with_repo_default_polars_matche.{0,1,2}` compare different inputs (its docstring: "a **sensitivity**,
+  not a parity claim") -> class `regression_pin`, outside the ceiling. Imported Viterna closed form (T3) -> `analytical`.
+  Imported V-01 vs the WISDEM tabular (CCBlade, the same BEM code as ours, not OpenFAST) -> `published_numerical`, single and
+  not independent -> `unarbitrated` whatever e. F1 label is corrected to the AeroDyn run before the verdict.
+
+## B4 result (T8, verdicts measured at f1a1a18; `logs/check/b4/contract-l4-rows-T8.log`)
+
+`contract --level L4 --rows`: L4 **open**: trusted 7, regression_pin 3, undecided 3, unarbitrated 10; over ceiling 0; absent 0;
+`check` 300 rows / 419 comparisons, 0 / 0. Proposed for the maintainer; nothing is closed by the agent.
+| rows | verdict | why |
+|---|---|---|
+| A1 rotor performance .0-.2 | trusted (reference_model) | thrust +0.36..+0.45 %, torque -0.67..+0.83 %; K5 <= 0.0065 pp |
+| A2 yaw / shear .0-.1 | trusted (reference_model) | <= 0.37 %; K5 <= 0.0075 pp |
+| Viterna like-for-like | trusted (reference_model) | 0.23 % Cl / 0.13 % Cd; F4 caveat (AR from the reference's Cd(90)) |
+| Viterna manual (G60) | trusted (analytical) | residual 0.0 |
+| A3 repo polars .0-.2 | regression_pin | sensitivity, different inputs (K6); <= 2.15 % |
+| spanwise .0-.2 | undecided | K5 fails: AeroDyn alpha not time-converged at dt = 1 s (F7); at dt/2 e_alpha 1.8-2.7 % |
+| V-01 (G59, 10 rows) | unarbitrated | all <= 3.34 %, but WISDEM/CCBlade is one non-independent reference (K6) |
+
+What keeps L4 open, each a separate follow-up (not done here):
+1. Spanwise: a third AeroDyn dt (A1 at 0.25 s) under a criterion written first, and decide whether the test's dt = 1 s is
+   too coarse for the spanwise reference (F7); the store also needs a residual pattern for its two-quantity print.
+2. V-01: needs an independent second reference, or re-point it at OpenFAST on the official deck (then it is A1 at rated).
+3. Groups 59/60 have no residual patterns (same gap as 38-42); F8 driver dt formatting; F5 test-docstring figure.
+4. L3: the reference_model amendment applies to ElastoDyn/BeamDyn rows too (L4 of the Log); re-adjudicate on the B3 branch.
+5. Pre-existing, not B4: 5 `tools/tests` failures from group-4 store drift (`logs/check/b4-base-5fail.log`).
+
+Proposed comment for #33 (not posted; the maintainer posts it):
+> B4 (L4) audited at f1a1a18 on `audit/b4-l4`, OpenFAST 5.0.0 (the only build here; harness ported, DBEMT now off, F6).
+> Amendment proposed for the acceptance rule: the official OpenFAST model of the IEA 15 MW on its official deck arbitrates
+> alone (`reference_model`), as verification against the turbine's definition. Result: 7 trusted (rotor thrust/torque at
+> 8/9/12 m/s within 0.83 %, yaw/shear within 0.37 %, Viterna like-for-like and closed form), 3 regression pins (repo
+> polars, a sensitivity), 3 undecided (spanwise alpha/Cn: the AeroDyn reference is not time-converged at dt = 1 s), 10
+> unarbitrated (V-01 vs WISDEM, which runs the same CCBlade). L4 stays open on the spanwise and V-01 items.
+
+## Decisions (asked and answered 2026-10-20, all as recommended; see L2)
+
+- D1 arbiter: every row rests on one numerical code (AeroDyn). By S3 that leaves them unarbitrated unless a second independent code
+  or a closed form exists.
+- D2 absent: import the three absent L4 tests as rows now (A6c slice) or keep them absent with B4 open.
+- D3 environment: re-measure with v5.0.0 (adapt the driver writer; the arbiter version changes) or install 4.2.1 (dependency
+  install, item 5) to reproduce the stored numbers first.
+
+## Log
+
+- L1 (user, 2026-10-20): "vamos a arrancar con L4"
+- L2 (user, 2026-10-20, answers): D1 "Unarbitrated ahora + buscar 2º código (Recomendado)"; D2 "Importar V-01 y Viterna;
+  load_frame fuera (Recom.)"; D3 "Adaptar el driver a v5 y medir con v5 (Recomendado)".
+- L3 (user, 2026-10-20, mid-turn, revises D1): "para la turbina IEA 15mw aunque no tenemos arbitro analitico o pulicaciones
+  tenemos el repositorio oficial de OpenFAST por lo que ese arbitro es valido"
+- L4 (user, 2026-10-20, scope of L3): "Todo OpenFAST oficial (L3 y L4) (Recomendado)" - ElastoDyn/BeamDyn/AeroDyn on the official
+  deck count as a sole arbiter; L3 verdicts are re-adjudicated on the B3 branch, not here. Agent caveat recorded: with identical
+  inputs on both sides this is verification against the reference implementation, not validation against physics.
+- L5 (agent, T4 evidence): RED `test_contract_the_official_reference_model_arbitrates_alone` (contract refused kind
+  `reference_model`), GREEN after adding it to `SOLE_ARBITERS`. Non-slow `tools/tests`: 185 passed, 5 failed
+  (`logs/check/b4/tools-tests-T4.log`); the same 5 fail at clean 2b95e5f (`logs/check/b4-base-5fail.log`: coherence x2,
+  real store coherent, no pending migration, depends_on covers L1/L2 sources) -> pre-existing store line drift, not this change.
+- L6 (agent, T6 partial): v5 driver needs a SeaState section (`CompSeaSt=0`), then the v5 primary refuses the 4.x layout
+  (`NacelleDrag` not found). F6: the vendored primary has `DBEMT_Mod=2` and the 4.2.1 store numbers ran with dynamic inflow;
+  K1 ("quasi-steady") fixes `DBEMT_Mod=0` for v5 (agent decision, consistent with K1; no criterion change).
+- L7 (agent, T3 evidence, worker): group 59 `rotor_v01_performance` (V-01, 10 rows / 16 comparisons: thrust, torque rtol 0.05;
+  rated Cp atol 0.02, rated Ct and six curve points Cp/Ct atol 0.05; reference `paper` gaertner2020, WISDEM/CCBlade, no
+  independence claimed) and group 60 `viterna_manual.closed_form` (4 comparisons atol 1e-10 vs the AeroDyn Theory Manual
+  eqs [98]-[102], hand-coded in the test; `analytical`); other `test_bem_polars.py` tests declared non-validation; load frame
+  kept `out_of_scope` (machine-precision identity, #15). All `not_measured`, no verdicts. `check` 300 rows / 419 comparisons,
+  0 errors / 0 warnings; `status` 0 undeclared; L4 unaudited 23, absent 0; 11 node ids collect. Note for T8: V-01 adds 14
+  `atol` coefficient bounds; K6 already makes V-01 `unarbitrated` whatever e; the Viterna 1e-10 bound is a round-off check of
+  an implementation against its closed form.
+- L8 (agent, T6 evidence, worker): v5 driver gets SeaState (`CompSeaSt=0`); temp primary drops `Buoyancy`, adds tower
+  `TwrCp=TwrCa=0`, sets `DBEMT_Mod=0` (F6); `UA_Mod=0`, tower off, `Wake_Mod=1`, `BEM_Mod=1`, skew/tip/hub loss unchanged;
+  no output channel renamed; vendored deck untouched. Parity file with v5: 13 passed, 1 xfailed (NeuralFoil, documented)
+  (`logs/check/b4/T6-green-v5.log`). These are the K1 numbers at dt as written; K4 (needs max |alpha_AeroDyn|) and K5 (dt/2)
+  are T7. Slice boundary: slice 1 = dbaa250..ae235f6 (opening, arbiter rule, imports); slice 2 = T6 onwards.
+- L9 (agent, T7 evidence, worker; `tools/b4_l4_measure.py`, logs `logs/check/b4/T7/`): control at dt-scale 1 reproduces 48/48
+  T6 printed lines. Errors (signed fraction, dt -> dt/2): A1 thrust +0.00449/+0.00399/+0.00363, torque -0.00672/-0.00067/
+  +0.00828; A2 thrust +0.00347/+0.00159, torque -0.00367/-0.00258; A3 thrust +0.0118/+0.0140/+0.0200, torque -0.0138/
+  +0.0006/+0.0215; K5 deltas for all of these <= 0.0075 pp (converged). Viterna like-for-like dCl 0.00233, dCd 0.00128 (no
+  AeroDyn run). Spanwise (K4 e_alpha = max|d alpha| / max|alpha_AeroDyn|, interior): dt 0.0772/0.0696/0.0983 (0.661/0.764/
+  1.814 deg over 8.57/10.98/18.45 deg); dt/2 0.0265/0.0179/0.0252 (0.239/0.206/0.498 deg over 8.99/11.56/19.77 deg); mean
+  |d Cn| 0.87/1.06/1.83 % -> 0.73/0.64/1.59 %. K5 deltas e_alpha 5.06/5.17/7.31 pp, Cn 0.14/0.42/0.24 pp: all > 0.1 pp.
+  F7: the spanwise reference is not time-converged at the test's dt = 1 s (45 deg of azimuth per step at 7.56 rpm); the
+  AeroDyn alpha itself moves ~5 % between dt and dt/2 while the revolution-averaged thrust/torque do not. Cause not proven.
+  V-01 (group 59, 10 passed): thrust 2.67 %, torque 3.34 %; Cp/Ct absolute 0.0013-0.0150, relative |dC|/C_ref 0.7-2.6 %.
+  Viterna manual (group 60, 1 passed): residual 0.0 (CL 90 deg 8.7e-17). Store: `regression --group 11 --write` wrote 18
+  comparisons; spanwise 3 rows UNMAPPED (one printed line carries both alpha and Cn); groups 59/60 have no residual patterns
+  (same gap as 38-42). `coherence --group 11` refreshed citations; reference labels updated by hand to the source
+  (`OpenFAST 5.0.0 AeroDyn ...`, F1 interior label). F8: `write_aerodyn_dvr` formats dt with 2 decimals (0.125 -> 0.12); the
+  tool writes the exact dt only at dt-scale 0.5. `check` 300 / 419, 0 / 0.
+- L10 (agent, T8): verdicts written per K1-K6 at f1a1a18, no criterion changed after the numbers; L4 stays open (see B4 result).
+

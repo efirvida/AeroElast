@@ -38,6 +38,12 @@ narrative closure with **measured verdicts that expire on their own**.
   independent ones are needed. With no arbiter available, the quantity is **not validated**,
   and the record says so. Experimental validation is a kind of arbiter, available or not on any
   level. It is not a level of its own.
+- **Amendment (maintainer, 2026-10-20, B4): the reference turbine's official model.** "para la turbina IEA 15mw
+  aunque no tenemos arbitro analitico o pulicaciones tenemos el repositorio oficial de OpenFAST por lo que ese arbitro
+  es valido"; scope: every official OpenFAST module (AeroDyn, ElastoDyn, BeamDyn) on the official IEA 15 MW deck, L3 and
+  L4. Such a run settles a comparison alone (`reference_model` in `contract.yaml`; only a verdict declares it, a store
+  `code` reference stays numerical). It is verification against the turbine's definition, not validation against
+  physics, and the verdict note says so. *Proposed text for #33; the issue is edited by the maintainer.*
 - **Identity** checks (round-off or consistency bounds of our own computation) and
   **regression pins** (no independent reference) are outside the rule. They count toward no
   level.

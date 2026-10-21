@@ -248,7 +248,25 @@ def write_bem_primary(
     ``TwrAero``     ``False``  no tower aerodynamics
     ``Wake_Mod``    ``1``    BEMT (not OLAF/dynamic)
     ``BEM_Mod``     ``1``    legacy BEM formulation
+    ``DBEMT_Mod``   ``0``    no dynamic inflow (F6 correction; see below)
+    ``Buoyancy``    removed  v5 uses driver MHK=0 for the wind turbine
+    ``TwrCp``       ``0``    new v5 tower pressure coefficient; neutral
+    ``TwrCa``       ``0``    new v5 tower added-mass coefficient; neutral
     ==============  =======  =============================================
+
+    The v5 layout changes are applied only to this temporary copy: remove
+    the disabled ``Buoyancy=False`` line and extend the five-column tower
+    header, units and rows with ``TwrCp``/``TwrCa``. Nacelle drag remains off;
+    all skew, tip/hub-loss, induction and airfoil switches not listed above
+    retain their deck values. Layout reference: OpenFAST v5.0.0
+    ``modules/aerodyn/src/AeroDyn_IO.f90`` (ParsePrimaryFileInfo).
+
+    F6: the 4.2.1 store numbers retained the deck's ``DBEMT_Mod=2``. Setting
+    it explicitly to zero corrects the prior harness to K1's quasi-steady
+    intent, rather than preserving its dynamic-inflow configuration. Its
+    time scale (~R/U, ~13 s) exceeds the rotor period (~8 s), filtering the
+    yaw/shear induction variation that quasi-steady per-azimuth CCBlade
+    resolves. Those historical numbers are not a quasi-steady baseline.
     """
     defaults = {
         "UA_Mod": "0",
@@ -257,6 +275,7 @@ def write_bem_primary(
         "TwrAero": "False",
         "Wake_Mod": "1",
         "BEM_Mod": "1",
+        "DBEMT_Mod": "0",
     }
     if overrides:
         defaults.update(overrides)
@@ -265,6 +284,20 @@ def write_bem_primary(
     text = src.read_text(errors="replace")
     base = src.parent.parent
     text = text.replace('"../', f'"{base}/')
+    text = re.sub(r"^\s*False\s+Buoyancy\b[^\n]*\n", "", text, flags=re.M)
+
+    # v5 reads seven tower coefficients even when tower aerodynamics is off.
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if "TwrElev" in line and "TwrDiam" in line and "TwrCb" in line:
+            n_tower = int(lines[i - 1].split()[0])
+            lines[i] = line.split("!", 1)[0].rstrip() + "  TwrCp  TwrCa"
+            lines[i + 1] += "  (-)  (-)"
+            for j in range(i + 2, i + 2 + n_tower):
+                if len(lines[j].split()) == 5:
+                    lines[j] += "  0.0  0.0"
+            break
+    text = "\n".join(lines) + "\n"
     for label, value in defaults.items():
         text = re.sub(
             rf"^(\s*)\S+(\s+{label}\b)", rf"\g<1>{value}\g<2>", text, flags=re.M
@@ -313,14 +346,12 @@ def build_blade_aero_from_aerodyn(
 
 
 def find_openfast_bin() -> Optional[Path]:
-    """Resolve ``openfast``: ``OPENFAST_BIN``, then the pinned env, then PATH.
+    """Resolve ``openfast``: ``OPENFAST_BIN``, then the openfast env, then PATH.
 
-    The pinned environment is the one the tables in ``docs/validation-environment.md`` were
-    measured with, and PATH resolves to whichever environment is active. Inside the
-    development environment that is a newer OpenFAST, which refuses the 4.x driver input these
-    tests write, so the tests fail in setup while the pinned binary sits in its own env --
-    which is checked before PATH for that reason, and PATH stays as the fallback for a machine
-    that has a single install.
+    The parity harness writes OpenFAST 5.0.0 AeroDyn driver inputs. On the
+    cluster, set ``OPENFAST_BIN`` to the binary in ``conda-envs/openfast``;
+    the environment fallback locations below do not cover that installation.
+    See ``docs/validation-environment.md`` for the version and invocation.
     """
     env = os.environ.get("OPENFAST_BIN")
     if env and Path(env).exists():
@@ -359,7 +390,13 @@ def write_aerodyn_dvr(
     shear_exp: float = 0.0,
     yaw_deg: float = 0.0,
 ) -> Path:
-    """Write an AeroDyn driver input file (OpenFAST 4.x format).
+    """Write an AeroDyn driver input file (OpenFAST 5.0.0 format).
+
+    Compared with the 4.x writer, the mandatory SeaState section is added:
+    ``CompSeaSt=0`` and ``SeaStFile="unused"`` preserve the wave-free wind
+    turbine (``MHK=0``). All geometry, inflow and combined-case fields retain
+    their previous meaning and values. See OpenFAST v5.0.0
+    ``modules/aerodyn/src/AeroDyn_Driver_Subs.f90`` (Dvr_ReadInputFile).
 
     ``cases`` is a sequence of ``(wind_speed, rpm, pitch)`` or
     ``(wind_speed, rpm, pitch, shear_exp, yaw_deg)``; the 3-tuple form uses the
@@ -402,6 +439,9 @@ False           Echo         - Echo input parameters to "<rootname>.ech"?
         9.0      HWindSpeed  - Horizontal wind speed   [used only when CompInflow=0 and AnalysisType=1] (m/s)
       {hub_height:8.1f}   RefHt       - Reference height for horizontal wind speed [used only when CompInflow=0]  (m)
        {shear_exp:6.3f}   PLExp       - Power law exponent   [used only when CompInflow=0 and AnalysisType=1] (-)
+----- SeaState Data [used only when MHK = 1 or 2] ----------------------------------------
+          0      CompSeaSt   - No wave velocities (wind turbine, MHK=0)
+"unused"         SeaStFile   - Unused with CompSeaSt=0
 ----- Turbine Data ----------------------------------------------------------------------
 1               NumTurbines  - Number of turbines
 ----- Turbine(1) Geometry ---------------------------------------------------------------

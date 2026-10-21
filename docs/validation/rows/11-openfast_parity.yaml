@@ -7,44 +7,44 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_yaw_and_shear_match_aerodyn[0]
   validates: Yaw misalignment and power-law shear match AeroDyn within 1.5%.
   comparisons:
-  - label: rtol at line 246
+  - label: rtol at line 249
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:246
+      source: tests/validation/bem/test_bem_openfast_parity.py:249
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.3343
-      text: 0.3343% bound 1.5000%
-      digest: ea05bcc8d6ab4fa2
-  - label: rtol at line 253
+      margin_pct: 0.3468
+      text: 'thrust, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.3468% (bound: 1.5000%)'
+      digest: 0a71c2af13d30dc0
+  - label: rtol at line 256
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:253
+      source: tests/validation/bem/test_bem_openfast_parity.py:256
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.2738
-      text: 0.2738% bound 1.5000%
-      digest: f1d2db6fbd04a5b6
+      margin_pct: 0.3674
+      text: 'torque, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.3674% (bound: 1.5000%)'
+      digest: 8ab338690530a136
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_yaw_and_shear_match_aerodyn.1
@@ -54,44 +54,44 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_yaw_and_shear_match_aerodyn[1]
   validates: Yaw misalignment and power-law shear match AeroDyn within 1.5%.
   comparisons:
-  - label: rtol at line 246
+  - label: rtol at line 249
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:246
+      source: tests/validation/bem/test_bem_openfast_parity.py:249
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.1864
-      text: 0.1864% bound 1.5000%
-      digest: 5096928b858bf227
-  - label: rtol at line 253
+      margin_pct: 0.159
+      text: 'thrust, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.1590% (bound: 1.5000%)'
+      digest: 735dcae9923e4069
+  - label: rtol at line 256
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:253
+      source: tests/validation/bem/test_bem_openfast_parity.py:256
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.3272
-      text: 0.3272% bound 1.5000%
-      digest: 7c0e22d53c29c963
+      margin_pct: 0.2578
+      text: 'torque, yaw and shear case vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.2578% (bound: 1.5000%)'
+      digest: 8d02e58f7c01b4d7
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_bem_with_repo_default_polars_matche.0
@@ -101,44 +101,44 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_bem_with_repo_default_polars_matches_aerodyn[0]
   validates: 'A3: the repository''s own (YAML) polars move the BEM by <= 3% vs OpenFAST.'
   comparisons:
-  - label: rtol at line 304
+  - label: rtol at line 307
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/bem/test_bem_openfast_parity.py:304
+      source: tests/validation/bem/test_bem_openfast_parity.py:307
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 1.1785
-      text: 1.1785% bound 3.0000%
-      digest: 32097f84fec452d1
-  - label: rtol at line 311
+      margin_pct: 1.1815
+      text: 'thrust with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 1.1815% (bound: 3.0000%)'
+      digest: 3654a38c4c8e1184
+  - label: rtol at line 314
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/bem/test_bem_openfast_parity.py:311
+      source: tests/validation/bem/test_bem_openfast_parity.py:314
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 1.3644
-      text: 1.3644% bound 3.0000%
-      digest: 41736cd4ca2c8f96
+      margin_pct: 1.3823
+      text: 'torque with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 1.3823% (bound: 3.0000%)'
+      digest: 8395800ff660d748
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_bem_with_repo_default_polars_matche.1
@@ -148,44 +148,44 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_bem_with_repo_default_polars_matches_aerodyn[1]
   validates: 'A3: the repository''s own (YAML) polars move the BEM by <= 3% vs OpenFAST.'
   comparisons:
-  - label: rtol at line 304
+  - label: rtol at line 307
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/bem/test_bem_openfast_parity.py:304
+      source: tests/validation/bem/test_bem_openfast_parity.py:307
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 1.3942
-      text: 1.3942% bound 3.0000%
-      digest: a725456a9fb9e8a4
-  - label: rtol at line 311
+      margin_pct: 1.3971
+      text: 'thrust with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 1.3971% (bound: 3.0000%)'
+      digest: d86eece239da25dc
+  - label: rtol at line 314
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/bem/test_bem_openfast_parity.py:311
+      source: tests/validation/bem/test_bem_openfast_parity.py:314
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.0886
-      text: 0.0886% bound 3.0000%
-      digest: 8d5e5c54c8682d7f
+      margin_pct: 0.0626
+      text: 'torque with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.0626% (bound: 3.0000%)'
+      digest: 846a1105760ecc8d
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_bem_with_repo_default_polars_matche.2
@@ -195,44 +195,44 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_bem_with_repo_default_polars_matches_aerodyn[2]
   validates: 'A3: the repository''s own (YAML) polars move the BEM by <= 3% vs OpenFAST.'
   comparisons:
-  - label: rtol at line 304
+  - label: rtol at line 307
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/bem/test_bem_openfast_parity.py:304
+      source: tests/validation/bem/test_bem_openfast_parity.py:307
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 1.9679
-      text: 1.9679% bound 3.0000%
-      digest: 28917f383f914c65
-  - label: rtol at line 311
+      margin_pct: 2.0043
+      text: 'thrust with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 2.0043% (bound: 3.0000%)'
+      digest: a52e9e0cc5abb2eb
+  - label: rtol at line 314
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.03
-      source: tests/validation/bem/test_bem_openfast_parity.py:311
+      source: tests/validation/bem/test_bem_openfast_parity.py:314
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 2.117
-      text: 2.1170% bound 3.0000%
-      digest: eff5045b895d5875
+      margin_pct: 2.1531
+      text: 'torque with the repository''s own polars vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 2.1531% (bound: 3.0000%)'
+      digest: ebb485db028e5ffc
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_viterna_extension_matches_official.single
@@ -242,7 +242,7 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_viterna_extension_matches_official_from_official_data
   validates: 'A3: fed the *official* attached polar, Viterna reproduces the official extension.'
   comparisons:
-  - label: rtol at line 368
+  - label: rtol at line 371
     asserted: true
     reference:
       kind: code
@@ -250,18 +250,18 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/bem/test_bem_openfast_parity.py:368
+      source: tests/validation/bem/test_bem_openfast_parity.py:371
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
       margin_pct: 0.2333
-      text: 0.2333% bound 1.0000%
+      text: 'Cl, Viterna extension against the official table vs the official AeroDyn polar tables, Viterna extension like-for-like: 0.2333% (bound: 1.0000%)'
       digest: 20ce80bc3d10709b
-  - label: rtol at line 375
+  - label: rtol at line 378
     asserted: true
     reference:
       kind: code
@@ -269,16 +269,16 @@ rows:
     tolerance:
       kind: rtol
       value: 0.01
-      source: tests/validation/bem/test_bem_openfast_parity.py:375
+      source: tests/validation/bem/test_bem_openfast_parity.py:378
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
       margin_pct: 0.1275
-      text: 0.1275% bound 1.0000%
+      text: 'Cd, Viterna extension against the official table vs the official AeroDyn polar tables, Viterna extension like-for-like: 0.1275% (bound: 1.0000%)'
       digest: 9cef640697abc13c
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
@@ -289,44 +289,44 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_rotor_performance_matches_aerodyn[0]
   validates: Rotor thrust and torque from CCBlade within 1.5% of AeroDyn.
   comparisons:
-  - label: rtol at line 468
+  - label: rtol at line 471
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:468
+      source: tests/validation/bem/test_bem_openfast_parity.py:471
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.4456
-      text: 0.4456% bound 1.5000%
-      digest: dbba24445b415091
-  - label: rtol at line 475
+      margin_pct: 0.4487
+      text: 'rotor thrust vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.4487% (bound: 1.5000%)'
+      digest: 900dc56a20bbd977
+  - label: rtol at line 478
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:475
+      source: tests/validation/bem/test_bem_openfast_parity.py:478
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.6535
-      text: 0.6535% bound 1.5000%
-      digest: 31e2589310882ac8
+      margin_pct: 0.6716
+      text: 'rotor torque vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.6716% (bound: 1.5000%)'
+      digest: 1ecf3a67621df3a1
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_rotor_performance_matches_aerodyn.1
@@ -336,44 +336,44 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_rotor_performance_matches_aerodyn[1]
   validates: Rotor thrust and torque from CCBlade within 1.5% of AeroDyn.
   comparisons:
-  - label: rtol at line 468
+  - label: rtol at line 471
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:468
+      source: tests/validation/bem/test_bem_openfast_parity.py:471
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.3962
-      text: 0.3962% bound 1.5000%
-      digest: b3dabede1fa77a52
-  - label: rtol at line 475
+      margin_pct: 0.3992
+      text: 'rotor thrust vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.3992% (bound: 1.5000%)'
+      digest: bbd4565a77f67d54
+  - label: rtol at line 478
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:475
+      source: tests/validation/bem/test_bem_openfast_parity.py:478
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.0411
-      text: 0.0411% bound 1.5000%
-      digest: 7ca695b6b1e75869
+      margin_pct: 0.067
+      text: 'rotor torque vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.0670% (bound: 1.5000%)'
+      digest: ce17c3682a65d45f
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_rotor_performance_matches_aerodyn.2
@@ -383,44 +383,44 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_rotor_performance_matches_aerodyn[2]
   validates: Rotor thrust and torque from CCBlade within 1.5% of AeroDyn.
   comparisons:
-  - label: rtol at line 468
+  - label: rtol at line 471
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:468
+      source: tests/validation/bem/test_bem_openfast_parity.py:471
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.3271
-      text: 0.3271% bound 1.5000%
-      digest: 563c80d4f5a45ba1
-  - label: rtol at line 475
+      margin_pct: 0.3629
+      text: 'rotor thrust vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.3629% (bound: 1.5000%)'
+      digest: 7c47234d756c8764
+  - label: rtol at line 478
     asserted: true
     reference:
       kind: code
-      label: OpenFAST 4.2.1 AeroDyn, official IEA 15 MW deck
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck
     tolerance:
       kind: rtol
       value: 0.015
-      source: tests/validation/bem/test_bem_openfast_parity.py:475
+      source: tests/validation/bem/test_bem_openfast_parity.py:478
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
+      run: 3c02781
+      date: '2026-10-20'
       raw: null
-      margin_pct: 0.7923
-      text: 0.7923% bound 1.5000%
-      digest: 746abb06aa7107ab
+      margin_pct: 0.8279
+      text: 'rotor torque vs OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck: 0.8279% (bound: 1.5000%)'
+      digest: 98a0842ba8e85d4d
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: openfast_parity.test_spanwise_loads_match_aerodyn.0
@@ -430,29 +430,29 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_spanwise_loads_match_aerodyn[0]
   validates: Interior-span angle of attack and normal coefficient match AeroDyn.
   comparisons:
-  - label: atol at line 507
+  - label: atol at line 510
     asserted: true
     reference:
       kind: code
-      label: the official AeroDyn polar tables, interior stations
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations
     tolerance:
       kind: atol
       value: 2.0
-      source: tests/validation/bem/test_bem_openfast_parity.py:507
+      source: tests/validation/bem/test_bem_openfast_parity.py:510
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: rtol at line 515
+  - label: rtol at line 518
     asserted: true
     reference:
       kind: code
-      label: the official AeroDyn polar tables, interior stations
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/bem/test_bem_openfast_parity.py:515
+      source: tests/validation/bem/test_bem_openfast_parity.py:518
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -467,29 +467,29 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_spanwise_loads_match_aerodyn[1]
   validates: Interior-span angle of attack and normal coefficient match AeroDyn.
   comparisons:
-  - label: atol at line 507
+  - label: atol at line 510
     asserted: true
     reference:
       kind: code
-      label: the official AeroDyn polar tables, interior stations
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations
     tolerance:
       kind: atol
       value: 2.0
-      source: tests/validation/bem/test_bem_openfast_parity.py:507
+      source: tests/validation/bem/test_bem_openfast_parity.py:510
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: rtol at line 515
+  - label: rtol at line 518
     asserted: true
     reference:
       kind: code
-      label: the official AeroDyn polar tables, interior stations
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/bem/test_bem_openfast_parity.py:515
+      source: tests/validation/bem/test_bem_openfast_parity.py:518
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
@@ -504,29 +504,29 @@ rows:
   - tests/validation/bem/test_bem_openfast_parity.py::test_spanwise_loads_match_aerodyn[2]
   validates: Interior-span angle of attack and normal coefficient match AeroDyn.
   comparisons:
-  - label: atol at line 507
+  - label: atol at line 510
     asserted: true
     reference:
       kind: code
-      label: the official AeroDyn polar tables, interior stations
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations
     tolerance:
       kind: atol
       value: 2.0
-      source: tests/validation/bem/test_bem_openfast_parity.py:507
+      source: tests/validation/bem/test_bem_openfast_parity.py:510
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: not_measured
       margin_pct: null
-  - label: rtol at line 515
+  - label: rtol at line 518
     asserted: true
     reference:
       kind: code
-      label: the official AeroDyn polar tables, interior stations
+      label: OpenFAST 5.0.0 AeroDyn, official IEA 15 MW deck, interior stations
     tolerance:
       kind: rtol
       value: 0.025
-      source: tests/validation/bem/test_bem_openfast_parity.py:515
+      source: tests/validation/bem/test_bem_openfast_parity.py:518
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
