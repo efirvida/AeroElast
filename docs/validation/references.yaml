@@ -1500,10 +1500,10 @@ references:
       Large Eddy Simulation of the IEA 15-MW Wind Turbine Using a Two-Way
       Coupled Fluid-Structure Interaction Model
     venue: "Wind Energy Science"
-    year: null
-    bibliographic_gaps:
-      - year
-    doi: "10.5194/wes-2025-120"
+    volume: "11"
+    pages: "2345-2367"
+    year: 2026
+    doi: "10.5194/wes-11-2345-2026"
     doi_status: verified
     held: true
     held_files:
@@ -1511,18 +1511,21 @@ references:
       - .sources/papers/wes-2025-120-AR2.pdf
     verification: verified_pdf
     verification_note: >-
-      title, full author list and affiliations; the DOI was confirmed against
-      the Crossref record; the held copy is the discussion preprint, so the
-      final journal DOI, volume and pages are not yet assigned
-    cited_by_declared: []
+      Title and full author list checked in the held discussion preprint;
+      published metadata checked in the journal HTML (B3-2.3a research,
+      odd/tasks/validation-l3-b3-audit.md).
+    cited_by_declared:
+      - tests/validation/blade/test_blade_iea15mw_validation.py
     notes: >-
-      Discussion preprint, `wes-2025-120`; the author reply
-      `.sources/papers/wes-2025-120-AR2.pdf` gives paper number `wes-2025-120`.
-      The study itself compares its LES FSI against **OpenFAST**, which is what
-      makes it the high-fidelity reference for this campaign. Planned FSI
-      validation reference; not yet cited by the code. The source states no
-      publication year.
-    orphan_ok: true
+      Published 2026-07-08, Wind Energ. Sci. 11, 2345-2367.
+      HTML: https://wes.copernicus.org/articles/11/2345/2026/wes-11-2345-2026.html.
+      The stable key bernardi2025 is retained for existing store citations.
+      Held files are the discussion preprint (doi:10.5194/wes-2025-120)
+      and author reply `.sources/papers/wes-2025-120-AR2.pdf`, not the final PDF.
+      The eight modal values are in published Table B1 (preprint Table 2).
+      B3-2.3a could not establish the blade version: this is not an admitted
+      L3 arbiter until D8 establishes v1.1. Blade mass and Sec. V DLC 1.4
+      static deflection come from escalera2023, not this paper.
 
   - key: ramos2021
     section: >-

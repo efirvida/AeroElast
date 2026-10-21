@@ -11,8 +11,8 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, blade mass
-      citation: bernardi2025
+      label: Escalera Mendoza et al. 2023, AIAA 2023-2093, blade mass
+      citation: escalera2023
     tolerance:
       kind: rtol
       value: 0.05
@@ -208,8 +208,8 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, static tip deflection
-      citation: bernardi2025
+      label: Escalera Mendoza et al. 2023, Sec. V DLC 1.4, static tip deflection
+      citation: escalera2023
     tolerance:
       kind: rtol
       value: 0.05
@@ -232,7 +232,7 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
       citation: bernardi2025
     tolerance:
       kind: rtol
@@ -261,7 +261,7 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
       citation: bernardi2025
     tolerance:
       kind: rtol
@@ -290,7 +290,7 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
       citation: bernardi2025
     tolerance:
       kind: rtol
@@ -319,7 +319,7 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
       citation: bernardi2025
     tolerance:
       kind: rtol
@@ -343,7 +343,7 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
       citation: bernardi2025
     tolerance:
       kind: rtol
@@ -367,7 +367,7 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
       citation: bernardi2025
     tolerance:
       kind: rtol
@@ -391,7 +391,7 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
       citation: bernardi2025
     tolerance:
       kind: rtol
@@ -415,7 +415,7 @@ rows:
     asserted: true
     reference:
       kind: paper
-      label: Bernardi et al. 2025, the published article, the published beam-CSD modes
+      label: Bernardi et al. 2026, Table B1, the published beam-CSD modes
       citation: bernardi2025
     tolerance:
       kind: rtol
