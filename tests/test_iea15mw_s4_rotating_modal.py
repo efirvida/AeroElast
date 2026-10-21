@@ -17,17 +17,26 @@ family. Until 2026-10-18 the label came from the single tip node, which took a l
 (oml, es 0.25, 7.56 rpm, 1.5325 Hz, beam fraction 0.15) as 2nd flap
 (odd/tasks/s4-mode-classifier.md).
 
-Reference targets: OpenFAST v5.0.0, ElastoDyn beam model, blade DOFs only
-(no aero, no tower/platform DOFs), MBC3 rotating frame, collective members
-(single-blade comparison; the shell model has no whirl pairs):
+Arbiter (odd/tasks/validation-l3-b3-audit.md K8, 2026-10-20): OpenFAST v5.0.0 BeamDyn, single
+member, element order 20, on the official v1.1 deck (gravity 0, prescribed rotor speed, MBC3
+collective members; odd/tasks/openfast-beamdyn-modal-arbiter.md, SLURM 11617531/11617534).
+Converged in order: p15 -> p20 moves 1F/1E/2F by -0.03 / +0.13 / +0.07 % parked and
+-0.03 / +0.12 / +0.07 % rated. BeamDyn solves the geometrically exact Timoshenko beam on the
+full 6x6 deck; ElastoDyn's blade modes come from fitted mode-shape polynomials on an
+Euler-Bernoulli beam, so ElastoDyn is printed as a comparison and decides nothing.
 
-  mode        parked (0 rpm)      rotating (7.56 rpm)
-  1st flap    0.544 Hz            0.5666 Hz
-  1st edge    0.739 Hz            0.7461 Hz
-  2nd flap    1.610 Hz            1.6372 Hz
+  mode        parked (0 rpm)            rotating (7.56 rpm)
+              BeamDyn p20 | ElastoDyn   BeamDyn p20 | ElastoDyn
+  1st flap    0.507083    | 0.544       0.532003    | 0.5666
+  1st edge    0.693376    | 0.739       (none)      | 0.7461
+  2nd flap    1.480900    | 1.610       1.508057    | 1.6372
 
-Measured agreement (2026-10-18, mid-surface skin, es 0.25, tools/diagnose_mode_beam_projection.py,
-SLURM 11618419; error vs OpenFAST). The beam-projection labels pick the same three modes the
+Rotating 1E has no admissible BeamDyn number: its rotating/parked rise (+2.66 %) and edge
+Southwell coefficient (1.64, equal to flap) are an artefact of the BeamDyn linearization
+(odd/tasks/beamdyn-arbiter-midsurface.md T1/T7), so rated 1E is printed, not asserted.
+
+Measured agreement vs ElastoDyn, kept as history (2026-10-18, mid-surface skin, es 0.25,
+tools/diagnose_mode_beam_projection.py, SLURM 11618419). The beam-projection labels pick the same three modes the
 tip-node labels picked on this mesh, so the numbers did not move with the classifier:
 
   rotating:  1F -3.40 | 1E -6.09 | 2F -6.13 %     (es 0.125: -3.48 | -6.10 | -6.46 %, T12)
@@ -39,10 +48,12 @@ rotating row reads 1F -3.41 | 1E -6.10 | 2F -6.37 % (2F moved -0.25 % in frequen
 pre-fix. The rotating-only tip local modes (2.17-3.61 Hz) are gone with the fix
 (odd/tasks/rotating-local-tip-modes.md L39).
 
-1E and 2F exceed the 5 % bound at both rotor speeds and are converged, so the test is red by
-design: ElastoDyn and BeamDyn differ 6-8 % on this blade and both pass analytic uniform beams,
-so the gap sits in the reference decks; documented, bound not widened
-(docs/validation_closures.md, "Superficie media en las anclas de pala").
+Against ElastoDyn 1E and 2F exceed the 5 % bound at both rotor speeds. Against BeamDyn p20
+(parked es 0.25, 19ff1a3): 1F +3.42 | 1E +0.20 | 2F +1.80 %; es 0.125 (SLURM 11619955):
+1F +3.31 | 1E +0.29 | 2F +1.66 %. The 6-8 % ElastoDyn/BeamDyn disagreement is a finding about
+the references, recorded and not used to move the bound (docs/validation_closures.md,
+"Superficie media en las anclas de pala"). The K8 choice was made after these numbers were
+known; it rests on the model physics above, not on which side passes.
 
 Marks: slow (blade mesh generation + static solve + modal solve).
 """
@@ -67,8 +78,15 @@ from run_s4_rotating_modal import (  # noqa: E402
 
 RPM_RATED = 7.56
 
-# OpenFAST v5.0.0 MBC3 targets (collective members) — measured 2026-09-09.
-_OF_TARGETS = {
+# Arbiter: OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, MBC3 collective
+# (SLURM 11617531 parked, 11617534 rated). None = no admissible number (rated 1E, see above).
+_BD_TARGETS = {
+    "parked": {"1st flap": 0.507082680, "1st edge": 0.693376286, "2nd flap": 1.480900161},
+    "rotating": {"1st flap": 0.532003414, "1st edge": None, "2nd flap": 1.508057474},
+}
+
+# Comparison only: OpenFAST v5.0.0 ElastoDyn MBC3 (collective members), measured 2026-09-09.
+_ED_COMPARISON = {
     "parked": {"1st flap": 0.544, "1st edge": 0.739, "2nd flap": 1.610},
     "rotating": {"1st flap": 0.5666, "1st edge": 0.7461, "2nd flap": 1.6372},
 }
@@ -113,23 +131,41 @@ def _family_frequency(freqs, modes, free, mesh, direction, order):
 @pytest.mark.slow
 @pytest.mark.parametrize("rpm", [0.0, RPM_RATED])
 def test_s4_rotating_modal_vs_openfast(rpm):
-    """First flap/edge and second flap rotating modal vs OpenFAST MBC3 targets."""
+    """First flap/edge and second flap modal vs OpenFAST BeamDyn p20 (ElastoDyn printed)."""
     key = "parked" if rpm == 0.0 else "rotating"
     asm, mesh = _build_assembly()
     freqs, modes, free = assemble_rotating(asm, mesh, omega_from_rpm(rpm), n_modes=12)
 
+    # Every family is computed and printed before anything is asserted, so a red family
+    # (1E) does not hide the ones after it (2F was never measured in a red run before
+    # B3-2 batch 1, odd/tasks/validation-l3-b3-audit.md K6).
+    failures = []
     for family, direction, order in [
         ("1st flap", "flap", 1),
         ("1st edge", "edge", 1),
         ("2nd flap", "flap", 2),
     ]:
         f_shell = _family_frequency(freqs, modes, free, mesh, direction, order)
-        f_of = _OF_TARGETS[key][family]
-        rel = abs(f_shell - f_of) / f_of
-        assert rel < REL_TOL, (
-            f"{family} ({key}, {rpm} rpm): shell {f_shell:.4f} Hz vs "
-            f"OpenFAST {f_of:.4f} Hz — rel {rel:.1%} > {REL_TOL:.0%}"
+        f_ed = _ED_COMPARISON[key][family]
+        print(
+            f"S-4 {key} {family} [Hz] vs OpenFAST v5.0.0 ElastoDyn MBC3 (comparison, not "
+            f"asserted): {f_shell:.6f} vs {f_ed:.6g} (signed error: {f_shell / f_ed - 1:+.4%})"
         )
+        f_bd = _BD_TARGETS[key][family]
+        if f_bd is None:
+            print(f"S-4 {key} {family}: no admissible BeamDyn p20 number, not asserted")
+            continue
+        rel = abs(f_shell - f_bd) / f_bd
+        print(
+            f"S-4 {key} {family} [Hz] vs OpenFAST v5.0.0 BeamDyn p20: {f_shell:.6f} vs "
+            f"{f_bd:.6f} (signed error: {f_shell / f_bd - 1:+.4%}, bound: {REL_TOL:.4%})"
+        )
+        if rel >= REL_TOL:
+            failures.append(
+                f"{family} ({key}, {rpm} rpm): shell {f_shell:.4f} Hz vs "
+                f"BeamDyn p20 {f_bd:.4f} Hz — rel {rel:.1%} > {REL_TOL:.0%}"
+            )
+    assert not failures, "; ".join(failures)
 
 
 @pytest.mark.slow

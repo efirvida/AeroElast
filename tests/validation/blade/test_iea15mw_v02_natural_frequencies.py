@@ -40,7 +40,7 @@ _REF_F2_FLAP = 1.659  # Hz — 2nd flapwise  [R1][R4]
 _REF_F1_EDGE = 0.6406  # Hz — 1st edgewise  [R1][R4]
 _REF_F2_EDGE = 2.167  # Hz — 2nd edgewise  [R1]
 _FREQ_TOL = 0.05  # ±5 % relative tolerance (flap modes)
-_FREQ_TOL_EDGE = 0.10  # ±10 % — 1st edgewise, inter-method spread is ±14 % [Zhou 2025]
+_FREQ_TOL_EDGE = 0.05  # ±5 % — L3 ceiling; the former 10 % (ADJ-1032) is withdrawn, see ADJ-1034
 
 # Expected structural damping (for reference, not directly tested here)
 # Source: [R4] BldFlDmp1 = BldFlDmp2 = BldEdDmp1 = 0.48 %
@@ -140,20 +140,17 @@ class TestBladeNaturalFrequencies:
         )
 
     def test_1st_edgewise_frequency(self, frequencies_hz):
-        """1st edgewise freq must be within ±10 % of 0.6406 Hz [R1][R4].
+        """1st edgewise freq must be within ±5 % of 0.6406 Hz [R1][R4].
 
-        With the official WindIO blade (canonical input since 2026-09-08) the
-        shell measures 0.6977 Hz (+8.9 %): the official layup's double triax
-        skin inboard makes the shell stiffer than the ElastoDyn reference in
-        the edgewise direction.  This is inside the published inter-method
-        dispersion for the 1st edgewise mode of the IEA 15 MW: Zhou et al. 2025
-        (Energy 336:138488, doi 10.1016/j.energy.2025.138488), Table 3, gives
-        0.665 / 0.692 / 0.619 / 0.547 / 0.642 / 0.642 Hz across six independent
-        models, i.e. -14.6 % to +8.0 % against this row's 0.6406 Hz reference,
-        and our 0.6986 Hz sits just inside that band.  The tolerance therefore
-        reflects the reference uncertainty, not a solver error: the 5 % suite
-        rule cannot apply to a reference whose own spread is 14 %.
-        Adjudicated in docs/validation/adjudications/32-blade_v02_natural_frequencies.yaml.
+        The bound is the L3 ceiling (maintainer rule 2026-10-16). It was 10 %,
+        justified by the spread between six different blade models in Zhou et al.
+        2025 Table 3 (ADJ-1032); that spread is not an uncertainty on this
+        reference value and was cited after the number was known, so the 10 % is
+        withdrawn (ADJ-1034, docs/validation/adjudications/32-blade_v02_natural_frequencies.yaml)
+        and the test is red by design. The reference itself describes the v1.0
+        blade, while the decks and tests/IEA-15-240-RWT.yaml are v1.1
+        (odd/tasks/validation-l3-b3-audit.md, "published blade frequencies are for
+        IEA-15 v1.0"), so it cannot arbitrate this blade either way.
         (The UTD NuMAD blade measured 0.629 Hz (−1.8 %) — see
         docs/blade_input_divergence_utd_vs_official.md.)
         """

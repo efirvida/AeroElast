@@ -22,8 +22,19 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
 - [x] **PRE-2 — Complete B1/L1 audit.** CLOSED 2026-10-14 (ec3c9f6): L1 trusted 134, regression_pin 2, nothing else; see "Handoff 2026-10-16 (PRE-2 re-check)" at the end. Entry-state text follows, kept as history: Initial scout: 12 L1 groups (`3, 10, 12–16, 19, 22, 25, 28, 33`); the original `kind: atol` inventory was 17 L1 cases (G15:5, G16:5, G22:4, G25:3) among 23 store-wide cases. After the G25 fractional-error correction, 14 L1 atols remained (G15:5, G16:5, G22:4); after the G22 correction below, 10 L1 atols remain, all G15/G16. The other original store-wide cases were 2 L2, 3 L4 and 1 L5. G15/G16 near-zero elastica comparisons use `0.5 m` against paper references; measured margins are stored for only 3 of 5 rows in each group. G15/G16 finding (2026-10-13): 6 of the 10 L1 atols (3 per group, equilibrium_path at lam=0.5pi, pi, 1.5pi, w_tip) were extractor mislabels - |ref|>=1 so the executed branch is the 5 % rtol one (stored bound 5.0000 %); relabelled rtol 0.05 at the rtol source line. The 4 genuine atols remain (lam=2pi w_tip ref 0 and rollup_360 w_tip, both groups): 0.5 m = 5 % of L=10 m, a distance against a zero reference, kept absolute; two are not_measured per group. G33 finding (2026-10-13, source read only, no run): references w/L=0.30172 (alpha=1) and 0.49346 (alpha=2) are the closed-form Bisshopp & Drucker elastica values, i.e. an independent analytic arbiter. alpha=1 bound 2 % vs stored 3.63 % -> red by design (xfail); the test docstring records step refinement 32->512 converging to 4.00 % stiff, so it is not a stepping artefact; its claim that it is not a mesh effect is NOT backed by a mesh-refinement table in the file (open). alpha=2 bound 6 % is above the 5 % ceiling and sits just above the stored 4.27 % bias: it reads as set to fit the element, not derived from the reference. Disposition pending: reject (tighten to the alpha=1 standard and keep red) or a pre-measurement exception; no widening, no verdict entered. G33 DECISION (maintainer, 2026-10-13): option (a) - REJECT the alpha=2 6 % bound. Deferred work (not done now): tighten alpha=2 to the alpha=1 standard so it is red like alpha=1, keep both as documented xfail with measured numbers, no widening; add a mesh-refinement table (physics run, needs authorization) to back or drop the docstring's 'not a mesh effect' claim. G3 Ko2017 MEASURED (2026-10-13, SLURM 11614628, HEAD 890d4e6, test_ko2017_performance.py only, log logs/check/ko2017-g3-audit.log): 31 collected, 29 passed, 2 failed in 120 s. The AGENTS.md figure of '8 pre-existing failures on coarse distributed meshes' is STALE for this tree. The 2 failures are test_3_5_twisted_beam_tables_12_to_13 at t=0.0002667 (thin twisted beam, MITC4): In-plane 8.4914 % vs table 0.9978 and Out-of-plane 8.7132 % vs 0.9982, both against a 1 % bound. Thin-limit twisted-beam accuracy question, not a tolerance to widen; no verdict entered, store rows still not_measured (not written back). G3 baseline WRITTEN (2026-10-13, SLURM 11614631, `validation_matrix.py regression --group 3 --write`, run 48617b4): all 37 comparisons / 31 rows now `measured`; the two twisted-beam rows store 8.49 % / 8.71 % against 1 %. Measured margins only, no verdicts. check: 228/307/0/0. Their run ID `73743de` resolves to `73743ded7b3405a6c28201604fa45df038534dc9`, an ancestor of current HEAD; declared L1 dependencies and both test sources are unchanged since that run, and the cited Simo/Bathe reference records are unchanged despite other edits in `references.yaml`. This supports path-level freshness only; it does not establish physical validity or independent arbiters. G22's three static bounds and one modal bound were expressed as percentage-error metrics with `atol=3.0%`/`2.0%`; these are now fractional errors with `tol=0.03`/`0.02` and row kinds `rtol`, preserving the exact strict predicate. The four results remain not measured. `test_ratio_physical` and nonlinear internal/xfail assertions are unrepresented and deliberately remain open for audit. G25's dimensionless first-mode frequency-error fraction now uses `tol=TOL` (0.05 fraction), matching the helper contract without a false `%` quantity label; the source docstring and all three row descriptions identify frequency against the closed-form cantilever reference. This metadata correction preserves the strict `error < 0.05` predicate; matrix consistency check (228 rows/307 comparisons, 0 errors/warnings), 15-test collect-only, and `git diff --check` passed. The L1 contract remains open. Current L1 contract remains open: 103 unaudited, 2 absent, 1 over-ceiling row and 55 with one-or-no arbiter, with no trusted verdicts. The over-ceiling item is group 33 UL elastica (`ul_elastica.test_elastica_tip_deflection.2_0_0_49346_64_0_06`): source `rtol=0.06`, stored margin 4.2658%, paper reference Bisshopp & Drucker tabulated by Bathe; only the generic pilot-pending tolerance text is stored. Audit every L1 row, references/arbiters, staleness, over-ceiling cases and reds; do not enter verdicts until evidence is reconciled. Inventory every L1 row and comparison, source assertions and bounds including the 23 store-wide `atol` comparisons (identify the L1 subset), references and arbiter independence, revision staleness, over-ceiling cases and documented reds (D-Tube, UL elastica, Ko2017's eight failures, frame objectivity). Record supported verdicts at a coherent audited revision; unsupported comparisons stay open. Check: contract `--level L1 --rows`, all B1 `atol` cases classified/relativized, and every known red explicitly source-justified or rejected.
 - [x] **PRE-2r — Re-measure L1 after 41e9a16 (stale 136).** DONE 2026-10-19: 164 `same`, 0 `changed`; 136 verdicts restamped to 74c6b9f; L1 CLOSED again (trusted 134, regression_pin 2). Re-run `validation_matrix.py regression` for all 22 L1 groups without `--write`; if every comparison is `same`, restamp the L1 `audited_rev` in `docs/validation/contract.yaml` (L2 precedent, af95fa8/a4baf6e); any `changed` comparison is a finding and gets a new verdict, never a restamp. See "PRE-2r" at the end. Route: parent + SLURM.
 - [x] **PRE-3 — Complete B2/L2 audit.** CLOSED 2026-10-19 (f8dd602 restamp, 17ef8ad G21 closed-form row, then the verdict commit): L2 trusted 67, regression_pin 4, 0 stale, 0 single-arbiter. PRE-3r re-measured after 41e9a16+43dce4d (109 `same`, 0 `changed`); G21 arbitrated by the free-edge closed form — see "PRE-3r" and "G21 closed form" at the end. Entry text follows: Inventory every L2 row, comparison, source assertion, reference, arbiter and bound; handle L2's `atol` subset and `composite_stress_recovery` gap. For every CalculiX comparison, demonstrate independently converged results in both codes using same metric, load, material and boundary conditions and predeclared convergence criterion; do not infer convergence from one mesh or one code. Check: contract `--level L2 --rows`, per-comparison paired convergence evidence, and B1 required to close.
-- [ ] **B3-1 — Freeze the L3 evidence inventory and audit rubric.** Verify exact row/comparison IDs and file locations for all six groups, absent anchor list, arbiter kinds/independence, source tolerance use, over-ceiling cases, audited-revision semantics, and current lower-level blocks. Record per-group inventory with citations and first admissible verdict batch. Check: contract counts, source assertion/tolerance map, `git diff --check`, docs smoke gate `scripts/check.sh quick` (~13 s; not physics). Inventory has initial row IDs/store bounds but source assertions, per-row arbitral sufficiency and staleness semantics remain to check.
+- [x] **B3-1 — Freeze the L3 evidence inventory and audit rubric.** Verify exact row/comparison IDs and file locations for all six groups, absent anchor list, arbiter kinds/independence, source tolerance use, over-ceiling cases, audited-revision semantics, and current lower-level blocks. Record per-group inventory with citations and first admissible verdict batch. Check: contract counts, source assertion/tolerance map, `git diff --check`, docs smoke gate `scripts/check.sh quick` (~13 s; not physics). Inventory has initial row IDs/store bounds but source assertions, per-row arbitral sufficiency and staleness semantics remain to check.
+  - [x] **B3-1r.0** — branch `audit/b3-1-l3-inventory` from 2b95e5f; T2 move prediction predeclared (7730249).
+  - [x] **B3-1r.1** — read-only per-row map at 2b95e5f: node, assertion + tolerance `path:line`, mesh size, arbiter kind/independence, composite input, measuring command at es <= 0.25.
+  - [x] **B3-1r.2** — paired environments: fresh `maturin develop --release` at 2b95e5f; baseline worktree at 2b95e5f^1 with its own wheel on `PYTHONPATH`.
+  - [x] **B3-1r.3** — paired SLURM measurement 2b95e5f^1 vs 2b95e5f per the B3-1r predeclared criterion; record each move with its class.
+  - [x] **B3-1r.4** — write the frozen inventory section (counts, map, staleness, over-ceiling, absent, first admissible batch); `git diff --check`, `check.sh quick`.
 - [ ] **B3-2 — Adjudicate L3 groups.** At the frozen audited revision, inspect test sources, original references, convergence, arbiter independence, class and measured errors; enter only supported verdicts with named arbiters. Missing second independent numerical judge remains unvalidated/open. Check: contract `--level L3 --rows`; link evidence to each adjudication.
+  - [x] **B3-2.1a** batch 1 (G32/34/38/39/40/41) criterion K1-K6 predeclared (section at the end).
+  - [x] **B3-2.1b** test-source edits: V-02 1E and S-7 bounds to 0.05, S-4 measures all families then asserts (2F), V-03 docstring/name. Commit `19ff1a3` (criterion `b06eedd`).
+  - [x] **B3-2.1c** measure at the edit commit (SLURM 11619652 S-1/S-2/V-03 capture, 11619653 S-4 capture, 11619654 V-02/S-7 `regression --write`; `logs/check/b3-2/measure.sbatch`, metrics `logs/check/b3-2/metrics.py`); fidelity vs b3-1r/head.
+  - [x] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
+  - [x] **B3-2.1e** es 0.125 for the three K3(b) items (S-1 flap, S-2 LC1, S-4 parked 1E), judged by K7 (section "K7" at the end, fixed before the runs). Route: worker + SLURM.
+  - [x] **B3-2.1f** K8: S-4 test and row 40 against BeamDyn (reference_model), ElastoDyn as comparison; re-adjudicate S-4 rows. Needs cf2115f (cherry-picked).
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -801,3 +812,333 @@ Carry-over: `scripts/known-red-full.txt` (untracked) was recorded at 52e9bba, be
 20 entries exactly. Re-derive with `scripts/check.sh full --record` on the merge revision if a stamped registry is wanted; never hand-edit.
 Rules: SLURM `--ntasks` only; criteria fixed before measuring; never widen a band; `scripts/aeroenv.sh` on every command. B3/L3 and P1
 stay out of the L1-SHEAR session.
+
+## B3-1r predeclared criterion: L3 move from the composite shear fix (written BEFORE any measurement, 2026-10-20, branch `audit/b3-1-l3-inventory` at 2b95e5f)
+Maintainer instruction (verbatim): "Abrir una rama nueva desde main (2b95e5f, que ya incluye c0fdeea) y rehacer el inventario. Antes de
+medir, dejar fijada la predicción de T2: filas globales < 0.5 %, modos locales de panel pueden moverse más."
+Source of the prediction: L1-SHEAR T2 "Quantitative prediction of the fix" above (element shear input drops by A55/Cs, median 1.12,
+230 of 676 sections above 2; global behaviour is carried by wall membrane stiffness).
+Row set: `validation_matrix.py contract --level L3 --rows` at 2b95e5f (`logs/check/b3-1r/contract-l3-rows.log`): 36 measured rows +
+3 absent + gap `rotating_modal_shift`. Counts there: undecided 1, stale 2, unaudited 33, absent 3, over ceiling 3, single/no arbiter 34.
+
+Metric: move = |q(2b95e5f) / q(2b95e5f^1) - 1| per row, SAME command, SAME mesh (es per row, never >= 0.3 except as the coarse point of a
+convergence study), SAME environment, each side's `_aeroelast` rebuilt with `maturin develop --release` at that revision. 2b95e5f^1 is
+main before PR #44 (no c0fdeea). The stored store values are NOT the baseline (older revisions, some at es 0.5).
+The move says nothing about agreement with the arbiter; the verdict against the arbiter is a separate step with the row's own bound.
+
+Classification, fixed per row before measuring (no row may be reclassified after its number is seen):
+| class | rows | predicted move |
+|---|---|---|
+| M (mass; transverse shear does not enter M) | G23 `test_blade_mass_matches_published_models`; S-1 `s1_sectional_mass`; V-03 `v03_assembled_mass_vs_tabular`; V-05 `v05_assembled_mass_vs_beam_table` | 0 to 1e-10 relative |
+| A (aero only, no structural input) | G27 `test_rated_bem_matches_the_literature_ri`, `test_rated_aero_loads_reproduce_the_bem` | 0 to 1e-10 relative |
+| G (global, wall membrane carried) | G5 mesh-convergence modal gap; G20 anchor-section cross-check; G23 CalculiX modes .0-.4, CalculiX static tip, Bernardi static, Bernardi modes .0-.7 (1F, 1E, 2F, 2E, 3F, 1T, 3E, 4F); G27 `test_rated_twist_under_production_loads`; V-02 1F, 1E; S-7 torsion ratio; S-1 edgewise EI, flapwise EI, GJ, EA; S-2 LC1, LC2, LC4 tip; S-4 parked, rated modes | < 0.5 % |
+| L (local panel modes) | none: no L3 row measures a panel mode (Bernardi/CalculiX/S-4/V-02 are all beam-like blade modes) | not applicable |
+Absent rows (S-2 LC3 edgewise ratio, sx_mesh_convergence, sx_campbell) have no measurement and are outside this check.
+
+Reading: a class-M/A row that moves at all, or a class-G row that moves >= 0.5 %, falsifies the T2 prediction for that row and is
+reported as a finding with its number; it is not reclassified to L and no band is widened. Higher modes (3E, 4F, 1T) are the most
+shear-sensitive class-G rows; they stay under the same 0.5 % prediction so a breach is visible, not pre-excused.
+
+## B3-1r.1 per-row map at 2b95e5f (read-only, explorer; no verdict, no measurement)
+Files: VAL=`tests/validation/blade/test_blade_iea15mw_validation.py`, MC=`tests/validation/parity/test_blade_iea15mw_mesh_convergence.py`,
+ANC=`tests/validation/blade/test_blade_twist_anchor_beam.py`, RT=`tests/validation/blade/test_blade_rated_twist.py`,
+V02=`tests/validation/blade/test_iea15mw_v02_natural_frequencies.py`, S7=`tests/validation/blade/test_iea15mw_s7_torsion.py`,
+S1/S2/S4/V03/V05=`tests/test_iea15mw_{s1_sectional,s2_static_prescribed,s4_rotating_modal,v03_static_gravity,v05_structural_properties}.py`.
+Every shell-building row uses Rust `Laminate` input (`models/blade/model.py:833`, `:108-112`); skin default oml (`core/mesh/generators.py:1055`).
+| grp | rows | assertion -> tolerance | es | skin | arbiter (independence) | stored |
+|---|---|---|---|---|---|---|
+| 5 | mesh conv modal gap | MC:172 `LOW_TOL` 0.01, MC:179 `HIGH_TOL` 0.05 | 2.0/1.0/0.5 (MC:47) **>=0.3** | oml | CCX on our mesh (not independent) | 1d9a665 |
+| 20 | anchor sections | ANC:259/266 0.01; ANC:280/287 0.02 | no shell (deck reading only) | - | BeamDyn/ElastoDyn decks (checks deck reading) | e1b7da7 |
+| 23 | mass; ccx .0-.4; ccx static; Bernardi static; Bernardi .0-.7 | `MASS_TOL`/`MODAL_TOL`/`STATIC_TOL`/`BERNARDI_MODE_TOL` 0.05 (VAL:122-146) | `ELEMENT_SIZE=1.0` (VAL:77) **>=0.3** | oml | bernardi2025 (indep.); CCX same mesh (not indep.) | 73743de; Bernardi .3-.7 and static not_measured (xfail escape VAL:482, VAL:511) |
+| 27 | BEM vs lit.; aero loads vs BEM; twist under prod. loads | RT:106/113 0.03; RT:1020-1041 0.005; RT:1287 0.02 | BEM none; 1.0 (RT:143) **>=0.3** | oml | zhou2025 (BEM only); self (none) | ee50e3a |
+| 32 | V-02 1F, 1E | V02:132 0.05; V02:160 0.10 (>5 %) | 0.25 | mid | contract verdicts (NREL + Bernardi) | 1F 6.06 % FAIL at 7324508 vs verdict trusted 3.83 % at 01d8805 (oml) |
+| 34 | S-7 ratio | S7:107 `_RATIO_TOL` 0.30 (>5 %) | 0.25 | oml (`tools/run_s7_torsion.py:55-62`) | BeamDyn K55 (single) | 7fb832b |
+| 38 | S-1 EI edge/flap, mass, GJ, EA | S1:107/116/126/139/153 0.05 (row source lines drifted) | 0.25 | mid | BeamDyn 6x6 (single) | 7324508 |
+| 39 | S-2 LC1/LC2/LC4 | S2:122 0.05 | 0.25 | mid | own EB beam from ElastoDyn EI (S2:96), labelled BeamDyn/ElastoDyn | 7324508 |
+| 40 | S-4 parked, rated | S4:129 0.05 (row says :117) | 0.25 | mid | ElastoDyn MBC3 (single; contract counts 3 by distinct labels, `validation_matrix.py:4279-4296`) | parked mixes oml 48c7c88 (1F/2F) and mid 7324508 (1E) |
+| 41 | V-03 mass | V03:251 0.05 (row :249; justification says 10 %, docstring 2 %) | 0.25 | mid | tabular xlsx | 517a1b0 |
+| 42 | V-05 mass | V05:151 0.05 (row stores 0.08 at :142: false over-ceiling) | 0.25 | mid | BeamDyn table (same 67,921 kg as row 41) | not_measured |
+Measuring tools at es <= 0.25: `blade_ccx_convergence.py --element-sizes`, `v02_modal_convergence.py <es>` (oml), `s4_modal_convergence.py
+<es> [--rpm=]` (oml), `run_s1_sectional.py`/`run_s2_static_cases.py`/`run_s4_rotating_modal.py`/`run_s7_torsion.py --element-size`
+(all default 0.5: rule-9 defect). No tool for groups 27, 41, 42.
+
+## B3-1r criterion amendment (written BEFORE any measurement; no number seen)
+Maintainer "continua" left the G5/G23/G27 es question unanswered; the agent chose the cheapest rule-9-compliant route below.
+- Baseline is `8de3521` (= 2b95e5f^1): detached worktree `logs/check/b3-1r/base-8de3521`, its own `maturin build --release` wheel
+  unpacked to `logs/check/b3-1r/base-site` (pip refuses the manylinux_2_39 tag), `PYTHONPATH=base-site:base-8de3521/src`.
+  HEAD side: fresh `maturin develop --release` at 2b95e5f. Discriminator (`logs/check/b3-1r/discriminator-{base,head}.log`):
+  base passes `test_mitc4_sandwich_equals_fsdt_with_the_shear_it_consumes` (A55 consumed) with m1/m2 xfailed; head passes m1/m2.
+  The two environments therefore differ exactly in the shear input.
+- Groups 20, 32, 34, 38, 39, 40, 41, 42: `validation_matrix.py regression --group N --json` on each side (test sources of these
+  groups are identical between the two revisions). It reports |relative error| to 4 decimals in %, so the metric for these rows is
+  d = | |e_head| - |e_base| | in percentage points of the reference. d is a lower bound of the move |q_head/q_base - 1|(1+e);
+  d >= 0.5 pp falsifies T2 outright; d < 0.5 pp confirms it only when |e_head| + |e_base| < 0.5 pp or the row text gives signed values,
+  otherwise the row is reported "undecided by resolution". Class M/A resolution is 5e-5 pp (the printed digit), not 1e-10.
+- G23 modal rows (es 1.0) and G5 (es 2.0/1.0/0.5) are NOT re-run at their test mesh (rule 9). Surrogate at es 0.25, same oml
+  construction as G23: `tools/v02_modal_convergence.py 0.25` prints the first 10 clamped-root frequencies (5 decimals); move per
+  index i = f_head[i]/f_base[i] - 1, class G (< 0.5 %). Pairing is by index, not by shape: a mode-order swap is reported as such.
+- Not measured here (recorded as rule-9 / scope items for B3-2): G23 mass and static rows, G5, G27 aero-loads and twist rows
+  (es 1.0). G27 BEM row and G20 have no shell: move 0 by construction (G20 is still re-run as a control).
+
+## B3-1r.3 RESULT, first pass (SLURM 11619587-92, `logs/check/b3-1r/{base,head}/`, base 8de3521 vs head 2b95e5f tree)
+Move = q_head/q_base - 1 on the signed quantity (`regression` JSON field `value`, or the tool's printed frequency).
+| row | q_base | q_head | move | class / prediction | result |
+|---|---|---|---|---|---|
+| G32 V-02 1F [Hz] | 0.524643 | 0.524444 | -0.038 % | G < 0.5 % | holds |
+| G32 V-02 1E [Hz] | 0.695133 | 0.694793 | -0.049 % | G < 0.5 % | holds |
+| G34 S-7 torsion ratio | 0.906532 | 0.909073 | +0.280 % | G < 0.5 % | holds (largest move so far) |
+| G23 surrogate, es 0.25 oml, modes 1-10 [Hz] | 0.55338 0.69865 1.61352 2.07916 3.06192 3.83449 4.14319 4.16164 4.25270 4.51379 | 0.55322 0.69843 1.61322 2.07847 3.06033 3.83180 4.13619 4.15886 4.25158 4.51149 | -0.029 -0.032 -0.019 -0.033 -0.052 -0.070 -0.169 -0.067 -0.026 -0.051 % | G < 0.5 % | holds; same index order both sides, max mode 7 |
+| G20 anchor sections | base `unmapped` (0 printed residuals: the base tree's tool cannot read them) | head `same` as stored, 4 comparisons | n/a | no shell | head equals store; no move possible by construction |
+All moves are negative for frequencies (softer shear input, as T2 predicts in sign) and an order of magnitude inside the 0.5 % band.
+Groups 38, 39, 40, 41, 42: `regression` exits 2 on BOTH sides ("group 38 declares no residual patterns, so its prints cannot be
+read"): a tool gap, not a measurement. Second pass captures the raw test quantities with an out-of-tree pytest plugin
+(`logs/check/b3-1r/capture_plugin.py`, SLURM 11619602-05); V-05 is not captured (its fixture is the assembler object).
+Finding (independent of c0fdeea): the store is stale against the BASE side too. V-02 1E stored 9.0532 % vs base 8.5128 %; S-7 stored
+13.2983 % vs base 9.3468 %. Those moves predate PR #44 (earlier revisions in the `stale by` list), so every L3 stored number must be
+re-measured at the audited revision, not corrected by the shear move.
+
+## B3-1r.3 RESULT, second pass (SLURM 11619602-05, plugin capture, `logs/check/b3-1r/{base,head}/capture-*.pkl`)
+Pytest outcomes identical on both sides (S-1/S-2/V-03 files: 10 failed, 7 passed; S-4: 2 failed, 1 passed); the failures are the
+5 % assertions already red in the store, not new.
+| row | quantity | move base -> head | class | result |
+|---|---|---|---|---|
+| G38 S-1 mass, EA | sectional distributions, all 50/51 stations | 0 (bit-identical) | M / G | holds |
+| G38 S-1 EI edge | asserted mid-span stations (32) | max 0.094 %; row metric 12.7020 -> 12.7095 % | G | holds |
+| G38 S-1 EI flap | asserted mid-span stations | max 0.199 %; row metric 5.1810 -> 5.1666 % | G | holds |
+| G38 S-1 GJ | asserted mid-span stations | max 0.320 %; row metric 6.1297 -> 6.2193 % | G | holds |
+| G39 S-2 official LC1 / LC2 / LC4 | dominant tip component | +0.055 / +0.025 / +0.045 % | G | holds (beam reference bit-identical) |
+| G41 V-03 assembled mass | kg | 66682.34617104585 both sides (bit-identical) | M | holds |
+| V-03 static gravity tip (no L3 row) | dominant component | +0.055 % | G | holds |
+| G40 S-4 parked 1F / 1E | Hz | -0.038 / -0.049 % | G | holds |
+| G40 S-4 rated 1F / 1E | Hz | -0.035 / -0.048 % | G | holds |
+Not captured: S-4 2F (not returned through `_family_frequency`; the es 0.25 surrogate mode 3 moves -0.019 %), V-05 mass (fixture
+is the assembler; same M as V-03, class M). Base/head S-4 1F/1E parked equal V-02 1F/1E to 6 digits (same construction).
+
+**Finding (reported, not absorbed): outside the asserted span the sectional recovery moves far more than 0.5 %.** S-1 stations near
+the root clamp, z = 1.2-15.5 m: EI flap moves +604.6 % at z = 1.19 (base 4.22e12, head 2.97e13, BeamDyn 1.42e11 N m^2: already 30x
+off before the fix), then -4.9, -2.3, -1.4, -1.0, -0.7, -0.5 %; EI edge -1.6 to -0.6 %; GJ +1.5 to +7.3 % up to z = 10.7 and -2.8 %
+at z = 13.1 and z = 108.6 (tip). These stations are excluded by the rows' mid-span mask (`s1_results["mid"]`, 32 of 51), so no L3
+row moves past its prediction; but the extraction there is shear-deformation dominated (near the clamp the recovered "EI" carries the
+shear flexibility the fix changed), which is the local behaviour T2 allowed for. Consequence for B3-2: S-1 numbers are only
+meaningful on the mid-span mask, and the mask itself is part of the row's definition to audit.
+
+T2 verdict: on every L3 quantity measured at es 0.25 (V-02, S-7, S-1, S-2, S-4, V-03, the 10-mode surrogate for G23) the move is
+< 0.5 % (largest 0.320 %, S-1 GJ mid-span); class M rows are bit-identical. The prediction holds for all rows that were measured.
+
+## B3-1 L3 evidence inventory, FROZEN (2026-10-20, audited revision 2b95e5f; supersedes the 3fdd429 inventory above)
+- Contract at 2b95e5f: L3 open; undecided 1 (S-7), stale 2 (V-02), unaudited 33, absent 3; over ceiling 3; single or no arbiter 34;
+  gap `rotating_modal_shift` (not_validated) blocking. Lower levels: L1 CLOSED (trusted 145, pin 2), L2 CLOSED (trusted 79, pin 4).
+- Row map, assertions, tolerances, es, skin, arbiters: "B3-1r.1 per-row map" above (one row per group, `path:line`).
+- Staleness semantics: a stored L3 number is evidence only if measured at the audited revision, at es <= 0.25, with the test's own
+  construction. Every stored L3 number fails this today: the shear fix moved them by < 0.5 % (B3-1r.3), but older drift is larger
+  (V-02 1E stored 9.05 % vs 8.51 % at 8de3521; S-7 13.30 % vs 9.35 %), and the contract flags only V-02 as stale.
+- Arbiter sufficiency: 34 rows single/none per the contract; S-4 (3 labels, one ElastoDyn deck) and G20 (4 labels, deck reading)
+  are miscounted as sufficient by `validation_matrix.py:4279-4296` (one arbiter per distinct label); G39 compares against its own EB
+  beam although labelled BeamDyn/ElastoDyn; G5/G23 CalculiX runs on our own mesh (not independent).
+- Over ceiling: V-02 1E 0.10 (V02:43) and S-7 0.30 (S7:77) in source; V-05 is a false positive (row stores 0.08 at :142, test
+  asserts 0.05 at V05:151). Store hygiene to fix before verdicts: drifted source lines (S-1, S-4, V-03), V-03 justification text
+  ("10 %" vs asserted 5 %), S-4 parked row mixing oml and mid runs, V-02 1F trusted at oml 01d8805 vs 6.10 % at mid now.
+- Rule-9 defects (es >= 0.3, no admissible number): G5 (2.0/1.0/0.5), G23 (1.0; Bernardi .3-.7 and DLC never measured, xfail escape
+  VAL:482/511), G27 aero-loads and twist rows (1.0). Measuring tools default to es 0.5 (`run_s1_sectional`, `run_s2_static_cases`,
+  `run_s4_rotating_modal`, `run_s7_torsion`). Groups 38-42 cannot be read by `regression` (no residual patterns).
+- Absent: S-2 LC3 edgewise ratio, `sx_mesh_convergence`, `sx_campbell`.
+- First admissible verdict batch (B3-2, proposal): the rows already measured at es 0.25 with the test construction at the audited
+  tree in B3-1r.3 - G32 (1F 6.10 % vs 5 %: reject candidate; 1E 8.46 % against a 10 % band that must be tightened to 5 %), G38
+  (S-1 mid-span: edge 12.71, flap 5.17, GJ 6.22, EA and mass to read from the capture), G39 (S-2), G40 (S-4 1F/1E; 2F to capture),
+  G41 (V-03 mass 66,682 kg vs 67,921 kg), G34 (S-7, oml, ratio 0.909). Then the rule-9 re-mesh of G5/G23/G27 and the store hygiene
+  items, each with its own predeclared criterion.
+
+## Handoff 2026-10-20 (B3-1 closed) - resume here
+State: B3-1 DONE on `audit/b3-1-l3-inventory` (7730249, 43e101a, f150e93 + this handoff), not pushed. Frozen inventory: section
+"B3-1 L3 evidence inventory, FROZEN" above; T2 shear move < 0.5 % on every measured L3 row (largest S-1 GJ mid-span 0.320 %).
+Next step (new session): **B3-2 batch 1** - adjudicate G32, G34, G38, G39, G40, G41 with the numbers already measured at es 0.25 on
+the audited tree (`logs/check/b3-1r/head/`: `g32.json`, `g34.json`, `capture-s1s2v3.pkl`, `capture-s4.pkl`, `modes-oml-025.log`).
+First: predeclare per row metric, reference, 5 % bound (V-02 1E band 0.10 and S-7 0.30 tighten to 0.05, red allowed); fix the store
+hygiene items listed in the frozen inventory before writing verdicts; S-4 2F still to capture.
+Carry-over: baseline worktree `logs/check/b3-1r/base-8de3521` (+ `base-site` wheel, A55) still registered - reusable for paired runs,
+else `git worktree remove`. `scripts/known-red-full.txt` untracked (stamped 52e9bba). Push/PR = maintainer decision.
+Rules: SLURM `--ntasks` + explicit `-p`; criteria fixed before measuring; never widen a band; `scripts/aeroenv.sh` on every command.
+
+## B3-2 batch 1 predeclared criterion (G32, G34, G38, G39, G40, G41; written BEFORE any verdict, 2026-10-20, branch `audit/b3-1-l3-inventory` at 6bea869)
+User verbatim (L): "B3-2 lote 1 (G32, G34, G38, G39, G40, G41): antes de escribir veredictos, fijar por fila métrica, referencia y
+cota del 5 % (V-02 1E y S-7 se ajustan a 0.05, rojo permitido), arreglar la higiene del store y capturar el 2F de S-4. Los números
+ya medidos a es 0.25 están en logs/check/b3-1r/head/."
+Honesty note: most numbers are already known (B3-1r.3). This criterion therefore adds no freedom: it only applies rules fixed
+earlier (maintainer 5 % rule 2026-10-16, S-4 C1-C3 2026-10-16, decision (b) 2026-10-16, the v1.0-reference finding 2026-10-16,
+contract.yaml arbiter semantics) to each row, and states what each verdict will be as a function of the number.
+- K1 measurement. The number is the quantity the test asserts, computed exactly as the test computes it, with the test's own
+  construction (es 0.25; skin `mid` for G32/38/39/40/41, `oml` for G34 as `tools/run_s7_torsion.py` builds it), at the revision
+  that carries this batch's test edits (audited_rev). The B3-1r head capture (2b95e5f tree) must be reproduced to the printed
+  digit (fidelity check; only bounds, prints and docstrings change). A difference is a finding and stops the batch.
+- K2 bound. 5 % relative on the test's declared reference, in the test source and the store row. V-02 1E 0.10 -> 0.05 and S-7
+  0.30 -> 0.05 (red allowed; ADJ-1032's 10 % is withdrawn by a new adjudication entry, not edited away).
+- K3 verdict, class physics:
+  (a) |e| > 5 % and margin to the bound >= 1 pp -> `rejected`.
+  (b) |e| within 1 pp of 5 % (either side) and no es 0.125 measurement of that row -> `undecided` (pending es 0.125). The 1 pp is
+      the envelope of measured es 0.25 -> 0.125 moves on this blade: S-4 <= 0.35 % in frequency (~0.7 % in stiffness), V-02
+      <= 0.23 %, S-7 ratio 0.7 %.
+  (c) |e| <= 5 % - 1 pp -> `trusted` with its arbiters listed; the contract itself reports `unarbitrated` (level open) when fewer
+      than two independent numerical arbiters exist. A reference that does not describe the modelled object, or is our own code,
+      is not an arbiter: a pass against it gives `undecided`, never `trusted`.
+- K4 arbiters per row (fixed now, from earlier records only):
+  | grp | metric | declared reference | arbiter status |
+  |---|---|---|---|
+  | 32 | V-02 1F, 1E [Hz], rel err | NREL/TP-5000-75698 Table 5-2 0.5585 / 0.6406 | NOT an arbiter: v1.0 blade, decks and yaml are v1.1 (finding 2026-10-16). Bernardi 2025 blade version unverified, not an arbiter. |
+  | 34 | S-7 shell/beam tip-twist ratio over 0.3-0.9 span, err = |r - 1| | BeamDyn deck K55 integrated as a Timoshenko torsion beam | single published_numerical (deck), our integration |
+  | 38 | S-1 mid-span (0.2-0.85 R) mean |rel err| of EI_edge, EI_flap (elastic-centre principal), mass, GJ, EA(CLT) | BeamDyn 6x6 deck (SONATA/ANBA4, decision (b)) | single published_numerical |
+  | 39 | S-2 LC1/LC2/LC4 dominant tip component, rel err | in-house EB beam (`tools/beam_reference.py`, ElastoDyn EI) | NOT an arbiter: our code, and T3 measured it 4-14 % too stiff (no shear, 1.95 m short span) |
+  | 40 | S-4 parked / 7.56 rpm 1F, 1E, 2F [Hz], rel err | OpenFAST v5 ElastoDyn MBC3 | ElastoDyn decides pass/fail (C3). Second independent arbiter for C2 = OpenFAST v5 BeamDyn single member p20 on the v1.1 deck (named admissible in the 2026-10-16 finding before its numbers existed): parked 0.507083 / 0.693376 / 1.480900, rated 0.532003 / - / 1.508057 Hz (rated 1E excluded: BeamDyn rotating in-plane artefact, beamdyn-arbiter-midsurface T1/T7). C2: trusted needs |e| <= 5 % vs BOTH. Shell convergence (C1): mid es 0.125 rows of T4 (<= 0.35 %). |
+  | 41 | V-03 assembled total mass, rel err | IEA tabular xlsx declared mass 67,921 kg | single published_numerical (deck integrals of the same pipeline are not independent of it) |
+- K5 store hygiene before verdicts: `source:` lines to the actual assertion lines (S-1, S-4, V-03 and whatever the edits move);
+  justification text matching the asserted bound (V-03 says 10 %, S-7 30 %, V-02 1E 10 %); every measured block of a row at the
+  same construction and revision (S-4 parked mixes oml 48c7c88 and mid 7324508); the oml-era V-02 1F `trusted` (01d8805) replaced.
+- K6 S-4 2F: the test stops at the first failing family (1E), so 2F is never computed in a red run. The test is changed to compute
+  all three families, print one residual line each, and assert once at the end (same bound, same references).
+
+## Handoff 2026-10-20 (B3-2 batch 1, waiting on SLURM) - resume here
+Done: `b06eedd` criterion K1-K6 (section "B3-2 batch 1 predeclared criterion" above; apply it as written, no new criterion);
+`19ff1a3` test edits (V-02 1E and S-7 bounds 0.05, S-4 prints all three families then asserts once, V-03 test renamed
+`test_total_blade_mass_within_5pct`); handoff commit: store hygiene (row `source:` lines 38/39/40/41 to the assertion lines,
+S-2 titles "vs in-house EB beam (ElastoDyn EI)", V-03 justification, ADJ-1034 withdrawing ADJ-1032's 10 %).
+Pending SLURM at 19ff1a3 (all on `sequana_cpu_bigmem`; 11619653 had NODE_FAIL and was requeued):
+11619652 capture S-1/S-2/V-03 -> `logs/check/b3-2/capture-s1s2v3.pkl`, `pytest-s1s2v3.log`;
+11619653 capture S-4 -> `capture-s4.pkl`, `pytest-s4.log` (now prints `S-4 <parked|rotating> <family> ... (error: ...)` incl. 2F);
+11619654 `regression --group 32 34 --write --json` (git shim `$SCRATCH/gitshim-19ff1a3`) -> `g32.json`, `g34.json`, and it
+rewrites the `measured` blocks of rows 32/34 in the worktree. Check: `sacct -j 11619652,11619653,11619654 -X -o JobID,State,Elapsed`;
+if a job failed, resubmit the same line from `logs/check/b3-2/measure.sbatch` usage (`sbatch -p <part> --ntasks=8 --time=60|90`).
+Resume steps (B3-2.1c then B3-2.1d):
+1. `scripts/aeroenv.sh python -I logs/check/b3-2/metrics.py logs/check/b3-2 logs/check/b3-1r/head`: K1 fidelity must read 0
+   (bit-identical to the B3-1r head capture); a nonzero diff is a finding and stops the batch. S-4 2F lines say `K1 fidelity new`.
+   g32/g34 JSON must reproduce 0.524444 / 0.694793 Hz and ratio 0.909073 (now against bound 5 %).
+2. Expected from the B3-1r numbers (confirm, do not assume): G32 1F -6.10 % and 1E +8.46 % -> `rejected` (K3a; reference v1.0, not an
+   arbiter); G34 9.09 % -> `rejected`; G38 edge 12.71 / GJ 6.22 / EA 7.59 -> `rejected`, flap 5.17 -> `undecided` (K3b, es 0.125 pending),
+   mass 2.23 -> `trusted` single arbiter (contract reports unarbitrated); G39 LC2 15.87 / LC4 12.58 -> `rejected`, LC1 5.53 ->
+   `undecided` (K3b), reference not an arbiter; G40 parked/rated 1F (ED -3.59/-3.45, BD p20 +3.42/+2.83) -> `trusted` with two
+   arbiters (C2), 1E (ED -5.98/-6.14) -> `rejected` (C3), 2F per the new capture (expected ~-6.3 % vs ED -> `rejected`);
+   G41 -1.82 % -> `trusted` single arbiter. K3(c) needs margin >= 1 pp: 1F 3.59 % has it.
+3. Store: hand-write the `measured` blocks of rows 38-41 at run 19ff1a3 (G40 parked row currently mixes oml 48c7c88 and mid
+   7324508; replace all six); update rows 32/34 labels/sources (V-02 calls at :133/:158, S-7 at :107), tolerance value 0.05 and the
+   S-7 justification (still describes the 30 % band); then contract.yaml verdicts (replace the V-02 1F `trusted`@01d8805 and 1E
+   `rejected`@01d8805, and the S-7 `undecided`), audited_rev 19ff1a3, arbiters per K4, `files` incl. `logs`-free tools only.
+4. `validation_matrix.py check`, `contract --level L3 --rows` (background, ~1.5 min, log to logs/check/b3-2/), `scripts/check.sh quick`;
+   commit; tick B3-2.1c/d. Follow-ups to list: es 0.125 for S-1 flap and S-2 LC1 (K3b), S-7 still on oml while the other anchors are
+   mid (maintainer decision), V-02 reference re-point or drop (v1.0), S-2 reference -> BeamDyn static driver (T3), groups 38-42 have no
+   residual pattern (`regression` cannot read them). Carry-over unchanged: base worktree `logs/check/b3-1r/base-8de3521`,
+   `scripts/known-red-full.txt` untracked, push/PR = maintainer. Ruff: 2 pre-existing findings in S-4 (:105 B905) and V-03 (:209 F841).
+
+## B3-2 batch 1 RESULT (2026-10-20, audited_rev 19ff1a3) - the handoff above is consumed
+B3-2.1c: SLURM 11619652 (9:44), 11619653 (23:20), 11619654 (4:01) COMPLETED. `metrics.py` re-run on resume is byte-identical
+to `logs/check/b3-2/metrics.out`; K1 fidelity 0 for S-1, S-2, V-03 and every S-4 family that existed (2F is new);
+g32/g34 reproduce 0.524444 / 0.694793 Hz and 0.909073. No finding, the batch proceeds.
+B3-2.1d: K5 store hygiene (rows 32/34 label+source :133/:158, V-02 1E 0.1 -> 0.05, S-7 0.3 -> 0.05, justifications and notes
+no longer describe 10 %/30 %/single-arbiter; rows 38-41 measured blocks all at 19ff1a3, scripts `logs/check/b3-2/store_edit.py`,
+`store_text.py`); S-1 mass block now stores mean |rel err| (what the test asserts), not the signed value.
+| grp | row / family | e (vs declared ref) | K3 | verdict |
+|---|---|---|---|---|
+| 32 | V-02 1F / 1E | -6.10 / +8.46 % | a | rejected / rejected (reference v1.0, not an arbiter) |
+| 34 | S-7 ratio (OML) | 9.09 % | a | rejected |
+| 38 | S-1 edge / flap / mass / GJ / EA | 12.71 / 5.17 / 2.23 / 6.22 / 7.59 % | a / b / c / a / a | rejected / undecided / trusted (unarbitrated) / rejected / rejected |
+| 39 | S-2 LC1 / LC2 / LC4 | 5.53 / 15.87 / 12.58 % | b / a / a | undecided / rejected / rejected (reference not an arbiter) |
+| 40 | S-4 parked 1F / 1E / 2F (ED; BD p20) | -3.59; +3.42 / -5.98; +0.20 / -6.37; +1.80 % | c (C2) / **b** / a | row rejected |
+| 40 | S-4 rated 1F / 1E / 2F | -3.45; +2.83 / -6.14; excl. / -6.40; +1.62 % | c (C2) / a / a | row rejected |
+| 41 | V-03 total mass | -1.82 % | c | trusted (unarbitrated) |
+Deviation from the handoff's expectation, decided by the criterion as written: parked 1E is 0.98 pp over the ceiling and no
+parked mid es 0.125 exists (`s4c-mid-11617755` ran 7.56 rpm only), so K3(b) gives `undecided`, not `rejected`. The row verdict
+does not change (parked 2F is rejected). Gates: `check` 289 rows / 399 comparisons, 0 errors / 0 warnings. `contract --level L3 --rows`
+(`logs/check/b3-2/contract-l3-rows.log`): undecided 2, rejected 10, unarbitrated 2, unaudited 22, absent 3, over ceiling 1
+(V-05, unaudited, outside this batch), no stale verdict; before (after-S-4 log): undecided 1, stale 2, unaudited 37, over
+ceiling 13. L3 stays open. `scripts/check.sh quick` OK: 75 passed, 1 xfailed (`logs/check/quick-20261020T122752.log`).
+Follow-ups (not done here): es 0.125 for S-1 flap, S-2 LC1 and S-4 parked 1E (K3b); S-7 on OML while the other anchors are mid
+(maintainer decision); V-02 reference re-point or drop (v1.0); S-2 reference -> BeamDyn static driver (T3); groups 38-42 have
+no residual pattern (`regression` cannot read them); `validation_matrix check` does not validate a tolerance value against the
+source literal nor source-line drift (rows 32/34 were stale with 0 errors). Carry-over: base worktree `logs/check/b3-1r/base-8de3521`,
+`scripts/known-red-full.txt` untracked, push/PR = maintainer. Ruff: 2 pre-existing findings in S-4 (:105 B905), V-03 (:209 F841).
+
+## K7 - completion of K3(b) at es 0.125 (written BEFORE any es 0.125 number of these rows, 2026-10-20, at 8924d77)
+User (L): "sigue tus recomendaciones" (follow-up 1 of the batch 1 RESULT: es 0.125 for the K3(b) items); PR #45 stays the single PR.
+Rows: G38 `s1_sectional_flapwise_ei` (e 5.17 % at es 0.25), G39 `s2_official_lc1_tip_displacement` (5.53 %), G40 parked 1E
+(-5.98 % vs ElastoDyn; the parked row verdict stays `rejected` on 2F whatever 1E gives). K7 only applies rules already fixed
+(K1, K3, K4; precedents S-4 C1/C3 and V-02 B3-3a, 2026-10-16), and adds no freedom:
+- K7.1 measurement: the K1 quantity, same construction (skin mid-surface, same reference, same metric and mask), at es 0.125,
+  at the current branch head; the es 0.25 point is re-measured in the same job as a control and must reproduce the 19ff1a3
+  number to the printed digit (else a finding, stop).
+- K7.2 convergence: move m = |e(0.125) - e(0.25)| in percentage points. m <= 1 pp (the K3(b) envelope) -> the es 0.125 value
+  is the converged estimate. m > 1 pp -> convergence not shown: stays `undecided` (pending a third mesh), whatever e(0.125).
+- K7.3 verdict on e(0.125) when K7.2 holds: |e| > 5 % -> `rejected`; |e| <= 5 % -> `trusted` with the K4 arbiters (S-1 flap:
+  single published numerical -> contract reports `unarbitrated`), except where the reference is not an arbiter (S-2 LC1, K4):
+  a pass stays `undecided`, a fail is `rejected`. The 1 pp margin of K3(a)/(c) no longer applies once es 0.125 exists.
+
+## K8 - which official model arbitrates L3 (2026-10-20, at 8e5ee61 + cherry-pick of cf2115f; numbers already known, see honesty note)
+User verbatim: (1) "creo que me hiria por la opcion recomendada, pero recordemos que todos son metodos numericos diferentes y ya
+el nuestro fue evaluado contra otro aritro umerico extenro CCX y analitico, entonces creo que solo mantener la comparacion como
+comparacion y no como criterio de validado o no." (2) "Solo corridas de OpenFAST (Recomendado)". (3) "Cherry-pick de cf2115f
+ahora (Recomendado)". (4) "nosotros estamos validando aeroelast no estamos validando ni BeamDyn ni ElastoDyn, entonces la
+eleccion sera la que mas correcta sea para nuestro proposito". B4 context: `reference_model` (official OpenFAST model on the
+official deck) settles a comparison alone, L3 and L4 (`eadb1fa`, `cf2115f`).
+- K8.1 qualifying references (answer 2): only OpenFAST runs on the official deck. S-4 ElastoDyn MBC3 and BeamDyn p20 qualify.
+  Not: the BeamDyn 6x6 deck as data (S-1), K55 through our own integral (S-7), our EB beam (S-2), the tabular mass (V-03), NREL
+  Table 5-2 v1.0 (V-02). Those rows keep their K3/K4 verdicts.
+- K8.2 arbiter for blade frequencies (answer 4 delegates the choice): OpenFAST BeamDyn. ElastoDyn is printed and recorded as a
+  comparison, not a pass/fail criterion. Reason, stated on model physics and not on which side passes: ElastoDyn's blade modes
+  come from assumed mode shapes that are input polynomial fits in the deck, on an Euler-Bernoulli beam with no shear and no
+  cross-section coupling, so its frequencies are a property of those fitted shapes. BeamDyn solves the geometrically exact
+  Timoshenko beam on the full 6x6 deck, with no fitted modal input: the physics a shell model also carries (shear, couplings).
+  The structure aeroelast must reproduce is the one the deck defines; the model that uses the whole deck is its definition.
+- Honesty note: this is decided after the numbers. Against ElastoDyn, 1E/2F fail (-5.9 to -6.5 %); against BeamDyn they pass
+  (+0.2 to +1.8 %). The choice moves them to pass, so it rests only on K8.2's reason; the 6-8 % ElastoDyn/BeamDyn disagreement
+  stays recorded as a finding about the references (an OpenFAST question, not an aeroelast defect).
+- K8.3 consequences: the S-4 test asserts against BeamDyn p20 (bound 5 % unchanged) and prints ElastoDyn as a comparison.
+  Parked 1F/1E/2F and rated 1F/2F are judged against BeamDyn by K3/K7; rated 1E has no admissible BeamDyn number (rotating
+  in-plane artefact, beamdyn-arbiter-midsurface T1/T7), so the rated row stays `undecided` until that number exists.
+  BeamDyn convergence (p20) is to be cited with the verdict (C1 analogue for the reference).
+
+## Handoff 2026-10-20 (B3-2.1e/f, waiting on SLURM 11619975) - resume here
+State: branch `audit/b3-1-l3-inventory`, PR #45 (single PR to main, maintainer decision). Commits since the batch 1 verdicts:
+8e5ee61 K7, 8c3b6e7 cherry-pick of cf2115f (`reference_model` sole arbiter, from `audit/b4-l4`), 38fbc6b K8 (BeamDyn arbitrates
+L3 blade frequencies, ElastoDyn is a comparison), this handoff. L4 runs in a parallel session (`logs/worktrees/b4-l4`); expect a
+trivial `contract.yaml` conflict at merge; do not touch `tools/validation_matrix.py` here.
+Measurement (`logs/check/b3-2e/`: `es_override.py` rebuilds the tests' `BladeMesh(element_size=0.25)` at `$B3_ES`, fails if it
+never fires; `measure.sbatch`; `submitted.txt`; captures `capture-<tag>.pkl` via `logs/check/b3-1r/capture_plugin.py`):
+| tag | job | result |
+|---|---|---|
+| s1-025 | 11619956 | control OK: 5.1666 % signed +3.3038 % n=32 (exact) |
+| s1-0125 | 11619953 OOM (96 GB) -> **11619975** (48 tasks, running) | pending |
+| s2-025 | 11619962 | control OK: shell -2.066107 beam -1.957812 5.5314 % (exact) |
+| s2-0125 | 11619954 | shell -2.070734 beam -1.697731 21.9707 % |
+| s4p-025 | 11619974 | control OK: 1F 0.524444, 1E 0.694793, 2F 1.507523 (exact) |
+| s4p-0125 | 11619955 | 1F 0.523888 (ED -3.6971 %), 1E 0.695379 (ED -5.9027 %), 2F 1.505527 (ED -6.4890 %) |
+Deviation from K7.1: controls ran in separate jobs at the same revision (only docs commits since 19ff1a3), not in the same job.
+Finding (S-2): the shell moves +0.22 % from es 0.25 to 0.125, the in-house beam reference moves -13.3 %:
+`BeamReference.from_mesh` (`tools/beam_reference.py:287`) takes z/centres/chord/flap from slicing the shell mesh, so the reference
+depends on the mesh it judges (hypothesis, unverified: the extracted flap orientation changes the gravity split). K7.2 (16.4 pp
+move) -> S-2 LC1 stays `undecided`; strengthens S-2 -> BeamDyn static driver (T3).
+Resume steps:
+1. `sacct -j 11619975 -X -o JobID,State,Elapsed`; if OOM again resubmit on `sequana_cpu_bigmem`. Read S-1 flap at es 0.125 from
+   `capture-s1-0125.pkl` (fixture `s1_results`: mean |ei_flap[mid]/ei_flap_bd[mid]-1|, as the test). Apply K7: m <= 1 pp -> verdict
+   on e(0.125) (> 5 % rejected, <= 5 % trusted, unarbitrated: single published numerical).
+2. B3-2.1f (K8): edit `tests/test_iea15mw_s4_rotating_modal.py` so the families assert against BeamDyn p20 (parked 0.507083 /
+   0.693376 / 1.480900, rated 0.532003 / - / 1.508057 Hz; bound 5 % unchanged) and print ElastoDyn as a comparison; rated 1E has
+   no BeamDyn number -> not asserted, printed. Then row 40 references/measured, contract arbiters
+   `{kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}`. Expected by K7/K8 (confirm on the run at
+   the edit commit): parked 1F +3.3 %, 1E +0.29 %, 2F +1.66 % vs BD at es 0.125 -> parked row `trusted`; rated row `undecided` (1E).
+   Cite BeamDyn p20 convergence with the verdict.
+3. Store and contract for K7 (rows 38 flap, 39 LC1, 40), `validation_matrix.py check`, `contract --level L3 --rows`
+   (log to logs/check/b3-2e/), `scripts/check.sh quick`; commit; push to PR #45; tick B3-2.1e/f.
+Known: `tools/tests/test_validation_matrix.py::test_coherence_leaves_hand_written_prose_alone` fails (row 4 stale) and also fails
+on main 2b95e5f: pre-existing, not from this branch. Full tool-test run without -x: `logs/check/b3-2e/tool-tests-full.log`.
+Tool-test baseline (closes resume step "compare FAILED"): main 2b95e5f 6 failed / 164 passed; this branch 6 failed / 165 passed,
+the same six tests (coherence x2, real store coherent, groups re-derive, no pending migration, depends_on L1/L2). All
+pre-existing; the extra pass is cf2115f's new test. Logs: `logs/check/b3-2e/tool-tests-{main-2b95e5f,full}.log`.
+
+## B3-2.1e/f RESULT (2026-10-21, at 4d64ea8 + store edits)
+- Tool tests: this branch and main 2b95e5f fail the same six (`logs/check/b3-2e/tool-tests-*.log`); no branch-only failure.
+- S-1 flap (K7, SLURM 11619975 es 0.125, control 11619956): 5.3104 % (signed +4.0857 %) vs 5.1666 % at es 0.25 reproduced exactly;
+  move 0.14 pp <= 1 pp -> converged, > 5 % -> `rejected`.
+- S-2 LC1 (11619954): shell +0.22 %, in-house beam -13.3 % (reference built from the shell mesh); move 16.4 pp -> `undecided`.
+- S-4 (K8, test at 4d64ea8, es 0.25 SLURM 11620009 passes; es 0.125 from 11619955) vs BeamDyn p20, parked 1F +3.42/+3.31 %,
+  1E +0.20/+0.29 %, 2F +1.80/+1.66 % (es 0.25/0.125): moves <= 0.14 pp -> parked row `trusted` (arbiter `reference_model` BeamDyn p20).
+  Rated: 1F +2.83 %, 2F +1.62 %, 1E not asserted (no BeamDyn number, K8.3) -> `undecided`. Comparison against ElastoDyn printed only.
+- Store: rows 38/39/40 and contract updated (rated 1E comparison gets `info_only`); `audited_rev` of rows untouched by 4d64ea8 bumped to it
+  (the S-4 test edit made them stale only through the level file list). check 0 errors; `contract --level L3 --rows` log
+  `logs/check/b3-2e/contract-L3-k7k8.log`; `check.sh quick` OK. Honesty: arbiter chosen after the numbers (K8).
+- Open: BeamDyn rated 1E number; S-2 reference -> BeamDyn static driver (T3); BeamDyn p20 convergence citation.

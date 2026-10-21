@@ -56,3 +56,25 @@ adjudications:
     decided_by: session (validation store work)
     date: 2026-10-06
     status: resolved
+
+  - id: ADJ-1034
+    row: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
+    field: comparisons[*].tolerance.justification
+    candidate_code: "_FREQ_TOL_EDGE = 0.05, a module literal of 0.05 (was 0.10)"
+    verdict: ADJ-1032 is withdrawn; the 1st edgewise bound is the 5 % L3 ceiling
+    resolution: >-
+      ADJ-1032 kept a 10 % bound on the spread of Zhou et al. 2025 Table 3. That
+      spread is between six different blade models, not an uncertainty on this
+      row's reference value, and it was cited after the 0.6986 Hz measurement
+      was known, so it is not a pre-measurement exception (contract.yaml,
+      `fixed_before_measuring`). The maintainer rule of 2026-10-16 fixes every
+      L3 tolerance at 5 % at most, and the user's B3-2 batch 1 instruction of
+      2026-10-20 names this row ("V-02 1E y S-7 se ajustan a 0.05, rojo
+      permitido"). The test is red by design at 5 %. Separately, the 0.6406 Hz
+      reference describes the IEA-15 v1.0 blade while the decks and the yaml
+      are v1.1 (odd/tasks/validation-l3-b3-audit.md, finding of 2026-10-16), so
+      it cannot arbitrate this blade at any bound. ADJ-1032 stays in this file
+      as the record of what was decided on 2026-10-06.
+    decided_by: session (B3-2 batch 1), on the maintainer's 5 % rule and instruction
+    date: 2026-10-20
+    status: resolved
