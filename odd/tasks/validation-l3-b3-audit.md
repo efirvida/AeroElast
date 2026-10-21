@@ -1730,3 +1730,41 @@ Tools (committed with this section): `tools/diagnose_edge_dip_locator.py` (A1+A2
   and abs 6.22 % within 0.2 pp, else void. Convergence: 0.25 -> 0.125 move <= 1 pp.
 - K13.E, K13.F: not run (D3 and D1/D2 pending). Verdict proposals in K13 RESULT follow K3/K7 (|e| > 5 % at a converged es 0.125 ->
   `rejected`; the closure family cannot be changed by diagnostics alone) and are proposals only.
+
+## K13 RESULT (2026-10-21; tools at cf03ba4 + `tools/diagnose_te_layup_dump.py`; logs `logs/check/b3-3/k13a-11621435.log`, `k13a125-11621436.log`, `k13d-11621437.log`, `k13d125-11621438.log`, `te-layup-025.log`; BeamDyn `logs/check/bd_freevib/iea-p20-r0-h0-dt0.005-F1000-eiek13{c0,A,B}`, SLURM 11621439-41)
+Dev took one job at a time (submit-limit rejection); the rest ran on `sequana_cpu` (1 job of mine running vs 2 on bigmem). Diagnostic outcomes only; no verdict, band or contract edit. D1-D3 pending: E and F did not run.
+- K13.A1 valid (laminate hoop-free means -4.93 / -4.54 % = M2; FE columns = M1 logs, 2x2 edge -10.88 / -10.45 %). Window W (>= 62 m, n=16): laminate
+  edge -9.88 / -9.70 %, FE edge -17.43 / -17.23 %, gap -7.55 / -7.53 pp (es 0.25 / 0.125, move 0.02 pp: converged). Neither predeclared branch
+  holds ((i) needs laminate >= -8 %, (ii) needs |gap| <= 3): MIXED, and the per-station table splits W in two:
+  (1) 63.3-72.8 m: FE edge -9.9 .. -21.8 % while the laminate is +6.7 .. -6.4 %: gap -13 .. -24 pp, FE-only, with an abrupt onset (gap +0.5 pp at
+  60.9 m, -16.5 pp at 63.3 m), identical at both sizes; (2) 75-100 m: the laminate itself is -10 .. -21 % below the deck (hoop free) and the FE
+  follows it within about +-8 pp (gap -2 .. +7): an input/deck disagreement, same family as flap/EA. Inboard (30-56 m) the FE is a roughly constant
+  -4 .. -5 pp softer than its own laminate (gap I -4.34 / -4.28 pp).
+- K13.A2: triangles EXCLUDED. Census 92 (es 0.25) / 189 (0.125) composite triangles, spread over webs (30/60), LE_panel, TE_panel and a few spar-cap/reinforcement
+  ones, none concentrated in 62-73 m; the share of the laminate edge integral they carry is <= 0.44 % (mean 0.05 % at the stations with FE edge <= -10 %)
+  against a mean gap of -7.8 pp: far under the half-gap criterion. The recorded span-angle-offset defect cannot produce this dip.
+- K13.A3 (explorer by code reading + my numeric dump `te-layup-025.log`): NO yaml->mesh discrepancy in the TE reinforcement. The `glass_uni` thickness of the
+  `HP/LP_TE_FLAT` sets equals the yaml pchip thickness within 0.1 mm at every station 51-100 m (e.g. 30.00/30.00, 23.61/23.64, 5.24/5.17, 0.10/0.06 mm);
+  it is smooth through 62 m (no yaml grid point there; the TE_PANEL totals 31.9 -> 30.3 mm are smooth too). Width 0.75 ends at 0.796-0.816 span (93-95 m) as
+  in the yaml; the yaml `start/end_nd_arc` of these layers are not read by the generator (only "shell" components, `yaml_to_blade.py:371-376`). The webs have no
+  yaml step at 62 m either. So the onset at 62-63 m has no recorded input cause.
+- K13.B: BLOCKED, no candidate (A2 excluded the triangles; A3 found no mapping discrepancy). No counterfactual was run; nothing forced.
+- K13.C valid (control c0 = stored parked 1F 0.506964 / 1E 0.693513 Hz to the printed digit). Deck K[3,3] times the M1 profile: variant B 1F 0.506887 (-0.02 %),
+  1E 0.675104 Hz (-2.65 %); variant A 1E 0.677404 (-2.32 %). d1E(B) <= -1.5 % -> the tension is REAL: BeamDyn itself loses 2.3-2.7 % of 1E (the M4 Euler-Bernoulli
+  estimate -2.2..-2.7 % was sufficient) while the shell stays +0.2/+0.3 % from the unscaled deck. The shell therefore carries about 2.5 pp of compensation
+  (mass distribution or mode shape) that the static edge profile does not show; this is the open item for the edge family.
+- K13.D valid (control: es 0.25 signed -4.55 / abs 6.22 % = stored). Per station vs K66: -4.55 / -4.51 % signed, abs 6.22 / 6.59 %, std 8.3 / 8.6 %, frac>0 0.31 / 0.28
+  (es 0.25 / 0.125); vs 1/C66 -2.98 / -2.94 %. Spline-free window estimate (25-99 m): -3.75 % / -4.96 % vs K66, -0.78 % / -2.03 % vs 1/C66. By the K13.D rule
+  (|window| <= 5 %, std >= 4 %, both signs) the abs mean is extractor dispersion, not an offset; two caveats: the window estimate moves 1.21 pp between sizes
+  (> 1 pp: not converged by K13 and -4.96 sits at the limit), and longer chords vs the pointwise K66 give -6.1 .. -6.5 % (biased: the pointwise reference
+  is not the harmonic mean). The test's own metric (abs < 5 %) keeps failing at both sizes.
+
+### Final table (proposals only; the maintainer decides; D1-D3 still pending)
+| row | cause (K13) | evidence | proposal under K3/K7 |
+|---|---|---|---|
+| S-1 EI edge, S-2 LC3 | MODEL-side partly: FE-only dip at 63-73 m (onset at 62-63 m, -13..-24 pp vs its laminate) + about -4.5 pp softer than its laminate inboard; 75-100 m is a laminate-vs-deck input gap. Not triangles, not TE-reinforcement mapping, not frame. Extractor vs model for the 63-73 m dip is NOT separated (spline second derivative) | A1, A2, A3 | stays `rejected` (converged, |e| 11-12 % > 5 %, K7.3); open: re-extract edge EI at 62-73 m without the smoothing spline (or a direct local-curvature read) before any model change |
+| 1E (edge/modal tension) | real: BeamDyn with the same EI profile loses 2.3-2.7 % of 1E, the shell does not | C | no verdict; the compensation (mass/mode shape) is the next investigation for the edge family |
+| S-1 GJ | extractor dispersion by rule (std 8.3 %, window -3.75 / -4.96 %), not converged by 1.2 pp | D | row under the test's metric stays `rejected` (abs 6.59 % at 0.125); a window-integral metric would pass but is a metric change, maintainer decision |
+| S-1 EA, S-1 EI flap, S-2 LC1, LC4 | unchanged from K12: laminate-as-meshed vs 6x6 (flap +6.5 %, EA +5.8 %); A1 adds the same disagreement outboard in edge (-10..-21 %) | A1 | blocked on D3 (independent section solve or yaml->mesh investigation; A3 found no mapping discrepancy in the TE reinforcement, which narrows the second option) |
+| V-02 1F/1E | unchanged | - | blocked on D1 |
+| S-7 | unchanged (mid 1.0155 / 1.0109) | - | blocked on D2 |
