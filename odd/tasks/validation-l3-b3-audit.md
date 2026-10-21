@@ -35,6 +35,11 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
   - [x] **B3-2.1e** es 0.125 for the three K3(b) items (S-1 flap, S-2 LC1, S-4 parked 1E), judged by K7 (section "K7" at the end, fixed before the runs). Route: worker + SLURM.
   - [x] **B3-2.1f** K8: S-4 test and row 40 against BeamDyn (reference_model), ElastoDyn as comparison; re-adjudicate S-4 rows. Needs cf2115f (cherry-picked).
+  - [x] **B3-2.2a** K10 predeclared (BeamDyn rated 1E admissibility), before any BD-driver number (this commit).
+  - [ ] **B3-2.2b** tool: BD driver, dynamic rotating free vibration + frequency fit (uniform, box, IEA blade).
+  - [ ] **B3-2.2c** K10.2 gate on the uniform and box beams (SLURM).
+  - [ ] **B3-2.2d** blade: K10.3 (parked match, p15/p20, dt/dt2), K10.4 hub 3.97, shell rated es 0.125.
+  - [ ] **B3-2.2e** verdict row 40 rated (K10.5), store/contract, check, quick, commit, push.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -1192,3 +1197,36 @@ Plan (not started; criterion must be written BEFORE any blade number, as K7/K8/K
    push; then open the single PR and continue with step 3 of the order (the 22 unaudited and 3 absent rows).
 Cost: SLURM, `sequana_cpu` or `_dev` under 20 min per run; BD driver single member runs took minutes (`bd_static`). Start the next
 session from this section plus K8 and K9; do not re-read K1-K7.
+
+## K10 - admissibility of a BeamDyn rated 1E reference (written BEFORE any BeamDyn-driver number, 2026-10-21, at 96b5c38)
+User (L, 2026-10-21): "Intentar producir referencia BD valida" (the handoff above); session resumed with "Retomá B3-2.2".
+Known when writing: shell rated 1E 0.700260 Hz (es 0.25), parked 0.694793; BD p20 MBC3 parked 1E 0.693376; ED rated 1E 0.7461; the
+T1/T7 linearization artefact (BD edge K 1.19 vs 0.193). Not known: any BeamDyn driver frequency, parked or rotating, on any beam.
+- K10.1 method (a), the only one tried first: OpenFAST v5.0.0 `beamdyn_driver` (the binary of `tools/bd_static_reference.py`),
+  `DynamicSolve=True`, root prescribed to rotate at constant omega about BeamDyn x (the flap axis; shell +y), gravity 0, no damping
+  input, generalized-alpha `rhoinf` 0.8 (numerical damping of the unresolved axial modes; at omega*dt < 0.05 the low-mode period error
+  is O((omega dt)^2) < 1e-4 and cancels to first order in K because parked and rotating use the same dt). Excitation: a small step tip
+  load from rest, global x (flap, constant in the rotating frame) and global y (edge at t=0; the v5 driver applies loads unrotated in
+  the global frame, read in `Driver_Beam_Subs.f90`, so in the rotating frame it is a load turning at exactly 1P). Signal: tip
+  translation in the root frame (`TipTDxr` flap, `TipTDyr` edge). Frequencies: nonlinear least squares of a constant, the exactly known
+  1P harmonic and a sum of damped sinusoids, started from Hann-window FFT peaks. K = (f_W^2 - f_0^2)/(W/2pi)^2 with f_0 from the same
+  method, order, dt and loads at omega 0. Load scale: linear check, the fitted frequency must move <= 0.01 % when the load is halved.
+- K10.2 gate (T7 references and tolerances, `logs/check/of_bd_sw/report.json`, no new reference): on BOTH the uniform beam
+  (`tools/of_bd_southwell.py`, 10 rpm) and the published box (`logs/check/analytic_beam/cases.json`, Omega 3.03935 rad/s):
+  parked flap and edge within 1 % of the analytic (uniform 0.559591 / 0.839387 Hz, box Timoshenko 1.206770 / 0.821788 Hz), and flap K and
+  edge K within 5 % of the analytic (uniform 1.193336 / 0.193336, box 1.191031 / 0.188469). One failure on either beam -> method (a) is
+  not an arbiter; rated 1E stays `undecided` and the maintainer is asked again among the handoff options ("leave undecided" /
+  "ElastoDyn arbitrates only rated 1E" / method (b)); none is picked silently.
+- K10.3 blade configuration, set by the shell's rated modal, not by the MBC3 deck: official v1.1 deck single member (the deck's 50
+  keypoints, as `bp20`), root on the rotation axis (hub radius 0, as `tools/run_s4_rotating_modal.py` `rotation_center=0`), no precone
+  or tilt, pitch 0, 7.56 rpm about BD x. Admissibility on the blade: (i) the method's parked 1F and 1E reproduce BD p20 MBC3 parked
+  (0.507083 / 0.693376 Hz) within 0.1 % (same model, two extractions); (ii) reference convergence: p15 -> p20 and dt -> dt/2 each move
+  rated 1E <= 0.2 %. Failing (i) or (ii) -> not admissible, row stays `undecided`.
+- K10.4 recorded only (no verdict changes in this task): the same method with hub radius 3.97 m (root at z = 3.97 on the rotation axis
+  line, still no precone) against the MBC3 rated 1F/2F (0.532003 / 1.508057, which carry HubRad 3.97 m and PreCone -4 deg). The
+  hub-0 vs hub-3.97 difference measures the configuration mismatch between the shell's rated modal and the MBC3 reference already used
+  for rated 1F/2F (K8); it is a finding to report, not a reason to re-judge here.
+- K10.5 verdict on rated 1E, bound 5 % unchanged (K7.2/K7.3, K8): e = shell/BD - 1 at es 0.25 and at es 0.125 (shell rated 1E at es
+  0.125 measured at the verdict revision by the S-4 test, as K7 did for parked); move <= 1 pp -> verdict on e(0.125): |e| <= 5 % ->
+  rated row `trusted` (1F/2F already pass vs BD p20), |e| > 5 % -> `rejected`; move > 1 pp -> `undecided`. Arbiter of 1E:
+  `reference_model`, "OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck", BeamDyn convergence cited with it.
