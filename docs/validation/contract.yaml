@@ -40,7 +40,7 @@ verdicts:
   - target: blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single
     class: physics
     verdict: rejected
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/run_s7_torsion.py
       - tools/beam_reference.py
@@ -2085,7 +2085,7 @@ verdicts:
   - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_fla.single
     class: physics
     verdict: rejected
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tests/IEA-15-240-RWT.yaml
     note: >-
@@ -2098,7 +2098,7 @@ verdicts:
   - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
     class: physics
     verdict: rejected
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tests/IEA-15-240-RWT.yaml
     note: >-
@@ -2110,7 +2110,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_edgewise_ei
     class: physics
     verdict: rejected
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2123,7 +2123,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_flapwise_ei
     class: physics
     verdict: rejected
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2138,7 +2138,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_mass
     class: physics
     verdict: trusted
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2152,7 +2152,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_gj
     class: physics
     verdict: rejected
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2165,7 +2165,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_ea
     class: physics
     verdict: rejected
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2178,7 +2178,7 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc1_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -2192,7 +2192,7 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc2_tip_displacement
     class: physics
     verdict: undecided
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -2207,7 +2207,7 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -2220,7 +2220,7 @@ verdicts:
   - target: blade_rotating_modes.s4_parked_openfast_modes
     class: physics
     verdict: trusted
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tools/run_s4_rotating_modal.py
       - tests/IEA-15-240-RWT.yaml
@@ -2235,22 +2235,28 @@ verdicts:
       arbiter was chosen after the numbers (K8).
   - target: blade_rotating_modes.s4_rated_openfast_modes
     class: physics
-    verdict: undecided
-    audited_rev: 44ebffa
+    verdict: trusted
+    audited_rev: 2eab2c6
     files:
       - tools/run_s4_rotating_modal.py
+      - tools/bd_rotating_freevib.py
       - tests/IEA-15-240-RWT.yaml
     arbiters:
       - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck, hub 0 (rated 1E)"}
     note: >-
-      7.56 rpm, es 0.25, vs BeamDyn p20: 1F +2.83 %, 2F +1.62 %, both inside 5 % (K8.2). Rated 1E has
-      no admissible BeamDyn number (rotating in-plane artefact, beamdyn-arbiter-midsurface T1/T7), so
-      it is printed against ElastoDyn (-6.14 %, comparison only) and not asserted (K8.3): the row
-      stays undecided until that number exists. No rated es 0.125 BeamDyn comparison was run.
+      7.56 rpm vs BeamDyn p20 MBC3: 1F +2.83 %, 2F +1.62 % at es 0.25 (K8.2), reproduced at 2eab2c6
+      (SLURM 11621312). Rated 1E vs the BeamDyn driver (dynamic free vibration, K10): +0.121 % es 0.25,
+      +0.204 % es 0.125 (SLURM 11621097), move 0.08 pp <= 1 pp -> trusted (K10.5). The driver passes
+      the K10.2 gate (uniform and box beams: parked <= 0.01 %, Southwell K <= 2.8 %) and K10.3 on this
+      blade (parked vs MBC3 <= 0.024 %, p15->p20 +0.116 %, dt->dt/2 +0.004 %, half load -0.005 %). The
+      MBC3 rated 1E stays inadmissible (linearization artefact, beamdyn-arbiter-midsurface T1/T7).
+      K10.4 finding: the shell rotates about the blade root (hub 0); the MBC3 1F/2F carry HubRad 3.97 m,
+      worth +0.21 / +0.08 % in the driver, small against the bound. ElastoDyn 1E -6.14 % (comparison).
   - target: blade_total_mass.v03_assembled_mass_vs_tabular
     class: physics
     verdict: trusted
-    audited_rev: 44ebffa
+    audited_rev: 2eab2c6
     files:
       - tests/IEA-15-240-RWT.yaml
     arbiters:

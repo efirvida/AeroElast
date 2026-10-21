@@ -38,8 +38,8 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.2a** K10 predeclared (BeamDyn rated 1E admissibility), before any BD-driver number (this commit).
   - [x] **B3-2.2b** tool: BD driver, dynamic rotating free vibration + frequency fit (uniform, box, IEA blade). Tool 3c57cc3, band-limited fit in the K10.2 RESULT commit.
   - [x] **B3-2.2c** K10.2 gate on the uniform and box beams (SLURM 11621046): PASS, see "B3-2.2c K10.2 RESULT".
-  - [ ] **B3-2.2d** blade: K10.3 (parked match, p15/p20, dt/dt2), K10.4 hub 3.97, shell rated es 0.125.
-  - [ ] **B3-2.2e** verdict row 40 rated (K10.5), store/contract, check, quick, commit, push.
+  - [x] **B3-2.2d** blade: K10.3 (parked match, p15/p20, dt/dt2), K10.4 hub 3.97, shell rated es 0.125. PASS, see "B3-2.2 K10.3-K10.5 RESULT" (2eab2c6).
+  - [x] **B3-2.2e** verdict row 40 rated (K10.5), store/contract, check, quick, commit, push. Rated 1E `trusted`, see "B3-2.2e STORE".
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -1368,3 +1368,22 @@ K10.5 verdict, rated 1E, BD = driver p20 rated hub 0 = 0.699413 Hz:
 - Same log, for the record: rated 1F/2F at es 0.125 vs BD p20 MBC3 +2.73 % / +1.48 % (already passing, K8); vs ElastoDyn
   rated 1E -6.07 % (comparison only; K8 left the rated 1E row `undecided`, this arbiter decides it).
 Next: step 5 of the handoff (test target + es 0.25 SLURM run, then store, contract, quick gate, commit).
+Delivery decision (maintainer, 2026-10-21, asked at 2eab2c6 with ~813 authored lines): "Un solo PR" - K9 and K10 ship together,
+no split. Shell es 0.25 rated run of the edited test: SLURM 11621312 (`measure.sbatch 0.25 ...[7.56] s4r-025-k10`, 3 h).
+
+## B3-2.2e STORE (2026-10-21, test at 2eab2c6, SLURM 11621312)
+Edited test at es 0.25, rated: `1 passed` (12:31); 1E 0.700260 vs driver 0.699413 +0.1210 %, 1F +2.8319 %, 2F +1.6196 % vs BD p20
+MBC3 (equal to the stored numbers to the printed digit). Row 40 rated: 1E `asserted: true`, reference = BeamDyn driver, `info_only`
+dropped, tolerance source moved to `:172`. Contract: `s4_rated_openfast_modes` `trusted` at 2eab2c6, arbiters BD p20 MBC3 + BD driver
+(both `reference_model`). The 13 other L3 verdicts at 44ebffa restamped to 2eab2c6: 2eab2c6 changed only the S-4 rated 1E target and
+the S-4 print label, which none of them runs (the K9 precedent). `check` 300 rows / 419 comparisons / 0 errors;
+`logs/check/b3-2e/contract-L3-k10.log`: L3 trusted 2, undecided 1, rejected 9, unarbitrated 2, unaudited 22, absent 3, over
+ceiling 1, single/no arbiter 33, 1 blocking gap (`rotating_modal_shift`); stale 12 -> 0.
+
+## Handoff 2026-10-21 (B3-2.2 closed) - resume here
+Branch `audit/b3-s2-beamdyn-static`, HEAD = this commit, pushed. Delivery: ONE PR for the whole branch (maintainer, no split); not
+opened yet. L1 CLOSED (145 trusted, 2 pin), L2 CLOSED (79 trusted, 4 pin), L3 open as above.
+Next, agreed order step 3: the 22 unaudited L3 rows (groups 5, 20, 23, 27, 42) and the 3 absent anchors (S-2 edgewise ratio, Sx mesh
+convergence, Sx Campbell). Open maintainer decision before B3-3: for the 9 rejected rows (S-1 EI edge/flap, GJ, EA; S-2 LC1/LC4;
+V-02 1F/1E; S-7), predeclared quantified exceptions or a model investigation; L3 cannot close while any stays rejected.
+Untracked on purpose: `tests/IEA15MW/bd_freevib/`.
