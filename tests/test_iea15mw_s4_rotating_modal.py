@@ -28,12 +28,19 @@ Euler-Bernoulli beam, so ElastoDyn is printed as a comparison and decides nothin
   mode        parked (0 rpm)            rotating (7.56 rpm)
               BeamDyn p20 | ElastoDyn   BeamDyn p20 | ElastoDyn
   1st flap    0.507083    | 0.544       0.532003    | 0.5666
-  1st edge    0.693376    | 0.739       (none)      | 0.7461
+  1st edge    0.693376    | 0.739       0.699413*   | 0.7461
   2nd flap    1.480900    | 1.610       1.508057    | 1.6372
 
-Rotating 1E has no admissible BeamDyn number: its rotating/parked rise (+2.66 %) and edge
-Southwell coefficient (1.64, equal to flap) are an artefact of the BeamDyn linearization
-(odd/tasks/beamdyn-arbiter-midsurface.md T1/T7), so rated 1E is printed, not asserted.
+* Rotating 1E does not come from the MBC3 linearization: its rotating/parked rise (+2.66 %)
+and edge Southwell coefficient (1.64, equal to flap) there are an artefact of the BeamDyn
+linearization (odd/tasks/beamdyn-arbiter-midsurface.md T1/T7). It comes from the OpenFAST
+v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck, hub 0, 7.56 rpm, free vibration
+fitted on the tip response (tools/bd_rotating_freevib.py; validation-l3-b3-audit.md K10,
+SLURM 11621099). The method passes the K10.2 gate on a uniform and a published box beam
+(parked <= 0.01 %, Southwell K <= 2.8 % from the analytic); on this blade its parked 1F/1E
+reproduce BeamDyn p20 MBC3 within 0.03 %, and p15 -> p20 moves rated 1E +0.12 %,
+dt -> dt/2 +0.004 %, halving the load -0.005 %. Hub radius 3.97 m (the MBC3 deck's) would
+move it +0.12 %; the shell modal rotates about the blade root.
 
 Measured agreement vs ElastoDyn, kept as history (2026-10-18, mid-surface skin, es 0.25,
 tools/diagnose_mode_beam_projection.py, SLURM 11618419). The beam-projection labels pick the same three modes the
@@ -79,11 +86,12 @@ from run_s4_rotating_modal import (  # noqa: E402
 RPM_RATED = 7.56
 
 # Arbiter: OpenFAST v5.0.0 BeamDyn single member p20, official v1.1 deck, MBC3 collective
-# (SLURM 11617531 parked, 11617534 rated). None = no admissible number (rated 1E, see above).
+# (SLURM 11617531 parked, 11617534 rated); rated 1E from the BeamDyn driver (see above).
 _BD_TARGETS = {
     "parked": {"1st flap": 0.507082680, "1st edge": 0.693376286, "2nd flap": 1.480900161},
-    "rotating": {"1st flap": 0.532003414, "1st edge": None, "2nd flap": 1.508057474},
+    "rotating": {"1st flap": 0.532003414, "1st edge": 0.699413448, "2nd flap": 1.508057474},
 }
+_BD_DRIVER = {("rotating", "1st edge")}
 
 # Comparison only: OpenFAST v5.0.0 ElastoDyn MBC3 (collective members), measured 2026-09-09.
 _ED_COMPARISON = {
@@ -156,14 +164,15 @@ def test_s4_rotating_modal_vs_openfast(rpm):
             print(f"S-4 {key} {family}: no admissible BeamDyn p20 number, not asserted")
             continue
         rel = abs(f_shell - f_bd) / f_bd
+        source = "BeamDyn driver p20" if (key, family) in _BD_DRIVER else "BeamDyn p20"
         print(
-            f"S-4 {key} {family} [Hz] vs OpenFAST v5.0.0 BeamDyn p20: {f_shell:.6f} vs "
+            f"S-4 {key} {family} [Hz] vs OpenFAST v5.0.0 {source}: {f_shell:.6f} vs "
             f"{f_bd:.6f} (signed error: {f_shell / f_bd - 1:+.4%}, bound: {REL_TOL:.4%})"
         )
         if rel >= REL_TOL:
             failures.append(
                 f"{family} ({key}, {rpm} rpm): shell {f_shell:.4f} Hz vs "
-                f"BeamDyn p20 {f_bd:.4f} Hz — rel {rel:.1%} > {REL_TOL:.0%}"
+                f"{source} {f_bd:.4f} Hz — rel {rel:.1%} > {REL_TOL:.0%}"
             )
     assert not failures, "; ".join(failures)
 

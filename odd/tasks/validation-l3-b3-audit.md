@@ -35,6 +35,15 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
   - [x] **B3-2.1e** es 0.125 for the three K3(b) items (S-1 flap, S-2 LC1, S-4 parked 1E), judged by K7 (section "K7" at the end, fixed before the runs). Route: worker + SLURM.
   - [x] **B3-2.1f** K8: S-4 test and row 40 against BeamDyn (reference_model), ElastoDyn as comparison; re-adjudicate S-4 rows. Needs cf2115f (cherry-picked).
+  - [x] **B3-2.2a** K10 predeclared (BeamDyn rated 1E admissibility), before any BD-driver number (this commit).
+  - [x] **B3-2.2b** tool: BD driver, dynamic rotating free vibration + frequency fit (uniform, box, IEA blade). Tool 3c57cc3, band-limited fit in the K10.2 RESULT commit.
+  - [x] **B3-2.2c** K10.2 gate on the uniform and box beams (SLURM 11621046): PASS, see "B3-2.2c K10.2 RESULT".
+  - [x] **B3-2.2d** blade: K10.3 (parked match, p15/p20, dt/dt2), K10.4 hub 3.97, shell rated es 0.125. PASS, see "B3-2.2 K10.3-K10.5 RESULT" (2eab2c6).
+  - [x] **B3-2.2e** verdict row 40 rated (K10.5), store/contract, check, quick, commit, push. Rated 1E `trusted`, see "B3-2.2e STORE".
+  - [x] **B3-2.3a** Bernardi 2025 (WES 11:2345-2367, 2026) blade version: which IEA 15 MW blade/deck it models (v1.0 vs v1.1), with page/table citations; arbiter status for the 9 G23 rows (D2). Route: read-only research.
+  - [ ] **B3-2.3b** batch 2a criterion K11 (G20 deck reading, G42 V-05 mass hygiene + measure, absent S-2 LC3 ratio) predeclared, then measure, store, contract.
+  - [ ] **B3-2.3c** G27 out of L3 (D3): levels.yaml/contract change, rationale, the rows go with P1.
+  - [ ] **B3-2.3d** batch 2b criteria (rule-9 re-mesh G5, G23, sx_mesh_convergence, sx_campbell; CCX per D1), one predeclared criterion each.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -1142,3 +1151,311 @@ pre-existing; the extra pass is cf2115f's new test. Logs: `logs/check/b3-2e/tool
   (the S-4 test edit made them stale only through the level file list). check 0 errors; `contract --level L3 --rows` log
   `logs/check/b3-2e/contract-L3-k7k8.log`; `check.sh quick` OK. Honesty: arbiter chosen after the numbers (K8).
 - Open: BeamDyn rated 1E number; S-2 reference -> BeamDyn static driver (T3); BeamDyn p20 convergence citation.
+
+## K9 - S-2 judged against the OpenFAST BeamDyn static driver (2026-10-21, at 187de20; numbers already known, see honesty note)
+User (L): "ok vamos en ese orden" (after the proposal "S-2 contra BeamDyn static driver (T3)" as the first closing step of L3).
+Applies K8 (BeamDyn on the official deck is the arbiter for L3; `reference_model`) to the static rows; no new freedom.
+- K9.1 reference: BeamDyn driver v5.0.0, single member, p60, linear (scale 1e-4, last static solution / scale), official v1.1 deck,
+  `logs/check/bd_static/report.md` (T3, `d19ef69`): tip uy LC1 -2.231483, LC2 82.273278, LC4 9.062631 m. p40-p60 move <= 0.13 %
+  (reference convergence). The in-house EB beam (`BeamReference`) is demoted to a printed comparison (its geometry comes from
+  slicing the shell mesh; K7 finding 2026-10-20) and arbitrates nothing. UTD stays on the EB beam, an input-sensitivity record.
+- K9.2 convergence: K7.2 as written (m <= 1 pp between es 0.25 and 0.125, shell mid-surface, same fixture; the es 0.125 values
+  are those of SLURM 11619954, the es 0.25 control reproduced at 11619962).
+- K9.3 verdict, bound 5 % unchanged: |e| > 5 % -> `rejected`; |e| <= 5 % -> `trusted`, except where the metric is not clean.
+  LC2 is not clean (T4 report: node vs ring tip uy differ 9-11 % from local load introduction of 1 MN over 16 cap nodes, which a
+  beam does not have), so LC2 is printed, not asserted, and its row is `undecided` until measured on an inboard section or with a
+  distributing tip load. LC1/LC4 are clean (node and ring within 0.5 %).
+- Honesty note: decided after the numbers. Shell tip uy vs BD, es 0.25 / 0.125: LC1 -7.41 / -7.20 %, LC2 -3.68 / -4.05 %,
+  LC4 -6.22 / -6.24 %. Moves 0.21 / 0.37 / 0.02 pp. So LC1 and LC4 are `rejected` (shell stiffer than BeamDyn by 6-7 %, consistent
+  with S-1 and the recorded 6x6-vs-layup inconsistency), LC2 would pass but is not a clean metric. The reason for the LC2 split
+  is the metric, not which side passes. Open (not closed by this): shell vs BD load-wrench equivalence for LC2/LC4 (T4).
+
+## K9 RESULT (2026-10-21, test at 44ebffa, SLURM 11621034; es 0.125 from 11619954)
+Shell tip uy vs BeamDyn p60: LC1 -7.41 / -7.20 %, LC2 -3.68 / -4.05 %, LC4 -6.22 / -6.24 % (es 0.25 / 0.125; the es 0.25 numbers at the
+test commit equal the predicted ones to the printed digit). Verdicts: LC1 `rejected`, LC4 `rejected`, LC2 `undecided` (printed, not asserted,
+`info_only`). Rows 39 and contract updated; the contract's `reference_model` arbiter now covers them (single/no-arbiter 36 -> 33).
+`audited_rev` of the rows untouched by the test edit bumped to 44ebffa (the S-2 test is a level file). check 0 errors, quick OK, logs
+`logs/check/b3-2e/contract-L3-k9.log`. Open: shell vs BD load-wrench equivalence for LC2/LC4 (T4); LC2 on an inboard section or with a distributing tip load.
+Next in the agreed order: (2) BeamDyn number for rated 1E; (3) the 22 unaudited and 3 absent rows.
+
+## Handoff 2026-10-21 (B3-2.2: a valid BeamDyn rated 1E) - resume here
+State: branch `audit/b3-s2-beamdyn-static` (pushed, a67414c, no PR yet: maintainer chose "continue in the same branch, one PR at the end").
+Decision (L, 2026-10-21, after being told BD rated 1E cannot be produced without fixing the solver and offered "leave undecided" /
+"ElastoDyn arbitrates only rated 1E" / "try to produce a valid BD reference"): "Intentar producir referencia BD valida". The other two
+options stay open if this fails; do not pick one silently.
+Evidence so far (`logs/check/of_bd_sw/report.md`, T1/T7): in the MBC3-extracted collective linearization BeamDyn's rotating edge Southwell
+coefficient equals the flap one (K 1.19 vs analytic 0.193, +517 to +529 % on uniform and box beams, p10-p20), i.e. the in-plane
+softening is missing; flap K is right (-0.1 to -0.4 %), parked modes are right (<= 0.003 %). ElastoDyn passes (edge K -0.01 / +2.6 %).
+Cause in the OpenFAST source is not identified (report says so).
+Plan (not started; criterion must be written BEFORE any blade number, as K7/K8/K9 did):
+1. K10 predeclared: any candidate BD rotating-edge method is admissible only if on the uniform and box beams of
+   `logs/check/analytic_beam/cases.json` its edge K is within 5 % of the analytic value and its flap K within 5 % (the T7 tolerances).
+   Else the method is not an arbiter and the row stays `undecided` (or the maintainer picks another option above).
+2. Candidate methods, cheapest first: (a) BeamDyn driver in dynamic mode with a prescribed root angular velocity (`DynamicSolve=True`,
+   the driver of `tools/bd_static_reference.py` / `logs/check/bd_static`), free decay after a tip kick, FFT of the tip edge motion;
+   (b) look for the OpenFAST/BeamDyn linearization input or option that drops the in-plane term (OpenFAST docs, BeamDyn source), and a
+   newer release if one fixes it. Method (a) is a genuinely independent number (time domain, nonlinear), (b) only repairs the extraction.
+3. Run the method on the uniform beam first (K10 gate), then on the IEA 15 MW BeamDyn p20 single member at 7.56 rpm; judge rated 1E
+   with K7.2/K7.3 (shell es 0.25 0.700260 Hz, es 0.125 not measured for BD-rated 1E, so the move is as for the other families).
+4. Row 40 rated, contract arbiter, store check, `contract --level L3 --rows` (log to logs/check/b3-2e/), `check.sh quick`, commit,
+   push; then open the single PR and continue with step 3 of the order (the 22 unaudited and 3 absent rows).
+Cost: SLURM, `sequana_cpu` or `_dev` under 20 min per run; BD driver single member runs took minutes (`bd_static`). Start the next
+session from this section plus K8 and K9; do not re-read K1-K7.
+
+## K10 - admissibility of a BeamDyn rated 1E reference (written BEFORE any BeamDyn-driver number, 2026-10-21, at 96b5c38)
+User (L, 2026-10-21): "Intentar producir referencia BD valida" (the handoff above); session resumed with "Retomá B3-2.2".
+Known when writing: shell rated 1E 0.700260 Hz (es 0.25), parked 0.694793; BD p20 MBC3 parked 1E 0.693376; ED rated 1E 0.7461; the
+T1/T7 linearization artefact (BD edge K 1.19 vs 0.193). Not known: any BeamDyn driver frequency, parked or rotating, on any beam.
+- K10.1 method (a), the only one tried first: OpenFAST v5.0.0 `beamdyn_driver` (the binary of `tools/bd_static_reference.py`),
+  `DynamicSolve=True`, root prescribed to rotate at constant omega about BeamDyn x (the flap axis; shell +y), gravity 0, no damping
+  input, generalized-alpha `rhoinf` 0.8 (numerical damping of the unresolved axial modes; at omega*dt < 0.05 the low-mode period error
+  is O((omega dt)^2) < 1e-4 and cancels to first order in K because parked and rotating use the same dt). Excitation: a small step tip
+  load from rest, global x (flap, constant in the rotating frame) and global y (edge at t=0; the v5 driver applies loads unrotated in
+  the global frame, read in `Driver_Beam_Subs.f90`, so in the rotating frame it is a load turning at exactly 1P). Signal: tip
+  translation in the root frame (`TipTDxr` flap, `TipTDyr` edge). Frequencies: nonlinear least squares of a constant, the exactly known
+  1P harmonic and a sum of damped sinusoids, started from Hann-window FFT peaks. K = (f_W^2 - f_0^2)/(W/2pi)^2 with f_0 from the same
+  method, order, dt and loads at omega 0. Load scale: linear check, the fitted frequency must move <= 0.01 % when the load is halved.
+- K10.2 gate (T7 references and tolerances, `logs/check/of_bd_sw/report.json`, no new reference): on BOTH the uniform beam
+  (`tools/of_bd_southwell.py`, 10 rpm) and the published box (`logs/check/analytic_beam/cases.json`, Omega 3.03935 rad/s):
+  parked flap and edge within 1 % of the analytic (uniform 0.559591 / 0.839387 Hz, box Timoshenko 1.206770 / 0.821788 Hz), and flap K and
+  edge K within 5 % of the analytic (uniform 1.193336 / 0.193336, box 1.191031 / 0.188469). One failure on either beam -> method (a) is
+  not an arbiter; rated 1E stays `undecided` and the maintainer is asked again among the handoff options ("leave undecided" /
+  "ElastoDyn arbitrates only rated 1E" / method (b)); none is picked silently.
+- K10.3 blade configuration, set by the shell's rated modal, not by the MBC3 deck: official v1.1 deck single member (the deck's 50
+  keypoints, as `bp20`), root on the rotation axis (hub radius 0, as `tools/run_s4_rotating_modal.py` `rotation_center=0`), no precone
+  or tilt, pitch 0, 7.56 rpm about BD x. Admissibility on the blade: (i) the method's parked 1F and 1E reproduce BD p20 MBC3 parked
+  (0.507083 / 0.693376 Hz) within 0.1 % (same model, two extractions); (ii) reference convergence: p15 -> p20 and dt -> dt/2 each move
+  rated 1E <= 0.2 %. Failing (i) or (ii) -> not admissible, row stays `undecided`.
+- K10.4 recorded only (no verdict changes in this task): the same method with hub radius 3.97 m (root at z = 3.97 on the rotation axis
+  line, still no precone) against the MBC3 rated 1F/2F (0.532003 / 1.508057, which carry HubRad 3.97 m and PreCone -4 deg). The
+  hub-0 vs hub-3.97 difference measures the configuration mismatch between the shell's rated modal and the MBC3 reference already used
+  for rated 1F/2F (K8); it is a finding to report, not a reason to re-judge here.
+- K10.5 verdict on rated 1E, bound 5 % unchanged (K7.2/K7.3, K8): e = shell/BD - 1 at es 0.25 and at es 0.125 (shell rated 1E at es
+  0.125 measured at the verdict revision by the S-4 test, as K7 did for parked); move <= 1 pp -> verdict on e(0.125): |e| <= 5 % ->
+  rated row `trusted` (1F/2F already pass vs BD p20), |e| > 5 % -> `rejected`; move > 1 pp -> `undecided`. Arbiter of 1E:
+  `reference_model`, "OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck", BeamDyn convergence cited with it.
+
+## Handoff 2026-10-21 (B3-2.2 mid-gate; maintainer monitors the jobs) - resume here
+State: branch `audit/b3-s2-beamdyn-static`; K10 at a50dfc8 (predeclared); this commit adds `tools/bd_rotating_freevib.py`,
+`tools/tests/test_bd_rotating_freevib.py`. The driver inputs `tests/IEA15MW/bd_freevib/` (gate + 6 IEA cases, not run) are built
+but NOT committed (deterministic from `build`; the deck's trailing whitespace fails `diff --check`); they stay untracked on disk.
+Outputs (gitignored) `logs/check/bd_freevib/`: `gate.sbatch`, `gate-11621046.out`, per-case `result.json`, `gate.md`, `diag_box.py`.
+Gate first pass (SLURM 11621046, COMPLETED 11:52, the fit BEFORE the bound fix):
+| beam | mode | f0 Hz (err %) | f_rot Hz | K | analytic K | K err % |
+|---|---|---|---:|---:|---:|---:|
+| uniform | flap | 0.559574617 (-0.0030) | 0.588414238 | 1.191872 | 1.193336 | -0.123 |
+| uniform | edge | 0.839333157 (-0.0064) | 0.842503028 | 0.191923 | 0.193336 | -0.731 |
+| box | flap | 1.206745951 (-0.002) | 1.316720095 | (hand) 1.18602 | 1.191031 | (hand) -0.42 |
+| box | edge | 0.821780808 (-0.001) | ~0.84746 (see below) | (hand) ~0.1832 | 0.188469 | (hand) ~-2.8 |
+- Uniform passes K10.2 as the tool computes it. Half load moves 1E by -1e-6 relative (linear).
+- FINDING (to confirm with the box): BeamDyn's nonlinear time integration HAS the in-plane softening (edge K 0.192 vs 0.193);
+  the T1/T7 artefact (K 1.19) belongs to the linearization/MBC3 extraction, not to BeamDyn's physics.
+- Box: the tool's `gate` printed FAIL, a fit defect, not physics: parked, the unbounded fit wandered to -20.4/-13.98 Hz
+  (out of band; `_first` took them); rotating, 1E split into 0.8455/0.8476/0.8525. `diag_box.py`: one spectral peak at 0.84742 Hz,
+  single-mode fits of the two halves 0.847357 / 0.847571 (0.025 % drift; uniform drifts 0). The box hand numbers above are NOT the
+  gate result; the gate is re-judged by the tool after the fix.
+- Fit fix (uncommitted before this handoff, committed here): frequencies bounded to the band, a new mode rejected if it ends within
+  3/T of a band edge or of an existing mode. RED test `test_fit_never_leaves_the_band_for_a_strong_out_of_band_mode` observed failing
+  before the fix; GREEN NOT YET OBSERVED: the first rerun was killed on the login node (multithreaded BLAS, 30 CPU-min in 30 s);
+  rerun with OPENBLAS_NUM_THREADS=1 was pending at the handoff.
+UPDATE after the handoff (job with OPENBLAS_NUM_THREADS=1, 814 s): the bound fix is NOT green. 2 passed, the new RED test still
+fails: fitted [0.791248, 0.8218, 1.2067, 1.663835, 6.0, 6.0] vs [0.8218, 1.2067]. The two true modes are exact, but the strong
+unmodelled 20.4 Hz line leaves a residual that spurious in-band sinusoids absorb (two pinned at the 6.0 band edge: the edge/split
+check only looks at the newest mode, so earlier modes the joint refit pushes to the edge pass), and the test takes 812 s.
+Proposed fix (not started): band-limit before fitting, zero-phase low-pass + decimation (`scipy.signal.decimate`, filtfilt;
+drop a margin at both ends), sample rate about 4x band[1]. A zero-phase filter scales in-band amplitudes but does not move
+frequencies. Then reject any mode within 3/T of a band edge or of another mode after every refit, not only the newest. It should
+also cut the fit cost by about 50x. Keep the RED test as is; step 1 below stays the entry gate.
+SLURM 11621047 (shell S-4 rated at es 0.125 for K10.5, sequana_cpu, 12 tasks, rev a50dfc8) ended TIMEOUT at 40:13, no number.
+The parked es 0.125 took 8:26, but the rated one adds the centrifugal static solve and K_G (the old es 0.125 rated run, 11617092, took
+2:44:38). Not resubmitted (the maintainer decides). Recipe: `sbatch -p sequana_cpu --ntasks=12 --time=03:00:00
+logs/check/b3-2e/measure.sbatch 0.125 "tests/test_iea15mw_s4_rotating_modal.py::test_s4_rotating_modal_vs_openfast[7.56]" s4r-0125`
+(move or delete the partial `pytest-s4r-0125.log` first).
+Resume steps:
+1. `OPENBLAS_NUM_THREADS=1 scripts/aeroenv.sh python -m pytest -q tools/tests/test_bd_rotating_freevib.py` -> 3 passed (else fix the fit).
+2. Re-post (no BeamDyn rerun) all six gate cases with OPENBLAS_NUM_THREADS=1, e.g.
+   `python tools/bd_rotating_freevib.py post --beam box --rpm 1` (also `--rpm 0`, `--load 500`, uniform `--rpm 0/10`, `--load 0.5`),
+   then `python tools/bd_rotating_freevib.py gate --gate uniform-p10-r0-h0-dt0.005-F1 uniform-p10-r10-h0-dt0.005-F1
+   box-p10-r0-h0-dt0.002-F1000 box-p10-r29.0236-h0-dt0.002-F1000 > logs/check/bd_freevib/gate.md`. Judge K10.2 from that table. The box
+   1E drift (0.025 %) is an open question: if the gate passes, record it; if it decides the gate, ask the maintainer, do not tune.
+   If K10.2 fails -> stop, ask among the handoff options (leave undecided / ED arbitrates rated 1E / method (b)).
+3. If K10.2 passes: run the six IEA cases (already built: p20 r0, p20 r7.56, p15 r7.56, p20 dt0.0025, p20 F500, p20 hub 3.97) with a
+   copy of `gate.sbatch` (sequana_cpu, ~30-60 min: 60k steps p20 each; dt0.0025 doubles). Judge K10.3 (parked 1F/1E vs 0.507083 /
+   0.693376 within 0.1 %; p15->p20 and dt->dt/2 move rated 1E <= 0.2 %), record K10.4 (hub 3.97 vs MBC3 rated 1F/2F).
+   The IEA blade is twisted, so the `dominant` flap/edge label is by tip channel; check it against the expected order (1F < 1E < 2F).
+4. K10.5 with 11621047 (shell rated 1E es 0.125) and es 0.25 0.700260; then S-4 test rated 1E target, row 40, contract, `check`,
+   `contract --level L3 --rows` (log to logs/check/b3-2e/), `check.sh quick`, commit, push; then the single PR.
+
+## B3-2.2c K10.2 RESULT (2026-10-21; BeamDyn runs SLURM 11621046, re-posted with the band-limited fit; table `logs/check/bd_freevib/gate.md`)
+Fit fix: zero-phase Butterworth-8 low-pass at 1.5 band[1], decimation to >= 6 band[1], end transients dropped; any mode within 3/T of
+a band edge or of another mode rejects the trial mode after every refit. The RED test is now green (3 passed, 25 s; it took 814 s
+and failed before).
+| beam | mode | f0 Hz | f0 err % | f_rot Hz | K | analytic K | K err % |
+|---|---|---:|---:|---:|---:|---:|---:|
+| uniform | flap | 0.559574610 | -0.0030 | 0.588414225 | 1.191872 | 1.193336 | -0.123 |
+| uniform | edge | 0.839333144 | -0.0064 | 0.842503049 | 0.191925 | 0.193336 | -0.730 |
+| box | flap | 1.206745951 | -0.0020 | 1.316719939 | 1.186006 | 1.191031 | -0.422 |
+| box | edge | 0.821780808 | -0.0009 | 0.847462546 | 0.183208 | 0.188469 | -2.791 |
+K10.2 PASS: parked within 0.01 % (1 % allowed), K within 2.8 % (5 % allowed). Half load moves rotating 1E by -1.2e-6 (uniform)
+and -2.6e-5 (box), inside the 0.01 % linearity check. Box rotating reference is the published rotating EULER-BERNOULLI value (the
+file has no rotating Timoshenko one, as in T7); part of the box edge -2.8 % may be that model difference. Recorded, not tuned.
+FINDING confirmed on both beams: BeamDyn's nonlinear time integration carries the in-plane centrifugal softening; the T1/T7 artefact
+(edge K 1.19) is in the linearization/MBC3 extraction, not in BeamDyn's beam physics.
+Launched (K10.3/K10.4, `logs/check/bd_freevib/case.sbatch`, `submitted.txt`): IEA p20 r0 11621098, p20 r7.56 11621099, p15 r7.56
+11621100, p20 F500 11621101, p20 hub 3.97 11621102, p20 dt0.0025 11621103 (bigmem). Shell rated es 0.125 resubmitted 11621097
+(3 h; the timed-out log is kept as `pytest-s4r-0125-timeout-11621047.log`).
+
+## Handoff 2026-10-21 (B3-2.2 after K10.2 PASS; waiting on SLURM) - resume here
+Supersedes the "mid-gate" handoff above (its steps 1-2 are done: fit green, K10.2 PASS, see "B3-2.2c K10.2 RESULT").
+State: branch `audit/b3-s2-beamdyn-static`, HEAD = this commit (after 6af4123), nothing pushed since a67414c. Branch is 720+ authored
+lines in 8+ commits over the ~400-line slice: before opening the single PR, ask the maintainer whether to split it.
+Untracked on purpose: `tests/IEA15MW/bd_freevib/` (driver inputs, regenerated by `build`; deck whitespace fails `diff --check`).
+Jobs (098/099/100/101/102 COMPLETED in 2:35-4:05, 097 RUNNING, 103 PENDING on dev; `logs/check/bd_freevib/submitted.txt`):
+| job | case (`--beam iea` + args) | result dir under logs/check/bd_freevib/ |
+|---|---|---|
+| 11621098 | `--rpm 0` | iea-p20-r0-h0-dt0.005-F1000 |
+| 11621099 | `--rpm 7.56` | iea-p20-r7.56-h0-dt0.005-F1000 |
+| 11621100 | `--rpm 7.56 --order 15` | iea-p15-r7.56-h0-dt0.005-F1000 |
+| 11621101 | `--rpm 7.56 --load 500` | iea-p20-r7.56-h0-dt0.005-F500 |
+| 11621102 | `--rpm 7.56 --hub 3.97` | iea-p20-r7.56-h3.97-dt0.005-F1000 |
+| 11621103 | `--rpm 7.56 --dt 0.0025` (moved to sequana_cpu_dev, 20 min: p20 at dt 0.005 took 4:05) | iea-p20-r7.56-h0-dt0.0025-F1000 |
+| 11621097 | shell S-4 rated es 0.125 (3 h, `measure.sbatch`, tag s4r-0125) | `logs/check/b3-2e/pytest-s4r-0125.log`, `capture-s4r-0125.pkl` |
+Each BD job writes `iea-<jobid>.out` and `<dir>/result.json` (run + post). If a job FAILED/TIMEOUT: read its `driver.log`; the run
+step refuses an existing output dir, so delete `logs/check/bd_freevib/<dir>` before resubmitting with
+`sbatch -p sequana_cpu --time=<t> logs/check/bd_freevib/case.sbatch --beam iea <args>`. Post again with
+`OPENBLAS_NUM_THREADS=1 /scratch/leahk/eduardo.donestevez/venv/bin/python tools/bd_rotating_freevib.py post --beam iea <args>`.
+Resume steps:
+1. `sacct -j 11621097,11621098,11621099,11621100,11621101,11621102,11621103 -X -o JobID,State,Elapsed`; print each result.json modes
+   (f_hz, dominant, amplitudes) and relative_residual. The blade is twisted: `dominant` is by tip channel (TDxr flap, TDyr edge);
+   identify 1F/1E/2F by order (1F < 1E < 2F) and channel, and say so if the labels disagree.
+2. K10.3 (i): driver parked 1F/1E vs BD p20 MBC3 0.507083 / 0.693376 Hz within 0.1 %. (ii): p15->p20 and dt->dt/2 each move rated 1E
+   <= 0.2 %. Linearity: F500 vs F1000 rated 1E <= 0.01 % (K10.1). Any failure -> not admissible, row 40 rated stays `undecided`; ask
+   the maintainer among "leave undecided" / "ElastoDyn arbitrates only rated 1E" / method (b). Do not tune or pick silently.
+3. K10.4 (record only): hub 3.97 rated 1F/1E/2F vs hub 0, and vs MBC3 rated 1F/2F 0.532003 / 1.508057 (MBC3 has HubRad 3.97 and
+   PreCone -4 deg). Report the configuration mismatch as a finding; no verdict changes from it.
+4. K10.5: e = shell/BD - 1 for rated 1E with BD = driver p20 rated (hub 0); shell es 0.25 0.700260 Hz, es 0.125 from 11621097
+   (`grep "rotating 1st edge" logs/check/b3-2e/pytest-s4r-0125.log`). Move <= 1 pp -> verdict on e(0.125): |e| <= 5 % `trusted`, else
+   `rejected`; move > 1 pp -> `undecided`. Write the result section BEFORE editing test/store.
+5. If admissible: `tests/test_iea15mw_s4_rotating_modal.py` `_BD_TARGETS["rotating"]["1st edge"]` = the driver number, docstring
+   names the source ("OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck, hub 0", K10, convergence numbers); run the
+   test at es 0.25 on SLURM (`measure.sbatch 0.25 ...[7.56] s4r-025`, ~40 min+, ask 3 h). Then row 40 rated + contract arbiter
+   `{kind: reference_model, ...}`, drop the rated 1E `info_only`, `audited_rev` bump as in K9, `tools/validation_matrix.py check`,
+   `contract --level L3 --rows > logs/check/b3-2e/contract-L3-k10.log`, `scripts/check.sh quick`, commit, push; tick B3-2.2d/e.
+6. Then (agreed order, step 3): the 22 unaudited and 3 absent L3 rows; and the single PR (after the split decision).
+
+## B3-2.2 K10.3-K10.5 RESULT (2026-10-21, at 4b18a9c; BeamDyn SLURM 11621098-103, shell es 0.125 SLURM 11621097) - the handoff above is consumed
+All seven jobs COMPLETED (BD 2:35-7:38; shell 2:46:09, `1 passed`). Mode labels: on every IEA case the first three fitted modes are,
+in order, flap-dominant / edge-dominant / flap-dominant (tip channels TDxr / TDyr), so 1F / 1E / 2F by order and by channel agree.
+Relative fit residual 0.0036-0.0057 rotating, 0.038 parked (smaller response, same fit).
+| case (`--beam iea`, p20, hub 0, dt 0.005, F1000 unless named) | 1F Hz | 1E Hz | 2F Hz |
+|---|---:|---:|---:|
+| rpm 0 | 0.506964 | 0.693513 | 1.480648 |
+| rpm 7.56 | 0.530595 | 0.699413 | 1.506848 |
+| rpm 7.56 p15 | 0.530853 | 0.698604 | 1.505867 |
+| rpm 7.56 dt 0.0025 | 0.530605 | 0.699440 | 1.507071 |
+| rpm 7.56 F500 | 0.530600 | 0.699377 | 1.506843 |
+| rpm 7.56 hub 3.97 | 0.531731 | 0.700256 | 1.508008 |
+K10.3 PASS (bounds fixed in K10, unchanged):
+- (i) parked vs BD p20 MBC3 (0.507083 / 0.693376): 1F -0.0235 %, 1E +0.0197 % (<= 0.1 %).
+- (ii) rated 1E p15 -> p20 +0.1159 %, dt -> dt/2 +0.0038 % (<= 0.2 %). For the record 1F -0.049 / +0.002 %, 2F +0.065 / +0.015 %.
+- linearity: rated 1E F500 vs F1000 -0.0053 % (<= 0.01 %).
+K10.4 (recorded, no verdict): hub 3.97 vs hub 0 moves 1F +0.214 %, 1E +0.121 %, 2F +0.077 %. Against MBC3 rated (HubRad 3.97, PreCone
+-4 deg) 1F 0.532003 / 2F 1.508057: hub 3.97 driver -0.051 % / -0.003 %, hub 0 driver -0.265 % / -0.080 %. FINDING: the configuration
+mismatch between the shell's rated modal (rotation centre 0, no precone) and the MBC3 reference used for rated 1F/2F (K8) is
+<= 0.27 % on 1F, small against the 5 % bound; the driver reproduces MBC3 rated 1F/2F within 0.06 % once the hub radius matches,
+an independent cross-check of the MBC3 flap numbers (precone -4 deg is not modelled and stays below that 0.06 %).
+K10.5 verdict, rated 1E, BD = driver p20 rated hub 0 = 0.699413 Hz:
+- es 0.25: shell 0.700260 -> e = +0.121 %; es 0.125: shell 0.700841 (SLURM 11621097, `logs/check/b3-2e/pytest-s4r-0125.log`)
+  -> e = +0.204 %. Move 0.083 pp (<= 1 pp) -> verdict on e(0.125): |e| = 0.20 % <= 5 % -> row 40 rated 1E `trusted`.
+- Arbiter of rated 1E: `reference_model` "OpenFAST v5.0.0 BeamDyn driver, dynamic, p20, official v1.1 deck, hub 0" (K10), with
+  convergence p15->p20 +0.116 %, dt->dt/2 +0.004 %, linearity -0.005 %, method gate K10.2 (parked <= 0.01 %, K <= 2.8 %).
+- Same log, for the record: rated 1F/2F at es 0.125 vs BD p20 MBC3 +2.73 % / +1.48 % (already passing, K8); vs ElastoDyn
+  rated 1E -6.07 % (comparison only; K8 left the rated 1E row `undecided`, this arbiter decides it).
+Next: step 5 of the handoff (test target + es 0.25 SLURM run, then store, contract, quick gate, commit).
+Delivery decision (maintainer, 2026-10-21, asked at 2eab2c6 with ~813 authored lines): "Un solo PR" - K9 and K10 ship together,
+no split. Shell es 0.25 rated run of the edited test: SLURM 11621312 (`measure.sbatch 0.25 ...[7.56] s4r-025-k10`, 3 h).
+
+## B3-2.2e STORE (2026-10-21, test at 2eab2c6, SLURM 11621312)
+Edited test at es 0.25, rated: `1 passed` (12:31); 1E 0.700260 vs driver 0.699413 +0.1210 %, 1F +2.8319 %, 2F +1.6196 % vs BD p20
+MBC3 (equal to the stored numbers to the printed digit). Row 40 rated: 1E `asserted: true`, reference = BeamDyn driver, `info_only`
+dropped, tolerance source moved to `:172`. Contract: `s4_rated_openfast_modes` `trusted` at 2eab2c6, arbiters BD p20 MBC3 + BD driver
+(both `reference_model`). The 13 other L3 verdicts at 44ebffa restamped to 2eab2c6: 2eab2c6 changed only the S-4 rated 1E target and
+the S-4 print label, which none of them runs (the K9 precedent). `check` 300 rows / 419 comparisons / 0 errors;
+`logs/check/b3-2e/contract-L3-k10.log`: L3 trusted 2, undecided 1, rejected 9, unarbitrated 2, unaudited 22, absent 3, over
+ceiling 1, single/no arbiter 33, 1 blocking gap (`rotating_modal_shift`); stale 12 -> 0.
+
+## Handoff 2026-10-21 (B3-2.2 closed) - resume here
+Branch `audit/b3-s2-beamdyn-static`, HEAD = this commit, pushed. Delivery: ONE PR for the whole branch (maintainer, no split); not
+opened yet. L1 CLOSED (145 trusted, 2 pin), L2 CLOSED (79 trusted, 4 pin), L3 open as above.
+Next, agreed order step 3: the 22 unaudited L3 rows (groups 5, 20, 23, 27, 42) and the 3 absent anchors (S-2 edgewise ratio, Sx mesh
+convergence, Sx Campbell). Open maintainer decision before B3-3: for the 9 rejected rows (S-1 EI edge/flap, GJ, EA; S-2 LC1/LC4;
+V-02 1F/1E; S-7), predeclared quantified exceptions or a model investigation; L3 cannot close while any stays rejected.
+Untracked on purpose: `tests/IEA15MW/bd_freevib/`.
+
+## B3-2.3 maintainer decisions for the 22 unaudited + 3 absent L3 rows (2026-10-21, at 924285a, before any criterion)
+User (L): "continuamos"; asked four method questions, answers verbatim:
+- D1 CalculiX in L3 (G5 and the 6 CCX rows of G23): "CCX convergido en su propia malla (Recomendado)" - CCX is an arbiter only
+  with its own converged mesh series (L2/PRE-3 precedent); same-mesh CCX is parity, never `trusted`.
+- D2 Bernardi 2025 (9 G23 rows): "Investigar la versión primero (Recomendado)" - establish which blade/deck the paper models before
+  any criterion; v1.1 -> arbiter, otherwise not.
+- D3 G27 rated twist (3 rows): "Sacarlo de L3, va con P1 (Recomendado)" - twist and loads are P1's deliverable; L3 keeps only what
+  has an arbiter.
+- D4 order: "2a barato primero (Recomendado)" - batch 2a = G20 (deck reading), G42 (hygiene, false over-ceiling), S-2 LC3 ratio;
+  then batch 2b = rule-9 re-mesh of G5, G23, sx_mesh_convergence, sx_campbell, each with its own predeclared criterion.
+Tasks B3-2.3a-d above.
+
+## B3-2.3a RESULT - Bernardi 2025 blade version (read-only research, 2026-10-21)
+Source: the published HTML, https://wes.copernicus.org/articles/11/2345/2026/wes-11-2345-2026.html (the PDFs timed out, no page
+numbers). Verdict: **cannot tell** -> under D2 Bernardi is **not an arbiter** (v1.1 not shown).
+- The paper cites only Gaertner et al. 2020b (NREL/TP-5000-75698, the v1.0-era report) for the turbine (Sec. 3, Table 1). Its
+  structural model is its own Euler-Bernoulli 6-DoF beam with lumped mass (Sec. 2.1.2). The input properties are Fig. B1 (App. B),
+  with no source given. OpenFAST v3.2.0 is used for the cross-checks (Sec. 2.2). That only hints at v1.1 decks (the v1.1 tag,
+  2022-03-04, targets OpenFAST v3.1); nothing ties Fig. B1 to a version. Code and data are "available upon reasonable request".
+- The 8 modal references `BERNARDI_MODES_HZ` (`tests/validation/blade/test_blade_iea15mw_validation.py:121`) are exactly Table B1 of
+  the published paper. The test comment (`:115-120`, `:500`) still cites the preprint's "Table 2".
+- FINDING, mislabelled references: the G23 mass row (`ARTICLE_MASS_KG = 68_077`, `:91`) and the static row
+  (`ARTICLE_TIP_DEFLECTION_M = 23.49`, `:143`) are labelled Bernardi but come from Escalera Mendoza 2023 (the static one from its
+  Sec. V DLC 1.4). Bernardi gives no blade mass and no static deflection. Escalera Mendoza's blade version has not been checked.
+- `docs/validation/references.yaml:1488-1517` still records the preprint (10.5194/wes-2025-120, year null). The published record is
+  Wind Energ. Sci. 11, 2345-2367, 2026-07-08, DOI 10.5194/wes-11-2345-2026.
+- Remaining routes to settle the version: digitise Fig. B1 against the v1.0 and v1.1 BeamDyn properties, or ask the authors.
+
+## B3-2.3b map (read-only, 2026-10-21; open points for K11, no number read as evidence)
+- G20 (`test_blade_twist_anchor_beam.py:241-304`): no aeroelast computation. EA/GKt at the root are checked against a transcription
+  of the same BeamDyn deck (:259/:266, 1 %), and EIxp/EIyp against the ElastoDyn deck (:280/:287, 2 %, stored margins 1.92/1.80 %
+  at e1b7da7). That is a consistency check of the deck reading. Schema mechanisms: `class: identity` (contract.yaml:11-14,
+  precedents :188-238) or `non_validation_tests` (K55 precedent, groups.yaml:1340-1347).
+- G42 (`test_iea15mw_v05_structural_properties.py:151`, 5 %): the row is stale (stores 0.08 at :142, a docstring line;
+  `not_measured`; the docstring still says "+4-8 %, +4.1 %", pre-df446c3). The reference is the same 67,921 kg as G41 under a
+  "BeamDyn table" label, and nothing shows a BeamDyn-integrated mass. The construction is identical to G41 (es 0.25, mid, rcm,
+  row-sum of M), so it duplicates G41's measurement and reference.
+- S-2 LC3 ratio (`test_iea15mw_s2_static_prescribed.py:154-162`, `0.9 < ratio < 1.2`, :61): the reference is the in-house EB beam,
+  which K9 demoted to a non-arbiter. `tools/bd_static_reference.py:54,128` has no LC3 case (shell +x = BD -y). Honesty note: the
+  number is already known red, ratio 1.25 (`logs/check/full-20261019T153623.log:503`, `t4/s2-mid-11617753.log:152`), and it is
+  absent from known-red. Import path: a contract verdict on the node id (levels.yaml:18-21; validation_matrix.py:4419-4425) or a
+  comparison added to row 39 (the group lists the file).
+
+## B3-2.3b maintainer decisions (2026-10-21, after the map above; verbatim answers)
+- D5 G20: "class: identity (Recomendado)" - the four G20 bounds stay in the contract as a deck-reading consistency check of our
+  own (`class: identity`, contract.yaml:11-14). They close the row without a physics verdict.
+- D6 G42: "Re-apuntar a masa del deck BeamDyn (Recomendado)" - the reference becomes the total mass integrated from the official
+  v1.1 BeamDyn deck (integral of m(s)), computed and cited on its own. Fix the row (0.05, :151) and the docstring, then measure.
+- D7 S-2 LC3: "BeamDyn p60 como K9 (Recomendado)" - add an LC3 case to `tools/bd_static_reference.py` (shell +x = BD -y), run it
+  on SLURM with its p-convergence, metric tip ux `rel_err` <= 5 % (the band 0.9-1.2 goes). Honesty note: ratio 1.25 vs the EB beam is
+  already known.
+- D8 Bernardi modes: "Digitalizar Fig. B1 vs decks (Recomendado)" - digitise Fig. B1 of the published paper against the v1.0 and
+  v1.1 BeamDyn properties, with an agreement threshold predeclared before digitising. Bernardi becomes an arbiter only if the figure
+  matches v1.1 and separates from v1.0 within the reading resolution. Until then the 8 G23 modal rows are at most `undecided`.
+
+## Handoff 2026-10-21 (B3-2.3 decisions D1-D8 taken) - resume here
+Branch `audit/b3-s2-beamdyn-static`, HEAD = this commit (local; 924285a is the last push). ONE PR, not opened.
+Read only: "B3-2.3 maintainer decisions" (D1-D4), "B3-2.3a RESULT", "B3-2.3b map", "B3-2.3b maintainer decisions" (D5-D8).
+Next, in order (each with its criterion predeclared before any new number; record honesty notes for numbers already known):
+1. K11 for batch 2a: G20 -> `class: identity` verdict (re-measure at HEAD; e1b7da7 is old); G42 -> BeamDyn-deck integrated mass
+   (small tool or a function in `tools/beam_reference.py`; check v1.1 `tests/IEA15MW/reference` deck), row hygiene, measure the test
+   (slow, es 0.25 mid, a few minutes); LC3 -> new case in `tools/bd_static_reference.py`, p-convergence as K9, test re-pointed,
+   then a row comparison in group 39 or a contract verdict on the node id (map, Import procedure).
+2. D8 Fig. B1 digitisation (criterion first). D3 G27 out of L3 (task B3-2.3c). Fix the Bernardi/Escalera Mendoza labels and the
+   preprint citation (references.yaml:1488) as store hygiene.
+3. Batch 2b (task B3-2.3d): rule-9 re-mesh G5, G23 (CCX on its own converged mesh, D1), sx_mesh_convergence, sx_campbell.
+Still open for the maintainer before B3-3: the 9 rejected rows (exceptions vs model investigation).
