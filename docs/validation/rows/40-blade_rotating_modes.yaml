@@ -11,61 +11,61 @@ rows:
     asserted: true
     reference:
       kind: code
-      label: OpenFAST v5.0.0 MBC3 parked first flap, Hz
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked first flap, Hz
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:137
+      source: tests/test_iea15mw_s4_rotating_modal.py:163
       justified: true
-      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 ElastoDyn MBC3 (C3); the second independent arbiter is OpenFAST v5 BeamDyn single member p20 on the v1.1 deck (K4, named admissible before its numbers existed), and trusted needs both within 5 % (C2). The two decks disagree by 6-8 % on this blade (recorded finding).'
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: 19ff1a3
+      run: 4d64ea8
       date: '2026-10-20'
-      raw: 0.524444
-      margin_pct: 3.5949
-      text: 'S-4 parked 1F es 0.25, skin on mid-surface: 0.524444 Hz vs ElastoDyn 0.544 (error -3.5949 %, bound 5 %) PASS; vs BeamDyn p20 0.507083 +3.4237 %. S-4 test print (pytest-s4.log, SLURM 11619653 at 19ff1a3); K1 fidelity 0 vs the B3-1r head capture except 2F, first captured here.'
-    expected: 0.544
+      raw: 0.034237
+      margin_pct: 3.4237
+      text: 'S-4 parked 1F es 0.25, mid-surface: 0.524444 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 0.507083 (error +3.4237 %, bound 5 %) PASS; es 0.125 0.523888 Hz +3.3141 %, move 0.11 pp <= 1 pp (K7.2). ElastoDyn MBC3 printed as comparison only (K8.2). Test at 4d64ea8, SLURM 11620009 (es 0.25), 11619955 (es 0.125).'
+    expected: 0.507083
   - label: First edge frequency
     asserted: true
     reference:
       kind: code
-      label: OpenFAST v5.0.0 MBC3 parked first edge, Hz
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked first edge, Hz
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:137
+      source: tests/test_iea15mw_s4_rotating_modal.py:163
       justified: true
-      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 ElastoDyn MBC3 (C3); the second independent arbiter is OpenFAST v5 BeamDyn single member p20 on the v1.1 deck (K4, named admissible before its numbers existed), and trusted needs both within 5 % (C2). The two decks disagree by 6-8 % on this blade (recorded finding).'
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: 19ff1a3
+      run: 4d64ea8
       date: '2026-10-20'
-      raw: 0.694793
-      margin_pct: 5.982
-      text: 'S-4 parked 1E es 0.25, skin on mid-surface: 0.694793 Hz vs ElastoDyn 0.739 (error -5.9820 %, bound 5 %) FAIL, 0.98 pp over; vs BeamDyn p20 0.693376 +0.2043 %. No parked mid es 0.125 exists (K3b). S-4 test print (pytest-s4.log, SLURM 11619653 at 19ff1a3); K1 fidelity 0 vs the B3-1r head capture except 2F, first captured here.'
-    expected: 0.739
+      raw: 0.002043
+      margin_pct: 0.2043
+      text: 'S-4 parked 1E es 0.25, mid-surface: 0.694793 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 0.693376 (error +0.2043 %, bound 5 %) PASS; es 0.125 0.695379 Hz +0.2889 %, move 0.08 pp <= 1 pp (K7.2). ElastoDyn MBC3 printed as comparison only (K8.2). Test at 4d64ea8, SLURM 11620009 (es 0.25), 11619955 (es 0.125).'
+    expected: 0.693376
   - label: Second flap frequency
     asserted: true
     reference:
       kind: code
-      label: OpenFAST v5.0.0 MBC3 parked second flap, Hz
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) parked second flap, Hz
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:137
+      source: tests/test_iea15mw_s4_rotating_modal.py:163
       justified: true
-      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 ElastoDyn MBC3 (C3); the second independent arbiter is OpenFAST v5 BeamDyn single member p20 on the v1.1 deck (K4, named admissible before its numbers existed), and trusted needs both within 5 % (C2). The two decks disagree by 6-8 % on this blade (recorded finding).'
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: 19ff1a3
+      run: 4d64ea8
       date: '2026-10-20'
-      raw: 1.507523
-      margin_pct: 6.365
-      text: 'S-4 parked 2F es 0.25, skin on mid-surface: 1.507523 Hz vs ElastoDyn 1.61 (error -6.3650 %, bound 5 %) FAIL; vs BeamDyn p20 1.480900 +1.7977 %. First measurement of 2F on mid (K6: the test used to stop at the red 1E). S-4 test print (pytest-s4.log, SLURM 11619653 at 19ff1a3); K1 fidelity 0 vs the B3-1r head capture except 2F, first captured here.'
-    expected: 1.61
+      raw: 0.017977
+      margin_pct: 1.7977
+      text: 'S-4 parked 2F es 0.25, mid-surface: 1.507523 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 1.4809 (error +1.7977 %, bound 5 %) PASS; es 0.125 1.505527 Hz +1.6630 %, move 0.13 pp <= 1 pp (K7.2). ElastoDyn MBC3 printed as comparison only (K8.2). Test at 4d64ea8, SLURM 11620009 (es 0.25), 11619955 (es 0.125).'
+    expected: 1.4809
   flags: []
-  notes: 'Re-measured 2026-10-20 at 19ff1a3 (B3-2 batch 1): es 0.25, skin on mid-surface, all three families printed before the single assertion (K6), so 2F is measured on mid for the first time. 1F passes against both ElastoDyn and BeamDyn p20 (parked -3.59/+3.42 %, rated -3.45/+2.83 %); 1E and 2F fail against ElastoDyn (-6.0 to -6.4 %) while sitting within 1.8 % of BeamDyn where BeamDyn is admissible: the ElastoDyn/BeamDyn deck disagreement is the open question. Rated mid es 0.125 (logs/check/t4/s4c-mid-11617755.log) moves <= 0.35 %; no parked mid es 0.125 exists. Verdicts in contract.yaml.'
+  notes: Judged against BeamDyn p20 (K8) at 4d64ea8, es 0.25, mid-surface; ElastoDyn printed as comparison only. Parked es 0.125 (SLURM 11619955) moves each family <= 0.14 pp (K7.2), all within 5 % of BeamDyn. Rated 1E has no admissible BeamDyn number and is printed, not asserted (K8.3); rated mid es 0.125 moves <= 0.35 % vs ElastoDyn. Verdicts in contract.yaml.
 - id: blade_rotating_modes.s4_rated_openfast_modes
   group: '40'
   title: S-4 rated modes vs OpenFAST MBC3
@@ -77,58 +77,59 @@ rows:
     asserted: true
     reference:
       kind: code
-      label: OpenFAST v5.0.0 MBC3 rated first flap at 7.56 rpm, Hz
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) rated first flap at 7.56 rpm, Hz
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:137
+      source: tests/test_iea15mw_s4_rotating_modal.py:163
       justified: true
-      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 ElastoDyn MBC3 (C3); the second independent arbiter is OpenFAST v5 BeamDyn single member p20 on the v1.1 deck (K4, named admissible before its numbers existed), and trusted needs both within 5 % (C2). The two decks disagree by 6-8 % on this blade (recorded finding).'
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: 19ff1a3
+      run: 4d64ea8
       date: '2026-10-20'
-      raw: 0.547069
-      margin_pct: 3.447
-      text: 'S-4 rated 1F (7.56 rpm) es 0.25, skin on mid-surface: 0.547069 Hz vs ElastoDyn 0.5666 (error -3.4470 %, bound 5 %) PASS; vs BeamDyn p20 0.532003 +2.8319 %; es 0.125 -3.48 % (logs/check/t4/s4c-mid-11617755.log). S-4 test print (pytest-s4.log, SLURM 11619653 at 19ff1a3); K1 fidelity 0 vs the B3-1r head capture except 2F, first captured here.'
-    expected: 0.5666
+      raw: 0.028319
+      margin_pct: 2.8319
+      text: 'S-4 rated first flap (7.56 rpm) es 0.25, mid-surface: 0.547069 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 0.532003 (error +2.8319 %, bound 5 %) PASS. ElastoDyn printed as comparison only (K8.2). Test at 4d64ea8, SLURM 11620009.'
+    expected: 0.532003
   - label: First edge frequency
-    asserted: true
+    asserted: false
     reference:
       kind: code
       label: OpenFAST v5.0.0 MBC3 rated first edge at 7.56 rpm, Hz
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:137
+      source: tests/test_iea15mw_s4_rotating_modal.py:163
       justified: true
-      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 ElastoDyn MBC3 (C3); the second independent arbiter is OpenFAST v5 BeamDyn single member p20 on the v1.1 deck (K4, named admissible before its numbers existed), and trusted needs both within 5 % (C2). The two decks disagree by 6-8 % on this blade (recorded finding).'
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
       run: 19ff1a3
       date: '2026-10-20'
       raw: 0.70026
       margin_pct: 6.144
-      text: 'S-4 rated 1E (7.56 rpm) es 0.25, skin on mid-surface: 0.700260 Hz vs ElastoDyn 0.7461 (error -6.1440 %, bound 5 %) FAIL; BeamDyn rated 1E excluded (rotating in-plane artefact); es 0.125 -6.10 % (s4c-mid-11617755). S-4 test print (pytest-s4.log, SLURM 11619653 at 19ff1a3); K1 fidelity 0 vs the B3-1r head capture except 2F, first captured here.'
+      text: 'S-4 rated 1E (7.56 rpm) es 0.25: 0.700260 Hz; ElastoDyn comparison -6.1440 % (not a criterion, K8.2); BeamDyn has no admissible rated 1E number (rotating in-plane artefact), so it is printed, not asserted (K8.3). Test at 4d64ea8.'
     expected: 0.7461
   - label: Second flap frequency
     asserted: true
     reference:
       kind: code
-      label: OpenFAST v5.0.0 MBC3 rated second flap at 7.56 rpm, Hz
+      label: OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) rated second flap at 7.56 rpm, Hz
     tolerance:
       kind: rel_err
       value: 0.05
-      source: tests/test_iea15mw_s4_rotating_modal.py:137
+      source: tests/test_iea15mw_s4_rotating_modal.py:163
       justified: true
-      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 ElastoDyn MBC3 (C3); the second independent arbiter is OpenFAST v5 BeamDyn single member p20 on the v1.1 deck (K4, named admissible before its numbers existed), and trusted needs both within 5 % (C2). The two decks disagree by 6-8 % on this blade (recorded finding).'
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Pass/fail is decided against OpenFAST v5 BeamDyn single member p20 on the official v1.1 deck (K8.2: the model that uses the whole deck defines the structure aeroelast must reproduce); ElastoDyn MBC3 is printed as a comparison, not a criterion (maintainer 2026-10-20). The two decks disagree by 6-8 % on this blade (recorded finding about the references).'
     measured:
       status: measured
-      run: 19ff1a3
+      run: 4d64ea8
       date: '2026-10-20'
-      raw: 1.532482
-      margin_pct: 6.3961
-      text: 'S-4 rated 2F (7.56 rpm) es 0.25, skin on mid-surface: 1.532482 Hz vs ElastoDyn 1.6372 (error -6.3961 %, bound 5 %) FAIL; vs BeamDyn p20 1.508057 +1.6196 %; es 0.125 -6.46 % (s4c-mid-11617755; mid 0.125 labels 2F correctly, T12). S-4 test print (pytest-s4.log, SLURM 11619653 at 19ff1a3); K1 fidelity 0 vs the B3-1r head capture except 2F, first captured here.'
-    expected: 1.6372
-  flags: []
-  notes: 'Re-measured 2026-10-20 at 19ff1a3 (B3-2 batch 1): es 0.25, skin on mid-surface, all three families printed before the single assertion (K6), so 2F is measured on mid for the first time. 1F passes against both ElastoDyn and BeamDyn p20 (parked -3.59/+3.42 %, rated -3.45/+2.83 %); 1E and 2F fail against ElastoDyn (-6.0 to -6.4 %) while sitting within 1.8 % of BeamDyn where BeamDyn is admissible: the ElastoDyn/BeamDyn deck disagreement is the open question. Rated mid es 0.125 (logs/check/t4/s4c-mid-11617755.log) moves <= 0.35 %; no parked mid es 0.125 exists. Verdicts in contract.yaml.'
+      raw: 0.016196
+      margin_pct: 1.6196
+      text: 'S-4 rated second flap (7.56 rpm) es 0.25, mid-surface: 1.532482 Hz vs OpenFAST v5.0.0 BeamDyn p20 (official v1.1 deck) 1.508057 (error +1.6196 %, bound 5 %) PASS. ElastoDyn printed as comparison only (K8.2). Test at 4d64ea8, SLURM 11620009.'
+    expected: 1.508057
+  flags:
+  - info_only
+  notes: Judged against BeamDyn p20 (K8) at 4d64ea8, es 0.25, mid-surface; ElastoDyn printed as comparison only. Parked es 0.125 (SLURM 11619955) moves each family <= 0.14 pp (K7.2), all within 5 % of BeamDyn. Rated 1E has no admissible BeamDyn number and is printed, not asserted (K8.3); rated mid es 0.125 moves <= 0.35 % vs ElastoDyn. Verdicts in contract.yaml.

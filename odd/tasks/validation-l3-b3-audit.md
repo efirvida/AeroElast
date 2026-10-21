@@ -33,8 +33,8 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.1b** test-source edits: V-02 1E and S-7 bounds to 0.05, S-4 measures all families then asserts (2F), V-03 docstring/name. Commit `19ff1a3` (criterion `b06eedd`).
   - [x] **B3-2.1c** measure at the edit commit (SLURM 11619652 S-1/S-2/V-03 capture, 11619653 S-4 capture, 11619654 V-02/S-7 `regression --write`; `logs/check/b3-2/measure.sbatch`, metrics `logs/check/b3-2/metrics.py`); fidelity vs b3-1r/head.
   - [x] **B3-2.1d** store hygiene (K5) + verdicts in contract.yaml (K3/K4); `check`, `contract --level L3`, `check.sh quick`.
-  - [ ] **B3-2.1e** es 0.125 for the three K3(b) items (S-1 flap, S-2 LC1, S-4 parked 1E), judged by K7 (section "K7" at the end, fixed before the runs). Route: worker + SLURM.
-  - [ ] **B3-2.1f** K8: S-4 test and row 40 against BeamDyn (reference_model), ElastoDyn as comparison; re-adjudicate S-4 rows. Needs cf2115f (cherry-picked).
+  - [x] **B3-2.1e** es 0.125 for the three K3(b) items (S-1 flap, S-2 LC1, S-4 parked 1E), judged by K7 (section "K7" at the end, fixed before the runs). Route: worker + SLURM.
+  - [x] **B3-2.1f** K8: S-4 test and row 40 against BeamDyn (reference_model), ElastoDyn as comparison; re-adjudicate S-4 rows. Needs cf2115f (cherry-picked).
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
 
@@ -1129,3 +1129,16 @@ on main 2b95e5f: pre-existing, not from this branch. Full tool-test run without 
 Tool-test baseline (closes resume step "compare FAILED"): main 2b95e5f 6 failed / 164 passed; this branch 6 failed / 165 passed,
 the same six tests (coherence x2, real store coherent, groups re-derive, no pending migration, depends_on L1/L2). All
 pre-existing; the extra pass is cf2115f's new test. Logs: `logs/check/b3-2e/tool-tests-{main-2b95e5f,full}.log`.
+
+## B3-2.1e/f RESULT (2026-10-21, at 4d64ea8 + store edits)
+- Tool tests: this branch and main 2b95e5f fail the same six (`logs/check/b3-2e/tool-tests-*.log`); no branch-only failure.
+- S-1 flap (K7, SLURM 11619975 es 0.125, control 11619956): 5.3104 % (signed +4.0857 %) vs 5.1666 % at es 0.25 reproduced exactly;
+  move 0.14 pp <= 1 pp -> converged, > 5 % -> `rejected`.
+- S-2 LC1 (11619954): shell +0.22 %, in-house beam -13.3 % (reference built from the shell mesh); move 16.4 pp -> `undecided`.
+- S-4 (K8, test at 4d64ea8, es 0.25 SLURM 11620009 passes; es 0.125 from 11619955) vs BeamDyn p20, parked 1F +3.42/+3.31 %,
+  1E +0.20/+0.29 %, 2F +1.80/+1.66 % (es 0.25/0.125): moves <= 0.14 pp -> parked row `trusted` (arbiter `reference_model` BeamDyn p20).
+  Rated: 1F +2.83 %, 2F +1.62 %, 1E not asserted (no BeamDyn number, K8.3) -> `undecided`. Comparison against ElastoDyn printed only.
+- Store: rows 38/39/40 and contract updated (rated 1E comparison gets `info_only`); `audited_rev` of rows untouched by 4d64ea8 bumped to it
+  (the S-4 test edit made them stale only through the level file list). check 0 errors; `contract --level L3 --rows` log
+  `logs/check/b3-2e/contract-L3-k7k8.log`; `check.sh quick` OK. Honesty: arbiter chosen after the numbers (K8).
+- Open: BeamDyn rated 1E number; S-2 reference -> BeamDyn static driver (T3); BeamDyn p20 convergence citation.

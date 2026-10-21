@@ -38,7 +38,7 @@ verdicts:
   - target: blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single
     class: physics
     verdict: rejected
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tools/run_s7_torsion.py
       - tools/beam_reference.py
@@ -2083,7 +2083,7 @@ verdicts:
   - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_fla.single
     class: physics
     verdict: rejected
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tests/IEA-15-240-RWT.yaml
     note: >-
@@ -2096,7 +2096,7 @@ verdicts:
   - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
     class: physics
     verdict: rejected
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tests/IEA-15-240-RWT.yaml
     note: >-
@@ -2108,7 +2108,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_edgewise_ei
     class: physics
     verdict: rejected
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2120,8 +2120,8 @@ verdicts:
       Mid-span mean |rel err| 12.71 % (signed -12.12 %, n=32), 7.71 pp over the ceiling (K3a).
   - target: blade_sectional_distribution.s1_sectional_flapwise_ei
     class: physics
-    verdict: undecided
-    audited_rev: 19ff1a3
+    verdict: rejected
+    audited_rev: 4d64ea8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2130,13 +2130,13 @@ verdicts:
     arbiters:
       - {kind: published_numerical, label: "BeamDyn 6x6 deck of the official IEA 15 MW blade (SONATA/ANBA4), elastic-centre principal axes (decision (b))"}
     note: >-
-      Mid-span mean |rel err| 5.17 % (signed +3.30 %, n=32): 0.17 pp over the ceiling, inside the
-      1 pp convergence envelope and no es 0.125 measurement of this row exists (K3b). Pending S-1 at
-      es 0.125.
+      Mid-span mean |rel err| 5.31 % at es 0.125 (signed +4.09 %, n=32); the es 0.25 control
+      reproduces 5.17 % exactly and the move is 0.14 pp, inside the 1 pp envelope (K7.2), so 5.31 % is
+      the converged value and 0.31 pp over the ceiling (K7.3). SLURM 11619975, 11619956.
   - target: blade_sectional_distribution.s1_sectional_mass
     class: physics
     verdict: trusted
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2150,7 +2150,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_gj
     class: physics
     verdict: rejected
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2163,7 +2163,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_ea
     class: physics
     verdict: rejected
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2176,19 +2176,20 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc1_tip_displacement
     class: physics
     verdict: undecided
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
     note: >-
-      Tip uy -2.066107 m vs the in-house EB beam -1.957812 m: 5.53 %, 0.53 pp over the ceiling with no
-      es 0.125 measurement (K3b). The reference is our own code (ElastoDyn EI, no shear, measured 4-14 %
-      too stiff in T3), so it is not an arbiter (K4): even a pass would stay undecided. Follow-up:
-      S-2 reference -> BeamDyn static driver (T3).
+      Tip uy -2.066107 m vs the in-house EB beam -1.957812 m: 5.53 % at es 0.25. At es 0.125 the shell
+      moves +0.22 % (-2.070734 m) but the in-house beam moves -13.3 % (-1.697731 m, 21.97 %):
+      BeamReference.from_mesh takes its geometry from the shell mesh, so the reference depends on the
+      mesh it judges. Move 16.4 pp, convergence not shown (K7.2): undecided. The reference is our own
+      code and not an arbiter (K4). Follow-up: S-2 reference -> BeamDyn static driver (T3).
   - target: blade_static_prescribed.s2_official_lc2_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -2198,7 +2199,7 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -2207,39 +2208,38 @@ verdicts:
       The reference is not an arbiter (K4); the row fails its own declared comparison.
   - target: blade_rotating_modes.s4_parked_openfast_modes
     class: physics
-    verdict: rejected
-    audited_rev: 19ff1a3
+    verdict: trusted
+    audited_rev: 4d64ea8
     files:
       - tools/run_s4_rotating_modal.py
       - tests/IEA-15-240-RWT.yaml
     arbiters:
-      - {kind: produced_numerical, label: "OpenFAST v5.0.0 ElastoDyn MBC3 on the IEA 15 MW deck (decides pass/fail, C3)"}
-      - {kind: produced_numerical, label: "OpenFAST v5.0.0 BeamDyn single member p20 on the v1.1 deck: parked 0.507083 / 0.693376 / 1.480900, rated 0.532003 / - / 1.508057 Hz"}
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}
     note: >-
-      Per family vs ElastoDyn / BeamDyn p20: 1F 0.524444 Hz -3.59 / +3.42 % -> trusted with both
-      arbiters (C2, K3c); 1E 0.694793 Hz -5.98 / +0.20 % -> 0.98 pp over, no parked mid es 0.125
-      exists -> undecided (K3b; the handoff expected rejected, the criterion as written says
-      undecided); 2F 1.507523 Hz -6.37 / +1.80 % -> rejected (K3a, C3), the first 2F measured on mid
-      (K6). The row is rejected because 2F is. ElastoDyn and BeamDyn disagree by 6-8 % on this blade.
+      Judged against OpenFAST v5.0.0 BeamDyn p20 on the official deck, which arbitrates blade
+      frequencies (K8.2); ElastoDyn MBC3 is printed as a comparison only. Per family vs BeamDyn at es
+      0.25 / 0.125: 1F +3.42 / +3.31 %, 1E +0.20 / +0.29 %, 2F +1.80 / +1.66 %; every move is <= 0.14
+      pp (K7.2) and every value is inside 5 % (K7.3). ElastoDyn disagrees with BeamDyn by 6-8 % on
+      this blade (recorded finding about the references, not an aeroelast defect). Honesty note: the
+      arbiter was chosen after the numbers (K8).
   - target: blade_rotating_modes.s4_rated_openfast_modes
     class: physics
-    verdict: rejected
-    audited_rev: 19ff1a3
+    verdict: undecided
+    audited_rev: 4d64ea8
     files:
       - tools/run_s4_rotating_modal.py
       - tests/IEA-15-240-RWT.yaml
     arbiters:
-      - {kind: produced_numerical, label: "OpenFAST v5.0.0 ElastoDyn MBC3 on the IEA 15 MW deck (decides pass/fail, C3)"}
-      - {kind: produced_numerical, label: "OpenFAST v5.0.0 BeamDyn single member p20 on the v1.1 deck: parked 0.507083 / 0.693376 / 1.480900, rated 0.532003 / - / 1.508057 Hz"}
+      - {kind: reference_model, label: "OpenFAST v5.0.0 BeamDyn p20, official v1.1 deck"}
     note: >-
-      7.56 rpm, per family vs ElastoDyn / BeamDyn p20: 1F 0.547069 Hz -3.45 / +2.83 % -> trusted with
-      both (C2, K3c); 1E 0.700260 Hz -6.14 % (es 0.125 -6.10 %), BeamDyn rated 1E excluded (rotating
-      in-plane artefact) -> rejected (K3a, C3); 2F 1.532482 Hz -6.40 / +1.62 % (es 0.125 -6.46 %,
-      s4c-mid-11617755) -> rejected (K3a, C3). The row is rejected.
+      7.56 rpm, es 0.25, vs BeamDyn p20: 1F +2.83 %, 2F +1.62 %, both inside 5 % (K8.2). Rated 1E has
+      no admissible BeamDyn number (rotating in-plane artefact, beamdyn-arbiter-midsurface T1/T7), so
+      it is printed against ElastoDyn (-6.14 %, comparison only) and not asserted (K8.3): the row
+      stays undecided until that number exists. No rated es 0.125 BeamDyn comparison was run.
   - target: blade_total_mass.v03_assembled_mass_vs_tabular
     class: physics
     verdict: trusted
-    audited_rev: 19ff1a3
+    audited_rev: 4d64ea8
     files:
       - tests/IEA-15-240-RWT.yaml
     arbiters:

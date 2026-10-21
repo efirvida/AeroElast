@@ -48,14 +48,14 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
     measured:
       status: measured
-      run: 19ff1a3
+      run: 8e5ee61
       date: '2026-10-20'
-      raw: 0.051666
-      margin_pct: 5.1666
-      text: 'S-1 EI_flap es 0.25, skin on mid-surface: mid-span (n=32) mean |rel err| 5.1666 % (signed +3.3038 %) vs BeamDyn elastic-centre principal EI, bound 5 % FAIL, 0.17 pp over (K3b: undecided until es 0.125); capture SLURM 11619652 (S-1/S-2/V-03) and 11619653 (S-4) at 19ff1a3, bit-identical to the B3-1r head capture (K1).'
+      raw: 0.053104
+      margin_pct: 5.3104
+      text: 'S-1 EI_flap es 0.125, skin on mid-surface: mid-span (n=32) mean |rel err| 5.3104 % (signed +4.0857 %) vs BeamDyn elastic-centre principal EI, bound 5 % FAIL; es 0.25 control 5.1666 % reproduced exactly (K7.1), move 0.14 pp <= 1 pp (K7.2) so 5.3104 % is the converged value and exceeds 5 % (K7.3). SLURM 11619975 (es 0.125), 11619956 (es 0.25 control).'
     expected: null
   flags: []
-  notes: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml.
+  notes: 'Measured at 8e5ee61 at es 0.125 (K7); es 0.25 at 19ff1a3 was 5.1666 %. Verdict in contract.yaml.'
 - id: blade_sectional_distribution.s1_sectional_mass
   group: '38'
   title: S-1 sectional mass distribution vs BeamDyn
