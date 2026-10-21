@@ -1498,3 +1498,7 @@ User (L): "trabaja todos en paralelos segun sea posile" (after reading the D1-D8
   Erratum: the v1.0 tag is `v1.0` (commit 630f7cb, IEAWindSystems/IEA-15-240-RWT; 21 stations), not `v1.0.0`. Deck quantities
   compared: a -> raw K44 (edge), K55 (flap), K66 (GJ); b -> M44, M55; c -> M11; d -> the BeamDyn.dat key-point twist. The elastic-
   centre principal EI is computed as a sensitivity: the verdict must be the same under raw and principal, else `cannot tell`.
+- K11.4 clarification (before digitising; raised by the digitising worker, no figure number seen): the median gate is per-station
+  normalised, median over separable stations of e_i / max(2 delta_rel_i, 5 %) <= 1, with e_i = |digitised - v1.1| / v1.1.
+  Timing note: this line was written to the file before the digitising run, but its commit failed on a transient `index.lock`
+  and landed after that run; the worker received option A in its prompt before it started digitising.
