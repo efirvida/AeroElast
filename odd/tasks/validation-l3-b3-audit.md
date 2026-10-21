@@ -1783,3 +1783,21 @@ are compared with the deck harmonic mean over the chord. Diagnostic only; no ver
       (onset between 60.9 and 63.3 m), independent of the extractor; the next step is the element/mesh at that span (K14.1, to be written after).
   (c) otherwise undetermined, reported per chord.
 - No band, no contract edit.
+
+## K14 RESULT (2026-10-21, SLURM 11621448, `logs/check/b3-3/k14-11621448.log`) and K15 criterion (written BEFORE any K15 number)
+K14 is VOID by its own clause: plane-fit residual median 2.1 % (ok) but the 3-station chord edge mean over 0.2-0.85 R is -0.43 % (flap +5.10 %), not
+the M1 -10.88 % (|diff| 10.5 pp > 3 pp). It is nonetheless informative about the instrument: the spline-free plane-section edge EI reads +7 .. +19 % in 57-70 m
+(M1: -10 .. -22 %) and agrees with M1 only outboard (76-98 m: -10.9 %). Two readings of the same displacement give EI edge differing by 25-40 pp at 62-70 m, so
+at least one is not "bending EI". Hypothesis (not a finding): the spline curvature includes shear and section distortion, the plane-section slope does not.
+- K15 (`tools/diagnose_edge_shear_split.py <es>`, es 0.25, same two solves, no spline): per station ubar (mean node displacement along the load) and the plane slope
+  phi; per chord bending = int phi dz, shear+distortion = total - bending; compared with BeamDyn from the same deck (EB bending with the Schur eigen-EI + int dz/GA,
+  GA = 1/C[k,k], BD index 1 edge = shell +x, 0 flap = shell +y).
+  Void if the BD deck tip compliance (bending + shear) differs from the stored BeamDyn p60 edge eigen-compliance 34.45 m/MN by more than 10 % (then the deck-side split
+  is not the driver's), or if shell total (tip station mean) differs from the M1 ring value by more than 5 %.
+  (a) SHEAR/DISTORTION: shell shear+distortion tip part exceeds the BD shear part by >= 50 % of the shell-BD tip excess (measured +15.6 % of 34.45 = 5.4 m/MN, i.e.
+      >= 2.7 m/MN) -> the edge tip excess is mostly shear/section distortion, the plane-section bending EI is not soft where M1 said, and the S-1 EI edge row
+      is reading a shear-contaminated curvature (instrument), while LC3 (a displacement) is a shear-flexibility question (GA edge / section distortion).
+  (b) BENDING: the plane-section bending part of the shell exceeds the BD bending part by >= 50 % of the excess -> the plane EI is genuinely soft (then K14's chord
+      EI was biased high locally and the dip is not resolved).
+  (c) otherwise mixed, reported. Localisation: the chord where shell GA_eff/deck-1 falls below -30 % is the section to inspect first.
+- No band, no verdict, no contract edit.
