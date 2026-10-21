@@ -1524,3 +1524,44 @@ User (L): "trabaja todos en paralelos segun sea posile" (after reading the D1-D8
   8 % of ED MBC3 (superseded for 1E by K10.5). Producer `tools/run_sx_campbell.py` defaults es 0.5 (debt "anchor-05"). Candidate
   arbiter: `tools/bd_rotating_freevib.py` (K10 method; admissibility shown only at 0 and 7.56 rpm). Cost ~6 rotating modals at es
   0.25 (S-4 test 24-32 min).
+
+## K11 RESULT (2026-10-21; commits 9259a08..ed4acfe; logs `logs/check/b3-2e/pytest-k11-*.log`, `logs/check/bd_static/LC3-p*`, `logs/check/g42/`, `logs/check/d8/`)
+- K11.1 G20: EA 0.0023 %, GKt 0.0049 % (1 %), EIxp +1.92 %, EIyp +1.80 % (2 %) at 6318955 -> `identity` `trusted`.
+- K11.2 G42: reference admitted - BeamDyn v5 summary mass 66,934.6 kg (p60; p40/p50 66,969.9/66,970.4) vs `beamdyn_deck_mass` 66,996.9 kg
+  on the 117.149 m arc (BeamDyn prints the same length), 0.093 % <= 0.1 % (thin margin, recorded). Shell -0.4695 % (es 0.25, 11621355)
+  / -0.3529 % (es 0.125, 11621349), move 0.12 pp -> `trusted`, arbiter `reference_model`. The predicted -0.3 % used the straight-axis
+  66,912 kg; the prebent arc adds 0.13 %.
+- K11.3 S-2 LC3: reference admitted - p40/p50/p60 34.4568/34.4532/34.4694 m (p50-p60 0.047 %), scale 1e-4 vs 2e-4 0.0005 %. Shell
+  40.310 m +16.94 % (es 0.25, 11621347, rev not printed: no git on the node, submitted at 6318955) / 40.637 m +17.89 % (es 0.125,
+  11621348 at af7d91e), move 0.95 pp. Node vs ring +1.19 / +1.14 % > 0.5 % -> printed, not asserted (f0b2215), `undecided`;
+  imported as row `blade_static_prescribed.s2_official_lc3_tip_edge_displacement`, the absent node removed from levels.yaml.
+  FINDING: edgewise the shell is ~17 % MORE flexible than BeamDyn while LC1/LC4 are 6-7 % stiffer; the node/ring spread (1.2 %) does
+  not explain it. Belongs to the open model investigation (9 rejected rows decision); suspects first per rule 4: load direction vs
+  twisted chord at the tip, BD frame mapping for a -y tip force, flap-edge coupling (shell tip uy under LC3 not yet printed).
+- K11.4 D8: `tools/d8_bernardi_figb1.py` (8a577fb; inputs sha-verified in `logs/check/d8/inputs/`; overlay inspected, clean after one
+  legend-mask fix). Raw: 95 separable, closer v1.1 69.47 %, v1.0 28.42 %, normalised median 0.061; principal: 96, 69.79 %, 28.13 %,
+  0.068 -> `cannot tell` both ways: Bernardi is not an arbiter; the 8 G23 modal rows are `undecided`. FINDING: panel (c) rho-A is about
+  half of M11 of both decks (about 230 vs 430 kg/m at r/L 0.4), so Bernardi's mass input matches neither deck or is another quantity
+  (its axis says kg/m^3). Stiffness/inertia edge curves follow v1.1 at r/L 0.2-0.6.
+- D3: group 27 out of L3 (levels.yaml, P1 deliverable, #42); `check` warns "group 27 is on no level" (no schema field for another
+  deliverable). Hygiene: references.yaml Bernardi = published record (preprint kept as note), G23 mass/static rows cite escalera2023.
+  Tooling gap: `validation_matrix.py coherence --group 23` rewrites both paper rows back to the group citation (one citation per group).
+- Contract L3 after: undecided 10, unaudited 9, absent 2, over ceiling 0, single or no arbiter 28 (before: undecided 1, unaudited 22,
+  absent 3, over ceiling 1, single 33); stale rows re-stamped below.
+- Slice note: the branch is past ~400 authored lines (1,453, of which the LC3 p60 input deck copies are most); delivery stays ONE PR
+  by the maintainer's decision, slices are the commits above.
+- Re-stamp (K9 precedent): the 15 L3 verdicts made stale by the K11 test edits (S-2, V-05 are level files) moved to ed4acfe. The S-2
+  rows were re-measured there (SLURM 11621369, rev ed4acfe: LC1 -7.4110 %, LC2 -3.6807 %, LC4 -6.2214 %, LC3 +16.9442 %, identical
+  to the stored values); G20/G42 measured at 6318955 with no input change since; the others' tests and inputs are untouched.
+  `check.sh quick` OK (logs/check/quick-20261021T165921.log). Contract L3: trusted 4, undecided 10, rejected 9, unarbitrated 2,
+  unaudited 9, absent 2; over ceiling 0; single or no arbiter 28.
+
+## Handoff 2026-10-21 (K11 / batch 2a closed) - resume here
+Branch `audit/b3-s2-beamdyn-static`, HEAD = this commit, local only (924285a is the last push). ONE PR, not opened.
+Read only: "B3-2.3d map" and "K11 RESULT" (and D1-D4 if needed).
+Next, in order: (1) batch 2b (task B3-2.3d): one predeclared criterion each for G5, G23 (CCX on its own converged mesh, D1; the CCX
+static load per node and node-mean metric need a decision; the DLC/Bernardi xfail escapes), sx_mesh_convergence and sx_campbell
+(CSV producers, rule-9 sizes, BD-driver arbiter at intermediate rpm needs its own K10-style admissibility), then the SLURM series.
+(2) Maintainer, before B3-3: the 9 rejected rows (exceptions vs model investigation), now with the S-2 LC3 finding (shell ~17 %
+more flexible edgewise vs 6-7 % stiffer in LC1/LC4) and the LC2/LC3 clean-metric route (distributing tip load or inboard section).
+(3) Schema: group 27 is on no level (warning) until P1 has a place in levels.yaml.

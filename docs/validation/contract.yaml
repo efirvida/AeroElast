@@ -40,7 +40,7 @@ verdicts:
   - target: blade_s7_torsion.test_s7_global_torsion_ratio_within_band.single
     class: physics
     verdict: rejected
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/run_s7_torsion.py
       - tools/beam_reference.py
@@ -2085,7 +2085,7 @@ verdicts:
   - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_fla.single
     class: physics
     verdict: rejected
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tests/IEA-15-240-RWT.yaml
     note: >-
@@ -2098,7 +2098,7 @@ verdicts:
   - target: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
     class: physics
     verdict: rejected
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tests/IEA-15-240-RWT.yaml
     note: >-
@@ -2110,7 +2110,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_edgewise_ei
     class: physics
     verdict: rejected
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2123,7 +2123,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_flapwise_ei
     class: physics
     verdict: rejected
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2138,7 +2138,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_mass
     class: physics
     verdict: trusted
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2152,7 +2152,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_gj
     class: physics
     verdict: rejected
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2165,7 +2165,7 @@ verdicts:
   - target: blade_sectional_distribution.s1_sectional_ea
     class: physics
     verdict: rejected
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/run_s1_sectional.py
       - tools/beam_reference.py
@@ -2178,7 +2178,7 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc1_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -2207,7 +2207,7 @@ verdicts:
   - target: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
     class: physics
     verdict: rejected
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/beam_reference.py
       - tests/IEA-15-240-RWT.yaml
@@ -2220,7 +2220,7 @@ verdicts:
   - target: blade_rotating_modes.s4_parked_openfast_modes
     class: physics
     verdict: trusted
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/run_s4_rotating_modal.py
       - tests/IEA-15-240-RWT.yaml
@@ -2236,7 +2236,7 @@ verdicts:
   - target: blade_rotating_modes.s4_rated_openfast_modes
     class: physics
     verdict: trusted
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tools/run_s4_rotating_modal.py
       - tools/bd_rotating_freevib.py
@@ -2256,7 +2256,7 @@ verdicts:
   - target: blade_total_mass.v03_assembled_mass_vs_tabular
     class: physics
     verdict: trusted
-    audited_rev: 2eab2c6
+    audited_rev: ed4acfe
     files:
       - tests/IEA-15-240-RWT.yaml
     arbiters:
@@ -2471,7 +2471,7 @@ verdicts:
   - target: blade_anchor_beam.test_anchor_sections_cross_check_and_deg.single
     class: identity
     verdict: trusted
-    audited_rev: "6318955"
+    audited_rev: ed4acfe
     files:
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tests/IEA15MW/reference/IEA-15-240-RWT_ElastoDyn_blade.dat
@@ -2547,7 +2547,7 @@ verdicts:
   - target: blade_structural_properties.v05_assembled_mass_vs_beam_table
     class: physics
     verdict: trusted
-    audited_rev: "6318955"
+    audited_rev: ed4acfe
     files:
       - tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat
       - tools/beam_reference.py
