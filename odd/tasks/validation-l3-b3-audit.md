@@ -1768,3 +1768,18 @@ Dev took one job at a time (submit-limit rejection); the rest ran on `sequana_cp
 | S-1 EA, S-1 EI flap, S-2 LC1, LC4 | unchanged from K12: laminate-as-meshed vs 6x6 (flap +6.5 %, EA +5.8 %); A1 adds the same disagreement outboard in edge (-10..-21 %) | A1 | blocked on D3 (independent section solve or yaml->mesh investigation; A3 found no mapping discrepancy in the TE reinforcement, which narrows the second option) |
 | V-02 1F/1E | unchanged | - | blocked on D1 |
 | S-7 | unchanged (mid 1.0155 / 1.0109) | - | blocked on D2 |
+
+## K14 - is the 63-73 m edge dip the extractor or the FE? (written BEFORE any K14 number, 2026-10-21, at afe7c5b; user: "hace lo que creas que va a resolver el problema")
+Open item of K13 RESULT: M1's FE edge EI uses the second derivative of a smoothing spline through the section-mean displacement. K14 re-reads the SAME
+two static solves (es 0.25, mid, tip-station load, clamped root, 1 MN) without any spline or second derivative: `tools/diagnose_edge_chord_ei.py <es> 1 3`
+fits the plane-section slope u_i' = -d(u_z)/d(x_i) on each station's nodes and inverts a chord [z_a, z_b] with the exact moment integral; the eigenvalue EIs
+are compared with the deck harmonic mean over the chord. Diagnostic only; no verdict.
+- Void if the plane-fit residual (std of u_z about the plane / max |u_z|) median exceeds 5 % (sections not plane: the method does not apply), or if the
+  3-station chord mean over 0.2-0.85 R differs from the M1 2x2 edge mean (-10.88 %) by more than 3 pp.
+- Outcome on the 3-station chords centred in 64-72 m versus those centred in 30-56 m and 76-98 m (edge EI/deck - 1, mean):
+  (a) EXTRACTOR: the chord mean in 64-72 m is within 5 pp of the laminate hoop-free value (+6.7 .. -1.2 %, K13.A1) -> the M1 dip was the spline; the
+      FE section is not soft there and the dip is not a model finding.
+  (b) MODEL: the chord mean in 64-72 m is <= -10 % (as M1, -10 .. -22 %) and the 1-station chords agree in sign -> the FE section is genuinely soft at 63-73 m
+      (onset between 60.9 and 63.3 m), independent of the extractor; the next step is the element/mesh at that span (K14.1, to be written after).
+  (c) otherwise undetermined, reported per chord.
+- No band, no contract edit.
