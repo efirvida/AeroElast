@@ -1168,3 +1168,27 @@ test commit equal the predicted ones to the printed digit). Verdicts: LC1 `rejec
 `audited_rev` of the rows untouched by the test edit bumped to 44ebffa (the S-2 test is a level file). check 0 errors, quick OK, logs
 `logs/check/b3-2e/contract-L3-k9.log`. Open: shell vs BD load-wrench equivalence for LC2/LC4 (T4); LC2 on an inboard section or with a distributing tip load.
 Next in the agreed order: (2) BeamDyn number for rated 1E; (3) the 22 unaudited and 3 absent rows.
+
+## Handoff 2026-10-21 (B3-2.2: a valid BeamDyn rated 1E) - resume here
+State: branch `audit/b3-s2-beamdyn-static` (pushed, a67414c, no PR yet: maintainer chose "continue in the same branch, one PR at the end").
+Decision (L, 2026-10-21, after being told BD rated 1E cannot be produced without fixing the solver and offered "leave undecided" /
+"ElastoDyn arbitrates only rated 1E" / "try to produce a valid BD reference"): "Intentar producir referencia BD valida". The other two
+options stay open if this fails; do not pick one silently.
+Evidence so far (`logs/check/of_bd_sw/report.md`, T1/T7): in the MBC3-extracted collective linearization BeamDyn's rotating edge Southwell
+coefficient equals the flap one (K 1.19 vs analytic 0.193, +517 to +529 % on uniform and box beams, p10-p20), i.e. the in-plane
+softening is missing; flap K is right (-0.1 to -0.4 %), parked modes are right (<= 0.003 %). ElastoDyn passes (edge K -0.01 / +2.6 %).
+Cause in the OpenFAST source is not identified (report says so).
+Plan (not started; criterion must be written BEFORE any blade number, as K7/K8/K9 did):
+1. K10 predeclared: any candidate BD rotating-edge method is admissible only if on the uniform and box beams of
+   `logs/check/analytic_beam/cases.json` its edge K is within 5 % of the analytic value and its flap K within 5 % (the T7 tolerances).
+   Else the method is not an arbiter and the row stays `undecided` (or the maintainer picks another option above).
+2. Candidate methods, cheapest first: (a) BeamDyn driver in dynamic mode with a prescribed root angular velocity (`DynamicSolve=True`,
+   the driver of `tools/bd_static_reference.py` / `logs/check/bd_static`), free decay after a tip kick, FFT of the tip edge motion;
+   (b) look for the OpenFAST/BeamDyn linearization input or option that drops the in-plane term (OpenFAST docs, BeamDyn source), and a
+   newer release if one fixes it. Method (a) is a genuinely independent number (time domain, nonlinear), (b) only repairs the extraction.
+3. Run the method on the uniform beam first (K10 gate), then on the IEA 15 MW BeamDyn p20 single member at 7.56 rpm; judge rated 1E
+   with K7.2/K7.3 (shell es 0.25 0.700260 Hz, es 0.125 not measured for BD-rated 1E, so the move is as for the other families).
+4. Row 40 rated, contract arbiter, store check, `contract --level L3 --rows` (log to logs/check/b3-2e/), `check.sh quick`, commit,
+   push; then open the single PR and continue with step 3 of the order (the 22 unaudited and 3 absent rows).
+Cost: SLURM, `sequana_cpu` or `_dev` under 20 min per run; BD driver single member runs took minutes (`bd_static`). Start the next
+session from this section plus K8 and K9; do not re-read K1-K7.
