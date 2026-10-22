@@ -11,8 +11,8 @@ Branch: `audit/b3-s2-beamdyn-static`; baseline: `5f8222f`; delivery: ask-on-risk
 - S6: "bueno dale arranca". Authorization to start prerequisite implementation, not permission to run the physical discriminant. Assumption: an additive, generate-only candidate tool is the smallest safe implementation; no modification to the existing generator is required.
 
 ## Tasks
-- T1 | S1–S6 | delegated writer (context-backstop trigger) | done | Additive generate-only tool/help + 11 public CLI tests; observed RED/GREEN, Ruff and smoke pass; local work-unit commit pending.
-- T2 | S1–S6 | parent reconciliation | in_progress | Reconcile exact diff, final spot-check and G1–G4 missing proof; record local work-unit commit; no physical closure claim.
+- T1 | S1–S6 | delegated writer (context-backstop trigger) | done | Additive generate-only tool/help + 11 public CLI tests; observed RED/GREEN, Ruff and smoke pass; commit `7806604`.
+- T2 | S1–S6 | parent reconciliation | done | Parent checks, candidates, missing-proof record and commit `7806604` verified; documentation-evidence follow-up records final disposition; no physical closure claim.
 
 ## Log
 ### L1 — Original request (verbatim)
@@ -69,3 +69,12 @@ The first two replies granted the explicitly presented read-only installation an
 - The existing candidate already sets SumPrint=True and tests all six TD/RD components, including RDxr. Add source-supported summary schema metadata, distinguishing available-by-design from acquired/validated. Do not implement a physical-output parser or consume outputs in this unit. No source instrumentation appears necessary to request the initial geometry; ordering, units, coverage and conversions remain unverified.
 - Metadata follow-up RED: 1 failed, 10 passed in 4.92 s, exit 1; GREEN: 11 passed in 6.18 s, exit 0; Ruff exit 0. Parent final spot-check: 11 passed in 7.14 s, exit 0. Existing commands/helpers unchanged; differential does not apply. The earlier smoke precedes this metadata/help-only addition; no repeated smoke.
 - Public CLI generated two persistent, non-overwriting input-only candidates successfully (exit 0): `logs/check/k16-g1-inputs-LC3-p60-s0.0001` (edge) and `logs/check/k16-g1-inputs-LC2-p60-s0.0001` (flap control). Each has beam.dat, blade.dat, driver.dvr, candidate.json; neither has been executed. These are not physical evidence or matched-mechanics references.
+
+### L5 — Work-unit outcome and missing proof
+- Commit `7806604` contains the implementation, tests and initial tracking: 374 authored added lines. Final staged whitespace check passed. Existing source helpers and commands were not modified. Risk: none (additive generate-only text tooling, validated destination/scale and no physical or shared-code change).
+- Exact committed-range native assess also returned unassessable because retained untracked references require explicit declaration; returned plan keeps writer self-verification, no independent verifier. No native review was started or claimed. No change to the user-owned RDD switch or reference directories.
+- G1: complete TD/RD plus SumPrint request prepared; geometry acquisition/schema parsing, element-to-motion-node order, units/director conversion and propagated serialization uncertainty are not verified. Package-to-declared-source receipt is available; exact source-byte equivalence is not established.
+- G2: nodewise reference-line/director geometry and matched dead-force/moment/work observation are unproven; current candidates retain the existing true-tip BD loads, NOT a newly proven match to the shell station load.
+- G3: independently justified control and discretization/transport/interpolation/root/quadrature/load/mesh bounds are absent. Do not assign an arbitrary pass band or consume discriminant results.
+- G4: shared instrument and its independent full-vector reconstruction/objective-shear controls remain unimplemented. Input preparation does not satisfy these gates.
+- Disposition: bounded candidate-preparation work unit complete; overall K16 readiness remains INCONCLUSIVE for missing proof. No physical run, K13 rerun, E/F, contract edit, reinstall or push. K14 VOID; K15 conditional; LC3 undecided; D1–D3 pending.

@@ -1908,3 +1908,11 @@ Retomamos el audit L3 B3-3 en audit/b3-s2-beamdyn-static,
    Log logs/check/quick-20261022T074839.log.
    Es smoke, no cierre físico de B3-3.
 ```
+
+### K16 G1 preparation RESULT — input-only candidates, 2026-10-22
+- Work unit `7806604`: additive `tools/bd_k16_candidate.py`, 11 public CLI tests and tracker `odd/tasks/k16-g1-output-contract.md`. Original generator/shared code unchanged; no reference directories modified.
+- Generated, NOT executed: `logs/check/k16-g1-inputs-LC3-p60-s0.0001` and `logs/check/k16-g1-inputs-LC2-p60-s0.0001`. Complete nodal TD/RD, Gaussian and SumPrint requested; manifest explicitly keeps G1 open. True-tip loads are retained, not proven equivalent to shell station loading.
+- Explicit user authorization preceded new source/install/recipe reads. Installed driver matches local conda-forge `openfast-5.0.0-h9ad4a36_1` manifests; recipe declares upstream v5.0.0 tarball without patches. Exact tarball-to-checkout equivalence remains unverified; version alone is not proof. No reinstall or binary execution.
+- Corrected export feasibility: authorized source `BeamDyn_IO.f90:2049-2060` emits initial FE/GLL XYZ and WM rotations in `Init_Nodes_E<n>` summary arrays. SumPrint therefore offers a reference-geometry route without source instrumentation. Per-element/global ordering, units/conversion, endpoint coverage and ES18.5 serialization bounds remain unverified; no summary/output was read.
+- RED/GREEN observed; final focused tests 11 passed, exit 0; Ruff pass. Quick smoke job-1 exit 0: 75 passed, 1 xfailed, 699 warnings in 13.93 s; `logs/check/quick-20261022T101326.log`, wrapper `logs/check/k16-g1-candidate-quick.log`. Smoke preceded the final metadata/help-only addition; final focused check covered it. No physical evidence follows.
+- Native assess unavailable for this candidate (untracked-scope declaration required despite committed range); no native review claimed. Risk: none for additive text-generation tooling. G1–G4 remain unclosed: validated reference-field schema, matched geometry/load/work, independent uncertainty bounds and shared calibrated instrument are missing. Overall readiness INCONCLUSIVE; no discriminant execution, K13 rerun, E/F, contract edit or push. K14 VOID; K15 conditional; LC3 undecided; D1–D3 pending.
