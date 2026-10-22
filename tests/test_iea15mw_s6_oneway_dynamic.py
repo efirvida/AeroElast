@@ -8,10 +8,14 @@ static equilibrium under the window-mean loads.  Compares the tip
 out-of-plane deflection series against ElastoDyn's OoPDefl1 over the same
 window.
 
-Measured (2026-09-10, element_size 0.5):  the fluctuation amplitude closes
-(std 0.5539 m vs ElastoDyn 0.6138 m, -9.8%); the mean carries the K_G
-over-response documented in S-5 (13.24 m vs 16.09 m, -17.7% — the rotating
-stiffness overshoots, see the tool docstring).
+Measured (2026-10-22, element_size 0.25, 7dfe78d, SLURM 11622086):  the
+fluctuation amplitude closes (std 0.5821 m vs ElastoDyn 0.6138 m, -5.16%); the
+mean carries the K_G over-response documented in S-5 (14.024 m vs 16.087 m,
+-12.83% — the rotating stiffness overshoots, see the tool docstring).  The
+2026-09-10 numbers (std -9.8%, mean -17.7%) were taken at element_size 0.5,
+which is not converged for this blade (AGENTS.md rule 9) and diverged once the
+TE-closure director mechanism was isolated (odd/tasks/l3-physical-validation.md
+L14-L19).
 
 Artifact: tests/IEA15MW/reference/s6_ad_blade1_timeseries.csv
 (t, OoPDefl1, then the 50 Fn + 50 Ft station channels) — the test is
@@ -44,7 +48,7 @@ from run_s6_oneway_dynamic import (  # noqa: E402
 
 TS_CSV = REPO_ROOT / "tests" / "IEA15MW" / "reference" / "s6_ad_blade1_timeseries.csv"
 
-# The dynamic fluctuation (std) is the S-6 deliverable: it closes at -9.8%.
+# The dynamic fluctuation (std) is the S-6 deliverable: it closes at -5.2% (es 0.25).
 STD_REL_TOL = 0.25
 # The mean carries the K_G over-response documented in S-5 (K_G static
 # inflation, ~-18%); bound it loosely to catch gross regressions only.
@@ -68,7 +72,7 @@ class TestS6OneWayDynamic:
             delimiter=",", skiprows=1)
         r_m, twist = s5[:, 0], s5[:, 3]
 
-        asm, mesh = build_assembly(0.5)
+        asm, mesh = build_assembly(0.25)
         K_eff, M, free = assemble_keff(asm, mesh, RPM_RATED * 2 * np.pi / 60.0)
         F_ts = nodal_load_series(asm, mesh, r_m, fn_ts, ft_ts, twist)
         hist = newmark_tip_series(asm, mesh, K_eff, M, free, F_ts, DT)

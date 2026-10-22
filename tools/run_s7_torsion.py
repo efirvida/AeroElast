@@ -47,8 +47,13 @@ OUT_DIR = REPO_ROOT / "docs" / "validation_data" / "generated"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def build_mesh_and_properties(element_size: float):
-    """Build the official WindIO blade mesh (same generator as S-5/S-2)."""
+def build_mesh_and_properties(element_size: float, skin_reference: str = "oml"):
+    """Build the official WindIO blade mesh (same generator as S-5/S-2).
+
+    ``skin_reference`` is passed to ``BladeMesh``: ``"oml"`` (the generator default, the
+    CFD/FSI surface) or ``"mid"`` (nodes on the laminate mid-surface, as the S-1/S-2/V-02
+    anchors build it).
+    """
     from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.models.blade.model import build_rust_properties
 
@@ -59,6 +64,7 @@ def build_mesh_and_properties(element_size: float):
         n_samples=300,
         airfoil_spacing="constant",
         span_grading="chord",
+        skin_reference=skin_reference,
     )
     mesh = generator.generate(renumber="rcm")
     properties = build_rust_properties(generator.numad_mesh_data)

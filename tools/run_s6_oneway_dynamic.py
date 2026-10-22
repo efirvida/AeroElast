@@ -88,7 +88,7 @@ def extract_timeseries(out_path: Path, ad_blade_path: Path):
     return t, fn, ft, twist, blspn, oop
 
 
-def build_assembly(element_size=0.5):
+def build_assembly(element_size=0.5, skin_reference="oml"):
     from aeroelast.core.assembler import MeshAssembler
     from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.elements import ElementFamily
@@ -97,6 +97,7 @@ def build_assembly(element_size=0.5):
     gen = BladeMesh(
         element_size=element_size,
         yaml_file=str(REPO / "tests/IEA-15-240-RWT.yaml"),
+        skin_reference=skin_reference,
     )
     mesh = gen.generate(renumber="rcm")
     props = build_rust_properties(gen.numad_mesh_data)

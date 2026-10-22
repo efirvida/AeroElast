@@ -20,8 +20,16 @@ nodes sit on the outer mould line with the laminate centred on them, and moving 
 the laminate mid-surface closes the ratio to about 0.97.  See
 ``odd/tasks/s7-torsion-ratio.md`` sections E7 and E8.
 
-The bound is the L3 ceiling, ±5 % around exact agreement, so the test is red while the
-ratio reads about 0.91 at es 0.25.  The former ±30 % window had no quantified source and
+Since 2026-10-22 the blade is built with the skin on the laminate mid-surface
+(``skin_reference="mid"``), like the S-1, S-2, V-02, V-03 and V-05 anchors.  The OML
+placement centres the laminate on the aerodynamic surface, so half of every wall lies
+outside the blade.  That inflates the Bredt enclosed area (factor 0.864, E8) and was the
+cause of the excess; the BeamDyn deck's SONATA model stacks the plies inward from the
+OML.  Measured at 7dfe78d, es 0.25 (``odd/tasks/l3-physical-validation.md`` L25):
+band ratio 0.8980 on the OML, **1.0009** on the mid-surface.
+
+The bound is the L3 ceiling, ±5 % around exact agreement.  On the OML placement the
+test was red at about 0.90 at es 0.25.  The former ±30 % window had no quantified source and
 could detect neither the 10.2 % load error nor the 16 % reference error, which is why the
 couple construction and the reference integral each carry their own exact test.
 """
@@ -76,11 +84,13 @@ ELEMENT_SIZE = 0.25
 #: with no quantified source; tightened in B3-2 batch 1 (odd/tasks/validation-l3-b3-audit.md),
 #: red allowed.
 _RATIO_TOL = 0.05
+# Laminate mid-surface, as the other blade structural anchors (see the module docstring).
+SKIN_REFERENCE = "mid"
 
 
 @pytest.mark.slow
 def test_s7_global_torsion_ratio_within_band():
-    mesh, properties = build_mesh_and_properties(ELEMENT_SIZE)
+    mesh, properties = build_mesh_and_properties(ELEMENT_SIZE, SKIN_REFERENCE)
     u = run_torsion_case(mesh, properties, MOMENT_NM)
     u_arr = np.asarray(u, dtype=np.float64)
 
@@ -94,8 +104,8 @@ def test_s7_global_torsion_ratio_within_band():
     # The shell twists less than the beam: at the correct load and against the integral-to-z
     # reference the global ratio is 0.8670, i.e. the shell's global GJ is about 15 % above the
     # deck -- the same side as S-1's sectional comparison (+10.8 % signed at HEAD).  Most of the
-    # excess tracks the skin's OML reference surface (E8); this test reports the measurement and
-    # does not adjudicate the model difference.
+    # excess tracked the skin's OML reference surface (E8); on the mid-surface the band ratio is
+    # 1.0009 at 7dfe78d (L25 of odd/tasks/l3-physical-validation.md).
     #
     # The bound is the L3 ceiling, [0.95, 1.05] around exact agreement, which is what
     # assert_relative_error expresses symmetrically (it was [0.7, 1.3] before B3-2 batch 1).
@@ -156,7 +166,7 @@ def test_s7_applied_moment_matches_request():
     direction this module reports -- the bound was five times the effect it was meant to guard.
     See ``odd/tasks/s7-torsion-ratio.md``.
     """
-    mesh, _ = build_mesh_and_properties(ELEMENT_SIZE)
+    mesh, _ = build_mesh_and_properties(ELEMENT_SIZE, SKIN_REFERENCE)
     tip_nodes, f_y = tip_couple(mesh, MOMENT_NM)
     x_off = mesh.coords_array[tip_nodes, 0] - mesh.coords_array[tip_nodes, 0].mean()
     mz_applied = float((x_off * f_y).sum())
