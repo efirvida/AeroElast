@@ -15,7 +15,7 @@ Branch: `audit/b3-s2-beamdyn-static`; baseline `3e381af`; delivery ask-on-risk, 
 - T2 | S1–S5 | delegated bounded writer (context-backstop) | done | RED 4 failed/8 passed (91.6667%); fix in `assembler.rs`; release rebuild; compiled GREEN 26 passed; 12 rows registered in group 28 (not_measured until recorded at a revision); commit: this work unit.
 - T3 | S1–S5 | parent execution + independent high-risk verification | done (independent verifier unavailable, see L5) | Collect immutable baseline, run corrected official es0.25 four-case physics and matching element anchors; full-suite measurement on SLURM after Rust rebuild; quantify blade impact without claiming entire gap fixed.
 - T4 | S1–S5 | parent store reconciliation | done | Groups 39/28 in 4b6a04b; CCX mesh-convergence, V-02 1F/1E, S-7 at 7d20c81 in the L6 commit. contract.yaml untouched.
-- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; element-level fix pending) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
+- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; blade re-measurement pending) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
 
 ## Log
 ### L1 — User correction (verbatim)
@@ -136,3 +136,38 @@ vamos a seguir en esta sesion, pero creo que debemos comitear primero
 - Open hypotheses: (a) unstiffened MITC4 drilling at nodes where the TE closure creates a 92° corner between 1.8 mm slivers (flat patch already has 2 drilling zero modes); (b) the TE closure mesh itself, a 1.8 mm strip, is a degenerate representation of the flatback/TE that leaves a rotational mechanism; (c) round-off amplification by aspect 165 slivers.
 - Next (new session): extract the actual TE patch (the 24 elements around node 1596) into a sub-model and compare its assembled K with the full-mesh block; compute the null-space vector of that patch and its DOF content; test whether a drilling stiffness, or removing/merging the 1.8 mm TE strip, changes es0.25 static rotation and the es0.5 sign. Mesh-generation change versus element drilling change is a formulation choice: record the evidence first.
 - Physical status unchanged: S-6 es0.25 numbers (L9) are not evidence until the TE mechanism is removed.
+
+### L18 — Defect demonstrated: director averaging across the TE fold (2026-10-22)
+```text
+Retomamos odd/tasks/l3-physical-validation.md, T5, desde L17
+   (mecanismo rotacional en el cierre TE, r≈92 m). mem_search "TE closure slivers"
+ (observación 90).
+```
+- **L17 correction.** The "sign set at round-off" reading was wrong. A principal block of a sum of PSD matrices cannot reach −55.9 against a maximum of 1e10 (5.6e−9). L17's element check used one-element models, where the director is the element's own normal. In the blade, `mitc4_nodal_directors` area-averages the directors of *all* MITC4 elements at a node, with no fold criterion.
+- TE sub-model (`logs/check/l3-s6-probe/te_submodel.py`, SLURM 11622060, `logs/check/l3-te-submodel-11622060.log`). It covers the patch plus its 1-ring, so directors are exact on the patch nodes. Its block reproduces the blade's (−55.87 vs −55.87 at es0.5; +2.410 vs +2.416 at es0.25).
+  - TE_FLAT + REINF together: min/λmax −5.2e−9 with 9 negatives (es0.5) and −3.3e−9 with 4 negatives (es0.25), all ≥97 % θz on the TE nodes.
+  - Each family alone is PSD: TE_FLAT only −3e−17, REINF only −2e−16.
+  - Fold-node directors sit 79.4° (LP) and 85.3° (HP) off the sliver normal, because the 0.134 m² REINF quad outweighs the 5.4e−4 m² sliver. The sliver's director lies in its own plane.
+- Synthetic sweep (panel 0.45 m + sliver at fold θ, `logs/check/l3-te-fold-sweep.log`): indefinite only when h/width ≫ 1. With h = 12 mm on 1.8 mm, θ 30–45° gives down to −5.4e−7 and θ 135–175° gives about −3e−8. With h = 1.2 mm it is clean at every θ.
+- **Fix (`crates/aeroelast-core/src/assembly/assembler.rs`, `mitc4_nodal_directors`).** Directors are now per element-node and follow the Abaqus rule (*Defining the initial geometry of conventional shell elements*, "Calculation of average nodal normals"). Directors at a node are grouped transitively by pairwise angle ≤ 20°. A group is averaged (area-weighted, ADR-4 option A) only if all its pairs are within 20°; otherwise each element keeps its own director. Nodes with more than 30 elements are not averaged. Pass 2 in `new` and `rebuild_precomputed` assigns `pre.vn = directors[e]`.
+- RED (`tests/test_mitc4_fold_directors.py`, now tracked; `logs/check/l3-fold-criterion-red.log`): 14 failed, 13 passed.
+  - Folds of 21, 92 and 150° and the 0/15/30 chain give |K − ΣK_alone|/|K| = 3.6e−3 … 0.96.
+  - The thick-sliver PSD cases give down to −5.4e−7.
+- Release rebuild 49 s; extension SHA `c0d9b9a7…` (baseline `9e183ce…` kept in `logs/check/l3-fold-baseline-extension/`). GREEN: 27 passed in 2.22 s (`logs/check/l3-fold-criterion-green.log`).
+  - Folds of more than 20°: ≤4e−17.
+  - Smooth 10/19° and 0/10/19 cases: unchanged values (2.04e−3 …).
+  - Thick sliver: ≥ −9e−17.
+- Differential, base vs new extension (`logs/check/l3-fold-differential.log`):
+  - Bit-identical: twisted 90° strip, 24-sided cylinder and 10° fold (iso and composite).
+  - Changed only beyond 20°: 92° sliver fold, T-junction, and an 8-sided cylinder (45°/element). The last one is the Abaqus caveat: a coarse mesh of a smooth shell becomes a fold. Whether that happens on the blade (LE at es0.25) is measured by the fold census.
+- After the fix (extension `c0d9b9a7…`):
+  - **TE sub-model** (`logs/check/l3-fold-census-11622071.log`): 0 negatives and exactly 6 zero modes at es0.5 and es0.25. The blade block min eig is now +174.2 at es0.5 (was −55.9) and +102.4 at es0.25 (was +2.4).
+  - **S-6 growing shape** (`logs/check/l3-fold-s6shape-11622068.log`): **es0.5 no longer diverges**. Its growing shape is the 1st flap (w² = 13.02 rad²/s², was −1.5e5); es0.25 gives 13.10.
+  - **es0.25 static-IC max rotation**: 1.485 rad θz at node 986 (−1.17, −3.59, 112.5), down from 3.53 rad at the TE at r = 92.7. At es0.5 it is 2.43 rad at node 528, r = 109.8, essentially the same as the 2.51 rad at r ≈ 110 reported in L14. This second local rotation near the tip region is open and is *not* the TE fold.
+- **Fold census es0.25** (same log). 5138 of 32 656 quad nodes now keep separate directors:
+  - spar cap ↔ shear web: 2344 nodes, ~90°;
+  - TE_FLAT ↔ TE_REINF: 1232 nodes, 80–105°; TE_FLAT ↔ TE_FLAT: 53;
+  - LE seam HP_LE ↔ LP_LE: 506 nodes, 97°;
+  - coarse LE curvature: about 1000 nodes inside LE / LE_PANEL at 21–43°.
+  - 1909 nodes sit at 10–20° and stay averaged.
+  The web junction and the TE are true intersections, where separate directors are the standard treatment. The LE is the Abaqus coarse-mesh caveat: a smooth surface becomes faceted at es0.25. **Every blade anchor can move**, so the fix is not accepted until S-1/S-2/S-4/S-7/V-02 are re-measured against the 7d20c81 suite. That suite is a valid baseline: same source except this fix, extension 9e183ce.

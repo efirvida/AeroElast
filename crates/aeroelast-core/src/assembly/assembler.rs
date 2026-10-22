@@ -144,7 +144,8 @@ impl MeshAssembler {
 
         // Pass 1 — mesh-consistent nodal directors (ADR-4 option A) for the
         // MITC4/MITC4Composite elements: the area-weighted mean of the
-        // element-local directors `V_n^a` shared by every element at a node.
+        // element-local directors `V_n^a` at a node, except across a fold
+        // (> 20 deg, see `mitc4_nodal_directors`).
         // Measured (apply-progress §WU9e) to close the thick twisted-beam
         // residual; the element-local director field is the defect.
         let nodal_director = mitc4_nodal_directors(&topology, &materials);
@@ -194,9 +195,7 @@ impl MeshAssembler {
                     // mesh-consistent nodal directors. Measured identical to
                     // also rebuilding `b_shear_tie`, `v_d`, `j0` and
                     // `drill_edges` (apply-progress §WU9e), so only `vn` moves.
-                    for (a, &node) in topology.connectivity[e].iter().enumerate() {
-                        pre.vn[a] = nodal_director[node];
-                    }
+                    pre.vn = nodal_director[e];
                     PrecomputedElem::Quad(pre)
                 }
                 ElemType::Quad4 => {
@@ -323,9 +322,7 @@ impl MeshAssembler {
                     );
                     pre.cs_uncorrected = mitc4_uncorrected_shear(mat, &pre.constitutive);
                     // Pass 2 — same director overwrite as `new`.
-                    for (a, &node) in self.topology.connectivity[e].iter().enumerate() {
-                        pre.vn[a] = nodal_director[node];
-                    }
+                    pre.vn = nodal_director[e];
                     PrecomputedElem::Quad(pre)
                 }
                 // Non-shell elements: coords stored differently, skip rebuild
@@ -1340,15 +1337,31 @@ fn quad_area_3d(p: &[[f64; 3]; 4]) -> f64 {
     a1 + a2
 }
 
+/// Largest angle between element directors that are still averaged into one
+/// nodal director (Abaqus, "Calculation of average nodal normals": 20 deg).
+const DIRECTOR_FOLD_DEG: f64 = 20.0;
+/// Abaqus does not average at a node shared by more than 30 shell elements.
+const DIRECTOR_MAX_AVERAGED: usize = 30;
+
 /// Mesh-consistent nodal directors (ADR-4 option A) for every MITC4 /
-/// MITC4Composite element: the area-weighted mean of the adjacent elements'
-/// element-local `V_n^a`, normalised per global node. Non-shell nodes get the
-/// flat fallback `[0, 0, 1]`.
+/// MITC4Composite element, as `directors[e][a]` for local node `a` of element
+/// `e` (zeros for other element types).
+///
+/// The element-local directors `V_n^a` meeting at a node are grouped
+/// transitively by pairwise angles <= `DIRECTOR_FOLD_DEG`. A group whose
+/// directors are all pairwise within that angle is a smooth surface and gets
+/// their area-weighted mean; any other group is a fold, and each of its
+/// elements keeps its own director (the Abaqus rule, order independent).
+/// Without this criterion a 0.13 m^2 TE_REINF quad meeting a 1.8 mm TE_FLAT
+/// sliver at ~90 deg handed the sliver a director lying in its own plane, and
+/// the assembled blade K became indefinite (T5, S-6 divergence).
 fn mitc4_nodal_directors(
     topology: &MeshTopology,
     materials: &[MaterialSpec],
-) -> Vec<Vector3<f64>> {
-    let mut acc = vec![Vector3::zeros(); topology.n_nodes];
+) -> Vec<[Vector3<f64>; 4]> {
+    let mut directors = vec![[Vector3::zeros(); 4]; topology.n_elems];
+    let mut area = vec![0.0f64; topology.n_elems];
+    let mut at_node: Vec<Vec<(usize, usize)>> = vec![Vec::new(); topology.n_nodes];
     for e in 0..topology.n_elems {
         if !matches!(
             topology.elem_types[e],
@@ -1367,21 +1380,59 @@ fn mitc4_nodal_directors(
             thickness,
             applied_shear_correction,
         );
-        let area = quad_area_3d(&pre.initial_coords_3d);
+        area[e] = quad_area_3d(&pre.initial_coords_3d);
         for (a, &node) in topology.connectivity[e].iter().enumerate() {
-            acc[node] += area * pre.vn[a];
+            directors[e][a] = pre.vn[a];
+            at_node[node].push((e, a));
         }
     }
-    acc.into_iter()
-        .map(|v| {
-            let n = v.norm();
-            if n > 1e-30 {
-                v / n
-            } else {
-                Vector3::new(0.0, 0.0, 1.0)
+
+    let cos_fold = DIRECTOR_FOLD_DEG.to_radians().cos();
+    let mut averaged = directors.clone();
+    for members in at_node.iter().filter(|m| !m.is_empty()) {
+        if members.len() > DIRECTOR_MAX_AVERAGED {
+            continue;
+        }
+        let v = |i: usize| directors[members[i].0][members[i].1];
+        let close = |i: usize, j: usize| v(i).dot(&v(j)) >= cos_fold;
+        let mut group_of = vec![usize::MAX; members.len()];
+        for seed in 0..members.len() {
+            if group_of[seed] != usize::MAX {
+                continue;
             }
-        })
-        .collect()
+            // Transitive closure of the 20-degree relation from `seed`.
+            let mut group = vec![seed];
+            group_of[seed] = seed;
+            let mut k = 0;
+            while k < group.len() {
+                let i = group[k];
+                for j in 0..members.len() {
+                    if group_of[j] == usize::MAX && close(i, j) {
+                        group_of[j] = seed;
+                        group.push(j);
+                    }
+                }
+                k += 1;
+            }
+            let smooth = group
+                .iter()
+                .all(|&i| group.iter().all(|&j| close(i, j)));
+            if !smooth {
+                continue;
+            }
+            let sum: Vector3<f64> = group
+                .iter()
+                .map(|&i| area[members[i].0] * v(i))
+                .sum();
+            let n = sum.norm();
+            if n > 1e-30 {
+                for &i in &group {
+                    averaged[members[i].0][members[i].1] = sum / n;
+                }
+            }
+        }
+    }
+    averaged
 }
 
 fn material_rho(mat: &MaterialSpec) -> f64 {
