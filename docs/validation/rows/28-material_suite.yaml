@@ -710,8 +710,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_production_zero_ply_follows_span.quad
@@ -733,8 +737,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_triangle_span_uses_material_referen.reversed_normal
@@ -756,8 +764,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_triangle_span_uses_material_referen.diagonal_local_edge
@@ -779,8 +791,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_triangle_span_uses_material_referen.global_x_normal_fallback_z
@@ -802,8 +818,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_triangle_span_uses_material_referen.tilted_projected_span
@@ -825,8 +845,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_existing_reference_without_in_plane.default_tri
@@ -848,8 +872,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_existing_reference_without_in_plane.default_quad
@@ -871,8 +899,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_existing_reference_without_in_plane.normal_span_tri
@@ -894,8 +926,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_existing_reference_without_in_plane.normal_span_quad
@@ -917,8 +953,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_isotropic_production_span_behavior.tri
@@ -940,8 +980,12 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: material_suite.test_isotropic_production_span_behavior.quad
@@ -963,7 +1007,11 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      margin_pct: 0.0
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.0
+      text: 'Production-path membrane energy vs CLT closed form: error 0.0000 %, bound 5 % (12 passed, logs/check/l3-span-frame-7d20c81.log, extension 9e183ce). Pre-fix the four triangle span cases failed at 91.6667 % (+Z, reversed normal, diagonal edge) and 67.5312 % (tilted projected span).'
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
