@@ -691,3 +691,279 @@ rows:
       digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_production_zero_ply_follows_span.tri
+  group: '28'
+  title: test_production_zero_ply_follows_span[tri]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_production_zero_ply_follows_span[tri]
+  validates: production_zero_ply_follows_span
+  comparisons:
+  - label: rtol at line 67
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 uniform-strain energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:67
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_production_zero_ply_follows_span.quad
+  group: '28'
+  title: test_production_zero_ply_follows_span[quad]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_production_zero_ply_follows_span[quad]
+  validates: production_zero_ply_follows_span
+  comparisons:
+  - label: rtol at line 67
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 uniform-strain energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:67
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_triangle_span_uses_material_referen.reversed_normal
+  group: '28'
+  title: test_triangle_span_uses_material_reference_not_local_edge[reversed-normal]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_triangle_span_uses_material_reference_not_local_edge[reversed-normal]
+  validates: triangle_span_uses_material_reference_not_local_edge
+  comparisons:
+  - label: rtol at line 85
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 uniform-strain energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:85
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_triangle_span_uses_material_referen.diagonal_local_edge
+  group: '28'
+  title: test_triangle_span_uses_material_reference_not_local_edge[diagonal-local-edge]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_triangle_span_uses_material_reference_not_local_edge[diagonal-local-edge]
+  validates: triangle_span_uses_material_reference_not_local_edge
+  comparisons:
+  - label: rtol at line 85
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 uniform-strain energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:85
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_triangle_span_uses_material_referen.global_x_normal_fallback_z
+  group: '28'
+  title: test_triangle_span_uses_material_reference_not_local_edge[global-X-normal-fallback-Z]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_triangle_span_uses_material_reference_not_local_edge[global-X-normal-fallback-Z]
+  validates: triangle_span_uses_material_reference_not_local_edge
+  comparisons:
+  - label: rtol at line 85
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 uniform-strain energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:85
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_triangle_span_uses_material_referen.tilted_projected_span
+  group: '28'
+  title: test_triangle_span_uses_material_reference_not_local_edge[tilted-projected-span]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_triangle_span_uses_material_reference_not_local_edge[tilted-projected-span]
+  validates: triangle_span_uses_material_reference_not_local_edge
+  comparisons:
+  - label: rtol at line 85
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 uniform-strain energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:85
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_existing_reference_without_in_plane.default_tri
+  group: '28'
+  title: test_existing_reference_without_in_plane_span_is_preserved[default-tri]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_existing_reference_without_in_plane_span_is_preserved[default-tri]
+  validates: existing_reference_without_in_plane_span_is_preserved
+  comparisons:
+  - label: rtol at line 98
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 default-reference energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:98
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_existing_reference_without_in_plane.default_quad
+  group: '28'
+  title: test_existing_reference_without_in_plane_span_is_preserved[default-quad]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_existing_reference_without_in_plane_span_is_preserved[default-quad]
+  validates: existing_reference_without_in_plane_span_is_preserved
+  comparisons:
+  - label: rtol at line 98
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 default-reference energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:98
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_existing_reference_without_in_plane.normal_span_tri
+  group: '28'
+  title: test_existing_reference_without_in_plane_span_is_preserved[normal-span-tri]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_existing_reference_without_in_plane_span_is_preserved[normal-span-tri]
+  validates: existing_reference_without_in_plane_span_is_preserved
+  comparisons:
+  - label: rtol at line 98
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 default-reference energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:98
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_existing_reference_without_in_plane.normal_span_quad
+  group: '28'
+  title: test_existing_reference_without_in_plane_span_is_preserved[normal-span-quad]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_existing_reference_without_in_plane_span_is_preserved[normal-span-quad]
+  validates: existing_reference_without_in_plane_span_is_preserved
+  comparisons:
+  - label: rtol at line 98
+    asserted: true
+    reference:
+      kind: analytical
+      label: CLT UD plane-stress Q11 default-reference energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:98
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_isotropic_production_span_behavior.tri
+  group: '28'
+  title: test_isotropic_production_span_behavior_is_preserved[tri]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_isotropic_production_span_behavior_is_preserved[tri]
+  validates: isotropic_production_span_behavior_is_preserved
+  comparisons:
+  - label: rtol at line 109
+    asserted: true
+    reference:
+      kind: analytical
+      label: isotropic plane-stress uniform-strain energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:109
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
+- id: material_suite.test_isotropic_production_span_behavior.quad
+  group: '28'
+  title: test_isotropic_production_span_behavior_is_preserved[quad]
+  tests:
+  - tests/validation/element/test_production_span_frame.py::test_isotropic_production_span_behavior_is_preserved[quad]
+  validates: isotropic_production_span_behavior_is_preserved
+  comparisons:
+  - label: rtol at line 109
+    asserted: true
+    reference:
+      kind: analytical
+      label: isotropic plane-stress uniform-strain energy
+    tolerance:
+      kind: rtol
+      value: 0.05
+      source: tests/validation/element/test_production_span_frame.py:109
+      justified: true
+      justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
+    measured:
+      status: not_measured
+      margin_pct: null
+  flags: []
+  notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

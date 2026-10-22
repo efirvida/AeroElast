@@ -819,6 +819,7 @@ groups:
     slug: material_suite
     source_files:
       - tests/validation/element/test_material_suite.py
+      - tests/validation/element/test_production_span_frame.py
 
     provenance_note: >-
       The material suite: a cantilever deflection or displacement against the
