@@ -171,3 +171,42 @@ Retomamos odd/tasks/l3-physical-validation.md, T5, desde L17
   - coarse LE curvature: about 1000 nodes inside LE / LE_PANEL at 21–43°.
   - 1909 nodes sit at 10–20° and stay averaged.
   The web junction and the TE are true intersections, where separate directors are the standard treatment. The LE is the Abaqus coarse-mesh caveat: a smooth surface becomes faceted at es0.25. **Every blade anchor can move**, so the fix is not accepted until S-1/S-2/S-4/S-7/V-02 are re-measured against the 7d20c81 suite. That suite is a valid baseline: same source except this fix, extension 9e183ce.
+
+### L19 — S-6 after the fold fix; pre-existing TE cross-section distortion near the tip (2026-10-22)
+- Fix committed as `7dfe78d` (Risk: item 3).
+- **S-6 official es0.25 with the fix** (SLURM 11622086, extension c0d9b9a7, `logs/check/l3-s6-fold-es0.25-11622086.log`): tip OoP mean 14.024 m vs ElastoDyn 16.087 m (**−12.83 %**, was −12.80 %), std 0.5821 vs 0.6138 m (**−5.16 %**, was −5.12 %), against an accepted 25 % bound. The global response did not depend on the TE mechanism.
+- **Residual static rotation is not a stiffness mechanism.** Node 986 (r = 112.5, HP_TE_PANEL/REINF, smooth: director 0.7–1.3° off the normals) has a PSD 1-ring sub-model with exactly 6 zero modes. Its 1.48 rad rotation is not drilling (θ·director ≈ −0.06). Static split (`logs/check/l3-s6-static-split-11622100.log`): **K alone** gives 1.608 rad, K+Kg 1.482, Krot 1.480, so prestress is not the cause. Nodal rotation percentiles 50/99/99.9 = 0.084/0.66/1.40 rad. The S-6 loads are translational forces only (`nodal_load_series`, `a in range(3)`), with no applied moments.
+- **Cross-section distortion at the TE** (`section_twist.py`, static K, mean S-6 load; `logs/check/l3-s6-section-twist-11622101.log` vs baseline extension 9e183ce `l3-s6-section-twist-base9e183ce-*.log`). Per station, the rigid twist φ is fitted to the ring's in-plane translations; the residual and the nodal θz spread measure in-plane distortion. Worst node always in the TE region:
+
+  | r [m] | φ fix / base [rad] | ring residual fix / base [m] | θz min…max fix (base) |
+  |---|---|---|---|
+  | 85.0 | −0.039 / −0.041 | 0.012 / 0.019 | −0.09…0.00 (−0.12…0.02) |
+  | 90.6 | −0.053 / −0.067 | 0.032 / 0.083 | −0.24…0.02 (−0.52…0.47) |
+  | 97.6 | −0.096 / −0.115 | 0.159 / 0.229 | −0.62…0.59 (−0.97…0.80) |
+  | 110.1 | −0.158 / −0.170 | 0.245 / 0.269 | −1.47…0.59 (−1.57…0.62) |
+  | 117.0 | −0.149 / −0.167 | 0.023 / 0.030 | −0.26…0.10 (−0.37…0.23) |
+
+  The distortion **pre-exists the fix, which reduces it** (by 30–60 % at r = 90–98 m). It is still 16–25 cm of in-plane ring distortion at r = 97–112 m under a linear static load with a 15.4 m tip deflection. The fix also lowers the rigid twist by 7–20 % outboard, so the S-7 torsion anchor is expected to move.
+- No independent reference exists yet for local section distortion; the S-6 tip metrics do not see it. Hypotheses, none tested:
+  - (i) The load model applies the sectional fn/ft as equal translational forces on every ring node, including the TE panel and TE_FLAT nodes. A real aerodynamic load is a surface pressure, so this may over-load the TE panel out of plane.
+  - (ii) A soft TE panel / TE closure laminate near the tip (interpolated sections).
+  - (iii) A remaining element issue in thin, stiff-face sandwich panels.
+  The discriminating test is the same static case with the forces lumped on the spar/shear-centre nodes only, or a CCX S8R arbiter of the same mesh and load.
+- Physical status:
+  - The S-6 es0.25 tip numbers now come from a PSD model without the TE mechanism, but are not promoted to the store until the full-suite anchor check (below) and the section-distortion question are resolved.
+  - `tests/test_iea15mw_s6_oneway_dynamic.py:63` still builds es0.5, a rule-9 defect (es ≥ 0.3); that unit's fix (move to 0.25) is pending and is a test change with no physics debate.
+- **Full suite at 7dfe78d running** (job-5, `scripts/check_sbatch.sh full -- --ntasks=12`, sequana_cpu, log `logs/check/full-<stamp>.log`). Baseline: `logs/check/full-20261022T113305.log` (7d20c81, extension 9e183ce, 18 failed / 1407 passed). Compare per anchor:
+  - S-1 EI/GJ/EA;
+  - S-2 LC1–LC4 official;
+  - S-4 1F/1E/2F;
+  - S-7 9.0924 %;
+  - V-02 1F 6.0930 % and 1E 8.4707 %;
+  - CCX 9.2182 %;
+  - S-6 (×2, es0.5 now expected to pass or change);
+  - twist mechanism and section-frame tear guard.
+  Any anchor that moves is recorded as a finding, never re-banded.
+- **Resume recipe.**
+  1. Read this document from L18 and `mem_search "director averaging folds"` (observation 90).
+  2. When the suite ends: `grep -E "^(FAILED|ERROR)|passed|failed" <log>` and diff the failure set and the anchor percentages against the 7d20c81 log.
+  3. If the anchors hold or improve, record group 39/28/S-7/V-02 rows at 7dfe78d and update S-6.
+  4. Then decide the section-distortion probe (lumped-load variant first, dev ~2 min).
