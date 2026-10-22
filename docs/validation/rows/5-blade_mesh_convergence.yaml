@@ -20,11 +20,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 1d9a665
-      date: '2026-10-04'
-      raw: null
-      margin_pct: 0.1948
-      text: 0.1948% bound 1.0000%
+      run: 7dfe78d
+      date: '2026-10-22'
+      raw: 0.005138
+      margin_pct: 0.5138
+      text: 'worst low-mode gap on the finest mesh vs the CalculiX frequencies for the same blade and mesh: 0.5138 %, bound 1 % PASS (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d; first printed value of this comparison in a full-suite log, the 0.1948 % stored at 1d9a665 is the previous record).'
       digest: 80a7c7a60508611e
   - label: rtol at line 179
     asserted: true
@@ -39,11 +39,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7d20c81
+      run: 7dfe78d
       date: '2026-10-22'
-      raw: 0.092182
-      margin_pct: 9.2182
-      text: 'worst high-mode gap, an element-order difference not discretisation: 9.2182 % against the CalculiX frequencies for the same blade and mesh, bound 5 % FAIL (full suite SLURM 11621862 at 7d20c81). Already failing in the full suites of 2026-10-19 (9.3061 %, 9.2253 %): the 2.1197 % stored at 1d9a665 was stale. The 1 % comparison was not printed by the quiet full-suite log and is not re-measured here.'
+      raw: 0.139784
+      margin_pct: 13.9784
+      text: 'worst high-mode gap, an element-order difference not discretisation: 13.9784 % against the CalculiX frequencies for the same blade and mesh, bound 5 % FAIL (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d, 20-degree fold-director criterion; 7d20c81 9.2182 %). Scratch variant with the coarse LE averaged: 13.9766 % (L22), so the move belongs to the true-fold nodes.'
       digest: 04340b1d07f6552e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
