@@ -415,3 +415,15 @@ Question (D3): is the published 6x6 (`components.blade.elastic_properties_mb.six
   - The docstring premise that "K_G injects a spurious ~13 %" came from the OML placement. The shell's rotating modes close against OpenFAST (S-4 1st flap −1.4 %), so K_G is not suspect.
   - Test moved to mid, es 0.25 and rotating K_eff; bounds unchanged. IP |u_x| = 2.00 m gives a ratio of 2.47 against the loose 2.5 bound (IP is apples-to-oranges by the module's own account). Test: 3 passed (SLURM 11622382).
 - Store: S-7 row (`rows/34`) re-measured at 38b8ba2, ratio 1.00095 (0.0947 %, PASS). S-5 and S-6 have no store row, so nothing was written for them; their numbers live in the test docstrings and here.
+
+### L26 — V-02 / S-4 frequencies against v1.1 yaml-consistent beams (2026-10-22)
+- Worker report `logs/check/l3-beamfreq/REPORT.md`. Our clamped EB beam (`tools/s4_deck_clamped_beam_modes.py`) reproduces `logs/check/s4/deck_clamped_beam.txt` exactly. It was fed the deck and the PreComp reading of the yaml (L24).
+
+  | mode [Hz] | published (v1.0) | deck EB | PreComp EB | shell (V-02, mid, es 0.25) | shell vs deck / PreComp |
+  |---|---|---|---|---|---|
+  | 1F | 0.5585 | 0.5159 | 0.5268 | 0.5246 | +1.7 / −0.4 % |
+  | 1E | 0.6406 | 0.7242 | 0.7181 | 0.6951 | −4.0 / −3.2 % |
+
+  - A first-order shear bound lowers the beams by about 2 %, giving +1.8 to +3.9 % on 1F and −1.4 to −2.3 % on 1E. That is the fairer comparison, because the shell carries transverse shear.
+- **V-02, outcome (d), reference restriction.** NREL/TP-5000-75698 describes the v1.0 blade (B3-2, `validation-l3-b3-audit.md:507`). Both v1.1 readings sit 5.7–7.6 % below it on 1F and 12–13 % above it on 1E. The 1E gap even has the opposite sign to the shell's. Against v1.1 beams the shell is inside 5 % on both modes. The beam is our code and explains the number; it is not an independent arbiter. The V-02 test stays red against the v1.0 table; changing its reference is a contract decision (D1) that this record supports.
+- **S-4 1E** reads −5.4 % against OpenFAST/ElastoDyn: −1.3 pp is ElastoDyn's assumed modes, and −3.2 to −4.0 % is shell below beam (−1.4 to −2.3 % after the shear bound). Its link to the EI_edge deficit is tested by the prismatic arbiter.
