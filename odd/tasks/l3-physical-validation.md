@@ -414,3 +414,4 @@ Question (D3): is the published 6x6 (`components.blade.elastic_properties_mb.six
   - The old −4.5 % pass was **two compensating errors**: the OML skin is too stiff in flap, and the parked K drops the centrifugal stiffening that ElastoDyn carries at rated speed.
   - The docstring premise that "K_G injects a spurious ~13 %" came from the OML placement. The shell's rotating modes close against OpenFAST (S-4 1st flap −1.4 %), so K_G is not suspect.
   - Test moved to mid, es 0.25 and rotating K_eff; bounds unchanged. IP |u_x| = 2.00 m gives a ratio of 2.47 against the loose 2.5 bound (IP is apples-to-oranges by the module's own account). Test: 3 passed (SLURM 11622382).
+- Store: S-7 row (`rows/34`) re-measured at 38b8ba2, ratio 1.00095 (0.0947 %, PASS). S-5 and S-6 have no store row, so nothing was written for them; their numbers live in the test docstrings and here.
