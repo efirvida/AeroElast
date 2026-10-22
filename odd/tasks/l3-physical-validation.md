@@ -15,7 +15,7 @@ Branch: `audit/b3-s2-beamdyn-static`; baseline `3e381af`; delivery ask-on-risk, 
 - T2 | S1–S5 | delegated bounded writer (context-backstop) | done | RED 4 failed/8 passed (91.6667%); fix in `assembler.rs`; release rebuild; compiled GREEN 26 passed; 12 rows registered in group 28 (not_measured until recorded at a revision); commit: this work unit.
 - T3 | S1–S5 | parent execution + independent high-risk verification | done (independent verifier unavailable, see L5) | Collect immutable baseline, run corrected official es0.25 four-case physics and matching element anchors; full-suite measurement on SLURM after Rust rebuild; quantify blade impact without claiming entire gap fixed.
 - T4 | S1–S5 | parent store reconciliation | done | Groups 39/28 in 4b6a04b; CCX mesh-convergence, V-02 1F/1E, S-7 at 7d20c81 in the L6 commit. contract.yaml untouched.
-- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; blade re-measurement pending) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
+- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt), LE coarse-facet population unresolved, criterion scope pending) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
 
 ## Log
 ### L1 — User correction (verbatim)
@@ -242,3 +242,63 @@ Retomamos odd/tasks/l3-physical-validation.md, T5, desde L17
   3. **S-7 at 7dfe78d vs 7d20c81** per span band.
   4. **Then decide the threshold scope.** Options: Abaqus 20° everywhere (current); folds only at true set-boundary junctions (web/TE); or 20° plus es-0.15 convergence for the coarse LE. That is a formulation decision, to be reported with this evidence.
   Then return to L19 steps 2–3: the S-6 test at es0.25 and the TE section distortion.
+
+### L21 — Box-tube Bredt arbitration and the CalculiX normal rule (2026-10-22)
+```text
+Retomamos odd/tasks/l3-physical-validation.md, T5, desde L20. mem_search "fold criterion suite impact" (observación 92).
+```
+- **Bredt arbitration (L20 step 1).** Same tree; extension swapped through `PYTHONPATH` (base copy `$SCRATCH/tmp/ext-base-9e183ce`, fix `c0d9b9a7` installed). Logs: `logs/check/l3-tube-base9e183ce.log` (8 passed), `l3-tube-fixc0d9b9a7.log` (3 failed, 5 passed), `l3-tube-fold-probe.log` (`logs/check/l3-s6-probe/tube_fold_probe.py`). Reference: the analytic Bredt-Batho `θ' = T/GJ` of the 1.0 × 0.6 m tube, 90° corners. Ratios to Bredt:
+
+  | case | metric | base 9e183ce | fix c0d9b9a7 |
+  |---|---|---|---|
+  | iso, self-equilibrated | θ_fit / θ_z | 1.00309 / 1.00675 | 0.99695 / **0.99976** |
+  | laminate [45,−45]s, self-equilibrated | θ_fit / θ_z | 0.99859 / 1.00704 | 0.99419 / **0.99999** |
+  | iso, tip shear flow, clamped root | θ_fit / θ_z | 0.99156 / 1.00628 | 0.99587 / 0.99929 |
+  | θ_fit vs θ_z disagreement (iso / lam) | — | 0.36 / 0.84 % | 0.28 / 0.58 % |
+  | clamped, offset transverse load, closed form | tip θ_z err (10 mm, 0.5 mm) | 0.23 / 0.11 % | 0.54 / 0.41 % |
+  | production distributed flow, energy excess (estimator-free) | dz 0.2 / 0.1 m | +4.356 / +2.484 % | **+4.251 / +2.048 %** |
+  | one-wall traction distortion amplitude (wall/shear flow) | — | 125.7× | 116.9× |
+
+  - θ_z, which the tube module establishes as the boundary-layer-free section rotation, goes from 0.7 % off Bredt to within 0.02 %. The energy metric improves and still converges with dz. The only worse number is the offset closed form, by 0.3 pp, still under 0.6 %.
+  - **Rigid-body invariance is intact.** ‖K φ_a‖/‖K‖_F = 1–4e−18 for all six rigid modes, base and fix.
+  - **"rigid modes not removed" is solve round-off, not physics.** The saddle-point `splu` leaves Φᵀu at 2.6e−10 (bound 1e−10) for the fix laminate, 2.9e−12 for the base. One step of iterative refinement takes it to 7e−16 (base 2e−13) and leaves the ratios unchanged.
+  - The two moved pins are not reference comparisons. The minimum-norm over-delivery is a recorded defect (gaps.yaml `moment_realization_over_delivers`): 31.69 → 24.66× self-equilibrated, 10.41 → 9.20× clamped. The distributed-flow energy excess is a discretisation pin and moved toward zero.
+  - **Verdict:** at true 90° folds, separate directors are equal to or closer to the analytic reference than averaged directors. The fold rule is right at true folds.
+- **CalculiX normal rule (L20 step 2, manual §6.2.14, S8/S8R; §6.2.33 "Calculating the normals in the nodes").**
+  - CCX groups element normals at a node around a reference normal within **20°**, and within 0.5° for `*NORMAL` user normals. Its procedure is the same as the Abaqus rule now in `mitc4_nodal_directors`.
+  - It **also splits normals where local thickness or offset differ**. Our averaging ignores thickness.
+  - A node with more than one normal is expanded once per normal and tied by a **knot** (rigid body; mean-rotation MPC in statics).
+  - On a smooth surface, S8R normals come from curved quadratic geometry, so they rarely trip the 20° rule. Flat MITC4 facets at a coarse LE do.
+  - So the L20 hypothesis "CCX averages where we now split" is **refuted at true folds**: CCX splits there too. The remaining convention differences are (a) CCX splits at every laminate-thickness change across set boundaries, and we average; (b) at the coarse LE, MITC4 facets exceed 20° where S8R does not. Finding (b) is the Abaqus coarse-mesh caveat. It points at the 2.0/1.0/0.5 m meshes of `test_blade_iea15mw_mesh_convergence.py` (finest 0.5 m), where the CCX high-mode gap moved 9.22 → 13.98 %. Fold census at es 0.5/1.0 is running to size it.
+- **Fold census vs mesh size** (`logs/check/l3-fold-census-es{0.5,1.0}.log`; es 0.25 from L18). Nodes where directors stay separate:
+
+  | es | split nodes / total | true intersections (SW, TE_FLAT↔REINF, TE_FLAT↔TE_FLAT) | LE region (LE seam, LE↔LE_PANEL, LE_PANEL) | max-angle median |
+  |---|---|---|---|---|
+  | 1.0 | 1687 / 3067 (55 %) | ≈1013 | ≈655 | 23.9° |
+  | 0.5 | 2872 / 9357 (31 %) | ≈1905 | ≈960 | 10.0° |
+  | 0.25 | 5138 / 32656 (16 %) | ≈3629 | ≈1500 | — |
+
+  - The HP_LE↔LP_LE nose seam stays at 97–103° at every es. It is a chordwise kink of the LE discretisation, so refining es does not remove it.
+  - LE↔LE_PANEL (≈50°) and LE_PANEL interior (21–42°) shrink with es. That is the Abaqus coarse-mesh caveat.
+  - The CCX convergence test's meshes (2.0/1.0/0.5 m) are where the most smooth LE becomes a fold; that is consistent with its high-mode gap moving most. Not isolated: it needs a variant run.
+- **S-7 per span band** (SLURM 11622227, es 0.25, both extensions on the same tree; `logs/check/l3-s7-bands-11622227.log`, `logs/check/l3-s6-probe/s7_bands.py`). It reproduces the suite: 0.9091 → 0.8980 over 0.3–0.9.
+
+  | r/R | 0.1–0.2 | 0.2–0.3 | 0.3–0.4 | 0.4–0.5 | 0.5–0.6 | 0.6–0.7 | 0.7–0.8 | 0.8–0.9 | 0.9–1.0 |
+  |---|---|---|---|---|---|---|---|---|---|
+  | base ratio | 0.757 | 0.946 | 0.936 | 0.897 | 0.883 | 0.884 | 0.910 | 0.945 | 1.864 |
+  | fix ratio | 0.783 | 0.949 | 0.932 | 0.892 | 0.876 | 0.875 | 0.891 | 0.922 | 1.560 |
+
+  - The fix stiffens torsion by 0.4–0.9 pp at 0.3–0.7 and by 1.9–2.3 pp at 0.7–0.9, the thin outboard sections.
+  - The tip band (couple application, local distortion; see L19) drops from 4.75× to 3.32× the beam tip twist.
+  - S-7 compares against a beam deck with a known model difference: the OML reference surface, E8 of `odd/tasks/s7-torsion-ratio.md`, which already puts the shell ~13 % stiff. It cannot arbitrate a director convention. The movement is recorded as a finding; the band is unchanged.
+- **Status (L20 step 4, not decided).** Evidence so far:
+  - At true intersections (web, TE closure), separate directors are right: Bredt, the TE sub-model PSD, S-6 es 0.5.
+  - At the coarse smooth LE they are the documented Abaqus caveat. The code-to-code movements (CCX high modes, CCX tip axial, S-7 outboard) have not been attributed between the two populations.
+  - The discriminating experiment is a variant extension that keeps directors averaged on the LE population only, then re-measures CCX high modes, CCX tip axial, S-7 and S-1. Rust change plus rebuild; CCX convergence ~11 min plus S-7/S-1 on SLURM.
+  - Until then, 7dfe78d stays unaccepted and unreverted. No pin re-set, no store row.
+- **Resume recipe.** Read L20–L21; `mem_search "fold criterion LE caveat Bredt"`. Next, in order:
+  1. Implement the population-split variant behind a test-only switch and run the four anchors under it.
+  2. Pick the criterion from that evidence.
+  3. Re-pin the two tube pins and add one step of iterative refinement to `_solve_rigid_removed`, keeping the 1e−10 bound.
+  4. Write the store rows at the accepted revision.
+  5. Then return to L19 steps 2–3.
