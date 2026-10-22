@@ -246,6 +246,11 @@ def _solve_rigid_removed(K, f: np.ndarray, modes: np.ndarray) -> np.ndarray:
     relative at ``k = 1e-6 * median(diag K)`` (isotropic) and by up to 3e-7 for the laminate, above
     the ``1e-9`` the plan asks for. The exact constraint is k-free and is used for the physics; the
     penalty is still run and reported by the tests so the drift is on the record.
+
+    One step of iterative refinement follows the direct solve: without it ``splu`` leaves
+    ``|Phi u| / |u|`` at 2.6e-10 for the laminate with the 20-degree fold directors, above the
+    ``1e-10`` the caller asserts; one step takes it to 7e-16 and leaves the twist rates unchanged
+    (odd/tasks/l3-physical-validation.md L21).
     """
     n = K.shape[0]
     m = modes.shape[0]
@@ -253,7 +258,9 @@ def _solve_rigid_removed(K, f: np.ndarray, modes: np.ndarray) -> np.ndarray:
         [[K, coo_matrix(modes.T)], [coo_matrix(modes), coo_matrix((m, m))]], format="csc"
     )
     rhs = np.concatenate([f, np.zeros(m)])
-    sol = splu(augmented).solve(rhs)
+    lu = splu(augmented)
+    sol = lu.solve(rhs)
+    sol = sol + lu.solve(rhs - augmented @ sol)
     return np.asarray(sol[:n])
 
 
