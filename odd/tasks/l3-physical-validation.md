@@ -381,3 +381,36 @@ Question (D3): is the published 6x6 (`components.blade.elastic_properties_mb.six
 - **Limits.** PreComp: thin wall, no shear deformation, no warping, own region/web discretisation. The layup reaches PreComp through windIO's converter (warnings above) plus the 2-line anchor repair, so "PreComp's reading" is "WISDEM's reading of the converted yaml". PreComp EA, EI_flap and mass are 0.1–3 % from our independent mesh-free integrals, which is evidence the converter did not distort those. WISDEM stubs (costs, financese) do not enter the blade section calculation.
 - **Boundaries kept**: no test, bound, `contract.yaml` or store row changed; no verdict promoted. Scratch only under `logs/check/l3-d3/` (gitignored), the venv stays there.
 - **Next (shell side)**: the EI_edge response gap (shell 11 pp below its own laminate at mid-span, 7 pp outboard) is the open item; PreComp removes the deck as an excuse for the mid-span part. Test candidate: TE sectional distortion (L19) with the 2D section solve of the mid-span station.
+
+### L25 — Skin reference surface, S-6/S-7 on mid, TE distortion verdict (2026-10-22)
+- **S-7 on the mid-surface** (probe SLURM 11622345, `logs/check/l3-s7-mid-11622345.log`; test SLURM 11622347): band 0.3–0.9 ratio **1.00095 (0.0947 %)** against the BeamDyn deck. On the OML the ratio was 0.8980 (10.2 %) at the same extension c0d9b9a7. Per band 0.979–1.046 in 0.2–0.9. **Outcome (c)/(d):** the OML placement centres the laminate on the aerodynamic surface, so half of each wall lies outside the blade. That is a reference-surface choice made for CFD coupling. The physically consistent structure (plies inward from the OML, as SONATA builds the deck) closes the anchor. Test moved to `skin_reference="mid"` in 38b8ba2; bound unchanged.
+- **S-6 test at es 0.25** (rule 9): 3 passed (SLURM 11622346, OML) in 38b8ba2.
+- **S-6 mid vs OML** (SLURM 11622350, `logs/check/l3-s6-skin-11622350.log`, `logs/check/l3-s6-probe/s6_skin.py`), against ElastoDyn:
+
+  | skin | tip OoP mean | std |
+  |---|---|---|
+  | OML | −12.83 % | −5.16 % |
+  | mid | **−0.86 %** | +8.88 % |
+
+  - The mean deficit attributed for weeks to a "K_G over-response" was the OML placement's flap stiffness. K_G and K_SP stay in K_eff.
+  - Test moved to mid (bounds unchanged): 3 passed (SLURM 11622379).
+- **TE section distortion (L19), verdict (ii)** (worker, `logs/check/l3-te-distortion/REPORT.md`, SLURM 11622349/11622374/11622376).
+  - **Method.** The same station resultants (to 2e-15) were applied three ways: (a) per node, as production; (b) on spar and web nodes; (c) by skin area.
+  - **Global response is insensitive.** Tip OoP changes by ≤0.10 % across the three.
+  - **Distortion follows load on the TE skin, not the per-node rule.** At r = 110 m it is 0.245 / 0.012 / 0.165 m for (a)/(b)/(c).
+  - **The outboard TE_PANEL is genuinely thin in our reading of the yaml:** 11.1 mm with D 2334 N·m at r ≈ 92 m; 4.0 mm with D 111 at 99 m; 2.7 mm with D 32.6 at 108 m. A plate-strip check of that panel brackets the FE sag (0.227 m, between the clamped and simply supported bounds). So (iii), an element defect, is not supported.
+  - **Outcome (d), input property.** Tip anchors are unaffected; outboard section-twist readings depend on load introduction by 27–40 %.
+- **D3 (L24, 4909fa7) consequences for the open residuals:**
+  - S-1 EA, mass and EI_flap, and S-2 LC1/LC4 through flap: **outcome (d), deck-vs-yaml.** PreComp reads the yaml as we do (EA +0.08 %, EI_flap +1.1 % vs the shell), and both sit +4.9 to +7.7 % over the deck.
+  - S-1 GJ: within 5 % on the shell; PreComp cannot arbitrate it.
+  - S-1 EI_edge mid-span: still open, as a shell-side residual of −11 pp against its own laminate. A prismatic-segment arbiter is running (worker, `logs/check/l3-prismatic/`).
+- **S-5 at es 0.25, skin × stiffening** (SLURM 11622378, `logs/check/l3-s5-var-11622378.log`, `logs/check/l3-s6-probe/s5_variants.py`), tip OoP against ElastoDyn's 16.1033 m:
+
+  | skin | parked K | K + K_G + K_SP, 7.56 rpm |
+  |---|---|---|
+  | OML | −4.50 % (the old passing value) | −11.71 % |
+  | mid | +9.75 % | **+0.37 %** |
+
+  - The old −4.5 % pass was **two compensating errors**: the OML skin is too stiff in flap, and the parked K drops the centrifugal stiffening that ElastoDyn carries at rated speed.
+  - The docstring premise that "K_G injects a spurious ~13 %" came from the OML placement. The shell's rotating modes close against OpenFAST (S-4 1st flap −1.4 %), so K_G is not suspect.
+  - Test moved to mid, es 0.25 and rotating K_eff; bounds unchanged. IP |u_x| = 2.00 m gives a ratio of 2.47 against the loose 2.5 bound (IP is apples-to-oranges by the module's own account). Test: 3 passed (SLURM 11622382).

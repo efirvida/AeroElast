@@ -8,10 +8,13 @@ static equilibrium under the window-mean loads.  Compares the tip
 out-of-plane deflection series against ElastoDyn's OoPDefl1 over the same
 window.
 
-Measured (2026-10-22, element_size 0.25, 7dfe78d, SLURM 11622086):  the
-fluctuation amplitude closes (std 0.5821 m vs ElastoDyn 0.6138 m, -5.16%); the
-mean carries the K_G over-response documented in S-5 (14.024 m vs 16.087 m,
--12.83% — the rotating stiffness overshoots, see the tool docstring).  The
+Measured (2026-10-22, element_size 0.25, 7dfe78d, skin on the laminate
+mid-surface, SLURM 11622350):  mean 15.9485 m vs ElastoDyn 16.0875 m (-0.86%),
+std 0.6683 m vs 0.6138 m (+8.88%).  With the skin on the OML (the BladeMesh
+default, half of each wall outside the blade) the same run gives a mean of
+14.0238 m (-12.83%) and std 0.5821 m (-5.16%): the mean deficit once
+attributed to a K_G over-response was the OML placement's flap stiffness
+(odd/tasks/l3-physical-validation.md L25).  K_G and K_SP stay in K_eff.  The
 2026-09-10 numbers (std -9.8%, mean -17.7%) were taken at element_size 0.5,
 which is not converged for this blade (AGENTS.md rule 9) and diverged once the
 TE-closure director mechanism was isolated (odd/tasks/l3-physical-validation.md
@@ -48,10 +51,10 @@ from run_s6_oneway_dynamic import (  # noqa: E402
 
 TS_CSV = REPO_ROOT / "tests" / "IEA15MW" / "reference" / "s6_ad_blade1_timeseries.csv"
 
-# The dynamic fluctuation (std) is the S-6 deliverable: it closes at -5.2% (es 0.25).
+# The dynamic fluctuation (std) is the S-6 deliverable: +8.9% at es 0.25 on the mid-surface.
 STD_REL_TOL = 0.25
-# The mean carries the K_G over-response documented in S-5 (K_G static
-# inflation, ~-18%); bound it loosely to catch gross regressions only.
+# The mean closes at -0.86% on the mid-surface (it read -12.8% on the OML placement, once
+# blamed on K_G); the loose bound is unchanged and only catches gross drift.
 MEAN_REL_TOL = 0.25
 
 
@@ -72,7 +75,7 @@ class TestS6OneWayDynamic:
             delimiter=",", skiprows=1)
         r_m, twist = s5[:, 0], s5[:, 3]
 
-        asm, mesh = build_assembly(0.25)
+        asm, mesh = build_assembly(0.25, skin_reference="mid")
         K_eff, M, free = assemble_keff(asm, mesh, RPM_RATED * 2 * np.pi / 60.0)
         F_ts = nodal_load_series(asm, mesh, r_m, fn_ts, ft_ts, twist)
         hist = newmark_tip_series(asm, mesh, K_eff, M, free, F_ts, DT)
@@ -95,7 +98,7 @@ class TestS6OneWayDynamic:
         )
 
     def test_oop_mean_bounded(self, s6_result):
-        """Mean bound: the K_G over-response is documented; catch gross drift only."""
+        """Mean tip OoP within the loose 25 % bound (measured -0.86 % on the mid-surface)."""
         shell_mean = abs(s6_result["oop_shell"].mean())
         ed_mean = abs(s6_result["oop_ed"].mean())
         rel = abs(shell_mean - ed_mean) / ed_mean
