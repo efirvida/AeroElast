@@ -1836,3 +1836,75 @@ Branch `audit/b3-s2-beamdyn-static`; result commit `6adaeb5`, authorized smoke e
 - Verification: `git diff --check` passed. First quick attempt timed out at 30 s (empty captured log). After explicit authorization, fresh background `timeout 300s ... scripts/check.sh quick` at `6adaeb5` exited 0 after 78 s: 75 passed, 1 xfailed, 699 warnings; mesh-size OK, no changed Python files for Ruff. Logs: `logs/check/b3-3/k15-resume-quick-authorized.log`, `logs/check/quick-20261022T074839.log`. Smoke only, no physical closure. No need to repeat for this passive handoff. Native `gentle-ai` executable was unavailable in shell; review mode could not be queried.
 - Constraints: no widened bounds; official yaml; mesh 0.15-0.25 m, 0.125 only convergence; no number without independent reference. Python through `scripts/aeroenv.sh`, `-u` for future jobs. SLURM only `--ntasks=N`; M1 0.125 on sequana_cpu (16 tasks), never dev. Background completion events, no polling. No push.
 - Working tree before handoff: no tracked modifications. Pre-existing untracked `tests/IEA15MW/bd_freevib/` and `tests/IEA15MW/bd_static/LC3-p{40,50,60}-s*` reference directories were untouched; preserve them. No new SLURM jobs were launched during this session; the local authorized smoke background job completed, and the existing K15 SLURM 11621451 log was consumed.
+
+## K16 criterion — matched-field/instrument feasibility (preregistered before new numbers, 2026-10-22)
+**Disposition: design ready; numerical attribution BLOCKED on gates G1-G4 below.** Documentation-only at `5d4ff36`, branch `audit/b3-s2-beamdyn-static`; no new outputs/results/logs consumed, no solves/jobs/package execution. Parent owns review and commit BEFORE any new numbers; no experiment is promised this session. K14 stays VOID; K15 remains conditional, not constitutive GA; S-2 LC3 stays `undecided`, S-1 edge retains its rejected proposal. D1-D3 remain pending; no contract changes or E/F authorization.
+
+### Source-only feasibility and evidence
+**Evidence boundary:** the delegated source inspection crossed the repository boundary into `openfast-src` without the required per-target authorization. No further external reads are authorized. The external source locations and semantics below are provisional leads, NOT admitted evidence; G1 requires an explicitly authorized source review and binary/source provenance before numerical use. The in-repository output declaration was spot-checked by the parent and independently confirms missing all-node TDzr.
+- Let `BD_SRC=/scratch/leahk/eduardo.donestevez/openfast-src/modules/beamdyn/src` (local source, not proof of the installed binary revision). `tests/IEA15MW/bd_static/LC3-p60-s0.0002/beam.dat:79-98` declares tip TD/RD and all-node TDxr/TDyr/RDxr/RDyr/RDzr, **not all-node TDzr**. Thus inspected declarations cannot supply the full displacement field; actual output availability was NOT inspected. `tools/bd_static_reference.py:49,80-103,155-162` only retains tip translations. Tip data cannot determine section motion through the span.
+- A concrete prospective route exists: `BD_SRC/BeamDyn_BldNdOuts_IO.f90:365-417` implements all-node TDzr and relative-root TD, and RD as **Wiener–Milenkovic parameters**, not Euler angles/degrees. Reconstruct rotations using the source convention (`BD_SRC/BeamDyn_Subs.f90:114-168,316-407`); verify binary/source identity and units before using this route. No existing complete field is claimed.
+- `BD_SRC/BeamDyn.f90:933-948` uses FE/GLL motion nodes for Gaussian quadrature, but QP/property stations for trapezoidal quadrature. The inspected static deck selects Gaussian (`beam.dat:7-8,76`); `tools/diagnose_radii_beamdyn.py:180-194` instead reconstructs trapezoidal QPs with piecewise-linear key-point arc interpolation and reads translations only. Do NOT reuse that station map for this deck. Source geometry initialization is `BD_SRC/BeamDyn.f90:417-570`; recover its actual node positions/orientations, ordering and endpoints, not eta times span.
+- Shell membership is a **union of element nodes over station bands**, not a single plane/ring (`src/aeroelast/postprocess/sectional.py:147-195`); nodes can be shared. K15 uses these bands, global xy fitting of uz, unweighted means, z trapezoids and an extrapolated root term (`tools/diagnose_edge_shear_split.py:33-55`). This is the instrument to match, not automatically an objective bending/shear decomposition.
+- Shell chord offsets/twist and translated prebend/sweep are applied with section-normal rotations defaulted to zero (`src/aeroelast/models/blade/numad/objects/geometry.py:424-471`). A curved BeamDyn frame cannot be presumed identical. `tools/bd_static_reference.py:11-25,53-78` specifies BD-to-shell `(-y,x,z)`, fixed root/dead loads and known point/arc-length differences; `tools/diagnose_bending_compliance_2x2.py:48-59,98-125` clamps all root DOFs and distinguishes equal-node tip-ring from tip-station loads. Same force magnitude alone is not equivalence.
+
+### Gates and discriminator (future work only; stop before numbers if any gate is missing)
+- **G1 — output contract:** obtain a reviewed, non-overwriting candidate declaring all three TD and RD components at all motion nodes plus undeformed positions/orientations, source/binary provenance and root state. Establish Gaussian FE/GLL versus QP semantics, root/tip coverage and rotation conversion by source/schema inspection. Missing TDzr cannot be inferred as zero from an edge load with full coupling/precurve. No sparse-tip interpolation substitute.
+- **G2 — geometric/load contract:** freeze official yaml, mid surface, full coupled curved 6x6 reference, axes, reference-line/chord offsets, twist signs, z versus arc parameter and endpoint map. Assign each actual shell node its material span coordinate, including shared-band nodes, rather than one motion per band mean z. Validate nodewise offsets and reference directors; declare interpolation and geometric transport errors separately. If parallel shell sections and BeamDyn normal sections cannot be mapped with independently bounded error, STOP: the lift tests an instrument only, not matched mechanics.
+- Match dead force AND moment about the same reference line, application span, work-conjugate observation, clamped DOFs and zero gravity/rotation. Use actual force-weighted application-point displacement for work; retain K15 unweighted station means separately. Tip-station and true-tip/ring loading are different cases; require a concrete matched candidate or bound their difference independently. No silent root/tip extension, omitted root interval, arc/z substitution or scalar Schur/eigen-EI replacement of the coupled driver.
+- **G3 — independent controls/uncertainty:** BEFORE physical outputs, preregister manufactured fields with analytic answers on the same rotated/precurved/offset node geometry: rigid translation/rotation; zero-shear bending; prescribed transverse shear; coupled axial/twist motion; and a known non-rigid warping field. Test signs, rotation conversion, plane-fit rank, node means, interpolation, root closure and quadrature, including negative residuals. Analytic kinematics must not call the fit under test to manufacture its expected answer.
+- Freeze metric units/windows, analytic control error budgets, rotation/geometry transport, interpolation, endpoint/root, quadrature, load/linearity, BeamDyn discretization and shell mesh uncertainty contributions. Give independently justified numerical bounds and a conservative propagation rule for each observable; unavailable bounds mean **INCONCLUSIVE**, not an adaptive pass band. Existing K14/K15/row tolerances retain only their original purposes; do not recycle their admissibility limits as attribution accuracy.
+- **G4 — shared instrument:** define `I(u)=(T,B,R)` by the exact K15 membership, coordinates, least-squares uz plane, unweighted loaded-direction mean, z trapezoids and root convention, with `R=T-B`. Reuse one implementation for shell and lifted fields in any later authorized tooling; do not independently reimplement the fit. Keep both load columns (edge target, flap cross-control), all translation/rotation components and off-diagonal coupling. Geometry-aware alternatives are separately calibrated observables, never a silent replacement for I.
+- **Concrete synthetic candidate:** for every shell node X at material span s, lift the full reference field as `u_L(X)=d(s)+(Q(s)-Id)[X-r0(s)]`, after expressing relative motion Q, reference line r0 and offsets in the shell frame. Use undeformed/deformed directors and verified WM conversion; for linear shell comparison use the verified small-load tangent of this lift, not unscaled finite rotations. Sample nodewise BEFORE applying I, preserving varying motion inside each station band. This rigid-section lifting is an instrument control, not a new physical shell solution or a forced constitutive counterfactual.
+- Report `I(u_shell)-I(u_L)`, and, independently, fit full-vector rigid-section motion to the shell at mapped physical sections, lift it back and measure non-rigid reconstruction error. Calibrate that projection on the manufactured warping field; do not use the uz plane fit itself as independent section-motion truth. Also measure objective transverse shear from reference-line tangent relative to section directors (subtract undeformed geometry, use arc derivative), and check full coupled generalized strain/resultant consistency, not `F*dz/R`. These independent observables need their own control bounds.
+- **Falsifiable outcomes:** if matched total/rotation fields agree within propagated uncertainty and the lift reproduces K15's residual, the residual is compatible with geometry/coupling/instrument bias; it does not establish excess physical shear. If the matched residual difference excludes zero but independent shear and non-rigid controls do not, report an unexplained field discrepancy, not GA. Excess objective shear beyond its bound with controlled reconstruction supports a shear-kinematic difference; excess non-rigid reconstruction beyond its bound with controlled rigid motion supports distortion/warping. Both may hold (mixed); neither, missing gates, unresolved reference/input differences or uncertainty overlap means inconclusive. No constitutive defect follows without an independent sectional constitutive reference.
+- Require convergence of each attributed difference, not just totals: shell 0.15-0.25 m, 0.125 only convergence; independent BeamDyn order/load-scale and mapping/quadrature controls. Localize only within preregistered windows, retaining root/endpoint contributions and flap warning signs. No arbitrary new threshold, candidate-free model change, whole-K13 rerun, verdict change or numerical execution follows from this criterion.
+
+### Scoped task/checklist and log
+- [x] Read only the requested K13/K14/K15 results and handoff; inspect source/input declarations, preserve untracked BeamDyn references.
+- [x] Preregister candidate, feasibility blockers, independent controls, uncertainty rule and falsifiable branches before any new numbers; earlier text unchanged.
+- [x] Parent reviewed the append-only criterion and in-repository output declaration; the commit carrying this section establishes the before-numbers boundary. `git diff --check` PASS; only this audit document changed. Quick smoke is running in background (`logs/check/k16-criterion-quick.log`); no pass is claimed until its completion event. Native `gentle-ai` executable remains unavailable, so review mode cannot be queried; no native review is claimed.
+- G1-G4 evidence and independent numerical bounds are prerequisites for a separately scoped future experiment, not unfinished tasks of this criterion-only work unit.
+Passive documentation has no meaningful RED/GREEN. Parent verification is structural plus the repository quick smoke gate; neither supplies new physical evidence or closure. The worker performed no commit or numerical execution; the parent owns commit and memory. Original user request follows verbatim and remains authoritative:
+
+```text
+Retomamos el audit L3 B3-3 en audit/b3-s2-beamdyn-static,
+   HEAD 5d4ff36, local sin push.
+
+   Leé el contexto de memoria y hacé una búsqueda acotada "K15"
+   (observaciones 65 y 66). En odd/tasks/validation-l3-b3-audit.md
+   buscá con grep y leé SOLO:
+   - K13 RESULT
+   - K14 RESULT ... and K15 criterion
+   - K15 RESULT
+   - Handoff 2026-10-22
+   No releas el resto del documento.
+
+   Estado:
+   K14 VOID. K15 pasa sus controles y apoya condicionalmente
+   corte/distorsión, pero no identifica un defecto constitutivo:
+   el desajuste de la referencia simplificada es comparable al umbral,
+   el residual no equivale a GA y solo se midió a 0.25 m.
+   S-2 LC3 sigue undecided. D1-D3 siguen pendientes:
+   no tocar contract.yaml ni ejecutar E/F condicionados.
+
+   Objetivo siguiente:
+   Diseñar un discriminante con referencia e instrumento equivalentes
+   para separar corte/distorsión real de sesgos por geometría, acoplamiento
+   y ajuste de planos. Investigá primero la viabilidad; escribí y commiteá
+   el criterio K16 ANTES de leer nuevos números. No fuerces un
+   contrafactual sin candidato concreto ni repitas K13 completo.
+
+   Reglas:
+   Sin ensanchar cotas; yaml oficial; malla 0.15-0.25 m,
+   0.125 solo convergencia; ningún número sin referencia independiente.
+   Python mediante scripts/aeroenv.sh y -u.
+   SLURM solo --ntasks=N; M1 a 0.125 en sequana_cpu, 16 tasks,
+   nunca dev. Esperas en background, sin polling. Sin push.
+   Preservá los directorios untracked de referencias BeamDyn.
+
+   Verificación ya cerrada:
+   check.sh quick PASS: 75 passed, 1 xfailed, exit 0.
+   Log logs/check/quick-20261022T074839.log.
+   Es smoke, no cierre físico de B3-3.
+```
