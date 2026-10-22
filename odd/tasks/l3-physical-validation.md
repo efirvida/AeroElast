@@ -210,3 +210,35 @@ Retomamos odd/tasks/l3-physical-validation.md, T5, desde L17
   2. When the suite ends: `grep -E "^(FAILED|ERROR)|passed|failed" <log>` and diff the failure set and the anchor percentages against the 7d20c81 log.
   3. If the anchors hold or improve, record group 39/28/S-7/V-02 rows at 7dfe78d and update S-6.
   4. Then decide the section-distortion probe (lumped-load variant first, dev ~2 min).
+
+### L20 — Full suite at 7dfe78d vs 7d20c81: the fold fix is a trade-off, not yet accepted
+- SLURM 11622087 (2 h 0 m, `logs/check/full-20261022T160155.log`): 21 failed, 1436 passed, 38 skipped, 13 xfailed, 3 xpassed. Baseline `full-20261022T113305.log`: 18 failed, 1407 passed. Source differs only by `7dfe78d` (+27 fold tests).
+- **Fixed (2):** S-6 mean and S-6 std (es0.5 divergence gone).
+- **New failures (5):**
+  - CCX blade parity `tip_axial_tension` / `tip_axial_compression`: tip displacement 5.46 % off CCX (bound 5 %). The previous value passed but was not printed.
+  - Thin-walled tube, three tests:
+    - `minimum_norm_realisation_over_delivers_bredt` (pinned over-delivery moved);
+    - `production_distributed_application_is_bredt` (pinned energy excess moved);
+    - `self_equilibrated_laminate_reproduces_bredt` ("rigid modes not removed").
+    The box tube has 90° corners, exactly the fold case the fix changes. Its Bredt reference is analytic, so it is the cleanest arbiter of the change.
+- Persisting failures, anchor values before → after:
+
+  | anchor | 7d20c81 | 7dfe78d | change |
+  |---|---|---|---|
+  | S-1 EI_edge | 12.69 % | 11.45 % | better |
+  | S-1 GJ | 6.22 % | 5.05 % | better |
+  | S-1 EI_flap / EA | 5.17 / 7.59 % | 5.17 / 7.59 % | = |
+  | S-2 LC1 / LC4 official | 7.42 / 6.23 % | 7.44 / 6.27 % | ≈ (+0.02/+0.04 pp) |
+  | S-7 tip twist ratio | 9.0924 % | **10.2000 %** | **worse +1.1 pp** |
+  | V-02 1F / 1E | 6.093 / 8.471 % | 6.070 / 8.505 % | ≈ |
+  | CCX high-mode gap | 9.2182 % | **13.9784 %** | **worse +4.8 pp** |
+  | twist-mechanism guard | 63.8 > 10·12.25 | 59.9 > 10·7.07 | still red |
+  | blade node count, tear guard, UTD S-2 | unchanged | unchanged | = |
+
+- Reading: separate directors at the >20° folds fix the TE mechanism, improve sectional EI_edge/GJ, and move the code-to-code comparisons with CalculiX (high modes, tip axial) and the BeamDyn torsion ratio away. Hypothesis, not checked: CalculiX shells average nodal normals with their own rule (and generate "knots" at folds), so part of the CCX gap may be a director-convention difference, not physics. **Not accepted, not reverted.** No anchor was re-banded; no store row was written at 7dfe78d.
+- **Next (new session), in this order:**
+  1. **Box-tube Bredt arbitration.** Analytic reference at 90° corners. Run the three tube tests and read the moved values and the "rigid modes not removed" path. If separate directors are closer to Bredt, the fix is right at true folds.
+  2. **The CalculiX shell normal rule** (manual, plus the CCX deck used by `test_blade_ccx_parity.py`). Is the CCX gap a convention difference?
+  3. **S-7 at 7dfe78d vs 7d20c81** per span band.
+  4. **Then decide the threshold scope.** Options: Abaqus 20° everywhere (current); folds only at true set-boundary junctions (web/TE); or 20° plus es-0.15 convergence for the coarse LE. That is a formulation decision, to be reported with this evidence.
+  Then return to L19 steps 2–3: the S-6 test at es0.25 and the TE section distortion.
