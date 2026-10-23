@@ -360,7 +360,62 @@ bays halve the spanwise element size:
 
 So "es 0.25" no longer means the Rule 9 mesh. Part of T6 -> B0 in S-2 can be discretisation, and the Rule 9
 convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple fully (T7e).
-- T7e | S5 | worker | in progress (fix/input-T7e off T7d) | spanwise rows from element_size and its grading only (native discretisation); laminate evaluated per element row, replacing the max_bay_length coupling
+- T7e | S5 | worker | done: 7ef630e + f28d0ae on fix/input-T7e (off T7d); reviewed and measured (session 3) | spanwise rows from element_size and its grading only (native discretisation); laminate evaluated per element row, replacing the max_bay_length coupling
+
+**T7e review (session 3, 2026-10-23).** The worker had committed before the close; the Handoff 2 "uncommitted" was
+stale.
+- **7ef630e, finding: inserted stations lost the root TE band.** `KeyPoints.generate` gives every station before the
+  first nonzero band the first nonzero width; the linear interpolation of the yaml 0 -> 750 mm step put a tiny width at
+  the first inserted station, so the root TE reinforcement came out 0.08 m wide instead of 0.67 m. Any dense station set
+  triggers it, so **T7 (0.25 m bays) and T8w (built on T7) carry it**; B0/T7d numbers include it (the worker's
+  commit message; not re-verified in session 3). Fix:
+  `Blade._interpolate_band` keeps the leading zero run.
+- **Tests.** 11/11 in the worktree, imported through the T7e shim (`test_blade_span_decoupling`, `_bay_length`,
+  `_te_band_width`, `_material_constant_order`). Counts equal native: 32,515 / 33,673; row z to < 1e-6 m.
+- **Geometry (not pinned by the tests; `logs/check/input-fix/t7e-geom.py`, `t7e-surf.py`, es 0.25).**
+
+  | decoupled vs native | p50 | p95 | p99 | max |
+  |---|---|---|---|---|
+  | nearest node | 0.65 mm | 2.5 cm | 4.1 cm | 15.4 cm (z 25-28) |
+  | distance to the other surface | 0.08 mm | 3.2 mm | 8.0 mm | 2.4 cm (z 3.3-3.6, root circle); 2.9 cm reverse (z 25-28, x -3.8) |
+
+  The nodes mostly slide along the same surface (chordwise partition changes). The residual shape change, up to
+  ~3 cm (~0.5 % of the local chord), comes from the inserted stations being `Blade`-interpolated sections where the
+  native mesh uses the mesher's in-bay patch. The yaml defines nothing between stations, so neither is the reference:
+  it is an interpolation choice, recorded as a finding. The f28d0ae message ("the mesh equals the native one") holds
+  for counts and row z only.
+- **T9 merge map (`git merge-tree`, no writes).** One textual conflict: T7e x T8w in `mesh_gen.py`. T7e x T10,
+  T8 x T8w, T8w x T11, T8w x T12 and T7e x `l3/twist-p1` merge cleanly. The conflict is also semantic: T8w loops
+  cap `pieces` inside region `j`, and the piece count varies per bay at the root (no B piece for eta <= 0.082), so the
+  `SpanPlan` key `("shell", j)` must include the piece, and every inserted row must carry the pieces of its native
+  bay, or the counts stop being native. T8w's 49,890 / 51,631 were on 0.25 m bays; after the merge expect native
+  counts plus the piece splits.
+- **Measured (SLURM 11623208, `submit_wait.sh T7e`, es 0.25, `compare.py capture-T6 capture-T7d capture-T7e`).**
+  Same 6 failing tests as T7d and B0 (4 S-1 bands, S-2 LC1/LC4 official), none new. Signed %:
+
+  | metric | T6 (native mesh, yaml-bay laminate) | T7d (0.119 m span mesh, 0.25 m bays) | T7e (native mesh, row laminate) |
+  |---|---|---|---|
+  | S-1 EA | +8.03 | +8.21 | +8.03 |
+  | S-1 EI_edge | -3.77 | -3.42 | -4.18 |
+  | S-1 EI_flap | +3.77 | +4.85 | +4.61 |
+  | S-1 GJ | -1.37 | -1.67 | -1.26 |
+  | S-1 mass | +1.74 | +1.72 | +1.58 |
+  | S-2 LC1 gravity | -6.44 | -6.45 | -6.56 |
+  | S-2 LC2 tip flap | -3.49 | -2.82 | -3.42 |
+  | S-2 LC3 tip edge | +12.00 | +11.75 | +12.11 |
+  | S-2 LC4 distributed | -6.28 | -6.25 | -6.33 |
+  | V-03 mass [kg] | 66,903.4 | 66,904.1 | 66,907.9 |
+
+  - **T6 -> T7e is the laminate resolution alone** (same discretisation; T6 has no inserted stations, so the TE band
+    defect does not apply to it; the inserted-section geometry, <= 3 cm, is in it). EA 0.00, EI_edge -0.42,
+    EI_flap +0.84, GJ +0.11, mass -0.16 points; S-2 moves <= 0.12 points on all four LCs.
+  - **L3 prediction "A and B remove material, so EA worsens": not for B.** EA is unchanged (8.029 -> 8.027) and mass
+    drops only 0.16 points.
+  - **Finding: the T7d S-2 LC2 shift (-3.49 -> -2.82) was discretisation, not laminate.** It reverts to -3.42 on the
+    native mesh. A 0.6-point tip-flap move from 0.25 -> 0.119 m spanwise is the order of the Rule 9 convergence
+    (0.84 % between 0.25 and 0.125), so the T7 0.25 m bays default silently changed the mesh class of every L3 number;
+    T7e restores the Rule 9 mesh.
+  - Status: T7e done; enters T9 first after T7d. No band, anchor or contract.yaml touched.
 
 **G3 (c157c62, fix/input-T8w).**
 - **Geometry.** Webs attach at the yaml `start/end_nd_arc`. The caps are cut into HP/LP_SPAR_A/B/C pieces that keep the
@@ -417,7 +472,7 @@ convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple full
 | branch | commit | content | measured vs B0 |
 |---|---|---|---|
 | fix/input-T7d | 133edc5 | S-1 fits on native bay centres | yes: extractor artefact 0.5-0.7 points |
-| fix/input-T7e | uncommitted in its worktree | decouple: native rows, laminate per row (user L12) | no |
+| fix/input-T7e | 7ef630e, f28d0ae (session 3: was committed, not uncommitted) | root TE band at inserted stations; decouple: native rows, laminate per row (user L12) | yes (session 3): vs T6 laminate-only <= 0.84 pt S-1, <= 0.12 pt S-2 |
 | fix/input-T10 | 8db6c19 | F1 EA metric | yes: EA -1.8 points |
 | fix/input-T8 | c5ad881 | G2 chord grid | yes |
 | fix/input-T8w | c157c62 | G3 webs, caps split | yes: GJ -8.9 points, **physical** (verify, below); enters T9 per the rules |
@@ -530,3 +585,4 @@ for this session.
 - L10 (2026-10-23) User: "la idea es cerrar todo lo que fuera posibles herrores de mallado"
 - L11 (2026-10-23) User: "no sabia que habian varias versiones de windio, por lo que hay que planificar para un futuro un importador generico de windio para cualquier version"
 - L12 (2026-10-23) User chose "Desacoplar del todo (recomendado)": element rows from element_size and its grading as before; laminate evaluated at each element row's z, not per bay.
+- L13 (2026-10-23, session 3) User, on the plan "revisar el diff de 7ef630e y f28d0ae; correr tests y chequear conteos/geometría; mandar submit_wait.sh T7e; registrar 7ef630e": "si".
