@@ -941,7 +941,9 @@ groups:
       moment_realization_over_delivers. T3 of issue #30 executed it:
       `test_minimum_norm_realisation_over_delivers_bredt_by_the_recorded_factor`
       pins the over-delivery at 31.69331x self-equilibrated and 10.40654x
-      clamped (1e-3 relative) without becoming a store comparison, because
+      clamped (1e-3 relative; re-pinned at 7dfe78d, whose 20-degree fold
+      directors keep the box corners separate, to 24.66152x and 9.19606x)
+      without becoming a store comparison, because
       Bredt is the reference the field misses rather than one it must meet.
       T5 of the same issue named the coverage limit of the bound above: it is
       an **end-couple** measurement, while `project()` applies the shear flow
@@ -951,7 +953,8 @@ groups:
       pins that mode with the estimator-free energy balance
       `W / integral M_cum^2/(2 GJ)`: +4.356 % at dz = 0.2 m and +2.484 % at
       dz = 0.1 m (a discrete per-ring application residual that converges to
-      Bredt with refinement), against +338 % for the parked minimum-norm field
+      Bredt with refinement; +4.251 % and +2.048 % at 7dfe78d), against +338 %
+      (+289 % at 7dfe78d) for the parked minimum-norm field
       in the same mode, which does not move under refinement. Neither number is
       registered as a bound either: at a fixed mesh the local
       `theta'(z)*GJ/M_cum(z)` and the energy metric disagree.

@@ -157,7 +157,8 @@ gaps:
       not tie: the wall flow is Bredt on the deck's own airfoil ring (0.95943,
       distortion 4.1e-6) while the minimum-norm field over-delivers (1.65658
       and rising there; 31.69331 on the validated rectangle, now pinned in
-      `test_thin_walled_tube_moment_realization.py`, and +330-338 % of the
+      `test_thin_walled_tube_moment_realization.py` (24.66152 since the
+      20-degree fold directors of 7dfe78d), and +330-338 % (+282-289 %) of the
       exact Bredt strain energy in the *distributed* application mode
       production actually runs, an excess that does not move under mesh
       refinement while the wall flow's own +4.36 % -> +1.56 % does).

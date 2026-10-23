@@ -20,11 +20,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 5520d77
-      date: '2026-10-04'
-      raw: 2.75983e-05
-      margin_pct: 0.3091
-      text: 'shear-flow moment realisation interior twist rate vs Bredt''s T/GJ twist rate for the closed tube: 2.75983e-05 vs 2.75132e-05 (error: 0.3091%, bound: 5.0000%)'
+      run: 7dfe78d
+      date: '2026-10-22'
+      raw: 2.74292e-05
+      margin_pct: 0.3052
+      text: 'shear-flow moment realisation interior twist rate vs Bredt''s T/GJ 2.75132e-05: 2.74292e-05 (error: 0.3052 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed).'
       digest: 264e8b5e08a5c096
   - label: rtol at line 201
     asserted: true
@@ -39,11 +39,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 5520d77
-      date: '2026-10-04'
-      raw: 2.75983e-05
-      margin_pct: 0.3091
-      text: 'production shear-flow moment realisation interior twist rate vs Bredt''s T/GJ twist rate for the closed tube: 2.75983e-05 vs 2.75132e-05 (error: 0.3091%, bound: 5.0000%)'
+      run: 7dfe78d
+      date: '2026-10-22'
+      raw: 2.74292e-05
+      margin_pct: 0.3052
+      text: 'production shear-flow moment realisation interior twist rate vs Bredt''s T/GJ 2.75132e-05: 2.74292e-05 (error: 0.3052 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed).'
       digest: 264e8b5e08a5c096
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

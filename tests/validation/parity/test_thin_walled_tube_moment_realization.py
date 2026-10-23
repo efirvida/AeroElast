@@ -8,7 +8,8 @@ on a closed thin-walled tube that bought 125x the section distortion at the same
 constrained **minimum-norm** nodal field, which on the tube is exactly the circle-tangential
 ``f_j = omega x d_j`` about the section centroid. It is not the Saint-Venant wall shear flow
 ``q = T/(2A)`` a closed thin-walled section carries, and it over-delivers the Bredt twist rate by
-**31.6933x** in this test's interior window - a localised, long-decaying end distortion.
+**24.6615x** in this test's interior window (31.6933x before the 20-degree fold directors of
+``7dfe78d``) - a localised, long-decaying end distortion.
 
 That minimum-norm field is what the fix replaced. ``realise_section_load`` in
 ``aeroelast.solvers.bem.force_projection`` groups a strip's nodes into physical rings, orders each
@@ -61,12 +62,14 @@ WINDOW = (0.4 * tube.L, 0.9 * tube.L)  # the validated interior window of case A
 # The legacy minimum-norm realisation's recorded over-delivery of Bredt on this fixture
 # (`ForceProjector._distribute` realising a pure span couple as the circle-tangential field
 # `f_j = omega x d_j`), promoted from the module docstring to an executed regression pin by T3 of
-# issue #30: `31.69331` with the rigid modes removed and `10.40654` with a clamped root.  These are
+# issue #30: `24.66152` with the rigid modes removed and `9.19606` with a clamped root.  These are
 # **recorded measurements of a defect**, not validated bounds - Bredt is the reference the field
 # *misses* - so the pin is deliberately kept out of the store's reference machinery and the defect
-# stays recorded in `docs/validation/gaps.yaml` (`moment_realization_over_delivers`).
-MIN_NORM_OVER_DELIVERY_SELF_EQUILIBRATED = 31.69331
-MIN_NORM_OVER_DELIVERY_CLAMPED = 10.40654
+# stays recorded in `docs/validation/gaps.yaml` (`moment_realization_over_delivers`).  Re-measured
+# at `7dfe78d`, whose fold rule keeps the corner directors of this 90-degree box separate (was
+# `31.69331` / `10.40654` with averaged corner directors; odd/tasks/l3-physical-validation.md L21).
+MIN_NORM_OVER_DELIVERY_SELF_EQUILIBRATED = 24.66152
+MIN_NORM_OVER_DELIVERY_CLAMPED = 9.19606
 PIN_TOL = 1e-3
 
 # T5 of issue #30: production does not apply the shear flow at the end rings.  `project()` hands
@@ -75,12 +78,14 @@ PIN_TOL = 1e-3
 # with its own wall flow - so the internal torque ramps and a self-equilibrated couple is applied at
 # every ring.  That mode is not covered by the end-couple bound above, and the two metrics disagree
 # at a fixed mesh: the estimator-free energy balance `W / integral M_cum^2/(2 GJ)` sits a few percent
-# over Bredt and **converges with refinement** (4.356 % at `n_z = 30`, 2.484 % at `n_z = 60`), while
+# over Bredt and **converges with refinement** (4.251 % at `n_z = 30`, 2.048 % at `n_z = 60`), while
 # the local `theta'(z) * GJ / M_cum(z)` blows up near the tip where `M_cum -> 0`.  Neither number is
 # therefore registered as a validated bound; they are bare regression pins, and the parked
-# minimum-norm field's non-converging `+338 %` in the same mode is pinned next to them.
-DISTRIBUTED_ENERGY_EXCESS = {30: 0.04356, 60: 0.02484}
-MIN_NORM_DISTRIBUTED_ENERGY_EXCESS = {30: 3.38184, 60: 3.34399}
+# minimum-norm field's non-converging `+289 %` in the same mode is pinned next to them.  Re-measured
+# at `7dfe78d` (separate corner directors); with averaged ones they were 4.356 / 2.484 % and
+# 3.38184 / 3.34399.
+DISTRIBUTED_ENERGY_EXCESS = {30: 0.04251, 60: 0.02048}
+MIN_NORM_DISTRIBUTED_ENERGY_EXCESS = {30: 2.88902, 60: 2.82458}
 
 
 def _ring_strip(coords: np.ndarray, ring: list[int]) -> _Strip:
@@ -231,7 +236,7 @@ def test_minimum_norm_realisation_over_delivers_bredt_by_the_recorded_factor():
     tube, the same torque and the same solver, but the span couple realised through the legacy
     ``ForceProjector._distribute`` instead of the wall shear flow. That field is the
     circle-tangential ``f_j = omega x d_j`` about the section centroid, so on a closed section it
-    over-delivers Bredt by **31.69331x** with the rigid modes removed and **10.40654x** with a
+    over-delivers Bredt by **24.66152x** with the rigid modes removed and **9.19606x** with a
     clamped root - a localised, long-decaying end distortion, not a torsion rate.
 
     This is a **regression pin**, not a validated bound: it asserts that the recorded defect has not
@@ -349,13 +354,13 @@ def test_production_distributed_application_is_bredt_to_a_converging_residual():
 
     This test measures that mode with the estimator-free energy balance, and pins two facts:
 
-    * the wall flow's excess **shrinks with refinement** (4.356 % -> 2.484 % when `dz` halves): its
+    * the wall flow's excess **shrinks with refinement** (4.251 % -> 2.048 % when `dz` halves): its
       residual is the discretisation of applying a discrete couple per ring, not a defect of the
       realisation. It is deliberately **not** turned into a validated bound - at a fixed mesh the
       local ``theta'(z) * GJ / M_cum(z)`` metric disagrees with the energy one and blows up near the
       tip where ``M_cum -> 0``, so a bound here would be metric-shopping;
-    * the parked minimum-norm field's excess in the same mode is **+338 % and does not move**
-      (3.38184 -> 3.34399), i.e. its over-delivery is not a discretisation effect at all.
+    * the parked minimum-norm field's excess in the same mode is **+289 % and does not move**
+      (2.88902 -> 2.82458), i.e. its over-delivery is not a discretisation effect at all.
 
     Read with the bound above: the validated end-couple number and the pin here answer different
     questions, and the production mode sits between them.

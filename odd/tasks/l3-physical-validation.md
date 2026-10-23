@@ -15,7 +15,7 @@ Branch: `audit/b3-s2-beamdyn-static`; baseline `3e381af`; delivery ask-on-risk, 
 - T2 | S1–S5 | delegated bounded writer (context-backstop) | done | RED 4 failed/8 passed (91.6667%); fix in `assembler.rs`; release rebuild; compiled GREEN 26 passed; 12 rows registered in group 28 (not_measured until recorded at a revision); commit: this work unit.
 - T3 | S1–S5 | parent execution + independent high-risk verification | done (independent verifier unavailable, see L5) | Collect immutable baseline, run corrected official es0.25 four-case physics and matching element anchors; full-suite measurement on SLURM after Rust rebuild; quantify blade impact without claiming entire gap fixed.
 - T4 | S1–S5 | parent store reconciliation | done | Groups 39/28 in 4b6a04b; CCX mesh-convergence, V-02 1F/1E, S-7 at 7d20c81 in the L6 commit. contract.yaml untouched.
-- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt), LE coarse-facet population unresolved, criterion scope pending) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
+- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt); L22: LE population moves no anchor >0.31 pp, 20° rule kept everywhere; tube pins re-pinned; store rows next) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
 
 ## Log
 ### L1 — User correction (verbatim)
@@ -302,3 +302,45 @@ Retomamos odd/tasks/l3-physical-validation.md, T5, desde L20. mem_search "fold c
   3. Re-pin the two tube pins and add one step of iterative refinement to `_solve_rigid_removed`, keeping the 1e−10 bound.
   4. Write the store rows at the accepted revision.
   5. Then return to L19 steps 2–3.
+
+### L22 — Population-split variant (L21 step 1), 2026-10-22
+```text
+Retomamos  odd/tasks/l3-physical-validation.md, T5, desde L21" y mem_search "fold criterion LE caveat  Bredt"
+```
+- Variant `smooth_oml` (scratch only, never committed): worktree `logs/check/l3-fold-variant/wt` at d745327, +46 lines. `from_model` flags elements whose property set contains `SW` or `TE_FLAT` when `AEROELAST_DIRECTOR_VARIANT=smooth_oml`. A node touched by any flagged element keeps the 20° rule of 7dfe78d. A skin-only node (LE seam, LE↔LE_PANEL, LE_PANEL, LE_PANEL↔SPAR, TE_REINF interior) gets the pre-7dfe78d area-weighted mean. Built to `logs/check/l3-fold-variant/ext` (`build.sh`), selected through `PYTHONPATH`; installed extension untouched.
+- Build note: the first `maturin build` let auditwheel rewrite the cargo artifact in place (NEEDED `libslepc-9b11be1e`, rpath `aeroelast_py.libs`), so the extension did not import. Relinked with `--auditwheel skip`: `.so` sha256 `ab480983…`, NEEDED `libslepc.so.3.25`/`libpetsc.so.3.25` from the venv. Mask sanity at es 1.0: `[fold-variant] smooth_oml: 911 fold elements, 1642 skin-only nodes averaged` (3067 nodes).
+- **Anchors under the variant** (SLURM 11622271, 27m47s, `logs/check/l3-fold-variant/anchors-11622271.log`; 9 failed, 9 passed, 1 xfailed). The variant was active on every blade mesh (`[fold-variant]` lines at es 2.0/1.0/0.5/0.25: 440/911/2461/7544 fold elements). Fix values from L20/L21 (same tree, installed extension):
+
+  | anchor | base 7d20c81 | fix 7dfe78d | variant smooth_oml |
+  |---|---|---|---|
+  | CCX high-mode gap | 9.2182 % | 13.9784 % | **13.9766 %** |
+  | CCX tip axial tension / compression | pass (<5 %) | 5.5 / 5.5 % | 5.4 / 5.4 % |
+  | S-7 tip twist ratio (test) | 9.0924 % | 10.2000 % | **10.1888 %** |
+  | S-7 band mean 0.3–0.9 (probe) | 0.9091 | 0.8980 | 0.8981 |
+  | S-7 tip band 0.9–1.0 (probe) | 1.864 | 1.560 | 1.570 |
+  | S-1 EI_edge / GJ / EA | 12.69 / 6.22 / 7.59 % | 11.45 / 5.05 / 7.59 % | 11.45 / 5.05 / 7.59 % |
+  | S-1 EI_flap | 5.17 % (red) | 5.17 % (red) | **passes** (value not printed; see S-1 probe below) |
+  | V-02 1F / 1E | 6.093 / 8.471 % | 6.070 / 8.505 % | 6.070 / 8.505 % |
+  | S-6 (3 tests) | es0.5 diverged | pass | pass |
+
+  - **Finding:** averaging the skin-only population back recovers almost none of the code-to-code movement: CCX high mode −0.002 pp out of +4.76, S-7 −0.011 pp out of +1.11, tip axial ≈ −0.1 pp. The coarse-LE caveat is not what moved CalculiX, S-7 or V-02. The movement comes from the true-intersection nodes (web junctions, TE closure), the same population where Bredt (L21) and the TE sub-model PSD favour separate directors.
+  - The S-1 EI_flap flip (red → pass) has to be checked with a printed value before it means anything; `s1_values.py` runs fix vs variant on the same node.
+- **S-1 printed** (SLURM 11622335 dev, `logs/check/l3-fold-variant/s1-11622335.log`, same node): fix EI_edge/EI_flap/GJ/EA = 11.45/**5.1702**/5.0508/7.5939 %; variant 11.4486/**4.8594**/5.0526/7.5939 %. The flip is −0.31 pp crossing the 5 % bound by 0.14 pp, which is not evidence that either variant is right.
+- **Decision (L21 step 2): keep the Abaqus 20° rule everywhere (7dfe78d as committed).** Reasons:
+  1. At true folds, separate directors match the analytic reference (Bredt, L21) and remove the TE mechanism (S-6).
+  2. The skin-only (coarse LE) population moves no anchor by more than 0.31 pp. The CCX, S-7 and V-02 movements belong to the true-fold population.
+  3. A set-name split would put mesh-semantic knowledge (`SW`, `TE_FLAT`) into the assembler: a fragile contract for no measured gain.
+  4. CalculiX and Abaqus use the same 20° rule.
+  - Consequence, reported and not re-banded: CCX tip axial goes 5.4–5.5 % against a 5 % bound (it passed before); the CCX high-mode gap goes 9.22 → 13.98 %; S-7 goes 9.09 → 10.20 %. These are moved code-to-code anchors and are findings.
+  - **Open question (reference side):** CCX also splits normals at true folds (§6.2.14) but ties them with a knot over the expanded C3D20R. That is not the same joint as our shared nodal rotations, so why separation moves us away from CCX at the web junctions is not explained. Not investigated here.
+  - The scratch variant stays in `logs/check/l3-fold-variant/` (worktree + ext) as the record; nothing from it is committed.
+- **L21 step 3 done.** Tube pins re-measured at 7dfe78d: over-delivery 24.66152× / 9.19606×; distributed energy excess 4.251 / 2.048 % (minimum-norm 2.88902 / 2.82458). `_solve_rigid_removed` gets one iterative-refinement step. Both tube files: 8 passed in 41 s (`logs/check/l3-tube-repin.log`). gaps.yaml and groups.yaml narratives carry the new pins; `validation_matrix.py check`: 0 errors (the pre-existing group-27 warning remains).
+- **L21 step 4 done.** Store rows written at 7dfe78d (run 7dfe78d, date 2026-10-22; sources: full suite SLURM 11622087 `logs/check/full-20261022T160155.log`, `logs/check/l3-fold-variant/s1-11622335.log`, `logs/check/l3-tube-repin.log` at c0049c3). No bound, tolerance, verdict, flag or reference touched; contract.yaml, groups.yaml, gaps.yaml untouched. margin_pct old -> new:
+  - V-02 (32): 1F 6.093 -> 6.0700 %; 1E 8.4707 -> 8.5046 %.
+  - S-7 (34): tip twist ratio 9.0924 -> 10.2000 %.
+  - Mesh convergence (5): high-mode gap 9.2182 -> 13.9784 %; low-mode gap (1 % bound) 0.1948 -> 0.5138 % (first value printed by a full-suite log).
+  - S-1 (38): EI_edge 12.7095 -> 11.45 %; GJ 6.2193 -> 5.0508 %; EA 7.5939 -> 7.5939 % (unchanged).
+  - S-2 official (39): LC1 7.4188 -> 7.4393 %; LC4 6.2268 -> 6.2659 %.
+  - Tube torsion (6): iso theta_fit ratio 1.00309 -> 0.996948 (0.3091 -> 0.3052 %), iso theta_z 1.00674 -> 0.99976 (0.6745 -> 0.0240 %), laminate theta_fit 0.998594 -> 0.994185 (0.1406 -> 0.5815 %), laminate theta_z 1.00704 -> 0.999999 (0.7036 -> 0.0001 %); clamped-root theta_z 10 mm 0.6772 -> 0.0216 %, 0.5 mm 0.701 -> 0.0027 %; distributed force tip theta_z 10 mm 0.2341 -> 0.5433 % (both offsets), 0.5 mm 0.1068 -> 0.4108 % (both offsets).
+  - Tube moment realisation (31): interior twist rate, both comparisons 0.3091 -> 0.3052 % (raw 2.75983e-05 -> 2.74292e-05).
+  - Not recorded: CCX tip_axial_tension/compression (no store row exists for `test_blade_ccx_parity.py`; the log prints 5.5 %, L20 quotes 5.46 %); S-6 (no store row; tests pass, no value printed); S-1 mass (passes, not printed); S-1 flapwise EI (the row holds the es 0.125 converged value 5.3104 %, a different quantity; the es 0.25 control moved 5.1666 -> 5.1702 %); S-2 official LC2 and LC3 (not printed in the log); S-2 UTD cases (disowned input, no rows); signed S-1 values (only |rel err| printed); the tube minimum-norm pins (not store comparisons).
