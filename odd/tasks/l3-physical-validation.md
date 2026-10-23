@@ -440,3 +440,42 @@ Question (D3): is the published 6x6 (`components.blade.elastic_properties_mb.six
   3. **Taper and layup variation, ≈1.5 pp.**
 - **The instrument is not otherwise biased.** On the real blade a pure tip couple reads −13 % vs the deck, no better than the instrument.
 - **Next:** fix the extraction frame (tangent-frame moment and curvature, torsion coupling included), test-first on a prebent prismatic segment, then re-measure S-1.
+
+### L30 — Unconverged-mesh tests: inventory and mandate (2026-10-22)
+```text
+haz una investigacion de los tests para ver cuales usan mallas no convergidas, eso lo prohibi estrictamente hace rato, excepto para aquellos tests de convergencia de malla, no de pruebas fisicas reales
+```
+```text
+si vamos a hacer eso, porque estamos validando contra resultados numericos con mallas no convergidas, nunca vamos a resolver el problema si la comparacion la hacemos contra basura
+```
+- **Inventory** (read-only scan, Engram obs 100):
+  - **Physics tests on the blade at 1.0 m:** `tests/validation/blade/` `test_blade_iea15mw_validation`, `test_blade_section_torsion_stiffness`, `test_blade_twist_anchor_beam`, `test_blade_twist_mechanism`, `test_blade_rated_twist`, `test_blade_deloading_vs_reference` and `test_blade_section_frame_tear`, plus `tests/test_multicell_shear_flow.py` (blade part).
+  - **At 2.0 m:** `tests/test_ccx_fsi_parity_parked_v50.py` (`GATE_ELEMENT_SIZE`, missing from the registry).
+  - **Guards at 1.0/3.0 m:** `tests/validation/bem/` `test_force_projection_ac_datum`, `test_force_projection_load_frame` and `test_wall_flow_activation`, plus `tests/validation/rotor/test_bem_fsi_deformed_geometry`.
+  - **Convergence test that asserts a physics gap at its finest 0.5 m:** `tests/validation/parity/test_blade_iea15mw_mesh_convergence.py`.
+- **Guard holes in `scripts/check_mesh_size.py`:** it misses prefixed constants (`GATE_ELEMENT_SIZE`), positional calls (`build_assembly(0.5)`) and size tuples (`MESHES = (...)`). `scripts/mesh-size-debt.txt` is stale.
+- **Plan:**
+  1. Close the guard holes and true up the registry.
+  2. Re-measure every physics test at 0.25 m, with before/after recorded and bounds unchanged; a moved number is a finding.
+  3. Move the convergence test's finest point to 0.25 m.
+
+### L28 — S-1 tangent-frame extraction (2026-10-22)
+- **Change.** `SectionalExtractor.ei_from_static_response(..., frame="global"|"tangent")` (`src/aeroelast/postprocess/sectional.py`). `"global"` is the default and the old code path; `"tangent"` reads the two tip-load solves in the section tangent frame: tangent = slope of the station-centroid line, edge = global X normal to it, flap = tangent × edge; station rotation vector from a rigid fit of its nodal displacements, differentiated with a local quadratic fit (±2 station spacings); EI = |M·axis| / |κ·axis| on the bending components only, so torsion enters neither moment nor curvature. Bend–twist coupling of the section is not removed. `tests/test_iea15mw_s1_sectional.py` now uses `frame="tangent"`; bounds, contract.yaml and store rows untouched. Specs covered: S1 (identified and corrected an instrument error), S2/S3/S5 (no bound, verdict or store change; es 0.25, mid, SLURM `--ntasks` only, plain-language result).
+- **Test** `tests/validation/blade/test_sectional_tangent_frame.py` (slow, ~80 s): 24 m prismatic segment at r = 62.91 m (L27 crop construction, es 0.25, mid), straight (A) and with the real prebend slope (F1, 0.036 rad). Reference = pure tip-couple EI of the straight segment: flap 4.2118e9, edge 1.2856e10 N·m².
+- **RED.** Before the change: setup error `TypeError: ... unexpected keyword argument 'frame'` (SLURM 11622459, `red-11622459.log`). Measured default miss (`measold-11622460.log`, window 0.3–0.7 L): prebent EI_edge/pure −12.47 %, EI_flap −14.32 %; the straight segment reads −10.1 % through the same instrument (deflection-spline smoothing on a short segment), the prebend adds −2.4 pp here (the pure global-moment figure of L27 is −6.5 pp).
+- **GREEN.** `measnew-11622461.log`: tangent frame vs straight pure moment, EI_edge: straight −0.78 % (stations −1.5…−0.1), prebent −1.28 % (stations −1.9…−1.0); EI_flap −1.04 / −1.06 %. Tolerance 2.5 % (1.3× the worst station; the ~1 % offset is tip-force vs pure-moment loading) and 1.5 % for prebent-vs-straight tangent (measured 0.5 pp); default miss asserted beyond 10 %. New file: 6 passed (SLURM 11622472).
+- **Default path.** Byte-identical: `np.tobytes` of the `frame="global"` EI arrays, HEAD vs this tree, on both segments (`old_*_default.npz` vs `new_*_default.npz`); the test also pins it against an inline copy of the old algorithm (`assert_array_equal`). Callers: `tools/run_s1_sectional.py`, `s1_ei_partition.py`, `s1_midsurface_counterfactual.py`, `s1_reference_sweep.py`, `diagnose_bending_compliance_2x2.py` (docstring) keep the default.
+- **S-1 on the real blade** (es 0.25, mid, 0.2–0.85 R, signed (mean |rel|) vs the 6×6; `blade_s1.py`, SLURM 11622464/11622465):
+
+  | quantity | before (global) | after (tangent) |
+  |---|---|---|
+  | EI_edge | −11.45 % (11.45) | **−7.51 % (8.82)** |
+  | EI_flap | +3.93 % (5.17) | +3.79 % (5.70) |
+  | GJ | −2.76 % (5.05) | unchanged |
+  | EA (CLT) | +7.57 % (7.59) | unchanged |
+  | EI_edge, prebend removed (`logs/check/l3-s1-frame/blade_noprebend.yaml`) | −7.88 % (8.78) | −8.17 % (9.23) |
+
+  - The tangent reading on the prebent blade (−7.51) sits within 0.7 pp of the tangent reading with the prebend removed (−8.17), and the two frames agree to 0.3 pp when there is no prebend. That closes the 3.9 pp frame mixing (L27 counterfactual 3.6, formula 6). EI_flap's mean |rel| rises 0.5 pp (noisier local-fit estimator; signed bias unchanged).
+  - `tests/test_iea15mw_s1_sectional.py` (SLURM 11622473, run with `-x`): EI_edge still red (8.82 % vs the 5 % bound, was 11.45 %). EI_flap, GJ, EA, mass were not rerun in that job; their numbers above come from `blade_s1.py` (GJ and EA do not use EI). The residual −7.5 % is the Poisson ring coupling (~4 %) and taper/layup (~1.5 pp) of L27.
+- **Gate.** `scripts/check.sh quick`: OK (75 passed, 1 xfailed), ruff clean on the three files.
+- Logs: `logs/check/l3-s1-frame/` (untracked by `.gitignore`).

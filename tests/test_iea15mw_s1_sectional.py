@@ -37,6 +37,14 @@ independent integral of the yaml layup is +9.6 % (EA) and +2.8 % (mass) above th
 (tools/yaml_layup_independent.py), so part of the residual is inside the yaml. Bounds are 5 %
 (maintainer rule); the red ones stay red.
 
+EI is read in the section tangent frame (``ei_from_static_response(frame="tangent")``, L28 in
+odd/tasks/l3-physical-validation.md): the default global-X/Y reading mixes the prebend-tilted torsion into the
+edge moment (1/EI_g = cos^2(phi)/EI_loc + sin^2(phi)/GJ). Measured 2026-10-22, es 0.25, mid, 0.2-0.85R, signed
+(mean |rel|) vs the 6x6, global -> tangent (SLURM 11622464): EI_edge -11.45 (11.45) -> -7.51 (8.82) %,
+EI_flap +3.93 (5.17) -> +3.79 (5.70) %; GJ -2.76 (5.05) %, EA(CLT) +7.57 (7.59) % are unchanged by the
+frame. Bounds unchanged; EI_edge and EI_flap stay red (SLURM 11622473). On the prebend-removed blade the two
+frames agree (EI_edge -7.88 global / -8.17 tangent, SLURM 11622465).
+
 Marks: slow (mesh generation + 2 static solves + extraction).
 """
 
@@ -54,7 +62,6 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 from beam_reference import load_beamdyn_blade  # noqa: E402
-from run_s1_sectional import ea_gj_from_static_response as _ea_gj_static_response  # noqa: E402
 from run_s1_sectional import ea_gj_from_static_response as _ea_gj_static_response  # noqa: E402
 
 
@@ -83,7 +90,7 @@ class TestS1SectionalProperties:
         ext = SectionalExtractor(mesh, props)
 
         sec = ext.extract()  # mass path
-        z_static, ei_flap, ei_edge = ext.ei_from_static_response(props)
+        z_static, ei_flap, ei_edge = ext.ei_from_static_response(props, frame="tangent")
         z_eg, ea_resp, gj_static, ea_clt = _ea_gj_static_response(
             mesh, props, numad_data=generator.numad_mesh_data)
 

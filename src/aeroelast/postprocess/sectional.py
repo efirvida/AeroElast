@@ -221,7 +221,8 @@ class SectionalExtractor:
 
     # ------------------------------------------------------------- extraction --
     def ei_from_static_response(
-        self, properties: Optional[dict] = None, load: float = 1e6
+        self, properties: Optional[dict] = None, load: float = 1e6,
+        frame: str = "global",
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Extract EI_flap(r) and EI_edge(r) from full-mesh static tip-load
         solves (classical curvature method: EI = M(r)/kappa(r)).
@@ -234,7 +235,33 @@ class SectionalExtractor:
         Note: the load direction is global, so the extracted EI in each
         direction mixes flap/edge through the blade twist exactly like the
         BeamDyn reference convention (which is also about global-pitch axes).
+
+        ``frame`` selects the frame in which moment and curvature are read:
+
+        ``"global"`` (default, the historical path, unchanged): curvature is
+        the second derivative of the section-mean global X/Y deflection.  On
+        a PREBENT, torsionally soft blade the global-Y moment of the edge
+        case has a torsion component about the tilted beam axis, so the
+        reading is 1/EI_g = cos^2(phi)/EI_loc + sin^2(phi)/GJ, which biases
+        EI_edge low (about 3.6-6 pp on the IEA-15 blade, odd/tasks/
+        l3-physical-validation.md L27/L28).
+
+        ``"tangent"``: the BeamDyn 6x6 frame.  Per station, the beam-axis
+        tangent t is the slope of the station-centroid line, the edge axis
+        is global X projected normal to t and the flap axis is t x edge.
+        The rigid rotation vector theta(z) of each station (least-squares
+        fit of u = u0 + theta x (r - c) to its nodal displacements) is
+        differentiated with a local quadratic fit over +-2 station spacings,
+        kappa = d theta/ds = (d theta/dz) t_z.  The moment of the tip force
+        about the station centroid, M = (c_tip - c) x F, is resolved with
+        kappa in the same local axes and only the bending components are
+        used: EI_edge = |M.flap| / |kappa.flap| (X load) and EI_flap =
+        |M.edge| / |kappa.edge| (Y load).  Torsion enters neither M nor
+        kappa component, so it cannot soften the bending reading; bend-twist
+        coupling of the section, if any, is not removed.
         """
+        if frame not in ("global", "tangent"):
+            raise ValueError(f"frame must be 'global' or 'tangent', got {frame!r}")
         from aeroelast.core.bc import DirichletCondition, NodalLoad
         from aeroelast.elements import ElementFamily
         from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
@@ -259,6 +286,7 @@ class SectionalExtractor:
         rootd = sorted(idx[n] * dpn + d for n in root for d in range(dpn))
 
         profiles = {}
+        solutions = {}
         for name, comp in (("flap", 1), ("edge", 0)):
             s = StaticLinearSolver(self.mesh, model)
             s.add_dirichlet_conditions([DirichletCondition(rootd, 0.0)])
@@ -269,6 +297,11 @@ class SectionalExtractor:
             u_mean = np.array([u[membership[st]["nodes"] * dpn + comp].mean()
                                for st in sts])
             profiles[name] = u_mean
+            solutions[name] = u
+
+        if frame == "tangent":
+            return self._ei_tangent_frame(zs, [membership[st]["nodes"] for st in sts],
+                                          solutions, load)
 
         # Note: the global load directions bend the twisted blade with a
         # small flap/edge mixing inboard (twist ~15 deg at the root, ~0-2
@@ -281,6 +314,55 @@ class SectionalExtractor:
             kappa = np.abs(sp.derivative(2)(zs))
             M = load * (L - zs)
             ei[name] = np.where(kappa > 1e-12, M / np.maximum(kappa, 1e-12), np.nan)
+        return zs, ei["flap"], ei["edge"]
+
+    def _ei_tangent_frame(self, zs, station_nodes, solutions, load):
+        """Tangent-frame EI from the two tip-load displacement fields (see
+        ``ei_from_static_response``, ``frame="tangent"``)."""
+        dpn = self.dpn
+        n_st = len(zs)
+        cen = np.array([self.coords[n].mean(axis=0) for n in station_nodes])
+        half = 2.0 * float(np.median(np.diff(zs)))
+
+        def local_fit(z, y, deriv):
+            """Value or slope of a local quadratic fit about every station."""
+            out = np.empty(n_st)
+            for i in range(n_st):
+                m = np.abs(zs - zs[i]) <= half + 1e-9
+                c = np.polyfit(zs[m] - zs[i], y[m], min(2, int(m.sum()) - 1))
+                out[i] = c[-2] if deriv else c[-1]
+            return out
+
+        slope_xy = np.column_stack([local_fit(zs, cen[:, d], True) for d in (0, 1)])
+        t = np.column_stack([slope_xy, np.ones(n_st)])
+        t /= np.linalg.norm(t, axis=1, keepdims=True)
+        x_hat = np.array([1.0, 0.0, 0.0])
+        edge = x_hat[None, :] - (t @ x_hat)[:, None] * t
+        edge /= np.linalg.norm(edge, axis=1, keepdims=True)
+        flap = np.cross(t, edge)
+
+        tip_c = cen[-1]
+        ei = {}
+        for name, comp, bend_axis in (("flap", 1, edge), ("edge", 0, flap)):
+            u = solutions[name].reshape(-1, dpn)[:, :3]
+            theta = np.zeros((n_st, 3))
+            for i, nodes in enumerate(station_nodes):
+                d = self.coords[nodes] - cen[i]
+                # u_k = u0 + theta x d_k  ->  (I | -[d_k]x) (u0, theta) = u_k
+                A = np.zeros((3 * nodes.size, 6))
+                A[:, :3] = np.tile(np.eye(3), (nodes.size, 1))
+                A[0::3, 4], A[0::3, 5] = d[:, 2], -d[:, 1]
+                A[1::3, 3], A[1::3, 5] = -d[:, 2], d[:, 0]
+                A[2::3, 3], A[2::3, 4] = d[:, 1], -d[:, 0]
+                theta[i] = np.linalg.lstsq(A, u[nodes].ravel(), rcond=None)[0][3:]
+            kappa = np.column_stack([local_fit(zs, theta[:, k], True)
+                                     for k in range(3)]) * t[:, 2:3]
+            force = np.zeros(3)
+            force[comp] = load
+            moment = np.cross(tip_c[None, :] - cen, force[None, :])
+            m_b = np.einsum("ij,ij->i", moment, bend_axis)
+            k_b = np.abs(np.einsum("ij,ij->i", kappa, bend_axis))
+            ei[name] = np.where(k_b > 1e-12, np.abs(m_b) / np.maximum(k_b, 1e-12), np.nan)
         return zs, ei["flap"], ei["edge"]
 
     def section_stiffness(self, st: int, membership=None) -> Dict[str, float]:
