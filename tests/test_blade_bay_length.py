@@ -1,8 +1,11 @@
-"""Span bays are short enough for the per-bay laminate to follow a tapering layer.
+"""``max_bay_length`` is the legacy way to refine the laminate; the default no longer uses it.
 
 Candidate B of the blade input audit (``odd/tasks/blade-input-audit.md``, T7): each NuMAD (region,
 bay) holds one bay-mean laminate and the bays were the yaml grid step (about 2.4 m), so the spar
-caps at r/R 0.90 were 11 % thin (audit F5 mass -6.86 %). Default 0.25 m (user L5).
+caps at r/R 0.90 were 11 % thin (audit F5 mass -6.86 %). Splitting the bays also made the mesher
+cut one row per 0.119 m (+47 % elements), so T7e (user L12) replaced the default by
+``laminate_per_row`` (``tests/test_blade_span_decoupling.py``) and ``max_bay_length`` stays as an
+opt-in whose default is None.
 """
 
 from pathlib import Path
@@ -15,8 +18,10 @@ from aeroelast.models.blade.numad.objects.blade import Blade
 YAML = Path(__file__).parent / "IEA-15-240-RWT.yaml"
 
 
-def test_default_bay_length_is_a_quarter_metre():
-    assert BladeMesh(str(YAML), element_size=0.25).max_bay_length == 0.25
+def test_default_does_not_split_the_yaml_bays_but_decouples_the_laminate_from_the_rows():
+    mesh = BladeMesh(str(YAML), element_size=0.25)
+    assert mesh.max_bay_length is None
+    assert mesh.laminate_per_row is True
 
 
 def test_limit_bay_length_splits_bays_and_keeps_the_yaml_stations():
