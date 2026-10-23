@@ -20,8 +20,13 @@ leading edge without the projector's opinion. This prints, per station:
   * whether the deck's leading-to-trailing-edge direction runs along
     `_strip_chord_dirs` (+1) or against it (-1) - the factor `Mp` needs;
   * which x side the deck's leading edge sits on, and the estimator's sign for a
-    rigid rotation about +z, hence whether the module's "omega < 0 is nose-down"
-    holds on this frame.
+    rigid rotation about +z.
+
+Reading (corrected in 4ee98ab against OpenFAST v5 AeroDyn+BeamDyn, see
+`logs/check/l3-bd-openfast/REPORT.md`): with the leading edge at +x and the suction side at
++y, a +z rotation moves the leading edge downwind, toward stall, so +z is **nose-up** and
+`omega > 0` is nose-up. Commit 1146265 read the same geometry as nose-down; its prose and
+the numbers quoted from it are historical.
 """
 
 import numpy as np
@@ -133,6 +138,6 @@ omega = float(t._ring_kinematics(coords, u, tip)["omega"])
 print(
     f"\nestimator: a rigid rotation of the tip ring by +{angle} rad about +z "
     f"reads omega = {omega:+.6f} rad -> "
-    f"{'positive' if omega > 0 else 'negative'}; the module calls omega < 0 nose-down, "
-    f"and with the leading edge at +x a +z rotation moves it toward +y (downwind)"
+    f"{'positive' if omega > 0 else 'negative'}; with the leading edge at +x a +z rotation "
+    f"moves it toward +y (downwind), i.e. nose-up, toward stall (AeroDyn: feather = LE upwind)"
 )

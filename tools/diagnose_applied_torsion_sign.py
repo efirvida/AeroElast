@@ -13,6 +13,11 @@ torque itself:
 i.e. the aerodynamic pitching moment versus the lever-arm transfer, and their
 signs. AeroDyn's rated pitching moment is nose-down (negative), so a positive
 total would mean the transfer term is overwhelming it with the wrong sign.
+
+Convention (4ee98ab, arbitrated against OpenFAST v5): +span is nose-up on this frame, so the
+printed scalars - `Mp * dr` in the polars' sense and the transfer about +span - share one
+nose-up-positive sense and the labels below hold. The two tip rotations quoted above were
+measured before 1146265 and are historical.
 """
 
 import numpy as np

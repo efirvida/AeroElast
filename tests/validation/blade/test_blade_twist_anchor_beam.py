@@ -304,8 +304,9 @@ def test_anchor_sections_cross_check_and_degenerate_tip(anchor):
 def test_anchor_beam_arbitrates_the_shell_section_rotation(anchor, production):
     """Print the anchor-beam / shell table and state which estimator the beam supports.
 
-    The only assertion is an invariant: a root-fixed beam's twist magnitude is monotone
-    non-decreasing toward the tip.  Every shell number is reported, never fitted to a bound.
+    The assertions are invariants: a root-fixed beam's twist magnitude is monotone
+    non-decreasing toward the tip, and the shell and the beam twist the tip the same way
+    under the same load.  Every shell number is reported, never fitted to a bound.
     """
     beam = _anchor_beam(anchor, production)
     coords, u, disp = production["coords"], production["u"], production["displacements"]
@@ -318,19 +319,17 @@ def test_anchor_beam_arbitrates_the_shell_section_rotation(anchor, production):
         zz = stations[int(np.argmin(np.abs(np.asarray(stations) - r_root)))]
         ring = production["phys_rings"][zz]
         # The beam's `m` is written in the textbook's nose-up-positive convention (Dowell
-        # et al., eq. 2.1.2, module docstring), while the shell's section rotation is
-        # nose-down positive on this frame: the leading edge sits at +x and the load frame's
-        # downwind thrust at +y, so a +z rotation is nose-down. The conversion happens here,
-        # once, at the comparison; `beam["twist_deg"]` keeps the beam's own convention and
-        # the tip-artefact assertion below is written in it. Without this the two ratio
-        # columns come out negative, which is exactly what a nose-up-positive beam against a
-        # nose-down-positive shell gives.
+        # et al., eq. 2.1.2, module docstring), and so is the shell's section rotation on
+        # this frame: the leading edge sits at +x and the suction side at +y, so a +z
+        # rotation moves the leading edge downwind, toward stall - nose-up (arbitrated
+        # against OpenFAST v5 AeroDyn+BeamDyn in 4ee98ab; 1146265 had it nose-down and
+        # negated the beam here). The two columns share one convention, so no conversion.
         rows.append(
             (
                 r_root,
                 zz,
                 len(ring),
-                -beam["twist_deg"][i],
+                beam["twist_deg"][i],
                 np.rad2deg(_ring_section_rotation(coords, disp, ring)),
                 np.rad2deg(float(np.mean(u[6 * ring + 5]))),
             )
@@ -338,7 +337,7 @@ def test_anchor_beam_arbitrates_the_shell_section_rotation(anchor, production):
 
     print(
         "\nanchor beam (BeamDyn K66) vs the shell's two section estimators "
-        "(degrees about +span, all in the frame's nose-down-positive convention):"
+        "(degrees about +span, all nose-up positive):"
     )
     print(
         f"  {'r_root[m]':>9} {'r_shell[m]':>10} {'nodes':>5} {'phi_beam':>9} "
@@ -364,3 +363,7 @@ def test_anchor_beam_arbitrates_the_shell_section_rotation(anchor, production):
 
     assert np.all(np.diff(np.abs(beam["twist_deg"])) >= -1e-9), "twist is not monotone"
     assert beam["tip_artefact_deg"] < 0.0  # the excluded tip interval is nose-down
+    assert tip[3] * tip[4] > 0.0, (
+        f"the shell's tip ring rotation {tip[4]:+.4f} deg and the beam's tip twist "
+        f"{tip[3]:+.4f} deg point opposite ways under the same load"
+    )

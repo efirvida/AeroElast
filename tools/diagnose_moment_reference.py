@@ -81,7 +81,9 @@ def project_about(reference: str) -> np.ndarray:
             float(bem.Np[k]) * strip.dr * proj._strip_normal_dirs[k]
             + float(bem.Tp[k]) * strip.dr * proj._strip_chord_dirs[k]
         )
-        m_ac = float(mp[k]) * strip.dr * proj._strip_moment_axis_sign[k] * SPAN
+        # Same axis as the production projector (4ee98ab): the polars' nose-up Mp rides
+        # -sign * span, because +span is nose-up on this frame.
+        m_ac = float(mp[k]) * strip.dr * (-proj._strip_moment_axis_sign[k]) * SPAN
         if reference == "centroid":
             ref = strip.centroid
         elif reference == "ac":
