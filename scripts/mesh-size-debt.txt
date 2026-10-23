@@ -17,7 +17,7 @@ tests/software/mesh/test_turbine_mesh.py 5.0,10.0 geometry-only
 tests/test_rotor_aero_geometry.py 12.0 geometry-only
 tests/test_rotor_aero_surface.py 12.0 geometry-only
 tests/test_rotor_mesh_export.py 12.0 geometry-only
-tests/validation/parity/test_blade_iea15mw_mesh_convergence.py 0.5,1.0,2.0 convergence-study  # MESHES tuple; its finest point must move to 0.25 (L30)
+tests/validation/parity/test_blade_iea15mw_mesh_convergence.py 0.35,0.5 convergence-study  # coarse points of the 0.5/0.35/0.25 study; finest is 0.25 (L32)
 tools/diagnose_applied_torsion_sign.py 1.0 blade-10
 tools/diagnose_leading_edge.py 1.0 blade-10
 tools/diagnose_moment_reference.py 1.0 blade-10

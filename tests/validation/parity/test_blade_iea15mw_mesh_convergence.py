@@ -1,27 +1,31 @@
 """Blade modal mesh convergence against CalculiX on the IEA 15 MW blade.
 
-``test_blade_iea15mw_validation.py`` compares AeroElast to CCX at one mesh
-(``element_size = 1.0 m``).  This module separates two behaviours that the first
-revision of this test conflated:
+AeroElast (linear MITC4) and CalculiX (quadratic S8R) solve the same blade mesh, and the
+matched-mode gap is followed under refinement.  The study runs on 0.5 / 0.35 / 0.25 m, so its
+finest point is a working mesh (AGENTS.md rule 9); until 2026-10-22 it ran on 2.0 / 1.0 / 0.5 m
+and asserted its bounds on the unconverged 0.5 m mesh.
 
-* **Low modes (1-4)**: the same-method gap is discretisation.  It falls from the
-  2.0 m to the 1.0 m to the 0.5 m mesh and the finest-mesh gap is under 1%.
-* **High modes (5-8)**: the gap plateaus at a few percent on every mesh from
-  1.0 m down.  That residual is the 4-node-vs-8-node **element-order** difference
-  (linear MITC4 against quadratic S8R, worst in the high-curvature modes), not
-  discretisation, so it gets a looser bound and no per-mode improvement claim.
+* **Low modes**: the gap is discretisation and is under 0.2 % from 0.5 m down.
+* **High modes**: earlier revisions called their residual a 4-node-vs-8-node element-order
+  plateau.  The 2026-10-22 refinement refutes that (odd/tasks/l3-physical-validation.md L32).
+  The CCX modes 6 and 8 (~3.96 and ~4.21 Hz) fall monotonically, about order 1.4, as linear
+  elements against quadratic ones do: mode 8 is +13.98 / +8.26 / +5.23 % at 0.5 / 0.35 / 0.25 m.
+  It is discretisation of the linear element, not a fixed offset, and extrapolates to about
+  2 % at 0.125 m, where the CalculiX deck is too heavy to run here.  With averaged
+  directors across folds (the pre-7dfe78d convention) the same modes sit 6-7 % lower and change
+  sign between 0.5 and 0.35 m, so their smaller gap was a cancellation.
 
-Measured AeroElast-vs-CCX relative gaps for the eight matched modes (Hungarian
-pairing, so the order is by cost, not by mode number):
+Signed AeroElast-vs-CCX gaps per CCX mode (SLURM 11622478/80/81, logs/check/l3-ccx-es025/):
 
 | element_size | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2.0 m | 1.10% | 2.28% | 2.33% | 2.76% | 3.99% | 5.16% | 5.45% | 5.85% |
-| 1.0 m | 0.44% | 0.71% | 0.78% | 0.84% | 1.65% | 1.69% | 2.13% | 2.62% |
-| 0.5 m | 0.08% | 0.13% | 0.18% | 0.19% | 0.40% | 0.44% | 0.59% | 2.12% |
+| 0.5 m | +0.09% | +0.20% | +0.25% | +0.51% | +0.69% | +3.97% | +0.95% | +13.98% |
+| 0.35 m | +0.01% | +0.08% | +0.10% | +0.25% | +0.36% | +3.27% | +0.73% | +8.26% |
+| 0.25 m | -0.02% | +0.03% | +0.03% | +0.12% | +0.18% | +2.97% | +0.52% | +5.23% |
 
-The run is slow: three CCX modal solves dominate (~11 minutes measured), so it
-is marked ``slow`` and can be deselected with ``-m "not slow"``.
+The bounds are unchanged; on the 0.25 m mesh the worst high-mode gap reads 5.23 % against the 5 %
+bound, a measured discretisation residual and not a tolerance to move.  The run is slow (three
+CCX modal solves, about 15 minutes at these meshes), so it is marked ``slow``.
 """
 
 from __future__ import annotations
@@ -44,14 +48,14 @@ from aeroelast.models.blade.model import Blade  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_val  # noqa: E402
 
-MESHES = (2.0, 1.0, 0.5)
+MESHES = (0.5, 0.35, 0.25)
 N_MODES = 8
 #: Low modes where refinement resolves the gap: finest-mesh bound (measured
 #: 0.08-0.19% at CCX 2.23).
 LOW_MODES = 4
 LOW_TOL = 0.01
-#: Modes 5-8: element-order bound, explicitly not a mesh claim (measured
-#: 0.40-2.12% at CCX 2.23, 3.90-4.04% at CCX 2.20).
+#: Modes 5-8: bound set when the gap was read as an element-order plateau (measured
+#: 0.40-2.12% at CCX 2.23, 3.90-4.04% at CCX 2.20); it is discretisation (module docstring).
 HIGH_TOL = 0.05
 #: Below this a gap difference is not resolvable across the comparison.
 NOISE_FLOOR = 0.002
@@ -110,7 +114,7 @@ def _modal_couple(element_size: float, workdir, ccx_bin: str) -> tuple[np.ndarra
         )
     )
 
-    inp_path = workdir / f"blade_es{element_size:.1f}.inp"
+    inp_path = workdir / f"blade_es{element_size:.2f}.inp"
     write_ccx_mesh(
         mesh,
         str(inp_path),
@@ -127,7 +131,7 @@ def _modal_couple(element_size: float, workdir, ccx_bin: str) -> tuple[np.ndarra
     freqs_ccx = np.sort(parse_ccx_frequencies(inp_path, n_modes=N_MODES))
 
     print(
-        f"  es={element_size:.1f} m: {mesh.node_count} nodes, {n} dofs  "
+        f"  es={element_size:.2f} m: {mesh.node_count} nodes, {n} dofs  "
         f"ae={np.array2string(freqs_ae, precision=4)}"
     )
     return freqs_ae, freqs_ccx
@@ -147,15 +151,14 @@ def test_blade_modal_gap_converges_with_mesh(
     """The AeroElast-vs-CCX modal gap is discretisation for the low modes.
 
     Modes 1-4 fall under refinement, so their finest-mesh gap is bounded by
-    ``LOW_TOL``.  Modes 5-8 plateau at 1.5-4% (mode 8 around 2-4% on every mesh)
-    -- an element-order difference, not discretisation -- so they get the looser
-    ``HIGH_TOL`` and no per-mode improvement claim.  The coarse-to-medium
+    ``LOW_TOL``.  Modes 5-8 are bounded by ``HIGH_TOL``; they also fall with refinement
+    (module docstring), but the bound was set when they were read as an element-order plateau.  The coarse-to-medium
     improvement is asserted only where the coarse gap is above ``NOISE_FLOOR``,
     because below it the difference is inside the comparison's resolution.
     """
     gaps = {es: _matched_gaps(*convergence[es], N_MODES) for es in MESHES}
     for es in MESHES:
-        print(f"  es={es:.1f} m gaps: {[f'{g * 100:.2f}%' for g in gaps[es]]}")
+        print(f"  es={es:.2f} m gaps: {[f'{g * 100:.2f}%' for g in gaps[es]]}")
 
     coarse, medium, fine = MESHES
     # Mesh-convergence claim: the first refinement improves every mode whose
@@ -163,8 +166,8 @@ def test_blade_modal_gap_converges_with_mesh(
     for mode in range(N_MODES):
         if gaps[coarse][mode] > NOISE_FLOOR:
             assert gaps[medium][mode] < gaps[coarse][mode], (
-                f"matched mode {mode + 1}: 1.0 m gap {gaps[medium][mode] * 100:.2f}% is not "
-                f"below the 2.0 m gap {gaps[coarse][mode] * 100:.2f}%"
+                f"matched mode {mode + 1}: {medium} m gap {gaps[medium][mode] * 100:.2f}% is not "
+                f"below the {coarse} m gap {gaps[coarse][mode] * 100:.2f}%"
             )
 
     low_worst = max(gaps[fine][:LOW_MODES])
@@ -181,5 +184,5 @@ def test_blade_modal_gap_converges_with_mesh(
         tol=HIGH_TOL,
         kind="code",
         reference_name="the CalculiX frequencies for the same blade and mesh",
-        what="worst high-mode gap, an element-order difference not discretisation",
+        what="worst high-mode gap on the finest mesh (linear MITC4 vs quadratic S8R discretisation)",
     )

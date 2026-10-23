@@ -598,9 +598,14 @@ def test_ring_section_on_iea15mw_midspan_ring():
     Building the blade fixture costs ~20 s at ``element_size=0.25`` (the converged
     working mesh; geometry/topology guard, so the skin keeps its default reference).  The
     count and the positivity of each cell area are asserted; the area sum against the ring's
-    own shoelace area and the per-edge stiffness spread are printed only.  The sum differs
-    from the shoelace area (the web chords cut the outer polygon): 2.84 % on the former
-    1.0 m mesh (14-node ring), 14.93 % at 0.25 m (44-node ring), measured 2026-10-22.
+    own shoelace area and the per-edge stiffness spread are printed only.  The reference is
+    the shoelace of the ring's **outer-boundary** nodes (those on a wall owned by exactly one
+    cell).  Taking every ring node, as this test did until 2026-10-22, put the six interior
+    web-seam nodes of the 0.25 m ring (44 nodes, 38 on the boundary) into the angle sort and
+    read 14.93 % (2.84 % on the former 1.0 m mesh, whose 14 nodes are all on the boundary):
+    an instrument artefact, not a decomposition error.  On the boundary nodes the 0.25 m
+    ring reads 0.42 % (angle-sort and faceting of the concave airfoil only), and the three
+    cells tile the walls exactly (shapely union area equals the sum, overlap 2e-16).
     """
     pytest.importorskip("_aeroelast", reason="Rust backend not available")
     from aeroelast.core.mesh.entities import MeshElement, Node
@@ -628,11 +633,17 @@ def test_ring_section_on_iea15mw_midspan_ring():
     assert all(cell.area > 0.0 for cell in cells)
 
     ring_points = coords[ring_nodes]
-    shoelace = signed_area(ring_points[order_ring(ring_points, SPAN_Z)], SPAN_Z)
+    wall_owners: dict[tuple[int, int], int] = {}
+    for cell in cells:
+        for a, b in cell.edges:
+            key = (min(a, b), max(a, b))
+            wall_owners[key] = wall_owners.get(key, 0) + 1
+    outer = np.array(sorted({i for key, n in wall_owners.items() if n == 1 for i in key}))
+    shoelace = signed_area(ring_points[outer][order_ring(ring_points[outer], SPAN_Z)], SPAN_Z)
     cell_sum = sum(cell.area for cell in cells)
     print(
         f"\n[midspan ring] {len(ring_nodes)} nodes, {len(cells)} cells; "
-        f"sum(cell area) = {cell_sum:.6e} m^2 vs ring shoelace = {shoelace:.6e} m^2 "
+        f"sum(cell area) = {cell_sum:.6e} m^2 vs outer-boundary shoelace = {shoelace:.6e} m^2 "
         f"(relative difference {abs(cell_sum - shoelace) / abs(shoelace):.4%})"
     )
     shear_values = np.asarray([edge_shear[key] for key in sorted(edge_shear)])

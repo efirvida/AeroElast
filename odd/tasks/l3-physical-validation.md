@@ -15,7 +15,7 @@ Branch: `audit/b3-s2-beamdyn-static`; baseline `3e381af`; delivery ask-on-risk, 
 - T2 | S1–S5 | delegated bounded writer (context-backstop) | done | RED 4 failed/8 passed (91.6667%); fix in `assembler.rs`; release rebuild; compiled GREEN 26 passed; 12 rows registered in group 28 (not_measured until recorded at a revision); commit: this work unit.
 - T3 | S1–S5 | parent execution + independent high-risk verification | done (independent verifier unavailable, see L5) | Collect immutable baseline, run corrected official es0.25 four-case physics and matching element anchors; full-suite measurement on SLURM after Rust rebuild; quantify blade impact without claiming entire gap fixed.
 - T4 | S1–S5 | parent store reconciliation | done | Groups 39/28 in 4b6a04b; CCX mesh-convergence, V-02 1F/1E, S-7 at 7d20c81 in the L6 commit. contract.yaml untouched.
-- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt); L22: LE population moves no anchor >0.31 pp, 20° rule kept everywhere; tube pins re-pinned; store rows next) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
+- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt); L22: 20° rule kept; L25–L32: S-5/S-6/S-7 closed on mid, D3, V-02, T-junction, S-1 frame fix, rule-9 re-measure, CCX parity, ring fix; L33–L34: ring fix accepted, torque sense inverted by 1146265 vs OpenFAST; resume from L35) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
 
 ## Log
 ### L1 — User correction (verbatim)
@@ -517,3 +517,68 @@ si vamos a hacer eso, porque estamos validando contra resultados numericos con m
   1. **Elastic twist under the rated BEM load.** The shell tip ring rotation is +6.44°, 3.63× the decoupled anchor beam (GJ + shear centre). Deloading follows from it: production thrust change −28.27 % vs Zhou −13.04 %. The independent arbiter is a full-6×6 BeamDyn static run with the same loads.
   2. **Tip radial shortening:** −0.815 m vs BeamDyn −1.3146 m.
 - **Campbell artifact** regenerated at 0.25 m mid (SLURM 11622486; gitignored, local): rated 1F/2F/1E 0.5472/1.5341/0.7006 Hz; `test_iea15mw_sx_campbell` 5 passed.
+
+### L32 — CCX parity verdict, ring-grouping fix, session restart handoff (2026-10-22)
+- **CCX blade parity** (worker report `logs/check/l3-ccx-es025/REPORT.md`, SLURM 11622469–81, 11622503–18).
+  - **High-mode gap with A is discretisation.** Worst gap 13.98/8.26/5.23 % at 0.5/0.35/0.25 m: modes 6 and 8 fall at about order 1.4 (linear MITC4 against quadratic S8R). B's smaller gap changes sign between 0.5 and 0.35 m, so it was a cancellation. Modes 1–5 agree to 0.02–0.18 % at 0.25 m.
+  - **Tip axial (A −5.46 % at 0.25 m) is local.** Span displacement and per-region axial strain agree to 0.05–0.2 % up to z = 105 m. About 89 % of the error sits in the last 10 m, at the point-loaded 16-node tip ring. Fold and thickness-step nodes carry none of it. Outcome (d): the metric is too local to validate.
+  - **Mesh-convergence test moved to 0.5/0.35/0.25** (uncommitted, together with its registry line in `scripts/mesh-size-debt.txt`). Its docstring now carries the table above and drops the refuted "element-order plateau" claim. Bounds unchanged; expected high-mode 5.23 % vs 5 % (finding). Verification job **SLURM 11622586** (`logs/check/l3-meshconv-test-11622586.log`) was running at the restart.
+- **Ring grouping, outcome (b), production defect fixed: 533d7e6.** Fixed ring tolerances tuned on the 1.0 m mesh split prebent rings and fused the tip rings at 0.25 m. `physical_ring_labels` now groups by element topology. All affected tests pass at 0.25 m. Two things are still pending:
+  - RED of `tests/validation/bem/test_ring_grouping_fine_mesh.py` against the parent code;
+  - independent verification (Risk item 3).
+- **Lost at the restart:** three background workers (Pi-session processes; SLURM jobs survived).
+  1. **BeamDyn full-6×6 arbiter of the rated elastic twist.** Partial: `logs/check/l3-bd-rated/` holds `run_bd_rated.py`, `bd_results.json`, `bd_variants.json`, `torque_check.log` and `torque_by_span.log`, all from SLURM 11622573/81/82/87 (completed). There is no REPORT.md. Read those outputs before re-running anything.
+  2. **BeamDyn with a PreComp (yaml-consistent) deck for S-2 LC1–LC4.** Not started; no job was submitted (`logs/check/l3-bd-yamldeck/` is empty).
+  3. The ring worker had finished its runs; its result is committed as 533d7e6.
+- **Resume recipe (new session):**
+  1. Read this document from L30; run `mem_search "rule-9 re-measure 0.25"` and `git log --oneline -8`.
+  2. Read `logs/check/l3-meshconv-test-11622586.log`. If the low modes pass and the high mode reads about 5.23 %, commit the mesh-convergence test with its registry line.
+  3. Observe RED for the ring tests on a `git archive 533d7e6^` copy of `src/`, then run one independent gentle-ai-verify on 533d7e6.
+  4. Relaunch worker 1 from its partial outputs. The task text is the L31 "physics finding 1" bullet: shell tip ring rotation +6.44° = 3.63× the decoupled anchor beam; deloading −28.27 % vs Zhou −13.04 %; tip dr −0.815 vs −1.3146 m.
+  5. Relaunch worker 2 for the S-2 yaml-consistent deck.
+  6. Open items after that: the tear-guard signature (reproduces at no mesh), S-1 EI_edge −7.5 % (needs a 2D solid section arbiter), and the final synthesis per residual.
+
+### L33 — Resume from L32; ring RED; rated-twist torque sense under suspicion (2026-10-23)
+```text
+Retomamos odd/tasks/l3-physical-validation.md, T5, desde L32 (receta de reanudación), en  modo desatendido según L23 y L30. mem_search "rule-9 re-measure 0.25".
+```
+- **Ring grouping 533d7e6, RED observed by the parent** (`logs/check/l3-ring-red-parent.log`, driver `$SCRATCH/tmp/l3-ring-red/drv/red.py` on a `git archive 533d7e6^` copy, module path printed). Parent `rings_in_band` splits every synthetic skewed ring: 16 groups vs 8 stations at all four spacings (0.30, 0.25, 0.109, 0.0746 m). The parent twist binder (0.05 × 2.388 m) fuses 3 stations at 0.109 and 0.0746 m. GREEN at HEAD: 5 passed (`logs/check/l3-ring-green-head.log`). The runtime refused the independent verifier (no admissible Risk line) and said not to retry. Parent differential old vs new instead, SLURM 11622644 (`logs/check/l3-ring-diff-11622644.log`); es 1.0 serves only as the differential case.
+- **BeamDyn arbiter (lost worker 1): partial outputs read** (`logs/check/l3-bd-rated/`). The same production rated nodal load on shell es 0.25 mid gives a linear tip twist of 0.1125 rad. BeamDyn v5 full 6×6 gives 0.1228 rad linear (scale 1e-3 ×1000), so the shell is −8.4 %, and 0.0921 rad nonlinear. Tip dr: shell −1.269 m vs BD −1.3147 m. **The L31 "3.63×" was against the decoupled anchor beam, not the 6×6 beam.** The shell is consistent with BeamDyn *under the same load*.
+- **The load's torque sense is the open question (suspected outcome (b)).**
+  - The production nodal load carries a torque about the reference axis of +4.57e5 N·m about +z, which is A + B: A = −Mp = 2.77e5 (polar Cm term) and B = x_ac·Np = 1.83e5 (AC lever). In the textbook combination the two oppose, B − A = −9.4e4 about +z.
+  - Argument from conventions, not yet a measurement. OpenFAST pitch-to-feather turns the LE upwind (ElastoDyn positive pitch about −z_b). With the LE at +x and the downwind thrust at +y (both stated in 1146265), a **+z rotation takes the LE downwind, i.e. toward stall: nose-UP**. AeroDyn's local frame (x_l toward the suction side, y_l LE→TE) puts nose-up Cm about x_l × y_l = n × t, not t × n.
+  - If that holds, commit `1146265` ("three linked sign errors", 2026-10-05) inverted all three links instead of fixing them:
+    - the Mp axis (`force_projection.py` `_strip_moment_axis_sign`, `M_ac` at `project()` :840);
+    - the guards' nose-down convention;
+    - the twist feedback `_twist_mesh_to_bem = +1` (`fsi_participant.py`).
+    Its premise was that the pre-fix section torque came out nose-up. That was actually the band-datum lever (+7.6e5, since replaced by the station-ring datum, now 1.83e5), not the Cm axis.
+  - Supporting numbers (BeamDyn nonlinear, `bd_loadc.json`): with the textbook torque, tip rdz = −0.0517 rad, i.e. 2.96° toward feather under this reading, against Zhou 2025 at about 3.6° toward feather. `Zhou_tip_twist_scaled` gives a thrust change of −11.8 % vs Zhou −13.04 %. The production chain gives +0.0921 rad and −32.0 %.
+  - Not proved. The decisive independent arbiter is an OpenFAST v5 AeroDyn+BeamDyn steady run at the rated point (10.59 m/s, 7.56 rpm, pitch 0): sign and size of the tip twist and of the root torsion. AeroDyn's `BlSwpAC` is non-zero (−0.38 … −0.06 m), so OpenFAST carries the AC lever and is a valid torque reference. Delegated (context backstop at 151 k).
+
+### L34 — OpenFAST arbiter: the production torque sense is inverted, outcome (b) (2026-10-23)
+- **Ring differential, 533d7e6** (parent check; SLURM 11622644, `logs/check/l3-ring-diff-11622644.log`).
+  - es 1.0: old vs new **bit-identical**, with the same 191 groups, the same strip rings, and identical projected F. This confirms the superset claim where the old rule worked.
+  - es 0.25: 751 → 689 groups (the intended merge of split rings) and different strip-ring sets. Projected rated F is **bit-identical**, so the change reaches only the twist ring and the wall-flow grouping.
+  - Advisory: the minimum spacing between per-strip label means is 0.0009 m, from the probe's per-strip relabelling of rings that straddle a strip boundary; the grouping itself is not implicated. No blocker. 533d7e6 is accepted on RED + GREEN + differential; there was no independent verifier (refused by the runtime).
+- **OpenFAST v5 AeroDyn+BeamDyn, steady rated point** (worker, `logs/check/l3-bd-openfast/REPORT.md`, SLURM 11622651–74).
+  - Run conditions: 10.59 m/s without shear, 7.56 rpm, pitch 0, no gravity, tower or tilt. BeamDyn damping was ×10/×30 (identical to 4 digits) because the deck's damping sits in a 3.6 Hz limit cycle.
+  - Rigid rotor: 2.538 MN / 16.42 MW. Production CCBlade gives 2.525 MN / 16.33 MW.
+  - Elastic, against Zhou 2025:
+    - tip twist −3.40° **toward feather** (Zhou −3.60°);
+    - thrust −13.2 % (Zhou −13.04 %); power −6.6 % (Zhou −8.38 %);
+    - tip flap/edge 14.08/−1.28 m (Zhou 13.86/−1.22 m).
+- **Mesh frame** (0.25 mid). LE at +x; the camber bulges toward +y on 467 of 483 rings, so the suction side is downwind. **+z is nose-up (toward stall).**
+  - Polar Cm torque −2.77e5 about +z, AC lever +1.826e5, net **−9.41e4 N·m (nose-down)**.
+  - Production applies +4.57e5 (A+B), so the Cm term enters with the wrong sign. OpenFAST's outboard section torque is nose-down at every cut, production's is positive at every cut.
+  - BeamDyn under the textbook torque gives −2.96° (−12.8 % vs OpenFAST). The production chain gives +5.28° toward stall.
+- **Verdict: commit `1146265` inverted the three links.** Its premise ("+z rotation is nose-down") is wrong. Links:
+  - `force_projection.py:582`: the Mp-axis sign, `-1.0 if le_at_hi`, should be +1;
+  - `:840-842`, where that sign is applied;
+  - the docstring at `:36-48`, whose cross-product order is wrong;
+  - `fsi_participant.py:472, :789` with `_resolve_twist_sense` `:828-880`: `_twist_mesh_to_bem` +1 → −1;
+  - nose-down guards asserting ω > 0 in `test_blade_rated_twist.py`, `test_blade_deloading_vs_reference.py`, `test_bem_fsi_deformed_geometry.py` and `test_multicell_shear_flow.py`.
+  The production deloading (−32.0 % thrust) is therefore a sign artefact. **L31 finding 1 closes as (b)** once the fix is measured.
+- Open after the fix:
+  - the remaining 13 % tip-twist gap to OpenFAST (OpenFAST outboard torque 1.7–4× the textbook value beyond 70 m: AeroDyn applies the AC on the BlSwpAC line, not on the mesh section);
+  - power −6.6 vs −8.38 %;
+  - the deck's 3.6 Hz BeamDyn limit cycle (reference-side).
