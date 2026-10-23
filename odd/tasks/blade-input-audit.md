@@ -40,8 +40,71 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 ## Tasks
 
 - T1 | S1-S4 | parent | done | pre-registration (this file), committed before any tool edit
-- T2 | S2-S4, S6 | worker | pending | the standalone reader and the audit tool, with unit tests
-- T3 | S4-S6 | parent | pending | run at es 0.25, record the table, apply the S5 decision
+- T2 | S2-S4, S6 | worker | done | `tools/audit_blade_input.py`, 24 unit tests (RED: collection error; GREEN 24/24), ruff clean
+- T3 | S4-S6 | parent | done | login-node run (~25 s), table below; S5: defect candidates A-E, none fixed
+- T4 | S5 | - | pending, new session | pre-register the effect estimate of A and B on S-1 (EA, EI_edge, GJ at 0.30/0.60/0.90), then measure it
+
+## Result (2026-10-23, revision of the tool commit; `logs/check/input-audit/report.json`, `stations.csv`, 1568 checks)
+
+Counts are pass/fail/boundary/not-gated.
+
+| r/R | F1 shape | F2 airfoil | F3 stack | F4 webs | F5 integrals | F6 materials | F7 surface |
+|---|---|---|---|---|---|---|---|
+| 0.30 | 5/0/0/0 | 0/0/0/1 | 294/72/106/52 | 20/1/0/0 | 2/0/0/6 | 25/0/0/25 | 0/0/0/3 |
+| 0.60 | 5/0/0/0 | 0/0/0/1 | 199/17/104/36 | 21/0/0/0 | 0/2/0/6 | 25/0/0/25 | 0/0/0/3 |
+| 0.90 | 5/0/0/0 | 1/0/0/0 | 80/44/68/24 | 17/4/0/0 | 0/2/0/6 | 15/0/0/15 | 0/0/0/3 |
+| 0.97 | 4/1/0/0 | 1/0/0/0 | 96/8/68/24 | 1/0/0/0 | 0/2/0/6 | 15/0/0/15 | 0/0/0/3 |
+
+F5, mesh vs the yaml point value:
+
+| r/R | mass | axial |
+|---|---|---|
+| 0.30 | -0.10 % | -0.48 % |
+| 0.60 | -5.15 % | -2.28 % |
+| 0.90 | -6.86 % | -10.2 % |
+| 0.97 | +2.73 % | +2.03 % |
+
+Fields that pass:
+- Outer shape: twist within 0.035°, positions within tolerance.
+- Airfoil: where gated, within 0.29 % c.
+- In-plane materials: exact.
+- Fibre angles: all 0 in the yaml and in the mesh.
+- Material and ply order: they differ only on boundary elements.
+- Nodes: they sit on the OML with the laminate centred on them (F7, reported only).
+
+**S5 verdict: input-translation defect candidates exist.** None was fixed. They are listed with the
+worker's numbers, and only D was spot-checked by the parent:
+- **A. Partly covered layers are smeared over the whole NuMAD region** (`stackdb._map_continuous_layers`):
+  - `Shell_skin` in `TE_REINF` is -15.5 % at 0.30 and -13.3 % at 0.60;
+  - `Shell_skin_inner` in `TE_PANEL` is -9 % at 0.30, -23 % at 0.90 and -30 % at 0.97;
+  - TE-reinforcement glass mass at 0.60 is 47.1 vs 61.0 kg/m (-23 %), which is the whole F5 mass miss there.
+
+  This bears on EI_edge, which S-1 measures as -7.5 % signed (softer).
+- **B. Thickness is held per NuMAD bay**, not evaluated at the element. At 0.90 the spar caps are 10.18 vs
+  11.43 mm (-11.0 %). Bay-averaging the yaml brings F5 at 0.90 to -0.9 % mass and -0.6 % axial, so
+  B accounts for the 0.90 miss. Mesh refinement cannot remove it: the bay comes from the NuMAD
+  stations, not from `element_size`. Rule 9 convergence studies therefore do not see it.
+- **C. Chord at 0.97 is +0.77 %** (1.8897 vs 1.8752 m). Pchip versus linear explains part of it, and
+  0.5 % is unexplained.
+- **D. Out-of-plane constants** (`build_rust_properties`, model.py:721):
+  - the Rust order is (g12, g23, g13; nu12, nu23, nu31), and windIO (xy, xz, yz) is passed in;
+  - glass_uni g13/g23 come out swapped (0.57 %);
+  - nu23 is 0.35 vs 0.264, and 0.0 vs 0.17 for glass_triax.
+
+  How the shell uses these constants (transverse shear) has not been checked.
+- **E. The web1 suction-side attachment at 0.30 is 0.157 m off** (tolerance 0.125 m).
+
+Literal-application notes, each recorded in the report meta:
+- The ring is the planar cut at z.
+- The TE flat-back elements are excluded from F3/F5 (0.001-1.6 % of the ring mass).
+- r/R is the blade-length fraction.
+- The `nd_arc` convention is inferred from the airfoil order and the `side` tags. The windIO schema
+  text is not vendored, so it is not cited, which departs from S2.
+- The position tolerance is the larger of the two values.
+
+**Reading.** "Implementation is clean" no longer holds for the input chain. A and B reach
+the stiffness of the TE and the spar caps, the members that set EI_edge and EA. Whether they explain
+S-1/S-2 is a quantitative question for T4. The answer is not assumed here.
 
 ## Log
 
