@@ -149,7 +149,7 @@ def _add_stations(
     write_airfoils,
 ):
     # Obtaining some parameters not explicitly given in YAML file
-    L = np.ceil(blade_outer_shape_bem["reference_axis"]["z"]["values"][-1])
+    L = blade_outer_shape_bem["reference_axis"]["z"]["values"][-1]
     R = L + hub_outer_shape_bem["diameter"] / 2
     L = R - hub_outer_shape_bem["diameter"] / 2
     definition.span = np.multiply(

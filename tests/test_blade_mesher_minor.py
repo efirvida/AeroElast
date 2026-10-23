@@ -29,3 +29,23 @@ def test_web_edge_control_points_are_exact_thirds():
         np.testing.assert_allclose(kp[hi], third(b, a), rtol=1e-14, atol=0)
 
 
+def _scaled_yaml(tmp_path, factor):
+    data = yaml.safe_load(YAML.read_text())
+    ref = data["components"]["blade"]["outer_shape_bem"]["reference_axis"]
+    for ax in ("x", "y", "z"):
+        ref[ax]["values"] = [v * factor for v in ref[ax]["values"]]
+    path = tmp_path / "scaled.yaml"
+    path.write_text(yaml.safe_dump(data))
+    return path, ref["z"]["values"][-1]
+
+
+def test_span_ends_at_the_yaml_tip_when_the_tip_is_not_an_integer(tmp_path):
+    """G9: ``L = ceil(z_tip)`` stretched the whole span by up to 1 m."""
+    from aeroelast.models.blade.numad.objects.blade import Blade
+
+    path, tip = _scaled_yaml(tmp_path, 0.995)
+    assert tip != np.ceil(tip)
+    blade = Blade(str(path))
+    assert blade.definition.span[-1] == pytest.approx(tip, rel=0, abs=1e-9)
+
+
