@@ -57,6 +57,35 @@ rows:
   flags:
   - info_only
   notes: Judged against BeamDyn p60 (K9) at 44ebffa; earlier in-house beam comparison superseded. Verdict in contract.yaml.
+- id: blade_static_prescribed.s2_official_lc3_tip_edge_displacement
+  group: '39'
+  title: S-2 official LC3 tip edge tip displacement vs OpenFAST BeamDyn p60
+  tests:
+  - tests/test_iea15mw_s2_static_prescribed.py::TestS2StaticPrescribed::test_edgewise_ratio_within_band[official]
+  validates: Official-blade shell tip ux for LC3 (tip force +1 MN along shell x) against the OpenFAST BeamDyn static driver (K11.3).
+  comparisons:
+  - label: Edgewise tip displacement relative error
+    asserted: false
+    reference:
+      kind: code
+      label: OpenFAST v5.0.0 BeamDyn driver p60, linear static, official v1.1 deck, LC3 tip force (0, -1 MN, 0) BD axes, shell tip ux 34.469441 m
+    tolerance:
+      kind: rel_err
+      value: 0.05
+      source: tests/test_iea15mw_s2_static_prescribed.py:187
+      justified: true
+      justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference admitted by K11.3: p50-p60 0.047 %, scale 1e-4 vs 2e-4 0.0005 %. The 0.9-1.2 band against the in-house EB beam is removed.'
+    measured:
+      status: measured
+      run: '6318955'
+      date: '2026-10-21'
+      raw: 0.169442
+      margin_pct: 16.9442
+      text: 'S-2 LC3 tip ux official blade, mid-surface: es 0.25 shell 40.310002 m vs BeamDyn p60 34.469441 m, +16.9442 % (SLURM 11621347); es 0.125 40.637482 m, +17.8942 % (SLURM 11621348), move 0.95 pp <= 1 pp. Node vs tip-ring mean +1.19 % / +1.14 % > 0.5 %, so not a clean metric (K11.3): printed, not asserted. In-house EB beam 32.345469 m (ratio 1.2462) printed only.'
+    expected: 34.469441
+  flags:
+  - info_only
+  notes: Imported by K11.3 (was the absent node id test_edgewise_ratio_within_band[official]). Verdict in contract.yaml.
 - id: blade_static_prescribed.s2_official_lc4_distributed_tip_displacement
   group: '39'
   title: S-2 official LC4 distributed tip displacement vs OpenFAST BeamDyn p60

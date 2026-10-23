@@ -41,8 +41,8 @@ The nine absent paths (`docs/validation/levels.yaml:88-111`) are S-0, S-1, S-2, 
   - [x] **B3-2.2d** blade: K10.3 (parked match, p15/p20, dt/dt2), K10.4 hub 3.97, shell rated es 0.125. PASS, see "B3-2.2 K10.3-K10.5 RESULT" (2eab2c6).
   - [x] **B3-2.2e** verdict row 40 rated (K10.5), store/contract, check, quick, commit, push. Rated 1E `trusted`, see "B3-2.2e STORE".
   - [x] **B3-2.3a** Bernardi 2025 (WES 11:2345-2367, 2026) blade version: which IEA 15 MW blade/deck it models (v1.0 vs v1.1), with page/table citations; arbiter status for the 9 G23 rows (D2). Route: read-only research.
-  - [ ] **B3-2.3b** batch 2a criterion K11 (G20 deck reading, G42 V-05 mass hygiene + measure, absent S-2 LC3 ratio) predeclared, then measure, store, contract.
-  - [ ] **B3-2.3c** G27 out of L3 (D3): levels.yaml/contract change, rationale, the rows go with P1.
+  - [x] **B3-2.3b** batch 2a criterion K11 (G20 deck reading, G42 V-05 mass hygiene + measure, absent S-2 LC3 ratio) predeclared, then measure, store, contract. Done: K11 RESULT, commits 9259a08..8786e81.
+  - [x] **B3-2.3c** G27 out of L3 (D3): levels.yaml/contract change, rationale, the rows go with P1. Done: 4689258.
   - [ ] **B3-2.3d** batch 2b criteria (rule-9 re-mesh G5, G23, sx_mesh_convergence, sx_campbell; CCX per D1), one predeclared criterion each.
 - [ ] **B3-3 — Resolve L3 special cases.** Adjudicate S-2 (+8.1%), V-02 first edge (stored error 9.0532%, tolerance 10%), and S-7 with independently quantified, pre-measurement exceptions or rejection/open findings; address `rotating_modal_shift` and imported absences without hand-waving. Check: exact remaining absent, over-ceiling and gap states in contract.
 - [ ] **PRE-4 — Final readiness record for P1 (no P1 execution).** Re-run contract for L1/L2/L3 at final revision; confirm all roadmap gates and explicit maintainer scheduling are present. Reconcile #42's stale public C1/GJ and Zhou-transfer description against the frozen local full-6x6 C1/non-transferable pre-registration; prepare a proposed correction for maintainer approval, but do not publish an issue edit/comment or push without explicit permission. Check: evidence-supported readiness or an exact blocker list; no solver submission, P1 implementation, or physical claim in this prerequisite phase.
@@ -1502,3 +1502,66 @@ User (L): "trabaja todos en paralelos segun sea posile" (after reading the D1-D8
   normalised, median over separable stations of e_i / max(2 delta_rel_i, 5 %) <= 1, with e_i = |digitised - v1.1| / v1.1.
   Timing note: this line was written to the file before the digitising run, but its commit failed on a transient `index.lock`
   and landed after that run; the worker received option A in its prompt before it started digitising.
+
+## B3-2.3d map (read-only explorer, 2026-10-21; input for the batch 2b criteria, no number read as evidence)
+- G5 `tests/validation/parity/test_blade_iea15mw_mesh_convergence.py:144`: MESHES (2.0, 1.0, 0.5) (:47, all rule-9 defects; debt
+  `scripts/mesh-size-debt.txt:35`), oml; AE vs CCX first 8 modes paired by Hungarian cost (:61-71); asserts gap shrink 2.0 -> 1.0
+  and worst gap at 0.5 m <= 1 % (pairs 1-4) / 5 % (5-8). CCX live on the SAME mesh (S8R via `write_ccx_mesh`, :106-118): parity,
+  not an arbiter under D1. `_modal_couple(es, workdir, ccx_bin)` (:74) takes any es. ~11 min for the three meshes; no CCX timing
+  below 0.5 m (0.5 m = 9,277 nodes, 0.125 m = 120,352). Known: margins 0.19 / 2.12 % at 1d9a665; pairs 5-8 move 0.40-2.12 % (CCX
+  2.23) vs 3.90-4.04 % (CCX 2.20) - CCX-version sensitivity.
+- G23 `tests/validation/blade/test_blade_iea15mw_validation.py`: one fixture, ELEMENT_SIZE 1.0 (:77, debt "blade-10"), oml, same
+  mesh for AE and CCX. CCX modes .0-.4 (<= 5 %, :355); CCX static (:464) with an equal force per NODE (:266-273), so the load
+  changes with node density, and a node-mean tip uy (not work, rule 3); mass vs Escalera Mendoza 68,077 kg (:328); DLC static
+  vs 23.49 m and the 8 Bernardi modes both xfail when rel > 5 % (:477-482, :506-511): they can never fail. All G23 rows ERRORed at
+  setup in full-20261019T153623 (TMPDIR). Known: stored margins at 73743de (mass 3.74 %, CCX 0.44-1.65 %, static 1.86 %, Bernardi
+  1.94/3.35/4.37 %); AE-only es 0.25 oml modes exist (:899 of this doc). Bernardi is not an arbiter (K11.4 result below).
+- `tests/test_iea15mw_sx_mesh_convergence.py` exists but its CSV (`docs/validation_data/generated/sx_mesh_convergence.csv`) is
+  absent, so every test skips; it judges the 0.5 m values against bands of 4-10 % (:117-131, rule-9 defect). Producer
+  `tools/run_sx_convergence.py` (defaults 1.0/0.5/0.25, oml, hard-coded OpenFAST paths); last run SLURM 11599739 (2 h 27 m,
+  stale: pre-winding-removal). The OoP target 16.1033 m has no cited source.
+- `tests/test_iea15mw_sx_campbell.py` exists, CSV absent, skips; asserts monotonic 1F/2F, Southwell spread, rated/parked within
+  8 % of ED MBC3 (superseded for 1E by K10.5). Producer `tools/run_sx_campbell.py` defaults es 0.5 (debt "anchor-05"). Candidate
+  arbiter: `tools/bd_rotating_freevib.py` (K10 method; admissibility shown only at 0 and 7.56 rpm). Cost ~6 rotating modals at es
+  0.25 (S-4 test 24-32 min).
+
+## K11 RESULT (2026-10-21; commits 9259a08..ed4acfe; logs `logs/check/b3-2e/pytest-k11-*.log`, `logs/check/bd_static/LC3-p*`, `logs/check/g42/`, `logs/check/d8/`)
+- K11.1 G20: EA 0.0023 %, GKt 0.0049 % (1 %), EIxp +1.92 %, EIyp +1.80 % (2 %) at 6318955 -> `identity` `trusted`.
+- K11.2 G42: reference admitted - BeamDyn v5 summary mass 66,934.6 kg (p60; p40/p50 66,969.9/66,970.4) vs `beamdyn_deck_mass` 66,996.9 kg
+  on the 117.149 m arc (BeamDyn prints the same length), 0.093 % <= 0.1 % (thin margin, recorded). Shell -0.4695 % (es 0.25, 11621355)
+  / -0.3529 % (es 0.125, 11621349), move 0.12 pp -> `trusted`, arbiter `reference_model`. The predicted -0.3 % used the straight-axis
+  66,912 kg; the prebent arc adds 0.13 %.
+- K11.3 S-2 LC3: reference admitted - p40/p50/p60 34.4568/34.4532/34.4694 m (p50-p60 0.047 %), scale 1e-4 vs 2e-4 0.0005 %. Shell
+  40.310 m +16.94 % (es 0.25, 11621347, rev not printed: no git on the node, submitted at 6318955) / 40.637 m +17.89 % (es 0.125,
+  11621348 at af7d91e), move 0.95 pp. Node vs ring +1.19 / +1.14 % > 0.5 % -> printed, not asserted (f0b2215), `undecided`;
+  imported as row `blade_static_prescribed.s2_official_lc3_tip_edge_displacement`, the absent node removed from levels.yaml.
+  FINDING: edgewise the shell is ~17 % MORE flexible than BeamDyn while LC1/LC4 are 6-7 % stiffer; the node/ring spread (1.2 %) does
+  not explain it. Belongs to the open model investigation (9 rejected rows decision); suspects first per rule 4: load direction vs
+  twisted chord at the tip, BD frame mapping for a -y tip force, flap-edge coupling (shell tip uy under LC3 not yet printed).
+- K11.4 D8: `tools/d8_bernardi_figb1.py` (8a577fb; inputs sha-verified in `logs/check/d8/inputs/`; overlay inspected, clean after one
+  legend-mask fix). Raw: 95 separable, closer v1.1 69.47 %, v1.0 28.42 %, normalised median 0.061; principal: 96, 69.79 %, 28.13 %,
+  0.068 -> `cannot tell` both ways: Bernardi is not an arbiter; the 8 G23 modal rows are `undecided`. FINDING: panel (c) rho-A is about
+  half of M11 of both decks (about 230 vs 430 kg/m at r/L 0.4), so Bernardi's mass input matches neither deck or is another quantity
+  (its axis says kg/m^3). Stiffness/inertia edge curves follow v1.1 at r/L 0.2-0.6.
+- D3: group 27 out of L3 (levels.yaml, P1 deliverable, #42); `check` warns "group 27 is on no level" (no schema field for another
+  deliverable). Hygiene: references.yaml Bernardi = published record (preprint kept as note), G23 mass/static rows cite escalera2023.
+  Tooling gap: `validation_matrix.py coherence --group 23` rewrites both paper rows back to the group citation (one citation per group).
+- Contract L3 after: undecided 10, unaudited 9, absent 2, over ceiling 0, single or no arbiter 28 (before: undecided 1, unaudited 22,
+  absent 3, over ceiling 1, single 33); stale rows re-stamped below.
+- Slice note: the branch is past ~400 authored lines (1,453, of which the LC3 p60 input deck copies are most); delivery stays ONE PR
+  by the maintainer's decision, slices are the commits above.
+- Re-stamp (K9 precedent): the 15 L3 verdicts made stale by the K11 test edits (S-2, V-05 are level files) moved to ed4acfe. The S-2
+  rows were re-measured there (SLURM 11621369, rev ed4acfe: LC1 -7.4110 %, LC2 -3.6807 %, LC4 -6.2214 %, LC3 +16.9442 %, identical
+  to the stored values); G20/G42 measured at 6318955 with no input change since; the others' tests and inputs are untouched.
+  `check.sh quick` OK (logs/check/quick-20261021T165921.log). Contract L3: trusted 4, undecided 10, rejected 9, unarbitrated 2,
+  unaudited 9, absent 2; over ceiling 0; single or no arbiter 28.
+
+## Handoff 2026-10-21 (K11 / batch 2a closed) - resume here
+Branch `audit/b3-s2-beamdyn-static`, HEAD = this commit, local only (924285a is the last push). ONE PR, not opened.
+Read only: "B3-2.3d map" and "K11 RESULT" (and D1-D4 if needed).
+Next, in order: (1) batch 2b (task B3-2.3d): one predeclared criterion each for G5, G23 (CCX on its own converged mesh, D1; the CCX
+static load per node and node-mean metric need a decision; the DLC/Bernardi xfail escapes), sx_mesh_convergence and sx_campbell
+(CSV producers, rule-9 sizes, BD-driver arbiter at intermediate rpm needs its own K10-style admissibility), then the SLURM series.
+(2) Maintainer, before B3-3: the 9 rejected rows (exceptions vs model investigation), now with the S-2 LC3 finding (shell ~17 %
+more flexible edgewise vs 6-7 % stiffer in LC1/LC4) and the LC2/LC3 clean-metric route (distributing tip load or inboard section).
+(3) Schema: group 27 is on no level (warning) until P1 has a place in levels.yaml.
