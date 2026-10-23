@@ -7,6 +7,17 @@ from aeroelast.models.blade.numad.mesh_gen.surface import Surface
 from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
 
 
+def _web_control_points(shellKp):
+    """Fill the interior Bezier control points of a web quad (rows 4, 5, 8, 9, 12-15) in place.
+
+    They sit at exact thirds of the straight edges; the original 0.6666/0.3333 weights summed to
+    0.9999 and shifted every control point by 1e-4 |P| towards the origin.
+    """
+    for lo, hi, a, b in ((4, 5, 0, 1), (8, 9, 2, 3), (12, 13, 11, 6), (14, 15, 7, 10)):
+        shellKp[lo, :] = (2.0 * shellKp[a, :] + shellKp[b, :]) / 3.0
+        shellKp[hi, :] = (shellKp[a, :] + 2.0 * shellKp[b, :]) / 3.0
+
+
 def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
     """
     This method generates a finite element shell mesh for the blade, based on what is
@@ -436,14 +447,7 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
                     splineZi[stPt + 1, 12],
                 ]
             )
-            shellKp[4, :] = 0.6666 * shellKp[0, :] + 0.3333 * shellKp[1, :]
-            shellKp[5, :] = 0.3333 * shellKp[0, :] + 0.6666 * shellKp[1, :]
-            shellKp[8, :] = 0.6666 * shellKp[2, :] + 0.3333 * shellKp[3, :]
-            shellKp[9, :] = 0.3333 * shellKp[2, :] + 0.6666 * shellKp[3, :]
-            shellKp[12, :] = 0.6666 * shellKp[11, :] + 0.3333 * shellKp[6, :]
-            shellKp[13, :] = 0.3333 * shellKp[11, :] + 0.6666 * shellKp[6, :]
-            shellKp[14, :] = 0.6666 * shellKp[7, :] + 0.3333 * shellKp[10, :]
-            shellKp[15, :] = 0.3333 * shellKp[7, :] + 0.6666 * shellKp[10, :]
+            _web_control_points(shellKp)
 
             nEl1 = max(1, int(np.ceil(np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
             nEl3 = max(1, int(np.ceil(np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
@@ -516,14 +520,7 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
                     splineZi[stPt + 1, 27],
                 ]
             )
-            shellKp[4, :] = 0.6666 * shellKp[0, :] + 0.3333 * shellKp[1, :]
-            shellKp[5, :] = 0.3333 * shellKp[0, :] + 0.6666 * shellKp[1, :]
-            shellKp[8, :] = 0.6666 * shellKp[2, :] + 0.3333 * shellKp[3, :]
-            shellKp[9, :] = 0.3333 * shellKp[2, :] + 0.6666 * shellKp[3, :]
-            shellKp[12, :] = 0.6666 * shellKp[11, :] + 0.3333 * shellKp[6, :]
-            shellKp[13, :] = 0.3333 * shellKp[11, :] + 0.6666 * shellKp[6, :]
-            shellKp[14, :] = 0.6666 * shellKp[7, :] + 0.3333 * shellKp[10, :]
-            shellKp[15, :] = 0.3333 * shellKp[7, :] + 0.6666 * shellKp[10, :]
+            _web_control_points(shellKp)
 
             nEl1 = max(1, int(np.ceil(np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
             nEl3 = max(1, int(np.ceil(np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
