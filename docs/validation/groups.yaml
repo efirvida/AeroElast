@@ -201,6 +201,34 @@ out_of_scope:
       magnitude is not asserted, because the shell flaps 9.15 % less than
       BeamDyn there and the term scales with the flap squared.
 
+  - files:
+      - tests/validation/bem/test_torque_sense_vs_openfast.py
+    reason: >-
+      A sign guard on the torsional load chain (L3 T5, 4ee98ab). Its applied
+      torque is compared with B - A recomputed from our own rigid BEM and the
+      mesh ring's aerodynamic centre, and its twist feedback with the exact
+      kinematics of a prescribed rigid rotation: both references are our own.
+      OpenFAST v5 AeroDyn+BeamDyn (logs/check/l3-bd-openfast/REPORT.md)
+      arbitrates only the sense, which the test then asserts; no OpenFAST number
+      is compared, so rule 6 leaves it without rows.
+
+  - files:
+      - tests/validation/bem/test_ring_grouping_fine_mesh.py
+    reason: >-
+      A machinery check of the physical-ring grouping (533d7e6): synthetic
+      meshes with no solve, and the strip-ring selection of the twist against
+      the whole ring. Topology and identity properties of the implementation,
+      not a physical quantity against an independent reference.
+
+  - files:
+      - tests/validation/blade/test_sectional_tangent_frame.py
+    reason: >-
+      An invariance of the S-1 extraction (cbe6345): the edge/flap EI of a
+      prebent prismatic segment, read in the section tangent frame, against the
+      pure-moment EI of the same section on a straight segment of our own shell.
+      The reference is our model, so rule 6 leaves it without rows; the S-1
+      rows against BeamDyn stay in their own group.
+
 groups:
   - id: "3"
     title: >-
