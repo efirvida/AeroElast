@@ -42,7 +42,21 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T1 | S1-S4 | parent | done | pre-registration (this file), committed before any tool edit
 - T2 | S2-S4, S6 | worker | done | `tools/audit_blade_input.py`, 24 unit tests (RED: collection error; GREEN 24/24), ruff clean
 - T3 | S4-S6 | parent | done | login-node run (~25 s), table below; S5: defect candidates A-E, none fixed
-- T4 | S5 | - | pending, new session | pre-register the effect estimate of A and B on S-1 (EA, EI_edge, GJ at 0.30/0.60/0.90), then measure it
+- T4 | S5 | - | superseded by T5-T9 (user L2): correct first, measure the effect of each correction
+- T5 | S5 | parent | pending | D, out-of-plane constants: verify the Rust `OrthotropicMaterial` argument order, RED from the audit, fix, before/after S-1/S-2
+- T6 | S5 | parent or worker | pending | A, region smearing: diagnose whether `stackdb` loses mass or misplaces keypoints, then RED, fix, before/after
+- T7 | S5 | parent or worker | pending | B, per-bay thickness: span-resolution study (more NuMAD stations), then the fix, before/after
+- T8 | S5 | parent | pending | C and E, chord at 0.97 and the web attachment at 0.30: diagnose, fix if they are defects
+- T9 | S5 | parent | pending | re-audit, every gated field passes or is justified; re-measure the L3 rows; restamp
+
+Rules for T5-T9, fixed now:
+- One candidate per commit, in the order D, A, B, C/E: cheapest and clearest first.
+- Each fix is test-first: the audit's own gated field for that candidate is the RED test.
+- After each fix, S-1 (EA, EI_edge, EI_flap, GJ, mass) and S-2 LC1-LC4 are re-measured at es 0.25 on
+  SLURM. The effect of each candidate is then a measured difference, not an inference.
+- No band and no anchor is touched. A row that moves is a finding to record.
+- A candidate that turns out to be a deliberate NuMAD modelling choice is recorded with its
+  justification instead of being "fixed".
 
 ## Result (2026-10-23, revision of the tool commit; `logs/check/input-audit/report.json`, `stations.csv`, 1568 checks)
 
@@ -109,3 +123,4 @@ S-1/S-2 is a quantitative question for T4. The answer is not assumed here.
 ## Log
 
 - L1 (2026-10-23) User: "en lo que esperamos vamos a hacer la auditoria campo por campo de la malla contra el yaml". This follows the four-way split agreed in the same session: implementation, input translation, model class, reference quality. Input translation goes first because it is the cheapest discriminator.
+- L2 (2026-10-23) User: "y para corregir lo que encontraste en la auditoria de malla? yo creo que so seria lo principal para comenzar, porque todo lo demas depende de la malla". Decision: correct A-E before T4, C1 or P3, one at a time with before/after measurement (T5-T9).
