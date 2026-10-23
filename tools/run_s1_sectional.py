@@ -85,8 +85,30 @@ def laminate_a11(layup, mats) -> float:
     return a11
 
 
+def native_bay_centres(yaml_file, airfoil_dir=None):
+    """Span coordinates of the bay centres of the native (yaml grid) blade, no bay limit.
+
+    The S-1 anchor 9f72c6b was extracted on these stations (about 2.39 m apart, plus the tip-chord
+    refinement bays of ``BladeMesh``). Passing them as ``stations`` makes the extraction independent of
+    ``BladeMesh.max_bay_length``. Only the NuMAD blade is built (no mesh).
+    """
+    from aeroelast.core.mesh.generators import BladeMesh
+
+    gen = BladeMesh(yaml_file=str(yaml_file), airfoil_dir=airfoil_dir, max_bay_length=None)
+    from aeroelast.models.blade.numad import Blade
+
+    blade = Blade()
+    blade.read_yaml(str(yaml_file))
+    blade.update_blade()
+    gen._numad_blade = blade
+    if gen.refine_tip:
+        gen._refine_high_gradient_sections(verbose=False)
+    ispan = np.asarray(blade.ispan, dtype=float)
+    return 0.5 * (ispan[:-1] + ispan[1:])
+
+
 def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
-                                numad_data=None):
+                                numad_data=None, stations=None):
     """Extract EA(r) and GJ(r) from full-mesh static tip-load solves.
 
     GJ: tip torque about the span (force couple on the tip section) ->
@@ -102,6 +124,10 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
         station's elements of A11(layup) * width_span — immune to the
         pre-bend contamination (the same construction as the Bredt GJ).
 
+    ``stations``: reference span coordinates; when given, the spline fits and gradients run only on the
+    mesh stations nearest to them (``select_stations``), so the result does not depend on the number of
+    stations the mesher inserted. ``None`` keeps every station.
+
     NOTE: the EA extraction currently shows a systematic bias outboard
     (shell ~0.1 GN vs BeamDyn ~3.9 GN at the tip) — documented as an open
     item; use the GJ result only for assertions.
@@ -110,7 +136,7 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     from aeroelast.elements import ElementFamily
     from aeroelast.solvers.elasticity.static_linear import StaticLinearSolver
 
-    from aeroelast.postprocess.sectional import SectionalExtractor
+    from aeroelast.postprocess.sectional import SectionalExtractor, select_stations
 
     model = {
         "solver": {},
@@ -123,6 +149,7 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     ext = SectionalExtractor(mesh, props)
     membership = ext.station_membership()
     sts = sorted(membership)
+    sts = [sts[i] for i in select_stations([membership[st]["z"] for st in sts], stations)]
     zs = np.array([membership[st]["z"] for st in sts])
     tip_nodes = membership[sts[-1]]["nodes"]
     coords = np.asarray([n.coords for n in mesh.nodes])
@@ -262,9 +289,12 @@ def main() -> int:
     mesh = generator.generate(renumber="rcm")
     props = build_rust_properties(generator.numad_mesh_data)
     ext = SectionalExtractor(mesh, props)
+    # evaluate on the native (yaml grid) stations whatever bay limit the mesher applied
+    stations = None if args.blade_xlsx else native_bay_centres(args.blade_yaml, args.airfoil_dir)
     print(f"[S1] extracting EI(r) via static tip-load curvature...")
-    sec = ext.extract(n_slices=args.n_slices)
-    z_static, ei_flap_static, ei_edge_static = ext.ei_from_static_response(props)
+    sec = ext.extract(n_slices=args.n_slices, stations=stations)
+    z_static, ei_flap_static, ei_edge_static = ext.ei_from_static_response(
+        props, stations=stations)
 
     ei_flap_bd = _interp(bd.z, bd.ei_flap, z_static)
     ei_edge_bd = _interp(bd.z, bd.ei_edge, z_static)
@@ -294,7 +324,7 @@ def main() -> int:
     # V-05 closure: EA + GJ spanwise vs BeamDyn
     # ------------------------------------------------------------------
     zs, ea_static, gj_static, ea_clt = ea_gj_from_static_response(
-        mesh, props, numad_data=generator.numad_mesh_data)
+        mesh, props, numad_data=generator.numad_mesh_data, stations=stations)
 
     ea_bd = _interp(bd.z, bd.ea, zs)
     gj_bd = _interp(bd.z, bd.gj, zs)

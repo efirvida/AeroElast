@@ -63,6 +63,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 from beam_reference import load_beamdyn_blade  # noqa: E402
 from run_s1_sectional import ea_gj_from_static_response as _ea_gj_static_response  # noqa: E402
+from run_s1_sectional import native_bay_centres  # noqa: E402
 
 
 def _interp(x_src, y_src, x_dst):
@@ -89,10 +90,14 @@ class TestS1SectionalProperties:
         props = build_rust_properties(generator.numad_mesh_data)
         ext = SectionalExtractor(mesh, props)
 
-        sec = ext.extract()  # mass path
-        z_static, ei_flap, ei_edge = ext.ei_from_static_response(props, frame="tangent")
+        # evaluate on the yaml-grid stations whatever bay limit the mesher applied (T7d): the fits depend on the
+        # station count, and 9f72c6b was extracted on these ~50 stations
+        stations = native_bay_centres(iea_blade_yaml)
+        sec = ext.extract(stations=stations)  # mass path
+        z_static, ei_flap, ei_edge = ext.ei_from_static_response(
+            props, frame="tangent", stations=stations)
         z_eg, ea_resp, gj_static, ea_clt = _ea_gj_static_response(
-            mesh, props, numad_data=generator.numad_mesh_data)
+            mesh, props, numad_data=generator.numad_mesh_data, stations=stations)
 
         mid = (z_static > 0.2 * z_static.max()) & (z_static < 0.85 * z_static.max())
         return {

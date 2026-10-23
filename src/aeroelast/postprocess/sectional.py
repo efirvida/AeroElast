@@ -221,6 +221,7 @@ class SectionalExtractor:
     def ei_from_static_response(
         self, properties: Optional[dict] = None, load: float = 1e6,
         frame: str = "global",
+        stations: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Extract EI_flap(r) and EI_edge(r) from full-mesh static tip-load
         solves (classical curvature method: EI = M(r)/kappa(r)).
@@ -257,6 +258,12 @@ class SectionalExtractor:
         |M.edge| / |kappa.edge| (Y load).  Torsion enters neither M nor
         kappa component, so it cannot soften the bending reading; bend-twist
         coupling of the section, if any, is not removed.
+
+        ``stations``: reference span coordinates [m]. When given, the curvature is fitted and
+        returned only at the mesh stations nearest to them (``select_stations``), so the result
+        does not depend on how many stations the mesher inserted (``BladeMesh.max_bay_length``;
+        the spline smoothing and the local-fit window both scale with the station count). The
+        static solves still run on the full mesh. ``None`` keeps every station.
         """
         if frame not in ("global", "tangent"):
             raise ValueError(f"frame must be 'global' or 'tangent', got {frame!r}")
@@ -299,7 +306,7 @@ class SectionalExtractor:
 
         if frame == "tangent":
             return self._ei_tangent_frame(zs, [membership[st]["nodes"] for st in sts],
-                                          solutions, load)
+                                          solutions, load, stations)
 
         # Note: the global load directions bend the twisted blade with a
         # small flap/edge mixing inboard (twist ~15 deg at the root, ~0-2
@@ -307,17 +314,22 @@ class SectionalExtractor:
         # smallest and dominate the comparison — the +X/+Y loads are nearly
         # pure edgewise/flapwise, so the raw global profiles are used.
         ei = {}
+        sel = select_stations(zs, stations)
+        zs = zs[sel]
         for name in ("flap", "edge"):
-            sp = UnivariateSpline(zs, profiles[name], s=1e-2)
+            sp = UnivariateSpline(zs, profiles[name][sel], s=1e-2)
             kappa = np.abs(sp.derivative(2)(zs))
             M = load * (L - zs)
             ei[name] = np.where(kappa > 1e-12, M / np.maximum(kappa, 1e-12), np.nan)
         return zs, ei["flap"], ei["edge"]
 
-    def _ei_tangent_frame(self, zs, station_nodes, solutions, load):
+    def _ei_tangent_frame(self, zs, station_nodes, solutions, load, stations=None):
         """Tangent-frame EI from the two tip-load displacement fields (see
         ``ei_from_static_response``, ``frame="tangent"``)."""
         dpn = self.dpn
+        sel = select_stations(zs, stations)
+        zs = np.asarray(zs)[sel]
+        station_nodes = [station_nodes[i] for i in sel]
         n_st = len(zs)
         cen = np.array([self.coords[n].mean(axis=0) for n in station_nodes])
         half = 2.0 * float(np.median(np.diff(zs)))
@@ -473,12 +485,21 @@ class SectionalExtractor:
         dz = max(sl["z1"] - sl["z0"], 1e-9)
         return {"mass_dens": float(m / dz), "cg": sl["centroid"]}
 
-    def extract(self, n_slices: Optional[int] = None) -> SectionProperties:
+    def extract(self, n_slices: Optional[int] = None,
+                stations: Optional[np.ndarray] = None) -> SectionProperties:
         """Extract sectional properties per blade station (via the detailed
-        element-set membership — robust for twisted sections)."""
+        element-set membership — robust for twisted sections).
+
+        Nothing here is fitted across stations (each value is a per-bay quantity), so the result
+        does not depend on the station count; ``stations`` (reference span coordinates, see
+        ``select_stations``) only restricts the evaluation to the nearest mesh stations so the
+        sampled z set matches the other S-1 channels. ``None`` keeps every station.
+        """
         membership = self.station_membership()
         zs, ea, gj, eif, eie, m, cg = [], [], [], [], [], [], []
-        for st in sorted(membership):
+        order = sorted(membership)
+        keep = select_stations(np.array([membership[st]["z"] for st in order]), stations)
+        for st in (order[i] for i in keep):
             try:
                 sec = self.section_stiffness(st, membership)
                 ms = self.section_mass(st, membership)
@@ -496,6 +517,22 @@ class SectionalExtractor:
             ei_flap=np.asarray(eif), ei_edge=np.asarray(eie),
             mass_dens=np.asarray(m), cg=np.asarray(cg),
         )
+
+
+def select_stations(zs, ref_z=None):
+    """Indices (ascending, unique) of the stations of ``zs`` nearest to each ``ref_z``.
+
+    The S-1 curvature, twist-rate and strain fits depend on the station count (smoothing bound,
+    window of twice the median spacing). Fitting on the stations nearest to a fixed reference grid
+    (the yaml ``reference_axis`` grid) makes them independent of the stations the mesher inserted.
+    ``ref_z=None`` selects every station; when the stations already are the reference grid the
+    selection is the identity.
+    """
+    zs = np.asarray(zs, dtype=float)
+    if ref_z is None:
+        return np.arange(zs.size)
+    ref = np.asarray(ref_z, dtype=float)
+    return np.unique(np.abs(zs[:, None] - ref[None, :]).argmin(axis=0))
 
 
 def _local_quadratic(zs, y, half, deriv):
