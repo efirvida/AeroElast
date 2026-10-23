@@ -1321,6 +1321,12 @@ class BladeMesh:
             if len(unique_node_ids) < 3:
                 skipped += 1
                 continue
+            if element_type == ElementType.quad and len(unique_node_ids) == 3:
+                # one edge collapsed (a wedge between two attachment lines that meet): a triangle
+                kept = [k for k in range(4) if node_objs[k] is not node_objs[k - 1]]
+                if len(kept) == 3:
+                    node_objs = [node_objs[k] for k in kept]
+                    element_type = ElementType.triangle
             elem = MeshElement(nodes=node_objs, element_type=element_type)
             mesh_model.add_element(elem)
             raw_to_mesh_id[elem_idx] = elem.id

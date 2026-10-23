@@ -1,3 +1,4 @@
+import copy
 import logging
 
 import numpy as np
@@ -98,6 +99,9 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
 
     ## Blade Components
 
+    # The webs' own grids, before ``update_internal_structure`` resamples them (``_add_web_attachments``)
+    yaml_webs = copy.deepcopy(blade_internal_structure.get("webs", []))
+
     # Update "grid" and "values" keys to cover the whole span of the blade
     blade_internal_structure = update_internal_structure(
         blade_internal_structure, blade_outer_shape_bem
@@ -118,6 +122,9 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
 
     ### COMPONENTS
     _add_components(definition, blade_internal_structure, blade_structure_dict)
+
+    # WEB ATTACHMENT ARCS
+    _add_web_attachments(definition, blade_internal_structure, yaml_webs)
 
     # ``rotorspin`` keeps NuMAD's default here.  An override of -1 used to sit at this point
     # to force the WindIO twist sign; measured on the IEA-15MW blade it mirrors the mesh in
@@ -534,6 +541,39 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
     ### add components to blade
     definition.components = component_dict
     return
+
+
+def _add_web_attachments(definition, blade_internal_structure, yaml_webs):
+    """Record where the yaml puts each web on the skin: ``definition.web_nd_arc``.
+
+    An array ``(n_groups, 3, n_grid)`` with one row per shear-web group (``Component.group`` 1, 2,
+    ...; the stack row is ``group - 1``): the yaml span ``grid`` (fraction of the blade length),
+    ``start_nd_arc`` and ``end_nd_arc`` (measured from the suction-side trailing edge) of the yaml
+    web that owns that group's layers. ``KeyPoints`` turns them into arc lengths and the mesher
+    splits the spar caps there. ``None`` when a web has no arc on a common grid, in which case the
+    webs stay on the key points.
+    """
+    layers = {layer["name"]: layer for layer in blade_internal_structure["layers"]}
+    by_name = {web["name"]: web for web in yaml_webs}
+    n_groups = max((c.group for c in definition.components.values()), default=0)
+    rows = [None] * n_groups
+    for comp in definition.components.values():
+        if not comp.group or rows[comp.group - 1] is not None:
+            continue
+        web = by_name.get(layers.get(comp.name, {}).get("web"))
+        if web is None or "start_nd_arc" not in web or "end_nd_arc" not in web:
+            continue
+        grid = np.asarray(web["start_nd_arc"]["grid"], dtype=float)
+        if not np.array_equal(grid, np.asarray(web["end_nd_arc"]["grid"], dtype=float)):
+            continue
+        rows[comp.group - 1] = [
+            grid,
+            np.asarray(web["start_nd_arc"]["values"], dtype=float),
+            np.asarray(web["end_nd_arc"]["values"], dtype=float),
+        ]
+    ok = n_groups > 0 and all(r is not None for r in rows) and len({r[0].size for r in rows}) == 1
+    definition.web_nd_arc = np.array(rows) if ok else None
+    return definition
 
 
 def update_internal_structure(blade_internal_structure, blade_outer_shape_bem):
