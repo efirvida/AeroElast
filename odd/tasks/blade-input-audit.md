@@ -371,6 +371,17 @@ convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple full
 - **Two findings along the way:**
   - The old pairing of webs to yaml webs was by name. It was wrong, and harmless only because both layups are identical.
   - The mesh HP side is the yaml pressure side: the HP arc is 1 - end_nd_arc.
+- **Measured vs B0 (job via submit_wait T8w), signed %:**
+  - GJ -2.16 -> **-11.04**, distributed over r/R 0.2-0.85: median -8 %, range -17 to -4 %. A singular zone at r/R
+    0.085-0.105 swings -92 % / +171 %.
+  - EI_flap -0.67 points; S-2 flap about 0.5 % softer; LC3 +0.4 points.
+  - EA and mass are unchanged.
+- **Not accepted as physics:** a 0.1 m web shift should move GJ by 1-2 %.
+  - Topology is intact: 12 interior free edges, all at web tip ends, against 38 in B0; no element area under 1e-5 m^2.
+  - In the root bay the two webs share one line.
+  - A verify subagent is testing four hypotheses: H1 physical (independent multi-cell Bredt), H2 S-1 twist extraction
+    (which nodes), H3 property and fibre-angle assignment of the cap pieces, H4 element quality. G3 does not enter T9
+    until this is resolved.
 - **Open risk.** Thin cap pieces (5-11 mm wide) near r/R 0.1. The Rust triangle path for the wedges is exercised
   only by the SLURM run.
 
