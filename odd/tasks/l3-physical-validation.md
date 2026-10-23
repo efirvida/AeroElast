@@ -427,3 +427,16 @@ Question (D3): is the published 6x6 (`components.blade.elastic_properties_mb.six
   - A first-order shear bound lowers the beams by about 2 %, giving +1.8 to +3.9 % on 1F and −1.4 to −2.3 % on 1E. That is the fairer comparison, because the shell carries transverse shear.
 - **V-02, outcome (d), reference restriction.** NREL/TP-5000-75698 describes the v1.0 blade (B3-2, `validation-l3-b3-audit.md:507`). Both v1.1 readings sit 5.7–7.6 % below it on 1F and 12–13 % above it on 1E. The 1E gap even has the opposite sign to the shell's. Against v1.1 beams the shell is inside 5 % on both modes. The beam is our code and explains the number; it is not an independent arbiter. The V-02 test stays red against the v1.0 table; changing its reference is a contract decision (D1) that this record supports.
 - **S-4 1E** reads −5.4 % against OpenFAST/ElastoDyn: −1.3 pp is ElastoDyn's assumed modes, and −3.2 to −4.0 % is shell below beam (−1.4 to −2.3 % after the shear bound). Its link to the EI_edge deficit is tested by the prismatic arbiter.
+
+### L27 — S-1 EI_edge decomposed: prebend frame mixing, Poisson, taper (2026-10-22)
+- Worker report `logs/check/l3-prismatic/REPORT.md`.
+  - **Setup.** Prismatic 30 m segments at r = 38.5/62.9/74.7/90.3 m, mid skin, es 0.25 (es 0.125 check), 13 stations each. Pure end moment through a rigid diaphragm, root clamped; a tip couple agrees to ≤0.5 %.
+  - **Prismatic shell vs its own same-mesh CLT:** flap −0.1…−0.8 %, edge −3.2…−5.2 % (es 0.125: −3.4 % at r 62, −6.1 % at r 90). The strain field is planar, with no shear lag, and in-plane distortion is ≤2 mm. Setting ν = 0 everywhere closes the edge gap to +0.2…+1.2 %, so the 3–5 % is Poisson ring coupling of the shell.
+- **Decomposition of the −11.45 % S-1 EI_edge:**
+  1. **Prebend frame mixing, ≈3.6–6 pp — outcome (b), an instrument defect.**
+     - **Cause.** `SectionalExtractor.ei_from_static_response` reads moments and curvatures in global X/Y. The deck 6×6 is in the tangent frame. On the prebent blade a global moment has a torsion component, and the blade is torsionally soft (EI/GJ ≈ 46–69). That gives 1/EI_global = cos²φ/EI_local + sin²φ/GJ.
+     - **Evidence.** Prebending the prismatic segments with slope ×0.5/×1/×2 drops the reading by 1.8/6.5/21 pp, against 2.1/8.0/25.7 predicted. Removing prebend from the full blade moves S-1 edge from −11.45 % to −7.9 %.
+  2. **Poisson coupling, ≈4 % — outcome (c) only against the hoop-clamped CLT.** Whether the ANBA4 deck carries the same effect is open: no 2D solid section solve has been run.
+  3. **Taper and layup variation, ≈1.5 pp.**
+- **The instrument is not otherwise biased.** On the real blade a pure tip couple reads −13 % vs the deck, no better than the instrument.
+- **Next:** fix the extraction frame (tangent-frame moment and curvature, torsion coupling included), test-first on a prebent prismatic segment, then re-measure S-1.
