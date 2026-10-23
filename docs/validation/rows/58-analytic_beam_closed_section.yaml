@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
       margin_pct: 0.0
       text: 'finest-mesh rigid-translation mass vs exact thin-wall mass rho * perimeter * t * L: 0.0000% (bound: 0.0000%)'
@@ -39,8 +39,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
       margin_pct: 0.0
       text: 'all-mesh rigid-translation masses vs exact thin-wall mass rho * perimeter * t * L: 0.0000% (bound: 0.0000%)'
@@ -67,8 +67,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
       margin_pct: 0.4053
       text: 'parked flap mode 1 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.4053% (bound: 2.0000%)'
@@ -95,8 +95,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
       margin_pct: 0.4368
       text: 'parked flap mode 2 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.4368% (bound: 2.0000%)'
@@ -123,8 +123,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
       margin_pct: 0.4043
       text: 'parked edge mode 1 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.4043% (bound: 2.0000%)'
@@ -151,8 +151,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
       margin_pct: 0.4785
       text: 'parked edge mode 2 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.4785% (bound: 2.0000%)'
@@ -179,8 +179,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
       margin_pct: 0.0173
       text: 'parked torsion mode 1 vs cantilever Timoshenko shear/rotary bending or Saint-Venant-Bredt torsional wave: 0.0173% (bound: 2.0000%)'
@@ -207,8 +207,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
       margin_pct: 0.1883
       text: 'rotating flap Southwell coefficient vs rotating Euler-Bernoulli ODE finite-speed Southwell coefficient; Wright et al. 1982 low-speed check: 0.1883% (bound: 3.0000%)'
@@ -235,8 +235,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
       margin_pct: 0.6039
       text: 'rotating edge Southwell coefficient vs rotating Euler-Bernoulli ODE finite-speed Southwell coefficient; Wright et al. 1982 low-speed check: 0.6039% (bound: 3.0000%)'
@@ -263,12 +263,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
-      margin_pct: 0.3528
-      text: 'mid surface EI vs Euler-Bernoulli EI from four wall-strip inertias including local t^3/12: 0.3528% (bound: 0.5000%)'
-      digest: d01119a47f7eafd7
+      margin_pct: 0.3413
+      text: 'mid surface EI vs Euler-Bernoulli EI from four wall-strip inertias including local t^3/12: 0.3413% (bound: 0.5000%)'
+      digest: a87dc4bc82977e8a
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: analytic_beam_closed_section.test_explicit_reference_surface_inertia.outer
@@ -291,12 +291,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
-      margin_pct: 0.3336
-      text: 'outer surface EI vs Euler-Bernoulli EI from four wall-strip inertias including local t^3/12: 0.3336% (bound: 0.5000%)'
-      digest: f573db8ef23734d1
+      margin_pct: 0.3235
+      text: 'outer surface EI vs Euler-Bernoulli EI from four wall-strip inertias including local t^3/12: 0.3235% (bound: 0.5000%)'
+      digest: cd8c0ec90df3eceb
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ea_0_1e_05
@@ -319,12 +319,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
-      margin_pct: 0.0003
-      text: 'glass closed-box EA vs Jones hand CLT A_eff = 1/a11, integrated over closed-box walls: 0.0003% (bound: 0.0010%)'
-      digest: 50bf9d83f2978610
+      margin_pct: 0.0
+      text: 'glass closed-box EA vs Jones hand CLT A_eff = 1/a11, integrated over closed-box walls: 0.0000% (bound: 0.0010%)'
+      digest: 8911219cf0551533
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: analytic_beam_closed_section.test_composite_closed_box_effective_clt.ei_1_0_005
@@ -347,11 +347,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: e7c5059
-      date: '2026-10-19'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: null
-      margin_pct: 0.3371
-      text: 'glass closed-box EI vs Jones hand CLT A_eff = 1/a11, integrated over closed-box walls: 0.3371% (bound: 0.5000%)'
-      digest: e27c6c9293f4743b
+      margin_pct: 0.3323
+      text: 'glass closed-box EI vs Jones hand CLT A_eff = 1/a11, integrated over closed-box walls: 0.3323% (bound: 0.5000%)'
+      digest: 83d1efb1d73255b0
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

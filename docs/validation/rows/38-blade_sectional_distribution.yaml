@@ -20,11 +20,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
-      raw: 0.1145
-      margin_pct: 11.45
-      text: 'S-1 EI_edge es 0.25: mid-span mean |rel err| 11.45 % vs BeamDyn elastic-centre principal EI, bound 5 % FAIL (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d; S-1 printed values in logs/check/l3-fold-variant/s1-11622335.log (fix block) at 7dfe78d; 7d20c81 12.69 %). Signed value not re-measured.'
+      run: 9f72c6b
+      date: '2026-10-23'
+      raw: 0.088212
+      margin_pct: 8.8212
+      text: 'S-1 EI_edge es 0.25, section tangent frame (cbe6345): mid-span mean |rel err| 8.8212 % (signed -7.5057 %, n=32) vs BeamDyn elastic-centre principal EI, bound 5 % FAIL (SLURM 11623055 capture at 9f72c6b, logs/check/restamp-9f72c6b/pytest-s1s2v3.log and capture-s1s2v3.pkl; was 11.45 % in the global frame at 7dfe78d).'
     expected: null
   flags: []
   notes: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml.

@@ -21,12 +21,12 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The declared reference (NREL/TP-5000-75698 Table 5-2) describes the v1.0 blade while the decks and the yaml are v1.1 (finding 2026-10-16), so it is not an arbiter (K4): a fail is reported, a pass would not validate.'
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
-      raw: 0.0607
+      run: 9f72c6b
+      date: '2026-10-23'
+      raw: 0.524599
       margin_pct: 6.07
-      text: '1st flapwise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st flapwise [R1] 0.5585 Hz: 0.524599 Hz, error 6.0700 %, bound 5 % FAIL (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d, after the 20-degree fold-director criterion accepted in L22; 7d20c81 6.0930 %).'
-      digest: 4c74f48449ead8a3
+      text: '1st flapwise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st flapwise [R1]: 0.524599 vs 0.5585 (error: 6.0700%, bound: 5.0000%)'
+      digest: dfdc009633bede5a
   flags: []
   notes: Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.
 - id: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
@@ -50,11 +50,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The declared reference (NREL/TP-5000-75698 Table 5-2) describes the v1.0 blade while the decks and the yaml are v1.1 (finding 2026-10-16), so it is not an arbiter (K4): a fail is reported, a pass would not validate.'
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
-      raw: 0.085046
+      run: 9f72c6b
+      date: '2026-10-23'
+      raw: 0.695081
       margin_pct: 8.5046
-      text: '1st edgewise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1] 0.6406 Hz: 0.695081 Hz, error 8.5046 %, bound 5 % FAIL (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d, after the 20-degree fold-director criterion accepted in L22; 7d20c81 8.4707 %).'
-      digest: a3e07fa0119e073b
+      text: '1st edgewise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1]: 0.695081 vs 0.6406 (error: 8.5046%, bound: 5.0000%)'
+      digest: d540f5b559695ade
   flags: []
   notes: Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.

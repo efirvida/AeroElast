@@ -20,8 +20,8 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: f9f4f8f
-      date: '2026-10-13'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 28327200.0
       margin_pct: 0.0803
       text: 'D-Tube discretised traction resultant vs the traction resultant p D L: 2.83272e+07 vs 2.835e+07 (error: 0.0803%, bound: 0.1000%)'
@@ -48,12 +48,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: f9f4f8f
-      date: '2026-10-13'
-      raw: 24.501
-      margin_pct: 0.0997
-      text: 'D-Tube tip deflection vs the prismatic cantilever w L^4 / (8 E I_c) about the section centroid: 24.501 vs 24.5254 (error: 0.0997%, bound: 1.0000%)'
-      digest: 15f1e4b395493d9e
+      run: 9f72c6b
+      date: '2026-10-23'
+      raw: 24.5046
+      margin_pct: 0.0849
+      text: 'D-Tube tip deflection vs the prismatic cantilever w L^4 / (8 E I_c) about the section centroid: 24.5046 vs 24.5254 (error: 0.0849%, bound: 1.0000%)'
+      digest: c44e02eaf06c9c72
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: dtube_camarena_bending.test_dtube_torsion_matches_bredt.single
@@ -76,11 +76,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: f9f4f8f
-      date: '2026-10-13'
-      raw: 133328000000.0
-      margin_pct: 0.9112
-      text: 'D-Tube torsional stiffness GJ vs Bredt-Batho closed-cell torsional stiffness G 4 A^2 / oint(ds/t): 1.33328e+11 vs 1.34554e+11 (error: 0.9112%, bound: 2.0000%)'
-      digest: 09e29f835092a923
+      run: 9f72c6b
+      date: '2026-10-23'
+      raw: 133336000000.0
+      margin_pct: 0.9053
+      text: 'D-Tube torsional stiffness GJ vs Bredt-Batho closed-cell torsional stiffness G 4 A^2 / oint(ds/t): 1.33336e+11 vs 1.34554e+11 (error: 0.9053%, bound: 2.0000%)'
+      digest: 43ded3ad875a82f2
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

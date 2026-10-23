@@ -20,12 +20,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.996948
       margin_pct: 0.3052
-      text: 'isotropic theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.996948 (error: 0.3052 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: c4e78b2a044cacd1
+      text: 'isotropic theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.996948 vs 1 (error: 0.3052%, bound: 5.0000%)'
+      digest: 899d34c384d6e6d6
   - label: rtol at line 535
     asserted: true
     reference:
@@ -39,12 +39,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.99976
       margin_pct: 0.024
-      text: 'isotropic theta_z rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.99976 (error: 0.0240 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: 22d7f40b901e3133
+      text: 'isotropic theta_z rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.99976 vs 1 (error: 0.0240%, bound: 5.0000%)'
+      digest: 4e0d706ad9008445
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: tube_torsion.test_self_equilibrated_laminate_reproduc.single
@@ -67,12 +67,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.994185
       margin_pct: 0.5815
-      text: 'laminate theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.994185 (error: 0.5815 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: 94e1cd03e085ebcd
+      text: 'laminate theta_fit rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.994185 vs 1 (error: 0.5815%, bound: 5.0000%)'
+      digest: 15010bb92140e19d
   - label: rtol at line 558
     asserted: true
     reference:
@@ -86,12 +86,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.999999
       margin_pct: 0.0001
-      text: 'laminate theta_z rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.999999 (error: 0.0001 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: 201562de3de7647f
+      text: 'laminate theta_z rate on the Bredt rate vs Bredt T L / GJ, the closed form for a closed thin-walled tube: 0.999999 vs 1 (error: 0.0001%, bound: 5.0000%)'
+      digest: 00dae2d2dd17a45c
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: tube_torsion.test_clamped_root_metric_convergence_ide.single
@@ -114,12 +114,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.999784
       margin_pct: 0.0216
-      text: 't=10.0 mm asymptotic theta_z rate vs the idealised limit at L=24 m (section rotation rate T/GJ): 0.999784 (error: 0.0216 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: d207e2f211bdca2b
+      text: 't=10.0 mm asymptotic theta_z rate at L=24 m vs the idealised limit: at L=24 m the section rotation rate is T/GJ, so the theta_z rate on it must reach 1: 0.999784 vs 1 (error: 0.0216%, bound: 5.0000%)'
+      digest: 2baddc6fe393a5f0
   - label: rtol at line 614 (thickness=0.0005, ref_rate=ref_05)
     asserted: true
     reference:
@@ -133,12 +133,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.999973
       margin_pct: 0.0027
-      text: 't=0.5 mm asymptotic theta_z rate vs the idealised limit at L=24 m (section rotation rate T/GJ): 0.999973 (error: 0.0027 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: 87173c2c57477a55
+      text: 't=0.5 mm asymptotic theta_z rate at L=24 m vs the idealised limit: at L=24 m the section rotation rate is T/GJ, so the theta_z rate on it must reach 1: 0.999973 vs 1 (error: 0.0027%, bound: 5.0000%)'
+      digest: 07c78737e4f850ad
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: tube_torsion.test_distributed_force_plus_transfer_mom.single
@@ -161,12 +161,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.000985095
       margin_pct: 0.5433
-      text: 'tip theta_z, 10 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ), GJ from Bredt: 0.000985095 (error: 0.5433 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: 7ace025b8ddfd0d5
+      text: 'tip theta_z, 10 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.000985095 vs 0.000990476 (error: 0.5433%, bound: 5.0000%)'
+      digest: c0113edd9f75b870
   - label: rtol at line 885
     asserted: true
     reference:
@@ -180,12 +180,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.00197019
       margin_pct: 0.5433
-      text: 'tip theta_z, 10 mm wall, offset 0.40 m vs the closed form e f L^2 / (2 GJ), GJ from Bredt: 0.00197019 (error: 0.5433 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: 8efcc4d3ab82edba
+      text: 'tip theta_z, 10 mm wall, offset 0.40 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.00197019 vs 0.00198095 (error: 0.5433%, bound: 5.0000%)'
+      digest: c0b5474b9594261b
   - label: rtol at line 893
     asserted: true
     reference:
@@ -199,12 +199,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.0197282
       margin_pct: 0.4108
-      text: 'tip theta_z, 0.5 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ), GJ from Bredt: 0.0197282 (error: 0.4108 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: ca0df92cc4bc0299
+      text: 'tip theta_z, 0.5 mm wall, offset 0.20 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.0197282 vs 0.0198095 (error: 0.4108%, bound: 5.0000%)'
+      digest: c8454927bfad6d4e
   - label: rtol at line 901
     asserted: true
     reference:
@@ -218,11 +218,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
+      run: 9f72c6b
+      date: '2026-10-23'
       raw: 0.0394563
       margin_pct: 0.4108
-      text: 'tip theta_z, 0.5 mm wall, offset 0.40 m vs the closed form e f L^2 / (2 GJ), GJ from Bredt: 0.0394563 (error: 0.4108 %, bound: 5 %) PASS (tube files at c0049c3 (same solver code as 7dfe78d), logs/check/l3-tube-repin.log, 8 passed; fold-director criterion, tube corners are true 90 degree folds).'
-      digest: 65e6ef4acda8fa06
+      text: 'tip theta_z, 0.5 mm wall, offset 0.40 m vs the closed form e f L^2 / (2 GJ) for a uniform transverse load at offset e on a clamped-free closed tube, GJ from Bredt: 0.0394563 vs 0.039619 (error: 0.4108%, bound: 5.0000%)'
+      digest: 7502f136df69d6aa
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
