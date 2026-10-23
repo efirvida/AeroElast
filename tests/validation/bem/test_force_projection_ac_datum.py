@@ -82,7 +82,10 @@ THICKNESS_TIE_REL = 0.10  # <=10 % thickness difference is a tie
 #: (1e-4) on purpose: this clustering is the test's own, so a change to the
 #: production tolerance cannot move the expectation.  1e-3 of the 117 m blade is
 #: 0.117 m: far above the 0.0072 m spread inside one physical ring and far below
-#: the 0.30 m closest spacing between the mesh's own rings.
+#: the 0.30 m closest spacing between the mesh's own rings **at element_size 1.0**.
+#: Measured 2026-10-22 at element_size 0.25 that spacing is below 0.117 m near the
+#: tip: the whole tip strip (k = 49) merges into one 284-node group and
+#: ``test_aerodynamic_centre_datum`` fails there (0.322 c against 0.250 c).
 MESH_RING_GAP_FRACTION = 1e-3
 
 
@@ -221,7 +224,7 @@ def blade_case():
         pytest.skip(f"AeroDyn reference not present: {AD_PRIMARY}")
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(YAML), element_size=1.0)
+    model = Blade(str(YAML), element_size=0.25)
     model.generate_mesh()
     mesh = model.mesh
     assert mesh is not None, "Blade.generate_mesh() produced no mesh"

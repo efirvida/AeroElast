@@ -10,7 +10,7 @@ for a single-blade mesh; the comparison was minus the hub radius and the radii h
 CCBlade started at ~0, so the deformed BEM ran on a corrupted annulus.
 
 **P7 - the twist came from a node cloud that is not one section.** A strip spans
-``dr ~ 2.39 m`` against ~0.63 m mesh stations, so a strip contains ~4 rings; on a blade
+``dr ~ 2.39 m`` against ~0.63 m mesh stations at element_size 1.0 (the tip strip holds ~16-35 rings of the 0.25 m mesh), so a strip contains several rings; on a blade
 bent 16 m the PCA chord direction of the whole cloud follows the deformed arc.
 
 A third defect on the same path is the *projection* geometry (issue #19): the participant
@@ -96,7 +96,7 @@ RIGID_ROTATION_DEG = 2.0
 def fsi():
     """Mesh + participant + one shell solve under the participant's projected loads.
 
-    Built as the blade tests build it: ``Blade(..., element_size=1.0)``,
+    Built as the blade tests build it: ``Blade(..., element_size=0.25)``,
     ``PyMeshAssembler.from_model`` over ``_to_rust_mesh``, the root ring clamped in all
     6 DOF, and one ``spsolve``.
     """
@@ -105,7 +105,7 @@ def fsi():
 
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(YAML), element_size=1.0)
+    model = Blade(str(YAML), element_size=0.25)
     model.generate_mesh()
     mesh = model.mesh
     assert mesh is not None, "the blade mesh failed to generate"

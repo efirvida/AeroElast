@@ -48,10 +48,8 @@ AIRFOILS = DATA_DIR / "airfoils"
 CASE_YAML = DATA_DIR / "smoke_fix" / "base_fix" / "fluid_yaw_0.yaml"
 AD_PRIMARY = DATA_DIR / "reference" / "iea15mw_openfast" / "case" / "IEA-15-240-RWT_AeroDyn15.dat"
 
-#: Deliberately coarse: the point is the element count, not the campaign mesh.
-#: ``element_size: 0.25`` on this deck is ~27 609 coupling nodes; 1.0 keeps the
-#: test well under its time budget while still producing a real blade mesh.
-ELEMENT_SIZE = 1.0
+#: The working blade mesh (docs/blade_mesh_size_rule.md): ~27 609 coupling nodes on this deck.
+ELEMENT_SIZE = 0.25
 N_SAMPLES = 150
 
 SPAN_DIR = [0.0, 0.0, 1.0]
