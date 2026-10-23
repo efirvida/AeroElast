@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Fail when a coarse blade mesh enters the repository (AGENTS.md rule 9).
 
-Scans the tracked and untracked (non-ignored) tests, tools, src and scripts for an
-``element_size`` assignment >= THRESHOLD and compares it with ``scripts/mesh-size-debt.txt``.
+Scans the tracked and untracked (non-ignored) tests, tools, src and scripts for a blade element
+size >= THRESHOLD: an assignment to any name containing ``element_size`` (``GATE_ELEMENT_SIZE``),
+a positional size passed to a mesh builder (``build_assembly(0.5)``) or a tuple of sizes
+(``MESHES = (...)``) and compares it with ``scripts/mesh-size-debt.txt``.
 
     scripts/check_mesh_size.py          # exit 1 on a NEW coarse mesh
     scripts/check_mesh_size.py --list   # print the registry with the findings
@@ -28,7 +30,26 @@ THRESHOLD = 0.3
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY = ROOT / "scripts" / "mesh-size-debt.txt"
 SUFFIXES = (".py", ".yaml", ".yml", ".srm", ".sh")
-PATTERN = re.compile(r"\b(?:element_size|elem_size)\b\s*[=:]\s*([0-9]*\.?[0-9]+)", re.I)
+NUM = r"([0-9]*\.?[0-9]+)"
+# A size assigned to any name containing element_size/elem_size (GATE_ELEMENT_SIZE, _ELEMENT_SIZE).
+PATTERN = re.compile(r"\b\w*(?:element_size|elem_size)\b\s*[=:]\s*" + NUM, re.I)
+# A size passed positionally to a blade mesh builder (build_assembly(0.5)).
+POSITIONAL = re.compile(
+    r"\b(?:_?build_assembly|build_mesh_and_properties|_modal_couple)\(\s*" + NUM)
+# A flat tuple or list of sizes (MESHES = (2.0, 1.0, 0.5), ELEMENT_SIZES = [...]); a nested
+# sequence of integer division counts (MESHES = [(40, 2), ...]) is not a size and is skipped.
+SEQUENCE = re.compile(
+    r"\b\w*(?:element_sizes|elem_sizes|meshes|mesh_sizes)\b\s*=\s*[\(\[]([^\(\)\[\]]*)[\)\]]",
+    re.I)
+
+
+def coarse_values(text: str) -> set[float]:
+    """Every blade element size >= THRESHOLD written in ``text``, in any of the three spellings."""
+    values = [float(m.group(1)) for m in PATTERN.finditer(text)]
+    values += [float(m.group(1)) for m in POSITIONAL.finditer(text)]
+    for m in SEQUENCE.finditer(text):
+        values += [float(v) for v in re.findall(r"[0-9]*\.[0-9]+", m.group(1))]
+    return {v for v in values if v >= THRESHOLD}
 
 
 def tracked_files() -> list[str]:
@@ -45,7 +66,8 @@ def tracked_files() -> list[str]:
               "with a 'tracked' file; on a compute node submit with scripts/check_sbatch.sh",
               file=sys.stderr)
         sys.exit(2)
-    return [f for f in out.split() if f.endswith(SUFFIXES) and f != "scripts/check_mesh_size.py"]
+    own = {"scripts/check_mesh_size.py", "tests/software/test_check_mesh_size_patterns.py"}
+    return [f for f in out.split() if f.endswith(SUFFIXES) and f not in own]
 
 
 def scan() -> dict[str, set[float]]:
@@ -55,9 +77,9 @@ def scan() -> dict[str, set[float]]:
             text = (ROOT / rel).read_text(errors="replace")
         except OSError:
             continue
-        for m in PATTERN.finditer(text):
-            if float(m.group(1)) >= THRESHOLD:
-                found.setdefault(rel, set()).add(float(m.group(1)))
+        values = coarse_values(text)
+        if values:
+            found.setdefault(rel, set()).update(values)
     return found
 
 
