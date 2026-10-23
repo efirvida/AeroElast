@@ -350,7 +350,8 @@ bays halve the spanwise element size:
 | span size r/R 0.1 / 0.3 / 0.6 / 0.9 | 0.239 / 0.217 / 0.171 / 0.133 m | 0.119 everywhere |
 
 So "es 0.25" no longer means the Rule 9 mesh. Part of T6 -> B0 in S-2 can be discretisation, and the Rule 9
-convergence (0.25 vs 0.125 m) was done with native bays. The decision on decoupling is with the user (L12).
+convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple fully (T7e).
+- T7e | S5 | worker | in progress (fix/input-T7e off T7d) | spanwise rows from element_size and its grading only (native discretisation); laminate evaluated per element row, replacing the max_bay_length coupling
 
 **T17 inventory (explore, 2026-10-23, web read only, not verified where marked):**
 - **All on windIO 2.x now.** Every current master yaml in IEAWindSystems is windIO 2.x; our `tests/IEA-15-240-RWT.yaml` is
@@ -400,3 +401,4 @@ for this session.
 - L9 (2026-10-23) User: "en la cuenta de github de nrel hay varios repositorios que presentan el modelo de una tubina diferente con su fichero de windio y sus tests de openfast [...] tal vez tener mas geometrias y ensallos podria respadar o refutar algunas hipotesis comparando comportamientos [...] https://github.com/IEAWindSystems ten en cuenta que no todos estan tan completos como el de la iea15mw" / on the inventory: "si por favor"
 - L10 (2026-10-23) User: "la idea es cerrar todo lo que fuera posibles herrores de mallado"
 - L11 (2026-10-23) User: "no sabia que habian varias versiones de windio, por lo que hay que planificar para un futuro un importador generico de windio para cualquier version"
+- L12 (2026-10-23) User chose "Desacoplar del todo (recomendado)": element rows from element_size and its grading as before; laminate evaluated at each element row's z, not per bay.
