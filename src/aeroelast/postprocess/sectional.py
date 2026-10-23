@@ -325,13 +325,7 @@ class SectionalExtractor:
         half = 2.0 * float(np.median(np.diff(zs)))
 
         def local_fit(z, y, deriv):
-            """Value or slope of a local quadratic fit about every station."""
-            out = np.empty(n_st)
-            for i in range(n_st):
-                m = np.abs(zs - zs[i]) <= half + 1e-9
-                c = np.polyfit(zs[m] - zs[i], y[m], min(2, int(m.sum()) - 1))
-                out[i] = c[-2] if deriv else c[-1]
-            return out
+            return _local_quadratic(zs, y, half, deriv)
 
         slope_xy = np.column_stack([local_fit(zs, cen[:, d], True) for d in (0, 1)])
         t = np.column_stack([slope_xy, np.ones(n_st)])
@@ -504,3 +498,21 @@ class SectionalExtractor:
             ei_flap=np.asarray(eif), ei_edge=np.asarray(eie),
             mass_dens=np.asarray(m), cg=np.asarray(cg),
         )
+
+
+def _local_quadratic(zs, y, half, deriv):
+    """Value or slope of a local quadratic fit about every station.
+
+    The window is ``|z - z_i| <= half``, widened to the three nearest stations when it holds fewer:
+    non-uniform stations (``BladeMesh.max_bay_length``) can leave a station alone in the window.
+    """
+    zs = np.asarray(zs, dtype=float)
+    out = np.empty(zs.size)
+    for i in range(zs.size):
+        d = np.abs(zs - zs[i])
+        m = d <= half + 1e-9
+        if m.sum() < 3:
+            m = d <= np.sort(d)[min(2, zs.size - 1)] + 1e-12
+        c = np.polyfit(zs[m] - zs[i], y[m], min(2, int(m.sum()) - 1))
+        out[i] = c[-2] if deriv else c[-1]
+    return out
