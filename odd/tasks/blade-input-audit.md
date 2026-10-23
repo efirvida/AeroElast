@@ -307,6 +307,24 @@ The parent integrates them in L5 order in T9.
   - Candidate for the second iteration.
 - **Untraced side warning:** `element_utils.py:78` (`rotVec = (theta/mag)*cp`, invalid divide).
 
+**T17 inventory (explore, 2026-10-23, web read only, not verified where marked):**
+- **All on windIO 2.x now.** Every current master yaml in IEAWindSystems is windIO 2.x; our `tests/IEA-15-240-RWT.yaml` is
+  v1. v1 copies exist only in the windIO repo `test/turbine/v1p0/` (15, 22) or in pre-update commits (3.4 `824f8d6`,
+  10 `350cf06`). The official converter goes v1 -> v2.1 only, so T18's canonical form should be v2.
+- **v2.1 yamls embed the 6x6** (`elastic_properties`), and every v2 file has a spanwise `rthick` (relevant to G1).
+
+| RWT | 6x6 source | webs | caps | flatback | use |
+|---|---|---|---|---|---|
+| 3.4-130 | SONATA (same chain as 15); ANBA mass structural only (issue #5) | 2 | glass | root (issue #2) | 2nd blade for S-1 |
+| 10-198 | converted from HAWC2 st (BECAS, unconfirmed) | 3 (TE web 0.05-0.475) | glass | no | mesher (3 webs, ~30 DP layers); cheapest v1 ingest |
+| 22-280 | BECAS/AESOpt, independent | 3 (TE web 0.05-0.5) | carbon, 1.0 m | FB90-60 | 3rd blade: mesher stress test, Campbell in repo; issue #176: TE laminate overlap past r/R 0.69 (input defect) |
+| LB 6.3/6.9/7.2 | likely SONATA | 2 | carbon | root | v2 only, no report |
+
+- **Link to the deck-mass hypothesis (T6):** SONATA/ANBA mass is structural only (3.4 #5), and the IEA-15 deck shares
+  that chain. Check whether the IEA-15 deck mass excludes some yaml layers before blaming the TE band.
+- **Mesher gaps exposed:** 3 webs, a partial-span TE web, and v2 `anchors`/`plane_intersection` placement are not
+  supported by the current mesher or reader. These are T18/T17 scope.
+
 ## Handoff (2026-10-23, first close at ~190 k context; superseded by the second batch above)
 
 Resume: `mem_search "blade-input-audit"`, then read this file up to `## Log`. Next actions, in order:
