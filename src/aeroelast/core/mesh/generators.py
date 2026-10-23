@@ -1031,7 +1031,7 @@ class BladeMesh:
         follow the skin. Applied once to each generated mesh before use.
         Not the default because the OML is the CFD/FSI coupling surface.
     max_bay_length : float or None, optional
-        Longest span bay between NuMAD stations, in metres (default 0.5). Each
+        Longest span bay between NuMAD stations, in metres (default 0.25). Each
         (region, bay) holds one bay-mean laminate, so this is the spanwise
         resolution of the laminate, independent of ``element_size``. ``None``
         keeps the yaml grid as the stations (about 2.4 m on the IEA 15 MW).
@@ -1058,7 +1058,7 @@ class BladeMesh:
         airfoil_spacing: str = "cosine",
         include_webs: bool = True,
         skin_reference: str = "oml",
-        max_bay_length: float | None = 0.5,
+        max_bay_length: float | None = 0.25,
     ):
         if skin_reference not in ("oml", "mid"):
             raise ValueError("skin_reference must be 'oml' or 'mid'")

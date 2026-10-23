@@ -45,9 +45,18 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T4 | S5 | - | superseded by T5-T9 (user L2): correct first, measure the effect of each correction
 - T5 | S5 | parent | done fb273f2 | D, out-of-plane constants: order fixed; measured null (see Corrections)
 - T6 | S5 | parent + explore | done 0c110d3 | A: skin smearing justified (mass-conserving); TE band clamp fixed
-- T7 | S5 | parent | open f5f860f | B: bays limited to 0.5 m; S-2 measured; S-1 blocked by the extractor (T7a)
+- T7 | S5 | parent | open f5f860f, T7a/T7b fixed | B: bays limited to 0.5 m; S-2 measured; S-1 blocked by the extractor (T7a)
 - T7a | S5 | - | pending | `postprocess/sectional.py:325-333`: the tangent-frame local fit uses a window of 2x the median station spacing, which assumes uniform stations; with B's stations one station is alone (`polyfit` degree 0, IndexError). Fix: at least the 3 nearest stations (identical when the window already holds 3+). Then remeasure T7 (`submit_wait.sh T7`, worktree pinned to the fix)
-- T7b | S5 | - | pending, needs user | default of `max_bay_length`: global in `BladeMesh` (now) or production `Blade` only until the full suite has run
+- T7b | S5 | - | decided L5 | default of `max_bay_length`: global in `BladeMesh` (now) or production `Blade` only until the full suite has run -> user L5: global default 0.25 m
+- T10 | S5 | worker | pending | F1: S-1 EA(CLT) metric with hoop stress free, 1/(A^-1)11 instead of A11 (`tools/run_s1_sectional.py:55-86`); verify the elem_areas index (`:218-235`)
+- T8 | S5 | worker | pending | C+E as G2+G3: chord read on its native yaml grid (tip knots); webs placed by the yaml web definition, not the spar-cap edges
+- T11 | S5 | worker | pending | G5: LE band clamp at 0.1 side arc (`keypoints.py:216-217`, `:264-265`), same treatment as A
+- T12 | S5 | worker | pending | F2: ply stack order so the outermost yaml layer sits on the outer face (`build_rust_properties`, `laminate.rs:77-84`)
+- T13 | S5 | worker | pending | G1: establish the reference lofting of relative thickness first; change only if the reference is established, else record
+- T14 | S5 | - | pending (after T9) | F4: `ElementConfig.span_direction` default None (`core/config.py:661`), fibre along edge 0->1 in FSI configs that omit it; the key is misplaced in `tests/test_kg_prestress_coupling.py:36` and `tests/validation/element/test_prestress_centrifugal_analytic.py:104,214`
+- T15 | S5 | - | pending (after T9) | G6-G9: planar z sections ignore the prebend tilt; flat-TE half-face cubic with repeated control points (fold at >= 4 elements); web control weights 0.6666/0.3333; `L = ceil(z_tip)`; also the open `d` measured from the flat-back face midpoint and the never-raised `ValueError`s in `yaml_to_blade.py`
+Order fixed by user L5: T7a, T7b, T10, T8, T11, T12, T13, T9, then T14, T15 (user L6: not in the order does not mean not fixed).
+Parallel execution (user L6): each candidate in its own worktree/branch off the T7a/T7b base, measured against that base; the parent integrates in order; T9 measures the combination.
 - T8 | S5 | parent | pending | C and E, chord at 0.97 and the web attachment at 0.30: diagnose, fix if they are defects
 - T9 | S5 | parent | pending | re-audit, every gated field passes or is justified; re-measure the L3 rows; restamp
 
@@ -263,3 +272,5 @@ for this session.
 - L2 (2026-10-23) User: "y para corregir lo que encontraste en la auditoria de malla? yo creo que so seria lo principal para comenzar, porque todo lo demas depende de la malla". Decision: correct A-E before T4, C1 or P3, one at a time with before/after measurement (T5-T9).
 - L3 (2026-10-23) User, resuming: "Trabajo, en este orden y con estas reglas (ya fijadas en el documento): T5 D → T6 A → T7 B → T8 C/E → T9 re-auditoría. Un candidato por commit. Primero diagnosticá: si es una elección deliberada de NuMAD, registrá la justificación en vez de 'corregir'. […] Predicción a verificar: A y B quitan material, así que EA debería empeorar. Si no empeora, es un hallazgo. No toques bandas, anclas ni contract.yaml."
 - L4 (2026-10-23) User: "que tal si en lo que esperamos haces una auditoria profunda teorica del mallador de numad, porque es un mayador que puede estar dise~nado para otros propositos y tal vez tenga errores que podamos arreglar o mejorar" / "la verdad numad esta pensado para ansys y abaqus donde utiliza otro tipo de elementos de pegar capas (no recuerdo bien) yo hice la adaptacion a shell de nuestro aeroelast"
+- L5 (2026-10-23) User: "vamos a poner el por defecto en 0.25 e implementar todo en esta misma sesion en el orden de prioridades recomendado"
+- L6 (2026-10-23) User: "haz tareas en paralelo para no sobrecargar al orquestador" / "que no este en el orden recomendado, no quiere decir que no hay que corregirlo, asi que no lo olvides dejalo guardado en memoria en alun lugar"
