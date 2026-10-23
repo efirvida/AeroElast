@@ -1030,6 +1030,11 @@ class BladeMesh:
         Interior/web-only nodes are untouched; shared skin/web boundary nodes
         follow the skin. Applied once to each generated mesh before use.
         Not the default because the OML is the CFD/FSI coupling surface.
+    max_bay_length : float or None, optional
+        Longest span bay between NuMAD stations, in metres (default 0.5). Each
+        (region, bay) holds one bay-mean laminate, so this is the spanwise
+        resolution of the laminate, independent of ``element_size``. ``None``
+        keeps the yaml grid as the stations (about 2.4 m on the IEA 15 MW).
 
     Examples
     --------
@@ -1053,10 +1058,12 @@ class BladeMesh:
         airfoil_spacing: str = "cosine",
         include_webs: bool = True,
         skin_reference: str = "oml",
+        max_bay_length: float | None = 0.5,
     ):
         if skin_reference not in ("oml", "mid"):
             raise ValueError("skin_reference must be 'oml' or 'mid'")
         self.skin_reference = skin_reference
+        self.max_bay_length = max_bay_length
         self.yaml_file = yaml_file
         self.excel_file = excel_file
         self.airfoil_dir = airfoil_dir
@@ -1130,6 +1137,8 @@ class BladeMesh:
         # chord ≈ 1.8 m to 0.5 m in a single 2.4 m span gap.  We subdivide
         # sections whose chord ratio exceeds a threshold so that element
         # aspect ratios stay reasonable.
+        if self.max_bay_length is not None:
+            self._limit_bay_length(self.max_bay_length, verbose=verbose)
         if self.refine_tip:
             self._refine_high_gradient_sections(verbose=verbose)
 
@@ -1176,6 +1185,25 @@ class BladeMesh:
             )
 
         return mesh_model
+
+    def _limit_bay_length(self, max_bay_length: float, verbose: bool = True):
+        """Split every span bay longer than ``max_bay_length`` [m] into equal bays.
+
+        Each NuMAD (region, bay) carries one laminate whose ply thickness is the bay mean, so a
+        bay as long as the yaml grid step (about 2.4 m on the IEA 15 MW blade) cannot follow a
+        tapering layer: at r/R 0.90 the spar caps were 11 % thin. ``element_size`` does not reach
+        it (``odd/tasks/blade-input-audit.md``, T7).
+        """
+        if max_bay_length <= 0:
+            raise ValueError("max_bay_length must be positive")
+        ispan = np.asarray(self._numad_blade.ispan, dtype=float)
+        new = []
+        for lo, hi in zip(ispan[:-1], ispan[1:], strict=True):
+            n = int(np.ceil((hi - lo) / max_bay_length - 1e-9))
+            new.extend(lo + (hi - lo) * np.arange(1, n) / n)
+        self._numad_blade.add_interpolated_stations(new)
+        if verbose and new:
+            print(f"      Added {len(new)} stations (bays <= {max_bay_length} m)")
 
     def _refine_high_gradient_sections(
         self,

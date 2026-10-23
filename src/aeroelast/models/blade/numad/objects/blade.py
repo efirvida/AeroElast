@@ -162,11 +162,27 @@ class Blade:
                     break
         else:
             raise ValueError(f"A new span location with value {span_location} is not possible.")
+        self.add_interpolated_stations([span_location])
+        return insertIndex
 
-        self.ispan = np.insert(x0, insertIndex, np.array([span_location]))
-        self.definition.ispan = np.insert(
-            self.definition.ispan, insertIndex, np.array([span_location])
-        )
+    def add_interpolated_stations(self, span_locations):
+        """Insert several interpolated stations and regenerate the blade once.
+
+        Parameters
+        ----------
+        span_locations : sequence of float
+            span positions strictly inside the current span, not already stations.
+        """
+        x0 = self.ispan
+        if x0 is None or self.definition.ispan is None:
+            raise RuntimeError("Blade.add_interpolated_stations() requires an interpolated span")
+        new = np.asarray(span_locations, dtype=float)
+        if new.size == 0:
+            return
+        if np.any(new <= 0) or np.any(new >= x0[-1]) or np.any(np.isin(new, x0)):
+            raise ValueError(f"New span locations {new} are not possible.")
+        self.ispan = np.sort(np.concatenate([x0, new]))
+        self.definition.ispan = np.sort(np.concatenate([self.definition.ispan, new]))
 
         self.definition.leband = interpolator_wrap(x0, self.definition.leband, self.ispan)
         self.definition.teband = interpolator_wrap(x0, self.definition.teband, self.ispan)
@@ -184,4 +200,3 @@ class Blade:
         )
 
         self.update_blade()
-        return insertIndex
