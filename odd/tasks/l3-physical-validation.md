@@ -666,3 +666,28 @@ Retomamos odd/tasks/l3-physical-validation.md, T5, desde L32 (receta de reanudac
   - N3 was not measured: unnecessary, since N1 and N2 already fail.
 - **On the premise.** Zhou's aero (LL-FVW) is a higher-fidelity class than OpenFAST's BEM. Structurally both are geometrically exact beams (GEBT, BeamDyn). Our model's aero is BEM, as OpenFAST's is. A closer match to the FVW reference than to the reference of our own aero class is therefore itself a sign of compensation, not of precision. Zhou stays the external reference; the comparable number is the production path once T5.d explains its parts, not this test-local construction.
 - **Consequence for the test.** `test_rated_tip_twist_matches_zhou_with_the_physical_load_path` stays red: its guard sees |1 − ratio| < 5 % and asks for promotion. The decision is now taken, so in the next session, after 11622759 finishes, the guard should assert the reason the magnitude is withdrawn (N1/N2 spread) instead of distance from Zhou. That is a test-policy edit in its own commit; no tolerance changes. Do not edit `tests/` while 11622759 runs.
+
+### L38 — Delivery: 19 stacked PRs to main (2026-10-23)
+- User (verbatim): "antes de cerrar la sesion dividie todo en varios PR encadenados y mezclalos a main, luego cierra la sesion para poder continuar en otra"
+- Strategy: stacked PRs to main, branches `l3/01`..`l3/19` pushed from commit SHAs (no checkout, because suite 11622759 runs in the tree), merged in order with merge commits. Each part is retargeted to main after its parent merges. One slicing pass; nine slices exceed 400 lines and carry a `size:exception` note (single cohesive commits or one fix with its evidence). CI was not awaited, and the full suite had not finished at merge time.
+- Slices (start..end, changed lines):
+  - 01 `9259a08..4689258` K11 criteria and the S-2 LC3 / V-05 deck judges
+  - 02 `f0b2215..f0b2215` S-2 LC3 printed, not asserted (K11.3 clean-metric gate)
+  - 03 `8a577fb..8a577fb` Bernardi 2026 Fig. B1 digitiser against the v1.0/v1.1 decks
+  - 04 `ed4acfe..97fa549` K11 verdicts and the re-stamped L3 rows
+  - 05 `3700691..bbec949` B3-3 rejected rows and the K12 diagnostics
+  - 06 `cf03ba4..afe7c5b` K13 closing-verification criteria, tools and result
+  - 07 `1b4936f..5d4ff36` K14 (void) and K15 shear split
+  - 08 `586bd16..3e381af` K16 matched-field candidates
+  - 09 `7d20c81..7d20c81` Composite triangle fibres follow the requested span direction
+  - 10 `4b6a04b..0568825` S-2, span-frame and suite anchors after the triangle fix
+  - 11 `c882c1f..9900294` S-6 Newmark instrumentation and divergence location
+  - 12 `7dfe78d..d745327` MITC4 directors kept across folds beyond 20 degrees
+  - 13 `c0049c3..63c6dcd` Tube re-pins and anchors at the 20-degree fold directors
+  - 14 `38b8ba2..1ae91a3` S-5/S-6/S-7 on the laminate mid-surface
+  - 15 `cbe6345..cbe6345` S-1 bending stiffness in the section tangent frame
+  - 16 `baaa641..63fa801` Rule 9: blade tests and tools meshed at 0.25 m
+  - 17 `533d7e6..0754a8a` Ring grouping by element topology; modal gap convergence
+  - 18 `4ee98ab..bea62ed` Aerodynamic torque sign chain restored against OpenFAST
+  - 19 `8e1c516..070af3d` Nose-up convention follow-ups, P5 row, at-AC decision
+- PR numbers and merge commits are in Engram (`l3/delivery-chain`). After the merge, the next session starts from `origin/main`.
