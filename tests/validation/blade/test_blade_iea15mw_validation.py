@@ -17,7 +17,7 @@ Four references, on purpose:
    the original NREL report (Table ES-2): 1st flapwise 0.555 Hz, 1st edgewise
    0.642 Hz; the NuMAD conversion (Escalera Mendoza et al. 2023, Table 3):
    0.57, 0.65, 1.72, 2.08, 3.41, 4.29 Hz (1F, 1E, 2F, 2E, 3F, 1T); and
-   Bernardi et al. 2025 (`wes-2025-120`, Table 2), a beam-based CSD used in an
+   Bernardi et al. 2026 (Wind Energ. Sci. 11, 2345-2367, Table B1), a beam-based CSD used in an
    LES FSI solver: eight modes.
 4. **The published DLC 1.4 response** (Escalera Mendoza et al. 2023, section V).
 
@@ -114,8 +114,8 @@ REFERENCE_MARGIN = 0.03
 
 #: Bernardi, Cherubini, Manganelli, Della Posta, Leonardi & De Palma, "Large
 #: Eddy Simulation of the IEA 15-MW Wind Turbine Using a Two-Way Coupled
-#: Fluid-Structure Interaction Model", Wind Energy Science preprint
-#: wes-2025-120, Table 2: the first 8 structural modes from their beam-based
+#: Fluid-Structure Interaction Model", Wind Energ. Sci. 11, 2345-2367 (2026),
+#: doi:10.5194/wes-11-2345-2026, Table B1: the first 8 modes from their beam-based
 #: CSD model (1st flap, 1st edge, 2nd flap, 2nd edge, 3rd flap, 1st torsion,
 #: 3rd edge, 4th flap).
 BERNARDI_MODES_HZ = [0.5369, 0.7267, 1.577, 2.267, 3.113, 3.642, 4.571, 5.385]
@@ -329,7 +329,7 @@ def test_blade_mass_matches_published_models(blade: dict) -> None:
         rel_article,
         tol=MASS_TOL,
         kind="paper",
-        reference_name="Bernardi et al. 2025, the published article, blade mass",
+        reference_name="Escalera Mendoza et al. 2023, AIAA 2023-2093, blade mass",
         what="blade mass",
     )
     # The definition report gives the blade itself as about 65 t; the model being
@@ -428,7 +428,7 @@ def test_blade_parked_modes_match_numad(blade: dict, index: int) -> None:
     """The first six parked modes sit within the NuMAD-vs-Bernardi scatter.
 
     Escalera Mendoza et al. 2023 (Table 3) is the NuMAD/BModes output; Bernardi
-    et al. (Table 2) is the independent beam CSD.  Over these six modes the two
+    et al. 2026 (Table B1) is the independent beam CSD.  Over these six modes the two
     beam references disagree by 5.8% to 17.8%, so the shell is bounded by that
     scatter plus a margin.  The shell (and Bernardi) fall below the NuMAD beam
     on the 2nd/3rd flapwise, the same warping-restraint direction as the
@@ -488,7 +488,7 @@ def test_blade_static_deflection_matches_article_dlc(blade: dict) -> None:
         rel,
         tol=ARTICLE_STATIC_TOL,
         kind="paper",
-        reference_name="Bernardi et al. 2025, the published article, static tip deflection",
+        reference_name="Escalera Mendoza et al. 2023, Sec. V DLC 1.4, static tip deflection",
         what="static tip deflection",
     )
 
@@ -497,7 +497,7 @@ def test_blade_static_deflection_matches_article_dlc(blade: dict) -> None:
 def test_blade_modal_frequencies_match_bernardi(blade: dict, index: int) -> None:
     """The first 8 blade modes match Bernardi et al.'s published table.
 
-    Bernardi et al. (Wind Energy Science preprint wes-2025-120, Table 2) report
+    Bernardi et al. (Wind Energ. Sci. 11, 2345-2367, 2026, Table B1) report
     the first 8 modes of the same IEA 15 MW blade from the beam-based CSD model
     of their LES FSI solver.  Pairing is by Hungarian assignment over 10
     computed modes, so an ordering difference cannot masquerade as a mismatch.
@@ -517,6 +517,6 @@ def test_blade_modal_frequencies_match_bernardi(blade: dict, index: int) -> None
         rel,
         tol=BERNARDI_MODE_TOL,
         kind="paper",
-        reference_name="Bernardi et al. 2025, the published article, the published beam-CSD modes",
+        reference_name="Bernardi et al. 2026, Table B1, the published beam-CSD modes",
         what=f"mode {index} against the beam CSD",
     )

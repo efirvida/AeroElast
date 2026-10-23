@@ -689,8 +689,9 @@ groups:
     provenance_note: >-
       Four references on purpose: the tight comparison is AeroElast against
       CalculiX S8R on the same mesh and the same composite properties, and the
-      rest are the published values -- the article's blade mass and static tip,
-      its beam-CSD modes, and the definition report whose mass the model is
+      rest are the published values -- Escalera Mendoza 2023's blade mass and
+      static tip (escalera2023), Bernardi 2026's Table B1 beam-CSD modes
+      (stable key bernardi2025), and the definition report whose mass the model is
       expected to sit above. The per-mode article bounds are computed from the
       reference scatter at runtime, so the extractor reports those three
       comparisons as unreadable rather than storing a bound it cannot read.

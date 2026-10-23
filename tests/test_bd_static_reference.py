@@ -21,6 +21,14 @@ def test_loads(case, index, value):
     assert all(v == (0, 0, 0) for i, v in enumerate(loads) if i != index)
 
 
+def test_lc3_is_the_shell_edgewise_tip_load_in_bd_axes():
+    # shell (+1 MN, 0, 0) = BD (0, -1 MN, 0): BD (x,y,z) -> shell (-y,x,z)
+    gravity, tip, distributed = bd.case_loads("LC3", 0.01)
+    assert tip == pytest.approx((0, -1e4, 0))
+    assert gravity == (0, 0, 0) and distributed == (0, 0, 0)
+    assert "-10000 TipFy" in bd.driver_text("LC3", 0.01, Path("beam.dat"))
+
+
 @pytest.mark.parametrize("scale", [0, -1, float("nan"), float("inf")])
 def test_invalid_scale(scale):
     with pytest.raises(ValueError):
@@ -55,6 +63,7 @@ def test_build_preserves_geometry_and_matrices(tmp_path, monkeypatch):
     assert beam.split('(deg)\n')[1].split('---')[0] == source.split('(deg)\n')[1].split('---')[0]
     assert '1   member_total' in beam
     assert '15   order_elem' in beam
+    assert 'True   SumPrint' in beam or 'True          SumPrint' in beam
     assert 'PITCH ACTUATOR' not in beam
     prop = (tmp_path / name / 'blade.dat').read_text()
     assert prop.count('MODAL DAMPING') == 1

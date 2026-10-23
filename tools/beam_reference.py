@@ -141,6 +141,33 @@ def load_beamdyn_blade(path: str | Path, blade_length: float = 117.0) -> BeamDyn
     )
 
 
+def reference_axis_length(keypoints: np.ndarray, refine: int = 32) -> float:
+    """Arc length of a BeamDyn reference axis through its key points (n x 3, m).
+
+    A cubic spline in the cumulative chord length, sampled `refine` times per key-point
+    interval; compare two `refine` values before trusting the digits.
+    """
+    from scipy.interpolate import CubicSpline
+
+    kp = np.asarray(keypoints, dtype=np.float64)
+    chord = np.concatenate([[0.0], np.cumsum(np.linalg.norm(np.diff(kp, axis=0), axis=1))])
+    s = np.linspace(0.0, chord[-1], refine * (len(kp) - 1) + 1)
+    pts = CubicSpline(chord, kp, axis=0)(s)
+    return float(np.linalg.norm(np.diff(pts, axis=0), axis=1).sum())
+
+
+def beamdyn_deck_mass(eta: np.ndarray, mass_dens: np.ndarray, axis_length: float) -> float:
+    """Total mass of a BeamDyn deck: the integral of M11 over the reference-axis arc length.
+
+    `eta` is the deck's normalised arc length (0 at the root, 1 at the tip). BeamDyn
+    interpolates sectional properties linearly in eta, so the trapezoid is exact for it.
+    """
+    eta = np.asarray(eta, dtype=np.float64)
+    if eta[0] != 0.0 or eta[-1] != 1.0 or np.any(np.diff(eta) <= 0):
+        raise ValueError("eta must increase strictly from 0 to 1")
+    return float(axis_length * np.trapezoid(np.asarray(mass_dens, dtype=np.float64), eta))
+
+
 def _interp(x_src: np.ndarray, y_src: np.ndarray, x_dst: np.ndarray) -> np.ndarray:
     return np.interp(x_dst, x_src, y_src)
 

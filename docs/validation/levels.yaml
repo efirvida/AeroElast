@@ -1,4 +1,7 @@
-# The validation ladder: every store group sits on exactly one level.
+# The validation ladder: each in-scope store group sits on exactly one level.
+# G27 is outside this ladder: twist and loads are P1's deliverable
+# (efirvida/AeroElast#42), decision D3 2026-10-21; they go with P1, not L3.
+# The schema has no other-deliverable field; G27 remains stored but unassigned.
 #
 # Hand-authored; no command writes this file. `validation_matrix.py contract` reads it with
 # `contract.yaml` and reports, per level, what is trusted, stale, undecided, unaudited or absent.
@@ -89,7 +92,6 @@ levels:
       - '5'
       - '20'
       - '23'
-      - '27'
       - '32'
       - '34'
       - '38'
