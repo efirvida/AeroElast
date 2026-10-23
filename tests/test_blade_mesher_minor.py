@@ -49,3 +49,32 @@ def test_span_ends_at_the_yaml_tip_when_the_tip_is_not_an_integer(tmp_path):
     assert blade.definition.span[-1] == pytest.approx(tip, rel=0, abs=1e-9)
 
 
+def _layer(name):
+    return {
+        "name": name,
+        "material": "m",
+        "fiber_orientation": {"values": [0.0]},
+        "thickness": {"grid": [0.0, 1.0], "values": [0.001, 0.001]},
+    }
+
+
+def _components(extra):
+    names = ["spar_cap_ps", "spar_cap_ss", "uv", "shell_a", "shell_b", *extra]
+    structure = {"layers": [_layer(n) for n in names]}
+    definition = SimpleNamespace(materials={"m": SimpleNamespace(layerthickness=1.0)})
+    return definition, structure
+
+
+@pytest.mark.parametrize(
+    "extra, match",
+    [
+        (["te_reinf_a", "te_reinf_b"], "te reinf"),
+        (["le_reinf_a", "le_reinf_b"], "le reinf"),
+    ],
+)
+def test_two_reinforcements_without_ss_ps_pair_raise(extra, match):
+    """Four ``ValueError(...)`` statements were built and dropped, leaving the band unassigned."""
+    valid = ["te_reinf_ss", "te_reinf_ps"] if "le" in extra[0] else ["le_reinf"]
+    definition, structure = _components(valid + extra)
+    with pytest.raises(ValueError, match=match):
+        y2b._add_components(definition, structure, {})
