@@ -129,6 +129,13 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
 
     blade.update_blade()
 
+    # chord knots of the yaml that the reference_axis grid lacks become stations
+    knots = np.asarray(blade.definition.chord_curve[0], dtype=float)
+    ispan = np.asarray(blade.ispan, dtype=float)
+    missing = [k for k in knots if np.min(np.abs(ispan - k)) > 1e-9 and 0.0 < k < ispan[-1]]
+    if missing:
+        blade.add_interpolated_stations(missing)
+
     if not blade.definition.hub_height:
         if blade.definition.span is None:
             raise ValueError("blade span is not defined")
@@ -166,10 +173,14 @@ def _add_stations(
         * 180.0
         / np.pi
     )
-    definition.chord = interpolator_wrap(
-        np.multiply(np.transpose(blade_outer_shape_bem["chord"]["grid"]), L),
-        np.transpose(blade_outer_shape_bem["chord"]["values"]),
-        definition.span,
+    chord_span = np.multiply(np.transpose(blade_outer_shape_bem["chord"]["grid"]), L)
+    chord_values = np.transpose(blade_outer_shape_bem["chord"]["values"])
+    definition.chord = interpolator_wrap(chord_span, chord_values, definition.span)
+    # The yaml chord can carry knots the reference_axis grid lacks (IEA-15: 0.985, 0.99, 0.995).
+    # Keep the curve; the knots become stations in `yaml_to_blade` so the mesh chord follows it.
+    definition.chord_curve = (
+        np.asarray(chord_span, dtype=float),
+        np.asarray(chord_values, dtype=float),
     )
     af_dir_names = []
     for i in range(len(af_data)):
