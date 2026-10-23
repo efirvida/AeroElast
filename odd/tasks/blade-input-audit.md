@@ -54,7 +54,7 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T12 | S5 | worker | committed ccc0987 (fix/input-T12), measuring | F2: ply stack order so the outermost yaml layer sits on the outer face (`build_rust_properties`, `laminate.rs:77-84`)
 - T13 | S5 | explore | done: not established, no change | G1: establish the reference lofting of relative thickness first; change only if the reference is established, else record
 - T14 | S5 | worker | committed (fix/input-T14), integrates after T9 | F4: `ElementConfig.span_direction` default None (`core/config.py:661`), fibre along edge 0->1 in FSI configs that omit it; the key is misplaced in `tests/test_kg_prestress_coupling.py:36` and `tests/validation/element/test_prestress_centrifugal_analytic.py:104,214`
-- T15 | S5 | worker | in progress (fix/input-T15), integrates after T9 |
+- T15 | S5 | worker | committed fix/input-T15 (63760fb G8, b487763 G9, 7453c0c ValueErrors, 4ada981 d from corner); G6/G7 reported; integrates after T9 |
 - T16 | S5 | - | deferred to the second mesh-correction iteration (user L8), after T9/T14/T15 | multi-blade `RotorMesh` fibre direction: blades i>0 are rotated by i*2pi/n about y (`generators.py:1569`) but `span_direction` is one global vector (`assembler.py:457`), so on the 3-blade rotor (e.g. `tests/IEA15MW/frontiersin_2025_yaw/solid_corotational_sharpy_yaw_0.yaml`, explicit [0,0,1]) blades 2 and 3 get the fibre ~60 deg off their span (estimate). Pre-existing; found while reviewing T14. Likely fix: per-element radial span direction about the rotor axis (assembler or Rust). G6-G9: planar z sections ignore the prebend tilt; flat-TE half-face cubic with repeated control points (fold at >= 4 elements); web control weights 0.6666/0.3333; `L = ceil(z_tip)`; also the open `d` measured from the flat-back face midpoint and the never-raised `ValueError`s in `yaml_to_blade.py`
 Order fixed by user L5: T7a, T7b, T10, T8, T11, T12, T13, T9, then T14, T15 (user L6: not in the order does not mean not fixed).
 Parallel execution (user L6): each candidate in its own worktree/branch off the T7a/T7b base, measured against that base; the parent integrates in order; T9 measures the combination.
@@ -288,6 +288,22 @@ The parent integrates them in L5 order in T9.
   (1) document as an approximation; (2) derive the cap edges from the yaml cap nd_arc (~1 day, removes
   the 0.06 m, shifts every cap region); (3) split the cap regions at the yaml web arcs (~2-3 days,
   faithful, 8 extra regions per bay, new set naming).
+
+**T15 (worker, four commits on fix/input-T15, integrated after T9):**
+- **G8:** web control weights exact (`_web_control_points`).
+- **G9:** the span ends at the yaml tip z. The official yaml is bit-identical, since its tip is exactly 117.0.
+- **ValueErrors:** the four errors for reinforcements without an ss/ps pair now raise; the LE ones no longer say "te reinf".
+- **d from the corner:** the TE band is measured from the flat-back corner, not the face midpoint, so flat-back bands grow by the
+  half-face height, at most 0.06 m. `tests/test_blade_te_band_width.py` moved its reference point accordingly, with the
+  tolerance unchanged.
+- **Audit:** every changed row moves toward the yaml (for example, F3 at 0.60: -6.07e-3 -> -4.14e-3), and no row gets worse.
+- **G7 reported only, does not bind:** the largest half-face is 0.062 m, so there is one element across it. None of the 1898
+  TE_FLAT elements is degenerate or inverted.
+- **G6 reported only:** prebend tilt is 1.6 deg at mid-span and 5.6 deg at the tip; cos phi is 0.48 % at most.
+  - Options: (a) leave as is; (b) re-enable the NuMAD `prebend_rot`, which moves every node and the FSI surface;
+    (c) a cos phi scale.
+  - Candidate for the second iteration.
+- **Untraced side warning:** `element_utils.py:78` (`rotVec = (theta/mag)*cp`, invalid divide).
 
 ## Handoff (2026-10-23, first close at ~190 k context; superseded by the second batch above)
 
