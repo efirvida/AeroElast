@@ -153,7 +153,7 @@ def extract_ad_loads(out_path: Path, ad_blade_path: Path, t_lo=80.0, t_hi=100.0)
     return blspn, fn, ft, twist
 
 
-def build_assembly(element_size=0.5, skin_reference="oml"):
+def build_assembly(element_size=0.25, skin_reference="oml"):
     from aeroelast.core.assembler import MeshAssembler
     from aeroelast.core.mesh.generators import BladeMesh
     from aeroelast.elements import ElementFamily
@@ -312,7 +312,7 @@ def main():
                          "(r_m,fn_Nm,ft_Nm) instead of --out/--ad-blade")
     ap.add_argument("--export", type=Path, default=None,
                     help="export the AD loads to a CSV artifact")
-    ap.add_argument("--element-size", type=float, default=0.5)
+    ap.add_argument("--element-size", type=float, default=0.25)
     args = ap.parse_args()
 
     if args.loads:

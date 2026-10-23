@@ -4,7 +4,7 @@ Camarena & Anderson (Sandia) traced the shell's -24% twist deficit (vs
 solid) to the circumferential mesh resolution: fixing the number of
 elements around the section contour per span station improved it.  This
 tool reproduces that diagnostic on the AeroElast shell: the GJ is
-measured at fixed spanwise element_size (0.5 m) while the airfoil
+measured at fixed spanwise element_size (0.25 m; 0.5 m before 2026-10-22) while the airfoil
 contour discretization (n_samples) is refined 120 -> 240 -> 480.  If
 GJ_shell drops toward the BeamDyn 6x6 tables with refinement, the
 documented S-1 +17% band is the same published shell artifact.
@@ -43,7 +43,7 @@ AIRFOIL_DIR = REPO / "tests" / "airfoils"
 OUT_CSV = REPO / "docs" / "validation_data" / "generated" / "s8a_gj_circumferential.csv"
 
 MOMENT_NM = 1000.0
-ELEMENT_SIZE = 0.5
+ELEMENT_SIZE = 0.25
 
 
 def build_mesh_props(n_samples: int):

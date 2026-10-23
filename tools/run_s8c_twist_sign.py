@@ -88,7 +88,7 @@ def apply_ad_loads(mesh, properties, r_m, fn, ft, twist_deg):
 
 def main() -> int:
     print("[S-8c] Building mesh ...")
-    mesh, properties = build_mesh_and_properties(0.5)
+    mesh, properties = build_mesh_and_properties(0.25)
 
     ad = np.loadtxt(AD_LOADS, delimiter=",", skiprows=1)
     r_m, fn, ft, twist_deg = ad[:, 0], ad[:, 1], ad[:, 2], ad[:, 3]

@@ -40,10 +40,5 @@ tools/diagnose_radii_kinematics.py 1.0 blade-10
 tools/diagnose_sign_chain.py 1.0 blade-10
 tools/diagnose_tangential_sense.py 1.0 blade-10
 tools/diagnose_wall_flow_readback.py 1.0 blade-10
-tools/run_s5_oneway.py 0.5 anchor-05
-tools/run_s6_oneway_dynamic.py 0.5 anchor-05
-tools/run_s8a_gj_circumferential.py 0.5 anchor-05
-tools/run_sx_campbell.py 0.5 anchor-05
 tests/software/mesh/test_blade_no_webs.py 1.0 geometry-only  # web-set presence only; seen by the 2026-10-22 guard
 tests/test_ccx_fsi_parity_parked_v50.py 2.0 blade-10  # 2.0 m modal-gap gate, seen by the 2026-10-22 guard (GATE_ELEMENT_SIZE); re-measure
-tools/run_s8c_twist_sign.py 0.5 anchor-05  # positional build_mesh_and_properties(0.5), seen by the 2026-10-22 guard
