@@ -403,6 +403,64 @@ convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple full
 - **Mesher gaps exposed:** 3 webs, a partial-span TE web, and v2 `anchors`/`plane_intersection` placement are not
   supported by the current mesher or reader. These are T18/T17 scope.
 
+## Handoff 2 (2026-10-23, session close, user: "cerramos aqui")
+
+**Resume**:
+1. `mem_search "blade-input-audit"` and read this file up to `## Log`.
+2. Check the two agent results appended below under "Agent results at close". If they are absent, the agents did not
+   finish: rerun them from the T7e and G3 paragraphs.
+
+**Branch state.** Everything is local; nothing is pushed.
+- Main branch: `l3/twist-p1` = base aa62f91 (T5 D, T6 A, T7 B, T7a/b/c), plus docs.
+- Candidate branches, each one commit unless noted, worktrees in `$SCRATCH/wt/input-fix-<TAG>`:
+
+| branch | commit | content | measured vs B0 |
+|---|---|---|---|
+| fix/input-T7d | 133edc5 | S-1 fits on native bay centres | yes: extractor artefact 0.5-0.7 points |
+| fix/input-T7e | uncommitted in its worktree | decouple: native rows, laminate per row (user L12) | no |
+| fix/input-T10 | 8db6c19 | F1 EA metric | yes: EA -1.8 points |
+| fix/input-T8 | c5ad881 | G2 chord grid | yes |
+| fix/input-T8w | c157c62 | G3 webs, caps split | yes, **GJ -8.9 points under diagnosis; do not merge yet** |
+| fix/input-T11 | 7242e92 | G5 LE band | yes |
+| fix/input-T12 | ccc0987 | F2 ply order | yes |
+| fix/input-T14 | 61b0d52 | F4 span_direction default | no (after T9) |
+| fix/input-T15 | 63760fb..4ada981 (4 commits) | G8, G9, ValueErrors, d from the corner | no (after T9) |
+
+**Next, in order:**
+1. **T7e.** Review and commit the worker diff in its worktree. Check its geometry (node displacement vs native) and its
+   counts (must equal native: 32,515 / 33,673). Measure with
+   `bash logs/check/input-fix/submit_wait.sh T7e`; the comparison is against T7d.
+2. **G3.** Act on the verify verdict: a defect gets a fix on fix/input-T8w and a remeasure; an extraction artefact gets
+   T7d-style handling. G3 merges only with an explained GJ.
+3. **T9.**
+   - Merge into `l3/twist-p1` in this order: T7d, T7e, T10, T8, T8w, T11, T12. Expect conflicts between T7e and T8w in
+     `mesh_gen.py`/`generators.py`.
+   - Run `check.sh quick` and the blade tests.
+   - Re-audit: `tools/audit_blade_input.py`.
+   - Measure the combination against 9f72c6b (same extractor as T7d).
+   - Restamp the L3 rows, and register the moved anchors as findings.
+4. **Merge T14 and T15**, then measure.
+5. **Second iteration (user L8).** T16 (multi-blade fibre direction), G6 (prebend tilt), the untraced
+   `element_utils.py:78` divide warning, `definition.chord` on the coarse grid for the BEM.
+6. **Future features:**
+   - T18: generic windIO importer, canonical form v2. It is a prerequisite for T17.
+   - T17: multi-turbine cross-check. Robustness of the mesher first (IEA-22, IEA-10); then S-1 on IEA-3.4.
+7. **Before any merge to main**, run the full suite on SLURM; crates are untouched.
+
+**Rules that still hold:**
+- One candidate per commit.
+- RED first.
+- No band, anchor or contract.yaml change.
+- A moved row is a finding.
+- Measure on SLURM with `logs/check/input-fix/measure.sbatch` via `submit_wait.sh <TAG>`:
+  - it needs worktree `$SCRATCH/wt/input-fix-<TAG>` plus the shim `<TAG>.pp/aeroelast` symlink;
+  - it picks sequana_cpu or sequana_cpu_bigmem, 50 min.
+
+**Cleanup when done:** `git worktree remove` for input-fix-T5/T6/T7/B0 and the merged branches;
+`$SCRATCH/tmp/input-fix-*`.
+
+**Agent results at close:** (appended below when they arrive)
+
 ## Handoff (2026-10-23, first close at ~190 k context; superseded by the second batch above)
 
 Resume: `mem_search "blade-input-audit"`, then read this file up to `## Log`. Next actions, in order:
