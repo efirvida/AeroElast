@@ -337,6 +337,21 @@ Readings:
 - T7d | S5 | worker | pending | make S-1 extraction independent of station density (reproduce the 9f72c6b method on any
   station set), and measure the spanwise row size and element count at 9f72c6b-geometry vs B0.
 
+**T7d (133edc5, fix/input-T7d).** S-1 now fits on the mesh stations nearest to the native bay centres (51,
+built from the yaml with the generator's tip refinement). On the native mesh this is the identity; on the 0.25 m mesh
+each selected station is within 0.126 m of its native centre. Measurement running.
+
+**Finding: the bay limit couples to the spanwise mesh.** NuMAD meshes each bay with `ceil(bay/size)` rows, so 0.25 m
+bays halve the spanwise element size:
+
+| | native | bays <= 0.25 m |
+|---|---|---|
+| nodes / elements | 32,515 / 33,673 | 47,894 / 49,610 (+47 %) |
+| span size r/R 0.1 / 0.3 / 0.6 / 0.9 | 0.239 / 0.217 / 0.171 / 0.133 m | 0.119 everywhere |
+
+So "es 0.25" no longer means the Rule 9 mesh. Part of T6 -> B0 in S-2 can be discretisation, and the Rule 9
+convergence (0.25 vs 0.125 m) was done with native bays. The decision on decoupling is with the user (L12).
+
 **T17 inventory (explore, 2026-10-23, web read only, not verified where marked):**
 - **All on windIO 2.x now.** Every current master yaml in IEAWindSystems is windIO 2.x; our `tests/IEA-15-240-RWT.yaml` is
   v1. v1 copies exist only in the windIO repo `test/turbine/v1p0/` (15, 22) or in pre-update commits (3.4 `824f8d6`,
