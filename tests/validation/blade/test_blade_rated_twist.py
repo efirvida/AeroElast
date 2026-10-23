@@ -11,12 +11,15 @@ Three things this module settles:
    against Zhou's rigid-blade means: 2.53 MN thrust and 16.11 MW power.
 2. **The physical sign of the twist.** The aerodynamic pitching moment from the polars is
    nose-down at every station, and a *nose-down torsional couple* applied to the section
-   produces a **positive** rotation at the tip. The deck puts the leading edge at +x and the
-   load frame's downwind thrust at +y, so a +z rotation moves the leading edge downwind and
-   nose-down is positive on this frame - the same physical sense as Zhou's -3.60 deg and Ma's
-   about -3.9 deg, whose convention is positive toward stall. The BEM's ``Mp`` carries the
-   opposite sign, so the applied section moment is ``M_z = -Mp``; the arbitration and the two
-defects it found are in `odd/tasks/rated-twist-sign-convention.md`.
+   produces a **negative** rotation at the tip. The deck puts the leading edge at +x and the
+   load frame's downwind thrust at +y, so a +z rotation moves the leading edge downwind,
+   toward stall: +z is nose-UP and nose-down is negative on this frame - the same physical
+   sense as Zhou's -3.60 deg and Ma's about -3.9 deg (their convention is the same sign; the
+   OpenFAST v5 AeroDyn+BeamDyn arbiter twists the rated tip 3.40 deg toward feather,
+   ``logs/check/l3-bd-openfast/REPORT.md``). The BEM's ``Mp`` is positive nose-up about +z, so
+   the applied section moment is ``M_z = +Mp``. Commit 1146265 had inverted this (``M_z = -Mp``,
+   nose-down positive); L3 T5 restored it. The earlier arbitration is in
+   `odd/tasks/rated-twist-sign-convention.md`.
 3. **How the section moment must be applied.** A section moment applied as nodal rotations
    about z feeds the shell's drilling degree of freedom, not the section's torsion, and
    over-reports the twist by orders of magnitude. It has to be a *couple of forces*. The
@@ -185,15 +188,14 @@ def blade_shell():
 def _section_couples(shell, moment_by_station):
     """A pure moment about the blade axis, applied as a COUPLE OF FORCES.
 
-    The input is the BEM's ``Mp``, whose sign is the **opposite** of the applied ``M_z``
-    about ``+span``: a nose-down pitch moment is negative in ``Mp``
-    (``test_rated_pitching_moment_is_nose_down``) and is a positive ``M_z``, because the
-    deck puts the leading edge at ``+x`` and the load frame's downwind thrust at ``+y``, so
-    a ``+z`` rotation moves the leading edge downwind. Hence ``M_z = -Mp``. The production
-    ``ForceProjector`` already carries that conversion; this helper did not, and that was
-    the defect `odd/tasks/rated-twist-sign-convention.md` fixes: the same ``Mp`` through
-    this helper and through the projector measured ``-38.64`` against ``+29.07`` deg at the
-    tip. ``test_the_two_moment_applications_agree_in_sign`` now pins the two together.
+    The input is the BEM's ``Mp``, positive nose-up, and its sign is the **same** as the
+    applied ``M_z`` about ``+span``: a nose-down pitch moment is negative in ``Mp``
+    (``test_rated_pitching_moment_is_nose_down``) and a negative ``M_z``, because the deck
+    puts the leading edge at ``+x`` and the load frame's downwind thrust at ``+y``, so a
+    ``+z`` rotation moves the leading edge downwind, toward stall (nose-up). Hence
+    ``M_z = +Mp``. Commit 1146265 had applied ``M_z = -Mp`` here and in the production
+    ``ForceProjector`` together; L3 T5 restored both.
+    ``test_the_two_moment_applications_agree_in_sign`` pins the two together.
 
     Applying the same moment as nodal rotations about z feeds the shell's drilling degree
     of freedom instead of the section's torsion and over-reports the twist by orders of
@@ -214,8 +216,8 @@ def _section_couples(shell, moment_by_station):
         # moment/arm explode; those stations carry almost no moment anyway
         if abs(moment) < 1e-12 or arm < 0.05:
             continue
-        # M_z = -Mp: the BEM's Mp is nose-down negative, and nose-down is a positive M_z
-        f = -moment / arm
+        # M_z = +Mp: the BEM's Mp is positive nose-up and nose-up is a positive M_z
+        f = moment / arm
         force[6 * i_max + 1] += f
         force[6 * i_min + 1] -= f
     print(f"  couple arms: {min(arms):.3f} .. {max(arms):.3f} m")
@@ -223,18 +225,16 @@ def _section_couples(shell, moment_by_station):
 
 
 def test_section_moment_as_a_couple_sets_the_physical_sign(blade_shell, rated_bem):
-    """A nose-down couple gives a positive theta_z and omega: the convention, measured.
+    """A nose-down couple gives a negative theta_z and omega: the convention, measured.
 
     The deck puts the leading edge at ``+x`` and the load frame's downwind thrust at ``+y``,
-    so a ``+z`` rotation moves the leading edge downwind and **nose-down is positive** here.
-    The BEM's ``Mp`` carries the opposite sign (nose-down is negative, see
-    ``test_rated_pitching_moment_is_nose_down``), so the applied ``M_z`` is ``-Mp``. This
-    test asserted the inverted sense until `odd/tasks/rated-twist-sign-convention.md`
-    arbitrated it against the frame and the production path; the production rated twist
-    agrees at ``omega = +9.6669`` deg.
+    so a ``+z`` rotation moves the leading edge downwind and **nose-down is negative** here.
+    The BEM's ``Mp`` carries the same sign (nose-down is negative, see
+    ``test_rated_pitching_moment_is_nose_down``), so the applied ``M_z`` is ``+Mp``. The
+    OpenFAST v5 AeroDyn+BeamDyn arbiter twists the rated tip toward feather (L3 T5).
 
     With that mapping, Zhou's -3.60 deg and Ma's about -3.9 deg are the *same physical
-    sense* as a positive theta_z in this mesh.
+    sense and sign* as a negative theta_z in this mesh.
     """
     bem, blade_aero = rated_bem
     span = blade_aero.r - blade_aero.hub_radius
@@ -272,7 +272,7 @@ def test_section_moment_as_a_couple_sets_the_physical_sign(blade_shell, rated_be
     print("  theta_z along the span [deg]:", [f"{np.rad2deg(v):+.3f}" for v in profile[::step]])
     print(f"  Zhou Table 4 tip torsion: {ZHOU_TIP_TORSION_DEG} deg (same physical sense)")
 
-    assert couple_twist > 0.0, "a nose-down couple must give a positive theta_z and omega"
+    assert couple_twist < 0.0, "a nose-down couple must give a negative theta_z and omega"
     assert abs(nodal_twist) > 2.0 * abs(couple_twist), (
         "the nodal-rotation application is no longer the documented over-report"
     )
@@ -282,25 +282,22 @@ def test_the_two_moment_applications_agree_in_sign(blade_shell, rated_bem):
     """One sectional moment, two applications, one sign.
 
     ``_section_couples`` (a ``+F``/``-F`` pair) and the production ``ForceProjector`` are two
-    ways of applying the same section moment, so they must agree in sign. They did not: the
-    BEM's ``Mp`` is nose-down **negative** while the applied ``M_z`` is nose-down **positive**,
-    the projector carried that conversion and the test-local applications did not, and the same
-    ``Mp`` measured ``+29.07`` deg through one and ``-38.64`` through the other at the tip
-    (measured before the fix, `odd/tasks/rated-twist-sign-convention.md`).
+    ways of applying the same section moment, so they must agree in sign. They did not once:
+    the same ``Mp`` measured ``+29.07`` deg through one and ``-38.64`` through the other at
+    the tip (`odd/tasks/rated-twist-sign-convention.md`).
 
-    A nose-down ``Mp`` must therefore give a **positive** section rotation through both. The
+    A nose-down ``Mp`` (negative, and a negative ``M_z``: +z is nose-up) must therefore give
+    a **negative** section rotation through both. The
     magnitudes differ legitimately — a two-node force pair and a perimeter shear flow load the
     section's in-plane flexibility differently — so only the sign is asserted and the two
     numbers are printed for whoever needs the magnitude.
 
-    **The production projector is the arbiter, and the test-local application was the defective
-    side.** The projector's chain is fixed outside this module by measured geometry: the deck's
-    leading edge sits at +x (``tools/diagnose_leading_edge.py``, 8 of 9 stations with two
-    agreeing methods), the load frame's downwind direction is +y, and a +z rotation moves the
-    leading edge downwind - so the sign its ``_strip_moment_axis_sign`` carries is the
-    arbitrated one, and ``_section_couples`` was corrected to it. The assertion below is the
-    agreement between the two applications; the projector's own positive sign is anchored to
-    that geometry, not to this cross-check.
+    **The sign is anchored to measured geometry, not to this cross-check.** The deck's leading
+    edge sits at +x (``tools/diagnose_leading_edge.py``, 8 of 9 stations with two agreeing
+    methods), the load frame's downwind direction is +y, and a +z rotation moves the leading
+    edge downwind, toward stall - nose-up. The assertion below is the agreement between the two
+    applications; the independent arbiter of the projector's sign is
+    ``tests/validation/bem/test_torque_sense_vs_openfast.py``.
     """
     shell = blade_shell
     _, blade_aero = rated_bem
@@ -357,11 +354,11 @@ def test_the_two_moment_applications_agree_in_sign(blade_shell, rated_bem):
         f"(magnitudes legitimately differ; the sign is the assertion)"
     )
 
-    assert omega_projected > 0.0, (
+    assert omega_projected < 0.0, (
         f"the production projector gives omega = {omega_projected:+.4f} deg for a nose-down "
-        f"Mp; nose-down is positive on this frame (leading edge at +x, load downwind at +y)"
+        f"Mp; nose-down is negative on this frame (leading edge at +x, load downwind at +y)"
     )
-    assert omega_coupled > 0.0, (
+    assert omega_coupled < 0.0, (
         f"_section_couples gives omega = {omega_coupled:+.4f} deg for the same nose-down Mp "
         f"that the projector applies as {omega_projected:+.4f}: the two applications of one "
         f"section moment disagree in sign"
@@ -529,15 +526,16 @@ def _rated_load_cases(shell, bem, blade_aero, mesh):
             # stations), so 0.25 c from the LE is `x_max - 0.25 c`. Taking the other end put
             # the aerodynamic centre on the trailing-edge side and inverted the transfer's
             # sign: with the LE at +x and the load downwind at +y, the moment a downwind
-            # force makes is `(x_ac - x_c) * Np` and it must be positive (nose-down).
+            # force makes is `(x_ac - x_c) * Np` and it must be positive about +z (which is
+            # nose-UP on this frame, opposing the nose-down polar Cm).
             # Measured, the old end gave `(x_ac - x_c)` of -1.302 .. -0.130 against
             # +1.288 .. +0.120 for this one; see `odd/tasks/rated-twist-sign-convention.md`.
             x_ac = float(xs.max()) - 0.25 * (float(xs.max()) - float(xs.min()))
             for name in ("mp_only", "at_ac", "uniform_plus_mp"):
-                # M_z = -Mp, the same conversion `_section_couples` documents: the BEM's Mp
-                # is nose-down negative and nose-down is a positive M_z. Without the
-                # negation this application inverts against the production projector.
-                vectors[name] += flow * (-Mp[k] * dz[k] / moment)
+                # M_z = +Mp, the same conversion `_section_couples` documents: the BEM's Mp
+                # is positive nose-up and nose-up is a positive M_z. With the opposite
+                # sign this application inverts against the production projector.
+                vectors[name] += flow * (Mp[k] * dz[k] / moment)
             vectors["at_ac"] += flow * (
                 Np[k] * dz[k] * (x_ac - x_c) / moment
             )  # move the resultant TO x_ac
@@ -549,9 +547,10 @@ def test_rated_tip_twist_matches_zhou_with_the_physical_load_path(blade_shell, r
 
     Zhou's -3.60 deg (Table 4) is the **total** tip torsion at rated, so the comparable case is
     the full load applied along its physical line of action: forces at the aerodynamic centre
-    plus the pitching moment. Measured 2026-10-22 at element_size 0.25: tip mean theta_z +5.18 deg (section omega +7.35 deg) in
-    this module's nose-down-positive sense, against Zhou's -3.60 deg in the opposite sign convention
-    (the old 1.0 m mesh gave +21.29 / +10.31 deg).
+    plus the pitching moment. Zhou's -3.60 deg has the same sign as this module's nose-down
+    (negative about +z) sense. Measured before L3 T5 at element_size 0.25 under the inverted
+    convention: tip mean theta_z +5.18 deg (section omega +7.35 deg); the after-fix numbers
+    are in ``logs/check/l3-sign-fix/REPORT.md``.
 
     What is *asserted* is the physics: the physical load path gives the nose-down sense (the
     same sense as Zhou and Ma), and the line of action dominates the twist by more than a
@@ -600,7 +599,7 @@ def test_rated_tip_twist_matches_zhou_with_the_physical_load_path(blade_shell, r
 
     # ASSERTED: the physics (the sense of the twist) and the load-path dominance. A sign
     # test is a valid test - it proves the physics is right - and it needs no tolerance.
-    assert twists["at_ac"] > 0.0, "the physical load path must give the nose-down sense"
+    assert twists["at_ac"] < 0.0, "the physical load path must give the nose-down sense"
     # Direction-free dominance: the *choice* of application moves the twist by more than a
     # factor of two. (An earlier version asserted that the uniform-ring case exceeded the
     # aerodynamic-centre one; fixing the application reversed that inequality, which is
@@ -715,9 +714,9 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
     mis-specified predictions after the corrected (tributary-weighted) loads refuted them:
 
     * **Sign (holds, and it is the line of action that decides it).** The two applications that
-      carry the aerodynamic pitching moment give ``omega > 0``, nose-down at rated, the sense of
-      Zhou's -3.60 deg (the frame's convention, `odd/tasks/rated-twist-sign-convention.md`):
-      ``mp_only`` and ``at_ac``. The two that place the normal force at the perimeter centroid
+      carry the aerodynamic pitching moment give ``omega < 0``, nose-down at rated, the sense
+      and sign of Zhou's -3.60 deg (+z is nose-up on this frame; L3 T5): ``mp_only`` and
+      ``at_ac``. The two that place the normal force at the perimeter centroid
       (``uniform``, ``uniform_plus_mp``) come out nose-up, because that arm is opposite to the
       aerodynamic centre's - which is the difference this test exists to measure, not a defect.
     * **The spread is the finding (was mis-specified).** The original prediction was
@@ -860,9 +859,9 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
     spread_theta_z = spread(theta_mag)
     omega_at_ac_deg = np.rad2deg(kin["at_ac"]["tip"]["omega"])
     theta_z_at_ac_deg = np.rad2deg(twist["at_ac"])
-    # Zhou's -3.60 deg is positive toward stall, i.e. the opposite sign to this frame's
-    # nose-down-positive convention, so the comparison divides by it once, here.
-    zhou_frame_deg = -ZHOU_TIP_TORSION_DEG
+    # Zhou's -3.60 deg is toward feather, the same sign as this frame's nose-down-negative
+    # convention, so the comparison divides by it directly.
+    zhou_frame_deg = ZHOU_TIP_TORSION_DEG
     ratio_omega = omega_at_ac_deg / zhou_frame_deg
     ratio_theta_z = theta_z_at_ac_deg / zhou_frame_deg
     distortion_at_ac = kin["at_ac"]["tip"]["distortion"]
@@ -910,10 +909,10 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
     #    difference this test measures rather than a defect: `uniform` applies the normal force
     #    at the perimeter centroid, whose arm is opposite to the aerodynamic centre's.
     for name in ("mp_only", "at_ac"):
-        assert kin[name]["tip"]["omega"] > 0.0, (
-            f"{name} gives a non-positive section rotation omega = "
+        assert kin[name]["tip"]["omega"] < 0.0, (
+            f"{name} gives a non-negative section rotation omega = "
             f"{np.rad2deg(kin[name]['tip']['omega']):+.4f} deg; the rated twist must be "
-            f"nose-down, which is omega > 0 on this frame (the sense of Zhou's "
+            f"nose-down, which is omega < 0 on this frame (the sense of Zhou's "
             f"{ZHOU_TIP_TORSION_DEG} deg)"
         )
 
@@ -979,11 +978,10 @@ def test_rated_aero_loads_reproduce_the_bem_resultants(blade_shell, rated_bem):
         return float(np.sum(0.5 * (values[:-1] + values[1:]) * np.diff(r)))
 
     i_np, i_tp, i_mp = integral(bem.Np), integral(bem.Tp), integral(bem.Mp)
-    # The applied moment is the frame's, not the BEM's: `M_z = -Mp` (`_section_couples` states
-    # why). The reference travels with the application, so the moment comparison below uses
-    # `I_Mz = -I_Mp`. Comparing against the raw `I_Mp` was the last place the old convention
-    # survived: it is the same convention the applications carried before it was fixed.
-    i_mz = -i_mp
+    # The applied moment is the frame's: `M_z = +Mp` (`_section_couples` states why; +z is
+    # nose-up and the polars' Cm is positive nose-up). The reference travels with the
+    # application, so the moment comparison below uses `I_Mz = +I_Mp`.
+    i_mz = i_mp
 
     vectors = _rated_load_cases(shell, bem, blade_aero, shell["mesh"])
     coords = shell["coords"]
@@ -1002,7 +1000,7 @@ def test_rated_aero_loads_reproduce_the_bem_resultants(blade_shell, rated_bem):
     print(f"  BEM integrals (trapezoid over {len(r)} radial stations):")
     print(
         f"    I_Np = {i_np:+.6e} N   I_Tp = {i_tp:+.6e} N   "
-        f"I_Mp = {i_mp:+.6e} N.m   I_Mz = -I_Mp = {i_mz:+.6e} N.m"
+        f"I_Mp = {i_mp:+.6e} N.m   I_Mz = +I_Mp = {i_mz:+.6e} N.m"
     )
     print(
         f"  at_ac   sum(f_y) = {fy_ac:+.6e} N  ratio {fy_ac / i_np:.6f}   "
@@ -1142,10 +1140,9 @@ def test_rated_twist_under_production_loads_is_nose_down(
     one asserts the physical sign on its own.  The sign convention is settled by
     ``tools/diagnose_sign_chain.py``: the deck's leading edge sits at +x, the load-frame
     downwind (thrust) direction is +y, and a rigid +z rotation of the tip ring moves the
-    leading edge downwind, so a NOSE-DOWN section rotation reads ``omega > 0``.  With the
-    pitching moment applied on the axis ``_section_ends`` selects
-    (``ForceProjector._strip_moment_axis_sign``), the properties-less production projector
-    measures ``omega = +8.1048 deg``, nose-down.
+    leading edge downwind, toward stall, so a NOSE-DOWN section rotation reads ``omega < 0``
+    (L3 T5; commit 1146265 had this inverted).  OpenFAST v5 AeroDyn+BeamDyn twists the rated
+    tip 3.40 deg toward feather.  Measured values are in ``logs/check/l3-sign-fix/REPORT.md``.
     """
     shell = blade_shell
     force = production_rated_loads
@@ -1153,12 +1150,11 @@ def test_rated_twist_under_production_loads_is_nose_down(
     u[shell["free"]] = spsolve(shell["Kff"], force[shell["free"]])
     tip = np.asarray(shell["phys_tip"])
     omega = _ring_kinematics(shell["coords"], u, tip)["omega"]
-    assert omega > 0.0, (
-        f"the production load path gives a non-positive tip section rotation "
-        f"omega = {np.rad2deg(omega):+.4f} deg; on this frame nose-down is omega > 0 "
+    assert omega < 0.0, (
+        f"the production load path gives a non-negative tip section rotation "
+        f"omega = {np.rad2deg(omega):+.4f} deg; on this frame nose-down is omega < 0 "
         f"(deck leading edge at +x, load-frame downwind at +y, and a +z rotation moves "
-        f"the leading edge downwind - tools/diagnose_sign_chain.py).  The corrected "
-        f"pitching-moment axis gives +8.1048 deg, the sense of Zhou's "
+        f"the leading edge downwind, toward stall), the sign of Zhou's "
         f"{ZHOU_TIP_TORSION_DEG} deg"
     )
 
@@ -1169,11 +1165,8 @@ def test_rated_twist_under_multi_cell_production_loads_is_nose_down(blade_shell,
     The realisation itself is verified in ``tests/test_multicell_shear_flow.py``; this
     builds the projector exactly as production would if it held the laminate map
     (``element_properties`` from the ``Blade`` model, as the ``blade_shell`` fixture does)
-    and asserts the physical sense on the frame ``tools/diagnose_sign_chain.py`` settles
-    (nose-down is ``omega > 0``).  It was pinned ``xfail(strict=True)`` while the applied
-    pitching moment rode the raw span axis; once ``_strip_moment_axis_sign`` carries the
-    polars' sense onto this frame, the multi-cell path measures ``omega = +9.6669 deg`` -
-    nose-down - so the marker is removed and the assertion kept.
+    and asserts the physical sense on this frame (nose-down is ``omega < 0``: +z is
+    nose-up, L3 T5).
     """
     shell = blade_shell
     bem, blade_aero = rated_bem
@@ -1194,13 +1187,12 @@ def test_rated_twist_under_multi_cell_production_loads_is_nose_down(blade_shell,
     omega = _ring_kinematics(shell["coords"], u, tip)["omega"]
     print(
         f"\nmulti-cell load path: tip section omega = {np.rad2deg(omega):+9.4f} deg "
-        f"(nose-down, measured +9.6669 deg; Zhou torsion {ZHOU_TIP_TORSION_DEG:+.2f} deg)"
+        f"(nose-down; Zhou torsion {ZHOU_TIP_TORSION_DEG:+.2f} deg)"
     )
-    assert omega > 0.0, (
-        f"the multi-cell load path gives a non-positive tip section rotation "
-        f"omega = {np.rad2deg(omega):+.4f} deg; on this frame nose-down is omega > 0 "
-        f"(tools/diagnose_sign_chain.py) and the corrected pitching-moment axis measures "
-        f"+9.6669 deg, the sense of Zhou's {ZHOU_TIP_TORSION_DEG} deg"
+    assert omega < 0.0, (
+        f"the multi-cell load path gives a non-negative tip section rotation "
+        f"omega = {np.rad2deg(omega):+.4f} deg; on this frame nose-down is omega < 0 "
+        f"(+z is nose-up), the sign of Zhou's {ZHOU_TIP_TORSION_DEG} deg"
     )
 
 
@@ -1220,9 +1212,9 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
       aero axis would pass it; at least **0.95** of it must ride the flapwise axis measured from
       the tip ring's outline, in the downwind half-space (the mirror of the P5 guard's per-
       station ``|F.f_hat|/|F| >= 0.95``).
-    * **The physical sense**: the tip section rotation ``omega`` is positive - nose-down at
+    * **The physical sense**: the tip section rotation ``omega`` is negative - nose-down at
       rated (deck leading edge at +x, load-frame downwind at +y, a +z rotation moves the
-      leading edge downwind; tools/diagnose_sign_chain.py), the sense of Zhou's -3.60 deg.
+      leading edge downwind, toward stall), the sign of Zhou's -3.60 deg.
 
     The magnitude against Zhou is **reported, not asserted**: our steady one-way BEM loads are
     being compared with a coupled aeroelastic solution, so no numeric bound is defensible. The
@@ -1310,7 +1302,7 @@ def test_rated_twist_under_production_loads(blade_shell, rated_bem, production_r
         f"measured flapwise axis (bound 0.95): the thrust must be downwind along that axis, "
         f"not merely of the right magnitude"
     )
-    # Physical sense (nose-down, omega > 0 on this frame) is asserted by its own test
+    # Physical sense (nose-down, omega < 0 on this frame) is asserted by its own test
     # below.  Everything above stays live: the load invariant, the direction and the
     # promotion guard.
     # Promotion guard, in the style of the existing test: the magnitude stays a reported

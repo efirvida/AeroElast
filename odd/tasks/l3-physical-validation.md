@@ -15,7 +15,7 @@ Branch: `audit/b3-s2-beamdyn-static`; baseline `3e381af`; delivery ask-on-risk, 
 - T2 | S1–S5 | delegated bounded writer (context-backstop) | done | RED 4 failed/8 passed (91.6667%); fix in `assembler.rs`; release rebuild; compiled GREEN 26 passed; 12 rows registered in group 28 (not_measured until recorded at a revision); commit: this work unit.
 - T3 | S1–S5 | parent execution + independent high-risk verification | done (independent verifier unavailable, see L5) | Collect immutable baseline, run corrected official es0.25 four-case physics and matching element anchors; full-suite measurement on SLURM after Rust rebuild; quantify blade impact without claiming entire gap fixed.
 - T4 | S1–S5 | parent store reconciliation | done | Groups 39/28 in 4b6a04b; CCX mesh-convergence, V-02 1F/1E, S-7 at 7d20c81 in the L6 commit. contract.yaml untouched.
-- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt); L22: 20° rule kept; L25–L32: S-5/S-6/S-7 closed on mid, D3, V-02, T-junction, S-1 frame fix, rule-9 re-measure, CCX parity, ring fix; L33–L34: ring fix accepted, torque sense inverted by 1146265 vs OpenFAST; resume from L35) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
+- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt); L22: 20° rule kept; L25–L32: S-5/S-6/S-7 closed on mid, D3, V-02, T-junction, S-1 frame fix, rule-9 re-measure, CCX parity, ring fix; L33–L35: ring fix accepted; torque sign chain fixed 4ee98ab vs OpenFAST (finding 1 closed (b)); resume from L35) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
 
 ## Log
 ### L1 — User correction (verbatim)
@@ -582,3 +582,43 @@ Retomamos odd/tasks/l3-physical-validation.md, T5, desde L32 (receta de reanudac
   - the remaining 13 % tip-twist gap to OpenFAST (OpenFAST outboard torque 1.7–4× the textbook value beyond 70 m: AeroDyn applies the AC on the BlSwpAC line, not on the mesh section);
   - power −6.6 vs −8.38 %;
   - the deck's 3.6 Hz BeamDyn limit cycle (reference-side).
+
+### L35 — Torque sign chain fixed (4ee98ab), verified; session handoff (2026-10-23)
+- **Mesh-convergence test** committed as `b17f3d6`. SLURM 11622586, 49m37s: low modes 0.02–0.12 % at 0.25 m. The worst high mode reads 13.98/8.26/5.23 % at 0.5/0.35/0.25 m against the unchanged 5 % bound, so the test is red as a finding. The assertion text no longer claims "element-order, not discretisation".
+- **Fix `4ee98ab`, outcome (b), closes L31 finding 1.** Worker report: `logs/check/l3-sign-fix/REPORT.md`.
+  - The polars' nose-up Mp now rides −sign·span (`force_projection.py:849-851`).
+  - `_resolve_twist_sense` returns −1 for a nose-up +span rotation (`fsi_participant.py:866-875`).
+  - The guards in four test files flip sense; no tolerance changed.
+  - New test `tests/validation/bem/test_torque_sense_vs_openfast.py`, 3 tests at a 2 % tolerance. RED at 0754a8a (SLURM 11622677): +4.58e5 vs B−A −9.52e4, and a +2° nose-up rotation raised θ by +2°. GREEN (11622706): −9.5173e4, and θ falls by 2°.
+  - Measured at es 0.25 (rigid BEM 2.525 MN / 16.33 MW unchanged):
+
+    | quantity | before | after | OpenFAST | Zhou |
+    |---|---|---|---|---|
+    | tip twist | +6.39° (toward stall) | −3.13° (toward feather) | −3.40° | −3.60° |
+    | production thrust | −28.26 % | −9.06 % | −13.2 % | −13.04 % |
+    | production power | −18.34 % | −4.26 % | −6.6 % | −8.38 % |
+
+  - `tests/validation/bem/`: 129 → 132 passed. `check.sh quick` OK; ruff clean.
+- **Independent gentle-ai-verify of 4ee98ab:** items 1–4 pass (frame argument, scope, pure sign flips, new test); item 5 has no blocker. Native assess is unassessable (untracked BeamDyn directories), as before.
+- **Red after the fix** (findings, not re-banded):
+  1. `test_rated_tip_twist_matches_zhou_with_the_physical_load_path` trips its own "promotion guard". The test-local at-AC construction now gives 1.046× Zhou, i.e. it agrees with Zhou within 5 %. The guard was written to refuse promotion of a construction declared withdrawn. **Decision needed (formulation/test-policy):** promote the at-AC construction to evidence, or keep it withdrawn.
+  2. `test_section_moment_as_a_couple_sets_the_physical_sign` is red at 0754a8a with identical numbers: pre-existing.
+- **Follow-ups from the verifier** (old convention still printed or used; none is asserted):
+  - `test_blade_twist_anchor_beam.py:320-366` keeps a stale nose-down conversion of the beam twist. It needs an identity conversion plus a same-sign assertion.
+  - `tools/diagnose_moment_reference.py:84` keeps the old Mp axis.
+  - `tools/diagnose_zhou_loads_reverse.py`, `tools/diagnose_sign_chain.py:23,136` and `tools/diagnose_applied_torsion_sign.py` keep the old prose.
+  - Docs: `docs/origin_main_integration_2026-09-30.md:14` and `docs/validation_closures.md:34,633` still say "+z = nose-down".
+  - The message at `test_bem_fsi_deformed_geometry.py:315` has the wrong wording.
+- **Remaining residual of finding 1:**
+  - tip twist −3.13° vs OpenFAST −3.40° (−7.9 %) and Zhou −3.60°;
+  - thrust −9.06 % vs −13.2 % OpenFAST;
+  - power −4.26 % vs −6.6 %.
+  Candidate causes, not yet tested: OpenFAST applies the AC on the BlSwpAC line, and its outboard section torque is 1.7–4× the mesh-ring B−A beyond 70 m; also legacy BEM vs CCBlade, and prebend/sweep in the aero.
+- **Delivery.** The branch holds 6624 authored lines in 57 commits past origin/main, well beyond the ~400-line slice. Strategy is ask-on-risk: slicing into PRs is the maintainer's decision. No push.
+- **Resume recipe (new session):**
+  1. Read this document from L33. Run `mem_search "torque sign chain 1146265"` and `git log --oneline -6`.
+  2. Make the follow-up conversions (anchor-beam test, the diagnose tools, the two docs) in one small commit.
+  3. Record the 4ee98ab numbers in the validation store: rated-twist and deloading rows, with `tools/validation_matrix.py check`.
+  4. Run a full suite on SLURM at 4ee98ab vs the 7dfe78d baseline, because the sign change reaches every BEM-FSI test.
+  5. Diagnose the OpenFAST-vs-shell twist and torque residual outboard of 70 m (AC line BlSwpAC vs mesh-ring AC).
+  6. Then L32 step 5: BeamDyn with a yaml-consistent deck for S-2. After that the tear-guard signature, the S-1 EI_edge 2D arbiter and the final synthesis.

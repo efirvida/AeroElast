@@ -64,10 +64,11 @@ BEM_CONFIG = {
 #: Declared sign convention, stated once and used by the header and the sign assertion.
 #: ``tools/diagnose_sign_chain.py`` settles the sense: the deck's leading edge sits at +x,
 #: the load-frame downwind (thrust) direction is +y, and a rigid +z rotation of the tip
-#: ring moves the leading edge downwind, so a NOSE-DOWN section rotation is ``omega > 0``.
+#: ring moves the leading edge downwind (toward stall), so a NOSE-DOWN section rotation is
+#: ``omega < 0`` (L3 T5: commit 1146265 had this inverted).
 CONVENTION = (
     "fluid +Y / rotor clockwise viewed from behind; twist is the section rotation "
-    "in degrees about +span, positive = nose-down toward feather (reduces the AoA)"
+    "in degrees about +span, negative = nose-down toward feather (reduces the AoA)"
 )
 SENSE_THRUST_TOL = 0.02  # the applied-load invariant of verdict section 22.4 / the P5 guard
 ZHOU_FLEX_THRUST_DELTA, ZHOU_FLEX_POWER_DELTA = -0.1304, -0.0838  # Zhou 2025 Table 6
@@ -218,17 +219,14 @@ def test_rigid_baseline_reproduces_the_standalone_bem(deloading):
 def test_twist_sign_matches_the_declared_convention(deloading):
     """The tip section rotation is nose-down about +span; the BEM twist increment must rise.
 
-    A sign is an invariance, so nothing is bound.  ``tools/diagnose_sign_chain.py``
-    settles the sense: the deck's leading edge sits at +x, the load-frame downwind
-    (thrust) direction is +y, and a rigid +z rotation of the tip ring moves the leading
-    edge downwind, so a NOSE-DOWN section rotation is ``omega > 0``.  With the pitching
-    moment applied on the axis ``_section_ends`` selects
-    (``ForceProjector._strip_moment_axis_sign``), the properties-less production path
-    measures ``omega = +8.1048 deg``.  A nose-down twist reduces the angle of attack, and
-    CCBlade's ``alpha = phi - theta`` needs ``theta`` to RISE for that, so the BEM twist
-    increment must be positive - the SAME sense as the corrected section rotation.  It was
-    pinned ``xfail(strict=True)`` while the applied pitching moment rode the raw span
-    axis; that inversion is fixed and the marker is gone.
+    A sign is an invariance, so nothing is bound.  The deck's leading edge sits at +x and
+    the load-frame downwind (thrust) direction is +y, so a rigid +z rotation of the tip
+    ring moves the leading edge downwind, toward stall: a NOSE-DOWN section rotation is
+    ``omega < 0`` (L3 T5, ``logs/check/l3-bd-openfast/REPORT.md``: OpenFAST v5 AeroDyn +
+    BeamDyn twists the tip 3.40 deg toward feather).  A nose-down twist reduces the angle
+    of attack, and CCBlade's ``alpha = phi - theta`` needs ``theta`` to RISE for that, so
+    the BEM twist increment must be positive; with ``_twist_mesh_to_bem = -1`` that is the
+    opposite sign of the mesh rotation.  Commit 1146265 had inverted this convention.
     """
     tip_k = deloading["tip_k"]
     omega_tip = float(deloading["omega"][tip_k])
@@ -239,21 +237,20 @@ def test_twist_sign_matches_the_declared_convention(deloading):
         f"{np.rad2deg(omega_tip):+.4f} deg (nose-down), BEM twist increment "
         f"{np.rad2deg(theta_bem_tip):+.4f} deg (must be positive to reduce the AoA)"
     )
-    assert omega_tip > 0.0, (
+    assert omega_tip < 0.0, (
         f"the tip section rotation is {np.rad2deg(omega_tip):+.4f} deg, not nose-down "
-        f"under the declared convention; on this frame nose-down is omega > 0 (deck "
+        f"under the declared convention; on this frame nose-down is omega < 0 (deck "
         f"leading edge at +x, load-frame downwind at +y, a +z rotation moves the leading "
-        f"edge downwind - tools/diagnose_sign_chain.py).  The corrected pitching-moment "
-        f"axis gives +8.1048 deg"
+        f"edge downwind, toward stall).  OpenFAST v5 twists the tip 3.40 deg toward feather"
     )
     # The physical claim: the BEM twist rises (``alpha = phi - theta``) so a nose-down
-    # section rotation unloads the rotor.  The participant shares that sense
-    # (``_twist_mesh_to_bem = +1``, fsi_participant.py); when it was -1 it compensated the
-    # inverted pitching-moment axis fixed in 1146265 and turned the de-loading table's
-    # twist-only row into a +21.88% RE-LOADING, which is what exposed the chain.
+    # section rotation unloads the rotor.  The participant carries the opposite sense
+    # (``_twist_mesh_to_bem = -1``, fsi_participant.py): +z is nose-up on this frame.
+    # Commit 1146265 set it to +1 together with an inverted pitching-moment axis, so the
+    # chain looked consistent while the twist went toward stall (L3 T5).
     assert theta_bem_tip > 0.0, (
         f"the BEM twist increment is {np.rad2deg(theta_bem_tip):+.4f} deg; a nose-down "
-        f"section rotation (+{np.rad2deg(omega_tip):.4f} deg) must RISE the BEM twist "
+        f"section rotation ({np.rad2deg(omega_tip):+.4f} deg) must RISE the BEM twist "
         f"(alpha = phi - theta) so it unloads, so the increment must be positive"
     )
 
@@ -264,11 +261,7 @@ def test_multi_cell_twist_sign_matches_the_declared_convention(deloading):
     The realisation itself is verified in ``tests/test_multicell_shear_flow.py``; this
     rebuilds the strip loads with the laminate map the fixture derives from the ``Blade``
     model (``get_element_properties``) and asserts the declared sense (nose-down is
-    ``omega > 0``; tools/diagnose_sign_chain.py).  It was pinned ``xfail(strict=True)``
-    while the applied pitching moment rode the raw span axis; once
-    ``_strip_moment_axis_sign`` carries the polars' sense onto this frame the multi-cell
-    path measures ``omega = +9.6669 deg`` - nose-down - so the marker is removed and the
-    assertion kept.
+    ``omega < 0``: +z is nose-up on this frame).
     """
     participant = deloading["participant"]
     projector = ForceProjector(
@@ -291,14 +284,13 @@ def test_multi_cell_twist_sign_matches_the_declared_convention(deloading):
     theta_bem_tip = float(twist_def[tip_k] - deloading["ref_twist"][tip_k])
     print(
         f"\nmulti-cell tip strip r_ref {float(deloading['ref_r'][tip_k]):.4f} m: mesh "
-        f"section rotation {np.rad2deg(omega_tip):+.4f} deg (nose-down, measured +9.6669 "
-        f"deg), BEM twist increment {np.rad2deg(theta_bem_tip):+.4f} deg"
+        f"section rotation {np.rad2deg(omega_tip):+.4f} deg (nose-down), "
+        f"BEM twist increment {np.rad2deg(theta_bem_tip):+.4f} deg"
     )
-    assert omega_tip > 0.0, (
-        f"the multi-cell path gives a non-positive tip section rotation "
-        f"{np.rad2deg(omega_tip):+.4f} deg; on this frame nose-down is omega > 0 "
-        f"(tools/diagnose_sign_chain.py) and the corrected pitching-moment axis measures "
-        f"+9.6669 deg, the declared sense"
+    assert omega_tip < 0.0, (
+        f"the multi-cell path gives a non-negative tip section rotation "
+        f"{np.rad2deg(omega_tip):+.4f} deg; on this frame nose-down is omega < 0 "
+        f"(+z is nose-up: the leading edge at +x moves downwind under a +z rotation)"
     )
 
 

@@ -828,10 +828,11 @@ def test_production_projector_realises_multicell_flow_on_a_two_cell_ring():
     for k, strip_nodes in enumerate((np.arange(6, dtype=np.intp), np.arange(6, 12, dtype=np.intp))):
         # The box's section is symmetric, so ``_section_ends`` keeps the leading edge at
         # the HIGH end and ``_strip_moment_axis_sign`` is -1: the polars' nose-up Cm rides
-        # ``-span_hat`` here (issue #11).  The requested span moment carries that sign; the
-        # realisation mechanics below are unchanged.
+        # ``-sign * span_hat = +span_hat`` here (issue #11; +z is nose-up on the deck's
+        # frame, L3 T5).  The requested span moment carries that sign; the realisation
+        # mechanics below are unchanged.
         requested_span_moment = float(
-            moment_per_length * widths[k] * projector._strip_moment_axis_sign[k]
+            -moment_per_length * widths[k] * projector._strip_moment_axis_sign[k]
         )
         ring_points = coords[strip_nodes]
         centroid = ring_points.mean(axis=0)
@@ -988,9 +989,9 @@ def test_projector_splits_one_strip_over_three_single_cell_rings_by_tributary_we
     forces = projector.project(bem)
     widths = _strip_widths(blade_aero, mesh, SPAN_Z)
     # Symmetric square section -> ``_section_ends`` keeps the leading edge at the HIGH
-    # end, so ``_strip_moment_axis_sign`` is -1 and the requested torsion carries that
-    # sign (issue #11); the tributary split below is unchanged.
-    torsion = float(moment_per_length * widths[0] * projector._strip_moment_axis_sign[0])
+    # end, so ``_strip_moment_axis_sign`` is -1 and the requested torsion is
+    # ``-sign * Mp * dr`` (issue #11, L3 T5); the tributary split below is unchanged.
+    torsion = float(-moment_per_length * widths[0] * projector._strip_moment_axis_sign[0])
 
     strip = projector._strips[0]
     positions = np.array(
@@ -1068,7 +1069,7 @@ def test_projector_without_element_properties_falls_back_to_minimum_norm():
     for k, strip_nodes in enumerate((np.arange(6, dtype=np.intp), np.arange(6, 12, dtype=np.intp))):
         # The same signed requested moment as the properties-bearing test above (issue
         # #11): the fallback realisation must reproduce whatever sign the projector applies.
-        requested = float(moment_per_length * widths[k] * projector._strip_moment_axis_sign[k])
+        requested = float(-moment_per_length * widths[k] * projector._strip_moment_axis_sign[k])
         ring_points = coords[strip_nodes]
         offsets = ring_points - ring_points.mean(axis=0)
         minimum_norm = _minimum_norm_span_field(offsets, SPAN_Z, requested)
@@ -1091,7 +1092,8 @@ def test_projector_without_element_properties_falls_back_to_minimum_norm():
 #
 # The BEM polars define Cm (and hence Mp) about the aerofoil chord **leading to
 # trailing edge**, positive nose-up, so the aerodynamic moment axis is
-# ``chord_le_to_te x n_hat``.  ``ForceProjector`` resolves ``_strip_chord_dirs`` from the
+# ``n_hat x chord_le_to_te`` (n_hat the suction normal; +z is nose-up on the deck's
+# frame).  ``ForceProjector`` resolves ``_strip_chord_dirs`` from the
 # tangential-force sense, which need not run leading-to-trailing, so it records the
 # per-strip conversion ``_strip_moment_axis_sign``.  ``tools/diagnose_sign_chain.py``
 # measures the IEA-15MW deck's real stations (every one has LE . c_hat = -1); the cheap
@@ -1151,7 +1153,7 @@ def test_strip_moment_axis_sign_follows_section_ends_and_reverses_with_the_chord
        ``_section_ends`` (``-1`` when the leading edge is at the HIGH end of the chord
        projection, ``+1`` when it is at the low end);
     2. the applied pitching-moment term flips with the chord axis: with ``Np = Tp = 0``
-       the only applied moment is ``M_ac = Mp * dr * sign * span_hat`` and the realisation
+       the only applied moment is ``M_ac = -Mp * dr * sign * span_hat`` and the realisation
        preserves it, so the moment read back about each strip's own centroid must reverse.
     """
     from tests.validation.bem.test_force_projection import _make_simple_blade_aero
@@ -1207,7 +1209,7 @@ def test_strip_moment_axis_sign_follows_section_ends_and_reverses_with_the_chord
     forward_moments = realised_span_moments(forward)
     reversed_moments = realised_span_moments(reversed_chord)
     for forward_moment, reversed_moment in zip(forward_moments, reversed_moments, strict=True):
-        assert forward_moment > 0.0 and reversed_moment < 0.0, (
+        assert forward_moment < 0.0 and reversed_moment > 0.0, (
             f"the Mp term did not flip with the chord axis: forward {forward_moment:.6e} "
             f"N.m, reversed {reversed_moment:.6e} N.m"
         )
@@ -1226,7 +1228,8 @@ def test_min_norm_and_with_properties_realisations_of_the_rated_moment_agree_in_
     which is exactly the whole defect.  With ``_strip_moment_axis_sign`` both read
     ``+6.3928`` vs ``+6.5792`` deg at ``element_size=0.25`` (measured 2026-10-22; the
     former 1.0 m mesh read ``+7.6963`` vs ``+10.2150`` deg, the earlier quoted
-    ``+8.1048`` vs ``+9.6669`` deg being a third, unrecorded mesh).  Sign guard, so the skin
+    ``+8.1048`` vs ``+9.6669`` deg being a third, unrecorded mesh).  After L3 T5
+    restored the nose-up Cm axis the two read ``-3.1311`` vs ``-3.0367`` deg (nose-down).  Sign guard, so the skin
     keeps its default reference.
 
     Cost: the real IEA-15MW blade mesh, the AeroDyn polars and **two** shell solves, so it
