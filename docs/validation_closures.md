@@ -42,6 +42,15 @@ artículo y evita re-auditar lo ya cerrado.
 > también son históricas**: el estado al 2026-10-11 (tras cerrar
 > `radii_datum_definition_bias` y `radii_linear_kinematics_axial_term`) es twist solo
 > `−26.77 % / −16.48 %`, radios solo `−1.75 % / −1.74 %` y producción `−27.66 % / −17.54 %`.
+>
+> **Revertido el 2026-10-23 (`4ee98ab`).** La convención de `1146265` está invertida: con el
+> borde de ataque en **+x** y el lado de succión en **+y**, una rotación **+z** lleva el borde
+> de ataque aguas abajo, hacia stall, así que **+z es nose-up** y `omega > 0` es nose-up. Lo
+> arbitra OpenFAST v5 AeroDyn+BeamDyn en el punto rated (`logs/check/l3-bd-openfast/REPORT.md`):
+> twist de punta `−3.40°` (hacia feather), Zhou `−3.60°`. Tras `4ee98ab`, a es 0.25: twist de
+> punta `−3.13°` y producción `−9.06 % / −4.26 %` (thrust/potencia), contra OpenFAST
+> `−13.2 % / −6.6 %` y Zhou `−13.04 % / −8.38 %`. Todas las cifras de twist y de de-loading de
+> este párrafo y de la sección "Fix de la cadena de signo" son históricas.
 
 ## Cómo correr la suite de validación
 
@@ -627,6 +636,10 @@ blade-local como en la consistente rotor, y coincide con el valor
 corrieron **con el bug de frame activo** → hay que re-correrlas con el fix.
 
 ### Fix de la cadena de signo del momento torsor (2026-10-05)
+
+> **Revertido por `4ee98ab` (2026-10-23)**: la convención enunciada abajo (+z = nose-down) es
+> incorrecta; +z es nose-up. Ver la nota al inicio de este documento y
+> `odd/tasks/l3-physical-validation.md` L34–L35. Esta sección queda como registro histórico.
 
 Tres errores de signo enlazados escondían el signo del twist y del de-loading FSI, y el
 tercero compensaba al primero. Convención arbitrada una sola vez: borde de ataque en **+x**,

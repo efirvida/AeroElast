@@ -14,14 +14,13 @@ Then their complete sectional load drives our two models - the shell through the
 production projector, and the standard beam through the deck's own shear centre and
 `GKt` - and the tip twists are compared against their -3.60 deg.
 
-Sign mapping: their torsional deflection is positive toward stall; our `omega` is
-positive nose-down, i.e. away from stall. The deck puts the leading edge at `+x` and the
-load frame's downwind thrust at `+y`, so a `+z` rotation moves the leading edge downwind and
-**nose-down is positive** on our frame. The BEM's `Mp` carries the opposite sign (a nose-down
-pitch moment is negative), which is why the shell path takes it through the production
-projector while the beam's `m` is the textbook's nose-up-positive form (Dowell et al., eq.
-2.1.2). Everything printed below is converted once, at the print, to the one
-nose-down-positive convention, so the shell, the beam and Zhou are directly comparable.
+Sign mapping: their torsional deflection is positive toward stall, and so is our `omega`.
+The deck puts the leading edge at `+x` and the suction side at `+y`, so a `+z` rotation moves
+the leading edge downwind, toward stall: **nose-up is positive** on our frame (arbitrated
+against OpenFAST v5 AeroDyn+BeamDyn in 4ee98ab; commit 1146265 had read it nose-down and
+negated the beam and Zhou here). The BEM's `Mp` is nose-up positive too, and so is the beam's
+`m`, the textbook form (Dowell et al., eq. 2.1.2). The shell, the beam and Zhou are therefore
+printed unconverted, in one nose-up-positive convention.
 
 Caveat, stated rather than hidden: ``CL, CD, Cm`` come from the AeroDyn tables of the official
 OpenFAST deck (``t.AD_PRIMARY``), not from the windIO polars the coupled BEM reads
@@ -303,21 +302,16 @@ phi = float(np.rad2deg(theta[-1]))
 
 print()
 print("their complete load (forces published, moment reconstructed) in OUR two models:")
-print("one convention throughout, nose-down positive (leading edge +x, load downwind +y):")
+print("one convention throughout, nose-up (toward stall) positive (leading edge +x, suction +y):")
 print(f"  shell (MITC4, 0.25 m, triangles: {TRI_MODE})  tip section rotation {omega:+9.4f} deg")
-print(f"  standard beam          tip twist            {-phi:+9.4f} deg")
+print(f"  standard beam          tip twist            {phi:+9.4f} deg")
 print(
-    f"  Zhou, their own LL-FVW+GEBT                  {-ZHOU_TIP_TORSION_DEG:+9.4f} deg  (their paper: toward stall positive)"
+    f"  Zhou, their own LL-FVW+GEBT                  {ZHOU_TIP_TORSION_DEG:+9.4f} deg  (their paper: toward stall positive)"
 )
 print()
 print(
-    "  reading: with nose-down positive, their -3.60 deg is +3.60 deg, so the comparable "
-    f"magnitudes are shell |{omega:.3f}| -> {abs(omega) / abs(ZHOU_TIP_TORSION_DEG):.2f}x "
-    f"and beam |{-phi:.3f}| -> {abs(phi) / abs(ZHOU_TIP_TORSION_DEG):.2f}x"
-)
-print(
-    "  both our models now twist the same way under this load; the beam's printed value is"
-    " its own number negated, once, because its `m` is the textbook's nose-up-positive form"
+    "  reading: one convention, so the ratios are signed: "
+    f"shell {omega / ZHOU_TIP_TORSION_DEG:+.2f}x and beam {phi / ZHOU_TIP_TORSION_DEG:+.2f}x Zhou"
 )
 print("  (see odd/tasks/rated-twist-sign-convention.md for why the sign is not a free choice)")
 print(
@@ -329,14 +323,14 @@ print(
 # 4cc40c4, before this block existed). Three traps, as settled there:
 #   1. the beam abscissa is r_b = hub + frac*(R-hub); the shell z starts at the root, so the
 #      beam is read at z_b = r_b - hub = frac*(R-hub), at each ring's OWN z (not the nominal %).
-#   2. `theta` is nose-up positive; the comparison uses -theta, nose-down positive like `omega`.
+#   2. `theta` is nose-up positive, like `omega` (4ee98ab); 1146265 compared -theta here.
 #   3. a segment with ok[i] False has no integrated twist: a ring in or next to one is a HOLE.
 RIGID_SHARE = 0.05  # distortion/|omega| below this: the ring is rigid, so both models measure the same
 AGREE_TOL = 0.05  # the suite's 5 %
 GAP_RHO = 0.75  # below this the gap is outside the literature shell-beam spread (14-24 %)
 
 z_b = r_b - hub
-theta_nd = -theta  # nose-down positive, rad
+theta_nd = theta  # nose-up positive like omega, rad (name kept from the pre-4ee98ab -theta)
 print()
 print("BEAM vs SHELL along the span (pre-registered in 4cc40c4)")
 print(
@@ -344,8 +338,8 @@ print(
     f"beam z_b {z_b[0]:.3f}..{z_b[-1]:.3f} (R - hub = {rotor_radius - hub:.3f})"
 )
 print(
-    f"  sign: raw theta[-1] = {np.rad2deg(theta[-1]):+.4f} deg (nose-up +), converted "
-    f"-theta[-1] = {np.rad2deg(theta_nd[-1]):+.4f} deg (nose-down +), shell tip omega {omega:+.4f}"
+    f"  sign: theta[-1] = {np.rad2deg(theta_nd[-1]):+.4f} deg (nose-up +), "
+    f"shell tip omega {omega:+.4f} (nose-up +)"
 )
 if theta_nd[-1] * omega <= 0:
     raise SystemExit("SIGN GATE FAILED: converted beam and shell tip have opposite signs; harness bug")

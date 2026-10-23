@@ -154,11 +154,11 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: ee50e3a
-      date: '2026-10-08'
+      run: 4ee98ab
+      date: '2026-10-23'
       raw: null
-      margin_pct: 1.2919
-      text: 'applied-load invariant, the P5 guard bound vs the BEM thrust the structure is solved against: 1.2919% (bound: 2.0000%)'
+      margin_pct: 1.9099
+      text: 'applied-load invariant, the P5 guard bound vs the BEM thrust the structure is solved against: 1.9099% (bound: 2.0000%)'
       digest: 4ded18e30c2a50d1
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'

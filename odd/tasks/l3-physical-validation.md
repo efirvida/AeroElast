@@ -15,7 +15,7 @@ Branch: `audit/b3-s2-beamdyn-static`; baseline `3e381af`; delivery ask-on-risk, 
 - T2 | S1–S5 | delegated bounded writer (context-backstop) | done | RED 4 failed/8 passed (91.6667%); fix in `assembler.rs`; release rebuild; compiled GREEN 26 passed; 12 rows registered in group 28 (not_measured until recorded at a revision); commit: this work unit.
 - T3 | S1–S5 | parent execution + independent high-risk verification | done (independent verifier unavailable, see L5) | Collect immutable baseline, run corrected official es0.25 four-case physics and matching element anchors; full-suite measurement on SLURM after Rust rebuild; quantify blade impact without claiming entire gap fixed.
 - T4 | S1–S5 | parent store reconciliation | done | Groups 39/28 in 4b6a04b; CCX mesh-convergence, V-02 1F/1E, S-7 at 7d20c81 in the L6 commit. contract.yaml untouched.
-- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt); L22: 20° rule kept; L25–L32: S-5/S-6/S-7 closed on mid, D3, V-02, T-junction, S-1 frame fix, rule-9 re-measure, CCX parity, ring fix; L33–L35: ring fix accepted; torque sign chain fixed 4ee98ab vs OpenFAST (finding 1 closed (b)); resume from L35) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
+- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt); L22: 20° rule kept; L25–L32: S-5/S-6/S-7 closed on mid, D3, V-02, T-junction, S-1 frame fix, rule-9 re-measure, CCX parity, ring fix; L33–L35: ring fix accepted; torque sign chain fixed 4ee98ab vs OpenFAST (finding 1 closed (b)); L36: follow-ups 7189314, P5 row 8e1c516, full suite 11622759 running, T5.d first readings; resume from L36) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
 
 ## Log
 ### L1 — User correction (verbatim)
@@ -622,3 +622,72 @@ Retomamos odd/tasks/l3-physical-validation.md, T5, desde L32 (receta de reanudac
   4. Run a full suite on SLURM at 4ee98ab vs the 7dfe78d baseline, because the sign change reaches every BEM-FSI test.
   5. Diagnose the OpenFAST-vs-shell twist and torque residual outboard of 70 m (AC line BlSwpAC vs mesh-ring AC).
   6. Then L32 step 5: BeamDyn with a yaml-consistent deck for S-2. After that the tear-guard signature, the S-1 EI_edge 2D arbiter and the final synthesis.
+
+### L36 — Follow-ups committed, P5 row re-measured, full suite launched; T5.d first readings (2026-10-23)
+- **L35 step 2 done, `7189314`.** The anchor-beam test no longer negates the beam twist: beam and shell are both nose-up positive. It now also asserts that the shell and the beam twist the tip the same way. SLURM 11622758: 2 passed. Tip readings are reported, not asserted: beam −1.7765°, ring −4.0462° (ratio +2.28), mean θz −2.9720° (ratio +1.67).
+  - The diagnose tools (`moment_reference`, `sign_chain`, `applied_torsion_sign`, `zhou_loads_reverse`) now use the production Mp axis and nose-up-positive prose.
+  - `docs/origin_main_integration_2026-09-30.md` and `docs/validation_closures.md` carry a "reversed by 4ee98ab" note with the OpenFAST numbers.
+  - The `test_bem_fsi_deformed_geometry.py:315` wording was re-read: it is already consistent (a failure means +z, nose-up), so it was left unchanged. Ruff clean; `check.sh quick` OK.
+- **L35 step 3 done, `8e1c516`.** The group 27 P5 row is re-measured at 4ee98ab: **1.9099 % against the unchanged 2 % bound** (ee50e3a read 1.2919 %).
+  - **Finding:** 0754a8a, before the sign fix, already read 1.9099 % (`logs/check/l3-sign-fix/before-rt-11622678.log`). So 4ee98ab did not move it; the shift happened between ee50e3a and 0754a8a and is not bisected. Headroom is now 0.09 pp.
+  - Deloading and deformed-geometry have no rows: `groups.yaml` declares them out of scope under rule 6. The three ungrouped L3 files (torque sense, ring grouping, tangent frame) are declared out of scope with their reasons.
+  - `validation_matrix check`: 0 errors, 1 pre-existing warning (G27 sits on no level, 4689258). `status`: 0 undeclared files. `contract.yaml` untouched.
+- **L35 step 4 launched:** SLURM **11622759** runs `check.sh full` at `7189314` (`logs/check/l3-full-4ee98ab.sbatch`, 12 tasks, sequana_cpu, 4 h; log `logs/check/full-slurm-11622759.log`). The tree is source-identical to 4ee98ab plus the test, tools and docs above. Baseline: 11622087 at 7dfe78d (21 failed / 1436 passed). Do not edit `src/` or `tests/` while it runs.
+- **L35 step 5 (T5.d), first readings, nothing concluded:**
+  1. **AC route.** In `l3-bd-openfast/torque_sense.log` the mesh-ring AC lever gives B = +1.826e5 and the deck `BlSwpAC` route gives +1.677e5, with A = −2.768e5. So B−A is −9.41e4 by the mesh-ring route and −1.09e5 by the deck route: **16 % more nose-down torque by OpenFAST's AC line.** That is the same order as the twist gap (−7.9 % vs OpenFAST) and the thrust gap.
+  2. **The "textbook" BeamDyn static run is not a valid twist arbiter.** `l3-bd-rated` `C_textbook_A-B_full` (rdz −0.0517 rad) has a tip flap of **19.0 m**, against OpenFAST's 14.08 m with rotation: a static run without centrifugal stiffening over-flaps.
+     - Its scale-1e-3 twin reads ≈ −0.034 rad. The `.out` format gives only 1 significant digit; use scale 1e-2.
+     - The flap-induced (geometrically nonlinear) torsion is therefore of order 0.02 rad there.
+     - The same gap appears under the inverted load: linear +0.1228 vs nonlinear +0.0921.
+     - The production shell solve is linear, so this effect is absent from it.
+  3. **Planned decomposition** (new dir `logs/check/l3-twist-residual/`; never write into `l3-bd-rated` or `l3-bd-openfast`):
+     - (i) shell linear one-way under the corrected production load;
+     - (ii) BeamDyn under the same binned load and its own Mz, at scale 1e-2 (linear) and 1.0;
+     - (iii) the same as (ii) with the deck `BlSwpAC` AC lever;
+     - (iv) whether `beamdyn_driver` can add the rotor's centrifugal field (root angular velocity), so the nonlinear run flaps ~14 m.
+     Each case is minutes on SLURM (the l3-bd-rated jobs took 1–3 min).
+- **Resume recipe (new session):**
+  1. Read this document from L35. Run `mem_search "twist residual decomposition"` and `git log --oneline -4`.
+  2. Read the 11622759 summary line plus the NEW-FAIL list. Compare against 11622087, and attribute every new failure to 4ee98ab or to drift.
+  3. Run the T5.d decomposition (i)–(iv) above. Classify the residual as (a)/(b)/(c)/(d).
+  4. Then L35 step 6.
+
+### L37 — Decision on the at-AC construction: promote only if not coincidental (2026-10-23)
+- User (verbatim): "dado que Zhow utiliza metodos mas precisos que openfas creo que lo podemos dar como evidencia, pero solo si esa evidencia no es casual"
+- **Criterion: what "not coincidental" means.** Agreement within 5 % of Zhou counts as evidence only if it survives all of the following:
+  - N1, load distribution: the same load applied through the production `ForceProjector` gives the same tip twist within 5 %.
+  - N2, estimator: section ring rotation and mean nodal θz agree within 5 %.
+  - N3, mesh: 0.25 vs 0.15 m agree within 5 %.
+  - N4, physics: the effects the construction omits are each below 5 %. These are geometric nonlinearity, centrifugal stiffening, twist feedback and the AC route.
+- **Verdict on the evidence already in hand: coincidental. Not promoted.**
+  - N1 fails. The test's own docstring shows the same load set giving −4.35, −14.25 or −34.13° depending only on the distribution. In the anchor-beam run (SLURM 11622758) the production-projector path gives −4.0462° ring rotation and −2.9720° mean θz. At-AC gives −3.77° mean θz (1.046 × −3.60).
+  - N2 fails. The two estimators differ by a factor of 1.36 in that same run, and at-AC uses mean θz, a drilling DOF.
+  - N4 fails or is open. The construction is a linear one-way solve. L36 estimates the flap-induced nonlinear torsion at ~0.02 rad (~30 % of Zhou's 3.60°), and the AC route moves the net torque by 16 %.
+  - N3 was not measured: unnecessary, since N1 and N2 already fail.
+- **On the premise.** Zhou's aero (LL-FVW) is a higher-fidelity class than OpenFAST's BEM. Structurally both are geometrically exact beams (GEBT, BeamDyn). Our model's aero is BEM, as OpenFAST's is. A closer match to the FVW reference than to the reference of our own aero class is therefore itself a sign of compensation, not of precision. Zhou stays the external reference; the comparable number is the production path once T5.d explains its parts, not this test-local construction.
+- **Consequence for the test.** `test_rated_tip_twist_matches_zhou_with_the_physical_load_path` stays red: its guard sees |1 − ratio| < 5 % and asks for promotion. The decision is now taken, so in the next session, after 11622759 finishes, the guard should assert the reason the magnitude is withdrawn (N1/N2 spread) instead of distance from Zhou. That is a test-policy edit in its own commit; no tolerance changes. Do not edit `tests/` while 11622759 runs.
+
+### L38 — Delivery: 19 stacked PRs to main (2026-10-23)
+- User (verbatim): "antes de cerrar la sesion dividie todo en varios PR encadenados y mezclalos a main, luego cierra la sesion para poder continuar en otra"
+- Strategy: stacked PRs to main, branches `l3/01`..`l3/19` pushed from commit SHAs (no checkout, because suite 11622759 runs in the tree), merged in order with merge commits. Each part is retargeted to main after its parent merges. One slicing pass; nine slices exceed 400 lines and carry a `size:exception` note (single cohesive commits or one fix with its evidence). CI was not awaited, and the full suite had not finished at merge time.
+- Slices (start..end, changed lines):
+  - 01 `9259a08..4689258` K11 criteria and the S-2 LC3 / V-05 deck judges
+  - 02 `f0b2215..f0b2215` S-2 LC3 printed, not asserted (K11.3 clean-metric gate)
+  - 03 `8a577fb..8a577fb` Bernardi 2026 Fig. B1 digitiser against the v1.0/v1.1 decks
+  - 04 `ed4acfe..97fa549` K11 verdicts and the re-stamped L3 rows
+  - 05 `3700691..bbec949` B3-3 rejected rows and the K12 diagnostics
+  - 06 `cf03ba4..afe7c5b` K13 closing-verification criteria, tools and result
+  - 07 `1b4936f..5d4ff36` K14 (void) and K15 shear split
+  - 08 `586bd16..3e381af` K16 matched-field candidates
+  - 09 `7d20c81..7d20c81` Composite triangle fibres follow the requested span direction
+  - 10 `4b6a04b..0568825` S-2, span-frame and suite anchors after the triangle fix
+  - 11 `c882c1f..9900294` S-6 Newmark instrumentation and divergence location
+  - 12 `7dfe78d..d745327` MITC4 directors kept across folds beyond 20 degrees
+  - 13 `c0049c3..63c6dcd` Tube re-pins and anchors at the 20-degree fold directors
+  - 14 `38b8ba2..1ae91a3` S-5/S-6/S-7 on the laminate mid-surface
+  - 15 `cbe6345..cbe6345` S-1 bending stiffness in the section tangent frame
+  - 16 `baaa641..63fa801` Rule 9: blade tests and tools meshed at 0.25 m
+  - 17 `533d7e6..0754a8a` Ring grouping by element topology; modal gap convergence
+  - 18 `4ee98ab..bea62ed` Aerodynamic torque sign chain restored against OpenFAST
+  - 19 `8e1c516..070af3d` Nose-up convention follow-ups, P5 row, at-AC decision
+- PR numbers and merge commits are in Engram (`l3/delivery-chain`). After the merge, the next session starts from `origin/main`.

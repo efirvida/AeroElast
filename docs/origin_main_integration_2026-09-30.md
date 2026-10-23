@@ -24,6 +24,15 @@ merge `e2bc081` @ `7a2196f`)
 > not depend on that sign chain and stand as recorded. The already-recorded config
 > confound (mesh + hub radius) is a second, separate reason the coupled columns are not
 > an element A/B.
+>
+> **Reversed on 2026-10-23 by `4ee98ab`.** The `1146265` convention above is inverted: with
+> the leading edge at **+x** and the suction side at **+y**, a **+z** rotation moves the
+> leading edge downwind, toward stall, so **+z is nose-up** and `omega > 0` is nose-up.
+> OpenFAST v5 AeroDyn+BeamDyn arbitrates it at rated (`logs/check/l3-bd-openfast/REPORT.md`:
+> tip twist `-3.40°`, toward feather; Zhou `-3.60°`). After `4ee98ab`, at es 0.25: tip twist
+> `-3.13°`, production de-loading `-9.06% / -4.26%` thrust/power against OpenFAST
+> `-13.2% / -6.6%` and Zhou `-13.04% / -8.38%`. The `-25.31% / -14.77%` reading above is
+> therefore historical too.
 
 ## Why
 
