@@ -595,10 +595,12 @@ def test_ring_section_rejects_degenerate_rings():
 def test_ring_section_on_iea15mw_midspan_ring():
     """The repo's own IEA-15MW blade: a mid-span ring has three cells.
 
-    Building the blade fixture costs ~20 s.  The count and the positivity of each
-    cell area are asserted; the area sum against the ring's own shoelace area and
-    the per-edge stiffness spread are printed only (the sum is a few percent,
-    not exact, because the web chords cut the outer shoelace polygon).
+    Building the blade fixture costs ~20 s at ``element_size=0.25`` (the converged
+    working mesh; geometry/topology guard, so the skin keeps its default reference).  The
+    count and the positivity of each cell area are asserted; the area sum against the ring's
+    own shoelace area and the per-edge stiffness spread are printed only.  The sum differs
+    from the shoelace area (the web chords cut the outer polygon): 2.84 % on the former
+    1.0 m mesh (14-node ring), 14.93 % at 0.25 m (44-node ring), measured 2026-10-22.
     """
     pytest.importorskip("_aeroelast", reason="Rust backend not available")
     from aeroelast.core.mesh.entities import MeshElement, Node
@@ -609,7 +611,7 @@ def test_ring_section_on_iea15mw_midspan_ring():
 
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(DATA_DIR / "IEA-15-240-RWT.yaml"), element_size=1.0)
+    model = Blade(str(DATA_DIR / "IEA-15-240-RWT.yaml"), element_size=0.25)
     model.generate_mesh()
     mesh = model.mesh
     assert mesh is not None
@@ -1211,7 +1213,10 @@ def test_min_norm_and_with_properties_realisations_of_the_rated_moment_agree_in_
     moment cannot give tip rotations of opposite sign; before the pitching-moment axis fix
     they did (``-0.8696`` vs ``+0.0773`` deg, ``tools/diagnose_pitching_moment_sense.py``),
     which is exactly the whole defect.  With ``_strip_moment_axis_sign`` both read
-    ``+8.1048`` vs ``+9.6669`` deg.
+    ``+6.3928`` vs ``+6.5792`` deg at ``element_size=0.25`` (measured 2026-10-22; the
+    former 1.0 m mesh read ``+7.6963`` vs ``+10.2150`` deg, the earlier quoted
+    ``+8.1048`` vs ``+9.6669`` deg being a third, unrecorded mesh).  Sign guard, so the skin
+    keeps its default reference.
 
     Cost: the real IEA-15MW blade mesh, the AeroDyn polars and **two** shell solves, so it
     is marked ``slow`` and keeps its own blade/mesh construction (no heavy import at
@@ -1234,7 +1239,7 @@ def test_min_norm_and_with_properties_realisations_of_the_rated_moment_agree_in_
 
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(rated.YAML), element_size=1.0)
+    model = Blade(str(rated.YAML), element_size=0.25)
     model.generate_mesh()
     mesh = model.mesh
     assert mesh is not None

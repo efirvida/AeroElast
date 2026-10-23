@@ -14,12 +14,10 @@ tests/IEA15MW/frontiersin_2025_yaw/fluid_sharpy_yaw_0_smoke.yaml 2.0 geometry-on
 tests/software/mesh/test_axisymmetric_components.py 2.0 geometry-only
 tests/software/mesh/test_blade_mesh.py 0.5 anchor-05
 tests/software/mesh/test_turbine_mesh.py 5.0,10.0 geometry-only
-tests/test_multicell_shear_flow.py 1.0 blade-10
 tests/test_rotor_aero_geometry.py 12.0 geometry-only
 tests/test_rotor_aero_surface.py 12.0 geometry-only
 tests/test_rotor_mesh_export.py 12.0 geometry-only
 tests/validation/blade/test_blade_iea15mw_validation.py 1.0 blade-10
-tests/validation/blade/test_blade_section_frame_tear.py 1.0 blade-10
 tests/validation/blade/test_blade_section_torsion_stiffness.py 1.0 blade-10
 tests/validation/blade/test_blade_twist_anchor_beam.py 1.0 blade-10
 tests/validation/parity/test_blade_iea15mw_mesh_convergence.py 0.5,1.0,2.0 convergence-study  # MESHES tuple; its finest point must move to 0.25 (L30)
@@ -34,4 +32,3 @@ tools/diagnose_sign_chain.py 1.0 blade-10
 tools/diagnose_tangential_sense.py 1.0 blade-10
 tools/diagnose_wall_flow_readback.py 1.0 blade-10
 tests/software/mesh/test_blade_no_webs.py 1.0 geometry-only  # web-set presence only; seen by the 2026-10-22 guard
-tests/test_ccx_fsi_parity_parked_v50.py 2.0 blade-10  # 2.0 m modal-gap gate, seen by the 2026-10-22 guard (GATE_ELEMENT_SIZE); re-measure
