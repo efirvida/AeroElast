@@ -45,16 +45,16 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T4 | S5 | - | superseded by T5-T9 (user L2): correct first, measure the effect of each correction
 - T5 | S5 | parent | done fb273f2 | D, out-of-plane constants: order fixed; measured null (see Corrections)
 - T6 | S5 | parent + explore | done 0c110d3 | A: skin smearing justified (mass-conserving); TE band clamp fixed
-- T7 | S5 | parent | open f5f860f, T7a/T7b fixed | B: bays limited to 0.5 m; S-2 measured; S-1 blocked by the extractor (T7a)
+- T7 | S5 | parent | f5f860f; base aa62f91 (T7a 49299ca, T7b c9fad3b, T7c aa62f91) | B: bays limited to 0.5 m; S-2 measured; S-1 blocked by the extractor (T7a)
 - T7a | S5 | - | pending | `postprocess/sectional.py:325-333`: the tangent-frame local fit uses a window of 2x the median station spacing, which assumes uniform stations; with B's stations one station is alone (`polyfit` degree 0, IndexError). Fix: at least the 3 nearest stations (identical when the window already holds 3+). Then remeasure T7 (`submit_wait.sh T7`, worktree pinned to the fix)
 - T7b | S5 | - | decided L5 | default of `max_bay_length`: global in `BladeMesh` (now) or production `Blade` only until the full suite has run -> user L5: global default 0.25 m
-- T10 | S5 | worker | pending | F1: S-1 EA(CLT) metric with hoop stress free, 1/(A^-1)11 instead of A11 (`tools/run_s1_sectional.py:55-86`); verify the elem_areas index (`:218-235`)
-- T8 | S5 | worker | pending | C+E as G2+G3: chord read on its native yaml grid (tip knots); webs placed by the yaml web definition, not the spar-cap edges
-- T11 | S5 | worker | pending | G5: LE band clamp at 0.1 side arc (`keypoints.py:216-217`, `:264-265`), same treatment as A
-- T12 | S5 | worker | pending | F2: ply stack order so the outermost yaml layer sits on the outer face (`build_rust_properties`, `laminate.rs:77-84`)
-- T13 | S5 | worker | pending | G1: establish the reference lofting of relative thickness first; change only if the reference is established, else record
-- T14 | S5 | - | pending (after T9) | F4: `ElementConfig.span_direction` default None (`core/config.py:661`), fibre along edge 0->1 in FSI configs that omit it; the key is misplaced in `tests/test_kg_prestress_coupling.py:36` and `tests/validation/element/test_prestress_centrifugal_analytic.py:104,214`
-- T15 | S5 | - | pending (after T9) | G6-G9: planar z sections ignore the prebend tilt; flat-TE half-face cubic with repeated control points (fold at >= 4 elements); web control weights 0.6666/0.3333; `L = ceil(z_tip)`; also the open `d` measured from the flat-back face midpoint and the never-raised `ValueError`s in `yaml_to_blade.py`
+- T10 | S5 | worker | committed 8db6c19 (fix/input-T10), measuring | F1: S-1 EA(CLT) metric with hoop stress free, 1/(A^-1)11 instead of A11 (`tools/run_s1_sectional.py:55-86`); verify the elem_areas index (`:218-235`)
+- T8 | S5 | worker | G2 committed c5ad881 (fix/input-T8), measuring; G3 stopped, needs user (options below) | C+E as G2+G3: chord read on its native yaml grid (tip knots); webs placed by the yaml web definition, not the spar-cap edges
+- T11 | S5 | worker | committed 7242e92 (fix/input-T11), measuring | G5: LE band clamp at 0.1 side arc (`keypoints.py:216-217`, `:264-265`), same treatment as A
+- T12 | S5 | worker | committed ccc0987 (fix/input-T12), measuring | F2: ply stack order so the outermost yaml layer sits on the outer face (`build_rust_properties`, `laminate.rs:77-84`)
+- T13 | S5 | explore | done: not established, no change | G1: establish the reference lofting of relative thickness first; change only if the reference is established, else record
+- T14 | S5 | worker | in progress (fix/input-T14), integrates after T9 | F4: `ElementConfig.span_direction` default None (`core/config.py:661`), fibre along edge 0->1 in FSI configs that omit it; the key is misplaced in `tests/test_kg_prestress_coupling.py:36` and `tests/validation/element/test_prestress_centrifugal_analytic.py:104,214`
+- T15 | S5 | worker | in progress (fix/input-T15), integrates after T9 | G6-G9: planar z sections ignore the prebend tilt; flat-TE half-face cubic with repeated control points (fold at >= 4 elements); web control weights 0.6666/0.3333; `L = ceil(z_tip)`; also the open `d` measured from the flat-back face midpoint and the never-raised `ValueError`s in `yaml_to_blade.py`
 Order fixed by user L5: T7a, T7b, T10, T8, T11, T12, T13, T9, then T14, T15 (user L6: not in the order does not mean not fixed).
 Parallel execution (user L6): each candidate in its own worktree/branch off the T7a/T7b base, measured against that base; the parent integrates in order; T9 measures the combination.
 - T8 | S5 | parent | pending | C and E, chord at 0.97 and the web attachment at 0.30: diagnose, fix if they are defects
@@ -249,7 +249,46 @@ effect, are not yet in the plan:
 Found correct: spar-cap placement (`swtwisted=0` matches the windIO `rotation: twist`), fibre frame (projected
 global z, `assembler.rs:257-335`), Q/Qbar, thickness units, mass integration, web stacks, shear correction.
 
-## Handoff (2026-10-23, session closed at ~190 k context)
+## Second batch (2026-10-23, user L5/L6: everything this session, in parallel)
+
+**T7c, the root cause behind T7a (aa62f91).** `SectionalExtractor.station_membership` read the station as
+`name[3:5]`. Past station 99 the NuMAD set name has three digits, so `08_147_LP_SPAR` counted as station 14.
+S-1 merged stations 14 and 140-149: the T7 IndexError, the B0 `x must be increasing` (job 11623128), and EI
+computed without error on mixed stations. The fix parses the whole field (`_station_of`). On the es 0.25
+mesh this gives 490 stations, z increasing, dz 0.234-0.244 m. The T7a window widening stays (harmless,
+robust) but was a symptom. Also: the first B0 (11623128) ran in the main repo, because its submission
+raced the worktree creation; the sbatch now aborts when `cd $W` fails or `aeroelast` is not from the shim.
+
+**Parallel candidates.** Each is one commit on its own branch off aa62f91 and is measured against B0 (aa62f91).
+The parent integrates them in L5 order in T9.
+- T10 F1 (8db6c19): `laminate_a11_eff = 1/(A^-1)[0,0]` feeds `ea_gj_from_static_response`. Analytic UD
+  ply: 0.971 x the old value (= E1 h exactly). `elem_areas` id vs position was checked: ids are contiguous,
+  so not a bug, only fragile.
+- T8 G2 (c5ad881): `Definition.chord_curve` holds the yaml chord on its own grid. Its knots become
+  stations, and inserted stations interpolate it linearly. `ipercentthick` is pchip of `percentthick`.
+  Audit F1 at 0.97: 1 fail (+0.70 %) -> 5 pass. Only chord had the grid loss. Left open:
+  `definition.chord` (used by `aerodynamics.py`) is still on the coarse grid, so the BEM chord differs from
+  the structural chord (added to T15's follow-ups).
+- T11 G5 (7242e92): keypoint `a` yields only to stay 5 % of the side arc forward of `b`. Before, the clip ran
+  r/R 0.59-0.80 at 0.289-0.393 m per side against the yaml's 0.4 m (up to 28 % of the LE glass). Audit F3/F5
+  change only at 0.60 (F5 axial -2.19e-3 -> -2.18e-3).
+- T12 F2 (ccc0987): skin stacks are reversed (inner -> outer). Normals are 13506/13506 outward by
+  point-in-polygon; the audit's 92-96 % was its centroid heuristic. Stress recovery resolves by z and
+  follows. `tools/audit_blade_input.py` now reads stacks outer face first; its F3 counts equal the base
+  (182/2/108 at 0.60). Ply-stress parity: 20 passed.
+- T13 G1: **not established, no change.** WISDEM and windIO v2 (`outer_shape.rthick`) use pchip. SONATA,
+  which per the IEA-15 v1.1.4 release notes produced the BeamDyn deck S-1 uses, blends linearly in span.
+  Rule 2 forbids picking the scheme that closes a number. Linear minus pchip t/c: -6.5 % at s 0.06,
+  +4.5 % at s 0.20, < 1 % past s 0.25. Revisit when the deck's SONATA input path is pinned.
+- T8 G3 webs: **stopped, needs the user.** Every yaml web attachment lies inside a spar cap (for example
+  web1 SS at 0.30: nd 0.2878, cap 0.2794-0.3558). The mesh places webs on the cap edges. Only web1 SS at
+  0.30 fails (-0.157 m against 0.125); three more rows sit at 0.113-0.122 m. The 0.157 m splits into
+  ~0.06 m (mesh cap edge `b` vs yaml cap `start_nd_arc`) and ~0.10 m (web inside the cap). Options:
+  (1) document as an approximation; (2) derive the cap edges from the yaml cap nd_arc (~1 day, removes
+  the 0.06 m, shifts every cap region); (3) split the cap regions at the yaml web arcs (~2-3 days,
+  faithful, 8 extra regions per bay, new set naming).
+
+## Handoff (2026-10-23, first close at ~190 k context; superseded by the second batch above)
 
 Resume: `mem_search "blade-input-audit"`, then read this file up to `## Log`. Next actions, in order:
 1. T7a: fix the extractor and remeasure T7. Record S-1 after B, and check the EA prediction for B.
