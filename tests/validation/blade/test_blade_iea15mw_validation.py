@@ -28,8 +28,8 @@ flapwise the article (0.57 Hz) and Bernardi (0.5369 Hz) differ by 5.8%, and for
 model cannot be required to match one beam reference tighter than the beam
 references match each other, so each reference comparison is bounded by its
 disagreement with a peer reference plus a small margin.  The shell itself sits
-next to Bernardi (1st flapwise 0.526 Hz = -2.0%, 1st edgewise 0.702 Hz = -3.4%
-at the 1.0 m mesh), which stays the tighter beam check.
+next to Bernardi (1st flapwise 0.525 Hz = -2.3%, 1st edgewise 0.695 Hz = -4.4%
+at the 0.25 m mid-surface mesh, measured 2026-10-22), which stays the tighter beam check.
 
 The blade's ply angles are defined relative to the blade **span**, not to each
 element's local frame, so both solvers must be told the span direction
@@ -40,13 +40,18 @@ the apparently missing 1st edgewise in an earlier revision of this test.  With
 the span direction supplied, the computed modes land next to the article's and
 CCX agrees.
 
-Mesh choice.  A 0.5 / 1.0 / 2.0 m modal sweep (AeroElast only) gives 1st
-flapwise 0.535 / 0.526 / 0.528 Hz and 1st edgewise 0.699 / 0.702 / 0.708 Hz:
-the flapwise is flat to ~1.7% and lands on Bernardi's 0.5369 Hz, the edgewise
-flat to ~1.3%.  The residual Bernardi gaps at higher modes (2nd edge 5.8%,
-1st torsion 9.8% at 1.0 m) do not shrink with the mesh, so they are the
-shell-vs-beam warping/torsion validity limit, not discretisation.  ``1.0 m``
-keeps the CCX run bounded while the CCX parity stays within ``MODAL_TOL``.
+Mesh choice.  The blade is meshed at ``element_size`` 0.25 m with the skin on the
+mid-surface (``skin_reference="mid"``, as the S-1/S-2/S-5/S-6/S-7 anchors do, because every
+comparison here is a structural response against a beam/section reference); 1.0 m and 0.5 m are
+not converged for this blade (``docs/blade_mesh_size_rule.md``).  Measured 2026-10-22, 1.0 m OML
+skin -> 0.25 m mid skin: the AeroElast-vs-CCX gap falls from up to 1.64% to at most 0.14% over
+the five matched modes (so the 1.0 m parity was discretisation noise), the static tip gap to
+CCX from 1.17% to 0.44%, and 1st flapwise / 1st edgewise move 0.543 / 0.702 -> 0.525 / 0.695 Hz.
+The Bernardi gaps at higher modes (worst 11.4% at 0.25 m, mode 7) remain: the shell-vs-beam
+warping/torsion validity limit.  Two comparisons that held at 1.0 m now fall outside their
+bound and are reported as xfail, not re-banded: 2nd flapwise vs NuMAD (12.26% vs 11.3%) and
+the static tip deflection vs the article's DLC 1.4 (20.39 m vs 23.49 m, 13.21% vs 5%; it was
+4.77% at 1.0 m, where the CCX tip was 22.64 m).
 """
 
 from __future__ import annotations
@@ -69,12 +74,14 @@ from _aeroelast import PyMeshAssembler, modal_solve_coo  # noqa: E402
 from tests.support.ccx_io import fail_ccx, parse_ccx_frequencies, parse_frd_disp, run_ccx  # noqa: E402
 from aeroelast.core.mesh.entities import MeshElement, Node, NodeSet  # noqa: E402
 from aeroelast.core.mesh.io.writers import write_ccx_mesh  # noqa: E402
-from aeroelast.models.blade.model import Blade  # noqa: E402
+from aeroelast.core.mesh.generators import BladeMesh  # noqa: E402
+from aeroelast.models.blade.model import build_rust_properties  # noqa: E402
 
 from tests.support.paths import DATA_DIR  # noqa: E402
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
 
-ELEMENT_SIZE = 1.0
+#: Working mesh of the blade (docs/blade_mesh_size_rule.md): 1.0 m is not converged.
+ELEMENT_SIZE = 0.25
 #: The blade axis in this mesh (mesh z runs 0..117 m).  Required by both the
 #: assembler and the CCX writer so ply angles are measured from the span.
 SPAN_DIRECTION = (0.0, 0.0, 1.0)
@@ -119,9 +126,9 @@ REFERENCE_MARGIN = 0.03
 #: CSD model (1st flap, 1st edge, 2nd flap, 2nd edge, 3rd flap, 1st torsion,
 #: 3rd edge, 4th flap).
 BERNARDI_MODES_HZ = [0.5369, 0.7267, 1.577, 2.267, 3.113, 3.642, 4.571, 5.385]
-BERNARDI_MODE_TOL = 0.05  # measured worst 12.3% at 1.0 m (shell vs the beam CSD); a 0.5 m sweep gives 9.7%
+BERNARDI_MODE_TOL = 0.05  # measured worst 11.4% at 0.25 m mid (2026-10-22; 18.0% at 1.0 m), shell vs the beam CSD
 
-MASS_TOL = 0.05  # measured 70,623 kg = +3.7% over the article value
+MASS_TOL = 0.05  # measured 66,683 kg = -2.0% under the article value (0.25 m mid, 2026-10-22)
 MODAL_TOL = 0.05  # measured worst over the first five matched pairs (see test)
 
 #: The two published beam references disagree with each other: the article's
@@ -130,8 +137,8 @@ MODAL_TOL = 0.05  # measured worst over the first five matched pairs (see test)
 #: scatter is 5.8% (flapwise) and 11.8% (edgewise).  A shell model cannot be
 #: required to match one beam reference tighter than the two beam references
 #: match each other, so the article test allows that scatter plus a 3% margin.
-#: The shell itself sits next to Bernardi (1st flapwise 0.526 Hz = -2.0%,
-#: 1st edgewise 0.702 Hz = -3.4%), not next to the article's BModes.
+#: The shell itself sits next to Bernardi (1st flapwise 0.525 Hz = -2.3%,
+#: 1st edgewise 0.695 Hz = -4.4%, 0.25 m mid mesh), not next to the article's BModes.
 ARTICLE_REFERENCE_SCATTER = (
     abs(ARTICLE_FIRST_MODES[0][0] - BERNARDI_MODES_HZ[0]) / ARTICLE_FIRST_MODES[0][0],
     abs(ARTICLE_FIRST_MODES[1][0] - BERNARDI_MODES_HZ[1]) / ARTICLE_FIRST_MODES[1][0],
@@ -185,6 +192,23 @@ def _to_rust_mesh(mesh, properties: dict):
     )
 
 
+def build_blade_mesh(element_size: float = ELEMENT_SIZE):
+    """Mesh the official blade and return ``(mesh, rust_properties)``.
+
+    The skin is built on the mid-surface (``skin_reference="mid"``) because every
+    comparison in this module is of a structural response (modes, mass, tip
+    deflection) against a beam/section reference, as the S-1/S-2/S-5/S-6/S-7 anchors
+    do.  The ``Blade`` wrapper has no such option, hence ``BladeMesh`` directly.
+    """
+    # The node/element id counters are process-global; a mesh built by an earlier
+    # test would leave them advanced.  Reset, as test_blade_mesh.py does.
+    Node._id_counter = 0
+    MeshElement._id_counter = 0
+    generator = BladeMesh(yaml_file=str(YAML), element_size=element_size, skin_reference="mid")
+    mesh = generator.generate()
+    return mesh, build_rust_properties(generator.numad_mesh_data)
+
+
 @pytest.fixture(scope="module")
 def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     """Mesh, assemble, and solve the blade once, AeroElast and CCX.
@@ -193,15 +217,7 @@ def blade(tmp_path_factory: pytest.TempPathFactory) -> dict:
     """
     ccx_bin = ccx_bin_or_skip()
 
-    # The node/element id counters are process-global; a mesh built by an earlier
-    # test would leave them advanced.  Reset, as test_blade_mesh.py does.
-    Node._id_counter = 0
-    MeshElement._id_counter = 0
-
-    blade_model = Blade(str(YAML), element_size=ELEMENT_SIZE)
-    blade_model.generate_mesh()
-    mesh = blade_model.mesh
-    props = blade_model.get_element_properties()
+    mesh, props = build_blade_mesh()
 
     assembler = PyMeshAssembler.from_model(
         _to_rust_mesh(mesh, props), props, list(SPAN_DIRECTION), None

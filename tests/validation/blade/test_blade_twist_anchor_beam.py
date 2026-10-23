@@ -43,8 +43,6 @@ from _aeroelast import PyMeshAssembler  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 from scipy.sparse.linalg import spsolve  # noqa: E402
 
-from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
-from aeroelast.models.blade.model import Blade  # noqa: E402
 from aeroelast.solvers.bem.fsi_participant import BEMFSIParticipant  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
@@ -142,17 +140,16 @@ def anchor():
 
 @pytest.fixture(scope="module")
 def production():
-    """Real mesh + production participant + one rated shell solve under its own loads."""
+    """Real mesh + production participant + one rated shell solve under its own loads.
+
+    Mid-surface skin at element_size 0.25 (32,656 nodes), because the result is compared with a
+    beam built from the deck's section stiffness.  Measured 2026-10-22 (1.0 m OML skin -> 0.25 m
+    mid skin): tip ring rotation +7.70 -> +6.44 deg (ring/beam 4.33 -> 3.63), tip mean theta_z
+    +13.50 -> +3.94 deg (ratio 7.60 -> 2.22).
+    """
     if not AD_PRIMARY.exists():
         pytest.skip(f"AeroDyn reference not present: {AD_PRIMARY}")
-    Node._id_counter = 0
-    MeshElement._id_counter = 0
-    model = Blade(str(YAML), element_size=1.0)
-    model.generate_mesh()
-    mesh = model.mesh
-    if mesh is None:
-        raise RuntimeError("Blade.generate_mesh() produced no mesh")
-    props = model.get_element_properties()
+    mesh, props = blade_validation.build_blade_mesh()
     assembler = PyMeshAssembler.from_model(
         blade_validation._to_rust_mesh(mesh, props),
         props,
