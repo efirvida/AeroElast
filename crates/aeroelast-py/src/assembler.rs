@@ -1,5 +1,6 @@
 //! `PyMeshAssembler` — Python-facing wrapper around the Rust mesh assembler.
 
+use nalgebra::Vector3;
 use numpy::ndarray::{Array1, Array2};
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
@@ -13,6 +14,39 @@ use crate::mesh::PyMeshModel;
 // ============================================================================
 // PyMeshAssembler: PyO3 class wrapping aeroelast_core::assembly::MeshAssembler
 // ============================================================================
+
+/// Angle of the projected span in MITC3's *material reference* basis.
+///
+/// MITC3 rotates ABD from projected global X (fallback: projected global Z)
+/// into its edge-local basis in `rotate_constitutive_to_local`. Preparing ABD
+/// with the quad's edge-relative offset would therefore rotate it twice.
+fn triangle_span_angle(coords: &[f64], conn: &[usize], span: [f64; 3]) -> f64 {
+    let point = |i: usize| Vector3::from_row_slice(&coords[3 * conn[i]..3 * conn[i] + 3]);
+    let normal = (point(1) - point(0)).cross(&(point(2) - point(0)));
+    let normal_len = normal.norm();
+    if normal_len < 1e-30 {
+        return 0.0;
+    }
+    let normal = normal / normal_len;
+    let project = |v: Vector3<f64>| v - v.dot(&normal) * normal;
+    let x_proj = project(Vector3::new(1.0, 0.0, 0.0));
+    // Match the reference and threshold used by the MITC3 constructor.
+    let reference = if x_proj.norm() > 1e-10 {
+        x_proj.normalize()
+    } else {
+        let z_proj = project(Vector3::new(0.0, 0.0, 1.0));
+        if z_proj.norm() <= 1e-10 {
+            return 0.0;
+        }
+        z_proj.normalize()
+    };
+    let projected_span = project(Vector3::from_row_slice(&span));
+    if projected_span.norm() < 1e-10 {
+        return 0.0;
+    }
+    projected_span.dot(&normal.cross(&reference))
+        .atan2(projected_span.dot(&reference)).to_degrees()
+}
 
 /// Python-accessible mesh assembler backed by the Rust `MeshAssembler`.
 ///
@@ -170,7 +204,10 @@ impl PyMeshAssembler {
     ///     - `PyLaminate` instance → composite MITC3/4 element
     ///     - dict with keys `type="isotropic"`, `e`, `nu`, `rho`, `thickness`[, `shear_correction`]
     /// span_direction : list[float] | None
-    ///     3-component span direction for fibre angle correction. None to skip.
+    ///     3-component span direction for fibre angle correction. Zero-degree plies
+    ///     follow its tangent-plane projection: edge-local for MITC4, projected
+    ///     global-X reference (global-Z fallback) for MITC3. None to skip;
+    ///     a span normal to the element leaves its reference unchanged.
     /// fallback_material : dict | None
     ///     Isotropic material dict used for elements not in any property set.
     ///     If None, elements without properties raise an error.
@@ -221,7 +258,9 @@ impl PyMeshAssembler {
             if v.len() >= 3 { Some([v[0], v[1], v[2]]) } else { None }
         });
 
-        // Only compute for composite quad4 elements that have a laminate property
+        // Only composite properties receive a span correction. Quads consume
+        // edge-local ABD; triangles consume reference-frame ABD and rotate it
+        // to their edge-local frame inside the MITC3 constructor.
         let mut elem_angle_offsets: HashMap<u64, f64> = HashMap::new();
         if let Some(sd) = span_dir {
             // Identify composite quad4 elements
@@ -242,6 +281,18 @@ impl PyMeshAssembler {
                 let offsets = batch_angle_offsets(&flat_coords, &quad_conns, sd);
                 for (i_local, &i_elem) in quad_indices.iter().enumerate() {
                     elem_angle_offsets.insert(mesh.inner.elements[i_elem].id, offsets[i_local]);
+                }
+            }
+
+            for (i, elem) in mesh.inner.elements.iter().enumerate() {
+                if elem.node_ids.len() != 3 {
+                    continue;
+                }
+                let Some(prop) = elem_to_set.get(&elem.id)
+                    .and_then(|set| set_to_prop.get(set)) else { continue; };
+                if prop.bind(py).is_instance_of::<PyLaminate>() {
+                    let angle = triangle_span_angle(&flat_coords, &connectivity[i], sd);
+                    elem_angle_offsets.insert(elem.id, angle);
                 }
             }
         }
