@@ -49,7 +49,7 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T7a | S5 | - | pending | `postprocess/sectional.py:325-333`: the tangent-frame local fit uses a window of 2x the median station spacing, which assumes uniform stations; with B's stations one station is alone (`polyfit` degree 0, IndexError). Fix: at least the 3 nearest stations (identical when the window already holds 3+). Then remeasure T7 (`submit_wait.sh T7`, worktree pinned to the fix)
 - T7b | S5 | - | decided L5 | default of `max_bay_length`: global in `BladeMesh` (now) or production `Blade` only until the full suite has run -> user L5: global default 0.25 m
 - T10 | S5 | worker | committed 8db6c19 (fix/input-T10), measuring | F1: S-1 EA(CLT) metric with hoop stress free, 1/(A^-1)11 instead of A11 (`tools/run_s1_sectional.py:55-86`); verify the elem_areas index (`:218-235`)
-- T8 | S5 | worker | G2 committed c5ad881 (fix/input-T8), measuring; G3: user chose option 3 (L7), worker on fix/input-T8w | C+E as G2+G3: chord read on its native yaml grid (tip knots); webs placed by the yaml web definition, not the spar-cap edges
+- T8 | S5 | worker | G2 committed c5ad881 (fix/input-T8), measuring; G3: option 3 committed c157c62 (fix/input-T8w), measuring | C+E as G2+G3: chord read on its native yaml grid (tip knots); webs placed by the yaml web definition, not the spar-cap edges
 - T11 | S5 | worker | committed 7242e92 (fix/input-T11), measuring | G5: LE band clamp at 0.1 side arc (`keypoints.py:216-217`, `:264-265`), same treatment as A
 - T12 | S5 | worker | committed ccc0987 (fix/input-T12), measuring | F2: ply stack order so the outermost yaml layer sits on the outer face (`build_rust_properties`, `laminate.rs:77-84`)
 - T13 | S5 | explore | done: not established, no change | G1: establish the reference lofting of relative thickness first; change only if the reference is established, else record
@@ -352,6 +352,18 @@ bays halve the spanwise element size:
 So "es 0.25" no longer means the Rule 9 mesh. Part of T6 -> B0 in S-2 can be discretisation, and the Rule 9
 convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple fully (T7e).
 - T7e | S5 | worker | in progress (fix/input-T7e off T7d) | spanwise rows from element_size and its grading only (native discretisation); laminate evaluated per element row, replacing the max_bay_length coupling
+
+**G3 (c157c62, fix/input-T8w).**
+- **Geometry.** Webs attach at the yaml `start/end_nd_arc`. The caps are cut into HP/LP_SPAR_A/B/C pieces that keep the
+  parent laminate and share nodes with the web edges.
+- **Audit F4.** Residuals are <= 4 mm (before: up to 0.157 m); F4 passes 21/21 at 0.30, 0.60 and 0.90.
+- **Mesh.** 49,890 nodes / 51,631 elements against B0's 47,894 / 49,610. The 132 triangles include collapsed wedges
+  at stations 40 and 479, where two webs meet the cap.
+- **Two findings along the way:**
+  - The old pairing of webs to yaml webs was by name. It was wrong, and harmless only because both layups are identical.
+  - The mesh HP side is the yaml pressure side: the HP arc is 1 - end_nd_arc.
+- **Open risk.** Thin cap pieces (5-11 mm wide) near r/R 0.1. The Rust triangle path for the wedges is exercised
+  only by the SLURM run.
 
 **T17 inventory (explore, 2026-10-23, web read only, not verified where marked):**
 - **All on windIO 2.x now.** Every current master yaml in IEAWindSystems is windIO 2.x; our `tests/IEA-15-240-RWT.yaml` is
