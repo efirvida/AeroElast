@@ -651,3 +651,18 @@ Retomamos odd/tasks/l3-physical-validation.md, T5, desde L32 (receta de reanudac
   2. Read the 11622759 summary line plus the NEW-FAIL list. Compare against 11622087, and attribute every new failure to 4ee98ab or to drift.
   3. Run the T5.d decomposition (i)–(iv) above. Classify the residual as (a)/(b)/(c)/(d).
   4. Then L35 step 6.
+
+### L37 — Decision on the at-AC construction: promote only if not coincidental (2026-10-23)
+- User (verbatim): "dado que Zhow utiliza metodos mas precisos que openfas creo que lo podemos dar como evidencia, pero solo si esa evidencia no es casual"
+- **Criterion: what "not coincidental" means.** Agreement within 5 % of Zhou counts as evidence only if it survives all of the following:
+  - N1, load distribution: the same load applied through the production `ForceProjector` gives the same tip twist within 5 %.
+  - N2, estimator: section ring rotation and mean nodal θz agree within 5 %.
+  - N3, mesh: 0.25 vs 0.15 m agree within 5 %.
+  - N4, physics: the effects the construction omits are each below 5 %. These are geometric nonlinearity, centrifugal stiffening, twist feedback and the AC route.
+- **Verdict on the evidence already in hand: coincidental. Not promoted.**
+  - N1 fails. The test's own docstring shows the same load set giving −4.35, −14.25 or −34.13° depending only on the distribution. In the anchor-beam run (SLURM 11622758) the production-projector path gives −4.0462° ring rotation and −2.9720° mean θz. At-AC gives −3.77° mean θz (1.046 × −3.60).
+  - N2 fails. The two estimators differ by a factor of 1.36 in that same run, and at-AC uses mean θz, a drilling DOF.
+  - N4 fails or is open. The construction is a linear one-way solve. L36 estimates the flap-induced nonlinear torsion at ~0.02 rad (~30 % of Zhou's 3.60°), and the AC route moves the net torque by 16 %.
+  - N3 was not measured: unnecessary, since N1 and N2 already fail.
+- **On the premise.** Zhou's aero (LL-FVW) is a higher-fidelity class than OpenFAST's BEM. Structurally both are geometrically exact beams (GEBT, BeamDyn). Our model's aero is BEM, as OpenFAST's is. A closer match to the FVW reference than to the reference of our own aero class is therefore itself a sign of compensation, not of precision. Zhou stays the external reference; the comparable number is the production path once T5.d explains its parts, not this test-local construction.
+- **Consequence for the test.** `test_rated_tip_twist_matches_zhou_with_the_physical_load_path` stays red: its guard sees |1 − ratio| < 5 % and asks for promotion. The decision is now taken, so in the next session, after 11622759 finishes, the guard should assert the reason the magnitude is withdrawn (N1/N2 spread) instead of distance from Zhou. That is a test-policy edit in its own commit; no tolerance changes. Do not edit `tests/` while 11622759 runs.
