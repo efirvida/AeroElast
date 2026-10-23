@@ -21,13 +21,10 @@ tests/test_rotor_mesh_export.py 12.0 geometry-only
 tests/validation/bem/test_force_projection_ac_datum.py 1.0 blade-10
 tests/validation/bem/test_force_projection_load_frame.py 1.0 blade-10
 tests/validation/bem/test_wall_flow_activation.py 1.0 blade-10
-tests/validation/blade/test_blade_deloading_vs_reference.py 1.0 blade-10
 tests/validation/blade/test_blade_iea15mw_validation.py 1.0 blade-10
-tests/validation/blade/test_blade_rated_twist.py 1.0 blade-10
 tests/validation/blade/test_blade_section_frame_tear.py 1.0 blade-10
 tests/validation/blade/test_blade_section_torsion_stiffness.py 1.0 blade-10
 tests/validation/blade/test_blade_twist_anchor_beam.py 1.0 blade-10
-tests/validation/blade/test_blade_twist_mechanism.py 1.0 blade-10
 tests/validation/parity/test_blade_iea15mw_mesh_convergence.py 0.5,1.0,2.0 convergence-study  # MESHES tuple; its finest point must move to 0.25 (L30)
 tests/validation/rotor/test_bem_fsi_deformed_geometry.py 1.0 blade-10
 tools/diagnose_applied_torsion_sign.py 1.0 blade-10

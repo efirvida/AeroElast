@@ -4,12 +4,15 @@ Issue #9 attributes the blade's over-twist to the same bend-twist coupling as th
 coupon. This module measures the blade's twist mechanism directly and finds that
 attribution impossible for this model:
 
-1. **No laminate bend-twist coupling exists in the blade.** All 696 sections are
+1. **No laminate bend-twist coupling exists in the blade.** All 698 sections are
    balanced, so `D16 = D26 = 0` exactly. The coupon's mechanism cannot be the
    blade's mechanism - there is nothing to couple.
 2. **The twist is a load-path response.** For one and the same root moment, moving
    the line of action of the resultant along the chord swings the tip twist by tens
-   of degrees while the tip deflection barely moves. That spread is the right order
+   of degrees while the tip deflection barely moves (measured 2026-10-22 at element_size 0.25,
+   root moment 90.4 MNm: tip flap 17.82 / 16.23 / 16.17 m for surface / leading-edge / mid-chord
+   loading, twist -8.99 / -34.54 / +6.94 deg; at the old 1.0 m mesh +7.07 / -74.03 / +59.86 deg,
+   which was not converged). That spread is the right order
    of magnitude to explain a 9x disagreement between two models that are each
    internally consistent about a *different* load line of action.
 3. **The mesh has free edges at two mid-span stations** (the shear-web junctions), a
@@ -58,7 +61,7 @@ from tests import _production_arbiter as arbiter  # noqa: E402
 from tests.support.paths import DATA_DIR  # noqa: E402
 
 YAML = DATA_DIR / "IEA-15-240-RWT.yaml"
-ELEMENT_SIZE = 1.0
+ELEMENT_SIZE = 0.25
 #: Article DLC 1.4 maximum root moment, the load level the validation suite uses.
 ROOT_MOMENT_NM = 90.4e6
 
@@ -217,7 +220,7 @@ def test_production_solver_matches_the_scipy_replica(solved, blade_model):
     arbiter.require_gap(
         arbiter.displacement_gap(u_prod, u_replica),
         rtol=arbiter.DEFAULT_RTOL,
-        label="IEA-15-240-RWT blade, element_size 1.0",
+        label=f"IEA-15-240-RWT blade, element_size {ELEMENT_SIZE}",
     )
 
     tip = solved["tip"]
@@ -267,7 +270,7 @@ def test_mesh_free_edges_document_the_open_finding(blade_model):
     """Characterisation: the blade mesh has free edges at two mid-span stations.
 
     Free edges at the root and the tip are the expected open boundaries. The ones at
-    z ~ 11.94 m and z ~ 112.22 m sit at the shear-web junctions, so the webs do not
+    z ~ 9.55 m and z ~ 112.22 m sit at the shear-web junctions, so the webs do not
     connect across those stations and the section's closed cells are interrupted.
     The node dedup step reports 0% reduction, i.e. it does not merge them.
 
