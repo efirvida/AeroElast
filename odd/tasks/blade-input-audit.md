@@ -339,7 +339,16 @@ Readings:
 
 **T7d (133edc5, fix/input-T7d).** S-1 now fits on the mesh stations nearest to the native bay centres (51,
 built from the yaml with the generator's tip refinement). On the native mesh this is the identity; on the 0.25 m mesh
-each selected station is within 0.126 m of its native centre. Measurement running.
+each selected station is within 0.126 m of its native centre.
+- **Measured (same mesh as B0; S-2 and V-03 identical, as they must be).** Signed %, B0 -> T7d:
+  - EA +8.10 -> +8.21
+  - EI_edge -2.92 -> -3.42
+  - EI_flap +5.55 -> +4.85
+  - GJ -2.16 -> -1.67
+  - mass +1.62 -> +1.72
+- **So the extractor artefact was 0.5-0.7 points on EI/GJ.** T6 -> T7d is the real effect of the 0.25 m bays
+  (EI_edge +0.35, EI_flap +1.08, GJ -0.30 points). It still mixes the bay-mean laminate and the finer spanwise mesh;
+  T7e separates them.
 
 **Finding: the bay limit couples to the spanwise mesh.** NuMAD meshes each bay with `ceil(bay/size)` rows, so 0.25 m
 bays halve the spanwise element size:
