@@ -344,3 +344,99 @@ Retomamos  odd/tasks/l3-physical-validation.md, T5, desde L21" y mem_search "fol
   - Tube torsion (6): iso theta_fit ratio 1.00309 -> 0.996948 (0.3091 -> 0.3052 %), iso theta_z 1.00674 -> 0.99976 (0.6745 -> 0.0240 %), laminate theta_fit 0.998594 -> 0.994185 (0.1406 -> 0.5815 %), laminate theta_z 1.00704 -> 0.999999 (0.7036 -> 0.0001 %); clamped-root theta_z 10 mm 0.6772 -> 0.0216 %, 0.5 mm 0.701 -> 0.0027 %; distributed force tip theta_z 10 mm 0.2341 -> 0.5433 % (both offsets), 0.5 mm 0.1068 -> 0.4108 % (both offsets).
   - Tube moment realisation (31): interior twist rate, both comparisons 0.3091 -> 0.3052 % (raw 2.75983e-05 -> 2.74292e-05).
   - Not recorded: CCX tip_axial_tension/compression (no store row exists for `test_blade_ccx_parity.py`; the log prints 5.5 %, L20 quotes 5.46 %); S-6 (no store row; tests pass, no value printed); S-1 mass (passes, not printed); S-1 flapwise EI (the row holds the es 0.125 converged value 5.3104 %, a different quantity; the es 0.25 control moved 5.1666 -> 5.1702 %); S-2 official LC2 and LC3 (not printed in the log); S-2 UTD cases (disowned input, no rows); signed S-1 values (only |rel err| printed); the tube minimum-norm pins (not store comparisons).
+
+### L23 — Unattended mandate (2026-10-22)
+```text
+continua en modo desatendido hasta que identifiques y resuelvas los problemas de los modelos, o los problemas de implementacion que hacen que no podamos reproducir la fisica, o que pruebes que nuestro metodo es mas fisicamente realista, o que las diferencias simplemente son restricciones de la plataforma, pero no te detengas mas hasta resolver los prolemas por uno u otro de las planteamientos anteriores
+```
+- Each open residual closes with one of four outcomes: (a) model defect fixed, (b) implementation defect fixed, (c) our method shown more physically realistic against an independent reference, (d) the difference shown to be a platform or reference-model restriction. Every outcome needs a measured number and a stated reference.
+
+### L24 — D3: PreComp section arbiter (2026-10-22)
+Question (D3): is the published 6x6 (`components.blade.elastic_properties_mb.six_x_six`, = BeamDyn deck) consistent with the yaml's own `internal_structure_2d_fem` layup, or is our yaml→section reading the outlier? Arbiter: WISDEM 4.0.2 PreComp (NREL thin-wall composite section code, independent of our mapping), driven through WISDEM's own loader and RotorSE.
+- **Install**: `$SCRATCH/venv/bin/python -m venv logs/check/l3-d3/venv`; `pip install wisdem==4.0.2` succeeded (`pip.log`). Needed one shim inside the venv: the base interpreter has no `_sqlite3`, so `pysqlite3-binary` + `venv/.../sitecustomize.py` aliasing `sqlite3`. `$SCRATCH/venv` and the project install untouched. PreComp is pure Python in 4.0.2 (`wisdem/precomp/precomp.py`; the Fortran import is commented out).
+- **Feeding PreComp the official yaml** (all in `logs/check/l3-d3/`):
+  1. WISDEM 4.0.2 rejects the repo yaml (windIO v1 keys `outer_shape_bem`/`internal_structure_2d_fem`; schema v2 wants `outer_shape`/`structure.layers`). Converted with windIO's own converter `windIO.converters.windIO2windIO.v1p0_to_v2p0` (`convert.log`) → `v2/geom_v2.yaml`. Converter warnings: LE anchor recomputed from `LE_reinforcement`; `offset_y_pa` read as rotation = twist; dummy `end_nd_arc`/`start_nd_arc` for the TE reinforcements.
+  2. The converter left the two TE-reinforcement layers pointing at anchor `not_defined`; `patch_v2.py` repoints `TE_reinforcement_SS.end_nd_arc` and `TE_reinforcement_PS.start_nd_arc` to their own width anchor (the one the converter already writes and that `TE_*_filler` already references) → `v2/geom_v2p.yaml`. This is the only edit to the layup mapping.
+  3. `run_wisdem_hack.py` calls `run_wisdem` with only RotorSE enabled (`mod.yaml`, n_span 50, 27 s) and two stubs, neither touching the blade: a dummy `costs`/`tcc` IVC (the converter drops `costs`) and a no-op `PlantFinance.compute`. Output `precomp_out.pkl`: EA, EIxx/EIyy/EIxy, GJ, rhoA, K (6x6 at the reference axis, WISDEM's `pc2bd_K`).
+  - Span mapping: PreComp `r` starts at Rhub (3.97 m), so z = (r−r_min)/(r_max−r_min)·117. A first pass with z = r/r_max·117 shifted every station by up to 4 m and gave EI_flap +15 %; it was a mapping error of mine and is discarded (logs `compare*.log` are the corrected ones).
+- **Definitions** (same as S-1): deck EI = elastic-centre principal values (`bd.ei_*_ec`, Schur complement of K33 on K[3:5,3:5]); PreComp EI by the same Schur on its K (it equals the eigenvalues of [[EIxx,EIxy],[EIxy,EIyy]] to 4e-4). Window 0.2–0.85 of z_max on the S-1 grids. Shell numbers: the S-1 fixture calls copied (es 0.25, `skin_reference="mid"`) on SLURM 11622353 (4m40s, `shell-11622353.log`, `shell.json`); they reproduce the 7dfe78d anchors (EA 7.59, EI_flap 5.17, EI_edge 11.45, GJ 5.05 %). "CLT yaml" = `tools/yaml_ei_independent.py` / `yaml_layup_independent.py` (meshless OML thin wall, `clt.json`, `clt_and_shell.py`). "CLT mesh" = `tools/s1_clt_steiner_ei.py` machinery on the mid-surface es 0.25 mesh, per station (SLURM 11622377, `clt_mesh.json`, `cltmesh-11622377.log`). Compare: `compare_s1grid.py` (S-1 grids, headline), `compare.py` (deck stations, per-station table). Deck-station and S-1-grid means agree within ≈1 pp.
+- **Mid-span (0.2–0.85) mean signed / mean |rel err|, % (`compare_s1grid.log`, n = 32 stations, mass 31)**:
+
+  | qty | PreComp/deck | shell/deck | PreComp/shell | CLT yaml/deck | PreComp/CLT yaml | CLT mesh/deck | PreComp/CLT mesh |
+  |---|---|---|---|---|---|---|---|
+  | EA | +7.67 / 7.77 | +7.57 / 7.59 | +0.08 / 0.71 | +7.57 / 7.57 | +0.08 / 0.48 | – | – |
+  | EI_flap | +4.85 / 4.95 | +3.93 / 5.17 | +1.13 / 4.20 | +26.15 / 26.15 | −16.75 / 16.75 | +7.74 / 7.74 | −2.68 / 2.92 |
+  | EI_edge | −0.17 / 7.56 | −11.45 / 11.45 | **+13.20 / 13.20** | −1.72 / 6.81 | +1.50 / 3.24 | −0.40 / 6.38 | +0.15 / 3.76 |
+  | GJ | −28.79 / 28.79 | −2.76 / 5.05 | −26.10 / 27.97 | – | – | – | – |
+  | mass | +3.49 / 4.28 | +0.73 / 2.23 | +2.73 / 2.73 | +3.21 / 3.57 | +0.26 / 0.78 | – | – |
+
+  Outboard (0.64–0.855, 11 stations): PreComp/deck EA +5.05, EI_flap +2.92, EI_edge **−9.84**, GJ −45.6, mass +2.20 %; shell/deck EI_edge −16.67; CLT mesh/deck EI_edge −9.40; PreComp/CLT mesh EI_edge −0.59 (|.| 4.65). Per-station signed table: `compare.log`. Whole-blade mass integral 0–117 m: deck 66 912 kg, PreComp 67 956 kg (+1.6 %).
+  - On EA, a second yaml integral (`ea_q`, restrained Q, 12 stations) is +9.74 % over the deck; PreComp vs `ea_q` −1.49 %.
+- **Verdict per quantity** (reference hierarchy: PreComp = independent code with its own yaml reading; the deck is SONATA/ANBA4, a 2D FE homogenisation):
+  - **EA: (d) reference restriction, deck vs yaml.** PreComp agrees with our laminate to 0.08 % (and with `ea_q` to 1.5 %) and is +7.7 % over the deck, the same as the shell (+7.57 %). Outboard +5.05 vs +5.3 %. Three independent codes read the yaml layup at +5…+10 % over the 6x6; our mapping is not the outlier.
+  - **Mass: (d).** PreComp +3.5 % (outboard +2.2) over the deck, our yaml integral +3.2 %, shell +0.7 %. The deck mass is ≈3 % below what the yaml layup plus material densities give in two independent readings. The shell is closer to the deck than either layup integral (lumped mass partition, not a laminate property).
+  - **EI_flap: (d) as a yaml-vs-deck question; the shell is consistent.** PreComp +4.85 % over the deck, shell +3.9 % (|.| 5.17), PreComp vs shell +1.1 % signed, CLT mesh +7.7 %. The 5 % bound on shell vs deck sits inside the +5 % at which PreComp itself reads the yaml. The meshless OML integral (+26 %) is the known OML-placement bias, which PreComp and the mid-surface mesh do not share.
+  - **EI_edge: split, and the result goes against the shell.** Mid-span, PreComp reads the yaml at −0.17 % (deck-consistent) and agrees with our mesh laminate to +0.15 % (CLT mesh/deck −0.40 %). So the laminate, as PreComp and the mesh CLT both read it, is **not** 11 % below the deck at mid-span; the shell *response* is (−11.45 %), i.e. 13 % below PreComp and 11 pp below its own laminate integral. Outboard, PreComp (−9.84) and the mesh CLT (−9.40) both sit ≈10 % below the deck, so that part of the earlier "10–21 % outboard" is a deck-vs-yaml difference (d); the remaining −7 pp (shell −16.67 vs CLT mesh −9.40) is again the shell response. The mid-span part is not a reference restriction. It points at the extraction or the section response of the shell, consistent with the TE cross-section distortion of L19 (not tested here). Outcome (d) is not available for it; it stays an open shell-side residual.
+  - **GJ: inconclusive, not claimed.** PreComp −28.8 % mid, −45.6 % outboard vs the deck, while the shell is −2.8 %. PreComp's torsion is a thin-wall closed-cell estimate with no warping (it is known to miss multi-cell/web torsion), so it cannot arbitrate a 5 % residual. The shell/deck agreement of 5 % stands uncontested and unconfirmed.
+- **Limits.** PreComp: thin wall, no shear deformation, no warping, own region/web discretisation. The layup reaches PreComp through windIO's converter (warnings above) plus the 2-line anchor repair, so "PreComp's reading" is "WISDEM's reading of the converted yaml". PreComp EA, EI_flap and mass are 0.1–3 % from our independent mesh-free integrals, which is evidence the converter did not distort those. WISDEM stubs (costs, financese) do not enter the blade section calculation.
+- **Boundaries kept**: no test, bound, `contract.yaml` or store row changed; no verdict promoted. Scratch only under `logs/check/l3-d3/` (gitignored), the venv stays there.
+- **Next (shell side)**: the EI_edge response gap (shell 11 pp below its own laminate at mid-span, 7 pp outboard) is the open item; PreComp removes the deck as an excuse for the mid-span part. Test candidate: TE sectional distortion (L19) with the 2D section solve of the mid-span station.
+
+### L25 — Skin reference surface, S-6/S-7 on mid, TE distortion verdict (2026-10-22)
+- **S-7 on the mid-surface** (probe SLURM 11622345, `logs/check/l3-s7-mid-11622345.log`; test SLURM 11622347): band 0.3–0.9 ratio **1.00095 (0.0947 %)** against the BeamDyn deck. On the OML the ratio was 0.8980 (10.2 %) at the same extension c0d9b9a7. Per band 0.979–1.046 in 0.2–0.9. **Outcome (c)/(d):** the OML placement centres the laminate on the aerodynamic surface, so half of each wall lies outside the blade. That is a reference-surface choice made for CFD coupling. The physically consistent structure (plies inward from the OML, as SONATA builds the deck) closes the anchor. Test moved to `skin_reference="mid"` in 38b8ba2; bound unchanged.
+- **S-6 test at es 0.25** (rule 9): 3 passed (SLURM 11622346, OML) in 38b8ba2.
+- **S-6 mid vs OML** (SLURM 11622350, `logs/check/l3-s6-skin-11622350.log`, `logs/check/l3-s6-probe/s6_skin.py`), against ElastoDyn:
+
+  | skin | tip OoP mean | std |
+  |---|---|---|
+  | OML | −12.83 % | −5.16 % |
+  | mid | **−0.86 %** | +8.88 % |
+
+  - The mean deficit attributed for weeks to a "K_G over-response" was the OML placement's flap stiffness. K_G and K_SP stay in K_eff.
+  - Test moved to mid (bounds unchanged): 3 passed (SLURM 11622379).
+- **TE section distortion (L19), verdict (ii)** (worker, `logs/check/l3-te-distortion/REPORT.md`, SLURM 11622349/11622374/11622376).
+  - **Method.** The same station resultants (to 2e-15) were applied three ways: (a) per node, as production; (b) on spar and web nodes; (c) by skin area.
+  - **Global response is insensitive.** Tip OoP changes by ≤0.10 % across the three.
+  - **Distortion follows load on the TE skin, not the per-node rule.** At r = 110 m it is 0.245 / 0.012 / 0.165 m for (a)/(b)/(c).
+  - **The outboard TE_PANEL is genuinely thin in our reading of the yaml:** 11.1 mm with D 2334 N·m at r ≈ 92 m; 4.0 mm with D 111 at 99 m; 2.7 mm with D 32.6 at 108 m. A plate-strip check of that panel brackets the FE sag (0.227 m, between the clamped and simply supported bounds). So (iii), an element defect, is not supported.
+  - **Outcome (d), input property.** Tip anchors are unaffected; outboard section-twist readings depend on load introduction by 27–40 %.
+- **D3 (L24, 4909fa7) consequences for the open residuals:**
+  - S-1 EA, mass and EI_flap, and S-2 LC1/LC4 through flap: **outcome (d), deck-vs-yaml.** PreComp reads the yaml as we do (EA +0.08 %, EI_flap +1.1 % vs the shell), and both sit +4.9 to +7.7 % over the deck.
+  - S-1 GJ: within 5 % on the shell; PreComp cannot arbitrate it.
+  - S-1 EI_edge mid-span: still open, as a shell-side residual of −11 pp against its own laminate. A prismatic-segment arbiter is running (worker, `logs/check/l3-prismatic/`).
+- **S-5 at es 0.25, skin × stiffening** (SLURM 11622378, `logs/check/l3-s5-var-11622378.log`, `logs/check/l3-s6-probe/s5_variants.py`), tip OoP against ElastoDyn's 16.1033 m:
+
+  | skin | parked K | K + K_G + K_SP, 7.56 rpm |
+  |---|---|---|
+  | OML | −4.50 % (the old passing value) | −11.71 % |
+  | mid | +9.75 % | **+0.37 %** |
+
+  - The old −4.5 % pass was **two compensating errors**: the OML skin is too stiff in flap, and the parked K drops the centrifugal stiffening that ElastoDyn carries at rated speed.
+  - The docstring premise that "K_G injects a spurious ~13 %" came from the OML placement. The shell's rotating modes close against OpenFAST (S-4 1st flap −1.4 %), so K_G is not suspect.
+  - Test moved to mid, es 0.25 and rotating K_eff; bounds unchanged. IP |u_x| = 2.00 m gives a ratio of 2.47 against the loose 2.5 bound (IP is apples-to-oranges by the module's own account). Test: 3 passed (SLURM 11622382).
+- Store: S-7 row (`rows/34`) re-measured at 38b8ba2, ratio 1.00095 (0.0947 %, PASS). S-5 and S-6 have no store row, so nothing was written for them; their numbers live in the test docstrings and here.
+
+### L26 — V-02 / S-4 frequencies against v1.1 yaml-consistent beams (2026-10-22)
+- Worker report `logs/check/l3-beamfreq/REPORT.md`. Our clamped EB beam (`tools/s4_deck_clamped_beam_modes.py`) reproduces `logs/check/s4/deck_clamped_beam.txt` exactly. It was fed the deck and the PreComp reading of the yaml (L24).
+
+  | mode [Hz] | published (v1.0) | deck EB | PreComp EB | shell (V-02, mid, es 0.25) | shell vs deck / PreComp |
+  |---|---|---|---|---|---|
+  | 1F | 0.5585 | 0.5159 | 0.5268 | 0.5246 | +1.7 / −0.4 % |
+  | 1E | 0.6406 | 0.7242 | 0.7181 | 0.6951 | −4.0 / −3.2 % |
+
+  - A first-order shear bound lowers the beams by about 2 %, giving +1.8 to +3.9 % on 1F and −1.4 to −2.3 % on 1E. That is the fairer comparison, because the shell carries transverse shear.
+- **V-02, outcome (d), reference restriction.** NREL/TP-5000-75698 describes the v1.0 blade (B3-2, `validation-l3-b3-audit.md:507`). Both v1.1 readings sit 5.7–7.6 % below it on 1F and 12–13 % above it on 1E. The 1E gap even has the opposite sign to the shell's. Against v1.1 beams the shell is inside 5 % on both modes. The beam is our code and explains the number; it is not an independent arbiter. The V-02 test stays red against the v1.0 table; changing its reference is a contract decision (D1) that this record supports.
+- **S-4 1E** reads −5.4 % against OpenFAST/ElastoDyn: −1.3 pp is ElastoDyn's assumed modes, and −3.2 to −4.0 % is shell below beam (−1.4 to −2.3 % after the shear bound). Its link to the EI_edge deficit is tested by the prismatic arbiter.
+
+### L27 — S-1 EI_edge decomposed: prebend frame mixing, Poisson, taper (2026-10-22)
+- Worker report `logs/check/l3-prismatic/REPORT.md`.
+  - **Setup.** Prismatic 30 m segments at r = 38.5/62.9/74.7/90.3 m, mid skin, es 0.25 (es 0.125 check), 13 stations each. Pure end moment through a rigid diaphragm, root clamped; a tip couple agrees to ≤0.5 %.
+  - **Prismatic shell vs its own same-mesh CLT:** flap −0.1…−0.8 %, edge −3.2…−5.2 % (es 0.125: −3.4 % at r 62, −6.1 % at r 90). The strain field is planar, with no shear lag, and in-plane distortion is ≤2 mm. Setting ν = 0 everywhere closes the edge gap to +0.2…+1.2 %, so the 3–5 % is Poisson ring coupling of the shell.
+- **Decomposition of the −11.45 % S-1 EI_edge:**
+  1. **Prebend frame mixing, ≈3.6–6 pp — outcome (b), an instrument defect.**
+     - **Cause.** `SectionalExtractor.ei_from_static_response` reads moments and curvatures in global X/Y. The deck 6×6 is in the tangent frame. On the prebent blade a global moment has a torsion component, and the blade is torsionally soft (EI/GJ ≈ 46–69). That gives 1/EI_global = cos²φ/EI_local + sin²φ/GJ.
+     - **Evidence.** Prebending the prismatic segments with slope ×0.5/×1/×2 drops the reading by 1.8/6.5/21 pp, against 2.1/8.0/25.7 predicted. Removing prebend from the full blade moves S-1 edge from −11.45 % to −7.9 %.
+  2. **Poisson coupling, ≈4 % — outcome (c) only against the hoop-clamped CLT.** Whether the ANBA4 deck carries the same effect is open: no 2D solid section solve has been run.
+  3. **Taper and layup variation, ≈1.5 pp.**
+- **The instrument is not otherwise biased.** On the real blade a pure tip couple reads −13 % vs the deck, no better than the instrument.
+- **Next:** fix the extraction frame (tangent-frame moment and curvature, torsion coupling included), test-first on a prebent prismatic segment, then re-measure S-1.

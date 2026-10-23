@@ -8,9 +8,14 @@ blade and compares the static tip deflection against the ElastoDyn reference.
 Reference (blade-only ElastoDyn deck, RotSpeed = 7.56 rpm, only blade DOFs,
 gravity ON):  OoPDefl1 = TipDxc1 = 16.1033 m,  IPDefl1 = -0.8103 m.
 
-Measured shell (2026-09-10, element_size 0.5):  |u_tip| = 15.4874 m with
-u_y = 15.3848 m (OoP, -4.5% vs 16.1033) and u_x = 1.4878 m (IP, +84% vs
-0.8103).  The OoP closes inside the S-2-family band.
+Measured shell (2026-10-22, element_size 0.25, 7dfe78d, SLURM 11622378,
+odd/tasks/l3-physical-validation.md L25):  skin on the laminate mid-surface,
+rotating stiffness K + K_G + K_SP at 7.56 rpm: u_y = 16.1630 m (OoP, +0.37% vs
+16.1033) and u_x = 2.0000 m (IP).  The 2026-09-10 figure (-4.5%, element_size
+0.5, OML skin, parked K) was two compensating errors: the OML placement is
+flap-stiff (parked mid-surface reads +9.75%) and the parked K omits the
+centrifugal stiffening ElastoDyn carries at 7.56 rpm (OML rotating reads
+-11.71%).
 
 IP composition (resolved 2026-09-10):  ElastoDyn's IPDefl1 is the
 modal-reduced 1D measure (aero loads 6.00e6 N·m + gravity/cone mean
@@ -24,11 +29,12 @@ The OoP is the S-5 deliverable.
 
 Design notes (see tools/run_s5_oneway.py for the full rationale):
 
-  * The shell is solved PARKED (K only) + the azimuth-mean gravity component.
-    ElastoDyn's own static OoP at 7.56 rpm matches the un-stiffened beam
-    within ~0.5%: the centrifugal stiffening contributes ~0-2% to the STATIC
-    deflection, while the shell's K_G would inject a spurious ~13% (open K_G
-    issue tracked for the S-4 margin follow-up).
+  * The shell is solved ROTATING (K + K_G + K_SP at 7.56 rpm, the S-6
+    ``assemble_keff``) + the azimuth-mean gravity component.  Until
+    2026-10-22 it was solved parked on the premise that the shell's K_G
+    injected a spurious ~13%; that premise came from the OML skin placement,
+    whose flap stiffness hid the stiffening.  The shell's rotating modes close
+    against OpenFAST at the same speed (S-4: 1st flap -1.4%).
   * The section frames come from the AD geometric twist (BlTwist, negated —
     the shell is built mirrored in the twist), so the Fn/Ft mapping is exact.
   * The loads artifact (tests/IEA15MW/reference/s5_ad_blade1_loads.csv) makes
@@ -54,19 +60,23 @@ from run_s5_oneway import (  # noqa: E402
     G_MEAN,
     TIP_IP_DEFL_M,
     TIP_OOP_DEFL_M,
+    RPM_RATED,
     apply_ad_loads,
     assemble_gravity,
-    assemble_parked_k,
     build_assembly,
     solve_static,
     tip_deflections,
 )
 
+from run_s6_oneway_dynamic import assemble_keff  # noqa: E402
+
 LOADS_CSV = REPO_ROOT / "tests" / "IEA15MW" / "reference" / "s5_ad_blade1_loads.csv"
 
-# OoP tolerance: the measured -4.5% with headroom for environment variation.
+# OoP tolerance, unchanged; it was set as headroom over the old -4.5%.  Measured +0.37% on the
+# mid-surface with the rotating stiffness (module docstring).
 OOP_REL_TOL = 0.08
-# IP: the open gap is ~2x; bound it to catch gross regressions only.
+# IP: the open gap is ~2x (apples-to-oranges, module docstring); bound it to catch gross
+# regressions only.  Mid-surface + rotating reads |u_x| = 2.0000 m, ratio 2.47 (OML parked 1.84).
 IP_MAX_RATIO = 2.5
 
 # Loads artifact sanity: the extracted Fn total should stay near the
@@ -82,8 +92,8 @@ class TestS5OneWayADLoads:
         loads = np.loadtxt(LOADS_CSV, delimiter=",", skiprows=1)
         r_m, fn, ft, twist = loads.T
 
-        asm, mesh = build_assembly(0.5)
-        K, free = assemble_parked_k(asm, mesh)
+        asm, mesh = build_assembly(0.25, skin_reference="mid")
+        K, _, free = assemble_keff(asm, mesh, RPM_RATED * 2 * np.pi / 60.0)
         f = apply_ad_loads(asm, mesh, r_m, fn, ft, twist)
         u_aero = solve_static(asm, K, free, f)
         u_tip_aero = tip_deflections(mesh, u_aero)[0]
