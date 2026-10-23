@@ -21,14 +21,14 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The declared reference (NREL/TP-5000-75698 Table 5-2) describes the v1.0 blade while the decks and the yaml are v1.1 (finding 2026-10-16), so it is not an arbiter (K4): a fail is reported, a pass would not validate.'
     measured:
       status: measured
-      run: 19ff1a3
-      date: '2026-10-20'
-      raw: 0.524444
-      margin_pct: 6.0978
-      text: '1st flapwise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st flapwise [R1]: 0.524444 vs 0.5585 (error: 6.0978%, bound: 5.0000%)'
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.06093
+      margin_pct: 6.093
+      text: '1st flapwise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st flapwise [R1] 0.5585 Hz: error 6.0930 %, bound 5 % FAIL (full suite SLURM 11621862 at 7d20c81, after the MITC3 span-frame fix; 19ff1a3 6.0978 %).'
       digest: 4c74f48449ead8a3
   flags: []
-  notes: 'Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.'
+  notes: Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.
 - id: blade_v02_natural_frequencies.testbladenaturalfrequencies_test_1st_edg.single
   group: '32'
   title: TestBladeNaturalFrequencies::test_1st_edgewise_frequency
@@ -50,11 +50,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. The declared reference (NREL/TP-5000-75698 Table 5-2) describes the v1.0 blade while the decks and the yaml are v1.1 (finding 2026-10-16), so it is not an arbiter (K4): a fail is reported, a pass would not validate.'
     measured:
       status: measured
-      run: 19ff1a3
-      date: '2026-10-20'
-      raw: 0.694793
-      margin_pct: 8.4598
-      text: '1st edgewise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1]: 0.694793 vs 0.6406 (error: 8.4598%, bound: 5.0000%)'
+      run: 7d20c81
+      date: '2026-10-22'
+      raw: 0.084707
+      margin_pct: 8.4707
+      text: '1st edgewise natural frequency [Hz] vs NREL/TP-5000-75698 Table 5-2, 1st edgewise [R1] 0.6406 Hz: error 8.4707 %, bound 5 % FAIL (full suite SLURM 11621862 at 7d20c81, after the MITC3 span-frame fix; 19ff1a3 8.4598 %).'
       digest: a3e07fa0119e073b
   flags: []
-  notes: 'Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.'
+  notes: Re-measured at 19ff1a3 by `regression --write` (SLURM 11619654), es 0.25, skin on mid-surface; 1E bound 0.10 -> 0.05 in the same commit (ADJ-1034 withdraws ADJ-1032). Verdicts in contract.yaml; re-pointing or dropping the v1.0 reference is a follow-up.
