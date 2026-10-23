@@ -36,8 +36,6 @@ pytest.importorskip("_aeroelast", reason="Rust backend not available")
 from _aeroelast import PyMeshAssembler  # noqa: E402
 from scipy.sparse import coo_matrix  # noqa: E402
 
-from aeroelast.core.mesh.entities import MeshElement, Node  # noqa: E402
-from aeroelast.models.blade.model import Blade  # noqa: E402
 
 import tests.validation.blade.test_blade_iea15mw_validation as blade_validation  # noqa: E402
 import tests.validation.parity.test_thin_walled_tube_torsion as tube  # noqa: E402
@@ -153,14 +151,15 @@ def _ring_section_rotation(coords: np.ndarray, u: np.ndarray, ring) -> float:
 
 @pytest.fixture(scope="module")
 def static_torsion():
-    """The shell mesh, one self-equilibrated pure-torque solve, and the per-ring section rotation."""
+    """The shell mesh, one self-equilibrated pure-torque solve, and the per-ring section rotation.
+
+    Mid-surface skin at element_size 0.25 (32,656 nodes), because the result is compared with a
+    section (BeamDyn deck) stiffness.  Measured 2026-10-22 (1.0 m OML skin -> 0.25 m mid skin):
+    median GJ_static/GJ_ref over 20-100 m 1.048 -> 0.987, range 0.570-1.153 -> 0.569-1.263.
+    """
     if not DECK.exists():
         pytest.skip(f"BeamDyn deck not present: {DECK}")
-    Node._id_counter = 0
-    MeshElement._id_counter = 0
-    model = Blade(str(YAML), element_size=1.0)
-    model.generate_mesh()
-    mesh, props = model.mesh, model.get_element_properties()
+    mesh, props = blade_validation.build_blade_mesh()
     assembler = PyMeshAssembler.from_model(
         blade_validation._to_rust_mesh(mesh, props), props,
         list(blade_validation.SPAN_DIRECTION), None)

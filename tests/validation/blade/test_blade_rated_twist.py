@@ -140,7 +140,7 @@ def blade_shell():
     """The repo's shell blade, assembled, with the tip ring and the span stations."""
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(YAML), element_size=1.0)
+    model = Blade(str(YAML), element_size=0.25)
     model.generate_mesh()
     mesh, props = model.mesh, model.get_element_properties()
     assembler = PyMeshAssembler.from_model(
@@ -373,7 +373,7 @@ def _physical_stations(coords, gap_tolerance=STATION_GAP_TOLERANCE):
 
     The blade is **prebent**, so a physical ring's nodes span a small z range (~1e-3 m) instead
     of lying in one plane; the raw ``unique(z)`` set therefore splits each ring into
-    near-duplicate buckets (266 buckets for 186 physical stations here). Values closer than
+    near-duplicate buckets (2369 buckets for 671 physical stations at element_size 0.25, measured 2026-10-22; 272 for 186 at the old 1.0 m). Values closer than
     ``gap_tolerance`` are one station. This is what lets the load application cover every ring
     instead of skipping the split ones - without it the consistent-traction and shear-flow paths
     apply nothing at 62 buckets, 14% of the normal force.
@@ -443,7 +443,7 @@ def _rated_load_cases(shell, bem, blade_aero, mesh):
     * moving a resultant from the ring centroid ``x_c`` to the aerodynamic centre ``x_ac``
       needs a moment of ``(x_ac - x_c) * F``, not ``(x_c - x_ac) * F``;
     * every per-station contribution must carry its **spanwise tributary length** ``dz[k]``: the
-      mesh has 266 z-stations over 117 m (tip-refined and non-uniform), so applying a per-metre
+      mesh has 2369 raw z-buckets (671 physical stations at element_size 0.25) over 117 m (tip-refined and non-uniform), so applying a per-metre
       load once per station inflates the resultant by 1.72-2.19x and concentrates it where the
       stations are dense. ``test_rated_aero_loads_reproduce_the_bem_resultants`` asserts the
       corrected resultant against the BEM's own integral.
@@ -549,7 +549,9 @@ def test_rated_tip_twist_matches_zhou_with_the_physical_load_path(blade_shell, r
 
     Zhou's -3.60 deg (Table 4) is the **total** tip torsion at rated, so the comparable case is
     the full load applied along its physical line of action: forces at the aerodynamic centre
-    plus the pitching moment. That gives -2.72 deg against Zhou's -3.60 deg.
+    plus the pitching moment. Measured 2026-10-22 at element_size 0.25: tip mean theta_z +5.18 deg (section omega +7.35 deg) in
+    this module's nose-down-positive sense, against Zhou's -3.60 deg in the opposite sign convention
+    (the old 1.0 m mesh gave +21.29 / +10.31 deg).
 
     What is *asserted* is the physics: the physical load path gives the nose-down sense (the
     same sense as Zhou and Ma), and the line of action dominates the twist by more than a
@@ -955,7 +957,7 @@ def test_rated_twist_with_the_validated_application_and_the_measured_section_dis
 def test_rated_aero_loads_reproduce_the_bem_resultants(blade_shell, rated_bem):
     """The applied load vectors must carry the BEM's own integrated resultants.
 
-    The mesh has 266 z-stations over 117 m and the tip refinement makes the spacing
+    The mesh has 2369 raw z-buckets (671 physical stations, element_size 0.25) over 117 m and the tip refinement makes the spacing
     non-uniform, so a per-metre load applied once per station without a spanwise tributary
     weight inflates the resultant and concentrates it where the stations are dense. The
     read-only diagnostic that found the defect measured ``at_ac`` at 1.76x and ``mp_only``

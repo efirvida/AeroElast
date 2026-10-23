@@ -2,9 +2,9 @@
 
 Gate for the campaign documented in ``odd/tasks/ccx-fsi-parity-parked-v50.md``:
 the generated CalculiX deck must be a faithful, runnable model of the parked V50
-solid *before* any coupled hour is spent on SLURM.  It is deliberately cheap and
-runs on a coarse gate mesh; the production 0.25 m deck (``--element-size 0.25``)
-is exercised by the coupled campaign itself.
+solid *before* any coupled hour is spent on SLURM.  It runs on the converged
+working mesh (0.25 m, ``docs/blade_mesh_size_rule.md``), the same mesh as the
+production deck (``--element-size 0.25``) of the coupled campaign.
 
 The tool under test (``tools/ccx_fsi_parity_parked_v50.py``) already existed when
 this module was written, so these are gate assertions rather than TDD of new
@@ -47,15 +47,16 @@ def _load_parity_tool() -> Any:
 
 parity: Any = _load_parity_tool()
 
-#: Coarse gate mesh: the gates catch export/assembly bugs, not discretisation
-#: error.  Measured CCX-vs-AeroElast gaps at this mesh are asserted below with a
-#: margin justified by the measurement (see MODAL_GAP_BOUND).
-GATE_ELEMENT_SIZE = 2.0
+#: Gate mesh = the converged working mesh (0.25 m; the former 2.0 m gate was not
+#: a converged blade mesh).  The gates catch export/assembly bugs; the measured
+#: CCX-vs-AeroElast gaps at this mesh are asserted below (see MODAL_GAP_BOUND).
+GATE_ELEMENT_SIZE = 0.25
 N_MODES = 3
 
-#: Measured at GATE_ELEMENT_SIZE (see the test's printed gaps).  The bound is
-#: loose on purpose: at 2.0 m the two discretisations genuinely differ.  If this
-#: ever trips, the deck export changed, not the physics.
+#: Measured at GATE_ELEMENT_SIZE = 0.25 m on 2026-10-22: gaps 0.02 / 0.03 / 0.03 %
+#: (the former 2.0 m gate read 0.86 / 1.94 / 1.44 %).  The bound is unchanged and
+#: is loose against the measurement.  If this ever trips, the deck export changed,
+#: not the physics.
 MODAL_GAP_BOUND = 0.20
 
 

@@ -97,3 +97,28 @@ debt of the same kind and follow the same deferral and the same triggers.
 `scripts/check_mesh_size.py`, called by `scripts/check.sh` (quick and full), fails on any file or
 value not in the registry: the debt can only shrink. Removing a file from the registry requires
 having re-measured it on 0.15-0.25 m. Adding one needs a reason written in this document.
+
+## Guard holes closed (2026-10-22)
+
+The guard matched only a bare ``element_size = <v>``. Three spellings went through, and S-5 and
+S-6 sat at 0.5 m because of the second one:
+
+- prefixed constants (``GATE_ELEMENT_SIZE = 2.0``, ``_ELEMENT_SIZE = 1.0``);
+- a positional size passed to a blade mesh builder (``build_assembly(0.5)``,
+  ``build_mesh_and_properties(0.5)``);
+- a flat tuple of sizes (``MESHES = (2.0, 1.0, 0.5)``).
+
+``coarse_values`` in ``scripts/check_mesh_size.py`` now sees all three; a nested tuple of integer
+division counts (``MESHES = [(40, 2), ...]``) is not a size and is skipped.
+``tests/software/test_check_mesh_size_patterns.py`` pins both behaviours.
+
+Changes to the registry:
+
+- **Newly registered:** ``tests/test_ccx_fsi_parity_parked_v50.py`` (2.0 m physics gate, debt),
+  ``tools/run_s8c_twist_sign.py`` (0.5 m), ``tests/software/mesh/test_blade_no_webs.py``
+  (geometry only).
+- **Updated:** the mesh-convergence test now carries its full ``(2.0, 1.0, 0.5)`` tuple.
+- **Removed:** S-1, S-2, S-4 and V-03, which build at 0.25 m today.
+
+Re-measuring the physics tests at 0.25 m is now mandatory, because the maintainer invoked
+it (odd/tasks/l3-physical-validation.md L30).

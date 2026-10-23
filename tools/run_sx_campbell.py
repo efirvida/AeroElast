@@ -23,7 +23,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "tools"))
 
 
-def shell_campbell(rpms, element_size=0.5):
+def shell_campbell(rpms, element_size=0.25, skin_reference="mid"):
     from run_s4_rotating_modal import assemble_rotating, classify_modes
 
     asm, mesh = None, None
@@ -31,7 +31,7 @@ def shell_campbell(rpms, element_size=0.5):
     for rpm in rpms:
         if asm is None:
             from run_s5_oneway import build_assembly
-            asm, mesh = build_assembly(element_size)
+            asm, mesh = build_assembly(element_size, skin_reference=skin_reference)
         omega = rpm * 2 * np.pi / 60.0
         freqs, modes, free = assemble_rotating(asm, mesh, omega, n_modes=10)
         labels = classify_modes(mesh, modes, free)
@@ -88,10 +88,12 @@ def main():
                     default=Path("docs/validation_data/generated/sx_campbell.csv"))
     ap.add_argument("--plot", type=Path,
                     default=Path("docs/validation_plots/figures/campbell.png"))
-    ap.add_argument("--element-size", type=float, default=0.5)
+    ap.add_argument("--element-size", type=float, default=0.25)
+    ap.add_argument("--skin-reference", choices=("oml", "mid"), default="mid",
+                    help="blade skin reference surface (mid: laminate mid-surface, as S-4)")
     args = ap.parse_args()
 
-    rows = shell_campbell(args.rpms, args.element_size)
+    rows = shell_campbell(args.rpms, args.element_size, args.skin_reference)
 
     if args.csv:
         args.csv.parent.mkdir(parents=True, exist_ok=True)

@@ -19,7 +19,15 @@ definition, never from the projector's configured axes; ``tests/validation/bem/
 test_force_projection_load_frame.py`` is the P5 guard whose 10 deg axis bound the inter-station chord
 angle must clear.  One shell solve (the section 22.10 pure-torque realisation) supplies ``distort``.
 Reported, never asserted: section 21.3's 9.35 deg "sharp corner" does not reproduce as an in-plane
-ring angle (the trailing edge is blunt, reading 102.2 deg), while its 97.3 deg companion reproduces.
+ring angle (the trailing edge is blunt, reading 102.00 deg at the 0.25 m mesh, measured 2026-10-22;
+102.19 deg at the former 1.0 m mesh).  Its 97.3 deg companion reproduced at 1.0 m but reads 130.90 deg
+at 0.25 m: that corner is mesh-dependent.
+
+Mesh: ``element_size=0.25`` (``docs/blade_mesh_size_rule.md``; 32656 nodes, 33813 elements, 671
+stations; the skin keeps its default reference because this is a section-frame/geometry guard, not a
+beam-reference comparison).  The free-edge tear signature pinned in the last test (8 edges at
+z~11.94, 2 at z~112.22) is red at 1.0 m (10 at z=9.55, 2 at z=112.22) and at 0.25 m (34 at z=9.55,
+4 at z=112.22, measured 2026-10-22): it is not a property of the converged mesh.
 """
 from __future__ import annotations
 
@@ -159,7 +167,7 @@ def blade():
         pytest.skip("IEA-15-240-RWT definition or ElastoDyn deck not present")
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(YAML), element_size=1.0)
+    model = Blade(str(YAML), element_size=0.25)
     model.generate_mesh()
     mesh, props = model.mesh, model.get_element_properties()
     coords = np.array([[nd.x, nd.y, nd.z] for nd in mesh.nodes], dtype=float)
@@ -262,8 +270,8 @@ def test_blunt_sharp_corners_and_the_global_axis(blade):
     print(f"corners at z={stations[k]:.4f} m: outer-quarter in-plane spread "
           f"{np.ptp(y[x <= x.min() + slab]):.4f} m at min-x (TE) vs "
           f"{np.ptp(y[x >= x.max() - slab]):.4f} m at max-x (LE, blunt); interior angles "
-          f"{_corner_angle(coords, ring, int(np.argmax(x)), blade['adj']):.2f} deg (section 21.3's "
-          f"97.3 reproduces) and {_corner_angle(coords, ring, int(np.argmin(x)), blade['adj']):.2f} "
+          f"{_corner_angle(coords, ring, int(np.argmax(x)), blade['adj']):.2f} deg (section 21.3 "
+          f"records 97.3) and {_corner_angle(coords, ring, int(np.argmin(x)), blade['adj']):.2f} "
           f"deg (not 9.35: the trailing edge is blunt)")
     assert _blunt_at_plus_x(x, y), "the blunt (leading) end is not at +x"
 

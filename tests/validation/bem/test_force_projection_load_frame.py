@@ -273,7 +273,7 @@ def blade_case():
         pytest.skip(f"AeroDyn reference not present: {AD_PRIMARY}")
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(YAML), element_size=1.0)
+    model = Blade(str(YAML), element_size=0.25)
     model.generate_mesh()
     mesh = model.mesh
     assert mesh is not None, "Blade.generate_mesh() produced no mesh"
