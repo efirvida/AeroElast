@@ -15,7 +15,7 @@ Branch: `audit/b3-s2-beamdyn-static`; baseline `3e381af`; delivery ask-on-risk, 
 - T2 | S1–S5 | delegated bounded writer (context-backstop) | done | RED 4 failed/8 passed (91.6667%); fix in `assembler.rs`; release rebuild; compiled GREEN 26 passed; 12 rows registered in group 28 (not_measured until recorded at a revision); commit: this work unit.
 - T3 | S1–S5 | parent execution + independent high-risk verification | done (independent verifier unavailable, see L5) | Collect immutable baseline, run corrected official es0.25 four-case physics and matching element anchors; full-suite measurement on SLURM after Rust rebuild; quantify blade impact without claiming entire gap fixed.
 - T4 | S1–S5 | parent store reconciliation | done | Groups 39/28 in 4b6a04b; CCX mesh-convergence, V-02 1F/1E, S-7 at 7d20c81 in the L6 commit. contract.yaml untouched.
-- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt); L22: LE population moves no anchor >0.31 pp, 20° rule kept everywhere; tube pins re-pinned; store rows next) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
+- T5 | S1–S5 | delegated bounded diagnosis (context-backstop), parent SLURM execution | in_progress (instrumentation c882c1f; cause located L14; defect demonstrated and fixed L18: director averaging across >20° folds; L21: right at true folds (Bredt); L22: 20° rule kept; L25–L32: S-5/S-6/S-7 closed on mid, D3, V-02, T-junction, S-1 frame fix, rule-9 re-measure, CCX parity, ring fix; resume from L32) | Reproduce S-6 on official es0.25, diagnose stiffness/loads/integration, correct only a demonstrated defect, and record physical evidence. Starting HEAD 0568825; no push. Stiffness indefiniteness is a hypothesis, not an established necessary cause.
 
 ## Log
 ### L1 — User correction (verbatim)
@@ -517,3 +517,23 @@ si vamos a hacer eso, porque estamos validando contra resultados numericos con m
   1. **Elastic twist under the rated BEM load.** The shell tip ring rotation is +6.44°, 3.63× the decoupled anchor beam (GJ + shear centre). Deloading follows from it: production thrust change −28.27 % vs Zhou −13.04 %. The independent arbiter is a full-6×6 BeamDyn static run with the same loads.
   2. **Tip radial shortening:** −0.815 m vs BeamDyn −1.3146 m.
 - **Campbell artifact** regenerated at 0.25 m mid (SLURM 11622486; gitignored, local): rated 1F/2F/1E 0.5472/1.5341/0.7006 Hz; `test_iea15mw_sx_campbell` 5 passed.
+
+### L32 — CCX parity verdict, ring-grouping fix, session restart handoff (2026-10-22)
+- **CCX blade parity** (worker report `logs/check/l3-ccx-es025/REPORT.md`, SLURM 11622469–81, 11622503–18).
+  - **High-mode gap with A is discretisation.** Worst gap 13.98/8.26/5.23 % at 0.5/0.35/0.25 m: modes 6 and 8 fall at about order 1.4 (linear MITC4 against quadratic S8R). B's smaller gap changes sign between 0.5 and 0.35 m, so it was a cancellation. Modes 1–5 agree to 0.02–0.18 % at 0.25 m.
+  - **Tip axial (A −5.46 % at 0.25 m) is local.** Span displacement and per-region axial strain agree to 0.05–0.2 % up to z = 105 m. About 89 % of the error sits in the last 10 m, at the point-loaded 16-node tip ring. Fold and thickness-step nodes carry none of it. Outcome (d): the metric is too local to validate.
+  - **Mesh-convergence test moved to 0.5/0.35/0.25** (uncommitted, together with its registry line in `scripts/mesh-size-debt.txt`). Its docstring now carries the table above and drops the refuted "element-order plateau" claim. Bounds unchanged; expected high-mode 5.23 % vs 5 % (finding). Verification job **SLURM 11622586** (`logs/check/l3-meshconv-test-11622586.log`) was running at the restart.
+- **Ring grouping, outcome (b), production defect fixed: 533d7e6.** Fixed ring tolerances tuned on the 1.0 m mesh split prebent rings and fused the tip rings at 0.25 m. `physical_ring_labels` now groups by element topology. All affected tests pass at 0.25 m. Two things are still pending:
+  - RED of `tests/validation/bem/test_ring_grouping_fine_mesh.py` against the parent code;
+  - independent verification (Risk item 3).
+- **Lost at the restart:** three background workers (Pi-session processes; SLURM jobs survived).
+  1. **BeamDyn full-6×6 arbiter of the rated elastic twist.** Partial: `logs/check/l3-bd-rated/` holds `run_bd_rated.py`, `bd_results.json`, `bd_variants.json`, `torque_check.log` and `torque_by_span.log`, all from SLURM 11622573/81/82/87 (completed). There is no REPORT.md. Read those outputs before re-running anything.
+  2. **BeamDyn with a PreComp (yaml-consistent) deck for S-2 LC1–LC4.** Not started; no job was submitted (`logs/check/l3-bd-yamldeck/` is empty).
+  3. The ring worker had finished its runs; its result is committed as 533d7e6.
+- **Resume recipe (new session):**
+  1. Read this document from L30; run `mem_search "rule-9 re-measure 0.25"` and `git log --oneline -8`.
+  2. Read `logs/check/l3-meshconv-test-11622586.log`. If the low modes pass and the high mode reads about 5.23 %, commit the mesh-convergence test with its registry line.
+  3. Observe RED for the ring tests on a `git archive 533d7e6^` copy of `src/`, then run one independent gentle-ai-verify on 533d7e6.
+  4. Relaunch worker 1 from its partial outputs. The task text is the L31 "physics finding 1" bullet: shell tip ring rotation +6.44° = 3.63× the decoupled anchor beam; deloading −28.27 % vs Zhou −13.04 %; tip dr −0.815 vs −1.3146 m.
+  5. Relaunch worker 2 for the S-2 yaml-consistent deck.
+  6. Open items after that: the tear-guard signature (reproduces at no mesh), S-1 EI_edge −7.5 % (needs a 2D solid section arbiter), and the final synthesis per residual.
