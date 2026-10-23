@@ -658,6 +658,9 @@ class ElementConfig:
 
     family: str
     thickness: Optional[float] = None
+    # Fibre reference axis for composite plies. ``from_dict`` defaults it to the span axis
+    # [0, 0, 1] for blade/rotor generator cases (composite); None means "no correction",
+    # which puts the fibre along quad edge 0->1 (chordwise on BladeMesh).
     span_direction: Optional[list] = None
     shear_correction: Optional[float] = None
     drilling_scale: Optional[float] = None
@@ -1102,10 +1105,18 @@ class FSISimulationConfig:
 
         # Parse element configuration
         elem_data = data.get("elements", {})
+        span_direction = elem_data.get("span_direction")
+        generator_type = mesh_generator.type if mesh_generator is not None else None
+        if span_direction is None and not data.get("material") and generator_type in (
+            MeshGeneratorType.BLADE.value,
+            MeshGeneratorType.ROTOR.value,
+        ):
+            # Composite blade: without it the fibre follows edge 0->1, which is chordwise.
+            span_direction = [0.0, 0.0, 1.0]
         element_config = ElementConfig(
             family=elem_data.get("family", "PLANE"),
             thickness=elem_data.get("thickness"),
-            span_direction=elem_data.get("span_direction"),
+            span_direction=span_direction,
             shear_correction=elem_data.get("shear_correction"),
             drilling_scale=elem_data.get("drilling_scale"),
         )

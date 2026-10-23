@@ -101,7 +101,8 @@ def _strip(layup, n_span, n_width=2):
                 nodes=[nodes[i, j], nodes[i + 1, j], nodes[i + 1, j + 1], nodes[i, j + 1]],
                 element_type=ElementType.quad))
     mesh.add_element_set(ElementSet("strip", set(mesh.elements)))
-    asm = MeshAssembler(mesh=mesh, model={"span_direction": [1, 0, 0], "elements": {
+    asm = MeshAssembler(mesh=mesh, model={"elements": {
+        "span_direction": [1, 0, 0],
         "element_family": ElementFamily.SHELL, "properties": {"strip": prop}}})
     x_c = {el.id: float(np.mean([n.coords[0] for n in el.nodes])) for el in mesh.elements}
     return asm, h, mass, lam, x_c
@@ -211,7 +212,8 @@ def _patch(element_type):
             for cell in cells:
                 mesh.add_element(MeshElement(nodes=cell, element_type=element_type))
     mesh.add_element_set(ElementSet("patch", set(mesh.elements)))
-    asm = MeshAssembler(mesh=mesh, model={"span_direction": [1, 0, 0], "elements": {
+    asm = MeshAssembler(mesh=mesh, model={"elements": {
+        "span_direction": [1, 0, 0],
         "element_family": ElementFamily.SHELL,
         "properties": {"patch": CompositeShellProperty(laminate=lam)}}})
     return asm, lam
