@@ -110,8 +110,12 @@ def build_assembly(element_size=0.5):
     return MeshAssembler(mesh, model), mesh
 
 
-def assemble_keff(assembler, mesh, omega):
-    """K_eff = K + K_G + K_SP, M, and the clamped-root free DOFs."""
+def assemble_keff(assembler, mesh, omega, *, components=None):
+    """K_eff = K + K_G + K_SP, M, and clamped-root free DOFs.
+
+    Optional ``components`` dict receives the assembled K, Kg, Ksp without
+    reassembly; omitted by existing callers.
+    """
     from scipy.sparse import coo_matrix, csr_matrix
 
     n_dof = assembler.dofs_count
@@ -153,6 +157,8 @@ def assemble_keff(assembler, mesh, omega):
     M = coo_matrix((np.asarray(m_vals), (np.asarray(m_rows), np.asarray(m_cols))),
                    shape=(n_dof, n_dof)).tocsr()
 
+    if components is not None:
+        components.update(K=K, Kg=Kg, Ksp=Ksp)
     return (K + Kg + Ksp).tocsr(), M, free
 
 
@@ -185,8 +191,13 @@ def nodal_load_series(assembler, mesh, r_m, fn_ts, ft_ts, twist_deg):
     return F
 
 
-def newmark_tip_series(assembler, mesh, K_eff, M, free, F_ts, dt):
-    """Trapezoidal Newmark from the static IC; returns (t_tip_xyz, steps)."""
+def newmark_tip_series(assembler, mesh, K_eff, M, free, F_ts, dt, *, observer=None):
+    """Trapezoidal Newmark from the static IC; returns tip XYZ history.
+
+    ``observer(step, record)`` optionally receives diagnostics after each solve:
+    scalars plus a copy of the free-DOF displacement (no mutable integrator state). Output sample zero follows one
+    integration step from the mean-load static IC, as in the original tool.
+    """
     from petsc4py import PETSc
 
     n_dof = assembler.dofs_count
@@ -247,6 +258,7 @@ def newmark_tip_series(assembler, mesh, K_eff, M, free, F_ts, dt):
     # M/C reduced row access via scipy slicing on the free partition
     M_ff = M[free][:, free].tocsr()
     C_ff = C[free][:, free].tocsr()
+    K_ff = K_eff[free][:, free].tocsr() if observer is not None else None
 
     hist = np.zeros((n_steps, 3))
     u_new = np.zeros(n_dof)
@@ -268,6 +280,18 @@ def newmark_tip_series(assembler, mesh, K_eff, M, free, F_ts, dt):
 
         u, v, a = u_new.copy(), v_new.copy(), a_new.copy()
         hist[step] = u[tip_dof:tip_dof + 3]
+        if observer is not None:
+            terms = (M_ff @ a[free], C_ff @ v[free], K_ff @ u[free])
+            scale = max(np.linalg.norm(f), *(np.linalg.norm(x) for x in terms), 1.)
+            observer(step, {
+                "translation_max": float(np.max(np.abs(u.reshape(-1, dpn)[:, :3]))),
+                "rotation_max": float(np.max(np.abs(u.reshape(-1, dpn)[:, 3:]))),
+                "peak_node": int(np.argmax(np.abs(u.reshape(-1, dpn)[:, :3]).max(axis=1))),
+                "u_free": u[free].copy(),
+                "relative_balance": float(np.linalg.norm(sum(terms) - f) / scale),
+                "solve_reason": int(ksp.getConvergedReason()),
+                "static_solve_reason": int(ksp_static.getConvergedReason()),
+            })
 
     return hist
 
