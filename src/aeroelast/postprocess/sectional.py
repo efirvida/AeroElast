@@ -153,11 +153,9 @@ class SectionalExtractor:
         nid_to_idx = self.mesh.node_id_to_index
         stations: Dict[int, set] = {}
         for name, eset in self.mesh.element_sets.items():
-            # detailed sets are named {component:02d}_{station:02d}_{...}
-            if not (len(name) >= 5 and name[:2].isdigit()
-                    and name[2] == "_" and name[3:5].isdigit()):
+            st = _station_of(name)
+            if st is None:
                 continue
-            st = int(name[3:5])
             if st not in stations:
                 stations[st] = set()
             for e in eset.elements:
@@ -516,3 +514,17 @@ def _local_quadratic(zs, y, half, deriv):
         c = np.polyfit(zs[m] - zs[i], y[m], min(2, int(m.sum()) - 1))
         out[i] = c[-2] if deriv else c[-1]
     return out
+
+
+def _station_of(name):
+    """Station index of a detailed NuMAD set ``{component:02d}_{station:02d}_{...}``, else None.
+
+    ``:02d`` grows past two digits beyond station 99 (``BladeMesh.max_bay_length``), so the field is
+    read up to the next underscore, not as ``name[3:5]``.
+    """
+    parts = name.split("_", 2)
+    if len(parts) < 3 or len(parts[0]) != 2 or not parts[0].isdigit():
+        return None
+    if len(parts[1]) < 2 or not parts[1].isdigit():
+        return None
+    return int(parts[1])
