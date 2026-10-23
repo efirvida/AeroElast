@@ -461,6 +461,14 @@ convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple full
 
 **Agent results at close:** (appended below when they arrive)
 
+**T7e at close:** the worker (task mvlioo6b) was still running when the user closed the session. Its diff is
+uncommitted in `$SCRATCH/wt/input-fix-T7e`. Next session:
+- check `git -C $SCRATCH/wt/input-fix-T7e status` and `git diff --stat`;
+- run its tests (`tests/test_blade_span_decoupling.py`, `tests/test_blade_bay_length.py`);
+- check the node/element counts against native 32,515 / 33,673 and the geometry displacement;
+- if incomplete, relaunch from the T7e task line (design: span_plan from a native planning pass, one row per bay,
+  native chordwise counts, `BladeMesh(laminate_per_row=True)`).
+
 **G3 GJ drop, verify verdict: H1 physical** (`logs/check/input-fix/t8w-diag/`, captures reproduced to 0.0).
 - **An independent multi-cell Bredt-Batho reproduces the drop.** Wall `1/(A^-1)66` from each layup, 3 cells:
 
