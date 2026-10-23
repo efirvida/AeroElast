@@ -307,6 +307,36 @@ The parent integrates them in L5 order in T9.
   - Candidate for the second iteration.
 - **Untraced side warning:** `element_utils.py:78` (`rotVec = (theta/mag)*cp`, invalid divide).
 
+**Measurements of the second batch** (S-1, S-2 official, V-03 at es 0.25, sequana_cpu; `logs/check/input-fix/capture-<TAG>.pkl`).
+Signed %, each candidate against B0 = aa62f91 (T6 + bays 0.25 m + the S-1 extractor fixes):
+
+| metric | T6 0c110d3 | B0 aa62f91 | T10 F1 | T8 G2 | T11 G5 | T12 F2 |
+|---|---|---|---|---|---|---|
+| S-1 EA | +8.03 | +8.10 | **+6.28** | +8.10 | +8.13 | +8.10 |
+| S-1 EI_edge | -3.77 | -2.92 | -2.92 | -2.93 | -2.85 | -2.92 |
+| S-1 EI_flap | +3.77 | +5.55 | +5.55 | +5.53 | +5.57 | **+5.12** |
+| S-1 GJ | -1.37 | -2.16 | -2.16 | -2.23 | -2.12 | -2.01 |
+| S-1 mass | +1.74 | +1.62 | +1.62 | +1.62 | +1.66 | +1.62 |
+| S-2 LC1 / LC2 | -6.44 / -3.49 | -6.45 / -2.82 | same as B0 | -6.26 / -3.30 | -6.41 / -2.83 | -6.19 / **-2.18** |
+| S-2 LC3 / LC4 | +12.00 / -6.28 | +11.75 / -6.25 | same as B0 | +11.21 / -6.17 | +11.68 / -6.26 | +11.68 / -5.89 |
+| V-03 mass kg | 66903.4 | 66904.1 | 66904.1 | 66914.5 | 66910.2 | 66904.1 |
+
+Readings:
+- **F1:** EA drops 1.8 points from the metric alone; the S-2 rows match B0, which confirms it is metric-only.
+- **G2:** the tip chord moves S-2 (LC2 -0.48, LC3 -0.53 points); S-1 is about unchanged.
+- **G5:** small, as expected for a narrow band; it adds material, so EA moves outward by +0.03.
+- **F2:** the predicted sign holds. EI_flap -0.44 points (softer), and S-2 flap moves toward BeamDyn (LC2 +0.64, LC4
+  +0.36). The magnitude is a little above the 0.1-0.4 % estimate. EA and mass are unchanged, as they must be. GJ +0.15
+  points is not interpreted.
+- **T6 -> B0 is confounded, not attributable (finding):**
+  - The bays change the spanwise element rows: rows are `ceil(bay/size)`, about 0.12 m at mid-span instead of about 0.18.
+    S-2 LC2 moved +0.23 points from 2.4 to 0.5 m bays and +0.44 from 0.5 to 0.25 m.
+  - The S-1 extractor depends on station density: the EI local-fit window is twice the median station spacing (4.8
+    -> 0.48 m), and `UnivariateSpline(s=1e-1)` saw 490 instead of 50 points.
+  - Candidate-vs-B0 deltas are valid, because they share one extractor. B0 against 9f72c6b is not, so T7d comes before T9.
+- T7d | S5 | worker | pending | make S-1 extraction independent of station density (reproduce the 9f72c6b method on any
+  station set), and measure the spanwise row size and element count at 9f72c6b-geometry vs B0.
+
 **T17 inventory (explore, 2026-10-23, web read only, not verified where marked):**
 - **All on windIO 2.x now.** Every current master yaml in IEAWindSystems is windIO 2.x; our `tests/IEA-15-240-RWT.yaml` is
   v1. v1 copies exist only in the windIO repo `test/turbine/v1p0/` (15, 22) or in pre-update commits (3.4 `824f8d6`,
