@@ -420,7 +420,7 @@ convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple full
 | fix/input-T7e | uncommitted in its worktree | decouple: native rows, laminate per row (user L12) | no |
 | fix/input-T10 | 8db6c19 | F1 EA metric | yes: EA -1.8 points |
 | fix/input-T8 | c5ad881 | G2 chord grid | yes |
-| fix/input-T8w | c157c62 | G3 webs, caps split | yes, **GJ -8.9 points under diagnosis; do not merge yet** |
+| fix/input-T8w | c157c62 | G3 webs, caps split | yes: GJ -8.9 points, **physical** (verify, below); enters T9 per the rules |
 | fix/input-T11 | 7242e92 | G5 LE band | yes |
 | fix/input-T12 | ccc0987 | F2 ply order | yes |
 | fix/input-T14 | 61b0d52 | F4 span_direction default | no (after T9) |
@@ -430,8 +430,8 @@ convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple full
 1. **T7e.** Review and commit the worker diff in its worktree. Check its geometry (node displacement vs native) and its
    counts (must equal native: 32,515 / 33,673). Measure with
    `bash logs/check/input-fix/submit_wait.sh T7e`; the comparison is against T7d.
-2. **G3.** Act on the verify verdict: a defect gets a fix on fix/input-T8w and a remeasure; an extraction artefact gets
-   T7d-style handling. G3 merges only with an explained GJ.
+2. **G3.** The verify verdict is physical (see "Agent results at close"). G3 enters T9 under rule "a moved row is a
+   finding". Open question for the next session: why the yaml-faithful shell is about 11 % below the BeamDyn GJ.
 3. **T9.**
    - Merge into `l3/twist-p1` in this order: T7d, T7e, T10, T8, T8w, T11, T12. Expect conflicts between T7e and T8w in
      `mesh_gen.py`/`generators.py`.
@@ -460,6 +460,36 @@ convergence (0.25 vs 0.125 m) was done with native bays. User L12: decouple full
 `$SCRATCH/tmp/input-fix-*`.
 
 **Agent results at close:** (appended below when they arrive)
+
+**G3 GJ drop, verify verdict: H1 physical** (`logs/check/input-fix/t8w-diag/`, captures reproduced to 0.0).
+- **An independent multi-cell Bredt-Batho reproduces the drop.** Wall `1/(A^-1)66` from each layup, 3 cells:
+
+  | r/R | Bredt T8w/B0 | FE T8w/B0 |
+  |---|---|---|
+  | 0.3 | 0.934 | 0.9365 |
+  | 0.6 | 0.8975 | 0.8999 |
+
+  The FE-Bredt absolute offset (+3 % / -3.3 %) is the same on both meshes.
+- **The whole drop is the webs' share.** Skin-only J is unchanged. The webs add +23 % (0.3R) and +39 % (0.6R) to GJ in
+  B0; in T8w that share drops about 35 %, because the webs move toward each other (endpoint extent 0.897 -> 0.773 m at
+  0.3R, 0.896 -> 0.723 m at 0.6R). **The parent's premise ("0.1 m moves GJ 1-2 %") was wrong.**
+- **H2 extraction, ruled out.** Twist fitted on skin-only nodes gives -11.02 % against -11.04 %, and the FE twist itself
+  differs: theta(0.85R) 0.690 vs 0.775 rad.
+  - The r/R 0.085-0.105 swing is extractor noise. The twist there is ~2e-4 rad against the tolerance of the
+    `UnivariateSpline(s=1e-3)` at `tools/run_s1_sectional.py:187`; Bredt gives 0.98-1.00 there. It lies outside the
+    0.2-0.85 test window.
+  - Optional fix: theta-scaled `s` or a mask below r/R 0.13.
+- **H3 properties and H4 element quality, ruled out.**
+  - All 2,840 SPAR_A/B/C layups equal their parent's.
+  - Normals are 100 % outward.
+  - Cap aspect ratio: median 1.93 vs 1.84, maximum 14.3.
+- **Root zone.** The yaml webs coincide for eta <= 0.082, so 50 bays have no B piece and the LP C piece narrows to
+  8.5 mm at bay 50. This has no GJ effect.
+- **Consequence (finding).** With the yaml web positions the shell GJ is about 11 % below BeamDyn (B0: -2 %). B0's
+  agreement was a compensation: the webs sat too wide.
+  - The remaining gap needs its own hypotheses (inference, untested): web-to-cap overlap at the mid-surface, cap
+    thickness idealisation, or the SONATA web modelling.
+  - No band was touched.
 
 ## Handoff (2026-10-23, first close at ~190 k context; superseded by the second batch above)
 
