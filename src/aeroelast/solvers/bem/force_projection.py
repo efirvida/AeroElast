@@ -29,23 +29,30 @@ at the tip) while the station-ring datum is off by a median 0.648% / p90 1.736%.
 
 Pitching-moment sense
 ---------------------
-The BEM polars define ``Cm`` (and therefore the per-unit-span ``Mp``) about the
-aerofoil chord **from the leading edge to the trailing edge**, positive nose-up:
-the aerodynamic moment vector rides ``chord_le_to_te x n_hat``.  The projector
-resolves ``_strip_chord_dirs`` from the tangential-force sense, and that axis is
-not guaranteed to run leading-to-trailing - measured against the deck's own
-WindIO aerofoils (``tools/diagnose_sign_chain.py``) it runs *trailing-to-leading*
-on **every real station** of the IEA-15MW blade (``LE . c_hat = -1.0``).  The
-per-strip handedness is read back from :meth:`_section_ends` and stored as
-``_strip_moment_axis_sign``: with the measured handedness ``c_hat x n_hat =
-+span_hat``, a leading edge at the HIGH end of the chord projection means the
-aerodynamic moment axis is ``-span_hat``.  Applying ``Mp`` on the raw
-``+span_hat`` (the pre-fix behaviour) inverted the term: the requested section
-torque came out NOSE-UP at ``+4.839888e+05 N.m``, the lever-arm transfer
-``+7.607e+05`` dominating and opposing the polars' ``-2.766e+05`` (measured by
-``tools/diagnose_applied_torsion_sign.py``).  The force terms and the lever-arm
-transfer are frame-consistent and are left untouched; only the aerodynamic moment
-term is applied on the axis that :meth:`_section_ends` selects.
+The BEM polars define ``Cm`` (and therefore the per-unit-span ``Mp``) positive
+**nose-up**: the aerodynamic moment vector rides ``n_hat x chord_le_to_te``, with
+``n_hat`` the suction-side normal (AeroDyn's airfoil frame, ``z_a = x_a x y_a`` with
+``x_a`` toward the suction side and ``y_a`` toward the trailing edge).  On the deck's
+mesh the leading edge is at ``+x``, the suction side and thrust at ``+y`` and the span
+at ``+z``, so ``+z`` is nose-UP (a rotation about ``+z`` carries the leading edge
+downwind, toward stall) and a cambered section's ``Mp < 0`` is a torque about ``-z``.
+The projector resolves ``_strip_chord_dirs`` from the tangential-force sense, and that
+axis is not guaranteed to run leading-to-trailing - measured against the deck's own
+WindIO aerofoils (``tools/diagnose_sign_chain.py``) it runs *trailing-to-leading* on
+**every real station** of the IEA-15MW blade (``LE . c_hat = -1.0``).  The per-strip
+handedness is read back from :meth:`_section_ends` and stored as
+``_strip_moment_axis_sign`` (``-1`` when the leading edge is at the HIGH end of the
+chord projection, as measured on this blade): with the measured handedness
+``c_hat x n_hat = +span_hat`` the nose-up moment axis is ``-sign * span_hat``, i.e.
+``+span_hat`` on every real station.  The rated section torque is then the polar
+term ``-2.77e+05 N.m`` plus the AC lever ``+1.83e+05 N.m``, net ``-9.4e+04 N.m``
+(nose-down), which an OpenFAST v5 AeroDyn+BeamDyn run confirms
+(``logs/check/l3-bd-openfast/REPORT.md``).  Commit 1146265 had applied ``Mp`` on
+``-span_hat`` here, which made the section torque ``+4.57e+05 N.m`` (nose-up); its
+premise that ``+z`` is nose-down was wrong (it applied ``+sign * span_hat``).  The
+force terms and the lever-arm transfer are frame-consistent and are left untouched;
+only the aerodynamic moment term is applied on the axis that :meth:`_section_ends`
+selects.
 """
 
 import logging
@@ -510,10 +517,10 @@ class ForceProjector:
         self._strip_chord_dirs: list[np.ndarray] = []
         self._strip_normal_dirs: list[np.ndarray] = []
         self._strip_ac_offsets: list[np.ndarray] = []
-        #: Per strip, the factor that carries the polars' nose-up ``Mp`` onto this
-        #: frame's span axis: ``+1.0`` when leading-to-trailing runs along
-        #: ``_strip_chord_dirs[k]``, ``-1.0`` when it runs against it.  See the module
-        #: docstring's "Pitching-moment sense" and ``project()``.
+        #: Per strip, the handedness of ``_strip_chord_dirs``: ``+1.0`` when
+        #: leading-to-trailing runs along ``_strip_chord_dirs[k]``, ``-1.0`` when it runs
+        #: against it.  The polars' nose-up ``Mp`` rides ``-sign * span_dir``.  See the
+        #: module docstring's "Pitching-moment sense" and ``project()``.
         self._strip_moment_axis_sign: list[float] = []
 
         # Pass 1: the per-strip chord axes, made continuous along the span
@@ -574,10 +581,11 @@ class ForceProjector:
             # nose-up).  ``_section_ends`` is sign-free and locates the leading edge;
             # comparing it with the HIGH end of the ring's projection on ``chord_hat``
             # reads the handedness of ``_strip_chord_dirs``.  ``le_at_hi`` means
-            # leading-to-trailing runs AGAINST ``chord_hat``, so the aerodynamic moment
-            # axis - normal to the chord, i.e. ``chord_le_to_te x n_hat`` - is
-            # ``-(chord_hat x n_hat) = -span_hat`` (the measured handedness on every
-            # real station of this blade; tools/diagnose_sign_chain.py).
+            # leading-to-trailing runs AGAINST ``chord_hat``: the handedness is
+            # recorded as ``-1`` (the measured case on every real station of this
+            # blade; tools/diagnose_sign_chain.py).  The nose-up moment axis is
+            # ``-sign * span_hat`` (see the module docstring and the ``M_ac`` line in
+            # ``project``).
             le_at_hi = le_i == int(np.argmax(ring_pts @ chord_hat))
             self._strip_moment_axis_sign.append(-1.0 if le_at_hi else 1.0)
             normal_hat = normal_sign * np.cross(chord_hat, span_dir)
@@ -831,14 +839,16 @@ class ForceProjector:
             #              = M_AC - cross(ac_offset, F_strip)
             # M_AC is the aerodynamic pitching moment from BEM polars (about
             # the aerodynamic centre).  The polars' Cm is positive nose-up about
-            # ``chord_le_to_te x n_hat``; the raw span axis is only that chord axis
+            # ``n_hat x chord_le_to_te``; the raw span axis is only that chord axis
             # when leading-to-trailing runs along ``_strip_chord_dirs[k]``, so the
             # per-strip sign below carries the polars' sense onto this frame (see the
             # module docstring and ``_strip_moment_axis_sign``).  The geometric
             # transfer term accounts for the moment arm between the AC and the centroid
             # of the strip nodes and is always present regardless of Mp availability.
             M_ac = (
-                float(bem_result.Mp[k]) * dr[k] * (self._strip_moment_axis_sign[k] * self._span_dir)
+                float(bem_result.Mp[k])
+                * dr[k]
+                * (-self._strip_moment_axis_sign[k] * self._span_dir)
                 if bem_result.Mp is not None
                 else np.zeros(3)
             )

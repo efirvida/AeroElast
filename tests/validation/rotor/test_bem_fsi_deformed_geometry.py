@@ -88,7 +88,8 @@ OUTER_SPAN_FRACTION = 0.75
 #: leading-edge side.  It must still not decide the twist sense.
 PRODUCTION_FRAME = {"tangential_direction": [1.0, 0.0, 0.0]}
 
-#: A rigid nose-down section rotation, applied to the section as a whole.
+#: Magnitude of a rigid nose-down section rotation (negative about +span on this frame),
+#: applied to the section as a whole.
 RIGID_ROTATION_DEG = 2.0
 
 
@@ -248,13 +249,13 @@ def test_elastic_twist_matches_the_nodal_section_rotation(fsi):
     (measured before the fix: +2.3764 deg at the tip against this reference's -1.5112).
 
     Also asserted from physics: the outer-span section rotation is nose-down.  Nose-down is a
-    **positive** rotation about +span on this frame, fixed by the deck's own geometry - the
+    **negative** rotation about +span on this frame, fixed by the deck's own geometry - the
     leading edge sits at +x, the load frame puts downwind (thrust) at +y, so a +z rotation
-    carries the leading edge downwind and reduces the angle of attack (the same statement
-    ``tests/validation/blade/test_blade_deloading_vs_reference.py`` declares).  This
-    assertion read ``< 0`` until 2026-10-07, which contradicted the sign every neighbouring
-    test and the corrected tip rotation (+8.1048 deg) it sits next to; it was a stale
-    expectation left over from ``_twist_mesh_to_bem = -1``, not a second convention.
+    carries the leading edge downwind, toward stall, and RAISES the angle of attack (the same
+    statement ``tests/validation/blade/test_blade_deloading_vs_reference.py`` declares;
+    OpenFAST v5 AeroDyn+BeamDyn twists the rated tip 3.40 deg toward feather).  This
+    assertion read ``> 0`` from commit 1146265 until L3 T5, which had inverted the
+    convention together with the pitching-moment axis and ``_twist_mesh_to_bem``.
 
     **Reported, not asserted:** the shell's mean nodal drilling rotation ``theta_z`` -
     measured, it is not the section rotation here (the tip ring reaches -3.8558 deg while
@@ -268,7 +269,7 @@ def test_elastic_twist_matches_the_nodal_section_rotation(fsi):
     u = fsi["u"]
     _, twist_def = participant._compute_deformed_geometry(fsi["displacements"])
     # Back into the mesh's rotation sense about +span: the BEM twist angle and the mesh
-    # rotation are opposite-sensed on this frame (participant._twist_mesh_to_bem).
+    # rotation are opposite-sensed on this frame (participant._twist_mesh_to_bem = -1).
     section = participant._twist_mesh_to_bem * (twist_def - participant._ref_twist)
 
     # The BEM stations are hub-referenced; the mesh's blade-root datum starts at 0.  This
@@ -310,8 +311,8 @@ def test_elastic_twist_matches_the_nodal_section_rotation(fsi):
         f"the production elastic twist misses the centre ring's own section rotation by "
         f"{gap.max():.3e} deg: it is not the section's rotation"
     )
-    assert all(row[3] > 0.0 for row in rows), (
-        "an outer-span section rotates nose-up under the rated nose-down pitching moment"
+    assert all(row[3] < 0.0 for row in rows), (
+        "an outer-span section rotates nose-up (+z) under the rated nose-down section torque"
     )
 
 
@@ -327,19 +328,20 @@ def test_twist_sense_does_not_follow_the_tangential_force_reference(fsi):
 
     Arbitrated by the deck, not by preference: the leading edge sits at ``+x`` and the load
     frame puts downwind at ``+y``, so a **positive** rotation about ``+span`` moves the
-    leading edge downwind - nose-down - and ``alpha = phi - theta`` requires ``theta`` to
-    RISE.  The factor is therefore ``+1`` in both frames, and a rigid nose-down rotation
-    must de-load in both.  Measured before the fix: factor ``-1`` in the production frame
-    and the same +2 deg rotation **re-loaded** the rotor at ``+10.63%`` against ``-13.05%``.
+    leading edge downwind - nose-UP, toward stall - and ``alpha = phi - theta`` requires
+    ``theta`` to FALL.  The factor is therefore ``-1`` in both frames, and a rigid
+    nose-down rotation (negative about ``+span``) must de-load in both.  The
+    frame-independence was measured in the 2026-10-07 fix, where one frame derived the
+    opposite factor and re-loaded the rotor at ``+10.63%`` against ``-13.05%``.
 
     This is the coupling-side face of the defect that diverged the coupled rotor at
     ``t ~ 1.9 s`` (``odd/tasks/coupled-divergence.md``).
     """
     span = fsi["participant"]._span_dir
     coords = fsi["coords"]
-    rigid = _rigid_section_rotation(coords, span, np.deg2rad(RIGID_ROTATION_DEG))
+    rigid = _rigid_section_rotation(coords, span, -np.deg2rad(RIGID_ROTATION_DEG))
 
-    print(f"\nP8 twist sense, a rigid +{RIGID_ROTATION_DEG} deg nose-down section rotation:")
+    print(f"\nP8 twist sense, a rigid {RIGID_ROTATION_DEG} deg nose-down section rotation:")
     print(f"  {'frame':>10} {'factor':>7} {'dtwist [deg]':>13} {'d thrust':>10}")
     deltas = []
     for label, participant in (
@@ -358,11 +360,11 @@ def test_twist_sense_does_not_follow_the_tangential_force_reference(fsi):
             f"{np.rad2deg(twist_def.max() - participant._ref_twist.max()):>13.4f} "
             f"{d_thrust:>+9.2%}"
         )
-        assert participant._twist_mesh_to_bem == pytest.approx(1.0), (
+        assert participant._twist_mesh_to_bem == pytest.approx(-1.0), (
             f"the {label} frame derives twist_mesh_to_bem = "
             f"{participant._twist_mesh_to_bem:+.0f}: a positive rotation about +span is "
-            f"nose-down on this mesh (leading edge at +x, downwind at +y) and CCBlade's "
-            f"theta must RISE"
+            f"nose-up on this mesh (leading edge at +x, downwind at +y) and CCBlade's "
+            f"theta must FALL"
         )
         assert d_thrust < 0.0, (
             f"the {label} frame does not de-load a rigid nose-down rotation "
