@@ -170,7 +170,136 @@ exited 0. This smoke gate says nothing about twist physics. Next entry: P1 only 
 maintainer schedules it under #33 after its B3/L3 audit; use this frozen pre-registration
 before modifying the BeamDyn diagnostic.
 
+#### P1 re-pre-registration (2026-10-23), frozen before any tool edit or run
+
+User (verbatim): "Re-preregistrar P1 en odd/tasks/twist-discrepancy-closure.md: convención
+nose-up, factor geométrico con rotación, el control C1 primero, y T5.d absorbido. Hacerlo en un
+commit propio, antes de cualquier corrida."
+
+This block **supersedes the P0 pre-registration above and the P1 box below where they differ**.
+Everything it does not mention stays as frozen in P0: the official deck, the 0.25 m mesh, the
+unchanged Zhou CSVs, the K16/K26 kept, no gravity, no deck edits, S-7 not a control, and the 5 %
+triage meaning of the bands.
+
+**Why the re-registration.** `4ee98ab` restored the aerodynamic torque sense against OpenFAST v5,
+and `7189314` carried the convention into the anchor beam, the tools and the docs
+(`odd/tasks/l3-physical-validation.md` L34-L36). Every number in "Why we kept iterating" was taken
+with the inverted torque sense and the old nose-down convention, so D1 and D3 are restated, not
+compared:
+- rated production tip twist at `4ee98ab`, es 0.25: **-3.13°** (OpenFAST v5 AeroDyn+BeamDyn -3.40°,
+  Zhou -3.60°; all nose-up positive);
+- anchor beam under the production load (SLURM 11622758): beam -1.7765°, shell ring -4.0462°
+  (ratio 2.28), mean θz -2.9720°;
+- shell vs BeamDyn full 6×6 under the same rated nodal load, linear: 0.1125 vs 0.1228 rad (-8.4 %;
+  L33, load taken before the sign fix, sign-independent ratio);
+- T5.d first reading (L36): a static, non-rotating BeamDyn run flaps 19.0 m against OpenFAST's
+  14.08 m with rotation, so its nonlinear/linear twist factor is not the rotor's.
+
+**R1. Convention: nose-up positive.** Every angle is a right-hand rotation about the mesh +z (span)
+axis, with the LE at +x and the suction side downwind at +y. +z is nose-up, toward stall (L34 mesh
+probe), which is Zhou's "positive toward stall" (Fig. 19, PDF p. 12). Zhou's -3.60° and
+OpenFAST's -3.40° therefore enter **unchanged**. P0's "conversion to nose-down-positive" is
+withdrawn. BeamDyn's blade frame (x_BD = mesh +y, y_BD = -mesh x, z_BD = mesh z) is a proper
+rotation about z, so `RDzr` keeps the sense of the mesh θz. C1 checks this numerically and does
+not assume it. The CSV keeps the raw Wiener-Milenkovic components `RDxr/RDyr/RDzr`.
+
+**R2. Estimators.** Primary BeamDyn section angle: φz = 4·atan(c_z/4) of the `RDzr` component,
+the definition behind the OpenFAST -3.40° (`logs/check/l3-bd-openfast/analyze2.py:16-17`).
+Secondary, reported and not gated: the twist about the deformed tangent, from the swing-twist
+split of the full rotation (R = R_twist(t)·R_swing). The two differ at second order in the flap
+slope, so their gap is printed beside every nonlinear angle. Shell: `_ring_kinematics` ring
+rotation (primary) and mean nodal θz (secondary, L37 N2). Output format `OutFmt "ES16.8E3"`
+in every generated BeamDyn file: the default lost digits at small scale (L36 item 2).
+
+**R3. Controls first, in their own job.** Job J1 runs only the controls. Job J2 (the case matrix)
+is submitted only after J1 has passed and its numbers are committed in this file. A failed control
+stops P1, as P0 fixed (rule 3). The harness fix is the next session.
+- **C1 (frames, units, WM conversion).** As P0: a pure tip couple T_z = 1.0e4 N·m (predicted tip
+  twist 1e-3 to 1e-2 rad, the linear range). Reference: the same deck's full 6×6 compliance,
+  `(K(z)^-1 [0,0,0,M_local])_6`, with the constant global couple transported into each section's
+  local frame and integrated over the arc in radians. Pass: every one of 50 %, 75 %, 90 % and tip
+  within **1 %** and with the same sign. The BeamDyn run is the static solve
+  (`DynamicSolve False`).
+- **C2 (rotation; new, because the geometric factor now carries rotation).** BeamDyn driver with
+  `DynamicSolve True`, `QuasiStaticInit True`, root angular velocity Ω = 7.56 rpm
+  (0.791681 rad/s) about the rotor axis x_BD (`RootVel(4)`), blade root at the hub radius
+  `GlbPos = (0, 0, 3.97 m)` (ElastoDyn `HubRad`, `bd_mu30/ed.dat:47`), no precone and no tilt.
+  The read state is the first output row, the quasi-static initialisation; its time is printed.
+  - C2a, no applied load: root axial force against ∫ m(s) Ω² ρ(s) ds, with m(s) the deck's mass
+    per length and ρ(s) the distance from the rotor axis of the deck key-point curve. Pass: within
+    **1 %**.
+  - C2b, Ω = 0 with the P-shell load at scale 1: the quasi-static path against the static solve.
+    Pass: tip φz and tip flap within **0.1 %**.
+  If C2 fails and C1 passes, J2 runs without the rotating column, and the rotating geometric
+  factor is reported as "not measured, C2 failed". No other substitute is admitted.
+
+**R4. T5.d absorbed.** The decomposition planned in `l3-physical-validation.md` L36 step 3 moves
+into P1 as the P load family. It is no longer a separate L3 task. Its scratch directory
+`logs/check/l3-twist-residual/` is not created. P1's own directories are used.
+
+**R5. Cases.** All cases use the same 0.25 m strips and the same binning about the reference axis
+(the existing `shell_state` construction at 0.25 m, never its 1.0 m default).
+
+| family | case | load | origin |
+|---|---|---|---|
+| Z (D1, D2) | `Z_shell` | shell nodal force from the Zhou loads, binned | P0 |
+| Z | `Z_formula`, `Z_formula+Tp_arm`, `Z_formula+twist_projection`, `Z_formula+shell_AC_arm` | Np, Tp, Mp per strip, one term toggled each | P0 |
+| P (T5.d) | `P_shell` | production rated rigid-blade nodal load at HEAD (`ForceProjector` after `4ee98ab`, the de-loading fixture), binned | T5.d (ii) |
+| P | `P_BlSwpAC` | the same Np, Tp, Mp with the AC lever on the AeroDyn `BlSwpAC` line instead of the mesh ring | T5.d (iii) |
+
+Each case runs in three columns: `lin` (scale 1e-2, divided by 1e-2; P0's 1 %), `nl` (scale 1,
+static, no rotation) and `nlrot` (scale 1, C2 configuration, T5.d (iv)). Shell side: one linear
+one-way solve per family, `omega_shell(Z)` (P0 route) and `omega_shell(P)` (T5.d (i)). The
+production structural solve is linear, so the shell has no nl column.
+
+**R6. Factors** at the rigid 75 % ring and the tip, with the primary estimators (R2):
+
+| factor | definition | triage |
+|---|---|---|
+| structural | `omega_shell(F) / BD_lin(F_shell)`, F = Z and P | <= 1.05 on Z: D1 is load path, P2 skipped. > 1.05: P2 |
+| load path | `BD_lin(Z_shell) / BD_lin(Z_formula)` | as P0: toggles name the arm term(s) within 5 %, else "unattributed" |
+| AC route | `BD_lin(P_BlSwpAC) / BD_lin(P_shell)` | reported; L36 predicts about 1.16 from the torque alone |
+| geometric | **`BD_nlrot / BD_lin`** per case | replaces P0's static `BD_nl / BD_lin` as the factor. The static ratio is still printed, as the T5.d over-flap control, beside the `nlrot` and `nl` tip flaps |
+| beam class | `BD_lin(Z_formula) / decoupled beam` | as P0 |
+
+Negative or near-zero denominators are reported as undefined (P0 rule).
+
+**R7. Readings that are not verdicts.**
+- D2: `BD_nlrot(Z_formula)` and `BD_nl(Z_formula)` at the tip, beside Zhou's -3.60°. These are
+  non-transferable per #14, and P0's limits apply unchanged.
+- Rated residual (T5.d): shell -3.13° vs OpenFAST -3.40°, R = 1.086. The P cases use a rigid-blade
+  one-way load. OpenFAST's load is two-way (thrust -13.2 %), so the comparison is triage only.
+  Classification, fixed now:
+  - (a) structural, if `1/structural(P)` alone carries at least half of ln R with the same sign;
+  - (b) AC route, if the AC factor alone does;
+  - (c) geometric with rotation, if `geometric(P_BlSwpAC)` alone does;
+  - (d) unattributed, if none does or two disagree in sign.
+  `BD_nlrot(P_BlSwpAC)` is also printed beside OpenFAST's -3.40° (tip twist) and 14.08 m (tip
+  flap).
+- The tip-couple shell/BeamDyn ratio, for #20 (not a gate).
+
+**R8. Commands, outputs, budget.** The CLI contract of P0 stays (`--twist-p1`, `--output-dir`,
+`--deck`, `--beamdyn`, `--work`), with a required stage, `--twist-p1 controls|matrix`. Logic
+that makes `diagnose_radii_beamdyn.py` unreadable may live in a sibling module the flag
+dispatches to. The job script `logs/check/twist_p1.srm <stage>` runs on `sequana_cpu_dev`
+(20 min, `--ntasks=4`), with stdout/stderr in `logs/check/twist_p1_%j.{out,err}` and
+`BEAMDYN_DRIVER=$SCRATCH/conda-envs/openfast/bin/beamdyn_driver`. Outputs:
+- `logs/check/twist_p1/controls.json` (C1 and C2 residuals, revision, input hashes);
+- `results.csv` (one row per case, column and station: raw WM components, φz, the tangent twist
+  and flap, in SI units);
+- `summary.json` (factors, classification, D2);
+- each BeamDyn deck and output under `logs/check/twist_p1_beamdyn/<case>/`.
+
+The controls stage exits non-zero on a failed control. The matrix stage refuses to run unless
+`controls.json` records C1 passed. The pure functions (WM to angle, swing-twist split, frame map,
+6×6 compliance integration) get unit tests before the harness is used. Budget, amending rule 7
+for P1 only because C1 now has its own job: J1 + J2 + at most **one** harness-fix rerun, in a new
+session, in total.
+
 ### [ ] P1. Attribution run with BeamDyn (one job, ~10 min, `sequana_cpu_dev`; one session)
+
+> Superseded where it differs by the 2026-10-23 re-pre-registration above: nose-up, `nlrot` geometric
+> factor, the controls in their own job, and the P (T5.d) family.
 
 Entry: P0 record. Tool: extend `tools/diagnose_radii_beamdyn.py` (add `RDzr` to the OutList,
 Wiener-Milenkovic to angle; strip loads from Np/Tp/Mp) and reuse the Zhou-load shell solve.
