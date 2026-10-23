@@ -52,15 +52,15 @@ def _interp(x_src, y_src, x_dst):
     return np.interp(x_dst, x_src, y_src)
 
 
-def laminate_a11(layup, mats) -> float:
-    """Extensional stiffness A11 = sum Qbar11_k h_k [N/m] of a laminate.
+def laminate_a_matrix(layup, mats) -> np.ndarray:
+    """In-plane extensional stiffness A = sum Qbar_k h_k [N/m] (3x3; 1 = span, 2 = hoop, 6 = shear).
 
     Plane-stress orthotropic reduced stiffness with the reciprocal Poisson ratio
     nu21 = nu12 E2 / E1: Q11 = E1/D, Q22 = E2/D, Q12 = nu12 E2/D, D = 1 - nu12 nu21. (Before
     2026-10-16 this used D = 1 - nu12**2, which overstates Q11 for E1 > E2 by ~7 % on the
     unidirectional glass and inflated the S-1 EA(CLT) diagnostic.)
     """
-    a11 = 0.0
+    a = np.zeros((3, 3))
     for mat_name, h, ang in layup:
         el = mats[mat_name]["elastic"]
         E_raw = el["E"]
@@ -73,16 +73,33 @@ def laminate_a11(layup, mats) -> float:
             nu12 = float(el["nu"])
             G12 = float(el["G"]) if el.get("G") else E1 / (2 * (1 + nu12))
         th = np.deg2rad(ang)
-        s2, c2 = np.sin(th) ** 2, np.cos(th) ** 2
-        s4, c4 = s2 * s2, c2 * c2
-        nu21 = nu12 * E2 / E1
-        den = 1.0 - nu12 * nu21
-        Q11 = E1 / den
-        Q22 = E2 / den
-        Q12 = nu12 * E2 / den
-        Qbar11 = Q11 * c4 + 2 * (Q12 + 2 * G12) * s2 * c2 + Q22 * s4
-        a11 += Qbar11 * float(h)
-    return a11
+        c, s = np.cos(th), np.sin(th)
+        c2, s2 = c * c, s * s
+        den = 1.0 - nu12 * nu12 * E2 / E1
+        q11, q22, q12, q66 = E1 / den, E2 / den, nu12 * E2 / den, G12
+        b11 = q11 * c2 * c2 + 2 * (q12 + 2 * q66) * s2 * c2 + q22 * s2 * s2
+        b22 = q11 * s2 * s2 + 2 * (q12 + 2 * q66) * s2 * c2 + q22 * c2 * c2
+        b12 = (q11 + q22 - 4 * q66) * s2 * c2 + q12 * (s2 * s2 + c2 * c2)
+        b66 = (q11 + q22 - 2 * q12 - 2 * q66) * s2 * c2 + q66 * (s2 * s2 + c2 * c2)
+        b16 = (q11 - q12 - 2 * q66) * c2 * c * s - (q22 - q12 - 2 * q66) * c * s2 * s
+        b26 = (q11 - q12 - 2 * q66) * c * s2 * s - (q22 - q12 - 2 * q66) * c2 * c * s
+        a += float(h) * np.array([[b11, b12, b16], [b12, b22, b26], [b16, b26, b66]])
+    return a
+
+
+def laminate_a11(layup, mats) -> float:
+    """Hoop-constrained extensional stiffness A11 = sum Qbar11_k h_k [N/m] (kept for the Steiner tools)."""
+    return float(laminate_a_matrix(layup, mats)[0, 0])
+
+
+def laminate_a11_eff(layup, mats) -> float:
+    """Axial stiffness of a beam wall with the hoop stress free: 1/(A^-1)[0,0] [N/m].
+
+    The shell wall carries no hoop constraint in a beam, so sigma_22 = 0 (and, with the
+    shear column, N_6 = 0); this is the Schur complement A11 - A1j Ajj^-1 Aj1 over the
+    in-plane (hoop, shear) rows, below A11 by nu12 nu21-type terms.
+    """
+    return float(1.0 / np.linalg.inv(laminate_a_matrix(layup, mats))[0, 0])
 
 
 def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
@@ -190,7 +207,7 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     # EA via the direct CLT section integral (immune to the pre-bend
     # bending contamination that biases the global-response extraction):
     #   EA(z) = sum over the station's elements of A11(layup) * width_span
-    # where A11 = sum Qbar11_k * h_k (the laminate's extensional stiffness)
+    # where A11_eff = 1/(A^-1)[0,0] (the laminate's hoop-free axial stiffness)
     # and width_span = element area / station slice length.
     if numad_data is None:
         ea_clt = np.full(len(sts), np.nan)
@@ -200,7 +217,7 @@ def ea_gj_from_static_response(mesh, props, load_ax=1e6, torque=1e6,
     sections = {s2["elementSet"]: s2 for s2 in numad_data["sections"]}
 
     def layup_a11(layup):
-        return laminate_a11(layup, mats)
+        return laminate_a11_eff(layup, mats)
 
     # element -> set name (the DETAILED set wins; the aggregate sets like
     # allOuterShellEls come later in the iteration and must not override)
