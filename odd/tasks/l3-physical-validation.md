@@ -498,3 +498,22 @@ si vamos a hacer eso, porque estamos validando contra resultados numericos con m
   - B converges slowly: f3 at 10 mm goes −12.0, −9.5, −6.4 %.
 - **Verdict, outcome (c):** at T-junctions the production convention (A) is 5–8× closer to 3D elasticity than averaging. CalculiX S8R with knots matches the solid once refined, so it is a sound arbiter there. The L20 CalculiX blade movement is therefore **not** junction physics.
 - **Candidate explanation, under test:** the high-mode gap comes from `test_blade_iea15mw_mesh_convergence.py`, which meshes at 2.0/1.0/0.5 m, against rule 9. At those meshes B's slow, soft junction modes may have offset MITC4's coarse-mesh stiffness against S8R. That would be another compensating pair. It is being tested at es 0.25 (worker, `logs/check/l3-ccx-es025/`).
+
+### L31 — Rule-9 re-measurement at 0.25 m: results (2026-10-22)
+- Guard: baaa641. Tool defaults: c8c09bf. Test groups: B 5b061a2, D cfbdde3, C ad117c1, A deb97c5. Worker reports are under `logs/check/l3-mesh025-{a,b,c,d}/`. Bounds and assertion logic are unchanged everywhere. Tests that compare a structural response with a beam or section reference were moved to the mid skin; projection and geometry guards kept their skin.
+- **Code-to-code agreement tightens on converged meshes**, against CalculiX on the same mesh:
+  - CCX parked-V50 modal gaps 0.86/1.94/1.44 % at 2.0 m → **0.02/0.03/0.03 %** at 0.25 m.
+  - IEA-15 validation file: modal 1.64 → **0.14 %**; static tip 1.17 → **0.44 %**.
+  - The earlier "agreement" at coarse meshes was discretisation noise.
+- **Passes that were cancellations at 1.0 m on the OML, now reported (xfail/red, not re-banded):**
+  - Article DLC 1.4 tip deflection: 4.77 → 13.21 % (20.39 m).
+  - 2nd flap vs NuMAD: 10.87 → 12.26 %.
+  - `rated_twist` couple-vs-nodal over-report: 4.2× → 1.36× against the pinned >2×. Most of the pinned "defect" was coarse-mesh.
+- **Instrument findings under diagnosis** (worker, `logs/check/l3-rings/`):
+  - `ac_datum` and `deformed_geometry` red at 0.25. A fixed ring-clustering tolerance tuned to the 1.0 m ring spacing merges tip rings.
+  - Multicell midspan cell-area vs shoelace: 14.93 % (2.84 % at 1.0 m).
+  - Tear-guard signature (8 edges at z 11.94) reproduces at neither mesh.
+- **Physics findings carried forward:**
+  1. **Elastic twist under the rated BEM load.** The shell tip ring rotation is +6.44°, 3.63× the decoupled anchor beam (GJ + shear centre). Deloading follows from it: production thrust change −28.27 % vs Zhou −13.04 %. The independent arbiter is a full-6×6 BeamDyn static run with the same loads.
+  2. **Tip radial shortening:** −0.815 m vs BeamDyn −1.3146 m.
+- **Campbell artifact** regenerated at 0.25 m mid (SLURM 11622486; gitignored, local): rated 1F/2F/1E 0.5472/1.5341/0.7006 Hz; `test_iea15mw_sx_campbell` 5 passed.
