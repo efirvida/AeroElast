@@ -128,9 +128,11 @@ Its antisymmetric part is the section rotation about the span axis:
 
 invariant to the in-plane origin and with the same sense as the shell's own
 rotational DOF about the span axis (positive nose-up).  Each strip's ring is
-bound by span position (the node nearest the strip centre, plus every strip
-node within ``RING_BIND_FRACTION`` of the strip width of it - above the mesh's
-prebend skew, below the station spacing).  A ring that cannot define a 2-D
+bound to the projector's physical ring (``physical_ring_labels``: span-gap
+single linkage joined along in-ring element edges) that holds the node nearest
+the strip centre.  A fraction of the strip width is not a ring tolerance: it
+merged the tip rings of the 0.25 m mesh, 0.075-0.109 m apart, into one fit, and
+a fixed span gap sheared prebent rings (skew 0.0121 m) into arcs.  A ring that cannot define a 2-D
 section keeps the reference twist: no second estimator is used, so nothing can
 silently disagree with this one.
 
@@ -226,12 +228,6 @@ from aeroelast.solvers.bem.engine import BEMResult, BEMSolver
 from aeroelast.solvers.bem.force_projection import ForceProjector
 
 logger = logging.getLogger(__name__)
-
-#: Fraction of a BEM strip's width used to bind mesh nodes to the strip's
-#: centre physical ring.  It must exceed the mesh's spanwise prebend skew (a
-#: physical ring's nodes span ~1e-3 m on the IEA-15 MW blade) and stay well
-#: below the physical station spacing (~0.63 m against a 2.39 m strip here).
-RING_BIND_FRACTION = 0.05
 
 #: Frames the structural partner may exchange at the preCICE boundary.
 PARTNER_FRAMES = ("rotating", "inertial")
@@ -503,7 +499,7 @@ class BEMFSIParticipant:
         # The physical ring at each strip's centre: the section the elastic
         # twist is measured on (a strip spans ~4 mesh stations, so its whole
         # node cloud is not one section).
-        self._strip_ring_indices: list[np.ndarray] = self._find_strip_rings()
+        self._strip_ring_indices: list[np.ndarray] = self._find_strip_rings(ref_projector._strip_ring_groups)
 
         # -- Working copy of the mesh for projector reconstruction ----------
         # A single deep copy is made at init time; subsequent iterations
@@ -878,23 +874,22 @@ class BEMFSIParticipant:
         sense = float(leading_edge @ np.cross(self._normal_dir, self._span_dir))
         return 1.0 if sense > 0.0 else -1.0
 
-    def _find_strip_rings(self) -> list[np.ndarray]:
+    def _find_strip_rings(self, ring_groups: list[list[np.ndarray]]) -> list[np.ndarray]:
         """Assign every BEM strip the physical mesh ring nearest its centre.
 
-        A strip spans several rings (2.39 m against ~0.63 m stations here).  The strip
-        node nearest the strip centre anchors the ring, and every strip node within
-        ``RING_BIND_FRACTION * dr`` of it belongs to it - above the mesh's prebend skew,
-        below the station spacing, so exactly one physical station is bound.
+        ``ring_groups`` are the projector's own per-strip physical rings (indices into
+        the strip's nodes, :func:`physical_ring_labels`), so the twist is fitted on the
+        same ring the wall flow is realised on and no second tolerance exists.  The ring
+        is the group holding the strip node nearest the strip centre.
         """
         rings: list[np.ndarray] = []
         for k, idx in enumerate(self._strip_node_indices):
             if len(idx) == 0:
                 rings.append(idx)
                 continue
-            local_span = self._mesh_span[idx]
-            anchor = local_span[np.argmin(np.abs(local_span - self._strip_centres[k]))]
-            tolerance = RING_BIND_FRACTION * self._strip_widths[k]
-            rings.append(idx[np.abs(local_span - anchor) <= tolerance])
+            anchor = int(np.argmin(np.abs(self._mesh_span[idx] - self._strip_centres[k])))
+            group = next(g for g in ring_groups[k] if anchor in g)
+            rings.append(idx[np.sort(group)])
         return rings
 
     def _section_rotation(

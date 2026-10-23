@@ -54,6 +54,8 @@ from typing import List
 
 import numpy as np
 from scipy.linalg import lstsq
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
 
 from aeroelast.core.mesh.entities import ElementType
 from aeroelast.core.mesh.model import MeshModel
@@ -80,6 +82,60 @@ logger = logging.getLogger(__name__)
 #: the 117 m blade this is 0.0117 m, above the ~1e-3 m prebend spread and well below the
 #: ~0.44 m station spacing.
 RING_GAP_FRACTION = 1e-4
+
+#: An element edge lies **inside** a physical ring when ``|d span| / length`` is below this.
+#: Prebend skews a ring over up to ~0.0126 m of span, which at ``element_size`` 0.25 exceeds
+#: the span-extent gap above (so the gap alone shears a ring into arcs), while the ring spacing
+#: of a graded fine mesh (0.0746 m at the tip) leaves no room for a larger absolute gap.  The
+#: element topology has no such trade-off and is dimensionless: measured on the 0.25 m blade
+#: mesh every in-ring edge has ratio <= 0.088 and every edge between rings >= 0.559; 0.3 sits
+#: between them.
+RING_EDGE_SLOPE = 0.3
+
+
+def physical_ring_labels(mesh: MeshModel, span_coords: np.ndarray, gap_tolerance: float) -> np.ndarray:
+    """Label every mesh node with its physical ring (one integer per ring).
+
+    Two nodes share a ring when either (a) consecutive values of the sorted span
+    coordinate are closer than *gap_tolerance* (single linkage, the rule of
+    :func:`rings_in_band`; it keeps element-less nodes grouped) or (b) a shell element edge
+    joins them with ``|d span| / length < RING_EDGE_SLOPE`` (an in-ring edge; see that
+    constant).  (b) joins the nodes a prebent ring spreads beyond *gap_tolerance*
+    without ever bridging two rings, whose edges are spanwise.  The result is a superset of
+    the (a)-only grouping, so a mesh whose rings (a) already separates is grouped
+    identically.
+    """
+    span = np.asarray(span_coords, dtype=float).ravel()
+    n_nodes = len(span)
+    coords = mesh.coords_array
+    order = np.argsort(span, kind="stable")
+    close = np.diff(span[order]) < gap_tolerance
+    rows = [order[:-1][close]]
+    cols = [order[1:][close]]
+    pair_a: list[int] = []
+    pair_b: list[int] = []
+    for element in mesh.elements:
+        if element.element_type in (ElementType.triangle, ElementType.triangle6):
+            corner_count = 3
+        elif element.element_type in (ElementType.quad, ElementType.quad8, ElementType.quad9):
+            corner_count = 4
+        else:
+            continue
+        corners = [mesh.node_id_to_index[node_id] for node_id in element.node_ids][:corner_count]
+        for a, b in zip(corners, corners[1:] + corners[:1], strict=True):
+            pair_a.append(a)
+            pair_b.append(b)
+    if pair_a:
+        a = np.asarray(pair_a, dtype=np.intp)
+        b = np.asarray(pair_b, dtype=np.intp)
+        length = np.linalg.norm(coords[a] - coords[b], axis=1)
+        in_ring = (length > 0.0) & (np.abs(span[a] - span[b]) < RING_EDGE_SLOPE * length)
+        rows.append(a[in_ring])
+        cols.append(b[in_ring])
+    r = np.concatenate(rows)
+    c = np.concatenate(cols)
+    graph = coo_matrix((np.ones(len(r)), (r, c)), shape=(n_nodes, n_nodes))
+    return connected_components(graph, directed=False)[1]
 
 
 @dataclass
@@ -346,16 +402,20 @@ class ForceProjector:
             )
 
         # Group every strip's nodes into physical rings **once**, with the
-        # mesh-scaled tolerance.  ``project()`` hands these groups to
+        # mesh-scaled tolerance and the element topology (:func:`physical_ring_labels`).  ``project()`` hands these groups to
         # :func:`realise_section_load` so the strip's own (band-wide) extent can
         # never set a tolerance below its rings' prebend spread.
+        ring_labels = physical_ring_labels(mesh, span_coords, self._ring_gap_tolerance)
         self._strip_ring_groups: list[list[np.ndarray]] = []
         for strip in self._strips:
             if len(strip.node_indices) == 0:
                 self._strip_ring_groups.append([])
                 continue
             strip_span = (strip.centroid + strip.offsets) @ span_dir
-            self._strip_ring_groups.append(rings_in_band(strip_span, self._ring_gap_tolerance))
+            strip_labels = ring_labels[strip.node_indices]
+            groups = [np.flatnonzero(strip_labels == label) for label in np.unique(strip_labels)]
+            groups.sort(key=lambda g: float(strip_span[g].mean()))
+            self._strip_ring_groups.append(groups)
 
         # Precompute each physical ring's multi-cell wall graph once, from the
         # mesh, so ``project()`` realises a strip's span moment through

@@ -77,16 +77,21 @@ MOMENT_TOL = 0.01  # relative error on |M_expected|
 END_SLAB = 0.25  # outer quarter of the chord, per end
 THICKNESS_TIE_REL = 0.10  # <=10 % thickness difference is a tie
 
-#: Test-local ring-merging tolerance, as a fraction of the **mesh's** span
-#: extent.  It is a different number from ``ForceProjector.RING_GAP_FRACTION``
-#: (1e-4) on purpose: this clustering is the test's own, so a change to the
-#: production tolerance cannot move the expectation.  1e-3 of the 117 m blade is
-#: 0.117 m: far above the 0.0072 m spread inside one physical ring and far below
-#: the 0.30 m closest spacing between the mesh's own rings **at element_size 1.0**.
-#: Measured 2026-10-22 at element_size 0.25 that spacing is below 0.117 m near the
-#: tip: the whole tip strip (k = 49) merges into one 284-node group and
-#: ``test_aerodynamic_centre_datum`` fails there (0.322 c against 0.250 c).
-MESH_RING_GAP_FRACTION = 1e-3
+#: Mesh element size [m] the blade is built at (the converged working mesh).
+ELEMENT_SIZE = 0.25
+
+#: Test-local ring-merging tolerance, as a fraction of the mesh **element size**.
+#: It is a different rule from ``ForceProjector``'s ``RING_GAP_FRACTION`` (a fraction
+#: of the span extent) on purpose: this clustering is the test's own, so a change to
+#: the production tolerance cannot move the expectation.  Single linkage compares
+#: neighbouring span values, so the tolerance only has to exceed the largest gap inside
+#: one prebent ring (<= 0.0126 m measured at element_size 0.25) and stay below the
+#: closest ring spacing, which scales with the element size: 0.30 m at 1.0, and
+#: 0.0746 m (0.30 x element_size) in the graded tip strip at 0.25.  A fixed absolute
+#: or span-extent tolerance tuned on the 1.0 m mesh (the former 1e-3 x 117 m = 0.117 m)
+#: merged the whole tip strip (k = 49) into one 284-node group at 0.25 m and put the AC
+#: at 0.322 c against 0.250 c.  0.1 x element_size = 0.025 m clears both limits.
+MESH_RING_GAP_ELEMENT_FRACTION = 0.1
 
 
 def _blunt_end(pts: np.ndarray, chord_dir: np.ndarray, span_dir: np.ndarray):
@@ -224,7 +229,7 @@ def blade_case():
         pytest.skip(f"AeroDyn reference not present: {AD_PRIMARY}")
     Node._id_counter = 0
     MeshElement._id_counter = 0
-    model = Blade(str(YAML), element_size=0.25)
+    model = Blade(str(YAML), element_size=ELEMENT_SIZE)
     model.generate_mesh()
     mesh = model.mesh
     assert mesh is not None, "Blade.generate_mesh() produced no mesh"
@@ -258,8 +263,7 @@ def station_rings(blade_case):
     read.  See :func:`_station_ring_points`.
     """
     _, coords, blade_aero, projector = blade_case
-    span = coords @ SPAN_DIR
-    tolerance = MESH_RING_GAP_FRACTION * float(span.max() - span.min())
+    tolerance = MESH_RING_GAP_ELEMENT_FRACTION * ELEMENT_SIZE
     return [
         _station_ring_points(coords, strip, blade_aero, k, SPAN_DIR, tolerance)
         for k, strip in enumerate(projector._strips)
