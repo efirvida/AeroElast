@@ -429,7 +429,9 @@ def build_mesh(yaml_path: str, element_size: float) -> dict:
                               "e1": mt["e1"], "e2": mt["e2"], "e3": mt["e3"], "g12": mt["g12"],
                               "g13": mt["g13"], "g23": mt["g23"], "nu12": mt["nu12"],
                               "nu23": mt["nu23"], "nu31": mt["nu31"]})
-        stacks[name] = plies
+        # physical order, outer (+normal) face first, as the yaml lists layers; the laminate stacks
+        # ply 0 at -h/2 and the skin normals point outward (tests/test_blade_ply_order.py)
+        stacks[name] = sorted(plies, key=lambda p: p["z_top"], reverse=True)
     return {"nodes": nodes, "elements": elements, "sets": sets, "stacks": stacks,
             "element_size": element_size}
 

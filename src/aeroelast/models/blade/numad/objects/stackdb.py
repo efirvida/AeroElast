@@ -142,6 +142,20 @@ class StackDatabase:
         ):
             self._map_continuous_layers(definition, keypoints)
 
+        self._order_skin_plies_for_outward_normals()
+
+    def _order_skin_plies_for_outward_normals(self):
+        """Reverse the skin stacks so the outermost layer is the last ply.
+
+        Layers (windIO ``layers``, Excel BOM rows) are listed from the outer mould line inward and
+        are added in that order, but the shell laminate stacks ply 0 on the ``-normal`` side and the
+        skin elements' normals point outward. Emitting the stack inner-to-outer puts the gelcoat on
+        the outer face and the innermost layer on the inner face (stress recovery TOP = outermost).
+        Web stacks are symmetric about their core and are left alone.
+        """
+        for stack in self.stacks.flat:
+            stack.plygroups.reverse()
+
     def _map_continuous_layers(self, definition, keypoints):
         """Map WindIO laminates without converting thickness to integer stock plies.
 
