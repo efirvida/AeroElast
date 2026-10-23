@@ -301,6 +301,43 @@ session, in total.
 > Superseded where it differs by the 2026-10-23 re-pre-registration above: nose-up, `nlrot` geometric
 > factor, the controls in their own job, and the P (T5.d) family.
 
+#### P1 J1 result (2026-10-23): C1 failed, P1 stopped
+
+Harness `5978b73` (`tools/twist_p1.py`, 24 unit tests; `--twist-p1 controls`). J1 = SLURM
+**11623050** on `sequana_cpu_dev`, revision 5978b73, 3 min 43 s, exit 3 (C1 failure), log
+`logs/check/twist_p1_11623050.out`, `logs/check/twist_p1/controls.json`. A development run of the
+same stage on the login node gave identical numbers (`logs/check/twist_p1-loginnode-dev/`). It is
+not the record.
+
+| control | station | BeamDyn φz (rad) | reference (rad) | rel. | band | result |
+|---|---|---|---|---|---|---|
+| C1, T_z = 1e4 N·m | 50 % | 9.37e-4 | 7.93e-4 | +18.1 % | 1 % | FAIL |
+| | 75 % | 3.864e-3 | 3.739e-3 | +3.4 % | 1 % | FAIL |
+| | 90 % | 9.339e-3 | 1.050e-2 | -11.0 % | 1 % | FAIL |
+| | tip | 4.491e-2 | 5.904e-2 | -23.9 % | 1 % | FAIL |
+| C2a, Ω = 7.56 rpm, no load | root | `RootFzr` 1.31224e6 N | 1.31404e6 N | -0.14 % | 1 % | PASS |
+| C2b, Ω = 0, P_shell scale 1 | tip | QS = static to 1e-7 (φz -0.077095 rad, flap 19.228 m) | | | 0.1 % | PASS |
+
+The signs agree at every station. The tip tangent twist (secondary) is 0.04508 rad. The
+reference is converged: with a quarter of the subdivisions it reads 0.05917 at the tip (0.2 %).
+The non-gating prismatic diagnostic, with the root section at every station, matches BeamDyn
+within 0.15 %, and the root Mz reaction is 9999.99 N·m.
+
+**Verdict: C1 FAILED.** Per R3 and rule 3, J2 was not submitted and no factor was computed. No
+cause is adopted in this session. Observations for the next session, all unverified:
+- K66 falls about 190× over the last 5 % of span (1.34e7 to 7e4). In the reference, 82 % of
+  the tip twist accrues outboard of 90 % span.
+- The reference interpolates K linearly between deck stations. BeamDyn's own interpolation and
+  quadrature (one member, the deck's element order, trapezoidal with refine 2) were not checked.
+  Linear-in-K and linear-in-compliance differ strongly over such a drop.
+- The OpenFAST -3.40° arbiter ran this same deck discretisation, so whatever resolves C1 also
+  bears on that number.
+
+**Next entry (new session, the one harness-fix rerun of R8).** Decide what C1 compares before
+changing anything: the deck's continuum (refine BeamDyn until it converges) or BeamDyn's discrete
+interpolation (match the reference to it). Pre-register that choice, then rerun J1. J2 follows
+only after C1 passes.
+
 Entry: P0 record. Tool: extend `tools/diagnose_radii_beamdyn.py` (add `RDzr` to the OutList,
 Wiener-Milenkovic to angle; strip loads from Np/Tp/Mp) and reuse the Zhou-load shell solve.
 Runs (all on the official deck, K16/K26 kept, no gravity, no rotation):
