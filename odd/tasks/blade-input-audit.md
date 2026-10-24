@@ -630,8 +630,28 @@ worker; section-level calculations, no FE solve (`logs/check/gj-gap/`, `results.
   | -41 % | +2.6 % | -9.5 % | -10.1 % | -8.9 % | -19.6 % | -3.3 % | -11.8 % |
 
   No smooth stiffness ratio does that. The real offset is the Bredt -4 to -8 %, plus SONATA's web placement (open).
+- **Correction, measured (SLURM, `capture-GJM.pkl` against `capture-T14m.pkl`, both at ad5f3ac): the per-station
+  scatter is mostly real profile, not extraction noise.** The window-integral estimator (`fix/s1-gj-metric` 2e79750,
+  synthetic evidence only, no true RED) leaves median and spread about unchanged.
+
+  | estimator | median | sd |
+  |---|---|---|
+  | spline | -10.2 % | 7.3 |
+  | window | -9.8 % | 7.2 |
+
+  Per station:
+
+  | r/R | 0.21 | 0.26 | 0.30 | 0.34-0.58 | 0.62 | 0.66-0.74 | 0.79 | 0.83 |
+  |---|---|---|---|---|---|---|---|---|
+  | spline | -32 | -0 | +3 | -2 to -12 | -12 | -17 to -20 | -10 | -3 |
+  | window | -33 | -17 | -9 | -7 to -10 | -14 | -18 to -20 | -9 | -17 |
+
+  - The two disagree only at the window edges (0.26-0.30, 0.83). At 0.30 the spline is closer to Bredt (-3.6 %).
+  - **Not merged: a null result.** The S-1 signed mean would move -10.3 -> -13.2 % from edge stations alone.
+  - **Finding:** a GJ dip of -17 to -20 % at r/R 0.66-0.74 and -32 % at 0.21, present in both estimators. It needs its
+    own diagnosis: what changes in the layup, the webs or the reference there.
 - **Next.**
-  - Metric fix: a window-integral GJ instead of the spline derivative (worker, `fix/s1-gj-metric`).
+  - Diagnose the 0.66-0.74 GJ dip (section-level Bredt along the span against FE and BeamDyn K66).
   - Measure the deck-era yaml as input (worktree DECKY, `submit_wait.sh DECKY`) against the same tree with the
     official yaml (T14m, ad5f3ac). The root TE reinforcement can move S-2 even though S-1 cannot see it.
 
