@@ -222,9 +222,11 @@ class KeyPoints:
             else:
                 z = geometry.HParcx0[0, k]
             z = z - scoffset_hp
-            a = np.amax(((0 - n1), 0.1 * geometry.arclength[ns, k]))  # type: float
-            a = np.amin((a, 0.01 * geometry.arclength[ns, k]))
             b = np.amin(((z + 0.5 * scwidth_hp), 0.15 * geometry.arclength[ns, k]))
+            # Keep a 5 % of the side arc forward of b (NuMAD capped it at 10 % of the arc, which clipped
+            # the yaml LE band where the panel had room: odd/tasks/blade-input-audit.md, T11).
+            a = np.amax(((0 - n1), b - 0.05 * geometry.arclength[ns, k]))  # type: float
+            a = np.amin((a, 0.01 * geometry.arclength[ns, k]))
             c = np.amax(((z - 0.5 * scwidth_hp), 0.8 * geometry.arclength[ns, k]))
             # Keep d 5 % of the side arc aft of c (NuMAD capped it at 85 % of the arc, which clipped
             # the yaml TE band where the TE panel had room: odd/tasks/blade-input-audit.md, T6).
@@ -271,9 +273,10 @@ class KeyPoints:
             else:
                 z = geometry.LParcx0[0, k]
             z = z + scoffset_lp  # positive scoffset moves z toward t.e.
-            a = np.amin(((0 + n1), 0.1 * geometry.arclength[nf, k]))
-            a = np.amax((a, 0.01 * geometry.arclength[nf, k]))
             b = np.amax(((z - 0.5 * scwidth_lp), 0.15 * geometry.arclength[nf, k]))
+            # Same as HP: a yields only to stay 5 % of the side arc forward of b (T11).
+            a = np.amin(((0 + n1), b - 0.05 * geometry.arclength[nf, k]))
+            a = np.amax((a, 0.01 * geometry.arclength[nf, k]))
             c = np.amin((z + 0.5 * scwidth_lp, 0.8 * geometry.arclength[nf, k]))
             d = np.amax((geometry.arclength[-1, k] - n2, c + 0.05 * geometry.arclength[nf, k]))
             d = np.amin((d, 0.96 * geometry.arclength[nf, k]))
