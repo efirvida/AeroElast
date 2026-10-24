@@ -458,6 +458,59 @@ stale.
 - **Mesher gaps exposed:** 3 webs, a partial-span TE web, and v2 `anchors`/`plane_intersection` placement are not
   supported by the current mesher or reader. These are T18/T17 scope.
 
+## T9 integration (session 3, 2026-10-23, user L14)
+
+**Merges into `l3/twist-p1`.** ceca579 T7e (contains T7d), b7dafdd T10, 93df15e T8, 4c9372d T8w, ea28216 T11,
+61cf5b0 T12.
+- **Conflict.** One textual conflict, T7e x T8w in `mesh_gen.py`. The chordwise counts are keyed
+  `("shell", j, k)`, with `k` the cap-piece letter, taken before the zero-width filter.
+- **Finding: sliver cap pieces in the native T8w mesh.** T8w decides piece presence per bay and tapers the width
+  linearly, so the native mesh (`laminate_per_row=False`) carries a 0-5 mm wide cap piece in 14 rows. Native minimum
+  node gap 0.3-4.4 mm against 75-77 mm decoupled.
+  - Root bay where the yaml webs coincide: z 7.40-9.31.
+  - Tip: z 114.7-115.1.
+  - The decoupled default uses the exact web arcs at every inserted station and drops them: 28 nodes fewer, same
+    elements (34,026 vs 34,054 / 35,211). Logs: `logs/check/input-fix/t9-nodes.log`, `t9-sliver.log`.
+  - `test_blade_span_decoupling` now states this contract (elements and row z equal; every node difference is a
+    native sliver row). Fragile point: its decoupled minimum-gap floor of 1 mm against 1.2 mm measured at the tip.
+- **Checks.** `check.sh quick` OK (75 passed, 1 xfailed). Blade suite, the CalculiX `tip_axial` baseline and the
+  SLURM measurement follow below.
+
+**Re-audit at 61cf5b0** (`logs/check/input-audit-T9/`, mesh 33,935 / 35,120). Fail counts, original -> T9:
+
+| r/R | F1 | F3 | F4 | F5 |
+|---|---|---|---|---|
+| 0.30 | 0 -> 0 | 72 -> 22 | 1 -> 0 | 0 -> 0 |
+| 0.60 | 0 -> 0 | 17 -> 2 | 0 -> 0 | 2 -> 0 |
+| 0.90 | 0 -> 0 | 44 -> 8 | 4 -> 0 | 2 -> 0 |
+| 0.97 | 1 -> 0 | 8 -> 28 | 0 -> 0 | 2 -> 1 (axial -1.58 %; mass passes) |
+
+F2, F6 and F7 are unchanged (pass or not gated).
+
+F3/F5 diagnosis (explore, from the logs on disk plus hand calculation; per-branch audit runs not done):
+- **Justified: 40 fails, the T6 mass-conserving partial-layer smear.** TE_PANEL/TE_REINF `Shell_skin(_inner)` at
+  every station; the layer edge falls inside the region (`stackdb.py:207-224`).
+  - The ply miss accounts for the whole total-thickness miss (0.90: 0.2297/3.073 = 7.47 %).
+  - These are not "boundary" by S4's literal es/2 rule; they are justified only through the T6 "deliberate NuMAD
+    choice" rule.
+  - The 0.97 TE_PANEL fails were already in the original audit (-29.6/-30.8 %).
+- **Candidate G10: spar-cap thickness is interpolated in span with pchip, every other layer linear**
+  (`yaml_to_blade.py:380-383`, applied in `component.py:94-96`).
+  - At 0.97 the cap row (z 113.481-113.607) carries 2.91815 mm. Hand pchip at the row centre gives 2.9181 mm;
+    linear gives 3.0107 at the point and 2.9733 as the row mean.
+  - Of the -3.07 % cap ply residual, about -1.2 % is the row mean against the point value, and about -1.9 % is the
+    scheme. The F5 axial -1.58 % splits the same way (-0.85 % row mean, -0.74 % scheme).
+  - **The original pass was a cancellation.** The bay mean sat +1.6 % above the point value and the pchip deficit
+    was -1.2 %.
+  - The fail first appears with the <= 0.25 m bays (T7 audit `bay0.25`: -2.93 %) and reaches T9 through T7e.
+    T8/T8w/T11/T12 do not move it.
+  - The yaml does not define the span scheme, so this is the same reference question as G1 (T13). It is not "fixed"
+    toward linear without an established reference.
+  - Not checked: other stations. Side note, not followed up: `yaml_to_blade.py:619` pchip-resamples every layer key
+    onto the outer-shape z grid.
+- **Ruled out:** T12 ply order (per-ply checks run only when the order matches, `audit_blade_input.py:617-629`); the
+  T6/T11 clamps (they move the edges, not the mechanism); audit-tool artefacts.
+
 ## Handoff 2 (2026-10-23, session close, user: "cerramos aqui")
 
 **Resume**:
@@ -586,3 +639,4 @@ for this session.
 - L11 (2026-10-23) User: "no sabia que habian varias versiones de windio, por lo que hay que planificar para un futuro un importador generico de windio para cualquier version"
 - L12 (2026-10-23) User chose "Desacoplar del todo (recomendado)": element rows from element_size and its grading as before; laminate evaluated at each element row's z, not per bay.
 - L13 (2026-10-23, session 3) User, on the plan "revisar el diff de 7ef630e y f28d0ae; correr tests y chequear conteos/geometría; mandar submit_wait.sh T7e; registrar 7ef630e": "si".
+- L14 (2026-10-23, session 3) User, on "next step: T9 merge, better in a new session": "METELE".
