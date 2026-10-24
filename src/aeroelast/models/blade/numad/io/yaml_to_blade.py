@@ -101,6 +101,14 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
 
     # The webs' own grids, before ``update_internal_structure`` resamples them (``_add_web_attachments``)
     yaml_webs = copy.deepcopy(blade_internal_structure.get("webs", []))
+    # The layers' own chordwise bounds, likewise: the skin evaluates them linearly on the yaml grid
+    # rather than on a resampled copy (G10b, user L17)
+    yaml_layers = {
+        layer["name"]: {
+            key: copy.deepcopy(layer[key]) for key in ("start_nd_arc", "end_nd_arc") if key in layer
+        }
+        for layer in blade_internal_structure["layers"]
+    }
 
     # Update "grid" and "values" keys to cover the whole span of the blade
     blade_internal_structure = update_internal_structure(
@@ -121,7 +129,7 @@ def yaml_to_blade(blade, filename: str, write_airfoils: bool = False):
     _add_le_bands(definition, blade_structure_dict)
 
     ### COMPONENTS
-    _add_components(definition, blade_internal_structure, blade_structure_dict)
+    _add_components(definition, blade_internal_structure, blade_structure_dict, yaml_layers)
 
     # WEB ATTACHMENT ARCS
     _add_web_attachments(definition, blade_internal_structure, yaml_webs)
@@ -361,7 +369,7 @@ def _add_materials(definition, material_data):
     return
 
 
-def _add_components(definition, blade_internal_structure, blade_structure_dict):
+def _add_components(definition, blade_internal_structure, blade_structure_dict, yaml_layers=None):
     N_layer_comp = len(blade_internal_structure["layers"])
     component_list = []
     for i in range(N_layer_comp):
@@ -390,8 +398,9 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
         cur_comp.continuous_layers = True
         cur_comp.control_points = np.stack((cptemp1, temp_n_layer), axis=1)
         if "shell" in cur_comp.name.lower():
-            cur_comp.nd_arc_start = i_component_data.get("start_nd_arc")
-            cur_comp.nd_arc_end = i_component_data.get("end_nd_arc")
+            raw = (yaml_layers or {}).get(i_component_data["name"], i_component_data)
+            cur_comp.nd_arc_start = raw.get("start_nd_arc")
+            cur_comp.nd_arc_end = raw.get("end_nd_arc")
         # if I_round_up.size > 0:
         #     cur_comp.control_points[I_round_up,1] = 1 # increase n_layers from 0 to 1 for 0.05<n_layers<0.5
         #     comp['cp'](:,2) = cell2mat(blade_internal_structure['layers']{i}['thickness']['values'])'.*1000;  # use when each material ply is 1 mm
