@@ -1,0 +1,50 @@
+--------------------------------------------------------------------------
+WARNING: There is at least non-excluded one OpenFabrics device found,
+but there are no active ports detected (or Open MPI was unable to use
+them).  This is most certainly not what you wanted.  Check your
+cables, subnet manager configuration, etc.  The openib BTL will be
+ignored for this job.
+
+  Local host: sdumont6077
+--------------------------------------------------------------------------
+/scratch/leahk/eduardo.donestevez/wt/input-fix-T7e.pp/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+  rotVec = (theta / mag) * cp
+      Loading blade definition...
+      Updating blade geometry...
+      Added 2 interpolated section(s) for tip refinement
+      Added 619 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 32515 nodes, 33673 elements
+      Deduplicating nodes...
+      Deduplicated: 32515 -> 32515 nodes (0% reduction)
+      Creating 33673 elements...
+      Creating element and node sets...
+      Blade mesh generated: 32515 nodes, 33673 elements
+corner match: max dist 5.49e-04 m, n 32515
+span z 0.00..117.00 m, tip nodes 16
+case tip_axial_tension
+| z (m) | nodes | theta AE (deg) | theta CCX (deg) | AE/CCX-1 % | mean u AE/CCX-1 % (x, y, z) |
+|---|---|---|---|---|---|
+| 11.7 | 95 | -2.113443e-04 | 2.122662e-04 | -199.57 | -45.18, -5.70, 0.55 |
+| 23.4 | 78 | 1.070781e-02 | 1.075921e-02 | -0.48 | 2.28, -0.27, 0.37 |
+| 35.1 | 68 | 1.488541e-02 | 1.456797e-02 | 2.18 | 1.20, 0.12, 0.29 |
+| 46.8 | 57 | 2.086898e-02 | 2.083302e-02 | 0.17 | 0.78, 0.16, 0.23 |
+| 58.5 | 100 | 2.991838e-02 | 3.030485e-02 | -1.28 | 0.59, 0.15, 0.16 |
+| 70.2 | 86 | 3.837777e-02 | 3.871535e-02 | -0.87 | 0.46, 0.12, 0.12 |
+| 81.9 | 76 | 1.930498e-02 | 1.916135e-02 | 0.75 | 0.37, 0.10, 0.09 |
+| 93.6 | 66 | -1.586457e-01 | -1.722133e-01 | -7.88 | 0.40, 0.07, 0.05 |
+| 105.3 | 58 | -1.370151e+00 | -1.651531e+00 | -17.04 | 2.21, -0.02, -0.07 |
+| 111.2 | 56 | -2.676547e+00 | -2.641304e+00 | 1.33 | 0.51, -0.11, -0.16 |
+| 115.8 | 84 | 5.895834e+00 | 1.544089e+01 | -61.82 | -25.61, 0.20, 0.18 |
+| band (m) | dtheta/dz AE/CCX-1 % (= GJ_CCX/GJ_AE - 1) |
+|---|---|
+| 11.7-23.4 | 3.53 |
+| 23.4-35.1 | 9.68 |
+| 35.1-46.8 | -4.49 |
+| 46.8-58.5 | -4.46 |
+| 58.5-70.2 | 0.58 |
+| 70.2-81.9 | -2.46 |
+| 81.9-93.6 | -7.01 |
+| 93.6-105.3 | -18.10 |
+| 105.3-111.2 | 31.99 |
+| 111.2-115.8 | -52.59 |

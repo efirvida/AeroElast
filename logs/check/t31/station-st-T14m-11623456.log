@@ -1,0 +1,49 @@
+--------------------------------------------------------------------------
+WARNING: There is at least non-excluded one OpenFabrics device found,
+but there are no active ports detected (or Open MPI was unable to use
+them).  This is most certainly not what you wanted.  Check your
+cables, subnet manager configuration, etc.  The openib BTL will be
+ignored for this job.
+
+  Local host: sdumont6185
+--------------------------------------------------------------------------
+/scratch/leahk/eduardo.donestevez/wt/input-fix-T14m.pp/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+  rotVec = (theta / mag) * cp
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33935 nodes, 35120 elements
+      Deduplicating nodes...
+      Deduplicated: 33935 -> 33935 nodes (0% reduction)
+      Creating 35120 elements...
+      Creating element and node sets...
+      Blade mesh generated: 33935 nodes, 35120 elements
+corner match: max dist 5.49e-04 m, n 33935
+span z 0.00..117.00 m, tip nodes 16
+| z (m) | nodes | theta AE (deg) | theta CCX (deg) | AE/CCX-1 % |
+|---|---|---|---|---|
+| 11.7 | 102 | 7.058576e-02 | 7.193382e-02 | -1.87 |
+| 23.4 | 81 | 4.726545e-01 | 4.718080e-01 | 0.18 |
+| 35.1 | 70 | 3.920777e+00 | 3.897673e+00 | 0.59 |
+| 46.8 | 59 | 1.074063e+01 | 1.072304e+01 | 0.16 |
+| 58.5 | 104 | 2.180221e+01 | 2.180232e+01 | -0.00 |
+| 70.2 | 90 | 4.067810e+01 | 4.070954e+01 | -0.08 |
+| 81.9 | 78 | 7.621858e+01 | 7.631330e+01 | -0.12 |
+| 93.6 | 72 | 1.418042e+02 | 1.452555e+02 | -2.38 |
+| 105.3 | 62 | 3.335546e+02 | 3.477336e+02 | -4.08 |
+| 111.2 | 60 | 5.215427e+02 | 5.440639e+02 | -4.14 |
+| 115.8 | 70 | 9.076332e+02 | 3.436639e+02 | 164.10 |
+| band (m) | dtheta/dz AE/CCX-1 % (= GJ_CCX/GJ_AE - 1) |
+|---|---|
+| 11.7-23.4 | 0.55 |
+| 23.4-35.1 | 0.65 |
+| 35.1-46.8 | -0.08 |
+| 46.8-58.5 | -0.16 |
+| 58.5-70.2 | -0.17 |
+| 70.2-81.9 | -0.18 |
+| 81.9-93.6 | -4.87 |
+| 93.6-105.3 | -5.30 |
+| 105.3-111.2 | -4.25 |
+| 111.2-115.8 | -292.66 |

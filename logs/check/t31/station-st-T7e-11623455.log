@@ -1,0 +1,46 @@
+--------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont6153
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+/scratch/leahk/eduardo.donestevez/wt/input-fix-T7e.pp/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+  rotVec = (theta / mag) * cp
+      Loading blade definition...
+      Updating blade geometry...
+      Added 2 interpolated section(s) for tip refinement
+      Added 619 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 32515 nodes, 33673 elements
+      Deduplicating nodes...
+      Deduplicated: 32515 -> 32515 nodes (0% reduction)
+      Creating 33673 elements...
+      Creating element and node sets...
+      Blade mesh generated: 32515 nodes, 33673 elements
+corner match: max dist 5.49e-04 m, n 32515
+span z 0.00..117.00 m, tip nodes 16
+| z (m) | nodes | theta AE (deg) | theta CCX (deg) | AE/CCX-1 % |
+|---|---|---|---|---|
+| 11.7 | 95 | 5.409558e-02 | 5.579694e-02 | -3.05 |
+| 23.4 | 78 | 4.798952e-01 | 4.793330e-01 | 0.12 |
+| 35.1 | 68 | 3.766460e+00 | 3.742744e+00 | 0.63 |
+| 46.8 | 57 | 1.015065e+01 | 1.013109e+01 | 0.19 |
+| 58.5 | 100 | 2.037148e+01 | 2.037252e+01 | -0.01 |
+| 70.2 | 86 | 3.757336e+01 | 3.761710e+01 | -0.12 |
+| 81.9 | 76 | 6.921909e+01 | 6.934439e+01 | -0.18 |
+| 93.6 | 66 | 1.269176e+02 | 1.297570e+02 | -2.19 |
+| 105.3 | 58 | 3.017752e+02 | 3.130854e+02 | -3.61 |
+| 111.2 | 56 | 4.306330e+02 | 4.290101e+02 | 0.38 |
+| 115.8 | 84 | 1.977633e+03 | 1.839609e+03 | 7.50 |
+| band (m) | dtheta/dz AE/CCX-1 % (= GJ_CCX/GJ_AE - 1) |
+|---|---|
+| 11.7-23.4 | 0.53 |
+| 23.4-35.1 | 0.71 |
+| 35.1-46.8 | -0.07 |
+| 46.8-58.5 | -0.20 |
+| 58.5-70.2 | -0.25 |
+| 70.2-81.9 | -0.26 |
+| 81.9-93.6 | -4.49 |
+| 93.6-105.3 | -4.62 |
+| 105.3-111.2 | 11.16 |
+| 111.2-115.8 | 9.67 |

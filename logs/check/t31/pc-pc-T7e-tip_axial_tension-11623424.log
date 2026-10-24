@@ -1,0 +1,32 @@
+--------------------------------------------------------------------------
+WARNING: There is at least non-excluded one OpenFabrics device found,
+but there are no active ports detected (or Open MPI was unable to use
+them).  This is most certainly not what you wanted.  Check your
+cables, subnet manager configuration, etc.  The openib BTL will be
+ignored for this job.
+
+  Local host: sdumont6016
+--------------------------------------------------------------------------
+/scratch/leahk/eduardo.donestevez/wt/input-fix-T7e.pp/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+  rotVec = (theta / mag) * cp
+      Loading blade definition...
+      Updating blade geometry...
+      Added 2 interpolated section(s) for tip refinement
+      Added 619 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 32515 nodes, 33673 elements
+      Deduplicating nodes...
+      Deduplicated: 32515 -> 32515 nodes (0% reduction)
+      Creating 33673 elements...
+      Creating element and node sets...
+      Blade mesh generated: 32515 nodes, 33673 elements
+  Converted to quadratic: 98705 nodes (66190 midside nodes added)
+CalculiX mesh files written:
+  - Mesh file: /scratch/leahk/eduardo.donestevez/tmp/t31-11623424/tmpurderl1p/b.msh
+  - Names file: /scratch/leahk/eduardo.donestevez/tmp/t31-11623424/tmpurderl1p/b.nam
+  - Main input file: /scratch/leahk/eduardo.donestevez/tmp/t31-11623424/tmpurderl1p/b.inp
+ccx rc 0
+PERCASE tree=input-fix-T7e case=tip_axial_tension es=0.25 matched=16/16
+PERCASE_AE  edge_ux=-9.304763e-02 flap_uy=6.177693e+00 axial_uz=6.513350e-01 twist_deg=-2.020906e+02 W=3.256675e+05
+PERCASE_CCX edge_ux=-1.139798e-01 flap_uy=6.472506e+00 axial_uz=7.201746e-01 twist_deg=-2.678758e+02 W=3.600873e+05
+PERCASE_GAP(AE/CCX-1,%) edge=-18.36 flap=-4.55 axial=-9.56 twist=-24.56 W=-9.56

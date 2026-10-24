@@ -95,3 +95,38 @@ the components of the tip displacement (axial/flap/edge/twist) and W per case. I
 on T14m while the axial case is 20 %, the case is an eccentricity amplifier and should be replaced, not widened. A second
 cheap AE-only test: re-solve T14m with the warped TE-flat elements (warp > 0.05) excluded from the comparison metric
 or refine es to 0.125 and check whether the W gap closes (the docstring table shows axial 12.6 -> 3.3 % across es 2 -> 0.25).
+
+## Part 3: per-case run and the station probe (session 5, 2026-10-24)
+
+**Per case** (SLURM 11623421-28, es 0.25, `read_percase.py`), W gap = W_AE/W_CCX - 1 on the 16 tip nodes, T7e / T14m:
+flap -2.12 / -2.11 %, edge -0.55 / -0.61 %, torsion -23.01 / -26.29 %, axial -9.56 / -20.53 %. Against the rule fixed
+before the run, flap and edge pass and torsion fails (predicted 5-12 %), so "axial is only an eccentricity amplifier of
+an otherwise matching model" is refuted as stated.
+
+**Station probe** (`station_twist.py`, SLURM 11623455/56 torsion, 11623458/59 axial; preserved CCX FRDs, our side
+re-solved with the same forces; rigid section rotation and mean translation fitted on node slabs |z - zc| < 0.15 m).
+
+| quantity, AE/CCX-1 | z 23-82 m | z 82-111 m | slab at 115.8 m | tip nodes, z 117 m |
+|---|---|---|---|---|
+| torsion: twist rate (= GJ_CCX/GJ_AE - 1), both trees | -0.26 .. +0.71 % | -4.5 % (82-105) | +7.5 / +164 % (theta) | W -23 / -26 % |
+| axial: mean translation x, y, z, both trees | <= 0.85 % (x 2.1 % at 23 m) | x +0.4 .. +6.9 % | x -26 / -44 % | W -9.6 / -20.5 % |
+
+The fitted tip "rotation" jumps from ~430 deg at 111 m to ~2000 deg at 116 m under the torsion couple: the loaded
+section distorts rather than rotates. The axial-case twist is ~0.02 deg and crosses zero near 85 m, so its percentages
+are not meaningful there; its translations are.
+
+**Verdict T31 (and T21).** The two FE models agree on the blade: GJ within 0.7 % and the axial-case translations
+within 1 % up to z 82-94 m on both trees. The parity gap is born in the outer ~10 m and concentrates in the last
+1-5 m, at the 16 nodes that carry point loads with no tip diaphragm (corner-node loads on S8R vs MITC4). W on the tip
+nodes therefore measures load introduction, not blade stiffness, and the T7e -> T14m growth (9.6 -> 20.5 %) lives
+there too. Per the rule: replace the tip-load parity cases with a well-posed metric (response at an interior station,
+e.g. 0.7-0.8 R, or the load through a distributing coupling / tip diaphragm on both sides); never widen the 5 % band.
+
+**Corollary (inferred).** Since the two FE models agree on interior GJ, the S-1 GJ gap vs BeamDyn (-19.4 % at
+r/R 0.70) is not an element-formulation effect; it supports the T27 lead (reference section geometry, T13).
+
+**Open observation.** z 82-111 m: torsion twist rate -4.5 %, axial-case edge translation up to +6.9 %, inside or near
+the band, growing outboard where the 462 TE strips with aspect > 50 sit (z > 60 m). Belongs to T28 (mesh iteration).
+
+**es 0.125 (11623429):** ccx rc 16 is `*ERROR in u_realloc: error allocating memory` at 21.7 GB RSS with
+--ntasks=8 (rerun 11623454 on the kept deck). Not resubmitted: it was the convergence check of the case now replaced.

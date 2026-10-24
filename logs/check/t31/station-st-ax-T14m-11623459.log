@@ -1,0 +1,47 @@
+--------------------------------------------------------------------------
+WARNING: There was an error initializing an OpenFabrics device.
+
+  Local host:   sdumont6153
+  Local device: mlx5_0
+--------------------------------------------------------------------------
+/scratch/leahk/eduardo.donestevez/wt/input-fix-T14m.pp/aeroelast/models/blade/numad/mesh_gen/element_utils.py:78: RuntimeWarning: invalid value encountered in scalar divide
+  rotVec = (theta / mag) * cp
+      Loading blade definition...
+      Updating blade geometry...
+      Added 1 interpolated section(s) for tip refinement
+      Added 617 stations (one laminate per element row)
+      Generating shell mesh...
+      Raw mesh: 33935 nodes, 35120 elements
+      Deduplicating nodes...
+      Deduplicated: 33935 -> 33935 nodes (0% reduction)
+      Creating 35120 elements...
+      Creating element and node sets...
+      Blade mesh generated: 33935 nodes, 35120 elements
+corner match: max dist 5.49e-04 m, n 33935
+span z 0.00..117.00 m, tip nodes 16
+case tip_axial_tension
+| z (m) | nodes | theta AE (deg) | theta CCX (deg) | AE/CCX-1 % | mean u AE/CCX-1 % (x, y, z) |
+|---|---|---|---|---|---|
+| 11.7 | 102 | -3.869417e-04 | 4.018690e-05 | -1062.86 | 53.70, -6.89, 0.31 |
+| 23.4 | 81 | 9.102293e-03 | 9.243976e-03 | -1.53 | 2.06, -0.30, 0.30 |
+| 35.1 | 70 | 1.532675e-02 | 1.503304e-02 | 1.95 | 1.30, 0.13, 0.23 |
+| 46.8 | 59 | 2.220138e-02 | 2.218271e-02 | 0.08 | 0.85, 0.16, 0.18 |
+| 58.5 | 104 | 3.570860e-02 | 3.615446e-02 | -1.23 | 0.64, 0.14, 0.14 |
+| 70.2 | 90 | 4.847520e-02 | 4.900482e-02 | -1.08 | 0.50, 0.11, 0.10 |
+| 81.9 | 78 | 3.148182e-02 | 3.156514e-02 | -0.26 | 0.42, 0.09, 0.07 |
+| 93.6 | 72 | -1.712148e-01 | -1.885932e-01 | -9.21 | 0.45, 0.06, 0.04 |
+| 105.3 | 62 | -1.444721e+00 | -1.816198e+00 | -20.45 | 2.71, -0.06, -0.10 |
+| 111.2 | 60 | -3.705318e+00 | -4.807793e+00 | -22.93 | 6.90, -0.33, -0.37 |
+| 115.8 | 70 | 1.468527e+01 | 4.166957e+01 | -64.76 | -43.70, 1.77, 2.93 |
+| band (m) | dtheta/dz AE/CCX-1 % (= GJ_CCX/GJ_AE - 1) |
+|---|---|
+| 11.7-23.4 | 3.10 |
+| 23.4-35.1 | 7.52 |
+| 35.1-46.8 | -3.85 |
+| 46.8-58.5 | -3.32 |
+| 58.5-70.2 | -0.65 |
+| 70.2-81.9 | -2.56 |
+| 81.9-93.6 | -7.93 |
+| 93.6-105.3 | -21.76 |
+| 105.3-111.2 | -24.44 |
+| 111.2-115.8 | -60.43 |
