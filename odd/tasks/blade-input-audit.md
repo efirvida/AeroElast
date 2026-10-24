@@ -58,6 +58,9 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T16 | S5 | - | deferred to the second mesh-correction iteration (user L8), after T9/T14/T15 | multi-blade `RotorMesh` fibre direction: blades i>0 are rotated by i*2pi/n about y (`generators.py:1569`) but `span_direction` is one global vector (`assembler.py:457`), so on the 3-blade rotor (e.g. `tests/IEA15MW/frontiersin_2025_yaw/solid_corotational_sharpy_yaw_0.yaml`, explicit [0,0,1]) blades 2 and 3 get the fibre ~60 deg off their span (estimate). Pre-existing; found while reviewing T14. Likely fix: per-element radial span direction about the rotor axis (assembler or Rust). G6-G9: planar z sections ignore the prebend tilt; flat-TE half-face cubic with repeated control points (fold at >= 4 elements); web control weights 0.6666/0.3333; `L = ceil(z_tip)`; also the open `d` measured from the flat-back face midpoint and the never-raised `ValueError`s in `yaml_to_blade.py`
 - T17 | - | explore | inventory running; separate feature after the second iteration (user L9) | multi-turbine cross-check: inventory the IEAWindSystems RWT repos (windIO version, BeamDyn/6x6 and the tool that produced it, OpenFAST tests, docs), primary goal (user L10): close every possible meshing error, so run the input audit and the mesh checks on each ingestible blade first (clamps and guards the IEA 15 MW never binds); then pick a second blade for S-1, pre-register which hypotheses it discriminates (EA/EI_edge bias systematic or turbine-specific; deck missing TE band mass; G1 lofting; mesher clamps not exercised by IEA 15 MW)
 - T18 | - | - | future, separate feature (user L11) | generic windIO importer for any version: detect the version, normalise to one canonical internal form (prefer the official windIO converters/schema if they cover v1->v2; to check), validate against the windIO schema, one reader downstream. Acceptance idea: the upstream IEA-15 windIO v2 file and our v1 file give the same mesh and the same audit. Today `yaml_to_blade.py` reads v1 only. Prerequisite for T17 on v2 turbines
+- T19 | S5 | parent | G10 in progress on fix/input-G10 (off 61cf5b0) | uniform linear span interpolation of layer thickness (`yaml_to_blade.py` imethod and the `update_internal_structure` resample); user L16
+- T20 | - | - | planned, not implemented, on demand (user L16) | `span_scheme="pchip"` option, one scheme for every layer, for T17 turbines whose reference comes from WISDEM >= PR #419. Also open: `stackdb.py:196` pchip on nd_arc_start along the span; `excel_to_blade.py` pchip (UTD xlsx path, disowned input)
+- T21 | S5 | parent | pending | CalculiX `tip_axial` parity breaks only in the T7e x T8w combination: diagnose
 Order fixed by user L5: T7a, T7b, T10, T8, T11, T12, T13, T9, then T14, T15 (user L6: not in the order does not mean not fixed).
 Parallel execution (user L6): each candidate in its own worktree/branch off the T7a/T7b base, measured against that base; the parent integrates in order; T9 measures the combination.
 - T8 | S5 | parent | pending | C and E, chord at 0.97 and the web attachment at 0.30: diagnose, fix if they are defects
@@ -473,8 +476,34 @@ stale.
     elements (34,026 vs 34,054 / 35,211). Logs: `logs/check/input-fix/t9-nodes.log`, `t9-sliver.log`.
   - `test_blade_span_decoupling` now states this contract (elements and row z equal; every node difference is a
     native sliver row). Fragile point: its decoupled minimum-gap floor of 1 mm against 1.2 mm measured at the tip.
-- **Checks.** `check.sh quick` OK (75 passed, 1 xfailed). Blade suite, the CalculiX `tip_axial` baseline and the
-  SLURM measurement follow below.
+- **Checks.** `check.sh quick` OK (75 passed, 1 xfailed).
+- **Finding: the CalculiX `tip_axial` parity breaks in the combination.** `test_blade_ccx_parity[tip_axial_tension]`
+  and `[tip_axial_compression]` pass on T7e alone and on T8w alone (SLURM 11623249: 2 passed each,
+  `logs/check/input-fix/t9-blade-T7e.log`, `t9-blade-T8w.log`). They failed on the T7e x T8w merge (login run before
+  T11/T12). Full-combination result: `t9-blade-T9.log`.
+- **Measured, combination at 61cf5b0** (SLURM 11623247, `submit_wait.sh T9`; `compare.py
+  ../restamp-9f72c6b/capture-s1s2v3.pkl capture-T6 capture-T7e capture-T8w capture-T9`). Signed %:
+
+  | metric | 9f72c6b | T6 | T7e | T8w | T9 |
+  |---|---|---|---|---|---|
+  | S-1 EA | +7.57 | +8.03 | +8.03 | +8.11 | +6.25 |
+  | S-1 EI_edge | -7.51 | -3.77 | -4.18 | -2.96 | -3.71 |
+  | S-1 EI_flap | +3.79 | +3.77 | +4.61 | +4.88 | +3.89 |
+  | S-1 GJ | -2.76 | -1.37 | -1.26 | -11.04 | -10.36 |
+  | S-1 mass | +0.73 | +1.74 | +1.58 | +1.65 | +1.65 |
+  | S-2 LC1 gravity | -7.44 | -6.44 | -6.56 | -6.02 | -5.59 |
+  | S-2 LC2 tip flap | -3.47 | -3.49 | -3.42 | -2.31 | -2.43 |
+  | S-2 LC3 tip edge | +15.57 | +12.00 | +12.11 | +12.13 | +11.31 |
+  | S-2 LC4 distributed | -6.27 | -6.28 | -6.33 | -5.81 | -5.47 |
+  | V-03 mass [kg] | 66,682 | 66,903 | 66,908 | 66,921 | 66,941 |
+
+  - Failing anchor tests: 5, against 6 on T7e. `test_flapwise_ei_within_band` now passes. Still failing: S-1 EA,
+    EI_edge and GJ bands; S-2 LC1 and LC4 official.
+  - **Moved rows, findings.** EA -1.3 points, from the T10 metric (1/(A^-1)11). EI_edge improves 3.8 points over
+    9f72c6b (mostly T6). GJ -7.6 points, from the G3 webs (physical, see G3). All four S-2 LCs move toward BeamDyn;
+    LC3 15.6 -> 11.3. Mass +259 kg.
+  - EA in T9 is not T8w's +8.11 minus the T10 shift alone: the T10 metric change applies to every row (inference;
+    the T10 standalone measurement is in its section).
 
 **Re-audit at 61cf5b0** (`logs/check/input-audit-T9/`, mesh 33,935 / 35,120). Fail counts, original -> T9:
 
@@ -508,8 +537,54 @@ F3/F5 diagnosis (explore, from the logs on disk plus hand calculation; per-branc
     toward linear without an established reference.
   - Not checked: other stations. Side note, not followed up: `yaml_to_blade.py:619` pchip-resamples every layer key
     onto the outer-shape z grid.
+- **G10 reference (session 3, user L15).** Raw WISDEM sources, `wisdem/glue_code/gc_WT_InitModel.py`, fetched into
+  `$SCRATCH/tmp/g10-ref/`:
+  - **WISDEM never singles out the spar caps.** Every layer thickness uses one scheme. v3.0.0 and v3.2.0 use
+    `np.interp(nd_span, grid, values, left=0, right=0)` (v3.2.0 `:277-283`). master uses
+    `PchipInterpolator(grid, values, extrapolate=False)` (`:579-585`), since PR #419, merged 2023-03-16.
+  - **The NuMAD rule matches neither version** (name contains "spar" -> pchip, else linear).
+  - **The reference deck predates #419.** `tests/IEA15MW/reference/IEA-15-240-RWT_BeamDyn_blade.dat` is the 2020
+    deck; the S-1 docstring says "PreComp/VABS/BECAS". A WISDEM-based chain of that time was linear
+    (inference: the producing tool and its scheme are not established).
+  - **The anchor cannot resolve G10.** BeamDyn has 26 stations, at eta 0.90, 0.95 and 1.00 near the tip, so the
+    0.97 difference is below the anchor's resolution.
+  - **Magnitude (worker, measured; `logs/check/g10/g10.py`, `g10.log`).**
+    - Production equals pchip-of-yaml for `Spar_Cap_SS/PS` (deviation 0) and linear-of-yaml for every other layer
+      (< 1e-6 relative).
+    - The `update_internal_structure` pchip resample (`yaml_to_blade.py:~614-617`) changes no layer on this yaml,
+      because every layer grid equals the outer-shape grid. It would act on a yaml with other grids (inference;
+      relevant to T17/T18).
+    - Mean cap thickness, pchip against linear: +0.033 % over r/R 0.2-0.85 (77.340 vs 77.314 mm, the S-1 window)
+      and -0.37 % over 0.85-1.0.
+    - Locally the difference reaches 34 % near the root (eta < 0.074, where the cap is thin) and a few percent at
+      0.95-0.99.
+    - So G10 cannot move the S-1 window numbers. It is a consistency and robustness question (the name heuristic),
+      plus the 0.97 audit row.
 - **Ruled out:** T12 ply order (per-ply checks run only when the order matches, `audit_blade_input.py:617-629`); the
   T6/T11 clamps (they move the edges, not the mechanism); audit-tool artefacts.
+
+**Regression: CalculiX parity `tip_axial`.** `tests/test_blade_ccx_parity.py -k tip_axial` passes on T7e alone and on
+T8w alone. On the combination it fails: tip 7.2 % off CCX (max 5 %), same for tension and compression. A worker is
+bisecting ceca579 / 93df15e / 4c9372d.
+
+**Measured, PROVISIONAL until the CCX regression is explained** (SLURM `submit_wait.sh T9`, worktree
+`input-fix-T9` at 61cf5b0, es 0.25). Signed %:
+
+| metric | 9f72c6b (`capture-s1s2v3`) | T7e | T9 |
+|---|---|---|---|
+| S-1 EA | +7.57 | +8.03 | +6.25 (T10 metric, about -1.8 points) |
+| S-1 EI_edge | -7.51 | -4.18 | -3.71 |
+| S-1 EI_flap | +3.79 | +4.61 | +3.89 |
+| S-1 GJ | -2.76 | -1.26 | -10.36 (G3, physical) |
+| S-1 mass | +0.73 | +1.58 | +1.65 |
+| S-2 LC1 gravity | -7.44 | -6.56 | -5.59 |
+| S-2 LC2 tip flap | -3.47 | -3.42 | -2.43 |
+| S-2 LC3 tip edge | +15.57 | +12.11 | +11.31 |
+| S-2 LC4 distributed | -6.27 | -6.33 | -5.47 |
+| V-03 mass [kg] | 66,682 | 66,908 | 66,941 |
+
+Failing tests go from 6 to 5: `test_flapwise_ei_within_band` now passes. The other five are the same as T7e (S-1 EA,
+EI_edge, GJ bands; S-2 LC1/LC4 official).
 
 ## Handoff 2 (2026-10-23, session close, user: "cerramos aqui")
 
@@ -640,3 +715,8 @@ for this session.
 - L12 (2026-10-23) User chose "Desacoplar del todo (recomendado)": element rows from element_size and its grading as before; laminate evaluated at each element row's z, not per bay.
 - L13 (2026-10-23, session 3) User, on the plan "revisar el diff de 7ef630e y f28d0ae; correr tests y chequear conteos/geometría; mandar submit_wait.sh T7e; registrar 7ef630e": "si".
 - L14 (2026-10-23, session 3) User, on "next step: T9 merge, better in a new session": "METELE".
+- L15 (2026-10-23, session 3) User asked "que me recomiendas?" on G10. The parent recommended: do not change it now;
+  measure pchip vs linear along the span, read the WISDEM scheme, then decide (a uniform reference scheme ->
+  adopt it for every layer and drop the name heuristic; none established -> record as G1, replace the heuristic by an
+  explicit parameter keeping today's default). User: "si hazlo".
+- L16 (2026-10-23, session 3) User, on why WISDEM moved to pchip (answer: PR #419, optimizer smoothness on resampled control nodes; windIO prescribes no span scheme for layers): "me va asi, vamos a hacer esto, ponemos lineal, y dejamos el pchip como no implementado pero planificado, asi podemos avanzar mas rapido, y lo implementamos a demanda cuando haga falta si hiciera falta"
