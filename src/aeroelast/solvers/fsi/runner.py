@@ -1189,6 +1189,12 @@ class FSIRunner:
 
         # Forward span_direction for composite fibre orientation correction
         span_dir = getattr(self.config.elements, "span_direction", None)
+        if span_dir is None and self._blade_properties is not None:
+            logger.warning(
+                "[runner] composite blade properties without elements.span_direction: "
+                "fibres follow quad edge 0->1 (chordwise on BladeMesh); using (0, 0, 1)"
+            )
+            span_dir = (0.0, 0.0, 1.0)
         if span_dir is not None:
             model_config["elements"]["span_direction"] = tuple(float(v) for v in span_dir)
 
