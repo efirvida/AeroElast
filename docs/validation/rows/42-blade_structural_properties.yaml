@@ -27,13 +27,14 @@ rows:
             ("+4-8 %") is gone (K11.2).
         measured:
           status: measured
-          run: '6318955'
-          date: '2026-10-21'
-          raw: 0.004695
-          margin_pct: 0.4695
+          run: d5d0fd2
+          date: '2026-10-24'
+          raw: 0.002285
+          margin_pct: 0.2285
           text: >-
-            Shell 66,682.3 kg vs 66,996.9 kg, signed error -0.4695 % at es 0.25 (SLURM 11621355); es 0.125
-            66,760.5 kg, -0.3529 % (SLURM 11621349), move 0.12 pp <= 1 pp (K7.2). Bound 5 %.
+            Shell 67,150.0 kg vs BeamDyn v1.1 deck 66,996.9 kg, signed error +0.2285 % at es 0.25, skin on
+            mid-surface (blade input audit T9 tree); SLURM 11623360 (logs/check/restamp-d5d0fd2/pytest-v05.log,
+            the printed line; capture-v05.pkl holds no mass) at d5d0fd2. Bound 5 %. es 0.125 not re-measured.
         expected: 66996.9
     flags: []
     notes: >-

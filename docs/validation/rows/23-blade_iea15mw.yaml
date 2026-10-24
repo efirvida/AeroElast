@@ -21,12 +21,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 3.7406
-      text: 'blade mass vs Bernardi et al. 2025, the published article, blade mass: 3.7406% (bound: 5.0000%)'
-      digest: 788e0df495fb3ab3
+      margin_pct: 1.3599
+      text: 'blade mass vs Escalera Mendoza et al. 2023, AIAA 2023-2093, blade mass: 1.3599% (bound: 5.0000%)'
+      digest: 95ee2eb6f32364ff
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.0
@@ -49,12 +49,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 0.4423
-      text: 'matched blade mode 0 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.4423% (bound: 5.0000%)'
-      digest: 874b13a753930670
+      margin_pct: 0.0096
+      text: 'matched blade mode 0 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0096% (bound: 5.0000%)'
+      digest: 752877322bbdd8dd
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.1
@@ -77,12 +77,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 0.7076
-      text: 'matched blade mode 1 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.7076% (bound: 5.0000%)'
-      digest: 83c31dd124f60cd7
+      margin_pct: 0.0465
+      text: 'matched blade mode 1 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0465% (bound: 5.0000%)'
+      digest: 6ded5a3a01c78004
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.2
@@ -105,12 +105,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 0.7789
-      text: 'matched blade mode 2 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.7789% (bound: 5.0000%)'
-      digest: 1191537077af6811
+      margin_pct: 0.0473
+      text: 'matched blade mode 2 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0473% (bound: 5.0000%)'
+      digest: 729094e56cfc61c6
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.3
@@ -133,12 +133,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 0.8358
-      text: 'matched blade mode 3 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.8358% (bound: 5.0000%)'
-      digest: a2dee970cfabcf71
+      margin_pct: 0.0475
+      text: 'matched blade mode 3 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.0475% (bound: 5.0000%)'
+      digest: 57f59a14ebab866e
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_ccx.4
@@ -161,12 +161,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 1.6478
-      text: 'matched blade mode 4 vs CalculiX 2.23 S8R, the same mesh and composite properties: 1.6478% (bound: 5.0000%)'
-      digest: f86e1e579290d52e
+      margin_pct: 0.1202
+      text: 'matched blade mode 4 vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.1202% (bound: 5.0000%)'
+      digest: 417cb33c0e0d4d22
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_static_tip_deflection_matches.single
@@ -189,12 +189,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 1.8603
-      text: 'static tip deflection vs CalculiX 2.23 S8R, the same mesh and composite properties: 1.8603% (bound: 5.0000%)'
-      digest: 4047ae7d575242dd
+      margin_pct: 0.3674
+      text: 'static tip deflection vs CalculiX 2.23 S8R, the same mesh and composite properties: 0.3674% (bound: 5.0000%)'
+      digest: 8ab338690530a136
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_static_deflection_matches_art.single
@@ -242,12 +242,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 1.9404
-      text: 'mode 0 against the beam CSD vs Bernardi et al. 2025, the published article, the published beam-CSD modes: 1.9404% (bound: 5.0000%)'
-      digest: e0eae3a9e94d3d0a
+      margin_pct: 1.3791
+      text: 'mode 0 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 1.3791% (bound: 5.0000%)'
+      digest: f67468b1069b45e8
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_berna.1
@@ -271,12 +271,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 3.3516
-      text: 'mode 1 against the beam CSD vs Bernardi et al. 2025, the published article, the published beam-CSD modes: 3.3516% (bound: 5.0000%)'
-      digest: 457d70da43478d62
+      margin_pct: 3.3485
+      text: 'mode 1 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 3.3485% (bound: 5.0000%)'
+      digest: 30c1f38a7c45993c
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_berna.2
@@ -300,12 +300,12 @@ rows:
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
       status: measured
-      run: 73743de
-      date: '2026-10-05'
+      run: d5d0fd2
+      date: '2026-10-24'
       raw: null
-      margin_pct: 4.3692
-      text: 'mode 2 against the beam CSD vs Bernardi et al. 2025, the published article, the published beam-CSD modes: 4.3692% (bound: 5.0000%)'
-      digest: 924b7b12c400e460
+      margin_pct: 4.0552
+      text: 'mode 2 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 4.0552% (bound: 5.0000%)'
+      digest: 058e85f2d04f7e3f
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_berna.3
@@ -328,8 +328,13 @@ rows:
       justified: true
       justification: extracted from the code; whether the justification holds is adjudicated in the pilot (T6)
     measured:
-      status: not_measured
-      margin_pct: null
+      status: measured
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: null
+      margin_pct: 4.4589
+      text: 'mode 3 against the beam CSD vs Bernardi et al. 2026, Table B1, the published beam-CSD modes: 4.4589% (bound: 5.0000%)'
+      digest: 600309c8db69c771
   flags: []
   notes: 'Derived by `validation_matrix extract` from the code alone: the human-facing description and the adjudicated reference land in the pilot''s T5/T6. No margin is measured yet.'
 - id: blade_iea15mw.test_blade_modal_frequencies_match_berna.4
