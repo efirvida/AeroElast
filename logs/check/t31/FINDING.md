@@ -47,3 +47,51 @@ Null. The 9.6 -> 20.5 % growth cannot come from T14's default. Note that T14m in
    (tip node count changes with the mesh).
 Decisive next probe (needs ccx, 1 run ~ <10 min): run the T14m deck, read element count and section
 thickness from the .inp and per-set EA from AE, one table.
+
+---
+# Part 2: deck audit on T7e (f28d0ae) and T14m (ad5f3ac). Null again: the CCX deck is the same structure as our model.
+
+Probes: `deck_probe.py`, `quality_probe.py`; logs `deck-{T7e,T14m}.log`, `quality-{T7e,T14m}.log`. Decks written exactly as
+`test_blade_parity_ccx[tip_axial_tension]` (es 0.25, quadratic, span (0,0,1)) into `$SCRATCH/tmp/t31-<tree>/d.inp`. CCX not run.
+
+| item | T7e | T14m |
+|---|---|---|
+| mesh nodes / elements | 32,515 / 33,673 | 33,935 / 35,120 |
+| deck elements (S8R + S6) | 33,673 (33,579 + 94) | 35,120 (35,004 + 116) |
+| elements dropped | 0 | 0 |
+| element sets (laminate props / isotropic dict) | 9,210 (8,872 / 338) | 11,758 (11,420 / 338) |
+| sets without a section in the deck; deck ELSET count != mesh | 0; 0 | 0; 0 |
+| ply thickness deck vs ours (max rel) | 3.8e-7 | 3.6e-7 |
+| A11 (Q11 CLT, 0 deg) deck vs ours: median / max rel | -1.5e-10 / 4.6e-7 | -1.5e-10 / 4.6e-7 |
+| sum(A11*area) deck/ours | 1.000000 | 1.000000 |
+| isotropic TE_FLAT dict sets: E, nu, t deck vs ours | 3.44e9, 0.3, 1 mm = same | same |
+| root BC | NROOTNODES 1-6 = 0, 136 nodes (68 corner + 68 mid); ours clamps the 68 corners | same |
+| tip load | NTIP DOF3 = 3.125e4 on 32 nodes (corner+mid) = 1e6; ours 62,500 on 16 corners = 1e6 | same |
+| mesh z range, tip plane extent | 0..117 m, 1e-13 | same |
+
+Ours-side EA by 20 m band (sum A11*area/20, N), T7e -> T14m: 3.552e10->3.554e10, 2.295e10->2.293e10, 2.342e10->2.342e10,
+1.935e10->1.936e10, 1.017e10->1.018e10, 1.68e9->1.69e9. The axial stiffness is unchanged (< 0.6 %) between the trees.
+
+Mesh quality (identical in both trees, so not the T7e->T14m driver): quads 33,579 / 35,004; aspect median 1.21 / 1.23,
+p99 83 / 83, max 168 / 170, n(aspect>10) 656 / 670, all at z > 60 m (382 at 60-100, 274-280 at 100-117; the TE flat strips);
+warp up to 0.48 of the edge length on ~61 / 63 elements; 30 / 20 elements with area < 1e-4 m2.
+
+## What this says
+1. Nothing in the deck differs from our model at section level (thickness, A11, materials, element set coverage,
+   total load). The BC/load split differs only by node population (corners vs corners+midside); same total, same on both trees.
+2. The case named "axial" is not axial. u_axial = F L / EA ~ 1e6 * 117 / 2.3e10 = 5 mm, but the tip response is 6.2 m
+   in our model on T7e, so it is eccentric-load flexure/torsion on a prebent, twisted blade. EA is identical on both trees
+   while W grows +24 % (ours) and +41 % (CCX) T7e -> T14m, so the growth is in flap/edge/torsion stiffness, and the 9.6 -> 20.5 %
+   gap is the gap in those, amplified. This agrees with the S-1 GJ move (5.05 -> 10.18 %).
+3. The gap sign (CCX more flexible) was not explained by orientation (part 1) or sections (above). What remains is the
+   formulation: MITC4 (flat, 4-node) on warped (up to 0.48) / high-aspect (up to 170) TE-strip elements vs S8R curved
+   quadratic. The set count and the TE/web changes between T7e and T14m raise the flexural share; the deck cannot tell which
+   change did it. This is inference; it was not measured.
+
+## Not found / next
+No tree change in the deck explains the extra ~11 pp. The decisive discriminant needs CCX runs: run `tip_flap`, `tip_edge`,
+`tip_torsion` and `tip_axial_tension` on both trees (T21's job.sbatch pattern, ~8 tasks, bigmem not needed) and compare
+the components of the tip displacement (axial/flap/edge/twist) and W per case. If flap/edge/torsion gaps are each < 5 %
+on T14m while the axial case is 20 %, the case is an eccentricity amplifier and should be replaced, not widened. A second
+cheap AE-only test: re-solve T14m with the warped TE-flat elements (warp > 0.05) excluded from the comparison metric
+or refine es to 0.125 and check whether the W gap closes (the docstring table shows axial 12.6 -> 3.3 % across es 2 -> 0.25).
