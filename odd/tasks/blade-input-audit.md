@@ -463,6 +463,44 @@ stale.
 - **Mesher gaps exposed:** 3 webs, a partial-span TE web, and v2 `anchors`/`plane_intersection` placement are not
   supported by the current mesher or reader. These are T18/T17 scope.
 
+## Handoff 3 (2026-10-24, session 3; written while jobs run)
+
+**Resume.** `mem_search "blade-input-audit"`, then read this section, then "T9 integration", "GJ gap and reference
+provenance" and the Tasks list.
+
+**Branch.** `l3/twist-p1` at bd18fae, local only. Merged this session:
+- the T9 candidates (T7d through T12);
+- G10 (linear layer thickness) and G10b (linear nd_arc bounds);
+- T14 (span_direction default) and T15 (G8, G9, ValueErrors, d from corner);
+- T22 (ply-order test fix).
+
+Not merged:
+- `fix/s1-gj-metric` (a null result);
+- `fix/ccx-parity-work` (T21, worker in flight).
+
+**Results that land on disk; read them, do not rerun.**
+
+| what | output | compare against |
+|---|---|---|
+| G10b | `logs/check/input-fix/capture-G10b.pkl`, `pytest-G10b.log` | `capture-G10.pkl` |
+| T15m (d5d0fd2: G10b + T15) | `capture-T15m.pkl` | `capture-T14m.pkl` (ad5f3ac) |
+| DECKY (ad5f3ac with the deck-era yaml `deef925e`) | `capture-DECKY.pkl` | `capture-T14m.pkl`; separates the root TE reinforcement and the tip chord grid |
+| T21 work metric | branch `fix/ccx-parity-work`, worktree `$SCRATCH/wt/input-fix-CCXW`, `logs/check/t21/` | |
+| GJ dip 0.66-0.74 | `logs/check/gj-dip/REPORT.md` | |
+
+Run each comparison with `python logs/check/input-fix/compare.py <a.pkl> <b.pkl>`.
+
+**Next, in order:**
+1. Read the five results.
+2. T21: if the work metric passes on the combination, merge `fix/ccx-parity-work` and run the blade suite with CCX
+   on SLURM (`logs/check/input-fix/t9-blade.sbatch` pattern).
+3. Act on the GJ dip report.
+4. T9.7: restamp the L3 rows on the final tree, against 9f72c6b and T9. Register every moved anchor as a finding.
+5. Full suite on SLURM before any merge to main.
+
+**Rules (user L18).** Do any unblocked work toward a physically realistic model without asking. No band, anchor or
+contract.yaml change. One candidate per commit, RED first, measured on SLURM.
+
 ## T9 integration (session 3, 2026-10-23, user L14)
 
 **Merges into `l3/twist-p1`.** ceca579 T7e (contains T7d), b7dafdd T10, 93df15e T8, 4c9372d T8w, ea28216 T11,
