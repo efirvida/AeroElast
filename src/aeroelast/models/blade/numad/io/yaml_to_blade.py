@@ -377,10 +377,10 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict):
             cur_comp.fabricangle = np.mean(i_component_data["fiber_orientation"]["values"])
         finally:
             pass
-        if "spar" in i_component_data["name"].lower():
-            cur_comp.imethod = "pchip"
-        else:
-            cur_comp.imethod = "linear"
+        # One span scheme for every layer, linear on the yaml grid (as WISDEM <= v3.2 and the audit
+        # reference). NuMAD used pchip when the name contained "spar"; a pchip option is planned
+        # (odd/tasks/blade-input-audit.md, G10).
+        cur_comp.imethod = "linear"
         # cur_comp.control_points[:,0] = np.transpose(i_component_data['thickness']['grid'])
         cptemp1 = np.transpose(i_component_data["thickness"]["grid"])
         temp_n_layer = (
@@ -615,9 +615,9 @@ def update_internal_structure(blade_internal_structure, blade_outer_shape_bem):
                     (fullSpanGrid >= startStationLoc) & (fullSpanGrid <= endStationLoc)
                 )[0]
 
-                # iterpolate fullSpanGrid locations onto layer grid defined in the yamle file for the layer
+                # resample the layer onto fullSpanGrid, linearly as every layer is evaluated (G10)
                 subSpanValues = interpolator_wrap(
-                    grid, values, fullSpanGrid[subSpanGridIndex], "pchip"
+                    grid, values, fullSpanGrid[subSpanGridIndex], "linear"
                 )
                 fullSpanValues = np.zeros(nStations)
 
