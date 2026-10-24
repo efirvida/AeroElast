@@ -58,9 +58,10 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T16 | S5 | - | deferred to the second mesh-correction iteration (user L8), after T9/T14/T15 | multi-blade `RotorMesh` fibre direction: blades i>0 are rotated by i*2pi/n about y (`generators.py:1569`) but `span_direction` is one global vector (`assembler.py:457`), so on the 3-blade rotor (e.g. `tests/IEA15MW/frontiersin_2025_yaw/solid_corotational_sharpy_yaw_0.yaml`, explicit [0,0,1]) blades 2 and 3 get the fibre ~60 deg off their span (estimate). Pre-existing; found while reviewing T14. Likely fix: per-element radial span direction about the rotor axis (assembler or Rust). G6-G9: planar z sections ignore the prebend tilt; flat-TE half-face cubic with repeated control points (fold at >= 4 elements); web control weights 0.6666/0.3333; `L = ceil(z_tip)`; also the open `d` measured from the flat-back face midpoint and the never-raised `ValueError`s in `yaml_to_blade.py`
 - T17 | - | explore | inventory running; separate feature after the second iteration (user L9) | multi-turbine cross-check: inventory the IEAWindSystems RWT repos (windIO version, BeamDyn/6x6 and the tool that produced it, OpenFAST tests, docs), primary goal (user L10): close every possible meshing error, so run the input audit and the mesh checks on each ingestible blade first (clamps and guards the IEA 15 MW never binds); then pick a second blade for S-1, pre-register which hypotheses it discriminates (EA/EI_edge bias systematic or turbine-specific; deck missing TE band mass; G1 lofting; mesher clamps not exercised by IEA 15 MW)
 - T18 | - | - | future, separate feature (user L11) | generic windIO importer for any version: detect the version, normalise to one canonical internal form (prefer the official windIO converters/schema if they cover v1->v2; to check), validate against the windIO schema, one reader downstream. Acceptance idea: the upstream IEA-15 windIO v2 file and our v1 file give the same mesh and the same audit. Today `yaml_to_blade.py` reads v1 only. Prerequisite for T17 on v2 turbines
-- T19 | S5 | parent | G10 in progress on fix/input-G10 (off 61cf5b0) | uniform linear span interpolation of layer thickness (`yaml_to_blade.py` imethod and the `update_internal_structure` resample); user L16
+- T19 | S5 | parent | done 554fefd (fix/input-G10), merged df4c210; measured vs T9: S-1 <= 0.014 pt, S-2 LC2 -0.10 pt, LC1 +0.04, LC3 -0.05, mass -2 kg (SLURM, `capture-G10.pkl`) | uniform linear span interpolation of layer thickness (`yaml_to_blade.py` imethod and the `update_internal_structure` resample); user L16
 - T20 | - | - | planned, not implemented, on demand (user L16) | `span_scheme="pchip"` option, one scheme for every layer, for T17 turbines whose reference comes from WISDEM >= PR #419. Also open: `stackdb.py:196` pchip on nd_arc_start along the span; `excel_to_blade.py` pchip (UTD xlsx path, disowned input)
-- T21 | S5 | parent | pending | CalculiX `tip_axial` parity breaks only in the T7e x T8w combination: diagnose
+- T21 | S5 | parent | diagnosing (worker) | CalculiX `tip_axial` parity breaks only in the T7e x T8w combination: diagnose
+- T22 | S5 | parent | done 091e17d | `test_innermost_yaml_layer_is_on_the_inner_face` was red on T12 alone (it read the audit's outer-first listing as raw laminate order); now: every skin stack outer to inner is a subsequence of the yaml layer materials
 Order fixed by user L5: T7a, T7b, T10, T8, T11, T12, T13, T9, then T14, T15 (user L6: not in the order does not mean not fixed).
 Parallel execution (user L6): each candidate in its own worktree/branch off the T7a/T7b base, measured against that base; the parent integrates in order; T9 measures the combination.
 - T8 | S5 | parent | pending | C and E, chord at 0.97 and the web attachment at 0.30: diagnose, fix if they are defects
@@ -560,6 +561,15 @@ F3/F5 diagnosis (explore, from the logs on disk plus hand calculation; per-branc
       0.95-0.99.
     - So G10 cannot move the S-1 window numbers. It is a consistency and robustness question (the name heuristic),
       plus the 0.97 audit row.
+- **Re-audit after G10** (df4c210, `logs/check/input-audit-G10/`). F5 passes at every station; the 0.97 axial goes
+  from -1.58 % to a pass. F3 fails per station: 0.30: 22, 0.60: 2, 0.90: 8, 0.97: 28 -> 18.
+  - The 0.97 cap totals now pass.
+  - The 10 remaining cap fails are `Spar_Cap_SS/PS` ply -1.24 % (tolerance 1 %), on the A/B/C pieces of row 635.
+    This is the row-mean share the diagnosis predicted. The laminate is the mean over the 0.126 m element row
+    (T7e), and the audit cut sits 9 mm inside that row's inboard end, where the cap drops from 6 to 1 mm.
+  - **Justified as the Rule 9 discretisation** (the laminate resolution is the element row), not a translation
+    defect.
+  - With the 40 T6 smear fails, every remaining F3 fail is justified. `check.sh quick` OK on df4c210.
 - **Ruled out:** T12 ply order (per-ply checks run only when the order matches, `audit_blade_input.py:617-629`); the
   T6/T11 clamps (they move the edges, not the mechanism); audit-tool artefacts.
 
