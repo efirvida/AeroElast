@@ -20,11 +20,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the OpenFAST BeamDyn static driver on the official deck (K8/K9), not our own beam; the in-house EB beam is printed as a comparison only. BeamDyn p40-p60 move <= 0.13 %.'
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
-      raw: 0.074393
-      margin_pct: 7.4393
-      text: 'S-2 LC1 gravity tip uy es 0.25 official blade, mid-surface: shell -2.065477 m vs BeamDyn p60 -2.231483 m, signed error -7.4393 %, bound 5 % FAIL (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d; 7d20c81 -7.4188 %, move -0.02 pp).'
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 0.052584
+      margin_pct: 5.2584
+      text: 'S-2 LC1 official blade: shell -2.114143 m vs BeamDyn p60 -2.231483 m, -5.2584 % (FAIL); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
     expected: -2.231483
   flags: []
   notes: Judged against BeamDyn p60 (K9) at 44ebffa; earlier in-house beam comparison superseded. Verdict in contract.yaml.
@@ -48,11 +48,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the OpenFAST BeamDyn static driver on the official deck (K8/K9), not our own beam; the in-house EB beam is printed as a comparison only. BeamDyn p40-p60 move <= 0.13 %.'
     measured:
       status: measured
-      run: 7d20c81
-      date: '2026-10-22'
-      raw: 0.036997
-      margin_pct: 3.6997
-      text: 'S-2 LC2 tip flap tip uy es 0.25 official blade, mid-surface: shell 79.229376 m vs BeamDyn p60 82.273278 m, signed error -3.6997 %, bound 5 % (SLURM 11621861 at 7d20c81, after the MITC3 composite span-frame fix; pre-fix 44ebffa -3.6807 %). es 0.125 not re-measured after the fix (44ebffa -4.0484 %). In-house EB beam 68.391358 m (+15.8471 %) printed, not asserted. Printed, not asserted (K9.3: node/ring tip uy differ 9-11 %, not a clean metric).'
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 0.025361
+      margin_pct: 2.5361
+      text: 'S-2 LC2 official blade: shell 80.186786 m vs BeamDyn p60 82.273278 m, -2.5361 % (PASS); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
     expected: 82.273278
   flags:
   - info_only
@@ -77,11 +77,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference admitted by K11.3: p50-p60 0.047 %, scale 1e-4 vs 2e-4 0.0005 %. The 0.9-1.2 band against the in-house EB beam is removed.'
     measured:
       status: measured
-      run: 7d20c81
-      date: '2026-10-22'
-      raw: 0.169097
-      margin_pct: 16.9097
-      text: 'S-2 LC3 tip ux official blade, mid-surface: es 0.25 shell 40.298119 m vs BeamDyn p60 34.469441 m, +16.9097 % (SLURM 11621861 at 7d20c81, after the MITC3 composite span-frame fix; pre-fix 6318955 +16.9442 %). es 0.125 not re-measured after the fix (6318955 +17.8942 %). Node vs tip-ring mean +1.1842 % > 0.5 %, so not a clean metric (K11.3): printed, not asserted. In-house EB beam 32.345469 m (ratio 1.2459) printed only.'
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 0.102553
+      margin_pct: 10.2553
+      text: 'S-2 LC3 official blade: shell 38.004389 m vs BeamDyn p60 34.469441 m, +10.2553 % (not asserted (K11.3)); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
     expected: 34.469441
   flags:
   - info_only
@@ -106,11 +106,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the OpenFAST BeamDyn static driver on the official deck (K8/K9), not our own beam; the in-house EB beam is printed as a comparison only. BeamDyn p40-p60 move <= 0.13 %.'
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
-      raw: 0.062659
-      margin_pct: 6.2659
-      text: 'S-2 LC4 distributed tip uy es 0.25 official blade, mid-surface: shell 8.494776 m vs BeamDyn p60 9.062631 m, signed error -6.2659 %, bound 5 % FAIL (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d; 7d20c81 -6.2268 %, move -0.04 pp).'
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 0.054831
+      margin_pct: 5.4831
+      text: 'S-2 LC4 official blade: shell 8.565719 m vs BeamDyn p60 9.062631 m, -5.4831 % (FAIL); blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
     expected: 9.062631
   flags: []
   notes: Judged against BeamDyn p60 (K9) at 44ebffa; earlier in-house beam comparison superseded. Verdict in contract.yaml.

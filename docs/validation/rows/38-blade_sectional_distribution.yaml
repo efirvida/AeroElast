@@ -20,11 +20,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
     measured:
       status: measured
-      run: 9f72c6b
-      date: '2026-10-23'
-      raw: 0.088212
-      margin_pct: 8.8212
-      text: 'S-1 EI_edge es 0.25, section tangent frame (cbe6345): mid-span mean |rel err| 8.8212 % (signed -7.5057 %, n=32) vs BeamDyn elastic-centre principal EI, bound 5 % FAIL (SLURM 11623055 capture at 9f72c6b, logs/check/restamp-9f72c6b/pytest-s1s2v3.log and capture-s1s2v3.pkl; was 11.45 % in the global frame at 7dfe78d).'
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 0.080088
+      margin_pct: 8.0088
+      text: 'S-1 edgewise_ei: mid-span mean |rel err| 8.0088 % (signed -1.8938 %) vs BeamDyn, bound 5 % FAIL; blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
     expected: null
   flags: []
   notes: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml.
@@ -48,11 +48,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck reduced to the elastic centre and principal axes (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup.'
     measured:
       status: measured
-      run: 8e5ee61
-      date: '2026-10-20'
-      raw: 0.053104
-      margin_pct: 5.3104
-      text: 'S-1 EI_flap es 0.125, skin on mid-surface: mid-span (n=32) mean |rel err| 5.3104 % (signed +4.0857 %) vs BeamDyn elastic-centre principal EI, bound 5 % FAIL; es 0.25 control 5.1666 % reproduced exactly (K7.1), move 0.14 pp <= 1 pp (K7.2) so 5.3104 % is the converged value and exceeds 5 % (K7.3). SLURM 11619975 (es 0.125), 11619956 (es 0.25 control).'
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 0.045318
+      margin_pct: 4.5318
+      text: 'S-1 flapwise_ei: mid-span mean |rel err| 4.5318 % (signed +3.8693 %) vs BeamDyn, bound 5 % PASS; blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
     expected: null
   flags: []
   notes: Measured at 8e5ee61 at es 0.125 (K7); es 0.25 at 19ff1a3 was 5.1666 %. Verdict in contract.yaml.
@@ -76,11 +76,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
     measured:
       status: measured
-      run: 19ff1a3
-      date: '2026-10-20'
-      raw: 0.022349
-      margin_pct: 2.2349
-      text: 'S-1 mass per length es 0.25, skin on mid-surface: mid-span (n=31) mean |rel err| 2.2349 % (signed +0.7272 %) vs BeamDyn, bound 5 % PASS. The previous block stored the signed value; the test asserts mean |rel err|; capture SLURM 11619652 (S-1/S-2/V-03) and 11619653 (S-4) at 19ff1a3, bit-identical to the B3-1r head capture (K1).'
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 0.035359
+      margin_pct: 3.5359
+      text: 'S-1 mass: mid-span mean |rel err| 3.5359 % (signed +2.2600 %) vs BeamDyn, bound 5 % PASS; blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
     expected: null
   flags: []
   notes: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml.
@@ -104,11 +104,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
-      raw: 0.050508
-      margin_pct: 5.0508
-      text: 'S-1 GJ es 0.25: mid-span mean |rel err| 5.0508 % vs BeamDyn, bound 5 % FAIL, 0.05 pp over (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d; S-1 printed values in logs/check/l3-fold-variant/s1-11622335.log (fix block) at 7dfe78d; 7d20c81 6.2193 %). Signed value not re-measured.'
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 0.101787
+      margin_pct: 10.1787
+      text: 'S-1 gj: mid-span mean |rel err| 10.1787 % (signed -9.7765 %) vs BeamDyn, bound 5 % FAIL; blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
     expected: null
   flags: []
   notes: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml. The level inventory records a GJ discrepancy.
@@ -132,11 +132,11 @@ rows:
       justification: 'Maintainer rule 2026-10-16: every L3 tolerance <= 5 %. Reference is the BeamDyn 6x6 deck (sectional arbiter, decision (b)); a pass is not independent confirmation of the layup. Red at 5 %: see odd/tasks/validation-l3-b3-audit.md ''B3-2 S-1 diagnosis''.'
     measured:
       status: measured
-      run: 7dfe78d
-      date: '2026-10-22'
-      raw: 0.075939
-      margin_pct: 7.5939
-      text: 'S-1 EA (CLT) es 0.25: mid-span mean |rel err| 7.5939 % vs BeamDyn, bound 5 % FAIL (full suite SLURM 11622087 (logs/check/full-20261022T160155.log) at 7dfe78d; S-1 printed values in logs/check/l3-fold-variant/s1-11622335.log (fix block) at 7dfe78d); unchanged from 19ff1a3 7.5939 %. Signed value not re-measured.'
+      run: d5d0fd2
+      date: '2026-10-24'
+      raw: 0.066779
+      margin_pct: 6.6779
+      text: 'S-1 ea: mid-span mean |rel err| 6.6779 % (signed +6.5626 %) vs BeamDyn, bound 5 % FAIL; blade input audit T9 tree (T7d..T12 + G10/G10b + T14/T15, yaml webs), es 0.25, skin on mid-surface; SLURM 11623286 (logs/check/input-fix/batch-input-fix-T15m-11623286.log, capture-T15m.pkl) at d5d0fd2.'
     expected: null
   flags: []
   notes: Measured at 19ff1a3 (B3-2 batch 1, es 0.25, skin on mid-surface); verdict in contract.yaml.
