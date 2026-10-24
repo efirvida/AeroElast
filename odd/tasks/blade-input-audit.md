@@ -69,7 +69,7 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T27 | S5 | worker | done, null result (no change) | Handoff 4 item 4, GJ gap at r/R 0.70 (S-1 FE/BD -19.4 %; checks at 0.45/0.50/0.60/0.80; mesh f354972 = d5d0fd2 blade code, es 0.25 mid). Per-region A66 mesher vs the yaml stack SONATA was fed: <= 0.7 % (residuals are region averaging), so laminate shear contributes +0.2 pt. Thin Bredt -14.8 % (yaml laminate -14.6 %); thick-wall open-section term +2.0 pt (-12.8 %); wall path at the shear centroid -0.2 pt; FE below its own Bredt -4.6 pt here, scattered -7.2..+9.0 pt by station. Unexplained -12.8 pt, growing smoothly with span (-2.9 at 0.45 to -14.1 at 0.80); closing it needs an enclosed area ~8 % larger (wall 17.5 mm outside the mid-surface, past the OML) or wall G x1.17. Lead (inferred): reference-side section geometry, which joins T13 (reference lofting of relative thickness not established). Limit: no per-section SONATA/ANBA output, only BeamDyn K66 and the input yaml; ANBA's 3D lamina law not quantified. `logs/check/gj/FINDING.md`
 - T28 | S5 | - | deferred to its own session (would move the geometry under the T25 restamp) | Handoff 4 item 6: second mesh iteration, T16, G6, `element_utils.py:78` divide warning; plus T24(a) TE_FLAT glass extent, measured on S-4/V-02/S-2
 - T29 | S5 | worker | row 20 done 88b001e; row 5 still unmapped (open) | No test change needed: both tests already print through `assert_residual_below` (`tests/support/assertions.py`) in the declared pattern, and at HEAD `regression --group 20` maps all four comparisons (exit 0, no RED). Row 20 restamped: EA 0.0023 %, GKt 0.0049 % (bound 1 %), FlpStff 1.9239 %, EdgStff 1.8011 % (bound 2 %), all `same`. The T25 `unmapped` for G5/G20 is therefore an artefact of the restamp harness, not the tests; suspect (unverified): the git shim in PATH answers every git command with the hash. G5 rerun from the main repo, its stored high-mode gap 13.98 % already exceeds 5 %. **Correction:** SLURM 11623416 ran `regression --group 5 --write` from the main repo (no git shim) and still returned `unmapped` (0 printed residuals for 2 asserted comparisons, wrote 0, `logs/check/t29/g5.json`), so for G5 the shim hypothesis is not the explanation and the worker's "already prints" was not verified for G5. Next: run the G5 test once with `-s` and read what it prints (it is ~25 min, SLURM) or read the test for the branch where `assert_residual_below` is not reached; row 5 stays stale.
-- T30 | S5 | worker | recorded, NOT merged (fix/input-T30 5edd82c, worktree input-fix-T30) | T24(a) fix: TE band extent [d,e] (`yaml_to_blade.py:449-460`); RED/GREEN on tests/test_blade_te_flat_glass.py, ruff clean; neighbouring tests/test_blade_*.py not completed (login timeout; one F in test_blade_ccx_parity, not compared with d5d0fd2). SLURM 11623402 (S-1/S-2/V-03), 11623403 (S-4/V-02) vs d5d0fd2: as predicted V-03 mass -0.55 % (66,783 kg), EI_edge signed -1.89 -> -5.08 %, S-4 1E +0.56 -> -3.09 % (parked) / +0.44 -> -3.00 % (rated), V-02 1E 8.84 -> 4.90 % (now in band), EI_flap and 1F unchanged, LC3 +10.26 -> +15.67 %; **not predicted:** S-1 GJ mean |rel err| 10.18 -> 100.36 % and S-4 2F +0.20 -> -7.53 % (parked) / +0.06 -> -7.39 % (rated), 2F newly OUT. Parent check (inline, Blade stackdb on both trees): the 104 `*_TE_FLAT` stacks drop from a median summed ply thickness of 30.9 to 1.0 (same units), only Shell_skin, Shell_skin_inner and UV_protection remain: the flat-back face, which closes the TE cell, becomes almost empty, which plausibly explains GJ and the torsion-coupled 2F (inferred, not measured). Open question that decides T24(a): what closes the flat-back in the reference (the yaml arcs, and how SONATA/ANBA built the BeamDyn K66 there); a 1-unit flat-back wall is not physically credible for this blade. `logs/check/t30/FINDING.md` (worker table).
+- T30 | S5 | worker | recorded, NOT merged (fix/input-T30 5edd82c, worktree input-fix-T30) | T24(a) fix: TE band extent [d,e] (`yaml_to_blade.py:449-460`); RED/GREEN on tests/test_blade_te_flat_glass.py, ruff clean; neighbouring tests/test_blade_*.py not completed (login timeout; one F in test_blade_ccx_parity, not compared with d5d0fd2). SLURM 11623402 (S-1/S-2/V-03), 11623403 (S-4/V-02) vs d5d0fd2: as predicted V-03 mass -0.55 % (66,783 kg), EI_edge signed -1.89 -> -5.08 %, S-4 1E +0.56 -> -3.09 % (parked) / +0.44 -> -3.00 % (rated), V-02 1E 8.84 -> 4.90 % (now in band), EI_flap and 1F unchanged, LC3 +10.26 -> +15.67 %; **not predicted:** S-1 GJ mean |rel err| 10.18 -> 100.36 % and S-4 2F +0.20 -> -7.53 % (parked) / +0.06 -> -7.39 % (rated), 2F newly OUT. Parent check (inline, Blade stackdb on both trees): the 104 `*_TE_FLAT` stacks drop from a median summed ply thickness of 30.9 to 1.0 (same units), only Shell_skin, Shell_skin_inner and UV_protection remain: the flat-back face, which closes the TE cell, becomes almost empty, which plausibly explains GJ and the torsion-coupled 2F (inferred, not measured). Open question that decides T24(a): what closes the flat-back in the reference (the yaml arcs, and how SONATA/ANBA built the BeamDyn K66 there); a 1-unit flat-back wall is not physically credible for this blade. `logs/check/t30-FINDING.md` (worker table).
 - T31 | S5 | worker | null result (frame and deck content); per-case CCX probe submitted | T21 lead (fibre/material frame) ruled out: the parity test passes span_direction=(0,0,1) explicitly (`tests/test_blade_ccx_parity.py:135,272`), so the T14 default never enters; our fibre (`assembler.rs:257-325`, `geometry.rs:37-118`) vs the CCX *ORIENTATION (`writers.py:1480-1640`) on the whole es 0.25 mesh (35,012 elements): median 0.0004 deg, p95 0.011, max 0.050 (half the 0.1 deg rounding); all plies 0 deg. Sign also excludes it: W_AE < W_CCX, our model is the stiffer one. The 9.6 -> 20.5 % growth comes from another change in the T14m combination tree. Next suspects: elements dropped from the CCX deck (`writers.py:120`), section content per set (thickness, EA), S8R vs MITC4 under the lumped tip load, root BC/load split. Probe caveat: our side is a NumPy port of the Rust formula. `logs/check/t31/FINDING.md` Part 2 (deck read on T7e and T14m, CCX not run): same structure on both sides, 0 dropped elements, 0 missing sections, ply thickness and A11 deck vs ours <= 4.6e-7, sum(A11*area) ratio 1.000000; root BC and tip load equivalent (corner vs corner+midside nodes, 1e6 N). EA per 20 m band moves < 0.6 % T7e -> T14m, while W rises 24 % (ours) and 41 % (CCX): `tip_axial_tension` is an eccentric-load flexure/torsion case (tip response 6.2 m vs ~5 mm pure extension on the prebent, twisted blade), so the growth is in flap/edge/torsion stiffness, matching the S-1 GJ move. Likely (not measured): MITC4 vs S8R on warped, high-aspect TE strips (462 elements aspect > 50 at z > 60 m, warp <= 0.48 edge). Next: CCX `tip_flap`, `tip_edge`, `tip_torsion`, `tip_axial_tension` on both trees, components and W per case; if flap/edge/torsion < 5 % and axial 20 %, replace the case (an eccentricity amplifier), never widen it; es 0.125 as the convergence check. Submitted: SLURM 11623421-24 (T7e flap/edge/torsion/axial, es 0.25), 11623425-28 (T14m same), 11623429 (T14m axial es 0.125, 8 h); prediction in `logs/check/t31/job.sbatch`; torsion is a 5e6 N m force couple about z as tip-node forces (no couple path in the writer); read with `scripts/aeroenv.sh python logs/check/t31/read_percase.py` (untested until outputs exist).
 Order fixed by user L5: T7a, T7b, T10, T8, T11, T12, T13, T9, then T14, T15 (user L6: not in the order does not mean not fixed).
 Parallel execution (user L6): each candidate in its own worktree/branch off the T7a/T7b base, measured against that base; the parent integrates in order; T9 measures the combination.
@@ -470,6 +470,51 @@ stale.
   that chain. Check whether the IEA-15 deck mass excludes some yaml layers before blaming the TE band.
 - **Mesher gaps exposed:** 3 webs, a partial-span TE web, and v2 `anchors`/`plane_intersection` placement are not
   supported by the current mesher or reader. These are T18/T17 scope.
+
+## Handoff 5 (2026-10-24, session 4 close at ~170 k context; user L20/L21)
+
+**Resume.** Read this section and the Tasks lines T21, T24-T31. Engram was unavailable all session (server ownership
+mismatch at 127.0.0.1:7437), so this file is the only record; fix Engram or keep resuming from here.
+
+**State.** `l3/twist-p1`, local only, not pushed, about 8.2 k authored lines in 90 commits since origin/main; every
+commit of this session is docs/validation or docs/odd. No blade code changed since d5d0fd2. Candidates not merged:
+`fix/ccx-parity-work` (T21, uncommitted metric diff in worktree input-fix-CCXW) and `fix/input-T30` (5edd82c).
+
+**Done this session.**
+- T25: blade rows restamped at d5d0fd2 (c4b548d). S-7 torsion ratio 0.09 -> 7.25 %, crosses 5 % (finding). V-02 1F 7.09, 1E 8.84 % (still out).
+  S-4 all six in band vs BeamDyn p20. Row 20 restamped (88b001e). Row 5 still stale (T29).
+- T21: load-work CCX parity fails 5 % on every tree (9.6 / 10.6 / 20.5 %); recorded, not merged.
+- T26 DECKY: root TE reinforcement does not move LC3 (+0.47 pp, wrong sign).
+- T27 GJ: null for laminate shear (+0.2 pt) and thick wall (+2 pt); -12.8 pt unexplained, reference geometry suspected (joins T13).
+- T24: (a) TE_FLAT glass is a translation defect; (b), (c) are the mid-surface inset (yaml-faithful); OML root surplus open.
+- T31: no fibre-frame or deck-content mismatch in the CCX parity; `tip_axial_tension` is eccentric flexure/torsion.
+- T30: the T24(a) fix empties the flat-back wall (median 30.9 -> 1.0); GJ 100 %, 2F -7.5 %; recorded, not merged.
+
+**Running on SLURM; read the results, do not rerun.**
+
+| job | what | read with |
+|---|---|---|
+| 11623361 | full suite at a35bba3 (pinned worktree `$SCRATCH/wt/full-a35bba3`), 8 h bigmem; was at ~66 % after 2 h 47 min | `logs/check/full-a35bba3-11623361.log`; check log copied to `logs/check/full-*.log` |
+| 11623421-28 | T31 CCX per case (flap, edge, torsion, axial) on T7e and T14m, es 0.25 | `scripts/aeroenv.sh python logs/check/t31/read_percase.py` (untested) |
+| 11623429 | T31 T14m axial at es 0.125 (convergence) | same |
+
+**Next session, in order.**
+1. **Close T25** from 11623361: compare the failures with `scripts/known-red-full.txt`; re-derive known-red only with
+   `scripts/check.sh full --record` on that run; any new failure outside the blade anchors is a finding.
+2. **T31 verdict** from the per-case table, with the rule fixed before the run: flap/edge/torsion < 5 % with axial ~20 %
+   means the case is an eccentricity amplifier, to be replaced by a well-posed one (never widened); otherwise a real
+   MITC4 vs S8R stiffness gap on the warped TE strips (462 elements aspect > 50 at z > 60 m).
+3. **T30/T24(a) decision:** what closes the flat-back in the reference? Read the yaml arcs at the flat-back and how
+   SONATA/ANBA meshed it for the BeamDyn K66. Then: keep the glass (if the reference closes the cell with it), or move
+   the closing laminate (if it does not), and re-measure GJ and 2F. Do not merge 5edd82c as it stands.
+4. **T29 row 5:** run the G5 test once with `-s` (~25 min, SLURM) and find why `assert_residual_below` prints nothing
+   for the mapper.
+5. **T27 lead:** the reference section geometry (T13, relative-thickness lofting), the -12.8 pt GJ gap growing with span.
+6. **T28** (own session): second mesh iteration, T16, G6, `element_utils.py:78`.
+7. Before any merge to main: the full suite and maintainer review; slicing the ~8.2 k-line branch is the maintainer's call.
+
+**Cleanup when done.** Worktrees: `restamp-a35bba3` (+ `.pp`, `$SCRATCH/gitshim-d5d0fd2`), `input-fix-T30` (+ `.pp`),
+`full-a35bba3` after 11623361; decks under `$SCRATCH/tmp/t31-*`.
 
 ## Handoff 4 (2026-10-24, session 3 close; user: "haz el resellado de L3 y luego cierra la sesion")
 
