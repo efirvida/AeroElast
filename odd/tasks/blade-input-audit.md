@@ -707,6 +707,22 @@ worker; section-level calculations, no FE solve (`logs/check/gj-gap/`, `results.
   3. Inspect the rings at 0.81-0.835 offline (`logs/check/gj-dip/mesh_ad5f3ac.pkl`, `solve-ad5f3ac.pkl`).
   4. The root FE deficit (es 0.125 or a thick-wall Bredt).
   5. The user decides the reference policy for GJ (see L19).
+- **SONATA web placement, measured: the premise of L19 is refuted** (worker; `logs/check/sonata-webs/REPORT.md`; vector
+  extraction of the upstream 827a69ee section PDFs at r/R 0.2-0.8).
+  - SONATA put the webs at the yaml `start/end_nd_arc` (mean +0.003, max 0.010 nd_arc), 0.69-0.71 m apart
+    (2 x `offset_y_pa`).
+  - The CarbonUD caps (0.89-0.91 m chordwise) match the yaml cap arcs. Each web sits 0.09-0.10 m of arc inside the
+    nearest cap end.
+  - The parent's visual reading of the 0.6 plot ("webs at the cap ends") was wrong: the web meets the cap taper.
+  - The 827a69ee yaml and the deef925e yaml differ by <= 0.003 nd_arc on 0.2-0.8. deef925e equals ours.
+  - **Consequences.**
+    - Our yaml-faithful web geometry is the reference's geometry; G3 stands.
+    - The B0 (cap-edge webs) agreement with BeamDyn GJ was a cancellation.
+    - **The S-1 GJ gap (-5 % at 0.45 to -15 % from 0.70, Bredt and FE alike) is real and unexplained by web placement.**
+      Open hypotheses (inference): web/cap/skin laminate in-plane shear (A66, the biax/triax G12), and how the
+      reference section tool (SONATA/ANBA4: warping, thick walls) computes torsion against the thin-wall shell.
+  - The GJ anchor stays red as an open finding. No band touched; L19's "reference built with another web placement"
+    is withdrawn.
   - Measure the deck-era yaml as input (worktree DECKY, `submit_wait.sh DECKY`) against the same tree with the
     official yaml (T14m, ad5f3ac). The root TE reinforcement can move S-2 even though S-1 cannot see it.
 
