@@ -1030,11 +1030,20 @@ class BladeMesh:
         Interior/web-only nodes are untouched; shared skin/web boundary nodes
         follow the skin. Applied once to each generated mesh before use.
         Not the default because the OML is the CFD/FSI coupling surface.
+    laminate_per_row : bool, optional
+        Default True. Each NuMAD (region, bay) holds one bay-mean laminate (two-point Gauss over
+        the bay), so with the yaml stations (about 2.4 m on the IEA 15 MW) a tapering layer is
+        wrong by up to 11 %. The spanwise element rows are cut from ``element_size`` and the
+        span grading exactly as in the native mesh, independent of the laminate; this option
+        then inserts a NuMAD station at every native row boundary and forces one row per bay
+        (chordwise counts follow the native mesh), so the mesh is unchanged and each row carries
+        the mean laminate over its own extent. False gives the native mesh, one laminate per
+        yaml bay (``odd/tasks/blade-input-audit.md``, T7e).
     max_bay_length : float or None, optional
-        Longest span bay between NuMAD stations, in metres (default 0.25). Each
-        (region, bay) holds one bay-mean laminate, so this is the spanwise
-        resolution of the laminate, independent of ``element_size``. ``None``
-        keeps the yaml grid as the stations (about 2.4 m on the IEA 15 MW).
+        Legacy: split every yaml bay longer than this [m] by extra NuMAD stations before the
+        mesher runs. The mesher then cuts ``ceil(bay / element_size)`` rows per bay, so the
+        spanwise element size follows the bay (0.119 m everywhere at 0.25 m, +47 % elements);
+        use ``laminate_per_row`` instead. Default None.
 
     Examples
     --------
@@ -1058,12 +1067,14 @@ class BladeMesh:
         airfoil_spacing: str = "cosine",
         include_webs: bool = True,
         skin_reference: str = "oml",
-        max_bay_length: float | None = 0.25,
+        max_bay_length: float | None = None,
+        laminate_per_row: bool = True,
     ):
         if skin_reference not in ("oml", "mid"):
             raise ValueError("skin_reference must be 'oml' or 'mid'")
         self.skin_reference = skin_reference
         self.max_bay_length = max_bay_length
+        self.laminate_per_row = laminate_per_row
         self.yaml_file = yaml_file
         self.excel_file = excel_file
         self.airfoil_dir = airfoil_dir
@@ -1141,6 +1152,7 @@ class BladeMesh:
             self._limit_bay_length(self.max_bay_length, verbose=verbose)
         if self.refine_tip:
             self._refine_high_gradient_sections(verbose=verbose)
+        span_plan = self._insert_row_stations(verbose=verbose) if self.laminate_per_row else None
 
         # Expand trailing edge
         n_stations = self._numad_blade.geometry.coordinates.shape[2]
@@ -1155,6 +1167,7 @@ class BladeMesh:
             self.element_size,
             spanGrading=self.span_grading,
             include_webs=self.include_webs,
+            span_plan=span_plan,
         )
 
         num_raw_nodes = len(self._numad_mesh["nodes"])
@@ -1186,8 +1199,35 @@ class BladeMesh:
 
         return mesh_model
 
+    def _insert_row_stations(self, verbose: bool = True):
+        """Put a NuMAD station at every spanwise row boundary of the native mesh.
+
+        The native mesh (``laminate_per_row=False``) is planned on a copy of the blade, trailing
+        edge expanded as it will be meshed. The stations of the real blade then include the row
+        boundaries, and ``get_shell_mesh`` cuts one row per bay, so each row gets its own
+        laminate while rows and node counts stay those of the native mesh.
+        """
+        import copy
+
+        from aeroelast.models.blade.numad.mesh_gen import get_shell_mesh
+
+        probe = copy.deepcopy(self._numad_blade)
+        probe.expand_blade_geometry_te(0.001 * np.ones(probe.geometry.coordinates.shape[2]))
+        plan = get_shell_mesh(
+            probe,
+            self.element_size,
+            spanGrading=self.span_grading,
+            include_webs=self.include_webs,
+            plan_only=True,
+        )
+        new = plan.row_boundaries
+        self._numad_blade.add_interpolated_stations(new)
+        if verbose and new.size:
+            print(f"      Added {new.size} stations (one laminate per element row)")
+        return plan
+
     def _limit_bay_length(self, max_bay_length: float, verbose: bool = True):
-        """Split every span bay longer than ``max_bay_length`` [m] into equal bays.
+        """Legacy: split every span bay longer than ``max_bay_length`` [m] into equal bays.
 
         Each NuMAD (region, bay) carries one laminate whose ply thickness is the bay mean, so a
         bay as long as the yaml grid step (about 2.4 m on the IEA 15 MW blade) cannot follow a

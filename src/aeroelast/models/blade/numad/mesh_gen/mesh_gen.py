@@ -7,7 +7,79 @@ from aeroelast.models.blade.numad.mesh_gen.surface import Surface
 from aeroelast.models.blade.numad.utils.interpolation import interpolator_wrap
 
 
-def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
+class SpanPlan:
+    """Element rows and chordwise counts of a native mesh, to be reproduced row by row.
+
+    A NuMAD (region, bay) holds one laminate and the mesher cuts each bay into
+    ``ceil(span / size)`` rows, so a laminate cannot follow a taper finer than the bay. The plan
+    records, for the native stations, the rows per bay and the chordwise element counts at the
+    bay ends. ``bind`` then maps the bays of a blade carrying extra stations (one per native row
+    boundary) onto it: every bay becomes one row, and ``counts`` returns the chordwise counts that
+    row has in the native mesh (the transition triangles of a bay sit in its end row).
+    """
+
+    def __init__(self, z, n_span):
+        self.z = np.asarray(z, dtype=float)
+        self.n_span = np.asarray(n_span, dtype=int)
+        self.chord_counts = {}
+        self._bay = None
+
+    @property
+    def row_boundaries(self):
+        """Interior z of every native row boundary (not a native station)."""
+        out = []
+        for b, n in enumerate(self.n_span):
+            lo, hi = self.z[b], self.z[b + 1]
+            out.extend(lo + (hi - lo) * np.arange(1, n) / n)
+        return np.asarray(out, dtype=float)
+
+    def bind(self, z_new):
+        """Map each bay of ``z_new`` onto (native bay, row in bay); check the row counts."""
+        z_new = np.asarray(z_new, dtype=float)
+        mid = 0.5 * (z_new[:-1] + z_new[1:])
+        native = np.clip(np.searchsorted(self.z, mid) - 1, 0, len(self.n_span) - 1)
+        rows = np.bincount(native, minlength=len(self.n_span))
+        if not np.array_equal(rows, self.n_span):
+            raise ValueError("blade stations do not hold the native rows of the span plan")
+        first = np.concatenate([[0], np.cumsum(rows)[:-1]])
+        self._bay = [(int(b), int(k - first[b])) for k, b in enumerate(native)]
+
+    def counts(self, key, i):
+        """Chordwise (inboard, outboard) counts of the row of new bay ``i``, or None."""
+        if self._bay is None:
+            raise RuntimeError("SpanPlan.bind() has not run")
+        b, k = self._bay[i]
+        ends = self.chord_counts.get((key, b))
+        if ends is None:
+            return None
+        n1, n3 = ends
+        peak = max(n1, n3)
+        rows = int(self.n_span[b])
+        if n1 < n3 and k == 0:
+            return n1, peak
+        if n3 < n1 and k == rows - 1:
+            return peak, n3
+        return peak, peak
+
+
+def _chordwise_counts(shellKp, elementSize, key, i, tip_rule, plan, record):
+    """Chordwise element counts at the inboard and outboard edges of a region."""
+    if plan is not None:
+        planned = plan.counts(key, i)
+        if planned is not None:
+            return planned
+    n1 = max(1, int(np.ceil(np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
+    n3 = max(1, int(np.ceil(np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
+    if tip_rule:
+        n3 = n1
+    if record is not None:
+        record.chord_counts[(key, i)] = (n1, n3)
+    return n1, n3
+
+
+def get_shell_mesh(
+    blade, elementSize, spanGrading="chord", include_webs=True, span_plan=None, plan_only=False
+):
     """
     This method generates a finite element shell mesh for the blade, based on what is
     stored in blade.geometry.coordinates, blade.keypoints.key_points,
@@ -27,6 +99,13 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
         meshed.  The result is the blade outer-mold-line surface, which is what
         a CFD wall boundary needs.  No ``*SW`` element sets, no
         ``allShearWebEls`` / ``allShearWebNods`` sets are produced.
+    span_plan: SpanPlan, optional
+        Plan of a native mesh whose stations are a subset of the blade's. Every bay of the
+        blade then gets exactly one element row, and the chordwise element counts follow the
+        plan, so the discretisation equals the native one while each row has its own laminate.
+    plan_only: bool
+        Build the ``SpanPlan`` of this blade (native row counts per bay) and return it
+        without meshing.
 
     Returns
     -------
@@ -251,6 +330,12 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
         np.ceil(_span_lead / _elSz_span[:, None]).astype(int),
     )
     nSpan = np.maximum(_nEl_span.max(axis=1), 1)
+    record = None
+    if plan_only:
+        record = SpanPlan(splineZi[0::3, 0], nSpan)
+    elif span_plan is not None:
+        span_plan.bind(splineZi[0::3, 0])
+        nSpan = np.ones(nSections, dtype=int)
 
     bladeSurf = Surface()
     ## Outer shell sections
@@ -351,10 +436,9 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
                 ]
             )
             # Per-edge chordwise + consistent nSpan spanwise
-            nEl1 = max(1, int(np.ceil(np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
-            nEl3 = max(1, int(np.ceil(np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
-            if i == rws - 2:
-                nEl3 = nEl1
+            nEl1, nEl3 = _chordwise_counts(
+                shellKp, elementSize, ("shell", j), i, i == rws - 2, span_plan, record
+            )
             nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
 
             bladeSurf.addShellRegion(
@@ -445,8 +529,9 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
             shellKp[14, :] = 0.6666 * shellKp[7, :] + 0.3333 * shellKp[10, :]
             shellKp[15, :] = 0.3333 * shellKp[7, :] + 0.6666 * shellKp[10, :]
 
-            nEl1 = max(1, int(np.ceil(np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
-            nEl3 = max(1, int(np.ceil(np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
+            nEl1, nEl3 = _chordwise_counts(
+                shellKp, elementSize, ("web", 0), i, False, span_plan, record
+            )
             nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
 
             bladeSurf.addShellRegion(
@@ -525,8 +610,9 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
             shellKp[14, :] = 0.6666 * shellKp[7, :] + 0.3333 * shellKp[10, :]
             shellKp[15, :] = 0.3333 * shellKp[7, :] + 0.6666 * shellKp[10, :]
 
-            nEl1 = max(1, int(np.ceil(np.linalg.norm(shellKp[1, :] - shellKp[0, :]) / elementSize)))
-            nEl3 = max(1, int(np.ceil(np.linalg.norm(shellKp[3, :] - shellKp[2, :]) / elementSize)))
+            nEl1, nEl3 = _chordwise_counts(
+                shellKp, elementSize, ("web", 1), i, False, span_plan, record
+            )
             nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
 
             bladeSurf.addShellRegion(
@@ -551,6 +637,9 @@ def get_shell_mesh(blade, elementSize, spanGrading="chord", include_webs=True):
             newSec["xyDir"] = (shellKp[1, :] - shellKp[0, :]) + (shellKp[2, :] - shellKp[3, :])
             secList.append(newSec)
         stPt = stPt + 3
+
+    if plan_only:
+        return record
 
     ## Generate Shell mesh
 

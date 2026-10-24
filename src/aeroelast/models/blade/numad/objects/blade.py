@@ -165,6 +165,21 @@ class Blade:
         self.add_interpolated_stations([span_location])
         return insertIndex
 
+    def _interpolate_band(self, x0, band):
+        """Interpolate a LE/TE band width onto ``self.ispan``, keeping its leading zero run.
+
+        ``KeyPoints.generate`` gives every station before the first nonzero one the width of that
+        first station. Linear interpolation over the 0 -> width step (yaml: r/R 0.08 -> 0.10)
+        would put a tiny nonzero width at the first inserted station, so the root stations
+        would inherit it and lose the band (TE reinforcement 0.08 m wide instead of 0.67 m).
+        """
+        band = np.asarray(band, dtype=float)
+        out = interpolator_wrap(x0, band, self.ispan)
+        nonzero = np.nonzero(band)[0]
+        if nonzero.size:
+            out[self.ispan < x0[nonzero[0]]] = 0.0
+        return out
+
     def add_interpolated_stations(self, span_locations):
         """Insert several interpolated stations and regenerate the blade once.
 
@@ -184,8 +199,8 @@ class Blade:
         self.ispan = np.sort(np.concatenate([x0, new]))
         self.definition.ispan = np.sort(np.concatenate([self.definition.ispan, new]))
 
-        self.definition.leband = interpolator_wrap(x0, self.definition.leband, self.ispan)
-        self.definition.teband = interpolator_wrap(x0, self.definition.teband, self.ispan)
+        self.definition.leband = self._interpolate_band(x0, self.definition.leband)
+        self.definition.teband = self._interpolate_band(x0, self.definition.teband)
         self.definition.sparcapwidth_hp = interpolator_wrap(
             x0, self.definition.sparcapwidth_hp, self.ispan
         )
