@@ -464,6 +464,64 @@ stale.
 - **Mesher gaps exposed:** 3 webs, a partial-span TE web, and v2 `anchors`/`plane_intersection` placement are not
   supported by the current mesher or reader. These are T18/T17 scope.
 
+## Handoff 4 (2026-10-24, session 3 close; user: "haz el resellado de L3 y luego cierra la sesion")
+
+**Resume.** `mem_search "blade-input-audit"`, read this section, then "GJ gap and reference provenance" and the
+Tasks list (T21, T24). Use a new, bounded session; this one carried the whole T9 integration.
+
+**State.** `l3/twist-p1` at the Handoff 4 commit, local only, not pushed. The blade candidates of the first mesh
+iteration are merged:
+- T7d, T7e, T10, T8, T8w, T11, T12;
+- G10 and G10b (linear span interpolation of the layers);
+- T14 and T15;
+- T22.
+
+The final-tree measurement is d5d0fd2, `capture-T15m.pkl`, SLURM 11623286.
+
+**Restamped (a35bba3).** The ten S-1/S-2/V-03 store rows are at d5d0fd2. `contract.yaml` is not touched (audit
+rule). Every other store row whose test builds the IEA-15 blade is stale: S-0, S-3, S-4, S-5/S-6, S-7, V-01/V-02/V-05,
+the CCX parity, and anything else using `BladeMesh`/`Blade` on the official yaml.
+
+**Running on SLURM; read the results, do not rerun.**
+
+| job | what | output |
+|---|---|---|
+| 11623302 | full suite at a35bba3 (pinned worktree `$SCRATCH/wt/full-a35bba3` + shim; `logs/check/full-a35bba3.sbatch`) | `logs/check/full-a35bba3-11623302.log`, check log copied to `logs/check/full-*.log` |
+| 11623281-83 | T21 work metric `tip_axial_tension` on T7e, T8w, T14m | `$SCRATCH/wt/input-fix-CCXW/logs/check/t21/work-w-<tree>-tip_axial_tension.log` |
+| 11623284 | T21 full CCX parity, moved to bigmem | `$SCRATCH/wt/input-fix-CCXW/logs/check/t21/ccxw-full.log` |
+| DECKY | ad5f3ac with the deck-era yaml | `logs/check/input-fix/capture-DECKY.pkl`; compare with `capture-T14m.pkl` |
+
+The T21 diff (`tests/test_blade_ccx_parity.py`) is uncommitted in `$SCRATCH/wt/input-fix-CCXW` (branch
+`fix/ccx-parity-work`). Its unit test showed RED (2 failed), then GREEN (2 passed); ruff is clean.
+
+**Next session, in order.**
+1. **Restamp every blade-dependent store group from 11623302**, the L39 procedure:
+   - compare failures with `scripts/known-red-full.txt`;
+   - run `python tools/validation_matrix.py regression --group <N> --scope <test files> --write` per group;
+   - record moved anchors as findings;
+   - re-derive the known-red list only with `scripts/check.sh full --record` on that run.
+2. **T21.**
+   - Read the work-metric logs.
+   - If the combination passes 5 %: commit in CCXW, merge, and restamp the CCX parity rows.
+   - If not: record it as a finding and change nothing.
+3. **DECKY.** Does the root TE reinforcement of the deck-era yaml move S-2 (LC3) at all?
+4. **GJ gap** (open; web placement ruled out by the SONATA PDFs). Next cheap step:
+   - compare one section's laminate shear (A66 per region) against SONATA/ANBA, or run a thick-wall/warping
+     Bredt variant;
+   - the root reference interpolation (log-interp `gj_bd` at 0.19-0.25) is a separate metric check;
+   - the FE-side wobble at 0.817, where the TE reinforcement, the fillers and the LE reinforcement end together.
+5. **T24 mass findings.**
+   - TE_FLAT carries 367 kg of glass_uni on the flat-back face (the band carried onto it?).
+   - Skin triax -215 kg and carbon -214 kg against the yaml.
+   - Webs -4.8 %.
+6. **Second mesh iteration** (user L8): T16 (multi-blade fibre direction), G6 (prebend tilt), the
+   `element_utils.py:78` divide warning, and the T20 pchip option only on demand.
+7. Before any merge to main: the full suite (item 1) and maintainer review. The branch is about 5.9 k authored
+   lines in 74 commits since origin/main; each candidate is its own commit, so the slices exist.
+
+**Cleanup when done.** `git worktree list | grep -E 'input-fix|full-a35bba3|DECKY'`, then `git worktree remove` for
+the merged or finished ones. `$SCRATCH/tmp/{input-fix-*,t9-*,g10*,t15*,gj-*,sonata-*,deck-yaml,ccx*}`.
+
 ## Handoff 3 (2026-10-24, session 3; written while jobs run)
 
 **Resume.** `mem_search "blade-input-audit"`, then read this section, then "T9 integration", "GJ gap and reference
