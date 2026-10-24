@@ -33,6 +33,9 @@ class KeyPoints:
     web_areas: list
     web_width: list
     web_bonds: list
+    web_attach_arcs: list
+        per web group, where the yaml puts the web on the skin: array (2, n_stations) of arc
+        lengths [HP, LP] on the same axis as ``key_arcs`` (``None`` without yaml web arcs)
 
     """
 
@@ -67,6 +70,7 @@ class KeyPoints:
         self.web_areas: list | None = None
         self.web_width: list | None = None
         self.web_bonds: list | None = None
+        self.web_attach_arcs: list | None = None
 
     def __eq__(self, other):
         attrs = [a for a in dir(self) if not a.startswith("__") and not callable(getattr(self, a))]
@@ -471,6 +475,23 @@ class KeyPoints:
                 raise Exception(
                     "Shear web geometry LP extents not defined correctly (e.g., 0.5b-c, b, b+200)"
                 )
+
+        # where the yaml puts each web on the skin (nd_arc runs from the suction-side TE; the HP
+        # side is the pressure side, so its arc is measured from the other end of the profile)
+        self.web_attach_arcs = None
+        web_nd_arc = getattr(definition, "web_nd_arc", None)
+        if web_nd_arc is not None:
+            span = np.asarray(geometry.ispan, dtype=float)
+            eta = (span - span[0]) / (span[-1] - span[0])
+            # the airfoil arc runs between the trailing-edge corners (ns and nf): index 0 and -1 are
+            # the mid-points of the flat back, which is not part of the yaml's open airfoil arc
+            arc0 = geometry.arclength[ns, :]
+            perimeter = geometry.arclength[nf, :] - arc0
+            self.web_attach_arcs = []
+            for grid, start, end in web_nd_arc:
+                hp = arc0 + (1.0 - np.interp(eta, grid, end)) * perimeter
+                lp = arc0 + (1.0 - np.interp(eta, grid, start)) * perimeter
+                self.web_attach_arcs.append(np.vstack((hp, lp)))
 
         # calculate shell areas
         for kc in range(num_istations - 1):

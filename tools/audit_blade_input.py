@@ -389,7 +389,7 @@ def parse_args(argv=None):
 # =============================================================================================
 # mesh side: the production path
 # =============================================================================================
-def build_mesh(yaml_path: str, element_size: float) -> dict:
+def build_mesh(yaml_path: str, element_size: float, blade=None) -> dict:
     """Build the mesh with ``Blade`` and extract what the audit reads (plain arrays and dicts).
 
     Reads: node coordinates (``MeshModel.nodes``), element node ids and element sets
@@ -399,8 +399,9 @@ def build_mesh(yaml_path: str, element_size: float) -> dict:
     """
     from aeroelast.models.blade.model import Blade  # noqa: PLC0415
 
-    blade = Blade(yaml_path, element_size=element_size)
-    blade.generate_mesh()
+    if blade is None:
+        blade = Blade(yaml_path, element_size=element_size)
+        blade.generate_mesh()
     m = blade.mesh
     nodes = np.array([n.coords for n in m.nodes], float)
     idx = {n.id: k for k, n in enumerate(m.nodes)}

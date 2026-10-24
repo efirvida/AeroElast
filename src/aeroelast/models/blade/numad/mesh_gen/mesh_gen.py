@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 
 ##from pynumad.mesh_gen.shellClasses import shellRegion, elementSet, NuMesh3D, spatialGridList2D, spatialGridList3D
@@ -77,6 +79,45 @@ def _chordwise_counts(shellKp, elementSize, key, i, tip_rule, plan, record):
     return n1, n3
 
 
+# Spar-cap segments, split where the yaml puts the shear webs: segment -> (side, key_arcs rows).
+# Side 0 is HP (the pressure side), 1 is LP; the rows are the cap edges ``c`` and ``b``.
+_CAP_SEGMENTS = {3: (0, 3, 4), 8: (1, 8, 9)}
+_WEB_EDGE_MARGIN = 5.0e-3  # m: a web arc never closer than this to the cap edge it would collapse on
+_WEB_MERGE = 4.0e-3  # m: two webs closer than this on one side share one attachment line
+_QUAD3_ORDER = (
+    (0, 0), (0, 3), (3, 3), (3, 0), (0, 1), (0, 2), (1, 3), (2, 3),
+    (3, 2), (3, 1), (2, 0), (1, 0), (1, 1), (1, 2), (2, 2), (2, 1),
+)  # (row, column) of the 16 "quad3" control points, in ShellRegion order
+
+
+def _quad3_points(columns, row0):
+    """The 16 control points of a "quad3" region from 4 chordwise columns, rows ``row0..row0+3``."""
+    return np.array([columns[c][row0 + r] for r, c in _QUAD3_ORDER])
+
+
+def _plan_cap_columns(key_arcs, web_arcs, lo_row, hi_row):
+    """Arc of every cap boundary per station: cap edge, one line per web (sorted), cap edge.
+
+    Returns ``(arcs (n_webs + 2, n_stations), position of each web group in it)``, or ``None`` when
+    the webs cross inside the cap (the mesher then keeps them on the cap edges). A web outside the
+    cap is held ``_WEB_EDGE_MARGIN`` inside it, and webs closer than ``_WEB_MERGE`` become one line.
+    """
+    lo, hi = key_arcs[lo_row], key_arcs[hi_row]
+    margin = np.minimum(_WEB_EDGE_MARGIN, 0.1 * (hi - lo))
+    arcs = np.clip(np.asarray(web_arcs, dtype=float), lo + margin, hi - margin)
+    pos = np.argsort(np.argsort(arcs.mean(axis=1), kind="stable"), kind="stable")
+    ordered = arcs[np.argsort(pos)]
+    for r in range(len(ordered) - 1):
+        gap = ordered[r + 1] - ordered[r]
+        if np.any(gap < -_WEB_MERGE):
+            return None
+        close = gap < _WEB_MERGE
+        mean = 0.5 * (ordered[r] + ordered[r + 1])
+        ordered[r] = np.where(close, mean, ordered[r])
+        ordered[r + 1] = np.where(close, mean, ordered[r + 1])
+    return np.vstack((lo, ordered, hi)), pos
+
+
 def get_shell_mesh(
     blade, elementSize, spanGrading="chord", include_webs=True, span_plan=None, plan_only=False
 ):
@@ -154,6 +195,10 @@ def get_shell_mesh(
     lenGeom = geomSz[0]
     numXsec = geomSz[2]
     XSCurvePts = np.array([], dtype=int)
+
+    # The profile polyline as read, before the key points below replace its nearest vertices
+    # (their arc lengths are those of the original vertices): web attachment lines are cut on it.
+    profile0 = coordinates.copy()
 
     ## Determine the key curve points along the OML at each cross section
     for i in range(numXsec):
@@ -264,6 +309,53 @@ def get_shell_mesh(
     splineXi = splineXi.T
     splineYi = splineYi.T
     splineZi = splineZi.T
+
+    ## Spar-cap sub-regions and web attachment lines.
+    # Each web hangs on a line at the yaml's attachment arc (``keypoints.web_attach_arcs``), inside
+    # the spar cap: the cap is split there into sub-regions A, B, C, ... that keep the cap laminate,
+    # so the web edge shares its nodes with the skin. Without yaml arcs the webs stay on the cap
+    # edges (key points ``b`` and ``c``), as NuMAD has them.
+    def _col(index):
+        return np.stack((splineXi[:, index], splineYi[:, index], splineZi[:, index]), axis=1)
+
+    def _arc_column(arcs):
+        pts = np.empty((numXsec, 3))
+        for k in range(numXsec):
+            arc_k = geometry.arclength[1:-1, k]
+            for d in range(3):
+                pts[k, d] = np.interp(arcs[k], arc_k, profile0[1:-1, d, k])
+        return np.stack(
+            [interpolator_wrap(spParam, pts[:, d], spParami, "pchip") for d in range(3)], axis=1
+        )
+
+    capSplit = {}  # segment -> (arcs, columns, intermediate columns, web group positions)
+    web_attach = getattr(blade.keypoints, "web_attach_arcs", None)
+    if include_webs and web_attach is not None and len(web_attach) == len(swstacks):
+        for seg, (side, lo_row, hi_row) in _CAP_SEGMENTS.items():
+            plan = _plan_cap_columns(
+                blade.keypoints.key_arcs, [a[side] for a in web_attach], lo_row, hi_row
+            )
+            if plan is None:
+                warnings.warn(
+                    "Shear-web attachment arcs cross inside the spar cap; "
+                    "the webs stay on the cap edges.",
+                    stacklevel=2,
+                )
+                capSplit = {}
+                break
+            arcs, pos = plan
+            cols = [_col(3 * seg)] + [_arc_column(a) for a in arcs[1:-1]] + [_col(3 * seg + 3)]
+            mids = [
+                [_arc_column(arcs[k] + (arcs[k + 1] - arcs[k]) * t) for t in (1.0 / 3.0, 2.0 / 3.0)]
+                for k in range(len(cols) - 1)
+            ]
+            capSplit[seg] = (arcs, cols, mids, pos)
+    if capSplit:
+        webHP = [capSplit[3][1][1 + capSplit[3][3][g]] for g in range(len(swstacks))]
+        webLP = [capSplit[8][1][1 + capSplit[8][3][g]] for g in range(len(swstacks))]
+    else:
+        webHP = [_col(12), _col(9)]
+        webLP = [_col(24), _col(27)]
 
     ## Generate the mesh using the splines as surface guides
 
@@ -435,33 +527,48 @@ def get_shell_mesh(
                     ],
                 ]
             )
-            # Per-edge chordwise + consistent nSpan spanwise
-            nEl1, nEl3 = _chordwise_counts(
-                shellKp, elementSize, ("shell", j), i, i == rws - 2, span_plan, record
-            )
-            nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
+            # The spar cap is cut where the webs attach; every piece keeps the cap's stack.
+            # Piece k keeps its letter (and its span-plan key) when a lower piece is absent.
+            pieces = [(0, stacks[j, i].name, shellKp)]
+            if j in capSplit:
+                arcs, cols, mids, _ = capSplit[j]
+                pieces = [
+                    (
+                        k,
+                        f"{stacks[j, i].name}_{chr(ord('A') + k)}",
+                        _quad3_points([cols[k], *mids[k], cols[k + 1]], stPt),
+                    )
+                    for k in range(len(cols) - 1)
+                    if np.max(arcs[k + 1, i : i + 2] - arcs[k, i : i + 2]) > 1.0e-6
+                ]
+            for k, pieceName, shellKp in pieces:
+                # Per-edge chordwise + consistent nSpan spanwise
+                nEl1, nEl3 = _chordwise_counts(
+                    shellKp, elementSize, ("shell", j, k), i, i == rws - 2, span_plan, record
+                )
+                nEl = np.array([nEl1, nSpan[i], nEl3, nSpan[i]])
 
-            bladeSurf.addShellRegion(
-                "quad3",
-                shellKp,
-                nEl,
-                name=stacks[j, i].name,
-                elType="quad",
-                meshMethod="structured",
-            )
-            outShES.add(stacks[j, i].name)
-            newSec = {}
-            newSec["type"] = "shell"
-            layup = []
-            for pg in stacks[j, i].plygroups:
-                totThick = 0.001 * pg.thickness * pg.nPlies
-                ply = [pg.materialid, totThick, pg.angle]
-                layup.append(ply)
-            newSec["layup"] = layup
-            newSec["elementSet"] = stacks[j, i].name
-            newSec["xDir"] = (shellKp[3, :] - shellKp[0, :]) + (shellKp[2, :] - shellKp[1, :])
-            newSec["xyDir"] = (shellKp[1, :] - shellKp[0, :]) + (shellKp[2, :] - shellKp[3, :])
-            secList.append(newSec)
+                bladeSurf.addShellRegion(
+                    "quad3",
+                    shellKp,
+                    nEl,
+                    name=pieceName,
+                    elType="quad",
+                    meshMethod="structured",
+                )
+                outShES.add(pieceName)
+                newSec = {}
+                newSec["type"] = "shell"
+                layup = []
+                for pg in stacks[j, i].plygroups:
+                    totThick = 0.001 * pg.thickness * pg.nPlies
+                    ply = [pg.materialid, totThick, pg.angle]
+                    layup.append(ply)
+                newSec["layup"] = layup
+                newSec["elementSet"] = pieceName
+                newSec["xDir"] = (shellKp[3, :] - shellKp[0, :]) + (shellKp[2, :] - shellKp[1, :])
+                newSec["xyDir"] = (shellKp[1, :] - shellKp[0, :]) + (shellKp[2, :] - shellKp[3, :])
+                secList.append(newSec)
             stSp = stSp + 3
         stPt = stPt + 3
 
@@ -476,50 +583,14 @@ def get_shell_mesh(
     for i in range(rws - 1 if include_webs else 0):
         if swstacks[0][i].plygroups:
             shellKp = np.zeros((16, 3))
-            shellKp[0, :] = np.array([splineXi[stPt, 12], splineYi[stPt, 12], splineZi[stPt, 12]])
-            shellKp[1, :] = np.array([splineXi[stPt, 24], splineYi[stPt, 24], splineZi[stPt, 24]])
-            shellKp[2, :] = np.array(
-                [
-                    splineXi[stPt + 3, 24],
-                    splineYi[stPt + 3, 24],
-                    splineZi[stPt + 3, 24],
-                ]
-            )
-            shellKp[3, :] = np.array(
-                [
-                    splineXi[stPt + 3, 12],
-                    splineYi[stPt + 3, 12],
-                    splineZi[stPt + 3, 12],
-                ]
-            )
-            shellKp[6, :] = np.array(
-                [
-                    splineXi[stPt + 1, 24],
-                    splineYi[stPt + 1, 24],
-                    splineZi[stPt + 1, 24],
-                ]
-            )
-            shellKp[7, :] = np.array(
-                [
-                    splineXi[stPt + 2, 24],
-                    splineYi[stPt + 2, 24],
-                    splineZi[stPt + 2, 24],
-                ]
-            )
-            shellKp[10, :] = np.array(
-                [
-                    splineXi[stPt + 2, 12],
-                    splineYi[stPt + 2, 12],
-                    splineZi[stPt + 2, 12],
-                ]
-            )
-            shellKp[11, :] = np.array(
-                [
-                    splineXi[stPt + 1, 12],
-                    splineYi[stPt + 1, 12],
-                    splineZi[stPt + 1, 12],
-                ]
-            )
+            shellKp[0, :] = webHP[0][stPt]
+            shellKp[1, :] = webLP[0][stPt]
+            shellKp[2, :] = webLP[0][stPt + 3]
+            shellKp[3, :] = webHP[0][stPt + 3]
+            shellKp[6, :] = webLP[0][stPt + 1]
+            shellKp[7, :] = webLP[0][stPt + 2]
+            shellKp[10, :] = webHP[0][stPt + 2]
+            shellKp[11, :] = webHP[0][stPt + 1]
             shellKp[4, :] = 0.6666 * shellKp[0, :] + 0.3333 * shellKp[1, :]
             shellKp[5, :] = 0.3333 * shellKp[0, :] + 0.6666 * shellKp[1, :]
             shellKp[8, :] = 0.6666 * shellKp[2, :] + 0.3333 * shellKp[3, :]
@@ -557,50 +628,14 @@ def get_shell_mesh(
             secList.append(newSec)
         if swstacks[1][i].plygroups:
             shellKp = np.zeros((16, 3))
-            shellKp[0, :] = np.array([splineXi[stPt, 27], splineYi[stPt, 27], splineZi[stPt, 27]])
-            shellKp[1, :] = np.array([splineXi[stPt, 9], splineYi[stPt, 9], splineZi[stPt, 9]])
-            shellKp[2, :] = np.array(
-                [
-                    splineXi[stPt + 3, 9],
-                    splineYi[stPt + 3, 9],
-                    splineZi[stPt + 3, 9],
-                ]
-            )
-            shellKp[3, :] = np.array(
-                [
-                    splineXi[stPt + 3, 27],
-                    splineYi[stPt + 3, 27],
-                    splineZi[stPt + 3, 27],
-                ]
-            )
-            shellKp[6, :] = np.array(
-                [
-                    splineXi[stPt + 1, 9],
-                    splineYi[stPt + 1, 9],
-                    splineZi[stPt + 1, 9],
-                ]
-            )
-            shellKp[7, :] = np.array(
-                [
-                    splineXi[stPt + 2, 9],
-                    splineYi[stPt + 2, 9],
-                    splineZi[stPt + 2, 9],
-                ]
-            )
-            shellKp[10, :] = np.array(
-                [
-                    splineXi[stPt + 2, 27],
-                    splineYi[stPt + 2, 27],
-                    splineZi[stPt + 2, 27],
-                ]
-            )
-            shellKp[11, :] = np.array(
-                [
-                    splineXi[stPt + 1, 27],
-                    splineYi[stPt + 1, 27],
-                    splineZi[stPt + 1, 27],
-                ]
-            )
+            shellKp[0, :] = webLP[1][stPt]
+            shellKp[1, :] = webHP[1][stPt]
+            shellKp[2, :] = webHP[1][stPt + 3]
+            shellKp[3, :] = webLP[1][stPt + 3]
+            shellKp[6, :] = webHP[1][stPt + 1]
+            shellKp[7, :] = webHP[1][stPt + 2]
+            shellKp[10, :] = webLP[1][stPt + 2]
+            shellKp[11, :] = webLP[1][stPt + 1]
             shellKp[4, :] = 0.6666 * shellKp[0, :] + 0.3333 * shellKp[1, :]
             shellKp[5, :] = 0.3333 * shellKp[0, :] + 0.6666 * shellKp[1, :]
             shellKp[8, :] = 0.6666 * shellKp[2, :] + 0.3333 * shellKp[3, :]

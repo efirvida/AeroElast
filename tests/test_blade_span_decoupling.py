@@ -21,6 +21,9 @@ from aeroelast.models.blade.numad.mesh_gen.mesh_gen import SpanPlan
 YAML = Path(__file__).parent / "IEA-15-240-RWT.yaml"
 ES = 0.25
 OUTER_SET = re.compile(r"^(\d{2})_(\d{2,})_((?:HP|LP)_\w+)$")
+# the spar caps are cut at the yaml web arcs into pieces ``HP_SPAR_A``, ``HP_SPAR_B``, ...
+SPAR_PIECE = re.compile(r"^(?:HP|LP)_SPAR(?:_[A-Z])?$")
+SLIVER = 0.01  # m, a column narrower than this is a taper artefact, not a discretisation
 
 
 def _build(**kwargs):
@@ -68,13 +71,55 @@ def _outer_sets(data):
     return out
 
 
+def _row_nodes(mesh, levels):
+    """Per row level: the sorted unique node coordinates (x, y) on that z plane."""
+    xyz = np.asarray(mesh.coords_array, dtype=float)
+    rows = []
+    for level in levels:
+        pts = xyz[np.abs(xyz[:, 2] - level) < 1e-6]
+        rows.append(pts)
+    return rows
+
+
+def _min_gap(pts):
+    """Smallest distance between two distinct nodes of one row."""
+    d = np.linalg.norm(pts[:, None, :2] - pts[None, :, :2], axis=-1)
+    d[np.diag_indices_from(d)] = np.inf
+    return d.min()
+
+
 def test_counts_and_row_positions_equal_the_native_mesh(native, decoupled):
+    """Same elements, same rows; the node counts differ only by sliver cap-piece columns.
+
+    The merged T8w spar-cap split (pieces ``_A/_B/_C`` at the yaml web arcs) decides in the native
+    mesh whether a piece exists per native bay and tapers its width linearly, so in the rows where
+    the yaml webs coincide (root) or nearly do (tip) the native mesh carries an extra column only
+    0-5 mm wide. The decoupled mesh places the exact web arcs at the inserted stations and drops
+    the zero-width piece. Blade input audit T9: the decoupled mesh is the correct one, so the
+    contract is equal elements, equal row levels, and a node deficit of exactly two per row
+    (one sliver column) confined to rows whose native node spacing shows a sliver.
+    """
     (mesh_n, data_n), (mesh_d, data_d) = native, decoupled
-    assert mesh_d.node_count == mesh_n.node_count
     assert mesh_d.elements_count == mesh_n.elements_count
     zn, zd = _levels(np.asarray(data_n["nodes"])[:, 2]), _levels(np.asarray(data_d["nodes"])[:, 2])
     assert zd.shape == zn.shape
     assert np.abs(zd - zn).max() < 1e-6
+
+    assert mesh_d.node_count <= mesh_n.node_count
+    rows_n, rows_d = _row_nodes(mesh_n, zn), _row_nodes(mesh_d, zn)
+    assert sum(len(r) for r in rows_n) == mesh_n.node_count
+    assert sum(len(r) for r in rows_d) == mesh_d.node_count
+    diffs = np.array([len(rn) - len(rd) for rn, rd in zip(rows_n, rows_d, strict=True)])
+    differing = np.nonzero(diffs)[0]
+    assert differing.size < 0.05 * zn.size  # equal counts everywhere else
+    explained = 0
+    for i in differing:
+        assert diffs[i] > 0 and diffs[i] % 2 == 0, (zn[i], diffs[i])
+        # the native row has a sliver column, the decoupled row has none
+        assert _min_gap(rows_n[i]) < SLIVER, (zn[i], _min_gap(rows_n[i]))
+        assert _min_gap(rows_d[i]) >= 1e-3, (zn[i], _min_gap(rows_d[i]))
+        explained += diffs[i]
+    assert mesh_n.node_count - mesh_d.node_count == explained
 
 
 def test_every_element_row_has_its_own_laminate(native, decoupled):
@@ -83,16 +128,23 @@ def test_every_element_row_has_its_own_laminate(native, decoupled):
     rows_native = _outer_levels(data_n)
     sets = _outer_sets(data_d)
     n_rows = rows_native.size - 1
-    assert len(sets) == n_rows * 12
-    # each set is exactly one native row: its extent is two consecutive row boundaries
+    # each region or cap piece is split once per row, and each set is exactly one native row
+    # (its extent is two consecutive row boundaries)
     for name, (lo, hi) in sets.items():
         k = np.searchsorted(rows_native, lo - 1e-6)
         assert abs(rows_native[k] - lo) < 1e-6 and abs(rows_native[k + 1] - hi) < 1e-6, name
-    # one laminate per (region, row)
+    per_row = {}
+    for name, (lo, _) in sets.items():
+        per_row.setdefault(round(lo, 6), []).append(OUTER_SET.match(name).group(3))
+    assert len(per_row) == n_rows
+    for lo, regions in per_row.items():
+        assert len(regions) == len(set(regions)), lo  # no region or piece twice in a row
+        assert len(regions) >= 12, lo  # 12 regions plus any cap pieces
+    # one laminate per (region-or-piece, row)
     keys = {(OUTER_SET.match(n).group(3), round(lo, 6)) for n, (lo, _) in sets.items()}
-    assert len(keys) == n_rows * 12
+    assert len(keys) == len(sets)
     layups = [s["elementSet"] for s in data_d["sections"] if OUTER_SET.match(s["elementSet"])]
-    assert len(set(layups)) == n_rows * 12
+    assert len(layups) == len(set(layups)) == len(sets)
 
 
 def test_tapering_layer_equals_the_yaml_mean_over_its_row(decoupled):
@@ -105,15 +157,20 @@ def test_tapering_layer_equals_the_yaml_mean_over_its_row(decoupled):
         for layer in blade["internal_structure_2d_fem"]["layers"]
         if layer["name"] == "Spar_Cap_SS"
     )
-    sets = {n: zr for n, zr in _outer_sets(data).items() if n.endswith("_HP_SPAR")}
     z_target = 0.90 * length
-    name, (lo, hi) = next((n, zr) for n, zr in sets.items() if zr[0] <= z_target < zr[1])
-    layup = next(s["layup"] for s in data["sections"] if s["elementSet"] == name)
-    got = sum(t for material, t, _ in layup if material == "CarbonUD")
-    z = np.linspace(lo, hi, 2001)
-    want = np.mean(np.interp(z / length, cap["thickness"]["grid"], cap["thickness"]["values"]))
-    assert hi - lo < 0.3
-    assert got == pytest.approx(want, rel=0.005)
+    pieces = {
+        n: zr
+        for n, zr in _outer_sets(decoupled[1]).items()
+        if SPAR_PIECE.match(OUTER_SET.match(n).group(3)) and zr[0] <= z_target < zr[1]
+    }
+    assert pieces
+    for name, (lo, hi) in pieces.items():
+        layup = next(s["layup"] for s in data["sections"] if s["elementSet"] == name)
+        got = sum(t for material, t, _ in layup if material == "CarbonUD")
+        z = np.linspace(lo, hi, 2001)
+        want = np.mean(np.interp(z / length, cap["thickness"]["grid"], cap["thickness"]["values"]))
+        assert hi - lo < 0.3
+        assert got == pytest.approx(want, rel=0.005), name
 
 
 def test_span_plan_boundaries_and_native_chordwise_counts():
