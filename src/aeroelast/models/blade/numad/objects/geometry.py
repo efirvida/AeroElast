@@ -222,12 +222,19 @@ class Geometry:
         )
 
         ## ichord
-        self.ichord = interpolator_wrap(definition.span, definition.chord, self.ispan, "pchip")
+        if definition.chord_curve is not None:
+            # the input's own chord grid, linear as the input defines it
+            self.ichord = interpolator_wrap(*definition.chord_curve, self.ispan)
+            self.ipercentthick = interpolator_wrap(
+                definition.span, definition.percentthick, self.ispan, "pchip"
+            )
+        else:
+            self.ichord = interpolator_wrap(definition.span, definition.chord, self.ispan, "pchip")
 
-        ## ipercentthick
-        absolutethick = np.multiply(definition.percentthick, definition.chord) / 100
-        iabsolutethick = interpolator_wrap(definition.span, absolutethick, self.ispan, "pchip")
-        self.ipercentthick = iabsolutethick / self.ichord * 100
+            ## ipercentthick
+            absolutethick = np.multiply(definition.percentthick, definition.chord) / 100
+            iabsolutethick = interpolator_wrap(definition.span, absolutethick, self.ispan, "pchip")
+            self.ipercentthick = iabsolutethick / self.ichord * 100
         # ensure that the interpolation doesn't reduce the percent
         # thickness beneath the thinnest airfoil
         self.ipercentthick[self.ipercentthick < np.amin(definition.percentthick)] = np.amin(

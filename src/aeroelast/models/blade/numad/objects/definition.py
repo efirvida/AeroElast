@@ -69,6 +69,8 @@ class Definition:
         self.ispan: ndarray | None = None
         self.aerocenter: ndarray | None = None
         self.chord: ndarray | None = None
+        # chord on the yaml's own grid, (span in m, values); None when the input has only `span`
+        self.chord_curve: tuple[ndarray, ndarray] | None = None
         self.chordoffset: ndarray | None = None
         self.degreestwist: ndarray | None = None
         self.percentthick: ndarray | None = None
