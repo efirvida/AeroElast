@@ -1,0 +1,38 @@
+station idx 488 z=93.645 r/R=0.8006  FE S-1 GJ=3.5813e+07  BD GJ=3.7962e+07  FE/BD-1=-5.66%
+segments 38 vertices 36 distinct sections 18
+yaml: eta=0.8006 perimeter P=5.763 m (from cap width), s_LE=0.4968
+Per-region in-plane shear stiffness A66 (N/m).  A66 = A[2,2]; Aeff = 1/(A^-1)66 (Bredt-relevant). ref = yaml ply stack
+sect                    j  Lseg m | h ours mm   A66 ours  Aeff ours | h yaml mm   A66 yaml  Aeff yaml [min,max over region] |  A66 d%  Aeff d%
+01_488_HP_TE_REINF      1   0.709 |      3.67 2.2987e+07 2.2987e+07 |      4.45 2.3122e+07 2.3122e+07 [1.816e+06,3.505e+07] |   -0.6%    -0.6%
+02_488_HP_TE_PANEL      2   0.759 |      9.11 3.4771e+07 3.4771e+07 |      9.06 3.4753e+07 3.4753e+07 [3.475e+07,3.475e+07] |   +0.1%    +0.1%
+03_488_HP_SPAR_A        3   0.097 |     38.02 2.3261e+08 2.3261e+08 |     37.95 2.3219e+08 2.3219e+08 [2.322e+08,2.322e+08] |   +0.2%    +0.2%
+03_488_HP_SPAR_B        3   0.698 |     38.02 2.3261e+08 2.3261e+08 |     37.95 2.3219e+08 2.3219e+08 [2.322e+08,2.322e+08] |   +0.2%    +0.2%
+03_488_HP_SPAR_C        3   0.097 |     38.02 2.3261e+08 2.3261e+08 |     37.95 2.3219e+08 2.3219e+08 [2.322e+08,2.322e+08] |   +0.2%    +0.2%
+04_488_HP_LE_PANEL      4   0.162 |      9.11 3.4771e+07 3.4771e+07 |      9.06 3.4753e+07 3.4753e+07 [3.475e+07,3.475e+07] |   +0.1%    +0.1%
+05_488_HP_LE            5   0.325 |      6.52 3.9692e+07 3.9692e+07 |      7.23 3.8223e+07 3.8223e+07 [3.475e+07,3.961e+07] |   +3.8%    +3.8%
+06_488_LP_LE            6   0.325 |      6.52 3.9692e+07 3.9692e+07 |      6.75 3.9149e+07 3.9149e+07 [3.475e+07,3.961e+07] |   +1.4%    +1.4%
+07_488_LP_LE_PANEL      7   0.178 |      9.11 3.4771e+07 3.4771e+07 |      9.06 3.4753e+07 3.4753e+07 [3.475e+07,3.475e+07] |   +0.1%    +0.1%
+08_488_LP_SPAR_A        8   0.101 |     38.02 2.3261e+08 2.3261e+08 |     37.95 2.3219e+08 2.3219e+08 [2.322e+08,2.322e+08] |   +0.2%    +0.2%
+08_488_LP_SPAR_B        8   0.698 |     38.02 2.3261e+08 2.3261e+08 |     37.95 2.3219e+08 2.3219e+08 [2.322e+08,2.322e+08] |   +0.2%    +0.2%
+08_488_LP_SPAR_C        8   0.093 |     38.02 2.3261e+08 2.3261e+08 |     37.95 2.3219e+08 2.3219e+08 [2.322e+08,2.322e+08] |   +0.2%    +0.2%
+09_488_LP_TE_PANEL      9   0.781 |      9.11 3.4771e+07 3.4771e+07 |      9.06 3.4753e+07 3.4753e+07 [3.475e+07,3.475e+07] |   +0.1%    +0.1%
+10_488_LP_TE_REINF     10   0.709 |      3.67 2.2987e+07 2.2987e+07 |      4.45 2.3145e+07 2.3145e+07 [1.816e+06,3.525e+07] |   -0.7%    -0.7%
+web sections at the station: {'00_488_SW': (21.53, np.float64(0.488)), '01_488_SW': (21.53, np.float64(0.483))}
+yaml web0: h=21.53 mm A66=2.1644e+07 Aeff=2.1644e+07
+yaml web1: h=21.53 mm A66=2.1644e+07 Aeff=2.1644e+07
+web order by x: ['00_488_SW', '01_488_SW']
+Thin-wall Bredt (multi-cell, midline geometry of the mid-surface mesh):
+  ours (mesher laminate): 3.2405e+07  (-14.64% vs BD)
+  yaml laminate A66:      3.2270e+07  (-15.00% vs BD)   ref/ours-1=-0.42%
+  FE S-1 3.5813e+07 (-5.66% vs BD); FE/Bredt-ours-1=+10.52%
+Thick-wall variants (laminate = mesher's):
+  closed-section Bredt, wall path = mid          : 3.2405e+07  vs mid +0.00%  vs BD -14.64%
+  closed-section Bredt, wall path = OML          : 3.5688e+07  vs mid +10.13%  vs BD -5.99%
+  closed-section Bredt, wall path = IML          : 2.9244e+07  vs mid -9.75%  vs BD -22.96%
+  closed-section Bredt, wall path = Q66-centroid : 3.2304e+07  vs mid -0.31%  vs BD -14.91%
+  Q66-centroid shift: length-weighted mean -0.37 mm (+ = toward OML), range [-0.4,-0.1] mm; mean skin h=16.3 mm
+  open-section term sum 4*D66*L: all walls 2.1723e+05 (+0.67% of Bredt mid; skins only +0.64%)
+  thick-wall GJ = Bredt(mid) + open term = 3.2622e+07  vs BD -14.07%
+  closing the Bredt gap to BD needs the wall path at +1.67 x (h/2) toward the OML = +13.6 mm at the mean skin h; or all-wall G x1.172
+  [pts of BD] FE -5.66 | Bredt thin ours -14.64 | Bredt thin yaml-laminate -15.00 | thick (mid+open) -14.07 | Q66-centroid path -14.91
+  [contributions, pts of BD] A66 laminate mismatch -0.36 | thick-wall open term +0.57 | wall-path centroid -0.27 | FE below its thin Bredt +8.98 | unexplained after thick +14.07
