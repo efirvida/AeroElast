@@ -688,8 +688,25 @@ worker; section-level calculations, no FE solve (`logs/check/gj-gap/`, `results.
   - **Not merged: a null result.** The S-1 signed mean would move -10.3 -> -13.2 % from edge stations alone.
   - **Finding:** a GJ dip of -17 to -20 % at r/R 0.66-0.74 and -32 % at 0.21, present in both estimators. It needs its
     own diagnosis: what changes in the layup, the webs or the reference there.
-- **Next.**
-  - Diagnose the 0.66-0.74 GJ dip (section-level Bredt along the span against FE and BeamDyn K66).
+- **GJ dip diagnosis (worker; `logs/check/gj-dip/REPORT.md`; S-1 torque replicate SLURM 11623290).**
+  - **About 75 % of the 0.66-0.74 dip is section against reference, not FE.** Bredt (yaml webs) against BD drifts
+    smoothly: -5 % at 0.45, -15 % from 0.70 to 0.85. No layup, airfoil or element-set event lies in 0.55-0.80, and
+    the BD K66/K44/K55 are smooth.
+  - **Bredt with the webs at the cap edges (B0 placement) stays within +4/-4 % along the span.** That closes about 10
+    of the 15 points (indicative: B0 is a different mesh).
+    - Inference: the BD deck's section model placed the webs wider than the yaml.
+    - Pending proof: SONATA cross-section images, upstream `827a69ee`.
+  - **About 25 % is FE below its own Bredt** (-5 to -7 % at 0.66-0.74). The jump to -3 % at 0.81-0.83 is FE-side:
+    the twist is non-monotone at 0.817, where the TE reinforcement, the fillers and the LE reinforcement all end.
+  - **Root 0.19-0.24: a reference-interpolation artefact.** BD K66 drops 2.7x between deck stations 0.20 and 0.25,
+    and the linear interpolation inflates the reference +8-12 %. Against a log-interpolated reference, Bredt sits at
+    0 to -5 %. The rest of the -32 % is FE below Bredt, unresolved.
+- **Next (cheapest first).**
+  1. Log-interpolate `gj_bd` near the root (a metric check).
+  2. Full S-1 on a cap-edge-web mesh: is FE/BD flat?
+  3. Inspect the rings at 0.81-0.835 offline (`logs/check/gj-dip/mesh_ad5f3ac.pkl`, `solve-ad5f3ac.pkl`).
+  4. The root FE deficit (es 0.125 or a thick-wall Bredt).
+  5. The user decides the reference policy for GJ (see L19).
   - Measure the deck-era yaml as input (worktree DECKY, `submit_wait.sh DECKY`) against the same tree with the
     official yaml (T14m, ad5f3ac). The root TE reinforcement can move S-2 even though S-1 cannot see it.
 
