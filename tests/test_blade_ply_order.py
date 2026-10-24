@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import yaml
 from matplotlib.path import Path as MplPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
@@ -56,12 +57,28 @@ def test_outermost_layer_is_on_the_outward_face(mesh, frac):
         edge = gel[0]["z_top"] if is_out else gel[0]["z_bottom"]
         good += abs(edge - z_out) < 1e-12
     assert checked >= 15
-    assert good / checked >= 0.99, f"{good}/{checked} ring elements carry the gelcoat on the outer face"
+    assert good / checked >= 0.99, (
+        f"{good}/{checked} ring elements carry the gelcoat on the outer face"
+    )
 
 
 def test_innermost_yaml_layer_is_on_the_inner_face(mesh):
-    """``Shell_skin_inner`` is the last yaml layer: it must be the first (bottom) ply where present."""
-    first = [pl[0]["mat"] for name, pl in mesh["stacks"].items() if not name.endswith("_SW") and len(pl) > 1]
-    last = [pl[-1]["mat"] for name, pl in mesh["stacks"].items() if not name.endswith("_SW") and len(pl) > 1]
-    assert last.count("Gelcoat") / len(last) > 0.95
-    assert first.count("Gelcoat") == 0
+    """Every skin stack runs outer to inner in the yaml layer order.
+
+    ``audit.build_mesh`` lists each stack in physical order, outer (+normal) face first (sorted by
+    ``z_top``). Read that way, the plies' materials must be a subsequence of the yaml skin layers'
+    materials in yaml order (outside in), whichever layers are present at that element: the gelcoat
+    first, the innermost present layer last. A reversed stack puts the gelcoat last and fails.
+    """
+    layers = yaml.safe_load(YAML.read_text())["components"]["blade"]["internal_structure_2d_fem"]
+    order = [layer["material"] for layer in layers["layers"] if "web" not in layer]
+    stacks = {n: pl for n, pl in mesh["stacks"].items() if not n.endswith("_SW") and len(pl) > 1}
+    first = [pl[0]["mat"] for pl in stacks.values()]
+    assert first.count("Gelcoat") / len(first) > 0.95
+
+    def in_yaml_order(mats):
+        it = iter(order)
+        return all(m in it for m in mats)
+
+    bad = [n for n, pl in stacks.items() if not in_yaml_order([p["mat"] for p in pl])]
+    assert not bad, f"{len(bad)}/{len(stacks)} stacks out of yaml order, e.g. {bad[:3]}"
