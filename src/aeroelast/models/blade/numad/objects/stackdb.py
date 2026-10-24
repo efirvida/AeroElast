@@ -192,10 +192,11 @@ class StackDatabase:
             start = np.zeros_like(mid)
             end = np.ones_like(mid)
             if component.nd_arc_start is not None and component.nd_arc_end is not None:
+                # linear like every layer quantity (G10b, user L17); pchip is planned
                 start = interpolator_wrap(component.nd_arc_start["grid"],
-                                          component.nd_arc_start["values"], mid, "pchip")
+                                          component.nd_arc_start["values"], mid, "linear")
                 end = interpolator_wrap(component.nd_arc_end["grid"],
-                                        component.nd_arc_end["values"], mid, "pchip")
+                                        component.nd_arc_end["values"], mid, "linear")
                 if not np.allclose(start+end, 1., rtol=0., atol=1e-12):
                     raise ValueError("Asymmetric WindIO skin ND bounds are not supported")
                 if np.any(start < 0.) or np.any(end > 1.) or np.any(start > end):
