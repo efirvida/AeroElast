@@ -597,6 +597,44 @@ bisecting ceca579 / 93df15e / 4c9372d.
 Failing tests go from 6 to 5: `test_flapwise_ei_within_band` now passes. The other five are the same as T7e (S-1 EA,
 EI_edge, GJ bands; S-2 LC1/LC4 official).
 
+## GJ gap and reference provenance (session 3, 2026-10-24, user L18)
+
+With the yaml webs (G3) the S-1 GJ sits at a median of -10.2 % against BeamDyn over r/R 0.2-0.85. Diagnosis by a
+worker; section-level calculations, no FE solve (`logs/check/gj-gap/`, `results.log`):
+- **H1 metric: ruled out.** The deck's column order is x, y, z, rx, ry, rz; `K[5,5]` is GJ, as the loader reads it.
+  K66 against 1/(K^-1)66 differs by -0.69 % (0.3R) and -0.99 % (0.6R). That is about 1 point, and in the wrong
+  direction.
+- **H2 provenance: mostly ruled out.**
+  - The deck K data equals IEA-15-240-RWT commit `deef925e` (2021-11-29), not the 2020 release.
+  - That commit's yaml (`$SCRATCH/tmp/deck-yaml/`) equals ours inside 0.2-0.85, webs included. It differs in three
+    places only:
+    - TE_reinforcement_SS/PS at the root, eta 0.04-0.10: the deck ramps from 0.04 (8.49 mm at 0.082 against our
+      0.25 mm; upstream `e347d5eb`, 2022-11-06).
+    - The tip chord grid (50 against 53 points, our G2 knots).
+    - Gelcoat strength units.
+  - Not tested: whether SONATA placed the webs where the yaml says (the cross-section images, upstream `827a69ee`).
+- **H3 shell modelling: about 1 point.** The webs are uncoupled (A16 = A26 = 0, so 1/(A^-1)66 = A66). A web ending
+  at the cap inner face gives -0.9 % (0.3R) and -1.8 % (0.6R).
+- **Bredt-Batho against BeamDyn K66.**
+
+  | webs | r/R 0.3 | r/R 0.6 |
+  |---|---|---|
+  | yaml | -3.6 % | -8.2 % |
+  | spar-cap edge (B0) | +3.3 % | +2.2 % |
+  | FE (T8w) | -0.5 % | -11.2 % |
+
+- **Finding: the S-1 GJ per station is extraction noise on top of a real offset.** Shell/BeamDyn - 1 by r/R (T9):
+
+  | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.85 |
+  |---|---|---|---|---|---|---|---|
+  | -41 % | +2.6 % | -9.5 % | -10.1 % | -8.9 % | -19.6 % | -3.3 % | -11.8 % |
+
+  No smooth stiffness ratio does that. The real offset is the Bredt -4 to -8 %, plus SONATA's web placement (open).
+- **Next.**
+  - Metric fix: a window-integral GJ instead of the spline derivative (worker, `fix/s1-gj-metric`).
+  - Measure the deck-era yaml as input (worktree DECKY, `submit_wait.sh DECKY`) against the same tree with the
+    official yaml (T14m, ad5f3ac). The root TE reinforcement can move S-2 even though S-1 cannot see it.
+
 ## Handoff 2 (2026-10-23, session close, user: "cerramos aqui")
 
 **Resume**:
