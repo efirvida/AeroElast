@@ -230,7 +230,9 @@ class KeyPoints:
             c = np.amax(((z - 0.5 * scwidth_hp), 0.8 * geometry.arclength[ns, k]))
             # Keep d 5 % of the side arc aft of c (NuMAD capped it at 85 % of the arc, which clipped
             # the yaml TE band where the TE panel had room: odd/tasks/blade-input-audit.md, T6).
-            d = np.amin(((geometry.arclength[0, k] + n2), c + 0.05 * geometry.arclength[ns, k]))
+            # The band is measured from the TE corner ``arclength[ns]``, not from the flat-back face
+            # midpoint ``arclength[0]``: the yaml ``nd_arc`` excludes the flat face (T15).
+            d = np.amin(((geometry.arclength[ns, k] + n2), c + 0.05 * geometry.arclength[ns, k]))
             d = np.amax((d, 0.98 * geometry.arclength[ns, k]))
             if str(te_types[k]) == "flat":
                 e = geometry.arclength[ns, k]
@@ -278,7 +280,7 @@ class KeyPoints:
             a = np.amin(((0 + n1), b - 0.05 * geometry.arclength[nf, k]))
             a = np.amax((a, 0.01 * geometry.arclength[nf, k]))
             c = np.amin((z + 0.5 * scwidth_lp, 0.8 * geometry.arclength[nf, k]))
-            d = np.amax((geometry.arclength[-1, k] - n2, c + 0.05 * geometry.arclength[nf, k]))
+            d = np.amax((geometry.arclength[nf, k] - n2, c + 0.05 * geometry.arclength[nf, k]))
             d = np.amin((d, 0.96 * geometry.arclength[nf, k]))
             if str(te_types[k]) == str("flat"):
                 e = geometry.arclength[nf, k]

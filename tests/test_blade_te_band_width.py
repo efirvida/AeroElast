@@ -4,6 +4,11 @@ Candidate A of the blade input audit (``odd/tasks/blade-input-audit.md``, T6). N
 ``d`` at 15 % of each side's arc (``keypoints.py``), whatever room the TE panel had. On the official
 IEA 15 MW blade that clipped the 0.75 m TE band to 0.59 m at r/R 0.60 and dropped 23 % of the TE
 glass there. The band may only yield to keep ``d`` aft of the spar-cap keypoint ``c``.
+
+T15 item 4: the yaml band width is measured from the trailing edge, which for a flat-back section is
+the corner (``arclength[ns]`` / ``arclength[nf]``) because the audit's ``nd_arc`` excludes the flat
+face. ``d`` used to be measured from the face midpoint (``arclength[0]`` / ``[-1]``), so every band
+was shortened by the half-face height (the official blade has a flat back up to r/R ~0.4).
 """
 
 from pathlib import Path
@@ -23,10 +28,11 @@ def blade():
 
 
 def _band_widths(blade):
-    """Band width from the TE reference point (arclength[0] / arclength[-1]) per side, per station."""
+    """Band width from the TE corner (arclength[ns] / arclength[nf]) per side, per station."""
     g, kp = blade.geometry, blade.keypoints
-    hp = kp.key_arcs[HP_D] - g.arclength[0]
-    lp = g.arclength[-1] - kp.key_arcs[LP_D]
+    ns, nf = 1, g.arclength.shape[0] - 2
+    hp = kp.key_arcs[HP_D] - g.arclength[ns]
+    lp = g.arclength[nf] - kp.key_arcs[LP_D]
     return hp, lp
 
 
@@ -37,10 +43,10 @@ def test_te_band_matches_yaml_where_the_panel_has_room(blade):
     ns, nf = 1, n - 2
     teband = 1e-3 * np.asarray(blade.definition.teband, dtype=float)
     # stations where the band stays 5 % of the side arc clear of c and above the 2 %/4 % floors
-    room_hp = (kp.key_arcs[HP_C] - (g.arclength[0] + teband)) > 0.05 * -g.arclength[ns]
-    room_lp = ((g.arclength[-1] - teband) - kp.key_arcs[LP_C]) > 0.05 * g.arclength[nf]
-    floor_hp = teband > 0.02 * -g.arclength[ns] + (g.arclength[ns] - g.arclength[0])
-    floor_lp = teband > 0.04 * g.arclength[nf] + (g.arclength[-1] - g.arclength[nf])
+    room_hp = (kp.key_arcs[HP_C] - (g.arclength[ns] + teband)) > 0.05 * -g.arclength[ns]
+    room_lp = ((g.arclength[nf] - teband) - kp.key_arcs[LP_C]) > 0.05 * g.arclength[nf]
+    floor_hp = teband > 0.02 * -g.arclength[ns]
+    floor_lp = teband > 0.04 * g.arclength[nf]
     sel_hp, sel_lp = room_hp & floor_hp, room_lp & floor_lp
     assert sel_hp.sum() > 30 and sel_lp.sum() > 30
     np.testing.assert_allclose(hp[sel_hp], teband[sel_hp], rtol=0, atol=1e-9)

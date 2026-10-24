@@ -171,7 +171,7 @@ def _add_stations(
     write_airfoils,
 ):
     # Obtaining some parameters not explicitly given in YAML file
-    L = np.ceil(blade_outer_shape_bem["reference_axis"]["z"]["values"][-1])
+    L = blade_outer_shape_bem["reference_axis"]["z"]["values"][-1]
     R = L + hub_outer_shape_bem["diameter"] / 2
     L = R - hub_outer_shape_bem["diameter"] / 2
     definition.span = np.multiply(
@@ -453,13 +453,13 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict, 
         if len(ss) == 1:
             component_dict[ss[0]].lpextents = ["d", "te"]
         else:
-            ValueError("Incorrect number of te reinf ss components")
+            raise ValueError("Incorrect number of te reinf ss components")
 
         ps = full_keys_from_substrings(component_dict, ["te", "reinf", "ps"])
         if len(ps) == 1:
             component_dict[ps[0]].hpextents = ["d", "te"]
         else:
-            ValueError("Incorrect number of te reinf ps components")
+            raise ValueError("Incorrect number of te reinf ps components")
     else:
         raise ValueError("Invalid number of LE reinforcements")
 
@@ -473,13 +473,13 @@ def _add_components(definition, blade_internal_structure, blade_structure_dict, 
         if len(ss) == 1:
             component_dict[ss[0]].lpextents = ["le", "a"]
         else:
-            ValueError("Incorrect number of te reinf ss components")
+            raise ValueError("Incorrect number of le reinf ss components")
 
         ps = full_keys_from_substrings(component_dict, ["le", "reinf", "ps"])
         if len(ps) == 1:
             component_dict[ps[0]].hpextents = ["le", "a"]
         else:
-            ValueError("Incorrect number of te reinf ps components")
+            raise ValueError("Incorrect number of le reinf ps components")
     else:
         raise ValueError("Invalid number of LE reinforcements")
 
