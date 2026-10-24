@@ -1,0 +1,5 @@
+span integral (1 m midpoint rule, kg): mesh / yaml / diff / %
+triax     40711.1   40470.4    240.7   0.59
+carbon    14862.7   14895.5    -32.7  -0.22
+web        2628.1    2623.0      5.1   0.19
+web height sum mesh/yaml: 268.2887257365884 366.097348006636

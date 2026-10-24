@@ -1,0 +1,14 @@
+kg      yaml     oml   (oml-yaml)%    mid   (mid-yaml)%   mid-oml
+skin:glass_triax          40475.1  40801.4   0.81%  40259.7  -0.53%  -541.7
+skin:CarbonUD             14895.4  14876.0  -0.13%  14681.5  -1.44%  -194.5
+web:glass_biax             1542.1   1546.7   0.30%   1467.0  -4.87%   -79.7
+web:medium_density_foam    1085.5   1088.8   0.31%   1033.6  -4.78%   -55.2
+webs total                 2627.6   2635.5   0.30%   2500.6  -4.83%  -134.9
+skin total                64842.2  65395.2   0.85%  64648.8  -0.30%
+oml TE_FLAT glass_uni kg: HP 157.0 LP 209.7 ; glass_uni all 5869.8
+mid TE_FLAT glass_uni kg: HP 157.0 LP 209.7 ; glass_uni all 5889.0
+yaml glass_uni all (TE_SS+TE_PS+LE): 5644.5
+oml skin:glass_triax by 10 m: [265, 38, 18, 5, -4, 7, -8, 7, -4, 1, 0, 1]
+oml skin:CarbonUD by 10 m: [5, -6, -9, -4, -18, 22, -25, 25, -11, 3, 0, -1]
+mid skin:glass_triax by 10 m: [-98, -97, -1, -1, -8, 3, -11, 4, -6, 0, -1, 1]
+mid skin:CarbonUD by 10 m: [3, -18, -29, -28, -47, -10, -53, 1, -28, -2, -1, -2]
