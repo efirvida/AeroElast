@@ -92,6 +92,12 @@ TWIST_ANGLE_TOL = 10.0  # |angle(F, station f_hat)| for a per-section load
 Z_MERGE_TOL = 0.02  # merge a prebent ring's z spread (see test_blade_rated_twist)
 END_SLAB = 0.25  # outer quarter of the chord, per end
 THICKNESS_TIE_REL = 0.10  # <=10 % thickness difference is a tie
+#: Domain of the circular n-gon error model in the axis-resolution check (min/max
+#: extent).  Not a tolerance: on both measured trees (T34) every value in
+#: (0.51, 0.96) gives the same verdicts on the seven stations (the frac 0.03 root
+#: ring, 0.967, is in; the frac 0.15 airfoil, 0.507, and everything outboard are
+#: out).
+NEAR_ROUND_ASPECT = 0.90
 Np_TEST = 1000.0  # N/m, uniform per-station magnitude
 Tp_TEST = 1000.0  # N/m
 
@@ -213,6 +219,24 @@ def _section_frame(pts, z, aero, s_span):
     extent_c = float(np.ptp(p))
     d_max, extent_max = _max_extent_direction(pts)
     chord_local = float(np.interp(z, s_span, aero.chord))
+    # Does a near-round outline resolve its major axis at the guard's own bound?
+    # Turning MAJOR_AXIS_ANGLE_DEG off d_max must shorten the extent by more than
+    # a circular n-gon's extent error 1 - cos(pi / n); on the near-round root ring
+    # it does not, and both c_hat and d_max then follow node placement, not the
+    # section.  The circle error model only holds for a near-round ring: on an
+    # airfoil the extent ends are the LE/TE keypoint nodes and it overstates the
+    # error by orders of magnitude (tip ring, 16 nodes: 1.9e-2 vs a 0.2 deg angle).
+    e1, e2 = _plane_basis(SPAN_DIR)
+    scan = np.linspace(0.0, np.pi, 1800, endpoint=False)
+    extents = np.ptp(np.outer(np.cos(scan), pts @ e1) + np.outer(np.sin(scan), pts @ e2), axis=1)
+    aspect = float(extents.min() / extents.max())
+    turn = np.deg2rad(MAJOR_AXIS_ANGLE_DEG)
+    d_perp = np.cross(SPAN_DIR, d_max)
+    extent_turned = max(
+        float(np.ptp(pts @ (np.cos(turn) * d_max + s * np.sin(turn) * d_perp))) for s in (-1.0, 1.0)
+    )
+    axis_drop = 1.0 - extent_turned / extent_max
+    axis_resolution = 1.0 - float(np.cos(np.pi / pts.shape[0]))
     return {
         "z": float(z),
         "n": int(pts.shape[0]),
@@ -225,20 +249,38 @@ def _section_frame(pts, z, aero, s_span):
         "x_extent": float(np.ptp(pts[:, 0])),
         "y_extent": float(np.ptp(pts[:, 1])),
         "y_mean": float(pts[:, 1].mean()),
+        "axis_drop": axis_drop,
+        "axis_resolution": axis_resolution,
+        "aspect": aspect,
+        "axis_resolved": aspect < NEAR_ROUND_ASPECT or axis_drop > axis_resolution,
     }
 
 
 def _assert_chord_runs_along_major_axis(frame):
-    """The aerodynamic chord must be the ring's principal in-plane axis."""
+    """The aerodynamic chord must be the ring's principal in-plane axis.
+
+    The extent check holds on every ring.  The angle check only where the
+    outline resolves a major axis (``axis_resolved``): on the near-round root
+    ring (T34, z 3.58 m, min/max extent 0.967) the measured angle moved
+    6.9 -> 19.9 deg between two meshes of the same outline, i.e. it measured
+    node placement.
+    """
     angle = _angle_deg(frame["c_hat"], frame["max_extent_dir"])
     rel = frame["extent_c"] / frame["chord_local"] - 1.0
-    assert angle <= MAJOR_AXIS_ANGLE_DEG, (
-        f"z={frame['z']:.3f} m: c_hat is {angle:.3f} deg off the ring's "
-        f"max-extent direction (bound {MAJOR_AXIS_ANGLE_DEG})"
-    )
     assert abs(rel) <= CHORD_EXTENT_TOL, (
         f"z={frame['z']:.3f} m: extent along c_hat is {frame['extent_c']:.4f} m "
         f"but the local chord is {frame['chord_local']:.4f} m ({rel:+.4%})"
+    )
+    if not frame["axis_resolved"]:
+        print(
+            f"    z={frame['z']:.3f} m: major axis not resolved (extent drop at "
+            f"{MAJOR_AXIS_ANGLE_DEG} deg {frame['axis_drop']:.2e} <= n-gon error "
+            f"{frame['axis_resolution']:.2e}); angle {angle:.3f} deg not asserted"
+        )
+        return
+    assert angle <= MAJOR_AXIS_ANGLE_DEG, (
+        f"z={frame['z']:.3f} m: c_hat is {angle:.3f} deg off the ring's "
+        f"max-extent direction (bound {MAJOR_AXIS_ANGLE_DEG})"
     )
 
 
@@ -364,7 +406,8 @@ def test_normal_load_rides_the_rotor_plane_normal(blade_case):
         twist = _angle_deg(frame["f_hat"], ROTOR_NORMAL)
         worst_along = min(worst_along, along)
         worst_across = max(worst_across, across)
-        worst_twist = max(worst_twist, twist)
+        if frame["axis_resolved"]:  # an unresolved ring's f_hat is not a section normal
+            worst_twist = max(worst_twist, twist)
         print(
             f"    Np={Np_TEST:.0f}: |F.z_rotor|/|F|={along:.4f}  "
             f"|F.t_rotor|/|F|={across:.4f}  angle(f_hat, z_rotor)={twist:6.3f} deg"
@@ -445,12 +488,13 @@ def test_load_direction_does_not_follow_the_section_twist(blade_case):
     # witness.  (0.0, 0.0) is a sentinel - the assertion below fails with the
     # measured angle if no pair ever separated.
     best_angle, best_pair = 0.0, (0.0, 0.0)
-    for i in range(len(rows)):
-        for j in range(i + 1, len(rows)):
-            angle = _angle_deg(rows[i]["f_hat"], rows[j]["f_hat"])
+    resolved = [frame for frame in rows if frame["axis_resolved"]]
+    for i in range(len(resolved)):
+        for j in range(i + 1, len(resolved)):
+            angle = _angle_deg(resolved[i]["f_hat"], resolved[j]["f_hat"])
             if angle > best_angle:
                 best_angle = angle
-                best_pair = (float(rows[i]["frac"]), float(rows[j]["frac"]))
+                best_pair = (float(resolved[i]["frac"]), float(resolved[j]["frac"]))
     print(
         f"\n    inter-station section-normal angle: {best_angle:.3f} deg "
         f"between frac {best_pair[0]:.2f} and {best_pair[1]:.2f} "
@@ -464,6 +508,31 @@ def test_load_direction_does_not_follow_the_section_twist(blade_case):
         f"the projected force follows the section instead of the rotor frame: worst "
         f"angle(F, z_rotor) = {worst:.3f} deg at frac {worst_frac:.2f} "
         f"(bound {TWIST_ANGLE_TOL})"
+    )
+
+
+def test_unresolved_major_axis_only_at_the_round_root(blade_case):
+    """The axis-resolution skip may only fire on the round root transition.
+
+    Every airfoil station (frac >= 0.15) must resolve its major axis, so the
+    skip in ``_assert_chord_runs_along_major_axis`` cannot hide a real section
+    whose chord left the principal axis.
+    """
+    rows = blade_case[4]
+    for frame in rows:
+        print(
+            f"    frac={frame['frac']:.2f} z={frame['z']:8.3f} m: aspect {frame['aspect']:.4f} "
+            f"drop {frame['axis_drop']:.2e} vs n-gon {frame['axis_resolution']:.2e} "
+            f"-> resolved={frame['axis_resolved']}"
+        )
+    airfoil_unresolved = [
+        round(frame["frac"], 2)
+        for frame in rows
+        if frame["frac"] >= 0.15 and not frame["axis_resolved"]
+    ]
+    assert not airfoil_unresolved, (
+        f"airfoil stations whose outline does not resolve a major axis at "
+        f"{MAJOR_AXIS_ANGLE_DEG} deg: frac {airfoil_unresolved}"
     )
 
 
