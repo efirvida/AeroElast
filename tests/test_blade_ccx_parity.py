@@ -33,14 +33,17 @@ the same value -- the gap at a fixed mesh is discretisation:
     0.25          32336    1.74%     0.53%     3.29%
 
 The test therefore runs on the converged mesh and asserts the suite's 5% rule
-rather than a mesh allowance.  Caveat recorded with the table: the metric here is
-the mean over the tip nodes, which moves with the tip node distribution (flap
-reads 7.55 / 7.94 / 7.12 / 7.11 m across the four meshes), so the trend of the
-gap is the signal.  At 0.25 m the worst case sits 1.7 points inside the bound.
-The energy metric is reported beside each row and is more sensitive on the axial
-cases (6.65% at 0.25 m against a 3.29% displacement gap): that is the curved-axis
-second-orderness of a linear solve on the prebent axis, recorded in
-`docs/validation_closures.md` (2026-10-07) - not a tolerance to widen.
+rather than a mesh allowance.
+
+The metric is the mean translation vector over a node slab at an interior
+station (T36); the tip-node metric of the first versions is superseded.  T31
+(`logs/check/t31/FINDING.md`, Part 3) showed the two FE models agree on the
+blade (GJ twist rate within 0.7%, axial translations within 1% up to z 82-94 m)
+and that the tip gap is born in the last 1-5 m, at the 16 point-loaded tip
+nodes with no diaphragm: it measures load introduction, not stiffness.  The tip
+value is still printed as a diagnostic.  History, superseded (mean |u| over the
+tip nodes, 0.25 m): flap 1.74%, edge 0.53%, axial 3.29%; the earlier
+displacement-vs-W discrepancy on the axial cases is the same effect.
 """
 
 from __future__ import annotations
@@ -78,6 +81,17 @@ BLADE_YAML = REPO / "tests" / "IEA-15-240-RWT.yaml"
 # 0.25 m the cases read 1.74/0.53/3.29% and the 5% suite rule is what holds. That is
 # why the test is slow: the quadratic export makes the CCX model ~98k nodes.
 ELEMENT_SIZE = 0.25
+# Stations as a fraction of the blade length.  Fixed before any run (T36): 0.5 and
+# 0.7 are asserted; 0.8-0.9 R is the open T28 band (edge translation up to +6.9%)
+# and is printed only.
+ASSERTED_STATIONS = (0.5, 0.7)
+PRINTED_STATIONS = (0.8, 0.9)
+SLAB_HALF_WIDTH = 0.6 * ELEMENT_SIZE  # m, |z - zc| < this
+# The FRD writes coordinates as E12.5 (6 significant digits), so a coordinate c is
+# rounded by at most 0.5e-5 x 10^floor(log10|c|); 1e-5 x |c| (+1e-9) bounds it.  A
+# fixed 1e-4 m matches nothing beyond z = 100 m, where the rounding is 5e-4 m.
+FRD_REL_TOL = 1e-5
+FRD_ABS_TOL = 1e-9  # m
 TORQUE_MAGNITUDE = 5.0e6  # N.m about the span
 AXIAL_MAGNITUDE = 1.0e6  # N along the span (centrifugal scale)
 FLAP_MAGNITUDE = 1.0e5  # N, rotor-plane normal
@@ -185,8 +199,62 @@ def _tip_metrics(mesh, disp_nodes: dict, coords: np.ndarray, idx: list[int]) -> 
     return mag, twist
 
 
-def _ccx_tip_displacements(frd_path, mesh, coords) -> dict:
-    """FRD translations, matched by COORDINATES (S8R renumbers the ids)."""
+def _match_by_label(coords: np.ndarray, labels: np.ndarray, ccx_xyz: np.ndarray) -> np.ndarray:
+    """Pair our node ``i`` with the CCX node labelled ``i + 1`` and check the pairing.
+
+    The quadratic writer emits our corner nodes with 1-based *index* labels and
+    appends the mid-side nodes after them (``_build_quadratic_mesh_data``), so the
+    pairing is by identity.  Coordinates only verify it, within the E12.5 rounding
+    ``FRD_REL_TOL * |c| + FRD_ABS_TOL``.  A nearest-coordinate match is not usable:
+    the mesh has distinct nodes 0.25 mm apart, closer than that rounding beyond
+    z = 100 m.  Returns the row of ``ccx_xyz`` for each of our nodes; a missing
+    label or a coordinate outside the rounding fails.
+    """
+    row = {int(lab): k for k, lab in enumerate(labels)}
+    missing = [i for i in range(len(coords)) if i + 1 not in row]
+    assert not missing, f"{len(missing)} of our nodes have no CCX label i + 1 (first {missing[:5]})"
+    pos = np.asarray([row[i + 1] for i in range(len(coords))])
+    ref = ccx_xyz[pos]
+    off = np.abs(coords - ref) > FRD_REL_TOL * np.abs(ref) + FRD_ABS_TOL
+    bad = np.nonzero(off.any(axis=1))[0]
+    # The message is only built on failure, so bad[0] exists there.
+    assert bad.size == 0, (
+        f"{bad.size} label pairs differ beyond the FRD rounding (first node {int(bad[0])}: "
+        f"{coords[bad[0]]} vs {ref[bad[0]]})"
+    )
+    return pos
+
+
+_CORNERS = {"S8R": 4, "S6": 3}  # corner nodes come first in the CCX node order
+
+
+def _deck_corner_ids(msh_text: str) -> set[int]:
+    """Corner-node ids of the shell elements in the deck's ``*ELEMENT`` blocks.
+
+    S8R lists 4 corners then 4 mid-sides, S6 3 corners then 3 mid-sides.  Only
+    corners lie at our (linear) node positions, so they are the only candidates.
+    """
+    ids: set[int] = set()
+    n_corner = 0
+    for line in msh_text.splitlines():
+        if line.startswith("*"):
+            head = line.upper().replace(" ", "").split(",")
+            n_corner = 0
+            if head[0] == "*ELEMENT":
+                kind = next((h[5:] for h in head if h.startswith("TYPE=")), "")
+                assert kind in _CORNERS, f"unexpected element type {kind!r} in the deck"
+                n_corner = _CORNERS[kind]
+        elif n_corner and line.strip():
+            ids.update(int(t) for t in line.split(",")[1 : 1 + n_corner] if t.strip())
+    return ids
+
+
+def _ccx_displacements(frd_path, coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """FRD translations at our nodes, paired by label and checked by coordinates.
+
+    Returns ``(matched, disp)``: a boolean mask over ``coords`` (all True once the
+    pairing checks pass) and an ``(N, 3)`` array.  Mid-side nodes are ignored.
+    """
     from tests.validation.parity.test_orthotropic_shell_parity import (
         _parse_ccx_frd,
         _parse_ccx_frd_coords,
@@ -194,19 +262,34 @@ def _ccx_tip_displacements(frd_path, mesh, coords) -> dict:
 
     ccx_coords = _parse_ccx_frd_coords(frd_path)
     ccx_disp = _parse_ccx_frd(frd_path, list(ccx_coords))
-    out = {}
-    for i, n in enumerate(mesh.nodes):
-        if n.id not in {m.id for m in mesh.get_node_set("tip").nodes.values()}:
-            continue
-        p = coords[i]
-        best, best_d = None, 1e-4
-        for nid, xyz in ccx_coords.items():
-            d = float(np.linalg.norm(xyz - p))
-            if d < best_d:
-                best, best_d = nid, d
-        if best is not None and best in ccx_disp:
-            out[i] = ccx_disp[best]
-    return out
+    # CCX expands each composite shell into ~1.8M 3D nodes through the thickness;
+    # the deck's own corner nodes are exactly our nodes, labelled 1..N.
+    corners = _deck_corner_ids(Path(frd_path).with_suffix(".msh").read_text())
+    assert corners == set(range(1, len(coords) + 1)), (
+        f"deck corner labels are not 1..{len(coords)}: {len(corners)} corners, "
+        f"range {min(corners)}..{max(corners)}"
+    )
+    labels = np.asarray(sorted(corners))
+    xyz = np.asarray([ccx_coords[i] for i in labels], dtype=float)
+    pos = _match_by_label(coords, labels, xyz)
+    disp = np.asarray([ccx_disp[int(labels[k])] for k in pos], dtype=float)[:, :3]
+    matched = np.ones(len(coords), dtype=bool)
+    print(f"label match: {len(coords)}/{len(coords)} AE nodes, coordinates within the FRD rounding")
+    return matched, disp
+
+
+def _slab_mean_vector(
+    coords: np.ndarray, disp: np.ndarray, zc: float, half_width: float
+) -> np.ndarray:
+    """Mean translation vector over the nodes with |z - zc| < ``half_width``."""
+    sel = np.abs(coords[:, 2] - zc) < half_width
+    assert sel.any(), f"no node within {half_width} m of z = {zc}"
+    return np.asarray(disp, dtype=float)[sel, :3].mean(axis=0)
+
+
+def _vector_gap(u_ae: np.ndarray, u_ref: np.ndarray) -> float:
+    """|u_ae - u_ref| / |u_ref|, the relative gap of two translation vectors."""
+    return float(np.linalg.norm(u_ae - u_ref) / max(np.linalg.norm(u_ref), 1e-30))
 
 
 def _ccx_bin_or_skip() -> str:
@@ -224,19 +307,15 @@ def _ccx_bin_or_skip() -> str:
 def test_blade_parity_ccx(tmp_path, name):
     """Same blade, same layup, same load through AeroElast and CCX.
 
-    Measured 2026-10-06 on the converged mesh (0.25 m), every case inside the 5%
-    rule: ``tip_flap`` 1.74% (7.105 m vs 7.231 m), ``tip_edge`` 0.53% (3.456 m vs
-    3.475 m), ``tip_axial_tension`` 3.29% (5.691 m vs 5.884 m) and
-    ``tip_axial_compression`` likewise. On the coarse meshes the same suite reads
-    6.32/3.86/7.57% at 1.0 m, which is what the 20% band it used to carry bought.
+    Metric (T36): mean translation vector over the slab |z - zc| < 0.6 x
+    ELEMENT_SIZE at zc = z0 + f (z1 - z0), ``|u_AE - u_CCX| / |u_CCX|``, asserted
+    at f = 0.5 and 0.7 with the 5% bound.  f = 0.8, 0.9 and the old tip metric are
+    printed, not asserted.  The tip metric was replaced because it measures load
+    introduction at 16 point-loaded nodes with no diaphragm (T31), not stiffness.
 
-    The edgewise disagreement this docstring used to record as a 64% gap
-    (1.229 m vs 3.450 m, "left red on purpose") was closed by the section work
-    that landed after 2026-09-30; the numbers above are what the suite measures
-    now.  Superseded text kept for the record: *"``tip_edge`` does not:
-    AeroElast gives 1.229 m where CalculiX gives 3.450 m, a 64% gap ... That is
-    left red on purpose, with the measured numbers in the message: it is a real
-    question about the laminate mapping, not a tolerance to widen."*
+    Superseded history (tip metric, 0.25 m, 2026-10-06): flap 1.74%, edge 0.53%,
+    axial tension 3.29%.  The 64% edgewise gap recorded earlier (1.229 m vs
+    3.450 m) was closed by the section work after 2026-09-30.
     """
     ccx_bin = _ccx_bin_or_skip()
     load, expect_twist = CASES[name]
@@ -279,25 +358,95 @@ def test_blade_parity_ccx(tmp_path, name):
     if not frd.exists():
         pytest.xfail(f"CCX produced no FRD for {name}")
 
-    ccx_disp = _ccx_tip_displacements(frd, mesh, coords)
-    if not ccx_disp:
+    matched, ccx_u = _ccx_displacements(frd, coords)
+    if not matched[tip_idx].any():
         pytest.xfail(f"no tip nodes matched in the FRD for {name}")
-    ccx_mag, ccx_twist = _tip_metrics(mesh, ccx_disp, coords, sorted(ccx_disp))
+    ae_u = u.reshape(-1, 6)[:, :3]
+    z0, z1 = float(coords[:, 2].min()), float(coords[:, 2].max())
 
-    d_mag = abs(ae_mag - ccx_mag) / max(abs(ccx_mag), 1e-30)
+    gaps = {}
+    for f in ASSERTED_STATIONS + PRINTED_STATIONS:
+        zc = z0 + f * (z1 - z0)
+        in_slab = np.abs(coords[:, 2] - zc) < SLAB_HALF_WIDTH
+        n_tot, n_match = int(in_slab.sum()), int((in_slab & matched).sum())
+        print(f"{name:>24}: f={f:.1f} slab nodes matched {n_match}/{n_tot}")
+        if f in ASSERTED_STATIONS:
+            # A partial match would bias the mean, so it fails rather than passes.
+            assert n_tot > 0 and n_match == n_tot, (
+                f"{name}: f={f}: {n_match}/{n_tot} slab nodes matched to the FRD"
+            )
+        elif n_match == 0:
+            print(f"{name:>24}: f={f:.1f} z={zc:7.3f} [print ] no matched node in the slab")
+            continue
+        a_vec = _slab_mean_vector(coords[matched], ae_u[matched], zc, SLAB_HALF_WIDTH)
+        c_vec = _slab_mean_vector(coords[matched], ccx_u[matched], zc, SLAB_HALF_WIDTH)
+        gaps[f] = _vector_gap(a_vec, c_vec)
+        tag = "ASSERT" if f in ASSERTED_STATIONS else "print "
+        print(
+            f"{name:>24}: f={f:.1f} z={zc:7.3f} [{tag}] gap={gaps[f] * 100:6.2f}%  "
+            f"AE={np.array2string(a_vec * 1e3, precision=4)} mm "
+            f"CCX={np.array2string(c_vec * 1e3, precision=4)} mm"
+        )
+
+    tip_ccx = [i for i in tip_idx if matched[i]]
+    ccx_mag, ccx_twist = _tip_metrics(mesh, {i: ccx_u[i] for i in tip_ccx}, coords, tip_ccx)
+    d_tip = abs(ae_mag - ccx_mag) / max(abs(ccx_mag), 1e-30)
     print(
-        f"{name:>24}: tip disp AE={ae_mag * 1e6:10.3f} um CCX={ccx_mag * 1e6:10.3f} um "
-        f"({d_mag * 100:5.2f}%)  |  twist AE={ae_twist:+.6f} CCX={ccx_twist:+.6f} deg"
+        f"{name:>24}: tip (diagnostic, load introduction) AE={ae_mag * 1e6:10.3f} um "
+        f"CCX={ccx_mag * 1e6:10.3f} um ({d_tip * 100:5.2f}%)  |  twist AE={ae_twist:+.6f} "
+        f"CCX={ccx_twist:+.6f} deg"
     )
 
-    assert d_mag < 0.05, f"{name}: tip displacement {d_mag * 100:.1f}% off CCX (max 5%)"
+    for f in ASSERTED_STATIONS:
+        assert gaps[f] < 0.05, (
+            f"{name}: slab translation at f={f} is {gaps[f] * 100:.2f}% off CCX (max 5%)"
+        )
     if expect_twist:
-        # The tip ring is too thin for a least-squares rotation: the CalculiX
-        # side of the flap case alone returns +70 deg, which no 1e5 N flap load
-        # produces.  Assert what is numerically meaningful -- that both sides see
-        # a non-zero twist in the same direction and of the same order -- and
-        # leave the magnitude as a printed diagnostic.
+        # The tip ring is too thin for a least-squares rotation, so only sign and
+        # presence are checked; the magnitude is a printed diagnostic.
         assert abs(ccx_twist) > 1e-5, "CCX shows no twist; the case setup is wrong"
         assert np.sign(ae_twist) == np.sign(ccx_twist), (
             f"{name}: twist sign AE {ae_twist:+.6f} vs CCX {ccx_twist:+.6f}"
         )
+
+
+def test_slab_mean_vector_metric():
+    """Slab mean and vector gap on a synthetic slab; outside nodes are ignored."""
+    coords = np.array(
+        [[0, 0, 1.0], [1, 0, 1.1], [0, 1, 0.9], [0, 0, 1.5], [0, 0, 0.0]], dtype=float
+    )
+    disp = np.array([[1, 0, 0], [3, 0, 0], [2, 3, 0], [100, 100, 100], [-50, 0, 7]], dtype=float)
+    mean = _slab_mean_vector(coords, disp, zc=1.0, half_width=0.25)
+    np.testing.assert_allclose(mean, [2.0, 1.0, 0.0])
+    ref = np.array([2.0, 0.0, 0.0])
+    assert _vector_gap(mean, ref) == pytest.approx(0.5)
+    assert _vector_gap(ref, ref) == 0.0
+    with pytest.raises(AssertionError):
+        _slab_mean_vector(coords, disp, zc=5.0, half_width=0.25)
+
+
+def test_match_by_label_checks_the_pairing():
+    """Label i + 1 pairs node i; E12.5 rounding at z ~ 106 m passes, 2 mm fails."""
+    ae = np.array([[0.123456789, -0.5, 106.8321234], [1.0, 2.0, 106.8341234]])
+    labels = np.array([2, 1, 3])  # CCX order is not ours; label 3 is a mid-side node
+    frd = np.array(
+        [[1.0, 2.0, float(f"{ae[1, 2]:.5E}")], [float(f"{c:.5E}") for c in ae[0]], [9.0, 9.0, 9.0]]
+    )
+    assert abs(frd[1, 2] - ae[0, 2]) > 1e-4  # a fixed 1e-4 m would reject it
+    np.testing.assert_array_equal(_match_by_label(ae, labels, frd), [1, 0])
+    shifted = frd.copy()
+    shifted[0, 2] += 2e-3
+    with pytest.raises(AssertionError, match="differ beyond the FRD rounding"):
+        _match_by_label(ae, labels, shifted)
+    with pytest.raises(AssertionError, match="no CCX label"):
+        _match_by_label(ae, np.array([1, 3, 4]), frd)
+
+
+def test_deck_corner_ids():
+    """Corners of S8R (first 4) and S6 (first 3) are taken; mid-side nodes are not."""
+    msh = (
+        "*NODE, NSET=Nall\n1, 0, 0, 0\n"
+        "*ELEMENT, TYPE=S8R, ELSET=A\n1, 1, 2, 4, 3, 10, 11, 12, 13\n"
+        "*ELEMENT, TYPE=S6, ELSET=B\n2, 2, 5, 4, 14, 15, 16\n"
+    )
+    assert _deck_corner_ids(msh) == {1, 2, 3, 4, 5}
