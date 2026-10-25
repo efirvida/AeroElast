@@ -216,18 +216,28 @@ def _match_coords(coords: np.ndarray, ccx_xyz: np.ndarray) -> tuple[np.ndarray, 
     return matched, pos[:, 0], int(ambiguous.sum())
 
 
-def _deck_node_count(msh: Path) -> int:
-    """Largest node id of the first ``*NODE`` block of the deck's mesh file."""
-    top = 0
-    in_nodes = False
-    for line in msh.read_text().splitlines():
+_CORNERS = {"S8R": 4, "S6": 3}  # corner nodes come first in the CCX node order
+
+
+def _deck_corner_ids(msh_text: str) -> set[int]:
+    """Corner-node ids of the shell elements in the deck's ``*ELEMENT`` blocks.
+
+    S8R lists 4 corners then 4 mid-sides, S6 3 corners then 3 mid-sides.  Only
+    corners lie at our (linear) node positions, so they are the only candidates.
+    """
+    ids: set[int] = set()
+    n_corner = 0
+    for line in msh_text.splitlines():
         if line.startswith("*"):
-            if in_nodes:
-                break
-            in_nodes = line.upper().startswith("*NODE")
-        elif in_nodes and line.strip():
-            top = max(top, int(line.split(",")[0]))
-    return top
+            head = line.upper().replace(" ", "").split(",")
+            n_corner = 0
+            if head[0] == "*ELEMENT":
+                kind = next((h[5:] for h in head if h.startswith("TYPE=")), "")
+                assert kind in _CORNERS, f"unexpected element type {kind!r} in the deck"
+                n_corner = _CORNERS[kind]
+        elif n_corner and line.strip():
+            ids.update(int(t) for t in line.split(",")[1 : 1 + n_corner] if t.strip())
+    return ids
 
 
 def _ccx_displacements(frd_path, coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -244,11 +254,10 @@ def _ccx_displacements(frd_path, coords: np.ndarray) -> tuple[np.ndarray, np.nda
 
     ccx_coords = _parse_ccx_frd_coords(frd_path)
     ccx_disp = _parse_ccx_frd(frd_path, list(ccx_coords))
-    # CCX expands each composite shell into 3D: the FRD carries ~1.8M nodes, the
-    # extra ones numbered above the deck's own and lying through the thickness.
-    # Only the deck nodes (ids <= the .msh node count) are on the reference surface.
-    n_deck = _deck_node_count(Path(frd_path).with_suffix(".msh"))
-    ids = [nid for nid in ccx_coords if nid in ccx_disp and nid <= n_deck]
+    # CCX expands each composite shell into ~1.8M 3D nodes lying through the
+    # thickness; only the deck's own corner nodes sit at our node positions.
+    corners = _deck_corner_ids(Path(frd_path).with_suffix(".msh").read_text())
+    ids = [nid for nid in ccx_coords if nid in ccx_disp and nid in corners]
     xyz = np.asarray([ccx_coords[i] for i in ids], dtype=float)
     matched, pos, n_amb = _match_coords(coords, xyz)
     print(f"coordinate match: {int(matched.sum())}/{len(coords)} AE nodes, ambiguous {n_amb}")
@@ -417,3 +426,13 @@ def test_match_coords_precision_aware():
     assert n_amb == 0
     _, _, n_amb = _match_coords(ae[:1], np.vstack([frd[:1], frd[:1] + [0.0, 0.0, 1e-4]]))
     assert n_amb == 1
+
+
+def test_deck_corner_ids():
+    """Corners of S8R (first 4) and S6 (first 3) are taken; mid-side nodes are not."""
+    msh = (
+        "*NODE, NSET=Nall\n1, 0, 0, 0\n"
+        "*ELEMENT, TYPE=S8R, ELSET=A\n1, 1, 2, 4, 3, 10, 11, 12, 13\n"
+        "*ELEMENT, TYPE=S6, ELSET=B\n2, 2, 5, 4, 14, 15, 16\n"
+    )
+    assert _deck_corner_ids(msh) == {1, 2, 3, 4, 5}
