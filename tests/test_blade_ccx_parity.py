@@ -216,6 +216,20 @@ def _match_coords(coords: np.ndarray, ccx_xyz: np.ndarray) -> tuple[np.ndarray, 
     return matched, pos[:, 0], int(ambiguous.sum())
 
 
+def _deck_node_count(msh: Path) -> int:
+    """Largest node id of the first ``*NODE`` block of the deck's mesh file."""
+    top = 0
+    in_nodes = False
+    for line in msh.read_text().splitlines():
+        if line.startswith("*"):
+            if in_nodes:
+                break
+            in_nodes = line.upper().startswith("*NODE")
+        elif in_nodes and line.strip():
+            top = max(top, int(line.split(",")[0]))
+    return top
+
+
 def _ccx_displacements(frd_path, coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """FRD translations at our nodes, matched by COORDINATES (S8R renumbers the ids).
 
@@ -230,9 +244,14 @@ def _ccx_displacements(frd_path, coords: np.ndarray) -> tuple[np.ndarray, np.nda
 
     ccx_coords = _parse_ccx_frd_coords(frd_path)
     ccx_disp = _parse_ccx_frd(frd_path, list(ccx_coords))
-    ids = [nid for nid in ccx_coords if nid in ccx_disp]
+    # CCX expands each composite shell into 3D: the FRD carries ~1.8M nodes, the
+    # extra ones numbered above the deck's own and lying through the thickness.
+    # Only the deck nodes (ids <= the .msh node count) are on the reference surface.
+    n_deck = _deck_node_count(Path(frd_path).with_suffix(".msh"))
+    ids = [nid for nid in ccx_coords if nid in ccx_disp and nid <= n_deck]
     xyz = np.asarray([ccx_coords[i] for i in ids], dtype=float)
     matched, pos, n_amb = _match_coords(coords, xyz)
+    print(f"coordinate match: {int(matched.sum())}/{len(coords)} AE nodes, ambiguous {n_amb}")
     assert n_amb == 0, f"{n_amb} AE nodes have a non-unique CCX coordinate match"
     disp = np.zeros((len(coords), 3))
     for i in np.nonzero(matched)[0]:
