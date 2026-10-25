@@ -339,9 +339,11 @@ def get_shell_mesh(
             [interpolator_wrap(spParam, pts[:, d], spParami, "pchip") for d in range(3)], axis=1
         )
 
+    # The cap split does not depend on ``include_webs``: the no-webs surface mesh must keep
+    # the same skin discretisation as the structural mesh, so it is planned either way.
     capSplit = {}  # segment -> (arcs, columns, intermediate columns, web group positions)
     web_attach = getattr(blade.keypoints, "web_attach_arcs", None)
-    if include_webs and web_attach is not None and len(web_attach) == len(swstacks):
+    if web_attach is not None and len(web_attach) == len(swstacks):
         for seg, (side, lo_row, hi_row) in _CAP_SEGMENTS.items():
             plan = _plan_cap_columns(
                 blade.keypoints.key_arcs, [a[side] for a in web_attach], lo_row, hi_row
