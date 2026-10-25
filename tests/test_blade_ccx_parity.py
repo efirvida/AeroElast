@@ -54,7 +54,6 @@ import numpy as np
 import pytest
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
-from scipy.spatial import cKDTree
 
 pytest.importorskip("petsc4py", reason="PETSc not available")
 pytest.importorskip("_aeroelast", reason="Rust backend not available")
@@ -200,20 +199,30 @@ def _tip_metrics(mesh, disp_nodes: dict, coords: np.ndarray, idx: list[int]) -> 
     return mag, twist
 
 
-def _match_coords(coords: np.ndarray, ccx_xyz: np.ndarray) -> tuple[np.ndarray, np.ndarray, int]:
-    """Match ``coords`` to ``ccx_xyz`` (E12.5-rounded) coordinate by coordinate.
+def _match_by_label(coords: np.ndarray, labels: np.ndarray, ccx_xyz: np.ndarray) -> np.ndarray:
+    """Pair our node ``i`` with the CCX node labelled ``i + 1`` and check the pairing.
 
-    A node matches when every |c - c_ccx| is within ``FRD_REL_TOL * |c_ccx| +
-    FRD_ABS_TOL``.  Returns ``(matched, pos, n_ambiguous)``: the mask, the index of
-    the nearest CCX node, and how many matched nodes have a second CCX node closer
-    than twice the tolerance (the match would not be unique).
+    The quadratic writer emits our corner nodes with 1-based *index* labels and
+    appends the mid-side nodes after them (``_build_quadratic_mesh_data``), so the
+    pairing is by identity.  Coordinates only verify it, within the E12.5 rounding
+    ``FRD_REL_TOL * |c| + FRD_ABS_TOL``.  A nearest-coordinate match is not usable:
+    the mesh has distinct nodes 0.25 mm apart, closer than that rounding beyond
+    z = 100 m.  Returns the row of ``ccx_xyz`` for each of our nodes; a missing
+    label or a coordinate outside the rounding fails.
     """
-    dist, pos = cKDTree(ccx_xyz).query(coords, k=2, p=np.inf)
-    first = ccx_xyz[pos[:, 0]]
-    tol = FRD_REL_TOL * np.abs(first) + FRD_ABS_TOL
-    matched = np.all(np.abs(coords - first) <= tol, axis=1)
-    ambiguous = matched & (dist[:, 1] <= 2.0 * tol.max(axis=1))
-    return matched, pos[:, 0], int(ambiguous.sum())
+    row = {int(lab): k for k, lab in enumerate(labels)}
+    missing = [i for i in range(len(coords)) if i + 1 not in row]
+    assert not missing, f"{len(missing)} of our nodes have no CCX label i + 1 (first {missing[:5]})"
+    pos = np.asarray([row[i + 1] for i in range(len(coords))])
+    ref = ccx_xyz[pos]
+    off = np.abs(coords - ref) > FRD_REL_TOL * np.abs(ref) + FRD_ABS_TOL
+    bad = np.nonzero(off.any(axis=1))[0]
+    # The message is only built on failure, so bad[0] exists there.
+    assert bad.size == 0, (
+        f"{bad.size} label pairs differ beyond the FRD rounding (first node {int(bad[0])}: "
+        f"{coords[bad[0]]} vs {ref[bad[0]]})"
+    )
+    return pos
 
 
 _CORNERS = {"S8R": 4, "S6": 3}  # corner nodes come first in the CCX node order
@@ -241,11 +250,10 @@ def _deck_corner_ids(msh_text: str) -> set[int]:
 
 
 def _ccx_displacements(frd_path, coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """FRD translations at our nodes, matched by COORDINATES (S8R renumbers the ids).
+    """FRD translations at our nodes, paired by label and checked by coordinates.
 
-    Returns ``(matched, disp)``: a boolean mask over ``coords`` and an ``(N, 3)``
-    array, valid where ``matched``.  Mid-side nodes of the quadratic deck match
-    nothing and are ignored.  An ambiguous match fails the test.
+    Returns ``(matched, disp)``: a boolean mask over ``coords`` (all True once the
+    pairing checks pass) and an ``(N, 3)`` array.  Mid-side nodes are ignored.
     """
     from tests.validation.parity.test_orthotropic_shell_parity import (
         _parse_ccx_frd,
@@ -254,17 +262,19 @@ def _ccx_displacements(frd_path, coords: np.ndarray) -> tuple[np.ndarray, np.nda
 
     ccx_coords = _parse_ccx_frd_coords(frd_path)
     ccx_disp = _parse_ccx_frd(frd_path, list(ccx_coords))
-    # CCX expands each composite shell into ~1.8M 3D nodes lying through the
-    # thickness; only the deck's own corner nodes sit at our node positions.
+    # CCX expands each composite shell into ~1.8M 3D nodes through the thickness;
+    # the deck's own corner nodes are exactly our nodes, labelled 1..N.
     corners = _deck_corner_ids(Path(frd_path).with_suffix(".msh").read_text())
-    ids = [nid for nid in ccx_coords if nid in ccx_disp and nid in corners]
-    xyz = np.asarray([ccx_coords[i] for i in ids], dtype=float)
-    matched, pos, n_amb = _match_coords(coords, xyz)
-    print(f"coordinate match: {int(matched.sum())}/{len(coords)} AE nodes, ambiguous {n_amb}")
-    assert n_amb == 0, f"{n_amb} AE nodes have a non-unique CCX coordinate match"
-    disp = np.zeros((len(coords), 3))
-    for i in np.nonzero(matched)[0]:
-        disp[i] = np.asarray(ccx_disp[ids[pos[i]]], dtype=float)[:3]
+    assert corners == set(range(1, len(coords) + 1)), (
+        f"deck corner labels are not 1..{len(coords)}: {len(corners)} corners, "
+        f"range {min(corners)}..{max(corners)}"
+    )
+    labels = np.asarray(sorted(corners))
+    xyz = np.asarray([ccx_coords[i] for i in labels], dtype=float)
+    pos = _match_by_label(coords, labels, xyz)
+    disp = np.asarray([ccx_disp[int(labels[k])] for k in pos], dtype=float)[:, :3]
+    matched = np.ones(len(coords), dtype=bool)
+    print(f"label match: {len(coords)}/{len(coords)} AE nodes, coordinates within the FRD rounding")
     return matched, disp
 
 
@@ -415,17 +425,21 @@ def test_slab_mean_vector_metric():
         _slab_mean_vector(coords, disp, zc=5.0, half_width=0.25)
 
 
-def test_match_coords_precision_aware():
-    """E12.5 rounding at z ~ 106 m matches; a node 2 mm away does not; no ambiguity."""
+def test_match_by_label_checks_the_pairing():
+    """Label i + 1 pairs node i; E12.5 rounding at z ~ 106 m passes, 2 mm fails."""
     ae = np.array([[0.123456789, -0.5, 106.8321234], [1.0, 2.0, 106.8341234]])
-    frd = np.array([[float(f"{c:.5E}") for c in ae[0]], [1.0, 2.0, 106.84]])
-    assert abs(frd[0, 2] - ae[0, 2]) > 1e-4  # a fixed 1e-4 m would miss it
-    matched, pos, n_amb = _match_coords(ae, frd)
-    assert matched.tolist() == [True, False]
-    assert pos[0] == 0
-    assert n_amb == 0
-    _, _, n_amb = _match_coords(ae[:1], np.vstack([frd[:1], frd[:1] + [0.0, 0.0, 1e-4]]))
-    assert n_amb == 1
+    labels = np.array([2, 1, 3])  # CCX order is not ours; label 3 is a mid-side node
+    frd = np.array(
+        [[1.0, 2.0, float(f"{ae[1, 2]:.5E}")], [float(f"{c:.5E}") for c in ae[0]], [9.0, 9.0, 9.0]]
+    )
+    assert abs(frd[1, 2] - ae[0, 2]) > 1e-4  # a fixed 1e-4 m would reject it
+    np.testing.assert_array_equal(_match_by_label(ae, labels, frd), [1, 0])
+    shifted = frd.copy()
+    shifted[0, 2] += 2e-3
+    with pytest.raises(AssertionError, match="differ beyond the FRD rounding"):
+        _match_by_label(ae, labels, shifted)
+    with pytest.raises(AssertionError, match="no CCX label"):
+        _match_by_label(ae, np.array([1, 3, 4]), frd)
 
 
 def test_deck_corner_ids():
