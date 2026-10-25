@@ -311,6 +311,11 @@ def test_blade_parity_ccx(tmp_path, name):
     gaps = {}
     for f in ASSERTED_STATIONS + PRINTED_STATIONS:
         zc = z0 + f * (z1 - z0)
+        if f in PRINTED_STATIONS and not (np.abs(zc_coords[:, 2] - zc) < SLAB_HALF_WIDTH).any():
+            # The mesh rings are not uniform in z; an empty slab is reported, and
+            # the slab is not widened (an asserted station still fails loudly).
+            print(f"{name:>24}: f={f:.1f} z={zc:7.3f} [print ] no node in the slab")
+            continue
         a_vec = _slab_mean_vector(zc_coords, ae_sub, zc, SLAB_HALF_WIDTH)
         c_vec = _slab_mean_vector(zc_coords, ccx_sub, zc, SLAB_HALF_WIDTH)
         gaps[f] = _vector_gap(a_vec, c_vec)
