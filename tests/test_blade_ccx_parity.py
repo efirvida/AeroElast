@@ -88,7 +88,11 @@ ELEMENT_SIZE = 0.25
 ASSERTED_STATIONS = (0.5, 0.7)
 PRINTED_STATIONS = (0.8, 0.9)
 SLAB_HALF_WIDTH = 0.6 * ELEMENT_SIZE  # m, |z - zc| < this
-MATCH_TOL = 1e-4  # m, AE node <-> CCX corner node
+# The FRD writes coordinates as E12.5 (6 significant digits), so a coordinate c is
+# rounded by at most 0.5e-5 x 10^floor(log10|c|); 1e-5 x |c| (+1e-9) bounds it.  A
+# fixed 1e-4 m matches nothing beyond z = 100 m, where the rounding is 5e-4 m.
+FRD_REL_TOL = 1e-5
+FRD_ABS_TOL = 1e-9  # m
 TORQUE_MAGNITUDE = 5.0e6  # N.m about the span
 AXIAL_MAGNITUDE = 1.0e6  # N along the span (centrifugal scale)
 FLAP_MAGNITUDE = 1.0e5  # N, rotor-plane normal
@@ -196,12 +200,28 @@ def _tip_metrics(mesh, disp_nodes: dict, coords: np.ndarray, idx: list[int]) -> 
     return mag, twist
 
 
+def _match_coords(coords: np.ndarray, ccx_xyz: np.ndarray) -> tuple[np.ndarray, np.ndarray, int]:
+    """Match ``coords`` to ``ccx_xyz`` (E12.5-rounded) coordinate by coordinate.
+
+    A node matches when every |c - c_ccx| is within ``FRD_REL_TOL * |c_ccx| +
+    FRD_ABS_TOL``.  Returns ``(matched, pos, n_ambiguous)``: the mask, the index of
+    the nearest CCX node, and how many matched nodes have a second CCX node closer
+    than twice the tolerance (the match would not be unique).
+    """
+    dist, pos = cKDTree(ccx_xyz).query(coords, k=2, p=np.inf)
+    first = ccx_xyz[pos[:, 0]]
+    tol = FRD_REL_TOL * np.abs(first) + FRD_ABS_TOL
+    matched = np.all(np.abs(coords - first) <= tol, axis=1)
+    ambiguous = matched & (dist[:, 1] <= 2.0 * tol.max(axis=1))
+    return matched, pos[:, 0], int(ambiguous.sum())
+
+
 def _ccx_displacements(frd_path, coords: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """FRD translations at our nodes, matched by COORDINATES (S8R renumbers the ids).
 
     Returns ``(matched, disp)``: a boolean mask over ``coords`` and an ``(N, 3)``
     array, valid where ``matched``.  Mid-side nodes of the quadratic deck match
-    nothing and are ignored.
+    nothing and are ignored.  An ambiguous match fails the test.
     """
     from tests.validation.parity.test_orthotropic_shell_parity import (
         _parse_ccx_frd,
@@ -211,8 +231,9 @@ def _ccx_displacements(frd_path, coords: np.ndarray) -> tuple[np.ndarray, np.nda
     ccx_coords = _parse_ccx_frd_coords(frd_path)
     ccx_disp = _parse_ccx_frd(frd_path, list(ccx_coords))
     ids = [nid for nid in ccx_coords if nid in ccx_disp]
-    dist, pos = cKDTree(np.asarray([ccx_coords[i] for i in ids], dtype=float)).query(coords)
-    matched = dist < MATCH_TOL
+    xyz = np.asarray([ccx_coords[i] for i in ids], dtype=float)
+    matched, pos, n_amb = _match_coords(coords, xyz)
+    assert n_amb == 0, f"{n_amb} AE nodes have a non-unique CCX coordinate match"
     disp = np.zeros((len(coords), 3))
     for i in np.nonzero(matched)[0]:
         disp[i] = np.asarray(ccx_disp[ids[pos[i]]], dtype=float)[:3]
@@ -303,21 +324,24 @@ def test_blade_parity_ccx(tmp_path, name):
     if not matched[tip_idx].any():
         pytest.xfail(f"no tip nodes matched in the FRD for {name}")
     ae_u = u.reshape(-1, 6)[:, :3]
-    # Both sides use the same node set: the AE nodes with a CCX corner twin.
-    sub = np.nonzero(matched)[0]
-    zc_coords, ae_sub, ccx_sub = coords[sub], ae_u[sub], ccx_u[sub]
     z0, z1 = float(coords[:, 2].min()), float(coords[:, 2].max())
 
     gaps = {}
     for f in ASSERTED_STATIONS + PRINTED_STATIONS:
         zc = z0 + f * (z1 - z0)
-        if f in PRINTED_STATIONS and not (np.abs(zc_coords[:, 2] - zc) < SLAB_HALF_WIDTH).any():
-            # The mesh rings are not uniform in z; an empty slab is reported, and
-            # the slab is not widened (an asserted station still fails loudly).
-            print(f"{name:>24}: f={f:.1f} z={zc:7.3f} [print ] no node in the slab")
+        in_slab = np.abs(coords[:, 2] - zc) < SLAB_HALF_WIDTH
+        n_tot, n_match = int(in_slab.sum()), int((in_slab & matched).sum())
+        print(f"{name:>24}: f={f:.1f} slab nodes matched {n_match}/{n_tot}")
+        if f in ASSERTED_STATIONS:
+            # A partial match would bias the mean, so it fails rather than passes.
+            assert n_tot > 0 and n_match == n_tot, (
+                f"{name}: f={f}: {n_match}/{n_tot} slab nodes matched to the FRD"
+            )
+        elif n_match == 0:
+            print(f"{name:>24}: f={f:.1f} z={zc:7.3f} [print ] no matched node in the slab")
             continue
-        a_vec = _slab_mean_vector(zc_coords, ae_sub, zc, SLAB_HALF_WIDTH)
-        c_vec = _slab_mean_vector(zc_coords, ccx_sub, zc, SLAB_HALF_WIDTH)
+        a_vec = _slab_mean_vector(coords[matched], ae_u[matched], zc, SLAB_HALF_WIDTH)
+        c_vec = _slab_mean_vector(coords[matched], ccx_u[matched], zc, SLAB_HALF_WIDTH)
         gaps[f] = _vector_gap(a_vec, c_vec)
         tag = "ASSERT" if f in ASSERTED_STATIONS else "print "
         print(
@@ -361,3 +385,16 @@ def test_slab_mean_vector_metric():
     assert _vector_gap(ref, ref) == 0.0
     with pytest.raises(AssertionError):
         _slab_mean_vector(coords, disp, zc=5.0, half_width=0.25)
+
+
+def test_match_coords_precision_aware():
+    """E12.5 rounding at z ~ 106 m matches; a node 2 mm away does not; no ambiguity."""
+    ae = np.array([[0.123456789, -0.5, 106.8321234], [1.0, 2.0, 106.8341234]])
+    frd = np.array([[float(f"{c:.5E}") for c in ae[0]], [1.0, 2.0, 106.84]])
+    assert abs(frd[0, 2] - ae[0, 2]) > 1e-4  # a fixed 1e-4 m would miss it
+    matched, pos, n_amb = _match_coords(ae, frd)
+    assert matched.tolist() == [True, False]
+    assert pos[0] == 0
+    assert n_amb == 0
+    _, _, n_amb = _match_coords(ae[:1], np.vstack([frd[:1], frd[:1] + [0.0, 0.0, 1e-4]]))
+    assert n_amb == 1
