@@ -371,13 +371,22 @@ class ForceProjector:
         # Build strip boundaries at midpoints between stations
         r_low, r_high = strip_edges(r_stations)
 
+        # Snap assignment coordinates only: round-off on a strip edge must not
+        # split a physical ring into open arcs.  Use the existing mesh-scaled
+        # ring tolerance, leaving geometry, widths and nodes away from edges
+        # unchanged.  An interior edge belongs to the higher half-open band.
+        assignment_span = span_coords.copy()
+        for edge in np.concatenate((r_low, r_high[-1:])):
+            near_edge = np.abs(span_coords - edge) <= self._ring_gap_tolerance
+            assignment_span[near_edge] = edge
+
         # Assign each node to a strip
         node_strip = np.full(n_nodes, -1, dtype=int)
         for k in range(len(r_stations)):
-            mask = (span_coords >= r_low[k]) & (span_coords < r_high[k])
+            mask = (assignment_span >= r_low[k]) & (assignment_span < r_high[k])
             node_strip[mask] = k
-        # Handle nodes exactly at the tip boundary
-        node_strip[span_coords == r_high[-1]] = len(r_stations) - 1
+        # Handle nodes exactly at the tip boundary (including snapped nodes).
+        node_strip[assignment_span == r_high[-1]] = len(r_stations) - 1
 
         # Build strip objects
         self._strips: List[_Strip] = []
