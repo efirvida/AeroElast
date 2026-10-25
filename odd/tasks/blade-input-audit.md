@@ -518,6 +518,37 @@ r/R 0.2 (SONATA `span_adhesive`), with area = the cavity between the inner skin 
 the TE_reinforcement glass_uni comes off the face (T30's [d,e]); inboard of 0.2 the HEAD face stack (skins + gelcoat
 + glass_uni) is already the reference.
 
+**Section-integral probe (SLURM 11624106, worktree `wt/t37` a2dc3b0, es 0.25 mid mesh, tools `tools/sonata_pdf_section.py`,
+`tools/t37_section_compare.py`, log `wt/t37/logs/check/t37/`).** E1 x area integrals vs BeamDyn, signed, current -> T37
+(face-equivalent rule above, L_b 0.19 m):
+
+| r/R | EA | EI_edge | EI_flap | mass | TE solid region area, ours / PDF [cm2] | face glass now -> T37 [mm] |
+|---|---|---|---|---|---|---|
+| 0.25 | +5.8 -> +7.1 | -0.8 -> +9.0 | +4.4 -> +4.8 | -1.5 -> +0.7 | 142 / 181 | 30 -> 105 |
+| 0.3 | +6.3 -> +7.9 | -1.6 -> +11.8 | +4.7 -> +5.1 | -0.2 -> +2.9 | 138 / 176 | 30 -> 95 |
+| 0.4 | +7.9 -> +8.7 | +3.1 -> +10.6 | +6.5 -> +6.6 | +3.1 -> +4.9 | 139 / 155 | 30 -> 69 |
+| 0.5 | +8.6 -> +8.3 | +11.0 -> +7.9 | +7.0 -> +7.0 | +5.8 -> +5.1 | 143 / 120 | 30 -> 8 |
+| 0.6 | +8.0 -> +7.9 | +11.2 -> +9.1 | +6.6 -> +6.6 | +5.7 -> +5.3 | 97 / 79 | 20 -> 2 |
+| 0.7 | +5.7 -> +6.0 | -5.6 -> +1.9 | +4.9 -> +4.9 | +2.4 -> +3.3 | - | 4 -> 82 |
+
+Findings: (a) inboard (0.25-0.4) our TE region lacks 10-22 % of the reference solid; outboard (0.5-0.6) it holds
+19-24 % MORE than the solid, because the two mid-surface skins (~34 mm each) overlap in a 35-61 mm thick TE: the face
+rule cannot remove that excess and drops the face glass to 2-8 mm there. (b) The whole section is too stiff/heavy
+beyond the TE: EA +6-9 %, EI_flap +4-7 %, mass up to +6 % at 0.5-0.6 (T27/T13 territory). (c) The section integral
+does not reproduce the FE S-1 EI_edge sign (integral -1.6..+11 %, FE mean signed about -7.5 %); S-4 1E is +0.56 % vs
+BeamDyn, consistent with the integral, so the S-1 FE EI_edge extraction looks biased low by ~8 pt (open).
+
+**Prediction (written before any anchor run), T37 face-equivalent vs the T25 numbers:**
+- S-1 EI_edge: FE rises ~+5 % mid-span (integral deltas +10/+14/+7/-3/-2/+8 %): mean |rel| 8.0 -> 5-6 %.
+- S-1 EA(CLT): 6.7 -> ~7.0 % (+0.3-0.5 pt, worse). Mass per length +0.5..+3 % inboard; V-03/V-05 blade mass
+  +0.23 -> +0.7..+1.5 %.
+- S-1 GJ: closure stiffer at 0.25-0.4 (<= +1 %), weaker at 0.5-0.6 (face glass 2-8 mm: -1..-4 %): mean |rel| 10.2 ->
+  10-12 %; S-7 ratio 1.0725 -> 1.07-1.09 (no improvement).
+- 1E: inboard EI_edge up with TE mass up: S-4 1E +0.56 -> +2..+3.5 % (worse vs BeamDyn), V-02 1E +8.8 -> +10..+12 %.
+- Flap: EI_flap <= +0.4 %, inboard mass up: V-02 1F -7.1 -> about -7.5 %, S-4 2F +0.20 -> -0.3..-1 %.
+So the face-equivalent T37 is predicted NOT to improve the anchors: the reference wedge is real, but our section
+already compensates it with excess elsewhere. Run it anyway to test the prediction and the integral -> FE translation.
+
 ## Handoff 7 (2026-10-25, session 6; user L23-L24)
 
 **Resume.** Read this section and the Tasks lines T25, T29, T36, T37. Engram still down; this file is the record.
