@@ -30,7 +30,7 @@ S-2, S-4 1F); EA none (declare); mass (V-03, V-05).
 - T2 | S2 S4 | parent | pending | Audit group 23 (CCX parity, Bernardi, Escalera) and group 5 (mesh convergence) rows; decide S-2 LC2/LC3 undecided.
 - T3 | S5 | parent | pending | Gap `rotating_modal_shift`: its cause was "no row"; group 40 rows exist, link them and set the status.
 - T4 | S2 S3 | parent | done: twist +0.34 %, flap -0.34 %, edge 0.005 % torque | Sensitivity tool: rigid BEM at rated with the twist distribution perturbed by each red's effect; torque/power deltas.
-- T9 | S7 S4 | parent/worker | in progress: (a) d7d000e, (b) 188c997, (c) S-1 + modes measured 94237f7; modes refuted, diagnosis open (Handoff 2) | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
+- T9 | S7 S4 | parent/worker | in progress: (a) d7d000e, (b) 188c997, (c) S-1 + modes measured 94237f7; modes refuted; H6 held (secondary), audit fix b9192df, yaml Bredt 0630e71; root and GJ open (Handoff 3) | Second blade IEA-3.4-130 before T6 (T17 of blade-input-audit; v1 yaml at IEAWindSystems commit 824f8d6, 2 webs, glass caps, SONATA 6x6 = same chain as the 15; ANBA mass structural only, issue #5): (a) pre-register the expected signed biases (EA, EI_flap, EI_edge, GJ outboard, 1F/1E/2F) from the IEA-15 diagnosis; (b) ingest + input/mesh audit (clamps the 15 never binds); (c) S-1 section vs its SONATA 6x6 and S-4 modes vs its OpenFAST deck; (d) T6/T7 must then improve both blades. BECAS blades (10, 22: 3 webs) out of this task.
 - T6 | S6 S4 | parent/worker | pending | Cap chamfer (SONATA convention, blade-input-audit Handoff 8 item 1): write the prediction (EA, EI_flap, S-2 LC1/LC4, 1F) first, section check vs the SONATA PDF, then the FE anchors. Target: flap -5.5 % and EA +6-9 % reds.
 - T7 | S6 S4 | parent/worker | pending | Faithful T37 TE closure (bond-line keypoint + solid closure; Handoff 9 item 3, predicted +5..7 pt GJ at 0.7-0.9): prediction, section check, then S-7 / S-1 GJ / torsional mode. One rule at a time, after T6.
 - T8 | S6 | parent | pending | Mode-shape rows: MAC per mode (1F 1E 2F 2E 1T, parked and rated) of our modes vs BeamDyn p20 mode shapes; frequencies alone do not pin the shapes the rotating torque analysis needs.
@@ -213,6 +213,31 @@ section 0.04-0.18, where mass and EA agree (+0.4 / +0.8 at 0.05) and EI_flap doe
 less EI points at the axis about which the deck states EI (elastic centre vs reference axis, a parallel-axis
 term EA d^2) before the material: candidate H7, to check on the deck's 6x6 off-diagonals at 0.0-0.15.
 
+**H6 result (session 12; jobs modes 11625285, S-1 11625286, es 0.15; yaml `logs/check/l3/t9/h6/`).** Modes,
+signed shift vs the unramped run: **1F +0.83, 1E +0.52, 2F +0.98 %** (predicted +0.8 / +0.6 / +1.6): held. Vs
+BeamDyn now -1.84 / -3.55 / -2.43 %: H6 is real and secondary. S-1 rows: 0.0594-0.0927 EI_flap -23/-31/-29 ->
+-16/-22/-22 and EI_edge +0.7..+1.3 pt (rise: held); EI_edge 0.81-0.83 -21.5/-21.7 -> +1.3/-0.7 (held); mass / EA
+0.93-0.95 +43/+34 / +60/+48 -> +7/+4 / +11/+5 (held). **Refuted row: 0.0417 EI_flap -19.2 -> -10.9** (8.3 pt;
+also 0.026 +2.3, 0.11 +6.7, 0.13 +3.6) while mass and EA there stay within 0.2 pt: the S-1 EI_flap of a root
+station is not a local section value (the response extraction carries the neighbouring cap start), so the
+"-21 % at 0.05 with EA and mass agreeing" that motivated H7 is partly the cap-start step. EI_edge 0.11-0.18
+unchanged (-26..-20: held, this deficit is real and not H6). Side effects: mid-span EI_edge -1.82 -> +0.22 (the
+0.80-0.85 stations), GJ 0.6-0.85 -32.2 -> -35.1, EI_flap 0.91-0.93 +8/-5 -> -10/-26 (free-end extraction zone).
+
+**Audit fix (b9192df, 4 RED tests then 28 passed; rerun `logs/check/l3/t9/audit-es025-zero/`, job 11625287).**
+Fails per station 0.3 / 0.6 / 0.9 / 0.97: 42 / 0 / 26 / 7 -> 42 / 0 / 14 / 0. The 0.97 artefact is gone. Left
+at 0.9: caps 3.09 vs 3.01 mm (+2.7 %, tol 1 %) on every cap element, and F5 mass +1.2 % / axial +1.8 %: the mesh
+samples each layer on the 50-point reference-axis grid (0.87, 0.905) and loses the yaml's own taper knots in
+between. Real, small, mesher-side; the 0.3 fails are unchanged and still to read.
+
+**Bredt of the yaml section (0630e71, `tools/l3_bredt_yaml.py`, worker; `logs/check/l3/t9/bredt/`).** Thin-wall
+multi-cell, G12 t walls, mid-line offset by t/2 (outer mould line in brackets), vs BeamDyn GJ_sc (K66 condensed
+over the shear strains). IEA-3.4: 0.2 -0.1 (+6.4), 0.3 -5.6, 0.4 -9.2, 0.5 -9.0, 0.6 -8.6, 0.7 -6.5, 0.8 -6.6,
+0.85 -3.2 %: **the deck GJ is reachable from the yaml geometry** (it lies between the offset and the outer-line
+Bredt); our shell FE is -13 / -32 % in the bands, well below. TE cell exterior wall = 61 % (0.5) / 55 % (0.8) of
+the flexibility, LE cell 28-30 %, box 1-5 %, each web 4-6 %. IEA-15 control: -1.4 / -4.7 / -12.0 / -19.4 % at
+0.3 / 0.5 / 0.7 / 0.8 (outboard a thin wall misses SONATA's solid TE fill), TE share 51 / 68 %.
+
 ## Handoff 2 (2026-10-26, session 11 close, ~180 k context)
 
 **Resume.** Read section "T9 IEA-3.4-130" only. Engram still down. Logs `logs/check/l3/t9/`, sbatch
@@ -230,6 +255,18 @@ is zero outside its grid (`np.interp` holds the end value today); RED test with 
 4. Then T6/T7 on both blades (S6), T8. Uncommitted: `tests/IEA34/bd_freevib/` (generated inputs, rebuilt by
 `tools/bd_rotating_freevib.py build --beam iea34`; kept untracked as for the IEA-15).
 
+## Handoff 3 (2026-10-26, session 12)
+
+**State.** Handoff 2 items 1-3 done (H6 held and secondary; audit fixed; yaml Bredt). The two blades agree on
+the mid-span section signs (EA, EI_flap, EI_edge, mass, GJ outboard-worse), so T6/T7 apply to both; they differ
+in the modes, and the beam check (`tools/l3_beam_station_ratio.py`) puts that in the 3.4 root sections, not in
+the eigen solve. **Next, in order.** 1. Mesh-side Bredt on our 3.4 section (generalise `tools/bredt_gj.py`
+`model_bredt` from `fix/cap-arcs`): mesh Bredt ~ yaml Bredt with FE low -> element or GJ extraction (then a
+closed-form thin tube through the FE extraction); mesh Bredt ~ FE -> mesher TE closure / offset = T7. 2. Root
+0.04-0.18: EI_edge -20..-26 is real (H6-proof); check the deck 6x6 axis (elastic centre vs reference axis,
+off-diagonals at 0.0-0.20) before our section (H7, weakened for EI_flap by the refuted row). 3. Then T6/T7 on
+both blades, T8.
+
 ## Log
 
 - L1 (2026-10-26, session 10) User: "vamos con L3"
@@ -239,3 +276,4 @@ is zero outside its grid (`np.interp` holds the end value today); RED test with 
 - L5 (2026-10-26, session 10) User: "en algun momento te sugeri utilizar otra pala del repositorio oficial de NREL y comparar tambien para ver si son defectos de modelo o de implementacion del core de solucion". Parent: suggested 2026-10-23 (blade-input-audit L9), inventoried as T17, parked behind T18 (windIO v2 importer), never run. A SONATA-chain blade (3.4) tells systematic-vs-turbine-specific and doubles the evidence for T6/T7; core is bounded by L1/L2 closed, S-4 within 2.4 %, and the section-only PDF check; SONATA convention vs physics needs a BECAS blade (3 webs, not supported).
 - L6 (2026-10-26, session 10) User chose "1. IEA-3.4 antes de T6 (recomendado)" over "3.4 y además una pala BECAS" and "T6/T7 primero".
 - L7 (2026-10-26, session 11) User: "seguimos con L3, T9". Parent: deck/yaml pairing checked consistent (section T9), T9a pre-registered before any 3.4 run; T9b reader fixes; T9c sections held, modes refuted, H6 recorded (Handoff 2).
+- L8 (2026-10-26, session 12) User: Handoff 2 items 1-4 in order, verbatim: "1. Probar H6 con la predicción escrita antes: una copia del yaml con las capas en rampa en vez de escalón, y volver a correr modos y S-1. 2. Corregir la auditoría para que una capa valga cero fuera de su grilla, test primero. 3. Bredt de la 3.4 contra el GJ del deck antes de culpar al cierre del borde de fuga. 4. Recién después, T6 y T7 sobre las dos palas." Then asked whether the two blades behave consistently and whether the inconsistencies are model, solver or element; parent: model conventions and reference sampling, solver core unlikely, torsion still open between mesher, extraction and element.
