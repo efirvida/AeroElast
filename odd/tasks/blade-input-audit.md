@@ -611,6 +611,26 @@ not symmetric (cap centres at nd 0.307 SS / 0.676 PS), consistent with WISDEM's 
 Hypothesis (not yet verified): the PDF caps sit at the yaml nd arcs and ours do not. Next diagnostic: map the yaml
 nd arcs onto our profile and compare with our keypoints b/c and with the PDF extents (no FE).
 
+**Cap arcs (SLURM 11624241, `tools/cap_arc_check.py`, read-only).** Cap centre in x (forward from the TE), SS / PS,
+as offsets from the PDF [mm]:
+
+| r/R | ours - PDF | yaml arcs on our profile - PDF | face height h [mm] | predicted f x h (SS 0.31, PS 0.68) |
+|---|---|---|---|---|
+| 0.25 | -61 / +80 | -25 / +51 | 82 | 25 / 56 |
+| 0.3 | -88 / +84 | -30 / +60 | 119 | 37 / 81 |
+| 0.4 | -75 / +78 | -27 / +49 | 97 | 30 / 66 |
+| 0.5 | -48 / +54 | -11 / +33 | 61 | 19 / 41 |
+| 0.6 | -23 / +37 | -3 / +20 | 35 | 11 / 24 |
+| 0.7 | -6 / +10 | +3 / +7 | 13 | 4 / 9 |
+
+(1) Placing the caps at the yaml arcs removes 40-90 % of the gap (our keypoints ignore the arcs). (2) The rest has
+the signature of a uniform arc offset (a +ds moves the SS cap forward and the PS cap aft) that scales with the
+flat-back face height: if SONATA normalises nd arc over the perimeter INCLUDING the face, starting at the SS corner,
+a cap at nd f moves by f x h; predicted without a fit, matches within 0-21 mm (over-predicts at 0.3-0.4).
+Hypothesis, not verified against SONATA source. Estimated consequence of today's placement (not measured):
+dIxy = E A (dx_SS y_SS + dx_PS y_PS) ~ -1.2e9 N m2 at 0.25 R, i.e. our principal axes rotated by ~4 deg inboard
+against the reference (flap-edge coupling, EI read in a fixed frame).
+
 ## Handoff 7 (2026-10-25, session 6; user L23-L24)
 
 **Resume.** Read this section and the Tasks lines T25, T29, T36, T37. Engram still down; this file is the record.
@@ -1159,3 +1179,4 @@ for this session.
 - L26 (2026-10-25, session 7) User: "pon las tareas en sequana_cpu q no tengo nada ahi ahora y las otras tiene nodos down". Parent: all T37 jobs had already finished; noted for the next submissions.
 - L27 (2026-10-25, session 7) User asked for a detailed analysis before any change ("aun sigo creyendo que estas haciendo fuerza bruta de combinaciones"), asked which PDF, then approved the read-only material ledger ("si"). Result: carbon spar caps are the EA excess; SONATA chamfers the cap ends.
 - L28 (2026-10-25, session 7) User: "ok vamos con eso" (cap position), asked whether the yaml model differs from SONATA and whether the yaml could be corrected after the measurements, then "ok primero diagnosticamos y despues decidimos". Parent: same yaml, different construction rules; correcting the yaml would hide a calibration in a shared input; diagnosis only, no model change.
+- L29 (2026-10-25, session 7) User: "ok" (map the yaml cap arcs, diagnosis only).
