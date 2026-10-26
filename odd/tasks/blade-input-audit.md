@@ -77,6 +77,7 @@ store row in this feature. Context: `l3-physical-validation.md`, `twist-discrepa
 - T35 | S5 | - | open | Four rated-twist tripwires fired on the branch (T25 (d)): each failure message says what to do (promote the rated-twist row to an asserted magnitude vs Zhou, update the free-edge test and the WU7 section of `odd/tasks/rated-twist-sign-convention.md`, re-derive the couple-vs-nodal-rotation and load-path-dominance claims). Measure first which branch commit moved them (mesh tear fixed: likely the T8-T15 mesher fixes); then rewrite the guards with the new numbers and references, in their own session.
 - T36 | S5 | worker + parent | done, merged (fix/ccx-parity-station dcaa07f) | Handoff 6 item 3, T31 verdict: replace the tip-node metric of `tests/test_blade_ccx_parity.py::test_blade_parity_ccx` (mean |u| over the 16 point-loaded tip nodes = load introduction, not stiffness) with an interior-station metric, on branch `fix/ccx-parity-station` (worktree `$SCRATCH/wt/ccx-station`, from a9ca498; supersedes `fix/ccx-parity-work`'s W metric). **Design fixed before any run (session 6):** per case, the mean translation vector over a node slab |z - zc| < 0.6 x ELEMENT_SIZE (CCX corner nodes matched by coordinates, cKDTree, 1e-4 m) at zc = z0 + f (z1 - z0); metric |u_AE - u_CCX| / |u_CCX|; **asserted** at f = 0.5 and 0.7 with the unchanged 5 % bound; f = 0.8, 0.9 and the old tip metric **printed, not asserted** (0.8-0.9 R is the open T28 band: edge translation up to +6.9 %); all four cases (flap, edge, axial +/-). **Prediction:** axial +/- <= ~1 % at 0.5/0.7 (T31 Part 3: <= 0.85 % up to z 82 m); flap and edge < 3 %. If a case is > 5 % at 0.5 or 0.7 R it is a finding (report, never widen, never move the stations). **Result (session 6, SLURM 11623955-58, es 0.25, 7.7 min each):** all 4 pass. Slab-mean vector gap AE/CCX at f 0.5 / 0.7 (asserted) / 0.8 / 0.9 (printed): flap 0.16 / 0.11 / 0.08 / 0.04 %, edge 0.17 / 0.08 / 0.11 / 0.16 %, axial +/- 0.15 / 0.09 / 0.06 / 0.09 %; every slab fully matched (104/78/72/60 nodes); old tip metric (diagnostic) flap 2.14, edge 0.75, axial 7.25 %. Prediction (axial <= ~1 %, flap/edge < 3 %) held. f 0.9 shows no excess in the vector metric; T31's +6.9 % at 82-111 m was the minor x component of the axial case (here 43 vs 828 mm at 0.7 R), not contradicted. **Matching, four iterations (findings):** (1) nearest node within a fixed 1e-4 m misses everything beyond z 100 m (FRD E12.5 rounding 5e-4 m there); (2) the FRD carries 1.83 M nodes (CCX expands composite shells through the thickness) vs 102,667 in the deck; (3) even on deck corners a coordinate match is ambiguous for 579 nodes: our mesh has distinct nodes 0.25 mm apart; (4) fix: the quadratic writer labels our node i as i + 1 (`_build_quadratic_mesh_data`), so pairing is by identity and coordinates only verify it within the rounding (corner set must be exactly 1..N). The run-2 nearest-node numbers coincided with these at 0.5/0.7, but only the label-paired run is evidence. Commits 5282da8, 125c604, 12ec1ef, 4a69c4c, 57a7ff9, dcaa07f; logs `$SCRATCH/wt/ccx-station/logs/check/t36/`.
 - T38 | S5 | worker + parent | measured, not merged (fix/cap-arcs): caps at the yaml arcs, section and frequencies as predicted, S-1 GJ -3.4 pt while S-7 flat (torsion anchors disagree) | branch fix/cap-arcs
+- T39 | S5 | parent | measured, decision open (retire S-1 GJ for S-7 vs fix extractor) | Handoff 9 Next 1: S-1 GJ extractor on a tube of known GJ (section 'S-1 GJ extractor on a tube'); decides fix the extractor vs retire the S-1 GJ assertion for S-7 (user decision)
 - T37 | S5 | parent + worker | measured, not merged (fix/te-closure-T37 0cccfe9): face-equivalent wedge worsens GJ/EA/mass/1F/1E/2F, EI_edge 8.0 -> 5.8 % by overshoot; see section 'T37 flat-back closure' | Flat-back (TE) closure to match the reference. Findings (session 6, two read-only explores): (1) the yaml places **no layer on the flat-back face** outboard of r/R ~0.245: the FFA-W3-360/330blend/301/270blend polylines are open at the TE, so the face has zero nd-arc; Shell_skin starts at nd 0.01 / Shell_skin_inner at 0.08 outboard of 0.3/0.25, TE_reinforcement_SS/PS (glass_uni 30 mm, 0.75 m) run from each corner forward; the face laminate is a tool assumption. (2) Ours: `*_TE_FLAT` key segment has zero arc length (`keypoints.py:237-239,285-287`), `stackdb._map_continuous_layers` `if b <= a:` gives fraction 0/1 by the yaml start/end; HEAD (`yaml_to_blade.py:449-460` extent [d,te]) puts glass_uni 30 + gelcoat 1 = 31 mm on the face, T30 ([d,e]) leaves gelcoat 1 mm only (G t ~1.3 MN/m: cell effectively open, hence GJ 100 % and 2F -7.5 %). Units: mm. (3) Reference = SONATA/ANBA4 (IEA-15-240-RWT ReleaseNotes v1.1.4: 'Blade elastic properties consistently originate from SONATA/ANBA4'). SONATA master: closes the profile with a straight line between the corners (`classAirfoil.gen_OCCtopo` :125, `BSplineLst_utils.py:481-484`), s=0 at the face midpoint (`classAirfoil.py:86-92`, `classBlade.py:402-411`); [0,1] layers wrap across the face (`utl/converter_WT.py:540-557` snaps near-0/1); **outboard of 20 % span** (`span_adhesive = 0.2`, :131) TE reinforcement is trimmed back to `adhesive_extent = min(0.04, 0.04/chord)` (:323-331), an **adhesive web** is inserted at [adhesive_extent, 1-adhesive_extent] (:521-524) and the TE wedge behind it is **solid adhesive** (:422-432); inboard of 20 %: TE glass_uni + skins + gelcoat on the face. Confidence medium on the adhesive details (master, not the v1.1.4 commit). **So neither HEAD (31 mm glass) nor T30 (1 mm) is the reference:** the reference torsion cell is closed by an adhesive bond line ~4 % of arc forward of the TE plus a solid adhesive wedge. Next: confirm on `IEA-15-240-RWT/CAD/SONATA/blade_section_0.3.pdf` / `_0.5.pdf`; then model it in the shell mesh (a TE shear web of adhesive at adhesive_extent, or an equivalent face laminate with the wedge's G t and E A), keep T30's [d,e] for glass_uni outboard of 0.2, measure S-1 GJ/EI_edge/EA, S-7, V-02 1E/1F, S-4 1E/2F, V-03 mass against the current numbers; prediction to write before the run. The yaml's `adhesive` material exists unused (explore 1).
 Order fixed by user L5: T7a, T7b, T10, T8, T11, T12, T13, T9, then T14, T15 (user L6: not in the order does not mean not fixed).
 Parallel execution (user L6): each candidate in its own worktree/branch off the T7a/T7b base, measured against that base; the parent integrates in order; T9 measures the combination.
@@ -783,6 +784,84 @@ inboard excess in the TE panel **held** (+4.8 / +6.2 pt). Caveats: the SS/PS spl
 our Bredt GJ by ~5-7 pt at 0.7-0.9, i.e. in the direction and size that S-7 (1.072) asks; the T37 face-equivalent
 put the fill on the face only and could not do it (S-7 1.0743).
 
+## S-1 GJ extractor on a tube of known GJ (session 9, 2026-10-26; user L34, Handoff 9 Next 1; diagnosis)
+
+Tool `tools/diagnose_s1_gj_tube.py` (l3/twist-p1). It runs the unchanged
+`tools/run_s1_sectional.py ea_gj_from_static_response` on a prismatic isotropic MITC4 rectangular tube
+(mid-line 4.0 x 2.0 m, 0.25 m elements around and along, length 117 m = the blade, root clamped, one
+0.25 m station element set per layer like `BladeMesh.max_bay_length`, `stations = native_bay_centres` of the
+official yaml, torque 1e6 N m as in S-1). Two cases: **A** uniform wall (Bredt GJ 1.067e10 N m2; mid-line 4.0 x 2.0 m, t 0.02 m, see the tool);
+**B** wall thickness per station chosen so that the Bredt GJ(z) equals the BeamDyn K66(z) the S-1
+assertion compares against, i.e. the same theta(z) signal as the ideal blade. Reference per station:
+thin-wall Bredt `G t 4 A^2 / P` (MITC4 on this kind of tube: within ~1 %, `test_thin_walled_tube_torsion`,
+`test_dtube_torsion_matches_bredt`). Also printed, same FE solution: the unsmoothed central difference of the
+extractor's own theta (separates the rigid fit from the spline), and theta vs the exact integral of T/GJ.
+Metric: the S-1 one, mid-span (0.2-0.85 of the station range) mean |rel err|, plus signed per station.
+
+**Prediction (written before the run):**
+- A: extractor within +-2 % of Bredt over mid-span (theta is linear, a cubic spline fits it whatever `s`).
+- B: if the extraction (absolute smoothing `s=1e-3` on theta in rad, |derivative|, tip couple) is the
+  cause of the S-1 GJ artefact, B shows a mid-span bias of >= 5 pt and the inboard swing of the blade
+  (|err| tens of % at 0.2-0.3, where the theta increments ~2e-3 rad per station are below the
+  ~4.5e-3 rad RMS the smoothing allows); the unsmoothed difference stays within ~2 %. If B is within
+  ~2 %, the extractor is sound on a beam-like field and the blade artefact is section kinematics
+  (the rigid in-plane fit on a distorting, twisted, pre-bent section), not the numerics.
+
+**Result A/B (login node, 2 min, `logs/check/t39/tube-login.log`, 53 stations, 22,512 nodes).** Both
+predictions refuted, and the cause is not the spline: **case A (constant GJ) already fails**. Mid-span mean
+|rel err| extractor 257 % (A) / 79 % (B, signed -46 %); the unsmoothed difference of the same theta is no
+better (957 % / 76 %). The extractor's own theta is not the twist: in A it is -18 % at the root, ~-2 % at
+20-25 m, -41 % at 70 m and +517 % at the tip, i.e. an oscillation of ~70 m wavelength on top of the linear
+twist; in B its sign over the span flips (theta_sign -1). Lead (units/signs/frames first): the tip load
+`f = a (t x r_perp)` is a pure torque but not a Bredt shear flow on a rectangle, so it excites the section
+distortion mode; a thin wall with no diaphragm lets it decay very slowly (frame stiffness ~ t^3), and the
+rigid fit sum(r x u)/sum(r^2) reads distortion as rotation where b != h.
+
+**Prediction for C/D/E (written before the run).** C: circular tube (perimeter 12 m, 48 nodes, uniform);
+there `t x r_perp` *is* the uniform Bredt shear flow, so no distortion is excited: theta within 1 % of exact
+and the extractor within +-2 % at mid-span. D: circular tube with the BeamDyn GJ(z): theta within ~1 %;
+the extractor error there is the spline's alone (expected a few % at most mid-span, larger inboard where
+the increments are small). E: rectangle A with t 0.10 m and G/5 (same GJ, wall bending stiffness x25):
+the oscillation shrinks and the error drops several-fold. If C fails like A, the lead is wrong.
+
+**Result C/D/E (login, `logs/check/t39/tube-cde-login.log`).** Mid-span mean |rel err| extractor / unsmoothed
+difference / max |theta err|: **C 0.01 / 0.01 / 0.02 %**; **D 4.85 / 0.76 / 0.01 %** (extractor -81, -60, +67,
+-33 % at z 3.6-22.6 m; +-1.5..9 % mid-span, unsmoothed <= 6 % inboard, <= 1 % mid-span); **E 24.7 / 4.2 / 2.6 %**.
+Prediction held for C and E, and for D (theta exact; the spline alone costs ~4-5 pt mid-span, tens of %
+inboard: the blade's -76..+926 % inboard swing is this). Lead confirmed: **(i)** the rigid fit and the FE are
+exact under a Bredt load; **(ii)** the absolute spline `s=1e-3` on theta alone eats the 5 % band on the
+ideal blade signal; **(iii)** a tip couple that is not the section's shear flow excites distortion that the
+rigid fit reads as twist, with no diaphragm decaying over tens of metres (A: x-257 %, E: t x5 -> 25 %).
+
+**S-7 exposure (prediction, written before the run).** S-7 (`run_s7_torsion`) loads the tip with
+`F_y ~ x_off` and reads twist with the same rigid fit (40 z slices). On the rectangle that load is far
+from the shear flow, and on the circle too (it has a radial part ~ x y / R: ovalization). Prediction: the
+S-7 band ratio (0.3-0.9, exact 1) is off by >= 10 % on A and visibly off (>= 2 %) on C; if both are within
+1 %, S-7's construction is immune and remains the anchor to trust.
+
+**Result S-7 construction (login, `logs/check/t39/tube-s7-login.log`; delivered torque exact in all).** Band
+0.3-0.9 mean ratio (min / max per slice), exact 1: **A 0.9968 (0.162 / 4.338)**, **C 0.9999 (0.9999 /
+0.9999)**, **D 1.0011 (1.0007 / 1.0027)**, **E 0.9886 (0.950 / 1.005)**. Prediction refuted on C: the full
+circle's ovalization is orthogonal to the rigid rotation, so S-7 is exact there; held on A per slice
+(0.88 at 37 m falling to 0.16 at 72 m and rising to 4.34 at 104 m) but **the band mean is right by
+cancellation of the oscillation**, not by construction.
+
+**Findings (T39).** (1) The S-1 GJ extractor fails on a tube of known GJ for two separate reasons:
+the absolute spline `s=1e-3` (D: 4.85 % mean |err| mid-span on the ideal blade theta, -81..+67 % inboard;
+unsmoothed 0.76 %), and the derivative of a rigid-fit theta contaminated by section distortion under a
+non-shear-flow tip couple (A 257 %, E 25 %). The first is a one-line class of fix (window / unsmoothed
+difference); the second is not an extractor fix: it needs the tip torque applied as the section's
+Saint-Venant shear flow (a multicell solve on the blade tip ring) or a distortion-free twist measure.
+(2) S-7 is an integral of the same rigid fit, no derivative: exact on C/D, 1.1 % on E, and its band mean on
+A is right only by averaging an oscillation of 0.16-4.3. It is the more robust of the two but not
+immune. How large the distortion term is on the blade (webs, curved skins, short tip chord) is not measured;
+the S-1 blade reading at 0.4-0.6 (-12..-13 % vs Bredt -3..-7 %) leaves ~8 pt, of which the spline alone
+explains ~4-5 on the ideal signal.
+**Decision needed (user):** retire the S-1 GJ assertion in favour of S-7 (keep S-1 GJ printed as a
+diagnostic), or fix the extractor (spline + shear-flow tip load, then re-measure on the blade). Either way a
+cheap blade check is the S-7 per-slice ratio profile: smooth means little distortion, an oscillation means
+the S-7 band mean is also partly cancellation.
+
 ## Handoff 9 (2026-10-26, session 8 close)
 
 **Resume.** Read this section and "## Independent section GJ (session 8 ...)" (above Handoff 8); nothing else is
@@ -1397,3 +1476,4 @@ for this session.
 - L31 (2026-10-25, session 7) User: "ok haz eso para comenzar en una nueva sesion". Parent: Handoff 8 written.
 - L32 (2026-10-25, session 8) User: "Leé la sección "Handoff 8" de odd/tasks/blade-input-audit.md y solo las secciones que indica (los últimos cuatro párrafos de "T37 flat-back closure", "T38 spar caps at the yaml arcs" y las líneas T37/T38). Engram sigue caído. Modo de trabajo: diagnosticar primero, decidir después. Empezá por el paso 1 de "Next": GJ independiente por Bredt, sobre la sección del PDF y sobre la nuestra, contra el K66 de BeamDyn. No cambies el modelo."
 - L33 (2026-10-26, session 8) User: "si" to: per-wall localisation of the outboard GJ deficit first (then, next session, the S-1 GJ extractor on a tube of known Bredt GJ).
+- L34 (2026-10-26, session 9) User: "leé el \"Handoff 9\" de odd/tasks/blade-input-audit.md. El primer paso ahí es probar el extractor del S-1 GJ en un tubo de GJ conocido. Ese resultado te deja decidir con evidencia entre arreglar el extractor o retirar la aserción en favor del S-7."
